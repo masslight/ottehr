@@ -16,6 +16,8 @@ import { DataGridPro, GridColDef } from '@mui/x-data-grid-pro';
 import { ReactElement, useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { chooseJson, PatientDetailResponse } from 'utils';
+import { dataGridSlots, dataGridSx } from '../components/BillingDataGrid';
+import { DetailRow } from '../components/DetailRow';
 import { CLAIM_STATUS_COLORS, formatClaimStatus } from '../constants/claimStatus';
 import { useApiClients } from '../hooks/useAppClients';
 import { otherColors } from '../themes/ottehr/colors';
@@ -49,13 +51,14 @@ const claimColumns: GridColDef[] = [
     headerAlign: 'right',
     valueFormatter: (params: { value: number }) => formatCurrency(params.value),
   },
+  // TODO: should be wired from ClaimResponse? showing placeholder until real data available
   {
     field: 'insurancePaid',
     headerName: 'Insurance Paid',
     width: 120,
     align: 'right',
     headerAlign: 'right',
-    valueFormatter: (params: { value: number }) => formatCurrency(params.value),
+    valueFormatter: () => '—',
   },
   {
     field: 'patientResp',
@@ -63,7 +66,7 @@ const claimColumns: GridColDef[] = [
     width: 120,
     align: 'right',
     headerAlign: 'right',
-    valueFormatter: (params: { value: number }) => formatCurrency(params.value),
+    valueFormatter: () => '—',
   },
   {
     field: 'patientPaid',
@@ -71,7 +74,7 @@ const claimColumns: GridColDef[] = [
     width: 110,
     align: 'right',
     headerAlign: 'right',
-    valueFormatter: (params: { value: number }) => formatCurrency(params.value),
+    valueFormatter: () => '—',
   },
 ];
 
@@ -140,12 +143,13 @@ export default function PatientDetail(): ReactElement {
         </Box>
       </Box>
 
+      {/* TODO: wire real balance data from ClaimResponse/PaymentReconciliation */}
       <Card variant="outlined" sx={{ mb: 2, ml: 5 }}>
         <CardContent sx={{ py: 1.5, '&:last-child': { pb: 1.5 } }}>
           <Box sx={{ display: 'flex', gap: 4 }}>
-            <BalanceItem label="Current Balance" value={patient.balance.currentBalance} />
-            <BalanceItem label="Claims with Patient Balance" value={patient.balance.claimsWithPatientBalance} />
-            <BalanceItem label="Pending Payments" value={patient.balance.pendingPayments} />
+            <BalanceItem label="Current Balance" value="—" />
+            <BalanceItem label="Claims with Patient Balance" value="—" />
+            <BalanceItem label="Pending Payments" value="—" />
           </Box>
         </CardContent>
       </Card>
@@ -161,20 +165,19 @@ export default function PatientDetail(): ReactElement {
           >
             <Tab label="Demographics" value="1" />
             <Tab label="Claims" value="2" />
-            <Tab label="Payments" value="3" />
           </TabList>
 
           <TabPanel value="1" sx={{ px: 0, pt: 2 }}>
             <Card variant="outlined">
               <CardContent>
-                <Row label="Patient" value={patientName} />
-                <Row label="MRN" value={patient.mrn} />
-                <Row label="Friendly ID" value={patient.friendlyId} />
-                <Row label="DOB" value={patient.dob} />
-                <Row label="Gender" value={patient.gender} />
-                <Row label="Phone" value={patient.phone} />
-                <Row label="Email" value={patient.email} />
-                <Row label="Address" value={patient.address} />
+                <DetailRow label="Patient" value={patientName} labelWidth={120} />
+                <DetailRow label="MRN" value={patient.mrn} labelWidth={120} />
+                <DetailRow label="Friendly ID" value={patient.friendlyId} labelWidth={120} />
+                <DetailRow label="DOB" value={patient.dob} labelWidth={120} />
+                <DetailRow label="Gender" value={patient.gender} labelWidth={120} />
+                <DetailRow label="Phone" value={patient.phone} labelWidth={120} />
+                <DetailRow label="Email" value={patient.email} labelWidth={120} />
+                <DetailRow label="Address" value={patient.address} labelWidth={120} />
               </CardContent>
             </Card>
           </TabPanel>
@@ -189,29 +192,9 @@ export default function PatientDetail(): ReactElement {
               autoHeight
               pageSizeOptions={[25, 50]}
               initialState={{ pagination: { paginationModel: { pageSize: 25 } } }}
-              sx={{
-                bgcolor: 'background.paper',
-                border: 'none',
-                borderRadius: 1,
-                fontSize: 14,
-                '& .MuiDataGrid-columnHeaders': {
-                  backgroundColor: '#FAFAFA',
-                  borderBottom: `1px solid ${otherColors.lightDivider}`,
-                },
-                '& .MuiDataGrid-columnHeaderTitle': { fontWeight: 600, fontSize: 13, color: 'primary.dark' },
-                '& .MuiDataGrid-cell': {
-                  borderBottom: `1px solid ${otherColors.lightDivider}`,
-                  fontSize: 14,
-                  color: otherColors.tableRow,
-                },
-                '& .MuiDataGrid-row': { cursor: 'pointer' },
-                '& .MuiDataGrid-row:hover': { bgcolor: otherColors.apptHover },
-              }}
+              slots={dataGridSlots}
+              sx={{ ...dataGridSx }}
             />
-          </TabPanel>
-
-          <TabPanel value="3" sx={{ px: 0, pt: 2 }}>
-            <Typography color="text.secondary">No payments found</Typography>
           </TabPanel>
         </TabContext>
       </Box>
@@ -219,26 +202,15 @@ export default function PatientDetail(): ReactElement {
   );
 }
 
-function BalanceItem({ label, value }: { label: string; value: number }): ReactElement {
+function BalanceItem({ label, value }: { label: string; value: string }): ReactElement {
   return (
     <Box>
       <Typography variant="caption" color="text.secondary">
         {label}
       </Typography>
       <Typography variant="body1" fontWeight={600}>
-        {formatCurrency(value)}
+        {value}
       </Typography>
-    </Box>
-  );
-}
-
-function Row({ label, value }: { label: string; value: string }): ReactElement {
-  return (
-    <Box sx={{ display: 'flex', py: 0.75 }}>
-      <Typography variant="body2" color="text.secondary" sx={{ width: 120, flexShrink: 0 }}>
-        {label}
-      </Typography>
-      <Typography variant="body2">{value || '—'}</Typography>
     </Box>
   );
 }

@@ -3,7 +3,7 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Organization, Practitioner } from 'fhir/r4b';
 import { FHIR_IDENTIFIER_NPI, getNPI, getTaxID } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
-import { createBillingClient, EXCLUDE_WORKING_COPIES_PARAM, fhirName, formatAddress } from '../shared';
+import { createBillingClient, EXCLUDE_WORKING_COPIES_PARAMS, fhirName, formatAddress } from '../shared';
 import { SearchBillingProvidersParams, validateRequestParameters } from './validateRequestParameters';
 
 interface ProviderItem {
@@ -42,7 +42,7 @@ async function performEffect(
     { name: '_count', value: String(pageSize) },
     { name: '_offset', value: String(offset) },
   ];
-  if (!params.includeWorkingCopies) searchParams.push(EXCLUDE_WORKING_COPIES_PARAM);
+  if (!params.includeWorkingCopies) searchParams.push(...EXCLUDE_WORKING_COPIES_PARAMS);
   if (params.providerId) searchParams.push({ name: '_id', value: params.providerId });
   if (params.name) searchParams.push({ name: 'name', value: params.name });
 

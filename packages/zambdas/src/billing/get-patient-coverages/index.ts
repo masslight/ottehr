@@ -3,7 +3,7 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Coverage, Organization } from 'fhir/r4b';
 import { getPayerId } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
-import { createBillingClient, EXCLUDE_WORKING_COPIES_PARAM } from '../shared';
+import { createBillingClient, EXCLUDE_WORKING_COPIES_PARAMS } from '../shared';
 import { GetPatientCoveragesParams, validateRequestParameters } from './validateRequestParameters';
 
 interface CoverageItem {
@@ -37,7 +37,7 @@ async function performEffect(
     params: [
       { name: 'beneficiary', value: `Patient/${params.patientId}` },
       { name: '_include', value: 'Coverage:payor' },
-      EXCLUDE_WORKING_COPIES_PARAM,
+      ...EXCLUDE_WORKING_COPIES_PARAMS,
     ],
   });
 

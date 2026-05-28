@@ -133,11 +133,18 @@ async function createWorkingCopies(
   if (originals.facility) {
     const copy = prepareWorkingCopy(originals.facility, originals.facility.id!);
     if (params.facilityOverrides?.name) copy.name = params.facilityOverrides.name;
+    if (params.facilityOverrides?.npi) applyNpiOverride(copy, params.facilityOverrides.npi);
+    if (params.facilityOverrides?.address) {
+      copy.address = { ...(copy.address ?? {}), line: [params.facilityOverrides.address] };
+    }
     requests.push({ method: 'POST', url: '/Location', resource: copy });
     order.push('facility');
   }
   if (originals.billingProvider) {
     const copy = prepareWorkingCopy(originals.billingProvider, originals.billingProvider.id!);
+    if (params.billingProviderOverrides?.name) copy.name = params.billingProviderOverrides.name;
+    if (params.billingProviderOverrides?.npi) applyNpiOverride(copy, params.billingProviderOverrides.npi);
+    if (params.billingProviderOverrides?.tin) applyTinOverride(copy, params.billingProviderOverrides.tin);
     requests.push({ method: 'POST', url: '/Organization', resource: copy });
     order.push('billingProvider');
   }
@@ -176,6 +183,22 @@ function applyPractitionerOverrides(
     if (npiIdent) npiIdent.value = overrides.npi;
   }
   return p;
+}
+
+function applyNpiOverride(
+  resource: { identifier?: { type?: { coding?: { code?: string }[] }; value?: string }[] },
+  npi: string
+): void {
+  const npiIdent = resource.identifier?.find((id) => id.type?.coding?.some((c) => c.code === 'NPI'));
+  if (npiIdent) npiIdent.value = npi;
+}
+
+function applyTinOverride(
+  resource: { identifier?: { type?: { coding?: { code?: string }[] }; value?: string }[] },
+  tin: string
+): void {
+  const taxIdent = resource.identifier?.find((id) => id.type?.coding?.some((c) => c.code === 'TAX'));
+  if (taxIdent) taxIdent.value = tin;
 }
 
 function buildClaim(copies: OriginalResources, params: CreateClaimParams): Claim {

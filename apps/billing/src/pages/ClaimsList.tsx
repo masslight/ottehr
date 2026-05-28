@@ -5,7 +5,6 @@ import {
   Box,
   Button,
   Chip,
-  CircularProgress,
   FormControl,
   InputAdornment,
   InputLabel,
@@ -18,23 +17,11 @@ import { DataGridPro, GridColDef, GridPaginationModel } from '@mui/x-data-grid-p
 import { ReactElement, useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BillingClaimItem, chooseJson, ClaimsQueueItemStatuses } from 'utils';
+import { dataGridSlots, dataGridSx } from '../components/BillingDataGrid';
 import { CLAIM_STATUS_COLORS, formatClaimStatus } from '../constants/claimStatus';
 import { useApiClients } from '../hooks/useAppClients';
-import { otherColors } from '../themes/ottehr/colors';
+import { PatientOption, PayerOption } from '../types/autocomplete';
 import { formatCurrency } from '../utils/format';
-
-interface PayerOption {
-  id: string;
-  name: string;
-  payerId: string;
-}
-
-interface PatientOption {
-  id: string;
-  name: string;
-  firstName: string;
-  lastName: string;
-}
 
 interface Filters {
   searchText?: string;
@@ -399,37 +386,8 @@ export default function ClaimsList(): ReactElement {
         disableRowSelectionOnClick
         disableColumnMenu
         checkboxSelection
-        slots={{
-          noRowsOverlay: () => (
-            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
-              <Typography color="text.secondary">{loading ? '' : 'No claims found.'}</Typography>
-            </Box>
-          ),
-          loadingOverlay: () => (
-            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
-              <CircularProgress size={32} />
-            </Box>
-          ),
-        }}
-        sx={{
-          bgcolor: 'background.paper',
-          border: 'none',
-          borderRadius: 1,
-          fontSize: 14,
-          '& .MuiDataGrid-columnHeaders': {
-            backgroundColor: '#FAFAFA',
-            borderBottom: `1px solid ${otherColors.lightDivider}`,
-          },
-          '& .MuiDataGrid-columnHeaderTitle': { fontWeight: 600, fontSize: 13, color: 'primary.dark' },
-          '& .MuiDataGrid-cell': {
-            borderBottom: `1px solid ${otherColors.lightDivider}`,
-            fontSize: 14,
-            color: otherColors.tableRow,
-          },
-          '& .MuiDataGrid-row': { cursor: 'pointer' },
-          '& .MuiDataGrid-row:hover': { bgcolor: otherColors.apptHover },
-          height: 'calc(100vh - 310px)',
-        }}
+        slots={dataGridSlots}
+        sx={{ ...dataGridSx, height: 'calc(100vh - 310px)' }}
       />
     </Box>
   );

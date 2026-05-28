@@ -84,13 +84,13 @@ async function fetchPatientClaims(oystehr: Oystehr, patientId: string): Promise<
   const orgs = resources.filter((r): r is Organization => r.resourceType === 'Organization');
 
   return claims.map((c) => {
-    const billed = c.total?.value ?? 0;
     return {
       id: c.id ?? '',
       status: getClaimStatus(c),
       serviceDate: c.item?.[0]?.servicedPeriod?.start ?? c.created ?? '',
       payerName: findRef<Organization>(orgs, c.insurer?.reference)?.name ?? '',
-      billed,
+      billed: c.total?.value ?? 0,
+      // TODO: wire from ClaimResponse when available
       allowed: 0,
       insurancePaid: 0,
       patientResp: 0,

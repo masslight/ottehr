@@ -3,7 +3,7 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Practitioner } from 'fhir/r4b';
 import { getNPI } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
-import { createBillingClient, EXCLUDE_WORKING_COPIES_PARAM, fhirName } from '../shared';
+import { createBillingClient, EXCLUDE_WORKING_COPIES_PARAMS, fhirName } from '../shared';
 import { SearchBillingPractitionersParams, validateRequestParameters } from './validateRequestParameters';
 
 interface PractitionerSearchItem {
@@ -35,7 +35,7 @@ async function performEffect(
     { name: '_count', value: '50' },
     { name: '_sort', value: 'family' },
   ];
-  if (!params.includeWorkingCopies) searchParams.push(EXCLUDE_WORKING_COPIES_PARAM);
+  if (!params.includeWorkingCopies) searchParams.push(...EXCLUDE_WORKING_COPIES_PARAMS);
   if (params.name) searchParams.push({ name: 'name', value: params.name });
 
   const response = await oystehr.fhir.search<Practitioner>({ resourceType: 'Practitioner', params: searchParams });

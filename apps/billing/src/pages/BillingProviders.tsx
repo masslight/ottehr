@@ -4,8 +4,10 @@ import { DataGridPro, GridColDef, GridPaginationModel } from '@mui/x-data-grid-p
 import { ReactElement, useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { chooseJson } from 'utils';
+import { dataGridSlots, dataGridSx } from '../components/BillingDataGrid';
+import { DetailRow } from '../components/DetailRow';
 import { useApiClients } from '../hooks/useAppClients';
-import { otherColors } from '../themes/ottehr/colors';
+import { useDebounce } from '../hooks/useDebounce';
 
 interface ProviderRow {
   id: string;
@@ -34,13 +36,7 @@ export function BillingProvidersList(): ReactElement {
   const [error, setError] = useState<string | null>(null);
   const [paginationModel, setPaginationModel] = useState<GridPaginationModel>({ page: 0, pageSize: 25 });
   const [searchName, setSearchName] = useState('');
-  const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    return (): void => {
-      if (debounceTimer.current) clearTimeout(debounceTimer.current);
-    };
-  }, []);
+  const { debounce } = useDebounce(400);
 
   const fetchProviders = useCallback(
     async (pagination: GridPaginationModel, name?: string): Promise<void> => {
@@ -76,11 +72,10 @@ export function BillingProvidersList(): ReactElement {
 
   const handleSearchChange = (value: string): void => {
     setSearchName(value);
-    if (debounceTimer.current) clearTimeout(debounceTimer.current);
-    debounceTimer.current = setTimeout(() => {
+    debounce(() => {
       setPaginationModel((prev) => ({ ...prev, page: 0 }));
       void fetchProviders({ ...paginationModel, page: 0 }, value || undefined);
-    }, 400);
+    }, 'search');
   };
 
   const handlePaginationChange = (model: GridPaginationModel): void => {
@@ -128,37 +123,8 @@ export function BillingProvidersList(): ReactElement {
         onRowClick={(params) => navigate(`/billing-providers/${params.id}`)}
         disableRowSelectionOnClick
         disableColumnMenu
-        slots={{
-          noRowsOverlay: () => (
-            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
-              <Typography color="text.secondary">{loading ? '' : 'No billing providers found.'}</Typography>
-            </Box>
-          ),
-          loadingOverlay: () => (
-            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
-              <CircularProgress size={32} />
-            </Box>
-          ),
-        }}
-        sx={{
-          bgcolor: 'background.paper',
-          border: 'none',
-          borderRadius: 1,
-          fontSize: 14,
-          '& .MuiDataGrid-columnHeaders': {
-            backgroundColor: '#FAFAFA',
-            borderBottom: `1px solid ${otherColors.lightDivider}`,
-          },
-          '& .MuiDataGrid-columnHeaderTitle': { fontWeight: 600, fontSize: 13, color: 'primary.dark' },
-          '& .MuiDataGrid-cell': {
-            borderBottom: `1px solid ${otherColors.lightDivider}`,
-            fontSize: 14,
-            color: otherColors.tableRow,
-          },
-          '& .MuiDataGrid-row': { cursor: 'pointer' },
-          '& .MuiDataGrid-row:hover': { bgcolor: otherColors.apptHover },
-          height: 'calc(100vh - 310px)',
-        }}
+        slots={dataGridSlots}
+        sx={{ ...dataGridSx, height: 'calc(100vh - 310px)' }}
       />
     </Box>
   );
@@ -226,23 +192,12 @@ export function BillingProviderDetail(): ReactElement {
         </Typography>
       </Box>
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-        <Row label="Name" value={provider.name} />
-        <Row label="NPI" value={provider.npi} />
-        <Row label="Tax ID / EIN" value={provider.taxId ?? ''} />
-        <Row label="CLIA Number" value={provider.clia ?? ''} />
-        <Row label="Address" value={provider.address ?? ''} />
+        <DetailRow label="Name" value={provider.name} />
+        <DetailRow label="NPI" value={provider.npi} />
+        <DetailRow label="Tax ID / EIN" value={provider.taxId ?? ''} />
+        <DetailRow label="CLIA Number" value={provider.clia ?? ''} />
+        <DetailRow label="Address" value={provider.address ?? ''} />
       </Box>
-    </Box>
-  );
-}
-
-function Row({ label, value }: { label: string; value: string }): ReactElement {
-  return (
-    <Box sx={{ display: 'flex', py: 0.75 }}>
-      <Typography variant="body2" color="text.secondary" sx={{ width: 140, flexShrink: 0 }}>
-        {label}
-      </Typography>
-      <Typography variant="body2">{value || '—'}</Typography>
     </Box>
   );
 }

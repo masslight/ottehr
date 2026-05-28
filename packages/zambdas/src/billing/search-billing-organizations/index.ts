@@ -3,7 +3,7 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Organization } from 'fhir/r4b';
 import { getNPI, getPayerId, getTaxID } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
-import { createBillingClient, EXCLUDE_WORKING_COPIES_PARAM } from '../shared';
+import { createBillingClient, EXCLUDE_WORKING_COPIES_PARAMS } from '../shared';
 import { SearchBillingOrganizationsParams, validateRequestParameters } from './validateRequestParameters';
 
 interface OrganizationSearchItem {
@@ -36,7 +36,7 @@ async function performEffect(
     { name: '_count', value: '50' },
     { name: '_sort', value: 'name' },
   ];
-  if (!params.includeWorkingCopies) searchParams.push(EXCLUDE_WORKING_COPIES_PARAM);
+  if (!params.includeWorkingCopies) searchParams.push(...EXCLUDE_WORKING_COPIES_PARAMS);
   if (params.name) searchParams.push({ name: 'name', value: params.name });
   if (params.type) searchParams.push({ name: 'type', value: params.type });
 

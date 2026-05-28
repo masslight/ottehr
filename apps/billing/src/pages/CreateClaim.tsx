@@ -15,45 +15,7 @@ import { ReactElement, useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { chooseJson } from 'utils';
 import { useApiClients } from '../hooks/useAppClients';
-
-interface PatientOption {
-  id: string;
-  name: string;
-  firstName: string;
-  lastName: string;
-  dob: string;
-  gender: string;
-  address: string;
-}
-
-interface CoverageOption {
-  id: string;
-  subscriberId: string;
-  payorName: string;
-  payorId: string;
-}
-
-interface PractitionerOption {
-  id: string;
-  name: string;
-  firstName: string;
-  lastName: string;
-  npi: string;
-}
-
-interface LocationOption {
-  id: string;
-  name: string;
-  npi: string;
-  address: string;
-}
-
-interface OrgOption {
-  id: string;
-  name: string;
-  npi: string;
-  tin: string;
-}
+import { PatientOption, CoverageOption, PractitionerOption, LocationOption, OrgOption } from '../types/autocomplete';
 
 interface ServiceLine {
   cpt: string;
@@ -112,6 +74,11 @@ export default function CreateClaim(): ReactElement {
   const [practLastName, setPractLastName] = useState('');
   const [practNpi, setPractNpi] = useState('');
   const [facilityName, setFacilityName] = useState('');
+  const [facilityNpi, setFacilityNpi] = useState('');
+  const [facilityAddress, setFacilityAddress] = useState('');
+  const [billingName, setBillingName] = useState('');
+  const [billingNpi, setBillingNpi] = useState('');
+  const [billingTin, setBillingTin] = useState('');
 
   useEffect(() => {
     return (): void => {
@@ -256,12 +223,21 @@ export default function CreateClaim(): ReactElement {
 
       if (selectedFacility) {
         payload.facilityId = selectedFacility.id;
-        if (facilityName && facilityName !== selectedFacility.name) {
-          payload.facilityOverrides = { name: facilityName };
-        }
+        const facOverrides: Record<string, string> = {};
+        if (facilityName && facilityName !== selectedFacility.name) facOverrides.name = facilityName;
+        if (facilityNpi && facilityNpi !== selectedFacility.npi) facOverrides.npi = facilityNpi;
+        if (facilityAddress && facilityAddress !== selectedFacility.address) facOverrides.address = facilityAddress;
+        if (Object.keys(facOverrides).length) payload.facilityOverrides = facOverrides;
       }
 
-      if (selectedBillingProvider) payload.billingProviderId = selectedBillingProvider.id;
+      if (selectedBillingProvider) {
+        payload.billingProviderId = selectedBillingProvider.id;
+        const bpOverrides: Record<string, string> = {};
+        if (billingName && billingName !== selectedBillingProvider.name) bpOverrides.name = billingName;
+        if (billingNpi && billingNpi !== selectedBillingProvider.npi) bpOverrides.npi = billingNpi;
+        if (billingTin && billingTin !== selectedBillingProvider.tin) bpOverrides.tin = billingTin;
+        if (Object.keys(bpOverrides).length) payload.billingProviderOverrides = bpOverrides;
+      }
 
       if (diagnoses.length) payload.diagnoses = diagnoses.map((code) => ({ code }));
 
@@ -518,6 +494,8 @@ export default function CreateClaim(): ReactElement {
           onChange={(_, v) => {
             setSelectedFacility(v);
             setFacilityName(v?.name ?? '');
+            setFacilityNpi(v?.npi ?? '');
+            setFacilityAddress(v?.address ?? '');
           }}
           onInputChange={(_, val, reason) => {
             if (reason === 'input') searchLocations(val || undefined);
@@ -550,8 +528,20 @@ export default function CreateClaim(): ReactElement {
               onChange={(e) => setFacilityName(e.target.value)}
               sx={{ flex: 1 }}
             />
-            <TextField size="small" label="NPI" value={selectedFacility.npi} disabled sx={{ width: 160 }} />
-            <TextField size="small" label="Address" value={selectedFacility.address} disabled sx={{ flex: 1 }} />
+            <TextField
+              size="small"
+              label="NPI"
+              value={facilityNpi}
+              onChange={(e) => setFacilityNpi(e.target.value)}
+              sx={{ width: 160 }}
+            />
+            <TextField
+              size="small"
+              label="Address"
+              value={facilityAddress}
+              onChange={(e) => setFacilityAddress(e.target.value)}
+              sx={{ flex: 1 }}
+            />
           </Box>
         )}
       </FormSection>
@@ -562,7 +552,12 @@ export default function CreateClaim(): ReactElement {
         <Autocomplete
           options={billingOrgs}
           value={selectedBillingProvider}
-          onChange={(_, v) => setSelectedBillingProvider(v)}
+          onChange={(_, v) => {
+            setSelectedBillingProvider(v);
+            setBillingName(v?.name ?? '');
+            setBillingNpi(v?.npi ?? '');
+            setBillingTin(v?.tin ?? '');
+          }}
           onInputChange={(_, val, reason) => {
             if (reason === 'input') searchBillingOrgs(val || undefined);
           }}
@@ -583,7 +578,33 @@ export default function CreateClaim(): ReactElement {
           )}
           renderInput={(p) => <TextField {...p} size="small" label="Choose Billing Provider" />}
           isOptionEqualToValue={(o, v) => o.id === v.id}
+          sx={{ mb: selectedBillingProvider ? 2 : 0 }}
         />
+        {selectedBillingProvider && (
+          <Box sx={{ display: 'flex', gap: 2 }}>
+            <TextField
+              size="small"
+              label="Name"
+              value={billingName}
+              onChange={(e) => setBillingName(e.target.value)}
+              sx={{ flex: 1 }}
+            />
+            <TextField
+              size="small"
+              label="NPI"
+              value={billingNpi}
+              onChange={(e) => setBillingNpi(e.target.value)}
+              sx={{ width: 160 }}
+            />
+            <TextField
+              size="small"
+              label="TIN"
+              value={billingTin}
+              onChange={(e) => setBillingTin(e.target.value)}
+              sx={{ width: 160 }}
+            />
+          </Box>
+        )}
       </FormSection>
 
       <Divider />

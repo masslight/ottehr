@@ -92,6 +92,8 @@ export const SearchBillingPatientsInputSchema = z.object({
   identifier: nonEmptyString.optional(),
   uuid: z.string().uuid().optional(),
   includeWorkingCopies: z.boolean().optional(),
+  offset: nonNegativeInt.optional(),
+  pageSize: nonNegativeInt.optional(),
 });
 
 export const SearchBillingPractitionersInputSchema = z.object({
@@ -141,10 +143,20 @@ export const CreateBillingClaimInputSchema = z.object({
   facilityOverrides: z
     .object({
       name: nonEmptyString.optional(),
+      npi: nonEmptyString.optional(),
+      address: nonEmptyString.optional(),
     })
     .strict()
     .optional(),
   billingProviderId: nonEmptyString.optional(),
+  billingProviderOverrides: z
+    .object({
+      name: nonEmptyString.optional(),
+      npi: nonEmptyString.optional(),
+      tin: nonEmptyString.optional(),
+    })
+    .strict()
+    .optional(),
   diagnoses: z
     .array(
       z.object({

@@ -51,10 +51,10 @@ export function sanitizeOverrides(overrides?: Record<string, unknown>): Record<s
 // List pages (default view): exclude working copies (only show billing originals)
 // List pages (active search): include working copies via includeWorkingCopies param
 // Autocomplete dropdowns (Create Claim, etc.): never include working copies
-export const EXCLUDE_WORKING_COPIES_PARAM = {
-  name: '_tag:not',
-  value: `${BILLING_WORKING_COPY_TAG.system}|${BILLING_WORKING_COPY_TAG.code}`,
-};
+export const EXCLUDE_WORKING_COPIES_PARAMS = [
+  { name: '_tag:not', value: `${BILLING_WORKING_COPY_TAG.system}|${BILLING_WORKING_COPY_TAG.code}` },
+  { name: 'identifier:not', value: `${SOURCE_IDENTIFIER_SYSTEM}|` },
+];
 
 export function createBillingClient(token: string, secrets: Secrets | null): Oystehr {
   return createOystehrClient(token, secrets, { workspaceTag: BILLING_RESOURCE_TAG });

@@ -1,11 +1,12 @@
 import { Clear as ClearIcon, Search as SearchIcon } from '@mui/icons-material';
-import { Alert, Box, Button, CircularProgress, InputAdornment, TextField, Typography } from '@mui/material';
+import { Alert, Box, Button, InputAdornment, TextField, Typography } from '@mui/material';
 import { DataGridPro, GridColDef } from '@mui/x-data-grid-pro';
 import { ReactElement, useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { chooseJson } from 'utils';
+import { dataGridSlots, dataGridSx } from '../components/BillingDataGrid';
 import { useApiClients } from '../hooks/useAppClients';
-import { otherColors } from '../themes/ottehr/colors';
+import { useDebounce } from '../hooks/useDebounce';
 
 interface PatientRow {
   id: string;
@@ -37,6 +38,8 @@ export default function PatientsList(): ReactElement {
   const navigate = useNavigate();
 
   const [patients, setPatients] = useState<PatientRow[]>([]);
+  const [total, setTotal] = useState(0);
+  const [paginationModel, setPaginationModel] = useState({ page: 0, pageSize: 25 });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -45,26 +48,19 @@ export default function PatientsList(): ReactElement {
   const [searchId, setSearchId] = useState('');
   const [searchUuid, setSearchUuid] = useState('');
 
-  const nameTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const idTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const uuidTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    return (): void => {
-      if (nameTimer.current) clearTimeout(nameTimer.current);
-      if (idTimer.current) clearTimeout(idTimer.current);
-      if (uuidTimer.current) clearTimeout(uuidTimer.current);
-    };
-  }, []);
+  const { debounce } = useDebounce(400);
 
   const fetchPatients = useCallback(
-    async (filters: Filters): Promise<void> => {
+    async (filters: Filters, page = paginationModel.page, pageSize = paginationModel.pageSize): Promise<void> => {
       if (!oystehrZambda) return;
       setLoading(true);
       setError(null);
       try {
         const hasSearch = filters.name || filters.dob || filters.identifier || filters.uuid;
-        const body: Record<string, unknown> = {};
+        const body: Record<string, unknown> = {
+          offset: page * pageSize,
+          pageSize,
+        };
         if (hasSearch) body.includeWorkingCopies = true;
         if (filters.name) body.name = filters.name;
         if (filters.dob) body.dob = filters.dob;
@@ -72,6 +68,7 @@ export default function PatientsList(): ReactElement {
         if (filters.uuid) body.uuid = filters.uuid;
         const data = chooseJson(await oystehrZambda.zambda.execute({ id: 'search-billing-patients', ...body }));
         setPatients(data?.patients ?? []);
+        setTotal(data?.total ?? 0);
       } catch (err) {
         setError(err instanceof Error ? err.message : String(err));
         setPatients([]);
@@ -79,7 +76,7 @@ export default function PatientsList(): ReactElement {
         setLoading(false);
       }
     },
-    [oystehrZambda]
+    [oystehrZambda, paginationModel.page, paginationModel.pageSize]
   );
 
   const initialLoadDone = useRef(false);
@@ -101,27 +98,25 @@ export default function PatientsList(): ReactElement {
 
   const applyFilters = useCallback(
     (overrides?: Filters): void => {
-      void fetchPatients(currentFilters(overrides));
+      setPaginationModel((prev) => ({ ...prev, page: 0 }));
+      void fetchPatients(currentFilters(overrides), 0);
     },
     [fetchPatients, currentFilters]
   );
 
   const handleNameChange = (value: string): void => {
     setSearchName(value);
-    if (nameTimer.current) clearTimeout(nameTimer.current);
-    nameTimer.current = setTimeout(() => applyFilters({ name: value }), 400);
+    debounce(() => applyFilters({ name: value }), 'name');
   };
 
   const handleUuidChange = (value: string): void => {
     setSearchUuid(value);
-    if (uuidTimer.current) clearTimeout(uuidTimer.current);
-    uuidTimer.current = setTimeout(() => applyFilters({ uuid: value }), 400);
+    debounce(() => applyFilters({ uuid: value }), 'uuid');
   };
 
   const handleIdChange = (value: string): void => {
     setSearchId(value);
-    if (idTimer.current) clearTimeout(idTimer.current);
-    idTimer.current = setTimeout(() => applyFilters({ identifier: value }), 400);
+    debounce(() => applyFilters({ identifier: value }), 'id');
   };
 
   const clearFilters = (): void => {
@@ -207,42 +202,19 @@ export default function PatientsList(): ReactElement {
         rows={patients}
         columns={columns}
         loading={loading}
+        rowCount={total}
+        paginationMode="server"
+        paginationModel={paginationModel}
+        onPaginationModelChange={(model) => {
+          setPaginationModel(model);
+          void fetchPatients(currentFilters(), model.page, model.pageSize);
+        }}
         onRowClick={(params) => navigate(`/patients/${params.id}`)}
         disableRowSelectionOnClick
         disableColumnMenu
         pageSizeOptions={[25, 50, 100]}
-        initialState={{ pagination: { paginationModel: { pageSize: 25 } } }}
-        slots={{
-          noRowsOverlay: () => (
-            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
-              <Typography color="text.secondary">{loading ? '' : 'No patients found.'}</Typography>
-            </Box>
-          ),
-          loadingOverlay: () => (
-            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
-              <CircularProgress size={32} />
-            </Box>
-          ),
-        }}
-        sx={{
-          bgcolor: 'background.paper',
-          border: 'none',
-          borderRadius: 1,
-          fontSize: 14,
-          '& .MuiDataGrid-columnHeaders': {
-            backgroundColor: '#FAFAFA',
-            borderBottom: `1px solid ${otherColors.lightDivider}`,
-          },
-          '& .MuiDataGrid-columnHeaderTitle': { fontWeight: 600, fontSize: 13, color: 'primary.dark' },
-          '& .MuiDataGrid-cell': {
-            borderBottom: `1px solid ${otherColors.lightDivider}`,
-            fontSize: 14,
-            color: otherColors.tableRow,
-          },
-          '& .MuiDataGrid-row': { cursor: 'pointer' },
-          '& .MuiDataGrid-row:hover': { bgcolor: otherColors.apptHover },
-          height: 'calc(100vh - 310px)',
-        }}
+        slots={dataGridSlots}
+        sx={{ ...dataGridSx, height: 'calc(100vh - 310px)' }}
       />
     </Box>
   );

@@ -28,8 +28,6 @@ export interface EraDetailResponse {
   payerName: string;
   payerFhirId: string;
   status: string;
-  source: string;
-  payeeNpi: string;
   paymentMethod: string;
   totalClaims: number;
   matchedClaims: number;
@@ -42,7 +40,6 @@ export interface EraDetailResponse {
     allowed: number;
     paid: number;
     posted: number;
-    source: string;
     status: string;
   }[];
 }
@@ -80,6 +77,7 @@ export interface PatientDetailResponse {
   mrn: string;
   friendlyId: string;
   active: boolean;
+  // TODO: wire real balance from ClaimResponse/PaymentReconciliation
   balance: {
     claimsWithPatientBalance: number;
     pendingPayments: number;

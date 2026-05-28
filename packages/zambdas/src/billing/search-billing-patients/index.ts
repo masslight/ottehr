@@ -3,7 +3,7 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Patient } from 'fhir/r4b';
 import { FRIENDLY_PATIENT_ID_SYSTEM_BASE } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
-import { createBillingClient, EXCLUDE_WORKING_COPIES_PARAM, fhirName, formatAddress } from '../shared';
+import { createBillingClient, EXCLUDE_WORKING_COPIES_PARAMS, fhirName, formatAddress } from '../shared';
 import { SearchBillingPatientsParams, validateRequestParameters } from './validateRequestParameters';
 
 interface PatientSearchItem {
@@ -33,12 +33,15 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 async function performEffect(
   oystehr: Oystehr,
   params: SearchBillingPatientsParams
-): Promise<{ patients: PatientSearchItem[] }> {
+): Promise<{ patients: PatientSearchItem[]; total: number; offset: number; pageSize: number }> {
+  const pageSize = params.pageSize ?? 25;
+  const offset = params.offset ?? 0;
   const searchParams: { name: string; value: string }[] = [
-    { name: '_count', value: '50' },
+    { name: '_count', value: String(pageSize) },
+    { name: '_offset', value: String(offset) },
     { name: '_sort', value: 'family' },
   ];
-  if (!params.includeWorkingCopies) searchParams.push(EXCLUDE_WORKING_COPIES_PARAM);
+  if (!params.includeWorkingCopies) searchParams.push(...EXCLUDE_WORKING_COPIES_PARAMS);
   if (params.uuid) searchParams.push({ name: '_id', value: params.uuid });
   if (params.name) searchParams.push({ name: 'name', value: params.name });
   if (params.dob) searchParams.push({ name: 'birthdate', value: params.dob });
@@ -64,5 +67,5 @@ async function performEffect(
     };
   });
 
-  return { patients };
+  return { patients, total: response.total ?? 0, offset, pageSize };
 }

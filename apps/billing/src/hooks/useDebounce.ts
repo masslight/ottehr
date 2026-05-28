@@ -1,10 +1,18 @@
-import { useCallback, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 
 export function useDebounce(timeout = 400): {
   debounce: (func: () => void, key?: string) => void;
   clear: (key?: string) => void;
 } {
   const timeouts = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+
+  useEffect(() => {
+    const map = timeouts.current;
+    return (): void => {
+      map.forEach((id) => clearTimeout(id));
+      map.clear();
+    };
+  }, []);
 
   const debounce = useCallback(
     (func: () => void, key = 'default'): void => {

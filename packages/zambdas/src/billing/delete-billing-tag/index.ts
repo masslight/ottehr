@@ -29,10 +29,13 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       resourceType: 'Claim',
       params: [
         { name: '_tag', value: `${CLAIM_TAG_SYSTEM}|${tagName}` },
-        { name: '_count', value: '1' },
+        { name: '_count', value: '0' },
       ],
     });
-    if ((claimBundle.total ?? claimBundle.unbundle().length) > 0) {
+    if (claimBundle.total === undefined) {
+      throw INVALID_INPUT_ERROR('Unable to verify tag usage — FHIR server did not return a total count');
+    }
+    if (claimBundle.total > 0) {
       throw INVALID_INPUT_ERROR('Cannot delete tag — it is associated with one or more claims');
     }
   }

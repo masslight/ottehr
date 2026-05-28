@@ -86,8 +86,7 @@ async function performEffect(oystehr: Oystehr, params: GetEraDetailParams): Prom
       allowed,
       paid,
       posted: paid,
-      source: 'Manual',
-      status: cr ? 'Finalized Paid' : 'Pending',
+      status: cr?.outcome ?? '',
     };
   });
 
@@ -104,8 +103,6 @@ async function performEffect(oystehr: Oystehr, params: GetEraDetailParams): Prom
     payerName: payerOrg?.name ?? pr.paymentIssuer?.display ?? '',
     payerFhirId: payerOrg?.id ?? '',
     status: pr.outcome ?? pr.status ?? '',
-    source: 'Manual',
-    payeeNpi: '',
     paymentMethod: pr.paymentIdentifier ? (pr.paymentIdentifier.system?.includes('check') ? 'CHK' : 'EFT') : '',
     totalClaims: claimCount,
     matchedClaims: matchedCount,

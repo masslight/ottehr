@@ -20,6 +20,8 @@ import { DataGridPro, GridColDef } from '@mui/x-data-grid-pro';
 import { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { chooseJson, EraDetailResponse } from 'utils';
+import { dataGridSlots, dataGridSx } from '../components/BillingDataGrid';
+import { DetailRow } from '../components/DetailRow';
 import { useApiClients } from '../hooks/useAppClients';
 import { otherColors } from '../themes/ottehr/colors';
 import { formatCurrency } from '../utils/format';
@@ -41,20 +43,22 @@ const claimColumns: GridColDef[] = [
   currencyCol('allowed', 'Allowed', 100),
   currencyCol('paid', 'Ins Paid', 110),
   currencyCol('posted', 'Posted', 100),
-  { field: 'source', headerName: 'Source', width: 100 },
   {
     field: 'status',
     headerName: 'Status',
     width: 140,
-    renderCell: ({ value }) => (
-      <Chip
-        label={String(value ?? '')}
-        color={value === 'Finalized Paid' ? 'success' : 'warning'}
-        variant="outlined"
-        size="small"
-        sx={{ borderRadius: '4px', fontSize: 12 }}
-      />
-    ),
+    renderCell: ({ value }) =>
+      value ? (
+        <Chip
+          label={String(value)}
+          color={value === 'complete' ? 'success' : 'warning'}
+          variant="outlined"
+          size="small"
+          sx={{ borderRadius: '4px', fontSize: 12 }}
+        />
+      ) : (
+        '—'
+      ),
   },
   {
     field: 'actions',
@@ -164,14 +168,11 @@ export default function ERADetail(): ReactElement {
             }}
           >
             <Tab label="Details & Claims" value="1" />
-            <Tab label="Sources" value="2" />
           </TabList>
 
           <TabPanel value="1" sx={{ px: 0, pt: 2 }}>
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, mb: 3 }}>
-              <DetailRow label="Source" value={era.source} />
-              <DetailRow label="Payee Identifier" value={era.payeeNpi ? `NPI: ${era.payeeNpi}` : ''} />
-              <DetailRow label="Payment method" value={era.paymentMethod} />
+              {era.paymentMethod && <DetailRow label="Payment method" value={era.paymentMethod} labelWidth={160} />}
             </Box>
 
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
@@ -203,8 +204,9 @@ export default function ERADetail(): ReactElement {
                   onChange={(e) => setClaimStatusFilter(e.target.value)}
                 >
                   <MenuItem value="">All</MenuItem>
-                  <MenuItem value="Finalized Paid">Finalized Paid</MenuItem>
-                  <MenuItem value="Pending">Pending</MenuItem>
+                  <MenuItem value="complete">Complete</MenuItem>
+                  <MenuItem value="queued">Queued</MenuItem>
+                  <MenuItem value="error">Error</MenuItem>
                 </Select>
               </FormControl>
               {(claimSearch || claimStatusFilter) && (
@@ -230,29 +232,9 @@ export default function ERADetail(): ReactElement {
               autoHeight
               pageSizeOptions={[25, 50]}
               initialState={{ pagination: { paginationModel: { pageSize: 25 } } }}
-              sx={{
-                bgcolor: 'background.paper',
-                border: 'none',
-                borderRadius: 1,
-                fontSize: 14,
-                '& .MuiDataGrid-columnHeaders': {
-                  backgroundColor: '#FAFAFA',
-                  borderBottom: `1px solid ${otherColors.lightDivider}`,
-                },
-                '& .MuiDataGrid-columnHeaderTitle': { fontWeight: 600, fontSize: 13, color: 'primary.dark' },
-                '& .MuiDataGrid-cell': {
-                  borderBottom: `1px solid ${otherColors.lightDivider}`,
-                  fontSize: 14,
-                  color: otherColors.tableRow,
-                },
-                '& .MuiDataGrid-row': { cursor: 'pointer' },
-                '& .MuiDataGrid-row:hover': { bgcolor: otherColors.apptHover },
-              }}
+              slots={dataGridSlots}
+              sx={{ ...dataGridSx }}
             />
-          </TabPanel>
-
-          <TabPanel value="2" sx={{ px: 0, pt: 2 }}>
-            <Typography color="text.secondary">No additional sources.</Typography>
           </TabPanel>
         </TabContext>
       </Box>
@@ -269,17 +251,6 @@ function HeaderField({ label, value, bold }: { label: string; value: string; bol
       <Typography variant="body1" fontWeight={bold ? 700 : 600}>
         {value || '—'}
       </Typography>
-    </Box>
-  );
-}
-
-function DetailRow({ label, value }: { label: string; value: string }): ReactElement {
-  return (
-    <Box sx={{ display: 'flex', py: 0.5 }}>
-      <Typography variant="body2" color="text.secondary" sx={{ width: 160, flexShrink: 0 }}>
-        {label}
-      </Typography>
-      <Typography variant="body2">{value || '—'}</Typography>
     </Box>
   );
 }

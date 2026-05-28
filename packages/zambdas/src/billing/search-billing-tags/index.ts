@@ -22,31 +22,44 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   });
 
   const basics = bundle.unbundle();
-  const tags: BillingTag[] = await Promise.all(basics.map((b) => mapTag(oystehr, b)));
+  const usageCounts = await getTagUsageCounts(oystehr, basics);
+
+  const tags: BillingTag[] = basics.map((b) => {
+    const name = b.code?.text ?? '';
+    return {
+      id: b.id ?? '',
+      name,
+      description: b.extension?.find((e) => e.url === TAG_DESCRIPTION_URL)?.valueString ?? '',
+      usage: usageCounts.get(name) ?? 0,
+      updatedAt: b.meta?.lastUpdated ?? '',
+    };
+  });
 
   return { statusCode: 200, body: JSON.stringify({ tags }) };
 });
 
-async function mapTag(oystehr: Oystehr, b: Basic): Promise<BillingTag> {
-  const name = b.code?.text ?? '';
-  let usage = 0;
+// Single FHIR search with _tag to count claims per tag, instead of N+1 per-tag queries
+async function getTagUsageCounts(oystehr: Oystehr, tags: Basic[]): Promise<Map<string, number>> {
+  const counts = new Map<string, number>();
+  const tagNames = tags.map((t) => t.code?.text).filter(Boolean) as string[];
+  if (tagNames.length === 0) return counts;
 
-  if (name) {
-    const countBundle = await oystehr.fhir.search<Claim>({
-      resourceType: 'Claim',
-      params: [
-        { name: '_tag', value: `${CLAIM_TAG_SYSTEM}|${name}` },
-        { name: '_count', value: '0' },
-      ],
-    });
-    usage = countBundle.total ?? 0;
+  // Fetch all tagged claims in one query — _elements: id,meta keeps payload small
+  const result = await oystehr.fhir.search<Claim>({
+    resourceType: 'Claim',
+    params: [
+      { name: '_tag', value: tagNames.map((n) => `${CLAIM_TAG_SYSTEM}|${n}`).join(',') },
+      { name: '_count', value: '1000' },
+      { name: '_elements', value: 'id,meta' },
+    ],
+  });
+
+  for (const claim of result.unbundle()) {
+    for (const tag of claim.meta?.tag ?? []) {
+      if (tag.system === CLAIM_TAG_SYSTEM && tag.code) {
+        counts.set(tag.code, (counts.get(tag.code) ?? 0) + 1);
+      }
+    }
   }
-
-  return {
-    id: b.id ?? '',
-    name,
-    description: b.extension?.find((e) => e.url === TAG_DESCRIPTION_URL)?.valueString ?? '',
-    usage,
-    updatedAt: b.meta?.lastUpdated ?? '',
-  };
+  return counts;
 }

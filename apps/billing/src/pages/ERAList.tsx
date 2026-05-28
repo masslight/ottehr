@@ -5,7 +5,6 @@ import {
   Box,
   Button,
   Chip,
-  CircularProgress,
   FormControl,
   InputAdornment,
   InputLabel,
@@ -18,24 +17,12 @@ import { DataGridPro, GridColDef, GridPaginationModel } from '@mui/x-data-grid-p
 import { ReactElement, useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { chooseJson, ClaimsQueueItemStatuses, EraListItem } from 'utils';
+import { dataGridSlots, dataGridSx } from '../components/BillingDataGrid';
 import { formatClaimStatus } from '../constants/claimStatus';
 import { useApiClients } from '../hooks/useAppClients';
 import { useDebounce } from '../hooks/useDebounce';
-import { otherColors } from '../themes/ottehr/colors';
+import { PatientOption, PayerOption } from '../types/autocomplete';
 import { formatCurrency } from '../utils/format';
-
-interface PayerOption {
-  id: string;
-  name: string;
-  payerId: string;
-}
-
-interface PatientOption {
-  id: string;
-  name: string;
-  firstName: string;
-  lastName: string;
-}
 
 interface Filters {
   // ERA-level
@@ -173,7 +160,7 @@ export default function ERAList(): ReactElement {
         try {
           const res = await oystehrZambda.zambda.execute({
             id: 'search-billing-patients',
-            ...(query ? { name: query } : {}),
+            ...(query ? { name: query, includeWorkingCopies: true } : {}),
           });
           setPatientOptions(chooseJson(res).patients ?? []);
         } catch {
@@ -323,10 +310,10 @@ export default function ERAList(): ReactElement {
             }}
           >
             <MenuItem value="">All</MenuItem>
-            <MenuItem value="active">Active</MenuItem>
-            <MenuItem value="cancelled">Cancelled</MenuItem>
-            <MenuItem value="draft">Draft</MenuItem>
-            <MenuItem value="entered-in-error">Entered in Error</MenuItem>
+            <MenuItem value="queued">Queued</MenuItem>
+            <MenuItem value="complete">Complete</MenuItem>
+            <MenuItem value="error">Error</MenuItem>
+            <MenuItem value="partial">Partial</MenuItem>
           </Select>
         </FormControl>
         <Autocomplete
@@ -463,37 +450,8 @@ export default function ERAList(): ReactElement {
         disableRowSelectionOnClick
         disableColumnMenu
         pageSizeOptions={[25, 50, 100]}
-        slots={{
-          noRowsOverlay: () => (
-            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
-              <Typography color="text.secondary">{loading ? '' : 'No ERAs found.'}</Typography>
-            </Box>
-          ),
-          loadingOverlay: () => (
-            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
-              <CircularProgress size={32} />
-            </Box>
-          ),
-        }}
-        sx={{
-          bgcolor: 'background.paper',
-          border: 'none',
-          borderRadius: 1,
-          fontSize: 14,
-          '& .MuiDataGrid-columnHeaders': {
-            backgroundColor: '#FAFAFA',
-            borderBottom: `1px solid ${otherColors.lightDivider}`,
-          },
-          '& .MuiDataGrid-columnHeaderTitle': { fontWeight: 600, fontSize: 13, color: 'primary.dark' },
-          '& .MuiDataGrid-cell': {
-            borderBottom: `1px solid ${otherColors.lightDivider}`,
-            fontSize: 14,
-            color: otherColors.tableRow,
-          },
-          '& .MuiDataGrid-row': { cursor: 'pointer' },
-          '& .MuiDataGrid-row:hover': { bgcolor: otherColors.apptHover },
-          height: 'calc(100vh - 430px)',
-        }}
+        slots={dataGridSlots}
+        sx={{ ...dataGridSx, height: 'calc(100vh - 430px)' }}
       />
     </Box>
   );

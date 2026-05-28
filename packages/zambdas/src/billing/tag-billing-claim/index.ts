@@ -23,20 +23,20 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const existingTags = claim.meta?.tag ?? [];
   const hasTag = existingTags.some((t) => t.system === CLAIM_TAG_SYSTEM && t.code === params.tagName);
 
+  const versionId = claim.meta?.versionId;
+
   if (params.action === 'add' && !hasTag) {
     const updated = [...existingTags, { system: CLAIM_TAG_SYSTEM, code: params.tagName }];
-    await oystehr.fhir.patch({
-      resourceType: 'Claim',
-      id: params.claimId,
-      operations: [{ op: 'replace', path: '/meta/tag', value: updated }],
-    });
+    await oystehr.fhir.patch(
+      { resourceType: 'Claim', id: params.claimId, operations: [{ op: 'add', path: '/meta/tag', value: updated }] },
+      versionId ? { optimisticLockingVersionId: versionId } : undefined
+    );
   } else if (params.action === 'remove' && hasTag) {
     const updated = existingTags.filter((t) => !(t.system === CLAIM_TAG_SYSTEM && t.code === params.tagName));
-    await oystehr.fhir.patch({
-      resourceType: 'Claim',
-      id: params.claimId,
-      operations: [{ op: 'replace', path: '/meta/tag', value: updated }],
-    });
+    await oystehr.fhir.patch(
+      { resourceType: 'Claim', id: params.claimId, operations: [{ op: 'add', path: '/meta/tag', value: updated }] },
+      versionId ? { optimisticLockingVersionId: versionId } : undefined
+    );
   }
 
   return { statusCode: 200, body: JSON.stringify({ ok: true }) };
