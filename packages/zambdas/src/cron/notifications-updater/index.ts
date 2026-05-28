@@ -76,10 +76,6 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
   const updateCommunicationRequests: BatchInputRequest<Communication>[] = [];
   const updateAppointmentRequests: BatchInputRequest<Appointment>[] = [];
 
-  const practitionerUnsignedTooLongAppointmentPackagesMap: {
-    [key: string]: { pack: ResourcePackage; isProcessed: boolean }[];
-  } = {};
-
   function addNewSMSCommunicationForPractitioner(
     practitioner: Practitioner,
     communication: Communication,
@@ -341,91 +337,6 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
     }
   });
 
-  console.log(`Too long unsigned appointments: ${JSON.stringify(practitionerUnsignedTooLongAppointmentPackagesMap)}`);
-  Object.keys(practitionerUnsignedTooLongAppointmentPackagesMap).forEach((practitionerId) => {
-    const unsignedPractitionerAppointments = practitionerUnsignedTooLongAppointmentPackagesMap[practitionerId];
-    let hasUnprocessed = false;
-    let practitionerResource: Practitioner | undefined = undefined;
-    let encounterResource: Encounter | undefined = undefined;
-    for (const appt of unsignedPractitionerAppointments) {
-      const { pack, isProcessed } = appt;
-      const { practitioner, encounter } = pack;
-      if (!practitionerResource && practitioner) {
-        practitionerResource = practitioner;
-      }
-      if (!encounterResource && encounter) {
-        encounterResource = encounter;
-      }
-      if (!isProcessed) {
-        hasUnprocessed = true;
-      }
-    }
-
-    if (hasUnprocessed && checkPractitionerResourceDefined(practitionerResource)) {
-      // create notification for practitioner that was assigned to this visit
-      const notificationSettings = getProviderNotificationSettingsForPractitioner(practitionerResource);
-      // rules of status described above
-      if (notificationSettings?.telemedNotificationsEnabled) {
-        const unsignedChartsMessage = (length: number): string =>
-          `You have ${length} unsigned charts on Ottehr. Please complete and sign ASAP. Thanks!`;
-
-        const status = getCommunicationStatus(notificationSettings);
-        const request: BatchInputPostRequest<Communication> = {
-          method: 'POST',
-          url: '/Communication',
-          resource: {
-            resourceType: 'Communication',
-            category: [
-              {
-                coding: [
-                  {
-                    system: PROVIDER_NOTIFICATION_TYPE_SYSTEM,
-                    code: AppointmentProviderNotificationTypes.unsigned_charts,
-                  },
-                ],
-              },
-            ],
-            sent: DateTime.utc().toISO()!,
-            status: status,
-            encounter: encounterResource
-              ? {
-                  reference: `Encounter/${encounterResource.id}`,
-                }
-              : undefined,
-            recipient: [{ reference: `Practitioner/${practitionerResource.id}` }],
-            payload: [
-              {
-                contentString: unsignedChartsMessage(unsignedPractitionerAppointments.length),
-              },
-            ],
-          },
-        };
-
-        createCommunicationRequests.push(request);
-        if (
-          status === 'completed' ||
-          (status === 'in-progress' && notificationSettings.method === ProviderNotificationMethod['phone and computer'])
-        ) {
-          // not to send multiple notifications of the same "Unsigned charts" type by sms one by one - check if theres any and update
-          const existingUnsignedNotificationPending = sendSMSPractitionerCommunications[
-            practitionerResource.id!
-          ]?.communications.find(
-            (comm) =>
-              comm.category?.[0].coding?.[0].system === PROVIDER_NOTIFICATION_TYPE_SYSTEM &&
-              comm.category?.[0].coding?.[0].code === AppointmentProviderNotificationTypes.unsigned_charts
-          );
-          if (existingUnsignedNotificationPending?.payload?.[0]) {
-            existingUnsignedNotificationPending.payload[0].contentString = unsignedChartsMessage(
-              unsignedPractitionerAppointments.length
-            );
-          } else {
-            addOrUpdateSMSPractitionerCommunications(request.resource as Communication, practitionerResource);
-          }
-        }
-      }
-    }
-  });
-
   // here we need to send SMS to practitioners that have some unprocessed communications
   const sendSMSRequests: Promise<unknown>[] = [];
   Object.keys(sendSMSPractitionerCommunications).forEach((id) => {
@@ -489,15 +400,10 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
   };
 });
 
-function checkPractitionerResourceDefined(resource: Practitioner | undefined | never): resource is Practitioner {
-  return resource !== undefined;
-}
-
 interface ResourcePackage {
   appointment?: Appointment;
   encounter?: Encounter;
   communications: Communication[];
-  practitioner?: Practitioner;
   location?: Location;
   patient?: Patient;
 }
@@ -515,7 +421,7 @@ async function getResourcePackagesAppointmentsMap(
   appointmentStatuses: Appointment['status'][] = ['arrived']
 ): Promise<ResourcePackagesMap> {
   const results = (
-    await oystehr.fhir.search<Appointment | Communication | Encounter | Location | Patient | Practitioner>({
+    await oystehr.fhir.search<Appointment | Communication | Encounter | Location | Patient>({
       resourceType: 'Appointment',
       params: [
         { name: '_tag', value: OTTEHR_MODULE.TM },
@@ -530,10 +436,6 @@ async function getResourcePackagesAppointmentsMap(
         {
           name: '_revinclude',
           value: 'Encounter:appointment',
-        },
-        {
-          name: '_include:iterate',
-          value: 'Encounter:participant:Practitioner',
         },
         {
           name: '_include',
@@ -566,7 +468,6 @@ async function getResourcePackagesAppointmentsMap(
 
   const encounterIdAppointmentIdMap: { [key: NonNullable<Encounter['id']>]: NonNullable<Appointment['id']> } = {};
   const resourcePackagesMap: ResourcePackagesMap = {};
-  const practitionerIdMap: { [key: NonNullable<Practitioner['id']>]: Practitioner } = {};
   const locationIdMap: { [key: NonNullable<Location['id']>]: Location } = {};
   const patientIdMap: { [key: NonNullable<Patient['id']>]: Patient } = {};
   // first fill maps with Appointments and Encounters
@@ -585,10 +486,6 @@ async function getResourcePackagesAppointmentsMap(
       const pack = getOrCreateAppointmentResourcePackage(appointment.id!);
       pack.appointment = appointment;
       resourcePackagesMap[appointment.id!] = pack;
-    } else if (res.resourceType === 'Practitioner') {
-      // create practitioners id map for later optimized mapping
-      const practitioner = res as Practitioner;
-      practitionerIdMap[practitioner.id!] = practitioner;
     } else if (res.resourceType === 'Location') {
       // create locations id map for later optimized mapping
       const location = res as Location;
@@ -613,21 +510,10 @@ async function getResourcePackagesAppointmentsMap(
     }
   });
 
-  // fill in practitioners, locations, and patients
+  // fill in locations and patients
   Object.keys(resourcePackagesMap).forEach((appointmentId) => {
     const encounter = resourcePackagesMap[appointmentId].encounter;
     const appointment = resourcePackagesMap[appointmentId].appointment;
-    const practitionerReference = encounter?.participant?.find(
-      (participant) => participant.individual?.reference?.startsWith('Practitioner')
-    )?.individual?.reference;
-    if (practitionerReference) {
-      const practitionerId = removePrefix('Practitioner/', practitionerReference);
-      if (practitionerId) {
-        const pack = getOrCreateAppointmentResourcePackage(appointmentId);
-        pack.practitioner = practitionerIdMap[practitionerId];
-        resourcePackagesMap[appointmentId] = pack;
-      }
-    }
     const locationReference = encounter?.location?.find((loc) => loc.location.reference)?.location.reference;
     if (locationReference) {
       const locationId = removePrefix('Location/', locationReference);
