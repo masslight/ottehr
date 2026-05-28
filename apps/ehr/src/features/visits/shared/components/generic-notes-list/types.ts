@@ -1,3 +1,4 @@
+import { SxProps, Theme } from '@mui/material';
 import { AllChartValues, NOTE_TYPE, NoteDTO, SearchParams } from 'utils';
 
 export interface CustomizableNotesConfig {
@@ -6,6 +7,7 @@ export interface CustomizableNotesConfig {
   alwaysEditable?: boolean; // ignore appointment read-only state (addendum notes work after the progress note is locked)
   showEditedMarker?: boolean; // append "(edited)" when the server flags the note as edited
   softDeleteWithTombstone?: boolean; // render "(time) (name) deleted the note" tombstone
+  containerSx?: SxProps<Theme>; // override sx on the root PaperStyled (e.g. to zero out its mt: 3 inside an AccordionCard)
 }
 
 export interface GenericNotesConfig extends CustomizableNotesConfig {
