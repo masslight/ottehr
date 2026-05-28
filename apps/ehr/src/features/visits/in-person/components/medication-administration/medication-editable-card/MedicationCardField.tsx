@@ -16,6 +16,7 @@ import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { DateTime } from 'luxon';
 import React from 'react';
+import { LOCATION_OPTIONS } from 'src/shared/utils/options';
 import { IN_HOUSE_CONTAINED_MEDICATION_ID, MedicationData, REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
 import { dataTestIds } from '../../../../../../constants/data-test-ids';
 import { OrderFieldsSelectsOptions } from '../../../hooks/useGetFieldOptions';
@@ -55,7 +56,6 @@ const emptySelectsOptions: OrderFieldsSelectsOptions = {
   route: { options: [], status: 'loading' },
   associatedDx: { options: [], status: 'loading' },
   units: { options: [], status: 'loading' },
-  location: { options: [], status: 'loaded' },
   providerId: { options: [], status: 'loading' },
 };
 
@@ -63,7 +63,7 @@ export const MedicationCardField: React.FC<MedicationCardFieldProps> = ({
   field,
   label,
   type = 'text',
-  value,
+  value: rawValue,
   onChange,
   required = false,
   showError = false,
@@ -77,6 +77,28 @@ export const MedicationCardField: React.FC<MedicationCardFieldProps> = ({
   };
 
   const isInstruction = field === 'instructions';
+
+  if (field === 'location') {
+    // getMedicationFieldValue coerces unset fields to '' — treat anything non-object as no selection.
+    const currentValue = rawValue && typeof rawValue === 'object' ? rawValue : null;
+    return (
+      <StyledFormControl data-testid={dataTestIds.orderMedicationPage.inputField(field)} disabled={!isEditable}>
+        <Autocomplete
+          disabled={!isEditable}
+          options={LOCATION_OPTIONS}
+          value={currentValue}
+          getOptionLabel={(option) => option.name}
+          getOptionKey={(option) => `${option.code}|${option.name}`}
+          isOptionEqualToValue={(option, val) => option.code === val.code && option.name === val.name}
+          onChange={(_e, opt) => onChange(field, opt ? { code: opt.code, name: opt.name } : undefined)}
+          renderInput={(params) => <TextField {...params} label={label} placeholder={`Search ${label}`} />}
+        />
+      </StyledFormControl>
+    );
+  }
+
+  // After the location branch, value is scalar.
+  const value = rawValue as string | number | undefined;
 
   if (field === 'effectiveDateTime') {
     const dateTimeValue = value ? DateTime.fromISO(value as string) : null;
@@ -141,26 +163,6 @@ export const MedicationCardField: React.FC<MedicationCardFieldProps> = ({
           format="yyyy-MM-dd"
         />
       </LocalizationProvider>
-    );
-  }
-
-  if (field === 'location') {
-    const options = selectsOptions.location.options;
-    // getMedicationFieldValue coerces unset fields to '' — treat anything non-object as no selection.
-    const currentValue = value && typeof value === 'object' ? value : null;
-    return (
-      <StyledFormControl data-testid={dataTestIds.orderMedicationPage.inputField(field)} disabled={!isEditable}>
-        <Autocomplete
-          disabled={!isEditable}
-          options={options}
-          value={currentValue}
-          getOptionLabel={(option) => option.name}
-          getOptionKey={(option) => `${option.code}|${option.name}`}
-          isOptionEqualToValue={(option, val) => option.code === val.code && option.name === val.name}
-          onChange={(_e, opt) => onChange(field, opt ? { code: opt.code, name: opt.name } : undefined)}
-          renderInput={(params) => <TextField {...params} label={label} placeholder={`Search ${label}`} />}
-        />
-      </StyledFormControl>
     );
   }
 

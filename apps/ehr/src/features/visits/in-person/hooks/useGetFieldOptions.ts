@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
 import { PROVIDERS_FILTER } from 'src/shared/utils';
-import { LOCATION_OPTIONS } from 'src/shared/utils/options';
 import { DiagnosisDTO, MedicationApplianceRoutes, medicationApplianceRoutes, RoleType, UNIT_OPTIONS } from 'utils';
 import { getEmployees } from '../../../../api/api';
 import { useApiClients } from '../../../../hooks/useAppClients';
@@ -69,7 +68,6 @@ export type OrderFieldsSelectsOptions = Record<
   { options: Option[]; status: 'loading' | 'loaded'; defaultOption?: Option }
 > & {
   medicationId: MedicationIdSelectOptions;
-  location: { options: typeof LOCATION_OPTIONS; status: 'loaded' };
 };
 
 export const useFieldsSelectsOptions = (): OrderFieldsSelectsOptions => {
@@ -188,10 +186,6 @@ export const useFieldsSelectsOptions = (): OrderFieldsSelectsOptions => {
       medispanCodeToMedicationId,
       ndcCodeSet,
       ndcToMedicationId,
-    },
-    location: {
-      options: LOCATION_OPTIONS,
-      status: 'loaded',
     },
     route: {
       options: getRoutesArray(medicationApplianceRoutes),
