@@ -134,8 +134,7 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
   // Going through ready or unsigned visits to create notifications and other update logic
   Object.keys(readyOrUnsignedVisitPackages).forEach((appointmentId) => {
     try {
-      const { appointment, encounter, practitioner, location, communications, patient } =
-        readyOrUnsignedVisitPackages[appointmentId];
+      const { appointment, encounter, location, communications, patient } = readyOrUnsignedVisitPackages[appointmentId];
       if (encounter && appointment) {
         const status: VisitStatusLabel | undefined = getInPersonVisitStatus(appointment, encounter);
         if (!status) return;
