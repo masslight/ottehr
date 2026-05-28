@@ -24,7 +24,6 @@ import {
   BookableScheduleData,
   checkResourceHasSlug,
   getGroupAllLocations,
-  isPractitionerRoleMemberOfGroup,
   isValidUUID,
   MISCONFIGURED_SCHEDULING_GROUP,
   SCHEDULE_NOT_FOUND_CUSTOM_ERROR,
@@ -34,6 +33,7 @@ import {
   scheduleStrategyForHealthcareService,
   SLUG_SYSTEM,
   unbundleBatchPostOutput,
+  walkGroupMemberPractitionerRoleSchedules,
 } from 'utils';
 
 export async function getPatientResource(patientID: string, oystehr: Oystehr): Promise<Patient> {
@@ -221,55 +221,35 @@ export async function getSchedules(
 
   const scheduleList: BookableScheduleData['scheduleList'] = [];
   if (hsSchedulingStrategy === ScheduleStrategy.poolsAll || hsSchedulingStrategy === ScheduleStrategy.poolsProviders) {
+    // Legacy Practitioner-actored Schedules: still supported inline. No
+    // current caller produces these via the slot-vending path, but the
+    // legacy schedules in older deployments may still be PR-less.
     const practitioners: Practitioner[] = [];
     const schedules: Schedule[] = [];
-
     scheduleResources.forEach((res) => {
-      if (res.resourceType === 'Practitioner') {
-        practitioners.push(res);
-      }
-      if (res.resourceType === 'Schedule') {
-        schedules.push(res);
-      }
+      if (res.resourceType === 'Practitioner') practitioners.push(res);
+      if (res.resourceType === 'Schedule') schedules.push(res);
     });
-
-    // Also collect PractitionerRoles fetched above so we can match them when a
-    // Schedule's actor is a PractitionerRole rather than a raw Practitioner.
-    const practitionerRoles: PractitionerRole[] = [];
-    scheduleResources.forEach((res) => {
-      if (res.resourceType === 'PractitionerRole') practitionerRoles.push(res);
-    });
-
     schedules.forEach((scheduleObj) => {
       const owner = scheduleObj.actor[0]?.reference ?? '';
       const [ownerResourceType, ownerId] = owner.split('/');
-      if (ownerResourceType === 'Practitioner' && ownerId) {
-        const practitioner = practitioners.find((practitionerObj) => {
-          return practitionerObj.id === ownerId;
-        });
-        if (practitioner) {
-          scheduleList.push({
-            schedule: scheduleObj,
-            owner: practitioner,
-          });
-        }
-      } else if (ownerResourceType === 'PractitionerRole' && ownerId) {
-        const role = practitionerRoles.find((r) => r.id === ownerId);
-        if (
-          role &&
-          isPractitionerRoleMemberOfGroup({
-            role,
-            group: scheduleOwner as HealthcareService,
-            allLocationsFlag,
-          })
-        ) {
-          scheduleList.push({
-            schedule: scheduleObj,
-            owner: role,
-          });
-        }
-      }
+      if (ownerResourceType !== 'Practitioner' || !ownerId) return;
+      const practitioner = practitioners.find((p) => p.id === ownerId);
+      if (practitioner) scheduleList.push({ schedule: scheduleObj, owner: practitioner });
     });
+
+    // PR-actored Schedules: factored into the shared walker so the
+    // membership rules (back-reference / location-overlap / all-locations)
+    // are defined once and reusable by other callers — see
+    // getGroupMemberPractitionerRoleSchedules below for the focused-query
+    // entry point used by create-appointment's fallback.
+    const memberPairs = walkGroupMemberPractitionerRoleSchedules({
+      bundle: scheduleResources,
+      group: scheduleOwner as HealthcareService,
+    });
+    for (const { schedule: sched, role } of memberPairs) {
+      scheduleList.push({ schedule: sched, owner: role });
+    }
   }
 
   // todo: there's clearly a generic func to be extracted here...
@@ -318,6 +298,70 @@ export async function getSchedules(
     scheduleList,
     rootScheduleOwner: scheduleOwner, // this probable isn't needed. just the ref can go in metadata
   };
+}
+
+/**
+ * Returns the (Schedule, PractitionerRole) pairs that make up a `pools-
+ * providers` group's member set. Lighter than `getSchedules` — no
+ * BookableScheduleData metadata aggregation, no scheduling-strategy
+ * branching, no slug-or-id owner dispatch. The query is focused on the
+ * minimum bundle needed for membership resolution: the group HS, its
+ * Locations, PRs reachable via `.service` back-ref or `.location` overlap,
+ * and Schedules actored by those PRs.
+ *
+ * Used by the create-appointment fallback (groupMemberFallback.ts), which
+ * needs the bare member list and would otherwise pay for the full
+ * slot-vending query that `getSchedules` does. Membership rules and the
+ * actor-walking logic live in `walkGroupMemberPractitionerRoleSchedules`
+ * (utils/lib/fhir/healthcareService.ts) and are shared with `getSchedules`'
+ * pools-providers branch above — single source of truth.
+ */
+export async function getGroupMemberPractitionerRoleSchedules(
+  oystehr: Oystehr,
+  group: HealthcareService
+): Promise<{ schedule: Schedule; role: PractitionerRole }[]> {
+  if (!group.id) return [];
+  const allLocationsFlag = getGroupAllLocations(group) === true;
+
+  const bundle = (
+    await oystehr.fhir.search<HealthcareService | Location | PractitionerRole | Schedule>({
+      resourceType: 'HealthcareService',
+      params: [
+        { name: '_id', value: group.id },
+        { name: '_include', value: 'HealthcareService:location' },
+        { name: '_revinclude:iterate', value: 'PractitionerRole:service' },
+        { name: '_revinclude:iterate', value: 'PractitionerRole:location' },
+        { name: '_revinclude:iterate', value: 'Schedule:actor:PractitionerRole' },
+      ],
+    })
+  ).unbundle();
+
+  // All-locations widening: pull every active PR + their Schedules into the
+  // bundle so the walker's `isMemberByAllLocations` branch has the candidates
+  // to match against. Mirrors the same widening getSchedules does for
+  // group-type lookups when the flag is set.
+  if (allLocationsFlag) {
+    const widened = (
+      await oystehr.fhir.search<PractitionerRole | Schedule>({
+        resourceType: 'PractitionerRole',
+        params: [
+          { name: 'active', value: 'true' },
+          { name: '_revinclude', value: 'Schedule:actor:PractitionerRole' },
+          { name: '_count', value: '1000' },
+        ],
+      })
+    ).unbundle();
+    const seen = new Set(bundle.map((r) => `${r.resourceType}/${r.id}`));
+    for (const r of widened) {
+      const key = `${r.resourceType}/${r.id}`;
+      if (!seen.has(key)) {
+        bundle.push(r);
+        seen.add(key);
+      }
+    }
+  }
+
+  return walkGroupMemberPractitionerRoleSchedules({ bundle, group });
 }
 
 export async function updatePatientResource(

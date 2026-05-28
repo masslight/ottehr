@@ -1,5 +1,5 @@
 import Oystehr from '@oystehr/sdk';
-import { HealthcareService, PractitionerRole, Schedule, Slot } from 'fhir/r4b';
+import { HealthcareService, Schedule, Slot } from 'fhir/r4b';
 import {
   checkSlotAvailable,
   getGroupAssignmentMode,
@@ -7,7 +7,7 @@ import {
   getSlotBookedViaGroupId,
   ScheduleOwnerFhirResource,
 } from 'utils';
-import { getSchedules, resolveBookingLocationId } from '../../../shared';
+import { getGroupMemberPractitionerRoleSchedules, resolveBookingLocationId } from '../../../shared';
 
 export interface GroupMemberFallbackInput {
   slot: Slot;
@@ -62,13 +62,13 @@ export async function tryGroupMemberFallback(
   const originatingLocationId = resolveBookingLocationId({ scheduleOwner, slot });
   if (!originatingLocationId) return null;
 
-  const { scheduleList } = await getSchedules(oystehrClient, 'group', { id: bookedViaGroupId });
+  const memberPairs = await getGroupMemberPractitionerRoleSchedules(oystehrClient, groupHs);
 
-  const candidates = scheduleList.filter((entry) => {
+  const candidates = memberPairs.filter((entry) => {
     if (entry.schedule.id === schedule.id) return false;
-    if (entry.owner.resourceType !== 'PractitionerRole') return false;
-    const role = entry.owner as PractitionerRole;
-    const locIds = (role.location ?? []).map((l) => l.reference?.split('/')[1]).filter((id): id is string => !!id);
+    const locIds = (entry.role.location ?? [])
+      .map((l) => l.reference?.split('/')[1])
+      .filter((id): id is string => !!id);
     return locIds.includes(originatingLocationId);
   });
 
@@ -83,15 +83,14 @@ export async function tryGroupMemberFallback(
     );
     if (!isAvailable) continue;
 
-    const candidateRole = candidate.owner as PractitionerRole;
-    const candidateLocIds = (candidateRole.location ?? [])
+    const candidateLocIds = (candidate.role.location ?? [])
       .map((l) => l.reference?.split('/')[1])
       .filter((id): id is string => !!id);
     const needsAtLocationStamp = candidateLocIds.length > 1 && !getSlotAtLocationId(slot);
 
     return {
       schedule: candidate.schedule,
-      scheduleOwner: candidate.owner,
+      scheduleOwner: candidate.role,
       locationStampNeeded: needsAtLocationStamp ? originatingLocationId : undefined,
     };
   }

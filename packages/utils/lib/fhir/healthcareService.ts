@@ -31,7 +31,7 @@
 // Schedules. Those use different code systems (parallel concepts, per
 // design-debt-log.md D-2) and are intentionally not duplicated here.
 
-import { CodeableConcept, Coding, HealthcareService, PractitionerRole } from 'fhir/r4b';
+import { CodeableConcept, Coding, HealthcareService, PractitionerRole, Resource, Schedule } from 'fhir/r4b';
 import { ServiceMode, ServiceVisitType } from '../types';
 import {
   GROUP_ALL_LOCATIONS_SYSTEM,
@@ -198,6 +198,46 @@ export function isPractitionerRoleMemberOfGroup(input: {
   );
   const isMemberByAllLocations = allLocationsFlag && role.active !== false;
   return !!(isMemberByReference || isMemberByLocation || isMemberByAllLocations);
+}
+
+/**
+ * Walks a pre-fetched FHIR bundle and returns the (Schedule, PractitionerRole)
+ * pairs that make up a `pools-providers` group's member set. Pure: no FHIR
+ * I/O. Each Schedule whose actor[0] is a PR is included iff the PR passes
+ * `isPractitionerRoleMemberOfGroup`. All-locations widening is read off
+ * the group's characteristics (not a parameter — would just duplicate
+ * state already on the resource).
+ *
+ * Expected bundle contents (anything else is ignored):
+ *   - PractitionerRoles whose .healthcareService back-refs the group AND/OR
+ *     whose .location[] overlaps the group's .location[]
+ *   - Schedules whose actor[0] is one of those PractitionerRoles
+ * FHIR query that produces this shape: see
+ * getGroupMemberPractitionerRoleSchedules in zambdas/src/shared/fhir.ts.
+ */
+export function walkGroupMemberPractitionerRoleSchedules(input: {
+  bundle: Resource[];
+  group: HealthcareService;
+}): { schedule: Schedule; role: PractitionerRole }[] {
+  const { bundle, group } = input;
+  const allLocationsFlag = getGroupAllLocations(group) === true;
+  const schedules: Schedule[] = [];
+  const practitionerRoles: PractitionerRole[] = [];
+  for (const res of bundle) {
+    if (res.resourceType === 'Schedule') schedules.push(res as Schedule);
+    else if (res.resourceType === 'PractitionerRole') practitionerRoles.push(res as PractitionerRole);
+  }
+  const result: { schedule: Schedule; role: PractitionerRole }[] = [];
+  for (const sched of schedules) {
+    const owner = sched.actor?.[0]?.reference ?? '';
+    const [ownerType, ownerId] = owner.split('/');
+    if (ownerType !== 'PractitionerRole' || !ownerId) continue;
+    const role = practitionerRoles.find((r) => r.id === ownerId);
+    if (!role) continue;
+    if (!isPractitionerRoleMemberOfGroup({ role, group, allLocationsFlag })) continue;
+    result.push({ schedule: sched, role });
+  }
+  return result;
 }
 
 /**
