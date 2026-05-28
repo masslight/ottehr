@@ -836,6 +836,18 @@ export const makeSlotBookedViaGroupExtensionEntry = (
   };
 };
 
+// Meta tag stamped on a Slot when the create-appointment capacity-guard
+// fallback rerouted it from its originally-targeted Schedule to a different
+// member Schedule of the same anonymous-mode group. Bare boolean tag — purely
+// a queryability handle ("how often does this happen, which Slots had it
+// happen to them"). The original Schedule reference is recoverable from the
+// Slot's FHIR _history if ever needed.
+export const SLOT_FALLBACK_REROUTED_TAG_SYSTEM = `${PRIVATE_EXTENSION_BASE_URL}/slot-fallback-rerouted`;
+export const SLOT_FALLBACK_REROUTED_TAG = {
+  system: SLOT_FALLBACK_REROUTED_TAG_SYSTEM,
+  code: 'true',
+};
+
 // Extension for specifying which questionnaire should be used for appointments booked on this slot
 export const SLOT_QUESTIONNAIRE_CANONICAL_EXTENSION_URL = `${PRIVATE_EXTENSION_BASE_URL}/slot-questionnaire-canonical`;
 

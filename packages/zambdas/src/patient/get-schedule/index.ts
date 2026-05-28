@@ -58,7 +58,7 @@ export const index = wrapHandler('get-schedule', async (input: ZambdaInput): Pro
   const availableSlots: SlotListItem[] = [];
 
   console.time('get-schedule-from-slug');
-  const scheduleData = await getSchedules(oystehr, scheduleType, slug);
+  const scheduleData = await getSchedules(oystehr, scheduleType, { slug });
   const { scheduleList, metadata, rootScheduleOwner: scheduleOwner } = scheduleData;
   console.timeEnd('get-schedule-from-slug');
   console.log('groupItems retrieved from getScheduleUtil:', JSON.stringify(scheduleList, null, 2));

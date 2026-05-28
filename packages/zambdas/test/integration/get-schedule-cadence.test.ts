@@ -31,7 +31,7 @@ import {
 // End-to-end verification that a `service-category-cadence-minutes`
 // characteristic configured on a FHIR-tagged HealthcareService actually
 // reaches the slot generator inside the get-schedule zambda. The unit
-// tests in packages/utils pin the slot-generator's cadence behaviour;
+// tests in packages/utils pin the slot-generator's cadence behavior;
 // this test pins the plumbing — write the characteristic, hit the live
 // endpoint, observe slot start times.
 //

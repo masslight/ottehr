@@ -6,6 +6,7 @@ import {
   APPOINTMENT_ALREADY_EXISTS_ERROR,
   CanonicalUrl,
   CHARACTER_LIMIT_EXCEEDED_ERROR,
+  checkSlotAvailable,
   CreateAppointmentInputParams,
   FHIR_RESOURCE_NOT_FOUND,
   getServiceModeFromScheduleOwner,
@@ -14,6 +15,7 @@ import {
   getSlotIsWalkin,
   INVALID_INPUT_ERROR,
   isLocationVirtual,
+  makeSlotAtLocationExtensionEntry,
   MISSING_REQUIRED_PARAMETERS,
   NO_READ_ACCESS_TO_PATIENT_ERROR,
   parseQuestionnaireCanonicalExtension,
@@ -24,6 +26,7 @@ import {
   ScheduleOwnerFhirResource,
   Secrets,
   ServiceMode,
+  SLOT_FALLBACK_REROUTED_TAG,
   SLOT_QUESTIONNAIRE_CANONICAL_EXTENSION_URL,
   VisitType,
 } from 'utils';
@@ -36,6 +39,7 @@ import {
   ZambdaInput,
 } from '../../../shared';
 import { getCanonicalUrlForPrevisitQuestionnaire } from '../helpers';
+import { tryGroupMemberFallback } from './groupMemberFallback';
 
 export type CreateAppointmentBasicInput = CreateAppointmentInputParams & {
   secrets: Secrets | null;
@@ -148,6 +152,11 @@ export function validateCreateAppointmentParams(input: ZambdaInput, user: User):
 
 export interface CreateAppointmentEffectInput {
   slot: Slot;
+  /**
+   * The Schedule that owns the slot. Forwarded so the capacity guard (and
+   * any later fallback step) doesn't have to re-fetch it.
+   */
+  schedule: Schedule;
   scheduleOwner: ScheduleOwnerFhirResource;
   serviceMode: ServiceMode;
   patient: PatientInfo;
@@ -219,10 +228,12 @@ export const createAppointmentComplexValidation = async (
     })
   ).unbundle();
   const slot = fhirResources.find((resource) => resource.resourceType === 'Slot') as Slot;
-  const schedule = fhirResources.find((resource) => resource.resourceType === 'Schedule') as Schedule | undefined;
-  const scheduleOwner = fhirResources.find((resource) => {
+  const initialSchedule = fhirResources.find((resource) => resource.resourceType === 'Schedule') as
+    | Schedule
+    | undefined;
+  const initialScheduleOwner = fhirResources.find((resource) => {
     const asRef = `${resource.resourceType}/${resource.id}`;
-    return schedule?.actor?.some((actor) => actor.reference === asRef);
+    return initialSchedule?.actor?.some((actor) => actor.reference === asRef);
   }) as ScheduleOwnerFhirResource | undefined;
   const appointment = fhirResources.find((resource) => resource.resourceType === 'Appointment') as
     | Appointment
@@ -230,12 +241,59 @@ export const createAppointmentComplexValidation = async (
   if (!slot.id) {
     throw FHIR_RESOURCE_NOT_FOUND('Slot');
   }
-  if (scheduleOwner === undefined) {
+  if (!initialSchedule?.id) {
+    throw FHIR_RESOURCE_NOT_FOUND('Schedule');
+  }
+  if (initialScheduleOwner === undefined) {
     // this will be a 500 error
     throw new Error('Schedule owner not found');
   }
   if (appointment?.id) {
     throw APPOINTMENT_ALREADY_EXISTS_ERROR;
+  }
+
+  // Capacity guard. Reject the booking before any FHIR writes if the
+  // Schedule's bucket for this start time is already exhausted (e.g., a
+  // concurrent booking from another patient won the race after the
+  // patient reserved this slot, OR the Schedule's hours-of-operation
+  // changed between vending and booking). Peer-aware: cross-PR conflicts
+  // for the same Practitioner are caught too.
+  //
+  // The patient's own just-reserved Slot is persisted by create-slot
+  // with status=busy before this zambda runs; exclude it from the busy
+  // count so it doesn't count against itself.
+  let schedule: Schedule = initialSchedule;
+  let scheduleOwner: ScheduleOwnerFhirResource = initialScheduleOwner;
+
+  const available = await checkSlotAvailable({ slot, schedule, excludeSlotId: slot.id }, oystehrClient);
+  if (!available) {
+    // Anonymous-mode group fallback: if the originally-targeted member is
+    // saturated, attempt to reroute to another member of the same group at
+    // the same Location. Gated on the slot being booked-via-group AND the
+    // group HS being in anonymous assignment mode AND a candidate having
+    // capacity at the originating Location — see groupMemberFallback.ts.
+    const fallback = await tryGroupMemberFallback({ slot, schedule, scheduleOwner, oystehrClient });
+    if (!fallback) {
+      throw INVALID_INPUT_ERROR('This time slot is no longer available. Please choose another time.');
+    }
+    schedule = fallback.schedule;
+    scheduleOwner = fallback.scheduleOwner;
+    slot.schedule = { reference: `Schedule/${fallback.schedule.id}` };
+    slot.meta = {
+      ...(slot.meta ?? {}),
+      tag: [...(slot.meta?.tag ?? []), SLOT_FALLBACK_REROUTED_TAG],
+    };
+    if (fallback.locationStampNeeded) {
+      slot.extension = [...(slot.extension ?? []), makeSlotAtLocationExtensionEntry(fallback.locationStampNeeded)];
+    }
+    // Persist the swap before downstream code runs. The main create-appointment
+    // transaction only PATCHes the slot's status; without this update, the
+    // schedule swap + rerouted tag + at-location stamp would live only in
+    // memory for the rest of this request and never reach disk — leaving
+    // the persisted Slot pointing at the originally-saturated Schedule,
+    // which would corrupt analytics, audit trails, and any downstream
+    // reader that walks Slot → Schedule.
+    await oystehrClient.fhir.update<Slot>(slot);
   }
 
   let serviceMode = getServiceModeFromSlot(slot);
@@ -324,6 +382,7 @@ export const createAppointmentComplexValidation = async (
 
   return {
     slot,
+    schedule,
     scheduleOwner,
     serviceMode,
     user,

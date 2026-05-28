@@ -52,7 +52,7 @@ interface GetScheduleResponse extends BookableScheduleData {
 export async function getSchedules(
   oystehr: Oystehr,
   scheduleType: 'location' | 'provider' | 'group',
-  slug: string
+  identifier: { slug: string } | { id: string }
 ): Promise<GetScheduleResponse> {
   // 'provider' resolves to a PractitionerRole — a PR pins (Practitioner,
   // Location, categories) so the share-link is meaningfully scoped.
@@ -65,10 +65,12 @@ export async function getSchedules(
     }
     return 'HealthcareService';
   })();
-  const searchParams: SearchParam[] = [
-    { name: 'identifier', value: `${SLUG_SYSTEM}|${slug}` },
-    { name: '_revinclude', value: `Schedule:actor:${fhirType}` },
-  ];
+  const ownerLookupParam: SearchParam =
+    'slug' in identifier
+      ? { name: 'identifier', value: `${SLUG_SYSTEM}|${identifier.slug}` }
+      : { name: '_id', value: identifier.id };
+  const ownerDescriptor = 'slug' in identifier ? `slug "${identifier.slug}"` : `id "${identifier.id}"`;
+  const searchParams: SearchParam[] = [ownerLookupParam, { name: '_revinclude', value: `Schedule:actor:${fhirType}` }];
 
   let resourceType;
   if (scheduleType === 'location') {
@@ -135,7 +137,8 @@ export async function getSchedules(
   ).unbundle();
 
   const scheduleOwner = scheduleResources.find((res) => {
-    return res.resourceType === fhirType && checkResourceHasSlug(res, slug);
+    if (res.resourceType !== fhirType) return false;
+    return 'slug' in identifier ? checkResourceHasSlug(res, identifier.slug) : res.id === identifier.id;
   }) as Location | Practitioner | HealthcareService | PractitionerRole;
 
   let hsSchedulingStrategy: ScheduleStrategy | undefined;
@@ -153,7 +156,7 @@ export async function getSchedules(
   }
 
   if (scheduleResources.length === 0) {
-    console.log(`schedule for ${fhirType} with identifier "${slug}" was not found`);
+    console.log(`schedule for ${fhirType} with ${ownerDescriptor} was not found`);
     throw SCHEDULE_NOT_FOUND_ERROR;
   }
 
@@ -196,7 +199,7 @@ export async function getSchedules(
 
   if (!schedule?.id && (hsSchedulingStrategy === undefined || hsSchedulingStrategy === ScheduleStrategy.owns)) {
     throw SCHEDULE_NOT_FOUND_CUSTOM_ERROR(
-      `No Schedule associated with ${fhirType} with identifier "${slug}" could be found. To cure this, create a Schedule resource referencing this ${fhirType} resource via its "actor" field and give it an extension with the requisite schedule extension json.`
+      `No Schedule associated with ${fhirType} with ${ownerDescriptor} could be found. To cure this, create a Schedule resource referencing this ${fhirType} resource via its "actor" field and give it an extension with the requisite schedule extension json.`
     );
   }
 

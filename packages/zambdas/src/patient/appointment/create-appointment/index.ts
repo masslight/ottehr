@@ -13,13 +13,11 @@ import {
   Location,
   Patient,
   Practitioner,
-  PractitionerRole,
   Questionnaire,
   QuestionnaireResponse,
   QuestionnaireResponseItem,
   Reference,
   Resource,
-  Schedule,
   Slot,
   Task,
 } from 'fhir/r4b';
@@ -199,50 +197,6 @@ export const index = wrapHandler('create-appointment', async (input: ZambdaInput
     body: JSON.stringify(response),
   };
 });
-
-/**
- * Resolve the list of FHIR Schedules owned by a group's members
- * (Locations on HealthcareService.location[] and Practitioners linked via
- * PractitionerRole.healthcareService).
- */
-// todo: reconnect this or delete. not clear why this would be needed in create appointment when a slot is passed in that should resolve much of this
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-async function resolveGroupMemberSchedules(
-  oystehr: Oystehr,
-  group: { id?: string; location?: Array<{ reference?: string }> }
-): Promise<Schedule[]> {
-  if (!group.id) return [];
-  const locationRefs = (group.location || []).map((r) => r.reference).filter((r): r is string => !!r);
-
-  const practitionerRoles = (
-    await oystehr.fhir.search<PractitionerRole>({
-      resourceType: 'PractitionerRole',
-      params: [{ name: 'service', value: `HealthcareService/${group.id}` }],
-    })
-  ).unbundle();
-  const practitionerRefs = practitionerRoles.map((pr) => pr.practitioner?.reference).filter((r): r is string => !!r);
-
-  const memberRefs = [...locationRefs, ...practitionerRefs];
-  if (memberRefs.length === 0) return [];
-
-  // Search Schedule by actor. Oystehr's search doesn't support OR across
-  // different resource types cleanly, so query per-ref and union.
-  const all: Schedule[] = [];
-  for (const ref of memberRefs) {
-    try {
-      const results = (
-        await oystehr.fhir.search<Schedule>({
-          resourceType: 'Schedule',
-          params: [{ name: 'actor', value: ref }],
-        })
-      ).unbundle();
-      all.push(...results);
-    } catch (err) {
-      console.warn(`Failed to fetch schedules for member ${ref}:`, err);
-    }
-  }
-  return all;
-}
 
 export async function createAppointment(
   input: CreateAppointmentInput,

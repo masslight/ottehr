@@ -2014,42 +2014,62 @@ interface CheckSlotAvailableInput {
    */
   excludeSlotId?: string;
 }
+/**
+ * Pure predicate, extracted from checkSlotAvailable so the rule can be
+ * exercised by unit tests without FHIR I/O. Given a Slot, its owning
+ * Schedule, and a set of busy slots in the relevant time window, decides
+ * whether the Slot's start time is still bookable.
+ *
+ * Re-computes the Schedule's available start times for the Slot's day,
+ * subtracting the busy slots, and returns true iff the requested start
+ * appears in that list. Slot length is derived from the Slot itself
+ * (slot.end − slot.start) so the bucket math aligns with the original
+ * vending grid — sharper than the previous heuristic which assumed
+ * Schedule-default slot length.
+ */
+export const slotAvailableAgainstBusy = (input: { slot: Slot; schedule: Schedule; busySlots: Slot[] }): boolean => {
+  const { slot, schedule, busySlots } = input;
+  if (!slot.start || !slot.end) return false;
+  const slotStart = DateTime.fromISO(slot.start);
+  const slotEnd = DateTime.fromISO(slot.end);
+  if (!slotStart.isValid || !slotEnd.isValid) return false;
+  const slotLengthMinutes = Math.max(1, Math.round(slotEnd.diff(slotStart, 'minutes').minutes));
+  const dayStart = slotStart.startOf('day');
+  const availableSlots = getAvailableSlots({
+    now: dayStart,
+    numDays: 1,
+    schedule,
+    busySlots,
+    slotLengthMinutes,
+  });
+  return availableSlots.some((iso) => {
+    const candidate = DateTime.fromISO(iso);
+    return candidate.isValid && candidate.equals(slotStart);
+  });
+};
+
 export const checkSlotAvailable = async (input: CheckSlotAvailableInput, oystehr: Oystehr): Promise<boolean> => {
-  const getBusySlotsInput: GetSlotsInWindowInput = {
-    scheduleIds: [input.schedule.id!],
-    fromISO: input.slot.start,
-    toISO: input.slot.end,
-    status: ['busy', 'busy-tentative', 'busy-unavailable'],
-  };
-  let busySlots = await getSlotsInWindow(getBusySlotsInput, oystehr);
+  if (!input.schedule.id) return false;
+  // Peer-aware busy lookup. For PR-actored Schedules, fold in busy slots
+  // on every Schedule actor'd by the same Practitioner — one human, one
+  // calendar (matches the rule getAvailableSlotsForSchedules uses at
+  // vending time). For Location/HS-actored Schedules,
+  // getPractitionerSchedulePeerIds returns just the input id; behaviour
+  // is unchanged for those cases.
+  const peerScheduleIds = await getPractitionerSchedulePeerIds(input.schedule.id, oystehr);
+  let busySlots = await getSlotsInWindow(
+    {
+      scheduleIds: peerScheduleIds,
+      fromISO: input.slot.start,
+      toISO: input.slot.end,
+      status: ['busy', 'busy-tentative', 'busy-unavailable'],
+    },
+    oystehr
+  );
   if (input.excludeSlotId) {
     busySlots = busySlots.filter((s) => s.id !== input.excludeSlotId);
   }
-  console.log('found this many busy slots: ', busySlots.length);
-
-  const startTime = DateTime.fromISO(input.slot.start);
-  const dayStart = startTime.startOf('day');
-
-  const getAvailableInput: GetAvailableSlotsInput = {
-    now: dayStart,
-    numDays: 1,
-    schedule: input.schedule,
-    busySlots,
-  };
-  const availableSlots = getAvailableSlots(getAvailableInput);
-
-  //console.log('found this many available slots: ', availableSlots.length);
-
-  // note this is just checking for same start times, and assumes length of slot is same as available slots
-  // todo: improve the logic here; we need a better heuristic for slot equivalence since we have no persisted slots with ids to check
-  // it's not so pressing at the moment since we're assuming a schedule only vends slots of equivalent type and length
-  return availableSlots.some((slot) => {
-    const slotTime = DateTime.fromISO(slot);
-    if (slotTime !== null) {
-      return slotTime.equals(startTime);
-    }
-    return false;
-  });
+  return slotAvailableAgainstBusy({ slot: input.slot, schedule: input.schedule, busySlots });
 };
 
 export const getSlotServiceCategoryCodingFromScheduleOwner = (
