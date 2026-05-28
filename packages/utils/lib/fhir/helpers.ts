@@ -1546,3 +1546,11 @@ export function makeOptimisticLockIfMatchHeader(res: FhirResource | string): str
 
   return versionId ? `W/"${versionId}"` : undefined;
 }
+
+export const resourceHasTagSystem = (resource: FhirResource, system: string): boolean =>
+  resource.meta?.tag?.some((t) => t.system === system) ?? false;
+
+export const getTag = (resource: Resource, tagSystem: string, tagCode?: string): Coding | undefined => {
+  if (tagCode) return resource.meta?.tag?.find((tag) => tag.system === tagSystem && tag.code === tagCode);
+  else return resource.meta?.tag?.find((tag) => tag.system === tagSystem);
+};

@@ -32,8 +32,8 @@ export type StyleFactory = (assets: PdfAssets) => PdfStyles;
 export interface PdfHeaderConfig<TData extends PdfData> {
   title: string | ((data: TData) => string);
   logo?: {
-    width: number;
-    height: number;
+    maxWidth: number;
+    maxHeight: number;
   };
   leftSection?: PdfHeaderSection<TData, any>;
   rightSection?: PdfHeaderSection<TData, any>;
@@ -165,10 +165,12 @@ const renderPdfHeader = <TData extends PdfData>(
 
   if (config.logo && assets.logo) {
     console.log('Rendering logo...');
-    const { width, height } = config.logo;
+    const { width, height } = assets.logo.scaleToFit(config.logo.maxWidth, config.logo.maxHeight);
     console.log('Logo config:', {
-      width,
-      height,
+      boxWidth: config.logo.maxWidth,
+      boxHeight: config.logo.maxHeight,
+      drawnWidth: width,
+      drawnHeight: height,
     });
     pdfClient.drawImage(assets.logo, {
       width,
