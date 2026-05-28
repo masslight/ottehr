@@ -54,8 +54,14 @@ describe('get-appointments - validateRequestParameters', () => {
     expect(result.supervisorApprovalEnabled).toBe(true);
   });
 
-  test('should default supervisorApprovalEnabled to false when not boolean', () => {
+  test('should throw when supervisorApprovalEnabled is not a boolean', () => {
     const input = createMockZambdaInput({ ...validBody, supervisorApprovalEnabled: 'yes' });
+    expect(() => validateRequestParameters(input)).toThrow('supervisorApprovalEnabled');
+  });
+
+  test('should default supervisorApprovalEnabled to false when omitted', () => {
+    const { ...body } = validBody;
+    const input = createMockZambdaInput(body);
     const result = validateRequestParameters(input);
 
     expect(result.supervisorApprovalEnabled).toBe(false);

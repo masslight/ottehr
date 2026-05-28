@@ -1,5 +1,12 @@
 import { SaveChartDataRequest } from 'utils';
-import { ZambdaInput } from '../../shared';
+import { z } from 'zod';
+import { safeValidate, ZambdaInput } from '../../shared';
+
+const SaveChartDataBodySchema = z
+  .object({
+    encounterId: z.string(),
+  })
+  .passthrough();
 
 export function validateRequestParameters(
   input: ZambdaInput
@@ -12,12 +19,8 @@ export function validateRequestParameters(
     throw new Error('Authorization token is not provided in headers');
   }
 
-  const data = JSON.parse(input.body) as SaveChartDataRequest;
-
-  if (data.encounterId === undefined) {
-    throw new Error('These fields are required: "encounterId"');
-  }
+  const data = safeValidate(SaveChartDataBodySchema, JSON.parse(input.body));
   const userToken = input.headers.Authorization.replace('Bearer ', '');
 
-  return { ...data, secrets: input.secrets, userToken: userToken };
+  return { ...(data as SaveChartDataRequest), secrets: input.secrets, userToken };
 }

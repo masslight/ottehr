@@ -1,5 +1,6 @@
-import { MISSING_REQUEST_BODY, MISSING_REQUIRED_PARAMETERS } from 'utils';
-import { ZambdaInput } from '../../../shared';
+import { MISSING_REQUEST_BODY } from 'utils';
+import { z } from 'zod';
+import { safeValidate, ZambdaInput } from '../../../shared';
 
 export interface CreateChargeMasterParams {
   name: string;
@@ -8,21 +9,23 @@ export interface CreateChargeMasterParams {
   secrets: ZambdaInput['secrets'];
 }
 
+const CreateChargeMasterBodySchema = z.object({
+  name: z.string().min(1),
+  effectiveDate: z.string().min(1),
+  description: z.string().default(''),
+});
+
 export function validateRequestParameters(input: ZambdaInput): CreateChargeMasterParams {
   if (!input.body) {
     throw MISSING_REQUEST_BODY;
   }
 
-  const { name, effectiveDate, description } = JSON.parse(input.body);
-
-  if (!name || !effectiveDate) {
-    throw MISSING_REQUIRED_PARAMETERS(['name', 'effectiveDate']);
-  }
+  const { name, effectiveDate, description } = safeValidate(CreateChargeMasterBodySchema, JSON.parse(input.body));
 
   return {
     name,
     effectiveDate,
-    description: description ?? '',
+    description,
     secrets: input.secrets,
   };
 }

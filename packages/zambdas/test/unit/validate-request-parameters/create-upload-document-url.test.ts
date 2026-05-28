@@ -34,13 +34,30 @@ describe('create-upload-document-url - validateRequestParameters', () => {
     expect(() => validateRequestParameters(input)).toThrow();
   });
 
-  test('should return undefined fields when body fields are missing', () => {
+  test('should throw when required body fields are missing', () => {
     const input = createMockZambdaInput({});
-    const result = validateRequestParameters(input);
+    expect(() => validateRequestParameters(input)).toThrow('patientId');
+  });
 
-    expect(result.patientId).toBeUndefined();
-    expect(result.fileFolderId).toBeUndefined();
-    expect(result.fileName).toBeUndefined();
+  test('should throw when patientId is missing', () => {
+    const input = createMockZambdaInput({ fileFolderId: 'folder-456', fileName: 'report.pdf' });
+    expect(() => validateRequestParameters(input)).toThrow('patientId');
+  });
+
+  test('should throw when fileFolderId is missing', () => {
+    const input = createMockZambdaInput({ patientId: 'patient-123', fileName: 'report.pdf' });
+    expect(() => validateRequestParameters(input)).toThrow('fileFolderId');
+  });
+
+  test('should throw when fileName is missing', () => {
+    const input = createMockZambdaInput({ patientId: 'patient-123', fileFolderId: 'folder-456' });
+    expect(() => validateRequestParameters(input)).toThrow('fileName');
+  });
+
+  test('should accept optional internalName', () => {
+    const input = createMockZambdaInput({ ...validBody, internalName: 'custom-folder' });
+    const result = validateRequestParameters(input);
+    expect(result.internalName).toBe('custom-folder');
   });
 
   test('should pass secrets through from input', () => {

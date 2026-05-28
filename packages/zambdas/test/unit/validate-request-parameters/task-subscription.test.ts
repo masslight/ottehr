@@ -26,7 +26,7 @@ describe('task subscription - validateRequestParameters', () => {
 
   test('should throw when resourceType is not Task', () => {
     const input = createMockZambdaInput({ resourceType: 'Patient', status: 'active' }, { secrets });
-    expect(() => validateRequestParameters(input)).toThrow('task');
+    expect(() => validateRequestParameters(input)).toThrow('resourceType');
   });
 
   test('should throw when task status is completed', () => {
