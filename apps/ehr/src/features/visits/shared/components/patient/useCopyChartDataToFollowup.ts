@@ -9,9 +9,8 @@ interface CopyChartDataInput {
   fields: CopyableFollowupField[];
 }
 
-// OTR-2467: copies 5 of the 6 chart-data fields from a parent encounter onto the new
-// follow-up encounter via save-chart-data. Diagnosis is copied server-side by
-// create-appointment (predates OTR-2467) — callers must NOT include it in `fields`.
+// Copies the client-side chart fields onto the new follow-up via save-chart-data. Diagnosis is
+// copied server-side by create-appointment — callers must NOT include it in `fields`.
 export const useCopyChartDataToFollowup = (): UseMutationResult<void, Error, CopyChartDataInput> => {
   const apiClient = useOystehrAPIClient();
 

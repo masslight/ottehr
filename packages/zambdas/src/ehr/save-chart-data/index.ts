@@ -1,7 +1,16 @@
 import Oystehr, { BatchInputPostRequest, BatchInputPutRequest, BatchInputRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
-import { CodeableConcept, DocumentReference, Encounter, FhirResource, List, Patient, Practitioner } from 'fhir/r4b';
+import {
+  CodeableConcept,
+  Communication,
+  DocumentReference,
+  Encounter,
+  FhirResource,
+  List,
+  Patient,
+  Practitioner,
+} from 'fhir/r4b';
 import {
   addEmptyArrOperation,
   ADDITIONAL_QUESTIONS_META_SYSTEM,
@@ -10,6 +19,7 @@ import {
   DispositionFollowUpType,
   ExamObservationDTO,
   getPatchBinary,
+  getProviderNameWithProfession,
   PATIENT_VITALS_META_SYSTEM,
   SCHOOL_WORK_NOTE,
   Secrets,
@@ -37,6 +47,7 @@ import {
   makeRosObservationResource,
   makeSchoolWorkDR,
   makeServiceRequestResource,
+  prepareAddendumNotes,
   saveOrUpdateResourceRequest,
   updateEncounterAddendumNote,
   updateEncounterAddToVisitNote,
@@ -467,9 +478,16 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     );
   }
 
+  let existingByAddendumId = new Map<string, Communication>();
+  if (notes && notes.length > 0) {
+    const practitionerDisplay = getProviderNameWithProfession(currentPractitioner);
+    existingByAddendumId = await prepareAddendumNotes(oystehr, notes, currentPractitioner.id!, practitionerDisplay);
+  }
+
   // convert notes to Communication (FHIR) resources
   notes?.forEach((element) => {
-    const note = makeNoteResource(encounterId, patient.id!, element);
+    const existing = element.resourceId ? existingByAddendumId.get(element.resourceId) : undefined;
+    const note = makeNoteResource(encounterId, patient.id!, element, existing);
     const request = saveOrUpdateResourceRequest(note);
     saveOrUpdateRequests.push(request);
   });
@@ -502,7 +520,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   console.log('Updated chart data as a transaction');
 
-  await runChartDataPostChangeTasks(oystehr, addendumNote, encounter, appointment?.id);
+  await runChartDataPostChangeTasks(oystehr, addendumNote, notes, encounter, appointment?.id);
 
   console.timeLog('time', 'before sorting resources');
   const output = validateBundleAndExtractSavedChartData(

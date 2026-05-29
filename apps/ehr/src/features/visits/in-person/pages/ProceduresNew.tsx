@@ -55,6 +55,7 @@ import {
   COMPLICATIONS_VALUE_SET_URL,
   CPTCodeDTO,
   DiagnosisDTO,
+  FHIR_CODE_REGEX,
   IcdSearchResponse,
   MEDICATIONS_USED_VALUE_SET_URL,
   PATIENT_RESPONSES_VALUE_SET_URL,
@@ -980,7 +981,7 @@ export default function ProceduresNew(): ReactElement {
               // regex is from fhir spec for code (which is where this value is mapped)
               // https://hl7.org/fhir/R4B/datatypes.html#code
               validate={(value) =>
-                !value || /^[^\s]+(\s[^\s]+)*$/.test(value) || 'No leading, trailing, or consecutive spaces allowed'
+                !value || FHIR_CODE_REGEX.test(value) || 'No leading, trailing, or consecutive spaces allowed'
               }
             />
 

@@ -443,17 +443,24 @@ export const mapDiagnosesToClaimResource = (claim: Claim, diagnoses: DiagnosesFo
     claimCopy.extension = undefined;
   }
 
-  claimCopy.diagnosis = diagnoses.items.map((item, index) => ({
-    sequence: index + 1,
-    diagnosisCodeableConcept: {
-      coding: [
-        {
-          code: item?.code,
-          display: item?.display,
-        },
-      ],
-    },
-  }));
+  const seenDxCodes = new Set<string>();
+  claimCopy.diagnosis = diagnoses.items
+    .filter((item) => {
+      if (!item?.code || seenDxCodes.has(item.code)) return false;
+      seenDxCodes.add(item.code);
+      return true;
+    })
+    .map((item, index) => ({
+      sequence: index + 1,
+      diagnosisCodeableConcept: {
+        coding: [
+          {
+            code: item?.code,
+            display: item?.display,
+          },
+        ],
+      },
+    }));
 
   if (claimCopy.diagnosis.length === 0) {
     claimCopy.diagnosis = undefined;

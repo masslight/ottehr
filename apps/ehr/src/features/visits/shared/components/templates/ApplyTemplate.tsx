@@ -24,33 +24,24 @@ import { useApiClients } from 'src/hooks/useAppClients';
 import { useCommandPaletteSource } from 'src/hooks/useCommandPaletteSource';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import { usePendingQuickPick } from 'src/hooks/usePendingQuickPick';
-import { RoleType } from 'utils';
+import { RoleType, TEMPLATE_SECTIONS_IN_ORDER, TemplateSectionActions } from 'utils';
 import { useGetAppointmentAccessibility } from '../../hooks/useGetAppointmentAccessibility';
 import { useAppointmentData } from '../../stores/appointment/appointment.store';
 import { resetExamObservationsStore } from '../../stores/appointment/reset-exam-observations';
 import { resetRosObservationsStore } from '../../stores/appointment/reset-ros-observations';
+import { TemplatePreviewDialog } from './TemplatePreviewDialog';
 import { TemplateOption, useListTemplates } from './useListTemplates';
 
 const ADD_NEW_SENTINEL = '__ADD_NEW__';
 
-const TEMPLATE_SECTIONS = [
-  'HPI (History of Present Illness)',
-  'MOI (Mechanism of Injury)',
-  'Review of Systems (ROS)',
-  'Exam findings',
-  'Medical Decision Making (MDM)',
-  'Assessment / ICD-10 Diagnoses',
-  'Patient Instructions',
-  'CPT Codes',
-  'E&M Code',
-];
+const TEMPLATE_SECTIONS = TEMPLATE_SECTIONS_IN_ORDER.map((section) => section.label);
 
 const ADD_OR_UPDATE_LABEL = '+ Add or Update Template From Note';
 
 export const ApplyTemplate: React.FC = () => {
   const [selectedTemplate, setSelectedTemplate] = useState<TemplateOption | null>(null);
   const [dialogOpen, setDialogOpen] = useState<boolean>(false);
-  const [pendingTemplate, setPendingTemplate] = useState<string>('');
+  const [pendingTemplate, setPendingTemplate] = useState<TemplateOption | null>(null);
   const [isApplyingTemplate, setIsApplyingTemplate] = useState<boolean>(false);
   const [createDialogOpen, setCreateDialogOpen] = useState<boolean>(false);
   const [newTemplateName, setNewTemplateName] = useState<string>('');
@@ -103,26 +94,29 @@ export const ApplyTemplate: React.FC = () => {
         setSelectedTemplate(null);
         return;
       }
-      setPendingTemplate(newValue.value);
+      setPendingTemplate(newValue);
       setDialogOpen(true);
     } else {
       setSelectedTemplate(null);
-      setPendingTemplate('');
+      setPendingTemplate(null);
     }
   };
 
   const handleDialogClose = (): void => {
+    // Leave pendingTemplate in place so the dialog body doesn't change while it
+    // animates out. It gets replaced on the next selection or apply.
     setDialogOpen(false);
-    setPendingTemplate('');
   };
 
-  const handleApplyTemplate = async (): Promise<void> => {
+  const handleApplyTemplate = async (sectionActions: TemplateSectionActions): Promise<void> => {
+    if (!pendingTemplate) return;
     if (oystehrZambda && encounter.id) {
       setIsApplyingTemplate(true);
       try {
         await applyTemplate(oystehrZambda, {
           encounterId: encounter.id,
-          templateName: pendingTemplate,
+          templateName: pendingTemplate.value,
+          sectionActions,
         });
 
         // Reset exam observations store to force reload from server
@@ -146,19 +140,16 @@ export const ApplyTemplate: React.FC = () => {
         setIsApplyingTemplate(false);
       }
     }
-    // Find the template option that matches the pendingTemplate value
-    const selectedTemplateOption = templates.find((template) => template.value === pendingTemplate) || null;
-    setSelectedTemplate(selectedTemplateOption);
+    setSelectedTemplate(pendingTemplate);
     setDialogOpen(false);
-    setPendingTemplate('');
-  };
-
-  const getTemplateName = (value: string): string => {
-    return templates.find((option) => option.value === value)?.label || '';
+    // Keep pendingTemplate while the dialog animates out; the next selection
+    // (or another apply) will overwrite it.
   };
 
   const selectTemplateByName = (templateName: string): void => {
-    setPendingTemplate(templateName);
+    const option = templates.find((t) => t.value === templateName);
+    if (!option) return;
+    setPendingTemplate(option);
     setDialogOpen(true);
   };
 
@@ -303,55 +294,14 @@ export const ApplyTemplate: React.FC = () => {
         </Box>
       )}
 
-      {/* Apply Template Confirmation Dialog */}
-      <Dialog
+      <TemplatePreviewDialog
         open={dialogOpen}
-        onClose={handleDialogClose}
-        disableScrollLock
-        sx={{
-          '.MuiPaper-root': {
-            padding: 2,
-          },
-        }}
-      >
-        <DialogTitle variant="h4" color="primary.dark" sx={{ width: '80%' }}>
-          Apply Template
-        </DialogTitle>
-        <DialogContent>
-          <DialogContentText
-            sx={{
-              color: theme.palette.text.primary,
-            }}
-          >
-            Are you sure you want to apply the <strong>{getTemplateName(pendingTemplate)}</strong> template?
-            <br />
-            <br />
-            <strong>Overwritten:</strong> ROS, Exam, MDM, Patient Instructions, E&amp;M Code
-            <br />
-            <strong>Appended:</strong> HPI, MOI, ICD-10 Diagnoses, CPT Codes
-          </DialogContentText>
-        </DialogContent>
-        <DialogActions sx={{ justifyContent: 'space-between', px: 3 }}>
-          <Button
-            variant="outlined"
-            onClick={handleDialogClose}
-            size="medium"
-            sx={buttonSx}
-            disabled={isApplyingTemplate}
-          >
-            Cancel
-          </Button>
-          <LoadingButton
-            variant="contained"
-            onClick={handleApplyTemplate}
-            size="medium"
-            sx={buttonSx}
-            loading={isApplyingTemplate}
-          >
-            Apply Template
-          </LoadingButton>
-        </DialogActions>
-      </Dialog>
+        templateId={pendingTemplate?.id ?? null}
+        templateName={pendingTemplate?.label ?? ''}
+        isApplying={isApplyingTemplate}
+        onCancel={handleDialogClose}
+        onApply={handleApplyTemplate}
+      />
 
       {/* Create/Update Template Dialog */}
       <Dialog open={createDialogOpen} onClose={handleCreateDialogClose} disableScrollLock maxWidth="sm" fullWidth>
