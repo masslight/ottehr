@@ -2,6 +2,7 @@ import AddIcon from '@mui/icons-material/Add';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
+import RestoreFromTrashIcon from '@mui/icons-material/RestoreFromTrash';
 import UploadIcon from '@mui/icons-material/Upload';
 import {
   Box,
@@ -11,8 +12,10 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  FormControlLabel,
   IconButton,
   Paper,
+  Switch,
   Table,
   TableBody,
   TableCell,
@@ -30,7 +33,9 @@ import { useNavigate } from 'react-router-dom';
 import {
   createPracticeManagedQuestionnaire,
   deletePracticeManagedQuestionnaire,
+  getPracticeManagedQuestionnaire,
   listPracticeManagedQuestionnaires,
+  updatePracticeManagedQuestionnaire,
 } from 'src/api/api';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { ButtonRounded } from 'src/features/visits/in-person/components/RoundedButton';
@@ -48,12 +53,10 @@ function countItems(items: FhirQuestionnaire['item']): number {
   return count;
 }
 
-const STATUS_CHIP_STYLES: Record<string, { backgroundColor: string; color: string }> = {
-  active: { backgroundColor: 'rgba(46, 125, 50, 0.3)', color: '#2E7D32' },
-  draft: { backgroundColor: 'rgba(251, 140, 0, 0.3)', color: '#FB8C00' },
-  retired: { backgroundColor: 'rgba(211, 47, 47, 0.3)', color: '#D32F2F' },
-  unknown: { backgroundColor: 'rgba(0, 0, 0, 0.08)', color: 'rgba(0, 0, 0, 0.6)' },
-};
+// A questionnaire is "deleted" when its FHIR status is retired (set by the Delete action).
+// Deleted forms are soft-deleted so existing patient responses stay viewable; they are hidden
+// from the list unless "Show deleted" is on, where they can be restored.
+const isDeleted = (q: FhirQuestionnaire): boolean => q.status === 'retired';
 
 const FileUploadArea: FC<{ onFileLoaded: (content: string) => void; disabled?: boolean }> = ({
   onFileLoaded,
@@ -132,6 +135,7 @@ export const QuestionnaireAdminPage: FC = () => {
   const [importJson, setImportJson] = useState('');
   const [importError, setImportError] = useState<string | null>(null);
   const [isImporting, setIsImporting] = useState(false);
+  const [showDeleted, setShowDeleted] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: QUERY_KEY,
@@ -150,6 +154,8 @@ export const QuestionnaireAdminPage: FC = () => {
     .slice()
     .sort((a, b) => (a.title || a.name || '').localeCompare(b.title || b.name || ''));
   const systemQuestionnaires = data?.systemQuestionnaires || [];
+  const deletedCount = questionnaires.filter(isDeleted).length;
+  const visibleQuestionnaires = showDeleted ? questionnaires : questionnaires.filter((q) => !isDeleted(q));
 
   const handleCreate = useCallback(() => {
     navigate('/admin/questionnaires/new');
@@ -172,6 +178,23 @@ export const QuestionnaireAdminPage: FC = () => {
       } catch (err) {
         console.error('Failed to delete questionnaire:', err);
         enqueueSnackbar('Failed to delete questionnaire', { variant: 'error' });
+      }
+    },
+    [oystehrZambda, queryClient]
+  );
+
+  const handleRestore = useCallback(
+    async (id: string) => {
+      if (!oystehrZambda) return;
+      try {
+        // Fetch the full resource (the list view is a lossy projection) and flip status back to active.
+        const { questionnaire } = await getPracticeManagedQuestionnaire(oystehrZambda, id);
+        await updatePracticeManagedQuestionnaire(oystehrZambda, { ...questionnaire, status: 'active' });
+        void queryClient.invalidateQueries({ queryKey: QUERY_KEY });
+        enqueueSnackbar('Questionnaire restored', { variant: 'success' });
+      } catch (err) {
+        console.error('Failed to restore questionnaire:', err);
+        enqueueSnackbar('Failed to restore questionnaire', { variant: 'error' });
       }
     },
     [oystehrZambda, queryClient]
@@ -214,7 +237,14 @@ export const QuestionnaireAdminPage: FC = () => {
         <Typography variant="h4" sx={{ color: '#0F347C' }}>
           Questionnaires
         </Typography>
-        <Box sx={{ display: 'flex', gap: 1 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          {deletedCount > 0 && (
+            <FormControlLabel
+              control={<Switch size="small" checked={showDeleted} onChange={(e) => setShowDeleted(e.target.checked)} />}
+              label={`Show deleted (${deletedCount})`}
+              sx={{ mr: 1, '& .MuiFormControlLabel-label': { fontSize: 14, color: 'text.secondary' } }}
+            />
+          )}
           <ButtonRounded
             variant="outlined"
             size="medium"
@@ -233,9 +263,11 @@ export const QuestionnaireAdminPage: FC = () => {
         <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
           <CircularProgress />
         </Box>
-      ) : questionnaires.length === 0 ? (
+      ) : visibleQuestionnaires.length === 0 ? (
         <Typography variant="body1" color="text.secondary" sx={{ p: 4, textAlign: 'center' }}>
-          No questionnaires yet. Click "Create Questionnaire" to build one.
+          {questionnaires.length === 0
+            ? 'No questionnaires yet. Click "Create Questionnaire" to build one.'
+            : 'No active questionnaires. Turn on "Show deleted" to see deleted ones.'}
         </Typography>
       ) : (
         <TableContainer>
@@ -244,7 +276,6 @@ export const QuestionnaireAdminPage: FC = () => {
               <TableRow>
                 <TableCell sx={{ fontWeight: 600 }}>Title</TableCell>
                 <TableCell sx={{ fontWeight: 600 }}>Present With</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Status</TableCell>
                 <TableCell sx={{ fontWeight: 600 }} align="center">
                   Items
                 </TableCell>
@@ -254,49 +285,72 @@ export const QuestionnaireAdminPage: FC = () => {
               </TableRow>
             </TableHead>
             <TableBody>
-              {questionnaires.map((q) => (
-                <TableRow key={q.id} hover sx={{ cursor: 'pointer' }} onClick={() => handleEdit(q)}>
-                  <TableCell>{q.title || '(untitled)'}</TableCell>
-                  <TableCell>
-                    {(q.associatedQuestionnaires || []).map((url) => {
-                      const match = systemQuestionnaires.find((sq) => sq.url === url);
-                      return <Chip key={url} label={match?.title || url} size="small" sx={{ mr: 0.5 }} />;
-                    })}
-                    {(!q.associatedQuestionnaires || q.associatedQuestionnaires.length === 0) && (
-                      <Typography variant="body2" color="text.secondary">
-                        None
-                      </Typography>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <Chip
-                      label={q.status.toUpperCase()}
-                      size="small"
-                      sx={{
-                        borderRadius: '4px',
-                        height: '17px',
-                        '& .MuiChip-label': { padding: '2px 8px 0px 8px' },
-                        fontSize: 12,
-                        fontWeight: 500,
-                        ...(STATUS_CHIP_STYLES[q.status] || {}),
-                      }}
-                    />
-                  </TableCell>
-                  <TableCell align="center">{countItems(q.item)}</TableCell>
-                  <TableCell align="right" onClick={(e) => e.stopPropagation()}>
-                    <Tooltip title="Edit">
-                      <IconButton size="small" onClick={() => handleEdit(q)}>
-                        <EditIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                    <Tooltip title="Delete">
-                      <IconButton size="small" color="error" onClick={() => q.id && handleDelete(q.id)}>
-                        <DeleteIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                  </TableCell>
-                </TableRow>
-              ))}
+              {visibleQuestionnaires.map((q) => {
+                const deleted = isDeleted(q);
+                return (
+                  <TableRow
+                    key={q.id}
+                    hover={!deleted}
+                    sx={{ cursor: deleted ? 'default' : 'pointer', opacity: deleted ? 0.55 : 1 }}
+                    onClick={() => !deleted && handleEdit(q)}
+                  >
+                    <TableCell>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        {q.title || '(untitled)'}
+                        {deleted && (
+                          <Chip
+                            label="Deleted"
+                            size="small"
+                            sx={{
+                              borderRadius: '4px',
+                              height: '17px',
+                              '& .MuiChip-label': { padding: '2px 8px 0px 8px' },
+                              fontSize: 12,
+                              fontWeight: 500,
+                              backgroundColor: 'rgba(211, 47, 47, 0.3)',
+                              color: '#D32F2F',
+                            }}
+                          />
+                        )}
+                      </Box>
+                    </TableCell>
+                    <TableCell>
+                      {(q.associatedQuestionnaires || []).map((url) => {
+                        const match = systemQuestionnaires.find((sq) => sq.url === url);
+                        return <Chip key={url} label={match?.title || url} size="small" sx={{ mr: 0.5 }} />;
+                      })}
+                      {(!q.associatedQuestionnaires || q.associatedQuestionnaires.length === 0) && (
+                        <Typography variant="body2" color="text.secondary">
+                          None
+                        </Typography>
+                      )}
+                    </TableCell>
+                    <TableCell align="center">{countItems(q.item)}</TableCell>
+                    <TableCell align="right" onClick={(e) => e.stopPropagation()}>
+                      {deleted ? (
+                        <Tooltip title="Restore">
+                          <IconButton size="small" color="primary" onClick={() => q.id && handleRestore(q.id)}>
+                            <RestoreFromTrashIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      ) : (
+                        <>
+                          <Tooltip title="Edit">
+                            <IconButton size="small" onClick={() => handleEdit(q)}>
+                              <EditIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="Delete">
+                            <IconButton size="small" color="error" onClick={() => q.id && handleDelete(q.id)}>
+                              <DeleteIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        </>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         </TableContainer>

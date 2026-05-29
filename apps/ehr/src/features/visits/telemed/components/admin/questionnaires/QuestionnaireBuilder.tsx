@@ -1,18 +1,7 @@
 import AddIcon from '@mui/icons-material/Add';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
-import {
-  Box,
-  Button,
-  Checkbox,
-  FormControlLabel,
-  Grid,
-  MenuItem,
-  Paper,
-  Select,
-  TextField,
-  Typography,
-} from '@mui/material';
+import { Box, Button, Checkbox, FormControlLabel, Grid, Paper, TextField, Typography } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import { FC, useCallback, useMemo, useReducer, useState } from 'react';
 import { RoundedButton } from 'src/components/RoundedButton';
@@ -34,8 +23,6 @@ interface QuestionnaireBuilderProps {
   onCancel: () => void;
   systemQuestionnaires?: IntakeQuestionnaireOption[];
 }
-
-const STATUS_OPTIONS: QuestionnaireStatus[] = ['draft', 'active', 'retired', 'unknown'];
 
 const EXTENSION_BASE = 'https://fhir.zapehr.com/r4/StructureDefinitions';
 
@@ -132,7 +119,10 @@ export const QuestionnaireBuilder: FC<QuestionnaireBuilderProps> = ({
   systemQuestionnaires = [],
 }) => {
   const [title, setTitle] = useState(initial?.title || '');
-  const [status, setStatus] = useState<QuestionnaireStatus>(initial?.status || 'draft');
+  // No user-facing status concept: a questionnaire is either live (active) or deleted (retired,
+  // set via the Delete action). New questionnaires are created active; edits preserve the existing
+  // status so editing a live form never changes it.
+  const [status] = useState<QuestionnaireStatus>(initial?.status || 'active');
   const [description, setDescription] = useState(initial?.description || '');
   const [associatedQuestionnaires, setAssociatedQuestionnaires] = useState<Set<string>>(
     new Set(initial?.associatedQuestionnaires || [])
@@ -207,7 +197,7 @@ export const QuestionnaireBuilder: FC<QuestionnaireBuilderProps> = ({
               Questionnaire Properties
             </Typography>
             <Grid container spacing={1.5}>
-              <Grid item xs={8}>
+              <Grid item xs={12}>
                 <TextField
                   size="small"
                   label="Title"
@@ -221,20 +211,6 @@ export const QuestionnaireBuilder: FC<QuestionnaireBuilderProps> = ({
                   fullWidth
                   required
                 />
-              </Grid>
-              <Grid item xs={4}>
-                <Select
-                  size="small"
-                  value={status}
-                  onChange={(e) => setStatus(e.target.value as QuestionnaireStatus)}
-                  fullWidth
-                >
-                  {STATUS_OPTIONS.map((s) => (
-                    <MenuItem key={s} value={s}>
-                      {s.charAt(0).toUpperCase() + s.slice(1)}
-                    </MenuItem>
-                  ))}
-                </Select>
               </Grid>
               <Grid item xs={12}>
                 <TextField
