@@ -32,10 +32,8 @@ import { assert, inject } from 'vitest';
 import { getAuth0Token } from '../../src/shared';
 import { SECRETS } from '../data/secrets';
 import {
-  adjustHoursOfOperation,
-  changeAllCapacities,
+  buildSimpleScheduleExt,
   cleanupTestScheduleResources,
-  DEFAULT_SCHEDULE_JSON,
   makeTestPatient,
   persistSchedule,
   startOfDayWithTimezone,
@@ -186,18 +184,8 @@ describe('prebook integration - from getting list of slots to booking with selec
 
   const setUpInPersonResources = async (): Promise<SetUpOutput> => {
     expect(oystehr).toBeDefined();
-    const timeNow = startOfDayWithTimezone().plus({ hours: 8 });
-
-    let adjustedScheduleJSON = adjustHoursOfOperation(DEFAULT_SCHEDULE_JSON, [
-      {
-        dayOfWeek: timeNow.toLocaleString({ weekday: 'long' }).toLowerCase(),
-        open: 8,
-        close: 24,
-        workingDay: true,
-      },
-    ]);
-
-    adjustedScheduleJSON = changeAllCapacities(adjustedScheduleJSON, 1);
+    // 24/7 open with 4 bookings/hour (slot-length-invariant).
+    const adjustedScheduleJSON = buildSimpleScheduleExt({ prebookSlots: 4 });
 
     const ownerLocation: Location = {
       resourceType: 'Location',
@@ -388,18 +376,10 @@ describe('prebook integration - from getting list of slots to booking with selec
       code: tagForProcessId(processId),
       display: 'integration test fixture',
     };
+    const scheduleJson = buildSimpleScheduleExt({ prebookSlots: 4 });
+    // Used below to position the test's faux vended slot well into the
+    // schedule's open window (today midnight + 20h = today 8pm).
     const timeNow = startOfDayWithTimezone().plus({ hours: 8 });
-    const scheduleJson = changeAllCapacities(
-      adjustHoursOfOperation(DEFAULT_SCHEDULE_JSON, [
-        {
-          dayOfWeek: timeNow.toLocaleString({ weekday: 'long' }).toLowerCase(),
-          open: 8,
-          close: 24,
-          workingDay: true,
-        },
-      ]),
-      1
-    );
 
     // Build Practitioner + Location + PR + Schedule (actor = PR) in one
     // FHIR transaction so they're all wired up together at create time.
