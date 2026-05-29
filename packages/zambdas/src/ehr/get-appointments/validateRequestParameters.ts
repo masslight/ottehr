@@ -31,7 +31,7 @@ export function validateRequestParameters(input: ZambdaInput): GetAppointmentsZa
     providerIds,
     serviceCategories,
     visitType,
-    supervisorApprovalEnabled,
+    supervisorApprovalEnabled: supervisorApprovalEnabled ?? false,
     secrets: input.secrets,
   };
 }

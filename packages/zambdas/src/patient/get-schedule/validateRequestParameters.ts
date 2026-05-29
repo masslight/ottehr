@@ -3,6 +3,7 @@ import {
   getServiceCategoryCodeSchema,
   INVALID_INPUT_ERROR,
   MISSING_REQUEST_BODY,
+  ScheduleType,
   Secrets,
   ServiceCategoryCode,
 } from 'utils';
@@ -42,7 +43,7 @@ export function validateRequestParameters(input: ZambdaInput): GetScheduleReques
 
   return {
     slug,
-    scheduleType,
+    scheduleType: scheduleType as ScheduleType,
     secrets: input.secrets,
     selectedDate,
     serviceCategoryCode,

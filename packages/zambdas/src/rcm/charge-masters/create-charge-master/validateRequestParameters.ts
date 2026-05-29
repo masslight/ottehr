@@ -25,7 +25,7 @@ export function validateRequestParameters(input: ZambdaInput): CreateChargeMaste
   return {
     name,
     effectiveDate,
-    description,
+    description: description ?? '',
     secrets: input.secrets,
   };
 }
