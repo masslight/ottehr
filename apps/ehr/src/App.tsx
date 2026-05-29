@@ -61,7 +61,7 @@ import {
   DailyPayments,
   DataExports,
   IncompleteEncounters,
-  InvoiceablePatients,
+  InvoiceablePatientsReportPage,
   MailedStatements,
   PracticeKpis,
   RecentPatients,
@@ -222,7 +222,7 @@ function App(): ReactElement {
                 <Route path="/reports/ai-assisted-encounters" element={<AiAssistedEncounters />} />
                 <Route path="/reports/practice-kpis" element={<PracticeKpis />} />
                 <Route path="/reports/data-exports" element={<DataExports />} />
-                <Route path="/reports/invoiceable-patients" element={<InvoiceablePatients />} />
+                <Route path="/reports/invoiceable-patients" element={<InvoiceablePatientsReportPage />} />
                 <Route path="/reports/mailed-statements" element={<MailedStatements />} />
               </>
             )}
