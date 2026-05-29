@@ -2015,6 +2015,41 @@
       "src": "src/ehr/label-printing-config/admin-update-label-printing-config/index",
       "zip": ".dist/zips/admin-update-label-printing-config.zip"
     },
+    "GET-SUPPORT-DIALOG": {
+      "name": "get-support-dialog",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/support-dialog/get-support-dialog/index",
+      "zip": ".dist/zips/get-support-dialog.zip"
+    },
+    "ADMIN-UPDATE-SUPPORT-DIALOG": {
+      "name": "admin-update-support-dialog",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/support-dialog/admin-update-support-dialog/index",
+      "zip": ".dist/zips/admin-update-support-dialog.zip"
+    },
+    "ADMIN-UPDATE-LOCATION-SUPPORT-PHONES": {
+      "name": "admin-update-location-support-phones",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/support-dialog/admin-update-location-support-phones/index",
+      "zip": ".dist/zips/admin-update-location-support-phones.zip"
+    },
+    "GET-PUBLIC-SUPPORT-DIALOG": {
+      "name": "get-public-support-dialog",
+      "type": "http_open",
+      "runtime": "nodejs22.x",
+      "src": "src/patient/get-public-support-dialog/index",
+      "zip": ".dist/zips/get-public-support-dialog.zip"
+    },
+    "GET-PUBLIC-LOCATION-SUPPORT-PHONES": {
+      "name": "get-public-location-support-phones",
+      "type": "http_open",
+      "runtime": "nodejs22.x",
+      "src": "src/patient/get-public-location-support-phones/index",
+      "zip": ".dist/zips/get-public-location-support-phones.zip"
+    },
     "GENERATE-LABEL-XML": {
       "name": "generate-label-xml",
       "type": "http_auth",

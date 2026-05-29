@@ -35,6 +35,10 @@ export const useAddDiagnosis = (): { onAdd: (value: IcdSearchResponse['codes'][n
   const primaryDiagnosis = diagnoses.find((item) => item.isPrimary);
 
   const onAdd = (value: IcdSearchResponse['codes'][number]): void => {
+    if (diagnoses.some((d) => d.code === value.code)) {
+      enqueueSnackbar(`This diagnosis code "${value.display}" has already been added.`, { variant: 'warning' });
+      return;
+    }
     const preparedValue = { ...value, isPrimary: !primaryDiagnosis };
     const newDiagnoses = [...diagnoses, preparedValue];
     const previousDiagnoses = [...diagnoses];

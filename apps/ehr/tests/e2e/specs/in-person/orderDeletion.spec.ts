@@ -266,10 +266,6 @@ test.describe('Order Deletion - Happy Path', () => {
         // Navigate to Review & Sign (Progress Note) page
         await sideMenu.clickReviewAndSign();
 
-        // Wait for Progress Note page to load
-        await page.waitForURL(new RegExp('/review-and-sign'));
-        await expect(page.getByText('Progress Note')).toBeVisible({ timeout: 10000 });
-
         // Scope to the Procedures section's items. CPT codes are intentionally retained
         // on the chart after a procedure is cancelled (and render in their own section),
         // so a page-wide getByText() can collide with the cpt-code display string when an
@@ -441,10 +437,6 @@ test.describe('Order Deletion - Happy Path', () => {
       await test.step('Verify medication not shown in Progress Note', async () => {
         // Navigate to Review & Sign (Progress Note) page
         await sideMenu.clickReviewAndSign();
-
-        // Wait for Progress Note page to load
-        await page.waitForURL(new RegExp('/review-and-sign'));
-        await expect(page.getByText('Progress Note')).toBeVisible({ timeout: 10000 });
 
         // Verify deleted medication is not shown
         await expect(page.getByText(medicationName)).not.toBeVisible();

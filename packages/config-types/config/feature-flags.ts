@@ -15,6 +15,7 @@ export const FeatureFlagsConfigSchema = z.object({
   legacyPatientFollowupsEnabled: z.boolean(),
   skipSendingVisitNoteToPatientPortalEnabled: z.boolean(),
   sendgridEnabled: z.boolean(),
+  hideRegisterAnotherPatient: z.boolean().optional(),
 });
 
 export type FeatureFlagsConfig = z.infer<typeof FeatureFlagsConfigSchema>;

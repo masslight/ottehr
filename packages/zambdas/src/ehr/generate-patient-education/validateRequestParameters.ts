@@ -1,25 +1,22 @@
-import { GeneratePatientEducationInput, MISSING_REQUEST_BODY, MISSING_REQUIRED_PARAMETERS } from 'utils';
-import { ZambdaInput } from '../../shared';
+import { GeneratePatientEducationInput, MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS } from 'utils';
+import { z } from 'zod';
+import { safeValidate, ZambdaInput } from '../../shared';
+
+const generatePatientEducationInputSchema: z.ZodType<GeneratePatientEducationInput> = z.object({
+  icdCode: z.string().min(1, 'icdCode is required'),
+  icdDescription: z.string().min(1, 'icdDescription is required'),
+});
 
 export function validateRequestParameters(
   input: ZambdaInput
 ): GeneratePatientEducationInput & Pick<ZambdaInput, 'secrets'> {
-  if (!input.body) {
-    throw MISSING_REQUEST_BODY;
-  }
+  if (!input.body) throw MISSING_REQUEST_BODY;
+  if (!input.secrets) throw MISSING_REQUEST_SECRETS;
 
-  const { icdCode, icdDescription } = JSON.parse(input.body);
-
-  const missingFields: string[] = [];
-  if (!icdCode) missingFields.push('icdCode');
-  if (!icdDescription) missingFields.push('icdDescription');
-  if (missingFields.length > 0) {
-    throw MISSING_REQUIRED_PARAMETERS(missingFields);
-  }
+  const parsed = safeValidate(generatePatientEducationInputSchema, JSON.parse(input.body));
 
   return {
-    icdCode,
-    icdDescription,
+    ...parsed,
     secrets: input.secrets,
   };
 }

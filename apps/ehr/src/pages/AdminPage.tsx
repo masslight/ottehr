@@ -2,10 +2,10 @@ import { TabContext, TabList, TabPanel } from '@mui/lab';
 import { Box, Tab } from '@mui/material';
 import { useNavigate, useParams } from 'react-router-dom';
 import { PatientEducationAdminPage } from 'src/features/admin/patient-education/PatientEducationAdminPage';
-import { ButtonRounded } from 'src/features/visits/in-person/components/RoundedButton';
 import InHouseLabAdminPage from 'src/features/visits/telemed/components/admin/in-house-labs/InHouseLabAdminPage';
 import LabSetsAdminPage from 'src/features/visits/telemed/components/admin/lab-sets/LabSetsAdminPage';
 import AdminPrintingConfig from 'src/features/visits/telemed/components/admin/label-printing-config/AdminLabelPrintingConfigPage';
+import SupportDialogAdminPage from 'src/features/visits/telemed/components/admin/support-dialog/SupportDialogAdminPage';
 import BillingConfiguration from '../features/admin/BillingConfiguration';
 import EMCodesAdminPage from '../features/visits/telemed/components/admin/EMCodesAdminPage';
 import GlobalTemplatesAdminPage from '../features/visits/telemed/components/admin/GlobalTemplatesAdminPage';
@@ -34,6 +34,7 @@ enum PageTab {
   'em-codes' = 'em-codes',
   'lab-sets' = 'lab-sets',
   'docs-folders' = 'docs-folders',
+  'support-dialog' = 'support-dialog',
 }
 
 export function AdminPage(): JSX.Element {
@@ -149,17 +150,14 @@ export function AdminPage(): JSX.Element {
                   sx={{ textTransform: 'none', fontWeight: 500 }}
                   onClick={() => navigate(`/admin/${PageTab['docs-folders']}`)}
                 />
+                <Tab
+                  label="Support Dialog"
+                  value={PageTab['support-dialog']}
+                  sx={{ textTransform: 'none', fontWeight: 500 }}
+                  onClick={() => navigate(`/admin/${PageTab['support-dialog']}`)}
+                />
               </TabList>
             </Box>
-            <ButtonRounded
-              onClick={() => navigate(`/reports`)}
-              variant="outlined"
-              sx={{
-                whiteSpace: 'nowrap',
-              }}
-            >
-              Reports
-            </ButtonRounded>
           </Box>
           <TabPanel value={PageTab.schedules} sx={{ padding: 0 }}>
             <SchedulesPage />
@@ -205,6 +203,9 @@ export function AdminPage(): JSX.Element {
           </TabPanel>
           <TabPanel value={PageTab['docs-folders']} sx={{ padding: 0 }}>
             <AdminCustomFoldersPage />
+          </TabPanel>
+          <TabPanel value={PageTab['support-dialog']} sx={{ padding: 0 }}>
+            <SupportDialogAdminPage />
           </TabPanel>
         </TabContext>
       </Box>

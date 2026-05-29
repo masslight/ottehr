@@ -9,9 +9,8 @@ import {
   Practitioner,
   Schedule,
 } from 'fhir/r4b';
+import type { AppointmentType, CanonicalUrl } from '../types';
 import {
-  AppointmentType,
-  CanonicalUrl,
   DISCHARGE_SUMMARY_CODE,
   EXPORTED_QUESTIONNAIRE_CODE,
   INSURANCE_CARD_CODE,
@@ -24,7 +23,7 @@ import {
   SCHOOL_WORK_NOTE_TEMPLATE_CODE,
   STATEMENT_CODE,
   VISIT_NOTE_SUMMARY_CODE,
-} from '../types';
+} from '../types/data/paperwork/paperwork.constants';
 import { ottehrCodeSystemUrl, ottehrExtensionUrl, ottehrIdentifierSystem } from './systemUrls';
 
 // nota bene: some legacy resources could be using 'http' instead of 'https' here, and there are still some string vals out there with http
