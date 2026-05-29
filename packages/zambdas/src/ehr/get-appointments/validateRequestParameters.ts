@@ -1,4 +1,4 @@
-import { AppointmentTypeOptions, ServiceMode } from 'utils';
+import { AppointmentTypeOptions, MISSING_REQUEST_BODY, ServiceMode } from 'utils';
 import { z } from 'zod';
 import { safeValidate, ZambdaInput } from '../../shared';
 import { GetAppointmentsZambdaInputValidated } from '.';
@@ -23,7 +23,7 @@ const GetAppointmentsBodySchema = z
 
 export function validateRequestParameters(input: ZambdaInput): GetAppointmentsZambdaInputValidated {
   if (!input.body) {
-    throw new Error('No request body provided');
+    throw MISSING_REQUEST_BODY;
   }
 
   const { searchDate, timezone, locationIds, providerIds, serviceCategories, visitType, supervisorApprovalEnabled } =

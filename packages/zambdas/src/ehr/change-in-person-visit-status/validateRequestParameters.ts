@@ -1,4 +1,12 @@
-import { getSecret, SecretsKeys, visitStatusArray, VisitStatusWithoutUnknown } from 'utils';
+import {
+  getSecret,
+  MISSING_REQUEST_BODY,
+  MISSING_REQUEST_SECRETS,
+  NOT_AUTHORIZED,
+  SecretsKeys,
+  visitStatusArray,
+  VisitStatusWithoutUnknown,
+} from 'utils';
 import { z } from 'zod';
 import { safeValidate, ZambdaInput } from '../../shared';
 import { ChangeInPersonVisitStatusInputValidated } from '.';
@@ -15,14 +23,14 @@ const ChangeVisitStatusBodySchema = z.object({
 
 export function validateRequestParameters(input: ZambdaInput): ChangeInPersonVisitStatusInputValidated {
   if (!input.body) {
-    throw new Error('No request body provided');
+    throw MISSING_REQUEST_BODY;
+  }
+
+  if (!input.secrets) {
+    throw MISSING_REQUEST_SECRETS;
   }
 
   const { encounterId, updatedStatus } = safeValidate(ChangeVisitStatusBodySchema, JSON.parse(input.body));
-
-  if (!input.secrets) {
-    throw new Error('No secrets provided');
-  }
 
   getSecret(SecretsKeys.PROJECT_API, input.secrets);
   getSecret(SecretsKeys.ORGANIZATION_ID, input.secrets);
@@ -30,7 +38,7 @@ export function validateRequestParameters(input: ZambdaInput): ChangeInPersonVis
   const userToken = input.headers.Authorization.replace('Bearer ', '');
 
   if (!userToken) {
-    throw new Error('No user token provided in Authorization header');
+    throw NOT_AUTHORIZED;
   }
 
   return {

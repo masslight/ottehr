@@ -54,7 +54,7 @@ describe('save-chart-data - validateRequestParameters', () => {
     const input = createMockZambdaInput(validBody, {
       headers: {},
     });
-    expect(() => validateRequestParameters(input)).toThrow('Authorization');
+    expect(() => validateRequestParameters(input)).toThrow('not authorized');
   });
 
   test('should pass secrets through from input', () => {

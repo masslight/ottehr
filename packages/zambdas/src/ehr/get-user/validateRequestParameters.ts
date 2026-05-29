@@ -1,4 +1,4 @@
-import { GetUserParams, Secrets, WithRequired } from 'utils';
+import { GetUserParams, MISSING_REQUEST_BODY, Secrets, WithRequired } from 'utils';
 import { z } from 'zod';
 import { safeValidate, ZambdaInput } from '../../shared';
 
@@ -12,7 +12,7 @@ const GetUserBodySchema = z.object({
 
 export function validateRequestParameters(input: ZambdaInput): GetUserInput {
   if (!input.body) {
-    throw new Error('No request body provided');
+    throw MISSING_REQUEST_BODY;
   }
 
   const { userId } = safeValidate(GetUserBodySchema, JSON.parse(input.body));

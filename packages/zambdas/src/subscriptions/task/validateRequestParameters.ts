@@ -1,5 +1,5 @@
 import { Task } from 'fhir/r4b';
-import { Secrets } from 'utils';
+import { MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS, Secrets } from 'utils';
 import { z } from 'zod';
 import { safeValidate, ZambdaInput } from '../../shared';
 
@@ -19,14 +19,14 @@ const TaskBodySchema = z
 
 export function validateRequestParameters(input: ZambdaInput): TaskSubscriptionInput & { secrets: Secrets } {
   if (!input.body) {
-    throw new Error('No request body provided');
+    throw MISSING_REQUEST_BODY;
+  }
+
+  if (!input.secrets) {
+    throw MISSING_REQUEST_SECRETS;
   }
 
   const task = safeValidate(TaskBodySchema, JSON.parse(input.body)) as unknown as Task;
-
-  if (!input.secrets) {
-    throw new Error('Secrets not sent with input.');
-  }
 
   return {
     task,

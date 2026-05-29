@@ -1,4 +1,10 @@
-import { getSecret, SecretsKeys, UnlockAppointmentZambdaInputValidated } from 'utils';
+import {
+  getSecret,
+  MISSING_REQUEST_BODY,
+  MISSING_REQUEST_SECRETS,
+  SecretsKeys,
+  UnlockAppointmentZambdaInputValidated,
+} from 'utils';
 import { z } from 'zod';
 import { safeValidate, ZambdaInput } from '../../shared';
 
@@ -8,14 +14,14 @@ const UnlockAppointmentBodySchema = z.object({
 
 export function validateRequestParameters(input: ZambdaInput): UnlockAppointmentZambdaInputValidated {
   if (!input.body) {
-    throw new Error('No request body provided');
+    throw MISSING_REQUEST_BODY;
+  }
+
+  if (!input.secrets) {
+    throw MISSING_REQUEST_SECRETS;
   }
 
   const { appointmentId } = safeValidate(UnlockAppointmentBodySchema, JSON.parse(input.body));
-
-  if (!input.secrets) {
-    throw new Error('No secrets provided');
-  }
 
   getSecret(SecretsKeys.PROJECT_API, input.secrets);
   getSecret(SecretsKeys.ORGANIZATION_ID, input.secrets);
