@@ -613,7 +613,10 @@ interface TaskWithPractitioner {
 
 type RecentlyAssignedTasksMap = { [key: NonNullable<Task['id']>]: TaskWithPractitioner };
 
-async function getRecentlyAssignedTasksMap(oystehr: Oystehr, fromDate: DateTime): Promise<RecentlyAssignedTasksMap> {
+export async function getRecentlyAssignedTasksMap(
+  oystehr: Oystehr,
+  fromDate: DateTime
+): Promise<RecentlyAssignedTasksMap> {
   const bundle = (
     await oystehr.fhir.search<Task | Practitioner>({
       resourceType: 'Task',
