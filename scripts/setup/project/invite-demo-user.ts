@@ -1,8 +1,15 @@
 import { DEMO_USERS as _demoUsers, OYSTEHR_AUTH_TOKEN, PROJECT_ID } from './setup.config';
 import { DemoUser } from './types';
-import { buildConfig, getApplicationId, getRoleIds, sendUserInvite, setPasswordWithBrowser } from './utils';
+import {
+  buildConfig,
+  getApplicationId,
+  getRoleIds,
+  resolveProjectId,
+  sendUserInvite,
+  setPasswordWithBrowser,
+} from './utils';
 
-const config = buildConfig(OYSTEHR_AUTH_TOKEN, PROJECT_ID);
+const config = buildConfig(OYSTEHR_AUTH_TOKEN, resolveProjectId(PROJECT_ID));
 const DEMO_USERS: DemoUser[] = _demoUsers;
 
 async function main(): Promise<void> {
@@ -21,7 +28,8 @@ async function main(): Promise<void> {
     user.email,
     user.firstName,
     user.lastName,
-    roleIds
+    roleIds,
+    user.npi
   );
 
   console.log(`Invite sent! User ID: ${inviteResponse.id}`);

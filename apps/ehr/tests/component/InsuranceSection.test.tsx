@@ -33,6 +33,22 @@ vi.mock('src/hooks/useAppClients', () => ({
   useApiClients: () => ({ oystehr: undefined, oystehrZambda: { zambda: { execute: vi.fn() } } }),
 }));
 
+// InsuranceContainer renders <InsuranceCarrierQuickPicks>, which calls
+// useMergedInsuranceQuickPicks → useFhirQuickPicks. The default oystehrZambda
+// mock above is a partial stub (no .config), so let the hook never fire by
+// returning a stable fixture here. The section-save tests don't interact with
+// quick picks; this just keeps the component renderable.
+const insuranceQuickPicksFixture = [
+  { id: 'qp-1', name: '1st Auto & Casualty - MN Only', organizationReference: 'https://rcm-api.example/payer/J1585' },
+];
+vi.mock('src/hooks/useMergedQuickPicks', () => ({
+  useMergedInsuranceQuickPicks: () => ({
+    quickPicks: insuranceQuickPicksFixture,
+    loading: false,
+    refetch: vi.fn(),
+  }),
+}));
+
 // Short-circuit the carrier dropdown's network call. The DynamicReferenceField
 // uses useQuery to load payer options; return a stable fixture so the
 // Autocomplete renders a known option without hitting any backend.

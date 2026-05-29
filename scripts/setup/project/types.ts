@@ -8,6 +8,7 @@ export interface DemoUser {
   firstName: string;
   lastName: string;
   password: string;
+  npi?: string;
 }
 
 export interface Developer {

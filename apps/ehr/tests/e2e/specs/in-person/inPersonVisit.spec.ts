@@ -1,5 +1,5 @@
 import { BrowserContext, expect, Page, test } from '@playwright/test';
-import { QuestionnaireItemAnswerOption } from 'fhir/r4b';
+import { Appointment, QuestionnaireItemAnswerOption } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { InPersonHeader } from 'tests/e2e/page/InPersonHeader';
@@ -140,13 +140,9 @@ test.describe('In-person visit', async () => {
 
       insuranceCarrier1 = insuranceCarriersOptions.at(0);
       insuranceCarrier2 = insuranceCarriersOptions.at(1);
-      if (process.env.INTEGRATION_TEST === 'true') {
-        await resourceHandler.setResourcesFast();
-      } else {
-        await resourceHandler.setResources();
-        await resourceHandler.waitTillHarvestingDone(resourceHandler.appointment.id!);
-        await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!);
-      }
+      await resourceHandler.setResources();
+      await resourceHandler.waitTillHarvestingDone(resourceHandler.appointment.id!);
+      await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!);
 
       context = await browser.newContext();
       page = await context.newPage();
@@ -165,8 +161,18 @@ test.describe('In-person visit', async () => {
 
       const visitsPage = await openVisitsPage(page);
       await visitsPage.selectLocation(ENV_LOCATION_NAME!);
-      await visitsPage.clickPrebookedTab();
-      await visitsPage.clickArrivedButton(resourceHandler.appointment.id!);
+
+      // If it was a prebook, find on prebook tab and move to arrived
+      // else it is a walk in go straight to in office tab.
+      const oystehr = await ResourceHandler.getOystehr();
+      const createdAppointment = await oystehr.fhir.get<Appointment>({
+        resourceType: 'Appointment',
+        id: resourceHandler.appointment.id!,
+      });
+      if (createdAppointment.status === 'booked') {
+        await visitsPage.clickPrebookedTab();
+        await visitsPage.clickArrivedButton(resourceHandler.appointment.id!);
+      }
       await visitsPage.clickInOfficeTab();
       await visitsPage.verifyVisitsStatus(resourceHandler.appointment.id!, 'arrived');
       await visitsPage.clickReadyButton(resourceHandler.appointment.id!);
@@ -210,7 +216,6 @@ test.describe('In-person visit', async () => {
       verifyVisitNotePdfDocumentReference(visitNoteDocRef, resourceHandler);
 
       await openVisitsPage(page);
-      await visitsPage.selectLocation(ENV_LOCATION_NAME!);
       await visitsPage.clickDischargedTab();
       await visitsPage.verifyVisitPresent(resourceHandler.appointment.id!);
     });
@@ -293,13 +298,9 @@ test.describe('In-person visit', async () => {
       insuranceCarrier1 = insuranceCarriersOptions.at(0);
       insuranceCarrier2 = insuranceCarriersOptions.at(1);
 
-      if (process.env.INTEGRATION_TEST === 'true') {
-        await resourceHandler.setResourcesFast();
-      } else {
-        await resourceHandler.setResources();
-        await resourceHandler.waitTillHarvestingDone(resourceHandler.appointment.id!);
-        await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!);
-      }
+      await resourceHandler.setResources();
+      await resourceHandler.waitTillHarvestingDone(resourceHandler.appointment.id!);
+      await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!);
 
       context = await browser.newContext();
       page = await context.newPage();
@@ -316,8 +317,18 @@ test.describe('In-person visit', async () => {
 
       const visitsPage = await openVisitsPage(page);
       await visitsPage.selectLocation(ENV_LOCATION_NAME!);
-      await visitsPage.clickPrebookedTab();
-      await visitsPage.clickArrivedButton(resourceHandler.appointment.id!);
+
+      // If it was a prebook, find on prebook tab and move to arrived
+      // else it is a walk in go straight to in office tab.
+      const oystehr = await ResourceHandler.getOystehr();
+      const createdAppointment = await oystehr.fhir.get<Appointment>({
+        resourceType: 'Appointment',
+        id: resourceHandler.appointment.id!,
+      });
+      if (createdAppointment.status === 'booked') {
+        await visitsPage.clickPrebookedTab();
+        await visitsPage.clickArrivedButton(resourceHandler.appointment.id!);
+      }
       await visitsPage.clickInOfficeTab();
       await visitsPage.verifyVisitsStatus(resourceHandler.appointment.id!, 'arrived');
       await visitsPage.clickReadyButton(resourceHandler.appointment.id!);

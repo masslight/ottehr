@@ -182,7 +182,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       // Send completion email only when: email is enabled, this is not a follow-up (isPDFOnlyTask),
       // the task does not carry a SKIP_EMAIL input (addendum re-generation), and the feature flag
       // for skipping patient-portal delivery is not set.
-      const emailClient = getEmailClient(secrets);
+      const emailClient = getEmailClient(secrets, oystehr);
       const emailEnabled = emailClient.getFeatureFlag();
       let emailSent = false;
 
@@ -223,8 +223,15 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
                 'address-url': makeAddressUrl(address),
                 'visit-note-url': visitNoteUrl,
               };
-              await emailClient.sendInPersonCompletionEmail(patientEmail, templateData);
-              emailSent = true;
+              try {
+                await emailClient.sendInPersonCompletionEmail(patientEmail, templateData);
+                emailSent = true;
+              } catch (emailError) {
+                console.error(
+                  `Failed to send in-person completion email for appointment ${appointment.id}:`,
+                  emailError
+                );
+              }
             } else {
               console.error(
                 `Not sending in-person completion email, missing the following data: ${missingData.join(', ')}`
@@ -241,8 +248,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
                 location: getNameForOwner(location),
                 'visit-note-url': visitNoteUrl,
               };
-              await emailClient.sendVirtualCompletionEmail(patientEmail, templateData);
-              emailSent = true;
+              try {
+                await emailClient.sendVirtualCompletionEmail(patientEmail, templateData);
+                emailSent = true;
+              } catch (emailError) {
+                console.error(`Failed to send virtual completion email for appointment ${appointment.id}:`, emailError);
+              }
             } else {
               console.error(
                 `Not sending virtual completion email, missing the following data: ${missingData.join(', ')}`

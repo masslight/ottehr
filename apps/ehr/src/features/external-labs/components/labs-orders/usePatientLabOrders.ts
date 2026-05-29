@@ -339,6 +339,7 @@ const groupLabOrderListPageDTOs = (
     ExternalLabsStatus.prelim,
     ExternalLabsStatus.reviewed,
     ExternalLabsStatus.corrected,
+    ExternalLabsStatus['cancelled by lab'], // we want to treat these as though they already have results from a display perspective
   ]);
 
   const addToGroup = (item: LabOrderListPageDTO | ReflexLabDTO, orders: LabOrderListPageDTOGrouped): void => {

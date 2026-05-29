@@ -1,47 +1,59 @@
-import { Box, Typography } from '@mui/material';
-import { FC } from 'react';
-import { getSupportDialog } from 'utils';
+import { Box, CircularProgress, Typography } from '@mui/material';
+import { useQuery } from '@tanstack/react-query';
+import DOMPurify from 'dompurify';
+import { FC, useMemo } from 'react';
+import { ALLOWED_SUPPORT_DIALOG_TAGS } from 'utils';
+import api from '../api/ottehrApi';
+import { useUCZambdaClient } from '../hooks/useUCZambdaClient';
 import { CustomDialog } from './CustomDialog';
 import PageForm from './PageForm';
 
 type ContactSupportDialogProps = { onClose: () => void };
 
+const SUPPORT_DIALOG_TITLE = 'Need help?';
+
 export const ContactSupportDialog: FC<ContactSupportDialogProps> = ({ onClose }) => {
-  const supportDialog = getSupportDialog();
+  const zambdaClient = useUCZambdaClient({ tokenless: true });
+
+  const { data, isPending, isError } = useQuery({
+    queryKey: ['public-support-dialog'],
+    queryFn: () => api.getPublicSupportDialog(zambdaClient!),
+    enabled: !!zambdaClient,
+    staleTime: 5 * 60_000,
+  });
+
+  const rawBodyHtml = data?.bodyHtml?.trim();
+  const safeBodyHtml = useMemo(
+    () =>
+      rawBodyHtml
+        ? DOMPurify.sanitize(rawBodyHtml, { ALLOWED_TAGS: ALLOWED_SUPPORT_DIALOG_TAGS, ALLOWED_ATTR: [] })
+        : '',
+    [rawBodyHtml]
+  );
 
   return (
     <CustomDialog open={true} onClose={onClose}>
       <Typography variant="h2" color="primary.main" sx={{ mb: 2 }}>
-        {supportDialog.title}
+        {SUPPORT_DIALOG_TITLE}
       </Typography>
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-          {supportDialog.sections.map((section, index) => (
-            <Box key={`support-section-${index}`} sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-              {section.rows.map((row, rowIndex) => (
-                <Typography
-                  key={`support-row-${index}-${rowIndex}-${row.label ?? row.value}`}
-                  variant="body2"
-                  sx={row.emphasized ? { fontWeight: 700 } : undefined}
-                >
-                  {row.label ? (
-                    <>
-                      <Box component="span" sx={{ fontWeight: 700 }}>
-                        {row.label}:
-                      </Box>{' '}
-                      {row.value}
-                    </>
-                  ) : (
-                    row.value
-                  )}
-                </Typography>
-              ))}
-            </Box>
-          ))}
+      {isPending ? (
+        <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
+          <CircularProgress />
         </Box>
-
-        <Typography variant="body2">{supportDialog.emergencyNotice}</Typography>
-      </Box>
+      ) : isError || !safeBodyHtml ? (
+        <Typography variant="body2">
+          Support information is unavailable right now. If this is an emergency, please call 911.
+        </Typography>
+      ) : (
+        <Box
+          sx={{
+            '& p': { my: 1 },
+            '& h2, & h3': { mt: 1.5, mb: 1 },
+            '& ul, & ol': { pl: 3, my: 1 },
+          }}
+          dangerouslySetInnerHTML={{ __html: safeBodyHtml }}
+        />
+      )}
       <PageForm
         onSubmit={onClose}
         controlButtons={{
