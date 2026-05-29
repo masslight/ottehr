@@ -152,16 +152,10 @@ export const CommandPalette: FC = () => {
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent): void => {
+      // Cmd/Ctrl+K always toggles the palette, even when a text input/textarea/contentEditable
+      // has focus (e.g. the easy-chart message box) — the shortcut shouldn't be swallowed just
+      // because the user is mid-typing somewhere.
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
-        if (!isOpen) {
-          const activeElement = document.activeElement;
-          if (activeElement instanceof HTMLElement) {
-            const tagName = activeElement.tagName;
-            if (tagName === 'INPUT' || tagName === 'TEXTAREA' || activeElement.isContentEditable) {
-              return;
-            }
-          }
-        }
         event.preventDefault();
         toggle();
       }
