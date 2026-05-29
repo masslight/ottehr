@@ -2,6 +2,7 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import {
   Box,
   Button,
+  Checkbox,
   CircularProgress,
   Collapse,
   Container,
@@ -10,6 +11,7 @@ import {
   keyframes,
   List,
   ListItemButton,
+  ListItemIcon,
   ListItemText,
   Paper,
   Stack,
@@ -19,10 +21,13 @@ import {
 import Oystehr from '@oystehr/sdk';
 import type { ExamItemConfig } from 'config-types';
 import type { Encounter } from 'fhir/r4b';
-import { useEffect, useRef, useState } from 'react';
+import { enqueueSnackbar } from 'notistack';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useApiClients } from 'src/hooks/useAppClients';
+import { useCommandPaletteSource } from 'src/hooks/useCommandPaletteSource';
 import { useMergedProcedureQuickPicks } from 'src/hooks/useMergedQuickPicks';
+import { CommandPaletteItem } from 'src/state/command-palette.store';
 import {
   AllergyDTO,
   BODY_SIDES_VALUE_SET_URL,
@@ -99,6 +104,12 @@ interface ExamLeaf {
     abnormal: boolean;
     parentLabel: string;
   };
+}
+// Stable, unique key for a leaf. Modal-option leaves share a parent `field`, so the option
+// code must be part of the key (otherwise two options under one checkbox collide in the
+// multi-select picker and in React list keys).
+function leafKey(leaf: ExamLeaf): string {
+  return leaf.modalOption ? `${leaf.field}::${leaf.modalOption.optionCode}` : leaf.field;
 }
 function buildExamLeafIndex(config: ExamItemConfig): ExamLeaf[] {
   const out: ExamLeaf[] = [];
@@ -1994,6 +2005,35 @@ export default function EasyChartPage(): JSX.Element {
   useEasyChartQuickPicks(encounterId, saveAndMerge);
   const { quickPicks: procedureQuickPicks } = useMergedProcedureQuickPicks({ enabled: !!encounterId });
 
+  // Register procedure quick-picks into the command palette ("Add Procedure"), mirroring the
+  // other easy-chart palette categories in useEasyChartQuickPicks. Procedures can't use that
+  // hook's one-shot saveAndMerge because they need the two-step save (CPT/dx resources first,
+  // then the ServiceRequest); we route through saveProcedureFromQuickPick instead, held in a
+  // ref so the registered items stay referentially stable across renders while the save logic
+  // always sees the latest apiClient / chart state.
+  const saveProcedureFromQuickPickRef = useRef<(qp: ProcedureQuickPickData) => Promise<void>>(async () => {});
+  const procedurePaletteItems = useMemo<CommandPaletteItem[]>(() => {
+    if (!encounterId) return [];
+    return procedureQuickPicks.map((qp) => ({
+      id: `easy-chart-procedure-${qp.id ?? qp.name}`,
+      label: qp.name,
+      category: 'Add Procedure',
+      keywords: [qp.procedureType, qp.name].filter(Boolean) as string[],
+      onSelect: () => {
+        void (async () => {
+          try {
+            await saveProcedureFromQuickPickRef.current(qp);
+            enqueueSnackbar(`Added ${qp.name}`, { variant: 'success' });
+          } catch (e) {
+            console.error('Easy-chart procedure quick-pick save failed:', e);
+            enqueueSnackbar(`Failed to add ${qp.name}`, { variant: 'error' });
+          }
+        })();
+      },
+    }));
+  }, [procedureQuickPicks, encounterId]);
+  useCommandPaletteSource('easy-chart-procedures', procedurePaletteItems);
+
   // Code → name lookup for procedureType. The regular ProceduresNew page saves the display
   // NAME (e.g. "Laceration Repair") instead of the code (e.g. "laceration-repair") so the
   // saved value matches what providers see in the Procedure Type dropdown. Mirror that here.
@@ -2391,6 +2431,7 @@ export default function EasyChartPage(): JSX.Element {
         } else if (remaining.length === 1) {
           await handleExamPick(remaining[0], message);
         } else {
+          setExamPickSelected(new Set());
           setConv({ kind: 'choose-exam', user: message, intent, matches: remaining });
         }
         return;
@@ -2437,6 +2478,11 @@ export default function EasyChartPage(): JSX.Element {
   // gets its own field; cleared on picker close.
   const [pickerRefineText, setPickerRefineText] = useState('');
 
+  // Multi-select state for the exam-finding picker: the provider can check several matching
+  // leaves (e.g. "warm" AND "swollen") and add them all at once. Holds leafKey()s. Reset
+  // whenever a new choose-exam picker opens (see dispatchIntent's add-exam-finding branch).
+  const [examPickSelected, setExamPickSelected] = useState<Set<string>>(new Set());
+
   // Skip the active picker — sets conv to terminal 'skipped'. In plan mode this advances the
   // cursor with status="skipped" so the running step list shows ⏭ for this step.
   const handleSkipPicker = (): void => {
@@ -2466,14 +2512,15 @@ export default function EasyChartPage(): JSX.Element {
     // don't have a display the matcher uses, so refine isn't meaningful for them — skip the
     // re-dispatch and just clear the input.
     if (!('display' in intent)) return;
-    const newDisplay = `${(intent as { display?: string }).display ?? ''} ${text}`.trim();
-    const existingTerms = Array.isArray((intent as { searchTerms?: string[] }).searchTerms)
-      ? (intent as { searchTerms?: string[] }).searchTerms ?? []
-      : [];
+    // Re-search: each refine REPLACES the query with exactly what the provider typed, rather
+    // than appending to the running query. Appending made refines cumulative and irreversible
+    // — e.g. the procedure matcher ORs query tokens, so once "lac repair" was added "go back to
+    // just splint" couldn't drop it and the list only ever grew. Replacing means the picker
+    // always reflects the current text, so you can narrow, switch, or revert freely.
     const augmented = {
       ...intent,
-      display: newDisplay,
-      searchTerms: [...existingTerms, text],
+      display: text,
+      searchTerms: [text],
     } as EasyChartAgentIntent;
     setPickerRefineText('');
     void dispatchIntent(augmented, userMsg);
@@ -2669,28 +2716,36 @@ export default function EasyChartPage(): JSX.Element {
     }
   };
 
+  // Core two-step procedure save, shared by the chat-agent picker (handleProcedurePick) and the
+  // command-palette "Add Procedure" items. Mirrors the regular Procedures page: CPT codes +
+  // diagnoses must exist as FHIR Procedure / Condition resources before the procedure
+  // ServiceRequest can reference them — so save those first, capture their resourceIds from the
+  // response, then save the procedure pointing at them. Throws on failure (callers report).
+  const saveProcedureFromQuickPick = async (qp: ProcedureQuickPickData): Promise<void> => {
+    if (!apiClient || !encounterId) return;
+    const step1 = await apiClient.saveChartData({
+      encounterId,
+      ...(qp.cptCodes?.length ? { cptCodes: qp.cptCodes } : {}),
+      ...(qp.diagnoses?.length ? { diagnosis: qp.diagnoses } : {}),
+    });
+    mergeSaveResponse(step1);
+    const savedCptCodes = step1.chartData?.cptCodes ?? [];
+    const savedDiagnoses = step1.chartData?.diagnosis ?? [];
+    const procDto: ProcedureDTO = {
+      ...procedureDtoFromQuickPick(qp, procedureTypeNameByCode),
+      cptCodes: savedCptCodes.length > 0 ? savedCptCodes : undefined,
+      diagnoses: savedDiagnoses.length > 0 ? savedDiagnoses : undefined,
+    };
+    await saveAndMerge({ encounterId, procedures: [procDto] });
+  };
+  // Keep the palette's stable onSelect pointed at the latest closure.
+  saveProcedureFromQuickPickRef.current = saveProcedureFromQuickPick;
+
   const handleProcedurePick = async (qp: ProcedureQuickPickData, user: string): Promise<void> => {
     if (!apiClient || !encounterId) return;
     setConv({ kind: 'saving', user, chosenName: qp.name });
     try {
-      // Two-step save mirrors the regular Procedures page: CPT codes + diagnoses must exist
-      // as FHIR Procedure / Condition resources before the procedure ServiceRequest can
-      // reference them. Pass through the quick pick's codes/dx, capture their resourceIds
-      // from the response, then save the procedure pointing at those resourceIds.
-      const step1 = await apiClient.saveChartData({
-        encounterId,
-        ...(qp.cptCodes?.length ? { cptCodes: qp.cptCodes } : {}),
-        ...(qp.diagnoses?.length ? { diagnosis: qp.diagnoses } : {}),
-      });
-      mergeSaveResponse(step1);
-      const savedCptCodes = step1.chartData?.cptCodes ?? [];
-      const savedDiagnoses = step1.chartData?.diagnosis ?? [];
-      const procDto: ProcedureDTO = {
-        ...procedureDtoFromQuickPick(qp, procedureTypeNameByCode),
-        cptCodes: savedCptCodes.length > 0 ? savedCptCodes : undefined,
-        diagnoses: savedDiagnoses.length > 0 ? savedDiagnoses : undefined,
-      };
-      await saveAndMerge({ encounterId, procedures: [procDto] });
+      await saveProcedureFromQuickPick(qp);
       setConv({ kind: 'done', user, chosenName: qp.name });
     } catch (e) {
       console.error('Add procedure failed:', e);
@@ -2745,6 +2800,62 @@ export default function EasyChartPage(): JSX.Element {
     } catch (e) {
       console.error('Add exam finding failed:', e);
       setConv({ kind: 'error', user, reply: `Could not add "${leaf.label}" to the exam. Please try again.` });
+    }
+  };
+
+  // Add several exam-finding leaves at once (from the multi-select picker). Leaves are grouped
+  // by parent `field` so multiple modal-options under the same checkbox merge into ONE
+  // observation's `components[]` (two separate saves would clobber each other), and so a plain
+  // checkbox + its modal-options collapse into a single observation. Everything goes in one
+  // saveAndMerge call.
+  const handleExamPickMulti = async (leaves: ExamLeaf[], user: string): Promise<void> => {
+    if (!apiClient || !encounterId || leaves.length === 0) return;
+    const summary = leaves.map((l) => l.label).join(', ');
+    setConv({ kind: 'saving', user, chosenName: summary });
+    try {
+      const byField = new Map<string, ExamLeaf[]>();
+      for (const leaf of leaves) {
+        byField.set(leaf.field, [...(byField.get(leaf.field) ?? []), leaf]);
+      }
+
+      const examObservations = Array.from(byField.entries()).map(([field, fieldLeaves]) => {
+        const existing = (chartDataRef.current?.examObservations ?? []).find((o) => o.field === field);
+        const modalLeaves = fieldLeaves.filter((l) => l.modalOption);
+        const plainLeaf = fieldLeaves.find((l) => !l.modalOption);
+
+        if (modalLeaves.length > 0) {
+          const newComponents = modalLeaves.map((l) => ({
+            code: l.modalOption!.optionCode,
+            label: l.modalOption!.optionLabel,
+            value: true,
+            groupLabel: l.modalOption!.groupLabel,
+            ...(l.modalOption!.columnLabel ? { columnLabel: l.modalOption!.columnLabel } : {}),
+            abnormal: l.modalOption!.abnormal,
+          }));
+          const newCodes = new Set(newComponents.map((c) => c.code));
+          const merged = [...(existing?.components ?? []).filter((c) => !newCodes.has(c.code)), ...newComponents];
+          return {
+            ...(existing?.resourceId ? { resourceId: existing.resourceId } : {}),
+            field,
+            label: existing?.label ?? modalLeaves[0].modalOption!.parentLabel,
+            value: true,
+            components: merged,
+          };
+        }
+        // Plain checkbox leaf(s) only.
+        return {
+          ...(existing?.resourceId ? { resourceId: existing.resourceId } : {}),
+          field,
+          label: plainLeaf!.label,
+          value: true,
+        };
+      });
+
+      await saveAndMerge({ encounterId, examObservations });
+      setConv({ kind: 'done', user, chosenName: summary });
+    } catch (e) {
+      console.error('Add exam findings failed:', e);
+      setConv({ kind: 'error', user, reply: `Could not add those findings to the exam. Please try again.` });
     }
   };
 
@@ -3063,7 +3174,7 @@ export default function EasyChartPage(): JSX.Element {
             <TextField
               size="small"
               fullWidth
-              placeholder="Narrow with more detail (e.g. 'right side', 'tonsillar')"
+              placeholder="Search again (e.g. 'lac repair', 'short leg', 'left ear')"
               value={pickerRefineText}
               onChange={(e) => setPickerRefineText(e.target.value)}
               onKeyDown={(e) => {
@@ -3328,21 +3439,52 @@ export default function EasyChartPage(): JSX.Element {
       {conv.kind === 'choose-exam' && (
         <>
           <Typography variant="body2" sx={{ mt: 0.5 }}>
-            I found {conv.matches.length} exam findings matching &ldquo;{conv.intent.display}&rdquo;. Which one?
+            I found {conv.matches.length} exam findings matching &ldquo;{conv.intent.display}&rdquo;. Select the ones
+            that apply (you can choose more than one):
           </Typography>
           {renderPickerActions(conv.intent)}
           <List dense sx={{ mt: 0.5 }}>
-            {conv.matches.map((m) => (
-              <ListItemButton key={m.field} onClick={() => void handleExamPick(m, conv.user)}>
-                <ListItemText
-                  primary={m.label}
-                  secondary={`${m.section} · ${m.normalAbnormal}`}
-                  primaryTypographyProps={{ variant: 'body2' }}
-                  secondaryTypographyProps={{ variant: 'caption' }}
-                />
-              </ListItemButton>
-            ))}
+            {conv.matches.map((m) => {
+              const key = leafKey(m);
+              const checked = examPickSelected.has(key);
+              return (
+                <ListItemButton
+                  key={key}
+                  dense
+                  onClick={() =>
+                    setExamPickSelected((prev) => {
+                      const next = new Set(prev);
+                      if (next.has(key)) next.delete(key);
+                      else next.add(key);
+                      return next;
+                    })
+                  }
+                >
+                  <ListItemIcon sx={{ minWidth: 0, mr: 1 }}>
+                    <Checkbox edge="start" size="small" checked={checked} tabIndex={-1} disableRipple sx={{ p: 0 }} />
+                  </ListItemIcon>
+                  <ListItemText
+                    primary={m.label}
+                    secondary={`${m.section} · ${m.normalAbnormal}`}
+                    primaryTypographyProps={{ variant: 'body2' }}
+                    secondaryTypographyProps={{ variant: 'caption' }}
+                  />
+                </ListItemButton>
+              );
+            })}
           </List>
+          <Button
+            size="small"
+            variant="contained"
+            sx={{ textTransform: 'none', mt: 0.5 }}
+            disabled={examPickSelected.size === 0}
+            onClick={() => {
+              const chosen = conv.matches.filter((m) => examPickSelected.has(leafKey(m)));
+              void handleExamPickMulti(chosen, conv.user);
+            }}
+          >
+            {examPickSelected.size > 1 ? `Add ${examPickSelected.size} findings` : 'Add finding'}
+          </Button>
         </>
       )}
       {conv.kind === 'no-match-exam-remove' && (
