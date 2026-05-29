@@ -8,6 +8,7 @@ import Oystehr, {
 import { APIGatewayProxyResult } from 'aws-lambda';
 import {
   Account,
+  Appointment,
   Claim,
   ClaimDiagnosis,
   ClaimItem,
@@ -38,12 +39,18 @@ import {
   EXTENSION_URL_CPT_MODIFIER,
   FHIR_IDENTIFIER_NPI,
   FHIR_RESOURCE_NOT_FOUND,
+  getCoding,
   getNPIIdentifier,
   getPayerId,
   getTimezone,
   InternalError,
+  isAppointmentAutoAccident,
+  isAppointmentOccupationalMedicine,
+  isAppointmentUrgentCare,
+  isAppointmentWorkersComp,
   isValidUUID,
   MISSING_REQUEST_SECRETS,
+  SERVICE_CATEGORY_SYSTEM,
   TIMEZONES,
 } from 'utils';
 import { INVALID_INPUT_ERROR, MISSING_REQUEST_BODY } from 'utils';
@@ -70,6 +77,8 @@ export interface CreateClaimFromEncounterParams extends CreateBillingClaimFromEn
   secrets: NonNullable<ZambdaInput['secrets']>;
 }
 
+type ComplexValidationOutput = { clinicalResources: ClinicalResources; billingResources: BillingResources };
+
 // Type alias for resources relevant to billing
 type BillingFhirResource =
   | Patient
@@ -82,24 +91,13 @@ type BillingFhirResource =
   | Account
   | RelatedPerson;
 
-let m2mToken: string;
-
-export async function handler(input: ZambdaInput): Promise<APIGatewayProxyResult> {
-  const params = validateRequestParameters(input);
-
-  m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
-  const billingOystehr = createBillingClient(m2mToken, params.secrets);
-  const clinicalOystehr = createOystehrClient(m2mToken, params.secrets, { ignoreTags: [BILLING_RESOURCE_TAG] });
-
-  const cvo = await complexValidation(clinicalOystehr, billingOystehr, params);
-
-  const response = await performEffect(billingOystehr, cvo);
-  return { statusCode: 200, body: JSON.stringify(response) };
-}
+type CoverageRefs = { coverageRef: Reference; payorRef: Reference }[];
+type EncounterType = 'uc' | 'wc' | 'occmed' | 'auto';
 
 interface ClinicalResources {
   encounter: Encounter;
   patient: Patient;
+  appointment: Appointment;
   accounts: Account[];
   coverages: Coverage[];
   practitioners: Practitioner[];
@@ -124,8 +122,8 @@ interface ClaimResources {
   patientId: string;
   encounter: Encounter;
   // Only patient is required, everything else will prompt for data before claim submission in the UI
-  coverageId?: string;
-  payorRef?: Reference;
+  /** Ordered list of coverages. First entry is the target of the claim. */
+  coverageRefs: CoverageRefs;
   serviceFacility?: Location;
   // Only rendering and billing providers handled now
   renderingProvider?: Practitioner;
@@ -134,13 +132,27 @@ interface ClaimResources {
   procedures?: Array<Procedure>;
 }
 
-type ComplexValidationOutput = { clinicalResources: ClinicalResources; billingResources: BillingResources };
 type CreateClaimFromEncounterRequests = Array<
   | BatchInputPostRequest<BillingFhirResource>
   | BatchInputPatchRequest<BillingFhirResource>
   | BatchInputPutRequest<BillingFhirResource>
   | BatchInputDeleteRequest
 >;
+
+let m2mToken: string;
+
+export async function handler(input: ZambdaInput): Promise<APIGatewayProxyResult> {
+  const params = validateRequestParameters(input);
+
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
+  const billingOystehr = createBillingClient(m2mToken, params.secrets);
+  const clinicalOystehr = createOystehrClient(m2mToken, params.secrets, { ignoreTags: [BILLING_RESOURCE_TAG] });
+
+  const cvo = await complexValidation(clinicalOystehr, billingOystehr, params);
+
+  const response = await performEffect(billingOystehr, cvo);
+  return { statusCode: 200, body: JSON.stringify(response) };
+}
 
 async function performEffect(billingOystehr: Oystehr, cvo: ComplexValidationOutput): Promise<{ claimId: string }> {
   const { clinicalResources, billingResources } = cvo;
@@ -178,7 +190,7 @@ async function performEffect(billingOystehr: Oystehr, cvo: ComplexValidationOutp
   // Sync accounts, coverages, and subscriber between clinical and billing
   let mainPatientCoverages: Coverage[] = [];
   const seenBillingAccountIds = new Set<string>();
-  const _accounts = clinicalResources.accounts.map((a) => {
+  const mainPatientAccounts = clinicalResources.accounts.map((a) => {
     const existingBillingAccount = billingResources.accounts.find(
       (bac) => bac.identifier?.some((id) => id.system === SOURCE_IDENTIFIER_SYSTEM && id.value === a.id)
     );
@@ -206,6 +218,7 @@ async function performEffect(billingOystehr: Oystehr, cvo: ComplexValidationOutp
       }));
       requests.push({ method: 'POST', url: '/Account', resource: copy });
       order.push('account');
+      return copy;
     } else {
       // Update billing copy if changed
       const copy = prepareCopy(a, a.id!);
@@ -219,9 +232,11 @@ async function performEffect(billingOystehr: Oystehr, cvo: ComplexValidationOutp
       }));
       try {
         deepStrictEqual(existingBillingAccount, copy);
+        mainPatientCoverages = billingResources.coverages;
+        return existingBillingAccount;
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
       } catch (_) {
-        // TODO: is it safe to leak coverages here?
+        // CW TODO: is it safe to leak coverages here?
         const [covRequests, covOrder] = copyCoverageAndSubscriberForAccount(
           billingOystehr,
           clinicalResources.coverages,
@@ -236,8 +251,10 @@ async function performEffect(billingOystehr: Oystehr, cvo: ComplexValidationOutp
         order.push(...covOrder);
         requests.push({ method: 'PUT', url: `/Account/${existingBillingAccount.id}`, resource: copy });
         order.push('account');
+        return copy;
+      } finally {
+        seenBillingAccountIds.add(existingBillingAccount.id!);
       }
-      seenBillingAccountIds.add(existingBillingAccount.id!);
     }
   });
   billingResources.accounts
@@ -254,7 +271,8 @@ async function performEffect(billingOystehr: Oystehr, cvo: ComplexValidationOutp
         billingOystehr,
         c,
         claimPatientUrn,
-        clinicalResources.payors
+        clinicalResources.payors,
+        true
       );
       requests.push(...covRequests);
       order.push(...covOrder);
@@ -296,13 +314,13 @@ async function performEffect(billingOystehr: Oystehr, cvo: ComplexValidationOutp
   }
   order.push('person');
 
+  const encounterType = determineEncounterType(clinicalResources.appointment);
+
   const claim = buildClaim({
     patientId: claimPatientUrn,
     encounter: clinicalResources.encounter,
     diagnoses: clinicalResources.diagnoses,
-    // CW TODO: primary and secondary
-    coverageId: claimCoverages.length > 0 ? 'urn:uuid:claim-coverage-0' : undefined,
-    payorRef: claimCoverages[0].payor[0],
+    coverageRefs: getClaimCoveragesForEncounter(encounterType, mainPatientAccounts, claimCoverages),
     // CW TODO: select rendering provider based on encounter
     renderingProvider: billingResources.practitioners[0],
     serviceFacility: billingResources.serviceFacility,
@@ -328,6 +346,98 @@ async function performEffect(billingOystehr: Oystehr, cvo: ComplexValidationOutp
   return { claimId: created.id! };
 }
 
+// CW TODO: is it possible to change ottehr data model to add this to the encounter?
+function determineEncounterType(appointment: Appointment): EncounterType {
+  if (isAppointmentUrgentCare(appointment)) {
+    // Auto is a subset of UC
+    if (isAppointmentAutoAccident(appointment)) {
+      return 'auto';
+    }
+    return 'uc';
+  }
+  if (isAppointmentWorkersComp(appointment)) {
+    return 'wc';
+  }
+  if (isAppointmentOccupationalMedicine(appointment)) {
+    return 'occmed';
+  }
+  throw new Error(`Unknown appointment type: ${getCoding(appointment.serviceCategory, SERVICE_CATEGORY_SYSTEM)?.code}`);
+}
+
+function getClaimCoveragesForEncounter(
+  encounterType: EncounterType,
+  mainPatientAccounts: Account[],
+  claimCoverages: Coverage[]
+): CoverageRefs {
+  switch (encounterType) {
+    case 'uc': {
+      const ucAccount = mainPatientAccounts.find(
+        (mpacc) =>
+          mpacc.type?.coding?.some(
+            (c) => c.system === 'http://terminology.hl7.org/CodeSystem/account-type' && c.code === 'PBILLACCT'
+          )
+      );
+      let primaryCoverage: Coverage | undefined;
+      let secondaryCoverage: Coverage | undefined;
+      ucAccount?.coverage?.forEach((uccov) => {
+        const foundClaimCoverage = claimCoverages.find(
+          (ccov) =>
+            // CW TODO: ccov identifier value is a broken urn and uccov reference is an urn
+            ccov.identifier?.find((ccovid) => ccovid.system === SOURCE_IDENTIFIER_SYSTEM) ===
+            uccov.coverage.reference?.replace('Coveraage/', '')
+        );
+        if (uccov.priority === 1) {
+          primaryCoverage = foundClaimCoverage;
+        }
+        if (uccov.priority === 2) {
+          secondaryCoverage = foundClaimCoverage;
+        }
+      });
+      return [
+        // CW TODO: primaryCoverage and secondaryCoverage have no ids, need urns
+        ...(primaryCoverage
+          ? [{ coverageRef: { reference: primaryCoverage.id! }, payorRef: primaryCoverage.payor[0] }]
+          : []),
+        ...(secondaryCoverage
+          ? [{ coverageRef: { reference: secondaryCoverage.id! }, payorRef: secondaryCoverage.payor[0] }]
+          : []),
+      ];
+    }
+    case 'wc': {
+      const wcAccount = mainPatientAccounts.find(
+        (mpacc) =>
+          mpacc.type?.coding?.some(
+            (c) => c.system === 'http://terminology.hl7.org/CodeSystem/account-type' && c.code === 'WCMOPACCT'
+          )
+      );
+      let wcCoverage: Coverage | undefined;
+      wcAccount?.coverage?.forEach((wccov) => {
+        const foundClaimCoverage = claimCoverages.find(
+          (ccov) =>
+            // CW TODO: ccov identifier value is a broken urn and wccov reference is an urn
+            ccov.identifier?.find((ccovid) => ccovid.system === SOURCE_IDENTIFIER_SYSTEM) ===
+            wccov.coverage.reference?.replace('Coveraage/', '')
+        );
+        if (wccov.priority === 1) {
+          wcCoverage = foundClaimCoverage;
+        }
+      });
+      return [
+        // CW TODO: wcCoverage has no id, need urn
+        ...(wcCoverage ? [{ coverageRef: { reference: wcCoverage.id! }, payorRef: wcCoverage.payor[0] }] : []),
+      ];
+    }
+    case 'occmed': {
+      // No insurance
+      // TODO: Support non-insurance payers
+      return [];
+    }
+    case 'auto':
+      // Really depends on the case, resolve manually
+      return [];
+  }
+}
+
 function copyCoverageAndSubscriberForAccount(
   billingOystehr: Oystehr,
   coverages: Coverage[],
@@ -349,16 +459,18 @@ function copyCoverageAndSubscriberForAccount(
   return [requests, order];
 }
 
-// CW TODO: i don't think the urns in here are safe
+// CW TODO: urns in here are broken for billing -> claim copy when billing is new
+// CW TODO: urns in here need formatting for billing vs claim copy
 function copyCoverageAndSubscriber(
   billingOystehr: Oystehr,
-  c: Coverage,
+  coverage: Coverage,
   patientUrn: string,
-  payors: Organization[]
+  payors: Organization[],
+  workingCopy?: boolean
 ): [CreateClaimFromEncounterRequests, string[]] {
   const requests: CreateClaimFromEncounterRequests = [];
   const order: string[] = [];
-  const copy = prepareCopy(c, c.id!);
+  const copy = workingCopy ? prepareWorkingCopy(coverage, coverage.id!) : prepareCopy(coverage, coverage.id!);
   copy.beneficiary = { reference: patientUrn };
   // Subscriber is patient by default, check for contained RelatedPerson
   let subscriberUrn = patientUrn;
@@ -369,7 +481,7 @@ function copyCoverageAndSubscriber(
         contained.id === copy.subscriber?.reference?.replace('#', '') && contained.resourceType === 'RelatedPerson'
     );
     if (rp) {
-      subscriberUrn = `urn:uuid:claim-coverage-rp-${c.id}`;
+      subscriberUrn = `urn:uuid:claim-coverage-rp-${coverage.id}`;
       requests.push({
         method: 'POST',
         url: '/RelatedPerson',
@@ -390,7 +502,12 @@ function copyCoverageAndSubscriber(
       copy.payor = [{ reference: billingOystehr.rcm.constructPayerUrl({ id: payerId }) }];
     }
   }
-  requests.push({ method: 'POST', url: '/Coverage', resource: copy, fullUrl: `urn:uuid:claim-coverage-${c.id}` });
+  requests.push({
+    method: 'POST',
+    url: '/Coverage',
+    resource: copy,
+    fullUrl: `urn:uuid:claim-coverage-${coverage.id}`,
+  });
   order.push('coverage');
   return [requests, order];
 }
@@ -414,6 +531,11 @@ async function getClinicalResources(
           // Include patient
           name: '_include',
           value: 'Encounter:subject',
+        },
+        {
+          // Include appointment
+          name: '_include',
+          value: 'Encounter:appointment',
         },
         {
           // Include location
@@ -454,6 +576,9 @@ async function getClinicalResources(
 
   const patient = findRef<Patient>(resources, encounter.subject?.reference);
   if (!patient) throw FHIR_RESOURCE_NOT_FOUND('Patient');
+
+  const appointment = findRef<Appointment>(resources, encounter.appointment?.[0].reference);
+  if (!appointment) throw FHIR_RESOURCE_NOT_FOUND('Appointment');
 
   // TODO: consider whether these should be required
   const location = findRef<Location>(resources, encounter.location?.[0].location.reference);
@@ -498,6 +623,7 @@ async function getClinicalResources(
   return {
     encounter,
     patient,
+    appointment,
     practitioners,
     location,
     billingProvider,
@@ -615,11 +741,12 @@ function buildClaim(resources: ClaimResources): Claim {
       ? { reference: `Organization/${resources.billingProvider.id}` }
       : { display: 'Unknown' },
     facility: resources.serviceFacility ? { reference: `Location:${resources.serviceFacility.id}` } : undefined,
-    insurer: resources.payorRef ? resources.payorRef : undefined,
-    // CW TODO: secondary insurance
-    insurance: resources.coverageId
-      ? [{ sequence: 1, focal: true, coverage: { reference: `Coverage/${resources.coverageId}` } }]
-      : [],
+    insurer: resources.coverageRefs[0].payorRef ? resources.coverageRefs[0].payorRef : undefined,
+    insurance: resources.coverageRefs.map((cov, i) => ({
+      sequence: i + 1,
+      focal: i === 0,
+      coverage: cov.coverageRef,
+    })),
     careTeam: resources.renderingProvider
       ? [
           {
@@ -636,7 +763,7 @@ function buildClaim(resources: ClaimResources): Claim {
         }))
       : [],
     priority: { coding: [{ system: CODE_SYSTEM_PROCESS_PRIORITY, code: 'normal' }] },
-    // CW TODO: charge amounts
+    // CW TODO: charge amounts!
     total: undefined,
     item: resources.procedures
       ? resources.procedures.map<ClaimItem>((p, i) => ({
@@ -644,7 +771,6 @@ function buildClaim(resources: ClaimResources): Claim {
           careTeamSequence: resources.renderingProvider ? [1] : undefined,
           diagnosisSequence: resources.diagnoses ? [1] : undefined,
           productOrService: assertDefined(p.code, 'Procedure code'),
-          // CW TODO: special e&m code modifier for telemed? (95)
           modifier: p.extension
             ?.flatMap<CodeableConcept | undefined>((ext) =>
               ext.url === EXTENSION_URL_CPT_MODIFIER
@@ -667,13 +793,24 @@ function buildClaim(resources: ClaimResources): Claim {
               ? getLocalDateOfService(resources.encounter.period.end, resources.serviceFacility)
               : undefined,
           },
-          // CW TODO: this is the facility TYPE CODE -- 20 for UC, 22 or 10 for Telemed, etc
-          locationCodeableConcept: resources.serviceFacility
-            ? { coding: [{ system: CODE_SYSTEM_CMS_PLACE_OF_SERVICE, code: '' }] }
-            : undefined,
+          locationCodeableConcept:
+            resources.serviceFacility &&
+            resources.serviceFacility.extension?.some((ext) => ext.url === CODE_SYSTEM_CMS_PLACE_OF_SERVICE)
+              ? {
+                  coding: [
+                    {
+                      system: CODE_SYSTEM_CMS_PLACE_OF_SERVICE,
+                      code: resources.serviceFacility.extension.find(
+                        (ext) => ext.url === CODE_SYSTEM_CMS_PLACE_OF_SERVICE
+                      )?.valueString,
+                    },
+                  ],
+                }
+              : undefined,
           // CW TODO: charge amounts!
           net: undefined,
           quantity: { value: 1, unit: 'UN' },
+          // CW TODO: use samir's tagging system to add encounter-type tags (or use subtype field?)
         }))
       : [],
   };
