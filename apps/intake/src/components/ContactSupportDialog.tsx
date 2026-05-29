@@ -23,13 +23,23 @@ export const ContactSupportDialog: FC<ContactSupportDialogProps> = ({ onClose })
   });
 
   const rawBodyHtml = data?.bodyHtml?.trim();
-  const safeBodyHtml = useMemo(
-    () =>
-      rawBodyHtml
-        ? DOMPurify.sanitize(rawBodyHtml, { ALLOWED_TAGS: ALLOWED_SUPPORT_DIALOG_TAGS, ALLOWED_ATTR: [] })
-        : '',
-    [rawBodyHtml]
-  );
+  const safeBodyHtml = useMemo(() => {
+    if (!rawBodyHtml) return '';
+    const sanitized = DOMPurify.sanitize(rawBodyHtml, {
+      ALLOWED_TAGS: ALLOWED_SUPPORT_DIALOG_TAGS,
+      ALLOWED_ATTR: [],
+    });
+    // tiptap emits blank lines as <p></p> (or <p> </p>); these collapse to zero
+    // height and render invisibly. Give each blank paragraph a <br> so it occupies
+    // a full line. Done after sanitizing — <br> is already in the allowlist.
+    const doc = new DOMParser().parseFromString(sanitized, 'text/html');
+    doc.querySelectorAll('p').forEach((p) => {
+      if (!p.textContent?.trim() && !p.querySelector('br')) {
+        p.appendChild(doc.createElement('br'));
+      }
+    });
+    return doc.body.innerHTML;
+  }, [rawBodyHtml]);
 
   return (
     <CustomDialog open={true} onClose={onClose}>
