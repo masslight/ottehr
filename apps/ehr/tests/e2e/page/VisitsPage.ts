@@ -16,6 +16,12 @@ export class VisitsPage {
     await expect(visitLocator).toBeVisible({ timeout: 30000 });
   }
 
+  async verifyVisitNotPresent(appointmentId: string): Promise<void> {
+    await expect(this.#page.getByTestId(dataTestIds.dashboard.tableRowWrapper(appointmentId))).toHaveCount(0, {
+      timeout: 30000,
+    });
+  }
+
   async verifyVisitsStatus(appointmentId: string, visitStatus: string): Promise<void> {
     await expect(
       this.#page

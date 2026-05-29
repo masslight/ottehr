@@ -127,7 +127,8 @@ async function main(): Promise<void> {
     index++;
     console.log(`\n[${index}/${uniqueCodes.size}] Cleaning up resources for run ID: ${code}`);
     try {
-      const success = await cleanAppointmentGraph({ system: E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM, code }, oystehr);
+      // Intentional, operator-confirmed deletion tool: explicitly opt in to hard delete.
+      const success = await cleanAppointmentGraph({ system: E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM, code }, oystehr, true);
       if (success) {
         console.log(`Cleanup successful for ${code}`);
       } else {

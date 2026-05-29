@@ -26,12 +26,13 @@ import {
   formatPhoneNumber,
   genderMap,
   GetPaperworkAnswers,
+  hardDeleteAllowed,
+  hideAppointmentGraph,
   RelationshipOption,
   SampleAppointmentResponse,
   ServiceMode,
   VALUE_SETS,
 } from 'utils';
-import { VisitDetailsPage } from '../../tests/e2e/page/VisitDetailsPage';
 import { getAuth0Token } from './auth/getAuth0Token';
 import {
   inviteTestEmployeeUser,
@@ -316,26 +317,27 @@ export class ResourceHandler {
     };
   }
 
-  public async cleanupResources(page?: Page): Promise<void> {
-    if (process.env.SMOKE_TEST === 'true') {
-      console.log('Smoke test mode detected, canceling visits through UI');
-      if (!page) {
-        throw new Error('Page instance parameter is required to cancel visit in smoke test mode');
-      }
-      await page?.goto(`/visit/${this.appointment.id!}`);
-      const visitDetails = new VisitDetailsPage(page!);
-      await visitDetails.clickCancelVisitButton();
-      await visitDetails.selectCancelationReason(VALUE_SETS.cancelReasonOptionsInPersonProvider[0].label);
-      await visitDetails.clickCancelButtonFromDialogue();
-      return;
-    }
+  // `_page` is retained for backwards-compatibility with existing call sites; cleanup no longer
+  // drives the UI. Cleanup always reversibly hides the appointment(s) from the tracking board, and
+  // only hard-deletes the graph when ALLOW_HARD_DELETE is set (ephemeral test envs, never prod).
+  public async cleanupResources(_page?: Page): Promise<void> {
     console.log('------------------------------------------------------------');
     console.log('Starting resource cleanup');
-    // TODO: here we should change appointment id to encounter id when we'll fix this bug in frontend,
-    // because for this moment frontend creates order with appointment id in place of encounter one
     const metaTagCoding = getProcessMetaTag(this.#processId!);
     if (metaTagCoding?.tag?.[0]) {
       await cleanAppointmentGraph(metaTagCoding.tag[0], await this.apiClient);
+    }
+  }
+
+  /**
+   * Reversibly hide this handler's appointment(s) from the EHR tracking board without deleting
+   * anything. Used by the smoke test that proves hidden visits disappear from the board, and safe
+   * to call in any environment.
+   */
+  public async hideResources(): Promise<void> {
+    const metaTagCoding = getProcessMetaTag(this.#processId!);
+    if (metaTagCoding?.tag?.[0]) {
+      await hideAppointmentGraph(metaTagCoding.tag[0], await this.apiClient);
     }
   }
 
@@ -516,6 +518,10 @@ export class ResourceHandler {
   }
 
   async deleteEmployees(): Promise<void> {
+    if (!hardDeleteAllowed()) {
+      console.log('Hard delete not permitted (ALLOW_HARD_DELETE not set); skipping test employee deletion.');
+      return;
+    }
     const apiClient = await this.apiClient;
     const authToken = await this.#authToken;
 

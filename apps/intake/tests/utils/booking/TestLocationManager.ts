@@ -3,6 +3,7 @@ import { HealthcareService, Location, Practitioner, PractitionerRole, Schedule }
 import { DateTime } from 'luxon';
 import {
   E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM,
+  hardDeleteAllowed,
   SCHEDULE_STRATEGY_SYSTEM,
   ScheduleStrategy,
   SERVICE_CATEGORY_SYSTEM,
@@ -1111,6 +1112,13 @@ export class TestLocationManager {
    * Cleanup test location and schedule
    */
   async cleanup(): Promise<void> {
+    if (!hardDeleteAllowed()) {
+      console.log(
+        'Hard delete not permitted (ALLOW_HARD_DELETE not set); skipping test location/schedule cleanup. ' +
+          'Test scheduling resources are reused in production smoke runs and must not be deleted.'
+      );
+      return;
+    }
     const oystehr = this.resourceHandler.apiClient;
 
     // Clean up walk-in location

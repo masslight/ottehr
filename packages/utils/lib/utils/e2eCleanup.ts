@@ -1,12 +1,96 @@
-import Oystehr, { BatchInputDeleteRequest, FhirSearchParams } from '@oystehr/sdk';
+import Oystehr, { BatchInputDeleteRequest, BatchInputPatchRequest, FhirSearchParams } from '@oystehr/sdk';
 import { Operation } from 'fast-json-patch';
 import { Appointment, Coding, FhirResource, Observation, Patient, Person, RelatedPerson } from 'fhir/r4b';
-import { chunkThings } from '../fhir';
+import { chunkThings, getPatchBinary, getPatchOperationForNewMetaTag } from '../fhir';
 import { getAllFhirSearchPages } from '../fhir/getAllFhirSearchPages';
 import { sleep } from '../helpers';
+import { OTTEHR_TEST_DATA_HIDDEN_SYSTEM, OTTEHR_TEST_DATA_HIDDEN_TAG } from '../types/constants';
 
-export const cleanAppointmentGraph = async (tag: Coding, oystehr: Oystehr): Promise<boolean> => {
+/**
+ * Hard-deletion of test resources is opt-in and OFF by default, so cleanup is safe-by-default in
+ * any environment (most importantly production). Deletion happens only when explicitly permitted —
+ * either via the `ALLOW_HARD_DELETE=true` environment variable (set for ephemeral test envs by
+ * scripts/run-e2e.ts) or via an explicit `allowHardDelete` argument passed by an intentional
+ * deletion tool (manual cleanup scripts, integration-test teardown). When deletion is not allowed,
+ * the appointment graph is hidden instead (see `hideAppointmentGraph`).
+ */
+export const hardDeleteAllowed = (override?: boolean): boolean => {
+  if (typeof override === 'boolean') {
+    return override;
+  }
+  return process.env.ALLOW_HARD_DELETE === 'true';
+};
+
+/** True if a resource carries the reversible "test data hidden" meta tag. */
+export const hasHiddenTestTag = (resource: { meta?: { tag?: Coding[] } }): boolean =>
+  (resource.meta?.tag ?? []).some((tag) => tag.system === OTTEHR_TEST_DATA_HIDDEN_SYSTEM);
+
+/**
+ * Reversibly hide every appointment in the graph identified by `tag` by adding the
+ * OTTEHR_TEST_DATA_HIDDEN meta tag. This never touches clinical fields, so it is fully reversible
+ * (remove the tag and the appointment reappears — see scripts/restore-resources/unhide.ts). Only
+ * the Appointment is tagged, because the tracking board (get-appointments) is the single surface
+ * we hide from and it keys off the Appointment.
+ */
+const hideAppointments = async (oystehr: Oystehr, allResources: FhirResource[]): Promise<void> => {
+  const patchRequests: BatchInputPatchRequest<FhirResource>[] = allResources
+    .filter((resource): resource is Appointment => resource.resourceType === 'Appointment')
+    .filter((appointment) => appointment.id && !hasHiddenTestTag(appointment))
+    .map((appointment) =>
+      getPatchBinary({
+        resourceType: 'Appointment',
+        resourceId: appointment.id!,
+        patchOperations: [getPatchOperationForNewMetaTag(appointment, OTTEHR_TEST_DATA_HIDDEN_TAG)],
+      })
+    );
+
+  if (patchRequests.length === 0) {
+    console.log('No appointments to hide (none found, or all already hidden)');
+    return;
+  }
+
+  console.log(`Hiding ${patchRequests.length} appointment(s) by adding the ${OTTEHR_TEST_DATA_HIDDEN_SYSTEM} tag...`);
+  const chunkedRequests = chunkThings(patchRequests, 100);
+  for (let i = 0; i < chunkedRequests.length; i++) {
+    try {
+      await oystehr.fhir.transaction({ requests: [...chunkedRequests[i]] });
+      console.log(`successfully hid appointments, chunk ${i + 1} of ${chunkedRequests.length}`);
+    } catch (e) {
+      console.log(`Error hiding appointments, chunk ${i + 1} of ${chunkedRequests.length}: ${e}`, JSON.stringify(e));
+      console.log('Continuing with additional requests...');
+    }
+    await sleep(250);
+  }
+};
+
+/** Hide (reversibly) the appointment graph identified by `tag`, without deleting anything. */
+export const hideAppointmentGraph = async (tag: Coding, oystehr: Oystehr): Promise<void> => {
   const allResources = await getAppointmentGraphByTag(oystehr, tag);
+  await hideAppointments(oystehr, allResources);
+};
+
+/**
+ * Clean up the appointment graph identified by `tag`.
+ *
+ * Always hides the appointment(s) first (reversible, side-effect-free), so test data disappears
+ * from the tracking board even when hard deletion is not permitted. Then, ONLY if hard deletion is
+ * allowed (see `hardDeleteAllowed`), deletes the entire graph. This makes cleanup safe-by-default
+ * in production: with no `ALLOW_HARD_DELETE` flag set, resources are hidden rather than destroyed.
+ */
+export const cleanAppointmentGraph = async (
+  tag: Coding,
+  oystehr: Oystehr,
+  allowHardDelete?: boolean
+): Promise<boolean> => {
+  const allResources = await getAppointmentGraphByTag(oystehr, tag);
+
+  // Always hide first — this is the safe, reversible cleanup that runs in every environment.
+  await hideAppointments(oystehr, allResources);
+
+  if (!hardDeleteAllowed(allowHardDelete)) {
+    console.log('Hard delete not permitted (ALLOW_HARD_DELETE not set); hid appointment graph instead of deleting.');
+    return true;
+  }
 
   const [deleteRequests, persons] = generateDeleteRequestsAndPerson(allResources);
 
@@ -318,7 +402,11 @@ const getAppointmentGraphByTag = async (
   return dedupedResources;
 };
 
-export const cleanupE2ELocations = async (oystehr: Oystehr, tag: string): Promise<void> => {
+export const cleanupE2ELocations = async (oystehr: Oystehr, tag: string, allowHardDelete?: boolean): Promise<void> => {
+  if (!hardDeleteAllowed(allowHardDelete)) {
+    console.log('Hard delete not permitted (ALLOW_HARD_DELETE not set); skipping E2E location cleanup.');
+    return;
+  }
   const params = [
     {
       name: '_tag',
@@ -352,7 +440,11 @@ export const cleanupE2ELocations = async (oystehr: Oystehr, tag: string): Promis
   console.log(`Deleted ${locationsToDelete.length} E2E test locations`);
 };
 
-export const cleanupE2ESchedules = async (oystehr: Oystehr, tag: string): Promise<void> => {
+export const cleanupE2ESchedules = async (oystehr: Oystehr, tag: string, allowHardDelete?: boolean): Promise<void> => {
+  if (!hardDeleteAllowed(allowHardDelete)) {
+    console.log('Hard delete not permitted (ALLOW_HARD_DELETE not set); skipping E2E schedule cleanup.');
+    return;
+  }
   const params = [
     {
       name: '_tag',
@@ -386,7 +478,11 @@ export const cleanupE2ESchedules = async (oystehr: Oystehr, tag: string): Promis
   console.log(`Deleted ${schedulesToDelete.length} E2E test schedules`);
 };
 
-export const cleanupIntegrationTestLocations = async (oystehr: Oystehr): Promise<void> => {
+export const cleanupIntegrationTestLocations = async (oystehr: Oystehr, allowHardDelete?: boolean): Promise<void> => {
+  if (!hardDeleteAllowed(allowHardDelete)) {
+    console.log('Hard delete not permitted (ALLOW_HARD_DELETE not set); skipping integration test location cleanup.');
+    return;
+  }
   const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
 
   // Clean up both in-person and telemed test locations
@@ -436,7 +532,16 @@ export const cleanupIntegrationTestLocations = async (oystehr: Oystehr): Promise
  */
 export const INTEGRATION_TEST_TAG_SYSTEM = 'OTTEHR_AUTOMATED_TEST';
 
-export const cleanupIntegrationTestAppointments = async (oystehr: Oystehr): Promise<void> => {
+export const cleanupIntegrationTestAppointments = async (
+  oystehr: Oystehr,
+  allowHardDelete?: boolean
+): Promise<void> => {
+  if (!hardDeleteAllowed(allowHardDelete)) {
+    console.log(
+      'Hard delete not permitted (ALLOW_HARD_DELETE not set); skipping integration test appointment cleanup.'
+    );
+    return;
+  }
   const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
 
   // Search for appointments tagged with OTTEHR_AUTOMATED_TEST system
@@ -525,7 +630,11 @@ export const cleanupIntegrationTestAppointments = async (oystehr: Oystehr): Prom
  * Clean up Patients tagged with OTTEHR_AUTOMATED_TEST that may have been orphaned.
  * These are created by integration tests for new patient scenarios.
  */
-export const cleanupIntegrationTestPatients = async (oystehr: Oystehr): Promise<void> => {
+export const cleanupIntegrationTestPatients = async (oystehr: Oystehr, allowHardDelete?: boolean): Promise<void> => {
+  if (!hardDeleteAllowed(allowHardDelete)) {
+    console.log('Hard delete not permitted (ALLOW_HARD_DELETE not set); skipping integration test patient cleanup.');
+    return;
+  }
   const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
 
   const patientsToDelete = (

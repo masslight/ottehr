@@ -10,6 +10,10 @@ import { createOystehrClientFromConfig } from './helpers';
 
 const deleteAppointmentData = async (config: any): Promise<void> => {
   const oystehr = await createOystehrClientFromConfig(config);
+  // Safe-by-default: with no ALLOW_HARD_DELETE set this HIDES test appointments and skips location
+  // cleanup rather than deleting (this script has no confirmation prompt and reads ENV directly, so
+  // it must never delete from production by accident). To actually purge an ephemeral test env, run
+  // with ALLOW_HARD_DELETE=true.
   await cleanAppointmentGraph({ system: E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM, code: '' }, oystehr);
   await cleanupE2ELocations(oystehr, `${E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM}|`);
   await cleanupIntegrationTestLocations(oystehr);

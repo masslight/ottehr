@@ -284,7 +284,8 @@ export const insertInPersonAppointmentBase = async (
 export const cleanupResources = async (oystehr: Oystehr, processId: string): Promise<void> => {
   const metaTagCoding = getProcessMetaTag(processId);
   if (metaTagCoding?.tag?.[0]) {
-    await cleanAppointmentGraph(metaTagCoding.tag[0], oystehr);
+    // Integration tests only ever run against ephemeral test servers, so always hard-delete.
+    await cleanAppointmentGraph(metaTagCoding.tag[0], oystehr, true);
   }
 };
 

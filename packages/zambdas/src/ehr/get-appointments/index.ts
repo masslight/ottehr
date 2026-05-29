@@ -34,6 +34,7 @@ import {
   getPatientLastName,
   getSMSNumberForIndividual,
   getVisitStatusHistory,
+  hasHiddenTestTag,
   InPersonAppointmentInformation,
   INSURANCE_CARD_CODE,
   isAnnotationFollowupEncounter,
@@ -177,7 +178,10 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput):
 
         const appointments = appointmentResponse
           .unbundle()
-          .filter((resource) => !isNonPaperworkQuestionnaireResponse(resource));
+          .filter((resource) => !isNonPaperworkQuestionnaireResponse(resource))
+          // Exclude e2e/smoke test appointments that have been reversibly hidden. This is the one
+          // surface we hide test data from; removing the OTTEHR_TEST_DATA_HIDDEN tag restores them.
+          .filter((resource) => !(resource.resourceType === 'Appointment' && hasHiddenTestTag(resource)));
 
         return { appointments, group };
       })

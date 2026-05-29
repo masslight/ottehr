@@ -63,6 +63,19 @@ const pwSuiteId = `${appName}-${DateTime.now().toMillis()}`;
 process.env.PLAYWRIGHT_SUITE_ID = pwSuiteId;
 console.log('PLAYWRIGHT_SUITE_ID in run-e2e.ts:', pwSuiteId);
 
+// Hard deletion of test data is opt-in and limited to ephemeral / non-production environments.
+// Any environment NOT in this allowlist (e.g. production) falls through to the safe-by-default
+// behavior in the cleanup helpers, which HIDE test data (reversibly) instead of deleting it.
+// See hardDeleteAllowed() in packages/utils/lib/utils/e2eCleanup.ts.
+const HARD_DELETE_ENVS = ['local', 'e2e', 'e2e2', 'e2e3', 'demo', 'development', 'staging', 'testing'];
+if (HARD_DELETE_ENVS.includes(ENV)) {
+  process.env.ALLOW_HARD_DELETE = 'true';
+} else {
+  // Defensively clear any inherited value so production never hard-deletes.
+  delete process.env.ALLOW_HARD_DELETE;
+  console.log(`ENV "${ENV}" is not in the hard-delete allowlist; e2e cleanup will HIDE test data instead of deleting.`);
+}
+
 const clearPorts = (): void => {
   if (isCI) {
     return;
