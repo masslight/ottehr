@@ -337,7 +337,7 @@ export const filterEntriesToTemplateContent = (
   });
 };
 
-const isValidInHouseLabServiceRequest = (resource: TemplateEncounterResource): boolean => {
+export const isValidInHouseLabServiceRequest = (resource: TemplateEncounterResource): boolean => {
   if (resource.resourceType !== 'ServiceRequest') return false;
 
   // Orders the provider canceled or marked as a mistake live on as

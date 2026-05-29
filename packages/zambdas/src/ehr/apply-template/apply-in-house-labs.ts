@@ -144,7 +144,7 @@ export async function applyInHouseLabPlans(input: ApplyInHouseLabPlansInput): Pr
         testResources: [
           {
             activityDefinition: ad!, // the canApply checks make sure this isn't undefined, so this is safe
-            initialServiceRequest: undefined, // ATHENA TODO note: repeat tests can't be ordered via templates
+            initialServiceRequest: undefined, // note: repeat tests and reflex can't be ordered via templates
             orderMode: 'standard',
           },
         ],

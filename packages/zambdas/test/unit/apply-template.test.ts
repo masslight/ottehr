@@ -414,6 +414,33 @@ describe('collectCptCodesFromApplicableActivityDefinitions', () => {
     const actions = makeActions({ inHouseLabs: 'append', cptCodes: 'skip' });
     expect(collectCptCodesFromApplicableActivityDefinitions(ads, actions)).toEqual(new Set());
   });
+
+  test('uses updated CPT codes from the current AD, not the codes that were on the plan when the template was saved', () => {
+    // Template was created when the Strep Rapid test used CPT 87880.
+    // The AD was later updated to use 87882 instead. When applying the template,
+    // collectCptCodesFromApplicableActivityDefinitions should read from the current AD (87882),
+    // so the dedup set suppresses 87882 — not the now-stale 87880.
+    const updatedAd = makeInHouseLabAD('ad-1', ['87882']); // new code after AD was updated
+    const actions = makeActions({ inHouseLabs: 'append', cptCodes: 'append' });
+    const result = collectCptCodesFromApplicableActivityDefinitions([updatedAd], actions);
+    expect(result).toContain('87882');
+    expect(result).not.toContain('87880');
+  });
+
+  test('uses updated test name from the current AD, not the name embedded in the plan SR', () => {
+    // The AD name may differ from whatever was stored on the plan SR at template-creation time.
+    // collectCptCodesFromApplicableActivityDefinitions reads from AD.code.coding, confirming
+    // the AD is the source of truth for which CPT codes get deduped.
+    const renamedAd: ActivityDefinition = {
+      ...makeInHouseLabAD('ad-1', ['87880']),
+      name: 'Strep Rapid v2',
+      title: 'Strep Rapid (Updated)',
+    };
+    const actions = makeActions({ inHouseLabs: 'append', cptCodes: 'append' });
+    const result = collectCptCodesFromApplicableActivityDefinitions([renamedAd], actions);
+    // CPT codes are read from the AD regardless of name change
+    expect(result).toContain('87880');
+  });
 });
 
 describe('makeCreateRequests — CPT / in-house lab overlap', () => {

@@ -15,7 +15,13 @@ import {
   Resource,
   ServiceRequest,
 } from 'fhir/r4b';
-import { chartDataTagSystem, GLOBAL_TEMPLATE_IN_PERSON_CODE_SYSTEM, GLOBAL_TEMPLATE_META_TAG_CODE_SYSTEM } from 'utils';
+import {
+  chartDataTagSystem,
+  extractCptCodeModifiersFromCoding,
+  GLOBAL_TEMPLATE_IN_PERSON_CODE_SYSTEM,
+  GLOBAL_TEMPLATE_META_TAG_CODE_SYSTEM,
+  REPEAT_TEST_CPT_CODE_MODIFIER,
+} from 'utils';
 import { getLatestInHouseLabActivityDefinitionsForTemplatePlan } from '../apply-template/apply-in-house-labs';
 
 // Meta-tag systems that mark a resource as belonging in a global template.
@@ -32,6 +38,7 @@ export const TEMPLATE_TAG_SYSTEMS: ReadonlySet<string> = new Set([
   chartDataTagSystem('em-code'),
   chartDataTagSystem('diagnosis'),
   // ATHENA TODO: shouldn't the in house lab template tag be here? Also shouldn't all these strings for the various things be a type/const?
+  // chartDataTagSystem('in-house-lab-template-plan')
 ]);
 
 // Minimal shape for tag-based predicates so callers can pass resources from any FHIR version (R4B / R5) without
@@ -41,6 +48,7 @@ type TaggedResource = {
   meta?: { tag?: Array<{ system?: string; code?: string }> };
 };
 
+// ATHENA TODO: figure out if adding the in house lab template plan key would break this anywhere
 export function hasTemplateRelevantTag(resource: TaggedResource | undefined): boolean {
   return resource?.meta?.tag?.some((tag) => !!tag.system && TEMPLATE_TAG_SYSTEMS.has(tag.system)) ?? false;
 }
@@ -48,6 +56,18 @@ export function hasTemplateRelevantTag(resource: TaggedResource | undefined): bo
 export function isDiagnosisCondition(resource: TaggedResource | undefined): boolean {
   if (resource?.resourceType !== 'Condition') return false;
   return resource.meta?.tag?.some((tag) => tag.system === chartDataTagSystem('diagnosis')) ?? false;
+}
+
+export function isInHouseLabRepeatTestCptCode(resource: TemplateEncounterResource | undefined): boolean {
+  if (!resource) return false;
+  if (resource.resourceType !== 'Procedure') return false;
+  return (
+    !!resource.meta?.tag?.some((tag) => tag.system === chartDataTagSystem('cpt-code')) &&
+    !!resource.code?.coding &&
+    resource.code.coding
+      .flatMap((coding) => extractCptCodeModifiersFromCoding(coding))
+      .some((modifier) => modifier.code === REPEAT_TEST_CPT_CODE_MODIFIER.code)
+  );
 }
 
 export function verifyIsTemplate(templateList: List, templateId: string): void {

@@ -34,7 +34,7 @@ import {
   TEMPLATE_SECTIONS_NO_APPEND,
   TEMPLATE_SECTIONS_NO_OVERWRITE,
   TemplateCptCodeInfo,
-  TemplateInHouseLabPlan,
+  TemplateInHouseLabPlanDetail,
   TemplateSectionAction,
   TemplateSectionActions,
   TemplateSectionDescriptor,
@@ -342,7 +342,7 @@ const SectionPreview: React.FC<{
 // little chips below. Plans whose ActivityDefinition couldn't be resolved on
 // this environment render muted so the provider knows they'll be skipped at
 // apply-time.
-const InHouseLabPlansList: React.FC<{ plans: TemplateInHouseLabPlan[] }> = ({ plans }) => (
+const InHouseLabPlansList: React.FC<{ plans: TemplateInHouseLabPlanDetail[] }> = ({ plans }) => (
   <Stack spacing={1.5}>
     {plans.map((plan) => (
       <Box key={plan.planId} sx={{ opacity: plan.missing ? 0.55 : 1 }}>
