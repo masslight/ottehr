@@ -62,7 +62,9 @@ const performEffect = async (
 
   // 1. Upload PDF to Z3
   const pdfBytes = new Uint8Array(Buffer.from(pdfBase64, 'base64'));
-  const fileName = `approved-patient-education-${randomUUID()}.pdf`;
+  // Embed the primary ICD code in the filename for traceability; UUID preserves uniqueness.
+  const primaryIcdSlug = (icdCodes[0]?.code ?? 'unknown').replace(/[^A-Za-z0-9.]/g, '-');
+  const fileName = `approved-patient-education-${primaryIcdSlug}-${randomUUID()}.pdf`;
   const z3Url = makeZ3FileUrl({ secrets, bucketName: BUCKET_NAMES.PATIENT_EDUCATION_ADMIN, fileName });
   const presignedUploadUrl = await createPresignedUrl(token, z3Url, 'upload');
   await uploadObjectToZ3(pdfBytes, presignedUploadUrl);

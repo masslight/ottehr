@@ -37,7 +37,7 @@ export const PatientEducationAdminPage = (): ReactElement => {
   const [addOpen, setAddOpen] = useState(false);
   const [editing, setEditing] = useState<ApprovedPatientEducationItem | null>(null);
 
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, isSuccess } = useQuery({
     queryKey: APPROVED_PATIENT_EDUCATION_QUERY_KEY,
     queryFn: async () => {
       if (!apiClient) throw new Error('API client not available');
@@ -76,9 +76,8 @@ export const PatientEducationAdminPage = (): ReactElement => {
       </Typography>
 
       {isLoading && <CircularProgress />}
-      {error && <Typography color="error">Failed to load: {(error as Error).message}</Typography>}
 
-      {!isLoading && !error && (
+      {isSuccess && (
         <TableContainer component={Paper}>
           <Table>
             <TableHead>

@@ -1,9 +1,9 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { EditApprovedPatientEducationCodesDialog } from 'src/features/admin/patient-education/EditApprovedPatientEducationCodesDialog';
 import { ApprovedPatientEducationItem } from 'utils';
 import { describe, expect, it, vi } from 'vitest';
-import { EditApprovedPatientEducationCodesDialog } from './EditApprovedPatientEducationCodesDialog';
 
 const updateApprovedPatientEducationCodes = vi.fn();
 

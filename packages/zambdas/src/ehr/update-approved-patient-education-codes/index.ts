@@ -23,6 +23,12 @@ import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
 
+type ValidatedInput = UpdateApprovedPatientEducationCodesInput & Pick<ZambdaInput, 'secrets'>;
+
+interface EffectInput extends ValidatedInput {
+  target: DocumentReference;
+}
+
 export const index = wrapHandler(
   'update-approved-patient-education-codes',
   async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
@@ -31,7 +37,8 @@ export const index = wrapHandler(
       m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedInput.secrets);
       const oystehr = createOystehrClient(m2mToken, validatedInput.secrets);
 
-      const result = await performEffect(validatedInput, oystehr);
+      const effectInput = await complexValidation(validatedInput, oystehr);
+      const result = await performEffect(effectInput, oystehr);
       return {
         statusCode: 200,
         body: JSON.stringify(result),
@@ -43,10 +50,7 @@ export const index = wrapHandler(
   }
 );
 
-const performEffect = async (
-  validatedInput: UpdateApprovedPatientEducationCodesInput & Pick<ZambdaInput, 'secrets'>,
-  oystehr: Oystehr
-): Promise<UpdateApprovedPatientEducationCodesOutput> => {
+const complexValidation = async (validatedInput: ValidatedInput, oystehr: Oystehr): Promise<EffectInput> => {
   const { documentReferenceId, icdCodes } = validatedInput;
 
   const target = await oystehr.fhir.get<DocumentReference>({
@@ -81,6 +85,15 @@ const performEffect = async (
       `The following ICD codes are already used by other approved PDFs: ${Array.from(conflictingCodes).join(', ')}`
     );
   }
+
+  return { ...validatedInput, target };
+};
+
+const performEffect = async (
+  effectInput: EffectInput,
+  oystehr: Oystehr
+): Promise<UpdateApprovedPatientEducationCodesOutput> => {
+  const { documentReferenceId, icdCodes, target } = effectInput;
 
   const updatedDocRef: DocumentReference = {
     ...target,

@@ -1,16 +1,13 @@
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import SchoolIcon from '@mui/icons-material/School';
 import {
-  Autocomplete,
   Box,
-  Chip,
   CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
   Stack,
-  TextField,
   Typography,
 } from '@mui/material';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -20,38 +17,22 @@ import { RoundedButton } from 'src/components/RoundedButton';
 import { PatientEducationSectionsEditor } from 'src/features/visits/shared/components/PatientEducationSectionsEditor';
 import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
 import { EducationSection, generateCombinedPdf } from 'src/features/visits/shared/hooks/usePatientEducation';
-import { useICD10SearchNew } from 'src/features/visits/shared/stores/appointment/appointment.queries';
-import { useDebounce } from 'src/shared/hooks/useDebounce';
-import { ApprovedPatientEducationIcdCode, IcdSearchResponse } from 'utils';
+import { ApprovedPatientEducationIcdCode } from 'utils';
+import { AlternateDiagnosesInput, PrimaryDiagnosisInput } from './IcdDiagnosisInputs';
 import { APPROVED_PATIENT_EDUCATION_QUERY_KEY } from './PatientEducationAdminPage';
+import { Icd10Option } from './useIcd10SearchInput';
 
 type DialogProps = {
   open: boolean;
   onClose: () => void;
 };
 
-type Diagnosis = IcdSearchResponse['codes'][number];
-
 export const ApprovedPatientEducationDialog: FC<DialogProps> = ({ open, onClose }) => {
   const apiClient = useOystehrAPIClient();
   const queryClient = useQueryClient();
 
-  const [primary, setPrimary] = useState<Diagnosis | null>(null);
-  const [alternates, setAlternates] = useState<Diagnosis[]>([]);
-
-  const [primaryInput, setPrimaryInput] = useState('');
-  const [primaryDebounced, setPrimaryDebounced] = useState('');
-  const { debounce: debouncePrimary } = useDebounce(800);
-  const { data: primaryData, isFetching: isPrimaryFetching } = useICD10SearchNew({ search: primaryDebounced });
-  const primaryOptions = primaryData?.codes ?? [];
-
-  const [alternateInput, setAlternateInput] = useState('');
-  const [alternateDebounced, setAlternateDebounced] = useState('');
-  const { debounce: debounceAlternate } = useDebounce(800);
-  const { data: alternateData, isFetching: isAlternateFetching } = useICD10SearchNew({ search: alternateDebounced });
-  const alternateOptions = (alternateData?.codes ?? []).filter(
-    (o) => o.code !== primary?.code && !alternates.some((a) => a.code === o.code)
-  );
+  const [primary, setPrimary] = useState<Icd10Option | null>(null);
+  const [alternates, setAlternates] = useState<Icd10Option[]>([]);
 
   const [generatedSection, setGeneratedSection] = useState<EducationSection | null>(null);
   const [editableSection, setEditableSection] = useState<EducationSection | null>(null);
@@ -125,6 +106,7 @@ export const ApprovedPatientEducationDialog: FC<DialogProps> = ({ open, onClose 
   const isBusy = generateMutation.isPending || saveMutation.isPending;
   const showReview = !!generatedSection;
   const reviewSection = editableSection ?? generatedSection;
+  const primaryErrorMessage = submitAttempted && !primary ? 'This field is required' : undefined;
 
   return (
     <Dialog open={open} onClose={() => !isBusy && onClose()} maxWidth="md" fullWidth>
@@ -136,60 +118,8 @@ export const ApprovedPatientEducationDialog: FC<DialogProps> = ({ open, onClose 
               Pick the diagnosis the AI should use to generate the PDF. Add alternative ICD-10 codes if the same PDF
               should also apply to other diagnoses.
             </Typography>
-            <Autocomplete<Diagnosis, false>
-              options={primaryOptions}
-              loading={isPrimaryFetching}
-              filterOptions={(x) => x}
-              value={primary}
-              onChange={(_e, value) => setPrimary(value)}
-              isOptionEqualToValue={(a, b) => a.code === b.code}
-              getOptionLabel={(o) => `${o.code} — ${o.display}`}
-              inputValue={primaryInput}
-              onInputChange={(_e, value) => {
-                setPrimaryInput(value);
-                debouncePrimary(() => setPrimaryDebounced(value));
-              }}
-              renderInput={(params) => (
-                <TextField
-                  {...params}
-                  required
-                  size="small"
-                  label="Diagnosis"
-                  placeholder="Start typing to search"
-                  error={submitAttempted && !primary}
-                  helperText={submitAttempted && !primary ? 'This field is required' : undefined}
-                />
-              )}
-            />
-            <Autocomplete<Diagnosis, true>
-              multiple
-              options={alternateOptions}
-              loading={isAlternateFetching}
-              filterOptions={(x) => x}
-              value={alternates}
-              onChange={(_e, value) => setAlternates(value)}
-              isOptionEqualToValue={(a, b) => a.code === b.code}
-              getOptionLabel={(o) => `${o.code} — ${o.display}`}
-              inputValue={alternateInput}
-              onInputChange={(_e, value) => {
-                setAlternateInput(value);
-                debounceAlternate(() => setAlternateDebounced(value));
-              }}
-              renderTags={(value, getTagProps) =>
-                value.map((option, index) => {
-                  const { key: _key, ...tagProps } = getTagProps({ index });
-                  return <Chip key={option.code} label={`${option.code} — ${option.display}`} {...tagProps} />;
-                })
-              }
-              renderInput={(params) => (
-                <TextField
-                  {...params}
-                  size="small"
-                  label="Alternative ICD-10 codes"
-                  placeholder="Start typing to search"
-                />
-              )}
-            />
+            <PrimaryDiagnosisInput value={primary} onChange={setPrimary} required errorMessage={primaryErrorMessage} />
+            <AlternateDiagnosesInput value={alternates} onChange={setAlternates} primary={primary} />
             {errorMsg && (
               <Typography color="error" variant="body2">
                 {errorMsg}
@@ -205,7 +135,7 @@ export const ApprovedPatientEducationDialog: FC<DialogProps> = ({ open, onClose 
               onSectionsChange={(next) => setEditableSection(next[0])}
               disabled={isBusy}
               errorMessage={errorMsg}
-              helperText="Edit the content below if needed. Use markdown formatting: "#", "##" for section headers, "- " for bullet points. When you approve, the rendered PDF is what charting will use."
+              helperText='Edit the content below if needed. Use markdown formatting: "#", "##" for section headers, "- " for bullet points. When you approve, the rendered PDF is what charting will use.'
             />
           </Box>
         )}
