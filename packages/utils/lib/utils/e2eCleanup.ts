@@ -28,9 +28,9 @@ export const hasHiddenTestTag = (resource: { meta?: { tag?: Coding[] } }): boole
 /**
  * Reversibly hide every appointment in the graph identified by `tag` by adding the
  * OTTEHR_TEST_DATA_HIDDEN meta tag. This never touches clinical fields, so it is fully reversible
- * (remove the tag and the appointment reappears — see scripts/restore-resources/unhide.ts). Only
- * the Appointment is tagged, because the tracking board (get-appointments) is the single surface
- * we hide from and it keys off the Appointment.
+ * (remove the tag and the appointment reappears). Only the Appointment is tagged, because the
+ * tracking board (get-appointments) is the single surface we hide from and it keys off the
+ * Appointment.
  */
 const hideAppointments = async (oystehr: Oystehr, allResources: FhirResource[]): Promise<void> => {
   const patchRequests: BatchInputPatchRequest<FhirResource>[] = allResources

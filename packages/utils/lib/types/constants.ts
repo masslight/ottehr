@@ -49,8 +49,8 @@ export const E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM = 'E2E_TEST_RESOURCE_PROCESS_ID
  * tag to the test Appointment(s) rather than removing anything. The EHR tracking board
  * (get-appointments) excludes appointments carrying this tag, so they disappear from the one
  * surface that matters — without mutating any clinical data. Because the tag is purely additive,
- * a resource hidden by mistake can always be "put back" by removing the tag (see
- * scripts/restore-resources/unhide.ts). Never gets deleted, only added/removed.
+ * a resource hidden by mistake can always be "put back" by removing the tag — nothing is ever
+ * deleted, the tag is only added or removed.
  */
 export const OTTEHR_TEST_DATA_HIDDEN_SYSTEM = 'OTTEHR_TEST_DATA_HIDDEN';
 export const OTTEHR_TEST_DATA_HIDDEN_CODE = 'HIDDEN';
