@@ -6,7 +6,7 @@ import {
   VIDEO_CHAT_WAITING_ROOM_NOTIFICATION_TASK_CODE,
 } from 'utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { getRecentlyAssignedTasksMap } from '../../src/cron/notifications-updater';
+import { getRecentlyAssignedTasksMap, resolveTaskRecipients } from '../../src/cron/notifications-updater';
 
 const mockOystehr = {
   fhir: {
@@ -126,5 +126,22 @@ describe('getRecentlyAssignedTasksMap', () => {
 
     const result = await getRecentlyAssignedTasksMap(mockOystehr as any, fromDate);
     expect(result['task-erx']).toBeUndefined();
+  });
+});
+
+describe('resolveTaskRecipients', () => {
+  const providers = [makePractitioner('provider-1'), makePractitioner('provider-2')];
+
+  it('notifies all active providers for an unassigned waiting-room Task', () => {
+    expect(resolveTaskRecipients(waitingRoomTask(), undefined, providers)).toEqual(providers);
+  });
+
+  it('notifies only the owner when the Task is assigned', () => {
+    const owner = makePractitioner('owner-1');
+    expect(resolveTaskRecipients(waitingRoomTask(), owner, providers)).toEqual([owner]);
+  });
+
+  it('notifies no one for an unassigned non-waiting-room Task', () => {
+    expect(resolveTaskRecipients(erxTask(), undefined, providers)).toEqual([]);
   });
 });
