@@ -383,7 +383,16 @@ export default function AddPatient(): JSX.Element {
           serviceCategoryCode: serviceCategory,
         };
       }
-      const persistedSlot = await createSlot(createSlotInput, oystehrZambda);
+      console.log('slot input: ', createSlotInput);
+      let persistedSlot: Slot;
+      try {
+        persistedSlot = await createSlot(createSlotInput, oystehrZambda);
+      } catch (error) {
+        console.error(`Failed to create slot: ${error}`);
+        enqueueSnackbar('An unexpected error occurred creating the slot, please try again.', { variant: 'error' });
+        setLoading(false);
+        return;
+      }
       const zambdaParams: CreateAppointmentInputParams = {
         patient: {
           ...patientInfo,
