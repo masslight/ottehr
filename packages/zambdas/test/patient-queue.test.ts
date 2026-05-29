@@ -5,6 +5,7 @@ import {
   AppointmentType,
   FhirAppointmentStatus,
   FhirEncounterStatus,
+  getInPersonVisitStatus,
   OTTEHR_MODULE,
   visitStatusToFhirAppointmentStatusMap,
   visitStatusToFhirEncounterStatusMap,
@@ -12,7 +13,7 @@ import {
 } from 'utils';
 import { beforeAll, expect, test } from 'vitest';
 import { HOP_QUEUE_URI } from '../src/shared/constants';
-import { sortAppointments } from '../src/shared/queueingUtils';
+import { getTrackingBoardVisitStatus, sortAppointments } from '../src/shared/queueingUtils';
 
 let NOW: DateTime;
 
@@ -652,4 +653,13 @@ test('on-demand virtual visits land in the active queue, while pre-booked teleme
 
   expect(prebookedIds).toContain(prebookedVirtual.appointment.id);
   expect(activeIds).not.toContain(prebookedVirtual.appointment.id);
+});
+
+test('on-demand virtual visit reads as pending for notifications but arrived for the tracking board', () => {
+  const { appointment, encounter } = asTelemed(makeVisit_Pending('walk-in', 0));
+
+  // for "Virtual visit with X at Y" notifications
+  expect(getInPersonVisitStatus(appointment, encounter)).toBe('pending');
+  // Active tab
+  expect(getTrackingBoardVisitStatus(appointment, encounter)).toBe('arrived');
 });
