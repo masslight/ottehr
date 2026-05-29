@@ -1,5 +1,10 @@
 import { deepStrictEqual } from 'node:assert';
-import Oystehr, { BatchInputPatchRequest, BatchInputPostRequest, BatchInputPutRequest } from '@oystehr/sdk';
+import Oystehr, {
+  BatchInputDeleteRequest,
+  BatchInputPatchRequest,
+  BatchInputPostRequest,
+  BatchInputPutRequest,
+} from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import {
   Account,
@@ -58,6 +63,7 @@ import {
   findRef,
   prepareCopy,
   prepareWorkingCopy,
+  SOURCE_IDENTIFIER_SYSTEM,
 } from '../shared';
 
 export interface CreateClaimFromEncounterParams extends CreateBillingClaimFromEncounterInput {
@@ -107,6 +113,8 @@ interface ClinicalResources {
 interface BillingResources {
   person?: Person;
   mainPatient?: Patient;
+  accounts: Account[];
+  coverages: Coverage[];
   practitioners: Practitioner[];
   serviceFacility?: Location;
   billingProvider?: Organization;
@@ -127,20 +135,22 @@ interface ClaimResources {
 }
 
 type ComplexValidationOutput = { clinicalResources: ClinicalResources; billingResources: BillingResources };
+type CreateClaimFromEncounterRequests = Array<
+  | BatchInputPostRequest<BillingFhirResource>
+  | BatchInputPatchRequest<BillingFhirResource>
+  | BatchInputPutRequest<BillingFhirResource>
+  | BatchInputDeleteRequest
+>;
 
 async function performEffect(billingOystehr: Oystehr, cvo: ComplexValidationOutput): Promise<{ claimId: string }> {
   const { clinicalResources, billingResources } = cvo;
 
-  const requests: Array<
-    | BatchInputPostRequest<BillingFhirResource>
-    | BatchInputPatchRequest<BillingFhirResource>
-    | BatchInputPutRequest<BillingFhirResource>
-  > = [];
+  const requests: CreateClaimFromEncounterRequests = [];
   const order: string[] = [];
 
   // Create or update main billing patient from clinical patient
-  let mainPatientUrn: string | undefined;
   let mainPatient = billingResources.mainPatient;
+  let mainPatientUrn = `Patient/${mainPatient?.id}`;
   if (!mainPatient) {
     mainPatientUrn = `urn:uuid:main-patient`;
     mainPatient = prepareCopy(clinicalResources.patient, clinicalResources.patient.id!);
@@ -161,67 +171,97 @@ async function performEffect(billingOystehr: Oystehr, cvo: ComplexValidationOutp
 
   // Create working copy from main patient
   const claimPatientUrn = `urn:uuid:claim-patient`;
-  const claimPatient = prepareWorkingCopy(mainPatient, mainPatientUrn ?? mainPatient.id!);
+  const claimPatient = prepareWorkingCopy(mainPatient, mainPatientUrn);
   requests.push({ method: 'POST', url: '/Patient', resource: claimPatient, fullUrl: claimPatientUrn });
   order.push('patient');
 
-  // CW TODO: diff clinical and billing accounts
+  // Sync accounts, coverages, and subscriber between clinical and billing
+  let mainPatientCoverages: Coverage[] = [];
+  const seenBillingAccountIds = new Set<string>();
   const _accounts = clinicalResources.accounts.map((a) => {
-    const copy = prepareCopy(a, a.id!);
-    copy.subject = [{ reference: claimPatientUrn }];
-    copy.coverage = [
-      {
+    const existingBillingAccount = billingResources.accounts.find(
+      (bac) => bac.identifier?.some((id) => id.system === SOURCE_IDENTIFIER_SYSTEM && id.value === a.id)
+    );
+    if (!existingBillingAccount) {
+      // No existing billing copy, create new everything
+      const [covRequests, covOrder] = copyCoverageAndSubscriberForAccount(
+        billingOystehr,
+        clinicalResources.coverages,
+        a,
+        mainPatientUrn,
+        clinicalResources.payors
+      );
+      mainPatientCoverages = covRequests
+        .filter((cov): cov is BatchInputPostRequest<Coverage> => cov.method === 'POST' && cov.url === '/Coverage')
+        .map((cov) => cov.resource);
+      requests.push(...covRequests);
+      order.push(...covOrder);
+      const copy = prepareCopy(a, a.id!);
+      copy.subject = [{ reference: mainPatientUrn }];
+      copy.coverage = a.coverage?.map((acov) => ({
         coverage: {
-          reference: `urn:uuid:claim-coverage-${clinicalResources.coverages.findIndex(
-            (c) => c.id === a.coverage?.[0].coverage.reference?.replace('Coverage/', '')
-          )}`,
+          reference: `urn:uuid:claim-coverage-${acov.coverage.reference?.replace('Coverage/', '')}`,
         },
-        priority: 1,
-      },
-    ];
-    requests.push({ method: 'POST', url: '/Account', resource: copy });
-    order.push('account');
+        priority: acov.priority,
+      }));
+      requests.push({ method: 'POST', url: '/Account', resource: copy });
+      order.push('account');
+    } else {
+      // Update billing copy if changed
+      const copy = prepareCopy(a, a.id!);
+      copy.id = existingBillingAccount.id;
+      copy.subject = [{ reference: mainPatientUrn }];
+      copy.coverage = a.coverage?.map((acov) => ({
+        coverage: {
+          reference: `urn:uuid:claim-coverage-${acov.coverage.reference?.replace('Coverage/', '')}`,
+        },
+        priority: acov.priority,
+      }));
+      try {
+        deepStrictEqual(existingBillingAccount, copy);
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      } catch (_) {
+        // TODO: is it safe to leak coverages here?
+        const [covRequests, covOrder] = copyCoverageAndSubscriberForAccount(
+          billingOystehr,
+          clinicalResources.coverages,
+          a,
+          mainPatientUrn,
+          clinicalResources.payors
+        );
+        mainPatientCoverages = covRequests
+          .filter((cov): cov is BatchInputPostRequest<Coverage> => cov.method === 'POST' && cov.url === '/Coverage')
+          .map((cov) => cov.resource);
+        requests.push(...covRequests);
+        order.push(...covOrder);
+        requests.push({ method: 'PUT', url: `/Account/${existingBillingAccount.id}`, resource: copy });
+        order.push('account');
+      }
+      seenBillingAccountIds.add(existingBillingAccount.id!);
+    }
   });
-
-  // CW TODO: separate copies of coverages + RPs for main patient and claim patient
+  billingResources.accounts
+    .filter((bac) => !seenBillingAccountIds.has(bac.id!))
+    .forEach((bac) => {
+      requests.push({ method: 'DELETE', url: `/Account/${bac.id}` });
+      order.push('account');
+    });
 
   // Create coverage copies for working copy patient
-  const coverages = clinicalResources.coverages.map((c, i) => {
-    const copy = prepareCopy(c, c.id!);
-    copy.beneficiary = { reference: claimPatientUrn };
-    // Subscriber is patient by default, check for contained RelatedPerson
-    let subscriberUrn = claimPatientUrn;
-    if (copy.subscriber?.reference?.startsWith('#') && copy.contained && copy.contained.length > 0) {
-      // Subscriber is contained on the coverage
-      const rp = copy.contained.find(
-        (contained): contained is RelatedPerson =>
-          contained.id === copy.subscriber?.reference?.replace('#', '') && contained.resourceType === 'RelatedPerson'
+  const claimCoverages = mainPatientCoverages
+    .map((c) => {
+      const [covRequests, covOrder] = copyCoverageAndSubscriber(
+        billingOystehr,
+        c,
+        claimPatientUrn,
+        clinicalResources.payors
       );
-      if (rp) {
-        subscriberUrn = `urn:uuid:claim-coverage-rp-${i}`;
-        requests.push({
-          method: 'POST',
-          url: '/RelatedPerson',
-          resource: rp,
-          fullUrl: subscriberUrn,
-        });
-        order.push('relatedperson');
-      }
-    }
-    copy.subscriber = { reference: subscriberUrn };
-    // Move all coverages to payer URLs
-    const internalRefId = copy.payor[0].id?.replace('Organization/', '');
-    if (internalRefId && isValidUUID(internalRefId)) {
-      const org = clinicalResources.payors.find((p) => p.id === copy.payor[0].id?.replace('Organization/', ''));
-      const payerId = getPayerId(org);
-      if (payerId) {
-        copy.payor = [{ reference: billingOystehr.rcm.constructPayerUrl({ id: payerId }) }];
-      }
-    }
-    requests.push({ method: 'POST', url: '/Coverage', resource: copy, fullUrl: `urn:uuid:claim-coverage-${i}` });
-    order.push('coverage');
-    return copy;
-  });
+      requests.push(...covRequests);
+      order.push(...covOrder);
+      return covRequests.find((r): r is BatchInputPostRequest<Coverage> => r.method === 'POST' && r.url === '/Coverage')
+        ?.resource;
+    })
+    .filter((c): c is Coverage => !!c);
 
   // Create or update billing person that links patients
   if (billingResources.person) {
@@ -235,7 +275,7 @@ async function performEffect(billingOystehr: Oystehr, cvo: ComplexValidationOutp
           value: [
             ...(billingResources.person.link ?? []),
             { target: { reference: claimPatientUrn } },
-            ...(mainPatientUrn ? [{ target: { reference: mainPatientUrn } }] : []),
+            { target: { reference: mainPatientUrn } },
           ],
         },
       ],
@@ -248,7 +288,7 @@ async function performEffect(billingOystehr: Oystehr, cvo: ComplexValidationOutp
         resourceType: 'Person',
         link: [
           { target: { reference: `Patient/${clinicalResources.patient.id!}` } },
-          { target: { reference: mainPatientUrn ?? `Patient/${mainPatient.id!}` } },
+          { target: { reference: mainPatientUrn } },
           { target: { reference: claimPatientUrn } },
         ],
       },
@@ -260,8 +300,9 @@ async function performEffect(billingOystehr: Oystehr, cvo: ComplexValidationOutp
     patientId: claimPatientUrn,
     encounter: clinicalResources.encounter,
     diagnoses: clinicalResources.diagnoses,
-    coverageId: coverages.length > 0 ? 'urn:uuid:claim-coverage-0' : undefined,
-    payorRef: coverages[0].payor[0],
+    // CW TODO: primary and secondary
+    coverageId: claimCoverages.length > 0 ? 'urn:uuid:claim-coverage-0' : undefined,
+    payorRef: claimCoverages[0].payor[0],
     // CW TODO: select rendering provider based on encounter
     renderingProvider: billingResources.practitioners[0],
     serviceFacility: billingResources.serviceFacility,
@@ -285,6 +326,73 @@ async function performEffect(billingOystehr: Oystehr, cvo: ComplexValidationOutp
   const created = await billingOystehr.fhir.create<Claim>(claim);
 
   return { claimId: created.id! };
+}
+
+function copyCoverageAndSubscriberForAccount(
+  billingOystehr: Oystehr,
+  coverages: Coverage[],
+  account: Account,
+  patientUrn: string,
+  payors: Organization[]
+): [CreateClaimFromEncounterRequests, string[]] {
+  const requests: CreateClaimFromEncounterRequests = [];
+  const order: string[] = [];
+  coverages
+    .filter((ccov) =>
+      (account.coverage ?? []).some((acov) => acov.coverage.reference?.replace('Coverage/', '') === ccov.id)
+    )
+    .forEach((ccov) => {
+      const [covRequests, covOrder] = copyCoverageAndSubscriber(billingOystehr, ccov, patientUrn, payors);
+      requests.push(...covRequests);
+      order.push(...covOrder);
+    });
+  return [requests, order];
+}
+
+// CW TODO: i don't think the urns in here are safe
+function copyCoverageAndSubscriber(
+  billingOystehr: Oystehr,
+  c: Coverage,
+  patientUrn: string,
+  payors: Organization[]
+): [CreateClaimFromEncounterRequests, string[]] {
+  const requests: CreateClaimFromEncounterRequests = [];
+  const order: string[] = [];
+  const copy = prepareCopy(c, c.id!);
+  copy.beneficiary = { reference: patientUrn };
+  // Subscriber is patient by default, check for contained RelatedPerson
+  let subscriberUrn = patientUrn;
+  if (copy.subscriber?.reference?.startsWith('#') && copy.contained && copy.contained.length > 0) {
+    // Subscriber is contained on the coverage
+    const rp = copy.contained.find(
+      (contained): contained is RelatedPerson =>
+        contained.id === copy.subscriber?.reference?.replace('#', '') && contained.resourceType === 'RelatedPerson'
+    );
+    if (rp) {
+      subscriberUrn = `urn:uuid:claim-coverage-rp-${c.id}`;
+      requests.push({
+        method: 'POST',
+        url: '/RelatedPerson',
+        resource: rp,
+        fullUrl: subscriberUrn,
+      });
+      order.push('relatedperson');
+    }
+  }
+  copy.subscriber = { reference: subscriberUrn };
+  // Move all coverages to payer URLs
+  const internalRefId = copy.payor[0].reference?.replace('Organization/', '');
+  if (internalRefId && isValidUUID(internalRefId)) {
+    // TODO: this does not support billing copies of non-insurance payers
+    const org = payors.find((p) => p.id === internalRefId);
+    const payerId = getPayerId(org);
+    if (payerId) {
+      copy.payor = [{ reference: billingOystehr.rcm.constructPayerUrl({ id: payerId }) }];
+    }
+  }
+  requests.push({ method: 'POST', url: '/Coverage', resource: copy, fullUrl: `urn:uuid:claim-coverage-${c.id}` });
+  order.push('coverage');
+  return [requests, order];
 }
 
 async function getClinicalResources(
@@ -406,11 +514,21 @@ async function findExistingBillingResources(
   originals: ClinicalResources
 ): Promise<BillingResources> {
   const personSearch = (
-    await billingOystehr.fhir.search<Person | Patient>({
+    await billingOystehr.fhir.search<Person | Patient | Account | Coverage>({
       resourceType: 'Person',
       params: [
         { name: 'link', value: `Patient/${originals.patient.id}` },
         { name: 'include', value: 'patient' },
+        {
+          // Include account coverages
+          name: '_revinclude',
+          value: 'Account:patient:Patient',
+        },
+        {
+          // Include account coverages
+          name: '_include',
+          value: 'Account:coverage:Coverage',
+        },
       ],
     })
   ).unbundle();
@@ -423,6 +541,8 @@ async function findExistingBillingResources(
         (t) => t.system === BILLING_WORKING_COPY_TAG.system && t.code === BILLING_WORKING_COPY_TAG.code
       )
   );
+  const existingAccounts = personSearch.filter((r): r is Account => r.resourceType === 'Account');
+  const existingCoverages = personSearch.filter((r): r is Coverage => r.resourceType === 'Coverage');
 
   const serviceFacilitySearch = (
     await billingOystehr.fhir.search<Location>({
@@ -472,6 +592,8 @@ async function findExistingBillingResources(
   return {
     person: existingPerson,
     mainPatient: existingMainPatient,
+    accounts: existingAccounts,
+    coverages: existingCoverages,
     practitioners: matchingPractitioners,
     serviceFacility: matchingServiceFacility,
     billingProvider: matchingBillingProvider,
