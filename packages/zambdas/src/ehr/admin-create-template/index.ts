@@ -10,6 +10,8 @@ import {
   GLOBAL_TEMPLATE_IN_PERSON_CODE_SYSTEM,
   IN_HOUSE_TEST_CODE_SYSTEM,
   makeOptimisticLockIfMatchHeader,
+  REPEAT_TEST_ORDER_DETAIL_TAG_CONFIG,
+  resourceHasTagSystem,
   SecretsKeys,
   transactionWasSuccessful,
 } from 'utils';
@@ -22,6 +24,7 @@ import {
   getTemplateEncounterBundle,
   hasTemplateRelevantTag,
   isDiagnosisCondition,
+  isInHouseLabRepeatTestCptCode,
   TemplateEncounterResource,
 } from '../shared/template-helpers';
 import { validateRequestParameters } from './validateRequestParameters';
@@ -327,6 +330,9 @@ export const filterEntriesToTemplateContent = (
       return diagnosesRefFromEncounterSet.has(`Condition/${resource.id}`);
     }
 
+    // we don't write the repeat tests themselves to the templates, so don't take their cpt codes either
+    if (isInHouseLabRepeatTestCptCode(resource)) return false;
+
     return hasTemplateRelevantTag(resource);
   });
 };
@@ -345,7 +351,9 @@ const isValidInHouseLabServiceRequest = (resource: TemplateEncounterResource): b
     'completed',
   ]);
   return (
-    resource.code?.coding?.some((c) => c.system === IN_HOUSE_TEST_CODE_SYSTEM) === true &&
+    !!resource.code?.coding?.some((c) => c.system === IN_HOUSE_TEST_CODE_SYSTEM) &&
+    !resourceHasTagSystem(resource, REPEAT_TEST_ORDER_DETAIL_TAG_CONFIG.system) && // we don't want repeat tests included
+    !resource.basedOn?.some((basedOn) => basedOn.reference?.startsWith('ServiceRequest/')) && // we don't want reflex tests included either
     resource.instantiatesCanonical?.some((canonical) => canonical.startsWith(AD_CANONICAL_URL_BASE)) === true &&
     TEMPLATE_INCLUDABLE_SR_STATUSES.has((resource as ServiceRequest).status)
   );
