@@ -73,112 +73,119 @@ const notesFromPlan = (plan: ServiceRequest): string | undefined => {
  * apply-template zambda can pass them back to the EHR for a snackbar.
  */
 export async function applyInHouseLabPlans(input: ApplyInHouseLabPlansInput): Promise<ApplyInHouseLabPlansResult> {
-  const { templateList, encounterId, userToken, secrets, oystehr, action, activityDefinitions, encounterResources } =
-    input;
-  if (action === 'skip') return { warnings: [] };
-
-  const plans = (templateList.contained ?? []).filter((r): r is ServiceRequest => isInHouseLabPlanServiceRequest(r));
-  if (plans.length === 0) return { warnings: [] };
-
-  const context = await gatherInHouseLabOrderContext({
-    oystehr,
-    encounterId,
-    encounterResources: encounterResources,
-    userToken,
-    secrets,
-  });
-
-  const adByUrl = indexLatestActivityDefinitionsByUrl(activityDefinitions);
-  console.log(
-    `This is adByUrl keys/test names/AD id`,
-    JSON.stringify(
-      adByUrl.keys().map((key) => {
-        const ad = adByUrl.get(key)!;
-        return { key, testName: ad.name, adId: ad.id };
-      })
-    )
-  );
-
   const warnings: ApplyTemplateWarning[] = [];
-  const transactionRequests: ReturnType<typeof makeRequestsForCreateInHouseLabs> = [];
+  try {
+    const { templateList, encounterId, userToken, secrets, oystehr, action, activityDefinitions, encounterResources } =
+      input;
+    if (action === 'skip') return { warnings: [] };
 
-  for (const plan of plans) {
-    // this call is a bit redundant, since all of the ads we get back from getLatestInHouseLabActivityDefinitionsForTemplatePlan
-    // are should be apply-able already based on the fhir calls. But we do it for the warnings
-    // this is the canonical without the pinned version
-    const canonical = plan.instantiatesCanonical?.[0];
-    const ad = canonical ? adByUrl.get(urlFromInstantiatesCanonical(canonical)) : undefined;
+    const plans = (templateList.contained ?? []).filter((r): r is ServiceRequest => isInHouseLabPlanServiceRequest(r));
+    if (plans.length === 0) return { warnings: [] };
 
-    // Confirm the plan code actually carried the in-house test system, defending
-    // against malformed templates.
-    if (!isInHouseLabPlanServiceRequest(plan)) {
-      warnings.push({
-        section: 'inHouseLabs',
-        message: `Skipped "${labelForPlan(plan)}" — the template entry is missing the in-house test code or tag.`,
-      });
-      continue;
-    }
-
-    const { isActive, isValid } = canApplyActivityDefinition(ad);
-    if (!isValid) {
-      warnings.push({
-        section: 'inHouseLabs',
-        message: `Skipped "${labelForPlan(plan)}" — the template's lab definition wasn't found in this environment.`,
-      });
-      continue;
-    }
-
-    // this shouldn't ever happen since our fhir request checks for active ADs to begin with
-    if (!isActive) {
-      warnings.push({
-        section: 'inHouseLabs',
-        message: `Skipped "${ad?.name ?? ad?.title ?? labelForPlan(plan)}" — its lab definition is not active.`,
-      });
-      continue;
-    }
-
-    const planRequests = makeRequestsForCreateInHouseLabs({
-      diagnosesAll: diagnosesFromReasonCode(plan),
-      notes: notesFromPlan(plan),
-      testResources: [
-        {
-          activityDefinition: ad!, // the canApply checks make sure this isn't undefined, so this is safe
-          initialServiceRequest: undefined, // ATHENA TODO note: repeat tests can't be ordered via templates
-          orderMode: 'standard',
-        },
-      ],
-      encounter: context.encounter,
-      patient: context.patient,
-      coverage: context.coverage,
-      location: context.location,
-      currentUserPractitionerName: context.currentUserPractitionerName,
-      currentUserPractitionerId: context.currentUserPractitionerId,
-      attendingPractitionerName: context.attendingPractitionerName,
-      attendingPractitionerId: context.attendingPractitionerId,
-      // Per product direction: the user clicking "Apply Template" is recorded
-      // as the order's requester, not the visit's attending.
-      requesterPractitionerId: context.currentUserPractitionerId,
+    const context = await gatherInHouseLabOrderContext({
+      oystehr,
+      encounterId,
+      encounterResources: encounterResources,
+      userToken,
+      secrets,
     });
-    transactionRequests.push(...planRequests);
-  }
 
-  if (transactionRequests.length === 0) {
-    return { warnings };
-  }
-
-  // One transaction across all plans - the urn:uuid fullUrls inside resolve to
-  // each other so SR/Task/Provenance/Procedure references stay consistent.
-  const transactionResponse = await oystehr.fhir.transaction({ requests: transactionRequests });
-  if (!transactionWasSuccessful(transactionResponse)) {
-    console.error(
-      `Something went wrong in the create in house lab order requests: ${JSON.stringify(transactionResponse)}`
+    const adByUrl = indexLatestActivityDefinitionsByUrl(activityDefinitions);
+    console.log(
+      `This is adByUrl keys/test names/AD id`,
+      JSON.stringify(
+        adByUrl.keys().map((key) => {
+          const ad = adByUrl.get(key)!;
+          return { key, testName: ad.name, adId: ad.id };
+        })
+      )
     );
+
+    const transactionRequests: ReturnType<typeof makeRequestsForCreateInHouseLabs> = [];
+
+    for (const plan of plans) {
+      // this call is a bit redundant, since all of the ads we get back from getLatestInHouseLabActivityDefinitionsForTemplatePlan
+      // are should be apply-able already based on the fhir calls. But we do it for the warnings
+      // this is the canonical without the pinned version
+      const canonical = plan.instantiatesCanonical?.[0];
+      const ad = canonical ? adByUrl.get(urlFromInstantiatesCanonical(canonical)) : undefined;
+
+      // Confirm the plan code actually carried the in-house test system, defending
+      // against malformed templates.
+      if (!isInHouseLabPlanServiceRequest(plan)) {
+        warnings.push({
+          section: 'inHouseLabs',
+          message: `Skipped "${labelForPlan(plan)}" — the template entry is missing the in-house test code or tag.`,
+        });
+        continue;
+      }
+
+      const { isActive, isValid } = canApplyActivityDefinition(ad);
+      if (!isValid) {
+        warnings.push({
+          section: 'inHouseLabs',
+          message: `Skipped "${labelForPlan(plan)}" — the template's lab definition wasn't found in this environment.`,
+        });
+        continue;
+      }
+
+      // this shouldn't ever happen since our fhir request checks for active ADs to begin with
+      if (!isActive) {
+        warnings.push({
+          section: 'inHouseLabs',
+          message: `Skipped "${ad?.name ?? ad?.title ?? labelForPlan(plan)}" — its lab definition is not active.`,
+        });
+        continue;
+      }
+
+      const planRequests = makeRequestsForCreateInHouseLabs({
+        diagnosesAll: diagnosesFromReasonCode(plan),
+        notes: notesFromPlan(plan),
+        testResources: [
+          {
+            activityDefinition: ad!, // the canApply checks make sure this isn't undefined, so this is safe
+            initialServiceRequest: undefined, // ATHENA TODO note: repeat tests can't be ordered via templates
+            orderMode: 'standard',
+          },
+        ],
+        encounter: context.encounter,
+        patient: context.patient,
+        coverage: context.coverage,
+        location: context.location,
+        currentUserPractitionerName: context.currentUserPractitionerName,
+        currentUserPractitionerId: context.currentUserPractitionerId,
+        attendingPractitionerName: context.attendingPractitionerName,
+        attendingPractitionerId: context.attendingPractitionerId,
+        // Per product direction: the user clicking "Apply Template" is recorded
+        // as the order's requester, not the visit's attending.
+        requesterPractitionerId: context.currentUserPractitionerId,
+      });
+      transactionRequests.push(...planRequests);
+    }
+
+    if (transactionRequests.length === 0) {
+      return { warnings };
+    }
+
+    // One transaction across all plans - the urn:uuid fullUrls inside resolve to
+    // each other so SR/Task/Provenance/Procedure references stay consistent.
+    const transactionResponse = await oystehr.fhir.transaction({ requests: transactionRequests });
+    if (!transactionWasSuccessful(transactionResponse)) {
+      console.error(
+        `Something went wrong in the create in house lab order requests: ${JSON.stringify(transactionResponse)}`
+      );
+      warnings.push({
+        section: 'inHouseLabs',
+        message: `Something went wrong applying in house labs transaction. Skipped.`,
+      });
+    }
+  } catch (err) {
+    console.error('Encountered error in applyInHouseLabPlans', err);
     warnings.push({
       section: 'inHouseLabs',
       message: `Something went wrong applying in house labs. Skipped.`,
     });
   }
-
   return { warnings };
 }
 
