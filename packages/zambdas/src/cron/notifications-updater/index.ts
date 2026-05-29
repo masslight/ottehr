@@ -57,13 +57,6 @@ export function resolveTaskRecipients(
   return [];
 }
 
-// protects against "Patient is ready" notification flooding on first deploy
-export function isWaitingRoomTaskAppointmentArrived(task: Task, arrivedAppointmentIds: Set<string>): boolean {
-  const focusRef = task.focus?.reference;
-  if (!focusRef?.startsWith('Appointment/')) return false;
-  return arrivedAppointmentIds.has(focusRef.split('/')[1]);
-}
-
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let m2mToken: string;
 
@@ -248,11 +241,6 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
     }
   });
 
-  const arrivedAppointmentIds = new Set<string>();
-  for (const [appointmentId, pack] of Object.entries(readyOrUnsignedVisitPackages)) {
-    if (pack.appointment?.status === 'arrived') arrivedAppointmentIds.add(appointmentId);
-  }
-
   // Process recently assigned tasks to create task assignment notifications
   const updateTaskRequests: BatchInputRequest<Task>[] = [];
   const telemedRelatedTaskCodes = [VIDEO_CHAT_WAITING_ROOM_NOTIFICATION_TASK_CODE];
@@ -266,9 +254,6 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
           tag.code === AppointmentProviderNotificationTypes.task_assigned
       );
       if (isProcessed) return;
-
-      // for unassigned waiting room notifications
-      if (!practitioner && !isWaitingRoomTaskAppointmentArrived(task, arrivedAppointmentIds)) return;
 
       const recipients = resolveTaskRecipients(task, practitioner, Object.values(activeProvidersMap));
       if (recipients.length === 0) return;
@@ -613,7 +598,10 @@ interface TaskWithPractitioner {
 
 type RecentlyAssignedTasksMap = { [key: NonNullable<Task['id']>]: TaskWithPractitioner };
 
-async function getRecentlyAssignedTasksMap(oystehr: Oystehr, fromDate: DateTime): Promise<RecentlyAssignedTasksMap> {
+export async function getRecentlyAssignedTasksMap(
+  oystehr: Oystehr,
+  fromDate: DateTime
+): Promise<RecentlyAssignedTasksMap> {
   const bundle = (
     await oystehr.fhir.search<Task | Practitioner>({
       resourceType: 'Task',
