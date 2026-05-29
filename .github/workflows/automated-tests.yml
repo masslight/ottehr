@@ -108,7 +108,11 @@ jobs:
 
       - name: Spec tests with coverage
         if: ${{ !cancelled() }}
-        run: npx turbo run test:ci test:unit:ci test:component:ci --concurrency=5
+        # --concurrency caps how many turbo tasks (each its own vitest process)
+        # run at once. Each vitest also spawns ~1 worker/core, so on the 4-core
+        # runner a high value oversubscribes the CPU and starves timing-sensitive
+        # component tests. Keep it low so each vitest gets real cores.
+        run: npx turbo run test:ci test:unit:ci test:component:ci --concurrency=2
         env:
           ENV: ${{ steps.env.outputs.environment }}
           CI: true
