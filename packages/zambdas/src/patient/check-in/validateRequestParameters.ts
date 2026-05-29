@@ -3,7 +3,7 @@ import { safeValidate, ZambdaInput } from '../../shared';
 import { CheckInInputValidated } from '.';
 
 const CheckInBodySchema = z.object({
-  appointmentId: z.string(),
+  appointmentId: z.string().uuid(),
 });
 
 export function validateRequestParameters(input: ZambdaInput): CheckInInputValidated {

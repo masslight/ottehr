@@ -4,7 +4,7 @@ import { createMockZambdaInput } from './helpers';
 
 describe('save-chart-data - validateRequestParameters', () => {
   const validBody = {
-    encounterId: 'enc-123',
+    encounterId: '550e8400-e29b-41d4-a716-446655440000',
     chartDataResourceType: 'vitals',
     data: { weight: 70 },
   };
@@ -13,7 +13,7 @@ describe('save-chart-data - validateRequestParameters', () => {
     const input = createMockZambdaInput(validBody);
     const result = validateRequestParameters(input);
 
-    expect(result.encounterId).toBe('enc-123');
+    expect(result.encounterId).toBe('550e8400-e29b-41d4-a716-446655440000');
     expect(result.userToken).toBe('test-token');
     expect(result.secrets).toBeNull();
   });
@@ -42,6 +42,11 @@ describe('save-chart-data - validateRequestParameters', () => {
 
   test('should throw when encounterId is undefined', () => {
     const input = createMockZambdaInput({ someField: 'value' });
+    expect(() => validateRequestParameters(input)).toThrow('encounterId');
+  });
+
+  test('should throw when encounterId is not a valid UUID', () => {
+    const input = createMockZambdaInput({ ...validBody, encounterId: 'enc-123' });
     expect(() => validateRequestParameters(input)).toThrow('encounterId');
   });
 

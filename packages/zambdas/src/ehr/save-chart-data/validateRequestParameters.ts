@@ -4,7 +4,7 @@ import { safeValidate, ZambdaInput } from '../../shared';
 
 const SaveChartDataBodySchema = z
   .object({
-    encounterId: z.string(),
+    encounterId: z.string().uuid(),
   })
   .passthrough();
 

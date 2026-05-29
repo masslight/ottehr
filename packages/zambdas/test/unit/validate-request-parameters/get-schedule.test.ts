@@ -51,6 +51,16 @@ describe('get-schedule - validateRequestParameters', () => {
     expect(() => validateRequestParameters(input)).toThrow('scheduleType');
   });
 
+  test('should throw when selectedDate is not a valid date string', () => {
+    const input = createMockZambdaInput({ ...validBody, selectedDate: 'not-a-date' });
+    expect(() => validateRequestParameters(input)).toThrow('selectedDate');
+  });
+
+  test('should throw when selectedDate is a non-ISO date format', () => {
+    const input = createMockZambdaInput({ ...validBody, selectedDate: '01/15/2024' });
+    expect(() => validateRequestParameters(input)).toThrow('selectedDate');
+  });
+
   test('should accept valid serviceCategoryCode', () => {
     // serviceCategoryCode is validated against ServiceCategoryCodeSchema from utils
     // Valid codes come from the booking config. We test that invalid ones are rejected.

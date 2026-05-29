@@ -11,7 +11,7 @@ export interface CreateChargeMasterParams {
 
 const CreateChargeMasterBodySchema = z.object({
   name: z.string().min(1),
-  effectiveDate: z.string().min(1),
+  effectiveDate: z.string().date(),
   description: z.string().default(''),
 });
 

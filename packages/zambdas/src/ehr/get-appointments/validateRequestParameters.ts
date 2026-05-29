@@ -1,15 +1,20 @@
+import { AppointmentTypeOptions, ServiceMode } from 'utils';
 import { z } from 'zod';
 import { safeValidate, ZambdaInput } from '../../shared';
 import { GetAppointmentsZambdaInputValidated } from '.';
 
+const visitTypeOptions = Object.values(ServiceMode).flatMap((mode) =>
+  AppointmentTypeOptions.map((type) => `${mode}-${type}`)
+) as [string, ...string[]];
+
 const GetAppointmentsBodySchema = z
   .object({
-    searchDate: z.string(),
+    searchDate: z.string().date(),
     timezone: z.string(),
-    locationIds: z.array(z.string()).optional(),
-    providerIds: z.array(z.string()).optional(),
+    locationIds: z.array(z.string().uuid()).optional(),
+    providerIds: z.array(z.string().uuid()).optional(),
     serviceCategories: z.array(z.string()).optional(),
-    visitType: z.array(z.string()),
+    visitType: z.array(z.enum(visitTypeOptions)),
     supervisorApprovalEnabled: z.boolean().default(false),
   })
   .refine((data) => data.locationIds || data.providerIds || data.serviceCategories, {

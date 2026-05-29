@@ -6,10 +6,10 @@ describe('unlock-appointment - validateRequestParameters', () => {
   const secrets = createMockSecrets();
 
   test('should return validated params with valid input', () => {
-    const input = createMockZambdaInput({ appointmentId: 'appt-123' }, { secrets });
+    const input = createMockZambdaInput({ appointmentId: '550e8400-e29b-41d4-a716-446655440000' }, { secrets });
     const result = validateRequestParameters(input);
 
-    expect(result.appointmentId).toBe('appt-123');
+    expect(result.appointmentId).toBe('550e8400-e29b-41d4-a716-446655440000');
     expect(result.userToken).toBe('test-token');
     expect(result.secrets).toEqual(secrets);
   });
@@ -26,24 +26,35 @@ describe('unlock-appointment - validateRequestParameters', () => {
 
   test('should throw when PROJECT_API secret is missing', () => {
     const badSecrets = { ORGANIZATION_ID: 'org-123' };
-    const input = createMockZambdaInput({ appointmentId: 'appt-123' }, { secrets: badSecrets });
+    const input = createMockZambdaInput(
+      { appointmentId: '550e8400-e29b-41d4-a716-446655440000' },
+      { secrets: badSecrets }
+    );
     expect(() => validateRequestParameters(input)).toThrow('PROJECT_API');
   });
 
   test('should throw when ORGANIZATION_ID secret is missing', () => {
     const badSecrets = { PROJECT_API: 'https://api.test' };
-    const input = createMockZambdaInput({ appointmentId: 'appt-123' }, { secrets: badSecrets });
+    const input = createMockZambdaInput(
+      { appointmentId: '550e8400-e29b-41d4-a716-446655440000' },
+      { secrets: badSecrets }
+    );
     expect(() => validateRequestParameters(input)).toThrow('ORGANIZATION_ID');
   });
 
+  test('should throw when appointmentId is not a valid UUID', () => {
+    const input = createMockZambdaInput({ appointmentId: 'appt-123' }, { secrets });
+    expect(() => validateRequestParameters(input)).toThrow('appointmentId');
+  });
+
   test('should throw when secrets are null', () => {
-    const input = createMockZambdaInput({ appointmentId: 'appt-123' }, { secrets: null });
+    const input = createMockZambdaInput({ appointmentId: '550e8400-e29b-41d4-a716-446655440000' }, { secrets: null });
     expect(() => validateRequestParameters(input)).toThrow();
   });
 
   test('should extract Bearer token from Authorization header', () => {
     const input = createMockZambdaInput(
-      { appointmentId: 'appt-123' },
+      { appointmentId: '550e8400-e29b-41d4-a716-446655440000' },
       {
         secrets,
         headers: { Authorization: 'Bearer custom-token' },

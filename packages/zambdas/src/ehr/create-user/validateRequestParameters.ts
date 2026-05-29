@@ -3,8 +3,8 @@ import { z } from 'zod';
 import { safeValidate, ZambdaInput } from '../../shared';
 
 const CreateUserBodySchema = z.object({
-  email: z.string().min(1),
-  applicationID: z.string().min(1),
+  email: z.string().email(),
+  applicationID: z.string().uuid(),
   firstName: z.string().min(1),
   lastName: z.string().min(1),
 });

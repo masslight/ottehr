@@ -44,6 +44,16 @@ describe('create-charge-master - validateRequestParameters', () => {
     expect(() => validateRequestParameters(input)).toThrow();
   });
 
+  test('should throw when effectiveDate is not a valid date string', () => {
+    const input = createMockZambdaInput({ name: 'Test', effectiveDate: 'not-a-date' });
+    expect(() => validateRequestParameters(input)).toThrow('effectiveDate');
+  });
+
+  test('should throw when effectiveDate is a non-ISO date format', () => {
+    const input = createMockZambdaInput({ name: 'Test', effectiveDate: '01/01/2024' });
+    expect(() => validateRequestParameters(input)).toThrow('effectiveDate');
+  });
+
   test('should throw when both name and effectiveDate are missing', () => {
     const input = createMockZambdaInput({ description: 'just a description' });
     expect(() => validateRequestParameters(input)).toThrow();

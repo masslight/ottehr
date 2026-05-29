@@ -4,10 +4,10 @@ import { createMockZambdaInput } from './helpers';
 
 describe('get-user - validateRequestParameters', () => {
   test('should return validated params when userId is provided', () => {
-    const input = createMockZambdaInput({ userId: 'user-123' });
+    const input = createMockZambdaInput({ userId: '550e8400-e29b-41d4-a716-446655440000' });
     const result = validateRequestParameters(input);
 
-    expect(result.userId).toBe('user-123');
+    expect(result.userId).toBe('550e8400-e29b-41d4-a716-446655440000');
     expect(result.secrets).toBeNull();
   });
 
@@ -21,9 +21,14 @@ describe('get-user - validateRequestParameters', () => {
     expect(() => validateRequestParameters(input)).toThrow('userId');
   });
 
+  test('should throw when userId is not a valid UUID', () => {
+    const input = createMockZambdaInput({ userId: 'user-123' });
+    expect(() => validateRequestParameters(input)).toThrow('userId');
+  });
+
   test('should pass secrets through from input', () => {
     const secrets = { PROJECT_API: 'https://api.test' };
-    const input = createMockZambdaInput({ userId: 'user-123' }, { secrets });
+    const input = createMockZambdaInput({ userId: '550e8400-e29b-41d4-a716-446655440000' }, { secrets });
     const result = validateRequestParameters(input);
     expect(result.secrets).toEqual(secrets);
   });

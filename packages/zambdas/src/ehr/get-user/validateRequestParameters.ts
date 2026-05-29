@@ -7,7 +7,7 @@ export interface GetUserInput extends WithRequired<GetUserParams, 'userId'> {
 }
 
 const GetUserBodySchema = z.object({
-  userId: z.string(),
+  userId: z.string().uuid(),
 });
 
 export function validateRequestParameters(input: ZambdaInput): GetUserInput {

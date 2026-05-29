@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { safeValidate, ZambdaInput } from '../../shared';
 
 const UnlockAppointmentBodySchema = z.object({
-  appointmentId: z.string(),
+  appointmentId: z.string().uuid(),
 });
 
 export function validateRequestParameters(input: ZambdaInput): UnlockAppointmentZambdaInputValidated {

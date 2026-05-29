@@ -5,7 +5,7 @@ import { createMockZambdaInput } from './helpers';
 describe('create-user - validateRequestParameters', () => {
   const validBody = {
     email: 'test@example.com',
-    applicationID: 'app-123',
+    applicationID: '550e8400-e29b-41d4-a716-446655440000',
     firstName: 'John',
     lastName: 'Doe',
   };
@@ -15,7 +15,7 @@ describe('create-user - validateRequestParameters', () => {
     const result = validateRequestParameters(input);
 
     expect(result.email).toBe('test@example.com');
-    expect(result.applicationID).toBe('app-123');
+    expect(result.applicationID).toBe('550e8400-e29b-41d4-a716-446655440000');
     expect(result.firstName).toBe('John');
     expect(result.lastName).toBe('Doe');
     expect(result.secrets).toBeNull();
@@ -58,6 +58,16 @@ describe('create-user - validateRequestParameters', () => {
       lastName: '',
     });
     expect(() => validateRequestParameters(input)).toThrow();
+  });
+
+  test('should throw when email is not a valid email address', () => {
+    const input = createMockZambdaInput({ ...validBody, email: 'not-an-email' });
+    expect(() => validateRequestParameters(input)).toThrow('email');
+  });
+
+  test('should throw when applicationID is not a valid UUID', () => {
+    const input = createMockZambdaInput({ ...validBody, applicationID: 'app-123' });
+    expect(() => validateRequestParameters(input)).toThrow('applicationID');
   });
 
   test('should pass secrets through from input', () => {

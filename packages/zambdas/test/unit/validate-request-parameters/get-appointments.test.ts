@@ -6,8 +6,8 @@ describe('get-appointments - validateRequestParameters', () => {
   const validBody = {
     searchDate: '2024-01-15',
     timezone: 'America/New_York',
-    locationIds: ['loc-123'],
-    visitType: ['in-person'],
+    locationIds: ['550e8400-e29b-41d4-a716-446655440000'],
+    visitType: ['in-person-walk-in'],
   };
 
   test('should return validated params with locationIds', () => {
@@ -16,8 +16,8 @@ describe('get-appointments - validateRequestParameters', () => {
 
     expect(result.searchDate).toBe('2024-01-15');
     expect(result.timezone).toBe('America/New_York');
-    expect(result.locationIds).toEqual(['loc-123']);
-    expect(result.visitType).toEqual(['in-person']);
+    expect(result.locationIds).toEqual(['550e8400-e29b-41d4-a716-446655440000']);
+    expect(result.visitType).toEqual(['in-person-walk-in']);
     expect(result.supervisorApprovalEnabled).toBe(false);
     expect(result.secrets).toBeNull();
   });
@@ -26,12 +26,15 @@ describe('get-appointments - validateRequestParameters', () => {
     const input = createMockZambdaInput({
       searchDate: '2024-01-15',
       timezone: 'America/New_York',
-      providerIds: ['prov-1', 'prov-2'],
-      visitType: ['telemed'],
+      providerIds: ['a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d', 'b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e'],
+      visitType: ['virtual-walk-in'],
     });
     const result = validateRequestParameters(input);
 
-    expect(result.providerIds).toEqual(['prov-1', 'prov-2']);
+    expect(result.providerIds).toEqual([
+      'a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d',
+      'b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e',
+    ]);
     expect(result.locationIds).toBeUndefined();
   });
 
@@ -40,7 +43,7 @@ describe('get-appointments - validateRequestParameters', () => {
       searchDate: '2024-01-15',
       timezone: 'America/New_York',
       serviceCategories: ['urgent-care'],
-      visitType: ['in-person'],
+      visitType: ['in-person-walk-in'],
     });
     const result = validateRequestParameters(input);
 
@@ -83,7 +86,12 @@ describe('get-appointments - validateRequestParameters', () => {
     expect(() => validateRequestParameters(input)).toThrow('searchDate');
   });
 
-  test('should throw when searchDate is not a string', () => {
+  test('should throw when searchDate is not a valid date string', () => {
+    const input = createMockZambdaInput({ ...validBody, searchDate: 'not-a-date' });
+    expect(() => validateRequestParameters(input)).toThrow('searchDate');
+  });
+
+  test('should throw when searchDate is a number', () => {
     const input = createMockZambdaInput({ ...validBody, searchDate: 12345 });
     expect(() => validateRequestParameters(input)).toThrow('searchDate');
   });
@@ -106,12 +114,12 @@ describe('get-appointments - validateRequestParameters', () => {
   });
 
   test('should throw when visitType is not an array', () => {
-    const input = createMockZambdaInput({ ...validBody, visitType: 'in-person' });
+    const input = createMockZambdaInput({ ...validBody, visitType: 'in-person-walk-in' });
     expect(() => validateRequestParameters(input)).toThrow('visitType');
   });
 
-  test('should throw when visitType contains non-strings', () => {
-    const input = createMockZambdaInput({ ...validBody, visitType: [123] });
+  test('should throw when visitType contains invalid values', () => {
+    const input = createMockZambdaInput({ ...validBody, visitType: ['invalid-type'] });
     expect(() => validateRequestParameters(input)).toThrow('visitType');
   });
 
@@ -119,18 +127,21 @@ describe('get-appointments - validateRequestParameters', () => {
     const input = createMockZambdaInput({
       searchDate: '2024-01-15',
       timezone: 'America/New_York',
-      visitType: ['in-person'],
+      visitType: ['in-person-walk-in'],
     });
     expect(() => validateRequestParameters(input)).toThrow();
   });
 
   test('should throw when locationIds is not an array', () => {
-    const input = createMockZambdaInput({ ...validBody, locationIds: 'loc-123' });
+    const input = createMockZambdaInput({
+      ...validBody,
+      locationIds: '550e8400-e29b-41d4-a716-446655440000',
+    });
     expect(() => validateRequestParameters(input)).toThrow('locationIds');
   });
 
-  test('should throw when locationIds contains non-strings', () => {
-    const input = createMockZambdaInput({ ...validBody, locationIds: [123] });
+  test('should throw when locationIds contains non-UUID strings', () => {
+    const input = createMockZambdaInput({ ...validBody, locationIds: ['not-a-uuid'] });
     expect(() => validateRequestParameters(input)).toThrow('locationIds');
   });
 
@@ -138,18 +149,18 @@ describe('get-appointments - validateRequestParameters', () => {
     const input = createMockZambdaInput({
       searchDate: '2024-01-15',
       timezone: 'America/New_York',
-      providerIds: 'prov-1',
-      visitType: ['in-person'],
+      providerIds: 'a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d',
+      visitType: ['in-person-walk-in'],
     });
     expect(() => validateRequestParameters(input)).toThrow('providerIds');
   });
 
-  test('should throw when providerIds contains non-strings', () => {
+  test('should throw when providerIds contains non-UUID strings', () => {
     const input = createMockZambdaInput({
       searchDate: '2024-01-15',
       timezone: 'America/New_York',
-      providerIds: [123],
-      visitType: ['in-person'],
+      providerIds: ['not-a-uuid'],
+      visitType: ['in-person-walk-in'],
     });
     expect(() => validateRequestParameters(input)).toThrow('providerIds');
   });
@@ -159,8 +170,22 @@ describe('get-appointments - validateRequestParameters', () => {
       searchDate: '2024-01-15',
       timezone: 'America/New_York',
       serviceCategories: 'urgent',
-      visitType: ['in-person'],
+      visitType: ['in-person-walk-in'],
     });
     expect(() => validateRequestParameters(input)).toThrow('serviceCategories');
+  });
+
+  test('should accept all valid visit type combinations', () => {
+    const allVisitTypes = [
+      'in-person-walk-in',
+      'in-person-pre-booked',
+      'in-person-post-telemed',
+      'virtual-walk-in',
+      'virtual-pre-booked',
+      'virtual-post-telemed',
+    ];
+    const input = createMockZambdaInput({ ...validBody, visitType: allVisitTypes });
+    const result = validateRequestParameters(input);
+    expect(result.visitType).toEqual(allVisitTypes);
   });
 });

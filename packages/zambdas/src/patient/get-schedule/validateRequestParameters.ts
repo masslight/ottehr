@@ -15,7 +15,7 @@ export const SCHEDULE_TYPES = ['location', 'provider', 'group'] as const;
 const GetScheduleBodySchema = z.object({
   slug: z.string().min(1),
   scheduleType: z.enum(SCHEDULE_TYPES),
-  selectedDate: z.string().optional(),
+  selectedDate: z.string().date().optional(),
   serviceCategoryCode: z.string().optional(),
 });
 
