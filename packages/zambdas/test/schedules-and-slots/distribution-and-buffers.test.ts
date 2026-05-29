@@ -12,6 +12,7 @@ import { assert, vi } from 'vitest';
 import { DEFAULT_TEST_TIMEOUT } from '../appointment-validation.test';
 import {
   applyBuffersToScheduleExtension,
+  buildSimpleScheduleExt,
   changeAllCapacities,
   DEFAULT_SCHEDULE_JSON,
   makeSchedule,
@@ -537,7 +538,7 @@ describe('slot availability tests', () => {
     }
   });
   it('should produce 1 slot every 30 minutes, on the hour and half hour, when slot-length is 30 minutes and capacity is 2', async () => {
-    const scheduleAdjusted = setSlotLengthInMinutes(changeAllCapacities(DEFAULT_SCHEDULE_JSON, 2), 30);
+    const scheduleAdjusted = setSlotLengthInMinutes(buildSimpleScheduleExt({ prebookSlots: 2 }), 30);
     const schedule = makeSchedule({ scheduleObject: scheduleAdjusted });
     expect(schedule).toBeDefined();
     expect(schedule.id).toBeDefined();
@@ -591,7 +592,7 @@ describe('slot availability tests', () => {
   });
 
   it('should produce 2 slots every 30 minutes, on the hour and half hour, when slot-length is 30 minutes and capacity is 4', async () => {
-    const scheduleAdjusted = setSlotLengthInMinutes(changeAllCapacities(DEFAULT_SCHEDULE_JSON, 4), 30);
+    const scheduleAdjusted = setSlotLengthInMinutes(buildSimpleScheduleExt({ prebookSlots: 4 }), 30);
     const schedule = makeSchedule({ scheduleObject: scheduleAdjusted });
     expect(schedule).toBeDefined();
     expect(schedule.id).toBeDefined();
@@ -646,7 +647,7 @@ describe('slot availability tests', () => {
   });
 
   it('should produce 1 slot every hour on the hour when slot-length is 30 minutes and capacity is 1', async () => {
-    const scheduleAdjusted = setSlotLengthInMinutes(changeAllCapacities(DEFAULT_SCHEDULE_JSON, 1), 30);
+    const scheduleAdjusted = setSlotLengthInMinutes(buildSimpleScheduleExt({ prebookSlots: 1 }), 30);
     const schedule = makeSchedule({ scheduleObject: scheduleAdjusted });
     expect(schedule).toBeDefined();
     expect(schedule.id).toBeDefined();
@@ -701,7 +702,7 @@ describe('slot availability tests', () => {
   });
 
   it('should produce 1 slot every hour on the hour when slot-length is 60 minutes and capacity is 1', async () => {
-    const scheduleAdjusted = setSlotLengthInMinutes(changeAllCapacities(DEFAULT_SCHEDULE_JSON, 1), 60);
+    const scheduleAdjusted = setSlotLengthInMinutes(buildSimpleScheduleExt({ prebookSlots: 1 }), 60);
     const schedule = makeSchedule({ scheduleObject: scheduleAdjusted });
     expect(schedule).toBeDefined();
     expect(schedule.id).toBeDefined();

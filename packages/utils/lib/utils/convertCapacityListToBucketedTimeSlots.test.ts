@@ -21,6 +21,21 @@ const slotAt = (hour: number, minute: number): string =>
     zone: 'utc',
   }).toISO()!;
 
+// Timezone-agnostic capacity lookup. The per-hour-bucket path in
+// convertCapacityListToBucketedTimeSlots emits ISO keys in the local zone
+// (it reparses through DateTime.fromISO without {setZone:true}), while the
+// session-based path emits UTC ISOs. String-exact lookup on slotAt(...)
+// only works for session-based output. This helper matches by UTC
+// hour/minute, working for both paths regardless of the test machine's
+// local timezone.
+const capacityAtUtc = (slots: Record<string, number>, hour: number, minute: number): number | undefined => {
+  for (const [iso, cap] of Object.entries(slots)) {
+    const dt = DateTime.fromISO(iso, { zone: 'utc' });
+    if (dt.hour === hour && dt.minute === minute) return cap;
+  }
+  return undefined;
+};
+
 const cap = (hour: number, providers: number): Capacity => ({
   hour: hour as Capacity['hour'],
   capacity: 0,
@@ -197,5 +212,180 @@ describe('convertCapacityListToBucketedTimeSlots — closing-time guard', () => 
     const minutes = slotMinutesFromMidnight(result);
     expect(minutes).toEqual([9 * 60, 9 * 60 + 20, 9 * 60 + 40, 10 * 60, 10 * 60 + 20]);
     expect(minutes).not.toContain(10 * 60 + 40);
+  });
+});
+
+// Decimal-providers + >1 integer cases. The shared bucket math is
+// `totalBookings = floor(providersForHour * 60 / slotLength)`. Floor
+// silently swallows fractional residue that doesn't accumulate to a full
+// slot — by design under the "average providers per hour" semantic the
+// rollout plan settled on, but admin-visible only via the resulting slot
+// count. These tests lock in the current behavior. The admin-UX gap
+// (misleading tooltip, no surfacing of truncation) is tracked in
+// design-debt-log D-9.
+describe('convertCapacityListToBucketedTimeSlots — decimal and >1 providers (current behavior; see D-9 for UX)', () => {
+  describe('providers = 0.5 (half-time provider)', () => {
+    it('15-min slot: 2 bookings/hour, distributed across alternating buckets', () => {
+      // providersForHour = 0.5 → totalBookings = floor(0.5 * 60/15) = 2
+      // divideHourlyCapacityBySlotInterval(2, 15) → numBuckets=4, shortage=2 →
+      // alternating high/low: {:00 → 1, :15 → 0, :30 → 1, :45 → 0}
+      const result = convertCapacityListToBucketedTimeSlots([cap(9, 0.5)], START_DATE, 15);
+      expect(capacityAtUtc(result, 9, 0)).toBe(1);
+      expect(capacityAtUtc(result, 9, 15)).toBe(0);
+      expect(capacityAtUtc(result, 9, 30)).toBe(1);
+      expect(capacityAtUtc(result, 9, 45)).toBe(0);
+    });
+
+    it('30-min slot: 1 booking/hour', () => {
+      // providersForHour = 0.5 → totalBookings = floor(0.5 * 60/30) = 1
+      // numBuckets=2, capacity=1, shortage=1 → {:00 → 1, :30 → 0}
+      const result = convertCapacityListToBucketedTimeSlots([cap(9, 0.5)], START_DATE, 30);
+      expect(capacityAtUtc(result, 9, 0)).toBe(1);
+      expect(capacityAtUtc(result, 9, 30)).toBe(0);
+    });
+
+    it('60-min slot: 0 bookings/hour (the half-time provider contributes nothing) — D-9', () => {
+      // providersForHour = 0.5 → totalBookings = floor(0.5) = 0. The
+      // fractional value is structurally incompatible with a 60-min visit
+      // (you can't have half a provider available for the full hour).
+      // Admin sees 0.5 saved but no slots vended — UI gap tracked in D-9.
+      const result = convertCapacityListToBucketedTimeSlots([cap(9, 0.5)], START_DATE, 60);
+      expect(capacityAtUtc(result, 9, 0)).toBe(0);
+    });
+  });
+
+  describe('providers = 1.5 (one full + one half-time)', () => {
+    it('15-min slot: 6 bookings/hour, distributed across all four buckets', () => {
+      // providersForHour = 1.5 → totalBookings = floor(1.5 * 60/15) = 6
+      // numBuckets=4, high=ceil(6/4)=2, low=floor(6/4)=1, shortage=2 →
+      // {:00 → 2, :15 → 1, :30 → 2, :45 → 1}
+      const result = convertCapacityListToBucketedTimeSlots([cap(9, 1.5)], START_DATE, 15);
+      expect(capacityAtUtc(result, 9, 0)).toBe(2);
+      expect(capacityAtUtc(result, 9, 15)).toBe(1);
+      expect(capacityAtUtc(result, 9, 30)).toBe(2);
+      expect(capacityAtUtc(result, 9, 45)).toBe(1);
+    });
+
+    it('30-min slot: 3 bookings/hour', () => {
+      // providersForHour = 1.5 → totalBookings = floor(1.5 * 60/30) = 3
+      // numBuckets=2, high=2, low=1, shortage=1 → {:00 → 2, :30 → 1}
+      const result = convertCapacityListToBucketedTimeSlots([cap(9, 1.5)], START_DATE, 30);
+      expect(capacityAtUtc(result, 9, 0)).toBe(2);
+      expect(capacityAtUtc(result, 9, 30)).toBe(1);
+    });
+
+    it('60-min slot: 1 booking/hour (the 0.5 is lost) — D-9', () => {
+      // providersForHour = 1.5 → totalBookings = floor(1.5) = 1. The
+      // "one full + one half-time" tooltip example is wrong for 60-min
+      // slots: the half-time contribution is rounded away. UI gap
+      // tracked in D-9.
+      const result = convertCapacityListToBucketedTimeSlots([cap(9, 1.5)], START_DATE, 60);
+      expect(capacityAtUtc(result, 9, 0)).toBe(1);
+    });
+  });
+
+  describe('providers = 2 (two integer providers)', () => {
+    it('60-min slot: 2 concurrent bookings/hour', () => {
+      const result = convertCapacityListToBucketedTimeSlots([cap(9, 2)], START_DATE, 60);
+      expect(capacityAtUtc(result, 9, 0)).toBe(2);
+    });
+
+    it('30-min slot: 4 bookings/hour, evenly distributed', () => {
+      const result = convertCapacityListToBucketedTimeSlots([cap(9, 2)], START_DATE, 30);
+      expect(capacityAtUtc(result, 9, 0)).toBe(2);
+      expect(capacityAtUtc(result, 9, 30)).toBe(2);
+    });
+
+    it('15-min slot: 8 bookings/hour, evenly distributed', () => {
+      const result = convertCapacityListToBucketedTimeSlots([cap(9, 2)], START_DATE, 15);
+      expect(capacityAtUtc(result, 9, 0)).toBe(2);
+      expect(capacityAtUtc(result, 9, 15)).toBe(2);
+      expect(capacityAtUtc(result, 9, 30)).toBe(2);
+      expect(capacityAtUtc(result, 9, 45)).toBe(2);
+    });
+  });
+
+  describe('providers = 2.5', () => {
+    it('30-min slot: 5 bookings/hour with bucket residue', () => {
+      // providersForHour = 2.5 → totalBookings = floor(2.5 * 60/30) = 5
+      // numBuckets=2, high=3, low=2, shortage=1 → {:00 → 3, :30 → 2}
+      const result = convertCapacityListToBucketedTimeSlots([cap(9, 2.5)], START_DATE, 30);
+      expect(capacityAtUtc(result, 9, 0)).toBe(3);
+      expect(capacityAtUtc(result, 9, 30)).toBe(2);
+    });
+
+    it('60-min slot: 2 bookings/hour (the 0.5 is lost) — D-9', () => {
+      // providersForHour = 2.5 → totalBookings = floor(2.5) = 2.
+      const result = convertCapacityListToBucketedTimeSlots([cap(9, 2.5)], START_DATE, 60);
+      expect(capacityAtUtc(result, 9, 0)).toBe(2);
+    });
+  });
+});
+
+// prebookSlots is a Location-semantic "N bookings/hour, period" demand cap.
+// The math inverts the providers normalization so the round-trip gives N
+// regardless of slot length: providersForHour = prebookSlots * slotLength
+// / 60, then totalBookings = floor(providersForHour * 60 / slotLength) =
+// floor(prebookSlots). This describe block makes that property explicit so
+// a regression in the formula (e.g., dropping the inverse multiplication)
+// would fail loudly.
+describe('convertCapacityListToBucketedTimeSlots — prebookSlots (Location demand cap)', () => {
+  const capLoc = (hour: number, prebookSlots: number): Capacity => ({
+    hour: hour as Capacity['hour'],
+    capacity: 0,
+    prebookSlots,
+  });
+
+  describe('integer prebookSlots is slot-length-invariant — same total bookings/hour across all slot lengths', () => {
+    it('prebookSlots=4, 60-min slot: 4 bookings in one 60-min bucket', () => {
+      const result = convertCapacityListToBucketedTimeSlots([capLoc(9, 4)], START_DATE, 60);
+      expect(capacityAtUtc(result, 9, 0)).toBe(4);
+    });
+
+    it('prebookSlots=4, 30-min slot: 4 bookings split across two 30-min buckets', () => {
+      const result = convertCapacityListToBucketedTimeSlots([capLoc(9, 4)], START_DATE, 30);
+      expect(capacityAtUtc(result, 9, 0)).toBe(2);
+      expect(capacityAtUtc(result, 9, 30)).toBe(2);
+    });
+
+    it('prebookSlots=4, 15-min slot: 4 bookings split across four 15-min buckets', () => {
+      const result = convertCapacityListToBucketedTimeSlots([capLoc(9, 4)], START_DATE, 15);
+      expect(capacityAtUtc(result, 9, 0)).toBe(1);
+      expect(capacityAtUtc(result, 9, 15)).toBe(1);
+      expect(capacityAtUtc(result, 9, 30)).toBe(1);
+      expect(capacityAtUtc(result, 9, 45)).toBe(1);
+    });
+  });
+
+  describe('prebookSlots with bucket residue (uneven distribution within an hour)', () => {
+    it('prebookSlots=5, 15-min slot: 5 bookings alternating high/low', () => {
+      // 5 bookings / 4 buckets → shortage 3, distribution high/low alternating
+      const result = convertCapacityListToBucketedTimeSlots([capLoc(9, 5)], START_DATE, 15);
+      expect(capacityAtUtc(result, 9, 0)).toBe(2);
+      expect(capacityAtUtc(result, 9, 15)).toBe(1);
+      expect(capacityAtUtc(result, 9, 30)).toBe(1);
+      expect(capacityAtUtc(result, 9, 45)).toBe(1);
+    });
+  });
+
+  describe('decimal prebookSlots also truncates — same shape of bug as providers — D-9', () => {
+    it('prebookSlots=0.5, any slot length: 0 bookings', () => {
+      // The Location UI step is 1 (integers only), so this can't reach the
+      // field via the standard editor. But the FHIR resource accepts
+      // decimals, so an API-direct write would land here. Behavior is
+      // consistent with the providers case: floor swallows the fractional
+      // residue.
+      const result15 = convertCapacityListToBucketedTimeSlots([capLoc(9, 0.5)], START_DATE, 15);
+      expect(capacityAtUtc(result15, 9, 0)).toBe(0);
+      const result60 = convertCapacityListToBucketedTimeSlots([capLoc(9, 0.5)], START_DATE, 60);
+      expect(capacityAtUtc(result60, 9, 0)).toBe(0);
+    });
+
+    it('prebookSlots=4.5, any slot length: 4 bookings (the 0.5 is lost)', () => {
+      const result60 = convertCapacityListToBucketedTimeSlots([capLoc(9, 4.5)], START_DATE, 60);
+      expect(capacityAtUtc(result60, 9, 0)).toBe(4);
+      const result30 = convertCapacityListToBucketedTimeSlots([capLoc(9, 4.5)], START_DATE, 30);
+      expect((capacityAtUtc(result30, 9, 0) ?? 0) + (capacityAtUtc(result30, 9, 30) ?? 0)).toBe(4);
+    });
   });
 });

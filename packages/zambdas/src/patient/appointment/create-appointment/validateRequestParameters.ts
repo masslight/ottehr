@@ -185,6 +185,37 @@ export interface CreateAppointmentEffectInput {
   attendingPractitioner?: Practitioner;
 }
 
+/**
+ * Whether the prebook-grid capacity guard should run for this slot. The
+ * guard is meant to prevent forward-looking overbooking on slots vended
+ * from the prebook cadence grid. Three slot shapes are outside that
+ * model and bypass the guard:
+ *
+ *   1. **Fully-elapsed slots.** The time period is over; no resource can
+ *      be reallocated, and the guard's forward-looking purpose no longer
+ *      applies. Covers historical/back-fill bookings (admin entering
+ *      past visits, test data populating past appointments).
+ *   2. **Walk-in slots.** Managed by a first-come-at-the-clinic model
+ *      rather than the cadence-grid one. The slot's start is whatever
+ *      `DateTime.now()` produced and won't align with cadence
+ *      candidates, so the guard's exact-equality match would always
+ *      reject. Walk-in busy slots are already segregated at the FHIR
+ *      query layer via `appointment-type:not WALKIN` in getSlotsInWindow.
+ *   3. **Post-telemed slots.** A continuation flow from a telemed
+ *      visit, not a fresh prebook. The slot-vending logic explicitly
+ *      filters out post-telemed slots when generating available starts
+ *      (see scheduleUtils.ts) so a post-telemed slot would never match
+ *      a generated candidate and the guard would always reject.
+ */
+const capacityGuardApplies = (slot: Slot): boolean => {
+  const slotEnd = slot.end ? DateTime.fromISO(slot.end) : undefined;
+  const slotHasFullyElapsed = slotEnd?.isValid === true && slotEnd <= DateTime.now();
+  if (slotHasFullyElapsed) return false;
+  if (getSlotIsWalkin(slot)) return false;
+  if (getSlotIsPostTelemed(slot)) return false;
+  return true;
+};
+
 export const createAppointmentComplexValidation = async (
   input: CreateAppointmentBasicInput,
   oystehrClient: Oystehr
@@ -262,10 +293,15 @@ export const createAppointmentComplexValidation = async (
   // The patient's own just-reserved Slot is persisted by create-slot
   // with status=busy before this zambda runs; exclude it from the busy
   // count so it doesn't count against itself.
+  //
+  // Bypassed for slot shapes the prebook-grid model doesn't apply to —
+  // see capacityGuardApplies.
   let schedule: Schedule = initialSchedule;
   let scheduleOwner: ScheduleOwnerFhirResource = initialScheduleOwner;
 
-  const available = await checkSlotAvailable({ slot, schedule, excludeSlotId: slot.id }, oystehrClient);
+  const available = capacityGuardApplies(slot)
+    ? await checkSlotAvailable({ slot, schedule, excludeSlotId: slot.id }, oystehrClient)
+    : true;
   if (!available) {
     // Anonymous-mode group fallback: if the originally-targeted member is
     // saturated, attempt to reroute to another member of the same group at

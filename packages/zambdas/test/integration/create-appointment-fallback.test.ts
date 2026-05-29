@@ -11,15 +11,10 @@ import {
   Slot,
 } from 'fhir/r4b';
 import {
-  Capacity,
   CreateAppointmentInputParams,
-  DailySchedule,
   GROUP_ASSIGNMENT_MODE_SYSTEM,
-  HourOfDay,
   PatientInfo,
   SCHEDULE_EXTENSION_URL,
-  ScheduleDay,
-  ScheduleExtension,
   ScheduleStrategyCoding,
   SLOT_BOOKED_VIA_GROUP_EXTENSION_URL,
   SLOT_FALLBACK_REROUTED_TAG_SYSTEM,
@@ -29,42 +24,12 @@ import { afterAll, assert, beforeAll, describe, expect, inject, test } from 'vit
 import { getAuth0Token } from '../../src/shared';
 import { SECRETS } from '../data/secrets';
 import {
+  buildSimpleScheduleExt,
   cleanupTestScheduleResources,
   makeTestPatient,
   startOfDayWithTimezone,
   tagForProcessId,
 } from '../helpers/testScheduleUtils';
-
-// Build a schedule extension with exactly one provider on shift every hour,
-// every day. Avoids the legacy `capacity` field's "/4" semantics
-// (capacity-bookings-per-hour-at-15-min-cadence) and the fragile coupling
-// to DEFAULT_SCHEDULE_JSON's defaults — for a 60-min booking, one provider
-// on shift means one concurrent booking is allowed, which is exactly what
-// the saturation tests need.
-const buildSingleProviderScheduleExt = (): ScheduleExtension => {
-  const hours: Capacity[] = [];
-  for (let h = 0 as HourOfDay; h < 24; h++) {
-    hours.push({ hour: h as HourOfDay, capacity: 4, providers: 1 });
-  }
-  const day: ScheduleDay = {
-    open: 0 as HourOfDay,
-    close: 24,
-    openingBuffer: 0,
-    closingBuffer: 0,
-    workingDay: true,
-    hours,
-  };
-  const schedule: DailySchedule = {
-    monday: day,
-    tuesday: day,
-    wednesday: day,
-    thursday: day,
-    friday: day,
-    saturday: day,
-    sunday: day,
-  };
-  return { schedule, scheduleOverrides: {}, closures: [] };
-};
 
 // Integration coverage for the D-6 fallback path. Asserts the gates we
 // agreed on: (a) non-group bookings don't reroute, (b) provider-mode group
@@ -135,7 +100,7 @@ describe('create-appointment group-member fallback (D-6 phase 2)', () => {
     const { assignmentMode } = input;
     // One provider on shift every hour of every day. A single busy slot at
     // a given hour saturates the bucket for a 60-min booking.
-    const scheduleJson = buildSingleProviderScheduleExt();
+    const scheduleJson = buildSimpleScheduleExt();
 
     const locAUrn = `urn:uuid:${randomUUID()}`;
     const locBUrn = `urn:uuid:${randomUUID()}`;

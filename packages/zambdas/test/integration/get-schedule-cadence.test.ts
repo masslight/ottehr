@@ -19,10 +19,8 @@ import { afterAll, assert, beforeAll, describe, expect, inject, test } from 'vit
 import { getAuth0Token } from '../../src/shared';
 import { SECRETS } from '../data/secrets';
 import {
-  adjustHoursOfOperation,
-  changeAllCapacities,
+  buildSimpleScheduleExt,
   cleanupTestScheduleResources,
-  DEFAULT_SCHEDULE_JSON,
   persistSchedule,
   startOfDayWithTimezone,
   tagForProcessId,
@@ -86,19 +84,11 @@ describe('get-schedule cadence plumbing', () => {
     scheduleOwnerType: ScheduleOwnerFhirResource['resourceType'];
   }> => {
     expect(oystehr).toBeDefined();
-    const timeNow = startOfDayWithTimezone().plus({ hours: 8 });
-
-    // Open 8am-midnight today so there's plenty of capacity to slice into
-    // 15-min-cadence 90-min slots regardless of when the test runs.
-    let adjustedScheduleJSON = adjustHoursOfOperation(DEFAULT_SCHEDULE_JSON, [
-      {
-        dayOfWeek: timeNow.toLocaleString({ weekday: 'long' }).toLowerCase(),
-        open: 8,
-        close: 24,
-        workingDay: true,
-      },
-    ]);
-    adjustedScheduleJSON = changeAllCapacities(adjustedScheduleJSON, 1);
+    // 24/7 open with one provider on shift every hour. Sidesteps the legacy
+    // `capacity` field's `/4` semantic that `changeAllCapacities(_, 1)`
+    // would trigger — which yields 0 bookings/hour for 90-min visits and
+    // makes this test fail silently regardless of time of day.
+    const adjustedScheduleJSON = buildSimpleScheduleExt();
 
     const ownerLocation: Location = {
       resourceType: 'Location',

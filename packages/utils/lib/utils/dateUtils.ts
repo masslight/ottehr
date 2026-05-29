@@ -129,11 +129,17 @@ export const convertCapacityListToBucketedTimeSlots = (
 
     for (let offset = 0; offset + effectiveSlotLength <= sessionMinutes; offset += stepMinutes) {
       const candidateStart = startOfDate.plus({ hour: sessionStartHour, minute: offset });
-      const candidateEnd = candidateStart.plus({ minutes: effectiveSlotLength });
 
-      // Hours the slot touches. End-exclusive when the slot ends on the hour.
-      const startH = candidateStart.hour;
-      const lastH = candidateEnd.minute === 0 ? candidateEnd.hour - 1 : candidateEnd.hour;
+      // Hours the slot touches, computed from offset arithmetic so the
+      // math stays correct for slots that end exactly at the day boundary
+      // (e.g., 22:30 + 90min on a 24-hour-open schedule). End-exclusive
+      // when the slot ends on the hour: a 9:00–10:00 slot consumes hour
+      // 9's capacity, not hour 10's.
+      const startH = sessionStartHour + Math.floor(offset / 60);
+      const slotEndOffsetMinutes = offset + effectiveSlotLength;
+      const slotEndAbsoluteHour = sessionStartHour + Math.floor(slotEndOffsetMinutes / 60);
+      const slotEndIsExactlyOnHour = slotEndOffsetMinutes % 60 === 0;
+      const lastH = slotEndIsExactlyOnHour ? slotEndAbsoluteHour - 1 : slotEndAbsoluteHour;
 
       let minProviders = Infinity;
       for (let h = startH; h <= lastH; h++) {

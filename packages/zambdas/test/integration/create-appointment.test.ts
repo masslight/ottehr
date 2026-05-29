@@ -19,6 +19,7 @@ import {
   getSlugForBookableResource,
   getTimezone,
   isPostTelemedAppointment,
+  makeSlotAtLocationExtensionEntry,
   PatientInfo,
   SCHEDULE_EXTENSION_URL,
   ScheduleOwnerFhirResource,
@@ -491,6 +492,9 @@ describe('prebook integration - from getting list of slots to booking with selec
       // Build a vended-Slot-equivalent: a Slot resource pointing at the
       // Schedule with the slot-at-location extension stamped (matching
       // what makeSlotListItems would produce for this PR + Location).
+      // Use the writer helper so the URL can't drift from what the reader
+      // (getSlotAtLocationId) expects — the previous hardcoded URL didn't
+      // match the constant and the assertion below was silently failing.
       const slotStartISO = timeNow.plus({ hours: 12 }).toISO()!;
       const fauxVendedSlot: Slot = {
         resourceType: 'Slot',
@@ -499,12 +503,7 @@ describe('prebook integration - from getting list of slots to booking with selec
         start: slotStartISO,
         end: timeNow.plus({ hours: 12, minutes: 15 }).toISO()!,
         schedule: { reference: `Schedule/${persistedSchedule.id}` },
-        extension: [
-          {
-            url: 'https://fhir.ottehr.com/StructureDefinition/slot-at-location',
-            valueReference: { reference: `Location/${persistedLocation.id}` },
-          },
-        ],
+        extension: [makeSlotAtLocationExtensionEntry(persistedLocation.id)],
       };
 
       // Sanity: the reader sees the extension on the faux vended slot.
