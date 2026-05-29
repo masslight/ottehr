@@ -40,6 +40,8 @@ export const useOystehrAPIClient = (): ReturnType<typeof getOystehrTelemedAPI> |
           searchPlacesID: 'search-places',
           inhouseLabResourceSearchID: 'get-create-in-house-lab-order-resources',
           makeMedicationHistoryPdfID: 'make-medication-history-pdf',
+          generatePatientEducationZambdaID: 'generate-patient-education',
+          savePatientEducationPdfZambdaID: 'save-patient-education-pdf',
         },
         oystehrZambda
       );
