@@ -1124,6 +1124,34 @@
       "src": "src/ehr/save-patient-education-pdf/index",
       "zip": ".dist/zips/save-patient-education-pdf.zip"
     },
+    "LIST-APPROVED-PATIENT-EDUCATION": {
+      "name": "list-approved-patient-education",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/list-approved-patient-education/index",
+      "zip": ".dist/zips/list-approved-patient-education.zip"
+    },
+    "SAVE-APPROVED-PATIENT-EDUCATION": {
+      "name": "save-approved-patient-education",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/save-approved-patient-education/index",
+      "zip": ".dist/zips/save-approved-patient-education.zip"
+    },
+    "DELETE-APPROVED-PATIENT-EDUCATION": {
+      "name": "delete-approved-patient-education",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/delete-approved-patient-education/index",
+      "zip": ".dist/zips/delete-approved-patient-education.zip"
+    },
+    "UPDATE-APPROVED-PATIENT-EDUCATION-CODES": {
+      "name": "update-approved-patient-education-codes",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/update-approved-patient-education-codes/index",
+      "zip": ".dist/zips/update-approved-patient-education-codes.zip"
+    },
     "AI-INTERVIEW-SUMMARY": {
       "name": "ai-interview-summary",
       "type": "subscription",

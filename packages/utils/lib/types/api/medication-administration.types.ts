@@ -76,7 +76,7 @@ export interface MedicationData {
   associatedDx?: string;
   units?: string;
   manufacturer?: string;
-  location?: string;
+  location?: { code: string; name: string };
   providerId?: string;
   cptCodes?: { code: string; display: string }[];
 

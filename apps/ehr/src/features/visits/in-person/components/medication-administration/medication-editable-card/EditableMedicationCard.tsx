@@ -222,6 +222,7 @@ export const EditableMedicationCard: React.FC<{
         dose: quickPick.dose,
         units: quickPick.units,
         route: quickPick.route,
+        location: quickPick.location,
         manufacturer: quickPick.manufacturer,
         // Don't apply associatedDx from quick pick — it's a Condition resource ID
         // that is encounter-specific and won't be valid on other encounters
@@ -296,6 +297,7 @@ export const EditableMedicationCard: React.FC<{
     dose: localValues.dose,
     units: localValues.units,
     route: localValues.route,
+    location: localValues.location,
     manufacturer: localValues.manufacturer,
     // associatedDx is not saved — it's a Condition resource ID that is encounter-specific
     instructions: localValues.instructions,

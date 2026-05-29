@@ -1,11 +1,13 @@
 import { TabContext, TabList, TabPanel } from '@mui/lab';
 import { Box, Tab } from '@mui/material';
 import { useNavigate, useParams } from 'react-router-dom';
+import { PatientEducationAdminPage } from 'src/features/admin/patient-education/PatientEducationAdminPage';
 import InHouseLabAdminPage from 'src/features/visits/telemed/components/admin/in-house-labs/InHouseLabAdminPage';
 import LabSetsAdminPage from 'src/features/visits/telemed/components/admin/lab-sets/LabSetsAdminPage';
 import AdminPrintingConfig from 'src/features/visits/telemed/components/admin/label-printing-config/AdminLabelPrintingConfigPage';
 import SupportDialogAdminPage from 'src/features/visits/telemed/components/admin/support-dialog/SupportDialogAdminPage';
 import BillingConfiguration from '../features/admin/BillingConfiguration';
+import EMCodesAdminPage from '../features/visits/telemed/components/admin/EMCodesAdminPage';
 import GlobalTemplatesAdminPage from '../features/visits/telemed/components/admin/GlobalTemplatesAdminPage';
 import QuickPicksAdminPage from '../features/visits/telemed/components/admin/QuickPicksAdminPage';
 import States from '../features/visits/telemed/components/admin/VirtualLocationsPage';
@@ -26,6 +28,7 @@ enum PageTab {
   billing = 'billing',
   'quick-picks' = 'quick-picks',
   'in-house-labs' = 'in-house-labs',
+  'patient-education' = 'patient-education',
   outreach = 'outreach',
   'label-printing-config' = 'label-printing-config',
   'em-codes' = 'em-codes',
@@ -112,6 +115,18 @@ export function AdminPage(): JSX.Element {
                   onClick={() => navigate(`/admin/${PageTab['in-house-labs']}`)}
                 />
                 <Tab
+                  label="Patient Education"
+                  value={PageTab['patient-education']}
+                  sx={{ textTransform: 'none', fontWeight: 500 }}
+                  onClick={() => navigate(`/admin/${PageTab['patient-education']}`)}
+                />
+                <Tab
+                  label="E&M Codes"
+                  value={PageTab['em-codes']}
+                  sx={{ textTransform: 'none', fontWeight: 500 }}
+                  onClick={() => navigate(`/admin/${PageTab['em-codes']}`)}
+                />
+                <Tab
                   label="Outreach"
                   value={PageTab.outreach}
                   sx={{ textTransform: 'none', fontWeight: 500 }}
@@ -170,6 +185,12 @@ export function AdminPage(): JSX.Element {
           </TabPanel>
           <TabPanel value={PageTab['in-house-labs']} sx={{ padding: 0 }}>
             <InHouseLabAdminPage />
+          </TabPanel>
+          <TabPanel value={PageTab['patient-education']} sx={{ padding: 0 }}>
+            <PatientEducationAdminPage />
+          </TabPanel>
+          <TabPanel value={PageTab['em-codes']} sx={{ padding: 0 }}>
+            <EMCodesAdminPage />
           </TabPanel>
           <TabPanel value={PageTab.outreach} sx={{ padding: 0 }}>
             <OutreachTab outreachSubTab={outreachSubTab} outreachDetailTab={outreachDetailTab} />
