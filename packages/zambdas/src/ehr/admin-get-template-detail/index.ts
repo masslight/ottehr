@@ -38,7 +38,7 @@ import { createOystehrClient } from '../../shared/helpers';
 import {
   indexLatestActivityDefinitionsByUrl,
   urlFromInstantiatesCanonical,
-} from '../../shared/in-house-lab/resolve-activity-definition';
+} from '../apply-template/apply-in-house-labs';
 import { analyzeTemplateVersionData, isDiagnosisCondition, verifyIsTemplate } from '../shared/template-helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 

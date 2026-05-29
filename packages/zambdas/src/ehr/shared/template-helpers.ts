@@ -1,16 +1,22 @@
 import Oystehr from '@oystehr/sdk';
 import {
+  Account,
+  ActivityDefinition,
   ClinicalImpression,
   Communication,
   Condition,
+  Coverage,
   Encounter,
   List,
+  Location,
   Observation,
+  Patient,
   Procedure,
   Resource,
   ServiceRequest,
 } from 'fhir/r4b';
 import { chartDataTagSystem, GLOBAL_TEMPLATE_IN_PERSON_CODE_SYSTEM, GLOBAL_TEMPLATE_META_TAG_CODE_SYSTEM } from 'utils';
+import { getLatestInHouseLabActivityDefinitionsForTemplatePlan } from '../apply-template/apply-in-house-labs';
 
 // Meta-tag systems that mark a resource as belonging in a global template.
 // IMPORTANT: this is a positive allow-list
@@ -25,6 +31,7 @@ export const TEMPLATE_TAG_SYSTEMS: ReadonlySet<string> = new Set([
   chartDataTagSystem('cpt-code'),
   chartDataTagSystem('em-code'),
   chartDataTagSystem('diagnosis'),
+  // ATHENA TODO: shouldn't the in house lab template tag be here? Also shouldn't all these strings for the various things be a type/const?
 ]);
 
 // Minimal shape for tag-based predicates so callers can pass resources from any FHIR version (R4B / R5) without
@@ -146,7 +153,11 @@ export type TemplateEncounterResource =
   | Communication
   | Condition
   | Procedure
-  | ServiceRequest;
+  | ServiceRequest
+  | Patient
+  | Location
+  | Coverage
+  | Account;
 
 export const getTemplateEncounterBundle = async (
   oystehr: Oystehr,
@@ -167,7 +178,34 @@ export const getTemplateEncounterBundle = async (
         // Pulled in so in-house lab orders on this encounter can be saved as
         // template plans when creating templates.
         { name: '_revinclude:iterate', value: 'ServiceRequest:encounter' },
+
+        // all of these resources are for creating in house labs
+        { name: '_include', value: 'Encounter:location' },
+        { name: '_include', value: 'Encounter:patient' },
+        { name: '_revinclude:iterate', value: 'Coverage:patient' },
+        { name: '_revinclude:iterate', value: 'Account:patient' },
       ],
     })
   ).unbundle();
+};
+
+/**
+ * Grabs all of the resources related to the Encounter, as well as any latest ActivityDefinitions for in house labs
+ * referenced on ServiceRequest plans on the template
+ * @param oystehr
+ * @param encounterId
+ * @param templateList
+ * @returns
+ */
+export const getTemplateBaseResources = async (
+  oystehr: Oystehr,
+  encounterId: string,
+  templateList: List
+): Promise<{ encounterResources: TemplateEncounterResource[]; latestInHouseLabAds: ActivityDefinition[] }> => {
+  const [encounterResources, latestInHouseLabAds] = await Promise.all([
+    getTemplateEncounterBundle(oystehr, encounterId),
+    getLatestInHouseLabActivityDefinitionsForTemplatePlan(oystehr, templateList),
+  ]);
+
+  return { encounterResources, latestInHouseLabAds };
 };

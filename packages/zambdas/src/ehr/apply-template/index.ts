@@ -29,8 +29,8 @@ import {
 import { v4 as uuidV4 } from 'uuid';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
-import { getTemplateEncounterBundle, hasTemplateRelevantTag, isDiagnosisCondition } from '../shared/template-helpers';
-import { applyInHouseLabPlans } from './apply-in-house-labs';
+import { getTemplateBaseResources, hasTemplateRelevantTag, isDiagnosisCondition } from '../shared/template-helpers';
+import { activityDefinitionIsApplyable, applyInHouseLabPlans } from './apply-in-house-labs';
 import { validateRequestParameters } from './validateRequestParameters';
 
 interface ComplexValidationOutput {
@@ -128,6 +128,7 @@ const IN_HOUSE_LAB_PLAN_TAG_SYSTEM = chartDataTagSystem('in-house-lab-template-p
 // Returns an empty set if either action is 'skip' - if labs are being skipped
 // the lab side doesn't materialize anything, and if CPTs are skipped the
 // section doesn't run so no dedup is needed.
+// ATHENA TODO: this really needs to take in the current version of the ActivityDefinition so it can get the latest cpt codes, not just the plan
 export const collectCptCodesFromAppliedInHouseLabPlans = (
   templateList: List,
   actions: ResolvedSectionActions
@@ -173,9 +174,17 @@ const performEffect = async (
   const { encounterId, sectionActions } = validatedInput;
   const actions = resolveSectionActions(sectionActions);
 
+  const { encounterResources: encounterBundle, latestInHouseLabAds } = await getTemplateBaseResources(
+    oystehr,
+    encounterId,
+    templateList
+  );
+
   // Kick off in-house lab plan application in parallel with the chart-data
   // batches below - the two are independent (different resources, different
   // transactions) so we don't need to await before starting the rest.
+  // ATHENA TODO: can pass the latestInHouseLabAds in here
+  const _applyableInHouseLabAds = latestInHouseLabAds.filter((ad) => activityDefinitionIsApplyable(ad).isApplyable);
   const inHouseLabsPromise = applyInHouseLabPlans({
     templateList,
     encounterId,
@@ -184,8 +193,6 @@ const performEffect = async (
     oystehr,
     action: actions.inHouseLabs,
   });
-
-  const encounterBundle = await getTemplateEncounterBundle(oystehr, encounterId);
 
   // Make 1 transaction to delete old resources that are being replaced and write the new ones
   const deleteRequests = makeDeleteRequests(encounterBundle, actions);
@@ -199,6 +206,7 @@ const performEffect = async (
   // being applied, the lab's create flow will materialize the lab's CPT
   // Procedures on its own - we need to skip those CPT codes from the template's
   // separate CPT Codes section so we don't end up with the same Procedure twice.
+  // ATHENA TODO: this needs to change/be renamed to pull from the latestInHouseLabAds
   const cptCodesFromLabsToSkip = collectCptCodesFromAppliedInHouseLabPlans(templateList, actions);
   const createRequests = makeCreateRequests(encounter, templateList, encounterBundle, actions, cptCodesFromLabsToSkip);
 
