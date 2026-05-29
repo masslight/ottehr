@@ -5,6 +5,7 @@ import {
   AppointmentType,
   FhirAppointmentStatus,
   FhirEncounterStatus,
+  OTTEHR_MODULE,
   visitStatusToFhirAppointmentStatusMap,
   visitStatusToFhirEncounterStatusMap,
   VisitStatusWithoutUnknown,
@@ -261,6 +262,17 @@ const addParticipant = (
     encounter.participant = [newParticipant];
   }
   return encounter;
+};
+
+const asTelemed = (visit: VisitDetails): VisitDetails => {
+  visit.appointment.meta = {
+    tag: [
+      {
+        code: OTTEHR_MODULE.TM,
+      },
+    ],
+  };
+  return visit;
 };
 
 const getAppointmentsAndMap = (
@@ -623,4 +635,21 @@ test('prebooked patients queue', () => {
     console.log(val.id);
     expect(val.id).toBe(expectedOrder[idx].id);
   });
+});
+
+test('on-demand virtual visits land in the active queue, while pre-booked telemed stays prebooked', () => {
+  const onDemandVirtual = asTelemed(makeVisit_Pending('walk-in', 0));
+  const prebookedVirtual = asTelemed(makeVisit_Pending('pre-booked', -15));
+
+  const { appointments, apptRefToEncounterMap } = getAppointmentsAndMap([onDemandVirtual, prebookedVirtual]);
+  const sorted = sortAppointments(appointments, apptRefToEncounterMap);
+
+  const activeIds = sorted.inOffice.waitingRoom.arrived.map((appointment) => appointment.id);
+  const prebookedIds = sorted.prebooked.map((appointment) => appointment.id);
+
+  expect(activeIds).toContain(onDemandVirtual.appointment.id);
+  expect(prebookedIds).not.toContain(onDemandVirtual.appointment.id);
+
+  expect(prebookedIds).toContain(prebookedVirtual.appointment.id);
+  expect(activeIds).not.toContain(prebookedVirtual.appointment.id);
 });
