@@ -74,11 +74,11 @@ export default function ClaimDetail(): ReactElement {
           resourceType,
           fields,
         });
-        await fetchDetail();
-        return null;
       } catch (err) {
         return err instanceof Error ? err.message : 'Failed to save changes';
       }
+      await fetchDetail();
+      return null;
     },
     [oystehrZambda, fetchDetail]
   );
@@ -88,10 +88,11 @@ export default function ClaimDetail(): ReactElement {
       if (!oystehrZambda || !id) return;
       try {
         await oystehrZambda.zambda.execute({ id: 'tag-billing-claim', claimId: id, action, tagName });
-        await fetchDetail();
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to update tag');
+        return;
       }
+      await fetchDetail();
     },
     [oystehrZambda, id, fetchDetail]
   );
@@ -720,11 +721,12 @@ function TagAdder({
       setAddError(null);
       try {
         await oystehrZambda.zambda.execute({ id: 'tag-billing-claim', claimId, action: 'add', tagName });
-        setOpen(false);
-        await onAdded();
       } catch (err) {
         setAddError(err instanceof Error ? err.message : 'Failed to add tag');
+        return;
       }
+      setOpen(false);
+      await onAdded();
     },
     [oystehrZambda, claimId, onAdded]
   );

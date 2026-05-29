@@ -36,7 +36,7 @@ export function BillingProvidersList(): ReactElement {
   const [error, setError] = useState<string | null>(null);
   const [paginationModel, setPaginationModel] = useState<GridPaginationModel>({ page: 0, pageSize: 25 });
   const [searchName, setSearchName] = useState('');
-  const { debounce } = useDebounce(400);
+  const { debounce } = useDebounce();
 
   const fetchProviders = useCallback(
     async (pagination: GridPaginationModel, name?: string): Promise<void> => {

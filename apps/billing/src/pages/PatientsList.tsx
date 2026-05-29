@@ -48,7 +48,7 @@ export default function PatientsList(): ReactElement {
   const [searchId, setSearchId] = useState('');
   const [searchUuid, setSearchUuid] = useState('');
 
-  const { debounce } = useDebounce(400);
+  const { debounce } = useDebounce();
 
   const fetchPatients = useCallback(
     async (filters: Filters, page = paginationModel.page, pageSize = paginationModel.pageSize): Promise<void> => {

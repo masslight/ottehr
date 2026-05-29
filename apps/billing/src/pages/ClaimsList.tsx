@@ -173,13 +173,16 @@ export default function ClaimsList(): ReactElement {
     if (!oystehrZambda || initialLoadDone.current) return;
     initialLoadDone.current = true;
     void fetchClaims({}, paginationModel);
-    oystehrZambda.zambda
-      .execute({ id: 'search-billing-tags' })
-      .then((res) => setTagOptions(chooseJson(res).tags ?? []))
-      .catch((err) => {
+    const loadTags = async (): Promise<void> => {
+      try {
+        const res = await oystehrZambda.zambda.execute({ id: 'search-billing-tags' });
+        setTagOptions(chooseJson(res).tags ?? []);
+      } catch (err) {
         console.error('Failed to load tags:', err);
         setTagOptions([]);
-      });
+      }
+    };
+    void loadTags();
   }, [oystehrZambda, fetchClaims, paginationModel]);
 
   const currentFilters = useCallback(
