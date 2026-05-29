@@ -4,7 +4,7 @@ import { ReactElement } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { OUTREACH_URL } from 'src/App';
 import ScheduledPatientOutreach from 'src/rcm/features/scheduled-patient-outreach/ScheduledPatientOutreach';
-import { InvoiceablePatientsContent } from './reports/index';
+import { InvoiceablePatients } from './reports/index';
 
 type OutreachSubTab = 'patient-invoices' | 'patient-outreach';
 
@@ -32,7 +32,7 @@ export default function OutreachTab({
           </TabList>
         </Box>
         <TabPanel value="patient-invoices" sx={{ padding: 0 }}>
-          <InvoiceablePatientsContent />
+          <InvoiceablePatients />
         </TabPanel>
         <TabPanel value="patient-outreach" sx={{ padding: 0 }}>
           <ScheduledPatientOutreach outreachTab={outreachDetailTab} />
