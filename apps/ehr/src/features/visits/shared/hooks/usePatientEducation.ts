@@ -402,69 +402,85 @@ const WARNING_BORDER = rgb(0.9, 0.6, 0.2);
 const WHITE = rgb(1, 1, 1);
 
 // === Page dimensions (US Letter at 72dpi) ===
-const PAGE_WIDTH = 612;
-const PAGE_HEIGHT = 792;
-const PAGE_MARGIN = 48;
-const MAX_TEXT_WIDTH = PAGE_WIDTH - PAGE_MARGIN * 2;
+const PAGE = {
+  WIDTH: 612,
+  HEIGHT: 792,
+  MARGIN: 48,
+  MAX_TEXT_WIDTH: 612 - 48 * 2, // WIDTH - MARGIN * 2
+} as const;
 
 // === Typography ===
-const BODY_FONT_SIZE = 10.5;
-const SECTION_HEADER_FONT_SIZE = 13;
-const TITLE_FONT_SIZE = 24;
-const FOOTER_FONT_SIZE = 8;
-const WARNING_ICON_FONT_SIZE = 14;
-const LINE_HEIGHT = BODY_FONT_SIZE * 1.55;
-const SECTION_HEADER_LINE_HEIGHT = SECTION_HEADER_FONT_SIZE * 2;
-const TITLE_LINE_HEIGHT_RATIO = 1.3;
-// Visual-baseline tweak so the centered banner title sits optically centered, not box-centered.
-const TITLE_BASELINE_OFFSET_RATIO = 0.3;
+const TYPOGRAPHY = {
+  BODY_FONT_SIZE: 10.5,
+  SECTION_HEADER_FONT_SIZE: 13,
+  TITLE_FONT_SIZE: 24,
+  FOOTER_FONT_SIZE: 8,
+  WARNING_ICON_FONT_SIZE: 14,
+  LINE_HEIGHT: 10.5 * 1.55, // BODY_FONT_SIZE * 1.55
+  SECTION_HEADER_LINE_HEIGHT: 13 * 2, // SECTION_HEADER_FONT_SIZE * 2
+  TITLE_LINE_HEIGHT_RATIO: 1.3,
+  // Visual-baseline tweak so the centered banner title sits optically centered, not box-centered.
+  TITLE_BASELINE_OFFSET_RATIO: 0.3,
+} as const;
 
 // === Header banner ===
-const BANNER_HEIGHT = 60;
-const BANNER_TITLE_HORIZONTAL_PADDING = 20;
-const GAP_BANNER_TO_ACCENT = 8;
-const ACCENT_LINE_THICKNESS = 2;
-const GAP_AFTER_ACCENT_LINE = 15;
+const BANNER = {
+  HEIGHT: 60,
+  TITLE_HORIZONTAL_PADDING: 20,
+  GAP_TO_ACCENT: 8,
+  ACCENT_LINE_THICKNESS: 2,
+  GAP_AFTER_ACCENT: 15,
+} as const;
 
 // === Section headers (h2/h3) ===
-const SECTION_HEADER_BOX_HEIGHT_RATIO = 1.6;
-const SECTION_HEADER_BAR_WIDTH = 3;
-const SECTION_HEADER_TEXT_INDENT = 10;
-const SECTION_HEADER_BOX_BASELINE_OFFSET = 2;
-const GAP_BEFORE_SECTION_HEADER = 8;
+const SECTION_HEADER = {
+  BOX_HEIGHT_RATIO: 1.6,
+  BAR_WIDTH: 3,
+  TEXT_INDENT: 10,
+  BOX_BASELINE_OFFSET: 2,
+  GAP_BEFORE: 8,
+} as const;
 
 // === Bullets ===
-const BULLET_GLYPH_X_OFFSET = 6;
-const BULLET_TEXT_X_OFFSET = 16;
-const BULLET_GLYPH_RADIUS = 2;
-const BULLET_VERTICAL_BASELINE_RATIO = 0.3;
-const BULLET_WRAP_INDENT = 20;
+const BULLET = {
+  GLYPH_X_OFFSET: 6,
+  TEXT_X_OFFSET: 16,
+  GLYPH_RADIUS: 2,
+  VERTICAL_BASELINE_RATIO: 0.3,
+  WRAP_INDENT: 20,
+} as const;
 
 // === Warning callout box ===
-const WARNING_BOX_VERTICAL_PADDING = 8;
-const WARNING_BOX_BORDER_WIDTH = 1;
-const WARNING_ICON_X_OFFSET = 9;
-const WARNING_ICON_Y_OFFSET = -1;
-const WARNING_TEXT_X_OFFSET = 22;
-const WARNING_TEXT_RIGHT_INSET = 28;
-const WARNING_BULLET_GLYPH_X_OFFSET = 4;
-const WARNING_BULLET_TEXT_X_OFFSET = 14;
-const WARNING_BULLET_WRAP_INDENT = 16;
-const WARNING_TOP_GAP = 4;
-const WARNING_BOTTOM_GAP = 4;
+const WARNING = {
+  BOX_VERTICAL_PADDING: 8,
+  BOX_BORDER_WIDTH: 1,
+  ICON_X_OFFSET: 9,
+  ICON_Y_OFFSET: -1,
+  TEXT_X_OFFSET: 22,
+  TEXT_RIGHT_INSET: 28,
+  BULLET_GLYPH_X_OFFSET: 4,
+  BULLET_TEXT_X_OFFSET: 14,
+  BULLET_WRAP_INDENT: 16,
+  TOP_GAP: 4,
+  BOTTOM_GAP: 4,
+} as const;
 
 // === Page-break reserves (vertical space we refuse to write into above the footer) ===
-const FOOTER_RESERVE = 40;
-const SECTION_HEADER_BREAK_RESERVE = 30;
-const TEXT_BREAK_RESERVE = 5;
-const EMPTY_LINE_HEIGHT_RATIO = 0.4;
+const PAGE_BREAK = {
+  FOOTER_RESERVE: 40,
+  SECTION_HEADER_RESERVE: 30,
+  TEXT_RESERVE: 5,
+  EMPTY_LINE_HEIGHT_RATIO: 0.4,
+} as const;
 
-// === Footer layout (offsets are subtracted from PAGE_MARGIN baseline) ===
-const FOOTER_DIVIDER_Y_OFFSET = 5;
-const FOOTER_DIVIDER_THICKNESS = 0.5;
-const FOOTER_PRIMARY_Y_OFFSET = 18;
-const FOOTER_SECONDARY_Y_OFFSET = 28;
-const FOOTER_PAGE_NUM_X_OFFSET = 50;
+// === Footer layout (offsets are subtracted from PAGE.MARGIN baseline) ===
+const FOOTER = {
+  DIVIDER_Y_OFFSET: 5,
+  DIVIDER_THICKNESS: 0.5,
+  PRIMARY_Y_OFFSET: 18,
+  SECONDARY_Y_OFFSET: 28,
+  PAGE_NUM_X_OFFSET: 50,
+} as const;
 
 export async function generateCombinedPdf(
   sections: { content: string; patientTitle: string; icdCode: string; icdDescription: string }[]
@@ -475,8 +491,8 @@ export async function generateCombinedPdf(
   const helveticaOblique = await pdfDoc.embedFont(StandardFonts.HelveticaOblique);
 
   function addNewPage(): { page: ReturnType<typeof pdfDoc.addPage>; y: number } {
-    const page = pdfDoc.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
-    return { page, y: PAGE_HEIGHT - PAGE_MARGIN };
+    const page = pdfDoc.addPage([PAGE.WIDTH, PAGE.HEIGHT]);
+    return { page, y: PAGE.HEIGHT - PAGE.MARGIN };
   }
 
   function drawFooter(
@@ -487,30 +503,30 @@ export async function generateCombinedPdf(
   ): void {
     // Thin line above footer
     page.drawLine({
-      start: { x: PAGE_MARGIN, y: PAGE_MARGIN - FOOTER_DIVIDER_Y_OFFSET },
-      end: { x: PAGE_WIDTH - PAGE_MARGIN, y: PAGE_MARGIN - FOOTER_DIVIDER_Y_OFFSET },
-      thickness: FOOTER_DIVIDER_THICKNESS,
+      start: { x: PAGE.MARGIN, y: PAGE.MARGIN - FOOTER.DIVIDER_Y_OFFSET },
+      end: { x: PAGE.WIDTH - PAGE.MARGIN, y: PAGE.MARGIN - FOOTER.DIVIDER_Y_OFFSET },
+      thickness: FOOTER.DIVIDER_THICKNESS,
       color: DIVIDER_COLOR,
     });
     page.drawText(icdLabel, {
-      x: PAGE_MARGIN,
-      y: PAGE_MARGIN - FOOTER_PRIMARY_Y_OFFSET,
-      size: FOOTER_FONT_SIZE,
+      x: PAGE.MARGIN,
+      y: PAGE.MARGIN - FOOTER.PRIMARY_Y_OFFSET,
+      size: TYPOGRAPHY.FOOTER_FONT_SIZE,
       font: helveticaOblique,
       color: TEXT_LIGHT,
     });
     const formattedDate = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
     page.drawText(`Generated: ${formattedDate}  |  Source: MedlinePlus`, {
-      x: PAGE_MARGIN,
-      y: PAGE_MARGIN - FOOTER_SECONDARY_Y_OFFSET,
-      size: FOOTER_FONT_SIZE,
+      x: PAGE.MARGIN,
+      y: PAGE.MARGIN - FOOTER.SECONDARY_Y_OFFSET,
+      size: TYPOGRAPHY.FOOTER_FONT_SIZE,
       font: helvetica,
       color: TEXT_LIGHT,
     });
     page.drawText(`Page ${pageNum} of ${totalPages}`, {
-      x: PAGE_WIDTH - PAGE_MARGIN - FOOTER_PAGE_NUM_X_OFFSET,
-      y: PAGE_MARGIN - FOOTER_PRIMARY_Y_OFFSET,
-      size: FOOTER_FONT_SIZE,
+      x: PAGE.WIDTH - PAGE.MARGIN - FOOTER.PAGE_NUM_X_OFFSET,
+      y: PAGE.MARGIN - FOOTER.PRIMARY_Y_OFFSET,
+      size: TYPOGRAPHY.FOOTER_FONT_SIZE,
       font: helvetica,
       color: TEXT_LIGHT,
     });
@@ -527,36 +543,43 @@ export async function generateCombinedPdf(
     // === Header banner ===
     page.drawRectangle({
       x: 0,
-      y: PAGE_HEIGHT - BANNER_HEIGHT,
-      width: PAGE_WIDTH,
-      height: BANNER_HEIGHT,
+      y: PAGE.HEIGHT - BANNER.HEIGHT,
+      width: PAGE.WIDTH,
+      height: BANNER.HEIGHT,
       color: BRAND_BLUE,
     });
     // Title on banner — centered horizontally and vertically
     const titleLines = wrapText(
       section.patientTitle,
-      TITLE_FONT_SIZE,
-      MAX_TEXT_WIDTH - BANNER_TITLE_HORIZONTAL_PADDING
+      TYPOGRAPHY.TITLE_FONT_SIZE,
+      PAGE.MAX_TEXT_WIDTH - BANNER.TITLE_HORIZONTAL_PADDING
     );
-    const titleBlockHeight = titleLines.length * TITLE_FONT_SIZE * TITLE_LINE_HEIGHT_RATIO;
-    const bannerCenterY = PAGE_HEIGHT - BANNER_HEIGHT / 2;
-    let titleY = bannerCenterY + titleBlockHeight / 2 - TITLE_FONT_SIZE * TITLE_BASELINE_OFFSET_RATIO;
+    const titleBlockHeight = titleLines.length * TYPOGRAPHY.TITLE_FONT_SIZE * TYPOGRAPHY.TITLE_LINE_HEIGHT_RATIO;
+    const bannerCenterY = PAGE.HEIGHT - BANNER.HEIGHT / 2;
+    let titleY =
+      bannerCenterY + titleBlockHeight / 2 - TYPOGRAPHY.TITLE_FONT_SIZE * TYPOGRAPHY.TITLE_BASELINE_OFFSET_RATIO;
     for (const line of titleLines) {
-      const titleWidth = helveticaBold.widthOfTextAtSize(line, TITLE_FONT_SIZE);
-      const titleX = (PAGE_WIDTH - titleWidth) / 2;
-      page.drawText(line, { x: titleX, y: titleY, size: TITLE_FONT_SIZE, font: helveticaBold, color: WHITE });
-      titleY -= TITLE_FONT_SIZE * TITLE_LINE_HEIGHT_RATIO;
+      const titleWidth = helveticaBold.widthOfTextAtSize(line, TYPOGRAPHY.TITLE_FONT_SIZE);
+      const titleX = (PAGE.WIDTH - titleWidth) / 2;
+      page.drawText(line, {
+        x: titleX,
+        y: titleY,
+        size: TYPOGRAPHY.TITLE_FONT_SIZE,
+        font: helveticaBold,
+        color: WHITE,
+      });
+      titleY -= TYPOGRAPHY.TITLE_FONT_SIZE * TYPOGRAPHY.TITLE_LINE_HEIGHT_RATIO;
     }
-    y = PAGE_HEIGHT - BANNER_HEIGHT - GAP_BANNER_TO_ACCENT;
+    y = PAGE.HEIGHT - BANNER.HEIGHT - BANNER.GAP_TO_ACCENT;
 
     // Thin accent line
     page.drawLine({
-      start: { x: PAGE_MARGIN, y },
-      end: { x: PAGE_WIDTH - PAGE_MARGIN, y },
-      thickness: ACCENT_LINE_THICKNESS,
+      start: { x: PAGE.MARGIN, y },
+      end: { x: PAGE.WIDTH - PAGE.MARGIN, y },
+      thickness: BANNER.ACCENT_LINE_THICKNESS,
       color: ACCENT_ORANGE,
     });
-    y -= GAP_AFTER_ACCENT_LINE;
+    y -= BANNER.GAP_AFTER_ACCENT;
 
     // === Body content — two-pass approach for warning boxes ===
     // Pass 1: classify each paragraph into typed blocks
@@ -600,13 +623,13 @@ export async function generateCombinedPdf(
     // Pass 1.5: identify warning groups (a warning text line + following bullets/text until next header or non-warning gap)
     // and calculate their total height so we can draw a properly sized box
     const calcWarningGroupHeight = (startIdx: number): { endIdx: number; totalHeight: number } => {
-      const warningTextWidth = MAX_TEXT_WIDTH - WARNING_TEXT_RIGHT_INSET;
-      let height = WARNING_BOX_VERTICAL_PADDING; // top padding
+      const warningTextWidth = PAGE.MAX_TEXT_WIDTH - WARNING.TEXT_RIGHT_INSET;
+      let height = WARNING.BOX_VERTICAL_PADDING; // top padding
       let idx = startIdx;
 
       // First line (the warning trigger)
-      const firstLines = wrapText(blocks[idx].cleanText, BODY_FONT_SIZE, warningTextWidth);
-      height += firstLines.length * LINE_HEIGHT;
+      const firstLines = wrapText(blocks[idx].cleanText, TYPOGRAPHY.BODY_FONT_SIZE, warningTextWidth);
+      height += firstLines.length * TYPOGRAPHY.LINE_HEIGHT;
       idx++;
 
       // Collect following bullets and text that belong to the warning
@@ -617,16 +640,20 @@ export async function generateCombinedPdf(
         if (block.type === 'text' && !block.isWarningLine) break;
         if (block.type === 'bullet') {
           const bulletText = block.cleanText.replace(/^[-•]\s*/, '');
-          const bulletLines = wrapText(bulletText, BODY_FONT_SIZE, warningTextWidth - WARNING_BULLET_WRAP_INDENT);
-          height += bulletLines.length * LINE_HEIGHT;
+          const bulletLines = wrapText(
+            bulletText,
+            TYPOGRAPHY.BODY_FONT_SIZE,
+            warningTextWidth - WARNING.BULLET_WRAP_INDENT
+          );
+          height += bulletLines.length * TYPOGRAPHY.LINE_HEIGHT;
         } else {
-          const textLines = wrapText(block.cleanText, BODY_FONT_SIZE, warningTextWidth);
-          height += textLines.length * LINE_HEIGHT;
+          const textLines = wrapText(block.cleanText, TYPOGRAPHY.BODY_FONT_SIZE, warningTextWidth);
+          height += textLines.length * TYPOGRAPHY.LINE_HEIGHT;
         }
         idx++;
       }
 
-      height += WARNING_BOX_VERTICAL_PADDING; // bottom padding
+      height += WARNING.BOX_VERTICAL_PADDING; // bottom padding
       return { endIdx: idx, totalHeight: height };
     };
 
@@ -636,7 +663,7 @@ export async function generateCombinedPdf(
       const block = blocks[blockIdx];
 
       if (block.type === 'empty') {
-        y -= LINE_HEIGHT * EMPTY_LINE_HEIGHT_RATIO;
+        y -= TYPOGRAPHY.LINE_HEIGHT * PAGE_BREAK.EMPTY_LINE_HEIGHT_RATIO;
         blockIdx++;
         continue;
       }
@@ -644,66 +671,67 @@ export async function generateCombinedPdf(
       // Check page break
       const neededSpace =
         block.type === 'header'
-          ? SECTION_HEADER_LINE_HEIGHT + SECTION_HEADER_BREAK_RESERVE
-          : LINE_HEIGHT + TEXT_BREAK_RESERVE;
-      if (y < PAGE_MARGIN + FOOTER_RESERVE + neededSpace) {
-        page = pdfDoc.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
+          ? TYPOGRAPHY.SECTION_HEADER_LINE_HEIGHT + PAGE_BREAK.SECTION_HEADER_RESERVE
+          : TYPOGRAPHY.LINE_HEIGHT + PAGE_BREAK.TEXT_RESERVE;
+      if (y < PAGE.MARGIN + PAGE_BREAK.FOOTER_RESERVE + neededSpace) {
+        page = pdfDoc.addPage([PAGE.WIDTH, PAGE.HEIGHT]);
         allPages.push({ page, icdLabel });
-        y = PAGE_HEIGHT - PAGE_MARGIN;
+        y = PAGE.HEIGHT - PAGE.MARGIN;
       }
 
       if (block.type === 'header') {
-        y -= GAP_BEFORE_SECTION_HEADER;
-        const headerBoxHeight = SECTION_HEADER_FONT_SIZE * SECTION_HEADER_BOX_HEIGHT_RATIO;
-        const headerBoxY = y - headerBoxHeight + SECTION_HEADER_FONT_SIZE + SECTION_HEADER_BOX_BASELINE_OFFSET;
+        y -= SECTION_HEADER.GAP_BEFORE;
+        const headerBoxHeight = TYPOGRAPHY.SECTION_HEADER_FONT_SIZE * SECTION_HEADER.BOX_HEIGHT_RATIO;
+        const headerBoxY =
+          y - headerBoxHeight + TYPOGRAPHY.SECTION_HEADER_FONT_SIZE + SECTION_HEADER.BOX_BASELINE_OFFSET;
         page.drawRectangle({
-          x: PAGE_MARGIN,
+          x: PAGE.MARGIN,
           y: headerBoxY,
-          width: MAX_TEXT_WIDTH,
+          width: PAGE.MAX_TEXT_WIDTH,
           height: headerBoxHeight,
           color: BRAND_LIGHT_BLUE,
         });
         page.drawRectangle({
-          x: PAGE_MARGIN,
+          x: PAGE.MARGIN,
           y: headerBoxY,
-          width: SECTION_HEADER_BAR_WIDTH,
+          width: SECTION_HEADER.BAR_WIDTH,
           height: headerBoxHeight,
           color: BRAND_BLUE,
         });
         page.drawText(block.cleanText, {
-          x: PAGE_MARGIN + SECTION_HEADER_TEXT_INDENT,
+          x: PAGE.MARGIN + SECTION_HEADER.TEXT_INDENT,
           y: y,
-          size: SECTION_HEADER_FONT_SIZE,
+          size: TYPOGRAPHY.SECTION_HEADER_FONT_SIZE,
           font: helveticaBold,
           color: BRAND_BLUE,
         });
-        y -= SECTION_HEADER_LINE_HEIGHT;
+        y -= TYPOGRAPHY.SECTION_HEADER_LINE_HEIGHT;
         blockIdx++;
       } else if (block.type === 'bullet' && !block.isWarningLine) {
         const bulletText = block.cleanText.replace(/^[-•]\s*/, '');
-        const bulletLines = wrapText(bulletText, BODY_FONT_SIZE, MAX_TEXT_WIDTH - BULLET_WRAP_INDENT);
+        const bulletLines = wrapText(bulletText, TYPOGRAPHY.BODY_FONT_SIZE, PAGE.MAX_TEXT_WIDTH - BULLET.WRAP_INDENT);
         for (let i = 0; i < bulletLines.length; i++) {
-          if (y < PAGE_MARGIN + FOOTER_RESERVE) {
-            page = pdfDoc.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
+          if (y < PAGE.MARGIN + PAGE_BREAK.FOOTER_RESERVE) {
+            page = pdfDoc.addPage([PAGE.WIDTH, PAGE.HEIGHT]);
             allPages.push({ page, icdLabel });
-            y = PAGE_HEIGHT - PAGE_MARGIN;
+            y = PAGE.HEIGHT - PAGE.MARGIN;
           }
           if (i === 0) {
             page.drawCircle({
-              x: PAGE_MARGIN + BULLET_GLYPH_X_OFFSET,
-              y: y + BODY_FONT_SIZE * BULLET_VERTICAL_BASELINE_RATIO,
-              size: BULLET_GLYPH_RADIUS,
+              x: PAGE.MARGIN + BULLET.GLYPH_X_OFFSET,
+              y: y + TYPOGRAPHY.BODY_FONT_SIZE * BULLET.VERTICAL_BASELINE_RATIO,
+              size: BULLET.GLYPH_RADIUS,
               color: ACCENT_ORANGE,
             });
           }
           page.drawText(bulletLines[i], {
-            x: PAGE_MARGIN + BULLET_TEXT_X_OFFSET,
+            x: PAGE.MARGIN + BULLET.TEXT_X_OFFSET,
             y,
-            size: BODY_FONT_SIZE,
+            size: TYPOGRAPHY.BODY_FONT_SIZE,
             font: helvetica,
             color: TEXT_DARK,
           });
-          y -= LINE_HEIGHT;
+          y -= TYPOGRAPHY.LINE_HEIGHT;
         }
         blockIdx++;
       } else if (block.isWarningLine && (block.type === 'text' || block.type === 'bullet')) {
@@ -711,93 +739,97 @@ export async function generateCombinedPdf(
         const { endIdx, totalHeight } = calcWarningGroupHeight(blockIdx);
 
         // Check if warning group fits on current page
-        if (y < PAGE_MARGIN + FOOTER_RESERVE + totalHeight) {
-          page = pdfDoc.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
+        if (y < PAGE.MARGIN + PAGE_BREAK.FOOTER_RESERVE + totalHeight) {
+          page = pdfDoc.addPage([PAGE.WIDTH, PAGE.HEIGHT]);
           allPages.push({ page, icdLabel });
-          y = PAGE_HEIGHT - PAGE_MARGIN;
+          y = PAGE.HEIGHT - PAGE.MARGIN;
         }
 
         // Draw the warning box with the correct size
-        y -= WARNING_TOP_GAP;
-        const boxTop = y + BODY_FONT_SIZE + WARNING_TOP_GAP;
+        y -= WARNING.TOP_GAP;
+        const boxTop = y + TYPOGRAPHY.BODY_FONT_SIZE + WARNING.TOP_GAP;
         page.drawRectangle({
-          x: PAGE_MARGIN,
+          x: PAGE.MARGIN,
           y: boxTop - totalHeight,
-          width: MAX_TEXT_WIDTH,
+          width: PAGE.MAX_TEXT_WIDTH,
           height: totalHeight,
           color: WARNING_BG,
           borderColor: WARNING_BORDER,
-          borderWidth: WARNING_BOX_BORDER_WIDTH,
+          borderWidth: WARNING.BOX_BORDER_WIDTH,
         });
         page.drawText('!', {
-          x: PAGE_MARGIN + WARNING_ICON_X_OFFSET,
-          y: y + WARNING_ICON_Y_OFFSET,
-          size: WARNING_ICON_FONT_SIZE,
+          x: PAGE.MARGIN + WARNING.ICON_X_OFFSET,
+          y: y + WARNING.ICON_Y_OFFSET,
+          size: TYPOGRAPHY.WARNING_ICON_FONT_SIZE,
           font: helveticaBold,
           color: WARNING_BORDER,
         });
 
         // Render all blocks inside the warning box
-        const warningTextX = PAGE_MARGIN + WARNING_TEXT_X_OFFSET;
-        const warningTextWidth = MAX_TEXT_WIDTH - WARNING_TEXT_RIGHT_INSET;
+        const warningTextX = PAGE.MARGIN + WARNING.TEXT_X_OFFSET;
+        const warningTextWidth = PAGE.MAX_TEXT_WIDTH - WARNING.TEXT_RIGHT_INSET;
 
         for (let wi = blockIdx; wi < endIdx; wi++) {
           const wBlock = blocks[wi];
           if (wBlock.type === 'bullet') {
             const bulletText = wBlock.cleanText.replace(/^[-•]\s*/, '');
-            const bulletLines = wrapText(bulletText, BODY_FONT_SIZE, warningTextWidth - WARNING_BULLET_WRAP_INDENT);
+            const bulletLines = wrapText(
+              bulletText,
+              TYPOGRAPHY.BODY_FONT_SIZE,
+              warningTextWidth - WARNING.BULLET_WRAP_INDENT
+            );
             for (let i = 0; i < bulletLines.length; i++) {
               if (i === 0) {
                 page.drawCircle({
-                  x: warningTextX + WARNING_BULLET_GLYPH_X_OFFSET,
-                  y: y + BODY_FONT_SIZE * BULLET_VERTICAL_BASELINE_RATIO,
-                  size: BULLET_GLYPH_RADIUS,
+                  x: warningTextX + WARNING.BULLET_GLYPH_X_OFFSET,
+                  y: y + TYPOGRAPHY.BODY_FONT_SIZE * BULLET.VERTICAL_BASELINE_RATIO,
+                  size: BULLET.GLYPH_RADIUS,
                   color: WARNING_BORDER,
                 });
               }
               page.drawText(bulletLines[i], {
-                x: warningTextX + WARNING_BULLET_TEXT_X_OFFSET,
+                x: warningTextX + WARNING.BULLET_TEXT_X_OFFSET,
                 y,
-                size: BODY_FONT_SIZE,
+                size: TYPOGRAPHY.BODY_FONT_SIZE,
                 font: helvetica,
                 color: TEXT_DARK,
               });
-              y -= LINE_HEIGHT;
+              y -= TYPOGRAPHY.LINE_HEIGHT;
             }
           } else {
-            const lines = wrapText(wBlock.cleanText, BODY_FONT_SIZE, warningTextWidth);
+            const lines = wrapText(wBlock.cleanText, TYPOGRAPHY.BODY_FONT_SIZE, warningTextWidth);
             for (const line of lines) {
               page.drawText(line, {
                 x: warningTextX,
                 y,
-                size: BODY_FONT_SIZE,
+                size: TYPOGRAPHY.BODY_FONT_SIZE,
                 font: helvetica,
                 color: TEXT_DARK,
               });
-              y -= LINE_HEIGHT;
+              y -= TYPOGRAPHY.LINE_HEIGHT;
             }
           }
         }
 
-        y -= WARNING_BOTTOM_GAP;
+        y -= WARNING.BOTTOM_GAP;
         blockIdx = endIdx;
       } else {
         // Regular text
-        const lines = wrapText(block.cleanText, BODY_FONT_SIZE, MAX_TEXT_WIDTH);
+        const lines = wrapText(block.cleanText, TYPOGRAPHY.BODY_FONT_SIZE, PAGE.MAX_TEXT_WIDTH);
         for (const line of lines) {
-          if (y < PAGE_MARGIN + FOOTER_RESERVE) {
-            page = pdfDoc.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
+          if (y < PAGE.MARGIN + PAGE_BREAK.FOOTER_RESERVE) {
+            page = pdfDoc.addPage([PAGE.WIDTH, PAGE.HEIGHT]);
             allPages.push({ page, icdLabel });
-            y = PAGE_HEIGHT - PAGE_MARGIN;
+            y = PAGE.HEIGHT - PAGE.MARGIN;
           }
           page.drawText(line, {
-            x: PAGE_MARGIN,
+            x: PAGE.MARGIN,
             y,
-            size: BODY_FONT_SIZE,
+            size: TYPOGRAPHY.BODY_FONT_SIZE,
             font: helvetica,
             color: TEXT_DARK,
           });
-          y -= LINE_HEIGHT;
+          y -= TYPOGRAPHY.LINE_HEIGHT;
         }
         blockIdx++;
       }
