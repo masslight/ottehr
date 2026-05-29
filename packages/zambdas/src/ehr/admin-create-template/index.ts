@@ -209,12 +209,10 @@ const performEffect = async (
       status: 'active',
       intent: 'plan',
       subject: { reference: `#${stubPatient.id}` },
-      code: order.code, // condtains both the In House Lab Test code and the CPT code(s) associated with the test
       // Strip the |version suffix when saving the plan so a global template
       // floats forward to the current ActivityDefinition as new versions are
       // published. apply-template and admin-get-template-detail look up the
-      // AD by url (ignoring any version segment) and pick the highest semver // ATHENA TODO: need to update this comment once I find how thw latest AD is being selected. Shouldn't be by highest semver but by latest tag
-      // version among the matches.
+      // AD by url (ignoring any version segment) and pick the latest version
       // Note: we fully expect instantiatesCanonical to be defined here
       ...(order.instantiatesCanonical
         ? { instantiatesCanonical: order.instantiatesCanonical.map((ref) => ref.split('|')[0]) }

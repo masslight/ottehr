@@ -1,7 +1,8 @@
 import Oystehr from '@oystehr/sdk';
 import { Account, Coverage, Encounter, Location, Patient, Practitioner } from 'fhir/r4b';
-import { getAttendingPractitionerId, getFullestAvailableName, Secrets } from 'utils';
+import { CreateInHouseLabEnconuterResource, getAttendingPractitionerId, getFullestAvailableName, Secrets } from 'utils';
 import { accountIsPatientBill, getPrimaryInsurance } from '../../ehr/lab/shared/labs';
+import { TemplateEncounterResource } from '../../ehr/shared/template-helpers';
 import { getMyPractitionerId } from '..';
 
 export interface InHouseLabOrderContext {
@@ -31,31 +32,19 @@ export interface InHouseLabOrderContext {
  * user Practitioner) can't be resolved - those represent misconfiguration
  * that should surface as a clear error rather than silently producing a
  * malformed order.
+ *
+ * Only grabs the patient billing account.
  */
 export async function gatherInHouseLabOrderContext(input: {
   oystehr: Oystehr;
   encounterId: string;
+  encounterResources: TemplateEncounterResource[] | CreateInHouseLabEnconuterResource[];
   userToken: string;
   secrets: Secrets | null;
 }): Promise<InHouseLabOrderContext> {
-  const { oystehr, encounterId, userToken, secrets } = input;
+  const { oystehr, encounterId, userToken, secrets, encounterResources } = input;
 
-  const encounterResourcesPromise = (async (): Promise<(Encounter | Patient | Location | Coverage | Account)[]> => {
-    return (
-      await oystehr.fhir.search({
-        resourceType: 'Encounter',
-        params: [
-          { name: '_id', value: encounterId },
-          { name: '_include', value: 'Encounter:patient' },
-          { name: '_include', value: 'Encounter:location' },
-          { name: '_revinclude:iterate', value: 'Coverage:patient' },
-          { name: '_revinclude:iterate', value: 'Account:patient' },
-        ],
-      })
-    ).unbundle() as (Encounter | Patient | Location | Coverage | Account)[];
-  })();
-
-  const currentUserPractitionerIdPromise = (async (): Promise<string> => {
+  const currentUserPractitionerIdPromise = async (): Promise<string> => {
     try {
       return await getMyPractitionerId(userToken, secrets);
     } catch {
@@ -63,12 +52,9 @@ export async function gatherInHouseLabOrderContext(input: {
         'Resource configuration error - user placing this in-house lab order must have a Practitioner resource linked'
       );
     }
-  })();
+  };
 
-  const [encounterResources, currentUserPractitionerId] = await Promise.all([
-    encounterResourcesPromise,
-    currentUserPractitionerIdPromise,
-  ]);
+  const currentUserPractitionerId = await currentUserPractitionerIdPromise();
 
   const encounters: Encounter[] = [];
   const patients: Patient[] = [];

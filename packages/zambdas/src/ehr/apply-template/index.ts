@@ -2,6 +2,7 @@ import Oystehr, { BatchInputDeleteRequest, BatchInputJSONPatchRequest, BatchInpu
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
 import {
+  ActivityDefinition,
   ClinicalImpression,
   Communication,
   Condition,
@@ -10,7 +11,6 @@ import {
   List,
   Observation,
   Procedure,
-  ServiceRequest,
 } from 'fhir/r4b';
 import {
   ApplyTemplateWarning,
@@ -30,7 +30,7 @@ import { v4 as uuidV4 } from 'uuid';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
 import { getTemplateBaseResources, hasTemplateRelevantTag, isDiagnosisCondition } from '../shared/template-helpers';
-import { activityDefinitionIsApplyable, applyInHouseLabPlans } from './apply-in-house-labs';
+import { applyInHouseLabPlans, canApplyActivityDefinition } from './apply-in-house-labs';
 import { validateRequestParameters } from './validateRequestParameters';
 
 interface ComplexValidationOutput {
@@ -117,7 +117,6 @@ const resolveSectionActions = (input?: TemplateSectionActions): ResolvedSectionA
 };
 
 const CPT_CODE_SYSTEM = 'http://www.ama-assn.org/go/cpt';
-const IN_HOUSE_LAB_PLAN_TAG_SYSTEM = chartDataTagSystem('in-house-lab-template-plan');
 
 // Walks the template's contained resources and collects the CPT codes belonging
 // to in-house lab plans that will be applied (i.e. their section action isn't
@@ -128,19 +127,15 @@ const IN_HOUSE_LAB_PLAN_TAG_SYSTEM = chartDataTagSystem('in-house-lab-template-p
 // Returns an empty set if either action is 'skip' - if labs are being skipped
 // the lab side doesn't materialize anything, and if CPTs are skipped the
 // section doesn't run so no dedup is needed.
-// ATHENA TODO: this really needs to take in the current version of the ActivityDefinition so it can get the latest cpt codes, not just the plan
-export const collectCptCodesFromAppliedInHouseLabPlans = (
-  templateList: List,
+export const collectCptCodesFromApplicableActivityDefinitions = (
+  applicableActivityDefinitions: ActivityDefinition[],
   actions: ResolvedSectionActions
 ): Set<string> => {
   if (actions.inHouseLabs === 'skip' || actions.cptCodes === 'skip') return new Set();
   const out = new Set<string>();
-  for (const r of templateList.contained ?? []) {
-    if (r.resourceType !== 'ServiceRequest') continue;
-    const sr = r as ServiceRequest;
-    if (sr.intent !== 'plan') continue;
-    if (!sr.meta?.tag?.some((t) => t.system === IN_HOUSE_LAB_PLAN_TAG_SYSTEM)) continue;
-    for (const coding of sr.code?.coding ?? []) {
+  for (const ad of applicableActivityDefinitions) {
+    if (!canApplyActivityDefinition(ad).canApply) continue;
+    for (const coding of ad.code?.coding ?? []) {
       if (coding.system === CPT_CODE_SYSTEM && coding.code) out.add(coding.code);
     }
   }
@@ -183,8 +178,7 @@ const performEffect = async (
   // Kick off in-house lab plan application in parallel with the chart-data
   // batches below - the two are independent (different resources, different
   // transactions) so we don't need to await before starting the rest.
-  // ATHENA TODO: can pass the latestInHouseLabAds in here
-  const _applyableInHouseLabAds = latestInHouseLabAds.filter((ad) => activityDefinitionIsApplyable(ad).isApplyable);
+  const applicableInHouseLabAds = latestInHouseLabAds.filter((ad) => canApplyActivityDefinition(ad).canApply);
   const inHouseLabsPromise = applyInHouseLabPlans({
     templateList,
     encounterId,
@@ -192,6 +186,8 @@ const performEffect = async (
     secrets: validatedInput.secrets,
     oystehr,
     action: actions.inHouseLabs,
+    activityDefinitions: applicableInHouseLabAds,
+    encounterResources: encounterBundle,
   });
 
   // Make 1 transaction to delete old resources that are being replaced and write the new ones
@@ -206,8 +202,7 @@ const performEffect = async (
   // being applied, the lab's create flow will materialize the lab's CPT
   // Procedures on its own - we need to skip those CPT codes from the template's
   // separate CPT Codes section so we don't end up with the same Procedure twice.
-  // ATHENA TODO: this needs to change/be renamed to pull from the latestInHouseLabAds
-  const cptCodesFromLabsToSkip = collectCptCodesFromAppliedInHouseLabPlans(templateList, actions);
+  const cptCodesFromLabsToSkip = collectCptCodesFromApplicableActivityDefinitions(applicableInHouseLabAds, actions);
   const createRequests = makeCreateRequests(encounter, templateList, encounterBundle, actions, cptCodesFromLabsToSkip);
 
   const miniTransactionRequests = createRequests.filter((request) => {

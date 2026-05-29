@@ -30,7 +30,7 @@ import {
   TemplateCodeInfo,
   TemplateCptCodeInfo,
   TemplateExamFinding,
-  TemplateInHouseLabPlan,
+  TemplateInHouseLabPlanDetail,
   TemplateRosFinding,
 } from 'utils';
 import { checkOrCreateM2MClientToken, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
@@ -326,24 +326,30 @@ const performEffect = async (
     }
   }
 
-  const inHouseLabs: TemplateInHouseLabPlan[] = inHouseLabPlans.map((plan) => {
+  const inHouseLabs: TemplateInHouseLabPlanDetail[] = inHouseLabPlans.map((plan) => {
     const canonical = plan.instantiatesCanonical?.[0] ?? '';
+
+    // cpts codes, test code, and test name should all come from the AD itself to pick up any changes to the test
     const ad = canonical ? adByUrl.get(urlFromInstantiatesCanonical(canonical)) : undefined;
-    const inHouseCoding = plan.code?.coding?.find((c) => c.system === IN_HOUSE_TEST_CODE_SYSTEM);
+    if (!ad) {
+      console.warn(`Could not resolve ActivityDefinitions for in-house lab plans canonical ${canonical}`);
+    }
+    const inHouseCoding = ad?.code?.coding?.find((c) => c.system === IN_HOUSE_TEST_CODE_SYSTEM);
+    const cptCodes: TemplateCptCodeInfo[] = (ad?.code?.coding ?? [])
+      .filter((c) => c.system === 'http://www.ama-assn.org/go/cpt' && c.code)
+      .map((c) => ({ code: c.code ?? '', display: c.display ?? '', modifiers: extractCptCodeModifiersFromCoding(c) }));
+
     const diagnoses: TemplateCodeInfo[] = (plan.reasonCode ?? [])
       .map((rc) => {
         const icd = rc.coding?.find((c) => c.system === ICD_10_CODE_SYSTEM) ?? rc.coding?.[0];
         return { code: icd?.code ?? '', display: icd?.display ?? rc.text ?? '' };
       })
       .filter((d) => d.code || d.display);
-    const cptCodes: TemplateCptCodeInfo[] = (plan.code?.coding ?? [])
-      .filter((c) => c.system === 'http://www.ama-assn.org/go/cpt' && c.code)
-      .map((c) => ({ code: c.code ?? '', display: c.display ?? '', modifiers: extractCptCodeModifiersFromCoding(c) }));
     const notes = (plan.note ?? []).map((n) => n.text ?? '').filter((t) => t.length > 0);
 
     return {
       planId: plan.id ?? '',
-      testName: ad?.name ?? ad?.title ?? plan.code?.text ?? inHouseCoding?.display ?? 'Unknown test',
+      testName: ad?.name ?? ad?.title ?? 'Unknown test',
       activityDefinitionRef: canonical,
       code: inHouseCoding?.code ?? '',
       diagnoses,

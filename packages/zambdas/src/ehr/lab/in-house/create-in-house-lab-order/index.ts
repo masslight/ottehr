@@ -2,6 +2,7 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { ActivityDefinition, ServiceRequest } from 'fhir/r4b';
 import {
   APIError,
+  CreateInHouseLabEnconuterResource,
   CreateInHouseLabOrderParameters,
   IN_HOUSE_LAB_ERROR,
   IN_HOUSE_LAB_LATEST_TAG_DEFINITION,
@@ -148,15 +149,32 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       );
     };
 
-    const [context, testItemResources] = await Promise.all([
-      gatherInHouseLabOrderContext({
-        oystehr,
-        encounterId,
-        userToken: validatedParameters.userToken,
-        secrets: validatedParameters.secrets,
-      }),
+    const encounterResourcesPromise = async (): Promise<CreateInHouseLabEnconuterResource[]> => {
+      return (
+        await oystehr.fhir.search<CreateInHouseLabEnconuterResource>({
+          resourceType: 'Encounter',
+          params: [
+            { name: '_id', value: encounterId },
+            { name: '_include', value: 'Encounter:patient' },
+            { name: '_include', value: 'Encounter:location' },
+            { name: '_revinclude:iterate', value: 'Coverage:patient' },
+            { name: '_revinclude:iterate', value: 'Account:patient' },
+          ],
+        })
+      ).unbundle();
+    };
+
+    const [encounterResources, testItemResources] = await Promise.all([
+      encounterResourcesPromise(),
       testItemRequests(),
     ]);
+    const context = await gatherInHouseLabOrderContext({
+      oystehr,
+      encounterId,
+      encounterResources,
+      userToken: validatedParameters.userToken,
+      secrets: validatedParameters.secrets,
+    });
 
     const testResources: TestItemResources[] = testItemResources.map((data) => {
       const { activityDefinition, serviceRequests, orderMode, parentTestCanonicalUrl } = data;

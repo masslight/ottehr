@@ -1,5 +1,13 @@
 import { Operation } from 'fast-json-patch';
-import { Condition, Encounter, EncounterDiagnosis, List, Procedure, ServiceRequest } from 'fhir/r4b';
+import {
+  ActivityDefinition,
+  Condition,
+  Encounter,
+  EncounterDiagnosis,
+  List,
+  Procedure,
+  ServiceRequest,
+} from 'fhir/r4b';
 import {
   chartDataTagSystem,
   ICD_10_CODE_SYSTEM,
@@ -10,7 +18,10 @@ import {
 } from 'utils';
 import { DefaultExamComponentsConfig } from 'utils/lib/ottehr-config/examination/default-components.config';
 import { describe, expect, test } from 'vitest';
-import { collectCptCodesFromAppliedInHouseLabPlans, makeCreateRequests } from '../../src/ehr/apply-template/index';
+import {
+  collectCptCodesFromApplicableActivityDefinitions,
+  makeCreateRequests,
+} from '../../src/ehr/apply-template/index';
 import { validateRequestParameters } from '../../src/ehr/apply-template/validateRequestParameters';
 import { ZambdaInput } from '../../src/shared';
 
@@ -311,6 +322,19 @@ describe('makeCreateRequests — diagnosis behavior', () => {
 
 const CPT_CODE_SYSTEM = 'http://www.ama-assn.org/go/cpt';
 
+const makeInHouseLabAD = (id: string, cptCodes: string[]): ActivityDefinition => ({
+  resourceType: 'ActivityDefinition',
+  id,
+  url: `https://example.com/activity-definitions/${id}`,
+  status: 'active',
+  code: {
+    coding: [
+      { system: IN_HOUSE_TEST_CODE_SYSTEM, code: 'STREP-RAPID' },
+      ...cptCodes.map((code) => ({ system: CPT_CODE_SYSTEM, code })),
+    ],
+  },
+});
+
 const makePlanSR = (id: string, cptCodes: string[]): ServiceRequest => ({
   resourceType: 'ServiceRequest',
   id,
@@ -372,24 +396,23 @@ const getCptPostRequests = (requests: ReturnType<typeof makeCreateRequests>): Ar
     .filter((c) => c.system === CPT_CODE_SYSTEM && c.code !== undefined)
     .map((c) => ({ code: c.code! }));
 
-describe('collectCptCodesFromAppliedInHouseLabPlans', () => {
-  test('collects CPT codes from plan SRs when both inHouseLabs and cptCodes are non-skip', () => {
-    const templateList = makeCptTemplateList([makePlanSR('plan-1', ['87880', '87081'])]);
+describe('collectCptCodesFromApplicableActivityDefinitions', () => {
+  test('collects CPT codes from ADs when both inHouseLabs and cptCodes are non-skip', () => {
+    const ads = [makeInHouseLabAD('ad-1', ['87880', '87081'])];
     const actions = makeActions({ inHouseLabs: 'append', cptCodes: 'append' });
-    const result = collectCptCodesFromAppliedInHouseLabPlans(templateList, actions);
-    expect(result).toEqual(new Set(['87880', '87081']));
+    expect(collectCptCodesFromApplicableActivityDefinitions(ads, actions)).toEqual(new Set(['87880', '87081']));
   });
 
   test('returns empty set when inHouseLabs is skip (labs not being applied, no dedup needed)', () => {
-    const templateList = makeCptTemplateList([makePlanSR('plan-1', ['87880'])]);
+    const ads = [makeInHouseLabAD('ad-1', ['87880'])];
     const actions = makeActions({ inHouseLabs: 'skip', cptCodes: 'append' });
-    expect(collectCptCodesFromAppliedInHouseLabPlans(templateList, actions)).toEqual(new Set());
+    expect(collectCptCodesFromApplicableActivityDefinitions(ads, actions)).toEqual(new Set());
   });
 
   test('returns empty set when cptCodes is skip (CPT section not running, nothing to dedup against)', () => {
-    const templateList = makeCptTemplateList([makePlanSR('plan-1', ['87880'])]);
+    const ads = [makeInHouseLabAD('ad-1', ['87880'])];
     const actions = makeActions({ inHouseLabs: 'append', cptCodes: 'skip' });
-    expect(collectCptCodesFromAppliedInHouseLabPlans(templateList, actions)).toEqual(new Set());
+    expect(collectCptCodesFromApplicableActivityDefinitions(ads, actions)).toEqual(new Set());
   });
 });
 
@@ -401,7 +424,10 @@ describe('makeCreateRequests — CPT / in-house lab overlap', () => {
     const actions = makeActions({ inHouseLabs: 'skip', cptCodes: 'append' });
 
     // When labs are skipped the dedup set is empty — CPT Procedure goes through normally.
-    const cptCodesFromLabsToSkip = collectCptCodesFromAppliedInHouseLabPlans(templateList, actions);
+    const cptCodesFromLabsToSkip = collectCptCodesFromApplicableActivityDefinitions(
+      [makeInHouseLabAD('ad-1', ['87880'])],
+      actions
+    );
     const requests = makeCreateRequests(makeSimpleCptEncounter(), templateList, [], actions, cptCodesFromLabsToSkip);
 
     const createdCpts = getCptPostRequests(requests);
@@ -415,7 +441,10 @@ describe('makeCreateRequests — CPT / in-house lab overlap', () => {
     const actions = makeActions({ inHouseLabs: 'append', cptCodes: 'skip' });
 
     // CPT section is skipped entirely — dedup set is irrelevant, Procedure won't be created.
-    const cptCodesFromLabsToSkip = collectCptCodesFromAppliedInHouseLabPlans(templateList, actions);
+    const cptCodesFromLabsToSkip = collectCptCodesFromApplicableActivityDefinitions(
+      [makeInHouseLabAD('ad-1', ['87880'])],
+      actions
+    );
     const requests = makeCreateRequests(makeSimpleCptEncounter(), templateList, [], actions, cptCodesFromLabsToSkip);
 
     const createdCpts = getCptPostRequests(requests);
@@ -429,7 +458,10 @@ describe('makeCreateRequests — CPT / in-house lab overlap', () => {
     const actions = makeActions({ inHouseLabs: 'append', cptCodes: 'append' });
 
     // Both sections run — the lab's CPT code must be excluded from the template's CPT section.
-    const cptCodesFromLabsToSkip = collectCptCodesFromAppliedInHouseLabPlans(templateList, actions);
+    const cptCodesFromLabsToSkip = collectCptCodesFromApplicableActivityDefinitions(
+      [makeInHouseLabAD('ad-1', ['87880'])],
+      actions
+    );
     const requests = makeCreateRequests(makeSimpleCptEncounter(), templateList, [], actions, cptCodesFromLabsToSkip);
 
     const createdCpts = getCptPostRequests(requests);
@@ -445,7 +477,10 @@ describe('makeCreateRequests — CPT / in-house lab overlap', () => {
     const templateList = makeCptTemplateList([planSR, cptProc87880, cptProc99213]);
     const actions = makeActions({ inHouseLabs: 'append', cptCodes: 'append' });
 
-    const cptCodesFromLabsToSkip = collectCptCodesFromAppliedInHouseLabPlans(templateList, actions);
+    const cptCodesFromLabsToSkip = collectCptCodesFromApplicableActivityDefinitions(
+      [makeInHouseLabAD('ad-1', ['87880'])],
+      actions
+    );
     const requests = makeCreateRequests(makeSimpleCptEncounter(), templateList, [], actions, cptCodesFromLabsToSkip);
 
     const createdCptCodes = getCptPostRequests(requests).map((c) => c.code);

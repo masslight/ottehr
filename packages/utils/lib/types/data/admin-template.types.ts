@@ -64,7 +64,7 @@ export interface TemplateCptModifier {
   display: string;
 }
 export interface TemplateCptCodeInfo extends TemplateCodeInfo {
-  modifiers: TemplateCptModifier[]; // athena todo: come back and make this not required
+  modifiers: TemplateCptModifier[];
 }
 
 export function isTemplateCptCodeInfo(input: TemplateCodeInfo | TemplateCptCodeInfo): input is TemplateCptCodeInfo {
@@ -88,22 +88,20 @@ export interface TemplateAccidentInfo {
 // `missing: true` indicates the ActivityDefinition the plan references is not
 // available on this environment - the admin UI can surface this so a human can
 // fix the template; apply-template skips the plan with a warning.
-export interface TemplateInHouseLabPlan {
+//
+// The test name, code, and cptCodes are all taken from the latest version of the ActivityDefinition, not stored on the plan
+export interface TemplateInHouseLabPlanDetail {
   // ServiceRequest.id of the plan inside the template's contained resources.
   // Useful as a stable React key and for "remove this plan" admin flows.
   planId: string;
-  testName: string; // why do we store this test name if the idea is to be future change resiliant?
+  testName: string;
   activityDefinitionRef: string;
   code: string;
   diagnoses: TemplateCodeInfo[];
   notes: string[];
-  // ATHENA TODO: wouldn't you want to pull the cpt code info off of the AD rather than the template? for example if things changed on the AD between when the template was created and applied?
 
-  // CPT codes that will be materialized when this plan is applied, taken from
-  // the plan's stored code.coding (which preserved the AD's CPT codings at
-  // save time). Surfaced to the preview UI so providers see what the lab
-  // section delivers, and used by apply-template to dedupe against the
-  // template's separate CPT Codes section.
+  // CPT codes that will be materialized when this plan is applied, used by apply-template to
+  // dedupe against the template's separate CPT Codes section.
   cptCodes: TemplateCptCodeInfo[];
   missing: boolean;
 }
@@ -125,6 +123,6 @@ export interface AdminGetTemplateDetailOutput {
     cptCodes: TemplateCptCodeInfo[];
     emCode: TemplateCodeInfo | null;
     accident: TemplateAccidentInfo | null;
-    inHouseLabs: TemplateInHouseLabPlan[];
+    inHouseLabs: TemplateInHouseLabPlanDetail[];
   };
 }

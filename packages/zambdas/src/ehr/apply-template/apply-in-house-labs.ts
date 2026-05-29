@@ -16,6 +16,7 @@ import {
 } from 'utils';
 import { makeRequestsForCreateInHouseLabs } from '../../shared/in-house-lab/build-order';
 import { gatherInHouseLabOrderContext } from '../../shared/in-house-lab/gather-context';
+import { TemplateEncounterResource } from '../shared/template-helpers';
 
 interface ApplyInHouseLabPlansInput {
   templateList: List;
@@ -24,6 +25,8 @@ interface ApplyInHouseLabPlansInput {
   secrets: Secrets | null;
   oystehr: Oystehr;
   action: TemplateSectionAction;
+  activityDefinitions: ActivityDefinition[];
+  encounterResources: TemplateEncounterResource[];
 }
 
 interface ApplyInHouseLabPlansResult {
@@ -70,20 +73,22 @@ const notesFromPlan = (plan: ServiceRequest): string | undefined => {
  * apply-template zambda can pass them back to the EHR for a snackbar.
  */
 export async function applyInHouseLabPlans(input: ApplyInHouseLabPlansInput): Promise<ApplyInHouseLabPlansResult> {
-  const { templateList, encounterId, userToken, secrets, oystehr, action } = input;
+  const { templateList, encounterId, userToken, secrets, oystehr, action, activityDefinitions, encounterResources } =
+    input;
   if (action === 'skip') return { warnings: [] };
 
   const plans = (templateList.contained ?? []).filter((r): r is ServiceRequest => isInHouseLabPlanServiceRequest(r));
   if (plans.length === 0) return { warnings: [] };
 
-  // Context fetch and AD resolution are independent - run them in parallel.
-  const [context, adResults] = await Promise.all([
-    // ATHENA TODO: how is this handling patient account vs worker's comp account?
-    gatherInHouseLabOrderContext({ oystehr, encounterId, userToken, secrets }),
-    getLatestInHouseLabActivityDefinitionsForTemplatePlan(input.oystehr, input.templateList),
-  ]);
+  const context = await gatherInHouseLabOrderContext({
+    oystehr,
+    encounterId,
+    encounterResources: encounterResources,
+    userToken,
+    secrets,
+  });
 
-  const adByUrl = indexLatestActivityDefinitionsByUrl(adResults);
+  const adByUrl = indexLatestActivityDefinitionsByUrl(activityDefinitions);
   console.log(
     `This is adByUrl keys/test names/AD id`,
     JSON.stringify(
@@ -114,7 +119,7 @@ export async function applyInHouseLabPlans(input: ApplyInHouseLabPlansInput): Pr
       continue;
     }
 
-    const { isActive, isValid } = activityDefinitionIsApplyable(ad);
+    const { isActive, isValid } = canApplyActivityDefinition(ad);
     if (!isValid) {
       warnings.push({
         section: 'inHouseLabs',
@@ -137,8 +142,8 @@ export async function applyInHouseLabPlans(input: ApplyInHouseLabPlansInput): Pr
       notes: notesFromPlan(plan),
       testResources: [
         {
-          activityDefinition: ad!, // the isApplyable checks make sure this isn't undefined, so this is safe
-          initialServiceRequest: undefined, // ATHENA TODO: this suggests that repeat tests can't be ordered via templates
+          activityDefinition: ad!, // the canApply checks make sure this isn't undefined, so this is safe
+          initialServiceRequest: undefined, // ATHENA TODO note: repeat tests can't be ordered via templates
           orderMode: 'standard',
         },
       ],
@@ -207,9 +212,7 @@ export const urlFromInstantiatesCanonical = (ref: string): string => ref.split('
 export const isInHouseLabPlanServiceRequest = (maybePlan: FhirResource): maybePlan is ServiceRequest => {
   if (maybePlan.resourceType !== 'ServiceRequest') return false;
   return (
-    maybePlan.intent === 'plan' &&
-    resourceHasTagSystem(maybePlan, chartDataTagSystem('in-house-lab-template-plan')) &&
-    !!maybePlan.code?.coding?.some((c) => c.system === IN_HOUSE_TEST_CODE_SYSTEM)
+    maybePlan.intent === 'plan' && resourceHasTagSystem(maybePlan, chartDataTagSystem('in-house-lab-template-plan'))
   );
 };
 
@@ -276,10 +279,11 @@ export const getLatestInHouseLabActivityDefinitionsForTemplatePlan = async (
   return activityDefinitions;
 };
 
-export const activityDefinitionIsApplyable = (
+export const canApplyActivityDefinition = (
   ad: ActivityDefinition | undefined
-): { isActive: boolean; isValid: boolean; isApplyable: boolean } => {
-  const isValid = !!ad && !!ad.id && !!ad.url;
+): { isActive: boolean; isValid: boolean; canApply: boolean } => {
+  const isValid =
+    !!ad && !!ad.id && !!ad.url && !!ad.code?.coding?.some((coding) => coding.system === IN_HOUSE_TEST_CODE_SYSTEM);
   const isActive = !!ad && ad.status === 'active';
-  return { isActive, isValid, isApplyable: isValid && isActive };
+  return { isActive, isValid, canApply: isValid && isActive };
 };
