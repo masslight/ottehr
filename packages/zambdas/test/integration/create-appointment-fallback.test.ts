@@ -10,6 +10,7 @@ import {
   Schedule,
   Slot,
 } from 'fhir/r4b';
+import { DateTime } from 'luxon';
 import {
   CreateAppointmentInputParams,
   GROUP_ASSIGNMENT_MODE_SYSTEM,
@@ -262,6 +263,14 @@ describe('create-appointment group-member fallback (D-6 phase 2)', () => {
     return { groupHs, locationA, locationB, schedule1, schedule2, schedule3, explicitCleanup };
   };
 
+  // Anchor slot times to TOMORROW so the slot's end is always in the
+  // future at test run time. Today-based times would trigger the
+  // create-appointment past-slot guard bypass (slot.end <= now skips the
+  // capacity check), invalidating the rejection assertions in tests
+  // (a)/(b)/(d). Tomorrow + any hour 0-23 is always future.
+  const slotDayBase = (): ReturnType<typeof startOfDayWithTimezone> =>
+    startOfDayWithTimezone({ date: DateTime.now().plus({ days: 1 }) });
+
   // Direct-FHIR slot, status=busy-tentative (create-appointment promotes to
   // busy). Includes the booked-via-group extension when groupHsId is given.
   const createPatientSlot = async (input: {
@@ -270,7 +279,7 @@ describe('create-appointment group-member fallback (D-6 phase 2)', () => {
     hourOfDay: number;
   }): Promise<Slot> => {
     const { schedule, bookedViaGroupId, hourOfDay } = input;
-    const start = startOfDayWithTimezone().plus({ hours: hourOfDay });
+    const start = slotDayBase().plus({ hours: hourOfDay });
     const end = start.plus({ hours: 1 });
     const extension: Slot['extension'] = [];
     if (bookedViaGroupId) {
@@ -294,7 +303,7 @@ describe('create-appointment group-member fallback (D-6 phase 2)', () => {
   // Saturation slot — counts against the Schedule's bucket for the same hour.
   const createBusySlot = async (input: { schedule: Schedule; hourOfDay: number }): Promise<Slot> => {
     const { schedule, hourOfDay } = input;
-    const start = startOfDayWithTimezone().plus({ hours: hourOfDay });
+    const start = slotDayBase().plus({ hours: hourOfDay });
     const end = start.plus({ hours: 1 });
     return await oystehr.fhir.create<Slot>({
       resourceType: 'Slot',
