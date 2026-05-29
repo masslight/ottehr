@@ -1,8 +1,17 @@
 import { createConfiguredSection, DataComposer } from '../../pdf-common';
 import { EducationDocumentsData, PdfSection } from '../../types';
+import { AllChartData } from '../../visit-details-pdf/types';
 
-export const composeEducationalDocuments: DataComposer<null, EducationDocumentsData> = () => {
+export const composeEducationalDocuments: DataComposer<{ allChartData: AllChartData }, EducationDocumentsData> = ({
+  allChartData,
+}) => {
+  const { chartData } = allChartData;
   const documents: { title: string }[] = [];
+  chartData?.instructions?.forEach((item) => {
+    if (item.educationDocRefId && item.title) {
+      documents.push({ title: item.title });
+    }
+  });
   return { documents };
 };
 

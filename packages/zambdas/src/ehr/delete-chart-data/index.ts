@@ -115,6 +115,7 @@ export const index = wrapHandler('delete-chart-data', async (input: ZambdaInput)
       | BatchInputRequest<ChartData>
     )[] = [];
     const updateEncounterOperations: Operation[] = [];
+    const patientEducationDocumentReferenceIdsToDelete = new Set<string>();
 
     // 2. delete  Medical Condition associated with chief complaint
     if (chiefComplaint) {
@@ -181,6 +182,10 @@ export const index = wrapHandler('delete-chart-data', async (input: ZambdaInput)
     // 11. delete Communications
     instructions?.forEach((element: CommunicationDTO) => {
       deleteOrUpdateRequests.push(deleteResourceRequest('Communication', element.resourceId!));
+      if (element.educationDocRefId) {
+        patientEducationDocumentReferenceIdsToDelete.add(element.educationDocRefId);
+        deleteOrUpdateRequests.push(deleteResourceRequest('DocumentReference', element.educationDocRefId));
+      }
     });
 
     // 12. delete disposition ServiceRequests and encounter properties
@@ -339,6 +344,14 @@ export const index = wrapHandler('delete-chart-data', async (input: ZambdaInput)
         const fileUrl = documentReference?.content?.[0]?.attachment.url;
         if (fileUrl) await deleteZ3Object(fileUrl, m2mToken);
       }
+    }
+
+    for (const documentReferenceId of patientEducationDocumentReferenceIdsToDelete) {
+      const documentReference = allResources.find((resource) => resource.id === documentReferenceId) as
+        | DocumentReference
+        | undefined;
+      const fileUrl = documentReference?.content?.[0]?.attachment.url;
+      if (fileUrl) await deleteZ3Object(fileUrl, m2mToken);
     }
 
     return {
