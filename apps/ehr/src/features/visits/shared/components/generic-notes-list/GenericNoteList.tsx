@@ -12,6 +12,7 @@ export const GenericNoteList: React.FC<GenericNoteListProps> = ({
   softDeleteWithTombstone,
   addNoteButtonDataTestId,
   noteLoadingIndicatorDataTestId,
+  containerSx,
 }) => {
   const { resources } = useAppointmentData();
   const encounterId = resources.encounter?.id;
@@ -34,6 +35,7 @@ export const GenericNoteList: React.FC<GenericNoteListProps> = ({
       apiConfig={apiConfig}
       addNoteButtonDataTestId={addNoteButtonDataTestId}
       noteLoadingIndicatorDataTestId={noteLoadingIndicatorDataTestId}
+      containerSx={containerSx}
     />
   );
 };

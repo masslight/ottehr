@@ -7,12 +7,10 @@ import { createInHouseMedication } from 'src/api/api';
 import CustomBreadcrumbs from 'src/components/CustomBreadcrumbs';
 import {
   ExtractObjectType,
-  useGetCPTHCPCSSearch,
   useGetMedicationsSearch,
 } from 'src/features/visits/shared/stores/appointment/appointment.queries';
 import { useApiClients } from 'src/hooks/useAppClients';
 import PageContainer from 'src/layout/PageContainer';
-import { CPTCodeDTO } from 'utils';
 
 export default function AddMedicationPage(): ReactElement {
   const { oystehrZambda } = useApiClients();
@@ -22,12 +20,8 @@ export default function AddMedicationPage(): ReactElement {
   );
   const [selectedMedicationForPrecheck, setSelectedMedicationForPrecheck] =
     useState<ExtractObjectType<ErxSearchMedicationsResponse> | null>(null);
-  const [cptCodes, setCptCodes] = useState<CPTCodeDTO[]>([]);
-  const [hcpcsCodes, setHcpcsCodes] = useState<CPTCodeDTO[]>([]);
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const [debouncedSearchTermForPrecheck, setDebouncedSearchTermForPrecheck] = useState('');
-  const [debouncedCptSearch, setDebouncedCptSearch] = useState('');
-  const [debouncedHcpcsSearch, setDebouncedHcpcsSearch] = useState('');
   const navigate = useNavigate();
 
   const { isFetching: isSearching, data } = useGetMedicationsSearch(debouncedSearchTerm);
@@ -35,17 +29,6 @@ export default function AddMedicationPage(): ReactElement {
   const { isFetching: isSearchingForPrecheck, data: dataForPrecheck } =
     useGetMedicationsSearch(debouncedSearchTermForPrecheck);
   const nonObsoleteMedSearchOptions = dataForPrecheck?.filter((option) => !option.isObsolete) || [];
-
-  const { isFetching: isCptSearching, data: cptData } = useGetCPTHCPCSSearch({
-    search: debouncedCptSearch,
-    type: 'cpt',
-  });
-  const { isFetching: isHcpcsSearching, data: hcpcsData } = useGetCPTHCPCSSearch({
-    search: debouncedHcpcsSearch,
-    type: 'hcpcs',
-  });
-  const cptOptions = (cptData as { codes?: CPTCodeDTO[] })?.codes ?? [];
-  const hcpcsOptions = (hcpcsData as { codes?: CPTCodeDTO[] })?.codes ?? [];
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const debouncedHandleInputChange = useCallback(
@@ -67,18 +50,6 @@ export default function AddMedicationPage(): ReactElement {
     []
   );
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const debouncedHandleCptInputChange = useCallback(
-    debounce((value: string) => setDebouncedCptSearch(value), 800),
-    []
-  );
-
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const debouncedHandleHcpcsInputChange = useCallback(
-    debounce((value: string) => setDebouncedHcpcsSearch(value), 800),
-    []
-  );
-
   async function create(event: any): Promise<void> {
     event.preventDefault();
     if (!oystehrZambda || !selectedMedication) {
@@ -90,8 +61,6 @@ export default function AddMedicationPage(): ReactElement {
     const ndc = selectedMedication.ndc ?? undefined;
     const medispanID = selectedMedication.id.toString();
     const medispanIDForInteractions = selectedMedicationForPrecheck?.id.toString() || undefined;
-    const finalCptCodes = cptCodes.map(({ code, display }) => ({ code, display }));
-    const finalHcpcsCodes = hcpcsCodes.map(({ code, display }) => ({ code, display }));
 
     try {
       const medicationTemp = await createInHouseMedication(oystehrZambda, {
@@ -99,8 +68,6 @@ export default function AddMedicationPage(): ReactElement {
         ndc,
         medispanID,
         medispanIDForInteractions,
-        cptCodes: finalCptCodes.length ? finalCptCodes : undefined,
-        hcpcsCodes: finalHcpcsCodes.length ? finalHcpcsCodes : undefined,
       });
       navigate(`/admin/medication/${medicationTemp.id}`);
     } catch (error) {
@@ -187,40 +154,6 @@ export default function AddMedicationPage(): ReactElement {
             ) : (
               <></>
             )}
-            <Grid item xs={6}>
-              <Autocomplete
-                multiple
-                options={cptOptions}
-                value={cptCodes}
-                loading={isCptSearching}
-                getOptionLabel={(option) => (option.display ? `${option.code} ${option.display}` : option.code)}
-                isOptionEqualToValue={(option, value) => option.code === value.code}
-                onChange={(_e, value) => setCptCodes(value)}
-                onInputChange={(_e, value) => debouncedHandleCptInputChange(value)}
-                noOptionsText={
-                  debouncedCptSearch ? 'Nothing found for this search criteria' : 'Start typing to load results'
-                }
-                renderInput={(params) => <TextField {...params} label="CPT" />}
-              />
-            </Grid>
-            <Grid item xs={6} />
-            <Grid item xs={6}>
-              <Autocomplete
-                multiple
-                options={hcpcsOptions}
-                value={hcpcsCodes}
-                loading={isHcpcsSearching}
-                getOptionLabel={(option) => (option.display ? `${option.code} ${option.display}` : option.code)}
-                isOptionEqualToValue={(option, value) => option.code === value.code}
-                onChange={(_e, value) => setHcpcsCodes(value)}
-                onInputChange={(_e, value) => debouncedHandleHcpcsInputChange(value)}
-                noOptionsText={
-                  debouncedHcpcsSearch ? 'Nothing found for this search criteria' : 'Start typing to load results'
-                }
-                renderInput={(params) => <TextField {...params} label="HCPCS" />}
-              />
-            </Grid>
-            <Grid item xs={6} />
             <Grid item xs={12}>
               <LoadingButton
                 type="submit"

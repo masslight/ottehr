@@ -62,9 +62,7 @@ export default function ScheduledFollowupParentSelector({
     enabled: queryEnabled,
   });
 
-  // Cover the window where the query is expected to fire but data hasn't arrived yet
-  // (e.g. apiClient still null on first render). On error we stop showing loading so the
-  // provider can still continue (with no copy) instead of being stuck on a spinning button.
+  // Loading until data arrives; on error stop loading so the provider isn't stuck on the button.
   const isChartDataLoading = isFetching || (queryEnabled && parentChartData === undefined && !isChartDataError);
 
   const handleContinue = (): void => {
