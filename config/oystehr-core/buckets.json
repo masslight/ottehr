@@ -65,6 +65,10 @@
       "name": "#{var/PROJECT_ID}-patient-education",
       "removalPolicy": "retain"
     },
+    "PATIENT_EDUCATION_ADMIN": {
+      "name": "#{var/PROJECT_ID}-patient-education-admin",
+      "removalPolicy": "retain"
+    },
     "LEGACY_DATA": {
       "name": "#{var/PROJECT_ID}-legacy-data",
       "removalPolicy": "delete"

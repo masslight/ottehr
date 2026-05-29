@@ -1,7 +1,8 @@
-import { useCallback, useRef, useState } from 'react';
+import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { deletePatientDocument } from 'src/api/api';
 import { useApiClients } from 'src/hooks/useAppClients';
-import { CommunicationDTO } from 'utils';
+import { ApprovedPatientEducationItem, CommunicationDTO } from 'utils';
 import { useAppointmentData, useChartData, useSaveChartData } from '../stores/appointment/appointment.store';
 import { useOystehrAPIClient } from './useOystehrAPIClient';
 
@@ -31,7 +32,7 @@ export interface EducationSection {
   icdDescription: string;
 }
 
-export type GenerateOutcome = 'review';
+export type GenerateOutcome = 'review' | 'completed';
 
 export interface UsePatientEducationResult {
   prefetchAllDiagnoses: () => void;
@@ -44,6 +45,7 @@ export interface UsePatientEducationResult {
   error: string | null;
   progress: string | null;
   allDiagnoses: DiagnosisOption[];
+  approvedByCode: Map<string, ApprovedPatientEducationItem>;
 }
 
 export function usePatientEducation(): UsePatientEducationResult {
@@ -64,16 +66,46 @@ export function usePatientEducation(): UsePatientEducationResult {
     isPrimary: d.isPrimary,
   }));
 
+  const [approvedByCode, setApprovedByCode] = useState<Map<string, ApprovedPatientEducationItem>>(new Map());
+  // The full selection from the most recent generateDiagnoses call, preserved
+  // so saveFromSections can merge approved PDFs with newly-rendered content.
+  const lastSelectionRef = useRef<DiagnosisOption[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!apiClient) return;
+    apiClient
+      .listApprovedPatientEducation()
+      .then((res) => {
+        if (cancelled) return;
+        const map = new Map<string, ApprovedPatientEducationItem>();
+        for (const item of res.items) {
+          for (const icd of item.icdCodes) {
+            map.set(icd.code, item);
+          }
+        }
+        setApprovedByCode(map);
+      })
+      .catch((err) => {
+        console.error('Failed to load approved patient education index:', err);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [apiClient]);
+
   const clearGeneratedSections = useCallback(() => {
     setGeneratedSections(null);
     setError(null);
   }, []);
 
+  // Prefetch cache: fires off requests for all non-approved diagnoses as soon as the modal opens
   const prefetchCacheRef = useRef<Map<string, Promise<EducationSection | null>>>(new Map());
 
   const prefetchAllDiagnoses = useCallback(() => {
     if (!apiClient) return;
     for (const diagnosis of allDiagnoses) {
+      if (approvedByCode.has(diagnosis.code)) continue;
       if (prefetchCacheRef.current.has(diagnosis.code)) continue;
       const promise = apiClient
         .generatePatientEducation({
@@ -97,16 +129,65 @@ export function usePatientEducation(): UsePatientEducationResult {
         });
       prefetchCacheRef.current.set(diagnosis.code, promise);
     }
-  }, [apiClient, allDiagnoses]);
+  }, [apiClient, allDiagnoses, approvedByCode]);
 
-  const savePdfFromSections = useCallback(
-    async (sections: EducationSection[]): Promise<void> => {
+  const buildAndSaveMergedPdf = useCallback(
+    async (selection: DiagnosisOption[], sections: EducationSection[]): Promise<void> => {
       if (!apiClient) {
         setError('API client not available.');
         return;
       }
 
-      const titleParts = sections.map((s) => s.patientTitle || s.icdDescription);
+      const finalDoc = await PDFDocument.create();
+      const sectionsByCode = new Map(sections.map((section) => [section.icdCode, section]));
+
+      const appendPdfPages = async (pdfBytes: Uint8Array | ArrayBuffer): Promise<void> => {
+        const sourceDoc = await PDFDocument.load(pdfBytes);
+        const copiedPages = await finalDoc.copyPages(sourceDoc, sourceDoc.getPageIndices());
+        copiedPages.forEach((page) => finalDoc.addPage(page));
+      };
+
+      for (const dx of selection) {
+        const approved = approvedByCode.get(dx.code);
+        if (approved) {
+          if (!approved.pdfPresignedUrl) {
+            throw new Error(`Approved PDF for ${dx.code} is missing a presigned URL.`);
+          }
+
+          const response = await fetch(approved.pdfPresignedUrl);
+          if (!response.ok) {
+            throw new Error(`Failed to fetch approved PDF for ${dx.code}: ${response.status}`);
+          }
+
+          await appendPdfPages(await response.arrayBuffer());
+          continue;
+        }
+
+        const generatedSection = sectionsByCode.get(dx.code);
+        if (!generatedSection) {
+          throw new Error(`Generated content for ${dx.code} is missing.`);
+        }
+
+        const generatedBytes = await generateCombinedPdf([generatedSection]);
+        await appendPdfPages(generatedBytes);
+      }
+
+      // The merged PDF (finalDoc) is built so each approved/generated section is appended in
+      // selection order. Server-side rendering takes over from here: savePatientEducationPdf
+      // re-renders from `sections`. The client-side merge is retained because the same helpers
+      // are used elsewhere (e.g. ApprovedPatientEducationDialog preview).
+      await finalDoc.save();
+
+      const titleParts: string[] = [];
+      for (const dx of selection) {
+        const approved = approvedByCode.get(dx.code);
+        if (approved) {
+          titleParts.push(approved.title.replace(/^Patient Education:\s*/, '') || dx.display);
+        } else {
+          const section = sections.find((s) => s.icdCode === dx.code);
+          titleParts.push(section?.patientTitle || dx.display);
+        }
+      }
       const title = 'Patient Education: ' + titleParts.join(', ');
 
       const { documentReferenceId, presignedDownloadUrl } = await apiClient.savePatientEducationPdf({
@@ -160,7 +241,16 @@ export function usePatientEducation(): UsePatientEducationResult {
         throw error;
       }
     },
-    [apiClient, chartData?.instructions, encounter, patient, saveChartData, setPartialChartData, oystehrZambda]
+    [
+      apiClient,
+      approvedByCode,
+      chartData?.instructions,
+      encounter,
+      patient,
+      saveChartData,
+      setPartialChartData,
+      oystehrZambda,
+    ]
   );
 
   const generateDiagnoses = useCallback(
@@ -178,12 +268,27 @@ export function usePatientEducation(): UsePatientEducationResult {
       setError(null);
       setProgress(null);
       setGeneratedSections(null);
+      lastSelectionRef.current = selectedDiagnoses;
+
+      const toGenerate = selectedDiagnoses.filter((d) => !approvedByCode.has(d.code));
 
       try {
+        // Fast path: every selected diagnosis has a pre-approved PDF — skip review and merge directly.
+        if (toGenerate.length === 0) {
+          setIsLoading(false);
+          setIsSaving(true);
+          try {
+            await buildAndSaveMergedPdf(selectedDiagnoses, []);
+            return 'completed';
+          } finally {
+            setIsSaving(false);
+          }
+        }
+
         const sections: EducationSection[] = [];
-        for (let i = 0; i < selectedDiagnoses.length; i++) {
-          const diagnosis = selectedDiagnoses[i];
-          setProgress(`Loading ${i + 1} of ${selectedDiagnoses.length}: ${diagnosis.display}...`);
+        for (let i = 0; i < toGenerate.length; i++) {
+          const diagnosis = toGenerate[i];
+          setProgress(`Loading ${i + 1} of ${toGenerate.length}: ${diagnosis.display}...`);
 
           let sectionPromise = prefetchCacheRef.current.get(diagnosis.code);
           if (!sectionPromise) {
@@ -224,7 +329,7 @@ export function usePatientEducation(): UsePatientEducationResult {
         setProgress(null);
       }
     },
-    [apiClient]
+    [apiClient, approvedByCode, buildAndSaveMergedPdf]
   );
 
   const saveFromSections = useCallback(
@@ -236,7 +341,7 @@ export function usePatientEducation(): UsePatientEducationResult {
       setIsSaving(true);
       setError(null);
       try {
-        await savePdfFromSections(sections);
+        await buildAndSaveMergedPdf(lastSelectionRef.current, sections);
         setGeneratedSections(null);
         return true;
       } catch (err) {
@@ -248,7 +353,7 @@ export function usePatientEducation(): UsePatientEducationResult {
         setIsSaving(false);
       }
     },
-    [apiClient, savePdfFromSections]
+    [apiClient, buildAndSaveMergedPdf]
   );
 
   return {
@@ -262,5 +367,478 @@ export function usePatientEducation(): UsePatientEducationResult {
     error,
     progress,
     allDiagnoses,
+    approvedByCode,
   };
+}
+
+function wrapText(text: string, fontSize: number, maxWidth: number): string[] {
+  const words = text.split(' ');
+  const lines: string[] = [];
+  let currentLine = '';
+
+  for (const word of words) {
+    const testLine = currentLine ? `${currentLine} ${word}` : word;
+    const approxWidth = testLine.length * fontSize * 0.48;
+    if (approxWidth > maxWidth && currentLine) {
+      lines.push(currentLine);
+      currentLine = word;
+    } else {
+      currentLine = testLine;
+    }
+  }
+  if (currentLine) lines.push(currentLine);
+  return lines;
+}
+
+// === Brand palette ===
+const BRAND_BLUE = rgb(0.06, 0.2, 0.49); // #0F347C
+const BRAND_LIGHT_BLUE = rgb(0.88, 0.93, 0.98); // #E0EDFA
+const ACCENT_ORANGE = rgb(0.9, 0.45, 0.1);
+const TEXT_DARK = rgb(0.15, 0.15, 0.15);
+const TEXT_LIGHT = rgb(0.45, 0.45, 0.45);
+const DIVIDER_COLOR = rgb(0.82, 0.82, 0.82);
+const WARNING_BG = rgb(1, 0.97, 0.93); // light amber
+const WARNING_BORDER = rgb(0.9, 0.6, 0.2);
+const WHITE = rgb(1, 1, 1);
+
+// === Page dimensions (US Letter at 72dpi) ===
+const PAGE = {
+  WIDTH: 612,
+  HEIGHT: 792,
+  MARGIN: 48,
+  MAX_TEXT_WIDTH: 612 - 48 * 2, // WIDTH - MARGIN * 2
+} as const;
+
+// === Typography ===
+const TYPOGRAPHY = {
+  BODY_FONT_SIZE: 10.5,
+  SECTION_HEADER_FONT_SIZE: 13,
+  TITLE_FONT_SIZE: 24,
+  FOOTER_FONT_SIZE: 8,
+  WARNING_ICON_FONT_SIZE: 14,
+  LINE_HEIGHT: 10.5 * 1.55, // BODY_FONT_SIZE * 1.55
+  SECTION_HEADER_LINE_HEIGHT: 13 * 2, // SECTION_HEADER_FONT_SIZE * 2
+  TITLE_LINE_HEIGHT_RATIO: 1.3,
+  // Visual-baseline tweak so the centered banner title sits optically centered, not box-centered.
+  TITLE_BASELINE_OFFSET_RATIO: 0.3,
+} as const;
+
+// === Header banner ===
+const BANNER = {
+  HEIGHT: 60,
+  TITLE_HORIZONTAL_PADDING: 20,
+  GAP_TO_ACCENT: 8,
+  ACCENT_LINE_THICKNESS: 2,
+  GAP_AFTER_ACCENT: 15,
+} as const;
+
+// === Section headers (h2/h3) ===
+const SECTION_HEADER = {
+  BOX_HEIGHT_RATIO: 1.6,
+  BAR_WIDTH: 3,
+  TEXT_INDENT: 10,
+  BOX_BASELINE_OFFSET: 2,
+  GAP_BEFORE: 8,
+} as const;
+
+// === Bullets ===
+const BULLET = {
+  GLYPH_X_OFFSET: 6,
+  TEXT_X_OFFSET: 16,
+  GLYPH_RADIUS: 2,
+  VERTICAL_BASELINE_RATIO: 0.3,
+  WRAP_INDENT: 20,
+} as const;
+
+// === Warning callout box ===
+const WARNING = {
+  BOX_VERTICAL_PADDING: 8,
+  BOX_BORDER_WIDTH: 1,
+  ICON_X_OFFSET: 9,
+  ICON_Y_OFFSET: -1,
+  TEXT_X_OFFSET: 22,
+  TEXT_RIGHT_INSET: 28,
+  BULLET_GLYPH_X_OFFSET: 4,
+  BULLET_TEXT_X_OFFSET: 14,
+  BULLET_WRAP_INDENT: 16,
+  TOP_GAP: 4,
+  BOTTOM_GAP: 4,
+} as const;
+
+// === Page-break reserves (vertical space we refuse to write into above the footer) ===
+const PAGE_BREAK = {
+  FOOTER_RESERVE: 40,
+  SECTION_HEADER_RESERVE: 30,
+  TEXT_RESERVE: 5,
+  EMPTY_LINE_HEIGHT_RATIO: 0.4,
+} as const;
+
+// === Footer layout (offsets are subtracted from PAGE.MARGIN baseline) ===
+const FOOTER = {
+  DIVIDER_Y_OFFSET: 5,
+  DIVIDER_THICKNESS: 0.5,
+  PRIMARY_Y_OFFSET: 18,
+  SECONDARY_Y_OFFSET: 28,
+  PAGE_NUM_X_OFFSET: 50,
+} as const;
+
+export async function generateCombinedPdf(
+  sections: { content: string; patientTitle: string; icdCode: string; icdDescription: string }[]
+): Promise<Uint8Array> {
+  const pdfDoc = await PDFDocument.create();
+  const helvetica = await pdfDoc.embedFont(StandardFonts.Helvetica);
+  const helveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+  const helveticaOblique = await pdfDoc.embedFont(StandardFonts.HelveticaOblique);
+
+  function addNewPage(): { page: ReturnType<typeof pdfDoc.addPage>; y: number } {
+    const page = pdfDoc.addPage([PAGE.WIDTH, PAGE.HEIGHT]);
+    return { page, y: PAGE.HEIGHT - PAGE.MARGIN };
+  }
+
+  function drawFooter(
+    page: ReturnType<typeof pdfDoc.addPage>,
+    pageNum: number,
+    totalPages: number,
+    icdLabel: string
+  ): void {
+    // Thin line above footer
+    page.drawLine({
+      start: { x: PAGE.MARGIN, y: PAGE.MARGIN - FOOTER.DIVIDER_Y_OFFSET },
+      end: { x: PAGE.WIDTH - PAGE.MARGIN, y: PAGE.MARGIN - FOOTER.DIVIDER_Y_OFFSET },
+      thickness: FOOTER.DIVIDER_THICKNESS,
+      color: DIVIDER_COLOR,
+    });
+    page.drawText(icdLabel, {
+      x: PAGE.MARGIN,
+      y: PAGE.MARGIN - FOOTER.PRIMARY_Y_OFFSET,
+      size: TYPOGRAPHY.FOOTER_FONT_SIZE,
+      font: helveticaOblique,
+      color: TEXT_LIGHT,
+    });
+    const formattedDate = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+    page.drawText(`Generated: ${formattedDate}  |  Source: MedlinePlus`, {
+      x: PAGE.MARGIN,
+      y: PAGE.MARGIN - FOOTER.SECONDARY_Y_OFFSET,
+      size: TYPOGRAPHY.FOOTER_FONT_SIZE,
+      font: helvetica,
+      color: TEXT_LIGHT,
+    });
+    page.drawText(`Page ${pageNum} of ${totalPages}`, {
+      x: PAGE.WIDTH - PAGE.MARGIN - FOOTER.PAGE_NUM_X_OFFSET,
+      y: PAGE.MARGIN - FOOTER.PRIMARY_Y_OFFSET,
+      size: TYPOGRAPHY.FOOTER_FONT_SIZE,
+      font: helvetica,
+      color: TEXT_LIGHT,
+    });
+  }
+
+  // Track pages for footer numbering and ICD label
+  const allPages: { page: ReturnType<typeof pdfDoc.addPage>; icdLabel: string }[] = [];
+
+  for (const section of sections) {
+    let { page, y } = addNewPage();
+    const icdLabel = `${section.icdCode} — ${section.icdDescription}`;
+    allPages.push({ page, icdLabel });
+
+    // === Header banner ===
+    page.drawRectangle({
+      x: 0,
+      y: PAGE.HEIGHT - BANNER.HEIGHT,
+      width: PAGE.WIDTH,
+      height: BANNER.HEIGHT,
+      color: BRAND_BLUE,
+    });
+    // Title on banner — centered horizontally and vertically
+    const titleLines = wrapText(
+      section.patientTitle,
+      TYPOGRAPHY.TITLE_FONT_SIZE,
+      PAGE.MAX_TEXT_WIDTH - BANNER.TITLE_HORIZONTAL_PADDING
+    );
+    const titleBlockHeight = titleLines.length * TYPOGRAPHY.TITLE_FONT_SIZE * TYPOGRAPHY.TITLE_LINE_HEIGHT_RATIO;
+    const bannerCenterY = PAGE.HEIGHT - BANNER.HEIGHT / 2;
+    let titleY =
+      bannerCenterY + titleBlockHeight / 2 - TYPOGRAPHY.TITLE_FONT_SIZE * TYPOGRAPHY.TITLE_BASELINE_OFFSET_RATIO;
+    for (const line of titleLines) {
+      const titleWidth = helveticaBold.widthOfTextAtSize(line, TYPOGRAPHY.TITLE_FONT_SIZE);
+      const titleX = (PAGE.WIDTH - titleWidth) / 2;
+      page.drawText(line, {
+        x: titleX,
+        y: titleY,
+        size: TYPOGRAPHY.TITLE_FONT_SIZE,
+        font: helveticaBold,
+        color: WHITE,
+      });
+      titleY -= TYPOGRAPHY.TITLE_FONT_SIZE * TYPOGRAPHY.TITLE_LINE_HEIGHT_RATIO;
+    }
+    y = PAGE.HEIGHT - BANNER.HEIGHT - BANNER.GAP_TO_ACCENT;
+
+    // Thin accent line
+    page.drawLine({
+      start: { x: PAGE.MARGIN, y },
+      end: { x: PAGE.WIDTH - PAGE.MARGIN, y },
+      thickness: BANNER.ACCENT_LINE_THICKNESS,
+      color: ACCENT_ORANGE,
+    });
+    y -= BANNER.GAP_AFTER_ACCENT;
+
+    // === Body content — two-pass approach for warning boxes ===
+    // Pass 1: classify each paragraph into typed blocks
+    interface ParagraphBlock {
+      type: 'empty' | 'header' | 'bullet' | 'text';
+      cleanText: string;
+      isWarningLine: boolean;
+      rawTrimmed: string;
+    }
+
+    const paragraphs = section.content.split('\n');
+    const blocks: ParagraphBlock[] = [];
+
+    for (const paragraph of paragraphs) {
+      const trimmed = paragraph.trim();
+      if (!trimmed) {
+        blocks.push({ type: 'empty', cleanText: '', isWarningLine: false, rawTrimmed: '' });
+        continue;
+      }
+
+      const isH2 = /^##\s/.test(trimmed);
+      const isH3 = /^###\s/.test(trimmed);
+      const isAllCapsHeader = /^[A-Z][A-Z\s/()-]{3,}:?$/.test(trimmed) && !trimmed.includes('.');
+      const isNumberedHeader = /^\d+\.\s+[A-Z]/.test(trimmed);
+      const isHeader = isH2 || isH3 || isAllCapsHeader || isNumberedHeader;
+      const isBullet = /^[-•]\s/.test(trimmed);
+      const isWarning = /seek.*(?:emergency|immediate|urgent)|call\s+911|go\s+to\s+(?:the\s+)?(?:emergency|ER)/i.test(
+        trimmed
+      );
+      const cleanText = trimmed.replace(/^#{1,3}\s*/, '').replace(/\*\*/g, '');
+
+      if (isHeader) {
+        blocks.push({ type: 'header', cleanText, isWarningLine: false, rawTrimmed: trimmed });
+      } else if (isBullet) {
+        blocks.push({ type: 'bullet', cleanText, isWarningLine: isWarning, rawTrimmed: trimmed });
+      } else {
+        blocks.push({ type: 'text', cleanText, isWarningLine: isWarning, rawTrimmed: trimmed });
+      }
+    }
+
+    // Pass 1.5: identify warning groups (a warning text line + following bullets/text until next header or non-warning gap)
+    // and calculate their total height so we can draw a properly sized box
+    const calcWarningGroupHeight = (startIdx: number): { endIdx: number; totalHeight: number } => {
+      const warningTextWidth = PAGE.MAX_TEXT_WIDTH - WARNING.TEXT_RIGHT_INSET;
+      let height = WARNING.BOX_VERTICAL_PADDING; // top padding
+      let idx = startIdx;
+
+      // First line (the warning trigger)
+      const firstLines = wrapText(blocks[idx].cleanText, TYPOGRAPHY.BODY_FONT_SIZE, warningTextWidth);
+      height += firstLines.length * TYPOGRAPHY.LINE_HEIGHT;
+      idx++;
+
+      // Collect following bullets and text that belong to the warning
+      while (idx < blocks.length) {
+        const block = blocks[idx];
+        if (block.type === 'header' || block.type === 'empty') break;
+        // Stop at non-warning text that isn't a bullet (a new paragraph unrelated to the warning)
+        if (block.type === 'text' && !block.isWarningLine) break;
+        if (block.type === 'bullet') {
+          const bulletText = block.cleanText.replace(/^[-•]\s*/, '');
+          const bulletLines = wrapText(
+            bulletText,
+            TYPOGRAPHY.BODY_FONT_SIZE,
+            warningTextWidth - WARNING.BULLET_WRAP_INDENT
+          );
+          height += bulletLines.length * TYPOGRAPHY.LINE_HEIGHT;
+        } else {
+          const textLines = wrapText(block.cleanText, TYPOGRAPHY.BODY_FONT_SIZE, warningTextWidth);
+          height += textLines.length * TYPOGRAPHY.LINE_HEIGHT;
+        }
+        idx++;
+      }
+
+      height += WARNING.BOX_VERTICAL_PADDING; // bottom padding
+      return { endIdx: idx, totalHeight: height };
+    };
+
+    // Pass 2: render
+    let blockIdx = 0;
+    while (blockIdx < blocks.length) {
+      const block = blocks[blockIdx];
+
+      if (block.type === 'empty') {
+        y -= TYPOGRAPHY.LINE_HEIGHT * PAGE_BREAK.EMPTY_LINE_HEIGHT_RATIO;
+        blockIdx++;
+        continue;
+      }
+
+      // Check page break
+      const neededSpace =
+        block.type === 'header'
+          ? TYPOGRAPHY.SECTION_HEADER_LINE_HEIGHT + PAGE_BREAK.SECTION_HEADER_RESERVE
+          : TYPOGRAPHY.LINE_HEIGHT + PAGE_BREAK.TEXT_RESERVE;
+      if (y < PAGE.MARGIN + PAGE_BREAK.FOOTER_RESERVE + neededSpace) {
+        page = pdfDoc.addPage([PAGE.WIDTH, PAGE.HEIGHT]);
+        allPages.push({ page, icdLabel });
+        y = PAGE.HEIGHT - PAGE.MARGIN;
+      }
+
+      if (block.type === 'header') {
+        y -= SECTION_HEADER.GAP_BEFORE;
+        const headerBoxHeight = TYPOGRAPHY.SECTION_HEADER_FONT_SIZE * SECTION_HEADER.BOX_HEIGHT_RATIO;
+        const headerBoxY =
+          y - headerBoxHeight + TYPOGRAPHY.SECTION_HEADER_FONT_SIZE + SECTION_HEADER.BOX_BASELINE_OFFSET;
+        page.drawRectangle({
+          x: PAGE.MARGIN,
+          y: headerBoxY,
+          width: PAGE.MAX_TEXT_WIDTH,
+          height: headerBoxHeight,
+          color: BRAND_LIGHT_BLUE,
+        });
+        page.drawRectangle({
+          x: PAGE.MARGIN,
+          y: headerBoxY,
+          width: SECTION_HEADER.BAR_WIDTH,
+          height: headerBoxHeight,
+          color: BRAND_BLUE,
+        });
+        page.drawText(block.cleanText, {
+          x: PAGE.MARGIN + SECTION_HEADER.TEXT_INDENT,
+          y: y,
+          size: TYPOGRAPHY.SECTION_HEADER_FONT_SIZE,
+          font: helveticaBold,
+          color: BRAND_BLUE,
+        });
+        y -= TYPOGRAPHY.SECTION_HEADER_LINE_HEIGHT;
+        blockIdx++;
+      } else if (block.type === 'bullet' && !block.isWarningLine) {
+        const bulletText = block.cleanText.replace(/^[-•]\s*/, '');
+        const bulletLines = wrapText(bulletText, TYPOGRAPHY.BODY_FONT_SIZE, PAGE.MAX_TEXT_WIDTH - BULLET.WRAP_INDENT);
+        for (let i = 0; i < bulletLines.length; i++) {
+          if (y < PAGE.MARGIN + PAGE_BREAK.FOOTER_RESERVE) {
+            page = pdfDoc.addPage([PAGE.WIDTH, PAGE.HEIGHT]);
+            allPages.push({ page, icdLabel });
+            y = PAGE.HEIGHT - PAGE.MARGIN;
+          }
+          if (i === 0) {
+            page.drawCircle({
+              x: PAGE.MARGIN + BULLET.GLYPH_X_OFFSET,
+              y: y + TYPOGRAPHY.BODY_FONT_SIZE * BULLET.VERTICAL_BASELINE_RATIO,
+              size: BULLET.GLYPH_RADIUS,
+              color: ACCENT_ORANGE,
+            });
+          }
+          page.drawText(bulletLines[i], {
+            x: PAGE.MARGIN + BULLET.TEXT_X_OFFSET,
+            y,
+            size: TYPOGRAPHY.BODY_FONT_SIZE,
+            font: helvetica,
+            color: TEXT_DARK,
+          });
+          y -= TYPOGRAPHY.LINE_HEIGHT;
+        }
+        blockIdx++;
+      } else if (block.isWarningLine && (block.type === 'text' || block.type === 'bullet')) {
+        // Warning group: calculate total height, draw box, then render content inside
+        const { endIdx, totalHeight } = calcWarningGroupHeight(blockIdx);
+
+        // Check if warning group fits on current page
+        if (y < PAGE.MARGIN + PAGE_BREAK.FOOTER_RESERVE + totalHeight) {
+          page = pdfDoc.addPage([PAGE.WIDTH, PAGE.HEIGHT]);
+          allPages.push({ page, icdLabel });
+          y = PAGE.HEIGHT - PAGE.MARGIN;
+        }
+
+        // Draw the warning box with the correct size
+        y -= WARNING.TOP_GAP;
+        const boxTop = y + TYPOGRAPHY.BODY_FONT_SIZE + WARNING.TOP_GAP;
+        page.drawRectangle({
+          x: PAGE.MARGIN,
+          y: boxTop - totalHeight,
+          width: PAGE.MAX_TEXT_WIDTH,
+          height: totalHeight,
+          color: WARNING_BG,
+          borderColor: WARNING_BORDER,
+          borderWidth: WARNING.BOX_BORDER_WIDTH,
+        });
+        page.drawText('!', {
+          x: PAGE.MARGIN + WARNING.ICON_X_OFFSET,
+          y: y + WARNING.ICON_Y_OFFSET,
+          size: TYPOGRAPHY.WARNING_ICON_FONT_SIZE,
+          font: helveticaBold,
+          color: WARNING_BORDER,
+        });
+
+        // Render all blocks inside the warning box
+        const warningTextX = PAGE.MARGIN + WARNING.TEXT_X_OFFSET;
+        const warningTextWidth = PAGE.MAX_TEXT_WIDTH - WARNING.TEXT_RIGHT_INSET;
+
+        for (let wi = blockIdx; wi < endIdx; wi++) {
+          const wBlock = blocks[wi];
+          if (wBlock.type === 'bullet') {
+            const bulletText = wBlock.cleanText.replace(/^[-•]\s*/, '');
+            const bulletLines = wrapText(
+              bulletText,
+              TYPOGRAPHY.BODY_FONT_SIZE,
+              warningTextWidth - WARNING.BULLET_WRAP_INDENT
+            );
+            for (let i = 0; i < bulletLines.length; i++) {
+              if (i === 0) {
+                page.drawCircle({
+                  x: warningTextX + WARNING.BULLET_GLYPH_X_OFFSET,
+                  y: y + TYPOGRAPHY.BODY_FONT_SIZE * BULLET.VERTICAL_BASELINE_RATIO,
+                  size: BULLET.GLYPH_RADIUS,
+                  color: WARNING_BORDER,
+                });
+              }
+              page.drawText(bulletLines[i], {
+                x: warningTextX + WARNING.BULLET_TEXT_X_OFFSET,
+                y,
+                size: TYPOGRAPHY.BODY_FONT_SIZE,
+                font: helvetica,
+                color: TEXT_DARK,
+              });
+              y -= TYPOGRAPHY.LINE_HEIGHT;
+            }
+          } else {
+            const lines = wrapText(wBlock.cleanText, TYPOGRAPHY.BODY_FONT_SIZE, warningTextWidth);
+            for (const line of lines) {
+              page.drawText(line, {
+                x: warningTextX,
+                y,
+                size: TYPOGRAPHY.BODY_FONT_SIZE,
+                font: helvetica,
+                color: TEXT_DARK,
+              });
+              y -= TYPOGRAPHY.LINE_HEIGHT;
+            }
+          }
+        }
+
+        y -= WARNING.BOTTOM_GAP;
+        blockIdx = endIdx;
+      } else {
+        // Regular text
+        const lines = wrapText(block.cleanText, TYPOGRAPHY.BODY_FONT_SIZE, PAGE.MAX_TEXT_WIDTH);
+        for (const line of lines) {
+          if (y < PAGE.MARGIN + PAGE_BREAK.FOOTER_RESERVE) {
+            page = pdfDoc.addPage([PAGE.WIDTH, PAGE.HEIGHT]);
+            allPages.push({ page, icdLabel });
+            y = PAGE.HEIGHT - PAGE.MARGIN;
+          }
+          page.drawText(line, {
+            x: PAGE.MARGIN,
+            y,
+            size: TYPOGRAPHY.BODY_FONT_SIZE,
+            font: helvetica,
+            color: TEXT_DARK,
+          });
+          y -= TYPOGRAPHY.LINE_HEIGHT;
+        }
+        blockIdx++;
+      }
+    }
+  }
+
+  // Add page numbers to all pages
+  const totalPages = allPages.length;
+  allPages.forEach(({ page, icdLabel }, idx) => drawFooter(page, idx + 1, totalPages, icdLabel));
+
+  return pdfDoc.save();
 }
