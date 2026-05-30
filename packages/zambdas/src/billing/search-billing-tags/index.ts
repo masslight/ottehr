@@ -1,6 +1,6 @@
-import Oystehr from '@oystehr/sdk';
+import Oystehr, { BatchInputGetRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Basic, Claim } from 'fhir/r4b';
+import { Basic, Bundle } from 'fhir/r4b';
 import { BillingTag } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import { CLAIM_TAG_SYSTEM, createBillingClient, TAG_CODE_SYSTEM, TAG_DESCRIPTION_URL } from '../shared';
@@ -43,28 +43,22 @@ async function performEffect(oystehr: Oystehr): Promise<{ tags: BillingTag[] }> 
   return { tags };
 }
 
-// Single FHIR search with _tag to count claims per tag, instead of N+1 per-tag queries
+// Count-only search per tag (_count=0 + _total=accurate) reads Bundle.total without fetching claims.
 async function getTagUsageCounts(oystehr: Oystehr, tags: Basic[]): Promise<Map<string, number>> {
   const counts = new Map<string, number>();
   const tagNames = tags.map((t) => t.code?.text).filter(Boolean) as string[];
   if (tagNames.length === 0) return counts;
 
-  // Fetch all tagged claims in one query — _elements: id,meta keeps payload small
-  const result = await oystehr.fhir.search<Claim>({
-    resourceType: 'Claim',
-    params: [
-      { name: '_tag', value: tagNames.map((n) => `${CLAIM_TAG_SYSTEM}|${n}`).join(',') },
-      { name: '_count', value: '1000' },
-      { name: '_elements', value: 'id,meta' },
-    ],
+  const requests: BatchInputGetRequest[] = tagNames.map((name) => ({
+    method: 'GET',
+    url: `/Claim?_tag=${encodeURIComponent(`${CLAIM_TAG_SYSTEM}|${name}`)}&_total=accurate&_count=0`,
+  }));
+
+  const batchResult = await oystehr.fhir.batch<Bundle>({ requests });
+
+  (batchResult.entry ?? []).forEach((entry, i) => {
+    counts.set(tagNames[i], entry.resource?.total ?? 0);
   });
 
-  for (const claim of result.unbundle()) {
-    for (const tag of claim.meta?.tag ?? []) {
-      if (tag.system === CLAIM_TAG_SYSTEM && tag.code) {
-        counts.set(tag.code, (counts.get(tag.code) ?? 0) + 1);
-      }
-    }
-  }
   return counts;
 }
