@@ -1,9 +1,9 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Claim, ClaimResponse, Organization, Patient, PaymentReconciliation } from 'fhir/r4b';
+import { Claim, ClaimResponse, Patient, PaymentReconciliation } from 'fhir/r4b';
 import { EraDetailResponse, FHIR_RESOURCE_NOT_FOUND } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
-import { createBillingClient, ERA_CHECK_SYSTEM, ERA_ID_SYSTEM, fhirName, findRef } from '../shared';
+import { createBillingClient, ERA_CHECK_SYSTEM, ERA_ID_SYSTEM, fhirName, findRef, resolvePayersByRef } from '../shared';
 import { GetEraDetailParams, validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -19,20 +19,15 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 });
 
 async function performEffect(oystehr: Oystehr, params: GetEraDetailParams): Promise<EraDetailResponse> {
-  const bundle = await oystehr.fhir.search<PaymentReconciliation | Organization>({
+  const bundle = await oystehr.fhir.search<PaymentReconciliation>({
     resourceType: 'PaymentReconciliation',
-    params: [
-      { name: '_id', value: params.eraId },
-      { name: '_include', value: 'PaymentReconciliation:payment-issuer' },
-    ],
+    params: [{ name: '_id', value: params.eraId }],
   });
-  const resources = bundle.unbundle();
-  const pr = resources.find(
-    (r): r is PaymentReconciliation => r.resourceType === 'PaymentReconciliation' && r.id === params.eraId
-  );
+  const pr = bundle.unbundle().find((r) => r.id === params.eraId);
   if (!pr) throw FHIR_RESOURCE_NOT_FOUND('PaymentReconciliation');
 
-  const payerOrg = resources.find((r): r is Organization => r.resourceType === 'Organization');
+  const payersByRef = await resolvePayersByRef(oystehr, [pr.paymentIssuer?.reference]);
+  const payerOrg = pr.paymentIssuer?.reference ? payersByRef.get(pr.paymentIssuer.reference) : undefined;
 
   // Find ClaimResponses linked via ERA identifier
   const eraIdValue = pr.identifier?.find((id) => id.system === ERA_ID_SYSTEM)?.value;

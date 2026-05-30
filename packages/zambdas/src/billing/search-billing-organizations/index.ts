@@ -31,6 +31,20 @@ async function performEffect(
   oystehr: Oystehr,
   params: SearchBillingOrganizationsParams
 ): Promise<{ organizations: OrganizationSearchItem[] }> {
+  // Payers come from the Oystehr payer list not FHIR Organizations
+  if (params.type === 'pay') {
+    const result = await oystehr.rcm.listPayers({ ...(params.name ? { name: params.name } : {}), limit: 50 });
+    const organizations = result.data.map((o) => ({
+      id: o.id,
+      name: o.name ?? '',
+      npi: getNPI(o) ?? '',
+      tin: getTaxID(o) ?? '',
+      payerId: getPayerId(o) ?? '',
+      isPayer: true,
+    }));
+    return { organizations };
+  }
+
   // TODO: add pagination support
   const searchParams: { name: string; value: string }[] = [
     { name: '_count', value: '50' },

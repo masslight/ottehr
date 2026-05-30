@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
-import { Claim, HumanName, Patient, Practitioner, Resource } from 'fhir/r4b';
-import { convertFhirNameToDisplayName, Secrets } from 'utils';
+import { Claim, HumanName, Organization, Patient, Practitioner, Resource } from 'fhir/r4b';
+import { convertFhirNameToDisplayName, extractPayerIdFromUrl, Secrets } from 'utils';
 import { createOystehrClient } from '../shared/helpers';
 
 export const BILLING_RESOURCE_TAG = {
@@ -22,6 +22,27 @@ export function getClaimStatus(claim: Claim): string {
 
 export function sortClaimInsurance(claim: Pick<Claim, 'insurance'>): NonNullable<Claim['insurance']> {
   return [...(claim.insurance ?? [])].sort((a, b) => a.sequence - b.sequence);
+}
+
+// Resolve Oystehr payer list URLs to payer Organizations via the RCM service
+export async function resolvePayersByRef(
+  oystehr: Oystehr,
+  refs: (string | undefined)[]
+): Promise<Map<string, Organization>> {
+  const byRef = new Map<string, Organization>();
+  const uniqueRefs = [...new Set(refs.filter((r): r is string => !!r))];
+  await Promise.all(
+    uniqueRefs.map(async (ref) => {
+      const payerId = extractPayerIdFromUrl(ref);
+      if (!payerId) return;
+      try {
+        byRef.set(ref, await oystehr.rcm.getPayer({ id: payerId }));
+      } catch (err) {
+        console.error(`Failed to resolve payer ${ref}:`, err);
+      }
+    })
+  );
+  return byRef;
 }
 
 // Provider role tags

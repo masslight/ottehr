@@ -1,9 +1,9 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim, ClaimResponse, Organization, PaymentReconciliation } from 'fhir/r4b';
-import { EraListItem } from 'utils';
+import { EraListItem, getPayerId, getPayerUrl } from 'utils';
 import { checkOrCreateM2MClientToken, fetchAllPages, wrapHandler, ZambdaInput } from '../../shared';
-import { createBillingClient, ERA_CHECK_SYSTEM, ERA_ID_SYSTEM } from '../shared';
+import { createBillingClient, ERA_CHECK_SYSTEM, ERA_ID_SYSTEM, resolvePayersByRef } from '../shared';
 import { SearchErasParams, validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -26,35 +26,27 @@ async function performEffect(
   const offset = params.offset ?? 0;
   const hasClaimFilters = params.claimStatus || params.dosFrom || params.dosTo || params.patientId || params.searchText;
 
-  // Resolve payer name to org IDs if needed
-  let resolvedPayerId = params.payerId;
-  if (params.payerName && !resolvedPayerId) {
-    const orgResult = await oystehr.fhir.search<Organization>({
-      resourceType: 'Organization',
-      params: [
-        { name: 'name', value: params.payerName },
-        { name: '_count', value: '50' },
-      ],
-    });
-    const orgIds = orgResult
-      .unbundle()
-      .map((o) => o.id)
-      .filter(Boolean) as string[];
-    if (orgIds.length === 0) return { eras: [], total: 0, offset, pageSize };
-    resolvedPayerId = orgIds.join(',');
+  // Resolve the payer filter to Oystehr payer list URLs
+  let payerIssuerFilter: string | undefined;
+  if (params.payerId) {
+    payerIssuerFilter = getPayerUrl(params.payerId);
+  } else if (params.payerName) {
+    const result = await oystehr.rcm.listPayers({ name: params.payerName, limit: 50 });
+    const payerIds = result.data.map((p) => getPayerId(p)).filter(Boolean) as string[];
+    if (payerIds.length === 0) return { eras: [], total: 0, offset, pageSize };
+    payerIssuerFilter = payerIds.map((id) => getPayerUrl(id)).join(',');
   }
 
   // ERA-level FHIR search
   const searchParams: { name: string; value: string }[] = [
     { name: '_sort', value: '-created' },
-    { name: '_include', value: 'PaymentReconciliation:payment-issuer' },
     { name: '_count', value: String(pageSize) },
     { name: '_offset', value: String(offset) },
   ];
   if (params.eraDateFrom) searchParams.push({ name: 'created', value: `ge${params.eraDateFrom}` });
   if (params.eraDateTo) searchParams.push({ name: 'created', value: `le${params.eraDateTo}` });
   if (params.eraStatus) searchParams.push({ name: 'outcome', value: params.eraStatus });
-  if (resolvedPayerId) searchParams.push({ name: 'payment-issuer', value: resolvedPayerId });
+  if (payerIssuerFilter) searchParams.push({ name: 'payment-issuer', value: payerIssuerFilter });
   if (params.checkNumber) searchParams.push({ name: 'identifier', value: `${ERA_CHECK_SYSTEM}|${params.checkNumber}` });
   if (params.eraId) searchParams.push({ name: 'identifier', value: `${ERA_ID_SYSTEM}|${params.eraId}` });
 
@@ -71,17 +63,16 @@ async function performEffect(
     });
   }
 
-  const bundle = await oystehr.fhir.search<PaymentReconciliation | Organization>({
+  const bundle = await oystehr.fhir.search<PaymentReconciliation>({
     resourceType: 'PaymentReconciliation',
     params: searchParams,
   });
-  const resources = (bundle.entry ?? []).map((e) => e.resource).filter(Boolean) as (
-    | PaymentReconciliation
-    | Organization
-  )[];
-  const payments = resources.filter((r): r is PaymentReconciliation => r.resourceType === 'PaymentReconciliation');
-  const orgs = resources.filter((r): r is Organization => r.resourceType === 'Organization');
-  const eras = payments.map((pr) => mapEra(pr, orgs));
+  const payments = bundle.unbundle();
+  const payersByRef = await resolvePayersByRef(
+    oystehr,
+    payments.map((pr) => pr.paymentIssuer?.reference)
+  );
+  const eras = payments.map((pr) => mapEra(pr, payersByRef));
 
   return { eras, total: bundle.total ?? 0, offset, pageSize };
 }
@@ -136,10 +127,9 @@ async function findMatchingClaimIds(oystehr: Oystehr, params: SearchErasParams):
   return ids;
 }
 
-function mapEra(pr: PaymentReconciliation, orgs: Organization[]): EraListItem {
+function mapEra(pr: PaymentReconciliation, payersByRef: Map<string, Organization>): EraListItem {
   const payerRef = pr.paymentIssuer?.reference;
-  const payerId = payerRef?.replace('Organization/', '');
-  const payerOrg = orgs.find((o) => o.id === payerId);
+  const payerOrg = payerRef ? payersByRef.get(payerRef) : undefined;
 
   const eraId = pr.identifier?.find((id) => id.system === ERA_ID_SYSTEM)?.value ?? '';
   const checkNumber = pr.identifier?.find((id) => id.system === ERA_CHECK_SYSTEM)?.value ?? '';
