@@ -4,7 +4,7 @@ import { Basic, Claim } from 'fhir/r4b';
 import { FHIR_RESOURCE_NOT_FOUND, INVALID_INPUT_ERROR } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import { CLAIM_TAG_SYSTEM, createBillingClient, TAG_CODE_SYSTEM, TAG_DESCRIPTION_URL } from '../shared';
-import { validateRequestParameters } from './validateRequestParameters';
+import { SaveBillingTagParams, validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
 const ZAMBDA_NAME = 'save-billing-tag';
@@ -14,6 +14,11 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
   const oystehr = createBillingClient(m2mToken, params.secrets);
 
+  const response = await performEffect(oystehr, params);
+  return { statusCode: 200, body: JSON.stringify(response) };
+});
+
+async function performEffect(oystehr: Oystehr, params: SaveBillingTagParams): Promise<{ id: string | undefined }> {
   if (params.tagId) {
     const bundle = await oystehr.fhir.search<Basic>({
       resourceType: 'Basic',
@@ -47,7 +52,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       }
     }
 
-    return { statusCode: 200, body: JSON.stringify({ id: params.tagId }) };
+    return { id: params.tagId };
   }
 
   const tag: Basic = {
@@ -56,8 +61,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     extension: params.description ? [{ url: TAG_DESCRIPTION_URL, valueString: params.description }] : undefined,
   };
   const created = await oystehr.fhir.create<Basic>(tag);
-  return { statusCode: 200, body: JSON.stringify({ id: created.id }) };
-});
+  return { id: created.id };
+}
 
 // Fetch all claims with the old tag using offset pagination, then batch-patch in groups
 async function rewriteClaimTags(oystehr: Oystehr, oldName: string, newName: string): Promise<string[]> {

@@ -1,9 +1,10 @@
+import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim } from 'fhir/r4b';
 import { FHIR_RESOURCE_NOT_FOUND } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import { CLAIM_TAG_SYSTEM, createBillingClient } from '../shared';
-import { validateRequestParameters } from './validateRequestParameters';
+import { TagBillingClaimParams, validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
 const ZAMBDA_NAME = 'tag-billing-claim';
@@ -13,6 +14,11 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
   const oystehr = createBillingClient(m2mToken, params.secrets);
 
+  const response = await performEffect(oystehr, params);
+  return { statusCode: 200, body: JSON.stringify(response) };
+});
+
+async function performEffect(oystehr: Oystehr, params: TagBillingClaimParams): Promise<{ ok: true }> {
   const bundle = await oystehr.fhir.search<Claim>({
     resourceType: 'Claim',
     params: [{ name: '_id', value: params.claimId }],
@@ -39,5 +45,5 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     );
   }
 
-  return { statusCode: 200, body: JSON.stringify({ ok: true }) };
-});
+  return { ok: true };
+}

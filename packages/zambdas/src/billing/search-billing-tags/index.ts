@@ -12,6 +12,11 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, input.secrets);
   const oystehr = createBillingClient(m2mToken, input.secrets);
 
+  const response = await performEffect(oystehr);
+  return { statusCode: 200, body: JSON.stringify(response) };
+});
+
+async function performEffect(oystehr: Oystehr): Promise<{ tags: BillingTag[] }> {
   const bundle = await oystehr.fhir.search<Basic>({
     resourceType: 'Basic',
     params: [
@@ -35,8 +40,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     };
   });
 
-  return { statusCode: 200, body: JSON.stringify({ tags }) };
-});
+  return { tags };
+}
 
 // Single FHIR search with _tag to count claims per tag, instead of N+1 per-tag queries
 async function getTagUsageCounts(oystehr: Oystehr, tags: Basic[]): Promise<Map<string, number>> {
