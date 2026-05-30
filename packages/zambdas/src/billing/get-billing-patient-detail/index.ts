@@ -29,7 +29,6 @@ async function performEffect(oystehr: Oystehr, params: GetPatientDetailParams): 
   const claims = await fetchPatientClaims(oystehr, params.patientId);
 
   const ids = patient.identifier ?? [];
-  const mrn = ids.find((id) => id.type?.coding?.some((c) => c.code === 'MR'))?.value ?? '';
   const friendlyId = ids.find((id) => id.system?.startsWith(FRIENDLY_PATIENT_ID_SYSTEM_BASE))?.value ?? '';
   const phone = patient.telecom?.find((t) => t.system === 'phone')?.value ?? '';
   const email = patient.telecom?.find((t) => t.system === 'email')?.value ?? '';
@@ -43,7 +42,6 @@ async function performEffect(oystehr: Oystehr, params: GetPatientDetailParams): 
     phone,
     email,
     address: formatAddress(patient.address?.[0]),
-    mrn,
     friendlyId,
     active: patient.active !== false,
     // TODO: wire real balance from ClaimResponse/PaymentReconciliation

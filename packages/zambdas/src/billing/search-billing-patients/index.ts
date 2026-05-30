@@ -14,7 +14,6 @@ interface PatientSearchItem {
   dob: string;
   gender: string;
   address: string;
-  mrn: string;
   friendlyId: string;
 }
 
@@ -51,7 +50,6 @@ async function performEffect(
 
   const patients = response.unbundle().map((p) => {
     const ids = p.identifier ?? [];
-    const mrn = ids.find((id) => id.type?.coding?.some((c) => c.code === 'MR'))?.value ?? '';
     const friendlyId = ids.find((id) => id.system?.startsWith(FRIENDLY_PATIENT_ID_SYSTEM_BASE))?.value ?? '';
 
     return {
@@ -62,7 +60,6 @@ async function performEffect(
       dob: p.birthDate ?? '',
       gender: p.gender ?? '',
       address: formatAddress(p.address?.[0]),
-      mrn,
       friendlyId,
     };
   });

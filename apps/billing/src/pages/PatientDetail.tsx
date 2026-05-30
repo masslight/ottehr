@@ -171,7 +171,7 @@ export default function PatientDetail(): ReactElement {
             <Card variant="outlined">
               <CardContent>
                 <DetailRow label="Patient" value={patientName} labelWidth={120} />
-                <DetailRow label="MRN" value={patient.mrn} labelWidth={120} />
+                <DetailRow label="MRN" value={patient.id} labelWidth={120} />
                 <DetailRow label="Friendly ID" value={patient.friendlyId} labelWidth={120} />
                 <DetailRow label="DOB" value={patient.dob} labelWidth={120} />
                 <DetailRow label="Gender" value={patient.gender} labelWidth={120} />

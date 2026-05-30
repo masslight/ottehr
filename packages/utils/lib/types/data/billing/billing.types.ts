@@ -74,7 +74,6 @@ export interface PatientDetailResponse {
   phone: string;
   email: string;
   address: string;
-  mrn: string;
   friendlyId: string;
   active: boolean;
   // TODO: wire real balance from ClaimResponse/PaymentReconciliation

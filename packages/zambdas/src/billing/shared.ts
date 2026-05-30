@@ -32,6 +32,7 @@ export const LICENSE_TAG = 'https://fhir.ottehr.com/billing/license-type';
 export const SOURCE_IDENTIFIER_SYSTEM = 'https://ottehr.com/billing/source-resource';
 export const ERA_ID_SYSTEM = 'https://identifiers.fhir.oystehr.com/era-id';
 export const ERA_CHECK_SYSTEM = 'https://identifiers.fhir.oystehr.com/era-check-number';
+
 export const TAG_CODE_SYSTEM = 'https://ottehr.com/billing/tag';
 export const CLAIM_TAG_SYSTEM = 'https://ottehr.com/billing/claim-tag';
 export const TAG_DESCRIPTION_URL = 'https://ottehr.com/billing/tag-description';
