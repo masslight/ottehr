@@ -1,7 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Basic, Claim } from 'fhir/r4b';
-import { FHIR_RESOURCE_NOT_FOUND, INVALID_INPUT_ERROR } from 'utils';
+import { FHIR_RESOURCE_NOT_FOUND, getPatchBinary, INVALID_INPUT_ERROR } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import { CLAIM_TAG_SYSTEM, createBillingClient, TAG_CODE_SYSTEM, TAG_DESCRIPTION_URL } from '../shared';
 import { SaveBillingTagParams, validateRequestParameters } from './validateRequestParameters';
@@ -14,19 +14,29 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
   const oystehr = createBillingClient(m2mToken, params.secrets);
 
-  const response = await performEffect(oystehr, params);
+  const existing = await complexValidation(oystehr, params);
+  const response = await performEffect(oystehr, params, existing);
   return { statusCode: 200, body: JSON.stringify(response) };
 });
 
-async function performEffect(oystehr: Oystehr, params: SaveBillingTagParams): Promise<{ id: string | undefined }> {
-  if (params.tagId) {
-    const bundle = await oystehr.fhir.search<Basic>({
-      resourceType: 'Basic',
-      params: [{ name: '_id', value: params.tagId }],
-    });
-    const existing = bundle.unbundle()[0];
-    if (!existing) throw FHIR_RESOURCE_NOT_FOUND('Basic');
+// When updating, load the tag being edited and confirm it exists. No-op for create.
+async function complexValidation(oystehr: Oystehr, params: SaveBillingTagParams): Promise<Basic | undefined> {
+  if (!params.tagId) return undefined;
+  const bundle = await oystehr.fhir.search<Basic>({
+    resourceType: 'Basic',
+    params: [{ name: '_id', value: params.tagId }],
+  });
+  const existing = bundle.unbundle()[0];
+  if (!existing) throw FHIR_RESOURCE_NOT_FOUND('Basic');
+  return existing;
+}
 
+async function performEffect(
+  oystehr: Oystehr,
+  params: SaveBillingTagParams,
+  existing: Basic | undefined
+): Promise<{ id: string | undefined }> {
+  if (existing) {
     const oldName = existing.code?.text ?? '';
     const otherExts = (existing.extension ?? []).filter((e) => e.url !== TAG_DESCRIPTION_URL);
     const updatedExts = params.description
@@ -35,7 +45,7 @@ async function performEffect(oystehr: Oystehr, params: SaveBillingTagParams): Pr
 
     await oystehr.fhir.patch({
       resourceType: 'Basic',
-      id: params.tagId,
+      id: existing.id!,
       operations: [
         { op: 'add', path: '/code/text', value: params.name },
         { op: 'add', path: '/extension', value: updatedExts },
@@ -52,7 +62,7 @@ async function performEffect(oystehr: Oystehr, params: SaveBillingTagParams): Pr
       }
     }
 
-    return { id: params.tagId };
+    return { id: existing.id };
   }
 
   const tag: Basic = {
@@ -64,28 +74,30 @@ async function performEffect(oystehr: Oystehr, params: SaveBillingTagParams): Pr
   return { id: created.id };
 }
 
-// Fetch all claims with the old tag using offset pagination, then batch-patch in groups
+// Fetch all claims with the old tag, then rewrite their meta.tag via FHIR Batch requests
 async function rewriteClaimTags(oystehr: Oystehr, oldName: string, newName: string): Promise<string[]> {
   const allClaims = await fetchAllTaggedClaims(oystehr, oldName);
   const failedIds: string[] = [];
   const BATCH_SIZE = 25;
 
   for (let i = 0; i < allClaims.length; i += BATCH_SIZE) {
-    const batch = allClaims.slice(i, i + BATCH_SIZE);
-    const results = await Promise.allSettled(
-      batch.map((claim) => {
-        const updatedTags = (claim.meta?.tag ?? []).map((t) =>
-          t.system === CLAIM_TAG_SYSTEM && t.code === oldName ? { ...t, code: newName } : t
-        );
-        return oystehr.fhir.patch(
-          { resourceType: 'Claim', id: claim.id!, operations: [{ op: 'add', path: '/meta/tag', value: updatedTags }] },
-          { optimisticLockingVersionId: claim.meta?.versionId }
-        );
-      })
-    );
-    for (let j = 0; j < results.length; j++) {
-      if (results[j].status === 'rejected') failedIds.push(batch[j].id ?? 'unknown');
-    }
+    const chunk = allClaims.slice(i, i + BATCH_SIZE);
+    const requests = chunk.map((claim) => {
+      const updatedTags = (claim.meta?.tag ?? []).map((t) =>
+        t.system === CLAIM_TAG_SYSTEM && t.code === oldName ? { ...t, code: newName } : t
+      );
+      return getPatchBinary({
+        resourceType: 'Claim',
+        resourceId: claim.id!,
+        patchOperations: [{ op: 'add', path: '/meta/tag', value: updatedTags }],
+        ifMatch: claim.meta?.versionId ? `W/"${claim.meta.versionId}"` : undefined,
+      });
+    });
+
+    const result = await oystehr.fhir.batch({ requests });
+    (result.entry ?? []).forEach((entry, j) => {
+      if (entry.response?.outcome?.id !== 'ok') failedIds.push(chunk[j].id ?? 'unknown');
+    });
   }
   return failedIds;
 }
