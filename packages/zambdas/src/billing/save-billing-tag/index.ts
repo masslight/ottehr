@@ -2,7 +2,7 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Basic, Claim } from 'fhir/r4b';
 import { FHIR_RESOURCE_NOT_FOUND, getPatchBinary, INVALID_INPUT_ERROR } from 'utils';
-import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
+import { checkOrCreateM2MClientToken, fetchAllPages, wrapHandler, ZambdaInput } from '../../shared';
 import { CLAIM_TAG_SYSTEM, createBillingClient, TAG_CODE_SYSTEM, TAG_DESCRIPTION_URL } from '../shared';
 import { SaveBillingTagParams, validateRequestParameters } from './validateRequestParameters';
 
@@ -103,23 +103,20 @@ async function rewriteClaimTags(oystehr: Oystehr, oldName: string, newName: stri
 }
 
 async function fetchAllTaggedClaims(oystehr: Oystehr, tagName: string): Promise<Claim[]> {
-  const PAGE_SIZE = 100;
   const allClaims: Claim[] = [];
-  let offset = 0;
 
-  for (;;) {
+  await fetchAllPages(async (offset, count) => {
     const bundle = await oystehr.fhir.search<Claim>({
       resourceType: 'Claim',
       params: [
         { name: '_tag', value: `${CLAIM_TAG_SYSTEM}|${tagName}` },
-        { name: '_count', value: String(PAGE_SIZE) },
+        { name: '_count', value: String(count) },
         { name: '_offset', value: String(offset) },
       ],
     });
-    const page = bundle.unbundle();
-    allClaims.push(...page);
-    if (page.length < PAGE_SIZE) break;
-    offset += PAGE_SIZE;
-  }
+    allClaims.push(...bundle.unbundle());
+    return bundle;
+  }, 100);
+
   return allClaims;
 }

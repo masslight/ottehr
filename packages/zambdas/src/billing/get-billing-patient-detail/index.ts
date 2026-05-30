@@ -2,7 +2,7 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim, Organization, Patient, Person } from 'fhir/r4b';
 import { FHIR_RESOURCE_NOT_FOUND, FRIENDLY_PATIENT_ID_SYSTEM_BASE, PatientDetailResponse } from 'utils';
-import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
+import { checkOrCreateM2MClientToken, fetchAllPages, wrapHandler, ZambdaInput } from '../../shared';
 import { createBillingClient, findRef, formatAddress, getClaimStatus } from '../shared';
 import { GetPatientDetailParams, validateRequestParameters } from './validateRequestParameters';
 
@@ -66,20 +66,26 @@ async function fetchPatientClaims(oystehr: Oystehr, patientId: string): Promise<
   }
 
   const patientParam = patientIds.map((pid) => `Patient/${pid}`).join(',');
-  const bundle = await oystehr.fhir.search<Claim | Organization>({
-    resourceType: 'Claim',
-    params: [
-      { name: 'patient', value: patientParam },
-      { name: '_include', value: 'Claim:insurer' },
-      { name: '_sort', value: '-created' },
-      // TODO: add server-side pagination if patients can have >100 claims
-      { name: '_count', value: '100' },
-    ],
-  });
 
-  const resources = bundle.unbundle();
-  const claims = resources.filter((r): r is Claim => r.resourceType === 'Claim');
-  const orgs = resources.filter((r): r is Organization => r.resourceType === 'Organization');
+  const claims: Claim[] = [];
+  const orgs: Organization[] = [];
+
+  await fetchAllPages(async (offset, count) => {
+    const bundle = await oystehr.fhir.search<Claim | Organization>({
+      resourceType: 'Claim',
+      params: [
+        { name: 'patient', value: patientParam },
+        { name: '_include', value: 'Claim:insurer' },
+        { name: '_sort', value: '-created' },
+        { name: '_count', value: String(count) },
+        { name: '_offset', value: String(offset) },
+      ],
+    });
+    const page = bundle.unbundle();
+    claims.push(...page.filter((r): r is Claim => r.resourceType === 'Claim'));
+    orgs.push(...page.filter((r): r is Organization => r.resourceType === 'Organization'));
+    return bundle;
+  }, 100);
 
   return claims.map((c) => {
     return {

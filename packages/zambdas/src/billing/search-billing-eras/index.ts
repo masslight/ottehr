@@ -2,7 +2,7 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim, ClaimResponse, Organization, PaymentReconciliation } from 'fhir/r4b';
 import { EraListItem } from 'utils';
-import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
+import { checkOrCreateM2MClientToken, fetchAllPages, wrapHandler, ZambdaInput } from '../../shared';
 import { createBillingClient, ERA_CHECK_SYSTEM, ERA_ID_SYSTEM } from '../shared';
 import { SearchErasParams, validateRequestParameters } from './validateRequestParameters';
 
@@ -120,19 +120,19 @@ async function findMatchingClaimIds(oystehr: Oystehr, params: SearchErasParams):
   if (params.searchText) baseParams.push({ name: 'patient.name', value: params.searchText });
 
   const ids = new Set<string>();
-  let offset = 0;
-  for (;;) {
+
+  await fetchAllPages(async (offset, count) => {
     const bundle = await oystehr.fhir.search<Claim>({
       resourceType: 'Claim',
-      params: [...baseParams, { name: '_count', value: String(PAGE_SIZE) }, { name: '_offset', value: String(offset) }],
+      params: [...baseParams, { name: '_count', value: String(count) }, { name: '_offset', value: String(offset) }],
     });
     const page = bundle.unbundle();
     for (const c of page) {
       if (c.id) ids.add(c.id);
     }
-    if (page.length < PAGE_SIZE) break;
-    offset += PAGE_SIZE;
-  }
+    return bundle;
+  }, PAGE_SIZE);
+
   return ids;
 }
 

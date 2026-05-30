@@ -13,6 +13,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
+import { DateTime } from 'luxon';
 import { ReactElement, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { BillingTag, chooseJson } from 'utils';
 import { useApiClients } from '../hooks/useAppClients';
@@ -241,7 +242,7 @@ export default function Tags(): ReactElement {
                       fontSize: 13,
                     }}
                   >
-                    {tag.updatedAt ? formatRelativeTime(tag.updatedAt) : '—'}
+                    {tag.updatedAt ? formatDaysAgo(tag.updatedAt) : '—'}
                   </td>
                   <td
                     style={{
@@ -330,14 +331,6 @@ export default function Tags(): ReactElement {
   );
 }
 
-function formatRelativeTime(iso: string): string {
-  const diff = Date.now() - new Date(iso).getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return 'just now';
-  if (mins < 60) return `${mins} min ago`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours} hour${hours > 1 ? 's' : ''} ago`;
-  const days = Math.floor(hours / 24);
-  if (days === 1) return 'yesterday';
-  return `${days} days ago`;
+function formatDaysAgo(iso: string): string {
+  return DateTime.fromISO(iso).toRelative() ?? '';
 }
