@@ -1,8 +1,10 @@
 import { Autocomplete, Skeleton, Tab, Tabs, TextField, Typography } from '@mui/material';
 import { Box, styled } from '@mui/system';
 import { Slot } from 'fhir/r4b';
+import { TFunction } from 'i18next';
 import noop from 'lodash/noop';
 import { FC, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { generatePath, Navigate, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
   APIError,
@@ -155,24 +157,27 @@ const getLocationTitleText = ({
   bookingOn,
   slotData,
   isSlotsLoading,
+  t,
 }: {
   selectedLocation: BookableItem | null;
   bookingOn: string | null;
   slotData?: GetScheduleResponse;
   isSlotsLoading: boolean;
+  t: TFunction;
 }): string => {
   if ((!selectedLocation && !bookingOn) || isSlotsLoading) {
-    return 'Book a visit';
+    return t('prebookVisit.title');
   }
 
   const locationName = slotData?.location?.name || selectedLocation?.label || bookingOn;
   const isProviderSchedule = slotData?.location?.scheduleOwnerType === ScheduleType.provider;
-  const preposition = isProviderSchedule ? 'with' : 'at';
-  return `Book a visit ${preposition} ${locationName}`;
+  const preposition = isProviderSchedule ? t('prebookVisit.prepositionWith') : t('prebookVisit.prepositionAt');
+  return t('prebookVisit.titleWithLocation', { preposition, locationName });
 };
 
 const PrebookVisit: FC = () => {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const pathParams = useParams();
   const { state: navState } = useLocation();
 
@@ -237,20 +242,20 @@ const PrebookVisit: FC = () => {
           navigate(`${basePath}/patients`);
         }
       } catch (error) {
-        let errorMessage = 'Sorry, this time slot may no longer be available. Please select another time.';
+        let errorMessage = t('prebookVisit.slotUnavailable');
         if (isApiError(error)) {
           errorMessage = (error as APIError).message;
         }
         setErrorDialogConfig({
-          title: 'Error reserving time',
+          title: t('prebookVisit.errorReservingTitle'),
           description: errorMessage,
-          closeButtonText: 'Ok',
+          closeButtonText: t('prebookVisit.ok'),
         });
       }
     }
   };
 
-  const title = getLocationTitleText({ selectedLocation, bookingOn, slotData, isSlotsLoading });
+  const title = getLocationTitleText({ selectedLocation, bookingOn, slotData, isSlotsLoading, t });
 
   if (serviceModeFromParam && !(serviceModeFromParam in ServiceMode)) {
     return <Navigate to={intakeFlowPageRoute.PrebookVisit.path} replace />;
@@ -258,10 +263,7 @@ const PrebookVisit: FC = () => {
 
   return (
     <PageContainer title={title} imgAlt="Chat icon">
-      <Typography variant="body1">
-        We're pleased to offer this new technology for accessing care. You will need to enter your information just
-        once. Next time you return, it will all be here for you!
-      </Typography>
+      <Typography variant="body1">{t('prebookVisit.intro')}</Typography>
 
       <ServiceModeSelector
         serviceModeIndex={serviceModeIndex}
@@ -300,9 +302,9 @@ const PrebookVisit: FC = () => {
               renderInput={(params) => (
                 <>
                   <BoldPurpleInputLabel required shrink sx={{ whiteSpace: 'pre-wrap' }}>
-                    Select a location
+                    {t('prebookVisit.selectLocation')}
                   </BoldPurpleInputLabel>
-                  <StyledTextField {...params} placeholder="Search or select" variant="outlined" />
+                  <StyledTextField {...params} placeholder={t('prebookVisit.searchOrSelect')} variant="outlined" />
                 </>
               )}
             />
@@ -375,6 +377,7 @@ interface ServiceModeSelectorProps {
 }
 
 const ServiceModeSelector: FC<ServiceModeSelectorProps> = ({ setServiceModeIndex, serviceModeIndex, hidden }) => {
+  const { t } = useTranslation();
   return (
     <Box sx={{ border: '0px', display: hidden ? 'none' : 'block' }}>
       <Tabs
@@ -382,8 +385,8 @@ const ServiceModeSelector: FC<ServiceModeSelectorProps> = ({ setServiceModeIndex
         onChange={(_e, val) => setServiceModeIndex(val as 0 | 1)}
         aria-label="service mode tabs"
       >
-        <Tab label="In Person" />
-        <Tab label="Virtual" />
+        <Tab label={t('prebookVisit.inPersonTab')} />
+        <Tab label={t('prebookVisit.virtualTab')} />
       </Tabs>
     </Box>
   );

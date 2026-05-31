@@ -164,7 +164,7 @@ const Review = (): JSX.Element => {
   const reviewItems: ReviewItem[] = [
     {
       name: t('reviewAndSubmit.patient'),
-      valueString: patientFullName ? patientFullName : 'Unknown',
+      valueString: patientFullName ? patientFullName : t('reviewAndSubmit.unknown'),
       testId: 'r&s_Patient',
       valueTestId: dataTestIds.patientNameReviewScreen,
     },

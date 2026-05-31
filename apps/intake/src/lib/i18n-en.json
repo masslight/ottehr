@@ -1,4 +1,71 @@
 {
+  "homepage": {
+    "continueVirtualVisitRequest": "Continue Virtual Visit Request",
+    "returnToCall": "Return to Call",
+    "activeCall": "Active call",
+    "cancelThisRequest": "Cancel this request",
+    "scheduleVirtualVisit": "Schedule a Virtual Visit",
+    "scheduleInPersonVisit": "Schedule an In-Person Visit",
+    "virtualVisitCheckIn": "Virtual Visit Check-In",
+    "inPersonCheckIn": "In-Person Check-In",
+    "pastVisits": "Past Visits",
+    "pastVisitsSubtitle": "School/Work Notes and Prescriptions",
+    "contactSupport": "Contact Support"
+  },
+  "prebookVisit": {
+    "title": "Book a visit",
+    "titleWithLocation": "Book a visit {{preposition}} {{locationName}}",
+    "prepositionWith": "with",
+    "prepositionAt": "at",
+    "intro": "We're pleased to offer this new technology for accessing care. You will need to enter your information just once. Next time you return, it will all be here for you!",
+    "selectLocation": "Select a location",
+    "searchOrSelect": "Search or select",
+    "inPersonTab": "In Person",
+    "virtualTab": "Virtual",
+    "errorReservingTitle": "Error reserving time",
+    "slotUnavailable": "Sorry, this time slot may no longer be available. Please select another time.",
+    "ok": "Ok"
+  },
+  "startVirtualVisit": {
+    "title": "Request a Virtual Visit",
+    "intro": "We're pleased to offer this new technology for accessing care. You will need to enter your information just once. Next time you return, it will all be here for you!",
+    "unavailableNow": "Unavailable now.",
+    "working": "Working: ",
+    "workingHoursToday": "Working hours today: {{hours}}",
+    "visitLocation": "Visit location",
+    "searchOrSelect": "Search or select",
+    "licensingTooltip": "To properly connect you with a provider licensed in your location",
+    "whyAsk": "Why do we ask this?",
+    "errorStartingTitle": "Error starting virtual visit",
+    "serviceUnavailable": "Sorry, this virtual service may not be available at the moment.",
+    "ok": "Ok"
+  },
+  "walkinLanding": {
+    "loading": "Loading...",
+    "errorTitle": "Error starting virtual visit",
+    "somethingWentWrong": "Sorry, something went wrong. Please proceed to the front desk to check in.",
+    "ok": "Ok"
+  },
+  "telemedWelcome": {
+    "lookForward": "We look forward to helping you soon!",
+    "intro": "Please click on Continue to proceed to a page where you will enter your phone number. We'll verify if we have your information already. If we do, we will pre-fill your past information for a faster booking.",
+    "continue": "Continue"
+  },
+  "aiInterview": {
+    "returnToVisitPage": "Return to visit page",
+    "title": "Medical History Chatbot",
+    "body1": "Our AI medical assistant will ask about your symptoms and medical history. Your information is completely private, accessible only by your doctor, and the interview helps your doctor better prepare for your visit.",
+    "body2": "You can pause the interview, and then complete later. Once interview is completed, you cannot start a new interview.",
+    "consent": "I consent",
+    "cancel": "Cancel",
+    "startChat": "Start chat",
+    "messagePlaceholder": "Your message...",
+    "send": "Send"
+  },
+  "confirmationDialog": {
+    "back": "Back",
+    "proceed": "Proceed"
+  },
   "aboutPatient": {
     "actionButtonText": "Use existing account",
     "birthDate": {
@@ -347,6 +414,7 @@
     },
     "required": "required field",
     "select": "Select...",
+    "unknown": "Unknown",
     "zip": "ZIP"
   },
   "getReady": {
@@ -453,6 +521,10 @@
     "fixErrors2": "Please fix the error in the ${errorItems[0]} field to proceed",
     "fixErrors3": "Please fix the error in the field above to proceed",
     "fixErrors4": "Please fix the errors in the ${numErrors} fields above to proceed.",
+    "fixErrorAbove": "Please fix the error in the field above to proceed",
+    "fixErrorsNamed": "Please fix the errors in the following fields to proceed: {{fields}}",
+    "fixErrorNamed": "Please fix the error in the {{field}} field to proceed",
+    "fixErrorsAboveCount": "Please fix the error in the {{count}} fields above to proceed",
     "secondaryInsLabel": "Secondary Insurance Details",
     "addSecondaryIns": "Add Secondary Insurance",
     "removeSecondaryIns": "Remove Secondary Insurance",
@@ -763,7 +835,8 @@
     "subtitle": "Review and confirm all details below.",
     "title": "Review and submit",
     "visitDetails": "Visit details",
-    "walkInTime": "Walk-in time"
+    "walkInTime": "Walk-in time",
+    "unknown": "Unknown"
   },
   "schedule": {
     "tabAriaLabel": "Appointment tabs for switching between appointments slots for today and tomorrow",

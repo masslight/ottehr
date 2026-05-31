@@ -3,6 +3,7 @@ import { LoadingButton } from '@mui/lab';
 import { Box, Button, Checkbox, Modal, Typography } from '@mui/material';
 import { Stack } from '@mui/system';
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router-dom';
 import api from 'src/api/ottehrApi';
 import { intakeFlowPageRoute } from 'src/App';
@@ -27,6 +28,7 @@ const AIInterviewStartPage = (): JSX.Element => {
   const navigate = useNavigate();
   const { id: appointmentId } = useParams();
   const client = useUCZambdaClient({ tokenless: false });
+  const { t } = useTranslation();
 
   const [aiChatStartButtonEnabled, setAiChatStartButtonEnabled] = useState<boolean>(false);
   const [aiChatStartButtonLoading, setAiChatStartButtonLoading] = useState<boolean>(false);
@@ -56,7 +58,7 @@ const AIInterviewStartPage = (): JSX.Element => {
         >
           <ArrowBack sx={{ color: '#B2DDFF' }} />
           <Typography sx={{ fontWeight: 500, fontSize: '14px', color: '#B2DDFF', marginLeft: '4px' }}>
-            Return to visit page
+            {t('aiInterview.returnToVisitPage')}
           </Typography>
         </Stack>
       }
@@ -65,19 +67,15 @@ const AIInterviewStartPage = (): JSX.Element => {
       <Modal open={true}>
         <Box sx={MODAL_STYLE}>
           <Typography variant={'h2'} color="primary.main" style={{ marginBottom: '16px' }}>
-            Medical History Chatbot
+            {t('aiInterview.title')}
           </Typography>
           <Typography color="text.primary" style={{ marginBottom: '8px' }}>
-            Our AI medical assistant will ask about your symptoms and medical history. Your information is completely
-            private, accessible only by your doctor, and the interview helps your doctor better prepare for your visit.
+            {t('aiInterview.body1')}
           </Typography>
-          <Typography color="text.primary">
-            You can pause the interview, and then complete later. Once interview is completed, you cannot start a new
-            interview.
-          </Typography>
+          <Typography color="text.primary">{t('aiInterview.body2')}</Typography>
           <Box sx={{ display: 'flex', alignItems: 'center', margin: '16px 0 16px 0' }}>
             <Checkbox color="secondary" onChange={(e) => setAiChatStartButtonEnabled(e.target.checked)} />
-            <Typography color="text.primary">I consent</Typography>
+            <Typography color="text.primary">{t('aiInterview.consent')}</Typography>
           </Box>
           <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
             <Button
@@ -87,7 +85,7 @@ const AIInterviewStartPage = (): JSX.Element => {
                 navigate(-1);
               }}
             >
-              Cancel
+              {t('aiInterview.cancel')}
             </Button>
             <LoadingButton
               loading={aiChatStartButtonLoading}
@@ -96,7 +94,7 @@ const AIInterviewStartPage = (): JSX.Element => {
               disabled={!aiChatStartButtonEnabled}
               onClick={saveAiChatConsentAndStartChat}
             >
-              Start chat
+              {t('aiInterview.startChat')}
             </LoadingButton>
           </Box>
         </Box>

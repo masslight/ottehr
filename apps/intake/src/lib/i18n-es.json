@@ -1,4 +1,71 @@
 {
+  "homepage": {
+    "continueVirtualVisitRequest": "Continuar solicitud de visita virtual",
+    "returnToCall": "Volver a la llamada",
+    "activeCall": "Llamada activa",
+    "cancelThisRequest": "Cancelar esta solicitud",
+    "scheduleVirtualVisit": "Programar una visita virtual",
+    "scheduleInPersonVisit": "Programar una visita en persona",
+    "virtualVisitCheckIn": "Registro de visita virtual",
+    "inPersonCheckIn": "Registro en persona",
+    "pastVisits": "Visitas anteriores",
+    "pastVisitsSubtitle": "Notas escolares/laborales y recetas",
+    "contactSupport": "Contactar con soporte"
+  },
+  "prebookVisit": {
+    "title": "Reservar una visita",
+    "titleWithLocation": "Reservar una visita {{preposition}} {{locationName}}",
+    "prepositionWith": "con",
+    "prepositionAt": "en",
+    "intro": "Nos complace ofrecer esta nueva tecnología para acceder a la atención médica. Solo deberá ingresar su información una vez. ¡La próxima vez que regrese, todo estará aquí para usted!",
+    "selectLocation": "Seleccione una ubicación",
+    "searchOrSelect": "Buscar o seleccionar",
+    "inPersonTab": "En persona",
+    "virtualTab": "Virtual",
+    "errorReservingTitle": "Error al reservar el horario",
+    "slotUnavailable": "Lo sentimos, es posible que este horario ya no esté disponible. Seleccione otro horario.",
+    "ok": "Aceptar"
+  },
+  "startVirtualVisit": {
+    "title": "Solicitar una visita virtual",
+    "intro": "Nos complace ofrecer esta nueva tecnología para acceder a la atención médica. Solo deberá ingresar su información una vez. ¡La próxima vez que regrese, todo estará aquí para usted!",
+    "unavailableNow": "No disponible ahora.",
+    "working": "Horario: ",
+    "workingHoursToday": "Horario de hoy: {{hours}}",
+    "visitLocation": "Ubicación de la visita",
+    "searchOrSelect": "Buscar o seleccionar",
+    "licensingTooltip": "Para conectarlo correctamente con un proveedor con licencia en su ubicación",
+    "whyAsk": "¿Por qué preguntamos esto?",
+    "errorStartingTitle": "Error al iniciar la visita virtual",
+    "serviceUnavailable": "Lo sentimos, es posible que este servicio virtual no esté disponible en este momento.",
+    "ok": "Aceptar"
+  },
+  "walkinLanding": {
+    "loading": "Cargando...",
+    "errorTitle": "Error al iniciar la visita virtual",
+    "somethingWentWrong": "Lo sentimos, algo salió mal. Diríjase a la recepción para registrarse.",
+    "ok": "Aceptar"
+  },
+  "telemedWelcome": {
+    "lookForward": "¡Esperamos poder ayudarle pronto!",
+    "intro": "Haga clic en Continuar para pasar a una página donde ingresará su número de teléfono. Verificaremos si ya tenemos su información. Si es así, completaremos previamente su información anterior para que la reserva sea más rápida.",
+    "continue": "Continuar"
+  },
+  "aiInterview": {
+    "returnToVisitPage": "Volver a la página de la visita",
+    "title": "Chatbot de historial médico",
+    "body1": "Nuestro asistente médico con inteligencia artificial le preguntará sobre sus síntomas e historial médico. Su información es completamente privada, accesible solo por su médico, y la entrevista ayuda a su médico a prepararse mejor para su visita.",
+    "body2": "Puede pausar la entrevista y completarla más tarde. Una vez completada la entrevista, no podrá iniciar una nueva.",
+    "consent": "Doy mi consentimiento",
+    "cancel": "Cancelar",
+    "startChat": "Iniciar chat",
+    "messagePlaceholder": "Su mensaje...",
+    "send": "Enviar"
+  },
+  "confirmationDialog": {
+    "back": "Atrás",
+    "proceed": "Continuar"
+  },
   "aboutPatient": {
     "actionButtonText": "Usar cuenta existente",
     "birthDate": {
@@ -347,6 +414,7 @@
     },
     "required": "campo requierido",
     "select": "Seleccionar…",
+    "unknown": "Desconocido",
     "zip": "Código postal"
   },
   "getReady": {
@@ -653,6 +721,10 @@
     "field to proceed": "campo",
     "fields above to proceed": "campos:",
     "multipleErrors": "Para continuar, corrija los errores en los siguientes campos:",
+    "fixErrorAbove": "Para continuar, corrija el error en el campo anterior",
+    "fixErrorsNamed": "Para continuar, corrija los errores en los siguientes campos: {{fields}}",
+    "fixErrorNamed": "Para continuar, corrija el error en el campo {{field}}",
+    "fixErrorsAboveCount": "Para continuar, corrija los errores en los {{count}} campos anteriores",
     "Complete consent forms": "Complete los formularios de consentimiento",
     "Cough and/or congestion": "Tos o congestión",
     "Throat pain": "Dolor de garganta",
@@ -749,6 +821,7 @@
     "insuranceDetailsLabel": "Detalles del seguro",
     "notComplete": "No completo",
     "location": "Consultorio",
+    "office": "Consultorio",
     "ok": "ACEPTAR",
     "patient": "Paciente",
     "patientDetailsLabel": "Detalles del paciente",
@@ -759,7 +832,8 @@
     "subtitle": "Revise y confirme todos los detalles a continuación.",
     "title": "Revise y envíe",
     "visitDetails": "Detalles de la consulta",
-    "walkInTime": "Horario de atención sin cita previa"
+    "walkInTime": "Horario de atención sin cita previa",
+    "unknown": "Desconocido"
   },
   "schedule": {
     "tabAriaLabel": "Pestañas de citas para cambiar entre los espacios de citas para hoy y mañana",

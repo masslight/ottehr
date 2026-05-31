@@ -1,10 +1,12 @@
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import { Box, CardContent, Typography, useTheme } from '@mui/material';
 import { FC } from 'react';
+import { useTranslation } from 'react-i18next';
 import { otherColors } from '../../IntakeThemeProvider';
 
 export const EmergencyBanner: FC = () => {
   const theme = useTheme();
+  const { t } = useTranslation();
   return (
     <Box
       sx={{
@@ -27,7 +29,7 @@ export const EmergencyBanner: FC = () => {
           color: otherColors.white,
         }}
       >
-        If you believe that you are having a medical emergency, please dial 911 or go to the nearest emergency room.
+        {t('general.footer')}
       </Typography>
     </Box>
   );

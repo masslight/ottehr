@@ -21,6 +21,7 @@ import {
   Typography,
   useTheme,
 } from '@mui/material';
+import { t } from 'i18next';
 import _ from 'lodash';
 import { FC, ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { Controller, FormProvider, useForm, useFormContext } from 'react-hook-form';
@@ -143,7 +144,7 @@ const makeFormErrorMessage = (items: IntakeQuestionnaireItem[], errors: any): st
 
   // For list-with-form groups, always use the generic singular message
   if (hasListWithFormError) {
-    return 'Please fix the error in the field above to proceed';
+    return t('paperworkPages.fixErrorAbove');
   }
 
   const errorItems = items
@@ -175,14 +176,14 @@ const makeFormErrorMessage = (items: IntakeQuestionnaireItem[], errors: any): st
 
   if (numErrors === errorItems.length) {
     if (numErrors > 1) {
-      return `Please fix the errors in the following fields to proceed: ${errorItems.map((ei) => ei)}`;
+      return t('paperworkPages.fixErrorsNamed', { fields: errorItems.join(', ') });
     } else {
-      return `Please fix the error in the ${errorItems[0]} field to proceed`;
+      return t('paperworkPages.fixErrorNamed', { field: errorItems[0] });
     }
   } else if (numErrors === 1) {
-    return 'Please fix the error in the field above to proceed';
+    return t('paperworkPages.fixErrorAbove');
   } else {
-    return `Please fix the error in the ${numErrors} fields above to proceed`;
+    return t('paperworkPages.fixErrorsAboveCount', { count: numErrors });
   }
 };
 

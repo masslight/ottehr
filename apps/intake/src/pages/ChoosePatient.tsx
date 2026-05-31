@@ -407,14 +407,14 @@ const ChoosePatient = (): JSX.Element => {
         <Paper>
           <Box margin={5} maxWidth="sm">
             <Typography variant="h3" color="primary">
-              {t('welcomeBack.cancel.cancel1')} {bookedAppointment?.firstName || 'Unknown'}
-              {t('welcomeBack.cancel.cancel2')} {bookedAppointment ? `${bookedAppointment.location?.name}` : 'Unknown'}{' '}
+              {t('welcomeBack.cancel.cancel1')} {bookedAppointment?.firstName || t('general.unknown')}
+              {t('welcomeBack.cancel.cancel2')} {bookedAppointment ? `${bookedAppointment.location?.name}` : t('general.unknown')}{' '}
               {t('welcomeBack.cancel.cancel3')} {appointmentTimezoneAdjusted}
             </Typography>
             <Typography marginTop={2} marginBottom={2}>
-              {t('welcomeBack.errors.alreadyBooked.body1')} {bookedAppointment?.location?.name || 'Unknown'}{' '}
+              {t('welcomeBack.errors.alreadyBooked.body1')} {bookedAppointment?.location?.name || t('general.unknown')}{' '}
               {t('welcomeBack.errors.alreadyBooked.body2')} {appointmentTimezoneAdjusted}.{' '}
-              {t('welcomeBack.errors.alreadyBooked.body3')} {scheduleOwnerName || 'Unknown'}.
+              {t('welcomeBack.errors.alreadyBooked.body3')} {scheduleOwnerName || t('general.unknown')}.
             </Typography>
             <Box display="flex" justifyContent="flex-end">
               <CustomLoadingButton

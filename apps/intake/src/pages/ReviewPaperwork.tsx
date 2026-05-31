@@ -209,18 +209,18 @@ const ReviewPaperwork = (): JSX.Element => {
   const paperworkValues = convertQRItemToLinkIdMap(questionnaireResponse?.item ?? []);
   const reviewItems: ReviewItem[] = [
     {
-      name: 'Patient',
+      name: t('reviewAndSubmit.patient'),
       valueString: patientFullName,
       hidden: !patientInfo?.firstName, // users who are not logged in will not see name
       testId: dataTestIds.patientNamePaperworkReviewScreen,
     },
     {
-      name: 'Location',
-      valueString: selectedLocation ? `${selectedLocation?.name}` : 'Unknown',
+      name: t('reviewAndSubmit.office'),
+      valueString: selectedLocation ? `${selectedLocation?.name}` : t('general.unknown'),
       testId: dataTestIds.locationNamePaperworkReviewScreen,
     },
     {
-      name: 'Check-in time',
+      name: t('reviewAndSubmit.checkInTime'),
       valueString: `${getLocaleDateTimeString(selectedSlotTimezoneAdjusted, 'medium', i18n.language)}`,
       hidden: visitType === VisitType.WalkIn,
       testId: dataTestIds.checkInTimePaperworkReviewScreen,

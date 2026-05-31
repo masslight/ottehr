@@ -7,6 +7,7 @@ import VideoCameraFrontOutlinedIcon from '@mui/icons-material/VideoCameraFrontOu
 import { Box, Button, Skeleton, Typography } from '@mui/material';
 import { HomepageOptions } from 'config-types';
 import { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { generatePath, useNavigate } from 'react-router-dom';
 import { BOOKING_CONFIG, ServiceMode, shouldShowServiceCategorySelectionPage } from 'utils';
 import { BOOKING_SERVICE_MODE_PARAM, intakeFlowPageRoute } from '../App';
@@ -25,6 +26,7 @@ import { CustomContainer, useIntakeCommonStore } from '../telemed/features/commo
 import { useOystehrAPIClient } from '../telemed/utils';
 
 const Homepage = (): JSX.Element => {
+  const { t } = useTranslation();
   const { isAuthenticated } = useAuth0();
   const apiClient = useOystehrAPIClient();
   const mayUserAccessAppointments = Boolean(isAuthenticated && apiClient);
@@ -174,7 +176,9 @@ const Homepage = (): JSX.Element => {
           activeAppointment && (
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, alignItems: 'flex-start' }}>
               <HomepageOption
-                title={isAppointmentStatusProposed ? 'Continue Virtual Visit Request' : 'Return to Call'}
+                title={
+                  isAppointmentStatusProposed ? t('homepage.continueVirtualVisitRequest') : t('homepage.returnToCall')
+                }
                 icon={<VideoCameraFrontOutlinedIcon />}
                 handleClick={isAppointmentStatusProposed ? handleContinueRequest : handleReturnToCall}
                 subSlot={
@@ -190,14 +194,14 @@ const Homepage = (): JSX.Element => {
                         px: 1,
                       }}
                     >
-                      Active call
+                      {t('homepage.activeCall')}
                     </Typography>
                   )
                 }
               />
               {isAppointmentStatusProposed && (
                 <Button onClick={() => setCancelVisitDialogOpen(true)} startIcon={<CloseIcon />}>
-                  Cancel this request
+                  {t('homepage.cancelThisRequest')}
                 </Button>
               )}
             </Box>
@@ -206,7 +210,7 @@ const Homepage = (): JSX.Element => {
 
         {showScheduleVirtualOption ? (
           <HomepageOption
-            title={scheduleVirtualLabel ?? 'Schedule a Virtual Visit'}
+            title={scheduleVirtualLabel ?? t('homepage.scheduleVirtualVisit')}
             icon={<VideoCameraFrontOutlinedIcon />}
             handleClick={handleScheduleVirtual}
             dataTestId={dataTestIds.scheduleVirtualVisitButton}
@@ -214,7 +218,7 @@ const Homepage = (): JSX.Element => {
         ) : null}
         {showScheduleInPersonOption ? (
           <HomepageOption
-            title={scheduleInPersonLabel ?? 'Schedule an In-Person Visit'}
+            title={scheduleInPersonLabel ?? t('homepage.scheduleInPersonVisit')}
             icon={<LocalHospitalOutlinedIcon />}
             handleClick={handleInPerson}
             dataTestId={dataTestIds.scheduleInPersonVisitButton}
@@ -222,7 +226,7 @@ const Homepage = (): JSX.Element => {
         ) : null}
         {showStartVirtualOption ? (
           <HomepageOption
-            title={startVirtualLabel ?? 'Virtual Visit Check-In'}
+            title={startVirtualLabel ?? t('homepage.virtualVisitCheckIn')}
             icon={<VideoCameraFrontOutlinedIcon />}
             handleClick={handleRequestVisit}
             dataTestId={dataTestIds.startVirtualVisitButton}
@@ -231,22 +235,22 @@ const Homepage = (): JSX.Element => {
 
         {showStartInPersonOption ? (
           <HomepageOption
-            title={startInPersonLabel ?? 'In-Person Check-In'}
+            title={startInPersonLabel ?? t('homepage.inPersonCheckIn')}
             icon={<LocalHospitalOutlinedIcon />}
             handleClick={handleWalkIn}
             dataTestId={dataTestIds.startInPersonVisitButton}
           />
         ) : null}
         <HomepageOption
-          title="Past Visits"
+          title={t('homepage.pastVisits')}
           icon={<MedicalInformationOutlinedIcon />}
           handleClick={handlePastVisits}
-          subtitle="School/Work Notes and Prescriptions"
+          subtitle={t('homepage.pastVisitsSubtitle')}
           dataTestId={dataTestIds.navigatePastVisitsButton}
         />
 
         <HomepageOption
-          title="Contact Support"
+          title={t('homepage.contactSupport')}
           icon={<LiveHelpOutlinedIcon />}
           handleClick={handleContactSupport}
           dataTestId={dataTestIds.contactSupportButton}

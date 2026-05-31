@@ -1,5 +1,6 @@
 import { Box, Button, ButtonProps, Typography } from '@mui/material';
 import { FC, ReactNode, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { CustomDialog } from './CustomDialog';
 
 type ConfirmationDialogProps = {
@@ -23,6 +24,7 @@ type ConfirmationDialogProps = {
 
 export const ConfirmationDialog: FC<ConfirmationDialogProps> = (props) => {
   const [open, setOpen] = useState(false);
+  const { t } = useTranslation();
 
   const showDialog = (): void => {
     setOpen(true);
@@ -57,7 +59,7 @@ export const ConfirmationDialog: FC<ConfirmationDialogProps> = (props) => {
                 color={props?.actionButtons?.back?.color || 'secondary'}
                 variant={props?.actionButtons?.back?.variant || 'text'}
               >
-                {props?.actionButtons?.back?.text || 'Back'}
+                {props?.actionButtons?.back?.text || t('confirmationDialog.back')}
               </Button>
 
               <Button
@@ -66,7 +68,7 @@ export const ConfirmationDialog: FC<ConfirmationDialogProps> = (props) => {
                 color={props?.actionButtons?.proceed?.color || 'secondary'}
                 variant={props?.actionButtons?.proceed?.variant || 'contained'}
               >
-                {props?.actionButtons?.proceed?.text || 'Proceed'}
+                {props?.actionButtons?.proceed?.text || t('confirmationDialog.proceed')}
               </Button>
             </Box>
           </Box>

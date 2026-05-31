@@ -4,6 +4,7 @@ import { Button, TextField, Typography } from '@mui/material';
 import { Box, Stack } from '@mui/system';
 import { Questionnaire, QuestionnaireResponse } from 'fhir/r4b';
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router-dom';
 import api from '../api/ottehrApi';
 import { PageContainer } from '../components';
@@ -13,6 +14,7 @@ import { useVisitContext } from './ThankYou';
 
 const AIInterview = (): JSX.Element => {
   const zambdaClient = useUCZambdaClient({ tokenless: false });
+  const { t } = useTranslation();
 
   const navigate = useNavigate();
   const { id: appointmentId } = useParams();
@@ -80,7 +82,7 @@ const AIInterview = (): JSX.Element => {
         >
           <ArrowBack sx={{ color: '#B2DDFF' }} />
           <Typography sx={{ fontWeight: 500, fontSize: '14px', color: '#B2DDFF', marginLeft: '4px' }}>
-            Return to visit page
+            {t('aiInterview.returnToVisitPage')}
           </Typography>
         </Stack>
       }
@@ -102,7 +104,7 @@ const AIInterview = (): JSX.Element => {
         >
           <TextField
             style={{ width: '100%' }}
-            placeholder="Your message..."
+            placeholder={t('aiInterview.messagePlaceholder')}
             value={answer}
             onChange={(e) => setAnswer(e.target.value)}
             onKeyUp={async (event) => {
@@ -122,7 +124,7 @@ const AIInterview = (): JSX.Element => {
             startIcon={<Send />}
             style={{ height: '38px', marginLeft: '16px', fontWeight: 500 }}
           >
-            Send
+            {t('aiInterview.send')}
           </Button>
         </Box>
       ) : (
@@ -141,7 +143,7 @@ const AIInterview = (): JSX.Element => {
             variant="contained"
             style={{ height: '38px', marginLeft: '16px', fontWeight: 500 }}
           >
-            Return to visit page
+            {t('aiInterview.returnToVisitPage')}
           </Button>
         </Box>
       )}

@@ -299,7 +299,7 @@ const ThankYou = (): JSX.Element => {
                 sx={{ textDecoration: 'underline' }}
                 className="appointment-description"
               >
-                {selectedLocation ? `${selectedLocation?.name}` : 'Unknown'}
+                {selectedLocation ? `${selectedLocation?.name}` : t('general.unknown')}
               </Typography>
               {!paperworkCompleted && visitType !== VisitType.WalkIn && (
                 <Typography variant="body2">{t('thanks.body2')}</Typography>

@@ -59,7 +59,7 @@ export const WalkinLanding: FC = () => {
 
   return (
     <PageContainer
-      title={somethingIsLoadingInSomeWay ? 'Loading...' : getWelcomeTitle()}
+      title={somethingIsLoadingInSomeWay ? t('walkinLanding.loading') : getWelcomeTitle()}
       subtitle={somethingIsLoadingInSomeWay ? '' : data?.scheduleOwnerName ?? ''}
       isFirstPage
       {...getPrimaryIconContainerProps(PRIMARY_ICON_PAGE.WALKIN_LANDING)}
@@ -97,14 +97,14 @@ export const WalkinLanding: FC = () => {
                     navigate(`${basePath}/patients`);
                   } catch (error) {
                     console.error('Error creating slot:', error);
-                    let errorMessage = 'Sorry, something went wrong. Please proceed to the front desk to check in.';
+                    let errorMessage = t('walkinLanding.somethingWentWrong');
                     if (isApiError(error)) {
                       errorMessage = (error as APIError).message;
                     }
                     setErrorConfig({
-                      title: 'Error starting virtual visit',
+                      title: t('walkinLanding.errorTitle'),
                       description: errorMessage,
-                      closeButtonText: 'Ok',
+                      closeButtonText: t('walkinLanding.ok'),
                     });
                   }
                 }
@@ -115,7 +115,7 @@ export const WalkinLanding: FC = () => {
               open={errorConfig != undefined}
               title={errorConfig?.title ?? ''}
               description={errorConfig?.description ?? ''}
-              closeButtonText={errorConfig?.closeButtonText ?? 'OK'}
+              closeButtonText={errorConfig?.closeButtonText ?? t('walkinLanding.ok')}
               handleClose={() => {
                 setErrorConfig(undefined);
               }}

@@ -3,6 +3,7 @@ import { Autocomplete, Skeleton, TextField, Typography } from '@mui/material';
 import { Box, useTheme } from '@mui/system';
 import { DateTime } from 'luxon';
 import { useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { generatePath, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   APIError,
@@ -52,6 +53,7 @@ const currentWorkingHoursText = (location: TelemedLocation | undefined): string 
 
 const StartVirtualVisit = (): JSX.Element => {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [searchParams] = useSearchParams();
   const serviceCategory = searchParams.get('serviceCategory');
   const theme = useTheme();
@@ -101,14 +103,14 @@ const StartVirtualVisit = (): JSX.Element => {
         navigate(`${basePath}/patients`);
       } catch (error) {
         console.error('Error creating slot:', error);
-        let errorMessage = 'Sorry, this virtual service may not be available at the moment.';
+        let errorMessage = t('startVirtualVisit.serviceUnavailable');
         if (isApiError(error)) {
           errorMessage = (error as APIError).message;
         }
         setErrorDialogConfig({
-          title: 'Error starting virtual visit',
+          title: t('startVirtualVisit.errorStartingTitle'),
           description: errorMessage,
-          closeButtonText: 'Ok',
+          closeButtonText: t('startVirtualVisit.ok'),
         });
       }
 
@@ -158,11 +160,8 @@ const StartVirtualVisit = (): JSX.Element => {
   }, [telemedLocations]);
 
   return (
-    <PageContainer title="Request a Virtual Visit" imgAlt="Chat icon">
-      <Typography variant="body1">
-        We're pleased to offer this new technology for accessing care. You will need to enter your information just
-        once. Next time you return, it will all be here for you!
-      </Typography>
+    <PageContainer title={t('startVirtualVisit.title')} imgAlt="Chat icon">
+      <Typography variant="body1">{t('startVirtualVisit.intro')}</Typography>
       {!sortedLocations?.length || !telemedLocations?.length ? (
         <Skeleton
           sx={{
@@ -196,13 +195,14 @@ const StartVirtualVisit = (): JSX.Element => {
                     </Typography>
                     {!option.available && (
                       <Typography variant="body2" color="text.secondary">
-                        Unavailable now. {option.workingHours && option.available ? 'Working: ' : ''}
+                        {t('startVirtualVisit.unavailableNow')}{' '}
+                        {option.workingHours && option.available ? t('startVirtualVisit.working') : ''}
                       </Typography>
                     )}
                     {option.workingHours && (
                       <>
                         <Typography variant="body2" color="text.secondary">
-                          Working hours today: {option.workingHours}
+                          {t('startVirtualVisit.workingHoursToday', { hours: option.workingHours })}
                         </Typography>
                       </>
                     )}
@@ -213,11 +213,11 @@ const StartVirtualVisit = (): JSX.Element => {
             renderInput={(params) => (
               <>
                 <BoldPurpleInputLabel required shrink sx={{ whiteSpace: 'pre-wrap', mt: 3 }}>
-                  Visit location
+                  {t('startVirtualVisit.visitLocation')}
                 </BoldPurpleInputLabel>
                 <TextField
                   {...params}
-                  placeholder="Search or select"
+                  placeholder={t('startVirtualVisit.searchOrSelect')}
                   variant="outlined"
                   sx={{
                     '& .MuiOutlinedInput-root': {
@@ -240,15 +240,13 @@ const StartVirtualVisit = (): JSX.Element => {
           <CustomTooltip
             enterTouchDelay={0}
             title={
-              <Typography sx={{ fontWeight: 400, p: 1 }}>
-                To properly connect you with a provider licensed in your location
-              </Typography>
+              <Typography sx={{ fontWeight: 400, p: 1 }}>{t('startVirtualVisit.licensingTooltip')}</Typography>
             }
             placement="top"
           >
             <Typography color="#8F9AA7" sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer', mt: 1 }}>
               <InfoOutlined fontSize="small" style={{ marginRight: 4 }} />
-              Why do we ask this?
+              {t('startVirtualVisit.whyAsk')}
             </Typography>
           </CustomTooltip>
         </>
@@ -258,7 +256,7 @@ const StartVirtualVisit = (): JSX.Element => {
           onBack: () => navigate(intakeFlowPageRoute.Homepage.path),
           loading: isSubmitting,
           submitDisabled: !selectedLocation,
-          submitLabel: 'Continue',
+          submitLabel: t('general.button.continue'),
         }}
         onSubmit={onSubmit}
       />

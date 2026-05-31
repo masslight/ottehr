@@ -1,6 +1,7 @@
 import LoadingButton from '@mui/lab/LoadingButton';
 import { Typography } from '@mui/material';
 import { Box } from '@mui/system';
+import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { intakeFlowPageRoute } from '../../App';
 import { getPrimaryIconContainerProps, PRIMARY_ICON_PAGE } from '../../branding/primaryIconVisibility';
@@ -10,6 +11,7 @@ import { EmergencyBanner } from '../components/EmergencyBanner';
 import { CustomContainer } from '../features/common';
 const Welcome = ({ showEmergencyBanner = true }: { showEmergencyBanner?: boolean }): JSX.Element => {
   const navigate = useNavigate();
+  const { t } = useTranslation();
 
   const onSubmit = (): void => {
     navigate(intakeFlowPageRoute.Homepage.path);
@@ -22,10 +24,9 @@ const Welcome = ({ showEmergencyBanner = true }: { showEmergencyBanner?: boolean
       isFirstPage={true}
       outsideCardComponent={showEmergencyBanner ? <EmergencyBanner /> : undefined}
     >
-      <Typography variant="body1">We look forward to helping you soon!</Typography>
+      <Typography variant="body1">{t('telemedWelcome.lookForward')}</Typography>
       <Typography variant="body1" sx={{ py: 1 }}>
-        Please click on Continue to proceed to a page where you will enter your phone number. We’ll verify if we have
-        your information already. If we do, we will pre-fill your past information for a faster booking.
+        {t('telemedWelcome.intro')}
       </Typography>
 
       <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
@@ -41,7 +42,7 @@ const Welcome = ({ showEmergencyBanner = true }: { showEmergencyBanner?: boolean
           onClick={onSubmit}
           data-testid={dataTestIds.continueButton}
         >
-          Continue
+          {t('telemedWelcome.continue')}
         </LoadingButton>
       </Box>
     </CustomContainer>
