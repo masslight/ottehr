@@ -125,4 +125,23 @@ describe('shipped Spanish questionnaire translations', () => {
     expect(screen.getByText('Francés')).toBeTruthy();
     expect(radioValues(container)).toEqual(['Spanish', 'French']);
   });
+
+  test('renders shipped Spanish for booking reason-for-visit options while preserving values', async () => {
+    await i18n.changeLanguage('es');
+    const reasonOptions = [{ valueString: 'Auto accident' }, { valueString: 'Fever' }];
+    const { container } = render(
+      <Wrapper>
+        <RadioInput
+          name="reason-for-visit"
+          linkId="reason-for-visit"
+          value={undefined}
+          options={reasonOptions}
+          onChange={() => {}}
+        />
+      </Wrapper>
+    );
+    expect(screen.getByText('Accidente automovilístico')).toBeTruthy();
+    expect(screen.getByText('Fiebre')).toBeTruthy();
+    expect(radioValues(container)).toEqual(['Auto accident', 'Fever']);
+  });
 });
