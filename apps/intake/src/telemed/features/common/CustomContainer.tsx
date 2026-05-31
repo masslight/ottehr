@@ -7,5 +7,5 @@ export const CustomContainer = CustomContainerFactory({
   logo: intakeLogo,
   alt: BRANDING_CONFIG.projectName,
   footer: <Footer />,
-  showLanguagePicker: false,
+  showLanguagePicker: true,
 });

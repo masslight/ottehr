@@ -1,5 +1,6 @@
 import LanguageIcon from '@mui/icons-material/Language';
 import { Popover, ToggleButton, ToggleButtonGroup, Typography, useTheme } from '@mui/material';
+import { alpha } from '@mui/material/styles';
 import { Box } from '@mui/system';
 import { FC, MouseEvent, useContext, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -31,7 +32,7 @@ export const LanguagePicker: FC = () => {
         pr: { xs: 1, md: 0 },
       }}
     >
-      <LanguageIcon sx={{ color: theme.palette.primary.main, pr: 0.5 }} />
+      <LanguageIcon sx={{ color: theme.palette.primary.contrastText, pr: 0.5 }} />
       <ToggleButtonGroup exclusive>
         {Object.keys(languages).map((lang) => (
           <ToggleButton
@@ -47,14 +48,14 @@ export const LanguagePicker: FC = () => {
               px: 1,
               border: 'none',
               '&:not(:last-of-type)': {
-                borderRight: `1px solid ${theme.palette.divider}`,
+                borderRight: `1px solid ${alpha(theme.palette.primary.contrastText, 0.4)}`,
               },
             }}
           >
             <Typography
               variant="body2"
               sx={{
-                color: theme.palette.primary.main,
+                color: theme.palette.primary.contrastText,
                 fontWeight: i18n.language.split('-')[0] === lang ? 700 : 400,
                 opacity: i18n.language.split('-')[0] === lang ? 1 : 0.7,
               }}
