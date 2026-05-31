@@ -418,7 +418,6 @@
     "body1": "Este proceso le permite completar el registro con anticipación, desde la comodidad de su hogar.",
     "body2": "Si bien su registro no debe considerarse una cita, hacemos todo lo posible por atender a los pacientes lo más cerca posible del horario seleccionado.",
     "body3": "Haga clic en \"Continuar\" para pasar a una página donde ingresará su número de teléfono. Verificaremos si ya tenemos su información. Si ya contamos con la información, completaremos automáticamente su información anterior para que la reserva sea más rápida.",
-    "body4": "Tenga en cuenta que la información de su familia puede registrarse con un número de teléfono que le pertenezca a su pareja, cónyuge o tutor de su hijo.",
     "subtitle": "¡Reservar su registro le permite ahorrar tiempo!",
     "title": "Prepárese para su consulta"
   },
@@ -567,7 +566,6 @@
     "ZIP Code must be 5 numbers": "El código postal debe tener 5 números",
     "This field is required": "Este campo es requierido",
     "example@mail.com": "ejemplo@mail.com",
-    "additionalInformation": "Proporcione la información para obtener el mejor punto de contacto con respecto a esta reserva.",
     "Completing the following forms will save time in our office and ensure a smooth check-in experience. Thanks for your cooperation!": "Completar los siguientes formularios ahorrará tiempo en nuestro consultorio y garantizará un proceso de registro sin inconvenientes. ¡Gracias por su cooperación!",
     "Additional information": "Información adicional",
     "Patient email": "Correo electrónico del paciente",
@@ -600,7 +598,6 @@
     "American Indian or Alaska Native": "Indio americano o nativo de Alaska",
     "Asian": "Asiático",
     "Black or African American": "Negro o afroamericano",
-    "Native Hawaiian or other Pacific Islander": "Nativo de Hawái o de las islas del Pacífico",
     "White": "Blanco",
     "Decline to Specify": "Me niego a especificar",
     "Patient's ethnicity": "Origen étnico del paciente",
@@ -728,7 +725,6 @@
     "I have reviewed and accept": "He revisado y aceptado",
     "HIPAA Acknowledgement": "Reconocimiento de la Ley HIPAA",
     "Consent to Treat, Guarantee of Payment & Card on File Agreement": "Consentimiento para el tratamiento y la garantía de pago",
-    "fullNameLabel": "Escriba su nombre completo",
     "I have reviewed and accept [Consent to Treat, Guarantee of Payment & Card on File Agreement](/CTT.and.Guarantee.of.Payment.and.Credit.Card.Agreement-S.pdf)": "He revisado y aceptado [Consent to Treat, Guarantee of Payment & Card on File Agreement](/CTT.and.Guarantee.of.Payment.and.Credit.Card.Agreement-S.pdf)",
     "I have reviewed and accept [HIPAA Acknowledgement](/HIPAA.Acknowledgement-S.pdf)": "He revisado y aceptado [HIPAA Acknowledgement](/HIPAA.Acknowledgement-S.pdf)",
     "Full name": "Nombre completo",
@@ -838,7 +834,6 @@
     "finish": "Finalizar",
     "insuranceDetailsLabel": "Detalles del seguro",
     "notComplete": "No completo",
-    "location": "Consultorio",
     "office": "Consultorio",
     "ok": "ACEPTAR",
     "patient": "Paciente",
@@ -909,7 +904,6 @@
     "body3": "En breve, recibirá un correo electrónico de confirmación para su próximo horario para el registro. Si necesita realizar algún cambio, siga las instrucciones del mensaje.",
     "body4": "Complete su documentación ahora.",
     "body5": "Haga clic en el botón \"Continuar con la documentación\" anterior para completar la documentación antes de la consulta. Si no se completa con anticipación, es posible que se demore su atención.",
-    "body6": "Todos los pacientes que tengan un seguro comercial deberán dejar una tarjeta de crédito registrada. Puede encontrar más detalles sobre nuestra política financiera",
     "body7": "Continúe con la documentación.",
     "body8": "Si no la completa, es posible que se demore su atención.",
     "bodyLink": "aquí",
@@ -939,8 +933,7 @@
     },
     "errors": {
       "closed": {
-        "description": "¡Lo sentimos! Está cerrado en este momento. Visite nuestro sitio web para ver los consultorios abiertos.",
-        "title": "Considere visitar otro consultorio o realizar una consulta de telemedicina"
+        "description": "¡Lo sentimos! Está cerrado en este momento. Visite nuestro sitio web para ver los consultorios abiertos."
       },
       "notFound": {
         "description": "No se encontró la página a la que navegó. Para encontrar una ubicación de {{PROJECT_NAME}},",
@@ -955,8 +948,7 @@
       "title": "Esperamos poder ayudarle pronto."
     },
     "walkinOpen": {
-      "title": "Haga clic en Continuar para pasar a una página donde deberá ingresar su número de teléfono. Verificaremos si ya tenemos su información. Si es así, completaremos el papeleo utilizando su información previamente provista para realizar una reserva más rápida. Si ya ha reservado una hora de check-in, seleccione la opción Registrarse después de iniciar la sesión.",
-      "description": "Tenga en cuenta que la información de su familia puede estar registrada bajo un número de teléfono propiedad de su pareja, cónyuge o tutor de su hijo."
+      "title": "Haga clic en Continuar para pasar a una página donde deberá ingresar su número de teléfono. Verificaremos si ya tenemos su información. Si es así, completaremos el papeleo utilizando su información previamente provista para realizar una reserva más rápida. Si ya ha reservado una hora de check-in, seleccione la opción Registrarse después de iniciar la sesión."
     },
     "subtitleBranded": "Esperamos poder ayudarle pronto.",
     "title": "Seleccione el horario de registro",
