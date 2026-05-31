@@ -112,6 +112,7 @@ const ProcedureModifierEnum = z.enum(Object.values(ProcedureModifier) as [string
 
 const CptCodeInHouseLabDefinitionSchema = z.object({
   code: nonEmptyString('CPT Code required'),
+  display: nonEmptyString('CPT display must be opulated when provided').optional(),
   modifier: z
     .array(
       z.object({

@@ -1,6 +1,6 @@
 import { Patient, QuestionnaireResponse } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { getQuestionnaireResponseByLinkId } from 'utils';
+import { getPatientFriendlyId, getQuestionnaireResponseByLinkId } from 'utils';
 import { getPatientLastFirstName } from '../../../patients';
 import { drawFieldLine } from '../../helpers/render';
 import { createConfiguredSection, DataComposer } from '../../pdf-common';
@@ -12,6 +12,7 @@ export const composePatientInformation: DataComposer<ProgressNotePatientDataInpu
 }) => {
   const patientName = getPatientLastFirstName(patient) ?? '';
   const patientDOB = getPatientDob(patient) ?? '';
+  const patientId = getPatientFriendlyId(patient);
   const personAccompanying = getPersonAccompanying(questionnaireResponse) ?? '';
   const patientPhone =
     getQuestionnaireResponseByLinkId('guardian-number', questionnaireResponse)?.answer?.[0].valueString ?? '';
@@ -19,6 +20,7 @@ export const composePatientInformation: DataComposer<ProgressNotePatientDataInpu
   return {
     patientName,
     patientDOB,
+    patientId,
     personAccompanying,
     patientPhone,
   };
@@ -33,6 +35,9 @@ export const createProgressNotePatientInfoSection = <
     render: (client, patientInfo, styles) => {
       drawFieldLine(client, styles, { label: 'Patient name', value: patientInfo.patientName });
       drawFieldLine(client, styles, { label: 'Date of birth', value: patientInfo.patientDOB });
+      if (patientInfo.patientId) {
+        drawFieldLine(client, styles, { label: 'PID', value: patientInfo.patientId });
+      }
       if (patientInfo.personAccompanying) {
         drawFieldLine(client, styles, {
           label: 'Person accompanying the minor patient',

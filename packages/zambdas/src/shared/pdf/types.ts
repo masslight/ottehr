@@ -393,6 +393,7 @@ export interface PatientInfo extends PdfData {
 export interface PatientInfoForProgressNote extends PdfData {
   patientName: string;
   patientDOB: string;
+  patientId: string;
   personAccompanying: string;
   patientPhone: string;
 }
