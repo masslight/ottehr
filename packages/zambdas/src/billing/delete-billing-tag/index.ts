@@ -35,6 +35,7 @@ async function performEffect(oystehr: Oystehr, params: DeleteBillingTagParams): 
       resourceType: 'Claim',
       params: [
         { name: '_tag', value: `${CLAIM_TAG_SYSTEM}|${tagName}` },
+        { name: '_total', value: 'accurate' },
         { name: '_count', value: '0' },
       ],
     });

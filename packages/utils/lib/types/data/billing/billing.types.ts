@@ -6,6 +6,52 @@ export interface BillingTag {
   updatedAt: string;
 }
 
+// Search/autocomplete option shapes — shared by the search-billing-* zambdas and the billing UI.
+export interface BillingPatientOption {
+  id: string | undefined;
+  name: string;
+  firstName: string;
+  lastName: string;
+  dob: string;
+  gender: string;
+  address: string;
+  friendlyId: string;
+}
+
+export interface BillingOrganizationOption {
+  id: string | undefined;
+  name: string;
+  npi: string;
+  tin: string;
+  payerId: string;
+  isPayer: boolean | undefined;
+}
+
+export interface BillingCoverageOption {
+  id: string | undefined;
+  status: string;
+  subscriberId: string;
+  payorName: string;
+  payorId: string;
+  payorFhirId: string;
+}
+
+export interface BillingPractitionerOption {
+  id: string | undefined;
+  name: string;
+  firstName: string;
+  lastName: string;
+  npi: string;
+  taxonomy: string;
+}
+
+export interface BillingLocationOption {
+  id: string | undefined;
+  name: string;
+  npi: string;
+  address: string;
+}
+
 export interface EraListItem {
   id: string;
   eraId: string;

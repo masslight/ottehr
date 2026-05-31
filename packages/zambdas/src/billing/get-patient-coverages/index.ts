@@ -1,19 +1,10 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Coverage } from 'fhir/r4b';
-import { getPayerId } from 'utils';
+import { BillingCoverageOption, getPayerId } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import { createBillingClient, EXCLUDE_WORKING_COPIES_PARAMS, resolvePayersByRef } from '../shared';
 import { GetPatientCoveragesParams, validateRequestParameters } from './validateRequestParameters';
-
-interface CoverageItem {
-  id: string | undefined;
-  status: string;
-  subscriberId: string;
-  payorName: string;
-  payorId: string;
-  payorFhirId: string;
-}
 
 let m2mToken: string;
 const ZAMBDA_NAME = 'get-patient-coverages';
@@ -30,7 +21,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 async function performEffect(
   oystehr: Oystehr,
   params: GetPatientCoveragesParams
-): Promise<{ coverages: CoverageItem[] }> {
+): Promise<{ coverages: BillingCoverageOption[] }> {
   const response = await oystehr.fhir.search<Coverage>({
     resourceType: 'Coverage',
     params: [{ name: 'beneficiary', value: `Patient/${params.patientId}` }, ...EXCLUDE_WORKING_COPIES_PARAMS],

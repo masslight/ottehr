@@ -16,11 +16,16 @@ import {
 import { DataGridPro, GridColDef, GridPaginationModel } from '@mui/x-data-grid-pro';
 import { ReactElement, useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { BillingClaimItem, chooseJson, ClaimsQueueItemStatuses } from 'utils';
+import {
+  BillingClaimItem,
+  BillingOrganizationOption,
+  BillingPatientOption,
+  chooseJson,
+  ClaimsQueueItemStatuses,
+} from 'utils';
 import { dataGridSlots, dataGridSx } from '../components/BillingDataGrid';
 import { CLAIM_STATUS_COLORS, formatClaimStatus } from '../constants/claimStatus';
 import { useApiClients } from '../hooks/useAppClients';
-import { PatientOption, PayerOption } from '../types/autocomplete';
 import { formatCurrency } from '../utils/format';
 
 interface Filters {
@@ -80,8 +85,8 @@ export default function ClaimsList(): ReactElement {
   const [error, setError] = useState<string | null>(null);
   const [paginationModel, setPaginationModel] = useState<GridPaginationModel>({ page: 0, pageSize: 25 });
 
-  const [payerOptions, setPayerOptions] = useState<PayerOption[]>([]);
-  const [patientOptions, setPatientOptions] = useState<PatientOption[]>([]);
+  const [payerOptions, setPayerOptions] = useState<BillingOrganizationOption[]>([]);
+  const [patientOptions, setPatientOptions] = useState<BillingPatientOption[]>([]);
 
   const [searchText, setSearchText] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
@@ -89,8 +94,8 @@ export default function ClaimsList(): ReactElement {
   const [tagOptions, setTagOptions] = useState<{ id: string; name: string }[]>([]);
   const [createdFrom, setDosFrom] = useState('');
   const [createdTo, setDosTo] = useState('');
-  const [selectedPayer, setSelectedPayer] = useState<PayerOption | null>(null);
-  const [selectedPatient, setSelectedPatient] = useState<PatientOption | null>(null);
+  const [selectedPayer, setSelectedPayer] = useState<BillingOrganizationOption | null>(null);
+  const [selectedPatient, setSelectedPatient] = useState<BillingPatientOption | null>(null);
 
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const payerDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);

@@ -1,19 +1,10 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Organization } from 'fhir/r4b';
-import { getNPI, getPayerId, getTaxID } from 'utils';
+import { BillingOrganizationOption, getNPI, getPayerId, getTaxID } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import { createBillingClient, EXCLUDE_WORKING_COPIES_PARAMS } from '../shared';
 import { SearchBillingOrganizationsParams, validateRequestParameters } from './validateRequestParameters';
-
-interface OrganizationSearchItem {
-  id: string | undefined;
-  name: string;
-  npi: string;
-  tin: string;
-  payerId: string;
-  isPayer: boolean | undefined;
-}
 
 let m2mToken: string;
 const ZAMBDA_NAME = 'search-billing-organizations';
@@ -30,8 +21,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 async function performEffect(
   oystehr: Oystehr,
   params: SearchBillingOrganizationsParams
-): Promise<{ organizations: OrganizationSearchItem[] }> {
-  // Payers come from the Oystehr payer list not FHIR Organizations
+): Promise<{ organizations: BillingOrganizationOption[] }> {
   if (params.type === 'pay') {
     const result = await oystehr.rcm.listPayers({ ...(params.name ? { name: params.name } : {}), limit: 50 });
     const organizations = result.data.map((o) => ({

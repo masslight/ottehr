@@ -16,12 +16,17 @@ import {
 import { DataGridPro, GridColDef, GridPaginationModel } from '@mui/x-data-grid-pro';
 import { ReactElement, useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { chooseJson, ClaimsQueueItemStatuses, EraListItem } from 'utils';
+import {
+  BillingOrganizationOption,
+  BillingPatientOption,
+  chooseJson,
+  ClaimsQueueItemStatuses,
+  EraListItem,
+} from 'utils';
 import { dataGridSlots, dataGridSx } from '../components/BillingDataGrid';
 import { formatClaimStatus } from '../constants/claimStatus';
 import { useApiClients } from '../hooks/useAppClients';
 import { useDebounce } from '../hooks/useDebounce';
-import { PatientOption, PayerOption } from '../types/autocomplete';
 import { formatCurrency } from '../utils/format';
 
 interface Filters {
@@ -88,16 +93,16 @@ export default function ERAList(): ReactElement {
   const [eraDateFrom, setEraDateFrom] = useState('');
   const [eraDateTo, setEraDateTo] = useState('');
   const [eraStatus, setEraStatus] = useState('');
-  const [selectedPayer, setSelectedPayer] = useState<PayerOption | null>(null);
-  const [payerOptions, setPayerOptions] = useState<PayerOption[]>([]);
+  const [selectedPayer, setSelectedPayer] = useState<BillingOrganizationOption | null>(null);
+  const [payerOptions, setPayerOptions] = useState<BillingOrganizationOption[]>([]);
 
   // Claim-level filters
   const [searchText, setSearchText] = useState('');
   const [claimStatus, setClaimStatus] = useState('');
   const [dosFrom, setDosFrom] = useState('');
   const [dosTo, setDosTo] = useState('');
-  const [selectedPatient, setSelectedPatient] = useState<PatientOption | null>(null);
-  const [patientOptions, setPatientOptions] = useState<PatientOption[]>([]);
+  const [selectedPatient, setSelectedPatient] = useState<BillingPatientOption | null>(null);
+  const [patientOptions, setPatientOptions] = useState<BillingPatientOption[]>([]);
 
   const { debounce } = useDebounce();
 

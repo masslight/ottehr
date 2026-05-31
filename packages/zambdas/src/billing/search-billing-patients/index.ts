@@ -1,21 +1,10 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Patient } from 'fhir/r4b';
-import { FRIENDLY_PATIENT_ID_SYSTEM_BASE } from 'utils';
+import { BillingPatientOption, FRIENDLY_PATIENT_ID_SYSTEM_BASE } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import { createBillingClient, EXCLUDE_WORKING_COPIES_PARAMS, fhirName, formatAddress } from '../shared';
 import { SearchBillingPatientsParams, validateRequestParameters } from './validateRequestParameters';
-
-interface PatientSearchItem {
-  id: string | undefined;
-  name: string;
-  firstName: string;
-  lastName: string;
-  dob: string;
-  gender: string;
-  address: string;
-  friendlyId: string;
-}
 
 let m2mToken: string;
 const ZAMBDA_NAME = 'search-billing-patients';
@@ -32,7 +21,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 async function performEffect(
   oystehr: Oystehr,
   params: SearchBillingPatientsParams
-): Promise<{ patients: PatientSearchItem[]; total: number; offset: number; pageSize: number }> {
+): Promise<{ patients: BillingPatientOption[]; total: number; offset: number; pageSize: number }> {
   const pageSize = params.pageSize ?? 25;
   const offset = params.offset ?? 0;
   const searchParams: { name: string; value: string }[] = [

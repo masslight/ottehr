@@ -13,9 +13,15 @@ import {
 } from '@mui/material';
 import { ReactElement, useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { chooseJson } from 'utils';
+import {
+  BillingCoverageOption,
+  BillingLocationOption,
+  BillingOrganizationOption,
+  BillingPatientOption,
+  BillingPractitionerOption,
+  chooseJson,
+} from 'utils';
 import { useApiClients } from '../hooks/useAppClients';
-import { CoverageOption, LocationOption, OrgOption, PatientOption, PractitionerOption } from '../types/autocomplete';
 
 interface ServiceLine {
   cpt: string;
@@ -46,17 +52,17 @@ export default function CreateClaim(): ReactElement {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [patients, setPatients] = useState<PatientOption[]>([]);
-  const [coverages, setCoverages] = useState<CoverageOption[]>([]);
-  const [practitioners, setPractitioners] = useState<PractitionerOption[]>([]);
-  const [locations, setLocations] = useState<LocationOption[]>([]);
-  const [billingOrgs, setBillingOrgs] = useState<OrgOption[]>([]);
+  const [patients, setPatients] = useState<BillingPatientOption[]>([]);
+  const [coverages, setCoverages] = useState<BillingCoverageOption[]>([]);
+  const [practitioners, setPractitioners] = useState<BillingPractitionerOption[]>([]);
+  const [locations, setLocations] = useState<BillingLocationOption[]>([]);
+  const [billingOrgs, setBillingOrgs] = useState<BillingOrganizationOption[]>([]);
 
-  const [selectedPatient, setSelectedPatient] = useState<PatientOption | null>(null);
-  const [selectedCoverage, setSelectedCoverage] = useState<CoverageOption | null>(null);
-  const [selectedPractitioner, setSelectedPractitioner] = useState<PractitionerOption | null>(null);
-  const [selectedFacility, setSelectedFacility] = useState<LocationOption | null>(null);
-  const [selectedBillingProvider, setSelectedBillingProvider] = useState<OrgOption | null>(null);
+  const [selectedPatient, setSelectedPatient] = useState<BillingPatientOption | null>(null);
+  const [selectedCoverage, setSelectedCoverage] = useState<BillingCoverageOption | null>(null);
+  const [selectedPractitioner, setSelectedPractitioner] = useState<BillingPractitionerOption | null>(null);
+  const [selectedFacility, setSelectedFacility] = useState<BillingLocationOption | null>(null);
+  const [selectedBillingProvider, setSelectedBillingProvider] = useState<BillingOrganizationOption | null>(null);
 
   const [subscriberId, setSubscriberId] = useState('');
   const [dateOfService, setDateOfService] = useState('');
@@ -150,7 +156,7 @@ export default function CreateClaim(): ReactElement {
           ...(query ? { name: query } : {}),
         });
         const allOrgs = chooseJson(res).organizations ?? [];
-        setBillingOrgs(allOrgs.filter((o: OrgOption & { isPayer?: boolean }) => !o.isPayer));
+        setBillingOrgs(allOrgs.filter((o: BillingOrganizationOption) => !o.isPayer));
       }, 300);
     },
     [oystehrZambda]
@@ -161,7 +167,7 @@ export default function CreateClaim(): ReactElement {
     searchTimer.current = setTimeout(() => void searchPatients(query || undefined), 300);
   };
 
-  const handlePatientSelect = (_: unknown, value: PatientOption | null): void => {
+  const handlePatientSelect = (_: unknown, value: BillingPatientOption | null): void => {
     setSelectedPatient(value);
     setSelectedCoverage(null);
     setCoverages([]);
