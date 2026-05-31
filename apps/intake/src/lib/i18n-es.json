@@ -275,8 +275,6 @@
     "patient": "Paciente"
   },
   "contactInfo": {
-    "additionalInformation": "Proporcione la información para obtener el mejor punto de contacto con respecto a esta reserva.",
-    "address": "Dirección",
     "Completing the following forms will save time in our office and ensure a smooth check-in experience. Thanks for your cooperation!": "Completar los siguientes formularios ahorrará tiempo en nuestro consultorio y garantizará un proceso de registro sin inconvenientes. ¡Gracias por su cooperación!",
     "Additional information": "Información adicional",
     "Patient email": "Correo electrónico del paciente",
@@ -318,13 +316,7 @@
       "helperText": "Proporcione el mejor número de teléfono móvil de su familia.",
       "label": "Número de teléfono"
     },
-    "primaryAddress": "'s dirección principal",
-    "receiveMessages": "¡Sí! Me gustaría recibir mensajes útiles de {{PROJECT_NAME}} sobre la educación del paciente y los eventos, así como información general sobre los consultorios. La frecuencia de los mensajes varía y pueden aplicarse tarifas por datos.",
-    "select": "Seleccionar…",
-    "state": "Estado",
-    "streetAddress": "Dirección",
-    "title": "Información de contacto",
-    "zip": "Código postal"
+    "select": "Seleccionar…"
   },
   "emailComms": {
     "canceled": {
@@ -567,18 +559,15 @@
     "characters": "caracteres",
     "Emojis are not a valid character": "Los emojis no son un carácter válido",
     "Date may not be in the future": "La fecha puede no ser en el futuro",
-    "inputRequired": "se requiere",
     "Please enter a valid date": "Por favor, introduzca una fecha válida",
     "Item not found": "Elemento no encontrado.",
     "Must be a valid number greater than or equal to 0": "Debe ser un número válido mayor o igual que 0",
     "Phone number must be 10 digits in the format (xxx) xxx-xxxx": "El número de teléfono debe tener 10 dígitos en el formato (xxx) xxx-xxxx",
-    "At least one record is required": "Se requiere al menos un registro",
     "Selection is required": "Se requiere selección",
     "ZIP Code must be 5 numbers": "El código postal debe tener 5 números",
     "This field is required": "Este campo es requierido",
     "example@mail.com": "ejemplo@mail.com",
     "additionalInformation": "Proporcione la información para obtener el mejor punto de contacto con respecto a esta reserva.",
-    "address": "Dirección",
     "Completing the following forms will save time in our office and ensure a smooth check-in experience. Thanks for your cooperation!": "Completar los siguientes formularios ahorrará tiempo en nuestro consultorio y garantizará un proceso de registro sin inconvenientes. ¡Gracias por su cooperación!",
     "Additional information": "Información adicional",
     "Patient email": "Correo electrónico del paciente",
@@ -740,7 +729,6 @@
     "HIPAA Acknowledgement": "Reconocimiento de la Ley HIPAA",
     "Consent to Treat, Guarantee of Payment & Card on File Agreement": "Consentimiento para el tratamiento y la garantía de pago",
     "fullNameLabel": "Escriba su nombre completo",
-    "illinoisConsentToTreat": "He revisado y aceptado [Consent to Treat, Guarantee of Payment & Card on File Agreement](/CTT.and.Guarantee.of.Payment.and.Credit.Card.Agreement.Illinois-S.pdf)",
     "I have reviewed and accept [Consent to Treat, Guarantee of Payment & Card on File Agreement](/CTT.and.Guarantee.of.Payment.and.Credit.Card.Agreement-S.pdf)": "He revisado y aceptado [Consent to Treat, Guarantee of Payment & Card on File Agreement](/CTT.and.Guarantee.of.Payment.and.Credit.Card.Agreement-S.pdf)",
     "I have reviewed and accept [HIPAA Acknowledgement](/HIPAA.Acknowledgement-S.pdf)": "He revisado y aceptado [HIPAA Acknowledgement](/HIPAA.Acknowledgement-S.pdf)",
     "Full name": "Nombre completo",

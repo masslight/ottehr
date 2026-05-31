@@ -279,8 +279,6 @@
     "Additional information": "Additional information",
     "Patient email": "Patient email",
     "Patient mobile": "Patient mobile",
-    "Please provide the information for the best point of contact regarding this reservation.": "Please provide the information for the best point of contact regarding this reservation.",
-    "Address": "Address",
     "Address line 2 (optional)": "Address line 2 (optional)",
     "apartment": {
       "Apartment, suite, etc.": "Apartment, suite, etc.",
@@ -318,13 +316,7 @@
       "helperText": "Please provide the best mobile phone number for your family.",
       "label": "Phone number"
     },
-    "s primary address": "'s primary address",
-    "Yes! I would like to receive helpful messages from {{PROJECT_NAME}} regarding patient education, events, and general information about our offices. Message frequency varies, and data rates may apply.": "Yes! I would like to receive helpful messages from {{PROJECT_NAME}} regarding patient education, events, and general information about our offices. Message frequency varies, and data rates may apply.",
-    "select": "Select...",
-    "State": "State",
-    "Street address": "Street address",
-    "Contact information": "Contact information",
-    "Zip": "ZIP"
+    "select": "Select..."
   },
   "emailComms": {
     "canceled": {
@@ -577,10 +569,8 @@
     "Date may not be in the future": "Date may not be in the future",
     "Please enter a valid date": "Please enter a valid date",
     "Item not found": "Item not found",
-    "is required": "is required",
     "Must be a valid number greater than or equal to 0": "Must be a valid number greater than or equal to 0",
     "Phone number must be 10 digits in the format (xxx) xxx-xxxx": "Phone number must be 10 digits in the format (xxx) xxx-xxxx",
-    "recordRequired": "At least one record is required",
     "Selection is required": "Selection is required",
     "ZIP Code must be 5 numbers": "ZIP Code must be 5 numbers",
     "This field is required": "This field is required",
@@ -590,7 +580,6 @@
     "Patient email": "Patient email",
     "Patient mobile": "Patient mobile",
     "Please provide the information for the best point of contact regarding this reservation.": "Please provide the information for the best point of contact regarding this reservation.",
-    "Address": "Address",
     "Address line 2 (optional)": "Address line 2 (optional)",
     "Apartment, suite, etc.": "Apartment, suite, etc.",
     "Apartment": "Apartment",
@@ -746,7 +735,6 @@
     "Responsible party information": "Responsible party information",
     "I have reviewed and accept": "I have reviewed and accept",
     "HIPAA Acknowledgement": "HIPAA Acknowledgement",
-    "I have reviewed and accept [Consent to Treat, Guarantee of Payment & Card on File Agreement](/CTT.and.Guarantee.of.Payment.and.Credit.Card.Agreement.Illinois-S.pdf)": "I have reviewed and accept [Consent to Treat, Guarantee of Payment & Card on File Agreement](/CTT.and.Guarantee.of.Payment.and.Credit.Card.Agreement.Illinois-S.pdf)",
     "I have reviewed and accept [HIPAA Acknowledgement](/HIPAA.Acknowledgement-S.pdf)": "I have reviewed and accept [HIPAA Acknowledgement](/HIPAA.Acknowledgement-S.pdf)",
     "I have reviewed and accept [Consent to Treat, Guarantee of Payment & Card on File Agreement](/CTT.and.Guarantee.of.Payment.and.Credit.Card.Agreement-S.pdf)": "I have reviewed and accept [Consent to Treat, Guarantee of Payment & Card on File Agreement](/CTT.and.Guarantee.of.Payment.and.Credit.Card.Agreement-S.pdf)",
     "Consent to Treat, Guarantee of Payment & Card on File Agreement": "Consent to Treat, Guarantee of Payment & Card on File Agreement",
