@@ -5,6 +5,7 @@ import { useFormContext } from 'react-hook-form';
 import { IntakeQuestionnaireItem } from 'utils';
 import { dataTestIds } from '../../../../helpers/data-test-ids';
 import { deleteIcon } from '../../../../themes/ottehr';
+import { useQuestionnaireText } from '../../getQuestionnaireText';
 import { getPaperworkFieldId, useFormValues } from '../../useFormHelpers';
 
 interface MultiAnswerHeader {
@@ -20,7 +21,8 @@ interface SelectedItem {
 }
 
 const MultiAnswerHeader: FC<MultiAnswerHeader> = ({ item, parentItem }) => {
-  const title = item.text;
+  const qt = useQuestionnaireText();
+  const title = qt(item.linkId, item.text);
 
   const formValues = useFormValues();
   const fieldId = getPaperworkFieldId({ item, parentItem });

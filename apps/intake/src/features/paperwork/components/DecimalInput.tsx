@@ -1,5 +1,6 @@
 import { TextField } from '@mui/material';
 import { FC, useEffect, useState } from 'react';
+import { useQuestionnaireText } from '../getQuestionnaireText';
 import { StyledQuestionnaireItem } from '../useStyleItems';
 
 interface DecimalInputProps {
@@ -13,6 +14,7 @@ interface DecimalInputProps {
 }
 
 const DecimalInput: FC<DecimalInputProps> = ({ item, value, fieldId, onChange, inputRef, error, disabled }) => {
+  const qt = useQuestionnaireText();
   // Use local state to preserve user input including trailing decimals
   const [displayValue, setDisplayValue] = useState<string>(() => {
     if (value === '' || value === undefined || value === null) return '';
@@ -69,7 +71,7 @@ const DecimalInput: FC<DecimalInputProps> = ({ item, value, fieldId, onChange, i
       inputMode="decimal"
       aria-labelledby={`${item.linkId}-label`}
       aria-describedby={`${item.linkId}-helper-text`}
-      placeholder={item.placeholder}
+      placeholder={qt(item.linkId, item.placeholder, 'placeholder')}
       required={item.required}
       onChange={handleChange}
       InputLabelProps={{ shrink: true }}

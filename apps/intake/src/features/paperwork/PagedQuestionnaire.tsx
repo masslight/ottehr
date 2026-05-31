@@ -66,6 +66,7 @@ import { PharmacyCollection } from './components/PharmacyCollection';
 import RadioInput from './components/RadioInput';
 import RadioListInput from './components/RadioListInput';
 import { usePaperworkContext } from './context';
+import { useQuestionnaireText } from './getQuestionnaireText';
 import { useCreditCardSave } from './hooks/useCreditCardSave';
 import { useAutoFillValues } from './useAutofill';
 import { useDisplayFilteredOptions, useFilterAnswersOptions } from './useFilterAnswersOptions';
@@ -254,6 +255,7 @@ interface PaperworkPageTitleProps {
 
 const PaperworkPageTitle: FC<PaperworkPageTitleProps> = ({ pageItem, pageSubtitle }) => {
   const theme = useTheme();
+  const qt = useQuestionnaireText();
   const [styledPageItem] = useStyledItems({ formItems: [pageItem] });
   return (
     <Stack style={{ marginBottom: '16px' }}>
@@ -265,7 +267,7 @@ const PaperworkPageTitle: FC<PaperworkPageTitleProps> = ({ pageItem, pageSubtitl
         color="primary.main"
         data-testid="flow-page-title"
       >
-        {styledPageItem?.text}
+        {qt(styledPageItem?.linkId, styledPageItem?.text)}
       </Typography>
       {pageSubtitle && (
         <Typography variant="body2" color={theme.palette.secondary.main} fontSize={'18px'}>
@@ -462,6 +464,7 @@ interface NestedInputProps extends StyledItemInputProps {
 const NestedInput: FC<NestedInputProps> = (props) => {
   const { item, inputProps, sx = {}, pageItem, parentItem, inheritedFieldId } = props;
   const { helperText, showHelperTextIcon } = inputProps || {};
+  const qt = useQuestionnaireText();
   const { formValues } = useQRState();
   const dependency = item.requireWhen ? formValues[item.requireWhen.question] : undefined;
   const { otherColors } = useIntakeThemeContext();
@@ -521,16 +524,16 @@ const NestedInput: FC<NestedInputProps> = (props) => {
               })}
             >
               {item.infoText ? (
-                <Tooltip enterTouchDelay={0} title={item.infoText} placement="top" arrow>
+                <Tooltip enterTouchDelay={0} title={qt(item.linkId, item.infoText, 'infoText')} placement="top" arrow>
                   <Box>
-                    {item.text}
+                    {qt(item.linkId, item.text)}
                     <IconButton>
                       <InfoOutlinedIcon sx={{ fontSize: '18px', color: 'secondary.main' }} />
                     </IconButton>
                   </Box>
                 </Tooltip>
               ) : (
-                item.text
+                qt(item.linkId, item.text)
               )}
             </BoldPurpleInputLabel>
             <FormInputField
@@ -542,7 +545,7 @@ const NestedInput: FC<NestedInputProps> = (props) => {
             />
             {item.secondaryInfoText ? (
               <LightToolTip
-                title={item.secondaryInfoText}
+                title={qt(item.linkId, item.secondaryInfoText, 'secondaryInfoText')}
                 placement="top"
                 enterTouchDelay={0}
                 backgroundColor={otherColors.toolTipGrey}
@@ -600,6 +603,7 @@ const FormInputField: FC<GetFormInputFieldProps> = ({
   const inputType = getInputTypeForItem(item);
   const { otherColors } = useIntakeThemeContext();
   const theme = useTheme();
+  const qt = useQuestionnaireText();
   const myInputComponent = inputBaseProps?.mask ? (InputMask as any) : 'input';
 
   const { answerLoadingOptions } = item;
@@ -651,7 +655,7 @@ const FormInputField: FC<GetFormInputFieldProps> = ({
                   : 'text'),
               ...(item.dataType === 'ZIP' && { pattern: zipRegex, maxLength: 10 }),
             }}
-            placeholder={item.placeholder}
+            placeholder={qt(item.linkId, item.placeholder, 'placeholder')}
             required={item.required}
             onChange={smartOnChange}
             InputLabelProps={{ shrink: true }}
@@ -724,13 +728,15 @@ const FormInputField: FC<GetFormInputFieldProps> = ({
               },
             }}
           >
-            {item.text}
+            {qt(item.linkId, item.text)}
           </Button>
         );
       case 'Checkbox':
         return (
           <FormControlLabel
-            label={<Markdown components={{ p: DescriptionRenderer, a: LinkRenderer }}>{item.text}</Markdown>}
+            label={
+              <Markdown components={{ p: DescriptionRenderer, a: LinkRenderer }}>{qt(item.linkId, item.text)}</Markdown>
+            }
             sx={{ pt: item.hideControlLabel ? 0 : 1, alignItems: 'flex-start', margin: '0px' }}
             control={
               <Checkbox
@@ -863,7 +869,7 @@ const FormInputField: FC<GetFormInputFieldProps> = ({
               },
             }}
           >
-            {item.text}
+            {qt(item.linkId, item.text)}
           </Link>
         );
       default:
@@ -878,19 +884,20 @@ interface FormDisplayFieldProps {
 
 const FormDisplayField: FC<FormDisplayFieldProps> = ({ item }): ReactElement => {
   const displayType = getInputTypeForItem(item);
+  const qt = useQuestionnaireText();
   const element = (() => {
     switch (displayType) {
       case 'Call Out':
         return (
           <Card sx={{ p: 2, backgroundColor: otherColors.coachingVisit, borderRadius: 2 }} elevation={0}>
-            <Typography color="primary.main">{item.text}</Typography>
+            <Typography color="primary.main">{qt(item.linkId, item.text)}</Typography>
           </Card>
         );
       case 'Header 4':
         return (
           <Box mb={1} key={`form-display-H4-${item.linkId}-${item.text}`}>
             <Typography variant="h4" color="primary">
-              {item.text}
+              {qt(item.linkId, item.text)}
             </Typography>
           </Box>
         );
@@ -898,7 +905,7 @@ const FormDisplayField: FC<FormDisplayFieldProps> = ({ item }): ReactElement => 
         return (
           <Box mb={1} key={`form-display-H3-${item.linkId}-${item.text}`}>
             <Typography variant="h3" color="primary">
-              {item.text}
+              {qt(item.linkId, item.text)}
             </Typography>
           </Box>
         );
@@ -909,7 +916,7 @@ const FormDisplayField: FC<FormDisplayFieldProps> = ({ item }): ReactElement => 
             key={`form-display-body1-${item.linkId}-${item.text}`}
             sx={{ paddingBottom: '10px' }}
           >
-            {item.text}
+            {qt(item.linkId, item.text)}
           </Typography>
         );
       default:
