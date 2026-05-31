@@ -6,6 +6,7 @@ import { FC, SyntheticEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { otherColors } from '../../../IntakeThemeProvider';
 import { RadioStyling } from '../../../types';
+import { useQuestionnaireText } from '../getQuestionnaireText';
 import { useAnswerOptionLabelWhen } from '../useAnswerOptionLabelWhen';
 
 interface RadioInputProps extends RadioGroupProps {
@@ -18,6 +19,7 @@ interface RadioInputProps extends RadioGroupProps {
   centerImages?: boolean;
   onChange: (event: SyntheticEvent) => void;
   radioStyling?: RadioStyling;
+  linkId?: string;
 }
 
 const RadioInput: FC<RadioInputProps> = ({
@@ -29,9 +31,11 @@ const RadioInput: FC<RadioInputProps> = ({
   centerImages,
   onChange,
   radioStyling: maybeRadioStyling,
+  linkId,
 }) => {
   const theme = useTheme();
   const { t } = useTranslation();
+  const qt = useQuestionnaireText();
 
   const radioStyling = maybeRadioStyling ?? {
     radio: {
@@ -135,7 +139,11 @@ const RadioInput: FC<RadioInputProps> = ({
                   <>
                     {option.valueString && (
                       <Typography variant="h5" color="primary.main" sx={radioStyling?.label}>
-                        {labels[option.valueString] ? labels[option.valueString] : option.valueString}
+                        {qt(
+                          linkId,
+                          labels[option.valueString] ? labels[option.valueString] : option.valueString,
+                          `option.${option.valueString}`
+                        )}
                       </Typography>
                     )}
                     {

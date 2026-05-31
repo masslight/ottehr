@@ -694,6 +694,7 @@ const FormInputField: FC<GetFormInputFieldProps> = ({
         return (
           <FreeMultiSelectInput
             name={fieldId}
+            linkId={item.linkId}
             disabled={item.displayStrategy !== 'enabled'}
             value={unwrappedValue}
             multiple={item.acceptsMultipleAnswers}
@@ -769,6 +770,7 @@ const FormInputField: FC<GetFormInputFieldProps> = ({
         return (
           <RadioInput
             name={fieldId}
+            linkId={item.linkId}
             value={unwrappedValue}
             required={item.required}
             options={answerOptions}
@@ -779,6 +781,7 @@ const FormInputField: FC<GetFormInputFieldProps> = ({
         return (
           <RadioListInput
             name={fieldId}
+            linkId={item.linkId}
             value={unwrappedValue}
             required={item.required}
             options={answerOptions}

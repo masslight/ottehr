@@ -414,6 +414,9 @@
     },
     "required": "required field",
     "select": "Select...",
+    "selectAllThatApply": "Select all that apply...",
+    "typeOrSelect": "Type or select...",
+    "typeOrSelectAll": "Type or select all that apply",
     "unknown": "Unknown",
     "zip": "ZIP"
   },

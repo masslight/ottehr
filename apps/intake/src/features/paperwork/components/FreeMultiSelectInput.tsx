@@ -2,9 +2,11 @@ import { Autocomplete, MenuItem, SelectProps, TextField, useTheme } from '@mui/m
 import { QuestionnaireItemAnswerOption } from 'fhir/r4b';
 import { FC, ReactNode, useCallback, useContext, useMemo, useState } from 'react';
 import { useFormContext } from 'react-hook-form';
+import { useTranslation } from 'react-i18next';
 import { AnswerLoadingOptions, GetAnswerOptionsRequest } from 'utils';
 import { IntakeThemeContext } from '../../../contexts';
 import { useAnswerOptionsQuery } from '../../../telemed/features/paperwork';
+import { useQuestionnaireText } from '../getQuestionnaireText';
 import { VirtualizedListbox } from './VirtualizedListbox';
 
 type PrunedSelectProps = Omit<
@@ -22,6 +24,7 @@ type FreeMultiSelectInputProps = {
   dynamicAnswerOptions?: AnswerLoadingOptions;
   answerValueSet?: string;
   onChange: (e: any) => void;
+  linkId?: string;
 } & PrunedSelectProps;
 
 const FreeMultiSelectInput: FC<FreeMultiSelectInputProps> = ({
@@ -35,11 +38,18 @@ const FreeMultiSelectInput: FC<FreeMultiSelectInputProps> = ({
   dynamicAnswerOptions,
   answerValueSet,
   onChange,
+  linkId,
   ...otherProps
 }) => {
   const theme = useTheme();
   const { otherColors } = useContext(IntakeThemeContext);
+  const { t } = useTranslation();
+  const qt = useQuestionnaireText();
   const [inputValue, setInputValue] = useState<string>('');
+
+  // Translate an option's display label while leaving its underlying value untouched.
+  const displayLabel = (option: any): string =>
+    qt(linkId, labelForOption(option), `option.${idForOption(option)}`) ?? labelForOption(option);
 
   const fetchOptionsInput: GetAnswerOptionsRequest | undefined = (() => {
     if (dynamicAnswerOptions !== undefined) {
@@ -73,15 +83,15 @@ const FreeMultiSelectInput: FC<FreeMultiSelectInputProps> = ({
       return customPlaceholder;
     }
     if (freeSolo && multiple) {
-      return 'Type or select all that apply';
+      return t('general.typeOrSelectAll');
     }
     if (freeSolo) {
-      return 'Type or select...';
+      return t('general.typeOrSelect');
     }
     if (multiple) {
-      return 'Select all that apply...';
+      return t('general.selectAllThatApply');
     }
-    return 'Select...';
+    return t('general.select');
   })();
 
   const selectionHandler = useCallback(
@@ -191,7 +201,7 @@ const FreeMultiSelectInput: FC<FreeMultiSelectInputProps> = ({
       defaultValue={defaultOrNull}
       renderTags={(_options, _getTagProps) => null}
       getOptionLabel={(option) => {
-        return labelForOption(option);
+        return displayLabel(option);
       }}
       isOptionEqualToValue={(option, value) => {
         if (typeof option === 'object') {
@@ -216,7 +226,7 @@ const FreeMultiSelectInput: FC<FreeMultiSelectInputProps> = ({
                 onClickCopy?.({ ...e, selectedOption: valueForOption(option, valueType) } as any);
               };
               const propsCopy = { ...props, onClick: newOnClick };
-              return [propsCopy, { id: idForOption(option), label: labelForOption(option) }, state.index] as ReactNode;
+              return [propsCopy, { id: idForOption(option), label: displayLabel(option) }, state.index] as ReactNode;
             }
           : (props, option, _state) => {
               return (
@@ -230,7 +240,7 @@ const FreeMultiSelectInput: FC<FreeMultiSelectInputProps> = ({
                     props?.onClick?.({ ...e, selectedOption: valueForOption(option, valueType) } as any);
                   }}
                 >
-                  {labelForOption(option)}
+                  {displayLabel(option)}
                 </MenuItem>
               );
             }

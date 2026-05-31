@@ -23,7 +23,10 @@ export const translateQuestionnaireText = (
   if (text == null || linkId == null) {
     return text;
   }
-  return t(buildKey(linkId, suffix), { defaultValue: text });
+  // Disable i18next key/namespace separators so that option values (which may
+  // contain '.', ':' or '/') are treated as a single flat key rather than being
+  // split into nested lookups.
+  return t(buildKey(linkId, suffix), { defaultValue: text, keySeparator: false, nsSeparator: false });
 };
 
 export type QuestionnaireTextTranslator = (

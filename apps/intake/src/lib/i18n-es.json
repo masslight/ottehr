@@ -414,6 +414,9 @@
     },
     "required": "campo requierido",
     "select": "Seleccionar…",
+    "selectAllThatApply": "Seleccione todas las que correspondan…",
+    "typeOrSelect": "Escriba o seleccione…",
+    "typeOrSelectAll": "Escriba o seleccione todas las que correspondan",
     "unknown": "Desconocido",
     "zip": "Código postal"
   },
