@@ -7,6 +7,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { home } from 'src/themes/ottehr';
 import { BRANDING_CONFIG } from 'utils';
 import { dataTestIds } from '../helpers/data-test-ids';
+import { LanguagePicker } from './LanguagePicker';
 
 export interface ContainerProps {
   title?: ReactNode;
@@ -72,7 +73,7 @@ export const CustomContainer: FC<ContainerProps> = ({
   outsideCardComponent,
   useEmptyBody,
   children,
-  // showLanguagePicker,
+  showLanguagePicker,
   logo,
   alt,
   footer,
@@ -203,7 +204,7 @@ export const CustomContainer: FC<ContainerProps> = ({
         ) : (
           <Container maxWidth="md" sx={{ mb: 5 }}>
             <>
-              {/* {showLanguagePicker ? <LanguagePicker></LanguagePicker> : null} */}
+              {showLanguagePicker ? <LanguagePicker /> : null}
               {topOutsideCardComponent}
               <Card
                 variant="outlined"

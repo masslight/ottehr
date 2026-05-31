@@ -1,6 +1,6 @@
 import LanguageIcon from '@mui/icons-material/Language';
-import { Popover, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material';
-import { Box, useTheme } from '@mui/system';
+import { Popover, ToggleButton, ToggleButtonGroup, Typography, useTheme } from '@mui/material';
+import { Box } from '@mui/system';
 import { FC, MouseEvent, useContext, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { IntakeThemeContext } from '../contexts';
@@ -21,7 +21,6 @@ export const LanguagePicker: FC = () => {
   const handlePopupClose = (): void => {
     setAnchorEl(null);
   };
-  console.log(theme);
   return (
     <Box
       sx={{
