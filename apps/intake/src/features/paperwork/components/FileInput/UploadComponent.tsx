@@ -1,6 +1,7 @@
 import { Box, Button, Container, Typography, useTheme } from '@mui/material';
 import { ChangeEvent, FC, RefObject, useContext } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
+import { useTranslation } from 'react-i18next';
 import Markdown from 'react-markdown';
 import { MIME_TYPES } from 'utils';
 import { DescriptionRenderer } from '../../../../components/form';
@@ -27,6 +28,7 @@ const UploadComponent: FC<UploadComponentProps> = ({
   attachmentType,
 }): JSX.Element => {
   const theme = useTheme();
+  const { t } = useTranslation();
   const { control } = useFormContext();
   const { otherColors } = useContext(IntakeThemeContext);
 
@@ -60,9 +62,7 @@ const UploadComponent: FC<UploadComponentProps> = ({
         <Container style={{ width: '60%', margin: 0, padding: 0 }}>
           <Typography id={`${name}-description`}>
             {isCompressing ? (
-              <Markdown components={{ p: DescriptionRenderer }}>
-                {"Hold tight!  \nThis image is a little too big, we're compressing it for you..."}
-              </Markdown>
+              <Markdown components={{ p: DescriptionRenderer }}>{t('paperworkUI.compressing')}</Markdown>
             ) : typeof uploadDescription === 'string' ? (
               <Markdown components={{ p: DescriptionRenderer }}>{uploadDescription}</Markdown>
             ) : (
@@ -120,7 +120,7 @@ const UploadComponent: FC<UploadComponentProps> = ({
               }
             }}
           >
-            Upload
+            {t('paperworkUI.upload')}
           </Button>
         )}
       </Box>

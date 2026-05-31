@@ -13,6 +13,7 @@ import {
 import { Elements } from '@stripe/react-stripe-js';
 import { Stripe } from '@stripe/stripe-js';
 import { FC, useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { AddCreditCardForm, CreditCardBrandIcon, loadStripe } from 'ui-components';
 import { CreditCardInfo, PaymentMethodSetupZambdaOutput } from 'utils';
 import { BoldPurpleInputLabel } from '../../../components/form';
@@ -31,6 +32,7 @@ interface CreditCardVerificationProps {
 }
 
 export const CreditCardVerification: FC<CreditCardVerificationProps> = ({ fieldId, onChange, required, value }) => {
+  const { t } = useTranslation();
   const {
     patient,
     appointment,
@@ -91,7 +93,7 @@ export const CreditCardVerification: FC<CreditCardVerificationProps> = ({ fieldI
       onError: (error) => {
         console.error('setDefault error', error);
         setPendingSelection(undefined);
-        setErrorMessage('Unable to set default payment method. Please try again later or select a card.');
+        setErrorMessage(t('paperworkUI.unableToSetDefaultPaymentMethod'));
       },
     });
   };
@@ -109,10 +111,7 @@ export const CreditCardVerification: FC<CreditCardVerificationProps> = ({ fieldI
       }}
     >
       <Card sx={{ p: 2, backgroundColor: otherColors.coachingVisit, borderRadius: 2 }} elevation={0}>
-        <Typography color="primary.main">
-          Please select your preferred payment method for any outstanding balance not covered by your insurance
-          provider. If you are self-paying, the selected card will be charged for the total amount due.
-        </Typography>
+        <Typography color="primary.main">{t('paperworkUI.selectPaymentMethodInfo')}</Typography>
       </Card>
       <CreditCardContent
         setupData={setupData}
@@ -159,6 +158,7 @@ const CreditCardContent: FC<CreditCardContentProps> = ({
   handleNewPaymentMethod,
 }) => {
   const theme = useTheme();
+  const { t } = useTranslation();
   const cardFormRef = useCreditCardStore((state) => state.cardFormRef);
   const handleCardChange = useCreditCardStore((state) => state.handleCardChange);
 
@@ -182,7 +182,7 @@ const CreditCardContent: FC<CreditCardContentProps> = ({
             color: theme.palette.primary.dark,
           })}
         >
-          {`${cards.length ? 'Select' : 'Add'} the card you want to pay with`}
+          {cards.length ? t('paperworkUI.selectCardToPayWith') : t('paperworkUI.addCardToPayWith')}
         </BoldPurpleInputLabel>
         <RadioGroup
           name="default-card-selection-group"
@@ -197,7 +197,9 @@ const CreditCardContent: FC<CreditCardContentProps> = ({
           onChange={(e) => void onMakePrimary(e.target.value)}
         >
           {cards.map((item) => {
-            const formattedBrand = item.brand ? `${item.brand.charAt(0).toUpperCase()}${item.brand.slice(1)}` : 'Card';
+            const formattedBrand = item.brand
+              ? `${item.brand.charAt(0).toUpperCase()}${item.brand.slice(1)}`
+              : t('paperworkUI.cardBrandFallback');
             return (
               <Box key={item.id} sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                 <FormControlLabel

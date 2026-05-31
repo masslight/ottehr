@@ -60,7 +60,8 @@
     "cancel": "Cancelar",
     "startChat": "Iniciar chat",
     "messagePlaceholder": "Su mensaje...",
-    "send": "Enviar"
+    "send": "Enviar",
+    "skip": "Omitir"
   },
   "confirmationDialog": {
     "back": "Atrás",
@@ -418,6 +419,7 @@
     "typeOrSelect": "Escriba o seleccione…",
     "typeOrSelectAll": "Escriba o seleccione todas las que correspondan",
     "unknown": "Desconocido",
+    "whyAsk": "¿Por qué preguntamos esto?",
     "zip": "Código postal"
   },
   "getReady": {
@@ -480,6 +482,31 @@
     "selectionRequired": "Se requiere selección",
     "zipCode": "El código postal debe tener 5 números",
     "fieldRequired": "Este campo es requierido"
+  },
+  "paperworkUI": {
+    "upload": "Subir",
+    "clear": "Eliminar",
+    "uploading": "Subiendo...",
+    "clickToReupload": "Haga clic para subir otra foto",
+    "alreadyHaveSavedOn": "¡Ya la tenemos! Se guardó ",
+    "compressing": "¡Un momento!  \nEsta imagen es un poco grande, la estamos comprimiendo para usted...",
+    "failedToUploadCard": "No se pudo subir la tarjeta. Inténtelo de nuevo",
+    "selectPaymentMethodInfo": "Seleccione su método de pago preferido para cualquier saldo pendiente no cubierto por su proveedor de seguro. Si paga por cuenta propia, se cobrará el monto total a la tarjeta seleccionada.",
+    "selectCardToPayWith": "Seleccione la tarjeta con la que desea pagar",
+    "addCardToPayWith": "Agregue la tarjeta con la que desea pagar",
+    "unableToSetDefaultPaymentMethod": "No se pudo establecer el método de pago predeterminado. Inténtelo más tarde o seleccione una tarjeta.",
+    "selectOrAddPaymentMethod": "Seleccione o agregue un método de pago para continuar.",
+    "cardBrandFallback": "Tarjeta",
+    "cardSaveErrorDefault": "Se produjo un error al guardar la tarjeta",
+    "useSavedCardInstead": "Puede usar su tarjeta guardada en su lugar. Borre el campo de la tarjeta para continuar con su tarjeta guardada.",
+    "cardCannotBeSaved": "No se puede guardar la tarjeta",
+    "continueAnyway": "Continuar de todos modos",
+    "editCardInformation": "Editar la información de la tarjeta",
+    "pharmacySearchPlaceholder": "Buscar",
+    "pharmacyNoResults": "Sin resultados",
+    "pharmacyIncludeName": "Incluya el nombre de la farmacia en su búsqueda",
+    "pharmacyErrorSearching": "Hubo un error al buscar la ubicación",
+    "pharmacyErrorSelecting": "Hubo un error al seleccionar la ubicación"
   },
   "paperwork": {
     "pageNames": {

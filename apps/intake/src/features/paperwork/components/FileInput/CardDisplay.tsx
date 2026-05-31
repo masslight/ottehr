@@ -1,5 +1,6 @@
 import { Box, Button, Skeleton, useTheme } from '@mui/material';
 import { FC, useContext } from 'react';
+import { useTranslation } from 'react-i18next';
 import { IntakeThemeContext } from '../../../../contexts';
 import { dataTestIds } from '../../../../helpers/data-test-ids';
 
@@ -12,6 +13,7 @@ interface CardDisplayProps {
 
 const CardDisplay: FC<CardDisplayProps> = ({ name, previewUrl, isLoading, onClear }) => {
   const theme = useTheme();
+  const { t } = useTranslation();
   const { otherColors } = useContext(IntakeThemeContext);
 
   return (
@@ -48,7 +50,7 @@ const CardDisplay: FC<CardDisplayProps> = ({ name, previewUrl, isLoading, onClea
         }}
         data-testid={isLoading ? dataTestIds.fileCardUploadingButton : dataTestIds.fileCardClearButton}
       >
-        {isLoading ? 'Uploading...' : 'Clear'}
+        {isLoading ? t('paperworkUI.uploading') : t('paperworkUI.clear')}
       </Button>
     </Box>
   );

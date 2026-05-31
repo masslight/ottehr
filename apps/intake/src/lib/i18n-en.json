@@ -60,7 +60,8 @@
     "cancel": "Cancel",
     "startChat": "Start chat",
     "messagePlaceholder": "Your message...",
-    "send": "Send"
+    "send": "Send",
+    "skip": "Skip"
   },
   "confirmationDialog": {
     "back": "Back",
@@ -418,6 +419,7 @@
     "typeOrSelect": "Type or select...",
     "typeOrSelectAll": "Type or select all that apply",
     "unknown": "Unknown",
+    "whyAsk": "Why do we ask this?",
     "zip": "ZIP"
   },
   "getReady": {
@@ -479,6 +481,31 @@
     "selectionRequired": "Selection is required",
     "zipCode": "ZIP Code must be 5 numbers",
     "fieldRequired": "This field is required"
+  },
+  "paperworkUI": {
+    "upload": "Upload",
+    "clear": "Clear",
+    "uploading": "Uploading...",
+    "clickToReupload": "Click to re-upload",
+    "alreadyHaveSavedOn": "We already have this! It was saved on ",
+    "compressing": "Hold tight!  \nThis image is a little too big, we're compressing it for you...",
+    "failedToUploadCard": "Failed to upload card. Please try again",
+    "selectPaymentMethodInfo": "Please select your preferred payment method for any outstanding balance not covered by your insurance provider. If you are self-paying, the selected card will be charged for the total amount due.",
+    "selectCardToPayWith": "Select the card you want to pay with",
+    "addCardToPayWith": "Add the card you want to pay with",
+    "unableToSetDefaultPaymentMethod": "Unable to set default payment method. Please try again later or select a card.",
+    "selectOrAddPaymentMethod": "Please select or add a payment method to proceed.",
+    "cardBrandFallback": "Card",
+    "cardSaveErrorDefault": "An error occurred while saving the card",
+    "useSavedCardInstead": "You can use your saved card instead. Clear the card input field to continue with your saved card.",
+    "cardCannotBeSaved": "Card cannot be saved",
+    "continueAnyway": "Continue anyway",
+    "editCardInformation": "Edit card information",
+    "pharmacySearchPlaceholder": "Search",
+    "pharmacyNoResults": "No results",
+    "pharmacyIncludeName": "Please include pharmacy name in your search",
+    "pharmacyErrorSearching": "There was an error searching for the location",
+    "pharmacyErrorSelecting": "There was an error selecting the location"
   },
   "paperwork": {
     "pageNames": {

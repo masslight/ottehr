@@ -66,7 +66,7 @@ import { PharmacyCollection } from './components/PharmacyCollection';
 import RadioInput from './components/RadioInput';
 import RadioListInput from './components/RadioListInput';
 import { usePaperworkContext } from './context';
-import { useQuestionnaireText } from './getQuestionnaireText';
+import { translateQuestionnaireText, useQuestionnaireText } from './getQuestionnaireText';
 import { useCreditCardSave } from './hooks/useCreditCardSave';
 import { useAutoFillValues } from './useAutofill';
 import { useDisplayFilteredOptions, useFilterAnswersOptions } from './useFilterAnswersOptions';
@@ -155,7 +155,7 @@ const makeFormErrorMessage = (items: IntakeQuestionnaireItem[], errors: any): st
         const items = ((errors[i.linkId] as any)?.item ?? []) as any[];
         if (!Array.isArray(items)) {
           // If items is not an array, treat it as a single group error
-          return `"${stripMarkdownLink(i.text ?? i.linkId)}"`;
+          return `"${stripMarkdownLink(translateQuestionnaireText(t, i.linkId, i.text) ?? i.linkId)}"`;
         }
 
         const internalErrors: IntakeQuestionnaireItem[] = [];
@@ -169,17 +169,22 @@ const makeFormErrorMessage = (items: IntakeQuestionnaireItem[], errors: any): st
         });
         numErrors += internalErrors.length - 1;
         return internalErrors.map((nestedItem) => {
-          return `"${stripMarkdownLink(nestedItem.text ?? '')}"`;
+          return `"${stripMarkdownLink(translateQuestionnaireText(t, nestedItem.linkId, nestedItem.text) ?? '')}"`;
         });
       }
-      return `"${stripMarkdownLink(i.text ?? '')}"`;
+      return `"${stripMarkdownLink(translateQuestionnaireText(t, i.linkId, i.text) ?? '')}"`;
     });
 
   if (numErrors === errorItems.length) {
     if (numErrors > 1) {
-      return t('paperworkPages.fixErrorsNamed', { fields: errorItems.join(', ') });
+      // escapeValue: false — these field names are rendered as plain text, and i18next would
+      // otherwise HTML-escape the surrounding quotes/apostrophes into &quot;/&#39;.
+      return t('paperworkPages.fixErrorsNamed', {
+        fields: errorItems.join(', '),
+        interpolation: { escapeValue: false },
+      });
     } else {
-      return t('paperworkPages.fixErrorNamed', { field: errorItems[0] });
+      return t('paperworkPages.fixErrorNamed', { field: errorItems[0], interpolation: { escapeValue: false } });
     }
   } else if (numErrors === 1) {
     return t('paperworkPages.fixErrorAbove');
@@ -561,7 +566,7 @@ const NestedInput: FC<NestedInputProps> = (props) => {
                   }}
                 >
                   <InfoOutlinedIcon style={{ height: '16px', width: '16px' }} />
-                  <Typography sx={{ fontSize: '14px', marginLeft: 0.5 }}>Why do we ask this?</Typography>
+                  <Typography sx={{ fontSize: '14px', marginLeft: 0.5 }}>{t('general.whyAsk')}</Typography>
                 </Box>
               </LightToolTip>
             ) : null}
@@ -817,7 +822,7 @@ const FormInputField: FC<GetFormInputFieldProps> = ({
             attachmentType={attachmentType}
             value={unwrappedValue}
             onChange={smartOnChange}
-            description={item.attachmentText ?? ''}
+            description={qt(item.linkId, item.attachmentText, 'attachmentText') ?? ''}
             usePaperworkContext={usePaperworkContext}
           />
         );

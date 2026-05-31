@@ -1,5 +1,6 @@
 import { QuestionnaireResponseItem } from 'fhir/r4b';
 import { FC, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import api from 'src/api/ottehrApi';
 import { dataTestIds } from 'src/helpers/data-test-ids';
 import { useUCZambdaClient } from 'src/hooks/useUCZambdaClient';
@@ -20,6 +21,7 @@ export interface PharmacyCollectionProps {
 
 export const PharmacyCollection: FC<PharmacyCollectionProps> = (props: PharmacyCollectionProps) => {
   const { onChange } = props;
+  const { t } = useTranslation();
   const { formValues } = useQRState();
 
   const zambdaClient = useUCZambdaClient({ tokenless: false });
@@ -91,6 +93,11 @@ export const PharmacyCollection: FC<PharmacyCollectionProps> = (props: PharmacyC
       handlePharmacySelection={handlePharmacySelection}
       searchPlaces={handleSearchPlaces}
       dataTestId={dataTestIds.preferredPharmacy.pharmacySearch}
+      searchPlaceholder={t('paperworkUI.pharmacySearchPlaceholder')}
+      noResultsText={t('paperworkUI.pharmacyNoResults')}
+      includeNameText={t('paperworkUI.pharmacyIncludeName')}
+      errorSearchingText={t('paperworkUI.pharmacyErrorSearching')}
+      errorSelectingText={t('paperworkUI.pharmacyErrorSelecting')}
     ></PharmacySearch>
   );
 };

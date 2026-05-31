@@ -4,6 +4,7 @@ import { Attachment } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { ChangeEvent, FC, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useFormContext } from 'react-hook-form';
+import { useTranslation } from 'react-i18next';
 import { convertHeicToJpegIfNeeded } from 'ui-components';
 import { addContentTypeToAttachment } from 'utils';
 import { ottehrApi } from '../../../../api';
@@ -44,6 +45,7 @@ const FileInput: FC<FileInputProps> = ({
   attachmentType = 'image',
   usePaperworkContext,
 }) => {
+  const { t } = useTranslation();
   const { formState } = useFormContext();
   const { defaultValues } = formState;
   const { appointment, setSaveButtonDisabled } = usePaperworkContext();
@@ -104,16 +106,16 @@ const FileInput: FC<FileInputProps> = ({
       }
       return (
         <>
-          {`We already have this! It was saved on ${dateString}`}
+          {`${t('paperworkUI.alreadyHaveSavedOn')}${dateString}`}
           <Link href="#" onClick={handleReuploadClick} underline="hover">
-            {'Click to re-upload'}
+            {t('paperworkUI.clickToReupload')}
           </Link>
           .
         </>
       );
     }
     return description;
-  }, [value, previewUrl, description]);
+  }, [value, previewUrl, description, t]);
 
   useEffect(() => {
     const saveObjectToZ3 = async (file: File, appointmentId: string, client: ZambdaClient): Promise<void> => {
@@ -204,7 +206,7 @@ const FileInput: FC<FileInputProps> = ({
         <UploadComponent
           name={name}
           attachmentType={attachmentType}
-          uploadDescription="Failed to upload card. Please try again"
+          uploadDescription={t('paperworkUI.failedToUploadCard')}
           isCompressing={false}
           handleFileUpload={handleClearSelection}
           inputRef={inputRef}

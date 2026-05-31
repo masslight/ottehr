@@ -1,4 +1,5 @@
 import { useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useCreditCardStore } from '../stores/useCreditCardStore';
 
 interface UseCreditCardSaveReturn {
@@ -7,6 +8,7 @@ interface UseCreditCardSaveReturn {
 }
 
 export const useCreditCardSave = (): UseCreditCardSaveReturn => {
+  const { t } = useTranslation();
   const isSavingCard = useCreditCardStore((state) => state.isSavingCard);
   const getCardState = useCreditCardStore((state) => state.getCardState);
   const saveCard = useCreditCardStore((state) => state.saveCard);
@@ -56,7 +58,7 @@ export const useCreditCardSave = (): UseCreditCardSaveReturn => {
       if (!cardState?.complete && isCreditCardRequired && creditCardFieldValue !== true) {
         const { creditCardFieldId, setFieldError } = useCreditCardStore.getState();
         if (creditCardFieldId && setFieldError) {
-          setFieldError(creditCardFieldId, 'Please select or add a payment method to proceed.');
+          setFieldError(creditCardFieldId, t('paperworkUI.selectOrAddPaymentMethod'));
         }
         console.log(`credit card has incorrect value`);
         return { shouldContinue: false };
@@ -72,6 +74,7 @@ export const useCreditCardSave = (): UseCreditCardSaveReturn => {
       saveCard,
       isCreditCardRequired,
       creditCardFieldValue,
+      t,
     ]
   );
 

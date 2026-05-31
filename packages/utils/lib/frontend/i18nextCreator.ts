@@ -10,9 +10,11 @@ export const i18nextCreator = (resources?: Resource, debug = false): i18n => {
     .init({
       fallbackLng: 'en',
       debug,
-      ...(debug && {
-        parseMissingKeyHandler: (key: string) => `No translation found for "${key}"`,
-      }),
+      // Intentionally no parseMissingKeyHandler: a missing key must fall back to the
+      // provided defaultValue (e.g. the English questionnaire text) rather than render a
+      // "No translation found" placeholder to the user. With `debug` enabled, i18next still
+      // logs missing keys to the console, and the questionnaire-translation-coverage contract
+      // test guards completeness.
       resources: resources,
     })
     .catch((error) => {

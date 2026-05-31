@@ -7,9 +7,24 @@ interface PharmacySearchProps {
   handlePharmacySelection: (input: PharmacyCollectionAnswerSetInput) => void;
   searchPlaces: (input: SearchPlacesInput) => Promise<SearchPlacesOutput>;
   dataTestId: string;
+  // Optional localized labels; default to English so existing consumers are unaffected.
+  searchPlaceholder?: string;
+  noResultsText?: string;
+  includeNameText?: string;
+  errorSearchingText?: string;
+  errorSelectingText?: string;
 }
 
-export const PharmacySearch: FC<PharmacySearchProps> = ({ handlePharmacySelection, searchPlaces, dataTestId }) => {
+export const PharmacySearch: FC<PharmacySearchProps> = ({
+  handlePharmacySelection,
+  searchPlaces,
+  dataTestId,
+  searchPlaceholder = 'Search',
+  noResultsText = 'No results',
+  includeNameText = 'Please include pharmacy name in your search',
+  errorSearchingText = 'There was an error searching for the location',
+  errorSelectingText = 'There was an error selecting the location',
+}) => {
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const [inputValue, setInputValue] = useState('');
   const [results, setResults] = useState<PlacesResult[]>([]);
@@ -70,7 +85,7 @@ export const PharmacySearch: FC<PharmacySearchProps> = ({ handlePharmacySelectio
         setResults(searchResponse.pharmacyPlaces);
       } catch (e) {
         console.log('error calling searchPlaces with searchTerm', e);
-        setError('There was an error searching for the location');
+        setError(errorSearchingText);
         setOpen(false);
       } finally {
         setSearching(false);
@@ -78,7 +93,7 @@ export const PharmacySearch: FC<PharmacySearchProps> = ({ handlePharmacySelectio
     };
 
     void handleSearchPlaces();
-  }, [debouncedSearchTerm, searchPlaces, userLocation]);
+  }, [debouncedSearchTerm, searchPlaces, userLocation, errorSearchingText]);
 
   const handlePharmSelect = async (placesId: string | undefined): Promise<void> => {
     if (!placesId) return;
@@ -99,7 +114,7 @@ export const PharmacySearch: FC<PharmacySearchProps> = ({ handlePharmacySelectio
       handlePharmacySelection(pharmacyInput);
     } catch (e) {
       console.log('error calling searchPlaces with placesId', e);
-      setError('There was an error selecting the location');
+      setError(errorSelectingText);
     } finally {
       setLoading(false);
     }
@@ -114,9 +129,7 @@ export const PharmacySearch: FC<PharmacySearchProps> = ({ handlePharmacySelectio
       size="small"
       fullWidth
       popupIcon={null}
-      noOptionsText={
-        debouncedSearchTerm && results.length === 0 ? 'No results' : 'Please include pharmacy name in your search'
-      }
+      noOptionsText={debouncedSearchTerm && results.length === 0 ? noResultsText : includeNameText}
       options={results}
       value={null}
       inputValue={inputValue}
@@ -148,7 +161,7 @@ export const PharmacySearch: FC<PharmacySearchProps> = ({ handlePharmacySelectio
       renderInput={(params) => (
         <TextField
           {...params}
-          placeholder="Search"
+          placeholder={searchPlaceholder}
           error={Boolean(error)}
           helperText={error}
           InputProps={{

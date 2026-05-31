@@ -3,6 +3,7 @@ import { Button, TextField } from '@mui/material';
 import { Box } from '@mui/system';
 import { Questionnaire, QuestionnaireResponse } from 'fhir/r4b';
 import { FC, useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router-dom';
 import { AiChatHistory } from 'src/components/AiChatHistory';
 import { useUCZambdaClient } from 'src/hooks/useUCZambdaClient';
@@ -16,6 +17,7 @@ interface AIInterviewProps {
 
 const AIInterview: FC<AIInterviewProps> = ({ value: medicalHistoryInterviewComplete, onChange }): JSX.Element => {
   const zambdaClient = useUCZambdaClient({ tokenless: false });
+  const { t } = useTranslation();
 
   const { id: appointmentId } = useParams();
   const { setContinueLabel } = usePaperworkContext();
@@ -44,9 +46,9 @@ const AIInterview: FC<AIInterviewProps> = ({ value: medicalHistoryInterviewCompl
     if (aiInterviewQuestionnaireResponse?.status === 'completed') {
       setContinueLabel(undefined);
     } else {
-      setContinueLabel('Skip');
+      setContinueLabel(t('aiInterview.skip'));
     }
-  }, [aiInterviewQuestionnaireResponse?.status, setContinueLabel]);
+  }, [aiInterviewQuestionnaireResponse?.status, setContinueLabel, t]);
 
   useEffect(() => {
     if (aiInterviewQuestionnaireResponse?.status === 'completed' && !medicalHistoryInterviewComplete) {
@@ -99,7 +101,7 @@ const AIInterview: FC<AIInterviewProps> = ({ value: medicalHistoryInterviewCompl
         >
           <TextField
             style={{ width: '100%' }}
-            placeholder="Your message..."
+            placeholder={t('aiInterview.messagePlaceholder')}
             value={answer}
             onChange={(e) => setAnswer(e.target.value)}
             onKeyUp={async (event) => {
@@ -123,7 +125,7 @@ const AIInterview: FC<AIInterviewProps> = ({ value: medicalHistoryInterviewCompl
             startIcon={<Send />}
             style={{ height: '38px', marginLeft: '16px', fontWeight: 500 }}
           >
-            Send
+            {t('aiInterview.send')}
           </Button>
         </Box>
       )}

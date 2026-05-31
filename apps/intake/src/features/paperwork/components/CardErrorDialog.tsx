@@ -1,5 +1,6 @@
 import { Box, Button, Typography } from '@mui/material';
 import { FC } from 'react';
+import { useTranslation } from 'react-i18next';
 import { CustomDialog } from '../../../components/CustomDialog';
 import { useCreditCardStore } from '../stores/useCreditCardStore';
 
@@ -8,18 +9,17 @@ interface CardErrorDialogProps {
 }
 
 export const CardErrorDialog: FC<CardErrorDialogProps> = ({ onContinueAnyway }) => {
+  const { t } = useTranslation();
   const cardSaveError = useCreditCardStore((state) => state.cardSaveError);
   const showCardErrorDialog = useCreditCardStore((state) => state.showCardErrorDialog);
   const closeCardErrorDialog = useCreditCardStore((state) => state.closeCardErrorDialog);
   const isRequired = useCreditCardStore((state) => state.isCreditCardRequired);
   const hasSavedCards = useCreditCardStore((state) => state.hasSavedCards);
 
-  const errorMessage = cardSaveError || 'An error occurred while saving the card';
+  const errorMessage = cardSaveError || t('paperworkUI.cardSaveErrorDefault');
 
   const additionalMessage = hasSavedCards ? (
-    <div style={{ marginTop: 10 }}>
-      You can use your saved card instead. Clear the card input field to continue with your saved card.
-    </div>
+    <div style={{ marginTop: 10 }}>{t('paperworkUI.useSavedCardInstead')}</div>
   ) : (
     ''
   );
@@ -37,7 +37,7 @@ export const CardErrorDialog: FC<CardErrorDialogProps> = ({ onContinueAnyway }) 
     >
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
         <Typography variant="h3" color="primary.main">
-          Card cannot be saved
+          {t('paperworkUI.cardCannotBeSaved')}
         </Typography>
 
         <Typography>
@@ -68,7 +68,7 @@ export const CardErrorDialog: FC<CardErrorDialogProps> = ({ onContinueAnyway }) 
                 minWidth: 180,
               }}
             >
-              Continue anyway
+              {t('paperworkUI.continueAnyway')}
             </Button>
           )}
           <Button
@@ -84,7 +84,7 @@ export const CardErrorDialog: FC<CardErrorDialogProps> = ({ onContinueAnyway }) 
               minWidth: isRequired ? '100%' : 220,
             }}
           >
-            Edit card information
+            {t('paperworkUI.editCardInformation')}
           </Button>
         </Box>
       </Box>
