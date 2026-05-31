@@ -1,8 +1,12 @@
 // cSpell:ignore Español
 import { i18nextCreator } from 'utils/lib/frontend';
-import * as englishStrings from './i18n-en.json';
-import * as spanishStrings from './i18n-es.json';
+import englishStrings from './i18n-en.json';
+import spanishStrings from './i18n-es.json';
 
+// Default-import the JSON so that ALL keys (including flat, dotted keys such as
+// `questionnaire.<linkId>.option.<value>`) are preserved at the top level of the
+// translation resource. A namespace import (`import * as`) only re-exports
+// valid-identifier top-level keys, which would drop the dotted questionnaire keys.
 const englishTranslation = JSON.stringify(englishStrings);
 const spanishTranslation = JSON.stringify(spanishStrings);
 

@@ -103,3 +103,26 @@ describe('RadioListInput questionnaire option i18n', () => {
     expect(radioValues(container)).toEqual(['Cough and/or congestion', 'Fever']);
   });
 });
+
+describe('shipped Spanish questionnaire translations', () => {
+  // Validates that the real es.json `questionnaire.*` keys (not test-injected bundles)
+  // are picked up by the renderer.
+  test('renders shipped Spanish option labels for preferred-language while preserving values', async () => {
+    await i18n.changeLanguage('es');
+    const languageOptions = [{ valueString: 'Spanish' }, { valueString: 'French' }];
+    const { container } = render(
+      <Wrapper>
+        <RadioInput
+          name="preferred-language"
+          linkId="preferred-language"
+          value={undefined}
+          options={languageOptions}
+          onChange={() => {}}
+        />
+      </Wrapper>
+    );
+    expect(screen.getByText('Español')).toBeTruthy();
+    expect(screen.getByText('Francés')).toBeTruthy();
+    expect(radioValues(container)).toEqual(['Spanish', 'French']);
+  });
+});
