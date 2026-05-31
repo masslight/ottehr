@@ -2,6 +2,8 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { selectBookingQuestionnaire } from 'utils/lib/ottehr-config/booking';
+import { IN_PERSON_INTAKE_PAPERWORK_QUESTIONNAIRE } from 'utils/lib/ottehr-config/intake-paperwork';
+import { VIRTUAL_INTAKE_PAPERWORK_QUESTIONNAIRE } from 'utils/lib/ottehr-config/intake-paperwork-virtual';
 import { describe, expect, it } from 'vitest';
 
 /**
@@ -14,21 +16,20 @@ import { describe, expect, it } from 'vitest';
  * the translation resource. This test reconstructs the expected set of those keys from the
  * canonical sources of truth and asserts es.json covers them.
  *
- * Sources of truth (core Ottehr defaults):
- *   - the in-person and virtual intake paperwork Questionnaire archives (latest version), and
- *   - the booking/registration Questionnaire produced by selectBookingQuestionnaire().
+ * Sources of truth (core Ottehr defaults): the current questionnaires GENERATED from config
+ * — not the versioned archives in config/oystehr. The archives accumulate historical
+ * versions; the live questionnaire is whatever the generator produces from the current
+ * config, exactly like the booking questionnaire. So we generate all three here:
+ *   - booking/registration  -> selectBookingQuestionnaire()
+ *   - in-person paperwork    -> IN_PERSON_INTAKE_PAPERWORK_QUESTIONNAIRE()
+ *   - virtual paperwork      -> VIRTUAL_INTAKE_PAPERWORK_QUESTIONNAIRE()
  *
  * Per-instance questionnaires (e.g. config-driven reason-for-visit options) are out of scope;
  * they ship their own content and need their own translations.
  */
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const repoRoot = path.resolve(__dirname, '../../../..');
 const ES_PATH = path.resolve(__dirname, '../../src/lib/i18n-es.json');
-const ARCHIVES = [
-  'config/oystehr/in-person-intake-questionnaire-archive.json',
-  'config/oystehr/virtual-intake-questionnaire-archive.json',
-];
 
 const EXTENSION_SUFFIX: Record<string, string> = {
   'https://fhir.zapehr.com/r4/StructureDefinitions/information-text': 'infoText',
@@ -39,8 +40,8 @@ const EXTENSION_SUFFIX: Record<string, string> = {
 /**
  * Hidden/internal questionnaire fields that are never shown to a patient as readable copy
  * (pharmacy-autocomplete plumbing), so they intentionally fall back to English. Keep this
- * list tight and documented — see the `expectedKeys` membership assertion below, which fails
- * if an allowlisted key is no longer produced by the questionnaires (stale allowlist).
+ * list tight and documented — the `does not contain a stale allowlist entry` test below
+ * fails if an allowlisted key is no longer produced by the questionnaires.
  */
 const ALLOWLIST = new Set<string>([
   'questionnaire.pharmacy-places-id',
@@ -56,24 +57,6 @@ type Item = {
   extension?: { url: string; valueString?: string }[];
   answerOption?: { valueString?: string; valueCoding?: { display?: string } }[];
   item?: Item[];
-};
-
-const compareVersion = (a: string, b: string): number => {
-  const pa = a.split('.').map(Number);
-  const pb = b.split('.').map(Number);
-  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
-    if ((pa[i] ?? 0) !== (pb[i] ?? 0)) return (pa[i] ?? 0) - (pb[i] ?? 0);
-  }
-  return 0;
-};
-
-const latestQuestionnaireFromArchive = (relPath: string): { item?: Item[] } => {
-  const raw = JSON.parse(fs.readFileSync(path.join(repoRoot, relPath), 'utf8'));
-  const questionnaires = Object.values(raw.fhirResources)
-    .map((entry: any) => entry.resource ?? entry)
-    .filter((r: any) => r.resourceType === 'Questionnaire');
-  questionnaires.sort((a: any, b: any) => compareVersion(a.version, b.version));
-  return questionnaires[questionnaires.length - 1];
 };
 
 // Mirror of getQuestionnaireText key construction, kept in sync with the renderer.
@@ -96,10 +79,14 @@ const collectExpectedKeys = (items: Item[] | undefined, out: Map<string, string>
 
 const buildExpectedKeys = (): Map<string, string> => {
   const expected = new Map<string, string>();
-  for (const archive of ARCHIVES) {
-    collectExpectedKeys(latestQuestionnaireFromArchive(archive).item, expected);
+  const questionnaires = [
+    selectBookingQuestionnaire().templateQuestionnaire,
+    IN_PERSON_INTAKE_PAPERWORK_QUESTIONNAIRE(),
+    VIRTUAL_INTAKE_PAPERWORK_QUESTIONNAIRE(),
+  ];
+  for (const q of questionnaires) {
+    collectExpectedKeys(q.item as Item[], expected);
   }
-  collectExpectedKeys(selectBookingQuestionnaire().templateQuestionnaire.item as Item[], expected);
   return expected;
 };
 
