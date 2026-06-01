@@ -29,6 +29,15 @@ export const isISODateTime = (dateTimeString: string): boolean => {
  *   - 90 min          → 30-min cadence
  *   - 120 min         → 60-min cadence
  *
+ * When gcd(d, 60) collapses below 10 (e.g. prime durations like 37 or 41
+ * yield gcd 1; 25/35/55 yield 5; 14/22/26 yield 2), the default falls
+ * back to the duration itself. Slot starts step every `durationMinutes`
+ * — no overlap, predictable, and the admin can still override via an
+ * explicit cadence if they want finer-grained starts. Without this
+ * fallback, a duration like 37 min produces a slot start every minute
+ * of every open hour, which is practically useless even though it's
+ * mathematically what gcd asks for.
+ *
  * Returns 15 as a safe default when durationMinutes isn't a positive number
  * (e.g. the admin form hasn't been filled in yet).
  *
@@ -36,10 +45,12 @@ export const isISODateTime = (dateTimeString: string): boolean => {
  * generator (convertCapacityListToBucketedTimeSlots) and by admin UIs that
  * display "Default (X min)" labels in cadence pickers.
  */
+const MIN_REASONABLE_DEFAULT_CADENCE = 10;
 export const getDefaultCadenceMinutes = (durationMinutes: number): number => {
   if (!Number.isFinite(durationMinutes) || durationMinutes <= 0) return 15;
   const gcd = (a: number, b: number): number => (b === 0 ? a : gcd(b, a % b));
-  return gcd(durationMinutes, 60);
+  const gcdValue = gcd(durationMinutes, 60);
+  return gcdValue >= MIN_REASONABLE_DEFAULT_CADENCE ? gcdValue : durationMinutes;
 };
 
 export const convertCapacityListToBucketedTimeSlots = (

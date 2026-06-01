@@ -11,6 +11,7 @@ import {
   Schedule,
 } from 'fhir/r4b';
 import type { AppointmentType, CanonicalUrl } from '../types';
+import { ServiceMode, ServiceVisitType } from '../types/common';
 import {
   DISCHARGE_SUMMARY_CODE,
   EXPORTED_QUESTIONNAIRE_CODE,
@@ -22,8 +23,6 @@ import {
   RECEIPT_CODE,
   SCHOOL_WORK_NOTE_CODE,
   SCHOOL_WORK_NOTE_TEMPLATE_CODE,
-  ServiceMode,
-  ServiceVisitType,
   STATEMENT_CODE,
   VISIT_NOTE_SUMMARY_CODE,
 } from '../types/data/paperwork/paperwork.constants';
