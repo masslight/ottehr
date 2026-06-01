@@ -1,40 +1,27 @@
-import { AdminGetTemplateDetailInput, INVALID_INPUT_ERROR, MISSING_REQUIRED_PARAMETERS } from 'utils';
-import { ZambdaInput } from '../../shared';
+import { AdminGetTemplateDetailInput, MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS } from 'utils';
+import { z } from 'zod';
+import { safeValidate, ZambdaInput } from '../../shared';
+
+const AdminGetTemplateDetailSchema = z.object({
+  templateId: z.string().trim().min(1),
+});
 
 export function validateRequestParameters(
   input: ZambdaInput
 ): AdminGetTemplateDetailInput & Pick<ZambdaInput, 'secrets'> {
-  if (!input.body) {
-    throw new Error('No request body provided');
-  }
-
-  const parsedInput = JSON.parse(input.body) as unknown;
-
-  if (!parsedInput || typeof parsedInput !== 'object') {
-    throw INVALID_INPUT_ERROR('Request body must be a valid JSON object');
-  }
-
-  const { templateId } = parsedInput as Record<string, unknown>;
-
-  const missingFields = [];
-  if (templateId === undefined) {
-    missingFields.push('templateId');
-  }
-
-  if (missingFields.length > 0) {
-    throw MISSING_REQUIRED_PARAMETERS(missingFields);
-  }
-
-  if (typeof templateId !== 'string' || templateId.trim() === '') {
-    throw INVALID_INPUT_ERROR('templateId must be a non-empty string');
-  }
-
   if (!input.secrets) {
-    throw new Error('No secrets provided in input');
+    throw MISSING_REQUEST_SECRETS;
   }
+
+  if (!input.body) {
+    throw MISSING_REQUEST_BODY;
+  }
+
+  const parsed = JSON.parse(input.body) as unknown;
+  const { templateId } = safeValidate(AdminGetTemplateDetailSchema, parsed);
 
   return {
-    templateId: templateId as string,
+    templateId,
     secrets: input.secrets,
   };
 }

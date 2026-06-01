@@ -25,6 +25,16 @@ describe('delete-patient-document - validateRequestParameters', () => {
     expect(() => validateRequestParameters(input)).toThrow();
   });
 
+  test('should throw when documentRefId is empty string', () => {
+    const input = createMockZambdaInput({ documentRefId: '' }, { secrets: createMockSecrets() });
+    expect(() => validateRequestParameters(input)).toThrow();
+  });
+
+  test('should throw when documentRefId is whitespace only', () => {
+    const input = createMockZambdaInput({ documentRefId: '   ' }, { secrets: createMockSecrets() });
+    expect(() => validateRequestParameters(input)).toThrow();
+  });
+
   test('should throw when documentRefId is not a string', () => {
     const input = createMockZambdaInput({ documentRefId: 123 }, { secrets: createMockSecrets() });
     expect(() => validateRequestParameters(input)).toThrow();
