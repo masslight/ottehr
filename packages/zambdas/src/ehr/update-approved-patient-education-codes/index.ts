@@ -2,6 +2,7 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { DocumentReference } from 'fhir/r4b';
 import {
+  ALREADY_EXISTS_WITH_MESSAGE,
   CODE_SYSTEM_ICD_10,
   getAllFhirSearchPages,
   getSecret,
@@ -81,7 +82,7 @@ const complexValidation = async (validatedInput: ValidatedInput, oystehr: Oysteh
     }
   }
   if (conflictingCodes.size > 0) {
-    throw new Error(
+    throw ALREADY_EXISTS_WITH_MESSAGE(
       `The following ICD codes are already used by other approved PDFs: ${Array.from(conflictingCodes).join(', ')}`
     );
   }
