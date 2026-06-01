@@ -641,7 +641,13 @@ function makePaymentResourceConfig(
     );
 
     // this should only happen if there are no Coverages passed, which we know there would be
-    if (!sortedCoverages) throw new Error('Error sorting coverages in makePaymentResourceConfig, none returned');
+    if (!sortedCoverages) {
+      console.error('Error sorting coverages in makePaymentResourceConfig, none returned');
+
+      throw EXTERNAL_LAB_ERROR(
+        `Something went wrong submitting. Patient details like insurance may have changed. Please delete and re-make the test(s).`
+      );
+    }
     console.log(
       `These are the sorted sortedCoverages ${JSON.stringify(sortedCoverages.map((e) => `Coverage/${e.id}`))}`
     );
