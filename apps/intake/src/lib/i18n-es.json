@@ -472,7 +472,9 @@
     "recordRequired": "Se requiere al menos un registro",
     "selectionRequired": "Se requiere selección",
     "zipCode": "El código postal debe tener 5 números",
-    "fieldRequired": "Este campo es requierido"
+    "fieldRequired": "Este campo es requierido",
+    "emailInvalid": "El correo electrónico no es válido",
+    "invalidSelection": "El valor debe ser una de las opciones proporcionadas"
   },
   "paperworkUI": {
     "upload": "Subir",

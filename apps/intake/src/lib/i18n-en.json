@@ -472,7 +472,9 @@
     "recordRequired": "At least one record is required",
     "selectionRequired": "Selection is required",
     "zipCode": "ZIP Code must be 5 numbers",
-    "fieldRequired": "This field is required"
+    "fieldRequired": "This field is required",
+    "emailInvalid": "Email is not valid",
+    "invalidSelection": "Value must be one of the provided answer options"
   },
   "paperworkUI": {
     "upload": "Upload",

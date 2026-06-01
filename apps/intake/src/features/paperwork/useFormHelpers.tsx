@@ -1,6 +1,7 @@
 import { DateTime } from 'luxon';
 import { useCallback, useMemo } from 'react';
 import { FieldValues, RefCallBack, useFormContext, useFormState } from 'react-hook-form';
+import { useTranslation } from 'react-i18next';
 import {
   DOB_DATE_FORMAT,
   INSURANCE_PAY_OPTION,
@@ -10,6 +11,7 @@ import {
   pickValueAsStringListFromAnswerItem,
 } from 'utils';
 import { usePaperworkContext } from './context';
+import { translateValidationMessage } from './validationMessages';
 
 interface PaperworkFormHelpers {
   value: any;
@@ -222,6 +224,7 @@ interface FieldError {
 }
 export const useFieldError = (fieldId: string): FieldError => {
   const { errors } = useFormState();
+  const { t } = useTranslation();
 
   const path = fieldId.split('.');
 
@@ -234,7 +237,7 @@ export const useFieldError = (fieldId: string): FieldError => {
 
   return {
     hasError: error !== undefined,
-    errorMessage: error?.message ?? recursiveFindError(errors?.[fieldId]),
+    errorMessage: translateValidationMessage(t, error?.message ?? recursiveFindError(errors?.[fieldId])),
   };
 };
 
