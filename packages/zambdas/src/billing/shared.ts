@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { Claim, HumanName, Organization, Patient, Practitioner, Resource } from 'fhir/r4b';
-import { convertFhirNameToDisplayName, extractPayerIdFromUrl, Secrets } from 'utils';
+import { convertFhirNameToDisplayName, isPayerUrl, Secrets } from 'utils';
 import { createOystehrClient } from '../shared/helpers';
 
 export const BILLING_RESOURCE_TAG = {
@@ -33,10 +33,9 @@ export async function resolvePayersByRef(
   const uniqueRefs = [...new Set(refs.filter((r): r is string => !!r))];
   await Promise.all(
     uniqueRefs.map(async (ref) => {
-      const payerId = extractPayerIdFromUrl(ref);
-      if (!payerId) return;
+      if (!isPayerUrl(ref)) return;
       try {
-        byRef.set(ref, await oystehr.rcm.getPayer({ id: payerId }));
+        byRef.set(ref, await oystehr.rcm.getPayerByUrl({ url: ref }));
       } catch (err) {
         console.error(`Failed to resolve payer ${ref}:`, err);
       }
