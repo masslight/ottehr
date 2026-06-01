@@ -1,5 +1,5 @@
 import Oystehr from '@oystehr/sdk';
-import { Claim, HumanName, Patient, Practitioner, Resource } from 'fhir/r4b';
+import { Claim, DomainResource, HumanName, Patient, Practitioner, Resource } from 'fhir/r4b';
 import { convertFhirNameToDisplayName, Secrets } from 'utils';
 import { createOystehrClient } from '../shared/helpers';
 
@@ -73,14 +73,18 @@ export function prepareWorkingCopy<T extends Resource>(resource: T, originalId: 
 }
 
 // Clone a billing resource into a working copy: strips id, tags it, adds source identifier.
-export function prepareCopy<T extends Resource>(resource: T, originalId: string): T {
-  const copy: T & { identifier?: { system: string; value: string }[] } = structuredClone(resource);
+export function prepareCopy<T extends DomainResource>(resource: T, originalId: string): T {
+  const copy: T = structuredClone(resource);
   delete copy.id;
-  // CW TODO: move this back to extension
-  const existing = (copy.identifier ?? []).filter((id) => id.system !== SOURCE_IDENTIFIER_SYSTEM);
-  copy.identifier = [
+  const existing = (copy.extension ?? []).filter((ext) => ext.url !== SOURCE_IDENTIFIER_SYSTEM);
+  copy.extension = [
     ...existing,
-    { system: SOURCE_IDENTIFIER_SYSTEM, value: `${resource.resourceType}/${originalId}` },
+    {
+      url: SOURCE_IDENTIFIER_SYSTEM,
+      valueReference: {
+        reference: originalId.startsWith('urn:uuid:') ? originalId : `${resource.resourceType}/${originalId}`,
+      },
+    },
   ];
   return copy;
 }
