@@ -12,6 +12,7 @@ import {
   INVALID_INPUT_ERROR,
   ListScheduleOwnersParams,
   ListScheduleOwnersResponse,
+  LOCATION_SUPPORT_PHONE_EXTENSION_URL,
   MISSING_REQUEST_BODY,
   MISSING_REQUIRED_PARAMETERS,
   OVERRIDE_DATE_FORMAT,
@@ -60,8 +61,13 @@ const performEffect = (input: EffectInput): ListScheduleOwnersResponse => {
     .map((item) => {
       const { owner, schedules, displayName, address: itemAddress, providerSchedulesSummary } = item;
       let address: Address | undefined;
+      let supportPhoneNumber: string | undefined;
       if (owner.resourceType === 'Location') {
-        address = (owner as Location).address;
+        const loc = owner as Location;
+        address = loc.address;
+        supportPhoneNumber = loc.extension?.find((e) => e.url === LOCATION_SUPPORT_PHONE_EXTENSION_URL)?.valueString;
+      } else if (owner.resourceType === 'Practitioner') {
+        address = (owner as Practitioner).address?.[0];
       }
       const addressString = itemAddress ?? (address ? addressStringFromAddress(address) : '');
       return {
@@ -71,6 +77,7 @@ const performEffect = (input: EffectInput): ListScheduleOwnersResponse => {
           name: displayName ?? getNameForOwner(owner),
           address: addressString ?? '',
           providerSchedulesSummary,
+          supportPhoneNumber,
         },
         schedules: schedules.map((schedule) => ({
           resourceType: schedule.resourceType,

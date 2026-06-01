@@ -104,18 +104,6 @@ jobs:
             echo "environment=local" >> $GITHUB_OUTPUT
           fi
 
-      - name: Restore seed data cache
-        if: |
-          steps.env.outputs.environment == 'local' || 
-          steps.env.outputs.environment == 'e2e' || 
-          steps.env.outputs.environment == 'e2e2' || 
-          steps.env.outputs.environment == 'e2e3'
-        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
-        with:
-          path: apps/ehr/tests/e2e-utils/seed-data/resources/
-          key: seed-data-${{ steps.env.outputs.environment }}-${{ github.sha }}-${{ github.run_id }}
-          fail-on-cache-miss: true
-
       - name: Spec tests with coverage
         if: ${{ !cancelled() }}
         run: cd packages/spec && npx vitest run --coverage --coverage.reporter=lcov --coverage.reporter=text-summary --passWithNoTests

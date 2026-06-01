@@ -76,7 +76,8 @@ const validateCreateAppointmentResponse = (
   const isWalkin = getSlotIsWalkin(slot);
   const isPostTelemed = getSlotIsPostTelemed(slot);
   const isVirtual = checkEncounterIsVirtual(encounter);
-  expect(appointment.status).toEqual(isWalkin ? 'arrived' : 'booked');
+  const startsAsBooked = !isWalkin || isVirtual;
+  expect(appointment.status).toEqual(startsAsBooked ? 'booked' : 'arrived');
   assert(appointment.start);
   if (isWalkin) {
     const appointmentTimeStamp = DateTime.fromISO(appointment.start!, { zone: timezone }).toUnixInteger();
@@ -93,13 +94,7 @@ const validateCreateAppointmentResponse = (
 
   assert(encounter);
   assert(encounter.id);
-  // todo: should encounter status be 'arrived' for walkin virtual appointments to match the appointment status?
-  // i think this is intended and helps with some intake logic particular to the virtual walkin flow
-  if (isWalkin) {
-    expect(encounter.status).toEqual('arrived');
-  } else {
-    expect(encounter.status).toEqual('planned');
-  }
+  expect(encounter.status).toEqual(startsAsBooked ? 'planned' : 'arrived');
   expect(checkEncounterIsVirtual(encounter)).toEqual(isVirtual);
   assert(questionnaire);
   assert(fhirPatient);

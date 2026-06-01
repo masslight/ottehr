@@ -45,7 +45,7 @@ import { dataTestIds } from 'src/constants/data-test-ids';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { useCommandPaletteSource } from 'src/hooks/useCommandPaletteSource';
 import useEvolveUser from 'src/hooks/useEvolveUser';
-import { useMergedProcedureQuickPicks } from 'src/hooks/useMergedQuickPicks';
+import { sortQuickPicks, useMergedProcedureQuickPicks } from 'src/hooks/useMergedQuickPicks';
 import { usePendingQuickPick } from 'src/hooks/usePendingQuickPick';
 import { useDebounce } from 'src/shared/hooks/useDebounce';
 import {
@@ -242,6 +242,9 @@ export default function ProceduresNew(): ReactElement {
 
   const methods = useForm();
   const formValues = methods.watch();
+  const {
+    formState: { errors },
+  } = methods;
 
   const [state, setState] = useState<PageState>({
     procedureDate: DateTime.now(),
@@ -502,7 +505,7 @@ export default function ProceduresNew(): ReactElement {
     if (!oystehrZambda) return;
     try {
       const response = await getProcedureQuickPicks(oystehrZambda);
-      setExistingQuickPicks(response.quickPicks);
+      setExistingQuickPicks([...response.quickPicks].sort(sortQuickPicks));
     } catch (error) {
       console.error('Failed to load existing quick picks:', error);
       setExistingQuickPicks(sortedMergedQuickPicks);
@@ -973,6 +976,12 @@ export default function ProceduresNew(): ReactElement {
               loading={isSelectOptionsLoading}
               freeSolo
               dataTestId={dataTestIds.documentProcedurePage.procedureType}
+              required
+              // regex is from fhir spec for code (which is where this value is mapped)
+              // https://hl7.org/fhir/R4B/datatypes.html#code
+              validate={(value) =>
+                !value || /^[^\s]+(\s[^\s]+)*$/.test(value) || 'No leading, trailing, or consecutive spaces allowed'
+              }
             />
 
             <Typography style={{ marginTop: '8px', color: '#0F347C', fontSize: '16px', fontWeight: '500' }}>
@@ -1177,12 +1186,17 @@ export default function ProceduresNew(): ReactElement {
                 color="primary"
                 variant="contained"
                 disabled={isReadOnly}
-                onClick={onSave}
+                onClick={methods.handleSubmit(onSave)}
                 data-testid={dataTestIds.documentProcedurePage.saveButton}
               >
                 Save
               </RoundedButton>
             </Box>
+            {Object.entries(errors).length > 0 && (
+              <FormHelperText sx={{ textAlign: 'right' }} error={true}>
+                Please fix all errors
+              </FormHelperText>
+            )}
           </Stack>
         </AccordionCard>
       </Stack>

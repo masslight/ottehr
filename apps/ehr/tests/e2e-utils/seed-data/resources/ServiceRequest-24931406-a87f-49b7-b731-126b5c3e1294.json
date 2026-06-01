@@ -1,0 +1,36 @@
+{
+  "fullUrl": "urn:uuid:ServiceRequest-24931406-a87f-49b7-b731-126b5c3e1294",
+  "request": {
+    "method": "POST",
+    "url": "/ServiceRequest"
+  },
+  "resource": {
+    "resourceType": "ServiceRequest",
+    "subject": {
+      "reference": "urn:uuid:Patient-bcc0e309-01e5-4a62-9463-b0b541fb74d0"
+    },
+    "encounter": {
+      "reference": "urn:uuid:Encounter-36ebe1b7-8662-444f-a210-dbc8e89fbe9c"
+    },
+    "intent": "plan",
+    "status": "active",
+    "code": {
+      "coding": [
+        {
+          "system": "http://snomed.info/sct",
+          "code": "185389009",
+          "display": "Follow-up visit (procedure)"
+        }
+      ],
+      "text": "Follow-up visit (procedure)"
+    },
+    "meta": {
+      "tag": [
+        {
+          "code": "disposition-follow-up",
+          "system": "https://fhir.zapehr.com/r4/StructureDefinitions/disposition-follow-up"
+        }
+      ]
+    }
+  }
+}

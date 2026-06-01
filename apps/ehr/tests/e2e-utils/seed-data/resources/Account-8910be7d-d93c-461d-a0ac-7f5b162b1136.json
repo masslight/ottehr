@@ -1,0 +1,83 @@
+{
+  "fullUrl": "urn:uuid:Account-8910be7d-d93c-461d-a0ac-7f5b162b1136",
+  "request": {
+    "method": "POST",
+    "url": "/Account"
+  },
+  "resource": {
+    "resourceType": "Account",
+    "status": "active",
+    "type": {
+      "coding": [
+        {
+          "system": "http://terminology.hl7.org/CodeSystem/account-type",
+          "code": "PBILLACCT",
+          "display": "patient billing account"
+        }
+      ]
+    },
+    "subject": [
+      {
+        "reference": "urn:uuid:Patient-bcc0e309-01e5-4a62-9463-b0b541fb74d0"
+      }
+    ],
+    "guarantor": [
+      {
+        "party": {
+          "reference": "#accountGuarantorId",
+          "type": "RelatedPerson"
+        }
+      }
+    ],
+    "contained": [
+      {
+        "resourceType": "RelatedPerson",
+        "id": "accountGuarantorId",
+        "name": [
+          {
+            "given": [
+              "fwe"
+            ],
+            "family": "sf"
+          }
+        ],
+        "birthDate": "1900-05-13",
+        "gender": "other",
+        "telecom": [
+          {
+            "value": "+12403333333",
+            "system": "phone"
+          },
+          {
+            "value": "ibenham+test@masslight.com",
+            "system": "email"
+          }
+        ],
+        "patient": {
+          "reference": "urn:uuid:Patient-bcc0e309-01e5-4a62-9463-b0b541fb74d0"
+        },
+        "address": [
+          {
+            "city": "Cleveland",
+            "line": [
+              "333 test street"
+            ],
+            "state": "OH",
+            "postalCode": "44101"
+          }
+        ],
+        "relationship": [
+          {
+            "coding": [
+              {
+                "system": "http://hl7.org/fhir/ValueSet/relatedperson-relationshiptype",
+                "code": "other",
+                "display": "Legal Guardian"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

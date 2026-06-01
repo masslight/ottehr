@@ -1,0 +1,39 @@
+{
+  "fullUrl": "urn:uuid:List-32d16722-b195-4b27-9c04-30437333e4de",
+  "request": {
+    "method": "POST",
+    "url": "/List"
+  },
+  "resource": {
+    "resourceType": "List",
+    "status": "current",
+    "mode": "working",
+    "title": "photo-id-cards",
+    "code": {
+      "coding": [
+        {
+          "system": "https://fhir.zapehr.com/r4/StructureDefinitions",
+          "code": "patient-docs-folder",
+          "display": "Photo ID"
+        }
+      ]
+    },
+    "subject": {
+      "reference": "urn:uuid:Patient-bcc0e309-01e5-4a62-9463-b0b541fb74d0"
+    },
+    "identifier": [
+      {
+        "type": {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/v2-0203",
+              "code": "UDI",
+              "display": "Universal Device Identifier"
+            }
+          ]
+        },
+        "value": "photo-id-cards"
+      }
+    ]
+  }
+}

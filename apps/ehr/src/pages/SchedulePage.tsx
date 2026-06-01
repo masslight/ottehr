@@ -1,7 +1,10 @@
 import { otherColors } from '@ehrTheme/colors';
+import CheckIcon from '@mui/icons-material/Check';
 import CheckBoxIcon from '@mui/icons-material/CheckBox';
 import CheckBoxOutlineBlankIcon from '@mui/icons-material/CheckBoxOutlineBlank';
+import CloseIcon from '@mui/icons-material/Close';
 import ContentCopyRoundedIcon from '@mui/icons-material/ContentCopyRounded';
+import EditIcon from '@mui/icons-material/Edit';
 import { LoadingButton, TabContext, TabList, TabPanel } from '@mui/lab';
 import {
   Autocomplete,
@@ -10,6 +13,7 @@ import {
   Checkbox,
   CircularProgress,
   Grid,
+  IconButton,
   Paper,
   Skeleton,
   Switch,
@@ -38,6 +42,7 @@ import { createSchedule, getSchedule, listServiceCategories, updatePractitionerR
 import CustomBreadcrumbs from '../components/CustomBreadcrumbs';
 import Loading from '../components/Loading';
 import ScheduleComponent from '../components/schedule/ScheduleComponent';
+import ScheduleGeneralTab from '../components/schedule/ScheduleGeneralTab';
 import { useApiClients } from '../hooks/useAppClients';
 import PageContainer from '../layout/PageContainer';
 
@@ -63,12 +68,13 @@ export default function SchedulePage(): ReactElement {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
-  // state variables
   const [tabName, setTabName] = useState('schedule');
   const [item, setItem] = useState<ScheduleDTO | undefined>(undefined);
 
   const [statusPatchLoading, setStatusPatchLoading] = useState(false);
   const [copiedLinkKey, setCopiedLinkKey] = useState<string | null>(null);
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [nameDraft, setNameDraft] = useState('');
 
   // todo: currently these things are props of the schedule owner and get rendered as the content of the "general" tab
   // would like to refactor that tab to be its own Page responsible for displaying the configuration of
@@ -255,14 +261,57 @@ export default function SchedulePage(): ReactElement {
     },
   });
 
+  const saveNameMutation = useMutation({
+    mutationFn: async (newName: string) => {
+      if (!oystehrZambda || !item) {
+        throw new Error('Schedule not loaded');
+      }
+      return await updateSchedule({ scheduleId: item.id, name: newName }, oystehrZambda);
+    },
+    onError: (error: any) => {
+      if (isApiError(error)) {
+        enqueueSnackbar((error as APIError).message, { variant: 'error' });
+      } else {
+        enqueueSnackbar('Could not save the new name.', { variant: 'error' });
+      }
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['ehr-get-schedule'] });
+      setIsEditingName(false);
+      enqueueSnackbar('Name saved.', { variant: 'success' });
+    },
+  });
+
   const somethingIsLoadingInSomeWay = isLoading || isFetching || isRefetching || saveScheduleChanges.isPending;
 
-  // console.log('scheduleFetchState (loading/fetching/error/success): ', isLoading, isFetching, isError, isSuccess);
-
-  // handle functions
   const handleTabChange = (event: React.SyntheticEvent, newTabName: string): void => {
     setTabName(newTabName);
   };
+
+  const startEditName = (): void => {
+    setNameDraft(item?.owner?.name ?? '');
+    setIsEditingName(true);
+  };
+
+  const cancelEditName = (): void => {
+    setIsEditingName(false);
+    setNameDraft('');
+  };
+
+  const submitName = (): void => {
+    const trimmed = nameDraft.trim();
+    if (!trimmed) {
+      enqueueSnackbar('Name cannot be empty.', { variant: 'warning' });
+      return;
+    }
+    if (trimmed === item?.owner?.name) {
+      setIsEditingName(false);
+      return;
+    }
+    saveNameMutation.mutate(trimmed);
+  };
+
+  const isLocationOwner = item?.owner?.type === 'Location';
 
   async function onSaveSchedule(params: UpdateScheduleParams): Promise<void> {
     if (!oystehrZambda) {
@@ -275,7 +324,6 @@ export default function SchedulePage(): ReactElement {
         enqueueSnackbar('Schedule could not be created. Please reload the page and try again.', { variant: 'error' });
         return;
       }
-      console.log('ownerId', ownerId, ownerResourceType);
       const createParams: CreateScheduleParams = {
         ...params,
         ownerId: ownerId,
@@ -391,7 +439,6 @@ export default function SchedulePage(): ReactElement {
       <>
         {item ? (
           <Box>
-            {/* Breadcrumbs */}
             <CustomBreadcrumbs
               chain={[
                 { link: '/admin', state: { defaultTab: scheduleType }, children: 'Admin' },
@@ -400,26 +447,70 @@ export default function SchedulePage(): ReactElement {
               ]}
             />
 
-            {/* Page title */}
-            <Typography variant="h3" color="primary.dark" marginTop={1}>
-              {item?.owner?.name || <Skeleton width={150} />}
-            </Typography>
-            {/* Address line */}
+            {isEditingName && isLocationOwner ? (
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, marginTop: 1 }}>
+                <TextField
+                  value={nameDraft}
+                  onChange={(event) => setNameDraft(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') {
+                      event.preventDefault();
+                      submitName();
+                    } else if (event.key === 'Escape') {
+                      event.preventDefault();
+                      cancelEditName();
+                    }
+                  }}
+                  size="small"
+                  autoFocus
+                  disabled={saveNameMutation.isPending}
+                  sx={{ minWidth: 300, '& input': { fontSize: '2rem', fontWeight: 700 } }}
+                />
+                <LoadingButton
+                  loading={saveNameMutation.isPending}
+                  onClick={submitName}
+                  color="primary"
+                  aria-label="Save name"
+                  sx={{ minWidth: 0, p: 1 }}
+                >
+                  <CheckIcon />
+                </LoadingButton>
+                <IconButton
+                  onClick={cancelEditName}
+                  disabled={saveNameMutation.isPending}
+                  aria-label="Cancel name edit"
+                  size="small"
+                >
+                  <CloseIcon />
+                </IconButton>
+              </Box>
+            ) : (
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, marginTop: 1 }}>
+                <Typography variant="h3" color="primary.dark">
+                  {item?.owner?.name || <Skeleton width={150} />}
+                </Typography>
+                {isLocationOwner && (
+                  <IconButton onClick={startEditName} aria-label="Edit name" size="small">
+                    <EditIcon fontSize="small" />
+                  </IconButton>
+                )}
+              </Box>
+            )}
             {item?.owner.detailText && (
               <Typography marginBottom={1} fontWeight={400}>
                 {item.owner.detailText}
               </Typography>
             )}
-            {/* Tabs */}
             <TabContext value={tabName}>
               <Box sx={{ borderBottom: 1, borderColor: 'divider', display: createMode ? 'none' : 'block' }}>
                 <TabList onChange={handleTabChange} aria-label="Tabs">
                   <Tab label="Schedule" value="schedule" sx={{ textTransform: 'none', fontWeight: 700 }} />
                   <Tab label="General" value="general" sx={{ textTransform: 'none', fontWeight: 700 }} />
+                  {item?.owner.type === 'Location' && (
+                    <Tab label="Location" value="location" sx={{ textTransform: 'none', fontWeight: 700 }} />
+                  )}
                 </TabList>
               </Box>
-              {/* Page Content */}
-              {/* Time slots tab */}
               <Paper
                 sx={{
                   marginTop: 2,
@@ -439,7 +530,6 @@ export default function SchedulePage(): ReactElement {
                     />
                   )}
                 </TabPanel>
-                {/* General tab */}
                 <TabPanel value="general">
                   <Paper sx={{ marginBottom: 2, padding: 3 }}>
                     <Box display={'flex'} alignItems={'center'}>
@@ -632,6 +722,18 @@ export default function SchedulePage(): ReactElement {
                     </Grid>
                   </Paper>
                 </TabPanel>
+                {item?.owner.type === 'Location' && (
+                  <TabPanel value="location">
+                    <ScheduleGeneralTab
+                      item={item}
+                      onSchedulePersisted={setItem}
+                      onSave={async (params) => {
+                        await saveScheduleChanges.mutateAsync(params);
+                      }}
+                      isSaving={somethingIsLoadingInSomeWay}
+                    />
+                  </TabPanel>
+                )}
               </Paper>
             </TabContext>
           </Box>

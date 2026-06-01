@@ -63,7 +63,7 @@ import {
 } from '../../../api/api';
 import { useApiClients } from '../../../hooks/useAppClients';
 import useEvolveUser from '../../../hooks/useEvolveUser';
-import { useMergedRadiologyQuickPicks } from '../../../hooks/useMergedQuickPicks';
+import { sortQuickPicks, useMergedRadiologyQuickPicks } from '../../../hooks/useMergedQuickPicks';
 import { WithRadiologyBreadcrumbs } from '../components/RadiologyBreadcrumbs';
 import { useRadiologyConsentExists } from '../components/useRadiologyConsentExists';
 
@@ -178,7 +178,7 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
     if (!oystehrZambda) return;
     try {
       const response = await getRadiologyQuickPicks(oystehrZambda);
-      setExistingQuickPicks(response.quickPicks);
+      setExistingQuickPicks([...response.quickPicks].sort(sortQuickPicks));
     } catch (error) {
       console.error('Failed to load existing quick picks:', error);
       setExistingQuickPicks(mergedQuickPicks);
@@ -330,7 +330,7 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
               <Grid container sx={{ width: '100%' }} spacing={1} rowSpacing={2}>
                 <Grid item xs={12}>
                   <QuickPicksButton
-                    quickPicks={[...mergedQuickPicks].sort((a, b) => a.name.localeCompare(b.name))}
+                    quickPicks={mergedQuickPicks}
                     getLabel={(qp) => {
                       const parts = [qp.name] as string[];
                       if (qp.cptCode) parts.push(qp.cptCode);

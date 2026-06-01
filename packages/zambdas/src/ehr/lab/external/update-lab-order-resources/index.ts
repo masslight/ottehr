@@ -437,6 +437,7 @@ const handleReviewedEvent = async ({
         fhirPatient: patient,
         emailDetails: { orderType: 'lab', testName, visitDate, appointmentId: appointment?.id || '', locationName },
         secrets,
+        oystehr,
       });
     } catch (e) {
       const errorMessage = `Error sending the patient alert to review lab results, ${e}`;

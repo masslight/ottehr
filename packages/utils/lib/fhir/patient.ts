@@ -36,6 +36,7 @@ import {
   FHIR_IDENTIFIER_NPI,
   FHIR_IDENTIFIER_SYSTEM,
   filterResources,
+  FRIENDLY_PATIENT_ID_SYSTEM_BASE,
   getAllPractitionerCredentials,
   getCoding,
   getCommunicationsAndSenders,
@@ -776,14 +777,9 @@ export const getProviderNotificationSettingsForPractitioner = (
 };
 
 export const checkEncounterHasPractitioner = (encounter: Encounter, practitioner: Practitioner): boolean => {
-  const practitionerId = practitioner?.id;
-
-  const encounterPractitioner = encounter.participant?.find(
-    (item) => item.individual?.reference?.startsWith('Practitioner/')
-  )?.individual?.reference;
-  const encounterPractitionerId = encounterPractitioner && removePrefix('Practitioner/', encounterPractitioner);
-
-  return !!practitioner && !!encounterPractitioner && practitionerId === encounterPractitionerId;
+  return (
+    encounter.participant?.find((item) => item.individual?.reference === 'Practitioner/' + practitioner?.id) != null
+  );
 };
 
 export const getPractitionerNPIIdentifier = (practitioner: Practitioner): Identifier | undefined => {
@@ -881,4 +877,8 @@ export const mapGenderToLabel: { [name in Exclude<Patient['gender'], undefined>]
   female: 'Female',
   other: 'Intersex',
   unknown: 'Unknown',
+};
+
+export const getPatientFriendlyId = (patient: Patient): string => {
+  return patient.identifier?.find((ident) => ident.system?.startsWith(FRIENDLY_PATIENT_ID_SYSTEM_BASE))?.value ?? '';
 };

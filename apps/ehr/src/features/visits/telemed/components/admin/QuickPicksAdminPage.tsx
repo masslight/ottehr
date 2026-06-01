@@ -14,11 +14,7 @@ import {
   getMedicationHistoryQuickPicks,
   getPatientInstructionQuickPicks,
   getQuickTextQuickPicks,
-  removeAllergyQuickPick,
-  removeMedicalConditionQuickPick,
-  removeMedicationHistoryQuickPick,
-  removePatientInstructionQuickPick,
-  removeQuickTextQuickPick,
+  removeQuickPick,
   updatePatientInstructionQuickPick,
   updateQuickTextQuickPick,
 } from 'src/api/api';
@@ -38,6 +34,7 @@ import {
 } from 'utils';
 import ImmunizationQuickPicksPage from './ImmunizationQuickPicksPage';
 import InHouseMedicationQuickPicksPage from './InHouseMedicationQuickPicksPage';
+import InsuranceQuickPickPage from './InsuranceQuickPickPage';
 import ProcedureQuickPicksPage from './ProcedureQuickPicksPage';
 import QuickPickEditor from './QuickPickEditor';
 import { QuickTextTemplateField } from './QuickTextTemplateField';
@@ -278,7 +275,7 @@ export default function QuickPicksAdminPage(): ReactElement {
   const removeAllergy = useCallback(
     async (id: string) => {
       if (!oystehrZambda) throw new Error('oystehrZambda was null');
-      await removeAllergyQuickPick(oystehrZambda, id);
+      await removeQuickPick(oystehrZambda, id);
     },
     [oystehrZambda]
   );
@@ -302,7 +299,7 @@ export default function QuickPicksAdminPage(): ReactElement {
   const removeCondition = useCallback(
     async (id: string) => {
       if (!oystehrZambda) throw new Error('oystehrZambda was null');
-      await removeMedicalConditionQuickPick(oystehrZambda, id);
+      await removeQuickPick(oystehrZambda, id);
     },
     [oystehrZambda]
   );
@@ -326,7 +323,7 @@ export default function QuickPicksAdminPage(): ReactElement {
   const removeMedication = useCallback(
     async (id: string) => {
       if (!oystehrZambda) throw new Error('oystehrZambda was null');
-      await removeMedicationHistoryQuickPick(oystehrZambda, id);
+      await removeQuickPick(oystehrZambda, id);
     },
     [oystehrZambda]
   );
@@ -359,7 +356,7 @@ export default function QuickPicksAdminPage(): ReactElement {
   const removePatientInstruction = useCallback(
     async (id: string) => {
       if (!oystehrZambda) throw new Error('oystehrZambda was null');
-      await removePatientInstructionQuickPick(oystehrZambda, id);
+      await removeQuickPick(oystehrZambda, id);
     },
     [oystehrZambda]
   );
@@ -392,7 +389,7 @@ export default function QuickPicksAdminPage(): ReactElement {
   const removeQuickText = useCallback(
     async (id: string) => {
       if (!oystehrZambda) throw new Error('oystehrZambda was null');
-      await removeQuickTextQuickPick(oystehrZambda, id);
+      await removeQuickPick(oystehrZambda, id);
     },
     [oystehrZambda]
   );
@@ -409,6 +406,7 @@ export default function QuickPicksAdminPage(): ReactElement {
             <Tab label="Radiology" value="radiology" sx={{ textTransform: 'none' }} />
             <Tab label="Immunizations" value="immunizations" sx={{ textTransform: 'none' }} />
             <Tab label="In-House Medications" value="in-house-medications" sx={{ textTransform: 'none' }} />
+            <Tab label="Insurance" value="insurance" sx={{ textTransform: 'none' }} />
             <Tab label="Patient Instructions" value="patient-instructions" sx={{ textTransform: 'none' }} />
             <Tab label="Quick Texts" value="quick-texts" sx={{ textTransform: 'none' }} />
           </TabList>
@@ -510,6 +508,9 @@ export default function QuickPicksAdminPage(): ReactElement {
         </TabPanel>
         <TabPanel value="in-house-medications" sx={{ px: 0 }}>
           <InHouseMedicationQuickPicksPage />
+        </TabPanel>
+        <TabPanel value="insurance" sx={{ px: 0 }}>
+          <InsuranceQuickPickPage />
         </TabPanel>
         <TabPanel value="patient-instructions" sx={{ px: 0 }}>
           <QuickPickEditor<PatientInstructionQuickPickData>

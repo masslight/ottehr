@@ -1,3 +1,2 @@
 env/*
 !env/*template*
-tests/e2e-utils/seed-data/resources/

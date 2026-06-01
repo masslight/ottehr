@@ -3,7 +3,6 @@ import { Appointment, Encounter, RelatedPerson } from 'fhir/r4b';
 import { getRelatedPersonsForPatient, getSecret, Secrets, SecretsKeys } from 'utils';
 import { getAuth0Token } from '../../shared';
 import { getPatientFromAppointment } from '../../shared/appointment/helpers';
-import { getVideoRoomResourceExtension } from '../../shared/helpers';
 import { CreateTelemedVideoRoomResponse } from '../../shared/types/telemed/video-room.types';
 
 export const createVideoRoom = async (
@@ -60,9 +59,6 @@ const updateVideoRoomEncounter = (encounter: Encounter, relatedPersons: RelatedP
       existingRefs.add(ref);
     }
   }
-
-  const videoRoomExt = getVideoRoomResourceExtension(encounter);
-  encounter.extension = encounter.extension?.filter((ext) => ext !== videoRoomExt);
 
   return encounter;
 };

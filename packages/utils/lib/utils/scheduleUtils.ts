@@ -150,7 +150,6 @@ export interface ScheduleDTOOwner {
   slug: string;
   active: boolean;
   detailText?: string; // to take place of Location.address.line[0]
-  infoMessage?: string;
   hoursOfOperation?: Location['hoursOfOperation'];
   timezone: Timezone;
   isVirtual?: boolean;
@@ -163,6 +162,13 @@ export interface ScheduleDTOOwner {
    * Empty/undefined when not set; callers fall back to "<Practitioner> @ <Location>".
    */
   displayName?: string;
+  stripeAccountId?: string;
+  advapacsLocationId?: string;
+  rooms?: string[];
+  description?: string;
+  address?: Location['address'];
+  telecom?: Location['telecom'];
+  reviewLink?: string;
 }
 export interface ScheduleDTO {
   id: string;
