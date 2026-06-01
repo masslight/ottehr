@@ -753,7 +753,12 @@ function ChargeCardConfigEditor({
           inputProps={{ min: 0, max: 90, ...numericFieldProps }}
         />
         <Typography variant="body2" color="text.disabled">
-          day(s) — retries disabled
+          day(s)
+        </Typography>
+      </Stack>
+      <Stack direction="row" spacing={1} alignItems="center">
+        <Typography variant="body2" color="text.disabled" sx={{ fontStyle: 'italic' }}>
+          Retry functionality not yet enabled
         </Typography>
       </Stack>
       <Divider />

@@ -7,7 +7,7 @@ describe('notifications-updater encounter status filter', () => {
     expect(READY_OR_UNSIGNED_ENCOUNTER_STATUSES).toContain('planned');
   });
 
-  it("includes 'arrived' so de-duplication logic still runs after waiting-room entry", () => {
+  it("includes 'arrived' so the cron still sees telemed appointments after waiting-room entry", () => {
     expect(READY_OR_UNSIGNED_ENCOUNTER_STATUSES).toContain('arrived');
   });
 });

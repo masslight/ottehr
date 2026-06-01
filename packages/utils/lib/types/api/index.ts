@@ -2,6 +2,7 @@ export * from './ai-assisted-encounters-report.types';
 export * from './ai-interview.types';
 export * from './ai-suggestions-notes';
 export * from './appointment.types';
+export * from './approved-patient-education.types';
 export * from './assign-practitioner';
 export * from './cancel-appointment.types';
 export * from './cancel-telemed-appointment.types';

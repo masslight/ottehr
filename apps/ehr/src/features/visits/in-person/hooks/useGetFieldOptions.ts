@@ -1,15 +1,6 @@
-import Oystehr from '@oystehr/sdk';
-import { Location } from 'fhir/r4b';
 import { useEffect, useMemo, useState } from 'react';
 import { PROVIDERS_FILTER } from 'src/shared/utils';
-import {
-  DiagnosisDTO,
-  isLocationVirtual,
-  MedicationApplianceRoutes,
-  medicationApplianceRoutes,
-  RoleType,
-  UNIT_OPTIONS,
-} from 'utils';
+import { DiagnosisDTO, MedicationApplianceRoutes, medicationApplianceRoutes, RoleType, UNIT_OPTIONS } from 'utils';
 import { getEmployees } from '../../../../api/api';
 import { useApiClients } from '../../../../hooks/useAppClients';
 import useEvolveUser from '../../../../hooks/useEvolveUser';
@@ -73,19 +64,14 @@ export type MedicationIdSelectOptions = {
 };
 
 export type OrderFieldsSelectsOptions = Record<
-  'location' | 'route' | 'units' | 'associatedDx' | 'providerId',
+  'route' | 'units' | 'associatedDx' | 'providerId',
   { options: Option[]; status: 'loading' | 'loaded'; defaultOption?: Option }
 > & {
   medicationId: MedicationIdSelectOptions;
 };
 
-// fast fix to prevent multiple requests to get locations
-const cacheLocations = {} as any;
-
 export const useFieldsSelectsOptions = (): OrderFieldsSelectsOptions => {
   const { data: medicationList, isLoading: isMedicationLoading } = useGetMedicationList();
-  const [locationsOptions, setLocationsOptions] = useState<Option[]>([]);
-  const [isLocationLoading, setIsLocationLoading] = useState(true);
   const [providersOptions, setProvidersOptions] = useState<Option[]>([]);
   const [isProvidersLoading, setIsProvidersLoading] = useState(true);
   const { oystehrZambda } = useApiClients();
@@ -114,41 +100,6 @@ export const useFieldsSelectsOptions = (): OrderFieldsSelectsOptions => {
     value: primaryDiagnosis.resourceId || '',
     label: `${primaryDiagnosis.code} - ${primaryDiagnosis.display}`,
   };
-
-  useEffect(() => {
-    if (!oystehrZambda) {
-      return;
-    }
-
-    async function getLocationsResults(oystehr: Oystehr): Promise<void> {
-      try {
-        setIsLocationLoading(true);
-
-        cacheLocations[encounterId || 'default'] =
-          cacheLocations[encounterId || 'default'] ||
-          oystehr.fhir.search<Location>({
-            resourceType: 'Location',
-            params: [{ name: '_count', value: '1000' }],
-          });
-
-        const locationsBundle = await cacheLocations[encounterId || 'default'];
-        const locationsResults = locationsBundle.unbundle().filter((loc: Location) => !isLocationVirtual(loc));
-
-        setLocationsOptions(
-          locationsResults.map((loc: Location) => ({
-            value: loc.id as string,
-            label: loc.name as string,
-          }))
-        );
-      } catch (e) {
-        console.error('error loading locations', e);
-      } finally {
-        setIsLocationLoading(false);
-      }
-    }
-
-    void getLocationsResults(oystehrZambda);
-  }, [encounterId, oystehrZambda]);
 
   useEffect(() => {
     if (!oystehrZambda || !encounterId) {
@@ -235,10 +186,6 @@ export const useFieldsSelectsOptions = (): OrderFieldsSelectsOptions => {
       medispanCodeToMedicationId,
       ndcCodeSet,
       ndcToMedicationId,
-    },
-    location: {
-      options: locationsOptions,
-      status: isLocationLoading ? 'loading' : 'loaded',
     },
     route: {
       options: getRoutesArray(medicationApplianceRoutes),
