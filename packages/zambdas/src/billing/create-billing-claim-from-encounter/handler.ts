@@ -113,6 +113,7 @@ interface BillingResources {
   mainPatient?: Patient;
   accounts: Account[];
   coverages: Coverage[];
+  subscribers: RelatedPerson[];
   practitioners: Practitioner[];
   serviceFacility?: Location;
   billingProvider?: Organization;
@@ -188,6 +189,7 @@ async function performEffect(billingOystehr: Oystehr, cvo: ComplexValidationOutp
 
   // Sync accounts, coverages, and subscriber between clinical and billing
   let mainPatientCoverages: Coverage[] = [];
+  let mainPatientSubscribers: RelatedPerson[] = [];
   const seenBillingAccountIds = new Set<string>();
   const mainPatientAccounts = clinicalResources.accounts.map((a) => {
     const existingBillingAccount = billingResources.accounts.find(
@@ -205,6 +207,9 @@ async function performEffect(billingOystehr: Oystehr, cvo: ComplexValidationOutp
       mainPatientCoverages = covRequests
         .filter((cov): cov is BatchInputPostRequest<Coverage> => cov.method === 'POST' && cov.url === '/Coverage')
         .map((cov) => cov.resource);
+      mainPatientSubscribers = covRequests
+        .filter((rp): rp is BatchInputPostRequest<RelatedPerson> => rp.method === 'POST' && rp.url === '/RelatedPerson')
+        .map((rp) => rp.resource);
       requests.push(...covRequests);
       order.push(...covOrder);
       const copy = prepareCopy(a, a.id!);
@@ -232,6 +237,7 @@ async function performEffect(billingOystehr: Oystehr, cvo: ComplexValidationOutp
       try {
         deepStrictEqual(existingBillingAccount, copy);
         mainPatientCoverages = billingResources.coverages;
+        mainPatientSubscribers = billingResources.subscribers;
         return existingBillingAccount;
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
       } catch (_) {
@@ -246,6 +252,11 @@ async function performEffect(billingOystehr: Oystehr, cvo: ComplexValidationOutp
         mainPatientCoverages = covRequests
           .filter((cov): cov is BatchInputPostRequest<Coverage> => cov.method === 'POST' && cov.url === '/Coverage')
           .map((cov) => cov.resource);
+        mainPatientSubscribers = covRequests
+          .filter(
+            (rp): rp is BatchInputPostRequest<RelatedPerson> => rp.method === 'POST' && rp.url === '/RelatedPerson'
+          )
+          .map((rp) => rp.resource);
         requests.push(...covRequests);
         order.push(...covOrder);
         requests.push({ method: 'PUT', url: `/Account/${existingBillingAccount.id}`, resource: copy });
@@ -271,6 +282,9 @@ async function performEffect(billingOystehr: Oystehr, cvo: ComplexValidationOutp
         c,
         claimPatient.id!,
         clinicalResources.payors,
+        c.subscriber?.reference && !c.subscriber.reference.startsWith('#')
+          ? mainPatientSubscribers.find((s) => s.id === c.subscriber?.reference)
+          : undefined,
         true
       );
       requests.push(...covRequests);
@@ -480,12 +494,12 @@ function copyCoverageAndSubscriberForAccount(
   return [requests, order];
 }
 
-// CW TODO: handle RP copy from billing to claim
 function copyCoverageAndSubscriber(
   billingOystehr: Oystehr,
   coverage: Coverage,
   patientUuidOrUrn: string,
   payors: Organization[],
+  coverageSubscriber?: RelatedPerson,
   workingCopy?: boolean
 ): [CreateClaimFromEncounterRequests, string[]] {
   const requests: CreateClaimFromEncounterRequests = [];
@@ -496,20 +510,38 @@ function copyCoverageAndSubscriber(
   let subscriberId = patientUuidOrUrn;
   if (copy.subscriber?.reference?.startsWith('#') && copy.contained && copy.contained.length > 0) {
     // Subscriber is contained on the coverage
-    const rp = copy.contained.find(
+    const containedSubscriber = copy.contained.find(
       (contained): contained is RelatedPerson =>
         contained.id === copy.subscriber?.reference?.replace('#', '') && contained.resourceType === 'RelatedPerson'
     );
-    if (rp) {
-      subscriberId = `urn:uuid:${workingCopy ? 'claim' : 'billing'}-coverage-rp-${coverage.id}`;
+    if (containedSubscriber) {
+      const subscriber = workingCopy
+        ? prepareWorkingCopy(containedSubscriber, containedSubscriber.id!)
+        : prepareCopy(containedSubscriber, containedSubscriber.id!);
+      subscriber.id = `urn:uuid:${workingCopy ? 'claim' : 'billing'}-coverage-rp-${coverage.id}`;
       requests.push({
         method: 'POST',
         url: '/RelatedPerson',
-        resource: rp,
-        fullUrl: subscriberId,
+        resource: subscriber,
+        fullUrl: subscriber.id,
       });
       order.push('relatedperson');
+      subscriberId = subscriber.id;
     }
+  } else if (coverageSubscriber) {
+    // Subscriber was found and passed in to the function
+    const subscriber = workingCopy
+      ? prepareWorkingCopy(coverageSubscriber, coverageSubscriber.id!)
+      : prepareCopy(coverageSubscriber, coverageSubscriber.id!);
+    subscriber.id = `urn:uuid:${workingCopy ? 'claim' : 'billing'}-coverage-rp-${coverage.id}`;
+    requests.push({
+      method: 'POST',
+      url: '/RelatedPerson',
+      resource: subscriber,
+      fullUrl: subscriber.id,
+    });
+    order.push('relatedperson');
+    subscriberId = subscriber.id;
   }
   copy.subscriber = uuidOrUrnReference('RelatedPerson', subscriberId);
   // Move all coverages to payer URLs
@@ -661,7 +693,7 @@ async function findExistingBillingResources(
   originals: ClinicalResources
 ): Promise<BillingResources> {
   const personSearch = (
-    await billingOystehr.fhir.search<Person | Patient | Account | Coverage>({
+    await billingOystehr.fhir.search<Person | Patient | Account | Coverage | RelatedPerson>({
       resourceType: 'Person',
       params: [
         { name: 'link', value: `Patient/${originals.patient.id}` },
@@ -675,6 +707,11 @@ async function findExistingBillingResources(
           // Include account coverages
           name: '_include',
           value: 'Account:coverage:Coverage',
+        },
+        {
+          // Include coverage subscribers
+          name: '_include',
+          value: 'Coverage:subscriber:RelatedPerson',
         },
       ],
     })
@@ -690,6 +727,7 @@ async function findExistingBillingResources(
   );
   const existingAccounts = personSearch.filter((r): r is Account => r.resourceType === 'Account');
   const existingCoverages = personSearch.filter((r): r is Coverage => r.resourceType === 'Coverage');
+  const existingSubscribers = personSearch.filter((r): r is RelatedPerson => r.resourceType === 'RelatedPerson');
 
   const serviceFacilitySearch = (
     await billingOystehr.fhir.search<Location>({
@@ -741,6 +779,7 @@ async function findExistingBillingResources(
     mainPatient: existingMainPatient,
     accounts: existingAccounts,
     coverages: existingCoverages,
+    subscribers: existingSubscribers,
     practitioners: matchingPractitioners,
     serviceFacility: matchingServiceFacility,
     billingProvider: matchingBillingProvider,

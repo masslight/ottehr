@@ -76,6 +76,7 @@ export function prepareWorkingCopy<T extends Resource>(resource: T, originalId: 
 export function prepareCopy<T extends Resource>(resource: T, originalId: string): T {
   const copy: T & { identifier?: { system: string; value: string }[] } = structuredClone(resource);
   delete copy.id;
+  // CW TODO: move this back to extension
   const existing = (copy.identifier ?? []).filter((id) => id.system !== SOURCE_IDENTIFIER_SYSTEM);
   copy.identifier = [
     ...existing,
