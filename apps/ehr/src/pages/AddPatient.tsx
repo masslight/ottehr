@@ -23,6 +23,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useCopyChartDataToFollowup } from 'src/features/visits/shared/components/patient/useCopyChartDataToFollowup';
 import { AddVisitPatientInformationCard } from 'src/features/visits/shared/components/staff-add-visit/AddVisitPatientInformationCard';
 import {
+  APIError,
   BOOKING_CONFIG,
   CopyableFollowupField,
   CreateAppointmentInputParams,
@@ -33,6 +34,7 @@ import {
   GetScheduleRequestParams,
   GetScheduleResponse,
   getTimezone,
+  isApiError,
   PatientInfo,
   ScheduleType,
   ServiceMode,
@@ -389,7 +391,11 @@ export default function AddPatient(): JSX.Element {
         persistedSlot = await createSlot(createSlotInput, oystehrZambda);
       } catch (error) {
         console.error(`Failed to create slot: ${error}`);
-        enqueueSnackbar('An unexpected error occurred creating the slot, please try again.', { variant: 'error' });
+        let errorMessage = 'An unexpected error occurred creating the slot, please try again.';
+        if (isApiError(error)) {
+          errorMessage = (error as APIError).message;
+        }
+        enqueueSnackbar(errorMessage, { variant: 'error' });
         setLoading(false);
         return;
       }
