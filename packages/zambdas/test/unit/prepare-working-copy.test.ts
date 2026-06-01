@@ -1,11 +1,6 @@
 import { Coverage, Location, Organization, Patient, Practitioner, Resource } from 'fhir/r4b';
 import { describe, expect, it } from 'vitest';
-import {
-  BILLING_RESOURCE_TAG,
-  BILLING_WORKING_COPY_TAG,
-  prepareWorkingCopy,
-  SOURCE_IDENTIFIER_SYSTEM,
-} from '../../src/billing/shared';
+import { BILLING_WORKING_COPY_TAG, prepareWorkingCopy, SOURCE_IDENTIFIER_SYSTEM } from '../../src/billing/shared';
 
 const ORIGINAL_ID = '11111111-1111-4111-8111-111111111111';
 
@@ -61,10 +56,8 @@ describe('prepareWorkingCopy', () => {
   // The same contract must hold for every resource type it is called on.
   describe.each(cases)('for $resourceType', ({ resourceType, resource }) => {
     it('tags the copy as a billing working copy (so list views exclude it)', () => {
-      expect(prepareWorkingCopy(resource, ORIGINAL_ID).meta?.tag).toEqual([
-        BILLING_RESOURCE_TAG,
-        BILLING_WORKING_COPY_TAG,
-      ]);
+      // Only the working-copy tag is set explicitly; the workspace SDK client adds BILLING_RESOURCE_TAG on write.
+      expect(prepareWorkingCopy(resource, ORIGINAL_ID).meta?.tag).toEqual([BILLING_WORKING_COPY_TAG]);
     });
 
     it('drops the original id so create() makes a new resource', () => {
