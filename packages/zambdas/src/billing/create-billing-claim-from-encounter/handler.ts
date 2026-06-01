@@ -115,6 +115,7 @@ interface BillingResources {
   coverages: Coverage[];
   subscribers: RelatedPerson[];
   practitioners: Practitioner[];
+  renderingProvider?: Practitioner;
   serviceFacility?: Location;
   billingProvider?: Organization;
 }
@@ -334,8 +335,7 @@ async function performEffect(billingOystehr: Oystehr, cvo: ComplexValidationOutp
     encounter: clinicalResources.encounter,
     diagnoses: clinicalResources.diagnoses,
     coverageRefs: getClaimCoveragesForEncounter(encounterType, mainPatientAccounts, claimCoverages),
-    // CW TODO: select rendering provider based on encounter
-    renderingProvider: billingResources.practitioners[0],
+    renderingProvider: billingResources.renderingProvider,
     serviceFacility: billingResources.serviceFacility,
     billingProvider: billingResources.billingProvider,
   });
@@ -760,6 +760,20 @@ async function findExistingBillingResources(
       })
     )
   ).filter((p): p is Practitioner => !!p);
+  const clinicalAttendingProviderRef = originals.encounter.participant?.find(
+    (part) =>
+      part.type?.some(
+        (t) =>
+          t.coding?.find((c) => c.system === 'http://terminology.hl7.org/CodeSystem/v3-ParticipationType')?.code ===
+          'ATND'
+      )
+  )?.individual?.reference;
+  const clinicalAttendingProvider = originals.practitioners.find(
+    (prac) => clinicalAttendingProviderRef && prac.id === clinicalAttendingProviderRef.replace('Practitioner/', '')
+  );
+  const renderingProvider = matchingPractitioners.find(
+    (prac) => clinicalAttendingProvider && getNPIIdentifier(prac) === getNPIIdentifier(clinicalAttendingProvider)
+  );
 
   const billingProviderSearch = (
     await billingOystehr.fhir.search<Organization>({
@@ -781,6 +795,7 @@ async function findExistingBillingResources(
     coverages: existingCoverages,
     subscribers: existingSubscribers,
     practitioners: matchingPractitioners,
+    renderingProvider: renderingProvider,
     serviceFacility: matchingServiceFacility,
     billingProvider: matchingBillingProvider,
   };
