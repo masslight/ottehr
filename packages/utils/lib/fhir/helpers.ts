@@ -1,4 +1,4 @@
-import Oystehr, { BatchInputPostRequest, SearchParam } from '@oystehr/sdk';
+import Oystehr, { BatchInputPostRequest, SearchParam, TransactionBundle } from '@oystehr/sdk';
 import { Operation } from 'fast-json-patch';
 import {
   Account,
@@ -1545,4 +1545,16 @@ export function makeOptimisticLockIfMatchHeader(res: FhirResource | string): str
   }
 
   return versionId ? `W/"${versionId}"` : undefined;
+}
+
+export const resourceHasTagSystem = (resource: FhirResource, system: string): boolean =>
+  resource.meta?.tag?.some((t) => t.system === system) ?? false;
+
+export const getTag = (resource: Resource, tagSystem: string, tagCode?: string): Coding | undefined => {
+  if (tagCode) return resource.meta?.tag?.find((tag) => tag.system === tagSystem && tag.code === tagCode);
+  else return resource.meta?.tag?.find((tag) => tag.system === tagSystem);
+};
+
+export function transactionWasSuccessful(transactionResponse: Pick<TransactionBundle<FhirResource>, 'entry'>): boolean {
+  return transactionResponse.entry?.every((entry) => entry.response?.status[0] === '2') ?? false;
 }

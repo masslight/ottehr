@@ -171,27 +171,14 @@ jobs:
           aws-deploy-role: ${{ inputs.aws_deploy_role || vars.AWS_DEPLOY_ROLE }}
           pull-generated-config-from-terraform-state: true
 
-      - name: Restore seed data cache
-        if: needs.check-changes.outputs.environment == 'local' || needs.check-changes.outputs.environment == 'e2e' || needs.check-changes.outputs.environment == 'e2e2' || needs.check-changes.outputs.environment == 'e2e3'
-        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
-        with:
-          path: apps/ehr/tests/e2e-utils/seed-data/resources/
-          key: seed-data-${{ needs.check-changes.outputs.environment }}-${{ github.sha }}-${{ github.run_id }}
-          fail-on-cache-miss: true
-
       - name: Run E2E tests
         run: |
           ENV="${{ needs.check-changes.outputs.environment }}"
-
-          if [ "$ENV" == "local" ] || [ "$ENV" == "e2e" ] || [ "$ENV" == "e2e2" ] || [ "$ENV" == "e2e3" ]; then
-            npm run ehr:e2e:$ENV:integration
+          MODE="${{ inputs.mode }}"
+          if [ "$MODE" == "smoke" ]; then
+            npm run ehr:e2e:$ENV:smoke
           else
-            MODE="${{ inputs.mode }}"
-            if [ "$MODE" == "smoke" ]; then
-              npm run ehr:e2e:$ENV:smoke
-            else
-              npm run ehr:e2e:$ENV
-            fi
+            npm run ehr:e2e:$ENV
           fi
         env:
           CI: true

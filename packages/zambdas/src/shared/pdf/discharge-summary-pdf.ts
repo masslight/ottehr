@@ -56,7 +56,7 @@ const composeDischargeSummaryData: DataComposer<DischargeSummaryInput, Discharge
     erxMedications: composeErxMedications({ allChartData, appointmentPackage }),
     diagnoses: composeDiagnoses({ allChartData }),
     patientInstructions: composePatientInstructions({ allChartData }),
-    educationDocuments: composeEducationalDocuments(null),
+    educationDocuments: composeEducationalDocuments({ allChartData }),
     disposition: composeDisposition({ allChartData }),
     physician: composePhysician({ appointmentPackage }),
     workSchoolExcuse,

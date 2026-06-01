@@ -317,7 +317,11 @@ export const MedicationCardView: React.FC<MedicationCardViewProps> = ({
         </Grid>
         {Object.entries(fieldsConfig).map(([field, config]) => {
           if (field === 'cptCodes') return null; // Rendered separately below
-          const value = getFieldValue(field as keyof MedicationData) as string | number | undefined;
+          const value = getFieldValue(field as keyof MedicationData) as
+            | string
+            | number
+            | NonNullable<MedicationData['location']>
+            | undefined;
           let renderValue: string | undefined;
 
           // renderValue handles edge case when backend created new medication resource without id
