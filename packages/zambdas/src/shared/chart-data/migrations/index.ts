@@ -219,10 +219,15 @@ export async function runExamMigrations(
   normalExternalGenitalExamSex?: 'male' | 'female'
 ): Promise<ExamObservationDTO[]> {
   const examVersion = getExamMigrationVersion(encounter);
+  console.log('examVersion', examVersion);
+
   const needsVersionMigration = examVersion < CURRENT_EXAM_MIGRATION_VERSION;
+  console.log('needsVersionMigration', needsVersionMigration);
+
   const needsGenitalMigration =
     !!normalExternalGenitalExamSex &&
     examObservations.some((obs) => obs.field === NORMAL_EXTERNAL_GENITAL_EXAM_FIELD && obs.value === true);
+  console.log('needsGenitalMigration', needsGenitalMigration);
 
   if (!needsVersionMigration && !needsGenitalMigration) {
     return examObservations;
@@ -234,6 +239,7 @@ export async function runExamMigrations(
 
   if (needsVersionMigration) {
     const migration = migrateV0ToCurrent(result);
+    console.log('migration.migrated', migration.migrated);
     if (migration.migrated) {
       ranCurrentMigration = true;
       result = migration.observations;
@@ -273,6 +279,15 @@ export async function runExamMigrations(
           }
         }
       }
+
+      // Migration was run on this exam, so stamp migration version as current
+      const updatedExtensions = (encounter.extension ?? []).filter((e) => e.url !== EXAM_MIGRATION_VERSION_URL);
+      updatedExtensions.push({ url: EXAM_MIGRATION_VERSION_URL, valueInteger: CURRENT_EXAM_MIGRATION_VERSION });
+      requests.push({
+        method: 'PUT',
+        url: `/Encounter/${encounterId}`,
+        resource: { ...encounter, extension: updatedExtensions },
+      });
     }
 
     if (genitalMigration?.migrated) {
@@ -302,16 +317,7 @@ export async function runExamMigrations(
       }
     }
 
-    // Update encounter migration version if version-based migration was pending
-    if (needsVersionMigration) {
-      const updatedExtensions = (encounter.extension ?? []).filter((e) => e.url !== EXAM_MIGRATION_VERSION_URL);
-      updatedExtensions.push({ url: EXAM_MIGRATION_VERSION_URL, valueInteger: CURRENT_EXAM_MIGRATION_VERSION });
-      requests.push({
-        method: 'PUT',
-        url: `/Encounter/${encounterId}`,
-        resource: { ...encounter, extension: updatedExtensions },
-      });
-    }
+    console.log(`will make ${requests.length} requests`);
 
     if (requests.length > 0) {
       await oystehr.fhir.transaction({ requests });
