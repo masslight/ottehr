@@ -16,6 +16,7 @@ import { makeExamObservationResource } from '..';
  */
 
 // Map of old standalone field names → { parent field name, label for the component }
+// this map also applies to v2 charts
 export const MIGRATION_V1_FIELD_MAP: Record<string, { parent: string; groupLabel: string; label: string }> = {
   // Heart - Murmur
   'murmur-i': { parent: 'murmur-grade', groupLabel: 'Grade', label: 'Grade I' },

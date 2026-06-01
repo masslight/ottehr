@@ -365,7 +365,7 @@ export function getExamMigrationVersion(encounter: Encounter): number {
 }
 
 /**
- * Returns true is encounter exam migration version is less than the current version
+ * Returns true if the encounter's exam migration version is less than the current version.
  */
 export function encounterHasLegacyExamVersion(encounter: Encounter): boolean {
   const examVersion = getExamMigrationVersion(encounter);

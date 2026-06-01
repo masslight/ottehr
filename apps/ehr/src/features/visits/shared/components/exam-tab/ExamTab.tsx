@@ -21,8 +21,8 @@ export const ExamTab: FC = () => {
   const config = examConfig.default.components;
   const { displayExamMigrationWarning, unmatchedExamFields, hasIncompatibleExamConfig } = useExamConfigState(config);
 
-  // if the exam version is flagged as incompatible this means we cannot run the migration on it safely
-  // so if its flagged as needing migration AND incompatible - just don't show anything and refer user to the visit pdf
+  // If the exam version is flagged as incompatible, we cannot run the migration safely.
+  // If it both needs migration and is incompatible, hide the exam and direct the user to the visit PDF.
   if (hasIncompatibleExamConfig && displayExamMigrationWarning) {
     return (
       <Stack direction="column" gap={1}>

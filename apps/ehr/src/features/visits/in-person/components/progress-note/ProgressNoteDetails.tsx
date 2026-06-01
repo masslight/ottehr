@@ -176,8 +176,8 @@ export const ProgressNoteDetails: FC = () => {
       <Typography variant="h5" color="primary.dark">
         Examination
       </Typography>
-      {/* if the exam version is flagged as incompatible this means we cannot run the migration on it safely
-      so if its flagged as needing migration AND incompatible - just don't show anything and refer user to the visit pdf */}
+      {/* If the exam version is flagged as incompatible, we cannot run the migration safely.
+       If it both needs migration and is incompatible, hide the exam and direct the user to the visit PDF. */}
       {displayExamMigrationWarning && hasIncompatibleExamConfig ? (
         <Typography color="text.secondary">{INCOMPATIBLE_EXAM_VERSION_MESSAGE}</Typography>
       ) : (
