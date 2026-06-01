@@ -451,10 +451,13 @@ export const sortCoveragesByPriority = (account: Account, coverages: Coverage[])
   const coverageMap: { [key: string]: Coverage } = {};
   coverages.forEach((c) => (coverageMap[`Coverage/${c.id}`] = c));
 
+  console.log(`Before filter AccountCoverages from Account/${account.id}`, JSON.stringify(account.coverage));
   const accountCoverages = account.coverage?.filter((c) => {
     const coverageRef = c.coverage.reference;
     return coverageRef && coverageMap[coverageRef];
   });
+  console.log(`Post filter AccountCoverages from Account/${account.id}`, JSON.stringify(accountCoverages));
+  console.log(`Comparing against these coverages: `, JSON.stringify(Object.keys(coverageMap)));
 
   if (accountCoverages?.length) {
     accountCoverages.sort((a, b) => {
