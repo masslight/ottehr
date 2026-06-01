@@ -3333,9 +3333,8 @@ export const resolveCoverageUpdates = (input: CompareCoverageInput): CompareCove
 
   // we should only split if it's an actual reference, and not a bare id like urn:uuid etc
   const getNewCoverageRefId = (coverageRef: Reference | undefined): string | undefined => {
-    return coverageRef?.reference?.startsWith('Coverage/')
-      ? coverageRef.reference.split('/')[1]
-      : coverageRef?.reference;
+    const ref = coverageRef?.reference;
+    return ref?.startsWith('Coverage/') ? ref.split('/')[1] : ref;
   };
 
   const newPrimaryCoverage = suggestedNewCoverageObject.find((c) => c.priority === 1)?.coverage;
