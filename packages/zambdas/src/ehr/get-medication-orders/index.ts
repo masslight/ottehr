@@ -14,7 +14,7 @@ import {
   getCurrentOrderedByProviderId,
   getDosageUnitsAndRouteOfMedication,
   getFullestAvailableName,
-  getLocationCodeFromMedicationAdministration,
+  getLocationFromMedicationAdministration,
   getMedicationFromMA,
   getMedicationInteractions,
   getMedicationName,
@@ -102,7 +102,7 @@ function mapMedicalAdministrationToDTO(orderPackage: OrderPackage): ExtendedMedi
       ?.find((res) => res.reference)
       ?.reference?.replace('Condition/', ''),
     manufacturer: medication?.manufacturer?.display,
-    location: getLocationCodeFromMedicationAdministration(medicationAdministration),
+    location: getLocationFromMedicationAdministration(medicationAdministration),
     dateTimeCreated: medicationAdministration.effectiveDateTime ?? '',
     providerCreatedTheOrderId: getPractitionerIdThatOrderedMedication(medicationAdministration) || '',
     providerCreatedTheOrder: providerCreatedOrderName ?? '',

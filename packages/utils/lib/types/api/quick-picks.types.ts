@@ -175,6 +175,7 @@ export interface InHouseMedicationQuickPickData {
   dose?: number;
   units?: string;
   route?: string;
+  location?: { code: string; name: string };
   manufacturer?: string;
   associatedDx?: string;
   instructions?: string;

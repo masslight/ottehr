@@ -1,9 +1,11 @@
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { Box, CircularProgress, IconButton, Stack, Typography, useTheme } from '@mui/material';
+import { DateTime } from 'luxon';
 import React, { ReactElement } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Row } from 'src/components/layout/Row';
 import { Section } from 'src/components/layout/Section';
+import { searchRouteByCode } from 'utils';
 import { useImmunizationQuickPicksQuery } from './admin.queries';
 
 function ValueDisplay({ value }: { value: string | undefined | null }): ReactElement {
@@ -59,7 +61,7 @@ export default function ImmunizationQuickPickDetailPage(): ReactElement {
             <ValueDisplay value={quickPick.units} />
           </Row>
           <Row label="Route">
-            <ValueDisplay value={quickPick.route} />
+            <ValueDisplay value={searchRouteByCode(quickPick.route)?.display ?? quickPick.route} />
           </Row>
           <Row label="Injection Site">
             <ValueDisplay value={quickPick.location?.name} />
@@ -91,7 +93,9 @@ export default function ImmunizationQuickPickDetailPage(): ReactElement {
             <ValueDisplay value={quickPick.lot} />
           </Row>
           <Row label="Expiration Date">
-            <ValueDisplay value={quickPick.expDate} />
+            <ValueDisplay
+              value={quickPick.expDate ? DateTime.fromISO(quickPick.expDate).toFormat('yyyy-MM-dd') : undefined}
+            />
           </Row>
           <Row label="Instructions">
             <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
