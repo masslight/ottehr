@@ -4,7 +4,13 @@ import { Appointment, Encounter, EncounterStatusHistory, Extension, Location, Re
 import { DateTime } from 'luxon';
 import { CODE_SYSTEM_ACT_CODE_V3 } from '../helpers';
 import { FhirEncounterStatus, PatientFollowupDetails, ProviderDetails, VisitStatusWithoutUnknown } from '../types';
-import { ENCOUNTER_PAYMENT_VARIANT_EXTENSION_URL, FHIR_BASE_URL, FHIR_EXTENSION } from './constants';
+import {
+  CURRENT_EXAM_MIGRATION_VERSION,
+  ENCOUNTER_PAYMENT_VARIANT_EXTENSION_URL,
+  EXAM_MIGRATION_VERSION_URL,
+  FHIR_BASE_URL,
+  FHIR_EXTENSION,
+} from './constants';
 
 // follow up encounter consts
 export const FOLLOWUP_TYPES = ['Follow-up Encounter'] as const;
@@ -348,3 +354,20 @@ export const getEncounterLocationId = (encounter: Encounter | undefined): string
   const locationRef = encounter?.location?.[0]?.location?.reference;
   return locationRef?.split('/')[1];
 };
+
+/**
+ * Gets the current exam migration version from an encounter's extensions.
+ * Returns 0 if no version is stamped (pre-migration encounter).
+ */
+export function getExamMigrationVersion(encounter: Encounter): number {
+  const ext = encounter.extension?.find((e) => e.url === EXAM_MIGRATION_VERSION_URL);
+  return ext?.valueInteger ?? 0;
+}
+
+/**
+ * Returns true is encounter exam migration version is less than the current version
+ */
+export function encounterHasLegacyExamVersion(encounter: Encounter): boolean {
+  const examVersion = getExamMigrationVersion(encounter);
+  return examVersion < CURRENT_EXAM_MIGRATION_VERSION;
+}

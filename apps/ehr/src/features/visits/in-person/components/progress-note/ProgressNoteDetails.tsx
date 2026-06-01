@@ -12,7 +12,7 @@ import { FEATURE_FLAGS } from 'src/constants/feature-flags';
 import { ImmunizationContainer } from 'src/features/visits/in-person/components/ImmunizationContainer';
 import { LabResultsReviewContainer } from 'src/features/visits/in-person/components/LabResultsReviewContainer';
 import { ExamMigrationWarning } from 'src/features/visits/shared/components/exam-tab/ExamMigrationWarning';
-import { useUnmatchedExamFields } from 'src/features/visits/shared/components/exam-tab/useUnmatchedExamFields';
+import { useExamConfigState } from 'src/features/visits/shared/components/exam-tab/useExamConfigState';
 import { AdditionalQuestionsContainer } from 'src/features/visits/shared/components/review-tab/components/AdditionalQuestionsContainer';
 import { AllergiesContainer } from 'src/features/visits/shared/components/review-tab/components/AllergiesContainer';
 import { AssessmentContainer } from 'src/features/visits/shared/components/review-tab/components/AssessmentContainer';
@@ -44,6 +44,7 @@ import useEvolveUser from 'src/hooks/useEvolveUser';
 import {
   examConfig,
   getSupervisorApprovalStatus,
+  INCOMPATIBLE_EXAM_VERSION_MESSAGE,
   LabType,
   NOTE_TYPE,
   progressNoteChartDataRequestedFields,
@@ -60,7 +61,8 @@ export const ProgressNoteDetails: FC = () => {
   // Appointment-scoped: must match how save-chart-data picks the config, otherwise
   // telemed appointments opened under /in-person/:id/* mismatch the backend.
   const examConfigComponents = examConfig.default.components;
-  const unmatchedExamFields = useUnmatchedExamFields(examConfigComponents);
+  const { unmatchedExamFields, displayExamMigrationWarning, hasIncompatibleExamConfig } =
+    useExamConfigState(examConfigComponents);
   const { mutateAsync: signAppointment, isPending: isSignLoading } = useSignAppointmentMutation();
   const rosState = useRosObservationsStore();
 
@@ -159,7 +161,9 @@ export const ProgressNoteDetails: FC = () => {
   ].filter(Boolean);
 
   const sections = [
-    unmatchedExamFields.length > 0 && <ExamMigrationWarning unmatchedFields={unmatchedExamFields} />,
+    displayExamMigrationWarning && !hasIncompatibleExamConfig && (
+      <ExamMigrationWarning unmatchedFields={unmatchedExamFields} />
+    ),
     showChiefComplaint && <ChiefComplaintContainer />,
     showHpi && <HistoryOfPresentIllnessContainer />,
     showMechanismOfInjury && <MechanismOfInjuryContainer />,
@@ -167,11 +171,18 @@ export const ProgressNoteDetails: FC = () => {
     showRosReviewContainer && <RosReviewContainer />,
     showAdditionalQuestions && <AdditionalQuestionsContainer notes={screeningNotes} />,
     showVitalsObservations && <PatientVitalsContainer notes={vitalsNotes} encounterId={encounter?.id} />,
+
     <Stack spacing={1}>
       <Typography variant="h5" color="primary.dark">
         Examination
       </Typography>
-      <ExaminationContainer examConfig={examConfigComponents} />
+      {/* if the exam version is flagged as incompatible this means we cannot run the migration on it safely
+      so if its flagged as needing migration AND incompatible - just don't show anything and refer user to the visit pdf */}
+      {displayExamMigrationWarning && hasIncompatibleExamConfig ? (
+        <Typography color="text.secondary">{INCOMPATIBLE_EXAM_VERSION_MESSAGE}</Typography>
+      ) : (
+        <ExaminationContainer examConfig={examConfigComponents} />
+      )}
     </Stack>,
     ...(!(approvalStatus === 'waiting-for-approval') ? medicalHistorySections : []),
     showAssessment && <AssessmentContainer />,

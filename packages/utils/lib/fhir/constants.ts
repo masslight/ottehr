@@ -807,3 +807,8 @@ export const CASE_RATE_CODE = 'case-rate';
 
 export const CPT_MODIFIER_EXTENSION_URL = ottehrExtensionUrl('cpt-modifier');
 export const CPT_CODE_SYSTEM = 'http://www.ama-assn.org/go/cpt';
+
+export const EXAM_MIGRATION_VERSION_URL = `${PRIVATE_EXTENSION_BASE_URL}/exam-migration-version`;
+export const CURRENT_EXAM_MIGRATION_VERSION = 2;
+export const INCOMPATIBLE_EXAM_VERSION_MESSAGE =
+  "This chart's exam version is incompatible with the current exam configuration, please consult the visit PDF.";

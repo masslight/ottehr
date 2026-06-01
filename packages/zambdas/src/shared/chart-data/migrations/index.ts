@@ -1,19 +1,12 @@
 import Oystehr from '@oystehr/sdk';
 import { Encounter } from 'fhir/r4b';
-import { ExamObservationDTO, PRIVATE_EXTENSION_BASE_URL } from 'utils';
+import {
+  CURRENT_EXAM_MIGRATION_VERSION,
+  EXAM_MIGRATION_VERSION_URL,
+  ExamObservationDTO,
+  getExamMigrationVersion,
+} from 'utils';
 import { makeExamObservationResource } from '..';
-
-export const EXAM_MIGRATION_VERSION_URL = `${PRIVATE_EXTENSION_BASE_URL}/exam-migration-version`;
-export const CURRENT_EXAM_MIGRATION_VERSION = 1;
-
-/**
- * Gets the current exam migration version from an encounter's extensions.
- * Returns 0 if no version is stamped (pre-migration encounter).
- */
-export function getExamMigrationVersion(encounter: Encounter): number {
-  const ext = encounter.extension?.find((e) => e.url === EXAM_MIGRATION_VERSION_URL);
-  return ext?.valueInteger ?? 0;
-}
 
 /**
  * Migration 0 → 1: Convert standalone multi-select observations to component-based storage.
@@ -121,7 +114,7 @@ export interface MigrationResult {
   observations: ExamObservationDTO[];
 }
 
-export function migrateV0ToV1(observations: ExamObservationDTO[]): MigrationResult {
+export function migrateV0ToCurrent(observations: ExamObservationDTO[]): MigrationResult {
   const standaloneToMigrate: ExamObservationDTO[] = [];
   const keepAsIs: ExamObservationDTO[] = [];
 
@@ -224,8 +217,8 @@ export async function runExamMigrations(
   examObservations: ExamObservationDTO[],
   normalExternalGenitalExamSex?: 'male' | 'female'
 ): Promise<ExamObservationDTO[]> {
-  const currentVersion = getExamMigrationVersion(encounter);
-  const needsVersionMigration = currentVersion < CURRENT_EXAM_MIGRATION_VERSION;
+  const examVersion = getExamMigrationVersion(encounter);
+  const needsVersionMigration = examVersion < CURRENT_EXAM_MIGRATION_VERSION;
   const needsGenitalMigration =
     !!normalExternalGenitalExamSex &&
     examObservations.some((obs) => obs.field === NORMAL_EXTERNAL_GENITAL_EXAM_FIELD && obs.value === true);
@@ -235,14 +228,13 @@ export async function runExamMigrations(
   }
 
   let result = examObservations;
-  let didV1Migration = false;
+  let ranCurrentMigration = false;
   let genitalMigration: ReturnType<typeof migrateNormalExternalGenitalExam> | undefined;
 
-  // Run migration 0 → 1
-  if (needsVersionMigration && currentVersion < 1) {
-    const migration = migrateV0ToV1(result);
+  if (needsVersionMigration) {
+    const migration = migrateV0ToCurrent(result);
     if (migration.migrated) {
-      didV1Migration = true;
+      ranCurrentMigration = true;
       result = migration.observations;
     }
   }
@@ -258,8 +250,8 @@ export async function runExamMigrations(
   try {
     const requests: any[] = [];
 
-    if (didV1Migration) {
-      console.log(`Running exam migration from version ${currentVersion} to ${CURRENT_EXAM_MIGRATION_VERSION}`);
+    if (ranCurrentMigration) {
+      console.log(`Running exam migration from version ${examVersion} to ${CURRENT_EXAM_MIGRATION_VERSION}`);
 
       // Collect old standalone observation IDs to delete
       for (const obs of examObservations) {
@@ -322,7 +314,7 @@ export async function runExamMigrations(
 
     if (requests.length > 0) {
       await oystehr.fhir.transaction({ requests });
-      if (didV1Migration) {
+      if (ranCurrentMigration) {
         console.log(`Exam migration complete, updated encounter version to ${CURRENT_EXAM_MIGRATION_VERSION}`);
       }
       if (genitalMigration && genitalMigration.migrated) {
