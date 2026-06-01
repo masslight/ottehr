@@ -44,14 +44,20 @@ const getVisitTypeToLabel = (): Partial<typeof ALL_VISIT_TYPE_LABELS> => {
 };
 
 const LOCAL_STORAGE_FILTERS_KEY = 'appointments.filters';
+const TRACKING_BOARD_FILTER_QUERY_KEYS = ['location', 'visitType', 'serviceCategory', 'date', 'provider'] as const;
 
 export default function AppointmentsFilters(): ReactElement {
   const visitTypeToLabel = useMemo(() => getVisitTypeToLabel(), []);
 
   const methods = useForm();
   const [searchParams, setSearchParams] = useSearchParams();
+  const hasTrackingBoardFilterParams = TRACKING_BOARD_FILTER_QUERY_KEYS.some((key) => searchParams.has(key));
 
   useEffect(() => {
+    if (!hasTrackingBoardFilterParams) {
+      return;
+    }
+
     const values = {
       location:
         searchParams
@@ -68,7 +74,7 @@ export default function AppointmentsFilters(): ReactElement {
           .map((id) => ({ id })) ?? [],
     };
     methods.reset(values);
-  }, [searchParams, methods]);
+  }, [hasTrackingBoardFilterParams, searchParams, methods]);
 
   useEffect(() => {
     const callback = methods.subscribe({
@@ -102,16 +108,16 @@ export default function AppointmentsFilters(): ReactElement {
 
   useEffect(() => {
     const persistedValues = localStorage.getItem(LOCAL_STORAGE_FILTERS_KEY);
-    if (searchParams.size === 0 && persistedValues) {
+    if (!hasTrackingBoardFilterParams && persistedValues) {
       methods.reset(JSON.parse(persistedValues));
     }
-    if (searchParams.size === 0 && !persistedValues) {
+    if (!hasTrackingBoardFilterParams && !persistedValues) {
       methods.reset({
         visitType: Object.keys(visitTypeToLabel),
         date: DateTime.now().toISODate(),
       });
     }
-  }, [methods, searchParams, visitTypeToLabel]);
+  }, [hasTrackingBoardFilterParams, methods, visitTypeToLabel]);
 
   return (
     <FormProvider {...methods}>
