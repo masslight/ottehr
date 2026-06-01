@@ -41,8 +41,9 @@ test.describe('Tracking board ?tab= URL state', () => {
     // Interacting with AppointmentsFilters re-fires the form-subscribe callback
     // that writes back to the URL — the very write that was clobbering ?tab=
     // before the fix.
+    expect(ENV_LOCATION_NAME, 'process.env.LOCATION must be set for this test').toBeTruthy();
     await page.getByTestId(dataTestIds.dashboard.locationSelect).click();
-    await page.locator(`li[role="option"]:has-text("${ENV_LOCATION_NAME}")`).first().click();
+    await page.locator(`li[role="option"]:has-text("${ENV_LOCATION_NAME!}")`).first().click();
     // Close the dropdown so the URL settles.
     await page.keyboard.press('Escape');
 
