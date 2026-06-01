@@ -300,7 +300,7 @@ export default function AddPatient(): JSX.Element {
       { field: 'sexAtBirth', invalid: !patientInfo.sex },
       { field: 'visitType', invalid: !visitType },
       { field: 'serviceCategory', invalid: !serviceCategory },
-      { field: 'location', invalid: !!visitType && !selectedLocation },
+      { field: 'location', invalid: !!visitType && !selectedBookable },
       { field: 'reasonForVisit', invalid: shouldShowReasonForVisitFields && !reasonForVisit },
     ];
     const fieldErrors = Object.fromEntries(validations.map((v) => [v.field, v.invalid]));
