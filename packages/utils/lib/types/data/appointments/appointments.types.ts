@@ -99,7 +99,6 @@ export interface InPersonAppointmentInformation
   extends Omit<AppointmentInformation, 'paperwork' | 'locationVirtual' | 'location' | 'statusHistory'> {
   encounterId: string;
   start: string;
-  unconfirmedDOB: string;
   reasonForVisit: string;
   status: VisitStatusLabel;
   paperwork: {
@@ -115,7 +114,6 @@ export interface InPersonAppointmentInformation
   approvalDate?: string;
   group?: string;
   room?: string;
-  needsDOBConfirmation?: boolean;
   waitingMinutes?: number;
   serviceCategory?: string;
   location?: Location;

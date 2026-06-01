@@ -22,7 +22,6 @@ export const medicationOrderFieldsWithOptions: Partial<keyof ExtendedMedicationD
   'medicationId',
   'associatedDx',
   'route',
-  'location',
   'units',
   'providerId',
 ];

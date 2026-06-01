@@ -41,7 +41,7 @@ export default function InHouseMedicationQuickPickDetailPage(): ReactElement {
   return (
     <Box sx={{ maxWidth: 720, mx: 'auto', py: 3 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
-        <IconButton onClick={() => navigate('/admin/quick-picks')} size="small">
+        <IconButton onClick={() => navigate('/admin/quick-picks/in-house-medications')} size="small">
           <ArrowBackIcon />
         </IconButton>
         <Typography variant="h4" color={theme.palette.primary.dark}>
@@ -62,6 +62,9 @@ export default function InHouseMedicationQuickPickDetailPage(): ReactElement {
           </Row>
           <Row label="Route">
             <ValueDisplay value={quickPick.route} />
+          </Row>
+          <Row label="Location">
+            <ValueDisplay value={quickPick.location?.name} />
           </Row>
           <Row label="Manufacturer">
             <ValueDisplay value={quickPick.manufacturer} />

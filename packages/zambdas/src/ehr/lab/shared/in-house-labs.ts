@@ -441,6 +441,10 @@ export const fetchActiveInHouseLabActivityDefinitions = async (oystehr: Oystehr)
       resourceType: 'ActivityDefinition',
       params: [
         { name: '_tag', value: IN_HOUSE_TAG_DEFINITION.code },
+        {
+          name: '_tag',
+          value: `${IN_HOUSE_LAB_LATEST_TAG_DEFINITION.system}|${IN_HOUSE_LAB_LATEST_TAG_DEFINITION.code}`,
+        },
         { name: 'status', value: 'active' },
       ],
     })
@@ -951,6 +955,7 @@ export function convertAdminInHouseLabItemDefinitionToActivityDefinition(
           return {
             system: CODE_SYSTEM_CPT,
             code: cptCode.code,
+            ...(cptCode.display ? { display: cptCode.display } : {}),
             ...(cptCode.modifier ? { extension: [makeCptModifierExtension(cptCode.modifier)] } : {}),
           };
         }),
@@ -1032,6 +1037,7 @@ function parseCptCodes(ad: ActivityDefinition): CptCodeInHouseLabDefinition[] {
     .filter((c) => c.system === CODE_SYSTEM_CPT)
     .map((c) => ({
       code: c.code!,
+      ...(c.display ? { display: c.display } : {}),
       ...(c.extension ? { modifier: parseCptModifierExtension(c.extension) } : {}),
     }));
 }

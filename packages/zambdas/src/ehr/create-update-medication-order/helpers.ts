@@ -7,19 +7,15 @@ import {
   getAllCptCodesFromInHouseMedication,
   getAllHcpcsCodesFromInHouseMedication,
   getDosageUnitsAndRouteOfMedication,
-  getLocationCodeFromMedicationAdministration,
   getResourcesFromBatchInlineRequests,
   INVALID_INPUT_ERROR,
   INVENTORY_MEDICATION_TYPE_CODE,
   MedicationData,
   MedicationOrderStatuses,
   OrderPackage,
-  removePrefix,
   searchMedicationLocation,
   searchRouteByCode,
-  Secrets,
 } from 'utils';
-import { createOystehrClient } from '../../shared';
 import { createMedicationAdministrationResource } from './fhir-resources-creation';
 
 export function getPerformerId(medicationAdministration: MedicationAdministration): string | undefined {
@@ -54,13 +50,6 @@ export function createMedicationCopy(
     resourceCopy.code.coding.push({ system: CODE_SYSTEM_NDC, code: orderData.ndc });
   }
   return resourceCopy;
-}
-
-export async function practitionerIdFromZambdaInput(userToken: string, secrets: Secrets | null): Promise<string> {
-  const oystehr = createOystehrClient(userToken, secrets);
-  const myPractitionerId = removePrefix('Practitioner/', (await oystehr.user.me()).profile);
-  if (!myPractitionerId) throw FHIR_RESOURCE_NOT_FOUND_CUSTOM('No practitioner id was found for token provided');
-  return myPractitionerId;
 }
 
 export async function getMedicationByName(oystehr: Oystehr, medicationName: string): Promise<Medication> {
@@ -108,12 +97,13 @@ export function updateMedicationAdministrationData(data: {
   const routeCoding = searchRouteByCode(routeCode!);
   if (orderData.route && !routeCoding)
     throw INVALID_INPUT_ERROR(`No route found with code provided: ${orderData.route}`);
-  const locationCode = orderData.location
-    ? orderData.location
-    : getLocationCodeFromMedicationAdministration(orderResources.medicationAdministration);
-  const locationCoding = locationCode ? searchMedicationLocation(locationCode) : undefined;
+  const locationCoding = orderData.location
+    ? searchMedicationLocation(orderData.location.code, orderData.location.name)
+    : undefined;
   if (orderData.location && !locationCoding)
-    throw INVALID_INPUT_ERROR(`No location found with code provided: ${orderData.location}`);
+    throw INVALID_INPUT_ERROR(
+      `No location found with code/name provided: ${orderData.location.code} / ${orderData.location.name}`
+    );
 
   if (!routeCoding) throw INVALID_INPUT_ERROR(`No medication appliance route was found for code: ${routeCode}`);
   const newMA = createMedicationAdministrationResource({

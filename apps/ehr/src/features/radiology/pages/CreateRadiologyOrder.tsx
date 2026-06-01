@@ -33,6 +33,7 @@ import { dataTestIds } from 'src/constants/data-test-ids';
 import DetailPageContainer from 'src/features/common/DetailPageContainer';
 import { getRadiologyUrl } from 'src/features/visits/in-person/routing/helpers';
 import { QuickPicksButton } from 'src/features/visits/shared/components/QuickPicksButton';
+import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
 import {
   useGetCPTHCPCSSearch,
   useICD10SearchNew,
@@ -62,7 +63,7 @@ import {
 } from '../../../api/api';
 import { useApiClients } from '../../../hooks/useAppClients';
 import useEvolveUser from '../../../hooks/useEvolveUser';
-import { useMergedRadiologyQuickPicks } from '../../../hooks/useMergedQuickPicks';
+import { sortQuickPicks, useMergedRadiologyQuickPicks } from '../../../hooks/useMergedQuickPicks';
 import { WithRadiologyBreadcrumbs } from '../components/RadiologyBreadcrumbs';
 import { useRadiologyConsentExists } from '../components/useRadiologyConsentExists';
 
@@ -79,6 +80,7 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
   const [submitting, setSubmitting] = useState<boolean>(false);
   const { mutate: saveChartData } = useSaveChartData();
   const { encounter } = useAppointmentData();
+  const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
   const { chartData, setPartialChartData } = useChartData();
   const { diagnosis } = chartData || {};
   const primaryDiagnosis = diagnosis?.find((d) => d.isPrimary);
@@ -149,26 +151,34 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
 
   const commandPaletteItems = useMemo(
     () =>
-      mergedQuickPicks.map((quickPick) => ({
-        id: `radiology-${quickPick.id ?? quickPick.name}`,
-        label: quickPick.name,
-        category: 'Order Radiology',
-        onSelect: () => onQuickPickSelectRef.current(quickPick),
-      })),
-    [mergedQuickPicks]
+      isReadOnly
+        ? []
+        : mergedQuickPicks.map((quickPick) => ({
+            id: `radiology-${quickPick.id ?? quickPick.name}`,
+            label: quickPick.name,
+            category: 'Order Radiology',
+            onSelect: () => onQuickPickSelectRef.current(quickPick),
+          })),
+    [isReadOnly, mergedQuickPicks]
   );
   useCommandPaletteSource('radiology-quick-picks', commandPaletteItems);
 
-  const handlePendingQuickPick = useCallback((payload: RadiologyQuickPickData) => {
-    onQuickPickSelectRef.current(payload);
-  }, []);
+  const handlePendingQuickPick = useCallback(
+    (payload: RadiologyQuickPickData) => {
+      if (isReadOnly) {
+        return;
+      }
+      onQuickPickSelectRef.current(payload);
+    },
+    [isReadOnly]
+  );
   usePendingQuickPick('radiology', handlePendingQuickPick);
 
   const openQuickPickDialog = async (): Promise<void> => {
     if (!oystehrZambda) return;
     try {
       const response = await getRadiologyQuickPicks(oystehrZambda);
-      setExistingQuickPicks(response.quickPicks);
+      setExistingQuickPicks([...response.quickPicks].sort(sortQuickPicks));
     } catch (error) {
       console.error('Failed to load existing quick picks:', error);
       setExistingQuickPicks(mergedQuickPicks);
@@ -320,7 +330,7 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
               <Grid container sx={{ width: '100%' }} spacing={1} rowSpacing={2}>
                 <Grid item xs={12}>
                   <QuickPicksButton
-                    quickPicks={[...mergedQuickPicks].sort((a, b) => a.name.localeCompare(b.name))}
+                    quickPicks={mergedQuickPicks}
                     getLabel={(qp) => {
                       const parts = [qp.name] as string[];
                       if (qp.cptCode) parts.push(qp.cptCode);

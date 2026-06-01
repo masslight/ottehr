@@ -1,5 +1,16 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { getSecret, MISSING_REQUIRED_PARAMETERS, Secrets, SecretsKeys } from 'utils';
+import {
+  FileType,
+  FileTypeMap,
+  getSecret,
+  LegacyFile,
+  LegacyPatientRecord,
+  MISSING_REQUIRED_PARAMETERS,
+  SearchLegacyRecordsInput,
+  SearchLegacyRecordsOutput,
+  Secrets,
+  SecretsKeys,
+} from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
 
 const ZAMBDA_NAME = 'ehr-search-legacy-records';
@@ -13,40 +24,6 @@ const PRESIGNED_URL_CONCURRENCY = 10;
 
 let m2mToken: string;
 
-export interface SearchLegacyRecordsInput {
-  lastName: string;
-  firstName?: string;
-  dateOfBirth?: string;
-  /** 1-based page index (default: 1) */
-  page?: number;
-  /** Patient folders per page (default: 20, max: 50) */
-  pageSize?: number;
-  /** Max files returned per patient record (default: 50, max: 200) */
-  maxFilesPerRecord?: number;
-}
-
-export interface LegacyFile {
-  key: string;
-  fileName: string;
-  fileType: 'medical-summary' | 'progress-note' | 'other';
-  presignedUrl: string;
-}
-
-export interface LegacyPatientRecord {
-  patientFolder: string;
-  patientId: string;
-  displayName: string;
-  files: LegacyFile[];
-}
-
-export interface SearchLegacyRecordsOutput {
-  results: LegacyPatientRecord[];
-  /** Total number of matching patient folders (for pagination) */
-  total: number;
-  page: number;
-  pageSize: number;
-}
-
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   const { secrets, lastName, firstName, dateOfBirth, page, pageSize, maxFilesPerRecord } =
     validateRequestParameters(input);
@@ -58,12 +35,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const bucketName = `${projectId}-${LEGACY_DATA_BUCKET_SUFFIX}`;
 
   // Build prefix from search parameters (all lowercased)
-  const parts: string[] = [lastName.toLowerCase().trim()];
+  const parts: string[] = [sanitizeForZ3Path(lastName.toLowerCase().trim())];
   if (firstName?.trim()) {
-    parts.push(firstName.toLowerCase().trim());
+    parts.push(sanitizeForZ3Path(firstName.toLowerCase().trim()));
   }
   if (dateOfBirth?.trim()) {
-    parts.push(dateOfBirth.trim());
+    parts.push(sanitizeForZ3Path(dateOfBirth.trim()));
   }
   const prefix = parts.join('_');
 
@@ -121,8 +98,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   for (const [patientFolder, { patientId, keys }] of pageFolderEntries) {
     const folderParts = patientFolder.split('_');
     const displayLastName = folderParts[0] ? capitalize(folderParts[0]) : '';
-    const displayFirstName = folderParts[1] ? capitalize(folderParts[1]) : '';
-    const displayDob = folderParts.slice(2).join('-');
+    const firstNameParts = folderParts.slice(1, -1);
+    const displayFirstName = firstNameParts.map(capitalize).join(' ');
+    const displayDob = folderParts[folderParts.length - 1] || '';
     const displayName = `${displayLastName}, ${displayFirstName}${displayDob ? ` (DOB: ${displayDob})` : ''}`;
 
     const cappedKeys = keys.slice(0, maxFilesPerRecord);
@@ -133,11 +111,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         batch.map(async (key) => {
           const fileName = key.split('/').pop() ?? key;
           const lowerKey = key.toLowerCase();
-          const fileType: LegacyFile['fileType'] = lowerKey.includes('medical_summary')
-            ? 'medical-summary'
-            : lowerKey.includes('progressnotes') || lowerKey.includes('/enc/') || lowerKey.endsWith('/enc')
-            ? 'progress-note'
-            : 'other';
+
+          const fileType = getFileTypeFromKey(lowerKey);
+
           const presignedResponse = await oystehr.z3.getPresignedUrl({
             action: 'download',
             bucketName,
@@ -163,6 +139,19 @@ function capitalize(str: string): string {
   return str.charAt(0).toUpperCase() + str.slice(1);
 }
 
+/**
+ * Removes leading/trailing spaces, replaces inner whitespace with "_",
+ * Strips any character that is not accepted in z3 object naming.
+ * Characters accepted: letters, numbers, plus (+), exclamation point (!), hyphen (-), underscore (_), single quote ('),
+ * open parenthesis ((), closed parenthesis ()), period (.), at sign (@), dollar sign ($)
+ */
+function sanitizeForZ3Path(value: string): string {
+  // this logic matches what was used to push data in the v2 migration
+  return value
+    .trim()
+    .replace(/\s+/g, '_')
+    .replace(/[^A-Za-z0-9+!_\-'.()@$]/g, '');
+}
 interface ValidatedParameters {
   secrets: Secrets | null;
   lastName: string;
@@ -221,4 +210,23 @@ function validateRequestParameters(input: ZambdaInput): ValidatedParameters {
     pageSize,
     maxFilesPerRecord,
   };
+}
+
+function getFileTypeFromKey(key: string): FileType {
+  const lowerKey = key.toLowerCase();
+
+  for (const [fileType, { folder: folderName }] of Object.entries(FileTypeMap)) {
+    const folderNameLower = folderName.toLocaleLowerCase();
+
+    if (lowerKey.includes(folderNameLower)) return fileType as FileType;
+
+    // first iteration data migration pushed in progress notes under /enc
+    if (fileType === FileType.PROGRESS_NOTE) {
+      if (lowerKey.includes('/enc/') || lowerKey.endsWith('/enc')) {
+        return fileType as FileType;
+      }
+    }
+  }
+
+  return FileType.OTHER;
 }

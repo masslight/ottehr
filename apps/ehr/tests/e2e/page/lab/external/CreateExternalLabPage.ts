@@ -66,7 +66,9 @@ export class CreateExternalLabPage {
     await expect(selectedValue, `Confirming ${methodDisplay} is selected`).toHaveText(methodDisplay);
   }
 
-  async searchAndSelectLab(input: { withAoe: boolean }): Promise<{ fillerLabName: string; testName: string }> {
+  async searchAndSelectLab(input: {
+    withAoe: boolean;
+  }): Promise<{ fillerLabName: string; testName: string; testItemCode: string }> {
     const { withAoe } = input;
     const routePattern = '**/zambda/get-create-lab-order-resources/execute';
 
@@ -107,19 +109,20 @@ export class CreateExternalLabPage {
 
     const fillerLabName = mockedLabSearchResult.lab.labName;
     const testName = mockedLabSearchResult.item.itemName;
+    const testItemCode = mockedLabSearchResult.item.itemCode;
 
-    const displayName = nameLabTest(testName, fillerLabName, false);
+    const displayName = nameLabTest(testName, testItemCode, fillerLabName, false);
 
     await this.#page.getByRole('option', { name: displayName }).click();
 
     // clean up the interception - no more mocking if this some how gets hit again (it shouldn't tho)
     await this.#page.unroute(routePattern);
 
-    return { fillerLabName, testName };
+    return { fillerLabName, testName, testItemCode };
   }
 
-  async labIsSelected(input: { fillerLabName: string; testName: string }): Promise<void> {
-    const labDisplayName = nameLabTest(input.testName, input.fillerLabName, false);
+  async labIsSelected(input: { fillerLabName: string; testName: string; testItemCode: string }): Promise<void> {
+    const labDisplayName = nameLabTest(input.testName, input.testItemCode, input.fillerLabName, false);
     const container = this.#page.getByTestId(createPgTestIds.selectedLabContainer);
 
     await expect(container, `Confirming ${labDisplayName} is selected`).toContainText(labDisplayName);

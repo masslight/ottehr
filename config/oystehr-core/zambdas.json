@@ -43,6 +43,30 @@
       "src": "src/ehr/incomplete-encounters-report/index",
       "zip": ".dist/zips/incomplete-encounters-report.zip"
     },
+    "MAILED-STATEMENTS-REPORT": {
+      "name": "mailed-statements-report",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/mailed-statements-report/index",
+      "zip": ".dist/zips/mailed-statements-report.zip"
+    },
+    "SYNC-MAILED-STATEMENT-STATUSES": {
+      "name": "sync-mailed-statement-statuses",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/sync-mailed-statement-statuses/index",
+      "zip": ".dist/zips/sync-mailed-statement-statuses.zip"
+    },
+    "SYNC-MAILED-STATEMENT-STATUSES-CRON": {
+      "name": "sync-mailed-statement-statuses-cron",
+      "type": "cron",
+      "runtime": "nodejs22.x",
+      "src": "src/cron/sync-mailed-statement-statuses/index",
+      "zip": ".dist/zips/sync-mailed-statement-statuses-cron.zip",
+      "schedule": {
+        "expression": "cron(0 6 * * ? *)"
+      }
+    },
     "AI-ASSISTED-ENCOUNTERS-REPORT": {
       "name": "ai-assisted-encounters-report",
       "type": "http_auth",
@@ -141,6 +165,13 @@
       "src": "src/ehr/delete-chart-data/index",
       "zip": ".dist/zips/delete-chart-data.zip"
     },
+    "UPLOAD-PATIENT-CONDITION-PHOTO": {
+      "name": "upload-patient-condition-photo",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/upload-patient-condition-photo/index",
+      "zip": ".dist/zips/upload-patient-condition-photo.zip"
+    },
     "MIGRATE-EXAM-DATA": {
       "name": "migrate-exam-data",
       "type": "http_auth",
@@ -155,201 +186,33 @@
       "src": "src/ehr/bulk-update-insurance-status/index",
       "zip": ".dist/zips/bulk-update-insurance-status.zip"
     },
-    "ADMIN-GET-PROCEDURE-QUICK-PICKS": {
-      "name": "admin-get-procedure-quick-picks",
+    "ADMIN-GET-QUICK-PICKS": {
+      "name": "admin-get-quick-picks",
       "type": "http_auth",
       "runtime": "nodejs22.x",
-      "src": "src/ehr/admin-get-procedure-quick-picks/index",
-      "zip": ".dist/zips/admin-get-procedure-quick-picks.zip"
+      "src": "src/ehr/admin-get-quick-picks/index",
+      "zip": ".dist/zips/admin-get-quick-picks.zip"
     },
-    "ADMIN-CREATE-PROCEDURE-QUICK-PICK": {
-      "name": "admin-create-procedure-quick-pick",
+    "ADMIN-CREATE-QUICK-PICK": {
+      "name": "admin-create-quick-pick",
       "type": "http_auth",
       "runtime": "nodejs22.x",
-      "src": "src/ehr/admin-create-procedure-quick-pick/index",
-      "zip": ".dist/zips/admin-create-procedure-quick-pick.zip"
+      "src": "src/ehr/admin-create-quick-pick/index",
+      "zip": ".dist/zips/admin-create-quick-pick.zip"
     },
-    "ADMIN-UPDATE-PROCEDURE-QUICK-PICK": {
-      "name": "admin-update-procedure-quick-pick",
+    "ADMIN-UPDATE-QUICK-PICK": {
+      "name": "admin-update-quick-pick",
       "type": "http_auth",
       "runtime": "nodejs22.x",
-      "src": "src/ehr/admin-update-procedure-quick-pick/index",
-      "zip": ".dist/zips/admin-update-procedure-quick-pick.zip"
+      "src": "src/ehr/admin-update-quick-pick/index",
+      "zip": ".dist/zips/admin-update-quick-pick.zip"
     },
-    "ADMIN-REMOVE-PROCEDURE-QUICK-PICK": {
-      "name": "admin-remove-procedure-quick-pick",
+    "ADMIN-REMOVE-QUICK-PICK": {
+      "name": "admin-remove-quick-pick",
       "type": "http_auth",
       "runtime": "nodejs22.x",
-      "src": "src/ehr/admin-remove-procedure-quick-pick/index",
-      "zip": ".dist/zips/admin-remove-procedure-quick-pick.zip"
-    },
-    "ADMIN-GET-RADIOLOGY-QUICK-PICKS": {
-      "name": "admin-get-radiology-quick-picks",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/ehr/admin-get-radiology-quick-picks/index",
-      "zip": ".dist/zips/admin-get-radiology-quick-picks.zip"
-    },
-    "ADMIN-CREATE-RADIOLOGY-QUICK-PICK": {
-      "name": "admin-create-radiology-quick-pick",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/ehr/admin-create-radiology-quick-pick/index",
-      "zip": ".dist/zips/admin-create-radiology-quick-pick.zip"
-    },
-    "ADMIN-UPDATE-RADIOLOGY-QUICK-PICK": {
-      "name": "admin-update-radiology-quick-pick",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/ehr/admin-update-radiology-quick-pick/index",
-      "zip": ".dist/zips/admin-update-radiology-quick-pick.zip"
-    },
-    "ADMIN-REMOVE-RADIOLOGY-QUICK-PICK": {
-      "name": "admin-remove-radiology-quick-pick",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/ehr/admin-remove-radiology-quick-pick/index",
-      "zip": ".dist/zips/admin-remove-radiology-quick-pick.zip"
-    },
-    "ADMIN-GET-ALLERGY-QUICK-PICKS": {
-      "name": "admin-get-allergy-quick-picks",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/ehr/admin-get-allergy-quick-picks/index",
-      "zip": ".dist/zips/admin-get-allergy-quick-picks.zip"
-    },
-    "ADMIN-CREATE-ALLERGY-QUICK-PICK": {
-      "name": "admin-create-allergy-quick-pick",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/ehr/admin-create-allergy-quick-pick/index",
-      "zip": ".dist/zips/admin-create-allergy-quick-pick.zip"
-    },
-    "ADMIN-UPDATE-ALLERGY-QUICK-PICK": {
-      "name": "admin-update-allergy-quick-pick",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/ehr/admin-update-allergy-quick-pick/index",
-      "zip": ".dist/zips/admin-update-allergy-quick-pick.zip"
-    },
-    "ADMIN-REMOVE-ALLERGY-QUICK-PICK": {
-      "name": "admin-remove-allergy-quick-pick",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/ehr/admin-remove-allergy-quick-pick/index",
-      "zip": ".dist/zips/admin-remove-allergy-quick-pick.zip"
-    },
-    "ADMIN-GET-MEDICAL-CONDITION-QUICK-PICKS": {
-      "name": "admin-get-medical-condition-quick-picks",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/ehr/admin-get-medical-condition-quick-picks/index",
-      "zip": ".dist/zips/admin-get-medical-condition-quick-picks.zip"
-    },
-    "ADMIN-CREATE-MEDICAL-CONDITION-QUICK-PICK": {
-      "name": "admin-create-medical-condition-quick-pick",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/ehr/admin-create-medical-condition-quick-pick/index",
-      "zip": ".dist/zips/admin-create-medical-condition-quick-pick.zip"
-    },
-    "ADMIN-UPDATE-MEDICAL-CONDITION-QUICK-PICK": {
-      "name": "admin-update-medical-condition-quick-pick",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/ehr/admin-update-medical-condition-quick-pick/index",
-      "zip": ".dist/zips/admin-update-medical-condition-quick-pick.zip"
-    },
-    "ADMIN-REMOVE-MEDICAL-CONDITION-QUICK-PICK": {
-      "name": "admin-remove-medical-condition-quick-pick",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/ehr/admin-remove-medical-condition-quick-pick/index",
-      "zip": ".dist/zips/admin-remove-medical-condition-quick-pick.zip"
-    },
-    "ADMIN-GET-MEDICATION-HISTORY-QUICK-PICKS": {
-      "name": "admin-get-medication-history-quick-picks",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/ehr/admin-get-medication-history-quick-picks/index",
-      "zip": ".dist/zips/admin-get-medication-history-quick-picks.zip"
-    },
-    "ADMIN-CREATE-MEDICATION-HISTORY-QUICK-PICK": {
-      "name": "admin-create-medication-history-quick-pick",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/ehr/admin-create-medication-history-quick-pick/index",
-      "zip": ".dist/zips/admin-create-medication-history-quick-pick.zip"
-    },
-    "ADMIN-UPDATE-MEDICATION-HISTORY-QUICK-PICK": {
-      "name": "admin-update-medication-history-quick-pick",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/ehr/admin-update-medication-history-quick-pick/index",
-      "zip": ".dist/zips/admin-update-medication-history-quick-pick.zip"
-    },
-    "ADMIN-REMOVE-MEDICATION-HISTORY-QUICK-PICK": {
-      "name": "admin-remove-medication-history-quick-pick",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/ehr/admin-remove-medication-history-quick-pick/index",
-      "zip": ".dist/zips/admin-remove-medication-history-quick-pick.zip"
-    },
-    "ADMIN-GET-IMMUNIZATION-QUICK-PICKS": {
-      "name": "admin-get-immunization-quick-picks",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/ehr/admin-get-immunization-quick-picks/index",
-      "zip": ".dist/zips/admin-get-immunization-quick-picks.zip"
-    },
-    "ADMIN-CREATE-IMMUNIZATION-QUICK-PICK": {
-      "name": "admin-create-immunization-quick-pick",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/ehr/admin-create-immunization-quick-pick/index",
-      "zip": ".dist/zips/admin-create-immunization-quick-pick.zip"
-    },
-    "ADMIN-UPDATE-IMMUNIZATION-QUICK-PICK": {
-      "name": "admin-update-immunization-quick-pick",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/ehr/admin-update-immunization-quick-pick/index",
-      "zip": ".dist/zips/admin-update-immunization-quick-pick.zip"
-    },
-    "ADMIN-REMOVE-IMMUNIZATION-QUICK-PICK": {
-      "name": "admin-remove-immunization-quick-pick",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/ehr/admin-remove-immunization-quick-pick/index",
-      "zip": ".dist/zips/admin-remove-immunization-quick-pick.zip"
-    },
-    "ADMIN-GET-IN-HOUSE-MEDICATION-QUICK-PICKS": {
-      "name": "admin-get-in-house-medication-quick-picks",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/ehr/admin-get-in-house-medication-quick-picks/index",
-      "zip": ".dist/zips/admin-get-in-house-medication-quick-picks.zip"
-    },
-    "ADMIN-CREATE-IN-HOUSE-MEDICATION-QUICK-PICK": {
-      "name": "admin-create-in-house-medication-quick-pick",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/ehr/admin-create-in-house-medication-quick-pick/index",
-      "zip": ".dist/zips/admin-create-in-house-medication-quick-pick.zip"
-    },
-    "ADMIN-UPDATE-IN-HOUSE-MEDICATION-QUICK-PICK": {
-      "name": "admin-update-in-house-medication-quick-pick",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/ehr/admin-update-in-house-medication-quick-pick/index",
-      "zip": ".dist/zips/admin-update-in-house-medication-quick-pick.zip"
-    },
-    "ADMIN-REMOVE-IN-HOUSE-MEDICATION-QUICK-PICK": {
-      "name": "admin-remove-in-house-medication-quick-pick",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/ehr/admin-remove-in-house-medication-quick-pick/index",
-      "zip": ".dist/zips/admin-remove-in-house-medication-quick-pick.zip"
+      "src": "src/ehr/admin-remove-quick-pick/index",
+      "zip": ".dist/zips/admin-remove-quick-pick.zip"
     },
     "UPDATE-USER": {
       "name": "update-user",
@@ -470,6 +333,90 @@
       "src": "src/ehr/get-claims/index",
       "zip": ".dist/zips/get-claims.zip"
     },
+    "SEARCH-BILLING-PATIENTS": {
+      "name": "search-billing-patients",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/search-billing-patients/index",
+      "zip": ".dist/zips/search-billing-patients.zip"
+    },
+    "SEARCH-BILLING-PRACTITIONERS": {
+      "name": "search-billing-practitioners",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/search-billing-practitioners/index",
+      "zip": ".dist/zips/search-billing-practitioners.zip"
+    },
+    "SEARCH-BILLING-LOCATIONS": {
+      "name": "search-billing-locations",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/search-billing-locations/index",
+      "zip": ".dist/zips/search-billing-locations.zip"
+    },
+    "SEARCH-BILLING-ORGANIZATIONS": {
+      "name": "search-billing-organizations",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/search-billing-organizations/index",
+      "zip": ".dist/zips/search-billing-organizations.zip"
+    },
+    "GET-PATIENT-COVERAGES": {
+      "name": "get-patient-coverages",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/get-patient-coverages/index",
+      "zip": ".dist/zips/get-patient-coverages.zip"
+    },
+    "SEARCH-BILLING-PROVIDERS": {
+      "name": "search-billing-providers",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/search-billing-providers/index",
+      "zip": ".dist/zips/search-billing-providers.zip"
+    },
+    "SEARCH-BILLING-SERVICE-LOCATIONS": {
+      "name": "search-billing-service-locations",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/search-billing-service-locations/index",
+      "zip": ".dist/zips/search-billing-service-locations.zip"
+    },
+    "CREATE-BILLING-CLAIM": {
+      "name": "create-billing-claim",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/create-billing-claim/index",
+      "zip": ".dist/zips/create-billing-claim.zip"
+    },
+    "CREATE-BILLING-WORKING-COPY": {
+      "name": "create-billing-working-copy",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/create-billing-working-copy/index",
+      "zip": ".dist/zips/create-billing-working-copy.zip"
+    },
+    "SEARCH-BILLING-CLAIMS": {
+      "name": "search-billing-claims",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/search-billing-claims/index",
+      "zip": ".dist/zips/search-billing-claims.zip"
+    },
+    "GET-BILLING-CLAIM-DETAIL": {
+      "name": "get-billing-claim-detail",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/get-billing-claim-detail/index",
+      "zip": ".dist/zips/get-billing-claim-detail.zip"
+    },
+    "UPDATE-BILLING-CLAIM": {
+      "name": "update-billing-claim",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/update-billing-claim/index",
+      "zip": ".dist/zips/update-billing-claim.zip"
+    },
     "CREATE-UPDATE-MEDICATION-ORDER": {
       "name": "create-update-medication-order",
       "type": "http_auth",
@@ -543,7 +490,7 @@
     "VISIT-DETAILS-TO-PDF": {
       "name": "visit-details-to-pdf",
       "type": "http_auth",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/ehr/visit-details/visit-details-to-pdf/index",
       "zip": ".dist/zips/visit-details-to-pdf.zip"
     },
@@ -861,7 +808,7 @@
       "src": "src/cron/daily-radiology-report/index",
       "zip": ".dist/zips/daily-radiology-report.zip",
       "schedule": {
-        "expression": "cron(0 9 * * ? *)"
+        "expression": "cron(0 14 * * ? *)"
       }
     },
     "CLEANUP-INVOICE-EXPORTS": {
@@ -951,6 +898,14 @@
       "runtime": "nodejs22.x",
       "src": "src/subscriptions/task/sub-harvest-paperwork/index",
       "zip": ".dist/zips/sub-harvest-paperwork-page.zip"
+    },
+    "SUB-MERGE-PATIENTS": {
+      "name": "sub-merge-patients",
+      "type": "subscription",
+      "timeout": "300",
+      "runtime": "nodejs22.x",
+      "src": "src/subscriptions/task/sub-merge-patients/index",
+      "zip": ".dist/zips/sub-merge-patients.zip"
     },
     "SUB-SEND-CLAIM": {
       "name": "sub-send-claim",
@@ -1071,13 +1026,6 @@
       "src": "src/ehr/lab/external/update-lab-order-resources/index",
       "zip": ".dist/zips/update-lab-order-resources.zip"
     },
-    "GET-LABEL-PDF": {
-      "name": "get-label-pdf",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/ehr/lab/external/get-label-pdf/index",
-      "zip": ".dist/zips/get-label-pdf.zip"
-    },
     "GET-OR-CREATE-VISIT-LABEL-PDF": {
       "name": "get-or-create-visit-label-pdf",
       "type": "http_auth",
@@ -1151,7 +1099,7 @@
     "RECOMMEND-BILLING-SUGGESTIONS": {
       "name": "recommend-billing-suggestions",
       "type": "http_auth",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/ehr/recommend-billing-suggestions/index",
       "zip": ".dist/zips/recommend-billing-suggestions.zip"
     },
@@ -1161,6 +1109,48 @@
       "runtime": "nodejs22.x",
       "src": "src/ehr/recommend-billing-codes/index",
       "zip": ".dist/zips/recommend-billing-codes.zip"
+    },
+    "GENERATE-PATIENT-EDUCATION": {
+      "name": "generate-patient-education",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/generate-patient-education/index",
+      "zip": ".dist/zips/generate-patient-education.zip"
+    },
+    "SAVE-PATIENT-EDUCATION-PDF": {
+      "name": "save-patient-education-pdf",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/save-patient-education-pdf/index",
+      "zip": ".dist/zips/save-patient-education-pdf.zip"
+    },
+    "LIST-APPROVED-PATIENT-EDUCATION": {
+      "name": "list-approved-patient-education",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/list-approved-patient-education/index",
+      "zip": ".dist/zips/list-approved-patient-education.zip"
+    },
+    "SAVE-APPROVED-PATIENT-EDUCATION": {
+      "name": "save-approved-patient-education",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/save-approved-patient-education/index",
+      "zip": ".dist/zips/save-approved-patient-education.zip"
+    },
+    "DELETE-APPROVED-PATIENT-EDUCATION": {
+      "name": "delete-approved-patient-education",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/delete-approved-patient-education/index",
+      "zip": ".dist/zips/delete-approved-patient-education.zip"
+    },
+    "UPDATE-APPROVED-PATIENT-EDUCATION-CODES": {
+      "name": "update-approved-patient-education-codes",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/update-approved-patient-education-codes/index",
+      "zip": ".dist/zips/update-approved-patient-education-codes.zip"
     },
     "AI-INTERVIEW-SUMMARY": {
       "name": "ai-interview-summary",
@@ -1844,6 +1834,113 @@
       "src": "src/rcm/invoice-config/save-invoice-config/index",
       "zip": ".dist/zips/save-invoice-config.zip"
     },
+    "GET-SCHEDULED-OUTREACH-CONFIG": {
+      "name": "get-scheduled-outreach-config",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/scheduled-outreach-config/get-scheduled-outreach-config/index",
+      "zip": ".dist/zips/get-scheduled-outreach-config.zip"
+    },
+    "SAVE-SCHEDULED-OUTREACH-CONFIG": {
+      "name": "save-scheduled-outreach-config",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/scheduled-outreach-config/save-scheduled-outreach-config/index",
+      "zip": ".dist/zips/save-scheduled-outreach-config.zip"
+    },
+    "LIST-OUTREACH-TASKS": {
+      "name": "list-outreach-tasks",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/scheduled-outreach/list-outreach-tasks/index",
+      "zip": ".dist/zips/list-outreach-tasks.zip"
+    },
+    "CANCEL-OUTREACH-TASK": {
+      "name": "cancel-outreach-task",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/scheduled-outreach/cancel-outreach-task/index",
+      "zip": ".dist/zips/cancel-outreach-task.zip"
+    },
+    "RETRY-OUTREACH-TASK": {
+      "name": "retry-outreach-task",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/scheduled-outreach/retry-outreach-task/index",
+      "zip": ".dist/zips/retry-outreach-task.zip"
+    },
+    "PRODUCE-OUTREACH-DISCHARGE-TASKS": {
+      "name": "produce-outreach-discharge-tasks",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/scheduled-outreach/producers/produce-discharge-tasks/index",
+      "zip": ".dist/zips/produce-outreach-discharge-tasks.zip"
+    },
+    "PRODUCE-OUTREACH-INVOICE-ISSUED-TASKS": {
+      "name": "produce-outreach-invoice-issued-tasks",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/scheduled-outreach/producers/produce-invoice-issued-tasks/index",
+      "zip": ".dist/zips/produce-outreach-invoice-issued-tasks.zip"
+    },
+    "CRON-OUTREACH-INVOICE-DUE": {
+      "name": "cron-outreach-invoice-due",
+      "type": "cron",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/scheduled-outreach/producers/cron-outreach-invoice-due/index",
+      "zip": ".dist/zips/cron-outreach-invoice-due.zip",
+      "schedule": {
+        "expression": "cron(0 6 * * ? *)"
+      }
+    },
+    "CRON-OUTREACH-BIRTHDAY": {
+      "name": "cron-outreach-birthday",
+      "type": "cron",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/scheduled-outreach/producers/cron-outreach-birthday/index",
+      "zip": ".dist/zips/cron-outreach-birthday.zip",
+      "schedule": {
+        "expression": "cron(0 6 * * ? *)"
+      }
+    },
+    "CRON-OUTREACH-TASK-PROMOTER": {
+      "name": "cron-outreach-task-promoter",
+      "type": "cron",
+      "runtime": "nodejs22.x",
+      "src": "src/cron/rcm/outreach-task-promoter/index",
+      "zip": ".dist/zips/cron-outreach-task-promoter.zip",
+      "schedule": {
+        "expression": "cron(0,15,30,45 * * * ? *)"
+      }
+    },
+    "SUB-OUTREACH-SEND-NOTIFICATION": {
+      "name": "sub-outreach-send-notification",
+      "type": "subscription",
+      "runtime": "nodejs22.x",
+      "src": "src/subscriptions/task/sub-outreach-send-notification/index",
+      "zip": ".dist/zips/sub-outreach-send-notification.zip"
+    },
+    "SUB-OUTREACH-CHARGE-CARD": {
+      "name": "sub-outreach-charge-card",
+      "type": "subscription",
+      "runtime": "nodejs22.x",
+      "src": "src/subscriptions/task/sub-outreach-charge-card/index",
+      "zip": ".dist/zips/sub-outreach-charge-card.zip"
+    },
+    "SUB-OUTREACH-REFER-TO-COLLECTIONS": {
+      "name": "sub-outreach-refer-to-collections",
+      "type": "subscription",
+      "runtime": "nodejs22.x",
+      "src": "src/subscriptions/task/sub-outreach-refer-to-collections/index",
+      "zip": ".dist/zips/sub-outreach-refer-to-collections.zip"
+    },
+    "SUB-OUTREACH-LOG": {
+      "name": "sub-outreach-log",
+      "type": "subscription",
+      "runtime": "nodejs22.x",
+      "src": "src/subscriptions/task/sub-outreach-log/index",
+      "zip": ".dist/zips/sub-outreach-log.zip"
+    },
     "ADMIN_LIST_IN_HOUSE_LABS": {
       "name": "admin-list-in-house-labs",
       "type": "http_auth",
@@ -1872,6 +1969,27 @@
       "src": "src/ehr/lab/in-house/admin-update-in-house-lab/index",
       "zip": ".dist/zips/admin-update-in-house-lab.zip"
     },
+    "ADMIN_GET_LAB_SETS": {
+      "name": "admin-get-lab-sets",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/lab/lab-sets/admin-get-lab-sets/index",
+      "zip": ".dist/zips/admin-get-lab-sets.zip"
+    },
+    "ADMIN_ADD_LAB_SET": {
+      "name": "admin-add-lab-set",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/lab/lab-sets/admin-add-lab-set/index",
+      "zip": ".dist/zips/admin-add-lab-set.zip"
+    },
+    "ADMIN_UPDATE_LAB_SET": {
+      "name": "admin-update-lab-set",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/lab/lab-sets/admin-update-lab-set/index",
+      "zip": ".dist/zips/admin-update-lab-set.zip"
+    },
     "ERX_NOTIFICATION": {
       "name": "erx-notification-subscription",
       "type": "subscription",
@@ -1882,6 +2000,125 @@
         "criteria": "Communication?category=https://terminology.fhir.oystehr.com/CodeSystem/notification|erx-notification",
         "reason": "Create Task for eRX notification"
       }
+    },
+    "GET-LABEL-PRINTING-CONFIG": {
+      "name": "get-label-printing-config",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/label-printing-config/get-label-printing-config/index",
+      "zip": ".dist/zips/get-label-printing-config.zip"
+    },
+    "ADMIN-UPDATE-LABEL-PRINTING-CONFIG": {
+      "name": "admin-update-label-printing-config",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/label-printing-config/admin-update-label-printing-config/index",
+      "zip": ".dist/zips/admin-update-label-printing-config.zip"
+    },
+    "GET-SUPPORT-DIALOG": {
+      "name": "get-support-dialog",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/support-dialog/get-support-dialog/index",
+      "zip": ".dist/zips/get-support-dialog.zip"
+    },
+    "ADMIN-UPDATE-SUPPORT-DIALOG": {
+      "name": "admin-update-support-dialog",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/support-dialog/admin-update-support-dialog/index",
+      "zip": ".dist/zips/admin-update-support-dialog.zip"
+    },
+    "ADMIN-UPDATE-LOCATION-SUPPORT-PHONES": {
+      "name": "admin-update-location-support-phones",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/support-dialog/admin-update-location-support-phones/index",
+      "zip": ".dist/zips/admin-update-location-support-phones.zip"
+    },
+    "GET-PUBLIC-SUPPORT-DIALOG": {
+      "name": "get-public-support-dialog",
+      "type": "http_open",
+      "runtime": "nodejs22.x",
+      "src": "src/patient/get-public-support-dialog/index",
+      "zip": ".dist/zips/get-public-support-dialog.zip"
+    },
+    "GET-PUBLIC-LOCATION-SUPPORT-PHONES": {
+      "name": "get-public-location-support-phones",
+      "type": "http_open",
+      "runtime": "nodejs22.x",
+      "src": "src/patient/get-public-location-support-phones/index",
+      "zip": ".dist/zips/get-public-location-support-phones.zip"
+    },
+    "GENERATE-LABEL-XML": {
+      "name": "generate-label-xml",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/generate-label-xml/index",
+      "zip": ".dist/zips/generate-label-xml.zip"
+    },
+    "GET_ALL_INSURANCE_PAYERS": {
+      "name": "get-all-insurance-payers",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/patient/get-all-insurance-payers/index",
+      "zip": ".dist/zips/get-all-insurance-payers.zip"
+    },
+    "GET_PATIENT_INSURANCE_PAYERS": {
+      "name": "get-patient-insurance-payers",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/patient/get-patient-insurance-payers/index",
+      "zip": ".dist/zips/get-patient-insurance-payers.zip"
+    },
+    "GET_INSURANCE_OVERRIDE_LIST": {
+      "name": "get-insurance-override-list",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/get-insurance-override-list/index",
+      "zip": ".dist/zips/get-insurance-override-list.zip"
+    },
+    "ADD_PAYER_TO_INSURANCE_OVERRIDE_LIST": {
+      "name": "add-payer-to-insurance-override-list",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/add-payer-to-insurance-override-list/index",
+      "zip": ".dist/zips/add-payer-to-insurance-override-list.zip"
+    },
+    "REMOVE_PAYER_FROM_INSURANCE_OVERRIDE_LIST": {
+      "name": "remove-payer-from-insurance-override-list",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/remove-payer-from-insurance-override-list/index",
+      "zip": ".dist/zips/remove-payer-from-insurance-override-list.zip"
+    },
+    "EDIT_PAYER_IN_INSURANCE_OVERRIDE_LIST": {
+      "name": "edit-payer-in-insurance-override-list",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/edit-payer-in-insurance-override-list/index",
+      "zip": ".dist/zips/edit-payer-in-insurance-override-list.zip"
+    },
+    "CREATE-CUSTOM-FOLDER": {
+      "name": "create-custom-folder",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/create-custom-folder/index",
+      "zip": ".dist/zips/create-custom-folder.zip"
+    },
+    "RENAME-CUSTOM-FOLDER": {
+      "name": "rename-custom-folder",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/rename-custom-folder/index",
+      "zip": ".dist/zips/rename-custom-folder.zip"
+    },
+    "DELETE-CUSTOM-FOLDER": {
+      "name": "delete-custom-folder",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/delete-custom-folder/index",
+      "zip": ".dist/zips/delete-custom-folder.zip"
     }
   },
   "fhirResources": {
@@ -2107,6 +2344,24 @@
         ]
       }
     },
+    "SUB_MERGE_PATIENTS_SUBSCRIPTION": {
+      "resource": {
+        "resourceType": "Subscription",
+        "status": "active",
+        "reason": "background merge patients",
+        "criteria": "Task?code=https://fhir.ottehr.com/CodeSystem/ottehr-system-task|merge-patients&status=requested",
+        "channel": {
+          "type": "rest-hook",
+          "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-MERGE-PATIENTS/id}"
+        },
+        "extension": [
+          {
+            "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
+            "valueString": "create"
+          }
+        ]
+      }
+    },
     "SUB_EXPORT_INVOICES_CSV_SUBSCRIPTION": {
       "resource": {
         "resourceType": "Subscription",
@@ -2301,6 +2556,78 @@
           {
             "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
             "valueString": "create"
+          }
+        ]
+      }
+    },
+    "SUB_OUTREACH_SEND_NOTIFICATION_SUBSCRIPTION": {
+      "resource": {
+        "resourceType": "Subscription",
+        "status": "active",
+        "reason": "Outreach send notification",
+        "criteria": "Task?code=https://ottehr.com/CodeSystem/outreach-action-type|send-notification&status=requested",
+        "channel": {
+          "type": "rest-hook",
+          "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-OUTREACH-SEND-NOTIFICATION/id}"
+        },
+        "extension": [
+          {
+            "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
+            "valueString": "update"
+          }
+        ]
+      }
+    },
+    "SUB_OUTREACH_CHARGE_CARD_SUBSCRIPTION": {
+      "resource": {
+        "resourceType": "Subscription",
+        "status": "active",
+        "reason": "Outreach charge card on file",
+        "criteria": "Task?code=https://ottehr.com/CodeSystem/outreach-action-type|charge-card&status=requested",
+        "channel": {
+          "type": "rest-hook",
+          "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-OUTREACH-CHARGE-CARD/id}"
+        },
+        "extension": [
+          {
+            "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
+            "valueString": "update"
+          }
+        ]
+      }
+    },
+    "SUB_OUTREACH_REFER_TO_COLLECTIONS_SUBSCRIPTION": {
+      "resource": {
+        "resourceType": "Subscription",
+        "status": "active",
+        "reason": "Outreach refer to collections",
+        "criteria": "Task?code=https://ottehr.com/CodeSystem/outreach-action-type|refer-to-collections&status=requested",
+        "channel": {
+          "type": "rest-hook",
+          "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-OUTREACH-REFER-TO-COLLECTIONS/id}"
+        },
+        "extension": [
+          {
+            "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
+            "valueString": "update"
+          }
+        ]
+      }
+    },
+    "SUB_OUTREACH_LOG_SUBSCRIPTION": {
+      "resource": {
+        "resourceType": "Subscription",
+        "status": "active",
+        "reason": "Outreach log",
+        "criteria": "Task?code=https://ottehr.com/CodeSystem/outreach-action-type|log&status=requested",
+        "channel": {
+          "type": "rest-hook",
+          "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-OUTREACH-LOG/id}"
+        },
+        "extension": [
+          {
+            "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
+            "valueString": "update"
           }
         ]
       }

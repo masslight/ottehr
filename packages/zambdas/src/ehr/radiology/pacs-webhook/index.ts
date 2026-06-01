@@ -17,7 +17,7 @@ import {
   ACCESSION_NUMBER_CODE_SYSTEM,
   ADVAPACS_FHIR_BASE_URL,
   ADVAPACS_FHIR_RESOURCE_ID_CODE_SYSTEM,
-  CODE_SYSTEM_ICD_10,
+  CODE_SYSTEM_CPT,
   createOurDiagnosticReport,
   getFullestAvailableName,
   getSecret,
@@ -388,7 +388,7 @@ const configReviewResultTask = (
   const providerFirstName = requestingProvider?.name?.[0]?.given?.[0];
   const providerLastName = requestingProvider?.name?.[0]?.family;
 
-  const studyTypeCoding = serviceRequest.code?.coding?.find((c) => c.system === CODE_SYSTEM_ICD_10);
+  const studyTypeCoding = serviceRequest.code?.coding?.find((c) => c.system === CODE_SYSTEM_CPT);
   const studyTypeCode = studyTypeCoding?.code;
   const studyTypeDisplay = studyTypeCoding?.display;
 

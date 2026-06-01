@@ -2,8 +2,8 @@ import { ProcedureModifier } from 'candidhealth/api/index.js';
 import {
   CPTCodeDTO,
   DiagnosisDTO,
-  InHouseLabListDTO,
-  LabListsDTO,
+  InHouseLabSetDTO,
+  LabSetDTO,
   OBSERVATION_CODES,
   Pagination,
   REFLEX_TEST_CONDITION_LANGUAGES,
@@ -189,12 +189,12 @@ export type CreateInHouseLabOrderResponse = {
   serviceRequestIds: string[];
 };
 
-export type GetCreateInHouseLabOrderResourcesInput = { encounterId?: string; selectedLabSet?: InHouseLabListDTO };
+export type GetCreateInHouseLabOrderResourcesInput = { encounterId?: string; selectedLabSet?: InHouseLabSetDTO };
 
 export type GetCreateInHouseLabOrderResourcesOutput = {
   labs: DataEntryTestItem[];
   providerName?: string;
-  labSets?: LabListsDTO[] | undefined;
+  labSets?: LabSetDTO[] | undefined;
 };
 
 export type CollectInHouseLabSpecimenParameters = {
@@ -312,7 +312,11 @@ export interface StringComponent extends BaseComponent {
 export type TestItemComponent = CodeableConceptComponent | QuantityComponent | StringComponent;
 
 // This could almost have matched the CPTCodeDTO if not for the ProcedureModifier
-export type CptCodeInHouseLabDefinition = { code: string; modifier?: { code: ProcedureModifier; display: string }[] };
+export type CptCodeInHouseLabDefinition = {
+  code: string;
+  display?: string;
+  modifier?: { code: ProcedureModifier; display: string }[];
+};
 export interface AdminInHouseLabItemDefinition {
   name: string;
   methods?: TestItemMethods;

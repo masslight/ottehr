@@ -44,7 +44,27 @@ vi.mock('../../src/hooks/useGetPatient', () => ({
   }),
 }));
 
+import { PATIENT_RECORD_QUESTIONNAIRE } from 'utils';
 import { SectionSaveButton } from '../../src/features/visits/shared/components/patient/SectionSaveButton';
+
+// ============================================================================
+// CONFIG AWARENESS
+// ============================================================================
+
+// Instances may hide the SSN field by config (e.g. `hiddenFields: ['patient-ssn']`),
+// which omits it from the generated patient-record questionnaire entirely. The SSN-specific
+// regression below only applies where SSN is actually configured, so skip it otherwise.
+const questionnaireHasLinkId = (linkId: string): boolean => {
+  const stack = [...(PATIENT_RECORD_QUESTIONNAIRE().item ?? [])];
+  while (stack.length > 0) {
+    const item = stack.pop();
+    if (!item) continue;
+    if (item.linkId === linkId) return true;
+    if (item.item) stack.push(...item.item);
+  }
+  return false;
+};
+const ssnFieldConfigured = questionnaireHasLinkId('patient-ssn');
 
 // ============================================================================
 // HELPERS
@@ -168,6 +188,37 @@ describe('SectionSaveButton', () => {
     const allLinkIds = (qr.item ?? []).flatMap((section) => (section.item ?? []).map((i) => i.linkId));
     expect(allLinkIds).not.toContain('other-section-field');
   });
+
+  it.skipIf(!ssnFieldConfigured)(
+    'auto-includes the logical control field a section field depends on so the backend keeps the gated field (SSN)',
+    async () => {
+      // Regression for HOST-942: SSN is gated by `should-display-ssn-field` via enableWhen,
+      // which the backend filters on. The caller passes only `patient-ssn`; SectionSaveButton
+      // must auto-add the control field or the SSN answer is dropped before harvest.
+      const user = userEvent.setup();
+      mutateAsyncMock.mockResolvedValueOnce(undefined);
+      renderHarness({
+        defaultValues: { 'patient-ssn': '123-45-6789', 'should-display-ssn-field': true },
+        dirtyKeys: ['patient-ssn'],
+        fieldKeys: ['patient-ssn'],
+        requiredFieldKeys: [],
+        patientId: 'p1',
+      });
+
+      const btn = await screen.findByRole('button', { name: /save/i });
+      await user.click(btn);
+
+      await waitFor(() => expect(mutateAsyncMock).toHaveBeenCalledTimes(1));
+      const qr = mutateAsyncMock.mock.calls[0][0];
+      const allLinkIds = (qr.item ?? []).flatMap((section) => (section.item ?? []).map((i) => i.linkId));
+      expect(allLinkIds).toContain('patient-ssn');
+      expect(allLinkIds).toContain('should-display-ssn-field');
+      const controlItem = (qr.item ?? [])
+        .flatMap((section) => section.item ?? [])
+        .find((i) => i.linkId === 'should-display-ssn-field');
+      expect(controlItem?.answer?.[0]?.valueBoolean).toBe(true);
+    }
+  );
 
   it('keeps the Save button visible and shows a snackbar on mutation failure', async () => {
     const user = userEvent.setup();

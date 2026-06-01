@@ -11,7 +11,7 @@ export function validateUpdateAppointmentParams(
     throw new Error('No request body provided');
   }
 
-  const { patient, appointmentId, unconfirmedDateOfBirth, locationState } = JSON.parse(input.body);
+  const { patient, appointmentId, locationState } = JSON.parse(input.body);
 
   if (appointmentId === undefined) {
     throw new Error('"appointmentId" is required');
@@ -63,20 +63,12 @@ export function validateUpdateAppointmentParams(
     throw new Error('patient phone number is not valid');
   }
 
-  if (unconfirmedDateOfBirth) {
-    const isInvalidUnconfirmedDateOfBirth = !DateTime.fromISO(unconfirmedDateOfBirth).isValid;
-    if (isInvalidUnconfirmedDateOfBirth) {
-      throw new Error('"unconfirmedDateOfBirth" was not read as a valid date');
-    }
-  }
-
   console.groupEnd();
   console.debug('validateRequestParameters success');
 
   return {
     appointmentId,
     patient,
-    unconfirmedDateOfBirth,
     secrets: input.secrets,
     locationState,
   };

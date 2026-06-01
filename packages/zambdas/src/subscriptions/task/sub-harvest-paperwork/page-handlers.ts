@@ -1,5 +1,4 @@
 import Oystehr from '@oystehr/sdk';
-import { Operation } from 'fast-json-patch';
 import {
   Appointment,
   DocumentReference,
@@ -34,7 +33,7 @@ import {
   createMasterRecordPatchOperations,
   createUpdatePharmacyPatchOps,
   getAccountAndCoverageResourcesForPatient,
-  mergeEncounterAccounts,
+  makeEncounterAccountPatchOp,
   updatePatientAccountFromQuestionnaire,
 } from '../../../ehr/shared/harvest';
 import { getAuth0Token, reportMissingUserRelatedPerson } from '../../../shared';
@@ -125,29 +124,12 @@ const accountCoverageStrategy: HarvestStrategyHandler = async (ctx) => {
 
   // Update encounter account references
   await patchWithOptimisticLock(oystehr, encounter, async (currentEncounter) => {
-    const ops: Operation[] = [];
-
     const { account: latestAccount, workersCompAccount } = await getAccountAndCoverageResourcesForPatient(
       patient.id!,
       oystehr
     );
 
-    const patientAccountReference = latestAccount?.id ? `Account/${latestAccount.id}` : undefined;
-    const workersCompAccountReference = workersCompAccount?.id ? `Account/${workersCompAccount.id}` : undefined;
-    const { accounts: updatedEncounterAccounts, changed: accountsChanged } = mergeEncounterAccounts(
-      currentEncounter.account,
-      [patientAccountReference, workersCompAccountReference]
-    );
-
-    if (accountsChanged && updatedEncounterAccounts) {
-      ops.push({
-        op: currentEncounter.account ? 'replace' : 'add',
-        path: '/account',
-        value: updatedEncounterAccounts,
-      });
-    }
-
-    return ops;
+    return makeEncounterAccountPatchOp(currentEncounter, latestAccount, workersCompAccount);
   });
 
   console.log(`account and coverage resources updated for encounter ${encounter.id}`);
@@ -156,17 +138,24 @@ const accountCoverageStrategy: HarvestStrategyHandler = async (ctx) => {
 };
 
 const paymentVariantStrategy: HarvestStrategyHandler = async (ctx) => {
-  const { qr, encounter, oystehr } = ctx;
+  const { qr, pageLinkId, encounter, oystehr } = ctx;
 
-  const paymentOption = qr.item
-    ?.find((item) => item.linkId === 'payment-option-page')
-    ?.item?.find((subItem) => subItem.linkId === 'payment-option')?.answer?.[0]?.valueString;
+  // Each payment page is gated by its own enableWhen on the visit's service category,
+  // but pre-population can seed an answer on the disabled page anyway. Scope the read to
+  // the page whose task is firing so a stale prepop value from the hidden page can't win.
+  const questionLinkIdByPage: Record<string, string | undefined> = {
+    'payment-option-page': 'payment-option',
+    'payment-option-occ-med-page': 'payment-option-occupational',
+  };
+  const questionLinkId = questionLinkIdByPage[pageLinkId];
+  if (!questionLinkId) {
+    return `payment-variant skipped (unsupported page ${pageLinkId})`;
+  }
 
-  const occMedPaymentOption = qr.item
-    ?.find((item) => item.linkId === 'payment-option-occ-med-page')
-    ?.item?.find((subItem) => subItem.linkId === 'payment-option-occupational')?.answer?.[0]?.valueString;
+  const selectedPaymentOption = qr.item
+    ?.find((item) => item.linkId === pageLinkId)
+    ?.item?.find((subItem) => subItem.linkId === questionLinkId)?.answer?.[0]?.valueString;
 
-  const selectedPaymentOption = paymentOption ?? occMedPaymentOption;
   if (!selectedPaymentOption) {
     return 'payment-variant skipped (no payment option selected)';
   }

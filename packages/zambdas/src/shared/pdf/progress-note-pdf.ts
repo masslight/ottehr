@@ -150,9 +150,13 @@ const composeProgressNoteData: DataComposer<ProgressNoteInput, ProgressNoteData>
     }),
     plan: composePlanData({
       allChartData,
+      encounter,
+      appointmentPackage,
     }),
     patientInstructions: composePlanData({
       allChartData,
+      encounter,
+      appointmentPackage,
     }),
     followupCompleted: composeFollowupCompleted({
       appointmentPackage,
@@ -297,8 +301,8 @@ const progressNoteRenderConfig: PdfRenderConfig<ProgressNoteData> = {
   header: {
     title: (data) => (data.encounter.isFollowup ? 'Follow-up Visit Note' : 'Visit Note'),
     logo: {
-      width: 110,
-      height: 28,
+      maxWidth: 110,
+      maxHeight: 28,
     },
   },
   headerBodySeparator: false,

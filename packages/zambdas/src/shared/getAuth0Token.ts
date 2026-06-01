@@ -1,4 +1,3 @@
-import fetch from 'node-fetch';
 import { getSecret, Secrets, SecretsKeys } from 'utils';
 export async function getAuth0Token(secrets: Secrets | null): Promise<string> {
   const AUTH0_ENDPOINT = getSecret(SecretsKeys.AUTH0_ENDPOINT, secrets);
@@ -19,15 +18,15 @@ export async function getAuth0Token(secrets: Secrets | null): Promise<string> {
       audience: AUTH0_AUDIENCE,
     }),
   })
-    .then((response: any) => {
+    .then((response) => {
       if (!response.ok) {
         console.error('response issue', response);
-        throw new Error(response);
+        throw new Error(`Auth0 token request failed: ${response.status} ${response.statusText}`);
       }
       console.log('Got a response from auth0');
-      return response.json();
+      return response.json() as Promise<{ access_token: string }>;
     })
-    .then((response: any) => {
+    .then((response) => {
       console.groupEnd();
       console.debug(`Fetch from ${AUTH0_ENDPOINT} success`);
       return response.access_token;

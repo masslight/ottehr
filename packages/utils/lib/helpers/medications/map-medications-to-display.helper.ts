@@ -8,7 +8,7 @@ export const mapMedicationsToDisplay = (
   timezone?: string
 ): Medication[] => {
   return medications.map((med): Medication => {
-    const { medicationName: name, dose, units, route: routeCode, dateTimeCreated } = med;
+    const { medicationName: name, dose, units, route: routeCode, location, dateTimeCreated } = med;
     const date = formatDateTimeToZone(dateTimeCreated, timezone ?? 'America/New_York');
     const route = searchRouteByCode(routeCode)?.display;
 
@@ -16,6 +16,7 @@ export const mapMedicationsToDisplay = (
       name,
       dose: `${dose} ${units}`,
       route,
+      location: location?.name,
       date,
     };
   });

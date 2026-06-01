@@ -1,8 +1,21 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Communication, DocumentReference, Task } from 'fhir/r4b';
-import { MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS, Secrets, STATEMENT_CODE } from 'utils';
-import { createOystehrClient, getAuth0Token, getPostGridLetter, wrapHandler, ZambdaInput } from '../../../shared';
+import {
+  MISSING_REQUEST_BODY,
+  MISSING_REQUEST_SECRETS,
+  MISSING_REQUIRED_PARAMETERS,
+  Secrets,
+  STATEMENT_CODE,
+} from 'utils';
+import {
+  createOystehrClient,
+  getAuth0Token,
+  getPostGridLetter,
+  MAIL_VENDOR_EXTENSION_URL,
+  wrapHandler,
+  ZambdaInput,
+} from '../../../shared';
 
 const ZAMBDA_NAME = 'get-statement-status';
 const SEND_STATEMENT_BY_EMAIL_TASK_CODE = 'send-statement-by-email';
@@ -50,7 +63,7 @@ function validateRequestParameters(input: ZambdaInput): GetStatementStatusInput 
   const body = JSON.parse(input.body) as Record<string, unknown>;
   const encounterId = body.encounterId;
   if (typeof encounterId !== 'string' || encounterId.trim().length === 0) {
-    throw new Error('encounterId is required');
+    throw MISSING_REQUIRED_PARAMETERS(['encounterId']);
   }
 
   return {
@@ -69,8 +82,7 @@ async function createOystehr(secrets: Secrets): Promise<Oystehr> {
 function isStatementCommunication(resource: Communication): boolean {
   const hasStatementPayload =
     resource.payload?.some((payload) => payload.contentString?.toLowerCase().includes('statement')) ?? false;
-  const hasMailVendorExtension =
-    resource.extension?.some((ext) => ext.url === 'https://extensions.fhir.ottehr.com/mail-vendor') ?? false;
+  const hasMailVendorExtension = resource.extension?.some((ext) => ext.url === MAIL_VENDOR_EXTENSION_URL) ?? false;
   const hasMailMedium =
     resource.medium?.some((medium) => medium.coding?.some((coding) => coding.code === 'MAILWRIT')) ?? false;
 
@@ -86,9 +98,7 @@ function sortByDateDesc<T>(items: T[], getDate: (item: T) => string | undefined)
 }
 
 function getPostGridLetterIdFromCommunication(resource: Communication | undefined): string | undefined {
-  const mailVendorExtension = resource?.extension?.find(
-    (ext) => ext.url === 'https://extensions.fhir.ottehr.com/mail-vendor'
-  );
+  const mailVendorExtension = resource?.extension?.find((ext) => ext.url === MAIL_VENDOR_EXTENSION_URL);
   return mailVendorExtension?.extension?.find((ext) => ext.url === 'vendor-letter-id')?.valueString;
 }
 

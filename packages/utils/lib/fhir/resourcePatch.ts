@@ -8,6 +8,7 @@ export interface GetPatchBinaryInput {
   resourceId: string;
   resourceType: string;
   patchOperations: Operation[];
+  ifMatch?: string;
 }
 
 export function getPatchBinary(input: GetPatchBinaryInput): BatchInputPatchRequest<FhirResource> {
@@ -21,6 +22,7 @@ export function getPatchBinary(input: GetPatchBinaryInput): BatchInputPatchReque
       data: btoa(unescape(encodeURIComponent(JSON.stringify(patchOperations)))),
       contentType: 'application/json-patch+json',
     },
+    ifMatch: input.ifMatch,
   };
 }
 

@@ -1,24 +1,20 @@
 import { assert } from 'node:console';
 import Oystehr, { BatchInputPostRequest, M2mListItem } from '@oystehr/sdk';
-import fastSeedData from 'ehr-ui/tests/e2e-utils/seed-data';
 import {
+  Account,
   Appointment,
-  ClinicalImpression,
   Consent,
   DocumentReference,
   Encounter,
   FhirResource,
-  List,
+  Location,
   Patient,
-  Person,
   Practitioner,
   QuestionnaireResponse,
   RelatedPerson,
-  ServiceRequest,
-  Slot,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { IN_PERSON_INTAKE_PAPERWORK_QUESTIONNAIRE, M2MClientMockType, RoleType } from 'utils';
+import { M2MClientMockType, PATIENT_BILLING_ACCOUNT_TYPE, RoleType } from 'utils';
 import { cleanAppointmentGraph } from 'utils/lib/utils/e2eCleanup';
 import { inject } from 'vitest';
 import { getAuth0Token } from '../../src/shared';
@@ -38,7 +34,6 @@ export interface InsertFullAppointmentDataBaseResult {
   appointment: Appointment;
   encounter: Encounter;
   questionnaireResponse: QuestionnaireResponse;
-  clinicalImpression: ClinicalImpression;
 }
 
 /**
@@ -47,6 +42,8 @@ export interface InsertFullAppointmentDataBaseResult {
 export interface IntegrationTestSetupResult {
   oystehr: Oystehr;
   oystehrTestUserM2M: Oystehr;
+  testUserM2MToken: string;
+  testUserM2MProfile: string;
   token: string;
   processId: string;
   cleanup: () => Promise<void>;
@@ -100,79 +97,170 @@ export const getProcessMetaTag = (processId: string): Appointment['meta'] => {
 };
 
 /**
- * Inserts a full set of appointment data into the FHIR server
- * Creates a Location and Schedule first, then uses those IDs to create the rest of the resources
+ * Creates a minimal, config-independent in-person appointment graph for integration tests.
+ *
+ * This intentionally does NOT replay the EHR e2e seed bundle. That bundle is generated per
+ * instance (its QuestionnaireResponse, Consent, etc. mirror each instance's intake-paperwork
+ * configuration), so sharing one canned copy across differently-configured instances was unsafe.
+ * Instead we author only the resources the integration tests actually exercise:
+ *   - Patient + Encounter  → get-chart-data (asserts an empty chart) and radiology
+ *   - a non-user RelatedPerson, QuestionnaireResponse, Consent, DocumentReference and Account
+ *     → merge-patients asserts each of these is re-pointed to the surviving patient
+ * The Encounter carries `patient-info-confirmed = false` (get-chart-data surfaces it as
+ * `patientInfoConfirmed`), and nothing here references an intake questionnaire URL, so the graph
+ * is identical on every instance regardless of its ottehr-config overlay.
+ *
+ * Only the Appointment is tagged; cleanAppointmentGraph() walks the graph outward from it.
  * @param oystehr - The Oystehr client instance
- * @param processId - The process ID for tagging resources
- * @returns The created Patient, RelatedPerson, Appointment, Encounter, and QuestionnaireResponse
+ * @param processId - The process ID for tagging resources (drives cleanup)
  */
 export const insertInPersonAppointmentBase = async (
   oystehr: Oystehr,
   processId: string
 ): Promise<InsertFullAppointmentDataBaseResult> => {
-  // Make Location
-  const locationSpec = addProcessIdMetaTagToResource(
+  // Location is referenced by the Appointment and Encounter; create it first so the transaction
+  // below can point at a concrete id. (Locations are never auto-deleted by cleanAppointmentGraph,
+  // matching the previous behavior.)
+  const location = await oystehr.fhir.create<Location>(
+    addProcessIdMetaTagToResource(
+      { resourceType: 'Location', status: 'active', name: 'Integration Test Location' },
+      processId
+    ) as Location
+  );
+
+  const patientRef = 'urn:uuid:patient';
+  const appointmentRef = 'urn:uuid:appointment';
+  const encounterRef = 'urn:uuid:encounter';
+  const start = DateTime.now().toUTC();
+
+  const patient: Patient = {
+    resourceType: 'Patient',
+    active: true,
+    name: [{ use: 'official', given: ['Jon'], family: 'Snow' }],
+    gender: 'male',
+    birthDate: '2002-07-07',
+    telecom: [
+      { system: 'phone', value: '+12120250519' },
+      { system: 'email', value: 'john.doe@example.com' },
+    ],
+  };
+
+  // A non-"user" RelatedPerson: merge-patients looks for a relationship whose codes are all
+  // something other than `user-relatedperson` and asserts it transfers to the surviving patient.
+  const relatedPerson: RelatedPerson = {
+    resourceType: 'RelatedPerson',
+    patient: { reference: patientRef },
+    relationship: [
+      {
+        coding: [{ system: 'http://terminology.hl7.org/CodeSystem/v2-0131', code: 'C', display: 'Emergency Contact' }],
+      },
+    ],
+    name: [{ given: ['Catelyn'], family: 'Stark' }],
+    telecom: [{ system: 'phone', value: '+12120250520' }],
+  };
+
+  const appointment = addProcessIdMetaTagToResource(
     {
-      resourceType: 'Location',
-    },
+      resourceType: 'Appointment',
+      status: 'booked',
+      start: start.toISO()!,
+      end: start.plus({ minutes: 15 }).toISO()!,
+      appointmentType: { text: 'prebook' },
+      participant: [
+        { actor: { reference: patientRef }, status: 'accepted' },
+        { actor: { reference: `Location/${location.id}` }, status: 'accepted' },
+      ],
+    } as Appointment,
     processId
-  );
-  const location = await oystehr.fhir.create(locationSpec);
+  ) as Appointment;
 
-  // Make Schedule
-  const scheduleSpec = addProcessIdMetaTagToResource(
+  const encounter: Encounter = {
+    resourceType: 'Encounter',
+    status: 'planned',
+    class: { system: 'http://terminology.hl7.org/CodeSystem/v3-ActCode', code: 'AMB', display: 'ambulatory' },
+    subject: { reference: patientRef },
+    appointment: [{ reference: appointmentRef }],
+    location: [{ location: { reference: `Location/${location.id}` } }],
+    // get-chart-data surfaces this extension as `patientInfoConfirmed`
+    extension: [{ url: 'patient-info-confirmed', valueBoolean: false }],
+  };
+
+  const questionnaireResponse: QuestionnaireResponse = {
+    resourceType: 'QuestionnaireResponse',
+    status: 'completed',
+    subject: { reference: patientRef },
+    encounter: { reference: encounterRef },
+  };
+
+  const consent: Consent = {
+    resourceType: 'Consent',
+    status: 'active',
+    dateTime: start.toISO()!,
+    patient: { reference: patientRef },
+    scope: {
+      coding: [{ system: 'http://terminology.hl7.org/CodeSystem/consentscope', code: 'patient-privacy' }],
+    },
+    category: [
+      { coding: [{ system: 'http://terminology.hl7.org/CodeSystem/consentcategorycodes', code: 'hipaa-ack' }] },
+    ],
+    policy: [{ uri: 'https://ottehr.com' }],
+  };
+
+  const documentReference: DocumentReference = {
+    resourceType: 'DocumentReference',
+    status: 'current',
+    subject: { reference: patientRef },
+    date: start.toISO()!,
+    content: [
+      {
+        attachment: {
+          contentType: 'application/pdf',
+          url: 'https://example.com/integration-test-document.pdf',
+          title: 'Integration test document',
+        },
+      },
+    ],
+    context: { related: [{ reference: appointmentRef }] },
+  };
+
+  // Typed as a patient billing account (PBILLACCT) so merge-patients' account-consolidation
+  // assertions have an account of the expected type to consolidate onto the surviving patient.
+  const account: Account = {
+    resourceType: 'Account',
+    status: 'active',
+    type: PATIENT_BILLING_ACCOUNT_TYPE,
+    name: 'Integration Test Account',
+    subject: [{ reference: patientRef }],
+  };
+
+  const requests: BatchInputPostRequest<FhirResource>[] = [
+    { method: 'POST', url: '/Patient', fullUrl: patientRef, resource: patient },
+    { method: 'POST', url: '/RelatedPerson', fullUrl: 'urn:uuid:related-person', resource: relatedPerson },
+    { method: 'POST', url: '/Appointment', fullUrl: appointmentRef, resource: appointment },
+    { method: 'POST', url: '/Encounter', fullUrl: encounterRef, resource: encounter },
     {
-      resourceType: 'Schedule',
-      actor: [{ reference: `Location/${location.id}` }],
+      method: 'POST',
+      url: '/QuestionnaireResponse',
+      fullUrl: 'urn:uuid:questionnaire-response',
+      resource: questionnaireResponse,
     },
-    processId
-  );
-  const schedule = await oystehr.fhir.create(scheduleSpec);
-
-  const intakePaperworkQuestionnaire = IN_PERSON_INTAKE_PAPERWORK_QUESTIONNAIRE();
-  let seedDataString = JSON.stringify(fastSeedData);
-  seedDataString = seedDataString.replace(/\{\{locationId\}\}/g, location.id!);
-  seedDataString = seedDataString.replace(/\{\{scheduleId\}\}/g, schedule.id!);
-  seedDataString = seedDataString.replace(
-    /\{\{questionnaireUrl\}\}/g,
-    `${intakePaperworkQuestionnaire.url}|${intakePaperworkQuestionnaire.version}`
-  );
-  seedDataString = seedDataString.replace(/\{\{date\}\}/g, DateTime.now().toUTC().toFormat('yyyy-MM-dd'));
-
-  const hydratedFastSeedJSON = JSON.parse(seedDataString);
+    { method: 'POST', url: '/Consent', fullUrl: 'urn:uuid:consent', resource: consent },
+    { method: 'POST', url: '/DocumentReference', fullUrl: 'urn:uuid:document-reference', resource: documentReference },
+    { method: 'POST', url: '/Account', fullUrl: 'urn:uuid:account', resource: account },
+  ];
 
   const createdResources =
     (
       await oystehr.fhir.transaction<
         | Patient
         | RelatedPerson
-        | Person
         | Appointment
         | Encounter
-        | Slot
-        | List
+        | QuestionnaireResponse
         | Consent
         | DocumentReference
-        | QuestionnaireResponse
-        | ServiceRequest
-        | ClinicalImpression
-      >({
-        requests: hydratedFastSeedJSON.entry.map((entry: any): BatchInputPostRequest<FhirResource> => {
-          if (entry.request.method !== 'POST') {
-            throw new Error('Only POST method is supported in fast mode');
-          }
-          let resource: FhirResource = entry.resource;
-          if (resource.resourceType === 'Appointment') {
-            resource = addProcessIdMetaTagToResource(resource, processId);
-          }
-          return {
-            method: entry.request.method,
-            url: entry.request.url,
-            fullUrl: entry.fullUrl,
-            resource: entry.resource,
-          };
-        }),
-      })
+        | Account
+      >({ requests })
     ).entry
       ?.map((entry) => entry.resource)
       .filter((entry) => entry !== undefined) ?? [];
@@ -185,9 +273,6 @@ export const insertInPersonAppointmentBase = async (
     questionnaireResponse: createdResources.find(
       (resource) => resource!.resourceType === 'QuestionnaireResponse'
     ) as QuestionnaireResponse,
-    clinicalImpression: createdResources.find(
-      (resource) => resource!.resourceType === 'ClinicalImpression'
-    ) as ClinicalImpression,
   };
 };
 
@@ -328,6 +413,8 @@ export const setupIntegrationTest = async (
   return {
     oystehr: oystehrAdmin,
     oystehrTestUserM2M: oystehrTestUserM2M,
+    testUserM2MToken,
+    testUserM2MProfile: testUserM2M.profile,
     token,
     processId,
     cleanup,

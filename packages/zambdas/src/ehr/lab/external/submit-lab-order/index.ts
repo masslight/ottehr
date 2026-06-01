@@ -9,6 +9,7 @@ import {
   MANUAL_EXTERNAL_LAB_ORDER_CATEGORY_CODING,
   OYSTEHR_SUBMIT_LAB_API,
   SubmitLabOrderOutput,
+  userMe,
 } from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../../../shared';
 import {
@@ -37,7 +38,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const oystehr = createOystehrClient(m2mToken, secrets);
 
   const userToken = input.headers.Authorization.replace('Bearer ', '');
-  const currentUser = await createOystehrClient(userToken, secrets).user.me();
+  const currentUser = await userMe(userToken, secrets);
 
   const now = DateTime.now();
 

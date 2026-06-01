@@ -1,6 +1,14 @@
 import fs from 'node:fs';
+import { FormFieldsDisplayItem, FormFieldSection } from 'config-types';
 import { PDFImage } from 'pdf-lib';
-import { getPresignedURL, PATIENT_RECORD_CONFIG, Secrets, uploadPDF } from 'utils';
+import {
+  AppointmentContext,
+  evaluateFieldTriggers,
+  getPresignedURL,
+  PATIENT_RECORD_CONFIG,
+  Secrets,
+  uploadPDF,
+} from 'utils';
 import { makeZ3Url } from '../presigned-file-urls';
 import { PDF_CLIENT_STYLES } from './pdf-consts';
 import { createPdfClient, getPdfLogo, PdfInfo } from './pdf-utils';
@@ -24,8 +32,8 @@ export type StyleFactory = (assets: PdfAssets) => PdfStyles;
 export interface PdfHeaderConfig<TData extends PdfData> {
   title: string | ((data: TData) => string);
   logo?: {
-    width: number;
-    height: number;
+    maxWidth: number;
+    maxHeight: number;
   };
   leftSection?: PdfHeaderSection<TData, any>;
   rightSection?: PdfHeaderSection<TData, any>;
@@ -157,10 +165,12 @@ const renderPdfHeader = <TData extends PdfData>(
 
   if (config.logo && assets.logo) {
     console.log('Rendering logo...');
-    const { width, height } = config.logo;
+    const { width, height } = assets.logo.scaleToFit(config.logo.maxWidth, config.logo.maxHeight);
     console.log('Logo config:', {
-      width,
-      height,
+      boxWidth: config.logo.maxWidth,
+      boxHeight: config.logo.maxHeight,
+      drawnWidth: width,
+      drawnHeight: height,
     });
     pdfClient.drawImage(assets.logo, {
       width,
@@ -338,6 +348,8 @@ const renderBodySections = <TData extends PdfData>(
   let rightColumnPage = pdfClient.getCurrentPageIndex();
 
   for (const section of sections) {
+    if (section.skip) continue;
+
     const sectionData = section.dataSelector(data);
 
     if (sectionData === undefined) continue;
@@ -514,26 +526,65 @@ export interface PdfSectionConfig {
   hiddenFields: Set<string>;
 }
 
-export const createSectionConfig = (configKey: keyof typeof PATIENT_RECORD_CONFIG.FormFields): PdfSectionConfig => {
-  const section = PATIENT_RECORD_CONFIG.FormFields[configKey];
-
-  const isHidden = Array.isArray(section.linkId)
-    ? PATIENT_RECORD_CONFIG.hiddenFormSections.some((hiddenSection) => section.linkId.includes(hiddenSection))
+const isSectionStaticallyHidden = (section: FormFieldSection): boolean =>
+  Array.isArray(section.linkId)
+    ? PATIENT_RECORD_CONFIG.hiddenFormSections.some((hidden) => section.linkId.includes(hidden))
     : PATIENT_RECORD_CONFIG.hiddenFormSections.includes(section.linkId);
 
+export const createSectionConfig = (configKey: keyof typeof PATIENT_RECORD_CONFIG.FormFields): PdfSectionConfig => {
+  const section = PATIENT_RECORD_CONFIG.FormFields[configKey];
   return {
     configKey,
-    isHidden,
+    isHidden: isSectionStaticallyHidden(section),
     hiddenFields: new Set(section.hiddenFields ?? []),
   };
 };
 
 export const fieldFilter = (config: PdfSectionConfig) => {
-  return (fieldKey: string): boolean => {
-    return !config.hiddenFields.has(fieldKey);
-  };
+  return (fieldKey: string): boolean => !config.hiddenFields.has(fieldKey);
 };
 
+/**
+ * Decide whether a section's PATIENT_RECORD_CONFIG `triggers` are satisfied
+ * for the given appointment context. Synthesizes the same fake
+ * `FormFieldsDisplayItem` `usePatientRecordFormSection` builds in the EHR and
+ * delegates to the shared `evaluateFieldTriggers` (utils), keyed by the same
+ * logical form-field linkIds that `prepopulateLogicalFields` injects.
+ * Returns true when the section should render — that is, when the evaluator
+ * does not actively report `enabled === false` (matching EHR semantics where
+ * `enabled === null` leaves the section visible).
+ */
+const isSectionTriggerEnabled = (section: FormFieldSection, ctx?: AppointmentContext): boolean => {
+  if (!section.triggers || section.triggers.length === 0) return true;
+  const enableBehavior = section.enableBehavior ?? 'any';
+  const sectionAsItem: FormFieldsDisplayItem = {
+    key: 'pdf-section-trigger',
+    type: 'display',
+    text: '',
+    disabledDisplay: 'hidden',
+    triggers: section.triggers,
+    enableBehavior,
+  };
+  const formValues = {
+    'appointment-service-category': ctx?.appointmentServiceCategory,
+    'appointment-service-mode': ctx?.appointmentServiceMode,
+    'reason-for-visit': ctx?.reasonForVisit,
+  };
+  return evaluateFieldTriggers(sectionAsItem, formValues, enableBehavior).enabled !== false;
+};
+
+/**
+ * Wrap a section so it inherits visibility rules from
+ * `PATIENT_RECORD_CONFIG.FormFields[configKey]`:
+ *  - `hiddenFormSections` → static `skip` (read by `renderBodySections`).
+ *  - `hiddenFields` → forwarded to the factory via `shouldShow`.
+ *  - `triggers` / `enableBehavior` → evaluated per render against
+ *    `rootData.appointmentContext`, composed with the section's own
+ *    `shouldRender`.
+ *
+ * Pass `null` for `configKey` for sections that aren't configurable through
+ * PATIENT_RECORD_CONFIG (e.g. payment history, visit-note bodies).
+ */
 export const createConfiguredSection = <TData, TSectionData>(
   configKey: keyof typeof PATIENT_RECORD_CONFIG.FormFields | null,
   sectionFactory: (shouldShow: (fieldKey: string) => boolean) => PdfSection<TData, TSectionData>
@@ -543,11 +594,27 @@ export const createConfiguredSection = <TData, TSectionData>(
   }
 
   const config = createSectionConfig(configKey);
-  const shouldShow = fieldFilter(config);
-  const section = sectionFactory(shouldShow);
+  const sectionDef = PATIENT_RECORD_CONFIG.FormFields[configKey];
+  const section = sectionFactory(fieldFilter(config));
+
+  const userShouldRender = section.shouldRender;
+  const wrappedShouldRender: PdfSection<TData, TSectionData>['shouldRender'] = (sectionData, rootData) => {
+    // `appointmentContext` is an optional field on PdfData. PDFs that don't
+    // populate it (e.g. discharge summary) evaluate section triggers against
+    // undefined appointment values. That generally disables triggers that
+    // require specific appointment matches (e.g. service-category =
+    // 'workers-comp'), while triggers that explicitly check for missing
+    // values (e.g. service-category exists answerBoolean=false) may still
+    // evaluate to enabled. Configurations relying on appointment context
+    // therefore need to use the appropriate trigger semantics.
+    const ctx = (rootData as PdfData | undefined)?.appointmentContext;
+    if (!isSectionTriggerEnabled(sectionDef, ctx)) return false;
+    return userShouldRender ? userShouldRender(sectionData, rootData) : true;
+  };
 
   return {
     ...section,
+    shouldRender: wrappedShouldRender,
     skip: config.isHidden,
   };
 };

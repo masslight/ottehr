@@ -12,9 +12,22 @@ export default defineConfig({
     // Disable globals to avoid conflicts with Playwright's expect during test execution
     globals: false,
     include: ['**/*.test.tsx'],
-    setupFiles: ['./tests/component/setup.ts'],
+    setupFiles: ['../../packages/test-utils/lib/no-network.setup.ts', './tests/component/setup.ts'],
     environment: 'jsdom',
     testTimeout: 30_000, // 30 seconds
+    coverage: {
+      provider: 'v8',
+      reporter: ['lcov', 'text-summary', 'json'],
+      reportsDirectory: './coverage/component',
+      include: ['src/**/*.{ts,tsx}'],
+      exclude: [
+        'src/**/*.test.{ts,tsx}',
+        'src/**/*.spec.{ts,tsx}',
+        'src/**/*.d.ts',
+        'src/**/types/**',
+        'src/**/__mocks__/**',
+      ],
+    },
   },
   plugins: [tsconfigPaths(), react()],
 });

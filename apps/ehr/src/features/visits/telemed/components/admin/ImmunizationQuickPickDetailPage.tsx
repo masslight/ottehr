@@ -39,7 +39,7 @@ export default function ImmunizationQuickPickDetailPage(): ReactElement {
   return (
     <Box sx={{ maxWidth: 720, mx: 'auto', py: 3 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
-        <IconButton onClick={() => navigate('/admin/quick-picks')} size="small">
+        <IconButton onClick={() => navigate('/admin/quick-picks/immunizations')} size="small">
           <ArrowBackIcon />
         </IconButton>
         <Typography variant="h4" color={theme.palette.primary.dark}>
@@ -48,8 +48,8 @@ export default function ImmunizationQuickPickDetailPage(): ReactElement {
       </Box>
 
       <Stack spacing={2}>
-        <Section title="Vaccine Information">
-          <Row label="Vaccine">
+        <Section title="Immunization Information">
+          <Row label="Immunization">
             <ValueDisplay value={quickPick.vaccine?.name} />
           </Row>
           <Row label="Dose">

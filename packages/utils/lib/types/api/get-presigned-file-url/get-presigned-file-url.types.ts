@@ -19,7 +19,8 @@ export interface GetPresignedFileURLInput {
     | typeof INSURANCE_CARD_FRONT_2_ID
     | typeof INSURANCE_CARD_BACK_2_ID
     | typeof SCHOOL_WORK_NOTE_SCHOOL_ID
-    | typeof SCHOOL_WORK_NOTE_WORK_ID;
+    | typeof SCHOOL_WORK_NOTE_WORK_ID
+    | `patient-photo${string}`;
   fileFormat: 'pdf' | 'jpg' | 'jpeg' | 'png';
 }
 

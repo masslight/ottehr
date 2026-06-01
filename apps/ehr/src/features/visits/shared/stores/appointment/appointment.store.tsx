@@ -23,7 +23,10 @@ import { useParams, useSearchParams } from 'react-router-dom';
 import { CHART_DATA_QUERY_KEY, CHART_FIELDS_QUERY_KEY, QUERY_STALE_TIME } from 'src/constants';
 import { useRosObservations } from 'src/features/visits/shared/hooks/useRosObservations';
 import { useExamObservations } from 'src/features/visits/telemed/hooks/useExamObservations';
-import { extractPhotoUrlsFromAppointmentData } from 'src/features/visits/telemed/utils/appointments';
+import {
+  extractPatientConditionPhotoRefsFromAppointmentData,
+  PatientConditionPhotoRef,
+} from 'src/features/visits/telemed/utils/appointments';
 import { useApiClients } from 'src/hooks/useAppClients';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import {
@@ -32,6 +35,7 @@ import {
   ChartDataRequestedFields,
   GetChartDataResponse,
   isLocationVirtual,
+  NOTE_TYPE,
   ObservationDTO,
   PromiseReturnType,
   RequestedFields,
@@ -39,9 +43,8 @@ import {
   SCHOOL_WORK_NOTE_CODE,
   SCHOOL_WORK_NOTE_TEMPLATE_CODE,
   SchoolWorkNoteExcuseDocFileDTO,
-  useErrorQuery,
-  useSuccessQuery,
 } from 'utils';
+import { useErrorQuery, useSuccessQuery } from 'utils/lib/frontend';
 import { create } from 'zustand';
 import { OystehrTelemedAPIClient } from '../../api/oystehrApi';
 import { useGetAppointmentAccessibility } from '../../hooks/useGetAppointmentAccessibility';
@@ -64,7 +67,7 @@ export type AppointmentTelemedState = {
   followupEncounters?: Encounter[];
   selectedEncounterId: string | undefined;
   questionnaireResponse: QuestionnaireResponse | undefined;
-  patientPhotoUrls: string[];
+  patientConditionPhotos: PatientConditionPhotoRef[];
   schoolWorkNoteUrls: string[];
 };
 
@@ -147,7 +150,7 @@ const APPOINTMENT_INITIAL: AppointmentTelemedState & AppointmentRawResourcesStat
   followupEncounters: [],
   selectedEncounterId: undefined,
   questionnaireResponse: undefined,
-  patientPhotoUrls: [],
+  patientConditionPhotos: [],
   schoolWorkNoteUrls: [],
   rawResources: [],
 
@@ -431,7 +434,7 @@ const selectAppointmentData = (
     followupEncounters,
     selectedEncounterId: validSelectedEncounterId,
     questionnaireResponse,
-    patientPhotoUrls: extractPhotoUrlsFromAppointmentData(data),
+    patientConditionPhotos: extractPatientConditionPhotoRefsFromAppointmentData(data),
     schoolWorkNoteUrls:
       (data
         ?.filter(
@@ -617,9 +620,21 @@ export const useSaveChartData = (): UseMutationResult<
 
   return useMutation({
     mutationFn: (chartDataFields: Omit<SaveChartDataRequest, 'encounterId'>) => {
-      // disabled saving chart data in read only mode except addendum note
-      if (isReadOnly && Object.keys(chartDataFields).some((key) => (key as keyof AllChartValues) !== 'addendumNote')) {
-        throw new Error('update disabled in read only mode');
+      // disabled saving chart data in read only mode except addendum note (legacy single-string field
+      // and the per-author `notes` array entries of type ADDENDUM, which providers can still append
+      // after the visit is signed and the claim is created)
+      if (isReadOnly) {
+        const onlyAddendumChanges = Object.keys(chartDataFields).every((key) => {
+          const field = key as keyof AllChartValues;
+          if (field === 'addendumNote') return true;
+          if (field === 'notes') {
+            return (chartDataFields.notes ?? []).every((n) => n.type === NOTE_TYPE.ADDENDUM);
+          }
+          return false;
+        });
+        if (!onlyAddendumChanges) {
+          throw new Error('update disabled in read only mode');
+        }
       }
 
       if (apiClient && encounter?.id) {

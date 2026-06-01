@@ -5,6 +5,7 @@ export * from './discharge-summary';
 export * from './documents';
 export * from './emergencyContactInfo';
 export * from './employerInfo';
+export * from './occupationalMedicineEmployerInfo';
 export * from './insuranceInfo';
 export * from './patientDetails';
 export * from './patientInfo';

@@ -73,7 +73,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       const status = getInPersonVisitStatus(fhirAppointment, encounter);
 
       if (!status) {
-        console.log('No telemed status for appointment');
+        console.log('No status for appointment');
         return;
       }
 

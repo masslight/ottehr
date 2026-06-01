@@ -4,8 +4,16 @@ import { EditableNote, UseNoteHandlers } from '../types';
 import { useDeleteNote } from './useDeleteNote';
 import { useEditNote } from './useEditNote';
 import { useSaveNote } from './useSaveNote';
+import { useSoftDeleteNote } from './useSoftDeleteNote';
 
-export const useNoteHandlers: UseNoteHandlers = ({ encounterId, appointmentId, patientId, apiConfig, locales }) => {
+export const useNoteHandlers: UseNoteHandlers = ({
+  encounterId,
+  appointmentId,
+  patientId,
+  apiConfig,
+  locales,
+  softDeleteWithTombstone,
+}) => {
   const { data: chartData, isLoading } = useChartFields({
     requestedFields: { [apiConfig.fieldName]: apiConfig.searchParams },
   });
@@ -16,6 +24,8 @@ export const useNoteHandlers: UseNoteHandlers = ({ encounterId, appointmentId, p
     authorId: note.authorId,
     authorName: note.authorName,
     lastUpdated: note.lastUpdated,
+    edited: note.edited,
+    deleted: note.deleted,
     encounterId: note.encounterId,
     patientId: note.patientId,
     type: note.type,
@@ -23,7 +33,9 @@ export const useNoteHandlers: UseNoteHandlers = ({ encounterId, appointmentId, p
 
   const handleSave = useSaveNote({ encounterId, appointmentId, patientId, apiConfig });
   const handleEdit = useEditNote({ appointmentId, apiConfig });
-  const handleDelete = useDeleteNote({ appointmentId, apiConfig, locales });
+  const hardDelete = useDeleteNote({ appointmentId, apiConfig, locales });
+  const softDelete = useSoftDeleteNote({ appointmentId, apiConfig, locales });
+  const handleDelete = softDeleteWithTombstone ? softDelete : hardDelete;
 
   return {
     entities,

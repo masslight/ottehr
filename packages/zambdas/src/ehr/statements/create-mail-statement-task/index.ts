@@ -4,8 +4,10 @@ import { DateTime } from 'luxon';
 import {
   getFullestAvailableName,
   getTaskResource,
+  INVALID_INPUT_ERROR,
   MISSING_REQUEST_BODY,
   MISSING_REQUEST_SECRETS,
+  MISSING_REQUIRED_PARAMETERS,
   Secrets,
   TaskIndicator,
 } from 'utils';
@@ -38,12 +40,12 @@ function validateRequestParameters(input: ZambdaInput): CreateMailStatementTaskI
 
   const encounterId = body.encounterId;
   if (typeof encounterId !== 'string' || encounterId.trim().length === 0) {
-    throw new Error('encounterId is required');
+    throw MISSING_REQUIRED_PARAMETERS(['encounterId']);
   }
 
   const color = body.color;
   if (typeof color !== 'boolean') {
-    throw new Error('color must be a boolean (true or false)');
+    throw INVALID_INPUT_ERROR('color must be a boolean (true or false)');
   }
 
   const statementType = body.statementType;
@@ -57,7 +59,7 @@ function validateRequestParameters(input: ZambdaInput): CreateMailStatementTaskI
   }
 
   if (typeof statementType !== 'string' || !validStatementTypes.has(statementType as StatementType)) {
-    throw new Error('statementType must be one of: standard, past-due, final-notice');
+    throw INVALID_INPUT_ERROR('statementType must be one of: standard, past-due, final-notice');
   }
 
   return {

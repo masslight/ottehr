@@ -8,6 +8,7 @@ import {
   CHARACTER_LIMIT_EXCEEDED_ERROR,
   CreateAppointmentInputParams,
   FHIR_RESOURCE_NOT_FOUND,
+  FollowUpOptions,
   getServiceModeFromScheduleOwner,
   getServiceModeFromSlot,
   getSlotIsPostTelemed,
@@ -45,9 +46,7 @@ export function validateCreateAppointmentParams(input: ZambdaInput, user: User):
   const isEHRUser = user && checkIsEHRUser(user);
 
   const bodyJSON = JSON.parse(input.body);
-  const { slotId, language, patient, unconfirmedDateOfBirth, locationState, appointmentMetadata, parentEncounterId } =
-    bodyJSON;
-  console.log('unconfirmedDateOfBirth', unconfirmedDateOfBirth);
+  const { slotId, language, patient, locationState, appointmentMetadata, followUpOptions } = bodyJSON;
   console.log('patient:', patient, 'slotId:', slotId);
   // Check existence of necessary fields
   if (patient === undefined) {
@@ -112,13 +111,6 @@ export function validateCreateAppointmentParams(input: ZambdaInput, user: User):
     throw INVALID_INPUT_ERROR('"language" must be one of: "en", "es"');
   }
 
-  if (unconfirmedDateOfBirth) {
-    const isInvalidUnconfirmedDateOfBirth = !DateTime.fromISO(unconfirmedDateOfBirth).isValid;
-    if (isInvalidUnconfirmedDateOfBirth) {
-      throw INVALID_INPUT_ERROR('"unconfirmedDateOfBirth" was not read as a valid date');
-    }
-  }
-
   if (locationState) {
     const isValidLocationState = AllStates.some((state) => state.value.toLowerCase() === locationState.toLowerCase());
     if (isValidLocationState === false) {
@@ -135,6 +127,8 @@ export function validateCreateAppointmentParams(input: ZambdaInput, user: User):
     throw INVALID_INPUT_ERROR('if specified, "patient.authorizedNonLegalGuardians" must be a string');
   }
 
+  const validatedFollowUpOptions = validateFollowUpOptions(followUpOptions);
+
   return {
     slotId,
     user,
@@ -142,10 +136,27 @@ export function validateCreateAppointmentParams(input: ZambdaInput, user: User):
     patient,
     secrets: input.secrets,
     language,
-    unconfirmedDateOfBirth,
     locationState,
     appointmentMetadata,
+    followUpOptions: validatedFollowUpOptions,
+  };
+}
+
+function validateFollowUpOptions(raw: unknown): FollowUpOptions | undefined {
+  if (raw == null) return undefined;
+  if (typeof raw !== 'object' || Array.isArray(raw)) {
+    throw INVALID_INPUT_ERROR('"followUpOptions" must be an object');
+  }
+  const { parentEncounterId, skipPatientDiagnosis } = raw as Record<string, unknown>;
+  if (typeof parentEncounterId !== 'string' || parentEncounterId.length === 0) {
+    throw INVALID_INPUT_ERROR('"followUpOptions.parentEncounterId" must be a non-empty string');
+  }
+  if (skipPatientDiagnosis !== undefined && typeof skipPatientDiagnosis !== 'boolean') {
+    throw INVALID_INPUT_ERROR('"followUpOptions.skipPatientDiagnosis" must be a boolean if provided');
+  }
+  return {
     parentEncounterId,
+    ...(skipPatientDiagnosis !== undefined && { skipPatientDiagnosis }),
   };
 }
 
@@ -159,7 +170,7 @@ export interface CreateAppointmentEffectInput {
   visitType: VisitType;
   locationState?: string;
   appointmentMetadata?: Appointment['meta'];
-  parentEncounterId?: string;
+  followUpOptions?: FollowUpOptions;
 }
 
 export const createAppointmentComplexValidation = async (
@@ -278,6 +289,6 @@ export const createAppointmentComplexValidation = async (
     visitType,
     locationState,
     appointmentMetadata,
-    parentEncounterId: input.parentEncounterId,
+    followUpOptions: input.followUpOptions,
   };
 };

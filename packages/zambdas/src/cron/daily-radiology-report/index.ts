@@ -1,7 +1,7 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { DiagnosticReport, Encounter, Patient, ServiceRequest } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { DIAGNOSTIC_REPORT_PRELIMINARY_REVIEW_ON_EXTENSION_URL, ORDER_TYPE_CODE_SYSTEM } from 'utils';
+import { ORDER_TYPE_CODE_SYSTEM, SERVICE_REQUEST_NEEDS_TO_BE_SENT_TO_TELERADIOLOGY_EXTENSION_URL } from 'utils';
 import { createOystehrClient, getAuth0Token, wrapHandler, ZambdaInput } from '../../shared';
 
 interface RadiologyStudyReportItem {
@@ -135,30 +135,23 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         (report) => report.basedOn?.some((basedOn) => basedOn.reference === `ServiceRequest/${serviceRequest.id}`)
       );
 
-      const preliminaryReport = relatedDiagnosticReports.find((r) => r.status === 'preliminary');
-      const maybePreliminaryReportTime = preliminaryReport?.extension?.find(
-        (ext) => ext.url === DIAGNOSTIC_REPORT_PRELIMINARY_REVIEW_ON_EXTENSION_URL
+      const maybeNeedsToBeSentForTeleradTime = serviceRequest?.extension?.find(
+        (ext) => ext.url === SERVICE_REQUEST_NEEDS_TO_BE_SENT_TO_TELERADIOLOGY_EXTENSION_URL
       )?.valueDateTime;
 
-      if (!preliminaryReport) {
-        return;
+      if (!maybeNeedsToBeSentForTeleradTime) {
+        return; // requesting telerad is optional, if it was not requested then all is well and the report can't be late.
       }
 
-      if (!maybePreliminaryReportTime) {
-        throw new Error(
-          `Preliminary report for ServiceRequest/${serviceRequest.id} is missing preliminary review time extension`
-        );
-      }
-
-      const preliminaryReportTime = DateTime.fromISO(maybePreliminaryReportTime).toUTC();
+      const needsToBeSentTime = DateTime.fromISO(maybeNeedsToBeSentForTeleradTime).toUTC();
       const now = DateTime.now().toUTC();
-      const timeSincePreliminary = now.diff(preliminaryReportTime, 'hours').hours;
+      const timeSinceNeedsToBeSent = now.diff(needsToBeSentTime, 'hours').hours;
 
       const finalReport = relatedDiagnosticReports.find(
         (r) => r.status === 'final' || r.status === 'amended' || r.status === 'corrected'
       );
 
-      if (preliminaryReport && !finalReport && timeSincePreliminary > 24) {
+      if (!finalReport && timeSinceNeedsToBeSent > 24) {
         return {
           serviceRequestId: serviceRequest.id,
           patientName,
