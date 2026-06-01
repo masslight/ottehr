@@ -75,7 +75,6 @@ export function sanitizeOverrides(overrides?: Record<string, unknown>): Record<s
 // Autocomplete dropdowns (Create Claim, etc.): never include working copies
 export const EXCLUDE_WORKING_COPIES_PARAMS = [
   { name: '_tag:not', value: `${BILLING_WORKING_COPY_TAG.system}|${BILLING_WORKING_COPY_TAG.code}` },
-  { name: 'identifier:not', value: `${SOURCE_IDENTIFIER_SYSTEM}|` },
 ];
 
 export function createBillingClient(token: string, secrets: Secrets | null): Oystehr {
@@ -100,7 +99,7 @@ export function fhirName(resource?: Patient | Practitioner): string {
 export function prepareWorkingCopy<T extends Resource>(resource: T, originalId: string): T {
   const copy: T & { identifier?: { system: string; value: string }[] } = structuredClone(resource);
   delete copy.id;
-  copy.meta = { tag: [BILLING_RESOURCE_TAG, BILLING_WORKING_COPY_TAG] };
+  copy.meta = { tag: [BILLING_WORKING_COPY_TAG] };
   const existing = (copy.identifier ?? []).filter((id) => id.system !== SOURCE_IDENTIFIER_SYSTEM);
   copy.identifier = [
     ...existing,
