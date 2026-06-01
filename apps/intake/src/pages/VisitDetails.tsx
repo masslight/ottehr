@@ -169,7 +169,7 @@ const VisitDetailsContent = ({
                         key={key}
                         sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 1 }}
                       >
-                        <Typography variant="body2" color="primary.dark">
+                        <Typography variant="body2" color="primary.dark" textTransform={'capitalize'}>
                           {label}
                         </Typography>
                         <Button variant="text" startIcon={<DownloadIcon />} onClick={() => openExternalLink(url)}>

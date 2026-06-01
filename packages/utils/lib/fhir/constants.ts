@@ -15,6 +15,7 @@ import {
   DISCHARGE_SUMMARY_CODE,
   EXPORTED_QUESTIONNAIRE_CODE,
   INSURANCE_CARD_CODE,
+  PATIENT_EDUCATION_DOC_TYPE_CODE,
   PATIENT_PHOTO_CODE,
   PHOTO_ID_CARD_CODE,
   PRIVACY_POLICY_CODE,
@@ -520,6 +521,8 @@ export const BUCKET_NAMES = {
   PAPERWORK: 'exported-questionnaires',
   DISCHARGE_SUMMARIES: 'discharge-summaries',
   STATEMENTS: 'statements',
+  PATIENT_EDUCATION: 'patient-education',
+  PATIENT_EDUCATION_ADMIN: 'patient-education-admin',
   REPORTS: 'invoiceable-patients-reports',
   CUSTOM_FOLDERS: 'patient-docs-custom-folders',
 } as const;
@@ -601,6 +604,11 @@ export const FOLDERS_CONFIG: ListConfig[] = [
     title: BUCKET_NAMES.STATEMENTS,
     display: 'Statements',
     documentTypeCode: STATEMENT_CODE,
+  },
+  {
+    title: BUCKET_NAMES.PATIENT_EDUCATION,
+    display: 'Patient Education',
+    documentTypeCode: PATIENT_EDUCATION_DOC_TYPE_CODE,
   },
 ];
 

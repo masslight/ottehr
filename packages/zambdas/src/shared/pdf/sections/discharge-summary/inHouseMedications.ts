@@ -25,7 +25,7 @@ export const createInHouseMedicationsSectionForDischargeSummary = <
         client.drawText(
           `${medication.name}${medication.dose ? ' - ' + medication.dose : ''}${
             medication.route ? ' / ' + medication.route : ''
-          }`,
+          }${medication.location ? ' / ' + medication.location : ''}`,
           styles.textStyles.bold
         );
         if (medication.date) client.drawText(medication.date, styles.textStyles.regular);
