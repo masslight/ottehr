@@ -1,4 +1,3 @@
-import AssessmentIcon from '@mui/icons-material/Assessment';
 import ChatOutlinedIcon from '@mui/icons-material/ChatOutlined';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import PhoneIcon from '@mui/icons-material/Phone';
@@ -28,7 +27,7 @@ import { RelatedPerson } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
 import React, { useEffect, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { SendInvoiceToPatientDialog, SendStatementToPatientDialog } from 'src/components/dialogs';
 import ChatModal from 'src/features/chat/ChatModal';
 import {
@@ -128,7 +127,6 @@ const INVOICEABLE_TASK_STATUS_COLORS_MAP: {
 
 export default function InvoiceablePatients(): React.ReactElement {
   const { oystehrZambda, oystehr } = useApiClients();
-  const navigate = useNavigate();
   const methods = useForm();
   const [searchParams, setSearchParams] = useSearchParams();
   const [selectedReportToSend, setSelectedReportToSend] = useState<InvoiceablePatientReport | undefined>();
@@ -436,7 +434,7 @@ export default function InvoiceablePatients(): React.ReactElement {
       },
     });
     return () => callback();
-  }, [methods, navigate, searchParams, setSearchParams]);
+  }, [methods, searchParams, setSearchParams]);
 
   useEffect(() => {
     const persistedFilters = localStorage.getItem(LOCAL_STORAGE_FILTERS_KEY);
@@ -457,15 +455,6 @@ export default function InvoiceablePatients(): React.ReactElement {
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          <AssessmentIcon sx={{ fontSize: 32, color: 'primary.main' }} />
-          <Typography variant="h4" component="h1" color="primary.dark" fontWeight={600}>
-            Invoices
-          </Typography>
-        </Box>
-      </Box>
-
       <FormProvider {...methods}>
         <Paper>
           <Stack direction="row" spacing={2} padding="8px" alignItems="center" flexWrap="wrap">

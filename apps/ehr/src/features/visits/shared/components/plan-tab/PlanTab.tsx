@@ -7,6 +7,7 @@ import { FormsCard } from '../FormsCard';
 import { SchoolWorkExcuseCard } from '../SchoolWorkExcuseCard';
 import { ERxCard } from './ERxCard';
 import { HealthwiseDocumentsCard } from './HealthwiseDocumentsCard';
+import { PatientEducationCard } from './PatientEducationCard';
 import { PatientInstructionsCard } from './PatientInstructionsCard';
 
 export const PlanTab: FC = () => {
@@ -37,6 +38,7 @@ export const PlanTab: FC = () => {
       <PatientInstructionsCard />
       {tmpHideHealthwiseDocuments ? <></> : <HealthwiseDocumentsCard />}
       <DispositionCard />
+      <PatientEducationCard />
       <SchoolWorkExcuseCard locationName={locationName} />
       {FEATURE_FLAGS.FORMS_ENABLED && <FormsCard />}
     </Box>

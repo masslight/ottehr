@@ -7,7 +7,6 @@ import {
   getAllCptCodesFromInHouseMedication,
   getAllHcpcsCodesFromInHouseMedication,
   getDosageUnitsAndRouteOfMedication,
-  getLocationCodeFromMedicationAdministration,
   getResourcesFromBatchInlineRequests,
   INVALID_INPUT_ERROR,
   INVENTORY_MEDICATION_TYPE_CODE,
@@ -98,12 +97,13 @@ export function updateMedicationAdministrationData(data: {
   const routeCoding = searchRouteByCode(routeCode!);
   if (orderData.route && !routeCoding)
     throw INVALID_INPUT_ERROR(`No route found with code provided: ${orderData.route}`);
-  const locationCode = orderData.location
-    ? orderData.location
-    : getLocationCodeFromMedicationAdministration(orderResources.medicationAdministration);
-  const locationCoding = locationCode ? searchMedicationLocation(locationCode) : undefined;
+  const locationCoding = orderData.location
+    ? searchMedicationLocation(orderData.location.code, orderData.location.name)
+    : undefined;
   if (orderData.location && !locationCoding)
-    throw INVALID_INPUT_ERROR(`No location found with code provided: ${orderData.location}`);
+    throw INVALID_INPUT_ERROR(
+      `No location found with code/name provided: ${orderData.location.code} / ${orderData.location.name}`
+    );
 
   if (!routeCoding) throw INVALID_INPUT_ERROR(`No medication appliance route was found for code: ${routeCode}`);
   const newMA = createMedicationAdministrationResource({

@@ -5,6 +5,7 @@ import { DispositionCard } from '../../shared/components/DispositionCard';
 import { FormsCard } from '../../shared/components/FormsCard';
 import { Loader } from '../../shared/components/Loader';
 import { PageTitle } from '../../shared/components/PageTitle';
+import { PatientEducationCard } from '../../shared/components/plan-tab/PatientEducationCard';
 import { PatientInstructionsCard } from '../../shared/components/plan-tab/PatientInstructionsCard';
 import { SchoolWorkExcuseCard } from '../../shared/components/SchoolWorkExcuseCard';
 import { useAppointmentData, useChartData } from '../../shared/stores/appointment/appointment.store';
@@ -32,6 +33,7 @@ export const Plan: FC<PlanProps> = () => {
       <PageTitle label="Plan" showIntakeNotesButton={false} />
       {!isFollowUp && <PatientInstructionsCard />}
       {!isFollowUp && <DispositionCard />}
+      {!isFollowUp && <PatientEducationCard />}
       <SchoolWorkExcuseCard locationName={locationName} />
       {!isFollowUp && FEATURE_FLAGS.FORMS_ENABLED && <FormsCard />}
     </Stack>

@@ -63,6 +63,9 @@ export default function InHouseMedicationQuickPickDetailPage(): ReactElement {
           <Row label="Route">
             <ValueDisplay value={quickPick.route} />
           </Row>
+          <Row label="Location">
+            <ValueDisplay value={quickPick.location?.name} />
+          </Row>
           <Row label="Manufacturer">
             <ValueDisplay value={quickPick.manufacturer} />
           </Row>
