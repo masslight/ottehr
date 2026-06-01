@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ReactNode } from 'react';
 import { MemoryRouter, useLocation } from 'react-router-dom';
@@ -57,9 +57,11 @@ describe('AppointmentTabs persistence', () => {
     expect(getTabSelected(dataTestIds.dashboard.inOfficeTab)).toBe('true');
   });
 
-  it('writes the resolved tab to `?tab=` when the param is missing on mount', () => {
+  it('writes the resolved tab to `?tab=` when the param is missing on mount', async () => {
     renderTabs();
-    expect(screen.getByTestId('location-probe')).toHaveTextContent('/visits?tab=in-office');
+    await waitFor(() => {
+      expect(screen.getByTestId('location-probe')).toHaveTextContent('/visits?tab=in-office');
+    });
   });
 
   it('persists the selected tab to localStorage on change', async () => {
