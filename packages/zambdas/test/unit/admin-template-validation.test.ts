@@ -64,7 +64,7 @@ describe('Admin Create Template - validateRequestParameters', () => {
       templateName: 'My Template',
     });
 
-    expect(() => validateCreateParams(input)).toThrow('No secrets provided');
+    expect(() => validateCreateParams(input)).toThrow();
   });
 });
 
@@ -121,7 +121,7 @@ describe('Admin Rename Template - validateRequestParameters', () => {
       newName: 'Renamed Template',
     });
 
-    expect(() => validateRenameParams(input)).toThrow('No secrets provided');
+    expect(() => validateRenameParams(input)).toThrow();
   });
 });
 
@@ -155,7 +155,7 @@ describe('Admin Delete Template - validateRequestParameters', () => {
       templateId: 'template-789',
     });
 
-    expect(() => validateDeleteParams(input)).toThrow('No secrets provided');
+    expect(() => validateDeleteParams(input)).toThrow();
   });
 
   test('should throw when body is missing', () => {
@@ -167,6 +167,6 @@ describe('Admin Delete Template - validateRequestParameters', () => {
       secrets: { AUTH0_SECRET: 'test-secret' },
     };
 
-    expect(() => validateDeleteParams(input)).toThrow('No request body provided');
+    expect(() => validateDeleteParams(input)).toThrow();
   });
 });

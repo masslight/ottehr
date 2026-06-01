@@ -96,7 +96,7 @@ describe('Apply Template - validateRequestParameters', () => {
 
   test('rejects sectionActions that is not an object', () => {
     const input = createInput({ ...baseBody, sectionActions: 'not-an-object' });
-    expect(() => validateRequestParameters(input)).toThrow(/must be an object/);
+    expect(() => validateRequestParameters(input)).toThrow(/Expected object, received string/);
   });
 
   test('still throws when required fields are missing', () => {

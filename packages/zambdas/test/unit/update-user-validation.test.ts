@@ -31,7 +31,7 @@ describe('update-user - validateRequestParameters', () => {
   test('throws when selectedRoles contains an unknown role', () => {
     expect(() =>
       validateRequestParameters(createMockZambdaInput({ userId: 'u1', selectedRoles: ['NotARole'] }))
-    ).toThrow(/Invalid roles selected/);
+    ).toThrow(/Invalid enum value/);
   });
 
   test('omitting selectedRoles is allowed (other update flows)', () => {

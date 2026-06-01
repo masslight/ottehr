@@ -16,6 +16,7 @@ describe('apply-template - validateRequestParameters', () => {
     expect(result.encounterId).toBe('encounter-123');
     expect(result.sectionActions).toEqual({});
     expect(result.secrets).toEqual(createMockSecrets());
+    expect(result.userToken).toBe('test-token');
   });
 
   test('should return validated params with sectionActions', () => {
@@ -165,5 +166,39 @@ describe('apply-template - validateRequestParameters', () => {
   test('should throw when secrets are missing', () => {
     const input = createMockZambdaInput(validBody);
     expect(() => validateRequestParameters(input)).toThrow();
+  });
+
+  test('should throw when Authorization header is missing', () => {
+    const input = createMockZambdaInput(validBody, { secrets: createMockSecrets(), headers: {} });
+    expect(() => validateRequestParameters(input)).toThrow();
+  });
+
+  test('should throw when overwrite is used on a section that does not support it (inHouseLabs)', () => {
+    const body = {
+      ...validBody,
+      sectionActions: { inHouseLabs: 'overwrite' },
+    };
+    const input = createMockZambdaInput(body, { secrets: createMockSecrets() });
+    expect(() => validateRequestParameters(input)).toThrow();
+  });
+
+  test('should accept skip for inHouseLabs section', () => {
+    const body = {
+      ...validBody,
+      sectionActions: { inHouseLabs: 'skip' },
+    };
+    const input = createMockZambdaInput(body, { secrets: createMockSecrets() });
+    const result = validateRequestParameters(input);
+    expect(result.sectionActions).toEqual({ inHouseLabs: 'skip' });
+  });
+
+  test('should accept append for inHouseLabs section', () => {
+    const body = {
+      ...validBody,
+      sectionActions: { inHouseLabs: 'append' },
+    };
+    const input = createMockZambdaInput(body, { secrets: createMockSecrets() });
+    const result = validateRequestParameters(input);
+    expect(result.sectionActions).toEqual({ inHouseLabs: 'append' });
   });
 });
