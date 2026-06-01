@@ -24,6 +24,7 @@ import { ErrorDialog, ErrorDialogConfig } from '../components/ErrorDialog';
 import PageForm from '../components/PageForm';
 import { FormValidationErrorObject, getFormValidationErrors, usePaperworkContext } from '../features/paperwork';
 import ValidationErrorMessageContent from '../features/paperwork/components/ValidationErrorMessage';
+import { translateQuestionnaireText } from '../features/paperwork/getQuestionnaireText';
 import { UNEXPECTED_ERROR_CONFIG } from '../helpers';
 import { getLocaleDateTimeString } from '../helpers/dateUtils';
 import { getValueBoolean } from '../helpers/form';
@@ -233,7 +234,7 @@ const ReviewPaperwork = (): JSX.Element => {
           hasError = validationErrors[paperworkPage.linkId]?.length ? true : false;
         }
         return {
-          name: paperworkPage.text ?? 'Review',
+          name: translateQuestionnaireText(t, paperworkPage.linkId, paperworkPage.text) ?? 'Review',
           path: `/paperwork/${appointmentID}/${slugFromLinkId(paperworkPage.linkId)}`,
           valueBoolean: paperworkCompletedStatus[paperworkPage.linkId] && !hasError,
           testId: paperworkPage.linkId + '-status',

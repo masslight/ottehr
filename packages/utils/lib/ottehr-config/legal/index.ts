@@ -29,17 +29,20 @@ const LEGAL_DATA: LegalConfig = {
   ],
   PAPERWORK_REVIEW_PAGE: [
     {
-      literal: 'By proceeding with a visit, you acknowledge that you have reviewed and accept our ',
+      keyPath: 'reviewAndSubmit.byProceeding',
       nodeType: 'DisplayText',
     },
     {
       url: '/template.pdf',
-      textToDisplay: { literal: 'Privacy Policy', nodeType: 'DisplayText' },
+      textToDisplay: { keyPath: 'reviewAndSubmit.privacyPolicy', nodeType: 'DisplayText' },
       testId: 'privacy-policy-review-screen',
       nodeType: 'Link',
       tags: ['privacy-policy'],
     },
-    { literal: ' and ', nodeType: 'DisplayText' },
+    {
+      keyPath: 'reviewAndSubmit.andPrivacyPolicy',
+      nodeType: 'DisplayText',
+    },
     {
       url: '/template.pdf',
       textToDisplay: { keyPath: 'reviewAndSubmit.termsAndConditions', nodeType: 'DisplayText' },
