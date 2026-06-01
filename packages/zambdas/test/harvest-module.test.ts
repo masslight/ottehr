@@ -1754,7 +1754,7 @@ describe('Harvest Module', () => {
         });
 
         expect(result.deactivatedCoverages).toHaveLength(0);
-        const suggestedPrimary = result.suggestedNewCoverageObject.find((c) => c.priority === 1)?.coverage;
+        const suggestedPrimary = result.suggestedNewCoverageObject?.find((c) => c.priority === 1)?.coverage;
         expect(suggestedPrimary?.reference).toBe(`Coverage/${primary.id}`);
       });
     });
