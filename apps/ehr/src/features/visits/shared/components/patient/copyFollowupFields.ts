@@ -6,17 +6,6 @@ import {
   GetChartDataResponse,
 } from 'utils';
 
-// Chief Complaint / HPI storage keys are intentionally swapped to match how the rest of
-// the EHR labels these fields — see ChiefComplaintField.tsx / HpiField.tsx.
-const COPY_FIELD_TO_CHART_KEY = {
-  chiefComplaint: 'historyOfPresentIllness',
-  historyOfPresentIllness: 'chiefComplaint',
-  mechanismOfInjury: 'mechanismOfInjury',
-  diagnosis: 'diagnosis',
-  examObservations: 'examObservations',
-  rosObservations: 'rosObservations',
-} as const satisfies Record<CopyableFollowupField, keyof AllChartValues>;
-
 export interface CopyableFieldConfig {
   key: CopyableFollowupField;
   label: string;
@@ -28,27 +17,25 @@ export interface CopyableFieldConfig {
 // Drop resourceId so save-chart-data creates fresh resources on the follow-up encounter.
 const stripId = <T extends { resourceId?: string }>(dto: T): T => ({ ...dto, resourceId: undefined });
 
+// CC/HPI storage keys are swapped relative to labels; see ChiefComplaintField.tsx / HpiField.tsx.
 export const COPYABLE_FOLLOWUP_FIELDS: CopyableFieldConfig[] = [
   {
+    // "Chief Complaint" section = staff-confirmed Reason for visit + Additional Information.
     key: 'chiefComplaint',
     label: 'Chief Complaint',
-    isEmpty: (data) => !data[COPY_FIELD_TO_CHART_KEY.chiefComplaint]?.text?.trim(),
-    extract: (data) => {
-      const src = data[COPY_FIELD_TO_CHART_KEY.chiefComplaint];
-      return src ? { [COPY_FIELD_TO_CHART_KEY.chiefComplaint]: stripId(src) } : {};
-    },
+    isEmpty: (data) => !data.reasonForVisit?.text?.trim() && !data.historyOfPresentIllness?.text?.trim(),
+    extract: (data) => ({
+      ...(data.reasonForVisit?.text?.trim() ? { reasonForVisit: stripId(data.reasonForVisit) } : {}),
+      ...(data.historyOfPresentIllness ? { historyOfPresentIllness: stripId(data.historyOfPresentIllness) } : {}),
+    }),
   },
   {
     key: 'historyOfPresentIllness',
     label: 'HPI',
-    isEmpty: (data) => !data[COPY_FIELD_TO_CHART_KEY.historyOfPresentIllness]?.text?.trim(),
-    extract: (data) => {
-      const src = data[COPY_FIELD_TO_CHART_KEY.historyOfPresentIllness];
-      return src ? { [COPY_FIELD_TO_CHART_KEY.historyOfPresentIllness]: stripId(src) } : {};
-    },
+    isEmpty: (data) => !data.chiefComplaint?.text?.trim(),
+    extract: (data) => (data.chiefComplaint ? { chiefComplaint: stripId(data.chiefComplaint) } : {}),
   },
   {
-    // Bundles `accident` (date of injury) — see spec.
     key: 'mechanismOfInjury',
     label: 'Mechanism of Injury (includes date of injury)',
     isEmpty: (data) => !data.mechanismOfInjury?.text?.trim() && !data.accident?.date && !data.accident?.type?.length,
@@ -58,8 +45,7 @@ export const COPYABLE_FOLLOWUP_FIELDS: CopyableFieldConfig[] = [
     }),
   },
   {
-    // Server-side: the checkbox state maps to followUpOptions.skipPatientDiagnosis in
-    // create-appointment, NOT to a save-chart-data payload — hence no `extract`.
+    // No `extract`: copied server-side via followUpOptions.skipPatientDiagnosis.
     key: 'diagnosis',
     label: 'Diagnosis',
     isEmpty: (data) => !data.diagnosis?.length,
@@ -78,13 +64,13 @@ export const COPYABLE_FOLLOWUP_FIELDS: CopyableFieldConfig[] = [
   },
 ];
 
-// Note fields + accident return only when explicitly requested; array fields return only
-// from the unscoped call — so we fetch both and merge.
+// These fields return only when explicitly requested; array fields only from the unscoped call.
 const NOTE_FIELD_REQUESTED_FIELDS: ChartDataRequestedFields = {
   chiefComplaint: { _tag: 'chief-complaint' },
   historyOfPresentIllness: { _tag: 'history-of-present-illness' },
   mechanismOfInjury: { _tag: 'mechanism-of-injury' },
   accident: {},
+  reasonForVisit: {},
 };
 
 export interface ChartDataApiClient {
@@ -106,6 +92,7 @@ export async function fetchCopySourceChartData(
     chiefComplaint: scalarOrUndefined(noteFields.chiefComplaint),
     historyOfPresentIllness: scalarOrUndefined(noteFields.historyOfPresentIllness),
     mechanismOfInjury: scalarOrUndefined(noteFields.mechanismOfInjury),
-    accident: scalarOrUndefined(noteFields.accident) ?? scalarOrUndefined(fullChart.accident),
+    reasonForVisit: scalarOrUndefined(noteFields.reasonForVisit),
+    accident: scalarOrUndefined(noteFields.accident),
   };
 }
