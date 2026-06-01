@@ -197,6 +197,11 @@ const createInsuranceData = (overrides?: {
       'policy-holder-city': overrides?.city || 'InsuranceCity',
       'policy-holder-state': overrides?.state || 'CA',
       'policy-holder-zip': overrides?.zip || '12345',
+      // Insurance card images. The value is a placeholder that triggers a static image
+      // upload (see fillAttachmentField). Some projects require these fields; for projects
+      // whose questionnaire omits them, fillField skips linkIds that aren't on the page.
+      'insurance-card-front': 'upload',
+      'insurance-card-back': 'upload',
     },
     invalid: {
       'policy-holder-date-of-birth': '13/32/2020', // Invalid date
