@@ -176,7 +176,7 @@ export default function CreateClaim(): ReactElement {
     setPatientLastName(value?.lastName ?? '');
     setPatientDob(value?.dob ?? '');
     setPatientGender(value?.gender ?? '');
-    if (value) void fetchCoverages(value.id);
+    if (value?.id) void fetchCoverages(value.id);
   };
 
   const addDiagnosis = (): void => {
