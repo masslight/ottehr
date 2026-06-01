@@ -162,11 +162,10 @@ async function performEffect(billingOystehr: Oystehr, cvo: ComplexValidationOutp
 
   // Create or update main billing patient from clinical patient
   let mainPatient = billingResources.mainPatient;
-  let mainPatientUrn = `Patient/${mainPatient?.id}`;
   if (!mainPatient) {
-    mainPatientUrn = `urn:uuid:main-patient`;
     mainPatient = prepareCopy(clinicalResources.patient, clinicalResources.patient.id!);
-    requests.push({ method: 'POST', url: '/Patient', resource: mainPatient, fullUrl: mainPatientUrn });
+    mainPatient.id = 'urn:uuid:main-patient';
+    requests.push({ method: 'POST', url: '/Patient', resource: mainPatient, fullUrl: mainPatient.id });
     order.push('patient');
   } else {
     const updatedMainPatient = prepareCopy(clinicalResources.patient, clinicalResources.patient.id!);
@@ -182,9 +181,9 @@ async function performEffect(billingOystehr: Oystehr, cvo: ComplexValidationOutp
   }
 
   // Create working copy from main patient
-  const claimPatientUrn = `urn:uuid:claim-patient`;
-  const claimPatient = prepareWorkingCopy(mainPatient, mainPatientUrn);
-  requests.push({ method: 'POST', url: '/Patient', resource: claimPatient, fullUrl: claimPatientUrn });
+  const claimPatient = prepareWorkingCopy(mainPatient, mainPatient.id!);
+  claimPatient.id = 'urn:uuid:claim-patient';
+  requests.push({ method: 'POST', url: '/Patient', resource: claimPatient, fullUrl: claimPatient.id });
   order.push('patient');
 
   // Sync accounts, coverages, and subscriber between clinical and billing
@@ -200,7 +199,7 @@ async function performEffect(billingOystehr: Oystehr, cvo: ComplexValidationOutp
         billingOystehr,
         clinicalResources.coverages,
         a,
-        mainPatientUrn,
+        mainPatient.id!,
         clinicalResources.payors
       );
       mainPatientCoverages = covRequests
@@ -209,7 +208,7 @@ async function performEffect(billingOystehr: Oystehr, cvo: ComplexValidationOutp
       requests.push(...covRequests);
       order.push(...covOrder);
       const copy = prepareCopy(a, a.id!);
-      copy.subject = [{ reference: mainPatientUrn }];
+      copy.subject = [uuidOrUrnReference('Patient', mainPatient.id!)];
       copy.coverage = a.coverage?.map((acov) => ({
         coverage: {
           reference: `urn:uuid:claim-coverage-${acov.coverage.reference?.replace('Coverage/', '')}`,
@@ -223,7 +222,7 @@ async function performEffect(billingOystehr: Oystehr, cvo: ComplexValidationOutp
       // Update billing copy if changed
       const copy = prepareCopy(a, a.id!);
       copy.id = existingBillingAccount.id;
-      copy.subject = [{ reference: mainPatientUrn }];
+      copy.subject = [uuidOrUrnReference('Patient', mainPatient.id!)];
       copy.coverage = a.coverage?.map((acov) => ({
         coverage: {
           reference: `urn:uuid:claim-coverage-${acov.coverage.reference?.replace('Coverage/', '')}`,
@@ -236,12 +235,12 @@ async function performEffect(billingOystehr: Oystehr, cvo: ComplexValidationOutp
         return existingBillingAccount;
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
       } catch (_) {
-        // CW TODO: is it safe to leak coverages here?
+        // This leaks coverages, but we decided it is safe to do
         const [covRequests, covOrder] = copyCoverageAndSubscriberForAccount(
           billingOystehr,
           clinicalResources.coverages,
           a,
-          mainPatientUrn,
+          mainPatient.id!,
           clinicalResources.payors
         );
         mainPatientCoverages = covRequests
@@ -270,7 +269,7 @@ async function performEffect(billingOystehr: Oystehr, cvo: ComplexValidationOutp
       const [covRequests, covOrder] = copyCoverageAndSubscriber(
         billingOystehr,
         c,
-        claimPatientUrn,
+        claimPatient.id!,
         clinicalResources.payors,
         true
       );
@@ -292,8 +291,8 @@ async function performEffect(billingOystehr: Oystehr, cvo: ComplexValidationOutp
           path: 'link',
           value: [
             ...(billingResources.person.link ?? []),
-            { target: { reference: claimPatientUrn } },
-            { target: { reference: mainPatientUrn } },
+            { target: uuidOrUrnReference('Patient', mainPatient.id!) },
+            { target: uuidOrUrnReference('Patient', claimPatient.id) },
           ],
         },
       ],
@@ -306,8 +305,8 @@ async function performEffect(billingOystehr: Oystehr, cvo: ComplexValidationOutp
         resourceType: 'Person',
         link: [
           { target: { reference: `Patient/${clinicalResources.patient.id!}` } },
-          { target: { reference: mainPatientUrn } },
-          { target: { reference: claimPatientUrn } },
+          { target: uuidOrUrnReference('Patient', mainPatient.id!) },
+          { target: uuidOrUrnReference('Patient', claimPatient.id) },
         ],
       },
     });
@@ -317,7 +316,7 @@ async function performEffect(billingOystehr: Oystehr, cvo: ComplexValidationOutp
   const encounterType = determineEncounterType(clinicalResources.appointment);
 
   const claim = buildClaim({
-    patientId: claimPatientUrn,
+    patientId: claimPatient.id,
     encounter: clinicalResources.encounter,
     diagnoses: clinicalResources.diagnoses,
     coverageRefs: getClaimCoveragesForEncounter(encounterType, mainPatientAccounts, claimCoverages),
@@ -328,6 +327,13 @@ async function performEffect(billingOystehr: Oystehr, cvo: ComplexValidationOutp
   });
   requests.push({ method: 'POST', url: '/Claim', resource: claim });
   order.push('claim');
+
+  // Remove urns from id before submitting transaction
+  requests.forEach((r) => {
+    if (r.method === 'POST' && r.resource.id?.startsWith('urn:uuid:')) {
+      delete r.resource.id;
+    }
+  });
 
   const txResult = await billingOystehr.fhir.transaction<BillingFhirResource>({ requests });
   const entries = (txResult.entry ?? []).map((e) => e.resource).filter(Boolean) as Resource[];
@@ -344,6 +350,17 @@ async function performEffect(billingOystehr: Oystehr, cvo: ComplexValidationOutp
   const created = await billingOystehr.fhir.create<Claim>(claim);
 
   return { claimId: created.id! };
+}
+
+function uuidOrUrnReference(resourceType: BillingFhirResource['resourceType'], uuidOrUrn: string): Reference {
+  return { reference: uuidOrUrnReferenceString(resourceType, uuidOrUrn) };
+}
+
+function uuidOrUrnReferenceString(resourceType: BillingFhirResource['resourceType'], uuidOrUrn: string): string {
+  if (uuidOrUrn.startsWith('urn:uuid:')) {
+    return uuidOrUrn;
+  }
+  return `${resourceType}/${uuidOrUrn}`;
 }
 
 // CW TODO: is it possible to change ottehr data model to add this to the encounter?
@@ -382,9 +399,8 @@ function getClaimCoveragesForEncounter(
       ucAccount?.coverage?.forEach((uccov) => {
         const foundClaimCoverage = claimCoverages.find(
           (ccov) =>
-            // CW TODO: ccov identifier value is a broken urn and uccov reference is an urn
             ccov.identifier?.find((ccovid) => ccovid.system === SOURCE_IDENTIFIER_SYSTEM) ===
-            uccov.coverage.reference?.replace('Coveraage/', '')
+            uccov.coverage.reference?.replace('Coverage/', '')
         );
         if (uccov.priority === 1) {
           primaryCoverage = foundClaimCoverage;
@@ -394,12 +410,16 @@ function getClaimCoveragesForEncounter(
         }
       });
       return [
-        // CW TODO: primaryCoverage and secondaryCoverage have no ids, need urns
         ...(primaryCoverage
-          ? [{ coverageRef: { reference: primaryCoverage.id! }, payorRef: primaryCoverage.payor[0] }]
+          ? [{ coverageRef: uuidOrUrnReference('Coverage', primaryCoverage.id!), payorRef: primaryCoverage.payor[0] }]
           : []),
         ...(secondaryCoverage
-          ? [{ coverageRef: { reference: secondaryCoverage.id! }, payorRef: secondaryCoverage.payor[0] }]
+          ? [
+              {
+                coverageRef: uuidOrUrnReference('Coverage', secondaryCoverage.id!),
+                payorRef: secondaryCoverage.payor[0],
+              },
+            ]
           : []),
       ];
     }
@@ -414,17 +434,17 @@ function getClaimCoveragesForEncounter(
       wcAccount?.coverage?.forEach((wccov) => {
         const foundClaimCoverage = claimCoverages.find(
           (ccov) =>
-            // CW TODO: ccov identifier value is a broken urn and wccov reference is an urn
             ccov.identifier?.find((ccovid) => ccovid.system === SOURCE_IDENTIFIER_SYSTEM) ===
-            wccov.coverage.reference?.replace('Coveraage/', '')
+            wccov.coverage.reference?.replace('Coverage/', '')
         );
         if (wccov.priority === 1) {
           wcCoverage = foundClaimCoverage;
         }
       });
       return [
-        // CW TODO: wcCoverage has no id, need urn
-        ...(wcCoverage ? [{ coverageRef: { reference: wcCoverage.id! }, payorRef: wcCoverage.payor[0] }] : []),
+        ...(wcCoverage
+          ? [{ coverageRef: uuidOrUrnReference('Coverage', wcCoverage.id!), payorRef: wcCoverage.payor[0] }]
+          : []),
       ];
     }
     case 'occmed': {
@@ -442,38 +462,38 @@ function copyCoverageAndSubscriberForAccount(
   billingOystehr: Oystehr,
   coverages: Coverage[],
   account: Account,
-  patientUrn: string,
+  patientUuidOrUrn: string,
   payors: Organization[]
 ): [CreateClaimFromEncounterRequests, string[]] {
   const requests: CreateClaimFromEncounterRequests = [];
   const order: string[] = [];
+  // Find full Coverage resources related to this Account
   coverages
     .filter((ccov) =>
       (account.coverage ?? []).some((acov) => acov.coverage.reference?.replace('Coverage/', '') === ccov.id)
     )
     .forEach((ccov) => {
-      const [covRequests, covOrder] = copyCoverageAndSubscriber(billingOystehr, ccov, patientUrn, payors);
+      const [covRequests, covOrder] = copyCoverageAndSubscriber(billingOystehr, ccov, patientUuidOrUrn, payors);
       requests.push(...covRequests);
       order.push(...covOrder);
     });
   return [requests, order];
 }
 
-// CW TODO: urns in here are broken for billing -> claim copy when billing is new
-// CW TODO: urns in here need formatting for billing vs claim copy
+// CW TODO: handle RP copy from billing to claim
 function copyCoverageAndSubscriber(
   billingOystehr: Oystehr,
   coverage: Coverage,
-  patientUrn: string,
+  patientUuidOrUrn: string,
   payors: Organization[],
   workingCopy?: boolean
 ): [CreateClaimFromEncounterRequests, string[]] {
   const requests: CreateClaimFromEncounterRequests = [];
   const order: string[] = [];
   const copy = workingCopy ? prepareWorkingCopy(coverage, coverage.id!) : prepareCopy(coverage, coverage.id!);
-  copy.beneficiary = { reference: patientUrn };
+  copy.beneficiary = uuidOrUrnReference('Patient', patientUuidOrUrn);
   // Subscriber is patient by default, check for contained RelatedPerson
-  let subscriberUrn = patientUrn;
+  let subscriberId = patientUuidOrUrn;
   if (copy.subscriber?.reference?.startsWith('#') && copy.contained && copy.contained.length > 0) {
     // Subscriber is contained on the coverage
     const rp = copy.contained.find(
@@ -481,17 +501,17 @@ function copyCoverageAndSubscriber(
         contained.id === copy.subscriber?.reference?.replace('#', '') && contained.resourceType === 'RelatedPerson'
     );
     if (rp) {
-      subscriberUrn = `urn:uuid:claim-coverage-rp-${coverage.id}`;
+      subscriberId = `urn:uuid:${workingCopy ? 'claim' : 'billing'}-coverage-rp-${coverage.id}`;
       requests.push({
         method: 'POST',
         url: '/RelatedPerson',
         resource: rp,
-        fullUrl: subscriberUrn,
+        fullUrl: subscriberId,
       });
       order.push('relatedperson');
     }
   }
-  copy.subscriber = { reference: subscriberUrn };
+  copy.subscriber = uuidOrUrnReference('RelatedPerson', subscriberId);
   // Move all coverages to payer URLs
   const internalRefId = copy.payor[0].reference?.replace('Organization/', '');
   if (internalRefId && isValidUUID(internalRefId)) {
@@ -502,11 +522,12 @@ function copyCoverageAndSubscriber(
       copy.payor = [{ reference: billingOystehr.rcm.constructPayerUrl({ id: payerId }) }];
     }
   }
+  copy.id = `urn:uuid:${workingCopy ? 'claim' : 'billing'}-coverage-${coverage.id}`;
   requests.push({
     method: 'POST',
     url: '/Coverage',
     resource: copy,
-    fullUrl: `urn:uuid:claim-coverage-${coverage.id}`,
+    fullUrl: copy.id,
   });
   order.push('coverage');
   return [requests, order];
