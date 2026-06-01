@@ -32,23 +32,17 @@ describe('create-in-house-medication - validateRequestParameters', () => {
         name: 'Ibuprofen 200mg',
         ndc: '12345-678-90',
         medispanID: 'DRUG123',
-        cptCodes: ['99213'],
-        hcpcsCodes: ['J0696'],
       })
     );
     expect(result.name).toBe('Ibuprofen 200mg');
     expect(result.ndc).toBe('12345-678-90');
     expect(result.medispanID).toBe('DRUG123');
-    expect(result.cptCodes).toEqual(['99213']);
-    expect(result.hcpcsCodes).toEqual(['J0696']);
   });
 
-  it('validates without optional ndc, cptCodes, hcpcsCodes', () => {
+  it('validates without optional ndc', () => {
     const result = createValidate(createInput({ name: 'Ibuprofen 200mg', medispanID: 'DRUG123' }));
     expect(result.name).toBe('Ibuprofen 200mg');
     expect(result.ndc).toBeUndefined();
-    expect(result.cptCodes).toBeUndefined();
-    expect(result.hcpcsCodes).toBeUndefined();
   });
 
   it('throws when body is missing', () => {
@@ -79,14 +73,6 @@ describe('update-in-house-medication - validateRequestParameters', () => {
       createInput({ medicationID: 'med-123', name: 'Updated Name', medispanID: 'DRUG456' })
     );
     expect(result.name).toBe('Updated Name');
-  });
-
-  it('validates cptCodes and hcpcsCodes', () => {
-    const result = validateRequestParameters(
-      createInput({ medicationID: 'med-123', name: 'Drug', cptCodes: ['99213', '99214'], hcpcsCodes: ['J0696'] })
-    );
-    expect(result.cptCodes).toEqual(['99213', '99214']);
-    expect(result.hcpcsCodes).toEqual(['J0696']);
   });
 
   it('throws when body is missing', () => {
@@ -122,15 +108,7 @@ describe('create-in-house-medication - performEffect', () => {
 
   it('creates medication with all fields', async () => {
     const oystehr = makeMockOystehr();
-    const result = await createPerformEffect(
-      oystehr,
-      'Ibuprofen 200mg',
-      '12345-678-90',
-      'DRUG123',
-      'DRUG456',
-      [{ code: '99213', display: 'Office visit' }],
-      [{ code: 'J0696', display: 'Ceftriaxone injection' }]
-    );
+    const result = await createPerformEffect(oystehr, 'Ibuprofen 200mg', '12345-678-90', 'DRUG123', 'DRUG456');
 
     expect(oystehr.fhir.create).toHaveBeenCalledOnce();
     const callArg = vi.mocked(oystehr.fhir.create).mock.calls[0][0] as Medication;
@@ -147,8 +125,9 @@ describe('create-in-house-medication - performEffect', () => {
     expect(codings).toContainEqual({ system: CODE_SYSTEM_NDC, code: '12345-678-90' });
     expect(codings).toContainEqual({ system: MEDICATION_DISPENSABLE_DRUG_ID, code: 'DRUG123' });
     expect(codings).toContainEqual({ system: MEDICATION_DISPENSABLE_DRUG_ID_FOR_INTERACTIONS, code: 'DRUG456' });
-    expect(codings).toContainEqual({ system: CODE_SYSTEM_CPT, code: '99213', display: 'Office visit' });
-    expect(codings).toContainEqual({ system: CODE_SYSTEM_HCPCS, code: 'J0696', display: 'Ceftriaxone injection' });
+    // CPT/HCPCS are no longer managed by the admin medication catalog
+    expect(codings.some((c) => c.system === CODE_SYSTEM_CPT)).toBe(false);
+    expect(codings.some((c) => c.system === CODE_SYSTEM_HCPCS)).toBe(false);
     expect(result.id).toBe('new-med-id');
   });
 
@@ -160,30 +139,6 @@ describe('create-in-house-medication - performEffect', () => {
     const codings = callArg.code?.coding ?? [];
     expect(codings.some((c) => c.system === CODE_SYSTEM_NDC)).toBe(false);
     expect(codings).toContainEqual({ system: MEDICATION_DISPENSABLE_DRUG_ID, code: 'DRUG123' });
-  });
-
-  it('creates medication without cptCodes and hcpcsCodes', async () => {
-    const oystehr = makeMockOystehr();
-    await createPerformEffect(oystehr, 'Ibuprofen 200mg', '12345-678-90', 'DRUG123');
-
-    const callArg = vi.mocked(oystehr.fhir.create).mock.calls[0][0] as Medication;
-    const codings = callArg.code?.coding ?? [];
-    expect(codings.some((c) => c.system === CODE_SYSTEM_CPT)).toBe(false);
-    expect(codings.some((c) => c.system === CODE_SYSTEM_HCPCS)).toBe(false);
-  });
-
-  it('creates medication with multiple CPT codes', async () => {
-    const oystehr = makeMockOystehr();
-    await createPerformEffect(oystehr, 'Drug', undefined, 'DRUG123', undefined, [
-      { code: '99213', display: 'Office visit, est' },
-      { code: '99214', display: 'Office visit, est' },
-      { code: '99215', display: 'Office visit, est' },
-    ]);
-
-    const callArg = vi.mocked(oystehr.fhir.create).mock.calls[0][0] as Medication;
-    const cptCodings = (callArg.code?.coding ?? []).filter((c) => c.system === CODE_SYSTEM_CPT);
-    expect(cptCodings).toHaveLength(3);
-    expect(cptCodings.map((c) => c.code)).toEqual(['99213', '99214', '99215']);
   });
 });
 
@@ -201,7 +156,9 @@ const existingMedication: Medication = {
     coding: [
       { system: CODE_SYSTEM_NDC, code: '12345-678-90' },
       { system: MEDICATION_DISPENSABLE_DRUG_ID, code: 'DRUG123' },
-      { system: CODE_SYSTEM_CPT, code: '99213' },
+      // Legacy CPT/HCPCS codings left over from the previous admin flow — must be preserved by updates.
+      { system: CODE_SYSTEM_CPT, code: '99213', display: 'Office visit' },
+      { system: CODE_SYSTEM_HCPCS, code: 'J0696', display: 'Ceftriaxone injection' },
     ],
   },
 };
@@ -252,15 +209,11 @@ describe('update-in-house-medication - performEffect', () => {
     expect(operations).toContainEqual({ op: 'replace', path: '/status', value: 'inactive' });
   });
 
-  it('replaces CPT and HCPCS codings, preserving others', async () => {
+  it('preserves legacy CPT and HCPCS codings when other fields change', async () => {
     const oystehr = makeMockOystehr();
     await updatePerformEffect(oystehr, {
       medicationID: 'med-123',
-      cptCodes: [
-        { code: '99214', display: 'Office visit, est' },
-        { code: '99215', display: 'Office visit, est' },
-      ],
-      hcpcsCodes: [{ code: 'J0696', display: 'Ceftriaxone injection' }],
+      ndc: 'new-ndc',
     });
 
     expect(oystehr.fhir.patch).toHaveBeenCalledOnce();
@@ -269,23 +222,11 @@ describe('update-in-house-medication - performEffect', () => {
     expect(replaceCodingOp).toBeDefined();
 
     const codings = replaceCodingOp.value;
-    expect(codings).toContainEqual({ system: CODE_SYSTEM_NDC, code: '12345-678-90' });
+    expect(codings).toContainEqual({ system: CODE_SYSTEM_NDC, code: 'new-ndc' });
     expect(codings).toContainEqual({ system: MEDICATION_DISPENSABLE_DRUG_ID, code: 'DRUG123' });
-    expect(codings).toContainEqual({ system: CODE_SYSTEM_CPT, code: '99214', display: 'Office visit, est' });
-    expect(codings).toContainEqual({ system: CODE_SYSTEM_CPT, code: '99215', display: 'Office visit, est' });
+    // Legacy CPT/HCPCS codings on the existing medication are preserved as-is.
+    expect(codings).toContainEqual({ system: CODE_SYSTEM_CPT, code: '99213', display: 'Office visit' });
     expect(codings).toContainEqual({ system: CODE_SYSTEM_HCPCS, code: 'J0696', display: 'Ceftriaxone injection' });
-    // old CPT code should not be present
-    expect(codings).not.toContainEqual(expect.objectContaining({ system: CODE_SYSTEM_CPT, code: '99213' }));
-  });
-
-  it('clears CPT codes when empty array provided', async () => {
-    const oystehr = makeMockOystehr();
-    await updatePerformEffect(oystehr, { medicationID: 'med-123', cptCodes: [] });
-
-    const { operations } = vi.mocked(oystehr.fhir.patch).mock.calls[0][0] as any;
-    const replaceCodingOp = operations.find((op: any) => op.path === '/code/coding');
-    const codings = replaceCodingOp.value;
-    expect(codings.some((c: any) => c.system === CODE_SYSTEM_CPT)).toBe(false);
   });
 
   it('throws when medication is not found', async () => {
@@ -312,8 +253,6 @@ describe('update-in-house-medication - performEffect', () => {
       medicationID: 'med-no-code',
       ndc: 'new-ndc',
       medispanID: 'new-medispan',
-      cptCodes: [],
-      hcpcsCodes: [],
     });
 
     expect(oystehr.fhir.patch).toHaveBeenCalledOnce();
@@ -333,31 +272,6 @@ describe('update-in-house-medication - performEffect', () => {
     });
     // verify no legacy append-style op snuck in
     expect(operations.some((op: any) => op.path === '/code/coding/-')).toBe(false);
-  });
-
-  it('narrows to /code/coding (preserving code.text) when clearing the last CPT leaves an empty coding', async () => {
-    const medicationWithText: Medication = {
-      resourceType: 'Medication',
-      id: 'med-cpt-only',
-      status: 'active',
-      identifier: [
-        { system: MEDICATION_TYPE_SYSTEM, value: INVENTORY_MEDICATION_TYPE_CODE },
-        { system: MEDICATION_IDENTIFIER_NAME_SYSTEM, value: 'CPT-only med' },
-      ],
-      code: {
-        text: 'Human-readable description',
-        coding: [{ system: CODE_SYSTEM_CPT, code: '99213' }],
-      },
-    };
-    const oystehr = makeMockOystehr(medicationWithText);
-
-    await updatePerformEffect(oystehr, { medicationID: 'med-cpt-only', cptCodes: [] });
-
-    expect(oystehr.fhir.patch).toHaveBeenCalledOnce();
-    const { operations } = vi.mocked(oystehr.fhir.patch).mock.calls[0][0] as any;
-    // must not wipe /code wholesale — that would take code.text with it
-    expect(operations).not.toContainEqual(expect.objectContaining({ op: 'remove', path: '/code' }));
-    expect(operations).toContainEqual({ op: 'remove', path: '/code/coding' });
   });
 
   it('adds /code/coding when the existing medication has code but no coding array', async () => {
