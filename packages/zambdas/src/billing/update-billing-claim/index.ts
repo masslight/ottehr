@@ -1,3 +1,4 @@
+import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
@@ -12,15 +13,19 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
   const oystehr = createBillingClient(m2mToken, params.secrets);
 
+  const response = await performEffect(oystehr, params);
+  return { statusCode: 200, body: JSON.stringify(response) };
+});
+
+async function performEffect(oystehr: Oystehr, params: UpdateBillingClaimParams): Promise<{ id: string | undefined }> {
   const operations = buildPatchOps(params);
   const result = await oystehr.fhir.patch({
     resourceType: params.resourceType,
     id: params.resourceId,
     operations,
   });
-
-  return { statusCode: 200, body: JSON.stringify({ id: result.id }) };
-});
+  return { id: result.id };
+}
 
 function buildPatchOps(params: UpdateBillingClaimParams): Operation[] {
   const ops: Operation[] = [];
