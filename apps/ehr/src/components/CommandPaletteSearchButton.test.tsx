@@ -1,5 +1,5 @@
 import { createTheme, ThemeProvider } from '@mui/material/styles';
-import { render, screen } from '@testing-library/react';
+import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useCommandPaletteStore } from 'src/state/command-palette.store';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -15,20 +15,21 @@ const renderWithTheme = (): void => {
 
 describe('CommandPaletteSearchButton', () => {
   afterEach(() => {
+    cleanup();
     useCommandPaletteStore.setState({ isOpen: false });
   });
 
   it('renders a visible search affordance', () => {
     renderWithTheme();
 
-    expect(screen.getByLabelText('Open command palette')).toBeInTheDocument();
+    expect(screen.getByLabelText('Open search bar')).toBeTruthy();
   });
 
   it('opens the command palette when clicked', async () => {
     const user = userEvent.setup();
 
     renderWithTheme();
-    await user.click(screen.getByLabelText('Open command palette'));
+    await user.click(screen.getByLabelText('Open search bar'));
 
     expect(useCommandPaletteStore.getState().isOpen).toBe(true);
   });

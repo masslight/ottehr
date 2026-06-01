@@ -21,7 +21,7 @@ export const CommandPaletteSearchButton: FC<CommandPaletteSearchButtonProps> = (
 
   return (
     <Tooltip title={`Search (${shortcutHint})`}>
-      <IconButton onClick={openCommandPalette} aria-label="Open command palette" sx={sx}>
+      <IconButton onClick={openCommandPalette} aria-label="Open search bar" sx={sx}>
         <SearchIcon />
       </IconButton>
     </Tooltip>
