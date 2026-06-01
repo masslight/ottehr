@@ -2,7 +2,7 @@ import { Autocomplete, Skeleton, Tab, Tabs, TextField, Typography } from '@mui/m
 import { Box, styled } from '@mui/system';
 import { Slot } from 'fhir/r4b';
 import noop from 'lodash/noop';
-import { FC, useState } from 'react';
+import { FC, useEffect, useState } from 'react';
 import { generatePath, Navigate, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
   APIError,
@@ -208,12 +208,13 @@ const PrebookVisit: FC = () => {
   // an atLocation slug, get-schedule returns the list of qualifying
   // Locations in `pickableLocations` (with empty slot lists). We push the
   // chosen slug back into the URL so the same get-schedule call refires
-  // with disambiguated location → real slots come back. `replace: true`
-  // keeps the back button from re-showing the picker after a pick.
+  // with disambiguated location → real slots come back. Pushing (not
+  // replacing) so the back button returns to the picker — useful when the
+  // chosen location has no slots and the patient wants to try another.
   const handleLocationPick = (locationSlug: string): void => {
     const next = new URLSearchParams(searchParams);
     next.set('atLocation', locationSlug);
-    setSearchParams(next, { replace: true });
+    setSearchParams(next);
   };
 
   const tokenlessZambdaClient = useUCZambdaClient({ tokenless: true });
@@ -225,6 +226,23 @@ const PrebookVisit: FC = () => {
     slotData,
     isSlotsLoading,
   } = useBookingData(serviceMode, slugToFetch, scheduleType, serviceCategoryCode, atLocationSlug);
+
+  // If the owner spans exactly one Location, skip the picker — there's no
+  // choice to make. Replacing (not pushing) keeps the back button pointed
+  // at the referring page rather than a no-op picker the patient never saw.
+  useEffect(() => {
+    if (atLocationSlug) return;
+    const only = slotData?.pickableLocations?.length === 1 ? slotData.pickableLocations[0] : undefined;
+    if (!only?.slug) return;
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.set('atLocation', only.slug);
+        return next;
+      },
+      { replace: true }
+    );
+  }, [atLocationSlug, slotData?.pickableLocations, setSearchParams]);
 
   const handleBookableSelection = (_e: any, newValue: BookableItem | null): void => {
     const serviceType = newValue?.serviceMode ?? serviceModeFromParam ?? serviceMode;
