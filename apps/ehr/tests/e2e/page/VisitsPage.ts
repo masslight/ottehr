@@ -96,6 +96,7 @@ export class VisitsPage {
   async selectLocation(locationName: string): Promise<void> {
     await this.#page.getByTestId(dataTestIds.dashboard.locationSelect).click();
     await this.#page.locator(`li[role="option"]:has-text("${locationName}")`).first().click();
+    await this.#page.keyboard.press('Escape');
   }
 
   async selectGroup(groupName: string): Promise<void> {
