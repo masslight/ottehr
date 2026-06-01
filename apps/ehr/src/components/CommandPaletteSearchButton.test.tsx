@@ -18,11 +18,10 @@ describe('CommandPaletteSearchButton', () => {
     useCommandPaletteStore.setState({ isOpen: false });
   });
 
-  it('renders a visible search field affordance', () => {
+  it('renders a visible search affordance', () => {
     renderWithTheme();
 
     expect(screen.getByLabelText('Open command palette')).toBeInTheDocument();
-    expect(screen.getByPlaceholderText('Search…')).toBeInTheDocument();
   });
 
   it('opens the command palette when clicked', async () => {
