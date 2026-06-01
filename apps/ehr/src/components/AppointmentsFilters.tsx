@@ -76,16 +76,20 @@ export default function AppointmentsFilters(): ReactElement {
         values: true,
       },
       callback: ({ values }) => {
-        const queryParams = new URLSearchParams();
-        for (const key in values) {
-          const value = Array.isArray(values[key])
-            ? values[key].map((val) => val.id ?? val).join(',')
-            : values[key]?.id ?? values[key];
-          if (value) {
-            queryParams.set(key, value);
+        setSearchParams((prev) => {
+          const queryParams = new URLSearchParams(prev);
+          for (const key in values) {
+            const value = Array.isArray(values[key])
+              ? values[key].map((val) => val.id ?? val).join(',')
+              : values[key]?.id ?? values[key];
+            if (value) {
+              queryParams.set(key, value);
+            } else {
+              queryParams.delete(key);
+            }
           }
-        }
-        setSearchParams(queryParams);
+          return queryParams;
+        });
         if (values) {
           localStorage.setItem(LOCAL_STORAGE_FILTERS_KEY, JSON.stringify(values));
         } else {
