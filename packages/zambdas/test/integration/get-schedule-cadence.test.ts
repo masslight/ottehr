@@ -157,7 +157,7 @@ describe('get-schedule cadence plumbing', () => {
     await createCategoryHS({ code: uniqueCode, durationMinutes: 90, cadenceMinutes: 15 });
 
     const timezone = getTimezone(schedule);
-    const selectedDate = startOfDayWithTimezone({ timezone }).toISO();
+    const selectedDate = startOfDayWithTimezone({ timezone }).toISODate();
 
     const response = (
       await oystehr.zambda.executePublic({
@@ -197,7 +197,7 @@ describe('get-schedule cadence plumbing', () => {
     await createCategoryHS({ code: uniqueCode, durationMinutes: 90 /* cadenceMinutes omitted */ });
 
     const timezone = getTimezone(schedule);
-    const selectedDate = startOfDayWithTimezone({ timezone }).toISO();
+    const selectedDate = startOfDayWithTimezone({ timezone }).toISODate();
 
     const response = (
       await oystehr.zambda.executePublic({
