@@ -393,15 +393,12 @@ export default function ProceduresNew(): ReactElement {
   ): string | undefined => {
     if (!values?.length && !otherValue) return undefined;
 
-    const result: string[] = [];
+    // "Other: <text>" must come last: parseWithOther treats everything after "Other:" as free text.
+    const result = (values ?? []).filter((value) => value !== OTHER);
 
-    (values ?? []).forEach((value) => {
-      if (value === OTHER && otherValue?.trim()) {
-        result.push(`${OTHER}: ${otherValue.trim()}`);
-      } else {
-        result.push(value);
-      }
-    });
+    if (values?.includes(OTHER) && otherValue?.trim()) {
+      result.push(`${OTHER}: ${otherValue.trim()}`);
+    }
 
     return result.join(', ');
   };
@@ -531,19 +528,19 @@ export default function ProceduresNew(): ReactElement {
       cptCodes: state.cptCodes?.map((c) => ({ code: c.code, display: c.display })),
       // diagnoses, consentObtained, and performerType excluded — encounter-specific
       medicationUsed: state.medicationUsed,
-      bodySite: state.bodySite !== OTHER ? state.bodySite : state.otherBodySite?.trim(),
-      otherBodySite: state.bodySite === OTHER ? state.otherBodySite : undefined,
+      bodySite: state.bodySite,
+      otherBodySite: state.bodySite === OTHER ? state.otherBodySite?.trim() : undefined,
       bodySide: state.bodySide,
       technique: state.technique,
-      suppliesUsed: state.suppliesUsed,
-      otherSuppliesUsed: state.otherSuppliesUsed,
+      suppliesUsed: state.suppliesUsed?.filter((value) => value !== OTHER),
+      otherSuppliesUsed: state.suppliesUsed?.includes(OTHER) ? state.otherSuppliesUsed?.trim() : undefined,
       procedureDetails: state.procedureDetails,
       specimenSent: state.specimenSent,
-      complications: state.complications !== OTHER ? state.complications : state.otherComplications?.trim(),
-      otherComplications: state.complications === OTHER ? state.otherComplications : undefined,
+      complications: state.complications,
+      otherComplications: state.complications === OTHER ? state.otherComplications?.trim() : undefined,
       patientResponse: state.patientResponse,
-      postInstructions: state.postInstructions,
-      otherPostInstructions: state.otherPostInstructions,
+      postInstructions: state.postInstructions?.filter((value) => value !== OTHER),
+      otherPostInstructions: state.postInstructions?.includes(OTHER) ? state.otherPostInstructions?.trim() : undefined,
       timeSpent: state.timeSpent,
       documentedBy: state.documentedBy,
     };
@@ -879,6 +876,18 @@ export default function ProceduresNew(): ReactElement {
       QUICK_PICK_APPLY_KEYS.forEach((key) => {
         if (key === 'cptCodes') {
           state.cptCodes = mergeCptCodes(state.cptCodes, quickPick.cptCodes);
+          return;
+        }
+
+        // Arrays hold only real options; re-add the "Other" chip so its text input renders.
+        if (key === 'suppliesUsed') {
+          const supplies = (quickPick.suppliesUsed?.filter((value) => value && value !== OTHER) as string[]) ?? [];
+          state.suppliesUsed = quickPick.otherSuppliesUsed ? [...supplies, OTHER] : supplies;
+          return;
+        }
+        if (key === 'postInstructions') {
+          const instructions = quickPick.postInstructions?.filter((value) => value && value !== OTHER) ?? [];
+          state.postInstructions = quickPick.otherPostInstructions ? [...instructions, OTHER] : instructions;
           return;
         }
 
