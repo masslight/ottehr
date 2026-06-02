@@ -16,7 +16,7 @@ export type TemplateSectionActions = Partial<Record<TemplateSectionKey, Template
 export const TEMPLATE_SECTION_DEFAULT_ACTIONS: Record<TemplateSectionKey, TemplateSectionAction> = {
   hpi: 'append',
   moi: 'append',
-  ros: 'append',
+  ros: 'overwrite',
   examFindings: 'overwrite',
   mdm: 'overwrite',
   diagnoses: 'append',
@@ -28,6 +28,7 @@ export const TEMPLATE_SECTION_DEFAULT_ACTIONS: Record<TemplateSectionKey, Templa
 export const TEMPLATE_SECTIONS_NO_APPEND: ReadonlySet<TemplateSectionKey> = new Set<TemplateSectionKey>([
   'examFindings',
   'emCode',
+  'ros',
 ]);
 
 export interface TemplateSectionDescriptor {
