@@ -15,7 +15,6 @@ export function useProgressNoteConfig(): UseQueryResult<GetProgressNoteConfigOut
     queryFn: () => getProgressNoteConfig(oystehrZambda!),
     enabled: !!oystehrZambda,
     staleTime: 5 * 60_000,
-    refetchOnMount: 'always',
   });
 }
 
