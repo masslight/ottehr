@@ -87,6 +87,37 @@ const NEW_PATIENT_INSURANCE_PLAN_TYPE_2 = '14 - EPO';
 
 const insuranceSection = PATIENT_RECORD_CONFIG.FormFields.insurance;
 
+// Temporary diagnostics: log any browser-side API call (zambda execute / FHIR search) that takes
+// >2s, so a slow/hung endpoint is named in the run output even when the Playwright trace for the
+// failing attempt gets overwritten by retries. Pairs with the Node-side timePhase() logging in
+// createResourceHandler. Safe to remove once the slow endpoint is confirmed.
+const SLOW_RESPONSE_THRESHOLD_MS = 2000;
+test.beforeEach(({ page }) => {
+  const isApiCall = (url: string): boolean => /\/zambda\/|\/_search\b|fhir-api\./.test(url);
+  const label = (url: string): string => {
+    const z = url.match(/\/zambda\/([^/]+)\//);
+    if (z) return `zambda:${z[1]}`;
+    const f = url.match(/zapehr\.com\/([A-Za-z]+)\/_search/);
+    if (f) return `fhir:${f[1]}/_search`;
+    return url.split('?')[0];
+  };
+  const startedAt = new Map<unknown, number>();
+  page.on('request', (request) => {
+    if (isApiCall(request.url())) startedAt.set(request, Date.now());
+  });
+  const report = (request: { url: () => string; method: () => string }, outcome: string): void => {
+    const start = startedAt.get(request);
+    if (start === undefined) return;
+    startedAt.delete(request);
+    const ms = Date.now() - start;
+    if (ms >= SLOW_RESPONSE_THRESHOLD_MS) {
+      console.log(`[SLOW-RESP] ${ms}ms ${outcome} ${request.method()} ${label(request.url())}`);
+    }
+  };
+  page.on('requestfinished', (request) => report(request, 'ok'));
+  page.on('requestfailed', (request) => report(request, 'FAILED/aborted'));
+});
+
 test.describe('Insurance Information Section non-mutating tests', () => {
   let resourceHandler: ResourceHandler;
   let primaryInsuranceCarrier: string;
