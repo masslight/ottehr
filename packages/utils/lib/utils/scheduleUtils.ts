@@ -2048,10 +2048,45 @@ export const slotAvailableAgainstBusy = (input: { slot: Slot; schedule: Schedule
     busySlots,
     slotLengthMinutes,
   });
-  return availableSlots.some((iso) => {
+  const match = availableSlots.some((iso) => {
     const candidate = DateTime.fromISO(iso);
     return candidate.isValid && candidate.equals(slotStart);
   });
+  // TEMP DIAGNOSTIC — chasing CI vs local divergence on slot availability.
+  // Rip out once root cause is identified.
+  if (!match) {
+    const slotStartMs = +slotStart;
+    const hourWindow = availableSlots
+      .map((iso) => {
+        const dt = DateTime.fromISO(iso);
+        return { iso, dt, deltaMs: +dt - slotStartMs };
+      })
+      .filter((entry) => entry.dt.isValid && Math.abs(entry.deltaMs) <= 60 * 60 * 1000)
+      .sort((a, b) => a.deltaMs - b.deltaMs)
+      .map((entry) => ({
+        iso: entry.iso,
+        zoneName: entry.dt.zoneName,
+        deltaMs: entry.deltaMs,
+      }));
+    console.log(
+      '[slotAvailableAgainstBusy MISS]',
+      JSON.stringify(
+        {
+          slotStartRaw: slot.start,
+          slotStartIso: slotStart.toISO(),
+          slotStartZoneName: slotStart.zoneName,
+          slotLengthMinutes,
+          scheduleId: schedule.id,
+          scheduleTz: getTimezone(schedule),
+          availableInHourWindow: hourWindow,
+          totalAvailableCount: availableSlots.length,
+        },
+        null,
+        2
+      )
+    );
+  }
+  return match;
 };
 
 export const checkSlotAvailable = async (input: CheckSlotAvailableInput, oystehr: Oystehr): Promise<boolean> => {
