@@ -343,6 +343,7 @@ export class ResourceHandler {
     const apiClient = await this.apiClient;
     const maxAttempts = 30; // Increased from 20 to 30 (150 seconds total)
     const delayMs = 5_000;
+    const startTime = Date.now();
 
     try {
       for (let i = 0; i < maxAttempts; i++) {
@@ -367,7 +368,9 @@ export class ResourceHandler {
         const tags = appointment?.meta?.tag || [];
         const isProcessed = tags.some((tag) => tag?.code === FHIR_APPOINTMENT_PREPROCESSED_TAG.code);
         if (isProcessed) {
-          console.log(`Appointment ${id} preprocessed after ${i + 1} attempts (${((i + 1) * delayMs) / 1000}s)`);
+          console.log(
+            `Appointment ${id} preprocessed after ${i + 1} attempts (${((Date.now() - startTime) / 1000).toFixed(1)}s)`
+          );
           return;
         }
 
@@ -391,6 +394,7 @@ export class ResourceHandler {
     const apiClient = await this.apiClient;
     const maxAttempts = 30; // Increased from 20 to 30 (150 seconds total)
     const delayMs = 5_000;
+    const startTime = Date.now();
 
     try {
       let isHarvestingDone = false;
@@ -416,7 +420,10 @@ export class ResourceHandler {
         const tags = appointment?.meta?.tag || [];
         if (tags.some((tag) => tag?.code === FHIR_APPOINTMENT_INTAKE_HARVESTING_COMPLETED_TAG.code)) {
           console.log(
-            `Appointment ${appointmentId} harvesting done after ${i + 1} attempts (${((i + 1) * delayMs) / 1000}s)`
+            `Appointment ${appointmentId} harvesting done after ${i + 1} attempts (${(
+              (Date.now() - startTime) /
+              1000
+            ).toFixed(1)}s)`
           );
           isHarvestingDone = true;
           break;

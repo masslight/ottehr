@@ -110,6 +110,9 @@ test.describe('Insurance Information Section non-mutating tests', () => {
     async ({ page }) => {
       const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
       const primaryInsuranceCard = patientInformationPage.getInsuranceCard(0);
+      // verifyAllFieldsAreVisible() uses non-blocking isVisible() checks, so it does not actually
+      // wait for the card to load; gate on the carrier being rendered before reading field values.
+      await primaryInsuranceCard.waitUntilInsuranceCarrierIsRendered();
       await primaryInsuranceCard.verifyAllFieldsAreVisible();
       await primaryInsuranceCard.verifyInsuranceType('Primary');
       await primaryInsuranceCard.verifyInsuranceCarrier(primaryInsuranceCarrier);
@@ -265,8 +268,18 @@ test.describe('Insurance Information Section mutating tests', () => {
   });
 
   test.beforeEach(async () => {
-    await resourceHandler.setResources();
-    await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!);
+    await timePhase('beforeEach:setResources(createAppointment)', () => resourceHandler.setResources());
+    // Insurance Coverages are produced by the async harvest path (sub-intake-harvest /
+    // sub-harvest-paperwork), not by create-appointment. Waiting only for preprocessing here
+    // let tests open the patient page before the Coverages existed, so the insurance carrier
+    // came up empty / only one card rendered and the first click (plan type, remove button)
+    // raced the render and timed out. Wait for harvesting too, as the non-mutating beforeAll does.
+    await timePhase('beforeEach:waitTillAppointmentPreprocessed+waitTillHarvestingDone', () =>
+      Promise.all([
+        resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!),
+        resourceHandler.waitTillHarvestingDone(resourceHandler.appointment.id!),
+      ])
+    );
   });
 
   test.afterEach(async () => {
@@ -276,6 +289,9 @@ test.describe('Insurance Information Section mutating tests', () => {
   test('Enter invalid zip on Insurance information block, validation error are shown', async ({ page }) => {
     const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
     const primaryInsuranceCard = patientInformationPage.getInsuranceCard(0);
+    // Gate the first interaction on the card being fully rendered; otherwise the immediate
+    // field interaction can race the insurance section's render under load and time out.
+    await primaryInsuranceCard.waitUntilInsuranceCarrierIsRendered();
     await primaryInsuranceCard.enterTextField(insuranceSection.items[0].zip.key, '11');
     await patientInformationPage.clickSaveChangesButton();
     await primaryInsuranceCard.verifyValidationErrorZipFieldFromInsurance();
@@ -296,6 +312,7 @@ test.describe('Insurance Information Section mutating tests', () => {
     test.slow();
     const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
     const primaryInsuranceCard = patientInformationPage.getInsuranceCard(0);
+    await primaryInsuranceCard.waitUntilInsuranceCarrierIsRendered();
     await primaryInsuranceCard.selectInsuranceCarrier(NEW_PATIENT_INSURANCE_CARRIER);
     await primaryInsuranceCard.selectFieldOption(
       insuranceSection.items[0].insurancePlanType.key,
@@ -536,6 +553,8 @@ test.describe('Insurance Information Section mutating tests', () => {
 
     const primaryInsuranceCard = patientInformationPage.getInsuranceCard(0);
     const secondaryInsuranceCard = patientInformationPage.getInsuranceCard(1);
+    await primaryInsuranceCard.waitUntilInsuranceCarrierIsRendered();
+    await secondaryInsuranceCard.waitUntilInsuranceCarrierIsRendered();
     await primaryInsuranceCard.selectFieldOption(
       insuranceSection.items[0].insurancePlanType.key,
       PATIENT_INSURANCE_PLAN_TYPE
@@ -599,12 +618,26 @@ test.describe('Insurance Information Section mutating tests', () => {
   }) => {
     const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
     const secondaryInsuranceCard = patientInformationPage.getInsuranceCard(1);
+    await secondaryInsuranceCard.waitUntilInsuranceCarrierIsRendered();
     await secondaryInsuranceCard.clickRemoveInsuranceButton();
     await patientInformationPage.verifyCoverageRemovedMessageShown();
     const inlineInsuranceCard = await patientInformationPage.clickAddInsuranceButton();
     await inlineInsuranceCard.verifyInsuranceType('Secondary');
   });
 });
+
+// Temporary instrumentation: createResourceHandler's beforeAll has timed out at
+// 120s in CI, but only the wait* polls below log their timing. Wrap every phase
+// so the slow one is visible in the logs instead of dying silently at the hook
+// timeout. Safe to remove once the offending phase is identified/fixed.
+async function timePhase<T>(label: string, fn: () => Promise<T>): Promise<T> {
+  const start = Date.now();
+  try {
+    return await fn();
+  } finally {
+    console.log(`[createResourceHandler] ${label} took ${Date.now() - start}ms`);
+  }
+}
 
 async function createResourceHandler(): Promise<[ResourceHandler, string, string]> {
   let insuranceCarrier1: QuestionnaireItemAnswerOption | undefined = undefined;
@@ -667,22 +700,25 @@ async function createResourceHandler(): Promise<[ResourceHandler, string, string
     answers.push(getConsentStepAnswers({}));
     return answers;
   });
-  const oystehr = await ResourceHandler.getOystehr();
+  const oystehr = await timePhase('getOystehr', () => ResourceHandler.getOystehr());
   const insuranceCarriersOptions = (
-    await oystehr.fhir.search<Organization>({
-      resourceType: 'Organization',
-      params: [
-        {
-          name: 'active',
-          value: 'true',
-        },
-        {
-          name: 'type',
-          value: `${ORG_TYPE_CODE_SYSTEM}|${ORG_TYPE_PAYER_CODE}`,
-        },
-      ],
-    })
+    await timePhase('payer-organization-search', () =>
+      oystehr.fhir.search<Organization>({
+        resourceType: 'Organization',
+        params: [
+          {
+            name: 'active',
+            value: 'true',
+          },
+          {
+            name: 'type',
+            value: `${ORG_TYPE_CODE_SYSTEM}|${ORG_TYPE_PAYER_CODE}`,
+          },
+        ],
+      })
+    )
   ).unbundle();
+  console.log(`[createResourceHandler] payer-organization-search returned ${insuranceCarriersOptions.length} orgs`);
   const ic1 = insuranceCarriersOptions.at(0);
   const ic2 = insuranceCarriersOptions.at(1);
   insuranceCarrier1 = {
@@ -701,10 +737,12 @@ async function createResourceHandler(): Promise<[ResourceHandler, string, string
   const insuranceCarrier2ForResult = `${ic2?.name} (inactive)`;
   console.log('carrier: ', JSON.stringify(insuranceCarrier1ForResult));
 
-  await resourceHandler.setResources();
-  await Promise.all([
-    resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!),
-    resourceHandler.waitTillHarvestingDone(resourceHandler.appointment.id!),
-  ]);
+  await timePhase('setResources(createAppointment)', () => resourceHandler.setResources());
+  await timePhase('waitTillAppointmentPreprocessed+waitTillHarvestingDone', () =>
+    Promise.all([
+      resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!),
+      resourceHandler.waitTillHarvestingDone(resourceHandler.appointment.id!),
+    ])
+  );
   return [resourceHandler, insuranceCarrier1ForResult ?? '', insuranceCarrier2ForResult ?? ''];
 }
