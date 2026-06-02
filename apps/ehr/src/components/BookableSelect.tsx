@@ -48,6 +48,7 @@ interface BookableSelectProps {
   onLocationsLoaded?: (locations: LocationWithWalkinSchedule[]) => void;
   error?: boolean;
   helperText?: string;
+  dataTestId?: string;
 }
 
 function formatHumanName(p?: Practitioner): string {
@@ -64,6 +65,7 @@ export default function BookableSelect({
   required,
   disabled,
   onLocationsLoaded,
+  dataTestId,
 }: BookableSelectProps): ReactElement {
   const { oystehr } = useApiClients();
   const [targets, setTargets] = useState<BookableTarget[]>([]);
@@ -244,6 +246,7 @@ export default function BookableSelect({
 
   return (
     <Autocomplete
+      data-testid={dataTestId}
       disabled={disabled}
       value={selected ?? null}
       onChange={(_, value) => setSelected(value ?? undefined)}

@@ -515,6 +515,7 @@ export default function AddPatient(): JSX.Element {
                 </FormControl>
 
                 <BookableSelect
+                  dataTestId={dataTestIds.addPatientPage.bookableSelect}
                   selected={selectedBookable}
                   setSelected={(target) => {
                     setSelectedBookable(target);

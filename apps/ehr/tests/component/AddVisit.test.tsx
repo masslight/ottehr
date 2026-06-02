@@ -213,7 +213,7 @@ describe('AddVisit', () => {
       expect(screen.getByTestId(dataTestIds.addPatientPage.pageTitle)).toBeInTheDocument();
 
       // Verify location input has required attribute
-      const locationInput = screen.getByTestId(dataTestIds.dashboard.locationSelect).querySelector('input');
+      const locationInput = screen.getByTestId(dataTestIds.addPatientPage.bookableSelect).querySelector('input');
       expect(locationInput).toHaveAttribute('required');
     });
 
@@ -342,7 +342,7 @@ describe('AddVisit', () => {
         await user.click(prebookMenuOption);
 
         // Select location
-        const locationSelect = screen.getByTestId(dataTestIds.dashboard.locationSelect);
+        const locationSelect = screen.getByTestId(dataTestIds.addPatientPage.bookableSelect);
         const locationInput = locationSelect.querySelector('input')!;
         await user.click(locationInput);
         const locationOption = await screen.findByText('Test Location');
@@ -418,7 +418,7 @@ describe('AddVisit', () => {
         await user.click(postTelemedMenuOption);
 
         // Select location
-        const locationSelect = screen.getByTestId(dataTestIds.dashboard.locationSelect);
+        const locationSelect = screen.getByTestId(dataTestIds.addPatientPage.bookableSelect);
         const locationInput = locationSelect.querySelector('input')!;
         await user.click(locationInput);
         const locationOption = await screen.findByText('Test Location');
