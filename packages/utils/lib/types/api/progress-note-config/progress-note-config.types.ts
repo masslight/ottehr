@@ -15,5 +15,6 @@ export type UpdateProgressNoteConfigInput = z.infer<typeof UpdateProgressNoteCon
 
 export const UpdateProgressNoteConfigInputValidatedSchema = UpdateProgressNoteConfigInputSchema.extend({
   secrets: z.custom<Secrets>().nullable(),
+  userToken: z.string(),
 });
 export type UpdateProgressNoteConfigInputValidated = z.infer<typeof UpdateProgressNoteConfigInputValidatedSchema>;

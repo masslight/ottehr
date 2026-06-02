@@ -4,6 +4,7 @@ import { getSecret, SecretsKeys, UpdateProgressNoteConfigInputValidated } from '
 import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
+  requireAdminUser,
   saveProgressNoteConfig,
   topLevelCatch,
   wrapHandler,
@@ -23,6 +24,11 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     console.debug('validateRequestParameters success', validatedInput);
     const { secrets } = validatedInput;
 
+    console.group('complexValidation');
+    await complexValidation(validatedInput);
+    console.groupEnd();
+    console.debug('complexValidation success');
+
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
     const oystehr = createOystehrClient(m2mToken, secrets);
 
@@ -37,6 +43,11 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     return topLevelCatch(ZAMBDA_NAME, error, ENVIRONMENT);
   }
 });
+
+const complexValidation = async (validatedInput: UpdateProgressNoteConfigInputValidated): Promise<void> => {
+  const { userToken, secrets } = validatedInput;
+  await requireAdminUser(userToken, secrets);
+};
 
 const performEffect = async (
   validatedInput: UpdateProgressNoteConfigInputValidated,
