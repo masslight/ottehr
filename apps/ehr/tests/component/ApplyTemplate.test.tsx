@@ -419,7 +419,7 @@ describe('ApplyTemplate', () => {
             // client sends 'skip' explicitly so the server doesn't fall back to its
             // per-section default and silently touch existing chart data.
             moi: 'skip',
-            ros: 'append',
+            ros: 'overwrite',
             examFindings: 'overwrite',
             mdm: 'overwrite',
             diagnoses: 'append',
