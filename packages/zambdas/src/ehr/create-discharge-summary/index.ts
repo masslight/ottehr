@@ -12,6 +12,7 @@ import {
 } from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
 import { createDischargeSummaryPdf } from '../../shared/pdf/discharge-summary-pdf';
+import { getUpcomingFollowUps } from '../../shared/pdf/get-upcoming-follow-ups';
 import { makeDischargeSummaryPdfDocumentReference } from '../../shared/pdf/make-discharge-summary-document-reference';
 import { getAppointmentAndRelatedResources } from '../../shared/pdf/visit-details-pdf/get-video-resources';
 import { createPresignedUrl, uploadObjectToZ3 } from '../../shared/z3Utils';
@@ -92,12 +93,17 @@ export const performEffect = async (
     },
   });
 
-  const [chartDataResult, additionalChartDataResult, radiologyData, medicationOrdersData] = await Promise.all([
-    chartDataPromise,
-    additionalChartDataPromise,
-    radiologyOrdersPromise,
-    medicationOrdersPromise,
-  ]);
+  const followUpParentEncounterId = encounter.partOf?.reference?.split('/')[1] ?? encounter.id!;
+  const upcomingFollowUpsPromise = getUpcomingFollowUps(oystehr, followUpParentEncounterId, visitResources.timezone);
+
+  const [chartDataResult, additionalChartDataResult, radiologyData, medicationOrdersData, upcomingFollowUps] =
+    await Promise.all([
+      chartDataPromise,
+      additionalChartDataPromise,
+      radiologyOrdersPromise,
+      medicationOrdersPromise,
+      upcomingFollowUpsPromise,
+    ]);
   const chartData = chartDataResult.response;
   const additionalChartData = additionalChartDataResult.response;
   const medicationOrders = medicationOrdersData?.orders.filter((order) => order.status !== 'cancelled');
@@ -112,6 +118,7 @@ export const performEffect = async (
         medicationOrders,
       },
       appointmentPackage: visitResources,
+      upcomingFollowUps,
     },
     secrets,
     m2mToken

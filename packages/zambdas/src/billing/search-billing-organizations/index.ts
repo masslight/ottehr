@@ -1,19 +1,10 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Organization } from 'fhir/r4b';
-import { getNPI, getPayerId, getTaxID } from 'utils';
+import { BillingOrganizationOption, getNPI, getPayerId, getTaxID } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
-import { createBillingClient, EXCLUDE_WORKING_COPIES_PARAM } from '../shared';
+import { createBillingClient, EXCLUDE_WORKING_COPIES_PARAMS } from '../shared';
 import { SearchBillingOrganizationsParams, validateRequestParameters } from './validateRequestParameters';
-
-interface OrganizationSearchItem {
-  id: string | undefined;
-  name: string;
-  npi: string;
-  tin: string;
-  payerId: string;
-  isPayer: boolean | undefined;
-}
 
 let m2mToken: string;
 const ZAMBDA_NAME = 'search-billing-organizations';
@@ -30,14 +21,26 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 async function performEffect(
   oystehr: Oystehr,
   params: SearchBillingOrganizationsParams
-): Promise<{ organizations: OrganizationSearchItem[] }> {
-  const hasSearch = params.name || params.type;
+): Promise<{ organizations: BillingOrganizationOption[] }> {
+  if (params.type === 'pay') {
+    const result = await oystehr.rcm.listPayers({ ...(params.name ? { name: params.name } : {}), limit: 50 });
+    const organizations = result.data.map((o) => ({
+      id: o.id,
+      name: o.name ?? '',
+      npi: getNPI(o) ?? '',
+      tin: getTaxID(o) ?? '',
+      payerId: getPayerId(o) ?? '',
+      isPayer: true,
+    }));
+    return { organizations };
+  }
+
   // TODO: add pagination support
   const searchParams: { name: string; value: string }[] = [
     { name: '_count', value: '50' },
     { name: '_sort', value: 'name' },
   ];
-  if (!hasSearch) searchParams.push(EXCLUDE_WORKING_COPIES_PARAM);
+  if (!params.includeWorkingCopies) searchParams.push(...EXCLUDE_WORKING_COPIES_PARAMS);
   if (params.name) searchParams.push({ name: 'name', value: params.name });
   if (params.type) searchParams.push({ name: 'type', value: params.type });
 

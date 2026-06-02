@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
-import { Claim, DomainResource, HumanName, Patient, Practitioner, Resource } from 'fhir/r4b';
-import { convertFhirNameToDisplayName, Secrets } from 'utils';
+import { Claim, DomainResource, HumanName, Organization, Patient, Practitioner, Resource } from 'fhir/r4b';
+import { convertFhirNameToDisplayName, isPayerUrl, Secrets } from 'utils';
 import { createOystehrClient } from '../shared/helpers';
 
 export const BILLING_RESOURCE_TAG = {
@@ -24,12 +24,38 @@ export function sortClaimInsurance(claim: Pick<Claim, 'insurance'>): NonNullable
   return [...(claim.insurance ?? [])].sort((a, b) => a.sequence - b.sequence);
 }
 
+// Resolve Oystehr payer list URLs to payer Organizations via the RCM service
+export async function resolvePayersByRef(
+  oystehr: Oystehr,
+  refs: (string | undefined)[]
+): Promise<Map<string, Organization>> {
+  const byRef = new Map<string, Organization>();
+  const uniqueRefs = [...new Set(refs.filter((r): r is string => !!r))];
+  await Promise.all(
+    uniqueRefs.map(async (ref) => {
+      if (!isPayerUrl(ref)) return;
+      try {
+        byRef.set(ref, await oystehr.rcm.getPayerByUrl({ url: ref }));
+      } catch (err) {
+        console.error(`Failed to resolve payer ${ref}:`, err);
+      }
+    })
+  );
+  return byRef;
+}
+
 // Provider role tags
 export const RENDERS_TAG = 'https://fhir.ottehr.com/billing/renders-services';
 export const BILLS_TAG = 'https://fhir.ottehr.com/billing/bills-services';
 export const LICENSE_TAG = 'https://fhir.ottehr.com/billing/license-type';
 
 export const SOURCE_IDENTIFIER_SYSTEM = 'https://ottehr.com/billing/source-resource';
+export const ERA_ID_SYSTEM = 'https://identifiers.fhir.oystehr.com/era-id';
+export const ERA_CHECK_SYSTEM = 'https://identifiers.fhir.oystehr.com/era-check-number';
+
+export const TAG_CODE_SYSTEM = 'https://ottehr.com/billing/tag';
+export const CLAIM_TAG_SYSTEM = 'https://ottehr.com/billing/claim-tag';
+export const TAG_DESCRIPTION_URL = 'https://ottehr.com/billing/tag-description';
 
 const PROTECTED_OVERRIDE_KEYS = new Set(['id', 'meta', 'resourceType', 'extension']);
 
@@ -42,10 +68,13 @@ export function sanitizeOverrides(overrides?: Record<string, unknown>): Record<s
   return Object.keys(clean).length > 0 ? clean : undefined;
 }
 
-export const EXCLUDE_WORKING_COPIES_PARAM = {
-  name: '_tag:not',
-  value: `${BILLING_WORKING_COPY_TAG.system}|${BILLING_WORKING_COPY_TAG.code}`,
-};
+// Working copy visibility convention:
+// List pages (default view): exclude working copies (only show billing originals)
+// List pages (active search): include working copies via includeWorkingCopies param
+// Autocomplete dropdowns (Create Claim, etc.): never include working copies
+export const EXCLUDE_WORKING_COPIES_PARAMS = [
+  { name: '_tag:not', value: `${BILLING_WORKING_COPY_TAG.system}|${BILLING_WORKING_COPY_TAG.code}` },
+];
 
 export function createBillingClient(token: string, secrets: Secrets | null): Oystehr {
   return createOystehrClient(token, secrets, { workspaceTag: BILLING_RESOURCE_TAG });

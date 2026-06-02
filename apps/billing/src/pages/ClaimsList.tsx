@@ -5,7 +5,6 @@ import {
   Box,
   Button,
   Chip,
-  CircularProgress,
   FormControl,
   InputAdornment,
   InputLabel,
@@ -17,28 +16,22 @@ import {
 import { DataGridPro, GridColDef, GridPaginationModel } from '@mui/x-data-grid-pro';
 import { ReactElement, useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { BillingClaimItem, chooseJson, ClaimsQueueItemStatuses } from 'utils';
+import {
+  BillingClaimItem,
+  BillingOrganizationOption,
+  BillingPatientOption,
+  chooseJson,
+  ClaimsQueueItemStatuses,
+} from 'utils';
+import { dataGridSlots, dataGridSx } from '../components/BillingDataGrid';
 import { CLAIM_STATUS_COLORS, formatClaimStatus } from '../constants/claimStatus';
 import { useApiClients } from '../hooks/useAppClients';
-import { otherColors } from '../themes/ottehr/colors';
 import { formatCurrency } from '../utils/format';
-
-interface PayerOption {
-  id: string;
-  name: string;
-  payerId: string;
-}
-
-interface PatientOption {
-  id: string;
-  name: string;
-  firstName: string;
-  lastName: string;
-}
 
 interface Filters {
   searchText?: string;
   status?: string;
+  tag?: string;
   createdFrom?: string;
   createdTo?: string;
   payerId?: string;
@@ -92,15 +85,17 @@ export default function ClaimsList(): ReactElement {
   const [error, setError] = useState<string | null>(null);
   const [paginationModel, setPaginationModel] = useState<GridPaginationModel>({ page: 0, pageSize: 25 });
 
-  const [payerOptions, setPayerOptions] = useState<PayerOption[]>([]);
-  const [patientOptions, setPatientOptions] = useState<PatientOption[]>([]);
+  const [payerOptions, setPayerOptions] = useState<BillingOrganizationOption[]>([]);
+  const [patientOptions, setPatientOptions] = useState<BillingPatientOption[]>([]);
 
   const [searchText, setSearchText] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [tagFilter, setTagFilter] = useState('');
+  const [tagOptions, setTagOptions] = useState<{ id: string; name: string }[]>([]);
   const [createdFrom, setDosFrom] = useState('');
   const [createdTo, setDosTo] = useState('');
-  const [selectedPayer, setSelectedPayer] = useState<PayerOption | null>(null);
-  const [selectedPatient, setSelectedPatient] = useState<PatientOption | null>(null);
+  const [selectedPayer, setSelectedPayer] = useState<BillingOrganizationOption | null>(null);
+  const [selectedPatient, setSelectedPatient] = useState<BillingPatientOption | null>(null);
 
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const payerDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -126,6 +121,7 @@ export default function ClaimsList(): ReactElement {
         };
         if (filters.searchText) body.searchText = filters.searchText;
         if (filters.status) body.status = filters.status;
+        if (filters.tag) body.tag = filters.tag;
         if (filters.createdFrom) body.createdFrom = filters.createdFrom;
         if (filters.createdTo) body.createdTo = filters.createdTo;
         if (filters.payerId) body.payerId = filters.payerId;
@@ -182,18 +178,29 @@ export default function ClaimsList(): ReactElement {
     if (!oystehrZambda || initialLoadDone.current) return;
     initialLoadDone.current = true;
     void fetchClaims({}, paginationModel);
+    const loadTags = async (): Promise<void> => {
+      try {
+        const res = await oystehrZambda.zambda.execute({ id: 'search-billing-tags' });
+        setTagOptions(chooseJson(res).tags ?? []);
+      } catch (err) {
+        console.error('Failed to load tags:', err);
+        setTagOptions([]);
+      }
+    };
+    void loadTags();
   }, [oystehrZambda, fetchClaims, paginationModel]);
 
   const currentFilters = useCallback(
     (overrides?: Filters): Filters => ({
       searchText: overrides?.searchText ?? searchText,
       status: overrides?.status ?? statusFilter,
+      tag: overrides?.tag ?? tagFilter,
       createdFrom: overrides?.createdFrom ?? createdFrom,
       createdTo: overrides?.createdTo ?? createdTo,
       payerId: overrides?.payerId ?? selectedPayer?.payerId,
       patientId: overrides?.patientId ?? selectedPatient?.id,
     }),
-    [searchText, statusFilter, createdFrom, createdTo, selectedPayer, selectedPatient]
+    [searchText, statusFilter, tagFilter, createdFrom, createdTo, selectedPayer, selectedPatient]
   );
 
   const applyFilters = useCallback(
@@ -218,6 +225,7 @@ export default function ClaimsList(): ReactElement {
   const clearFilters = (): void => {
     setSearchText('');
     setStatusFilter('');
+    setTagFilter('');
     setDosFrom('');
     setDosTo('');
     setSelectedPayer(null);
@@ -227,10 +235,11 @@ export default function ClaimsList(): ReactElement {
     void fetchClaims({}, resetPage);
   };
 
-  const hasFilters = searchText || statusFilter || createdFrom || createdTo || selectedPayer || selectedPatient;
+  const hasFilters =
+    searchText || statusFilter || tagFilter || createdFrom || createdTo || selectedPayer || selectedPatient;
 
   return (
-    <Box sx={{ p: 3 }}>
+    <Box sx={{ p: 0 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Typography variant="h4" color="primary.dark" fontWeight={600}>
           Claims
@@ -271,6 +280,25 @@ export default function ClaimsList(): ReactElement {
             {ClaimsQueueItemStatuses.map((s) => (
               <MenuItem key={s} value={s}>
                 {formatClaimStatus(s)}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+
+        <FormControl size="small" sx={{ minWidth: 140 }} disabled={tagOptions.length === 0}>
+          <InputLabel>Tag</InputLabel>
+          <Select
+            value={tagFilter}
+            label="Tag"
+            onChange={(e) => {
+              setTagFilter(e.target.value);
+              applyFilters({ tag: e.target.value });
+            }}
+          >
+            <MenuItem value="">All</MenuItem>
+            {tagOptions.map((t) => (
+              <MenuItem key={t.id} value={t.name}>
+                {t.name}
               </MenuItem>
             ))}
           </Select>
@@ -366,37 +394,8 @@ export default function ClaimsList(): ReactElement {
         disableRowSelectionOnClick
         disableColumnMenu
         checkboxSelection
-        slots={{
-          noRowsOverlay: () => (
-            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
-              <Typography color="text.secondary">{loading ? '' : 'No claims found.'}</Typography>
-            </Box>
-          ),
-          loadingOverlay: () => (
-            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
-              <CircularProgress size={32} />
-            </Box>
-          ),
-        }}
-        sx={{
-          bgcolor: 'background.paper',
-          border: 'none',
-          borderRadius: 1,
-          fontSize: 14,
-          '& .MuiDataGrid-columnHeaders': {
-            backgroundColor: '#FAFAFA',
-            borderBottom: `1px solid ${otherColors.lightDivider}`,
-          },
-          '& .MuiDataGrid-columnHeaderTitle': { fontWeight: 600, fontSize: 13, color: 'primary.dark' },
-          '& .MuiDataGrid-cell': {
-            borderBottom: `1px solid ${otherColors.lightDivider}`,
-            fontSize: 14,
-            color: otherColors.tableRow,
-          },
-          '& .MuiDataGrid-row': { cursor: 'pointer' },
-          '& .MuiDataGrid-row:hover': { bgcolor: otherColors.apptHover },
-          height: 'calc(100vh - 310px)',
-        }}
+        slots={dataGridSlots}
+        sx={{ ...dataGridSx, height: 'calc(100vh - 310px)' }}
       />
     </Box>
   );
