@@ -25,8 +25,13 @@ const mockOystehrZambda = {} as any;
 const wrapper = ({ children }: { children: ReactNode }): JSX.Element => {
   const queryClient = new QueryClient({
     defaultOptions: {
-      queries: { retry: false, gcTime: 0 },
-      mutations: { retry: false },
+      queries: {
+        retry: false,
+        gcTime: 0,
+      },
+      mutations: {
+        retry: false,
+      },
     },
   });
   return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;

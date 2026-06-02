@@ -24,7 +24,13 @@ const mockUseDebounceNotesField = vi.mocked(useDebounceNotesField);
 describe('MedicalDecisionField', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockUseChartFields.mockReturnValue({ data: { medicalDecision: { text: '' } } } as any);
+    mockUseChartFields.mockReturnValue({
+      data: {
+        medicalDecision: {
+          text: '',
+        },
+      },
+    } as any);
     mockUseDebounceNotesField.mockReturnValue({ onValueChange: vi.fn(), isLoading: false } as any);
   });
 
