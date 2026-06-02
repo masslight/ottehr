@@ -2,7 +2,6 @@ import Oystehr, { User } from '@oystehr/sdk';
 import { Appointment, Location, Practitioner, PractitionerRole, Schedule, Slot } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
-  __SLOT_AVAIL_LAST_MISS,
   AllStates,
   APPOINTMENT_ALREADY_EXISTS_ERROR,
   CanonicalUrl,
@@ -332,15 +331,7 @@ export const createAppointmentComplexValidation = async (
     // capacity at the originating Location — see groupMemberFallback.ts.
     const fallback = await tryGroupMemberFallback({ slot, schedule, scheduleOwner, oystehrClient });
     if (!fallback) {
-      // TEMP DIAGNOSTIC — embed the slotAvailableAgainstBusy miss diagnostic
-      // in the response body so we can read it from the Playwright trace
-      // (CI doesn't capture zambda stdout). Rip out alongside
-      // __SLOT_AVAIL_LAST_MISS in scheduleUtils.ts.
-      const diagnostic = __SLOT_AVAIL_LAST_MISS.value;
-      __SLOT_AVAIL_LAST_MISS.value = null;
-      throw INVALID_INPUT_ERROR(
-        `This time slot is no longer available. Please choose another time. [DIAG ${JSON.stringify(diagnostic)}]`
-      );
+      throw INVALID_INPUT_ERROR('This time slot is no longer available. Please choose another time.');
     }
     schedule = fallback.schedule;
     scheduleOwner = fallback.scheduleOwner;
