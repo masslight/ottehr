@@ -2040,11 +2040,20 @@ export const __SLOT_AVAIL_LAST_MISS: { value: unknown } = { value: null };
 export const slotAvailableAgainstBusy = (input: { slot: Slot; schedule: Schedule; busySlots: Slot[] }): boolean => {
   const { slot, schedule, busySlots } = input;
   if (!slot.start || !slot.end) return false;
-  const slotStart = DateTime.fromISO(slot.start);
-  const slotEnd = DateTime.fromISO(slot.end);
+  // `{ setZone: true }` preserves the slot's stored offset on the resulting
+  // DateTime. Without it, Luxon re-anchors to the runtime's local zone —
+  // wall-clock derivations (e.g., the day boundary below) then silently
+  // depend on system TZ, which diverges between local (PDT/EDT) and CI (UTC).
+  const slotStart = DateTime.fromISO(slot.start, { setZone: true });
+  const slotEnd = DateTime.fromISO(slot.end, { setZone: true });
   if (!slotStart.isValid || !slotEnd.isValid) return false;
   const slotLengthMinutes = Math.max(1, Math.round(slotEnd.diff(slotStart, 'minutes').minutes));
-  const dayStart = slotStart.startOf('day');
+  // Day boundary must be cut in the schedule's IANA zone (the source of truth
+  // for what counts as "today" on this schedule). Using the slot's offset
+  // would mostly work but disagree at DST boundaries; using the system zone
+  // (the prior default behavior) was the actual bug we hit.
+  const scheduleTz = getTimezone(schedule);
+  const dayStart = scheduleTz ? slotStart.setZone(scheduleTz).startOf('day') : slotStart.startOf('day');
   const availableSlots = getAvailableSlots({
     now: dayStart,
     numDays: 1,
@@ -2052,9 +2061,14 @@ export const slotAvailableAgainstBusy = (input: { slot: Slot; schedule: Schedule
     busySlots,
     slotLengthMinutes,
   });
+  const slotStartMs = +slotStart;
   const match = availableSlots.some((iso) => {
-    const candidate = DateTime.fromISO(iso);
-    return candidate.isValid && candidate.equals(slotStart);
+    // Instant comparison rather than `.equals()` — `.equals()` requires
+    // zone-object identity in addition to the same instant, which would fail
+    // when candidate (parsed without setZone) ends up in the system zone
+    // and slotStart (parsed with setZone) is a FixedOffsetZone.
+    const candidate = DateTime.fromISO(iso, { setZone: true });
+    return candidate.isValid && +candidate === slotStartMs;
   });
   // TEMP DIAGNOSTIC — chasing CI vs local divergence on slot availability.
   // CI doesn't capture zambda stdout, so the diagnostic is stashed here and
