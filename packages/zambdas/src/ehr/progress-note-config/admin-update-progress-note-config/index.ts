@@ -21,7 +21,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     console.group('validateRequestParameters');
     const validatedInput = validateRequestParameters(input);
     console.groupEnd();
-    console.debug('validateRequestParameters success', validatedInput);
+    console.debug('validateRequestParameters success');
     const { secrets } = validatedInput;
 
     console.group('complexValidation');

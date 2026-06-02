@@ -31,11 +31,18 @@ describe('MedicalDecisionField', () => {
         },
       },
     } as any);
-    mockUseDebounceNotesField.mockReturnValue({ onValueChange: vi.fn(), isLoading: false } as any);
+    mockUseDebounceNotesField.mockReturnValue({
+      onValueChange: vi.fn(),
+      isLoading: false,
+    } as any);
   });
 
   it('renders the label with an asterisk when mdmRequired is true', () => {
-    mockUseProgressNoteConfig.mockReturnValue({ data: { mdmRequired: true } } as any);
+    mockUseProgressNoteConfig.mockReturnValue({
+      data: {
+        mdmRequired: true,
+      },
+    } as any);
 
     render(<MedicalDecisionField loading={false} setIsUpdating={vi.fn()} />);
 
@@ -43,7 +50,11 @@ describe('MedicalDecisionField', () => {
   });
 
   it('renders the label without an asterisk when mdmRequired is false', () => {
-    mockUseProgressNoteConfig.mockReturnValue({ data: { mdmRequired: false } } as any);
+    mockUseProgressNoteConfig.mockReturnValue({
+      data: {
+        mdmRequired: false,
+      },
+    } as any);
 
     render(<MedicalDecisionField loading={false} setIsUpdating={vi.fn()} />);
 
@@ -52,7 +63,9 @@ describe('MedicalDecisionField', () => {
   });
 
   it('defaults to required (asterisk shown) when the config has not loaded', () => {
-    mockUseProgressNoteConfig.mockReturnValue({ data: undefined } as any);
+    mockUseProgressNoteConfig.mockReturnValue({
+      data: undefined,
+    } as any);
 
     render(<MedicalDecisionField loading={false} setIsUpdating={vi.fn()} />);
 
