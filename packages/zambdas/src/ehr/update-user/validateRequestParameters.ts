@@ -3,6 +3,7 @@ import {
   isPhoneNumberValid,
   isProviderTypeCode,
   MISSING_REQUEST_BODY,
+  MISSING_REQUEST_SECRETS,
   PROVIDER_TYPE_VALUES,
   RoleType,
   Secrets,
@@ -71,6 +72,10 @@ const UpdateUserSchema = z
   );
 
 export function validateRequestParameters(input: ZambdaInput): UpdateUserParams & { secrets: Secrets } {
+  if (!input.secrets) {
+    throw MISSING_REQUEST_SECRETS;
+  }
+
   if (!input.body) {
     throw MISSING_REQUEST_BODY;
   }
@@ -90,7 +95,7 @@ export function validateRequestParameters(input: ZambdaInput): UpdateUserParams 
     licenses: validated.licenses,
     phoneNumber: validated.phoneNumber ? validated.phoneNumber.trim() : validated.phoneNumber,
     npi: validated.npi ? validated.npi.trim() : validated.npi,
-    secrets: input.secrets!,
+    secrets: input.secrets,
     birthDate: validated.birthDate ? validated.birthDate.trim() : validated.birthDate,
     faxNumber: validated.faxNumber ? validated.faxNumber.trim() : validated.faxNumber,
     addressLine1: validated.addressLine1 ? validated.addressLine1.trim() : validated.addressLine1,

@@ -22,13 +22,7 @@ const GetClaimsBodySchema = z.object({
 });
 
 export function validateRequestParameters(input: ZambdaInput): ClaimsQueueGetRequest & Pick<ZambdaInput, 'secrets'> {
-  console.group('validateRequestParameters');
-
-  if (getSecret(SecretsKeys.PROJECT_API, input.secrets) === undefined) {
-    throw new Error('"PROJECT_API" configuration not provided');
-  }
-  console.groupEnd();
-  console.debug('validateRequestParameters success');
+  getSecret(SecretsKeys.PROJECT_API, input.secrets);
 
   if (input.body) {
     const parsedJSON = JSON.parse(input.body) as unknown;

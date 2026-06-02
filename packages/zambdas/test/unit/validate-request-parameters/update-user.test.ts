@@ -44,6 +44,11 @@ describe('update-user - validateRequestParameters', () => {
     expect(result.providerType).toBe('MD');
   });
 
+  test('should throw when secrets are missing', () => {
+    const input = createMockZambdaInput(validBody);
+    expect(() => validateRequestParameters(input)).toThrow();
+  });
+
   test('should throw when body is missing', () => {
     const input = createMockZambdaInput(null, { body: '', secrets });
     expect(() => validateRequestParameters(input)).toThrow();
