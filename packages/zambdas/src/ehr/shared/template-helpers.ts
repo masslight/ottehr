@@ -125,7 +125,6 @@ export function analyzeTemplateVersionData(params: {
   }
 
   // A template is "current" if all its exam & ros observation fields exist in the current config.
-  // This matches the approach used by useUnmatchedExamFields for visit exam data.
   const isCurrentVersion = unmatchedExamFields.length === 0 && unmatchedRosFields.length === 0 && !legacyRosFound;
 
   return {

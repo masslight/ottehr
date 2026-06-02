@@ -43,21 +43,24 @@ const getVisitTypeToLabel = (): Partial<typeof ALL_VISIT_TYPE_LABELS> => {
   );
 };
 
-const LOCAL_STORAGE_FILTERS_KEY = 'appointments.filters';
-const TRACKING_BOARD_FILTER_QUERY_KEYS = ['location', 'visitType', 'serviceCategory', 'date', 'provider'] as const;
+export const LOCAL_STORAGE_FILTERS_KEY = 'appointments.filters';
+
+// Filter params owned by this component; any other param (e.g. `tab`) is preserved.
+const FILTER_PARAM_KEYS = ['location', 'visitType', 'serviceCategory', 'date', 'provider'] as const;
 
 export default function AppointmentsFilters(): ReactElement {
   const visitTypeToLabel = useMemo(() => getVisitTypeToLabel(), []);
 
   const methods = useForm();
   const [searchParams, setSearchParams] = useSearchParams();
-  const hasTrackingBoardFilterParams = TRACKING_BOARD_FILTER_QUERY_KEYS.some((key) => searchParams.has(key));
+  const hasTrackingBoardFilterParams = FILTER_PARAM_KEYS.some((key) => searchParams.has(key));
 
   useEffect(() => {
     if (!hasTrackingBoardFilterParams) {
       return;
     }
 
+    // Mirror the URL into the form only when it carries filters; otherwise let the restore effect recover them.
     const values = {
       location:
         searchParams
@@ -83,18 +86,18 @@ export default function AppointmentsFilters(): ReactElement {
       },
       callback: ({ values }) => {
         setSearchParams((prev) => {
-          const queryParams = new URLSearchParams(prev);
+          // Rewrite filter params while preserving any other param (e.g. `tab`).
+          const next = new URLSearchParams(prev);
+          FILTER_PARAM_KEYS.forEach((key) => next.delete(key));
           for (const key in values) {
             const value = Array.isArray(values[key])
               ? values[key].map((val) => val.id ?? val).join(',')
               : values[key]?.id ?? values[key];
             if (value) {
-              queryParams.set(key, value);
-            } else {
-              queryParams.delete(key);
+              next.set(key, value);
             }
           }
-          return queryParams;
+          return next;
         });
         if (values) {
           localStorage.setItem(LOCAL_STORAGE_FILTERS_KEY, JSON.stringify(values));
@@ -107,15 +110,29 @@ export default function AppointmentsFilters(): ReactElement {
   }, [methods, setSearchParams]);
 
   useEffect(() => {
-    const persistedValues = localStorage.getItem(LOCAL_STORAGE_FILTERS_KEY);
-    if (!hasTrackingBoardFilterParams && persistedValues) {
-      methods.reset(JSON.parse(persistedValues));
+    // Restore persisted filters when the URL carries none (e.g. only `?tab=` after an approval).
+    if (hasTrackingBoardFilterParams) {
+      return;
     }
-    if (!hasTrackingBoardFilterParams && !persistedValues) {
-      methods.reset({
-        visitType: Object.keys(visitTypeToLabel),
-        date: DateTime.now().toISODate(),
-      });
+
+    const defaultValues = {
+      visitType: Object.keys(visitTypeToLabel),
+      date: DateTime.now().toISODate(),
+    };
+
+    const persistedValues = localStorage.getItem(LOCAL_STORAGE_FILTERS_KEY);
+
+    if (!persistedValues) {
+      methods.reset(defaultValues);
+      return;
+    }
+
+    try {
+      methods.reset(JSON.parse(persistedValues));
+    } catch {
+      // Corrupt/legacy localStorage: drop it and fall back to defaults instead of crashing.
+      localStorage.removeItem(LOCAL_STORAGE_FILTERS_KEY);
+      methods.reset(defaultValues);
     }
   }, [hasTrackingBoardFilterParams, methods, visitTypeToLabel]);
 
