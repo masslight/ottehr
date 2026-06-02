@@ -43,7 +43,7 @@ const getVisitTypeToLabel = (): Partial<typeof ALL_VISIT_TYPE_LABELS> => {
   );
 };
 
-const LOCAL_STORAGE_FILTERS_KEY = 'appointments.filters';
+export const LOCAL_STORAGE_FILTERS_KEY = 'appointments.filters';
 
 // Filter params owned by this component; any other param (e.g. `tab`) is preserved.
 const FILTER_PARAM_KEYS = ['location', 'visitType', 'serviceCategory', 'date', 'provider'] as const;
@@ -108,17 +108,29 @@ export default function AppointmentsFilters(): ReactElement {
   }, [methods, setSearchParams]);
 
   useEffect(() => {
-    const persistedValues = localStorage.getItem(LOCAL_STORAGE_FILTERS_KEY);
     // Restore persisted filters when the URL carries none (e.g. only `?tab=` after an approval).
-    const hasFilterParams = FILTER_PARAM_KEYS.some((key) => searchParams.has(key));
-    if (!hasFilterParams && persistedValues) {
-      methods.reset(JSON.parse(persistedValues));
+    if (FILTER_PARAM_KEYS.some((key) => searchParams.has(key))) {
+      return;
     }
-    if (!hasFilterParams && !persistedValues) {
-      methods.reset({
-        visitType: Object.keys(visitTypeToLabel),
-        date: DateTime.now().toISODate(),
-      });
+
+    const defaultValues = {
+      visitType: Object.keys(visitTypeToLabel),
+      date: DateTime.now().toISODate(),
+    };
+
+    const persistedValues = localStorage.getItem(LOCAL_STORAGE_FILTERS_KEY);
+
+    if (!persistedValues) {
+      methods.reset(defaultValues);
+      return;
+    }
+
+    try {
+      methods.reset(JSON.parse(persistedValues));
+    } catch {
+      // Corrupt/legacy localStorage: drop it and fall back to defaults instead of crashing.
+      localStorage.removeItem(LOCAL_STORAGE_FILTERS_KEY);
+      methods.reset(defaultValues);
     }
   }, [methods, searchParams, visitTypeToLabel]);
 
