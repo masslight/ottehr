@@ -10,11 +10,13 @@ export function validateRequestParameters(input: ZambdaInput): UpdateProgressNot
   if (!input.body) {
     throw MISSING_REQUEST_BODY;
   }
-  if (input.headers.Authorization === undefined) {
+
+  const authHeader = input.headers?.Authorization;
+  if (!authHeader) {
     throw MISSING_AUTH_TOKEN;
   }
 
-  const userToken = input.headers.Authorization.replace('Bearer ', '');
+  const userToken = authHeader.replace('Bearer ', '');
 
   const data = safeValidate(UpdateProgressNoteConfigInputSchema, JSON.parse(input.body));
 
