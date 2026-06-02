@@ -2033,6 +2033,10 @@ interface CheckSlotAvailableInput {
  * vending grid — sharper than the previous heuristic which assumed
  * Schedule-default slot length.
  */
+// TEMP DIAGNOSTIC stash — see comment on slotAvailableAgainstBusy below.
+// Rip out alongside the diagnostic block once root cause is identified.
+export const __SLOT_AVAIL_LAST_MISS: { value: unknown } = { value: null };
+
 export const slotAvailableAgainstBusy = (input: { slot: Slot; schedule: Schedule; busySlots: Slot[] }): boolean => {
   const { slot, schedule, busySlots } = input;
   if (!slot.start || !slot.end) return false;
@@ -2053,7 +2057,9 @@ export const slotAvailableAgainstBusy = (input: { slot: Slot; schedule: Schedule
     return candidate.isValid && candidate.equals(slotStart);
   });
   // TEMP DIAGNOSTIC — chasing CI vs local divergence on slot availability.
-  // Rip out once root cause is identified.
+  // CI doesn't capture zambda stdout, so the diagnostic is stashed here and
+  // surfaced in the thrown error message at validateRequestParameters.ts:334
+  // so it lands in the HTTP response body (visible in Playwright traces).
   if (!match) {
     const slotStartMs = +slotStart;
     const hourWindow = availableSlots
@@ -2068,23 +2074,16 @@ export const slotAvailableAgainstBusy = (input: { slot: Slot; schedule: Schedule
         zoneName: entry.dt.zoneName,
         deltaMs: entry.deltaMs,
       }));
-    console.log(
-      '[slotAvailableAgainstBusy MISS]',
-      JSON.stringify(
-        {
-          slotStartRaw: slot.start,
-          slotStartIso: slotStart.toISO(),
-          slotStartZoneName: slotStart.zoneName,
-          slotLengthMinutes,
-          scheduleId: schedule.id,
-          scheduleTz: getTimezone(schedule),
-          availableInHourWindow: hourWindow,
-          totalAvailableCount: availableSlots.length,
-        },
-        null,
-        2
-      )
-    );
+    __SLOT_AVAIL_LAST_MISS.value = {
+      slotStartRaw: slot.start,
+      slotStartIso: slotStart.toISO(),
+      slotStartZoneName: slotStart.zoneName,
+      slotLengthMinutes,
+      scheduleId: schedule.id,
+      scheduleTz: getTimezone(schedule),
+      availableInHourWindow: hourWindow,
+      totalAvailableCount: availableSlots.length,
+    };
   }
   return match;
 };
