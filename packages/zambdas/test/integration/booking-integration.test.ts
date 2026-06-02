@@ -50,6 +50,27 @@ import {
   tagForProcessId,
 } from '../helpers/testScheduleUtils';
 
+/**
+ * Polls `fetch` until `predicate` returns true or the timeout elapses, then
+ * returns the most recent value. Used to absorb the brief propagation delay
+ * between a mutating zambda returning 200 and the change becoming readable
+ * through the FHIR API — otherwise an immediate read-back can race the write
+ * and flake (e.g. seeing 'booked' right after a successful cancel).
+ */
+const pollUntil = async <T>(
+  fetch: () => Promise<T>,
+  predicate: (value: T) => boolean,
+  { timeoutMs = 15_000, intervalMs = 500 }: { timeoutMs?: number; intervalMs?: number } = {}
+): Promise<T> => {
+  const deadline = Date.now() + timeoutMs;
+  let value = await fetch();
+  while (!predicate(value) && Date.now() < deadline) {
+    await new Promise((resolve) => setTimeout(resolve, intervalMs));
+    value = await fetch();
+  }
+  return value;
+};
+
 const createSlotAndValidate = async (
   input: { params: CreateSlotParams; schedule: Schedule; selectedSlot?: SlotListItem },
   oystehr: Oystehr
@@ -590,10 +611,14 @@ describe('prebook integration - from getting list of slots to booking with selec
       expect(false).toBeTruthy(); // fail the test if we can't cancel the appointment
     }
 
-    const canceledAppointment = await oystehrAdmin.fhir.get<Appointment>({
-      resourceType: 'Appointment',
-      id: appointmentId,
-    });
+    const canceledAppointment = await pollUntil(
+      () =>
+        oystehrAdmin.fhir.get<Appointment>({
+          resourceType: 'Appointment',
+          id: appointmentId,
+        }),
+      (appointment) => appointment?.status === 'cancelled'
+    );
     expect(canceledAppointment).toBeDefined();
     assert(canceledAppointment);
     expect(canceledAppointment.status).toEqual('cancelled');
@@ -606,15 +631,19 @@ describe('prebook integration - from getting list of slots to booking with selec
     } else {
       expect(canceledAppointment.cancelationReason?.coding?.[0]?.code).toBe('Patient improved');
     }
-    const slotSearch = await oystehrAdmin.fhir.search<Slot>({
-      resourceType: 'Slot',
-      params: [
-        {
-          name: '_id',
-          value: oldSlotId,
-        },
-      ],
-    });
+    const slotSearch = await pollUntil(
+      () =>
+        oystehrAdmin.fhir.search<Slot>({
+          resourceType: 'Slot',
+          params: [
+            {
+              name: '_id',
+              value: oldSlotId,
+            },
+          ],
+        }),
+      (search) => search.unbundle().length === 0
+    );
     expect(slotSearch).toBeDefined();
     const unbundledSlots = slotSearch.unbundle();
     expect(unbundledSlots.length).toBe(0);
