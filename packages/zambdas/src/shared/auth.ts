@@ -1,7 +1,16 @@
 import Oystehr, { User } from '@oystehr/sdk';
 import { Patient, RelatedPerson } from 'fhir/r4b';
 import { decodeJwt } from 'jose';
-import { getPatientsForUser, getSecret, Secrets, SecretsKeys, TEST_USER_ID, userMe } from 'utils';
+import {
+  getPatientsForUser,
+  getSecret,
+  NOT_AUTHORIZED,
+  RoleType,
+  Secrets,
+  SecretsKeys,
+  TEST_USER_ID,
+  userMe,
+} from 'utils';
 import { getAuth0Token } from './getAuth0Token';
 
 export async function getUser(token: string, secrets: Secrets | null): Promise<User> {
@@ -16,6 +25,14 @@ export async function getUser(token: string, secrets: Secrets | null): Promise<U
 
   return user;
 }
+
+export const requireAdminUser = async (userToken: string, secrets: Secrets | null): Promise<void> => {
+  const user = await getUser(userToken, secrets);
+  if (!user) throw NOT_AUTHORIZED;
+  const roles = (user as any).roles as { name?: string }[] | undefined;
+  const isAdmin = roles?.some((role) => role.name === RoleType.Administrator) ?? false;
+  if (!isAdmin) throw NOT_AUTHORIZED;
+};
 
 export async function getPersonForPatient(patientID: string, oystehr: Oystehr): Promise<RelatedPerson | undefined> {
   const resources = (
