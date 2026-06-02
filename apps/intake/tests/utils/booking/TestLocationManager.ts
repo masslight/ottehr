@@ -92,9 +92,13 @@ export class TestLocationManager {
     const now = DateTime.now().toUTC();
     const oneYearFromNow = now.plus({ years: 1 });
 
+    // `providers` is read as-is; the legacy `capacity` field divides by 4
+    // (historical "bookings/hour at 15-min cadence" semantic) so capacity=8
+    // would mean only 2 concurrent bookings — tight enough that orphan
+    // busy slots accumulating in CI exhaust the hour.
     const hours = Array.from({ length: 24 }, (_, hour) => ({
       hour,
-      capacity,
+      providers: capacity,
     }));
 
     const daySchedule = {
