@@ -1,9 +1,12 @@
+import { Encounter } from 'fhir/r4b';
+import { DateTime } from 'luxon';
 import {
   dispositionCheckboxOptions,
   followUpInOptions,
   getDefaultNote,
   getSpecialtyTransferDisplay,
   mapDispositionTypeToLabel,
+  NOTE_TYPE,
   NOTHING_TO_EAT_OR_DRINK_FIELD,
   NOTHING_TO_EAT_OR_DRINK_LABEL,
   REFUSAL_OF_EMS_TRANSPORT_FIELD,
@@ -11,10 +14,21 @@ import {
 } from 'utils';
 import { drawBlockHeader, drawRegularText } from '../../helpers/render';
 import { createConfiguredSection, DataComposer } from '../../pdf-common';
-import { PdfSection, PlanData } from '../../types';
-import { AllChartData } from '../../visit-details-pdf/types';
+import { AddendumEntry, PdfSection, PlanData } from '../../types';
+import { AllChartData, FullAppointmentResourcePackage } from '../../visit-details-pdf/types';
 
-export const composePlanData: DataComposer<{ allChartData: AllChartData }, PlanData> = ({ allChartData }) => {
+const formatAddendumTimestamp = (timestamp: string | undefined, timezone: string | undefined): string => {
+  if (!timestamp) return '';
+  const dt = DateTime.fromISO(timestamp);
+  if (!dt.isValid) return '';
+  return (timezone ? dt.setZone(timezone) : dt).toFormat('MM/dd/yyyy hh:mm a');
+};
+
+export const composePlanData: DataComposer<
+  { allChartData: AllChartData; encounter?: Encounter; appointmentPackage?: FullAppointmentResourcePackage },
+  PlanData
+> = ({ allChartData, encounter, appointmentPackage }) => {
+  const timezone = appointmentPackage?.timezone;
   const { chartData, additionalChartData } = allChartData;
   const patientInstructions: string[] = [];
   chartData?.instructions?.forEach((item) => {
@@ -50,6 +64,23 @@ export const composePlanData: DataComposer<{ allChartData: AllChartData }, PlanD
   });
 
   const addendumNote = chartData?.addendumNote?.text;
+  // Notes are searched by patient, so on a follow-up the response can include the parent encounter's
+  // addendum notes — scope to this encounter when we know it.
+  const currentEncounterId = encounter?.id;
+  const addendumNotes: AddendumEntry[] =
+    additionalChartData?.notes
+      ?.filter((note) => note.type === NOTE_TYPE.ADDENDUM)
+      ?.filter((note) => !currentEncounterId || note.encounterId === currentEncounterId)
+      ?.map((note) => {
+        const deleted = !!note.deleted;
+        return {
+          text: note.text,
+          authorName: note.authorName || note.authorId || 'Unknown',
+          timestamp: formatAddendumTimestamp(note.lastUpdated, timezone),
+          edited: !deleted && !!note.edited,
+          deleted,
+        };
+      }) ?? [];
   return {
     patientInstructions,
     disposition: {
@@ -66,6 +97,7 @@ export const composePlanData: DataComposer<{ allChartData: AllChartData }, PlanD
     subSpecialtyFollowup,
     workSchoolExcuse,
     addendumNote,
+    addendumNotes,
   };
 };
 
@@ -88,7 +120,7 @@ const hasSubSpecialtyFollowUp = (data: PlanData): boolean =>
 
 const hasWorkSchoolExcuse = (data: PlanData): boolean => Boolean(data.workSchoolExcuse && data.workSchoolExcuse.length);
 
-const hasAddendum = (data: PlanData): boolean => !!data.addendumNote;
+const hasAddendum = (data: PlanData): boolean => !!data.addendumNote || (data.addendumNotes?.length ?? 0) > 0;
 
 const hasAnyPlanBlock = (data?: PlanData): boolean =>
   !!data &&
@@ -169,7 +201,24 @@ export const createPlanSection = <TData extends { plan?: PlanData }>(): PdfSecti
 
       if (hasAddendum(data)) {
         drawBlockHeader(client, styles, 'Addendum', styles.textStyles.blockSubHeader);
-        drawRegularText(client, styles, data.addendumNote);
+        if (data.addendumNote) {
+          drawRegularText(client, styles, data.addendumNote);
+        }
+        data.addendumNotes?.forEach((entry) => {
+          const timestamp = entry.timestamp ?? '';
+          if (entry.deleted) {
+            const tombstone = [timestamp, entry.authorName, 'deleted the note'].filter(Boolean).join(' ');
+            drawRegularText(client, styles, tombstone);
+            return;
+          }
+          drawRegularText(client, styles, entry.text);
+          const attribution = [timestamp, `by ${entry.authorName}`, entry.edited ? '(edited)' : '']
+            .filter(Boolean)
+            .join(' ');
+          if (attribution) {
+            drawRegularText(client, styles, attribution);
+          }
+        });
       }
     },
   }));

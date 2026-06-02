@@ -332,6 +332,7 @@ export type ClinicalImpressionDTO = z.infer<typeof clinicalImpressionDTOSchema>;
 export interface CommunicationDTO extends SaveableDTO {
   text?: string;
   title?: string;
+  educationDocRefId?: string;
 }
 
 export enum NOTE_TYPE {
@@ -346,6 +347,7 @@ export enum NOTE_TYPE {
   MEDICAL_CONDITION = 'medical-condition',
   SURGICAL_HISTORY = 'surgical-history',
   HOSPITALIZATION = 'hospitalization',
+  ADDENDUM = 'addendum',
   UNKNOWN = 'unknown',
 }
 
@@ -358,6 +360,8 @@ export interface NoteDTO extends CommunicationDTO {
   authorId: string;
   authorName: string;
   lastUpdated?: string; // system generated, not sent from frontend
+  edited?: boolean; // server-computed: true when Communication.sent and meta.lastUpdated have drifted past a small window
+  deleted?: boolean; // soft-delete marker; backed by Communication.status === 'entered-in-error'
 }
 
 export type DispositionType = 'ip' | 'ip-lab' | 'pcp' | 'ed' | 'ip-oth' | 'pcp-no-type' | 'another' | 'specialty';

@@ -13,6 +13,7 @@ import {
   APPOINTMENT_NOT_FOUND_ERROR,
   AppointmentData,
   BRANDING_CONFIG,
+  FEATURE_FLAGS_CONFIG,
   formatPhoneNumberDisplay,
   getSelectors,
   getSlugAndStateFromLocation,
@@ -208,7 +209,11 @@ const ThankYou = (): JSX.Element => {
   };
 
   const showRegisterAnotherPatient = useMemo(
-    () => selectedLocation?.slug && visitType && visitType !== VisitType.PostTelemed,
+    () =>
+      !FEATURE_FLAGS_CONFIG.hideRegisterAnotherPatient &&
+      selectedLocation?.slug &&
+      visitType &&
+      visitType !== VisitType.PostTelemed,
     [selectedLocation?.slug, visitType]
   );
 

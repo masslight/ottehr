@@ -410,11 +410,9 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
 
   const parentEncounterId = followUpOptions?.parentEncounterId;
 
-  // Validate parent encounter for scheduled follow-ups — no nesting allowed.
-  // Also collect the parent encounter's diagnoses so they can be carried over to the follow-up.
   let carriedOverDiagnoses: { condition: Condition; rank?: number }[] = [];
   if (parentEncounterId) {
-    // Validation invariant (NOT part of copy flow): parent must exist and not be a follow-up itself.
+    // Validation (not part of copy flow): parent must exist and not itself be a follow-up.
     const parentEncounter = await oystehr.fhir.get<Encounter>({
       resourceType: 'Encounter',
       id: parentEncounterId,
