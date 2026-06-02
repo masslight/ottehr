@@ -410,6 +410,55 @@
       "src": "src/billing/get-billing-claim-detail/index",
       "zip": ".dist/zips/get-billing-claim-detail.zip"
     },
+    "GET-BILLING-PATIENT-DETAIL": {
+      "name": "get-billing-patient-detail",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/get-billing-patient-detail/index",
+      "zip": ".dist/zips/get-billing-patient-detail.zip"
+    },
+    "SEARCH-BILLING-ERAS": {
+      "name": "search-billing-eras",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/search-billing-eras/index",
+      "zip": ".dist/zips/search-billing-eras.zip"
+    },
+    "GET-BILLING-ERA-DETAIL": {
+      "name": "get-billing-era-detail",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/get-billing-era-detail/index",
+      "zip": ".dist/zips/get-billing-era-detail.zip"
+    },
+    "SEARCH-BILLING-TAGS": {
+      "name": "search-billing-tags",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/search-billing-tags/index",
+      "zip": ".dist/zips/search-billing-tags.zip"
+    },
+    "SAVE-BILLING-TAG": {
+      "name": "save-billing-tag",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/save-billing-tag/index",
+      "zip": ".dist/zips/save-billing-tag.zip"
+    },
+    "DELETE-BILLING-TAG": {
+      "name": "delete-billing-tag",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/delete-billing-tag/index",
+      "zip": ".dist/zips/delete-billing-tag.zip"
+    },
+    "TAG-BILLING-CLAIM": {
+      "name": "tag-billing-claim",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/tag-billing-claim/index",
+      "zip": ".dist/zips/tag-billing-claim.zip"
+    },
     "UPDATE-BILLING-CLAIM": {
       "name": "update-billing-claim",
       "type": "http_auth",

@@ -4,6 +4,7 @@ import {
   dispositionCheckboxOptions,
   followUpInOptions,
   getDefaultNote,
+  getSpecialtyTransferDisplay,
   mapDispositionTypeToLabel,
   NOTE_TYPE,
   NOTHING_TO_EAT_OR_DRINK_FIELD,
@@ -46,7 +47,7 @@ export const composePlanData: DataComposer<
   const virusTest = disposition?.virusTest?.join(', ') ?? '';
   const followUpIn = typeof disposition?.followUpIn === 'number' ? disposition.followUpIn : undefined;
   const reason = disposition?.reason;
-  const specialty = disposition?.specialty;
+  const specialty = getSpecialtyTransferDisplay(disposition?.specialty, disposition?.specialtyOther);
 
   const subSpecialtyFollowup =
     additionalChartData?.disposition?.followUp?.map((followUp) => {
