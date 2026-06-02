@@ -9,7 +9,7 @@ import {
 } from 'utils';
 
 async function findProgressNoteConfigBasic(oystehr: Oystehr): Promise<Basic | undefined> {
-  return (
+  const results = (
     await oystehr.fhir.search<Basic>({
       resourceType: 'Basic',
       params: [
@@ -21,7 +21,17 @@ async function findProgressNoteConfigBasic(oystehr: Oystehr): Promise<Basic | un
     })
   )
     .unbundle()
-    .find((r): r is Basic => r.resourceType === 'Basic');
+    .filter((r): r is Basic => r.resourceType === 'Basic');
+
+  if (results.length > 1) {
+    console.warn(
+      `Found ${results.length} progress-note-config Basics (expected 1). Using the first. IDs: ${results
+        .map((r) => r.id)
+        .join(', ')}`
+    );
+  }
+
+  return results[0];
 }
 
 export async function getProgressNoteConfigPayload(oystehr: Oystehr): Promise<GetProgressNoteConfigOutput> {
