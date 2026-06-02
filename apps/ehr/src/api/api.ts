@@ -2072,7 +2072,10 @@ export const getProgressNoteConfig = async (
   parameters?: GetProgressNoteConfigInput
 ): Promise<GetProgressNoteConfigOutput> => {
   try {
-    const response = await oystehr.zambda.execute({ id: 'get-progress-note-config', ...parameters });
+    const response = await oystehr.zambda.execute({
+      id: 'get-progress-note-config',
+      ...parameters,
+    });
     return chooseJson(response);
   } catch (error: unknown) {
     console.log(error);
