@@ -142,7 +142,7 @@ export const EditableMedicationCard: React.FC<{
   const isSavedRef = useRef(false);
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
 
-  const handleStatusChange = async (newStatus: MedicationOrderStatusesType): Promise<void> => {
+  const handleUnsavedStatusChange = async (newStatus: MedicationOrderStatusesType): Promise<void> => {
     isSavedRef.current = false;
     setCurrentStatus(newStatus);
   };
@@ -436,9 +436,8 @@ export const EditableMedicationCard: React.FC<{
       await updateMedication(medicationUpdateRequestInputRefRef.current);
       isSavedRef.current = true;
 
-      // update saved status in the local state
       if (newStatus) {
-        await handleStatusChange(newStatus);
+        setCurrentStatus(newStatus);
       }
 
       if (
@@ -676,7 +675,7 @@ export const EditableMedicationCard: React.FC<{
         selectedStatus={currentStatus}
         isUpdating={isOrderUpdating}
         onFieldValueChange={handleFieldValueChange}
-        onStatusSelect={handleStatusChange}
+        onStatusSelect={handleUnsavedStatusChange}
         getFieldValue={getFieldValue}
         showErrors={showErrors}
         fieldErrors={fieldErrors}
