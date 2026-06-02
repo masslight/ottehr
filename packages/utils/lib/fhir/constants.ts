@@ -9,12 +9,12 @@ import {
   Practitioner,
   Schedule,
 } from 'fhir/r4b';
+import type { AppointmentType, CanonicalUrl } from '../types';
 import {
-  AppointmentType,
-  CanonicalUrl,
   DISCHARGE_SUMMARY_CODE,
   EXPORTED_QUESTIONNAIRE_CODE,
   INSURANCE_CARD_CODE,
+  PATIENT_EDUCATION_DOC_TYPE_CODE,
   PATIENT_PHOTO_CODE,
   PHOTO_ID_CARD_CODE,
   PRIVACY_POLICY_CODE,
@@ -23,7 +23,7 @@ import {
   SCHOOL_WORK_NOTE_TEMPLATE_CODE,
   STATEMENT_CODE,
   VISIT_NOTE_SUMMARY_CODE,
-} from '../types';
+} from '../types/data/paperwork/paperwork.constants';
 import { ottehrCodeSystemUrl, ottehrExtensionUrl, ottehrIdentifierSystem } from './systemUrls';
 
 // nota bene: some legacy resources could be using 'http' instead of 'https' here, and there are still some string vals out there with http
@@ -393,6 +393,8 @@ export const BUCKET_NAMES = {
   PAPERWORK: 'exported-questionnaires',
   DISCHARGE_SUMMARIES: 'discharge-summaries',
   STATEMENTS: 'statements',
+  PATIENT_EDUCATION: 'patient-education',
+  PATIENT_EDUCATION_ADMIN: 'patient-education-admin',
   REPORTS: 'invoiceable-patients-reports',
   CUSTOM_FOLDERS: 'patient-docs-custom-folders',
 } as const;
@@ -474,6 +476,11 @@ export const FOLDERS_CONFIG: ListConfig[] = [
     title: BUCKET_NAMES.STATEMENTS,
     display: 'Statements',
     documentTypeCode: STATEMENT_CODE,
+  },
+  {
+    title: BUCKET_NAMES.PATIENT_EDUCATION,
+    display: 'Patient Education',
+    documentTypeCode: PATIENT_EDUCATION_DOC_TYPE_CODE,
   },
 ];
 
@@ -808,3 +815,13 @@ export const CASE_RATE_CODE = 'case-rate';
 
 export const CPT_MODIFIER_EXTENSION_URL = ottehrExtensionUrl('cpt-modifier');
 export const CPT_CODE_SYSTEM = 'http://www.ama-assn.org/go/cpt';
+
+export const EXAM_MIGRATION_VERSION_URL = `${PRIVATE_EXTENSION_BASE_URL}/exam-migration-version`;
+// Version 1 and 2 are essentially the same
+// The version was bumped to 2 to facilitate rendering a incompatibility message for old telemed charts
+// Version 1 was only stamped on encounters where users clicked "migrate exam" however in order to differentiate between virtual visits pre and post exam config consolidation
+// We need to record the current migration version on all encounters. There is an edge case were telemed exams were migrated and stamped with v1 before the 1.35 release
+// but would actually be incompatible with the exam config going out in 1.35 (aka v2)
+export const CURRENT_EXAM_MIGRATION_VERSION = 2;
+export const INCOMPATIBLE_EXAM_VERSION_MESSAGE =
+  "This chart's exam version is incompatible with the current exam configuration, please consult the visit PDF.";

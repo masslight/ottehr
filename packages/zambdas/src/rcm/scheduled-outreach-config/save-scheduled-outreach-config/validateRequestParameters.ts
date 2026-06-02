@@ -110,8 +110,13 @@ function validateAction(action: unknown, index: number): OutreachAction {
     if (typeof cfg.retryAttempts !== 'number' || cfg.retryAttempts < 0) {
       throw INVALID_INPUT_ERROR(`actions[${index}].chargeCardConfig.retryAttempts must be a non-negative number`);
     }
-    if (typeof cfg.retryIntervalDays !== 'number' || cfg.retryIntervalDays < 1) {
-      throw INVALID_INPUT_ERROR(`actions[${index}].chargeCardConfig.retryIntervalDays must be a positive number`);
+    if (typeof cfg.retryIntervalDays !== 'number' || cfg.retryIntervalDays < 0) {
+      throw INVALID_INPUT_ERROR(`actions[${index}].chargeCardConfig.retryIntervalDays must be a non-negative number`);
+    }
+    if (cfg.retryAttempts > 0 && cfg.retryIntervalDays < 1) {
+      throw INVALID_INPUT_ERROR(
+        `actions[${index}].chargeCardConfig.retryIntervalDays must be a positive number when retryAttempts is set`
+      );
     }
     validateNotificationSubConfig(cfg.onSuccess, `actions[${index}].chargeCardConfig.onSuccess`);
     validateNotificationSubConfig(cfg.onFailure, `actions[${index}].chargeCardConfig.onFailure`);

@@ -35,6 +35,7 @@ import {
   ChartDataRequestedFields,
   GetChartDataResponse,
   isLocationVirtual,
+  NOTE_TYPE,
   ObservationDTO,
   PromiseReturnType,
   RequestedFields,
@@ -619,9 +620,21 @@ export const useSaveChartData = (): UseMutationResult<
 
   return useMutation({
     mutationFn: (chartDataFields: Omit<SaveChartDataRequest, 'encounterId'>) => {
-      // disabled saving chart data in read only mode except addendum note
-      if (isReadOnly && Object.keys(chartDataFields).some((key) => (key as keyof AllChartValues) !== 'addendumNote')) {
-        throw new Error('update disabled in read only mode');
+      // disabled saving chart data in read only mode except addendum note (legacy single-string field
+      // and the per-author `notes` array entries of type ADDENDUM, which providers can still append
+      // after the visit is signed and the claim is created)
+      if (isReadOnly) {
+        const onlyAddendumChanges = Object.keys(chartDataFields).every((key) => {
+          const field = key as keyof AllChartValues;
+          if (field === 'addendumNote') return true;
+          if (field === 'notes') {
+            return (chartDataFields.notes ?? []).every((n) => n.type === NOTE_TYPE.ADDENDUM);
+          }
+          return false;
+        });
+        if (!onlyAddendumChanges) {
+          throw new Error('update disabled in read only mode');
+        }
       }
 
       if (apiClient && encounter?.id) {
@@ -853,8 +866,11 @@ export const useGetChartData = (
   // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 ) => {
   const user = useEvolveUser();
-  const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
-  const key = [requestKey, encounterId, requestedFields, isReadOnly]; // TODO: check if isReadOnly is needed (it causes duplicate requests because it's unstable and has not isLoading state)
+
+  // excluding isReadOnly:
+  // including it causes re-fetches when the appointment is signed (isReadOnly flips true), which triggers the onSuccess callback and merges stale server exam observations over the user's local changes
+  // example of instance of stale data being pulled in https://linear.app/zapehr/issue/OTR-2651/ros-and-exam-after-visit-is-unlocked-updated-and-signed-again-removed
+  const key = [requestKey, encounterId, requestedFields];
 
   const query = useQuery({
     queryKey: key,

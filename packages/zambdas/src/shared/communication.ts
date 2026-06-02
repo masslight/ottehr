@@ -1,13 +1,15 @@
 import Oystehr from '@oystehr/sdk';
 import sendgrid from '@sendgrid/mail';
-import { Patient, RelatedPerson } from 'fhir/r4b';
+import { Location, Patient, RelatedPerson } from 'fhir/r4b';
 import {
   BRANDING_CONFIG,
+  buildLocationSupportPhonesMap,
   DynamicTemplateDataRecord,
   EmailTemplate,
   ErrorReportTemplateData,
   FEATURE_FLAGS_CONFIG,
   GenericOutreachTemplateData,
+  getAllFhirSearchPages,
   getPatientContactEmail,
   getRelatedPersonsForPatient,
   getSecret,
@@ -39,15 +41,24 @@ export interface EmailAttachment {
 }
 
 const defaultLowersFromEmail = 'ottehr-support@masslight.com'; // todo: change to support@ottehr.com when doing so does not land things in spam folder
+
+async function fetchLocationSupportPhonesMap(oystehr: Oystehr): Promise<Record<string, string>> {
+  const locations = await getAllFhirSearchPages<Location>({ resourceType: 'Location' }, oystehr);
+  return buildLocationSupportPhonesMap(locations);
+}
+
 class EmailClient {
   private config: SendgridConfig;
   private secrets: Secrets | null;
   private featureFlag: boolean;
+  private oystehr?: Oystehr;
+  private supportPhonesMapPromise?: Promise<Record<string, string>>;
 
-  constructor(config: SendgridConfig, featureFlag: boolean, secrets: Secrets | null) {
+  constructor(config: SendgridConfig, featureFlag: boolean, secrets: Secrets | null, oystehr?: Oystehr) {
     this.config = config;
     this.secrets = secrets;
     this.featureFlag = featureFlag;
+    this.oystehr = oystehr;
     let SENDGRID_SEND_EMAIL_API_KEY = '';
     try {
       SENDGRID_SEND_EMAIL_API_KEY = getSecret(SecretsKeys.SENDGRID_SEND_EMAIL_API_KEY, secrets);
@@ -90,7 +101,24 @@ class EmailClient {
     const projectDomain = getSecret(SecretsKeys.WEBSITE_URL, this.secrets);
 
     const { sender, replyTo: configReplyTo, ...emailRest } = baseEmail;
-    const supportPhoneNumber = getSupportPhoneFor((templateData as any).location);
+    const locationName = (templateData as any).location;
+    let supportPhoneNumber: string | undefined;
+    if (locationName) {
+      if (!this.oystehr) {
+        throw new Error(
+          `Email template ${templateIdSecretName} requires location support-phone resolution, but no Oystehr client was provided to EmailClient`
+        );
+      }
+      const oystehr = this.oystehr;
+      if (!this.supportPhonesMapPromise) {
+        this.supportPhonesMapPromise = fetchLocationSupportPhonesMap(oystehr).catch((err) => {
+          this.supportPhonesMapPromise = undefined;
+          throw err;
+        });
+      }
+      const supportPhonesMap = await this.supportPhonesMapPromise;
+      supportPhoneNumber = getSupportPhoneFor(locationName, supportPhonesMap);
+    }
 
     const fromEmail = ENVIRONMENT !== 'local' ? sender : defaultLowersFromEmail;
     const replyTo = ENVIRONMENT !== 'local' ? configReplyTo : defaultLowersFromEmail;
@@ -234,8 +262,8 @@ class EmailClient {
   }
 }
 
-export const getEmailClient = (secrets: Secrets | null): EmailClient => {
-  return new EmailClient(SENDGRID_CONFIG, FEATURE_FLAGS_CONFIG.sendgridEnabled, secrets);
+export const getEmailClient = (secrets: Secrets | null, oystehr?: Oystehr): EmailClient => {
+  return new EmailClient(SENDGRID_CONFIG, FEATURE_FLAGS_CONFIG.sendgridEnabled, secrets, oystehr);
 };
 
 export async function sendSms(
@@ -372,6 +400,7 @@ export const sendOrderResultEmailToPatient = async ({
   fhirPatient,
   emailDetails,
   secrets,
+  oystehr,
 }: {
   fhirPatient: Patient;
   emailDetails: {
@@ -382,9 +411,10 @@ export const sendOrderResultEmailToPatient = async ({
     locationName: string; // needs to match the branding config so the support phone can be pulled
   };
   secrets: Secrets | null;
+  oystehr: Oystehr;
 }): Promise<void> => {
   console.log('email details: ', JSON.stringify(emailDetails));
-  const emailClient = getEmailClient(secrets);
+  const emailClient = getEmailClient(secrets, oystehr);
   const patientEmail = getPatientContactEmail(fhirPatient);
 
   if (emailClient.getFeatureFlag()) {

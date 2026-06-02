@@ -26,6 +26,7 @@ import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useEffect, useState } from 'react';
 import { Link as RouterLink, useNavigate, useParams } from 'react-router-dom';
+import { CommandPaletteSearchButton } from 'src/components/CommandPaletteSearchButton';
 import { CreateTaskDialog } from 'src/features/tasks/components/CreateTaskDialog';
 import { useGetPatientCoverages } from 'src/hooks/useGetPatient';
 import { formatLabelValue } from 'src/shared/utils';
@@ -557,9 +558,12 @@ export const Header = (): JSX.Element => {
                 </Grid>
               </Grid>
               <Grid item>
-                <IconButton onClick={() => navigate('/visits')}>
-                  <CloseIcon />
-                </IconButton>
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <CommandPaletteSearchButton />
+                  <IconButton onClick={() => navigate('/visits')}>
+                    <CloseIcon />
+                  </IconButton>
+                </Stack>
               </Grid>
             </Grid>
           </Grid>

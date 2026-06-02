@@ -32,8 +32,6 @@ import useEvolveUser from 'src/hooks/useEvolveUser';
 import { sortQuickPicks, useMergedInHouseMedicationQuickPicks } from 'src/hooks/useMergedQuickPicks';
 import { usePendingQuickPick } from 'src/hooks/usePendingQuickPick';
 import {
-  CODE_SYSTEM_CPT,
-  CODE_SYSTEM_HCPCS,
   ExtendedMedicationDataForResponse,
   getApiError,
   getMedicationName,
@@ -187,28 +185,6 @@ export const EditableMedicationCard: React.FC<{
     if (field === 'medicationId' && value !== '' && (typeFromProps === 'order-new' || typeFromProps === 'order-edit')) {
       setErxEnabled(true);
     }
-    // Auto-populate CPT codes from medication resource when a medication is selected
-    if (field === 'medicationId' && value && value !== IN_HOUSE_CONTAINED_MEDICATION_ID && oystehr) {
-      void (async () => {
-        try {
-          const med = await oystehr.fhir.get<Medication>({
-            resourceType: 'Medication',
-            id: value as string,
-          });
-          const codes: { code: string; display: string }[] = [];
-          med.code?.coding?.forEach((coding) => {
-            if ((coding.system === CODE_SYSTEM_CPT || coding.system === CODE_SYSTEM_HCPCS) && coding.code) {
-              codes.push({ code: coding.code, display: coding.display ?? '' });
-            }
-          });
-          if (codes.length > 0) {
-            setLocalValues((prev) => ({ ...prev, cptCodes: codes }));
-          }
-        } catch {
-          // Medication lookup failed — user can still add CPT codes manually
-        }
-      })();
-    }
   };
 
   const isOrderType = typeFromProps === 'order-new' || typeFromProps === 'order-edit';
@@ -246,6 +222,7 @@ export const EditableMedicationCard: React.FC<{
         dose: quickPick.dose,
         units: quickPick.units,
         route: quickPick.route,
+        location: quickPick.location,
         manufacturer: quickPick.manufacturer,
         // Don't apply associatedDx from quick pick — it's a Condition resource ID
         // that is encounter-specific and won't be valid on other encounters
@@ -320,6 +297,7 @@ export const EditableMedicationCard: React.FC<{
     dose: localValues.dose,
     units: localValues.units,
     route: localValues.route,
+    location: localValues.location,
     manufacturer: localValues.manufacturer,
     // associatedDx is not saved — it's a Condition resource ID that is encounter-specific
     instructions: localValues.instructions,
