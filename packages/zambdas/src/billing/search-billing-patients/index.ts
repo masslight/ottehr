@@ -1,21 +1,10 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Patient } from 'fhir/r4b';
+import { BillingPatientOption, FRIENDLY_PATIENT_ID_SYSTEM_BASE } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
-import { createBillingClient, EXCLUDE_WORKING_COPIES_PARAM, fhirName, formatAddress } from '../shared';
+import { createBillingClient, EXCLUDE_WORKING_COPIES_PARAMS, fhirName, formatAddress } from '../shared';
 import { SearchBillingPatientsParams, validateRequestParameters } from './validateRequestParameters';
-
-interface PatientSearchItem {
-  id: string | undefined;
-  name: string;
-  firstName: string;
-  lastName: string;
-  dob: string;
-  gender: string;
-  address: string;
-  mrn: string;
-  identifiers: { system: string | undefined; value: string | undefined }[];
-}
 
 let m2mToken: string;
 const ZAMBDA_NAME = 'search-billing-patients';
@@ -32,18 +21,15 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 async function performEffect(
   oystehr: Oystehr,
   params: SearchBillingPatientsParams
-): Promise<{ patients: PatientSearchItem[] }> {
-  const hasSearch = params.name || params.dob || params.identifier || params.uuid;
-
+): Promise<{ patients: BillingPatientOption[]; total: number; offset: number; pageSize: number }> {
+  const pageSize = params.pageSize ?? 25;
+  const offset = params.offset ?? 0;
   const searchParams: { name: string; value: string }[] = [
-    { name: '_count', value: '50' },
+    { name: '_count', value: String(pageSize) },
+    { name: '_offset', value: String(offset) },
     { name: '_sort', value: 'family' },
   ];
-
-  // Default view excludes working copies; search includes them
-  if (!hasSearch) {
-    searchParams.push(EXCLUDE_WORKING_COPIES_PARAM);
-  }
+  if (!params.includeWorkingCopies) searchParams.push(...EXCLUDE_WORKING_COPIES_PARAMS);
   if (params.uuid) searchParams.push({ name: '_id', value: params.uuid });
   if (params.name) searchParams.push({ name: 'name', value: params.name });
   if (params.dob) searchParams.push({ name: 'birthdate', value: params.dob });
@@ -52,8 +38,8 @@ async function performEffect(
   const response = await oystehr.fhir.search<Patient>({ resourceType: 'Patient', params: searchParams });
 
   const patients = response.unbundle().map((p) => {
-    const identifiers = p.identifier ?? [];
-    const mrn = identifiers.find((id) => id.type?.coding?.some((c) => c.code === 'MR'))?.value ?? '';
+    const ids = p.identifier ?? [];
+    const friendlyId = ids.find((id) => id.system?.startsWith(FRIENDLY_PATIENT_ID_SYSTEM_BASE))?.value ?? '';
 
     return {
       id: p.id,
@@ -63,10 +49,9 @@ async function performEffect(
       dob: p.birthDate ?? '',
       gender: p.gender ?? '',
       address: formatAddress(p.address?.[0]),
-      mrn,
-      identifiers: identifiers.map((id) => ({ system: id.system, value: id.value })),
+      friendlyId,
     };
   });
 
-  return { patients };
+  return { patients, total: response.total ?? 0, offset, pageSize };
 }

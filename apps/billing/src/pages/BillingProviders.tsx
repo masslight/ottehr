@@ -1,0 +1,203 @@
+import { ArrowBack as ArrowBackIcon, Search as SearchIcon } from '@mui/icons-material';
+import { Alert, Box, Button, CircularProgress, IconButton, InputAdornment, TextField, Typography } from '@mui/material';
+import { DataGridPro, GridColDef, GridPaginationModel } from '@mui/x-data-grid-pro';
+import { ReactElement, useCallback, useEffect, useRef, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import { chooseJson } from 'utils';
+import { dataGridSlots, dataGridSx } from '../components/BillingDataGrid';
+import { DetailRow } from '../components/DetailRow';
+import { useApiClients } from '../hooks/useAppClients';
+import { useDebounce } from '../hooks/useDebounce';
+
+interface ProviderRow {
+  id: string;
+  name: string;
+  npi: string;
+  taxId?: string;
+  clia?: string;
+  address?: string;
+}
+
+const columns: GridColDef[] = [
+  { field: 'name', headerName: 'Name', flex: 1, minWidth: 200 },
+  { field: 'npi', headerName: 'NPI', width: 130 },
+  { field: 'taxId', headerName: 'Tax ID / EIN', width: 140 },
+  { field: 'clia', headerName: 'CLIA Number', width: 140 },
+  { field: 'address', headerName: 'Address', flex: 1, minWidth: 200 },
+];
+
+export function BillingProvidersList(): ReactElement {
+  const navigate = useNavigate();
+  const { oystehrZambda } = useApiClients();
+
+  const [providers, setProviders] = useState<ProviderRow[]>([]);
+  const [totalRows, setTotalRows] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [paginationModel, setPaginationModel] = useState<GridPaginationModel>({ page: 0, pageSize: 25 });
+  const [searchName, setSearchName] = useState('');
+  const { debounce } = useDebounce();
+
+  const fetchProviders = useCallback(
+    async (pagination: GridPaginationModel, name?: string): Promise<void> => {
+      if (!oystehrZambda) return;
+      setLoading(true);
+      setError(null);
+      try {
+        const response = await oystehrZambda.zambda.execute({
+          id: 'search-billing-providers',
+          providerType: 'billing',
+          pageSize: pagination.pageSize,
+          offset: pagination.page * pagination.pageSize,
+          ...(name ? { name, includeWorkingCopies: true } : {}),
+        });
+        const data = chooseJson(response);
+        setProviders(data.providers ?? []);
+        setTotalRows(data.total ?? 0);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : String(err));
+      } finally {
+        setLoading(false);
+      }
+    },
+    [oystehrZambda]
+  );
+
+  const initialLoadDone = useRef(false);
+  useEffect(() => {
+    if (!oystehrZambda || initialLoadDone.current) return;
+    initialLoadDone.current = true;
+    void fetchProviders(paginationModel);
+  }, [oystehrZambda, fetchProviders, paginationModel]);
+
+  const handleSearchChange = (value: string): void => {
+    setSearchName(value);
+    debounce(() => {
+      setPaginationModel((prev) => ({ ...prev, page: 0 }));
+      void fetchProviders({ ...paginationModel, page: 0 }, value || undefined);
+    }, 'search');
+  };
+
+  const handlePaginationChange = (model: GridPaginationModel): void => {
+    setPaginationModel(model);
+    void fetchProviders(model, searchName || undefined);
+  };
+
+  return (
+    <Box sx={{ p: 0 }}>
+      <Typography variant="h4" color="primary.dark" fontWeight={600} sx={{ mb: 3 }}>
+        Billing Providers
+      </Typography>
+
+      <TextField
+        fullWidth
+        size="small"
+        placeholder="Search by name..."
+        value={searchName}
+        onChange={(e) => handleSearchChange(e.target.value)}
+        InputProps={{
+          startAdornment: (
+            <InputAdornment position="start">
+              <SearchIcon fontSize="small" color="action" />
+            </InputAdornment>
+          ),
+        }}
+        sx={{ mb: 2 }}
+      />
+
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {error}
+        </Alert>
+      )}
+
+      <DataGridPro
+        rows={providers}
+        columns={columns}
+        loading={loading}
+        rowCount={totalRows}
+        paginationMode="server"
+        paginationModel={paginationModel}
+        onPaginationModelChange={handlePaginationChange}
+        pageSizeOptions={[25, 50, 100]}
+        onRowClick={(params) => navigate(`/billing-providers/${params.id}`)}
+        disableRowSelectionOnClick
+        disableColumnMenu
+        slots={dataGridSlots}
+        sx={{ ...dataGridSx, height: 'calc(100vh - 310px)' }}
+      />
+    </Box>
+  );
+}
+
+export function BillingProviderDetail(): ReactElement {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const { oystehrZambda } = useApiClients();
+
+  const [provider, setProvider] = useState<ProviderRow | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchDetail = useCallback(async () => {
+    if (!oystehrZambda || !id) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await oystehrZambda.zambda.execute({
+        id: 'search-billing-providers',
+        providerType: 'billing',
+        providerId: id,
+      });
+      const data = chooseJson(response);
+      setProvider((data.providers ?? [])[0] ?? null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setLoading(false);
+    }
+  }, [oystehrZambda, id]);
+
+  useEffect(() => {
+    void fetchDetail();
+  }, [fetchDetail]);
+
+  if (loading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50vh' }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  if (error || !provider) {
+    return (
+      <Box sx={{ p: 0 }}>
+        <Alert severity="error">{error ?? 'Provider not found'}</Alert>
+        <Button sx={{ mt: 2 }} onClick={() => navigate('/billing-providers')}>
+          Back to Billing Providers
+        </Button>
+      </Box>
+    );
+  }
+
+  return (
+    <Box sx={{ p: 0 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
+        <IconButton onClick={() => navigate('/billing-providers')} size="small">
+          <ArrowBackIcon />
+        </IconButton>
+        <Typography variant="h5" color="primary.dark" fontWeight={600}>
+          {provider.name}
+        </Typography>
+      </Box>
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+        <DetailRow label="Name" value={provider.name} />
+        <DetailRow label="NPI" value={provider.npi} />
+        <DetailRow label="Tax ID / EIN" value={provider.taxId ?? ''} />
+        <DetailRow label="CLIA Number" value={provider.clia ?? ''} />
+        <DetailRow label="Address" value={provider.address ?? ''} />
+      </Box>
+    </Box>
+  );
+}

@@ -1,19 +1,10 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Coverage, Organization } from 'fhir/r4b';
-import { getPayerId } from 'utils';
+import { Coverage } from 'fhir/r4b';
+import { BillingCoverageOption, getPayerId } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
-import { createBillingClient, EXCLUDE_WORKING_COPIES_PARAM } from '../shared';
+import { createBillingClient, EXCLUDE_WORKING_COPIES_PARAMS, resolvePayersByRef } from '../shared';
 import { GetPatientCoveragesParams, validateRequestParameters } from './validateRequestParameters';
-
-interface CoverageItem {
-  id: string | undefined;
-  status: string;
-  subscriberId: string;
-  payorName: string;
-  payorId: string;
-  payorFhirId: string;
-}
 
 let m2mToken: string;
 const ZAMBDA_NAME = 'get-patient-coverages';
@@ -27,28 +18,24 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   return { statusCode: 200, body: JSON.stringify(response) };
 });
 
-// TODO: Coverage.payor will move to external Oystehr payer refs (#6603)
 async function performEffect(
   oystehr: Oystehr,
   params: GetPatientCoveragesParams
-): Promise<{ coverages: CoverageItem[] }> {
-  const response = await oystehr.fhir.search<Coverage | Organization>({
+): Promise<{ coverages: BillingCoverageOption[] }> {
+  const response = await oystehr.fhir.search<Coverage>({
     resourceType: 'Coverage',
-    params: [
-      { name: 'beneficiary', value: `Patient/${params.patientId}` },
-      { name: '_include', value: 'Coverage:payor' },
-      EXCLUDE_WORKING_COPIES_PARAM,
-    ],
+    params: [{ name: 'beneficiary', value: `Patient/${params.patientId}` }, ...EXCLUDE_WORKING_COPIES_PARAMS],
   });
 
-  const resources = response.unbundle();
-  const coverages = resources.filter((r): r is Coverage => r.resourceType === 'Coverage');
-  const orgs = resources.filter((r): r is Organization => r.resourceType === 'Organization');
+  const coverages = response.unbundle();
+  const payersByRef = await resolvePayersByRef(
+    oystehr,
+    coverages.map((cov) => cov.payor?.[0]?.reference)
+  );
 
   const result = coverages.map((cov) => {
     const payorRef = cov.payor?.[0]?.reference;
-    const payorId = payorRef?.replace('Organization/', '');
-    const payorOrg = orgs.find((o) => o.id === payorId);
+    const payorOrg = payorRef ? payersByRef.get(payorRef) : undefined;
 
     return {
       id: cov.id,

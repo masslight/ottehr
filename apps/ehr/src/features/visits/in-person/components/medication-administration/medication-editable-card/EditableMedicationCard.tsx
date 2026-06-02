@@ -104,7 +104,11 @@ export const EditableMedicationCard: React.FC<{
   const { isLoading: isMedicationHistoryLoading, medicationHistory, refetchHistory } = useMedicationHistory();
   const currentUser = useEvolveUser();
   const isAdmin = currentUser?.hasRole([RoleType.Administrator]) ?? false;
-  const { quickPicks: fhirQuickPicks, refetch: refetchQuickPicks } = useMergedInHouseMedicationQuickPicks();
+  const {
+    quickPicks: fhirQuickPicks,
+    loading: fhirQuickPicksLoading,
+    refetch: refetchQuickPicks,
+  } = useMergedInHouseMedicationQuickPicks();
   const [quickPickDialogOpen, setQuickPickDialogOpen] = useState(false);
   const [quickPickName, setQuickPickName] = useState('');
   const [existingQuickPicksForDialog, setExistingQuickPicksForDialog] = useState<InHouseMedicationQuickPickData[]>([]);
@@ -697,6 +701,7 @@ export const EditableMedicationCard: React.FC<{
           typeFromProps === 'order-new' || typeFromProps === 'order-edit' ? handleQuickPickSelect : undefined
         }
         fhirQuickPicks={fhirQuickPicks}
+        fhirQuickPicksLoading={fhirQuickPicksLoading}
         onFhirQuickPickSelect={handleFhirQuickPickSelect}
         showQuickPickAddOption
         isAdmin={isAdmin}

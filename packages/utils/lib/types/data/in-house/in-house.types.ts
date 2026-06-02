@@ -1,4 +1,5 @@
 import { ProcedureModifier } from 'candidhealth/api/index.js';
+import { Account, Coverage, Encounter, Location, Patient } from 'fhir/r4b';
 import {
   CPTCodeDTO,
   DiagnosisDTO,
@@ -175,6 +176,8 @@ export type InHouseOrdersPaginationOptions = {
 export type GetInHouseOrdersParameters = InHouseOrdersSearchBy &
   InHouseOrdersSearchFilters &
   InHouseOrdersPaginationOptions;
+
+export type CreateInHouseLabEnconuterResource = Encounter | Patient | Location | Coverage | Account;
 
 export type CreateInHouseLabOrderParameters = {
   encounterId: string;

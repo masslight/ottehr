@@ -495,7 +495,7 @@ export const provenanceIsInHouseLabResultEntry = (provenance: Provenance): boole
  * **************************
  */
 
-const AD_CANONICAL_URL_BASE = 'https://ottehr.com/FHIR/InHouseLab/ActivityDefinition';
+export const AD_CANONICAL_URL_BASE = 'https://ottehr.com/FHIR/InHouseLab/ActivityDefinition';
 
 const sanitizeForId = (str: string): string => {
   /* eslint-disable-next-line  no-useless-escape */

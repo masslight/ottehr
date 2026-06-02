@@ -255,7 +255,8 @@ const MedicalConditionListItem: FC<{ value: MedicalConditionDTO; index: number; 
 };
 
 const AddMedicalConditionField: FC = () => {
-  const { quickPicks: conditionQuickPicks } = useMergedMedicalConditionQuickPicks();
+  const { quickPicks: conditionQuickPicks, loading: conditionQuickPicksLoading } =
+    useMergedMedicalConditionQuickPicks();
   const { chartData, isChartDataLoading, setPartialChartData } = useChartData();
   const { onSubmit, isLoading } = useChartDataArrayValue('conditions');
 
@@ -347,6 +348,7 @@ const AddMedicalConditionField: FC = () => {
     >
       <QuickPicksButton
         quickPicks={conditionQuickPicks}
+        loading={conditionQuickPicksLoading}
         getLabel={(quickPick) => {
           const code = quickPick.code ? `${quickPick.code} ` : '';
           return `${code}${quickPick.display}`;

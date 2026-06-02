@@ -93,7 +93,11 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
   const [consentObtained, setConsentObtained] = useState<boolean>(false);
 
   // Quick picks state
-  const { quickPicks: mergedQuickPicks, refetch: refetchQuickPicks } = useMergedRadiologyQuickPicks();
+  const {
+    quickPicks: mergedQuickPicks,
+    loading: mergedQuickPicksLoading,
+    refetch: refetchQuickPicks,
+  } = useMergedRadiologyQuickPicks();
   const [quickPickDialogOpen, setQuickPickDialogOpen] = useState(false);
   const [quickPickName, setQuickPickName] = useState('');
   const [existingQuickPicks, setExistingQuickPicks] = useState<RadiologyQuickPickData[]>([]);
@@ -331,6 +335,7 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
                 <Grid item xs={12}>
                   <QuickPicksButton
                     quickPicks={mergedQuickPicks}
+                    loading={mergedQuickPicksLoading}
                     getLabel={(qp) => {
                       const parts = [qp.name] as string[];
                       if (qp.cptCode) parts.push(qp.cptCode);
