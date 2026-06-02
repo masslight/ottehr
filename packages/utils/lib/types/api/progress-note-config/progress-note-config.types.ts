@@ -12,7 +12,6 @@ export const UpdateProgressNoteConfigInputSchema = z.object({
   mdmRequired: z.boolean(),
 });
 export type UpdateProgressNoteConfigInput = z.infer<typeof UpdateProgressNoteConfigInputSchema>;
-export type UpdateProgressNoteConfigOutput = void;
 
 export const UpdateProgressNoteConfigInputValidatedSchema = UpdateProgressNoteConfigInputSchema.extend({
   secrets: z.custom<Secrets>().nullable(),

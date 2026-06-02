@@ -218,7 +218,6 @@ import {
   UpdatePatientLoginPhoneNumbersInput,
   UpdateProcedureQuickPickResponse,
   UpdateProgressNoteConfigInput,
-  UpdateProgressNoteConfigOutput,
   UpdateQuickTextQuickPickResponse,
   UpdateRadiologyQuickPickResponse,
   UpdateScheduleParams,
@@ -2084,13 +2083,12 @@ export const getProgressNoteConfig = async (
 export const adminUpdateProgressNoteConfig = async (
   oystehr: Oystehr,
   parameters: UpdateProgressNoteConfigInput
-): Promise<UpdateProgressNoteConfigOutput> => {
+): Promise<void> => {
   try {
-    const response = await oystehr.zambda.execute({
+    await oystehr.zambda.execute({
       id: 'admin-update-progress-note-config',
       ...parameters,
     });
-    return chooseJson(response);
   } catch (error: unknown) {
     console.log(error);
     throw apiErrorToThrow(error);
