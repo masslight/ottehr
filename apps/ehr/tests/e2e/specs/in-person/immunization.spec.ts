@@ -1,4 +1,4 @@
-import { Page, test } from '@playwright/test';
+import { BrowserContext, Page, test } from '@playwright/test';
 import { DateTime } from 'luxon';
 import { waitForSaveChartDataResponse } from 'test-utils';
 import {
@@ -96,20 +96,38 @@ const PATIENT_REFUSED = 'Patient refused';
 const resourceHandler = new ResourceHandler(`immunization-mutating-${DateTime.now().toMillis()}`);
 
 test.describe('Immunization Page mutating tests', () => {
+  let page: Page;
+  let context: BrowserContext;
+
   test.skip(!Object.keys(vaccines.fhirResources).length, 'Need vaccines to run immunization tests');
 
-  test.beforeEach(async ({ page }) => {
+  // These tests share a single appointment to avoid paying for an expensive appointment
+  // creation + preprocessing wait on every test. They run serially and each test creates
+  // its own vaccine order, which is identified on the MAR by vaccine + status, so the
+  // orders left behind by earlier tests don't interfere. The only locators that match by
+  // vaccine name alone (edit/delete) are used exclusively by the first test, which runs
+  // against an appointment that still has just its own order.
+  test.describe.configure({ mode: 'serial' });
+
+  test.beforeAll(async ({ browser }) => {
     await resourceHandler.setResources();
     await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!);
+
+    context = await browser.newContext();
+    page = await context.newPage();
+
+    // Appointment-level setup (practitioners + diagnoses) only needs to happen once.
     await setupPractitioners(page);
     await setupDiagnosis(page);
   });
 
-  test.afterEach(async () => {
+  test.afterAll(async () => {
+    await page.close();
+    await context.close();
     await resourceHandler.cleanupResources();
   });
 
-  test('Immunization create, edit and delete order happy path', async ({ page }) => {
+  test('Immunization create, edit and delete order happy path', async () => {
     await test.step('Create a vaccine order and verify', async () => {
       const createOrderPage = await openCreateVaccineOrderPage(resourceHandler.appointment.id!, page);
       await enterVaccineInfo(VACCINE, createOrderPage.orderDetailsSection);
@@ -154,7 +172,7 @@ test.describe('Immunization Page mutating tests', () => {
     });
   });
 
-  test('Administering immunization order happy path', async ({ page }) => {
+  test('Administering immunization order happy path', async () => {
     await test.step('Verify vaccine order on vaccine details page, Administer order and verify', async () => {
       const vaccineDetailsTab = await createOrderForAdministration(page);
       const administrationConfirmationDialog = await vaccineDetailsTab.clickAdministeredButton();
@@ -179,7 +197,7 @@ test.describe('Immunization Page mutating tests', () => {
     });
   });
 
-  test('Partly Administering immunization order happy path', async ({ page }) => {
+  test('Partly Administering immunization order happy path', async () => {
     await test.step('Verify vaccine order on vaccine details page, Partly Administer order and verify', async () => {
       const vaccineDetailsTab = await createOrderForAdministration(page);
       const administrationConfirmationDialog = await vaccineDetailsTab.clickPartlyAdministeredButton();
@@ -206,7 +224,7 @@ test.describe('Immunization Page mutating tests', () => {
     });
   });
 
-  test('Immunization happy path for making order not administered', async ({ page }) => {
+  test('Immunization happy path for making order not administered', async () => {
     const vaccineDetailsTab = await createOrderForAdministration(page);
     const administrationConfirmationDialog = await vaccineDetailsTab.clickNotAdministeredButton();
     await administrationConfirmationDialog.verifyTitle('Order Not Administered');
