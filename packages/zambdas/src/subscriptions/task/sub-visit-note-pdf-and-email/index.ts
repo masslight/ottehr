@@ -30,6 +30,7 @@ import {
   wrapHandler,
   ZambdaInput,
 } from '../../../shared';
+import { getUpcomingFollowUps } from '../../../shared/pdf/get-upcoming-follow-ups';
 import { createProgressNotePdf } from '../../../shared/pdf/progress-note-pdf';
 import { getAppointmentAndRelatedResources } from '../../../shared/pdf/visit-details-pdf/get-video-resources';
 import { makeVisitNotePdfDocumentReference } from '../../../shared/pdf/visit-details-pdf/make-visit-note-pdf-document-reference';
@@ -132,10 +133,15 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       },
     });
 
-    const [chartDataResult, additionalChartDataResult, medicationOrdersData] = await Promise.all([
+    // Follow-ups hang off the top-level encounter, so resolve to the parent if this one is a follow-up.
+    const followUpParentEncounterId = encounter.partOf?.reference?.split('/')[1] ?? encounter.id!;
+    const upcomingFollowUpsPromise = getUpcomingFollowUps(oystehr, followUpParentEncounterId, visitResources.timezone);
+
+    const [chartDataResult, additionalChartDataResult, medicationOrdersData, upcomingFollowUps] = await Promise.all([
       chartDataPromise,
       additionalChartDataPromise,
       medicationOrdersPromise,
+      upcomingFollowUpsPromise,
     ]);
     const immunizationOrders = (
       await getImmunizationOrders(oystehr, {
@@ -147,6 +153,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const medicationOrders = medicationOrdersData?.orders.filter((order) => order.status !== 'cancelled');
 
     console.log('Chart data received');
+
     try {
       // Check if we should skip making visit note visible in patient portal
       const skipVisitNoteInPatientPortal = FEATURE_FLAGS_CONFIG.skipSendingVisitNoteToPatientPortalEnabled;
@@ -164,6 +171,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
           },
           appointmentPackage: visitResources,
           questionnaireResponse: visitResources.questionnaireResponse,
+          upcomingFollowUps,
         },
         secrets,
         oystehrToken

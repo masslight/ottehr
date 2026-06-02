@@ -3,7 +3,7 @@ import { createConfiguredSection, DataComposer } from '../../pdf-common';
 import { DischargeSummaryInput, InHouseMedicationsDataForDischargeSummary, PdfSection } from '../../types';
 
 export const composeInHouseMedicationsForDischargeSummary: DataComposer<
-  DischargeSummaryInput,
+  Pick<DischargeSummaryInput, 'allChartData' | 'appointmentPackage'>,
   InHouseMedicationsDataForDischargeSummary
 > = ({ allChartData, appointmentPackage }) => {
   const { medicationOrders } = allChartData;
