@@ -35,12 +35,8 @@ export function getAgeInYears(dateString: string): number {
   return Math.floor(DateTime.now().diff(DateTime.fromISO(dateString), 'years').years);
 }
 
-export function is18YearsOrOlder(dateString: string): boolean {
-  return getAgeInYears(dateString) >= 18;
-}
-
-export function isYoungerThan18Years(dateString: string): boolean {
-  return getAgeInYears(dateString) < 18;
+export function is18YearsOrYounger(dateString: string): boolean {
+  return getAgeInYears(dateString) <= 18;
 }
 
 export function isNullOrUndefined(value: any): boolean {

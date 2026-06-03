@@ -4,7 +4,7 @@ import { FC, useCallback, useEffect, useMemo, useState } from 'react';
 import { PendingErxEnrollmentDialog } from 'src/components/dialogs/PendingErxEnrollmentDialog';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import { getPractitionerMissingFields } from 'src/shared/utils';
-import { isYoungerThan18Years, VitalFieldNames, VitalsObservationDTO } from 'utils';
+import { is18YearsOrYounger, VitalFieldNames, VitalsObservationDTO } from 'utils';
 import { safelyCaptureException, safelyCaptureMessage } from 'utils/lib/frontend/sentry';
 import { createVitalsSearchConfig } from 'utils/lib/helpers/visit-note/create-vitals-search-config.helper';
 import { useChartFields } from '../hooks/useChartFields';
@@ -82,7 +82,7 @@ export const ERX: FC<{
       return 'extraWeightOptions' in obs && obs.extraWeightOptions?.includes('patient_refused');
     }) ?? false;
 
-  const vitalsRequired = !patient?.birthDate || isYoungerThan18Years(patient.birthDate);
+  const vitalsRequired = !patient?.birthDate || is18YearsOrYounger(patient.birthDate);
   const hasVitals =
     !vitalsRequired ||
     (hasValidHeight(heightVitalObservationResponse?.vitalsObservations) &&
