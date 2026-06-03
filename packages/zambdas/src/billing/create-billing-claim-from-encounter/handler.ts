@@ -28,6 +28,7 @@ import {
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
+  ACCOUNT_TYPE_CODE_SYSTEM,
   CODE_SYSTEM_CLAIM_TYPE,
   CODE_SYSTEM_CMS_PLACE_OF_SERVICE,
   CODE_SYSTEM_CPT_MODIFIER,
@@ -157,7 +158,10 @@ export async function handler(input: ZambdaInput): Promise<APIGatewayProxyResult
   return { statusCode: 200, body: JSON.stringify(response) };
 }
 
-async function performEffect(billingOystehr: Oystehr, cvo: ComplexValidationOutput): Promise<{ claimId: string }> {
+export async function performEffect(
+  billingOystehr: Oystehr,
+  cvo: ComplexValidationOutput
+): Promise<{ claimId: string }> {
   const { clinicalResources, billingResources } = cvo;
 
   const requests: CreateClaimFromEncounterRequests = [];
@@ -361,10 +365,10 @@ async function performEffect(billingOystehr: Oystehr, cvo: ComplexValidationOutp
     if (entries[i].resourceType !== expected) throw InternalError;
     copies[order[i] as keyof ClinicalResources] = entries[i] as any;
   }
+  const createdClaim = entries.find((e): e is Claim => e.resourceType === 'Claim');
+  if (!createdClaim || !createdClaim.id) throw InternalError;
 
-  const created = await billingOystehr.fhir.create<Claim>(claim);
-
-  return { claimId: created.id! };
+  return { claimId: createdClaim.id };
 }
 
 function uuidOrUrnReference(resourceType: BillingFhirResource['resourceType'], uuidOrUrn: string): Reference {
@@ -404,10 +408,7 @@ function getClaimCoveragesForEncounter(
   switch (encounterType) {
     case 'uc': {
       const ucAccount = mainPatientAccounts.find(
-        (mpacc) =>
-          mpacc.type?.coding?.some(
-            (c) => c.system === 'http://terminology.hl7.org/CodeSystem/account-type' && c.code === 'PBILLACCT'
-          )
+        (mpacc) => mpacc.type?.coding?.some((c) => c.system === ACCOUNT_TYPE_CODE_SYSTEM && c.code === 'PBILLACCT')
       );
       let primaryCoverage: Coverage | undefined;
       let secondaryCoverage: Coverage | undefined;
@@ -440,10 +441,7 @@ function getClaimCoveragesForEncounter(
     }
     case 'wc': {
       const wcAccount = mainPatientAccounts.find(
-        (mpacc) =>
-          mpacc.type?.coding?.some(
-            (c) => c.system === 'http://terminology.hl7.org/CodeSystem/account-type' && c.code === 'WCMOPACCT'
-          )
+        (mpacc) => mpacc.type?.coding?.some((c) => c.system === ACCOUNT_TYPE_CODE_SYSTEM && c.code === 'WCMOPACCT')
       );
       let wcCoverage: Coverage | undefined;
       wcAccount?.coverage?.forEach((wccov) => {
@@ -473,7 +471,7 @@ function getClaimCoveragesForEncounter(
   }
 }
 
-function copyCoverageAndSubscriberForAccount(
+export function copyCoverageAndSubscriberForAccount(
   billingOystehr: Oystehr,
   coverages: Coverage[],
   account: Account,
@@ -495,7 +493,7 @@ function copyCoverageAndSubscriberForAccount(
   return [requests, order];
 }
 
-function copyCoverageAndSubscriber(
+export function copyCoverageAndSubscriber(
   billingOystehr: Oystehr,
   coverage: Coverage,
   patientUuidOrUrn: string,
@@ -516,10 +514,9 @@ function copyCoverageAndSubscriber(
         contained.id === copy.subscriber?.reference?.replace('#', '') && contained.resourceType === 'RelatedPerson'
     );
     if (containedSubscriber) {
-      const subscriber = workingCopy
-        ? prepareWorkingCopy(containedSubscriber, containedSubscriber.id!)
-        : prepareCopy(containedSubscriber, containedSubscriber.id!);
+      const subscriber = workingCopy ? prepareWorkingCopy(containedSubscriber) : prepareCopy(containedSubscriber);
       subscriber.id = `urn:uuid:${workingCopy ? 'claim' : 'billing'}-coverage-rp-${coverage.id}`;
+      subscriber.patient = uuidOrUrnReference('Patient', patientUuidOrUrn);
       requests.push({
         method: 'POST',
         url: '/RelatedPerson',
@@ -528,6 +525,7 @@ function copyCoverageAndSubscriber(
       });
       order.push('relatedperson');
       subscriberId = subscriber.id;
+      copy.contained = copy.contained.filter((contained) => contained.id !== containedSubscriber.id);
     }
   } else if (coverageSubscriber) {
     // Subscriber was found and passed in to the function
@@ -893,7 +891,6 @@ function buildClaim(resources: ClaimResources): Claim {
           // CW TODO: charge amounts!
           net: undefined,
           quantity: { value: 1, unit: 'UN' },
-          // CW TODO: use samir's tagging system to add encounter-type tags (or use subtype field?)
         }))
       : [],
   };

@@ -51,6 +51,9 @@ export const FRIENDLY_PATIENT_ID_SYSTEM_BASE = 'https://identifiers.fhir.oystehr
 export const FHIR_AI_CHAT_CONSENT_CATEGORY_CODE = 'ai-chat';
 export const FHIR_HL7_ORG_VALUE_SET_BASE_URL = 'http://hl7.org/fhir/ValueSet';
 
+export const PARTICIPATION_CODE_SYSTEM = 'http://terminology.hl7.org/CodeSystem/v3-ParticipationType';
+export const ACCOUNT_TYPE_CODE_SYSTEM = 'http://terminology.hl7.org/CodeSystem/account-type';
+
 export const FHIR_EXTENSION = {
   Appointment: {
     additionalInfo: {
@@ -511,7 +514,7 @@ export const COVERAGE_MEMBER_IDENTIFIER_BASE: Partial<Identifier> = {
 export const PATIENT_BILLING_ACCOUNT_TYPE: Account['type'] = {
   coding: [
     {
-      system: 'http://terminology.hl7.org/CodeSystem/account-type',
+      system: ACCOUNT_TYPE_CODE_SYSTEM,
       code: 'PBILLACCT',
       display: 'patient billing account',
     },
@@ -521,7 +524,7 @@ export const PATIENT_BILLING_ACCOUNT_TYPE: Account['type'] = {
 export const WORKERS_COMP_ACCOUNT_TYPE: Account['type'] = {
   coding: [
     {
-      system: 'http://terminology.hl7.org/CodeSystem/account-type',
+      system: ACCOUNT_TYPE_CODE_SYSTEM,
       code: 'WCOMPACCT',
       display: 'worker compensation account',
     },
@@ -531,7 +534,7 @@ export const WORKERS_COMP_ACCOUNT_TYPE: Account['type'] = {
 export const OCCUPATIONAL_MEDICINE_ACCOUNT_TYPE: Account['type'] = {
   coding: [
     {
-      system: 'http://terminology.hl7.org/CodeSystem/account-type',
+      system: ACCOUNT_TYPE_CODE_SYSTEM,
       code: 'OCCUPATIONALMEDICINEACCT',
       display: 'occupational medicine account',
     },
@@ -815,7 +818,6 @@ export const CASE_RATE_CODE = 'case-rate';
 
 export const CPT_MODIFIER_EXTENSION_URL = ottehrExtensionUrl('cpt-modifier');
 export const CPT_CODE_SYSTEM = 'http://www.ama-assn.org/go/cpt';
-export const PARTICIPATION_CODE_SYSTEM = 'http://terminology.hl7.org/CodeSystem/v3-ParticipationType';
 
 export const EXAM_MIGRATION_VERSION_URL = `${PRIVATE_EXTENSION_BASE_URL}/exam-migration-version`;
 // Version 1 and 2 are essentially the same

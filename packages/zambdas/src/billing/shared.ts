@@ -95,25 +95,29 @@ export function fhirName(resource?: Patient | Practitioner): string {
 }
 
 // Clone a billing resource into a working copy: strips id, tags it, adds source identifier.
-export function prepareWorkingCopy<T extends Resource>(resource: T, originalId: string): T {
+export function prepareWorkingCopy<T extends Resource>(resource: T, originalId?: string): T {
   const copy = prepareCopy<T>(resource, originalId);
   copy.meta = { tag: [BILLING_WORKING_COPY_TAG] };
   return copy;
 }
 
 // Clone a billing resource into a working copy: strips id, tags it, adds source identifier.
-export function prepareCopy<T extends DomainResource>(resource: T, originalId: string): T {
+export function prepareCopy<T extends DomainResource>(resource: T, originalId?: string): T {
   const copy: T = structuredClone(resource);
   delete copy.id;
   const existing = (copy.extension ?? []).filter((ext) => ext.url !== SOURCE_IDENTIFIER_SYSTEM);
   copy.extension = [
     ...existing,
-    {
-      url: SOURCE_IDENTIFIER_SYSTEM,
-      valueReference: {
-        reference: originalId.startsWith('urn:uuid:') ? originalId : `${resource.resourceType}/${originalId}`,
-      },
-    },
+    ...(originalId
+      ? [
+          {
+            url: SOURCE_IDENTIFIER_SYSTEM,
+            valueReference: {
+              reference: originalId.startsWith('urn:uuid:') ? originalId : `${resource.resourceType}/${originalId}`,
+            },
+          },
+        ]
+      : []),
   ];
   return copy;
 }
