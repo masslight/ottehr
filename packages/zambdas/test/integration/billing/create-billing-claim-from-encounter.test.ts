@@ -7,7 +7,10 @@ describe('create-billing-claim-from-encounter', () => {
   let oystehr: Oystehr;
   let cleanup: () => Promise<void>;
   beforeAll(async () => {
-    const setup = await setupIntegrationTest('integration/get-my-practitioner-id.test.ts', M2MClientMockType.provider);
+    const setup = await setupIntegrationTest(
+      'integration/create-billing-claim-from-encounter.test.ts',
+      M2MClientMockType.provider
+    );
     // token = setup.testUserM2MToken;
     oystehr = setup.oystehrTestUserM2M;
     // testUserM2MProfile = setup.testUserM2MProfile;
