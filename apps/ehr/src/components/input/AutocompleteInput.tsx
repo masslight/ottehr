@@ -19,6 +19,8 @@ export type AutocompleteInputProps<Value> = {
   getOptionLabel?: (option: Value) => string;
   isOptionEqualToValue?: (option: Value, value: Value) => boolean;
   dataTestId?: string;
+  multiple?: boolean;
+  size?: 'small' | 'medium';
 };
 
 export function AutocompleteInput<Value>({
@@ -37,10 +39,12 @@ export function AutocompleteInput<Value>({
   getOptionLabel,
   isOptionEqualToValue,
   dataTestId,
+  multiple,
+  size,
 }: AutocompleteInputProps<Value>): React.JSX.Element {
   const { control } = useFormContext();
   if (loading && !options) {
-    return <Skeleton variant="rectangular" width="100%" height={40} />;
+    return <Skeleton variant="rectangular" width="100%" height={size === 'medium' ? 56 : 40} />;
   }
   return (
     <Controller
@@ -56,14 +60,15 @@ export function AutocompleteInput<Value>({
           field.value &&
           !options?.find((option) =>
             isOptionEqualToValue ? isOptionEqualToValue(option, field.value) : option === field.value
-          )
+          ) &&
+          !multiple
         ) {
           optionsToUse = [...optionsToUse, field.value];
         }
         return (
           <Box sx={{ width: '100%' }}>
-            <Autocomplete<Value, false, false, boolean>
-              value={field.value ?? null}
+            <Autocomplete<Value, boolean | undefined, false, boolean>
+              value={field.value ?? (multiple ? [] : null)}
               options={optionsToUse}
               // MUI types getOptionKey/getOptionLabel as (option: Value | string) => ... when FreeSolo
               // is boolean rather than false, but our props already enforce the correct type for callers.
@@ -78,7 +83,7 @@ export function AutocompleteInput<Value>({
                 ? {
                     onInputChange: (_e: any, newValue: string, reason: string) => {
                       if (reason === 'input') {
-                        field.onChange(newValue || null);
+                        field.onChange(newValue.trim() || null);
                       }
                     },
                   }
@@ -87,16 +92,17 @@ export function AutocompleteInput<Value>({
                 <TextField
                   {...params}
                   label={label + (required ? '*' : '')}
-                  placeholder={label}
+                  placeholder={!multiple ? label : undefined}
                   inputProps={{ ...params.inputProps, readOnly: selectOnly }}
                   error={error != null}
-                  size="small"
+                  size={size ?? 'small'}
                   onChange={onInputTextChanged ? (e) => onInputTextChanged(e.target.value) : undefined}
                   data-testid={dataTestId}
                 />
               )}
               loading={loading}
               disabled={disabled}
+              multiple={multiple}
               fullWidth
             />
             {error && <FormHelperText error={true}>{error?.message}</FormHelperText>}

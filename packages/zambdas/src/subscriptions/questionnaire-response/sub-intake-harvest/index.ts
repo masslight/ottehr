@@ -113,6 +113,18 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
     throw new Error('Appointment resource not found');
   }
 
+  // Idempotency guard: if the Appointment already carries the harvest-complete tag and the
+  // QR is firing as `completed` (initial completion semantics), this is a duplicate event —
+  // a subscription replay, or integration-test seed data that pre-sets the tag to opt out
+  // of harvest. Skip finalization. Amended QRs still flow through so flagPaperworkEdit
+  // fires below; status=amended is the contract for "paperwork edited after completion".
+  if (qr.status === 'completed' && hasHarvestCompleteTag(appointmentResource)) {
+    console.log(
+      `Skipping harvest for QR ${qr.id}: appointment ${appointmentResource.id} is already tagged ${FHIR_APPOINTMENT_INTAKE_HARVESTING_COMPLETED_TAG.code}`
+    );
+    return `skipped: appointment already harvested`;
+  }
+
   // Wait for page-level harvest Tasks to finish before finalization
   await waitForPageHarvestTasks(qr.id!, oystehr);
 
@@ -214,6 +226,18 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
   }
 
   return response;
+};
+
+// Exported for unit-testing. Returns true iff the Appointment carries the meta tag
+// (system + code) that this subscription sets at the end of a successful finalization.
+export const hasHarvestCompleteTag = (appointment: Appointment): boolean => {
+  return (
+    appointment.meta?.tag?.some(
+      (tag) =>
+        tag.system === FHIR_APPOINTMENT_INTAKE_HARVESTING_COMPLETED_TAG.system &&
+        tag.code === FHIR_APPOINTMENT_INTAKE_HARVESTING_COMPLETED_TAG.code
+    ) ?? false
+  );
 };
 
 async function waitForPageHarvestTasks(qrId: string, oystehr: Oystehr): Promise<void> {

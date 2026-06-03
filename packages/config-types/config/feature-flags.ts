@@ -11,9 +11,11 @@ export const FeatureFlagsConfigSchema = z.object({
   formsEnabled: z.boolean(),
   legacyDataEnabled: z.boolean(),
   mailingPaperStatementsEnabled: z.boolean(),
+  automatedPatientOutreachEnabled: z.boolean(),
   legacyPatientFollowupsEnabled: z.boolean(),
   skipSendingVisitNoteToPatientPortalEnabled: z.boolean(),
   sendgridEnabled: z.boolean(),
+  hideRegisterAnotherPatient: z.boolean().optional(),
 });
 
 export type FeatureFlagsConfig = z.infer<typeof FeatureFlagsConfigSchema>;

@@ -37,6 +37,14 @@ export const PRIVACY_POLICY_CODE = '64292-6';
 export const VISIT_NOTE_SUMMARY_CODE = '75498-6';
 export const VISIT_DETAILS_CODE = 'visit-details';
 export const DISCHARGE_SUMMARY_CODE = 'discharge-summary';
+export const PATIENT_EDUCATION_DOC_TYPE_CODE = 'patient-education';
+export const PATIENT_EDUCATION_APPROVED_DOC_TYPE_CODE = 'patient-education-approved';
+export const PATIENT_EDUCATION_APPROVED_LIST_IDENTIFIER = {
+  system: 'https://fhir.ottehr.com/Identifier/patient-education-approved-list',
+  value: 'index',
+};
+export const PATIENT_EDUCATION_APPROVED_ICD_EXTENSION_URL =
+  'https://fhir.ottehr.com/Extension/patient-education-approved-icd-codes';
 export const STATEMENT_CODE = 'statement-code';
 
 // only one type supported currently, but extension is invited here

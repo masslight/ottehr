@@ -26,6 +26,7 @@ import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useEffect, useState } from 'react';
 import { Link as RouterLink, useNavigate, useParams } from 'react-router-dom';
+import { CommandPaletteSearchButton } from 'src/components/CommandPaletteSearchButton';
 import { CreateTaskDialog } from 'src/features/tasks/components/CreateTaskDialog';
 import { useGetPatientCoverages } from 'src/hooks/useGetPatient';
 import { formatLabelValue } from 'src/shared/utils';
@@ -333,49 +334,46 @@ export const Header = (): JSX.Element => {
 
   const { oystehrZambda } = useApiClients();
 
-  const { data: employees, isFetching: employeesIsFetching } = useQuery({
-    queryKey: ['get-employees', { oystehrZambda }],
+  const { data: employees, isLoading: employeesIsLoading } = useQuery({
+    queryKey: ['progress-note-header-employees'],
     queryFn: async () => {
-      if (oystehrZambda) {
-        const getEmployeesRes = await getEmployees(oystehrZambda);
-        const activeEmployees = getEmployeesRes.employees.filter((employee) => employee.status === 'Active');
-        const providers = activeEmployees.filter((employee) => employee.isProvider && !employee.isCustomerSupport);
-        const formattedProviders: ProviderDetails[] = providers
-          .map((prov) => {
-            const id = prov.profile.split('/')[1];
-            return {
-              practitionerId: id,
-              name: `${prov.firstName} ${prov.lastName}`.trim(),
-            };
-          })
-          .filter((prov) => prov.name);
+      if (!oystehrZambda) return null;
+      const getEmployeesRes = await getEmployees(oystehrZambda, { lite: true });
+      const activeEmployees = getEmployeesRes.employees.filter((employee) => employee.status === 'Active');
+      const providers = activeEmployees.filter((employee) => employee.isProvider && !employee.isCustomerSupport);
+      const formattedProviders: ProviderDetails[] = providers
+        .map((prov) => {
+          const id = prov.profile.split('/')[1];
+          return {
+            practitionerId: id,
+            name: `${prov.firstName} ${prov.lastName}`.trim(),
+          };
+        })
+        .filter((prov) => prov.name);
 
-        // TODO: remove this once we have nurses role
-        // const nonProviders = getEmployeesRes.employees.filter((employee) => !employee.isProvider);
-        const nonProviders = activeEmployees.filter((employee) => !employee.isCustomerSupport);
-        const formattedNonProviders: ProviderDetails[] = nonProviders
-          .map((prov) => {
-            const id = prov.profile.split('/')[1];
-            return {
-              practitionerId: id,
-              name: `${prov.firstName} ${prov.lastName}`.trim(),
-            };
-          })
-          .filter((prov) => prov.name);
-        return {
-          providers: formattedProviders,
-          nonProviders: formattedNonProviders,
-        };
-      }
-      return null;
+      // TODO: remove this once we have nurses role
+      // const nonProviders = getEmployeesRes.employees.filter((employee) => !employee.isProvider);
+      const nonProviders = activeEmployees.filter((employee) => !employee.isCustomerSupport);
+      const formattedNonProviders: ProviderDetails[] = nonProviders
+        .map((prov) => {
+          const id = prov.profile.split('/')[1];
+          return {
+            practitionerId: id,
+            name: `${prov.firstName} ${prov.lastName}`.trim(),
+          };
+        })
+        .filter((prov) => prov.name);
+      return {
+        providers: formattedProviders,
+        nonProviders: formattedNonProviders,
+      };
     },
+    enabled: !!oystehrZambda,
+    // Employees rarely change — cache across navigations to keep the header fast.
+    staleTime: 5 * 60 * 1000,
   });
 
-  if (employeesIsFetching) {
-    return <HeaderSkeleton />;
-  }
-
-  if (!employees) {
+  if (!employeesIsLoading && oystehrZambda && !employees) {
     return <Box sx={{ padding: '16px' }}>There must be some employees registered to use charting.</Box>;
   }
 
@@ -472,55 +470,7 @@ export const Header = (): JSX.Element => {
                     {isFollowup ? (
                       <Stack direction="row" spacing={1} alignItems="center">
                         <PatientMetadata sx={{ whiteSpace: 'nowrap' }}>Follow-up provider: </PatientMetadata>
-                        <TextField
-                          select
-                          fullWidth
-                          data-testid={dataTestIds.inPersonHeader.providerPractitionerInput}
-                          sx={{ minWidth: 120 }}
-                          variant="standard"
-                          value={assignedProviderId ?? ''}
-                          disabled={isUpdatingPractitionerForProvider}
-                          onChange={(e) => {
-                            void handleUpdateProviderAssignment(e.target.value);
-                          }}
-                        >
-                          {employees.providers
-                            ?.sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()))
-                            ?.map((provider) => (
-                              <MenuItem key={provider.practitionerId} value={provider.practitionerId}>
-                                {provider.name}
-                              </MenuItem>
-                            ))}
-                        </TextField>
-                      </Stack>
-                    ) : (
-                      <Stack direction="row" spacing={2}>
-                        <Stack direction="row" spacing={1} alignItems="center">
-                          <PatientMetadata>Intake: </PatientMetadata>
-                          <TextField
-                            select
-                            fullWidth
-                            data-testid={dataTestIds.inPersonHeader.intakePractitionerInput}
-                            sx={{ minWidth: 120 }}
-                            variant="standard"
-                            value={assignedIntakePerformerId ?? ''}
-                            disabled={isUpdatingPractitionerForIntake}
-                            onChange={(e) => {
-                              void handleUpdateIntakeAssignment(e.target.value);
-                            }}
-                          >
-                            {employees.nonProviders
-                              ?.sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()))
-                              ?.map((nonProvider) => (
-                                <MenuItem key={nonProvider.practitionerId} value={nonProvider.practitionerId}>
-                                  {nonProvider.name}
-                                </MenuItem>
-                              ))}
-                          </TextField>
-                        </Stack>
-
-                        <Stack direction="row" spacing={1} alignItems="center">
-                          <PatientMetadata>Provider: </PatientMetadata>
+                        {employees ? (
                           <TextField
                             select
                             fullWidth
@@ -541,6 +491,66 @@ export const Header = (): JSX.Element => {
                                 </MenuItem>
                               ))}
                           </TextField>
+                        ) : (
+                          <Skeleton sx={{ width: 120, minWidth: 120 }} animation="wave" />
+                        )}
+                      </Stack>
+                    ) : (
+                      <Stack direction="row" spacing={2}>
+                        <Stack direction="row" spacing={1} alignItems="center">
+                          <PatientMetadata>Intake: </PatientMetadata>
+                          {employees ? (
+                            <TextField
+                              select
+                              fullWidth
+                              data-testid={dataTestIds.inPersonHeader.intakePractitionerInput}
+                              sx={{ minWidth: 120 }}
+                              variant="standard"
+                              value={assignedIntakePerformerId ?? ''}
+                              disabled={isUpdatingPractitionerForIntake}
+                              onChange={(e) => {
+                                void handleUpdateIntakeAssignment(e.target.value);
+                              }}
+                            >
+                              {employees.nonProviders
+                                ?.sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()))
+                                ?.map((nonProvider) => (
+                                  <MenuItem key={nonProvider.practitionerId} value={nonProvider.practitionerId}>
+                                    {nonProvider.name}
+                                  </MenuItem>
+                                ))}
+                            </TextField>
+                          ) : (
+                            <Skeleton sx={{ width: 120, minWidth: 120 }} animation="wave" />
+                          )}
+                        </Stack>
+
+                        <Stack direction="row" spacing={1} alignItems="center">
+                          <PatientMetadata>Provider: </PatientMetadata>
+                          {employees ? (
+                            <TextField
+                              select
+                              fullWidth
+                              data-testid={dataTestIds.inPersonHeader.providerPractitionerInput}
+                              sx={{ minWidth: 120 }}
+                              variant="standard"
+                              value={assignedProviderId ?? ''}
+                              disabled={isUpdatingPractitionerForProvider}
+                              onChange={(e) => {
+                                void handleUpdateProviderAssignment(e.target.value);
+                              }}
+                            >
+                              {employees.providers
+                                ?.sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()))
+                                ?.map((provider) => (
+                                  <MenuItem key={provider.practitionerId} value={provider.practitionerId}>
+                                    {provider.name}
+                                  </MenuItem>
+                                ))}
+                            </TextField>
+                          ) : (
+                            <Skeleton sx={{ width: 120, minWidth: 120 }} animation="wave" />
+                          )}
                         </Stack>
                       </Stack>
                     )}
@@ -548,9 +558,12 @@ export const Header = (): JSX.Element => {
                 </Grid>
               </Grid>
               <Grid item>
-                <IconButton onClick={() => navigate('/visits')}>
-                  <CloseIcon />
-                </IconButton>
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <CommandPaletteSearchButton />
+                  <IconButton onClick={() => navigate('/visits')}>
+                    <CloseIcon />
+                  </IconButton>
+                </Stack>
               </Grid>
             </Grid>
           </Grid>
@@ -656,79 +669,6 @@ export const Header = (): JSX.Element => {
                   </MenuItem>
                 </Menu>
                 <CreateTaskDialog open={showCreateTaskDialog} handleClose={() => setShowCreateTaskDialog(false)} />
-              </Grid>
-            </Grid>
-          </Grid>
-        </Grid>
-      </Stack>
-    </HeaderWrapper>
-  );
-};
-
-const HeaderSkeleton = (): JSX.Element => {
-  return (
-    <HeaderWrapper>
-      <Stack flexDirection="row">
-        <Box sx={{ width: 70 }} display="flex" alignItems="center" justifyContent="center">
-          <Skeleton sx={{ height: 40, width: 40 }} animation="wave" variant="circular" />
-        </Box>
-        <Grid container spacing={2} sx={{ padding: '0 18px 0 4px' }}>
-          <Grid item xs={12}>
-            <Grid container alignItems="center" justifyContent="space-between">
-              <Grid item>
-                <Grid container alignItems="center" spacing={2}>
-                  <Grid item>
-                    <Skeleton sx={{ width: 120, height: 40 }} animation="wave" />
-                  </Grid>
-                  <Grid item>
-                    <Skeleton sx={{ width: 200 }} animation="wave" variant="text" />
-                  </Grid>
-                  <Grid item>
-                    <Stack direction="row" spacing={2}>
-                      <Stack direction="row" spacing={1} alignItems="center">
-                        <Skeleton sx={{ width: 60 }} animation="wave" variant="text" />
-                        <Skeleton sx={{ width: 120 }} animation="wave" />
-                      </Stack>
-
-                      <Stack direction="row" spacing={1} alignItems="center">
-                        <Skeleton sx={{ width: 60 }} animation="wave" variant="text" />
-                        <Skeleton sx={{ width: 120 }} animation="wave" />
-                      </Stack>
-                    </Stack>
-                  </Grid>
-                </Grid>
-              </Grid>
-              <Grid item>
-                <Skeleton sx={{ height: 40, width: 40 }} animation="wave" variant="circular" />
-              </Grid>
-            </Grid>
-          </Grid>
-          <Grid item xs={12} sx={{ mt: -2 }}>
-            <Grid container alignItems="center" spacing={2}>
-              <Grid item>
-                <Skeleton sx={{ height: 50, width: 50 }} animation="wave" variant="circular" />
-              </Grid>
-              <Grid item xs>
-                <PatientInfoWrapper>
-                  <Skeleton sx={{ width: 160 }} animation="wave" variant="text" />
-                  <Skeleton sx={{ width: 120 }} animation="wave" variant="text" />
-                </PatientInfoWrapper>
-                <PatientInfoWrapper>
-                  <Skeleton sx={{ width: 120 }} animation="wave" variant="text" />
-                  <Skeleton sx={{ width: 140 }} animation="wave" variant="text" />
-                </PatientInfoWrapper>
-              </Grid>
-              <Grid
-                item
-                sx={{
-                  '@media (max-width: 1179px)': {
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: 0.5,
-                  },
-                }}
-              >
-                <Skeleton width={200} height={40} animation="wave" />
               </Grid>
             </Grid>
           </Grid>

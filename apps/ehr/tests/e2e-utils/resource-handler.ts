@@ -35,6 +35,7 @@ import {
   formatPhoneNumber,
   genderMap,
   GetPaperworkAnswers,
+  getTimezone,
   IN_PERSON_INTAKE_PAPERWORK_CANONICAL,
   RelationshipOption,
   SampleAppointmentResponse,
@@ -349,11 +350,18 @@ export class ResourceHandler {
     // Seed data only needs the canonical URL+version pair, not a full Q body.
     const { url, version } = IN_PERSON_INTAKE_PAPERWORK_CANONICAL;
 
+    // Use the location's timezone (not UTC) so the seeded appointment lands on the same
+    // calendar day the tracking board searches — it filters in the location's timezone,
+    // so a UTC-keyed date is wrong in the evenings local time (e.g. 8pm-midnight ET).
+    const locationTimezone = getTimezone(schedule);
     let seedDataString = JSON.stringify(fastSeedData);
     seedDataString = seedDataString.replace(/\{\{locationId\}\}/g, process.env.LOCATION_ID);
     seedDataString = seedDataString.replace(/\{\{scheduleId\}\}/g, schedule.id!);
     seedDataString = seedDataString.replace(/\{\{questionnaireUrl\}\}/g, `${url}|${version}`);
-    seedDataString = seedDataString.replace(/\{\{date\}\}/g, DateTime.now().toUTC().toFormat('yyyy-MM-dd'));
+    seedDataString = seedDataString.replace(
+      /\{\{date\}\}/g,
+      DateTime.now().setZone(locationTimezone).toFormat('yyyy-MM-dd')
+    );
 
     // TODO do something about the DocumentReference attachments? For the moment all of these tests point to the exact same files. Maybe that's great. Or maybe we should upload images each time?
 
@@ -485,6 +493,7 @@ export class ResourceHandler {
     const delayMs = 5_000;
 
     try {
+      let isHarvestingDone = false;
       for (let i = 0; i < maxAttempts; i++) {
         const appointment = (
           await apiClient.fhir.search({
@@ -505,14 +514,12 @@ export class ResourceHandler {
         }
 
         const tags = appointment?.meta?.tag || [];
-        const isHarvestingDone = tags.some(
-          (tag) => tag?.code === FHIR_APPOINTMENT_INTAKE_HARVESTING_COMPLETED_TAG.code
-        );
-        if (isHarvestingDone) {
+        if (tags.some((tag) => tag?.code === FHIR_APPOINTMENT_INTAKE_HARVESTING_COMPLETED_TAG.code)) {
           console.log(
             `Appointment ${appointmentId} harvesting done after ${i + 1} attempts (${((i + 1) * delayMs) / 1000}s)`
           );
-          return;
+          isHarvestingDone = true;
+          break;
         }
 
         if (i % 5 === 0 && i > 0) {
@@ -522,11 +529,39 @@ export class ResourceHandler {
         await new Promise((resolve) => setTimeout(resolve, delayMs));
       }
 
-      const errorMsg = `Appointment ${appointmentId} wasn't harvested by sub-intake-harvest module after ${
-        (maxAttempts * delayMs) / 1000
-      } seconds`;
-      console.error(errorMsg);
-      throw new Error(errorMsg);
+      if (!isHarvestingDone) {
+        const errorMsg = `Appointment ${appointmentId} wasn't harvested by sub-intake-harvest module after ${
+          (maxAttempts * delayMs) / 1000
+        } seconds`;
+        console.error(errorMsg);
+        throw new Error(errorMsg);
+      }
+
+      // The harvesting-completed tag does not reliably gate the async eRx Patient.contact patch:
+      // that patch is applied by a page-harvest Task whose completion the tag's finalizer can race
+      // ahead of. So once the tag appears, also wait for the patient to settle before returning —
+      // otherwise a snapshot taken here (e.g. seed generation) can miss `contact` and drift from the
+      // live e2e patient in the integration data-contract test. These two waits always belong
+      // together, so they live in one method. Not every flow produces a `contact` (e.g. no
+      // contact-information page or no verified phone), so on timeout we log and proceed rather than
+      // throw — those callers' live patients won't have a contact either.
+      const patientId = await this.patientIdByAppointmentId(appointmentId);
+      const contactMaxAttempts = 30; // 30 * 3s = 90s ceiling; the patch normally lands within seconds
+      const contactDelayMs = 3_000;
+      for (let i = 0; i < contactMaxAttempts; i++) {
+        const patient = await apiClient.fhir.get<Patient>({ resourceType: 'Patient', id: patientId });
+        if ((patient.contact?.length ?? 0) > 0) {
+          console.log(`Patient ${patientId} contact harvested after ${i + 1} attempts`);
+          return;
+        }
+        await new Promise((resolve) => setTimeout(resolve, contactDelayMs));
+      }
+
+      console.warn(
+        `Patient ${patientId} never gained a contact entry after ${
+          (contactMaxAttempts * contactDelayMs) / 1000
+        }s; proceeding (this flow may not produce a patient contact)`
+      );
     } catch (e) {
       console.error('Error during waitTillHarvestingDone', e);
       throw e;

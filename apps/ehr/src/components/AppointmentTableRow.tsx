@@ -36,7 +36,6 @@ import {
 } from 'src/features/visits/in-person/routing/helpers';
 import { ROUTER_PATH } from 'src/features/visits/in-person/routing/routesInPerson';
 import { VitalsIconTooltip } from 'src/features/visits/shared/components/VitalsIconTooltip';
-import { LocationWithWalkinSchedule } from 'src/pages/AddPatient';
 import { otherColors } from 'src/themes/ottehr/colors';
 import {
   formatMinutes,
@@ -49,6 +48,7 @@ import {
   getVisitTotalTime,
   GetVitalsResponseData,
   InPersonAppointmentInformation,
+  LOCATION_REVIEW_LINK_EXTENSION_URL,
   makeAbbreviation,
   mdyStringFromISOString,
   NON_LOS_STATUSES,
@@ -66,13 +66,13 @@ import { usePractitionerActions } from '../features/visits/shared/hooks/usePract
 import { useSignAppointmentMutation } from '../features/visits/shared/stores/tracking-board/tracking-board.queries';
 import { checkInPatient, displayOrdersToolTip, hasAtLeastOneOrder, isEligibleSupervisor } from '../helpers';
 import { completeIntakeWorkflow } from '../helpers/completeIntakeWorkflow';
-import { getTimezone } from '../helpers/formatDateTime';
 import { formatPatientName } from '../helpers/formatPatientName';
 import { getOfficePhoneNumber } from '../helpers/getOfficePhoneNumber';
 import { handleChangeInPersonVisitStatus } from '../helpers/inPersonVisitStatusUtils';
 import { getTrackingBoardPrimaryAction } from '../helpers/trackingBoardPrimaryAction';
 import { useApiClients } from '../hooks/useAppClients';
 import useEvolveUser from '../hooks/useEvolveUser';
+import { useSupportPhonesMap } from '../hooks/useLocationSupportPhones';
 import AppointmentNote from './AppointmentNote';
 import AppointmentTableRowMobile from './AppointmentTableRowMobile';
 import { ApptTab } from './AppointmentTabs';
@@ -86,7 +86,6 @@ const VITE_APP_PATIENT_APP_URL = import.meta.env.VITE_APP_PATIENT_APP_URL;
 
 interface AppointmentTableRowProps {
   appointment: InPersonAppointmentInformation;
-  location?: LocationWithWalkinSchedule;
   now: DateTime;
   tab: ApptTab;
   updateAppointments: () => void;
@@ -178,7 +177,6 @@ const getIsLongWaitTime = (
 
 export default function AppointmentTableRow({
   appointment,
-  location,
   now,
   tab,
   updateAppointments,
@@ -189,6 +187,7 @@ export default function AppointmentTableRow({
 }: AppointmentTableRowProps): ReactElement | null {
   const { oystehr, oystehrZambda } = useApiClients();
   const apiClient = useOystehrAPIClient();
+  const { phonesByLocationName } = useSupportPhonesMap();
   const theme = useTheme();
   const navigate = useNavigate();
   const { encounter } = appointment;
@@ -208,10 +207,12 @@ export default function AppointmentTableRow({
   const { handleUpdatePractitioner } = usePractitionerActions(encounter, 'end', PRACTITIONER_CODINGS.Admitter);
 
   const rooms = useMemo(() => {
-    return location?.extension?.filter((ext) => ext.url === ROOM_EXTENSION_URL).map((ext) => ext.valueString);
-  }, [location]);
+    return appointment.location?.extension
+      ?.filter((ext) => ext.url === ROOM_EXTENSION_URL)
+      .map((ext) => ext.valueString);
+  }, [appointment]);
 
-  const officePhoneNumber = getOfficePhoneNumber(location);
+  const officePhoneNumber = getOfficePhoneNumber(appointment.location);
 
   const patientName =
     (appointment.patient.lastName &&
@@ -223,12 +224,7 @@ export default function AppointmentTableRow({
       })) ||
     'Unknown';
 
-  let start;
-  if (appointment.start) {
-    const locationTimeZone = getTimezone(location);
-    const dateTime = DateTime.fromISO(appointment.start).setZone(locationTimeZone);
-    start = dateTime.toFormat('h:mm a');
-  }
+  const start = appointment.start ? DateTime.fromISO(appointment.start).toFormat('h:mm a') : undefined;
 
   const showChatIcon = appointment.smsModel !== undefined;
   // console.log('sms model', appointment.smsModel);
@@ -527,10 +523,12 @@ export default function AppointmentTableRow({
     patientFirstName: appointment.patient.firstName,
     patientLastName: appointment.patient.lastName,
     visitId: appointment.id,
-    locationName: location?.name,
+    locationName: appointment.location?.name,
+    locationReviewLink: appointment.location?.extension?.find((ext) => ext.url === LOCATION_REVIEW_LINK_EXTENSION_URL)
+      ?.valueUrl,
     bookingTime: start,
     officePhone: officePhoneNumber,
-    supportPhone: getSupportPhoneFor(location?.name) || '',
+    supportPhone: getSupportPhoneFor(appointment.location?.name, phonesByLocationName) || '',
   };
 
   const onCloseChat = useCallback(() => {
@@ -746,7 +744,7 @@ export default function AppointmentTableRow({
         encounterId: encounterId,
       });
       await updateAppointments();
-      navigate('/visits', { state: { tab: ApptTab.completed } });
+      navigate(`/visits?tab=${ApptTab.completed}`);
     } catch (error) {
       console.error(error);
       enqueueSnackbar('An error occurred while approving. Please try again.', { variant: 'error' });
@@ -1088,7 +1086,7 @@ export default function AppointmentTableRow({
       {chatModalOpen && (
         <ChatModal
           appointment={appointment}
-          currentLocation={location}
+          currentLocation={appointment.location}
           onClose={onCloseChat}
           onMarkAllRead={onMarkAllRead}
           quickTextsContext={quickTextsContext}

@@ -1,5 +1,6 @@
 import { ProcedureModifier } from 'candidhealth/api/index.js';
 import { z } from 'zod';
+import { FHIR_CODE_REGEX } from '../../constants';
 import { REFLEX_TEST_CONDITION_LANGUAGES } from './in-house.constants';
 
 const nonEmptyString = (message?: string): z.ZodString => z.string().trim().nonempty(message);
@@ -38,7 +39,10 @@ const CodeableConceptComponentSchema = BaseComponentSchema.extend({
     .array(
       z.object({
         isAbnormal: z.boolean(),
-        code: nonEmptyString('Selectable component must have a value'),
+        code: nonEmptyString('Selectable component must have a value').regex(
+          FHIR_CODE_REGEX,
+          'Code must not have leading, trailing, or consecutive spaces'
+        ),
         display: nonEmptyString('Selectable component must have a value'),
       })
     )
@@ -58,7 +62,10 @@ const QuantityComponentSchema = BaseComponentSchema.extend({
       low: z.coerce.number(), // coerce since forms somtimes submit as strings, prevents silent validation failures
       high: z.coerce.number(),
       precision: z.coerce.number({ invalid_type_error: 'Please enter a valid number.' }).optional(),
-      unit: nonEmptyString('Quantity component must have a unit'),
+      unit: nonEmptyString('Quantity component must have a unit').regex(
+        FHIR_CODE_REGEX,
+        'Unit must not have leading, trailing, or consecutive spaces'
+      ),
     })
     .superRefine((val, ctx) => {
       if (val.low >= val.high) {
@@ -120,7 +127,10 @@ const CptCodeInHouseLabDefinitionSchema = z.object({
 });
 
 export const AdminInHouseLabItemDefinitionSchema = z.object({
-  name: nonEmptyString('Must include a non-empty name'),
+  name: nonEmptyString('Must include a non-empty name').regex(
+    FHIR_CODE_REGEX, // name is mapped to code.coding.[x].code
+    'Name must not have leading, trailing, or consecutive spaces'
+  ),
   device: nonEmptyString('Device name must be non-empty if provided')
     .nullable()
     .transform((val) => val ?? undefined) // the FE will pass null if the field is cleared

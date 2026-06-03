@@ -1,11 +1,15 @@
 import Oystehr from '@oystehr/sdk';
-import { Condition, List, Observation, Resource } from 'fhir/r4b';
 import {
-  chartDataTagSystem,
-  GLOBAL_TEMPLATE_IN_PERSON_CODE_SYSTEM,
-  GLOBAL_TEMPLATE_META_TAG_CODE_SYSTEM,
-  GLOBAL_TEMPLATE_TELEMED_CODE_SYSTEM,
-} from 'utils';
+  ClinicalImpression,
+  Communication,
+  Condition,
+  Encounter,
+  List,
+  Observation,
+  Procedure,
+  Resource,
+} from 'fhir/r4b';
+import { chartDataTagSystem, GLOBAL_TEMPLATE_IN_PERSON_CODE_SYSTEM, GLOBAL_TEMPLATE_META_TAG_CODE_SYSTEM } from 'utils';
 
 // Meta-tag systems that mark a resource as belonging in a global template.
 // IMPORTANT: this is a positive allow-list
@@ -39,9 +43,7 @@ export function isDiagnosisCondition(resource: TaggedResource | undefined): bool
 }
 
 export function verifyIsTemplate(templateList: List, templateId: string): void {
-  const isTemplate = templateList.code?.coding?.some(
-    (c) => c.system === GLOBAL_TEMPLATE_IN_PERSON_CODE_SYSTEM || c.system === GLOBAL_TEMPLATE_TELEMED_CODE_SYSTEM
-  );
+  const isTemplate = templateList.code?.coding?.some((c) => c.system === GLOBAL_TEMPLATE_IN_PERSON_CODE_SYSTEM);
   if (!isTemplate) {
     throw new Error(`List ${templateId} is not a global template`);
   }
@@ -123,7 +125,6 @@ export function analyzeTemplateVersionData(params: {
   }
 
   // A template is "current" if all its exam & ros observation fields exist in the current config.
-  // This matches the approach used by useUnmatchedExamFields for visit exam data.
   const isCurrentVersion = unmatchedExamFields.length === 0 && unmatchedRosFields.length === 0 && !legacyRosFound;
 
   return {
@@ -135,3 +136,32 @@ export function analyzeTemplateVersionData(params: {
     rosNote,
   };
 }
+
+export type TemplateEncounterResource =
+  | Encounter
+  | Observation
+  | ClinicalImpression
+  | Communication
+  | Condition
+  | Procedure;
+
+export const getTemplateEncounterBundle = async (
+  oystehr: Oystehr,
+  encounterId: string
+): Promise<TemplateEncounterResource[]> => {
+  return (
+    await oystehr.fhir.search<TemplateEncounterResource>({
+      resourceType: 'Encounter',
+      params: [
+        { name: '_id', value: encounterId },
+        { name: '_revinclude:iterate', value: 'Observation:encounter' },
+        { name: '_revinclude:iterate', value: 'ClinicalImpression:encounter' },
+        { name: '_revinclude:iterate', value: 'Communication:encounter' },
+        // NOTE: this pulls all Conditions that have ever been associated with an encounter
+        // not just the ones currently on the Encounter. Need to filter it down later
+        { name: '_revinclude:iterate', value: 'Condition:encounter' },
+        { name: '_revinclude:iterate', value: 'Procedure:encounter' },
+      ],
+    })
+  ).unbundle();
+};
