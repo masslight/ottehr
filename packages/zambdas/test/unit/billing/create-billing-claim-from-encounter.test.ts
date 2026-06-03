@@ -8,15 +8,19 @@ import {
   Location,
   Organization,
   Patient,
+  Person,
   Practitioner,
   Procedure,
+  RelatedPerson,
 } from 'fhir/r4b';
 import {
   APIError,
+  FHIR_IDENTIFIER_NPI,
   FHIR_RESOURCE_NOT_FOUND,
   INVALID_INPUT_ERROR,
   MISSING_REQUEST_BODY,
   MISSING_REQUEST_SECRETS,
+  PARTICIPATION_CODE_SYSTEM,
 } from 'utils';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { Mock, vi } from 'vitest';
@@ -58,6 +62,23 @@ const clinicalResources: {
         },
       },
     ],
+    participant: [
+      {
+        individual: {
+          reference: 'Practitioner/practitioner-123',
+        },
+        type: [
+          {
+            coding: [
+              {
+                system: PARTICIPATION_CODE_SYSTEM,
+                code: 'ATND',
+              },
+            ],
+          },
+        ],
+      },
+    ],
   },
   patient: {
     resourceType: 'Patient',
@@ -76,6 +97,7 @@ const clinicalResources: {
   practitioner: {
     resourceType: 'Practitioner',
     id: 'practitioner-123',
+    identifier: [{ system: FHIR_IDENTIFIER_NPI, value: '11111111111' }],
   },
   account: {
     resourceType: 'Account',
@@ -108,7 +130,57 @@ const clinicalResources: {
     resourceType: 'Organization',
     id: 'organization-123',
   },
-} as const;
+};
+
+const billingResources: {
+  person: Person;
+  patient: Patient;
+  account: Account;
+  coverage: Coverage;
+  relatedPerson: RelatedPerson;
+  location: Location;
+  practitioner: Practitioner;
+  billingProvider: Organization;
+} = {
+  person: {
+    resourceType: 'Person',
+    id: 'billing-person-123',
+  },
+  patient: {
+    resourceType: 'Patient',
+    id: 'billing-patient-123',
+  },
+  account: {
+    resourceType: 'Account',
+    id: 'billing-account-123',
+    status: 'active',
+  },
+  coverage: {
+    resourceType: 'Coverage',
+    id: 'billing-coverage-123',
+    payor: [{ reference: 'https://rcm-api.zapehr.com/v1/payer/payer-123' }],
+    status: 'active',
+    beneficiary: { reference: 'Patient/billing-patient-123' },
+  },
+  relatedPerson: {
+    resourceType: 'RelatedPerson',
+    id: 'billing-related-person-123',
+    patient: { reference: 'Patient/billing-patient-123' },
+  },
+  location: {
+    resourceType: 'Location',
+    id: 'billing-location-123',
+  },
+  practitioner: {
+    resourceType: 'Practitioner',
+    id: 'billing-practitioner-123',
+    identifier: [{ system: FHIR_IDENTIFIER_NPI, value: '11111111111' }],
+  },
+  billingProvider: {
+    resourceType: 'Organization',
+    id: 'billing-organization-123',
+  },
+};
 
 const oystehrResources: { payor: Organization } = {
   payor: { resourceType: 'Organization', id: 'payer-123' },
@@ -481,6 +553,79 @@ describe('create-billing-claim-from-encounter', () => {
             renderingProvider: undefined,
             serviceFacility: undefined,
             subscribers: [],
+          },
+        },
+      },
+      {
+        name: 'succeeds with required data and all found billing resources',
+        clinicalOystehrSearch: vi
+          .fn()
+          .mockResolvedValueOnce({
+            unbundle: () => [
+              clinicalResources.encounter,
+              clinicalResources.patient,
+              clinicalResources.appointment,
+              clinicalResources.location,
+              clinicalResources.practitioner,
+              clinicalResources.account,
+              clinicalResources.coverage,
+              clinicalResources.condition,
+              clinicalResources.procedure,
+            ],
+          })
+          .mockResolvedValueOnce({
+            unbundle: () => [clinicalResources.billingProvider],
+          }),
+        billingOystehrSearch: vi
+          .fn()
+          .mockResolvedValueOnce({
+            // Existing claim
+            unbundle: () => [],
+          })
+          .mockResolvedValueOnce({
+            unbundle: () => [
+              billingResources.person,
+              billingResources.patient,
+              billingResources.account,
+              billingResources.coverage,
+              billingResources.relatedPerson,
+            ],
+          })
+          .mockResolvedValueOnce({
+            unbundle: () => [billingResources.location],
+          })
+          .mockResolvedValueOnce({
+            unbundle: () => [billingResources.practitioner],
+          })
+          .mockResolvedValueOnce({
+            unbundle: () => [billingResources.billingProvider],
+          }),
+        secrets: { DEFAULT_BILLING_PROVIDER: 'Organization/organization-123' },
+        expectedError: null,
+        expectedResult: {
+          clinicalResources: {
+            accounts: [clinicalResources.account],
+            appointment: clinicalResources.appointment,
+            billingProvider: clinicalResources.billingProvider,
+            coverages: [clinicalResources.coverage],
+            diagnoses: [clinicalResources.condition],
+            encounter: clinicalResources.encounter,
+            location: clinicalResources.location,
+            patient: clinicalResources.patient,
+            payors: [oystehrResources.payor],
+            practitioners: [clinicalResources.practitioner],
+            procedures: [clinicalResources.procedure],
+          },
+          billingResources: {
+            accounts: [billingResources.account],
+            billingProvider: billingResources.billingProvider,
+            coverages: [billingResources.coverage],
+            mainPatient: billingResources.patient,
+            person: billingResources.person,
+            practitioners: [billingResources.practitioner],
+            renderingProvider: billingResources.practitioner,
+            serviceFacility: billingResources.location,
+            subscribers: [billingResources.relatedPerson],
           },
         },
       },

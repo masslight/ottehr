@@ -50,6 +50,7 @@ import {
   isAppointmentWorkersComp,
   isValidUUID,
   MISSING_REQUEST_SECRETS,
+  PARTICIPATION_CODE_SYSTEM,
   SERVICE_CATEGORY_SYSTEM,
   TIMEZONES,
 } from 'utils';
@@ -769,18 +770,17 @@ async function findExistingBillingResources(
     )
   ).filter((p): p is Practitioner => !!p);
   const clinicalAttendingProviderRef = originals.encounter.participant?.find(
-    (part) =>
-      part.type?.some(
-        (t) =>
-          t.coding?.find((c) => c.system === 'http://terminology.hl7.org/CodeSystem/v3-ParticipationType')?.code ===
-          'ATND'
-      )
+    (part) => part.type?.some((t) => t.coding?.find((c) => c.system === PARTICIPATION_CODE_SYSTEM)?.code === 'ATND')
   )?.individual?.reference;
   const clinicalAttendingProvider = originals.practitioners.find(
     (prac) => clinicalAttendingProviderRef && prac.id === clinicalAttendingProviderRef.replace('Practitioner/', '')
   );
   const renderingProvider = matchingPractitioners.find(
-    (prac) => clinicalAttendingProvider && getNPIIdentifier(prac) === getNPIIdentifier(clinicalAttendingProvider)
+    (prac) =>
+      clinicalAttendingProvider &&
+      getNPIIdentifier(prac) &&
+      getNPIIdentifier(clinicalAttendingProvider) &&
+      getNPIIdentifier(prac)?.value === getNPIIdentifier(clinicalAttendingProvider)?.value
   );
 
   const billingProviderSearch = (

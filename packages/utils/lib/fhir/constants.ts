@@ -815,3 +815,4 @@ export const CASE_RATE_CODE = 'case-rate';
 
 export const CPT_MODIFIER_EXTENSION_URL = ottehrExtensionUrl('cpt-modifier');
 export const CPT_CODE_SYSTEM = 'http://www.ama-assn.org/go/cpt';
+export const PARTICIPATION_CODE_SYSTEM = 'http://terminology.hl7.org/CodeSystem/v3-ParticipationType';
