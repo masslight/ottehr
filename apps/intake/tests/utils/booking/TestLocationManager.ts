@@ -13,6 +13,17 @@ import {
 import { ResourceHandler } from '../resource-handler';
 
 /**
+ * Timezones the test fixtures persist on their Locations. Slot button text is
+ * rendered in the Location's timezone; helpers that parse those buttons must
+ * be told which TZ to interpret them in. Keep these in sync with the explicit
+ * `timezone` values passed to `createLocationSchedule` in this file.
+ */
+export const TEST_FIXTURE_TIMEZONES = {
+  inPerson: 'America/New_York',
+  virtual: 'America/Los_Angeles',
+} as const;
+
+/**
  * Created group booking resources (HealthcareService with Location and Practitioner members)
  */
 export interface CreatedGroupBookingResources {

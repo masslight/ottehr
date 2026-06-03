@@ -13,6 +13,7 @@ import {
 import { DateTime } from 'luxon';
 import {
   CreateAppointmentInputParams,
+  CreateAppointmentResponse,
   GROUP_ASSIGNMENT_MODE_SYSTEM,
   PatientInfo,
   SCHEDULE_EXTENSION_URL,
@@ -478,6 +479,15 @@ describe('create-appointment group-member fallback (D-6 phase 2)', () => {
       expect(fetched.schedule.reference).toBe(`Schedule/${fixture.schedule2.id}`);
       const tags = fetched.meta?.tag ?? [];
       expect(tags.some((t) => t.system === SLOT_FALLBACK_REROUTED_TAG_SYSTEM)).toBe(true);
+
+      // The group HS should be stamped on Appointment.participant so
+      // consumers can query "appointments booked via group X" directly
+      // (rather than walking each Slot's bookedViaGroup extension).
+      const response = result.output as CreateAppointmentResponse;
+      const participantRefs = (response.resources.appointment.participant ?? [])
+        .map((p) => p.actor?.reference)
+        .filter((r): r is string => !!r);
+      expect(participantRefs).toContain(`HealthcareService/${fixture.groupHs.id}`);
     } finally {
       await cleanupFixture(fixture.explicitCleanup, [patientSlot.id!, busy.id!]);
     }

@@ -503,6 +503,7 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
   }
 
   const apptUrl = `urn:uuid:${uuid()}`;
+  const bookedViaGroupId = slot ? getSlotBookedViaGroupId(slot) : undefined;
   const participants: AppointmentParticipant[] = [];
   participants.push({
     actor: {
@@ -535,6 +536,20 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
     participants.push({
       actor: {
         reference: `Practitioner/${attendingPractitioner.id}`,
+      },
+      status: 'accepted',
+    });
+  }
+  // When the booking came through a group HS (stamped on the Slot via the
+  // slot-booked-via-group extension at vending time), add the HS to
+  // participants. Skip if scheduleOwner already IS the HS — that would just
+  // duplicate the same reference. Makes "appointments booked via group X"
+  // queryable directly from Appointment.participant rather than requiring
+  // a slot-extension walk for every consumer.
+  if (bookedViaGroupId && scheduleOwner.resourceType !== 'HealthcareService') {
+    participants.push({
+      actor: {
+        reference: `HealthcareService/${bookedViaGroupId}`,
       },
       status: 'accepted',
     });
@@ -627,7 +642,6 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
   // scheduleOwner alone can't distinguish "direct PR" from "group via
   // pools-providers" — the extension is the disambiguator.
   let bookedViaGroup: HealthcareService | undefined;
-  const bookedViaGroupId = slot ? getSlotBookedViaGroupId(slot) : undefined;
   if (bookedViaGroupId) {
     try {
       bookedViaGroup = await oystehr.fhir.get<HealthcareService>({
