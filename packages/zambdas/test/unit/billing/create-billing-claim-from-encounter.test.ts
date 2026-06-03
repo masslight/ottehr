@@ -13,6 +13,65 @@ import {
   validateRequestParameters,
 } from '../../../src/billing/create-billing-claim-from-encounter/handler';
 
+const clinicalResources = {
+  encounter: {
+    resourceType: 'Encounter',
+    id: 'encounter-123',
+    subject: {
+      reference: 'Patient/patient-123',
+    },
+    appointment: [
+      {
+        reference: 'Appointment/appointment-123',
+      },
+    ],
+    location: [
+      {
+        location: {
+          reference: 'Location/location-123',
+        },
+      },
+    ],
+  },
+  patient: {
+    resourceType: 'Patient',
+    id: 'patient-123',
+  },
+  appointment: {
+    resourceType: 'Appointment',
+    id: 'appointment-123',
+  },
+  location: {
+    resourceType: 'Location',
+    id: 'location-123',
+  },
+  practitioner: {
+    resourceType: 'Practitioner',
+    id: 'practitioner-123',
+  },
+  account: {
+    resourceType: 'Account',
+    id: 'account-123',
+  },
+  coverage: {
+    resourceType: 'Coverage',
+    id: 'coverage-123',
+    payor: [{ reference: 'https://rcm-api.zapehr.com/v1/payer/payer-123' }],
+  },
+  condition: {
+    resourceType: 'Condition',
+    id: 'condition-123',
+  },
+  procedure: {
+    resourceType: 'Procedure',
+    id: 'procedure-123',
+  },
+  billingProvider: {
+    resourceType: 'Organization',
+    id: 'organization-123',
+  },
+};
+
 describe('create-billing-claim-from-encounter', () => {
   describe('validation', () => {
     it('throws validation error on empty body', async () => {
@@ -84,15 +143,7 @@ describe('create-billing-claim-from-encounter', () => {
       {
         name: 'throws error when missing patient',
         clinicalOystehrSearch: vi.fn().mockResolvedValueOnce({
-          unbundle: () => [
-            {
-              resourceType: 'Encounter',
-              id: 'encounter-123',
-              subject: {
-                reference: 'Patient/patient-123',
-              },
-            },
-          ],
+          unbundle: () => [clinicalResources.encounter],
         }),
         billingOystehrSearch: vi.fn().mockResolvedValueOnce({
           unbundle: () => [],
@@ -103,13 +154,7 @@ describe('create-billing-claim-from-encounter', () => {
         name: 'throws error when patient does not match reference',
         clinicalOystehrSearch: vi.fn().mockResolvedValueOnce({
           unbundle: () => [
-            {
-              resourceType: 'Encounter',
-              id: 'encounter-123',
-              subject: {
-                reference: 'Patient/patient-123',
-              },
-            },
+            clinicalResources.encounter,
             {
               resourceType: 'Patient',
               id: 'patient-456',
@@ -124,24 +169,7 @@ describe('create-billing-claim-from-encounter', () => {
       {
         name: 'throws error when appointment does not exist',
         clinicalOystehrSearch: vi.fn().mockResolvedValueOnce({
-          unbundle: () => [
-            {
-              resourceType: 'Encounter',
-              id: 'encounter-123',
-              subject: {
-                reference: 'Patient/patient-123',
-              },
-              appointment: [
-                {
-                  reference: 'Appointment/appointment-123',
-                },
-              ],
-            },
-            {
-              resourceType: 'Patient',
-              id: 'patient-123',
-            },
-          ],
+          unbundle: () => [clinicalResources.encounter, clinicalResources.patient],
         }),
         billingOystehrSearch: vi.fn().mockResolvedValueOnce({
           unbundle: () => [],
@@ -152,22 +180,8 @@ describe('create-billing-claim-from-encounter', () => {
         name: 'throws error when appointment does not match reference',
         clinicalOystehrSearch: vi.fn().mockResolvedValueOnce({
           unbundle: () => [
-            {
-              resourceType: 'Encounter',
-              id: 'encounter-123',
-              subject: {
-                reference: 'Patient/patient-123',
-              },
-              appointment: [
-                {
-                  reference: 'Appointment/appointment-123',
-                },
-              ],
-            },
-            {
-              resourceType: 'Patient',
-              id: 'patient-123',
-            },
+            clinicalResources.encounter,
+            clinicalResources.patient,
             {
               resourceType: 'Appointment',
               id: 'appointment-456',
@@ -182,35 +196,7 @@ describe('create-billing-claim-from-encounter', () => {
       {
         name: 'throws error when location does not exist',
         clinicalOystehrSearch: vi.fn().mockResolvedValueOnce({
-          unbundle: () => [
-            {
-              resourceType: 'Encounter',
-              id: 'encounter-123',
-              subject: {
-                reference: 'Patient/patient-123',
-              },
-              appointment: [
-                {
-                  reference: 'Appointment/appointment-123',
-                },
-              ],
-              location: [
-                {
-                  location: {
-                    reference: 'Location/location-123',
-                  },
-                },
-              ],
-            },
-            {
-              resourceType: 'Patient',
-              id: 'patient-123',
-            },
-            {
-              resourceType: 'Appointment',
-              id: 'appointment-123',
-            },
-          ],
+          unbundle: () => [clinicalResources.encounter, clinicalResources.patient, clinicalResources.appointment],
         }),
         billingOystehrSearch: vi.fn().mockResolvedValueOnce({
           unbundle: () => [],
@@ -221,33 +207,9 @@ describe('create-billing-claim-from-encounter', () => {
         name: 'throws error when location does not match reference',
         clinicalOystehrSearch: vi.fn().mockResolvedValueOnce({
           unbundle: () => [
-            {
-              resourceType: 'Encounter',
-              id: 'encounter-123',
-              subject: {
-                reference: 'Patient/patient-123',
-              },
-              appointment: [
-                {
-                  reference: 'Appointment/appointment-123',
-                },
-              ],
-              location: [
-                {
-                  location: {
-                    reference: 'Location/location-123',
-                  },
-                },
-              ],
-            },
-            {
-              resourceType: 'Patient',
-              id: 'patient-123',
-            },
-            {
-              resourceType: 'Appointment',
-              id: 'appointment-123',
-            },
+            clinicalResources.encounter,
+            clinicalResources.patient,
+            clinicalResources.appointment,
             {
               resourceType: 'Location',
               id: 'location-456',
@@ -263,37 +225,10 @@ describe('create-billing-claim-from-encounter', () => {
         name: 'throws error when practitioner does not exist',
         clinicalOystehrSearch: vi.fn().mockResolvedValueOnce({
           unbundle: () => [
-            {
-              resourceType: 'Encounter',
-              id: 'encounter-123',
-              subject: {
-                reference: 'Patient/patient-123',
-              },
-              appointment: [
-                {
-                  reference: 'Appointment/appointment-123',
-                },
-              ],
-              location: [
-                {
-                  location: {
-                    reference: 'Location/location-123',
-                  },
-                },
-              ],
-            },
-            {
-              resourceType: 'Patient',
-              id: 'patient-123',
-            },
-            {
-              resourceType: 'Appointment',
-              id: 'appointment-123',
-            },
-            {
-              resourceType: 'Location',
-              id: 'location-123',
-            },
+            clinicalResources.encounter,
+            clinicalResources.patient,
+            clinicalResources.appointment,
+            clinicalResources.location,
           ],
         }),
         billingOystehrSearch: vi.fn().mockResolvedValueOnce({
@@ -305,41 +240,11 @@ describe('create-billing-claim-from-encounter', () => {
         name: 'throws error when account does not exist',
         clinicalOystehrSearch: vi.fn().mockResolvedValueOnce({
           unbundle: () => [
-            {
-              resourceType: 'Encounter',
-              id: 'encounter-123',
-              subject: {
-                reference: 'Patient/patient-123',
-              },
-              appointment: [
-                {
-                  reference: 'Appointment/appointment-123',
-                },
-              ],
-              location: [
-                {
-                  location: {
-                    reference: 'Location/location-123',
-                  },
-                },
-              ],
-            },
-            {
-              resourceType: 'Patient',
-              id: 'patient-123',
-            },
-            {
-              resourceType: 'Appointment',
-              id: 'appointment-123',
-            },
-            {
-              resourceType: 'Location',
-              id: 'location-123',
-            },
-            {
-              resourceType: 'Practitioner',
-              id: 'practitioner-123',
-            },
+            clinicalResources.encounter,
+            clinicalResources.patient,
+            clinicalResources.appointment,
+            clinicalResources.location,
+            clinicalResources.practitioner,
           ],
         }),
         billingOystehrSearch: vi.fn().mockResolvedValueOnce({
@@ -351,45 +256,12 @@ describe('create-billing-claim-from-encounter', () => {
         name: 'throws error when coverage does not exist',
         clinicalOystehrSearch: vi.fn().mockResolvedValueOnce({
           unbundle: () => [
-            {
-              resourceType: 'Encounter',
-              id: 'encounter-123',
-              subject: {
-                reference: 'Patient/patient-123',
-              },
-              appointment: [
-                {
-                  reference: 'Appointment/appointment-123',
-                },
-              ],
-              location: [
-                {
-                  location: {
-                    reference: 'Location/location-123',
-                  },
-                },
-              ],
-            },
-            {
-              resourceType: 'Patient',
-              id: 'patient-123',
-            },
-            {
-              resourceType: 'Appointment',
-              id: 'appointment-123',
-            },
-            {
-              resourceType: 'Location',
-              id: 'location-123',
-            },
-            {
-              resourceType: 'Practitioner',
-              id: 'practitioner-123',
-            },
-            {
-              resourceType: 'Account',
-              id: 'account-123',
-            },
+            clinicalResources.encounter,
+            clinicalResources.patient,
+            clinicalResources.appointment,
+            clinicalResources.location,
+            clinicalResources.practitioner,
+            clinicalResources.account,
           ],
         }),
         billingOystehrSearch: vi.fn().mockResolvedValueOnce({
@@ -401,49 +273,13 @@ describe('create-billing-claim-from-encounter', () => {
         name: 'throws error when diagnosis does not exist',
         clinicalOystehrSearch: vi.fn().mockResolvedValueOnce({
           unbundle: () => [
-            {
-              resourceType: 'Encounter',
-              id: 'encounter-123',
-              subject: {
-                reference: 'Patient/patient-123',
-              },
-              appointment: [
-                {
-                  reference: 'Appointment/appointment-123',
-                },
-              ],
-              location: [
-                {
-                  location: {
-                    reference: 'Location/location-123',
-                  },
-                },
-              ],
-            },
-            {
-              resourceType: 'Patient',
-              id: 'patient-123',
-            },
-            {
-              resourceType: 'Appointment',
-              id: 'appointment-123',
-            },
-            {
-              resourceType: 'Location',
-              id: 'location-123',
-            },
-            {
-              resourceType: 'Practitioner',
-              id: 'practitioner-123',
-            },
-            {
-              resourceType: 'Account',
-              id: 'account-123',
-            },
-            {
-              resourceType: 'Coverage',
-              id: 'coverage-123',
-            },
+            clinicalResources.encounter,
+            clinicalResources.patient,
+            clinicalResources.appointment,
+            clinicalResources.location,
+            clinicalResources.practitioner,
+            clinicalResources.account,
+            clinicalResources.coverage,
           ],
         }),
         billingOystehrSearch: vi.fn().mockResolvedValueOnce({
@@ -455,53 +291,14 @@ describe('create-billing-claim-from-encounter', () => {
         name: 'throws error when procedure does not exist',
         clinicalOystehrSearch: vi.fn().mockResolvedValueOnce({
           unbundle: () => [
-            {
-              resourceType: 'Encounter',
-              id: 'encounter-123',
-              subject: {
-                reference: 'Patient/patient-123',
-              },
-              appointment: [
-                {
-                  reference: 'Appointment/appointment-123',
-                },
-              ],
-              location: [
-                {
-                  location: {
-                    reference: 'Location/location-123',
-                  },
-                },
-              ],
-            },
-            {
-              resourceType: 'Patient',
-              id: 'patient-123',
-            },
-            {
-              resourceType: 'Appointment',
-              id: 'appointment-123',
-            },
-            {
-              resourceType: 'Location',
-              id: 'location-123',
-            },
-            {
-              resourceType: 'Practitioner',
-              id: 'practitioner-123',
-            },
-            {
-              resourceType: 'Account',
-              id: 'account-123',
-            },
-            {
-              resourceType: 'Coverage',
-              id: 'coverage-123',
-            },
-            {
-              resourceType: 'Condition',
-              id: 'condition-123',
-            },
+            clinicalResources.encounter,
+            clinicalResources.patient,
+            clinicalResources.appointment,
+            clinicalResources.location,
+            clinicalResources.practitioner,
+            clinicalResources.account,
+            clinicalResources.coverage,
+            clinicalResources.condition,
           ],
         }),
         billingOystehrSearch: vi.fn().mockResolvedValueOnce({
@@ -513,57 +310,18 @@ describe('create-billing-claim-from-encounter', () => {
         name: 'throws error when coverage does not have payor',
         clinicalOystehrSearch: vi.fn().mockResolvedValueOnce({
           unbundle: () => [
+            clinicalResources.encounter,
+            clinicalResources.patient,
+            clinicalResources.appointment,
+            clinicalResources.location,
+            clinicalResources.practitioner,
+            clinicalResources.account,
             {
-              resourceType: 'Encounter',
-              id: 'encounter-123',
-              subject: {
-                reference: 'Patient/patient-123',
-              },
-              appointment: [
-                {
-                  reference: 'Appointment/appointment-123',
-                },
-              ],
-              location: [
-                {
-                  location: {
-                    reference: 'Location/location-123',
-                  },
-                },
-              ],
+              ...clinicalResources.coverage,
+              payor: undefined,
             },
-            {
-              resourceType: 'Patient',
-              id: 'patient-123',
-            },
-            {
-              resourceType: 'Appointment',
-              id: 'appointment-123',
-            },
-            {
-              resourceType: 'Location',
-              id: 'location-123',
-            },
-            {
-              resourceType: 'Practitioner',
-              id: 'practitioner-123',
-            },
-            {
-              resourceType: 'Account',
-              id: 'account-123',
-            },
-            {
-              resourceType: 'Coverage',
-              id: 'coverage-123',
-            },
-            {
-              resourceType: 'Condition',
-              id: 'condition-123',
-            },
-            {
-              resourceType: 'Procedure',
-              id: 'procedure-123',
-            },
+            clinicalResources.condition,
+            clinicalResources.procedure,
           ],
         }),
         billingOystehrSearch: vi.fn().mockResolvedValueOnce({
@@ -575,58 +333,15 @@ describe('create-billing-claim-from-encounter', () => {
         name: 'throws error when billing provider not in secrets',
         clinicalOystehrSearch: vi.fn().mockResolvedValueOnce({
           unbundle: () => [
-            {
-              resourceType: 'Encounter',
-              id: 'encounter-123',
-              subject: {
-                reference: 'Patient/patient-123',
-              },
-              appointment: [
-                {
-                  reference: 'Appointment/appointment-123',
-                },
-              ],
-              location: [
-                {
-                  location: {
-                    reference: 'Location/location-123',
-                  },
-                },
-              ],
-            },
-            {
-              resourceType: 'Patient',
-              id: 'patient-123',
-            },
-            {
-              resourceType: 'Appointment',
-              id: 'appointment-123',
-            },
-            {
-              resourceType: 'Location',
-              id: 'location-123',
-            },
-            {
-              resourceType: 'Practitioner',
-              id: 'practitioner-123',
-            },
-            {
-              resourceType: 'Account',
-              id: 'account-123',
-            },
-            {
-              resourceType: 'Coverage',
-              id: 'coverage-123',
-              payor: [{ reference: 'https://rcm-api.zapehr.com/v1/payer/payer-123' }],
-            },
-            {
-              resourceType: 'Condition',
-              id: 'condition-123',
-            },
-            {
-              resourceType: 'Procedure',
-              id: 'procedure-123',
-            },
+            clinicalResources.encounter,
+            clinicalResources.patient,
+            clinicalResources.appointment,
+            clinicalResources.location,
+            clinicalResources.practitioner,
+            clinicalResources.account,
+            clinicalResources.coverage,
+            clinicalResources.condition,
+            clinicalResources.procedure,
           ],
         }),
         billingOystehrSearch: vi.fn().mockResolvedValueOnce({
@@ -640,58 +355,15 @@ describe('create-billing-claim-from-encounter', () => {
           .fn()
           .mockResolvedValueOnce({
             unbundle: () => [
-              {
-                resourceType: 'Encounter',
-                id: 'encounter-123',
-                subject: {
-                  reference: 'Patient/patient-123',
-                },
-                appointment: [
-                  {
-                    reference: 'Appointment/appointment-123',
-                  },
-                ],
-                location: [
-                  {
-                    location: {
-                      reference: 'Location/location-123',
-                    },
-                  },
-                ],
-              },
-              {
-                resourceType: 'Patient',
-                id: 'patient-123',
-              },
-              {
-                resourceType: 'Appointment',
-                id: 'appointment-123',
-              },
-              {
-                resourceType: 'Location',
-                id: 'location-123',
-              },
-              {
-                resourceType: 'Practitioner',
-                id: 'practitioner-123',
-              },
-              {
-                resourceType: 'Account',
-                id: 'account-123',
-              },
-              {
-                resourceType: 'Coverage',
-                id: 'coverage-123',
-                payor: [{ reference: 'https://rcm-api.zapehr.com/v1/payer/payer-123' }],
-              },
-              {
-                resourceType: 'Condition',
-                id: 'condition-123',
-              },
-              {
-                resourceType: 'Procedure',
-                id: 'procedure-123',
-              },
+              clinicalResources.encounter,
+              clinicalResources.patient,
+              clinicalResources.appointment,
+              clinicalResources.location,
+              clinicalResources.practitioner,
+              clinicalResources.account,
+              clinicalResources.coverage,
+              clinicalResources.condition,
+              clinicalResources.procedure,
             ],
           })
           .mockResolvedValueOnce({
@@ -709,67 +381,19 @@ describe('create-billing-claim-from-encounter', () => {
           .fn()
           .mockResolvedValueOnce({
             unbundle: () => [
-              {
-                resourceType: 'Encounter',
-                id: 'encounter-123',
-                subject: {
-                  reference: 'Patient/patient-123',
-                },
-                appointment: [
-                  {
-                    reference: 'Appointment/appointment-123',
-                  },
-                ],
-                location: [
-                  {
-                    location: {
-                      reference: 'Location/location-123',
-                    },
-                  },
-                ],
-              },
-              {
-                resourceType: 'Patient',
-                id: 'patient-123',
-              },
-              {
-                resourceType: 'Appointment',
-                id: 'appointment-123',
-              },
-              {
-                resourceType: 'Location',
-                id: 'location-123',
-              },
-              {
-                resourceType: 'Practitioner',
-                id: 'practitioner-123',
-              },
-              {
-                resourceType: 'Account',
-                id: 'account-123',
-              },
-              {
-                resourceType: 'Coverage',
-                id: 'coverage-123',
-                payor: [{ reference: 'https://rcm-api.zapehr.com/v1/payer/payer-123' }],
-              },
-              {
-                resourceType: 'Condition',
-                id: 'condition-123',
-              },
-              {
-                resourceType: 'Procedure',
-                id: 'procedure-123',
-              },
+              clinicalResources.encounter,
+              clinicalResources.patient,
+              clinicalResources.appointment,
+              clinicalResources.location,
+              clinicalResources.practitioner,
+              clinicalResources.account,
+              clinicalResources.coverage,
+              clinicalResources.condition,
+              clinicalResources.procedure,
             ],
           })
           .mockResolvedValueOnce({
-            unbundle: () => [
-              {
-                resourceType: 'Organization',
-                id: 'organization-123',
-              },
-            ],
+            unbundle: () => [clinicalResources.billingProvider],
           }),
         billingOystehrSearch: vi
           .fn()
