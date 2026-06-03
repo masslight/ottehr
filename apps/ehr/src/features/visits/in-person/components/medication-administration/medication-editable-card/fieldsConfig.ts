@@ -30,7 +30,7 @@ export type MedicationFormType =
 export type XsVariants = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12;
 
 export const fieldsConfigForOrder: Record<
-  Exclude<MedicationFieldType, 'effectiveDateTime' | 'lotNumber' | 'expDate'>,
+  Exclude<MedicationFieldType, 'effectiveDateTime' | 'lotNumber' | 'expDate' | 'location'>,
   { xs: XsVariants; isRequired: boolean }
 > = {
   medicationId: { xs: 6, isRequired: true },
@@ -41,7 +41,6 @@ export const fieldsConfigForOrder: Record<
   manufacturer: { xs: 6, isRequired: false },
   route: { xs: 6, isRequired: true },
   providerId: { xs: 6, isRequired: true },
-  location: { xs: 6, isRequired: false },
   instructions: { xs: 12, isRequired: false },
 } as const;
 

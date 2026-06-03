@@ -634,7 +634,7 @@ export const Header = (): JSX.Element => {
               </Grid>
               <Grid item>
                 <Stack direction="row" spacing={1} alignItems="center">
-                  <CommandPaletteSearchButton minWidth={200} />
+                  <CommandPaletteSearchButton />
                   <IconButton onClick={() => navigate('/visits')}>
                     <CloseIcon />
                   </IconButton>

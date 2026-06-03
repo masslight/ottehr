@@ -30,7 +30,9 @@ import {
   CreateAppointmentResponse,
   CREATED_BY_SYSTEM,
   createUserResourcesForPatient,
+  CURRENT_EXAM_MIGRATION_VERSION,
   E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM,
+  EXAM_MIGRATION_VERSION_URL,
   FHIR_APPOINTMENT_READY_FOR_PREPROCESSING_TAG,
   FHIR_EXTENSION,
   FhirAppointmentStatus,
@@ -486,7 +488,12 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
   const initialEncounterStatus: FhirEncounterStatus = startsAsBooked ? 'planned' : 'arrived';
 
   const apptExtensions: Extension[] = [];
-  const encExtensions: Extension[] = [];
+  const encExtensions: Extension[] = [
+    {
+      valueInteger: CURRENT_EXAM_MIGRATION_VERSION,
+      url: EXAM_MIGRATION_VERSION_URL,
+    },
+  ];
 
   if (serviceMode === ServiceMode.virtual) {
     const { encExtensions: telemedEncExtensions, apptExtensions: telemedApptExtensions } =

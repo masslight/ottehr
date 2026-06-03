@@ -130,6 +130,8 @@ import {
   GetPatientLoginPhoneNumbersOutput,
   GetPresignedFileURLInput,
   GetProcedureQuickPicksResponse,
+  GetProgressNoteConfigInput,
+  GetProgressNoteConfigOutput,
   GetQuickTextQuickPicksResponse,
   GetRadiologyOrderListZambdaInput,
   GetRadiologyOrderListZambdaOutput,
@@ -215,6 +217,7 @@ import {
   UpdatePatientInstructionQuickPickResponse,
   UpdatePatientLoginPhoneNumbersInput,
   UpdateProcedureQuickPickResponse,
+  UpdateProgressNoteConfigInput,
   UpdateQuickTextQuickPickResponse,
   UpdateRadiologyQuickPickResponse,
   UpdateScheduleParams,
@@ -2065,6 +2068,37 @@ export const getSupportDialog = async (oystehr: Oystehr): Promise<GetSupportDial
   try {
     const response = await oystehr.zambda.execute({ id: GET_SUPPORT_DIALOG_ZAMBDA_ID });
     return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
+export const getProgressNoteConfig = async (
+  oystehr: Oystehr,
+  parameters?: GetProgressNoteConfigInput
+): Promise<GetProgressNoteConfigOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: 'get-progress-note-config',
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
+export const adminUpdateProgressNoteConfig = async (
+  oystehr: Oystehr,
+  parameters: UpdateProgressNoteConfigInput
+): Promise<void> => {
+  try {
+    await oystehr.zambda.execute({
+      id: 'admin-update-progress-note-config',
+      ...parameters,
+    });
   } catch (error: unknown) {
     console.log(error);
     throw apiErrorToThrow(error);

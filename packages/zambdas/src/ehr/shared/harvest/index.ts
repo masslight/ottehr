@@ -3331,25 +3331,33 @@ export const resolveCoverageUpdates = (input: CompareCoverageInput): CompareCove
     }
   }
 
+  // we should only split if it's an actual reference, and not a bare id like urn:uuid etc
+  const getNewCoverageRefId = (coverageRef: Reference | undefined): string | undefined => {
+    const ref = coverageRef?.reference;
+    return ref?.startsWith('Coverage/') ? ref.split('/')[1] : ref;
+  };
+
   const newPrimaryCoverage = suggestedNewCoverageObject.find((c) => c.priority === 1)?.coverage;
+  const newPrimaryCoverageId = getNewCoverageRefId(newPrimaryCoverage);
   const newSecondaryCoverage = suggestedNewCoverageObject.find((c) => c.priority === 2)?.coverage;
+  const newSecondaryCoverageId = getNewCoverageRefId(newSecondaryCoverage);
 
   if (
     existingCoverages.primary &&
-    existingCoverages.primary.id !== newPrimaryCoverage?.reference?.split('/')[1] &&
-    existingCoverages.primary.id !== newSecondaryCoverage?.reference?.split('/')[1]
+    existingCoverages.primary.id !== newPrimaryCoverageId &&
+    existingCoverages.primary.id !== newSecondaryCoverageId
   ) {
-    if (!preserveOmittedCoverages || newPrimaryCoverage?.reference?.split('/')[1] !== undefined) {
+    if (!preserveOmittedCoverages || newPrimaryCoverageId !== undefined) {
       deactivatedCoverages.push(existingCoverages.primary);
     }
   }
 
   if (
     existingCoverages.secondary &&
-    existingCoverages.secondary.id !== newSecondaryCoverage?.reference?.split('/')[1] &&
-    existingCoverages.secondary.id !== newPrimaryCoverage?.reference?.split('/')[1]
+    existingCoverages.secondary.id !== newSecondaryCoverageId &&
+    existingCoverages.secondary.id !== newPrimaryCoverageId
   ) {
-    if (!preserveOmittedCoverages || newSecondaryCoverage?.reference?.split('/')[1] !== undefined) {
+    if (!preserveOmittedCoverages || newSecondaryCoverageId !== undefined) {
       deactivatedCoverages.push(existingCoverages.secondary);
     }
   }
