@@ -43,7 +43,7 @@ const getVisitTypeToLabel = (): Partial<typeof ALL_VISIT_TYPE_LABELS> => {
   );
 };
 
-const LOCAL_STORAGE_FILTERS_KEY = 'appointments.filters';
+export const LOCAL_STORAGE_FILTERS_KEY = 'appointments.filters';
 
 export default function AppointmentsFilters(): ReactElement {
   const visitTypeToLabel = useMemo(() => getVisitTypeToLabel(), []);
@@ -99,7 +99,10 @@ export default function AppointmentsFilters(): ReactElement {
   useEffect(() => {
     const persistedValues = localStorage.getItem(LOCAL_STORAGE_FILTERS_KEY);
     if (searchParams.size === 0 && persistedValues) {
-      methods.reset(JSON.parse(persistedValues));
+      const parsed = JSON.parse(persistedValues);
+      // `date` is stripped from storage on logout, so it falls back to today after relogin
+      // while still being preserved across in-app navigation.
+      methods.reset({ ...parsed, date: parsed.date || DateTime.now().toISODate() });
     }
     if (searchParams.size === 0 && !persistedValues) {
       methods.reset({
