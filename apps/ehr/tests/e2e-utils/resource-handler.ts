@@ -1,27 +1,18 @@
-import Oystehr, { BatchInputPostRequest } from '@oystehr/sdk';
+import Oystehr from '@oystehr/sdk';
 import { Page } from '@playwright/test';
 import {
   Address,
   Appointment,
-  ClinicalImpression,
-  Consent,
   ContactPoint,
   DocumentReference,
   Encounter,
   FhirResource,
-  List,
   Location,
   Patient,
-  Person,
   Practitioner,
   QuestionnaireResponse,
-  RelatedPerson,
-  Schedule,
-  ServiceRequest,
-  Slot,
 } from 'fhir/r4b';
 import { readFileSync } from 'fs';
-import { DateTime } from 'luxon';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import {
@@ -35,8 +26,6 @@ import {
   formatPhoneNumber,
   genderMap,
   GetPaperworkAnswers,
-  getTimezone,
-  IN_PERSON_INTAKE_PAPERWORK_CANONICAL,
   RelationshipOption,
   SampleAppointmentResponse,
   ServiceMode,
@@ -51,7 +40,6 @@ import {
   TEST_EMPLOYEE_2,
   TestEmployee,
 } from './resource/employees';
-import fastSeedData from './seed-data';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -325,94 +313,6 @@ export class ResourceHandler {
         resourceType: 'RelatedPerson',
       },
       selectedLocation: response.selectedLocation,
-    };
-  }
-
-  public async setResourcesFast(_params?: CreateTestAppointmentInput): Promise<void> {
-    if (process.env.LOCATION_ID == null) {
-      throw new Error('LOCATION_ID is not set');
-    }
-
-    const apiClient = await this.apiClient;
-
-    const schedule = (
-      await apiClient.fhir.search<Schedule>({
-        resourceType: 'Schedule',
-        params: [
-          {
-            name: 'actor',
-            value: `Location/${process.env.LOCATION_ID}`,
-          },
-        ],
-      })
-    ).unbundle()[0] as Schedule;
-
-    // Seed data only needs the canonical URL+version pair, not a full Q body.
-    const { url, version } = IN_PERSON_INTAKE_PAPERWORK_CANONICAL;
-
-    // Use the location's timezone (not UTC) so the seeded appointment lands on the same
-    // calendar day the tracking board searches — it filters in the location's timezone,
-    // so a UTC-keyed date is wrong in the evenings local time (e.g. 8pm-midnight ET).
-    const locationTimezone = getTimezone(schedule);
-    let seedDataString = JSON.stringify(fastSeedData);
-    seedDataString = seedDataString.replace(/\{\{locationId\}\}/g, process.env.LOCATION_ID);
-    seedDataString = seedDataString.replace(/\{\{scheduleId\}\}/g, schedule.id!);
-    seedDataString = seedDataString.replace(/\{\{questionnaireUrl\}\}/g, `${url}|${version}`);
-    seedDataString = seedDataString.replace(
-      /\{\{date\}\}/g,
-      DateTime.now().setZone(locationTimezone).toFormat('yyyy-MM-dd')
-    );
-
-    // TODO do something about the DocumentReference attachments? For the moment all of these tests point to the exact same files. Maybe that's great. Or maybe we should upload images each time?
-
-    const hydratedFastSeedJSON = JSON.parse(seedDataString);
-
-    const createdResources =
-      (
-        await apiClient.fhir.transaction<
-          | Patient
-          | RelatedPerson
-          | Person
-          | Appointment
-          | Encounter
-          | Slot
-          | List
-          | Consent
-          | DocumentReference
-          | QuestionnaireResponse
-          | ServiceRequest
-          | ClinicalImpression
-        >({
-          requests: hydratedFastSeedJSON.entry.map((entry: any): BatchInputPostRequest<FhirResource> => {
-            if (entry.request.method !== 'POST') {
-              throw new Error('Only POST method is supported in fast mode');
-            }
-            let resource: FhirResource = entry.resource;
-            if (resource.resourceType === 'Appointment') {
-              resource = addProcessIdMetaTagToResource(resource, this.#processId!);
-            }
-            return {
-              method: entry.request.method,
-              url: entry.request.url,
-              fullUrl: entry.fullUrl,
-              resource: entry.resource,
-            };
-          }),
-        })
-      ).entry
-        ?.map((entry) => entry.resource)
-        .filter((entry) => entry !== undefined) ?? [];
-    this.#resources = {
-      patient: createdResources.find((resource) => resource!.resourceType === 'Patient') as Patient,
-      relatedPerson: {
-        id: (createdResources.find((resource) => resource!.resourceType === 'RelatedPerson') as RelatedPerson).id!,
-        resourceType: 'RelatedPerson',
-      },
-      appointment: createdResources.find((resource) => resource!.resourceType === 'Appointment') as Appointment,
-      encounter: createdResources.find((resource) => resource!.resourceType === 'Encounter') as Encounter,
-      questionnaire: createdResources.find(
-        (resource) => resource!.resourceType === 'QuestionnaireResponse'
-      ) as QuestionnaireResponse,
     };
   }
 

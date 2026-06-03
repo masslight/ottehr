@@ -5,6 +5,7 @@ import {
   getCoding,
   getFormattedPatientFullName,
   getNameSuffix,
+  getPatientFriendlyId,
   getReasonForVisitAndAdditionalDetailsFromAppointment,
   getReasonForVisitOptionsForServiceCategory,
   PATIENT_INDIVIDUAL_PRONOUNS_URL,
@@ -20,7 +21,7 @@ export const composePatientData: DataComposer<PatientDataInput, PatientInfo> = (
   const preferredName = patient.name?.find((name) => name.use === 'nickname')?.given?.[0] ?? '';
   const dob = formatDateForDisplay(patient?.birthDate);
   const sex = genderMap[patient.gender as keyof typeof genderMap] ?? '';
-  const id = patient.id ?? '';
+  const id = getPatientFriendlyId(patient);
   const phone = standardizePhoneNumber(patient.telecom?.find((telecom) => telecom.system === 'phone')?.value) ?? '';
   const { reasonForVisit: firstComplaint, additionalDetails } =
     getReasonForVisitAndAdditionalDetailsFromAppointment(appointment);

@@ -2,6 +2,7 @@ import { TabContext, TabList, TabPanel } from '@mui/lab';
 import { Box, Tab } from '@mui/material';
 import { useNavigate, useParams } from 'react-router-dom';
 import { PatientEducationAdminPage } from 'src/features/admin/patient-education/PatientEducationAdminPage';
+import ProgressNoteAdminPage from 'src/features/admin/ProgressNoteAdminPage';
 import InHouseLabAdminPage from 'src/features/visits/telemed/components/admin/in-house-labs/InHouseLabAdminPage';
 import LabSetsAdminPage from 'src/features/visits/telemed/components/admin/lab-sets/LabSetsAdminPage';
 import AdminPrintingConfig from 'src/features/visits/telemed/components/admin/label-printing-config/AdminLabelPrintingConfigPage';
@@ -35,6 +36,7 @@ enum PageTab {
   'lab-sets' = 'lab-sets',
   'docs-folders' = 'docs-folders',
   'support-dialog' = 'support-dialog',
+  'progress-note' = 'progress-note',
 }
 
 export function AdminPage(): JSX.Element {
@@ -156,6 +158,12 @@ export function AdminPage(): JSX.Element {
                   sx={{ textTransform: 'none', fontWeight: 500 }}
                   onClick={() => navigate(`/admin/${PageTab['support-dialog']}`)}
                 />
+                <Tab
+                  label="Progress Note"
+                  value={PageTab['progress-note']}
+                  sx={{ textTransform: 'none', fontWeight: 500 }}
+                  onClick={() => navigate(`/admin/${PageTab['progress-note']}`)}
+                />
               </TabList>
             </Box>
           </Box>
@@ -206,6 +214,9 @@ export function AdminPage(): JSX.Element {
           </TabPanel>
           <TabPanel value={PageTab['support-dialog']} sx={{ padding: 0 }}>
             <SupportDialogAdminPage />
+          </TabPanel>
+          <TabPanel value={PageTab['progress-note']} sx={{ padding: 0 }}>
+            <ProgressNoteAdminPage />
           </TabPanel>
         </TabContext>
       </Box>
