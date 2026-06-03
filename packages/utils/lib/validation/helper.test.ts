@@ -13,8 +13,9 @@ describe('age helpers', () => {
 
   describe('getAgeInYears', () => {
     it('returns the patient age in whole years', () => {
-      expect(Math.floor(getAgeInYears('1995-01-01'))).toBe(31);
+      expect(getAgeInYears('1995-01-01')).toBe(31);
     });
+  });
   });
 
   describe('isYoungerThan18Years', () => {
