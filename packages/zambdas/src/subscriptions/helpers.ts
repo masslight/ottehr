@@ -35,7 +35,7 @@ export const patchTaskStatus = async (input: PatchTaskStatusInput, oystehr: Oyst
       ],
     });
   } catch (error) {
-    // convert 4xx FHIR validation failures to APIErrors
+    // convert 4xx FHIR errors to APIErrors so topLevelCatch preserves the original HTTP status code
     if (error instanceof Oystehr.OystehrFHIRError && error.code >= 400 && error.code <= 499) {
       throw {
         ...INVALID_INPUT_ERROR(error.message),
