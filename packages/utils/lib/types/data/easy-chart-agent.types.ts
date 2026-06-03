@@ -97,6 +97,10 @@ export interface EasyChartPlannerInput {
   // planner uses this to skip add-* steps that would duplicate what's already present.
   // Free text the LLM reads; format is up to the caller.
   chartState?: string;
+  // Optional encounter id. When supplied, the planner fetches the encounter's Patient and
+  // anchors the note on the REAL age/sex, so it never infers demographics from the transcript
+  // (ambient recordings often contain cross-talk about other patients). Strongly recommended.
+  encounterId?: string;
 }
 
 export interface EasyChartPlannerOutput {

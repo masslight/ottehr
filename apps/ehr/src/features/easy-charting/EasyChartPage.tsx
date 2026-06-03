@@ -2689,6 +2689,7 @@ export default function EasyChartPage(): JSX.Element {
             narrative: planSnapshot.narrative,
             noteContext,
             chartState: chartStateSummary,
+            encounterId,
           });
           // Defense-in-depth: drop any apply-template from the refresh output. The template
           // is already on the chart; a second apply-template would either duplicate (if it

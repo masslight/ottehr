@@ -207,7 +207,8 @@ const buildPrompt = (
   narrative: string,
   noteContext?: Partial<Record<NoteTextField, string>>,
   templateTitles?: string[],
-  chartState?: string
+  chartState?: string,
+  patientContext?: string
 ): string => {
   const labels: Record<NoteTextField, string> = {
     chiefComplaint: 'Chief Complaint',
@@ -230,6 +231,15 @@ const buildPrompt = (
   const contextBlock =
     contextLines.length > 0 ? `\nCurrent free-text fields on this encounter:\n${contextLines.join('\n')}\n` : '';
 
+  // Anchor the note on the verified patient. The transcript is an ambient recording that often
+  // contains cross-talk about OTHER patients, staff, and hallway conversation — the model must
+  // document only THIS patient and never infer age/sex from the transcript.
+  const patientBlock = patientContext
+    ? `\nPATIENT (authoritative — from the chart, not the transcript): ${patientContext}.\n` +
+      `Use exactly this age and sex in the note (e.g. the HPI one-liner). Do NOT infer the ` +
+      `patient's age or sex from the transcript.\n`
+    : '';
+
   const templatesBlock =
     templateTitles && templateTitles.length > 0
       ? `\nAVAILABLE TEMPLATES in this practice (exact titles — match these when you apply-template; do NOT invent template names):\n${templateTitles
@@ -250,7 +260,7 @@ free-text NARRATIVE describing everything they want done on the chart:
 """
 ${narrative}
 """
-${contextBlock}${templatesBlock}${chartStateBlock}
+${patientBlock}${contextBlock}${templatesBlock}${chartStateBlock}
 Decompose the narrative into an ordered sequence of charting ACTIONS. Each action is one of
 the kinds below; the client will execute them one at a time and ask the provider to disambiguate
 when needed. Emit a JSON array of "steps".
@@ -265,6 +275,16 @@ doesn't mention):
      Match against the listed titles by primary diagnosis or chief complaint. Match by laterality
      when the templates differ by side (AOM Right vs Left vs Bilateral). If no template matches
      plausibly, OMIT apply-template — don't force a wrong template.
+     LATERALITY = the side(s) actually DIAGNOSED, not the sides examined. "Pulling on the right
+     ear; I'll check both" with an exam finding only on the right is a RIGHT-side diagnosis →
+     "AOM Right", NOT "AOM Bilateral". Choose Bilateral ONLY when the disease/finding is present
+     on BOTH sides (e.g. "both TMs bulging and erythematous"). Examining both ears, or symptoms
+     that started on one side and moved, does not make it bilateral.
+     PREFER THE MOST SPECIFIC DIAGNOSIS: when the narrative supports a specific diagnosis but the
+     best-matching template is a generic symptom template (e.g. "Headache" when the patient has a
+     known migraine), STILL apply the generic template for structure, but ALSO emit an
+     add-diagnosis step for the specific diagnosis (e.g. add-diagnosis "Migraine", isPrimary=true)
+     so the correct primary diagnosis lands on the chart instead of the generic symptom code.
   2. Patient history (add/remove-allergy, condition, medication, surgical-history, hospitalization)
   3. Free-text fields, in note order: edit-note-text for chiefComplaint, historyOfPresentIllness,
      mechanismOfInjury, ros, medicalDecision. When a template was applied in step 1, ONLY emit
@@ -276,12 +296,20 @@ doesn't mention):
      emit add-exam-finding for ABNORMAL findings (or normal findings the narrative specifically
      calls out that the template doesn't cover by default). Templates already check the default
      normal findings for that section — don't re-add them.
-  5. Diagnoses (add-diagnosis — mark isPrimary=true for the primary; emit ONE primary). When the
-     template's title matches the diagnosis (e.g. AOM Right + Acute otitis media right ear),
-     OMIT this step — the template already adds the diagnosis.
+  5. Diagnoses (add-diagnosis — mark isPrimary=true for exactly ONE primary; all other diagnoses
+     are secondary with isPrimary=false). Emit a SEPARATE add-diagnosis for EVERY distinct
+     diagnosis the provider made this visit — many encounters have 2-3 (e.g. "otitis media AND
+     otitis externa", "ear infection, an insect bite, and conjunctivitis", "bug bite that has
+     become cellulitis"). Do not collapse a multi-problem visit to a single diagnosis.
+     When a template was applied in step 1 and its title matches the PRIMARY diagnosis (e.g.
+     AOM Right + acute otitis media right ear), OMIT the add-diagnosis for that primary one — the
+     template already added it — but STILL emit add-diagnosis for every OTHER diagnosis the
+     template does not cover (the secondary conditions). A template carries only its own
+     diagnosis; it never supplies the secondaries.
   6. Procedures (add-procedure, then update-procedure for any field changes referencing the
      same procedure by procedureMatch — match by procedure name)
-  7. Billing: set-em-code (one), add-cpt (any extra CPTs)
+  7. Billing: set-em-code (one), add-cpt (any extra CPTs — including the 96372 administration
+     code + drug HCPCS J-code whenever a medication was injected/infused in clinic; see add-cpt)
 
 ACTION SHAPES (use these intent kinds and the same fields the single-shot agent uses):
 
@@ -292,6 +320,16 @@ ACTION SHAPES (use these intent kinds and the same fields the single-shot agent 
   "S93.421A ankle sprain"). Format: just the code, no parentheses. Omit if not stated. This is
   critical for picker accuracy — without the code the client search often returns wrong subtypes
   (e.g. "Acute otitis media" → serous H65.x instead of suppurative H66.x).
+  INCLUDE ANATOMIC LOCATION + LATERALITY for INJURY / EXTERNAL-CAUSE diagnoses (ICD-10 S- and
+  T-codes: bites, sprains, fractures, lacerations, burns, contusions). For these, the code is
+  organized by body region, so the "display" and "searchTerms" MUST carry the site/side the
+  provider documented or the search picks an arbitrary region. E.g. "insect bite on the right
+  lower leg" → display "Insect bite, right lower leg", searchTerms ["insect bite lower leg"]; NOT
+  bare "Insect bite". Do NOT do this for chronic/medical disease codes (gout, otitis, diabetes,
+  conjunctivitis, etc.) — providers frequently chart the unspecified-site code for those even when
+  a site is mentioned, so leave the site OUT of the display unless the provider explicitly named a
+  site-specific diagnosis. Adding a site to "gout" wrongly forces a site-specific M10.0x over the
+  commonly-used M10.9 "gout, unspecified".
 - add-medication takes two extra fields beyond display/searchTerms:
     { kind: "add-medication", display, searchTerms, strength, doseForm }
     Keep searchTerms focused on the ingredient/brand name ("Amoxicillin") — DO NOT pack
@@ -310,6 +348,33 @@ ACTION SHAPES (use these intent kinds and the same fields the single-shot agent 
   remove-hospitalization / remove-diagnosis / remove-exam-finding: { kind, display, searchTerms }.
 - set-em-code: { kind, code, display }   (provider gave a CPT like "99214")
 - add-cpt: { kind, code, display }       (additional CPT codes)
+    INJECTION ADMINISTRATION BILLING — the one case where you SHOULD supply codes yourself:
+    ONLY when a medication is GIVEN IN CLINIC by an INJECTED/INFUSED route — IM, SC, or IV (a
+    "shot", "injection", "IM", "IV push", "infusion"). This does NOT apply to oral meds, topical
+    creams, otic/ophthalmic drops, inhalers/nebulizers, or any prescription sent to a pharmacy —
+    for those, emit only the add-medication, NO administration CPT. When the route IS injection,
+    emit BOTH (a) the add-medication for the drug AND (b) an add-cpt for the
+    administration code, AND (c) an add-cpt for the drug's HCPCS supply code when the drug is in
+    the table below. These are deterministic, standard codes — supplying them here is NOT
+    "making up a code".
+    Administration codes (pick ONE, the most specific that fits):
+      96372 — therapeutic/prophylactic/diagnostic injection, SC or IM (the usual default for an
+              IM/SC shot like Toradol/ketorolac, dexamethasone, Rocephin)
+      96374 — IV push, single drug, initial
+      96365 — IV infusion, initial up to 1 hour
+    Common in-clinic drug HCPCS supply codes (emit alongside 96372 when the drug matches):
+      J1885 — ketorolac tromethamine, per 15 mg (Toradol)
+      J1100 — dexamethasone sodium phosphate, per 1 mg (Decadron)
+      J0696 — ceftriaxone sodium, per 250 mg (Rocephin)
+      J2550 — promethazine HCl, per 25 mg (Phenergan)
+      J2405 — ondansetron HCl, per 1 mg (Zofran)
+      J1200 — diphenhydramine HCl, per 50 mg (Benadryl)
+      J3420 — vitamin B-12, per 1000 mcg
+    Example: narrative "gave a Toradol shot / 60 of Toradol IM" → emit add-medication (Ketorolac,
+    Injection, 60 mg) AND add-cpt {code:"96372", display:"Therapeutic injection, SC/IM"} AND
+    add-cpt {code:"J1885", display:"Injection, ketorolac tromethamine, per 15 mg"}.
+    If the drug is given in clinic but is NOT in the table, still emit the 96372 administration
+    add-cpt; omit the J-code rather than guess it.
 - remove-em-code: { kind } or { kind, code }
 - remove-cpt: { kind, code }
 - apply-template: { kind, display, searchTerms } — match against the practice's saved templates.
@@ -319,6 +384,9 @@ ACTION SHAPES (use these intent kinds and the same fields the single-shot agent 
   with the strength/doseForm fields, even if the narrative groups it under "plan" or
   "procedures". Only emit add-procedure for things like suturing, splinting, lavage, I&D,
   imaging (X-ray, ultrasound), foreign body removal, etc.
+  NOTE: an in-clinic injection still has BILLING consequences — in addition to the
+  add-medication, emit the administration add-cpt (96372) and the drug's HCPCS J-code per the
+  add-cpt rules below.
 - update-procedure: { kind, updates: [{field, value}, ...], procedureMatch? }
     Field names: bodySite, bodySide, technique, suppliesUsed, procedureDetails,
     medicationUsed, complications, patientResponse, postInstructions, timeSpent,
@@ -369,7 +437,10 @@ RULES:
     "Tender lateral malleolus with anterior talofibular tenderness" → ONE step.
   Emit SEPARATE steps only when the narrative describes findings on distinctly different
   anatomic sites or systems ("Right TM bulging. Throat injected." → two steps).
-- Do NOT make up codes (ICD-10, RxNorm, CPT). The client searches canonical sources.
+- Do NOT make up codes (ICD-10, RxNorm, CPT). The client searches canonical sources. EXCEPTION:
+  the standard injection-administration CPT (96372/96374/96365) and the curated drug HCPCS
+  J-codes listed under add-cpt ARE expected to be supplied directly — those are fixed standard
+  codes, not guesses.
 - For ambiguous picks (e.g. multiple matching procedures or exam findings), still emit the step
   with the provider's wording — the client will present a picker.
 - Don't emit duplicate or redundant steps. If the narrative implies several edits to the same
@@ -392,6 +463,12 @@ RULES:
   insurance carrier/member ID, PCP info, responsible party, emergency contact) are NOT chart
   actions — OMIT them entirely. They live on the Patient/Coverage resources via the intake
   flow, not the easy-chart conversational interface.
+- SAME-PATIENT ONLY. The transcript is a raw ambient recording and frequently contains content
+  that is NOT about this patient: chatter about OTHER patients ("Amon just brought her son in,
+  he's 2 and got bit by a spider"), staff/student conversation, scheduling, personal asides.
+  Document ONLY the patient identified in the PATIENT block above. IGNORE any symptoms, ages,
+  sexes, diagnoses, fevers, or medications that the transcript attributes to a different person.
+  If a detail can't be confidently tied to THIS patient's visit, leave it out.
 `;
 };
 
