@@ -355,8 +355,10 @@ export const EditableMedicationCard: React.FC<{
 
     // we check that have not empty required fields
     if (!isValid) {
-      setMissingFields(missingFields);
-      setIsModalOpen(true);
+      // dose has inline error display — exclude it from the modal
+      const modalMissingFields = missingFields.filter((f) => f !== 'dose');
+      setMissingFields(modalMissingFields);
+      if (modalMissingFields.length > 0) setIsModalOpen(true);
       setShowErrors(true);
       return;
     }
