@@ -32,7 +32,7 @@ export const getInputTypes = (name: string): string => {
 };
 
 export function getAgeInYears(dateString: string): number {
-  return DateTime.now().diff(DateTime.fromISO(dateString), 'years').years;
+  return Math.floor(DateTime.now().diff(DateTime.fromISO(dateString), 'years').years);
 }
 
 export function isOlderThan18Years(dateString: string): boolean {
