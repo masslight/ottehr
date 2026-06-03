@@ -2,6 +2,8 @@ import { Alert, Box, Divider, Stack, TextField, Typography } from '@mui/material
 import { FC } from 'react';
 import { EducationSection } from '../hooks/usePatientEducation';
 
+const PATIENT_EDUCATION_TITLE_MAX_LENGTH = 150;
+
 type Props = {
   sections: EducationSection[];
   onSectionsChange: (sections: EducationSection[]) => void;
@@ -35,13 +37,18 @@ export const PatientEducationSectionsEditor: FC<Props> = ({
             value={section.patientTitle}
             onChange={(e) => {
               const next = [...sections];
-              next[idx] = { ...next[idx], patientTitle: e.target.value };
+              next[idx] = {
+                ...next[idx],
+                patientTitle: e.target.value.replace(/[\r\n]+/g, ' '),
+              };
               onSectionsChange(next);
             }}
             fullWidth
             size="small"
             sx={{ mb: 1 }}
             disabled={disabled}
+            inputProps={{ maxLength: PATIENT_EDUCATION_TITLE_MAX_LENGTH }}
+            helperText={`${section.patientTitle.length}/${PATIENT_EDUCATION_TITLE_MAX_LENGTH} characters`}
           />
           <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, display: 'block' }}>
             {section.icdCode} — {section.icdDescription}
