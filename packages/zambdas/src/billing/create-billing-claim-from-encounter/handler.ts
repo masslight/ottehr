@@ -577,7 +577,7 @@ async function getClinicalResources(
       params: [
         {
           // By id
-          name: 'id',
+          name: '_id',
           value: params.encounterId,
         },
         {
@@ -657,7 +657,7 @@ async function getClinicalResources(
   const payors = await Promise.all(
     coverages.map<Promise<Organization>>(async (c) => {
       // Assume single payor per coverage
-      const payorRef = c.payor[0].reference;
+      const payorRef = c.payor?.[0]?.reference;
       if (!payorRef) throw FHIR_RESOURCE_NOT_FOUND('Organization');
       return isValidUUID(payorRef.replace('Organization/', ''))
         ? oystehr.fhir.get<Organization>({
@@ -668,10 +668,20 @@ async function getClinicalResources(
     })
   );
 
-  const billingProvider = await oystehr.fhir.get<Organization>({
-    resourceType: 'Organization',
-    id: params.secrets.DEFAULT_BILLING_RESOURCE.replace('Organization/', ''),
-  });
+  const defaultBillingProviderRef = params.secrets.DEFAULT_BILLING_PROVIDER;
+  if (!defaultBillingProviderRef) throw FHIR_RESOURCE_NOT_FOUND('Organization');
+  const billingProviders = (
+    await oystehr.fhir.search<Organization>({
+      resourceType: 'Organization',
+      params: [
+        {
+          name: '_id',
+          value: defaultBillingProviderRef.replace('Organization/', ''),
+        },
+      ],
+    })
+  ).unbundle();
+  if (!billingProviders.length) throw FHIR_RESOURCE_NOT_FOUND('Organization');
 
   return {
     encounter,
@@ -679,7 +689,7 @@ async function getClinicalResources(
     appointment,
     practitioners,
     location,
-    billingProvider,
+    billingProvider: billingProviders[0],
     accounts,
     coverages,
     payors,
@@ -898,7 +908,7 @@ function getLocalDateOfService(appointmentStart: string, location: Location | un
   return DateTime.fromISO(appointmentStart).setZone(timezone).toISODate()!;
 }
 
-async function complexValidation(
+export async function complexValidation(
   clinicalOystehr: Oystehr,
   billingOystehr: Oystehr,
   params: CreateClaimFromEncounterParams
