@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
-import { getAgeInYears, isOlderThan18Years, isYoungerThan18Years } from './helper';
+import { getAgeInYears, is18YearsOrOlder, isYoungerThan18Years } from './helper';
 
 describe('age helpers', () => {
   beforeAll(() => {
@@ -35,21 +35,21 @@ describe('age helpers', () => {
     });
   });
 
-  describe('isOlderThan18Years', () => {
+  describe('is18YearsOrOlder', () => {
     it('returns false for a patient under 18', () => {
-      expect(isOlderThan18Years('2009-06-03')).toBe(false);
+      expect(is18YearsOrOlder('2009-06-03')).toBe(false);
     });
 
     it('returns false the day before the 18th birthday', () => {
-      expect(isOlderThan18Years('2008-06-04')).toBe(false);
+      expect(is18YearsOrOlder('2008-06-04')).toBe(false);
     });
 
     it('returns true, on the exact 18th birthday', () => {
-      expect(isOlderThan18Years('2008-06-03')).toBe(true);
+      expect(is18YearsOrOlder('2008-06-03')).toBe(true);
     });
 
     it('returns true for a patient over 18', () => {
-      expect(isOlderThan18Years('1995-01-01')).toBe(true);
+      expect(is18YearsOrOlder('1995-01-01')).toBe(true);
     });
   });
 });
