@@ -328,7 +328,6 @@ export default function AddPatient(): JSX.Element {
     if (validDate && validReasonForVisit) {
       setLoading(true);
 
-      console.log('slot', slot);
       if (!oystehrZambda) throw new Error('Zambda client not found');
       let createSlotInput: CreateSlotParams;
       if (visitType === VisitType.InPersonWalkIn || visitType === VisitType.VirtualOnDemand) {
@@ -384,7 +383,6 @@ export default function AddPatient(): JSX.Element {
           serviceCategoryCode: serviceCategory,
         };
       }
-      console.log('slot input: ', createSlotInput);
       const persistedSlot = await createSlot(createSlotInput, oystehrZambda);
       const zambdaParams: CreateAppointmentInputParams = {
         patient: {
