@@ -10,10 +10,13 @@ interface PatchTaskStatusInput {
 
 export const patchTaskStatus = async (input: PatchTaskStatusInput, oystehr: Oystehr): Promise<Task> => {
   const { task, taskStatusToUpdate, statusReasonToUpdate } = input;
+  if (!task.id) {
+    throw INVALID_INPUT_ERROR('Task ID is required to patch task status');
+  }
   try {
     return await oystehr.fhir.patch({
       resourceType: 'Task',
-      id: task.id || '',
+      id: task.id,
       operations: [
         {
           op: 'replace',
