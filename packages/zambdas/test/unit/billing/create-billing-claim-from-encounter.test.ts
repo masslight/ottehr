@@ -1,5 +1,17 @@
 import Oystehr from '@oystehr/sdk';
 import {
+  Account,
+  Appointment,
+  Condition,
+  Coverage,
+  Encounter,
+  Location,
+  Organization,
+  Patient,
+  Practitioner,
+  Procedure,
+} from 'fhir/r4b';
+import {
   APIError,
   FHIR_RESOURCE_NOT_FOUND,
   INVALID_INPUT_ERROR,
@@ -10,13 +22,27 @@ import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { Mock, vi } from 'vitest';
 import {
   complexValidation,
+  ComplexValidationOutput,
   validateRequestParameters,
 } from '../../../src/billing/create-billing-claim-from-encounter/handler';
 
-const clinicalResources = {
+const clinicalResources: {
+  encounter: Encounter;
+  patient: Patient;
+  appointment: Appointment;
+  location: Location;
+  practitioner: Practitioner;
+  account: Account;
+  coverage: Coverage;
+  condition: Condition;
+  procedure: Procedure;
+  billingProvider: Organization;
+} = {
   encounter: {
     resourceType: 'Encounter',
     id: 'encounter-123',
+    class: {},
+    status: 'finished',
     subject: {
       reference: 'Patient/patient-123',
     },
@@ -40,6 +66,8 @@ const clinicalResources = {
   appointment: {
     resourceType: 'Appointment',
     id: 'appointment-123',
+    status: 'fulfilled',
+    participant: [],
   },
   location: {
     resourceType: 'Location',
@@ -52,24 +80,38 @@ const clinicalResources = {
   account: {
     resourceType: 'Account',
     id: 'account-123',
+    status: 'active',
   },
   coverage: {
     resourceType: 'Coverage',
     id: 'coverage-123',
     payor: [{ reference: 'https://rcm-api.zapehr.com/v1/payer/payer-123' }],
+    status: 'active',
+    beneficiary: { reference: 'Patient/patient-123' },
   },
   condition: {
     resourceType: 'Condition',
     id: 'condition-123',
+    subject: {
+      reference: 'Patient/patient-123',
+    },
   },
   procedure: {
     resourceType: 'Procedure',
     id: 'procedure-123',
+    status: 'completed',
+    subject: {
+      reference: 'Patient/patient-123',
+    },
   },
   billingProvider: {
     resourceType: 'Organization',
     id: 'organization-123',
   },
+} as const;
+
+const oystehrResources: { payor: Organization } = {
+  payor: { resourceType: 'Organization', id: 'payer-123' },
 };
 
 describe('create-billing-claim-from-encounter', () => {
@@ -112,6 +154,7 @@ describe('create-billing-claim-from-encounter', () => {
       billingOystehrSearch: Mock;
       secrets?: Record<string, string>;
       expectedError: APIError | null;
+      expectedResult?: ComplexValidationOutput | null;
     }[] = [
       {
         name: 'throws error when has existing claim',
@@ -414,6 +457,32 @@ describe('create-billing-claim-from-encounter', () => {
           }),
         secrets: { DEFAULT_BILLING_PROVIDER: 'Organization/organization-123' },
         expectedError: null,
+        expectedResult: {
+          clinicalResources: {
+            accounts: [clinicalResources.account],
+            appointment: clinicalResources.appointment,
+            billingProvider: clinicalResources.billingProvider,
+            coverages: [clinicalResources.coverage],
+            diagnoses: [clinicalResources.condition],
+            encounter: clinicalResources.encounter,
+            location: clinicalResources.location,
+            patient: clinicalResources.patient,
+            payors: [oystehrResources.payor],
+            practitioners: [clinicalResources.practitioner],
+            procedures: [clinicalResources.procedure],
+          },
+          billingResources: {
+            accounts: [],
+            billingProvider: undefined,
+            coverages: [],
+            mainPatient: undefined,
+            person: undefined,
+            practitioners: [],
+            renderingProvider: undefined,
+            serviceFacility: undefined,
+            subscribers: [],
+          },
+        },
       },
     ];
     it.each(tt)('$name', async (tc) => {
@@ -421,14 +490,14 @@ describe('create-billing-claim-from-encounter', () => {
         complexValidation(
           {
             fhir: { search: tc.clinicalOystehrSearch },
-            rcm: { getPayerByUrl: vi.fn().mockResolvedValue({ resourceType: 'Organization', id: 'payer-123' }) },
+            rcm: { getPayerByUrl: vi.fn().mockResolvedValue(oystehrResources.payor) },
           } as unknown as Oystehr,
           { fhir: { search: tc.billingOystehrSearch } } as unknown as Oystehr,
           { encounterId, secrets: tc.secrets ?? {} }
         )
       );
       if (tc.expectedError) await expectPromise.rejects.toThrow(expect.objectContaining(tc.expectedError));
-      else await expectPromise.resolves.toBeDefined();
+      else await expectPromise.resolves.toStrictEqual(tc.expectedResult);
     });
   });
 });

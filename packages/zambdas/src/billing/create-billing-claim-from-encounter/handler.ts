@@ -77,7 +77,7 @@ export interface CreateClaimFromEncounterParams extends CreateBillingClaimFromEn
   secrets: NonNullable<ZambdaInput['secrets']>;
 }
 
-type ComplexValidationOutput = { clinicalResources: ClinicalResources; billingResources: BillingResources };
+export type ComplexValidationOutput = { clinicalResources: ClinicalResources; billingResources: BillingResources };
 
 // Type alias for resources relevant to billing
 type BillingFhirResource =
@@ -104,7 +104,7 @@ interface ClinicalResources {
   location: Location;
   billingProvider: Organization;
   payors: Organization[];
-  diagnoses: Array<Condition | Procedure>;
+  diagnoses: Array<Condition>;
   procedures: Array<Procedure>;
 }
 
@@ -130,7 +130,7 @@ interface ClaimResources {
   // Only rendering and billing providers handled now
   renderingProvider?: Practitioner;
   billingProvider?: Organization;
-  diagnoses?: Array<Condition | Procedure>;
+  diagnoses?: Array<Condition>;
   procedures?: Array<Procedure>;
 }
 
@@ -646,9 +646,7 @@ async function getClinicalResources(
   const coverages = resources.filter((r): r is Coverage => r.resourceType === 'Coverage');
   if (!coverages.length) throw FHIR_RESOURCE_NOT_FOUND('Coverage');
 
-  const diagnoses = resources.filter((r): r is Condition | Procedure =>
-    ['Condition', 'Procedure'].includes(r.resourceType)
-  );
+  const diagnoses = resources.filter((r): r is Condition => r.resourceType === 'Condition');
   if (!diagnoses.length) throw FHIR_RESOURCE_NOT_FOUND('Condition');
 
   const procedures = resources.filter((r): r is Procedure => r.resourceType === 'Procedure');
