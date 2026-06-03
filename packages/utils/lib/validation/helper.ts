@@ -31,12 +31,16 @@ export const getInputTypes = (name: string): string => {
   }
 };
 
+export function getAgeInYears(dateString: string): number {
+  return DateTime.now().diff(DateTime.fromISO(dateString), 'years').years;
+}
+
 export function isOlderThan18Years(dateString: string): boolean {
-  const inputDate = DateTime.fromISO(dateString);
+  return getAgeInYears(dateString) > 18;
+}
 
-  const yearsDifference = DateTime.now().diff(inputDate, 'years').years;
-
-  return yearsDifference > 18;
+export function isYoungerThan18Years(dateString: string): boolean {
+  return getAgeInYears(dateString) < 18;
 }
 
 export function isNullOrUndefined(value: any): boolean {
