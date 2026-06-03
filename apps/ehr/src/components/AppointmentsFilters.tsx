@@ -115,6 +115,13 @@ export default function AppointmentsFilters(): ReactElement {
       return;
     }
 
+    // Defer seeding until AppointmentTabs has written `?tab=`. AppointmentsFilters is only
+    // mounted on the tracking board page alongside AppointmentTabs, which writes the tab on
+    // mount — this guard keeps the two siblings' URL writes deterministic.
+    if (!searchParams.has('tab')) {
+      return;
+    }
+
     const defaultValues = {
       visitType: Object.keys(visitTypeToLabel),
       date: DateTime.now().toISODate(),
@@ -134,7 +141,7 @@ export default function AppointmentsFilters(): ReactElement {
       localStorage.removeItem(LOCAL_STORAGE_FILTERS_KEY);
       methods.reset(defaultValues);
     }
-  }, [hasTrackingBoardFilterParams, methods, visitTypeToLabel]);
+  }, [hasTrackingBoardFilterParams, methods, searchParams, visitTypeToLabel]);
 
   return (
     <FormProvider {...methods}>

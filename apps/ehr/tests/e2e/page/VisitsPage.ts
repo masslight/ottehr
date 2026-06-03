@@ -109,8 +109,19 @@ export class VisitsPage {
   }
 }
 
+async function waitForTrackingBoardReady(page: Page): Promise<void> {
+  await page.waitForURL(
+    (url) =>
+      url.pathname === '/visits' &&
+      url.searchParams.has('tab') &&
+      url.searchParams.has('visitType') &&
+      url.searchParams.has('date'),
+    { timeout: 30000 }
+  );
+}
+
 export async function expectVisitsPage(page: Page): Promise<VisitsPage> {
-  await page.waitForURL(/visits/);
+  await waitForTrackingBoardReady(page);
   return new VisitsPage(page);
 }
 
