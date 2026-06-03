@@ -1,7 +1,7 @@
 import { Role, User } from '@oystehr/sdk';
 import { NOT_AUTHORIZED, RoleType, Secrets, SecretsKeys, userMe } from 'utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { requireAdminUser } from '../../src/shared';
+import { requireAdminUser, requireUserWithRole } from '../../src/shared';
 
 vi.mock('utils', async (importOriginal) => {
   const actual = await importOriginal<typeof import('utils')>();
@@ -37,6 +37,16 @@ const staffRole = {
   name: RoleType.Staff,
 } as Role;
 
+const managerRole = {
+  id: 'role-manager',
+  name: RoleType.Manager,
+} as Role;
+
+const customerSupportRole = {
+  id: 'role-customer-support',
+  name: RoleType.CustomerSupport,
+} as Role;
+
 describe('requireAdminUser', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -59,5 +69,35 @@ describe('requireAdminUser', () => {
     vi.mocked(userMe).mockResolvedValue(buildUser([]));
 
     await expect(requireAdminUser('user-token', secrets)).rejects.toEqual(NOT_AUTHORIZED);
+  });
+});
+
+describe('requireUserWithRole', () => {
+  const allowedRoles = [RoleType.Administrator, RoleType.Manager, RoleType.CustomerSupport];
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it.each([
+    ['Administrator', adminRole],
+    ['Manager', managerRole],
+    ['Customer Support', customerSupportRole],
+  ])('resolves when the caller has the %s role', async (_label, role) => {
+    vi.mocked(userMe).mockResolvedValue(buildUser([role]));
+
+    await expect(requireUserWithRole('user-token', secrets, allowedRoles)).resolves.toBeUndefined();
+  });
+
+  it('throws NOT_AUTHORIZED when the caller has none of the allowed roles', async () => {
+    vi.mocked(userMe).mockResolvedValue(buildUser([staffRole]));
+
+    await expect(requireUserWithRole('user-token', secrets, allowedRoles)).rejects.toEqual(NOT_AUTHORIZED);
+  });
+
+  it('throws NOT_AUTHORIZED when the caller has no roles', async () => {
+    vi.mocked(userMe).mockResolvedValue(buildUser([]));
+
+    await expect(requireUserWithRole('user-token', secrets, allowedRoles)).rejects.toEqual(NOT_AUTHORIZED);
   });
 });

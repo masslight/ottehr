@@ -26,12 +26,20 @@ export async function getUser(token: string, secrets: Secrets | null): Promise<U
   return user;
 }
 
-export const requireAdminUser = async (userToken: string, secrets: Secrets | null): Promise<void> => {
+export const requireUserWithRole = async (
+  userToken: string,
+  secrets: Secrets | null,
+  allowedRoles: RoleType[]
+): Promise<void> => {
   const user = await getUser(userToken, secrets);
   if (!user) throw NOT_AUTHORIZED;
   const roles = (user as any).roles as { name?: string }[] | undefined;
-  const isAdmin = roles?.some((role) => role.name === RoleType.Administrator) ?? false;
-  if (!isAdmin) throw NOT_AUTHORIZED;
+  const hasAllowedRole = roles?.some((role) => allowedRoles.some((allowed) => role.name === allowed)) ?? false;
+  if (!hasAllowedRole) throw NOT_AUTHORIZED;
+};
+
+export const requireAdminUser = async (userToken: string, secrets: Secrets | null): Promise<void> => {
+  await requireUserWithRole(userToken, secrets, [RoleType.Administrator]);
 };
 
 export async function getPersonForPatient(patientID: string, oystehr: Oystehr): Promise<RelatedPerson | undefined> {

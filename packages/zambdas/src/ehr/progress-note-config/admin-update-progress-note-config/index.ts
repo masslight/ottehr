@@ -1,10 +1,10 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { getSecret, SecretsKeys, UpdateProgressNoteConfigInputValidated } from 'utils';
+import { getSecret, RoleType, SecretsKeys, UpdateProgressNoteConfigInputValidated } from 'utils';
 import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
-  requireAdminUser,
+  requireUserWithRole,
   saveProgressNoteConfig,
   topLevelCatch,
   wrapHandler,
@@ -46,7 +46,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
 const complexValidation = async (validatedInput: UpdateProgressNoteConfigInputValidated): Promise<void> => {
   const { userToken, secrets } = validatedInput;
-  await requireAdminUser(userToken, secrets);
+  await requireUserWithRole(userToken, secrets, [RoleType.Administrator, RoleType.Manager, RoleType.CustomerSupport]);
 };
 
 const performEffect = async (
