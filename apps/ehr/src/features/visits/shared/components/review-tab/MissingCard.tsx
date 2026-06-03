@@ -7,6 +7,7 @@ import { AccordionCard } from 'src/components/AccordionCard';
 import { LoadingScreen } from 'src/components/LoadingScreen';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { getAssessmentUrl, getChiefComplaintUrl, getHPIUrl } from 'src/features/visits/in-person/routing/helpers';
+import { useProgressNoteConfig } from 'src/hooks/useProgressNoteConfig';
 import { useChartFields } from '../../hooks/useChartFields';
 import { useAiSuggestionNotes } from '../../stores/appointment/appointment.queries';
 import { useChartData } from '../../stores/appointment/appointment.store';
@@ -34,6 +35,8 @@ export const MissingCard: FC = () => {
   });
 
   const { mutateAsync: aiSuggestionNotes } = useAiSuggestionNotes();
+  const { data: progressNoteConfig } = useProgressNoteConfig();
+  const mdmRequired = progressNoteConfig?.mdmRequired ?? true;
 
   const navigate = useNavigate();
   const primaryDiagnosis = (chartData?.diagnosis || []).find((item) => item.isPrimary);
@@ -63,7 +66,7 @@ export const MissingCard: FC = () => {
 
   if (
     primaryDiagnosis &&
-    medicalDecision &&
+    (!mdmRequired || medicalDecision) &&
     emCode &&
     hpi &&
     !suggestionNote &&
@@ -128,7 +131,7 @@ export const MissingCard: FC = () => {
               Primary diagnosis
             </Link>
           )}
-          {!medicalDecision && (
+          {mdmRequired && !medicalDecision && (
             <Link
               component="button"
               sx={{ cursor: 'pointer' }}
