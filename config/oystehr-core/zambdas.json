@@ -2591,12 +2591,12 @@
         ]
       }
     },
-    "SUB_ERX_PATIENT_SYNC_ON_PATIENT_SUBSCRIPTION": {
+    "SUB_ERX_PATIENT_SYNC_ON_ENCOUNTER_SUBSCRIPTION": {
       "resource": {
         "resourceType": "Subscription",
         "status": "active",
-        "reason": "Sync patient with eRx service when all patient demographics are present (if older than 18)",
-        "criteria": "Patient?birthdate:missing=false&gender:missing=false&address:missing=false&phone:missing=false&_tag:not=patient-erx-sync-status|ERX_PATIENT_SYNCED",
+        "reason": "Warm up eRx patient sync when a patient arrives for a visit",
+        "criteria": "Encounter?status=arrived",
         "channel": {
           "type": "rest-hook",
           "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-ERX-PATIENT-SYNC/id}"

@@ -290,12 +290,6 @@ export const FHIR_ENCOUNTER_ERX_PATIENT_SYNC_TAG = {
   code: FHIR_PATIENT_ERX_PATIENT_SYNC_CODE,
 };
 
-export const FHIR_PATIENT_ERX_PATIENT_SYNC_SYSTEM = 'patient-erx-sync-status';
-export const FHIR_PATIENT_ERX_PATIENT_SYNC_TAG = {
-  system: FHIR_PATIENT_ERX_PATIENT_SYNC_SYSTEM,
-  code: FHIR_PATIENT_ERX_PATIENT_SYNC_CODE,
-};
-
 export const ERX_MEDICATION_META_TAG_CODE = 'erx-medication';
 
 export const FHIR_APPOINTMENT_TYPE_MAP: Record<string, AppointmentType> = {

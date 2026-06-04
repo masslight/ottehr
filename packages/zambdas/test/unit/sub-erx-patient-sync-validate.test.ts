@@ -23,17 +23,20 @@ describe('sub-erx-patient-sync validateRequestParameters', () => {
     );
     expect(result.patientId).toBe('pat-1');
     expect(result.encounterId).toBe('enc-1');
+    expect(result.triggerType).toBe('observation');
   });
 
-  test('parses a Patient body into patientId with no encounterId', () => {
+  test('parses an Encounter body into patientId + its own id as encounterId', () => {
     const result = validateRequestParameters(
       makeInput({
-        resourceType: 'Patient',
-        id: 'pat-1',
+        resourceType: 'Encounter',
+        id: 'enc-1',
+        subject: { reference: 'Patient/pat-1' },
       })
     );
     expect(result.patientId).toBe('pat-1');
-    expect(result.encounterId).toBeUndefined();
+    expect(result.encounterId).toBe('enc-1');
+    expect(result.triggerType).toBe('encounter');
   });
 
   test('throws on an unsupported resourceType', () => {

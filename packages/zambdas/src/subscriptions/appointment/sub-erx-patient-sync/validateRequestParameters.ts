@@ -4,7 +4,9 @@ import { safeValidate, ZambdaInput } from '../../../shared';
 
 export interface ErxPatientSyncSubscriptionInput {
   patientId: string;
-  encounterId?: string;
+  encounterId: string;
+  // 'encounter' = the visit (arrived) trigger; 'observation' = the height/weight vitals trigger.
+  triggerType: 'encounter' | 'observation';
   secrets: Secrets;
 }
 
@@ -13,13 +15,14 @@ const referenceSchema = z.object({
 });
 
 // this zambda has two subscriptions:
-// - patient (demographics) trigger without an encounter
-// - observation (height/weight) trigger with an encounter
+// - encounter trigger filtered by demographics
+// - observation trigger filtered by vitals
 const ErxSyncBodySchema = z.discriminatedUnion('resourceType', [
   z
     .object({
-      resourceType: z.literal('Patient'),
+      resourceType: z.literal('Encounter'),
       id: z.string(),
+      subject: referenceSchema,
     })
     .passthrough(),
   z
@@ -42,11 +45,13 @@ export function validateRequestParameters(input: ZambdaInput): ErxPatientSyncSub
   }
 
   const secrets = input.secrets;
-
   const body = safeValidate(ErxSyncBodySchema, JSON.parse(input.body));
+  const patientId = body.subject.reference.split('/')[1];
+  if (!patientId) {
+    throw new Error(`Patient reference not found on encounter ${body.id}`);
+  }
 
   if (body.resourceType === 'Observation') {
-    const patientId = body.subject.reference.split('/')[1];
     const encounterId = body.encounter.reference.split('/')[1];
     if (!patientId) {
       throw new Error(`Patient reference not found on observation ${body.id}`);
@@ -57,12 +62,15 @@ export function validateRequestParameters(input: ZambdaInput): ErxPatientSyncSub
     return {
       patientId,
       encounterId,
+      triggerType: 'observation',
       secrets,
     };
   }
 
   return {
-    patientId: body.id,
+    patientId,
+    encounterId: body.id,
+    triggerType: 'encounter',
     secrets,
   };
 }
