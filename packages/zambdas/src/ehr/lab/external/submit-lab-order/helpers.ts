@@ -26,6 +26,7 @@ import {
   getTimezone,
   isPSCOrder,
   LAB_ACCOUNT_NUMBER_SYSTEM,
+  labOrderUsesFriendlyPatientId,
   LabPaymentMethod,
   ORDER_ITEM_UNKNOWN,
   paymentMethodFromCoverage,
@@ -73,6 +74,7 @@ export type testDataForOrderForm = {
 };
 
 export type resourcesForOrderForm = {
+  serviceRequest: ServiceRequest;
   isManualOrder: boolean;
   isPscOrder: boolean;
   testDetails: testDataForOrderForm[];
@@ -127,6 +129,24 @@ export async function getBundledOrderResources(
   const aoeAnswerPromises: Array<
     Promise<{ serviceRequestID: string; questionsAndAnswers?: AOEDisplayForOrderForm[] }>
   > = [];
+
+  // before we do anything, let's quickly validate that every ServiceRequest has the same patient
+  if (!results.every((res) => res.result.patient.id === results[0].result.patient.id)) {
+    throw EXTERNAL_LAB_ERROR('Not all orders in the bundle correspond to the same patient');
+  }
+
+  // we should also make sure every order either uses or does not use the friendly id
+  if (
+    !results.every(
+      (res) =>
+        labOrderUsesFriendlyPatientId(res.result.serviceRequest) ===
+        labOrderUsesFriendlyPatientId(results[0].result.serviceRequest)
+    )
+  ) {
+    throw EXTERNAL_LAB_ERROR(
+      'Detected inconsistent friendly patied ID usage within the bundle. Some orders use it and others do not.'
+    );
+  }
 
   results.forEach(({ serviceRequestID, result }) => {
     if (result.serviceRequest.status !== 'draft') {
@@ -270,6 +290,7 @@ export async function getBundledOrderResources(
         // oystehr labs will validate that all these resources match for each ServiceRequest submitted within
         // a bundled order so there is no need for us to do that validation here, we will just take the resources from the first ServiceRequest for that bundle
         bundledOrderResources[orderNumber] = {
+          serviceRequest,
           isManualOrder,
           isPscOrder,
           testDetails: [srTestDetail],
@@ -532,10 +553,10 @@ export async function makeOrderFormsAndDocRefs(
 ): Promise<string[]> {
   const orderFormPromises = Object.entries(input).map(async ([orderNumber, resources]) => {
     console.log('making form order for', orderNumber);
-    const patientId = resources.patient.id;
+    const patientUuid = resources.patient.id;
     const encounterId = resources.encounter.id;
     const serviceRequestIds = resources.testDetails.map((detail) => detail.serviceRequestID);
-    if (!patientId) throw new Error(`Patient id is missing, cannot create order form`);
+    if (!patientUuid) throw new Error(`Patient id is missing, cannot create order form`);
     if (!encounterId) throw new Error(`Encounter id is missing, cannot create order form`);
 
     let pdfInfo: PdfInfo | undefined;
@@ -547,7 +568,7 @@ export async function makeOrderFormsAndDocRefs(
       docRefsToAddToLabFolder.push(`DocumentReference/${resources.labGeneratedEReq.id}`);
     } else {
       const orderFormDataConfig = getOrderFormDataConfig(orderNumber, resources, now, oystehr);
-      pdfInfo = await createExternalLabsOrderFormPDF(orderFormDataConfig, patientId, secrets, token);
+      pdfInfo = await createExternalLabsOrderFormPDF(orderFormDataConfig, patientUuid, secrets, token);
     }
     if (resources.abnDocRef) {
       abnUrl = resources.abnDocRef.content[0].attachment.url || '';
@@ -556,7 +577,7 @@ export async function makeOrderFormsAndDocRefs(
 
     if (docRefsToAddToLabFolder.length) {
       console.log('eReq and/or ABN must be added to labs folder');
-      const labList = await getLabListResource(oystehr, patientId, secrets);
+      const labList = await getLabListResource(oystehr, patientUuid, secrets);
       if (labList) {
         await addDocsToLabList(oystehr, labList, docRefsToAddToLabFolder, secrets);
       }
@@ -566,7 +587,7 @@ export async function makeOrderFormsAndDocRefs(
       pdfInfo,
       labGeneratedEReqUrl,
       abnUrl,
-      patientId,
+      patientUuid,
       encounterId,
       serviceRequestIds,
     };
@@ -585,7 +606,7 @@ export async function makeOrderFormsAndDocRefs(
             secrets,
             type: 'order',
             pdfInfo: detail.pdfInfo,
-            patientID: detail.patientId,
+            patientUuid: detail.patientUuid,
             encounterID: detail.encounterId,
             related: makeRelatedForLabsPDFDocRef({ serviceRequestIds: detail.serviceRequestIds }),
           })

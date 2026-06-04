@@ -10,11 +10,12 @@ import {
   ServiceRequest,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { getPatientFirstName, getPatientLastName } from '../../fhir';
+import { getPatientFirstName, getPatientFriendlyId, getPatientLastName } from '../../fhir';
 import {
   CreateLabPaymentMethod,
   DEFAULT_OYSTEHR_LABS_HL7_SYSTEM,
   DYMO_30334_LABEL_CONFIG,
+  EXTERNAL_LAB_ERROR,
   EXTERNAL_LAB_LABEL_PDF_DOC_REF_DOCTYPE,
   ExternalLabsLabelConfig,
   LAB_ACCOUNT_NUMBER_SYSTEM,
@@ -23,6 +24,7 @@ import {
   LAB_LIST_CODE_CODING,
   LAB_LIST_CODING_SYSTEM,
   LAB_ORDER_DOC_REF_CODING_CODE,
+  LAB_ORDER_WITH_FRIENDLY_PATIENT_ID_DETAIL,
   LAB_RESULT_DOC_REF_CODING_CODE,
   LabPaymentMethod,
   LabSetStatus,
@@ -369,6 +371,7 @@ export const makeExternalLabLabelConfig = ({
   labOrganization,
   specimenCollectionDateTime,
   userTimezone,
+  serviceRequest,
 }: {
   patient: Patient;
   orderNumber: string;
@@ -376,11 +379,20 @@ export const makeExternalLabLabelConfig = ({
   labOrganization: Organization;
   specimenCollectionDateTime: DateTime | undefined;
   userTimezone: string;
+  serviceRequest: ServiceRequest;
 }): ExternalLabsLabelConfig => {
+  const shouldUseFriendlyPatientId = labOrderUsesFriendlyPatientId(serviceRequest);
+  const friendlyPatientId = getPatientFriendlyId(patient);
+  if (shouldUseFriendlyPatientId && !friendlyPatientId) {
+    throw EXTERNAL_LAB_ERROR(
+      `ServiceRequest/${serviceRequest.id} order should use friendly patient id, but no friendly id found on patient`
+    );
+  }
+
   const labelConfig: ExternalLabsLabelConfig = {
     labelConfig: DYMO_30334_LABEL_CONFIG,
     content: {
-      patientId: patient.id!,
+      patientId: shouldUseFriendlyPatientId ? friendlyPatientId : patient.id!,
       patientFirstName: getPatientFirstName(patient) ?? '',
       patientLastName: getPatientLastName(patient) ?? '',
       patientDateOfBirth: patient.birthDate ? DateTime.fromISO(patient.birthDate) : undefined,
@@ -403,4 +415,19 @@ export const makeExternalLabLabelConfig = ({
 
 export const isExternalLabServiceRequest = (resource: ServiceRequest): boolean => {
   return !!resource.code?.coding?.find((c) => c.system === OYSTEHR_LAB_OI_CODE_SYSTEM);
+};
+
+export const labOrderUsesFriendlyPatientId = (sr: ServiceRequest): boolean => {
+  return (
+    isExternalLabServiceRequest(sr) &&
+    (sr.orderDetail?.some(
+      (detail) =>
+        detail.coding?.some(
+          (coding) =>
+            coding.system === LAB_ORDER_WITH_FRIENDLY_PATIENT_ID_DETAIL.system &&
+            coding.code === LAB_ORDER_WITH_FRIENDLY_PATIENT_ID_DETAIL.code
+        )
+    ) ??
+      false)
+  );
 };

@@ -474,7 +474,7 @@ export async function createExternalLabResultPDFBasedOnDr(
     secrets,
     type,
     pdfInfo: pdfDetail,
-    patientID: patient.id,
+    patientUuid: patient.id,
     encounterID: undefined,
     related: makeRelatedForLabsPDFDocRef({ diagnosticReportIds: [diagnosticReportID] }),
     labDetails: {
@@ -592,7 +592,7 @@ export async function createExternalLabResultPDF(
     secrets,
     type: 'results',
     pdfInfo: pdfDetail,
-    patientID: patient.id,
+    patientUuid: patient.id,
     encounterID: encounter.id,
     related: makeRelatedForLabsPDFDocRef({ diagnosticReportIds: [diagnosticReport.id] }),
     labDetails: {
@@ -686,7 +686,7 @@ export async function createInHouseLabResultPDF(
     secrets,
     type: 'results',
     pdfInfo: pdfDetail,
-    patientID: patient.id,
+    patientUuid: patient.id,
     encounterID: encounter.id,
     related: makeRelatedForLabsPDFDocRef({ diagnosticReportIds }),
     labDetails: {
@@ -1488,7 +1488,7 @@ export async function makeLabPdfDocumentReference({
   secrets,
   type,
   pdfInfo,
-  patientID,
+  patientUuid,
   encounterID,
   related,
   labDetails,
@@ -1499,7 +1499,7 @@ export async function makeLabPdfDocumentReference({
   secrets: Secrets | null;
   type: 'order' | 'results' | LabDrTypeTagCode;
   pdfInfo: PdfInfo;
-  patientID: string;
+  patientUuid: string;
   encounterID: string | undefined; // will be undefined for unsolicited results;
   related: Reference[];
   diagnosticReportIds?: string[];
@@ -1537,7 +1537,7 @@ export async function makeLabPdfDocumentReference({
     docRefContext.encounter = [{ reference: `Encounter/${encounterID}` }];
   }
 
-  const labListResource = await getLabListResource(oystehr, patientID, secrets, pdfInfo.title);
+  const labListResource = await getLabListResource(oystehr, patientUuid, secrets, pdfInfo.title);
 
   const { docRefs } = await createFilesDocumentReferences({
     files: [
@@ -1549,7 +1549,7 @@ export async function makeLabPdfDocumentReference({
     type: docType,
     references: {
       subject: {
-        reference: `Patient/${patientID}`,
+        reference: `Patient/${patientUuid}`,
       },
       context: docRefContext,
     },

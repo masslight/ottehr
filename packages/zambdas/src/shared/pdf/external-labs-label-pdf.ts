@@ -216,6 +216,7 @@ async function createExternalLabsLabelPDFHelper(
 
 export async function createExternalLabsLabelPDF(
   labelConfig: ExternalLabsLabelConfig,
+  patientUuid: string,
   encounterId: string,
   serviceRequestID: string,
   secrets: Secrets | null,
@@ -226,14 +227,14 @@ export async function createExternalLabsLabelPDF(
 
   console.log(`This is the made pdfInfo`, JSON.stringify(pdfInfo));
 
-  const labListResource = await getLabListResource(oystehr, labelConfig.content.patientId, secrets, pdfInfo.title);
+  const labListResource = await getLabListResource(oystehr, patientUuid, secrets, pdfInfo.title);
 
   const { docRefs } = await createFilesDocumentReferences({
     files: [{ url: pdfInfo.uploadURL, title: pdfInfo.title }],
     type: { coding: [EXTERNAL_LAB_LABEL_PDF_DOC_REF_DOCTYPE], text: 'External lab sample label' },
     references: {
       subject: {
-        reference: `Patient/${labelConfig.content.patientId}`,
+        reference: `Patient/${patientUuid}`,
       },
       context: {
         related: [
