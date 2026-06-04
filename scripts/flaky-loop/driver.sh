@@ -47,8 +47,20 @@ if [[ ! -f "$PROGRESS_FILE" ]]; then
   echo "Initialized progress file at $PROGRESS_FILE"
 fi
 
+# Pick a timeout command if one is available (`timeout` on Linux,
+# `gtimeout` from coreutils on macOS). If neither exists, run without a cap.
+TIMEOUT_BIN=""
+if command -v timeout >/dev/null 2>&1; then
+  TIMEOUT_BIN="timeout"
+elif command -v gtimeout >/dev/null 2>&1; then
+  TIMEOUT_BIN="gtimeout"
+else
+  echo "WARNING: no 'timeout'/'gtimeout' found; iterations will run without a time cap."
+  echo "         (macOS: 'brew install coreutils' to get gtimeout.)"
+fi
+
 cd "$REPO_ROOT"
-echo "Driver starting in $REPO_ROOT (model=$MODEL, max_iters=$MAX_ITERS)"
+echo "Driver starting in $REPO_ROOT (model=$MODEL, max_iters=$MAX_ITERS, timeout=${TIMEOUT_BIN:-none})"
 
 for (( i=1; i<=MAX_ITERS; i++ )); do
   if [[ -f "$STOP_FILE" ]]; then
@@ -66,10 +78,17 @@ for (( i=1; i<=MAX_ITERS; i++ )); do
 
   # Each iteration is a fresh session. --dangerously-skip-permissions is what
   # lets it run unattended; see README for a safer allowlist alternative.
-  timeout "$ITER_TIMEOUT" claude -p "$(cat "$PROMPT_FILE")" \
-      --model "$MODEL" \
-      --dangerously-skip-permissions \
-      2>&1 | tee "$log"
+  if [[ -n "$TIMEOUT_BIN" ]]; then
+    "$TIMEOUT_BIN" "$ITER_TIMEOUT" claude -p "$(cat "$PROMPT_FILE")" \
+        --model "$MODEL" \
+        --dangerously-skip-permissions \
+        2>&1 | tee "$log"
+  else
+    claude -p "$(cat "$PROMPT_FILE")" \
+        --model "$MODEL" \
+        --dangerously-skip-permissions \
+        2>&1 | tee "$log"
+  fi
   code=${PIPESTATUS[0]}
 
   if [[ $code -eq 124 ]]; then

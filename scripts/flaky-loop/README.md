@@ -28,6 +28,9 @@ That's what lets it grind all night without degrading.
 - `claude` CLI installed and authenticated on this machine
 - The E2E suite runs locally (env files under `apps/ehr/env/`, e.g. `tests.local.json`)
 - A clean-ish git working tree (the loop commits fixes)
+- A `timeout` command for the per-iteration cap. Linux has it built in; on macOS
+  install coreutils (`brew install coreutils`, provides `gtimeout`). The driver
+  auto-detects either and runs without a cap if neither is present.
 
 ## Run it
 
