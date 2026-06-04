@@ -53,6 +53,7 @@ const tagEncounterAsSynced = async (oystehr: Oystehr, encounterId: string, encou
       });
     }
   }
+  console.error(`Failed to tag encounter ${encounterId} after ${retries} attempts, giving up`);
 };
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {

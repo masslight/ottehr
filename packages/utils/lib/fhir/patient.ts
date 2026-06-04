@@ -17,7 +17,7 @@ import {
   RelatedPerson,
   Resource,
 } from 'fhir/r4b';
-import { formatZipcodeForDisplay, isPostalCodeValid, removePrefix, standardizePhoneNumber } from '../helpers';
+import { formatZipcodeForDisplay, removePrefix, standardizePhoneNumber } from '../helpers';
 import {
   ORG_TYPE_CODE_SYSTEM,
   PATIENT_INDIVIDUAL_PRONOUNS_URL,
@@ -500,12 +500,6 @@ export const isPatientDemographicsComplete = (patient: Patient | undefined): boo
   );
 };
 
-const isValidAddress = (address: Address): boolean =>
-  (address.line?.[0]?.trim().length ?? 0) > 0 &&
-  (address.city?.trim().length ?? 0) > 0 &&
-  !!address.state?.trim() &&
-  isPostalCodeValid(address.postalCode);
-
 export const getErxPatientDemographicErrors = (patient: Patient | undefined): string[] => {
   if (!patient) return ['patient'];
 
@@ -516,7 +510,7 @@ export const getErxPatientDemographicErrors = (patient: Patient | undefined): st
   if (!hasNonEmptyBirthDate(patient)) errors.push('birthDate');
   if (!hasNonEmptyGender(patient)) errors.push('gender');
   if (!standardizePhoneNumber(phone)) errors.push('phone');
-  if (!patient.address?.some(isValidAddress)) errors.push('address');
+  if (!hasNonEmptyAddress(patient)) errors.push('address');
 
   return errors;
 };
