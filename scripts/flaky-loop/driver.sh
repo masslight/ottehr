@@ -16,6 +16,7 @@
 #   MODEL=...         model id (default claude-opus-4-8; claude-sonnet-4-6 is cheaper)
 #   ITER_TIMEOUT=7200 hard cap (seconds) per iteration; killed if exceeded
 #   BACKOFF=60        seconds to wait after a non-zero claude exit (rate limits etc.)
+#   VERBOSE=1         stream each session's steps to the terminal (0 to quiet)
 #
 # Stop early at any time by creating the stop file:
 #   touch scripts/flaky-loop/state/STOP
@@ -34,6 +35,7 @@ MAX_ITERS="${MAX_ITERS:-50}"
 MODEL="${MODEL:-claude-opus-4-8}"
 ITER_TIMEOUT="${ITER_TIMEOUT:-7200}"
 BACKOFF="${BACKOFF:-60}"
+VERBOSE="${VERBOSE:-1}"          # 1 = stream each session's steps to the terminal; 0 = quiet
 
 mkdir -p "$STATE_DIR" "$LOG_DIR"
 
@@ -78,16 +80,18 @@ for (( i=1; i<=MAX_ITERS; i++ )); do
 
   # Each iteration is a fresh session. --dangerously-skip-permissions is what
   # lets it run unattended; see README for a safer allowlist alternative.
+  # --verbose streams the session's steps (tool calls etc.) so you can watch it
+  # work; set VERBOSE=0 to quiet it down. Either way output is tee'd to $log.
+  cmd=(claude -p "$(cat "$PROMPT_FILE")"
+       --model "$MODEL"
+       --dangerously-skip-permissions)
+  if [[ "$VERBOSE" != "0" ]]; then
+    cmd+=(--verbose)
+  fi
   if [[ -n "$TIMEOUT_BIN" ]]; then
-    "$TIMEOUT_BIN" "$ITER_TIMEOUT" claude -p "$(cat "$PROMPT_FILE")" \
-        --model "$MODEL" \
-        --dangerously-skip-permissions \
-        2>&1 | tee "$log"
+    "$TIMEOUT_BIN" "$ITER_TIMEOUT" "${cmd[@]}" 2>&1 | tee "$log"
   else
-    claude -p "$(cat "$PROMPT_FILE")" \
-        --model "$MODEL" \
-        --dangerously-skip-permissions \
-        2>&1 | tee "$log"
+    "${cmd[@]}" 2>&1 | tee "$log"
   fi
   code=${PIPESTATUS[0]}
 

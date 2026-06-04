@@ -45,6 +45,23 @@ Tune via env vars:
 MAX_ITERS=30 MODEL=claude-sonnet-4-6 ITER_TIMEOUT=5400 scripts/flaky-loop/driver.sh
 ```
 
+### Watching it work
+
+Run it in the foreground and each session streams its steps (tool calls, test
+runs, edits) live, thanks to `--verbose`:
+
+```bash
+scripts/flaky-loop/driver.sh
+```
+
+Set `VERBOSE=0` to quiet that down to just the driver's iteration banners. Either
+way, every iteration is also captured to `logs/iter-NNN-*.log`, so from another
+terminal you can follow the newest one:
+
+```bash
+tail -f "$(ls -t scripts/flaky-loop/logs/iter-*.log | head -1)"
+```
+
 Leave it overnight:
 
 ```bash
