@@ -31,6 +31,7 @@ import { Mock, vi } from 'vitest';
 import {
   complexValidation,
   ComplexValidationOutput,
+  copyAccount,
   copyCoverageAndSubscriber,
   copyCoverageAndSubscriberForAccount,
   getClaimCoveragesForEncounter,
@@ -928,6 +929,34 @@ describe('create-billing-claim-from-encounter', () => {
       expect(coverageRefs).toHaveLength(1);
       expect(coverageRefs[0].coverageRef.reference).toEqual(coverages[0].id);
       expect(coverageRefs[0].payorRef).toEqual(coverages[0].payor[0]);
+    });
+    it('properly finds coverages for new billing resources for urgent care', () => {
+      const billingOystehr = {
+        rcm: { constructPayerUrl: vi.fn().mockReturnValue('https://rcm-api.zapehr.com/v1/payer/payer-123') },
+      } as unknown as Oystehr;
+      const accountCopy = copyAccount(clinicalResources.account, 'urn:uuid:patient');
+      const [ops] = copyCoverageAndSubscriberForAccount(
+        billingOystehr,
+        [clinicalResources.coverage],
+        clinicalResources.account,
+        'urn:uuid:patient',
+        [oystehrResources.payor]
+      );
+      const [claimOps] = copyCoverageAndSubscriber(
+        billingOystehr,
+        ops.find((o): o is BatchInputPostRequest<Coverage> => o.url === '/Coverage')!.resource,
+        'urn:uuid:claim-patient',
+        [oystehrResources.payor],
+        ops.find((o): o is BatchInputPostRequest<RelatedPerson> => o.url === '/RelatedPerson')!.resource,
+        true
+      );
+      const claimCoverages = claimOps
+        .filter((o): o is BatchInputPostRequest<Coverage> => o.method === 'POST' && o.url === '/Coverage')
+        .map((o) => o.resource);
+      const coverageRefs = getClaimCoveragesForEncounter('uc', [accountCopy], claimCoverages);
+      expect(coverageRefs).toHaveLength(1);
+      expect(coverageRefs[0].coverageRef.reference).toEqual(claimCoverages[0].id);
+      expect(coverageRefs[0].payorRef).toEqual(claimCoverages[0].payor[0]);
     });
   });
 

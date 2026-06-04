@@ -218,30 +218,15 @@ export async function performEffect(
         .map((rp) => rp.resource);
       requests.push(...covRequests);
       order.push(...covOrder);
-      const copy = prepareCopy(a, a.id!);
-      copy.subject = [uuidOrUrnReference('Patient', mainPatient.id!)];
-      copy.coverage = a.coverage?.map((acov) => ({
-        coverage: {
-          reference: `urn:uuid:claim-coverage-${acov.coverage.reference?.replace('Coverage/', '')}`,
-        },
-        priority: acov.priority,
-      }));
-      requests.push({ method: 'POST', url: '/Account', resource: copy });
+      const accountCopy = copyAccount(a, mainPatient.id!);
+      requests.push({ method: 'POST', url: '/Account', resource: accountCopy });
       order.push('account');
-      return copy;
+      return accountCopy;
     } else {
       // Update billing copy if changed
-      const copy = prepareCopy(a, a.id!);
-      copy.id = existingBillingAccount.id;
-      copy.subject = [uuidOrUrnReference('Patient', mainPatient.id!)];
-      copy.coverage = a.coverage?.map((acov) => ({
-        coverage: {
-          reference: `urn:uuid:claim-coverage-${acov.coverage.reference?.replace('Coverage/', '')}`,
-        },
-        priority: acov.priority,
-      }));
+      const accountCopy = copyAccount(a, mainPatient.id!);
       try {
-        deepStrictEqual(existingBillingAccount, copy);
+        deepStrictEqual(existingBillingAccount, accountCopy);
         mainPatientCoverages = billingResources.coverages;
         mainPatientSubscribers = billingResources.subscribers;
         return existingBillingAccount;
@@ -265,9 +250,9 @@ export async function performEffect(
           .map((rp) => rp.resource);
         requests.push(...covRequests);
         order.push(...covOrder);
-        requests.push({ method: 'PUT', url: `/Account/${existingBillingAccount.id}`, resource: copy });
+        requests.push({ method: 'PUT', url: `/Account/${existingBillingAccount.id}`, resource: accountCopy });
         order.push('account');
-        return copy;
+        return accountCopy;
       } finally {
         seenBillingAccountIds.add(existingBillingAccount.id!);
       }
@@ -471,6 +456,21 @@ export function getClaimCoveragesForEncounter(
       // Really depends on the case, resolve manually
       return [];
   }
+}
+
+export function copyAccount(account: Account, patientId: string): Account {
+  const copy = prepareCopy(account, account.id!);
+  copy.subject = [uuidOrUrnReference('Patient', patientId)];
+  copy.coverage = account.coverage?.map((acov) => ({
+    coverage: {
+      // reference: `urn:uuid:billing-coverage-${coverage.id?.replace('urn:uuid:', '')}`,
+      reference: `urn:uuid:billing-coverage-${acov.coverage.reference
+        ?.replace('Coverage/', '')
+        .replace('urn:uuid:', '')}`,
+    },
+    priority: acov.priority,
+  }));
+  return copy;
 }
 
 export function copyCoverageAndSubscriberForAccount(
