@@ -1,6 +1,6 @@
 import { Autocomplete, Chip, TextField } from '@mui/material';
 import { HealthcareService, Location, Practitioner, PractitionerRole, Schedule } from 'fhir/r4b';
-import { ReactElement, useEffect, useMemo, useState } from 'react';
+import { ReactElement, useEffect, useMemo, useRef, useState } from 'react';
 import { LocationWithWalkinSchedule } from 'src/pages/AddPatient';
 import { getSlugForBookableResource, isLocationVirtual, SCHEDULE_DISPLAY_NAME_EXTENSION_URL, SLUG_SYSTEM } from 'utils';
 import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
@@ -71,6 +71,16 @@ export default function BookableSelect({
   const [targets, setTargets] = useState<BookableTarget[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
+  // Capture the latest onLocationsLoaded callback in a ref so the load
+  // effect doesn't need it in its dep array. Callers typically pass an
+  // inline arrow, which would otherwise change identity every parent
+  // render and refire the (heavy) FHIR-fetch effect — a render loop in
+  // tests where the parent re-renders for any reason.
+  const onLocationsLoadedRef = useRef(onLocationsLoaded);
+  useEffect(() => {
+    onLocationsLoadedRef.current = onLocationsLoaded;
+  }, [onLocationsLoaded]);
+
   useEffect(() => {
     if (!oystehr) return;
     let cancelled = false;
@@ -129,7 +139,7 @@ export default function BookableSelect({
           const schedule = schedules.find((s) => s.actor?.some((a) => a.reference === `Location/${loc.id}`));
           return { ...loc, walkinSchedule: schedule } as LocationWithWalkinSchedule;
         });
-        if (onLocationsLoaded) onLocationsLoaded(locationTargets);
+        onLocationsLoadedRef.current?.(locationTargets);
 
         const out: BookableTarget[] = [];
 
@@ -215,7 +225,7 @@ export default function BookableSelect({
     return () => {
       cancelled = true;
     };
-  }, [oystehr, onLocationsLoaded]);
+  }, [oystehr]);
 
   const filteredTargets = useMemo(() => {
     const wantInPerson = mode.includes(BookableMode.IN_PERSON) || mode.includes(BookableMode.ALL);
