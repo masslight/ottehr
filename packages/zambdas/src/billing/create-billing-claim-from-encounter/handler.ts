@@ -400,7 +400,7 @@ function determineEncounterType(appointment: Appointment): EncounterType {
   throw new Error(`Unknown appointment type: ${getCoding(appointment.serviceCategory, SERVICE_CATEGORY_SYSTEM)?.code}`);
 }
 
-function getClaimCoveragesForEncounter(
+export function getClaimCoveragesForEncounter(
   encounterType: EncounterType,
   mainPatientAccounts: Account[],
   claimCoverages: Coverage[]
@@ -412,11 +412,13 @@ function getClaimCoveragesForEncounter(
       );
       let primaryCoverage: Coverage | undefined;
       let secondaryCoverage: Coverage | undefined;
+      console.log('colin', JSON.stringify(ucAccount?.coverage));
+      console.log('colin', JSON.stringify(claimCoverages));
       ucAccount?.coverage?.forEach((uccov) => {
         const foundClaimCoverage = claimCoverages.find(
           (ccov) =>
-            ccov.identifier?.find((ccovid) => ccovid.system === SOURCE_IDENTIFIER_SYSTEM) ===
-            uccov.coverage.reference?.replace('Coverage/', '')
+            ccov.extension?.find((ccovid) => ccovid.url === SOURCE_IDENTIFIER_SYSTEM)?.valueReference?.reference ===
+            uccov.coverage.reference
         );
         if (uccov.priority === 1) {
           primaryCoverage = foundClaimCoverage;
@@ -447,8 +449,8 @@ function getClaimCoveragesForEncounter(
       wcAccount?.coverage?.forEach((wccov) => {
         const foundClaimCoverage = claimCoverages.find(
           (ccov) =>
-            ccov.identifier?.find((ccovid) => ccovid.system === SOURCE_IDENTIFIER_SYSTEM) ===
-            wccov.coverage.reference?.replace('Coverage/', '')
+            ccov.extension?.find((ccovid) => ccovid.url === SOURCE_IDENTIFIER_SYSTEM)?.valueReference?.reference ===
+            wccov.coverage.reference
         );
         if (wccov.priority === 1) {
           wcCoverage = foundClaimCoverage;
@@ -503,6 +505,7 @@ export function copyCoverageAndSubscriber(
 ): [CreateClaimFromEncounterRequests, string[]] {
   const requests: CreateClaimFromEncounterRequests = [];
   const order: string[] = [];
+  const cleanedCoverageId = coverage.id?.replace('urn:uuid:', '');
   const copy = workingCopy ? prepareWorkingCopy(coverage, coverage.id!) : prepareCopy(coverage, coverage.id!);
   copy.beneficiary = uuidOrUrnReference('Patient', patientUuidOrUrn);
   // Subscriber is patient by default, check for contained RelatedPerson
@@ -515,7 +518,7 @@ export function copyCoverageAndSubscriber(
     );
     if (containedSubscriber) {
       const subscriber = workingCopy ? prepareWorkingCopy(containedSubscriber) : prepareCopy(containedSubscriber);
-      subscriber.id = `urn:uuid:${workingCopy ? 'claim' : 'billing'}-coverage-rp-${coverage.id}`;
+      subscriber.id = `urn:uuid:${workingCopy ? 'claim' : 'billing'}-coverage-rp-${cleanedCoverageId}`;
       subscriber.patient = uuidOrUrnReference('Patient', patientUuidOrUrn);
       requests.push({
         method: 'POST',
@@ -532,7 +535,7 @@ export function copyCoverageAndSubscriber(
     const subscriber = workingCopy
       ? prepareWorkingCopy(coverageSubscriber, coverageSubscriber.id!)
       : prepareCopy(coverageSubscriber, coverageSubscriber.id!);
-    subscriber.id = `urn:uuid:${workingCopy ? 'claim' : 'billing'}-coverage-rp-${coverage.id}`;
+    subscriber.id = `urn:uuid:${workingCopy ? 'claim' : 'billing'}-coverage-rp-${cleanedCoverageId}`;
     requests.push({
       method: 'POST',
       url: '/RelatedPerson',
@@ -553,7 +556,7 @@ export function copyCoverageAndSubscriber(
       copy.payor = [{ reference: billingOystehr.rcm.constructPayerUrl({ id: payerId }) }];
     }
   }
-  copy.id = `urn:uuid:${workingCopy ? 'claim' : 'billing'}-coverage-${coverage.id}`;
+  copy.id = `urn:uuid:${workingCopy ? 'claim' : 'billing'}-coverage-${cleanedCoverageId}`;
   requests.push({
     method: 'POST',
     url: '/Coverage',

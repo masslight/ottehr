@@ -33,6 +33,7 @@ import {
   ComplexValidationOutput,
   copyCoverageAndSubscriber,
   copyCoverageAndSubscriberForAccount,
+  getClaimCoveragesForEncounter,
   performEffect,
   validateRequestParameters,
 } from '../../../src/billing/create-billing-claim-from-encounter/handler';
@@ -119,7 +120,7 @@ const clinicalResources: {
         },
       ],
     },
-    coverage: [{ coverage: { reference: 'coverage-123' } }],
+    coverage: [{ coverage: { reference: 'Coverage/coverage-123' }, priority: 1 }],
   },
   coverage: {
     resourceType: 'Coverage',
@@ -181,6 +182,15 @@ const billingResources: {
     resourceType: 'Account',
     id: 'billing-account-123',
     status: 'active',
+    type: {
+      coding: [
+        {
+          system: ACCOUNT_TYPE_CODE_SYSTEM,
+          code: 'PBILLACCT',
+        },
+      ],
+    },
+    coverage: [{ coverage: { reference: 'Coverage/billing-coverage-123' }, priority: 1 }],
   },
   coverage: {
     resourceType: 'Coverage',
@@ -188,6 +198,7 @@ const billingResources: {
     payor: [{ reference: 'https://rcm-api.zapehr.com/v1/payer/payer-123' }],
     status: 'active',
     beneficiary: { reference: 'Patient/billing-patient-123' },
+    subscriber: { reference: 'RelatedPerson/billing-related-person-123' },
   },
   relatedPerson: {
     resourceType: 'RelatedPerson',
@@ -674,7 +685,7 @@ describe('create-billing-claim-from-encounter', () => {
   });
 
   describe('copyCoverageAndSubscriber', () => {
-    it('copies coverage tree for account', () => {
+    it('copies coverage tree for new account', () => {
       const billingOystehr = {
         rcm: { constructPayerUrl: vi.fn().mockReturnValue('https://rcm-api.zapehr.com/v1/payer/payer-123') },
       } as unknown as Oystehr;
@@ -742,11 +753,10 @@ describe('create-billing-claim-from-encounter', () => {
         true
       );
 
-      // CW TODO: those URLs be wrong
       expect(claimOps).toMatchInlineSnapshot(`
         [
           {
-            "fullUrl": "urn:uuid:claim-coverage-rp-urn:uuid:billing-coverage-coverage-123",
+            "fullUrl": "urn:uuid:claim-coverage-rp-billing-coverage-coverage-123",
             "method": "POST",
             "resource": {
               "extension": [
@@ -757,7 +767,7 @@ describe('create-billing-claim-from-encounter', () => {
                   },
                 },
               ],
-              "id": "urn:uuid:claim-coverage-rp-urn:uuid:billing-coverage-coverage-123",
+              "id": "urn:uuid:claim-coverage-rp-billing-coverage-coverage-123",
               "meta": {
                 "tag": [
                   {
@@ -774,7 +784,7 @@ describe('create-billing-claim-from-encounter', () => {
             "url": "/RelatedPerson",
           },
           {
-            "fullUrl": "urn:uuid:claim-coverage-urn:uuid:billing-coverage-coverage-123",
+            "fullUrl": "urn:uuid:claim-coverage-billing-coverage-coverage-123",
             "method": "POST",
             "resource": {
               "beneficiary": {
@@ -789,7 +799,7 @@ describe('create-billing-claim-from-encounter', () => {
                   },
                 },
               ],
-              "id": "urn:uuid:claim-coverage-urn:uuid:billing-coverage-coverage-123",
+              "id": "urn:uuid:claim-coverage-billing-coverage-coverage-123",
               "meta": {
                 "tag": [
                   {
@@ -806,13 +816,118 @@ describe('create-billing-claim-from-encounter', () => {
               "resourceType": "Coverage",
               "status": "active",
               "subscriber": {
-                "reference": "urn:uuid:claim-coverage-rp-urn:uuid:billing-coverage-coverage-123",
+                "reference": "urn:uuid:claim-coverage-rp-billing-coverage-coverage-123",
               },
             },
             "url": "/Coverage",
           },
         ]
       `);
+    });
+    it('copies coverages for existing account', () => {
+      const billingOystehr = {
+        rcm: { constructPayerUrl: vi.fn().mockReturnValue('https://rcm-api.zapehr.com/v1/payer/payer-123') },
+      } as unknown as Oystehr;
+      const [claimOps] = copyCoverageAndSubscriber(
+        billingOystehr,
+        billingResources.coverage,
+        billingResources.patient.id!,
+        [oystehrResources.payor],
+        billingResources.relatedPerson,
+        true
+      );
+      expect(claimOps).toMatchInlineSnapshot(`
+        [
+          {
+            "fullUrl": "urn:uuid:claim-coverage-rp-billing-coverage-123",
+            "method": "POST",
+            "resource": {
+              "extension": [
+                {
+                  "url": "https://ottehr.com/billing/source-resource",
+                  "valueReference": {
+                    "reference": "RelatedPerson/billing-related-person-123",
+                  },
+                },
+              ],
+              "id": "urn:uuid:claim-coverage-rp-billing-coverage-123",
+              "meta": {
+                "tag": [
+                  {
+                    "code": "billing-working-copy",
+                    "system": "https://ottehr.com/billing/resource-type",
+                  },
+                ],
+              },
+              "patient": {
+                "reference": "Patient/billing-patient-123",
+              },
+              "resourceType": "RelatedPerson",
+            },
+            "url": "/RelatedPerson",
+          },
+          {
+            "fullUrl": "urn:uuid:claim-coverage-billing-coverage-123",
+            "method": "POST",
+            "resource": {
+              "beneficiary": {
+                "reference": "Patient/billing-patient-123",
+              },
+              "extension": [
+                {
+                  "url": "https://ottehr.com/billing/source-resource",
+                  "valueReference": {
+                    "reference": "Coverage/billing-coverage-123",
+                  },
+                },
+              ],
+              "id": "urn:uuid:claim-coverage-billing-coverage-123",
+              "meta": {
+                "tag": [
+                  {
+                    "code": "billing-working-copy",
+                    "system": "https://ottehr.com/billing/resource-type",
+                  },
+                ],
+              },
+              "payor": [
+                {
+                  "reference": "https://rcm-api.zapehr.com/v1/payer/payer-123",
+                },
+              ],
+              "resourceType": "Coverage",
+              "status": "active",
+              "subscriber": {
+                "reference": "urn:uuid:claim-coverage-rp-billing-coverage-123",
+              },
+            },
+            "url": "/Coverage",
+          },
+        ]
+      `);
+    });
+  });
+
+  describe('getClaimCoveragesForEncounter', () => {
+    it('properly finds coverages for existing billing resources for urgent care', () => {
+      const billingOystehr = {
+        rcm: { constructPayerUrl: vi.fn().mockReturnValue('https://rcm-api.zapehr.com/v1/payer/payer-123') },
+      } as unknown as Oystehr;
+      const [claimOps] = copyCoverageAndSubscriber(
+        billingOystehr,
+        billingResources.coverage,
+        billingResources.patient.id!,
+        [oystehrResources.payor],
+        billingResources.relatedPerson,
+        true
+      );
+      const coverages = claimOps
+        .filter((o): o is BatchInputPostRequest<Coverage> => o.method === 'POST' && o.url === '/Coverage')
+        .map((o) => o.resource);
+      const coverageRefs = getClaimCoveragesForEncounter('uc', [billingResources.account], coverages);
+      expect(coverageRefs).toHaveLength(1);
+      expect(coverageRefs[0].coverageRef.reference).toEqual(coverages[0].id);
+      expect(coverageRefs[0].payorRef).toEqual(coverages[0].payor[0]);
     });
   });
 
