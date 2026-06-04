@@ -1,11 +1,14 @@
 import { TabContext, TabList, TabPanel } from '@mui/lab';
 import { Box, Tab } from '@mui/material';
 import { useNavigate, useParams } from 'react-router-dom';
+import { PatientEducationAdminPage } from 'src/features/admin/patient-education/PatientEducationAdminPage';
+import ProgressNoteAdminPage from 'src/features/admin/ProgressNoteAdminPage';
 import InHouseLabAdminPage from 'src/features/visits/telemed/components/admin/in-house-labs/InHouseLabAdminPage';
 import LabSetsAdminPage from 'src/features/visits/telemed/components/admin/lab-sets/LabSetsAdminPage';
 import AdminPrintingConfig from 'src/features/visits/telemed/components/admin/label-printing-config/AdminLabelPrintingConfigPage';
 import SupportDialogAdminPage from 'src/features/visits/telemed/components/admin/support-dialog/SupportDialogAdminPage';
 import BillingConfiguration from '../features/admin/BillingConfiguration';
+import EMCodesAdminPage from '../features/visits/telemed/components/admin/EMCodesAdminPage';
 import GlobalTemplatesAdminPage from '../features/visits/telemed/components/admin/GlobalTemplatesAdminPage';
 import QuickPicksAdminPage from '../features/visits/telemed/components/admin/QuickPicksAdminPage';
 import States from '../features/visits/telemed/components/admin/VirtualLocationsPage';
@@ -26,12 +29,14 @@ enum PageTab {
   billing = 'billing',
   'quick-picks' = 'quick-picks',
   'in-house-labs' = 'in-house-labs',
+  'patient-education' = 'patient-education',
   outreach = 'outreach',
   'label-printing-config' = 'label-printing-config',
   'em-codes' = 'em-codes',
   'lab-sets' = 'lab-sets',
   'docs-folders' = 'docs-folders',
   'support-dialog' = 'support-dialog',
+  'progress-note' = 'progress-note',
 }
 
 export function AdminPage(): JSX.Element {
@@ -112,6 +117,18 @@ export function AdminPage(): JSX.Element {
                   onClick={() => navigate(`/admin/${PageTab['in-house-labs']}`)}
                 />
                 <Tab
+                  label="Patient Education"
+                  value={PageTab['patient-education']}
+                  sx={{ textTransform: 'none', fontWeight: 500 }}
+                  onClick={() => navigate(`/admin/${PageTab['patient-education']}`)}
+                />
+                <Tab
+                  label="E&M Codes"
+                  value={PageTab['em-codes']}
+                  sx={{ textTransform: 'none', fontWeight: 500 }}
+                  onClick={() => navigate(`/admin/${PageTab['em-codes']}`)}
+                />
+                <Tab
                   label="Outreach"
                   value={PageTab.outreach}
                   sx={{ textTransform: 'none', fontWeight: 500 }}
@@ -140,6 +157,12 @@ export function AdminPage(): JSX.Element {
                   value={PageTab['support-dialog']}
                   sx={{ textTransform: 'none', fontWeight: 500 }}
                   onClick={() => navigate(`/admin/${PageTab['support-dialog']}`)}
+                />
+                <Tab
+                  label="Progress Note"
+                  value={PageTab['progress-note']}
+                  sx={{ textTransform: 'none', fontWeight: 500 }}
+                  onClick={() => navigate(`/admin/${PageTab['progress-note']}`)}
                 />
               </TabList>
             </Box>
@@ -171,6 +194,12 @@ export function AdminPage(): JSX.Element {
           <TabPanel value={PageTab['in-house-labs']} sx={{ padding: 0 }}>
             <InHouseLabAdminPage />
           </TabPanel>
+          <TabPanel value={PageTab['patient-education']} sx={{ padding: 0 }}>
+            <PatientEducationAdminPage />
+          </TabPanel>
+          <TabPanel value={PageTab['em-codes']} sx={{ padding: 0 }}>
+            <EMCodesAdminPage />
+          </TabPanel>
           <TabPanel value={PageTab.outreach} sx={{ padding: 0 }}>
             <OutreachTab outreachSubTab={outreachSubTab} outreachDetailTab={outreachDetailTab} />
           </TabPanel>
@@ -185,6 +214,9 @@ export function AdminPage(): JSX.Element {
           </TabPanel>
           <TabPanel value={PageTab['support-dialog']} sx={{ padding: 0 }}>
             <SupportDialogAdminPage />
+          </TabPanel>
+          <TabPanel value={PageTab['progress-note']} sx={{ padding: 0 }}>
+            <ProgressNoteAdminPage />
           </TabPanel>
         </TabContext>
       </Box>

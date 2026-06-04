@@ -1,4 +1,3 @@
-import AssessmentIcon from '@mui/icons-material/Assessment';
 import ChatOutlinedIcon from '@mui/icons-material/ChatOutlined';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import PhoneIcon from '@mui/icons-material/Phone';
@@ -28,7 +27,7 @@ import { RelatedPerson } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
 import React, { useEffect, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { SendInvoiceToPatientDialog, SendStatementToPatientDialog } from 'src/components/dialogs';
 import ChatModal from 'src/features/chat/ChatModal';
 import {
@@ -43,6 +42,7 @@ import {
   GetInvoicesTasksInput,
   GetInvoicesTasksResponse,
   getLatestTaskOutput,
+  getSupportPhoneFor,
   INVOICEABLE_PATIENTS_PAGE_SIZE,
   InvoiceablePatientReport,
   InvoiceSortDirection,
@@ -60,6 +60,11 @@ import { GenericToolTip } from '../../components/GenericToolTip';
 import { SelectInput } from '../../components/input/SelectInput';
 import { MappedStatusChip } from '../../components/MappedStatusChip';
 import { useApiClients } from '../../hooks/useAppClients';
+import { useSupportPhonesMap } from '../../hooks/useLocationSupportPhones';
+
+const VITE_APP_PATIENT_APP_URL = import.meta.env.VITE_APP_PATIENT_APP_URL;
+
+type QuickTextsContextValue = React.ComponentProps<typeof ChatModal>['quickTextsContext'];
 
 const LOCAL_STORAGE_FILTERS_KEY = 'invoices-tasks.filters';
 
@@ -128,7 +133,6 @@ const INVOICEABLE_TASK_STATUS_COLORS_MAP: {
 
 export default function InvoiceablePatients(): React.ReactElement {
   const { oystehrZambda, oystehr } = useApiClients();
-  const navigate = useNavigate();
   const methods = useForm();
   const [searchParams, setSearchParams] = useSearchParams();
   const [selectedReportToSend, setSelectedReportToSend] = useState<InvoiceablePatientReport | undefined>();
@@ -137,6 +141,8 @@ export default function InvoiceablePatients(): React.ReactElement {
   const [sendingTaskIds, setSendingTaskIds] = useState<Set<string>>(new Set());
   const [isExporting, setIsExporting] = useState(false);
   const [chatAppointmentMessaging, setChatAppointmentMessaging] = useState<AppointmentMessaging | undefined>();
+  const [chatQuickTextsContext, setChatQuickTextsContext] = useState<QuickTextsContextValue>({});
+  const { phonesByLocationName } = useSupportPhonesMap();
 
   const pageParam = searchParams.get(SP.page);
   const parsedPage = pageParam ? parseInt(pageParam, 10) : 0;
@@ -388,6 +394,17 @@ export default function InvoiceablePatients(): React.ReactElement {
         },
       };
 
+      setChatQuickTextsContext({
+        patientAppUrl: VITE_APP_PATIENT_APP_URL,
+        patientFirstName: nameParts[0],
+        patientLastName: nameParts.slice(1).join(' '),
+        visitId: report.appointmentId,
+        locationName: report.location,
+        locationReviewLink: report.locationReviewLink,
+        bookingTime: report.visitDate,
+        officePhone: report.officePhone,
+        supportPhone: getSupportPhoneFor(report.location, phonesByLocationName) || '',
+      });
       setChatAppointmentMessaging(messaging);
     } catch (err) {
       console.error('Failed to open chat', err);
@@ -436,7 +453,7 @@ export default function InvoiceablePatients(): React.ReactElement {
       },
     });
     return () => callback();
-  }, [methods, navigate, searchParams, setSearchParams]);
+  }, [methods, searchParams, setSearchParams]);
 
   useEffect(() => {
     const persistedFilters = localStorage.getItem(LOCAL_STORAGE_FILTERS_KEY);
@@ -457,15 +474,6 @@ export default function InvoiceablePatients(): React.ReactElement {
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          <AssessmentIcon sx={{ fontSize: 32, color: 'primary.main' }} />
-          <Typography variant="h4" component="h1" color="primary.dark" fontWeight={600}>
-            Invoices
-          </Typography>
-        </Box>
-      </Box>
-
       <FormProvider {...methods}>
         <Paper>
           <Stack direction="row" spacing={2} padding="8px" alignItems="center" flexWrap="wrap">
@@ -822,7 +830,7 @@ export default function InvoiceablePatients(): React.ReactElement {
             setChatAppointmentMessaging(undefined);
           }}
           onMarkAllRead={() => {}}
-          quickTextsContext={{}}
+          quickTextsContext={chatQuickTextsContext}
         />
       )}
     </Box>

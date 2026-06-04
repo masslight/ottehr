@@ -27,7 +27,9 @@ import {
   CreateAppointmentResponse,
   CREATED_BY_SYSTEM,
   createUserResourcesForPatient,
+  CURRENT_EXAM_MIGRATION_VERSION,
   E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM,
+  EXAM_MIGRATION_VERSION_URL,
   FHIR_APPOINTMENT_READY_FOR_PREPROCESSING_TAG,
   FHIR_EXTENSION,
   FhirAppointmentStatus,
@@ -410,11 +412,9 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
 
   const parentEncounterId = followUpOptions?.parentEncounterId;
 
-  // Validate parent encounter for scheduled follow-ups — no nesting allowed.
-  // Also collect the parent encounter's diagnoses so they can be carried over to the follow-up.
   let carriedOverDiagnoses: { condition: Condition; rank?: number }[] = [];
   if (parentEncounterId) {
-    // Validation invariant (NOT part of copy flow): parent must exist and not be a follow-up itself.
+    // Validation (not part of copy flow): parent must exist and not itself be a follow-up.
     const parentEncounter = await oystehr.fhir.get<Encounter>({
       resourceType: 'Encounter',
       id: parentEncounterId,
@@ -467,7 +467,12 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
   const initialEncounterStatus: FhirEncounterStatus = startsAsBooked ? 'planned' : 'arrived';
 
   const apptExtensions: Extension[] = [];
-  const encExtensions: Extension[] = [];
+  const encExtensions: Extension[] = [
+    {
+      valueInteger: CURRENT_EXAM_MIGRATION_VERSION,
+      url: EXAM_MIGRATION_VERSION_URL,
+    },
+  ];
 
   if (serviceMode === ServiceMode.virtual) {
     const { encExtensions: telemedEncExtensions, apptExtensions: telemedApptExtensions } =

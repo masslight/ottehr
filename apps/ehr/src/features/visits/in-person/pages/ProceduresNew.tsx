@@ -55,6 +55,7 @@ import {
   COMPLICATIONS_VALUE_SET_URL,
   CPTCodeDTO,
   DiagnosisDTO,
+  FHIR_CODE_REGEX,
   IcdSearchResponse,
   MEDICATIONS_USED_VALUE_SET_URL,
   PATIENT_RESPONSES_VALUE_SET_URL,
@@ -82,8 +83,16 @@ import { useChartData, useDeleteChartData, useSaveChartData } from '../../shared
 import AiSuggestion from '../components/AiSuggestion';
 import { InfoAlert } from '../components/InfoAlert';
 import { ROUTER_PATH } from '../routing/routesInPerson';
+import {
+  combineMultipleValuesForSave,
+  getPredefinedValueIfOther,
+  getPredefinedValueOrOther,
+  mergeOtherFromQuickPick,
+  OTHER,
+  parseWithOther,
+  splitOtherForQuickPick,
+} from './procedureOtherFields';
 
-const OTHER = 'Other';
 const PERFORMED_BY = ['Healthcare staff', 'Provider', 'Both'];
 const SPECIMEN_SENT = ['Yes', 'No'];
 const DOCUMENTED_BY = ['Provider', 'Healthcare staff'];
@@ -186,33 +195,6 @@ interface SelectOptions {
   postProcedureInstructions: string[];
   timeSpent: string[];
 }
-
-type ParseResult = {
-  values: string[];
-  other?: string;
-};
-
-const parseWithOther = (rawValue: string | undefined, validOptions: string[] | undefined): ParseResult => {
-  const result: ParseResult = { values: [], other: undefined };
-
-  if (!rawValue) return result;
-
-  const [generalPart, otherPart] = rawValue.split(`${OTHER}:`, 2);
-
-  result.values = generalPart
-    .split(',')
-    .map((item) => item.trim())
-    .filter(Boolean)
-    .filter((item) => validOptions?.includes(item));
-
-  if (otherPart !== undefined) {
-    const trimmedOther = otherPart.trim();
-    if (trimmedOther) result.other = trimmedOther;
-    result.values.push(OTHER);
-  }
-
-  return result;
-};
 
 export default function ProceduresNew(): ReactElement {
   const navigate = useNavigate();
@@ -386,25 +368,6 @@ export default function ProceduresNew(): ReactElement {
     navigate(`/in-person/${appointmentId}/${ROUTER_PATH.PROCEDURES}`);
   };
 
-  const combineMultipleValuesForSave = (
-    values: string[] | undefined,
-    otherValue: string | undefined
-  ): string | undefined => {
-    if (!values?.length && !otherValue) return undefined;
-
-    const result: string[] = [];
-
-    (values ?? []).forEach((value) => {
-      if (value === OTHER && otherValue?.trim()) {
-        result.push(`${OTHER}: ${otherValue.trim()}`);
-      } else {
-        result.push(value);
-      }
-    });
-
-    return result.join(', ');
-  };
-
   const onSave = async (): Promise<void> => {
     setSaveInProgress(true);
     try {
@@ -522,6 +485,8 @@ export default function ProceduresNew(): ReactElement {
   };
 
   const buildQuickPickFromCurrentState = (): Omit<ProcedureQuickPickData, 'id'> => {
+    const supplies = splitOtherForQuickPick(state.suppliesUsed, state.otherSuppliesUsed);
+    const postInstructions = splitOtherForQuickPick(state.postInstructions, state.otherPostInstructions);
     return {
       name: quickPickName.trim(),
       procedureType:
@@ -530,19 +495,19 @@ export default function ProceduresNew(): ReactElement {
       cptCodes: state.cptCodes?.map((c) => ({ code: c.code, display: c.display })),
       // diagnoses, consentObtained, and performerType excluded — encounter-specific
       medicationUsed: state.medicationUsed,
-      bodySite: state.bodySite !== OTHER ? state.bodySite : state.otherBodySite?.trim(),
-      otherBodySite: state.bodySite === OTHER ? state.otherBodySite : undefined,
+      bodySite: state.bodySite,
+      otherBodySite: state.bodySite === OTHER ? state.otherBodySite?.trim() : undefined,
       bodySide: state.bodySide,
       technique: state.technique,
-      suppliesUsed: state.suppliesUsed,
-      otherSuppliesUsed: state.otherSuppliesUsed,
+      suppliesUsed: supplies.values,
+      otherSuppliesUsed: supplies.other,
       procedureDetails: state.procedureDetails,
       specimenSent: state.specimenSent,
-      complications: state.complications !== OTHER ? state.complications : state.otherComplications?.trim(),
-      otherComplications: state.complications === OTHER ? state.otherComplications : undefined,
+      complications: state.complications,
+      otherComplications: state.complications === OTHER ? state.otherComplications?.trim() : undefined,
       patientResponse: state.patientResponse,
-      postInstructions: state.postInstructions,
-      otherPostInstructions: state.otherPostInstructions,
+      postInstructions: postInstructions.values,
+      otherPostInstructions: postInstructions.other,
       timeSpent: state.timeSpent,
       documentedBy: state.documentedBy,
     };
@@ -881,6 +846,16 @@ export default function ProceduresNew(): ReactElement {
           return;
         }
 
+        // Arrays hold only real options; re-add the "Other" chip so its text input renders.
+        if (key === 'suppliesUsed') {
+          state.suppliesUsed = mergeOtherFromQuickPick(quickPick.suppliesUsed, quickPick.otherSuppliesUsed);
+          return;
+        }
+        if (key === 'postInstructions') {
+          state.postInstructions = mergeOtherFromQuickPick(quickPick.postInstructions, quickPick.otherPostInstructions);
+          return;
+        }
+
         (state as Record<string, unknown>)[key] = quickPick[key];
       });
     });
@@ -980,7 +955,7 @@ export default function ProceduresNew(): ReactElement {
               // regex is from fhir spec for code (which is where this value is mapped)
               // https://hl7.org/fhir/R4B/datatypes.html#code
               validate={(value) =>
-                !value || /^[^\s]+(\s[^\s]+)*$/.test(value) || 'No leading, trailing, or consecutive spaces allowed'
+                !value || FHIR_CODE_REGEX.test(value) || 'No leading, trailing, or consecutive spaces allowed'
               }
             />
 
@@ -1276,26 +1251,6 @@ export default function ProceduresNew(): ReactElement {
       </Dialog>
     </FormProvider>
   );
-}
-
-function getPredefinedValueOrOther(
-  value: string | undefined,
-  predefinedValues: string[] | undefined
-): string | undefined {
-  if (value != null && predefinedValues?.includes(value)) {
-    return value;
-  }
-  return value != null ? OTHER : undefined;
-}
-
-function getPredefinedValueIfOther(
-  value: string | undefined,
-  predefinedValues: string[] | undefined
-): string | undefined {
-  if (value != null && !predefinedValues?.includes(value)) {
-    return value;
-  }
-  return undefined;
 }
 
 const emptySelectOptions: SelectOptions = {

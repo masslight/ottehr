@@ -109,15 +109,20 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   console.log(`All prerequisites met. Syncing eRx patient for patient ${patientId}, encounter ${encounterId}`);
 
   // Step 1: Sync the patient with the eRx service
-  await oystehr.erx.syncPatient({ patientId, encounterId });
-  console.log(`Successfully synced eRx patient ${patientId}`);
+  try {
+    await oystehr.erx.syncPatient({ patientId, encounterId });
+    console.log(`Successfully synced eRx patient ${patientId}`);
+  } catch (syncError: any) {
+    console.error(`Failed to sync eRx patient ${patientId}:`, syncError);
+    // Intentionally not rethrowing or returning an error here. It's OK if it doesn't succeed because it self heals later on.
+  }
 
-  // Step 2: Fetch medication history to warm the upstream cache.
   try {
     const history = await oystehr.erx.getMedicationHistory({ patientId });
     console.log(`Fetched medication history for patient ${patientId}: ${history.length} entries`);
   } catch (historyError: any) {
     console.warn(`Failed to pre-fetch medication history for patient ${patientId}:`, historyError.message);
+    // Intentionally not rethrowing or returning an error here. It's OK if it doesn't succeed because it self heals later on.
   }
 
   // Tag the encounter so the subscription won't fire again for this encounter

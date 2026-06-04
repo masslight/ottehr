@@ -130,6 +130,8 @@ import {
   GetPatientLoginPhoneNumbersOutput,
   GetPresignedFileURLInput,
   GetProcedureQuickPicksResponse,
+  GetProgressNoteConfigInput,
+  GetProgressNoteConfigOutput,
   GetQuickTextQuickPicksResponse,
   GetRadiologyOrderListZambdaInput,
   GetRadiologyOrderListZambdaOutput,
@@ -190,6 +192,8 @@ import {
   SavePreliminaryReportZambdaInput,
   SavePreliminaryReportZambdaOutput,
   ScheduleDTO,
+  SearchLegacyRecordsInput,
+  SearchLegacyRecordsOutput,
   SendForFinalReadZambdaInput,
   SendForFinalReadZambdaOutput,
   SendReceiptByEmailZambdaInput,
@@ -213,6 +217,7 @@ import {
   UpdatePatientInstructionQuickPickResponse,
   UpdatePatientLoginPhoneNumbersInput,
   UpdateProcedureQuickPickResponse,
+  UpdateProgressNoteConfigInput,
   UpdateQuickTextQuickPickResponse,
   UpdateRadiologyQuickPickResponse,
   UpdateScheduleParams,
@@ -2062,6 +2067,37 @@ export const getSupportDialog = async (oystehr: Oystehr): Promise<GetSupportDial
   }
 };
 
+export const getProgressNoteConfig = async (
+  oystehr: Oystehr,
+  parameters?: GetProgressNoteConfigInput
+): Promise<GetProgressNoteConfigOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: 'get-progress-note-config',
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
+export const adminUpdateProgressNoteConfig = async (
+  oystehr: Oystehr,
+  parameters: UpdateProgressNoteConfigInput
+): Promise<void> => {
+  try {
+    await oystehr.zambda.execute({
+      id: 'admin-update-progress-note-config',
+      ...parameters,
+    });
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
 export const getPublicLocationSupportPhones = async (oystehr: Oystehr): Promise<GetLocationSupportPhonesOutput> => {
   try {
     const response = await oystehr.zambda.executePublic({ id: GET_PUBLIC_LOCATION_SUPPORT_PHONES_ZAMBDA_ID });
@@ -2122,36 +2158,6 @@ export const generateLabelXml = async (
 };
 
 // ── Legacy Records ─────────────────────────────────────────────────────────────
-
-export interface SearchLegacyRecordsInput {
-  lastName: string;
-  firstName?: string;
-  dateOfBirth?: string;
-  page?: number;
-  pageSize?: number;
-  maxFilesPerRecord?: number;
-}
-
-export interface LegacyFile {
-  key: string;
-  fileName: string;
-  fileType: 'medical-summary' | 'progress-note' | 'other';
-  presignedUrl: string;
-}
-
-export interface LegacyPatientRecord {
-  patientFolder: string;
-  patientId: string;
-  displayName: string;
-  files: LegacyFile[];
-}
-
-export interface SearchLegacyRecordsOutput {
-  results: LegacyPatientRecord[];
-  total: number;
-  page: number;
-  pageSize: number;
-}
 
 export const searchLegacyRecords = async (
   oystehr: Oystehr,

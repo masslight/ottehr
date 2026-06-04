@@ -339,14 +339,18 @@ function buildChargeCardFhirAction(uiAction: OutreachAction): any {
       },
     ],
     trigger: [{ type: 'named-event', name: uiAction.trigger.event }],
-    timingTiming: {
-      repeat: {
-        count: cfg.retryAttempts,
-        frequency: 1,
-        period: cfg.retryIntervalDays,
-        periodUnit: 'd',
-      },
-    },
+    ...(cfg.retryAttempts > 0
+      ? {
+          timingTiming: {
+            repeat: {
+              count: cfg.retryAttempts,
+              frequency: 1,
+              period: cfg.retryIntervalDays,
+              periodUnit: 'd',
+            },
+          },
+        }
+      : {}),
     ...(buildRelatedAction(uiAction.trigger) ? { relatedAction: buildRelatedAction(uiAction.trigger) } : {}),
     action: subActions,
   };
@@ -641,8 +645,8 @@ function parseChargeCardAction(fhirAction: any): OutreachAction {
     chargeCardConfig: {
       onSuccess: parseNotificationConfig(successAction),
       onFailure: parseNotificationConfig(failureAction),
-      retryAttempts: fhirAction.timingTiming?.repeat?.count ?? 1,
-      retryIntervalDays: fhirAction.timingTiming?.repeat?.period ?? 3,
+      retryAttempts: fhirAction.timingTiming?.repeat?.count ?? 0,
+      retryIntervalDays: fhirAction.timingTiming?.repeat?.period ?? 0,
     },
   };
 }
