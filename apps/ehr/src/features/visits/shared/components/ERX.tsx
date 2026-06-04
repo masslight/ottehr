@@ -1,10 +1,11 @@
-import { Alert, Box } from '@mui/material';
-import { enqueueSnackbar } from 'notistack';
+import { Alert, Box, Button } from '@mui/material';
+import { closeSnackbar, enqueueSnackbar } from 'notistack';
 import { FC, useCallback, useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { PendingErxEnrollmentDialog } from 'src/components/dialogs/PendingErxEnrollmentDialog';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import { getPractitionerMissingFields } from 'src/shared/utils';
-import { VitalFieldNames, VitalsObservationDTO } from 'utils';
+import { RoleType, VitalFieldNames, VitalsObservationDTO } from 'utils';
 import { safelyCaptureException, safelyCaptureMessage } from 'utils/lib/frontend/sentry';
 import { createVitalsSearchConfig } from 'utils/lib/helpers/visit-note/create-vitals-search-config.helper';
 import { useChartFields } from '../hooks/useChartFields';
@@ -32,6 +33,7 @@ export const ERX: FC<{
   const phoneNumber = patient?.telecom?.find((telecom) => telecom.system === 'phone')?.value;
   const user = useEvolveUser();
   const practitioner = user?.profileResource;
+  const navigate = useNavigate();
 
   const [alertMessage, setAlertMessage] = useState<string | null>(
     showDefaultAlert ? 'If something goes wrong - please reload the page.' : null
@@ -99,9 +101,42 @@ export const ERX: FC<{
 
   useEffect(() => {
     if (practitionerMissingFields.length > 0) {
+      const isAdmin = Boolean(user?.hasRole([RoleType.Administrator]));
+      const employeeProfileLink = user?.id ? `/admin/employee/${user.id}` : undefined;
+
+      enqueueSnackbar(
+        `Please complete your profile to be able to enroll in eRX or ask your administrator to complete it for you. Missing fields: ${practitionerMissingFields.join(
+          ', '
+        )}`,
+        {
+          variant: 'error',
+          persist: true,
+          preventDuplicate: true,
+          key: 'erx-practitioner-missing-fields',
+          action: (snackbarId) => (
+            <>
+              {isAdmin && employeeProfileLink && (
+                <Button
+                  color="inherit"
+                  size="small"
+                  onClick={() => {
+                    closeSnackbar(snackbarId);
+                    navigate(employeeProfileLink);
+                  }}
+                >
+                  Go to profile
+                </Button>
+              )}
+              <Button color="inherit" size="small" onClick={() => closeSnackbar(snackbarId)}>
+                Dismiss
+              </Button>
+            </>
+          ),
+        }
+      );
       onStatusChanged(ERXStatus.ERROR);
     }
-  }, [onStatusChanged, practitionerMissingFields]);
+  }, [onStatusChanged, practitionerMissingFields, navigate, user]);
 
   // Step 3: Sync patient
   const { isFetched: isPatientSynced, isLoading: isPatientSyncing } = useSyncERXPatient({
@@ -288,6 +323,12 @@ export const ERX: FC<{
   }, [onStatusChanged, isPractitionerConnected, isPatientSynced]);
 
   useEffect(() => {
+    // A missing-fields profile is a terminal error state; don't let an in-flight
+    // vitals/sync query flip the status back to LOADING (which would leave the
+    // button stuck on "Loading eRx" after the ERX panel is unmounted).
+    if (practitionerMissingFields.length > 0) {
+      return;
+    }
     if (isTimeout && !isPractitionerConnected) {
       onStatusChanged(ERXStatus.ERROR);
     } else if (
@@ -310,6 +351,7 @@ export const ERX: FC<{
     isConnectingPractitionerForConfirmation,
     isTimeout,
     isPractitionerConnected,
+    practitionerMissingFields,
   ]);
 
   // Timeout after 30 seconds
