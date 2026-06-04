@@ -374,8 +374,11 @@ describe('prebook integration - from getting list of slots to booking with selec
     };
     const scheduleJson = buildSimpleScheduleExt({ prebookSlots: 4 });
     // Used below to position the test's faux vended slot well into the
-    // schedule's open window (today midnight + 20h = today 8pm).
-    const timeNow = startOfDayWithTimezone().plus({ hours: 8 });
+    // schedule's open window. Anchored to tomorrow (not today) so the
+    // slot's start time stays in the future regardless of when in the
+    // day the test runs — create-slot rejects past-dated startISO and
+    // CI runs late in the day were tripping that.
+    const timeNow = startOfDayWithTimezone().plus({ days: 1, hours: 8 });
 
     // Build Practitioner + Location + PR + Schedule (actor = PR) in one
     // FHIR transaction so they're all wired up together at create time.
