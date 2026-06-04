@@ -3588,7 +3588,9 @@ const patchOpsForCoverage = (input: GetCoveragePatchOpsInput): Operation[] => {
   const { source, target } = input;
   const ops: Operation[] = [];
 
-  const keysToExclude = ['id', 'resourceType'];
+  // 'order' is a denormalized priority hint stamped at creation; it's not re-diffed on update (the
+  // authoritative priority lives in Account.coverage), so we don't churn a patch op for it here.
+  const keysToExclude = ['id', 'resourceType', 'order'];
   const keysToCheck = Object.keys(source).filter((k) => !keysToExclude.includes(k));
   for (const key of keysToCheck) {
     const sourceValue = (source as any)[key];
@@ -3853,15 +3855,15 @@ export const getCoverageUpdateResourcesFromUnbundled = (
     });
   }
 
-  // Account.coverage can be transiently empty or partial while harvest's multi-round paperwork
-  // processing rebuilds it, even though the active Coverage resources already exist. Fall back to
-  // the Coverage.order field (1 = primary, 2 = secondary) so a stale/incomplete account.coverage
-  // list does not blank out the patient's insurance on read — and so the write path, which reads
-  // existing coverages through this same function, does not then drop or mis-prioritize them.
-  if (!existingCoverages.primary) {
+  // Account.coverage can be transiently empty while harvest's multi-round paperwork processing
+  // rebuilds it, even though the active Coverage resources already exist. When the account mapped
+  // *no* coverages, recover primary/secondary from the Coverage.order field (1 = primary,
+  // 2 = secondary) so the empty list doesn't blank out the patient's insurance on read — and so the
+  // write path, which reads existing coverages through this same function, doesn't drop them.
+  // If the account mapped at least one coverage it is treated as authoritative (we don't fabricate
+  // the other slot from a stray/unassociated Coverage).
+  if (!existingCoverages.primary && !existingCoverages.secondary) {
     existingCoverages.primary = coverageResources.find((c) => c.order === 1 && c.status === 'active');
-  }
-  if (!existingCoverages.secondary) {
     existingCoverages.secondary = coverageResources.find((c) => c.order === 2 && c.status === 'active');
   }
 
