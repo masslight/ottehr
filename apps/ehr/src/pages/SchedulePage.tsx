@@ -215,6 +215,19 @@ export default function SchedulePage(): ReactElement {
     }
   });
 
+  // Self-correct when we land on the create route for an owner that already
+  // has a persisted Schedule. The link at ScheduleInformation.tsx:404-409
+  // routes to /new/<owner-id> when item.schedules is empty at click time —
+  // which can be a stale-data race. Without this redirect, the user sees a
+  // headerless schedule editor (tabs hidden because createMode === true)
+  // even though the schedule exists. Redirecting to /id/<existing> drops
+  // us into edit mode where the General/Location tabs render correctly.
+  useEffect(() => {
+    if (createMode && scheduleData?.id) {
+      navigate(`/admin/schedule/id/${scheduleData.id}`, { replace: true });
+    }
+  }, [createMode, scheduleData?.id, navigate]);
+
   const saveScheduleChanges = useMutation({
     mutationFn: async (params: UpdateScheduleParams) => {
       if (oystehrZambda) {

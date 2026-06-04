@@ -56,11 +56,21 @@ export function useGroupMemberPractitionerIds(group: HealthcareService | undefin
           }
         }
       }
+      // Collect inactive Location IDs from the bundle so the walker can
+      // drop them from the group's effective member-Locations. Without
+      // this, a Location flipped to inactive after being added to the
+      // group would still contribute its providers to the picker.
+      const inactiveLocationIds = new Set<string>();
+      for (const res of bundle) {
+        if (res.resourceType === 'Location' && res.id && (res as Location).status === 'inactive') {
+          inactiveLocationIds.add(res.id);
+        }
+      }
       const ids = new Set<string>();
       for (const res of bundle) {
         if (res.resourceType !== 'PractitionerRole') continue;
         const role = res as PractitionerRole;
-        if (!isPractitionerRoleMemberOfGroup({ role, group, allLocationsFlag })) continue;
+        if (!isPractitionerRoleMemberOfGroup({ role, group, allLocationsFlag, inactiveLocationIds })) continue;
         const ref = role.practitioner?.reference;
         const id = ref?.startsWith('Practitioner/') ? ref.slice('Practitioner/'.length) : undefined;
         if (id) ids.add(id);

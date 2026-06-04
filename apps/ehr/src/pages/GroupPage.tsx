@@ -265,7 +265,10 @@ function GroupPageContent(): ReactElement {
         .sort((a, b) => a.name.localeCompare(b.name));
       return {
         locationId: locId,
-        locationName: loc?.name || locId,
+        // Suffix inactive Locations so the rollup matches the chip in the
+        // picker — slot generation skips them, and the admin should see why
+        // a previously-listed Location now contributes nothing.
+        locationName: loc?.status === 'inactive' ? `${loc?.name || locId} (inactive)` : loc?.name || locId,
         providers,
       };
     });
@@ -736,7 +739,12 @@ function GroupPageContent(): ReactElement {
                 isOptionEqualToValue={(option, v) => option === v}
                 getOptionLabel={(id) => {
                   const loc = (locations || []).find((l) => l.id === id);
-                  return loc?.name || id;
+                  const base = loc?.name || id;
+                  // Saved selection may include Locations whose status has
+                  // since flipped to inactive — slot generation now skips
+                  // them automatically, but mark them in the chip so the
+                  // admin can spot and remove the stale ref if desired.
+                  return loc?.status === 'inactive' ? `${base} (inactive)` : base;
                 }}
                 renderOption={(props, id) => {
                   const loc = (locations || []).find((l) => l.id === id);

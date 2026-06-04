@@ -31,7 +31,7 @@
 // Schedules. Those use different code systems (parallel concepts, per
 // design-debt-log.md D-2) and are intentionally not duplicated here.
 
-import { CodeableConcept, Coding, HealthcareService, PractitionerRole, Resource, Schedule } from 'fhir/r4b';
+import { CodeableConcept, Coding, HealthcareService, Location, PractitionerRole, Resource, Schedule } from 'fhir/r4b';
 import { ServiceMode, ServiceVisitType } from '../types';
 import {
   GROUP_ALL_LOCATIONS_SYSTEM,
@@ -178,20 +178,39 @@ export function groupCharacteristics(input: {
  *   (a) back-reference — `role.healthcareService[]` includes a ref to the
  *       group resource;
  *   (b) location-overlap — `role.location[]` intersects the group's own
- *       `location[]`;
+ *       `location[]`, filtered to active Locations only (inactive Locations
+ *       are skipped so they stop contributing slots automatically when an
+ *       admin marks them inactive — see `inactiveLocationIds` below);
  *   (c) all-locations widening — the group is flagged "pool from every
  *       active PR system-wide" (allLocationsFlag) and the role is active.
  * Any single source is sufficient. Inactive roles are excluded from the
  * all-locations source only (other sources don't check active to preserve
  * caller-controlled inclusion).
+ *
+ * `inactiveLocationIds` — pass the set of Location IDs whose
+ * `Location.status` is `inactive`. Refs in `group.location[]` pointing at
+ * those IDs are dropped from the membership check, so a PR that's only a
+ * member via an inactive Location is no longer counted. When omitted, the
+ * filter is a no-op (back-compat for callers that don't have the Location
+ * resources to hand).
  */
 export function isPractitionerRoleMemberOfGroup(input: {
   role: PractitionerRole;
   group: HealthcareService;
   allLocationsFlag: boolean;
+  inactiveLocationIds?: Set<string>;
 }): boolean {
-  const { role, group, allLocationsFlag } = input;
-  const groupLocationRefs = new Set(group.location?.map((l) => l.reference).filter((r): r is string => !!r) ?? []);
+  const { role, group, allLocationsFlag, inactiveLocationIds } = input;
+  const groupLocationRefs = new Set(
+    (group.location ?? [])
+      .map((l) => l.reference)
+      .filter((r): r is string => {
+        if (!r) return false;
+        if (!inactiveLocationIds || inactiveLocationIds.size === 0) return true;
+        const id = r.startsWith('Location/') ? r.slice('Location/'.length) : r;
+        return !inactiveLocationIds.has(id);
+      })
+  );
   const isMemberByReference = role.healthcareService?.some((ref) => ref.reference === `HealthcareService/${group.id}`);
   const isMemberByLocation = role.location?.some(
     (ref) => ref.reference !== undefined && groupLocationRefs.has(ref.reference)
@@ -223,9 +242,13 @@ export function walkGroupMemberPractitionerRoleSchedules(input: {
   const allLocationsFlag = getGroupAllLocations(group) === true;
   const schedules: Schedule[] = [];
   const practitionerRoles: PractitionerRole[] = [];
+  const inactiveLocationIds = new Set<string>();
   for (const res of bundle) {
     if (res.resourceType === 'Schedule') schedules.push(res as Schedule);
     else if (res.resourceType === 'PractitionerRole') practitionerRoles.push(res as PractitionerRole);
+    else if (res.resourceType === 'Location' && res.id && (res as Location).status === 'inactive') {
+      inactiveLocationIds.add(res.id);
+    }
   }
   const result: { schedule: Schedule; role: PractitionerRole }[] = [];
   for (const sched of schedules) {
@@ -234,7 +257,7 @@ export function walkGroupMemberPractitionerRoleSchedules(input: {
     if (ownerType !== 'PractitionerRole' || !ownerId) continue;
     const role = practitionerRoles.find((r) => r.id === ownerId);
     if (!role) continue;
-    if (!isPractitionerRoleMemberOfGroup({ role, group, allLocationsFlag })) continue;
+    if (!isPractitionerRoleMemberOfGroup({ role, group, allLocationsFlag, inactiveLocationIds })) continue;
     result.push({ schedule: sched, role });
   }
   return result;

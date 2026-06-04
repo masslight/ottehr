@@ -408,6 +408,72 @@ describe('isPractitionerRoleMemberOfGroup', () => {
     expect(isPractitionerRoleMemberOfGroup({ role, group, allLocationsFlag: false })).toBe(false);
   });
 
+  it('drops inactive Locations from the location-overlap source — PR at an inactive Location no longer counts', () => {
+    const role = makeRole({ location: [{ reference: `Location/${LOC_A}` }] });
+    const group = makeGroup({ location: [{ reference: `Location/${LOC_A}` }] });
+    expect(
+      isPractitionerRoleMemberOfGroup({
+        role,
+        group,
+        allLocationsFlag: false,
+        inactiveLocationIds: new Set([LOC_A]),
+      })
+    ).toBe(false);
+  });
+
+  it('preserves membership via a still-active Location when another saved Location is inactive', () => {
+    const role = makeRole({
+      location: [{ reference: `Location/${LOC_A}` }, { reference: `Location/${LOC_B}` }],
+    });
+    const group = makeGroup({
+      location: [{ reference: `Location/${LOC_A}` }, { reference: `Location/${LOC_B}` }],
+    });
+    // LOC_A is inactive; LOC_B remains active. PR is at both — still a member via LOC_B.
+    expect(
+      isPractitionerRoleMemberOfGroup({
+        role,
+        group,
+        allLocationsFlag: false,
+        inactiveLocationIds: new Set([LOC_A]),
+      })
+    ).toBe(true);
+  });
+
+  it('inactiveLocationIds does not affect the back-reference source (PR is still a member via HS back-ref)', () => {
+    const role = makeRole({
+      healthcareService: [{ reference: `HealthcareService/${GROUP_ID}` }],
+      location: [{ reference: `Location/${LOC_A}` }],
+    });
+    const group = makeGroup({ location: [{ reference: `Location/${LOC_A}` }] });
+    expect(
+      isPractitionerRoleMemberOfGroup({
+        role,
+        group,
+        allLocationsFlag: false,
+        inactiveLocationIds: new Set([LOC_A]),
+      })
+    ).toBe(true);
+  });
+
+  it('inactiveLocationIds does not affect the all-locations source (no Location reference involved)', () => {
+    const role = makeRole({ active: true, location: [{ reference: `Location/${LOC_A}` }] });
+    const group = makeGroup({ location: [{ reference: `Location/${LOC_A}` }] });
+    expect(
+      isPractitionerRoleMemberOfGroup({
+        role,
+        group,
+        allLocationsFlag: true,
+        inactiveLocationIds: new Set([LOC_A]),
+      })
+    ).toBe(true);
+  });
+
+  it('omitting inactiveLocationIds is a no-op (back-compat for callers without Location resources)', () => {
+    const role = makeRole({ location: [{ reference: `Location/${LOC_A}` }] });
+    const group = makeGroup({ location: [{ reference: `Location/${LOC_A}` }] });
+    expect(isPractitionerRoleMemberOfGroup({ role, group, allLocationsFlag: false })).toBe(true);
+  });
+
   it('returns true when sources A and B both fire (predicate is idempotent — caller-side dedup is by Schedule)', () => {
     const role = makeRole({
       healthcareService: [{ reference: `HealthcareService/${GROUP_ID}` }],
