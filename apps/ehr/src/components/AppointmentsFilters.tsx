@@ -135,7 +135,10 @@ export default function AppointmentsFilters(): ReactElement {
     }
 
     try {
-      methods.reset(JSON.parse(persistedValues));
+      const parsed = JSON.parse(persistedValues);
+      // `date` is stripped from storage on logout, so it falls back to today after re-login
+      // while still being preserved across in-app navigation.
+      methods.reset({ ...parsed, date: parsed.date || DateTime.now().toISODate() });
     } catch {
       // Corrupt/legacy localStorage: drop it and fall back to defaults instead of crashing.
       localStorage.removeItem(LOCAL_STORAGE_FILTERS_KEY);
