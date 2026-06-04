@@ -64,6 +64,9 @@ const clinicalResources: {
         reference: 'Appointment/appointment-123',
       },
     ],
+    period: {
+      start: '2026-01-01',
+    },
     location: [
       {
         location: {
@@ -154,6 +157,7 @@ const clinicalResources: {
     subject: {
       reference: 'Patient/patient-123',
     },
+    code: { coding: [{ system: 'some-url-for-coding', code: 'proccode' }] },
   },
   billingProvider: {
     resourceType: 'Organization',
@@ -962,7 +966,19 @@ describe('create-billing-claim-from-encounter', () => {
 
   describe('performEffect', () => {
     it('creates all billing resources and claim when none exist yet', async () => {
-      const txFn = vi.fn().mockResolvedValueOnce({ entry: [{ resourceType: 'Claim', id: 'billing-claim-1' }] });
+      const txFn = vi.fn().mockResolvedValueOnce({
+        entry: [
+          { resource: { resourceType: 'Patient', id: 'billing-patient' } },
+          { resource: { resourceType: 'Patient', id: 'claim-patient' } },
+          { resource: { resourceType: 'RelatedPerson', id: 'billing-subscriber' } },
+          { resource: { resourceType: 'Coverage', id: 'billing-coverage' } },
+          { resource: { resourceType: 'Account', id: 'billing-account' } },
+          { resource: { resourceType: 'RelatedPerson', id: 'claim-subscriber' } },
+          { resource: { resourceType: 'Coverage', id: 'claim-coverage' } },
+          { resource: { resourceType: 'Person', id: 'billing-person' } },
+          { resource: { resourceType: 'Claim', id: 'claim' } },
+        ],
+      });
       const billingOystehr = {
         fhir: { transaction: txFn },
         rcm: { constructPayerUrl: vi.fn().mockReturnValue('https://rcm-api.zapehr.com/v1/payer/payer-123') },
@@ -994,54 +1010,58 @@ describe('create-billing-claim-from-encounter', () => {
         },
       };
       const result = await performEffect(billingOystehr, cvo);
-      expect(result.claimId).toEqual('billing-claim-1');
-      expect(txFn).toHaveBeenCalledWith([
-        {
-          method: 'POST',
-          url: '/Claim',
-          resource: {
-            resourceType: 'Claim',
-            status: 'draft',
-            meta: {
-              tag: [{ system: 'current-status', code: 'open' }],
-            },
-            type: { coding: [{ system: CODE_SYSTEM_CLAIM_TYPE, code: 'professional' }] },
-            use: 'claim',
-            created: expect.any(String),
-            patient: {
-              reference: 'urn:uuid:patient',
-            },
-            provider: { display: 'Unknown' },
-            facility: undefined,
-            insurer: { reference: 'https://rcm-api.zapehr.com/v1/payer/payer-123' },
-            insurance: {
-              sequence: 1,
-              focal: true,
-              coverage: 'urn:uuid:claim-coverage-1',
-            },
-            careTeam: undefined,
-            diagnosis: [{ sequence: 1, diagnosisCodeableConcept: clinicalResources.condition.code }],
-            priority: { coding: [{ system: CODE_SYSTEM_PROCESS_PRIORITY, code: 'normal' }] },
-            total: undefined,
-            item: [
-              {
-                sequence: 1,
-                careTeamSequence: undefined,
-                diagnosisSequence: 1,
-                productOrService: clinicalResources.procedure.code,
-                modifier: undefined,
-                servicePeriod: {
-                  start: '2026-01-01',
-                  end: undefined,
-                },
-                locationCodeableConcept: undefined,
+      expect(result.claimId).toEqual('claim');
+      expect(txFn).toHaveBeenCalledWith({
+        requests: expect.arrayContaining([
+          {
+            method: 'POST',
+            url: '/Claim',
+            resource: {
+              resourceType: 'Claim',
+              status: 'draft',
+              meta: {
+                tag: [{ system: 'current-status', code: 'open' }],
               },
-            ],
-            net: undefined,
-            quantity: { value: 1, unit: 'UN' },
+              type: { coding: [{ system: CODE_SYSTEM_CLAIM_TYPE, code: 'professional' }] },
+              use: 'claim',
+              created: expect.any(String),
+              patient: {
+                reference: 'urn:uuid:claim-patient',
+              },
+              provider: { display: 'Unknown' },
+              facility: undefined,
+              insurer: { reference: 'https://rcm-api.zapehr.com/v1/payer/payer-123' },
+              insurance: [
+                {
+                  sequence: 1,
+                  focal: true,
+                  coverage: { reference: 'urn:uuid:claim-coverage-billing-coverage-coverage-123' },
+                },
+              ],
+              careTeam: undefined,
+              diagnosis: [{ sequence: 1, diagnosisCodeableConcept: clinicalResources.condition.code }],
+              priority: { coding: [{ system: CODE_SYSTEM_PROCESS_PRIORITY, code: 'normal' }] },
+              total: undefined,
+              item: [
+                {
+                  sequence: 1,
+                  careTeamSequence: undefined,
+                  diagnosisSequence: [1],
+                  productOrService: clinicalResources.procedure.code,
+                  modifier: undefined,
+                  servicedPeriod: {
+                    start: '2026-01-01',
+                    end: undefined,
+                  },
+                  locationCodeableConcept: undefined,
+                  net: undefined,
+                  quantity: { value: 1, unit: 'UN' },
+                },
+              ],
+            },
           },
-        },
-      ]);
+        ]),
+      });
     });
   });
 });

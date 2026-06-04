@@ -324,6 +324,7 @@ export async function performEffect(
     patientId: claimPatient.id,
     encounter: clinicalResources.encounter,
     diagnoses: clinicalResources.diagnoses,
+    procedures: clinicalResources.procedures,
     coverageRefs: getClaimCoveragesForEncounter(encounterType, mainPatientAccounts, claimCoverages),
     renderingProvider: billingResources.renderingProvider,
     serviceFacility: billingResources.serviceFacility,
@@ -342,16 +343,32 @@ export async function performEffect(
   const txResult = await billingOystehr.fhir.transaction<BillingFhirResource>({ requests });
   const entries = (txResult.entry ?? []).map((e) => e.resource).filter(Boolean) as Resource[];
 
-  if (entries.length !== order.length) throw InternalError;
+  if (entries.length !== order.length) {
+    console.log(
+      'Tx result does not match length of request',
+      entries.length,
+      txResult.entry?.length,
+      order.length,
+      requests.length,
+      JSON.stringify(order)
+    );
+    throw InternalError;
+  }
 
   const copies: Partial<ClinicalResources> = {};
   for (let i = 0; i < order.length; i++) {
     const expected = requests[i].url.replace('/', '');
-    if (entries[i].resourceType !== expected) throw InternalError;
+    if (entries[i].resourceType !== expected) {
+      console.log('Tx results out of order');
+      throw InternalError;
+    }
     copies[order[i] as keyof ClinicalResources] = entries[i] as any;
   }
   const createdClaim = entries.find((e): e is Claim => e.resourceType === 'Claim');
-  if (!createdClaim || !createdClaim.id) throw InternalError;
+  if (!createdClaim || !createdClaim.id) {
+    console.log('Claim not created');
+    throw InternalError;
+  }
 
   return { claimId: createdClaim.id };
 }
@@ -820,7 +837,7 @@ function buildClaim(resources: ClaimResources): Claim {
     type: { coding: [{ system: CODE_SYSTEM_CLAIM_TYPE, code: 'professional' }] },
     use: 'claim',
     created: now,
-    patient: { reference: `Patient/${resources.patientId}` },
+    patient: uuidOrUrnReference('Patient', resources.patientId),
     provider: resources.billingProvider?.id
       ? { reference: `Organization/${resources.billingProvider.id}` }
       : { display: 'Unknown' },
@@ -847,7 +864,6 @@ function buildClaim(resources: ClaimResources): Claim {
         }))
       : [],
     priority: { coding: [{ system: CODE_SYSTEM_PROCESS_PRIORITY, code: 'normal' }] },
-    // CW TODO: charge amounts!
     total: undefined,
     item: resources.procedures
       ? resources.procedures.map<ClaimItem>((p, i) => ({
@@ -891,7 +907,6 @@ function buildClaim(resources: ClaimResources): Claim {
                   ],
                 }
               : undefined,
-          // CW TODO: charge amounts!
           net: undefined,
           quantity: { value: 1, unit: 'UN' },
         }))
