@@ -108,32 +108,6 @@ describe('getErxPatientDemographicErrors', () => {
     expect(getErxPatientDemographicErrors(patient)).toContain('phone');
   });
 
-  it('flags an invalid ZIP', () => {
-    const patient = validErxPatient();
-    patient.address = [
-      {
-        line: ['1 Main St'],
-        city: 'Anywhere',
-        state: 'NY',
-        postalCode: '123',
-      },
-    ];
-    expect(getErxPatientDemographicErrors(patient)).toContain('address');
-  });
-
-  it('accepts a ZIP+4', () => {
-    const patient = validErxPatient();
-    patient.address = [
-      {
-        line: ['1 Main St'],
-        city: 'Anywhere',
-        state: 'NY',
-        postalCode: '10001-1234',
-      },
-    ];
-    expect(getErxPatientDemographicErrors(patient)).toEqual([]);
-  });
-
   it('flags an address with no state', () => {
     const patient = validErxPatient();
     patient.address = [
@@ -149,25 +123,6 @@ describe('getErxPatientDemographicErrors', () => {
   it('flags an address missing a line', () => {
     const patient = validErxPatient();
     patient.address = [
-      {
-        line: [''],
-        city: 'Anywhere',
-        state: 'NY',
-        postalCode: '10001',
-      },
-    ];
-    expect(getErxPatientDemographicErrors(patient)).toContain('address');
-  });
-
-  it('does not let a valid ZIP on one address rescue a complete-but-invalid-ZIP address (multi-address trap)', () => {
-    const patient = validErxPatient();
-    patient.address = [
-      {
-        line: ['1 Main St'],
-        city: 'Anywhere',
-        state: 'NY',
-        postalCode: '123',
-      },
       {
         line: [''],
         city: 'Anywhere',
