@@ -11,6 +11,7 @@ import {
   List,
   Observation,
   Procedure,
+  ServiceRequest,
 } from 'fhir/r4b';
 import {
   ApplyTemplateWarning,
@@ -31,6 +32,7 @@ import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../sha
 import { createOystehrClient } from '../../shared/helpers';
 import { getTemplateBaseResources, hasTemplateRelevantTag, isDiagnosisCondition } from '../shared/template-helpers';
 import { applyInHouseLabPlans, canApplyActivityDefinition } from './apply-in-house-labs';
+import { buildLiveProcedureRequest, findProcedurePlans } from './apply-procedures';
 import { validateRequestParameters } from './validateRequestParameters';
 
 interface ComplexValidationOutput {
@@ -205,12 +207,19 @@ const performEffect = async (
   const cptCodesFromLabsToSkip = collectCptCodesFromApplicableActivityDefinitions(applicableInHouseLabAds, actions);
   const createRequests = makeCreateRequests(encounter, templateList, encounterBundle, actions, cptCodesFromLabsToSkip);
 
+  // Procedure plans (ServiceRequests) and CPT Procedures share a single
+  // transaction so the procedure plan's reasonReference / supportingInfo can
+  // resolve via urn:uuid fullUrl to the new Conditions and CPT Procedures
+  // created alongside them. The previous flow put CPT Procedures in a separate
+  // batch which is fine in isolation but breaks the procedure cross-refs.
   const miniTransactionRequests = createRequests.filter((request) => {
     if (request.method === 'POST') {
       return (
         request.resource.resourceType === 'ClinicalImpression' ||
         request.resource.resourceType === 'Condition' ||
-        request.resource.resourceType === 'Communication'
+        request.resource.resourceType === 'Communication' ||
+        request.resource.resourceType === 'Procedure' ||
+        request.resource.resourceType === 'ServiceRequest'
       );
     } else if (request.method === 'PATCH') {
       return true;
@@ -223,18 +232,7 @@ const performEffect = async (
       request.method === 'POST' && request.resource.resourceType === 'Observation'
   );
 
-  const procedureRequests = createRequests.filter(
-    (request): request is BatchInputPostRequest<Procedure> =>
-      request.method === 'POST' && request.resource.resourceType === 'Procedure'
-  );
-
   const createObservationBatches = chunkThings(observationRequests, 5).map((chunk) =>
-    oystehr.fhir.batch({
-      requests: chunk,
-    })
-  );
-
-  const createProcedureBatches = chunkThings(procedureRequests, 5).map((chunk) =>
     oystehr.fhir.batch({
       requests: chunk,
     })
@@ -245,7 +243,7 @@ const performEffect = async (
   });
 
   const [bundles, inHouseLabsResult] = await Promise.all([
-    Promise.all([...deleteBatches, ...createObservationBatches, ...createProcedureBatches, miniTransactionPromise]),
+    Promise.all([...deleteBatches, ...createObservationBatches, miniTransactionPromise]),
     inHouseLabsPromise,
   ]);
 
@@ -311,13 +309,19 @@ export const makeCreateRequests = (
   actions: ResolvedSectionActions,
   cptCodesFromLabsToSkip: Set<string>
 ): Array<
-  | BatchInputPostRequest<Observation | ClinicalImpression | Condition | Communication | Procedure>
+  | BatchInputPostRequest<Observation | ClinicalImpression | Condition | Communication | Procedure | ServiceRequest>
   | BatchInputJSONPatchRequest
 > => {
   const createResourcesRequests: Array<
-    | BatchInputPostRequest<Observation | ClinicalImpression | Condition | Communication | Procedure>
+    | BatchInputPostRequest<Observation | ClinicalImpression | Condition | Communication | Procedure | ServiceRequest>
     | BatchInputJSONPatchRequest
   > = [];
+
+  // Tracks `contained resource id -> urn:uuid fullUrl assigned to its new live
+  // copy in this apply`. Procedure plans use this to rewrite their cross-refs
+  // (reasonReference -> new Condition, supportingInfo -> new CPT Procedure) so
+  // they point at the new resources within this transaction.
+  const containedIdToNewFullUrl = new Map<string, string>();
 
   if (templateList.entry === undefined || templateList.entry.length === 0) {
     console.log('Template has no entries, it will not create anything.');
@@ -527,6 +531,20 @@ export const makeCreateRequests = (
       resource: resourceToCreate,
       fullUrl,
     });
+    if (containedResource.id) {
+      containedIdToNewFullUrl.set(containedResource.id, fullUrl);
+    }
+  }
+
+  // Materialize procedure plans now that every other contained resource has
+  // been turned into a request and assigned a fullUrl. Each plan becomes a
+  // live ServiceRequest whose cross-refs are rewritten to point at the new
+  // resources within this same transaction (see apply-procedures.ts).
+  if (actions.procedures !== 'skip') {
+    for (const plan of findProcedurePlans(templateList)) {
+      const { request } = buildLiveProcedureRequest({ plan, encounter, containedIdToNewFullUrl });
+      createResourcesRequests.push(request);
+    }
   }
 
   const encounterPatchOperations: Operation[] = [];

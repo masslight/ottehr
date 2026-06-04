@@ -35,6 +35,7 @@ import {
   TEMPLATE_SECTIONS_NO_OVERWRITE,
   TemplateCptCodeInfo,
   TemplateInHouseLabPlanDetail,
+  TemplateProcedurePlan,
   TemplateSectionAction,
   TemplateSectionActions,
   TemplateSectionDescriptor,
@@ -149,6 +150,17 @@ const getSectionSummary = (sections: AdminGetTemplateDetailOutput['sections'], k
       const missing = sections.inHouseLabs.filter((p) => p.missing).length;
       return missing > 0 ? `${summary} (${missing} unavailable)` : summary;
     }
+    case 'procedures': {
+      // Use whatever short label we have for each plan: procedureType code if
+      // it's there, otherwise fall back to the first CPT code so the summary
+      // still says something concrete. "Unnamed procedure" is a last resort for
+      // very sparse template entries.
+      const labels = sections.procedures
+        .slice(0, NUM_ITEMS_IN_SECTION_TO_SHOW)
+        .map((p) => p.procedureType ?? p.cptCodes[0]?.code ?? 'Unnamed procedure');
+      const extra = sections.procedures.length - NUM_ITEMS_IN_SECTION_TO_SHOW;
+      return extra > 0 ? `${labels.join(', ')} +${extra} more` : labels.join(', ');
+    }
     default:
       return '';
   }
@@ -176,6 +188,8 @@ const sectionHasContent = (sections: AdminGetTemplateDetailOutput['sections'], k
       return Boolean(sections.emCode);
     case 'inHouseLabs':
       return sections.inHouseLabs.length > 0;
+    case 'procedures':
+      return sections.procedures.length > 0;
     default:
       return false;
   }
@@ -333,6 +347,8 @@ const SectionPreview: React.FC<{
       return sections.emCode ? <CodeList items={[sections.emCode]} /> : null;
     case 'inHouseLabs':
       return <InHouseLabPlansList plans={sections.inHouseLabs} />;
+    case 'procedures':
+      return <ProcedurePlansList plans={sections.procedures} />;
     default:
       return null;
   }
@@ -395,6 +411,90 @@ const InHouseLabPlansList: React.FC<{ plans: TemplateInHouseLabPlanDetail[] }> =
     ))}
   </Stack>
 );
+
+// Procedure cards show the procedure type as a clear subheading, then a
+// left-indented block of details: labeled CPT and diagnosis lists (with the
+// uppercase-caption section labels the ROS preview uses, so the codes
+// underneath visibly belong to them) and the form-field rows. We only render
+// fields the template actually carried - the procedure form has a lot of
+// optional inputs and a template that didn't fill them in would look noisy
+// with a wall of empty rows.
+const ProcedurePlansList: React.FC<{ plans: TemplateProcedurePlan[] }> = ({ plans }) => (
+  <Stack spacing={2}>
+    {plans.map((plan) => (
+      <Box key={plan.planId}>
+        <Typography variant="subtitle2" sx={{ color: 'text.primary', fontWeight: 600 }}>
+          {plan.procedureType ?? plan.cptCodes[0]?.display ?? plan.cptCodes[0]?.code ?? 'Procedure'}
+        </Typography>
+        <Stack spacing={1} sx={{ mt: 0.5, pl: 2 }}>
+          {plan.cptCodes.length > 0 ? (
+            <Box>
+              <Typography variant="caption" sx={{ color: 'text.secondary', textTransform: 'uppercase' }}>
+                CPT codes
+              </Typography>
+              <CodeList items={plan.cptCodes} />
+            </Box>
+          ) : null}
+          {plan.diagnoses.length > 0 ? (
+            <Box>
+              <Typography variant="caption" sx={{ color: 'text.secondary', textTransform: 'uppercase' }}>
+                Diagnoses
+              </Typography>
+              <CodeList items={plan.diagnoses} />
+            </Box>
+          ) : null}
+          <ProcedurePlanFields plan={plan} />
+        </Stack>
+      </Box>
+    ))}
+  </Stack>
+);
+
+// Picks the procedure form fields that have a value and lays them out as a
+// compact label/value table. Booleans render as Yes/No so the provider doesn't
+// have to interpret 'true'/'false'.
+const ProcedurePlanFields: React.FC<{ plan: TemplateProcedurePlan }> = ({ plan }) => {
+  const yesNo = (v: boolean | undefined): string | undefined => (v === undefined ? undefined : v ? 'Yes' : 'No');
+  const rows: { label: string; value: string }[] = [
+    { label: 'Performer type', value: plan.performerType ?? '' },
+    { label: 'Body site', value: plan.bodySite ?? '' },
+    { label: 'Body side', value: plan.bodySide ?? '' },
+    { label: 'Technique', value: plan.technique.join(', ') },
+    { label: 'Medication used', value: plan.medicationUsed ?? '' },
+    { label: 'Supplies used', value: plan.suppliesUsed ?? '' },
+    { label: 'Specimen sent', value: yesNo(plan.specimenSent) ?? '' },
+    { label: 'Complications', value: plan.complications ?? '' },
+    { label: 'Patient response', value: plan.patientResponse ?? '' },
+    { label: 'Time spent', value: plan.timeSpent ?? '' },
+    { label: 'Documented by', value: plan.documentedBy ?? '' },
+    { label: 'Consent obtained', value: yesNo(plan.consentObtained) ?? '' },
+  ].filter((r) => r.value.length > 0);
+
+  const blocks: { label: string; value: string }[] = [
+    { label: 'Procedure details', value: plan.procedureDetails ?? '' },
+    { label: 'Post-procedure instructions', value: plan.postInstructions ?? '' },
+  ].filter((b) => b.value.length > 0);
+
+  if (rows.length === 0 && blocks.length === 0) return null;
+  // Free-text blocks render the same shape as the row entries - label inline
+  // with the value - but with whiteSpace: 'pre-wrap' so longer multi-line
+  // content still wraps cleanly instead of being forced onto its own line for
+  // one-line values.
+  return (
+    <Stack spacing={0.75}>
+      {rows.map((row) => (
+        <Typography key={row.label} variant="body2" sx={{ color: 'text.primary' }}>
+          <strong>{row.label}:</strong> {row.value}
+        </Typography>
+      ))}
+      {blocks.map((block) => (
+        <Typography key={block.label} variant="body2" sx={{ color: 'text.primary', whiteSpace: 'pre-wrap' }}>
+          <strong>{block.label}:</strong> {block.value}
+        </Typography>
+      ))}
+    </Stack>
+  );
+};
 
 const SectionCard: React.FC<{
   descriptor: TemplateSectionDescriptor;

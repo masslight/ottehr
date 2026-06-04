@@ -55,6 +55,7 @@ describe('Apply Template - validateRequestParameters', () => {
       cptCodes: 'overwrite',
       emCode: 'skip',
       inHouseLabs: 'append',
+      procedures: 'append',
     };
     const result = validateRequestParameters(createInput({ ...baseBody, sectionActions }));
     expect(result.sectionActions).toEqual(sectionActions);
@@ -91,6 +92,24 @@ describe('Apply Template - validateRequestParameters', () => {
     ).not.toThrow();
     expect(() =>
       validateRequestParameters(createInput({ ...baseBody, sectionActions: { inHouseLabs: 'append' } }))
+    ).not.toThrow();
+  });
+
+  test("rejects 'overwrite' for procedures", () => {
+    // Like in-house labs, procedures are constrained to skip/append - applying
+    // a template should never silently delete a provider's existing procedure
+    // documentation. The validator enforces that constraint by reading
+    // TEMPLATE_SECTIONS_NO_OVERWRITE.
+    const input = createInput({ ...baseBody, sectionActions: { procedures: 'overwrite' } });
+    expect(() => validateRequestParameters(input)).toThrow(/does not support the 'overwrite' action/);
+  });
+
+  test("accepts 'skip' and 'append' for procedures", () => {
+    expect(() =>
+      validateRequestParameters(createInput({ ...baseBody, sectionActions: { procedures: 'skip' } }))
+    ).not.toThrow();
+    expect(() =>
+      validateRequestParameters(createInput({ ...baseBody, sectionActions: { procedures: 'append' } }))
     ).not.toThrow();
   });
 
