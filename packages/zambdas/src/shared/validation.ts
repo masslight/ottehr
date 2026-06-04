@@ -1,3 +1,4 @@
+import { INVALID_INPUT_ERROR } from 'utils';
 import { ZodError, ZodSchema } from 'zod';
 import { fromZodError } from 'zod-validation-error';
 
@@ -13,16 +14,16 @@ export function safeValidate<T>(schema: ZodSchema<T>, input: unknown): T {
     if (error instanceof ZodError) {
       const formatted = fromZodError(error);
       console.error('[Validation Error]', formatted.message);
-      throw new Error(formatted.message);
+      throw INVALID_INPUT_ERROR(formatted.message);
     }
 
     if (error instanceof Error) {
       console.error('[Unknown Validation Error]', error.message);
-      throw error;
+      throw INVALID_INPUT_ERROR(error.message);
     }
 
     console.error('[Unknown Validation Error]', error);
-    throw new Error('Unknown validation error');
+    throw INVALID_INPUT_ERROR('Unknown validation error');
   }
 }
 
