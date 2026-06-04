@@ -84,6 +84,30 @@ module "oystehr" {
   patient_portal_domain       = var.patient_portal_domain == null ? var.aws_profile == null ? null : one(module.infra[*].patient_portal_domain) : var.patient_portal_domain
 }
 
+# One-shot seed of the self-service global note templates.
+#
+# Global templates were moved out of Terraform to be self-managed (see
+# deploy/oystehr/removed-resources.tf), which removed the ability to create them
+# on a fresh environment. This bootstraps them once: the local-exec calls a seed
+# script that creates the templates and links them to the Terraform-provisioned
+# holder list (GlobalTemplatesHolderList). Terraform tracks only this bootstrap
+# node, never the individual templates — so customers can edit/delete them via
+# the self-service UI without Terraform reverting the change.
+#
+# `triggers_replace` is a constant, so the provisioner runs once on create and
+# never again. The seed script is also idempotent (it no-ops when the holder is
+# already populated), so manual re-runs are safe. Bump the constant only to
+# intentionally force a re-seed.
+resource "terraform_data" "seed_global_templates" {
+  depends_on       = [module.oystehr]
+  triggers_replace = "global-templates-v1"
+
+  provisioner "local-exec" {
+    working_dir = "${path.root}/../packages/zambdas"
+    command     = "npm run recreate-global-templates -- ${var.environment}"
+  }
+}
+
 module "ottehr_apps" {
   depends_on  = [module.oystehr, module.infra]
   source      = "./ottehr_apps"
