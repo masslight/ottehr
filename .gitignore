@@ -40,3 +40,6 @@ terraform.json
 
 .claude
 scripts/setup/project/setup-progress.json
+# Flaky E2E loop runtime artifacts
+scripts/flaky-loop/state/
+scripts/flaky-loop/logs/
