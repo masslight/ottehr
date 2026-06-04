@@ -53,12 +53,14 @@ export default function AppointmentsFilters(): ReactElement {
 
   const methods = useForm();
   const [searchParams, setSearchParams] = useSearchParams();
+  const hasTrackingBoardFilterParams = FILTER_PARAM_KEYS.some((key) => searchParams.has(key));
 
   useEffect(() => {
-    // Mirror the URL into the form only when it carries filters; otherwise let the restore effect recover them.
-    if (!FILTER_PARAM_KEYS.some((key) => searchParams.has(key))) {
+    if (!hasTrackingBoardFilterParams) {
       return;
     }
+
+    // Mirror the URL into the form only when it carries filters; otherwise let the restore effect recover them.
     const values = {
       location:
         searchParams
@@ -75,7 +77,7 @@ export default function AppointmentsFilters(): ReactElement {
           .map((id) => ({ id })) ?? [],
     };
     methods.reset(values);
-  }, [searchParams, methods]);
+  }, [hasTrackingBoardFilterParams, searchParams, methods]);
 
   useEffect(() => {
     const callback = methods.subscribe({
@@ -109,7 +111,14 @@ export default function AppointmentsFilters(): ReactElement {
 
   useEffect(() => {
     // Restore persisted filters when the URL carries none (e.g. only `?tab=` after an approval).
-    if (FILTER_PARAM_KEYS.some((key) => searchParams.has(key))) {
+    if (hasTrackingBoardFilterParams) {
+      return;
+    }
+
+    // Defer seeding until AppointmentTabs has written `?tab=`. AppointmentsFilters is only
+    // mounted on the tracking board page alongside AppointmentTabs, which writes the tab on
+    // mount — this guard keeps the two siblings' URL writes deterministic.
+    if (!searchParams.has('tab')) {
       return;
     }
 
@@ -132,7 +141,7 @@ export default function AppointmentsFilters(): ReactElement {
       localStorage.removeItem(LOCAL_STORAGE_FILTERS_KEY);
       methods.reset(defaultValues);
     }
-  }, [methods, searchParams, visitTypeToLabel]);
+  }, [hasTrackingBoardFilterParams, methods, searchParams, visitTypeToLabel]);
 
   return (
     <FormProvider {...methods}>

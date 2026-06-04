@@ -2,6 +2,7 @@ import { Save } from '@mui/icons-material';
 import { Button, CircularProgress } from '@mui/material';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Reference } from 'fhir/r4b';
+import { enqueueSnackbar } from 'notistack';
 import { FC, useCallback, useMemo } from 'react';
 import { useFormContext } from 'react-hook-form';
 import { updatePatientVisitDetails } from 'src/api/api';
@@ -72,7 +73,7 @@ export const SectionSaveButton: FC<SectionSaveButtonProps> = ({
 }) => {
   const queryClient = useQueryClient();
   const { oystehrZambda } = useApiClients();
-  const { watch, formState, resetField, getValues } = useFormContext();
+  const { watch, formState, resetField, getValues, trigger } = useFormContext();
   const { dirtyFields, errors } = formState;
 
   const employerFieldDirty = Boolean(dirtyFields[OCCUPATIONAL_MEDICINE_EMPLOYER_FIELD_KEY]);
@@ -118,6 +119,15 @@ export const SectionSaveButton: FC<SectionSaveButtonProps> = ({
 
   const handleSave = useCallback(async () => {
     if (!patientId) return;
+
+    // Conditionally-required fields (e.g. PCP "Practice name") aren't in the static
+    // requiredFieldKeys, so the disabled-state guard misses them; validate here so their
+    // errors surface inline instead of failing at the server.
+    const isValid = await trigger(fieldKeys);
+    if (!isValid) {
+      enqueueSnackbar('Please fix all field validation errors and try again', { variant: 'error' });
+      return;
+    }
 
     const allValues = getValues();
     const sectionValues: Record<string, any> = {};
@@ -207,6 +217,7 @@ export const SectionSaveButton: FC<SectionSaveButtonProps> = ({
     saveEmployerViaVisitDetails,
     visitDetailsEmployerMutation,
     onSaveSuccess,
+    trigger,
   ]);
 
   if (!isDirty) return null;
