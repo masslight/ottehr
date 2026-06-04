@@ -65,6 +65,7 @@ import {
   BookableResource,
   CPTCodeDTO,
   EncounterVirtualServiceExtension,
+  FHIR_CODE_REGEX,
   HealthcareServiceWithLocationContext,
   PractitionerLicense,
   PractitionerQualificationCode,
@@ -1554,6 +1555,15 @@ export const getTag = (resource: Resource, tagSystem: string, tagCode?: string):
   if (tagCode) return resource.meta?.tag?.find((tag) => tag.system === tagSystem && tag.code === tagCode);
   else return resource.meta?.tag?.find((tag) => tag.system === tagSystem);
 };
+
+// https://hl7.org/fhir/R4B/datatypes.html#code
+export function sanitizeStringForFhirCode(input: string): Coding['code'] {
+  if (!FHIR_CODE_REGEX.test(input)) {
+    return input.trim().replace(/\s+/g, ' ');
+  } else {
+    return input;
+  }
+}
 
 export function transactionWasSuccessful(transactionResponse: Pick<TransactionBundle<FhirResource>, 'entry'>): boolean {
   return transactionResponse.entry?.every((entry) => entry.response?.status[0] === '2') ?? false;

@@ -265,6 +265,7 @@ export function makeMedicationResource(
   data: MedicationDTO,
   fieldName: ProviderChartDataFieldsNames
 ): MedicationStatement {
+  const dose = data.intakeInfo.dose?.trim();
   return {
     id: data.resourceId,
     identifier: [{ value: data.id }],
@@ -272,7 +273,8 @@ export function makeMedicationResource(
     subject: { reference: `Patient/${patientId}` },
     context: { reference: `Encounter/${encounterId}` },
     status: data.status,
-    dosage: [{ text: data.intakeInfo.dose, asNeededBoolean: data.type === 'as-needed' }],
+    // FHIR rejects empty strings for Dosage.text, so only set it when a dose was actually provided
+    dosage: [{ ...(dose ? { text: dose } : {}), asNeededBoolean: data.type === 'as-needed' }],
     effectiveDateTime: data.intakeInfo.date,
     informationSource: { reference: `Practitioner/${practitionerId}` },
     meta: getMetaWFieldName(fieldName),

@@ -12,6 +12,7 @@ import {
   getSecret,
   LAB_DOC_REF_DETAIL_TAGS,
   LabType,
+  sanitizeStringForFhirCode,
   Secrets,
   SecretsKeys,
 } from 'utils';
@@ -429,7 +430,8 @@ export const makeLabResultDocRefMeta = (labDetails: {
       },
       {
         system: LAB_DOC_REF_DETAIL_TAGS.testName.system,
-        code: testName,
+        code: sanitizeStringForFhirCode(testName),
+        display: testName,
       },
     ],
   };
@@ -452,7 +454,9 @@ export const makeLabResultDocRefMeta = (labDetails: {
 };
 
 export const getLabDocRefDescriptionFromMetaTags = (docRef: DocumentReference): string => {
-  const testName = docRef.meta?.tag?.find((t) => t.system === LAB_DOC_REF_DETAIL_TAGS.testName.system)?.code;
+  const testNameTag = docRef.meta?.tag?.find((t) => t.system === LAB_DOC_REF_DETAIL_TAGS.testName.system);
+  const testName = testNameTag?.display ?? testNameTag?.code;
+
   const testItemCode = docRef.meta?.tag?.find((t) => t.system === LAB_DOC_REF_DETAIL_TAGS.testItemCode.system)?.code;
   const labName = docRef.meta?.tag?.find((t) => t.system === LAB_DOC_REF_DETAIL_TAGS.fillerLab.system)?.code;
 

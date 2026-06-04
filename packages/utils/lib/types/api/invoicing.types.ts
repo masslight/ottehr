@@ -100,6 +100,9 @@ export const InvoiceablePatientReportSchema = z.object({
   task: z.custom<Task>(),
   visitDate: z.string(),
   location: z.string(),
+  appointmentId: z.string().optional(),
+  officePhone: z.string().optional(),
+  locationReviewLink: z.string().optional(),
   patient: z.object({
     patientId: z.string(),
     fullName: z.string(),
