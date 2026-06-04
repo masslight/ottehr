@@ -2591,6 +2591,28 @@
         ]
       }
     },
+    "SUB_ERX_PATIENT_SYNC_ON_PATIENT_SUBSCRIPTION": {
+      "resource": {
+        "resourceType": "Subscription",
+        "status": "active",
+        "reason": "Sync patient with eRx service when all patient demographics are present (if older than 18)",
+        "criteria": "Patient?birthdate:missing=false&gender:missing=false&address:missing=false&phone:missing=false",
+        "channel": {
+          "type": "rest-hook",
+          "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-ERX-PATIENT-SYNC/id}"
+        },
+        "extension": [
+          {
+            "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
+            "valueString": "create"
+          },
+          {
+            "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
+            "valueString": "update"
+          }
+        ]
+      }
+    },
     "SUB_ERX_NOTIFICATION_SUBSCRIPTION": {
       "resource": {
         "resourceType": "Subscription",
