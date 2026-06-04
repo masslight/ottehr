@@ -46,31 +46,26 @@ export function validateRequestParameters(input: ZambdaInput): ErxPatientSyncSub
 
   const secrets = input.secrets;
   const body = safeValidate(ErxSyncBodySchema, JSON.parse(input.body));
+  const triggerType: 'encounter' | 'observation' = body.resourceType.toLocaleLowerCase() as 'encounter' | 'observation';
+
   const patientId = body.subject.reference.split('/')[1];
   if (!patientId) {
-    throw new Error(`Patient reference not found on encounter ${body.id}`);
+    throw new Error(`Patient reference not found on ${triggerType} ${body.id}`);
   }
 
+  // resourceType = 'Encounter'
+  let encounterId = body.id;
   if (body.resourceType === 'Observation') {
-    const encounterId = body.encounter.reference.split('/')[1];
-    if (!patientId) {
-      throw new Error(`Patient reference not found on observation ${body.id}`);
-    }
-    if (!encounterId) {
-      throw new Error(`Encounter reference not found on observation ${body.id}`);
-    }
-    return {
-      patientId,
-      encounterId,
-      triggerType: 'observation',
-      secrets,
-    };
+    encounterId = body.encounter.reference.split('/')[1];
+  }
+  if (!encounterId) {
+    throw new Error(`Encounter reference not found on ${triggerType} ${body.id}`);
   }
 
   return {
     patientId,
-    encounterId: body.id,
-    triggerType: 'encounter',
+    encounterId,
+    triggerType,
     secrets,
   };
 }
