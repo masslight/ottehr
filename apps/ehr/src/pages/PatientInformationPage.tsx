@@ -260,18 +260,20 @@ const useFormData = (
   // patient on the same mounted component (defaultValues only applies at mount time).
   const initializedForPatientRef = useRef<string | null>(null);
   useEffect(() => {
-    // Defer the one-time population until the coverages query has settled. defaultFormVals becomes
-    // truthy as soon as the account + questionnaire load, but coverages are fetched afterwards
-    // (useGetPatientCoverages is enabled only once the account query succeeds). Resetting before
-    // they arrive seeds the insurance fields empty, and the once-per-patient guard below then
-    // ignores the later coverage-populated defaults — intermittently leaving the carrier and
-    // member id blank for a patient who does have insurance.
-    const coveragesSettled = !coveragesFetching && insuranceData !== undefined;
-    if (defaultFormVals && coveragesSettled && initializedForPatientRef.current !== (patientId ?? null)) {
+    if (!defaultFormVals) return;
+    if (initializedForPatientRef.current !== (patientId ?? null)) {
+      // New patient: fully populate the form from the freshly loaded defaults.
       methods.reset(defaultFormVals);
       initializedForPatientRef.current = patientId ?? null;
+    } else {
+      // Same patient, defaults changed — e.g. the coverages query resolves after the account, so the
+      // insurance fields only become available on a later render. Re-populate from the new defaults
+      // but keep any values the user has already edited (keepDirtyValues), so insurance fills in
+      // without clobbering in-progress edits. (Gating the whole reset on coverages instead delayed
+      // population of every field and overwrote user edits, breaking the discard-changes flow.)
+      methods.reset(defaultFormVals, { keepDirtyValues: true });
     }
-  }, [defaultFormVals, coveragesFetching, insuranceData, methods, patientId]);
+  }, [defaultFormVals, methods, patientId]);
 
   const appointmentContextSyncRef = useRef<string | null>(null);
   useEffect(() => {
