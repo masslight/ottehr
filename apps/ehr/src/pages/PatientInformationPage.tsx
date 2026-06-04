@@ -269,12 +269,21 @@ const useFormData = (
   const appointmentContextSyncRef = useRef<string | null>(null);
   useEffect(() => {
     if (!defaultFormVals) return;
+
+    const employerVal = defaultFormVals['occupational-medicine-employer'];
+
+    const employerKey =
+      employerVal && typeof employerVal === 'object' && 'reference' in employerVal ? String(employerVal.reference) : '';
+
     const nextKey = [
       defaultFormVals['appointment-service-category'] ?? '',
       defaultFormVals['appointment-service-mode'] ?? '',
       defaultFormVals['reason-for-visit'] ?? '',
+      employerKey,
     ].join('|');
+
     if (appointmentContextSyncRef.current === nextKey) return;
+
     appointmentContextSyncRef.current = nextKey;
 
     methods.setValue('appointment-service-category', defaultFormVals['appointment-service-category'], {
@@ -282,16 +291,26 @@ const useFormData = (
       shouldTouch: false,
       shouldValidate: false,
     });
+
     methods.setValue('appointment-service-mode', defaultFormVals['appointment-service-mode'], {
       shouldDirty: false,
       shouldTouch: false,
       shouldValidate: false,
     });
+
     methods.setValue('reason-for-visit', defaultFormVals['reason-for-visit'], {
       shouldDirty: false,
       shouldTouch: false,
       shouldValidate: false,
     });
+
+    if ('occupational-medicine-employer' in defaultFormVals) {
+      methods.setValue('occupational-medicine-employer', defaultFormVals['occupational-medicine-employer'], {
+        shouldDirty: false,
+        shouldTouch: false,
+        shouldValidate: false,
+      });
+    }
   }, [defaultFormVals, methods]);
 
   const { coveragesFormValues } = useMemo(() => {
@@ -346,6 +365,7 @@ interface PatientAccountComponentProps {
   loadingComponent?: ReactElement;
   renderBackButton?: boolean;
   appointmentContext?: AppointmentContext;
+  appointmentId?: string;
 }
 
 export const PatientAccountComponent: FC<PatientAccountComponentProps> = ({
@@ -357,6 +377,7 @@ export const PatientAccountComponent: FC<PatientAccountComponentProps> = ({
   loadingComponent = <LoadingScreen />,
   renderBackButton = true,
   appointmentContext,
+  appointmentId,
 }) => {
   const navigate = useNavigate();
 
@@ -562,6 +583,10 @@ export const PatientAccountComponent: FC<PatientAccountComponentProps> = ({
                     isLoading={isFetching || submitQR.isPending}
                     patientId={patient?.id}
                     encounterId={appointmentContext?.encounterId}
+                    appointmentId={appointmentId}
+                    useUpdateVisitDetailsForEmployer={
+                      Boolean(appointmentId) && appointmentContext?.appointmentServiceCategory === 'pre-op'
+                    }
                   />
                   <AttorneyInformationContainer
                     isLoading={isFetching || submitQR.isPending}

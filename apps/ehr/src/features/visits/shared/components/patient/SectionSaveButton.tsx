@@ -1,16 +1,22 @@
 import { Save } from '@mui/icons-material';
 import { Button, CircularProgress } from '@mui/material';
-import { useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { Reference } from 'fhir/r4b';
 import { FC, useCallback, useMemo } from 'react';
 import { useFormContext } from 'react-hook-form';
+import { updatePatientVisitDetails } from 'src/api/api';
+import { useApiClients } from 'src/hooks/useAppClients';
 import {
   createQuestionnaireItemsMap,
   PATIENT_RECORD_CONFIG,
   PATIENT_RECORD_QUESTIONNAIRE,
   pruneEmptySections,
+  UpdateVisitDetailsInput,
 } from 'utils';
 import { structureQuestionnaireResponse } from '../../../../../helpers/qr-structure';
 import { useUpdatePatientAccount } from '../../../../../hooks/useGetPatient';
+
+const OCCUPATIONAL_MEDICINE_EMPLOYER_FIELD_KEY = 'occupational-medicine-employer';
 
 const questionnaire = PATIENT_RECORD_QUESTIONNAIRE();
 const questionnaireItemsMap = createQuestionnaireItemsMap(questionnaire.item ?? []);
@@ -49,6 +55,9 @@ interface SectionSaveButtonProps {
   requiredFieldKeys: string[];
   patientId: string | undefined;
   encounterId?: string;
+  appointmentId?: string;
+  /** Pre-op visit details: persist employer on Encounter via update-visit-details. */
+  useUpdateVisitDetailsForEmployer?: boolean;
   onSaveSuccess?: () => void;
 }
 
@@ -57,11 +66,17 @@ export const SectionSaveButton: FC<SectionSaveButtonProps> = ({
   requiredFieldKeys,
   patientId,
   encounterId,
+  appointmentId,
+  useUpdateVisitDetailsForEmployer = false,
   onSaveSuccess,
 }) => {
   const queryClient = useQueryClient();
+  const { oystehrZambda } = useApiClients();
   const { watch, formState, resetField, getValues } = useFormContext();
   const { dirtyFields, errors } = formState;
+
+  const employerFieldDirty = Boolean(dirtyFields[OCCUPATIONAL_MEDICINE_EMPLOYER_FIELD_KEY]);
+  const saveEmployerViaVisitDetails = useUpdateVisitDetailsForEmployer && Boolean(appointmentId) && employerFieldDirty;
 
   const submitQR = useUpdatePatientAccount(async () => {
     await Promise.all([
@@ -69,6 +84,23 @@ export const SectionSaveButton: FC<SectionSaveButtonProps> = ({
       queryClient.invalidateQueries({ queryKey: ['patient-coverages'] }),
     ]);
   });
+
+  const visitDetailsEmployerMutation = useMutation({
+    mutationFn: async (input: UpdateVisitDetailsInput) => {
+      if (!oystehrZambda) {
+        throw new Error('oystehrZambda not defined');
+      }
+      await updatePatientVisitDetails(oystehrZambda, input);
+    },
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['get-visit-details'] }),
+        queryClient.invalidateQueries({ queryKey: ['patient-account-get'] }),
+      ]);
+    },
+  });
+
+  const isSaving = visitDetailsEmployerMutation.isPending || submitQR.isPending;
 
   const watchedValues = watch(fieldKeys);
 
@@ -103,19 +135,57 @@ export const SectionSaveButton: FC<SectionSaveButtonProps> = ({
       }
     });
 
-    const qr = pruneEmptySections(
-      structureQuestionnaireResponse(questionnaire, sectionValues, patientId, sectionDirtyFields)
-    );
-    if (encounterId) {
-      qr.encounter = { reference: `Encounter/${encounterId}` };
-    }
-
     try {
-      await submitQR.mutateAsync(qr);
+      if (saveEmployerViaVisitDetails && appointmentId) {
+        // Pre-op: the visit-level employer lives on the Encounter
+        const employerValue = allValues[OCCUPATIONAL_MEDICINE_EMPLOYER_FIELD_KEY] as Reference | null | undefined;
+        await visitDetailsEmployerMutation.mutateAsync({
+          appointmentId,
+          bookingDetails: {
+            visitOccupationalMedicineEmployer: employerValue ?? null,
+          },
+        });
+
+        // If this section contains other dirty fields besides the employer, save them
+        // through the usual QR path — same shape as the default branch (all section
+        // values + dirty map), just with the employer field excluded so it is not
+        // written to the patient Account.
+        const remainingFieldKeys = fieldKeys.filter((key) => key !== OCCUPATIONAL_MEDICINE_EMPLOYER_FIELD_KEY);
+        const remainingDirtyKeys = remainingFieldKeys.filter((key) => dirtyFields[key]);
+
+        if (remainingDirtyKeys.length > 0) {
+          const remainingValues: Record<string, unknown> = {};
+
+          [...remainingFieldKeys, ...collectLogicalControlFields(remainingFieldKeys)].forEach((key) => {
+            remainingValues[key] = allValues[key];
+          });
+
+          const remainingDirty: Record<string, boolean> = {};
+
+          remainingDirtyKeys.forEach((key) => {
+            remainingDirty[key] = true;
+          });
+
+          const qr = pruneEmptySections(
+            structureQuestionnaireResponse(questionnaire, remainingValues, patientId, remainingDirty)
+          );
+
+          if (encounterId) {
+            qr.encounter = { reference: `Encounter/${encounterId}` };
+          }
+
+          await submitQR.mutateAsync(qr);
+        }
+      } else {
+        const qr = pruneEmptySections(
+          structureQuestionnaireResponse(questionnaire, sectionValues, patientId, sectionDirtyFields)
+        );
+        if (encounterId) {
+          qr.encounter = { reference: `Encounter/${encounterId}` };
+        }
+        await submitQR.mutateAsync(qr);
+      }
     } catch {
-      // useUpdatePatientAccount's onError already surfaces a snackbar; swallow
-      // here to keep the section dirty (so the Save button stays visible) and
-      // avoid an unhandled promise rejection from the click handler.
       return;
     }
     // Clear dirty state only for this section's fields so unsaved edits in other
@@ -125,7 +195,19 @@ export const SectionSaveButton: FC<SectionSaveButtonProps> = ({
       resetField(key, { defaultValue: currentValues[key], keepError: false });
     });
     onSaveSuccess?.();
-  }, [patientId, encounterId, fieldKeys, dirtyFields, getValues, resetField, submitQR, onSaveSuccess]);
+  }, [
+    patientId,
+    encounterId,
+    appointmentId,
+    fieldKeys,
+    dirtyFields,
+    getValues,
+    resetField,
+    submitQR,
+    saveEmployerViaVisitDetails,
+    visitDetailsEmployerMutation,
+    onSaveSuccess,
+  ]);
 
   if (!isDirty) return null;
 
@@ -133,8 +215,8 @@ export const SectionSaveButton: FC<SectionSaveButtonProps> = ({
     <Button
       variant="outlined"
       size="small"
-      startIcon={submitQR.isPending ? <CircularProgress size={14} /> : <Save fontSize="small" />}
-      disabled={hasRequiredFieldErrors || submitQR.isPending}
+      startIcon={isSaving ? <CircularProgress size={14} /> : <Save fontSize="small" />}
+      disabled={hasRequiredFieldErrors || isSaving}
       onClick={handleSave}
       sx={{ textTransform: 'none', fontSize: '13px', py: 0.25, px: 1.5 }}
     >

@@ -1,11 +1,10 @@
 import Oystehr, { BatchInputJSONPatchRequest, BatchInputPatchRequest, User } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
-import { Account, Appointment, Coding, Encounter, Extension, Patient } from 'fhir/r4b';
+import { Account, Appointment, Encounter, Extension, Organization, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
-  BOOKING_CONFIG,
-  BookingDetails,
+  applyVisitOccupationalMedicineEmployerToEncounterExtensions,
   cleanUpStaffHistoryTag,
   FHIR_EXTENSION,
   FHIR_RESOURCE_NOT_FOUND,
@@ -14,19 +13,15 @@ import {
   getReasonForVisitAndAdditionalDetailsFromAppointment,
   getReasonForVisitOptionsForServiceCategory,
   INVALID_INPUT_ERROR,
-  INVALID_RESOURCE_ID_ERROR,
-  isValidUUID,
-  MISSING_REQUEST_BODY,
-  MISSING_REQUIRED_PARAMETERS,
   OCCUPATIONAL_MEDICINE_ACCOUNT_TYPE,
-  REASON_ADDITIONAL_MAX_CHAR,
-  Secrets,
   SERVICE_CATEGORY_SYSTEM,
   userMe,
   WORKERS_COMP_ACCOUNT_TYPE,
 } from 'utils';
+import { isEmployerOrganization } from '../../../rcm/employers/helpers';
 import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
 import { accountMatchesType } from '../../shared/harvest';
+import { UpdateVisitDetailsValidatedInput, validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'update-visit-details';
 
@@ -51,7 +46,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   };
 });
 
-interface EffectInput extends Input {
+interface EffectInput extends UpdateVisitDetailsValidatedInput {
   patient: Patient;
   user: User;
   appointment: Appointment;
@@ -277,6 +272,26 @@ const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<void
     }
   }
 
+  if (bookingDetails.visitOccupationalMedicineEmployer !== undefined) {
+    const updatedExtensions = applyVisitOccupationalMedicineEmployerToEncounterExtensions(
+      encounter?.extension,
+      bookingDetails.visitOccupationalMedicineEmployer
+    );
+
+    const encounterPatch: BatchInputPatchRequest<Encounter> = {
+      method: 'PATCH',
+      url: `/Encounter/${encounter.id}`,
+      operations: [
+        {
+          op: encounter?.extension?.length ? 'replace' : 'add',
+          path: '/extension',
+          value: updatedExtensions,
+        },
+      ],
+    };
+    patchRequests.push(encounterPatch);
+  }
+
   if (bookingDetails.serviceCategory) {
     const newEncounterAccounts = (encounter.account ?? [])
       .filter((reference) => reference.reference === 'Account/' + occupationalMedicineAccount?.id)
@@ -335,7 +350,7 @@ const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<void
   });
 };
 
-const complexValidation = async (input: Input, oystehr: Oystehr): Promise<EffectInput> => {
+const complexValidation = async (input: UpdateVisitDetailsValidatedInput, oystehr: Oystehr): Promise<EffectInput> => {
   const { appointmentId, userToken } = input;
   const user = await userMe(userToken, input.secrets);
   if (!user) {
@@ -384,6 +399,35 @@ const complexValidation = async (input: Input, oystehr: Oystehr): Promise<Effect
     }
   }
 
+  if (input.bookingDetails.visitOccupationalMedicineEmployer !== undefined) {
+    const appointmentCategoryCode = getCoding(appointment?.serviceCategory, SERVICE_CATEGORY_SYSTEM)?.code;
+    if (appointmentCategoryCode !== 'pre-op') {
+      throw INVALID_INPUT_ERROR('visitOccupationalMedicineEmployer is only supported for pre-op service category');
+    }
+  }
+
+  const visitEmployer = input.bookingDetails.visitOccupationalMedicineEmployer;
+  if (visitEmployer) {
+    const organizationId = visitEmployer.reference?.split('/')[1];
+
+    if (!organizationId) {
+      throw INVALID_INPUT_ERROR('visitOccupationalMedicineEmployer.reference must be Organization/{id}');
+    }
+
+    const organization = await oystehr.fhir.get<Organization>({
+      resourceType: 'Organization',
+      id: organizationId,
+    });
+
+    if (!isEmployerOrganization(organization)) {
+      throw INVALID_INPUT_ERROR('visitOccupationalMedicineEmployer must reference an occupational medicine employer');
+    }
+
+    if (organization.active === false) {
+      throw INVALID_INPUT_ERROR('visitOccupationalMedicineEmployer must reference an active organization');
+    }
+  }
+
   const accounts = (
     await oystehr.fhir.search<Account>({
       resourceType: 'Account',
@@ -403,141 +447,6 @@ const complexValidation = async (input: Input, oystehr: Oystehr): Promise<Effect
     occupationalMedicineAccount: accounts.find((account) =>
       accountMatchesType(account, OCCUPATIONAL_MEDICINE_ACCOUNT_TYPE)
     ),
-  };
-};
-
-interface Input {
-  userToken: string;
-  secrets: Secrets | null;
-  appointmentId: string;
-  bookingDetails: Omit<BookingDetails, 'serviceCategory'> & {
-    serviceCategory?: Coding;
-  };
-}
-
-const validateRequestParameters = (input: ZambdaInput): Input => {
-  if (!input.body) {
-    throw MISSING_REQUEST_BODY;
-  }
-
-  const userToken = input.headers.Authorization.replace('Bearer ', '');
-
-  if (!userToken) {
-    throw new Error('user token unexpectedly missing');
-  }
-
-  console.log('input', JSON.stringify(input, null, 2));
-  const { secrets } = input;
-  const { appointmentId, bookingDetails } = JSON.parse(input.body);
-
-  if (!appointmentId) {
-    throw MISSING_REQUIRED_PARAMETERS(['appointmentId']);
-  }
-
-  if (isValidUUID(appointmentId) === false) {
-    throw INVALID_RESOURCE_ID_ERROR('appointmentId');
-  }
-
-  if (!bookingDetails) {
-    throw MISSING_REQUIRED_PARAMETERS(['bookingDetails']);
-  }
-
-  if (typeof bookingDetails !== 'object') {
-    throw INVALID_INPUT_ERROR('bookingDetails must be an object');
-  }
-
-  if (bookingDetails.reasonForVisit && typeof bookingDetails.reasonForVisit !== 'string') {
-    throw INVALID_INPUT_ERROR('reasonForVisit must be a string');
-  }
-
-  if (bookingDetails.additionalDetails && typeof bookingDetails.additionalDetails !== 'string') {
-    throw INVALID_INPUT_ERROR('additionalDetails must be a string');
-  } else if (bookingDetails.additionalDetails && bookingDetails.additionalDetails.length > REASON_ADDITIONAL_MAX_CHAR) {
-    throw INVALID_INPUT_ERROR(`additionalDetails must be at most ${REASON_ADDITIONAL_MAX_CHAR} characters`);
-  }
-
-  if (bookingDetails.authorizedNonLegalGuardians && typeof bookingDetails.authorizedNonLegalGuardians !== 'string') {
-    throw INVALID_INPUT_ERROR('authorizedNonLegalGuardians must be a string');
-  }
-
-  if (bookingDetails.confirmedDob && typeof bookingDetails.confirmedDob !== 'string') {
-    throw INVALID_INPUT_ERROR('confirmedDob must be a string');
-  } else if (bookingDetails.confirmedDob) {
-    const dob = DateTime.fromISO(bookingDetails.confirmedDob);
-    if (!dob.isValid) {
-      throw INVALID_INPUT_ERROR(`confirmedDob, "${bookingDetails.confirmedDob}", is not a valid iso date string`);
-    }
-  }
-
-  if (bookingDetails.patientName && typeof bookingDetails.patientName !== 'object') {
-    throw INVALID_INPUT_ERROR('"patientName" must be an object');
-  } else if (bookingDetails.patientName && Object.keys(bookingDetails.patientName).length === 0) {
-    throw INVALID_INPUT_ERROR('"patientName" must have at least one field defined');
-  } else if (bookingDetails.patientName) {
-    if (bookingDetails.patientName.first && typeof bookingDetails.patientName.first !== 'string') {
-      throw INVALID_INPUT_ERROR('"patientName.first" must be a string');
-    }
-    if (bookingDetails.patientName.last && typeof bookingDetails.patientName.last !== 'string') {
-      throw INVALID_INPUT_ERROR('"patientName.last" must be a string');
-    }
-    if (bookingDetails.patientName.middle && typeof bookingDetails.patientName.middle !== 'string') {
-      throw INVALID_INPUT_ERROR('"patientName.middle" must be a string');
-    }
-    if (bookingDetails.patientName.suffix && typeof bookingDetails.patientName.suffix !== 'string') {
-      throw INVALID_INPUT_ERROR('"patientName.suffix" must be a string');
-    }
-    if (bookingDetails.patientName.first !== undefined && bookingDetails.patientName.first.trim().length === 0) {
-      throw INVALID_INPUT_ERROR('patientName must have a non-empty first name');
-    }
-    if (bookingDetails.patientName.last !== undefined && bookingDetails.patientName.last.trim().length === 0) {
-      throw INVALID_INPUT_ERROR('patientName must have a non-empty last name');
-    }
-  }
-
-  if (bookingDetails.consentForms && typeof bookingDetails.consentForms !== 'object') {
-    throw INVALID_INPUT_ERROR('"consentForms" must be an object');
-  } else if (bookingDetails.consentForms) {
-    if (
-      bookingDetails.consentForms.consentAttested &&
-      typeof bookingDetails.consentForms.consentAttested !== 'boolean'
-    ) {
-      throw INVALID_INPUT_ERROR('consentForms.consentAttested must be a boolean');
-    }
-  }
-
-  let serviceCategory: Coding | undefined = undefined;
-  if (bookingDetails.serviceCategory && typeof bookingDetails.serviceCategory !== 'string') {
-    throw INVALID_INPUT_ERROR('serviceCategory must be a string');
-  } else if (bookingDetails.serviceCategory) {
-    serviceCategory = BOOKING_CONFIG.serviceCategories.find((sc) => sc.category.code === bookingDetails.serviceCategory)
-      ?.category;
-    if (!serviceCategory) {
-      throw INVALID_INPUT_ERROR(`serviceCategory, "${bookingDetails.serviceCategory}", is not a valid option`);
-    }
-  }
-
-  // Require at least one field to be present
-
-  if (
-    bookingDetails.reasonForVisit === undefined &&
-    bookingDetails.additionalDetails === undefined &&
-    bookingDetails.authorizedNonLegalGuardians === undefined &&
-    bookingDetails.confirmedDob === undefined &&
-    bookingDetails.patientName === undefined &&
-    bookingDetails.consentForms === undefined &&
-    bookingDetails.serviceCategory === undefined
-  ) {
-    throw INVALID_INPUT_ERROR('at least one field in bookingDetails must be provided');
-  }
-
-  return {
-    secrets,
-    userToken,
-    appointmentId,
-    bookingDetails: {
-      ...bookingDetails,
-      serviceCategory,
-    },
   };
 };
 

@@ -1,4 +1,6 @@
-import { Attachment } from 'fhir/r4b';
+import { Attachment, Reference } from 'fhir/r4b';
+import { z } from 'zod';
+import { REASON_ADDITIONAL_MAX_CHAR } from '../../validation/constants';
 import {
   INSURANCE_CARD_BACK_2_ID,
   INSURANCE_CARD_BACK_ID,
@@ -23,12 +25,70 @@ export interface BookingDetails {
     consentAttested: boolean;
   };
   serviceCategory?: string;
+  /** Reference to Organization (occupational-medicine-employer). `null` clears the visit-level employer. */
+  visitOccupationalMedicineEmployer?: Reference | null;
 }
 
 export interface UpdateVisitDetailsInput {
   appointmentId: string;
   bookingDetails: BookingDetails;
 }
+
+const organizationReferenceSchema = z
+  .string()
+  .regex(/^Organization\/[0-9a-fA-F-]{36}$/, 'reference must be Organization/{uuid}');
+
+export const FhirOrganizationReferenceSchema = z.object({
+  reference: organizationReferenceSchema,
+  display: z.string().optional(),
+  type: z.string().optional(),
+});
+
+export const BookingDetailsSchema = z
+  .object({
+    reasonForVisit: z.string().optional(),
+    additionalDetails: z.string().max(REASON_ADDITIONAL_MAX_CHAR).optional(),
+    authorizedNonLegalGuardians: z.string().optional(),
+    confirmedDob: z.string().optional(),
+    patientName: z
+      .object({
+        first: z.string().optional(),
+        middle: z.string().optional(),
+        last: z.string().optional(),
+        suffix: z.string().optional(),
+      })
+      // Empty patientName would make performEffect replace the stored name with undefined.
+      .refine((name) => Object.values(name).some((value) => value !== undefined), {
+        message: '"patientName" must have at least one field defined',
+      })
+      .optional(),
+    consentForms: z
+      .object({
+        consentAttested: z.boolean(),
+      })
+      .optional(),
+    serviceCategory: z.string().optional(),
+    visitOccupationalMedicineEmployer: z.union([FhirOrganizationReferenceSchema, z.null()]).optional(),
+  })
+  .refine(
+    (data) =>
+      data.reasonForVisit !== undefined ||
+      data.additionalDetails !== undefined ||
+      data.authorizedNonLegalGuardians !== undefined ||
+      data.confirmedDob !== undefined ||
+      data.patientName !== undefined ||
+      data.consentForms !== undefined ||
+      data.serviceCategory !== undefined ||
+      data.visitOccupationalMedicineEmployer !== undefined,
+    { message: 'at least one field in bookingDetails must be provided' }
+  );
+
+export const UpdateVisitDetailsRequestSchema = z.object({
+  appointmentId: z.string().uuid(),
+  bookingDetails: BookingDetailsSchema,
+});
+
+export type UpdateVisitDetailsRequest = z.infer<typeof UpdateVisitDetailsRequestSchema>;
 
 export const ValidEHRUploadTypes = [
   PHOTO_ID_FRONT_ID,
