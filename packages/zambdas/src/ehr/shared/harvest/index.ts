@@ -2419,6 +2419,10 @@ const createCoverageResource = (input: CreateCoverageResourceInput): Coverage =>
     identifier: [createCoverageMemberIdentifier(memberId, org)],
     resourceType: 'Coverage',
     status: 'active',
+    // Persist the priority on the Coverage itself (1 = primary, 2 = secondary). The Account.coverage
+    // list is the primary source of ordering, but it can be transiently empty/partial during
+    // harvest's multi-round rebuild; carrying order here gives a durable fallback for the read.
+    order: input.order,
     subscriber: {
       reference: subscriberReference,
     },
@@ -3847,6 +3851,18 @@ export const getCoverageUpdateResourcesFromUnbundled = (
     existingCoverages.workersComp = coverageResources.find((coverage) => {
       return coverage.id === workersCompAccount?.coverage?.[0]?.coverage?.reference?.split('/')[1];
     });
+  }
+
+  // Account.coverage can be transiently empty or partial while harvest's multi-round paperwork
+  // processing rebuilds it, even though the active Coverage resources already exist. Fall back to
+  // the Coverage.order field (1 = primary, 2 = secondary) so a stale/incomplete account.coverage
+  // list does not blank out the patient's insurance on read — and so the write path, which reads
+  // existing coverages through this same function, does not then drop or mis-prioritize them.
+  if (!existingCoverages.primary) {
+    existingCoverages.primary = coverageResources.find((c) => c.order === 1 && c.status === 'active');
+  }
+  if (!existingCoverages.secondary) {
+    existingCoverages.secondary = coverageResources.find((c) => c.order === 2 && c.status === 'active');
   }
 
   const primarySubscriberReference = existingCoverages.primary?.subscriber?.reference;
