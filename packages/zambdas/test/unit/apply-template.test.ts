@@ -534,3 +534,221 @@ describe('makeCreateRequests — CPT / in-house lab overlap', () => {
     expect(createdCptCodes).toContain('99213');
   });
 });
+
+// ---------------------------------------------------------------------------
+// makeCreateRequests — procedure plans
+// ---------------------------------------------------------------------------
+
+const PROCEDURE_PLAN_TAG_SYSTEM = chartDataTagSystem('procedure-template-plan');
+const PROCEDURE_META_TAG_SYSTEM = chartDataTagSystem('procedure');
+
+const makeProcedurePlan = (id: string, opts: { dxRefIds?: string[]; cptRefIds?: string[] } = {}): ServiceRequest => ({
+  resourceType: 'ServiceRequest',
+  id,
+  status: 'active',
+  intent: 'plan',
+  subject: { reference: '#stub-patient' },
+  category: [{ coding: [{ system: 'https://fhir.ottehr.com/CodeSystem/Procedure/procedure-type', code: 'splint' }] }],
+  reasonReference: (opts.dxRefIds ?? []).map((refId) => ({ reference: `Condition/${refId}` })),
+  supportingInfo: (opts.cptRefIds ?? []).map((refId) => ({ reference: `Procedure/${refId}` })),
+  meta: { tag: [{ system: PROCEDURE_PLAN_TAG_SYSTEM, code: 'procedure-template-plan' }] },
+});
+
+const makeProcedureTemplateList = (resources: Array<Procedure | ServiceRequest | Condition>): List => ({
+  resourceType: 'List',
+  id: 'proc-template',
+  status: 'current',
+  mode: 'working',
+  entry: resources.map((r) => ({ item: { reference: `#${r.id}` } })),
+  contained: [
+    ...resources,
+    {
+      resourceType: 'Encounter',
+      id: 'stub-enc',
+      status: 'unknown',
+      class: { system: 'http://terminology.hl7.org/CodeSystem/v3-ActCode', code: 'AMB' },
+    } as Encounter,
+  ],
+});
+
+const getProcedureServiceRequestPosts = (
+  requests: ReturnType<typeof makeCreateRequests>
+): Array<{ method: 'POST'; url: string; resource: ServiceRequest; fullUrl?: string }> =>
+  requests.filter(
+    (r): r is { method: 'POST'; url: string; resource: ServiceRequest; fullUrl?: string } =>
+      r.method === 'POST' && (r as any).resource?.resourceType === 'ServiceRequest'
+  );
+
+describe('makeCreateRequests — procedure plans', () => {
+  test("procedures='skip' emits no procedure ServiceRequest", () => {
+    const plan = makeProcedurePlan('plan-1');
+    const templateList = makeProcedureTemplateList([plan]);
+    const actions = makeActions({ procedures: 'skip' });
+    const requests = makeCreateRequests(makeSimpleCptEncounter(), templateList, [], actions, new Set());
+    expect(getProcedureServiceRequestPosts(requests)).toHaveLength(0);
+  });
+
+  test("procedures='append' creates one live ServiceRequest per plan, tagged for chart-data", () => {
+    const planA = makeProcedurePlan('plan-a');
+    const planB = makeProcedurePlan('plan-b');
+    const templateList = makeProcedureTemplateList([planA, planB]);
+    const actions = makeActions({ procedures: 'append' });
+    const requests = makeCreateRequests(makeSimpleCptEncounter(), templateList, [], actions, new Set());
+
+    const created = getProcedureServiceRequestPosts(requests);
+    expect(created).toHaveLength(2);
+    for (const req of created) {
+      // Each must be the chart-data shape (completed/original-order/procedure tag)
+      // rather than the plan shape — get-chart-data filters on these.
+      expect(req.resource.status).toBe('completed');
+      expect(req.resource.intent).toBe('original-order');
+      expect(
+        req.resource.meta?.tag?.some((t) => t.system === PROCEDURE_META_TAG_SYSTEM && t.code === 'procedure')
+      ).toBe(true);
+      expect(req.resource.meta?.tag?.some((t) => t.system === PROCEDURE_PLAN_TAG_SYSTEM)).toBe(false);
+      // Cross-section linkage requires the SR's fullUrl to be a urn:uuid so other
+      // resources in the transaction (encounter.diagnosis, etc) could reference it.
+      expect(req.fullUrl).toMatch(/^urn:uuid:/);
+    }
+  });
+
+  test('rewrites reasonReference and supportingInfo to the new fullUrls of the contained diagnoses and CPT Procedures', () => {
+    // The diagnosis Condition and CPT Procedure live in the template's contained
+    // array — when applied they each get a fresh urn:uuid fullUrl in the same
+    // transaction. The procedure plan's cross-refs (Condition/dx-1, Procedure/cpt-1)
+    // must be rewritten to point at those fullUrls so the live procedure links to
+    // the live resources, not the template stub ids.
+    const dxCondition = makeDxCondition('dx-1', 'J02.9');
+    const cptProcedure = makeCptProcedure('cpt-1', '29105');
+    const plan = makeProcedurePlan('plan-1', { dxRefIds: ['dx-1'], cptRefIds: ['cpt-1'] });
+    const templateList: List = {
+      resourceType: 'List',
+      id: 'proc-template',
+      status: 'current',
+      mode: 'working',
+      entry: [{ item: { reference: `#dx-1` } }, { item: { reference: `#cpt-1` } }, { item: { reference: `#plan-1` } }],
+      contained: [
+        dxCondition,
+        cptProcedure,
+        plan,
+        {
+          resourceType: 'Encounter',
+          id: 'stub-enc',
+          status: 'unknown',
+          class: { system: 'http://terminology.hl7.org/CodeSystem/v3-ActCode', code: 'AMB' },
+          diagnosis: [{ condition: { reference: 'Condition/dx-1' } }],
+        } as Encounter,
+      ],
+    };
+    const actions = makeActions({ procedures: 'append', diagnoses: 'append', cptCodes: 'append' });
+    const requests = makeCreateRequests(makeSimpleCptEncounter(), templateList, [], actions, new Set());
+
+    // Find the fullUrls assigned to the new live Condition and CPT Procedure.
+    const dxPostRequest = requests.find(
+      (r): r is { method: 'POST'; resource: Condition; fullUrl?: string; url: string } =>
+        r.method === 'POST' && (r as any).resource?.resourceType === 'Condition'
+    )!;
+    const cptPostRequest = requests.find(
+      (r): r is { method: 'POST'; resource: Procedure; fullUrl?: string; url: string } =>
+        r.method === 'POST' && (r as any).resource?.resourceType === 'Procedure'
+    )!;
+    expect(dxPostRequest.fullUrl).toMatch(/^urn:uuid:/);
+    expect(cptPostRequest.fullUrl).toMatch(/^urn:uuid:/);
+
+    // The procedure SR's refs must match those fullUrls exactly.
+    const procedureSR = getProcedureServiceRequestPosts(requests)[0]!.resource;
+    expect(procedureSR.reasonReference).toEqual([{ reference: dxPostRequest.fullUrl }]);
+    expect(procedureSR.supportingInfo).toEqual([{ reference: cptPostRequest.fullUrl }]);
+  });
+
+  test("dropping diagnoses ('skip') drops the procedure's reasonReference rather than leaking a stub id", () => {
+    // When the diagnoses section is set to skip, the diagnosis Condition isn't
+    // being created in this transaction. The procedure plan's reasonReference
+    // pointed at the template's stub id, which doesn't exist outside the
+    // template - we must drop the ref, not emit a dangling reference.
+    const dxCondition = makeDxCondition('dx-1', 'J02.9');
+    const cptProcedure = makeCptProcedure('cpt-1', '29105');
+    const plan = makeProcedurePlan('plan-1', { dxRefIds: ['dx-1'], cptRefIds: ['cpt-1'] });
+    const templateList: List = {
+      resourceType: 'List',
+      id: 'proc-template',
+      status: 'current',
+      mode: 'working',
+      entry: [{ item: { reference: `#dx-1` } }, { item: { reference: `#cpt-1` } }, { item: { reference: `#plan-1` } }],
+      contained: [
+        dxCondition,
+        cptProcedure,
+        plan,
+        {
+          resourceType: 'Encounter',
+          id: 'stub-enc',
+          status: 'unknown',
+          class: { system: 'http://terminology.hl7.org/CodeSystem/v3-ActCode', code: 'AMB' },
+          diagnosis: [{ condition: { reference: 'Condition/dx-1' } }],
+        } as Encounter,
+      ],
+    };
+    const actions = makeActions({ procedures: 'append', diagnoses: 'skip', cptCodes: 'append' });
+    const requests = makeCreateRequests(makeSimpleCptEncounter(), templateList, [], actions, new Set());
+
+    const procedureSR = getProcedureServiceRequestPosts(requests)[0]!.resource;
+    // reasonReference should be omitted entirely when empty, not present as [].
+    expect(procedureSR.reasonReference).toBeUndefined();
+    // supportingInfo for the CPT is still applied since cptCodes wasn't skipped.
+    const cptPostRequest = requests.find(
+      (r): r is { method: 'POST'; resource: Procedure; fullUrl?: string; url: string } =>
+        r.method === 'POST' && (r as any).resource?.resourceType === 'Procedure'
+    )!;
+    expect(procedureSR.supportingInfo).toEqual([{ reference: cptPostRequest.fullUrl }]);
+  });
+
+  test("dropping cptCodes ('skip') drops the procedure's supportingInfo rather than leaking a stub id", () => {
+    const dxCondition = makeDxCondition('dx-1', 'J02.9');
+    const cptProcedure = makeCptProcedure('cpt-1', '29105');
+    const plan = makeProcedurePlan('plan-1', { dxRefIds: ['dx-1'], cptRefIds: ['cpt-1'] });
+    const templateList: List = {
+      resourceType: 'List',
+      id: 'proc-template',
+      status: 'current',
+      mode: 'working',
+      entry: [{ item: { reference: `#dx-1` } }, { item: { reference: `#cpt-1` } }, { item: { reference: `#plan-1` } }],
+      contained: [
+        dxCondition,
+        cptProcedure,
+        plan,
+        {
+          resourceType: 'Encounter',
+          id: 'stub-enc',
+          status: 'unknown',
+          class: { system: 'http://terminology.hl7.org/CodeSystem/v3-ActCode', code: 'AMB' },
+          diagnosis: [{ condition: { reference: 'Condition/dx-1' } }],
+        } as Encounter,
+      ],
+    };
+    const actions = makeActions({ procedures: 'append', diagnoses: 'append', cptCodes: 'skip' });
+    const requests = makeCreateRequests(makeSimpleCptEncounter(), templateList, [], actions, new Set());
+
+    const procedureSR = getProcedureServiceRequestPosts(requests)[0]!.resource;
+    expect(procedureSR.supportingInfo).toBeUndefined();
+    // reasonReference is preserved since diagnoses wasn't skipped.
+    const dxPostRequest = requests.find(
+      (r): r is { method: 'POST'; resource: Condition; fullUrl?: string; url: string } =>
+        r.method === 'POST' && (r as any).resource?.resourceType === 'Condition'
+    )!;
+    expect(procedureSR.reasonReference).toEqual([{ reference: dxPostRequest.fullUrl }]);
+  });
+
+  test('a sparse procedure plan with no cross-refs still produces a clean ServiceRequest', () => {
+    // Some templates may carry procedures with no diagnoses or CPT codes -
+    // those should still apply without emitting empty reasonReference/[]
+    // arrays on the live SR.
+    const plan = makeProcedurePlan('plan-1');
+    const templateList = makeProcedureTemplateList([plan]);
+    const actions = makeActions({ procedures: 'append' });
+    const requests = makeCreateRequests(makeSimpleCptEncounter(), templateList, [], actions, new Set());
+
+    const procedureSR = getProcedureServiceRequestPosts(requests)[0]!.resource;
+    expect(procedureSR.reasonReference).toBeUndefined();
+    expect(procedureSR.supportingInfo).toBeUndefined();
+  });
+});
