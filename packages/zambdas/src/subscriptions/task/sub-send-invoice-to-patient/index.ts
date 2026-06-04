@@ -25,6 +25,7 @@ import { produceOutreachTasks } from '../../../rcm/scheduled-outreach/producers/
 import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
+  ensureStripeCustomerId,
   getCandidEncounterIdFromEncounter,
   getStripeClient,
   resolveTemplatePlaceholders,
@@ -56,8 +57,21 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     console.log('Fhir resources fetched');
 
     console.log('Getting stripe and candid ids');
-    const stripeCustomerId = getStripeCustomerIdFromAccount(account, stripeAccountId);
-    if (!stripeCustomerId) throw new Error('StripeCustomerId is not found');
+    let stripeCustomerId = getStripeCustomerIdFromAccount(account, stripeAccountId);
+    if (!stripeCustomerId) {
+      console.log('No Stripe customer ID on account, creating one now');
+      const { customerId } = await ensureStripeCustomerId(
+        {
+          guarantorResource: patient,
+          account,
+          patientId: patient.id!,
+          stripeClient: stripe,
+          stripeAccount: stripeAccountId,
+        },
+        oystehr
+      );
+      stripeCustomerId = customerId;
+    }
     const candidEncounterId = getCandidEncounterIdFromEncounter(encounter);
     if (!candidEncounterId) throw new Error('CandidEncounterId is not found');
     console.log('Stripe and candid ids retrieved');

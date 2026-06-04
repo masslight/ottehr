@@ -80,18 +80,25 @@ export const ensureStripeCustomerId = async (
 
   let updatedAccount = account;
   if (customerId === undefined) {
-    const customer = await stripeClient.customers.create(
-      {
-        email: guarantor ? getEmailForIndividual(guarantor) : undefined,
-        name: guarantor ? getFullName(guarantor) : undefined,
-        metadata: {
-          oystehr_patient_id: patientId,
-        },
-      },
-      {
-        stripeAccount, // Connected account ID if any
+    const email = guarantor ? getEmailForIndividual(guarantor) : undefined;
+    const name = guarantor ? getFullName(guarantor) : undefined;
+    let customer: Stripe.Customer;
+    try {
+      customer = await stripeClient.customers.create(
+        { email, name, metadata: { oystehr_patient_id: patientId } },
+        { stripeAccount }
+      );
+    } catch (stripeError: any) {
+      if (stripeError?.type === 'StripeInvalidRequestError' && stripeError?.param === 'email') {
+        console.warn(`Stripe rejected email "${email}" for patient ${patientId}, creating customer without email`);
+        customer = await stripeClient.customers.create(
+          { name, metadata: { oystehr_patient_id: patientId } },
+          { stripeAccount }
+        );
+      } else {
+        throw stripeError;
       }
-    );
+    }
     const op = 'add';
     let value: Identifier | Identifier[] = makeStripeCustomerId(customer.id, stripeAccount);
     let path = '/identifier/-';

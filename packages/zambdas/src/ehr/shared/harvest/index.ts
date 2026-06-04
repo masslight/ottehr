@@ -4232,15 +4232,20 @@ export const updateStripeCustomer = async (input: UpdateStripeCustomerInput): Pr
 
   const stripeCustomerAccountPairs = getAllStripeCustomerAccountPairs(account);
   for (const pair of stripeCustomerAccountPairs) {
-    await stripeClient.customers.update(
-      pair.customerId,
-      {
-        email,
-        name,
-        phone,
-      },
-      { stripeAccount: pair.stripeAccount }
-    );
+    try {
+      await stripeClient.customers.update(
+        pair.customerId,
+        { email, name, phone },
+        { stripeAccount: pair.stripeAccount }
+      );
+    } catch (stripeError: any) {
+      if (stripeError?.type === 'StripeInvalidRequestError' && stripeError?.param === 'email') {
+        console.warn(`Stripe rejected email "${email}" for customer ${pair.customerId}, updating without email`);
+        await stripeClient.customers.update(pair.customerId, { name, phone }, { stripeAccount: pair.stripeAccount });
+      } else {
+        throw stripeError;
+      }
+    }
   }
 };
 
