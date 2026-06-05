@@ -46,9 +46,11 @@ interface BuildSimpleScheduleExtInput {
 /**
  * Builds a ScheduleExtension with a uniform open-window for every day.
  * Use this when a test needs a simple always-bookable schedule — it
- * sidesteps the legacy `capacity` field's `/4` semantics (e.g.,
- * `capacity: 1` legacy = 0.25 providers/hr → 0 bookings for 60-min
- * visits, see project memory `project-schedule-capacity-vs-providers`).
+ * sidesteps the legacy `capacity` field's quirky semantics: `capacity`
+ * encodes a 15-minute cadence (capacity / 4 = effective providers per
+ * hour), so e.g. `capacity: 1` legacy = 0.25 providers/hr, which rounds
+ * to 0 bookings for a 60-minute visit. Prefer the explicit `providers`
+ * or `prebookSlots` fields below over hand-rolling a legacy capacity.
  *
  * Default: 24/7 open with `providers: 1`. Choose between `providers` and
  * `prebookSlots` depending on which semantic your assertions are written

@@ -601,8 +601,10 @@ export const cleanupIntegrationTestPatients = async (oystehr: Oystehr): Promise<
 export const cleanupIntegrationTestHealthcareServices = async (oystehr: Oystehr): Promise<void> => {
   const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
 
-  const servicesToDelete = (
-    await oystehr.fhir.search<HealthcareService>({
+  // Paginated: matches the pattern used for Appointments above so older
+  // orphans on later pages aren't left behind.
+  const servicesToDelete = await getAllFhirSearchPages<HealthcareService>(
+    {
       resourceType: 'HealthcareService',
       params: [
         {
@@ -614,8 +616,9 @@ export const cleanupIntegrationTestHealthcareServices = async (oystehr: Oystehr)
           value: `lt${oneHourAgo}`,
         },
       ],
-    })
-  ).unbundle();
+    },
+    oystehr
+  );
 
   if (servicesToDelete.length === 0) {
     console.log('No integration test HealthcareServices found to clean up');

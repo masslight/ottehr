@@ -106,12 +106,15 @@ const CapacityCell: React.FC<CapacityCellProps> = ({
           let capacity: number = existing?.capacity ?? 0;
           if (hour === i) {
             if (isLocation) {
-              prebookSlots = parsed;
-              // Back-populate legacy `capacity` with the same number —
-              // under the original 15-min semantic this IS prebook slots.
-              // Keeps un-migrated readers in sync. Clear `providers` to
-              // avoid ambiguity.
-              capacity = Math.round(parsed);
+              // Locations store an integer prebook slot count; manual typing
+              // can still produce decimals, so round once and use the same
+              // value for both fields to keep the extension internally
+              // consistent. Back-populates legacy `capacity` to keep
+              // un-migrated readers in sync. Clear `providers` to avoid
+              // ambiguity.
+              const intParsed = Math.round(parsed);
+              prebookSlots = intParsed;
+              capacity = intParsed;
               providers = undefined;
             } else {
               providers = parsed;
@@ -157,8 +160,12 @@ export const ScheduleCapacity: React.FC<ScheduleCapacityProps> = ({
     ? 'Prebook appointments offered this hour. Can be lower than physical capacity if walk-ins are expected.'
     : 'Concurrent provider coverage. Supports decimals (e.g. 1.5 = one full + one half-time).';
   const inputStep = isLocation ? 1 : 0.5;
-  const open = openingHour || day.open;
-  let close = closingHour || day.close;
+  // Use `??` so an explicit 0 (midnight) from the prop is preserved instead
+  // of falling back to day.open / day.close. The close===0 special-case
+  // remains: the underlying data model uses 0 to mean "midnight next day"
+  // (= 24) for close, distinct from open=0 (midnight start).
+  const open = openingHour ?? day.open;
+  let close = closingHour ?? day.close;
   close = close === 0 && open !== 0 ? 24 : close;
 
   // create a list of all times in 1 hour increments between open and close
