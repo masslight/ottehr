@@ -27,6 +27,7 @@ export const RadiologyOrderDetailsPage: React.FC = () => {
   const [preliminaryReport, setPreliminaryReport] = useState<string | undefined>();
   const [finalReportByUser, setFinalReportByUser] = useState(false);
   const [finalReport, setFinalReport] = useState<string | undefined>();
+  const [missingFinalReport, setMissingFinalReport] = useState(false);
 
   const {
     orders,
@@ -283,7 +284,12 @@ export const RadiologyOrderDetailsPage: React.FC = () => {
                         maxRows={10}
                         size="small"
                         value={finalReport}
-                        onChange={(e) => setFinalReport(e.target.value)}
+                        onChange={(e) => {
+                          setMissingFinalReport(false);
+                          setFinalReport(e.target.value);
+                        }}
+                        error={missingFinalReport}
+                        helperText={missingFinalReport ? 'Final report is required' : ''}
                       />
                     </Box>
                   )}
@@ -335,7 +341,13 @@ export const RadiologyOrderDetailsPage: React.FC = () => {
                     padding: '8px 22px',
                     textTransform: 'none',
                   }}
-                  onClick={() => handleSaveReport(serviceRequestId, finalReport || '', 'final')}
+                  onClick={() => {
+                    if (!finalReport || !(finalReport.length > 0)) {
+                      setMissingFinalReport(true);
+                      return;
+                    }
+                    void handleSaveReport(serviceRequestId, finalReport || '', 'final');
+                  }}
                 >
                   Save as Final
                 </LoadingButton>

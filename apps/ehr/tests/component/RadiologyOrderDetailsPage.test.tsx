@@ -61,6 +61,7 @@ const WRITE_FINAL_REPORT_CHECKBOX_LABEL = "Don't send to teleradiology, I will w
 const SEND_FOR_FINAL_READ_BTN_LABEL = 'Send for Final Read';
 const SAVE_AS_FINAL_BTN_LABEL = 'Save as Final';
 const FINAL_REPORT_TEXTBOX_LABEL = 'Final Report';
+const FINAL_REPORT_REQUIRED_MESSAGE = 'Final report is required';
 
 // MUI Checkbox doesn't create an accessible <label>. The text sits in a sibling
 // Typography element, so we find it by text then walk up to the flex container and
@@ -198,19 +199,33 @@ describe('RadiologyOrderDetailsPage - final report', () => {
       expect(mockHandleSaveReport).toHaveBeenCalledWith(SERVICE_REQUEST_ID, 'No acute findings', 'final');
     });
 
-    // todo sarah this should require a value, come back to me
-    // it('calls handleSaveReport with an empty string when no text is entered', async () => {
-    //   const user = userEvent.setup();
-    //   const mockHandleSaveReport = vi.fn();
-    //   mockUsePatientRadiologyOrders.mockReturnValue(makeHookResult({ handleSaveReport: mockHandleSaveReport }));
+    it('shows a validation error and does not call handleSaveReport when no text is entered', async () => {
+      const user = userEvent.setup();
+      const mockHandleSaveReport = vi.fn();
+      mockUsePatientRadiologyOrders.mockReturnValue(makeHookResult({ handleSaveReport: mockHandleSaveReport }));
 
-    //   renderPage();
+      renderPage();
 
-    //   await user.click(getWriteFinalReportCheckbox());
-    //   await user.click(screen.getByRole('button', { name: SAVE_AS_FINAL_BTN_LABEL }));
+      await user.click(getWriteFinalReportCheckbox());
+      await user.click(screen.getByRole('button', { name: SAVE_AS_FINAL_BTN_LABEL }));
 
-    //   expect(mockHandleSaveReport).toHaveBeenCalledWith(SERVICE_REQUEST_ID, '', 'final');
-    // });
+      expect(screen.getByText(FINAL_REPORT_REQUIRED_MESSAGE)).toBeInTheDocument();
+      expect(mockHandleSaveReport).not.toHaveBeenCalled();
+    });
+
+    it('clears the validation error when the user starts typing in the text field', async () => {
+      const user = userEvent.setup();
+      renderPage();
+
+      await user.click(getWriteFinalReportCheckbox());
+      await user.click(screen.getByRole('button', { name: SAVE_AS_FINAL_BTN_LABEL }));
+
+      expect(screen.getByText(FINAL_REPORT_REQUIRED_MESSAGE)).toBeInTheDocument();
+
+      await user.type(screen.getByRole('textbox', { name: FINAL_REPORT_TEXTBOX_LABEL }), 'N');
+
+      expect(screen.queryByText(FINAL_REPORT_REQUIRED_MESSAGE)).not.toBeInTheDocument();
+    });
   });
 
   describe('"Send for Final Read" action', () => {

@@ -1,4 +1,4 @@
-import { SaveRadiologyReportZambdaInput, Secrets } from 'utils';
+import { INVALID_INPUT_ERROR, MISSING_REQUIRED_PARAMETERS, SaveRadiologyReportZambdaInput, Secrets } from 'utils';
 import { validateJsonBody, ZambdaInput } from '../../../shared';
 
 export interface ValidatedInput {
@@ -24,19 +24,19 @@ const validateBody = (input: ZambdaInput): SaveRadiologyReportZambdaInput => {
   const { serviceRequestId, report } = validateJsonBody(input);
 
   if (!serviceRequestId) {
-    throw new Error('serviceRequestId is required');
+    throw MISSING_REQUIRED_PARAMETERS(['serviceRequestId']);
   }
 
   if (!report) {
-    throw new Error('report is required');
+    throw MISSING_REQUIRED_PARAMETERS(['report']);
   }
 
   if (typeof serviceRequestId !== 'string') {
-    throw new Error('serviceRequestId must be a string');
+    throw INVALID_INPUT_ERROR('serviceRequestId must be a string');
   }
 
   if (typeof report !== 'string') {
-    throw new Error('report must be a string');
+    throw INVALID_INPUT_ERROR('report must be a string');
   }
 
   return {
