@@ -93,6 +93,19 @@ export default function AppointmentTabs({
     }
   }, [resolvedTab, value]);
 
+  useEffect(() => {
+    if (!isApptTab(tabFromUrl)) {
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          next.set('tab', resolvedTab);
+          return next;
+        },
+        { replace: true }
+      );
+    }
+  }, [tabFromUrl, resolvedTab, setSearchParams]);
+
   const handleChange = useCallback(
     (_event: any, newValue: ApptTab): void => {
       setValue(newValue);

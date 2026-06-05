@@ -29,6 +29,7 @@ import { RoundedButton } from 'src/components/RoundedButton';
 export interface QuickPickEditorColumn<T> {
   label: string;
   getValue: (item: T) => string;
+  getSortValue?: (item: T) => string;
   width?: number;
 }
 
@@ -104,8 +105,9 @@ export default function QuickPickEditor<T extends { id?: string }>({
   const sortedItems = useMemo(() => {
     const firstCol = columns[0];
     if (!firstCol) return items;
+    const getSortValue = firstCol.getSortValue ?? firstCol.getValue;
     return [...items].sort((a, b) =>
-      firstCol.getValue(a).localeCompare(firstCol.getValue(b), undefined, { sensitivity: 'base' })
+      getSortValue(a).localeCompare(getSortValue(b), undefined, { sensitivity: 'base' })
     );
   }, [items, columns]);
 
