@@ -11,9 +11,7 @@ import {
   Extension,
   HealthcareService,
   List,
-  Location,
   Patient,
-  Practitioner,
   Questionnaire,
   QuestionnaireResponse,
   QuestionnaireResponseItem,
@@ -76,7 +74,12 @@ import {
   ZambdaInput,
 } from '../../../shared';
 import { getEncounterClass, getRelatedResources, getTelemedRequiredAppointmentEncounterExtensions } from '../helpers';
-import { createAppointmentComplexValidation, validateCreateAppointmentParams } from './validateRequestParameters';
+import {
+  createAppointmentComplexValidation,
+  ResolvedAttendingPractitioner,
+  ResolvedBookingLocation,
+  validateCreateAppointmentParams,
+} from './validateRequestParameters';
 
 interface CreateAppointmentInput {
   slot: Slot;
@@ -92,9 +95,9 @@ interface CreateAppointmentInput {
   appointmentMetadata?: Appointment['meta'];
   followUpOptions?: FollowUpOptions;
   /** Resolved Location for this booking (direct or via group member / role). */
-  bookingLocation?: Location;
+  bookingLocation?: ResolvedBookingLocation;
   /** Resolved attending Practitioner (populated for PractitionerRole bookings). */
-  attendingPractitioner?: Practitioner;
+  attendingPractitioner?: ResolvedAttendingPractitioner;
 }
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
@@ -374,8 +377,8 @@ interface TransactionInput {
   endTime: string;
   visitType: VisitType;
   scheduleOwner: ScheduleOwnerFhirResource;
-  bookingLocation?: Location;
-  attendingPractitioner?: Practitioner;
+  bookingLocation?: ResolvedBookingLocation;
+  attendingPractitioner?: ResolvedAttendingPractitioner;
   serviceMode: ServiceMode;
   questionnaire: Questionnaire;
   oystehr: Oystehr;

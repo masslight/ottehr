@@ -196,15 +196,22 @@ export interface CreateAppointmentEffectInput {
    * Location reference. When set, stamped onto Encounter.location[] and
    * Appointment.participant[].
    */
-  bookingLocation?: Location;
+  bookingLocation?: ResolvedBookingLocation;
   /**
    * Resolved attending Practitioner for this booking. Populated when the
    * scheduleOwner is a PractitionerRole (the Practitioner on the role) so
    * downstream handlers can add them to Appointment.participant and know who
    * the pre-assigned provider is without re-resolving the PractitionerRole.
    */
-  attendingPractitioner?: Practitioner;
+  attendingPractitioner?: ResolvedAttendingPractitioner;
 }
+
+// `id` is optional on the FHIR TS types, but any persisted FHIR resource has
+// one. These narrowed aliases let downstream code build `Location/${id}` /
+// `Practitioner/${id}` reference strings without per-site `?.id` guards —
+// the invariant is enforced once at the validation boundary.
+export type ResolvedBookingLocation = Location & { id: string };
+export type ResolvedAttendingPractitioner = Practitioner & { id: string };
 
 /**
  * Whether the prebook-grid capacity guard should run for this slot. The
@@ -403,17 +410,18 @@ export const createAppointmentComplexValidation = async (
   // testable; this function just materialises the resolved id into a
   // Location resource and handles the PR-actor → Practitioner side, which
   // is independent of where the Location came from.
-  let bookingLocation: Location | undefined;
-  let attendingPractitioner: Practitioner | undefined;
+  let bookingLocation: ResolvedBookingLocation | undefined;
+  let attendingPractitioner: ResolvedAttendingPractitioner | undefined;
 
   const bookingLocationId = resolveBookingLocationId({ scheduleOwner, slot });
   if (bookingLocationId) {
+    let resolved: Location | undefined;
     if (scheduleOwner.resourceType === 'Location' && scheduleOwner.id === bookingLocationId) {
       // The Location resource is already in hand as the schedule owner; no
       // need to round-trip the server to re-fetch it.
-      bookingLocation = scheduleOwner as Location;
+      resolved = scheduleOwner as Location;
     } else {
-      bookingLocation = await oystehrClient.fhir
+      resolved = await oystehrClient.fhir
         .search<Location>({
           resourceType: 'Location',
           params: [{ name: '_id', value: bookingLocationId }],
@@ -421,20 +429,28 @@ export const createAppointmentComplexValidation = async (
         .then((b) => b.unbundle()[0])
         .catch(() => undefined);
     }
+    if (resolved && !resolved.id) {
+      throw INVALID_INPUT_ERROR(`Resolved booking Location is missing an id (expected ${bookingLocationId})`);
+    }
+    bookingLocation = resolved as ResolvedBookingLocation | undefined;
   }
 
   if (scheduleOwner.resourceType === 'PractitionerRole') {
     const role = scheduleOwner as PractitionerRole;
     const practitionerId = role.practitioner?.reference?.split('/')[1];
-    attendingPractitioner = practitionerId
-      ? await oystehrClient.fhir
-          .search<Practitioner>({
-            resourceType: 'Practitioner',
-            params: [{ name: '_id', value: practitionerId }],
-          })
-          .then((b) => b.unbundle()[0])
-          .catch(() => undefined)
-      : undefined;
+    if (practitionerId) {
+      const resolved = await oystehrClient.fhir
+        .search<Practitioner>({
+          resourceType: 'Practitioner',
+          params: [{ name: '_id', value: practitionerId }],
+        })
+        .then((b) => b.unbundle()[0])
+        .catch(() => undefined);
+      if (resolved && !resolved.id) {
+        throw INVALID_INPUT_ERROR(`Resolved attending Practitioner is missing an id (expected ${practitionerId})`);
+      }
+      attendingPractitioner = resolved as ResolvedAttendingPractitioner | undefined;
+    }
   }
 
   return {
