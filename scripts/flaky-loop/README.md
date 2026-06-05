@@ -48,19 +48,36 @@ MAX_ITERS=30 MODEL=claude-sonnet-4-6 ITER_TIMEOUT=5400 scripts/flaky-loop/driver
 ### Watching it work
 
 Run it in the foreground and each session streams its steps (tool calls, test
-runs, edits) live, thanks to `--verbose`:
+runs, edits) live:
 
 ```bash
 scripts/flaky-loop/driver.sh
 ```
 
-Set `VERBOSE=0` to quiet that down to just the driver's iteration banners. Either
-way, every iteration is also captured to `logs/iter-NNN-*.log`, so from another
-terminal you can follow the newest one:
+This works because `STREAM=1` (the default) runs the session with
+`--output-format stream-json` and pipes it through `format-stream.mjs` for a
+readable view. Without this, headless `claude -p` only prints at the very end,
+so it *looks* frozen for the many minutes the first full e2e run takes — that's
+the usual "it's stuck doing nothing" symptom.
+
+Set `STREAM=0` to fall back to plain text (final output only). Either way, the
+raw output of every iteration is captured to `logs/iter-NNN-*.log`, so from
+another terminal you can follow the newest one:
 
 ```bash
 tail -f "$(ls -t scripts/flaky-loop/logs/iter-*.log | head -1)"
 ```
+
+If a session appears stuck with no output even with streaming on, sanity-check
+that headless mode works at all on your machine:
+
+```bash
+claude -p "reply with OK" --verbose
+```
+
+If that hangs or errors, the issue is the `claude` CLI (auth, or an unknown
+model id) — not this harness. Try a known model, e.g.
+`MODEL=claude-sonnet-4-6 scripts/flaky-loop/driver.sh`.
 
 Leave it overnight:
 

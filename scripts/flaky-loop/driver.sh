@@ -16,7 +16,7 @@
 #   MODEL=...         model id (default claude-opus-4-8; claude-sonnet-4-6 is cheaper)
 #   ITER_TIMEOUT=7200 hard cap (seconds) per iteration; killed if exceeded
 #   BACKOFF=60        seconds to wait after a non-zero claude exit (rate limits etc.)
-#   VERBOSE=1         stream each session's steps to the terminal (0 to quiet)
+#   STREAM=1          live, readable streaming of each session's steps (0 = plain final output)
 #
 # Stop early at any time by creating the stop file:
 #   touch scripts/flaky-loop/state/STOP
@@ -35,7 +35,7 @@ MAX_ITERS="${MAX_ITERS:-50}"
 MODEL="${MODEL:-claude-opus-4-8}"
 ITER_TIMEOUT="${ITER_TIMEOUT:-7200}"
 BACKOFF="${BACKOFF:-60}"
-VERBOSE="${VERBOSE:-1}"          # 1 = stream each session's steps to the terminal; 0 = quiet
+STREAM="${STREAM:-1}"           # 1 = live, readable streaming of each session's steps; 0 = plain final output
 
 mkdir -p "$STATE_DIR" "$LOG_DIR"
 
@@ -80,18 +80,34 @@ for (( i=1; i<=MAX_ITERS; i++ )); do
 
   # Each iteration is a fresh session. --dangerously-skip-permissions is what
   # lets it run unattended; see README for a safer allowlist alternative.
-  # --verbose streams the session's steps (tool calls etc.) so you can watch it
-  # work; set VERBOSE=0 to quiet it down. Either way output is tee'd to $log.
+  #
+  # Headless `claude -p` with the default text output only prints at the very
+  # end (it looks "stuck" while it works). To watch it live, STREAM=1 uses
+  # --output-format stream-json (which emits an event per step) piped through a
+  # small formatter. Needs node, which this repo has anyway. STREAM=0 falls back
+  # to plain text. Raw output is always tee'd to $log regardless.
   cmd=(claude -p "$(cat "$PROMPT_FILE")"
        --model "$MODEL"
        --dangerously-skip-permissions)
-  if [[ "$VERBOSE" != "0" ]]; then
-    cmd+=(--verbose)
+
+  use_formatter=0
+  if [[ "$STREAM" != "0" ]] && command -v node >/dev/null 2>&1; then
+    cmd+=(--verbose --output-format stream-json)
+    use_formatter=1
   fi
-  if [[ -n "$TIMEOUT_BIN" ]]; then
-    "$TIMEOUT_BIN" "$ITER_TIMEOUT" "${cmd[@]}" 2>&1 | tee "$log"
+
+  run_claude() {
+    if [[ -n "$TIMEOUT_BIN" ]]; then
+      "$TIMEOUT_BIN" "$ITER_TIMEOUT" "${cmd[@]}"
+    else
+      "${cmd[@]}"
+    fi
+  }
+
+  if [[ "$use_formatter" -eq 1 ]]; then
+    run_claude 2>&1 | tee "$log" | node "$HERE/format-stream.mjs"
   else
-    "${cmd[@]}" 2>&1 | tee "$log"
+    run_claude 2>&1 | tee "$log"
   fi
   code=${PIPESTATUS[0]}
 
