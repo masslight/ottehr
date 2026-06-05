@@ -6,6 +6,7 @@ import {
   Closure,
   ClosureType,
   DOW,
+  getAllFhirSearchPages,
   getFullName,
   getScheduleExtension,
   getTimezone,
@@ -145,44 +146,43 @@ const complexValidation = async <T extends ScheduleOwnerFhirResource>(
 ): Promise<{ list: { owner: T; schedules: Schedule[] }[] }> => {
   const { ownerType } = input;
   // splitting these into separate requests lest the _include lead to too large a response due to potentially very large json extension on
-  // schedule resources
-  const ownerParams = [
-    {
-      name: '_count',
-      value: '1000',
-    },
-  ];
+  // schedule resources.
+  // Paginated: >1000 schedules would otherwise silently drop owners whose schedule lands on a later page.
   // Filter Location owners to status=active. Matches the canonical filter
   // used at PR creation (apps/ehr/src/components/schedule/PractitionerRoleList
   // uses `params: [{ name: 'status', value: 'active' }]`), so the admin
   // surface here doesn't surface schedule owners the rest of the system
   // treats as invisible. Practitioner/HealthcareService have different
   // active-flag conventions; leave them alone for now to avoid scope creep.
+  const ownerParams: { name: string; value: string }[] = [];
   if (ownerType === 'Location') {
     ownerParams.push({ name: 'status', value: 'active' });
   }
-  const [scheduleRes, ownerRes] = await Promise.all([
-    oystehr.fhir.search<Schedule>({
-      resourceType: 'Schedule',
-      params: [
-        {
-          name: 'actor:missing',
-          value: 'false',
-        },
-        {
-          name: 'active',
-          value: 'true',
-        },
-      ],
-    }),
-    oystehr.fhir.search<T>({
-      resourceType: ownerType,
-      params: ownerParams,
-    }),
+  const [schedules, owners] = await Promise.all([
+    getAllFhirSearchPages<Schedule>(
+      {
+        resourceType: 'Schedule',
+        params: [
+          {
+            name: 'actor:missing',
+            value: 'false',
+          },
+          {
+            name: 'active',
+            value: 'true',
+          },
+        ],
+      },
+      oystehr
+    ),
+    getAllFhirSearchPages<T>(
+      {
+        resourceType: ownerType,
+        params: ownerParams,
+      },
+      oystehr
+    ),
   ]);
-
-  const schedules = scheduleRes.unbundle() as Schedule[];
-  const owners = ownerRes.unbundle() as T[];
 
   const scheduleOwnerMap = schedules.reduce((acc, schedule) => {
     const ownerRef = schedule.actor?.find((actor) => actor.reference)?.reference;

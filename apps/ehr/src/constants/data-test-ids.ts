@@ -36,6 +36,8 @@ export const dataTestIds = {
     loadingIndicator: 'loading-indicator',
     tableRowWrapper: (appointmentId: string) => `appointments-table-row-${appointmentId}`,
     tableRowStatus: (appointmentId: string) => `appointments-table-row-status-${appointmentId}`,
+    tableRowIntakeInput: (appointmentId: string) => `appointments-table-row-intake-input-${appointmentId}`,
+    tableRowProviderInput: (appointmentId: string) => `appointments-table-row-provider-input-${appointmentId}`,
     inOfficeTab: 'in-office-tab',
     groupSelect: 'group-select',
     dischargedTab: 'discharged-tab',
