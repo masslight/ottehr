@@ -111,7 +111,44 @@ function sniffDoseFormScoped(narrative: string, display: string, searchTerms: st
 // (most synth narratives spell the code in parentheses after the diagnosis name).
 const ICD10_REGEX = /\b([A-TV-Z][0-9][A-Z0-9](?:\.[A-Z0-9]{1,4})?[A-Z]?)\b/g;
 
-function sniffIcdCodeScoped(narrative: string, display: string, searchTerms: string[]): string | undefined {
+// Anchored, non-global form for validating a single candidate code end-to-end.
+const STRICT_ICD10 = /^[A-TV-Z][0-9][A-Z0-9](?:\.[A-Z0-9]{1,4})?[A-Z]?$/;
+
+// Ambient-scribe transcripts tag every line with a speaker label ("DOCTOR X31", "PATIENT X31",
+// "Speaker 1"). When that label happens to match the ICD-10 shape (X31 → [A-TV-Z][0-9][A-Z0-9])
+// the code sniffer grabs it as a diagnosis code — the single most embarrassing class of bug in
+// the planner audit. Any code-shaped token that RECURS across the narrative is structural noise
+// (a speaker tag), never a one-off diagnosis code: a real ICD-10 code is spelled once or twice.
+// Collect those tokens (uppercased) so the sniffer and the post-parse validation both refuse them.
+function detectSpeakerLabels(narrative: string): Set<string> {
+  const labels = new Set<string>();
+  // 1. Token that follows a speaker role at the start of a line ("DOCTOR X31", "PATIENT X31").
+  const roleRe = /^[ \t]*(?:DOCTOR|PATIENT|NURSE|PROVIDER|CLINICIAN|MA|RN|SPEAKER)\b[ \t]*([A-Za-z0-9]+)/gim;
+  let m: RegExpExecArray | null;
+  while ((m = roleRe.exec(narrative)) !== null) {
+    if (m[1]) labels.add(m[1].toUpperCase());
+  }
+  // 2. Any code-shaped token recurring >= 3 times is a label/noise, not a real one-off code.
+  const counts = new Map<string, number>();
+  const all = narrative.match(ICD10_REGEX);
+  if (all) {
+    for (const t of all) {
+      const u = t.toUpperCase();
+      counts.set(u, (counts.get(u) ?? 0) + 1);
+    }
+    for (const [t, n] of counts) {
+      if (n >= 3) labels.add(t);
+    }
+  }
+  return labels;
+}
+
+function sniffIcdCodeScoped(
+  narrative: string,
+  display: string,
+  searchTerms: string[],
+  speakerLabels: Set<string>
+): string | undefined {
   const needles = [display, ...searchTerms].map((s) => (typeof s === 'string' ? s.trim() : '')).filter(Boolean);
   const narrativeLower = narrative.toLowerCase();
   for (const needle of needles) {
@@ -123,10 +160,26 @@ function sniffIcdCodeScoped(narrative: string, display: string, searchTerms: str
     const end = Math.min(narrative.length, idx + needle.length + 60);
     const window = narrative.slice(start, end);
     const matches = window.match(ICD10_REGEX);
-    if (matches && matches.length > 0) return matches[0];
+    if (matches && matches.length > 0) {
+      // Skip any candidate that is actually a recurring speaker label (e.g. "X31").
+      const good = matches.find((c) => !speakerLabels.has(c.toUpperCase()));
+      if (good) return good;
+    }
     return undefined;
   }
   return undefined;
+}
+
+// Normalize a problem label for cross-step duplicate detection (PMH add-condition vs encounter
+// add-diagnosis). Conservative: case-fold, strip punctuation, collapse whitespace. Only exact
+// normalized matches are treated as duplicates so a genuinely distinct pre-existing condition
+// ("type 2 diabetes" in PMH) is never collapsed into a differently-worded encounter diagnosis.
+function normProblem(s: string): string {
+  return s
+    .toLowerCase()
+    .replace(/[^a-z0-9 ]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 // Mirror the agent's intent kinds — the planner emits the same shape, just as a list.
@@ -459,6 +512,14 @@ RULES:
   These statements ARE clinically important, but they belong in the HPI/MDM free text (which
   the planner emits as edit-note-text), not as add-* actions whose pickers would match nothing
   or, worse, the wrong thing.
+- DISPOSITION IS NEVER OPTIONAL — this is a patient-safety rule. If the provider directs the
+  patient to a higher level of care or emergency services — "go to the ER / emergency department",
+  "call 911", "I'm sending you to the hospital", "we're admitting you", "go straight to urgent
+  care", "activate EMS", or an urgent specialist referral for a red-flag finding — you MUST
+  capture that disposition. There is no structured disposition step yet, so fold it into the
+  medicalDecision (MDM) via edit-note-text as an explicit clinical sentence (e.g. "Patient
+  directed to the ED for evaluation of <concern>; EMS activated."). NEVER silently drop a
+  disposition just because there is no dedicated field for it.
 - DEMOGRAPHIC + INSURANCE + CONTACT details (address, phone, email, race, ethnicity, language,
   insurance carrier/member ID, PCP info, responsible party, emergency contact) are NOT chart
   actions — OMIT them entirely. They live on the Patient/Coverage resources via the intake
@@ -503,10 +564,14 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     throw INVALID_INPUT_ERROR('Model returned a malformed plan');
   }
 
+  // Recurring speaker labels (e.g. "X31") computed once per request — used to keep transcript
+  // speaker tags from ever surviving as a diagnosis "code".
+  const speakerLabels = detectSpeakerLabels(narrative);
+
   // Light validation per step — pass through anything that has a recognized kind; let the
   // client-side per-intent handlers do the deep validation since they do it for the single-shot
   // path too.
-  const steps: EasyChartAgentIntent[] = [];
+  const records: Record<string, unknown>[] = [];
   for (const item of parsed.steps) {
     if (!item || typeof item !== 'object') continue;
     const i = item as Record<string, unknown>;
@@ -522,16 +587,62 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       const sniffed = sniffDoseFormScoped(narrative, display, searchTerms);
       if (sniffed) i.doseForm = sniffed;
     }
-    if ((i.kind === 'add-diagnosis' || i.kind === 'add-condition') && (typeof i.code !== 'string' || !i.code.trim())) {
-      const display = typeof i.display === 'string' ? i.display : '';
-      const searchTerms = Array.isArray(i.searchTerms)
-        ? (i.searchTerms.filter((t) => typeof t === 'string' && !!t.trim()) as string[])
-        : [];
-      const sniffed = sniffIcdCodeScoped(narrative, display, searchTerms);
-      if (sniffed) i.code = sniffed;
+    if (i.kind === 'add-diagnosis' || i.kind === 'add-condition') {
+      // `strength` is a medication-only field; the model sometimes leaks it onto a diagnosis
+      // (often "strength":"true") to fake primacy. Strip it — isPrimary is the only primacy signal.
+      if ('strength' in i) delete i.strength;
+
+      if (typeof i.code !== 'string' || !i.code.trim()) {
+        const display = typeof i.display === 'string' ? i.display : '';
+        const searchTerms = Array.isArray(i.searchTerms)
+          ? (i.searchTerms.filter((t) => typeof t === 'string' && !!t.trim()) as string[])
+          : [];
+        const sniffed = sniffIcdCodeScoped(narrative, display, searchTerms, speakerLabels);
+        if (sniffed) i.code = sniffed;
+      }
+      // Drop a code that is a speaker label or not a well-formed ICD-10 — better to let the
+      // client text-search by display than to commit a bogus code (the X31 / wrong-field bug).
+      if (typeof i.code === 'string' && i.code.trim()) {
+        const c = i.code.trim().toUpperCase();
+        if (speakerLabels.has(c) || !STRICT_ICD10.test(c)) delete i.code;
+      }
     }
-    steps.push(i as unknown as EasyChartAgentIntent);
+    records.push(i);
   }
+
+  // Cross-step normalization (needs the whole plan in hand):
+
+  // (B) Exactly one primary diagnosis. If diagnoses exist but none is marked, the first is
+  // primary; if several are marked, keep only the first; force the rest explicitly secondary.
+  const dxRecords = records.filter((r) => r.kind === 'add-diagnosis');
+  if (dxRecords.length > 0) {
+    let primarySeen = false;
+    for (const r of dxRecords) {
+      if (r.isPrimary === true && !primarySeen) {
+        primarySeen = true;
+      } else {
+        r.isPrimary = false;
+      }
+    }
+    if (!primarySeen) dxRecords[0].isPrimary = true;
+  }
+
+  // (C) Dedupe PMH vs encounter: a problem emitted as BOTH add-condition (history) and
+  // add-diagnosis (this visit) is the same problem documented twice — drop the add-condition.
+  const dxNorms = new Set<string>();
+  const dxCodes = new Set<string>();
+  for (const r of dxRecords) {
+    if (typeof r.display === 'string' && r.display.trim()) dxNorms.add(normProblem(r.display));
+    if (typeof r.code === 'string' && r.code.trim()) dxCodes.add(r.code.trim().toUpperCase());
+  }
+  const deduped = records.filter((r) => {
+    if (r.kind !== 'add-condition') return true;
+    const displayDup = typeof r.display === 'string' && r.display.trim() && dxNorms.has(normProblem(r.display));
+    const codeDup = typeof r.code === 'string' && r.code.trim() && dxCodes.has(r.code.trim().toUpperCase());
+    return !(displayDup || codeDup);
+  });
+
+  const steps = deduped as unknown as EasyChartAgentIntent[];
 
   const output: EasyChartPlannerOutput = { steps };
   return { statusCode: 200, body: JSON.stringify(output) };
