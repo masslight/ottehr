@@ -177,6 +177,7 @@ export const getSampleCollectionTimestampForLabelDisplay = (
 
 async function createExternalLabsLabelPDFHelper(
   input: ExternalLabsLabelConfig,
+  patientUuid: string,
   secrets: Secrets | null,
   token: string
 ): Promise<PdfInfo> {
@@ -196,7 +197,7 @@ async function createExternalLabsLabelPDFHelper(
     secrets,
     fileName,
     bucketName: BUCKET_NAMES.LABS,
-    patientID: input.content.patientId,
+    patientID: patientUuid,
   });
 
   console.log('Uploading file to bucket, ', BUCKET_NAMES.LABS);
@@ -223,7 +224,7 @@ export async function createExternalLabsLabelPDF(
   token: string,
   oystehr: Oystehr
 ): Promise<{ docRef: DocumentReference; presignedURL: string }> {
-  const pdfInfo = await createExternalLabsLabelPDFHelper(labelConfig, secrets, token);
+  const pdfInfo = await createExternalLabsLabelPDFHelper(labelConfig, patientUuid, secrets, token);
 
   console.log(`This is the made pdfInfo`, JSON.stringify(pdfInfo));
 

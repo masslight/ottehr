@@ -131,7 +131,7 @@ export async function getBundledOrderResources(
   > = [];
 
   // before we do anything, let's quickly validate that every ServiceRequest has the same patient
-  if (!results.every((res) => res.result.patient.id === results[0].result.patient.id)) {
+  if (!results.every((res) => res.result.patient.id === results[0]?.result.patient.id)) {
     throw EXTERNAL_LAB_ERROR('Not all orders in the bundle correspond to the same patient');
   }
 
@@ -144,7 +144,7 @@ export async function getBundledOrderResources(
     )
   ) {
     throw EXTERNAL_LAB_ERROR(
-      'Detected inconsistent friendly patied ID usage within the bundle. Some orders use it and others do not.'
+      'Detected inconsistent friendly patient ID usage within the bundle. Some orders use it and others do not.'
     );
   }
 

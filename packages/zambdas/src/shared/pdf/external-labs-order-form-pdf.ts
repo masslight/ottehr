@@ -3,6 +3,7 @@ import { Address, Coverage, FhirResource, HumanName, Patient, RelatedPerson } fr
 import { min } from 'lodash';
 import { DateTime } from 'luxon';
 import {
+  APIError,
   BRANDING_CONFIG,
   BUCKET_NAMES,
   CoverageOrgRank,
@@ -393,9 +394,7 @@ export function getOrderFormDataConfig(
       `Unable to make order form for ServiceRequest/${resources.serviceRequest.id}. Order submitted with friendly patient id, but no friendly id found on patient`,
       e
     );
-    throw EXTERNAL_LAB_ERROR(
-      'Unable to make order form. Order submitted with friendly patient id, but no friendly id found on patient'
-    );
+    throw EXTERNAL_LAB_ERROR((e as APIError).message);
   }
 
   const dataConfig: ExternalLabOrderFormData = {
