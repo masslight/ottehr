@@ -98,9 +98,14 @@ const DEFAULT_SCHEDULE_EXTENSION = {
 };
 
 function buildHours(): Array<{ hour: number; capacity: number; providers: number }> {
+  // 1 provider on shift this hour. `providers: 1` is what slot generation
+  // actually reads. The legacy `capacity: 4` is kept because the Capacity
+  // type requires it; it's set to `providers * 4` so legacy fallback math
+  // (capacity / 4 = effective providers) returns the same 1 — internally
+  // consistent rather than a coincidentally-equal magic number.
   const hours = [];
   for (let h = 9; h < 17; h++) {
-    hours.push({ hour: h, capacity: 4, providers: 1 });
+    hours.push({ hour: h, providers: 1, capacity: 1 * 4 });
   }
   return hours;
 }

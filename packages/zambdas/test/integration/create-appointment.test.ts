@@ -1,6 +1,16 @@
 import Oystehr, { BatchInputDeleteRequest, BatchInputPostRequest } from '@oystehr/sdk';
 import { randomUUID } from 'crypto';
-import { Appointment, FhirResource, Location, Patient, Practitioner, PractitionerRole, Schedule, Slot } from 'fhir/r4b';
+import {
+  Appointment,
+  FhirResource,
+  HealthcareService,
+  Location,
+  Patient,
+  Practitioner,
+  PractitionerRole,
+  Schedule,
+  Slot,
+} from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   appointmentTypeForAppointment,
@@ -14,6 +24,7 @@ import {
   GetScheduleResponse,
   getServiceModeFromSlot,
   getSlotAtLocationId,
+  getSlotBookedViaGroupId,
   getSlotIsPostTelemed,
   getSlotIsWalkin,
   getSlugForBookableResource,
@@ -23,6 +34,7 @@ import {
   PatientInfo,
   SCHEDULE_EXTENSION_URL,
   ScheduleOwnerFhirResource,
+  SERVICE_CATEGORY_SYSTEM,
   ServiceMode,
   SlotListItem,
   SLUG_SYSTEM,
@@ -560,6 +572,370 @@ describe('prebook integration - from getting list of slots to booking with selec
         await oystehr.fhir.batch({ requests: deletes });
       } catch (e) {
         console.error('Failed to clean up PR-actored fixture; afterAll process-tag sweep will retry:', e);
+      }
+    }
+  });
+
+  test('create-slot stamps a serviceCategory coding for FHIR-backed category codes (not in BOOKING_CONFIG)', async () => {
+    assert(processId);
+    // persistSchedule handles processId tagging for the schedule + owner;
+    // no local tag needed for this test's fixtures.
+    // A code that's deliberately not in BOOKING_CONFIG — simulates a
+    // FHIR-backed (admin-registered HealthcareService catalog) category.
+    // Random suffix avoids collision with any compiled-in entry.
+    const fhirBackedCode = `fhir-cat-${randomUUID().slice(0, 8)}`;
+
+    const adjustedScheduleJSON = buildSimpleScheduleExt({ prebookSlots: 4 });
+    const ownerLocation: Location = {
+      resourceType: 'Location',
+      status: 'active',
+      name: 'FHIRCategorySlotTestLocation',
+      identifier: [{ system: SLUG_SYSTEM, value: `fhir-cat-loc-${randomUUID()}` }],
+    };
+    const { schedule, owner } = await persistSchedule(
+      { scheduleExtension: adjustedScheduleJSON, processId, scheduleOwner: ownerLocation },
+      oystehr
+    );
+    assert(schedule.id);
+    assert(owner);
+    const persistedLocation = owner as Location;
+    assert(persistedLocation.id);
+
+    try {
+      const slotStartISO = startOfDayWithTimezone({ timezone: getTimezone(schedule) })
+        .plus({ days: 1, hours: 9 })
+        .toISO()!;
+      const createSlotParams: CreateSlotParams = {
+        scheduleId: schedule.id,
+        startISO: slotStartISO,
+        serviceModality: ServiceMode['in-person'],
+        lengthInMinutes: 15,
+        status: 'busy-tentative',
+        originalBookingUrl: `fhir-cat-test?bookingOn=${getSlugForBookableResource(persistedLocation)}`,
+        serviceCategoryCode: fhirBackedCode,
+      };
+
+      const persistedSlot = (
+        await oystehr.zambda.executePublic({
+          id: 'create-slot',
+          ...createSlotParams,
+        })
+      ).output as Slot;
+      assert(persistedSlot?.id);
+      expect(persistedSlot.resourceType).toBe('Slot');
+
+      // The fix: even for codes not in BOOKING_CONFIG, the Slot must carry
+      // a coding for the provided code so create-appointment can read it
+      // off slot.serviceCategory. Before the fix, the coding was silently
+      // dropped and the patient's selection was lost.
+      const allCodings = (persistedSlot.serviceCategory ?? []).flatMap((cc) => cc.coding ?? []);
+      const fhirBackedCoding = allCodings.find(
+        (c) => c.system === SERVICE_CATEGORY_SYSTEM && c.code === fhirBackedCode
+      );
+      if (!fhirBackedCoding) {
+        throw new Error(
+          `Slot.serviceCategory should include a coding for ${fhirBackedCode}; got ${JSON.stringify(allCodings)}`
+        );
+      }
+
+      // Clean up the slot we created (the helper cleanup sweep gets the
+      // schedule + location, but the slot is created independently here).
+      await oystehr.fhir.delete({ resourceType: 'Slot', id: persistedSlot.id });
+    } finally {
+      const deletes: BatchInputDeleteRequest[] = [
+        { method: 'DELETE', url: `Location/${persistedLocation.id}` },
+        { method: 'DELETE', url: `Schedule/${schedule.id}` },
+      ];
+      try {
+        await oystehr.fhir.batch({ requests: deletes });
+      } catch (e) {
+        console.error('Failed to clean up FHIR-category fixture; afterAll process-tag sweep will retry:', e);
+      }
+    }
+  });
+
+  test('create-slot rejects bookedViaGroupId when the Schedule actor PR is not a member of the named group', async () => {
+    assert(processId);
+    const tag = {
+      system: 'OTTEHR_AUTOMATED_TEST',
+      code: tagForProcessId(processId),
+      display: 'integration test fixture',
+    };
+    const scheduleJson = buildSimpleScheduleExt({ prebookSlots: 4 });
+
+    // Two unrelated subgraphs:
+    //   - actorSubgraph: a Location, Practitioner, PR, Schedule. PR has NO
+    //     back-ref to any group and is at a Location not in the group.
+    //   - groupSubgraph: a separate Location + a group HS that references
+    //     only that Location.
+    // The PR is not a member of the group by ANY of the walker's three
+    // sources (no back-ref, no location overlap, no allLocations flag).
+    const actorLocUrn = `urn:uuid:${randomUUID()}`;
+    const actorPracUrn = `urn:uuid:${randomUUID()}`;
+    const actorPrUrn = `urn:uuid:${randomUUID()}`;
+    const groupLocUrn = `urn:uuid:${randomUUID()}`;
+    const groupHsUrn = `urn:uuid:${randomUUID()}`;
+
+    const fixtureRequests: BatchInputPostRequest<FhirResource>[] = [
+      {
+        method: 'POST',
+        url: 'Location',
+        fullUrl: actorLocUrn,
+        resource: { resourceType: 'Location', status: 'active', name: 'NonMember-ActorLoc', meta: { tag: [tag] } },
+      },
+      {
+        method: 'POST',
+        url: 'Practitioner',
+        fullUrl: actorPracUrn,
+        resource: {
+          resourceType: 'Practitioner',
+          name: [{ family: 'NonMember', given: ['Test'] }],
+          meta: { tag: [tag] },
+        },
+      },
+      {
+        method: 'POST',
+        url: 'PractitionerRole',
+        fullUrl: actorPrUrn,
+        resource: {
+          resourceType: 'PractitionerRole',
+          active: true,
+          practitioner: { reference: actorPracUrn },
+          location: [{ reference: actorLocUrn }],
+          meta: { tag: [tag] },
+        },
+      },
+      {
+        method: 'POST',
+        url: 'Schedule',
+        resource: {
+          resourceType: 'Schedule',
+          actor: [{ reference: actorPrUrn }],
+          extension: [
+            { url: 'http://hl7.org/fhir/StructureDefinition/timezone', valueString: 'America/New_York' },
+            { url: SCHEDULE_EXTENSION_URL, valueString: JSON.stringify(scheduleJson) },
+          ],
+          meta: { tag: [tag] },
+        },
+      },
+      {
+        method: 'POST',
+        url: 'Location',
+        fullUrl: groupLocUrn,
+        resource: { resourceType: 'Location', status: 'active', name: 'NonMember-GroupLoc', meta: { tag: [tag] } },
+      },
+      {
+        method: 'POST',
+        url: 'HealthcareService',
+        fullUrl: groupHsUrn,
+        resource: {
+          resourceType: 'HealthcareService',
+          active: true,
+          name: 'NonMember Group',
+          // Only the unrelated Location is a group member — actorPR is at a
+          // different Location and has no back-ref to this HS.
+          location: [{ reference: groupLocUrn }],
+          meta: { tag: [tag] },
+        },
+      },
+    ];
+
+    const tx = await oystehr.fhir.transaction({ requests: fixtureRequests });
+    const actorLoc = tx.entry?.find((e) => e.resource?.id && (e.resource as Location).name === 'NonMember-ActorLoc')
+      ?.resource as Location;
+    const actorPr = tx.entry?.find((e) => e.resource?.resourceType === 'PractitionerRole')
+      ?.resource as PractitionerRole;
+    const actorPrac = tx.entry?.find((e) => e.resource?.resourceType === 'Practitioner')?.resource as Practitioner;
+    const groupLoc = tx.entry?.find((e) => e.resource?.id && (e.resource as Location).name === 'NonMember-GroupLoc')
+      ?.resource as Location;
+    const groupHs = tx.entry?.find((e) => e.resource?.resourceType === 'HealthcareService')
+      ?.resource as HealthcareService;
+    const persistedSchedule = tx.entry?.find((e) => e.resource?.resourceType === 'Schedule')?.resource as Schedule;
+    assert(actorLoc?.id);
+    assert(actorPr?.id);
+    assert(actorPrac?.id);
+    assert(groupLoc?.id);
+    assert(groupHs?.id);
+    assert(persistedSchedule?.id);
+
+    try {
+      const slotStartISO = startOfDayWithTimezone({ timezone: getTimezone(persistedSchedule) })
+        .plus({ days: 1, hours: 9 })
+        .toISO()!;
+      const createSlotParams: CreateSlotParams = {
+        scheduleId: persistedSchedule.id,
+        startISO: slotStartISO,
+        serviceModality: ServiceMode['in-person'],
+        lengthInMinutes: 15,
+        status: 'busy-tentative',
+        originalBookingUrl: 'group-membership-test',
+        bookedViaGroupId: groupHs.id,
+      };
+
+      let caught: unknown;
+      try {
+        await oystehr.zambda.executePublic({
+          id: 'create-slot',
+          ...createSlotParams,
+        });
+      } catch (e) {
+        caught = e;
+      }
+      if (!caught) {
+        throw new Error('create-slot should have rejected an unauthorized bookedViaGroupId but it succeeded');
+      }
+      // Error message asserted loosely — exact format may evolve but the
+      // not-a-member substring is the load-bearing claim.
+      const msg = (caught as { message?: string })?.message ?? JSON.stringify(caught);
+      if (!msg.includes('not a member of the group')) {
+        throw new Error(`Expected a "not a member of the group" rejection; got: ${msg}`);
+      }
+    } finally {
+      const deletes: BatchInputDeleteRequest[] = [
+        { method: 'DELETE', url: `Schedule/${persistedSchedule.id}` },
+        { method: 'DELETE', url: `PractitionerRole/${actorPr.id}` },
+        { method: 'DELETE', url: `Practitioner/${actorPrac.id}` },
+        { method: 'DELETE', url: `Location/${actorLoc.id}` },
+        { method: 'DELETE', url: `HealthcareService/${groupHs.id}` },
+        { method: 'DELETE', url: `Location/${groupLoc.id}` },
+      ];
+      try {
+        await oystehr.fhir.batch({ requests: deletes });
+      } catch (e) {
+        console.error('Failed to clean up non-member fixture; afterAll process-tag sweep will retry:', e);
+      }
+    }
+  });
+
+  test('create-slot accepts bookedViaGroupId when the Schedule actor PR is a member of the group via location overlap', async () => {
+    assert(processId);
+    const tag = {
+      system: 'OTTEHR_AUTOMATED_TEST',
+      code: tagForProcessId(processId),
+      display: 'integration test fixture',
+    };
+    const scheduleJson = buildSimpleScheduleExt({ prebookSlots: 4 });
+
+    // Single Location: the PR is at it, the group lists it as a member.
+    // Membership resolves via location-overlap (the most common pools-
+    // providers path). No back-ref on the PR, no allLocations flag.
+    const locUrn = `urn:uuid:${randomUUID()}`;
+    const pracUrn = `urn:uuid:${randomUUID()}`;
+    const prUrn = `urn:uuid:${randomUUID()}`;
+    const hsUrn = `urn:uuid:${randomUUID()}`;
+
+    const fixtureRequests: BatchInputPostRequest<FhirResource>[] = [
+      {
+        method: 'POST',
+        url: 'Location',
+        fullUrl: locUrn,
+        resource: { resourceType: 'Location', status: 'active', name: 'Member-OverlapLoc', meta: { tag: [tag] } },
+      },
+      {
+        method: 'POST',
+        url: 'Practitioner',
+        fullUrl: pracUrn,
+        resource: {
+          resourceType: 'Practitioner',
+          name: [{ family: 'Member', given: ['Test'] }],
+          meta: { tag: [tag] },
+        },
+      },
+      {
+        method: 'POST',
+        url: 'PractitionerRole',
+        fullUrl: prUrn,
+        resource: {
+          resourceType: 'PractitionerRole',
+          active: true,
+          practitioner: { reference: pracUrn },
+          location: [{ reference: locUrn }],
+          meta: { tag: [tag] },
+        },
+      },
+      {
+        method: 'POST',
+        url: 'Schedule',
+        resource: {
+          resourceType: 'Schedule',
+          actor: [{ reference: prUrn }],
+          extension: [
+            { url: 'http://hl7.org/fhir/StructureDefinition/timezone', valueString: 'America/New_York' },
+            { url: SCHEDULE_EXTENSION_URL, valueString: JSON.stringify(scheduleJson) },
+          ],
+          meta: { tag: [tag] },
+        },
+      },
+      {
+        method: 'POST',
+        url: 'HealthcareService',
+        fullUrl: hsUrn,
+        resource: {
+          resourceType: 'HealthcareService',
+          active: true,
+          name: 'Member Group',
+          location: [{ reference: locUrn }],
+          meta: { tag: [tag] },
+        },
+      },
+    ];
+
+    const tx = await oystehr.fhir.transaction({ requests: fixtureRequests });
+    const memberLoc = tx.entry?.find((e) => e.resource?.resourceType === 'Location')?.resource as Location;
+    const memberPr = tx.entry?.find((e) => e.resource?.resourceType === 'PractitionerRole')
+      ?.resource as PractitionerRole;
+    const memberPrac = tx.entry?.find((e) => e.resource?.resourceType === 'Practitioner')?.resource as Practitioner;
+    const memberHs = tx.entry?.find((e) => e.resource?.resourceType === 'HealthcareService')
+      ?.resource as HealthcareService;
+    const memberSchedule = tx.entry?.find((e) => e.resource?.resourceType === 'Schedule')?.resource as Schedule;
+    assert(memberLoc?.id);
+    assert(memberPr?.id);
+    assert(memberPrac?.id);
+    assert(memberHs?.id);
+    assert(memberSchedule?.id);
+
+    let persistedSlotId: string | undefined;
+    try {
+      const slotStartISO = startOfDayWithTimezone({ timezone: getTimezone(memberSchedule) })
+        .plus({ days: 1, hours: 9 })
+        .toISO()!;
+      const createSlotParams: CreateSlotParams = {
+        scheduleId: memberSchedule.id,
+        startISO: slotStartISO,
+        serviceModality: ServiceMode['in-person'],
+        lengthInMinutes: 15,
+        status: 'busy-tentative',
+        originalBookingUrl: 'group-membership-test',
+        bookedViaGroupId: memberHs.id,
+      };
+
+      const persistedSlot = (
+        await oystehr.zambda.executePublic({
+          id: 'create-slot',
+          ...createSlotParams,
+        })
+      ).output as Slot;
+      assert(persistedSlot?.id);
+      persistedSlotId = persistedSlot.id;
+      expect(persistedSlot.resourceType).toBe('Slot');
+      // Slot must carry the bookedViaGroup extension pointing at the
+      // authorized HS — this is what downstream create-appointment uses
+      // to populate Appointment.participant with the HS ref.
+      expect(getSlotBookedViaGroupId(persistedSlot)).toBe(memberHs.id);
+    } finally {
+      const deletes: BatchInputDeleteRequest[] = [];
+      if (persistedSlotId) deletes.push({ method: 'DELETE', url: `Slot/${persistedSlotId}` });
+      deletes.push(
+        { method: 'DELETE', url: `Schedule/${memberSchedule.id}` },
+        { method: 'DELETE', url: `PractitionerRole/${memberPr.id}` },
+        { method: 'DELETE', url: `Practitioner/${memberPrac.id}` },
+        { method: 'DELETE', url: `HealthcareService/${memberHs.id}` },
+        { method: 'DELETE', url: `Location/${memberLoc.id}` }
+      );
+      try {
+        await oystehr.fhir.batch({ requests: deletes });
+      } catch (e) {
+        console.error('Failed to clean up member fixture; afterAll process-tag sweep will retry:', e);
       }
     }
   });

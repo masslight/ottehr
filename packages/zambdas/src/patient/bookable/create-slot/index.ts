@@ -11,6 +11,7 @@ import {
   getServiceCategoryCodeSchema,
   getTimezone,
   INVALID_INPUT_ERROR,
+  isPractitionerRoleMemberOfGroup,
   isValidUUID,
   makeBookingOriginExtensionEntry,
   makeQuestionnaireCanonicalExtensionEntry,
@@ -19,6 +20,7 @@ import {
   MISSING_REQUEST_BODY,
   MISSING_REQUIRED_PARAMETERS,
   Secrets,
+  SERVICE_CATEGORY_SYSTEM,
   ServiceCategoryCode,
   ServiceMode,
   SLOT_POST_TELEMED_APPOINTMENT_TYPE_CODING,
@@ -285,23 +287,70 @@ const complexValidation = async (input: BasicInput, oystehr: Oystehr): Promise<E
   }
 
   // Decide whether to stamp the slot-booked-via-group extension. Only
-  // applies when the actor is non-HS (the pools-providers case where a
+  // applies when the actor is a PR (the pools-providers case where a
   // group booking lands on a PR's Schedule). Drops silently when the
   // actor IS the HS — Schedule.actor already records the group.
-  // Validation here is intentionally light: verify the HS exists; group-
-  // membership of the actor PR was already enforced upstream by get-
-  // schedule's qualifying-locations pass.
+  //
+  // This zambda is http_open, so we re-verify group membership here
+  // rather than trust the caller. A naive existence check would let a
+  // caller stamp any group HS onto any Slot — that ref propagates into
+  // Appointment.participant (and downstream Encounter behavior), so the
+  // check has to be authoritative.
   let shouldStampBookedViaGroup = false;
   if (bookedViaGroupId) {
-    const actorType = schedule.actor?.[0]?.reference?.split('/')?.[0];
-    if (actorType && actorType !== 'HealthcareService') {
-      try {
-        await oystehr.fhir.get<HealthcareService>({
+    const actorRef = schedule.actor?.[0]?.reference ?? '';
+    const [actorType, actorId] = actorRef.split('/');
+    if (actorType !== 'HealthcareService') {
+      // PR is the only actor type that can be a group member under the
+      // pools-providers model. Practitioner-actored schedules are legacy
+      // and don't participate in groups; reject explicitly rather than
+      // silently dropping the extension.
+      if (actorType !== 'PractitionerRole') {
+        throw INVALID_INPUT_ERROR(
+          `"bookedViaGroupId" requires a PractitionerRole-actored Schedule; got ${actorType || 'unknown'}`
+        );
+      }
+      if (!actorId) {
+        throw INVALID_INPUT_ERROR('Schedule actor reference is malformed');
+      }
+      // Pull the group HS, its Locations (for membership + inactive
+      // filtering), and the actor PR. Single bundle search + one targeted
+      // get keeps this to two FHIR round-trips.
+      const groupBundle = (
+        await oystehr.fhir.search<HealthcareService | Location>({
           resourceType: 'HealthcareService',
-          id: bookedViaGroupId,
+          params: [
+            { name: '_id', value: bookedViaGroupId },
+            { name: '_include', value: 'HealthcareService:location' },
+          ],
+        })
+      ).unbundle();
+      const group = groupBundle.find(
+        (r): r is HealthcareService => r.resourceType === 'HealthcareService' && r.id === bookedViaGroupId
+      );
+      if (!group) {
+        throw INVALID_INPUT_ERROR(`"bookedViaGroupId" did not match any HealthcareService: ${bookedViaGroupId}`);
+      }
+      let actorRole: PractitionerRole | undefined;
+      try {
+        actorRole = await oystehr.fhir.get<PractitionerRole>({
+          resourceType: 'PractitionerRole',
+          id: actorId,
         });
       } catch {
-        throw INVALID_INPUT_ERROR(`"bookedViaGroupId" did not match any HealthcareService: ${bookedViaGroupId}`);
+        throw INVALID_INPUT_ERROR(`Schedule actor PractitionerRole not found: ${actorId}`);
+      }
+      const allLocationsFlag = getGroupAllLocations(group) === true;
+      const inactiveLocationIds = new Set<string>();
+      for (const res of groupBundle) {
+        if (res.resourceType === 'Location' && res.id && (res as Location).status === 'inactive') {
+          inactiveLocationIds.add(res.id);
+        }
+      }
+      if (!isPractitionerRoleMemberOfGroup({ role: actorRole, group, allLocationsFlag, inactiveLocationIds })) {
+        throw INVALID_INPUT_ERROR(
+          `Schedule's actor PractitionerRole is not a member of the group: ${bookedViaGroupId}`
+        );
       }
       shouldStampBookedViaGroup = true;
     }
@@ -335,6 +384,16 @@ const complexValidation = async (input: BasicInput, oystehr: Oystehr): Promise<E
             ...serviceCategoryCodeConfig.category,
           },
         ],
+      });
+    } else {
+      // FHIR-backed category (registered as a HealthcareService catalog
+      // entry rather than compiled into BOOKING_CONFIG). Stamp the code
+      // explicitly so the Slot carries it forward — create-appointment
+      // reads category off slot.serviceCategory, and dropping the coding
+      // silently loses the patient's selection. Display is omitted; readers
+      // who need a human-readable name can resolve it from the HS catalog.
+      serviceCategory.push({
+        coding: [{ system: SERVICE_CATEGORY_SYSTEM, code: serviceCategoryCode }],
       });
     }
   } else if (BOOKING_CONFIG.serviceCategories.length === 1) {
