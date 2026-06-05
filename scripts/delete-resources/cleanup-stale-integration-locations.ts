@@ -22,7 +22,7 @@ import { createOystehrClient } from '../../packages/utils/lib/main';
 // Inlined here so the script doesn't drag in test-helper transitive imports.
 const INTEGRATION_TEST_PROCESS_ID_SYSTEM = 'INTEGRATION_TEST_PROCESS_ID_SYSTEM';
 
-const DRY_RUN = false;
+const DRY_RUN = true;
 const STALE_AFTER_HOURS = 24;
 const SAMPLE_SIZE = 10;
 // Per-chunk processing size for deletion. Kept modest so the Schedule
