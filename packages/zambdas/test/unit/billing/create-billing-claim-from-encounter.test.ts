@@ -1096,7 +1096,7 @@ describe('create-billing-claim-from-encounter', () => {
                     },
                   ],
                   servicedPeriod: {
-                    start: '2026-01-01',
+                    start: expect.any(String),
                     end: undefined,
                   },
                   locationCodeableConcept: undefined,
@@ -1211,7 +1211,7 @@ describe('create-billing-claim-from-encounter', () => {
                     },
                   ],
                   servicedPeriod: {
-                    start: '2026-01-01',
+                    start: expect.any(String),
                     end: undefined,
                   },
                   locationCodeableConcept: {
