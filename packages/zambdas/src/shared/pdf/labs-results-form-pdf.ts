@@ -446,7 +446,6 @@ const getTaskCompletedByAndWhen = async (
   };
 };
 
-// ATHENA TODO: update here as well for unsolicited
 export async function createExternalLabResultPDFBasedOnDr(
   oystehr: Oystehr,
   type: LabDrTypeTagCode,
@@ -521,7 +520,6 @@ export async function createExternalLabResultPDFBasedOnDr(
   });
 }
 
-// ATHENA TODO: make the change here oops
 export async function createExternalLabResultPDF(
   oystehr: Oystehr,
   serviceRequestID: string,
