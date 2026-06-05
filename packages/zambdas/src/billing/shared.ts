@@ -44,9 +44,10 @@ export async function resolvePayersByRef(
   return byRef;
 }
 
-// Provider role tags
-export const RENDERS_TAG = 'https://fhir.ottehr.com/billing/renders-services';
-export const BILLS_TAG = 'https://fhir.ottehr.com/billing/bills-services';
+// Provider role: one tag system  (a provider can bill and/or render).
+export const PROVIDER_ROLE_TAG = 'https://fhir.ottehr.com/billing/provider-role';
+export const PROVIDER_ROLE_BILLING = 'billing';
+export const PROVIDER_ROLE_RENDERING = 'rendering';
 export const LICENSE_TAG = 'https://fhir.ottehr.com/billing/license-type';
 
 export const SOURCE_IDENTIFIER_SYSTEM = 'https://ottehr.com/billing/source-resource';
@@ -82,6 +83,11 @@ export function createBillingClient(token: string, secrets: Secrets | null): Oys
 
 export function getTag(resource: Resource, system: string): string | undefined {
   return resource.meta?.tag?.find((t) => t.system === system)?.code;
+}
+
+// A resource can carry multiple tags in the same system (e.g. both provider roles), so check (system, code).
+export function hasTag(resource: Resource, system: string, code: string): boolean {
+  return resource.meta?.tag?.some((t) => t.system === system && t.code === code) ?? false;
 }
 
 export function formatAddress(addr?: { line?: string[]; city?: string; state?: string; postalCode?: string }): string {

@@ -1,7 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Practitioner } from 'fhir/r4b';
-import { BillingPractitionerOption, getNPI } from 'utils';
+import { BillingPractitionerOption, FHIR_IDENTIFIER_CODE_TAXONOMY, getNPI } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import { createBillingClient, EXCLUDE_WORKING_COPIES_PARAMS, fhirName } from '../shared';
 import { SearchBillingPractitionersParams, validateRequestParameters } from './validateRequestParameters';
@@ -38,7 +38,8 @@ async function performEffect(
       firstName: p.name?.[0]?.given?.join(' ') ?? '',
       lastName: p.name?.[0]?.family ?? '',
       npi: getNPI(p) ?? '',
-      taxonomy: p.identifier?.find((id) => id.type?.coding?.some((c) => c.code === 'ZZ'))?.value ?? '',
+      taxonomy:
+        p.identifier?.find((id) => id.type?.coding?.some((c) => c.code === FHIR_IDENTIFIER_CODE_TAXONOMY))?.value ?? '',
     };
   });
 
