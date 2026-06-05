@@ -69,6 +69,12 @@ export interface BillingProviderOption {
   bills: boolean;
 }
 
+// Payer option from the Oystehr RCM service
+export interface BillingPayerOption {
+  name: string;
+  payerId: string;
+}
+
 export interface EraListItem {
   id: string;
   eraId: string;

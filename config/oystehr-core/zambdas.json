@@ -361,6 +361,13 @@
       "src": "src/billing/search-billing-organizations/index",
       "zip": ".dist/zips/search-billing-organizations.zip"
     },
+    "SEARCH-BILLING-PAYERS": {
+      "name": "search-billing-payers",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/search-billing-payers/index",
+      "zip": ".dist/zips/search-billing-payers.zip"
+    },
     "GET-PATIENT-COVERAGES": {
       "name": "get-patient-coverages",
       "type": "http_auth",
