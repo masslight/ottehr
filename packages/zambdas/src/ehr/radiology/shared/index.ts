@@ -100,8 +100,7 @@ export const configReviewResultTask = (resources: ResourcesForTask): Task => {
     if (location.name) locationInput.name = location.name;
   }
 
-  const providerFirstName = requestingProvider?.name?.[0]?.given?.[0];
-  const providerLastName = requestingProvider?.name?.[0]?.family;
+  const providerName = getFullestAvailableName(requestingProvider) ?? 'Provider Name Missing';
 
   const studyTypeCoding = serviceRequest.code?.coding?.find((c) => c.system === CODE_SYSTEM_CPT);
   const studyTypeCode = studyTypeCoding?.code;
@@ -132,7 +131,7 @@ export const configReviewResultTask = (resources: ResourcesForTask): Task => {
       },
       {
         type: RADIOLOGY_TASK.input.providerName,
-        valueString: `${providerFirstName} ${providerLastName}`,
+        valueString: providerName,
       },
       {
         type: RADIOLOGY_TASK.input.studyTypeCode,
