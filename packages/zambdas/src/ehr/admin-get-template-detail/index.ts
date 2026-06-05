@@ -18,6 +18,7 @@ import {
   chartDataTagSystem,
   collectKnownExamFields,
   collectKnownRosFields,
+  CPT_CODE_SYSTEM,
   examConfig,
   extractCptCodeModifiersFromCoding,
   FHIR_EXTENSION,
@@ -379,18 +380,18 @@ const performEffect = async (
       resourceHasTagSystem(r, procedurePlanTagSystem)
   );
 
+  // Build the lookup tables in a single pass so procedure plans' cross-refs
+  // (reasonReference -> Condition, supportingInfo -> CPT Procedure) can resolve
+  // to inline {code, display} tuples in the detail output without scanning
+  // contained twice.
   const conditionById = new Map<string, Condition>();
-  for (const c of contained) {
-    if (c.resourceType === 'Condition' && c.id) conditionById.set(c.id, c as Condition);
-  }
   const cptProcedureById = new Map<string, Procedure>();
-  for (const p of contained) {
-    if (
-      p.resourceType === 'Procedure' &&
-      p.id &&
-      resourceHasTagSystem(p as Procedure, chartDataTagSystem('cpt-code'))
-    ) {
-      cptProcedureById.set(p.id, p as Procedure);
+  const cptCodeTagSystem = chartDataTagSystem('cpt-code');
+  for (const r of contained) {
+    if (!r.id) continue;
+    if (r.resourceType === 'Condition') conditionById.set(r.id, r as Condition);
+    else if (r.resourceType === 'Procedure' && resourceHasTagSystem(r as Procedure, cptCodeTagSystem)) {
+      cptProcedureById.set(r.id, r as Procedure);
     }
   }
 
@@ -420,8 +421,7 @@ const performEffect = async (
       if (!id) return [];
       const proc = cptProcedureById.get(id);
       if (!proc) return [];
-      const coding =
-        proc.code?.coding?.find((c) => c.system === 'http://www.ama-assn.org/go/cpt') ?? proc.code?.coding?.[0];
+      const coding = proc.code?.coding?.find((c) => c.system === CPT_CODE_SYSTEM) ?? proc.code?.coding?.[0];
       if (!coding?.code && !coding?.display) return [];
       // Preserve any CPT modifiers stored as Coding.extension on the CPT
       // Procedure. The standalone CPT Codes section does the same, so a CPT

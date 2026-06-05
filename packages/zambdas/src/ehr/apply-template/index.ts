@@ -542,8 +542,7 @@ export const makeCreateRequests = (
   // resources within this same transaction (see apply-procedures.ts).
   if (actions.procedures !== 'skip') {
     for (const plan of findProcedurePlans(templateList)) {
-      const { request } = buildLiveProcedureRequest({ plan, encounter, containedIdToNewFullUrl });
-      createResourcesRequests.push(request);
+      createResourcesRequests.push(buildLiveProcedureRequest({ plan, encounter, containedIdToNewFullUrl }));
     }
   }
 

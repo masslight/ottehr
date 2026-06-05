@@ -23,7 +23,7 @@ import { getTemplateDetail } from 'src/api/api';
 import { GLOBAL_TEMPLATES_URL } from 'src/App';
 import CustomBreadcrumbs from 'src/components/CustomBreadcrumbs';
 import { QUERY_STALE_TIME } from 'src/constants';
-import { formatCptCodeAndModifiersForDisplay } from 'src/helpers/templates';
+import { formatCptCodeAndModifiersForDisplay, getProcedureDisplayFields } from 'src/helpers/templates';
 import { useApiClients } from 'src/hooks/useAppClients';
 import PageContainer from 'src/layout/PageContainer';
 import {
@@ -452,63 +452,39 @@ export default function GlobalTemplateDetailPage(): ReactElement {
           <SectionCard title="Procedures">
             {sections.procedures.length > 0 ? (
               <Stack spacing={2}>
-                {sections.procedures.map((plan) => {
-                  const yesNo = (v: boolean | undefined): string | undefined =>
-                    v === undefined ? undefined : v ? 'Yes' : 'No';
-                  const fields: { label: string; value: string }[] = [
-                    { label: 'Performer type', value: plan.performerType ?? '' },
-                    { label: 'Body site', value: plan.bodySite ?? '' },
-                    { label: 'Body side', value: plan.bodySide ?? '' },
-                    { label: 'Technique', value: plan.technique.join(', ') },
-                    { label: 'Medication used', value: plan.medicationUsed ?? '' },
-                    { label: 'Supplies used', value: plan.suppliesUsed ?? '' },
-                    { label: 'Specimen sent', value: yesNo(plan.specimenSent) ?? '' },
-                    { label: 'Complications', value: plan.complications ?? '' },
-                    { label: 'Patient response', value: plan.patientResponse ?? '' },
-                    { label: 'Time spent', value: plan.timeSpent ?? '' },
-                    { label: 'Documented by', value: plan.documentedBy ?? '' },
-                    { label: 'Consent obtained', value: yesNo(plan.consentObtained) ?? '' },
-                  ].filter((f) => f.value.length > 0);
-                  return (
-                    <Box key={plan.planId}>
-                      <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
-                        {plan.procedureType ?? plan.cptCodes[0]?.display ?? plan.cptCodes[0]?.code ?? 'Procedure'}
+                {sections.procedures.map((plan) => (
+                  <Box key={plan.planId}>
+                    <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
+                      {plan.procedureType ?? plan.cptCodes[0]?.display ?? plan.cptCodes[0]?.code ?? 'Procedure'}
+                    </Typography>
+                    {plan.cptCodes.length > 0 ? (
+                      <Typography variant="body2" sx={{ mt: 0.5 }}>
+                        <strong>CPT codes:</strong>{' '}
+                        {plan.cptCodes
+                          .map((c) => {
+                            const label = formatCptCodeAndModifiersForDisplay(c);
+                            return c.display ? `${label} — ${c.display}` : label;
+                          })
+                          .join('; ')}
                       </Typography>
-                      {plan.cptCodes.length > 0 ? (
-                        <Typography variant="body2" sx={{ mt: 0.5 }}>
-                          <strong>CPT codes:</strong>{' '}
-                          {plan.cptCodes
-                            .map((c) => {
-                              const label = formatCptCodeAndModifiersForDisplay(c);
-                              return c.display ? `${label} — ${c.display}` : label;
-                            })
-                            .join('; ')}
-                        </Typography>
-                      ) : null}
-                      {plan.diagnoses.length > 0 ? (
-                        <Typography variant="body2">
-                          <strong>Diagnoses:</strong>{' '}
-                          {plan.diagnoses.map((d) => (d.display ? `${d.code} — ${d.display}` : d.code)).join('; ')}
-                        </Typography>
-                      ) : null}
-                      {fields.map((f) => (
-                        <Typography key={f.label} variant="body2">
-                          <strong>{f.label}:</strong> {f.value}
-                        </Typography>
-                      ))}
-                      {plan.procedureDetails ? (
-                        <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
-                          <strong>Procedure details:</strong> {plan.procedureDetails}
-                        </Typography>
-                      ) : null}
-                      {plan.postInstructions ? (
-                        <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
-                          <strong>Post-procedure instructions:</strong> {plan.postInstructions}
-                        </Typography>
-                      ) : null}
-                    </Box>
-                  );
-                })}
+                    ) : null}
+                    {plan.diagnoses.length > 0 ? (
+                      <Typography variant="body2">
+                        <strong>Diagnoses:</strong>{' '}
+                        {plan.diagnoses.map((d) => (d.display ? `${d.code} — ${d.display}` : d.code)).join('; ')}
+                      </Typography>
+                    ) : null}
+                    {getProcedureDisplayFields(plan).map((f) => (
+                      <Typography
+                        key={f.label}
+                        variant="body2"
+                        sx={f.multiline ? { whiteSpace: 'pre-wrap' } : undefined}
+                      >
+                        <strong>{f.label}:</strong> {f.value}
+                      </Typography>
+                    ))}
+                  </Box>
+                ))}
               </Stack>
             ) : (
               <NotIncluded />

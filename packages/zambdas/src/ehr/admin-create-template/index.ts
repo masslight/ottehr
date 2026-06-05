@@ -406,19 +406,15 @@ export const filterEntriesToTemplateContent = (
   });
 };
 
+// Orders the provider canceled or marked as a mistake live on as
+// status='revoked' / 'entered-in-error' ServiceRequests on the encounter even
+// though they're hidden from the chart UI. Both lab and procedure capture
+// predicates apply this allow-list so a saved template doesn't accidentally
+// carry deleted entries forward.
+const TEMPLATE_INCLUDABLE_SR_STATUSES = new Set<ServiceRequest['status']>(['draft', 'active', 'on-hold', 'completed']);
+
 export const isValidInHouseLabServiceRequest = (resource: TemplateEncounterResource): boolean => {
   if (resource.resourceType !== 'ServiceRequest') return false;
-
-  // Orders the provider canceled or marked as a mistake live on as
-  // status='revoked' / 'entered-in-error' ServiceRequests on the encounter even
-  // though they're hidden from the chart UI. Skip them so a saved template
-  // doesn't accidentally carry deleted orders forward.
-  const TEMPLATE_INCLUDABLE_SR_STATUSES = new Set<ServiceRequest['status']>([
-    'draft',
-    'active',
-    'on-hold',
-    'completed',
-  ]);
   return (
     !!resource.code?.coding?.some((c) => c.system === IN_HOUSE_TEST_CODE_SYSTEM) &&
     !resourceHasTagSystem(resource, REPEAT_TEST_ORDER_DETAIL_TAG_CONFIG.system) && // we don't want repeat tests included
@@ -436,12 +432,6 @@ export const isValidInHouseLabServiceRequest = (resource: TemplateEncounterResou
 // into templates.
 export const isValidProcedureServiceRequest = (resource: TemplateEncounterResource): boolean => {
   if (resource.resourceType !== 'ServiceRequest') return false;
-  const TEMPLATE_INCLUDABLE_SR_STATUSES = new Set<ServiceRequest['status']>([
-    'draft',
-    'active',
-    'on-hold',
-    'completed',
-  ]);
   return (
     resourceHasTagSystem(resource, chartDataTagSystem('procedure')) &&
     TEMPLATE_INCLUDABLE_SR_STATUSES.has((resource as ServiceRequest).status)

@@ -21,7 +21,7 @@ import { useQuery } from '@tanstack/react-query';
 import React, { useEffect, useMemo, useState } from 'react';
 import { getTemplateDetail } from 'src/api/api';
 import { ContainedPrimaryToggleButton } from 'src/components/ContainedPrimaryToggleButton';
-import { formatCptCodeAndModifiersForDisplay } from 'src/helpers/templates';
+import { formatCptCodeAndModifiersForDisplay, getProcedureDisplayFields } from 'src/helpers/templates';
 import { useApiClients } from 'src/hooks/useAppClients';
 import {
   AdminGetTemplateDetailOutput,
@@ -450,46 +450,21 @@ const ProcedurePlansList: React.FC<{ plans: TemplateProcedurePlan[] }> = ({ plan
   </Stack>
 );
 
-// Picks the procedure form fields that have a value and lays them out as a
-// compact label/value table. Booleans render as Yes/No so the provider doesn't
-// have to interpret 'true'/'false'.
+// Renders the procedure form fields as a compact label/value list, with the
+// `multiline` flag selecting whiteSpace: pre-wrap so free-text fields wrap
+// cleanly without being forced onto their own line for short values.
 const ProcedurePlanFields: React.FC<{ plan: TemplateProcedurePlan }> = ({ plan }) => {
-  const yesNo = (v: boolean | undefined): string | undefined => (v === undefined ? undefined : v ? 'Yes' : 'No');
-  const rows: { label: string; value: string }[] = [
-    { label: 'Performer type', value: plan.performerType ?? '' },
-    { label: 'Body site', value: plan.bodySite ?? '' },
-    { label: 'Body side', value: plan.bodySide ?? '' },
-    { label: 'Technique', value: plan.technique.join(', ') },
-    { label: 'Medication used', value: plan.medicationUsed ?? '' },
-    { label: 'Supplies used', value: plan.suppliesUsed ?? '' },
-    { label: 'Specimen sent', value: yesNo(plan.specimenSent) ?? '' },
-    { label: 'Complications', value: plan.complications ?? '' },
-    { label: 'Patient response', value: plan.patientResponse ?? '' },
-    { label: 'Time spent', value: plan.timeSpent ?? '' },
-    { label: 'Documented by', value: plan.documentedBy ?? '' },
-    { label: 'Consent obtained', value: yesNo(plan.consentObtained) ?? '' },
-  ].filter((r) => r.value.length > 0);
-
-  const blocks: { label: string; value: string }[] = [
-    { label: 'Procedure details', value: plan.procedureDetails ?? '' },
-    { label: 'Post-procedure instructions', value: plan.postInstructions ?? '' },
-  ].filter((b) => b.value.length > 0);
-
-  if (rows.length === 0 && blocks.length === 0) return null;
-  // Free-text blocks render the same shape as the row entries - label inline
-  // with the value - but with whiteSpace: 'pre-wrap' so longer multi-line
-  // content still wraps cleanly instead of being forced onto its own line for
-  // one-line values.
+  const fields = getProcedureDisplayFields(plan);
+  if (fields.length === 0) return null;
   return (
     <Stack spacing={0.75}>
-      {rows.map((row) => (
-        <Typography key={row.label} variant="body2" sx={{ color: 'text.primary' }}>
-          <strong>{row.label}:</strong> {row.value}
-        </Typography>
-      ))}
-      {blocks.map((block) => (
-        <Typography key={block.label} variant="body2" sx={{ color: 'text.primary', whiteSpace: 'pre-wrap' }}>
-          <strong>{block.label}:</strong> {block.value}
+      {fields.map((f) => (
+        <Typography
+          key={f.label}
+          variant="body2"
+          sx={{ color: 'text.primary', ...(f.multiline ? { whiteSpace: 'pre-wrap' } : {}) }}
+        >
+          <strong>{f.label}:</strong> {f.value}
         </Typography>
       ))}
     </Stack>

@@ -77,13 +77,11 @@ describe('buildLiveProcedureRequest', () => {
       'dx-stub-1': 'urn:uuid:dx-new',
       'cpt-stub-1': 'urn:uuid:cpt-new',
     });
-    const { request, droppedReasonReferences, droppedSupportingInfo } = buildLiveProcedureRequest({
+    const request = buildLiveProcedureRequest({
       plan: buildPlan(),
       encounter: buildEncounter(),
       containedIdToNewFullUrl,
     });
-    expect(droppedReasonReferences).toBe(0);
-    expect(droppedSupportingInfo).toBe(0);
     expect(request.method).toBe('POST');
     expect(request.url).toBe('ServiceRequest');
     expect(request.fullUrl).toMatch(/^urn:uuid:/);
@@ -92,20 +90,18 @@ describe('buildLiveProcedureRequest', () => {
     expect(sr.supportingInfo).toEqual([{ reference: 'urn:uuid:cpt-new' }]);
   });
 
-  test('drops references whose target is not in the contained-id map and counts them', () => {
+  test('drops references whose target is not in the contained-id map', () => {
     // Only the CPT is in the map - the diagnosis section was skipped on apply,
     // so its stub id has no new fullUrl. The remap must drop the reasonReference
     // entry rather than leak the template-stub id to the live transaction.
     const containedIdToNewFullUrl = buildContainerMap({
       'cpt-stub-1': 'urn:uuid:cpt-new',
     });
-    const { request, droppedReasonReferences, droppedSupportingInfo } = buildLiveProcedureRequest({
+    const request = buildLiveProcedureRequest({
       plan: buildPlan(),
       encounter: buildEncounter(),
       containedIdToNewFullUrl,
     });
-    expect(droppedReasonReferences).toBe(1);
-    expect(droppedSupportingInfo).toBe(0);
     const sr = request.resource as ServiceRequest;
     // reasonReference shouldn't even appear on the resource when it's empty,
     // so the consumer doesn't have to special-case [] vs undefined later on.
@@ -114,7 +110,7 @@ describe('buildLiveProcedureRequest', () => {
   });
 
   test('sets live subject/encounter and overwrites the template stub references', () => {
-    const { request } = buildLiveProcedureRequest({
+    const request = buildLiveProcedureRequest({
       plan: buildPlan(),
       encounter: buildEncounter(),
       containedIdToNewFullUrl: new Map(),
@@ -129,7 +125,7 @@ describe('buildLiveProcedureRequest', () => {
     // procedure - the live save flow uses 'completed'/'original-order'. Pin
     // those defaults here so a future regression doesn't ship a plan-shape
     // ServiceRequest into the chart.
-    const { request } = buildLiveProcedureRequest({
+    const request = buildLiveProcedureRequest({
       plan: buildPlan(),
       encounter: buildEncounter(),
       containedIdToNewFullUrl: new Map(),
@@ -141,7 +137,7 @@ describe('buildLiveProcedureRequest', () => {
   });
 
   test('tags the new resource with chartDataTagSystem("procedure") so it shows up in get-chart-data', () => {
-    const { request } = buildLiveProcedureRequest({
+    const request = buildLiveProcedureRequest({
       plan: buildPlan(),
       encounter: buildEncounter(),
       containedIdToNewFullUrl: new Map(),
@@ -159,7 +155,7 @@ describe('buildLiveProcedureRequest', () => {
       { url: FHIR_EXTENSION.ServiceRequest.timeSpent.url, valueString: '15 minutes' },
     ];
     const plan = buildPlan({ extension: customExtensions });
-    const { request } = buildLiveProcedureRequest({
+    const request = buildLiveProcedureRequest({
       plan,
       encounter: buildEncounter(),
       containedIdToNewFullUrl: new Map(),
@@ -183,7 +179,7 @@ describe('buildLiveProcedureRequest', () => {
       reasonReference: undefined,
       supportingInfo: undefined,
     });
-    const { request } = buildLiveProcedureRequest({
+    const request = buildLiveProcedureRequest({
       plan: sparsePlan,
       encounter: buildEncounter(),
       containedIdToNewFullUrl: new Map(),

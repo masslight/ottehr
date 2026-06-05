@@ -1,7 +1,7 @@
 import { BatchInputPostRequest } from '@oystehr/sdk';
 import { Encounter, List, ServiceRequest } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { chartDataTagSystem } from 'utils';
+import { chartDataTagSystem, resourceHasTagSystem } from 'utils';
 import { v4 as uuidV4 } from 'uuid';
 
 const PROCEDURE_PLAN_TAG_SYSTEM = chartDataTagSystem('procedure-template-plan');
@@ -16,7 +16,7 @@ export const findProcedurePlans = (templateList: List): ServiceRequest[] => {
     (r): r is ServiceRequest =>
       r.resourceType === 'ServiceRequest' &&
       (r as ServiceRequest).intent === 'plan' &&
-      (r.meta?.tag?.some((t) => t.system === PROCEDURE_PLAN_TAG_SYSTEM) ?? false)
+      resourceHasTagSystem(r, PROCEDURE_PLAN_TAG_SYSTEM)
   );
 };
 
@@ -31,14 +31,6 @@ export interface BuildLiveProcedureInput {
    * section was set to 'skip') get dropped from the rewritten request.
    */
   containedIdToNewFullUrl: ReadonlyMap<string, string>;
-}
-
-export interface BuildLiveProcedureResult {
-  request: BatchInputPostRequest<ServiceRequest>;
-  /** Number of reasonReference entries that couldn't be remapped (target wasn't being created). */
-  droppedReasonReferences: number;
-  /** Number of supportingInfo entries that couldn't be remapped. */
-  droppedSupportingInfo: number;
 }
 
 /**
@@ -58,33 +50,18 @@ export interface BuildLiveProcedureResult {
  * fullUrls so that the references resolve atomically when the transaction
  * commits.
  */
-export const buildLiveProcedureRequest = (input: BuildLiveProcedureInput): BuildLiveProcedureResult => {
+export const buildLiveProcedureRequest = (input: BuildLiveProcedureInput): BatchInputPostRequest<ServiceRequest> => {
   const { plan, encounter, containedIdToNewFullUrl } = input;
-  let droppedReasonReferences = 0;
-  let droppedSupportingInfo = 0;
 
-  const remap = (ref: { reference?: string }, kind: 'reason' | 'support'): { reference: string } | null => {
+  const remap = (ref: { reference?: string }): { reference: string } | null => {
     const oldId = ref.reference?.split('/')[1];
-    if (!oldId) {
-      if (kind === 'reason') droppedReasonReferences++;
-      else droppedSupportingInfo++;
-      return null;
-    }
+    if (!oldId) return null;
     const newFullUrl = containedIdToNewFullUrl.get(oldId);
-    if (!newFullUrl) {
-      if (kind === 'reason') droppedReasonReferences++;
-      else droppedSupportingInfo++;
-      return null;
-    }
-    return { reference: newFullUrl };
+    return newFullUrl ? { reference: newFullUrl } : null;
   };
 
-  const reasonReference = (plan.reasonReference ?? [])
-    .map((r) => remap(r, 'reason'))
-    .filter((r): r is { reference: string } => r !== null);
-  const supportingInfo = (plan.supportingInfo ?? [])
-    .map((r) => remap(r, 'support'))
-    .filter((r): r is { reference: string } => r !== null);
+  const reasonReference = (plan.reasonReference ?? []).map(remap).filter((r): r is { reference: string } => r !== null);
+  const supportingInfo = (plan.supportingInfo ?? []).map(remap).filter((r): r is { reference: string } => r !== null);
 
   const liveProcedure: ServiceRequest = {
     resourceType: 'ServiceRequest',
@@ -113,13 +90,9 @@ export const buildLiveProcedureRequest = (input: BuildLiveProcedureInput): Build
   };
 
   return {
-    request: {
-      method: 'POST',
-      url: 'ServiceRequest',
-      resource: liveProcedure,
-      fullUrl: `urn:uuid:${uuidV4()}`,
-    },
-    droppedReasonReferences,
-    droppedSupportingInfo,
+    method: 'POST',
+    url: 'ServiceRequest',
+    resource: liveProcedure,
+    fullUrl: `urn:uuid:${uuidV4()}`,
   };
 };
