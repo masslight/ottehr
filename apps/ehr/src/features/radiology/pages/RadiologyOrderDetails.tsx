@@ -25,13 +25,15 @@ export const RadiologyOrderDetailsPage: React.FC = () => {
   const [isLaunchingViewer, setIsLaunchingViewer] = useState(false);
   const [launchViewerError, setLaunchViewerError] = useState<string | null>(null);
   const [preliminaryReport, setPreliminaryReport] = useState<string | undefined>();
+  const [finalReportByUser, setFinalReportByUser] = useState(false);
+  const [finalReport, setFinalReport] = useState<string | undefined>();
 
   const {
     orders,
     loading,
-    handleSavePreliminaryReport,
+    handleSaveReport,
     handleSendForFinalRead,
-    isSavingPreliminaryReport,
+    isSavingReport,
     isSendingForFinalRead,
     fetchOrders,
   } = usePatientRadiologyOrders({
@@ -253,6 +255,40 @@ export const RadiologyOrderDetailsPage: React.FC = () => {
                   </Typography>
                 </Box>
               </Box>
+
+              {order.status === 'preliminary' && (
+                <>
+                  <Box sx={{ mt: 1 }}>
+                    <Box style={{ display: 'flex', alignItems: 'center' }}>
+                      <Checkbox
+                        sx={{ paddingLeft: 0 }}
+                        checked={finalReportByUser}
+                        onChange={() => {
+                          if (finalReportByUser) setFinalReport(undefined);
+                          setFinalReportByUser(!finalReportByUser);
+                        }}
+                      />
+                      <Typography>Don't send to teleradiology, I will write the final report myself</Typography>
+                    </Box>
+                  </Box>
+                  {finalReportByUser && (
+                    <Box sx={{ mt: 1 }}>
+                      <TextField
+                        id="final-report-field"
+                        label="Final Report"
+                        placeholder="Enter final report for the radiology order"
+                        fullWidth
+                        multiline
+                        minRows={2}
+                        maxRows={10}
+                        size="small"
+                        value={finalReport}
+                        onChange={(e) => setFinalReport(e.target.value)}
+                      />
+                    </Box>
+                  )}
+                </>
+              )}
             </Box>
           </Box>
 
@@ -274,7 +310,7 @@ export const RadiologyOrderDetailsPage: React.FC = () => {
 
             {order.status === 'performed' && !order.preliminaryReport && (
               <LoadingButton
-                loading={isSavingPreliminaryReport}
+                loading={isSavingReport}
                 variant="contained"
                 color="primary"
                 sx={{
@@ -282,27 +318,42 @@ export const RadiologyOrderDetailsPage: React.FC = () => {
                   padding: '8px 22px',
                   textTransform: 'none',
                 }}
-                onClick={() => handleSavePreliminaryReport(serviceRequestId, preliminaryReport || '')}
+                onClick={() => handleSaveReport(serviceRequestId, preliminaryReport || '', 'preliminary')}
               >
                 Save Preliminary Report
               </LoadingButton>
             )}
 
-            {order.status === 'preliminary' && (
-              <LoadingButton
-                loading={isSendingForFinalRead}
-                variant="contained"
-                color="primary"
-                sx={{
-                  borderRadius: 28,
-                  padding: '8px 22px',
-                  textTransform: 'none',
-                }}
-                onClick={() => handleSendForFinalRead(serviceRequestId)}
-              >
-                Send for Final Read
-              </LoadingButton>
-            )}
+            {order.status === 'preliminary' &&
+              (finalReportByUser ? (
+                <LoadingButton
+                  loading={isSavingReport}
+                  variant="contained"
+                  color="primary"
+                  sx={{
+                    borderRadius: 28,
+                    padding: '8px 22px',
+                    textTransform: 'none',
+                  }}
+                  onClick={() => handleSaveReport(serviceRequestId, finalReport || '', 'final')}
+                >
+                  Save as Final
+                </LoadingButton>
+              ) : (
+                <LoadingButton
+                  loading={isSendingForFinalRead}
+                  variant="contained"
+                  color="primary"
+                  sx={{
+                    borderRadius: 28,
+                    padding: '8px 22px',
+                    textTransform: 'none',
+                  }}
+                  onClick={() => handleSendForFinalRead(serviceRequestId)}
+                >
+                  Send for Final Read
+                </LoadingButton>
+              ))}
           </Box>
         </Stack>
       </div>
