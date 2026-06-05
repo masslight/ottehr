@@ -300,7 +300,11 @@ const complexValidationForPractitioner = async (_input: BasicInput, oystehr: Oys
         providerSchedulesSummary: {
           locationNames: [...locationNames],
           categoryLabels: [...categoryLabels],
-          scheduleCount: practitionerRoles.length,
+          // Count owned Schedule resources, not PractitionerRoles. A PR may
+          // be missing its Schedule (in-flight setup, soft-deleted Schedule)
+          // or — less commonly — have more than one. The UI column labeled
+          // "Schedules" should reflect what was actually found.
+          scheduleCount: ownedSchedules.length,
         },
       };
     });

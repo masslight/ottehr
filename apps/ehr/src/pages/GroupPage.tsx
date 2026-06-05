@@ -302,15 +302,17 @@ function GroupPageContent(): ReactElement {
     const links: Array<{ label: string; url: string }> = [];
     for (const cat of cats) {
       for (const mode of cat.serviceModes) {
-        for (const flow of cat.visitTypes) {
-          const modeLabel = mode === 'virtual' ? ' [virtual]' : '';
-          const flowLabel = flow === 'walk-in' ? ' [walk-in]' : ' [prebook]';
-          const flowRoot = flow === 'walk-in' ? 'walkin' : 'prebook';
-          links.push({
-            label: `${cat.name}${modeLabel}${flowLabel} — ${cat.durationMinutes} min`,
-            url: `${INTAKE_URL}/${flowRoot}/${mode}?${groupParams}&serviceCategory=${encodeURIComponent(cat.code)}`,
-          });
-        }
+        // Per FR-5, walk-in is location-scoped — not a group entry point.
+        // Walk-in URLs for member services live on each member Location's
+        // schedule admin page, not here. Group admin only ever generates
+        // prebook URLs.
+        const prebookSupported = (cat.visitTypes ?? []).includes('prebook');
+        if (!prebookSupported) continue;
+        const modeLabel = mode === 'virtual' ? ' [virtual]' : '';
+        links.push({
+          label: `${cat.name}${modeLabel} [prebook] — ${cat.durationMinutes} min`,
+          url: `${INTAKE_URL}/prebook/${mode}?${groupParams}&serviceCategory=${encodeURIComponent(cat.code)}`,
+        });
       }
     }
     return links;
