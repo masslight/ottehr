@@ -519,6 +519,8 @@ test.describe('In-Person Visit Chart Data', async () => {
       await assessmentPage.expectDiagnosisDropdown();
       await expect(page.getByTestId(dataTestIds.diagnosisContainer.primaryDiagnosis)).not.toBeVisible();
       await expect(page.getByTestId(dataTestIds.diagnosisContainer.secondaryDiagnosis)).not.toBeVisible();
+      // This environment uses the default progress note config. If the test tenant ever customizes the
+      // admin-configured MDM default, this assertion should read from that configured value instead.
       await assessmentPage.expectMdmField({ text: MDM_FIELD_DEFAULT_TEXT });
     });
 
