@@ -4,7 +4,13 @@ import { Appointment, Encounter, EncounterStatusHistory, Extension, Location, Re
 import { DateTime } from 'luxon';
 import { CODE_SYSTEM_ACT_CODE_V3 } from '../helpers';
 import { FhirEncounterStatus, PatientFollowupDetails, ProviderDetails, VisitStatusWithoutUnknown } from '../types';
-import { ENCOUNTER_PAYMENT_VARIANT_EXTENSION_URL, FHIR_BASE_URL, FHIR_EXTENSION } from './constants';
+import {
+  ENCOUNTER_PAYMENT_VARIANT_EXTENSION_URL,
+  FHIR_BASE_URL,
+  FHIR_ENCOUNTER_ERX_PATIENT_SYNC_TAG,
+  FHIR_EXTENSION,
+} from './constants';
+import { getPatchOperationForNewMetaTag } from './resourcePatch';
 
 // follow up encounter consts
 export const FOLLOWUP_TYPES = ['Follow-up Encounter'] as const;
@@ -347,4 +353,48 @@ export const getInteractionModeForEncounter = (
 export const getEncounterLocationId = (encounter: Encounter | undefined): string | undefined => {
   const locationRef = encounter?.location?.[0]?.location?.reference;
   return locationRef?.split('/')[1];
+};
+
+const MAX_ERX_SYNC_TAG_RETRIES = 5;
+
+export const isEncounterErxSynced = (encounter: Encounter): boolean =>
+  encounter.meta?.tag?.some(
+    (tag) =>
+      tag.system === FHIR_ENCOUNTER_ERX_PATIENT_SYNC_TAG.system && tag.code === FHIR_ENCOUNTER_ERX_PATIENT_SYNC_TAG.code
+  ) ?? false;
+
+export const tagEncounterAsErxSynced = async (oystehr: Oystehr, encounter: Encounter): Promise<void> => {
+  const encounterId = encounter.id;
+  if (!encounterId) {
+    throw new Error('Cannot tag encounter as eRx-synced: encounter has no id');
+  }
+
+  let current = encounter;
+  let retries = 0;
+
+  while (retries < MAX_ERX_SYNC_TAG_RETRIES) {
+    if (isEncounterErxSynced(current)) {
+      return;
+    }
+
+    try {
+      await oystehr.fhir.patch(
+        {
+          resourceType: 'Encounter',
+          id: encounterId,
+          operations: [getPatchOperationForNewMetaTag(current, FHIR_ENCOUNTER_ERX_PATIENT_SYNC_TAG)],
+        },
+        { optimisticLockingVersionId: current.meta?.versionId }
+      );
+      return;
+    } catch (patchError) {
+      retries++;
+      console.warn(`Tagging encounter ${encounterId} failed (attempt ${retries}), refreshing encounter`, patchError);
+      current = await oystehr.fhir.get<Encounter>({
+        resourceType: 'Encounter',
+        id: encounterId,
+      });
+    }
+  }
+  console.error(`Failed to tag encounter ${encounterId} after ${retries} attempts, giving up`);
 };

@@ -1,12 +1,11 @@
-import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Encounter, Observation, Patient } from 'fhir/r4b';
 import {
   E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM,
-  FHIR_ENCOUNTER_ERX_PATIENT_SYNC_TAG,
   getErxPatientDemographicErrors,
-  getPatchOperationForNewMetaTag,
   is18YearsOrYounger,
+  isEncounterErxSynced,
+  tagEncounterAsErxSynced,
 } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../../shared';
 import { createOystehrClient } from '../../../shared/helpers';
@@ -18,43 +17,6 @@ const ZAMBDA_NAME = 'sub-erx-patient-sync';
 
 const WEIGHT_LOINC = '29463-7';
 const HEIGHT_LOINC = '8302-2';
-
-const isEncounterSynced = (encounter: Encounter): boolean =>
-  encounter.meta?.tag?.some(
-    (tag) =>
-      tag.system === FHIR_ENCOUNTER_ERX_PATIENT_SYNC_TAG.system && tag.code === FHIR_ENCOUNTER_ERX_PATIENT_SYNC_TAG.code
-  ) ?? false;
-
-const tagEncounterAsSynced = async (oystehr: Oystehr, encounterId: string, encounter: Encounter): Promise<void> => {
-  let current = encounter;
-  let retries = 0;
-
-  while (retries < 5) {
-    if (isEncounterSynced(current)) {
-      return;
-    }
-
-    try {
-      await oystehr.fhir.patch(
-        {
-          resourceType: 'Encounter',
-          id: encounterId,
-          operations: [getPatchOperationForNewMetaTag(current, FHIR_ENCOUNTER_ERX_PATIENT_SYNC_TAG)],
-        },
-        { optimisticLockingVersionId: current.meta?.versionId }
-      );
-      return;
-    } catch (patchError) {
-      retries++;
-      console.warn(`Tagging encounter ${encounterId} failed (attempt ${retries}), refreshing encounter`, patchError);
-      current = await oystehr.fhir.get<Encounter>({
-        resourceType: 'Encounter',
-        id: encounterId,
-      });
-    }
-  }
-  console.error(`Failed to tag encounter ${encounterId} after ${retries} attempts, giving up`);
-};
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.group('validateRequestParameters');
@@ -97,7 +59,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     throw new Error(`Encounter ${encounterId} not found`);
   }
 
-  if (isEncounterSynced(encounter) && triggerType !== 'observation') {
+  if (isEncounterErxSynced(encounter) && triggerType !== 'observation') {
     console.log(`Encounter ${encounterId} already synced with eRx, skipping`);
     return {
       statusCode: 200,
@@ -177,7 +139,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   }
 
   // Tag the encounter so the visit trigger won't re-sync this visit (the vitals trigger still can)
-  await tagEncounterAsSynced(oystehr, encounterId, encounter);
+  await tagEncounterAsErxSynced(oystehr, encounter);
   console.log(`Tagged encounter ${encounterId} with eRx sync tag`);
   console.log(`Successfully completed eRx patient sync and medication history fetch for patient ${patientId}`);
 
