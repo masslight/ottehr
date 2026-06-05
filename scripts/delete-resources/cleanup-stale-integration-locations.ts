@@ -5,13 +5,14 @@ import { getAllFhirSearchPages } from '../../packages/utils/lib/fhir/getAllFhirS
 import { createOystehrClient } from '../../packages/utils/lib/main';
 
 /*
- Counts (and eventually deletes) Location resources tagged with
+ Counts (and optionally deletes) Location resources tagged with
  INTEGRATION_TEST_PROCESS_ID_SYSTEM that haven't been updated in over 24
  hours. These are stale fixtures from integration test runs that the
  cleanup cron missed or that ran outside the cron's scope.
 
- Currently dry-run only: flip DRY_RUN to enable deletion (not yet wired —
- see the comment near the bottom of main() for what's needed).
+ Defaults to dry-run (count + sample only). Flip DRY_RUN to false to
+ enable deletion: each stale Location and its actor-ref Schedules are
+ batch-deleted in chunks of CHUNK_SIZE after a "yes" confirmation prompt.
 
  to run:
  npx env-cmd -f config/.env/{ENV}.json tsx scripts/delete-resources/cleanup-stale-integration-locations.ts
