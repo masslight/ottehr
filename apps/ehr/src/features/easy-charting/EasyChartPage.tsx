@@ -1,3 +1,4 @@
+import CloseIcon from '@mui/icons-material/Close';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import {
   Box,
@@ -59,6 +60,7 @@ import { showEnvironmentBanner } from '../../App';
 import { HospitalizationOptions } from '../visits/in-person/components/hospitalization/hospitalizationOptions';
 import { SURGICAL_HISTORY_OPTIONS } from '../visits/shared/components/medical-history-tab/SurgicalHistory/surgicalHistoryOptions';
 import { useOystehrAPIClient } from '../visits/shared/hooks/useOystehrAPIClient';
+import InlineNoteField from './InlineNoteField';
 import { useEasyChartQuickPicks } from './useEasyChartQuickPicks';
 
 // Walk examConfig once to map every leaf exam field name to its most-specific section label
@@ -342,10 +344,19 @@ function CollapsibleSection({
   );
 }
 
+// The five free-text note fields, keyed by their actual chart-data key (NOT the display label —
+// the CC↔HPI label swap is applied at the render site, so these are already the storage keys).
+type ChartNoteKey = 'chiefComplaint' | 'historyOfPresentIllness' | 'mechanismOfInjury' | 'ros' | 'medicalDecision';
+
 interface NoteSectionsProps {
   data: GetChartDataResponse;
   freshlyAdded: Set<string>;
   removingItems: Set<string>;
+  // When true, the left pane is directly editable: free-text fields become text areas and
+  // structured items get an inline remove control. Omitted/false → read-only (legacy behavior).
+  editable?: boolean;
+  onSaveField?: (key: ChartNoteKey, text: string) => void;
+  onRemoveItem?: (field: string, dto: { resourceId?: string }) => void;
 }
 
 // Keyframes defined at module level so the animation runs reliably whether `flashSx` is
@@ -404,7 +415,62 @@ const removeFlashSx = {
   mx: -0.5,
 };
 
-function NoteSections({ data, freshlyAdded, removingItems }: NoteSectionsProps): JSX.Element {
+// Wraps a structured note item with a hover-revealed remove control when the note is editable.
+// The removal flash (`flashSx`) and the `data-easy-chart-id` hook move onto this row so the whole
+// item flashes red as it's deleted. Read-only mode renders the children unchanged.
+function DeletableRow({
+  editable,
+  resourceId,
+  onDelete,
+  flashSx: rowFlashSx,
+  children,
+}: {
+  editable?: boolean;
+  resourceId?: string;
+  onDelete?: () => void;
+  flashSx?: object;
+  children: React.ReactNode;
+}): JSX.Element {
+  if (!editable || !onDelete) {
+    return (
+      <Box data-easy-chart-id={resourceId} sx={rowFlashSx}>
+        {children}
+      </Box>
+    );
+  }
+  return (
+    <Stack
+      direction="row"
+      alignItems="flex-start"
+      spacing={0.5}
+      data-easy-chart-id={resourceId}
+      sx={{ ...(rowFlashSx ?? {}), '&:hover .ec-del-btn': { opacity: 1 } }}
+    >
+      <Box sx={{ flex: 1, minWidth: 0 }}>{children}</Box>
+      <IconButton
+        className="ec-del-btn"
+        size="small"
+        aria-label="Remove"
+        onClick={onDelete}
+        // Always visible on touch (no hover); hover-revealed on md+ to keep the note clean.
+        sx={{ opacity: { xs: 1, md: 0 }, transition: 'opacity 0.15s', p: 0.25, mt: '-2px' }}
+      >
+        <CloseIcon sx={{ fontSize: 16 }} />
+      </IconButton>
+    </Stack>
+  );
+}
+
+function NoteSections({
+  data,
+  freshlyAdded,
+  removingItems,
+  editable = false,
+  onSaveField,
+  onRemoveItem,
+}: NoteSectionsProps): JSX.Element {
+  const removeHandler = (field: string, dto: { resourceId?: string }): (() => void) | undefined =>
+    editable && onRemoveItem && dto.resourceId ? () => onRemoveItem(field, dto) : undefined;
   // Pick the right flash style: red if the item is being removed, yellow if it was just added,
   // none otherwise. Removing wins so adding-then-immediately-removing still reads as a removal.
   const itemSx = (resourceId: string | undefined): typeof flashSx | undefined => {
@@ -465,7 +531,9 @@ function NoteSections({ data, freshlyAdded, removingItems }: NoteSectionsProps):
     vitals.length ||
     procedures.length;
 
-  if (!anything) {
+  // In editable mode we always render so the free-text editors are available to type into even
+  // on a brand-new encounter; read-only mode keeps the original empty placeholder.
+  if (!anything && !editable) {
     return (
       <Paper variant="outlined" sx={{ p: 2 }}>
         <Typography variant="body2" color="text.secondary">
@@ -482,14 +550,15 @@ function NoteSections({ data, freshlyAdded, removingItems }: NoteSectionsProps):
           <Section title="Allergies">
             <Stack spacing={0.25}>
               {allergies.map((a, i) => (
-                <Typography
+                <DeletableRow
                   key={a.resourceId ?? i}
-                  variant="body2"
-                  data-easy-chart-id={a.resourceId}
-                  sx={itemSx(a.resourceId)}
+                  editable={editable}
+                  resourceId={a.resourceId}
+                  flashSx={itemSx(a.resourceId)}
+                  onDelete={removeHandler('allergies', a)}
                 >
-                  • {a.name ?? '(unnamed)'}
-                </Typography>
+                  <Typography variant="body2">• {a.name ?? '(unnamed)'}</Typography>
+                </DeletableRow>
               ))}
             </Stack>
           </Section>
@@ -499,15 +568,18 @@ function NoteSections({ data, freshlyAdded, removingItems }: NoteSectionsProps):
           <Section title="Medications">
             <Stack spacing={0.25}>
               {medications.map((m, i) => (
-                <Typography
+                <DeletableRow
                   key={m.resourceId ?? i}
-                  variant="body2"
-                  data-easy-chart-id={m.resourceId}
-                  sx={itemSx(m.resourceId)}
+                  editable={editable}
+                  resourceId={m.resourceId}
+                  flashSx={itemSx(m.resourceId)}
+                  onDelete={removeHandler('medications', m)}
                 >
-                  • {m.name}
-                  {m.intakeInfo?.dose ? ` — ${m.intakeInfo.dose}` : ''}
-                </Typography>
+                  <Typography variant="body2">
+                    • {m.name}
+                    {m.intakeInfo?.dose ? ` — ${m.intakeInfo.dose}` : ''}
+                  </Typography>
+                </DeletableRow>
               ))}
             </Stack>
           </Section>
@@ -517,16 +589,19 @@ function NoteSections({ data, freshlyAdded, removingItems }: NoteSectionsProps):
           <Section title="Medical History">
             <Stack spacing={0.25}>
               {conditions.map((c, i) => (
-                <Typography
+                <DeletableRow
                   key={c.resourceId ?? i}
-                  variant="body2"
-                  data-easy-chart-id={c.resourceId}
-                  sx={itemSx(c.resourceId)}
+                  editable={editable}
+                  resourceId={c.resourceId}
+                  flashSx={itemSx(c.resourceId)}
+                  onDelete={removeHandler('conditions', c)}
                 >
-                  {c.code ? <strong>{c.code}</strong> : null}
-                  {c.code ? ' — ' : ''}
-                  {c.display ?? '(no display)'}
-                </Typography>
+                  <Typography variant="body2">
+                    {c.code ? <strong>{c.code}</strong> : null}
+                    {c.code ? ' — ' : ''}
+                    {c.display ?? '(no display)'}
+                  </Typography>
+                </DeletableRow>
               ))}
             </Stack>
           </Section>
@@ -536,15 +611,18 @@ function NoteSections({ data, freshlyAdded, removingItems }: NoteSectionsProps):
           <Section title="Surgical History">
             <Stack spacing={0.25}>
               {surgicalHistory.map((s, i) => (
-                <Typography
+                <DeletableRow
                   key={s.resourceId ?? i}
-                  variant="body2"
-                  data-easy-chart-id={s.resourceId}
-                  sx={itemSx(s.resourceId)}
+                  editable={editable}
+                  resourceId={s.resourceId}
+                  flashSx={itemSx(s.resourceId)}
+                  onDelete={removeHandler('surgicalHistory', s)}
                 >
-                  <strong>{s.code}</strong>
-                  {s.display ? ` — ${s.display}` : ''}
-                </Typography>
+                  <Typography variant="body2">
+                    <strong>{s.code}</strong>
+                    {s.display ? ` — ${s.display}` : ''}
+                  </Typography>
+                </DeletableRow>
               ))}
             </Stack>
           </Section>
@@ -554,81 +632,123 @@ function NoteSections({ data, freshlyAdded, removingItems }: NoteSectionsProps):
           <Section title="Hospitalizations">
             <Stack spacing={0.25}>
               {hospitalizations.map((h, i) => (
-                <Typography
+                <DeletableRow
                   key={h.resourceId ?? i}
-                  variant="body2"
-                  data-easy-chart-id={h.resourceId}
-                  sx={itemSx(h.resourceId)}
+                  editable={editable}
+                  resourceId={h.resourceId}
+                  flashSx={itemSx(h.resourceId)}
+                  onDelete={removeHandler('episodeOfCare', h)}
                 >
-                  <strong>{h.code}</strong>
-                  {h.display ? ` — ${h.display}` : ''}
-                </Typography>
+                  <Typography variant="body2">
+                    <strong>{h.code}</strong>
+                    {h.display ? ` — ${h.display}` : ''}
+                  </Typography>
+                </DeletableRow>
               ))}
             </Stack>
           </Section>
         )}
 
-        {chiefComplaint && (
+        {(editable || chiefComplaint) && (
           <Section title="Chief Complaint">
-            <Typography
-              variant="body2"
-              data-easy-chart-id={data.historyOfPresentIllness?.resourceId}
-              sx={{
-                whiteSpace: 'pre-wrap',
-                ...(itemSx(data.historyOfPresentIllness?.resourceId) ?? {}),
-              }}
-            >
-              {chiefComplaint}
-            </Typography>
-          </Section>
-        )}
-
-        {hpi && (
-          <Section title="History of Present Illness">
-            <Typography
-              variant="body2"
-              data-easy-chart-id={data.chiefComplaint?.resourceId}
-              sx={{
-                whiteSpace: 'pre-wrap',
-                ...(itemSx(data.chiefComplaint?.resourceId) ?? {}),
-              }}
-            >
-              {hpi}
-            </Typography>
-          </Section>
-        )}
-
-        {moi && (
-          <Section title="Mechanism of Injury">
-            <Typography
-              variant="body2"
-              data-easy-chart-id={data.mechanismOfInjury?.resourceId}
-              sx={{
-                whiteSpace: 'pre-wrap',
-                ...(itemSx(data.mechanismOfInjury?.resourceId) ?? {}),
-              }}
-            >
-              {moi}
-            </Typography>
-          </Section>
-        )}
-
-        {(rosText || positiveRos.length > 0) && (
-          <Section title="Review of Systems">
-            {rosText && (
-              <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', mb: positiveRos.length ? 1 : 0 }}>
-                {rosText}
+            {editable && onSaveField ? (
+              // CC↔HPI swap: the "Chief Complaint" textarea is backed by the historyOfPresentIllness key.
+              <InlineNoteField
+                label="Chief Complaint"
+                value={chiefComplaint ?? ''}
+                minRows={1}
+                onSave={(text) => onSaveField('historyOfPresentIllness', text)}
+              />
+            ) : (
+              <Typography
+                variant="body2"
+                data-easy-chart-id={data.historyOfPresentIllness?.resourceId}
+                sx={{
+                  whiteSpace: 'pre-wrap',
+                  ...(itemSx(data.historyOfPresentIllness?.resourceId) ?? {}),
+                }}
+              >
+                {chiefComplaint}
               </Typography>
             )}
+          </Section>
+        )}
+
+        {(editable || hpi) && (
+          <Section title="History of Present Illness">
+            {editable && onSaveField ? (
+              <InlineNoteField
+                label="History of Present Illness"
+                value={hpi ?? ''}
+                minRows={3}
+                onSave={(text) => onSaveField('chiefComplaint', text)}
+              />
+            ) : (
+              <Typography
+                variant="body2"
+                data-easy-chart-id={data.chiefComplaint?.resourceId}
+                sx={{
+                  whiteSpace: 'pre-wrap',
+                  ...(itemSx(data.chiefComplaint?.resourceId) ?? {}),
+                }}
+              >
+                {hpi}
+              </Typography>
+            )}
+          </Section>
+        )}
+
+        {(editable || moi) && (
+          <Section title="Mechanism of Injury">
+            {editable && onSaveField ? (
+              <InlineNoteField
+                label="Mechanism of Injury"
+                value={moi ?? ''}
+                minRows={2}
+                onSave={(text) => onSaveField('mechanismOfInjury', text)}
+              />
+            ) : (
+              <Typography
+                variant="body2"
+                data-easy-chart-id={data.mechanismOfInjury?.resourceId}
+                sx={{
+                  whiteSpace: 'pre-wrap',
+                  ...(itemSx(data.mechanismOfInjury?.resourceId) ?? {}),
+                }}
+              >
+                {moi}
+              </Typography>
+            )}
+          </Section>
+        )}
+
+        {/* ROS is a structured Observation collection (rosObservations) — the same shape as the
+            exam findings — NOT a free-text field. Present the positive findings like Examination,
+            with inline delete. The free-text `ros` is legacy; show it read-only only if present. */}
+        {(rosText || positiveRos.length > 0) && (
+          <Section title="Review of Systems">
             {positiveRos.length > 0 && (
               <Stack spacing={0.25}>
                 {positiveRos.map((o) => (
-                  <Typography key={o.field} variant="body2">
-                    • {o.label ?? o.field}
-                    {o.note ? ` — ${o.note}` : ''}
-                  </Typography>
+                  <DeletableRow
+                    key={o.field}
+                    editable={editable}
+                    resourceId={o.resourceId}
+                    flashSx={itemSx(o.resourceId)}
+                    onDelete={removeHandler('rosObservations', o)}
+                  >
+                    <Typography variant="body2">
+                      • {o.label ?? o.field}
+                      {o.note ? ` — ${o.note}` : ''}
+                    </Typography>
+                  </DeletableRow>
                 ))}
               </Stack>
+            )}
+            {rosText && (
+              <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', mt: positiveRos.length ? 1 : 0 }}>
+                {rosText}
+              </Typography>
             )}
           </Section>
         )}
@@ -674,16 +794,19 @@ function NoteSections({ data, freshlyAdded, removingItems }: NoteSectionsProps):
                             .map(([g, labels]) => (g ? `${g}: ${labels.join(', ')}` : labels.join(', ')))
                             .join('; ');
                           return (
-                            <Typography
+                            <DeletableRow
                               key={f.field}
-                              variant="body2"
-                              data-easy-chart-id={f.resourceId}
-                              sx={itemSx(f.resourceId)}
+                              editable={editable}
+                              resourceId={f.resourceId}
+                              flashSx={itemSx(f.resourceId)}
+                              onDelete={removeHandler('examObservations', f)}
                             >
-                              • {f.label ?? f.field}
-                              {componentSummary ? ` — ${componentSummary}` : ''}
-                              {f.note ? ` — ${f.note}` : ''}
-                            </Typography>
+                              <Typography variant="body2">
+                                • {f.label ?? f.field}
+                                {componentSummary ? ` — ${componentSummary}` : ''}
+                                {f.note ? ` — ${f.note}` : ''}
+                              </Typography>
+                            </DeletableRow>
                           );
                         })}
                       </Stack>
@@ -707,10 +830,12 @@ function NoteSections({ data, freshlyAdded, removingItems }: NoteSectionsProps):
           <Section title="Procedures">
             <Stack spacing={1}>
               {procedures.map((p, i) => (
-                <Box
+                <DeletableRow
                   key={p.resourceId ?? `${p.procedureType}-${i}`}
-                  data-easy-chart-id={p.resourceId}
-                  sx={itemSx(p.resourceId)}
+                  editable={editable}
+                  resourceId={p.resourceId}
+                  flashSx={itemSx(p.resourceId)}
+                  onDelete={removeHandler('procedures', p)}
                 >
                   <Typography variant="body2" fontWeight={600}>
                     {formatProcedureType(p.procedureType) ?? '(unnamed procedure)'}
@@ -776,7 +901,7 @@ function NoteSections({ data, freshlyAdded, removingItems }: NoteSectionsProps):
                       <strong>Specimen sent:</strong> {p.specimenSent ? 'Yes' : 'No'}
                     </Typography>
                   )}
-                </Box>
+                </DeletableRow>
               ))}
             </Stack>
           </Section>
@@ -786,41 +911,60 @@ function NoteSections({ data, freshlyAdded, removingItems }: NoteSectionsProps):
           <Section title="Assessment / Diagnoses">
             <Stack spacing={0.25}>
               {dx.map((d, i) => (
-                <Typography
+                <DeletableRow
                   key={d.resourceId ?? `${d.code}-${i}`}
-                  variant="body2"
-                  data-easy-chart-id={d.resourceId}
-                  sx={itemSx(d.resourceId)}
+                  editable={editable}
+                  resourceId={d.resourceId}
+                  flashSx={itemSx(d.resourceId)}
+                  onDelete={removeHandler('diagnosis', d)}
                 >
-                  <strong>{d.code}</strong> — {d.display}
-                  {d.isPrimary && ' (primary)'}
-                </Typography>
+                  <Typography variant="body2">
+                    <strong>{d.code}</strong> — {d.display}
+                    {d.isPrimary && ' (primary)'}
+                  </Typography>
+                </DeletableRow>
               ))}
             </Stack>
           </Section>
         )}
 
-        {mdm && (
+        {(editable || mdm) && (
           <Section title="Medical Decision Making">
-            <Typography
-              variant="body2"
-              data-easy-chart-id={data.medicalDecision?.resourceId}
-              sx={{
-                whiteSpace: 'pre-wrap',
-                ...(itemSx(data.medicalDecision?.resourceId) ?? {}),
-              }}
-            >
-              {mdm}
-            </Typography>
+            {editable && onSaveField ? (
+              <InlineNoteField
+                label="Medical Decision Making"
+                value={mdm ?? ''}
+                minRows={3}
+                onSave={(text) => onSaveField('medicalDecision', text)}
+              />
+            ) : (
+              <Typography
+                variant="body2"
+                data-easy-chart-id={data.medicalDecision?.resourceId}
+                sx={{
+                  whiteSpace: 'pre-wrap',
+                  ...(itemSx(data.medicalDecision?.resourceId) ?? {}),
+                }}
+              >
+                {mdm}
+              </Typography>
+            )}
           </Section>
         )}
 
         {emCode && (
           <Section title="E&M Code">
-            <Typography variant="body2" data-easy-chart-id={emCode.resourceId} sx={itemSx(emCode.resourceId)}>
-              <strong>{emCode.code}</strong>
-              {emCode.display ? ` — ${emCode.display}` : ''}
-            </Typography>
+            <DeletableRow
+              editable={editable}
+              resourceId={emCode.resourceId}
+              flashSx={itemSx(emCode.resourceId)}
+              onDelete={removeHandler('emCode', emCode)}
+            >
+              <Typography variant="body2">
+                <strong>{emCode.code}</strong>
+                {emCode.display ? ` — ${emCode.display}` : ''}
+              </Typography>
+            </DeletableRow>
           </Section>
         )}
 
@@ -828,15 +972,18 @@ function NoteSections({ data, freshlyAdded, removingItems }: NoteSectionsProps):
           <Section title="CPT Codes">
             <Stack spacing={0.25}>
               {cptCodes.map((c, i) => (
-                <Typography
+                <DeletableRow
                   key={c.resourceId ?? `${c.code}-${i}`}
-                  variant="body2"
-                  data-easy-chart-id={c.resourceId}
-                  sx={itemSx(c.resourceId)}
+                  editable={editable}
+                  resourceId={c.resourceId}
+                  flashSx={itemSx(c.resourceId)}
+                  onDelete={removeHandler('cptCodes', c)}
                 >
-                  <strong>{c.code}</strong>
-                  {c.display ? ` — ${c.display}` : ''}
-                </Typography>
+                  <Typography variant="body2">
+                    <strong>{c.code}</strong>
+                    {c.display ? ` — ${c.display}` : ''}
+                  </Typography>
+                </DeletableRow>
               ))}
             </Stack>
           </Section>
@@ -1842,6 +1989,9 @@ export default function EasyChartPage(): JSX.Element {
   useEffect(() => {
     chartDataRef.current = chartData;
   }, [chartData]);
+  // Per-field promise chain so rapid inline edits (and a concurrent planner edit) to the same
+  // note field serialize instead of racing each other through saveChartData/mergeSaveResponse.
+  const noteSaveChainRef = useRef<Record<string, Promise<void>>>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [appointmentId, setAppointmentId] = useState<string | null>(null);
@@ -2934,6 +3084,26 @@ export default function EasyChartPage(): JSX.Element {
     }
   };
 
+  // Single save path for a free-text note field, shared by the right-pane planner
+  // (handleEditNoteText) and the left-pane inline editors (InlineNoteField via NoteSections).
+  // `key` is the actual chart-data storage key — the CC↔HPI swap is applied by the caller. Saves
+  // to the same field are serialized through a per-field promise chain so they can't race.
+  const saveNoteField = (key: ChartNoteKey, text: string): Promise<void> => {
+    if (!apiClient || !encounterId) return Promise.resolve();
+    const run = (): Promise<void> => {
+      const existing = chartDataRef.current?.[key] as { resourceId?: string } | undefined;
+      const payload: SaveChartDataRequest = {
+        encounterId,
+        [key]: { resourceId: existing?.resourceId, text },
+      } as SaveChartDataRequest;
+      return saveAndMerge(payload);
+    };
+    const prior = noteSaveChainRef.current[key] ?? Promise.resolve();
+    const next = prior.then(run, run);
+    noteSaveChainRef.current[key] = next;
+    return next;
+  };
+
   const handleEditNoteText = async (
     intent: Extract<EasyChartAgentIntent, { kind: 'edit-note-text' }>,
     user: string
@@ -2953,7 +3123,7 @@ export default function EasyChartPage(): JSX.Element {
     const fieldLabel = fieldLabels[intent.field];
     // Re-apply the CC↔HPI swap when writing back. The LLM thinks of `chiefComplaint` as the
     // CC label's text, but in chart-data terms the CC label is backed by historyOfPresentIllness.
-    const saveField: typeof intent.field =
+    const saveField: ChartNoteKey =
       intent.field === 'chiefComplaint'
         ? 'historyOfPresentIllness'
         : intent.field === 'historyOfPresentIllness'
@@ -2961,17 +3131,59 @@ export default function EasyChartPage(): JSX.Element {
         : intent.field;
     setConv({ kind: 'editing-note-text', user, fieldLabel });
     try {
-      const existing = chartDataRef.current?.[saveField] as { resourceId?: string } | undefined;
-      const payload: SaveChartDataRequest = {
-        encounterId,
-        [saveField]: { resourceId: existing?.resourceId, text: intent.newText },
-      } as SaveChartDataRequest;
-      await saveAndMerge(payload);
+      await saveNoteField(saveField, intent.newText);
       setConv({ kind: 'edited-note-text', user, fieldLabel });
     } catch (e) {
       console.error('Edit note text failed:', e);
       setConv({ kind: 'error', user, reply: `Could not update ${fieldLabel}. Please try again.` });
     }
+  };
+
+  // Inline structured-item removal from the left pane. Mirrors handleRemovePick (generic array
+  // delete + removal flash) but without the right-pane conversation chatter; E&M is a scalar so
+  // it gets its own branch. Errors surface via snackbar rather than the planner conversation.
+  const removeInline = async (field: string, dto: { resourceId?: string }): Promise<void> => {
+    if (!apiClient || !encounterId || !dto.resourceId) return;
+    const resourceId = dto.resourceId;
+    try {
+      await apiClient.deleteChartData({ encounterId, [field]: [dto] } as Parameters<
+        typeof apiClient.deleteChartData
+      >[0]);
+      flashAndRemoveItem(resourceId, () => {
+        setChartData((prev) => {
+          if (!prev) return prev;
+          const next: GetChartDataResponse = { ...prev };
+          const list = (next[field as keyof GetChartDataResponse] as Array<{ resourceId?: string }> | undefined) ?? [];
+          (next[field as keyof GetChartDataResponse] as unknown) = list.filter((x) => x.resourceId !== resourceId);
+          return next;
+        });
+      });
+    } catch (e) {
+      console.error('Inline remove failed:', e);
+      enqueueSnackbar('Could not remove that item. Please try again.', { variant: 'error' });
+    }
+  };
+
+  const removeEmInline = async (dto: { resourceId?: string }): Promise<void> => {
+    if (!apiClient || !encounterId || !dto.resourceId) return;
+    const resourceId = dto.resourceId;
+    try {
+      await apiClient.deleteChartData({ encounterId, emCode: dto } as Parameters<typeof apiClient.deleteChartData>[0]);
+      flashAndRemoveItem(resourceId, () => {
+        setChartData((prev) => (prev ? { ...prev, emCode: undefined } : prev));
+      });
+    } catch (e) {
+      console.error('Inline E&M remove failed:', e);
+      enqueueSnackbar('Could not remove the E&M code. Please try again.', { variant: 'error' });
+    }
+  };
+
+  const handleInlineRemove = (field: string, dto: { resourceId?: string }): void => {
+    if (field === 'emCode') {
+      void removeEmInline(dto);
+      return;
+    }
+    void removeInline(field, dto);
   };
 
   const handleProcedureUpdate = async (
@@ -3589,7 +3801,14 @@ export default function EasyChartPage(): JSX.Element {
       </Typography>
     </Paper>
   ) : chartData ? (
-    <NoteSections data={chartData} freshlyAdded={freshlyAdded} removingItems={removingItems} />
+    <NoteSections
+      data={chartData}
+      freshlyAdded={freshlyAdded}
+      removingItems={removingItems}
+      editable
+      onSaveField={saveNoteField}
+      onRemoveItem={handleInlineRemove}
+    />
   ) : null;
 
   return (
