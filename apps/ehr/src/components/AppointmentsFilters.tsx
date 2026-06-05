@@ -43,15 +43,24 @@ const getVisitTypeToLabel = (): Partial<typeof ALL_VISIT_TYPE_LABELS> => {
   );
 };
 
-const LOCAL_STORAGE_FILTERS_KEY = 'appointments.filters';
+export const LOCAL_STORAGE_FILTERS_KEY = 'appointments.filters';
+
+// Filter params owned by this component; any other param (e.g. `tab`) is preserved.
+const FILTER_PARAM_KEYS = ['location', 'visitType', 'serviceCategory', 'date', 'provider'] as const;
 
 export default function AppointmentsFilters(): ReactElement {
   const visitTypeToLabel = useMemo(() => getVisitTypeToLabel(), []);
 
   const methods = useForm();
   const [searchParams, setSearchParams] = useSearchParams();
+  const hasTrackingBoardFilterParams = FILTER_PARAM_KEYS.some((key) => searchParams.has(key));
 
   useEffect(() => {
+    if (!hasTrackingBoardFilterParams) {
+      return;
+    }
+
+    // Mirror the URL into the form only when it carries filters; otherwise let the restore effect recover them.
     const values = {
       location:
         searchParams
@@ -68,7 +77,7 @@ export default function AppointmentsFilters(): ReactElement {
           .map((id) => ({ id })) ?? [],
     };
     methods.reset(values);
-  }, [searchParams, methods]);
+  }, [hasTrackingBoardFilterParams, searchParams, methods]);
 
   useEffect(() => {
     const callback = methods.subscribe({
@@ -76,16 +85,20 @@ export default function AppointmentsFilters(): ReactElement {
         values: true,
       },
       callback: ({ values }) => {
-        const queryParams = new URLSearchParams();
-        for (const key in values) {
-          const value = Array.isArray(values[key])
-            ? values[key].map((val) => val.id ?? val).join(',')
-            : values[key]?.id ?? values[key];
-          if (value) {
-            queryParams.set(key, value);
+        setSearchParams((prev) => {
+          // Rewrite filter params while preserving any other param (e.g. `tab`).
+          const next = new URLSearchParams(prev);
+          FILTER_PARAM_KEYS.forEach((key) => next.delete(key));
+          for (const key in values) {
+            const value = Array.isArray(values[key])
+              ? values[key].map((val) => val.id ?? val).join(',')
+              : values[key]?.id ?? values[key];
+            if (value) {
+              next.set(key, value);
+            }
           }
-        }
-        setSearchParams(queryParams);
+          return next;
+        });
         if (values) {
           localStorage.setItem(LOCAL_STORAGE_FILTERS_KEY, JSON.stringify(values));
         } else {
@@ -97,17 +110,41 @@ export default function AppointmentsFilters(): ReactElement {
   }, [methods, setSearchParams]);
 
   useEffect(() => {
+    // Restore persisted filters when the URL carries none (e.g. only `?tab=` after an approval).
+    if (hasTrackingBoardFilterParams) {
+      return;
+    }
+
+    // Defer seeding until AppointmentTabs has written `?tab=`. AppointmentsFilters is only
+    // mounted on the tracking board page alongside AppointmentTabs, which writes the tab on
+    // mount — this guard keeps the two siblings' URL writes deterministic.
+    if (!searchParams.has('tab')) {
+      return;
+    }
+
+    const defaultValues = {
+      visitType: Object.keys(visitTypeToLabel),
+      date: DateTime.now().toISODate(),
+    };
+
     const persistedValues = localStorage.getItem(LOCAL_STORAGE_FILTERS_KEY);
-    if (searchParams.size === 0 && persistedValues) {
-      methods.reset(JSON.parse(persistedValues));
+
+    if (!persistedValues) {
+      methods.reset(defaultValues);
+      return;
     }
-    if (searchParams.size === 0 && !persistedValues) {
-      methods.reset({
-        visitType: Object.keys(visitTypeToLabel),
-        date: DateTime.now().toISODate(),
-      });
+
+    try {
+      const parsed = JSON.parse(persistedValues);
+      // `date` is stripped from storage on logout, so it falls back to today after re-login
+      // while still being preserved across in-app navigation.
+      methods.reset({ ...parsed, date: parsed.date || DateTime.now().toISODate() });
+    } catch {
+      // Corrupt/legacy localStorage: drop it and fall back to defaults instead of crashing.
+      localStorage.removeItem(LOCAL_STORAGE_FILTERS_KEY);
+      methods.reset(defaultValues);
     }
-  }, [methods, searchParams, visitTypeToLabel]);
+  }, [hasTrackingBoardFilterParams, methods, searchParams, visitTypeToLabel]);
 
   return (
     <FormProvider {...methods}>
@@ -151,7 +188,14 @@ export default function AppointmentsFilters(): ReactElement {
             <DateInput name="date" label="Select Date" size="medium" showTodayButton />
           </Box>
           <Box style={{ flex: 1 }}>
-            <EmployeeSelectInput name="provider" label="Providers" filter={PROVIDERS_FILTER} size="medium" multiple />
+            <EmployeeSelectInput
+              name="provider"
+              label="Providers"
+              filter={PROVIDERS_FILTER}
+              includeScheduleOwners
+              size="medium"
+              multiple
+            />
           </Box>
           <Link to="/visits/add">
             <Button

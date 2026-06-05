@@ -1,5 +1,5 @@
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
-import { BRANDING_CONFIG, PatientEducationSection } from 'utils';
+import { BRANDING_CONFIG, fitWrappedTextToBanner, PatientEducationSection } from 'utils';
 import { rgbNormalized, splitLongStringToPageSize } from './pdf-utils';
 
 export type { PatientEducationSection };
@@ -44,6 +44,7 @@ export async function createPatientEducationPdf(sections: PatientEducationSectio
       body: 10.5,
       sectionHeader: 13,
       title: 24,
+      titleMin: 18,
       footer: 8,
     },
     lineHeightRatio: {
@@ -52,8 +53,10 @@ export async function createPatientEducationPdf(sections: PatientEducationSectio
       title: 1.3,
     },
     titleBanner: {
-      height: 60,
+      height: 80,
       horizontalPadding: 20,
+      verticalPadding: 10,
+      maxLines: 3,
       accentRuleThickness: 2,
       accentRuleGap: 8,
       accentRuleToBodyGap: 15,
@@ -163,28 +166,30 @@ export async function createPatientEducationPdf(sections: PatientEducationSectio
       height: bannerHeight,
       color: styles.colors.brandBlue,
     });
-    const titleLines = splitLongStringToPageSize(
-      section.patientTitle,
-      helveticaBold,
-      styles.fontSize.title,
-      maxContentWidth - styles.titleBanner.horizontalPadding
-    );
-    const titleLineHeight = styles.fontSize.title * styles.lineHeightRatio.title;
-    const titleAscender = helveticaBold.heightAtSize(styles.fontSize.title, { descender: false });
-    const titleBlockHeight = titleAscender + (titleLines.length - 1) * titleLineHeight;
+    const fittedTitle = fitWrappedTextToBanner({
+      text: section.patientTitle,
+      font: helveticaBold,
+      maxWidth: maxContentWidth - styles.titleBanner.horizontalPadding,
+      initialFontSize: styles.fontSize.title,
+      minFontSize: styles.fontSize.titleMin,
+      lineHeightRatio: styles.lineHeightRatio.title,
+      bannerHeight,
+      verticalPadding: styles.titleBanner.verticalPadding,
+      maxLines: styles.titleBanner.maxLines,
+    });
     const bannerCenterY = styles.page.height - bannerHeight / 2;
-    let titleY = bannerCenterY + titleBlockHeight / 2 - titleAscender;
-    for (const line of titleLines) {
-      const titleWidth = helveticaBold.widthOfTextAtSize(line, styles.fontSize.title);
+    let titleY = bannerCenterY + fittedTitle.blockHeight / 2 - fittedTitle.ascender;
+    for (const line of fittedTitle.lines) {
+      const titleWidth = helveticaBold.widthOfTextAtSize(line, fittedTitle.fontSize);
       const titleX = (styles.page.width - titleWidth) / 2;
       page.drawText(line, {
         x: titleX,
         y: titleY,
-        size: styles.fontSize.title,
+        size: fittedTitle.fontSize,
         font: helveticaBold,
         color: rgb(1, 1, 1),
       });
-      titleY -= styles.fontSize.title * styles.lineHeightRatio.title;
+      titleY -= fittedTitle.lineHeight;
     }
     y = styles.page.height - bannerHeight - styles.titleBanner.accentRuleGap;
 

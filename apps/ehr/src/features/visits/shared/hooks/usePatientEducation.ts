@@ -2,7 +2,7 @@ import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { deletePatientDocument } from 'src/api/api';
 import { useApiClients } from 'src/hooks/useAppClients';
-import { ApprovedPatientEducationItem, CommunicationDTO } from 'utils';
+import { ApprovedPatientEducationItem, CommunicationDTO, fitWrappedTextToBanner } from 'utils';
 import { useAppointmentData, useChartData, useSaveChartData } from '../stores/appointment/appointment.store';
 import { useOystehrAPIClient } from './useOystehrAPIClient';
 
@@ -23,6 +23,17 @@ export function getEducationPdfUrl(docRefId: string): string | undefined {
 
 export function clearEducationPdfUrl(docRefId: string): void {
   educationPdfUrls.delete(docRefId);
+}
+
+function uint8ArrayToBase64(bytes: Uint8Array): string {
+  const chunkSize = 0x8000;
+  let binary = '';
+
+  for (let offset = 0; offset < bytes.length; offset += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(offset, offset + chunkSize));
+  }
+
+  return btoa(binary);
 }
 
 export interface EducationSection {
@@ -138,50 +149,62 @@ export function usePatientEducation(): UsePatientEducationResult {
         return;
       }
 
-      const finalDoc = await PDFDocument.create();
       const sectionsByCode = new Map(sections.map((section) => [section.icdCode, section]));
+      const hasApprovedContent = selection.some((dx) => approvedByCode.has(dx.code));
 
-      const appendPdfPages = async (pdfBytes: Uint8Array | ArrayBuffer): Promise<void> => {
-        const sourceDoc = await PDFDocument.load(pdfBytes);
-        const copiedPages = await finalDoc.copyPages(sourceDoc, sourceDoc.getPageIndices());
-        copiedPages.forEach((page) => finalDoc.addPage(page));
-      };
+      let mergedPdfBytes: Uint8Array | undefined;
 
-      for (const dx of selection) {
-        const approved = approvedByCode.get(dx.code);
-        if (approved) {
-          if (!approved.pdfPresignedUrl) {
-            throw new Error(`Approved PDF for ${dx.code} is missing a presigned URL.`);
+      // Only merge client-side when at least one approved PDF is in play — otherwise the server
+      // re-renders from `sections` and the client-side merge would be discarded work.
+      if (hasApprovedContent) {
+        const finalDoc = await PDFDocument.create();
+        const appendedApprovedIds = new Set<string>();
+
+        const appendPdfPages = async (pdfBytes: Uint8Array | ArrayBuffer): Promise<void> => {
+          const sourceDoc = await PDFDocument.load(pdfBytes);
+          const copiedPages = await finalDoc.copyPages(sourceDoc, sourceDoc.getPageIndices());
+          copiedPages.forEach((page) => finalDoc.addPage(page));
+        };
+
+        for (const dx of selection) {
+          const approved = approvedByCode.get(dx.code);
+          if (approved) {
+            // One approved item can cover multiple ICD codes; append each item only once.
+            if (appendedApprovedIds.has(approved.documentReferenceId)) continue;
+            appendedApprovedIds.add(approved.documentReferenceId);
+
+            if (!approved.pdfPresignedUrl) {
+              throw new Error(`Approved PDF for ${dx.code} is missing a presigned URL.`);
+            }
+
+            const response = await fetch(approved.pdfPresignedUrl);
+            if (!response.ok) {
+              throw new Error(`Failed to fetch approved PDF for ${dx.code}: ${response.status}`);
+            }
+
+            await appendPdfPages(await response.arrayBuffer());
+            continue;
           }
 
-          const response = await fetch(approved.pdfPresignedUrl);
-          if (!response.ok) {
-            throw new Error(`Failed to fetch approved PDF for ${dx.code}: ${response.status}`);
+          const generatedSection = sectionsByCode.get(dx.code);
+          if (!generatedSection) {
+            throw new Error(`Generated content for ${dx.code} is missing.`);
           }
 
-          await appendPdfPages(await response.arrayBuffer());
-          continue;
+          const generatedBytes = await generateCombinedPdf([generatedSection]);
+          await appendPdfPages(generatedBytes);
         }
 
-        const generatedSection = sectionsByCode.get(dx.code);
-        if (!generatedSection) {
-          throw new Error(`Generated content for ${dx.code} is missing.`);
-        }
-
-        const generatedBytes = await generateCombinedPdf([generatedSection]);
-        await appendPdfPages(generatedBytes);
+        mergedPdfBytes = await finalDoc.save();
       }
 
-      // The merged PDF (finalDoc) is built so each approved/generated section is appended in
-      // selection order. Server-side rendering takes over from here: savePatientEducationPdf
-      // re-renders from `sections`. The client-side merge is retained because the same helpers
-      // are used elsewhere (e.g. ApprovedPatientEducationDialog preview).
-      await finalDoc.save();
-
       const titleParts: string[] = [];
+      const titledApprovedIds = new Set<string>();
       for (const dx of selection) {
         const approved = approvedByCode.get(dx.code);
         if (approved) {
+          if (titledApprovedIds.has(approved.documentReferenceId)) continue;
+          titledApprovedIds.add(approved.documentReferenceId);
           titleParts.push(approved.title.replace(/^Patient Education:\s*/, '') || dx.display);
         } else {
           const section = sections.find((s) => s.icdCode === dx.code);
@@ -190,12 +213,21 @@ export function usePatientEducation(): UsePatientEducationResult {
       }
       const title = 'Patient Education: ' + titleParts.join(', ');
 
-      const { documentReferenceId, presignedDownloadUrl } = await apiClient.savePatientEducationPdf({
-        encounterId: encounter.id!,
-        patientId: patient!.id!,
-        sections,
-        title,
-      });
+      const { documentReferenceId, presignedDownloadUrl } = await apiClient.savePatientEducationPdf(
+        mergedPdfBytes
+          ? {
+              encounterId: encounter.id!,
+              patientId: patient!.id!,
+              pdfBase64: uint8ArrayToBase64(mergedPdfBytes),
+              title,
+            }
+          : {
+              encounterId: encounter.id!,
+              patientId: patient!.id!,
+              sections,
+              title,
+            }
+      );
 
       educationPdfUrls.set(documentReferenceId, presignedDownloadUrl);
 
@@ -419,14 +451,15 @@ const TYPOGRAPHY = {
   LINE_HEIGHT: 10.5 * 1.55, // BODY_FONT_SIZE * 1.55
   SECTION_HEADER_LINE_HEIGHT: 13 * 2, // SECTION_HEADER_FONT_SIZE * 2
   TITLE_LINE_HEIGHT_RATIO: 1.3,
-  // Visual-baseline tweak so the centered banner title sits optically centered, not box-centered.
-  TITLE_BASELINE_OFFSET_RATIO: 0.3,
+  TITLE_MIN_FONT_SIZE: 18,
 } as const;
 
 // === Header banner ===
 const BANNER = {
-  HEIGHT: 60,
+  HEIGHT: 80,
   TITLE_HORIZONTAL_PADDING: 20,
+  TITLE_VERTICAL_PADDING: 10,
+  TITLE_MAX_LINES: 3,
   GAP_TO_ACCENT: 8,
   ACCENT_LINE_THICKNESS: 2,
   GAP_AFTER_ACCENT: 15,
@@ -548,27 +581,30 @@ export async function generateCombinedPdf(
       height: BANNER.HEIGHT,
       color: BRAND_BLUE,
     });
-    // Title on banner — centered horizontally and vertically
-    const titleLines = wrapText(
-      section.patientTitle,
-      TYPOGRAPHY.TITLE_FONT_SIZE,
-      PAGE.MAX_TEXT_WIDTH - BANNER.TITLE_HORIZONTAL_PADDING
-    );
-    const titleBlockHeight = titleLines.length * TYPOGRAPHY.TITLE_FONT_SIZE * TYPOGRAPHY.TITLE_LINE_HEIGHT_RATIO;
+    const fittedTitle = fitWrappedTextToBanner({
+      text: section.patientTitle,
+      font: helveticaBold,
+      maxWidth: PAGE.MAX_TEXT_WIDTH - BANNER.TITLE_HORIZONTAL_PADDING,
+      initialFontSize: TYPOGRAPHY.TITLE_FONT_SIZE,
+      minFontSize: TYPOGRAPHY.TITLE_MIN_FONT_SIZE,
+      lineHeightRatio: TYPOGRAPHY.TITLE_LINE_HEIGHT_RATIO,
+      bannerHeight: BANNER.HEIGHT,
+      verticalPadding: BANNER.TITLE_VERTICAL_PADDING,
+      maxLines: BANNER.TITLE_MAX_LINES,
+    });
     const bannerCenterY = PAGE.HEIGHT - BANNER.HEIGHT / 2;
-    let titleY =
-      bannerCenterY + titleBlockHeight / 2 - TYPOGRAPHY.TITLE_FONT_SIZE * TYPOGRAPHY.TITLE_BASELINE_OFFSET_RATIO;
-    for (const line of titleLines) {
-      const titleWidth = helveticaBold.widthOfTextAtSize(line, TYPOGRAPHY.TITLE_FONT_SIZE);
+    let titleY = bannerCenterY + fittedTitle.blockHeight / 2 - fittedTitle.ascender;
+    for (const line of fittedTitle.lines) {
+      const titleWidth = helveticaBold.widthOfTextAtSize(line, fittedTitle.fontSize);
       const titleX = (PAGE.WIDTH - titleWidth) / 2;
       page.drawText(line, {
         x: titleX,
         y: titleY,
-        size: TYPOGRAPHY.TITLE_FONT_SIZE,
+        size: fittedTitle.fontSize,
         font: helveticaBold,
         color: WHITE,
       });
-      titleY -= TYPOGRAPHY.TITLE_FONT_SIZE * TYPOGRAPHY.TITLE_LINE_HEIGHT_RATIO;
+      titleY -= fittedTitle.lineHeight;
     }
     y = PAGE.HEIGHT - BANNER.HEIGHT - BANNER.GAP_TO_ACCENT;
 

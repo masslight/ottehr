@@ -5,7 +5,9 @@ import { DateTime } from 'luxon';
 import { CODE_SYSTEM_ACT_CODE_V3 } from '../helpers';
 import { FhirEncounterStatus, PatientFollowupDetails, ProviderDetails, VisitStatusWithoutUnknown } from '../types';
 import {
+  CURRENT_EXAM_MIGRATION_VERSION,
   ENCOUNTER_PAYMENT_VARIANT_EXTENSION_URL,
+  EXAM_MIGRATION_VERSION_URL,
   FHIR_BASE_URL,
   FHIR_ENCOUNTER_ERX_PATIENT_SYNC_TAG,
   FHIR_EXTENSION,
@@ -354,6 +356,23 @@ export const getEncounterLocationId = (encounter: Encounter | undefined): string
   const locationRef = encounter?.location?.[0]?.location?.reference;
   return locationRef?.split('/')[1];
 };
+
+/**
+ * Gets the current exam migration version from an encounter's extensions.
+ * Returns 0 if no version is stamped (pre-migration encounter).
+ */
+export function getExamMigrationVersion(encounter: Encounter): number {
+  const ext = encounter.extension?.find((e) => e.url === EXAM_MIGRATION_VERSION_URL);
+  return ext?.valueInteger ?? 0;
+}
+
+/**
+ * Returns true if the encounter's exam migration version is less than the current version.
+ */
+export function encounterHasLegacyExamVersion(encounter: Encounter): boolean {
+  const examVersion = getExamMigrationVersion(encounter);
+  return examVersion < CURRENT_EXAM_MIGRATION_VERSION;
+}
 
 const MAX_ERX_SYNC_TAG_RETRIES = 5;
 

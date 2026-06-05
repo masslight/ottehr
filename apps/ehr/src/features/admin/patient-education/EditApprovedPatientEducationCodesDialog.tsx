@@ -4,7 +4,7 @@ import { enqueueSnackbar } from 'notistack';
 import { FC, useState } from 'react';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
-import { ApprovedPatientEducationItem } from 'utils';
+import { ApprovedPatientEducationItem, getApiError } from 'utils';
 import { AlternateDiagnosesInput, PrimaryDiagnosisInput } from './IcdDiagnosisInputs';
 import { APPROVED_PATIENT_EDUCATION_QUERY_KEY } from './PatientEducationAdminPage';
 import { Icd10Option } from './useIcd10SearchInput';
@@ -50,7 +50,7 @@ export const EditApprovedPatientEducationCodesDialog: FC<DialogProps> = ({ open,
       onClose();
     },
     onError: (err) => {
-      setErrorMsg(err instanceof Error ? err.message : String(err));
+      setErrorMsg(getApiError({ error: err, defaultError: 'Failed to update approved patient education codes.' }));
     },
   });
 
