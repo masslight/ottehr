@@ -54,6 +54,7 @@ import {
   NON_LOS_STATUSES,
   OrdersForTrackingBoardRow,
   PRACTITIONER_CODINGS,
+  ProviderDetails,
   ROOM_EXTENSION_URL,
   VisitStatusHistoryEntry,
   VisitStatusWithoutUnknown,
@@ -74,6 +75,7 @@ import { useApiClients } from '../hooks/useAppClients';
 import useEvolveUser from '../hooks/useEvolveUser';
 import { useSupportPhonesMap } from '../hooks/useLocationSupportPhones';
 import AppointmentNote from './AppointmentNote';
+import AppointmentTablePractitionerSelect from './AppointmentTablePractitionerSelect';
 import AppointmentTableRowMobile from './AppointmentTableRowMobile';
 import { ApptTab } from './AppointmentTabs';
 import GoToButton from './GoToButton';
@@ -93,6 +95,12 @@ interface AppointmentTableRowProps {
   orders: OrdersForTrackingBoardRow;
   vitals?: GetVitalsResponseData;
   table?: 'waiting-room' | 'in-exam';
+  /** Intake-staff options for the editable "Intake & Provider" column (in-office tab). */
+  intakeOptions?: ProviderDetails[];
+  /** Provider options for the editable "Intake & Provider" column (in-office tab). */
+  providerOptions?: ProviderDetails[];
+  /** Whether the intake/provider option lists are still loading. */
+  employeesLoading?: boolean;
 }
 
 const linkStyle = {
@@ -184,6 +192,9 @@ export default function AppointmentTableRow({
   orders,
   vitals,
   table,
+  intakeOptions,
+  providerOptions,
+  employeesLoading,
 }: AppointmentTableRowProps): ReactElement | null {
   const { oystehr, oystehrZambda } = useApiClients();
   const apiClient = useOystehrAPIClient();
@@ -566,6 +577,14 @@ export default function AppointmentTableRow({
   const primaryAction = getTrackingBoardPrimaryAction(appointment.status, { isVirtualVisit: isVirtual(appointment) });
   const assignedIntakePerformerId = getAdmitterPractitionerId(encounter);
   const assignedProviderId = getAttendingPractitionerId(encounter);
+  // Read-only display (Discharged/Cancelled tabs) uses the names resolved on the appointment's
+  // participants so we don't need to fetch the employee list on those tabs.
+  const assignedIntakeName = appointment.participants?.admitter
+    ? `${appointment.participants.admitter.firstName} ${appointment.participants.admitter.lastName}`.trim()
+    : '';
+  const assignedProviderName = appointment.participants?.attender
+    ? `${appointment.participants.attender.firstName} ${appointment.participants.attender.lastName}`.trim()
+    : '';
 
   const handleStatusAction = async (
     updatedStatus: VisitStatusWithoutUnknown,
@@ -982,7 +1001,37 @@ export default function AppointmentTableRow({
         </TableCell>
       )}
       <TableCell sx={{ verticalAlign: 'center' }}>
-        <Typography sx={{ fontSize: 14, display: 'inline' }}>{appointment.provider}</Typography>
+        {tab === ApptTab.prebooked ? (
+          <Typography sx={{ fontSize: 14, display: 'inline' }}>{appointment.provider}</Typography>
+        ) : tab === ApptTab['in-office'] ? (
+          <Stack spacing={0.5} sx={{ minWidth: 150 }}>
+            <AppointmentTablePractitionerSelect
+              label="In:"
+              options={intakeOptions ?? []}
+              selectedPractitionerId={assignedIntakePerformerId}
+              encounter={encounter}
+              practitionerType={PRACTITIONER_CODINGS.Admitter}
+              isLoadingOptions={!!employeesLoading}
+              onAssigned={updateAppointments}
+              dataTestId={dataTestIds.dashboard.tableRowIntakeInput(appointment.id)}
+            />
+            <AppointmentTablePractitionerSelect
+              label="Pr:"
+              options={providerOptions ?? []}
+              selectedPractitionerId={assignedProviderId}
+              encounter={encounter}
+              practitionerType={PRACTITIONER_CODINGS.Attender}
+              isLoadingOptions={!!employeesLoading}
+              onAssigned={updateAppointments}
+              dataTestId={dataTestIds.dashboard.tableRowProviderInput(appointment.id)}
+            />
+          </Stack>
+        ) : (
+          <Stack spacing={0.5} sx={{ minWidth: 150 }}>
+            <Typography sx={{ fontSize: 14 }}>In: {assignedIntakeName || '—'}</Typography>
+            <Typography sx={{ fontSize: 14 }}>Pr: {assignedProviderName || '—'}</Typography>
+          </Stack>
+        )}
       </TableCell>
       {((tab === ApptTab['in-office'] && table === 'in-exam') || tab === ApptTab.completed) && (
         <TableCell sx={{ verticalAlign: 'center' }}>
