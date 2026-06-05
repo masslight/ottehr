@@ -8,6 +8,7 @@ import Oystehr, {
 import { APIGatewayProxyResult } from 'aws-lambda';
 import {
   Account,
+  AccountCoverage,
   Appointment,
   Claim,
   ClaimDiagnosis,
@@ -199,7 +200,12 @@ export async function performEffect(
   const seenBillingAccountIds = new Set<string>();
   const mainPatientAccounts = clinicalResources.accounts.map((a) => {
     const existingBillingAccount = billingResources.accounts.find(
-      (bac) => bac.identifier?.some((id) => id.system === SOURCE_IDENTIFIER_SYSTEM && id.value === a.id)
+      (bac) =>
+        bac.extension?.some(
+          (ext) =>
+            ext.url === SOURCE_IDENTIFIER_SYSTEM &&
+            ext.valueReference?.reference === uuidOrUrnReference('Account', a.id!).reference
+        )
     );
     if (!existingBillingAccount) {
       // No existing billing copy, create new everything
@@ -218,13 +224,14 @@ export async function performEffect(
         .map((rp) => rp.resource);
       requests.push(...covRequests);
       order.push(...covOrder);
-      const accountCopy = copyAccount(a, mainPatient.id!);
+      const accountCopy = copyAccount(a, mainPatient.id!, mainPatientCoverages);
       requests.push({ method: 'POST', url: '/Account', resource: accountCopy });
       order.push('account');
       return accountCopy;
     } else {
       // Update billing copy if changed
-      const accountCopy = copyAccount(a, mainPatient.id!);
+      let accountCopy = copyAccount(a, mainPatient.id!, billingResources.coverages);
+      accountCopy.id = existingBillingAccount.id;
       try {
         deepStrictEqual(existingBillingAccount, accountCopy);
         mainPatientCoverages = billingResources.coverages;
@@ -250,6 +257,7 @@ export async function performEffect(
           .map((rp) => rp.resource);
         requests.push(...covRequests);
         order.push(...covOrder);
+        accountCopy = copyAccount(a, mainPatient.id!, mainPatientCoverages);
         requests.push({ method: 'PUT', url: `/Account/${existingBillingAccount.id}`, resource: accountCopy });
         order.push('account');
         return accountCopy;
@@ -274,7 +282,9 @@ export async function performEffect(
         claimPatient.id!,
         clinicalResources.payors,
         c.subscriber?.reference && !c.subscriber.reference.startsWith('#')
-          ? mainPatientSubscribers.find((s) => s.id === c.subscriber?.reference)
+          ? mainPatientSubscribers.find((s) => {
+              return s.id === c.subscriber?.reference?.replace('RelatedPerson/', '');
+            })
           : undefined,
         true
       );
@@ -357,9 +367,21 @@ export async function performEffect(
 
   const copies: Partial<ClinicalResources> = {};
   for (let i = 0; i < order.length; i++) {
-    const expected = requests[i].url.replace('/', '');
+    // const expected = requests[i].url.replace('/', '');
+    // Remove leading slash and anything after second slash
+    const secondSlash = requests[i].url.indexOf('/', 1);
+    const expected = requests[i].url.slice(1, secondSlash > 0 ? secondSlash : undefined);
     if (entries[i].resourceType !== expected) {
-      console.log('Tx results out of order');
+      console.log(requests[i].url, secondSlash, expected);
+      console.log(
+        'Tx results out of order',
+        entries.length,
+        txResult.entry?.length,
+        order.length,
+        requests.length,
+        JSON.stringify(order),
+        expected
+      );
       throw InternalError;
     }
     copies[order[i] as keyof ClinicalResources] = entries[i] as any;
@@ -475,18 +497,27 @@ export function getClaimCoveragesForEncounter(
   }
 }
 
-export function copyAccount(account: Account, patientId: string): Account {
+export function copyAccount(account: Account, patientId: string, billingCoverages?: Coverage[]): Account {
   const copy = prepareCopy(account, account.id!);
   copy.subject = [uuidOrUrnReference('Patient', patientId)];
-  copy.coverage = account.coverage?.map((acov) => ({
-    coverage: {
-      // reference: `urn:uuid:billing-coverage-${coverage.id?.replace('urn:uuid:', '')}`,
-      reference: `urn:uuid:billing-coverage-${acov.coverage.reference
-        ?.replace('Coverage/', '')
-        .replace('urn:uuid:', '')}`,
-    },
-    priority: acov.priority,
-  }));
+  if (billingCoverages?.length) {
+    copy.coverage = account.coverage
+      ?.map((acov): AccountCoverage | undefined => {
+        const billingCoverage = billingCoverages?.find(
+          (bcov) =>
+            bcov.extension?.find((ccovid) => ccovid.url === SOURCE_IDENTIFIER_SYSTEM)?.valueReference?.reference ===
+            acov.coverage.reference
+        );
+        if (billingCoverage) {
+          return {
+            coverage: uuidOrUrnReference('Coverage', billingCoverage.id!),
+            priority: acov.priority,
+          };
+        }
+        return;
+      })
+      .filter((cov): cov is AccountCoverage => !!cov);
+  }
   return copy;
 }
 
@@ -841,7 +872,7 @@ function buildClaim(resources: ClaimResources): Claim {
     provider: resources.billingProvider?.id
       ? { reference: `Organization/${resources.billingProvider.id}` }
       : { display: 'Unknown' },
-    facility: resources.serviceFacility ? { reference: `Location:${resources.serviceFacility.id}` } : undefined,
+    facility: resources.serviceFacility ? { reference: `Location/${resources.serviceFacility.id}` } : undefined,
     insurer: resources.coverageRefs[0].payorRef ? resources.coverageRefs[0].payorRef : undefined,
     insurance: resources.coverageRefs.map((cov, i) => ({
       sequence: i + 1,

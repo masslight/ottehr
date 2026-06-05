@@ -17,7 +17,11 @@ import {
   ACCOUNT_TYPE_CODE_SYSTEM,
   APIError,
   CODE_SYSTEM_CLAIM_TYPE,
+  CODE_SYSTEM_CMS_PLACE_OF_SERVICE,
+  CODE_SYSTEM_CPT,
+  CODE_SYSTEM_CPT_MODIFIER,
   CODE_SYSTEM_PROCESS_PRIORITY,
+  EXTENSION_URL_CPT_MODIFIER,
   FHIR_IDENTIFIER_NPI,
   FHIR_RESOURCE_NOT_FOUND,
   INVALID_INPUT_ERROR,
@@ -125,6 +129,7 @@ const clinicalResources: {
       ],
     },
     coverage: [{ coverage: { reference: 'Coverage/coverage-123' }, priority: 1 }],
+    subject: [{ reference: 'Patient/patient-123' }],
   },
   coverage: {
     resourceType: 'Coverage',
@@ -157,7 +162,20 @@ const clinicalResources: {
     subject: {
       reference: 'Patient/patient-123',
     },
-    code: { coding: [{ system: 'some-url-for-coding', code: 'proccode' }] },
+    code: { coding: [{ system: CODE_SYSTEM_CPT, code: '12345' }] },
+    extension: [
+      {
+        url: EXTENSION_URL_CPT_MODIFIER,
+        valueCodeableConcept: {
+          coding: [
+            {
+              system: CODE_SYSTEM_CPT_MODIFIER,
+              code: '25',
+            },
+          ],
+        },
+      },
+    ],
   },
   billingProvider: {
     resourceType: 'Organization',
@@ -182,6 +200,9 @@ const billingResources: {
   patient: {
     resourceType: 'Patient',
     id: 'billing-patient-123',
+    extension: [
+      { url: 'https://ottehr.com/billing/source-resource', valueReference: { reference: 'Patient/patient-123' } },
+    ],
   },
   account: {
     resourceType: 'Account',
@@ -196,6 +217,10 @@ const billingResources: {
       ],
     },
     coverage: [{ coverage: { reference: 'Coverage/billing-coverage-123' }, priority: 1 }],
+    subject: [{ reference: 'Patient/billing-patient-123' }],
+    extension: [
+      { url: 'https://ottehr.com/billing/source-resource', valueReference: { reference: 'Account/account-123' } },
+    ],
   },
   coverage: {
     resourceType: 'Coverage',
@@ -204,6 +229,9 @@ const billingResources: {
     status: 'active',
     beneficiary: { reference: 'Patient/billing-patient-123' },
     subscriber: { reference: 'RelatedPerson/billing-related-person-123' },
+    extension: [
+      { url: 'https://ottehr.com/billing/source-resource', valueReference: { reference: 'Coverage/coverage-123' } },
+    ],
   },
   relatedPerson: {
     resourceType: 'RelatedPerson',
@@ -213,6 +241,12 @@ const billingResources: {
   location: {
     resourceType: 'Location',
     id: 'billing-location-123',
+    extension: [
+      {
+        url: CODE_SYSTEM_CMS_PLACE_OF_SERVICE,
+        valueString: '20',
+      },
+    ],
   },
   practitioner: {
     resourceType: 'Practitioner',
@@ -938,7 +972,6 @@ describe('create-billing-claim-from-encounter', () => {
       const billingOystehr = {
         rcm: { constructPayerUrl: vi.fn().mockReturnValue('https://rcm-api.zapehr.com/v1/payer/payer-123') },
       } as unknown as Oystehr;
-      const accountCopy = copyAccount(clinicalResources.account, 'urn:uuid:patient');
       const [ops] = copyCoverageAndSubscriberForAccount(
         billingOystehr,
         [clinicalResources.coverage],
@@ -946,6 +979,10 @@ describe('create-billing-claim-from-encounter', () => {
         'urn:uuid:patient',
         [oystehrResources.payor]
       );
+      const billingCoverages = ops
+        .filter((o): o is BatchInputPostRequest<Coverage> => o.method === 'POST' && o.url === '/Coverage')
+        .map((o) => o.resource);
+      const accountCopy = copyAccount(clinicalResources.account, 'urn:uuid:patient', billingCoverages);
       const [claimOps] = copyCoverageAndSubscriber(
         billingOystehr,
         ops.find((o): o is BatchInputPostRequest<Coverage> => o.url === '/Coverage')!.resource,
@@ -1048,12 +1085,144 @@ describe('create-billing-claim-from-encounter', () => {
                   careTeamSequence: undefined,
                   diagnosisSequence: [1],
                   productOrService: clinicalResources.procedure.code,
-                  modifier: undefined,
+                  modifier: [
+                    {
+                      coding: [
+                        {
+                          code: '25',
+                          system: 'https://terminology.fhir.oystehr.com/CodeSystem/rcm-claim-procedure-modifier',
+                        },
+                      ],
+                    },
+                  ],
                   servicedPeriod: {
                     start: '2026-01-01',
                     end: undefined,
                   },
                   locationCodeableConcept: undefined,
+                  net: undefined,
+                  quantity: { value: 1, unit: 'UN' },
+                },
+              ],
+            },
+          },
+        ]),
+      });
+    });
+    it('creates appropriate billing resources and claim when all exist', async () => {
+      const txFn = vi.fn().mockResolvedValueOnce({
+        entry: [
+          { resource: { resourceType: 'Patient', id: 'claim-patient' } },
+          { resource: { resourceType: 'RelatedPerson', id: 'claim-subscriber' } },
+          { resource: { resourceType: 'Coverage', id: 'claim-coverage' } },
+          { resource: { resourceType: 'Person', id: 'billing-person' } },
+          { resource: { resourceType: 'Claim', id: 'claim' } },
+        ],
+      });
+      const billingOystehr = {
+        fhir: { transaction: txFn },
+        rcm: { constructPayerUrl: vi.fn().mockReturnValue('https://rcm-api.zapehr.com/v1/payer/payer-123') },
+      } as unknown as Oystehr;
+      const cvo: ComplexValidationOutput = {
+        clinicalResources: {
+          accounts: [clinicalResources.account],
+          appointment: clinicalResources.appointment,
+          billingProvider: clinicalResources.billingProvider,
+          coverages: [clinicalResources.coverage],
+          diagnoses: [clinicalResources.condition],
+          encounter: clinicalResources.encounter,
+          location: clinicalResources.location,
+          patient: clinicalResources.patient,
+          payors: [oystehrResources.payor],
+          practitioners: [clinicalResources.practitioner],
+          procedures: [clinicalResources.procedure],
+        },
+        billingResources: {
+          accounts: [billingResources.account],
+          billingProvider: billingResources.billingProvider,
+          coverages: [billingResources.coverage],
+          mainPatient: billingResources.patient,
+          person: billingResources.person,
+          practitioners: [billingResources.practitioner],
+          renderingProvider: billingResources.practitioner,
+          serviceFacility: billingResources.location,
+          subscribers: [billingResources.relatedPerson],
+        },
+      };
+      const result = await performEffect(billingOystehr, cvo);
+      expect(result.claimId).toEqual('claim');
+      expect(txFn).toHaveBeenCalledWith({
+        requests: expect.arrayContaining([
+          {
+            method: 'POST',
+            url: '/Claim',
+            resource: {
+              resourceType: 'Claim',
+              status: 'draft',
+              meta: {
+                tag: [{ system: 'current-status', code: 'open' }],
+              },
+              type: { coding: [{ system: CODE_SYSTEM_CLAIM_TYPE, code: 'professional' }] },
+              use: 'claim',
+              created: expect.any(String),
+              patient: {
+                reference: 'urn:uuid:claim-patient',
+              },
+              provider: { reference: 'Organization/billing-organization-123' },
+              facility: {
+                reference: 'Location/billing-location-123',
+              },
+              insurer: { reference: 'https://rcm-api.zapehr.com/v1/payer/payer-123' },
+              insurance: [
+                {
+                  sequence: 1,
+                  focal: true,
+                  coverage: { reference: 'urn:uuid:claim-coverage-billing-coverage-123' },
+                },
+              ],
+              careTeam: [
+                {
+                  provider: { reference: 'Practitioner/billing-practitioner-123' },
+                  role: {
+                    coding: [
+                      { code: '82', system: 'https://terminology.zapehr.com/rcm/cms1500/referring-provider-type' },
+                    ],
+                  },
+                  sequence: 1,
+                },
+              ],
+              diagnosis: [{ sequence: 1, diagnosisCodeableConcept: clinicalResources.condition.code }],
+              priority: { coding: [{ system: CODE_SYSTEM_PROCESS_PRIORITY, code: 'normal' }] },
+              total: undefined,
+              item: [
+                {
+                  sequence: 1,
+                  careTeamSequence: [1],
+                  diagnosisSequence: [1],
+                  productOrService: clinicalResources.procedure.code,
+                  modifier: [
+                    {
+                      coding: [
+                        {
+                          code: '25',
+                          system: 'https://terminology.fhir.oystehr.com/CodeSystem/rcm-claim-procedure-modifier',
+                        },
+                      ],
+                    },
+                  ],
+                  servicedPeriod: {
+                    start: '2026-01-01',
+                    end: undefined,
+                  },
+                  locationCodeableConcept: {
+                    coding: [
+                      {
+                        code: '20',
+                        system:
+                          'http://www.cms.gov/Medicare/Coding/place-of-service-codes/Place_of_Service_Code_Set.html',
+                      },
+                    ],
+                  },
                   net: undefined,
                   quantity: { value: 1, unit: 'UN' },
                 },
