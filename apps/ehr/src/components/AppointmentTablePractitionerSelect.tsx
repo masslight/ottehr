@@ -1,7 +1,7 @@
 import { Autocomplete, Skeleton, Stack, TextField, Typography } from '@mui/material';
 import { Coding, Encounter } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
-import { ReactElement, useMemo } from 'react';
+import { ReactElement, useEffect, useMemo, useState } from 'react';
 import { ProviderDetails } from 'utils';
 import { usePractitionerActions } from '../features/visits/shared/hooks/usePractitioner';
 
@@ -45,16 +45,31 @@ export default function AppointmentTablePractitionerSelect({
     [options]
   );
 
+  // The board list (`selectedPractitionerId`) is refetched fire-and-forget after assignment, so it lags
+  // behind the mutation. Track the just-selected id optimistically and display it until the props catch up,
+  // otherwise the select would briefly snap back to the previous practitioner before the new one appears.
+  const [pendingPractitionerId, setPendingPractitionerId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (pendingPractitionerId && selectedPractitionerId === pendingPractitionerId) {
+      setPendingPractitionerId(null);
+    }
+  }, [selectedPractitionerId, pendingPractitionerId]);
+
+  const effectivePractitionerId = pendingPractitionerId ?? selectedPractitionerId;
+
   const selectedOption = useMemo(
-    () => sortedOptions.find((option) => option.practitionerId === selectedPractitionerId) ?? null,
-    [sortedOptions, selectedPractitionerId]
+    () => sortedOptions.find((option) => option.practitionerId === effectivePractitionerId) ?? null,
+    [sortedOptions, effectivePractitionerId]
   );
 
   const handleChange = async (practitionerId: string): Promise<void> => {
+    setPendingPractitionerId(practitionerId);
     try {
       await handleUpdatePractitioner(practitionerId);
       onAssigned();
     } catch (error: any) {
+      setPendingPractitionerId(null);
       console.error(error?.message ?? error);
       enqueueSnackbar('An error occurred while updating the assignment. Please try again.', {
         variant: 'error',
@@ -71,6 +86,8 @@ export default function AppointmentTablePractitionerSelect({
         <Autocomplete
           options={sortedOptions}
           getOptionLabel={(option) => option.name}
+          // Practitioners can share a display name, so key on the id to avoid duplicate React keys.
+          getOptionKey={(option) => option.practitionerId}
           isOptionEqualToValue={(option, value) => option.practitionerId === value.practitionerId}
           value={selectedOption}
           disabled={isEncounterUpdatePending}
