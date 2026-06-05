@@ -108,7 +108,7 @@ export const ERX: FC<{
   // Step 3: Sync patient
   const { isFetched: isPatientSynced, isLoading: isPatientSyncing } = useSyncERXPatient({
     patient: patient!,
-    encounterId: encounter.id!,
+    encounter,
     enabled: Boolean(practitionerEnrollmentStatus?.confirmed && hasVitals && encounter?.id),
     onError: (error) => {
       console.log(error);
