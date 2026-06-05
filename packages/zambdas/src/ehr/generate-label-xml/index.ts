@@ -36,6 +36,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       const { encounterId } = validatedRequestParams;
       return getVisitLabelConfig(oystehr, encounterId);
     } else {
+      // ATHENA TODO: the label config that comes back should have the proper id now, but need to make sure the right xml gets used
       const { serviceRequestId, userTimezone } = validatedRequestParams;
       return getExternalLabLabelConfig(oystehr, serviceRequestId, userTimezone);
     }

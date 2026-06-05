@@ -5,9 +5,9 @@ import { Operation } from 'fast-json-patch';
 import { DocumentReference, FhirResource, Provenance, ServiceRequest } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
+  externalLabOrderUsesFriendlyPatientId,
   getPatchBinary,
   getPatientFriendlyId,
-  labOrderUsesFriendlyPatientId,
   MANUAL_EXTERNAL_LAB_ORDER_CATEGORY_CODING,
   SubmitLabOrderOutput,
   userMe,
@@ -52,7 +52,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const failedBundledOrders: { [orderNumber: string]: string } = {};
   const firstItemInBundle = Object.values(bundledOrdersByOrderNumber)[0];
   const submitWithFriendlyId =
-    labOrderUsesFriendlyPatientId(firstItemInBundle.serviceRequest) &&
+    externalLabOrderUsesFriendlyPatientId(firstItemInBundle.serviceRequest) &&
     !!getPatientFriendlyId(firstItemInBundle.patient);
   if (!manualOrder) {
     console.log('calling oystehr submit lab');

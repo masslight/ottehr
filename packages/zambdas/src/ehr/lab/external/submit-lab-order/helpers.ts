@@ -20,13 +20,13 @@ import {
   CoverageAndOrg,
   CoverageOrgRank,
   EXTERNAL_LAB_ERROR,
+  externalLabOrderUsesFriendlyPatientId,
   getOrderNumber,
   getPresignedURL,
   getTestDetailsFromActivityDefinition,
   getTimezone,
   isPSCOrder,
   LAB_ACCOUNT_NUMBER_SYSTEM,
-  labOrderUsesFriendlyPatientId,
   LabPaymentMethod,
   ORDER_ITEM_UNKNOWN,
   paymentMethodFromCoverage,
@@ -139,8 +139,8 @@ export async function getBundledOrderResources(
   if (
     !results.every(
       (res) =>
-        labOrderUsesFriendlyPatientId(res.result.serviceRequest) ===
-        labOrderUsesFriendlyPatientId(results[0].result.serviceRequest)
+        externalLabOrderUsesFriendlyPatientId(res.result.serviceRequest) ===
+        externalLabOrderUsesFriendlyPatientId(results[0].result.serviceRequest)
     )
   ) {
     throw EXTERNAL_LAB_ERROR(

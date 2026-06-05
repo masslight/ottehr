@@ -11,9 +11,8 @@ import {
   formatPhoneNumberDisplay,
   formatZipcodeForDisplay,
   getFullestAvailableName,
-  getPatientFriendlyId,
+  getPatientIdForLabOrder,
   LAB_CLIENT_BILL_COVERAGE_TYPE_CODING,
-  labOrderUsesFriendlyPatientId,
   LabPaymentMethod,
   ORDER_ITEM_UNKNOWN,
   PaymentResources,
@@ -386,11 +385,13 @@ export function getOrderFormDataConfig(
 
   const brandingProjectName = BRANDING_CONFIG.projectName;
 
-  const patientFriendlyId = getPatientFriendlyId(resources.patient);
-  const shouldUseFriendlyPatientId = labOrderUsesFriendlyPatientId(resources.serviceRequest);
-  if (shouldUseFriendlyPatientId && !patientFriendlyId) {
+  let patientIdForOrder = patient.id!;
+  try {
+    patientIdForOrder = getPatientIdForLabOrder(resources.serviceRequest, patient);
+  } catch (e) {
     console.error(
-      `Unable to make order form for ServiceRequest/${resources.serviceRequest.id}. Order submitted with friendly patient id, but no friendly id found on patient`
+      `Unable to make order form for ServiceRequest/${resources.serviceRequest.id}. Order submitted with friendly patient id, but no friendly id found on patient`,
+      e
     );
     throw EXTERNAL_LAB_ERROR(
       'Unable to make order form. Order submitted with friendly patient id, but no friendly id found on patient'
@@ -418,7 +419,7 @@ export function getOrderFormDataConfig(
     patientDOB: patient.birthDate
       ? DateTime.fromFormat(patient.birthDate, 'yyyy-MM-dd').toFormat('MM/dd/yyyy')
       : ORDER_ITEM_UNKNOWN,
-    patientId: shouldUseFriendlyPatientId ? patientFriendlyId : patient.id || ORDER_ITEM_UNKNOWN,
+    patientId: patientIdForOrder,
     patientAddress: patient.address?.[0]
       ? formatZipcodeForDisplay(oystehr.fhir.formatAddress(patient.address[0]))
       : ORDER_ITEM_UNKNOWN,

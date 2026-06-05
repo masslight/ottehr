@@ -54,7 +54,8 @@ import {
   IN_HOUSE_TEST_CODE_SYSTEM,
   INCONCLUSIVE_RESULT_DR_TAG,
   InHouseLabResult,
-  isExternalLabServiceRequest as isLabServiceRequest,
+  isExternalLabServiceRequest,
+  isInHouseLabServiceRequest,
   isPSCOrder,
   LAB_DR_TYPE_TAG,
   LAB_OBS_VALUE_WITH_PRECISION_EXT,
@@ -108,6 +109,7 @@ type DrLabResultResources = {
   diagnosticReport: DiagnosticReport;
   observations: Observation[];
   schedule: Schedule | undefined;
+  serviceRequest?: ServiceRequest;
 };
 
 const makeSearchParamsBasedOnDiagnosticReport = (diagnosticReportID: string): SearchParam[] => {
@@ -140,6 +142,10 @@ const makeSearchParamsBasedOnDiagnosticReport = (diagnosticReportID: string): Se
       name: '_include:iterate',
       value: 'Slot:schedule',
     },
+    {
+      name: '_revinclude',
+      value: 'ServiceRequest:based-on', // any unsolicited DR that was matched to a patient might also have been matched to a specific service request
+    },
   ];
 };
 
@@ -150,7 +156,15 @@ export async function getExternalLabOrderResourcesViaDiagnosticReport(
   const searchParams = makeSearchParamsBasedOnDiagnosticReport(diagnosticReportID);
   const resourceSearch = (
     await oystehr.fhir.search<
-      Patient | Organization | DiagnosticReport | Observation | Encounter | Appointment | Slot | Schedule
+      | Patient
+      | Organization
+      | DiagnosticReport
+      | Observation
+      | Encounter
+      | Appointment
+      | Slot
+      | Schedule
+      | ServiceRequest
     >({
       resourceType: 'DiagnosticReport',
       params: searchParams,
@@ -162,6 +176,7 @@ export async function getExternalLabOrderResourcesViaDiagnosticReport(
   const diagnosticReports: DiagnosticReport[] = [];
   const observations: Observation[] = [];
   const schedules: Schedule[] = [];
+  const serviceRequests: ServiceRequest[] = [];
 
   resourceSearch.forEach((resource) => {
     if (resource.resourceType === 'Patient') patients.push(resource);
@@ -176,17 +191,22 @@ export async function getExternalLabOrderResourcesViaDiagnosticReport(
       if (isCorrectCategory) diagnosticReports.push(resource);
     }
     if (resource.resourceType === 'Schedule') schedules.push(resource);
+    if (resource.resourceType === 'ServiceRequest' && isExternalLabServiceRequest(resource))
+      serviceRequests.push(resource);
   });
 
   if (patients?.length !== 1) throw new Error('patient is not found');
   if (organizations?.length !== 1) throw new Error('performing lab Org not found');
   if (diagnosticReports?.length !== 1) throw new Error('diagnosticReport is not found');
   if (schedules.length > 1) throw new Error('found multiple schedules for DR appointment');
+  if (serviceRequests.length > 1)
+    throw new Error('found more than one ServiceRequest for a DR based result. Expected 0 or 1');
 
   const patient = patients[0];
   const labOrganization = organizations[0];
   const diagnosticReport = diagnosticReports[0];
   const schedule = schedules.length ? schedules[0] : undefined;
+  const serviceRequest = serviceRequests[0];
 
   return {
     patient,
@@ -194,6 +214,7 @@ export async function getExternalLabOrderResourcesViaDiagnosticReport(
     diagnosticReport,
     observations,
     schedule,
+    serviceRequest,
   };
 }
 
@@ -624,20 +645,20 @@ export const makeEncounterLabResults = async (
       allObservations.push(resource as Observation);
     }
     if (resource.resourceType === 'ServiceRequest') {
-      const isExternalLabServiceRequest = isLabServiceRequest(resource);
-      const isInHouseLabServiceRequest = !!resource.code?.coding?.find((c) => c.system === IN_HOUSE_TEST_CODE_SYSTEM);
-      if (isExternalLabServiceRequest || isInHouseLabServiceRequest) {
+      const isExternalLabSR = isExternalLabServiceRequest(resource);
+      const isInHouseLabSR = isInHouseLabServiceRequest(resource);
+      if (isExternalLabSR || isInHouseLabSR) {
         serviceRequestMap[`ServiceRequest/${resource.id}`] = {
           resource: resource as ServiceRequest,
-          type: isExternalLabServiceRequest ? LabType.external : LabType.inHouse,
+          type: isExternalLabSR ? LabType.external : LabType.inHouse,
         };
         if (resource.status === 'active') {
-          if (isExternalLabServiceRequest) {
+          if (isExternalLabSR) {
             const isManual = externalLabOrderIsManual(resource);
             // theres no guarantee that will we get electronic results back for manual labs so we can't validate
             if (!isManual && resource.id) activeExternalLabServiceRequestIds.add(resource.id);
           }
-          if (isInHouseLabServiceRequest && resource.id) activeInHouseLabServiceRequestIds.add(resource.id);
+          if (isInHouseLabSR && resource.id) activeInHouseLabServiceRequestIds.add(resource.id);
         }
 
         const reflexTestTriggered = resource.meta?.tag?.find(

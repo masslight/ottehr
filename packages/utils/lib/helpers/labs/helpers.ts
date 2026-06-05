@@ -39,6 +39,7 @@ import {
   OYSTEHR_LABS_ADDITIONAL_PLACER_ID_SYSTEM,
   PSC_HOLD_CONFIG,
 } from '../../types';
+import { isInHouseLabServiceRequest } from '../in-house-labs';
 
 export const nameLabTest = (
   testName: string | undefined,
@@ -381,18 +382,10 @@ export const makeExternalLabLabelConfig = ({
   userTimezone: string;
   serviceRequest: ServiceRequest;
 }): ExternalLabsLabelConfig => {
-  const shouldUseFriendlyPatientId = labOrderUsesFriendlyPatientId(serviceRequest);
-  const friendlyPatientId = getPatientFriendlyId(patient);
-  if (shouldUseFriendlyPatientId && !friendlyPatientId) {
-    throw EXTERNAL_LAB_ERROR(
-      `ServiceRequest/${serviceRequest.id} order should use friendly patient id, but no friendly id found on patient`
-    );
-  }
-
   const labelConfig: ExternalLabsLabelConfig = {
     labelConfig: DYMO_30334_LABEL_CONFIG,
     content: {
-      patientId: shouldUseFriendlyPatientId ? friendlyPatientId : patient.id!,
+      patientId: getPatientIdForLabOrder(serviceRequest, patient),
       patientFirstName: getPatientFirstName(patient) ?? '',
       patientLastName: getPatientLastName(patient) ?? '',
       patientDateOfBirth: patient.birthDate ? DateTime.fromISO(patient.birthDate) : undefined,
@@ -417,7 +410,7 @@ export const isExternalLabServiceRequest = (resource: ServiceRequest): boolean =
   return !!resource.code?.coding?.find((c) => c.system === OYSTEHR_LAB_OI_CODE_SYSTEM);
 };
 
-export const labOrderUsesFriendlyPatientId = (sr: ServiceRequest): boolean => {
+export const externalLabOrderUsesFriendlyPatientId = (sr: ServiceRequest): boolean => {
   return (
     isExternalLabServiceRequest(sr) &&
     (sr.orderDetail?.some(
@@ -430,4 +423,27 @@ export const labOrderUsesFriendlyPatientId = (sr: ServiceRequest): boolean => {
     ) ??
       false)
   );
+};
+
+/**
+ * This is not for unsolicited orders that do not have a matched ServiceRequest.
+ */
+export const getPatientIdForLabOrder = (serviceRequest: ServiceRequest, patient: Patient): string => {
+  if (!patient.id) throw EXTERNAL_LAB_ERROR('Cannot determine patient id from Patient resource');
+  const friendlyPatientId = getPatientFriendlyId(patient);
+
+  if (isExternalLabServiceRequest(serviceRequest)) {
+    const shouldUseFriendlyPatientId = externalLabOrderUsesFriendlyPatientId(serviceRequest);
+    if (shouldUseFriendlyPatientId && !friendlyPatientId) {
+      throw EXTERNAL_LAB_ERROR(
+        `ServiceRequest/${serviceRequest.id} order should use friendly patient id, but no friendly id found on patient`
+      );
+    }
+
+    return shouldUseFriendlyPatientId ? friendlyPatientId : patient.id;
+  } else if (isInHouseLabServiceRequest(serviceRequest)) {
+    return friendlyPatientId || patient.id;
+  } else {
+    return patient.id;
+  }
 };
