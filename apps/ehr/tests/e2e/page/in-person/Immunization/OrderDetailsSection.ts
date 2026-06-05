@@ -10,7 +10,10 @@ export class OrderDetailsSection {
 
   async selectVaccine(vaccine: string): Promise<void> {
     await this.#page.getByTestId(dataTestIds.orderVaccinePage.vaccine).click();
-    await this.#page.getByText(vaccine, { exact: true }).click();
+    // Scope to the autocomplete listbox option: the vaccine name can also appear in the
+    // MAR table on this page (e.g. orders from earlier tests on a shared appointment), so a
+    // plain getByText would match multiple elements and trip strict mode.
+    await this.#page.getByRole('option', { name: vaccine, exact: true }).click();
   }
 
   async verifyVaccine(vaccine: string): Promise<void> {
