@@ -286,10 +286,10 @@ const complexValidation = async (input: BasicInput, oystehr: Oystehr): Promise<E
     // Location, Practitioner: silently drop.
   }
 
-  // Decide whether to stamp the slot-booked-via-group extension. Only
-  // applies when the actor is a PR (the pools-providers case where a
-  // group booking lands on a PR's Schedule). Drops silently when the
-  // actor IS the HS — Schedule.actor already records the group.
+  // Decide whether to stamp the slot-booked-via-group extension. Applies
+  // when the actor is either a PR (pools-providers) or a Location whose
+  // own Schedule contributes capacity to the group. Drops silently when
+  // the actor IS the HS — Schedule.actor already records the group.
   //
   // This zambda is http_open, so we re-verify group membership here
   // rather than trust the caller. A naive existence check would let a
@@ -301,21 +301,19 @@ const complexValidation = async (input: BasicInput, oystehr: Oystehr): Promise<E
     const actorRef = schedule.actor?.[0]?.reference ?? '';
     const [actorType, actorId] = actorRef.split('/');
     if (actorType !== 'HealthcareService') {
-      // PR is the only actor type that can be a group member under the
-      // pools-providers model. Practitioner-actored schedules are legacy
-      // and don't participate in groups; reject explicitly rather than
-      // silently dropping the extension.
-      if (actorType !== 'PractitionerRole') {
+      // Only PR and Location actors can legitimately be group members.
+      // Practitioner-actored schedules are legacy and don't participate;
+      // reject explicitly rather than silently dropping the extension.
+      if (actorType !== 'PractitionerRole' && actorType !== 'Location') {
         throw INVALID_INPUT_ERROR(
-          `"bookedViaGroupId" requires a PractitionerRole-actored Schedule; got ${actorType || 'unknown'}`
+          `"bookedViaGroupId" requires a PractitionerRole- or Location-actored Schedule; got ${actorType || 'unknown'}`
         );
       }
       if (!actorId) {
         throw INVALID_INPUT_ERROR('Schedule actor reference is malformed');
       }
-      // Pull the group HS, its Locations (for membership + inactive
-      // filtering), and the actor PR. Single bundle search + one targeted
-      // get keeps this to two FHIR round-trips.
+      // Pull the group HS and its Locations (for membership + inactive
+      // filtering) in one search.
       const groupBundle = (
         await oystehr.fhir.search<HealthcareService | Location>({
           resourceType: 'HealthcareService',
@@ -331,26 +329,45 @@ const complexValidation = async (input: BasicInput, oystehr: Oystehr): Promise<E
       if (!group) {
         throw INVALID_INPUT_ERROR(`"bookedViaGroupId" did not match any HealthcareService: ${bookedViaGroupId}`);
       }
-      let actorRole: PractitionerRole | undefined;
-      try {
-        actorRole = await oystehr.fhir.get<PractitionerRole>({
-          resourceType: 'PractitionerRole',
-          id: actorId,
-        });
-      } catch {
-        throw INVALID_INPUT_ERROR(`Schedule actor PractitionerRole not found: ${actorId}`);
-      }
-      const allLocationsFlag = getGroupAllLocations(group) === true;
       const inactiveLocationIds = new Set<string>();
       for (const res of groupBundle) {
         if (res.resourceType === 'Location' && res.id && (res as Location).status === 'inactive') {
           inactiveLocationIds.add(res.id);
         }
       }
-      if (!isPractitionerRoleMemberOfGroup({ role: actorRole, group, allLocationsFlag, inactiveLocationIds })) {
-        throw INVALID_INPUT_ERROR(
-          `Schedule's actor PractitionerRole is not a member of the group: ${bookedViaGroupId}`
-        );
+      if (actorType === 'Location') {
+        // Location-actored: the actor must itself be one of the group's
+        // member Locations, and it must be active. (Inactive Locations
+        // stop contributing to group slot generation; the same rule
+        // applies to direct Location-actor membership.)
+        if (inactiveLocationIds.has(actorId)) {
+          throw INVALID_INPUT_ERROR(
+            `Schedule's actor Location is inactive and cannot contribute to the group: ${bookedViaGroupId}`
+          );
+        }
+        const groupLocationRefs = new Set((group.location ?? []).map((l) => l.reference).filter(Boolean) as string[]);
+        if (!groupLocationRefs.has(`Location/${actorId}`)) {
+          throw INVALID_INPUT_ERROR(`Schedule's actor Location is not a member of the group: ${bookedViaGroupId}`);
+        }
+      } else {
+        // PR-actored: defer to the membership walker so back-ref, location-
+        // overlap, and all-locations widening all resolve consistently with
+        // how slot-vending decides membership.
+        let actorRole: PractitionerRole | undefined;
+        try {
+          actorRole = await oystehr.fhir.get<PractitionerRole>({
+            resourceType: 'PractitionerRole',
+            id: actorId,
+          });
+        } catch {
+          throw INVALID_INPUT_ERROR(`Schedule actor PractitionerRole not found: ${actorId}`);
+        }
+        const allLocationsFlag = getGroupAllLocations(group) === true;
+        if (!isPractitionerRoleMemberOfGroup({ role: actorRole, group, allLocationsFlag, inactiveLocationIds })) {
+          throw INVALID_INPUT_ERROR(
+            `Schedule's actor PractitionerRole is not a member of the group: ${bookedViaGroupId}`
+          );
+        }
       }
       shouldStampBookedViaGroup = true;
     }

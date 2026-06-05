@@ -940,6 +940,106 @@ describe('prebook integration - from getting list of slots to booking with selec
     }
   });
 
+  test('create-slot accepts bookedViaGroupId when the Schedule actor is a Location that belongs to the group', async () => {
+    assert(processId);
+    const tag = {
+      system: 'OTTEHR_AUTOMATED_TEST',
+      code: tagForProcessId(processId),
+      display: 'integration test fixture',
+    };
+    const scheduleJson = buildSimpleScheduleExt({ prebookSlots: 4 });
+
+    // Location-actored Schedule whose Location is referenced by the
+    // group's location[]. This is the new Location-based composition
+    // model — a Location's own Schedule contributes capacity to any
+    // group that selects that Location as a member.
+    const locUrn = `urn:uuid:${randomUUID()}`;
+    const hsUrn = `urn:uuid:${randomUUID()}`;
+
+    const fixtureRequests: BatchInputPostRequest<FhirResource>[] = [
+      {
+        method: 'POST',
+        url: 'Location',
+        fullUrl: locUrn,
+        resource: { resourceType: 'Location', status: 'active', name: 'LocActor-MemberLoc', meta: { tag: [tag] } },
+      },
+      {
+        method: 'POST',
+        url: 'Schedule',
+        resource: {
+          resourceType: 'Schedule',
+          actor: [{ reference: locUrn }],
+          extension: [
+            { url: 'http://hl7.org/fhir/StructureDefinition/timezone', valueString: 'America/New_York' },
+            { url: SCHEDULE_EXTENSION_URL, valueString: JSON.stringify(scheduleJson) },
+          ],
+          meta: { tag: [tag] },
+        },
+      },
+      {
+        method: 'POST',
+        url: 'HealthcareService',
+        fullUrl: hsUrn,
+        resource: {
+          resourceType: 'HealthcareService',
+          active: true,
+          name: 'LocActor Member Group',
+          location: [{ reference: locUrn }],
+          meta: { tag: [tag] },
+        },
+      },
+    ];
+
+    const tx = await oystehr.fhir.transaction({ requests: fixtureRequests });
+    const memberLoc = tx.entry?.find((e) => e.resource?.resourceType === 'Location')?.resource as Location;
+    const memberHs = tx.entry?.find((e) => e.resource?.resourceType === 'HealthcareService')
+      ?.resource as HealthcareService;
+    const memberSchedule = tx.entry?.find((e) => e.resource?.resourceType === 'Schedule')?.resource as Schedule;
+    assert(memberLoc?.id);
+    assert(memberHs?.id);
+    assert(memberSchedule?.id);
+
+    let persistedSlotId: string | undefined;
+    try {
+      const slotStartISO = startOfDayWithTimezone({ timezone: getTimezone(memberSchedule) })
+        .plus({ days: 1, hours: 9 })
+        .toISO()!;
+      const createSlotParams: CreateSlotParams = {
+        scheduleId: memberSchedule.id,
+        startISO: slotStartISO,
+        serviceModality: ServiceMode['in-person'],
+        lengthInMinutes: 15,
+        status: 'busy-tentative',
+        originalBookingUrl: 'group-membership-test',
+        bookedViaGroupId: memberHs.id,
+      };
+
+      const persistedSlot = (
+        await oystehr.zambda.executePublic({
+          id: 'create-slot',
+          ...createSlotParams,
+        })
+      ).output as Slot;
+      assert(persistedSlot?.id);
+      persistedSlotId = persistedSlot.id;
+      expect(persistedSlot.resourceType).toBe('Slot');
+      expect(getSlotBookedViaGroupId(persistedSlot)).toBe(memberHs.id);
+    } finally {
+      const deletes: BatchInputDeleteRequest[] = [];
+      if (persistedSlotId) deletes.push({ method: 'DELETE', url: `Slot/${persistedSlotId}` });
+      deletes.push(
+        { method: 'DELETE', url: `Schedule/${memberSchedule.id}` },
+        { method: 'DELETE', url: `HealthcareService/${memberHs.id}` },
+        { method: 'DELETE', url: `Location/${memberLoc.id}` }
+      );
+      try {
+        await oystehr.fhir.batch({ requests: deletes });
+      } catch (e) {
+        console.error('Failed to clean up Location-actor member fixture; afterAll process-tag sweep will retry:', e);
+      }
+    }
+  });
+
   // this is flaky and can fail based on time of day for the CI server
   test.skip('create an appointment at 1130PM eastern and ensure that the appointment created is for the correct calendar day.', async () => {
     assert(processId);
