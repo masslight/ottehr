@@ -76,6 +76,11 @@
           "effect": "Allow"
         },
         {
+          "resource": ["Z3:TelemedRecordings/*"],
+          "action": ["Z3:GetObject"],
+          "effect": "Allow"
+        },
+        {
           "action": ["Messaging:SendTransactionalSMS"],
           "effect": "Allow",
           "resource": ["*"]
