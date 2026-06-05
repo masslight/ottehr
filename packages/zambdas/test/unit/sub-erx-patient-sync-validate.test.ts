@@ -71,4 +71,18 @@ describe('sub-erx-patient-sync validateRequestParameters', () => {
       })
     ).toThrow();
   });
+
+  test('throws when secrets are missing', () => {
+    expect(() =>
+      validateRequestParameters({
+        headers: null,
+        body: JSON.stringify({
+          resourceType: 'Encounter',
+          id: 'enc-1',
+          subject: { reference: 'Patient/pat-1' },
+        }),
+        secrets: null,
+      })
+    ).toThrow();
+  });
 });
