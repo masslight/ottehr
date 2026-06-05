@@ -1,7 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Organization, Practitioner } from 'fhir/r4b';
-import { FHIR_IDENTIFIER_CODE_TAXONOMY, getNPI, getTaxID } from 'utils';
+import { BillingProviderOption, FHIR_IDENTIFIER_CODE_TAXONOMY, getNPI, getTaxID } from 'utils';
 import { checkOrCreateM2MClientToken, fetchAllPages, wrapHandler, ZambdaInput } from '../../shared';
 import {
   createBillingClient,
@@ -16,22 +16,6 @@ import {
   PROVIDER_ROLE_TAG,
 } from '../shared';
 import { SearchBillingProvidersParams, validateRequestParameters } from './validateRequestParameters';
-
-interface ProviderItem {
-  id: string;
-  kind: 'individual' | 'organization';
-  name: string;
-  firstName?: string;
-  lastName?: string;
-  npi: string;
-  taxonomyCode?: string;
-  licenseType?: string;
-  taxId?: string;
-  clia?: string;
-  address?: string;
-  renders: boolean;
-  bills: boolean;
-}
 
 let m2mToken: string;
 const ZAMBDA_NAME = 'search-billing-providers';
@@ -48,7 +32,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 async function performEffect(
   oystehr: Oystehr,
   params: SearchBillingProvidersParams
-): Promise<{ providers: ProviderItem[]; total: number; offset: number; pageSize: number }> {
+): Promise<{ providers: BillingProviderOption[]; total: number; offset: number; pageSize: number }> {
   const pageSize = params.pageSize ?? 50;
   const offset = params.offset ?? 0;
 
@@ -87,7 +71,7 @@ async function performEffect(
   return { providers: all.slice(offset, offset + pageSize), total: all.length, offset, pageSize };
 }
 
-function mapProvider(resource: Practitioner | Organization): ProviderItem {
+function mapProvider(resource: Practitioner | Organization): BillingProviderOption {
   const common = {
     id: resource.id ?? '',
     npi: getNPI(resource) ?? '',

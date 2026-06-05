@@ -130,14 +130,19 @@ export const CreateBillingClaimInputSchema = z.object({
     })
     .strict()
     .optional(),
-  practitionerId: nonEmptyString.optional(),
-  practitionerOverrides: z
+  renderingProvider: z
     .object({
-      firstName: nonEmptyString.optional(),
-      lastName: nonEmptyString.optional(),
-      npi: nonEmptyString.optional(),
+      id: nonEmptyString,
+      type: z.enum(['Practitioner', 'Organization']),
+      overrides: z
+        .object({
+          firstName: nonEmptyString.optional(),
+          lastName: nonEmptyString.optional(),
+          npi: nonEmptyString.optional(),
+        })
+        .strict()
+        .optional(),
     })
-    .strict()
     .optional(),
   facilityId: nonEmptyString.optional(),
   facilityOverrides: z
@@ -148,14 +153,19 @@ export const CreateBillingClaimInputSchema = z.object({
     })
     .strict()
     .optional(),
-  billingProviderId: nonEmptyString.optional(),
-  billingProviderOverrides: z
+  billingProvider: z
     .object({
-      name: nonEmptyString.optional(),
-      npi: nonEmptyString.optional(),
-      tin: nonEmptyString.optional(),
+      id: nonEmptyString,
+      type: z.enum(['Practitioner', 'Organization']),
+      overrides: z
+        .object({
+          name: nonEmptyString.optional(),
+          npi: nonEmptyString.optional(),
+          tin: nonEmptyString.optional(),
+        })
+        .strict()
+        .optional(),
     })
-    .strict()
     .optional(),
   diagnoses: z
     .array(

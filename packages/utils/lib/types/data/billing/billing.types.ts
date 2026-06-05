@@ -52,6 +52,23 @@ export interface BillingLocationOption {
   address: string;
 }
 
+// Unified provider option (Practitioner or Organization)
+export interface BillingProviderOption {
+  id: string;
+  kind: 'individual' | 'organization';
+  name: string;
+  firstName?: string;
+  lastName?: string;
+  npi: string;
+  taxonomyCode?: string;
+  licenseType?: string;
+  taxId?: string;
+  clia?: string;
+  address?: string;
+  renders: boolean;
+  bills: boolean;
+}
+
 export interface EraListItem {
   id: string;
   eraId: string;
