@@ -36,6 +36,11 @@ export function getAgeInYears(dateString: string): number {
 }
 
 export function is18YearsOrYounger(dateString: string): boolean {
+  const isValidDate = DateTime.fromISO(dateString).isValid;
+  if (!isValidDate) {
+    // this function is only used in erx, so conservatively use stricter requirements if dob invalid
+    return true;
+  }
   return getAgeInYears(dateString) <= 18;
 }
 
