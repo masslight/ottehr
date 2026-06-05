@@ -60,7 +60,9 @@ export const InPersonLayout: React.FC = () => {
       <div style={mainBlocksStyle}>
         <Sidebar />
         <div style={contentWrapperStyle}>
-          {!isFollowup && (
+          {/* Telemed visits record audio automatically via the Oystehr telemed service, so the manual
+              start/pause/stop Ambient Scribe recorder is only shown for in-person visits. */}
+          {!isFollowup && !virtual && (
             <Container>
               <Fab
                 color="primary"

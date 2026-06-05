@@ -25,6 +25,10 @@ import {
 import { makeObservationResource } from './chart-data/index';
 import { assertDefined } from './helpers';
 import { parseCreatedResourcesBundle, saveResourceRequest } from './resources.helpers';
+import { createPresignedUrl } from './z3Utils';
+
+export const TRANSCRIPT_PROMPT =
+  'give a transcript of this file, include only the transcript without other input, include who the speaker is with labels for the provider and the patient';
 
 export class ClaudeClient {
   chatbot: ChatAnthropic;
@@ -192,6 +196,40 @@ export async function invokeChatbotVertexAI(
 
   console.log(JSON.stringify(response));
   return response.candidates[0].content.parts[0].text;
+}
+
+/**
+ * Downloads an audio recording from Z3, transcribes it with Vertex AI, and creates the Ambient Scribe
+ * resources (DocumentReference + AI Observations) from the transcript. Shared by the in-person
+ * create-resources-from-audio-recording zambda and the telemed process-telemed-recording subscription so
+ * both feed the recording through an identical pipeline.
+ */
+export async function transcribeAndCreateResourcesFromZ3Audio(
+  oystehr: Oystehr,
+  m2mToken: string,
+  args: { encounterID: string; z3URL: string; duration?: number; providerUserProfile: string | null },
+  secrets: Secrets | null
+): Promise<string> {
+  const presignedFileDownloadUrl = await createPresignedUrl(m2mToken, args.z3URL, 'download');
+  const file = await fetch(presignedFileDownloadUrl);
+  const fileBase64 = Buffer.from(await file.arrayBuffer()).toString('base64');
+  const mimeType = file.headers.get('Content-Type') || 'unknown';
+
+  const transcript = await invokeChatbotVertexAI(
+    [{ text: TRANSCRIPT_PROMPT }, { inlineData: { mimeType, data: fileBase64 } }],
+    secrets
+  );
+
+  return createResourcesFromAiInterview(
+    oystehr,
+    args.encounterID,
+    transcript,
+    args.z3URL,
+    args.duration,
+    mimeType,
+    args.providerUserProfile,
+    secrets
+  );
 }
 
 export async function invokeChatbot(input: BaseMessageLike[], secrets: Secrets | null): Promise<AIMessageChunk> {
