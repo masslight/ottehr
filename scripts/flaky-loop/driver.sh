@@ -105,18 +105,21 @@ for (( i=1; i<=MAX_ITERS; i++ )); do
     use_formatter=1
   fi
 
-  run_claude() {
-    if [[ -n "$TIMEOUT_BIN" ]]; then
-      "$TIMEOUT_BIN" "$ITER_TIMEOUT" "${cmd[@]}"
-    else
-      "${cmd[@]}"
-    fi
-  }
+  # Build the full command (with the timeout wrapper if available) as an array,
+  # then run it directly as the first stage of the pipeline. Running it directly
+  # — rather than via a shell function — lets bash exec-replace the subshell, so
+  # `ps` shows the real `timeout`/`claude` process instead of a confusing second
+  # copy of this script.
+  if [[ -n "$TIMEOUT_BIN" ]]; then
+    full=("$TIMEOUT_BIN" "$ITER_TIMEOUT" "${cmd[@]}")
+  else
+    full=("${cmd[@]}")
+  fi
 
   if [[ "$use_formatter" -eq 1 ]]; then
-    run_claude 2>&1 | tee "$log" | node "$HERE/format-stream.mjs"
+    "${full[@]}" 2>&1 | tee "$log" | node "$HERE/format-stream.mjs"
   else
-    run_claude 2>&1 | tee "$log"
+    "${full[@]}" 2>&1 | tee "$log"
   fi
   code=${PIPESTATUS[0]}
 
