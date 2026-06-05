@@ -62,6 +62,15 @@ else
 fi
 
 cd "$REPO_ROOT"
+
+# A leftover STOP from a previous run shouldn't silently abort a fresh launch.
+# STOP is a one-shot signal: clear any stale one here, then the loop only reacts
+# to a STOP created while this run is in progress.
+if [[ -f "$STOP_FILE" ]]; then
+  rm -f "$STOP_FILE"
+  echo "Cleared a stale STOP file from a previous run."
+fi
+
 echo "Driver starting in $REPO_ROOT (model=$MODEL, max_iters=$MAX_ITERS, timeout=${TIMEOUT_BIN:-none})"
 
 for (( i=1; i<=MAX_ITERS; i++ )); do
