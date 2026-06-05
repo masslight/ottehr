@@ -13,7 +13,7 @@ export class FeeSchedulePage {
 
   async gotoChargeMaster(chargeMasterId: string): Promise<void> {
     await this.page.goto(`/admin/charge-masters/${chargeMasterId}`);
-    await this.waitForProcedureCodesLoaded();
+    await this.page.waitForLoadState('networkidle');
   }
 
   async waitForProcedureCodesLoaded(): Promise<void> {
