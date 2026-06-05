@@ -6,6 +6,7 @@ import {
   Closure,
   ClosureType,
   DOW,
+  getAllFhirSearchPages,
   getScheduleExtension,
   getTimezone,
   INVALID_INPUT_ERROR,
@@ -129,35 +130,32 @@ const complexValidation = async <T extends ScheduleOwnerFhirResource>(
 ): Promise<{ list: { owner: T; schedules: Schedule[] }[] }> => {
   const { ownerType } = input;
   // splitting these into separate requests lest the _include lead to too large a response due to potentially very large json extension on
-  // schedule resources
-  const ownerParams = [
-    {
-      name: '_count',
-      value: '1000',
-    },
-  ];
-  const [scheduleRes, ownerRes] = await Promise.all([
-    oystehr.fhir.search<Schedule>({
-      resourceType: 'Schedule',
-      params: [
-        {
-          name: 'actor:missing',
-          value: 'false',
-        },
-        {
-          name: 'active',
-          value: 'true',
-        },
-      ],
-    }),
-    oystehr.fhir.search<T>({
-      resourceType: ownerType,
-      params: ownerParams,
-    }),
+  // schedule resources.
+  // Paginated: >1000 schedules would otherwise silently drop owners whose schedule lands on a later page.
+  const [schedules, owners] = await Promise.all([
+    getAllFhirSearchPages<Schedule>(
+      {
+        resourceType: 'Schedule',
+        params: [
+          {
+            name: 'actor:missing',
+            value: 'false',
+          },
+          {
+            name: 'active',
+            value: 'true',
+          },
+        ],
+      },
+      oystehr
+    ),
+    getAllFhirSearchPages<T>(
+      {
+        resourceType: ownerType,
+      },
+      oystehr
+    ),
   ]);
-
-  const schedules = scheduleRes.unbundle() as Schedule[];
-  const owners = ownerRes.unbundle() as T[];
 
   const scheduleOwnerMap = schedules.reduce((acc, schedule) => {
     const ownerRef = schedule.actor?.find((actor) => actor.reference)?.reference;
