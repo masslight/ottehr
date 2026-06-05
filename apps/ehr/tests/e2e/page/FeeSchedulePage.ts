@@ -7,13 +7,16 @@ export class FeeSchedulePage {
   constructor(private page: Page) {}
 
   async goto(feeScheduleId: string): Promise<void> {
+    // NOTE: Do not wait for 'networkidle' here. The EHR runs continuous
+    // background polling / React Query refetches, so the network never goes
+    // idle and the wait reliably times out (the cause of the nightly fee
+    // schedule flakiness). Callers wait on concrete elements instead
+    // (e.g. waitForProcedureCodesLoaded), which is the deterministic signal.
     await this.page.goto(`/admin/fee-schedule/${feeScheduleId}`);
-    await this.page.waitForLoadState('networkidle');
   }
 
   async gotoChargeMaster(chargeMasterId: string): Promise<void> {
     await this.page.goto(`/admin/charge-masters/${chargeMasterId}`);
-    await this.page.waitForLoadState('networkidle');
   }
 
   async waitForProcedureCodesLoaded(): Promise<void> {
