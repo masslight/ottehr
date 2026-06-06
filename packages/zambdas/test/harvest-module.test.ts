@@ -201,7 +201,6 @@ describe('Harvest Module', () => {
     const expectedCoverageResources = {
       primary: {
         resourceType: 'Coverage',
-        order: 1,
         identifier: [
           {
             ...COVERAGE_MEMBER_IDENTIFIER_BASE, // this holds the 'type'
@@ -276,7 +275,6 @@ describe('Harvest Module', () => {
         ],
         contained: [expectedSecondaryPolicyHolderFromQR1],
         status: 'active',
-        order: 2,
         beneficiary: { reference: 'Patient/36ef99c2-43fa-40f6-bf9c-d9ea12c2bf61', type: 'Patient' },
         payor: [{ reference: 'https://rcm-api.zapehr.com/v1/payer/J1859' }],
         subscriberId: 'FdfDfdFdfDfh7897',

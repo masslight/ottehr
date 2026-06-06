@@ -95,6 +95,7 @@ import {
   isoStringFromDateComponents,
   isPayerUrl,
   isValidUUID,
+  makeOptimisticLockIfMatchHeader,
   makeSSNIdentifier,
   mapBirthSexToGender,
   OCCUPATIONAL_MEDICINE_ACCOUNT_TYPE,
@@ -2419,10 +2420,6 @@ const createCoverageResource = (input: CreateCoverageResourceInput): Coverage =>
     identifier: [createCoverageMemberIdentifier(memberId, org)],
     resourceType: 'Coverage',
     status: 'active',
-    // Persist the priority on the Coverage itself (1 = primary, 2 = secondary). The Account.coverage
-    // list is the primary source of ordering, but it can be transiently empty/partial during
-    // harvest's multi-round rebuild; carrying order here gives a durable fallback for the read.
-    order: input.order,
     subscriber: {
       reference: subscriberReference,
     },
@@ -2758,6 +2755,16 @@ export const getAccountOperations = (input: GetAccountOperationsInput): GetAccou
       method: 'PUT',
       url: `Account/${existingAccount.id}`,
       resource: updatedAccount,
+      // Optimistic lock: this PUT replaces the entire Account (including the
+      // coverage array). Harvest runs as several concurrent page-level Tasks,
+      // each reading the Account, recomputing coverage from its own (possibly
+      // stale) snapshot, and writing the whole resource back. Without a version
+      // guard the last writer wins and can clobber Account.coverage to an empty
+      // or partial list while another round was mid-flight, which surfaces as a
+      // blank insurance carrier on read. The If-Match makes the transaction fail
+      // with 412 on a concurrent change so updatePatientAccountFromQuestionnaire
+      // can re-read the latest Account and retry against the current coverages.
+      ifMatch: makeOptimisticLockIfMatchHeader(existingAccount),
     });
   }
 
@@ -3588,9 +3595,7 @@ const patchOpsForCoverage = (input: GetCoveragePatchOpsInput): Operation[] => {
   const { source, target } = input;
   const ops: Operation[] = [];
 
-  // 'order' is a denormalized priority hint stamped at creation; it's not re-diffed on update (the
-  // authoritative priority lives in Account.coverage), so we don't churn a patch op for it here.
-  const keysToExclude = ['id', 'resourceType', 'order'];
+  const keysToExclude = ['id', 'resourceType'];
   const keysToCheck = Object.keys(source).filter((k) => !keysToExclude.includes(k));
   for (const key of keysToCheck) {
     const sourceValue = (source as any)[key];
@@ -3855,18 +3860,6 @@ export const getCoverageUpdateResourcesFromUnbundled = (
     });
   }
 
-  // Account.coverage can be transiently empty while harvest's multi-round paperwork processing
-  // rebuilds it, even though the active Coverage resources already exist. When the account mapped
-  // *no* coverages, recover primary/secondary from the Coverage.order field (1 = primary,
-  // 2 = secondary) so the empty list doesn't blank out the patient's insurance on read — and so the
-  // write path, which reads existing coverages through this same function, doesn't drop them.
-  // If the account mapped at least one coverage it is treated as authoritative (we don't fabricate
-  // the other slot from a stray/unassociated Coverage).
-  if (!existingCoverages.primary && !existingCoverages.secondary) {
-    existingCoverages.primary = coverageResources.find((c) => c.order === 1 && c.status === 'active');
-    existingCoverages.secondary = coverageResources.find((c) => c.order === 2 && c.status === 'active');
-  }
-
   const primarySubscriberReference = existingCoverages.primary?.subscriber?.reference;
   if (primarySubscriberReference && existingCoverages.primary) {
     const subscriberResult = takeContainedOrFind<RelatedPerson>(
@@ -4107,123 +4100,148 @@ export const updatePatientAccountFromQuestionnaire = async (
 
   const organizationResources = await searchInsuranceInformation(oystehr, insuranceOrgs);
 
-  const {
-    patient: existingPatient,
-    coverages: existingCoverages,
-    account: existingAccount,
-    guarantorResource: existingGuarantorResource,
-    emergencyContactResource: existingEmergencyContact,
-    workersCompAccount: existingWorkersCompAccount,
-    occupationalMedicineAccount: existingOccupationalMedicineAccount,
-    employerOrganization: existingEmployerOrganization,
-    attorneyRelatedPerson: existingAttorneyRelatedPerson,
-  } = await getAccountAndCoverageResourcesForPatient(patientId, oystehr);
+  // Harvest fires several page-level Tasks concurrently, each of which reads the
+  // Account, recomputes its coverage array, and writes the whole Account back via
+  // an optimistically-locked PUT (see the If-Match in getAccountOperations). On a
+  // concurrent change the transaction fails with 412; re-read the latest Account
+  // and retry so we reconcile against the current coverages instead of clobbering
+  // them to an empty/partial list (which surfaces as a blank insurance carrier).
+  const MAX_ACCOUNT_UPDATE_ATTEMPTS = 5;
+  let lastError: unknown;
+  for (let attempt = 0; attempt < MAX_ACCOUNT_UPDATE_ATTEMPTS; attempt++) {
+    const {
+      patient: existingPatient,
+      coverages: existingCoverages,
+      account: existingAccount,
+      guarantorResource: existingGuarantorResource,
+      emergencyContactResource: existingEmergencyContact,
+      workersCompAccount: existingWorkersCompAccount,
+      occupationalMedicineAccount: existingOccupationalMedicineAccount,
+      employerOrganization: existingEmployerOrganization,
+      attorneyRelatedPerson: existingAttorneyRelatedPerson,
+    } = await getAccountAndCoverageResourcesForPatient(patientId, oystehr);
 
-  // Prefer the patient passed in by the caller (already reflects any in-flight
-  // patches) so same-as-patient address resolution doesn't silently use a stale
-  // copy when read-after-write isn't guaranteed.
-  const patient = patientFromInput ?? existingPatient;
+    // Prefer the patient passed in by the caller (already reflects any in-flight
+    // patches) so same-as-patient address resolution doesn't silently use a stale
+    // copy when read-after-write isn't guaranteed.
+    const patient = patientFromInput ?? existingPatient;
 
-  /*
-  console.log('existing coverages', JSON.stringify(existingCoverages, null, 2));
-  console.log('existing account', JSON.stringify(existingAccount, null, 2));
-  console.log('existing guarantor resource', JSON.stringify(existingGuarantorResource, null, 2));
-*/
-  const accountOperations = getAccountOperations({
-    patient,
-    questionnaireResponseItem: flattenedPaperwork,
-    organizationResources,
-    existingCoverages,
-    existingAccount,
-    existingGuarantorResource,
-    preserveOmittedCoverages,
-    existingEmergencyContact,
-    existingWorkersCompAccount,
-    existingOccupationalMedicineAccount,
-    existingEmployerOrganization,
-    existingAttorneyRelatedPerson,
-  });
-
-  console.log('account and coverage operations created', JSON.stringify(accountOperations, null, 2));
-
-  const {
-    patch,
-    accountPost,
-    put,
-    coveragePosts,
-    emergencyContactPost,
-    employerOrganizationPost,
-    employerOrganizationPut,
-    workersCompAccountPost,
-    workersCompAccountPut,
-    occupationalMedicineAccountPost,
-    occupationalMedicineAccountPut,
-    occupationalMedicineAccountDelete,
-    attorneyRelatedPersonPost,
-    attorneyRelatedPersonPut,
-  } = accountOperations;
-
-  const transactionRequests: BatchInputRequest<Account | RelatedPerson | Coverage | Patient | Organization>[] = [
-    ...coveragePosts,
-    ...patch,
-    ...put,
-  ];
-  if (employerOrganizationPost) {
-    transactionRequests.push(employerOrganizationPost);
-  }
-  if (employerOrganizationPut) {
-    transactionRequests.push(employerOrganizationPut);
-  }
-  if (attorneyRelatedPersonPost) {
-    transactionRequests.push(attorneyRelatedPersonPost);
-  }
-  if (attorneyRelatedPersonPut) {
-    transactionRequests.push(attorneyRelatedPersonPut);
-  }
-  if (workersCompAccountPut) {
-    transactionRequests.push(workersCompAccountPut);
-  }
-  if (occupationalMedicineAccountPut) {
-    transactionRequests.push(occupationalMedicineAccountPut);
-  }
-  if (occupationalMedicineAccountDelete) {
-    transactionRequests.push(occupationalMedicineAccountDelete);
-  }
-  if (accountPost) {
-    transactionRequests.push({
-      url: '/Account',
-      method: 'POST',
-      resource: accountPost,
+    /*
+    console.log('existing coverages', JSON.stringify(existingCoverages, null, 2));
+    console.log('existing account', JSON.stringify(existingAccount, null, 2));
+    console.log('existing guarantor resource', JSON.stringify(existingGuarantorResource, null, 2));
+  */
+    const accountOperations = getAccountOperations({
+      patient,
+      questionnaireResponseItem: flattenedPaperwork,
+      organizationResources,
+      existingCoverages,
+      existingAccount,
+      existingGuarantorResource,
+      preserveOmittedCoverages,
+      existingEmergencyContact,
+      existingWorkersCompAccount,
+      existingOccupationalMedicineAccount,
+      existingEmployerOrganization,
+      existingAttorneyRelatedPerson,
     });
-  }
-  if (workersCompAccountPost) {
-    transactionRequests.push({
-      url: '/Account',
-      method: 'POST',
-      resource: workersCompAccountPost,
-    });
-  }
-  if (occupationalMedicineAccountPost) {
-    transactionRequests.push({
-      url: '/Account',
-      method: 'POST',
-      resource: occupationalMedicineAccountPost,
-    });
-  }
-  if (emergencyContactPost) {
-    transactionRequests.push(emergencyContactPost);
+
+    console.log('account and coverage operations created', JSON.stringify(accountOperations, null, 2));
+
+    const {
+      patch,
+      accountPost,
+      put,
+      coveragePosts,
+      emergencyContactPost,
+      employerOrganizationPost,
+      employerOrganizationPut,
+      workersCompAccountPost,
+      workersCompAccountPut,
+      occupationalMedicineAccountPost,
+      occupationalMedicineAccountPut,
+      occupationalMedicineAccountDelete,
+      attorneyRelatedPersonPost,
+      attorneyRelatedPersonPut,
+    } = accountOperations;
+
+    const transactionRequests: BatchInputRequest<Account | RelatedPerson | Coverage | Patient | Organization>[] = [
+      ...coveragePosts,
+      ...patch,
+      ...put,
+    ];
+    if (employerOrganizationPost) {
+      transactionRequests.push(employerOrganizationPost);
+    }
+    if (employerOrganizationPut) {
+      transactionRequests.push(employerOrganizationPut);
+    }
+    if (attorneyRelatedPersonPost) {
+      transactionRequests.push(attorneyRelatedPersonPost);
+    }
+    if (attorneyRelatedPersonPut) {
+      transactionRequests.push(attorneyRelatedPersonPut);
+    }
+    if (workersCompAccountPut) {
+      transactionRequests.push(workersCompAccountPut);
+    }
+    if (occupationalMedicineAccountPut) {
+      transactionRequests.push(occupationalMedicineAccountPut);
+    }
+    if (occupationalMedicineAccountDelete) {
+      transactionRequests.push(occupationalMedicineAccountDelete);
+    }
+    if (accountPost) {
+      transactionRequests.push({
+        url: '/Account',
+        method: 'POST',
+        resource: accountPost,
+      });
+    }
+    if (workersCompAccountPost) {
+      transactionRequests.push({
+        url: '/Account',
+        method: 'POST',
+        resource: workersCompAccountPost,
+      });
+    }
+    if (occupationalMedicineAccountPost) {
+      transactionRequests.push({
+        url: '/Account',
+        method: 'POST',
+        resource: occupationalMedicineAccountPost,
+      });
+    }
+    if (emergencyContactPost) {
+      transactionRequests.push(emergencyContactPost);
+    }
+
+    try {
+      const bundle = await oystehr.fhir.transaction({ requests: transactionRequests });
+      // return the bundle to allow writing AuditEvents, etc.
+      return bundle;
+    } catch (error: unknown) {
+      const is412 =
+        (error as any)?.code === 412 ||
+        (error as any)?.statusCode === 412 ||
+        (typeof (error as any)?.message === 'string' && (error as any).message.includes('412'));
+      if (is412 && attempt < MAX_ACCOUNT_UPDATE_ATTEMPTS - 1) {
+        lastError = error;
+        console.log(
+          `Account update conflict (412) for patient ${patientId}, re-reading and retrying (attempt ${attempt + 1}/${
+            MAX_ACCOUNT_UPDATE_ATTEMPTS - 1
+          })`
+        );
+        continue;
+      }
+      console.log(`Failed to update Account: ${JSON.stringify(error)}`);
+      throw error;
+    }
   }
 
-  try {
-    console.time('updating account resources');
-    const bundle = await oystehr.fhir.transaction({ requests: transactionRequests });
-    console.timeEnd('updating account resources');
-    // return the bundle to allow writing AuditEvents, etc.
-    return bundle;
-  } catch (error: unknown) {
-    console.log(`Failed to update Account: ${JSON.stringify(error)}`);
-    throw error;
-  }
+  // Loop only exits via return or throw above; this satisfies the type checker
+  // and guards against an unexpected fall-through after exhausting retries.
+  throw lastError ?? new Error(`Failed to update Account for patient ${patientId} after optimistic-lock retries`);
 };
 
 interface UpdateStripeCustomerInput {
