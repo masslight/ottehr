@@ -119,6 +119,7 @@ function calculateDueDateTime(eventTimestamp: string, action: OutreachAction): s
 
 /**
  * Query for existing outreach tasks for a given focus resource and trigger event.
+ * Includes completed tasks in the check to prevent re-triggering actions that have already been executed.
  */
 async function findExistingOutreachTasks(
   oystehr: Oystehr,
@@ -130,7 +131,7 @@ async function findExistingOutreachTasks(
     params: [
       { name: 'focus', value: focus.reference! },
       { name: '_tag', value: `${OUTREACH_TASK_TAG_SYSTEM}|${triggerEvent}` },
-      { name: 'status', value: 'draft,requested,in-progress' },
+      { name: 'status', value: 'draft,requested,in-progress,completed' },
     ],
   });
   return bundle.unbundle();
