@@ -224,6 +224,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       chargeResult: extractJsonOutput(task, 'charge-result'),
       notificationResults: extractJsonOutput(task, 'notification-results'),
       executionResult: extractJsonOutput(task, 'execution-result'),
+      retryInfo: extractRetryInfo(task),
     };
   });
 
@@ -289,6 +290,34 @@ function extractJsonOutput(task: Task, key: string): any | undefined {
   if (!output?.valueString) return undefined;
   try {
     return JSON.parse(output.valueString);
+  } catch {
+    return undefined;
+  }
+}
+
+function extractRetryInfo(
+  task: Task
+): { attemptCount: number; maxAttempts: number; nextRetryDate?: string } | undefined {
+  if (task.code?.coding?.[0]?.code !== 'charge-card') return undefined;
+
+  const configStr = task.input?.find((i) => i.type?.text === 'charge-card-config')?.valueString;
+  if (!configStr) return undefined;
+
+  try {
+    const config = JSON.parse(configStr) as { retryAttempts?: number };
+    const maxAttempts = (config.retryAttempts ?? 0) + 1; // total attempts = initial + retries
+
+    const attemptOutput = task.output?.find((o) => o.type?.text === 'attempt-count');
+    const attemptCount = attemptOutput?.valueInteger ?? 0;
+
+    // If the task is in draft and has previous attempts, the executionPeriod.start is the next retry date
+    const nextRetryDate = task.status === 'draft' && attemptCount > 0 ? task.executionPeriod?.start : undefined;
+
+    // Only return retry info if retries are configured
+    if (config.retryAttempts && config.retryAttempts > 0) {
+      return { attemptCount, maxAttempts, nextRetryDate };
+    }
+    return undefined;
   } catch {
     return undefined;
   }

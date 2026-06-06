@@ -136,6 +136,11 @@ export interface OutreachTaskSummary {
   chargeResult?: { success: boolean; transactionId?: string; error?: string; amountCents?: number };
   notificationResults?: { medium: string; success: boolean; error?: string }[];
   executionResult?: { medium: string; success: boolean; error?: string }[];
+  retryInfo?: {
+    attemptCount: number;
+    maxAttempts: number;
+    nextRetryDate?: string;
+  };
 }
 
 export interface ListOutreachTasksResponse {

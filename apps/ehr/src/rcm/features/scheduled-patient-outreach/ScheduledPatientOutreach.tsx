@@ -738,36 +738,26 @@ function ChargeCardConfigEditor({
   return (
     <Stack spacing={2}>
       <Stack direction="row" spacing={1} alignItems="center">
-        <Typography variant="body2" color="text.disabled">
-          Retry
-        </Typography>
+        <Typography variant="body2">Retry</Typography>
         <TextField
           type="number"
           size="small"
-          value={0}
-          disabled
+          value={config.retryAttempts}
+          onChange={(e) => onChange({ ...config, retryAttempts: Math.max(0, parseInt(e.target.value) || 0) })}
           sx={{ width: 70 }}
           inputProps={{ min: 0, max: 10, ...numericFieldProps }}
         />
-        <Typography variant="body2" color="text.disabled">
-          time(s) every
-        </Typography>
+        <Typography variant="body2">time(s) every</Typography>
         <TextField
           type="number"
           size="small"
-          value={0}
-          disabled
+          value={config.retryIntervalDays}
+          onChange={(e) => onChange({ ...config, retryIntervalDays: Math.max(0, parseInt(e.target.value) || 0) })}
+          disabled={config.retryAttempts === 0}
           sx={{ width: 70 }}
-          inputProps={{ min: 0, max: 90, ...numericFieldProps }}
+          inputProps={{ min: 1, max: 90, ...numericFieldProps }}
         />
-        <Typography variant="body2" color="text.disabled">
-          day(s)
-        </Typography>
-      </Stack>
-      <Stack direction="row" spacing={1} alignItems="center">
-        <Typography variant="body2" color="text.disabled" sx={{ fontStyle: 'italic' }}>
-          Retry functionality not yet enabled
-        </Typography>
+        <Typography variant="body2">day(s)</Typography>
       </Stack>
       <Divider />
       <Box>

@@ -87,63 +87,128 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     }
     console.log('--- END CHARGE CARD CONFIG ---');
 
+    // Determine current attempt number from task output (previous attempts)
+    const currentAttempt = getAttemptCount(task) + 1;
+
     // Attempt to charge the card
     const chargeResult = await chargeCard(patientRef!, focusRef!, oystehr, input.secrets);
 
-    // Send appropriate notifications based on outcome
-    const notificationConfig = chargeResult.success ? config.onSuccess : config.onFailure;
-    const notificationResults: { medium: NotificationMedium; success: boolean; error?: string }[] = [];
+    if (chargeResult.success) {
+      // ── Success path: send success notifications and complete ──
+      const notificationResults = await sendOutcomeNotifications(
+        config.onSuccess,
+        task,
+        chargeResult,
+        oystehr,
+        input.secrets
+      );
 
-    if (notificationConfig.enabled && notificationConfig.mediums.length > 0) {
-      for (const medium of notificationConfig.mediums) {
-        try {
-          await sendNotificationForMedium(
-            medium,
-            task,
-            notificationConfig.smsTemplate,
-            notificationConfig.emailTemplate,
-            notificationConfig.statementType,
-            chargeResult,
-            oystehr,
-            input.secrets
-          );
-          notificationResults.push({ medium, success: true });
-        } catch (err: any) {
-          console.error(`Failed to send ${medium} notification after charge:`, err.message);
-          notificationResults.push({ medium, success: false, error: err.message });
-        }
-      }
+      await oystehr.fhir.patch<Task>({
+        resourceType: 'Task',
+        id: task.id!,
+        operations: [
+          { op: 'replace', path: '/status', value: 'completed' },
+          { op: 'add', path: '/executionPeriod/end', value: DateTime.now().toISO() },
+          {
+            op: 'add',
+            path: '/output',
+            value: [
+              { type: { text: 'attempt-count' }, valueInteger: currentAttempt },
+              { type: { text: `attempt-${currentAttempt}-result` }, valueString: 'success' },
+              { type: { text: `attempt-${currentAttempt}-date` }, valueDateTime: DateTime.now().toISO() },
+              { type: { text: 'charge-result' }, valueString: JSON.stringify(chargeResult) },
+              { type: { text: 'notification-results' }, valueString: JSON.stringify(notificationResults) },
+              // Preserve previous attempt history
+              ...getPreviousAttemptOutputs(task),
+            ],
+          },
+        ],
+      });
+
+      console.log(`Task ${task.id} completed successfully on attempt ${currentAttempt}`);
+      return {
+        statusCode: 200,
+        body: JSON.stringify({ status: 'completed', attempt: currentAttempt, chargeResult, notificationResults }),
+      };
     }
 
-    const finalStatus = chargeResult.success ? 'completed' : 'failed';
+    // ── Failure path: check if retries remain ──
+    const retriesRemaining = config.retryAttempts - currentAttempt;
+    console.log(
+      `Charge failed on attempt ${currentAttempt}/${config.retryAttempts + 1} (retries remaining: ${retriesRemaining})`
+    );
+
+    if (retriesRemaining > 0 && config.retryIntervalDays > 0) {
+      // ── Retry: reset task to draft with a future executionPeriod.start ──
+      const nextRetryDate = DateTime.now().plus({ days: config.retryIntervalDays }).toISO();
+      console.log(`Scheduling retry for task ${task.id} at ${nextRetryDate}`);
+
+      await oystehr.fhir.patch<Task>({
+        resourceType: 'Task',
+        id: task.id!,
+        operations: [
+          { op: 'replace', path: '/status', value: 'draft' },
+          { op: 'replace', path: '/executionPeriod/start', value: nextRetryDate },
+          {
+            op: 'add',
+            path: '/output',
+            value: [
+              { type: { text: 'attempt-count' }, valueInteger: currentAttempt },
+              { type: { text: `attempt-${currentAttempt}-result` }, valueString: chargeResult.error || 'failed' },
+              { type: { text: `attempt-${currentAttempt}-date` }, valueDateTime: DateTime.now().toISO() },
+              // Preserve previous attempt history
+              ...getPreviousAttemptOutputs(task),
+            ],
+          },
+        ],
+      });
+
+      return {
+        statusCode: 200,
+        body: JSON.stringify({
+          status: 'retry-scheduled',
+          attempt: currentAttempt,
+          nextRetryDate,
+          chargeResult,
+        }),
+      };
+    }
+
+    // ── Final failure: no retries left, send failure notifications and mark failed ──
+    const notificationResults = await sendOutcomeNotifications(
+      config.onFailure,
+      task,
+      chargeResult,
+      oystehr,
+      input.secrets
+    );
 
     await oystehr.fhir.patch<Task>({
       resourceType: 'Task',
       id: task.id!,
       operations: [
-        { op: 'replace', path: '/status', value: finalStatus },
+        { op: 'replace', path: '/status', value: 'failed' },
         { op: 'add', path: '/executionPeriod/end', value: DateTime.now().toISO() },
         {
           op: 'add',
           path: '/output',
           value: [
-            {
-              type: { text: 'charge-result' },
-              valueString: JSON.stringify(chargeResult),
-            },
-            {
-              type: { text: 'notification-results' },
-              valueString: JSON.stringify(notificationResults),
-            },
+            { type: { text: 'attempt-count' }, valueInteger: currentAttempt },
+            { type: { text: `attempt-${currentAttempt}-result` }, valueString: chargeResult.error || 'failed' },
+            { type: { text: `attempt-${currentAttempt}-date` }, valueDateTime: DateTime.now().toISO() },
+            { type: { text: 'charge-result' }, valueString: JSON.stringify(chargeResult) },
+            { type: { text: 'notification-results' }, valueString: JSON.stringify(notificationResults) },
+            // Preserve previous attempt history
+            ...getPreviousAttemptOutputs(task),
           ],
         },
       ],
     });
 
-    console.log(`Task ${task.id} completed with status: ${finalStatus}`);
+    console.log(`Task ${task.id} failed permanently after ${currentAttempt} attempt(s)`);
     return {
       statusCode: 200,
-      body: JSON.stringify({ status: finalStatus, chargeResult, notificationResults }),
+      body: JSON.stringify({ status: 'failed', attempt: currentAttempt, chargeResult, notificationResults }),
     };
   } catch (err: any) {
     console.error(`Unexpected error executing task ${task.id}:`, err.message);
@@ -167,6 +232,72 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 });
 
 // ── Helpers ────────────────────────────────────────────────────────────────
+
+/**
+ * Get the number of charge attempts already recorded in the task output.
+ */
+function getAttemptCount(task: Task): number {
+  const attemptOutput = task.output?.find((o) => o.type?.text === 'attempt-count');
+  return attemptOutput?.valueInteger ?? 0;
+}
+
+/**
+ * Extract previous attempt output entries to preserve history when patching.
+ */
+function getPreviousAttemptOutputs(
+  task: Task
+): Array<{ type: { text: string }; valueString?: string; valueDateTime?: string; valueInteger?: number }> {
+  if (!task.output) return [];
+  // Keep all attempt-N-result and attempt-N-date entries from prior attempts
+  return task.output
+    .filter((o) => {
+      const text = o.type?.text || '';
+      return /^attempt-\d+-(result|date)$/.test(text);
+    })
+    .map((o) => ({
+      type: { text: o.type!.text! },
+      ...(o.valueString !== undefined && { valueString: o.valueString }),
+      ...(o.valueDateTime !== undefined && { valueDateTime: o.valueDateTime }),
+    }));
+}
+
+/**
+ * Send notifications for a charge outcome (success or failure).
+ */
+async function sendOutcomeNotifications(
+  notificationConfig: ChargeCardConfig['onSuccess'],
+  task: Task,
+  chargeResult: ChargeResult,
+  oystehr: Oystehr,
+  secrets: Secrets | null
+): Promise<{ medium: NotificationMedium; success: boolean; error?: string }[]> {
+  const results: { medium: NotificationMedium; success: boolean; error?: string }[] = [];
+
+  if (!notificationConfig.enabled || notificationConfig.mediums.length === 0) {
+    return results;
+  }
+
+  for (const medium of notificationConfig.mediums) {
+    try {
+      await sendNotificationForMedium(
+        medium,
+        task,
+        notificationConfig.smsTemplate,
+        notificationConfig.emailTemplate,
+        notificationConfig.statementType,
+        chargeResult,
+        oystehr,
+        secrets
+      );
+      results.push({ medium, success: true });
+    } catch (err: any) {
+      console.error(`Failed to send ${medium} notification after charge:`, err.message);
+      results.push({ medium, success: false, error: err.message });
+    }
+  }
+
+  return results;
+}
 
 function extractChargeCardConfig(task: Task): ChargeCardConfig {
   const configInput = task.input?.find((i) => i.type?.text === 'charge-card-config');

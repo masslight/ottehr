@@ -1011,6 +1011,28 @@ function TaskStatusTooltipContent({ task }: { task: OutreachTaskSummary }): Reac
         </Box>
       )}
 
+      {/* Charge card retry info */}
+      {task.actionType === 'charge-card' && task.retryInfo && (
+        <Box sx={{ bgcolor: '#FFF3E0', borderRadius: 1, p: 1 }}>
+          <Typography variant="caption" sx={{ fontWeight: 600, color: '#E65100' }}>
+            Retry Info
+          </Typography>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25, mt: 0.5 }}>
+            <Typography variant="body2">
+              Attempts: {task.retryInfo.attemptCount} / {task.retryInfo.maxAttempts}
+            </Typography>
+            <Typography variant="body2">
+              Remaining: {Math.max(0, task.retryInfo.maxAttempts - task.retryInfo.attemptCount)}
+            </Typography>
+            {task.retryInfo.nextRetryDate && (
+              <Typography variant="body2">
+                Next retry: {DateTime.fromISO(task.retryInfo.nextRetryDate).toFormat('M/d/yyyy, h:mm a')}
+              </Typography>
+            )}
+          </Box>
+        </Box>
+      )}
+
       {/* Notification results (from charge-card post-charge notifications) */}
       {task.notificationResults && task.notificationResults.length > 0 && (
         <Box sx={{ bgcolor: '#F3E5F5', borderRadius: 1, p: 1 }}>
