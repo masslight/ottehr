@@ -43,8 +43,12 @@ interface AdministrationDetails {
 }
 
 const vaccineKeys = Object.keys(vaccines.fhirResources);
+// Clamp to the available vaccines: instances may configure only a single vaccine, in which
+// case the administration tests reuse it (the test locators tolerate the resulting duplicate
+// MAR/progress-note entries). When more vaccines exist, each test gets a distinct one.
 const vaccineNameAt = (index: number): string =>
-  vaccines.fhirResources[vaccineKeys[index] as keyof typeof vaccines.fhirResources]?.resource.identifier[1].value;
+  vaccines.fhirResources[vaccineKeys[Math.min(index, vaccineKeys.length - 1)] as keyof typeof vaccines.fhirResources]
+    ?.resource.identifier[1].value;
 
 const vaccine = vaccineNameAt(0);
 
@@ -74,8 +78,10 @@ const EDITED_VACCINE: VaccineInfo = {
 };
 
 // The administration tests share a single appointment, so the orders they leave behind
-// accumulate on the MAR and the progress note. Giving each a distinct vaccine keeps every
-// list entry unique and avoids strict-mode locator collisions between tests.
+// accumulate on the MAR and the progress note. Each test uses a distinct vaccine where the
+// instance configures enough of them, which keeps list entries unique; on single-vaccine
+// instances these collapse to the same vaccine and the tests rely on status-based MAR
+// filtering and first-match progress-note assertions instead.
 const ADMINISTERED_VACCINE: VaccineInfo = { ...VACCINE, vaccine: vaccineNameAt(0) };
 const PARTLY_ADMINISTERED_VACCINE: VaccineInfo = { ...VACCINE, vaccine: vaccineNameAt(1) };
 const NOT_ADMINISTERED_VACCINE: VaccineInfo = { ...VACCINE, vaccine: vaccineNameAt(2) };
@@ -108,7 +114,7 @@ test.describe('Immunization Page mutating tests', () => {
   let page: Page;
   let context: BrowserContext;
 
-  test.skip(vaccineKeys.length < 3, 'Need at least 3 vaccines to run immunization tests');
+  test.skip(!vaccineKeys.length, 'Need vaccines to run immunization tests');
 
   // These tests share a single appointment to avoid paying for an expensive appointment
   // creation + preprocessing wait on every test. They run serially and each test creates
