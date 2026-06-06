@@ -26,12 +26,18 @@ import {
 import { v4 as uuidV4 } from 'uuid';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
-import { getTemplateEncounterBundle, hasTemplateRelevantTag, isDiagnosisCondition } from '../shared/template-helpers';
+import {
+  getTemplateEncounterBundle,
+  hasTemplateRelevantTag,
+  isDiagnosisCondition,
+  TemplateEncounterResource,
+} from '../shared/template-helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
 interface ComplexValidationOutput {
   templateList: List;
   encounter: Encounter;
+  encounterBundle: TemplateEncounterResource[];
 }
 
 type ResolvedSectionActions = Record<TemplateSectionKey, TemplateSectionAction>;
@@ -46,8 +52,8 @@ export const index = wrapHandler('apply-template', async (input: ZambdaInput): P
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createOystehrClient(m2mToken, secrets);
 
-  const { templateList, encounter } = await complexValidation(validatedInput, oystehr);
-  await performEffect(validatedInput, templateList, encounter, oystehr);
+  const { templateList, encounter, encounterBundle } = await complexValidation(validatedInput, oystehr);
+  await performEffect(validatedInput, templateList, encounter, encounterBundle, oystehr);
   return {
     statusCode: 200,
     body: JSON.stringify({}),
@@ -60,16 +66,21 @@ const complexValidation = async (
 ): Promise<ComplexValidationOutput> => {
   const { templateName, encounterId } = validatedInput;
 
-  // Perform complex validation logic here
-  const lists = (
-    await oystehr.fhir.search<List>({
-      resourceType: 'List',
-      params: [
-        { name: 'title', value: templateName },
-        { name: '_revinclude', value: 'List:item' },
-      ],
-    })
-  ).unbundle();
+  // The template List search and the encounter bundle fetch are independent, so run them in
+  // parallel. The encounter bundle search (by _id) also returns the Encounter itself, so we
+  // pull it from there instead of issuing a separate Encounter GET.
+  const [lists, encounterBundle] = await Promise.all([
+    oystehr.fhir
+      .search<List>({
+        resourceType: 'List',
+        params: [
+          { name: 'title', value: templateName },
+          { name: '_revinclude', value: 'List:item' },
+        ],
+      })
+      .then((bundle) => bundle.unbundle()),
+    getTemplateEncounterBundle(oystehr, encounterId),
+  ]);
 
   const globalTemplatesHolders = lists.filter(
     (list) => list.meta?.tag?.some((tag) => tag.system === GLOBAL_TEMPLATE_META_TAG_CODE_SYSTEM)
@@ -99,12 +110,15 @@ const complexValidation = async (
     );
   }
 
-  const encounter = await oystehr.fhir.get<Encounter>({
-    resourceType: 'Encounter',
-    id: encounterId,
-  });
+  const encounter = encounterBundle.find(
+    (resource): resource is Encounter => resource.resourceType === 'Encounter' && resource.id === encounterId
+  );
 
-  return { templateList: templateLists[0], encounter };
+  if (!encounter) {
+    throw new Error(`No encounter found with id: ${encounterId}`);
+  }
+
+  return { templateList: templateLists[0], encounter, encounterBundle };
 };
 
 const resolveSectionActions = (input?: TemplateSectionActions): ResolvedSectionActions => {
@@ -133,12 +147,12 @@ const performEffect = async (
   validatedInput: ApplyTemplateZambdaInput & Pick<ZambdaInput, 'secrets'>,
   templateList: List,
   encounter: Encounter,
+  encounterBundle: TemplateEncounterResource[],
   oystehr: Oystehr
 ): Promise<void> => {
-  const { encounterId, sectionActions } = validatedInput;
+  const { sectionActions } = validatedInput;
   const actions = resolveSectionActions(sectionActions);
 
-  const encounterBundle = await getTemplateEncounterBundle(oystehr, encounterId);
   // Make 1 transaction to delete old resources that are being replaced and write the new ones
   const deleteRequests = makeDeleteRequests(encounterBundle, actions);
   const deleteBatches = chunkThings(deleteRequests, 5).map((chunk) =>
