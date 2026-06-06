@@ -1,6 +1,14 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { ClinicalImpression, Communication, Condition, List, Procedure } from 'fhir/r4b';
+import {
+  ActivityDefinition,
+  ClinicalImpression,
+  Communication,
+  Condition,
+  List,
+  Procedure,
+  ServiceRequest,
+} from 'fhir/r4b';
 import {
   ACCIDENT_STATE_EXTENSION,
   ACCIDENT_TYPE_SYSTEM,
@@ -10,19 +18,27 @@ import {
   collectKnownExamFields,
   collectKnownRosFields,
   examConfig,
+  extractCptCodeModifiersFromCoding,
   getRosFindingStateFromKey,
   getSecret,
   getTag,
   ICD_10_CODE_SYSTEM,
+  IN_HOUSE_TEST_CODE_SYSTEM,
   resourceHasTagSystem,
   SecretsKeys,
   TemplateAccidentInfo,
   TemplateCodeInfo,
+  TemplateCptCodeInfo,
   TemplateExamFinding,
+  TemplateInHouseLabPlanDetail,
   TemplateRosFinding,
 } from 'utils';
 import { checkOrCreateM2MClientToken, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
+import {
+  indexLatestActivityDefinitionsByUrl,
+  urlFromInstantiatesCanonical,
+} from '../apply-template/apply-in-house-labs';
 import { analyzeTemplateVersionData, isDiagnosisCondition, verifyIsTemplate } from '../shared/template-helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -229,11 +245,12 @@ const performEffect = async (
     (r) => r.resourceType === 'Procedure' && resourceHasTagSystem(r, chartDataTagSystem('cpt-code'))
   ) as Procedure[];
 
-  const cptCodes: TemplateCodeInfo[] = cptProcedures.map((proc) => {
+  const cptCodes: TemplateCptCodeInfo[] = cptProcedures.map((proc) => {
     const coding = proc.code?.coding?.[0];
     return {
       code: coding?.code ?? '',
       display: coding?.display ?? '',
+      modifiers: coding ? extractCptCodeModifiersFromCoding(coding) : [],
     };
   });
 
@@ -267,6 +284,81 @@ const performEffect = async (
       }
     : null;
 
+  // Parse in-house lab plans. Each plan is a ServiceRequest with intent 'plan'
+  // and the in-house-lab-template-plan meta tag; we resolve its canonical
+  // ActivityDefinition reference to a human-readable test name and surface a
+  // missing flag when the AD isn't available in this environment.
+  const inHouseLabPlanTagSystem = chartDataTagSystem('in-house-lab-template-plan');
+  const inHouseLabPlans = contained.filter(
+    (r): r is ServiceRequest =>
+      r.resourceType === 'ServiceRequest' &&
+      (r as ServiceRequest).intent === 'plan' &&
+      resourceHasTagSystem(r, inHouseLabPlanTagSystem)
+  );
+
+  // Saved plans store the AD canonical without a version suffix so templates
+  // float forward as new AD versions are published. Older templates may carry
+  // a versioned canonical; we strip the version for the search either way and
+  // pick the latest semver match below.
+  const canonicalRefs = Array.from(
+    new Set(inHouseLabPlans.flatMap((p) => p.instantiatesCanonical ?? []).filter((ref): ref is string => Boolean(ref)))
+  );
+
+  let adByUrl = new Map<string, ActivityDefinition>();
+  if (canonicalRefs.length > 0) {
+    const urlsToSearch = Array.from(new Set(canonicalRefs.map(urlFromInstantiatesCanonical)));
+    try {
+      const ads = (
+        await oystehr.fhir.search<ActivityDefinition>({
+          resourceType: 'ActivityDefinition',
+          // Active-only - retired ADs can outrank active ones by semver and
+          // would otherwise show up as the "current" definition on the admin
+          // detail page even though apply-template would reject them.
+          params: [
+            { name: 'url', value: urlsToSearch.join(',') },
+            { name: 'status', value: 'active' },
+          ],
+        })
+      ).unbundle() as ActivityDefinition[];
+      adByUrl = indexLatestActivityDefinitionsByUrl(ads);
+    } catch (err) {
+      console.warn('Could not resolve ActivityDefinitions for in-house lab plans:', err);
+    }
+  }
+
+  const inHouseLabs: TemplateInHouseLabPlanDetail[] = inHouseLabPlans.map((plan) => {
+    const canonical = plan.instantiatesCanonical?.[0] ?? '';
+
+    // cpts codes, test code, and test name should all come from the AD itself to pick up any changes to the test
+    const ad = canonical ? adByUrl.get(urlFromInstantiatesCanonical(canonical)) : undefined;
+    if (!ad) {
+      console.warn(`Could not resolve ActivityDefinitions for in-house lab plans canonical ${canonical}`);
+    }
+    const inHouseCoding = ad?.code?.coding?.find((c) => c.system === IN_HOUSE_TEST_CODE_SYSTEM);
+    const cptCodes: TemplateCptCodeInfo[] = (ad?.code?.coding ?? [])
+      .filter((c) => c.system === 'http://www.ama-assn.org/go/cpt' && c.code)
+      .map((c) => ({ code: c.code ?? '', display: c.display ?? '', modifiers: extractCptCodeModifiersFromCoding(c) }));
+
+    const diagnoses: TemplateCodeInfo[] = (plan.reasonCode ?? [])
+      .map((rc) => {
+        const icd = rc.coding?.find((c) => c.system === ICD_10_CODE_SYSTEM) ?? rc.coding?.[0];
+        return { code: icd?.code ?? '', display: icd?.display ?? rc.text ?? '' };
+      })
+      .filter((d) => d.code || d.display);
+    const notes = (plan.note ?? []).map((n) => n.text ?? '').filter((t) => t.length > 0);
+
+    return {
+      planId: plan.id ?? '',
+      testName: ad?.name ?? ad?.title ?? 'Unknown test',
+      activityDefinitionRef: canonical,
+      code: inHouseCoding?.code ?? '',
+      diagnoses,
+      notes,
+      cptCodes,
+      missing: !ad,
+    };
+  });
+
   return {
     templateName: templateList.title ?? '',
     templateId: templateList.id!,
@@ -284,6 +376,7 @@ const performEffect = async (
       cptCodes,
       emCode,
       accident,
+      inHouseLabs,
     },
   };
 };

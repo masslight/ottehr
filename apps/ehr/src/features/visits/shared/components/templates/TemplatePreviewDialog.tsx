@@ -21,15 +21,20 @@ import { useQuery } from '@tanstack/react-query';
 import React, { useEffect, useMemo, useState } from 'react';
 import { getTemplateDetail } from 'src/api/api';
 import { ContainedPrimaryToggleButton } from 'src/components/ContainedPrimaryToggleButton';
+import { formatCptCodeAndModifiersForDisplay } from 'src/helpers/templates';
 import { useApiClients } from 'src/hooks/useAppClients';
 import {
   AdminGetTemplateDetailOutput,
   buildExamFieldToSectionMap,
+  isTemplateCptCodeInfo,
   RosFindingState,
   RosFindingStateLabel,
   TEMPLATE_SECTION_DEFAULT_ACTIONS,
   TEMPLATE_SECTIONS_IN_ORDER,
   TEMPLATE_SECTIONS_NO_APPEND,
+  TEMPLATE_SECTIONS_NO_OVERWRITE,
+  TemplateCptCodeInfo,
+  TemplateInHouseLabPlanDetail,
   TemplateSectionAction,
   TemplateSectionActions,
   TemplateSectionDescriptor,
@@ -90,6 +95,8 @@ const truncate = (s: string, n = 80): string => {
 const pluralize = (n: number, singular: string, plural = `${singular}s`): string =>
   `${n} ${n === 1 ? singular : plural}`;
 
+// the slices are because we show the names of the first two items "+ n more"
+const NUM_ITEMS_IN_SECTION_TO_SHOW = 2;
 const getSectionSummary = (sections: AdminGetTemplateDetailOutput['sections'], key: TemplateSectionKey): string => {
   switch (key) {
     case 'hpi':
@@ -114,24 +121,34 @@ const getSectionSummary = (sections: AdminGetTemplateDetailOutput['sections'], k
       return sections.mdm ? truncate(sections.mdm) : '';
     case 'diagnoses': {
       const codes = sections.diagnoses
-        .slice(0, 2)
+        .slice(0, NUM_ITEMS_IN_SECTION_TO_SHOW)
         .map((d) => d.code)
         .join(', ');
-      const extra = sections.diagnoses.length - 2;
+      const extra = sections.diagnoses.length - NUM_ITEMS_IN_SECTION_TO_SHOW;
       return extra > 0 ? `${codes} +${extra} more` : codes;
     }
     case 'patientInstructions':
       return pluralize(sections.patientInstructions.length, 'instruction');
     case 'cptCodes': {
       const codes = sections.cptCodes
-        .slice(0, 2)
+        .slice(0, NUM_ITEMS_IN_SECTION_TO_SHOW)
         .map((c) => c.code)
         .join(', ');
-      const extra = sections.cptCodes.length - 2;
+      const extra = sections.cptCodes.length - NUM_ITEMS_IN_SECTION_TO_SHOW;
       return extra > 0 ? `${codes} +${extra} more` : codes;
     }
     case 'emCode':
       return sections.emCode ? sections.emCode.code : '';
+    case 'inHouseLabs': {
+      const names = sections.inHouseLabs
+        .slice(0, NUM_ITEMS_IN_SECTION_TO_SHOW)
+        .map((p) => p.testName)
+        .join(', ');
+      const extra = sections.inHouseLabs.length - NUM_ITEMS_IN_SECTION_TO_SHOW;
+      const summary = extra > 0 ? `${names} +${extra} more` : names;
+      const missing = sections.inHouseLabs.filter((p) => p.missing).length;
+      return missing > 0 ? `${summary} (${missing} unavailable)` : summary;
+    }
     default:
       return '';
   }
@@ -157,6 +174,8 @@ const sectionHasContent = (sections: AdminGetTemplateDetailOutput['sections'], k
       return sections.cptCodes.length > 0;
     case 'emCode':
       return Boolean(sections.emCode);
+    case 'inHouseLabs':
+      return sections.inHouseLabs.length > 0;
     default:
       return false;
   }
@@ -175,11 +194,15 @@ const TextBlock: React.FC<{ value: string | null | undefined }> = ({ value }) =>
   );
 };
 
-const CodeList: React.FC<{ items: { code: string; display: string }[] }> = ({ items }) => (
+const CodeList: React.FC<{ items: { code: string; display: string }[] | TemplateCptCodeInfo[] }> = ({ items }) => (
   <Stack spacing={0.5}>
     {items.map((item, idx) => (
       <Typography key={`${item.code}-${idx}`} variant="body2" sx={{ color: 'text.primary' }}>
-        <strong>{item.code}</strong>
+        {isTemplateCptCodeInfo(item) ? (
+          <strong>{formatCptCodeAndModifiersForDisplay(item)}</strong>
+        ) : (
+          <strong>{item.code}</strong>
+        )}
         {item.display ? ` — ${item.display}` : ''}
       </Typography>
     ))}
@@ -308,10 +331,70 @@ const SectionPreview: React.FC<{
       return <CodeList items={sections.cptCodes} />;
     case 'emCode':
       return sections.emCode ? <CodeList items={[sections.emCode]} /> : null;
+    case 'inHouseLabs':
+      return <InHouseLabPlansList plans={sections.inHouseLabs} />;
     default:
       return null;
   }
 };
+
+// Each plan renders as a row with the test name and any reasonCode ICDs as
+// little chips below. Plans whose ActivityDefinition couldn't be resolved on
+// this environment render muted so the provider knows they'll be skipped at
+// apply-time.
+const InHouseLabPlansList: React.FC<{ plans: TemplateInHouseLabPlanDetail[] }> = ({ plans }) => (
+  <Stack spacing={1.5}>
+    {plans.map((plan) => (
+      <Box key={plan.planId} sx={{ opacity: plan.missing ? 0.55 : 1 }}>
+        <Typography variant="body2" sx={{ color: 'text.primary', fontWeight: 500 }}>
+          {plan.testName}
+          {plan.missing ? (
+            <Typography component="span" variant="caption" sx={{ ml: 1, color: 'warning.main', fontStyle: 'italic' }}>
+              unavailable in this environment — will be skipped
+            </Typography>
+          ) : null}
+        </Typography>
+        {plan.diagnoses.length > 0 ? (
+          <Stack direction="row" flexWrap="wrap" gap={0.5} sx={{ mt: 0.5 }}>
+            {plan.diagnoses.map((d, idx) => (
+              <Chip
+                key={`${plan.planId}-dx-${idx}`}
+                size="small"
+                variant="outlined"
+                label={d.display ? `${d.code} — ${d.display}` : d.code}
+              />
+            ))}
+          </Stack>
+        ) : null}
+        {plan.cptCodes.length > 0 ? (
+          // CPT codes are surfaced here so providers see what the lab section
+          // delivers. If the same CPT also appears in the CPT Codes section,
+          // apply-template dedupes - whichever section is appended wins, both
+          // appended produces one Procedure not two.
+          <Stack direction="row" flexWrap="wrap" gap={0.5} sx={{ mt: 0.5 }}>
+            {plan.cptCodes.map((c, idx) => (
+              <Chip
+                key={`${plan.planId}-cpt-${idx}`}
+                size="small"
+                variant="outlined"
+                color="primary"
+                label={`CPT ${formatCptCodeAndModifiersForDisplay(c)}${c.display ? ` — ${c.display}` : ''}`}
+              />
+            ))}
+          </Stack>
+        ) : null}
+        {plan.notes.length > 0 ? (
+          <Typography
+            variant="caption"
+            sx={{ display: 'block', mt: 0.5, color: 'text.secondary', whiteSpace: 'pre-wrap' }}
+          >
+            Notes: {plan.notes.join('\n\n')}
+          </Typography>
+        ) : null}
+      </Box>
+    ))}
+  </Stack>
+);
 
 const SectionCard: React.FC<{
   descriptor: TemplateSectionDescriptor;
@@ -323,6 +406,7 @@ const SectionCard: React.FC<{
   const theme = useTheme();
   const [expanded, setExpanded] = useState(false);
   const noAppend = TEMPLATE_SECTIONS_NO_APPEND.has(descriptor.key);
+  const noOverwrite = TEMPLATE_SECTIONS_NO_OVERWRITE.has(descriptor.key);
   const summary = getSectionSummary(sections, descriptor.key);
 
   const previewSx = {
@@ -415,9 +499,11 @@ const SectionCard: React.FC<{
                 {ACTION_LABELS.append}
               </ContainedPrimaryToggleButton>
             )}
-            <ContainedPrimaryToggleButton value="overwrite" title={getActionTooltip(descriptor.key, 'overwrite')}>
-              {ACTION_LABELS.overwrite}
-            </ContainedPrimaryToggleButton>
+            {noOverwrite ? null : (
+              <ContainedPrimaryToggleButton value="overwrite" title={getActionTooltip(descriptor.key, 'overwrite')}>
+                {ACTION_LABELS.overwrite}
+              </ContainedPrimaryToggleButton>
+            )}
           </ToggleButtonGroup>
         </Box>
       </Box>

@@ -3,7 +3,7 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Location } from 'fhir/r4b';
 import { getNPI } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
-import { createBillingClient, EXCLUDE_WORKING_COPIES_PARAM } from '../shared';
+import { createBillingClient, EXCLUDE_WORKING_COPIES_PARAMS } from '../shared';
 
 interface ServiceLocationItem {
   id: string;
@@ -31,7 +31,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 async function performEffect(oystehr: Oystehr): Promise<{ locations: ServiceLocationItem[] }> {
   const result = await oystehr.fhir.search<Location>({
     resourceType: 'Location',
-    params: [{ name: '_sort', value: 'name' }, { name: '_count', value: '200' }, EXCLUDE_WORKING_COPIES_PARAM],
+    params: [{ name: '_sort', value: 'name' }, { name: '_count', value: '200' }, ...EXCLUDE_WORKING_COPIES_PARAMS],
   });
 
   const locations = result.unbundle().map(mapLocation);

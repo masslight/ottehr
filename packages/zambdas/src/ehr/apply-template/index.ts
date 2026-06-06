@@ -2,6 +2,7 @@ import Oystehr, { BatchInputDeleteRequest, BatchInputJSONPatchRequest, BatchInpu
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
 import {
+  ActivityDefinition,
   ClinicalImpression,
   Communication,
   Condition,
@@ -12,7 +13,9 @@ import {
   Procedure,
 } from 'fhir/r4b';
 import {
+  ApplyTemplateWarning,
   ApplyTemplateZambdaInput,
+  ApplyTemplateZambdaOutput,
   chartDataTagSystem,
   chunkThings,
   GLOBAL_TEMPLATE_META_TAG_CODE_SYSTEM,
@@ -32,6 +35,11 @@ import {
   isDiagnosisCondition,
   TemplateEncounterResource,
 } from '../shared/template-helpers';
+import {
+  applyInHouseLabPlans,
+  canApplyActivityDefinition,
+  getLatestInHouseLabActivityDefinitionsForTemplatePlan,
+} from './apply-in-house-labs';
 import { validateRequestParameters } from './validateRequestParameters';
 
 interface ComplexValidationOutput {
@@ -53,10 +61,11 @@ export const index = wrapHandler('apply-template', async (input: ZambdaInput): P
   const oystehr = createOystehrClient(m2mToken, secrets);
 
   const { templateList, encounter, encounterBundle } = await complexValidation(validatedInput, oystehr);
-  await performEffect(validatedInput, templateList, encounter, encounterBundle, oystehr);
+  const result = await performEffect(validatedInput, templateList, encounter, encounterBundle, oystehr);
+  const body: ApplyTemplateZambdaOutput = result.warnings.length > 0 ? { warnings: result.warnings } : {};
   return {
     statusCode: 200,
-    body: JSON.stringify({}),
+    body: JSON.stringify(body),
   };
 });
 
@@ -125,6 +134,32 @@ const resolveSectionActions = (input?: TemplateSectionActions): ResolvedSectionA
   return { ...TEMPLATE_SECTION_DEFAULT_ACTIONS, ...(input ?? {}) };
 };
 
+const CPT_CODE_SYSTEM = 'http://www.ama-assn.org/go/cpt';
+
+// Walks the template's contained resources and collects the CPT codes belonging
+// to in-house lab plans that will be applied (i.e. their section action isn't
+// 'skip'). Those CPTs are materialized by the lab's create flow at apply time,
+// so when the CPT Codes section is also being applied, makeCreateRequests
+// drops the matching template CPT Procedures to avoid double-Procedures.
+//
+// Returns an empty set if either action is 'skip' - if labs are being skipped
+// the lab side doesn't materialize anything, and if CPTs are skipped the
+// section doesn't run so no dedup is needed.
+export const collectCptCodesFromApplicableActivityDefinitions = (
+  applicableActivityDefinitions: ActivityDefinition[],
+  actions: ResolvedSectionActions
+): Set<string> => {
+  if (actions.inHouseLabs === 'skip' || actions.cptCodes === 'skip') return new Set();
+  const out = new Set<string>();
+  for (const ad of applicableActivityDefinitions) {
+    if (!canApplyActivityDefinition(ad).canApply) continue;
+    for (const coding of ad.code?.coding ?? []) {
+      if (coding.system === CPT_CODE_SYSTEM && coding.code) out.add(coding.code);
+    }
+  }
+  return out;
+};
+
 // Maps an existing chart-data resource on the encounter (or a contained template resource)
 // to the template section it belongs to. Returns null if it doesn't map to a managed section.
 const getSectionForResource = (resource: FhirResource): TemplateSectionKey | null => {
@@ -144,14 +179,35 @@ const getSectionForResource = (resource: FhirResource): TemplateSectionKey | nul
 };
 
 const performEffect = async (
-  validatedInput: ApplyTemplateZambdaInput & Pick<ZambdaInput, 'secrets'>,
+  validatedInput: ApplyTemplateZambdaInput & Pick<ZambdaInput, 'secrets'> & { userToken: string },
   templateList: List,
   encounter: Encounter,
   encounterBundle: TemplateEncounterResource[],
   oystehr: Oystehr
-): Promise<void> => {
-  const { sectionActions } = validatedInput;
+): Promise<{ warnings: ApplyTemplateWarning[] }> => {
+  const { encounterId, sectionActions } = validatedInput;
   const actions = resolveSectionActions(sectionActions);
+
+  // The encounter bundle was already fetched in parallel with the template List search during
+  // validation, so we don't re-fetch it here. We still need the latest in-house lab
+  // ActivityDefinitions, which depend on the template List (and short-circuit to an empty array,
+  // with no FHIR call, when the template has no in-house lab plans).
+  const latestInHouseLabAds = await getLatestInHouseLabActivityDefinitionsForTemplatePlan(oystehr, templateList);
+
+  // Kick off in-house lab plan application in parallel with the chart-data
+  // batches below - the two are independent (different resources, different
+  // transactions) so we don't need to await before starting the rest.
+  const applicableInHouseLabAds = latestInHouseLabAds.filter((ad) => canApplyActivityDefinition(ad).canApply);
+  const inHouseLabsPromise = applyInHouseLabPlans({
+    templateList,
+    encounterId,
+    userToken: validatedInput.userToken,
+    secrets: validatedInput.secrets,
+    oystehr,
+    action: actions.inHouseLabs,
+    activityDefinitions: applicableInHouseLabAds,
+    encounterResources: encounterBundle,
+  });
 
   // Make 1 transaction to delete old resources that are being replaced and write the new ones
   const deleteRequests = makeDeleteRequests(encounterBundle, actions);
@@ -161,7 +217,12 @@ const performEffect = async (
     })
   );
 
-  const createRequests = makeCreateRequests(encounter, templateList, encounterBundle, actions);
+  // If an in-house lab plan is being applied AND the CPT Codes section is also
+  // being applied, the lab's create flow will materialize the lab's CPT
+  // Procedures on its own - we need to skip those CPT codes from the template's
+  // separate CPT Codes section so we don't end up with the same Procedure twice.
+  const cptCodesFromLabsToSkip = collectCptCodesFromApplicableActivityDefinitions(applicableInHouseLabAds, actions);
+  const createRequests = makeCreateRequests(encounter, templateList, encounterBundle, actions, cptCodesFromLabsToSkip);
 
   const miniTransactionRequests = createRequests.filter((request) => {
     if (request.method === 'POST') {
@@ -202,14 +263,14 @@ const performEffect = async (
     requests: miniTransactionRequests,
   });
 
-  const bundles = await Promise.all([
-    ...deleteBatches,
-    ...createObservationBatches,
-    ...createProcedureBatches,
-    miniTransactionPromise,
+  const [bundles, inHouseLabsResult] = await Promise.all([
+    Promise.all([...deleteBatches, ...createObservationBatches, ...createProcedureBatches, miniTransactionPromise]),
+    inHouseLabsPromise,
   ]);
 
   console.log('Outcome bundles, ', JSON.stringify(bundles));
+
+  return { warnings: inHouseLabsResult.warnings };
 };
 
 // Decide whether an existing chart-data resource on the encounter should be deleted
@@ -266,7 +327,8 @@ export const makeCreateRequests = (
   encounter: Encounter,
   templateList: List,
   encounterBundle: FhirResource[],
-  actions: ResolvedSectionActions
+  actions: ResolvedSectionActions,
+  cptCodesFromLabsToSkip: Set<string>
 ): Array<
   | BatchInputPostRequest<Observation | ClinicalImpression | Condition | Communication | Procedure>
   | BatchInputJSONPatchRequest
@@ -354,6 +416,20 @@ export const makeCreateRequests = (
     }
     const action = actions[section];
     if (action === 'skip') continue;
+
+    // CPT Codes section dedup: when an in-house lab is also being applied, the
+    // lab's create flow will emit a Procedure for each of its CPT codings.
+    // Skip the matching CPT Procedure from the template here so we don't end
+    // up with the same Procedure created twice on the encounter.
+    if (
+      section === 'cptCodes' &&
+      containedResource.resourceType === 'Procedure' &&
+      (containedResource as Procedure).code?.coding?.some(
+        (c) => c.system === CPT_CODE_SYSTEM && c.code !== undefined && cptCodesFromLabsToSkip.has(c.code)
+      )
+    ) {
+      continue;
+    }
 
     // For Chief Complaint on append: if an existing HPI Condition exists, patch it instead of creating.
     if (

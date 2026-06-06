@@ -1,8 +1,15 @@
 import { fireEvent, render, screen } from '@testing-library/react';
-import { BrowserRouter } from 'react-router-dom';
+import { BrowserRouter, useNavigate, useParams } from 'react-router-dom';
+import { useProgressNoteConfig } from 'src/hooks/useProgressNoteConfig';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { dataTestIds } from '../../src/constants/data-test-ids';
 import { MissingCard } from '../../src/features/visits/shared/components/review-tab/MissingCard';
+import { useChartFields } from '../../src/features/visits/shared/hooks/useChartFields';
+import { useAiSuggestionNotes } from '../../src/features/visits/shared/stores/appointment/appointment.queries';
+import {
+  useAppointmentData,
+  useChartData,
+} from '../../src/features/visits/shared/stores/appointment/appointment.store';
 
 vi.mock('../../src/features/visits/shared/hooks/useChartFields', () => ({
   useChartFields: vi.fn(),
@@ -17,6 +24,10 @@ vi.mock('../../src/features/visits/shared/stores/appointment/appointment.store',
   useChartData: vi.fn(),
 }));
 
+vi.mock('src/hooks/useProgressNoteConfig', () => ({
+  useProgressNoteConfig: vi.fn(),
+}));
+
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual('react-router-dom');
   return {
@@ -26,20 +37,13 @@ vi.mock('react-router-dom', async () => {
   };
 });
 
-import { useNavigate, useParams } from 'react-router-dom';
-import { useChartFields } from '../../src/features/visits/shared/hooks/useChartFields';
-import { useAiSuggestionNotes } from '../../src/features/visits/shared/stores/appointment/appointment.queries';
-import {
-  useAppointmentData,
-  useChartData,
-} from '../../src/features/visits/shared/stores/appointment/appointment.store';
-
 const mockUseAppointmentData = vi.mocked(useAppointmentData);
 const mockUseChartData = vi.mocked(useChartData);
 const mockUseChartFields = vi.mocked(useChartFields);
 const mockUseAiSuggestionNotes = vi.mocked(useAiSuggestionNotes);
 const mockUseNavigate = vi.mocked(useNavigate);
 const mockUseParams = vi.mocked(useParams);
+const mockUseProgressNoteConfig = vi.mocked(useProgressNoteConfig);
 
 describe('MissingCard', () => {
   beforeEach(() => {
@@ -73,6 +77,10 @@ describe('MissingCard', () => {
     mockUseAiSuggestionNotes.mockReturnValue({
       mutateAsync: vi.fn().mockResolvedValue({ suggestions: [] }),
     } as any);
+
+    mockUseProgressNoteConfig.mockReturnValue({
+      data: { mdmRequired: true },
+    } as any);
   });
 
   const renderComponent = (): void => {
@@ -103,5 +111,40 @@ describe('MissingCard', () => {
 
     expect(screen.getByTestId(dataTestIds.progressNotePage.missingCard)).toBeVisible();
     expect(screen.getByTestId(dataTestIds.progressNotePage.patientVerificationLink)).toBeVisible();
+  });
+
+  it('shows the MDM link when MDM is missing and mdmRequired is true', () => {
+    mockUseNavigate.mockReturnValue(vi.fn());
+    mockUseChartFields.mockReturnValue({
+      data: {
+        medicalDecision: undefined,
+        chiefComplaint: { text: 'Chief complaint' },
+        patientInfoConfirmed: { value: true },
+      },
+      isFetching: false,
+    } as any);
+    mockUseProgressNoteConfig.mockReturnValue({ data: { mdmRequired: true } } as any);
+
+    renderComponent();
+
+    expect(screen.getByTestId(dataTestIds.progressNotePage.medicalDecisionLink)).toBeVisible();
+  });
+
+  it('hides the missing card when MDM is the only missing item and mdmRequired is false', () => {
+    mockUseNavigate.mockReturnValue(vi.fn());
+    mockUseChartFields.mockReturnValue({
+      data: {
+        medicalDecision: undefined,
+        chiefComplaint: { text: 'Chief complaint' },
+        patientInfoConfirmed: { value: true },
+      },
+      isFetching: false,
+    } as any);
+    mockUseProgressNoteConfig.mockReturnValue({ data: { mdmRequired: false } } as any);
+
+    renderComponent();
+
+    expect(screen.queryByTestId(dataTestIds.progressNotePage.missingCard)).not.toBeInTheDocument();
+    expect(screen.queryByTestId(dataTestIds.progressNotePage.medicalDecisionLink)).not.toBeInTheDocument();
   });
 });

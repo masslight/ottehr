@@ -374,6 +374,7 @@ export interface DispositionDTO {
   note: string;
   reason?: string;
   specialty?: string;
+  specialtyOther?: string;
   labService?: string[];
   virusTest?: string[];
   followUp?: {
