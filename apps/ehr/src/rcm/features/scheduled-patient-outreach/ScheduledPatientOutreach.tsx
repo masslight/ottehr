@@ -52,6 +52,7 @@ import { useNavigate } from 'react-router-dom';
 import { SmsCharacterCounter } from 'src/components/template-editor-field/SmsCharacterCounter';
 import { INVOICE_TOKEN_IDS, TemplateEditorField } from 'src/components/template-editor-field/TemplateEditorField';
 import { FEATURE_FLAGS } from 'src/constants/feature-flags';
+import { usePaymentLocationsQuery } from 'src/rcm/state/payments/payments.queries';
 import {
   useGetOutreachConfigQuery,
   useSaveOutreachConfigMutation,
@@ -112,6 +113,7 @@ interface BirthdayConfig {
 
 interface OutreachAction {
   id: string;
+  enabled?: boolean;
   trigger: {
     event: TriggerEvent;
     daysAfter: number;
@@ -411,18 +413,6 @@ const SAMPLE_INPUT: InvoicePlaceholderInput = {
 
 const OUTREACH_TOKEN_IDS = [...INVOICE_TOKEN_IDS, 'location-review-link'] as const;
 
-const SAMPLE_PREVIEW_VALUES: Record<string, string> = {
-  ...buildInvoicePlaceholders(SAMPLE_INPUT),
-  'location-review-link': 'https://g.page/r/example-clinic/review',
-};
-
-/** Sample values used for SMS character counting — uses a realistic-length Stripe invoice URL. */
-const SMS_SAMPLE_PREVIEW_VALUES: Record<string, string> = {
-  ...SAMPLE_PREVIEW_VALUES,
-  'invoice-link':
-    'https://invoice.stripe.com/i/acct_1RMBK7QOl2MSLK9p/test_YWNjdF8xUk1CSzdRT2wyTVNMSzlwLF9VV014QzRwYnloekVGcVp4R0JZdE1Od1pZRnBna2N3LDE2OTUxNjgyOA0200OsKWP9C9?s=ap',
-};
-
 const DEFAULT_SMS_TEMPLATE =
   'Hello {{patient-full-name}}, thank you for visiting {{clinic}} at {{location}} on {{visit-date}} and entrusting us with your care. You can view your information in the Patient Portal: {{patient-portal-link}}';
 const DEFAULT_EMAIL_TEMPLATE =
@@ -497,13 +487,31 @@ function OutreachTemplateField({
   isSms?: boolean;
 }): ReactElement {
   const editorRef = useRef<ReturnType<typeof useEditor> | null>(null);
+  const { data: paymentLocations } = usePaymentLocationsQuery();
+
+  const { previewValues, smsPreviewValues } = React.useMemo(() => {
+    const clinicName = import.meta.env.VITE_APP_ORGANIZATION_NAME_LONG || SAMPLE_INPUT.clinic || 'Ottehr Clinic';
+    const locationName = paymentLocations?.[0]?.location?.name || SAMPLE_INPUT.location || 'Washington, DC';
+    const input: InvoicePlaceholderInput = { ...SAMPLE_INPUT, clinic: clinicName, location: locationName };
+    const pv: Record<string, string> = {
+      ...buildInvoicePlaceholders(input),
+      'location-review-link': 'https://g.page/r/example-clinic/review',
+    };
+    const smsPv: Record<string, string> = {
+      ...pv,
+      'invoice-link':
+        'https://invoice.stripe.com/i/acct_1RMBK7QOl2MSLK9p/test_YWNjdF8xUk1CSzdRT2wyTVNMSzlwLF9VV014QzRwYnloekVGcVp4R0JZdE1Od1pZRnBua2N3LDE2OTUxNjgyOA0200OsKWP9C9?s=ap',
+    };
+    return { previewValues: pv, smsPreviewValues: smsPv };
+  }, [paymentLocations]);
+
   return (
     <TemplateEditorField
       label={label}
       value={value}
       onChange={onChange}
       editorRef={editorRef}
-      previewValues={SAMPLE_PREVIEW_VALUES}
+      previewValues={previewValues}
       helperText={
         isSms
           ? 'Type {{ to insert a placeholder.'
@@ -512,7 +520,7 @@ function OutreachTemplateField({
       renderHtmlPreview={renderHtmlPreview}
       tokens={OUTREACH_TOKEN_IDS}
       stripNonAscii={isSms}
-      writeFooter={isSms ? <SmsCharacterCounter value={value} sampleValues={SMS_SAMPLE_PREVIEW_VALUES} /> : undefined}
+      writeFooter={isSms ? <SmsCharacterCounter value={value} sampleValues={smsPreviewValues} /> : undefined}
     />
   );
 }
@@ -1445,7 +1453,11 @@ export default function ScheduledPatientOutreach({ outreachTab }: { outreachTab?
                       const ms = getActionMediumsSummary(action);
                       const timing = formatTriggerTiming(action.trigger);
                       return (
-                        <Accordion key={action.id} defaultExpanded={false} sx={{ mb: 1 }}>
+                        <Accordion
+                          key={action.id}
+                          defaultExpanded={false}
+                          sx={{ mb: 1, opacity: action.enabled === false ? 0.5 : 1 }}
+                        >
                           <AccordionSummary expandIcon={<ExpandMoreIcon />}>
                             <Stack
                               direction="row"
@@ -1561,6 +1573,19 @@ export default function ScheduledPatientOutreach({ outreachTab }: { outreachTab?
                                 )
                               )}
                               <Box sx={{ flexGrow: 1 }} />
+                              <Tooltip title={action.enabled === false ? 'Action disabled' : 'Action enabled'}>
+                                <Switch
+                                  size="small"
+                                  checked={action.enabled !== false}
+                                  onClick={(e) => e.stopPropagation()}
+                                  onChange={(e) => {
+                                    const updated = { ...action, enabled: e.target.checked };
+                                    updateAction(updated);
+                                    saveActions(actions.map((a) => (a.id === action.id ? updated : a)));
+                                  }}
+                                  sx={{ mr: 0.5 }}
+                                />
+                              </Tooltip>
                               <Tooltip title="Delete action">
                                 <IconButton
                                   size="small"

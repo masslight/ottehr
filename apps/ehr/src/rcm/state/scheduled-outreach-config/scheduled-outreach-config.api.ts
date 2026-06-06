@@ -65,6 +65,7 @@ export interface BirthdayConfigDTO {
 
 export interface OutreachActionDTO {
   id: string;
+  enabled?: boolean;
   trigger: {
     event: TriggerEvent;
     daysAfter: number;

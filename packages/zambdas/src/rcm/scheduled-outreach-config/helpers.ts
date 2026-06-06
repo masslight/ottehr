@@ -65,6 +65,7 @@ export interface NotificationsTimeRestriction {
 
 export interface OutreachAction {
   id: string;
+  enabled?: boolean;
   trigger: {
     event: TriggerEvent;
     daysAfter: number;
@@ -110,6 +111,20 @@ export function parseNotificationsTimeRestriction(planDef: PlanDefinition): Noti
   const windowEnd = (sub.find((e) => e.url === 'window-end')?.valueTime ?? '21:00:00').substring(0, 5);
   const timezone = sub.find((e) => e.url === 'timezone')?.valueString ?? 'America/New_York';
   return { enabled, windowStart, windowEnd, timezone };
+}
+
+// ── Action enabled extension ───────────────────────────────────────────────
+
+const ACTION_ENABLED_EXTENSION_URL = `${PRIVATE_EXTENSION_BASE_URL}/outreach-action-enabled`;
+
+function buildActionEnabledExtension(enabled: boolean): any {
+  return { url: ACTION_ENABLED_EXTENSION_URL, valueBoolean: enabled };
+}
+
+function parseActionEnabled(fhirAction: any): boolean {
+  const ext = fhirAction.extension?.find((e: any) => e.url === ACTION_ENABLED_EXTENSION_URL);
+  if (!ext) return true; // default to enabled if extension is absent
+  return ext.valueBoolean ?? true;
 }
 
 // ── Birthday config extension ──────────────────────────────────────────────
@@ -471,16 +486,26 @@ function buildLogFhirAction(uiAction: OutreachAction): any {
 }
 
 function uiActionToFhirAction(uiAction: OutreachAction): any {
+  let fhirAction: any;
   switch (uiAction.actionType) {
     case 'charge-card':
-      return buildChargeCardFhirAction(uiAction);
+      fhirAction = buildChargeCardFhirAction(uiAction);
+      break;
     case 'send-notification':
-      return buildSendNotificationFhirAction(uiAction);
+      fhirAction = buildSendNotificationFhirAction(uiAction);
+      break;
     case 'refer-to-collections':
-      return buildReferToCollectionsFhirAction(uiAction);
+      fhirAction = buildReferToCollectionsFhirAction(uiAction);
+      break;
     case 'log':
-      return buildLogFhirAction(uiAction);
+      fhirAction = buildLogFhirAction(uiAction);
+      break;
   }
+  // Persist enabled state as an extension (only when explicitly disabled)
+  if (uiAction.enabled === false) {
+    fhirAction.extension = [...(fhirAction.extension || []), buildActionEnabledExtension(false)];
+  }
+  return fhirAction;
 }
 
 export function buildPlanDefinitionFromActions(
@@ -697,18 +722,29 @@ export function parsePlanDefinitionToActions(planDef: PlanDefinition): OutreachA
   if (!planDef.action) return [];
   return planDef.action.map((fhirAction: any) => {
     const actionType = extractActionType(fhirAction);
+    let parsed: OutreachAction;
     switch (actionType) {
       case 'charge-card':
-        return parseChargeCardAction(fhirAction);
+        parsed = parseChargeCardAction(fhirAction);
+        break;
       case 'send-notification':
-        return parseSendNotificationAction(fhirAction);
+        parsed = parseSendNotificationAction(fhirAction);
+        break;
       case 'refer-to-collections':
-        return parseReferToCollectionsAction(fhirAction);
+        parsed = parseReferToCollectionsAction(fhirAction);
+        break;
       case 'log':
-        return parseLogAction(fhirAction);
+        parsed = parseLogAction(fhirAction);
+        break;
       default:
-        return parseSendNotificationAction(fhirAction);
+        parsed = parseSendNotificationAction(fhirAction);
     }
+    // Parse enabled state from extension
+    const enabled = parseActionEnabled(fhirAction);
+    if (!enabled) {
+      parsed.enabled = false;
+    }
+    return parsed;
   });
 }
 

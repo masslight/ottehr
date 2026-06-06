@@ -53,6 +53,9 @@ export async function produceOutreachTasks(params: ProduceOutreachTasksParams): 
     matchingActions = matchingActions.filter(actionFilter);
   }
 
+  // Skip actions that have been explicitly disabled
+  matchingActions = matchingActions.filter((a) => a.enabled !== false);
+
   if (matchingActions.length === 0) {
     console.log(`No outreach actions configured for trigger event "${triggerEvent}"`);
     return { created: [], skipped: [] };
