@@ -2,6 +2,9 @@ import ChatOutlinedIcon from '@mui/icons-material/ChatOutlined';
 import CheckIcon from '@mui/icons-material/Check';
 import CloseIcon from '@mui/icons-material/Close';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
+import DescriptionOutlinedIcon from '@mui/icons-material/DescriptionOutlined';
+import InsertDriveFileOutlinedIcon from '@mui/icons-material/InsertDriveFileOutlined';
+import MailIcon from '@mui/icons-material/Mail';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import ReplayIcon from '@mui/icons-material/Replay';
 import {
@@ -33,14 +36,19 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
+import { Communication } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import React, { ReactElement, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { getConversation } from 'src/api/api';
 import { useApiClients } from 'src/hooks/useAppClients';
-import { OutreachTaskSummary } from 'src/rcm/state/scheduled-outreach-config/scheduled-outreach-config.api';
+import {
+  OutreachActionDTO,
+  OutreachTaskSummary,
+} from 'src/rcm/state/scheduled-outreach-config/scheduled-outreach-config.api';
 import {
   useCancelOutreachTaskMutation,
+  useGetOutreachConfigQuery,
   useListOutreachTasksQuery,
   useRetryOutreachTaskMutation,
 } from 'src/rcm/state/scheduled-outreach-config/scheduled-outreach-config.queries';
@@ -103,7 +111,7 @@ const ACTION_FILTER_LABELS: Record<string, string> = {
 const MEDIUM_LABELS: Record<string, string> = {
   sms: 'SMS',
   email: 'Email',
-  'paper-mail': 'Mail Statement',
+  'paper-mail': 'Mail',
 };
 
 const MEDIUM_FILTER_LABELS: Record<string, string> = {
@@ -619,6 +627,17 @@ function TaskTable({
   onCancel?: (taskId: string) => void;
   onRetry?: (taskId: string) => void;
 }): ReactElement {
+  const { data: configData } = useGetOutreachConfigQuery();
+  const actionsMap = React.useMemo(() => {
+    const map = new Map<string, OutreachActionDTO>();
+    if (configData?.actions) {
+      for (const action of configData.actions) {
+        map.set(action.id, action);
+      }
+    }
+    return map;
+  }, [configData]);
+
   return (
     <TableContainer component={Paper} variant="outlined">
       <Table size="small">
@@ -633,7 +652,9 @@ function TaskTable({
             <TableCell>Completed</TableCell>
             <TableCell>Visit Date</TableCell>
             <TableCell>Mediums</TableCell>
-            {onCancel && <TableCell sx={{ width: 60 }}>Controls</TableCell>}
+            <TableCell sx={{ width: 160 }} align="right">
+              Controls
+            </TableCell>
           </TableRow>
         </TableHead>
         <TableBody>
@@ -786,13 +807,27 @@ function TaskTable({
                         const result = results.find((r) => r.medium === medium);
                         const sent = result?.success === true;
                         const failed = result?.success === false;
+                        const actionDef = actionsMap.get(task.actionId);
                         return (
                           <Tooltip
                             key={medium}
+                            placement="bottom-start"
+                            disableInteractive={false}
+                            leaveDelay={200}
+                            slotProps={{
+                              tooltip: {
+                                sx: {
+                                  bgcolor: 'background.paper',
+                                  color: 'text.primary',
+                                  boxShadow: 3,
+                                  maxWidth: 360,
+                                  p: 0,
+                                },
+                              },
+                            }}
                             title={
-                              sent ? 'Sent successfully' : failed ? `Failed: ${result?.error || 'unknown error'}` : ''
+                              <MediumTooltipContent medium={medium} task={task} actionDef={actionDef} result={result} />
                             }
-                            disableHoverListener={!result}
                           >
                             <Chip
                               label={MEDIUM_LABELS[medium] || medium}
@@ -809,6 +844,7 @@ function TaskTable({
                                 borderColor: failed ? '#B71C1C' : MEDIUM_CHIP_COLORS[medium] || 'divider',
                                 fontWeight: 500,
                                 fontSize: '0.75rem',
+                                cursor: 'default',
                                 '& .MuiChip-icon': { color: '#fff' },
                               }}
                             />
@@ -820,29 +856,59 @@ function TaskTable({
                     '—'
                   )}
                 </TableCell>
-                {onCancel && (
-                  <TableCell>
-                    <Stack direction="row" spacing={0.5} alignItems="center">
-                      {(task.status === 'draft' || task.status === 'requested') && (
-                        <Tooltip title="Cancel task">
-                          <IconButton size="small" onClick={() => onCancel(task.id)} sx={{ color: 'error.main' }}>
-                            <CloseIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                      )}
-                      {task.status === 'failed' && onRetry && (
-                        <Tooltip title="Retry task">
-                          <IconButton size="small" onClick={() => onRetry(task.id)} sx={{ color: 'warning.main' }}>
-                            <ReplayIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                      )}
-                      {taskHasSms(task) && (
-                        <SmsHistoryButton patientId={task.patientId} patientName={task.patientName} />
-                      )}
-                    </Stack>
-                  </TableCell>
-                )}
+                <TableCell align="right">
+                  <Stack direction="row" spacing={0.5} alignItems="center" justifyContent="flex-end">
+                    <Tooltip title={task.status === 'failed' ? 'Retry task' : 'Task is not in failed state'}>
+                      <span>
+                        <IconButton
+                          size="small"
+                          disabled={task.status !== 'failed' || !onRetry}
+                          onClick={() => onRetry?.(task.id)}
+                          sx={{
+                            color: task.status === 'failed' ? 'warning.main' : undefined,
+                          }}
+                        >
+                          <ReplayIcon fontSize="small" />
+                        </IconButton>
+                      </span>
+                    </Tooltip>
+                    <Tooltip
+                      title={
+                        task.status === 'draft' || task.status === 'requested'
+                          ? 'Cancel task'
+                          : 'Task cannot be cancelled'
+                      }
+                    >
+                      <span>
+                        <IconButton
+                          size="small"
+                          disabled={!(task.status === 'draft' || task.status === 'requested') || !onCancel}
+                          onClick={() => onCancel?.(task.id)}
+                          sx={{
+                            color: task.status === 'draft' || task.status === 'requested' ? 'error.main' : undefined,
+                          }}
+                        >
+                          <CloseIcon fontSize="small" />
+                        </IconButton>
+                      </span>
+                    </Tooltip>
+                    <SmsHistoryButton
+                      patientId={task.patientId}
+                      patientName={task.patientName}
+                      disabled={!taskHasSms(task)}
+                    />
+                    <EmailHistoryButton
+                      patientId={task.patientId}
+                      patientName={task.patientName}
+                      disabled={!taskHasEmail(task)}
+                    />
+                    <PaperMailHistoryButton
+                      patientId={task.patientId}
+                      patientName={task.patientName}
+                      disabled={!taskHasPaperMail(task)}
+                    />
+                  </Stack>
+                </TableCell>
               </TableRow>
             );
           })}
@@ -992,6 +1058,177 @@ function TaskStatusTooltipContent({ task }: { task: OutreachTaskSummary }): Reac
   );
 }
 
+// ── Medium Tooltip ─────────────────────────────────────────────────────────
+
+const STATEMENT_TYPE_TOOLTIP_LABELS: Record<string, string> = {
+  standard: 'Standard',
+  'past-due': 'Past Due',
+  'final-notice': 'Final Notice',
+};
+
+function MediumTooltipContent({
+  medium,
+  task,
+  actionDef,
+  result,
+}: {
+  medium: string;
+  task: OutreachTaskSummary;
+  actionDef?: OutreachActionDTO;
+  result?: { medium: string; success: boolean; error?: string };
+}): ReactElement {
+  // Determine template content based on action type and medium
+  let template: string | undefined;
+  let statementType: string | undefined;
+  let context: 'notification' | 'charge-success' | 'charge-failure' | undefined;
+
+  if (actionDef) {
+    if (actionDef.actionType === 'send-notification' && actionDef.sendNotificationConfig) {
+      const cfg = actionDef.sendNotificationConfig;
+      statementType = cfg.statementType;
+      if (medium === 'sms') template = cfg.smsTemplate;
+      else if (medium === 'email') template = cfg.emailTemplate;
+      context = 'notification';
+    } else if (actionDef.actionType === 'charge-card' && actionDef.chargeCardConfig) {
+      const ccCfg = actionDef.chargeCardConfig;
+      // Check if this medium is in onSuccess or onFailure
+      if (ccCfg.onSuccess?.enabled && ccCfg.onSuccess.mediums.includes(medium as any)) {
+        if (medium === 'sms') template = ccCfg.onSuccess.smsTemplate;
+        else if (medium === 'email') template = ccCfg.onSuccess.emailTemplate;
+        statementType = ccCfg.onSuccess.statementType;
+        context = 'charge-success';
+      }
+      if (ccCfg.onFailure?.enabled && ccCfg.onFailure.mediums.includes(medium as any)) {
+        if (medium === 'sms') template = template || ccCfg.onFailure.smsTemplate;
+        else if (medium === 'email') template = template || ccCfg.onFailure.emailTemplate;
+        if (!context) {
+          statementType = ccCfg.onFailure.statementType;
+          context = 'charge-failure';
+        }
+      }
+    }
+  }
+
+  const triggerLabel = TRIGGER_EVENT_LABELS[task.triggerEvent] || task.triggerEvent;
+  const triggerTiming = actionDef?.trigger
+    ? `${actionDef.trigger.daysAfter} ${actionDef.trigger.timeUnit || 'days'} ${actionDef.trigger.direction || 'after'}`
+    : undefined;
+
+  return (
+    <Box sx={{ p: 1.5, display: 'flex', flexDirection: 'column', gap: 0.75, minWidth: 220 }}>
+      {/* Medium header */}
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        <Chip
+          label={MEDIUM_LABELS[medium] || medium}
+          size="small"
+          sx={{
+            height: 20,
+            fontSize: '0.7rem',
+            fontWeight: 600,
+            textTransform: 'uppercase',
+            bgcolor: MEDIUM_CHIP_COLORS[medium] || '#757575',
+            color: '#fff',
+          }}
+        />
+        {result && (
+          <Chip
+            label={result.success ? 'Sent' : 'Failed'}
+            size="small"
+            sx={{
+              height: 18,
+              fontSize: '0.65rem',
+              fontWeight: 600,
+              bgcolor: result.success ? '#C8E6C9' : '#FFCDD2',
+              color: result.success ? '#1B5E20' : '#B71C1C',
+            }}
+          />
+        )}
+      </Box>
+
+      {/* Trigger info */}
+      <Box>
+        <Typography variant="caption" sx={{ fontWeight: 600, color: 'text.secondary', display: 'block' }}>
+          Trigger
+        </Typography>
+        <Typography variant="body2">
+          {triggerLabel}
+          {triggerTiming && (
+            <Box component="span" sx={{ color: 'text.secondary', ml: 0.5 }}>
+              ({triggerTiming})
+            </Box>
+          )}
+        </Typography>
+      </Box>
+
+      {/* Context for charge-card */}
+      {context && context !== 'notification' && (
+        <Box>
+          <Typography variant="caption" sx={{ fontWeight: 600, color: 'text.secondary', display: 'block' }}>
+            Notification Context
+          </Typography>
+          <Typography variant="body2">
+            {context === 'charge-success' ? 'On successful charge' : 'On failed charge'}
+          </Typography>
+        </Box>
+      )}
+
+      {/* Statement type */}
+      {statementType && (
+        <Box>
+          <Typography variant="caption" sx={{ fontWeight: 600, color: 'text.secondary', display: 'block' }}>
+            Statement Type
+          </Typography>
+          <Typography variant="body2">{STATEMENT_TYPE_TOOLTIP_LABELS[statementType] || statementType}</Typography>
+        </Box>
+      )}
+
+      {/* Template preview */}
+      {template && (
+        <Box>
+          <Typography variant="caption" sx={{ fontWeight: 600, color: 'text.secondary', display: 'block' }}>
+            Template
+          </Typography>
+          <Typography
+            variant="body2"
+            sx={{
+              whiteSpace: 'pre-wrap',
+              wordBreak: 'break-word',
+              bgcolor: '#F5F5F5',
+              borderRadius: 0.5,
+              p: 0.75,
+              fontSize: '0.75rem',
+              maxHeight: 120,
+              overflow: 'auto',
+              fontFamily: 'monospace',
+            }}
+          >
+            {template.length > 200 ? `${template.slice(0, 200)}…` : template}
+          </Typography>
+        </Box>
+      )}
+
+      {/* Error detail */}
+      {result && !result.success && result.error && (
+        <Box sx={{ bgcolor: '#FFEBEE', borderRadius: 0.5, p: 0.75 }}>
+          <Typography variant="caption" sx={{ fontWeight: 600, color: '#B71C1C', display: 'block' }}>
+            Error
+          </Typography>
+          <Typography variant="body2" sx={{ color: '#B71C1C', fontSize: '0.75rem' }}>
+            {result.error}
+          </Typography>
+        </Box>
+      )}
+
+      {/* Action ID */}
+      {!actionDef && (
+        <Typography variant="caption" sx={{ color: 'text.disabled', fontStyle: 'italic' }}>
+          Action definition not found in config
+        </Typography>
+      )}
+    </Box>
+  );
+}
+
 // ── SMS History ────────────────────────────────────────────────────────────
 
 function taskHasSms(task: OutreachTaskSummary): boolean {
@@ -999,26 +1236,47 @@ function taskHasSms(task: OutreachTaskSummary): boolean {
   return task.mediums.split(',').some((m) => m.trim() === 'sms');
 }
 
-function SmsHistoryButton({ patientId, patientName }: { patientId: string; patientName: string }): ReactElement {
+function taskHasEmail(task: OutreachTaskSummary): boolean {
+  if (!task.mediums) return false;
+  return task.mediums.split(',').some((m) => m.trim() === 'email');
+}
+
+function taskHasPaperMail(task: OutreachTaskSummary): boolean {
+  if (!task.mediums) return false;
+  return task.mediums.split(',').some((m) => m.trim() === 'paper-mail');
+}
+
+function SmsHistoryButton({
+  patientId,
+  patientName,
+  disabled,
+}: {
+  patientId: string;
+  patientName: string;
+  disabled?: boolean;
+}): ReactElement {
   const [open, setOpen] = useState(false);
 
   return (
     <>
-      <Tooltip title="View SMS history">
-        <IconButton
-          size="small"
-          onClick={() => setOpen(true)}
-          sx={{
-            width: 28,
-            height: 28,
-            borderRadius: '100%',
-            bgcolor: '#43a047',
-            color: '#fff',
-            '&:hover': { bgcolor: '#2e7d32' },
-          }}
-        >
-          <ChatOutlinedIcon sx={{ fontSize: 16 }} />
-        </IconButton>
+      <Tooltip title={disabled ? 'No SMS medium' : 'View SMS history'}>
+        <span>
+          <IconButton
+            size="small"
+            disabled={disabled}
+            onClick={() => setOpen(true)}
+            sx={{
+              width: 28,
+              height: 28,
+              borderRadius: '100%',
+              bgcolor: disabled ? undefined : '#43a047',
+              color: disabled ? undefined : '#fff',
+              '&:hover': { bgcolor: disabled ? undefined : '#2e7d32' },
+            }}
+          >
+            <ChatOutlinedIcon sx={{ fontSize: 16 }} />
+          </IconButton>
+        </span>
       </Tooltip>
       {open && <SmsHistoryDialog patientId={patientId} patientName={patientName} onClose={() => setOpen(false)} />}
     </>
@@ -1128,6 +1386,398 @@ function SmsHistoryDialog({
                 </Box>
               </Box>
             ))
+          )}
+        </Box>
+      </Box>
+    </Dialog>
+  );
+}
+
+// ── Email History ──────────────────────────────────────────────────────────
+
+function EmailHistoryButton({
+  patientId,
+  patientName,
+  disabled,
+}: {
+  patientId: string;
+  patientName: string;
+  disabled?: boolean;
+}): ReactElement {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <>
+      <Tooltip title={disabled ? 'No email medium' : 'View email history'}>
+        <span>
+          <IconButton
+            size="small"
+            disabled={disabled}
+            onClick={() => setOpen(true)}
+            sx={{
+              width: 28,
+              height: 28,
+              borderRadius: '100%',
+              bgcolor: disabled ? undefined : '#1976d2',
+              color: disabled ? undefined : '#fff',
+              '&:hover': { bgcolor: disabled ? undefined : '#1565c0' },
+            }}
+          >
+            <Box sx={{ position: 'relative', display: 'inline-flex', width: 16, height: 16 }}>
+              <InsertDriveFileOutlinedIcon sx={{ fontSize: 16 }} />
+              <Box
+                component="span"
+                sx={{
+                  position: 'absolute',
+                  top: '50%',
+                  left: '50%',
+                  transform: 'translate(-50%, -50%)',
+                  fontSize: '9px',
+                  fontWeight: 700,
+                  lineHeight: 1,
+                  mt: '1px',
+                }}
+              >
+                e
+              </Box>
+            </Box>
+          </IconButton>
+        </span>
+      </Tooltip>
+      {open && <EmailHistoryDialog patientId={patientId} patientName={patientName} onClose={() => setOpen(false)} />}
+    </>
+  );
+}
+
+interface EmailRecord {
+  id: string;
+  content: string;
+  sentDate: string;
+  recipientEmail: string;
+}
+
+function EmailHistoryDialog({
+  patientId,
+  patientName,
+  onClose,
+}: {
+  patientId: string;
+  patientName: string;
+  onClose: () => void;
+}): ReactElement {
+  const { oystehr } = useApiClients();
+  const [emails, setEmails] = React.useState<EmailRecord[]>([]);
+  const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (!oystehr) return;
+    setLoading(true);
+    oystehr.fhir
+      .search<Communication>({
+        resourceType: 'Communication',
+        params: [
+          { name: 'subject', value: `Patient/${patientId}` },
+          { name: 'category', value: 'https://ottehr.com/CodeSystem/communication-category|outreach' },
+          { name: 'medium', value: 'https://terminology.hl7.org/6.0.2/ValueSet-v3-ParticipationMode.html|EMAILWRIT' },
+          { name: '_sort', value: '-sent' },
+          { name: '_count', value: '50' },
+        ],
+      })
+      .then((bundle) => {
+        const results = bundle.unbundle();
+        const records: EmailRecord[] = results.map((comm) => {
+          const textPayload = comm.payload?.find((p) => p.contentString)?.contentString || '';
+          const recipientDisplay = comm.recipient?.[0]?.display || '';
+          const sent = comm.sent
+            ? DateTime.fromISO(comm.sent).toFormat('M/d/yyyy h:mm a')
+            : comm.meta?.lastUpdated
+            ? DateTime.fromISO(comm.meta.lastUpdated).toFormat('M/d/yyyy h:mm a')
+            : 'Unknown date';
+          return { id: comm.id || '', content: textPayload, sentDate: sent, recipientEmail: recipientDisplay };
+        });
+        setEmails(records);
+        setLoading(false);
+      })
+      .catch((err) => {
+        console.error('Failed to load email history:', err);
+        setError('Failed to load email history');
+        setLoading(false);
+      });
+  }, [oystehr, patientId]);
+
+  return (
+    <Dialog open onClose={onClose} maxWidth="sm" fullWidth>
+      <Box sx={{ p: 2.5 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+          <Typography variant="h6" sx={{ fontWeight: 600 }}>
+            Email History — {patientName}
+          </Typography>
+          <IconButton size="small" onClick={onClose}>
+            <CloseIcon />
+          </IconButton>
+        </Box>
+        <Typography variant="caption" sx={{ color: 'text.secondary', mb: 1, display: 'block' }}>
+          Outreach emails sent to the patient.
+        </Typography>
+        <Divider sx={{ mb: 1.5 }} />
+        <Box
+          sx={{
+            height: 380,
+            overflowY: 'auto',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 1.5,
+            px: 0.5,
+          }}
+        >
+          {loading ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+              <CircularProgress />
+            </Box>
+          ) : error ? (
+            <Alert severity="error">{error}</Alert>
+          ) : emails.length === 0 ? (
+            <Typography variant="body2" sx={{ color: 'text.secondary', textAlign: 'center', mt: 4 }}>
+              No outreach emails found for this patient.
+            </Typography>
+          ) : (
+            emails.map((email) => (
+              <Box
+                key={email.id}
+                sx={{
+                  display: 'flex',
+                  flexDirection: 'row-reverse',
+                  gap: 1,
+                  alignItems: 'flex-end',
+                }}
+              >
+                <Avatar
+                  sx={{
+                    width: 28,
+                    height: 28,
+                    fontSize: '0.75rem',
+                    bgcolor: '#1976d2',
+                  }}
+                >
+                  C
+                </Avatar>
+                <Box
+                  sx={{
+                    maxWidth: '80%',
+                    bgcolor: '#e3f2fd',
+                    borderRadius: 2,
+                    p: 1.5,
+                  }}
+                >
+                  <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+                    {email.content}
+                  </Typography>
+                  <Stack direction="row" spacing={1} sx={{ mt: 0.5 }}>
+                    {email.recipientEmail && (
+                      <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                        To: {email.recipientEmail}
+                      </Typography>
+                    )}
+                    <Typography variant="caption" sx={{ color: 'text.disabled' }}>
+                      {email.sentDate}
+                    </Typography>
+                  </Stack>
+                </Box>
+              </Box>
+            ))
+          )}
+        </Box>
+      </Box>
+    </Dialog>
+  );
+}
+
+// ── Paper Mail History ─────────────────────────────────────────────────────
+
+function PaperMailHistoryButton({
+  patientId,
+  patientName,
+  disabled,
+}: {
+  patientId: string;
+  patientName: string;
+  disabled?: boolean;
+}): ReactElement {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <>
+      <Tooltip title={disabled ? 'No paper mail medium' : 'View paper mail history'}>
+        <span>
+          <IconButton
+            size="small"
+            disabled={disabled}
+            onClick={() => setOpen(true)}
+            sx={{
+              width: 28,
+              height: 28,
+              borderRadius: '100%',
+              bgcolor: disabled ? undefined : '#6d4c41',
+              color: disabled ? undefined : '#fff',
+              '&:hover': { bgcolor: disabled ? undefined : '#5d4037' },
+            }}
+          >
+            <Box sx={{ position: 'relative', display: 'inline-flex', width: 16, height: 16 }}>
+              <DescriptionOutlinedIcon sx={{ fontSize: 16 }} />
+              <MailIcon
+                sx={{
+                  position: 'absolute',
+                  bottom: -2,
+                  right: -3,
+                  fontSize: 12,
+                  bgcolor: disabled ? '#fff' : '#6d4c41',
+                  color: disabled ? undefined : '#fff',
+                  borderRadius: '2px',
+                }}
+              />
+            </Box>
+          </IconButton>
+        </span>
+      </Tooltip>
+      {open && (
+        <PaperMailHistoryDialog patientId={patientId} patientName={patientName} onClose={() => setOpen(false)} />
+      )}
+    </>
+  );
+}
+
+const STATEMENT_TYPE_LABELS: Record<string, string> = {
+  standard: 'Standard',
+  'past-due': 'Past Due',
+  'final-notice': 'Final Notice',
+};
+
+interface PaperMailRecord {
+  id: string;
+  statementType: string;
+  sentDate: string;
+  description: string;
+}
+
+function PaperMailHistoryDialog({
+  patientId,
+  patientName,
+  onClose,
+}: {
+  patientId: string;
+  patientName: string;
+  onClose: () => void;
+}): ReactElement {
+  const { oystehr } = useApiClients();
+  const [records, setRecords] = React.useState<PaperMailRecord[]>([]);
+  const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (!oystehr) return;
+    setLoading(true);
+    oystehr.fhir
+      .search<Communication>({
+        resourceType: 'Communication',
+        params: [
+          { name: 'subject', value: `Patient/${patientId}` },
+          { name: 'medium', value: 'https://terminology.hl7.org/6.0.2/ValueSet-v3-ParticipationMode.html|MAILWRIT' },
+          { name: '_sort', value: '-sent' },
+          { name: '_count', value: '50' },
+        ],
+      })
+      .then((bundle) => {
+        const results = bundle.unbundle();
+        const parsed: PaperMailRecord[] = results.map((comm) => {
+          const description = comm.payload?.find((p) => p.contentString)?.contentString || '';
+          const sent = comm.sent
+            ? DateTime.fromISO(comm.sent).toFormat('M/d/yyyy h:mm a')
+            : comm.meta?.lastUpdated
+            ? DateTime.fromISO(comm.meta.lastUpdated).toFormat('M/d/yyyy h:mm a')
+            : 'Unknown date';
+          // Try to extract statement type from description or fall back
+          let statementType = 'standard';
+          const lowerDesc = description.toLowerCase();
+          if (lowerDesc.includes('final notice') || lowerDesc.includes('final-notice')) {
+            statementType = 'final-notice';
+          } else if (lowerDesc.includes('past due') || lowerDesc.includes('past-due')) {
+            statementType = 'past-due';
+          }
+          return { id: comm.id || '', statementType, sentDate: sent, description };
+        });
+        setRecords(parsed);
+        setLoading(false);
+      })
+      .catch((err) => {
+        console.error('Failed to load paper mail history:', err);
+        setError('Failed to load paper mail history');
+        setLoading(false);
+      });
+  }, [oystehr, patientId]);
+
+  return (
+    <Dialog open onClose={onClose} maxWidth="xs" fullWidth>
+      <Box sx={{ p: 2.5 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+          <Typography variant="h6" sx={{ fontWeight: 600 }}>
+            Paper Statements — {patientName}
+          </Typography>
+          <IconButton size="small" onClick={onClose}>
+            <CloseIcon />
+          </IconButton>
+        </Box>
+        <Typography variant="caption" sx={{ color: 'text.secondary', mb: 1, display: 'block' }}>
+          Mailed paper statements sent to the patient.
+        </Typography>
+        <Divider sx={{ mb: 1.5 }} />
+        <Box sx={{ maxHeight: 320, overflowY: 'auto' }}>
+          {loading ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 120 }}>
+              <CircularProgress />
+            </Box>
+          ) : error ? (
+            <Alert severity="error">{error}</Alert>
+          ) : records.length === 0 ? (
+            <Typography variant="body2" sx={{ color: 'text.secondary', textAlign: 'center', mt: 4 }}>
+              No paper statements found for this patient.
+            </Typography>
+          ) : (
+            <Stack spacing={1}>
+              {records.map((record) => (
+                <Paper key={record.id} variant="outlined" sx={{ p: 1.5, borderRadius: 1.5 }}>
+                  <Stack direction="row" alignItems="center" spacing={1}>
+                    <Chip
+                      label={STATEMENT_TYPE_LABELS[record.statementType] || record.statementType}
+                      size="small"
+                      sx={{
+                        fontWeight: 600,
+                        bgcolor:
+                          record.statementType === 'final-notice'
+                            ? '#ffebee'
+                            : record.statementType === 'past-due'
+                            ? '#fff3e0'
+                            : '#e8f5e9',
+                        color:
+                          record.statementType === 'final-notice'
+                            ? '#c62828'
+                            : record.statementType === 'past-due'
+                            ? '#e65100'
+                            : '#2e7d32',
+                      }}
+                    />
+                    <Typography variant="caption" sx={{ color: 'text.secondary', flexGrow: 1 }}>
+                      {record.sentDate}
+                    </Typography>
+                  </Stack>
+                  {record.description && (
+                    <Typography variant="body2" sx={{ mt: 0.5, color: 'text.secondary', fontSize: '0.8rem' }}>
+                      {record.description}
+                    </Typography>
+                  )}
+                </Paper>
+              ))}
+            </Stack>
           )}
         </Box>
       </Box>
