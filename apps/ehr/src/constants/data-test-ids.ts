@@ -621,6 +621,7 @@ export const dataTestIds = {
     marTableGivenPersonCell: 'mar-table-given-person-cell',
     marTableReasonCell: 'mar-table-reason-cell',
     vaccineDetailsTab: 'vaccine-details-tab',
+    vaccineDetailsCard: 'vaccine-details-card',
     marTab: 'immunization-mar-tab',
     pencilIconButton: 'EditOutlinedIcon',
     deleteButton: 'DeleteOutlinedIcon',
