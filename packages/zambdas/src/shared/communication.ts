@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import sendgrid from '@sendgrid/mail';
-import { Location, Patient, RelatedPerson } from 'fhir/r4b';
+import { Communication, Location, Patient, RelatedPerson } from 'fhir/r4b';
 import {
   BRANDING_CONFIG,
   buildLocationSupportPhonesMap,
@@ -477,3 +477,78 @@ export const makePastVisitDetailUrl = (patientId: string, visitId: string, secre
   const baseUrl = getSecret(SecretsKeys.WEBSITE_URL, secrets);
   return `${baseUrl}/my-patients/${patientId}/past-visits/${visitId}`;
 };
+
+/**
+ * Creates a FHIR Communication resource to record an outreach email sent to a patient.
+ * This mirrors the automatic Communication creation done by the SMS platform.
+ */
+export async function createOutreachEmailCommunication({
+  oystehr,
+  patientId,
+  encounterRef,
+  recipientEmail,
+  htmlContent,
+  resolvedMessage,
+}: {
+  oystehr: Oystehr;
+  patientId: string;
+  encounterRef: string | undefined;
+  recipientEmail: string;
+  htmlContent: string;
+  resolvedMessage: string;
+}): Promise<Communication> {
+  const communication: Omit<Communication, 'id'> = {
+    resourceType: 'Communication',
+    status: 'completed',
+    medium: [
+      {
+        coding: [
+          {
+            system: 'https://terminology.hl7.org/6.0.2/ValueSet-v3-ParticipationMode.html',
+            code: 'EMAILWRIT',
+            display: 'email',
+          },
+        ],
+        text: 'email',
+      },
+    ],
+    category: [
+      {
+        coding: [
+          {
+            system: 'https://ottehr.com/CodeSystem/communication-category',
+            code: 'outreach',
+            display: 'Patient Outreach',
+          },
+        ],
+      },
+    ],
+    subject: {
+      reference: `Patient/${patientId}`,
+    },
+    ...(encounterRef ? { encounter: { reference: encounterRef } } : {}),
+    recipient: [
+      {
+        reference: `Patient/${patientId}`,
+        display: recipientEmail,
+      },
+    ],
+    payload: [
+      {
+        contentString: resolvedMessage,
+      },
+      {
+        contentAttachment: {
+          contentType: 'text/html',
+          data: Buffer.from(htmlContent).toString('base64'),
+          title: 'Outreach Email Content',
+        },
+      },
+    ],
+    sent: new Date().toISOString(),
+  };
+
+  const created = await oystehr.fhir.create<Communication>(communication as Communication);
+  console.log(`Created Communication/${created.id} for outreach email to patient ${patientId}`);
+  return created;
+}

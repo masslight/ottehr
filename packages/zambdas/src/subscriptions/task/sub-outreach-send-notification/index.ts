@@ -16,6 +16,7 @@ import {
 import { NotificationMedium } from '../../../rcm/scheduled-outreach-config/helpers';
 import {
   checkOrCreateM2MClientToken,
+  createOutreachEmailCommunication,
   createOystehrClient,
   fillOutreachTemplate,
   getEmailClient,
@@ -243,6 +244,16 @@ async function sendOutreachEmail(
   await emailClient.sendGenericOutreachEmail(email, {
     content: htmlContent,
     'subject-text': 'Important information about your visit',
+  });
+
+  // Record email as a FHIR Communication resource
+  await createOutreachEmailCommunication({
+    oystehr,
+    patientId,
+    encounterRef: task.focus?.reference,
+    recipientEmail: email,
+    htmlContent,
+    resolvedMessage,
   });
 }
 

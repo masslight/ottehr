@@ -17,6 +17,7 @@ import { getAccountAndCoverageResourcesForPatient } from '../../../ehr/shared/ha
 import { ChargeCardConfig, NotificationMedium } from '../../../rcm/scheduled-outreach-config/helpers';
 import {
   checkOrCreateM2MClientToken,
+  createOutreachEmailCommunication,
   createOystehrClient,
   fillOutreachTemplate,
   getEmailClient,
@@ -341,6 +342,16 @@ async function sendNotificationForMedium(
     await emailClient.sendGenericOutreachEmail(email, {
       content: htmlContent,
       'subject-text': 'Update regarding your visit',
+    });
+
+    // Record email as a FHIR Communication resource
+    await createOutreachEmailCommunication({
+      oystehr,
+      patientId,
+      encounterRef: task.focus?.reference,
+      recipientEmail: email,
+      htmlContent,
+      resolvedMessage,
     });
     console.log(`Email notification sent to patient ${patientId} after charge`);
   } else if (medium === 'paper-mail') {
