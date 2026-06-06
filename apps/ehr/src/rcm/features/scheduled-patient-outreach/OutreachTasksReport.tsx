@@ -220,6 +220,8 @@ export default function OutreachTasksReport(): ReactElement {
   const [selectedActionTypes, setSelectedActionTypes] = useState<ActionTypeFilterValue[]>([]);
   const [selectedMediums, setSelectedMediums] = useState<MediumFilterValue[]>([]);
   const [selectedTriggerEvents, setSelectedTriggerEvents] = useState<TriggerEventFilterValue[]>([]);
+  const [patientSearchInput, setPatientSearchInput] = useState('');
+  const [patientSearchCommitted, setPatientSearchCommitted] = useState('');
   const [dueDatePreset, setDueDatePreset] = useState<DateRangePreset>('today');
   const [dueDateCustomStart, setDueDateCustomStart] = useState('');
   const [dueDateCustomEnd, setDueDateCustomEnd] = useState('');
@@ -235,6 +237,7 @@ export default function OutreachTasksReport(): ReactElement {
   const actionTypeFilter = selectedActionTypes.length > 0 ? selectedActionTypes.join(',') : undefined;
   const mediumFilter = selectedMediums.length > 0 ? selectedMediums.join(',') : undefined;
   const triggerEventFilter = selectedTriggerEvents.length > 0 ? selectedTriggerEvents.join(',') : undefined;
+  const patientSearchFilter = patientSearchCommitted || undefined;
   const dueRange = getDateRangeValues(dueDatePreset, dueDateCustomStart, dueDateCustomEnd);
   const createdRange = getDateRangeValues(createdPreset, createdCustomStart, createdCustomEnd);
 
@@ -246,6 +249,7 @@ export default function OutreachTasksReport(): ReactElement {
     actionTypeFilter,
     mediumFilter,
     triggerEventFilter,
+    patientSearchFilter,
     dueDatePreset,
     dueDateCustomStart,
     dueDateCustomEnd,
@@ -259,6 +263,7 @@ export default function OutreachTasksReport(): ReactElement {
     actionType: actionTypeFilter,
     medium: mediumFilter,
     triggerEvent: triggerEventFilter,
+    patientSearch: patientSearchFilter,
     dueDateFrom: dueRange.from,
     dueDateTo: dueRange.to,
     createdFrom: createdRange.from,
@@ -480,6 +485,20 @@ export default function OutreachTasksReport(): ReactElement {
         />
       </Stack>
       <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 2, flexWrap: 'wrap', rowGap: 1 }}>
+        <TextField
+          size="small"
+          label="Patient"
+          placeholder="UUID, ID, or name"
+          value={patientSearchInput}
+          onChange={(e) => setPatientSearchInput(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              setPatientSearchCommitted(patientSearchInput);
+            }
+          }}
+          onBlur={() => setPatientSearchCommitted(patientSearchInput)}
+          sx={{ width: 220 }}
+        />
         <Autocomplete
           multiple
           size="small"

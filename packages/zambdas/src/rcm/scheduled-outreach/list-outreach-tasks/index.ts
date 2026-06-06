@@ -47,12 +47,54 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const mediumFilter = params.medium as string | undefined;
   const mediumFilterSet = mediumFilter ? new Set(mediumFilter.split(',')) : undefined;
   const triggerEventFilter = params.triggerEvent as string | undefined;
+  const patientSearch = (params.patientSearch as string | undefined)?.trim();
+
+  // Resolve patient search to patient references if provided
+  let patientReferences: string[] | undefined;
+  if (patientSearch) {
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(patientSearch);
+    if (isUuid) {
+      patientReferences = [`Patient/${patientSearch}`];
+    } else {
+      // Search by friendly ID or name
+      const patientBundle = await oystehr.fhir.search<Patient>({
+        resourceType: 'Patient',
+        params: [
+          { name: 'identifier', value: patientSearch },
+          { name: '_count', value: '50' },
+        ],
+      });
+      let foundPatients = patientBundle.unbundle();
+      if (foundPatients.length === 0) {
+        // Try name search
+        const nameBundle = await oystehr.fhir.search<Patient>({
+          resourceType: 'Patient',
+          params: [
+            { name: 'name', value: patientSearch },
+            { name: '_count', value: '50' },
+          ],
+        });
+        foundPatients = nameBundle.unbundle();
+      }
+      if (foundPatients.length === 0) {
+        return {
+          statusCode: 200,
+          body: JSON.stringify({ tasks: [], totalCount: 0, pageSize, offset }),
+        };
+      }
+      patientReferences = foundPatients.map((p) => `Patient/${p.id}`);
+    }
+  }
 
   // Build base search params shared between count and data queries
   const baseSearchParams: { name: string; value: string }[] = [
     { name: '_tag', value: `${OUTREACH_TASK_TAG_SYSTEM}|` },
     { name: 'status', value: statusFilter },
   ];
+
+  if (patientReferences) {
+    baseSearchParams.push({ name: 'patient', value: patientReferences.join(',') });
+  }
 
   if (actionTypeFilter) {
     const codeTokens = actionTypeFilter.split(',').map((at) => `${OUTREACH_ACTION_TYPE_SYSTEM}|${at}`);

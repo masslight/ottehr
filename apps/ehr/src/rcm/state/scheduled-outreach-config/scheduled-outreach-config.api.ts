@@ -150,6 +150,7 @@ export interface ListOutreachTasksInput {
   actionType?: string;
   medium?: string;
   triggerEvent?: string;
+  patientSearch?: string;
   dueDateFrom?: string;
   dueDateTo?: string;
   createdFrom?: string;
