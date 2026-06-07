@@ -1,11 +1,11 @@
-import { BatchInputPostRequest } from '@oystehr/sdk';
+import { BatchInputPostRequest, BatchInputPutRequest } from '@oystehr/sdk';
 import { Encounter, List, ServiceRequest } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { chartDataTagSystem, resourceHasTagSystem } from 'utils';
+import { chartDataTagSystem, CPTCodeDTO, DiagnosisDTO, ProcedureDTO, resourceHasTagSystem } from 'utils';
 import { v4 as uuidV4 } from 'uuid';
+import { createProcedureServiceRequest, readProcedureFormFieldsFromServiceRequest } from '../../shared/chart-data';
 
 const PROCEDURE_PLAN_TAG_SYSTEM = chartDataTagSystem('procedure-template-plan');
-const PROCEDURE_META_TAG_SYSTEM = chartDataTagSystem('procedure');
 
 /**
  * Returns the procedure plan ServiceRequests embedded in a global template's
@@ -37,62 +37,68 @@ export interface BuildLiveProcedureInput {
  * Builds a POST request for the live procedure ServiceRequest that should be
  * created when a global template's procedure plan is applied to an encounter.
  *
- * The new ServiceRequest reuses the plan's procedure-form payload
- * (category/performerType/bodySite/extensions) and rewrites
- * reasonReference / supportingInfo from "template contained-resource ids" into
- * the urn:uuid fullUrls of the new live Conditions / CPT Procedures the
- * containing apply-template transaction will also create. Cross-refs whose
- * target isn't being created (because its section was set to 'skip', or
- * because the template doesn't carry that resource at all) are dropped rather
- * than left dangling.
+ * The construction flows through the shared `createProcedureServiceRequest`
+ * builder that the chart-data save path uses, so the procedure FHIR shape (its
+ * extension set, its category/performerType/bodySite codings, its meta tag)
+ * stays in sync between the two writers - any change to the procedure feature
+ * is picked up automatically.
  *
- * The result is intended to live in the same FHIR transaction as the referenced
- * fullUrls so that the references resolve atomically when the transaction
- * commits.
+ * This builder's only responsibility is the template-specific glue:
+ *   - read the saved form payload off the plan ServiceRequest into a
+ *     ProcedureDTO via the shared `readProcedureFormFieldsFromServiceRequest`;
+ *   - rewrite reasonReference / supportingInfo "template contained-resource
+ *     ids" into urn:uuid fullUrls of the new live Conditions / CPT Procedures
+ *     the surrounding apply-template transaction will also create (the shared
+ *     builder formats urn:uuid references verbatim, so the FHIR transaction
+ *     resolves the links atomically);
+ *   - drop cross-refs whose target isn't being created (its section was set to
+ *     'skip', or it isn't on the template), rather than emit a dangling
+ *     reference;
+ *   - mint a fresh urn:uuid fullUrl so other resources in the transaction can
+ *     reference the new procedure;
+ *   - stamp the apply-time author as authoredOn (templates don't carry the
+ *     original documentation timestamp).
  */
 export const buildLiveProcedureRequest = (input: BuildLiveProcedureInput): BatchInputPostRequest<ServiceRequest> => {
   const { plan, encounter, containedIdToNewFullUrl } = input;
 
-  const remap = (ref: { reference?: string }): { reference: string } | null => {
+  const remap = (ref: { reference?: string }): string | null => {
     const oldId = ref.reference?.split('/')[1];
     if (!oldId) return null;
-    const newFullUrl = containedIdToNewFullUrl.get(oldId);
-    return newFullUrl ? { reference: newFullUrl } : null;
+    return containedIdToNewFullUrl.get(oldId) ?? null;
   };
 
-  const reasonReference = (plan.reasonReference ?? []).map(remap).filter((r): r is { reference: string } => r !== null);
-  const supportingInfo = (plan.supportingInfo ?? []).map(remap).filter((r): r is { reference: string } => r !== null);
+  // Rewrite the plan's reasonReference / supportingInfo to the fullUrls of the
+  // newly-created live resources. The shared createProcedureServiceRequest
+  // builds references off DiagnosisDTO.resourceId / CPTCodeDTO.resourceId
+  // and passes urn:uuid values through verbatim - so we encode the new
+  // fullUrl in those resourceId fields.
+  const diagnoses: DiagnosisDTO[] = (plan.reasonReference ?? [])
+    .map(remap)
+    .filter((r): r is string => r !== null)
+    .map((fullUrl) => ({ resourceId: fullUrl, code: '', display: '', isPrimary: false }));
+  const cptCodes: CPTCodeDTO[] = (plan.supportingInfo ?? [])
+    .map(remap)
+    .filter((r): r is string => r !== null)
+    .map((fullUrl) => ({ resourceId: fullUrl, code: '', display: '' }));
 
-  const liveProcedure: ServiceRequest = {
-    resourceType: 'ServiceRequest',
-    status: 'completed',
-    intent: 'original-order',
-    subject: encounter.subject!,
-    encounter: { reference: `Encounter/${encounter.id}` },
-    // Recorded as the apply-time author so the chart shows when the template
-    // was applied; the template doesn't carry the original documentation
-    // timestamp.
-    authoredOn: DateTime.now().toISO() ?? undefined,
-    ...(plan.category ? { category: plan.category } : {}),
-    ...(plan.performerType ? { performerType: plan.performerType } : {}),
-    ...(plan.bodySite ? { bodySite: plan.bodySite } : {}),
-    ...(plan.extension && plan.extension.length > 0 ? { extension: plan.extension } : {}),
-    ...(reasonReference.length > 0 ? { reasonReference } : {}),
-    ...(supportingInfo.length > 0 ? { supportingInfo } : {}),
-    meta: {
-      tag: [
-        {
-          system: PROCEDURE_META_TAG_SYSTEM,
-          code: 'procedure',
-        },
-      ],
-    },
+  const dto: ProcedureDTO = {
+    ...readProcedureFormFieldsFromServiceRequest(plan),
+    // Templates don't carry the original documentation timestamp; stamp the
+    // apply-time author so the chart shows when the template was applied.
+    documentedDateTime: DateTime.now().toISO() ?? undefined,
+    diagnoses,
+    cptCodes,
   };
 
-  return {
-    method: 'POST',
-    url: 'ServiceRequest',
-    resource: liveProcedure,
-    fullUrl: `urn:uuid:${uuidV4()}`,
-  };
+  const patientId = encounter.subject!.reference!.split('/')[1];
+  const request = createProcedureServiceRequest(dto, encounter.id!, patientId);
+  // We never pass procedure.resourceId, so createProcedureServiceRequest always
+  // returns a POST. Cast and add the fullUrl so other resources in the apply
+  // transaction can reference this new procedure.
+  const postRequest = request as BatchInputPostRequest<ServiceRequest> | BatchInputPutRequest<ServiceRequest>;
+  if (postRequest.method !== 'POST') {
+    throw new Error('Expected createProcedureServiceRequest to return a POST for a plan-derived procedure');
+  }
+  return { ...postRequest, fullUrl: `urn:uuid:${uuidV4()}` };
 };

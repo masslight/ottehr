@@ -1,5 +1,11 @@
 import { Encounter, Extension, List, ServiceRequest } from 'fhir/r4b';
-import { chartDataTagSystem, FHIR_EXTENSION, PROCEDURE_TYPE_SYSTEM } from 'utils';
+import {
+  BODY_SITE_SYSTEM,
+  chartDataTagSystem,
+  FHIR_EXTENSION,
+  PERFORMER_TYPE_SYSTEM,
+  PROCEDURE_TYPE_SYSTEM,
+} from 'utils';
 import { describe, expect, test } from 'vitest';
 import { buildLiveProcedureRequest, findProcedurePlans } from '../../src/ehr/apply-template/apply-procedures';
 
@@ -20,9 +26,12 @@ const buildPlan = (overrides: Partial<ServiceRequest> = {}): ServiceRequest => (
   status: 'active',
   intent: 'plan',
   subject: { reference: '#stub-patient' },
+  // The plan ServiceRequest stores codings using the same canonical systems as
+  // a chart-data procedure SR — the apply-template flow reads them through the
+  // shared chart-data helpers, which look up codes by system.
   category: [{ coding: [{ system: PROCEDURE_TYPE_SYSTEM, code: 'splint-application' }] }],
-  performerType: { coding: [{ code: 'provider' }] },
-  bodySite: [{ coding: [{ code: 'wrist' }] }],
+  performerType: { coding: [{ system: PERFORMER_TYPE_SYSTEM, code: 'provider' }] },
+  bodySite: [{ coding: [{ system: BODY_SITE_SYSTEM, code: 'wrist' }] }],
   extension: [
     { url: FHIR_EXTENSION.ServiceRequest.bodySide.url, valueString: 'Left' },
     { url: FHIR_EXTENSION.ServiceRequest.technique.url, valueString: 'Closed reduction' },
@@ -83,7 +92,8 @@ describe('buildLiveProcedureRequest', () => {
       containedIdToNewFullUrl,
     });
     expect(request.method).toBe('POST');
-    expect(request.url).toBe('ServiceRequest');
+    // The shared createProcedureServiceRequest builder posts to '/ServiceRequest'.
+    expect(request.url).toBe('/ServiceRequest');
     expect(request.fullUrl).toMatch(/^urn:uuid:/);
     const sr = request.resource as ServiceRequest;
     expect(sr.reasonReference).toEqual([{ reference: 'urn:uuid:dx-new' }]);
@@ -148,7 +158,11 @@ describe('buildLiveProcedureRequest', () => {
     expect(sr.meta?.tag?.some((t) => t.system === PROCEDURE_PLAN_TAG)).toBe(false);
   });
 
-  test('preserves category, performerType, bodySite, and all extensions verbatim', () => {
+  test('preserves the procedure form payload (category, performerType, bodySite, extensions)', () => {
+    // Construction routes through the shared createProcedureServiceRequest
+    // builder, which canonicalizes the FHIR shape (extensions come back in the
+    // canonical order, category/performerType/bodySite carry their canonical
+    // systems). Pin a representative subset of fields here.
     const customExtensions: Extension[] = [
       { url: FHIR_EXTENSION.ServiceRequest.medicationUsed.url, valueString: 'Lidocaine 1%' },
       { url: FHIR_EXTENSION.ServiceRequest.suppliesUsed.url, valueString: 'Splint kit' },
@@ -161,9 +175,9 @@ describe('buildLiveProcedureRequest', () => {
       containedIdToNewFullUrl: new Map(),
     });
     const sr = request.resource as ServiceRequest;
-    expect(sr.category).toEqual(plan.category);
-    expect(sr.performerType).toEqual(plan.performerType);
-    expect(sr.bodySite).toEqual(plan.bodySite);
+    expect(sr.category?.[0]?.coding?.[0]).toEqual({ system: PROCEDURE_TYPE_SYSTEM, code: 'splint-application' });
+    expect(sr.performerType?.coding?.[0]).toEqual({ system: PERFORMER_TYPE_SYSTEM, code: 'provider' });
+    expect(sr.bodySite?.[0]?.coding?.[0]).toEqual({ system: BODY_SITE_SYSTEM, code: 'wrist' });
     expect(sr.extension).toEqual(customExtensions);
   });
 
