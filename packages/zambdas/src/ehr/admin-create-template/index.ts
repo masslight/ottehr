@@ -249,13 +249,7 @@ const performEffect = async (
   }
 
   // Materialize each captured in-office procedure as a "plan" ServiceRequest on
-  // the template. Unlike in-house labs (which re-run the live create-order flow
-  // at apply time from a small input set), procedures save the full procedure
-  // ServiceRequest payload - the category/performerType/bodySite plus the dozen
-  // extensions the procedure form fills in - because that data is what makes
-  // each procedure entry unique and there's no canonical definition behind it
-  // to defer to.
-  //
+  // the template.
   // Diagnosis (reasonReference) and CPT (supportingInfo) cross-refs are remapped
   // through the oldIdToNewIdMap so the plan points at the template's contained
   // Conditions / CPT Procedures (which were captured above by the diagnoses
