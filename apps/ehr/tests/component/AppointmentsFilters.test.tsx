@@ -17,7 +17,6 @@ vi.mock('../../src/components/input/SelectInput', () => ({
 vi.mock('../../src/components/input/DateInput', () => ({
   DateInput: () => <div data-testid="date-input" />,
 }));
-
 import AppointmentsFilters, {
   LOCAL_STORAGE_FILTERS_KEY,
   SESSION_STORAGE_DATE_KEY,
@@ -44,6 +43,17 @@ describe('AppointmentsFilters persistence', () => {
   beforeEach(() => {
     localStorage.clear();
     sessionStorage.clear();
+  });
+
+  it('seeds default filters when only the tab query param is present', async () => {
+    renderFilters('/visits?tab=in-office');
+
+    await waitFor(() => {
+      const params = new URLSearchParams(getSearch());
+      expect(params.get('tab')).toBe('in-office');
+      expect(params.get('visitType')).toBeTruthy();
+      expect(params.get('date')).toBeTruthy();
+    });
   });
 
   it('restores persisted filters into the URL while preserving the tab param', async () => {
