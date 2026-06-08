@@ -2,13 +2,16 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Encounter, Patient, Task, TaskInput } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { phone } from 'phone';
 import {
   convertOutreachTextToHtml,
   getFullestAvailableName,
   getPatientContactEmail,
+  getPhoneNumberForIndividual,
   getSecret,
   getStripeCustomerIdFromAccount,
   getTaskResource,
+  isEmailValid,
   Secrets,
   SecretsKeys,
   TaskIndicator,
@@ -291,7 +294,7 @@ async function sendOutcomeNotifications(
       );
       results.push({ medium, success: true });
     } catch (err: any) {
-      console.error(`Failed to send ${medium} notification after charge:`, err.message);
+      console.log(`Post-charge ${medium} notification not sent:`, err.message);
       results.push({ medium, success: false, error: err.message });
     }
   }
@@ -442,6 +445,15 @@ async function sendNotificationForMedium(
   });
 
   if (medium === 'sms') {
+    const rawPhone = getPhoneNumberForIndividual(patient);
+    if (!rawPhone) {
+      throw new Error('No phone number on file');
+    }
+    const phoneResult = phone(rawPhone, { country: 'USA' });
+    if (!phoneResult.isValid) {
+      throw new Error(`Invalid phone number: ${rawPhone}`);
+    }
+
     const resolvedMessage = fillOutreachTemplate(smsTemplate, placeholderInput);
 
     const unresolved = resolvedMessage.match(/\{\{[\w-]+\}\}/g);
@@ -456,7 +468,10 @@ async function sendNotificationForMedium(
   } else if (medium === 'email') {
     const email = getPatientContactEmail(patient);
     if (!email) {
-      throw new Error(`Patient ${patientId} has no contact email address`);
+      throw new Error('No email address on file');
+    }
+    if (!isEmailValid(email)) {
+      throw new Error(`Invalid email address: ${email}`);
     }
 
     const resolvedMessage = fillOutreachTemplate(emailTemplate, placeholderInput);

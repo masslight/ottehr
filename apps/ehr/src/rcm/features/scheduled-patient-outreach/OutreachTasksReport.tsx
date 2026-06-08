@@ -822,7 +822,10 @@ function TaskTable({
                     <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
                       {task.mediums.split(',').map((m) => {
                         const medium = m.trim();
-                        const results = task.notificationResults || [];
+                        const results =
+                          task.actionType === 'send-notification'
+                            ? task.executionResult || []
+                            : task.notificationResults || [];
                         const result = results.find((r) => r.medium === medium);
                         const sent = result?.success === true;
                         const failed = result?.success === false;
@@ -973,6 +976,18 @@ function TaskStatusTooltipContent({ task }: { task: OutreachTaskSummary }): Reac
   return (
     <Box sx={{ p: 1.5, display: 'flex', flexDirection: 'column', gap: 1 }}>
       <CopyableIdRow label="Task ID" value={task.id} />
+
+      {/* Cancellation reason for cancelled tasks */}
+      {task.status === 'cancelled' && task.cancellationReason && (
+        <Box sx={{ bgcolor: '#FFF3E0', borderRadius: 1, p: 1 }}>
+          <Typography variant="caption" sx={{ fontWeight: 600, color: '#E65100' }}>
+            Cancellation Reason
+          </Typography>
+          <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', color: '#E65100', mt: 0.25 }}>
+            {task.cancellationReason}
+          </Typography>
+        </Box>
+      )}
 
       {/* Error message for failed tasks */}
       {task.status === 'failed' && task.errorMessage && (

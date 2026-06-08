@@ -1,8 +1,15 @@
 import Oystehr from '@oystehr/sdk';
 import { BatchInputRequest } from '@oystehr/sdk';
-import { PlanDefinition, Reference, Task } from 'fhir/r4b';
+import { Patient, PlanDefinition, Reference, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { FEATURE_FLAGS_CONFIG, PRIVATE_EXTENSION_BASE_URL } from 'utils';
+import { phone } from 'phone';
+import {
+  FEATURE_FLAGS_CONFIG,
+  getPatientContactEmail,
+  getPhoneNumberForIndividual,
+  isEmailValid,
+  PRIVATE_EXTENSION_BASE_URL,
+} from 'utils';
 import { getPatchBinary } from '../../../../shared/helpers';
 import {
   ActionType,
@@ -65,6 +72,32 @@ export async function produceOutreachTasks(params: ProduceOutreachTasksParams): 
   const existingTasks = await findExistingOutreachTasks(oystehr, focus, triggerEvent);
   const existingActionIds = new Set(existingTasks.map((t) => extractActionIdFromTask(t)).filter(Boolean));
 
+  // Pre-fetch patient for contact validation on notification actions
+  const hasNotificationActions = matchingActions.some((a) => a.actionType === 'send-notification');
+  let patientResource: Patient | undefined;
+  let hasValidPhone = false;
+  let hasValidEmail = false;
+
+  if (hasNotificationActions) {
+    const patientId = patient.reference?.replace('Patient/', '');
+    if (patientId) {
+      try {
+        patientResource = await oystehr.fhir.get<Patient>({ resourceType: 'Patient', id: patientId });
+        const rawPhone = getPhoneNumberForIndividual(patientResource);
+        hasValidPhone = !!rawPhone && phone(rawPhone, { country: 'USA' }).isValid;
+        const rawEmail = getPatientContactEmail(patientResource);
+        hasValidEmail = isEmailValid(rawEmail);
+        console.log(
+          `produceOutreachTasks: Patient ${patientId} contact validation — phone: ${
+            hasValidPhone ? 'valid' : rawPhone ? 'invalid' : 'missing'
+          }, email: ${hasValidEmail ? 'valid' : rawEmail ? 'invalid' : 'missing'}`
+        );
+      } catch (err) {
+        console.error(`produceOutreachTasks: Failed to fetch Patient/${patientId} for contact validation:`, err);
+      }
+    }
+  }
+
   const result: OutreachTaskResult = { created: [], skipped: [] };
 
   for (const action of matchingActions) {
@@ -85,6 +118,43 @@ export async function produceOutreachTasks(params: ProduceOutreachTasksParams): 
       if (mediums.every((m) => m === 'paper-mail') && !FEATURE_FLAGS_CONFIG.mailingPaperStatementsEnabled) {
         result.skipped.push({ actionId: action.id, reason: 'Paper mail feature is disabled' });
         continue;
+      }
+    }
+
+    // Cancel notification tasks when all electronic notification mediums have invalid/missing contacts
+    if (action.actionType === 'send-notification' && action.sendNotificationConfig) {
+      const mediums = action.sendNotificationConfig.mediums;
+      const electronicMediums = mediums.filter((m) => m !== 'paper-mail');
+      if (electronicMediums.length > 0) {
+        const allElectronicInvalid = electronicMediums.every((m) => {
+          if (m === 'sms') return !hasValidPhone;
+          if (m === 'email') return !hasValidEmail;
+          return false;
+        });
+        // Only cancel if there are no valid electronic channels AND no paper-mail fallback
+        const hasPaperMail = mediums.includes('paper-mail') && FEATURE_FLAGS_CONFIG.mailingPaperStatementsEnabled;
+        if (allElectronicInvalid && !hasPaperMail) {
+          const reasons = electronicMediums
+            .map((m) => {
+              if (m === 'sms') return hasValidPhone ? '' : 'no valid phone number';
+              if (m === 'email') return hasValidEmail ? '' : 'no valid email address';
+              return '';
+            })
+            .filter(Boolean);
+          const cancelReason = `No valid contact methods: ${reasons.join(', ')}`;
+          console.log(`produceOutreachTasks: Creating cancelled task for action ${action.id} — ${cancelReason}`);
+
+          const dueDateTime = calculateDueDateTime(eventTimestamp, action);
+          const taskDraft = buildOutreachTask(action, planDefinition, patient, focus, dueDateTime, appointment);
+          const cancelledTask = {
+            ...taskDraft,
+            status: 'cancelled' as const,
+            statusReason: { text: cancelReason },
+          };
+          const created = await oystehr.fhir.create<Task>(cancelledTask as unknown as Task);
+          result.created.push(created);
+          continue;
+        }
       }
     }
 

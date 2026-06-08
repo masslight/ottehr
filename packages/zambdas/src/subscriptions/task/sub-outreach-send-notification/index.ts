@@ -2,13 +2,16 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Encounter, Patient, Task, TaskInput } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { phone } from 'phone';
 import {
   convertOutreachTextToHtml,
   FEATURE_FLAGS_CONFIG,
   getFullestAvailableName,
   getPatientContactEmail,
+  getPhoneNumberForIndividual,
   getSecret,
   getTaskResource,
+  isEmailValid,
   Secrets,
   SecretsKeys,
   TaskIndicator,
@@ -75,21 +78,47 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     }
     console.log('--- END NOTIFICATION CONTENT ---');
 
-    const results: { medium: NotificationMedium; success: boolean; error?: string }[] = [];
+    const results: { medium: NotificationMedium; success: boolean; error?: string; skippedReason?: string }[] = [];
 
     for (const medium of mediums) {
       try {
         switch (medium) {
-          case 'sms':
+          case 'sms': {
+            const smsValidation = await validatePatientPhone(task, oystehr);
+            if (!smsValidation.valid) {
+              console.log(`[SMS] Skipping SMS for task ${task.id}, patient ${patientRef}: ${smsValidation.reason}`);
+              results.push({
+                medium,
+                success: false,
+                error: smsValidation.reason,
+                skippedReason: smsValidation.reason,
+              });
+              break;
+            }
             await sendOutreachSms(task, smsTemplate || '', oystehr, input.secrets);
             console.log(`[SMS] Successfully sent SMS notification for task ${task.id}, patient ${patientRef}`);
             results.push({ medium, success: true });
             break;
-          case 'email':
+          }
+          case 'email': {
+            const emailValidation = await validatePatientEmail(task, oystehr);
+            if (!emailValidation.valid) {
+              console.log(
+                `[Email] Skipping email for task ${task.id}, patient ${patientRef}: ${emailValidation.reason}`
+              );
+              results.push({
+                medium,
+                success: false,
+                error: emailValidation.reason,
+                skippedReason: emailValidation.reason,
+              });
+              break;
+            }
             await sendOutreachEmail(task, emailTemplate || '', oystehr, input.secrets);
             console.log(`[Email] Successfully sent email notification for task ${task.id}, patient ${patientRef}`);
             results.push({ medium, success: true });
             break;
+          }
           case 'paper-mail': {
             if (!FEATURE_FLAGS_CONFIG.mailingPaperStatementsEnabled) {
               console.error(
@@ -117,25 +146,52 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     }
 
     const allSucceeded = results.every((r) => r.success);
-    const finalStatus = allSucceeded ? 'completed' : 'failed';
+    const anySucceeded = results.some((r) => r.success);
+    const allSkippedDueToContacts = !allSucceeded && results.every((r) => r.success || !!r.skippedReason);
+
+    // If at least one medium succeeded, treat the task as completed.
+    // Only cancel if every medium was skipped due to invalid contacts.
+    // Only fail if no medium succeeded and at least one had a real (non-contact) error.
+    const finalStatus = allSucceeded || anySucceeded ? 'completed' : allSkippedDueToContacts ? 'cancelled' : 'failed';
+
+    // Log per-medium failures even when the task overall succeeds
+    const failedMediums = results.filter((r) => !r.success);
+    if (failedMediums.length > 0 && finalStatus === 'completed') {
+      console.log(
+        `Task ${task.id} completed with partial medium failures: ${failedMediums
+          .map((r) => `${r.medium}: ${r.error || r.skippedReason}`)
+          .join('; ')}`
+      );
+    }
+
+    const patchOps: { op: 'replace' | 'add'; path: string; value: unknown }[] = [
+      { op: 'replace', path: '/status', value: finalStatus },
+      { op: 'add', path: '/executionPeriod/end', value: DateTime.now().toISO() },
+      {
+        op: 'add',
+        path: '/output',
+        value: [
+          {
+            type: { text: 'execution-result' },
+            valueString: JSON.stringify(results),
+          },
+        ],
+      },
+    ];
+
+    if (allSkippedDueToContacts) {
+      const reasons = results.filter((r) => r.skippedReason).map((r) => `${r.medium}: ${r.skippedReason}`);
+      patchOps.push({
+        op: 'add',
+        path: '/statusReason',
+        value: { text: `No valid contact methods: ${reasons.join('; ')}` },
+      });
+    }
 
     await oystehr.fhir.patch<Task>({
       resourceType: 'Task',
       id: task.id!,
-      operations: [
-        { op: 'replace', path: '/status', value: finalStatus },
-        { op: 'add', path: '/executionPeriod/end', value: DateTime.now().toISO() },
-        {
-          op: 'add',
-          path: '/output',
-          value: [
-            {
-              type: { text: 'execution-result' },
-              valueString: JSON.stringify(results),
-            },
-          ],
-        },
-      ],
+      operations: patchOps,
     });
 
     console.log(`Task ${task.id} completed with status: ${finalStatus}`);
@@ -171,6 +227,47 @@ function extractMediums(task: Task): NotificationMedium[] {
 
 function extractInputValue(task: Task, key: string): string | undefined {
   return task.input?.find((i) => i.type?.text === key)?.valueString;
+}
+
+// ── Contact validation ─────────────────────────────────────────────────────
+
+async function validatePatientPhone(task: Task, oystehr: Oystehr): Promise<{ valid: boolean; reason?: string }> {
+  const patientId = task.for?.reference?.replace('Patient/', '');
+  if (!patientId) return { valid: false, reason: 'Task has no patient reference' };
+
+  try {
+    const patient = await oystehr.fhir.get<Patient>({ resourceType: 'Patient', id: patientId });
+    const rawPhone = getPhoneNumberForIndividual(patient);
+    if (!rawPhone) {
+      return { valid: false, reason: 'No phone number on file' };
+    }
+    const result = phone(rawPhone, { country: 'USA' });
+    if (!result.isValid) {
+      return { valid: false, reason: `Invalid phone number: ${rawPhone}` };
+    }
+    return { valid: true };
+  } catch {
+    return { valid: false, reason: `Failed to fetch patient ${patientId} for phone validation` };
+  }
+}
+
+async function validatePatientEmail(task: Task, oystehr: Oystehr): Promise<{ valid: boolean; reason?: string }> {
+  const patientId = task.for?.reference?.replace('Patient/', '');
+  if (!patientId) return { valid: false, reason: 'Task has no patient reference' };
+
+  try {
+    const patient = await oystehr.fhir.get<Patient>({ resourceType: 'Patient', id: patientId });
+    const rawEmail = getPatientContactEmail(patient);
+    if (!rawEmail) {
+      return { valid: false, reason: 'No email address on file' };
+    }
+    if (!isEmailValid(rawEmail)) {
+      return { valid: false, reason: `Invalid email address: ${rawEmail}` };
+    }
+    return { valid: true };
+  } catch {
+    return { valid: false, reason: `Failed to fetch patient ${patientId} for email validation` };
+  }
 }
 
 // ── Integration placeholders ───────────────────────────────────────────────

@@ -28,6 +28,7 @@ export interface OutreachTaskSummary {
   description: string;
   mediums?: string;
   errorMessage?: string;
+  cancellationReason?: string;
   chargeResult?: { success: boolean; transactionId?: string; error?: string; amountCents?: number };
   notificationResults?: { medium: string; success: boolean; error?: string }[];
   executionResult?: { medium: string; success: boolean; error?: string }[];
@@ -221,6 +222,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       description: task.description || '',
       mediums: extractInput(task, 'mediums') || extractChargeCardMediums(task),
       errorMessage: extractErrorMessage(task),
+      cancellationReason: task.statusReason?.text,
       chargeResult: extractJsonOutput(task, 'charge-result'),
       notificationResults: extractJsonOutput(task, 'notification-results'),
       executionResult: extractJsonOutput(task, 'execution-result'),

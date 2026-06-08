@@ -40,7 +40,7 @@ import {
   ProviderTypeCode,
   ScheduleOwnerFhirResource,
 } from '../types';
-import { phoneRegex, zipRegex } from '../validation';
+import { emailRegex, phoneRegex, zipRegex } from '../validation';
 
 export function createOystehrClient(token: string, fhirAPI: string, projectAPI: string): Oystehr {
   const FHIR_API = fhirAPI.replace(/\/r4/g, '');
@@ -172,6 +172,13 @@ export function formatPhoneNumber(phoneNumber: string | undefined): string | und
   }
   return tenDigitRegex.test(phoneNumber) ? `+1${phoneNumber}` : phoneNumber;
 }
+
+export const isEmailValid = (email: string | undefined): boolean => {
+  if (!email) {
+    return false;
+  }
+  return emailRegex.test(email);
+};
 
 export const isNPIValid = (npi: string): boolean => {
   const npiRegex = /^\d{10}$/;
