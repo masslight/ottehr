@@ -2605,6 +2605,28 @@
         ]
       }
     },
+    "SUB_ERX_PATIENT_SYNC_ON_ENCOUNTER_SUBSCRIPTION": {
+      "resource": {
+        "resourceType": "Subscription",
+        "status": "active",
+        "reason": "Warm up eRx patient sync when a patient arrives for a visit",
+        "criteria": "Encounter?status=arrived",
+        "channel": {
+          "type": "rest-hook",
+          "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-ERX-PATIENT-SYNC/id}"
+        },
+        "extension": [
+          {
+            "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
+            "valueString": "create"
+          },
+          {
+            "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
+            "valueString": "update"
+          }
+        ]
+      }
+    },
     "SUB_ERX_NOTIFICATION_SUBSCRIPTION": {
       "resource": {
         "resourceType": "Subscription",

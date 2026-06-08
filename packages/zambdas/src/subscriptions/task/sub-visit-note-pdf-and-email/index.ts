@@ -34,26 +34,13 @@ import { getUpcomingFollowUps } from '../../../shared/pdf/get-upcoming-follow-up
 import { createProgressNotePdf } from '../../../shared/pdf/progress-note-pdf';
 import { getAppointmentAndRelatedResources } from '../../../shared/pdf/visit-details-pdf/get-video-resources';
 import { makeVisitNotePdfDocumentReference } from '../../../shared/pdf/visit-details-pdf/make-visit-note-pdf-document-reference';
+import { patchTaskStatus } from '../../helpers';
 import { validateRequestParameters } from '../validateRequestParameters';
 
 export interface TaskSubscriptionInput {
   task: Task;
   secrets: Secrets | null;
 }
-
-type TaskStatus =
-  | 'draft'
-  | 'requested'
-  | 'received'
-  | 'accepted'
-  | 'rejected'
-  | 'ready'
-  | 'cancelled'
-  | 'in-progress'
-  | 'on-hold'
-  | 'failed'
-  | 'completed'
-  | 'entered-in-error';
 
 let oystehrToken: string;
 let oystehr: Oystehr;
@@ -275,7 +262,16 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
       // update task status and status reason
       console.log('making patch request to update task status');
-      const patchedTask = await patchTaskStatus(oystehr, task.id, 'completed', statusMessage);
+      const patchedTask = await patchTaskStatus(
+        {
+          task: {
+            id: task.id,
+          },
+          taskStatusToUpdate: 'completed',
+          statusReasonToUpdate: statusMessage,
+        },
+        oystehr
+      );
 
       const response = {
         taskStatus: patchedTask.status,
@@ -288,7 +284,17 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       };
     } catch (error: unknown) {
       try {
-        if (oystehr && taskId) await patchTaskStatus(oystehr, taskId, 'failed', JSON.stringify(error));
+        if (oystehr && taskId)
+          await patchTaskStatus(
+            {
+              task: {
+                id: taskId,
+              },
+              taskStatusToUpdate: 'failed',
+              statusReasonToUpdate: JSON.stringify(error),
+            },
+            oystehr
+          );
       } catch (patchError) {
         console.error('Error patching task status in top level catch:', patchError);
       }
@@ -296,7 +302,17 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     }
   } catch (error: unknown) {
     try {
-      if (oystehr && taskId) await patchTaskStatus(oystehr, taskId, 'failed', JSON.stringify(error));
+      if (oystehr && taskId)
+        await patchTaskStatus(
+          {
+            task: {
+              id: taskId,
+            },
+            taskStatusToUpdate: 'failed',
+            statusReasonToUpdate: JSON.stringify(error),
+          },
+          oystehr
+        );
     } catch (patchError) {
       console.error('Error patching task status in top level catch:', patchError);
     }
@@ -314,37 +330,3 @@ export function resolveSkipEmail(task: Task): boolean {
     ) ?? false
   );
 }
-
-const patchTaskStatus = async (
-  oystehr: Oystehr,
-  taskId: string,
-  status: TaskStatus,
-  reason?: string
-): Promise<Task> => {
-  const patchedTask = await oystehr.fhir.patch<Task>({
-    resourceType: 'Task',
-    id: taskId,
-    operations: [
-      {
-        op: 'replace',
-        path: '/status',
-        value: status,
-      },
-      {
-        op: 'add',
-        path: '/statusReason',
-        value: {
-          coding: [
-            {
-              system: 'status-reason',
-              code: reason || 'no reason given',
-            },
-          ],
-        },
-      },
-    ],
-  });
-  console.log('successfully patched task');
-  console.log(JSON.stringify(patchedTask));
-  return patchedTask;
-};
