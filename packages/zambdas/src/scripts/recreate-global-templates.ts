@@ -20,8 +20,10 @@ const GLOBAL_TEMPLATES_TAG_CODE = 'global-templates';
  * restores that: it creates the templates once and links them to the
  * Terraform-provisioned holder list, then never tracks them again.
  *
- * It is idempotent — if the holder already references templates it does nothing,
- * so it is safe to run on every deploy / re-run by hand.
+ * It seeds exactly once: if the holder already references any templates it does
+ * nothing. This makes it safe for the Terraform provisioner to re-run and safe to
+ * invoke by hand, but it intentionally never re-seeds an already-populated env.
+ * To re-seed, delete the existing templates first, then run this again.
  */
 const recreateGlobalTemplates = async (config: any): Promise<void> => {
   const token = await getAuth0Token(config);
@@ -86,15 +88,12 @@ const getGlobalTemplatesHolder = async (oystehr: Oystehr): Promise<List | undefi
 };
 
 const main = async (): Promise<void> => {
-  try {
-    await performEffectWithEnvFile(recreateGlobalTemplates);
-  } catch (e) {
-    console.log('Error while seeding global templates: ', e);
-    console.log('Stringified: ', JSON.stringify(e));
-  }
+  await performEffectWithEnvFile(recreateGlobalTemplates);
 };
 
+// Let failures propagate and exit non-zero so the Terraform `local-exec`
+// provisioner (and any manual run) fails loudly instead of silently succeeding.
 main().catch((error) => {
-  console.log('error', error);
-  throw error;
+  console.error('Failed to seed global templates: ', error);
+  process.exit(1);
 });
