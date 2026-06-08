@@ -284,9 +284,10 @@ export const APPOINTMENT_LOCKED_META_TAG = {
 };
 
 export const FHIR_ENCOUNTER_ERX_PATIENT_SYNC_SYSTEM = 'encounter-erx-sync-status';
+export const FHIR_ENCOUNTER_ERX_PATIENT_SYNC_CODE = 'ERX_PATIENT_SYNCED';
 export const FHIR_ENCOUNTER_ERX_PATIENT_SYNC_TAG = {
   system: FHIR_ENCOUNTER_ERX_PATIENT_SYNC_SYSTEM,
-  code: 'ERX_PATIENT_SYNCED',
+  code: FHIR_ENCOUNTER_ERX_PATIENT_SYNC_CODE,
 };
 
 export const ERX_MEDICATION_META_TAG_CODE = 'erx-medication';
@@ -815,3 +816,13 @@ export const CASE_RATE_CODE = 'case-rate';
 
 export const CPT_MODIFIER_EXTENSION_URL = ottehrExtensionUrl('cpt-modifier');
 export const CPT_CODE_SYSTEM = 'http://www.ama-assn.org/go/cpt';
+
+export const EXAM_MIGRATION_VERSION_URL = `${PRIVATE_EXTENSION_BASE_URL}/exam-migration-version`;
+// Version 1 and 2 are essentially the same
+// The version was bumped to 2 to facilitate rendering a incompatibility message for old telemed charts
+// Version 1 was only stamped on encounters where users clicked "migrate exam" however in order to differentiate between virtual visits pre and post exam config consolidation
+// We need to record the current migration version on all encounters. There is an edge case were telemed exams were migrated and stamped with v1 before the 1.35 release
+// but would actually be incompatible with the exam config going out in 1.35 (aka v2)
+export const CURRENT_EXAM_MIGRATION_VERSION = 2;
+export const INCOMPATIBLE_EXAM_VERSION_MESSAGE =
+  "This chart's exam version is incompatible with the current exam configuration, please consult the visit PDF.";

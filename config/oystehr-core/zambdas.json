@@ -410,6 +410,55 @@
       "src": "src/billing/get-billing-claim-detail/index",
       "zip": ".dist/zips/get-billing-claim-detail.zip"
     },
+    "GET-BILLING-PATIENT-DETAIL": {
+      "name": "get-billing-patient-detail",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/get-billing-patient-detail/index",
+      "zip": ".dist/zips/get-billing-patient-detail.zip"
+    },
+    "SEARCH-BILLING-ERAS": {
+      "name": "search-billing-eras",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/search-billing-eras/index",
+      "zip": ".dist/zips/search-billing-eras.zip"
+    },
+    "GET-BILLING-ERA-DETAIL": {
+      "name": "get-billing-era-detail",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/get-billing-era-detail/index",
+      "zip": ".dist/zips/get-billing-era-detail.zip"
+    },
+    "SEARCH-BILLING-TAGS": {
+      "name": "search-billing-tags",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/search-billing-tags/index",
+      "zip": ".dist/zips/search-billing-tags.zip"
+    },
+    "SAVE-BILLING-TAG": {
+      "name": "save-billing-tag",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/save-billing-tag/index",
+      "zip": ".dist/zips/save-billing-tag.zip"
+    },
+    "DELETE-BILLING-TAG": {
+      "name": "delete-billing-tag",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/delete-billing-tag/index",
+      "zip": ".dist/zips/delete-billing-tag.zip"
+    },
+    "TAG-BILLING-CLAIM": {
+      "name": "tag-billing-claim",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/tag-billing-claim/index",
+      "zip": ".dist/zips/tag-billing-claim.zip"
+    },
     "UPDATE-BILLING-CLAIM": {
       "name": "update-billing-claim",
       "type": "http_auth",
@@ -2029,6 +2078,20 @@
       "src": "src/ehr/support-dialog/admin-update-support-dialog/index",
       "zip": ".dist/zips/admin-update-support-dialog.zip"
     },
+    "GET-PROGRESS-NOTE-CONFIG": {
+      "name": "get-progress-note-config",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/progress-note-config/get-progress-note-config/index",
+      "zip": ".dist/zips/get-progress-note-config.zip"
+    },
+    "ADMIN-UPDATE-PROGRESS-NOTE-CONFIG": {
+      "name": "admin-update-progress-note-config",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/progress-note-config/admin-update-progress-note-config/index",
+      "zip": ".dist/zips/admin-update-progress-note-config.zip"
+    },
     "ADMIN-UPDATE-LOCATION-SUPPORT-PHONES": {
       "name": "admin-update-location-support-phones",
       "type": "http_auth",
@@ -2526,6 +2589,28 @@
         "status": "active",
         "reason": "Sync patient with eRx service when height or weight vitals are recorded",
         "criteria": "Observation?code=29463-7,8302-2",
+        "channel": {
+          "type": "rest-hook",
+          "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-ERX-PATIENT-SYNC/id}"
+        },
+        "extension": [
+          {
+            "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
+            "valueString": "create"
+          },
+          {
+            "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
+            "valueString": "update"
+          }
+        ]
+      }
+    },
+    "SUB_ERX_PATIENT_SYNC_ON_ENCOUNTER_SUBSCRIPTION": {
+      "resource": {
+        "resourceType": "Subscription",
+        "status": "active",
+        "reason": "Warm up eRx patient sync when a patient arrives for a visit",
+        "criteria": "Encounter?status=arrived",
         "channel": {
           "type": "rest-hook",
           "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-ERX-PATIENT-SYNC/id}"

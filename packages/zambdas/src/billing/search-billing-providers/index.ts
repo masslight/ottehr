@@ -3,29 +3,19 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Organization, Practitioner } from 'fhir/r4b';
 import { FHIR_IDENTIFIER_NPI, getNPI, getTaxID } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
-import {
-  BILLS_TAG,
-  createBillingClient,
-  EXCLUDE_WORKING_COPIES_PARAM,
-  fhirName,
-  getTag,
-  LICENSE_TAG,
-  RENDERS_TAG,
-} from '../shared';
+import { createBillingClient, EXCLUDE_WORKING_COPIES_PARAMS, fhirName, formatAddress } from '../shared';
 import { SearchBillingProvidersParams, validateRequestParameters } from './validateRequestParameters';
 
 interface ProviderItem {
   id: string;
   name: string;
+  firstName?: string;
+  lastName?: string;
   npi: string;
-  rendersServices: boolean;
-  billsServices: boolean;
-  licenseType: string;
-  taxId: string;
-  addressLine?: string;
-  city?: string;
-  state?: string;
-  postalCode?: string;
+  taxonomyCode?: string;
+  taxId?: string;
+  clia?: string;
+  address?: string;
 }
 
 let m2mToken: string;
@@ -51,8 +41,10 @@ async function performEffect(
     { name: '_sort', value: 'name' },
     { name: '_count', value: String(pageSize) },
     { name: '_offset', value: String(offset) },
-    EXCLUDE_WORKING_COPIES_PARAM,
   ];
+  if (!params.includeWorkingCopies) searchParams.push(...EXCLUDE_WORKING_COPIES_PARAMS);
+  if (params.providerId) searchParams.push({ name: '_id', value: params.providerId });
+  if (params.name) searchParams.push({ name: 'name', value: params.name });
 
   // TODO: rendering providers may need to support Organization in addition to Practitioner
   if (params.providerType === 'rendering') {
@@ -71,27 +63,21 @@ function mapPractitioner(p: Practitioner): ProviderItem {
   return {
     id: p.id ?? '',
     name: fhirName(p),
+    firstName: p.name?.[0]?.given?.join(' ') ?? '',
+    lastName: p.name?.[0]?.family ?? '',
     npi: getNPI(p) ?? '',
-    rendersServices: getTag(p, RENDERS_TAG) !== 'false',
-    billsServices: getTag(p, BILLS_TAG) === 'true',
-    licenseType: getTag(p, LICENSE_TAG) ?? p.qualification?.[0]?.code?.coding?.[0]?.code ?? '',
-    taxId: getTaxID(p) ?? '',
+    taxonomyCode: p.qualification?.[0]?.code?.coding?.[0]?.code ?? '',
   };
 }
 
 function mapOrganization(o: Organization): ProviderItem {
-  const addr = o.address?.[0];
   return {
     id: o.id ?? '',
     name: o.name ?? '',
     npi: getNPI(o) ?? '',
-    rendersServices: getTag(o, RENDERS_TAG) !== 'false',
-    billsServices: getTag(o, BILLS_TAG) === 'true',
-    licenseType: getTag(o, LICENSE_TAG) ?? '',
     taxId: getTaxID(o) ?? '',
-    addressLine: addr?.line?.join(', ') ?? '',
-    city: addr?.city ?? '',
-    state: addr?.state ?? '',
-    postalCode: addr?.postalCode ?? '',
+    // TODO: need to define and store CLIA
+    clia: '',
+    address: formatAddress(o.address?.[0]),
   };
 }

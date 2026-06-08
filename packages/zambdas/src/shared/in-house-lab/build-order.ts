@@ -24,8 +24,8 @@ import {
   REPEAT_TEST_CPT_CODE_MODIFIER,
   REPEAT_TEST_ORDER_DETAIL_TAG_CONFIG,
 } from 'utils';
-import { fillMeta, makeCptModifierExtension } from '../../../../shared';
-import { createTask } from '../../../../shared/tasks';
+import { fillMeta, makeCptModifierExtension } from '..';
+import { createTask } from '../tasks';
 
 export interface TestItemRequestData {
   activityDefinition: ActivityDefinition;
@@ -52,6 +52,12 @@ export interface CreateInHouseLabResources {
   currentUserPractitionerId: string;
   attendingPractitionerName: string | undefined;
   attendingPractitionerId: string;
+  // Practitioner referenced as the ServiceRequest.requester. The
+  // create-in-house-lab-order zambda treats the visit's attending as the
+  // requester (provider charting the visit); apply-template treats the user
+  // who clicked "Apply Template" as the requester. Falls back to
+  // attendingPractitionerId when not supplied.
+  requesterPractitionerId?: string;
 }
 
 export const makeRequestsForCreateInHouseLabs = (
@@ -112,7 +118,16 @@ const makeServiceRequestConfig = (
   resources: CreateInHouseLabResources,
   testData: TestItemResources
 ): ServiceRequest => {
-  const { diagnosesAll, notes, encounter, patient, coverage, location, attendingPractitionerId } = resources;
+  const {
+    diagnosesAll,
+    notes,
+    encounter,
+    patient,
+    coverage,
+    location,
+    attendingPractitionerId,
+    requesterPractitionerId,
+  } = resources;
   const { activityDefinition, initialServiceRequest, orderMode } = testData;
 
   const serviceRequestConfig: ServiceRequest = {
@@ -126,7 +141,7 @@ const makeServiceRequestConfig = (
       reference: `Encounter/${encounter.id}`,
     },
     requester: {
-      reference: `Practitioner/${attendingPractitionerId}`,
+      reference: `Practitioner/${requesterPractitionerId ?? attendingPractitionerId}`,
     },
     authoredOn: DateTime.now().toISO() || undefined,
     priority: 'stat',

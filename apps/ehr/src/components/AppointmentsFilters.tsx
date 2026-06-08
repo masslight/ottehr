@@ -43,15 +43,27 @@ const getVisitTypeToLabel = (): Partial<typeof ALL_VISIT_TYPE_LABELS> => {
   );
 };
 
-const LOCAL_STORAGE_FILTERS_KEY = 'appointments.filters';
+export const LOCAL_STORAGE_FILTERS_KEY = 'appointments.filters';
+// `date` is kept in sessionStorage (not localStorage) so it survives in-app navigation but resets
+// to today on a new browser session — closing/reopening the window must not restore a stale date.
+export const SESSION_STORAGE_DATE_KEY = 'appointments.date';
+
+// Filter params owned by this component; any other param (e.g. `tab`) is preserved.
+const FILTER_PARAM_KEYS = ['location', 'visitType', 'serviceCategory', 'date', 'provider'] as const;
 
 export default function AppointmentsFilters(): ReactElement {
   const visitTypeToLabel = useMemo(() => getVisitTypeToLabel(), []);
 
   const methods = useForm();
   const [searchParams, setSearchParams] = useSearchParams();
+  const hasTrackingBoardFilterParams = FILTER_PARAM_KEYS.some((key) => searchParams.has(key));
 
   useEffect(() => {
+    if (!hasTrackingBoardFilterParams) {
+      return;
+    }
+
+    // Mirror the URL into the form only when it carries filters; otherwise let the restore effect recover them.
     const values = {
       location:
         searchParams
@@ -68,7 +80,7 @@ export default function AppointmentsFilters(): ReactElement {
           .map((id) => ({ id })) ?? [],
     };
     methods.reset(values);
-  }, [searchParams, methods]);
+  }, [hasTrackingBoardFilterParams, searchParams, methods]);
 
   useEffect(() => {
     const callback = methods.subscribe({
@@ -76,20 +88,31 @@ export default function AppointmentsFilters(): ReactElement {
         values: true,
       },
       callback: ({ values }) => {
-        const queryParams = new URLSearchParams();
-        for (const key in values) {
-          const value = Array.isArray(values[key])
-            ? values[key].map((val) => val.id ?? val).join(',')
-            : values[key]?.id ?? values[key];
-          if (value) {
-            queryParams.set(key, value);
+        setSearchParams((prev) => {
+          // Rewrite filter params while preserving any other param (e.g. `tab`).
+          const next = new URLSearchParams(prev);
+          FILTER_PARAM_KEYS.forEach((key) => next.delete(key));
+          for (const key in values) {
+            const value = Array.isArray(values[key])
+              ? values[key].map((val) => val.id ?? val).join(',')
+              : values[key]?.id ?? values[key];
+            if (value) {
+              next.set(key, value);
+            }
           }
-        }
-        setSearchParams(queryParams);
+          return next;
+        });
         if (values) {
-          localStorage.setItem(LOCAL_STORAGE_FILTERS_KEY, JSON.stringify(values));
+          const { date, ...rest } = values;
+          localStorage.setItem(LOCAL_STORAGE_FILTERS_KEY, JSON.stringify(rest));
+          if (date) {
+            sessionStorage.setItem(SESSION_STORAGE_DATE_KEY, date);
+          } else {
+            sessionStorage.removeItem(SESSION_STORAGE_DATE_KEY);
+          }
         } else {
           localStorage.removeItem(LOCAL_STORAGE_FILTERS_KEY);
+          sessionStorage.removeItem(SESSION_STORAGE_DATE_KEY);
         }
       },
     });
@@ -97,17 +120,40 @@ export default function AppointmentsFilters(): ReactElement {
   }, [methods, setSearchParams]);
 
   useEffect(() => {
+    // Restore persisted filters when the URL carries none (e.g. only `?tab=` after an approval).
+    if (hasTrackingBoardFilterParams) {
+      return;
+    }
+
+    // Defer seeding until AppointmentTabs has written `?tab=`. AppointmentsFilters is only
+    // mounted on the tracking board page alongside AppointmentTabs, which writes the tab on
+    // mount — this guard keeps the two siblings' URL writes deterministic.
+    if (!searchParams.has('tab')) {
+      return;
+    }
+
+    const date = sessionStorage.getItem(SESSION_STORAGE_DATE_KEY) || DateTime.now().toISODate();
+    const defaultValues = {
+      visitType: Object.keys(visitTypeToLabel),
+      date,
+    };
+
     const persistedValues = localStorage.getItem(LOCAL_STORAGE_FILTERS_KEY);
-    if (searchParams.size === 0 && persistedValues) {
-      methods.reset(JSON.parse(persistedValues));
+
+    if (!persistedValues) {
+      methods.reset(defaultValues);
+      return;
     }
-    if (searchParams.size === 0 && !persistedValues) {
-      methods.reset({
-        visitType: Object.keys(visitTypeToLabel),
-        date: DateTime.now().toISODate(),
-      });
+
+    try {
+      const parsed = JSON.parse(persistedValues);
+      methods.reset({ ...parsed, date });
+    } catch {
+      // Corrupt/legacy localStorage: drop it and fall back to defaults instead of crashing.
+      localStorage.removeItem(LOCAL_STORAGE_FILTERS_KEY);
+      methods.reset(defaultValues);
     }
-  }, [methods, searchParams, visitTypeToLabel]);
+  }, [hasTrackingBoardFilterParams, methods, searchParams, visitTypeToLabel]);
 
   return (
     <FormProvider {...methods}>
@@ -151,7 +197,14 @@ export default function AppointmentsFilters(): ReactElement {
             <DateInput name="date" label="Select Date" size="medium" showTodayButton />
           </Box>
           <Box style={{ flex: 1 }}>
-            <EmployeeSelectInput name="provider" label="Providers" filter={PROVIDERS_FILTER} size="medium" multiple />
+            <EmployeeSelectInput
+              name="provider"
+              label="Providers"
+              filter={PROVIDERS_FILTER}
+              includeScheduleOwners
+              size="medium"
+              multiple
+            />
           </Box>
           <Link to="/visits/add">
             <Button

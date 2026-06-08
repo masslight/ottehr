@@ -21,7 +21,6 @@ import {
 } from '@mui/material';
 import { TypographyOptions } from '@mui/material/styles/createTypography';
 import { styled } from '@mui/system';
-import { useQuery } from '@tanstack/react-query';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useEffect, useState } from 'react';
@@ -45,18 +44,17 @@ import {
   isInPersonAppointment,
   PaymentVariant,
   PRACTITIONER_CODINGS,
-  ProviderDetails,
   VisitStatusLabel,
   VitalFieldNames,
   type VitalsWeightObservationDTO,
 } from 'utils';
-import { getEmployees } from '../../../../api/api';
 import { dataTestIds } from '../../../../constants/data-test-ids';
 import { useApiClients } from '../../../../hooks/useAppClients';
 import { ProfileAvatar } from '../../shared/components/ProfileAvatar';
 import { useGetHistoricalVitals, useGetVitals } from '../../shared/components/vitals/hooks/useGetVitals';
 import { useChartFields } from '../../shared/hooks/useChartFields';
 import { useGetAppointmentAccessibility } from '../../shared/hooks/useGetAppointmentAccessibility';
+import { useGetEmployees } from '../../shared/hooks/useGetEmployees';
 import { useOystehrAPIClient } from '../../shared/hooks/useOystehrAPIClient';
 import { usePractitionerActions } from '../../shared/hooks/usePractitioner';
 import { useAppointmentData, useChartData } from '../../shared/stores/appointment/appointment.store';
@@ -334,44 +332,7 @@ export const Header = (): JSX.Element => {
 
   const { oystehrZambda } = useApiClients();
 
-  const { data: employees, isLoading: employeesIsLoading } = useQuery({
-    queryKey: ['progress-note-header-employees'],
-    queryFn: async () => {
-      if (!oystehrZambda) return null;
-      const getEmployeesRes = await getEmployees(oystehrZambda, { lite: true });
-      const activeEmployees = getEmployeesRes.employees.filter((employee) => employee.status === 'Active');
-      const providers = activeEmployees.filter((employee) => employee.isProvider && !employee.isCustomerSupport);
-      const formattedProviders: ProviderDetails[] = providers
-        .map((prov) => {
-          const id = prov.profile.split('/')[1];
-          return {
-            practitionerId: id,
-            name: `${prov.firstName} ${prov.lastName}`.trim(),
-          };
-        })
-        .filter((prov) => prov.name);
-
-      // TODO: remove this once we have nurses role
-      // const nonProviders = getEmployeesRes.employees.filter((employee) => !employee.isProvider);
-      const nonProviders = activeEmployees.filter((employee) => !employee.isCustomerSupport);
-      const formattedNonProviders: ProviderDetails[] = nonProviders
-        .map((prov) => {
-          const id = prov.profile.split('/')[1];
-          return {
-            practitionerId: id,
-            name: `${prov.firstName} ${prov.lastName}`.trim(),
-          };
-        })
-        .filter((prov) => prov.name);
-      return {
-        providers: formattedProviders,
-        nonProviders: formattedNonProviders,
-      };
-    },
-    enabled: !!oystehrZambda,
-    // Employees rarely change — cache across navigations to keep the header fast.
-    staleTime: 5 * 60 * 1000,
-  });
+  const { data: employees, isLoading: employeesIsLoading } = useGetEmployees();
 
   if (!employeesIsLoading && oystehrZambda && !employees) {
     return <Box sx={{ padding: '16px' }}>There must be some employees registered to use charting.</Box>;
@@ -559,7 +520,7 @@ export const Header = (): JSX.Element => {
               </Grid>
               <Grid item>
                 <Stack direction="row" spacing={1} alignItems="center">
-                  <CommandPaletteSearchButton minWidth={200} />
+                  <CommandPaletteSearchButton />
                   <IconButton onClick={() => navigate('/visits')}>
                     <CloseIcon />
                   </IconButton>

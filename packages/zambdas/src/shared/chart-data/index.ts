@@ -76,6 +76,7 @@ import {
   ObservationDateRangeFieldDTO,
   ObservationDTO,
   ObservationTextFieldDTO,
+  OTHER_SPECIALTY_TRANSFER_OPTION,
   PATIENT_VITALS_META_SYSTEM,
   patientScreeningQuestionsConfig,
   PERFORMER_TYPE_SYSTEM,
@@ -264,6 +265,7 @@ export function makeMedicationResource(
   data: MedicationDTO,
   fieldName: ProviderChartDataFieldsNames
 ): MedicationStatement {
+  const dose = data.intakeInfo.dose?.trim();
   return {
     id: data.resourceId,
     identifier: [{ value: data.id }],
@@ -271,7 +273,8 @@ export function makeMedicationResource(
     subject: { reference: `Patient/${patientId}` },
     context: { reference: `Encounter/${encounterId}` },
     status: data.status,
-    dosage: [{ text: data.intakeInfo.dose, asNeededBoolean: data.type === 'as-needed' }],
+    // FHIR rejects empty strings for Dosage.text, so only set it when a dose was actually provided
+    dosage: [{ ...(dose ? { text: dose } : {}), asNeededBoolean: data.type === 'as-needed' }],
     effectiveDateTime: data.intakeInfo.date,
     informationSource: { reference: `Practitioner/${practitionerId}` },
     meta: getMetaWFieldName(fieldName),
@@ -921,6 +924,10 @@ export function makeDispositionDTO(
   const virusTests = filterCodeableConcepts(followUp.orderDetail, 'virus-test');
   const reasonForTransfer = filterCodeableConcepts(followUp.orderDetail, 'reason-for-transfer')[0];
   const specialtyTransfer = filterCodeableConcepts(followUp.orderDetail, 'specialty-transfer')[0];
+  const specialtyTransferOther =
+    specialtyTransfer === OTHER_SPECIALTY_TRANSFER_OPTION
+      ? followUp.orderDetail?.find((detail) => detail.coding?.[0]?.system === 'specialty-transfer')?.text || undefined
+      : undefined;
 
   const followUpArr = subFollowUp?.map((element) => {
     const performerCode = element.performerType?.coding?.[0].code;
@@ -945,6 +952,7 @@ export function makeDispositionDTO(
     virusTest: virusTests,
     reason: reasonForTransfer,
     specialty: specialtyTransfer,
+    specialtyOther: specialtyTransferOther,
     followUp: followUpArr ?? undefined,
     followUpIn: typeof followUpTime === 'number' ? Math.floor(followUpTime / 1440) : undefined,
     [NOTHING_TO_EAT_OR_DRINK_FIELD]: followUp.extension?.some(
@@ -1723,12 +1731,16 @@ export const createDispositionServiceRequest = ({
   if (disposition.type === 'specialty' && disposition.specialty) {
     if (!orderDetail) orderDetail = [];
     orderDetail.push(
-      createCodeableConcept([
-        {
-          code: disposition.specialty,
-          system: 'specialty-transfer', // TODO phony Coding system
-        },
-      ])
+      createCodeableConcept(
+        [
+          {
+            code: disposition.specialty,
+            system: 'specialty-transfer', // TODO phony Coding system
+          },
+        ],
+        // persist the free-text "Other" specialty in the CodeableConcept text
+        disposition.specialty === OTHER_SPECIALTY_TRANSFER_OPTION ? disposition.specialtyOther : undefined
+      )
     );
   }
 
