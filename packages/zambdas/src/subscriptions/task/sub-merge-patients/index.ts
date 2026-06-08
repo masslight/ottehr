@@ -44,12 +44,6 @@ export const index = wrapTaskHandler('sub-merge-patients', async (input, oystehr
     m2mToken
   );
 
-  // mark qr as completed
-  await oystehr.fhir.update<QuestionnaireResponse>({
-    ...qr,
-    status: 'completed',
-  });
-
   return {
     taskStatus: 'completed' as const,
     statusReason: `merged Patient/${otherPatientId} into Patient/${mainPatientId}`,

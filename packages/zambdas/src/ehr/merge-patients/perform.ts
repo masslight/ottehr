@@ -730,6 +730,7 @@ export async function performMerge(input: PerformMergeInput, oystehr: Oystehr, m
       changed = true;
     }
     if (!changed) continue;
+    console.log(`coverage is changing: /Coverage/${coverage.id}`);
     requests.push({ method: 'PUT', url: `/Coverage/${coverage.id}`, resource: coverage as FhirResource });
   }
 
