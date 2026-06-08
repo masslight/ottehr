@@ -19,19 +19,21 @@ function clearPersistedDate(): void {
 }
 
 export default function Logout(): ReactElement {
-  const { isAuthenticated, logout } = useAuth0();
+  const { isAuthenticated, isLoading, logout } = useAuth0();
 
   useEffect(() => {
-    if (!isAuthenticated) {
+    // Auto-logout navigates here via a full page reload, so wait for Auth0 to rehydrate the
+    // session before acting — otherwise isAuthenticated is briefly false and we'd skip cleanup.
+    if (isLoading || !isAuthenticated) {
       return;
     }
     clearPersistedDate();
     void logout({
       logoutParams: { returnTo: import.meta.env.VITE_APP_OYSTEHR_APPLICATION_REDIRECT_URL, federated: true },
     });
-  }, [isAuthenticated, logout]);
+  }, [isAuthenticated, isLoading, logout]);
 
-  if (!isAuthenticated) {
+  if (!isLoading && !isAuthenticated) {
     return <Navigate to="/" replace />;
   }
 
