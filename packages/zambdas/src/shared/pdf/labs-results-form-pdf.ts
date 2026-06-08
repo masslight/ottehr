@@ -30,11 +30,11 @@ import {
   formatZipcodeForDisplay,
   getAdditionalPlacerId,
   getFullestAvailableName,
+  getNPIIdentifier,
   getOrderNumber,
   getOrderNumberFromDr,
   getPatientFriendlyId,
   getPatientIdForLabOrder,
-  getPractitionerNPIIdentifier,
   getTestItemCodeFromDr,
   getTimezone,
   IN_HOUSE_LAB_OD_NULL_OPTION_CONFIG,
@@ -614,7 +614,7 @@ export async function createExternalLabResultPDF(
     patient,
     diagnosticReport,
     providerName: getFullestAvailableName(provider),
-    providerNPI: getPractitionerNPIIdentifier(provider)?.value,
+    providerNPI: getNPIIdentifier(provider)?.value,
     testName: diagnosticReport.code.coding?.[0].display,
     testItemCode: getTestItemCodeFromDr(diagnosticReport),
   };
@@ -704,7 +704,7 @@ export async function createInHouseLabResultPDF(
     patient,
     diagnosticReport,
     providerName: attendingPractitionerName,
-    providerNPI: getPractitionerNPIIdentifier(attendingPractitioner)?.value,
+    providerNPI: getNPIIdentifier(attendingPractitioner)?.value,
     testName: activityDefinition.title,
     testItemCode: undefined, // we don't care about the codes for in house labs
   };
@@ -2206,7 +2206,7 @@ function getProviderNameAndNpiFromDr(diagnosticReport: DiagnosticReport): {
   }
 
   providerDetails.providerName = getFullestAvailableName(containedProvider) ?? '';
-  providerDetails.providerNPI = getPractitionerNPIIdentifier(containedProvider)?.value ?? '';
+  providerDetails.providerNPI = getNPIIdentifier(containedProvider)?.value ?? '';
 
   return providerDetails;
 }
