@@ -84,21 +84,22 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     console.log('whats here?', validated.questionnaireResponse.id);
 
-    // // Persist the QR so the subscription handler can read it.
-    // const qrCreated = await oystehr.fhir.create<QuestionnaireResponse>({
-    //   ...validated.questionnaireResponse,
-    //   // Ensure the QR is anchored to the main patient.
-    //   subject: { reference: `Patient/${validated.mainPatientId}` },
-    // });
+    // Persist the QR so the subscription handler can read it.
+    const qrCreated = await oystehr.fhir.create<QuestionnaireResponse>({
+      ...validated.questionnaireResponse,
+      // Ensure the QR is anchored to the main patient.
+      subject: { reference: `Patient/${validated.mainPatientId}` },
+      status: 'in-progress', // don't want to kick off harvest yet, let all the merge logic happen and then kick off harvest
+    });
 
-    // console.log('check qrCreated', qrCreated.id);
+    console.log('check qrCreated', qrCreated.id);
 
     const task = await oystehr.fhir.create<Task>({
       resourceType: 'Task',
       status: 'requested',
       intent: 'order',
       code: { coding: [{ system: TaskIndicator.mergePatients.system, code: TaskIndicator.mergePatients.code }] },
-      focus: { reference: `QuestionnaireResponse/${validated.questionnaireResponse.id}` },
+      focus: { reference: `QuestionnaireResponse/${qrCreated.id}` },
       for: { reference: `Patient/${validated.mainPatientId}` },
       input: [
         {

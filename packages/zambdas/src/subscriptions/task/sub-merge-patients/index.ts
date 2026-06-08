@@ -16,8 +16,6 @@ export const index = wrapTaskHandler('sub-merge-patients', async (input, oystehr
   const taskId = task.id!;
 
   const qrId = extractQrId(task);
-  console.log('check qrId', qrId); // make sure this is in processedIds
-  const mainPatientId = extractMainPatientId(task);
   const otherPatientId = extractInputString(task, TASK_INPUT_TYPE_CODES.OTHER_PATIENT_ID);
   const providerProfileReference = extractInputString(task, TASK_INPUT_TYPE_CODES.PROVIDER_PROFILE);
 
@@ -29,10 +27,10 @@ export const index = wrapTaskHandler('sub-merge-patients', async (input, oystehr
   }
 
   const qr = await oystehr.fhir.get<QuestionnaireResponse>({ resourceType: 'QuestionnaireResponse', id: qrId });
-  // const mainPatientId = qr.subject?.reference?.replace('Patient/', '');
-  // if (!mainPatientId) {
-  //   return { taskStatus: 'failed' as const, statusReason: `QR ${qrId} subject is not a Patient` };
-  // }
+  const mainPatientId = qr.subject?.reference?.replace('Patient/', '');
+  if (!mainPatientId) {
+    return { taskStatus: 'failed' as const, statusReason: `QR ${qrId} subject is not a Patient` };
+  }
 
   const m2mToken = await ensureM2MToken(secrets);
 
@@ -46,6 +44,12 @@ export const index = wrapTaskHandler('sub-merge-patients', async (input, oystehr
     m2mToken
   );
 
+  // mark qr as completed
+  await oystehr.fhir.update<QuestionnaireResponse>({
+    ...qr,
+    status: 'completed',
+  });
+
   return {
     taskStatus: 'completed' as const,
     statusReason: `merged Patient/${otherPatientId} into Patient/${mainPatientId}`,
@@ -58,14 +62,6 @@ function extractQrId(task: Task): string {
     throw new Error(`Task focus is not a QuestionnaireResponse: ${ref}`);
   }
   return ref.replace('QuestionnaireResponse/', '');
-}
-
-function extractMainPatientId(task: Task): string {
-  const ref = task.for?.reference;
-  if (!ref?.startsWith('Patient/')) {
-    throw new Error(`Task for is not a Patient: ${ref}`);
-  }
-  return ref.replace('Patient/', '');
 }
 
 function extractInputString(task: Task, code: string): string | undefined {
