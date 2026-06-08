@@ -9,14 +9,21 @@ import { useApiClients } from '../hooks/useAppClients';
 import PageContainer from '../layout/PageContainer';
 import { getResource } from './SchedulePage';
 
+const VALID_SCHEDULE_TYPES = ['location', 'group'] as const;
+type ScheduleTypeParam = (typeof VALID_SCHEDULE_TYPES)[number];
+
 export default function AddSchedulePage(): ReactElement {
   const { oystehr } = useApiClients();
   const navigate = useNavigate();
-  const scheduleType = useParams()['schedule-type'] as 'location' | 'group';
+  const rawScheduleType = useParams()['schedule-type'];
 
-  if (!scheduleType) {
-    throw new Error('scheduleType is not defined');
+  // Don't trust the URL param shape — a stale link / typo / legacy route
+  // (e.g. `/admin/schedule/provider/add`) would otherwise propagate into
+  // `getResource(...)` as an unknown value and corrupt the create call.
+  if (!rawScheduleType || !VALID_SCHEDULE_TYPES.includes(rawScheduleType as ScheduleTypeParam)) {
+    throw new Error(`Unknown schedule type "${rawScheduleType}". Expected one of: ${VALID_SCHEDULE_TYPES.join(', ')}.`);
   }
+  const scheduleType: ScheduleTypeParam = rawScheduleType as ScheduleTypeParam;
 
   const [name, setName] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);

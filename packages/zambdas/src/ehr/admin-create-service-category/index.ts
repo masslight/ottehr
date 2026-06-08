@@ -12,16 +12,41 @@ const validateRequestParameters = (input: ZambdaInput): AdminCreateServiceCatego
   if (!input.body) throw MISSING_REQUEST_BODY;
   const { serviceCategory } = JSON.parse(input.body);
 
+  // Full-payload validation: toFhirResource() reconstructs the whole resource
+  // from `serviceCategory`, so any missing field is a silent corruption (e.g.
+  // `name: undefined`, empty type[] coding). The admin UI always sends a
+  // complete record from the new-service form, so requiring all fields is
+  // contract-safe.
   if (!serviceCategory || typeof serviceCategory !== 'object')
     throw INVALID_INPUT_ERROR('"serviceCategory" must be an object');
 
   const missing: string[] = [];
   if (!serviceCategory.code) missing.push('serviceCategory.code');
   if (!serviceCategory.name) missing.push('serviceCategory.name');
+  if (serviceCategory.active === undefined) missing.push('serviceCategory.active');
+  if (!serviceCategory.config) missing.push('serviceCategory.config');
   if (missing.length > 0) throw MISSING_REQUIRED_PARAMETERS(missing);
 
   if (typeof serviceCategory.code !== 'string') throw INVALID_INPUT_ERROR('"serviceCategory.code" must be a string');
   if (typeof serviceCategory.name !== 'string') throw INVALID_INPUT_ERROR('"serviceCategory.name" must be a string');
+  if (typeof serviceCategory.active !== 'boolean')
+    throw INVALID_INPUT_ERROR('"serviceCategory.active" must be a boolean');
+  if (typeof serviceCategory.config !== 'object')
+    throw INVALID_INPUT_ERROR('"serviceCategory.config" must be an object');
+
+  const { config } = serviceCategory;
+  if (
+    typeof config.durationMinutes !== 'number' ||
+    !Number.isFinite(config.durationMinutes) ||
+    config.durationMinutes <= 0
+  )
+    throw INVALID_INPUT_ERROR('"serviceCategory.config.durationMinutes" must be a positive number');
+  if (!Array.isArray(config.serviceModes) || config.serviceModes.length === 0)
+    throw INVALID_INPUT_ERROR('"serviceCategory.config.serviceModes" must be a non-empty array');
+  if (!Array.isArray(config.visitTypes) || config.visitTypes.length === 0)
+    throw INVALID_INPUT_ERROR('"serviceCategory.config.visitTypes" must be a non-empty array');
+  if (config.cadenceMinutes !== undefined && (typeof config.cadenceMinutes !== 'number' || config.cadenceMinutes <= 0))
+    throw INVALID_INPUT_ERROR('"serviceCategory.config.cadenceMinutes" must be a positive number if provided');
 
   return { serviceCategory };
 };

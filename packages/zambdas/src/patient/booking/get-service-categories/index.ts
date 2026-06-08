@@ -32,6 +32,11 @@ const validateRequestParameters = (input: ZambdaInput): GetServiceCategoriesInpu
     }
     if (parsed.bookingOn !== undefined) {
       if (typeof parsed.bookingOn !== 'string') throw INVALID_INPUT_ERROR('"bookingOn" must be a string if provided');
+      // bookingOn is interpolated raw into a FHIR `identifier` search as
+      // `${SLUG_SYSTEM}|${bookingOn}`. Without a format guard, a `|` in the
+      // value would break out of the value side and inject extra clauses.
+      if (!/^[a-zA-Z0-9-]+$/.test(parsed.bookingOn))
+        throw INVALID_INPUT_ERROR('"bookingOn" must be a URL-safe slug (letters, digits, hyphens)');
       bookingOn = parsed.bookingOn;
     }
   }

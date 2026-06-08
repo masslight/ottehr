@@ -12,12 +12,19 @@ import { safeValidate, ZambdaInput } from '../../shared';
 
 export const SCHEDULE_TYPES = ['location', 'provider', 'group'] as const;
 
+// Slug fields are interpolated raw into FHIR `identifier` search params as
+// `${SLUG_SYSTEM}|${slug}`. Without a format guard, a caller can include `|`
+// (or other special chars) to break out of the value side and inject extra
+// search clauses. Restrict to URL-safe slug shape: letters/digits/hyphens.
+const SLUG_REGEX = /^[a-zA-Z0-9-]+$/;
+const SlugSchema = z.string().regex(SLUG_REGEX, 'must be a URL-safe slug (letters, digits, hyphens)');
+
 const GetScheduleBodySchema = z.object({
-  slug: z.string().min(1),
+  slug: SlugSchema.min(1),
   scheduleType: z.enum(SCHEDULE_TYPES),
   selectedDate: z.string().date().optional(),
   serviceCategoryCode: z.string().optional(),
-  atLocationSlug: z.string().optional(),
+  atLocationSlug: SlugSchema.optional(),
 });
 
 export function validateRequestParameters(input: ZambdaInput): GetScheduleRequestParams & { secrets: Secrets | null } {

@@ -170,4 +170,36 @@ describe('get-service-categories integration', () => {
     });
     expect(result.serviceCategories).toEqual([]);
   });
+
+  // bookingOn is interpolated raw into a FHIR `identifier` search as
+  // `${SLUG_SYSTEM}|${bookingOn}`. The validator enforces a URL-safe slug
+  // shape to prevent breaking out of the value side and injecting extra
+  // search clauses. These tests exercise that boundary.
+  describe('bookingOn slug-format validation', () => {
+    const expectRejection = async (bookingOn: string): Promise<void> => {
+      let caught: unknown;
+      try {
+        await callZambda({ scheduleType: 'group', bookingOn });
+      } catch (e) {
+        caught = e;
+      }
+      if (!caught) {
+        throw new Error(`expected zambda to reject bookingOn="${bookingOn}" but it succeeded`);
+      }
+      const msg = (caught as { message?: string })?.message ?? JSON.stringify(caught);
+      expect(msg).toMatch(/bookingOn|slug/i);
+    };
+
+    it('rejects a bookingOn containing "|" (injection vector)', async () => {
+      await expectRejection('legit-slug|extra-clause');
+    });
+
+    it('rejects a bookingOn containing a space', async () => {
+      await expectRejection('legit slug');
+    });
+
+    it('rejects a bookingOn that is an empty string', async () => {
+      await expectRejection('');
+    });
+  });
 });
