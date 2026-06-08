@@ -212,8 +212,18 @@ export async function transcribeAndCreateResourcesFromZ3Audio(
 ): Promise<string> {
   const presignedFileDownloadUrl = await createPresignedUrl(m2mToken, args.z3URL, 'download');
   const file = await fetch(presignedFileDownloadUrl);
-  const fileBase64 = Buffer.from(await file.arrayBuffer()).toString('base64');
-  const mimeType = file.headers.get('Content-Type') || 'unknown';
+  const bytes = await file.arrayBuffer();
+  const fileBase64 = Buffer.from(bytes).toString('base64');
+  const rawMimeType = file.headers.get('Content-Type') || 'unknown';
+
+  // Vertex requires a concrete audio/* MIME type on the inlineData and rejects anything else with a bare
+  // INVALID_ARGUMENT. The in-person upload is tagged audio/webm by the SDK, but the Oystehr-managed telemed
+  // recording's Z3 object can come back with a generic application/octet-stream (or no) Content-Type. Telemed
+  // recordings are always MP4, so fall back to audio/mp4 when Z3 doesn't give us a real audio/* type.
+  const mimeType = rawMimeType.startsWith('audio/') ? rawMimeType : 'audio/mp4';
+  console.log(
+    `[transcribeAndCreateResourcesFromZ3Audio] z3URL=${args.z3URL} rawContentType=${rawMimeType} sentMimeType=${mimeType} bytes=${bytes.byteLength} base64Length=${fileBase64.length}`
+  );
 
   const transcript = await invokeChatbotVertexAI(
     [{ text: TRANSCRIPT_PROMPT }, { inlineData: { mimeType, data: fileBase64 } }],
