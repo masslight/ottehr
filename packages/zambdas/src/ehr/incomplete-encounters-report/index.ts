@@ -1,5 +1,5 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Appointment, Encounter, Location, Patient, Practitioner } from 'fhir/r4b';
+import { Appointment, Encounter, Location, Patient, Practitioner, ServiceRequest } from 'fhir/r4b';
 import {
   getAttendingPractitionerId,
   getInPersonVisitStatus,
@@ -11,6 +11,7 @@ import {
   isTelemedAppointment,
   OTTEHR_MODULE,
   Secrets,
+  SERVICE_REQUEST_HAS_BEEN_SENT_TO_TELERADIOLOGY_EXTENSION_URL,
 } from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
@@ -39,7 +40,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   // Search for appointments within the date range with proper pagination
   // Fetch all appointments, encounters, patients, locations, and practitioners with proper FHIR pagination
-  let allResources: (Appointment | Encounter | Patient | Location | Practitioner)[] = [];
+  let allResources: (Appointment | Encounter | Patient | Location | Practitioner | ServiceRequest)[] = [];
   let offset = 0;
   const pageSize = 1000;
 
@@ -77,6 +78,13 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       value: 'Encounter:participant:Practitioner',
     },
     {
+      // Pull ServiceRequests (radiology orders, etc.) attached to the revincluded Encounters so we
+      // can count those that were sent to a teleradiology group for an external read. `:iterate`
+      // because ServiceRequest references the Encounter, which is itself revincluded from Appointment.
+      name: '_revinclude:iterate',
+      value: 'ServiceRequest:encounter',
+    },
+    {
       name: '_sort',
       value: 'date',
     },
@@ -86,7 +94,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     },
   ];
 
-  let searchBundle = await oystehr.fhir.search<Appointment | Encounter | Patient | Location | Practitioner>({
+  let searchBundle = await oystehr.fhir.search<
+    Appointment | Encounter | Patient | Location | Practitioner | ServiceRequest
+  >({
     resourceType: 'Appointment',
     params: [...baseSearchParams, { name: '_offset', value: offset.toString() }],
   });
@@ -110,7 +120,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     pageCount++;
     console.log(`Fetching page ${pageCount} of incomplete encounters...`);
 
-    searchBundle = await oystehr.fhir.search<Appointment | Encounter | Patient | Location | Practitioner>({
+    searchBundle = await oystehr.fhir.search<
+      Appointment | Encounter | Patient | Location | Practitioner | ServiceRequest
+    >({
       resourceType: 'Appointment',
       params: [...baseSearchParams, { name: '_offset', value: offset.toString() }],
     });
@@ -176,6 +188,30 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     if (practitioner.id) {
       practitionerMap.set(practitioner.id, practitioner);
     }
+  });
+
+  // Count, per encounter, the radiology orders that have actually been transmitted to a
+  // teleradiology group for an external read. The has-been-sent-to-teleradiology extension is only
+  // present on radiology ServiceRequests, so its presence alone is a sufficient signal.
+  const serviceRequests = allResources.filter(
+    (resource): resource is ServiceRequest => resource.resourceType === 'ServiceRequest'
+  );
+  const teleradiologyOrdersSentByEncounterId = new Map<string, number>();
+  serviceRequests.forEach((serviceRequest) => {
+    const sentToTeleradiology = serviceRequest.extension?.some(
+      (ext) => ext.url === SERVICE_REQUEST_HAS_BEEN_SENT_TO_TELERADIOLOGY_EXTENSION_URL
+    );
+    if (!sentToTeleradiology) {
+      return;
+    }
+    const encounterId = serviceRequest.encounter?.reference?.replace('Encounter/', '');
+    if (!encounterId) {
+      return;
+    }
+    teleradiologyOrdersSentByEncounterId.set(
+      encounterId,
+      (teleradiologyOrdersSentByEncounterId.get(encounterId) ?? 0) + 1
+    );
   });
 
   // Filter encounters based on encounterStatus parameter
@@ -246,6 +282,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       attendingProvider: attendingProviderName,
       visitType,
       reason: encounter.reasonCode?.[0]?.text || appointment?.appointmentType?.text || '',
+      teleradiologyOrdersSent: encounter.id ? teleradiologyOrdersSentByEncounterId.get(encounter.id) ?? 0 : 0,
     };
   });
 
