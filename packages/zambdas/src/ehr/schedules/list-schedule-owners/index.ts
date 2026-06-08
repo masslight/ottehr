@@ -216,29 +216,47 @@ const complexValidationForPractitioner = async (_input: BasicInput, oystehr: Oys
   // PR-side bundle gives us PRs + their Practitioners + Locations + categories
   // + Schedules. We then union these Practitioners with the full active
   // Practitioner set so unconfigured providers also surface.
-  const [prBundle, practitionerBundle, allUsers] = await Promise.all([
-    oystehr.fhir.search<PractitionerRole | Practitioner | Location | Schedule | HealthcareService>({
-      resourceType: 'PractitionerRole',
-      params: [
-        { name: 'active', value: 'true' },
-        { name: '_count', value: '1000' },
-        { name: '_include', value: 'PractitionerRole:practitioner' },
-        { name: '_include', value: 'PractitionerRole:location' },
-        { name: '_include', value: 'PractitionerRole:service' },
-        { name: '_revinclude', value: 'Schedule:actor:PractitionerRole' },
-      ],
-    }),
-    oystehr.fhir.search<Practitioner>({
-      resourceType: 'Practitioner',
-      params: [
-        { name: 'active', value: 'true' },
-        { name: '_count', value: '1000' },
-      ],
-    }),
-    oystehr.user.list(),
+  // Paginated: bigger orgs (many Locations × many Practitioners × multiple
+  // PRs each) can blow past a single-page _count cap, silently dropping rows
+  // from the admin list. Matches the pagination pattern used in the other
+  // function in this file. user.list() is deprecated by the SDK; listV2
+  // with cursor pagination is the supported path.
+  const fetchAllUsers = async (): Promise<Awaited<ReturnType<typeof oystehr.user.listV2>>['data']> => {
+    const collected: Awaited<ReturnType<typeof oystehr.user.listV2>>['data'] = [];
+    let cursor: string | null = null;
+    do {
+      const response: Awaited<ReturnType<typeof oystehr.user.listV2>> = await oystehr.user.listV2(
+        cursor ? { cursor } : {}
+      );
+      collected.push(...response.data);
+      cursor = response.metadata.nextCursor;
+    } while (cursor !== null);
+    return collected;
+  };
+  const [prResources, allPractitioners, allUsers] = await Promise.all([
+    getAllFhirSearchPages<PractitionerRole | Practitioner | Location | Schedule | HealthcareService>(
+      {
+        resourceType: 'PractitionerRole',
+        params: [
+          { name: 'active', value: 'true' },
+          { name: '_include', value: 'PractitionerRole:practitioner' },
+          { name: '_include', value: 'PractitionerRole:location' },
+          { name: '_include', value: 'PractitionerRole:service' },
+          { name: '_revinclude', value: 'Schedule:actor:PractitionerRole' },
+        ],
+      },
+      oystehr
+    ),
+    getAllFhirSearchPages<Practitioner>(
+      {
+        resourceType: 'Practitioner',
+        params: [{ name: 'active', value: 'true' }],
+      },
+      oystehr
+    ),
+    fetchAllUsers(),
   ]);
 
-  const prResources = prBundle.unbundle();
   const roles = prResources.filter((r): r is PractitionerRole => r.resourceType === 'PractitionerRole');
   const includedPractitioners = prResources.filter((r): r is Practitioner => r.resourceType === 'Practitioner');
   const locations = prResources.filter((r): r is Location => r.resourceType === 'Location');
@@ -247,7 +265,7 @@ const complexValidationForPractitioner = async (_input: BasicInput, oystehr: Oys
 
   // Union of active practitioners (preserves identity by id).
   const allPractitionersById = new Map<string, Practitioner>();
-  for (const p of practitionerBundle.unbundle()) if (p.id) allPractitionersById.set(p.id, p);
+  for (const p of allPractitioners) if (p.id) allPractitionersById.set(p.id, p);
   for (const p of includedPractitioners) if (p.id) allPractitionersById.set(p.id, p);
 
   // Map each Practitioner to its corresponding Oystehr User. Only providers
@@ -261,10 +279,17 @@ const complexValidationForPractitioner = async (_input: BasicInput, oystehr: Oys
 
   // Aggregate PRs per Practitioner so we can summarize across roles. Skip
   // group-membership PRs (no Location) — they aren't schedules.
+  // A PR without a Practitioner reference is structurally broken (the role
+  // exists to bind a Practitioner to a Location/HS context); surface that as
+  // a data-integrity error rather than silently skip and yield a wrong total.
   const rolesByPractitionerId = new Map<string, PractitionerRole[]>();
   for (const role of roles) {
     const practitionerId = role.practitioner?.reference?.split('/')[1];
-    if (!practitionerId) continue;
+    if (!practitionerId) {
+      // Unknown-shape error → unwrapped Error so wrapHandler's topLevelCatch
+      // routes it through observability as a 500.
+      throw new Error(`PractitionerRole ${role.id} has no practitioner reference.`);
+    }
     if (!role.location?.[0]?.reference) continue;
     const arr = rolesByPractitionerId.get(practitionerId) ?? [];
     arr.push(role);

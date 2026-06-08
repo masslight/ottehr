@@ -1,6 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { CodeableConcept, HealthcareService } from 'fhir/r4b';
 import {
+  DEFAULT_SERVICE_CATEGORY_DURATION_MINUTES,
   getServiceCategoryCadenceMinutes,
   getServiceCategoryDurationMinutes,
   getServiceCategoryModes,
@@ -81,19 +82,34 @@ function parseReasonsForVisit(resource: HealthcareService): Array<{ label: strin
 }
 
 export function toRecord(resource: HealthcareService): ServiceCategory {
+  // code is the discriminator for service-category HealthcareServices; the
+  // admin UI keys off it and slot routing depends on it. A tagged-but-codeless
+  // record is data corruption — fail loudly instead of returning a phantom
+  // entry with code:''.
   const code =
     resource.type?.[0]?.coding?.find((c) => c.system === SERVICE_CATEGORY_SYSTEM)?.code ||
-    resource.type?.[0]?.coding?.[0]?.code ||
-    '';
+    resource.type?.[0]?.coding?.[0]?.code;
+  if (!code) {
+    // Unknown-shape error → unwrapped Error so wrapHandler's topLevelCatch
+    // routes it through observability as a 500.
+    throw new Error(
+      `HealthcareService ${resource.id} is tagged as a service category but carries no code in type[].coding[].`
+    );
+  }
+  // Name is admin-visible and used as the patient-facing label; a missing
+  // value indicates a corrupt record, not a sensible default.
+  if (!resource.name) {
+    throw new Error(`HealthcareService ${resource.id} is tagged as a service category but has no name.`);
+  }
   const modes = getServiceCategoryModes(resource);
   const visitTypes = getServiceCategoryVisitTypes(resource);
   return {
     id: resource.id,
-    name: resource.name || '(untitled)',
+    name: resource.name,
     code,
     active: resource.active !== false,
     config: {
-      durationMinutes: getServiceCategoryDurationMinutes(resource) ?? 15,
+      durationMinutes: getServiceCategoryDurationMinutes(resource) ?? DEFAULT_SERVICE_CATEGORY_DURATION_MINUTES,
       cadenceMinutes: getServiceCategoryCadenceMinutes(resource),
       serviceModes: modes.length > 0 ? modes : [ServiceMode['in-person']],
       visitTypes: visitTypes.length > 0 ? visitTypes : [ServiceVisitType.prebook],
