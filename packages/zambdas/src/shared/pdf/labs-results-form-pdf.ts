@@ -230,11 +230,13 @@ const getResultDataConfigForDrResources = (
   // need to determine for each DR based result type whether or not to use the friendly patient id.
   // in both cases, if there is a ServiceRequest, it will dictate whether we use it or not
   // in the unsolicited case, if there is no ServiceRequest, we will just use either the patient.id or the friendly id if it exists
+  // NOTE: the ServiceRequest for the reflex result is not necessarily its true parent test. It is an SR from the same bundle, which is sufficient to determine friendly id status
   if (type === LabType.reflex) {
     console.log('reflex result pdf to be made');
     const orderNumber = getOrderNumberFromDr(diagnosticReport) || '';
 
     const patientIdForOrder = serviceRequest ? getPatientIdForLabOrder(serviceRequest, patient) : baseData.patientId;
+    console.log('this is patientIdForOrder for the reflex test, using SR', patientIdForOrder, serviceRequest?.id ?? '');
 
     const reflexResultData: Omit<ReflexExternalLabResultsData, keyof LabResultsData> = {
       ...unsolicitedResultData,
@@ -456,7 +458,7 @@ export async function createExternalLabResultPDFBasedOnDr(
 ): Promise<void> {
   // we expect reflex tests to have a servicerequest, and we expect unsolicited results matched to a patient AND test to have it as well
   const { patient, labOrganization, diagnosticReport, observations, schedule, serviceRequest } =
-    await getExternalLabOrderResourcesViaDiagnosticReport(oystehr, diagnosticReportID);
+    await getExternalLabOrderResourcesViaDiagnosticReport(oystehr, diagnosticReportID, type);
 
   if (!patient.id) throw new Error('patient.id is undefined');
 

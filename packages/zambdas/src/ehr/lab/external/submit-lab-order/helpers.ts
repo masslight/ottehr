@@ -130,8 +130,10 @@ export async function getBundledOrderResources(
     Promise<{ serviceRequestID: string; questionsAndAnswers?: AOEDisplayForOrderForm[] }>
   > = [];
 
+  if (!results.length) throw EXTERNAL_LAB_ERROR('No results found for orders');
+
   // before we do anything, let's quickly validate that every ServiceRequest has the same patient
-  if (!results.every((res) => res.result.patient.id === results[0]?.result.patient.id)) {
+  if (!results.every((res) => res.result.patient.id === results[0].result.patient.id)) {
     throw EXTERNAL_LAB_ERROR('Not all orders in the bundle correspond to the same patient');
   }
 

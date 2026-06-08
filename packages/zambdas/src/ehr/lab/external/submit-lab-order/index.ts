@@ -5,6 +5,7 @@ import { Operation } from 'fast-json-patch';
 import { DocumentReference, FhirResource, Provenance, ServiceRequest } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
+  EXTERNAL_LAB_ERROR,
   externalLabOrderUsesFriendlyPatientId,
   getPatchBinary,
   getPatientFriendlyId,
@@ -51,6 +52,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const successfulBundledOrders: OrderResourcesByOrderNumber = {};
   const failedBundledOrders: { [orderNumber: string]: string } = {};
   const firstItemInBundle = Object.values(bundledOrdersByOrderNumber)[0];
+  if (!firstItemInBundle)
+    throw EXTERNAL_LAB_ERROR(`No resources found for these ServiceRequests: ${JSON.stringify(serviceRequestIDs)}`);
   const submitWithFriendlyId =
     externalLabOrderUsesFriendlyPatientId(firstItemInBundle.serviceRequest) &&
     !!getPatientFriendlyId(firstItemInBundle.patient);

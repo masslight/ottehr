@@ -37,6 +37,7 @@ import {
   DynamicAOEInput,
   EncounterExternalLabResult,
   EncounterInHouseLabResult,
+  EXTERNAL_LAB_ERROR,
   ExternalLabDocuments,
   externalLabOrderIsManual,
   ExternalLabOrderResult,
@@ -44,6 +45,7 @@ import {
   getAdditionalPlacerId,
   getCoding,
   getOrderNumber,
+  getOrderNumberFromDr,
   getPresignedURL,
   getTestDetailsFromActivityDefinition,
   getTestItemCodeFromDr,
@@ -77,6 +79,7 @@ import {
   OYSTEHR_LAB_DIAGNOSTIC_REPORT_CATEGORY,
   OYSTEHR_LAB_GUID_SYSTEM,
   OYSTEHR_LAB_OI_CODE_SYSTEM,
+  OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM,
   parseLabInfoFromServiceRequest,
   PATIENT_BILLING_ACCOUNT_TYPE,
   SERVICE_REQUEST_REFLEX_TRIGGERED_TAG_CODES,
@@ -143,15 +146,16 @@ const makeSearchParamsBasedOnDiagnosticReport = (diagnosticReportID: string): Se
       value: 'Slot:schedule',
     },
     {
-      name: '_revinclude',
-      value: 'ServiceRequest:based-on', // any unsolicited DR that was matched to a patient might also have been matched to a specific service request
+      name: '_include',
+      value: 'DiagnosticReport:based-on:ServiceRequest', // any unsolicited DR that was matched to a patient might also have been matched to a specific service request
     },
   ];
 };
 
 export async function getExternalLabOrderResourcesViaDiagnosticReport(
   oystehr: Oystehr,
-  diagnosticReportID: string
+  diagnosticReportID: string,
+  type: LabDrTypeTagCode
 ): Promise<DrLabResultResources> {
   const searchParams = makeSearchParamsBasedOnDiagnosticReport(diagnosticReportID);
   const resourceSearch = (
@@ -176,7 +180,6 @@ export async function getExternalLabOrderResourcesViaDiagnosticReport(
   const diagnosticReports: DiagnosticReport[] = [];
   const observations: Observation[] = [];
   const schedules: Schedule[] = [];
-  const serviceRequests: ServiceRequest[] = [];
 
   resourceSearch.forEach((resource) => {
     if (resource.resourceType === 'Patient') patients.push(resource);
@@ -199,13 +202,44 @@ export async function getExternalLabOrderResourcesViaDiagnosticReport(
   if (organizations?.length !== 1) throw new Error('performing lab Org not found');
   if (diagnosticReports?.length !== 1) throw new Error('diagnosticReport is not found');
   if (schedules.length > 1) throw new Error('found multiple schedules for DR appointment');
-  if (serviceRequests.length > 1)
-    throw new Error('found more than one ServiceRequest for a DR based result. Expected 0 or 1');
 
   const patient = patients[0];
   const labOrganization = organizations[0];
   const diagnosticReport = diagnosticReports[0];
   const schedule = schedules.length ? schedules[0] : undefined;
+
+  const serviceRequests: ServiceRequest[] = [];
+  if (type === 'unsolicited') {
+    serviceRequests.push(
+      ...resourceSearch.filter(
+        (resource): resource is ServiceRequest =>
+          resource.resourceType === 'ServiceRequest' && isExternalLabServiceRequest(resource)
+      )
+    );
+
+    if (serviceRequests.length > 1)
+      throw EXTERNAL_LAB_ERROR('found more than one ServiceRequest for a matched unsolicited result. Expected 0 or 1');
+  } else if (type === 'reflex') {
+    // make another request to grab the serviceRequest based on the order number on the DR
+    const orderNumber = getOrderNumberFromDr(diagnosticReport);
+    if (!orderNumber) throw EXTERNAL_LAB_ERROR(`No order number found on DiagnosticReport/${diagnosticReport.id}`);
+
+    console.log('it was a reflex test dr, querying for a service request with this order number', orderNumber);
+    const servicesRequestSearchResults = (
+      await oystehr.fhir.search<ServiceRequest>({
+        resourceType: 'ServiceRequest',
+        params: [{ name: 'identifier', value: `${OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM}|${orderNumber}` }],
+      })
+    ).unbundle();
+
+    if (!servicesRequestSearchResults.length)
+      throw EXTERNAL_LAB_ERROR(`No ServiceRequests matching order number ${orderNumber}`);
+
+    // we just need the first SR to know if the order was submitted with the friendly result or not
+    console.log('got servicerequest results', JSON.stringify(servicesRequestSearchResults[0].id));
+    serviceRequests.push(servicesRequestSearchResults[0]);
+  }
+
   const serviceRequest = serviceRequests[0];
 
   return {
