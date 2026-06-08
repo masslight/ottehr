@@ -89,10 +89,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       ...validated.questionnaireResponse,
       // Ensure the QR is anchored to the main patient.
       subject: { reference: `Patient/${validated.mainPatientId}` },
-      // don't want to kick off harvest yet,
-      // testing with this status as i think it should prevent any harvests from being kicked off
-      // and i can verify if it is indeed harvest creating the duplicate coverage
-      status: 'stopped',
     });
 
     console.log('check qrCreated', qrCreated.id);

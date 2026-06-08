@@ -16,10 +16,12 @@ import {
   RelatedPerson,
   Resource,
 } from 'fhir/r4b';
+import { isEqual } from 'lodash';
 import { DateTime } from 'luxon';
 import {
   AUDIT_EVENT_OUTCOME_CODE,
   ChartDataRequestedFields,
+  COVERAGE_MEMBER_IDENTIFIER_BASE,
   createUserResourcesForPatient,
   flattenQuestionnaireAnswers,
   getCoding,
@@ -267,6 +269,7 @@ export async function performMerge(input: PerformMergeInput, oystehr: Oystehr, m
     }
 
     try {
+      // dupe coverage is being created here
       await updatePatientAccountFromQuestionnaire(
         {
           questionnaireResponseItem: items,
@@ -586,6 +589,64 @@ export async function performMerge(input: PerformMergeInput, oystehr: Oystehr, m
       .then((r) => r.unbundle()),
   ]);
 
+  const coveragesOldPatient = (
+    await oystehr.fhir.search<Coverage>({
+      resourceType: 'Coverage',
+      params: [
+        { name: 'patient', value: oldPatientRef },
+        { name: '_count', value: '100' },
+      ],
+    })
+  ).unbundle();
+  const coveragesMainPatient = (
+    await oystehr.fhir.search<Coverage>({
+      resourceType: 'Coverage',
+      params: [
+        { name: 'patient', value: newPatientRef },
+        { name: '_count', value: '100' },
+      ],
+    })
+  ).unbundle();
+
+  for (const coverage of coveragesOldPatient) {
+    if (!coverage.id || processedIds.has(`Coverage/${coverage.id}`)) continue;
+    processedIds.add(`Coverage/${coverage.id}`);
+    let changed = false;
+    if (coverage.beneficiary?.reference === oldPatientRef) {
+      coverage.beneficiary.reference = newPatientRef;
+      changed = true;
+    }
+    if (coverage.subscriber?.reference === oldPatientRef) {
+      coverage.subscriber!.reference = newPatientRef;
+      changed = true;
+    }
+    if (!changed) continue;
+    if (coveragesMainPatient.length > 0) {
+      // if the existing coverage for the "old" patient is already represented for the "new / main" patient - just cancel it
+      coveragesMainPatient.some((coverageMain) => {
+        const memberInfoMain = coverageMain.identifier?.find(
+          (id) => id.type?.coding?.some((coding) => isEqual(COVERAGE_MEMBER_IDENTIFIER_BASE.type?.coding?.[0], coding))
+        );
+        const memberInfoOld = coverage.identifier?.find(
+          (id) => id.type?.coding?.some((coding) => isEqual(COVERAGE_MEMBER_IDENTIFIER_BASE.type?.coding?.[0], coding))
+        );
+        const isDupe = isEqual(memberInfoMain, memberInfoOld);
+        if (isDupe) {
+          console.log('found a duplication of coverages for new / old based on member id data, will take new');
+          console.log(`new / main patient coverage: Coverage/${coverageMain.id}`);
+          console.log(`old patient coverage: Coverage/${coverage.id}`);
+          coverage.status = 'cancelled';
+        } else {
+          console.log('these were found to be different:');
+          console.log(`new / main patient coverage: Coverage/${coverageMain.id}`);
+          console.log(`old patient coverage: Coverage/${coverage.id}`);
+        }
+      });
+    }
+    console.log(`coverage is changing: /Coverage/${coverage.id}`);
+    requests.push({ method: 'PUT', url: `/Coverage/${coverage.id}`, resource: coverage as FhirResource });
+  }
+
   const isActive = (a: Account): boolean => a.status === 'active';
   const mainActiveAccounts = mainPatientAccountsRaw.filter(isActive);
 
@@ -706,32 +767,6 @@ export async function performMerge(input: PerformMergeInput, oystehr: Oystehr, m
 
   for (const [id, acct] of mainAccountUpdates) {
     requests.push({ method: 'PUT', url: `/Account/${id}`, resource: acct as FhirResource });
-  }
-
-  const coverages = (
-    await oystehr.fhir.search<Coverage>({
-      resourceType: 'Coverage',
-      params: [
-        { name: 'patient', value: oldPatientRef },
-        { name: '_count', value: '100' },
-      ],
-    })
-  ).unbundle();
-  for (const coverage of coverages) {
-    if (!coverage.id || processedIds.has(`Coverage/${coverage.id}`)) continue;
-    processedIds.add(`Coverage/${coverage.id}`);
-    let changed = false;
-    if (coverage.beneficiary?.reference === oldPatientRef) {
-      coverage.beneficiary.reference = newPatientRef;
-      changed = true;
-    }
-    if (coverage.subscriber?.reference === oldPatientRef) {
-      coverage.subscriber!.reference = newPatientRef;
-      changed = true;
-    }
-    if (!changed) continue;
-    console.log(`coverage is changing: /Coverage/${coverage.id}`);
-    requests.push({ method: 'PUT', url: `/Coverage/${coverage.id}`, resource: coverage as FhirResource });
   }
 
   const chargeItems = (
