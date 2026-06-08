@@ -1,21 +1,12 @@
 import { useAuth0 } from '@auth0/auth0-react';
 import { ReactElement, useEffect } from 'react';
 import { Navigate } from 'react-router-dom';
-import { LOCAL_STORAGE_FILTERS_KEY } from 'src/components/AppointmentsFilters';
+import { SESSION_STORAGE_DATE_KEY } from 'src/components/AppointmentsFilters';
 
-// Drop the persisted tracking board date so it defaults back to today on the next login.
-// Other filters are preserved. Guarded so a corrupted value can't break the logout flow.
+// sessionStorage survives the same-tab logout -> Auth0 round-trip, so the date has to be
+// cleared explicitly here for it to default back to today on the next login.
 function clearPersistedDate(): void {
-  const persistedFilters = localStorage.getItem(LOCAL_STORAGE_FILTERS_KEY);
-  if (!persistedFilters) {
-    return;
-  }
-  try {
-    const { date: _date, ...rest } = JSON.parse(persistedFilters);
-    localStorage.setItem(LOCAL_STORAGE_FILTERS_KEY, JSON.stringify(rest));
-  } catch {
-    localStorage.removeItem(LOCAL_STORAGE_FILTERS_KEY);
-  }
+  sessionStorage.removeItem(SESSION_STORAGE_DATE_KEY);
 }
 
 export default function Logout(): ReactElement {

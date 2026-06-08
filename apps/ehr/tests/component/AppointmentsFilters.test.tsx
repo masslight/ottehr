@@ -18,7 +18,10 @@ vi.mock('../../src/components/input/DateInput', () => ({
   DateInput: () => <div data-testid="date-input" />,
 }));
 
-import AppointmentsFilters, { LOCAL_STORAGE_FILTERS_KEY } from '../../src/components/AppointmentsFilters';
+import AppointmentsFilters, {
+  LOCAL_STORAGE_FILTERS_KEY,
+  SESSION_STORAGE_DATE_KEY,
+} from '../../src/components/AppointmentsFilters';
 
 // Surfaces the current query string so assertions can inspect it.
 const SearchProbe = (): ReactNode => {
@@ -40,13 +43,15 @@ const getSearch = (): string => screen.getByTestId('search').textContent ?? '';
 describe('AppointmentsFilters persistence', () => {
   beforeEach(() => {
     localStorage.clear();
+    sessionStorage.clear();
   });
 
   it('restores persisted filters into the URL while preserving the tab param', async () => {
     localStorage.setItem(
       LOCAL_STORAGE_FILTERS_KEY,
-      JSON.stringify({ location: [{ id: 'L1' }], visitType: ['in-person-walk-in'], date: '2026-01-01' })
+      JSON.stringify({ location: [{ id: 'L1' }], visitType: ['in-person-walk-in'] })
     );
+    sessionStorage.setItem(SESSION_STORAGE_DATE_KEY, '2026-01-01');
 
     renderFilters('/visits?tab=in-office');
 
@@ -58,6 +63,22 @@ describe('AppointmentsFilters persistence', () => {
       expect(params.get('location')).toBe('L1');
       expect(params.get('visitType')).toBe('in-person-walk-in');
       expect(params.get('date')).toBe('2026-01-01');
+    });
+  });
+
+  it('defaults the date to today on a fresh session even with other filters persisted', async () => {
+    // A new browser session clears sessionStorage but not localStorage; the stale date in
+    // localStorage (legacy) must be ignored and the date must fall back to today.
+    localStorage.setItem(LOCAL_STORAGE_FILTERS_KEY, JSON.stringify({ location: [{ id: 'L1' }], date: '2020-01-01' }));
+
+    renderFilters('/visits?tab=in-office');
+
+    await waitFor(() => {
+      const params = new URLSearchParams(getSearch());
+      expect(params.get('location')).toBe('L1');
+      // the stale persisted date is dropped in favour of today
+      expect(params.get('date')).not.toBe('2020-01-01');
+      expect(params.get('date')).toBeTruthy();
     });
   });
 
