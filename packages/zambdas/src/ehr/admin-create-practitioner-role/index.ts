@@ -41,7 +41,19 @@ let m2mToken: string;
 const validateRequestParameters = (input: ZambdaInput): AdminCreatePractitionerRoleInput => {
   if (!input.body) throw MISSING_REQUEST_BODY;
 
-  const { practitionerId, locationId, categoryHealthcareServiceIds, timezone, displayName } = JSON.parse(input.body);
+  let parsed: {
+    practitionerId?: unknown;
+    locationId?: unknown;
+    categoryHealthcareServiceIds?: unknown;
+    timezone?: unknown;
+    displayName?: unknown;
+  };
+  try {
+    parsed = JSON.parse(input.body);
+  } catch {
+    throw INVALID_INPUT_ERROR('Request body must be valid JSON');
+  }
+  const { practitionerId, locationId, categoryHealthcareServiceIds, timezone, displayName } = parsed;
 
   const missing: string[] = [];
   if (!practitionerId) missing.push('practitionerId');

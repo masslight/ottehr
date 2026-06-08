@@ -10,10 +10,15 @@ interface AdminDeleteServiceCategoryInput {
 
 const validateRequestParameters = (input: ZambdaInput): AdminDeleteServiceCategoryInput => {
   if (!input.body) throw MISSING_REQUEST_BODY;
-  const { serviceCategoryId } = JSON.parse(input.body);
-  if (!serviceCategoryId) throw MISSING_REQUIRED_PARAMETERS(['serviceCategoryId']);
-  if (typeof serviceCategoryId !== 'string') throw INVALID_INPUT_ERROR('"serviceCategoryId" must be a string');
-  return { serviceCategoryId };
+  let parsed: { serviceCategoryId?: unknown };
+  try {
+    parsed = JSON.parse(input.body);
+  } catch {
+    throw INVALID_INPUT_ERROR('Request body must be valid JSON');
+  }
+  if (!parsed.serviceCategoryId) throw MISSING_REQUIRED_PARAMETERS(['serviceCategoryId']);
+  if (typeof parsed.serviceCategoryId !== 'string') throw INVALID_INPUT_ERROR('"serviceCategoryId" must be a string');
+  return { serviceCategoryId: parsed.serviceCategoryId };
 };
 
 export const index = wrapHandler(

@@ -13,10 +13,15 @@ let m2mToken: string;
 
 const validateRequestParameters = (input: ZambdaInput): AdminDeletePractitionerRoleInput => {
   if (!input.body) throw MISSING_REQUEST_BODY;
-  const { roleId } = JSON.parse(input.body);
-  if (!roleId) throw MISSING_REQUIRED_PARAMETERS(['roleId']);
-  if (typeof roleId !== 'string') throw INVALID_INPUT_ERROR('"roleId" must be a string');
-  return { secrets: input.secrets, roleId };
+  let parsed: { roleId?: unknown };
+  try {
+    parsed = JSON.parse(input.body);
+  } catch {
+    throw INVALID_INPUT_ERROR('Request body must be valid JSON');
+  }
+  if (!parsed.roleId) throw MISSING_REQUIRED_PARAMETERS(['roleId']);
+  if (typeof parsed.roleId !== 'string') throw INVALID_INPUT_ERROR('"roleId" must be a string');
+  return { secrets: input.secrets, roleId: parsed.roleId };
 };
 
 // Soft-delete: set active=false on the PR and on every Schedule whose actor is

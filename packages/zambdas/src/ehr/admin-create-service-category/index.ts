@@ -10,7 +10,13 @@ interface AdminCreateServiceCategoryInput {
 
 const validateRequestParameters = (input: ZambdaInput): AdminCreateServiceCategoryInput => {
   if (!input.body) throw MISSING_REQUEST_BODY;
-  const { serviceCategory } = JSON.parse(input.body);
+  let parsed: any;
+  try {
+    parsed = JSON.parse(input.body);
+  } catch {
+    throw INVALID_INPUT_ERROR('Request body must be valid JSON');
+  }
+  const { serviceCategory } = parsed;
 
   // Full-payload validation: toFhirResource() reconstructs the whole resource
   // from `serviceCategory`, so any missing field is a silent corruption (e.g.

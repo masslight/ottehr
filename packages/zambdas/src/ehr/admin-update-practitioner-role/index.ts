@@ -32,7 +32,18 @@ let m2mToken: string;
 const validateRequestParameters = (input: ZambdaInput): AdminUpdatePractitionerRoleInput => {
   if (!input.body) throw MISSING_REQUEST_BODY;
 
-  const { roleId, categoryHealthcareServiceIds, locationId, displayName } = JSON.parse(input.body);
+  let parsed: {
+    roleId?: unknown;
+    categoryHealthcareServiceIds?: unknown;
+    locationId?: unknown;
+    displayName?: unknown;
+  };
+  try {
+    parsed = JSON.parse(input.body);
+  } catch {
+    throw INVALID_INPUT_ERROR('Request body must be valid JSON');
+  }
+  const { roleId, categoryHealthcareServiceIds, locationId, displayName } = parsed;
 
   if (!roleId) throw MISSING_REQUIRED_PARAMETERS(['roleId']);
   if (typeof roleId !== 'string') throw INVALID_INPUT_ERROR('"roleId" must be a string');
