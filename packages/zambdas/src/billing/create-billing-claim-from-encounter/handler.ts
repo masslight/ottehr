@@ -44,6 +44,7 @@ import {
   getCoding,
   getNPIIdentifier,
   getPayerId,
+  getSecret,
   getTimezone,
   InternalError,
   isAppointmentAutoAccident,
@@ -53,6 +54,8 @@ import {
   isValidUUID,
   MISSING_REQUEST_SECRETS,
   PARTICIPATION_CODE_SYSTEM,
+  Secrets,
+  SecretsKeys,
   SERVICE_CATEGORY_SYSTEM,
   TIMEZONES,
 } from 'utils';
@@ -63,6 +66,7 @@ import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
   formatZodError,
+  sendErrors,
   ZambdaInput,
 } from '../../shared';
 import {
@@ -151,6 +155,7 @@ export async function handler(input: ZambdaInput): Promise<APIGatewayProxyResult
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
   const billingOystehr = createBillingClient(m2mToken, params.secrets);
+  // CW TODO: expand to helper and use in all zambdas
   const clinicalOystehr = createOystehrClient(m2mToken, params.secrets, { ignoreTags: [BILLING_RESOURCE_TAG] });
 
   const cvo = await complexValidation(clinicalOystehr, billingOystehr, params);
@@ -311,6 +316,7 @@ export async function performEffect(
           ],
         },
       ],
+      ifMatch: `W/"${billingResources.person.meta?.versionId}"`,
     });
   } else {
     requests.push({
@@ -406,7 +412,6 @@ function uuidOrUrnReferenceString(resourceType: BillingFhirResource['resourceTyp
   return `${resourceType}/${uuidOrUrn}`;
 }
 
-// CW TODO: is it possible to change ottehr data model to add this to the encounter?
 function determineEncounterType(appointment: Appointment): EncounterType {
   if (isAppointmentUrgentCare(appointment)) {
     // Auto is a subset of UC
@@ -748,7 +753,8 @@ async function getClinicalResources(
 
 async function findExistingBillingResources(
   billingOystehr: Oystehr,
-  originals: ClinicalResources
+  originals: ClinicalResources,
+  secrets: Secrets
 ): Promise<BillingResources> {
   const personSearch = (
     await billingOystehr.fhir.search<Person | Patient | Account | Coverage | RelatedPerson>({
@@ -774,15 +780,29 @@ async function findExistingBillingResources(
       ],
     })
   ).unbundle();
-  const existingPerson = personSearch.find((r): r is Person => r.resourceType === 'Person');
+  const existingPersons = personSearch.filter((r): r is Person => r.resourceType === 'Person');
+  if (existingPersons.length > 1) {
+    await sendErrors(
+      new Error(`More than one billing person for Patient/${originals.patient.id}`),
+      getSecret(SecretsKeys.ENVIRONMENT, secrets)
+    );
+  }
+  const existingPerson = existingPersons.length ? existingPersons[0] : undefined;
   // Main patient is the patient of record on billing app side that we stamp out per-claim copies from
-  const existingMainPatient = personSearch.find(
+  const existingMainPatients = personSearch.filter(
     (r): r is Patient =>
       r.resourceType === 'Patient' &&
       !r.meta?.tag?.some(
         (t) => t.system === BILLING_WORKING_COPY_TAG.system && t.code === BILLING_WORKING_COPY_TAG.code
       )
   );
+  if (existingMainPatients.length > 1) {
+    await sendErrors(
+      new Error(`More than one main billing patient for Patient/${originals.patient.id}`),
+      getSecret(SecretsKeys.ENVIRONMENT, secrets)
+    );
+  }
+  const existingMainPatient = existingMainPatients.length ? existingMainPatients[0] : undefined;
   const existingAccounts = personSearch.filter((r): r is Account => r.resourceType === 'Account');
   const existingCoverages = personSearch.filter((r): r is Coverage => r.resourceType === 'Coverage');
   const existingSubscribers = personSearch.filter((r): r is RelatedPerson => r.resourceType === 'RelatedPerson');
@@ -967,7 +987,7 @@ export async function complexValidation(
     throw INVALID_INPUT_ERROR('Claim has already been created for this encounter');
   }
   const clinicalResources = await getClinicalResources(clinicalOystehr, params);
-  const billingResources = await findExistingBillingResources(billingOystehr, clinicalResources);
+  const billingResources = await findExistingBillingResources(billingOystehr, clinicalResources, params.secrets);
   return { clinicalResources, billingResources };
 }
 
