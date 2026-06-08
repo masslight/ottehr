@@ -161,14 +161,19 @@ function mockBundle(resources: any[]): { unbundle: () => any[]; total: number; l
 describe('produce-outreach-tasks', () => {
   let produceOutreachTasks: typeof import('../../../src/rcm/scheduled-outreach/producers/shared/produce-outreach-tasks').produceOutreachTasks;
   let buildTaskInput: typeof import('../../../src/rcm/scheduled-outreach/producers/shared/produce-outreach-tasks').buildTaskInput;
+  let buildOutreachTaskIdentityQuery: typeof import('../../../src/rcm/scheduled-outreach/producers/shared/produce-outreach-tasks').buildOutreachTaskIdentityQuery;
+  let createOutreachTaskIdempotent: typeof import('../../../src/rcm/scheduled-outreach/producers/shared/produce-outreach-tasks').createOutreachTaskIdempotent;
 
   beforeEach(async () => {
     vi.clearAllMocks();
+    vi.unstubAllGlobals();
     mockGet.mockResolvedValue(mockPatientWithValidContacts);
 
     const mod = await import('../../../src/rcm/scheduled-outreach/producers/shared/produce-outreach-tasks');
     produceOutreachTasks = mod.produceOutreachTasks;
     buildTaskInput = mod.buildTaskInput;
+    buildOutreachTaskIdentityQuery = mod.buildOutreachTaskIdentityQuery;
+    createOutreachTaskIdempotent = mod.createOutreachTaskIdempotent;
   });
 
   describe('buildTaskInput', () => {
@@ -563,6 +568,122 @@ describe('produce-outreach-tasks', () => {
       expect(result.created).toHaveLength(1);
       const createdTask = mockCreate.mock.calls[0][0];
       expect(createdTask.status).toBe('draft');
+    });
+  });
+
+  describe('buildOutreachTaskIdentityQuery', () => {
+    it('encodes focus, trigger, action-id, and active statuses', () => {
+      const query = buildOutreachTaskIdentityQuery({ reference: 'Encounter/enc-1' }, 'invoice-due', 'action-1');
+
+      expect(query).toContain('focus=Encounter%2Fenc-1');
+      expect(query).toContain('invoice-due');
+      expect(query).toContain('action-id');
+      expect(query).toContain('action-1');
+      expect(query).toContain('status=draft,requested,in-progress,completed,failed');
+      expect(query).not.toContain('birthday-year');
+    });
+
+    it('adds the birthday-year tag when provided', () => {
+      const query = buildOutreachTaskIdentityQuery(
+        { reference: 'Patient/pat-1' },
+        'patient-birthday',
+        'action-1',
+        2025
+      );
+
+      expect(query).toContain('birthday-year');
+      expect(query).toContain('2025');
+    });
+  });
+
+  describe('createOutreachTaskIdempotent', () => {
+    const taskDraft = { resourceType: 'Task', status: 'draft' } as any;
+
+    it('falls back to a plain create when no raw FHIR connection is available', async () => {
+      mockCreate.mockResolvedValue({ resourceType: 'Task', id: 'task-1', status: 'draft' });
+      const fetchSpy = vi.fn();
+      vi.stubGlobal('fetch', fetchSpy);
+
+      const outcome = await createOutreachTaskIdempotent(
+        mockOystehrClient as any,
+        taskDraft,
+        'focus=Encounter%2Fenc-1'
+      );
+
+      expect(outcome).toEqual({ status: 'created', resource: { resourceType: 'Task', id: 'task-1', status: 'draft' } });
+      expect(mockCreate).toHaveBeenCalledTimes(1);
+      expect(fetchSpy).not.toHaveBeenCalled();
+    });
+
+    it('issues a conditional-create transaction and reports created on 201', async () => {
+      const fetchSpy = vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          entry: [{ resource: { resourceType: 'Task', id: 'task-9' }, response: { status: '201 Created' } }],
+        }),
+        text: async () => '',
+      });
+      vi.stubGlobal('fetch', fetchSpy);
+
+      const oystehrWithConn = {
+        ...mockOystehrClient,
+        config: { accessToken: 'tok', projectId: 'proj', services: { fhirApiUrl: 'https://fhir.example.com' } },
+      };
+
+      const outcome = await createOutreachTaskIdempotent(oystehrWithConn as any, taskDraft, 'focus=Encounter%2Fenc-1');
+
+      expect(outcome).toEqual({ status: 'created', resource: { resourceType: 'Task', id: 'task-9' } });
+      expect(mockCreate).not.toHaveBeenCalled();
+      expect(fetchSpy).toHaveBeenCalledTimes(1);
+      const [url, init] = fetchSpy.mock.calls[0];
+      expect(url).toBe('https://fhir.example.com/');
+      expect(init.method).toBe('POST');
+      const body = JSON.parse(init.body);
+      expect(body.type).toBe('transaction');
+      expect(body.entry[0].request).toEqual({ method: 'POST', url: 'Task', ifNoneExist: 'focus=Encounter%2Fenc-1' });
+      expect(init.headers.Authorization).toBe('Bearer tok');
+      expect(init.headers['x-zapehr-project-id']).toBe('proj');
+    });
+
+    it('reports duplicate when the conditional create matches an existing task (200)', async () => {
+      const fetchSpy = vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          entry: [{ resource: { resourceType: 'Task', id: 'existing-1' }, response: { status: '200 OK' } }],
+        }),
+        text: async () => '',
+      });
+      vi.stubGlobal('fetch', fetchSpy);
+
+      const oystehrWithConn = {
+        ...mockOystehrClient,
+        config: { accessToken: 'tok', services: { fhirApiUrl: 'https://fhir.example.com' } },
+      };
+
+      const outcome = await createOutreachTaskIdempotent(oystehrWithConn as any, taskDraft, 'focus=Encounter%2Fenc-1');
+
+      expect(outcome).toEqual({ status: 'duplicate' });
+    });
+
+    it('reports duplicate when the server returns 412 (multiple matches)', async () => {
+      const fetchSpy = vi.fn().mockResolvedValue({
+        ok: false,
+        status: 412,
+        json: async () => ({}),
+        text: async () => 'Precondition Failed',
+      });
+      vi.stubGlobal('fetch', fetchSpy);
+
+      const oystehrWithConn = {
+        ...mockOystehrClient,
+        config: { accessToken: 'tok', services: { fhirApiUrl: 'https://fhir.example.com' } },
+      };
+
+      const outcome = await createOutreachTaskIdempotent(oystehrWithConn as any, taskDraft, 'focus=Encounter%2Fenc-1');
+
+      expect(outcome).toEqual({ status: 'duplicate' });
     });
   });
 });
