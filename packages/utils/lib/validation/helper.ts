@@ -31,12 +31,17 @@ export const getInputTypes = (name: string): string => {
   }
 };
 
-export function isOlderThan18Years(dateString: string): boolean {
-  const inputDate = DateTime.fromISO(dateString);
+export function getAgeInYears(dateString: string): number {
+  return Math.floor(DateTime.now().diff(DateTime.fromISO(dateString), 'years').years);
+}
 
-  const yearsDifference = DateTime.now().diff(inputDate, 'years').years;
-
-  return yearsDifference > 18;
+export function is18YearsOrYounger(dateString: string): boolean {
+  const isValidDate = DateTime.fromISO(dateString).isValid;
+  if (!isValidDate) {
+    // this function is only used in erx, so conservatively use stricter requirements if dob invalid
+    return true;
+  }
+  return getAgeInYears(dateString) <= 18;
 }
 
 export function isNullOrUndefined(value: any): boolean {
