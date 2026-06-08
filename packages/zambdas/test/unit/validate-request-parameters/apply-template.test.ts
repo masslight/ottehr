@@ -5,7 +5,7 @@ import { createMockSecrets, createMockZambdaInput } from './helpers';
 describe('apply-template - validateRequestParameters', () => {
   const validBody = {
     templateName: 'My Template',
-    encounterId: 'encounter-123',
+    encounterId: '550e8400-e29b-41d4-a716-446655440000',
   };
 
   test('should return validated params with required fields only', () => {
@@ -13,7 +13,7 @@ describe('apply-template - validateRequestParameters', () => {
     const result = validateRequestParameters(input);
 
     expect(result.templateName).toBe('My Template');
-    expect(result.encounterId).toBe('encounter-123');
+    expect(result.encounterId).toBe('550e8400-e29b-41d4-a716-446655440000');
     expect(result.sectionActions).toEqual({});
     expect(result.secrets).toEqual(createMockSecrets());
     expect(result.userToken).toBe('test-token');
@@ -47,7 +47,10 @@ describe('apply-template - validateRequestParameters', () => {
   });
 
   test('should throw when templateName is missing', () => {
-    const input = createMockZambdaInput({ encounterId: 'encounter-123' }, { secrets: createMockSecrets() });
+    const input = createMockZambdaInput(
+      { encounterId: '550e8400-e29b-41d4-a716-446655440000' },
+      { secrets: createMockSecrets() }
+    );
     expect(() => validateRequestParameters(input)).toThrow();
   });
 
@@ -63,7 +66,7 @@ describe('apply-template - validateRequestParameters', () => {
 
   test('should throw when templateName is empty string', () => {
     const input = createMockZambdaInput(
-      { templateName: '', encounterId: 'encounter-123' },
+      { templateName: '', encounterId: '550e8400-e29b-41d4-a716-446655440000' },
       { secrets: createMockSecrets() }
     );
     expect(() => validateRequestParameters(input)).toThrow();
@@ -79,7 +82,7 @@ describe('apply-template - validateRequestParameters', () => {
 
   test('should throw when templateName is whitespace only', () => {
     const input = createMockZambdaInput(
-      { templateName: '   ', encounterId: 'encounter-123' },
+      { templateName: '   ', encounterId: '550e8400-e29b-41d4-a716-446655440000' },
       { secrets: createMockSecrets() }
     );
     expect(() => validateRequestParameters(input)).toThrow();
@@ -95,7 +98,15 @@ describe('apply-template - validateRequestParameters', () => {
 
   test('should throw when templateName is not a string', () => {
     const input = createMockZambdaInput(
-      { templateName: 123, encounterId: 'encounter-123' },
+      { templateName: 123, encounterId: '550e8400-e29b-41d4-a716-446655440000' },
+      { secrets: createMockSecrets() }
+    );
+    expect(() => validateRequestParameters(input)).toThrow();
+  });
+
+  test('should throw when encounterId is not a valid UUID', () => {
+    const input = createMockZambdaInput(
+      { templateName: 'My Template', encounterId: 'encounter-123' },
       { secrets: createMockSecrets() }
     );
     expect(() => validateRequestParameters(input)).toThrow();

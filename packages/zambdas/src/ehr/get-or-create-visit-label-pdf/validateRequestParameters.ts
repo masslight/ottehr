@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { safeValidate, ZambdaInput } from '../../shared';
 
 const GetVisitLabelBodySchema = z.object({
-  encounterId: z.string().min(1),
+  encounterId: z.string().uuid(),
 });
 
 export function validateRequestParameters(input: ZambdaInput): GetVisitLabelInput & Pick<ZambdaInput, 'secrets'> {

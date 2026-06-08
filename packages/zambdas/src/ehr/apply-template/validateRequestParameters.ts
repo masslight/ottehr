@@ -58,7 +58,7 @@ const sectionActionsSchema = z
 
 const ApplyTemplateSchema = z.object({
   templateName: z.string().trim().min(1),
-  encounterId: z.string().trim().min(1),
+  encounterId: z.string().uuid(),
   sectionActions: sectionActionsSchema,
 });
 

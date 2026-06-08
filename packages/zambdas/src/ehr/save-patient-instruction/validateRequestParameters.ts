@@ -4,7 +4,7 @@ import { safeValidate, ZambdaInput } from '../../shared';
 
 const SavePatientInstructionBodySchema = z
   .object({
-    instructionId: z.string().min(1).optional(),
+    instructionId: z.string().uuid().optional(),
     text: z.string().optional(),
     title: z.string().optional(),
   })

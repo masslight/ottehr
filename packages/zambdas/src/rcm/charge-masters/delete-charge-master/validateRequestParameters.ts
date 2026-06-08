@@ -8,7 +8,7 @@ export interface DeleteChargeMasterParams {
 }
 
 const bodySchema = z.object({
-  id: z.string().min(1),
+  id: z.string().uuid(),
 });
 
 export function validateRequestParameters(input: ZambdaInput): DeleteChargeMasterParams {

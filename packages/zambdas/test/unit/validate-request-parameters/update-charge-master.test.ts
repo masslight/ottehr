@@ -4,7 +4,7 @@ import { createMockZambdaInput } from './helpers';
 
 describe('update-charge-master - validateRequestParameters', () => {
   const validBody = {
-    chargeMasterId: 'cm-123',
+    chargeMasterId: '550e8400-e29b-41d4-a716-446655440000',
     name: 'Updated Charge Master',
     effectiveDate: '2024-06-01',
     description: 'An updated description',
@@ -14,7 +14,7 @@ describe('update-charge-master - validateRequestParameters', () => {
     const input = createMockZambdaInput(validBody);
     const result = validateRequestParameters(input);
 
-    expect(result.id).toBe('cm-123');
+    expect(result.id).toBe('550e8400-e29b-41d4-a716-446655440000');
     expect(result.name).toBe('Updated Charge Master');
     expect(result.effectiveDate).toBe('2024-06-01');
     expect(result.description).toBe('An updated description');
@@ -24,12 +24,12 @@ describe('update-charge-master - validateRequestParameters', () => {
   test('should map chargeMasterId to id', () => {
     const input = createMockZambdaInput(validBody);
     const result = validateRequestParameters(input);
-    expect(result.id).toBe('cm-123');
+    expect(result.id).toBe('550e8400-e29b-41d4-a716-446655440000');
   });
 
   test('should default description to empty string when not provided', () => {
     const input = createMockZambdaInput({
-      chargeMasterId: 'cm-123',
+      chargeMasterId: '550e8400-e29b-41d4-a716-446655440000',
       name: 'Test',
       effectiveDate: '2024-01-01',
     });
@@ -70,7 +70,7 @@ describe('update-charge-master - validateRequestParameters', () => {
 
   test('should throw when name is missing', () => {
     const input = createMockZambdaInput({
-      chargeMasterId: 'cm-123',
+      chargeMasterId: '550e8400-e29b-41d4-a716-446655440000',
       effectiveDate: '2024-01-01',
     });
     expect(() => validateRequestParameters(input)).toThrow();
@@ -78,7 +78,7 @@ describe('update-charge-master - validateRequestParameters', () => {
 
   test('should throw when effectiveDate is missing', () => {
     const input = createMockZambdaInput({
-      chargeMasterId: 'cm-123',
+      chargeMasterId: '550e8400-e29b-41d4-a716-446655440000',
       name: 'Test',
     });
     expect(() => validateRequestParameters(input)).toThrow();
@@ -99,8 +99,17 @@ describe('update-charge-master - validateRequestParameters', () => {
     expect(() => validateRequestParameters(input)).toThrow();
   });
 
+  test('should throw when chargeMasterId is not a valid UUID', () => {
+    const input = createMockZambdaInput({
+      chargeMasterId: 'cm-123',
+      name: 'Test',
+      effectiveDate: '2024-01-01',
+    });
+    expect(() => validateRequestParameters(input)).toThrow();
+  });
+
   test('should throw when both name and effectiveDate are missing', () => {
-    const input = createMockZambdaInput({ chargeMasterId: 'cm-123', description: 'just a description' });
+    const input = createMockZambdaInput({ chargeMasterId: 'not-a-uuid', description: 'just a description' });
     expect(() => validateRequestParameters(input)).toThrow();
   });
 

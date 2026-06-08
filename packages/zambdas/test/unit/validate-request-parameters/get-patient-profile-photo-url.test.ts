@@ -7,12 +7,15 @@ describe('get-patient-profile-photo-url - validateRequestParameters', () => {
 
   describe('upload action', () => {
     test('should return validated params for an upload request', () => {
-      const input = createMockZambdaInput({ action: 'upload', patientId: 'patient-123' }, { secrets });
+      const input = createMockZambdaInput(
+        { action: 'upload', patientId: '550e8400-e29b-41d4-a716-446655440000' },
+        { secrets }
+      );
       const result = validateRequestParameters(input);
 
       expect(result).toEqual({
         action: 'upload',
-        patientId: 'patient-123',
+        patientId: '550e8400-e29b-41d4-a716-446655440000',
         secrets,
       });
     });
@@ -41,12 +44,15 @@ describe('get-patient-profile-photo-url - validateRequestParameters', () => {
     });
 
     test('should throw when action is missing', () => {
-      const input = createMockZambdaInput({ patientId: 'patient-123' }, { secrets });
+      const input = createMockZambdaInput({ patientId: '550e8400-e29b-41d4-a716-446655440000' }, { secrets });
       expect(() => validateRequestParameters(input)).toThrow();
     });
 
     test('should throw when action is invalid', () => {
-      const input = createMockZambdaInput({ action: 'invalid', patientId: 'patient-123' }, { secrets });
+      const input = createMockZambdaInput(
+        { action: 'invalid', patientId: '550e8400-e29b-41d4-a716-446655440000' },
+        { secrets }
+      );
       expect(() => validateRequestParameters(input)).toThrow();
     });
 
@@ -57,6 +63,11 @@ describe('get-patient-profile-photo-url - validateRequestParameters', () => {
 
     test('should throw when download is missing z3PhotoUrl', () => {
       const input = createMockZambdaInput({ action: 'download' }, { secrets });
+      expect(() => validateRequestParameters(input)).toThrow();
+    });
+
+    test('should throw when patientId is not a valid UUID', () => {
+      const input = createMockZambdaInput({ action: 'upload', patientId: 'patient-123' }, { secrets });
       expect(() => validateRequestParameters(input)).toThrow();
     });
   });

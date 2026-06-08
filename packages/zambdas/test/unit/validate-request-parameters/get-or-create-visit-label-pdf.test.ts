@@ -6,11 +6,11 @@ describe('get-or-create-visit-label-pdf - validateRequestParameters', () => {
   const secrets = createMockSecrets();
 
   test('should return validated params for a valid request', () => {
-    const input = createMockZambdaInput({ encounterId: 'encounter-123' }, { secrets });
+    const input = createMockZambdaInput({ encounterId: '550e8400-e29b-41d4-a716-446655440000' }, { secrets });
     const result = validateRequestParameters(input);
 
     expect(result).toEqual({
-      encounterId: 'encounter-123',
+      encounterId: '550e8400-e29b-41d4-a716-446655440000',
       secrets,
     });
   });
@@ -27,6 +27,11 @@ describe('get-or-create-visit-label-pdf - validateRequestParameters', () => {
 
   test('should throw when encounterId is empty string', () => {
     const input = createMockZambdaInput({ encounterId: '' }, { secrets });
+    expect(() => validateRequestParameters(input)).toThrow();
+  });
+
+  test('should throw when encounterId is not a valid UUID', () => {
+    const input = createMockZambdaInput({ encounterId: 'encounter-123' }, { secrets });
     expect(() => validateRequestParameters(input)).toThrow();
   });
 });

@@ -12,7 +12,7 @@ export interface UpdateChargeMasterParams {
 }
 
 const bodySchema = z.object({
-  chargeMasterId: z.string().min(1),
+  chargeMasterId: z.string().uuid(),
   name: z.string().min(1),
   effectiveDate: z.string().date(),
   description: z.string().optional(),

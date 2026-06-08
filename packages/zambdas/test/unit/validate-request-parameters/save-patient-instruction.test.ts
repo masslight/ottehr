@@ -28,11 +28,19 @@ describe('save-patient-instruction - validateRequestParameters', () => {
   });
 
   test('should return validated params with instructionId for update', () => {
-    const input = createMockZambdaInput({ instructionId: 'inst-123', text: 'Updated text' });
+    const input = createMockZambdaInput({
+      instructionId: '550e8400-e29b-41d4-a716-446655440000',
+      text: 'Updated text',
+    });
     const result = validateRequestParameters(input);
 
-    expect(result.instructionId).toBe('inst-123');
+    expect(result.instructionId).toBe('550e8400-e29b-41d4-a716-446655440000');
     expect(result.text).toBe('Updated text');
+  });
+
+  test('should throw when instructionId is not a valid UUID', () => {
+    const input = createMockZambdaInput({ instructionId: 'inst-123', text: 'Updated text' });
+    expect(() => validateRequestParameters(input)).toThrow();
   });
 
   test('should throw when body is missing', () => {

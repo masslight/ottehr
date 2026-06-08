@@ -4,7 +4,7 @@ import { createMockZambdaInput } from './helpers';
 
 describe('update-nursing-order - validateRequestParameters', () => {
   const validBody = {
-    serviceRequestId: 'sr-123',
+    serviceRequestId: '550e8400-e29b-41d4-a716-446655440000',
     action: 'CANCEL ORDER' as const,
   };
 
@@ -12,17 +12,20 @@ describe('update-nursing-order - validateRequestParameters', () => {
     const input = createMockZambdaInput(validBody);
     const result = validateRequestParameters(input);
 
-    expect(result.serviceRequestId).toBe('sr-123');
+    expect(result.serviceRequestId).toBe('550e8400-e29b-41d4-a716-446655440000');
     expect(result.action).toBe('CANCEL ORDER');
     expect(result.userToken).toBe('test-token');
     expect(result.secrets).toBeNull();
   });
 
   test('should return validated params for COMPLETE ORDER', () => {
-    const input = createMockZambdaInput({ serviceRequestId: 'sr-456', action: 'COMPLETE ORDER' });
+    const input = createMockZambdaInput({
+      serviceRequestId: '6ba7b810-9dad-11d1-80b4-00c04fd430c8',
+      action: 'COMPLETE ORDER',
+    });
     const result = validateRequestParameters(input);
 
-    expect(result.serviceRequestId).toBe('sr-456');
+    expect(result.serviceRequestId).toBe('6ba7b810-9dad-11d1-80b4-00c04fd430c8');
     expect(result.action).toBe('COMPLETE ORDER');
   });
 
@@ -42,12 +45,15 @@ describe('update-nursing-order - validateRequestParameters', () => {
   });
 
   test('should throw when action is missing', () => {
-    const input = createMockZambdaInput({ serviceRequestId: 'sr-123' });
+    const input = createMockZambdaInput({ serviceRequestId: '550e8400-e29b-41d4-a716-446655440000' });
     expect(() => validateRequestParameters(input)).toThrow();
   });
 
   test('should throw when action is invalid', () => {
-    const input = createMockZambdaInput({ serviceRequestId: 'sr-123', action: 'INVALID ACTION' });
+    const input = createMockZambdaInput({
+      serviceRequestId: '550e8400-e29b-41d4-a716-446655440000',
+      action: 'INVALID ACTION',
+    });
     expect(() => validateRequestParameters(input)).toThrow();
   });
 
@@ -64,9 +70,13 @@ describe('update-nursing-order - validateRequestParameters', () => {
     expect(() => validateRequestParameters(input)).toThrow();
   });
 
-  test('should accept empty string serviceRequestId (current schema allows it)', () => {
+  test('should throw when serviceRequestId is not a valid UUID', () => {
+    const input = createMockZambdaInput({ serviceRequestId: 'sr-123', action: 'CANCEL ORDER' });
+    expect(() => validateRequestParameters(input)).toThrow();
+  });
+
+  test('should throw when serviceRequestId is empty string', () => {
     const input = createMockZambdaInput({ serviceRequestId: '', action: 'CANCEL ORDER' });
-    const result = validateRequestParameters(input);
-    expect(result.serviceRequestId).toBe('');
+    expect(() => validateRequestParameters(input)).toThrow();
   });
 });

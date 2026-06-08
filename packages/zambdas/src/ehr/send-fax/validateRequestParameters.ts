@@ -9,7 +9,7 @@ import { z } from 'zod';
 import { safeValidate, ZambdaInput } from '../../shared';
 
 const SendFaxBodySchema = z.object({
-  appointmentId: z.string().min(1),
+  appointmentId: z.string().uuid(),
   faxNumber: z.string().min(1),
 });
 

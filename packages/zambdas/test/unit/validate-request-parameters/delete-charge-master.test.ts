@@ -30,6 +30,11 @@ describe('delete-charge-master - validateRequestParameters', () => {
     expect(() => validateRequestParameters(input)).toThrow();
   });
 
+  test('should throw when id is not a valid UUID', () => {
+    const input = createMockZambdaInput({ id: 'not-a-uuid' });
+    expect(() => validateRequestParameters(input)).toThrow();
+  });
+
   test('should pass secrets through from input', () => {
     const secrets = { PROJECT_API: 'https://api.test' };
     const input = createMockZambdaInput(validBody, { secrets });

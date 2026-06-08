@@ -32,7 +32,7 @@ const createInput = (body: Record<string, unknown>): ZambdaInput => ({
 });
 
 const baseBody = {
-  encounterId: 'encounter-1',
+  encounterId: '550e8400-e29b-41d4-a716-446655440000',
   templateName: 'My Template',
   examType: DefaultExamComponentsConfig,
 };
@@ -102,6 +102,11 @@ describe('Apply Template - validateRequestParameters', () => {
   test('still throws when required fields are missing', () => {
     const input = createInput({ templateName: 'foo', examType: DefaultExamComponentsConfig });
     expect(() => validateRequestParameters(input)).toThrow(/encounterId/);
+  });
+
+  test('rejects encounterId that is not a valid UUID', () => {
+    const input = createInput({ ...baseBody, encounterId: 'encounter-1' });
+    expect(() => validateRequestParameters(input)).toThrow();
   });
 });
 
