@@ -24,7 +24,7 @@ import { accountMatchesType } from '../../../ehr/shared/harvest';
 import { produceOutreachTasks } from '../../../rcm/scheduled-outreach/producers/shared';
 import {
   checkOrCreateM2MClientToken,
-  createOystehrClient,
+  createClinicalOystehrClient,
   getCandidEncounterIdFromEncounter,
   getStripeClient,
   resolveTemplatePlaceholders,
@@ -46,7 +46,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   console.log('Input task id: ', task.id);
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-  const oystehr = createOystehrClient(m2mToken, secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
   const stripe = getStripeClient(secrets);
 
   try {
@@ -134,7 +134,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       console.error('Failed to produce invoice-issued outreach tasks:', err);
     }
   } catch (error) {
-    const oystehr = createOystehrClient(m2mToken, secrets);
+    const oystehr = createClinicalOystehrClient(m2mToken, secrets);
     console.log('updating task status to failed and output');
     const taskCopy = addErrorToTaskOutput(task, error instanceof Error ? error.message : 'Unknown error');
     await updateTaskStatusAndOutput(oystehr, task, mapDisplayToInvoiceTaskStatus('error'), taskCopy.output);

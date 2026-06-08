@@ -50,7 +50,7 @@ import {
   WORKERS_COMP_SERVICE_REQUEST_CATEGORY,
 } from 'utils';
 import { checkOrCreateM2MClientToken, getMyPractitionerId, wrapHandler } from '../../../../shared';
-import { createOystehrClient } from '../../../../shared/helpers';
+import { createClinicalOystehrClient } from '../../../../shared/helpers';
 import { ZambdaInput } from '../../../../shared/types';
 import { isOtherInsurance } from '../../shared/helpers';
 import { accountIsPatientBill, accountIsWorkersComp, sortCoveragesByPriority } from '../../shared/labs';
@@ -86,7 +86,7 @@ export const index = wrapHandler('create-lab-order', async (input: ZambdaInput):
   console.debug('validateRequestParameters success');
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-  const oystehr = createOystehrClient(m2mToken, secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
   const userToken = input.headers.Authorization.replace('Bearer ', '');
   let curUserPractitionerId: string | undefined;

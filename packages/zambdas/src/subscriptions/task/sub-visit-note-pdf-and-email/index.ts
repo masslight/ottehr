@@ -23,7 +23,7 @@ import { getImmunizationOrders } from '../../../ehr/immunization/get-orders';
 import { getNameForOwner } from '../../../ehr/schedules/shared';
 import { getPresignedURLs } from '../../../patient/appointment/get-visit-details/helpers';
 import {
-  createOystehrClient,
+  createClinicalOystehrClient,
   getAuth0Token,
   getEmailClient,
   makeAddressUrl,
@@ -69,7 +69,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       console.log('already have token');
     }
 
-    oystehr = createOystehrClient(oystehrToken, secrets);
+    oystehr = createClinicalOystehrClient(oystehrToken, secrets);
 
     console.log('getting appointment Id from the task');
     const appointmentId =

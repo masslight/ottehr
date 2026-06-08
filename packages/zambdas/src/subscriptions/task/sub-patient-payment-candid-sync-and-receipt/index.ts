@@ -5,7 +5,7 @@ import { Encounter, PaymentNotice } from 'fhir/r4b';
 import Stripe from 'stripe';
 import { getOrCreateCandidApiClient, getStripeAccountForAppointmentOrEncounter } from 'utils';
 import {
-  createOystehrClient,
+  createClinicalOystehrClient,
   createPatientPaymentReceiptPdf,
   getAuth0Token,
   getStripeClient,
@@ -45,7 +45,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       console.log('already have token');
     }
 
-    oystehr = createOystehrClient(oystehrToken, secrets);
+    oystehr = createClinicalOystehrClient(oystehrToken, secrets);
 
     try {
       console.log('getting payment notice Id from the task');

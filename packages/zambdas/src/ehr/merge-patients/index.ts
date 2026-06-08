@@ -18,7 +18,7 @@ import {
 } from 'utils';
 import {
   checkOrCreateM2MClientToken,
-  createOystehrClient,
+  createClinicalOystehrClient,
   getUser,
   topLevelCatch,
   wrapHandler,
@@ -59,7 +59,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const validated = validateRequestParameters(input);
     const { secrets } = validated;
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
+    const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
     if (validated.mode === 'status') {
       if (!validated.patientId) {
@@ -179,7 +179,7 @@ const checkAdminAndGetProfile = async (input: KickoffInput): Promise<string> => 
 
 async function getActiveMergeTaskForPatient(
   patientId: string,
-  oystehr: ReturnType<typeof createOystehrClient>
+  oystehr: ReturnType<typeof createClinicalOystehrClient>
 ): Promise<GetMergePatientsTaskResponse> {
   const tasks = (
     await oystehr.fhir.search<Task>({
