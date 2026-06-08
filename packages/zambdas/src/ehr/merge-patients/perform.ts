@@ -822,6 +822,8 @@ export async function performMerge(input: PerformMergeInput, oystehr: Oystehr, m
   }
   console.log(`Merge complete: ${requests.length} resources updated across ${chunks.length} transaction(s)`);
 
+  console.log('check processedIds', processedIds);
+
   // ════════════════════════════════════════════════════════════════════════
   // Step 6: Write audit event
   // ════════════════════════════════════════════════════════════════════════
