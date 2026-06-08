@@ -96,19 +96,8 @@ export const SearchBillingPatientsInputSchema = z.object({
   pageSize: nonNegativeInt.optional(),
 });
 
-export const SearchBillingPractitionersInputSchema = z.object({
-  name: nonEmptyString.optional(),
-  includeWorkingCopies: z.boolean().optional(),
-});
-
 export const SearchBillingLocationsInputSchema = z.object({
   name: nonEmptyString.optional(),
-  includeWorkingCopies: z.boolean().optional(),
-});
-
-export const SearchBillingOrganizationsInputSchema = z.object({
-  name: nonEmptyString.optional(),
-  type: nonEmptyString.optional(),
   includeWorkingCopies: z.boolean().optional(),
 });
 
@@ -252,9 +241,7 @@ export type GetPatientCoveragesInput = z.infer<typeof GetPatientCoveragesInputSc
 export type SearchBillingClaimsInput = z.infer<typeof SearchBillingClaimsInputSchema>;
 export type SearchBillingProvidersInput = z.infer<typeof SearchBillingProvidersInputSchema>;
 export type SearchBillingPatientsInput = z.infer<typeof SearchBillingPatientsInputSchema>;
-export type SearchBillingPractitionersInput = z.infer<typeof SearchBillingPractitionersInputSchema>;
 export type SearchBillingLocationsInput = z.infer<typeof SearchBillingLocationsInputSchema>;
-export type SearchBillingOrganizationsInput = z.infer<typeof SearchBillingOrganizationsInputSchema>;
 export type SearchBillingPayersInput = z.infer<typeof SearchBillingPayersInputSchema>;
 export type CreateBillingClaimInput = z.infer<typeof CreateBillingClaimInputSchema>;
 export type CreateBillingWorkingCopyInput = z.infer<typeof CreateBillingWorkingCopyInputSchema>;

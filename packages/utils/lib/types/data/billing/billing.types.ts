@@ -18,15 +18,6 @@ export interface BillingPatientOption {
   friendlyId: string;
 }
 
-export interface BillingOrganizationOption {
-  id: string | undefined;
-  name: string;
-  npi: string;
-  tin: string;
-  payerId: string;
-  isPayer: boolean | undefined;
-}
-
 export interface BillingCoverageOption {
   id: string | undefined;
   status: string;
@@ -34,15 +25,6 @@ export interface BillingCoverageOption {
   payorName: string;
   payorId: string;
   payorFhirId: string;
-}
-
-export interface BillingPractitionerOption {
-  id: string | undefined;
-  name: string;
-  firstName: string;
-  lastName: string;
-  npi: string;
-  taxonomy: string;
 }
 
 export interface BillingLocationOption {

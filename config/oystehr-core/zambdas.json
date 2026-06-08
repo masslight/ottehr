@@ -340,26 +340,12 @@
       "src": "src/billing/search-billing-patients/index",
       "zip": ".dist/zips/search-billing-patients.zip"
     },
-    "SEARCH-BILLING-PRACTITIONERS": {
-      "name": "search-billing-practitioners",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/billing/search-billing-practitioners/index",
-      "zip": ".dist/zips/search-billing-practitioners.zip"
-    },
     "SEARCH-BILLING-LOCATIONS": {
       "name": "search-billing-locations",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/billing/search-billing-locations/index",
       "zip": ".dist/zips/search-billing-locations.zip"
-    },
-    "SEARCH-BILLING-ORGANIZATIONS": {
-      "name": "search-billing-organizations",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/billing/search-billing-organizations/index",
-      "zip": ".dist/zips/search-billing-organizations.zip"
     },
     "SEARCH-BILLING-PAYERS": {
       "name": "search-billing-payers",
