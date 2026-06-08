@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { safeValidate, ZambdaInput } from '../../shared';
 
 const AdminRenameTemplateSchema = z.object({
-  templateId: z.string().trim().min(1),
+  templateId: z.string().uuid(),
   newName: z.string().trim().min(1),
 });
 

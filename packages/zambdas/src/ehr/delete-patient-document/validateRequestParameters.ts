@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { safeValidate, ZambdaInput } from '../../shared';
 
 const DeletePatientDocumentSchema = z.object({
-  documentRefId: z.string().trim().min(1),
+  documentRefId: z.string().uuid(),
 });
 
 export function validateRequestParameters(

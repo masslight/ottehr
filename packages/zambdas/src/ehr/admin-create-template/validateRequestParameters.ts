@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { safeValidate, ZambdaInput } from '../../shared';
 
 const AdminCreateTemplateSchema = z.object({
-  encounterId: z.string().trim().min(1),
+  encounterId: z.string().uuid(),
   templateName: z.string().trim().min(1),
 });
 

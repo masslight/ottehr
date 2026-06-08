@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { safeValidate, ZambdaInput } from '../../shared';
 
 const BulkUpdateInsuranceStatusBodySchema = z.object({
-  insuranceIds: z.array(z.string()).min(1),
+  insuranceIds: z.array(z.string().uuid()).min(1),
   active: z.boolean(),
 });
 

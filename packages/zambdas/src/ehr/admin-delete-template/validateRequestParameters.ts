@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { safeValidate, ZambdaInput } from '../../shared';
 
 const AdminDeleteTemplateSchema = z.object({
-  templateId: z.string().trim().min(1),
+  templateId: z.string().uuid(),
 });
 
 export function validateRequestParameters(input: ZambdaInput): AdminDeleteTemplateInput & Pick<ZambdaInput, 'secrets'> {

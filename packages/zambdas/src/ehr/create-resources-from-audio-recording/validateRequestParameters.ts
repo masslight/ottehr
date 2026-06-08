@@ -12,7 +12,7 @@ const CreateResourcesFromAudioRecordingBodySchema = z.object({
     .startsWith(Z3_URL_PREFIX, {
       message: `z3 url must start with ${Z3_URL_PREFIX}`,
     }),
-  visitID: z.string().min(1),
+  visitID: z.string().uuid(),
   duration: z.number().optional(),
 });
 

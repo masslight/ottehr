@@ -3,15 +3,17 @@ import { validateRequestParameters } from '../../../src/ehr/delete-patient-docum
 import { createMockSecrets, createMockZambdaInput } from './helpers';
 
 describe('delete-patient-document - validateRequestParameters', () => {
+  const UUID_1 = '550e8400-e29b-41d4-a716-446655440000';
+
   const validBody = {
-    documentRefId: 'doc-ref-123',
+    documentRefId: UUID_1,
   };
 
   test('should return validated params with all required fields', () => {
     const input = createMockZambdaInput(validBody, { secrets: createMockSecrets() });
     const result = validateRequestParameters(input);
 
-    expect(result.documentRefId).toBe('doc-ref-123');
+    expect(result.documentRefId).toBe(UUID_1);
     expect(result.secrets).toEqual(createMockSecrets());
   });
 
@@ -37,6 +39,11 @@ describe('delete-patient-document - validateRequestParameters', () => {
 
   test('should throw when documentRefId is not a string', () => {
     const input = createMockZambdaInput({ documentRefId: 123 }, { secrets: createMockSecrets() });
+    expect(() => validateRequestParameters(input)).toThrow();
+  });
+
+  test('should throw when documentRefId is not a valid UUID', () => {
+    const input = createMockZambdaInput({ documentRefId: 'doc-ref-123' }, { secrets: createMockSecrets() });
     expect(() => validateRequestParameters(input)).toThrow();
   });
 
