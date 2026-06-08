@@ -177,8 +177,7 @@ describe('complete-encounters-report zambda', () => {
           break;
         } catch (error: any) {
           const isConcurrentUpdate =
-            error?.code === APIErrorCode.CONCURRENT_UPDATE ||
-            error?.message?.includes('modified during the operation');
+            error?.code === APIErrorCode.CONCURRENT_UPDATE || error?.message?.includes('modified during the operation');
           if (isConcurrentUpdate && attempt < MAX_ATTEMPTS) {
             await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY_MS));
             continue;
