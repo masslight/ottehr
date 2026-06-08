@@ -29,7 +29,9 @@ export const VideoRoom: FC = () => {
   const participants = useMemo<Participant[]>(() => {
     return Object.keys(roster)
       .filter(
-        (participantId) => (videoCallState.meetingData?.Attendee as { AttendeeId: string }).AttendeeId !== participantId
+        (participantId) =>
+          (videoCallState.meetingData?.Attendee as { AttendeeId: string }).AttendeeId !== participantId &&
+          !roster[participantId].externalUserId?.includes('MediaPipeline') // Oystehr uses the AWS Chime SDK media capture pipeline to record audio. In order to record audio, this pipeline adds a bot to the meeting
       )
       .map((participantId) => ({
         ...roster[participantId],
