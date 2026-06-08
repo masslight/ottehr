@@ -7,16 +7,26 @@ import type { OutreachAction } from '../../../src/rcm/scheduled-outreach-config/
 
 const mockCreate = vi.fn();
 const mockSearch = vi.fn();
+const mockGet = vi.fn();
 
 const mockOystehrClient = {
   fhir: {
     create: mockCreate,
     search: mockSearch,
-    get: vi.fn(),
+    get: mockGet,
     update: vi.fn(),
     patch: vi.fn(),
     transaction: vi.fn(),
   },
+};
+
+const mockPatientWithValidContacts = {
+  resourceType: 'Patient',
+  id: 'pat-1',
+  telecom: [
+    { system: 'phone', value: '2125551234' },
+    { system: 'email', value: 'test@example.com' },
+  ],
 };
 
 vi.mock('utils', async (importOriginal) => {
@@ -154,6 +164,7 @@ describe('produce-outreach-tasks', () => {
 
   beforeEach(async () => {
     vi.clearAllMocks();
+    mockGet.mockResolvedValue(mockPatientWithValidContacts);
 
     const mod = await import('../../../src/rcm/scheduled-outreach/producers/shared/produce-outreach-tasks');
     produceOutreachTasks = mod.produceOutreachTasks;
