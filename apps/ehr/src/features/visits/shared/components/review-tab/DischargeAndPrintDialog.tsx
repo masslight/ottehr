@@ -32,19 +32,15 @@ export const DischargeAndPrintDialog: FC<DischargeAndPrintDialogProps> = ({
 
   const schoolWorkNotes = chartData?.schoolWorkNotes ?? [];
   const presignedFiles = useExcusePresignedFiles(schoolWorkNotes);
-  const instructions = chartData?.instructions ?? [];
-
   const workNote = presignedFiles.find((file) => file.type === WORK_NOTE_CODE);
   const schoolNote = presignedFiles.find((file) => file.type === SCHOOL_NOTE_CODE);
   const hasWorkNote = Boolean(workNote);
   const hasSchoolNote = Boolean(schoolNote);
-  const hasPatientInstructions = instructions.length > 0;
   const hasDischargeSummary = Boolean(appointmentId);
 
   const [printDischargeSummary, setPrintDischargeSummary] = useState(true);
   const [printWorkNote, setPrintWorkNote] = useState(true);
   const [printSchoolNote, setPrintSchoolNote] = useState(true);
-  const [printPatientInstructions, setPrintPatientInstructions] = useState(true);
 
   const [isLoading, setIsLoading] = useState(false);
 
@@ -73,10 +69,6 @@ export const DischargeAndPrintDialog: FC<DischargeAndPrintDialogProps> = ({
         window.open(schoolNote.presignedUrl, '_blank');
       }
 
-      if (printPatientInstructions && hasPatientInstructions) {
-        // todo, print patient instructions
-      }
-
       await Promise.all(printPromises);
       await handleDischarge(encounterId, oystehrZambda);
       await appointmentRefetch();
@@ -99,8 +91,6 @@ export const DischargeAndPrintDialog: FC<DischargeAndPrintDialogProps> = ({
     printSchoolNote,
     hasSchoolNote,
     schoolNote,
-    printPatientInstructions,
-    hasPatientInstructions,
     downloadDocument,
     appointmentRefetch,
     onClose,
@@ -127,7 +117,7 @@ export const DischargeAndPrintDialog: FC<DischargeAndPrintDialogProps> = ({
               }
               label={
                 <Typography color={hasDischargeSummary ? 'text.primary' : 'text.disabled'}>
-                  Discharge Summary
+                  Discharge Summary + Patient Instructions
                 </Typography>
               }
             />
@@ -150,20 +140,6 @@ export const DischargeAndPrintDialog: FC<DischargeAndPrintDialogProps> = ({
                 />
               }
               label={<Typography color={hasSchoolNote ? 'text.primary' : 'text.disabled'}>School Note</Typography>}
-            />
-            <FormControlLabel
-              control={
-                <Checkbox
-                  checked={printPatientInstructions && hasPatientInstructions}
-                  disabled={!hasPatientInstructions}
-                  onChange={(e) => setPrintPatientInstructions(e.target.checked)}
-                />
-              }
-              label={
-                <Typography color={hasPatientInstructions ? 'text.primary' : 'text.disabled'}>
-                  Patient Instructions
-                </Typography>
-              }
             />
           </FormGroup>
         </>

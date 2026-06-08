@@ -244,9 +244,9 @@ export function mapRowDescriptionToDocumentFolder(description: string): string {
       return FileTypeMap[fileType as FileType].folder;
     }
 
-    if (lowerKey.includes('x-ray') || lowerKey.includes('xray')) return FileType.XRAY;
-    if (lowerKey.includes('lab report')) return FileType.LAB_REPORT;
-    if (lowerKey.includes('insurance card')) return FileType.INSURANCE_CARD;
+    if (lowerKey.includes('x-ray') || lowerKey.includes('xray')) return FileTypeMap[FileType.XRAY].folder;
+    if (lowerKey.includes('lab report')) return FileTypeMap[FileType.LAB_REPORT].folder;
+    if (lowerKey.includes('insurance card')) return FileTypeMap[FileType.INSURANCE_CARD].folder;
   }
 
   return FileTypeMap[FileType.OTHER].folder;
@@ -259,7 +259,7 @@ export function mapRowDescriptionToDocumentFolder(description: string): string {
 export function buildObjectPath(row: CsvRow): string {
   const patientFolder = buildPatientFolder(row);
   const documentTypeFolder = mapRowDescriptionToDocumentFolder(row.description);
-  const fileName = basename(row.path);
+  const fileName = sanitizeForZ3(basename(row.path));
 
   if (!ACCEPTED_FILE_TYPES.some((type) => fileName.toLowerCase().endsWith(type))) {
     throw new Error(`Unexpected file type: ${fileName}`);

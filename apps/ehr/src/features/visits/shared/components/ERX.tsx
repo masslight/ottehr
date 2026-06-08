@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { PendingErxEnrollmentDialog } from 'src/components/dialogs/PendingErxEnrollmentDialog';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import { getPractitionerMissingFields } from 'src/shared/utils';
-import { RoleType, VitalFieldNames, VitalsObservationDTO } from 'utils';
+import { is18YearsOrYounger, RoleType, VitalFieldNames, VitalsObservationDTO } from 'utils';
 import { safelyCaptureException, safelyCaptureMessage } from 'utils/lib/frontend/sentry';
 import { createVitalsSearchConfig } from 'utils/lib/helpers/visit-note/create-vitals-search-config.helper';
 import { useChartFields } from '../hooks/useChartFields';
@@ -17,7 +17,6 @@ import {
 } from '../stores/appointment/appointment.queries';
 import { useAppointmentData } from '../stores/appointment/appointment.store';
 import { ERXDialog } from './ERXDialog';
-
 export enum ERXStatus {
   INITIAL,
   LOADING,
@@ -84,9 +83,11 @@ export const ERX: FC<{
       return 'extraWeightOptions' in obs && obs.extraWeightOptions?.includes('patient_refused');
     }) ?? false;
 
+  const vitalsRequired = !patient?.birthDate || is18YearsOrYounger(patient.birthDate);
   const hasVitals =
-    hasValidHeight(heightVitalObservationResponse?.vitalsObservations) &&
-    hasValidWeight(weightVitalObservationResponse?.vitalsObservations);
+    !vitalsRequired ||
+    (hasValidHeight(heightVitalObservationResponse?.vitalsObservations) &&
+      hasValidWeight(weightVitalObservationResponse?.vitalsObservations));
   const isVitalsLoading = isHeightLoading || isWeightLoading;
   const isVitalsFetched = isHeightFetched && isWeightFetched;
 
@@ -141,7 +142,7 @@ export const ERX: FC<{
   // Step 3: Sync patient
   const { isFetched: isPatientSynced, isLoading: isPatientSyncing } = useSyncERXPatient({
     patient: patient!,
-    encounterId: encounter.id!,
+    encounter,
     enabled: Boolean(practitionerEnrollmentStatus?.confirmed && hasVitals && encounter?.id),
     onError: (error) => {
       console.log(error);
