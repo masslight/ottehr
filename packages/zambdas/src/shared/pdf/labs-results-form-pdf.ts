@@ -33,6 +33,8 @@ import {
   getNPIIdentifier,
   getOrderNumber,
   getOrderNumberFromDr,
+  getPatientFriendlyId,
+  getPatientIdForLabOrder,
   getTestItemCodeFromDr,
   getTimezone,
   IN_HOUSE_LAB_OD_NULL_OPTION_CONFIG,
@@ -145,6 +147,7 @@ type LabTypeSpecificResources =
         testItemCode: string | undefined;
         patient: Patient;
         diagnosticReport: DiagnosticReport;
+        serviceRequest?: ServiceRequest;
       };
     };
 
@@ -172,6 +175,7 @@ const getResultDataConfigForDrResources = (
     resultInterpretations,
     attachments,
     collectionDate,
+    serviceRequest,
   } = specificResources;
 
   const baseData: LabResultsData = {
@@ -223,19 +227,45 @@ const getResultDataConfigForDrResources = (
     collectionDate,
   };
 
+  // need to determine for each DR based result type whether or not to use the friendly patient id.
+  // in both cases, if there is a ServiceRequest, it will dictate whether we use it or not
+  // in the unsolicited case, if there is no ServiceRequest, we will just use either the patient.id or the friendly id if it exists
+  // NOTE: the ServiceRequest for the reflex result is not necessarily its true parent test. It is an SR from the same bundle, which is sufficient to determine friendly id status
   if (type === LabType.reflex) {
     console.log('reflex result pdf to be made');
     const orderNumber = getOrderNumberFromDr(diagnosticReport) || '';
+
+    const patientIdForOrder = serviceRequest ? getPatientIdForLabOrder(serviceRequest, patient) : baseData.patientId;
+    console.log('this is patientIdForOrder for the reflex test, using SR', patientIdForOrder, serviceRequest?.id ?? '');
+
     const reflexResultData: Omit<ReflexExternalLabResultsData, keyof LabResultsData> = {
       ...unsolicitedResultData,
       orderNumber,
     };
-    const data = { ...baseData, ...reflexResultData };
+    const data = {
+      ...baseData,
+      ...reflexResultData,
+      patientId: patientIdForOrder,
+    };
     const config: ResultDataConfig = { type, data };
     return config;
   } else if (type === LabType.unsolicited) {
     console.log('unsolicited result pdf to be made');
-    const data: UnsolicitedExternalLabResultsData = { ...baseData, ...unsolicitedResultData };
+
+    const getPatientIdForUnsolicited = (): string => {
+      if (serviceRequest) {
+        // if the unsolicited result was matched to an SR, we should let that original SR dictate whether we display the friendly id
+        return getPatientIdForLabOrder(serviceRequest, patient);
+      } else {
+        return getPatientFriendlyId(patient) || baseData.patientId;
+      }
+    };
+
+    const data: UnsolicitedExternalLabResultsData = {
+      ...baseData,
+      ...unsolicitedResultData,
+      patientId: getPatientIdForUnsolicited(),
+    };
     const config: ResultDataConfig = { type, data };
     return config;
   }
@@ -264,6 +294,8 @@ const getResultDataConfig = (
   } = commonResourceConfig;
   const { type, specificResources } = specificResourceConfig;
 
+  const patientIdForOrder = getPatientIdForLabOrder(serviceRequest, patient);
+
   const baseData: LabResultsData = {
     locationName: location?.name,
     locationStreetAddress: location?.address?.line?.join(','),
@@ -280,7 +312,7 @@ const getResultDataConfig = (
     patientLastName: patient.name?.[0].family || '',
     patientSex: patient.gender || '',
     patientDOB: patient.birthDate ? DateTime.fromFormat(patient.birthDate, 'yyyy-MM-dd').toFormat('MM/dd/yyyy') : '',
-    patientId: patient.id || '',
+    patientId: patientIdForOrder,
     patientPhone: formatPhoneNumberDisplay(
       patient.telecom?.find((telecomTemp) => telecomTemp.system === 'phone')?.value || ''
     ),
@@ -424,8 +456,9 @@ export async function createExternalLabResultPDFBasedOnDr(
   secrets: Secrets | null,
   token: string
 ): Promise<void> {
-  const { patient, labOrganization, diagnosticReport, observations, schedule } =
-    await getExternalLabOrderResourcesViaDiagnosticReport(oystehr, diagnosticReportID);
+  // we expect reflex tests to have a servicerequest, and we expect unsolicited results matched to a patient AND test to have it as well
+  const { patient, labOrganization, diagnosticReport, observations, schedule, serviceRequest } =
+    await getExternalLabOrderResourcesViaDiagnosticReport(oystehr, diagnosticReportID, type);
 
   if (!patient.id) throw new Error('patient.id is undefined');
 
@@ -463,6 +496,7 @@ export async function createExternalLabResultPDFBasedOnDr(
       resultInterpretations: resultInterpretationDisplays,
       attachments: obsAttachments,
       collectionDate,
+      serviceRequest,
     },
   };
 
@@ -474,7 +508,7 @@ export async function createExternalLabResultPDFBasedOnDr(
     secrets,
     type,
     pdfInfo: pdfDetail,
-    patientID: patient.id,
+    patientUuid: patient.id,
     encounterID: undefined,
     related: makeRelatedForLabsPDFDocRef({ diagnosticReportIds: [diagnosticReportID] }),
     labDetails: {
@@ -592,7 +626,7 @@ export async function createExternalLabResultPDF(
     secrets,
     type: 'results',
     pdfInfo: pdfDetail,
-    patientID: patient.id,
+    patientUuid: patient.id,
     encounterID: encounter.id,
     related: makeRelatedForLabsPDFDocRef({ diagnosticReportIds: [diagnosticReport.id] }),
     labDetails: {
@@ -686,7 +720,7 @@ export async function createInHouseLabResultPDF(
     secrets,
     type: 'results',
     pdfInfo: pdfDetail,
-    patientID: patient.id,
+    patientUuid: patient.id,
     encounterID: encounter.id,
     related: makeRelatedForLabsPDFDocRef({ diagnosticReportIds }),
     labDetails: {
@@ -1415,7 +1449,7 @@ async function uploadPDF(pdfBytes: Uint8Array, token: string, baseFileUrl: strin
 
 async function createLabsResultsFormPDF(
   dataConfig: ResultDataConfig,
-  patientID: string,
+  patientUuid: string,
   secrets: Secrets | null,
   token: string
 ): Promise<PdfInfo> {
@@ -1444,7 +1478,7 @@ async function createLabsResultsFormPDF(
     throw new Error(`lab type is unexpected ${type}`);
   }
   console.log('Creating base file url');
-  const baseFileUrl = makeZ3Url({ secrets, fileName, bucketName, patientID });
+  const baseFileUrl = makeZ3Url({ secrets, fileName, bucketName, patientID: patientUuid });
   console.log('Uploading file to bucket');
   await uploadPDF(pdfBytes, token, baseFileUrl).catch((error) => {
     throw new Error('failed uploading pdf to z3: ' + error.message);
@@ -1488,7 +1522,7 @@ export async function makeLabPdfDocumentReference({
   secrets,
   type,
   pdfInfo,
-  patientID,
+  patientUuid,
   encounterID,
   related,
   labDetails,
@@ -1499,7 +1533,7 @@ export async function makeLabPdfDocumentReference({
   secrets: Secrets | null;
   type: 'order' | 'results' | LabDrTypeTagCode;
   pdfInfo: PdfInfo;
-  patientID: string;
+  patientUuid: string;
   encounterID: string | undefined; // will be undefined for unsolicited results;
   related: Reference[];
   diagnosticReportIds?: string[];
@@ -1537,7 +1571,7 @@ export async function makeLabPdfDocumentReference({
     docRefContext.encounter = [{ reference: `Encounter/${encounterID}` }];
   }
 
-  const labListResource = await getLabListResource(oystehr, patientID, secrets, pdfInfo.title);
+  const labListResource = await getLabListResource(oystehr, patientUuid, secrets, pdfInfo.title);
 
   const { docRefs } = await createFilesDocumentReferences({
     files: [
@@ -1549,7 +1583,7 @@ export async function makeLabPdfDocumentReference({
     type: docType,
     references: {
       subject: {
-        reference: `Patient/${patientID}`,
+        reference: `Patient/${patientUuid}`,
       },
       context: docRefContext,
     },
