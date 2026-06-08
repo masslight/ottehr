@@ -1,7 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { Claim, DomainResource, HumanName, Organization, Patient, Practitioner, Resource } from 'fhir/r4b';
 import { convertFhirNameToDisplayName, isPayerUrl, Secrets } from 'utils';
-import { createOystehrClient } from '../shared/helpers';
+import { createClinicalOystehrClient } from '../shared/helpers';
 
 export const BILLING_RESOURCE_TAG = {
   system: 'https://ottehr.com/billing/resource-type',
@@ -77,7 +77,7 @@ export const EXCLUDE_WORKING_COPIES_PARAMS = [
 ];
 
 export function createBillingClient(token: string, secrets: Secrets | null): Oystehr {
-  return createOystehrClient(token, secrets, { workspaceTag: BILLING_RESOURCE_TAG });
+  return createClinicalOystehrClient(token, secrets, { workspaceTag: BILLING_RESOURCE_TAG });
 }
 
 export function getTag(resource: Resource, system: string): string | undefined {

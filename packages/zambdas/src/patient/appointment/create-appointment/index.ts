@@ -62,7 +62,7 @@ import {
 import {
   AuditableZambdaEndpoints,
   createAuditEvent,
-  createOystehrClient,
+  createClinicalOystehrClient,
   generatePatientRelatedRequests,
   getAuth0Token,
   getUser,
@@ -109,7 +109,7 @@ export const index = wrapHandler('create-appointment', async (input: ZambdaInput
   } else {
     console.log('already have token');
   }
-  const oystehr = createOystehrClient(oystehrToken, input.secrets);
+  const oystehr = createClinicalOystehrClient(oystehrToken, input.secrets);
 
   console.time('performing-complex-validation');
   const effectInput = await createAppointmentComplexValidation(validatedParameters, oystehr);

@@ -2,7 +2,7 @@ import { User } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { createFetchClientWithOystehrAuth, FetchClientWithOysterAuth, getSecret, Secrets } from 'utils';
 import { UserActivationZambdaInput, UserActivationZambdaOutput } from 'utils/lib/types/api/user-activation.types';
-import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
+import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 
 export interface UserActivationZambdaInputValidated extends UserActivationZambdaInput {
@@ -20,7 +20,7 @@ export const index = wrapHandler('user-activation', async (input: ZambdaInput): 
 
   oystehrToken = await checkOrCreateM2MClientToken(oystehrToken, secrets);
   const PROJECT_API = getSecret('PROJECT_API', secrets);
-  const oystehr = createOystehrClient(oystehrToken, secrets);
+  const oystehr = createClinicalOystehrClient(oystehrToken, secrets);
   const fetchClient = createFetchClientWithOystehrAuth({ authToken: oystehrToken });
   let user = await oystehr.user.get({ id: userId });
   console.log(`user before ${mode}ing: `, JSON.stringify(user));

@@ -64,13 +64,12 @@ import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import {
   assertDefined,
   checkOrCreateM2MClientToken,
-  createOystehrClient,
+  createClinicalOystehrClient,
   formatZodError,
   sendErrors,
   ZambdaInput,
 } from '../../shared';
 import {
-  BILLING_RESOURCE_TAG,
   BILLING_WORKING_COPY_TAG,
   createBillingClient,
   CURRENT_STATUS_TAG_SYSTEM,
@@ -156,7 +155,7 @@ export async function handler(input: ZambdaInput): Promise<APIGatewayProxyResult
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
   const billingOystehr = createBillingClient(m2mToken, params.secrets);
   // CW TODO: expand to helper and use in all zambdas
-  const clinicalOystehr = createOystehrClient(m2mToken, params.secrets, { ignoreTags: [BILLING_RESOURCE_TAG] });
+  const clinicalOystehr = createClinicalOystehrClient(m2mToken, params.secrets);
 
   const cvo = await complexValidation(clinicalOystehr, billingOystehr, params);
 

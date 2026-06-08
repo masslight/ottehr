@@ -4,8 +4,8 @@ import { Operation } from 'fast-json-patch';
 import { getOrCreateCandidApiClient, MISSING_REQUEST_SECRETS } from 'utils';
 import {
   CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM,
+  createClinicalOystehrClient,
   createEncounterFromAppointment,
-  createOystehrClient,
   getAuth0Token,
   shouldSendClaim,
   shouldUseCandid,
@@ -43,7 +43,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         console.log('already have token');
       }
 
-      oystehr = createOystehrClient(oystehrToken, secrets);
+      oystehr = createClinicalOystehrClient(oystehrToken, secrets);
 
       console.log('getting appointment Id from the task');
       const appointmentId =

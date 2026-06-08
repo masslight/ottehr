@@ -28,9 +28,10 @@ import {
   TELEMED_VIDEO_ROOM_CODE,
   TIMEZONES,
 } from 'utils';
+import { BILLING_RESOURCE_TAG } from '../billing/shared';
 import { ZambdaInput } from './types';
 
-export function createOystehrClient(
+export function createClinicalOystehrClient(
   token: string,
   secrets: Secrets | null,
   overrides?: Partial<OystehrConfig>
@@ -40,6 +41,7 @@ export function createOystehrClient(
     fhirApiUrl: getSecret(SecretsKeys.FHIR_API, secrets).replace(/\/r4/g, ''),
     projectApiUrl: getSecret(SecretsKeys.PROJECT_API, secrets),
     ...overrides,
+    ignoreTags: [...(overrides?.ignoreTags ?? []), BILLING_RESOURCE_TAG],
   });
 }
 
