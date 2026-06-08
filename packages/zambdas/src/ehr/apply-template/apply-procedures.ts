@@ -82,11 +82,19 @@ export const buildLiveProcedureRequest = (input: BuildLiveProcedureInput): Batch
     .filter((r): r is string => r !== null)
     .map((fullUrl) => ({ resourceId: fullUrl, code: '', display: '' }));
 
+  // Templates don't carry the original documentation timestamp; stamp the
+  // apply-time author so the chart shows when the template was applied.
+  // DateTime.now().toISO() only returns null for invalid DateTimes (it can't
+  // happen for now()), but if it ever did we'd rather fail loudly than silently
+  // ship a procedure with no documentedDateTime.
+  const documentedDateTime = DateTime.now().toISO();
+  if (!documentedDateTime) {
+    throw new Error('Failed to generate ISO timestamp for procedure plan apply');
+  }
+
   const dto: ProcedureDTO = {
     ...readProcedureFormFieldsFromServiceRequest(plan),
-    // Templates don't carry the original documentation timestamp; stamp the
-    // apply-time author so the chart shows when the template was applied.
-    documentedDateTime: DateTime.now().toISO() ?? undefined,
+    documentedDateTime,
     diagnoses,
     cptCodes,
   };
