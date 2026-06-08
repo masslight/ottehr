@@ -188,7 +188,14 @@ export default function AppointmentsFilters(): ReactElement {
             <DateInput name="date" label="Select Date" size="medium" showTodayButton />
           </Box>
           <Box style={{ flex: 1 }}>
-            <EmployeeSelectInput name="provider" label="Providers" filter={PROVIDERS_FILTER} size="medium" multiple />
+            <EmployeeSelectInput
+              name="provider"
+              label="Providers"
+              filter={PROVIDERS_FILTER}
+              includeScheduleOwners
+              size="medium"
+              multiple
+            />
           </Box>
           <Link to="/visits/add">
             <Button
