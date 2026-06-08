@@ -451,5 +451,118 @@ describe('produce-outreach-tasks', () => {
         ])
       );
     });
+
+    it('creates cancelled task when patient has no valid phone for sms-only notification', async () => {
+      const actions = [
+        makeAction({ sendNotificationConfig: { mediums: ['sms'], smsTemplate: 'Pay!', emailTemplate: '' } }),
+      ];
+      const planDef = makePlanDefinition(actions);
+
+      mockSearch.mockResolvedValueOnce(mockBundle([planDef]));
+      mockSearch.mockResolvedValueOnce(mockBundle([]));
+      mockGet.mockResolvedValue({ resourceType: 'Patient', id: 'pat-1', telecom: [] });
+      mockCreate.mockResolvedValue({ resourceType: 'Task', id: 'task-1', status: 'cancelled' });
+
+      const result = await produceOutreachTasks({
+        triggerEvent: 'invoice-due',
+        patient: { reference: 'Patient/pat-1' },
+        focus: { reference: 'Encounter/enc-1' },
+        eventTimestamp: '2025-01-15T10:00:00.000Z',
+        oystehr: mockOystehrClient as any,
+      });
+
+      expect(result.created).toHaveLength(1);
+      const createdTask = mockCreate.mock.calls[0][0];
+      expect(createdTask.status).toBe('cancelled');
+      expect(createdTask.statusReason?.text).toContain('no valid phone number');
+    });
+
+    it('creates cancelled task when patient has invalid phone and no email for sms+email notification', async () => {
+      const actions = [
+        makeAction({
+          sendNotificationConfig: { mediums: ['sms', 'email'], smsTemplate: 'Pay!', emailTemplate: 'Pay!' },
+        }),
+      ];
+      const planDef = makePlanDefinition(actions);
+
+      mockSearch.mockResolvedValueOnce(mockBundle([planDef]));
+      mockSearch.mockResolvedValueOnce(mockBundle([]));
+      mockGet.mockResolvedValue({
+        resourceType: 'Patient',
+        id: 'pat-1',
+        telecom: [{ system: 'phone', value: '000' }],
+      });
+      mockCreate.mockResolvedValue({ resourceType: 'Task', id: 'task-1', status: 'cancelled' });
+
+      const result = await produceOutreachTasks({
+        triggerEvent: 'invoice-due',
+        patient: { reference: 'Patient/pat-1' },
+        focus: { reference: 'Encounter/enc-1' },
+        eventTimestamp: '2025-01-15T10:00:00.000Z',
+        oystehr: mockOystehrClient as any,
+      });
+
+      expect(result.created).toHaveLength(1);
+      const createdTask = mockCreate.mock.calls[0][0];
+      expect(createdTask.status).toBe('cancelled');
+      expect(createdTask.statusReason?.text).toContain('no valid phone number');
+      expect(createdTask.statusReason?.text).toContain('no valid email address');
+    });
+
+    it('creates draft task when sms contact is invalid but email is valid', async () => {
+      const actions = [
+        makeAction({
+          sendNotificationConfig: { mediums: ['sms', 'email'], smsTemplate: 'Pay!', emailTemplate: 'Pay!' },
+        }),
+      ];
+      const planDef = makePlanDefinition(actions);
+
+      mockSearch.mockResolvedValueOnce(mockBundle([planDef]));
+      mockSearch.mockResolvedValueOnce(mockBundle([]));
+      mockGet.mockResolvedValue({
+        resourceType: 'Patient',
+        id: 'pat-1',
+        telecom: [{ system: 'email', value: 'test@example.com' }],
+      });
+      mockCreate.mockResolvedValue({ resourceType: 'Task', id: 'task-1', status: 'draft' });
+
+      const result = await produceOutreachTasks({
+        triggerEvent: 'invoice-due',
+        patient: { reference: 'Patient/pat-1' },
+        focus: { reference: 'Encounter/enc-1' },
+        eventTimestamp: '2025-01-15T10:00:00.000Z',
+        oystehr: mockOystehrClient as any,
+      });
+
+      expect(result.created).toHaveLength(1);
+      const createdTask = mockCreate.mock.calls[0][0];
+      expect(createdTask.status).toBe('draft');
+    });
+
+    it('creates draft task when electronic contacts are invalid but paper-mail is included', async () => {
+      const actions = [
+        makeAction({
+          sendNotificationConfig: { mediums: ['sms', 'paper-mail'], smsTemplate: 'Pay!', emailTemplate: '' },
+        }),
+      ];
+      const planDef = makePlanDefinition(actions);
+
+      mockSearch.mockResolvedValueOnce(mockBundle([planDef]));
+      mockSearch.mockResolvedValueOnce(mockBundle([]));
+      mockGet.mockResolvedValue({ resourceType: 'Patient', id: 'pat-1', telecom: [] });
+      mockCreate.mockResolvedValue({ resourceType: 'Task', id: 'task-1', status: 'draft' });
+
+      const result = await produceOutreachTasks({
+        triggerEvent: 'invoice-due',
+        patient: { reference: 'Patient/pat-1' },
+        focus: { reference: 'Encounter/enc-1' },
+        eventTimestamp: '2025-01-15T10:00:00.000Z',
+        oystehr: mockOystehrClient as any,
+      });
+
+      expect(result.created).toHaveLength(1);
+      const createdTask = mockCreate.mock.calls[0][0];
+      expect(createdTask.status).toBe('draft');
+    });
   });
 });
