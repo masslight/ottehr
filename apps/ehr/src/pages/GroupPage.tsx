@@ -726,7 +726,7 @@ function GroupPageContent(): ReactElement {
                 control={
                   <Checkbox checked={allLocations} onChange={(e) => setAllLocations(e.target.checked)} size="small" />
                 }
-                label="Pool from all locations"
+                label="Include all locations"
                 sx={{ mb: 1 }}
               />
               <Autocomplete
@@ -793,7 +793,7 @@ function GroupPageContent(): ReactElement {
                   }}
                 >
                   <Typography variant="body2" sx={{ fontWeight: 500, mb: 1 }}>
-                    Providers per location
+                    Providers
                   </Typography>
                   <Box sx={{ maxHeight: 280, overflow: 'auto', pr: 1 }}>
                     {locationProviderRollup.map((row) => (
