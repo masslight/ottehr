@@ -19,14 +19,11 @@ import { getAuth0Token } from '../../src/shared';
 import { SECRETS } from '../data/secrets';
 import { ensureM2MPractitionerProfile } from '../helpers/configureTestM2MClient';
 import {
-  adjustHoursOfOperation,
-  changeAllCapacities,
+  buildSimpleScheduleExt,
   cleanupTestScheduleResources,
-  DEFAULT_SCHEDULE_JSON,
   makeTestPatient,
   persistSchedule,
   persistTestPatient,
-  startOfDayWithTimezone,
 } from '../helpers/testScheduleUtils';
 
 interface SetUpOutput {
@@ -53,18 +50,8 @@ describe('complete-encounters-report zambda', () => {
   });
 
   const setUpInPersonResources = async (): Promise<SetUpOutput> => {
-    const timeNow = startOfDayWithTimezone().plus({ hours: 8 });
-
-    let adjustedScheduleJSON = adjustHoursOfOperation(DEFAULT_SCHEDULE_JSON, [
-      {
-        dayOfWeek: timeNow.toLocaleString({ weekday: 'long' }).toLowerCase(),
-        open: 8,
-        close: 24,
-        workingDay: true,
-      },
-    ]);
-
-    adjustedScheduleJSON = changeAllCapacities(adjustedScheduleJSON, 5);
+    // 24/7 open with 5 bookings/hour (slot-length-invariant).
+    const adjustedScheduleJSON = buildSimpleScheduleExt({ prebookSlots: 5 });
 
     const ownerLocation: Location = {
       resourceType: 'Location',

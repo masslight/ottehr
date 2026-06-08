@@ -52,6 +52,7 @@ export const dataTestIds = {
   },
   addPatientPage: {
     pageTitle: 'page-title',
+    bookableSelect: 'add-patient-bookable-select',
     mobilePhoneInput: 'mobile-phone-input',
     searchForPatientsButton: 'search-for-patients-button',
     addButton: 'add-button',

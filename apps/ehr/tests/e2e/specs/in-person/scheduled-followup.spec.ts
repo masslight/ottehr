@@ -101,7 +101,7 @@ test.describe.serial('Scheduled Follow-up Visit E2E', () => {
 
     // Step 6: Select location from dropdown (must use dropdown to get walkinSchedule)
     await test.step('Select location', async () => {
-      const locationSelect = page.getByTestId(dataTestIds.dashboard.locationSelect);
+      const locationSelect = page.getByTestId(dataTestIds.addPatientPage.bookableSelect);
       // Clear and re-select to ensure walkinSchedule data is loaded
       await locationSelect.click();
       await page.locator('li[role="option"]').first().waitFor(DEFAULT_TIMEOUT);
