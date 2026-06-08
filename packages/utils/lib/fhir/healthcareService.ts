@@ -9,8 +9,7 @@
 //    code (urgent-care, botox, etc.). characteristic[] carries the runtime
 //    config: supported modes, supported visit types, default duration, slot
 //    cadence. Free-form fields (reasonsForVisit) still live in a JSON-blob
-//    extension at SERVICE_CATEGORY_CONFIG_EXTENSION_URL — see design-debt-
-//    log.md D-1 for the planned move to a contained ValueSet shape.
+//    extension at SERVICE_CATEGORY_CONFIG_EXTENSION_URL.
 //
 // 2. GROUP RESOURCES
 //    Untagged (no SERVICE_CATEGORY_TAG). characteristic[] carries the
@@ -28,8 +27,8 @@
 // Adjacent helpers in fhir/helpers.ts (serviceModeForHealthcareService,
 // scheduleStrategyForHealthcareService) handle the HL7-aligned service-
 // mode and pools/owns strategy used on Location/Practitioner-actored
-// Schedules. Those use different code systems (parallel concepts, per
-// design-debt-log.md D-2) and are intentionally not duplicated here.
+// Schedules. Those use different code systems (parallel concepts) and
+// are intentionally not duplicated here.
 
 import { CodeableConcept, Coding, HealthcareService, Location, PractitionerRole, Resource, Schedule } from 'fhir/r4b';
 import { ServiceMode, ServiceVisitType } from '../types';

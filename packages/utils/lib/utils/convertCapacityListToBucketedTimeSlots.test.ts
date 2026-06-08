@@ -220,10 +220,8 @@ describe('convertCapacityListToBucketedTimeSlots — closing-time guard', () => 
 // silently swallows fractional residue that doesn't accumulate to a full
 // slot — by design under the "average providers per hour" semantic the
 // rollout plan settled on, but admin-visible only via the resulting slot
-// count. These tests lock in the current behavior. The admin-UX gap
-// (misleading tooltip, no surfacing of truncation) is tracked in
-// design-debt-log D-9.
-describe('convertCapacityListToBucketedTimeSlots — decimal and >1 providers (current behavior; see D-9 for UX)', () => {
+// count. These tests lock in the current behavior.
+describe('convertCapacityListToBucketedTimeSlots — decimal and >1 providers (current behavior)', () => {
   describe('providers = 0.5 (half-time provider)', () => {
     it('15-min slot: 2 bookings/hour, distributed across alternating buckets', () => {
       // providersForHour = 0.5 → totalBookings = floor(0.5 * 60/15) = 2
@@ -244,11 +242,10 @@ describe('convertCapacityListToBucketedTimeSlots — decimal and >1 providers (c
       expect(capacityAtUtc(result, 9, 30)).toBe(0);
     });
 
-    it('60-min slot: 0 bookings/hour (the half-time provider contributes nothing) — D-9', () => {
+    it('60-min slot: 0 bookings/hour (the half-time provider contributes nothing)', () => {
       // providersForHour = 0.5 → totalBookings = floor(0.5) = 0. The
       // fractional value is structurally incompatible with a 60-min visit
       // (you can't have half a provider available for the full hour).
-      // Admin sees 0.5 saved but no slots vended — UI gap tracked in D-9.
       const result = convertCapacityListToBucketedTimeSlots([cap(9, 0.5)], START_DATE, 60);
       expect(capacityAtUtc(result, 9, 0)).toBe(0);
     });
@@ -274,11 +271,10 @@ describe('convertCapacityListToBucketedTimeSlots — decimal and >1 providers (c
       expect(capacityAtUtc(result, 9, 30)).toBe(1);
     });
 
-    it('60-min slot: 1 booking/hour (the 0.5 is lost) — D-9', () => {
+    it('60-min slot: 1 booking/hour (the 0.5 is lost)', () => {
       // providersForHour = 1.5 → totalBookings = floor(1.5) = 1. The
       // "one full + one half-time" tooltip example is wrong for 60-min
-      // slots: the half-time contribution is rounded away. UI gap
-      // tracked in D-9.
+      // slots: the half-time contribution is rounded away.
       const result = convertCapacityListToBucketedTimeSlots([cap(9, 1.5)], START_DATE, 60);
       expect(capacityAtUtc(result, 9, 0)).toBe(1);
     });
@@ -314,7 +310,7 @@ describe('convertCapacityListToBucketedTimeSlots — decimal and >1 providers (c
       expect(capacityAtUtc(result, 9, 30)).toBe(2);
     });
 
-    it('60-min slot: 2 bookings/hour (the 0.5 is lost) — D-9', () => {
+    it('60-min slot: 2 bookings/hour (the 0.5 is lost)', () => {
       // providersForHour = 2.5 → totalBookings = floor(2.5) = 2.
       const result = convertCapacityListToBucketedTimeSlots([cap(9, 2.5)], START_DATE, 60);
       expect(capacityAtUtc(result, 9, 0)).toBe(2);
@@ -368,7 +364,7 @@ describe('convertCapacityListToBucketedTimeSlots — prebookSlots (Location dema
     });
   });
 
-  describe('decimal prebookSlots also truncates — same shape of bug as providers — D-9', () => {
+  describe('decimal prebookSlots also truncates — same shape of bug as providers', () => {
     it('prebookSlots=0.5, any slot length: 0 bookings', () => {
       // The Location UI step is 1 (integers only), so this can't reach the
       // field via the standard editor. But the FHIR resource accepts

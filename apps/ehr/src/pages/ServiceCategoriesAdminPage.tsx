@@ -39,7 +39,7 @@ import {
   createServiceCategory,
   deleteServiceCategory,
   listServiceCategories,
-  ServiceCategoryRecord,
+  ServiceCategory,
   updateServiceCategory,
 } from '../api/api';
 import { useApiClients } from '../hooks/useAppClients';
@@ -47,13 +47,13 @@ import { useApiClients } from '../hooks/useAppClients';
 const QUERY_KEY = ['service-categories'];
 
 /** Set of service codes that are defined in the compiled-in BOOKING_CONFIG.
- *  Per D14 these are non-overridable from this UI; preventing creation of
- *  colliding codes here avoids the "saved but does nothing" failure mode. */
+ *  These are non-overridable from this UI; preventing creation of colliding
+ *  codes here avoids the "saved but does nothing" failure mode. */
 const COMPILED_SERVICE_CODES: ReadonlySet<string> = new Set(
   BOOKING_CONFIG.serviceCategories.map((sc) => sc.category.code).filter((c): c is string => !!c)
 );
 
-const DEFAULT_NEW_SERVICE_CATEGORY: ServiceCategoryRecord = {
+const DEFAULT_NEW_SERVICE_CATEGORY: ServiceCategory = {
   name: '',
   code: '',
   active: true,
@@ -67,11 +67,11 @@ const DEFAULT_NEW_SERVICE_CATEGORY: ServiceCategoryRecord = {
 
 const ServiceCategoryDialog: FC<{
   open: boolean;
-  initial?: ServiceCategoryRecord;
+  initial?: ServiceCategory;
   onClose: () => void;
-  onSubmit: (value: ServiceCategoryRecord) => Promise<void>;
+  onSubmit: (value: ServiceCategory) => Promise<void>;
 }> = ({ open, initial, onClose, onSubmit }) => {
-  const [value, setValue] = useState<ServiceCategoryRecord>(initial || DEFAULT_NEW_SERVICE_CATEGORY);
+  const [value, setValue] = useState<ServiceCategory>(initial || DEFAULT_NEW_SERVICE_CATEGORY);
   // Keep the reasons textarea as raw text while the user is editing so partial
   // whitespace (e.g. typing "back pain") isn't stripped on every keystroke.
   // Parse to the structured array only on save.
@@ -307,19 +307,19 @@ export const ServiceCategoriesAdminPage: FC = () => {
   const { oystehrZambda } = useApiClients();
   const queryClient = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [editing, setEditing] = useState<ServiceCategoryRecord | undefined>(undefined);
+  const [editing, setEditing] = useState<ServiceCategory | undefined>(undefined);
 
   const { data, isLoading } = useQuery({
     queryKey: QUERY_KEY,
     queryFn: async () => {
-      if (!oystehrZambda) return { serviceCategories: [] as ServiceCategoryRecord[] };
+      if (!oystehrZambda) return { serviceCategories: [] as ServiceCategory[] };
       return await listServiceCategories(oystehrZambda);
     },
     enabled: !!oystehrZambda,
   });
 
   const handleSubmit = useCallback(
-    async (value: ServiceCategoryRecord) => {
+    async (value: ServiceCategory) => {
       if (!oystehrZambda) return;
       try {
         if (value.id) {
@@ -367,10 +367,10 @@ export const ServiceCategoriesAdminPage: FC = () => {
   // compiled-in BOOKING_CONFIG entries so the admin can see *every* service
   // that's bookable in the system, not just the ones they can edit. System
   // rows are flagged so the table can render them read-only.
-  const serviceCategories = useMemo<Array<ServiceCategoryRecord & { systemManaged?: boolean }>>(() => {
+  const serviceCategories = useMemo<Array<ServiceCategory & { systemManaged?: boolean }>>(() => {
     const fhirRows = data?.serviceCategories || [];
     const fhirCodes = new Set(fhirRows.map((sc) => sc.code));
-    const systemRows: Array<ServiceCategoryRecord & { systemManaged: boolean }> = BOOKING_CONFIG.serviceCategories
+    const systemRows: Array<ServiceCategory & { systemManaged: boolean }> = BOOKING_CONFIG.serviceCategories
       .filter((sc) => sc.category.code && !fhirCodes.has(sc.category.code))
       .map((sc) => ({
         name: sc.category.display ?? sc.category.code ?? '',

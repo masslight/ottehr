@@ -2845,7 +2845,7 @@ export interface ServiceCategoryRuntimeConfig {
   reasonsForVisit?: Array<{ label: string; value: string }>;
 }
 
-export interface ServiceCategoryRecord {
+export interface ServiceCategory {
   id?: string;
   name: string;
   code: string;
@@ -2853,17 +2853,15 @@ export interface ServiceCategoryRecord {
   config: ServiceCategoryRuntimeConfig;
 }
 
-export const listServiceCategories = async (
-  oystehr: Oystehr
-): Promise<{ serviceCategories: ServiceCategoryRecord[] }> => {
+export const listServiceCategories = async (oystehr: Oystehr): Promise<{ serviceCategories: ServiceCategory[] }> => {
   const response = await oystehr.zambda.execute({ id: ADMIN_LIST_SERVICE_CATEGORIES_ZAMBDA_ID });
   return chooseJson(response);
 };
 
 export const createServiceCategory = async (
   oystehr: Oystehr,
-  serviceCategory: ServiceCategoryRecord
-): Promise<{ serviceCategory: ServiceCategoryRecord }> => {
+  serviceCategory: ServiceCategory
+): Promise<{ serviceCategory: ServiceCategory }> => {
   const response = await oystehr.zambda.execute({
     id: ADMIN_CREATE_SERVICE_CATEGORY_ZAMBDA_ID,
     serviceCategory,
@@ -2873,8 +2871,8 @@ export const createServiceCategory = async (
 
 export const updateServiceCategory = async (
   oystehr: Oystehr,
-  serviceCategory: ServiceCategoryRecord
-): Promise<{ serviceCategory: ServiceCategoryRecord }> => {
+  serviceCategory: ServiceCategory
+): Promise<{ serviceCategory: ServiceCategory }> => {
   const response = await oystehr.zambda.execute({
     id: ADMIN_UPDATE_SERVICE_CATEGORY_ZAMBDA_ID,
     serviceCategory,

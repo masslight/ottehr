@@ -58,11 +58,11 @@ export interface ServiceCategoryContext {
 /**
  * Returns the active service categories for the booking flow.
  *
- * All resolution logic — merging BOOKING_CONFIG (compiled-in, D14-preferred)
- * with the FHIR-registry catalog, and scoping to a group's declared
- * categories — lives in the `get-service-categories` zambda. This hook is a
- * thin adapter: it calls the zambda, converts records to the page-facing
- * shape, and handles loading-state fallback.
+ * All resolution logic — merging the compiled-in BOOKING_CONFIG with the
+ * FHIR-registry catalog, and scoping to a group's declared categories —
+ * lives in the `get-service-categories` zambda. This hook is a thin
+ * adapter: it calls the zambda, converts records to the page-facing shape,
+ * and handles loading-state fallback.
  *
  * Each returned category carries a `source` of 'booking-config' or 'fhir'
  * so callers can distinguish admin-managed entries from compiled-in ones.

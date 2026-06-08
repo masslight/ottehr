@@ -1,22 +1,21 @@
 import { HealthcareService } from 'fhir/r4b';
 import { SERVICE_CATEGORIES_AVAILABLE, SERVICE_CATEGORY_SYSTEM, ServiceMode, ServiceVisitType } from 'utils';
-import { ServiceCategoryRecord, toRecord } from '../../../ehr/admin-service-categories/helpers';
+import { ServiceCategory, toRecord } from '../../../ehr/admin-service-categories/helpers';
 
 /**
  * Merge the compiled-in BOOKING_CONFIG catalog with the FHIR-registry records.
  *
- * Per design-doc D14, BOOKING_CONFIG is the source of truth for compiled-in
- * codes that production URLs depend on. FHIR-registry records are appended
- * only when their code isn't already in BOOKING_CONFIG — admins can ADD new
- * categories via the Services admin but cannot silently override compiled
- * defaults.
+ * BOOKING_CONFIG is the source of truth for compiled-in codes that
+ * production URLs depend on. FHIR-registry records are appended only when
+ * their code isn't already in BOOKING_CONFIG — admins can ADD new categories
+ * via the Services admin but cannot silently override compiled defaults.
  *
  * Each returned record is tagged with its source ('booking-config' or
  * 'fhir') so callers can distinguish admin-managed entries from compiled-in
  * ones.
  */
-export function buildCatalog(fhirResources: HealthcareService[]): ServiceCategoryRecord[] {
-  const bookingConfigRecords: ServiceCategoryRecord[] = SERVICE_CATEGORIES_AVAILABLE.map((sc) => ({
+export function buildCatalog(fhirResources: HealthcareService[]): ServiceCategory[] {
+  const bookingConfigRecords: ServiceCategory[] = SERVICE_CATEGORIES_AVAILABLE.map((sc) => ({
     name: sc.category.display || sc.category.code || '',
     code: sc.category.code || '',
     active: true,
@@ -64,10 +63,7 @@ export function getGroupOfferedCodes(group: HealthcareService): Set<string> {
  * who haven't curated their group's categories yet don't see a blank
  * picker.
  */
-export function filterByOfferedCodes(
-  catalog: ServiceCategoryRecord[],
-  offeredCodes: Set<string>
-): ServiceCategoryRecord[] {
+export function filterByOfferedCodes(catalog: ServiceCategory[], offeredCodes: Set<string>): ServiceCategory[] {
   if (offeredCodes.size === 0) return catalog;
   return catalog.filter((sc) => offeredCodes.has(sc.code));
 }

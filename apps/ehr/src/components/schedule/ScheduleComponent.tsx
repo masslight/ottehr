@@ -88,7 +88,11 @@ function InfoForDay({ day, setDay, updateItem, loading, ownerType }: InfoForDayP
               setDay({ ...day, open: updatedTime as HourOfDay });
             } else if (type === 'Close') {
               setClose(updatedTime);
-              setDay({ ...day, close: updatedTime as HourOfDay });
+              // `close` can be 24 (midnight-next-day) for 24/7 schedules; the
+              // Close menu offers it explicitly. Canonical ScheduleDay.close
+              // is typed `HourOfDay | 24`, so the cast must allow 24 or we
+              // type-launder away a legitimate value downstream.
+              setDay({ ...day, close: updatedTime as HourOfDay | 24 });
             }
           }}
           sx={{
@@ -261,6 +265,13 @@ export default function ScheduleComponent({
   const today = DateTime.now().toLocaleString({ weekday: 'long' }).toLowerCase();
   const [dayOfWeek, setDayOfWeek] = React.useState(today);
   const [days, setDays] = React.useState<DailySchedule | undefined>(item.schema.schedule);
+  // Reconcile local `days` when the upstream `item` changes (e.g., after a
+  // refetch). Without this, the tab UI keeps showing the value captured at
+  // mount and divergence between server truth and rendered state is invisible
+  // until the page is reloaded.
+  React.useEffect(() => {
+    setDays(item.schema.schedule);
+  }, [item.schema.schedule]);
   const [toastMessage, setToastMessage] = React.useState<string | undefined>(undefined);
   const [toastType, setToastType] = React.useState<AlertColor | undefined>(undefined);
   const [snackbarOpen, setSnackbarOpen] = React.useState<boolean>(false);
@@ -350,7 +361,9 @@ export default function ScheduleComponent({
                           [day as DOW]: {
                             ...dayTemp,
                             open: dayTemp.open as HourOfDay,
-                            close: dayTemp.close as HourOfDay,
+                            // ScheduleDay.close is `HourOfDay | 24`; cast
+                            // must allow 24 so midnight-close persists.
+                            close: dayTemp.close as HourOfDay | 24,
                           },
                         };
                       });

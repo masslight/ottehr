@@ -1,10 +1,18 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { HealthcareService, PractitionerRole } from 'fhir/r4b';
-import { SCHEDULE_DISPLAY_NAME_EXTENSION_URL } from 'utils';
+import {
+  INVALID_INPUT_ERROR,
+  isServiceCategoryHealthcareService,
+  MISSING_REQUEST_BODY,
+  MISSING_REQUIRED_PARAMETERS,
+  SCHEDULE_DISPLAY_NAME_EXTENSION_URL,
+  Secrets,
+} from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
 import { checkPractitionerRoleConflict } from '../admin-practitioner-role-shared/check-conflict';
 
 interface AdminUpdatePractitionerRoleInput {
+  secrets: Secrets | null;
   roleId: string;
   /** New full set of HealthcareService ids the role offers; replaces existing. */
   categoryHealthcareServiceIds?: string[];
@@ -21,23 +29,45 @@ interface AdminUpdatePractitionerRoleInput {
 const ZAMBDA_NAME = 'admin-update-practitioner-role';
 let m2mToken: string;
 
-export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  if (!input.body) throw new Error('No request body provided');
-  if (!input.secrets) throw new Error('No secrets provided');
-  const parsed = JSON.parse(input.body) as Partial<AdminUpdatePractitionerRoleInput>;
+const validateRequestParameters = (input: ZambdaInput): AdminUpdatePractitionerRoleInput => {
+  if (!input.body) throw MISSING_REQUEST_BODY;
 
-  if (!parsed.roleId || typeof parsed.roleId !== 'string') {
-    throw new Error('roleId is required');
+  const { roleId, categoryHealthcareServiceIds, locationId, displayName } = JSON.parse(input.body);
+
+  if (!roleId) throw MISSING_REQUIRED_PARAMETERS(['roleId']);
+  if (typeof roleId !== 'string') throw INVALID_INPUT_ERROR('"roleId" must be a string');
+
+  if (categoryHealthcareServiceIds !== undefined) {
+    if (!Array.isArray(categoryHealthcareServiceIds))
+      throw INVALID_INPUT_ERROR('"categoryHealthcareServiceIds" must be an array if provided');
+    if (!categoryHealthcareServiceIds.every((id) => typeof id === 'string'))
+      throw INVALID_INPUT_ERROR('"categoryHealthcareServiceIds" must contain only strings');
   }
+  if (locationId !== undefined && typeof locationId !== 'string')
+    throw INVALID_INPUT_ERROR('"locationId" must be a string if provided');
+  if (displayName !== undefined && typeof displayName !== 'string')
+    throw INVALID_INPUT_ERROR('"displayName" must be a string if provided');
+
+  const hasCategories = Array.isArray(categoryHealthcareServiceIds);
+  const hasLocation = typeof locationId === 'string' && locationId.length > 0;
+  const hasDisplayName = typeof displayName === 'string';
+  if (!hasCategories && !hasLocation && !hasDisplayName) {
+    throw INVALID_INPUT_ERROR(
+      'At least one of "categoryHealthcareServiceIds", "locationId", or "displayName" must be provided'
+    );
+  }
+
+  return { secrets: input.secrets, roleId, categoryHealthcareServiceIds, locationId, displayName };
+};
+
+export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+  const parsed = validateRequestParameters(input);
   const hasCategories = Array.isArray(parsed.categoryHealthcareServiceIds);
   const hasLocation = typeof parsed.locationId === 'string' && parsed.locationId.length > 0;
   const hasDisplayName = typeof parsed.displayName === 'string';
-  if (!hasCategories && !hasLocation && !hasDisplayName) {
-    throw new Error('At least one of categoryHealthcareServiceIds, locationId, or displayName must be provided');
-  }
 
-  m2mToken = await checkOrCreateM2MClientToken(m2mToken, input.secrets);
-  const oystehr = createOystehrClient(m2mToken, input.secrets);
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, parsed.secrets);
+  const oystehr = createOystehrClient(m2mToken, parsed.secrets);
 
   // Validate the resulting (provider, location, category) tuple won't collide
   // with another active PR. Need the current PR to fill in fields the caller
@@ -110,8 +140,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         params: [{ name: '_id', value: refIds.join(',') }],
       });
       for (const hs of refBundle.unbundle()) {
-        const isCategoryTagged = (hs.meta?.tag ?? []).some((t) => t.code === 'booking-service-category');
-        if (hs.id && isCategoryTagged) categoryTaggedIds.add(hs.id);
+        // Match both system and code via the canonical predicate — a bare
+        // `code === 'booking-service-category'` check would misidentify any
+        // resource carrying a colliding code from a different system.
+        if (hs.id && isServiceCategoryHealthcareService(hs)) categoryTaggedIds.add(hs.id);
       }
     }
     const preservedNonCategoryRefs = (currentRole.healthcareService ?? []).filter((ref) => {

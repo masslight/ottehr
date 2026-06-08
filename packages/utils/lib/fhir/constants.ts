@@ -404,8 +404,7 @@ export const ScheduleStrategyCoding = {
 // Note on parallel concepts: a separate ServiceModeCoding above uses the HL7
 // standard system for location/practitioner mode tracking. ServiceCategory-
 // ModeCoding here uses an ottehr-namespaced system derived from the product-
-// level ServiceMode enum. See design-debt-log.md D-2 for the consolidation
-// story.
+// level ServiceMode enum.
 
 /** meta.tag identifying a HealthcareService as a service-category catalog entry. */
 export const SERVICE_CATEGORY_TAG = {

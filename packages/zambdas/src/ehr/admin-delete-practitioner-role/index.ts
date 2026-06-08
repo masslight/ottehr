@@ -1,13 +1,23 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Schedule } from 'fhir/r4b';
+import { INVALID_INPUT_ERROR, MISSING_REQUEST_BODY, MISSING_REQUIRED_PARAMETERS, Secrets } from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
 
 interface AdminDeletePractitionerRoleInput {
+  secrets: Secrets | null;
   roleId: string;
 }
 
 const ZAMBDA_NAME = 'admin-delete-practitioner-role';
 let m2mToken: string;
+
+const validateRequestParameters = (input: ZambdaInput): AdminDeletePractitionerRoleInput => {
+  if (!input.body) throw MISSING_REQUEST_BODY;
+  const { roleId } = JSON.parse(input.body);
+  if (!roleId) throw MISSING_REQUIRED_PARAMETERS(['roleId']);
+  if (typeof roleId !== 'string') throw INVALID_INPUT_ERROR('"roleId" must be a string');
+  return { secrets: input.secrets, roleId };
+};
 
 // Soft-delete: set active=false on the PR and on every Schedule whose actor is
 // the PR. Past Appointments / Encounters may reference these resources, so we
@@ -15,15 +25,10 @@ let m2mToken: string;
 // list query filters by active=true, so deactivated rows disappear from the UI
 // but historical references remain valid.
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  if (!input.body) throw new Error('No request body provided');
-  if (!input.secrets) throw new Error('No secrets provided');
-  const parsed = JSON.parse(input.body) as Partial<AdminDeletePractitionerRoleInput>;
-  if (!parsed.roleId || typeof parsed.roleId !== 'string') {
-    throw new Error('roleId is required');
-  }
+  const parsed = validateRequestParameters(input);
 
-  m2mToken = await checkOrCreateM2MClientToken(m2mToken, input.secrets);
-  const oystehr = createOystehrClient(m2mToken, input.secrets);
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, parsed.secrets);
+  const oystehr = createOystehrClient(m2mToken, parsed.secrets);
 
   // Deactivate any Schedule whose actor is this PR before deactivating the PR
   // itself. The PR-side filter (active=true) is the load-bearing mechanism

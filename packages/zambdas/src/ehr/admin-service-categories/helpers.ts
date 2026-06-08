@@ -22,8 +22,8 @@ import { checkOrCreateM2MClientToken, createOystehrClient, ZambdaInput } from '.
  * On the FHIR side:
  * - durationMinutes, cadenceMinutes, serviceModes, visitTypes live on
  *   HealthcareService.characteristic[] (queryable).
- * - reasonsForVisit currently lives in a JSON-blob extension; see
- *   design-debt-log.md D-1 for the planned move to a contained ValueSet.
+ * - reasonsForVisit currently lives in a JSON-blob extension at
+ *   SERVICE_CATEGORY_CONFIG_EXTENSION_URL.
  */
 export interface ServiceCategoryRuntimeConfig {
   durationMinutes: number;
@@ -40,7 +40,7 @@ export interface ServiceCategoryRuntimeConfig {
   reasonsForVisit?: Array<{ label: string; value: string }>;
 }
 
-export interface ServiceCategoryRecord {
+export interface ServiceCategory {
   id?: string;
   name: string;
   code: string;
@@ -80,7 +80,7 @@ function parseReasonsForVisit(resource: HealthcareService): Array<{ label: strin
   }
 }
 
-export function toRecord(resource: HealthcareService): ServiceCategoryRecord {
+export function toRecord(resource: HealthcareService): ServiceCategory {
   const code =
     resource.type?.[0]?.coding?.find((c) => c.system === SERVICE_CATEGORY_SYSTEM)?.code ||
     resource.type?.[0]?.coding?.[0]?.code ||
@@ -103,7 +103,7 @@ export function toRecord(resource: HealthcareService): ServiceCategoryRecord {
   };
 }
 
-export function toFhirResource(record: ServiceCategoryRecord): HealthcareService {
+export function toFhirResource(record: ServiceCategory): HealthcareService {
   const type: CodeableConcept[] = [
     {
       coding: [
@@ -135,8 +135,7 @@ export function toFhirResource(record: ServiceCategoryRecord): HealthcareService
     name: record.name,
     type,
     characteristic: ownedCharacteristics,
-    // Free-form fields still live in the JSON-blob extension; see
-    // design-debt-log.md D-1.
+    // Free-form fields still live in the JSON-blob extension.
     extension:
       reasons.length > 0
         ? [

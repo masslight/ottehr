@@ -58,11 +58,6 @@ const canonicalCapacityForHour = (day: Day, hour: number, isLocation: boolean): 
 // re-render — re-sync from canonical only happens while the field is blurred
 // (e.g., the schedule was reloaded from the server while the user was
 // elsewhere on the page).
-//
-// Replaces the previous uncontrolled `defaultValue` implementation, which
-// produced an intermittent 1 → 0 reset (design-debt-log D-7): an upstream
-// re-render or remount re-read `defaultValue` from a stale `day` reference
-// and wiped the user's typed value.
 const CapacityCell: React.FC<CapacityCellProps> = ({
   hour,
   day,
@@ -94,10 +89,9 @@ const CapacityCell: React.FC<CapacityCellProps> = ({
         setRawValue(next);
         const parsed = Number(next);
         if (!Number.isFinite(parsed)) return;
-        // Build a fresh hours array (immutable). Previously this mutated
-        // `day.hours` in place and re-used `day`'s reference, which made
-        // upstream `setDays(sameRef)` calls no-op via React's Object.is
-        // bail — see ScheduleComponent.tsx setDay refactor (D-7).
+        // Build a fresh hours array (immutable) — re-using `day`'s reference
+        // here makes upstream `setDays(sameRef)` calls no-op via React's
+        // Object.is bail, which manifests as edits silently failing to render.
         const tempHours: Capacity[] = [];
         for (let i = openingHour; i < close; i++) {
           const existing = day.hours.find((h) => h.hour === i);

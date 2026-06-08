@@ -18,18 +18,22 @@ export default function AddSchedulePage(): ReactElement {
     throw new Error('scheduleType is not defined');
   }
 
-  const [name, setName] = useState<string | undefined>(undefined);
+  const [name, setName] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
+  // Require a non-empty name at create time so the resulting schedule list
+  // never renders an "Unnamed location" / "Unnamed group" row. The list-side
+  // fallback is kept for legacy records, but no NEW record should land
+  // without a name.
+  const trimmedName = name.trim();
 
   async function createSchedule(event: any): Promise<void> {
     event.preventDefault();
-    if (!oystehr) {
-      return;
-    }
+    if (!oystehr) return;
+    if (!trimmedName) return;
     setLoading(true);
     const resourceData: Location | HealthcareService = {
       resourceType: getResource(scheduleType),
-      name: name as any,
+      name: trimmedName,
     };
     if (scheduleType === 'group') {
       (resourceData as HealthcareService).characteristic = [
@@ -79,9 +83,22 @@ export default function AddSchedulePage(): ReactElement {
               Add {scheduleType}
             </Typography>
             <form onSubmit={createSchedule}>
-              <TextField label="Name" required value={name} onChange={(event) => setName(event.target.value)} />
+              <TextField
+                label="Name"
+                required
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                helperText={!trimmedName ? 'Name is required' : ' '}
+                error={!trimmedName && name.length > 0}
+              />
               <br />
-              <LoadingButton type="submit" loading={loading} variant="contained" sx={{ marginTop: 2 }}>
+              <LoadingButton
+                type="submit"
+                loading={loading}
+                variant="contained"
+                sx={{ marginTop: 2 }}
+                disabled={!trimmedName}
+              >
                 Save
               </LoadingButton>
             </form>

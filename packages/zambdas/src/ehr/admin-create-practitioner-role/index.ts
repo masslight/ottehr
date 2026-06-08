@@ -4,14 +4,19 @@ import { randomUUID } from 'crypto';
 import { HealthcareService, PractitionerRole, Schedule } from 'fhir/r4b';
 import {
   BLANK_SCHEDULE_JSON_TEMPLATE,
+  INVALID_INPUT_ERROR,
+  MISSING_REQUEST_BODY,
+  MISSING_REQUIRED_PARAMETERS,
   SCHEDULE_DISPLAY_NAME_EXTENSION_URL,
   SCHEDULE_EXTENSION_URL,
+  Secrets,
   TIMEZONE_EXTENSION_URL,
 } from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
 import { checkPractitionerRoleConflict } from '../admin-practitioner-role-shared/check-conflict';
 
 interface AdminCreatePractitionerRoleInput {
+  secrets: Secrets | null;
   practitionerId: string;
   locationId: string;
   /** HealthcareService ids tagged 'booking-service-category' that this role offers. */
@@ -33,26 +38,42 @@ interface AdminCreatePractitionerRoleResponse {
 const ZAMBDA_NAME = 'admin-create-practitioner-role';
 let m2mToken: string;
 
+const validateRequestParameters = (input: ZambdaInput): AdminCreatePractitionerRoleInput => {
+  if (!input.body) throw MISSING_REQUEST_BODY;
+
+  const { practitionerId, locationId, categoryHealthcareServiceIds, timezone, displayName } = JSON.parse(input.body);
+
+  const missing: string[] = [];
+  if (!practitionerId) missing.push('practitionerId');
+  if (!locationId) missing.push('locationId');
+  if (!timezone) missing.push('timezone');
+  if (missing.length > 0) throw MISSING_REQUIRED_PARAMETERS(missing);
+
+  if (typeof practitionerId !== 'string') throw INVALID_INPUT_ERROR('"practitionerId" must be a string');
+  if (typeof locationId !== 'string') throw INVALID_INPUT_ERROR('"locationId" must be a string');
+  if (typeof timezone !== 'string') throw INVALID_INPUT_ERROR('"timezone" must be a string');
+  if (!Array.isArray(categoryHealthcareServiceIds))
+    throw INVALID_INPUT_ERROR('"categoryHealthcareServiceIds" must be an array');
+  if (!categoryHealthcareServiceIds.every((id) => typeof id === 'string'))
+    throw INVALID_INPUT_ERROR('"categoryHealthcareServiceIds" must contain only strings');
+  if (displayName !== undefined && typeof displayName !== 'string')
+    throw INVALID_INPUT_ERROR('"displayName" must be a string if provided');
+
+  return {
+    secrets: input.secrets,
+    practitionerId,
+    locationId,
+    categoryHealthcareServiceIds,
+    timezone,
+    displayName,
+  };
+};
+
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  if (!input.body) throw new Error('No request body provided');
-  if (!input.secrets) throw new Error('No secrets provided');
-  const parsed = JSON.parse(input.body) as Partial<AdminCreatePractitionerRoleInput>;
+  const parsed = validateRequestParameters(input);
 
-  if (!parsed.practitionerId || typeof parsed.practitionerId !== 'string') {
-    throw new Error('practitionerId is required');
-  }
-  if (!parsed.locationId || typeof parsed.locationId !== 'string') {
-    throw new Error('locationId is required');
-  }
-  if (!Array.isArray(parsed.categoryHealthcareServiceIds)) {
-    throw new Error('categoryHealthcareServiceIds must be an array');
-  }
-  if (!parsed.timezone || typeof parsed.timezone !== 'string') {
-    throw new Error('timezone is required');
-  }
-
-  m2mToken = await checkOrCreateM2MClientToken(m2mToken, input.secrets);
-  const oystehr = createOystehrClient(m2mToken, input.secrets);
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, parsed.secrets);
+  const oystehr = createOystehrClient(m2mToken, parsed.secrets);
 
   // Reject configurations where this provider already has an active schedule
   // at this location offering one of the requested categories. We resolve

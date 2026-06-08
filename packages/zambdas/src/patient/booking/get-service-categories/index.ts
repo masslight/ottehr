@@ -1,29 +1,49 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { HealthcareService } from 'fhir/r4b';
-import { SERVICE_CATEGORY_TAG, SLUG_SYSTEM } from 'utils';
+import { INVALID_INPUT_ERROR, Secrets, SERVICE_CATEGORY_TAG, SLUG_SYSTEM } from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
 import { buildCatalog, filterByOfferedCodes, getGroupOfferedCodes } from './helpers';
 
+interface GetServiceCategoriesInput {
+  secrets: Secrets | null;
+  /** Optional scoping context: when scheduleType==='group' && bookingOn=<slug>, returned categories are filtered to that group's offering. */
+  scheduleType?: string;
+  bookingOn?: string;
+}
+
 let m2mToken: string;
+
+const validateRequestParameters = (input: ZambdaInput): GetServiceCategoriesInput => {
+  // Body is optional — when omitted (or unparseable), we return the full
+  // catalog. When present, scheduleType + bookingOn must be strings if set.
+  let scheduleType: string | undefined;
+  let bookingOn: string | undefined;
+  if (input.body) {
+    let parsed: { scheduleType?: unknown; bookingOn?: unknown };
+    try {
+      parsed = JSON.parse(input.body);
+    } catch {
+      throw INVALID_INPUT_ERROR('Request body must be valid JSON if provided');
+    }
+    if (parsed.scheduleType !== undefined) {
+      if (typeof parsed.scheduleType !== 'string')
+        throw INVALID_INPUT_ERROR('"scheduleType" must be a string if provided');
+      scheduleType = parsed.scheduleType;
+    }
+    if (parsed.bookingOn !== undefined) {
+      if (typeof parsed.bookingOn !== 'string') throw INVALID_INPUT_ERROR('"bookingOn" must be a string if provided');
+      bookingOn = parsed.bookingOn;
+    }
+  }
+  return { secrets: input.secrets, scheduleType, bookingOn };
+};
 
 export const index = wrapHandler(
   'get-service-categories',
   async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-    if (!input.secrets) throw new Error('No secrets provided');
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, input.secrets);
-    const oystehr = createOystehrClient(m2mToken, input.secrets);
-
-    // Optional: scope the returned categories to those offered by a specific
-    // bookable entity (today: a group HealthcareService's declared types).
-    let groupContext: { scheduleType?: string; bookingOn?: string } = {};
-    try {
-      if (input.body) {
-        const parsed = JSON.parse(input.body);
-        groupContext = { scheduleType: parsed.scheduleType, bookingOn: parsed.bookingOn };
-      }
-    } catch {
-      // bad body — ignore scoping
-    }
+    const { secrets, scheduleType, bookingOn } = validateRequestParameters(input);
+    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+    const oystehr = createOystehrClient(m2mToken, secrets);
 
     const fhirResources = (
       await oystehr.fhir.search<HealthcareService>({
@@ -36,11 +56,11 @@ export const index = wrapHandler(
     ).unbundle();
     const fullCatalog = buildCatalog(fhirResources);
 
-    if (groupContext.scheduleType === 'group' && groupContext.bookingOn) {
+    if (scheduleType === 'group' && bookingOn) {
       const groupMatches = (
         await oystehr.fhir.search<HealthcareService>({
           resourceType: 'HealthcareService',
-          params: [{ name: 'identifier', value: `${SLUG_SYSTEM}|${groupContext.bookingOn}` }],
+          params: [{ name: 'identifier', value: `${SLUG_SYSTEM}|${bookingOn}` }],
         })
       ).unbundle();
       const group = groupMatches[0];
