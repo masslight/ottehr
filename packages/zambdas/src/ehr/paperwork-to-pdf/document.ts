@@ -10,7 +10,7 @@ import {
   QuestionnaireResponseItemAnswer,
   Schedule,
 } from 'fhir/r4b';
-import { formatDateToMDYWithTime, getAppointmentType, getCanonicalQuestionnaire } from 'utils';
+import { formatDateToMDYWithTime, getAppointmentType, getCanonicalQuestionnaire, getPatientFriendlyId } from 'utils';
 import { assertDefined, resolveTimezone } from '../../shared';
 
 export interface Document {
@@ -87,7 +87,7 @@ export async function createDocument(
   return {
     patientInfo: {
       name: patient.name?.[0].family + ', ' + patient.name?.[0].given,
-      id: patient.id ?? '',
+      id: getPatientFriendlyId(patient),
     },
     visitInfo: {
       type,
