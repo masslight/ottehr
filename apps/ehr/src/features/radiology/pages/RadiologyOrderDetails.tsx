@@ -269,7 +269,7 @@ export const RadiologyOrderDetailsPage: React.FC = () => {
                           setFinalReportByUser(!finalReportByUser);
                         }}
                       />
-                      <Typography>Don't send to teleradiology, I will write the final report myself</Typography>
+                      <Typography>Don't send to teleradiology, I will write the final report myself.</Typography>
                     </Box>
                   </Box>
                   {finalReportByUser && (
