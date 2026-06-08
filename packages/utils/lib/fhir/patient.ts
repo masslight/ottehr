@@ -18,7 +18,7 @@ import {
   RelatedPerson,
   Resource,
 } from 'fhir/r4b';
-import { formatZipcodeForDisplay, removePrefix } from '../helpers';
+import { formatZipcodeForDisplay, removePrefix, standardizePhoneNumber } from '../helpers';
 import {
   ORG_TYPE_CODE_SYSTEM,
   PATIENT_INDIVIDUAL_PRONOUNS_URL,
@@ -499,6 +499,21 @@ export const isPatientDemographicsComplete = (patient: Patient | undefined): boo
     hasReachableContact(patient) &&
     hasNonEmptyAddress(patient)
   );
+};
+
+export const getErxPatientDemographicErrors = (patient: Patient | undefined): string[] => {
+  if (!patient) return ['patient'];
+
+  const errors: string[] = [];
+  const phone = patient.telecom?.find((telecom) => telecom.system === 'phone')?.value;
+
+  if (!hasNonEmptyName(patient)) errors.push('name');
+  if (!hasNonEmptyBirthDate(patient)) errors.push('birthDate');
+  if (!hasNonEmptyGender(patient)) errors.push('gender');
+  if (!standardizePhoneNumber(phone)) errors.push('phone');
+  if (!hasNonEmptyAddress(patient)) errors.push('address');
+
+  return errors;
 };
 
 type MightHaveTelecom = RelatedPerson | Patient | Person | Practitioner;
