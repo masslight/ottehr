@@ -11,6 +11,7 @@ import {
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import { invokeChatbotVertexAI } from '../../shared/ai';
 import { createOystehrClient } from '../../shared/helpers';
+import { searchIcd10Codes } from '../../shared/icd-10-search';
 import { findHolderList } from '../shared/template-helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -182,6 +183,63 @@ function normProblem(s: string): string {
     .trim();
 }
 
+// ── Code validation (the invariant) ────────────────────────────────────────────────────────────
+// No code may reach the note unless the canonical source actually returned it. The model's `code`
+// is only a HINT: we exact-lookup it, and on a miss fall back to a text search of the display /
+// searchTerms and take a real result. A hallucinated or invalid code is therefore corrected (or
+// dropped), never charted.
+
+const STRICT_CPT = /^\d{4,5}$/; // CPT, incl. E&M 99xxx
+const STRICT_HCPCS = /^[A-V]\d{4}$/; // HCPCS Level II (J-codes, etc.)
+
+// ICD-10 via the canonical local search (same engine the icd-10-search zambda exposes).
+async function resolveIcd(
+  suggestedCode: string | undefined,
+  display: string,
+  searchTerms: string[]
+): Promise<{ code: string; display: string } | undefined> {
+  const code = suggestedCode?.trim().toUpperCase();
+  // 1. Exact-lookup the model's proposed code — the happy path needs no ranking.
+  if (code && STRICT_ICD10.test(code)) {
+    const byCode = await searchIcd10Codes(code);
+    const exact = byCode.find((c) => c.code.toUpperCase() === code);
+    if (exact) return { code: exact.code, display: exact.display };
+  }
+  // 2. Miss → text search by display, then each search term; take the top real result.
+  for (const q of [display, ...searchTerms]) {
+    if (!q || !q.trim()) continue;
+    const res = await searchIcd10Codes(q.trim());
+    if (res.length) return { code: res[0].code, display: res[0].display };
+  }
+  // 3. Nothing valid found — caller drops the code and lets the client picker resolve by display.
+  return undefined;
+}
+
+// CPT / HCPCS via the Oystehr terminology service.
+//   {code,display} → validated;  null → service reachable but code is not real (drop);
+//   undefined-shape preserved via the returned object when the service is unreachable (degraded:
+//   keep the model's code rather than silently dropping all billing on a transient outage).
+async function resolveCptHcpcs(
+  oystehr: Oystehr,
+  code: string,
+  display: string
+): Promise<{ code: string; display: string } | null> {
+  const c = code.trim().toUpperCase();
+  const isHcpcs = STRICT_HCPCS.test(c);
+  const isCpt = STRICT_CPT.test(c);
+  if (!isHcpcs && !isCpt) return null; // not a recognizable CPT/HCPCS shape → drop
+  try {
+    const resp = isHcpcs
+      ? await oystehr.terminology.searchHcpcs({ query: c, searchType: 'code', strictMatch: true, limit: 5 })
+      : await oystehr.terminology.searchCpt({ query: c, searchType: 'code', strictMatch: true, limit: 5 });
+    const exact = (resp.codes ?? []).find((x: { code: string }) => x.code.toUpperCase() === c);
+    return exact ? { code: exact.code, display: exact.display } : null; // reachable + not found → drop
+  } catch (e) {
+    console.warn('Planner: CPT/HCPCS terminology unavailable, keeping model code as-is:', e);
+    return { code, display }; // degraded: service unreachable → keep the model's code
+  }
+}
+
 // Mirror the agent's intent kinds — the planner emits the same shape, just as a list.
 const KIND_VALUES = [
   'unknown',
@@ -333,6 +391,13 @@ doesn't mention):
      "AOM Right", NOT "AOM Bilateral". Choose Bilateral ONLY when the disease/finding is present
      on BOTH sides (e.g. "both TMs bulging and erythematous"). Examining both ears, or symptoms
      that started on one side and moved, does not make it bilateral.
+     CURRENT problem, not a PAST one: anchor the side/site on the body part that is abnormal or
+     being treated AT THIS VISIT. A problem the patient previously HAD on the other side, an
+     already-resolved finding, or a side that is normal on today's exam is HISTORY and must never
+     set the laterality of the current diagnosis — even when that other side is named prominently.
+     When one side is described as normal/clear now and the other as the problem, the diagnosis is
+     the PROBLEM side: e.g. "the right looks fine, it's the left that's infected; she'd had a right
+     one a while back that cleared" → code the LEFT (the side affected now), not the right.
      PREFER THE MOST SPECIFIC DIAGNOSIS: when the narrative supports a specific diagnosis but the
      best-matching template is a generic symptom template (e.g. "Headache" when the patient has a
      known migraine), STILL apply the generic template for structure, but ALSO emit an
@@ -368,11 +433,17 @@ ACTION SHAPES (use these intent kinds and the same fields the single-shot agent 
 
 - add-allergy / add-condition / add-medication / add-surgical-history / add-hospitalization /
   add-diagnosis: { kind, display, searchTerms[1-3] }; add-diagnosis also takes isPrimary.
-- add-condition and add-diagnosis ALSO take an OPTIONAL "code" field for the ICD-10 code when
-  the narrative explicitly states one ("acute otitis media (H66.91)", "PMH hypertension I10",
-  "S93.421A ankle sprain"). Format: just the code, no parentheses. Omit if not stated. This is
-  critical for picker accuracy — without the code the client search often returns wrong subtypes
-  (e.g. "Acute otitis media" → serous H65.x instead of suppurative H66.x).
+- add-condition and add-diagnosis ALSO take a "code" field for the ICD-10 code. PROVIDE YOUR BEST
+  ICD-10 code for EVERY diagnosis — your best clinical judgment, even when the narrative did not
+  state one ("herniated disc at L4-L5" → "M51.16", "acute otitis media right ear" → "H66.91",
+  "migraine" → "G43.909", "PMH hypertension" → "I10"). Format: just the code, no parentheses.
+  Every code is VALIDATED against the official ICD-10 set before anything is charted: if your code
+  is a real billable code it is used; if it is not, the system automatically falls back to searching
+  your "display"/"searchTerms" — so a wrong guess is safely corrected and a hallucinated code can
+  NEVER be charted. Propose confidently; do not leave the code blank just because the narrative
+  didn't spell it out. Still set an accurate, SPECIFIC "display" — it is the fallback search query
+  and the picker label (without it the search returns wrong subtypes, e.g. "Acute otitis media" →
+  serous H65.x instead of suppurative H66.x).
   INCLUDE ANATOMIC LOCATION + LATERALITY for INJURY / EXTERNAL-CAUSE diagnoses (ICD-10 S- and
   T-codes: bites, sprains, fractures, lacerations, burns, contusions). For these, the code is
   organized by body region, so the "display" and "searchTerms" MUST carry the site/side the
@@ -490,10 +561,13 @@ RULES:
     "Tender lateral malleolus with anterior talofibular tenderness" → ONE step.
   Emit SEPARATE steps only when the narrative describes findings on distinctly different
   anatomic sites or systems ("Right TM bulging. Throat injected." → two steps).
-- Do NOT make up codes (ICD-10, RxNorm, CPT). The client searches canonical sources. EXCEPTION:
-  the standard injection-administration CPT (96372/96374/96365) and the curated drug HCPCS
-  J-codes listed under add-cpt ARE expected to be supplied directly — those are fixed standard
-  codes, not guesses.
+- PROPOSE your best ICD-10 code for every diagnosis (see add-diagnosis). Every code you emit is
+  validated against the canonical code set and replaced via search if it is not real, so propose
+  confidently — you cannot chart a hallucinated diagnosis code. For CPT/HCPCS, supply a code ONLY
+  when you are confident it is a real, performed procedure/supply or the standard
+  injection-administration set (96372/96374/96365) and curated drug HCPCS J-codes under add-cpt;
+  these are likewise validated against the CPT service and dropped if not real. Do NOT invent
+  RxNorm codes — medications resolve by name.
 - For ambiguous picks (e.g. multiple matching procedures or exam findings), still emit the step
   with the provider's wording — the client will present a picker.
 - Don't emit duplicate or redundant steps. If the narrative implies several edits to the same
@@ -540,9 +614,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   // lookup fails (network, M2M auth, missing holder list), proceed without templates so the
   // planner still produces a useful decomposition without apply-template suggestions.
   let templateTitles: string[] = [];
+  let oystehr: Oystehr | undefined;
   try {
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
+    oystehr = createOystehrClient(m2mToken, secrets);
     templateTitles = await fetchTemplateTitles(oystehr);
   } catch (e) {
     console.warn('Planner: template-list fetch failed, proceeding without:', e);
@@ -642,7 +717,33 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     return !(displayDup || codeDup);
   });
 
-  const steps = deduped as unknown as EasyChartAgentIntent[];
+  // (D) Code validation — the invariant: the model's codes are only hints; every code that
+  // survives is one the canonical ICD search / CPT service actually returned, so a hallucinated
+  // code can never reach the note.
+  await Promise.all(
+    deduped.map(async (r) => {
+      if (r.kind === 'add-diagnosis' || r.kind === 'add-condition') {
+        const display = typeof r.display === 'string' ? r.display : '';
+        const searchTerms = Array.isArray(r.searchTerms)
+          ? (r.searchTerms.filter((t) => typeof t === 'string' && !!t.trim()) as string[])
+          : [];
+        const resolved = await resolveIcd(typeof r.code === 'string' ? r.code : undefined, display, searchTerms);
+        if (resolved) r.code = resolved.code;
+        else delete r.code; // nothing valid → let the client picker resolve by display
+      } else if ((r.kind === 'set-em-code' || r.kind === 'add-cpt') && typeof r.code === 'string' && r.code.trim()) {
+        if (!oystehr) return; // no client (template fetch failed) → can't validate; leave as-is (degraded)
+        const resolved = await resolveCptHcpcs(oystehr, r.code, typeof r.display === 'string' ? r.display : '');
+        if (resolved === null) {
+          (r as Record<string, unknown>).__drop = true; // reachable + invalid → drop the step
+        } else {
+          r.code = resolved.code;
+          if (resolved.display) r.display = resolved.display;
+        }
+      }
+    })
+  );
+
+  const steps = deduped.filter((r) => !(r as Record<string, unknown>).__drop) as unknown as EasyChartAgentIntent[];
 
   const output: EasyChartPlannerOutput = { steps };
   return { statusCode: 200, body: JSON.stringify(output) };

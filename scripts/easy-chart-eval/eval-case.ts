@@ -124,7 +124,7 @@ async function main(): Promise<void> {
     console.error('Usage: tsx eval-case.ts <caseNumber> [topN=15]');
     process.exit(1);
   }
-  const dir = join(homedir(), 'Downloads', 'easychart');
+  const dir = process.env.EVAL_DIR || join(homedir(), 'Downloads', 'easychart');
   const note = readFileSync(join(dir, `${caseNum}.txt`), 'utf-8');
   const transcript = readFileSync(join(dir, `${caseNum}a.txt`), 'utf-8');
   const expected = extractExpectedCodes(note);
