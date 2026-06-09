@@ -142,12 +142,12 @@ const enrichFhirBackedRfvOptions = async (params: {
   const existingValues = new Set(
     rfvItem.answerOption.map((o) => o.valueString).filter((v): v is string => typeof v === 'string')
   );
-for (const r of reasons) {
-  if (!existingValues.has(r.value)) {
-    existingValues.add(r.value);
-    rfvItem.answerOption.push({ valueString: r.value });
+  for (const r of reasons) {
+    if (!existingValues.has(r.value)) {
+      existingValues.add(r.value);
+      rfvItem.answerOption.push({ valueString: r.value });
+    }
   }
-}
 
   // Add a display filter scoped to this (category, mode) so the intake-side
   // `useDisplayFilteredOptions` narrows the rendered list to just these
@@ -160,6 +160,7 @@ for (const r of reasons) {
         { question: 'appointment-service-mode', operator: '=', answer: serviceMode },
       ],
       Array.from(new Set(reasons.map((r) => r.value)))
+    )
   );
 
   return questionnaire;
