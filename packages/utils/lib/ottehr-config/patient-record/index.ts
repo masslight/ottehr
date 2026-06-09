@@ -212,7 +212,22 @@ const FormFields: PatientRecordFormFields = {
       city: { key: 'patient-city', type: 'string', label: 'City' },
       state: { key: 'patient-state', type: 'choice', label: 'State', options: formValueSets.stateOptions },
       zip: { key: 'patient-zip', type: 'string', label: 'ZIP', dataType: 'ZIP' },
-      email: { key: 'patient-email', type: 'string', label: 'Patient email', dataType: 'Email' },
+      email: {
+        key: 'patient-email',
+        type: 'string',
+        label: 'Patient email',
+        dataType: 'Email',
+        triggers: [
+          {
+            targetQuestionLinkId: 'patient-no-email',
+            effect: ['enable', 'require'],
+            operator: '!=',
+            answerBoolean: true,
+          },
+        ],
+        disabledDisplay: 'hidden',
+      },
+      noEmail: { key: 'patient-no-email', type: 'boolean', label: "Patient doesn't have an email address" },
       phone: { key: 'patient-number', type: 'string', label: 'Patient mobile', dataType: 'Phone Number' },
       preferredCommunicationMethod: {
         key: 'patient-preferred-communication-method',
@@ -227,7 +242,6 @@ const FormFields: PatientRecordFormFields = {
       'patient-city',
       'patient-zip',
       'patient-state',
-      'patient-email',
       'patient-number',
       'patient-preferred-communication-method',
     ],

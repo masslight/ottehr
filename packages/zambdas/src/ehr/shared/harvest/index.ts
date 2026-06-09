@@ -754,6 +754,7 @@ const paperworkToPatientFieldMap: Record<string, string> = {
   'patient-point-of-discovery': patientFieldPaths.pointOfDiscovery,
   'mobile-opt-in': patientFieldPaths.sendMarketing,
   'common-well-consent': patientFieldPaths.commonWellConsent,
+  'patient-no-email': patientFieldPaths.noEmail,
   'patient-ssn': patientFieldPaths.ssn,
   'patient-preferred-communication-method': patientFieldPaths.preferredCommunicationMethod,
   'insurance-carrier': coverageFieldPaths.carrier,
@@ -821,6 +822,8 @@ export function createMasterRecordPatchOperations(
   const extensionIntents: Array<{ url: string; action: 'set' | 'remove'; value?: string }> = [];
   let isUseMissedInPatientName = false;
 
+  const noEmail = flattenedPaperwork.find((item) => item.linkId === 'patient-no-email')?.answer?.[0]?.valueBoolean;
+
   flattenedPaperwork.forEach((item) => {
     const value = extractValueFromItem(item);
 
@@ -856,12 +859,9 @@ export function createMasterRecordPatchOperations(
     // Handle telecom fields
     const contactTelecomConfig = contactTelecomConfigs[item.linkId];
     if (contactTelecomConfig) {
-      const operation = createPatchOperationForTelecom(
-        contactTelecomConfig,
-        patient,
-        path,
-        isAnswerEmpty ? undefined : (value as string)
-      );
+      const effectiveValue =
+        item.linkId === 'patient-email' && noEmail ? undefined : isAnswerEmpty ? undefined : (value as string);
+      const operation = createPatchOperationForTelecom(contactTelecomConfig, patient, path, effectiveValue);
       if (operation) tempOperations.push(operation);
       return;
     }
@@ -4235,7 +4235,7 @@ export const updateStripeCustomer = async (input: UpdateStripeCustomerInput): Pr
     await stripeClient.customers.update(
       pair.customerId,
       {
-        email,
+        email: email ?? '',
         name,
         phone,
       },

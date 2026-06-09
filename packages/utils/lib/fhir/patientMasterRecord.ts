@@ -11,6 +11,7 @@ import {
   PATIENT_HEARING_IMPAIRED_RELAY_SERVICE_URL,
   PATIENT_INDIVIDUAL_PRONOUNS_CUSTOM_URL,
   PATIENT_INDIVIDUAL_PRONOUNS_URL,
+  PATIENT_NO_EMAIL_URL,
   PATIENT_POINT_OF_DISCOVERY_URL,
   PATIENT_RACE_URL,
   PATIENT_RELEASE_OF_INFO_URL,
@@ -89,6 +90,7 @@ export const patientFieldPaths = {
   deceasedDate: 'Patient/deceasedDateTime',
   deceasedNote: `Patient/extension/${PATIENT_DECEASED_NOTE_URL}`,
   preferredCommunicationMethod: `Patient/extension/${PREFERRED_COMMUNICATION_METHOD_EXTENSION_URL}`,
+  noEmail: `Patient/extension/${PATIENT_NO_EMAIL_URL}`,
 };
 
 export const coverageFieldPaths = {
@@ -193,6 +195,10 @@ const EXTENSION_CONFIGS: Record<string, ExtensionConfig> = {
   preferredCommunicationMethod: {
     url: PREFERRED_COMMUNICATION_METHOD_EXTENSION_URL,
     valueType: 'valueString',
+  },
+  noEmail: {
+    url: PATIENT_NO_EMAIL_URL,
+    valueType: 'valueBoolean',
   },
 };
 
