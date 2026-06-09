@@ -264,6 +264,65 @@ describe('eRx sync tag helpers', () => {
       expect(get).not.toHaveBeenCalled();
     });
 
+    it('patches without optimistic locking when disabled', async () => {
+      const patch = vi.fn().mockResolvedValue(undefined);
+      const get = vi.fn();
+      const oystehr = {
+        fhir: {
+          patch,
+          get,
+        },
+      } as unknown as Oystehr;
+
+      await tagEncounterAsErxSynced(
+        oystehr,
+        makeEncounter({
+          id: 'enc-1',
+          meta: {
+            versionId: 'v1',
+          },
+        }),
+        {
+          useOptimisticLocking: false,
+        }
+      );
+
+      expect(patch).toHaveBeenCalledTimes(1);
+      expect(patch).toHaveBeenCalledWith(
+        expect.objectContaining({
+          resourceType: 'Encounter',
+          id: 'enc-1',
+        }),
+        {}
+      );
+      expect(get).not.toHaveBeenCalled();
+    });
+
+    it('does not refresh or retry on failure when optimistic locking is disabled', async () => {
+      const patch = vi.fn().mockRejectedValue(new Error('patch failed'));
+      const get = vi.fn();
+      const oystehr = {
+        fhir: {
+          patch,
+          get,
+        },
+      } as unknown as Oystehr;
+
+      await tagEncounterAsErxSynced(
+        oystehr,
+        makeEncounter({
+          id: 'enc-1',
+          meta: { versionId: 'v1' },
+        }),
+        {
+          useOptimisticLocking: false,
+        }
+      );
+
+      expect(patch).toHaveBeenCalledTimes(1);
+      expect(get).not.toHaveBeenCalled();
+    });
+
     it('does nothing when the encounter is already synced', async () => {
       const patch = vi.fn();
       const oystehr = {

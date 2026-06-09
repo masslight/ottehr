@@ -728,7 +728,8 @@ export const useSyncERXPatient = ({
         }
 
         try {
-          await tagEncounterAsErxSynced(oystehr, encounter);
+          // optimistic locking causes `If-Match` cors header failures
+          await tagEncounterAsErxSynced(oystehr, encounter, { useOptimisticLocking: false });
         } catch (tagErr) {
           // it's fine if it fails, it'll just try syncing again later
           console.error('Failed to tag encounter as erx-synced: ', tagErr);

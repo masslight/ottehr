@@ -382,7 +382,12 @@ export const isEncounterErxSynced = (encounter: Encounter): boolean =>
       tag.system === FHIR_ENCOUNTER_ERX_PATIENT_SYNC_TAG.system && tag.code === FHIR_ENCOUNTER_ERX_PATIENT_SYNC_TAG.code
   ) ?? false;
 
-export const tagEncounterAsErxSynced = async (oystehr: Oystehr, encounter: Encounter): Promise<void> => {
+export const tagEncounterAsErxSynced = async (
+  oystehr: Oystehr,
+  encounter: Encounter,
+  options?: { useOptimisticLocking?: boolean }
+): Promise<void> => {
+  const useOptimisticLocking = options?.useOptimisticLocking ?? true;
   const encounterId = encounter.id;
   if (!encounterId) {
     throw new Error('Cannot tag encounter as eRx-synced: encounter has no id');
@@ -403,10 +408,14 @@ export const tagEncounterAsErxSynced = async (oystehr: Oystehr, encounter: Encou
           id: encounterId,
           operations: [getPatchOperationForNewMetaTag(current, FHIR_ENCOUNTER_ERX_PATIENT_SYNC_TAG)],
         },
-        { optimisticLockingVersionId: current.meta?.versionId }
+        useOptimisticLocking ? { optimisticLockingVersionId: current.meta?.versionId } : {}
       );
       return;
     } catch (patchError) {
+      if (!useOptimisticLocking) {
+        console.warn(`Failed to tag encounter ${encounterId} as eRx-synced`, patchError);
+        return;
+      }
       retries++;
       try {
         current = await oystehr.fhir.get<Encounter>({
@@ -414,7 +423,7 @@ export const tagEncounterAsErxSynced = async (oystehr: Oystehr, encounter: Encou
           id: encounterId,
         });
       } catch (refreshError) {
-        console.warn(`Failed to tag encounter ${encounterId} after ${retries} attempts`, refreshError || patchError);
+        console.warn(`Failed to tag encounter ${encounterId} after ${retries} attempts`, refreshError);
         return;
       }
     }
