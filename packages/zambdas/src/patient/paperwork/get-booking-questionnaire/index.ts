@@ -1,8 +1,17 @@
 import Oystehr, { User } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Patient, Questionnaire, QuestionnaireResponse, Slot, ValueSet } from 'fhir/r4b';
+import {
+  HealthcareService,
+  Patient,
+  Questionnaire,
+  QuestionnaireItem,
+  QuestionnaireResponse,
+  Slot,
+  ValueSet,
+} from 'fhir/r4b';
 import {
   BOOKING_CONFIG,
+  createAnswerDisplayFilterExtension,
   FHIR_RESOURCE_NOT_FOUND,
   GetBookingQuestionnaireParams,
   GetBookingQuestionnaireParamsSchema,
@@ -12,9 +21,12 @@ import {
   INVALID_INPUT_ERROR,
   mapQuestionnaireAndValueSetsToItemsList,
   MISSING_REQUEST_BODY,
+  parseReasonsForVisit,
   prepopulateBookingForm,
   Secrets,
   selectBookingQuestionnaire,
+  SERVICE_CATEGORY_SYSTEM,
+  SERVICE_CATEGORY_TAG,
   ServiceCategoryCode,
   ServiceMode,
 } from 'utils';
@@ -52,8 +64,110 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   };
 });
 
+// Walk the questionnaire item tree (pages → questions → sub-questions) and
+// return the first item with the given linkId. The booking Questionnaire
+// nests questions one level deep under page items, but recursing keeps this
+// robust against future nesting changes.
+const findItemByLinkId = (items: QuestionnaireItem[], linkId: string): QuestionnaireItem | undefined => {
+  for (const item of items) {
+    if (item.linkId === linkId) return item;
+    if (item.item) {
+      const nested = findItemByLinkId(item.item, linkId);
+      if (nested) return nested;
+    }
+  }
+  return undefined;
+};
+
+/**
+ * Merge the FHIR-backed service category's `reasonsForVisit` into the
+ * questionnaire's `reason-for-visit` item so the patient sees the configured
+ * options at booking time.
+ *
+ * Why: the template Questionnaire is built from `BOOKING_CONFIG.serviceCategories`
+ * (the compiled-in catalog). Categories registered at runtime via the
+ * service-category admin UI live on `HealthcareService.extension` and aren't
+ * known to the questionnaire builder. Their RFV options were therefore absent
+ * from `answerOption` AND from the `answerDisplayFilters`, so
+ * `useDisplayFilteredOptions` on the intake side fell through to "return all
+ * options" and the patient saw the compiled-in superset for the wrong category.
+ *
+ * No-op when the category is in BOOKING_CONFIG (the template already has
+ * the right options + filter), when no matching FHIR-backed HealthcareService
+ * is found, or when the HS has no `reasonsForVisit` configured.
+ */
+const enrichFhirBackedRfvOptions = async (params: {
+  questionnaire: Questionnaire;
+  serviceCategoryCode: ServiceCategoryCode;
+  serviceMode: ServiceMode;
+  oystehr: Oystehr;
+}): Promise<Questionnaire> => {
+  const { questionnaire, serviceCategoryCode, serviceMode, oystehr } = params;
+
+  const isCompiledIn = BOOKING_CONFIG.serviceCategories.some((sc) => sc.category.code === serviceCategoryCode);
+  if (isCompiledIn) return questionnaire;
+
+  const hsBundle = await oystehr.fhir.search<HealthcareService>({
+    resourceType: 'HealthcareService',
+    params: [
+      { name: '_tag', value: SERVICE_CATEGORY_TAG.code },
+      { name: 'active', value: 'true' },
+    ],
+  });
+  const hs = hsBundle
+    .unbundle()
+    .find((r) =>
+      (r.type ?? []).some((concept) =>
+        (concept.coding ?? []).some((c) => c.system === SERVICE_CATEGORY_SYSTEM && c.code === serviceCategoryCode)
+      )
+    );
+  if (!hs) return questionnaire;
+
+  const reasons = parseReasonsForVisit(hs);
+  if (reasons.length === 0) return questionnaire;
+
+  const rfvItem = findItemByLinkId(questionnaire.item ?? [], 'reason-for-visit');
+  if (!rfvItem) return questionnaire;
+
+  // Append unseen values to answerOption. The Questionnaire was deep-cloned by
+  // `selectBookingQuestionnaire` (JSON.parse/stringify), so in-place mutation
+  // is safe and doesn't poison the template for the next caller.
+  rfvItem.answerOption = rfvItem.answerOption ?? [];
+  const existingValues = new Set(
+    rfvItem.answerOption.map((o) => o.valueString).filter((v): v is string => typeof v === 'string')
+  );
+  for (const r of reasons) {
+    if (!existingValues.has(r.value)) {
+      rfvItem.answerOption.push({ valueString: r.value });
+    }
+  }
+
+  // Add a display filter scoped to this (category, mode) so the intake-side
+  // `useDisplayFilteredOptions` narrows the rendered list to just these
+  // reasons when the booking matches.
+  rfvItem.extension = rfvItem.extension ?? [];
+  rfvItem.extension.push(
+    createAnswerDisplayFilterExtension(
+      [
+        { question: 'appointment-service-category', operator: '=', answer: serviceCategoryCode },
+        { question: 'appointment-service-mode', operator: '=', answer: serviceMode },
+      ],
+      reasons.map((r) => r.value)
+    )
+  );
+
+  return questionnaire;
+};
+
 const performEffect = async (input: EffectInput): Promise<GetBookingQuestionnaireResponse> => {
-  const { patient, questionnaire, serviceCategoryCode, serviceMode } = input;
+  const { patient, questionnaire: rawQuestionnaire, serviceCategoryCode, serviceMode, oystehr } = input;
+
+  const questionnaire = await enrichFhirBackedRfvOptions({
+    questionnaire: rawQuestionnaire,
+    serviceCategoryCode,
+    serviceMode,
+    oystehr,
+  });
   const items = questionnaire.item || [];
 
   // todo: derive the value sets needed by examining the questionnaire items
@@ -139,6 +253,7 @@ interface EffectInput {
   serviceCategoryCode: ServiceCategoryCode;
   questionnaire: Questionnaire;
   patient?: Patient;
+  oystehr: Oystehr;
 }
 
 const complexValidation = async (input: ValidatedInput, oystehr: Oystehr): Promise<EffectInput> => {
@@ -195,5 +310,6 @@ const complexValidation = async (input: ValidatedInput, oystehr: Oystehr): Promi
     serviceMode,
     patient,
     questionnaire: templateQuestionnaire,
+    oystehr,
   };
 };

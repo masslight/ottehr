@@ -38,6 +38,7 @@ import {
   getPatientVisitDetails,
   getPatientVisitFiles,
   getVisitFaxHistory,
+  listServiceCategories,
   updatePatientVisitDetails,
   updateVisitFiles,
 } from 'src/api/api';
@@ -483,6 +484,24 @@ export default function VisitDetailsPage(): ReactElement {
     enabled: Boolean(oystehrZambda) && appointmentID !== undefined,
   });
 
+  // FHIR-backed service categories (admin-registered via the Services admin UI).
+  // Needed so the page can resolve display names, edit options, and RFV lists
+  // for appointments whose serviceCategory lives outside BOOKING_CONFIG. The
+  // page merges these with BOOKING_CONFIG below.
+  const { data: fhirBackedCatsData } = useQuery({
+    queryKey: ['visit-details-list-service-categories'],
+    queryFn: async () => {
+      if (!oystehrZambda) return { serviceCategories: [] };
+      try {
+        return await listServiceCategories(oystehrZambda);
+      } catch {
+        return { serviceCategories: [] };
+      }
+    },
+    enabled: Boolean(oystehrZambda),
+  });
+  const fhirBackedCats = fhirBackedCatsData?.serviceCategories ?? [];
+
   const {
     data: patientBalancesData,
     isLoading: patientBalancesLoading,
@@ -673,10 +692,25 @@ export default function VisitDetailsPage(): ReactElement {
   const appointmentTime = appointmentStartTime.toLocaleString(DateTime.TIME_SIMPLE);
   const appointmentDate = formatDateForDisplay(appointmentStartTime.toISO() || '', locationTimeZone);
   const serviceCategory = getCoding(appointment?.serviceCategory, SERVICE_CATEGORY_SYSTEM)?.code;
+  // Display label resolution: BOOKING_CONFIG (compiled-in) takes precedence,
+  // then the FHIR-backed catalog; fall back to the raw code only if neither
+  // knows about it. Without the FHIR-backed lookup the row showed e.g.
+  // "swedish30" instead of "Swedish Massage (30 minute)".
   const serviceCategoryLabel =
     BOOKING_CONFIG.serviceCategories.find((sc) => sc.category.code === serviceCategory)?.category.display ??
+    fhirBackedCats.find((sc) => sc.code === serviceCategory)?.name ??
     serviceCategory ??
     '';
+  // RFV options for the current category, merged across BOOKING_CONFIG and
+  // the FHIR-backed catalog. Used for both display-time filtering (was
+  // hiding valid values configured on FHIR-backed categories) and for the
+  // edit dropdown (was empty).
+  const reasonsForVisitForCurrentCategory = ((): { value: string; label: string }[] => {
+    if (!serviceCategory) return [];
+    const bookingOpts = getReasonForVisitOptionsForServiceCategory(serviceCategory);
+    if (bookingOpts.length > 0) return bookingOpts;
+    return fhirBackedCats.find((sc) => sc.code === serviceCategory)?.config?.reasonsForVisit ?? [];
+  })();
   const nameLastModifiedOld = formatLastModifiedTag('name', patient, locationTimeZone);
   const dobLastModifiedOld = formatLastModifiedTag('dob', patient, locationTimeZone);
 
@@ -820,10 +854,9 @@ export default function VisitDetailsPage(): ReactElement {
     if (!maybeReasonForVisit) {
       return maybeReasonForVisit;
     }
-    const options = getReasonForVisitOptionsForServiceCategory(serviceCategory ?? '');
-    const match = options.some((option) => option.value === maybeReasonForVisit);
+    const match = reasonsForVisitForCurrentCategory.some((option) => option.value === maybeReasonForVisit);
     return match ? maybeReasonForVisit : undefined;
-  }, [maybeReasonForVisit, serviceCategory]);
+  }, [maybeReasonForVisit, reasonsForVisitForCurrentCategory]);
 
   const authorizedGuardians =
     patient?.extension?.find((e) => e.url === FHIR_EXTENSION.Patient.authorizedNonLegalGuardians.url)?.valueString ??
@@ -1467,7 +1500,7 @@ export default function VisitDetailsPage(): ReactElement {
                           )
                         }
                       >
-                        {getReasonForVisitOptionsForServiceCategory(serviceCategory ?? '').map((reason) => (
+                        {reasonsForVisitForCurrentCategory.map((reason) => (
                           <MenuItem key={reason.value} value={reason.value}>
                             {reason.label}
                           </MenuItem>
@@ -1496,11 +1529,23 @@ export default function VisitDetailsPage(): ReactElement {
                           )
                         }
                       >
-                        {BOOKING_CONFIG.serviceCategories.map((sc) => (
-                          <MenuItem key={sc.category.code} value={sc.category.code}>
-                            {sc.category.display}
-                          </MenuItem>
-                        ))}
+                        {(() => {
+                          // Merge BOOKING_CONFIG (compiled-in, source of truth on collision)
+                          // with the FHIR-backed catalog so admins can switch a visit to a
+                          // runtime-registered category. Dedup by code.
+                          const bookingEntries = BOOKING_CONFIG.serviceCategories
+                            .map((sc) => ({ code: sc.category.code, label: sc.category.display }))
+                            .filter((e): e is { code: string; label: string } => !!e.code);
+                          const bookingCodes = new Set(bookingEntries.map((e) => e.code));
+                          const fhirEntries = fhirBackedCats
+                            .filter((sc) => sc.code && !bookingCodes.has(sc.code))
+                            .map((sc) => ({ code: sc.code, label: sc.name }));
+                          return [...bookingEntries, ...fhirEntries].map((entry) => (
+                            <MenuItem key={entry.code} value={entry.code}>
+                              {entry.label}
+                            </MenuItem>
+                          ));
+                        })()}
                       </Select>
                     </>
                   );

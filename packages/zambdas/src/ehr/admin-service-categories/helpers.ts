@@ -6,6 +6,7 @@ import {
   getServiceCategoryDurationMinutes,
   getServiceCategoryModes,
   getServiceCategoryVisitTypes,
+  parseReasonsForVisit,
   SERVICE_CATEGORY_CONFIG_EXTENSION_URL,
   SERVICE_CATEGORY_SYSTEM,
   SERVICE_CATEGORY_TAG,
@@ -61,24 +62,6 @@ export async function getClient(input: ZambdaInput): Promise<Oystehr> {
   if (!input.secrets) throw new Error('No secrets provided');
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, input.secrets);
   return createOystehrClient(m2mToken, input.secrets);
-}
-
-/**
- * Parse the JSON-blob extension that still holds the free-form
- * reasonsForVisit field. Returns an empty array if absent or unparseable.
- * The queryable runtime fields (mode/visit-type/duration/cadence) come
- * from characteristic[] now and are read separately in `toRecord`.
- */
-function parseReasonsForVisit(resource: HealthcareService): Array<{ label: string; value: string }> {
-  const ext = resource.extension?.find((e) => e.url === SERVICE_CATEGORY_CONFIG_EXTENSION_URL);
-  const raw = ext?.valueString;
-  if (!raw) return [];
-  try {
-    const parsed = JSON.parse(raw) as { reasonsForVisit?: Array<{ label: string; value: string }> };
-    return parsed.reasonsForVisit ?? [];
-  } catch {
-    return [];
-  }
 }
 
 export function toRecord(resource: HealthcareService): ServiceCategory {

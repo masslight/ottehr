@@ -38,6 +38,7 @@ import {
   GroupAllLocationsCoding,
   GroupAssignmentModeCoding,
   SERVICE_CATEGORY_CADENCE_MINUTES_SYSTEM,
+  SERVICE_CATEGORY_CONFIG_EXTENSION_URL,
   SERVICE_CATEGORY_DURATION_MINUTES_SYSTEM,
   SERVICE_CATEGORY_MODE_SYSTEM,
   SERVICE_CATEGORY_TAG,
@@ -73,6 +74,25 @@ export function getServiceCategoryDurationMinutes(hs: HealthcareService): number
 
 export function getServiceCategoryCadenceMinutes(hs: HealthcareService): number | undefined {
   return extractMinutesCharacteristic(hs, SERVICE_CATEGORY_CADENCE_MINUTES_SYSTEM);
+}
+
+/**
+ * Parse the JSON-blob extension at SERVICE_CATEGORY_CONFIG_EXTENSION_URL that
+ * holds the free-form reasonsForVisit field. Returns an empty array when the
+ * extension is absent, empty, or unparseable. The queryable runtime fields
+ * (mode / visit-type / duration / cadence) live on characteristic[] instead
+ * and are read by the per-dimension helpers above.
+ */
+export function parseReasonsForVisit(hs: HealthcareService): Array<{ label: string; value: string }> {
+  const ext = hs.extension?.find((e) => e.url === SERVICE_CATEGORY_CONFIG_EXTENSION_URL);
+  const raw = ext?.valueString;
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw) as { reasonsForVisit?: Array<{ label: string; value: string }> };
+    return parsed.reasonsForVisit ?? [];
+  } catch {
+    return [];
+  }
 }
 
 // ── Group readers ───────────────────────────────────────────────────────────
