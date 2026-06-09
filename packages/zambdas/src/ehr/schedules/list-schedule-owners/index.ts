@@ -279,16 +279,17 @@ const complexValidationForPractitioner = async (_input: BasicInput, oystehr: Oys
 
   // Aggregate PRs per Practitioner so we can summarize across roles. Skip
   // group-membership PRs (no Location) — they aren't schedules.
-  // A PR without a Practitioner reference is structurally broken (the role
-  // exists to bind a Practitioner to a Location/HS context); surface that as
-  // a data-integrity error rather than silently skip and yield a wrong total.
+  // A PR without a practitioner.reference is structurally broken. We log it
+  // (so the corruption is observable via Sentry / log search) and skip the
+  // bad row rather than throw — throwing here would 500 the admin list
+  // endpoint for every provider just because one malformed role exists,
+  // blocking the only surface where the rest of the catalog can be repaired.
   const rolesByPractitionerId = new Map<string, PractitionerRole[]>();
   for (const role of roles) {
     const practitionerId = role.practitioner?.reference?.split('/')[1];
     if (!practitionerId) {
-      // Unknown-shape error → unwrapped Error so wrapHandler's topLevelCatch
-      // routes it through observability as a 500.
-      throw new Error(`PractitionerRole ${role.id} has no practitioner reference.`);
+      console.error(`Skipping malformed PractitionerRole ${role.id}: no practitioner reference.`);
+      continue;
     }
     if (!role.location?.[0]?.reference) continue;
     const arr = rolesByPractitionerId.get(practitionerId) ?? [];

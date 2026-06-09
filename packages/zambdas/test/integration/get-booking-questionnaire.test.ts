@@ -38,7 +38,11 @@ describe('get-booking-questionnaire — FHIR-backed RFV enrichment', () => {
   let oystehrPatient: Oystehr;
   let processId: string;
   let cleanup: () => Promise<void>;
-  const createdResourceIds: { resourceType: string; id: string }[] = [];
+  // The cleanup sweep covers multiple FHIR resource types; type the array to
+  // the exact union we create so the resourceType field passes through to
+  // oystehr.fhir.delete without an unsafe cast that would hide a mismatch.
+  type CreatedResource = { resourceType: 'HealthcareService' | 'Schedule' | 'Location' | 'Slot'; id: string };
+  const createdResourceIds: CreatedResource[] = [];
 
   beforeAll(async () => {
     const setup = await setupIntegrationTest('get-booking-questionnaire.test.ts', M2MClientMockType.patient);
@@ -51,7 +55,7 @@ describe('get-booking-questionnaire — FHIR-backed RFV enrichment', () => {
   afterAll(async () => {
     for (const r of createdResourceIds.reverse()) {
       try {
-        await oystehrAdmin.fhir.delete({ resourceType: r.resourceType as 'Slot', id: r.id });
+        await oystehrAdmin.fhir.delete({ resourceType: r.resourceType, id: r.id });
       } catch {
         // best-effort cleanup
       }
