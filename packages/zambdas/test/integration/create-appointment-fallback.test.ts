@@ -23,7 +23,7 @@ import {
   SlotServiceCategory,
 } from 'utils';
 import { afterAll, assert, beforeAll, describe, expect, inject, test } from 'vitest';
-import { getAuth0Token } from '../../src/shared';
+import { createClinicalOystehrClient, getAuth0Token } from '../../src/shared';
 import { SECRETS } from '../data/secrets';
 import {
   buildSimpleScheduleExt,
@@ -57,13 +57,18 @@ describe('create-appointment group-member fallback (D-6 phase 2)', () => {
       AUTH0_SECRET: AUTH0_SECRET_TESTS,
       AUTH0_AUDIENCE,
     });
-    oystehr = new Oystehr({
-      accessToken: token,
-      fhirApiUrl: FHIR_API,
-      projectApiUrl: EXECUTE_ZAMBDA_URL,
-      services: { zambdaApiUrl: EXECUTE_ZAMBDA_URL },
-      projectId: PROJECT_ID,
-    });
+    oystehr = createClinicalOystehrClient(
+      token,
+      {},
+      {
+        services: {
+          fhirApiUrl: FHIR_API,
+          projectApiUrl: EXECUTE_ZAMBDA_URL,
+          zambdaApiUrl: EXECUTE_ZAMBDA_URL,
+        },
+        projectId: PROJECT_ID,
+      }
+    );
     tag = {
       system: 'OTTEHR_AUTOMATED_TEST',
       code: tagForProcessId(processId),

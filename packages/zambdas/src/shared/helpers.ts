@@ -15,6 +15,7 @@ import {
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
+  BILLING_RESOURCE_TAG,
   EncounterVirtualServiceExtension,
   findQuestionnaireResponseItemLinkId,
   getSecret,
@@ -28,18 +29,19 @@ import {
   TELEMED_VIDEO_ROOM_CODE,
   TIMEZONES,
 } from 'utils';
-import { BILLING_RESOURCE_TAG } from '../billing/shared';
 import { ZambdaInput } from './types';
 
 export function createClinicalOystehrClient(
-  token: string,
+  token: string | undefined,
   secrets: Secrets | null,
   overrides?: Partial<OystehrConfig>
 ): Oystehr {
   return new Oystehr({
     accessToken: token,
-    fhirApiUrl: getSecret(SecretsKeys.FHIR_API, secrets).replace(/\/r4/g, ''),
-    projectApiUrl: getSecret(SecretsKeys.PROJECT_API, secrets),
+    services: {
+      fhirApiUrl: getSecret(SecretsKeys.FHIR_API, secrets).replace(/\/r4/g, ''),
+      projectApiUrl: getSecret(SecretsKeys.PROJECT_API, secrets),
+    },
     ...overrides,
     ignoreTags: [...(overrides?.ignoreTags ?? []), BILLING_RESOURCE_TAG],
   });

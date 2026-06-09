@@ -1,6 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { PersonSex } from 'utils';
 import { expect, vi } from 'vitest';
+import { createClinicalOystehrClient } from '../src/shared';
 import { SECRETS } from './data/secrets';
 
 export const insuranceData = {
@@ -66,7 +67,7 @@ describe.skip('paperwork validation tests', () => {
     //   AUTH0_AUDIENCE: AUTH0_AUDIENCE,
     // });
     const { PROJECT_API } = SECRETS;
-    oystehr = new Oystehr({ projectApiUrl: PROJECT_API });
+    oystehr = createClinicalOystehrClient(undefined, {}, { services: { projectApiUrl: PROJECT_API } });
   });
 
   function editPaperwork(body?: any): Promise<any> {

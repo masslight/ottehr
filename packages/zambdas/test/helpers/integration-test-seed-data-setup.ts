@@ -17,7 +17,7 @@ import { DateTime } from 'luxon';
 import { M2MClientMockType, PATIENT_BILLING_ACCOUNT_TYPE, RoleType } from 'utils';
 import { cleanAppointmentGraph } from 'utils/lib/utils/e2eCleanup';
 import { inject } from 'vitest';
-import { getAuth0Token } from '../../src/shared';
+import { createClinicalOystehrClient, getAuth0Token } from '../../src/shared';
 import { SECRETS } from '../data/secrets';
 
 /**
@@ -315,11 +315,11 @@ export const setupIntegrationTest = async (
   }
 
   // Create Oystehr client for FHIR operations
-  const oystehrAdmin = new Oystehr({
-    accessToken: token,
-    fhirApiUrl: FHIR_API,
-    projectId: PROJECT_ID,
-  });
+  const oystehrAdmin = createClinicalOystehrClient(
+    token,
+    {},
+    { projectId: PROJECT_ID, services: { fhirApiUrl: FHIR_API } }
+  );
 
   // We need to find or create the M2M client who will pretend to be a real EHR user.
   const m2mListSearchResultData = (
@@ -389,15 +389,14 @@ export const setupIntegrationTest = async (
     AUTH0_AUDIENCE: AUTH0_AUDIENCE,
   });
 
-  const oystehrTestUserM2M = new Oystehr({
-    accessToken: testUserM2MToken,
-    fhirApiUrl: FHIR_API,
-    projectApiUrl: EXECUTE_ZAMBDA_URL,
-    services: {
-      zambdaApiUrl: EXECUTE_ZAMBDA_URL,
-    },
-    projectId: PROJECT_ID,
-  });
+  const oystehrTestUserM2M = createClinicalOystehrClient(
+    testUserM2MToken,
+    {},
+    {
+      projectId: PROJECT_ID,
+      services: { fhirApiUrl: FHIR_API, projectApiUrl: EXECUTE_ZAMBDA_URL, zambdaApiUrl: EXECUTE_ZAMBDA_URL },
+    }
+  );
 
   // Create unique process ID for this test run
   const processId = createProcessId(testFileName);

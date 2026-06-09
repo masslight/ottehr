@@ -17,7 +17,7 @@ import {
 } from 'utils';
 import { SERVICE_CATEGORIES_AVAILABLE } from 'utils/lib/ottehr-config/booking';
 import { assert, inject } from 'vitest';
-import { getAuth0Token } from '../../src/shared';
+import { createClinicalOystehrClient, getAuth0Token } from '../../src/shared';
 import QRInput from '../data/questionnaire-response-1.json';
 import { SECRETS } from '../data/secrets';
 import { ensureM2MPractitionerProfile } from '../helpers/configureTestM2MClient';
@@ -177,15 +177,14 @@ describe('saving and getting visit details', () => {
       AUTH0_AUDIENCE: AUTH0_AUDIENCE,
     });
 
-    oystehr = new Oystehr({
-      accessToken: token,
-      fhirApiUrl: FHIR_API,
-      projectApiUrl: EXECUTE_ZAMBDA_URL,
-      services: {
-        zambdaApiUrl: EXECUTE_ZAMBDA_URL,
-      },
-      projectId: PROJECT_ID,
-    });
+    oystehr = createClinicalOystehrClient(
+      token,
+      {},
+      {
+        projectId: PROJECT_ID,
+        services: { fhirApiUrl: FHIR_API, projectApiUrl: EXECUTE_ZAMBDA_URL, zambdaApiUrl: EXECUTE_ZAMBDA_URL },
+      }
+    );
 
     await ensureM2MPractitionerProfile(token);
 

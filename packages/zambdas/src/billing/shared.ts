@@ -1,12 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { Claim, DomainResource, HumanName, Organization, Patient, Practitioner, Resource } from 'fhir/r4b';
-import { convertFhirNameToDisplayName, isPayerUrl, Secrets } from 'utils';
-import { createClinicalOystehrClient } from '../shared/helpers';
-
-export const BILLING_RESOURCE_TAG = {
-  system: 'https://ottehr.com/billing/resource-type',
-  code: 'billing-resource',
-};
+import { BILLING_RESOURCE_TAG, convertFhirNameToDisplayName, getSecret, isPayerUrl, Secrets, SecretsKeys } from 'utils';
 
 export const BILLING_WORKING_COPY_TAG = {
   system: 'https://ottehr.com/billing/resource-type',
@@ -77,7 +71,14 @@ export const EXCLUDE_WORKING_COPIES_PARAMS = [
 ];
 
 export function createBillingClient(token: string, secrets: Secrets | null): Oystehr {
-  return createClinicalOystehrClient(token, secrets, { workspaceTag: BILLING_RESOURCE_TAG });
+  return new Oystehr({
+    accessToken: token,
+    services: {
+      fhirApiUrl: getSecret(SecretsKeys.FHIR_API, secrets).replace(/\/r4/g, ''),
+      projectApiUrl: getSecret(SecretsKeys.PROJECT_API, secrets),
+    },
+    workspaceTag: BILLING_RESOURCE_TAG,
+  });
 }
 
 export function getTag(resource: Resource, system: string): string | undefined {

@@ -2,6 +2,7 @@ import Oystehr, { BatchInputPostRequest } from '@oystehr/sdk';
 import { FullConfig } from '@playwright/test';
 import { randomUUID } from 'crypto';
 import { Location, Schedule } from 'fhir/r4b';
+import { createClinicalOystehrClient } from 'ui-components';
 import {
   E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM,
   SCHEDULE_EXTENSION_URL,
@@ -45,8 +46,7 @@ async function getOystehr(
 
   const tokenData = await tokenResponse.json();
 
-  const oystehr = new Oystehr({
-    accessToken: tokenData.access_token,
+  const oystehr = createClinicalOystehrClient(tokenData.accessToken, {
     projectId: ehrZambdaEnv.PROJECT_ID,
     services: {
       fhirApiUrl: ehrZambdaEnv.FHIR_API,

@@ -15,7 +15,7 @@ import {
   SlotServiceCategory,
 } from 'utils';
 import { assert, vi } from 'vitest';
-import { getAuth0Token } from '../../src/shared';
+import { createClinicalOystehrClient, getAuth0Token } from '../../src/shared';
 import { DEFAULT_TEST_TIMEOUT } from '../appointment-validation.test';
 import { SECRETS } from '../data/secrets';
 import {
@@ -45,15 +45,15 @@ describe('busy slots tests', () => {
       AUTH0_AUDIENCE: AUTH0_AUDIENCE,
     });
 
-    oystehr = new Oystehr({
-      accessToken: token,
-      fhirApiUrl: FHIR_API,
-      projectApiUrl: PROJECT_API,
-      services: {
-        zambdaApiUrl: PROJECT_API,
-      },
-    });
+    oystehr = createClinicalOystehrClient(
+      token,
+      {},
+      {
+        services: { fhirApiUrl: FHIR_API, projectApiUrl: PROJECT_API, zambdaApiUrl: PROJECT_API },
+      }
+    );
   });
+
   afterAll(async () => {
     if (!oystehr || !processId) {
       throw new Error('oystehr or processId is null! could not clean up!');

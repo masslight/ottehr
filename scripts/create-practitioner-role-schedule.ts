@@ -26,6 +26,7 @@
 
 import Oystehr from '@oystehr/sdk';
 import { HealthcareService, PractitionerRole, Schedule } from 'fhir/r4b';
+import { createClinicalOystehrClient } from '../packages/zambdas/src/shared';
 
 // ── Auth ──
 async function getAuthToken(): Promise<string> {
@@ -117,7 +118,11 @@ async function main(): Promise<void> {
   }
   const args = parseArgs();
   const token = await getAuthToken();
-  const oystehr = new Oystehr({ accessToken: token, fhirApiUrl: FHIR_API, projectApiUrl: PROJECT_API });
+  const oystehr = createClinicalOystehrClient(
+    token,
+    {},
+    { services: { fhirApiUrl: FHIR_API, projectApiUrl: PROJECT_API } }
+  );
 
   // 1. Resolve category-tagged HealthcareService resources for the requested codes.
   const allCategories = (

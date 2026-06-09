@@ -1,7 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { Account, Consent, Coverage, RelatedPerson } from 'fhir/r4b';
 import { expect, vi } from 'vitest';
-import { getAuth0Token } from '../src/shared';
+import { createClinicalOystehrClient, getAuth0Token } from '../src/shared';
 import { SECRETS } from './data/secrets';
 
 export const insuranceData = {
@@ -63,7 +63,11 @@ describe.skip('paperwork tests', () => {
       AUTH0_AUDIENCE: AUTH0_AUDIENCE,
     });
 
-    oystehr = new Oystehr({ accessToken: token, fhirApiUrl: FHIR_API, projectApiUrl: PROJECT_API });
+    oystehr = createClinicalOystehrClient(
+      token,
+      {},
+      { services: { fhirApiUrl: FHIR_API, projectApiUrl: PROJECT_API } }
+    );
   });
 
   function updatePaperwork(body?: any): Promise<any> {

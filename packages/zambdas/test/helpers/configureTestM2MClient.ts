@@ -1,15 +1,14 @@
-import Oystehr from '@oystehr/sdk';
 import { Practitioner } from 'fhir/r4b';
+import { createClinicalOystehrClient } from '../../src/shared';
 import { SECRETS } from '../data/secrets';
 
 export const ensureM2MPractitionerProfile = async (token: string): Promise<void> => {
   const { FHIR_API, PROJECT_ID, PROJECT_API } = SECRETS;
-  const projectApiClient = new Oystehr({
-    accessToken: token,
-    fhirApiUrl: FHIR_API,
-    projectApiUrl: PROJECT_API,
-    projectId: PROJECT_ID,
-  });
+  const projectApiClient = createClinicalOystehrClient(
+    token,
+    {},
+    { projectId: PROJECT_ID, services: { fhirApiUrl: FHIR_API, projectApiUrl: PROJECT_API } }
+  );
 
   const practitionerForM2M = await projectApiClient.fhir.create<Practitioner>({
     resourceType: 'Practitioner',
