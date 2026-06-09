@@ -12,7 +12,6 @@ import {
   Reference,
   RelatedPerson,
 } from 'fhir/r4b';
-import _ from 'lodash';
 import { capitalize } from 'lodash-es';
 import { DateTime } from 'luxon';
 import { getReasonForVisitOptionsForServiceCategory } from '../../config-helpers/booking';
@@ -46,6 +45,7 @@ import {
   PRACTICE_NAME_URL,
   PREFERRED_COMMUNICATION_METHOD_EXTENSION_URL,
   REASON_FOR_VISIT_SEPARATOR,
+  RESPONSIBLE_PARTY_NO_EMAIL_URL,
 } from '../../types';
 import { isValidUUID } from '../../validation';
 import { formatPhoneNumberDisplay, getCandidPlanTypeCodeFromCoverage, getPayerId, getPayerUrl } from '../helpers';
@@ -1282,11 +1282,17 @@ interface MapGuarantorItemsInput {
 const mapGuarantorToQuestionnaireResponseItems = (input: MapGuarantorItemsInput): QuestionnaireResponseItem[] => {
   const { guarantorResource, patient, items } = input;
 
+  const noEmail =
+    guarantorResource?.resourceType === 'RelatedPerson'
+      ? (guarantorResource as RelatedPerson).extension?.find((e) => e.url === RESPONSIBLE_PARTY_NO_EMAIL_URL)
+          ?.valueBoolean ?? false
+      : false;
   const phone = formatPhoneNumberDisplay(
     guarantorResource?.telecom?.find((c) => c.system === 'phone' && c.period?.end === undefined)?.value ?? ''
   );
-  const email =
-    guarantorResource?.telecom?.find((c) => c.system === 'email' && c.period?.end === undefined)?.value ?? '';
+  const email = noEmail
+    ? ''
+    : guarantorResource?.telecom?.find((c) => c.system === 'email' && c.period?.end === undefined)?.value ?? '';
   let birthSex: string | undefined;
   if (guarantorResource?.gender) {
     const genderString = guarantorResource?.gender === 'other' ? 'Intersex' : guarantorResource?.gender;
@@ -1352,6 +1358,9 @@ const mapGuarantorToQuestionnaireResponseItems = (input: MapGuarantorItemsInput)
     }
     if (linkId === 'responsible-party-number' && phone) {
       answer = makeAnswer(phone);
+    }
+    if (linkId === 'responsible-party-no-email') {
+      answer = makeAnswer(noEmail, 'Boolean');
     }
     if (linkId === 'responsible-party-email' && email) {
       answer = makeAnswer(email);

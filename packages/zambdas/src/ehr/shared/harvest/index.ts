@@ -121,6 +121,7 @@ import {
   PRIVATE_EXTENSION_BASE_URL,
   QuestionnaireResponseHarvestInput,
   relatedPersonFieldPaths,
+  RESPONSIBLE_PARTY_NO_EMAIL_URL,
   SCHOOL_WORK_NOTE_SCHOOL_ID,
   SCHOOL_WORK_NOTE_TEMPLATE_CODE,
   SCHOOL_WORK_NOTE_WORK_ID,
@@ -182,6 +183,7 @@ interface ResponsiblePartyContact {
   address: Address;
   email: string;
   number?: string;
+  noEmail?: boolean;
 }
 
 interface EmergencyContact {
@@ -1879,7 +1881,8 @@ export function extractAccountGuarantor(
       | 'Legal Guardian'
       | 'Other',
     address: guarantorAddress,
-    email: findAnswer('responsible-party-email') ?? '',
+    noEmail: findBooleanAnswer('responsible-party-no-email'),
+    email: findBooleanAnswer('responsible-party-no-email') ? '' : findAnswer('responsible-party-email') ?? '',
     number: findAnswer('responsible-party-number'),
   };
 
@@ -3687,7 +3690,7 @@ export const createContainedGuarantor = (guarantor: ResponsiblePartyContact, pat
   const policyHolderName = createFhirHumanName(guarantor.firstName, undefined, guarantor.lastName);
   const relationshipCode = SUBSCRIBER_RELATIONSHIP_CODE_MAP[guarantor.relationship] || 'other';
   const number = guarantor.number;
-  const email = guarantor.email;
+  const email = guarantor.noEmail ? undefined : guarantor.email;
   let telecom: RelatedPerson['telecom'];
   if (number || email) {
     telecom = [];
@@ -3704,6 +3707,9 @@ export const createContainedGuarantor = (guarantor: ResponsiblePartyContact, pat
       system: 'email',
     });
   }
+  const extension: RelatedPerson['extension'] = guarantor.noEmail
+    ? [{ url: RESPONSIBLE_PARTY_NO_EMAIL_URL, valueBoolean: true }]
+    : undefined;
   return {
     resourceType: 'RelatedPerson',
     id: guarantorId,
@@ -3711,6 +3717,7 @@ export const createContainedGuarantor = (guarantor: ResponsiblePartyContact, pat
     birthDate: guarantor.dob,
     gender: mapBirthSexToGender(guarantor.birthSex),
     telecom,
+    extension,
     patient: { reference: `Patient/${patientId}` },
     address: [guarantor.address],
     relationship: [

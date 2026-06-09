@@ -21,6 +21,7 @@ import {
   PRACTICE_NAME_URL,
   PREFERRED_COMMUNICATION_METHOD_EXTENSION_URL,
   RELATED_PERSON_SAME_AS_PATIENT_ADDRESS_URL,
+  RESPONSIBLE_PARTY_NO_EMAIL_URL,
 } from '../types/constants';
 import { extractExtensionValue } from './helpers';
 
@@ -117,6 +118,7 @@ export const relatedPersonFieldPaths = {
   relationship: 'RelatedPerson/relationship/0/coding/0/display',
   birthDate: 'RelatedPerson/birthDate',
   sameAsPatientAddress: `RelatedPerson/extension/${RELATED_PERSON_SAME_AS_PATIENT_ADDRESS_URL}`,
+  noEmail: `RelatedPerson/extension/${RESPONSIBLE_PARTY_NO_EMAIL_URL}`,
 };
 
 interface ExtensionConfig extends Extension {

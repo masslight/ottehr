@@ -652,9 +652,25 @@ const FormFields: PatientRecordFormFields = {
         type: 'string',
         label: 'Email',
         dataType: 'Email',
-        triggers: [RPNotSelfTrigger],
+        triggers: [
+          RPNotSelfTrigger,
+          {
+            targetQuestionLinkId: 'responsible-party-no-email',
+            effect: ['enable', 'require'],
+            operator: '!=',
+            answerBoolean: true,
+          },
+        ],
+        enableBehavior: 'all',
         dynamicPopulation: { sourceLinkId: 'patient-email', triggerState: 'disabled' },
-        disabledDisplay: 'disabled',
+        disabledDisplay: 'hidden',
+      },
+      noEmail: {
+        key: 'responsible-party-no-email',
+        type: 'boolean',
+        label: "Responsible party doesn't have an email address",
+        triggers: [RPNotSelfTrigger],
+        disabledDisplay: 'hidden',
       },
       addressSameAsPatient: {
         key: 'responsible-party-address-as-patient',
@@ -722,7 +738,6 @@ const FormFields: PatientRecordFormFields = {
       'responsible-party-city',
       'responsible-party-state',
       'responsible-party-zip',
-      'responsible-party-email',
     ],
   },
   emergencyContact: {
