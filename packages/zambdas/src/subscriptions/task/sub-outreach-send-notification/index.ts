@@ -12,6 +12,8 @@ import {
   getSecret,
   getTaskResource,
   isEmailValid,
+  maskEmail,
+  maskPhoneNumber,
   Secrets,
   SecretsKeys,
   TaskIndicator,
@@ -246,41 +248,53 @@ function extractInputValue(task: Task, key: string): string | undefined {
 
 async function validatePatientPhone(task: Task, oystehr: Oystehr): Promise<{ valid: boolean; reason?: string }> {
   const patientId = task.for?.reference?.replace('Patient/', '');
-  if (!patientId) return { valid: false, reason: 'Task has no patient reference' };
+  // Missing patient reference is a system/data error, not an invalid contact — surface as a failure.
+  if (!patientId) throw new Error('Task has no patient reference');
 
+  let patient: Patient;
   try {
-    const patient = await oystehr.fhir.get<Patient>({ resourceType: 'Patient', id: patientId });
-    const rawPhone = getPhoneNumberForIndividual(patient);
-    if (!rawPhone) {
-      return { valid: false, reason: 'No phone number on file' };
-    }
-    const result = phone(rawPhone, { country: 'USA' });
-    if (!result.isValid) {
-      return { valid: false, reason: `Invalid phone number: ${rawPhone}` };
-    }
-    return { valid: true };
+    patient = await oystehr.fhir.get<Patient>({ resourceType: 'Patient', id: patientId });
   } catch {
-    return { valid: false, reason: `Failed to fetch patient ${patientId} for phone validation` };
+    // A fetch failure is a transient/system error — throw so the task is marked failed, not cancelled.
+    throw new Error(`Failed to fetch patient ${patientId} for phone validation`);
   }
+
+  const rawPhone = getPhoneNumberForIndividual(patient);
+  if (!rawPhone) {
+    return { valid: false, reason: 'No phone number on file' };
+  }
+  const result = phone(rawPhone, { country: 'USA' });
+  if (!result.isValid) {
+    console.log(`Invalid phone number for patient ${patientId}: ${maskPhoneNumber(rawPhone)}`);
+    // Store a generic reason on the Task — never persist the raw/masked contact value.
+    return { valid: false, reason: 'Invalid phone number' };
+  }
+  return { valid: true };
 }
 
 async function validatePatientEmail(task: Task, oystehr: Oystehr): Promise<{ valid: boolean; reason?: string }> {
   const patientId = task.for?.reference?.replace('Patient/', '');
-  if (!patientId) return { valid: false, reason: 'Task has no patient reference' };
+  // Missing patient reference is a system/data error, not an invalid contact — surface as a failure.
+  if (!patientId) throw new Error('Task has no patient reference');
 
+  let patient: Patient;
   try {
-    const patient = await oystehr.fhir.get<Patient>({ resourceType: 'Patient', id: patientId });
-    const rawEmail = getPatientContactEmail(patient);
-    if (!rawEmail) {
-      return { valid: false, reason: 'No email address on file' };
-    }
-    if (!isEmailValid(rawEmail)) {
-      return { valid: false, reason: `Invalid email address: ${rawEmail}` };
-    }
-    return { valid: true };
+    patient = await oystehr.fhir.get<Patient>({ resourceType: 'Patient', id: patientId });
   } catch {
-    return { valid: false, reason: `Failed to fetch patient ${patientId} for email validation` };
+    // A fetch failure is a transient/system error — throw so the task is marked failed, not cancelled.
+    throw new Error(`Failed to fetch patient ${patientId} for email validation`);
   }
+
+  const rawEmail = getPatientContactEmail(patient);
+  if (!rawEmail) {
+    return { valid: false, reason: 'No email address on file' };
+  }
+  if (!isEmailValid(rawEmail)) {
+    console.log(`Invalid email address for patient ${patientId}: ${maskEmail(rawEmail)}`);
+    // Store a generic reason on the Task — never persist the raw/masked contact value.
+    return { valid: false, reason: 'Invalid email address' };
+  }
+  return { valid: true };
 }
 
 // ── Integration placeholders ───────────────────────────────────────────────

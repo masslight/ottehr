@@ -12,6 +12,8 @@ import {
   getStripeCustomerIdFromAccount,
   getTaskResource,
   isEmailValid,
+  maskEmail,
+  maskPhoneNumber,
   Secrets,
   SecretsKeys,
   TaskIndicator,
@@ -149,7 +151,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     }
 
     // ── Failure path: check if retries remain ──
-    const retriesRemaining = config.retryAttempts - currentAttempt;
+    // currentAttempt is 1-based; retryAttempts is the number of retries AFTER the initial attempt,
+    // so retries already used = currentAttempt - 1.
+    const retriesRemaining = config.retryAttempts - (currentAttempt - 1);
     console.log(
       `Charge failed on attempt ${currentAttempt}/${config.retryAttempts + 1} (retries remaining: ${retriesRemaining})`
     );
@@ -464,7 +468,8 @@ async function sendNotificationForMedium(
     }
     const phoneResult = phone(rawPhone, { country: 'USA' });
     if (!phoneResult.isValid) {
-      throw new Error(`Invalid phone number: ${rawPhone}`);
+      console.log(`Invalid phone number for patient ${patientId}: ${maskPhoneNumber(rawPhone)}`);
+      throw new Error('Invalid phone number');
     }
 
     const resolvedMessage = fillOutreachTemplate(smsTemplate, placeholderInput);
@@ -484,7 +489,8 @@ async function sendNotificationForMedium(
       throw new Error('No email address on file');
     }
     if (!isEmailValid(email)) {
-      throw new Error(`Invalid email address: ${email}`);
+      console.log(`Invalid email address for patient ${patientId}: ${maskEmail(email)}`);
+      throw new Error('Invalid email address');
     }
 
     const resolvedMessage = fillOutreachTemplate(emailTemplate, placeholderInput);

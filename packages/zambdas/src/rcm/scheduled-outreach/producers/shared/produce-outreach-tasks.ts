@@ -134,11 +134,13 @@ export async function produceOutreachTasks(params: ProduceOutreachTasksParams): 
       }
     }
 
-    // Cancel notification tasks when all electronic notification mediums have invalid/missing contacts
+    // Cancel notification tasks when all electronic notification mediums have invalid/missing contacts.
+    // Only apply this when the Patient was successfully fetched — otherwise a transient fetch failure
+    // (patientResource undefined) would wrongly cancel the task even though contact validity is unknown.
     if (action.actionType === 'send-notification' && action.sendNotificationConfig) {
       const mediums = action.sendNotificationConfig.mediums;
       const electronicMediums = mediums.filter((m) => m !== 'paper-mail');
-      if (electronicMediums.length > 0) {
+      if (electronicMediums.length > 0 && patientResource) {
         const allElectronicInvalid = electronicMediums.every((m) => {
           if (m === 'sms') return !hasValidPhone;
           if (m === 'email') return !hasValidEmail;

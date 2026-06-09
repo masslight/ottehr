@@ -200,6 +200,43 @@ export function formatPhoneNumberDisplay(phoneNumber?: string): string {
   return phoneNumber;
 }
 
+/**
+ * Masks a phone number for safe logging, keeping the area code and the last 4 digits.
+ * e.g. "+12125551234" -> "(212) ***-1234". Falls back to a fully masked value when the
+ * input can't be parsed to 10 digits. Intended for logs only — do not persist on resources.
+ */
+export function maskPhoneNumber(phoneNumber?: string): string {
+  if (!phoneNumber) {
+    return '';
+  }
+  const cleaned = ('' + phoneNumber.slice(-10)).replace(/\D/g, '');
+  const match = cleaned.match(/^(\d{3})(\d{3})(\d{4})$/);
+  if (match) {
+    return `(${match[1]}) ***-${match[3]}`;
+  }
+  return '***';
+}
+
+/**
+ * Masks an email address for safe logging, keeping the first few characters of the local
+ * part and the full domain. e.g. "jonathan@example.com" -> "jon***@example.com". Falls back
+ * to a fully masked value when there is no parseable local/domain. Intended for logs only —
+ * do not persist on resources.
+ */
+export function maskEmail(email?: string): string {
+  if (!email) {
+    return '';
+  }
+  const atIndex = email.lastIndexOf('@');
+  if (atIndex <= 0) {
+    return '***';
+  }
+  const local = email.slice(0, atIndex);
+  const domain = email.slice(atIndex); // includes leading '@'
+  const visible = local.slice(0, Math.min(3, local.length));
+  return `${visible}***${domain}`;
+}
+
 const getExtensionStartTimeValue = (extension: Extension): string | undefined =>
   extension?.extension?.find((element: any) => element.url === 'startTime')?.valueTime;
 const getExtensionCapacityValue = (extension: Extension): number | undefined =>

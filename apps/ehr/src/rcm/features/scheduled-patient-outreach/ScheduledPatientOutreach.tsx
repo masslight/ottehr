@@ -752,7 +752,7 @@ function ChargeCardConfigEditor({
           type="number"
           size="small"
           value={config.retryIntervalDays}
-          onChange={(e) => onChange({ ...config, retryIntervalDays: Math.max(0, parseInt(e.target.value) || 0) })}
+          onChange={(e) => onChange({ ...config, retryIntervalDays: Math.max(1, parseInt(e.target.value) || 1) })}
           disabled={config.retryAttempts === 0}
           sx={{ width: 70 }}
           inputProps={{ min: 1, max: 90, ...numericFieldProps }}
