@@ -18,8 +18,7 @@ const LEGACY_DATA_BUCKET_SUFFIX = 'legacy-data';
 
 const PAGE_SIZE_DEFAULT = 20;
 const PAGE_SIZE_MAX = 50;
-const MAX_FILES_PER_RECORD_DEFAULT = 50;
-const MAX_FILES_PER_RECORD_MAX = 200;
+const MAX_FILES_PER_RECORD = 200;
 const PRESIGNED_URL_CONCURRENCY = 10;
 
 let m2mToken: string;
@@ -196,9 +195,9 @@ function validateRequestParameters(input: ZambdaInput): ValidatedParameters {
     PAGE_SIZE_MAX,
     Math.max(1, typeof rawPageSize === 'number' ? Math.floor(rawPageSize) : PAGE_SIZE_DEFAULT)
   );
-  const maxFilesPerRecord = Math.min(
-    MAX_FILES_PER_RECORD_MAX,
-    Math.max(1, typeof rawMaxFiles === 'number' ? Math.floor(rawMaxFiles) : MAX_FILES_PER_RECORD_DEFAULT)
+  const maxFilesPerRecord = Math.max(
+    1,
+    typeof rawMaxFiles === 'number' ? Math.floor(rawMaxFiles) : MAX_FILES_PER_RECORD
   );
 
   return {
