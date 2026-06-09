@@ -676,13 +676,47 @@
         "linkId": "patient-email",
         "type": "string",
         "text": "Patient email",
-        "required": true,
+        "required": false,
+        "enableWhen": [
+          {
+            "question": "patient-no-email",
+            "operator": "!=",
+            "answerBoolean": true
+          }
+        ],
         "extension": [
           {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
             "valueString": "Email"
+          },
+          {
+            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
+            "valueString": "hidden"
+          },
+          {
+            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when",
+            "extension": [
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-question",
+                "valueString": "patient-no-email"
+              },
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-operator",
+                "valueString": "!="
+              },
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-answer",
+                "valueBoolean": true
+              }
+            ]
           }
         ]
+      },
+      {
+        "linkId": "patient-no-email",
+        "type": "boolean",
+        "text": "Patient doesn't have an email address",
+        "required": false
       },
       {
         "linkId": "patient-number",

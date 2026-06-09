@@ -27,7 +27,7 @@ import {
 
 // Canonical identifiers — see intake-paperwork/index.ts for rationale.
 export const VIRTUAL_INTAKE_PAPERWORK_URL = 'https://ottehr.com/FHIR/Questionnaire/intake-paperwork-virtual';
-export const VIRTUAL_INTAKE_PAPERWORK_VERSION = '1.1.0';
+export const VIRTUAL_INTAKE_PAPERWORK_VERSION = '1.1.1';
 export const VIRTUAL_INTAKE_PAPERWORK_CANONICAL = {
   url: VIRTUAL_INTAKE_PAPERWORK_URL,
   version: VIRTUAL_INTAKE_PAPERWORK_VERSION,
@@ -1752,13 +1752,34 @@ function buildFormFields(
           triggers: [
             {
               targetQuestionLinkId: 'responsible-party-relationship',
+              effect: ['enable', 'require'],
+              operator: '!=',
+              answerString: 'Self',
+            },
+            {
+              targetQuestionLinkId: 'responsible-party-no-email',
+              effect: ['enable', 'require'],
+              operator: '!=',
+              answerBoolean: true,
+            },
+          ],
+          enableBehavior: 'all',
+          disabledDisplay: 'hidden',
+          dynamicPopulation: { sourceLinkId: 'patient-email' },
+        },
+        noEmail: {
+          key: 'responsible-party-no-email',
+          label: "Responsible party doesn't have an email address",
+          type: 'boolean',
+          triggers: [
+            {
+              targetQuestionLinkId: 'responsible-party-relationship',
               effect: ['enable'],
               operator: '!=',
               answerString: 'Self',
             },
           ],
-          disabledDisplay: 'disabled',
-          dynamicPopulation: { sourceLinkId: 'patient-email' },
+          disabledDisplay: 'hidden',
         },
       },
       hiddenFields: [],
@@ -1772,7 +1793,6 @@ function buildFormFields(
         'responsible-party-city',
         'responsible-party-state',
         'responsible-party-zip',
-        'responsible-party-email',
       ],
     },
     employerInformation: {

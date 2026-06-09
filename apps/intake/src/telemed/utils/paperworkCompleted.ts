@@ -81,8 +81,13 @@ export function isPaperworkPageComplete(
       return areAllRequiredQuestionsComplete(completedPaperwork, questions);
     case 'payment-option':
       return isPaymentOptionComplete(completedPaperwork, questions);
-    case 'responsible-party':
-      return areAllRequiredQuestionsComplete(completedPaperwork, questions);
+    case 'responsible-party': {
+      const responsiblePartyQuestions =
+        completedPaperwork['responsible-party-no-email'] === true
+          ? questions.filter((q) => q.id !== 'responsible-party-email')
+          : questions;
+      return areAllRequiredQuestionsComplete(completedPaperwork, responsiblePartyQuestions);
+    }
     case 'photo-id':
       return !!fileURLs && isPhotoIdComplete(questions, fileURLs);
     case 'consent-forms':

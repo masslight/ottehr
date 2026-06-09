@@ -52,6 +52,9 @@ function isPaymentOptionComplete(completedPaperwork: CompletedPaperwork, questio
 function isResponsiblePartyComplete(completedPaperwork: CompletedPaperwork, questions: Question[]): boolean {
   return questions
     .filter((question) => {
+      if (question.id === 'responsible-party-email') {
+        return completedPaperwork['responsible-party-no-email'] !== true && question.required;
+      }
       return question.required;
     })
     .every((question) => {
