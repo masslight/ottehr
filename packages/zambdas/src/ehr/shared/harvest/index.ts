@@ -2756,7 +2756,7 @@ export const getAccountOperations = (input: GetAccountOperationsInput): GetAccou
       url: `Account/${existingAccount.id}`,
       resource: updatedAccount,
       // Optimistic lock: this PUT replaces the entire Account (including the
-      // coverage array). Harvest runs as several concurrent page-level Tasks,
+      // coverage array). Harvest may run as several concurrent page-level Tasks,
       // each reading the Account, recomputing coverage from its own (possibly
       // stale) snapshot, and writing the whole resource back. Without a version
       // guard the last writer wins and can clobber Account.coverage to an empty
