@@ -324,7 +324,8 @@ async function sendNotificationForMedium(
   } else if (medium === 'email') {
     const email = getPatientContactEmail(patient);
     if (!email) {
-      throw new Error(`Patient ${patientId} has no contact email address`);
+      console.log(`Patient ${patientId} has no email address; skipping charge-card outreach email`);
+      return;
     }
 
     const resolvedMessage = fillOutreachTemplate(emailTemplate, placeholderInput);
