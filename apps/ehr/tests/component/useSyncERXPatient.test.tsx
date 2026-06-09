@@ -112,7 +112,7 @@ describe('useSyncERXPatient', () => {
           },
         ],
       }),
-      { optimisticLockingVersionId: 'v1' }
+      {}
     );
   });
 
