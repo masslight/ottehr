@@ -688,16 +688,10 @@ function GroupPageContent(): ReactElement {
                     const targetLocationIdSet = allLocations
                       ? new Set((locations || []).map((l) => l.id).filter((id): id is string => !!id))
                       : new Set(selectedLocationIds);
-                    // PR.healthcareService references real FHIR HealthcareService
-                    // ids, so the per-location offering check only applies to
-                    // FHIR-backed entries. BOOKING_CONFIG categories (compiled-in)
-                    // don't have an HS resource to reference — treat them as
-                    // offered at every selected location (the implicit
-                    // project-wide-default semantic). Without this check, the
-                    // map key for BOOKING_CONFIG entries is the kebab code, and
-                    // the correlation against `HealthcareService/<UUID>` refs
-                    // would always miss → misleading "no selected location
-                    // offers this service" warning on every compiled-in category.
+                    // BOOKING_CONFIG categories have no provider-level opt-in
+                    // (no FHIR HS for PR.healthcareService to reference), so
+                    // we skip the FHIR correlation and list all selected
+                    // locations instead.
                     const offeringLocationNames = new Set<string>();
                     if (info.source === 'booking-config') {
                       for (const locId of targetLocationIdSet) {
