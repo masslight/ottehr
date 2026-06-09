@@ -5,6 +5,7 @@ import {
   DYMO_30334_LABEL_CONFIG,
   getMiddleName,
   getPatientFirstName,
+  getPatientFriendlyId,
   getPatientLastName,
   getPresignedURL,
   getTimezone,
@@ -99,7 +100,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const labelConfig: VisitLabelConfig = {
       labelConfig: DYMO_30334_LABEL_CONFIG,
       content: {
-        patientId: patient.id!,
+        patientId: getPatientFriendlyId(patient) || patient.id!,
         patientFirstName: getPatientFirstName(patient) ?? '',
         patientMiddleName: getMiddleName(patient),
         patientLastName: getPatientLastName(patient) ?? '',
@@ -113,6 +114,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     const { presignedURL, documentReference } = await createVisitLabelPDF(
       labelConfig,
+      patient.id!,
       encounterId,
       secrets,
       m2mToken,
