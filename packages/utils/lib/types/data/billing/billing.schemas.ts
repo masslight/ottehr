@@ -186,7 +186,8 @@ const billingProviderRole = z.enum(['billing', 'rendering']);
 
 const billingProviderAddressSchema = z
   .object({
-    line: nonEmptyString.optional(),
+    line1: nonEmptyString.optional(),
+    line2: nonEmptyString.optional(),
     city: nonEmptyString.optional(),
     state: nonEmptyString.optional(),
     postalCode: nonEmptyString.optional(),

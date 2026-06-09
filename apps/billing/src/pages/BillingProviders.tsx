@@ -1,9 +1,10 @@
-import { ArrowBack as ArrowBackIcon, Search as SearchIcon } from '@mui/icons-material';
+import { Add as AddIcon, ArrowBack as ArrowBackIcon, Search as SearchIcon } from '@mui/icons-material';
 import { Alert, Box, Button, CircularProgress, IconButton, InputAdornment, TextField, Typography } from '@mui/material';
 import { DataGridPro, GridColDef, GridPaginationModel } from '@mui/x-data-grid-pro';
 import { ReactElement, useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { chooseJson } from 'utils';
+import { AddProviderDialog } from '../components/AddProviderDialog';
 import { dataGridSlots, dataGridSx } from '../components/BillingDataGrid';
 import { DetailRow } from '../components/DetailRow';
 import { useApiClients } from '../hooks/useAppClients';
@@ -36,6 +37,7 @@ export function BillingProvidersList(): ReactElement {
   const [error, setError] = useState<string | null>(null);
   const [paginationModel, setPaginationModel] = useState<GridPaginationModel>({ page: 0, pageSize: 25 });
   const [searchName, setSearchName] = useState('');
+  const [addOpen, setAddOpen] = useState(false);
   const { debounce } = useDebounce();
 
   const fetchProviders = useCallback(
@@ -85,9 +87,14 @@ export function BillingProvidersList(): ReactElement {
 
   return (
     <Box sx={{ p: 0 }}>
-      <Typography variant="h4" color="primary.dark" fontWeight={600} sx={{ mb: 3 }}>
-        Billing Providers
-      </Typography>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+        <Typography variant="h4" color="primary.dark" fontWeight={600}>
+          Billing Providers
+        </Typography>
+        <Button variant="contained" startIcon={<AddIcon />} onClick={() => setAddOpen(true)}>
+          Add Provider
+        </Button>
+      </Box>
 
       <TextField
         fullWidth
@@ -125,6 +132,13 @@ export function BillingProvidersList(): ReactElement {
         disableColumnMenu
         slots={dataGridSlots}
         sx={{ ...dataGridSx, height: 'calc(100vh - 310px)' }}
+      />
+
+      <AddProviderDialog
+        open={addOpen}
+        defaultRole="billing"
+        onClose={() => setAddOpen(false)}
+        onCreated={() => void fetchProviders(paginationModel, searchName || undefined)}
       />
     </Box>
   );

@@ -1,9 +1,10 @@
-import { ArrowBack as ArrowBackIcon, Search as SearchIcon } from '@mui/icons-material';
+import { Add as AddIcon, ArrowBack as ArrowBackIcon, Search as SearchIcon } from '@mui/icons-material';
 import { Alert, Box, Button, CircularProgress, IconButton, InputAdornment, TextField, Typography } from '@mui/material';
 import { DataGridPro, GridColDef, GridPaginationModel } from '@mui/x-data-grid-pro';
 import { ReactElement, useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { chooseJson } from 'utils';
+import { AddProviderDialog } from '../components/AddProviderDialog';
 import { dataGridSlots, dataGridSx } from '../components/BillingDataGrid';
 import { DetailRow } from '../components/DetailRow';
 import { useApiClients } from '../hooks/useAppClients';
@@ -12,15 +13,12 @@ import { useDebounce } from '../hooks/useDebounce';
 interface ProviderRow {
   id: string;
   name: string;
-  firstName?: string;
-  lastName?: string;
   npi: string;
   taxonomyCode?: string;
 }
 
 const columns: GridColDef[] = [
-  { field: 'firstName', headerName: 'First Name', flex: 1, minWidth: 150 },
-  { field: 'lastName', headerName: 'Last Name', flex: 1, minWidth: 150 },
+  { field: 'name', headerName: 'Name', flex: 1, minWidth: 200 },
   { field: 'npi', headerName: 'NPI', width: 130 },
   { field: 'taxonomyCode', headerName: 'Taxonomy Code', width: 150 },
 ];
@@ -35,6 +33,7 @@ export function RenderingProvidersList(): ReactElement {
   const [error, setError] = useState<string | null>(null);
   const [paginationModel, setPaginationModel] = useState<GridPaginationModel>({ page: 0, pageSize: 25 });
   const [searchName, setSearchName] = useState('');
+  const [addOpen, setAddOpen] = useState(false);
   const { debounce } = useDebounce();
 
   const fetchProviders = useCallback(
@@ -84,9 +83,14 @@ export function RenderingProvidersList(): ReactElement {
 
   return (
     <Box sx={{ p: 0 }}>
-      <Typography variant="h4" color="primary.dark" fontWeight={600} sx={{ mb: 3 }}>
-        Rendering Providers
-      </Typography>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+        <Typography variant="h4" color="primary.dark" fontWeight={600}>
+          Rendering Providers
+        </Typography>
+        <Button variant="contained" startIcon={<AddIcon />} onClick={() => setAddOpen(true)}>
+          Add Provider
+        </Button>
+      </Box>
 
       <TextField
         fullWidth
@@ -124,6 +128,13 @@ export function RenderingProvidersList(): ReactElement {
         disableColumnMenu
         slots={dataGridSlots}
         sx={{ ...dataGridSx, height: 'calc(100vh - 310px)' }}
+      />
+
+      <AddProviderDialog
+        open={addOpen}
+        defaultRole="rendering"
+        onClose={() => setAddOpen(false)}
+        onCreated={() => void fetchProviders(paginationModel, searchName || undefined)}
       />
     </Box>
   );
@@ -187,12 +198,11 @@ export function RenderingProviderDetail(): ReactElement {
           <ArrowBackIcon />
         </IconButton>
         <Typography variant="h5" color="primary.dark" fontWeight={600}>
-          {provider.firstName} {provider.lastName}
+          {provider.name}
         </Typography>
       </Box>
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-        <DetailRow label="First Name" value={provider.firstName ?? ''} />
-        <DetailRow label="Last Name" value={provider.lastName ?? ''} />
+        <DetailRow label="Name" value={provider.name} />
         <DetailRow label="NPI" value={provider.npi} />
         <DetailRow label="Taxonomy Code" value={provider.taxonomyCode ?? ''} />
       </Box>

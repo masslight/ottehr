@@ -55,16 +55,18 @@ function buildProvider(params: CreateBillingProviderParams): Practitioner | Orga
     });
   }
 
-  const address: Address[] | undefined = params.address
-    ? [
-        {
-          line: params.address.line ? [params.address.line] : undefined,
-          city: params.address.city,
-          state: params.address.state,
-          postalCode: params.address.postalCode,
-        },
-      ]
-    : undefined;
+  let address: Address[] | undefined;
+  if (params.address) {
+    const line = [params.address.line1, params.address.line2].filter((l): l is string => !!l);
+    address = [
+      {
+        ...(line.length ? { line } : {}),
+        city: params.address.city,
+        state: params.address.state,
+        postalCode: params.address.postalCode,
+      },
+    ];
+  }
 
   if (params.kind === 'individual') {
     if (params.licenseType) tag.push({ system: LICENSE_TAG, code: params.licenseType });
