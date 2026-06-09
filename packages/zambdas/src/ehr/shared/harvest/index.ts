@@ -4100,13 +4100,16 @@ export const updatePatientAccountFromQuestionnaire = async (
 
   const organizationResources = await searchInsuranceInformation(oystehr, insuranceOrgs);
 
-  // Harvest fires several page-level Tasks concurrently, each of which reads the
-  // Account, recomputes its coverage array, and writes the whole Account back via
-  // an optimistically-locked PUT (see the If-Match in getAccountOperations). On a
-  // concurrent change the transaction fails with 412; re-read the latest Account
-  // and retry so we reconcile against the current coverages instead of clobbering
-  // them to an empty/partial list (which surfaces as a blank insurance carrier).
-  const MAX_ACCOUNT_UPDATE_ATTEMPTS = 5;
+  // Harvest fires several page-level Tasks concurrently (six paperwork pages run the
+  // account-coverage strategy), each of which reads the Account, recomputes its coverage
+  // array, and writes the whole Account back via an optimistically-locked PUT (see the
+  // If-Match in getAccountOperations). On a concurrent change the transaction fails with
+  // 412; re-read the latest Account and retry so we reconcile against the current coverages
+  // instead of clobbering them to an empty/partial list (which surfaces as a blank
+  // insurance carrier). The first iteration also conditionally creates the billing Account
+  // (below) to collapse the create race. With up to six concurrent writers a single Task
+  // can lose several optimistic-lock rounds before winning, so allow generous retries.
+  const MAX_ACCOUNT_UPDATE_ATTEMPTS = 10;
   let lastError: unknown;
   for (let attempt = 0; attempt < MAX_ACCOUNT_UPDATE_ATTEMPTS; attempt++) {
     const {
@@ -4125,6 +4128,37 @@ export const updatePatientAccountFromQuestionnaire = async (
     // patches) so same-as-patient address resolution doesn't silently use a stale
     // copy when read-after-write isn't guaranteed.
     const patient = patientFromInput ?? existingPatient;
+
+    // Ensure exactly one billing Account exists before computing the update. The six
+    // concurrent account-coverage Tasks would otherwise each POST their own Account when
+    // none is found on the first round, leaving duplicate billing Accounts — one populated
+    // with coverage, the rest empty — after which the read path's Account selection is a
+    // coin flip and insurance intermittently reads blank. A conditional create (If-None-Exist)
+    // serializes this: the first Task creates the Account, the rest match it and no-op. We
+    // then re-read so every Task applies its own data to that single Account through the
+    // optimistically-locked PUT below, rather than creating a competing one.
+    if (!existingAccount) {
+      const billingType = PATIENT_BILLING_ACCOUNT_TYPE?.coding?.[0];
+      await oystehr.fhir.create(
+        {
+          resourceType: 'Account',
+          status: 'active',
+          type: { ...PATIENT_BILLING_ACCOUNT_TYPE },
+          subject: [{ reference: `Patient/${patientId}` }],
+          description: 'Patient account',
+        },
+        {
+          ifNoneExist: [
+            { name: 'patient', value: `Patient/${patientId}` },
+            { name: 'type', value: `${billingType?.system}|${billingType?.code}` },
+            { name: 'status', value: 'active' },
+          ],
+        }
+      );
+      // Re-read so the now-existing Account is treated as existing (and merged via the
+      // PUT path) instead of created again. Skips computing/committing this iteration.
+      continue;
+    }
 
     /*
     console.log('existing coverages', JSON.stringify(existingCoverages, null, 2));
