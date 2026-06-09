@@ -213,6 +213,7 @@ export default function AppointmentTableRow({
   const [primaryActionButtonLoading, setPrimaryActionButtonLoading] = useState(false);
   const [progressNoteButtonLoading, setProgressNoteButtonLoading] = useState(false);
   const [approveButtonLoading, setApproveButtonLoading] = useState(false);
+  const [reviewAndSignButtonLoading, setReviewAndSignButtonLoading] = useState(false);
 
   const { mutateAsync: signAppointment, isPending: isSignLoading } = useSignAppointmentMutation();
   const { handleUpdatePractitioner } = usePractitionerActions(encounter, 'end', PRACTITIONER_CODINGS.Admitter);
@@ -636,12 +637,17 @@ export default function AppointmentTableRow({
     }
   };
 
-  const renderActionButton = (text: string, onClick: () => Promise<void>, dataTestId: string): ReactElement => {
+  const renderActionButton = (
+    text: string,
+    onClick: () => Promise<void>,
+    dataTestId: string,
+    loading = primaryActionButtonLoading
+  ): ReactElement => {
     return (
       <LoadingButton
         data-testid={dataTestId}
         onClick={() => void onClick()}
-        loading={primaryActionButtonLoading}
+        loading={loading}
         variant="contained"
         sx={{
           borderRadius: 8,
@@ -711,15 +717,20 @@ export default function AppointmentTableRow({
     return renderActionButton(primaryAction.label, handlePrimaryActionButton, primaryAction.dataTestId);
   };
 
-  const handleProgressNoteButton = async (): Promise<void> => {
-    setProgressNoteButtonLoading(true);
+  const navigateToReviewAndSign = async (setLoading: (loading: boolean) => void): Promise<void> => {
+    setLoading(true);
     try {
       navigate(getInPersonUrlByAppointmentType(appointment, ROUTER_PATH.REVIEW_AND_SIGN));
     } catch (error) {
       console.error(error);
       enqueueSnackbar('An error occurred. Please try again.', { variant: 'error' });
+    } finally {
+      setLoading(false);
     }
-    setProgressNoteButtonLoading(false);
+  };
+
+  const handleProgressNoteButton = async (): Promise<void> => {
+    await navigateToReviewAndSign(setProgressNoteButtonLoading);
   };
 
   const renderProgressNoteButton = (): ReactElement | undefined => {
@@ -743,6 +754,23 @@ export default function AppointmentTableRow({
       );
     }
     return undefined;
+  };
+
+  const handleReviewAndSignButton = async (): Promise<void> => {
+    await navigateToReviewAndSign(setReviewAndSignButtonLoading);
+  };
+
+  const renderReviewAndSignButton = (): ReactElement | undefined => {
+    if (appointment.status !== 'discharged') {
+      return undefined;
+    }
+
+    return renderActionButton(
+      'Review & Sign',
+      handleReviewAndSignButton,
+      dataTestIds.dashboard.reviewAndSignButton,
+      reviewAndSignButtonLoading
+    );
   };
 
   const handleApprove = async (): Promise<void> => {
@@ -1128,6 +1156,7 @@ export default function AppointmentTableRow({
       <TableCell sx={{ verticalAlign: 'center' }}>
         <Stack direction={'row'} spacing={1} alignItems="center" justifyContent="center" sx={{ width: '100%' }}>
           {renderArrivedButton()}
+          {renderReviewAndSignButton()}
           {renderPrimaryActionButton()}
           {FEATURE_FLAGS.SUPERVISOR_APPROVAL_ENABLED && renderSupervisorApproval()}
         </Stack>
