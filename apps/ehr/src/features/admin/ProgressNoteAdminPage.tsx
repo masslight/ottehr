@@ -57,14 +57,13 @@ export default function ProgressNoteAdminPage(): ReactElement {
 
   const {
     control,
-    formState: { dirtyFields, isDirty },
+    formState: { isDirty },
     handleSubmit,
     reset,
   } = useForm<ProgressNoteConfig>({
     defaultValues: DEFAULT_PROGRESS_NOTE_CONFIG,
     resolver: zodResolver(UpdateProgressNoteConfigInputSchema),
   });
-  const hasDirtyFields = Object.keys(dirtyFields).length > 0;
 
   useEffect(() => {
     if (!data) return;
@@ -73,11 +72,9 @@ export default function ProgressNoteAdminPage(): ReactElement {
         ...DEFAULT_PROGRESS_NOTE_CONFIG,
         ...data,
       },
-      {
-        keepDirtyValues: hasDirtyFields,
-      }
+      { keepDirtyValues: true }
     );
-  }, [data, hasDirtyFields, reset]);
+  }, [data, reset]);
 
   const onSubmit = (values: ProgressNoteConfig): void => {
     mutate(values, {
