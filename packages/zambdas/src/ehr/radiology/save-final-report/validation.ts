@@ -50,31 +50,11 @@ export const validateSecrets = (secrets: Secrets | null): Secrets => {
     throw new Error('Secrets are required');
   }
 
-  const {
-    ADVAPACS_CLIENT_ID,
-    ADVAPACS_CLIENT_SECRET,
-    AUTH0_ENDPOINT,
-    AUTH0_CLIENT,
-    AUTH0_SECRET,
-    AUTH0_AUDIENCE,
-    FHIR_API,
-    PROJECT_API,
-  } = secrets;
-  if (
-    !ADVAPACS_CLIENT_ID ||
-    !ADVAPACS_CLIENT_SECRET ||
-    !AUTH0_ENDPOINT ||
-    !AUTH0_CLIENT ||
-    !AUTH0_SECRET ||
-    !AUTH0_AUDIENCE ||
-    !FHIR_API ||
-    !PROJECT_API
-  ) {
+  const { AUTH0_ENDPOINT, AUTH0_CLIENT, AUTH0_SECRET, AUTH0_AUDIENCE, FHIR_API, PROJECT_API } = secrets;
+  if (!AUTH0_ENDPOINT || !AUTH0_CLIENT || !AUTH0_SECRET || !AUTH0_AUDIENCE || !FHIR_API || !PROJECT_API) {
     throw new Error('Missing required secrets');
   }
   return {
-    ADVAPACS_CLIENT_ID,
-    ADVAPACS_CLIENT_SECRET,
     AUTH0_ENDPOINT,
     AUTH0_CLIENT,
     AUTH0_SECRET,

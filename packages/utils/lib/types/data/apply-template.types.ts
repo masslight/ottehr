@@ -10,7 +10,8 @@ export type TemplateSectionKey =
   | 'patientInstructions'
   | 'cptCodes'
   | 'emCode'
-  | 'inHouseLabs';
+  | 'inHouseLabs'
+  | 'procedures';
 
 export type TemplateSectionActions = Partial<Record<TemplateSectionKey, TemplateSectionAction>>;
 
@@ -25,6 +26,7 @@ export const TEMPLATE_SECTION_DEFAULT_ACTIONS: Record<TemplateSectionKey, Templa
   cptCodes: 'append',
   emCode: 'overwrite',
   inHouseLabs: 'append',
+  procedures: 'append',
 };
 
 export const TEMPLATE_SECTIONS_NO_APPEND: ReadonlySet<TemplateSectionKey> = new Set<TemplateSectionKey>([
@@ -49,13 +51,16 @@ export const TEMPLATE_SECTIONS_IN_ORDER: readonly TemplateSectionDescriptor[] = 
   { key: 'cptCodes', label: 'CPT Codes' },
   { key: 'emCode', label: 'E&M Code' },
   { key: 'inHouseLabs', label: 'In-House Lab Orders' },
+  { key: 'procedures', label: 'Procedures' },
 ];
-// In-house lab orders are additive only - replacing existing in-flight orders on
-// an encounter doesn't make sense (specimens, tasks, and results that may already
-// exist for those orders shouldn't be silently destroyed), so we constrain the
-// section to Skip or Append.
+// In-house lab orders and in-office Procedures are additive only - replacing
+// existing entries on an encounter is destructive (in-house labs may have
+// specimens/results; procedures carry post-facto documentation a provider
+// shouldn't lose by clicking the wrong toggle), so we constrain both sections
+// to Skip or Append.
 export const TEMPLATE_SECTIONS_NO_OVERWRITE: ReadonlySet<TemplateSectionKey> = new Set<TemplateSectionKey>([
   'inHouseLabs',
+  'procedures',
 ]);
 
 export interface ApplyTemplateZambdaInput {

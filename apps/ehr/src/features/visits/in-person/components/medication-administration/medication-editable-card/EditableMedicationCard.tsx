@@ -142,7 +142,7 @@ export const EditableMedicationCard: React.FC<{
   const isSavedRef = useRef(false);
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
 
-  const handleStatusChange = async (newStatus: MedicationOrderStatusesType): Promise<void> => {
+  const handleUnsavedStatusChange = async (newStatus: MedicationOrderStatusesType): Promise<void> => {
     isSavedRef.current = false;
     setCurrentStatus(newStatus);
   };
@@ -436,9 +436,8 @@ export const EditableMedicationCard: React.FC<{
       await updateMedication(medicationUpdateRequestInputRefRef.current);
       isSavedRef.current = true;
 
-      // update saved status in the local state
       if (newStatus) {
-        await handleStatusChange(newStatus);
+        setCurrentStatus(newStatus);
       }
 
       if (
@@ -471,7 +470,18 @@ export const EditableMedicationCard: React.FC<{
 
   const getFieldValue = useCallback(
     <Field extends keyof MedicationData>(field: Field, type = 'text'): MedicationData[Field] | '' | undefined => {
-      return localValues[field] ?? (medication ? getMedicationFieldValue(medication || {}, field, type) : undefined);
+      // user touched the field (incl. explicitly cleared to `undefined`)
+      if (field in localValues) {
+        return localValues[field];
+      }
+
+      // not touched yet — fall back to the saved order
+      if (medication) {
+        return getMedicationFieldValue(medication || {}, field, type);
+      }
+
+      // new order, nothing entered yet
+      return undefined;
     },
     [localValues, medication, getMedicationFieldValue]
   );
@@ -676,7 +686,7 @@ export const EditableMedicationCard: React.FC<{
         selectedStatus={currentStatus}
         isUpdating={isOrderUpdating}
         onFieldValueChange={handleFieldValueChange}
-        onStatusSelect={handleStatusChange}
+        onStatusSelect={handleUnsavedStatusChange}
         getFieldValue={getFieldValue}
         showErrors={showErrors}
         fieldErrors={fieldErrors}

@@ -1047,6 +1047,13 @@
       "src": "src/ehr/radiology/save-preliminary-report/index",
       "zip": ".dist/zips/radiology-save-preliminary-report.zip"
     },
+    "RADIOLOGY-SAVE-FINAL-REPORT": {
+      "name": "radiology-save-final-report",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/radiology/save-final-report/index",
+      "zip": ".dist/zips/radiology-save-final-report.zip"
+    },
     "RADIOLOGY-SEND-FOR-FINAL-READ": {
       "name": "radiology-send-for-final-read",
       "type": "http_auth",
