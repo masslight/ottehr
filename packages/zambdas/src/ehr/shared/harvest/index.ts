@@ -4129,8 +4129,8 @@ export const updatePatientAccountFromQuestionnaire = async (
     // copy when read-after-write isn't guaranteed.
     const patient = patientFromInput ?? existingPatient;
 
-    // Ensure exactly one billing Account exists before computing the update. The six
-    // concurrent account-coverage Tasks would otherwise each POST their own Account when
+    // Ensure exactly one billing Account exists before computing the update.
+    // Concurrent account-coverage Tasks can each POST their own Account when
     // none is found on the first round, leaving duplicate billing Accounts — one populated
     // with coverage, the rest empty — after which the read path's Account selection is a
     // coin flip and insurance intermittently reads blank. A conditional create (If-None-Exist)
