@@ -2,33 +2,31 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { renderHook, waitFor } from '@testing-library/react';
 import { Encounter, Patient } from 'fhir/r4b';
 import { ReactNode } from 'react';
-import { FHIR_ENCOUNTER_ERX_PATIENT_SYNC_TAG } from 'utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useSyncERXPatient } from '../../src/features/visits/shared/stores/appointment/appointment.queries';
 
 const mockSyncPatient = vi.fn<(...args: any[]) => Promise<any>>();
-const mockFhirPatch = vi.fn<(...args: any[]) => Promise<any>>();
-const mockFhirGet = vi.fn<(...args: any[]) => Promise<any>>();
+const mockZambdaExecute = vi.fn<(...args: any[]) => Promise<any>>();
 
 const oystehrMock = {
   erx: { syncPatient: (...args: any[]) => mockSyncPatient(...args) },
-  fhir: {
-    patch: (...args: any[]) => mockFhirPatch(...args),
-    get: (...args: any[]) => mockFhirGet(...args),
-  },
+} as any;
+
+const oystehrZambdaMock = {
+  zambda: { execute: (...args: any[]) => mockZambdaExecute(...args) },
 } as any;
 
 vi.mock('src/hooks/useAppClients', () => ({
   useApiClients: () => ({
     oystehr: oystehrMock,
-    oystehrZambda: {} as any,
+    oystehrZambda: oystehrZambdaMock,
   }),
 }));
 
 vi.mock('../../src/hooks/useAppClients', () => ({
   useApiClients: () => ({
     oystehr: oystehrMock,
-    oystehrZambda: {} as any,
+    oystehrZambda: oystehrZambdaMock,
   }),
 }));
 
@@ -87,9 +85,9 @@ describe('useSyncERXPatient', () => {
     vi.clearAllMocks();
   });
 
-  it('tags the encounter as eRx-synced after a successful sync', async () => {
+  it('calls the tag zambda after a successful sync', async () => {
     mockSyncPatient.mockResolvedValue(undefined);
-    mockFhirPatch.mockResolvedValue(undefined);
+    mockZambdaExecute.mockResolvedValue({});
 
     const { result } = renderSync(makeEncounter());
 
@@ -99,43 +97,16 @@ describe('useSyncERXPatient', () => {
       patientId: 'patient-1',
       encounterId: 'enc-1',
     });
-    expect(mockFhirPatch).toHaveBeenCalledTimes(1);
-    expect(mockFhirPatch).toHaveBeenCalledWith(
-      expect.objectContaining({
-        resourceType: 'Encounter',
-        id: 'enc-1',
-        operations: [
-          {
-            op: 'add',
-            path: '/meta/tag',
-            value: [FHIR_ENCOUNTER_ERX_PATIENT_SYNC_TAG],
-          },
-        ],
-      }),
-      { optimisticLockingVersionId: 'v1' }
-    );
-  });
-
-  it('does not patch when the encounter is already tagged', async () => {
-    mockSyncPatient.mockResolvedValue(undefined);
-    const alreadyTagged = makeEncounter({
-      meta: {
-        tag: [FHIR_ENCOUNTER_ERX_PATIENT_SYNC_TAG],
-      },
+    expect(mockZambdaExecute).toHaveBeenCalledTimes(1);
+    expect(mockZambdaExecute).toHaveBeenCalledWith({
+      id: 'tag-encounter-erx-synced',
+      encounterId: 'enc-1',
     });
-
-    const { result } = renderSync(alreadyTagged);
-
-    await waitFor(() => expect((result.current as any).isFetched).toBe(true));
-
-    expect(mockSyncPatient).toHaveBeenCalledTimes(1);
-    expect(mockFhirPatch).not.toHaveBeenCalled();
   });
 
   it('still succeeds when tagging fails', async () => {
     mockSyncPatient.mockResolvedValue(undefined);
-    mockFhirPatch.mockRejectedValue(new Error('patch failed'));
-    mockFhirGet.mockRejectedValue(new Error('get failed'));
+    mockZambdaExecute.mockRejectedValue(new Error('zambda failed'));
 
     const { result } = renderSync(makeEncounter());
 

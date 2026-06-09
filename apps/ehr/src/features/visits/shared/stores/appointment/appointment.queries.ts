@@ -10,7 +10,7 @@ import { Bundle, Coding, Encounter, FhirResource, InsurancePlan, Medication, Pat
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { useEffect } from 'react';
-import { getPatientInstructionQuickPicks, icd10Search } from 'src/api/api';
+import { getPatientInstructionQuickPicks, icd10Search, tagEncounterErxSynced } from 'src/api/api';
 import { QUERY_STALE_TIME } from 'src/constants';
 import { FEATURE_FLAGS } from 'src/constants/feature-flags';
 import { useApiClients } from 'src/hooks/useAppClients';
@@ -52,7 +52,6 @@ import {
   MeetingData,
   ProcedureDetail,
   PromiseReturnType,
-  tagEncounterAsErxSynced,
   UpdateMedicationOrderInput,
 } from 'utils';
 import { useErrorQuery, useSuccessQuery } from 'utils/lib/frontend';
@@ -711,13 +710,13 @@ export const useSyncERXPatient = ({
   onError: (err: any) => void;
   // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 }) => {
-  const { oystehr } = useApiClients();
+  const { oystehr, oystehrZambda } = useApiClients();
 
   const queryResult = useQuery({
     queryKey: ['erx-sync-patient', patient],
 
     queryFn: async () => {
-      if (oystehr) {
+      if (oystehr && oystehrZambda) {
         console.log(`Start syncing patient with erx patient ${patient.id}`);
         try {
           await oystehr.erx.syncPatient({ patientId: patient.id!, encounterId: encounter.id! });
@@ -728,7 +727,7 @@ export const useSyncERXPatient = ({
         }
 
         try {
-          await tagEncounterAsErxSynced(oystehr, encounter);
+          await tagEncounterErxSynced(oystehrZambda, { encounterId: encounter.id! });
         } catch (tagErr) {
           // it's fine if it fails, it'll just try syncing again later
           console.error('Failed to tag encounter as erx-synced: ', tagErr);

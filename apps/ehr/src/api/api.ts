@@ -201,6 +201,8 @@ import {
   SubmitLabOrderInput,
   SubmitLabOrderOutput,
   SyncMailedStatementStatusesOutput,
+  TagEncounterErxSyncedInput,
+  TagEncounterErxSyncedResponse,
   UnassignPractitionerZambdaInput,
   UnassignPractitionerZambdaOutput,
   UpdateAllergyQuickPickResponse,
@@ -1247,6 +1249,21 @@ export const createSlot = async (input: CreateSlotParams, oystehr: Oystehr): Pro
     const response = await oystehr.zambda.executePublic({ id: CREATE_SLOT_ZAMBDA_ID, ...input });
     const jsonToUse = chooseJson(response);
     return jsonToUse;
+  } catch (error: unknown) {
+    throw apiErrorToThrow(error);
+  }
+};
+
+export const tagEncounterErxSynced = async (
+  oystehr: Oystehr,
+  parameters: TagEncounterErxSyncedInput
+): Promise<TagEncounterErxSyncedResponse> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: 'tag-encounter-erx-synced',
+      ...parameters,
+    });
+    return chooseJson(response);
   } catch (error: unknown) {
     throw apiErrorToThrow(error);
   }
