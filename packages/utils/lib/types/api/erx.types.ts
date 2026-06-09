@@ -12,7 +12,7 @@ export interface GetErxOrdersResponse {
 }
 
 export const TagEncounterErxSyncedInputSchema = z.object({
-  encounterId: z.string(),
+  encounterId: z.string().min(1),
 });
 
 export type TagEncounterErxSyncedInput = z.infer<typeof TagEncounterErxSyncedInputSchema>;
