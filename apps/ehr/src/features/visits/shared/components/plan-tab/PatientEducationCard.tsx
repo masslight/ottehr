@@ -76,12 +76,20 @@ export const PatientEducationCard: FC = () => {
 
   const openEducationPdf = useCallback(
     async (docRefId: string) => {
+      // Open the tab synchronously inside the click handler so the browser treats it as
+      // a user-initiated popup (otherwise the await chain below can trip popup blockers).
+      const newTab = window.open('', '_blank');
+
       const cachedUrl = getEducationPdfUrl(docRefId);
       if (cachedUrl) {
-        window.open(cachedUrl, '_blank');
+        if (newTab) newTab.location.href = cachedUrl;
+        else window.open(cachedUrl, '_blank');
         return;
       }
-      if (!oystehr) return;
+      if (!oystehr) {
+        newTab?.close();
+        return;
+      }
       try {
         const docRef = await oystehr.fhir.get<DocumentReference>({
           resourceType: 'DocumentReference',
@@ -89,17 +97,21 @@ export const PatientEducationCard: FC = () => {
         });
         const z3Url = docRef.content?.[0]?.attachment?.url;
         if (!z3Url) {
+          newTab?.close();
           enqueueSnackbar('Could not find PDF attachment.', { variant: 'error' });
           return;
         }
         const accessToken = oystehr.config.accessToken;
         if (!accessToken) {
+          newTab?.close();
           enqueueSnackbar('Auth token unavailable.', { variant: 'error' });
           return;
         }
         const presignedUrl = await getPresignedURL(z3Url, accessToken);
-        window.open(presignedUrl, '_blank');
+        if (newTab) newTab.location.href = presignedUrl;
+        else window.open(presignedUrl, '_blank');
       } catch (err) {
+        newTab?.close();
         console.error('Failed to open education PDF:', err);
         enqueueSnackbar('Failed to open education PDF.', { variant: 'error' });
       }
@@ -230,10 +242,17 @@ export const PatientEducationCard: FC = () => {
                       checked={selectedDiagnoses.includes(diagnosis.code)}
                       onChange={(e) => {
                         setSelectedDiagnoses((prev) => {
-                          if (e.target.checked) {
-                            return prev.includes(diagnosis.code) ? prev : [...prev, diagnosis.code];
-                          }
-                          return prev.filter((code) => code !== diagnosis.code);
+                          const next = e.target.checked
+                            ? prev.includes(diagnosis.code)
+                              ? prev
+                              : [...prev, diagnosis.code]
+                            : prev.filter((code) => code !== diagnosis.code);
+                          // Keep selection in the picker's display order so a previously-edited
+                          // diagnosis stays at the same position in the review step when it is
+                          // toggled off and back on. Otherwise the re-checked diagnosis jumps to
+                          // the end and clinicians perceive their edits as lost.
+                          const positionByCode = new Map(allDiagnoses.map((d, i) => [d.code, i]));
+                          return [...next].sort((a, b) => (positionByCode.get(a) ?? 0) - (positionByCode.get(b) ?? 0));
                         });
                       }}
                       disabled={isEducationLoading}

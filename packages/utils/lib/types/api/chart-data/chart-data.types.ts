@@ -320,6 +320,7 @@ export interface CPTCodeDTO extends SaveableDTO {
   code: string;
   display: string;
   modifier?: { code: string; display: string }[];
+  ndcCode?: string;
 }
 
 export const clinicalImpressionDTOSchema = z.object({

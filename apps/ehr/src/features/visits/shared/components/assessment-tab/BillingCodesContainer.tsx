@@ -410,9 +410,16 @@ export const BillingCodesContainer: FC<BillingCodesContainerProps> = ({
             dataTestId={dataTestIds.billingContainer.container}
             getKey={(value, index) => value.resourceId || index}
             renderItem={(value) => (
-              <Typography data-testid={dataTestIds.billingContainer.cptCodeEntry(value.code)}>
-                {makeCptCodeDisplay(value)}
-              </Typography>
+              <Box>
+                <Typography data-testid={dataTestIds.billingContainer.cptCodeEntry(value.code)}>
+                  {makeCptCodeDisplay(value)}
+                </Typography>
+                {value.ndcCode && (
+                  <Typography variant="body2" color="textSecondary">
+                    NDC: {value.ndcCode}
+                  </Typography>
+                )}
+              </Box>
             )}
             renderActions={
               isReadOnly

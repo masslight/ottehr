@@ -866,8 +866,11 @@ export const useGetChartData = (
   // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 ) => {
   const user = useEvolveUser();
-  const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
-  const key = [requestKey, encounterId, requestedFields, isReadOnly]; // TODO: check if isReadOnly is needed (it causes duplicate requests because it's unstable and has not isLoading state)
+
+  // excluding isReadOnly:
+  // including it causes re-fetches when the appointment is signed (isReadOnly flips true), which triggers the onSuccess callback and merges stale server exam observations over the user's local changes
+  // example of instance of stale data being pulled in https://linear.app/zapehr/issue/OTR-2651/ros-and-exam-after-visit-is-unlocked-updated-and-signed-again-removed
+  const key = [requestKey, encounterId, requestedFields];
 
   const query = useQuery({
     queryKey: key,

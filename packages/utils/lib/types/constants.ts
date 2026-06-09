@@ -70,6 +70,7 @@ export const RETURNING_PATIENT_META_TAG = (): Coding => ({
   code: PATIENT_INFO_META_DATA_RETURNING_PATIENT_CODE,
 });
 
+// related helper for sanitizing these codes sanitizeStringForFhirCode
 // https://hl7.org/fhir/R4B/datatypes.html#code
 export const FHIR_CODE_REGEX = /^[^\s]+(\s[^\s]+)*$/;
 

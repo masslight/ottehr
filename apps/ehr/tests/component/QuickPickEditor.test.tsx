@@ -134,6 +134,32 @@ describe('QuickPickEditor', () => {
       const names = dataRows.map((row) => row.querySelector('td')?.textContent);
       expect(names).toEqual(['Aspirin', 'Ibuprofen', 'Penicillin']);
     });
+
+    it('should sort by getSortValue when provided, while displaying getValue', async () => {
+      const sortColumns: QuickPickEditorColumn<MockItem>[] = [
+        {
+          label: 'Name',
+          getValue: (item) => item.name,
+          getSortValue: (item) => item.name.split(' - ')[1] ?? item.name,
+        },
+      ];
+      mockFetchItems.mockResolvedValue([
+        { id: '1', name: 'prefix1 - value 1' },
+        { id: '2', name: 'prefix2 - value 3' },
+        { id: '3', name: 'prefix3 - value 2' },
+      ]);
+
+      render(<QuickPickEditor {...defaultProps} columns={sortColumns} />, { wrapper: createWrapper() });
+
+      await waitFor(() => {
+        expect(screen.getByText('prefix3 - value 2')).toBeInTheDocument();
+      });
+
+      const rows = screen.getAllByRole('row');
+      const dataRows = rows.slice(1);
+      const names = dataRows.map((row) => row.querySelector('td')?.textContent);
+      expect(names).toEqual(['prefix1 - value 1', 'prefix3 - value 2', 'prefix2 - value 3']);
+    });
   });
 
   describe('add dialog', () => {

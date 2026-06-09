@@ -1,6 +1,6 @@
 {
   "name": "ottehr",
-  "version": "1.35.20",
+  "version": "1.36.6",
   "private": true,
   "packageManager": "npm@10.9.3",
   "engines": {
@@ -159,8 +159,8 @@
     "browserslist-to-esbuild": "^1.2.0",
     "candidhealth": "^1.20.3",
     "csv-parse": "^6.2.1",
-    "dymojs": "^1.2.0",
     "dompurify": "^3.2.4",
+    "dymojs": "^1.2.0",
     "fast-json-patch": "^3.1.1",
     "fhirpath": "^4.8.2",
     "i18next": "^23.10.1",
