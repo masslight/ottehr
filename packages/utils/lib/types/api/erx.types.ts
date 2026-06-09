@@ -10,3 +10,13 @@ export type GetErxOrdersInput = z.infer<typeof GetErxOrdersInputSchema>;
 export interface GetErxOrdersResponse {
   orders: PrescribedMedicationDTO[];
 }
+
+export const TagEncounterErxSyncedInputSchema = z.object({
+  encounterId: z.string(),
+});
+
+export type TagEncounterErxSyncedInput = z.infer<typeof TagEncounterErxSyncedInputSchema>;
+
+export interface TagEncounterErxSyncedResponse {
+  tagged: boolean;
+}
