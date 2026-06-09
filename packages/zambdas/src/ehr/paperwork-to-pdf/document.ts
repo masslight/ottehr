@@ -23,6 +23,7 @@ export interface Document {
 export interface PatientInfo {
   name: string;
   id: string;
+  friendlyId: string;
 }
 
 export interface VisitInfo {
@@ -87,7 +88,8 @@ export async function createDocument(
   return {
     patientInfo: {
       name: patient.name?.[0].family + ', ' + patient.name?.[0].given,
-      id: getPatientFriendlyId(patient),
+      id: patient.id ?? '',
+      friendlyId: getPatientFriendlyId(patient),
     },
     visitInfo: {
       type,
