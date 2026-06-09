@@ -114,8 +114,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     const { presignedURL, documentReference } = await createVisitLabelPDF(
       labelConfig,
-      patient.id!,
       encounterId,
+      patient.id!,
       secrets,
       m2mToken,
       oystehr
