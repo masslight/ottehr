@@ -1532,13 +1532,17 @@ export default function VisitDetailsPage(): ReactElement {
                         {(() => {
                           // Merge BOOKING_CONFIG (compiled-in, source of truth on collision)
                           // with the FHIR-backed catalog so admins can switch a visit to a
-                          // runtime-registered category. Dedup by code.
+                          // runtime-registered category. Dedup by code. Filter inactive
+                          // FHIR-backed entries — the update-visit-details validator only
+                          // resolves against `active=true` HSes, so offering an inactive
+                          // category here would let the admin pick something that fails
+                          // on save with "not a valid option".
                           const bookingEntries = BOOKING_CONFIG.serviceCategories
                             .map((sc) => ({ code: sc.category.code, label: sc.category.display }))
                             .filter((e): e is { code: string; label: string } => !!e.code);
                           const bookingCodes = new Set(bookingEntries.map((e) => e.code));
                           const fhirEntries = fhirBackedCats
-                            .filter((sc) => sc.code && !bookingCodes.has(sc.code))
+                            .filter((sc) => sc.active && sc.code && !bookingCodes.has(sc.code))
                             .map((sc) => ({ code: sc.code, label: sc.name }));
                           return [...bookingEntries, ...fhirEntries].map((entry) => (
                             <MenuItem key={entry.code} value={entry.code}>

@@ -11,6 +11,7 @@ import {
   getScheduleExtension,
   getTimezone,
   INVALID_INPUT_ERROR,
+  isServiceCategoryHealthcareService,
   ListScheduleOwnersParams,
   ListScheduleOwnersResponse,
   LOCATION_SUPPORT_PHONE_EXTENSION_URL,
@@ -195,7 +196,16 @@ const complexValidation = async <T extends ScheduleOwnerFhirResource>(
     return acc;
   }, new Map<string, Schedule[]>());
 
-  const list = owners.map((owner) => {
+  // HealthcareService search returns both groups AND service-category catalog
+  // entries (admin-registered via the Services admin UI) — both are HSes, but
+  // only groups belong in this list. Service-category HSes are discriminated
+  // by the SERVICE_CATEGORY_TAG meta tag, and they appear as ghost "groups"
+  // with the service's name otherwise. Filter them out here. Locations and
+  // Practitioners can't carry that tag, so the filter is a no-op for those.
+  const filteredOwners = owners.filter(
+    (o) => o.resourceType !== 'HealthcareService' || !isServiceCategoryHealthcareService(o as HealthcareService)
+  );
+  const list = filteredOwners.map((owner) => {
     const schedules = scheduleOwnerMap.get(owner.id!) ?? [];
     return {
       owner,
@@ -223,6 +233,10 @@ const complexValidationForPractitioner = async (_input: BasicInput, oystehr: Oys
   // with cursor pagination is the supported path.
   const fetchAllUsers = async (): Promise<Awaited<ReturnType<typeof oystehr.user.listV2>>['data']> => {
     const collected: Awaited<ReturnType<typeof oystehr.user.listV2>>['data'] = [];
+    // The SDK types nextCursor as `string | null`. Treat any non-string-non-empty
+    // value as "no more pages" so a stray `''` from the server can't trigger
+    // an infinite loop (`'' !== null` would otherwise re-enter the do/while
+    // with a falsy cursor and re-fetch page 1 forever).
     let cursor: string | null = null;
     do {
       const response: Awaited<ReturnType<typeof oystehr.user.listV2>> = await oystehr.user.listV2(
@@ -230,7 +244,7 @@ const complexValidationForPractitioner = async (_input: BasicInput, oystehr: Oys
       );
       collected.push(...response.data);
       cursor = response.metadata.nextCursor;
-    } while (cursor !== null);
+    } while (cursor);
     return collected;
   };
   const [prResources, allPractitioners, allUsers] = await Promise.all([

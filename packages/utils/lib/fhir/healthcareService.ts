@@ -87,12 +87,25 @@ export function parseReasonsForVisit(hs: HealthcareService): Array<{ label: stri
   const ext = hs.extension?.find((e) => e.url === SERVICE_CATEGORY_CONFIG_EXTENSION_URL);
   const raw = ext?.valueString;
   if (!raw) return [];
+  let parsed: unknown;
   try {
-    const parsed = JSON.parse(raw) as { reasonsForVisit?: Array<{ label: string; value: string }> };
-    return parsed.reasonsForVisit ?? [];
+    parsed = JSON.parse(raw);
   } catch {
     return [];
   }
+  // Shape-check each entry before returning. Admin-authored JSON can drift
+  // (legacy records, manual FHIR edits, mid-migration shapes); downstream
+  // callers index `r.label`/`r.value` and would crash on a missing field or
+  // a non-array root. Filter to well-shaped entries and drop the rest.
+  const list = (parsed as { reasonsForVisit?: unknown }).reasonsForVisit;
+  if (!Array.isArray(list)) return [];
+  return list.filter(
+    (r): r is { label: string; value: string } =>
+      r != null &&
+      typeof r === 'object' &&
+      typeof (r as { label?: unknown }).label === 'string' &&
+      typeof (r as { value?: unknown }).value === 'string'
+  );
 }
 
 // ── Group readers ───────────────────────────────────────────────────────────

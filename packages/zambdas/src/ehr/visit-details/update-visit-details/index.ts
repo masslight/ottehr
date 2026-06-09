@@ -9,6 +9,7 @@ import {
   cleanUpStaffHistoryTag,
   FHIR_EXTENSION,
   FHIR_RESOURCE_NOT_FOUND,
+  getAllFhirSearchPages,
   getCoding,
   getCriticalUpdateTagOp,
   getReasonForVisitAndAdditionalDetailsFromAppointment,
@@ -382,20 +383,24 @@ const complexValidation = async (input: Input, oystehr: Oystehr): Promise<Effect
         reasons: getReasonForVisitOptionsForServiceCategory(code),
       };
     }
-    const hsBundle = await oystehr.fhir.search<HealthcareService>({
-      resourceType: 'HealthcareService',
-      params: [
-        { name: '_tag', value: SERVICE_CATEGORY_TAG.code },
-        { name: 'active', value: 'true' },
-      ],
-    });
-    const fhirMatch = hsBundle
-      .unbundle()
-      .find((r) =>
-        (r.type ?? []).some((concept) =>
-          (concept.coding ?? []).some((c) => c.system === SERVICE_CATEGORY_SYSTEM && c.code === code)
-        )
-      );
+    // Paginated: a >1-page catalog (FHIR default page size is small) would
+    // otherwise miss target categories on later pages, rejecting valid update
+    // attempts with "not a valid option".
+    const allCategoryHses = await getAllFhirSearchPages<HealthcareService>(
+      {
+        resourceType: 'HealthcareService',
+        params: [
+          { name: '_tag', value: SERVICE_CATEGORY_TAG.code },
+          { name: 'active', value: 'true' },
+        ],
+      },
+      oystehr
+    );
+    const fhirMatch = allCategoryHses.find((r) =>
+      (r.type ?? []).some((concept) =>
+        (concept.coding ?? []).some((c) => c.system === SERVICE_CATEGORY_SYSTEM && c.code === code)
+      )
+    );
     if (!fhirMatch) return undefined;
     return { display: fhirMatch.name, reasons: parseReasonsForVisit(fhirMatch) };
   };

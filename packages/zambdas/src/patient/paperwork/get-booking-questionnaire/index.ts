@@ -13,6 +13,7 @@ import {
   BOOKING_CONFIG,
   createAnswerDisplayFilterExtension,
   FHIR_RESOURCE_NOT_FOUND,
+  getAllFhirSearchPages,
   GetBookingQuestionnaireParams,
   GetBookingQuestionnaireParamsSchema,
   GetBookingQuestionnaireResponse,
@@ -107,20 +108,25 @@ const enrichFhirBackedRfvOptions = async (params: {
   const isCompiledIn = BOOKING_CONFIG.serviceCategories.some((sc) => sc.category.code === serviceCategoryCode);
   if (isCompiledIn) return questionnaire;
 
-  const hsBundle = await oystehr.fhir.search<HealthcareService>({
-    resourceType: 'HealthcareService',
-    params: [
-      { name: '_tag', value: SERVICE_CATEGORY_TAG.code },
-      { name: 'active', value: 'true' },
-    ],
-  });
-  const hs = hsBundle
-    .unbundle()
-    .find((r) =>
-      (r.type ?? []).some((concept) =>
-        (concept.coding ?? []).some((c) => c.system === SERVICE_CATEGORY_SYSTEM && c.code === serviceCategoryCode)
-      )
-    );
+  // Paginated: an environment with >1 page of service-category HealthcareServices
+  // (FHIR default page size is small) would otherwise silently miss a target
+  // category that landed on a later page, and the RFV enrichment would no-op
+  // for that booking — the patient would then see the wrong RFV list.
+  const allCategoryHses = await getAllFhirSearchPages<HealthcareService>(
+    {
+      resourceType: 'HealthcareService',
+      params: [
+        { name: '_tag', value: SERVICE_CATEGORY_TAG.code },
+        { name: 'active', value: 'true' },
+      ],
+    },
+    oystehr
+  );
+  const hs = allCategoryHses.find((r) =>
+    (r.type ?? []).some((concept) =>
+      (concept.coding ?? []).some((c) => c.system === SERVICE_CATEGORY_SYSTEM && c.code === serviceCategoryCode)
+    )
+  );
   if (!hs) return questionnaire;
 
   const reasons = parseReasonsForVisit(hs);
