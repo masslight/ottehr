@@ -466,6 +466,13 @@
       "src": "src/billing/update-billing-claim/index",
       "zip": ".dist/zips/update-billing-claim.zip"
     },
+    "CREATE-BILLING-CLAIM-FROM-ENCOUNTER": {
+      "name": "create-billing-claim-from-encounter",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/create-billing-claim-from-encounter/index",
+      "zip": ".dist/zips/create-billing-claim-from-encounter.zip"
+    },
     "CREATE-UPDATE-MEDICATION-ORDER": {
       "name": "create-update-medication-order",
       "type": "http_auth",
@@ -1039,6 +1046,13 @@
       "runtime": "nodejs22.x",
       "src": "src/ehr/radiology/save-preliminary-report/index",
       "zip": ".dist/zips/radiology-save-preliminary-report.zip"
+    },
+    "RADIOLOGY-SAVE-FINAL-REPORT": {
+      "name": "radiology-save-final-report",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/radiology/save-final-report/index",
+      "zip": ".dist/zips/radiology-save-final-report.zip"
     },
     "RADIOLOGY-SEND-FOR-FINAL-READ": {
       "name": "radiology-send-for-final-read",

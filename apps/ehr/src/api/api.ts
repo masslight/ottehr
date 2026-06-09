@@ -189,8 +189,8 @@ import {
   RenameCustomFolderOutput,
   SaveFollowupEncounterZambdaInput,
   SaveFollowupEncounterZambdaOutput,
-  SavePreliminaryReportZambdaInput,
-  SavePreliminaryReportZambdaOutput,
+  SaveRadiologyReportZambdaInput,
+  SaveRadiologyReportZambdaOutput,
   ScheduleDTO,
   SearchLegacyRecordsInput,
   SearchLegacyRecordsOutput,
@@ -1172,11 +1172,27 @@ export const radiologyLaunchViewer = async (
 
 export const savePreliminaryReport = async (
   oystehr: Oystehr,
-  parameters: SavePreliminaryReportZambdaInput
-): Promise<SavePreliminaryReportZambdaOutput> => {
+  parameters: SaveRadiologyReportZambdaInput
+): Promise<SaveRadiologyReportZambdaOutput> => {
   try {
     const response = await oystehr.zambda.execute({
       id: 'radiology-save-preliminary-report',
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const saveFinalReport = async (
+  oystehr: Oystehr,
+  parameters: SaveRadiologyReportZambdaInput
+): Promise<SaveRadiologyReportZambdaOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: 'radiology-save-final-report',
       ...parameters,
     });
     return chooseJson(response);
