@@ -28,6 +28,7 @@ import { Link, useParams } from 'react-router-dom';
 import { listServiceCategories } from 'src/api/api';
 import CustomBreadcrumbs from 'src/components/CustomBreadcrumbs';
 import {
+  BOOKING_CONFIG,
   getAllFhirSearchPages,
   getGroupAllLocations,
   getGroupAssignmentMode,
@@ -102,10 +103,16 @@ function GroupPageContent(): ReactElement {
     },
     enabled: !!oystehrZambda,
   });
-  // Quick lookup: HealthcareService.id → category metadata. Derived inside
-  // useMemo so the dependency is stable across renders.
+  // Lookup: synthetic-id → category metadata. Keys are FHIR HealthcareService
+  // ids (UUIDs) for runtime-registered categories and category codes (kebab
+  // slugs) for BOOKING_CONFIG entries. The two namespaces don't collide.
+  // Why merge: the group's `type[]` allow-list stores codes, and BOOKING_CONFIG
+  // codes (urgent-care, workers-comp, …) are valid entries — if we keyed the
+  // catalog on FHIR ids only, hydration would silently drop those codes and
+  // the booking-links section would render empty for any group that allow-
+  // listed a compiled-in category. Same merge pattern as
+  // ServiceCategoriesAdminPage.
   const categoryByHsId = useMemo(() => {
-    const available = categoryData?.serviceCategories || [];
     const map = new Map<
       string,
       {
@@ -116,7 +123,22 @@ function GroupPageContent(): ReactElement {
         visitTypes: Array<'prebook' | 'walk-in'>;
       }
     >();
-    for (const sc of available) {
+    // FHIR-backed first; admin-registered entries take precedence on collision
+    // (matches the BOOKING_CONFIG-wins-on-collision policy enforced at the
+    // create-category zambda — collisions should never reach here, but if one
+    // does, the runtime record is the one the admin most recently saw).
+    for (const sc of BOOKING_CONFIG.serviceCategories) {
+      const code = sc.category.code;
+      if (!code) continue;
+      map.set(code, {
+        code,
+        name: sc.category.display || code,
+        durationMinutes: 15,
+        serviceModes: sc.serviceModes as Array<'in-person' | 'virtual'>,
+        visitTypes: sc.visitTypes as Array<'prebook' | 'walk-in'>,
+      });
+    }
+    for (const sc of categoryData?.serviceCategories || []) {
       if ((sc as any).id) {
         map.set((sc as any).id, {
           code: sc.code,
