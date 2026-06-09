@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { ReactNode } from 'react';
 import { BrowserRouter } from 'react-router-dom';
 import { adminUpdateProgressNoteConfig, getProgressNoteConfig } from 'src/api/api';
@@ -27,20 +27,24 @@ vi.mock('src/layout/PageContainer', () => ({
 }));
 
 const mockOystehrZambda = {} as any;
+const requiredProgressNoteConfig = { ...DEFAULT_PROGRESS_NOTE_CONFIG, mdmRequired: true };
+const optionalProgressNoteConfig = { ...DEFAULT_PROGRESS_NOTE_CONFIG, mdmRequired: false };
 
-const createWrapper = () => {
-  const queryClient = new QueryClient({
+const createTestQueryClient = (): QueryClient =>
+  new QueryClient({
     defaultOptions: {
       queries: { retry: false },
       mutations: { retry: false },
     },
   });
-  return ({ children }: { children: ReactNode }) => (
+
+const createWrapper =
+  (queryClient = createTestQueryClient()) =>
+  ({ children }: { children: ReactNode }) => (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>{children}</BrowserRouter>
     </QueryClientProvider>
   );
-};
 
 const getMdmSwitch = (): HTMLInputElement =>
   screen.getByRole('checkbox', { name: /Medical Decision Making \(MDM\)/ }) as HTMLInputElement;
@@ -57,7 +61,7 @@ describe('ProgressNoteAdminPage', () => {
   });
 
   it('renders the MDM switch checked when mdmRequired is true', async () => {
-    vi.mocked(getProgressNoteConfig).mockResolvedValue(DEFAULT_PROGRESS_NOTE_CONFIG);
+    vi.mocked(getProgressNoteConfig).mockResolvedValue(requiredProgressNoteConfig);
 
     render(<ProgressNoteAdminPage />, { wrapper: createWrapper() });
 
@@ -66,7 +70,7 @@ describe('ProgressNoteAdminPage', () => {
   });
 
   it('renders the MDM switch unchecked when mdmRequired is false', async () => {
-    vi.mocked(getProgressNoteConfig).mockResolvedValue({ ...DEFAULT_PROGRESS_NOTE_CONFIG, mdmRequired: false });
+    vi.mocked(getProgressNoteConfig).mockResolvedValue(optionalProgressNoteConfig);
 
     render(<ProgressNoteAdminPage />, { wrapper: createWrapper() });
 
@@ -75,7 +79,7 @@ describe('ProgressNoteAdminPage', () => {
   });
 
   it('saves mdmRequired: false when toggling the switch off', async () => {
-    vi.mocked(getProgressNoteConfig).mockResolvedValue(DEFAULT_PROGRESS_NOTE_CONFIG);
+    vi.mocked(getProgressNoteConfig).mockResolvedValue(requiredProgressNoteConfig);
     vi.mocked(adminUpdateProgressNoteConfig).mockResolvedValue(undefined);
 
     render(<ProgressNoteAdminPage />, { wrapper: createWrapper() });
@@ -86,14 +90,14 @@ describe('ProgressNoteAdminPage', () => {
 
     await waitFor(() => {
       expect(adminUpdateProgressNoteConfig).toHaveBeenCalledWith(mockOystehrZambda, {
-        ...DEFAULT_PROGRESS_NOTE_CONFIG,
+        ...requiredProgressNoteConfig,
         mdmRequired: false,
       });
     });
   });
 
   it('saves mdmRequired: true when toggling the switch on', async () => {
-    vi.mocked(getProgressNoteConfig).mockResolvedValue({ ...DEFAULT_PROGRESS_NOTE_CONFIG, mdmRequired: false });
+    vi.mocked(getProgressNoteConfig).mockResolvedValue(optionalProgressNoteConfig);
     vi.mocked(adminUpdateProgressNoteConfig).mockResolvedValue(undefined);
 
     render(<ProgressNoteAdminPage />, { wrapper: createWrapper() });
@@ -103,7 +107,7 @@ describe('ProgressNoteAdminPage', () => {
     fireEvent.click(getSaveButton());
 
     await waitFor(() => {
-      expect(adminUpdateProgressNoteConfig).toHaveBeenCalledWith(mockOystehrZambda, DEFAULT_PROGRESS_NOTE_CONFIG);
+      expect(adminUpdateProgressNoteConfig).toHaveBeenCalledWith(mockOystehrZambda, requiredProgressNoteConfig);
     });
   });
 
@@ -119,7 +123,7 @@ describe('ProgressNoteAdminPage', () => {
   });
 
   it('saves edited default text fields in the admin update payload', async () => {
-    vi.mocked(getProgressNoteConfig).mockResolvedValue(DEFAULT_PROGRESS_NOTE_CONFIG);
+    vi.mocked(getProgressNoteConfig).mockResolvedValue(requiredProgressNoteConfig);
     vi.mocked(adminUpdateProgressNoteConfig).mockResolvedValue(undefined);
 
     render(<ProgressNoteAdminPage />, { wrapper: createWrapper() });
@@ -132,14 +136,14 @@ describe('ProgressNoteAdminPage', () => {
 
     await waitFor(() => {
       expect(adminUpdateProgressNoteConfig).toHaveBeenCalledWith(mockOystehrZambda, {
-        ...DEFAULT_PROGRESS_NOTE_CONFIG,
+        ...requiredProgressNoteConfig,
         medicalDecisionDefaultText: 'Updated default MDM text.',
       });
     });
   });
 
   it('shows validation errors and does not submit when a required text field is blank', async () => {
-    vi.mocked(getProgressNoteConfig).mockResolvedValue(DEFAULT_PROGRESS_NOTE_CONFIG);
+    vi.mocked(getProgressNoteConfig).mockResolvedValue(requiredProgressNoteConfig);
     vi.mocked(adminUpdateProgressNoteConfig).mockResolvedValue(undefined);
 
     render(<ProgressNoteAdminPage />, { wrapper: createWrapper() });
@@ -157,7 +161,7 @@ describe('ProgressNoteAdminPage', () => {
   });
 
   it('discards unsaved edits without submitting the form', async () => {
-    vi.mocked(getProgressNoteConfig).mockResolvedValue(DEFAULT_PROGRESS_NOTE_CONFIG);
+    vi.mocked(getProgressNoteConfig).mockResolvedValue(requiredProgressNoteConfig);
     vi.mocked(adminUpdateProgressNoteConfig).mockResolvedValue(undefined);
 
     render(<ProgressNoteAdminPage />, { wrapper: createWrapper() });
@@ -169,8 +173,30 @@ describe('ProgressNoteAdminPage', () => {
     fireEvent.click(getDiscardButton());
 
     await waitFor(() => {
-      expect(getMdmDefaultField().value).toBe(DEFAULT_PROGRESS_NOTE_CONFIG.medicalDecisionDefaultText);
+      expect(getMdmDefaultField().value).toBe(requiredProgressNoteConfig.medicalDecisionDefaultText);
     });
     expect(adminUpdateProgressNoteConfig).not.toHaveBeenCalled();
+  });
+
+  it('preserves unsaved edits when the config query refreshes', async () => {
+    vi.mocked(getProgressNoteConfig).mockResolvedValue(requiredProgressNoteConfig);
+
+    const queryClient = createTestQueryClient();
+    render(<ProgressNoteAdminPage />, { wrapper: createWrapper(queryClient) });
+
+    await waitFor(() => expect(getMdmDefaultField()).toBeInTheDocument());
+    fireEvent.change(getMdmDefaultField(), {
+      target: { value: 'Unsaved draft text.' },
+    });
+
+    await act(async () => {
+      queryClient.setQueryData(['progress-note-config'], {
+        ...requiredProgressNoteConfig,
+        medicalDecisionDefaultText: 'Background refresh text.',
+      });
+    });
+
+    expect(getMdmDefaultField().value).toBe('Unsaved draft text.');
+    expect(getSaveButton()).not.toBeDisabled();
   });
 });

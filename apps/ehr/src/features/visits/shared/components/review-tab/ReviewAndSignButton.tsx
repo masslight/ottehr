@@ -190,7 +190,7 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
     FEATURE_FLAGS.SUPERVISOR_APPROVAL_ENABLED && showSupervisorCheckbox && !isFollowup;
   const confirmationDescription = mdmRequired
     ? 'Are you sure you have reviewed the patient chart, performed the examination, defined the diagnoses, made a medical decision and chosen an E&M code and are ready to sign this patient?'
-    : 'Are you sure you have reviewed the patient chart, performed the examination, defined the diagnoses, chosen an E&M code and are ready to sign this patient?';
+    : 'Are you sure you have reviewed the patient chart, performed the examination, defined the diagnoses and chosen an E&M code and are ready to sign this patient?';
 
   return (
     <Box sx={{ display: 'flex', justifyContent: 'end' }}>

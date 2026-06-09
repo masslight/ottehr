@@ -57,21 +57,27 @@ export default function ProgressNoteAdminPage(): ReactElement {
 
   const {
     control,
-    formState: { isDirty },
+    formState: { dirtyFields, isDirty },
     handleSubmit,
     reset,
   } = useForm<ProgressNoteConfig>({
     defaultValues: DEFAULT_PROGRESS_NOTE_CONFIG,
     resolver: zodResolver(UpdateProgressNoteConfigInputSchema),
   });
+  const hasDirtyFields = Object.keys(dirtyFields).length > 0;
 
   useEffect(() => {
     if (!data) return;
-    reset({
-      ...DEFAULT_PROGRESS_NOTE_CONFIG,
-      ...data,
-    });
-  }, [data, reset]);
+    reset(
+      {
+        ...DEFAULT_PROGRESS_NOTE_CONFIG,
+        ...data,
+      },
+      {
+        keepDirtyValues: hasDirtyFields,
+      }
+    );
+  }, [data, hasDirtyFields, reset]);
 
   const onSubmit = (values: ProgressNoteConfig): void => {
     mutate(values, {
@@ -90,7 +96,7 @@ export default function ProgressNoteAdminPage(): ReactElement {
               Progress Note
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-              Configure default progress note content and whether MDM is required before signing.
+              Configure how providers complete and sign progress notes for this practice.
             </Typography>
 
             {isPending ? (
@@ -151,16 +157,13 @@ export default function ProgressNoteAdminPage(): ReactElement {
                     <Typography variant="subtitle1" sx={{ mb: 0.5 }}>
                       Signing Requirements
                     </Typography>
-                    <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                      When enabled, MDM remains required for review and sign.
-                    </Typography>
                     <Controller
                       name="mdmRequired"
                       control={control}
                       render={({ field: { value, onChange } }) => (
                         <FormControlLabel
                           control={<Switch checked={value} onChange={(_event, checked) => onChange(checked)} />}
-                          label="Medical Decision Making (MDM) required to sign progress note"
+                          label="Medical Decision Making (MDM) required"
                         />
                       )}
                     />
