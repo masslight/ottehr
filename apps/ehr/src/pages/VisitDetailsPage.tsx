@@ -500,7 +500,11 @@ export default function VisitDetailsPage(): ReactElement {
     },
     enabled: Boolean(oystehrZambda),
   });
-  const fhirBackedCats = fhirBackedCatsData?.serviceCategories ?? [];
+  // Memoize the resolved array so downstream useMemos that depend on it
+  // (e.g. reasonsForVisitForCurrentCategory) don't churn while the query is
+  // still loading — `?? []` would otherwise produce a fresh array reference
+  // on every render and invalidate those memos.
+  const fhirBackedCats = useMemo(() => fhirBackedCatsData?.serviceCategories ?? [], [fhirBackedCatsData]);
 
   const {
     data: patientBalancesData,
@@ -704,13 +708,16 @@ export default function VisitDetailsPage(): ReactElement {
   // RFV options for the current category, merged across BOOKING_CONFIG and
   // the FHIR-backed catalog. Used for both display-time filtering (was
   // hiding valid values configured on FHIR-backed categories) and for the
-  // edit dropdown (was empty).
-  const reasonsForVisitForCurrentCategory = ((): { value: string; label: string }[] => {
+  // edit dropdown (was empty). Memoized so its reference is stable across
+  // renders — otherwise the downstream `reasonForVisit` useMemo would re-run
+  // every render (the dependency reference would change each time), and the
+  // identity-stable contract on the edit dropdown's options would break.
+  const reasonsForVisitForCurrentCategory = useMemo<{ value: string; label: string }[]>(() => {
     if (!serviceCategory) return [];
     const bookingOpts = getReasonForVisitOptionsForServiceCategory(serviceCategory);
     if (bookingOpts.length > 0) return bookingOpts;
     return fhirBackedCats.find((sc) => sc.code === serviceCategory)?.config?.reasonsForVisit ?? [];
-  })();
+  }, [serviceCategory, fhirBackedCats]);
   const nameLastModifiedOld = formatLastModifiedTag('name', patient, locationTimeZone);
   const dobLastModifiedOld = formatLastModifiedTag('dob', patient, locationTimeZone);
 

@@ -96,7 +96,10 @@ export function parseReasonsForVisit(hs: HealthcareService): Array<{ label: stri
   // Shape-check each entry before returning. Admin-authored JSON can drift
   // (legacy records, manual FHIR edits, mid-migration shapes); downstream
   // callers index `r.label`/`r.value` and would crash on a missing field or
-  // a non-array root. Filter to well-shaped entries and drop the rest.
+  // a non-array root. Guard against non-object roots first — `JSON.parse`
+  // legally returns `null` for the literal `'null'`, and `typeof null` is
+  // `'object'`, so naive property access would throw at runtime.
+  if (parsed === null || typeof parsed !== 'object') return [];
   const list = (parsed as { reasonsForVisit?: unknown }).reasonsForVisit;
   if (!Array.isArray(list)) return [];
   return list.filter(
