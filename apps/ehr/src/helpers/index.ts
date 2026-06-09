@@ -9,8 +9,8 @@ import {
   formatDateForDisplay,
   getAppointmentMetaTagOpForStatusUpdate,
   getEncounterStatusHistoryUpdateOp,
+  getNPIIdentifier,
   getPatchBinary,
-  getPractitionerNPIIdentifier,
   InPersonAppointmentInformation,
   isPhysician,
   isPhysicianProviderType,
@@ -184,7 +184,7 @@ export function isEligibleSupervisor(practitioner: Practitioner, attenderProvide
 
   const isAttenderPhysician = isPhysicianProviderType(attenderProviderType);
   const isPractitionerPhysician = isPhysician(practitioner);
-  const npiIdentifier = getPractitionerNPIIdentifier(practitioner);
+  const npiIdentifier = getNPIIdentifier(practitioner);
 
   return !isAttenderPhysician && isPractitionerPhysician && Boolean(npiIdentifier?.value);
 }

@@ -6,7 +6,7 @@ import {
 } from '../../../shared/pdf/visit-label-pdf';
 
 // This is for the 30334 label. PID is on two lines for now to avoid truncating. Can change once the friendly ID is added
-export const createXmlVisitLabel_30334 = (content: VisitLabelContent): string => {
+export const createXmlVisitLabel_30334_LongId = (content: VisitLabelContent): string => {
   return `
   <?xml version="1.0" encoding="utf-8"?>
 <DesktopLabel Version="1">

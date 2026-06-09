@@ -50,10 +50,18 @@ const performEffect = async (
   oystehr: Oystehr,
   token: string
 ): Promise<SavePatientEducationPdfOutput> => {
-  const { encounterId, patientId, sections, title, secrets } = validatedInput;
-  console.log('Saving patient education PDF', { encounterId, patientId, title, sectionCount: sections.length });
+  const { encounterId, patientId, title, secrets } = validatedInput;
+  console.log('Saving patient education PDF', {
+    encounterId,
+    patientId,
+    title,
+    sectionCount: validatedInput.sections?.length ?? 0,
+    hasPdfBase64: Boolean(validatedInput.pdfBase64),
+  });
 
-  const pdfBytes = await createPatientEducationPdf(sections);
+  const pdfBytes = validatedInput.sections
+    ? await createPatientEducationPdf(validatedInput.sections)
+    : Uint8Array.from(Buffer.from(validatedInput.pdfBase64, 'base64'));
 
   const z3Url = makeZ3Url({
     secrets,

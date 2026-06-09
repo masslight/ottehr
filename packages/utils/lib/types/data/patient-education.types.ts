@@ -19,12 +19,15 @@ export interface GeneratePatientEducationOutput {
   links?: { title: string; url: string }[];
 }
 
-export interface SavePatientEducationPdfInput {
+interface SavePatientEducationPdfBase {
   encounterId: string;
   patientId: string;
-  sections: PatientEducationSection[];
   title: string;
 }
+
+export type SavePatientEducationPdfInput =
+  | (SavePatientEducationPdfBase & { sections: PatientEducationSection[]; pdfBase64?: undefined })
+  | (SavePatientEducationPdfBase & { pdfBase64: string; sections?: undefined });
 
 export interface SavePatientEducationPdfOutput {
   documentReferenceId: string;

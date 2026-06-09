@@ -17,6 +17,49 @@ export const GetClaimDetailInputSchema = z.object({
   claimId: nonEmptyString,
 });
 
+export const GetEraDetailInputSchema = z.object({
+  eraId: nonEmptyString,
+});
+
+export const SearchErasInputSchema = z.object({
+  // ERA-level filters (work for matched + unmatched)
+  eraId: nonEmptyString.optional(),
+  checkNumber: nonEmptyString.optional(),
+  eraDateFrom: nonEmptyString.optional(),
+  eraDateTo: nonEmptyString.optional(),
+  eraStatus: nonEmptyString.optional(),
+  payerId: nonEmptyString.optional(),
+  payerName: nonEmptyString.optional(),
+  // Claim-level filters (only ERAs with matched claims satisfying these)
+  claimStatus: nonEmptyString.optional(),
+  dosFrom: nonEmptyString.optional(),
+  dosTo: nonEmptyString.optional(),
+  patientId: nonEmptyString.optional(),
+  searchText: nonEmptyString.optional(),
+  offset: nonNegativeInt.optional(),
+  pageSize: nonNegativeInt.optional(),
+});
+
+export const SaveBillingTagInputSchema = z.object({
+  tagId: nonEmptyString.optional(),
+  name: nonEmptyString,
+  description: z.string().optional(),
+});
+
+export const DeleteBillingTagInputSchema = z.object({
+  tagId: nonEmptyString,
+});
+
+export const TagBillingClaimInputSchema = z.object({
+  claimId: nonEmptyString,
+  action: z.enum(['add', 'remove']),
+  tagName: nonEmptyString,
+});
+
+export const GetPatientDetailInputSchema = z.object({
+  patientId: nonEmptyString,
+});
+
 export const GetPatientCoveragesInputSchema = z.object({
   patientId: nonEmptyString,
 });
@@ -24,6 +67,7 @@ export const GetPatientCoveragesInputSchema = z.object({
 export const SearchBillingClaimsInputSchema = z.object({
   searchText: nonEmptyString.optional(),
   status: nonEmptyString.optional(),
+  tag: nonEmptyString.optional(),
   createdFrom: nonEmptyString.optional(),
   createdTo: nonEmptyString.optional(),
   payerName: nonEmptyString.optional(),
@@ -35,8 +79,11 @@ export const SearchBillingClaimsInputSchema = z.object({
 
 export const SearchBillingProvidersInputSchema = z.object({
   providerType: z.enum(['rendering', 'billing']),
+  providerId: nonEmptyString.optional(),
+  name: nonEmptyString.optional(),
   offset: nonNegativeInt.optional(),
   pageSize: nonNegativeInt.optional(),
+  includeWorkingCopies: z.boolean().optional(),
 });
 
 export const SearchBillingPatientsInputSchema = z.object({
@@ -44,19 +91,25 @@ export const SearchBillingPatientsInputSchema = z.object({
   dob: nonEmptyString.optional(),
   identifier: nonEmptyString.optional(),
   uuid: z.string().uuid().optional(),
+  includeWorkingCopies: z.boolean().optional(),
+  offset: nonNegativeInt.optional(),
+  pageSize: nonNegativeInt.optional(),
 });
 
 export const SearchBillingPractitionersInputSchema = z.object({
   name: nonEmptyString.optional(),
+  includeWorkingCopies: z.boolean().optional(),
 });
 
 export const SearchBillingLocationsInputSchema = z.object({
   name: nonEmptyString.optional(),
+  includeWorkingCopies: z.boolean().optional(),
 });
 
 export const SearchBillingOrganizationsInputSchema = z.object({
   name: nonEmptyString.optional(),
   type: nonEmptyString.optional(),
+  includeWorkingCopies: z.boolean().optional(),
 });
 
 export const CreateBillingClaimInputSchema = z.object({
@@ -90,10 +143,20 @@ export const CreateBillingClaimInputSchema = z.object({
   facilityOverrides: z
     .object({
       name: nonEmptyString.optional(),
+      npi: nonEmptyString.optional(),
+      address: nonEmptyString.optional(),
     })
     .strict()
     .optional(),
   billingProviderId: nonEmptyString.optional(),
+  billingProviderOverrides: z
+    .object({
+      name: nonEmptyString.optional(),
+      npi: nonEmptyString.optional(),
+      tin: nonEmptyString.optional(),
+    })
+    .strict()
+    .optional(),
   diagnoses: z
     .array(
       z.object({
@@ -120,6 +183,10 @@ export const CreateBillingWorkingCopyInputSchema = z.object({
   resourceType: z.enum(ALLOWED_BILLING_RESOURCE_TYPES),
   resourceId: nonEmptyString,
   overrides: z.record(z.unknown()).optional(),
+});
+
+export const CreateBillingClaimFromEncounterInputSchema = z.object({
+  encounterId: z.string().uuid(),
 });
 
 export const UpdateBillingResourceInputSchema = z.discriminatedUnion('resourceType', [
@@ -165,6 +232,12 @@ export const UpdateBillingResourceInputSchema = z.discriminatedUnion('resourceTy
 ]);
 
 export type GetClaimDetailInput = z.infer<typeof GetClaimDetailInputSchema>;
+export type GetEraDetailInput = z.infer<typeof GetEraDetailInputSchema>;
+export type SearchErasInput = z.infer<typeof SearchErasInputSchema>;
+export type SaveBillingTagInput = z.infer<typeof SaveBillingTagInputSchema>;
+export type DeleteBillingTagInput = z.infer<typeof DeleteBillingTagInputSchema>;
+export type TagBillingClaimInput = z.infer<typeof TagBillingClaimInputSchema>;
+export type GetPatientDetailInput = z.infer<typeof GetPatientDetailInputSchema>;
 export type GetPatientCoveragesInput = z.infer<typeof GetPatientCoveragesInputSchema>;
 export type SearchBillingClaimsInput = z.infer<typeof SearchBillingClaimsInputSchema>;
 export type SearchBillingProvidersInput = z.infer<typeof SearchBillingProvidersInputSchema>;
@@ -174,5 +247,6 @@ export type SearchBillingLocationsInput = z.infer<typeof SearchBillingLocationsI
 export type SearchBillingOrganizationsInput = z.infer<typeof SearchBillingOrganizationsInputSchema>;
 export type CreateBillingClaimInput = z.infer<typeof CreateBillingClaimInputSchema>;
 export type CreateBillingWorkingCopyInput = z.infer<typeof CreateBillingWorkingCopyInputSchema>;
+export type CreateBillingClaimFromEncounterInput = z.input<typeof CreateBillingClaimFromEncounterInputSchema>;
 export type UpdateBillingResourceInput = z.infer<typeof UpdateBillingResourceInputSchema>;
 export type BillingResourceType = (typeof ALLOWED_BILLING_RESOURCE_TYPES)[number];

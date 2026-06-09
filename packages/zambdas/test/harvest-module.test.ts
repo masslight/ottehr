@@ -3,6 +3,7 @@ import { BatchInputPostRequest } from '@oystehr/sdk';
 import { Account, Coverage, Organization, Patient, QuestionnaireResponse, RelatedPerson } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
+  ACCOUNT_TYPE_CODE_SYSTEM,
   COVERAGE_MEMBER_IDENTIFIER_BASE,
   flattenItems,
   IN_PERSON_INTAKE_PAPERWORK_QUESTIONNAIRE,
@@ -61,7 +62,7 @@ describe('Harvest Module', () => {
     type: {
       coding: [
         {
-          system: 'http://terminology.hl7.org/CodeSystem/account-type',
+          system: ACCOUNT_TYPE_CODE_SYSTEM,
           code: 'PBILLACCT',
           display: 'patient billing account',
         },
@@ -1698,6 +1699,67 @@ describe('Harvest Module', () => {
       });
     });
 
+    describe('preserveOmittedCoverages — section-save deactivation regression', () => {
+      // Regression: when update-patient-account is called with a single-section QR (e.g. InsuranceSection
+      // save button), preserveOmittedCoverages is set to true. A new Coverage created from the submitted
+      // data gets id = "urn:uuid:<uuid>" from createCoverageResource. The old check used
+      // reference.split('/')[1], which is undefined for urn:uuid references and incorrectly prevented
+      // deactivation. getNewCoverageRefId now handles the bare-id case so the old coverage IS cancelled.
+
+      // Build an existing primary coverage whose member ID differs from what questionnaireResponse1 submits.
+      // coveragesAreSame will return false, so resolveCoverageUpdates falls into the else branch and sets
+      // newPrimaryCoverage.reference = coverages.primary.id (a urn:uuid:xxx string, no slash).
+      const existingPrimaryWithDifferentMemberId: Coverage = {
+        ...primary,
+        subscriberId: 'OLD-MEMBER-ID',
+        identifier: [
+          {
+            ...primary.identifier![0],
+            value: 'OLD-MEMBER-ID',
+          },
+        ],
+      };
+
+      it('deactivates the old primary coverage when preserveOmittedCoverages is true and the submitted coverage has a urn:uuid id', () => {
+        const existingCoverages = {
+          primary: existingPrimaryWithDifferentMemberId,
+          primarySubscriber,
+        };
+
+        // coverages.primary.id is "urn:uuid:xxx" — the form submitted a new member ID that doesn't
+        // match the existing coverage, so a brand-new Coverage resource is proposed.
+        const result = resolveCoverageUpdates({
+          patient: newPatient1,
+          existingCoverages,
+          newCoverages: coverages,
+          preserveOmittedCoverages: true,
+        });
+
+        expect(result.deactivatedCoverages).toHaveLength(1);
+        expect(result.deactivatedCoverages[0].id).toBe(existingPrimaryWithDifferentMemberId.id);
+      });
+
+      it('preserves the existing primary coverage when preserveOmittedCoverages is true and no new coverage is submitted', () => {
+        // Simulates a non-insurance section save: the QR contains no insurance data at all.
+        // The existing coverage must not be cancelled in this case.
+        const existingCoverages = {
+          primary,
+          primarySubscriber,
+        };
+
+        const result = resolveCoverageUpdates({
+          patient: newPatient1,
+          existingCoverages,
+          newCoverages: {},
+          preserveOmittedCoverages: true,
+        });
+
+        expect(result.deactivatedCoverages).toHaveLength(0);
+        const suggestedPrimary = result.suggestedNewCoverageObject?.find((c) => c.priority === 1)?.coverage;
+        expect(suggestedPrimary?.reference).toBe(`Coverage/${primary.id}`);
+      });
+    });
+
     describe('should generate the right output when comparing guarantor from questionnaire with existing guarantor', () => {
       it('should make no changes when existing account and new account both use Patient as guarantor', () => {
         const existingGuarantor = {
@@ -1995,7 +2057,7 @@ describe('Harvest Module', () => {
       expect(post?.type).toBeDefined();
       expect(post?.type?.coding).toBeDefined();
       expect(post?.type?.coding?.length).toBe(1);
-      expect(post?.type?.coding?.[0].system).toBe('http://terminology.hl7.org/CodeSystem/account-type');
+      expect(post?.type?.coding?.[0].system).toBe(ACCOUNT_TYPE_CODE_SYSTEM);
       expect(post?.type?.coding?.[0].code).toBe('PBILLACCT');
       expect(post?.type?.coding?.[0].display).toBe('patient billing account');
       expect(post?.subject).toBeDefined();
@@ -3901,7 +3963,7 @@ const bundle1Account: Account = {
   type: {
     coding: [
       {
-        system: 'http://terminology.hl7.org/CodeSystem/account-type',
+        system: ACCOUNT_TYPE_CODE_SYSTEM,
         code: 'PBILLACCT',
         display: 'patient billing account',
       },
@@ -3942,7 +4004,7 @@ const workersCompAccountResource: Account = {
   type: {
     coding: [
       {
-        system: 'http://terminology.hl7.org/CodeSystem/account-type',
+        system: ACCOUNT_TYPE_CODE_SYSTEM,
         code: 'WCOMPACCT',
         display: 'worker compensation account',
       },

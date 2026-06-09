@@ -42,6 +42,7 @@ import {
   GetInvoicesTasksInput,
   GetInvoicesTasksResponse,
   getLatestTaskOutput,
+  getSupportPhoneFor,
   INVOICEABLE_PATIENTS_PAGE_SIZE,
   InvoiceablePatientReport,
   InvoiceSortDirection,
@@ -59,6 +60,11 @@ import { GenericToolTip } from '../../components/GenericToolTip';
 import { SelectInput } from '../../components/input/SelectInput';
 import { MappedStatusChip } from '../../components/MappedStatusChip';
 import { useApiClients } from '../../hooks/useAppClients';
+import { useSupportPhonesMap } from '../../hooks/useLocationSupportPhones';
+
+const VITE_APP_PATIENT_APP_URL = import.meta.env.VITE_APP_PATIENT_APP_URL;
+
+type QuickTextsContextValue = React.ComponentProps<typeof ChatModal>['quickTextsContext'];
 
 const LOCAL_STORAGE_FILTERS_KEY = 'invoices-tasks.filters';
 
@@ -135,6 +141,8 @@ export default function InvoiceablePatients(): React.ReactElement {
   const [sendingTaskIds, setSendingTaskIds] = useState<Set<string>>(new Set());
   const [isExporting, setIsExporting] = useState(false);
   const [chatAppointmentMessaging, setChatAppointmentMessaging] = useState<AppointmentMessaging | undefined>();
+  const [chatQuickTextsContext, setChatQuickTextsContext] = useState<QuickTextsContextValue>({});
+  const { phonesByLocationName } = useSupportPhonesMap();
 
   const pageParam = searchParams.get(SP.page);
   const parsedPage = pageParam ? parseInt(pageParam, 10) : 0;
@@ -386,6 +394,17 @@ export default function InvoiceablePatients(): React.ReactElement {
         },
       };
 
+      setChatQuickTextsContext({
+        patientAppUrl: VITE_APP_PATIENT_APP_URL,
+        patientFirstName: nameParts[0],
+        patientLastName: nameParts.slice(1).join(' '),
+        visitId: report.appointmentId,
+        locationName: report.location,
+        locationReviewLink: report.locationReviewLink,
+        bookingTime: report.visitDate,
+        officePhone: report.officePhone,
+        supportPhone: getSupportPhoneFor(report.location, phonesByLocationName) || '',
+      });
       setChatAppointmentMessaging(messaging);
     } catch (err) {
       console.error('Failed to open chat', err);
@@ -811,7 +830,7 @@ export default function InvoiceablePatients(): React.ReactElement {
             setChatAppointmentMessaging(undefined);
           }}
           onMarkAllRead={() => {}}
-          quickTextsContext={{}}
+          quickTextsContext={chatQuickTextsContext}
         />
       )}
     </Box>

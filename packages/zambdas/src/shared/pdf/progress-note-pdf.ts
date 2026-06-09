@@ -30,6 +30,7 @@ import {
   composeReviewOfSystems,
   composeRosObservations,
   composeSurgicalHistory,
+  composeUpcomingVisits,
   composeVitals,
   createAdditionalQuestionsSection,
   createAllergiesSection,
@@ -58,12 +59,13 @@ import {
   createReviewOfSystemsSection,
   createRosObservationsSection,
   createSurgicalHistorySection,
+  createUpcomingVisitsSection,
   createVitalsSection,
 } from './sections';
 import { AssetPaths, PdfResult, ProgressNoteData, ProgressNoteInput } from './types';
 
 const composeProgressNoteData: DataComposer<ProgressNoteInput, ProgressNoteData> = (input) => {
-  const { patient, encounter, questionnaireResponse, allChartData, appointmentPackage } = input;
+  const { patient, encounter, questionnaireResponse, allChartData, appointmentPackage, upcomingFollowUps } = input;
 
   return {
     patient: composePatientInformation({ patient, questionnaireResponse }),
@@ -158,6 +160,7 @@ const composeProgressNoteData: DataComposer<ProgressNoteInput, ProgressNoteData>
       encounter,
       appointmentPackage,
     }),
+    upcomingVisits: composeUpcomingVisits({ upcomingFollowUps }),
     followupCompleted: composeFollowupCompleted({
       appointmentPackage,
     }),
@@ -221,6 +224,13 @@ const createProgressNoteStyles: StyleFactory = (assets) => ({
       newLineAfter: true,
     },
     alternativeRegularText: {
+      fontSize: 16,
+      spacing: 1,
+      color: rgbNormalized(143, 154, 167),
+      font: assets.fonts.regular,
+      newLineAfter: true,
+    },
+    muted: {
       fontSize: 16,
       spacing: 1,
       color: rgbNormalized(143, 154, 167),
@@ -336,6 +346,7 @@ const progressNoteRenderConfig: PdfRenderConfig<ProgressNoteData> = {
     createProceduresSection(),
     createPrescriptionsSection(),
     createPlanSection(),
+    createUpcomingVisitsSection(),
     createFollowupCompletedSection(),
   ],
 };

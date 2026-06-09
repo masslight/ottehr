@@ -23,6 +23,7 @@ import { getTemplateDetail } from 'src/api/api';
 import { GLOBAL_TEMPLATES_URL } from 'src/App';
 import CustomBreadcrumbs from 'src/components/CustomBreadcrumbs';
 import { QUERY_STALE_TIME } from 'src/constants';
+import { formatCptCodeAndModifiersForDisplay, getProcedureDisplayFields } from 'src/helpers/templates';
 import { useApiClients } from 'src/hooks/useAppClients';
 import PageContainer from 'src/layout/PageContainer';
 import {
@@ -354,7 +355,7 @@ export default function GlobalTemplateDetailPage(): ReactElement {
                   <TableBody>
                     {sections.cptCodes.map((cpt, index) => (
                       <TableRow key={index}>
-                        <TableCell>{cpt.code}</TableCell>
+                        <TableCell>{formatCptCodeAndModifiersForDisplay(cpt)}</TableCell>
                         <TableCell>{cpt.display || '—'}</TableCell>
                       </TableRow>
                     ))}
@@ -404,6 +405,84 @@ export default function GlobalTemplateDetailPage(): ReactElement {
                     <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
                       {instruction.text}
                     </Typography>
+                  </Box>
+                ))}
+              </Stack>
+            ) : (
+              <NotIncluded />
+            )}
+          </SectionCard>
+
+          {/* In-House Lab Orders */}
+          <SectionCard title="In-House Lab Orders">
+            {sections.inHouseLabs.length > 0 ? (
+              <Stack spacing={2}>
+                {sections.inHouseLabs.map((plan) => (
+                  <Box key={plan.planId} sx={{ opacity: plan.missing ? 0.6 : 1 }}>
+                    <Stack direction="row" alignItems="baseline" spacing={1}>
+                      <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
+                        {plan.testName}
+                      </Typography>
+                      {plan.missing ? (
+                        <Typography variant="caption" color="warning.main" fontStyle="italic">
+                          ActivityDefinition not found in this environment — applies will skip this lab
+                        </Typography>
+                      ) : null}
+                    </Stack>
+                    {plan.diagnoses.length > 0 ? (
+                      <Typography variant="body2" sx={{ mt: 0.5 }}>
+                        <strong>Diagnoses:</strong>{' '}
+                        {plan.diagnoses.map((d) => (d.display ? `${d.code} — ${d.display}` : d.code)).join('; ')}
+                      </Typography>
+                    ) : null}
+                    {plan.notes.length > 0 ? (
+                      <Typography variant="body2" sx={{ mt: 0.5, whiteSpace: 'pre-wrap' }}>
+                        <strong>Notes:</strong> {plan.notes.join('\n\n')}
+                      </Typography>
+                    ) : null}
+                  </Box>
+                ))}
+              </Stack>
+            ) : (
+              <NotIncluded />
+            )}
+          </SectionCard>
+
+          {/* Procedures */}
+          <SectionCard title="Procedures">
+            {sections.procedures.length > 0 ? (
+              <Stack spacing={2}>
+                {sections.procedures.map((plan) => (
+                  <Box key={plan.planId}>
+                    <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
+                      {plan.procedureType ?? plan.cptCodes[0]?.display ?? plan.cptCodes[0]?.code ?? 'Procedure'}
+                    </Typography>
+                    {plan.cptCodes.length > 0 ? (
+                      <Typography variant="body2" sx={{ mt: 0.5 }}>
+                        <strong>CPT codes:</strong>{' '}
+                        {plan.cptCodes
+                          .map((c) => {
+                            const label = formatCptCodeAndModifiersForDisplay(c);
+                            return c.display ? `${label} — ${c.display}` : label;
+                          })
+                          .join('; ')}
+                      </Typography>
+                    ) : null}
+                    {plan.diagnoses.length > 0 ? (
+                      <Typography variant="body2">
+                        <strong>Diagnoses:</strong>{' '}
+                        {plan.diagnoses.map((d) => (d.display ? `${d.code} — ${d.display}` : d.code)).join('; ')}
+                      </Typography>
+                    ) : null}
+                    {getProcedureDisplayFields(plan).map((f) => (
+                      <Typography
+                        key={f.label}
+                        variant="body2"
+                        sx={f.multiline ? { whiteSpace: 'pre-wrap' } : undefined}
+                      >
+                        <strong>{f.label}:</strong> {f.value}
+                      </Typography>
+                    ))}
                   </Box>
                 ))}
               </Stack>

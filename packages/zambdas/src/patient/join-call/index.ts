@@ -123,11 +123,17 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   videoEncounter = await getVideoEncounterForAppointment(appointment.id || 'Unknown', oystehr);
   console.log('Encounter status:', videoEncounter?.status);
 
-  if (
-    !videoEncounter?.id ||
-    videoEncounter.status !== 'in-progress' ||
-    !getVirtualServiceResourceExtension(videoEncounter, TELEMED_VIDEO_ROOM_CODE)
-  ) {
+  // The encounter status can advance to 'in-progress/provider' independently of video-room provisioning
+  // (e.g., via ChangeStatusDropdown). Require that the meeting was actually provisioned by checking
+  // for addressString — otherwise Oystehr's /telemed/v2/meeting/{id}/join would 400 with code 4006.
+  const virtualServiceExt = videoEncounter
+    ? getVirtualServiceResourceExtension(videoEncounter, TELEMED_VIDEO_ROOM_CODE)
+    : null;
+  const hasMeetingAddress = (virtualServiceExt?.extension ?? []).some(
+    (ext) => ext.url === 'addressString' && typeof ext.valueString === 'string' && ext.valueString.length > 0
+  );
+
+  if (!videoEncounter?.id || videoEncounter.status !== 'in-progress' || !virtualServiceExt || !hasMeetingAddress) {
     return lambdaResponse(400, CANNOT_JOIN_CALL_NOT_STARTED_ERROR);
   }
 
@@ -171,10 +177,14 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     joinCallResponse = await joinTelemedMeeting(projectApiURL, userToken, videoEncounter.id, isInvitedParticipant);
   } catch (error: any) {
     console.error('Error joining telemed meeting:', error);
-    // Handle expired/unavailable meeting errors (404 NotFoundException from AWS Chime SDK)
-    // This status code indicates the meeting has expired or does not exist
-    // This is expected behavior and we should return a user-friendly error
-    if (error?.statusCode === 404) {
+    // 404: AWS Chime SDK NotFoundException — meeting expired/doesn't exist.
+    // 400 + addressString in message (Oystehr error code 4006): encounter advanced to in-progress/provider
+    //   before the video room was provisioned (e.g., bypass via ChangeStatusDropdown). Defensive fallback —
+    //   the gate above should already have caught this, but a fresh write between gate and join could race.
+    const errorMessage: string = typeof error?.message === 'string' ? error.message : '';
+    const isMissingAddressString =
+      error?.statusCode === 400 && (errorMessage.includes('addressString') || errorMessage.includes('"4006"'));
+    if (error?.statusCode === 404 || isMissingAddressString) {
       return lambdaResponse(400, CANNOT_JOIN_CALL_NOT_STARTED_ERROR);
     }
     throw error;
@@ -190,8 +200,10 @@ async function addUserToVideoEncounterIfNeeded(
   oystehr: Oystehr
 ): Promise<Encounter> {
   try {
-    const extension = [...(encounter.extension ?? [])];
-    const otherParticipantExt = extension.find((ext) => ext.url === FHIR_EXTENSION.Encounter.otherParticipants.url);
+    const otherParticipantsIdx = (encounter.extension ?? []).findIndex(
+      (ext) => ext.url === FHIR_EXTENSION.Encounter.otherParticipants.url
+    );
+    const otherParticipantExt = otherParticipantsIdx >= 0 ? encounter.extension?.[otherParticipantsIdx] : undefined;
 
     const filter = FHIR_EXTENSION.Encounter.otherParticipants.extension.otherParticipant.url;
     const path = `$.extension[?(@.url == '${filter}')].extension[?(@.url == 'reference')].valueReference.reference`;
@@ -200,31 +212,44 @@ async function addUserToVideoEncounterIfNeeded(
 
     const updateOperations: Operation[] = [];
 
+    const newOtherParticipantEntry = {
+      url: FHIR_EXTENSION.Encounter.otherParticipants.extension.otherParticipant.url,
+      extension: [
+        {
+          url: 'period',
+          valuePeriod: {
+            start: DateTime.now().toUTC().toISO(),
+          },
+        },
+        {
+          url: 'reference',
+          valueReference: {
+            reference: fhirParticipantRef,
+          },
+        },
+      ],
+    };
+
     if (otherParticipantsDenormalized.includes(fhirParticipantRef)) {
       console.log(`User '${fhirParticipantRef}' is already added to the participant list.`);
-    } else {
-      otherParticipantExt?.extension?.push({
-        url: FHIR_EXTENSION.Encounter.otherParticipants.extension.otherParticipant.url,
-        extension: [
-          {
-            url: 'period',
-            valuePeriod: {
-              start: DateTime.now().toUTC().toISO(),
-            },
-          },
-          {
-            url: 'reference',
-            valueReference: {
-              reference: fhirParticipantRef,
-            },
-          },
-        ],
-      });
-
+    } else if (otherParticipantsIdx >= 0) {
+      // Append a new participant entry inside the existing otherParticipants container.
+      // Targeted JSON-Patch — avoids the lost-update race of replacing the whole /extension array.
       updateOperations.push({
-        op: 'replace',
-        path: '/extension',
-        value: extension,
+        op: 'add',
+        path: `/extension/${otherParticipantsIdx}/extension/-`,
+        value: newOtherParticipantEntry,
+      });
+    } else {
+      // Container doesn't exist yet — add it without touching the rest of /extension.
+      const newOtherParticipants = {
+        url: FHIR_EXTENSION.Encounter.otherParticipants.url,
+        extension: [newOtherParticipantEntry],
+      };
+      updateOperations.push({
+        op: 'add',
+        path: encounter.extension ? '/extension/-' : '/extension',
+        value: encounter.extension ? newOtherParticipants : [newOtherParticipants],
       });
     }
 

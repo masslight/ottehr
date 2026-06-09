@@ -1,17 +1,8 @@
 import { LoadingButton } from '@mui/lab';
-import {
-  Button,
-  Checkbox,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  FormControlLabel,
-  FormGroup,
-  Typography,
-} from '@mui/material';
+import { Button, Checkbox, FormControlLabel, FormGroup, Typography } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import { FC, useCallback, useState } from 'react';
+import { CustomDialog } from 'src/components/dialogs/CustomDialog';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { useGetPatientDocs } from 'src/hooks/useGetPatientDocs';
 import { useExcusePresignedFiles } from 'src/shared/hooks/useExcusePresignedFiles';
@@ -41,19 +32,15 @@ export const DischargeAndPrintDialog: FC<DischargeAndPrintDialogProps> = ({
 
   const schoolWorkNotes = chartData?.schoolWorkNotes ?? [];
   const presignedFiles = useExcusePresignedFiles(schoolWorkNotes);
-  const instructions = chartData?.instructions ?? [];
-
   const workNote = presignedFiles.find((file) => file.type === WORK_NOTE_CODE);
   const schoolNote = presignedFiles.find((file) => file.type === SCHOOL_NOTE_CODE);
   const hasWorkNote = Boolean(workNote);
   const hasSchoolNote = Boolean(schoolNote);
-  const hasPatientInstructions = instructions.length > 0;
   const hasDischargeSummary = Boolean(appointmentId);
 
   const [printDischargeSummary, setPrintDischargeSummary] = useState(true);
   const [printWorkNote, setPrintWorkNote] = useState(true);
   const [printSchoolNote, setPrintSchoolNote] = useState(true);
-  const [printPatientInstructions, setPrintPatientInstructions] = useState(true);
 
   const [isLoading, setIsLoading] = useState(false);
 
@@ -66,7 +53,6 @@ export const DischargeAndPrintDialog: FC<DischargeAndPrintDialogProps> = ({
     setIsLoading(true);
 
     try {
-      // Print selected documents
       const printPromises: Promise<void>[] = [];
 
       if (printDischargeSummary && hasDischargeSummary && appointmentId) {
@@ -81,10 +67,6 @@ export const DischargeAndPrintDialog: FC<DischargeAndPrintDialogProps> = ({
 
       if (printSchoolNote && hasSchoolNote && schoolNote?.presignedUrl) {
         window.open(schoolNote.presignedUrl, '_blank');
-      }
-
-      if (printPatientInstructions && hasPatientInstructions) {
-        // todo, print patient instructions
       }
 
       await Promise.all(printPromises);
@@ -109,87 +91,79 @@ export const DischargeAndPrintDialog: FC<DischargeAndPrintDialogProps> = ({
     printSchoolNote,
     hasSchoolNote,
     schoolNote,
-    printPatientInstructions,
-    hasPatientInstructions,
     downloadDocument,
     appointmentRefetch,
     onClose,
   ]);
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
-      <DialogTitle>Discharge &amp; Print</DialogTitle>
-      <DialogContent>
-        <Typography gutterBottom>
-          Please confirm discharging the patient. Check if you want to print documents:
-        </Typography>
-        <FormGroup>
-          <FormControlLabel
-            control={
-              <Checkbox
-                checked={printDischargeSummary && hasDischargeSummary}
-                disabled={!hasDischargeSummary}
-                onChange={(e) => setPrintDischargeSummary(e.target.checked)}
-              />
-            }
-            label={
-              <Typography color={hasDischargeSummary ? 'text.primary' : 'text.disabled'}>Discharge Summary</Typography>
-            }
-          />
-          <FormControlLabel
-            control={
-              <Checkbox
-                checked={printWorkNote && hasWorkNote}
-                disabled={!hasWorkNote}
-                onChange={(e) => setPrintWorkNote(e.target.checked)}
-              />
-            }
-            label={<Typography color={hasWorkNote ? 'text.primary' : 'text.disabled'}>Work Note</Typography>}
-          />
-          <FormControlLabel
-            control={
-              <Checkbox
-                checked={printSchoolNote && hasSchoolNote}
-                disabled={!hasSchoolNote}
-                onChange={(e) => setPrintSchoolNote(e.target.checked)}
-              />
-            }
-            label={<Typography color={hasSchoolNote ? 'text.primary' : 'text.disabled'}>School Note</Typography>}
-          />
-          <FormControlLabel
-            control={
-              <Checkbox
-                checked={printPatientInstructions && hasPatientInstructions}
-                disabled={!hasPatientInstructions}
-                onChange={(e) => setPrintPatientInstructions(e.target.checked)}
-              />
-            }
-            label={
-              <Typography color={hasPatientInstructions ? 'text.primary' : 'text.disabled'}>
-                Patient Instructions
-              </Typography>
-            }
-          />
-        </FormGroup>
-      </DialogContent>
-      <DialogActions>
-        <Button
-          onClick={onClose}
-          disabled={isLoading}
-          variant="outlined"
-          sx={{ borderRadius: 100, textTransform: 'none' }}
-        >
-          Cancel
-        </Button>
-        <LoadingButton
-          onClick={handleDischargeAndPrint}
-          loading={isLoading}
-          variant="contained"
-          sx={{ borderRadius: 100, textTransform: 'none' }}
-        >
-          Discharge & Print
-        </LoadingButton>
-      </DialogActions>
-    </Dialog>
+    <CustomDialog
+      open={open}
+      handleClose={onClose}
+      title="Discharge & Print"
+      description={
+        <>
+          <Typography gutterBottom>
+            Please confirm discharging the patient. Check if you want to print documents:
+          </Typography>
+          <FormGroup>
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={printDischargeSummary && hasDischargeSummary}
+                  disabled={!hasDischargeSummary}
+                  onChange={(e) => setPrintDischargeSummary(e.target.checked)}
+                />
+              }
+              label={
+                <Typography color={hasDischargeSummary ? 'text.primary' : 'text.disabled'}>
+                  Discharge Summary + Patient Instructions
+                </Typography>
+              }
+            />
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={printWorkNote && hasWorkNote}
+                  disabled={!hasWorkNote}
+                  onChange={(e) => setPrintWorkNote(e.target.checked)}
+                />
+              }
+              label={<Typography color={hasWorkNote ? 'text.primary' : 'text.disabled'}>Work Note</Typography>}
+            />
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={printSchoolNote && hasSchoolNote}
+                  disabled={!hasSchoolNote}
+                  onChange={(e) => setPrintSchoolNote(e.target.checked)}
+                />
+              }
+              label={<Typography color={hasSchoolNote ? 'text.primary' : 'text.disabled'}>School Note</Typography>}
+            />
+          </FormGroup>
+        </>
+      }
+      actions={
+        <>
+          <Button
+            onClick={onClose}
+            disabled={isLoading}
+            variant="outlined"
+            sx={{ borderRadius: 100, textTransform: 'none' }}
+          >
+            Cancel
+          </Button>
+          <LoadingButton
+            onClick={handleDischargeAndPrint}
+            loading={isLoading}
+            variant="contained"
+            sx={{ borderRadius: 100, textTransform: 'none' }}
+          >
+            Discharge & Print
+          </LoadingButton>
+        </>
+      }
+    />
   );
 };
