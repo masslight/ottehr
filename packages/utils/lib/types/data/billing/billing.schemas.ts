@@ -182,6 +182,40 @@ export const CreateBillingClaimInputSchema = z.object({
     .optional(),
 });
 
+const billingProviderRole = z.enum(['billing', 'rendering']);
+
+const billingProviderAddressSchema = z
+  .object({
+    line: nonEmptyString.optional(),
+    city: nonEmptyString.optional(),
+    state: nonEmptyString.optional(),
+    postalCode: nonEmptyString.optional(),
+  })
+  .strict();
+
+export const CreateBillingProviderInputSchema = z.discriminatedUnion('kind', [
+  z.object({
+    kind: z.literal('individual'),
+    firstName: nonEmptyString,
+    lastName: nonEmptyString,
+    roles: z.array(billingProviderRole).min(1),
+    npi: nonEmptyString.optional(),
+    taxonomyCode: nonEmptyString.optional(),
+    licenseType: nonEmptyString.optional(),
+    taxId: nonEmptyString.optional(),
+    address: billingProviderAddressSchema.optional(),
+  }),
+  z.object({
+    kind: z.literal('organization'),
+    name: nonEmptyString,
+    roles: z.array(billingProviderRole).min(1),
+    npi: nonEmptyString.optional(),
+    taxonomyCode: nonEmptyString.optional(),
+    taxId: nonEmptyString.optional(),
+    address: billingProviderAddressSchema.optional(),
+  }),
+]);
+
 export const CreateBillingWorkingCopyInputSchema = z.object({
   resourceType: z.enum(ALLOWED_BILLING_RESOURCE_TYPES),
   resourceId: nonEmptyString,
@@ -244,6 +278,7 @@ export type SearchBillingPatientsInput = z.infer<typeof SearchBillingPatientsInp
 export type SearchBillingLocationsInput = z.infer<typeof SearchBillingLocationsInputSchema>;
 export type SearchBillingPayersInput = z.infer<typeof SearchBillingPayersInputSchema>;
 export type CreateBillingClaimInput = z.infer<typeof CreateBillingClaimInputSchema>;
+export type CreateBillingProviderInput = z.infer<typeof CreateBillingProviderInputSchema>;
 export type CreateBillingWorkingCopyInput = z.infer<typeof CreateBillingWorkingCopyInputSchema>;
 export type UpdateBillingResourceInput = z.infer<typeof UpdateBillingResourceInputSchema>;
 export type BillingResourceType = (typeof ALLOWED_BILLING_RESOURCE_TYPES)[number];
