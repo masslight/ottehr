@@ -7,6 +7,7 @@ import {
   INVALID_INPUT_ERROR,
   MISSING_REQUEST_BODY,
   MISSING_REQUIRED_PARAMETERS,
+  PRACTITIONER_ROLE_ALL_CATEGORIES_EXTENSION_URL,
   SCHEDULE_DISPLAY_NAME_EXTENSION_URL,
   SCHEDULE_EXTENSION_URL,
   Secrets,
@@ -28,6 +29,13 @@ interface AdminCreatePractitionerRoleInput {
    * Empty/omitted means callers fall back to "<Practitioner> @ <Location>".
    */
   displayName?: string;
+  /**
+   * When true, the PR is treated as offering every service category in the
+   * system — both FHIR-backed (in categoryHealthcareServiceIds and beyond)
+   * and BOOKING_CONFIG compiled-in categories. Stored as a boolean PR
+   * extension. Defaults to false; admins opt in explicitly.
+   */
+  allCategories?: boolean;
 }
 
 interface AdminCreatePractitionerRoleResponse {
@@ -47,13 +55,14 @@ const validateRequestParameters = (input: ZambdaInput): AdminCreatePractitionerR
     categoryHealthcareServiceIds?: unknown;
     timezone?: unknown;
     displayName?: unknown;
+    allCategories?: unknown;
   };
   try {
     parsed = JSON.parse(input.body);
   } catch {
     throw INVALID_INPUT_ERROR('Request body must be valid JSON');
   }
-  const { practitionerId, locationId, categoryHealthcareServiceIds, timezone, displayName } = parsed;
+  const { practitionerId, locationId, categoryHealthcareServiceIds, timezone, displayName, allCategories } = parsed;
 
   const missing: string[] = [];
   if (!practitionerId) missing.push('practitionerId');
@@ -70,6 +79,8 @@ const validateRequestParameters = (input: ZambdaInput): AdminCreatePractitionerR
     throw INVALID_INPUT_ERROR('"categoryHealthcareServiceIds" must contain only strings');
   if (displayName !== undefined && typeof displayName !== 'string')
     throw INVALID_INPUT_ERROR('"displayName" must be a string if provided');
+  if (allCategories !== undefined && typeof allCategories !== 'boolean')
+    throw INVALID_INPUT_ERROR('"allCategories" must be a boolean if provided');
 
   return {
     secrets: input.secrets,
@@ -78,6 +89,7 @@ const validateRequestParameters = (input: ZambdaInput): AdminCreatePractitionerR
     categoryHealthcareServiceIds,
     timezone,
     displayName,
+    allCategories,
   };
 };
 
@@ -129,6 +141,17 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   // so the partial-failure case (PR exists, Schedule missing) can't happen.
   const roleFullUrl = `urn:uuid:${randomUUID()}`;
   const trimmedName = parsed.displayName?.trim();
+  // Compose extensions explicitly so both the display-name override and the
+  // all-categories toggle can coexist. `allCategories === false` is the
+  // default and is left absent from the resource (semantic-equivalent and
+  // avoids storing the false-by-default state).
+  const roleExtensions: { url: string; valueString?: string; valueBoolean?: boolean }[] = [];
+  if (trimmedName) {
+    roleExtensions.push({ url: SCHEDULE_DISPLAY_NAME_EXTENSION_URL, valueString: trimmedName });
+  }
+  if (parsed.allCategories === true) {
+    roleExtensions.push({ url: PRACTITIONER_ROLE_ALL_CATEGORIES_EXTENSION_URL, valueBoolean: true });
+  }
   const roleResource: PractitionerRole = {
     resourceType: 'PractitionerRole',
     active: true,
@@ -137,7 +160,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     healthcareService: parsed.categoryHealthcareServiceIds.map((id) => ({
       reference: `HealthcareService/${id}`,
     })),
-    ...(trimmedName ? { extension: [{ url: SCHEDULE_DISPLAY_NAME_EXTENSION_URL, valueString: trimmedName }] } : {}),
+    ...(roleExtensions.length > 0 ? { extension: roleExtensions } : {}),
   };
   const scheduleResource: Schedule = {
     resourceType: 'Schedule',

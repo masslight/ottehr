@@ -10,6 +10,7 @@ import {
   getFullName,
   getLocationInformation,
   getOpeningTime,
+  getPractitionerRoleAllCategories,
   getScheduleExtension,
   GetScheduleResponse,
   getSecret,
@@ -185,6 +186,9 @@ export const index = wrapHandler('get-schedule', async (input: ZambdaInput): Pro
 
     const filtered = scheduleList.filter((entry) => {
       if (entry.owner.resourceType !== 'PractitionerRole') return true;
+      // PR with the all-categories toggle on is qualified for any service the
+      // resolver asks about — no per-category opt-in needed.
+      if (getPractitionerRoleAllCategories(entry.owner as PractitionerRole)) return true;
       const roleServices = (entry.owner as any).healthcareService || [];
       return roleServices.some((ref: { reference?: string }) => {
         const id = ref.reference?.split('/')[1];

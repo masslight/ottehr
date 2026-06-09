@@ -8,6 +8,7 @@ import {
   DOW,
   getAllFhirSearchPages,
   getFullName,
+  getPractitionerRoleAllCategories,
   getScheduleExtension,
   getTimezone,
   INVALID_INPUT_ERROR,
@@ -322,10 +323,18 @@ const complexValidationForPractitioner = async (_input: BasicInput, oystehr: Oys
         const locationRef = role.location?.[0]?.reference;
         const location = locations.find((l) => `Location/${l.id}` === locationRef);
         if (location?.name) locationNames.add(location.name);
-        for (const ref of role.healthcareService ?? []) {
-          const hsId = ref.reference?.split('/')[1];
-          const hs = healthcareServices.find((h) => h.id === hsId);
-          if (hs?.name) categoryLabels.add(hs.name);
+        // A PR with the all-categories toggle on offers every service in the
+        // catalog; show that as a single "All services" badge rather than
+        // expanding the full list (which could be long and changes any time
+        // a category is added).
+        if (getPractitionerRoleAllCategories(role)) {
+          categoryLabels.add('All services');
+        } else {
+          for (const ref of role.healthcareService ?? []) {
+            const hsId = ref.reference?.split('/')[1];
+            const hs = healthcareServices.find((h) => h.id === hsId);
+            if (hs?.name) categoryLabels.add(hs.name);
+          }
         }
         for (const s of schedules) {
           if (s.actor?.some((a) => a.reference === `PractitionerRole/${role.id}`)) {

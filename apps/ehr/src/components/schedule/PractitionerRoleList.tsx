@@ -12,6 +12,7 @@ import {
   DialogContent,
   DialogContentText,
   DialogTitle,
+  FormControlLabel,
   IconButton,
   Paper,
   Table,
@@ -29,7 +30,7 @@ import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { createPractitionerRole, deletePractitionerRole, listServiceCategories } from 'src/api/api';
-import { SCHEDULE_DISPLAY_NAME_EXTENSION_URL, TIMEZONES } from 'utils';
+import { getPractitionerRoleAllCategories, SCHEDULE_DISPLAY_NAME_EXTENSION_URL, TIMEZONES } from 'utils';
 import { useApiClients } from '../../hooks/useAppClients';
 
 interface PractitionerRoleListProps {
@@ -113,13 +114,18 @@ export default function PractitionerRoleList({
         const locRef = role.location?.[0]?.reference;
         const location = includedLocations.find((l) => `Location/${l.id}` === locRef);
         const schedule = schedules.find((s) => s.actor?.some((a) => a.reference === `PractitionerRole/${role.id}`));
-        const categoryLabels = (role.healthcareService || [])
-          .map((ref) => {
-            const id = ref.reference?.split('/')[1];
-            if (!id) return undefined;
-            return categoriesById.get(id)?.name;
-          })
-          .filter((n): n is string => !!n);
+        // A PR with the all-categories toggle on offers every catalog entry;
+        // surface that as a single "All services" label rather than expanding
+        // the full list, which would shift any time the catalog changes.
+        const categoryLabels = getPractitionerRoleAllCategories(role)
+          ? ['All services']
+          : (role.healthcareService || [])
+              .map((ref) => {
+                const id = ref.reference?.split('/')[1];
+                if (!id) return undefined;
+                return categoriesById.get(id)?.name;
+              })
+              .filter((n): n is string => !!n);
         // Admin-set display name wins; fallback to the auto-derived label.
         const explicitName = (role.extension ?? [])
           .find((ext) => ext.url === SCHEDULE_DISPLAY_NAME_EXTENSION_URL)
@@ -144,6 +150,7 @@ export default function PractitionerRoleList({
       categoryHealthcareServiceIds: string[];
       timezone: string;
       displayName?: string;
+      allCategories?: boolean;
     }) => {
       if (!oystehrZambda) throw new Error('zambda client not ready');
       return createPractitionerRole(oystehrZambda, {
@@ -152,6 +159,7 @@ export default function PractitionerRoleList({
         categoryHealthcareServiceIds: input.categoryHealthcareServiceIds,
         timezone: input.timezone,
         displayName: input.displayName,
+        allCategories: input.allCategories,
       });
     },
     onSuccess: ({ schedule }) => {
@@ -305,12 +313,13 @@ export default function PractitionerRoleList({
       <AddScheduleDialog
         open={dialogOpen}
         onClose={() => setDialogOpen(false)}
-        onCreate={(loc, categoryIds, tz, name) =>
+        onCreate={(loc, categoryIds, tz, name, allCategories) =>
           createRole.mutate({
             locationId: loc,
             categoryHealthcareServiceIds: categoryIds,
             timezone: tz,
             displayName: name,
+            allCategories,
           })
         }
         isSubmitting={createRole.isPending}
@@ -351,7 +360,13 @@ export default function PractitionerRoleList({
 interface AddScheduleDialogProps {
   open: boolean;
   onClose: () => void;
-  onCreate: (locationId: string, categoryHealthcareServiceIds: string[], timezone: string, displayName: string) => void;
+  onCreate: (
+    locationId: string,
+    categoryHealthcareServiceIds: string[],
+    timezone: string,
+    displayName: string,
+    allCategories: boolean
+  ) => void;
   isSubmitting: boolean;
   practitionerName: string;
 }
@@ -366,6 +381,7 @@ function AddScheduleDialog({
   const { oystehr, oystehrZambda } = useApiClients();
   const [location, setLocation] = useState<Location | null>(null);
   const [categoryHsIds, setCategoryHsIds] = useState<string[]>([]);
+  const [allCategories, setAllCategories] = useState<boolean>(false);
   const [timezone, setTimezone] = useState<string>(TIMEZONES[0]);
   const [scheduleName, setScheduleName] = useState<string>('');
   // Track whether the admin has manually typed in the Name field. While
@@ -379,6 +395,7 @@ function AddScheduleDialog({
     if (open) {
       setLocation(null);
       setCategoryHsIds([]);
+      setAllCategories(false);
       setTimezone(TIMEZONES[0]);
       setScheduleName(`${practitionerName} Schedule`);
       setNameEditedManually(false);
@@ -422,7 +439,10 @@ function AddScheduleDialog({
 
   const handleCreate = (): void => {
     if (!location?.id) return;
-    onCreate(location.id, categoryHsIds, timezone, scheduleName);
+    // When the "Offers all services" toggle is on, send an empty
+    // categoryHealthcareServiceIds list — the toggle alone qualifies the role
+    // for every service, and there's no reason to also pin specific HS refs.
+    onCreate(location.id, allCategories ? [] : categoryHsIds, timezone, scheduleName, allCategories);
   };
 
   return (
@@ -452,11 +472,17 @@ function AddScheduleDialog({
               setNameEditedManually(true);
             }}
           />
+          <FormControlLabel
+            control={<Checkbox checked={allCategories} onChange={(e) => setAllCategories(e.target.checked)} />}
+            label="Offers all services"
+            sx={{ alignSelf: 'flex-start' }}
+          />
           <Autocomplete
             multiple
             disableCloseOnSelect
+            disabled={allCategories}
             options={categoryOptions.map((c: any) => c.id as string)}
-            value={categoryHsIds}
+            value={allCategories ? [] : categoryHsIds}
             onChange={(_e, v) => setCategoryHsIds(v)}
             getOptionLabel={(id) => {
               const hit = categoryOptions.find((c: any) => c.id === id);
@@ -478,7 +504,15 @@ function AddScheduleDialog({
               );
             }}
             renderInput={(params) => (
-              <TextField {...params} label="Services" helperText="Empty = all available services" />
+              <TextField
+                {...params}
+                label="Services"
+                helperText={
+                  allCategories
+                    ? 'Toggle off "Offers all services" to choose specific services'
+                    : 'Pick the specific services this role offers'
+                }
+              />
             )}
           />
           <Autocomplete

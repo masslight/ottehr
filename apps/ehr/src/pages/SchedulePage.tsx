@@ -12,6 +12,7 @@ import {
   Button,
   Checkbox,
   CircularProgress,
+  FormControlLabel,
   Grid,
   IconButton,
   Paper,
@@ -83,6 +84,10 @@ export default function SchedulePage(): ReactElement {
   const [timezone, setTimezone] = useState<string>(TIMEZONES[0]);
   // For PR-actored schedules only — the categories this role offers and the Location it's bound to.
   const [categoryIds, setCategoryIds] = useState<string[]>([]);
+  // For PR-actored schedules only — explicit "offers every catalog entry"
+  // toggle (replaces the implicit-empty-array semantic that was inconsistent
+  // across read sites).
+  const [allCategories, setAllCategories] = useState<boolean>(false);
   const [locationId, setLocationId] = useState<string | undefined>(undefined);
   // Admin-editable display name for PR-actored schedules. Seeded from a
   // location-name fallback; the save handler always sends the current value
@@ -174,6 +179,7 @@ export default function SchedulePage(): ReactElement {
     const knownIds = new Set(categoryOptions.map((c: any) => c.id as string));
     const filtered = (item.owner.healthcareServiceIds ?? []).filter((id) => knownIds.has(id));
     setCategoryIds(filtered);
+    setAllCategories(item.owner.allCategories === true);
     seededCategoriesRef.current = true;
   }, [item, isPractitionerRoleOwner, categoryOptions]);
 
@@ -419,18 +425,25 @@ export default function SchedulePage(): ReactElement {
         sortedInitialCats.length !== sortedCurrentCats.length ||
         sortedInitialCats.some((v, i) => v !== sortedCurrentCats[i]);
       const locationChanged = (locationId ?? '') !== (item.owner.locationId ?? '');
+      const allCategoriesChanged = allCategories !== (item.owner.allCategories === true);
       const trimmedName = scheduleName.trim();
       // A non-empty display name should always be persisted on save —
       // dropping the nameChanged gate so the user's first save commits the
       // seed value to the PR's schedule-display-name extension.
       const shouldSendName = trimmedName.length > 0;
 
-      if (categoriesChanged || locationChanged || shouldSendName) {
+      if (categoriesChanged || locationChanged || allCategoriesChanged || shouldSendName) {
         try {
           await updatePractitionerRole(oystehrZambda, {
             roleId: item.owner.id,
-            ...(categoriesChanged ? { categoryHealthcareServiceIds: categoryIds } : {}),
+            // When the "all categories" toggle is on, send an empty category
+            // list — the toggle alone covers the role's coverage and there's
+            // no reason to also pin specific HS refs.
+            ...(categoriesChanged || allCategoriesChanged
+              ? { categoryHealthcareServiceIds: allCategories ? [] : categoryIds }
+              : {}),
             ...(locationChanged && locationId ? { locationId } : {}),
+            ...(allCategoriesChanged ? { allCategories } : {}),
             ...(shouldSendName ? { displayName: trimmedName } : {}),
           });
           await queryClient.invalidateQueries({ queryKey: ['ehr-get-schedule'] });
@@ -667,36 +680,54 @@ export default function SchedulePage(): ReactElement {
                         />
                       )}
                       {isPractitionerRoleOwner && (
-                        <Autocomplete
-                          multiple
-                          disableCloseOnSelect
-                          options={categoryOptions.map((c: any) => c.id as string)}
-                          value={categoryIds}
-                          onChange={(_e, v) => setCategoryIds(v)}
-                          getOptionLabel={(id) => {
-                            const hit = categoryOptions.find((c: any) => c.id === id);
-                            return hit ? `${hit.name} — ${hit.config.durationMinutes} min` : id;
-                          }}
-                          renderOption={(props, id) => {
-                            const isSelected = categoryIds.includes(id);
-                            const hit = categoryOptions.find((c: any) => c.id === id);
-                            return (
-                              <li {...props} key={id}>
-                                <Checkbox
-                                  icon={<CheckBoxOutlineBlankIcon fontSize="small" />}
-                                  checkedIcon={<CheckBoxIcon fontSize="small" />}
-                                  style={{ marginRight: 8 }}
-                                  checked={isSelected}
-                                />
-                                {hit ? `${hit.name} — ${hit.config.durationMinutes} min` : id}
-                              </li>
-                            );
-                          }}
-                          renderInput={(params) => (
-                            <TextField {...params} label="Services" helperText="Empty = all available services" />
-                          )}
-                          sx={{ marginTop: 2, width: '500px' }}
-                        />
+                        <>
+                          <FormControlLabel
+                            control={
+                              <Checkbox checked={allCategories} onChange={(e) => setAllCategories(e.target.checked)} />
+                            }
+                            label="Offers all services"
+                            sx={{ marginTop: 2, alignSelf: 'flex-start' }}
+                          />
+                          <Autocomplete
+                            multiple
+                            disableCloseOnSelect
+                            disabled={allCategories}
+                            options={categoryOptions.map((c: any) => c.id as string)}
+                            value={allCategories ? [] : categoryIds}
+                            onChange={(_e, v) => setCategoryIds(v)}
+                            getOptionLabel={(id) => {
+                              const hit = categoryOptions.find((c: any) => c.id === id);
+                              return hit ? `${hit.name} — ${hit.config.durationMinutes} min` : id;
+                            }}
+                            renderOption={(props, id) => {
+                              const isSelected = categoryIds.includes(id);
+                              const hit = categoryOptions.find((c: any) => c.id === id);
+                              return (
+                                <li {...props} key={id}>
+                                  <Checkbox
+                                    icon={<CheckBoxOutlineBlankIcon fontSize="small" />}
+                                    checkedIcon={<CheckBoxIcon fontSize="small" />}
+                                    style={{ marginRight: 8 }}
+                                    checked={isSelected}
+                                  />
+                                  {hit ? `${hit.name} — ${hit.config.durationMinutes} min` : id}
+                                </li>
+                              );
+                            }}
+                            renderInput={(params) => (
+                              <TextField
+                                {...params}
+                                label="Services"
+                                helperText={
+                                  allCategories
+                                    ? 'Toggle off "Offers all services" to choose specific services'
+                                    : 'Pick the specific services this role offers'
+                                }
+                              />
+                            )}
+                            sx={{ marginTop: 2, width: '500px' }}
+                          />
+                        </>
                       )}
                       <br />
                       <LoadingButton
