@@ -126,7 +126,7 @@ const mapCompositeExcuseFieldsToLabels: {
   workExcusedFromWorkOn: (values: ExcuseFormValues) =>
     `excused from work on ${values.workExcusedFromWorkOnDate!.toFormat('MM/dd/yyyy')}`,
   workMayReturnToWorkOn: (values: ExcuseFormValues) =>
-    `may return to work on ${values.workMayReturnToWorkOnDate!.toFormat('MM/dd/yyyy')}`,
+    `may return to work from ${values.workMayReturnToWorkOnDate!.toFormat('MM/dd/yyyy')}`,
   excusedFromSchoolFromTo: (values: ExcuseFormValues) =>
     `excused from school from ${values.excusedFromSchoolFromDate!.toFormat(
       'MM/dd/yyyy'
@@ -134,7 +134,7 @@ const mapCompositeExcuseFieldsToLabels: {
   excusedFromSchoolOn: (values: ExcuseFormValues) =>
     `excused from school on ${values.excusedFromSchoolOnDate!.toFormat('MM/dd/yyyy')}`,
   schoolMayReturnToSchoolOn: (values: ExcuseFormValues) =>
-    `may return to school on ${values.schoolMayReturnToSchoolOnDate!.toFormat('MM/dd/yyyy')}`,
+    `may return to school from ${values.schoolMayReturnToSchoolOnDate!.toFormat('MM/dd/yyyy')}`,
   excusedFromGymActivitiesFromTo: (values: ExcuseFormValues) =>
     `excused from gym/activities from ${values.excusedFromGymActivitiesFromDate!.toFormat(
       'MM/dd/yyyy'

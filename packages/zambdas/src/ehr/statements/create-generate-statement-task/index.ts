@@ -4,8 +4,10 @@ import { DateTime } from 'luxon';
 import {
   getFullestAvailableName,
   getTaskResource,
+  INVALID_INPUT_ERROR,
   MISSING_REQUEST_BODY,
   MISSING_REQUEST_SECRETS,
+  MISSING_REQUIRED_PARAMETERS,
   TaskIndicator,
 } from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
@@ -25,7 +27,7 @@ function validateRequestParameters(input: ZambdaInput): CreateGenerateStatementT
   const body = JSON.parse(input.body) as Record<string, unknown>;
   const encounterId = body.encounterId;
   if (typeof encounterId !== 'string' || encounterId.trim().length === 0) {
-    throw new Error('encounterId is required');
+    throw MISSING_REQUIRED_PARAMETERS(['encounterId']);
   }
 
   return {
@@ -46,18 +48,18 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   const patientReference = encounter.subject?.reference;
   if (!patientReference) {
-    throw new Error(`Patient reference not found in Encounter/${validatedInput.encounterId}`);
+    throw INVALID_INPUT_ERROR(`Patient reference not found in Encounter/${validatedInput.encounterId}`);
   }
 
   const patientId = patientReference.split('/')[1];
   if (!patientId) {
-    throw new Error(`Patient id not found in Encounter/${validatedInput.encounterId}`);
+    throw INVALID_INPUT_ERROR(`Patient id not found in Encounter/${validatedInput.encounterId}`);
   }
 
   const appointmentReference = encounter.appointment?.[0]?.reference;
   const appointmentId = appointmentReference?.split('/')[1];
   if (!appointmentId) {
-    throw new Error(`Appointment reference not found in Encounter/${validatedInput.encounterId}`);
+    throw INVALID_INPUT_ERROR(`Appointment reference not found in Encounter/${validatedInput.encounterId}`);
   }
 
   const patient = await oystehr.fhir.get<Patient>({

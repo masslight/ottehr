@@ -1,19 +1,56 @@
 import { Save } from '@mui/icons-material';
 import { Button, CircularProgress } from '@mui/material';
 import { useQueryClient } from '@tanstack/react-query';
+import { enqueueSnackbar } from 'notistack';
 import { FC, useCallback, useMemo } from 'react';
 import { useFormContext } from 'react-hook-form';
-import { PATIENT_RECORD_QUESTIONNAIRE, pruneEmptySections } from 'utils';
+import {
+  createQuestionnaireItemsMap,
+  PATIENT_RECORD_CONFIG,
+  PATIENT_RECORD_QUESTIONNAIRE,
+  pruneEmptySections,
+} from 'utils';
 import { structureQuestionnaireResponse } from '../../../../../helpers/qr-structure';
 import { useUpdatePatientAccount } from '../../../../../hooks/useGetPatient';
 
 const questionnaire = PATIENT_RECORD_QUESTIONNAIRE();
+const questionnaireItemsMap = createQuestionnaireItemsMap(questionnaire.item ?? []);
+
+// Hidden logical control-field keys across the patient-record config (e.g.
+// `should-display-ssn-field`). These are config-driven flags, never rendered as
+// inputs; they gate visible fields (e.g. the SSN input) via enableWhen.
+const LOGICAL_FIELD_KEYS = new Set<string>(
+  Object.values(PATIENT_RECORD_CONFIG.FormFields).flatMap((section) =>
+    Object.values(section.logicalItems ?? {}).map((item) => item.key)
+  )
+);
+
+// Collect the hidden logical control fields the given fields depend on via enableWhen
+// (following chained gating). The backend filters submitted answers by enableWhen, so
+// these must accompany the fields they gate or the gated answer (e.g. SSN) is dropped.
+const collectLogicalControlFields = (fieldKeys: string[]): string[] => {
+  const collected = new Set<string>();
+  const queue = [...fieldKeys];
+  while (queue.length > 0) {
+    const key = queue.shift() as string;
+    const enableWhen = questionnaireItemsMap.get(key)?.enableWhen ?? [];
+    for (const condition of enableWhen) {
+      const controlKey = condition.question;
+      if (LOGICAL_FIELD_KEYS.has(controlKey) && !collected.has(controlKey)) {
+        collected.add(controlKey);
+        queue.push(controlKey);
+      }
+    }
+  }
+  return [...collected];
+};
 
 interface SectionSaveButtonProps {
   fieldKeys: string[];
   requiredFieldKeys: string[];
   patientId: string | undefined;
   encounterId?: string;
+  onSaveSuccess?: () => void;
 }
 
 export const SectionSaveButton: FC<SectionSaveButtonProps> = ({
@@ -21,9 +58,10 @@ export const SectionSaveButton: FC<SectionSaveButtonProps> = ({
   requiredFieldKeys,
   patientId,
   encounterId,
+  onSaveSuccess,
 }) => {
   const queryClient = useQueryClient();
-  const { watch, formState, resetField, getValues } = useFormContext();
+  const { watch, formState, resetField, getValues, trigger } = useFormContext();
   const { dirtyFields, errors } = formState;
 
   const submitQR = useUpdatePatientAccount(async () => {
@@ -50,9 +88,21 @@ export const SectionSaveButton: FC<SectionSaveButtonProps> = ({
   const handleSave = useCallback(async () => {
     if (!patientId) return;
 
+    // Conditionally-required fields (e.g. PCP "Practice name") aren't in the static
+    // requiredFieldKeys, so the disabled-state guard misses them; validate here so their
+    // errors surface inline instead of failing at the server.
+    const isValid = await trigger(fieldKeys);
+    if (!isValid) {
+      enqueueSnackbar('Please fix all field validation errors and try again', { variant: 'error' });
+      return;
+    }
+
     const allValues = getValues();
     const sectionValues: Record<string, any> = {};
-    fieldKeys.forEach((key) => {
+    // Include the logical control fields this section's fields depend on so the
+    // backend's enableWhen filtering keeps the fields they gate (e.g. SSN). They are
+    // never dirty, so they are not added to sectionDirtyFields below.
+    [...fieldKeys, ...collectLogicalControlFields(fieldKeys)].forEach((key) => {
       sectionValues[key] = allValues[key];
     });
 
@@ -84,7 +134,8 @@ export const SectionSaveButton: FC<SectionSaveButtonProps> = ({
     fieldKeys.forEach((key) => {
       resetField(key, { defaultValue: currentValues[key], keepError: false });
     });
-  }, [patientId, encounterId, fieldKeys, dirtyFields, getValues, resetField, submitQR]);
+    onSaveSuccess?.();
+  }, [patientId, encounterId, fieldKeys, dirtyFields, getValues, resetField, trigger, submitQR, onSaveSuccess]);
 
   if (!isDirty) return null;
 

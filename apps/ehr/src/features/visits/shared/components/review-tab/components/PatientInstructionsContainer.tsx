@@ -8,6 +8,7 @@ import { useExcusePresignedFiles } from 'src/shared/hooks/useExcusePresignedFile
 import {
   dispositionCheckboxOptions,
   followUpInOptions,
+  getSpecialtyTransferDisplay,
   mapDispositionTypeToLabel,
   NOTHING_TO_EAT_OR_DRINK_FIELD,
   NOTHING_TO_EAT_OR_DRINK_LABEL,
@@ -55,7 +56,7 @@ export const PatientInstructionsContainer: FC = () => {
         </AssessmentTitle>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
           {disposition?.specialty && disposition.specialty.length > 0 && (
-            <Typography>{disposition.specialty}</Typography>
+            <Typography>{getSpecialtyTransferDisplay(disposition.specialty, disposition.specialtyOther)}</Typography>
           )}
           {disposition?.note && <Typography sx={{ whiteSpace: 'pre-wrap' }}>{disposition?.note}</Typography>}
           {disposition?.[NOTHING_TO_EAT_OR_DRINK_FIELD] && <Typography>{NOTHING_TO_EAT_OR_DRINK_LABEL}</Typography>}

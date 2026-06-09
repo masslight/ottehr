@@ -61,11 +61,13 @@ import {
   HospitalizationDTO,
   ICD_10_CODE_SYSTEM,
   IN_PERSON_NOTE_ID,
+  isNoteEdited,
   isVitalObservation,
   makeVitalsObservationDTO,
   MedicalConditionDTO,
   MEDICATION_DISPENSABLE_DRUG_ID,
   MedicationDTO,
+  NOTE_TYPE,
   NoteDTO,
   NOTHING_TO_EAT_OR_DRINK_FIELD,
   NOTHING_TO_EAT_OR_DRINK_ID,
@@ -74,6 +76,7 @@ import {
   ObservationDateRangeFieldDTO,
   ObservationDTO,
   ObservationTextFieldDTO,
+  OTHER_SPECIALTY_TRANSFER_OPTION,
   PATIENT_VITALS_META_SYSTEM,
   patientScreeningQuestionsConfig,
   PERFORMER_TYPE_SYSTEM,
@@ -262,6 +265,7 @@ export function makeMedicationResource(
   data: MedicationDTO,
   fieldName: ProviderChartDataFieldsNames
 ): MedicationStatement {
+  const dose = data.intakeInfo.dose?.trim();
   return {
     id: data.resourceId,
     identifier: [{ value: data.id }],
@@ -269,7 +273,8 @@ export function makeMedicationResource(
     subject: { reference: `Patient/${patientId}` },
     context: { reference: `Encounter/${encounterId}` },
     status: data.status,
-    dosage: [{ text: data.intakeInfo.dose, asNeededBoolean: data.type === 'as-needed' }],
+    // FHIR rejects empty strings for Dosage.text, so only set it when a dose was actually provided
+    dosage: [{ ...(dose ? { text: dose } : {}), asNeededBoolean: data.type === 'as-needed' }],
     effectiveDateTime: data.intakeInfo.date,
     informationSource: { reference: `Practitioner/${practitionerId}` },
     meta: getMetaWFieldName(fieldName),
@@ -332,7 +337,8 @@ export function makeProcedureResource(
   encounterId: string,
   patientId: string,
   data: FreeTextNoteDTO | CPTCodeDTO,
-  fieldName: ProviderChartDataFieldsNames
+  fieldName: ProviderChartDataFieldsNames,
+  partOf?: string
 ): Procedure {
   const nameOrText = (data as CPTCodeDTO).display || (data as FreeTextNoteDTO).text || '';
   const result: Procedure = {
@@ -351,6 +357,9 @@ export function makeProcedureResource(
     result.code = {
       coding: [{ code: data.code, display: data.display }],
     };
+  }
+  if (partOf) {
+    result.partOf = [{ reference: partOf }];
   }
   return result;
 }
@@ -666,7 +675,7 @@ export function makeCommunicationResource(
   data: CommunicationDTO,
   fieldName: ProviderChartDataFieldsNames
 ): Communication {
-  const { resourceId, text, title } = data;
+  const { resourceId, text, title, educationDocRefId } = data;
   return {
     resourceType: 'Communication',
     id: resourceId,
@@ -686,30 +695,44 @@ export function makeCommunicationResource(
         },
       ],
     }),
+    ...(educationDocRefId && {
+      about: [{ reference: `DocumentReference/${educationDocRefId}` }],
+    }),
     meta: getMetaWFieldName(fieldName),
   };
 }
 
 export function makeCommunicationDTO(resource: Communication): CommunicationDTO {
+  const educationDocRef = resource.about?.find((ref) => ref.reference?.startsWith('DocumentReference/'));
   return {
     resourceId: resource.id,
     text: resource.payload?.[0]?.contentString,
     title: resource.topic?.text,
+    educationDocRefId: educationDocRef?.reference?.replace('DocumentReference/', ''),
   };
 }
 
-export function makeNoteResource(encounterId: string, patientId: string | undefined, data: NoteDTO): Communication {
+export function makeNoteResource(
+  encounterId: string,
+  patientId: string | undefined,
+  data: NoteDTO,
+  existing?: Communication
+): Communication {
+  // Reuse the prior `sent` on edit so the server's `isNoteEdited(sent, lastUpdated)` check
+  // sees drift and flags the note as edited on subsequent reads.
+  const sent = existing?.sent ?? new Date().toISOString();
   const resource: Communication = {
     id: data.resourceId,
     resourceType: 'Communication',
     encounter: { reference: `Encounter/${encounterId}` },
-    status: 'completed',
+    status: data.deleted ? 'entered-in-error' : 'completed',
     meta: fillMeta(IN_PERSON_NOTE_ID, data.type),
     subject: { reference: `Patient/${patientId}` },
     sender: {
       reference: `Practitioner/${data.authorId}`,
       display: data.authorName,
     },
+    sent,
     payload: [
       {
         contentString: data.text,
@@ -718,6 +741,62 @@ export function makeNoteResource(encounterId: string, patientId: string | undefi
   };
 
   return resource;
+}
+
+async function fetchCommunicationsByIds(oystehr: Oystehr, ids: string[]): Promise<Map<string, Communication>> {
+  if (ids.length === 0) return new Map();
+  const existing = (
+    await oystehr.fhir.search<Communication>({
+      resourceType: 'Communication',
+      params: [{ name: '_id', value: ids.join(',') }],
+    })
+  ).unbundle();
+  const byId = new Map<string, Communication>();
+  existing.forEach((c) => {
+    if (c.id) byId.set(c.id, c);
+  });
+  return byId;
+}
+
+export async function prepareAddendumNotes(
+  oystehr: Oystehr,
+  notes: NoteDTO[],
+  callerPractitionerId: string,
+  callerPractitionerName: string
+): Promise<Map<string, Communication>> {
+  const addendumNotes = notes.filter((n) => n.type === NOTE_TYPE.ADDENDUM);
+  if (addendumNotes.length === 0) return new Map();
+
+  const editIds = addendumNotes.map((n) => n.resourceId).filter((id): id is string => !!id);
+  const existingById = await fetchCommunicationsByIds(oystehr, editIds);
+
+  for (const note of addendumNotes) {
+    if (note.resourceId) {
+      const existing = existingById.get(note.resourceId);
+      if (!existing) {
+        throw new Error(`Addendum ${note.resourceId} not found`);
+      }
+      const existingDto = makeNoteDTO(existing);
+      if (note.deleted) {
+        // Tombstone shows the deleter; keep the original text as the audit record.
+        note.text = existingDto.text;
+        note.authorId = callerPractitionerId;
+        note.authorName = callerPractitionerName;
+      } else {
+        // Edits keep the original author.
+        note.authorId = existingDto.authorId;
+        note.authorName = existingDto.authorName;
+      }
+    } else {
+      if (note.deleted) {
+        throw new Error('Cannot create an addendum in deleted state');
+      }
+      note.authorId = callerPractitionerId;
+      note.authorName = callerPractitionerName;
+    }
+  }
+
+  return existingById;
 }
 
 export function makeNoteDTO(resource: Communication): NoteDTO {
@@ -731,10 +810,12 @@ export function makeNoteDTO(resource: Communication): NoteDTO {
     resourceId: resource.id,
     text: resource.payload?.[0]?.contentString ?? '',
     lastUpdated: resource.meta?.lastUpdated ?? '',
+    edited: isNoteEdited(resource.sent, resource.meta?.lastUpdated),
     authorId: resource.sender?.reference?.split('/')[1] ?? '',
     authorName: resource.sender?.display ?? '',
     patientId: resource.subject?.reference?.split('/')[1] ?? '',
     encounterId: resource.encounter?.reference?.split('/')[1] ?? '',
+    deleted: resource.status === 'entered-in-error',
   };
 }
 
@@ -843,6 +924,10 @@ export function makeDispositionDTO(
   const virusTests = filterCodeableConcepts(followUp.orderDetail, 'virus-test');
   const reasonForTransfer = filterCodeableConcepts(followUp.orderDetail, 'reason-for-transfer')[0];
   const specialtyTransfer = filterCodeableConcepts(followUp.orderDetail, 'specialty-transfer')[0];
+  const specialtyTransferOther =
+    specialtyTransfer === OTHER_SPECIALTY_TRANSFER_OPTION
+      ? followUp.orderDetail?.find((detail) => detail.coding?.[0]?.system === 'specialty-transfer')?.text || undefined
+      : undefined;
 
   const followUpArr = subFollowUp?.map((element) => {
     const performerCode = element.performerType?.coding?.[0].code;
@@ -867,6 +952,7 @@ export function makeDispositionDTO(
     virusTest: virusTests,
     reason: reasonForTransfer,
     specialty: specialtyTransfer,
+    specialtyOther: specialtyTransferOther,
     followUp: followUpArr ?? undefined,
     followUpIn: typeof followUpTime === 'number' ? Math.floor(followUpTime / 1440) : undefined,
     [NOTHING_TO_EAT_OR_DRINK_FIELD]: followUp.extension?.some(
@@ -1645,12 +1731,16 @@ export const createDispositionServiceRequest = ({
   if (disposition.type === 'specialty' && disposition.specialty) {
     if (!orderDetail) orderDetail = [];
     orderDetail.push(
-      createCodeableConcept([
-        {
-          code: disposition.specialty,
-          system: 'specialty-transfer', // TODO phony Coding system
-        },
-      ])
+      createCodeableConcept(
+        [
+          {
+            code: disposition.specialty,
+            system: 'specialty-transfer', // TODO phony Coding system
+          },
+        ],
+        // persist the free-text "Other" specialty in the CodeableConcept text
+        disposition.specialty === OTHER_SPECIALTY_TRANSFER_OPTION ? disposition.specialtyOther : undefined
+      )
     );
   }
 

@@ -1588,6 +1588,10 @@ export const getNameFromScheduleResource = (scheduleResource: ScheduleOwnerFhirR
     location = scheduleResource.name;
   } else if (scheduleResource.resourceType === 'Practitioner') {
     location = getFullName(scheduleResource);
+  } else if (scheduleResource.resourceType === 'PractitionerRole') {
+    // Role doesn't carry a display name; callers that need a human-readable
+    // label should resolve the role's Practitioner separately.
+    location = `Role ${scheduleResource.id ?? ''}`.trim() || undefined;
   } else {
     location = scheduleResource.name;
   }
@@ -1731,6 +1735,67 @@ export function replaceTemplateVariablesHandlebars(template: string, variables: 
   } catch {
     return template;
   }
+}
+
+/**
+ * Escape HTML special characters to prevent XSS.
+ */
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+/** Only allow safe URL protocols for links. */
+function isSafeUrl(url: string): boolean {
+  const trimmed = url.trim().toLowerCase();
+  return trimmed.startsWith('http://') || trimmed.startsWith('https://') || trimmed.startsWith('mailto:');
+}
+
+/**
+ * Converts markdown-style links `[text](url)` in a string to HTML `<a>` tags.
+ * Escapes all text content and validates link protocols to prevent XSS.
+ */
+export function convertMarkdownLinksToHtml(text: string): string {
+  // Extract links from the original text, escape their parts, then rebuild.
+  let result = '';
+  let lastIndex = 0;
+  const linkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
+  let match;
+  while ((match = linkRegex.exec(text)) !== null) {
+    // Escape the text before this match
+    result += escapeHtml(text.slice(lastIndex, match.index));
+    const linkText = escapeHtml(match[1]);
+    const linkUrl = match[2].trim();
+    if (isSafeUrl(linkUrl)) {
+      result += `<a href="${escapeHtml(linkUrl)}">${linkText}</a>`;
+    } else {
+      // Unsafe protocol — render as plain text
+      result += linkText;
+    }
+    lastIndex = match.index + match[0].length;
+  }
+  result += escapeHtml(text.slice(lastIndex));
+  return result;
+}
+
+/**
+ * Converts plain-text outreach content (with optional markdown-style links)
+ * into HTML suitable for the generic outreach email template.
+ *
+ * - `[text](url)` → `<a href="url">text</a>` (safe protocols only)
+ * - Newlines → `<br>`
+ * - Wraps in a `<p>` tag
+ * - All text content is HTML-escaped to prevent XSS
+ */
+export function convertOutreachTextToHtml(text: string): string {
+  if (!text) return '';
+  const withLinks = convertMarkdownLinksToHtml(text);
+  const withBreaks = withLinks.replace(/\n/g, '<br>');
+  return `<p>${withBreaks}</p>`;
 }
 
 /**

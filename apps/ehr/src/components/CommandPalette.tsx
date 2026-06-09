@@ -19,15 +19,60 @@ const PATIENT_SEARCH_ITEM_ID = '__patient-search__';
 
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-const sortItems = (items: CommandPaletteItem[]): CommandPaletteItem[] =>
-  [...items].sort((left, right) => {
-    const categoryComparison = left.category.localeCompare(right.category);
-    if (categoryComparison !== 0) {
-      return categoryComparison;
+const sortItems = (items: CommandPaletteItem[], query = ''): CommandPaletteItem[] => {
+  // Build a quick id → item lookup so children can be sorted by their parent's
+  // label rather than their own (which would scatter them throughout the list
+  // and break the visual hierarchy that parentId implies).
+  const itemsById = new Map(items.map((item) => [item.id, item]));
+  // For each item, compute its sort group:
+  //   - parents (and items with no parentId) sort by their own label
+  //   - children sort by parent's label, then by a fixed "childOrder" so
+  //     siblings keep their author-declared order (preserves the natural
+  //     "Pre-booked / Active / Discharged / Cancelled" order rather than
+  //     alphabetizing within the group).
+  const childOrderById = new Map<string, number>();
+  let childIdx = 0;
+  for (const item of items) {
+    if (item.parentId) childOrderById.set(item.id, childIdx++);
+  }
+  const sortKeyFor = (item: CommandPaletteItem): { primary: string; isChild: boolean; secondary: number } => {
+    if (item.parentId) {
+      const parent = itemsById.get(item.parentId);
+      return {
+        primary: (parent?.label ?? item.label).toLowerCase(),
+        isChild: true,
+        secondary: childOrderById.get(item.id) ?? 0,
+      };
     }
+    return { primary: item.label.toLowerCase(), isChild: false, secondary: 0 };
+  };
 
-    return left.label.localeCompare(right.label);
+  // When the user has typed a query, items whose LABEL contains it rank above
+  // items whose match comes only from keyword/category. Both stay visible, but
+  // label matches are obviously more relevant — typing "schedul" should put
+  // "Schedules" above items that only match because they keyword "fee schedule"
+  // or "scheduled".
+  const normalizedQuery = query.trim().toLowerCase();
+  const matchPriority = (item: CommandPaletteItem): number => {
+    if (!normalizedQuery) return 0;
+    if (item.label.toLowerCase().includes(normalizedQuery)) return 0;
+    return 1; // category or keyword match (still visible, just lower priority)
+  };
+
+  return [...items].sort((left, right) => {
+    const categoryComparison = left.category.localeCompare(right.category);
+    if (categoryComparison !== 0) return categoryComparison;
+    const priorityComparison = matchPriority(left) - matchPriority(right);
+    if (priorityComparison !== 0) return priorityComparison;
+    const lk = sortKeyFor(left);
+    const rk = sortKeyFor(right);
+    const primaryComparison = lk.primary.localeCompare(rk.primary);
+    if (primaryComparison !== 0) return primaryComparison;
+    // Same parent label: parent first, then children in author-declared order.
+    if (lk.isChild !== rk.isChild) return lk.isChild ? 1 : -1;
+    return lk.secondary - rk.secondary;
   });
+};
 
 const buildPatientSearchUrl = (query: string): string => {
   const trimmedQuery = query.trim();
@@ -71,7 +116,7 @@ export const CommandPalette: FC = () => {
       });
     });
 
-    return sortItems([...uniqueItems.values()]);
+    return [...uniqueItems.values()];
   }, [sources]);
 
   const filteredItems = useMemo(() => {
@@ -88,8 +133,12 @@ export const CommandPalette: FC = () => {
   }, [allItems, query]);
 
   const displayItems = useMemo<CommandPaletteItem[]>(() => {
+    // Sort happens here (post-filter) so that children whose parent has been
+    // filtered out fall back to sorting by their own label rather than getting
+    // stranded near where the parent used to sit. sortItems also handles
+    // grouping children directly under their (visible) parent.
     if (filteredItems.length > 0 || !query.trim()) {
-      return filteredItems;
+      return sortItems(filteredItems, query);
     }
 
     return [
@@ -292,58 +341,69 @@ export const CommandPalette: FC = () => {
               <Typography color="text.secondary">Type to search actions and pages</Typography>
             </Box>
           ) : (
-            groupedItems.map(([category, items]) => (
-              <Box key={category}>
-                <Typography
-                  variant="caption"
-                  sx={{
-                    display: 'block',
-                    px: 2,
-                    py: 0.5,
-                    color: 'text.secondary',
-                    fontWeight: 600,
-                    textTransform: 'uppercase',
-                    fontSize: '11px',
-                    letterSpacing: '0.05em',
-                  }}
-                >
-                  {category}
-                </Typography>
+            groupedItems.map(([category, items]) => {
+              // Only treat an item as visually-indented child if its parent is
+              // present in the SAME visible group. When the parent has been
+              // filtered out, the child shows as a top-level entry — otherwise
+              // it would render indented under whatever item happened to sort
+              // immediately above it, which is misleading.
+              const visibleIdsInGroup = new Set(items.map((it) => it.id));
+              return (
+                <Box key={category}>
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      display: 'block',
+                      px: 2,
+                      py: 0.5,
+                      color: 'text.secondary',
+                      fontWeight: 600,
+                      textTransform: 'uppercase',
+                      fontSize: '11px',
+                      letterSpacing: '0.05em',
+                    }}
+                  >
+                    {category}
+                  </Typography>
 
-                {items.map((item) => {
-                  const isSelected = item.id === selectedId;
-                  const isPatientSearchItem = item.id === PATIENT_SEARCH_ITEM_ID;
+                  {items.map((item) => {
+                    const isSelected = item.id === selectedId;
+                    const isPatientSearchItem = item.id === PATIENT_SEARCH_ITEM_ID;
+                    const isChild = !!item.parentId && visibleIdsInGroup.has(item.parentId);
 
-                  return (
-                    <ListItemButton
-                      key={item.id}
-                      data-item-id={item.id}
-                      selected={isSelected}
-                      onMouseEnter={() => setSelectedId(item.id)}
-                      onClick={() => selectItem(item)}
-                      sx={{
-                        mx: 1,
-                        borderRadius: 1,
-                        py: 0.75,
-                      }}
-                    >
-                      {isPatientSearchItem && (
-                        <ListItemIcon sx={{ minWidth: 36 }}>
-                          <PersonSearchIcon fontSize="small" sx={{ color: 'primary.main' }} />
-                        </ListItemIcon>
-                      )}
-                      <ListItemText
-                        primary={item.label}
-                        primaryTypographyProps={{
-                          fontSize: '14px',
-                          ...(isPatientSearchItem ? { color: 'primary.main', fontWeight: 500 } : undefined),
+                    return (
+                      <ListItemButton
+                        key={item.id}
+                        data-item-id={item.id}
+                        selected={isSelected}
+                        onMouseEnter={() => setSelectedId(item.id)}
+                        onClick={() => selectItem(item)}
+                        sx={{
+                          mx: 1,
+                          borderRadius: 1,
+                          py: 0.75,
+                          ...(isChild ? { pl: 4 } : undefined),
                         }}
-                      />
-                    </ListItemButton>
-                  );
-                })}
-              </Box>
-            ))
+                      >
+                        {isPatientSearchItem && (
+                          <ListItemIcon sx={{ minWidth: 36 }}>
+                            <PersonSearchIcon fontSize="small" sx={{ color: 'primary.main' }} />
+                          </ListItemIcon>
+                        )}
+                        <ListItemText
+                          primary={item.label}
+                          primaryTypographyProps={{
+                            fontSize: isChild ? '13px' : '14px',
+                            color: isChild ? 'text.secondary' : undefined,
+                            ...(isPatientSearchItem ? { color: 'primary.main', fontWeight: 500 } : undefined),
+                          }}
+                        />
+                      </ListItemButton>
+                    );
+                  })}
+                </Box>
+              );
+            })
           )}
         </List>
       </Box>

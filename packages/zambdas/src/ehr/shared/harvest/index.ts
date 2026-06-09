@@ -1612,17 +1612,55 @@ function resolveInsurancePriorities(
 
 export async function searchInsuranceInformation(
   oystehr: Oystehr,
-  insuranceOrgRefs: string[]
+  insuranceOrgRefs: string[],
+  resources?: Organization[]
 ): Promise<Organization[]> {
   if (insuranceOrgRefs.length === 0) {
     return [];
   }
   return await Promise.all(
-    insuranceOrgRefs.map((ref) =>
-      isPayerUrl(ref)
-        ? oystehr.rcm.getPayerByUrl({ url: ref })
-        : oystehr.fhir.get<Organization>({ resourceType: 'Organization', id: ref.split('/')[1] })
-    )
+    insuranceOrgRefs.map((ref) => {
+      if (isPayerUrl(ref)) {
+        if (oystehr.rcm.constructPayerUrl({ id: '00000' }) === ref) {
+          // We have added a dummy payer option to paperwork, so we need to handle it here
+          return {
+            resourceType: 'Organization',
+            id: '00000',
+            name: 'Other',
+            identifier: [
+              {
+                type: {
+                  coding: [
+                    {
+                      system: 'http://terminology.hl7.org/CodeSystem/v2-0203',
+                      code: 'PAYERID',
+                    },
+                  ],
+                },
+                system: 'https://identifiers.fhir.oystehr.com/rcm-payer-id',
+                value: '00000',
+              },
+            ],
+            type: [
+              {
+                coding: [
+                  {
+                    system: 'http://terminology.hl7.org/CodeSystem/organization-type',
+                    code: 'pay',
+                  },
+                ],
+              },
+            ],
+          };
+        }
+        return oystehr.rcm.getPayerByUrl({ url: ref });
+      }
+      const orgFromFhir = findOrgMatchingReference(ref, resources);
+      if (orgFromFhir) {
+        return orgFromFhir;
+      }
+      return oystehr.fhir.get<Organization>({ resourceType: 'Organization', id: ref.split('/')[1] });
+    })
   );
 }
 
@@ -2342,7 +2380,6 @@ const createCoverageResource = (input: CreateCoverageResourceInput): Coverage =>
   if (!payerId) {
     throw new Error('payerId unexpectedly missing from insuranceOrg');
   }
-  const payerUrl = new Oystehr({}).rcm.constructPayerUrl({ id: payerId });
 
   const policyHolderId = 'coverageSubscriber';
   const policyHolderName = createFhirHumanName(policyHolder.firstName, policyHolder.middleName, policyHolder.lastName);
@@ -2390,7 +2427,11 @@ const createCoverageResource = (input: CreateCoverageResourceInput): Coverage =>
       reference: `Patient/${patientId}`,
     },
     type: typeCode !== undefined ? { coding: [{ system: CANDID_PLAN_TYPE_SYSTEM, code: typeCode }] } : undefined,
-    payor: [{ reference: payerUrl }],
+    payor: [
+      {
+        reference: isValidUUID(org.id ?? '') ? `Organization/${org.id}` : getPayerUrl(payerId),
+      },
+    ],
     subscriberId: policyHolder.memberId,
     relationship: getPolicyHolderRelationshipCodeableConcept(policyHolder.relationship),
     class: [
@@ -2847,7 +2888,7 @@ export const getAccountOperations = (input: GetAccountOperationsInput): GetAccou
             {
               reference: isValidUUID(workersCompInsuranceOrg.id ?? '')
                 ? `Organization/${workersCompInsuranceOrg.id}`
-                : getPayerUrl(workersCompInsuranceOrg.id!),
+                : getPayerUrl(payerId),
             },
           ];
           updatedWorkersCompCoverage.class = [
@@ -3290,25 +3331,33 @@ export const resolveCoverageUpdates = (input: CompareCoverageInput): CompareCove
     }
   }
 
+  // we should only split if it's an actual reference, and not a bare id like urn:uuid etc
+  const getNewCoverageRefId = (coverageRef: Reference | undefined): string | undefined => {
+    const ref = coverageRef?.reference;
+    return ref?.startsWith('Coverage/') ? ref.split('/')[1] : ref;
+  };
+
   const newPrimaryCoverage = suggestedNewCoverageObject.find((c) => c.priority === 1)?.coverage;
+  const newPrimaryCoverageId = getNewCoverageRefId(newPrimaryCoverage);
   const newSecondaryCoverage = suggestedNewCoverageObject.find((c) => c.priority === 2)?.coverage;
+  const newSecondaryCoverageId = getNewCoverageRefId(newSecondaryCoverage);
 
   if (
     existingCoverages.primary &&
-    existingCoverages.primary.id !== newPrimaryCoverage?.reference?.split('/')[1] &&
-    existingCoverages.primary.id !== newSecondaryCoverage?.reference?.split('/')[1]
+    existingCoverages.primary.id !== newPrimaryCoverageId &&
+    existingCoverages.primary.id !== newSecondaryCoverageId
   ) {
-    if (!preserveOmittedCoverages || newPrimaryCoverage?.reference?.split('/')[1] !== undefined) {
+    if (!preserveOmittedCoverages || newPrimaryCoverageId !== undefined) {
       deactivatedCoverages.push(existingCoverages.primary);
     }
   }
 
   if (
     existingCoverages.secondary &&
-    existingCoverages.secondary.id !== newSecondaryCoverage?.reference?.split('/')[1] &&
-    existingCoverages.secondary.id !== newPrimaryCoverage?.reference?.split('/')[1]
+    existingCoverages.secondary.id !== newSecondaryCoverageId &&
+    existingCoverages.secondary.id !== newPrimaryCoverageId
   ) {
-    if (!preserveOmittedCoverages || newSecondaryCoverage?.reference?.split('/')[1] !== undefined) {
+    if (!preserveOmittedCoverages || newSecondaryCoverageId !== undefined) {
       deactivatedCoverages.push(existingCoverages.secondary);
     }
   }
@@ -3713,25 +3762,9 @@ export const getCoverageUpdateResourcesFromUnbundled = (
   const accountResources = resources.filter((res): res is Account => res.resourceType === 'Account');
   const coverageResources = resources.filter((res): res is Coverage => res.resourceType === 'Coverage');
 
-  let existingAccount: Account | undefined;
-  let existingGuarantorResource: RelatedPerson | Patient | undefined;
-  let workersCompAccount: Account | undefined;
-  let occupationalMedicineAccount: Account | undefined;
+  const { existingAccount, workersCompAccount, occupationalMedicineAccount } = organizeAccounts(accountResources);
 
-  if (accountResources.length > 0) {
-    existingAccount = accountResources.find((account) => accountMatchesType(account, PATIENT_BILLING_ACCOUNT_TYPE));
-    workersCompAccount = accountResources.find((account) => accountMatchesType(account, WORKERS_COMP_ACCOUNT_TYPE));
-    occupationalMedicineAccount = accountResources.find((account) =>
-      accountMatchesType(account, OCCUPATIONAL_MEDICINE_ACCOUNT_TYPE)
-    );
-    if (!existingAccount) {
-      existingAccount = accountResources.find(
-        (account) =>
-          !accountMatchesType(account, WORKERS_COMP_ACCOUNT_TYPE) &&
-          !accountMatchesType(account, OCCUPATIONAL_MEDICINE_ACCOUNT_TYPE)
-      );
-    }
-  }
+  let existingGuarantorResource: RelatedPerson | Patient | undefined;
 
   const employerOrganization: Organization | undefined = resources.find(
     (res): res is Organization =>
@@ -3879,6 +3912,35 @@ export const getCoverageUpdateResourcesFromUnbundled = (
   };
 };
 
+export const organizeAccounts = (
+  accountResources: Account[]
+): {
+  existingAccount: Account | undefined;
+  workersCompAccount: Account | undefined;
+  occupationalMedicineAccount: Account | undefined;
+} => {
+  let existingAccount: Account | undefined;
+  let workersCompAccount: Account | undefined;
+  let occupationalMedicineAccount: Account | undefined;
+
+  if (accountResources.length > 0) {
+    existingAccount = accountResources.find((account) => accountMatchesType(account, PATIENT_BILLING_ACCOUNT_TYPE));
+    workersCompAccount = accountResources.find((account) => accountMatchesType(account, WORKERS_COMP_ACCOUNT_TYPE));
+    occupationalMedicineAccount = accountResources.find((account) =>
+      accountMatchesType(account, OCCUPATIONAL_MEDICINE_ACCOUNT_TYPE)
+    );
+    if (!existingAccount) {
+      existingAccount = accountResources.find(
+        (account) =>
+          !accountMatchesType(account, WORKERS_COMP_ACCOUNT_TYPE) &&
+          !accountMatchesType(account, OCCUPATIONAL_MEDICINE_ACCOUNT_TYPE)
+      );
+    }
+  }
+
+  return { existingAccount, workersCompAccount, occupationalMedicineAccount };
+};
+
 enum InsuranceCarrierKeys {
   primary = 'insurance-carrier',
   secondary = 'insurance-carrier-2',
@@ -3945,27 +4007,25 @@ export const getAccountAndCoverageResourcesForPatient = async (
   }
 
   const coverageResources = resources.filter((res): res is Coverage => res.resourceType === 'Coverage');
-  const insuranceOrgsFromFhir = resources.filter((res): res is Organization => res.resourceType === 'Organization');
-  const resourcesWithoutInsuranceOrgsFromFhir = resources.filter((res) => res.resourceType !== 'Organization');
+  const insuranceOrgsFromFhir = resources.filter(
+    (res): res is Organization =>
+      res.resourceType === 'Organization' &&
+      organizationMatchesType(res, codeableConcept('pay', FHIR_EXTENSION.Organization.organizationType.url))
+  );
+  const resourcesWithoutInsuranceOrgsFromFhir = resources.filter(
+    (res) =>
+      res.resourceType !== 'Organization' ||
+      !organizationMatchesType(res, codeableConcept('pay', FHIR_EXTENSION.Organization.organizationType.url))
+  );
 
   // Get payer info for coverages
-  const insuranceOrgs: Organization[] = (
-    await Promise.all(
-      coverageResources
-        .flatMap<string | undefined>((cov) => cov.payor.map((ref) => ref.reference))
-        .filter<string>((ref): ref is string => !!ref)
-        .map(async (ref): Promise<Organization | undefined> => {
-          if (ref.startsWith('https://rcm-api.zapehr.com')) {
-            return oystehr.rcm.getPayerByUrl({ url: ref });
-          }
-          const orgFromFhir = findOrgMatchingReference(ref, insuranceOrgsFromFhir);
-          if (orgFromFhir) {
-            return orgFromFhir;
-          }
-          return undefined;
-        })
-    )
-  ).filter<Organization>((org): org is Organization => !!org);
+  const insuranceOrgs = await searchInsuranceInformation(
+    oystehr,
+    coverageResources
+      .flatMap<string | undefined>((cov) => cov.payor.map((ref) => ref.reference))
+      .filter<string>((ref): ref is string => !!ref),
+    insuranceOrgsFromFhir
+  );
 
   // Get EHR-facing payer notes
   const ehrPayerList = await getInsuranceOverrideList(oystehr, ListName.EHR);
@@ -4187,6 +4247,32 @@ export const updateStripeCustomer = async (input: UpdateStripeCustomerInput): Pr
 function getAnswer(linkId: string, items: QuestionnaireResponseItem[]): QuestionnaireResponseItemAnswer | undefined {
   return items.find((data) => data.linkId === linkId)?.answer?.[0];
 }
+
+export const makeEncounterAccountPatchOp = (
+  currentEncounter: Encounter,
+  account: Account | undefined,
+  workersCompAccount: Account | undefined
+): Operation[] => {
+  const ops: Operation[] = [];
+
+  const patientAccountReference = account?.id ? `Account/${account.id}` : undefined;
+  const workersCompAccountReference = workersCompAccount?.id ? `Account/${workersCompAccount.id}` : undefined;
+
+  const { accounts: updatedEncounterAccounts, changed: accountsChanged } = mergeEncounterAccounts(
+    currentEncounter.account,
+    [patientAccountReference, workersCompAccountReference]
+  );
+
+  if (accountsChanged && updatedEncounterAccounts) {
+    ops.push({
+      op: currentEncounter.account ? 'replace' : 'add',
+      path: '/account',
+      value: updatedEncounterAccounts,
+    });
+  }
+
+  return ops;
+};
 
 export const mergeEncounterAccounts = (
   existingAccounts: Encounter['account'],

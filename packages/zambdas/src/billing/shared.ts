@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
-import { Claim, HumanName, Patient, Practitioner, Resource } from 'fhir/r4b';
-import { convertFhirNameToDisplayName, Secrets } from 'utils';
+import { Claim, DomainResource, HumanName, Organization, Patient, Practitioner, Resource } from 'fhir/r4b';
+import { convertFhirNameToDisplayName, isPayerUrl, Secrets } from 'utils';
 import { createOystehrClient } from '../shared/helpers';
 
 export const BILLING_RESOURCE_TAG = {
@@ -24,12 +24,38 @@ export function sortClaimInsurance(claim: Pick<Claim, 'insurance'>): NonNullable
   return [...(claim.insurance ?? [])].sort((a, b) => a.sequence - b.sequence);
 }
 
+// Resolve Oystehr payer list URLs to payer Organizations via the RCM service
+export async function resolvePayersByRef(
+  oystehr: Oystehr,
+  refs: (string | undefined)[]
+): Promise<Map<string, Organization>> {
+  const byRef = new Map<string, Organization>();
+  const uniqueRefs = [...new Set(refs.filter((r): r is string => !!r))];
+  await Promise.all(
+    uniqueRefs.map(async (ref) => {
+      if (!isPayerUrl(ref)) return;
+      try {
+        byRef.set(ref, await oystehr.rcm.getPayerByUrl({ url: ref }));
+      } catch (err) {
+        console.error(`Failed to resolve payer ${ref}:`, err);
+      }
+    })
+  );
+  return byRef;
+}
+
 // Provider role tags
 export const RENDERS_TAG = 'https://fhir.ottehr.com/billing/renders-services';
 export const BILLS_TAG = 'https://fhir.ottehr.com/billing/bills-services';
 export const LICENSE_TAG = 'https://fhir.ottehr.com/billing/license-type';
 
 export const SOURCE_IDENTIFIER_SYSTEM = 'https://ottehr.com/billing/source-resource';
+export const ERA_ID_SYSTEM = 'https://identifiers.fhir.oystehr.com/era-id';
+export const ERA_CHECK_SYSTEM = 'https://identifiers.fhir.oystehr.com/era-check-number';
+
+export const TAG_CODE_SYSTEM = 'https://ottehr.com/billing/tag';
+export const CLAIM_TAG_SYSTEM = 'https://ottehr.com/billing/claim-tag';
+export const TAG_DESCRIPTION_URL = 'https://ottehr.com/billing/tag-description';
 
 const PROTECTED_OVERRIDE_KEYS = new Set(['id', 'meta', 'resourceType', 'extension']);
 
@@ -42,10 +68,13 @@ export function sanitizeOverrides(overrides?: Record<string, unknown>): Record<s
   return Object.keys(clean).length > 0 ? clean : undefined;
 }
 
-export const EXCLUDE_WORKING_COPIES_PARAM = {
-  name: '_tag:not',
-  value: `${BILLING_WORKING_COPY_TAG.system}|${BILLING_WORKING_COPY_TAG.code}`,
-};
+// Working copy visibility convention:
+// List pages (default view): exclude working copies (only show billing originals)
+// List pages (active search): include working copies via includeWorkingCopies param
+// Autocomplete dropdowns (Create Claim, etc.): never include working copies
+export const EXCLUDE_WORKING_COPIES_PARAMS = [
+  { name: '_tag:not', value: `${BILLING_WORKING_COPY_TAG.system}|${BILLING_WORKING_COPY_TAG.code}` },
+];
 
 export function createBillingClient(token: string, secrets: Secrets | null): Oystehr {
   return createOystehrClient(token, secrets, { workspaceTag: BILLING_RESOURCE_TAG });
@@ -66,14 +95,29 @@ export function fhirName(resource?: Patient | Practitioner): string {
 }
 
 // Clone a billing resource into a working copy: strips id, tags it, adds source identifier.
-export function prepareWorkingCopy<T extends Resource>(resource: T, originalId: string): T {
-  const copy: T & { identifier?: { system: string; value: string }[] } = structuredClone(resource);
-  delete copy.id;
+export function prepareWorkingCopy<T extends Resource>(resource: T, originalId?: string): T {
+  const copy = prepareCopy<T>(resource, originalId);
   copy.meta = { tag: [BILLING_WORKING_COPY_TAG] };
-  const existing = (copy.identifier ?? []).filter((id) => id.system !== SOURCE_IDENTIFIER_SYSTEM);
-  copy.identifier = [
+  return copy;
+}
+
+// Clone a billing resource into a working copy: strips id, tags it, adds source identifier.
+export function prepareCopy<T extends DomainResource>(resource: T, originalId?: string): T {
+  const copy: T = structuredClone(resource);
+  delete copy.id;
+  const existing = (copy.extension ?? []).filter((ext) => ext.url !== SOURCE_IDENTIFIER_SYSTEM);
+  copy.extension = [
     ...existing,
-    { system: SOURCE_IDENTIFIER_SYSTEM, value: `${resource.resourceType}/${originalId}` },
+    ...(originalId
+      ? [
+          {
+            url: SOURCE_IDENTIFIER_SYSTEM,
+            valueReference: {
+              reference: originalId.startsWith('urn:uuid:') ? originalId : `${resource.resourceType}/${originalId}`,
+            },
+          },
+        ]
+      : []),
   ];
   return copy;
 }

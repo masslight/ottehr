@@ -2,7 +2,14 @@ import { BaseMessageLike } from '@langchain/core/messages';
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Questionnaire, QuestionnaireResponse } from 'fhir/r4b';
-import { createOystehrClient, getSecret, HandleAnswerInput, Secrets, SecretsKeys } from 'utils';
+import {
+  createOystehrClient,
+  getSecret,
+  HandleAnswerInput,
+  QUESTIONNAIRE_RESPONSE_INVALID_CUSTOM_ERROR,
+  Secrets,
+  SecretsKeys,
+} from 'utils';
 import {
   assertDefined,
   getAuth0Token,
@@ -31,7 +38,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     id: questionnaireResponseId,
   });
   if (questionnaireResponse.status === 'completed') {
-    throw new Error('QuestionnaireResponse is completed.');
+    throw QUESTIONNAIRE_RESPONSE_INVALID_CUSTOM_ERROR('QuestionnaireResponse is already completed.');
   }
   questionnaireResponse.item?.push({
     linkId,
@@ -87,10 +94,10 @@ function createChatbotInput(questionnaireResponse: QuestionnaireResponse): BaseM
   return questionnaire.item
     ?.sort((itemA, itemB) => parseInt(itemA.linkId) - parseInt(itemB.linkId))
     ?.flatMap<BaseMessageLike>((questionItem) => {
-      const answerItem = assertDefined(
-        questionnaireResponse.item?.find((answerItem) => answerItem.linkId === questionItem.linkId),
-        `Answer for question "${questionItem.linkId}"`
-      );
+      const answerItem = questionnaireResponse.item?.find((answerItem) => answerItem.linkId === questionItem.linkId);
+      if (answerItem == null) {
+        throw QUESTIONNAIRE_RESPONSE_INVALID_CUSTOM_ERROR(`Answer for question "${questionItem.linkId}" is undefined`);
+      }
       const questionText = assertDefined(questionItem.text, `Text of question "${questionItem.linkId}"`);
       const answerText = assertDefined(
         answerItem.answer?.[0]?.valueString,

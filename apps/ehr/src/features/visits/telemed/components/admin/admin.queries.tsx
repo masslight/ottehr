@@ -11,6 +11,8 @@ import {
   adminUpdateInHouseLab,
   adminUpdateLabelPrintingConfig,
   adminUpdateLabSet,
+  adminUpdateLocationSupportPhones,
+  adminUpdateSupportDialog,
   bulkUpdateInsuranceStatus,
   createEmCode,
   deleteEmCode,
@@ -19,10 +21,8 @@ import {
   getLabelPrintingConfig,
   getProcedureQuickPicks,
   getRadiologyQuickPicks,
-  removeImmunizationQuickPick,
-  removeInHouseMedicationQuickPick,
-  removeProcedureQuickPick,
-  removeRadiologyQuickPick,
+  getSupportDialog,
+  removeQuickPick,
   updateEmCode,
   updateImmunizationQuickPick,
   updateInHouseMedicationQuickPick,
@@ -43,7 +43,9 @@ import {
   AdminListInHouseLabsOutput,
   AdminUpdateInHouseLabInput,
   AdminUpdateLabSetInput,
+  AdminUpdateLocationSupportPhonesInput,
   AdminUpdatePrintingConfigInput,
+  AdminUpdateSupportDialogInput,
   APIError,
   BulkUpdateInsuranceStatusInput,
   CreateEmCodeInput,
@@ -51,6 +53,7 @@ import {
   EmCodeOption,
   GetLabelPrintingConfigInput,
   GetLabelPrintingConfigOutput,
+  GetSupportDialogOutput,
   ImmunizationQuickPickData,
   InHouseMedicationQuickPickData,
   isApiError,
@@ -257,17 +260,14 @@ function makeRenameQuickPickMutation<T extends { id?: string; name: string }>(
   };
 }
 
-function makeRemoveQuickPickMutation(
-  queryKey: string,
-  removeFn: (oystehrZambda: Oystehr, id: string) => Promise<unknown>
-): () => UseMutationResult<void, Error, string> {
+function makeRemoveQuickPickMutation(queryKey: string): () => UseMutationResult<void, Error, string> {
   return () => {
     const { oystehrZambda } = useApiClients();
     const queryClient = useQueryClient();
     return useMutation({
       mutationFn: async (id: string) => {
         if (!oystehrZambda) throw new Error('oystehrZambda is not defined');
-        await removeFn(oystehrZambda, id);
+        await removeQuickPick(oystehrZambda, id);
       },
       onSuccess: () => queryClient.invalidateQueries({ queryKey: [queryKey] }),
     });
@@ -284,10 +284,7 @@ export const useRenameImmunizationQuickPickMutation = makeRenameQuickPickMutatio
   'immunization-quick-picks',
   updateImmunizationQuickPick
 );
-export const useRemoveImmunizationQuickPickMutation = makeRemoveQuickPickMutation(
-  'immunization-quick-picks',
-  removeImmunizationQuickPick
-);
+export const useRemoveImmunizationQuickPickMutation = makeRemoveQuickPickMutation('immunization-quick-picks');
 
 export const useInHouseMedicationQuickPicksQuery = makeQuickPicksQuery(
   'in-house-medication-quick-picks',
@@ -298,8 +295,7 @@ export const useRenameInHouseMedicationQuickPickMutation = makeRenameQuickPickMu
   updateInHouseMedicationQuickPick
 );
 export const useRemoveInHouseMedicationQuickPickMutation = makeRemoveQuickPickMutation(
-  'in-house-medication-quick-picks',
-  removeInHouseMedicationQuickPick
+  'in-house-medication-quick-picks'
 );
 
 export const useProcedureQuickPicksQuery = makeQuickPicksQuery('procedure-quick-picks', getProcedureQuickPicks);
@@ -307,20 +303,14 @@ export const useRenameProcedureQuickPickMutation = makeRenameQuickPickMutation<P
   'procedure-quick-picks',
   updateProcedureQuickPick
 );
-export const useRemoveProcedureQuickPickMutation = makeRemoveQuickPickMutation(
-  'procedure-quick-picks',
-  removeProcedureQuickPick
-);
+export const useRemoveProcedureQuickPickMutation = makeRemoveQuickPickMutation('procedure-quick-picks');
 
 export const useRadiologyQuickPicksQuery = makeQuickPicksQuery('radiology-quick-picks', getRadiologyQuickPicks);
 export const useRenameRadiologyQuickPickMutation = makeRenameQuickPickMutation<RadiologyQuickPickData>(
   'radiology-quick-picks',
   updateRadiologyQuickPick
 );
-export const useRemoveRadiologyQuickPickMutation = makeRemoveQuickPickMutation(
-  'radiology-quick-picks',
-  removeRadiologyQuickPick
-);
+export const useRemoveRadiologyQuickPickMutation = makeRemoveQuickPickMutation('radiology-quick-picks');
 
 export const useAdminListInHouseLabs = (): UseQueryResult<AdminListInHouseLabsOutput, Error> => {
   const { oystehrZambda } = useApiClients();
@@ -647,6 +637,69 @@ export const useAdminUpdateLabelPrintingConfig = (
       if (isApiError(error)) {
         message = (error as APIError).message;
       }
+      enqueueSnackbar(message, { variant: 'error' });
+    },
+  });
+};
+
+export const useAdminGetSupportDialog = (): UseQueryResult<GetSupportDialogOutput, Error> => {
+  const { oystehrZambda } = useApiClients();
+
+  return useQuery({
+    queryKey: ['admin-get-support-dialog'],
+    queryFn: async () => getSupportDialog(oystehrZambda!),
+    enabled: !!oystehrZambda,
+    staleTime: 30_000,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
+  });
+};
+
+export const useAdminUpdateSupportDialog = (): UseMutationResult<void, Error, AdminUpdateSupportDialogInput> => {
+  const { oystehrZambda } = useApiClients();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationKey: ['admin-update-support-dialog'],
+    mutationFn: async (input: AdminUpdateSupportDialogInput) => {
+      if (!oystehrZambda) throw new Error('oystehr client is undefined');
+      await adminUpdateSupportDialog(oystehrZambda, input);
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['admin-get-support-dialog'] });
+      enqueueSnackbar('Support dialog updated', { variant: 'success' });
+    },
+    onError: (error: any) => {
+      safelyCaptureException(error);
+      let message = 'Failed to update support dialog.';
+      if (isApiError(error)) message = (error as APIError).message;
+      enqueueSnackbar(message, { variant: 'error' });
+    },
+  });
+};
+
+export const useAdminUpdateLocationSupportPhones = (): UseMutationResult<
+  void,
+  Error,
+  AdminUpdateLocationSupportPhonesInput
+> => {
+  const { oystehrZambda } = useApiClients();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationKey: ['admin-update-location-support-phones'],
+    mutationFn: async (input: AdminUpdateLocationSupportPhonesInput) => {
+      if (!oystehrZambda) throw new Error('oystehr client is undefined');
+      await adminUpdateLocationSupportPhones(oystehrZambda, input);
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['schedule-list'] });
+      enqueueSnackbar('Support phone numbers updated', { variant: 'success' });
+    },
+    onError: (error: any) => {
+      safelyCaptureException(error);
+      let message = 'Failed to update support phone numbers.';
+      if (isApiError(error)) message = (error as APIError).message;
       enqueueSnackbar(message, { variant: 'error' });
     },
   });

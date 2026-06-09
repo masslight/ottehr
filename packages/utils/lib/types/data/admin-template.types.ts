@@ -1,12 +1,10 @@
 import { RosFindingState } from 'utils';
-import { ExamType } from '../../ottehr-config';
 
 // ── admin-create-template ──
 
 export interface AdminCreateTemplateInput {
   encounterId: string;
   templateName: string;
-  examType: ExamType;
 }
 
 export interface AdminCreateTemplateOutput {
@@ -61,12 +59,51 @@ export interface TemplateCodeInfo {
   display: string;
 }
 
+export interface TemplateCptModifier {
+  code: string;
+  display: string;
+}
+export interface TemplateCptCodeInfo extends TemplateCodeInfo {
+  modifiers: TemplateCptModifier[];
+}
+
+export function isTemplateCptCodeInfo(input: TemplateCodeInfo | TemplateCptCodeInfo): input is TemplateCptCodeInfo {
+  return (input as TemplateCptCodeInfo).modifiers !== undefined;
+}
+
 export interface TemplateAccidentInfo {
   autoAccident: boolean;
   employment: boolean;
   otherAccident: boolean;
   date?: string;
   state?: string;
+}
+
+// Each in-house lab plan saved on a template carries the inputs the create-order
+// flow needs at apply time: which test to order (referenced canonically by the
+// ActivityDefinition so the live test definition is used), what to record as the
+// reason for ordering, and any free-text notes the provider wrote when the
+// template was saved.
+//
+// `missing: true` indicates the ActivityDefinition the plan references is not
+// available on this environment - the admin UI can surface this so a human can
+// fix the template; apply-template skips the plan with a warning.
+//
+// The test name, code, and cptCodes are all taken from the latest version of the ActivityDefinition, not stored on the plan
+export interface TemplateInHouseLabPlanDetail {
+  // ServiceRequest.id of the plan inside the template's contained resources.
+  // Useful as a stable React key and for "remove this plan" admin flows.
+  planId: string;
+  testName: string;
+  activityDefinitionRef: string;
+  code: string;
+  diagnoses: TemplateCodeInfo[];
+  notes: string[];
+
+  // CPT codes that will be materialized when this plan is applied, used by apply-template to
+  // dedupe against the template's separate CPT Codes section.
+  cptCodes: TemplateCptCodeInfo[];
+  missing: boolean;
 }
 
 export interface AdminGetTemplateDetailOutput {
@@ -83,8 +120,9 @@ export interface AdminGetTemplateDetailOutput {
     mdm: string | null;
     diagnoses: TemplateCodeInfo[];
     patientInstructions: { title: string | null; text: string }[];
-    cptCodes: TemplateCodeInfo[];
+    cptCodes: TemplateCptCodeInfo[];
     emCode: TemplateCodeInfo | null;
     accident: TemplateAccidentInfo | null;
+    inHouseLabs: TemplateInHouseLabPlanDetail[];
   };
 }

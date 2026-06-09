@@ -26,6 +26,7 @@ import {
   mapDispositionTypeToLabel,
   NOTHING_TO_EAT_OR_DRINK_FIELD,
   NOTHING_TO_EAT_OR_DRINK_LABEL,
+  OTHER_SPECIALTY_TRANSFER_OPTION,
   REFUSAL_OF_EMS_TRANSPORT_FIELD,
   REFUSAL_OF_EMS_TRANSPORT_LABEL,
   specialtyTransferOptions,
@@ -94,6 +95,8 @@ export const DispositionCard: FC = () => {
 
   const labServiceValue = useWatch({ control: methods.control, name: 'labService' });
   const showVirusTest = labServiceValue?.includes?.(SEND_OUT_VIRUS_TEST_LABEL);
+  const specialtyValue = useWatch({ control: methods.control, name: 'specialty' });
+  const showSpecialtyOther = specialtyValue === OTHER_SPECIALTY_TRANSFER_OPTION;
   const { debounce } = useDebounce(1500);
   const { mutate, isPending: isLoading } = useSaveChartData();
   const [currentType, setCurrentType] = useState(getValues('type'));
@@ -321,7 +324,13 @@ export const DispositionCard: FC = () => {
                       size="small"
                       sx={{ minWidth: '200px', width: '40%' }}
                       value={value}
-                      onChange={onChange}
+                      onChange={(event) => {
+                        // clear the free-text value when switching away from "Other"
+                        if (event.target.value !== OTHER_SPECIALTY_TRANSFER_OPTION) {
+                          setValue('specialtyOther', '');
+                        }
+                        onChange(event);
+                      }}
                     >
                       <MenuItem value={''}>
                         <em>None</em>
@@ -332,6 +341,23 @@ export const DispositionCard: FC = () => {
                         </MenuItem>
                       ))}
                     </TextField>
+                  )}
+                />
+              )}
+
+              {fields.includes('specialty') && showSpecialtyOther && (
+                <Controller
+                  name="specialtyOther"
+                  control={control}
+                  render={({ field: { onChange, value } }) => (
+                    <TextField
+                      disabled={isReadOnly}
+                      label="Please specify"
+                      size="small"
+                      sx={{ minWidth: '200px', width: '40%' }}
+                      value={value}
+                      onChange={onChange}
+                    />
                   )}
                 />
               )}
