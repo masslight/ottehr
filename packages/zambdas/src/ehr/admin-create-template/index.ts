@@ -259,11 +259,11 @@ const performEffect = async (
   for (const order of procedureOrders) {
     const planId = uuidV4();
     const remapReference = (ref: { reference?: string } | undefined): { reference: string } | null => {
-      const oldId = ref?.reference?.split('/')[1];
+      if (!ref?.reference) return null;
+      const [resourceType, oldId] = ref.reference.split('/');
       if (!oldId) return null;
       const newId = oldIdToNewIdMap.get(oldId);
       if (!newId) return null; // referenced resource isn't in the template (filtered out earlier)
-      const [resourceType] = ref!.reference!.split('/');
       return { reference: `${resourceType}/${newId}` };
     };
     const remappedReasonReferences = (order.reasonReference ?? [])

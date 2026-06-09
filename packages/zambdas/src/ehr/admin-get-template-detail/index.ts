@@ -45,6 +45,7 @@ import {
   indexLatestActivityDefinitionsByUrl,
   urlFromInstantiatesCanonical,
 } from '../apply-template/apply-in-house-labs';
+import { findProcedurePlans } from '../apply-template/apply-procedures';
 import { analyzeTemplateVersionData, isDiagnosisCondition, verifyIsTemplate } from '../shared/template-helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -372,13 +373,7 @@ const performEffect = async (
   // cross-references into the template's own contained Conditions and CPT
   // Procedures, so we look those up here and surface inline {code, display}
   // tuples for the UI.
-  const procedurePlanTagSystem = chartDataTagSystem('procedure-template-plan');
-  const procedurePlans = contained.filter(
-    (r): r is ServiceRequest =>
-      r.resourceType === 'ServiceRequest' &&
-      (r as ServiceRequest).intent === 'plan' &&
-      resourceHasTagSystem(r, procedurePlanTagSystem)
-  );
+  const procedurePlans = findProcedurePlans(templateList);
 
   // Build the lookup tables in a single pass so procedure plans' cross-refs
   // (reasonReference -> Condition, supportingInfo -> CPT Procedure) can resolve

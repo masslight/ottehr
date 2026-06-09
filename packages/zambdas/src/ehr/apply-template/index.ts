@@ -207,11 +207,15 @@ const performEffect = async (
   const cptCodesFromLabsToSkip = collectCptCodesFromApplicableActivityDefinitions(applicableInHouseLabAds, actions);
   const createRequests = makeCreateRequests(encounter, templateList, encounterBundle, actions, cptCodesFromLabsToSkip);
 
-  // Procedure plans (ServiceRequests) and CPT Procedures share a single
-  // transaction so the procedure plan's reasonReference / supportingInfo can
-  // resolve via urn:uuid fullUrl to the new Conditions and CPT Procedures
-  // created alongside them. The previous flow put CPT Procedures in a separate
-  // batch which is fine in isolation but breaks the procedure cross-refs.
+  // The live procedure ServiceRequests we build from the template's procedure
+  // plans (NOT the plan resources themselves - those live in the template's
+  // contained array) need to live in the same FHIR transaction as the new
+  // Conditions and CPT Procedures they link to, so their reasonReference /
+  // supportingInfo can resolve via urn:uuid fullUrl. The previous flow put
+  // CPT Procedures in a separate batch which is fine in isolation but breaks
+  // the procedure cross-refs - so the mini-transaction now carries the live
+  // procedure SRs and CPT Procedures alongside the existing Condition /
+  // ClinicalImpression / Communication payloads.
   const miniTransactionRequests = createRequests.filter((request) => {
     if (request.method === 'POST') {
       return (
