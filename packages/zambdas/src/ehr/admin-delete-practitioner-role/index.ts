@@ -1,7 +1,7 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Schedule } from 'fhir/r4b';
 import { INVALID_INPUT_ERROR, MISSING_REQUEST_BODY, MISSING_REQUIRED_PARAMETERS, Secrets } from 'utils';
-import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
+import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
 
 interface AdminDeletePractitionerRoleInput {
   secrets: Secrets | null;
@@ -33,7 +33,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const parsed = validateRequestParameters(input);
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, parsed.secrets);
-  const oystehr = createOystehrClient(m2mToken, parsed.secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, parsed.secrets);
 
   // Deactivate any Schedule whose actor is this PR before deactivating the PR
   // itself. The PR-side filter (active=true) is the load-bearing mechanism

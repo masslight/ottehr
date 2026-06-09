@@ -15,6 +15,7 @@ import { DateTime } from 'luxon';
 import { INSURANCE_PAY_OPTION, SELF_PAY_OPTION } from '../config-helpers/shared-questionnaire';
 import {
   allLicensesForPractitioner,
+  BILLING_RESOURCE_TAG,
   CANDID_PLAN_TYPE_SYSTEM,
   FHIR_IDENTIFIER_SYSTEM,
   getCoding,
@@ -48,6 +49,7 @@ export function createOystehrClient(token: string, fhirAPI: string, projectAPI: 
     accessToken: token,
     fhirApiUrl: FHIR_API,
     projectApiUrl: projectAPI,
+    ignoreTags: [BILLING_RESOURCE_TAG],
   };
   console.log('creating fhir client');
   return new Oystehr(CLIENT_CONFIG);

@@ -24,7 +24,6 @@
  * Feel free to delete the prior Schedule before re-running.
  */
 
-import Oystehr from '@oystehr/sdk';
 import { HealthcareService, PractitionerRole, Schedule } from 'fhir/r4b';
 import { createClinicalOystehrClient } from '../packages/zambdas/src/shared';
 

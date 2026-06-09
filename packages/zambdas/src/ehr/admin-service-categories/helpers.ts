@@ -12,7 +12,7 @@ import {
   ServiceMode,
   ServiceVisitType,
 } from 'utils';
-import { checkOrCreateM2MClientToken, createOystehrClient, ZambdaInput } from '../../shared';
+import { checkOrCreateM2MClientToken, createClinicalOystehrClient, ZambdaInput } from '../../shared';
 
 /**
  * Runtime-editable per-service-category settings. Mirrors the shape of the
@@ -59,7 +59,7 @@ let m2mToken: string;
 export async function getClient(input: ZambdaInput): Promise<Oystehr> {
   if (!input.secrets) throw new Error('No secrets provided');
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, input.secrets);
-  return createOystehrClient(m2mToken, input.secrets);
+  return createClinicalOystehrClient(m2mToken, input.secrets);
 }
 
 /**
