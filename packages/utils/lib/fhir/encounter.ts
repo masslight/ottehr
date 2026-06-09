@@ -287,7 +287,7 @@ export const getEncounterVisitOccupationalMedicineEmployerExtension = (employer:
   valueReference: employer,
 });
 
-/** `employer === null` → remove visit employer extension; Reference → set extension. */
+/** `null` removes the extension; a Reference sets it. */
 export const applyVisitOccupationalMedicineEmployerToEncounterExtensions = (
   existingExtensions: Extension[] | undefined,
   employer: Reference | null

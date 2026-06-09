@@ -147,7 +147,7 @@ export const SectionSaveButton: FC<SectionSaveButtonProps> = ({
 
     try {
       if (saveEmployerViaVisitDetails && appointmentId) {
-        // Pre-op: the visit-level employer lives on the Encounter
+        // Pre-op: visit-level employer is saved on the Encounter, not the patient Account.
         const employerValue = allValues[OCCUPATIONAL_MEDICINE_EMPLOYER_FIELD_KEY] as Reference | null | undefined;
         await visitDetailsEmployerMutation.mutateAsync({
           appointmentId,
@@ -156,10 +156,7 @@ export const SectionSaveButton: FC<SectionSaveButtonProps> = ({
           },
         });
 
-        // If this section contains other dirty fields besides the employer, save them
-        // through the usual QR path — same shape as the default branch (all section
-        // values + dirty map), just with the employer field excluded so it is not
-        // written to the patient Account.
+        // Other dirty fields in this section still go through the usual QR path, employer excluded.
         const remainingFieldKeys = fieldKeys.filter((key) => key !== OCCUPATIONAL_MEDICINE_EMPLOYER_FIELD_KEY);
         const remainingDirtyKeys = remainingFieldKeys.filter((key) => dirtyFields[key]);
 

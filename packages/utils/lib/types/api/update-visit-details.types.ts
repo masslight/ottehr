@@ -1,5 +1,8 @@
-import { Attachment, Reference } from 'fhir/r4b';
+import { Attachment, Coding, Reference } from 'fhir/r4b';
+import { DateTime } from 'luxon';
 import { z } from 'zod';
+import { getServiceCategoryCodings } from '../../config-helpers/booking';
+import { isValidUUID } from '../../validation';
 import { REASON_ADDITIONAL_MAX_CHAR } from '../../validation/constants';
 import {
   INSURANCE_CARD_BACK_2_ID,
@@ -34,9 +37,14 @@ export interface UpdateVisitDetailsInput {
   bookingDetails: BookingDetails;
 }
 
+const ORGANIZATION_REFERENCE_PREFIX = 'Organization/';
 const organizationReferenceSchema = z
   .string()
-  .regex(/^Organization\/[0-9a-fA-F-]{36}$/, 'reference must be Organization/{uuid}');
+  .refine(
+    (val) =>
+      val.startsWith(ORGANIZATION_REFERENCE_PREFIX) && isValidUUID(val.slice(ORGANIZATION_REFERENCE_PREFIX.length)),
+    { message: 'reference must be Organization/{uuid}' }
+  );
 
 export const FhirOrganizationReferenceSchema = z.object({
   reference: organizationReferenceSchema,
@@ -44,30 +52,57 @@ export const FhirOrganizationReferenceSchema = z.object({
   type: z.string().optional(),
 });
 
+const confirmedDobSchema = z.string().refine(
+  (value) => DateTime.fromISO(value).isValid,
+  (value) => ({
+    message: `confirmedDob, "${value}", is not a valid iso date string`,
+  })
+);
+
+const patientNameSchema = z
+  .object({
+    first: z.string().optional(),
+    middle: z.string().optional(),
+    last: z.string().optional(),
+    suffix: z.string().optional(),
+  })
+  // Empty object would overwrite the stored name with undefined.
+  .refine((name) => Object.values(name).some((value) => value !== undefined), {
+    message: '"patientName" must have at least one field defined',
+  })
+  .refine((name) => name.first === undefined || name.first.trim().length > 0, {
+    message: 'patientName must have a non-empty first name',
+  })
+  .refine((name) => name.last === undefined || name.last.trim().length > 0, {
+    message: 'patientName must have a non-empty last name',
+  });
+
+// Transforms the code into its BOOKING_CONFIG Coding so downstream code gets a Coding, not a string.
+const serviceCategorySchema = z.string().transform((value, ctx): Coding => {
+  const match = getServiceCategoryCodings().find((coding) => coding.code === value);
+  if (!match) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: `serviceCategory, "${value}", is not a valid option`,
+    });
+    return z.NEVER;
+  }
+  return match;
+});
+
 export const BookingDetailsSchema = z
   .object({
     reasonForVisit: z.string().optional(),
     additionalDetails: z.string().max(REASON_ADDITIONAL_MAX_CHAR).optional(),
     authorizedNonLegalGuardians: z.string().optional(),
-    confirmedDob: z.string().optional(),
-    patientName: z
-      .object({
-        first: z.string().optional(),
-        middle: z.string().optional(),
-        last: z.string().optional(),
-        suffix: z.string().optional(),
-      })
-      // Empty patientName would make performEffect replace the stored name with undefined.
-      .refine((name) => Object.values(name).some((value) => value !== undefined), {
-        message: '"patientName" must have at least one field defined',
-      })
-      .optional(),
+    confirmedDob: confirmedDobSchema.optional(),
+    patientName: patientNameSchema.optional(),
     consentForms: z
       .object({
         consentAttested: z.boolean(),
       })
       .optional(),
-    serviceCategory: z.string().optional(),
+    serviceCategory: serviceCategorySchema.optional(),
     visitOccupationalMedicineEmployer: z.union([FhirOrganizationReferenceSchema, z.null()]).optional(),
   })
   .refine(

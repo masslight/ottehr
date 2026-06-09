@@ -484,9 +484,7 @@ export const makePrepopulatedItemsFromPatientRecord = (
         });
       }
       if (OCCUPATIONAL_MEDICINE_EMPLOYER_ITEMS.includes(item.linkId)) {
-        // Visit-level employer (Encounter.extension) wins when provided. Otherwise occ-med paperwork still
-        // prepopulates from the patient's occupational-medicine Account (harvest / staff patient record).
-        // Pre-op staff sets employer per visit only — do not fall back to Account when the visit has no extension yet.
+        // Visit-level employer wins; for pre-op don't fall back to the Account employer.
         const useAccountEmployer =
           !input.visitOccupationalMedicineEmployerReference && input.appointmentServiceCategory !== 'pre-op';
 
