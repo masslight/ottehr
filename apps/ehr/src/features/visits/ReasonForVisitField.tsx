@@ -8,15 +8,15 @@ import { useAppointmentData, useSaveChartData } from './shared/stores/appointmen
 export const ReasonForVisitField: FC = () => {
   const saveChartData = useSaveChartData();
   const [reasonForVisit, setReasonForVisit] = useState<string>('');
-  const { data: chartFields } = useChartFields({
+  const { data: chartFields, isFetched: isChartFieldsFetched } = useChartFields({
     requestedFields: { reasonForVisit: {} },
   });
 
   useEffect(() => {
-    if (chartFields?.reasonForVisit?.text) {
-      setReasonForVisit(chartFields.reasonForVisit.text);
+    if (isChartFieldsFetched) {
+      setReasonForVisit(chartFields?.reasonForVisit?.text ?? '');
     }
-  }, [chartFields]);
+  }, [chartFields, isChartFieldsFetched]);
 
   const { appointment } = useAppointmentData();
   const serviceCategory = getCoding(appointment?.serviceCategory, SERVICE_CATEGORY_SYSTEM)?.code;

@@ -196,5 +196,6 @@ export const getExternalLabLabelConfig = async (
     labOrganization,
     specimenCollectionDateTime,
     userTimezone,
+    serviceRequest,
   });
 };

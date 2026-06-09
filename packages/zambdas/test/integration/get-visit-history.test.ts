@@ -32,14 +32,11 @@ import { getAuth0Token } from '../../src/shared';
 import { SECRETS } from '../data/secrets';
 import { ensureM2MPractitionerProfile } from '../helpers/configureTestM2MClient';
 import {
-  adjustHoursOfOperation,
-  changeAllCapacities,
+  buildSimpleScheduleExt,
   cleanupTestScheduleResources,
-  DEFAULT_SCHEDULE_JSON,
   makeTestPatient,
   persistSchedule,
   persistTestPatient,
-  startOfDayWithTimezone,
 } from '../helpers/testScheduleUtils';
 
 interface ValidateCreateAppointmentResponseInput {
@@ -158,18 +155,11 @@ describe('tests for getting the visit history for a patient', () => {
 
   const setUpInPersonResources = async (): Promise<SetUpOutput> => {
     expect(oystehr).toBeDefined();
-    const timeNow = startOfDayWithTimezone().plus({ hours: 8 });
-
-    let adjustedScheduleJSON = adjustHoursOfOperation(DEFAULT_SCHEDULE_JSON, [
-      {
-        dayOfWeek: timeNow.toLocaleString({ weekday: 'long' }).toLowerCase(),
-        open: 8,
-        close: 24,
-        workingDay: true,
-      },
-    ]);
-
-    adjustedScheduleJSON = changeAllCapacities(adjustedScheduleJSON, 1);
+    // 24/7 open with 4 bookings/hour (slot-length-invariant). Provides
+    // ample capacity for both past pre-booked slots (random times across
+    // the last 3 years) and walk-in slots (which start at DateTime.now()
+    // and need real capacity to pass the create-appointment guard).
+    const adjustedScheduleJSON = buildSimpleScheduleExt({ prebookSlots: 4 });
 
     const ownerLocation: Location = {
       resourceType: 'Location',
@@ -226,18 +216,9 @@ describe('tests for getting the visit history for a patient', () => {
   };
 
   const setUpVirtualResources = async (): Promise<SetUpOutput> => {
-    const timeNow = startOfDayWithTimezone().plus({ hours: 8 });
-
-    let adjustedScheduleJSON = adjustHoursOfOperation(DEFAULT_SCHEDULE_JSON, [
-      {
-        dayOfWeek: timeNow.toLocaleString({ weekday: 'long' }).toLowerCase(),
-        open: 8,
-        close: 18,
-        workingDay: true,
-      },
-    ]);
-
-    adjustedScheduleJSON = changeAllCapacities(adjustedScheduleJSON, 1);
+    // 24/7 open with 4 bookings/hour (slot-length-invariant). See the
+    // setUpInPersonResources comment above — same rationale.
+    const adjustedScheduleJSON = buildSimpleScheduleExt({ prebookSlots: 4 });
 
     const ownerLocation: Location = {
       resourceType: 'Location',

@@ -1,4 +1,4 @@
-import { Address, HealthcareService, Location, Practitioner, Schedule } from 'fhir/r4b';
+import { Address, HealthcareService, Location, Practitioner, PractitionerRole, Schedule } from 'fhir/r4b';
 import { Closure, Timezone } from '../../../main';
 import { DailySchedule, ScheduleOverrides } from '../../../utils';
 
@@ -33,7 +33,7 @@ export interface CreateScheduleParams extends Omit<UpdateScheduleParams, 'schedu
   schedule: DailySchedule;
 }
 
-export type ScheduleOwnerFhirResource = Location | Practitioner | HealthcareService;
+export type ScheduleOwnerFhirResource = Location | Practitioner | PractitionerRole | HealthcareService;
 
 export interface ListScheduleOwnersParams {
   ownerType: ScheduleOwnerFhirResource['resourceType'];
@@ -42,9 +42,17 @@ export interface ListScheduleOwnersParams {
 export interface ScheduleOwnerListItem {
   resourceType: ScheduleOwnerFhirResource['resourceType'];
   id: string;
+  /** Display name. For provider rows, the practitioner's full name. */
   name: string;
   address?: string;
   hours?: string;
+  /** Populated only for Practitioner rows on the provider-schedules tab —
+   *  each provider can have multiple PRs, so we aggregate across them. */
+  providerSchedulesSummary?: {
+    locationNames: string[];
+    categoryLabels: string[];
+    scheduleCount: number;
+  };
   supportPhoneNumber?: string;
 }
 

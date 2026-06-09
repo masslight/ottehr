@@ -17,7 +17,7 @@ import { RoundedButton } from 'src/components/RoundedButton';
 import { PatientEducationSectionsEditor } from 'src/features/visits/shared/components/PatientEducationSectionsEditor';
 import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
 import { EducationSection, generateCombinedPdf } from 'src/features/visits/shared/hooks/usePatientEducation';
-import { ApprovedPatientEducationIcdCode } from 'utils';
+import { ApprovedPatientEducationIcdCode, getApiError } from 'utils';
 import { AlternateDiagnosesInput, PrimaryDiagnosisInput } from './IcdDiagnosisInputs';
 import { APPROVED_PATIENT_EDUCATION_QUERY_KEY } from './PatientEducationAdminPage';
 import { Icd10Option } from './useIcd10SearchInput';
@@ -63,7 +63,7 @@ export const ApprovedPatientEducationDialog: FC<DialogProps> = ({ open, onClose 
       setErrorMsg(null);
     },
     onError: (err) => {
-      setErrorMsg(err instanceof Error ? err.message : String(err));
+      setErrorMsg(getApiError({ error: err, defaultError: 'Failed to generate patient education.' }));
     },
   });
 
@@ -99,7 +99,7 @@ export const ApprovedPatientEducationDialog: FC<DialogProps> = ({ open, onClose 
       onClose();
     },
     onError: (err) => {
-      setErrorMsg(err instanceof Error ? err.message : String(err));
+      setErrorMsg(getApiError({ error: err, defaultError: 'Failed to save approved patient education.' }));
     },
   });
 
