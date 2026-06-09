@@ -13,7 +13,7 @@ import {
 } from 'fhir/r4b';
 import { z } from 'zod';
 import { OTTEHR_MODULE } from '../../../fhir/moduleIdentification';
-import { FhirAppointmentType, ProviderTypeCode, Secrets } from '../../../main';
+import { FhirAppointmentType, PARTICIPATION_CODE_SYSTEM, ProviderTypeCode, Secrets } from '../../../main';
 import {
   AppointmentAttendanceType,
   AppointmentMessaging,
@@ -162,14 +162,14 @@ export interface GetTelemedAppointmentsInput {
 export const PRACTITIONER_CODINGS = {
   Admitter: [
     {
-      system: 'http://terminology.hl7.org/CodeSystem/v3-ParticipationType',
+      system: PARTICIPATION_CODE_SYSTEM,
       code: 'ADM',
       display: 'admitter',
     },
   ] as Coding[],
   Attender: [
     {
-      system: 'http://terminology.hl7.org/CodeSystem/v3-ParticipationType',
+      system: PARTICIPATION_CODE_SYSTEM,
       code: 'ATND',
       display: 'attender',
     },

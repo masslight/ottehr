@@ -7,9 +7,11 @@ import {
   Identifier,
   Location,
   Practitioner,
+  PractitionerRole,
   Schedule,
 } from 'fhir/r4b';
 import type { AppointmentType, CanonicalUrl } from '../types';
+import { ServiceMode, ServiceVisitType } from '../types/common';
 import {
   DISCHARGE_SUMMARY_CODE,
   EXPORTED_QUESTIONNAIRE_CODE,
@@ -50,6 +52,9 @@ export const FHIR_IDENTIFIER_CODE_TAX_SS = 'SS';
 export const FRIENDLY_PATIENT_ID_SYSTEM_BASE = 'https://identifiers.fhir.oystehr.com/friendly-patient-id';
 export const FHIR_AI_CHAT_CONSENT_CATEGORY_CODE = 'ai-chat';
 export const FHIR_HL7_ORG_VALUE_SET_BASE_URL = 'http://hl7.org/fhir/ValueSet';
+
+export const PARTICIPATION_CODE_SYSTEM = 'http://terminology.hl7.org/CodeSystem/v3-ParticipationType';
+export const ACCOUNT_TYPE_CODE_SYSTEM = 'http://terminology.hl7.org/CodeSystem/account-type';
 
 export const FHIR_EXTENSION = {
   Appointment: {
@@ -244,6 +249,16 @@ export const PRACTITIONER_QUALIFICATION_STATE_SYSTEM = 'http://hl7.org/fhir/us/c
 
 export const SLUG_SYSTEM = `${FHIR_BASE_URL}/r4/slug`;
 
+/**
+ * Optional admin-editable display name for a PractitionerRole-actored schedule.
+ * Stored as a PR.extension valueString. When absent, callers compose a name
+ * from the role's referenced Practitioner + Location — see the GroupPage /
+ * PractitionerRoleList fallbacks. The field exists to disambiguate two PRs at
+ * the same (provider, location) — e.g., a provider's morning intake schedule
+ * vs afternoon surgery schedule.
+ */
+export const SCHEDULE_DISPLAY_NAME_EXTENSION_URL = `${FHIR_BASE_URL}/StructureDefinitions/schedule-display-name`;
+
 export const SERVICE_EXTENSION = 'http://extensions.ottehr.com';
 
 export const AppointmentInsuranceRelatedResourcesExtension = {
@@ -339,7 +354,7 @@ export enum ScheduleStrategy {
 
 export interface ScheduleAndOwner {
   schedule: Schedule;
-  owner: Location | Practitioner | HealthcareService;
+  owner: Location | Practitioner | PractitionerRole | HealthcareService;
 }
 
 interface BaseScheduleResponse {
@@ -377,6 +392,120 @@ export const ScheduleStrategyCoding = {
     code: 'pools-all',
     display: 'Pools All',
     fullParam: `${SCHEDULE_STRATEGY_SYSTEM}|pools-all`,
+  },
+};
+
+// ── HealthcareService characterization (service categories + groups) ─────────
+//
+// Constants below characterize HealthcareService resources used in the
+// group-scheduling rework: service-category catalog entries (tagged with
+// SERVICE_CATEGORY_TAG.meta) and group resources. Each `*_SYSTEM` is the
+// code-system URL for one HealthcareService.characteristic dimension; the
+// adjacent `*Coding` object provides typed shapes with `fullParam` ready for
+// FHIR _filter queries.
+//
+// Note on parallel concepts: a separate ServiceModeCoding above uses the HL7
+// standard system for location/practitioner mode tracking. ServiceCategory-
+// ModeCoding here uses an ottehr-namespaced system derived from the product-
+// level ServiceMode enum.
+
+/** meta.tag identifying a HealthcareService as a service-category catalog entry. */
+export const SERVICE_CATEGORY_TAG = {
+  system: ottehrCodeSystemUrl('healthcare-service-type'),
+  code: 'booking-service-category',
+};
+
+/** Code system for service-category codes (e.g. 'urgent-care', 'botox'). Used in HealthcareService.type[] codings. */
+export const SERVICE_CATEGORY_SYSTEM = ottehrCodeSystemUrl('service-category');
+
+/** Extension URL for the JSON-blob runtime config on service-category resources. */
+export const SERVICE_CATEGORY_CONFIG_EXTENSION_URL = ottehrExtensionUrl('service-category-config');
+
+// ── Service-category characteristic systems (one per dimension) ─────────────
+
+/** Service-mode characteristic for a service-category HealthcareService. Codes match the ServiceMode enum. */
+export const SERVICE_CATEGORY_MODE_SYSTEM = ottehrCodeSystemUrl('service-category-mode');
+export const ServiceCategoryModeCoding = {
+  inPerson: {
+    system: SERVICE_CATEGORY_MODE_SYSTEM,
+    code: ServiceMode['in-person'],
+    display: 'In Person',
+    fullParam: `${SERVICE_CATEGORY_MODE_SYSTEM}|${ServiceMode['in-person']}`,
+  },
+  virtual: {
+    system: SERVICE_CATEGORY_MODE_SYSTEM,
+    code: ServiceMode.virtual,
+    display: 'Virtual',
+    fullParam: `${SERVICE_CATEGORY_MODE_SYSTEM}|${ServiceMode.virtual}`,
+  },
+};
+
+/** Visit-type-capability characteristic for a service-category HealthcareService. Codes match the ServiceVisitType enum. */
+export const SERVICE_CATEGORY_VISIT_TYPE_SYSTEM = ottehrCodeSystemUrl('service-category-visit-type');
+export const ServiceCategoryVisitTypeCoding = {
+  prebook: {
+    system: SERVICE_CATEGORY_VISIT_TYPE_SYSTEM,
+    code: ServiceVisitType.prebook,
+    display: 'Prebook',
+    fullParam: `${SERVICE_CATEGORY_VISIT_TYPE_SYSTEM}|${ServiceVisitType.prebook}`,
+  },
+  walkIn: {
+    system: SERVICE_CATEGORY_VISIT_TYPE_SYSTEM,
+    code: ServiceVisitType['walk-in'],
+    display: 'Walk-In',
+    fullParam: `${SERVICE_CATEGORY_VISIT_TYPE_SYSTEM}|${ServiceVisitType['walk-in']}`,
+  },
+};
+
+/**
+ * Duration-minutes characteristic system for a service-category HealthcareService.
+ * Values are runtime-configurable (admins set the minutes per service), so this
+ * is a system constant only — call sites build the coding inline with
+ * `{ system: SERVICE_CATEGORY_DURATION_MINUTES_SYSTEM, code: String(minutes), display: '<n> min' }`.
+ */
+export const SERVICE_CATEGORY_DURATION_MINUTES_SYSTEM = ottehrCodeSystemUrl('service-category-duration-minutes');
+
+/** Cadence-minutes characteristic system for a service-category HealthcareService. Same call-site shape as duration-minutes. */
+export const SERVICE_CATEGORY_CADENCE_MINUTES_SYSTEM = ottehrCodeSystemUrl('service-category-cadence-minutes');
+
+// ── Group characteristic systems ────────────────────────────────────────────
+
+/** Assignment-mode characteristic for a group HealthcareService: 'anonymous' (default) vs 'provider'. */
+export const GROUP_ASSIGNMENT_MODE_SYSTEM = ottehrCodeSystemUrl('group-assignment-mode');
+export const GroupAssignmentModeCoding = {
+  anonymous: {
+    system: GROUP_ASSIGNMENT_MODE_SYSTEM,
+    code: 'anonymous',
+    display: 'Anonymous',
+    fullParam: `${GROUP_ASSIGNMENT_MODE_SYSTEM}|anonymous`,
+  },
+  provider: {
+    system: GROUP_ASSIGNMENT_MODE_SYSTEM,
+    code: 'provider',
+    display: 'Provider',
+    fullParam: `${GROUP_ASSIGNMENT_MODE_SYSTEM}|provider`,
+  },
+};
+
+/**
+ * All-locations characteristic for a group HealthcareService: 'true' | 'false'.
+ * When 'true', the group pools from every active PractitionerRole in the
+ * system (not constrained to the group's `.location[]` entries). Set on the
+ * group admin form via a single toggle.
+ */
+export const GROUP_ALL_LOCATIONS_SYSTEM = ottehrCodeSystemUrl('group-all-locations');
+export const GroupAllLocationsCoding = {
+  true: {
+    system: GROUP_ALL_LOCATIONS_SYSTEM,
+    code: 'true',
+    display: 'All locations',
+    fullParam: `${GROUP_ALL_LOCATIONS_SYSTEM}|true`,
+  },
+  false: {
+    system: GROUP_ALL_LOCATIONS_SYSTEM,
+    code: 'false',
+    display: 'Specific locations',
+    fullParam: `${GROUP_ALL_LOCATIONS_SYSTEM}|false`,
   },
 };
 
@@ -512,7 +641,7 @@ export const COVERAGE_MEMBER_IDENTIFIER_BASE: Partial<Identifier> = {
 export const PATIENT_BILLING_ACCOUNT_TYPE: Account['type'] = {
   coding: [
     {
-      system: 'http://terminology.hl7.org/CodeSystem/account-type',
+      system: ACCOUNT_TYPE_CODE_SYSTEM,
       code: 'PBILLACCT',
       display: 'patient billing account',
     },
@@ -522,7 +651,7 @@ export const PATIENT_BILLING_ACCOUNT_TYPE: Account['type'] = {
 export const WORKERS_COMP_ACCOUNT_TYPE: Account['type'] = {
   coding: [
     {
-      system: 'http://terminology.hl7.org/CodeSystem/account-type',
+      system: ACCOUNT_TYPE_CODE_SYSTEM,
       code: 'WCOMPACCT',
       display: 'worker compensation account',
     },
@@ -532,7 +661,7 @@ export const WORKERS_COMP_ACCOUNT_TYPE: Account['type'] = {
 export const OCCUPATIONAL_MEDICINE_ACCOUNT_TYPE: Account['type'] = {
   coding: [
     {
-      system: 'http://terminology.hl7.org/CodeSystem/account-type',
+      system: ACCOUNT_TYPE_CODE_SYSTEM,
       code: 'OCCUPATIONALMEDICINEACCT',
       display: 'occupational medicine account',
     },
@@ -682,6 +811,53 @@ export const makeBookingOriginExtensionEntry = (url: string): { url: string; val
   };
 };
 
+// Extension recording the Location a Slot is being offered at. Stamped at
+// slot-vending time so the Slot is self-describing — create-appointment
+// reads this rather than re-resolving from the Schedule.actor graph (which
+// is ambiguous for multi-location PractitionerRoles).
+export const SLOT_AT_LOCATION_EXTENSION_URL = `${PRIVATE_EXTENSION_BASE_URL}/slot-at-location`;
+
+export const makeSlotAtLocationExtensionEntry = (
+  locationId: string
+): { url: string; valueReference: { reference: string } } => {
+  return {
+    url: SLOT_AT_LOCATION_EXTENSION_URL,
+    valueReference: { reference: `Location/${locationId}` },
+  };
+};
+
+// Extension recording the group HealthcareService a Slot was booked through.
+// Stamped at slot-vending time when the scheduleType is "group" — the
+// Slot's Schedule.actor under pools-providers is the member PR, so
+// without this extension a downstream consumer can't tell whether a
+// PR-actored Slot was booked directly against that PR or through a group
+// (which matters for assignment-mode interpretation, capacity-guard
+// fallback eligibility, audit trails, etc.). Skipped when the Schedule's
+// actor IS the group HS — the actor already records it; a redundant
+// extension can only conflict.
+export const SLOT_BOOKED_VIA_GROUP_EXTENSION_URL = `${PRIVATE_EXTENSION_BASE_URL}/slot-booked-via-group`;
+
+export const makeSlotBookedViaGroupExtensionEntry = (
+  groupHealthcareServiceId: string
+): { url: string; valueReference: { reference: string } } => {
+  return {
+    url: SLOT_BOOKED_VIA_GROUP_EXTENSION_URL,
+    valueReference: { reference: `HealthcareService/${groupHealthcareServiceId}` },
+  };
+};
+
+// Meta tag stamped on a Slot when the create-appointment capacity-guard
+// fallback rerouted it from its originally-targeted Schedule to a different
+// member Schedule of the same anonymous-mode group. Bare boolean tag — purely
+// a queryability handle ("how often does this happen, which Slots had it
+// happen to them"). The original Schedule reference is recoverable from the
+// Slot's FHIR _history if ever needed.
+export const SLOT_FALLBACK_REROUTED_TAG_SYSTEM = `${PRIVATE_EXTENSION_BASE_URL}/slot-fallback-rerouted`;
+export const SLOT_FALLBACK_REROUTED_TAG = {
+  system: SLOT_FALLBACK_REROUTED_TAG_SYSTEM,
+  code: 'true',
+};
+
 // Extension for specifying which questionnaire should be used for appointments booked on this slot
 export const SLOT_QUESTIONNAIRE_CANONICAL_EXTENSION_URL = `${PRIVATE_EXTENSION_BASE_URL}/slot-questionnaire-canonical`;
 
@@ -774,8 +950,6 @@ export const DOCUMENT_REFERENCE_SUMMARY_FROM_AUDIO = 'Summary of visit from audi
 export const DOCUMENT_REFERENCE_SUMMARY_FROM_CHAT = 'Summary of visit from chat';
 
 export const EMPLOYER_ORG_IDENTIFIER_SYSTEM = ottehrIdentifierSystem('organization-type');
-
-export const SERVICE_CATEGORY_SYSTEM = ottehrCodeSystemUrl('service-category');
 
 export const ATTORNEY_FIRM_EXTENSION_URL = `${PRIVATE_EXTENSION_BASE_URL}/attorney-firm`;
 
