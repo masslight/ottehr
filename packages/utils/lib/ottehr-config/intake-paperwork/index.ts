@@ -151,6 +151,20 @@ function buildFormFields(valueSets: ValueSetsConfig): PaperworkFormFields {
           type: 'string',
           dataType: 'Email',
           autocomplete: 'section-patient shipping email',
+          triggers: [
+            {
+              targetQuestionLinkId: 'patient-no-email',
+              effect: ['enable', 'require'],
+              operator: '!=',
+              answerBoolean: true,
+            },
+          ],
+          disabledDisplay: 'hidden',
+        },
+        noEmail: {
+          key: 'patient-no-email',
+          label: "Patient doesn't have an email address",
+          type: 'boolean',
         },
         phoneNumber: {
           key: 'patient-number',
@@ -177,7 +191,6 @@ function buildFormFields(valueSets: ValueSetsConfig): PaperworkFormFields {
         'patient-city',
         'patient-state',
         'patient-zip',
-        'patient-email',
         'patient-number',
         'patient-preferred-communication-method',
       ],

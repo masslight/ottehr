@@ -30,7 +30,8 @@ function isContactInformationComplete(completedPaperwork: CompletedPaperwork): b
     valueExists(completedPaperwork['patient-zip']);
   const patientFillingOutAs = valueExists(completedPaperwork['patient-filling-out-as']);
   const patientInfoExists =
-    valueExists(completedPaperwork['patient-email']) && valueExists(completedPaperwork['patient-number']);
+    (valueExists(completedPaperwork['patient-email']) || completedPaperwork['patient-no-email'] === true) &&
+    valueExists(completedPaperwork['patient-number']);
   const guardianInfoExists =
     valueExists(completedPaperwork['guardian-email']) && valueExists(completedPaperwork['guardian-number']);
 
