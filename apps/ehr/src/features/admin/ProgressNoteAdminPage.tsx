@@ -93,7 +93,7 @@ export default function ProgressNoteAdminPage(): ReactElement {
               Progress Note
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-              Configure how providers complete and sign progress notes for this practice.
+              Settings for how providers complete and sign progress notes
             </Typography>
 
             {isPending ? (
@@ -127,7 +127,7 @@ export default function ProgressNoteAdminPage(): ReactElement {
                       Disposition
                     </Typography>
                     <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                      Standard content used when these disposition options are selected.
+                      Default content displayed when a disposition option is selected
                     </Typography>
                     <Stack spacing={2}>
                       <ConfigTextAreaField
@@ -151,16 +151,13 @@ export default function ProgressNoteAdminPage(): ReactElement {
                   <Divider />
 
                   <Box>
-                    <Typography variant="subtitle1" sx={{ mb: 0.5 }}>
-                      Signing Requirements
-                    </Typography>
                     <Controller
                       name="mdmRequired"
                       control={control}
                       render={({ field: { value, onChange } }) => (
                         <FormControlLabel
                           control={<Switch checked={value} onChange={(_event, checked) => onChange(checked)} />}
-                          label="Medical Decision Making (MDM) required"
+                          label="MDM required for sign and close"
                         />
                       )}
                     />
