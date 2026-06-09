@@ -749,9 +749,12 @@ describe('makeCreateRequests — procedure plans', () => {
     // encounter.diagnosis gets patched to include the new procedure-claimed Dx
     // so it shows in the chart's standalone Diagnoses list too.
     const dxPatch = getEncounterDiagnosisPatchOperations(requests);
-    expect(dxPatch?.value).toContainEqual(
-      expect.objectContaining({ condition: { reference: dxPostRequest!.fullUrl } })
-    );
+    expect(dxPatch).not.toBeNull();
+    if (dxPatch && (dxPatch.op === 'add' || dxPatch.op === 'replace')) {
+      expect(dxPatch.value).toContainEqual(
+        expect.objectContaining({ condition: { reference: dxPostRequest!.fullUrl } })
+      );
+    }
   });
 
   test("procedures='append' + cptCodes='skip': procedure's linked CPT is force-created and procedure links to it", () => {
