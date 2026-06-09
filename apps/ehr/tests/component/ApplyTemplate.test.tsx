@@ -142,6 +142,28 @@ const mockTemplateDetail = {
         missing: true,
       },
     ],
+    procedures: [
+      {
+        planId: 'proc-1',
+        procedureType: 'Splint application',
+        performerType: 'Provider',
+        bodySite: 'Wrist',
+        bodySide: 'Left',
+        technique: ['Closed reduction'],
+        medicationUsed: 'Lidocaine 1%',
+        suppliesUsed: 'Splint kit',
+        procedureDetails: 'Applied volar splint after reduction.',
+        specimenSent: false,
+        complications: undefined,
+        patientResponse: 'Tolerated well',
+        postInstructions: 'Keep splint dry. Follow up in 1 week.',
+        timeSpent: '15 minutes',
+        documentedBy: 'Provider',
+        consentObtained: true,
+        diagnoses: [{ code: 'S62.001A', display: 'Fracture of left wrist' }],
+        cptCodes: [{ code: '29105', display: 'Application of long arm splint', modifiers: [] }],
+      },
+    ],
   },
 };
 
@@ -449,6 +471,7 @@ describe('ApplyTemplate', () => {
             cptCodes: 'append',
             emCode: 'overwrite',
             inHouseLabs: 'append',
+            procedures: 'append',
           },
         })
       );
@@ -570,6 +593,49 @@ describe('ApplyTemplate', () => {
     });
   });
 
+  it('should render the procedures section and hide Overwrite', async () => {
+    const user = userEvent.setup();
+    render(<ApplyTemplate />, { wrapper: createWrapper() });
+
+    await user.click(await screen.findByLabelText('Select condition'));
+    await user.click(await screen.findByText('Sore Throat'));
+
+    const procCard = await screen.findByTestId('template-section-procedures');
+    // Summary surfaces the procedure type so the user can identify the entry while collapsed.
+    expect(within(procCard).getByText(/Splint application/)).toBeInTheDocument();
+
+    // Procedures are append-or-skip only, like in-house labs.
+    expect(within(procCard).queryByRole('button', { name: 'Overwrite' })).toBeNull();
+    expect(within(procCard).getByRole('button', { name: 'Skip' })).toBeInTheDocument();
+    expect(within(procCard).getByRole('button', { name: 'Append' })).toBeInTheDocument();
+
+    await user.click(within(procCard).getByTestId('template-section-procedures-header'));
+
+    // Expanding shows the linked CPT/diagnosis codes and a few of the form fields.
+    await waitFor(() => {
+      expect(within(procCard).getByText(/29105/)).toBeInTheDocument();
+    });
+    expect(within(procCard).getByText(/S62.001A/)).toBeInTheDocument();
+    expect(within(procCard).getByText(/Wrist/)).toBeInTheDocument();
+    expect(within(procCard).getByText(/Closed reduction/)).toBeInTheDocument();
+  });
+
+  it('should not render the procedures section when the template carries no procedures', async () => {
+    mockGetTemplateDetail.mockResolvedValue({
+      ...mockTemplateDetail,
+      sections: { ...mockTemplateDetail.sections, procedures: [] },
+    });
+    const user = userEvent.setup();
+    render(<ApplyTemplate />, { wrapper: createWrapper() });
+
+    await user.click(await screen.findByLabelText('Select condition'));
+    await user.click(await screen.findByText('Sore Throat'));
+
+    // Other sections still render; the procedures card is suppressed when empty.
+    await screen.findByTestId('template-section-hpi');
+    expect(screen.queryByTestId('template-section-procedures')).toBeNull();
+  });
+
   it('should disable Apply when every section is set to Skip', async () => {
     const user = userEvent.setup();
     mockGetTemplateDetail.mockResolvedValue({
@@ -584,6 +650,7 @@ describe('ApplyTemplate', () => {
         emCode: null,
         mdm: null,
         inHouseLabs: [],
+        procedures: [],
         // Only HPI has content.
       },
     });
