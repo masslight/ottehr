@@ -471,7 +471,18 @@ export const EditableMedicationCard: React.FC<{
 
   const getFieldValue = useCallback(
     <Field extends keyof MedicationData>(field: Field, type = 'text'): MedicationData[Field] | '' | undefined => {
-      return localValues[field] ?? (medication ? getMedicationFieldValue(medication || {}, field, type) : undefined);
+      // user touched the field (incl. explicitly cleared to `undefined`)
+      if (field in localValues) {
+        return localValues[field];
+      }
+
+      // not touched yet — fall back to the saved order
+      if (medication) {
+        return getMedicationFieldValue(medication || {}, field, type);
+      }
+
+      // new order, nothing entered yet
+      return undefined;
     },
     [localValues, medication, getMedicationFieldValue]
   );
