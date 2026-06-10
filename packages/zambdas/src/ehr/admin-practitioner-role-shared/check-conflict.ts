@@ -103,7 +103,35 @@ export async function checkPractitionerRoleConflict(
     }
   }
 
-  const candidateCategorySet = new Set(candidate.categoryHsIds);
+  // Candidate IDs the caller passed might include non-category refs (e.g.,
+  // group-membership refs), particularly on UPDATE where they may be sourced
+  // from the existing PR's full `healthcareService[]`. Classify any that
+  // weren't picked up via `_include` so the overlap logic below doesn't
+  // false-positive — most importantly, in the otherAllCategories branch where
+  // a non-empty candidate set returns a conflict without further checks.
+  // Membership in `categoryHsIds` is the authoritative "is a category"
+  // signal; `nameById` may include caller-seeded display names for IDs
+  // we haven't actually classified yet, so don't gate on it.
+  const unclassifiedCandidateIds = candidate.categoryHsIds.filter((id) => !categoryHsIds.has(id));
+  if (unclassifiedCandidateIds.length > 0) {
+    const candidateBundle = await oystehr.fhir.search<HealthcareService>({
+      resourceType: 'HealthcareService',
+      params: [{ name: '_id', value: unclassifiedCandidateIds.join(',') }],
+    });
+    for (const hs of candidateBundle.unbundle()) {
+      if (!hs.id) continue;
+      if (isServiceCategoryHealthcareService(hs)) {
+        categoryHsIds.add(hs.id);
+        if (!nameById.has(hs.id)) nameById.set(hs.id, hs.name ?? hs.id);
+      }
+    }
+  }
+
+  const filteredCandidateCategoryIds = candidate.categoryHsIds.filter((id) => categoryHsIds.has(id));
+  // Re-apply the "offers nothing" early-out after filtering — a candidate
+  // whose only refs were group memberships truly offers no categories.
+  if (!candidate.allCategories && filteredCandidateCategoryIds.length === 0) return null;
+  const candidateCategorySet = new Set(filteredCandidateCategoryIds);
 
   for (const other of others) {
     const otherLocation = other.location?.[0]?.reference;

@@ -403,5 +403,55 @@ describe('admin-create-practitioner-role + admin-update-practitioner-role — al
       });
       assert(role.id);
     });
+
+    // Inverse of the previous test, for the candidate side. UPDATE may pass
+    // through the existing PR's full `healthcareService[]` (group refs and
+    // all) as candidate.categoryHsIds. Without filtering, a candidate whose
+    // only ref is a group-membership HS would non-emptily collide with any
+    // other PR that has allCategories=true at the same location — a false
+    // positive on a no-op-ish update.
+    it('ignores non-service-category healthcareService refs on the candidate when checking overlap', async () => {
+      const sharedLocation = await makeFreshLocation();
+
+      // Existing PR at sharedLocation, allCategories=true. Created via the
+      // zambda so the conflict check sees a real candidate-vs-this scenario
+      // on the subsequent update.
+      const { role: otherRole } = await callCreate({
+        allCategories: true,
+        locationId: sharedLocation.id!,
+      });
+      assert(otherRole.id);
+
+      // Candidate PR: lives at an isolated Location, has only a non-category
+      // (group-membership-style) ref in healthcareService[], no allCategories.
+      // Built via raw FHIR so we can plant the non-category ref.
+      const isolatedLocation = await makeFreshLocation();
+      const nonCategoryHs = await oystehrAdmin.fhir.create<HealthcareService>({
+        resourceType: 'HealthcareService',
+        active: true,
+        name: `pr-cand-noncat-${randomUUID().slice(0, 8)}`,
+        meta: { tag: [{ system: INTEGRATION_TEST_TAG_SYSTEM, code: `DELETE_ME-${processId}` }] },
+      });
+      assert(nonCategoryHs.id);
+      createdServiceCategoryIds.push(nonCategoryHs.id);
+
+      const candidateRole = await oystehrAdmin.fhir.create<PractitionerRole>({
+        resourceType: 'PractitionerRole',
+        active: true,
+        practitioner: { reference: `Practitioner/${testPractitioner.id}` },
+        location: [{ reference: `Location/${isolatedLocation.id}` }],
+        healthcareService: [{ reference: `HealthcareService/${nonCategoryHs.id}` }],
+        meta: { tag: [{ system: INTEGRATION_TEST_TAG_SYSTEM, code: `DELETE_ME-${processId}` }] },
+      });
+      assert(candidateRole.id);
+      createdPrIds.push(candidateRole.id);
+
+      // Move the candidate to sharedLocation without touching categories or
+      // toggling allCategories. The conflict check fires because the outer
+      // guard sees non-empty targetCategoryIds (the group ref), but it should
+      // be a no-op — the group ref isn't a category offer, so there's no
+      // overlap with the other PR's allCategories=true.
+      await callUpdate(candidateRole.id, { locationId: sharedLocation.id! });
+    });
   });
 });
