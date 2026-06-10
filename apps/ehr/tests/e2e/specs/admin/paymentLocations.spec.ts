@@ -1,32 +1,10 @@
 import { BrowserContext, Page, test } from '@playwright/test';
-import { isLocationVirtual } from 'utils';
-import locationsSpec from '../../../../../../config/oystehr/locations-and-schedules.json' assert { type: 'json' };
 import {
   expectPaymentLocationDetailPage,
   expectPaymentLocationsPage,
   PaymentLocationDetailPage,
   PaymentLocationsPage,
 } from '../../page/PaymentLocationsPage';
-
-function findFirstLocationName(): string {
-  const entries = Object.values((locationsSpec as { fhirResources: Record<string, any> }).fhirResources);
-  let inPerson: string | undefined;
-  let telemed: string | undefined;
-  for (const entry of entries) {
-    const resource = entry.resource;
-    if (resource?.resourceType !== 'Location' || !resource.name) continue;
-    if (isLocationVirtual(resource)) {
-      telemed ??= resource.name;
-    } else {
-      inPerson ??= resource.name;
-    }
-  }
-  if (inPerson) return inPerson;
-  if (telemed) return telemed;
-  throw new Error(
-    'Expected locations-and-schedules.json to contain at least one named Location resource, but none were found.'
-  );
-}
 
 let page: Page;
 let context: BrowserContext;
@@ -43,7 +21,9 @@ test.afterAll(async () => {
 
 let paymentLocationsPage: PaymentLocationsPage;
 let detailPage: PaymentLocationDetailPage;
-const TARGET_LOCATION = findFirstLocationName();
+// Location names are self-service editable (not terraform-managed), so seeded names from
+// config can drift in shared environments. Use whatever location the table actually lists.
+let targetLocation: string;
 
 test.describe.configure({ mode: 'serial' });
 
@@ -58,33 +38,40 @@ test.describe('Payment Locations Admin', () => {
     const rowCount = await paymentLocationsPage.getLocationRows();
     test.skip(rowCount === 0, 'No payment locations available to test');
 
-    await paymentLocationsPage.searchLocations(TARGET_LOCATION);
-    await paymentLocationsPage.verifyLocationVisible(TARGET_LOCATION);
+    targetLocation = await paymentLocationsPage.getFirstLocationName();
+    test.skip(!targetLocation, 'First listed location has no name to search for');
+
+    await paymentLocationsPage.searchLocations(targetLocation);
+    await paymentLocationsPage.verifyLocationVisible(targetLocation);
     await paymentLocationsPage.searchLocations('');
   });
 
   test('search filters locations correctly', async () => {
-    await paymentLocationsPage.searchLocations(TARGET_LOCATION);
-    await paymentLocationsPage.verifyLocationVisible(TARGET_LOCATION);
+    test.skip(!targetLocation, 'No target location available');
+
+    await paymentLocationsPage.searchLocations(targetLocation);
+    await paymentLocationsPage.verifyLocationVisible(targetLocation);
 
     // Search for nonexistent location
     await paymentLocationsPage.searchLocations('ZZZZNONEXISTENT');
-    await paymentLocationsPage.verifyLocationNotVisible(TARGET_LOCATION);
+    await paymentLocationsPage.verifyLocationNotVisible(targetLocation);
 
     // Clear search
     await paymentLocationsPage.searchLocations('');
   });
 
   test('click on a location row navigates to detail page', async () => {
-    await paymentLocationsPage.searchLocations(TARGET_LOCATION);
-    await paymentLocationsPage.clickLocationByName(TARGET_LOCATION);
+    test.skip(!targetLocation, 'No target location available');
+
+    await paymentLocationsPage.searchLocations(targetLocation);
+    await paymentLocationsPage.clickLocationByName(targetLocation);
     detailPage = await expectPaymentLocationDetailPage(page);
   });
 
   test('detail page shows location name and sections', async () => {
     test.skip(!detailPage, 'Detail page not loaded');
 
-    await detailPage.verifyLocationName(TARGET_LOCATION);
+    await detailPage.verifyLocationName(targetLocation);
     await detailPage.verifyContactAndAddressSection();
     await detailPage.verifyBreadcrumbs();
   });
