@@ -67,6 +67,13 @@ RULES:
   present a booking/reason/status field as if it were that concept). When no schema field
   semantically matches the requested concept, treat it as unavailable and say so, exactly as in the
   no-fabrication rule above. Mislabeled real data is just as harmful as invented data.
+- ONLY BUILD REPORTS. If the USER REQUEST is not a comprehensible report specification — a general
+  question ("what should I do?"), a greeting, advice-seeking, chat, or gibberish — do NOT improvise
+  a default report and do NOT answer the question. Instead render a short help panel: one sentence
+  stating that this tool generates reports over the currently fetched dataset, then 3-4 concrete
+  example requests phrased for THIS schema (e.g. a chart by a categorical field, a table grouped by
+  two fields, an average of a numeric field by category), and the dataset's row count and date
+  range. Set the title to "How to use Ad-Hoc Reports".
 - Handle the empty case (data.length === 0) with a friendly "No data for the selected range" message.
 - Be self-contained and side-effecting: render by mutating document.body; return nothing.
 - Return ONLY the statements that go INSIDE the function body — do NOT include the function declaration
