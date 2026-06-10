@@ -5,14 +5,12 @@ import {
   chartDataTagSystem,
   CreateLabPaymentMethod,
   DiagnosisDTO,
-  EXTERNAL_LAB_TEMPLATE_PLAN_PAYMENT_METHOD_EXT_URL,
   FHIR_IDC10_VALUESET_SYSTEM,
   getAttendingPractitionerId,
   getSecret,
   ICD_10_CODE_SYSTEM,
   isPSCOrder,
   LAB_ACCOUNT_NUMBER_SYSTEM,
-  LabPaymentMethod,
   OrderableItemSearchResult,
   OYSTEHR_LAB_GUID_SYSTEM,
   OYSTEHR_LAB_OI_CODE_SYSTEM,
@@ -44,8 +42,11 @@ export const findExternalLabPlans = (templateList: List): ServiceRequest[] => {
 
 // The ordering inputs an external lab plan carries, lifted off the plan
 // ServiceRequest's FHIR shape so the apply flow below can work with plain
-// values. The ordering office is intentionally absent - it's derived from the
-// encounter the template is being applied to.
+// values. The ordering office and payment method are intentionally absent -
+// the office is derived from the encounter the template is being applied to,
+// and the payment method comes from the user's confirmation in the preview
+// dialog (defaulted from the visit's payment details, mirroring the chart's
+// create-order page).
 export interface ParsedExternalLabPlan {
   planId: string;
   labGuid: string;
@@ -55,20 +56,12 @@ export interface ParsedExternalLabPlan {
   dx: DiagnosisDTO[];
   note: string | undefined;
   psc: boolean;
-  configuredPaymentMethod: CreateLabPaymentMethod | undefined;
 }
 
 export const labelForExternalLabPlan = (plan: ServiceRequest): string => {
   return (
     plan.code?.text ?? plan.code?.coding?.[0]?.display ?? plan.code?.coding?.[0]?.code ?? 'Unknown external lab test'
   );
-};
-
-const VALID_PAYMENT_METHODS = new Set<string>(Object.values(LabPaymentMethod));
-
-export const parsePlanPaymentMethod = (value: string | undefined): CreateLabPaymentMethod | undefined => {
-  if (value && VALID_PAYMENT_METHODS.has(value)) return value as CreateLabPaymentMethod;
-  return undefined;
 };
 
 // Reverse the conversion the create flow does when it writes reasonCode from
@@ -117,9 +110,6 @@ export const parseExternalLabPlan = (plan: ServiceRequest): ParsedExternalLabPla
     dx: diagnosesFromReasonCode(plan),
     note: noteFromPlan(plan),
     psc: isPSCOrder(plan),
-    configuredPaymentMethod: parsePlanPaymentMethod(
-      plan.extension?.find((e) => e.url === EXTERNAL_LAB_TEMPLATE_PLAN_PAYMENT_METHOD_EXT_URL)?.valueString
-    ),
   };
 };
 
@@ -178,9 +168,10 @@ interface ApplyExternalLabPlansInput {
   oystehr: Oystehr;
   m2mToken: string;
   action: TemplateSectionAction;
-  // The payment method the user confirmed in the preview dialog. Required by
-  // the EHR flow; API callers may omit it, in which case each plan falls back
-  // to the payment method configured on the template.
+  // The payment method the user confirmed in the preview dialog (defaulted
+  // there from the visit's payment details). Templates don't carry a payment
+  // method, so this is required to create any orders - without it the section
+  // is skipped with a warning.
   selectedPaymentMethod: CreateLabPaymentMethod | undefined;
 }
 
@@ -218,6 +209,16 @@ export async function applyExternalLabPlans(input: ApplyExternalLabPlansInput): 
 
     const plans = findExternalLabPlans(templateList);
     if (plans.length === 0) return { warnings: [] };
+
+    // The EHR preview dialog always sends a payment method when this section
+    // is appended; without one we can't create orders at all.
+    if (!selectedPaymentMethod) {
+      warnings.push({
+        section: 'externalLabs',
+        message: 'Skipped external lab orders — no payment method was provided.',
+      });
+      return { warnings };
+    }
 
     const parsedPlans: ParsedExternalLabPlan[] = [];
     for (const plan of plans) {
@@ -318,15 +319,6 @@ export async function applyExternalLabPlans(input: ApplyExternalLabPlansInput): 
         continue;
       }
 
-      const paymentMethod = selectedPaymentMethod ?? parsed.configuredPaymentMethod;
-      if (!paymentMethod) {
-        warnings.push({
-          section: 'externalLabs',
-          message: `Skipped "${parsed.testName}" — no payment method was selected or configured on the template.`,
-        });
-        continue;
-      }
-
       try {
         // Sequential on purpose: each build re-queries the encounter's draft
         // orders, so a plan for the same lab/psc/payment bundles under the
@@ -339,7 +331,7 @@ export async function applyExternalLabPlans(input: ApplyExternalLabPlansInput): 
           orderableItems: [orderableItem],
           psc: parsed.psc,
           orderingLocation: modifiedOrderingLocation,
-          selectedPaymentMethod: paymentMethod,
+          selectedPaymentMethod,
           clinicalInfoNoteByUser: parsed.note,
           currentUserPractitioner,
           attendingPractitionerId,

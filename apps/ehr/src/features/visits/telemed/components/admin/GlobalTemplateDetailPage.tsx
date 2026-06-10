@@ -28,7 +28,6 @@ import { useApiClients } from 'src/hooks/useAppClients';
 import PageContainer from 'src/layout/PageContainer';
 import {
   AdminGetTemplateDetailOutput,
-  LAB_PAYMENT_METHOD_DISPLAY,
   RosFindingState,
   RosFindingStateLabel,
   TemplateExamFinding,
@@ -474,11 +473,6 @@ export default function GlobalTemplateDetailPage(): ReactElement {
                     <Typography variant="body2" sx={{ mt: 0.5 }}>
                       <strong>PSC Hold:</strong> {plan.psc ? 'Yes' : 'No'}
                     </Typography>
-                    {plan.paymentMethod ? (
-                      <Typography variant="body2">
-                        <strong>Payment method:</strong> {LAB_PAYMENT_METHOD_DISPLAY[plan.paymentMethod]}
-                      </Typography>
-                    ) : null}
                     {plan.note ? (
                       <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
                         <strong>Note:</strong> {plan.note}

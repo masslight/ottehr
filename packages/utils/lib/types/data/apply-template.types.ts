@@ -73,11 +73,12 @@ export interface ApplyTemplateZambdaInput {
   encounterId: string;
   templateName: string;
   sectionActions?: TemplateSectionActions;
-  // External lab orders require a payment method at create time. The preview
-  // dialog requires the user to confirm one before appending the External Lab
-  // Orders section; it's passed here and used for every external lab plan on
-  // the template. Falls back to the payment method configured on each plan
-  // when omitted (e.g. API callers bypassing the EHR UI).
+  // External lab orders require a payment method at create time, and templates
+  // don't carry one (it's visit-specific). The preview dialog defaults a
+  // selection from the visit's payment details and requires the user to
+  // confirm it before appending the External Lab Orders section; it's passed
+  // here and used for every external lab plan on the template. When omitted,
+  // the section is skipped with a warning.
   externalLabs?: { paymentMethod: CreateLabPaymentMethod };
 }
 

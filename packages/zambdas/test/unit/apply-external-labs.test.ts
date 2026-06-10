@@ -1,10 +1,8 @@
 import { Encounter, List, Location, ServiceRequest } from 'fhir/r4b';
 import {
   chartDataTagSystem,
-  EXTERNAL_LAB_TEMPLATE_PLAN_PAYMENT_METHOD_EXT_URL,
   FHIR_IDC10_VALUESET_SYSTEM,
   LAB_ACCOUNT_NUMBER_SYSTEM,
-  LabPaymentMethod,
   OrderableItemSearchResult,
   OYSTEHR_LAB_GUID_SYSTEM,
   OYSTEHR_LAB_OI_CODE_SYSTEM,
@@ -19,7 +17,6 @@ import {
   locationIsEnabledForLabs,
   matchOrderableItemForPlan,
   parseExternalLabPlan,
-  parsePlanPaymentMethod,
 } from '../../src/ehr/apply-template/apply-external-labs';
 import { TemplateEncounterResource } from '../../src/ehr/shared/template-helpers';
 
@@ -105,7 +102,6 @@ describe('parseExternalLabPlan', () => {
           text: PSC_HOLD_CONFIG.display,
         },
       ],
-      extension: [{ url: EXTERNAL_LAB_TEMPLATE_PLAN_PAYMENT_METHOD_EXT_URL, valueString: 'insurance' }],
     });
 
     const parsed = parseExternalLabPlan(plan);
@@ -118,7 +114,6 @@ describe('parseExternalLabPlan', () => {
       dx: [{ code: 'J02.9', display: 'Acute pharyngitis', isPrimary: false }],
       note: 'fasting required',
       psc: true,
-      configuredPaymentMethod: LabPaymentMethod.Insurance,
     });
   });
 
@@ -128,7 +123,6 @@ describe('parseExternalLabPlan', () => {
       dx: [],
       note: undefined,
       psc: false,
-      configuredPaymentMethod: undefined,
     });
   });
 
@@ -144,29 +138,9 @@ describe('parseExternalLabPlan', () => {
     expect(parseExternalLabPlan(plan)).toBeNull();
   });
 
-  test('ignores an unrecognized payment method value on the extension', () => {
-    const plan = makePlan('plan-bad-payment', {
-      extension: [{ url: EXTERNAL_LAB_TEMPLATE_PLAN_PAYMENT_METHOD_EXT_URL, valueString: 'barter' }],
-    });
-    expect(parseExternalLabPlan(plan)?.configuredPaymentMethod).toBeUndefined();
-  });
-
   test('joins multiple notes with blank lines', () => {
     const plan = makePlan('plan-notes', { note: [{ text: 'note one' }, { text: 'note two' }] });
     expect(parseExternalLabPlan(plan)?.note).toBe('note one\n\nnote two');
-  });
-});
-
-describe('parsePlanPaymentMethod', () => {
-  test('accepts every LabPaymentMethod value', () => {
-    for (const method of Object.values(LabPaymentMethod)) {
-      expect(parsePlanPaymentMethod(method)).toBe(method);
-    }
-  });
-
-  test('rejects unknown values and undefined', () => {
-    expect(parsePlanPaymentMethod('barter')).toBeUndefined();
-    expect(parsePlanPaymentMethod(undefined)).toBeUndefined();
   });
 });
 

@@ -160,7 +160,6 @@ const mockTemplateDetail = {
         diagnoses: [{ code: 'J02.9', display: 'Acute pharyngitis, unspecified' }],
         note: 'fasting required',
         psc: true,
-        paymentMethod: 'insurance',
         missing: false,
       },
       {
@@ -172,7 +171,6 @@ const mockTemplateDetail = {
         diagnoses: [],
         note: null,
         psc: false,
-        paymentMethod: null,
         missing: true,
       },
     ],
@@ -522,9 +520,9 @@ describe('ApplyTemplate', () => {
             externalLabs: 'append',
             procedures: 'append',
           },
-          // The payment method auto-selects to the template's configured value
-          // ('insurance', available because the patient has coverage) and rides
-          // along with the apply call.
+          // The payment method auto-selects from the visit's payment details
+          // ('insurance' because the patient has coverage) and rides along
+          // with the apply call.
           externalLabs: { paymentMethod: 'insurance' },
         })
       );
@@ -738,8 +736,8 @@ describe('ApplyTemplate', () => {
     expect(within(labCard).getByRole('button', { name: 'Append' })).toBeInTheDocument();
 
     // The always-visible apply controls show the auto-selected ordering office
-    // (from the visit) and the payment method select, pre-filled from the
-    // template's configured value since the patient has coverage.
+    // (from the visit) and the payment method select, defaulted from the
+    // visit's payment details (insurance, since the patient has coverage).
     const controls = within(labCard).getByTestId('template-section-externalLabs-controls');
     expect(within(controls).getByTestId('template-external-labs-ordering-office')).toHaveTextContent('Test Office');
     expect(within(controls).getByTestId('template-external-labs-payment-method')).toHaveTextContent('Insurance');
@@ -753,7 +751,6 @@ describe('ApplyTemplate', () => {
     });
     expect(within(labCard).getByText(/unavailable in this environment/)).toBeInTheDocument();
     expect(within(labCard).getByText('PSC Hold')).toBeInTheDocument();
-    expect(within(labCard).getByText(/Configured payment method: Insurance/)).toBeInTheDocument();
     expect(within(labCard).getByText(/fasting required/)).toBeInTheDocument();
   });
 
@@ -821,6 +818,29 @@ describe('ApplyTemplate', () => {
       );
     });
     expect(mockApplyTemplate.mock.calls[0][1].sectionActions.externalLabs).toBe('skip');
+  });
+
+  it('should block Apply when payment options fail to load, until the section is skipped', async () => {
+    const user = userEvent.setup();
+    // Templates carry no payment method, so a failed options fetch means no
+    // payment method can be confirmed - appending is blocked and the user is
+    // told to skip the section.
+    mockUseGetCreateExternalLabResources.mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      isError: true,
+    });
+    render(<ApplyTemplate />, { wrapper: createWrapper() });
+
+    await user.click(await screen.findByLabelText('Select condition'));
+    await user.click(await screen.findByText('Sore Throat'));
+
+    const labCard = await screen.findByTestId('template-section-externalLabs');
+    expect(within(labCard).getByTestId('template-external-labs-resources-error')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Apply Template' })).toBeDisabled();
+
+    await user.click(within(labCard).getByRole('button', { name: 'Skip' }));
+    expect(screen.getByRole('button', { name: 'Apply Template' })).toBeEnabled();
   });
 
   it('should warn without blocking Apply when the visit office is not configured for external labs', async () => {

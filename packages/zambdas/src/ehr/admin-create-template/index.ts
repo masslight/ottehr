@@ -1,12 +1,11 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { ActivityDefinition, Coverage, Encounter, List, Patient, ServiceRequest } from 'fhir/r4b';
+import { ActivityDefinition, Encounter, List, Patient, ServiceRequest } from 'fhir/r4b';
 import {
   AdminCreateTemplateInput,
   AdminCreateTemplateOutput,
   chartDataTagSystem,
   examConfig,
-  EXTERNAL_LAB_TEMPLATE_PLAN_PAYMENT_METHOD_EXT_URL,
   getSecret,
   GLOBAL_TEMPLATE_IN_PERSON_CODE_SYSTEM,
   IN_HOUSE_TEST_CODE_SYSTEM,
@@ -19,7 +18,6 @@ import {
   REPEAT_TEST_ORDER_DETAIL_TAG_CONFIG,
   resourceHasTagSystem,
   SecretsKeys,
-  serviceRequestPaymentMethod,
   transactionWasSuccessful,
 } from 'utils';
 import { v4 as uuidV4 } from 'uuid';
@@ -183,14 +181,10 @@ const performEffect = async (
 
   // Capture external lab orders the same way. Their clinical info note lives
   // on a Communication that references the order SR via basedOn (it carries no
-  // chart-data tag and no encounter reference), and the payment method is
-  // derived from the Coverage the order's insurance points at - both have to
-  // be collected before the tag filter strips those resources out.
+  // chart-data tag and no encounter reference), so it has to be collected
+  // before the tag filter strips those resources out.
   const externalLabOrders = encounterBundle.filter((resource): resource is ServiceRequest =>
     isValidExternalLabServiceRequest(resource)
-  );
-  const activeCoverages = encounterBundle.filter(
-    (resource): resource is Coverage => resource.resourceType === 'Coverage' && resource.status === 'active'
   );
   const clinicalInfoNoteBySrId = new Map<string, string>();
   for (const resource of encounterBundle) {
@@ -286,10 +280,11 @@ const performEffect = async (
   // Materialize each captured external lab order as a "plan" ServiceRequest on
   // the template. Like in-house labs, we don't snapshot the live order graph;
   // the plan stores the lab + test combo (lab GUID + name, orderable item
-  // code), the Dx reason codes, the clinical info note, the PSC flag, and the
-  // payment method the order used. At apply time the test is re-resolved
-  // against the lab's current compendium and the ordering office is derived
-  // from the encounter the template is applied to.
+  // code), the Dx reason codes, the clinical info note, and the PSC flag. At
+  // apply time the test is re-resolved against the lab's current compendium,
+  // the ordering office is derived from the encounter the template is applied
+  // to, and the payment method defaults from that visit's payment details -
+  // both are visit-specific, so neither is stored on the template.
   const externalLabPlanTag = chartDataTagSystem('external-lab-template-plan');
   for (const order of externalLabOrders) {
     const labPerformer = order.performer?.find((p) => p.identifier?.system === OYSTEHR_LAB_GUID_SYSTEM);
@@ -306,7 +301,6 @@ const performEffect = async (
     const containedAd = order.contained?.find((r): r is ActivityDefinition => r.resourceType === 'ActivityDefinition');
     const labName = containedAd?.publisher ?? labPerformer.display;
     const clinicalInfoNote = order.id ? clinicalInfoNoteBySrId.get(order.id) : undefined;
-    const paymentMethod = serviceRequestPaymentMethod(order, activeCoverages);
 
     const planId = uuidV4();
     const plan: ServiceRequest = {
@@ -338,9 +332,6 @@ const performEffect = async (
               },
             ],
           }
-        : {}),
-      ...(paymentMethod
-        ? { extension: [{ url: EXTERNAL_LAB_TEMPLATE_PLAN_PAYMENT_METHOD_EXT_URL, valueString: paymentMethod }] }
         : {}),
       meta: {
         tag: [

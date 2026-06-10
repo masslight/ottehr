@@ -1,4 +1,4 @@
-import { CreateLabPaymentMethod, RosFindingState } from 'utils';
+import { RosFindingState } from 'utils';
 
 // ── admin-create-template ──
 
@@ -109,9 +109,10 @@ export interface TemplateInHouseLabPlanDetail {
 // Each external lab plan saved on a template carries the inputs the external
 // create-lab-order flow needs at apply time: the lab + test combo (lab GUID,
 // lab name, and the orderable item code), the Dx reason codes, the optional
-// clinical info note, the PSC flag, and (optionally) the payment method that
-// was on the order the template was saved from. The ordering office is NOT
-// stored - it's derived from the encounter the template is applied to.
+// clinical info note, and the PSC flag. The ordering office and payment
+// method are NOT stored - both are visit-specific: the office is derived from
+// the encounter the template is applied to, and the payment method defaults
+// from that visit's payment details in the preview dialog.
 //
 // `missing: true` indicates the test could not be found in the lab's current
 // compendium via the orderable item search - the admin UI surfaces this so a
@@ -126,7 +127,6 @@ export interface TemplateExternalLabPlanDetail {
   diagnoses: TemplateCodeInfo[];
   note: string | null;
   psc: boolean;
-  paymentMethod: CreateLabPaymentMethod | null;
   missing: boolean;
 }
 

@@ -478,11 +478,6 @@ const ExternalLabPlansList: React.FC<{ plans: TemplateExternalLabPlanDetail[] }>
             />
           ))}
         </Stack>
-        {plan.paymentMethod ? (
-          <Typography variant="caption" sx={{ display: 'block', mt: 0.5, color: 'text.secondary' }}>
-            Configured payment method: {LAB_PAYMENT_METHOD_DISPLAY[plan.paymentMethod]}
-          </Typography>
-        ) : null}
         {plan.note ? (
           <Typography
             variant="caption"
@@ -731,9 +726,9 @@ const ExternalLabsApplyControls: React.FC<{
 
   if (resourcesError) {
     return (
-      <Alert severity="warning" sx={{ py: 0 }}>
-        Couldn't load payment options for external lab orders. Orders will use the payment method configured on the
-        template, or be skipped if none is configured.
+      <Alert severity="warning" sx={{ py: 0 }} data-testid="template-external-labs-resources-error">
+        Couldn't load payment options for external lab orders — this usually means the patient's responsible party or
+        payment information is incomplete. Set this section to Skip to apply the rest of the template.
       </Alert>
     );
   }
@@ -863,27 +858,21 @@ export const TemplatePreviewDialog: React.FC<TemplatePreviewDialogProps> = ({
     return externalLabResources.orderingLocations.find((loc) => loc.id === apptLocation.id)?.name;
   }, [apptLocation?.id, externalLabResources]);
 
-  // Pre-select the payment method: the template's configured value when it's
-  // still available for this patient, otherwise the same auto-default the
-  // create-order page uses (workers comp → insurance → self pay).
+  // Pre-select the payment method from the visit's payment details, using the
+  // same auto-default the chart's create-order page uses: workers comp when
+  // the appointment is flagged, otherwise insurance when the patient has
+  // coverage, otherwise self pay. Templates intentionally don't carry a
+  // payment method - it's visit-specific.
   useEffect(() => {
     if (!open || !hasExternalLabs || !externalLabResources) return;
     setExternalLabPaymentMethod((current) => {
       if (current) return current;
-      const configured = externalLabPlans?.find((p) => p.paymentMethod)?.paymentMethod ?? undefined;
-      const configuredIsAvailable =
-        configured &&
-        (configured === LabPaymentMethod.SelfPay ||
-          configured === LabPaymentMethod.ClientBill ||
-          (configured === LabPaymentMethod.Insurance && hasInsurance) ||
-          (configured === LabPaymentMethod.WorkersComp && isWorkersComp));
-      if (configuredIsAvailable) return configured;
       if (isWorkersComp) return LabPaymentMethod.WorkersComp;
       if (hasInsurance) return LabPaymentMethod.Insurance;
       if (coverageInfo) return LabPaymentMethod.SelfPay;
       return current;
     });
-  }, [open, hasExternalLabs, externalLabResources, externalLabPlans, hasInsurance, isWorkersComp, coverageInfo]);
+  }, [open, hasExternalLabs, externalLabResources, hasInsurance, isWorkersComp, coverageInfo]);
 
   const handleActionChange = (key: TemplateSectionKey, action: TemplateSectionAction): void => {
     setActions((prev) => ({ ...prev, [key]: action }));
@@ -917,15 +906,16 @@ export const TemplatePreviewDialog: React.FC<TemplatePreviewDialogProps> = ({
   const allSkipped = sectionsWithContent.length > 0 && sectionsWithContent.every((s) => actions[s.key] === 'skip');
 
   // Appending external lab orders requires a confirmed payment method before
-  // the template can be applied. When the office isn't lab-configured (or the
-  // resource fetch failed) there's nothing actionable to require - the orders
-  // are skipped (or fall back to the template's configured method) server-side
-  // with a warning.
+  // the template can be applied. Templates don't carry one, so when the
+  // payment options can't be loaded the section must be skipped to proceed.
+  // When the office isn't lab-configured there's nothing to require - the
+  // orders are skipped server-side with a warning.
   const externalLabsAppendSelected = hasExternalLabs && actions.externalLabs === 'append';
   const externalLabsRequirementUnmet =
     externalLabsAppendSelected &&
-    !externalLabResourcesQuery.isError &&
-    (externalLabResourcesQuery.isLoading || (Boolean(orderingOfficeName) && !externalLabPaymentMethod));
+    (externalLabResourcesQuery.isLoading ||
+      externalLabResourcesQuery.isError ||
+      (Boolean(orderingOfficeName) && !externalLabPaymentMethod));
 
   return (
     <Dialog

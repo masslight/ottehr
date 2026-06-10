@@ -378,9 +378,9 @@ const performEffect = async (
 
   // Parse external lab plans. Each plan is a ServiceRequest with intent 'plan'
   // and the external-lab-template-plan meta tag carrying the lab + test combo,
-  // Dx, note, PSC flag, and (optionally) a payment method. We verify each
-  // lab + test combo still resolves in the lab's current compendium so the
-  // admin UI can flag tests that would be skipped at apply time.
+  // Dx, note, and PSC flag. We verify each lab + test combo still resolves in
+  // the lab's current compendium so the admin UI can flag tests that would be
+  // skipped at apply time.
   const externalLabPlans = findExternalLabPlans(templateList);
   const externalParsedPlans = externalLabPlans.map((plan) => ({ plan, parsed: parseExternalLabPlan(plan) }));
 
@@ -418,7 +418,6 @@ const performEffect = async (
         diagnoses: [],
         note: null,
         psc: false,
-        paymentMethod: null,
         missing: true,
       };
     }
@@ -435,7 +434,6 @@ const performEffect = async (
       diagnoses: parsed.dx.map((d) => ({ code: d.code, display: d.display })),
       note: parsed.note ?? null,
       psc: parsed.psc,
-      paymentMethod: parsed.configuredPaymentMethod ?? null,
       missing,
     };
   });
