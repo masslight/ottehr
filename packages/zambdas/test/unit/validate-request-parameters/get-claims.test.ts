@@ -8,8 +8,8 @@ describe('get-claims - validateRequestParameters', () => {
     const input = createMockZambdaInput(
       {
         patient: 'John',
-        visitId: 'visit-1',
-        claimId: 'claim-1',
+        visitId: '550e8400-e29b-41d4-a716-446655440000',
+        claimId: '6ba7b810-9dad-11d1-80b4-00c04fd430c8',
         teamMember: 'Dr. Smith',
         queue: 'billing',
         dayInQueue: 5,
@@ -29,8 +29,8 @@ describe('get-claims - validateRequestParameters', () => {
     const result = validateRequestParameters(input);
 
     expect(result.patient).toBe('John');
-    expect(result.visitId).toBe('visit-1');
-    expect(result.claimId).toBe('claim-1');
+    expect(result.visitId).toBe('550e8400-e29b-41d4-a716-446655440000');
+    expect(result.claimId).toBe('6ba7b810-9dad-11d1-80b4-00c04fd430c8');
     expect(result.offset).toBe(0);
     expect(result.pageSize).toBe(20);
     expect(result.secrets).toEqual(secrets);
@@ -58,6 +58,18 @@ describe('get-claims - validateRequestParameters', () => {
     expect(result.patient).toBe('Jane');
     expect(result.status).toBe('denied');
     expect(result.visitId).toBeUndefined();
+  });
+
+  test('should throw when visitId is not a valid UUID', () => {
+    const secrets = createMockSecrets();
+    const input = createMockZambdaInput({ visitId: 'visit-1' }, { secrets });
+    expect(() => validateRequestParameters(input)).toThrow();
+  });
+
+  test('should throw when claimId is not a valid UUID', () => {
+    const secrets = createMockSecrets();
+    const input = createMockZambdaInput({ claimId: 'claim-1' }, { secrets });
+    expect(() => validateRequestParameters(input)).toThrow();
   });
 
   test('should pass through secrets from input', () => {

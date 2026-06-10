@@ -4,8 +4,8 @@ import { safeValidate, ZambdaInput } from '../../shared';
 
 const GetClaimsBodySchema = z.object({
   patient: z.string().optional(),
-  visitId: z.string().optional(),
-  claimId: z.string().optional(),
+  visitId: z.string().uuid().optional(),
+  claimId: z.string().uuid().optional(),
   teamMember: z.string().optional(),
   queue: z.string().optional(),
   dayInQueue: z.number().optional(),

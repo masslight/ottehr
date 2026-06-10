@@ -6,20 +6,20 @@ describe('update-user - validateRequestParameters', () => {
   const secrets = createMockSecrets();
 
   const validBody = {
-    userId: 'user-123',
+    userId: '550e8400-e29b-41d4-a716-446655440000',
   };
 
   test('should return validated params with only userId', () => {
     const input = createMockZambdaInput(validBody, { secrets });
     const result = validateRequestParameters(input);
 
-    expect(result.userId).toBe('user-123');
+    expect(result.userId).toBe('550e8400-e29b-41d4-a716-446655440000');
     expect(result.secrets).toBe(secrets);
   });
 
   test('should return validated params with all optional fields', () => {
     const fullBody = {
-      userId: 'user-123',
+      userId: '550e8400-e29b-41d4-a716-446655440000',
       firstName: ' John ',
       middleName: ' M ',
       lastName: ' Doe ',
@@ -57,6 +57,11 @@ describe('update-user - validateRequestParameters', () => {
   test('should throw when userId is missing', () => {
     const input = createMockZambdaInput({}, { secrets });
     expect(() => validateRequestParameters(input)).toThrow('userId');
+  });
+
+  test('should throw when userId is not a valid UUID', () => {
+    const input = createMockZambdaInput({ userId: 'user-123' }, { secrets });
+    expect(() => validateRequestParameters(input)).toThrow();
   });
 
   test('should throw when phoneNumber is invalid', () => {
@@ -97,7 +102,7 @@ describe('update-user - validateRequestParameters', () => {
   test('should trim string fields', () => {
     const input = createMockZambdaInput(
       {
-        userId: 'user-123',
+        userId: '550e8400-e29b-41d4-a716-446655440000',
         firstName: '  John  ',
         lastName: '  Doe  ',
         phoneNumber: '+12223334444',

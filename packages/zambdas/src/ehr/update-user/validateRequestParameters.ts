@@ -14,7 +14,7 @@ import { safeValidate, ZambdaInput } from '../../shared';
 
 const UpdateUserSchema = z
   .object({
-    userId: z.string().min(1),
+    userId: z.string().uuid(),
     firstName: z.string().optional(),
     middleName: z.string().optional(),
     lastName: z.string().optional(),
