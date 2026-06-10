@@ -190,7 +190,9 @@ export function formatPhoneNumberDisplay(phoneNumber?: string): string {
     return '';
   }
 
-  const cleaned = ('' + phoneNumber.slice(-10)).replace(/\D/g, '');
+  // Strip non-digits first, then take the last 10 digits so formatted inputs
+  // like "+1 (212) 555-1234" don't lose digits to the slice.
+  const cleaned = ('' + phoneNumber).replace(/\D/g, '').slice(-10);
   const match = cleaned.match(/^(\d{3})(\d{3})(\d{4})$/);
 
   if (match) {
@@ -209,12 +211,12 @@ export function maskPhoneNumber(phoneNumber?: string): string {
   if (!phoneNumber) {
     return '';
   }
-  const cleaned = ('' + phoneNumber).replace(/\D/g, '').slice(-10);
-  const match = cleaned.match(/^(\d{3})(\d{3})(\d{4})$/);
-  if (match) {
-    return `(${match[1]}) ***-${match[3]}`;
-  }
-  return '***';
+  const formatted = formatPhoneNumberDisplay(phoneNumber);
+  // Mask the middle (exchange) group of a "(212) 555-1234" formatted number.
+  const masked = formatted.replace(/^(\(\d{3}\) )\d{3}(-\d{4})$/, '$1***$2');
+  // When the input can't be parsed to a 10-digit number, formatPhoneNumberDisplay
+  // returns the raw input unchanged (no replacement happens), so fully mask it.
+  return masked === formatted ? '***' : masked;
 }
 
 /**

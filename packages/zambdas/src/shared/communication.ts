@@ -548,7 +548,7 @@ export async function createOutreachEmailCommunication({
     sent: new Date().toISOString(),
   };
 
-  const created = await oystehr.fhir.create<Communication>(communication as Communication);
+  const created = await oystehr.fhir.create<Communication>(communication);
   console.log(`Created Communication/${created.id} for outreach email to patient ${patientId}`);
   return created;
 }

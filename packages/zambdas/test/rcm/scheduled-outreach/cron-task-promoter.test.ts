@@ -1,6 +1,11 @@
 import type { APIGatewayProxyResult } from 'aws-lambda';
 import { PlanDefinition, Task } from 'fhir/r4b';
+import { DateTime } from 'luxon';
+import { PRIVATE_EXTENSION_BASE_URL } from 'utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { dedupeOutreachTasks } from '../../../src/cron/rcm/outreach-task-promoter/dedupe-outreach-tasks';
+import { index } from '../../../src/cron/rcm/outreach-task-promoter/index';
+import { parseNotificationsTimeRestriction } from '../../../src/rcm/scheduled-outreach-config/helpers';
 import type { ZambdaInput } from '../../../src/shared/types/common';
 
 // ── Mocks ──────────────────────────────────────────────────────────────────
@@ -79,12 +84,10 @@ function makeDraftTask(id: string, overrides?: Partial<Task>): Task {
 }
 
 describe('cron-outreach-task-promoter', () => {
-  let handler: ZambdaHandler;
+  const handler = index as ZambdaHandler;
 
-  beforeEach(async () => {
+  beforeEach(() => {
     vi.clearAllMocks();
-    const mod = await import('../../../src/cron/rcm/outreach-task-promoter/index');
-    handler = mod.index as ZambdaHandler;
   });
 
   it('promotes draft tasks to requested status', async () => {
@@ -140,7 +143,6 @@ describe('cron-outreach-task-promoter', () => {
   });
 
   it('cancels duplicate drafts and promotes only one', async () => {
-    const { PRIVATE_EXTENSION_BASE_URL } = await import('utils');
     const TAG_SYSTEM = `${PRIVATE_EXTENSION_BASE_URL}/outreach-task`;
     const tag = [
       { system: TAG_SYSTEM, code: 'discharge-time' },
@@ -182,23 +184,14 @@ describe('cron-outreach-task-promoter', () => {
 });
 
 describe('cron-outreach-task-promoter with SMS time restriction', () => {
-  let handler: ZambdaHandler;
-  let parseNotificationsTimeRestriction: any;
+  const handler = index as ZambdaHandler;
 
-  beforeEach(async () => {
+  beforeEach(() => {
     vi.clearAllMocks();
-
-    // Re-import to get the mocked version
-    const helpersModule = await import('../../../src/rcm/scheduled-outreach-config/helpers');
-    parseNotificationsTimeRestriction = helpersModule.parseNotificationsTimeRestriction;
-
-    const mod = await import('../../../src/cron/rcm/outreach-task-promoter/index');
-    handler = mod.index as ZambdaHandler;
   });
 
   it('blocks SMS tasks when outside notification window', async () => {
     // Mock DateTime.now() to a fixed time outside the narrow window to avoid flakiness
-    const { DateTime } = await import('luxon');
     const realNow = DateTime.now;
     vi.spyOn(DateTime, 'now').mockImplementation(() =>
       realNow.call(DateTime).set({ hour: 12, minute: 0, second: 0, millisecond: 0 })
@@ -229,18 +222,10 @@ describe('cron-outreach-task-promoter with SMS time restriction', () => {
 // ── Deduplication ────────────────────────────────────────────────────────────
 
 describe('dedupeOutreachTasks', () => {
-  let dedupeOutreachTasks: (tasks: Task[]) => {
-    tasksToProcess: Task[];
-    tasksToCancel: { task: Task; reason: string }[];
-  };
-  let TAG_SYSTEM: string;
+  const TAG_SYSTEM = `${PRIVATE_EXTENSION_BASE_URL}/outreach-task`;
 
-  beforeEach(async () => {
+  beforeEach(() => {
     vi.clearAllMocks();
-    const mod = await import('../../../src/cron/rcm/outreach-task-promoter/index');
-    dedupeOutreachTasks = mod.dedupeOutreachTasks;
-    const { PRIVATE_EXTENSION_BASE_URL } = await import('utils');
-    TAG_SYSTEM = `${PRIVATE_EXTENSION_BASE_URL}/outreach-task`;
   });
 
   function makeKeyedTask(

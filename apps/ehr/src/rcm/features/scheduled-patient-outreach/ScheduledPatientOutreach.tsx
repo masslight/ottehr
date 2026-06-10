@@ -47,7 +47,7 @@ import {
   Typography,
 } from '@mui/material';
 import { useEditor } from '@tiptap/react';
-import React, { ReactElement, useRef, useState } from 'react';
+import React, { ReactElement, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { SmsCharacterCounter } from 'src/components/template-editor-field/SmsCharacterCounter';
 import { INVOICE_TOKEN_IDS, TemplateEditorField } from 'src/components/template-editor-field/TemplateEditorField';
@@ -58,6 +58,7 @@ import {
   useSaveOutreachConfigMutation,
 } from 'src/rcm/state/scheduled-outreach-config/scheduled-outreach-config.queries';
 import { buildInvoicePlaceholders, InvoicePlaceholderInput } from 'utils';
+import { outreachColors } from './outreachColors';
 import OutreachTasksReport from './OutreachTasksReport';
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -206,16 +207,16 @@ function isPaperMailDisabled(): boolean {
 }
 
 const ACTION_CHIP_COLORS: Record<ActionType, string> = {
-  'charge-card': '#e65100',
-  'send-notification': '#2e7d32',
-  'refer-to-collections': '#b71c1c',
-  log: '#546e7a',
+  'charge-card': outreachColors.action.chargeCard,
+  'send-notification': outreachColors.action.sendNotification,
+  'refer-to-collections': outreachColors.action.collections,
+  log: outreachColors.action.log,
 };
 
 const MEDIUM_CHIP_COLORS: Record<NotificationMedium, string> = {
-  sms: '#43a047',
-  email: '#0277bd',
-  'paper-mail': '#4e342e',
+  sms: outreachColors.medium.sms,
+  email: outreachColors.medium.email,
+  'paper-mail': outreachColors.medium.paperMail,
 };
 
 // ── Cron Schedule Info ────────────────────────────────────────────────────
@@ -489,20 +490,20 @@ function OutreachTemplateField({
   const editorRef = useRef<ReturnType<typeof useEditor> | null>(null);
   const { data: paymentLocations } = usePaymentLocationsQuery();
 
-  const { previewValues, smsPreviewValues } = React.useMemo(() => {
+  const { previewValues, smsPreviewValues } = useMemo(() => {
     const clinicName = import.meta.env.VITE_APP_ORGANIZATION_NAME_LONG || SAMPLE_INPUT.clinic || 'Ottehr Clinic';
     const locationName = paymentLocations?.[0]?.location?.name || SAMPLE_INPUT.location || 'Washington, DC';
     const input: InvoicePlaceholderInput = { ...SAMPLE_INPUT, clinic: clinicName, location: locationName };
-    const pv: Record<string, string> = {
+    const previewValues: Record<string, string> = {
       ...buildInvoicePlaceholders(input),
       'location-review-link': 'https://g.page/r/example-clinic/review',
     };
-    const smsPv: Record<string, string> = {
-      ...pv,
+    const smsPreviewValues: Record<string, string> = {
+      ...previewValues,
       'invoice-link':
         'https://invoice.stripe.com/i/acct_1RMBK7QOl2MSLK9p/test_YWNjdF8xUk1CSzdRT2wyTVNMSzlwLF9VV014QzRwYnloekVGcVp4R0JZdE1Od1pZRnBua2N3LDE2OTUxNjgyOA0200OsKWP9C9?s=ap',
     };
-    return { previewValues: pv, smsPreviewValues: smsPv };
+    return { previewValues, smsPreviewValues };
   }, [paymentLocations]);
 
   return (
@@ -920,14 +921,14 @@ function BirthdayConfigEditor({
   onChange: (c: BirthdayConfig) => void;
 }): ReactElement {
   const hasAgeFilter = config.ageMode != null;
-  const [ageText, setAgeText] = React.useState(String(config.age ?? ''));
-  const [maxAgeText, setMaxAgeText] = React.useState(String(config.maxAge ?? 100));
+  const [ageText, setAgeText] = useState(String(config.age ?? ''));
+  const [maxAgeText, setMaxAgeText] = useState(String(config.maxAge ?? 100));
 
   // Sync local text when config changes externally (e.g. mode toggle)
-  React.useEffect(() => {
+  useEffect(() => {
     setAgeText(String(config.age ?? ''));
   }, [config.age]);
-  React.useEffect(() => {
+  useEffect(() => {
     setMaxAgeText(String(config.maxAge ?? 100));
   }, [config.maxAge]);
 
@@ -1061,35 +1062,35 @@ export default function ScheduledPatientOutreach({ outreachTab }: { outreachTab?
   const { data: outreachConfigData, isLoading, error: loadError } = useGetOutreachConfigQuery();
   const saveMutation = useSaveOutreachConfigMutation();
   const outreachEnabled = FEATURE_FLAGS.AUTOMATED_PATIENT_OUTREACH_ENABLED;
-  const [actions, setActions] = React.useState<OutreachAction[]>([]);
-  const [hasLoadedFromServer, setHasLoadedFromServer] = React.useState(false);
-  const [addDialogOpen, setAddDialogOpen] = React.useState(false);
-  const [newActionType, setNewActionType] = React.useState<ActionType>('send-notification');
-  const [newTriggerEvent, setNewTriggerEvent] = React.useState<TriggerEvent>('invoice-due');
-  const [newDaysAfter, setNewDaysAfter] = React.useState(0);
-  const [newTimeUnit, setNewTimeUnit] = React.useState<TimeUnit>('days');
-  const [newDirection, setNewDirection] = React.useState<TriggerDirection>('after');
-  const [deleteConfirmAction, setDeleteConfirmAction] = React.useState<OutreachAction | null>(null);
-  const [settingsDialogOpen, setSettingsDialogOpen] = React.useState(false);
-  const [expandedBlocks, setExpandedBlocks] = React.useState<Set<TriggerEvent>>(
+  const [actions, setActions] = useState<OutreachAction[]>([]);
+  const [hasLoadedFromServer, setHasLoadedFromServer] = useState(false);
+  const [addDialogOpen, setAddDialogOpen] = useState(false);
+  const [newActionType, setNewActionType] = useState<ActionType>('send-notification');
+  const [newTriggerEvent, setNewTriggerEvent] = useState<TriggerEvent>('invoice-due');
+  const [newDaysAfter, setNewDaysAfter] = useState(0);
+  const [newTimeUnit, setNewTimeUnit] = useState<TimeUnit>('days');
+  const [newDirection, setNewDirection] = useState<TriggerDirection>('after');
+  const [deleteConfirmAction, setDeleteConfirmAction] = useState<OutreachAction | null>(null);
+  const [settingsDialogOpen, setSettingsDialogOpen] = useState(false);
+  const [expandedBlocks, setExpandedBlocks] = useState<Set<TriggerEvent>>(
     new Set(Object.keys(TRIGGER_EVENT_LABELS) as TriggerEvent[])
   );
-  const [visibleEventTypes, setVisibleEventTypes] = React.useState<TriggerEvent[]>(
+  const [visibleEventTypes, setVisibleEventTypes] = useState<TriggerEvent[]>(
     Object.keys(TRIGGER_EVENT_LABELS) as TriggerEvent[]
   );
-  const [notificationsTimeRestrictionEnabled, setNotificationsTimeRestrictionEnabled] = React.useState(false);
-  const [smsAllowedAfter, setSmsAllowedAfter] = React.useState('09:00');
-  const [smsAllowedBefore, setSmsAllowedBefore] = React.useState('21:00');
-  const [smsTimezone, setSmsTimezone] = React.useState('America/New_York');
-  const [snackbar, setSnackbar] = React.useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({
+  const [notificationsTimeRestrictionEnabled, setNotificationsTimeRestrictionEnabled] = useState(false);
+  const [smsAllowedAfter, setSmsAllowedAfter] = useState('09:00');
+  const [smsAllowedBefore, setSmsAllowedBefore] = useState('21:00');
+  const [smsTimezone, setSmsTimezone] = useState('America/New_York');
+  const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({
     open: false,
     message: '',
     severity: 'success',
   });
-  const [cronInfoAnchor, setCronInfoAnchor] = React.useState<HTMLElement | null>(null);
+  const [cronInfoAnchor, setCronInfoAnchor] = useState<HTMLElement | null>(null);
 
   // Load actions and settings from server when data arrives
-  React.useEffect(() => {
+  useEffect(() => {
     if (outreachConfigData && !hasLoadedFromServer) {
       if (outreachConfigData.actions && outreachConfigData.actions.length > 0) {
         setActions(outreachConfigData.actions as OutreachAction[]);
@@ -1105,7 +1106,7 @@ export default function ScheduledPatientOutreach({ outreachTab }: { outreachTab?
     }
   }, [outreachConfigData, hasLoadedFromServer]);
 
-  const sortedActions = React.useMemo(() => {
+  const sortedActions = useMemo(() => {
     const eventOrder: Record<TriggerEvent, number> = {
       'discharge-time': 0,
       'date-of-visit': 1,
@@ -1208,8 +1209,8 @@ export default function ScheduledPatientOutreach({ outreachTab }: { outreachTab?
                 fontSize: '0.7rem',
                 fontWeight: 700,
                 height: 22,
-                bgcolor: '#e3f2fd',
-                color: '#1565c0',
+                bgcolor: outreachColors.info.bgSubtle,
+                color: outreachColors.info.dark,
                 letterSpacing: '0.05em',
               }}
             />
@@ -1446,7 +1447,7 @@ export default function ScheduledPatientOutreach({ outreachTab }: { outreachTab?
                         <Accordion
                           key={action.id}
                           defaultExpanded={false}
-                          sx={{ mb: 1, opacity: action.enabled === false ? 0.5 : 1 }}
+                          sx={{ mb: 1, opacity: action.enabled ? 1 : 0.5 }}
                         >
                           <AccordionSummary expandIcon={<ExpandMoreIcon />}>
                             <Stack
@@ -1475,7 +1476,7 @@ export default function ScheduledPatientOutreach({ outreachTab }: { outreachTab?
                                 size="small"
                                 variant="outlined"
                                 sx={{
-                                  bgcolor: '#fff',
+                                  bgcolor: outreachColors.white,
                                   color: ACTION_CHIP_COLORS[action.actionType],
                                   borderColor: ACTION_CHIP_COLORS[action.actionType],
                                   fontWeight: 500,
@@ -1495,7 +1496,7 @@ export default function ScheduledPatientOutreach({ outreachTab }: { outreachTab?
                                           size="small"
                                           variant="outlined"
                                           sx={{
-                                            bgcolor: '#fff',
+                                            bgcolor: outreachColors.white,
                                             color: MEDIUM_CHIP_COLORS[m],
                                             borderColor: MEDIUM_CHIP_COLORS[m],
                                             fontWeight: 500,
@@ -1517,7 +1518,7 @@ export default function ScheduledPatientOutreach({ outreachTab }: { outreachTab?
                                           size="small"
                                           variant="outlined"
                                           sx={{
-                                            bgcolor: '#fff',
+                                            bgcolor: outreachColors.white,
                                             color: MEDIUM_CHIP_COLORS[m],
                                             borderColor: MEDIUM_CHIP_COLORS[m],
                                             fontWeight: 500,
@@ -1551,7 +1552,7 @@ export default function ScheduledPatientOutreach({ outreachTab }: { outreachTab?
                                         size="small"
                                         variant="outlined"
                                         sx={{
-                                          bgcolor: '#fff',
+                                          bgcolor: outreachColors.white,
                                           color: MEDIUM_CHIP_COLORS[m],
                                           borderColor: MEDIUM_CHIP_COLORS[m],
                                           fontWeight: 500,
@@ -1802,7 +1803,7 @@ export default function ScheduledPatientOutreach({ outreachTab }: { outreachTab?
                             size="small"
                             variant="outlined"
                             sx={{
-                              bgcolor: '#fff',
+                              bgcolor: outreachColors.white,
                               color: ACTION_CHIP_COLORS[action.actionType],
                               borderColor: ACTION_CHIP_COLORS[action.actionType],
                               fontWeight: 500,
@@ -1822,7 +1823,7 @@ export default function ScheduledPatientOutreach({ outreachTab }: { outreachTab?
                                       size="small"
                                       variant="outlined"
                                       sx={{
-                                        bgcolor: '#fff',
+                                        bgcolor: outreachColors.white,
                                         color: MEDIUM_CHIP_COLORS[m],
                                         borderColor: MEDIUM_CHIP_COLORS[m],
                                         fontWeight: 500,
@@ -1844,7 +1845,7 @@ export default function ScheduledPatientOutreach({ outreachTab }: { outreachTab?
                                       size="small"
                                       variant="outlined"
                                       sx={{
-                                        bgcolor: '#fff',
+                                        bgcolor: outreachColors.white,
                                         color: MEDIUM_CHIP_COLORS[m],
                                         borderColor: MEDIUM_CHIP_COLORS[m],
                                         fontWeight: 500,
@@ -1878,7 +1879,7 @@ export default function ScheduledPatientOutreach({ outreachTab }: { outreachTab?
                                     size="small"
                                     variant="outlined"
                                     sx={{
-                                      bgcolor: '#fff',
+                                      bgcolor: outreachColors.white,
                                       color: MEDIUM_CHIP_COLORS[m],
                                       borderColor: MEDIUM_CHIP_COLORS[m],
                                       fontWeight: 500,
@@ -2129,7 +2130,7 @@ export default function ScheduledPatientOutreach({ outreachTab }: { outreachTab?
 // ---------------------------------------------------------------------------
 
 function OutreachConfigId({ value }: { value: string }): ReactElement {
-  const [copied, setCopied] = React.useState(false);
+  const [copied, setCopied] = useState(false);
 
   const handleCopy = (): void => {
     void navigator.clipboard.writeText(value);

@@ -19,7 +19,11 @@ import {
   TaskIndicator,
 } from 'utils';
 import { getAccountAndCoverageResourcesForPatient } from '../../../ehr/shared/harvest';
-import { ChargeCardConfig, NotificationMedium } from '../../../rcm/scheduled-outreach-config/helpers';
+import {
+  ChargeCardConfig,
+  NotificationConfig,
+  NotificationMedium,
+} from '../../../rcm/scheduled-outreach-config/helpers';
 import {
   checkOrCreateM2MClientToken,
   createOutreachEmailCommunication,
@@ -285,7 +289,7 @@ function getPreviousAttemptOutputs(
  * Send notifications for a charge outcome (success or failure).
  */
 async function sendOutcomeNotifications(
-  notificationConfig: ChargeCardConfig['onSuccess'],
+  notificationConfig: NotificationConfig,
   task: Task,
   chargeResult: ChargeResult,
   oystehr: Oystehr,

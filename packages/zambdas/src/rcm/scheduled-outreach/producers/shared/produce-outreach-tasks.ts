@@ -263,7 +263,7 @@ async function findExistingOutreachTasks(
  */
 export interface OutreachTaskIdentity {
   focus: string;
-  triggerEvent?: string;
+  triggerEvent: string;
   actionId: string;
   birthdayYear?: string;
 }
@@ -279,14 +279,16 @@ export function getOutreachTaskIdentity(task: Task): OutreachTaskIdentity | unde
   const actionId = task.meta?.tag?.find((t) => t.system === OUTREACH_ACTION_ID_TAG_SYSTEM)?.code;
   const birthdayYear = task.meta?.tag?.find((t) => t.system === OUTREACH_BIRTHDAY_YEAR_TAG_SYSTEM)?.code;
   if (!focus || !actionId) return undefined;
-  return { focus, triggerEvent, actionId, birthdayYear };
+  // Every task created by this system carries the trigger-event tag (see buildOutreachTask), but we
+  // default defensively so a malformed/legacy task still yields a stable key rather than throwing.
+  return { focus, triggerEvent: triggerEvent ?? '', actionId, birthdayYear };
 }
 
 /**
  * Render an {@link OutreachTaskIdentity} as a stable string key for in-memory grouping/dedup.
  */
 export function outreachIdentityKey(identity: OutreachTaskIdentity): string {
-  return `${identity.focus}|${identity.triggerEvent ?? ''}|${identity.actionId}|${identity.birthdayYear ?? ''}`;
+  return `${identity.focus}|${identity.triggerEvent}|${identity.actionId}|${identity.birthdayYear ?? ''}`;
 }
 
 /**

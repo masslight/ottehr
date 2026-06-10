@@ -1,6 +1,12 @@
 import { PlanDefinition } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+  buildOutreachTaskIdentityQuery,
+  buildTaskInput,
+  createOutreachTaskIdempotent,
+  produceOutreachTasks,
+} from '../../../src/rcm/scheduled-outreach/producers/shared/produce-outreach-tasks';
 import type { OutreachAction } from '../../../src/rcm/scheduled-outreach-config/helpers';
 
 // ── Mocks ──────────────────────────────────────────────────────────────────
@@ -159,21 +165,10 @@ function mockBundle(resources: any[]): { unbundle: () => any[]; total: number; l
 // ── Tests ──────────────────────────────────────────────────────────────────
 
 describe('produce-outreach-tasks', () => {
-  let produceOutreachTasks: typeof import('../../../src/rcm/scheduled-outreach/producers/shared/produce-outreach-tasks').produceOutreachTasks;
-  let buildTaskInput: typeof import('../../../src/rcm/scheduled-outreach/producers/shared/produce-outreach-tasks').buildTaskInput;
-  let buildOutreachTaskIdentityQuery: typeof import('../../../src/rcm/scheduled-outreach/producers/shared/produce-outreach-tasks').buildOutreachTaskIdentityQuery;
-  let createOutreachTaskIdempotent: typeof import('../../../src/rcm/scheduled-outreach/producers/shared/produce-outreach-tasks').createOutreachTaskIdempotent;
-
-  beforeEach(async () => {
+  beforeEach(() => {
     vi.clearAllMocks();
     vi.unstubAllGlobals();
     mockGet.mockResolvedValue(mockPatientWithValidContacts);
-
-    const mod = await import('../../../src/rcm/scheduled-outreach/producers/shared/produce-outreach-tasks');
-    produceOutreachTasks = mod.produceOutreachTasks;
-    buildTaskInput = mod.buildTaskInput;
-    buildOutreachTaskIdentityQuery = mod.buildOutreachTaskIdentityQuery;
-    createOutreachTaskIdempotent = mod.createOutreachTaskIdempotent;
   });
 
   describe('buildTaskInput', () => {

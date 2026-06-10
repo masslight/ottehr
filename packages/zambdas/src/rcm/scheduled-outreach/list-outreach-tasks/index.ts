@@ -1,6 +1,11 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Patient, Task } from 'fhir/r4b';
-import { FRIENDLY_PATIENT_ID_SYSTEM_BASE, MISSING_REQUEST_SECRETS, PRIVATE_EXTENSION_BASE_URL } from 'utils';
+import {
+  FRIENDLY_PATIENT_ID_SYSTEM_BASE,
+  isValidUUID,
+  MISSING_REQUEST_SECRETS,
+  PRIVATE_EXTENSION_BASE_URL,
+} from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
 
 const OUTREACH_TASK_TAG_SYSTEM = `${PRIVATE_EXTENSION_BASE_URL}/outreach-task`;
@@ -53,8 +58,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   // Resolve patient search to patient references if provided
   let patientReferences: string[] | undefined;
   if (patientSearch) {
-    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(patientSearch);
-    if (isUuid) {
+    if (isValidUUID(patientSearch)) {
       patientReferences = [`Patient/${patientSearch}`];
     } else {
       // Search by friendly ID or name
