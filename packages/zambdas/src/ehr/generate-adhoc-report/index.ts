@@ -78,6 +78,13 @@ RULES:
   one visit" as "patients with follow-up encounters"). Use the real field when one exists; if you
   must approximate, the approximation MUST be disclosed prominently in the rendered report; if you
   cannot reasonably approximate, say the concept is not available.
+- MATCH CODE FAMILIES BY PREFIX, NOT BY ENUMERATION. ICD-10 (and similar) codes are hierarchical.
+  To select a diagnosis/code FAMILY ("otitis media", "diabetes", "otitis"), filter by category
+  PREFIX (e.g. code.startsWith("H66") || code.startsWith("H65")) rather than hand-typing a list of
+  full codes — an enumerated list is generated from memory, varies run to run, and silently misses
+  subtype codes that are actually present in the data (e.g. H66.002), producing wrong or empty
+  results. When you disclose the criteria, state the prefixes used AND, when practical, the actual
+  matched codes found in the data.
 - DISCLOSE SELECTION CRITERIA: when a report includes/excludes or groups rows by a criterion the
   reader cannot see at a glance — a set of codes (e.g. the specific ICD-10 codes you treat as
   "otitis media"), a value list, a numeric threshold, or a category you defined — state the ACTUAL

@@ -48,7 +48,10 @@ const FIELDS: FieldDef[] = [
     type: 'string[]',
     description:
       'ICD-10 diagnosis codes charted on the visit (assessment), e.g. ["J06.9","H66.91"]. The primary ' +
-      'diagnosis is FIRST when one was marked. Empty array when no diagnoses were charted.',
+      'diagnosis is FIRST when one was marked. Empty array when no diagnoses were charted. ICD-10 codes ' +
+      'are HIERARCHICAL: to select a diagnosis FAMILY (e.g. "otitis media") match by category PREFIX — ' +
+      'code.startsWith("H66") || code.startsWith("H65") — NOT a hand-typed list of full codes, which ' +
+      'silently misses subtype codes (e.g. H66.002) that are present in the data.',
   },
   {
     name: 'cptCodes',
