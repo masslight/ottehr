@@ -182,7 +182,7 @@ describe('admin-create-practitioner-role + admin-update-practitioner-role — al
   // check. The zambda returns a 400 with `{ code, message, ... }`; the SDK
   // turns that into an OystehrSdkError whose `.code` is the body's `code`
   // string and whose `.message` is the body's `message` prose. Other body
-  // fields (conflictingScheduleId, conflictingCategoryNames) are dropped by
+  // fields (conflictingPractitionerRoleId, conflictingCategoryNames) are dropped by
   // the SDK, so tests assert on the prose message instead.
   const callCreateExpectingConflict = async (overrides: {
     allCategories?: boolean;

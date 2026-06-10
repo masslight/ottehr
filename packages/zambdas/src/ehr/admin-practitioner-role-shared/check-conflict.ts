@@ -3,12 +3,23 @@ import { HealthcareService, PractitionerRole } from 'fhir/r4b';
 import { getPractitionerRoleAllCategories } from 'utils';
 
 export interface PractitionerRoleConflict {
-  conflictingScheduleId: string;
+  /**
+   * Id of the conflicting active PractitionerRole — the resource the new/
+   * updated PR overlaps with. Not a Schedule id; callers needing the Schedule
+   * should look it up by actor.
+   */
+  conflictingPractitionerRoleId: string;
   /**
    * Names of the categories that overlap between the two PRs, for the error
-   * message. When either side has the all-categories toggle on, the overlap
-   * is conceptually "every category," and this list is the special-cased
-   * `['All services']` rather than a concrete category list.
+   * message. The contents depend on which sides have the all-categories
+   * toggle:
+   *   - both sides toggled: `['All services']` (overlap is conceptually
+   *     "every category" with no concrete IDs to enumerate)
+   *   - only the *other* PR toggled: `['All services']` (same reasoning —
+   *     the candidate's specific cats are all swallowed by the other's "any")
+   *   - only the candidate toggled: the other PR's concrete category names
+   *     (these are the cats the candidate's "any" overlaps with)
+   *   - neither toggled: the concrete intersection of the two cat lists
    */
   conflictingCategoryNames: string[];
 }
@@ -115,7 +126,7 @@ export async function checkPractitionerRoleConflict(
     }
 
     return {
-      conflictingScheduleId: other.id ?? '',
+      conflictingPractitionerRoleId: other.id ?? '',
       conflictingCategoryNames: conflictingNames,
     };
   }

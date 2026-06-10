@@ -132,7 +132,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         )}. Remove ${
           conflict.conflictingCategoryNames.length === 1 ? 'it' : 'them'
         } from that schedule first, or pick a different location.`,
-        conflictingScheduleId: conflict.conflictingScheduleId,
+        conflictingPractitionerRoleId: conflict.conflictingPractitionerRoleId,
         conflictingCategoryNames: conflict.conflictingCategoryNames,
       }),
     };
