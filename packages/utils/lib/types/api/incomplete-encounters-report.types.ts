@@ -14,6 +14,12 @@ export interface IncompleteEncountersReportZambdaInput {
 
 export interface IncompleteEncounterItem {
   appointmentId: string;
+  // FHIR Encounter id for this row. Unlike appointmentId this is unique per row — follow-up
+  // encounters share their parent visit's appointmentId.
+  encounterId?: string;
+  // 'main' for regular visits; follow-up encounters (SNOMED 390906007) are emitted as their own
+  // rows in 'all' mode with their own dates. Absent outside 'all' mode.
+  encounterType?: 'main' | 'follow-up' | 'scheduled-follow-up';
   patientId: string;
   patientName: string;
   dateOfBirth: string;

@@ -3,12 +3,14 @@ import { Appointment, Condition, Encounter, Location, Patient, Practitioner, Pro
 import { DateTime } from 'luxon';
 import {
   getAttendingPractitionerId,
+  getEncounterVisitType,
   getInPersonVisitStatus,
   getPatientFirstName,
   getPatientLastName,
   getVisitStatusHistory,
   IncompleteEncountersReportZambdaInput,
   IncompleteEncountersReportZambdaOutput,
+  isFollowupEncounter,
   isInPersonAppointment,
   isTelemedAppointment,
   OTTEHR_MODULE,
@@ -56,8 +58,13 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       value: `le${dateRange.end}`,
     },
     {
+      // 'all' (ad-hoc reporting) also fetches cancelled/no-show visits so reports can see and
+      // explicitly include or exclude them; the report pages keep the narrower set.
       name: 'status',
-      value: 'proposed,pending,booked,arrived,fulfilled,checked-in,waitlist',
+      value:
+        encounterStatus === 'all'
+          ? 'proposed,pending,booked,arrived,fulfilled,checked-in,waitlist,cancelled,noshow'
+          : 'proposed,pending,booked,arrived,fulfilled,checked-in,waitlist',
     },
     {
       name: '_tag',
@@ -96,6 +103,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       { name: '_include:iterate', value: 'Encounter:diagnosis' },
       { name: '_revinclude:iterate', value: 'Procedure:encounter' }
     );
+  }
+
+  if (encounterStatus === 'all') {
+    // Follow-up encounters (SNOMED 390906007) hang off the parent visit's encounter via partOf —
+    // older ones carry no appointment reference at all, so they only come back via part-of.
+    baseSearchParams.push({ name: '_revinclude:iterate', value: 'Encounter:part-of' });
   }
 
   let searchBundle = await oystehr.fhir.search<ReportResource>({
@@ -209,11 +222,32 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const hasChartTag = (resource: Resource, code: string): boolean =>
     Boolean(resource.meta?.tag?.some((tag) => tag.code === code));
 
+  const encounterById = new Map<string, Encounter>();
+  encounters.forEach((e) => {
+    if (e.id) encounterById.set(e.id, e);
+  });
+
+  // A follow-up encounter may have no appointment reference of its own — resolve through its
+  // partOf parent encounter in that case.
+  const resolveAppointment = (encounter: Encounter): Appointment | undefined => {
+    const ownRef = encounter.appointment?.[0]?.reference;
+    const own = ownRef ? appointmentMap.get(ownRef) : undefined;
+    if (own) return own;
+    const parentId = encounter.partOf?.reference?.replace('Encounter/', '');
+    const parentRef = parentId ? encounterById.get(parentId)?.appointment?.[0]?.reference : undefined;
+    return parentRef ? appointmentMap.get(parentRef) : undefined;
+  };
+
   // Filter encounters based on encounterStatus parameter
   const filteredEncounters = encounters.filter((encounter) => {
-    // Find the corresponding appointment
-    const appointmentRef = encounter.appointment?.[0]?.reference;
-    const appointment = appointmentRef ? appointmentMap.get(appointmentRef) : undefined;
+    // Follow-up encounters are separate rows in 'all' mode only; the report pages count visits,
+    // not follow-ups (previously follow-ups that carried an appointment reference could leak in
+    // as phantom rows).
+    if (encounterStatus !== 'all' && isFollowupEncounter(encounter)) {
+      return false;
+    }
+
+    const appointment = resolveAppointment(encounter);
 
     if (!appointment) {
       console.log(`No appointment found for encounter ${encounter.id}`);
@@ -242,9 +276,14 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   // Build the response data
   const encounterItems = filteredEncounters.map((encounter) => {
-    const appointmentRef = encounter.appointment?.[0]?.reference;
-    const appointment = appointmentRef ? appointmentMap.get(appointmentRef) : undefined;
-    const patientRef = encounter.subject?.reference;
+    const appointment = resolveAppointment(encounter);
+    const encounterType = encounterStatus === 'all' ? getEncounterVisitType(encounter) : undefined;
+    const isFollowUpRow = encounterType === 'follow-up' || encounterType === 'scheduled-follow-up';
+    // Some follow-up encounters carry no subject of their own — fall back to the parent's.
+    const parentEncounter = encounter.partOf?.reference
+      ? encounterById.get(encounter.partOf.reference.replace('Encounter/', ''))
+      : undefined;
+    const patientRef = encounter.subject?.reference ?? parentEncounter?.subject?.reference;
     const patient = patientRef ? patientMap.get(patientRef) : undefined;
 
     // Get location name from Location resource
@@ -268,7 +307,15 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       ? 'In-Person'
       : 'Unknown';
 
-    const visitStatus = appointment ? getInPersonVisitStatus(appointment, encounter, true) : 'unknown';
+    // Follow-up rows report their own encounter status — the parent appointment's visit-status
+    // machinery doesn't apply to them.
+    const visitStatus = isFollowUpRow
+      ? encounter.status === 'finished'
+        ? 'completed'
+        : encounter.status
+      : appointment
+      ? getInPersonVisitStatus(appointment, encounter, true)
+      : 'unknown';
 
     // Charted codes: ICD-10 diagnoses (primary first via Encounter.diagnosis rank), CPT codes,
     // and the E&M code from the chart-data Procedure resources.
@@ -313,12 +360,15 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     return {
       appointmentId: appointment?.id || '',
+      encounterId: encounter.id,
+      ...(encounterType ? { encounterType } : {}),
       patientId: patient?.id || '',
       patientName: patient ? `${getPatientFirstName(patient)} ${getPatientLastName(patient)}`.trim() : 'Unknown',
       dateOfBirth: patient?.birthDate || '',
       visitStatus,
-      appointmentStart: appointment?.start || '',
-      appointmentEnd: appointment?.end || '',
+      // Follow-up rows carry their OWN dates (the follow-up happened later than the parent visit).
+      appointmentStart: (isFollowUpRow ? encounter.period?.start : appointment?.start) || '',
+      appointmentEnd: (isFollowUpRow ? encounter.period?.end : appointment?.end) || '',
       location: locationName || 'Unknown',
       locationId,
       attendingProvider: attendingProviderName,

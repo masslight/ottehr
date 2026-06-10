@@ -18,7 +18,10 @@ const FIELDS: FieldDef[] = [
   {
     name: 'visitStatus',
     type: 'string',
-    description: 'Visit status (e.g. completed, cancelled, no-show, arrived, intake).',
+    description:
+      'Visit status (e.g. completed, arrived, intake, provider). INCLUDES cancelled and "no show" ' +
+      'visits — exclude them explicitly when a report should only count real visits. For follow-up ' +
+      'rows this is the follow-up encounter status (completed / in-progress).',
   },
   { name: 'location', type: 'string', description: 'Clinic / location name.' },
   { name: 'attendingProvider', type: 'string', description: 'Attending provider name.' },
@@ -72,6 +75,15 @@ const FIELDS: FieldDef[] = [
       'automatically.',
   },
   {
+    name: 'encounterType',
+    type: 'string',
+    description:
+      '"main" for regular visits; "follow-up" or "scheduled-follow-up" for follow-up encounters, ' +
+      'which are separate rows with their OWN date (the parent visit is a different "main" row sharing ' +
+      'the same appointmentId). To link to a follow-up\'s note, href="/in-person/" + appointmentId + ' +
+      '"/follow-up-note".',
+  },
+  {
     name: 'patientId',
     type: 'string',
     description:
@@ -105,6 +117,7 @@ function toRow(e: IncompleteEncounterItem): AdHocRow {
     emCode: e.emCode ?? null,
     appointmentId: e.appointmentId ?? null,
     patientId: e.patientId ?? null,
+    encounterType: e.encounterType ?? 'main',
   };
 }
 
@@ -130,7 +143,7 @@ async function fetchEncounters({ oystehrZambda, dateRange }: FetchContext): Prom
     );
     const merged = results.flatMap((r) => r.encounters);
     // Dedupe by appointmentId in case of batch-boundary overlap.
-    items = Array.from(new Map(merged.map((e) => [e.appointmentId, e])).values());
+    items = Array.from(new Map(merged.map((e) => [e.encounterId ?? e.appointmentId, e])).values());
   }
 
   return items.map(toRow);

@@ -73,6 +73,11 @@ RULES:
   present a booking/reason/status field as if it were that concept). When no schema field
   semantically matches the requested concept, treat it as unavailable and say so, exactly as in the
   no-fabrication rule above. Mislabeled real data is just as harmful as invented data.
+- NEVER SILENTLY SUBSTITUTE A PROXY FOR A CONCEPT. If the request names a concept the schema does
+  not carry, do not quietly redefine it with a heuristic (e.g. treating "patients with more than
+  one visit" as "patients with follow-up encounters"). Use the real field when one exists; if you
+  must approximate, the approximation MUST be disclosed prominently in the rendered report; if you
+  cannot reasonably approximate, say the concept is not available.
 - DERIVED SCORES / MAPPINGS: when the request requires applying knowledge that is not in the data
   itself (a scoring scale, a code-to-category mapping, a grouping rule), prefer a mapping documented
   in the schema field descriptions; only fall back to standard published domain knowledge, applied
