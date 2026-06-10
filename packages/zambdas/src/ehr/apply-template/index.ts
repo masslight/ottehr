@@ -535,6 +535,26 @@ export const makeCreateRequests = (
     ) {
       const isDuplicate = isDuplicateDiagnosis(resourceToCreate, encounterDiagnosesConditions);
 
+      // QA-caught case: a procedure's linked Dx is also on the encounter
+      // already (the user added it manually, or it carried over from a
+      // previous apply). The standalone dedup below would silently fall
+      // through and POST a duplicate orphan Condition, and the procedure's
+      // reasonReference would resolve to that orphan via fullUrl. The chart's
+      // procedure card looks up its linked Dx via encounter.diagnosis, so the
+      // orphan never shows up. Skip the create entirely and redirect any
+      // procedure refs to the existing Condition so the procedure links to
+      // the Dx that's actually on the chart. The redirect stores the bare id
+      // in the contained-id map; downstream createProcedureServiceRequest's
+      // formatLinkedRef adds the Condition/ prefix (urn:uuid values are passed
+      // through verbatim for FHIR-transaction fullUrl resolution).
+      if (isDuplicate && isClaimedByProcedure && containedResource.id) {
+        const existingCondition = encounterDiagnosesConditions.find((c) => isDuplicateDiagnosis(resourceToCreate, [c]));
+        if (existingCondition?.id) {
+          containedIdToNewFullUrl.set(containedResource.id, existingCondition.id);
+          continue;
+        }
+      }
+
       // we should only add to encounter diagnoses after a dedupe when appending, to ensure the template doesn't add Dx already on the chart
       if ((!isDuplicate && effectiveAction === 'append') || effectiveAction === 'overwrite') {
         const diagnosisToAdd = templateEncounterDiagnoses?.find((d) => {
