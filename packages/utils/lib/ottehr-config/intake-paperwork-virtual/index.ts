@@ -158,7 +158,7 @@ function buildFormFields(
         },
         noEmail: {
           key: 'patient-no-email',
-          label: "Patient doesn't have an email address",
+          label: "Don't have email",
           type: 'boolean',
         },
         phoneNumber: {
@@ -1769,7 +1769,7 @@ function buildFormFields(
         },
         noEmail: {
           key: 'responsible-party-no-email',
-          label: "Responsible party doesn't have an email address",
+          label: "Don't have email",
           type: 'boolean',
           triggers: [
             {

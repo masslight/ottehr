@@ -91,12 +91,13 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     // Send appropriate notifications based on outcome
     const notificationConfig = chargeResult.success ? config.onSuccess : config.onFailure;
-    const notificationResults: { medium: NotificationMedium; success: boolean; error?: string }[] = [];
+    const notificationResults: { medium: NotificationMedium; success: boolean; skipped?: boolean; error?: string }[] =
+      [];
 
     if (notificationConfig.enabled && notificationConfig.mediums.length > 0) {
       for (const medium of notificationConfig.mediums) {
         try {
-          await sendNotificationForMedium(
+          const { skipped } = await sendNotificationForMedium(
             medium,
             task,
             notificationConfig.smsTemplate,
@@ -106,7 +107,14 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
             oystehr,
             input.secrets
           );
-          notificationResults.push({ medium, success: true });
+          if (skipped) {
+            console.log(
+              `[Email] Skipped email notification for task ${task.id}, patient ${patientRef}: no email address on file`
+            );
+            notificationResults.push({ medium, success: true, skipped: true });
+          } else {
+            notificationResults.push({ medium, success: true });
+          }
         } catch (err: any) {
           console.error(`Failed to send ${medium} notification after charge:`, err.message);
           notificationResults.push({ medium, success: false, error: err.message });
@@ -289,7 +297,7 @@ async function sendNotificationForMedium(
   chargeResult: ChargeResult,
   oystehr: Oystehr,
   secrets: Secrets | null
-): Promise<void> {
+): Promise<{ skipped: boolean }> {
   const patientId = task.for?.reference?.replace('Patient/', '');
   if (!patientId) throw new Error('Task has no patient reference');
 
@@ -325,7 +333,7 @@ async function sendNotificationForMedium(
     const email = getPatientContactEmail(patient);
     if (!email) {
       console.log(`Patient ${patientId} has no email address; skipping charge-card outreach email`);
-      return;
+      return { skipped: true };
     }
 
     const resolvedMessage = fillOutreachTemplate(emailTemplate, placeholderInput);
@@ -349,6 +357,7 @@ async function sendNotificationForMedium(
   } else {
     console.warn(`[NOT IMPLEMENTED] ${medium} notification for charge-card, patient ${patientId}`);
   }
+  return { skipped: false };
 }
 
 const MAIL_STATEMENT_TASK_INPUT_SYSTEM = 'https://fhir.ottehr.com/CodeSystem/patient-statement-mail-task-input';

@@ -1044,6 +1044,20 @@ export function createMasterRecordPatchOperations(
     }
   });
 
+  // When filterByEnableWhen is active, patient-email is excluded from flattenedPaperwork when
+  // patient-no-email is true (the field's enableWhen condition fails). The loop above never sees
+  // patient-email in that case, so no telecom patch op is generated. Explicitly handle it here.
+  const emailHandledInLoop = flattenedPaperwork.some((item) => item.linkId === 'patient-email');
+  if (noEmail && !emailHandledInLoop) {
+    const op = createPatchOperationForTelecom(
+      contactTelecomConfigs['patient-email'],
+      patient,
+      patientFieldPaths.email,
+      undefined
+    );
+    if (op) tempOperations.push(op);
+  }
+
   if (isUseMissedInPatientName) {
     tempOperations.push({
       op: 'add',

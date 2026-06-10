@@ -227,7 +227,7 @@ const FormFields: PatientRecordFormFields = {
         ],
         disabledDisplay: 'hidden',
       },
-      noEmail: { key: 'patient-no-email', type: 'boolean', label: "Patient doesn't have an email address" },
+      noEmail: { key: 'patient-no-email', type: 'boolean', label: "Don't have email" },
       phone: { key: 'patient-number', type: 'string', label: 'Patient mobile', dataType: 'Phone Number' },
       preferredCommunicationMethod: {
         key: 'patient-preferred-communication-method',
@@ -668,7 +668,7 @@ const FormFields: PatientRecordFormFields = {
       noEmail: {
         key: 'responsible-party-no-email',
         type: 'boolean',
-        label: "Responsible party doesn't have an email address",
+        label: "Don't have email",
         triggers: [RPNotSelfTrigger],
         disabledDisplay: 'hidden',
       },

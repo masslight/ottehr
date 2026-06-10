@@ -74,7 +74,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     }
     console.log('--- END NOTIFICATION CONTENT ---');
 
-    const results: { medium: NotificationMedium; success: boolean; error?: string }[] = [];
+    const results: { medium: NotificationMedium; success: boolean; skipped?: boolean; error?: string }[] = [];
 
     for (const medium of mediums) {
       try {
@@ -84,11 +84,19 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
             console.log(`[SMS] Successfully sent SMS notification for task ${task.id}, patient ${patientRef}`);
             results.push({ medium, success: true });
             break;
-          case 'email':
-            await sendOutreachEmail(task, emailTemplate || '', oystehr, input.secrets);
-            console.log(`[Email] Successfully sent email notification for task ${task.id}, patient ${patientRef}`);
-            results.push({ medium, success: true });
+          case 'email': {
+            const emailSent = await sendOutreachEmail(task, emailTemplate || '', oystehr, input.secrets);
+            if (emailSent) {
+              console.log(`[Email] Successfully sent email notification for task ${task.id}, patient ${patientRef}`);
+              results.push({ medium, success: true });
+            } else {
+              console.log(
+                `[Email] Skipped email notification for task ${task.id}, patient ${patientRef}: no email address on file`
+              );
+              results.push({ medium, success: true, skipped: true });
+            }
             break;
+          }
           case 'paper-mail': {
             if (!FEATURE_FLAGS_CONFIG.mailingPaperStatementsEnabled) {
               console.error(
@@ -208,7 +216,7 @@ async function sendOutreachEmail(
   template: string,
   oystehr: Oystehr,
   secrets: Secrets | null
-): Promise<void> {
+): Promise<boolean> {
   const patientId = task.for?.reference?.replace('Patient/', '');
   if (!patientId) throw new Error('Task has no patient reference');
 
@@ -220,7 +228,7 @@ async function sendOutreachEmail(
   const email = getPatientContactEmail(patient);
   if (!email) {
     console.log(`Patient ${patientId} has no email address; skipping outreach email`);
-    return;
+    return false;
   }
 
   const placeholderInput = await resolveTemplatePlaceholders({
@@ -245,6 +253,7 @@ async function sendOutreachEmail(
     content: htmlContent,
     'subject-text': 'Important information about your visit',
   });
+  return true;
 }
 
 const MAIL_STATEMENT_TASK_INPUT_SYSTEM = 'https://fhir.ottehr.com/CodeSystem/patient-statement-mail-task-input';

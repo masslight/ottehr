@@ -195,11 +195,6 @@ export default function SendInvoiceToPatientDialog({
                     {responsibleParty?.phoneNumber}
                   </Typography>
                 </Box>
-                {!responsibleParty?.email && (
-                  <Alert severity="warning" sx={{ mt: 1 }}>
-                    Patient doesn&apos;t have an email address. Invoice email will not be sent.
-                  </Alert>
-                )}
               </Box>
             </Box>
           ) : (
@@ -293,6 +288,12 @@ export default function SendInvoiceToPatientDialog({
               />
             </Grid>
           </Grid>
+
+          {!responsibleParty?.email && (
+            <Alert severity="warning" sx={{ mt: 1 }}>
+              Responsible party doesn&apos;t have an email address. Invoice email will not be sent.
+            </Alert>
+          )}
         </DialogContent>
 
         <DialogActions>
