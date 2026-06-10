@@ -23,6 +23,7 @@ import {
 import { DateTime } from 'luxon';
 import React, { useCallback, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { AdHocReportTurn } from 'utils';
 import { generateAdHocReport } from '../../api/api';
 import { AD_HOC_DATASETS, getDataset } from '../../features/reports/adHoc/datasets';
 import { ReportFrame } from '../../features/reports/adHoc/ReportFrame';
@@ -56,6 +57,8 @@ export default function AdHocReport(): React.ReactElement {
   const [generateError, setGenerateError] = useState<string | null>(null);
   const [renderError, setRenderError] = useState<string | null>(null);
   const [showCode, setShowCode] = useState(false);
+  const [conversation, setConversation] = useState<AdHocReportTurn[]>([]);
+  const [refineText, setRefineText] = useState('');
 
   const getDateRangeIso = useCallback(
     (filter: DateRangeFilter): { start: string; end: string } => {
@@ -108,24 +111,57 @@ export default function AdHocReport(): React.ReactElement {
     }
   }, [oystehrZambda, datasetId, dateRange, getDateRangeIso]);
 
-  // Send schema + request (no rows) to the generate zambda; get back the JS the model wrote.
-  // Phase 3 will execute that code on the fetched rows inside a sandboxed iframe.
-  const handleGenerate = useCallback(async (): Promise<void> => {
-    if (!oystehrZambda || !schema || !request.trim()) return;
-    setGenerating(true);
-    setGenerateError(null);
-    setRenderError(null);
+  // Send schema + request (no rows) to the generate zambda; get back the JS the model wrote and
+  // run it in the sandboxed iframe. `conversation` carries prior request/code turns so follow-ups
+  // ("now group by month") modify the previous report instead of starting over.
+  const runGenerate = useCallback(
+    async (message: string, priorConversation: AdHocReportTurn[]): Promise<void> => {
+      if (!oystehrZambda || !schema) return;
+      setGenerating(true);
+      setGenerateError(null);
+      setRenderError(null);
+      try {
+        const result = await generateAdHocReport(oystehrZambda, {
+          schema,
+          request: message,
+          conversation: priorConversation.length ? priorConversation : undefined,
+        });
+        setGeneratedCode(result.code);
+        setGeneratedTitle(result.title);
+        // Keep only the most recent exchanges so refine prompts stay bounded.
+        setConversation(
+          [
+            ...priorConversation,
+            { role: 'user' as const, content: message },
+            { role: 'assistant' as const, content: result.code },
+          ].slice(-6)
+        );
+        setRefineText('');
+      } catch (e) {
+        setGenerateError(e instanceof Error ? e.message : 'Failed to generate report');
+      } finally {
+        setGenerating(false);
+      }
+    },
+    [oystehrZambda, schema]
+  );
+
+  // Fresh report: start a new conversation.
+  const handleGenerate = useCallback((): void => {
+    if (!request.trim()) return;
     setGeneratedCode(null);
-    try {
-      const result = await generateAdHocReport(oystehrZambda, { schema, request });
-      setGeneratedCode(result.code);
-      setGeneratedTitle(result.title);
-    } catch (e) {
-      setGenerateError(e instanceof Error ? e.message : 'Failed to generate report');
-    } finally {
-      setGenerating(false);
-    }
-  }, [oystehrZambda, schema, request]);
+    void runGenerate(request, []);
+  }, [request, runGenerate]);
+
+  // Refinement: continue the conversation. If the last attempt threw at runtime, feed the error to
+  // the model so it can self-correct even when the user just says "try again".
+  const handleRefine = useCallback((): void => {
+    if (!refineText.trim()) return;
+    const message = renderError
+      ? `The previous code failed at runtime with this error: "${renderError}". ${refineText}`
+      : refineText;
+    void runGenerate(message, conversation);
+  }, [refineText, renderError, conversation, runGenerate]);
 
   return (
     <PageContainer>
@@ -267,7 +303,7 @@ export default function AdHocReport(): React.ReactElement {
             />
             <Button
               variant="contained"
-              onClick={() => void handleGenerate()}
+              onClick={handleGenerate}
               disabled={generating || !request.trim()}
               sx={{ mb: 2 }}
             >
@@ -296,6 +332,32 @@ export default function AdHocReport(): React.ReactElement {
 
                 {/* The model's code runs here, sandboxed, over the fetched rows. */}
                 <ReportFrame code={generatedCode} data={rows} schema={schema} onError={setRenderError} />
+
+                {/* Refine: follow-up requests continue the conversation so the model modifies the
+                    current report ("now group by month", "make it a pie chart"). */}
+                <Box sx={{ mt: 2, display: 'flex', gap: 1, alignItems: 'flex-start' }}>
+                  <TextField
+                    size="small"
+                    fullWidth
+                    placeholder={
+                      renderError
+                        ? 'Describe a change, or just say "fix it" — the error is sent along automatically'
+                        : 'Refine this report — e.g. "now break it down by month" or "make it a pie chart"'
+                    }
+                    value={refineText}
+                    onChange={(e) => setRefineText(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        handleRefine();
+                      }
+                    }}
+                    disabled={generating}
+                  />
+                  <Button variant="outlined" onClick={handleRefine} disabled={generating || !refineText.trim()}>
+                    {generating ? <CircularProgress size={20} /> : 'Refine'}
+                  </Button>
+                </Box>
 
                 <Button size="small" sx={{ mt: 1 }} onClick={() => setShowCode((v) => !v)}>
                   {showCode ? 'Hide generated code' : 'View generated code'}
