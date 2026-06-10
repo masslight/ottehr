@@ -10,6 +10,7 @@ vi.mock('../../src/shared', () => ({
   RCM_TAG_SYSTEM: 'https://fhir.zapehr.com/r4/StructureDefinitions/rcm',
   wrapHandler: (_name: string, handler: any) => handler,
   ZambdaInput: {},
+  safeValidate: (schema: any, input: unknown) => schema.parse(input),
 }));
 
 const RCM_TAG_SYSTEM = 'https://fhir.zapehr.com/r4/StructureDefinitions/rcm';

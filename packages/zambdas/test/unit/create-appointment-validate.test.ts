@@ -22,7 +22,7 @@ const makeInput = (body: Record<string, unknown>): ZambdaInput =>
 const ehrUser = { id: 'u1', name: 'staff@x.com' } as unknown as User;
 
 describe('create-appointment validateCreateAppointmentParams – followUpOptions', () => {
-  const validBody = { slotId: 's1', patient: validPatient };
+  const validBody = { slotId: '550e8400-e29b-41d4-a716-446655440000', patient: validPatient };
 
   it('accepts request without followUpOptions (regular visit)', () => {
     const result = validateCreateAppointmentParams(makeInput(validBody), ehrUser);
