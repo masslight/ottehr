@@ -1970,6 +1970,7 @@
       "name": "cron-outreach-task-promoter",
       "type": "cron",
       "runtime": "nodejs22.x",
+      "timeout": "595",
       "src": "src/cron/rcm/outreach-task-promoter/index",
       "zip": ".dist/zips/cron-outreach-task-promoter.zip",
       "schedule": {
