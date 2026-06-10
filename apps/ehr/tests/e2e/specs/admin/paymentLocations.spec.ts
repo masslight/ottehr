@@ -43,7 +43,9 @@ test.afterAll(async () => {
 
 let paymentLocationsPage: PaymentLocationsPage;
 let detailPage: PaymentLocationDetailPage;
-const TARGET_LOCATION = findFirstLocationName();
+// Fallback derived from IaC config; overridden at runtime with a location that is actually
+// present in the deployed test data (the config and the deployed env can diverge).
+let TARGET_LOCATION = findFirstLocationName();
 
 test.describe.configure({ mode: 'serial' });
 
@@ -57,6 +59,10 @@ test.describe('Payment Locations Admin', () => {
   test('verify locations are listed and target location exists', async () => {
     const rowCount = await paymentLocationsPage.getLocationRows();
     test.skip(rowCount === 0, 'No payment locations available to test');
+
+    // Use a location name that's actually rendered in the table rather than one derived from
+    // the IaC config, which may not match what's seeded in the CI environment.
+    TARGET_LOCATION = await paymentLocationsPage.getFirstLocationName();
 
     await paymentLocationsPage.searchLocations(TARGET_LOCATION);
     await paymentLocationsPage.verifyLocationVisible(TARGET_LOCATION);

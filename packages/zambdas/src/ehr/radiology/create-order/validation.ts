@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { Encounter } from 'fhir/r4b';
-import { CODE_SYSTEM_CPT, CODE_SYSTEM_ICD_10, Secrets } from 'utils';
+import { CODE_SYSTEM_CPT, CODE_SYSTEM_ICD_10, INVALID_INPUT_ERROR, MISSING_REQUIRED_PARAMETERS, Secrets } from 'utils';
 import { validateJsonBody, ZambdaInput } from '../../../shared';
 import { searchIcd10Codes } from '../../../shared/icd-10-search';
 import { EnhancedBody, ValidatedCPTCode, ValidatedICD10Code, ValidatedInput } from '.';
@@ -105,16 +105,20 @@ export const validateSecrets = (secrets: Secrets | null): Secrets => {
 
 const validateICD10Code = async (diagnosisCode: unknown): Promise<ValidatedICD10Code> => {
   // validate diagnosisCode is a string
-  if (diagnosisCode == null || typeof diagnosisCode !== 'string') {
-    throw new Error('diagnosisCode is required and must be a string');
+  if (diagnosisCode == null) {
+    throw MISSING_REQUIRED_PARAMETERS(['diagnosisCode']);
+  }
+
+  if (typeof diagnosisCode !== 'string') {
+    throw INVALID_INPUT_ERROR('diagnosisCode must be a string');
   }
 
   const searchResult = await searchIcd10Codes(diagnosisCode as string);
 
   if (searchResult.length < 1) {
-    throw new Error('ICD-10 code is invalid');
+    throw INVALID_INPUT_ERROR('ICD-10 code is invalid');
   } else if (searchResult.length > 1) {
-    throw new Error('ICD-10 code is ambiguous');
+    throw INVALID_INPUT_ERROR('ICD-10 code is ambiguous');
   }
 
   const dx = {
@@ -130,8 +134,12 @@ const validateICD10Code = async (diagnosisCode: unknown): Promise<ValidatedICD10
 
 const validateCPTCode = async (cptCode: unknown, oystehr: Oystehr): Promise<ValidatedCPTCode> => {
   // CPT codes are at least 5 digits long
-  if (cptCode == null || typeof cptCode !== 'string' || cptCode.length < 5) {
-    throw new Error('cptCode is required and must be a string of length 5 or more');
+  if (cptCode == null) {
+    throw MISSING_REQUIRED_PARAMETERS(['cptCode']);
+  }
+
+  if (typeof cptCode !== 'string' || cptCode.length < 5) {
+    throw INVALID_INPUT_ERROR('cptCode must be a string of at least 5 characters');
   }
 
   let terminologyResponse;
@@ -146,9 +154,9 @@ const validateCPTCode = async (cptCode: unknown, oystehr: Oystehr): Promise<Vali
   }
 
   if (terminologyResponse.codes.length < 1) {
-    throw new Error('CPT code is invalid');
+    throw INVALID_INPUT_ERROR('CPT code is invalid');
   } else if (terminologyResponse.codes.length > 1) {
-    throw new Error('CPT code is ambiguous');
+    throw INVALID_INPUT_ERROR('CPT code is ambiguous');
   }
 
   const cpt = {
