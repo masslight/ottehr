@@ -9,6 +9,7 @@ import { describe, expect, test } from 'vitest';
 import {
   filterEntriesToTemplateContent,
   isValidInHouseLabServiceRequest,
+  isValidProcedureServiceRequest,
 } from '../../src/ehr/admin-create-template/index';
 import { isInHouseLabRepeatTestCptCode, TemplateEncounterResource } from '../../src/ehr/shared/template-helpers';
 
@@ -308,5 +309,72 @@ describe('filterEntriesToTemplateContent — in-house lab repeat CPT filtering',
     const ids = result.map((r) => r.id);
     expect(ids).not.toContain('proc-repeat');
     expect(ids).toContain('proc-standard');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// isValidProcedureServiceRequest — in-office procedure SR capture filter
+// ---------------------------------------------------------------------------
+
+const makeStandardProcedureSR = (id: string, overrides: Partial<ServiceRequest> = {}): ServiceRequest => ({
+  resourceType: 'ServiceRequest',
+  id,
+  status: 'completed',
+  intent: 'original-order',
+  subject: { reference: 'Patient/p1' },
+  meta: { tag: [{ system: chartDataTagSystem('procedure'), code: 'procedure' }] },
+  ...overrides,
+});
+
+describe('isValidProcedureServiceRequest', () => {
+  test('includes a standard completed procedure', () => {
+    expect(isValidProcedureServiceRequest(makeStandardProcedureSR('sr-1'))).toBe(true);
+  });
+
+  test('includes orders with includable statuses: draft, active, on-hold, completed', () => {
+    // Procedures generally save with status='completed' (post-facto records),
+    // but the same inclusion list is used as for in-house labs in case a
+    // procedure workflow ever lands in an intermediate state.
+    for (const status of ['draft', 'active', 'on-hold', 'completed'] as ServiceRequest['status'][]) {
+      expect(isValidProcedureServiceRequest(makeStandardProcedureSR(`sr-${status}`, { status }))).toBe(true);
+    }
+  });
+
+  test('excludes a procedure deleted via delete-chart-data (status=entered-in-error)', () => {
+    // delete-chart-data patches a deleted procedure to entered-in-error rather
+    // than deleting it, and the chart UI hides those by status - filtering them
+    // out here keeps a saved template from carrying deleted procedures forward.
+    const sr = makeStandardProcedureSR('sr-error', { status: 'entered-in-error' });
+    expect(isValidProcedureServiceRequest(sr)).toBe(false);
+  });
+
+  test('excludes a revoked procedure', () => {
+    const sr = makeStandardProcedureSR('sr-revoked', { status: 'revoked' });
+    expect(isValidProcedureServiceRequest(sr)).toBe(false);
+  });
+
+  test('excludes an SR without the procedure meta tag', () => {
+    // An in-house lab SR or any other ServiceRequest without the procedure
+    // chart-data meta tag must not be picked up as a procedure plan.
+    const sr = makeStandardProcedureSR('sr-no-tag', { meta: { tag: [] } });
+    expect(isValidProcedureServiceRequest(sr)).toBe(false);
+  });
+
+  test('excludes an SR whose meta tag system is different (e.g. in-house lab plan)', () => {
+    const sr = makeStandardProcedureSR('sr-lab-tag', {
+      meta: { tag: [{ system: chartDataTagSystem('in-house-lab-template-plan'), code: 'in-house-lab-template-plan' }] },
+    });
+    expect(isValidProcedureServiceRequest(sr)).toBe(false);
+  });
+
+  test('non-ServiceRequest resource returns false', () => {
+    const obs: TemplateEncounterResource = {
+      resourceType: 'Observation',
+      id: 'obs-1',
+      status: 'final',
+      code: {},
+      meta: { tag: [{ system: chartDataTagSystem('procedure'), code: 'procedure' }] },
+    };
+    expect(isValidProcedureServiceRequest(obs)).toBe(false);
   });
 });

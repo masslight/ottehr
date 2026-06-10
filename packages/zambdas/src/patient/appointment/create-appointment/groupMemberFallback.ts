@@ -48,15 +48,26 @@ export async function tryGroupMemberFallback(
   const bookedViaGroupId = getSlotBookedViaGroupId(slot);
   if (!bookedViaGroupId) return null;
 
+  // Distinguish the two failure modes that used to be silently coalesced:
+  //   (1) FHIR search itself fails — let the error surface (caller renders a
+  //       5xx); swallowing turned every transient or auth failure into a
+  //       silent "no fallback".
+  //   (2) Search succeeds but no HS exists for the id — slot's
+  //       bookedViaGroupId extension references a resource that's been
+  //       deleted (or was never written correctly). That's a slot/group data
+  //       integrity issue worth surfacing, not a fallback-not-applicable
+  //       business case.
   const groupHs = (
-    await oystehrClient.fhir
-      .search<HealthcareService>({
-        resourceType: 'HealthcareService',
-        params: [{ name: '_id', value: bookedViaGroupId }],
-      })
-      .catch(() => undefined)
-  )?.unbundle()[0];
-  if (!groupHs) return null;
+    await oystehrClient.fhir.search<HealthcareService>({
+      resourceType: 'HealthcareService',
+      params: [{ name: '_id', value: bookedViaGroupId }],
+    })
+  ).unbundle()[0];
+  if (!groupHs) {
+    // Unknown-shape error → unwrapped Error so wrapHandler's topLevelCatch
+    // routes it through observability as a 500.
+    throw new Error(`Slot's bookedViaGroupId=${bookedViaGroupId} references a HealthcareService that does not exist.`);
+  }
   if (getGroupAssignmentMode(groupHs) !== 'anonymous') return null;
 
   const originatingLocationId = resolveBookingLocationId({ scheduleOwner, slot });
