@@ -184,13 +184,10 @@ const handleEditAdminInHouseLab = async (
 
     return newWrittenAd;
   } catch (e: any) {
-    console.error(
-      `Encountered error when making transaction request updating in house lab. Error: `,
-      JSON.stringify(e)
-    );
+    console.error('Encountered error when making transaction request updating in house lab. Error:', e);
     const error = getApiError({ error: e, defaultError: 'Something went wrong updating the in house lab' });
     if (error.toLowerCase().includes('invalid')) throw INVALID_INPUT_ERROR(error);
-    else throw Error(error);
+    else throw new Error(error);
   }
 };
 
