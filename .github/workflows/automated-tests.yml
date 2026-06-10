@@ -108,7 +108,7 @@ jobs:
 
       - name: Spec tests with coverage
         if: ${{ !cancelled() }}
-        run: npx turbo run test:ci test:unit:ci test:component:ci --concurrency=5 --output-logs=errors-only
+        run: npx turbo run test:ci test:unit:ci test:component:ci --concurrency=5 --output-logs=errors-only --continue=always
         env:
           ENV: ${{ steps.env.outputs.environment }}
           CI: true
