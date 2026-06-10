@@ -3,6 +3,7 @@ import { HealthcareService } from 'fhir/r4b';
 import { useApiClients } from 'src/hooks/useAppClients';
 import {
   BOOKING_CONFIG,
+  getAllFhirSearchPages,
   getReasonForVisitOptionsForServiceCategory,
   parseReasonsForVisit,
   SERVICE_CATEGORY_SYSTEM,
@@ -31,19 +32,24 @@ export const useReasonForVisitOptions = (serviceCategoryCode: string | undefined
 
   // One query fetches every active category-tagged HealthcareService; the
   // result is cached and reused across mounts. A code-keyed query would be
-  // simpler but would burn one round-trip per appointment opened.
+  // simpler but would burn one round-trip per appointment opened. Paginates
+  // so a catalog larger than the default page size still resolves —
+  // update-visit-details follows the same pattern for the server-side
+  // category validator.
   const { data: fhirCategoryHits } = useQuery({
     queryKey: ['booking-service-category-list'],
     queryFn: async (): Promise<HealthcareService[]> => {
       if (!oystehr) return [];
-      const result = await oystehr.fhir.search<HealthcareService>({
-        resourceType: 'HealthcareService',
-        params: [
-          { name: '_tag', value: SERVICE_CATEGORY_TAG.code },
-          { name: 'active', value: 'true' },
-        ],
-      });
-      return result.unbundle();
+      return getAllFhirSearchPages<HealthcareService>(
+        {
+          resourceType: 'HealthcareService',
+          params: [
+            { name: '_tag', value: SERVICE_CATEGORY_TAG.code },
+            { name: 'active', value: 'true' },
+          ],
+        },
+        oystehr
+      );
     },
     enabled: !!oystehr && !inBookingConfig && !!serviceCategoryCode,
     placeholderData: keepPreviousData,
