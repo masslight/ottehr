@@ -33,4 +33,10 @@ describe('getMyPractitionerId — M2M token integration', () => {
 
     expect(practitionerId).toBe(expectedPractitionerId);
   });
+
+  // TEMP: intentional failure to demo CI output formatting — revert before merge
+  it('TEMP intentional failure for CI output demo', async () => {
+    console.log('this stdout from the integration suite should only appear because the test fails');
+    expect(testUserM2MProfile).toBe('Practitioner/this-id-does-not-exist');
+  });
 });
