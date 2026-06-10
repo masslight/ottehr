@@ -161,7 +161,7 @@ const createCategoryTagExtension = (categoryTag: string): NonNullable<Questionna
   valueString: categoryTag,
 });
 
-const createAnswerDisplayFilterExtension = (
+export const createAnswerDisplayFilterExtension = (
   conditions: { question: string; operator: string; answer: string }[],
   includeValues: string[]
 ): NonNullable<QuestionnaireItem['extension']>[number] => {

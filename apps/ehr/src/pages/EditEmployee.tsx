@@ -91,7 +91,7 @@ export default function EditEmployeePage(): JSX.Element {
     setIsActive(checkUserIsActive(userTemp));
   }
 
-  const handleUserActivation = async (mode: UserActivationMode): Promise<void> => {
+  const handleUserActivation = async (userActivationMode: UserActivationMode): Promise<void> => {
     setLoading(true);
     if (!oystehrZambda) {
       throw new Error('Zambda Client not found');
@@ -103,13 +103,13 @@ export default function EditEmployeePage(): JSX.Element {
     }
 
     try {
-      await userActivation(oystehrZambda, { userId: user.id, mode });
+      await userActivation(oystehrZambda, { userId: user.id, userActivationMode });
       await getUserAndUpdatePage();
-      enqueueSnackbar(`User was ${mode}d successfully`, {
+      enqueueSnackbar(`User was ${userActivationMode}d successfully`, {
         variant: 'success',
       });
     } catch {
-      const errorString = `Failed to ${mode} user. Please try again`;
+      const errorString = `Failed to ${userActivationMode} user. Please try again`;
       setErrors((prev) => ({ ...prev, submit: `${errorString}` }));
       enqueueSnackbar(`${errorString}`, {
         variant: 'error',

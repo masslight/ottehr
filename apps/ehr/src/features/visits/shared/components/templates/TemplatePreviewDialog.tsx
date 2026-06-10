@@ -21,7 +21,7 @@ import { useQuery } from '@tanstack/react-query';
 import React, { useEffect, useMemo, useState } from 'react';
 import { getTemplateDetail } from 'src/api/api';
 import { ContainedPrimaryToggleButton } from 'src/components/ContainedPrimaryToggleButton';
-import { formatCptCodeAndModifiersForDisplay } from 'src/helpers/templates';
+import { formatCptCodeAndModifiersForDisplay, getProcedureDisplayFields } from 'src/helpers/templates';
 import { useApiClients } from 'src/hooks/useAppClients';
 import {
   AdminGetTemplateDetailOutput,
@@ -35,6 +35,7 @@ import {
   TEMPLATE_SECTIONS_NO_OVERWRITE,
   TemplateCptCodeInfo,
   TemplateInHouseLabPlanDetail,
+  TemplateProcedurePlan,
   TemplateSectionAction,
   TemplateSectionActions,
   TemplateSectionDescriptor,
@@ -149,6 +150,17 @@ const getSectionSummary = (sections: AdminGetTemplateDetailOutput['sections'], k
       const missing = sections.inHouseLabs.filter((p) => p.missing).length;
       return missing > 0 ? `${summary} (${missing} unavailable)` : summary;
     }
+    case 'procedures': {
+      // Use whatever short label we have for each plan: procedureType code if
+      // it's there, otherwise fall back to the first CPT code so the summary
+      // still says something concrete. "Unnamed procedure" is a last resort for
+      // very sparse template entries.
+      const labels = sections.procedures
+        .slice(0, NUM_ITEMS_IN_SECTION_TO_SHOW)
+        .map((p) => p.procedureType ?? p.cptCodes[0]?.code ?? 'Unnamed procedure');
+      const extra = sections.procedures.length - NUM_ITEMS_IN_SECTION_TO_SHOW;
+      return extra > 0 ? `${labels.join(', ')} +${extra} more` : labels.join(', ');
+    }
     default:
       return '';
   }
@@ -176,6 +188,8 @@ const sectionHasContent = (sections: AdminGetTemplateDetailOutput['sections'], k
       return Boolean(sections.emCode);
     case 'inHouseLabs':
       return sections.inHouseLabs.length > 0;
+    case 'procedures':
+      return sections.procedures.length > 0;
     default:
       return false;
   }
@@ -333,6 +347,8 @@ const SectionPreview: React.FC<{
       return sections.emCode ? <CodeList items={[sections.emCode]} /> : null;
     case 'inHouseLabs':
       return <InHouseLabPlansList plans={sections.inHouseLabs} />;
+    case 'procedures':
+      return <ProcedurePlansList plans={sections.procedures} />;
     default:
       return null;
   }
@@ -395,6 +411,65 @@ const InHouseLabPlansList: React.FC<{ plans: TemplateInHouseLabPlanDetail[] }> =
     ))}
   </Stack>
 );
+
+// Procedure cards show the procedure type as a clear subheading, then a
+// left-indented block of details: labeled CPT and diagnosis lists (with the
+// uppercase-caption section labels the ROS preview uses, so the codes
+// underneath visibly belong to them) and the form-field rows. We only render
+// fields the template actually carried - the procedure form has a lot of
+// optional inputs and a template that didn't fill them in would look noisy
+// with a wall of empty rows.
+const ProcedurePlansList: React.FC<{ plans: TemplateProcedurePlan[] }> = ({ plans }) => (
+  <Stack spacing={2}>
+    {plans.map((plan) => (
+      <Box key={plan.planId}>
+        <Typography variant="subtitle2" sx={{ color: 'text.primary', fontWeight: 600 }}>
+          {plan.procedureType ?? plan.cptCodes[0]?.display ?? plan.cptCodes[0]?.code ?? 'Procedure'}
+        </Typography>
+        <Stack spacing={1} sx={{ mt: 0.5, pl: 2 }}>
+          {plan.cptCodes.length > 0 ? (
+            <Box>
+              <Typography variant="caption" sx={{ color: 'text.secondary', textTransform: 'uppercase' }}>
+                CPT codes
+              </Typography>
+              <CodeList items={plan.cptCodes} />
+            </Box>
+          ) : null}
+          {plan.diagnoses.length > 0 ? (
+            <Box>
+              <Typography variant="caption" sx={{ color: 'text.secondary', textTransform: 'uppercase' }}>
+                Diagnoses
+              </Typography>
+              <CodeList items={plan.diagnoses} />
+            </Box>
+          ) : null}
+          <ProcedurePlanFields plan={plan} />
+        </Stack>
+      </Box>
+    ))}
+  </Stack>
+);
+
+// Renders the procedure form fields as a compact label/value list, with the
+// `multiline` flag selecting whiteSpace: pre-wrap so free-text fields wrap
+// cleanly without being forced onto their own line for short values.
+const ProcedurePlanFields: React.FC<{ plan: TemplateProcedurePlan }> = ({ plan }) => {
+  const fields = getProcedureDisplayFields(plan);
+  if (fields.length === 0) return null;
+  return (
+    <Stack spacing={0.75}>
+      {fields.map((f) => (
+        <Typography
+          key={f.label}
+          variant="body2"
+          sx={{ color: 'text.primary', ...(f.multiline ? { whiteSpace: 'pre-wrap' } : {}) }}
+        >
+          <strong>{f.label}:</strong> {f.value}
+        </Typography>
+      ))}
+    </Stack>
+  );
+};
 
 const SectionCard: React.FC<{
   descriptor: TemplateSectionDescriptor;
