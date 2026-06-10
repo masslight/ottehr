@@ -8,7 +8,7 @@ import {
   getFirstName,
   getLastName,
   getMiddleName,
-  getPractitionerNPIIdentifier,
+  getNPIIdentifier,
   getSuffixFromProviderTypeExtension,
   isProviderTypeCode,
   makeProviderTypeExtension,
@@ -233,7 +233,7 @@ async function parseTestUser(user: UserResponse, oystehr: Oystehr): Promise<Test
   }
 
   const phone = practitioner.telecom?.find((telecom) => telecom.system === 'sms')?.value;
-  const npi = getPractitionerNPIIdentifier(practitioner)?.value;
+  const npi = getNPIIdentifier(practitioner)?.value;
   const qualification = allLicensesForPractitioner(practitioner);
 
   const providerTypeExtension = practitioner.extension?.find((e) => e.url === PROVIDER_TYPE_EXTENSION_URL);

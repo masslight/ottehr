@@ -2,7 +2,7 @@ import { Autocomplete, Skeleton, Tab, Tabs, TextField, Typography } from '@mui/m
 import { Box, styled } from '@mui/system';
 import { Slot } from 'fhir/r4b';
 import noop from 'lodash/noop';
-import { FC, useState } from 'react';
+import { FC, useEffect, useState } from 'react';
 import { generatePath, Navigate, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
   APIError,
@@ -72,6 +72,7 @@ const useBookingParams = (
   slugToFetch: string | undefined;
   serviceModeFromParam: string | undefined;
   serviceCategoryCode: ServiceCategoryCode | undefined;
+  atLocationSlug: string | null;
 } => {
   const [searchParams] = useSearchParams();
   const pathParams = useParams();
@@ -79,6 +80,7 @@ const useBookingParams = (
   const scheduleTypeFromParam = searchParams.get(BOOKING_SCHEDULE_TYPE_QUERY_PARAM) as ScheduleType | null;
   const serviceModeFromParam = pathParams[BOOKING_SERVICE_MODE_PARAM];
   const serviceCategoryCodeFromParam = searchParams.get(BOOKING_SERVICE_CATEGORY_PARAM);
+  const atLocationSlug = searchParams.get('atLocation');
 
   const typeMap: Record<string, ScheduleType> = {
     HealthcareService: ScheduleType.group,
@@ -95,6 +97,7 @@ const useBookingParams = (
     scheduleType: scheduleTypeFromParam || (selectedLocation && typeMap[selectedLocation.resourceType]),
     slugToFetch: bookingOn ?? selectedLocation?.slug,
     serviceCategoryCode: ServiceCategoryCodeSchema.safeParse(serviceCategoryCodeFromParam)?.data ?? undefined,
+    atLocationSlug,
   };
 };
 
@@ -102,7 +105,8 @@ const useBookingData = (
   serviceMode: ServiceMode,
   slugToFetch: string | undefined,
   scheduleType: ScheduleType | null,
-  serviceCategoryCode?: ServiceCategoryCode
+  serviceCategoryCode?: ServiceCategoryCode,
+  atLocationSlug?: string | null
 ): {
   bookableItems: BookableItem[];
   isCategorized: boolean;
@@ -125,6 +129,11 @@ const useBookingData = (
     { serviceMode }
   );
 
+  // Threading atLocationSlug into get-schedule narrows the slot pool to a
+  // specific Location for owners that span multiple. When absent for such
+  // owners, the server returns pickableLocations[] (with empty slot lists)
+  // so the page can render a Location picker; once the patient picks, the
+  // URL gains atLocation, this hook re-fires, and real slots come back.
   const { data: slotData, status: slotsStatus } = useGetSchedule(
     apiClient,
     Boolean(apiClient) && Boolean(slugToFetch) && Boolean(scheduleType),
@@ -132,6 +141,7 @@ const useBookingData = (
       slug: slugToFetch ?? '',
       scheduleType: scheduleType ?? ScheduleType.location,
       serviceCategoryCode,
+      ...(atLocationSlug && { atLocationSlug }),
     }
   );
 
@@ -175,6 +185,7 @@ const PrebookVisit: FC = () => {
   const navigate = useNavigate();
   const pathParams = useParams();
   const { state: navState } = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const isReschedule = Boolean(navState?.reschedule);
 
@@ -190,8 +201,22 @@ const PrebookVisit: FC = () => {
   const selectedLocation =
     (serviceModeFromParam ?? serviceMode) === 'in-person' ? selectedInPersonLocation : selectedVirtualLocation;
 
-  const { bookingOn, scheduleType, selectedSlot, slugToFetch, serviceCategoryCode } =
+  const { bookingOn, scheduleType, selectedSlot, slugToFetch, serviceCategoryCode, atLocationSlug } =
     useBookingParams(selectedLocation);
+
+  // When the booking URL targets a multi-Location owner without specifying
+  // an atLocation slug, get-schedule returns the list of qualifying
+  // Locations in `pickableLocations` (with empty slot lists). We push the
+  // chosen slug back into the URL so the same get-schedule call refires
+  // with disambiguated location → real slots come back. Pushing (not
+  // replacing) so the back button returns to the picker — useful when the
+  // chosen location has no slots and the patient wants to try another.
+  const handleLocationPick = (locationSlug: string): void => {
+    const next = new URLSearchParams(searchParams);
+    next.set('atLocation', locationSlug);
+    setSearchParams(next);
+  };
+
   const tokenlessZambdaClient = useUCZambdaClient({ tokenless: true });
 
   const {
@@ -200,7 +225,24 @@ const PrebookVisit: FC = () => {
     isLoading: isBookablesLoading,
     slotData,
     isSlotsLoading,
-  } = useBookingData(serviceMode, slugToFetch, scheduleType, serviceCategoryCode);
+  } = useBookingData(serviceMode, slugToFetch, scheduleType, serviceCategoryCode, atLocationSlug);
+
+  // If the owner spans exactly one Location, skip the picker — there's no
+  // choice to make. Replacing (not pushing) keeps the back button pointed
+  // at the referring page rather than a no-op picker the patient never saw.
+  useEffect(() => {
+    if (atLocationSlug) return;
+    const only = slotData?.pickableLocations?.length === 1 ? slotData.pickableLocations[0] : undefined;
+    if (!only?.slug) return;
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.set('atLocation', only.slug);
+        return next;
+      },
+      { replace: true }
+    );
+  }, [atLocationSlug, slotData?.pickableLocations, setSearchParams]);
 
   const handleBookableSelection = (_e: any, newValue: BookableItem | null): void => {
     const serviceType = newValue?.serviceMode ?? serviceModeFromParam ?? serviceMode;
@@ -311,6 +353,34 @@ const PrebookVisit: FC = () => {
         {slugToFetch &&
           (isSlotsLoading ? (
             <LoadingSkeleton />
+          ) : slotData?.pickableLocations && slotData.pickableLocations.length > 0 ? (
+            // The targeted owner spans multiple Locations; pick one before
+            // we can show slots. Re-uses the page's existing Autocomplete
+            // styling for consistency with the bookable-item picker above.
+            <Autocomplete
+              id="pickable-location-autocomplete"
+              options={slotData.pickableLocations}
+              getOptionLabel={(option) => option.name}
+              isOptionEqualToValue={(option, value) => option.id === value.id}
+              onChange={(_e, value) => {
+                if (value?.slug) handleLocationPick(value.slug);
+              }}
+              renderOption={(props, option) => (
+                <li {...props} key={`pickable-loc-${option.id}`}>
+                  <Typography sx={{ pt: 1 }} variant="body2">
+                    {option.name}
+                  </Typography>
+                </li>
+              )}
+              renderInput={(params) => (
+                <>
+                  <BoldPurpleInputLabel required shrink sx={{ whiteSpace: 'pre-wrap' }}>
+                    Choose a location
+                  </BoldPurpleInputLabel>
+                  <StyledTextField {...params} placeholder="Search or select" variant="outlined" />
+                </>
+              )}
+            />
           ) : (
             <Schedule
               customOnSubmit={handleSlotSelection}

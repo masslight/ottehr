@@ -84,4 +84,42 @@ describe('get-schedule - validateRequestParameters', () => {
     const result = validateRequestParameters(input);
     expect(result.secrets).toEqual(secrets);
   });
+
+  // `slug` and `atLocationSlug` are interpolated raw into FHIR `identifier`
+  // search params as `${SLUG_SYSTEM}|${value}`. Without a format guard, a
+  // `|` (or other special chars) lets a caller break out of the value side
+  // and inject extra search clauses. SlugSchema enforces URL-safe shape.
+  describe('slug-format validation', () => {
+    test('rejects slug containing "|" (injection vector)', () => {
+      const input = createMockZambdaInput({ ...validBody, slug: 'legit|extra-clause' });
+      expect(() => validateRequestParameters(input)).toThrow('slug');
+    });
+
+    test('rejects slug containing a space', () => {
+      const input = createMockZambdaInput({ ...validBody, slug: 'legit slug' });
+      expect(() => validateRequestParameters(input)).toThrow('slug');
+    });
+
+    test('rejects atLocationSlug containing "|" (injection vector)', () => {
+      const input = createMockZambdaInput({ ...validBody, atLocationSlug: 'legit|extra-clause' });
+      expect(() => validateRequestParameters(input)).toThrow('atLocationSlug');
+    });
+
+    test('rejects atLocationSlug that is an empty string', () => {
+      const input = createMockZambdaInput({ ...validBody, atLocationSlug: '' });
+      expect(() => validateRequestParameters(input)).toThrow('atLocationSlug');
+    });
+
+    test('accepts atLocationSlug omitted', () => {
+      const input = createMockZambdaInput(validBody);
+      const result = validateRequestParameters(input);
+      expect(result.atLocationSlug).toBeUndefined();
+    });
+
+    test('accepts a valid URL-safe atLocationSlug', () => {
+      const input = createMockZambdaInput({ ...validBody, atLocationSlug: 'my-location-2' });
+      const result = validateRequestParameters(input);
+      expect(result.atLocationSlug).toBe('my-location-2');
+    });
+  });
 });
