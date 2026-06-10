@@ -57,7 +57,11 @@ const FIELDS: FieldDef[] = [
   {
     name: 'emCode',
     type: 'string',
-    description: 'The visit\'s E&M (evaluation & management) code, e.g. "99213". Null when not set.',
+    description:
+      'The visit\'s E&M (evaluation & management) code, e.g. "99213". Null when not set. When scoring ' +
+      'by complexity use the canonical MDM ladder: 1=minimal (99211), 2=straightforward (99202, 99212), ' +
+      '3=low (99203, 99213), 4=moderate (99204, 99214), 5=high (99205, 99215). New-patient and ' +
+      'established codes of the same level rank equally.',
   },
   {
     name: 'appointmentId',

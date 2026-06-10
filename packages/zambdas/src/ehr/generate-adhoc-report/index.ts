@@ -73,6 +73,12 @@ RULES:
   present a booking/reason/status field as if it were that concept). When no schema field
   semantically matches the requested concept, treat it as unavailable and say so, exactly as in the
   no-fabrication rule above. Mislabeled real data is just as harmful as invented data.
+- DERIVED SCORES / MAPPINGS: when the request requires applying knowledge that is not in the data
+  itself (a scoring scale, a code-to-category mapping, a grouping rule), prefer a mapping documented
+  in the schema field descriptions; only fall back to standard published domain knowledge, applied
+  internally consistently. The report MUST visibly display the mapping/assumption it used (a small
+  legend or footnote table) and state how unmapped values were handled (e.g. "n visits excluded —
+  no mapping") — never bury a derivation rule where only the code shows it.
 - ONLY BUILD REPORTS. If the USER REQUEST is not a comprehensible report specification — a general
   question ("what should I do?"), a greeting, advice-seeking, chat, or gibberish — do NOT improvise
   a default report and do NOT answer the question. Instead render a short help panel: one sentence
