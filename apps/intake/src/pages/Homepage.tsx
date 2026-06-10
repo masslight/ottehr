@@ -13,6 +13,7 @@ import { BOOKING_SERVICE_MODE_PARAM, intakeFlowPageRoute } from '../App';
 import { getWelcomeTitle } from '../branding/welcomeTitle';
 import HomepageOption from '../components/HomepageOption';
 import { dataTestIds } from '../helpers/data-test-ids';
+import { useServiceCategories } from '../hooks/useServiceCategories';
 import { otherColors } from '../IntakeThemeProvider';
 import { CancelVisitDialog } from '../telemed/components';
 import {
@@ -39,6 +40,7 @@ const Homepage = (): JSX.Element => {
   const isAppointmentStatusProposed = activeAppointment?.appointmentStatus === 'proposed';
   const appointmentID = activeAppointment?.id || '';
   const { refetch } = useGetAppointments(apiClient, Boolean(mayUserAccessAppointments));
+  const { serviceCategories } = useServiceCategories();
 
   useEffect(() => {
     if (!mayUserAccessAppointments) {
@@ -49,15 +51,33 @@ const Homepage = (): JSX.Element => {
     void refetch();
   }, [refetch, mayUserAccessAppointments]);
 
+  // When exactly one service category matches the given mode+visitType, return
+  // its code so we can inject it as ?serviceCategory=<code> when skipping the
+  // picker. Otherwise return undefined.
+  const singleCategoryCodeFor = (serviceMode: string, visitType: string): string | undefined => {
+    const matches = serviceCategories.filter(
+      (sc) => sc.serviceModes.includes(serviceMode as any) && sc.visitTypes.includes(visitType as any)
+    );
+    return matches.length === 1 ? matches[0].category.code ?? undefined : undefined;
+  };
+
+  const withServiceCategoryParam = (path: string, code: string | undefined): string => {
+    if (!code) return path;
+    const separator = path.includes('?') ? '&' : '?';
+    return `${path}${separator}serviceCategory=${encodeURIComponent(code)}`;
+  };
+
   const handleRequestVisit = (): void => {
     const shouldSelectServiceCategory = shouldShowServiceCategorySelectionPage({
       serviceMode: ServiceMode.virtual,
       visitType: 'walk-in',
+      serviceCategories,
     });
     if (shouldSelectServiceCategory) {
       navigate(intakeFlowPageRoute.SelectServiceCategoryStartVirtual.path);
     } else {
-      navigate(intakeFlowPageRoute.StartVirtualVisit.path);
+      const code = singleCategoryCodeFor(ServiceMode.virtual, 'walk-in');
+      navigate(withServiceCategoryParam(intakeFlowPageRoute.StartVirtualVisit.path, code));
     }
   };
 
@@ -70,6 +90,7 @@ const Homepage = (): JSX.Element => {
     const shouldSelectServiceCategory = shouldShowServiceCategorySelectionPage({
       serviceMode: ServiceMode['in-person'],
       visitType: 'walk-in',
+      serviceCategories,
     });
 
     if (shouldSelectServiceCategory) {
@@ -81,8 +102,8 @@ const Homepage = (): JSX.Element => {
       const basePath = generatePath(intakeFlowPageRoute.WalkinLandingByLocationName.path, {
         name: BOOKING_CONFIG.defaultWalkinLocationName!,
       });
-
-      navigate(basePath);
+      const code = singleCategoryCodeFor(ServiceMode['in-person'], 'walk-in');
+      navigate(withServiceCategoryParam(basePath, code));
     }
   };
 
@@ -112,6 +133,7 @@ const Homepage = (): JSX.Element => {
     const shouldSelectServiceCategory = shouldShowServiceCategorySelectionPage({
       serviceMode: ServiceMode['in-person'],
       visitType: 'prebook',
+      serviceCategories,
     });
     let destination = '';
     if (shouldSelectServiceCategory) {
@@ -127,6 +149,10 @@ const Homepage = (): JSX.Element => {
     }
 
     destination += resolvePrebookInPersonPathQueryParams();
+    if (!shouldSelectServiceCategory) {
+      const code = singleCategoryCodeFor(ServiceMode['in-person'], 'prebook');
+      destination = withServiceCategoryParam(destination, code);
+    }
     navigate(destination);
   };
 
@@ -134,15 +160,19 @@ const Homepage = (): JSX.Element => {
     const shouldSelectServiceCategory = shouldShowServiceCategorySelectionPage({
       serviceMode: ServiceMode.virtual,
       visitType: 'prebook',
+      serviceCategories,
     });
     if (shouldSelectServiceCategory) {
       navigate(
         intakeFlowPageRoute.SelectServiceCategory.path.replace(`:${BOOKING_SERVICE_MODE_PARAM}`, ServiceMode['virtual'])
       );
     } else {
-      navigate(
-        intakeFlowPageRoute.PrebookVisitDynamic.path.replace(`:${BOOKING_SERVICE_MODE_PARAM}`, ServiceMode['virtual'])
+      const code = singleCategoryCodeFor(ServiceMode.virtual, 'prebook');
+      const path = intakeFlowPageRoute.PrebookVisitDynamic.path.replace(
+        `:${BOOKING_SERVICE_MODE_PARAM}`,
+        ServiceMode['virtual']
       );
+      navigate(withServiceCategoryParam(path, code));
     }
   };
 

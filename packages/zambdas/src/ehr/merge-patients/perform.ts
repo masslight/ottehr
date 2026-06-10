@@ -23,6 +23,7 @@ import {
   createUserResourcesForPatient,
   flattenQuestionnaireAnswers,
   getCoding,
+  PARTICIPATION_CODE_SYSTEM,
   PATIENT_RECORD_QUESTIONNAIRE,
   PRIVATE_EXTENSION_BASE_URL,
   Secrets,
@@ -841,7 +842,7 @@ export async function performMerge(input: PerformMergeInput, oystehr: Oystehr, m
         type: {
           coding: [
             {
-              system: 'http://terminology.hl7.org/CodeSystem/v3-ParticipationType',
+              system: PARTICIPATION_CODE_SYSTEM,
               code: 'AUT',
               display: 'author (originator)',
             },

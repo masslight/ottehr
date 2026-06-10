@@ -158,6 +158,17 @@ const performEffect = async (
     isValidInHouseLabServiceRequest(resource)
   );
 
+  // Capture in-office procedure ServiceRequests for the same reason as in-house
+  // labs: chart-data procedures are identified by their 'procedure' meta tag
+  // rather than by being included in TEMPLATE_TAG_SYSTEMS below, so the tag
+  // filter would otherwise drop them. delete-chart-data marks procedures as
+  // status='entered-in-error' (the chart UI hides them by status); the inclusion
+  // list below keeps those out so a saved template doesn't carry forward a
+  // procedure the provider had already deleted.
+  const procedureOrders = encounterBundle.filter((resource): resource is ServiceRequest =>
+    isValidProcedureServiceRequest(resource)
+  );
+
   // Filter to only resources relevant to template sections
   const diagnosesRefFromEncounterSet = new Set(
     oldEncounter.diagnosis?.map((dx) => dx.condition.reference).filter((elm) => elm !== undefined) ?? []
@@ -227,6 +238,58 @@ const performEffect = async (
           {
             system: chartDataTagSystem('in-house-lab-template-plan'),
             code: 'in-house-lab-template-plan',
+          },
+        ],
+      },
+    };
+    listToCreate.contained!.push(plan);
+    listToCreate.entry!.push({
+      item: { reference: `#${planId}` },
+    });
+  }
+
+  // Materialize each captured in-office procedure as a "plan" ServiceRequest on
+  // the template.
+  // Diagnosis (reasonReference) and CPT (supportingInfo) cross-refs are remapped
+  // through the oldIdToNewIdMap so the plan points at the template's contained
+  // Conditions / CPT Procedures (which were captured above by the diagnoses
+  // and CPT-code sections). At apply time, those refs get rewritten again to
+  // the new live resources within a single FHIR transaction.
+  const procedurePlanMetaTag = chartDataTagSystem('procedure-template-plan');
+  for (const order of procedureOrders) {
+    const planId = uuidV4();
+    const remapReference = (ref: { reference?: string } | undefined): { reference: string } | null => {
+      if (!ref?.reference) return null;
+      const [resourceType, oldId] = ref.reference.split('/');
+      if (!oldId) return null;
+      const newId = oldIdToNewIdMap.get(oldId);
+      if (!newId) return null; // referenced resource isn't in the template (filtered out earlier)
+      return { reference: `${resourceType}/${newId}` };
+    };
+    const remappedReasonReferences = (order.reasonReference ?? [])
+      .map(remapReference)
+      .filter((r): r is { reference: string } => r !== null);
+    const remappedSupportingInfo = (order.supportingInfo ?? [])
+      .map(remapReference)
+      .filter((r): r is { reference: string } => r !== null);
+
+    const plan: ServiceRequest = {
+      resourceType: 'ServiceRequest',
+      id: planId,
+      status: 'active',
+      intent: 'plan',
+      subject: { reference: `#${stubPatient.id}` },
+      ...(order.category ? { category: order.category } : {}),
+      ...(order.performerType ? { performerType: order.performerType } : {}),
+      ...(order.bodySite ? { bodySite: order.bodySite } : {}),
+      ...(order.extension && order.extension.length > 0 ? { extension: order.extension } : {}),
+      ...(remappedReasonReferences.length > 0 ? { reasonReference: remappedReasonReferences } : {}),
+      ...(remappedSupportingInfo.length > 0 ? { supportingInfo: remappedSupportingInfo } : {}),
+      meta: {
+        tag: [
+          {
+            system: procedurePlanMetaTag,
+            code: 'procedure-template-plan',
           },
         ],
       },
@@ -337,24 +400,34 @@ export const filterEntriesToTemplateContent = (
   });
 };
 
+// Orders the provider canceled or marked as a mistake live on as
+// status='revoked' / 'entered-in-error' ServiceRequests on the encounter even
+// though they're hidden from the chart UI. Both lab and procedure capture
+// predicates apply this allow-list so a saved template doesn't accidentally
+// carry deleted entries forward.
+const TEMPLATE_INCLUDABLE_SR_STATUSES = new Set<ServiceRequest['status']>(['draft', 'active', 'on-hold', 'completed']);
+
 export const isValidInHouseLabServiceRequest = (resource: TemplateEncounterResource): boolean => {
   if (resource.resourceType !== 'ServiceRequest') return false;
-
-  // Orders the provider canceled or marked as a mistake live on as
-  // status='revoked' / 'entered-in-error' ServiceRequests on the encounter even
-  // though they're hidden from the chart UI. Skip them so a saved template
-  // doesn't accidentally carry deleted orders forward.
-  const TEMPLATE_INCLUDABLE_SR_STATUSES = new Set<ServiceRequest['status']>([
-    'draft',
-    'active',
-    'on-hold',
-    'completed',
-  ]);
   return (
     !!resource.code?.coding?.some((c) => c.system === IN_HOUSE_TEST_CODE_SYSTEM) &&
     !resourceHasTagSystem(resource, REPEAT_TEST_ORDER_DETAIL_TAG_CONFIG.system) && // we don't want repeat tests included
     !resource.basedOn?.some((basedOn) => basedOn.reference?.startsWith('ServiceRequest/')) && // we don't want reflex tests included either
     resource.instantiatesCanonical?.some((canonical) => canonical.startsWith(AD_CANONICAL_URL_BASE)) === true &&
+    TEMPLATE_INCLUDABLE_SR_STATUSES.has((resource as ServiceRequest).status)
+  );
+};
+
+// Chart-data procedures are stored as ServiceRequest with the 'procedure' meta
+// tag (createProcedureServiceRequest in shared/chart-data uses
+// fillMeta('procedure', 'procedure')). delete-chart-data patches status to
+// 'entered-in-error', and the chart UI hides revoked/entered-in-error
+// procedures - we mirror that filtering here so deleted procedures don't leak
+// into templates.
+export const isValidProcedureServiceRequest = (resource: TemplateEncounterResource): boolean => {
+  if (resource.resourceType !== 'ServiceRequest') return false;
+  return (
+    resourceHasTagSystem(resource, chartDataTagSystem('procedure')) &&
     TEMPLATE_INCLUDABLE_SR_STATUSES.has((resource as ServiceRequest).status)
   );
 };

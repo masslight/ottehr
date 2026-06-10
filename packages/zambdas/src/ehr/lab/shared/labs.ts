@@ -37,6 +37,7 @@ import {
   DynamicAOEInput,
   EncounterExternalLabResult,
   EncounterInHouseLabResult,
+  EXTERNAL_LAB_ERROR,
   ExternalLabDocuments,
   externalLabOrderIsManual,
   ExternalLabOrderResult,
@@ -44,6 +45,7 @@ import {
   getAdditionalPlacerId,
   getCoding,
   getOrderNumber,
+  getOrderNumberFromDr,
   getPresignedURL,
   getTestDetailsFromActivityDefinition,
   getTestItemCodeFromDr,
@@ -54,7 +56,8 @@ import {
   IN_HOUSE_TEST_CODE_SYSTEM,
   INCONCLUSIVE_RESULT_DR_TAG,
   InHouseLabResult,
-  isExternalLabServiceRequest as isLabServiceRequest,
+  isExternalLabServiceRequest,
+  isInHouseLabServiceRequest,
   isPSCOrder,
   LAB_DR_TYPE_TAG,
   LAB_OBS_VALUE_WITH_PRECISION_EXT,
@@ -76,6 +79,7 @@ import {
   OYSTEHR_LAB_DIAGNOSTIC_REPORT_CATEGORY,
   OYSTEHR_LAB_GUID_SYSTEM,
   OYSTEHR_LAB_OI_CODE_SYSTEM,
+  OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM,
   parseLabInfoFromServiceRequest,
   PATIENT_BILLING_ACCOUNT_TYPE,
   SERVICE_REQUEST_REFLEX_TRIGGERED_TAG_CODES,
@@ -108,6 +112,7 @@ type DrLabResultResources = {
   diagnosticReport: DiagnosticReport;
   observations: Observation[];
   schedule: Schedule | undefined;
+  serviceRequest?: ServiceRequest;
 };
 
 const makeSearchParamsBasedOnDiagnosticReport = (diagnosticReportID: string): SearchParam[] => {
@@ -140,17 +145,30 @@ const makeSearchParamsBasedOnDiagnosticReport = (diagnosticReportID: string): Se
       name: '_include:iterate',
       value: 'Slot:schedule',
     },
+    {
+      name: '_include',
+      value: 'DiagnosticReport:based-on:ServiceRequest', // any unsolicited DR that was matched to a patient might also have been matched to a specific service request
+    },
   ];
 };
 
 export async function getExternalLabOrderResourcesViaDiagnosticReport(
   oystehr: Oystehr,
-  diagnosticReportID: string
+  diagnosticReportID: string,
+  type: LabDrTypeTagCode
 ): Promise<DrLabResultResources> {
   const searchParams = makeSearchParamsBasedOnDiagnosticReport(diagnosticReportID);
   const resourceSearch = (
     await oystehr.fhir.search<
-      Patient | Organization | DiagnosticReport | Observation | Encounter | Appointment | Slot | Schedule
+      | Patient
+      | Organization
+      | DiagnosticReport
+      | Observation
+      | Encounter
+      | Appointment
+      | Slot
+      | Schedule
+      | ServiceRequest
     >({
       resourceType: 'DiagnosticReport',
       params: searchParams,
@@ -176,6 +194,8 @@ export async function getExternalLabOrderResourcesViaDiagnosticReport(
       if (isCorrectCategory) diagnosticReports.push(resource);
     }
     if (resource.resourceType === 'Schedule') schedules.push(resource);
+    if (resource.resourceType === 'ServiceRequest' && isExternalLabServiceRequest(resource))
+      serviceRequests.push(resource);
   });
 
   if (patients?.length !== 1) throw new Error('patient is not found');
@@ -188,12 +208,47 @@ export async function getExternalLabOrderResourcesViaDiagnosticReport(
   const diagnosticReport = diagnosticReports[0];
   const schedule = schedules.length ? schedules[0] : undefined;
 
+  const serviceRequests: ServiceRequest[] = [];
+  if (type === 'unsolicited') {
+    serviceRequests.push(
+      ...resourceSearch.filter(
+        (resource): resource is ServiceRequest =>
+          resource.resourceType === 'ServiceRequest' && isExternalLabServiceRequest(resource)
+      )
+    );
+
+    if (serviceRequests.length > 1)
+      throw EXTERNAL_LAB_ERROR('found more than one ServiceRequest for a matched unsolicited result. Expected 0 or 1');
+  } else if (type === 'reflex') {
+    // make another request to grab the serviceRequest based on the order number on the DR
+    const orderNumber = getOrderNumberFromDr(diagnosticReport);
+    if (!orderNumber) throw EXTERNAL_LAB_ERROR(`No order number found on DiagnosticReport/${diagnosticReport.id}`);
+
+    console.log('it was a reflex test dr, querying for a service request with this order number', orderNumber);
+    const servicesRequestSearchResults = (
+      await oystehr.fhir.search<ServiceRequest>({
+        resourceType: 'ServiceRequest',
+        params: [{ name: 'identifier', value: `${OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM}|${orderNumber}` }],
+      })
+    ).unbundle();
+
+    if (!servicesRequestSearchResults.length)
+      throw EXTERNAL_LAB_ERROR(`No ServiceRequests matching order number ${orderNumber}`);
+
+    // we just need the first SR to know if the order was submitted with the friendly result or not
+    console.log('got servicerequest results', JSON.stringify(servicesRequestSearchResults[0].id));
+    serviceRequests.push(servicesRequestSearchResults[0]);
+  }
+
+  const serviceRequest = serviceRequests[0];
+
   return {
     patient,
     labOrganization,
     diagnosticReport,
     observations,
     schedule,
+    serviceRequest,
   };
 }
 
@@ -624,20 +679,20 @@ export const makeEncounterLabResults = async (
       allObservations.push(resource as Observation);
     }
     if (resource.resourceType === 'ServiceRequest') {
-      const isExternalLabServiceRequest = isLabServiceRequest(resource);
-      const isInHouseLabServiceRequest = !!resource.code?.coding?.find((c) => c.system === IN_HOUSE_TEST_CODE_SYSTEM);
-      if (isExternalLabServiceRequest || isInHouseLabServiceRequest) {
+      const isExternalLabSR = isExternalLabServiceRequest(resource);
+      const isInHouseLabSR = isInHouseLabServiceRequest(resource);
+      if (isExternalLabSR || isInHouseLabSR) {
         serviceRequestMap[`ServiceRequest/${resource.id}`] = {
           resource: resource as ServiceRequest,
-          type: isExternalLabServiceRequest ? LabType.external : LabType.inHouse,
+          type: isExternalLabSR ? LabType.external : LabType.inHouse,
         };
         if (resource.status === 'active') {
-          if (isExternalLabServiceRequest) {
+          if (isExternalLabSR) {
             const isManual = externalLabOrderIsManual(resource);
             // theres no guarantee that will we get electronic results back for manual labs so we can't validate
             if (!isManual && resource.id) activeExternalLabServiceRequestIds.add(resource.id);
           }
-          if (isInHouseLabServiceRequest && resource.id) activeInHouseLabServiceRequestIds.add(resource.id);
+          if (isInHouseLabSR && resource.id) activeInHouseLabServiceRequestIds.add(resource.id);
         }
 
         const reflexTestTriggered = resource.meta?.tag?.find(
