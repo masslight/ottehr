@@ -6,6 +6,7 @@ import {
   FHIR_EXTENSION,
   formatDate,
   getExtension,
+  getFullestAvailableName,
   GetRadiologyOrderListZambdaInput,
   GetRadiologyOrderListZambdaOrder,
   GetRadiologyOrderListZambdaOutput,
@@ -26,6 +27,7 @@ import {
   TASK_ASSIGNED_DATE_TIME_EXTENSION_URL,
 } from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
+import { getMostRecentReport } from '../shared';
 import { validateInput, validateSecrets } from './validation';
 
 // Types
@@ -196,14 +198,10 @@ const parseResultsToOrder = (
   if (!myRequestingProvider) {
     throw new Error('Service Request has no requesting provider');
   }
-  const providerFirstName = myRequestingProvider?.name?.[0]?.given?.[0];
-  const providerLastName = myRequestingProvider?.name?.[0]?.family;
-  if (!providerFirstName || !providerLastName) {
+  const providerName = getFullestAvailableName(myRequestingProvider);
+  if (!providerName) {
     throw new Error('Provider name is unexpectedly null');
   }
-  const providerName = `${providerLastName}, ${providerFirstName}`;
-
-  // TODO can we do provider requesting provider qualifications to render "MD"?
 
   let status: RadiologyOrderStatus | undefined;
 
@@ -255,10 +253,7 @@ const parseResultsToOrder = (
         const orderDate = serviceRequest.extension?.find(
           (ext) => ext.url === SERVICE_REQUEST_REQUESTED_TIME_EXTENSION_URL
         )?.valueDateTime;
-        let taskSubtitle = `Ordered by ${providerFirstName} ${providerLastName} on ${formatDate(
-          orderDate ?? '',
-          'MM/dd/yyyy h:mm a'
-        )}`;
+        let taskSubtitle = `Ordered by ${providerName} on ${formatDate(orderDate ?? '', 'MM/dd/yyyy h:mm a')}`;
         if (finalReviewTask?.location?.display) {
           taskSubtitle += ` | ${finalReviewTask?.location?.display}`;
         }
@@ -286,7 +281,13 @@ const parseResultsToOrder = (
 
   const appointmentId = parseAppointmentId(serviceRequest, encounters);
 
-  const history = buildHistory(serviceRequest, bestFinalReport, preliminaryDiagnosticReport, providerName);
+  const history = buildHistory(
+    serviceRequest,
+    bestFinalReport,
+    preliminaryDiagnosticReport,
+    providerName,
+    finalReviewTask
+  );
 
   const clinicalHistory = extractOrderDetailValue(serviceRequest, 'clinical-history');
   const studyName = extractOrderDetailValue(serviceRequest, 'requested-procedure-description');
@@ -312,17 +313,6 @@ const parseResultsToOrder = (
     task: formattedFinalReviewTask,
     consentObtained,
   };
-};
-
-const getMostRecentReport = (reports: DiagnosticReport[]): DiagnosticReport | undefined => {
-  if (!reports.length) return undefined;
-
-  return reports.reduce((mostRecent, current) => {
-    if (!current.issued) return mostRecent;
-    if (!mostRecent.issued) return current;
-
-    return new Date(current.issued) > new Date(mostRecent.issued) ? current : mostRecent;
-  });
 };
 
 const takeMostRecentPreliminaryReport = (diagnosticReports: DiagnosticReport[]): DiagnosticReport | undefined => {
@@ -361,7 +351,8 @@ const buildHistory = (
   serviceRequest: ServiceRequest,
   bestDiagnosticReport: DiagnosticReport | undefined,
   preliminaryDiagnosticReport: DiagnosticReport | undefined,
-  orderingProviderName: string
+  orderingProviderName: string,
+  finalReviewTask?: Task
 ): RadiologyOrderHistoryRow[] => {
   const history: RadiologyOrderHistoryRow[] = [];
 
@@ -430,6 +421,17 @@ const buildHistory = (
       status: RadiologyOrderStatus.final,
       performer: '',
       date: bestDiagnosticReport.issued || bestDiagnosticReport.meta?.lastUpdated || '',
+    });
+  }
+
+  if (finalReviewTask && finalReviewTask.status === 'completed') {
+    const date =
+      finalReviewTask.owner?.extension?.find((ext) => ext.url === TASK_ASSIGNED_DATE_TIME_EXTENSION_URL)
+        ?.valueDateTime ?? '';
+    history.push({
+      status: RadiologyOrderStatus.reviewed,
+      performer: finalReviewTask.owner?.display ?? '',
+      date,
     });
   }
 

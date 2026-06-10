@@ -578,11 +578,20 @@ const handleSaveCollectionData = async (
       labOrganization,
       specimenCollectionDateTime: mostRecentSampleCollectionDate,
       userTimezone,
+      serviceRequest,
     });
 
     console.log('creating labs order label and getting url');
     presignedLabelPdfUrl = (
-      await createExternalLabsLabelPDF(labelConfig, encounter.id!, serviceRequest.id!, secrets, m2mToken, oystehr)
+      await createExternalLabsLabelPDF(
+        labelConfig,
+        patient.id!,
+        encounter.id!,
+        serviceRequest.id!,
+        secrets,
+        m2mToken,
+        oystehr
+      )
     ).presignedURL;
   }
 

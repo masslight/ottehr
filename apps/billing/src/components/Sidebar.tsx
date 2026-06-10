@@ -1,5 +1,13 @@
-import { Description as DescriptionIcon, Home as HomeIcon } from '@mui/icons-material';
-import { Drawer, List, ListItemButton, ListItemIcon, ListItemText, Toolbar } from '@mui/material';
+import {
+  Business as BusinessIcon,
+  Description as DescriptionIcon,
+  Home as HomeIcon,
+  Label as LabelIcon,
+  MedicalServices as MedicalServicesIcon,
+  People as PeopleIcon,
+  Receipt as ReceiptIcon,
+} from '@mui/icons-material';
+import { Box, Drawer, List, ListItemButton, ListItemIcon, ListItemText, Typography } from '@mui/material';
 import { FC } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { otherColors } from '../themes/ottehr/colors';
@@ -7,8 +15,13 @@ import { otherColors } from '../themes/ottehr/colors';
 const DRAWER_WIDTH = 220;
 
 const navItems = [
-  { label: 'Home', path: '/', icon: <HomeIcon fontSize="small" /> },
-  { label: 'Claims', path: '/claims', icon: <DescriptionIcon fontSize="small" /> },
+  { label: 'Home', path: '/', icon: <HomeIcon sx={{ fontSize: 18 }} /> },
+  { label: 'Claims', path: '/claims', icon: <DescriptionIcon sx={{ fontSize: 18 }} /> },
+  { label: 'Patients', path: '/patients', icon: <PeopleIcon sx={{ fontSize: 18 }} /> },
+  { label: 'Billing Providers', path: '/billing-providers', icon: <BusinessIcon sx={{ fontSize: 18 }} /> },
+  { label: 'Rendering Providers', path: '/rendering-providers', icon: <MedicalServicesIcon sx={{ fontSize: 18 }} /> },
+  { label: 'ERAs', path: '/eras', icon: <ReceiptIcon sx={{ fontSize: 18 }} /> },
+  { label: 'Tags', path: '/tags', icon: <LabelIcon sx={{ fontSize: 18 }} /> },
 ];
 
 export const Sidebar: FC = () => {
@@ -25,12 +38,33 @@ export const Sidebar: FC = () => {
           width: DRAWER_WIDTH,
           boxSizing: 'border-box',
           borderRight: `1px solid ${otherColors.lightDivider}`,
+          bgcolor: 'background.paper',
           position: 'relative',
         },
       }}
     >
-      <Toolbar variant="dense" />
-      <List sx={{ px: 1, pt: 1 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, px: 2.25, py: 2.5 }}>
+        <Box
+          sx={{
+            width: 26,
+            height: 26,
+            borderRadius: 1,
+            bgcolor: 'primary.dark',
+            display: 'grid',
+            placeItems: 'center',
+            color: 'primary.contrastText',
+            fontWeight: 600,
+            fontSize: 13,
+          }}
+        >
+          O
+        </Box>
+        <Typography sx={{ fontWeight: 600, fontSize: 14, letterSpacing: '-0.015em', color: 'primary.dark' }}>
+          Ottehr Billing
+        </Typography>
+      </Box>
+
+      <List sx={{ px: 1.25, flex: 1 }}>
         {navItems.map(({ label, path, icon }) => {
           const isActive = location.pathname === path || (path !== '/' && location.pathname.startsWith(path));
           return (
@@ -40,19 +74,29 @@ export const Sidebar: FC = () => {
               onClick={() => navigate(path)}
               sx={{
                 borderRadius: 1,
-                mb: 0.25,
+                mb: '1px',
                 py: 0.75,
-                '&:hover': { bgcolor: otherColors.sidebarItemHover },
+                px: 1.25,
+                '&:hover': { bgcolor: otherColors.apptHover },
                 '&.Mui-selected': {
-                  bgcolor: 'primary.main',
-                  color: 'primary.contrastText',
-                  '& .MuiListItemIcon-root': { color: 'primary.contrastText' },
+                  bgcolor: otherColors.apptHover,
+                  color: 'primary.dark',
+                  '& .MuiListItemIcon-root': { color: 'primary.dark' },
                 },
-                '&.Mui-selected:hover': { bgcolor: 'primary.dark' },
+                '&.Mui-selected:hover': { bgcolor: otherColors.formCardBg },
               }}
             >
-              <ListItemIcon sx={{ minWidth: 32 }}>{icon}</ListItemIcon>
-              <ListItemText primary={label} primaryTypographyProps={{ fontSize: 14 }} />
+              <ListItemIcon sx={{ minWidth: 28, color: isActive ? 'primary.dark' : 'action.disabled' }}>
+                {icon}
+              </ListItemIcon>
+              <ListItemText
+                primary={label}
+                primaryTypographyProps={{
+                  fontSize: 13.5,
+                  fontWeight: isActive ? 500 : 450,
+                  color: isActive ? 'primary.dark' : 'text.primary',
+                }}
+              />
             </ListItemButton>
           );
         })}

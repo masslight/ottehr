@@ -4,7 +4,15 @@ import { Appointment, Encounter, EncounterStatusHistory, Extension, Location, Re
 import { DateTime } from 'luxon';
 import { CODE_SYSTEM_ACT_CODE_V3 } from '../helpers';
 import { FhirEncounterStatus, PatientFollowupDetails, ProviderDetails, VisitStatusWithoutUnknown } from '../types';
-import { ENCOUNTER_PAYMENT_VARIANT_EXTENSION_URL, FHIR_BASE_URL, FHIR_EXTENSION } from './constants';
+import {
+  CURRENT_EXAM_MIGRATION_VERSION,
+  ENCOUNTER_PAYMENT_VARIANT_EXTENSION_URL,
+  EXAM_MIGRATION_VERSION_URL,
+  FHIR_BASE_URL,
+  FHIR_ENCOUNTER_ERX_PATIENT_SYNC_TAG,
+  FHIR_EXTENSION,
+} from './constants';
+import { getPatchOperationForNewMetaTag } from './resourcePatch';
 
 // follow up encounter consts
 export const FOLLOWUP_TYPES = ['Follow-up Encounter'] as const;
@@ -26,6 +34,24 @@ export const FOLLOWUP_REASONS = [
 ] as const;
 type FollowupReasons = (typeof FOLLOWUP_REASONS)[number];
 export type FollowupReason = FollowupReasons;
+
+// Reason-for-visit options shown when booking a scheduled follow-up visit (replaces the
+// service-category reason-for-visit list for that flow). "Other" reveals a free-text field; if the
+// follow-up reason matches the initial visit's reason for visit, the provider enters it there.
+export const SCHEDULED_FOLLOWUP_REASONS = [
+  'Suture / Staple Removal',
+  'Dressing Change',
+  'DOT / CDL Medical Hold Completion',
+  'Immigration Exam (I-693) Finalization',
+  'Work Status / Fit-for-Duty Clearance',
+  'Post-Accident Follow-up (Auto/Work)',
+  'Drug / Alcohol Screen Collection',
+  'Test Results Review (Lab/Imaging)',
+  'Tuberculosis (PPD) Skin Test Read',
+  'Other',
+] as const;
+export type ScheduledFollowupReason = (typeof SCHEDULED_FOLLOWUP_REASONS)[number];
+export const SCHEDULED_FOLLOWUP_OTHER_REASON: ScheduledFollowupReason = 'Other';
 
 export const FOLLOWUP_SYSTEMS = {
   callerUrl: `${FHIR_BASE_URL}/followup-caller`,
@@ -347,4 +373,69 @@ export const getInteractionModeForEncounter = (
 export const getEncounterLocationId = (encounter: Encounter | undefined): string | undefined => {
   const locationRef = encounter?.location?.[0]?.location?.reference;
   return locationRef?.split('/')[1];
+};
+
+/**
+ * Gets the current exam migration version from an encounter's extensions.
+ * Returns 0 if no version is stamped (pre-migration encounter).
+ */
+export function getExamMigrationVersion(encounter: Encounter): number {
+  const ext = encounter.extension?.find((e) => e.url === EXAM_MIGRATION_VERSION_URL);
+  return ext?.valueInteger ?? 0;
+}
+
+/**
+ * Returns true if the encounter's exam migration version is less than the current version.
+ */
+export function encounterHasLegacyExamVersion(encounter: Encounter): boolean {
+  const examVersion = getExamMigrationVersion(encounter);
+  return examVersion < CURRENT_EXAM_MIGRATION_VERSION;
+}
+
+const MAX_ERX_SYNC_TAG_RETRIES = 5;
+
+export const isEncounterErxSynced = (encounter: Encounter): boolean =>
+  encounter.meta?.tag?.some(
+    (tag) =>
+      tag.system === FHIR_ENCOUNTER_ERX_PATIENT_SYNC_TAG.system && tag.code === FHIR_ENCOUNTER_ERX_PATIENT_SYNC_TAG.code
+  ) ?? false;
+
+export const tagEncounterAsErxSynced = async (oystehr: Oystehr, encounter: Encounter): Promise<void> => {
+  const encounterId = encounter.id;
+  if (!encounterId) {
+    throw new Error('Cannot tag encounter as eRx-synced: encounter has no id');
+  }
+
+  let current = encounter;
+  let retries = 0;
+
+  while (retries < MAX_ERX_SYNC_TAG_RETRIES) {
+    if (isEncounterErxSynced(current)) {
+      return;
+    }
+
+    try {
+      await oystehr.fhir.patch(
+        {
+          resourceType: 'Encounter',
+          id: encounterId,
+          operations: [getPatchOperationForNewMetaTag(current, FHIR_ENCOUNTER_ERX_PATIENT_SYNC_TAG)],
+        },
+        { optimisticLockingVersionId: current.meta?.versionId }
+      );
+      return;
+    } catch (patchError) {
+      retries++;
+      try {
+        current = await oystehr.fhir.get<Encounter>({
+          resourceType: 'Encounter',
+          id: encounterId,
+        });
+      } catch (refreshError) {
+        console.warn(`Failed to tag encounter ${encounterId} after ${retries} attempts`, refreshError || patchError);
+        return;
+      }
+    }
+  }
+  console.error(`Failed to tag encounter ${encounterId} after ${retries} attempts, giving up`);
 };

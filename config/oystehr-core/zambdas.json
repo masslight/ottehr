@@ -410,12 +410,68 @@
       "src": "src/billing/get-billing-claim-detail/index",
       "zip": ".dist/zips/get-billing-claim-detail.zip"
     },
+    "GET-BILLING-PATIENT-DETAIL": {
+      "name": "get-billing-patient-detail",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/get-billing-patient-detail/index",
+      "zip": ".dist/zips/get-billing-patient-detail.zip"
+    },
+    "SEARCH-BILLING-ERAS": {
+      "name": "search-billing-eras",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/search-billing-eras/index",
+      "zip": ".dist/zips/search-billing-eras.zip"
+    },
+    "GET-BILLING-ERA-DETAIL": {
+      "name": "get-billing-era-detail",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/get-billing-era-detail/index",
+      "zip": ".dist/zips/get-billing-era-detail.zip"
+    },
+    "SEARCH-BILLING-TAGS": {
+      "name": "search-billing-tags",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/search-billing-tags/index",
+      "zip": ".dist/zips/search-billing-tags.zip"
+    },
+    "SAVE-BILLING-TAG": {
+      "name": "save-billing-tag",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/save-billing-tag/index",
+      "zip": ".dist/zips/save-billing-tag.zip"
+    },
+    "DELETE-BILLING-TAG": {
+      "name": "delete-billing-tag",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/delete-billing-tag/index",
+      "zip": ".dist/zips/delete-billing-tag.zip"
+    },
+    "TAG-BILLING-CLAIM": {
+      "name": "tag-billing-claim",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/tag-billing-claim/index",
+      "zip": ".dist/zips/tag-billing-claim.zip"
+    },
     "UPDATE-BILLING-CLAIM": {
       "name": "update-billing-claim",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/billing/update-billing-claim/index",
       "zip": ".dist/zips/update-billing-claim.zip"
+    },
+    "CREATE-BILLING-CLAIM-FROM-ENCOUNTER": {
+      "name": "create-billing-claim-from-encounter",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/create-billing-claim-from-encounter/index",
+      "zip": ".dist/zips/create-billing-claim-from-encounter.zip"
     },
     "CREATE-UPDATE-MEDICATION-ORDER": {
       "name": "create-update-medication-order",
@@ -990,6 +1046,13 @@
       "runtime": "nodejs22.x",
       "src": "src/ehr/radiology/save-preliminary-report/index",
       "zip": ".dist/zips/radiology-save-preliminary-report.zip"
+    },
+    "RADIOLOGY-SAVE-FINAL-REPORT": {
+      "name": "radiology-save-final-report",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/radiology/save-final-report/index",
+      "zip": ".dist/zips/radiology-save-final-report.zip"
     },
     "RADIOLOGY-SEND-FOR-FINAL-READ": {
       "name": "radiology-send-for-final-read",
@@ -1907,6 +1970,7 @@
       "name": "cron-outreach-task-promoter",
       "type": "cron",
       "runtime": "nodejs22.x",
+      "timeout": "595",
       "src": "src/cron/rcm/outreach-task-promoter/index",
       "zip": ".dist/zips/cron-outreach-task-promoter.zip",
       "schedule": {
@@ -1969,6 +2033,62 @@
       "src": "src/ehr/lab/in-house/admin-update-in-house-lab/index",
       "zip": ".dist/zips/admin-update-in-house-lab.zip"
     },
+    "ADMIN_LIST_SERVICE_CATEGORIES": {
+      "name": "admin-list-service-categories",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/admin-list-service-categories/index",
+      "zip": ".dist/zips/admin-list-service-categories.zip"
+    },
+    "ADMIN_CREATE_SERVICE_CATEGORY": {
+      "name": "admin-create-service-category",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/admin-create-service-category/index",
+      "zip": ".dist/zips/admin-create-service-category.zip"
+    },
+    "ADMIN_UPDATE_SERVICE_CATEGORY": {
+      "name": "admin-update-service-category",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/admin-update-service-category/index",
+      "zip": ".dist/zips/admin-update-service-category.zip"
+    },
+    "ADMIN_DELETE_SERVICE_CATEGORY": {
+      "name": "admin-delete-service-category",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/admin-delete-service-category/index",
+      "zip": ".dist/zips/admin-delete-service-category.zip"
+    },
+    "ADMIN_CREATE_PRACTITIONER_ROLE": {
+      "name": "admin-create-practitioner-role",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/admin-create-practitioner-role/index",
+      "zip": ".dist/zips/admin-create-practitioner-role.zip"
+    },
+    "ADMIN_UPDATE_PRACTITIONER_ROLE": {
+      "name": "admin-update-practitioner-role",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/admin-update-practitioner-role/index",
+      "zip": ".dist/zips/admin-update-practitioner-role.zip"
+    },
+    "ADMIN_DELETE_PRACTITIONER_ROLE": {
+      "name": "admin-delete-practitioner-role",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/admin-delete-practitioner-role/index",
+      "zip": ".dist/zips/admin-delete-practitioner-role.zip"
+    },
+    "GET_SERVICE_CATEGORIES": {
+      "name": "get-service-categories",
+      "type": "http_open",
+      "runtime": "nodejs22.x",
+      "src": "src/patient/booking/get-service-categories/index",
+      "zip": ".dist/zips/get-service-categories.zip"
+    },
     "ADMIN_GET_LAB_SETS": {
       "name": "admin-get-lab-sets",
       "type": "http_auth",
@@ -2028,6 +2148,20 @@
       "runtime": "nodejs22.x",
       "src": "src/ehr/support-dialog/admin-update-support-dialog/index",
       "zip": ".dist/zips/admin-update-support-dialog.zip"
+    },
+    "GET-PROGRESS-NOTE-CONFIG": {
+      "name": "get-progress-note-config",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/progress-note-config/get-progress-note-config/index",
+      "zip": ".dist/zips/get-progress-note-config.zip"
+    },
+    "ADMIN-UPDATE-PROGRESS-NOTE-CONFIG": {
+      "name": "admin-update-progress-note-config",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/progress-note-config/admin-update-progress-note-config/index",
+      "zip": ".dist/zips/admin-update-progress-note-config.zip"
     },
     "ADMIN-UPDATE-LOCATION-SUPPORT-PHONES": {
       "name": "admin-update-location-support-phones",
@@ -2526,6 +2660,28 @@
         "status": "active",
         "reason": "Sync patient with eRx service when height or weight vitals are recorded",
         "criteria": "Observation?code=29463-7,8302-2",
+        "channel": {
+          "type": "rest-hook",
+          "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-ERX-PATIENT-SYNC/id}"
+        },
+        "extension": [
+          {
+            "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
+            "valueString": "create"
+          },
+          {
+            "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
+            "valueString": "update"
+          }
+        ]
+      }
+    },
+    "SUB_ERX_PATIENT_SYNC_ON_ENCOUNTER_SUBSCRIPTION": {
+      "resource": {
+        "resourceType": "Subscription",
+        "status": "active",
+        "reason": "Warm up eRx patient sync when a patient arrives for a visit",
+        "criteria": "Encounter?status=arrived",
         "channel": {
           "type": "rest-hook",
           "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-ERX-PATIENT-SYNC/id}"

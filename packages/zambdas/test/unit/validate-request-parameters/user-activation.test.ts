@@ -7,7 +7,7 @@ describe('user-activation - validateRequestParameters', () => {
 
   const validBody = {
     userId: '550e8400-e29b-41d4-a716-446655440000',
-    mode: 'activate',
+    userActivationMode: 'activate',
   };
 
   test('should return validated params for activate mode', () => {
@@ -15,15 +15,15 @@ describe('user-activation - validateRequestParameters', () => {
     const result = validateRequestParameters(input);
 
     expect(result.userId).toBe('550e8400-e29b-41d4-a716-446655440000');
-    expect(result.mode).toBe('activate');
+    expect(result.userActivationMode).toBe('activate');
     expect(result.secrets).toBe(secrets);
   });
 
   test('should return validated params for deactivate mode', () => {
-    const input = createMockZambdaInput({ ...validBody, mode: 'deactivate' }, { secrets });
+    const input = createMockZambdaInput({ ...validBody, userActivationMode: 'deactivate' }, { secrets });
     const result = validateRequestParameters(input);
 
-    expect(result.mode).toBe('deactivate');
+    expect(result.userActivationMode).toBe('deactivate');
   });
 
   test('should throw when body is missing', () => {
@@ -47,13 +47,13 @@ describe('user-activation - validateRequestParameters', () => {
     expect(() => validateRequestParameters(input)).toThrow();
   });
 
-  test('should throw when mode is invalid', () => {
-    const input = createMockZambdaInput({ ...validBody, mode: 'invalid' }, { secrets });
+  test('should throw when userActivationMode is invalid', () => {
+    const input = createMockZambdaInput({ ...validBody, userActivationMode: 'invalid' }, { secrets });
     expect(() => validateRequestParameters(input)).toThrow();
   });
 
-  test('should throw when mode is missing', () => {
-    const { mode: _, ...rest } = validBody;
+  test('should throw when userActivationMode is missing', () => {
+    const { userActivationMode: _, ...rest } = validBody;
     const input = createMockZambdaInput(rest, { secrets });
     expect(() => validateRequestParameters(input)).toThrow();
   });

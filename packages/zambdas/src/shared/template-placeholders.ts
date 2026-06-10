@@ -5,6 +5,7 @@ import Stripe from 'stripe';
 import {
   BRANDING_CONFIG,
   buildInvoicePlaceholders,
+  checkForStripeCustomerDeletedError,
   getFullName,
   getSecret,
   InvoicePlaceholderInput,
@@ -100,7 +101,7 @@ export async function resolveTemplatePlaceholders(
   if (encounterId && (!input.amountCents || !input.dueDate || !input.invoiceLink)) {
     try {
       const stripe = getStripeClient(secrets);
-      const stripeInvoice = await findStripeInvoiceByEncounterId(stripe, encounterId, ['open', 'paid']);
+      const stripeInvoice = await findStripeInvoiceByEncounterId(stripe, encounterId);
       if (stripeInvoice) {
         if (!input.amountCents) {
           input.amountCents = stripeInvoice.amount_due;
@@ -150,35 +151,18 @@ export async function resolveAndFillTemplate(
 
 /**
  * Find a Stripe invoice by the `oystehr_encounter_id` metadata field.
- * By default searches open invoices; pass additional statuses to broaden.
- * Paginates through all results using Stripe's cursor-based pagination.
  */
 export async function findStripeInvoiceByEncounterId(
   stripe: Stripe,
-  encounterId: string,
-  statuses: Stripe.InvoiceListParams['status'][] = ['open']
+  encounterId: string
 ): Promise<Stripe.Invoice | undefined> {
-  // Stripe doesn't support metadata search directly on invoices.list,
-  // so we search invoices by status and filter by metadata.
-  for (const status of statuses) {
-    let startingAfter: string | undefined;
-    let hasMore = true;
-
-    while (hasMore) {
-      const params: Stripe.InvoiceListParams = { status, limit: 100 };
-      if (startingAfter) {
-        params.starting_after = startingAfter;
-      }
-
-      const response = await stripe.invoices.list(params);
-      const match = response.data.find((inv) => inv.metadata?.oystehr_encounter_id === encounterId);
-      if (match) return match;
-
-      hasMore = response.has_more;
-      if (response.data.length > 0) {
-        startingAfter = response.data[response.data.length - 1].id;
-      }
-    }
+  try {
+    const invoices = await stripe.invoices.search({
+      query: `metadata['oystehr_encounter_id']:"${encounterId}"`,
+    });
+    return invoices.data.find((invoice) => invoice.metadata?.oystehr_encounter_id === encounterId);
+  } catch (error) {
+    console.error('Error fetching payment intents or payment methods for encounter:', error);
+    throw checkForStripeCustomerDeletedError(error);
   }
-  return undefined;
 }

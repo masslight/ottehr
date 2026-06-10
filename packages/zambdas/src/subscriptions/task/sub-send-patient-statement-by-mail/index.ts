@@ -9,6 +9,7 @@ import {
   getOrCreateCandidApiClient,
   getSecret,
   RCM_TASK_SYSTEM,
+  sanitizeStringForFhirCode,
   Secrets,
   SecretsKeys,
   TaskIndicator,
@@ -311,7 +312,7 @@ async function patchTaskStatus(
         coding: [
           {
             system: RCM_TASK_SYSTEM,
-            code: reason,
+            code: sanitizeStringForFhirCode(reason),
           },
         ],
       },

@@ -9,6 +9,7 @@ import {
   Condition,
   Encounter,
   Extension,
+  HealthcareService,
   List,
   Patient,
   Questionnaire,
@@ -27,7 +28,9 @@ import {
   CreateAppointmentResponse,
   CREATED_BY_SYSTEM,
   createUserResourcesForPatient,
+  CURRENT_EXAM_MIGRATION_VERSION,
   E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM,
+  EXAM_MIGRATION_VERSION_URL,
   FHIR_APPOINTMENT_READY_FOR_PREPROCESSING_TAG,
   FHIR_EXTENSION,
   FhirAppointmentStatus,
@@ -41,6 +44,8 @@ import {
   getCanonicalQuestionnaire,
   getCoding,
   getFullestAvailableName,
+  getGroupAssignmentMode,
+  getSlotBookedViaGroupId,
   getTaskResource,
   isValidUUID,
   makePrepopulatedItemsForPatient,
@@ -69,7 +74,12 @@ import {
   ZambdaInput,
 } from '../../../shared';
 import { getEncounterClass, getRelatedResources, getTelemedRequiredAppointmentEncounterExtensions } from '../helpers';
-import { createAppointmentComplexValidation, validateCreateAppointmentParams } from './validateRequestParameters';
+import {
+  createAppointmentComplexValidation,
+  ResolvedAttendingPractitioner,
+  ResolvedBookingLocation,
+  validateCreateAppointmentParams,
+} from './validateRequestParameters';
 
 interface CreateAppointmentInput {
   slot: Slot;
@@ -84,6 +94,10 @@ interface CreateAppointmentInput {
   locationState?: string;
   appointmentMetadata?: Appointment['meta'];
   followUpOptions?: FollowUpOptions;
+  /** Resolved Location for this booking (direct or via group member / role). */
+  bookingLocation?: ResolvedBookingLocation;
+  /** Resolved attending Practitioner (populated for PractitionerRole bookings). */
+  attendingPractitioner?: ResolvedAttendingPractitioner;
 }
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
@@ -120,6 +134,8 @@ export const index = wrapHandler('create-appointment', async (input: ZambdaInput
     visitType,
     appointmentMetadata: maybeMetadata,
     followUpOptions,
+    bookingLocation,
+    attendingPractitioner,
   } = effectInput;
   console.log('effectInput', effectInput);
   console.timeEnd('performing-complex-validation');
@@ -153,6 +169,8 @@ export const index = wrapHandler('create-appointment', async (input: ZambdaInput
       questionnaireCanonical,
       appointmentMetadata,
       followUpOptions,
+      bookingLocation,
+      attendingPractitioner,
     },
     oystehr
   );
@@ -201,6 +219,8 @@ export async function createAppointment(
     serviceMode,
     questionnaireCanonical: questionnaireUrl,
     appointmentMetadata,
+    bookingLocation,
+    attendingPractitioner,
   } = input;
 
   const { verifiedPhoneNumber, listRequests, createPatientRequest, updatePatientRequest, isEHRUser, maybeFhirPatient } =
@@ -267,6 +287,8 @@ export async function createAppointment(
     endTime,
     serviceMode,
     scheduleOwner,
+    bookingLocation,
+    attendingPractitioner,
     visitType,
     secrets,
     verifiedPhoneNumber: verifiedFormattedPhoneNumber,
@@ -355,6 +377,8 @@ interface TransactionInput {
   endTime: string;
   visitType: VisitType;
   scheduleOwner: ScheduleOwnerFhirResource;
+  bookingLocation?: ResolvedBookingLocation;
+  attendingPractitioner?: ResolvedAttendingPractitioner;
   serviceMode: ServiceMode;
   questionnaire: Questionnaire;
   oystehr: Oystehr;
@@ -388,6 +412,8 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
     oystehr,
     patient,
     scheduleOwner,
+    bookingLocation,
+    attendingPractitioner,
     questionnaire,
     reasonForVisit,
     startTime,
@@ -465,7 +491,12 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
   const initialEncounterStatus: FhirEncounterStatus = startsAsBooked ? 'planned' : 'arrived';
 
   const apptExtensions: Extension[] = [];
-  const encExtensions: Extension[] = [];
+  const encExtensions: Extension[] = [
+    {
+      valueInteger: CURRENT_EXAM_MIGRATION_VERSION,
+      url: EXAM_MIGRATION_VERSION_URL,
+    },
+  ];
 
   if (serviceMode === ServiceMode.virtual) {
     const { encExtensions: telemedEncExtensions, apptExtensions: telemedApptExtensions } =
@@ -482,6 +513,7 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
   }
 
   const apptUrl = `urn:uuid:${uuid()}`;
+  const bookedViaGroupId = slot ? getSlotBookedViaGroupId(slot) : undefined;
   const participants: AppointmentParticipant[] = [];
   participants.push({
     actor: {
@@ -495,6 +527,43 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
     },
     status: 'accepted',
   });
+  // When the booking is scoped to a Location (either directly or via a group
+  // member), add it as a participant so consumers that filter by Location
+  // (tracking board, reports) see the booking. Skip if the scheduleOwner
+  // already IS the location — we would just be duplicating the same reference.
+  if (bookingLocation && scheduleOwner.resourceType !== 'Location') {
+    participants.push({
+      actor: {
+        reference: `Location/${bookingLocation.id}`,
+      },
+      status: 'accepted',
+    });
+  }
+  // When the scheduleOwner is a PractitionerRole, add the underlying
+  // Practitioner as a participant too. This keeps Appointment.participant-based
+  // provider readers consistent with direct-Practitioner bookings.
+  if (attendingPractitioner && scheduleOwner.resourceType !== 'Practitioner') {
+    participants.push({
+      actor: {
+        reference: `Practitioner/${attendingPractitioner.id}`,
+      },
+      status: 'accepted',
+    });
+  }
+  // When the booking came through a group HS (stamped on the Slot via the
+  // slot-booked-via-group extension at vending time), add the HS to
+  // participants. Skip if scheduleOwner already IS the HS — that would just
+  // duplicate the same reference. Makes "appointments booked via group X"
+  // queryable directly from Appointment.participant rather than requiring
+  // a slot-extension walk for every consumer.
+  if (bookedViaGroupId && scheduleOwner.resourceType !== 'HealthcareService') {
+    participants.push({
+      actor: {
+        reference: `HealthcareService/${bookedViaGroupId}`,
+      },
+      status: 'accepted',
+    });
+  }
 
   let slotReference: Reference | undefined;
   const postSlotRequests: BatchInputPostRequest<Slot>[] = [];
@@ -563,6 +632,54 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
 
   const encUrl = `urn:uuid:${uuid()}`;
 
+  // Determine whether to pre-stamp the attending Practitioner on
+  // Encounter.participant[ATND] (CodeSystem v3-ParticipationType / ATND).
+  //
+  // Rule:
+  //   - Direct PR booking (no originating group): stamp. The patient
+  //     explicitly picked this Practitioner; their attendance is committed
+  //     at book time.
+  //   - Group booking with the group in provider-mode: stamp. Group policy
+  //     is "commit the chosen member at book time."
+  //   - Group booking with the group in anonymous-mode (or no resolvable
+  //     mode): don't stamp. Encounter remains unassigned until front desk
+  //     runs assign-practitioner.
+  //
+  // The originating group, when present, is read off the Slot's
+  // slot-booked-via-group extension (stamped at slot-vending time by
+  // get-schedule when scheduleType === 'group'). For pools-providers
+  // groups, the Slot's Schedule.actor is the member PR itself, so
+  // scheduleOwner alone can't distinguish "direct PR" from "group via
+  // pools-providers" — the extension is the disambiguator.
+  let bookedViaGroup: HealthcareService | undefined;
+  if (bookedViaGroupId) {
+    try {
+      bookedViaGroup = await oystehr.fhir.get<HealthcareService>({
+        resourceType: 'HealthcareService',
+        id: bookedViaGroupId,
+      });
+    } catch {
+      // Group resource missing — treat as "unknown group, don't pre-stamp"
+      // (conservative; mirrors anonymous-mode behavior).
+    }
+  }
+
+  let encounterParticipants: Encounter['participant'] | undefined;
+  if (attendingPractitioner) {
+    const isGroupBooking = bookedViaGroupId !== undefined;
+    const groupAllowsStamping = bookedViaGroup ? getGroupAssignmentMode(bookedViaGroup) === 'provider' : false;
+    const shouldStampAttending = !isGroupBooking || groupAllowsStamping;
+    if (shouldStampAttending) {
+      encounterParticipants = [
+        {
+          type: [{ coding: [{ system: 'http://terminology.hl7.org/CodeSystem/v3-ParticipationType', code: 'ATND' }] }],
+          individual: { reference: `Practitioner/${attendingPractitioner.id}` },
+          period: { start: nowIso },
+        },
+      ];
+    }
+  }
+
   // Carry over diagnoses from the parent encounter to the follow-up by cloning each Dx Condition
   // and attaching it to the new encounter's diagnosis array (preserving rank/primary).
   const followUpDiagnosisRequests: BatchInputPostRequest<Condition>[] = [];
@@ -616,16 +733,16 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
         reference: apptUrl,
       },
     ],
-    location:
-      scheduleOwner.resourceType === 'Location'
-        ? [
-            {
-              location: {
-                reference: `Location/${scheduleOwner.id}`,
-              },
+    location: bookingLocation
+      ? [
+          {
+            location: {
+              reference: `Location/${bookingLocation.id}`,
             },
-          ]
-        : [],
+          },
+        ]
+      : [],
+    ...(encounterParticipants && { participant: encounterParticipants }),
     extension: encExtensions,
     ...(followUpDiagnosisEntries.length > 0 && { diagnosis: followUpDiagnosisEntries }),
     ...(parentEncounterId && {

@@ -9,6 +9,7 @@ import {
   formatPhoneNumber,
   getSecret,
   getVirtualServiceResourceExtension,
+  PARTICIPATION_CODE_SYSTEM,
   PROJECT_WEBSITE,
   replaceTemplateVariablesArrows,
   SecretsKeys,
@@ -199,7 +200,7 @@ async function createRelatedPerson(
         coding: [
           {
             code: 'WIT',
-            system: 'http://terminology.hl7.org/CodeSystem/v3-ParticipationType',
+            system: PARTICIPATION_CODE_SYSTEM,
           },
         ],
       },

@@ -13,5 +13,6 @@ export * from './patientPayments';
 export * from './pharmacyInfo';
 export * from './primaryCarePhysician';
 export * from './responsiblePartyInfo';
+export * from './upcomingVisits';
 export * from './visitInfo';
 export * from './visit-note';

@@ -7,7 +7,7 @@ import { DateTime } from 'luxon';
 import { ReactNode, SyntheticEvent, useCallback, useMemo, useState } from 'react';
 import { getLocations } from 'src/api/api';
 import { useApiClients } from 'src/hooks/useAppClients';
-import { nextAvailableFrom, ScheduleType, SLUG_SYSTEM } from 'utils';
+import { nextAvailableFrom, ScheduleType, ServiceCategoryCode } from 'utils';
 import { Slots } from './Slots';
 interface TabPanelProps {
   children?: ReactNode;
@@ -56,7 +56,11 @@ const tabProps = (
 interface SlotPickerProps {
   slotData: Slot[] | undefined;
   slotsLoading: boolean;
-  selectedLocation: any;
+  /** The slug + schedule type of the bookable target (Location, Group, or PR-direct). */
+  bookableSlug?: string;
+  bookableScheduleType?: ScheduleType;
+  /** Service category (required for group bookings; inferred or omitted otherwise). */
+  serviceCategoryCode?: ServiceCategoryCode;
   timezone: string;
   selectedSlot: Slot | undefined;
   setSelectedSlot: (slot: Slot | undefined) => void;
@@ -65,7 +69,9 @@ interface SlotPickerProps {
 const SlotPicker = ({
   slotData,
   slotsLoading,
-  selectedLocation,
+  bookableSlug,
+  bookableScheduleType = ScheduleType.location,
+  serviceCategoryCode,
   timezone,
   selectedSlot,
   setSelectedSlot,
@@ -164,19 +170,16 @@ const SlotPicker = ({
       if (!newDate) return;
       setSelectedOtherDate(newDate);
 
-      const locationSlug = selectedLocation?.identifier?.find(
-        (identifierTemp: { system: string }) => identifierTemp.system === SLUG_SYSTEM
-      )?.value;
-
       try {
         setOtherDateSlotsLoading(true);
 
-        if (!locationSlug || !oystehrZambda) return;
+        if (!bookableSlug || !oystehrZambda) return;
 
         const response = await getLocations(oystehrZambda, {
-          slug: locationSlug,
-          scheduleType: ScheduleType.location,
+          slug: bookableSlug,
+          scheduleType: bookableScheduleType,
           selectedDate: newDate.toISODate() ?? undefined,
+          ...(serviceCategoryCode ? { serviceCategoryCode } : {}),
         });
 
         setOtherDateSlots(response.available?.map((s) => s.slot) ?? []);
@@ -186,7 +189,7 @@ const SlotPicker = ({
         setOtherDateSlotsLoading(false);
       }
     },
-    [oystehrZambda, selectedLocation]
+    [oystehrZambda, bookableSlug, bookableScheduleType, serviceCategoryCode]
   );
 
   return (

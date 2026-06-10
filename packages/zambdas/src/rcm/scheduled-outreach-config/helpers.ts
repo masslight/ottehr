@@ -65,6 +65,7 @@ export interface NotificationsTimeRestriction {
 
 export interface OutreachAction {
   id: string;
+  enabled?: boolean;
   trigger: {
     event: TriggerEvent;
     daysAfter: number;
@@ -110,6 +111,52 @@ export function parseNotificationsTimeRestriction(planDef: PlanDefinition): Noti
   const windowEnd = (sub.find((e) => e.url === 'window-end')?.valueTime ?? '21:00:00').substring(0, 5);
   const timezone = sub.find((e) => e.url === 'timezone')?.valueString ?? 'America/New_York';
   return { enabled, windowStart, windowEnd, timezone };
+}
+
+// ── Configured-at extension (immutable activation timestamp) ────────────────
+
+const OUTREACH_CONFIGURED_AT_URL = `${PRIVATE_EXTENSION_BASE_URL}/outreach-configured-at`;
+
+function buildConfiguredAtExtension(configuredAtIso: string): NonNullable<PlanDefinition['extension']>[number] {
+  return { url: OUTREACH_CONFIGURED_AT_URL, valueDateTime: configuredAtIso };
+}
+
+/**
+ * Reads the immutable "configured at" timestamp stamped on the outreach PlanDefinition when it
+ * was first created. Unlike meta.lastUpdated, this value never changes on subsequent config edits,
+ * so it can be used as a stable activation date for retroactive-send guards.
+ */
+export function parseConfiguredAt(planDef: PlanDefinition): string | undefined {
+  return planDef.extension?.find((e) => e.url === OUTREACH_CONFIGURED_AT_URL)?.valueDateTime;
+}
+
+/**
+ * Returns the given extensions with the immutable configuredAt extension guaranteed present.
+ * If `existing` already carries one it is preserved verbatim; otherwise it is stamped with
+ * `fallbackIso` (defaults to now) so legacy configs get a stable timestamp on first re-save.
+ */
+export function preserveConfiguredAtExtension(
+  builtExtensions: PlanDefinition['extension'],
+  existing: PlanDefinition,
+  fallbackIso: string = new Date().toISOString()
+): PlanDefinition['extension'] {
+  const configuredAtIso = parseConfiguredAt(existing) ?? fallbackIso;
+  const others = (builtExtensions ?? []).filter((e) => e.url !== OUTREACH_CONFIGURED_AT_URL);
+  return [...others, buildConfiguredAtExtension(configuredAtIso)];
+}
+
+// ── Action enabled extension ───────────────────────────────────────────────
+
+const ACTION_ENABLED_EXTENSION_URL = `${PRIVATE_EXTENSION_BASE_URL}/outreach-action-enabled`;
+
+function buildActionEnabledExtension(enabled: boolean): any {
+  return { url: ACTION_ENABLED_EXTENSION_URL, valueBoolean: enabled };
+}
+
+function parseActionEnabled(fhirAction: any): boolean {
+  const ext = fhirAction.extension?.find((e: any) => e.url === ACTION_ENABLED_EXTENSION_URL);
+  if (!ext) return true; // default to enabled if extension is absent
+  return ext.valueBoolean ?? true;
 }
 
 // ── Birthday config extension ──────────────────────────────────────────────
@@ -471,16 +518,26 @@ function buildLogFhirAction(uiAction: OutreachAction): any {
 }
 
 function uiActionToFhirAction(uiAction: OutreachAction): any {
+  let fhirAction: any;
   switch (uiAction.actionType) {
     case 'charge-card':
-      return buildChargeCardFhirAction(uiAction);
+      fhirAction = buildChargeCardFhirAction(uiAction);
+      break;
     case 'send-notification':
-      return buildSendNotificationFhirAction(uiAction);
+      fhirAction = buildSendNotificationFhirAction(uiAction);
+      break;
     case 'refer-to-collections':
-      return buildReferToCollectionsFhirAction(uiAction);
+      fhirAction = buildReferToCollectionsFhirAction(uiAction);
+      break;
     case 'log':
-      return buildLogFhirAction(uiAction);
+      fhirAction = buildLogFhirAction(uiAction);
+      break;
   }
+  // Persist enabled state as an extension (only when explicitly disabled)
+  if (uiAction.enabled === false) {
+    fhirAction.extension = [...(fhirAction.extension || []), buildActionEnabledExtension(false)];
+  }
+  return fhirAction;
 }
 
 export function buildPlanDefinitionFromActions(
@@ -697,18 +754,29 @@ export function parsePlanDefinitionToActions(planDef: PlanDefinition): OutreachA
   if (!planDef.action) return [];
   return planDef.action.map((fhirAction: any) => {
     const actionType = extractActionType(fhirAction);
+    let parsed: OutreachAction;
     switch (actionType) {
       case 'charge-card':
-        return parseChargeCardAction(fhirAction);
+        parsed = parseChargeCardAction(fhirAction);
+        break;
       case 'send-notification':
-        return parseSendNotificationAction(fhirAction);
+        parsed = parseSendNotificationAction(fhirAction);
+        break;
       case 'refer-to-collections':
-        return parseReferToCollectionsAction(fhirAction);
+        parsed = parseReferToCollectionsAction(fhirAction);
+        break;
       case 'log':
-        return parseLogAction(fhirAction);
+        parsed = parseLogAction(fhirAction);
+        break;
       default:
-        return parseSendNotificationAction(fhirAction);
+        parsed = parseSendNotificationAction(fhirAction);
     }
+    // Parse enabled state from extension
+    const enabled = parseActionEnabled(fhirAction);
+    if (!enabled) {
+      parsed.enabled = false;
+    }
+    return parsed;
   });
 }
 
@@ -743,5 +811,12 @@ export async function getOrCreateOutreachConfig(oystehr: Oystehr): Promise<PlanD
   }
 
   console.log('No outreach config PlanDefinition found, creating one with defaults');
-  return await oystehr.fhir.create<PlanDefinition>(buildDefaultPlanDefinition());
+  const defaultPlanDef = buildDefaultPlanDefinition();
+  // Stamp an immutable activation timestamp at creation. This is used as a stable cutoff for
+  // retroactive-send guards and must never change on subsequent config edits (unlike meta.lastUpdated).
+  const withConfiguredAt: Omit<PlanDefinition, 'id'> = {
+    ...defaultPlanDef,
+    extension: [...(defaultPlanDef.extension ?? []), buildConfiguredAtExtension(new Date().toISOString())],
+  };
+  return await oystehr.fhir.create<PlanDefinition>(withConfiguredAt);
 }
