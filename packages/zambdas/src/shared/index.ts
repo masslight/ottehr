@@ -22,6 +22,7 @@ export * from './postgrid';
 export * from './practitioners';
 export * from './progress-note-config';
 export * from './queueingUtils';
+export * from './resolveBookingLocationId';
 export * from './resources.helpers';
 export * from './rolesUtils';
 export * from './sentry';
