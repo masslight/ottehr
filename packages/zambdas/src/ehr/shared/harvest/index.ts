@@ -4240,7 +4240,7 @@ export const updateStripeCustomer = async (input: UpdateStripeCustomerInput): Pr
       );
     } catch (stripeError: any) {
       if (stripeError?.type === 'StripeInvalidRequestError' && stripeError?.param === 'email') {
-        console.warn(`Stripe rejected email "${email}" for customer ${pair.customerId}, updating without email`);
+        console.warn(`Stripe rejected email for customer ${pair.customerId}, updating without email`);
         await stripeClient.customers.update(pair.customerId, { name, phone }, { stripeAccount: pair.stripeAccount });
       } else {
         throw stripeError;

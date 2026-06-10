@@ -90,7 +90,7 @@ export const ensureStripeCustomerId = async (
       );
     } catch (stripeError: any) {
       if (stripeError?.type === 'StripeInvalidRequestError' && stripeError?.param === 'email') {
-        console.warn(`Stripe rejected email "${email}" for patient ${patientId}, creating customer without email`);
+        console.warn(`Stripe rejected email for patient ${patientId}, creating customer without email`);
         customer = await stripeClient.customers.create(
           { name, metadata: { oystehr_patient_id: patientId } },
           { stripeAccount }
