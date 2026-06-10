@@ -20,6 +20,7 @@ import {
   ScheduleStrategyCoding,
   SLOT_BOOKED_VIA_GROUP_EXTENSION_URL,
   SLOT_FALLBACK_REROUTED_TAG_SYSTEM,
+  SLOT_UNAVAILABLE_ERROR,
   SlotServiceCategory,
 } from 'utils';
 import { afterAll, assert, beforeAll, describe, expect, inject, test } from 'vitest';
@@ -356,13 +357,16 @@ describe('create-appointment group-member fallback (D-6 phase 2)', () => {
   // The capacity guard's specific rejection code. Asserting this catches
   // false positives where create-appointment threw for some unrelated reason
   // (schedule misconfiguration, slot not found, service mode resolution
-  // failure, etc.) and the test happily accepted it as "ok=false".
-  const SLOT_UNAVAILABLE_ERROR_CODE = 4340;
+  // failure, etc.) and the test happily accepted it as "ok=false". Imported
+  // from utils so the assertion follows the canonical APIErrorCode rather
+  // than a hand-typed number — the previous local `= 4340` happened to be
+  // INVALID_INPUT's code, not SLOT_UNAVAILABLE's, and matched only because
+  // the validator used to throw INVALID_INPUT_ERROR here.
   const expectCapacityRejection = (result: { ok: boolean; error?: unknown }): void => {
     expect(result.ok).toBe(false);
     if (result.ok) return;
     const err = result.error as { code?: number };
-    expect(err?.code).toBe(SLOT_UNAVAILABLE_ERROR_CODE);
+    expect(err?.code).toBe(SLOT_UNAVAILABLE_ERROR.code);
   };
 
   const callCreateAppointment = async (

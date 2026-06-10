@@ -1,16 +1,18 @@
-import { JoinCallInput } from 'utils';
-import { ZambdaInput } from '../../shared';
+import { JoinCallInput, MISSING_REQUEST_BODY } from 'utils';
+import { z } from 'zod';
+import { safeValidate, ZambdaInput } from '../../shared';
+
+const bodySchema = z.object({
+  appointmentId: z.string().uuid(),
+});
 
 export function validateRequestParameters(input: ZambdaInput): JoinCallInput {
   if (!input.body) {
-    throw new Error('No request body provided');
+    throw MISSING_REQUEST_BODY;
   }
 
-  const { appointmentId } = JSON.parse(input.body);
-
-  if (!appointmentId) {
-    throw new Error('appointmentId is not defined');
-  }
+  const parsed = JSON.parse(input.body);
+  const { appointmentId } = safeValidate(bodySchema, parsed);
 
   return {
     appointmentId,

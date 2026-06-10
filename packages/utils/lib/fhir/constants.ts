@@ -259,6 +259,19 @@ export const SLUG_SYSTEM = `${FHIR_BASE_URL}/r4/slug`;
  */
 export const SCHEDULE_DISPLAY_NAME_EXTENSION_URL = `${FHIR_BASE_URL}/StructureDefinitions/schedule-display-name`;
 
+/**
+ * Per-PractitionerRole "offers every service category" toggle. When `true`,
+ * the PR is treated as qualified for every service the slot generator asks
+ * about — equivalent to the PR.healthcareService[] list containing every
+ * service-category HealthcareService in the system (plus, by definition,
+ * every BOOKING_CONFIG compiled-in category, which has no FHIR HS to
+ * reference and is otherwise un-opt-into-able). Stored as a boolean PR
+ * extension. Absent extension = false (admin opts in explicitly).
+ *
+ * The analogous group-side mechanism is `GROUP_ALL_LOCATIONS_SYSTEM`.
+ */
+export const PRACTITIONER_ROLE_ALL_CATEGORIES_EXTENSION_URL = `${FHIR_BASE_URL}/StructureDefinitions/practitioner-role-all-categories`;
+
 export const SERVICE_EXTENSION = 'http://extensions.ottehr.com';
 
 export const AppointmentInsuranceRelatedResourcesExtension = {

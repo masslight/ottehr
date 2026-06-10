@@ -17,7 +17,7 @@ import { sleep } from '../helpers';
 export const cleanAppointmentGraph = async (tag: Coding, oystehr: Oystehr): Promise<boolean> => {
   const allResources = await getAppointmentGraphByTag(oystehr, tag);
 
-  const [deleteRequests, persons] = generateDeleteRequestsAndPerson(allResources);
+  const [deleteRequests, persons] = generateDeleteRequestsAndPerson(allResources, tag);
 
   await Promise.all(persons.map((person) => patchPerson(oystehr, person, allResources)));
 
@@ -53,7 +53,18 @@ export const NEVER_DELETE = [
   'HealthcareService',
 ];
 
-const generateDeleteRequestsAndPerson = (allResources: FhirResource[]): [BatchInputDeleteRequest[], Person[]] => {
+export const resourceBelongsToRunTag = (resource: FhirResource, runTag: Coding | undefined): boolean => {
+  if (!runTag?.code || !resource.meta?.tag) {
+    return false;
+  }
+
+  return resource.meta.tag.some((t) => t.system === runTag.system && t.code === runTag.code);
+};
+
+const generateDeleteRequestsAndPerson = (
+  allResources: FhirResource[],
+  runCleanupTag?: Coding
+): [BatchInputDeleteRequest[], Person[]] => {
   const deleteRequests: BatchInputDeleteRequest[] = [];
 
   const personsSoFar = new Set<string>();
@@ -67,16 +78,20 @@ const generateDeleteRequestsAndPerson = (allResources: FhirResource[]): [BatchIn
   const addedSoFar = new Set<string>();
   deleteRequests.push(
     ...allResources.flatMap((resourceTemp) => {
-      if (NEVER_DELETE.includes(resourceTemp.resourceType)) {
+      if (NEVER_DELETE.includes(resourceTemp.resourceType) && !resourceBelongsToRunTag(resourceTemp, runCleanupTag)) {
         return [] as BatchInputDeleteRequest[];
-      } else {
-        const url = `${resourceTemp.resourceType}/${resourceTemp.id}`;
-        if (addedSoFar.has(url)) {
-          return [] as BatchInputDeleteRequest[];
-        }
-        addedSoFar.add(url);
-        return [{ method: 'DELETE', url }] as BatchInputDeleteRequest[];
       }
+      const url = `${resourceTemp.resourceType}/${resourceTemp.id}`;
+      if (addedSoFar.has(url)) {
+        return [] as BatchInputDeleteRequest[];
+      }
+      addedSoFar.add(url);
+
+      if (NEVER_DELETE.includes(resourceTemp.resourceType)) {
+        console.log(`[cleanAppointmentGraph] deleting ${url}`);
+      }
+
+      return [{ method: 'DELETE', url }] as BatchInputDeleteRequest[];
     })
   );
 
