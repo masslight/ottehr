@@ -1,5 +1,6 @@
-import { INVALID_INPUT_ERROR, MISSING_REQUEST_BODY, MISSING_REQUIRED_PARAMETERS } from 'utils';
-import { ZambdaInput } from '../../../shared';
+import { MISSING_REQUEST_BODY } from 'utils';
+import { z } from 'zod';
+import { safeValidate, ZambdaInput } from '../../../shared';
 
 export interface UpdateChargeMasterParams {
   id: string;
@@ -10,24 +11,21 @@ export interface UpdateChargeMasterParams {
   secrets: ZambdaInput['secrets'];
 }
 
+const bodySchema = z.object({
+  chargeMasterId: z.string().uuid(),
+  name: z.string().min(1),
+  effectiveDate: z.string().date(),
+  description: z.string().optional(),
+  status: z.enum(['active', 'retired']).optional(),
+});
+
 export function validateRequestParameters(input: ZambdaInput): UpdateChargeMasterParams {
   if (!input.body) {
     throw MISSING_REQUEST_BODY;
   }
 
-  const { chargeMasterId, name, effectiveDate, description, status } = JSON.parse(input.body);
-
-  if (!chargeMasterId) {
-    throw MISSING_REQUIRED_PARAMETERS(['chargeMasterId']);
-  }
-
-  if (!name || !effectiveDate) {
-    throw MISSING_REQUIRED_PARAMETERS(['name', 'effectiveDate']);
-  }
-
-  if (status && status !== 'active' && status !== 'retired') {
-    throw INVALID_INPUT_ERROR('"status" must be "active" or "retired"');
-  }
+  const parsed = JSON.parse(input.body);
+  const { chargeMasterId, name, effectiveDate, description, status } = safeValidate(bodySchema, parsed);
 
   return {
     id: chargeMasterId,
