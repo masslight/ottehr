@@ -120,10 +120,15 @@ const AI_RESPONSE_KEY_TO_FIELD = {
   procedures: AiObservationField.Procedures,
 };
 
+// Default Vertex model — small/fast/cheap. Callers that need stronger reasoning (e.g. code
+// generation for ad-hoc reports) can pass a larger model via the `model` argument.
+export const DEFAULT_VERTEX_MODEL = 'gemini-3.1-flash-lite';
+
 export async function invokeChatbotVertexAI(
   input: MessageContentComplex[],
   secrets: Secrets | null,
-  responseSchema?: object
+  responseSchema?: object,
+  model: string = DEFAULT_VERTEX_MODEL
 ): Promise<string> {
   // call the vertex ai with fetch
   const GOOGLE_CLOUD_PROJECT_ID = getSecret(SecretsKeys.GOOGLE_CLOUD_PROJECT_ID, secrets);
@@ -152,7 +157,7 @@ export async function invokeChatbotVertexAI(
 
     try {
       const response = await fetch(
-        `https://aiplatform.googleapis.com/v1/projects/${GOOGLE_CLOUD_PROJECT_ID}/locations/global/publishers/google/models/gemini-3.1-flash-lite:generateContent?key=${GOOGLE_CLOUD_API_KEY}`,
+        `https://aiplatform.googleapis.com/v1/projects/${GOOGLE_CLOUD_PROJECT_ID}/locations/global/publishers/google/models/${model}:generateContent?key=${GOOGLE_CLOUD_API_KEY}`,
         {
           method: 'POST',
           headers: {

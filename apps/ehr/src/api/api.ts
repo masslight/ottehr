@@ -2,6 +2,12 @@ import Oystehr, { User } from '@oystehr/sdk';
 import { Medication, PractitionerRole, Schedule, Slot } from 'fhir/r4b';
 import { createClinicalOystehrClient } from 'ui-components';
 import {
+  AdHocBillingInput,
+  AdHocBillingOutput,
+  AdHocEncountersInput,
+  AdHocEncountersOutput,
+  AdHocPatientsInput,
+  AdHocPatientsOutput,
   AdminAddInHouseLabInput,
   AdminAddInHouseLabOutput,
   AdminAddLabSetInput,
@@ -91,6 +97,8 @@ import {
   CreateUserParams,
   DailyPaymentsReportZambdaInput,
   DailyPaymentsReportZambdaOutput,
+  DeleteAdHocReportInput,
+  DeleteAdHocReportOutput,
   DeleteCustomFolderInput,
   DeleteCustomFolderOutput,
   DeleteEmCodeInput,
@@ -106,6 +114,8 @@ import {
   DownloadPatientProfilePhotoInput,
   EHRVisitDetails,
   EmCodeOutput,
+  GenerateAdHocReportInput,
+  GenerateAdHocReportOutput,
   GetAllergyQuickPicksResponse,
   GetAppointmentsZambdaInput,
   GetAppointmentsZambdaOutput,
@@ -154,11 +164,14 @@ import {
   ImmunizationQuickPickData,
   IncompleteEncountersReportZambdaInput,
   IncompleteEncountersReportZambdaOutput,
+  InferAdHocLayersInput,
+  InferAdHocLayersOutput,
   InHouseGetOrdersResponseDTO,
   InHouseMedicationQuickPickData,
   InsuranceQuickPickData,
   InviteParticipantRequestParameters,
   LabelPdf,
+  ListAdHocReportsOutput,
   ListScheduleOwnersParams,
   ListScheduleOwnersResponse,
   ListTemplatesZambdaInput,
@@ -188,6 +201,8 @@ import {
   RecentPatientsReportZambdaOutput,
   RenameCustomFolderInput,
   RenameCustomFolderOutput,
+  SaveAdHocReportInput,
+  SaveAdHocReportOutput,
   SaveFollowupEncounterZambdaInput,
   SaveFollowupEncounterZambdaOutput,
   SaveRadiologyReportZambdaInput,
@@ -249,6 +264,12 @@ const VITE_APP_IS_LOCAL = import.meta.env.VITE_APP_IS_LOCAL;
 const SUBMIT_LAB_ORDER_ZAMBDA_ID = 'submit-lab-order';
 const GET_APPOINTMENTS_ZAMBDA_ID = 'get-appointments';
 const ENCOUNTERS_REPORT_ZAMBDA_ID = 'incomplete-encounters-report';
+const GENERATE_ADHOC_REPORT_ZAMBDA_ID = 'generate-adhoc-report';
+const INFER_ADHOC_REPORT_LAYERS_ZAMBDA_ID = 'infer-adhoc-report-layers';
+const ADHOC_ENCOUNTERS_ZAMBDA_ID = 'adhoc-encounters';
+const SAVE_ADHOC_REPORT_ZAMBDA_ID = 'save-adhoc-report';
+const LIST_ADHOC_REPORTS_ZAMBDA_ID = 'list-adhoc-reports';
+const DELETE_ADHOC_REPORT_ZAMBDA_ID = 'delete-adhoc-report';
 const MAILED_STATEMENTS_REPORT_ZAMBDA_ID = 'mailed-statements-report';
 const SYNC_MAILED_STATEMENT_STATUSES_ZAMBDA_ID = 'sync-mailed-statement-statuses';
 const AI_ASSISTED_ENCOUNTERS_REPORT_ZAMBDA_ID = 'ai-assisted-encounters-report';
@@ -438,6 +459,127 @@ export const getAppointments = async (
 
     const response = await oystehr.zambda.execute({
       id: GET_APPOINTMENTS_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const generateAdHocReport = async (
+  oystehr: Oystehr,
+  parameters: GenerateAdHocReportInput
+): Promise<GenerateAdHocReportOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: GENERATE_ADHOC_REPORT_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const inferAdHocReportLayers = async (
+  oystehr: Oystehr,
+  parameters: InferAdHocLayersInput
+): Promise<InferAdHocLayersOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: INFER_ADHOC_REPORT_LAYERS_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const getAdHocEncounters = async (
+  oystehr: Oystehr,
+  parameters: AdHocEncountersInput
+): Promise<AdHocEncountersOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: ADHOC_ENCOUNTERS_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+const ADHOC_PATIENTS_ZAMBDA_ID = 'adhoc-patients';
+export const getAdHocPatients = async (
+  oystehr: Oystehr,
+  parameters: AdHocPatientsInput
+): Promise<AdHocPatientsOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: ADHOC_PATIENTS_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+const ADHOC_BILLING_ZAMBDA_ID = 'adhoc-billing';
+export const getAdHocBilling = async (oystehr: Oystehr, parameters: AdHocBillingInput): Promise<AdHocBillingOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: ADHOC_BILLING_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const saveAdHocReport = async (
+  oystehr: Oystehr,
+  parameters: SaveAdHocReportInput
+): Promise<SaveAdHocReportOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: SAVE_ADHOC_REPORT_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const listAdHocReports = async (oystehr: Oystehr): Promise<ListAdHocReportsOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({ id: LIST_ADHOC_REPORTS_ZAMBDA_ID });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const deleteAdHocReport = async (
+  oystehr: Oystehr,
+  parameters: DeleteAdHocReportInput
+): Promise<DeleteAdHocReportOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: DELETE_ADHOC_REPORT_ZAMBDA_ID,
       ...parameters,
     });
     return chooseJson(response);

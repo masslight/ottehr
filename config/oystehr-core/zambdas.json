@@ -1027,6 +1027,62 @@
       "src": "src/ehr/recommend-billing-codes/index",
       "zip": ".dist/zips/recommend-billing-codes.zip"
     },
+    "GENERATE-ADHOC-REPORT": {
+      "name": "generate-adhoc-report",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/generate-adhoc-report/index",
+      "zip": ".dist/zips/generate-adhoc-report.zip"
+    },
+    "INFER-ADHOC-REPORT-LAYERS": {
+      "name": "infer-adhoc-report-layers",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/infer-adhoc-report-layers/index",
+      "zip": ".dist/zips/infer-adhoc-report-layers.zip"
+    },
+    "ADHOC-ENCOUNTERS": {
+      "name": "adhoc-encounters",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/adhoc-encounters/index",
+      "zip": ".dist/zips/adhoc-encounters.zip"
+    },
+    "ADHOC-PATIENTS": {
+      "name": "adhoc-patients",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/adhoc-patients/index",
+      "zip": ".dist/zips/adhoc-patients.zip"
+    },
+    "ADHOC-BILLING": {
+      "name": "adhoc-billing",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/adhoc-billing/index",
+      "zip": ".dist/zips/adhoc-billing.zip"
+    },
+    "SAVE-ADHOC-REPORT": {
+      "name": "save-adhoc-report",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/save-adhoc-report/index",
+      "zip": ".dist/zips/save-adhoc-report.zip"
+    },
+    "LIST-ADHOC-REPORTS": {
+      "name": "list-adhoc-reports",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/list-adhoc-reports/index",
+      "zip": ".dist/zips/list-adhoc-reports.zip"
+    },
+    "DELETE-ADHOC-REPORT": {
+      "name": "delete-adhoc-report",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/delete-adhoc-report/index",
+      "zip": ".dist/zips/delete-adhoc-report.zip"
+    },
     "GENERATE-PATIENT-EDUCATION": {
       "name": "generate-patient-education",
       "type": "http_auth",
