@@ -57,7 +57,7 @@ const mockUseNavigate = vi.mocked(useNavigate);
 const mockUseParams = vi.mocked(useParams);
 
 const SERVICE_REQUEST_ID = 'sr-001';
-const WRITE_FINAL_REPORT_CHECKBOX_LABEL = "Don't send to teleradiology, I will write the final report myself";
+const WRITE_FINAL_REPORT_CHECKBOX_LABEL = "Don't send to teleradiology, I will write the final report myself.";
 const SEND_FOR_FINAL_READ_BTN_LABEL = 'Send for Final Read';
 const SAVE_AS_FINAL_BTN_LABEL = 'Save as Final';
 const FINAL_REPORT_TEXTBOX_LABEL = 'Final Report';

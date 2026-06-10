@@ -465,6 +465,14 @@ export const ServiceCategoryVisitTypeCoding = {
  */
 export const SERVICE_CATEGORY_DURATION_MINUTES_SYSTEM = ottehrCodeSystemUrl('service-category-duration-minutes');
 
+/**
+ * Default slot duration in minutes when a service-category HealthcareService
+ * doesn't carry a SERVICE_CATEGORY_DURATION_MINUTES_SYSTEM characteristic.
+ * Used as a soft fallback for legacy / partially-configured records. New
+ * admin saves always set the field explicitly.
+ */
+export const DEFAULT_SERVICE_CATEGORY_DURATION_MINUTES = 15;
+
 /** Cadence-minutes characteristic system for a service-category HealthcareService. Same call-site shape as duration-minutes. */
 export const SERVICE_CATEGORY_CADENCE_MINUTES_SYSTEM = ottehrCodeSystemUrl('service-category-cadence-minutes');
 

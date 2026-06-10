@@ -39,7 +39,8 @@ import {
   TIMEZONE_EXTENSION_URL,
   WALKIN_APPOINTMENT_TYPE_CODE,
 } from '../fhir';
-import { BOOKING_CONFIG, ServiceCategoryCode } from '../ottehr-config';
+import { SERVICE_CATEGORY_SYSTEM } from '../fhir/constants';
+import { ServiceCategoryCode } from '../ottehr-config';
 import {
   Closure,
   ClosureType,
@@ -2178,15 +2179,23 @@ export const getServiceModeFromSlot = (slot: Slot): ServiceMode | undefined => {
 };
 
 export const getServiceCategoryFromSlot = (slot: Slot): ServiceCategoryCode | undefined => {
-  const knownCategories = BOOKING_CONFIG.serviceCategories.map((sc) => sc.category);
-  let serviceCategory: ServiceCategoryCode | undefined;
-  (slot.serviceCategory ?? []).forEach((category) => {
-    const categoryCoding = category.coding?.[0] ?? {};
-    if (codingContainedInList(categoryCoding, knownCategories)) {
-      serviceCategory = categoryCoding.code;
+  // Return the code of the first coding under SERVICE_CATEGORY_SYSTEM.
+  // Historically this was filtered against BOOKING_CONFIG.serviceCategories,
+  // but that hid runtime/FHIR-backed categories (registered via the
+  // service-category admin UI) from every downstream consumer — including
+  // the booking-questionnaire RFV picker, which then fell back to the
+  // compiled-in default and showed the wrong reason-for-visit list. Any
+  // coding under SERVICE_CATEGORY_SYSTEM is a legitimate service-category
+  // reference; downstream resolution (e.g. duration, mode, RFV) happens
+  // against the merged FHIR + BOOKING_CONFIG catalog.
+  for (const concept of slot.serviceCategory ?? []) {
+    for (const coding of concept.coding ?? []) {
+      if (coding.system === SERVICE_CATEGORY_SYSTEM && coding.code) {
+        return coding.code;
+      }
     }
-  });
-  return serviceCategory;
+  }
+  return undefined;
 };
 
 export const getSlotIsWalkin = (slot: Slot): boolean => {

@@ -426,17 +426,13 @@ export const tagEncounterAsErxSynced = async (oystehr: Oystehr, encounter: Encou
       return;
     } catch (patchError) {
       retries++;
-      console.warn(`Tagging encounter ${encounterId} failed (attempt ${retries}), refreshing encounter`, patchError);
       try {
         current = await oystehr.fhir.get<Encounter>({
           resourceType: 'Encounter',
           id: encounterId,
         });
       } catch (refreshError) {
-        console.error(
-          `Failed to refresh encounter ${encounterId} while tagging eRx sync status, giving up`,
-          refreshError
-        );
+        console.warn(`Failed to tag encounter ${encounterId} after ${retries} attempts`, refreshError || patchError);
         return;
       }
     }

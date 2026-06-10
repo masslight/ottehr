@@ -4,6 +4,7 @@ import {
   Address,
   Appointment,
   ContactPoint,
+  Coverage,
   DocumentReference,
   Encounter,
   FhirResource,
@@ -343,6 +344,7 @@ export class ResourceHandler {
     const apiClient = await this.apiClient;
     const maxAttempts = 30; // Increased from 20 to 30 (150 seconds total)
     const delayMs = 5_000;
+    const startTime = Date.now();
 
     try {
       for (let i = 0; i < maxAttempts; i++) {
@@ -367,7 +369,9 @@ export class ResourceHandler {
         const tags = appointment?.meta?.tag || [];
         const isProcessed = tags.some((tag) => tag?.code === FHIR_APPOINTMENT_PREPROCESSED_TAG.code);
         if (isProcessed) {
-          console.log(`Appointment ${id} preprocessed after ${i + 1} attempts (${((i + 1) * delayMs) / 1000}s)`);
+          console.log(
+            `Appointment ${id} preprocessed after ${i + 1} attempts (${((Date.now() - startTime) / 1000).toFixed(1)}s)`
+          );
           return;
         }
 
@@ -391,6 +395,7 @@ export class ResourceHandler {
     const apiClient = await this.apiClient;
     const maxAttempts = 30; // Increased from 20 to 30 (150 seconds total)
     const delayMs = 5_000;
+    const startTime = Date.now();
 
     try {
       let isHarvestingDone = false;
@@ -416,7 +421,10 @@ export class ResourceHandler {
         const tags = appointment?.meta?.tag || [];
         if (tags.some((tag) => tag?.code === FHIR_APPOINTMENT_INTAKE_HARVESTING_COMPLETED_TAG.code)) {
           console.log(
-            `Appointment ${appointmentId} harvesting done after ${i + 1} attempts (${((i + 1) * delayMs) / 1000}s)`
+            `Appointment ${appointmentId} harvesting done after ${i + 1} attempts (${(
+              (Date.now() - startTime) /
+              1000
+            ).toFixed(1)}s)`
           );
           isHarvestingDone = true;
           break;
@@ -466,6 +474,42 @@ export class ResourceHandler {
       console.error('Error during waitTillHarvestingDone', e);
       throw e;
     }
+  }
+
+  // The harvesting-completed tag can be set before the incremental sub-harvest-paperwork page
+  // Tasks finish writing the Coverage resources, so waitTillHarvestingDone returning does not
+  // guarantee the patient's Coverages are queryable. Poll for them directly. Throws on timeout so a
+  // genuinely dropped/never-created Coverage surfaces as an explicit "only had X/Y" failure (a
+  // harvest bug) rather than an opaque downstream UI timeout.
+  async waitTillCoveragesExist(patientId: string, expectedCount: number): Promise<void> {
+    const apiClient = await this.apiClient;
+    const maxAttempts = 15;
+    const delayMs = 2_000;
+    const startTime = Date.now();
+    let count = 0;
+    for (let i = 0; i < maxAttempts; i++) {
+      count = (
+        await apiClient.fhir.search<Coverage>({
+          resourceType: 'Coverage',
+          params: [
+            { name: 'patient', value: `Patient/${patientId}` },
+            { name: 'status', value: 'active' },
+          ],
+        })
+      ).unbundle().length;
+      if (count >= expectedCount) {
+        console.log(
+          `Patient ${patientId} has ${count} coverage(s) after ${((Date.now() - startTime) / 1000).toFixed(1)}s`
+        );
+        return;
+      }
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+    }
+    throw new Error(
+      `Patient ${patientId} only had ${count}/${expectedCount} active coverages after ${
+        (maxAttempts * delayMs) / 1000
+      }s — harvest did not create the expected Coverage resources`
+    );
   }
 
   async waitTillVisitNotePdfCreated(): Promise<DocumentReference> {

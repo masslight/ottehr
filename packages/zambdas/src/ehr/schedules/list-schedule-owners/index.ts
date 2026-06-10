@@ -11,6 +11,7 @@ import {
   getScheduleExtension,
   getTimezone,
   INVALID_INPUT_ERROR,
+  isServiceCategoryHealthcareService,
   ListScheduleOwnersParams,
   ListScheduleOwnersResponse,
   LOCATION_SUPPORT_PHONE_EXTENSION_URL,
@@ -195,7 +196,16 @@ const complexValidation = async <T extends ScheduleOwnerFhirResource>(
     return acc;
   }, new Map<string, Schedule[]>());
 
-  const list = owners.map((owner) => {
+  // HealthcareService search returns both groups AND service-category catalog
+  // entries (admin-registered via the Services admin UI) — both are HSes, but
+  // only groups belong in this list. Service-category HSes are discriminated
+  // by the SERVICE_CATEGORY_TAG meta tag, and they appear as ghost "groups"
+  // with the service's name otherwise. Filter them out here. Locations and
+  // Practitioners can't carry that tag, so the filter is a no-op for those.
+  const filteredOwners = owners.filter(
+    (o) => o.resourceType !== 'HealthcareService' || !isServiceCategoryHealthcareService(o as HealthcareService)
+  );
+  const list = filteredOwners.map((owner) => {
     const schedules = scheduleOwnerMap.get(owner.id!) ?? [];
     return {
       owner,
@@ -216,29 +226,51 @@ const complexValidationForPractitioner = async (_input: BasicInput, oystehr: Oys
   // PR-side bundle gives us PRs + their Practitioners + Locations + categories
   // + Schedules. We then union these Practitioners with the full active
   // Practitioner set so unconfigured providers also surface.
-  const [prBundle, practitionerBundle, allUsers] = await Promise.all([
-    oystehr.fhir.search<PractitionerRole | Practitioner | Location | Schedule | HealthcareService>({
-      resourceType: 'PractitionerRole',
-      params: [
-        { name: 'active', value: 'true' },
-        { name: '_count', value: '1000' },
-        { name: '_include', value: 'PractitionerRole:practitioner' },
-        { name: '_include', value: 'PractitionerRole:location' },
-        { name: '_include', value: 'PractitionerRole:service' },
-        { name: '_revinclude', value: 'Schedule:actor:PractitionerRole' },
-      ],
-    }),
-    oystehr.fhir.search<Practitioner>({
-      resourceType: 'Practitioner',
-      params: [
-        { name: 'active', value: 'true' },
-        { name: '_count', value: '1000' },
-      ],
-    }),
-    oystehr.user.list(),
+  // Paginated: bigger orgs (many Locations × many Practitioners × multiple
+  // PRs each) can blow past a single-page _count cap, silently dropping rows
+  // from the admin list. Matches the pagination pattern used in the other
+  // function in this file. user.list() is deprecated by the SDK; listV2
+  // with cursor pagination is the supported path.
+  const fetchAllUsers = async (): Promise<Awaited<ReturnType<typeof oystehr.user.listV2>>['data']> => {
+    const collected: Awaited<ReturnType<typeof oystehr.user.listV2>>['data'] = [];
+    // The SDK types nextCursor as `string | null`. Treat any non-string-non-empty
+    // value as "no more pages" so a stray `''` from the server can't trigger
+    // an infinite loop (`'' !== null` would otherwise re-enter the do/while
+    // with a falsy cursor and re-fetch page 1 forever).
+    let cursor: string | null = null;
+    do {
+      const response: Awaited<ReturnType<typeof oystehr.user.listV2>> = await oystehr.user.listV2(
+        cursor ? { cursor } : {}
+      );
+      collected.push(...response.data);
+      cursor = response.metadata.nextCursor;
+    } while (cursor);
+    return collected;
+  };
+  const [prResources, allPractitioners, allUsers] = await Promise.all([
+    getAllFhirSearchPages<PractitionerRole | Practitioner | Location | Schedule | HealthcareService>(
+      {
+        resourceType: 'PractitionerRole',
+        params: [
+          { name: 'active', value: 'true' },
+          { name: '_include', value: 'PractitionerRole:practitioner' },
+          { name: '_include', value: 'PractitionerRole:location' },
+          { name: '_include', value: 'PractitionerRole:service' },
+          { name: '_revinclude', value: 'Schedule:actor:PractitionerRole' },
+        ],
+      },
+      oystehr
+    ),
+    getAllFhirSearchPages<Practitioner>(
+      {
+        resourceType: 'Practitioner',
+        params: [{ name: 'active', value: 'true' }],
+      },
+      oystehr
+    ),
+    fetchAllUsers(),
   ]);
 
-  const prResources = prBundle.unbundle();
   const roles = prResources.filter((r): r is PractitionerRole => r.resourceType === 'PractitionerRole');
   const includedPractitioners = prResources.filter((r): r is Practitioner => r.resourceType === 'Practitioner');
   const locations = prResources.filter((r): r is Location => r.resourceType === 'Location');
@@ -247,7 +279,7 @@ const complexValidationForPractitioner = async (_input: BasicInput, oystehr: Oys
 
   // Union of active practitioners (preserves identity by id).
   const allPractitionersById = new Map<string, Practitioner>();
-  for (const p of practitionerBundle.unbundle()) if (p.id) allPractitionersById.set(p.id, p);
+  for (const p of allPractitioners) if (p.id) allPractitionersById.set(p.id, p);
   for (const p of includedPractitioners) if (p.id) allPractitionersById.set(p.id, p);
 
   // Map each Practitioner to its corresponding Oystehr User. Only providers
@@ -261,10 +293,18 @@ const complexValidationForPractitioner = async (_input: BasicInput, oystehr: Oys
 
   // Aggregate PRs per Practitioner so we can summarize across roles. Skip
   // group-membership PRs (no Location) — they aren't schedules.
+  // A PR without a practitioner.reference is structurally broken. We log it
+  // (so the corruption is observable via Sentry / log search) and skip the
+  // bad row rather than throw — throwing here would 500 the admin list
+  // endpoint for every provider just because one malformed role exists,
+  // blocking the only surface where the rest of the catalog can be repaired.
   const rolesByPractitionerId = new Map<string, PractitionerRole[]>();
   for (const role of roles) {
     const practitionerId = role.practitioner?.reference?.split('/')[1];
-    if (!practitionerId) continue;
+    if (!practitionerId) {
+      console.error(`Skipping malformed PractitionerRole ${role.id}: no practitioner reference.`);
+      continue;
+    }
     if (!role.location?.[0]?.reference) continue;
     const arr = rolesByPractitionerId.get(practitionerId) ?? [];
     arr.push(role);
