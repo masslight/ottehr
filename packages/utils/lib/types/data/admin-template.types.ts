@@ -106,6 +106,41 @@ export interface TemplateInHouseLabPlanDetail {
   missing: boolean;
 }
 
+// Each in-office procedure plan saved on a template captures everything the
+// chart UI's procedure form exposes - the procedure type, body site/side,
+// performer, technique, and the rest of the form's checkbox/dropdown answers -
+// plus the diagnosis and CPT-code links the original procedure carried, so a
+// provider applying the template gets the same documentation skeleton they
+// would by recreating the procedure by hand.
+//
+// Diagnosis and CPT links are resolved into inline {code, display} tuples here
+// so the UI can show "J02.9 - Acute pharyngitis" without having to follow
+// references into the template's other contained resources.
+export interface TemplateProcedurePlan {
+  planId: string;
+  procedureType: string | undefined;
+  performerType: string | undefined;
+  bodySite: string | undefined;
+  bodySide: string | undefined;
+  technique: string[];
+  medicationUsed: string | undefined;
+  suppliesUsed: string | undefined;
+  procedureDetails: string | undefined;
+  specimenSent: boolean | undefined;
+  complications: string | undefined;
+  patientResponse: string | undefined;
+  postInstructions: string | undefined;
+  timeSpent: string | undefined;
+  documentedBy: string | undefined;
+  consentObtained: boolean | undefined;
+  diagnoses: TemplateCodeInfo[];
+  // Carries modifiers alongside the code/display so CPTs with attached modifiers
+  // (e.g. "29105-LT") render the same in the procedure card as in the standalone
+  // CPT Codes section. The shared CodeList component already handles both
+  // TemplateCodeInfo and TemplateCptCodeInfo via isTemplateCptCodeInfo.
+  cptCodes: TemplateCptCodeInfo[];
+}
+
 export interface AdminGetTemplateDetailOutput {
   templateName: string;
   templateId: string;
@@ -124,5 +159,6 @@ export interface AdminGetTemplateDetailOutput {
     emCode: TemplateCodeInfo | null;
     accident: TemplateAccidentInfo | null;
     inHouseLabs: TemplateInHouseLabPlanDetail[];
+    procedures: TemplateProcedurePlan[];
   };
 }

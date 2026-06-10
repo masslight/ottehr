@@ -11,6 +11,7 @@ export * from './disposition';
 export * from './convertFhirNameToDisplayName';
 export * from './list';
 export * from './location';
+export * from './healthcareService';
 export * from './medication-administration';
 export * from './vitals';
 export * from './encounter';

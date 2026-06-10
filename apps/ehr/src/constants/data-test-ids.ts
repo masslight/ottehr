@@ -32,6 +32,7 @@ export const dataTestIds = {
     dischargeButton: 'discharge-button',
     prebookedTab: 'prebooked-tab',
     locationSelect: 'location-select',
+    dateFilter: 'tracking-board-date-filter',
     datePickerTodayButton: 'date-picker-today-button',
     loadingIndicator: 'loading-indicator',
     tableRowWrapper: (appointmentId: string) => `appointments-table-row-${appointmentId}`,
@@ -52,6 +53,7 @@ export const dataTestIds = {
   },
   addPatientPage: {
     pageTitle: 'page-title',
+    bookableSelect: 'add-patient-bookable-select',
     mobilePhoneInput: 'mobile-phone-input',
     searchForPatientsButton: 'search-for-patients-button',
     addButton: 'add-button',
@@ -290,6 +292,7 @@ export const dataTestIds = {
     emCodeLink: 'em-code-link',
     hpiLink: 'hpi-link',
     accidentDateLink: 'accident-date-link',
+    accidentStateLink: 'accident-state-link',
     ccLink: 'chief-complaint-link',
     visitNoteCard: 'visit-note-card',
     procedureItem: 'procedure-item',
