@@ -837,20 +837,7 @@ describe('makeCreateRequests — procedure plans', () => {
     expect(dxPostRequest, 'Dx should NOT be created when procedures is also skipped').toBeUndefined();
   });
 
-  test("procedures='append' + a procedure's Dx is already on the encounter: procedure links to the existing Condition (QA regression)", () => {
-    // QA reported: when a chart already has the same Dx that a template
-    // procedure was linked to (e.g. the user added it manually before
-    // applying the template), the procedure ends up with no Dx attached.
-    //
-    // Root cause: the standalone dedup recognized the duplicate and skipped
-    // pushing it to encounter.diagnosis, but still POSTed a new (orphan)
-    // Condition. The procedure's reasonReference resolved to that orphan via
-    // fullUrl. The chart's procedure card looks up linked Dx through
-    // encounter.diagnosis, so the orphan never showed.
-    //
-    // Fix: when the duplicate is procedure-claimed, redirect the procedure's
-    // ref to the existing Condition's literal reference instead of creating
-    // an orphan. Verify the procedure links to the existing Condition by id.
+  test("procedures='append' + a procedure's Dx is already on the encounter: procedure links to the existing Condition", () => {
     const templateList = makeLinkedProcedureTemplate();
     const actions = makeActions({ procedures: 'append', diagnoses: 'append', cptCodes: 'append' });
     const claimedByProcedures = collectContainedIdsClaimedByProcedures(templateList, actions.procedures);
