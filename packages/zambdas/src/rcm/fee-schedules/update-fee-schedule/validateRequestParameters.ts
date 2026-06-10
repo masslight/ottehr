@@ -1,5 +1,6 @@
-import { INVALID_INPUT_ERROR, MISSING_REQUEST_BODY, MISSING_REQUIRED_PARAMETERS } from 'utils';
-import { ZambdaInput } from '../../../shared';
+import { MISSING_REQUEST_BODY } from 'utils';
+import { z } from 'zod';
+import { safeValidate, ZambdaInput } from '../../../shared';
 
 export interface UpdateFeeScheduleParams {
   id: string;
@@ -13,33 +14,24 @@ export interface UpdateFeeScheduleParams {
   secrets: ZambdaInput['secrets'];
 }
 
+const UpdateFeeScheduleBodySchema = z.object({
+  feeScheduleId: z.string().uuid(),
+  name: z.string().min(1),
+  effectiveDate: z.string().min(1).optional(),
+  description: z.string().optional(),
+  status: z.enum(['active', 'retired']).optional(),
+  designation: z.union([z.literal('case-rate'), z.null()]).optional(),
+  caseRateAmount: z.number().min(0).optional(),
+  caseRateComment: z.string().optional(),
+});
+
 export function validateRequestParameters(input: ZambdaInput): UpdateFeeScheduleParams {
   if (!input.body) {
     throw MISSING_REQUEST_BODY;
   }
 
   const { feeScheduleId, name, effectiveDate, description, status, designation, caseRateAmount, caseRateComment } =
-    JSON.parse(input.body);
-
-  if (!feeScheduleId) {
-    throw MISSING_REQUIRED_PARAMETERS(['feeScheduleId']);
-  }
-
-  if (!name) {
-    throw MISSING_REQUIRED_PARAMETERS(['name']);
-  }
-
-  if (status && status !== 'active' && status !== 'retired') {
-    throw INVALID_INPUT_ERROR('"status" must be "active" or "retired"');
-  }
-
-  if (designation !== undefined && designation !== 'case-rate' && designation !== null) {
-    throw INVALID_INPUT_ERROR('"designation" must be "case-rate" or null');
-  }
-
-  if (caseRateAmount !== undefined && (typeof caseRateAmount !== 'number' || caseRateAmount < 0)) {
-    throw INVALID_INPUT_ERROR('"caseRateAmount" must be a non-negative number');
-  }
+    safeValidate(UpdateFeeScheduleBodySchema, JSON.parse(input.body));
 
   return {
     id: feeScheduleId,

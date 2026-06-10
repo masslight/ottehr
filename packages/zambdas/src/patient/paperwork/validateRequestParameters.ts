@@ -9,7 +9,8 @@ import {
   recursiveGroupTransform,
 } from 'utils';
 import { ValidationError } from 'yup';
-import { ZambdaInput } from '../../shared';
+import { z } from 'zod';
+import { safeValidate, ZambdaInput } from '../../shared';
 
 interface BasicInput extends PatchPaperworkParameters {
   appointmentId?: string;
@@ -38,28 +39,24 @@ export interface SubmitPaperworkEffectInput extends Omit<BasicInput, 'answers'>,
   currentQRStatus: QuestionnaireResponse['status'];
 }
 
+const PaperworkBodySchema = z.object({
+  answers: z.unknown(),
+  questionnaireResponseId: z.string().uuid(),
+  appointmentId: z.string().uuid().optional(),
+});
+
 const basicValidation = (input: ZambdaInput): BasicInput => {
   if (!input.body) {
     throw new Error('No request body provided');
   }
   const inputJSON = JSON.parse(input.body);
-  const { answers, questionnaireResponseId, appointmentId } = inputJSON;
+  const { answers, questionnaireResponseId, appointmentId } = safeValidate(PaperworkBodySchema, inputJSON);
 
   if (!answers) {
     throw new Error(`"answers" is a required param`);
   }
-  if (questionnaireResponseId == undefined) {
-    throw new Error(`"questionnaireResponseId" is a required param`);
-  }
-  if (typeof questionnaireResponseId !== 'string') {
-    throw new Error(`"questionnaireResponseId" must be a string`);
-  }
 
-  if (appointmentId && typeof appointmentId !== 'string') {
-    throw new Error(`"appointmentId" must be a string`);
-  }
-
-  return { answers, questionnaireResponseId, appointmentId };
+  return { answers: answers as QuestionnaireResponseItem, questionnaireResponseId, appointmentId };
 };
 
 const itemAnswerHasValue = (item: QuestionnaireResponseItem): boolean => {

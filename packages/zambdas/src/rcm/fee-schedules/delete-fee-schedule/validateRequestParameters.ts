@@ -1,5 +1,10 @@
-import { MISSING_REQUEST_BODY, MISSING_REQUIRED_PARAMETERS } from 'utils';
-import { ZambdaInput } from '../../../shared';
+import { MISSING_REQUEST_BODY } from 'utils';
+import { z } from 'zod';
+import { safeValidate, ZambdaInput } from '../../../shared';
+
+const DeleteFeeScheduleBodySchema = z.object({
+  id: z.string().uuid(),
+});
 
 export interface DeleteFeeScheduleParams {
   id: string;
@@ -11,11 +16,7 @@ export function validateRequestParameters(input: ZambdaInput): DeleteFeeSchedule
     throw MISSING_REQUEST_BODY;
   }
 
-  const { id } = JSON.parse(input.body);
-
-  if (!id) {
-    throw MISSING_REQUIRED_PARAMETERS(['id']);
-  }
+  const { id } = safeValidate(DeleteFeeScheduleBodySchema, JSON.parse(input.body));
 
   return {
     id,

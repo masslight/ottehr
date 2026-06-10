@@ -1,5 +1,6 @@
-import { INVALID_INPUT_ERROR, MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS } from 'utils';
-import { ZambdaInput } from '../../../shared';
+import { MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS } from 'utils';
+import { z } from 'zod';
+import { safeValidate, ZambdaInput } from '../../../shared';
 
 export interface SaveInvoiceConfigInput {
   dueDaysFromGeneration: number;
@@ -8,25 +9,30 @@ export interface SaveInvoiceConfigInput {
   secrets: Record<string, string>;
 }
 
+const DUE_DAYS_MESSAGE = 'dueDaysFromGeneration must be an integer between 1 and 365';
+
+const SaveInvoiceConfigBodySchema = z.object({
+  dueDaysFromGeneration: z
+    .number({ invalid_type_error: DUE_DAYS_MESSAGE })
+    .int(DUE_DAYS_MESSAGE)
+    .min(1, DUE_DAYS_MESSAGE)
+    .max(365, DUE_DAYS_MESSAGE),
+  defaultSmsTemplate: z
+    .string({ invalid_type_error: 'defaultSmsTemplate must be a non-empty string' })
+    .refine((value) => value.trim().length > 0, 'defaultSmsTemplate must be a non-empty string'),
+  defaultInvoiceMemo: z
+    .string({ invalid_type_error: 'defaultInvoiceMemo must be a non-empty string' })
+    .refine((value) => value.trim().length > 0, 'defaultInvoiceMemo must be a non-empty string'),
+});
+
 export function validateRequestParameters(input: ZambdaInput): SaveInvoiceConfigInput {
   if (!input.body) throw MISSING_REQUEST_BODY;
   if (!input.secrets) throw MISSING_REQUEST_SECRETS;
 
-  const parsed = JSON.parse(input.body);
-
-  const { dueDaysFromGeneration, defaultSmsTemplate, defaultInvoiceMemo } = parsed;
-
-  if (!Number.isInteger(dueDaysFromGeneration) || dueDaysFromGeneration < 1 || dueDaysFromGeneration > 365) {
-    throw INVALID_INPUT_ERROR('dueDaysFromGeneration must be an integer between 1 and 365');
-  }
-
-  if (typeof defaultSmsTemplate !== 'string' || defaultSmsTemplate.trim().length === 0) {
-    throw INVALID_INPUT_ERROR('defaultSmsTemplate must be a non-empty string');
-  }
-
-  if (typeof defaultInvoiceMemo !== 'string' || defaultInvoiceMemo.trim().length === 0) {
-    throw INVALID_INPUT_ERROR('defaultInvoiceMemo must be a non-empty string');
-  }
+  const { dueDaysFromGeneration, defaultSmsTemplate, defaultInvoiceMemo } = safeValidate(
+    SaveInvoiceConfigBodySchema,
+    JSON.parse(input.body)
+  );
 
   return {
     dueDaysFromGeneration,

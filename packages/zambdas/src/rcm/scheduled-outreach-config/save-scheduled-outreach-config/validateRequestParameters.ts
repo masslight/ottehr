@@ -1,5 +1,6 @@
 import { INVALID_INPUT_ERROR, MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS, MISSING_REQUIRED_PARAMETERS } from 'utils';
-import { ZambdaInput } from '../../../shared';
+import { z } from 'zod';
+import { safeValidate, ZambdaInput } from '../../../shared';
 import {
   ActionType,
   NotificationMedium,
@@ -16,6 +17,11 @@ export interface SaveOutreachConfigInput {
   notificationsTimeRestriction?: NotificationsTimeRestriction;
   secrets: Record<string, string>;
 }
+
+const SaveOutreachConfigBodySchema = z.object({
+  actions: z.array(z.unknown()),
+  notificationsTimeRestriction: z.unknown().optional(),
+});
 
 const VALID_ACTION_TYPES: ActionType[] = ['charge-card', 'send-notification', 'refer-to-collections', 'log'];
 const VALID_TRIGGER_EVENTS: TriggerEvent[] = [
@@ -173,14 +179,12 @@ export function validateRequestParameters(input: ZambdaInput): SaveOutreachConfi
   if (!input.body) throw MISSING_REQUEST_BODY;
   if (!input.secrets) throw MISSING_REQUEST_SECRETS;
 
-  const parsed = JSON.parse(input.body);
-  const { actions, notificationsTimeRestriction } = parsed;
+  const { actions: rawActions, notificationsTimeRestriction } = safeValidate(
+    SaveOutreachConfigBodySchema,
+    JSON.parse(input.body)
+  );
 
-  if (!Array.isArray(actions)) {
-    throw INVALID_INPUT_ERROR('actions must be an array');
-  }
-
-  const validatedActions = actions.map((action: unknown, index: number) => validateAction(action, index));
+  const validatedActions = rawActions.map((action: unknown, index: number) => validateAction(action, index));
 
   let validatedNotificationsTimeRestriction: NotificationsTimeRestriction | undefined;
   if (notificationsTimeRestriction !== undefined) {

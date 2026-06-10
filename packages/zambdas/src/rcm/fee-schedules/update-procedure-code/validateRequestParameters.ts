@@ -1,5 +1,6 @@
-import { INVALID_INPUT_ERROR, MISSING_REQUEST_BODY, MISSING_REQUIRED_PARAMETERS } from 'utils';
-import { ZambdaInput } from '../../../shared';
+import { MISSING_REQUEST_BODY } from 'utils';
+import { z } from 'zod';
+import { safeValidate, ZambdaInput } from '../../../shared';
 
 export interface UpdateProcedureCodeParams {
   feeScheduleId: string;
@@ -11,28 +12,24 @@ export interface UpdateProcedureCodeParams {
   secrets: ZambdaInput['secrets'];
 }
 
+const UpdateProcedureCodeBodySchema = z.object({
+  feeScheduleId: z.string().uuid(),
+  index: z.number().int().min(0),
+  code: z.string().min(1),
+  description: z.string().min(1).optional(),
+  modifier: z.string().min(1).optional(),
+  amount: z.number(),
+});
+
 export function validateRequestParameters(input: ZambdaInput): UpdateProcedureCodeParams {
   if (!input.body) {
     throw MISSING_REQUEST_BODY;
   }
 
-  const { feeScheduleId, index, code, description, modifier, amount } = JSON.parse(input.body);
-
-  if (!feeScheduleId) {
-    throw MISSING_REQUIRED_PARAMETERS(['feeScheduleId']);
-  }
-
-  if (index == null || typeof index !== 'number' || index < 0) {
-    throw INVALID_INPUT_ERROR('"index" must be a non-negative number');
-  }
-
-  if (!code) {
-    throw MISSING_REQUIRED_PARAMETERS(['code']);
-  }
-
-  if (amount == null || typeof amount !== 'number') {
-    throw INVALID_INPUT_ERROR('"amount" must be a number');
-  }
+  const { feeScheduleId, index, code, description, modifier, amount } = safeValidate(
+    UpdateProcedureCodeBodySchema,
+    JSON.parse(input.body)
+  );
 
   return {
     feeScheduleId,

@@ -1,5 +1,6 @@
-import { INVALID_INPUT_ERROR, isValidUUID, MISSING_REQUEST_BODY, MISSING_REQUIRED_PARAMETERS } from 'utils';
-import { ZambdaInput } from '../../../shared';
+import { MISSING_REQUEST_BODY } from 'utils';
+import { z } from 'zod';
+import { safeValidate, ZambdaInput } from '../../../shared';
 import { EmployerAddressInput, EmployerContactInput, EmployerIdentifierInput } from '../helpers';
 
 export interface UpdateEmployerParams {
@@ -13,41 +14,57 @@ export interface UpdateEmployerParams {
   secrets: ZambdaInput['secrets'];
 }
 
+const UpdateEmployerBodySchema = z.object({
+  employerId: z.string().uuid(),
+  name: z.string().min(1).optional(),
+  active: z.boolean().optional(),
+  category: z.string().min(1).optional(),
+  identifier: z
+    .object({
+      system: z.string().optional(),
+      value: z.string().min(1),
+    })
+    .nullable()
+    .optional(),
+  address: z
+    .object({
+      line: z.array(z.string()).optional(),
+      city: z.string().optional(),
+      state: z.string().optional(),
+      postalCode: z.string().optional(),
+      country: z.string().optional(),
+    })
+    .nullable()
+    .optional(),
+  contact: z
+    .object({
+      phone: z.string().optional(),
+      fax: z.string().optional(),
+      email: z.string().optional(),
+      notes: z.string().optional(),
+    })
+    .nullable()
+    .optional(),
+});
+
 export function validateRequestParameters(input: ZambdaInput): UpdateEmployerParams {
   if (!input.body) {
     throw MISSING_REQUEST_BODY;
   }
 
-  const { employerId, name, active, category, identifier, address, contact } = JSON.parse(input.body);
-
-  if (!employerId) {
-    throw MISSING_REQUIRED_PARAMETERS(['employerId']);
-  }
-
-  if (typeof employerId !== 'string' || !isValidUUID(employerId)) {
-    throw INVALID_INPUT_ERROR('"employerId" must be a valid UUID');
-  }
-
-  if (name !== undefined && (typeof name !== 'string' || !name.trim())) {
-    throw INVALID_INPUT_ERROR('"name" must be a non-empty string when provided');
-  }
-
-  if (category !== undefined && (typeof category !== 'string' || !category.trim())) {
-    throw INVALID_INPUT_ERROR('"category" must be a non-empty string when provided');
-  }
-
-  if (active !== undefined && typeof active !== 'boolean') {
-    throw INVALID_INPUT_ERROR('"active" must be a boolean when provided');
-  }
+  const { employerId, name, active, category, identifier, address, contact } = safeValidate(
+    UpdateEmployerBodySchema,
+    JSON.parse(input.body)
+  );
 
   return {
     employerId,
     name,
     active,
     category,
-    identifier,
-    address,
-    contact,
+    identifier: identifier as EmployerIdentifierInput | null | undefined,
+    address: address as EmployerAddressInput | null | undefined,
+    contact: contact as EmployerContactInput | null | undefined,
     secrets: input.secrets,
   };
 }

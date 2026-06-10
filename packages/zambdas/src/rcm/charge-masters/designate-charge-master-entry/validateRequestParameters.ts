@@ -1,5 +1,6 @@
-import { ChargeMasterDesignation, INVALID_INPUT_ERROR, MISSING_REQUEST_BODY, MISSING_REQUIRED_PARAMETERS } from 'utils';
-import { ZambdaInput } from '../../../shared';
+import { ChargeMasterDesignation, MISSING_REQUEST_BODY } from 'utils';
+import { z } from 'zod';
+import { safeValidate, ZambdaInput } from '../../../shared';
 
 export interface DesignateChargeMasterEntryParams {
   chargeMasterId: string;
@@ -7,20 +8,17 @@ export interface DesignateChargeMasterEntryParams {
   secrets: ZambdaInput['secrets'];
 }
 
+const DesignateChargeMasterEntryBodySchema = z.object({
+  chargeMasterId: z.string().uuid(),
+  designation: z.enum(['default-insurance', 'self-pay']),
+});
+
 export function validateRequestParameters(input: ZambdaInput): DesignateChargeMasterEntryParams {
   if (!input.body) {
     throw MISSING_REQUEST_BODY;
   }
 
-  const { chargeMasterId, designation } = JSON.parse(input.body);
-
-  if (!chargeMasterId) {
-    throw MISSING_REQUIRED_PARAMETERS(['chargeMasterId']);
-  }
-
-  if (designation !== 'default-insurance' && designation !== 'self-pay') {
-    throw INVALID_INPUT_ERROR('"designation" must be "default-insurance" or "self-pay"');
-  }
+  const { chargeMasterId, designation } = safeValidate(DesignateChargeMasterEntryBodySchema, JSON.parse(input.body));
 
   return {
     chargeMasterId,

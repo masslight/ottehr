@@ -1,5 +1,6 @@
-import { MISSING_REQUIRED_PARAMETERS, Secrets } from 'utils';
-import { ZambdaInput } from '../../../shared';
+import { MISSING_REQUEST_BODY, Secrets } from 'utils';
+import { z } from 'zod';
+import { safeValidate, ZambdaInput } from '../../../shared';
 
 export interface GetTerminalReadersInput {
   stripeAccountId: string;
@@ -7,18 +8,17 @@ export interface GetTerminalReadersInput {
   secrets: Secrets | null;
 }
 
+const GetTerminalReadersBodySchema = z.object({
+  stripeAccountId: z.string().min(1),
+  terminalLocationId: z.string().min(1),
+});
+
 export function validateRequestParameters(input: ZambdaInput): GetTerminalReadersInput {
-  const parsed = typeof input.body === 'string' ? JSON.parse(input.body) : input.body;
-  const stripeAccountId = parsed?.stripeAccountId;
-  const terminalLocationId = parsed?.terminalLocationId;
-
-  if (!stripeAccountId || typeof stripeAccountId !== 'string') {
-    throw MISSING_REQUIRED_PARAMETERS(['stripeAccountId']);
+  if (!input.body) {
+    throw MISSING_REQUEST_BODY;
   }
 
-  if (!terminalLocationId || typeof terminalLocationId !== 'string') {
-    throw MISSING_REQUIRED_PARAMETERS(['terminalLocationId']);
-  }
+  const { stripeAccountId, terminalLocationId } = safeValidate(GetTerminalReadersBodySchema, JSON.parse(input.body));
 
   return {
     stripeAccountId,
