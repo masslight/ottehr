@@ -128,6 +128,8 @@ export const insertInPersonAppointmentBase = async (
     ) as Location
   );
 
+  console.log(`[insertInPersonAppointmentBase] created Location/${location.id}`);
+
   const patientRef = 'urn:uuid:patient';
   const appointmentRef = 'urn:uuid:appointment';
   const encounterRef = 'urn:uuid:encounter';

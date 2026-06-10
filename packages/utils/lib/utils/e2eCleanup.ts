@@ -86,6 +86,11 @@ const generateDeleteRequestsAndPerson = (
         return [] as BatchInputDeleteRequest[];
       }
       addedSoFar.add(url);
+
+      if (NEVER_DELETE.includes(resourceTemp.resourceType)) {
+        console.log(`[cleanAppointmentGraph] deleting ${url}`);
+      }
+
       return [{ method: 'DELETE', url }] as BatchInputDeleteRequest[];
     })
   );
