@@ -30,17 +30,6 @@ import procedureType from '../../../../../../config/oystehr/procedure-type.json'
 const PROCESS_ID = `orderCancellation.spec.ts-${DateTime.now().toMillis()}`;
 const resourceHandler = new ResourceHandler(PROCESS_ID);
 
-// The eRX "complete your profile" snackbar is persistent (never auto-dismisses) and can
-// overlay the side menu, intercepting navigation clicks. Dismiss it via its action button.
-async function dismissErxProfileSnackbar(page: Page): Promise<void> {
-  const snackbar = page.getByRole('alert').filter({ hasText: 'enroll in eRX' });
-  const dismissButton = snackbar.getByRole('button', { name: 'Dismiss' });
-  if (await dismissButton.isVisible().catch(() => false)) {
-    await dismissButton.click();
-    await snackbar.waitFor({ state: 'hidden', timeout: 5000 }).catch(() => {});
-  }
-}
-
 const procedureTypeKey = Object.keys(procedureType.fhirResources).find((key) =>
   key.startsWith('value-set-procedure-type')
 );
@@ -446,8 +435,6 @@ test.describe('Order Deletion - Happy Path', () => {
       });
 
       await test.step('Verify medication not shown in Progress Note', async () => {
-        await dismissErxProfileSnackbar(page);
-
         // Navigate to Review & Sign (Progress Note) page
         await sideMenu.clickReviewAndSign();
 
