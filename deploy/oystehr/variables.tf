@@ -38,3 +38,8 @@ variable "patient_portal_domain" {
   type        = string
   nullable    = true
 }
+
+variable "environment" {
+  description = "Deployment environment name; passed to the global-templates seed script"
+  type        = string
+}
