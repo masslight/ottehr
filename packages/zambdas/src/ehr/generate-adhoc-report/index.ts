@@ -59,7 +59,11 @@ RULES:
   route. Links automatically open in a new browser tab — do NOT use window.open(), target
   attributes, onclick handlers, or alert()/confirm()/prompt() (all blocked in this sandbox). Only
   build hrefs from routes documented in the schema field descriptions — never invent URLs or link
-  to external sites.
+  to external sites. Match the link target to the words used: "progress note", "the note", "chart",
+  "visit", or "encounter" mean the VISIT's note route (review-and-sign / follow-up-note via
+  appointmentId) — NOT the patient profile. Only link to the patient profile when the user asks for
+  the "patient", "patient record/profile/chart". If a row is a follow-up (encounterType), use its
+  follow-up-note route.
 - NEVER FABRICATE DATA. Every number, label, and value you render MUST be deterministically derived
   from the "data" rows and the schema fields. Math.random(), invented values, sample/placeholder
   numbers, and estimated/made-up metrics are strictly forbidden — this is a clinical report and a
@@ -124,36 +128,75 @@ Return JSON: { "title": "<short report title>", "code": "<the function-body Java
 `;
 };
 
+// Returns null if the code parses as a JS function body, or the SyntaxError message if not.
+// new Function only COMPILES the body (it never runs it), so this is a safe parse check — the same
+// parse the sandboxed iframe does via `new Function('data','schema','Chart', code)`. Catching it
+// here stops a malformed generation reaching the browser as a cryptic "Invalid or unexpected token".
+const jsSyntaxError = (code: string): string | null => {
+  try {
+    new Function('data', 'schema', 'Chart', code);
+    return null;
+  } catch (e) {
+    return e instanceof Error ? e.message : String(e);
+  }
+};
+
+const MAX_ATTEMPTS = 3;
+
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   const { schema, request, conversation, secrets } = validateRequestParameters(input);
 
-  const raw = await invokeChatbotVertexAI(
-    [{ text: buildPrompt(schema, request, conversation) }],
-    secrets,
-    RESPONSE_SCHEMA
+  const basePrompt = buildPrompt(schema, request, conversation);
+  let lastError = '';
+
+  // The model is effectively deterministic per prompt, so a plain retry would reproduce the same bad
+  // output — each retry appends the prior failure so the prompt (and thus the output) changes.
+  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+    const prompt =
+      attempt === 0
+        ? basePrompt
+        : `${basePrompt}\n\nIMPORTANT: your previous attempt produced output that was not usable ` +
+          `(${lastError}). Return ONLY a valid JSON object whose "code" field is syntactically valid ` +
+          `JavaScript for the function body — no markdown fences, no commentary, complete and unterminated.`;
+
+    const raw = await invokeChatbotVertexAI([{ text: prompt }], secrets, RESPONSE_SCHEMA);
+
+    let parsed: { code?: unknown; title?: unknown };
+    try {
+      parsed = fixAndParseJsonObjectFromString(raw) as { code?: unknown; title?: unknown };
+    } catch {
+      lastError = 'response was not valid JSON';
+      continue;
+    }
+    if (!parsed || typeof parsed.code !== 'string' || !parsed.code.trim()) {
+      lastError = 'no code field was returned';
+      continue;
+    }
+
+    // Hard backstop for the no-fabrication rule: randomness in a report means invented numbers.
+    // Terminal (not retried) — it's a content problem, not a malformed-output problem.
+    if (/Math\.random/.test(parsed.code)) {
+      throw INVALID_INPUT_ERROR(
+        'Generated code attempted to fabricate values (Math.random). Please retry — if you asked for a ' +
+          'metric not present in the dataset, the report cannot compute it.'
+      );
+    }
+
+    const syntaxError = jsSyntaxError(parsed.code);
+    if (syntaxError) {
+      lastError = `the code did not parse (${syntaxError})`;
+      continue;
+    }
+
+    const output: GenerateAdHocReportOutput = {
+      code: parsed.code,
+      title: typeof parsed.title === 'string' ? parsed.title : undefined,
+    };
+    return { statusCode: 200, body: JSON.stringify(output) };
+  }
+
+  throw INVALID_INPUT_ERROR(
+    `Could not generate a valid report after ${MAX_ATTEMPTS} attempts (${lastError}). Please rephrase ` +
+      `your request and try again.`
   );
-
-  let parsed: { code?: unknown; title?: unknown };
-  try {
-    parsed = fixAndParseJsonObjectFromString(raw) as { code?: unknown; title?: unknown };
-  } catch {
-    throw INVALID_INPUT_ERROR('Model returned non-JSON output');
-  }
-  if (!parsed || typeof parsed.code !== 'string' || !parsed.code.trim()) {
-    throw INVALID_INPUT_ERROR('Model did not return report code');
-  }
-
-  // Hard backstop for the no-fabrication rule: randomness in a report means invented numbers.
-  if (/Math\.random/.test(parsed.code)) {
-    throw INVALID_INPUT_ERROR(
-      'Generated code attempted to fabricate values (Math.random). Please retry — if you asked for a ' +
-        'metric not present in the dataset, the report cannot compute it.'
-    );
-  }
-
-  const output: GenerateAdHocReportOutput = {
-    code: parsed.code,
-    title: typeof parsed.title === 'string' ? parsed.title : undefined,
-  };
-  return { statusCode: 200, body: JSON.stringify(output) };
 });
