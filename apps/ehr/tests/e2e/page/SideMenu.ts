@@ -1,4 +1,4 @@
-import { Page } from '@playwright/test';
+import { Locator, Page } from '@playwright/test';
 import { dataTestIds } from '../../../src/constants/data-test-ids';
 import { expectHospitalizationPage, HospitalizationPage } from './HospitalizationPage';
 import { expectHpiAndTemplatesPage, HpiAndTemplatesPage } from './HpiAndTemplatesPage';
@@ -26,92 +26,115 @@ export class SideMenu {
     this.#page = page;
   }
 
+  /**
+   * Snackbar toasts anchor to the bottom-left corner of the screen, directly on top of
+   * the lower side menu items, and notistack pauses their auto-hide countdown while the
+   * browser window is blurred — the steady state for parallel headless runs — so a toast
+   * can block a menu item indefinitely. If a normal click can't get through, let pointer
+   * events pass through toasts and try once more; any other overlay (dialog, backdrop)
+   * will still fail the retry.
+   */
+  async #click(locator: Locator): Promise<void> {
+    try {
+      await locator.click({ timeout: 15_000 });
+    } catch {
+      await this.#page.addStyleTag({
+        content: '.notistack-SnackbarContainer, .notistack-SnackbarContainer * { pointer-events: none !important; }',
+      });
+      await locator.click();
+    }
+  }
+
+  async #clickMenuItem(item: string): Promise<void> {
+    await this.#click(this.#page.getByTestId(dataTestIds.sideMenu.sideMenuItem(item)));
+  }
+
   async clickInHouseMedications(): Promise<InHouseMedicationsPage> {
-    await this.#page.getByTestId(dataTestIds.sideMenu.sideMenuItem('in-house-medication/mar')).click();
+    await this.#clickMenuItem('in-house-medication/mar');
     return expectInHouseMedicationsPage(this.#page);
   }
   async clickInHouseLabs(): Promise<InHouseLabsPage> {
-    await this.#page.getByTestId(dataTestIds.sideMenu.sideMenuItem('in-house-lab-orders')).click();
+    await this.#clickMenuItem('in-house-lab-orders');
     return InHouseLabsPage.isOpen(this.#page);
   }
   async clickAllergies(): Promise<AllergiesPage> {
-    await this.#page.getByTestId(dataTestIds.sideMenu.sideMenuItem('allergies')).click();
+    await this.#clickMenuItem('allergies');
     return expectAllergiesPage(this.#page);
   }
   async clickMedicalConditions(): Promise<MedicalConditionsPage> {
-    await this.#page.getByTestId(dataTestIds.sideMenu.sideMenuItem('medical-conditions')).click();
+    await this.#clickMenuItem('medical-conditions');
     return expectMedicalConditionsPage(this.#page);
   }
   async clickSurgicalHistory(): Promise<SurgicalHistoryPage> {
-    await this.#page.getByTestId(dataTestIds.sideMenu.sideMenuItem('surgical-history')).click();
+    await this.#clickMenuItem('surgical-history');
     return expectSurgicalHistoryPage(this.#page);
   }
   async clickHospitalization(): Promise<HospitalizationPage> {
-    await this.#page.getByTestId(dataTestIds.sideMenu.sideMenuItem('hospitalization')).click();
+    await this.#clickMenuItem('hospitalization');
     return expectHospitalizationPage(this.#page);
   }
 
   async clickCcAndIntakeNotes(): Promise<PatientInfoPage> {
-    await this.#page.getByTestId(dataTestIds.sideMenu.sideMenuItem('cc-and-intake-notes')).click();
+    await this.#clickMenuItem('cc-and-intake-notes');
     return expectPatientInfoPage(this.#page);
   }
 
   async clickVitals(): Promise<VitalsPage> {
-    await this.#page.getByTestId(dataTestIds.sideMenu.sideMenuItem('vitals')).click();
+    await this.#clickMenuItem('vitals');
     return expectVitalsPage(this.#page);
   }
 
   async clickHpiAndTemplates(): Promise<HpiAndTemplatesPage> {
-    await this.#page.getByTestId(dataTestIds.sideMenu.sideMenuItem('history-of-present-illness-and-templates')).click();
+    await this.#clickMenuItem('history-of-present-illness-and-templates');
     return expectHpiAndTemplatesPage(this.#page);
   }
 
   async clickReviewAndSign(): Promise<InPersonProgressNotePage> {
-    await this.#page.getByTestId(dataTestIds.sideMenu.sideMenuItem('review-and-sign')).click();
+    await this.#clickMenuItem('review-and-sign');
     return expectInPersonProgressNotePage(this.#page);
   }
 
   async clickAssessment(): Promise<InPersonAssessmentPage> {
-    await this.#page.getByTestId(dataTestIds.sideMenu.sideMenuItem('assessment')).click();
+    await this.#clickMenuItem('assessment');
     return expectAssessmentPage(this.#page);
   }
 
   async clickExam(): Promise<InPersonExamPage> {
-    await this.#page.getByTestId(dataTestIds.sideMenu.sideMenuItem('examination')).click();
+    await this.#clickMenuItem('examination');
     return expectExamPage(this.#page);
   }
 
   async clickProcedures(): Promise<ProceduresPage> {
-    await this.#page.getByTestId(dataTestIds.sideMenu.sideMenuItem('procedures')).click();
+    await this.#clickMenuItem('procedures');
     return expectProceduresPage(this.#page);
   }
 
   async clickNursingOrders(): Promise<NursingOrdersPage> {
-    await this.#page.getByTestId(dataTestIds.sideMenu.sideMenuItem('nursing-orders')).click();
+    await this.#clickMenuItem('nursing-orders');
     return expectNursingOrdersPage(this.#page);
   }
 
   async clickReviewOfSystems(): Promise<ReviewOfSystemsPage> {
-    await this.#page.getByTestId(dataTestIds.sideMenu.sideMenuItem('review-of-systems')).click();
+    await this.#clickMenuItem('review-of-systems');
     return expectReviewOfSystemsPage(this.#page);
   }
 
   async clickScreening(): Promise<ScreeningPage> {
-    await this.#page.getByTestId(dataTestIds.sideMenu.sideMenuItem('screening-questions')).click();
+    await this.#clickMenuItem('screening-questions');
     return expectScreeningPage(this.#page);
   }
 
   async clickMedications(): Promise<MedicationsPage> {
-    await this.#page.getByTestId(dataTestIds.sideMenu.sideMenuItem('medications')).click();
+    await this.#clickMenuItem('medications');
     return expectMedicationsPage(this.#page);
   }
 
   async clickCompleteIntakeButton(): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.sideMenu.completeIntakeButton).click();
+    await this.#click(this.#page.getByTestId(dataTestIds.sideMenu.completeIntakeButton));
   }
 
   async clickExternalLabs(): Promise<ExternalLabsPage> {
-    await this.#page.getByTestId(dataTestIds.sideMenu.sideMenuItem('external-lab-orders')).click();
+    await this.#clickMenuItem('external-lab-orders');
     return ExternalLabsPage.isOpen(this.#page);
   }
 }
