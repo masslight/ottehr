@@ -21,7 +21,7 @@ import {
   Typography,
 } from '@mui/material';
 import { DateTime } from 'luxon';
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AdHocReportTurn } from 'utils';
 import { generateAdHocReport } from '../../api/api';
@@ -32,6 +32,9 @@ import { useApiClients } from '../../hooks/useAppClients';
 import PageContainer from '../../layout/PageContainer';
 
 type DateRangeFilter = 'today' | 'yesterday' | 'last-7-days' | 'last-30-days' | 'custom' | 'customRange';
+
+// How many times to transparently regenerate after a runtime error before surfacing it to the user.
+const MAX_AUTO_RETRIES = 1;
 
 export default function AdHocReport(): React.ReactElement {
   const navigate = useNavigate();
@@ -60,6 +63,9 @@ export default function AdHocReport(): React.ReactElement {
   const [showSchema, setShowSchema] = useState(false);
   const [conversation, setConversation] = useState<AdHocReportTurn[]>([]);
   const [refineText, setRefineText] = useState('');
+  // Mirror of `conversation` for the stable render-error callback, and a per-request auto-fix budget.
+  const conversationRef = useRef<AdHocReportTurn[]>([]);
+  const autoRetryRef = useRef(0);
 
   const getDateRangeIso = useCallback(
     (filter: DateRangeFilter): { start: string; end: string } => {
@@ -130,13 +136,13 @@ export default function AdHocReport(): React.ReactElement {
         setGeneratedCode(result.code);
         setGeneratedTitle(result.title);
         // Keep only the most recent exchanges so refine prompts stay bounded.
-        setConversation(
-          [
-            ...priorConversation,
-            { role: 'user' as const, content: message },
-            { role: 'assistant' as const, content: result.code },
-          ].slice(-6)
-        );
+        const next = [
+          ...priorConversation,
+          { role: 'user' as const, content: message },
+          { role: 'assistant' as const, content: result.code },
+        ].slice(-6);
+        conversationRef.current = next;
+        setConversation(next);
         setRefineText('');
       } catch (e) {
         setGenerateError(e instanceof Error ? e.message : 'Failed to generate report');
@@ -147,9 +153,10 @@ export default function AdHocReport(): React.ReactElement {
     [oystehrZambda, schema]
   );
 
-  // Fresh report: start a new conversation.
+  // Fresh report: start a new conversation. Each user-initiated request gets a fresh auto-fix budget.
   const handleGenerate = useCallback((): void => {
     if (!request.trim()) return;
+    autoRetryRef.current = 0;
     setGeneratedCode(null);
     void runGenerate(request, []);
   }, [request, runGenerate]);
@@ -158,11 +165,31 @@ export default function AdHocReport(): React.ReactElement {
   // the model so it can self-correct even when the user just says "try again".
   const handleRefine = useCallback((): void => {
     if (!refineText.trim()) return;
+    autoRetryRef.current = 0;
     const message = renderError
       ? `The previous code failed at runtime with this error: "${renderError}". ${refineText}`
       : refineText;
     void runGenerate(message, conversation);
   }, [refineText, renderError, conversation, runGenerate]);
+
+  // When the generated code throws at runtime, transparently feed the error back and regenerate once
+  // (e.g. a missing null-guard). This self-corrects the common runtime bugs instead of dead-ending on
+  // the user; after the budget is spent, surface the error and the manual refine bar.
+  const handleRenderError = useCallback(
+    (message: string): void => {
+      if (autoRetryRef.current < MAX_AUTO_RETRIES) {
+        autoRetryRef.current += 1;
+        const fix =
+          `The previous code threw at runtime: "${message}". Return corrected code that fixes this — ` +
+          `guard against null/undefined values (some fields are null for some rows) — and otherwise ` +
+          `fulfils the same request.`;
+        void runGenerate(fix, conversationRef.current);
+        return;
+      }
+      setRenderError(message);
+    },
+    [runGenerate]
+  );
 
   return (
     <PageContainer>
@@ -339,7 +366,7 @@ export default function AdHocReport(): React.ReactElement {
                 )}
 
                 {/* The model's code runs here, sandboxed, over the fetched rows. */}
-                <ReportFrame code={generatedCode} data={rows} schema={schema} onError={setRenderError} />
+                <ReportFrame code={generatedCode} data={rows} schema={schema} onError={handleRenderError} />
 
                 {/* Refine: follow-up requests continue the conversation so the model modifies the
                     current report ("now group by month", "make it a pie chart"). */}

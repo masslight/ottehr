@@ -51,6 +51,12 @@ RULES:
 - Only reference field names that appear in the schema. For categorical filters, match the EXACT
   value strings from a field's "values" domain (e.g. visitType is "Telemed"/"In-Person", never
   "telemedicine"). Dates are "yyyy-MM-dd" strings; numbers are plain numbers; some values may be null.
+- NULL-SAFETY (REQUIRED): ANY field value may be null/undefined for some rows. NEVER call a method or
+  read a property on a value without guarding it first — e.g. to filter June visits write
+  row.date && row.date.startsWith("2026-06"), and to scan a code array write
+  (row.icdCodes || []).some(c => c && c.startsWith("H66")). A single null (e.g. a visit with no
+  date) calling .startsWith / .toLowerCase / .includes will crash the whole report. Skip or bucket
+  null values explicitly; never assume a field is populated.
 - Render tables as HTML elements you create. Render charts with Chart.js: create a <canvas>, append
   it to a sized container, then new Chart(canvas, {...}). For a single metric, show a large number
   with a caption.
