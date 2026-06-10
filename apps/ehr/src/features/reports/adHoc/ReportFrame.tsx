@@ -55,9 +55,13 @@ const BOOTSTRAP = `
 
 // Built once. The generated code is NOT embedded here — it arrives via postMessage — so there is no
 // HTML-injection surface in the document itself.
+// The <base> tag makes relative hrefs in generated reports resolve against the EHR origin (srcdoc
+// documents otherwise resolve against about:srcdoc) and opens them in a new tab — so a report can
+// link a row to its chart with a plain <a href="/in-person/{id}/...">.
 const SRC_DOC = [
   '<!DOCTYPE html><html><head><meta charset="utf-8">',
   `<meta http-equiv="Content-Security-Policy" content="${CSP}">`,
+  `<base href="${window.location.origin}/" target="_blank">`,
   `<style>${BASE_CSS}</style>`,
   // Guard against a stray "</script>" inside the minified lib closing our tag early.
   `<script>${chartJsSource.replace(/<\/script/gi, '<\\/script')}</script>`,
@@ -120,10 +124,15 @@ export function ReportFrame({ code, data, schema, onError }: ReportFrameProps): 
   }, [postRender]);
 
   return (
+    // allow-popups (+ escape-sandbox so the opened tab is a NORMAL tab, not a sandboxed one) lets
+    // report links open app pages in a new tab via native anchor clicks — which carry the user
+    // gesture, so they aren't popup-blocked. Still no allow-same-origin: the report document stays
+    // an opaque origin with no access to the app's DOM/storage, and CSP still blocks all
+    // network egress from within the frame.
     <iframe
       ref={ref}
       title="Ad-hoc report"
-      sandbox="allow-scripts"
+      sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox"
       srcDoc={SRC_DOC}
       style={{ width: '100%', height, border: '1px solid #e0e0e0', borderRadius: 4, background: '#fff' }}
     />

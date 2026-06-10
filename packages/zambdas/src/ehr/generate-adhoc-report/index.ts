@@ -54,6 +54,12 @@ RULES:
 - Render tables as HTML elements you create. Render charts with Chart.js: create a <canvas>, append
   it to a sized container, then new Chart(canvas, {...}). For a single metric, show a large number
   with a caption.
+- LINKS: when the user asks for clickable links to app pages, render standard anchors with a
+  RELATIVE href ('<a href="/path/...">') built from id fields whose schema descriptions document a
+  route. Links automatically open in a new browser tab — do NOT use window.open(), target
+  attributes, onclick handlers, or alert()/confirm()/prompt() (all blocked in this sandbox). Only
+  build hrefs from routes documented in the schema field descriptions — never invent URLs or link
+  to external sites.
 - NEVER FABRICATE DATA. Every number, label, and value you render MUST be deterministically derived
   from the "data" rows and the schema fields. Math.random(), invented values, sample/placeholder
   numbers, and estimated/made-up metrics are strictly forbidden — this is a clinical report and a

@@ -59,6 +59,21 @@ const FIELDS: FieldDef[] = [
     type: 'string',
     description: 'The visit\'s E&M (evaluation & management) code, e.g. "99213". Null when not set.',
   },
+  {
+    name: 'appointmentId',
+    type: 'string',
+    description:
+      "Unique id of the visit. To link to the visit's progress note (review & sign page), render an " +
+      'anchor with href="/in-person/" + appointmentId + "/review-and-sign" — links open in a new tab ' +
+      'automatically.',
+  },
+  {
+    name: 'patientId',
+    type: 'string',
+    description:
+      'Unique id of the patient (stable across visits — use this, not patientName, to count unique ' +
+      'patients). To link to the patient\'s profile, href="/patient/" + patientId.',
+  },
 ];
 
 function toRow(e: IncompleteEncounterItem): AdHocRow {
@@ -84,6 +99,8 @@ function toRow(e: IncompleteEncounterItem): AdHocRow {
     icdCodes: e.icdCodes ?? [],
     cptCodes: e.cptCodes ?? [],
     emCode: e.emCode ?? null,
+    appointmentId: e.appointmentId ?? null,
+    patientId: e.patientId ?? null,
   };
 }
 
