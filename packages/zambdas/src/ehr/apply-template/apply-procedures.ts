@@ -1,7 +1,14 @@
 import { BatchInputPostRequest, BatchInputPutRequest } from '@oystehr/sdk';
 import { Encounter, List, ServiceRequest } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { chartDataTagSystem, CPTCodeDTO, DiagnosisDTO, ProcedureDTO, resourceHasTagSystem } from 'utils';
+import {
+  chartDataTagSystem,
+  CPTCodeDTO,
+  DiagnosisDTO,
+  ProcedureDTO,
+  resourceHasTagSystem,
+  TemplateSectionAction,
+} from 'utils';
 import { v4 as uuidV4 } from 'uuid';
 import { createProcedureServiceRequest, readProcedureFormFieldsFromServiceRequest } from '../../shared/chart-data';
 
@@ -18,6 +25,39 @@ export const findProcedurePlans = (templateList: List): ServiceRequest[] => {
       (r as ServiceRequest).intent === 'plan' &&
       resourceHasTagSystem(r, PROCEDURE_PLAN_TAG_SYSTEM)
   );
+};
+
+/**
+ * Returns the set of contained-resource ids that procedure plans reference at
+ * apply time (the Conditions and CPT Procedures their reasonReference /
+ * supportingInfo point at). makeCreateRequests force-creates these even when
+ * their owning section (Diagnoses / CPT Codes) is set to 'skip', so the
+ * procedure's linked Dx and CPT codes still land on the chart - matching the
+ * in-house labs behavior where the lab's diagnoses and CPT codes apply
+ * regardless of the standalone sections' actions.
+ *
+ * Mirrors the structure of collectCptCodesFromApplicableActivityDefinitions
+ * (the in-house lab side's dedup set), inverted: there the lab flow creates
+ * the CPT codes and the standalone section skips overlaps; here the standalone
+ * sections create the resources and the procedures section overrides 'skip'
+ * for the ones it needs.
+ *
+ * Returns an empty Set when procedures='skip' - no plans will be applied, so
+ * no contained resources need to be force-created on their behalf.
+ */
+export const collectContainedIdsClaimedByProcedures = (
+  templateList: List,
+  proceduresAction: TemplateSectionAction
+): Set<string> => {
+  if (proceduresAction === 'skip') return new Set();
+  const claimed = new Set<string>();
+  for (const plan of findProcedurePlans(templateList)) {
+    for (const ref of [...(plan.reasonReference ?? []), ...(plan.supportingInfo ?? [])]) {
+      const id = ref.reference?.split('/')[1];
+      if (id) claimed.add(id);
+    }
+  }
+  return claimed;
 };
 
 export interface BuildLiveProcedureInput {

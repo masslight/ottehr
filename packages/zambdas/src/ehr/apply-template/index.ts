@@ -32,7 +32,11 @@ import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../sha
 import { createOystehrClient } from '../../shared/helpers';
 import { getTemplateBaseResources, hasTemplateRelevantTag, isDiagnosisCondition } from '../shared/template-helpers';
 import { applyInHouseLabPlans, canApplyActivityDefinition } from './apply-in-house-labs';
-import { buildLiveProcedureRequest, findProcedurePlans } from './apply-procedures';
+import {
+  buildLiveProcedureRequest,
+  collectContainedIdsClaimedByProcedures,
+  findProcedurePlans,
+} from './apply-procedures';
 import { validateRequestParameters } from './validateRequestParameters';
 
 interface ComplexValidationOutput {
@@ -205,7 +209,21 @@ const performEffect = async (
   // Procedures on its own - we need to skip those CPT codes from the template's
   // separate CPT Codes section so we don't end up with the same Procedure twice.
   const cptCodesFromLabsToSkip = collectCptCodesFromApplicableActivityDefinitions(applicableInHouseLabAds, actions);
-  const createRequests = makeCreateRequests(encounter, templateList, encounterBundle, actions, cptCodesFromLabsToSkip);
+  // Contained-resource ids the procedure section needs (its plans' linked
+  // Conditions and CPT Procedures). makeCreateRequests force-creates these
+  // even when their owning standalone section is set to 'skip', so the
+  // procedure's linked Dx and CPT codes land on the chart regardless of the
+  // standalone Dx / CPT Codes actions - mirroring how in-house labs apply
+  // their own diagnoses and CPT codes regardless of those sections.
+  const claimedByProcedures = collectContainedIdsClaimedByProcedures(templateList, actions.procedures);
+  const createRequests = makeCreateRequests(
+    encounter,
+    templateList,
+    encounterBundle,
+    actions,
+    cptCodesFromLabsToSkip,
+    claimedByProcedures
+  );
 
   // The live procedure ServiceRequests we build from the template's procedure
   // plans (NOT the plan resources themselves - those live in the template's
@@ -311,7 +329,8 @@ export const makeCreateRequests = (
   templateList: List,
   encounterBundle: FhirResource[],
   actions: ResolvedSectionActions,
-  cptCodesFromLabsToSkip: Set<string>
+  cptCodesFromLabsToSkip: Set<string>,
+  claimedByProcedures: Set<string>
 ): Array<
   | BatchInputPostRequest<Observation | ClinicalImpression | Condition | Communication | Procedure | ServiceRequest>
   | BatchInputJSONPatchRequest
@@ -332,13 +351,29 @@ export const makeCreateRequests = (
     return createResourcesRequests;
   }
 
+  // Procedure-claimed Dx Conditions need to be added to encounter.diagnosis
+  // even when the standalone Dx section is set to 'skip' - that's the user's
+  // expectation that "Dx codes on the procedure itself should still be applied
+  // to the chart". Detect them up-front so the init below can extend
+  // encounterDiagnoses into a writable list rather than leaving it null.
+  const procedureClaimedDxConditionIds = new Set<string>();
+  if (claimedByProcedures.size > 0) {
+    for (const r of templateList.contained ?? []) {
+      if (r.id && claimedByProcedures.has(r.id) && r.resourceType === 'Condition' && isDiagnosisCondition(r)) {
+        procedureClaimedDxConditionIds.add(r.id);
+      }
+    }
+  }
+
   // Decide what to do with encounter.diagnosis based on the diagnoses action.
-  // - skip:      leave it untouched (encounterDiagnoses stays null)
+  // - skip:      leave it untouched (encounterDiagnoses stays null) UNLESS
+  //              procedures claim Dx Conditions, in which case we extend it
+  //              from existing so the procedure's Dx land on the chart.
   // - append:    start from existing, keep ranks, template entries get pushed in
   // - overwrite: start from empty
   let encounterDiagnoses: NonNullable<Encounter['diagnosis']> | null = null;
   let encounterDiagnosesConditions: Condition[] = [];
-  if (actions.diagnoses !== 'skip') {
+  if (actions.diagnoses !== 'skip' || procedureClaimedDxConditionIds.size > 0) {
     if (actions.diagnoses === 'overwrite') {
       encounterDiagnoses = [];
       encounterDiagnosesConditions = [];
@@ -404,14 +439,25 @@ export const makeCreateRequests = (
       continue;
     }
     const action = actions[section];
-    if (action === 'skip') continue;
+    // Procedure section override: if a procedure plan references this
+    // contained resource, force its creation as an 'append' even when its
+    // owning section is 'skip'. The procedure's reasonReference /
+    // supportingInfo can then resolve against the new resource via fullUrl,
+    // and the procedure's linked Dx and CPT codes land on the chart - matching
+    // how in-house labs apply regardless of the standalone sections' actions.
+    const isClaimedByProcedure = !!containedResource.id && claimedByProcedures.has(containedResource.id);
+    if (action === 'skip' && !isClaimedByProcedure) continue;
+    const effectiveAction: TemplateSectionAction = action === 'skip' && isClaimedByProcedure ? 'append' : action;
 
     // CPT Codes section dedup: when an in-house lab is also being applied, the
     // lab's create flow will emit a Procedure for each of its CPT codings.
     // Skip the matching CPT Procedure from the template here so we don't end
-    // up with the same Procedure created twice on the encounter.
+    // up with the same Procedure created twice on the encounter. Procedure-
+    // claimed CPT codes win over the lab dedup (the procedure needs its own
+    // CPT to be available for supportingInfo to resolve).
     if (
       section === 'cptCodes' &&
+      !isClaimedByProcedure &&
       containedResource.resourceType === 'Procedure' &&
       (containedResource as Procedure).code?.coding?.some(
         (c) => c.system === CPT_CODE_SYSTEM && c.code !== undefined && cptCodesFromLabsToSkip.has(c.code)
@@ -422,7 +468,7 @@ export const makeCreateRequests = (
 
     // For Chief Complaint on append: if an existing HPI Condition exists, patch it instead of creating.
     if (
-      action === 'append' &&
+      effectiveAction === 'append' &&
       resourceHasTagSystem(containedResource, chartDataTagSystem('chief-complaint')) &&
       existingHpiCondition
     ) {
@@ -432,7 +478,7 @@ export const makeCreateRequests = (
 
     // For ROS Condition on append: if an existing ROS Condition exists, patch it instead of creating.
     if (
-      action === 'append' &&
+      effectiveAction === 'append' &&
       resourceHasTagSystem(containedResource, chartDataTagSystem('ros')) &&
       containedResource.resourceType === 'Condition' &&
       existingRosCondition
@@ -443,7 +489,7 @@ export const makeCreateRequests = (
 
     // For MDM on append: if an existing MDM ClinicalImpression exists, patch its summary instead of creating.
     if (
-      action === 'append' &&
+      effectiveAction === 'append' &&
       resourceHasTagSystem(containedResource, chartDataTagSystem('medical-decision')) &&
       existingMdm
     ) {
@@ -490,7 +536,7 @@ export const makeCreateRequests = (
       const isDuplicate = isDuplicateDiagnosis(resourceToCreate, encounterDiagnosesConditions);
 
       // we should only add to encounter diagnoses after a dedupe when appending, to ensure the template doesn't add Dx already on the chart
-      if ((!isDuplicate && action === 'append') || action === 'overwrite') {
+      if ((!isDuplicate && effectiveAction === 'append') || effectiveAction === 'overwrite') {
         const diagnosisToAdd = templateEncounterDiagnoses?.find((d) => {
           return d.condition.reference?.split('/')[1] === containedResource.id;
         });
@@ -499,7 +545,9 @@ export const makeCreateRequests = (
           condition: { reference: fullUrl },
           // we'll take the rank of the template's diagnosis unless the existing encounter already has a primary Dx
           rank:
-            action === 'append' && encounterDiagnoses.some((dx) => dx.rank === 1) ? undefined : diagnosisToAdd?.rank,
+            effectiveAction === 'append' && encounterDiagnoses.some((dx) => dx.rank === 1)
+              ? undefined
+              : diagnosisToAdd?.rank,
         });
         console.log('This is encounterDiagnoses after add: ', JSON.stringify(encounterDiagnoses));
       }
@@ -513,7 +561,7 @@ export const makeCreateRequests = (
     // For MOI on append: concatenate existing text into the template text before creating.
     // (The existing MOI Condition is deleted separately by makeDeleteRequests.)
     if (
-      action === 'append' &&
+      effectiveAction === 'append' &&
       resourceToCreate.resourceType === 'Condition' &&
       resourceHasTagSystem(resourceToCreate, chartDataTagSystem('mechanism-of-injury'))
     ) {

@@ -7,7 +7,11 @@ import {
   PROCEDURE_TYPE_SYSTEM,
 } from 'utils';
 import { describe, expect, test } from 'vitest';
-import { buildLiveProcedureRequest, findProcedurePlans } from '../../src/ehr/apply-template/apply-procedures';
+import {
+  buildLiveProcedureRequest,
+  collectContainedIdsClaimedByProcedures,
+  findProcedurePlans,
+} from '../../src/ehr/apply-template/apply-procedures';
 
 const PROCEDURE_PLAN_TAG = chartDataTagSystem('procedure-template-plan');
 const PROCEDURE_META_TAG = chartDataTagSystem('procedure');
@@ -77,6 +81,56 @@ describe('findProcedurePlans', () => {
   test('returns [] when the template has no contained array', () => {
     const list: List = { resourceType: 'List', status: 'current', mode: 'working' };
     expect(findProcedurePlans(list)).toEqual([]);
+  });
+});
+
+describe('collectContainedIdsClaimedByProcedures', () => {
+  const listWithPlan = (plan: ServiceRequest): List => ({
+    resourceType: 'List',
+    status: 'current',
+    mode: 'working',
+    contained: [plan],
+  });
+
+  test('returns the contained ids referenced by every plan via reasonReference and supportingInfo', () => {
+    const list = listWithPlan(
+      buildPlan({
+        reasonReference: [{ reference: 'Condition/dx-1' }, { reference: 'Condition/dx-2' }],
+        supportingInfo: [{ reference: 'Procedure/cpt-1' }],
+      })
+    );
+    expect(collectContainedIdsClaimedByProcedures(list, 'append')).toEqual(new Set(['dx-1', 'dx-2', 'cpt-1']));
+  });
+
+  test('returns an empty set when proceduresAction is skip', () => {
+    const list = listWithPlan(buildPlan());
+    expect(collectContainedIdsClaimedByProcedures(list, 'skip')).toEqual(new Set());
+  });
+
+  test('returns an empty set when the template has no procedure plans', () => {
+    const list: List = { resourceType: 'List', status: 'current', mode: 'working' };
+    expect(collectContainedIdsClaimedByProcedures(list, 'append')).toEqual(new Set());
+  });
+
+  test('deduplicates ids that multiple plans reference', () => {
+    const list: List = {
+      resourceType: 'List',
+      status: 'current',
+      mode: 'working',
+      contained: [
+        buildPlan({
+          id: 'plan-a',
+          reasonReference: [{ reference: 'Condition/shared-dx' }],
+          supportingInfo: undefined,
+        }),
+        buildPlan({
+          id: 'plan-b',
+          reasonReference: [{ reference: 'Condition/shared-dx' }],
+          supportingInfo: undefined,
+        }),
+      ],
+    };
+    expect(collectContainedIdsClaimedByProcedures(list, 'append')).toEqual(new Set(['shared-dx']));
   });
 });
 
