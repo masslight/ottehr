@@ -1,10 +1,12 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Encounter, Location, Patient, Practitioner } from 'fhir/r4b';
+import { DateTime } from 'luxon';
 import {
   getAttendingPractitionerId,
   getInPersonVisitStatus,
   getPatientFirstName,
   getPatientLastName,
+  getVisitStatusHistory,
   IncompleteEncountersReportZambdaInput,
   IncompleteEncountersReportZambdaOutput,
   isInPersonAppointment,
@@ -239,6 +241,20 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     const visitStatus = appointment ? getInPersonVisitStatus(appointment, encounter, true) : 'unknown';
 
+    // Time actually spent with the provider: sum of CLOSED "provider" status periods from the
+    // visit-status history. Open periods are excluded — an encounter that was never properly
+    // closed out would otherwise report days-long "provider time".
+    let timeWithProviderMinutes: number | undefined;
+    for (const entry of getVisitStatusHistory(encounter)) {
+      if (entry.status !== 'provider' || !entry.period.start || !entry.period.end) continue;
+      const mins = Math.floor(
+        DateTime.fromISO(entry.period.end).diff(DateTime.fromISO(entry.period.start), 'minutes').minutes
+      );
+      if (Number.isFinite(mins) && mins >= 0) {
+        timeWithProviderMinutes = (timeWithProviderMinutes ?? 0) + mins;
+      }
+    }
+
     return {
       appointmentId: appointment?.id || '',
       patientId: patient?.id || '',
@@ -252,6 +268,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       attendingProvider: attendingProviderName,
       visitType,
       reason: encounter.reasonCode?.[0]?.text || appointment?.appointmentType?.text || '',
+      timeWithProviderMinutes,
     };
   });
 

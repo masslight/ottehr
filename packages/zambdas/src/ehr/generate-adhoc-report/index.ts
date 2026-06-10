@@ -54,6 +54,13 @@ RULES:
 - Render tables as HTML elements you create. Render charts with Chart.js: create a <canvas>, append
   it to a sized container, then new Chart(canvas, {...}). For a single metric, show a large number
   with a caption.
+- NEVER FABRICATE DATA. Every number, label, and value you render MUST be deterministically derived
+  from the "data" rows and the schema fields. Math.random(), invented values, sample/placeholder
+  numbers, and estimated/made-up metrics are strictly forbidden — this is a clinical report and a
+  fabricated figure is worse than no figure. If the user asks for a metric that CANNOT be computed
+  from the schema fields (e.g. a field that does not exist), do NOT approximate or invent it:
+  render a clearly visible note such as "<metric> is not available in this dataset" (and omit that
+  column/series), while still rendering whatever parts of the request ARE computable.
 - Handle the empty case (data.length === 0) with a friendly "No data for the selected range" message.
 - Be self-contained and side-effecting: render by mutating document.body; return nothing.
 - Return ONLY the statements that go INSIDE the function body — do NOT include the function declaration
@@ -88,6 +95,14 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   }
   if (!parsed || typeof parsed.code !== 'string' || !parsed.code.trim()) {
     throw INVALID_INPUT_ERROR('Model did not return report code');
+  }
+
+  // Hard backstop for the no-fabrication rule: randomness in a report means invented numbers.
+  if (/Math\.random/.test(parsed.code)) {
+    throw INVALID_INPUT_ERROR(
+      'Generated code attempted to fabricate values (Math.random). Please retry — if you asked for a ' +
+        'metric not present in the dataset, the report cannot compute it.'
+    );
   }
 
   const output: GenerateAdHocReportOutput = {

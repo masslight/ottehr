@@ -24,7 +24,20 @@ const FIELDS: FieldDef[] = [
   { name: 'attendingProvider', type: 'string', description: 'Attending provider name.' },
   { name: 'reason', type: 'string', description: 'Reason for visit (free text; often high-cardinality).' },
   { name: 'ageYears', type: 'number', description: 'Patient age in years.' },
-  { name: 'lengthOfStayMinutes', type: 'number', description: 'Appointment length in minutes (end − start).' },
+  {
+    name: 'scheduledSlotMinutes',
+    type: 'number',
+    description:
+      'Booked appointment slot length in minutes (scheduled end − start). This is the SCHEDULED duration, ' +
+      'NOT time spent — most slots are a standard length (e.g. 15), so it is nearly constant.',
+  },
+  {
+    name: 'timeWithProviderMinutes',
+    type: 'number',
+    description:
+      'Actual minutes the patient spent with the provider (tracked "provider" visit status), excluding ' +
+      'waiting room and intake. Null when the visit was not tracked through the provider stage.',
+  },
   { name: 'patientName', type: 'string', description: 'Patient full name (free text).' },
   { name: 'dateOfBirth', type: 'date', description: 'Patient date of birth (yyyy-MM-dd).' },
 ];
@@ -45,7 +58,8 @@ function toRow(e: IncompleteEncounterItem): AdHocRow {
     attendingProvider: e.attendingProvider ?? 'Unknown',
     reason: e.reason ?? '',
     ageYears: dob?.isValid ? Math.floor(DateTime.now().diff(dob, 'years').years) : null,
-    lengthOfStayMinutes: start?.isValid && end?.isValid ? Math.round(end.diff(start, 'minutes').minutes) : null,
+    scheduledSlotMinutes: start?.isValid && end?.isValid ? Math.round(end.diff(start, 'minutes').minutes) : null,
+    timeWithProviderMinutes: e.timeWithProviderMinutes ?? null,
     patientName: e.patientName ?? '',
     dateOfBirth: e.dateOfBirth ?? null,
   };
@@ -78,7 +92,7 @@ export const encountersDataset: AdHocDataset = {
   label: 'Encounters',
   description:
     'One row per visit (appointment + encounter) in the selected date range: status, location, ' +
-    'provider, visit type, reason, patient age/name, length of stay, and time buckets.',
+    'provider, visit type, reason, patient age/name, time with provider, and time buckets.',
   fetch: fetchEncounters,
   buildSchema: (rows) =>
     buildSchema(
