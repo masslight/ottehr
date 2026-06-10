@@ -11,48 +11,18 @@ import {
   IconButton,
   MenuItem,
   Select,
-  SxProps,
   TextField,
-  Theme,
   Typography,
 } from '@mui/material';
-import { ReactElement, ReactNode, useEffect, useState } from 'react';
+import { ReactElement, useEffect, useState } from 'react';
 import { chooseJson } from 'utils';
 import { useApiClients } from '../hooks/useAppClients';
+import { Field } from './Field';
 
 interface AddPatientDialogProps {
   open: boolean;
   onClose: () => void;
   onCreated: () => void;
-}
-
-function Field({
-  label,
-  optional,
-  children,
-  sx,
-}: {
-  label: string;
-  optional?: boolean;
-  children: ReactNode;
-  sx?: SxProps<Theme>;
-}): ReactElement {
-  return (
-    <Box sx={sx}>
-      <Typography
-        variant="body2"
-        sx={{ color: 'text.primary', fontSize: 13, fontWeight: 500, display: 'block', mb: 0.75 }}
-      >
-        {label}
-        {optional && (
-          <Box component="span" sx={{ color: 'text.secondary', fontWeight: 400 }}>
-            {' · optional'}
-          </Box>
-        )}
-      </Typography>
-      {children}
-    </Box>
-  );
 }
 
 export function AddPatientDialog({ open, onClose, onCreated }: AddPatientDialogProps): ReactElement {

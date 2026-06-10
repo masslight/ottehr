@@ -243,6 +243,21 @@ export const CreateBillingWorkingCopyInputSchema = z.object({
   overrides: z.record(z.unknown()).optional(),
 });
 
+const updatableAddressSchema = z
+  .object({
+    line1: z.string().optional(),
+    line2: z.string().optional(),
+    city: z.string().optional(),
+    state: z.string().optional(),
+    postalCode: z.string().optional(),
+  })
+  .optional();
+
+const claimProviderRefSchema = z.object({
+  id: nonEmptyString,
+  type: z.enum(['Practitioner', 'Organization']),
+});
+
 export const UpdateBillingResourceInputSchema = z.discriminatedUnion('resourceType', [
   z.object({
     resourceType: z.literal('Patient'),
@@ -252,6 +267,7 @@ export const UpdateBillingResourceInputSchema = z.discriminatedUnion('resourceTy
       lastName: z.string().optional(),
       dob: z.string().optional(),
       gender: z.string().optional(),
+      address: updatableAddressSchema,
     }),
   }),
   z.object({
@@ -260,6 +276,8 @@ export const UpdateBillingResourceInputSchema = z.discriminatedUnion('resourceTy
     fields: z.object({
       firstName: z.string().optional(),
       lastName: z.string().optional(),
+      npi: z.string().optional(),
+      taxId: z.string().optional(),
     }),
   }),
   z.object({
@@ -267,6 +285,7 @@ export const UpdateBillingResourceInputSchema = z.discriminatedUnion('resourceTy
     resourceId: nonEmptyString,
     fields: z.object({
       subscriberId: z.string().optional(),
+      status: z.enum(['active', 'cancelled', 'draft', 'entered-in-error']).optional(),
     }),
   }),
   z.object({
@@ -274,6 +293,8 @@ export const UpdateBillingResourceInputSchema = z.discriminatedUnion('resourceTy
     resourceId: nonEmptyString,
     fields: z.object({
       name: z.string().optional(),
+      npi: z.string().optional(),
+      address: updatableAddressSchema,
     }),
   }),
   z.object({
@@ -281,6 +302,21 @@ export const UpdateBillingResourceInputSchema = z.discriminatedUnion('resourceTy
     resourceId: nonEmptyString,
     fields: z.object({
       name: z.string().optional(),
+      npi: z.string().optional(),
+      taxId: z.string().optional(),
+    }),
+  }),
+  // Attach resources the claim was created without (working copy of the original + claim reference),
+  // or re-point the claim's payer (payerId is the RCM payer id).
+  z.object({
+    resourceType: z.literal('Claim'),
+    resourceId: nonEmptyString,
+    fields: z.object({
+      billingProvider: claimProviderRefSchema.optional(),
+      renderingProvider: claimProviderRefSchema.optional(),
+      facilityId: nonEmptyString.optional(),
+      coverageId: nonEmptyString.optional(),
+      payerId: nonEmptyString.optional(),
     }),
   }),
 ]);

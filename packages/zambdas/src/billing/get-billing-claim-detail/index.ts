@@ -19,6 +19,7 @@ import {
   getClaimStatus,
   resolvePayersByRef,
   sortClaimInsurance,
+  SOURCE_IDENTIFIER_SYSTEM,
 } from '../shared';
 import { GetClaimDetailParams, validateRequestParameters } from './validateRequestParameters';
 
@@ -52,7 +53,7 @@ async function performEffect(oystehr: Oystehr, params: GetClaimDetailParams): Pr
   if (!claim) throw FHIR_RESOURCE_NOT_FOUND('Claim');
 
   const patient = findRef<Patient>(resources, claim.patient?.reference);
-  const provider = findRef<Organization>(resources, claim.provider?.reference);
+  const provider = findRef<Practitioner | Organization>(resources, claim.provider?.reference);
   const facility = findRef<Location>(resources, claim.facility?.reference);
 
   // Batch-fetch coverage, rendering practitioner, and secondary insurance
@@ -62,8 +63,9 @@ async function performEffect(oystehr: Oystehr, params: GetClaimDetailParams): Pr
   const coverageRef = sortedInsurance[0]?.coverage?.reference;
   if (coverageRef) followUpQueries.push(`/Coverage?_id=${coverageRef.replace('Coverage/', '')}`);
   const renderingRef = claim.careTeam?.[0]?.provider?.reference;
-  if (renderingRef?.startsWith('Practitioner/')) {
-    followUpQueries.push(`/Practitioner?_id=${renderingRef.replace('Practitioner/', '')}`);
+  if (renderingRef?.startsWith('Practitioner/') || renderingRef?.startsWith('Organization/')) {
+    const [renderingType, renderingId] = renderingRef.split('/');
+    followUpQueries.push(`/${renderingType}?_id=${renderingId}`);
   }
   const secCovRef = sortedInsurance[1]?.coverage?.reference;
   if (secCovRef) {
@@ -78,8 +80,11 @@ async function performEffect(oystehr: Oystehr, params: GetClaimDetailParams): Pr
         | Coverage
         | undefined)
     : undefined;
-  const renderingPractitioner = renderingRef
-    ? (followUp.find((r) => r.resourceType === 'Practitioner') as Practitioner | undefined)
+  const renderingId = renderingRef?.split('/')[1];
+  const renderingProvider = renderingId
+    ? (followUp.find(
+        (r) => r.id === renderingId && (r.resourceType === 'Practitioner' || r.resourceType === 'Organization')
+      ) as Practitioner | Organization | undefined)
     : undefined;
 
   let secondaryCoverage: Coverage | undefined;
@@ -105,6 +110,7 @@ async function performEffect(oystehr: Oystehr, params: GetClaimDetailParams): Pr
 
   const billed = claim.total?.value ?? 0;
   const status = getClaimStatus(claim);
+  const patientAddr = patient?.address?.[0];
 
   return {
     id: claim.id ?? '',
@@ -116,7 +122,16 @@ async function performEffect(oystehr: Oystehr, params: GetClaimDetailParams): Pr
     patientDob: patient?.birthDate ?? '',
     patientGender: patient?.gender ?? '',
     patientId: patient?.id ?? '',
-    patientAddress: formatAddress(patient?.address?.[0]),
+    patientOriginalId:
+      patient?.identifier?.find((id) => id.system === SOURCE_IDENTIFIER_SYSTEM)?.value?.replace('Patient/', '') ?? '',
+    patientAddress: formatAddress(patientAddr),
+    patientAddressParts: {
+      line1: patientAddr?.line?.[0] ?? '',
+      line2: patientAddr?.line?.[1] ?? '',
+      city: patientAddr?.city ?? '',
+      state: patientAddr?.state ?? '',
+      postalCode: patientAddr?.postalCode ?? '',
+    },
     coverageFhirId: coverage?.id ?? '',
     payorFhirId: insurer?.id ?? '',
     payerName: insurer?.name ?? '',
@@ -131,16 +146,33 @@ async function performEffect(oystehr: Oystehr, params: GetClaimDetailParams): Pr
     secondaryMemberId: secondaryCoverage?.subscriberId ?? '',
     nonInsurancePayerFhirId: '',
     nonInsurancePayerName: '',
-    renderingProviderId: renderingPractitioner?.id ?? '',
-    renderingProvider: fhirName(renderingPractitioner),
-    renderingNpi: renderingPractitioner ? getNPI(renderingPractitioner) ?? '' : '',
+    renderingProviderId: renderingProvider?.id ?? '',
+    renderingProviderType: renderingProvider?.resourceType ?? '',
+    renderingProvider: renderingProvider
+      ? renderingProvider.resourceType === 'Practitioner'
+        ? fhirName(renderingProvider)
+        : renderingProvider.name ?? ''
+      : '',
+    renderingNpi: renderingProvider ? getNPI(renderingProvider) ?? '' : '',
     billingProviderFhirId: provider?.id ?? '',
-    billingProvider: provider?.name ?? '',
+    billingProviderType: provider?.resourceType ?? '',
+    billingProvider: provider
+      ? provider.resourceType === 'Practitioner'
+        ? fhirName(provider)
+        : provider.name ?? ''
+      : '',
     billingNpi: provider ? getNPI(provider) ?? '' : '',
     billingTin: provider ? getTaxID(provider) ?? '' : '',
     facilityFhirId: facility?.id ?? '',
     serviceFacility: facility?.name ?? '',
     serviceFacilityAddress: formatAddress(facility?.address),
+    serviceFacilityAddressParts: {
+      line1: facility?.address?.line?.[0] ?? '',
+      line2: facility?.address?.line?.[1] ?? '',
+      city: facility?.address?.city ?? '',
+      state: facility?.address?.state ?? '',
+      postalCode: facility?.address?.postalCode ?? '',
+    },
     serviceFacilityNpi: facility ? getNPI(facility) ?? '' : '',
     diagnoses: (claim.diagnosis ?? []).map((dx) => ({
       sequence: dx.sequence,

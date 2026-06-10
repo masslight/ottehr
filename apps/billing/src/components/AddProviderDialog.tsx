@@ -11,14 +11,13 @@ import {
   MenuItem,
   Select,
   Switch,
-  SxProps,
   TextField,
-  Theme,
   Typography,
 } from '@mui/material';
-import { ReactElement, ReactNode, useEffect, useState } from 'react';
+import { ReactElement, useEffect, useState } from 'react';
 import { chooseJson, PractitionerQualificationCodesDisplay } from 'utils';
 import { useApiClients } from '../hooks/useAppClients';
+import { Field } from './Field';
 
 type ProviderKind = 'individual' | 'organization';
 
@@ -27,17 +26,6 @@ interface AddProviderDialogProps {
   defaultRole: 'billing' | 'rendering';
   onClose: () => void;
   onCreated: () => void;
-}
-
-function Field({ label, children, sx }: { label: string; children: ReactNode; sx?: SxProps<Theme> }): ReactElement {
-  return (
-    <Box sx={sx}>
-      <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mb: 0.5 }}>
-        {label}
-      </Typography>
-      {children}
-    </Box>
-  );
 }
 
 export function AddProviderDialog({ open, defaultRole, onClose, onCreated }: AddProviderDialogProps): ReactElement {

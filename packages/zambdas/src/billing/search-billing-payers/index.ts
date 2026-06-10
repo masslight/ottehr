@@ -24,6 +24,7 @@ async function performEffect(
   // Payers live in the Oystehr RCM service
   const result = await oystehr.rcm.listPayers({ ...(params.name ? { name: params.name } : {}), limit: 50 });
   const payers = result.data.map((payer) => ({
+    id: payer.id ?? '',
     name: payer.name ?? '',
     payerId: getPayerId(payer) ?? '',
   }));

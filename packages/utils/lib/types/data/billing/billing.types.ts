@@ -51,8 +51,10 @@ export interface BillingProviderOption {
   bills: boolean;
 }
 
-// Payer option from the Oystehr RCM service
+// Payer option from the Oystehr RCM service. id is the RCM payer id (used in payer URLs);
+// payerId is the clearinghouse payer id shown to users.
 export interface BillingPayerOption {
+  id: string;
   name: string;
   payerId: string;
 }
@@ -164,7 +166,16 @@ export interface ClaimDetailResponse {
   patientDob: string;
   patientGender: string;
   patientId: string;
+  // Clinical Patient behind the claim's working copy (from its source identifier) — used to list coverages.
+  patientOriginalId: string;
   patientAddress: string;
+  patientAddressParts: {
+    line1: string;
+    line2: string;
+    city: string;
+    state: string;
+    postalCode: string;
+  };
   coverageFhirId: string;
   payorFhirId: string;
   payerName: string;
@@ -180,15 +191,24 @@ export interface ClaimDetailResponse {
   nonInsurancePayerFhirId: string;
   nonInsurancePayerName: string;
   renderingProviderId: string;
+  renderingProviderType: string;
   renderingProvider: string;
   renderingNpi: string;
   billingProviderFhirId: string;
+  billingProviderType: string;
   billingProvider: string;
   billingNpi: string;
   billingTin: string;
   facilityFhirId: string;
   serviceFacility: string;
   serviceFacilityAddress: string;
+  serviceFacilityAddressParts: {
+    line1: string;
+    line2: string;
+    city: string;
+    state: string;
+    postalCode: string;
+  };
   serviceFacilityNpi: string;
   diagnoses: { sequence: number; code: string; display: string }[];
   serviceLines: {

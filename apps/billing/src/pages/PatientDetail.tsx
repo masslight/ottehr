@@ -16,12 +16,13 @@ import {
   Typography,
 } from '@mui/material';
 import { DataGridPro, GridColDef } from '@mui/x-data-grid-pro';
-import { ReactElement, ReactNode, useCallback, useEffect, useState } from 'react';
+import { ReactElement, useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { chooseJson, PatientDetailResponse } from 'utils';
 import { dataGridSlots, dataGridSx } from '../components/BillingDataGrid';
 import { EditableSection } from '../components/claim/EditableSection';
 import { DetailRow } from '../components/DetailRow';
+import { Field } from '../components/Field';
 import { CLAIM_STATUS_COLORS, formatClaimStatus } from '../constants/claimStatus';
 import { useApiClients } from '../hooks/useAppClients';
 import { otherColors } from '../themes/ottehr/colors';
@@ -124,7 +125,7 @@ export default function PatientDetail(): ReactElement {
     [oystehrZambda, id, fetchDetail]
   );
 
-  if (loading) {
+  if (loading && !patient) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50vh' }}>
         <CircularProgress />
@@ -205,33 +206,6 @@ export default function PatientDetail(): ReactElement {
           </TabPanel>
         </TabContext>
       </Box>
-    </Box>
-  );
-}
-
-function Field({
-  label,
-  optional,
-  children,
-}: {
-  label: string;
-  optional?: boolean;
-  children: ReactNode;
-}): ReactElement {
-  return (
-    <Box>
-      <Typography
-        variant="body2"
-        sx={{ color: 'text.primary', fontSize: 13, fontWeight: 500, display: 'block', mb: 0.75 }}
-      >
-        {label}
-        {optional && (
-          <Box component="span" sx={{ color: 'text.secondary', fontWeight: 400 }}>
-            {' · optional'}
-          </Box>
-        )}
-      </Typography>
-      {children}
     </Box>
   );
 }
