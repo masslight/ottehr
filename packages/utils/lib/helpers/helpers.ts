@@ -287,26 +287,26 @@ export function resourceHasMetaTag(resource: Resource, metaTag: OTTEHR_MODULE): 
 export const PHONE_NOT_ON_FILE = 'Phone Number not on file';
 
 /**
- * Formats a phone number for read-only display, optionally with an extension, e.g. `(555) 867-5309`
- * or `(555) 867-5309 x5555`. Returns `PHONE_NOT_ON_FILE` when no number is present, and the raw
- * input when the base number can't be parsed to 10 digits.
+ * Standardizes a phone number that may carry an extension (`x`/`ext.`/`extension`) to
+ * `(XXX) XXX-XXXX` or `(XXX) XXX-XXXX x{ext}`. Returns undefined when the base number can't be
+ * parsed to 10 digits.
  */
-export function formatPhoneWithExtensionDisplay(phoneNumber?: string): string {
+export function standardizePhoneWithExtension(phoneNumber?: string): string | undefined {
   const trimmed = phoneNumber?.trim();
   if (!trimmed) {
-    return PHONE_NOT_ON_FILE;
+    return undefined;
   }
 
   const extensionMatch = trimmed.match(/\s*(?:x|ext\.?|extension)\s*(\d+)$/i);
   const extension = extensionMatch?.[1];
   const base = extensionMatch ? trimmed.slice(0, extensionMatch.index).trim() : trimmed;
 
-  const formattedBase = standardizePhoneNumber(base);
-  if (!formattedBase) {
-    return trimmed;
+  const standardizedBase = standardizePhoneNumber(base);
+  if (!standardizedBase) {
+    return undefined;
   }
 
-  return extension ? `${formattedBase} x${extension}` : formattedBase;
+  return extension ? `${standardizedBase} x${extension}` : standardizedBase;
 }
 
 export const formatPhoneNumberForQuestionnaire = (phone: string): string => {
