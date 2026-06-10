@@ -184,7 +184,7 @@ export const CreateBillingClaimInputSchema = z.object({
 
 const billingProviderRole = z.enum(['billing', 'rendering']);
 
-const billingProviderAddressSchema = z
+const billingAddressSchema = z
   .object({
     line1: nonEmptyString.optional(),
     line2: nonEmptyString.optional(),
@@ -204,7 +204,7 @@ export const CreateBillingProviderInputSchema = z.discriminatedUnion('kind', [
     taxonomyCode: nonEmptyString.optional(),
     licenseType: nonEmptyString.optional(),
     taxId: nonEmptyString.optional(),
-    address: billingProviderAddressSchema.optional(),
+    address: billingAddressSchema.optional(),
   }),
   z.object({
     kind: z.literal('organization'),
@@ -213,9 +213,18 @@ export const CreateBillingProviderInputSchema = z.discriminatedUnion('kind', [
     npi: nonEmptyString.optional(),
     taxonomyCode: nonEmptyString.optional(),
     taxId: nonEmptyString.optional(),
-    address: billingProviderAddressSchema.optional(),
+    address: billingAddressSchema.optional(),
   }),
 ]);
+
+export const CreateBillingPatientInputSchema = z.object({
+  firstName: nonEmptyString,
+  lastName: nonEmptyString,
+  dob: nonEmptyString.optional(),
+  gender: z.enum(['male', 'female', 'other', 'unknown']).optional(),
+  phone: nonEmptyString.optional(),
+  address: billingAddressSchema.optional(),
+});
 
 export const CreateBillingWorkingCopyInputSchema = z.object({
   resourceType: z.enum(ALLOWED_BILLING_RESOURCE_TYPES),
@@ -280,6 +289,7 @@ export type SearchBillingLocationsInput = z.infer<typeof SearchBillingLocationsI
 export type SearchBillingPayersInput = z.infer<typeof SearchBillingPayersInputSchema>;
 export type CreateBillingClaimInput = z.infer<typeof CreateBillingClaimInputSchema>;
 export type CreateBillingProviderInput = z.infer<typeof CreateBillingProviderInputSchema>;
+export type CreateBillingPatientInput = z.infer<typeof CreateBillingPatientInputSchema>;
 export type CreateBillingWorkingCopyInput = z.infer<typeof CreateBillingWorkingCopyInputSchema>;
 export type UpdateBillingResourceInput = z.infer<typeof UpdateBillingResourceInputSchema>;
 export type BillingResourceType = (typeof ALLOWED_BILLING_RESOURCE_TYPES)[number];

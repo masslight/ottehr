@@ -389,6 +389,13 @@
       "src": "src/billing/create-billing-provider/index",
       "zip": ".dist/zips/create-billing-provider.zip"
     },
+    "CREATE-BILLING-PATIENT": {
+      "name": "create-billing-patient",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/create-billing-patient/index",
+      "zip": ".dist/zips/create-billing-patient.zip"
+    },
     "CREATE-BILLING-WORKING-COPY": {
       "name": "create-billing-working-copy",
       "type": "http_auth",

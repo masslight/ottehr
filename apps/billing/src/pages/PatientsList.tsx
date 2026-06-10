@@ -1,9 +1,10 @@
-import { Clear as ClearIcon, Search as SearchIcon } from '@mui/icons-material';
+import { Add as AddIcon, Clear as ClearIcon, Search as SearchIcon } from '@mui/icons-material';
 import { Alert, Box, Button, InputAdornment, TextField, Typography } from '@mui/material';
 import { DataGridPro, GridColDef } from '@mui/x-data-grid-pro';
 import { ReactElement, useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { chooseJson } from 'utils';
+import { AddPatientDialog } from '../components/AddPatientDialog';
 import { dataGridSlots, dataGridSx } from '../components/BillingDataGrid';
 import { useApiClients } from '../hooks/useAppClients';
 import { useDebounce } from '../hooks/useDebounce';
@@ -47,6 +48,7 @@ export default function PatientsList(): ReactElement {
   const [searchDob, setSearchDob] = useState('');
   const [searchId, setSearchId] = useState('');
   const [searchUuid, setSearchUuid] = useState('');
+  const [addOpen, setAddOpen] = useState(false);
 
   const { debounce } = useDebounce();
 
@@ -131,9 +133,14 @@ export default function PatientsList(): ReactElement {
 
   return (
     <Box sx={{ p: 0 }}>
-      <Typography variant="h4" color="primary.dark" fontWeight={600} sx={{ mb: 3 }}>
-        Patients
-      </Typography>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+        <Typography variant="h4" color="primary.dark" fontWeight={600}>
+          Patients
+        </Typography>
+        <Button variant="contained" startIcon={<AddIcon />} onClick={() => setAddOpen(true)}>
+          Add Patient
+        </Button>
+      </Box>
 
       <TextField
         fullWidth
@@ -215,6 +222,12 @@ export default function PatientsList(): ReactElement {
         pageSizeOptions={[25, 50, 100]}
         slots={dataGridSlots}
         sx={{ ...dataGridSx, height: 'calc(100vh - 310px)' }}
+      />
+
+      <AddPatientDialog
+        open={addOpen}
+        onClose={() => setAddOpen(false)}
+        onCreated={() => void fetchPatients(currentFilters())}
       />
     </Box>
   );
