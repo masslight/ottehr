@@ -1,4 +1,4 @@
-import { Attachment, Coding, Reference } from 'fhir/r4b';
+import { Attachment, Reference } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { z } from 'zod';
 import { getServiceCategoryCodings } from '../../config-helpers/booking';
@@ -77,18 +77,10 @@ const patientNameSchema = z
     message: 'patientName must have a non-empty last name',
   });
 
-// Transforms the code into its BOOKING_CONFIG Coding so downstream code gets a Coding, not a string.
-const serviceCategorySchema = z.string().transform((value, ctx): Coding => {
-  const match = getServiceCategoryCodings().find((coding) => coding.code === value);
-  if (!match) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      message: `serviceCategory, "${value}", is not a valid option`,
-    });
-    return z.NEVER;
-  }
-  return match;
-});
+const serviceCategorySchema = z.string().refine(
+  (value) => getServiceCategoryCodings().some((coding) => coding.code === value),
+  (value) => ({ message: `serviceCategory, "${value}", is not a valid option` })
+);
 
 export const BookingDetailsSchema = z
   .object({

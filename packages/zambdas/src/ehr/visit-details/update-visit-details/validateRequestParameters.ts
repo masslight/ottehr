@@ -1,4 +1,6 @@
+import { Coding } from 'fhir/r4b';
 import {
+  getServiceCategoryCodings,
   INVALID_INPUT_ERROR,
   MISSING_REQUEST_BODY,
   NOT_AUTHORIZED,
@@ -6,13 +8,14 @@ import {
   UpdateVisitDetailsRequest,
   UpdateVisitDetailsRequestSchema,
 } from 'utils';
-import { ZodError } from 'zod';
-import { ZambdaInput } from '../../../shared';
-import { formatZodError } from '../../../shared/validation';
+import { safeValidate, ZambdaInput } from '../../../shared';
 
-export interface UpdateVisitDetailsValidatedInput extends UpdateVisitDetailsRequest {
+export interface UpdateVisitDetailsValidatedInput extends Omit<UpdateVisitDetailsRequest, 'bookingDetails'> {
   secrets: Secrets | null;
   userToken: string;
+  bookingDetails: Omit<UpdateVisitDetailsRequest['bookingDetails'], 'serviceCategory'> & {
+    serviceCategory?: Coding;
+  };
 }
 
 export const validateRequestParameters = (input: ZambdaInput): UpdateVisitDetailsValidatedInput => {
@@ -32,18 +35,17 @@ export const validateRequestParameters = (input: ZambdaInput): UpdateVisitDetail
     throw INVALID_INPUT_ERROR('request body must be valid JSON');
   }
 
-  let request: UpdateVisitDetailsRequest;
-  try {
-    request = UpdateVisitDetailsRequestSchema.parse(parsed);
-  } catch (err) {
-    if (err instanceof ZodError) {
-      throw INVALID_INPUT_ERROR(formatZodError(err));
-    }
-    throw err;
-  }
+  const request = safeValidate(UpdateVisitDetailsRequestSchema, parsed);
+
+  const { serviceCategory, ...restBookingDetails } = request.bookingDetails;
+
+  const serviceCategoryCoding = serviceCategory
+    ? getServiceCategoryCodings().find((coding) => coding.code === serviceCategory)
+    : undefined;
 
   return {
     ...request,
+    bookingDetails: { ...restBookingDetails, serviceCategory: serviceCategoryCoding },
     secrets: input.secrets,
     userToken,
   };
