@@ -99,13 +99,30 @@ test.describe.serial('Scheduled Follow-up Visit E2E', () => {
       }
     });
 
-    // Step 6: Select location from dropdown (must use dropdown to get walkinSchedule)
-    await test.step('Select location', async () => {
-      const locationSelect = page.getByTestId(dataTestIds.addPatientPage.bookableSelect);
-      // Clear and re-select to ensure walkinSchedule data is loaded
-      await locationSelect.click();
-      await page.locator('li[role="option"]').first().waitFor(DEFAULT_TIMEOUT);
-      await page.locator('li[role="option"]').first().click();
+    // Step 6: Ensure a location (bookable target) is selected. It's normally pre-populated from the
+    // parent encounter, but don't assume that — verify a value is present and pick one if it isn't.
+    await test.step('Ensure location is selected', async () => {
+      const bookableSelect = page.getByTestId(dataTestIds.addPatientPage.bookableSelect);
+      await expect(bookableSelect).toBeVisible(LONG_TIMEOUT);
+
+      const input = bookableSelect.locator('input');
+      // Wait until the picker has finished loading its options (the input is disabled/empty while
+      // the FHIR fetch is in flight). A non-empty value means a target is already selected.
+      const currentValue = await input.inputValue();
+      if (currentValue.trim().length > 0) {
+        return;
+      }
+
+      // Nothing pre-selected — open the dropdown, wait for options to load, and pick the first one.
+      await bookableSelect.locator('[role="combobox"]').click();
+      const firstOption = page.locator('li[role="option"]').first();
+      await expect(firstOption).toBeVisible(LONG_TIMEOUT);
+      await firstOption.click();
+
+      // Confirm the value is now populated before moving on.
+      await expect(async () => {
+        expect((await input.inputValue()).trim().length).toBeGreaterThan(0);
+      }).toPass(DEFAULT_TIMEOUT);
     });
 
     // Step 7: Select reason for visit and submit
