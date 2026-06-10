@@ -1,18 +1,23 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Appointment, Encounter, Location, Patient, Practitioner } from 'fhir/r4b';
+import { Appointment, Condition, Encounter, Location, Patient, Practitioner, Procedure, Resource } from 'fhir/r4b';
+import { DateTime } from 'luxon';
 import {
   getAttendingPractitionerId,
+  getEncounterVisitType,
   getInPersonVisitStatus,
   getPatientFirstName,
   getPatientLastName,
+  getVisitStatusHistory,
   IncompleteEncountersReportZambdaInput,
   IncompleteEncountersReportZambdaOutput,
+  isFollowupEncounter,
   isInPersonAppointment,
   isTelemedAppointment,
   OTTEHR_MODULE,
   Secrets,
 } from 'utils';
 import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
+import { resolveEncounterAppointment } from '../../shared/adhoc-report';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -23,7 +28,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   console.group('validateRequestParameters');
   const validatedParameters: IncompleteEncountersReportZambdaInput & { secrets: Secrets } =
     validateRequestParameters(input);
-  const { dateRange, encounterStatus = 'incomplete', secrets } = validatedParameters;
+  const { dateRange, encounterStatus = 'incomplete', includeCodes = false, secrets } = validatedParameters;
   console.groupEnd();
   console.debug('validateRequestParameters success');
 
@@ -39,7 +44,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   // Search for appointments within the date range with proper pagination
   // Fetch all appointments, encounters, patients, locations, and practitioners with proper FHIR pagination
-  let allResources: (Appointment | Encounter | Patient | Location | Practitioner)[] = [];
+  type ReportResource = Appointment | Encounter | Patient | Location | Practitioner | Condition | Procedure;
+  let allResources: ReportResource[] = [];
   let offset = 0;
   const pageSize = 1000;
 
@@ -53,8 +59,13 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       value: `le${dateRange.end}`,
     },
     {
+      // 'all' (ad-hoc reporting) also fetches cancelled/no-show visits so reports can see and
+      // explicitly include or exclude them; the report pages keep the narrower set.
       name: 'status',
-      value: 'proposed,pending,booked,arrived,fulfilled,checked-in,waitlist',
+      value:
+        encounterStatus === 'all'
+          ? 'proposed,pending,booked,arrived,fulfilled,checked-in,waitlist,cancelled,noshow'
+          : 'proposed,pending,booked,arrived,fulfilled,checked-in,waitlist',
     },
     {
       name: '_tag',
@@ -86,7 +97,22 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     },
   ];
 
-  let searchBundle = await oystehr.fhir.search<Appointment | Encounter | Patient | Location | Practitioner>({
+  if (includeCodes) {
+    // Join each encounter's charted codes: Encounter.diagnosis → Condition (ICD-10), and the
+    // chart-data Procedure resources carrying the visit's CPT and E&M codes.
+    baseSearchParams.push(
+      { name: '_include:iterate', value: 'Encounter:diagnosis' },
+      { name: '_revinclude:iterate', value: 'Procedure:encounter' }
+    );
+  }
+
+  if (encounterStatus === 'all') {
+    // Follow-up encounters (SNOMED 390906007) hang off the parent visit's encounter via partOf —
+    // older ones carry no appointment reference at all, so they only come back via part-of.
+    baseSearchParams.push({ name: '_revinclude:iterate', value: 'Encounter:part-of' });
+  }
+
+  let searchBundle = await oystehr.fhir.search<ReportResource>({
     resourceType: 'Appointment',
     params: [...baseSearchParams, { name: '_offset', value: offset.toString() }],
   });
@@ -110,7 +136,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     pageCount++;
     console.log(`Fetching page ${pageCount} of incomplete encounters...`);
 
-    searchBundle = await oystehr.fhir.search<Appointment | Encounter | Patient | Location | Practitioner>({
+    searchBundle = await oystehr.fhir.search<ReportResource>({
       resourceType: 'Appointment',
       params: [...baseSearchParams, { name: '_offset', value: offset.toString() }],
     });
@@ -178,15 +204,53 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     }
   });
 
+  // Charted-code lookups (populated only when includeCodes was requested).
+  const conditionById = new Map<string, Condition>();
+  const proceduresByEncounterId = new Map<string, Procedure[]>();
+  if (includeCodes) {
+    for (const resource of allResources) {
+      if (resource.resourceType === 'Condition' && resource.id) {
+        conditionById.set(resource.id, resource);
+      } else if (resource.resourceType === 'Procedure') {
+        const encounterId = resource.encounter?.reference?.replace('Encounter/', '');
+        if (!encounterId) continue;
+        const list = proceduresByEncounterId.get(encounterId) ?? [];
+        list.push(resource);
+        proceduresByEncounterId.set(encounterId, list);
+      }
+    }
+  }
+  const hasChartTag = (resource: Resource, code: string): boolean =>
+    Boolean(resource.meta?.tag?.some((tag) => tag.code === code));
+
+  const encounterById = new Map<string, Encounter>();
+  encounters.forEach((e) => {
+    if (e.id) encounterById.set(e.id, e);
+  });
+
+  const resolveAppointment = (encounter: Encounter): Appointment | undefined =>
+    resolveEncounterAppointment(encounter, appointmentMap, encounterById);
+
   // Filter encounters based on encounterStatus parameter
   const filteredEncounters = encounters.filter((encounter) => {
-    // Find the corresponding appointment
-    const appointmentRef = encounter.appointment?.[0]?.reference;
-    const appointment = appointmentRef ? appointmentMap.get(appointmentRef) : undefined;
+    // Follow-up encounters are separate rows in 'all' mode only; the report pages count visits,
+    // not follow-ups (previously follow-ups that carried an appointment reference could leak in
+    // as phantom rows).
+    if (encounterStatus !== 'all' && isFollowupEncounter(encounter)) {
+      return false;
+    }
+
+    const appointment = resolveAppointment(encounter);
 
     if (!appointment) {
       console.log(`No appointment found for encounter ${encounter.id}`);
       return false;
+    }
+
+    // 'all' → every encounter that has an appointment in range, regardless of visit status
+    // (used by ad-hoc reporting, which wants the full dataset to slice however the user asks).
+    if (encounterStatus === 'all') {
+      return true;
     }
 
     // Get visit status
@@ -205,9 +269,14 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   // Build the response data
   const encounterItems = filteredEncounters.map((encounter) => {
-    const appointmentRef = encounter.appointment?.[0]?.reference;
-    const appointment = appointmentRef ? appointmentMap.get(appointmentRef) : undefined;
-    const patientRef = encounter.subject?.reference;
+    const appointment = resolveAppointment(encounter);
+    const encounterType = encounterStatus === 'all' ? getEncounterVisitType(encounter) : undefined;
+    const isFollowUpRow = encounterType === 'follow-up' || encounterType === 'scheduled-follow-up';
+    // Some follow-up encounters carry no subject of their own — fall back to the parent's.
+    const parentEncounter = encounter.partOf?.reference
+      ? encounterById.get(encounter.partOf.reference.replace('Encounter/', ''))
+      : undefined;
+    const patientRef = encounter.subject?.reference ?? parentEncounter?.subject?.reference;
     const patient = patientRef ? patientMap.get(patientRef) : undefined;
 
     // Get location name from Location resource
@@ -231,21 +300,75 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       ? 'In-Person'
       : 'Unknown';
 
-    const visitStatus = appointment ? getInPersonVisitStatus(appointment, encounter, true) : 'unknown';
+    // Follow-up rows report their own encounter status — the parent appointment's visit-status
+    // machinery doesn't apply to them.
+    const visitStatus = isFollowUpRow
+      ? encounter.status === 'finished'
+        ? 'completed'
+        : encounter.status
+      : appointment
+      ? getInPersonVisitStatus(appointment, encounter, true)
+      : 'unknown';
+
+    // Charted codes: ICD-10 diagnoses (primary first via Encounter.diagnosis rank), CPT codes,
+    // and the E&M code from the chart-data Procedure resources.
+    let icdCodes: string[] | undefined;
+    let cptCodes: string[] | undefined;
+    let emCode: string | undefined;
+    if (includeCodes) {
+      icdCodes = [];
+      const dxEntries = [...(encounter.diagnosis ?? [])].sort((a, b) => (a.rank ?? 99) - (b.rank ?? 99));
+      for (const dx of dxEntries) {
+        const conditionId = dx.condition?.reference?.replace('Condition/', '');
+        const condition = conditionId ? conditionById.get(conditionId) : undefined;
+        const codings = condition?.code?.coding ?? [];
+        const code = codings.find((c) => c.system?.toLowerCase().includes('icd-10'))?.code ?? codings[0]?.code;
+        if (code && !icdCodes.includes(code)) icdCodes.push(code);
+      }
+      cptCodes = [];
+      for (const procedure of encounter.id ? proceduresByEncounterId.get(encounter.id) ?? [] : []) {
+        const code = procedure.code?.coding?.[0]?.code;
+        if (!code) continue;
+        if (hasChartTag(procedure, 'em-code')) {
+          emCode = emCode ?? code;
+        } else if (hasChartTag(procedure, 'cpt-code') && !cptCodes.includes(code)) {
+          cptCodes.push(code);
+        }
+      }
+    }
+
+    // Time actually spent with the provider: sum of CLOSED "provider" status periods from the
+    // visit-status history. Open periods are excluded — an encounter that was never properly
+    // closed out would otherwise report days-long "provider time".
+    let timeWithProviderMinutes: number | undefined;
+    for (const entry of getVisitStatusHistory(encounter)) {
+      if (entry.status !== 'provider' || !entry.period.start || !entry.period.end) continue;
+      const mins = Math.floor(
+        DateTime.fromISO(entry.period.end).diff(DateTime.fromISO(entry.period.start), 'minutes').minutes
+      );
+      if (Number.isFinite(mins) && mins >= 0) {
+        timeWithProviderMinutes = (timeWithProviderMinutes ?? 0) + mins;
+      }
+    }
 
     return {
       appointmentId: appointment?.id || '',
+      encounterId: encounter.id,
+      ...(encounterType ? { encounterType } : {}),
       patientId: patient?.id || '',
       patientName: patient ? `${getPatientFirstName(patient)} ${getPatientLastName(patient)}`.trim() : 'Unknown',
       dateOfBirth: patient?.birthDate || '',
       visitStatus,
-      appointmentStart: appointment?.start || '',
-      appointmentEnd: appointment?.end || '',
+      // Follow-up rows carry their OWN dates (the follow-up happened later than the parent visit).
+      appointmentStart: (isFollowUpRow ? encounter.period?.start : appointment?.start) || '',
+      appointmentEnd: (isFollowUpRow ? encounter.period?.end : appointment?.end) || '',
       location: locationName || 'Unknown',
       locationId,
       attendingProvider: attendingProviderName,
       visitType,
       reason: encounter.reasonCode?.[0]?.text || appointment?.appointmentType?.text || '',
+      timeWithProviderMinutes,
+      ...(includeCodes ? { icdCodes, cptCodes, emCode } : {}),
     };
   });
 

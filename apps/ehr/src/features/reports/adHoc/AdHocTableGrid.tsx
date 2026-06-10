@@ -1,0 +1,197 @@
+import { Box, Link as MuiLink, Paper, Typography } from '@mui/material';
+import {
+  DataGridPro,
+  GridColDef,
+  GridRenderCellParams,
+  GridToolbarColumnsButton,
+  GridToolbarContainer,
+  GridToolbarDensitySelector,
+  GridToolbarExport,
+  GridToolbarFilterButton,
+} from '@mui/x-data-grid-pro';
+import React, { useMemo } from 'react';
+import { ExtractedTable } from './types';
+
+function slug(s: string): string {
+  return (
+    s
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 60) || 'ad-hoc-report'
+  );
+}
+
+// Strip common number formatting ($, %, thousands separators) and parse. Returns null when the text
+// isn't a clean number — used both to decide a column is numeric and to provide the sort value.
+function toNumber(text: string): number | null {
+  const t = text.trim();
+  if (t === '') return null;
+  const cleaned = t.replace(/[$,%\s]/g, '');
+  if (!/^-?\d*\.?\d+$/.test(cleaned)) return null;
+  const n = Number(cleaned);
+  return Number.isFinite(n) ? n : null;
+}
+
+// A column is numeric only if every non-empty cell parses as a number (and at least one does).
+function columnIsNumeric(values: string[]): boolean {
+  let sawValue = false;
+  for (const v of values) {
+    if (v.trim() === '') continue;
+    if (toNumber(v) === null) return false;
+    sawValue = true;
+  }
+  return sawValue;
+}
+
+interface GridRow {
+  id: number;
+  [field: string]: unknown;
+}
+
+function buildGrid(table: ExtractedTable): { columns: GridColDef[]; rows: GridRow[] } {
+  const ncols = table.columns.length;
+  const colValues: string[][] = Array.from({ length: ncols }, () => []);
+  table.rows.forEach((r) => {
+    for (let i = 0; i < ncols; i++) colValues[i].push(r[i]?.text ?? '');
+  });
+  const numeric = colValues.map(columnIsNumeric);
+
+  const columns: GridColDef[] = table.columns.map((name, i) => {
+    const field = `c${i}`;
+    const isNum = numeric[i];
+    return {
+      field,
+      headerName: name,
+      flex: 1,
+      minWidth: 130,
+      sortable: true,
+      type: isNum ? 'number' : 'string',
+      ...(isNum ? { headerAlign: 'right' as const, align: 'right' as const } : {}),
+      renderCell: (params: GridRenderCellParams) => {
+        const display = params.row[`${field}__text`] as string;
+        const href = params.row[`${field}__href`] as string | undefined;
+        const bg = params.row[`${field}__bg`] as string | undefined;
+        const inner = href ? (
+          // Open in a NEW browser tab (matching the documented contract and the in-iframe link
+          // behavior) rather than a same-window SPA navigation, so opening a report row's link never
+          // navigates away from the report the user is looking at. `href` is always a relative
+          // app-internal route (the iframe extractor only keeps single-slash relative hrefs).
+          <MuiLink href={href} target="_blank" rel="noopener noreferrer" sx={{ textDecoration: 'none' }}>
+            {display}
+          </MuiLink>
+        ) : (
+          <span>{display}</span>
+        );
+        // Re-apply an inline cell background (a heatmap shade) full-bleed across the grid cell so the
+        // shading the report painted on its <td>s survives the lift into the grid.
+        if (bg) {
+          return (
+            <Box
+              sx={{
+                mx: -1.25,
+                px: 1.25,
+                width: 'calc(100% + 20px)',
+                height: '100%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: isNum ? 'flex-end' : 'flex-start',
+                backgroundColor: bg,
+              }}
+            >
+              {inner}
+            </Box>
+          );
+        }
+        return inner;
+      },
+    };
+  });
+
+  const rows: GridRow[] = table.rows.map((r, idx) => {
+    const row: GridRow = { id: idx };
+    for (let i = 0; i < ncols; i++) {
+      const cell = r[i] ?? { text: '' };
+      const field = `c${i}`;
+      row[`${field}__text`] = cell.text; // what the cell shows
+      if (cell.href) row[`${field}__href`] = cell.href;
+      if (cell.bg) row[`${field}__bg`] = cell.bg;
+      // The cell VALUE (used for sort / filter / export) is the number for numeric columns, the text
+      // otherwise.
+      row[field] = numeric[i] ? toNumber(cell.text) : cell.text;
+    }
+    return row;
+  });
+
+  return { columns, rows };
+}
+
+interface AdHocTableGridProps {
+  table: ExtractedTable;
+  reportTitle?: string;
+  /** Called with the clicked row as a { columnHeader: cellText } object — used for drill-down. */
+  onRowClick?: (row: Record<string, string>, table: ExtractedTable) => void;
+}
+
+// Renders a table the report produced as a DataGridPro — the same grid the rest of the reports area
+// uses — so each column is sortable and filterable and the whole thing is exportable.
+export function AdHocTableGrid({ table, reportTitle, onRowClick }: AdHocTableGridProps): React.ReactElement {
+  const { columns, rows } = useMemo(() => buildGrid(table), [table]);
+  const fileName = slug([reportTitle, table.label].filter(Boolean).join('-'));
+  // Don't repeat the report's own title: a single-table report typically gives the table a heading
+  // identical to the report title, which the page already shows above the frame.
+  const showLabel = !!table.label && slug(table.label) !== slug(reportTitle ?? '');
+  const Toolbar = useMemo(
+    () =>
+      function ToolbarInner(): React.ReactElement {
+        return (
+          <GridToolbarContainer>
+            <GridToolbarColumnsButton />
+            <GridToolbarFilterButton />
+            <GridToolbarDensitySelector />
+            <GridToolbarExport csvOptions={{ fileName }} />
+          </GridToolbarContainer>
+        );
+      },
+    [fileName]
+  );
+
+  return (
+    <Box sx={{ mb: 3 }}>
+      {showLabel && (
+        <Typography variant="h6" sx={{ mb: 1 }}>
+          {table.label}
+        </Typography>
+      )}
+      <Paper variant="outlined" sx={{ width: '100%' }}>
+        <DataGridPro
+          autoHeight
+          density="compact"
+          columns={columns}
+          rows={rows}
+          initialState={{ pagination: { paginationModel: { pageSize: 25 } } }}
+          pagination
+          pageSizeOptions={[10, 25, 50, 100]}
+          slots={{ toolbar: Toolbar }}
+          disableRowSelectionOnClick
+          onRowClick={
+            onRowClick
+              ? (params): void => {
+                  // Re-key the clicked row by its column headers (the cell text), for the report's handler.
+                  const obj: Record<string, string> = {};
+                  table.columns.forEach((header, i) => {
+                    obj[header] = String(params.row[`c${i}__text`] ?? '');
+                  });
+                  onRowClick(obj, table);
+                }
+              : undefined
+          }
+          sx={{
+            '& .MuiDataGrid-columnHeaderTitle': { fontWeight: 600 },
+            ...(onRowClick ? { '& .MuiDataGrid-row': { cursor: 'pointer' } } : {}),
+          }}
+        />
+      </Paper>
+    </Box>
+  );
+}

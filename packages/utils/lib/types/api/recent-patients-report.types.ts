@@ -16,6 +16,8 @@ export interface RecentPatientRecord {
     appointmentId: string;
     date: string; // ISO date string
     serviceCategory: string; // e.g., "General Care", "Urgent Care", etc.
+    location?: string; // Clinic / location name of the most recent visit
+    attendingProvider?: string; // Attending provider name on the most recent visit
   };
   patientStatus: 'new' | 'existing'; // New or existing patient based on visit history
   pointOfDiscovery?: string; // "How did you hear about us?" value
