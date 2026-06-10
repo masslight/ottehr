@@ -113,6 +113,38 @@ export function parseNotificationsTimeRestriction(planDef: PlanDefinition): Noti
   return { enabled, windowStart, windowEnd, timezone };
 }
 
+// ── Configured-at extension (immutable activation timestamp) ────────────────
+
+const OUTREACH_CONFIGURED_AT_URL = `${PRIVATE_EXTENSION_BASE_URL}/outreach-configured-at`;
+
+function buildConfiguredAtExtension(configuredAtIso: string): NonNullable<PlanDefinition['extension']>[number] {
+  return { url: OUTREACH_CONFIGURED_AT_URL, valueDateTime: configuredAtIso };
+}
+
+/**
+ * Reads the immutable "configured at" timestamp stamped on the outreach PlanDefinition when it
+ * was first created. Unlike meta.lastUpdated, this value never changes on subsequent config edits,
+ * so it can be used as a stable activation date for retroactive-send guards.
+ */
+export function parseConfiguredAt(planDef: PlanDefinition): string | undefined {
+  return planDef.extension?.find((e) => e.url === OUTREACH_CONFIGURED_AT_URL)?.valueDateTime;
+}
+
+/**
+ * Returns the given extensions with the immutable configuredAt extension guaranteed present.
+ * If `existing` already carries one it is preserved verbatim; otherwise it is stamped with
+ * `fallbackIso` (defaults to now) so legacy configs get a stable timestamp on first re-save.
+ */
+export function preserveConfiguredAtExtension(
+  builtExtensions: PlanDefinition['extension'],
+  existing: PlanDefinition,
+  fallbackIso: string = new Date().toISOString()
+): PlanDefinition['extension'] {
+  const configuredAtIso = parseConfiguredAt(existing) ?? fallbackIso;
+  const others = (builtExtensions ?? []).filter((e) => e.url !== OUTREACH_CONFIGURED_AT_URL);
+  return [...others, buildConfiguredAtExtension(configuredAtIso)];
+}
+
 // ── Action enabled extension ───────────────────────────────────────────────
 
 const ACTION_ENABLED_EXTENSION_URL = `${PRIVATE_EXTENSION_BASE_URL}/outreach-action-enabled`;
@@ -779,5 +811,12 @@ export async function getOrCreateOutreachConfig(oystehr: Oystehr): Promise<PlanD
   }
 
   console.log('No outreach config PlanDefinition found, creating one with defaults');
-  return await oystehr.fhir.create<PlanDefinition>(buildDefaultPlanDefinition());
+  const defaultPlanDef = buildDefaultPlanDefinition();
+  // Stamp an immutable activation timestamp at creation. This is used as a stable cutoff for
+  // retroactive-send guards and must never change on subsequent config edits (unlike meta.lastUpdated).
+  const withConfiguredAt: Omit<PlanDefinition, 'id'> = {
+    ...defaultPlanDef,
+    extension: [...(defaultPlanDef.extension ?? []), buildConfiguredAtExtension(new Date().toISOString())],
+  };
+  return await oystehr.fhir.create<PlanDefinition>(withConfiguredAt);
 }

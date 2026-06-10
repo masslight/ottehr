@@ -209,7 +209,7 @@ export function maskPhoneNumber(phoneNumber?: string): string {
   if (!phoneNumber) {
     return '';
   }
-  const cleaned = ('' + phoneNumber.slice(-10)).replace(/\D/g, '');
+  const cleaned = ('' + phoneNumber).replace(/\D/g, '').slice(-10);
   const match = cleaned.match(/^(\d{3})(\d{3})(\d{4})$/);
   if (match) {
     return `(${match[1]}) ***-${match[3]}`;

@@ -4,7 +4,11 @@ import { DateTime } from 'luxon';
 import Stripe from 'stripe';
 import { Secrets } from 'utils';
 import { getStripeClient } from '../../../../shared';
-import { getOrCreateOutreachConfig, parsePlanDefinitionToActions } from '../../../scheduled-outreach-config/helpers';
+import {
+  getOrCreateOutreachConfig,
+  parseConfiguredAt,
+  parsePlanDefinitionToActions,
+} from '../../../scheduled-outreach-config/helpers';
 import { OUTREACH_TASK_TAG_SYSTEM, produceOutreachTasks } from './produce-outreach-tasks';
 
 export interface ProduceInvoiceDueOutreachResult {
@@ -31,7 +35,7 @@ export async function produceInvoiceDueOutreach(
   const todayUnix = Math.floor(today.toSeconds());
 
   // Calculate earliest eligible due date to prevent retroactive outreach for old invoices.
-  // Uses the PlanDefinition's lastUpdated minus the max configured offset as the cutoff.
+  // Uses the PlanDefinition's immutable configuredAt minus the max configured offset as the cutoff.
   const earliestDueDateUnix = await calculateEarliestEligibleDueDate(oystehr);
   if (earliestDueDateUnix) {
     console.log(
@@ -118,16 +122,18 @@ export async function produceInvoiceDueOutreach(
 }
 
 /**
- * Calculate the earliest eligible invoice due date based on the PlanDefinition's
- * activation date (meta.lastUpdated) minus the maximum configured offset.
+ * Calculate the earliest eligible invoice due date based on the PlanDefinition's immutable
+ * activation date (configuredAt) minus the maximum configured offset.
  * This prevents the system from retroactively processing old invoices that existed
- * before outreach was configured.
+ * before outreach was configured. We deliberately use the immutable configuredAt stamp rather
+ * than meta.lastUpdated, which would move the cutoff forward on every config edit and silently
+ * exclude older-but-still-open invoices. Legacy configs without the stamp fall back to lastUpdated.
  */
 async function calculateEarliestEligibleDueDate(oystehr: Oystehr): Promise<number | undefined> {
   try {
     const planDefinition = await getOrCreateOutreachConfig(oystehr);
-    const lastUpdated = planDefinition.meta?.lastUpdated;
-    if (!lastUpdated) return undefined;
+    const activationTimestamp = parseConfiguredAt(planDefinition) ?? planDefinition.meta?.lastUpdated;
+    if (!activationTimestamp) return undefined;
 
     // Find the maximum offset across all invoice-due actions
     const actions = parsePlanDefinitionToActions(planDefinition);
@@ -136,7 +142,7 @@ async function calculateEarliestEligibleDueDate(oystehr: Oystehr): Promise<numbe
 
     // Earliest eligible = config activation date minus max offset
     // This ensures an invoice due N days before activation can still trigger its day-N action
-    const activationDate = DateTime.fromISO(lastUpdated).startOf('day');
+    const activationDate = DateTime.fromISO(activationTimestamp).startOf('day');
     const earliestEligible = activationDate.minus({ days: maxOffsetDays });
 
     return Math.floor(earliestEligible.toSeconds());

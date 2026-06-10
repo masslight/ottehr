@@ -80,6 +80,18 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const emailTemplate = extractInputValue(task, 'email-template');
     const patientRef = task.for?.reference;
 
+    // Fetch the Patient once for the whole task. All mediums validate against and send to the same
+    // snapshot, avoiding redundant FHIR reads and validate-vs-send inconsistencies. Missing reference
+    // or a failed fetch is a system/data error (not an invalid contact), so we throw and fail the task.
+    const patientId = patientRef?.replace('Patient/', '');
+    if (!patientId) throw new Error('Task has no patient reference');
+    let patient: Patient;
+    try {
+      patient = await oystehr.fhir.get<Patient>({ resourceType: 'Patient', id: patientId });
+    } catch {
+      throw new Error(`Failed to fetch patient ${patientId} for notification`);
+    }
+
     console.log(`Executing send-notification for patient ${patientRef}, mediums: ${mediums.join(', ')}`);
     console.log('--- NOTIFICATION CONTENT ---');
     if (mediums.includes('sms') && smsTemplate) {
@@ -99,7 +111,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       try {
         switch (medium) {
           case 'sms': {
-            const smsValidation = await validatePatientPhone(task, oystehr);
+            const smsValidation = validatePatientPhone(patient);
             if (!smsValidation.valid) {
               console.log(`[SMS] Skipping SMS for task ${task.id}, patient ${patientRef}: ${smsValidation.reason}`);
               results.push({
@@ -110,13 +122,13 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
               });
               break;
             }
-            await sendOutreachSms(task, smsTemplate || '', oystehr, input.secrets);
+            await sendOutreachSms(task, smsTemplate || '', oystehr, input.secrets, patient);
             console.log(`[SMS] Successfully sent SMS notification for task ${task.id}, patient ${patientRef}`);
             results.push({ medium, success: true });
             break;
           }
           case 'email': {
-            const emailValidation = await validatePatientEmail(task, oystehr);
+            const emailValidation = validatePatientEmail(patient);
             if (!emailValidation.valid) {
               console.log(
                 `[Email] Skipping email for task ${task.id}, patient ${patientRef}: ${emailValidation.reason}`
@@ -129,7 +141,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
               });
               break;
             }
-            await sendOutreachEmail(task, emailTemplate || '', oystehr, input.secrets);
+            await sendOutreachEmail(task, emailTemplate || '', oystehr, input.secrets, patient);
             console.log(`[Email] Successfully sent email notification for task ${task.id}, patient ${patientRef}`);
             results.push({ medium, success: true });
             break;
@@ -143,7 +155,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
               break;
             }
             const statementType = extractInputValue(task, 'statement-type') || 'standard';
-            await sendPaperMail(task, statementType, oystehr, input.secrets);
+            await sendPaperMail(task, statementType, oystehr, input.secrets, patient);
             console.log(`[Paper Mail] Successfully created paper mail task for task ${task.id}, patient ${patientRef}`);
             results.push({ medium, success: true });
             break;
@@ -246,51 +258,27 @@ function extractInputValue(task: Task, key: string): string | undefined {
 
 // ── Contact validation ─────────────────────────────────────────────────────
 
-async function validatePatientPhone(task: Task, oystehr: Oystehr): Promise<{ valid: boolean; reason?: string }> {
-  const patientId = task.for?.reference?.replace('Patient/', '');
-  // Missing patient reference is a system/data error, not an invalid contact — surface as a failure.
-  if (!patientId) throw new Error('Task has no patient reference');
-
-  let patient: Patient;
-  try {
-    patient = await oystehr.fhir.get<Patient>({ resourceType: 'Patient', id: patientId });
-  } catch {
-    // A fetch failure is a transient/system error — throw so the task is marked failed, not cancelled.
-    throw new Error(`Failed to fetch patient ${patientId} for phone validation`);
-  }
-
+function validatePatientPhone(patient: Patient): { valid: boolean; reason?: string } {
   const rawPhone = getPhoneNumberForIndividual(patient);
   if (!rawPhone) {
     return { valid: false, reason: 'No phone number on file' };
   }
   const result = phone(rawPhone, { country: 'USA' });
   if (!result.isValid) {
-    console.log(`Invalid phone number for patient ${patientId}: ${maskPhoneNumber(rawPhone)}`);
+    console.log(`Invalid phone number for patient ${patient.id}: ${maskPhoneNumber(rawPhone)}`);
     // Store a generic reason on the Task — never persist the raw/masked contact value.
     return { valid: false, reason: 'Invalid phone number' };
   }
   return { valid: true };
 }
 
-async function validatePatientEmail(task: Task, oystehr: Oystehr): Promise<{ valid: boolean; reason?: string }> {
-  const patientId = task.for?.reference?.replace('Patient/', '');
-  // Missing patient reference is a system/data error, not an invalid contact — surface as a failure.
-  if (!patientId) throw new Error('Task has no patient reference');
-
-  let patient: Patient;
-  try {
-    patient = await oystehr.fhir.get<Patient>({ resourceType: 'Patient', id: patientId });
-  } catch {
-    // A fetch failure is a transient/system error — throw so the task is marked failed, not cancelled.
-    throw new Error(`Failed to fetch patient ${patientId} for email validation`);
-  }
-
+function validatePatientEmail(patient: Patient): { valid: boolean; reason?: string } {
   const rawEmail = getPatientContactEmail(patient);
   if (!rawEmail) {
     return { valid: false, reason: 'No email address on file' };
   }
   if (!isEmailValid(rawEmail)) {
-    console.log(`Invalid email address for patient ${patientId}: ${maskEmail(rawEmail)}`);
+    console.log(`Invalid email address for patient ${patient.id}: ${maskEmail(rawEmail)}`);
     // Store a generic reason on the Task — never persist the raw/masked contact value.
     return { valid: false, reason: 'Invalid email address' };
   }
@@ -300,15 +288,13 @@ async function validatePatientEmail(task: Task, oystehr: Oystehr): Promise<{ val
 // ── Integration placeholders ───────────────────────────────────────────────
 // These will be replaced with actual integrations (Twilio, SendGrid, Lob, etc.)
 
-async function sendOutreachSms(task: Task, template: string, oystehr: Oystehr, secrets: Secrets | null): Promise<void> {
-  const patientId = task.for?.reference?.replace('Patient/', '');
-  if (!patientId) throw new Error('Task has no patient reference');
-
-  const patient = await oystehr.fhir.get<Patient>({
-    resourceType: 'Patient',
-    id: patientId,
-  });
-
+async function sendOutreachSms(
+  task: Task,
+  template: string,
+  oystehr: Oystehr,
+  secrets: Secrets | null,
+  patient: Patient
+): Promise<void> {
   const placeholderInput = await resolveTemplatePlaceholders({
     patient,
     encounterRef: task.focus?.reference,
@@ -332,15 +318,10 @@ async function sendOutreachEmail(
   task: Task,
   template: string,
   oystehr: Oystehr,
-  secrets: Secrets | null
+  secrets: Secrets | null,
+  patient: Patient
 ): Promise<void> {
-  const patientId = task.for?.reference?.replace('Patient/', '');
-  if (!patientId) throw new Error('Task has no patient reference');
-
-  const patient = await oystehr.fhir.get<Patient>({
-    resourceType: 'Patient',
-    id: patientId,
-  });
+  const patientId = patient.id!;
 
   const email = getPatientContactEmail(patient);
   if (!email) {
@@ -387,10 +368,10 @@ async function sendPaperMail(
   task: Task,
   statementType: string,
   oystehr: Oystehr,
-  _secrets: Secrets | null
+  _secrets: Secrets | null,
+  patient: Patient
 ): Promise<void> {
-  const patientId = task.for?.reference?.replace('Patient/', '');
-  if (!patientId) throw new Error('Task has no patient reference');
+  const patientId = patient.id!;
 
   const encounterRef = task.focus?.reference;
   const encounterId = encounterRef?.replace('Encounter/', '');
@@ -405,10 +386,7 @@ async function sendPaperMail(
   const appointmentId = appointmentRef?.split('/')[1];
   if (!appointmentId) throw new Error(`No appointment reference in Encounter/${encounterId}`);
 
-  const [patient, appointment] = await Promise.all([
-    oystehr.fhir.get<Patient>({ resourceType: 'Patient', id: patientId }),
-    oystehr.fhir.get<Appointment>({ resourceType: 'Appointment', id: appointmentId }),
-  ]);
+  const appointment = await oystehr.fhir.get<Appointment>({ resourceType: 'Appointment', id: appointmentId });
 
   const patientName = getFullestAvailableName(patient);
   const appointmentDate = appointment.start
