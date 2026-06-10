@@ -190,10 +190,14 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   if (hasDisplayName || hasAllCategories) {
     // Both display-name and all-categories live on the role's extension[]
     // array, so the patch is a single wholesale replace combining all the
-    // managed extensions plus any preserved foreign ones. Each managed
-    // extension is dropped if its corresponding input field was omitted or
-    // its value is the absence-sentinel (empty string for display name,
-    // explicit false for all-categories).
+    // managed extensions plus any preserved foreign ones. For each managed
+    // extension:
+    //   - field omitted from the payload → preserve the existing extension
+    //     (no touch — the caller wasn't editing this field)
+    //   - field provided with the absence-sentinel value (empty string for
+    //     display name; explicit false for all-categories) → drop the
+    //     extension (caller is explicitly clearing it)
+    //   - field provided with a meaningful value → write the extension
     const managedUrls = new Set<string>([
       SCHEDULE_DISPLAY_NAME_EXTENSION_URL,
       PRACTITIONER_ROLE_ALL_CATEGORIES_EXTENSION_URL,

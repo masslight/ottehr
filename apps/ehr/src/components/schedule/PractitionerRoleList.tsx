@@ -114,18 +114,22 @@ export default function PractitionerRoleList({
         const locRef = role.location?.[0]?.reference;
         const location = includedLocations.find((l) => `Location/${l.id}` === locRef);
         const schedule = schedules.find((s) => s.actor?.some((a) => a.reference === `PractitionerRole/${role.id}`));
-        // A PR with the all-categories toggle on offers every catalog entry;
-        // surface that as a single "All services" label rather than expanding
-        // the full list, which would shift any time the catalog changes.
+        // Always emit at least one label so downstream renderers can `.join()`
+        // unconditionally — pre-toggle they fell back to "All services" on
+        // empty, which was the old implicit-empty semantic and is now wrong
+        // (empty + toggle off = offers nothing).
+        const resolvedCategoryNames = (role.healthcareService || [])
+          .map((ref) => {
+            const id = ref.reference?.split('/')[1];
+            if (!id) return undefined;
+            return categoriesById.get(id)?.name;
+          })
+          .filter((n): n is string => !!n);
         const categoryLabels = getPractitionerRoleAllCategories(role)
           ? ['All services']
-          : (role.healthcareService || [])
-              .map((ref) => {
-                const id = ref.reference?.split('/')[1];
-                if (!id) return undefined;
-                return categoriesById.get(id)?.name;
-              })
-              .filter((n): n is string => !!n);
+          : resolvedCategoryNames.length > 0
+          ? resolvedCategoryNames
+          : ['No services'];
         // Admin-set display name wins; fallback to the auto-derived label.
         const explicitName = (role.extension ?? [])
           .find((ext) => ext.url === SCHEDULE_DISPLAY_NAME_EXTENSION_URL)
@@ -214,12 +218,18 @@ export default function PractitionerRoleList({
 
   // Single-Location org + zero schedules → one-click setup. The admin doesn't
   // need to pick a Location since there's only one.
+  // Defaults to allCategories=true so the resulting PR is immediately
+  // bookable for every service. Without the toggle the empty
+  // healthcareService[] would mean "offers nothing" under the explicit
+  // semantic, defeating the "one click and you're scheduling" intent.
+  // Admin can narrow categories later via the schedule edit page.
   const handleSetUpFastPath = (): void => {
     if (activeLocations.length === 1) {
       createRole.mutate({
         locationId: activeLocations[0].id!,
         categoryHealthcareServiceIds: [],
         timezone: TIMEZONES[0],
+        allCategories: true,
       });
     } else {
       setDialogOpen(true);
@@ -254,7 +264,7 @@ export default function PractitionerRoleList({
           <Box>
             <Typography variant="body1">{rows[0].displayLabel}</Typography>
             <Typography variant="body2" color="text.secondary">
-              Services: {rows[0].categoryLabels.length > 0 ? rows[0].categoryLabels.join(', ') : 'All services'}
+              Services: {rows[0].categoryLabels.join(', ')}
             </Typography>
           </Box>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -289,7 +299,7 @@ export default function PractitionerRoleList({
             {rows.map((row) => (
               <TableRow key={row.role.id}>
                 <TableCell>{row.displayLabel}</TableCell>
-                <TableCell>{row.categoryLabels.length > 0 ? row.categoryLabels.join(', ') : 'All services'}</TableCell>
+                <TableCell>{row.categoryLabels.join(', ')}</TableCell>
                 <TableCell>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, justifyContent: 'flex-end' }}>
                     {row.schedule?.id ? (

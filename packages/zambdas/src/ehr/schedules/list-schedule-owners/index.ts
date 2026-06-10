@@ -342,13 +342,18 @@ const complexValidationForPractitioner = async (_input: BasicInput, oystehr: Oys
           }
         }
       }
+      // Emit at least one label so consumers can `.join()` unconditionally.
+      // Pre-toggle, callers fell back to "All services" on empty, which is now
+      // wrong (empty + toggle off = offers nothing — see PR-level
+      // all-categories work).
+      const categoryLabelsArray = categoryLabels.size > 0 ? [...categoryLabels] : ['No services'];
       return {
         owner: { ...practitioner, id: userIdByPractitionerId.get(practitioner.id!)! },
         schedules: ownedSchedules,
         displayName: getFullName(practitioner),
         providerSchedulesSummary: {
           locationNames: [...locationNames],
-          categoryLabels: [...categoryLabels],
+          categoryLabels: categoryLabelsArray,
           // Count owned Schedule resources, not PractitionerRoles. A PR may
           // be missing its Schedule (in-flight setup, soft-deleted Schedule)
           // or — less commonly — have more than one. The UI column labeled
