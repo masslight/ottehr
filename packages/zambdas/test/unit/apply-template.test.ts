@@ -837,6 +837,49 @@ describe('makeCreateRequests — procedure plans', () => {
     expect(dxPostRequest, 'Dx should NOT be created when procedures is also skipped').toBeUndefined();
   });
 
+  test("procedures='append' + a procedure's Dx is already on the encounter: procedure links to the existing Condition", () => {
+    const templateList = makeLinkedProcedureTemplate();
+    const actions = makeActions({ procedures: 'append', diagnoses: 'append', cptCodes: 'append' });
+    const claimedByProcedures = collectContainedIdsClaimedByProcedures(templateList, actions.procedures);
+
+    // Encounter already carries the same Dx (J02.9) the template procedure
+    // is linked to. The Condition is on encounter.diagnosis.
+    const existingDxCondition = makeDxCondition('existing-dx-1', 'J02.9');
+    const encounterWithExistingDx = makeDxEncounter('enc-1', [{ conditionId: 'existing-dx-1' }]);
+
+    const requests = makeCreateRequests(
+      encounterWithExistingDx,
+      templateList,
+      [existingDxCondition],
+      actions,
+      new Set(),
+      claimedByProcedures
+    );
+
+    // No new Condition POST for the duplicate Dx (no orphan).
+    const newConditionPosts = requests.filter(
+      (r): r is { method: 'POST'; resource: Condition; fullUrl?: string; url: string } =>
+        r.method === 'POST' && (r as any).resource?.resourceType === 'Condition'
+    );
+    expect(
+      newConditionPosts,
+      'Duplicate Dx should be redirected to the existing Condition, not POSTed as an orphan'
+    ).toHaveLength(0);
+
+    // The procedure's reasonReference is a literal reference to the existing
+    // Condition (Condition/existing-dx-1), not a urn:uuid fullUrl.
+    const procedureSR = getProcedureServiceRequestPosts(requests)[0]!.resource;
+    expect(procedureSR.reasonReference).toEqual([{ reference: 'Condition/existing-dx-1' }]);
+
+    // encounter.diagnosis is unchanged — the existing entry stays put, no
+    // duplicate gets pushed.
+    const dxPatch = getEncounterDiagnosisPatchOperations(requests);
+    if (dxPatch && (dxPatch.op === 'add' || dxPatch.op === 'replace')) {
+      expect(dxPatch.value).toHaveLength(1);
+      expect(dxPatch.value[0]).toMatchObject({ condition: { reference: 'Condition/existing-dx-1' } });
+    }
+  });
+
   test('a sparse procedure plan with no cross-refs still produces a clean ServiceRequest', () => {
     // Some templates may carry procedures with no diagnoses or CPT codes -
     // those should still apply without emitting empty reasonReference/[]

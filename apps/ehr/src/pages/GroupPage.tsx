@@ -33,6 +33,7 @@ import {
   getGroupAllLocations,
   getGroupAssignmentMode,
   getPatchBinary,
+  getPractitionerRoleAllCategories,
   getSlugForBookableResource,
   GROUP_OWNED_CHARACTERISTIC_SYSTEMS,
   groupCharacteristics,
@@ -277,11 +278,20 @@ function GroupPageContent(): ReactElement {
           byPrac.set(pracId, { name, services: new Set<string>(), scheduleId: scheduleIdByPrId.get(role.id) });
         }
         const entry = byPrac.get(pracId)!;
-        for (const hsRef of role.healthcareService || []) {
-          const hsId = hsRef.reference?.split('/')[1];
-          if (!hsId || !relevantHsIdSet.has(hsId)) continue;
-          const catName = categoryByHsId.get(hsId)?.name;
-          if (catName) entry.services.add(catName);
+        if (getPractitionerRoleAllCategories(role)) {
+          // PR opts into every category; expand to all of the group's
+          // supported categories so the rollup reflects the actual coverage.
+          for (const hsId of relevantHsIdSet) {
+            const catName = categoryByHsId.get(hsId)?.name;
+            if (catName) entry.services.add(catName);
+          }
+        } else {
+          for (const hsRef of role.healthcareService || []) {
+            const hsId = hsRef.reference?.split('/')[1];
+            if (!hsId || !relevantHsIdSet.has(hsId)) continue;
+            const catName = categoryByHsId.get(hsId)?.name;
+            if (catName) entry.services.add(catName);
+          }
         }
       }
     }
@@ -701,9 +711,12 @@ function GroupPageContent(): ReactElement {
                     } else {
                       for (const role of practitionerRoles || []) {
                         if (role.active === false) continue;
-                        const offers = role.healthcareService?.some(
-                          (ref) => ref.reference === `HealthcareService/${hsId}`
-                        );
+                        // A PR with the all-categories toggle is treated as
+                        // offering every catalog entry, so it offers THIS
+                        // category at every Location it lists.
+                        const offers =
+                          getPractitionerRoleAllCategories(role) ||
+                          role.healthcareService?.some((ref) => ref.reference === `HealthcareService/${hsId}`);
                         if (!offers) continue;
                         for (const locRef of role.location || []) {
                           const locId = locRef.reference?.split('/')[1];

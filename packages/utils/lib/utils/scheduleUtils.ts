@@ -156,6 +156,13 @@ export interface ScheduleDTOOwner {
   isVirtual?: boolean;
   /** PR owners only — IDs of HealthcareService resources this role offers. */
   healthcareServiceIds?: string[];
+  /**
+   * PR owners only — when true, the role is treated as offering every service
+   * category in the system. Replaces the implicit-empty-array semantic that
+   * used to mean "all services" but was inconsistently honored across read
+   * sites. Defaults to false (admin opts in explicitly).
+   */
+  allCategories?: boolean;
   /** PR owners only — id of the Location this role is bound to. */
   locationId?: string;
   /**

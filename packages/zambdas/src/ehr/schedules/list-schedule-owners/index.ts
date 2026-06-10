@@ -8,6 +8,7 @@ import {
   DOW,
   getAllFhirSearchPages,
   getFullName,
+  getPractitionerRoleAllCategories,
   getScheduleExtension,
   getTimezone,
   INVALID_INPUT_ERROR,
@@ -322,10 +323,22 @@ const complexValidationForPractitioner = async (_input: BasicInput, oystehr: Oys
         const locationRef = role.location?.[0]?.reference;
         const location = locations.find((l) => `Location/${l.id}` === locationRef);
         if (location?.name) locationNames.add(location.name);
-        for (const ref of role.healthcareService ?? []) {
-          const hsId = ref.reference?.split('/')[1];
-          const hs = healthcareServices.find((h) => h.id === hsId);
-          if (hs?.name) categoryLabels.add(hs.name);
+        // A PR with the all-categories toggle on offers every service in the
+        // catalog; show that as a single "All services" badge rather than
+        // expanding the full list (which could be long and changes any time
+        // a category is added).
+        if (getPractitionerRoleAllCategories(role)) {
+          categoryLabels.add('All services');
+        } else {
+          // `healthcareService[]` carries both service-category refs AND
+          // group-membership refs. Without the category-tag filter, a PR that
+          // belongs to a group would have the group's name surface as a
+          // phantom service in the admin rollup.
+          for (const ref of role.healthcareService ?? []) {
+            const hsId = ref.reference?.split('/')[1];
+            const hs = healthcareServices.find((h) => h.id === hsId);
+            if (hs && isServiceCategoryHealthcareService(hs) && hs.name) categoryLabels.add(hs.name);
+          }
         }
         for (const s of schedules) {
           if (s.actor?.some((a) => a.reference === `PractitionerRole/${role.id}`)) {
@@ -333,13 +346,18 @@ const complexValidationForPractitioner = async (_input: BasicInput, oystehr: Oys
           }
         }
       }
+      // Emit at least one label so consumers can `.join()` unconditionally.
+      // Pre-toggle, callers fell back to "All services" on empty, which is now
+      // wrong (empty + toggle off = offers nothing — see PR-level
+      // all-categories work).
+      const categoryLabelsArray = categoryLabels.size > 0 ? [...categoryLabels] : ['No services'];
       return {
         owner: { ...practitioner, id: userIdByPractitionerId.get(practitioner.id!)! },
         schedules: ownedSchedules,
         displayName: getFullName(practitioner),
         providerSchedulesSummary: {
           locationNames: [...locationNames],
-          categoryLabels: [...categoryLabels],
+          categoryLabels: categoryLabelsArray,
           // Count owned Schedule resources, not PractitionerRoles. A PR may
           // be missing its Schedule (in-flight setup, soft-deleted Schedule)
           // or — less commonly — have more than one. The UI column labeled
