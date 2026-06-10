@@ -1,3 +1,4 @@
+import { otherColors, palette } from '@ehrTheme/colors';
 import AddIcon from '@mui/icons-material/Add';
 import CheckIcon from '@mui/icons-material/Check';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
@@ -58,7 +59,6 @@ import {
   useSaveOutreachConfigMutation,
 } from 'src/rcm/state/scheduled-outreach-config/scheduled-outreach-config.queries';
 import { buildInvoicePlaceholders, InvoicePlaceholderInput } from 'utils';
-import { outreachColors } from './outreachColors';
 import OutreachTasksReport from './OutreachTasksReport';
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -207,16 +207,16 @@ function isPaperMailDisabled(): boolean {
 }
 
 const ACTION_CHIP_COLORS: Record<ActionType, string> = {
-  'charge-card': outreachColors.action.chargeCard,
-  'send-notification': outreachColors.action.sendNotification,
-  'refer-to-collections': outreachColors.action.collections,
-  log: outreachColors.action.log,
+  'charge-card': palette.warning.dark,
+  'send-notification': palette.success.main,
+  'refer-to-collections': otherColors.outreachErrorText,
+  log: otherColors.outreachActionLog,
 };
 
 const MEDIUM_CHIP_COLORS: Record<NotificationMedium, string> = {
-  sms: outreachColors.medium.sms,
-  email: outreachColors.medium.email,
-  'paper-mail': outreachColors.medium.paperMail,
+  sms: otherColors.outreachMediumSms,
+  email: otherColors.outreachMediumEmail,
+  'paper-mail': otherColors.outreachMediumPaperMail,
 };
 
 // ── Cron Schedule Info ────────────────────────────────────────────────────
@@ -1209,8 +1209,8 @@ export default function ScheduledPatientOutreach({ outreachTab }: { outreachTab?
                 fontSize: '0.7rem',
                 fontWeight: 700,
                 height: 22,
-                bgcolor: outreachColors.info.bgSubtle,
-                color: outreachColors.info.dark,
+                bgcolor: otherColors.outreachInfoBgSubtle,
+                color: otherColors.outreachInfoDark,
                 letterSpacing: '0.05em',
               }}
             />
@@ -1476,7 +1476,7 @@ export default function ScheduledPatientOutreach({ outreachTab }: { outreachTab?
                                 size="small"
                                 variant="outlined"
                                 sx={{
-                                  bgcolor: outreachColors.white,
+                                  bgcolor: palette.background.paper,
                                   color: ACTION_CHIP_COLORS[action.actionType],
                                   borderColor: ACTION_CHIP_COLORS[action.actionType],
                                   fontWeight: 500,
@@ -1496,7 +1496,7 @@ export default function ScheduledPatientOutreach({ outreachTab }: { outreachTab?
                                           size="small"
                                           variant="outlined"
                                           sx={{
-                                            bgcolor: outreachColors.white,
+                                            bgcolor: palette.background.paper,
                                             color: MEDIUM_CHIP_COLORS[m],
                                             borderColor: MEDIUM_CHIP_COLORS[m],
                                             fontWeight: 500,
@@ -1518,7 +1518,7 @@ export default function ScheduledPatientOutreach({ outreachTab }: { outreachTab?
                                           size="small"
                                           variant="outlined"
                                           sx={{
-                                            bgcolor: outreachColors.white,
+                                            bgcolor: palette.background.paper,
                                             color: MEDIUM_CHIP_COLORS[m],
                                             borderColor: MEDIUM_CHIP_COLORS[m],
                                             fontWeight: 500,
@@ -1552,7 +1552,7 @@ export default function ScheduledPatientOutreach({ outreachTab }: { outreachTab?
                                         size="small"
                                         variant="outlined"
                                         sx={{
-                                          bgcolor: outreachColors.white,
+                                          bgcolor: palette.background.paper,
                                           color: MEDIUM_CHIP_COLORS[m],
                                           borderColor: MEDIUM_CHIP_COLORS[m],
                                           fontWeight: 500,
@@ -1803,7 +1803,7 @@ export default function ScheduledPatientOutreach({ outreachTab }: { outreachTab?
                             size="small"
                             variant="outlined"
                             sx={{
-                              bgcolor: outreachColors.white,
+                              bgcolor: palette.background.paper,
                               color: ACTION_CHIP_COLORS[action.actionType],
                               borderColor: ACTION_CHIP_COLORS[action.actionType],
                               fontWeight: 500,
@@ -1823,7 +1823,7 @@ export default function ScheduledPatientOutreach({ outreachTab }: { outreachTab?
                                       size="small"
                                       variant="outlined"
                                       sx={{
-                                        bgcolor: outreachColors.white,
+                                        bgcolor: palette.background.paper,
                                         color: MEDIUM_CHIP_COLORS[m],
                                         borderColor: MEDIUM_CHIP_COLORS[m],
                                         fontWeight: 500,
@@ -1845,7 +1845,7 @@ export default function ScheduledPatientOutreach({ outreachTab }: { outreachTab?
                                       size="small"
                                       variant="outlined"
                                       sx={{
-                                        bgcolor: outreachColors.white,
+                                        bgcolor: palette.background.paper,
                                         color: MEDIUM_CHIP_COLORS[m],
                                         borderColor: MEDIUM_CHIP_COLORS[m],
                                         fontWeight: 500,
@@ -1879,7 +1879,7 @@ export default function ScheduledPatientOutreach({ outreachTab }: { outreachTab?
                                     size="small"
                                     variant="outlined"
                                     sx={{
-                                      bgcolor: outreachColors.white,
+                                      bgcolor: palette.background.paper,
                                       color: MEDIUM_CHIP_COLORS[m],
                                       borderColor: MEDIUM_CHIP_COLORS[m],
                                       fontWeight: 500,

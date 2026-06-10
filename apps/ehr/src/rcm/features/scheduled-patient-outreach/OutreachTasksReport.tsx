@@ -1,3 +1,4 @@
+import { otherColors, palette } from '@ehrTheme/colors';
 import ChatOutlinedIcon from '@mui/icons-material/ChatOutlined';
 import CheckIcon from '@mui/icons-material/Check';
 import CloseIcon from '@mui/icons-material/Close';
@@ -53,7 +54,6 @@ import {
   useRetryOutreachTaskMutation,
 } from 'src/rcm/state/scheduled-outreach-config/scheduled-outreach-config.queries';
 import { ConversationMessage } from 'utils';
-import { outreachColors } from './outreachColors';
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
@@ -79,13 +79,13 @@ const STATUS_DISPLAY: Record<string, string> = {
 };
 
 const STATUS_CHIP_STYLES: Record<string, { background: string; color: string }> = {
-  draft: { background: outreachColors.neutral.bg, color: outreachColors.neutral.text },
-  requested: { background: outreachColors.pending.bg, color: outreachColors.pending.text },
-  'in-progress': { background: outreachColors.info.bg, color: outreachColors.info.text },
-  completed: { background: outreachColors.success.bg, color: outreachColors.success.text },
-  'on-hold': { background: outreachColors.warning.bg, color: outreachColors.warning.text },
-  failed: { background: outreachColors.error.text, color: outreachColors.white },
-  cancelled: { background: outreachColors.error.bg, color: outreachColors.error.text },
+  draft: { background: otherColors.outreachNeutralBg, color: otherColors.outreachNeutralText },
+  requested: { background: otherColors.outreachPendingBg, color: otherColors.outreachPendingText },
+  'in-progress': { background: otherColors.outreachInfoBg, color: otherColors.outreachInfoText },
+  completed: { background: otherColors.outreachSuccessBg, color: palette.success.dark },
+  'on-hold': { background: otherColors.outreachWarningBg, color: palette.warning.dark },
+  failed: { background: otherColors.outreachErrorText, color: palette.background.paper },
+  cancelled: { background: otherColors.outreachErrorBg, color: otherColors.outreachErrorText },
 };
 
 const ACTION_TYPE_LABELS: Record<string, string> = {
@@ -96,10 +96,10 @@ const ACTION_TYPE_LABELS: Record<string, string> = {
 };
 
 const ACTION_CHIP_COLORS: Record<string, string> = {
-  'charge-card': outreachColors.action.chargeCard,
-  'send-notification': outreachColors.action.sendNotification,
-  'refer-to-collections': outreachColors.action.collections,
-  log: outreachColors.action.log,
+  'charge-card': palette.warning.dark,
+  'send-notification': palette.success.main,
+  'refer-to-collections': otherColors.outreachErrorText,
+  log: otherColors.outreachActionLog,
 };
 
 const ACTION_FILTER_LABELS: Record<string, string> = {
@@ -122,9 +122,9 @@ const MEDIUM_FILTER_LABELS: Record<string, string> = {
 };
 
 const MEDIUM_CHIP_COLORS: Record<string, string> = {
-  sms: outreachColors.medium.sms,
-  email: outreachColors.medium.email,
-  'paper-mail': outreachColors.medium.paperMail,
+  sms: otherColors.outreachMediumSms,
+  email: otherColors.outreachMediumEmail,
+  'paper-mail': otherColors.outreachMediumPaperMail,
 };
 
 // Single-character glyphs shown inside the small history-dialog avatars / badges.
@@ -364,7 +364,7 @@ export default function OutreachTasksReport(): ReactElement {
           disableCloseOnSelect
           renderInput={(params) => <TextField {...params} label="Action" placeholder="Action" />}
           renderOption={(props, option, { selected }) => {
-            const borderColor = ACTION_CHIP_COLORS[option] || outreachColors.neutral.main;
+            const borderColor = ACTION_CHIP_COLORS[option] || otherColors.outreachNeutralMain;
             return (
               <li {...props}>
                 <Checkbox size="small" checked={selected} sx={{ mr: 1 }} />
@@ -380,7 +380,7 @@ export default function OutreachTasksReport(): ReactElement {
                     height: '20px',
                     borderColor,
                     color: borderColor,
-                    backgroundColor: outreachColors.white,
+                    backgroundColor: palette.background.paper,
                   }}
                 />
               </li>
@@ -388,7 +388,7 @@ export default function OutreachTasksReport(): ReactElement {
           }}
           renderTags={(value, getTagProps) =>
             value.map((option, index) => {
-              const borderColor = ACTION_CHIP_COLORS[option] || outreachColors.neutral.main;
+              const borderColor = ACTION_CHIP_COLORS[option] || otherColors.outreachNeutralMain;
               return (
                 <Chip
                   {...getTagProps({ index })}
@@ -404,7 +404,7 @@ export default function OutreachTasksReport(): ReactElement {
                     height: '22px',
                     borderColor,
                     color: borderColor,
-                    backgroundColor: outreachColors.white,
+                    backgroundColor: palette.background.paper,
                     '& .MuiChip-deleteIcon': {
                       color: borderColor,
                       opacity: 0.7,
@@ -432,7 +432,7 @@ export default function OutreachTasksReport(): ReactElement {
           disableCloseOnSelect
           renderInput={(params) => <TextField {...params} label="Medium" placeholder="Medium" />}
           renderOption={(props, option, { selected }) => {
-            const borderColor = MEDIUM_CHIP_COLORS[option] || outreachColors.neutral.main;
+            const borderColor = MEDIUM_CHIP_COLORS[option] || otherColors.outreachNeutralMain;
             return (
               <li {...props}>
                 <Checkbox size="small" checked={selected} sx={{ mr: 1 }} />
@@ -448,7 +448,7 @@ export default function OutreachTasksReport(): ReactElement {
                     height: '20px',
                     borderColor,
                     color: borderColor,
-                    backgroundColor: outreachColors.white,
+                    backgroundColor: palette.background.paper,
                   }}
                 />
               </li>
@@ -456,7 +456,7 @@ export default function OutreachTasksReport(): ReactElement {
           }}
           renderTags={(value, getTagProps) =>
             value.map((option, index) => {
-              const borderColor = MEDIUM_CHIP_COLORS[option] || outreachColors.neutral.main;
+              const borderColor = MEDIUM_CHIP_COLORS[option] || otherColors.outreachNeutralMain;
               return (
                 <Chip
                   {...getTagProps({ index })}
@@ -472,7 +472,7 @@ export default function OutreachTasksReport(): ReactElement {
                     height: '22px',
                     borderColor,
                     color: borderColor,
-                    backgroundColor: outreachColors.white,
+                    backgroundColor: palette.background.paper,
                     '& .MuiChip-deleteIcon': {
                       color: borderColor,
                       opacity: 0.7,
@@ -749,7 +749,7 @@ function TaskTable({
                         to={`/patient/${task.patientId}`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        style={{ textDecoration: 'underline', color: outreachColors.info.main }}
+                        style={{ textDecoration: 'underline', color: otherColors.outreachInfoMain }}
                       >
                         <Typography variant="body2" sx={{ fontWeight: 500 }}>
                           {task.patientName}
@@ -764,7 +764,7 @@ function TaskTable({
                     size="small"
                     variant="outlined"
                     sx={{
-                      bgcolor: outreachColors.white,
+                      bgcolor: palette.background.paper,
                       color: ACTION_CHIP_COLORS[task.actionType] || 'text.primary',
                       borderColor: ACTION_CHIP_COLORS[task.actionType] || 'divider',
                       fontWeight: 500,
@@ -789,8 +789,8 @@ function TaskTable({
                             fontSize: '10px',
                             textTransform: 'uppercase',
                             height: '18px',
-                            background: outreachColors.error.bg,
-                            color: outreachColors.error.text,
+                            background: otherColors.outreachErrorBg,
+                            color: otherColors.outreachErrorText,
                           }}
                         />
                       )}
@@ -813,7 +813,7 @@ function TaskTable({
                       to={`/visit/${task.appointmentId}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      style={{ textDecoration: 'underline', color: outreachColors.info.main }}
+                      style={{ textDecoration: 'underline', color: otherColors.outreachInfoMain }}
                     >
                       <Typography variant="body2">
                         {DateTime.fromISO(task.visitDate).toLocaleString(DateTime.DATE_SHORT)}
@@ -864,22 +864,22 @@ function TaskTable({
                               icon={sent ? <CheckIcon sx={{ fontSize: 14 }} /> : undefined}
                               sx={{
                                 bgcolor: sent
-                                  ? MEDIUM_CHIP_COLORS[medium] || outreachColors.neutral.main
+                                  ? MEDIUM_CHIP_COLORS[medium] || otherColors.outreachNeutralMain
                                   : failed
-                                  ? outreachColors.error.bgSubtle
-                                  : outreachColors.white,
+                                  ? otherColors.outreachErrorBgSubtle
+                                  : palette.background.paper,
                                 color: sent
-                                  ? outreachColors.white
+                                  ? palette.background.paper
                                   : failed
-                                  ? outreachColors.error.text
+                                  ? otherColors.outreachErrorText
                                   : MEDIUM_CHIP_COLORS[medium] || 'text.primary',
                                 borderColor: failed
-                                  ? outreachColors.error.text
+                                  ? otherColors.outreachErrorText
                                   : MEDIUM_CHIP_COLORS[medium] || 'divider',
                                 fontWeight: 500,
                                 fontSize: '0.75rem',
                                 cursor: 'default',
-                                '& .MuiChip-icon': { color: outreachColors.white },
+                                '& .MuiChip-icon': { color: palette.background.paper },
                               }}
                             />
                           </Tooltip>
@@ -991,11 +991,11 @@ function TaskStatusTooltipContent({ task }: { task: OutreachTaskSummary }): Reac
 
       {/* Cancellation reason for cancelled tasks */}
       {task.status === 'cancelled' && task.cancellationReason && (
-        <Box sx={{ bgcolor: outreachColors.warning.bgSubtle, borderRadius: 1, p: 1 }}>
-          <Typography variant="caption" sx={{ fontWeight: 600, color: outreachColors.warning.text }}>
+        <Box sx={{ bgcolor: otherColors.outreachWarningBgSubtle, borderRadius: 1, p: 1 }}>
+          <Typography variant="caption" sx={{ fontWeight: 600, color: palette.warning.dark }}>
             Cancellation Reason
           </Typography>
-          <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', color: outreachColors.warning.text, mt: 0.25 }}>
+          <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', color: palette.warning.dark, mt: 0.25 }}>
             {task.cancellationReason}
           </Typography>
         </Box>
@@ -1003,11 +1003,11 @@ function TaskStatusTooltipContent({ task }: { task: OutreachTaskSummary }): Reac
 
       {/* Error message for failed tasks */}
       {task.status === 'failed' && task.errorMessage && (
-        <Box sx={{ bgcolor: outreachColors.error.bgSubtle, borderRadius: 1, p: 1 }}>
-          <Typography variant="caption" sx={{ fontWeight: 600, color: outreachColors.error.text }}>
+        <Box sx={{ bgcolor: otherColors.outreachErrorBgSubtle, borderRadius: 1, p: 1 }}>
+          <Typography variant="caption" sx={{ fontWeight: 600, color: otherColors.outreachErrorText }}>
             Error
           </Typography>
-          <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', color: outreachColors.error.text, mt: 0.25 }}>
+          <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', color: otherColors.outreachErrorText, mt: 0.25 }}>
             {task.errorMessage}
           </Typography>
         </Box>
@@ -1017,7 +1017,9 @@ function TaskStatusTooltipContent({ task }: { task: OutreachTaskSummary }): Reac
       {task.actionType === 'charge-card' && task.chargeResult && (
         <Box
           sx={{
-            bgcolor: task.chargeResult.success ? outreachColors.success.bgSubtle : outreachColors.error.bgSubtle,
+            bgcolor: task.chargeResult.success
+              ? otherColors.outreachSuccessBgSubtle
+              : otherColors.outreachErrorBgSubtle,
             borderRadius: 1,
             p: 1,
           }}
@@ -1026,7 +1028,7 @@ function TaskStatusTooltipContent({ task }: { task: OutreachTaskSummary }): Reac
             variant="caption"
             sx={{
               fontWeight: 600,
-              color: task.chargeResult.success ? outreachColors.success.text : outreachColors.error.text,
+              color: task.chargeResult.success ? palette.success.dark : otherColors.outreachErrorText,
             }}
           >
             Charge {task.chargeResult.success ? 'Successful' : 'Failed'}
@@ -1039,7 +1041,7 @@ function TaskStatusTooltipContent({ task }: { task: OutreachTaskSummary }): Reac
               <CopyableIdRow label="Txn ID" value={task.chargeResult.transactionId} />
             )}
             {task.chargeResult.error && (
-              <Typography variant="body2" sx={{ color: outreachColors.error.text }}>
+              <Typography variant="body2" sx={{ color: otherColors.outreachErrorText }}>
                 {task.chargeResult.error}
               </Typography>
             )}
@@ -1049,8 +1051,8 @@ function TaskStatusTooltipContent({ task }: { task: OutreachTaskSummary }): Reac
 
       {/* Charge card retry info */}
       {task.actionType === 'charge-card' && task.retryInfo && (
-        <Box sx={{ bgcolor: outreachColors.warning.bgSubtle, borderRadius: 1, p: 1 }}>
-          <Typography variant="caption" sx={{ fontWeight: 600, color: outreachColors.warning.text }}>
+        <Box sx={{ bgcolor: otherColors.outreachWarningBgSubtle, borderRadius: 1, p: 1 }}>
+          <Typography variant="caption" sx={{ fontWeight: 600, color: palette.warning.dark }}>
             Retry Info
           </Typography>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25, mt: 0.5 }}>
@@ -1071,8 +1073,8 @@ function TaskStatusTooltipContent({ task }: { task: OutreachTaskSummary }): Reac
 
       {/* Notification results (from charge-card post-charge notifications) */}
       {task.notificationResults && task.notificationResults.length > 0 && (
-        <Box sx={{ bgcolor: outreachColors.purple.bg, borderRadius: 1, p: 1 }}>
-          <Typography variant="caption" sx={{ fontWeight: 600, color: outreachColors.purple.text }}>
+        <Box sx={{ bgcolor: otherColors.outreachPurpleBg, borderRadius: 1, p: 1 }}>
+          <Typography variant="caption" sx={{ fontWeight: 600, color: otherColors.outreachPurpleText }}>
             Post-Charge Notifications
           </Typography>
           {task.notificationResults.map((nr, i) => (
@@ -1083,12 +1085,12 @@ function TaskStatusTooltipContent({ task }: { task: OutreachTaskSummary }): Reac
                 sx={{
                   height: 18,
                   fontSize: '0.7rem',
-                  bgcolor: nr.success ? outreachColors.success.bg : outreachColors.error.bg,
-                  color: nr.success ? outreachColors.success.text : outreachColors.error.text,
+                  bgcolor: nr.success ? otherColors.outreachSuccessBg : otherColors.outreachErrorBg,
+                  color: nr.success ? palette.success.dark : otherColors.outreachErrorText,
                 }}
               />
               {nr.error && (
-                <Typography variant="caption" sx={{ color: outreachColors.error.text }}>
+                <Typography variant="caption" sx={{ color: otherColors.outreachErrorText }}>
                   {nr.error}
                 </Typography>
               )}
@@ -1099,8 +1101,8 @@ function TaskStatusTooltipContent({ task }: { task: OutreachTaskSummary }): Reac
 
       {/* Execution result (from send-notification tasks) */}
       {task.actionType === 'send-notification' && task.executionResult && task.executionResult.length > 0 && (
-        <Box sx={{ bgcolor: outreachColors.info.bgSubtle, borderRadius: 1, p: 1 }}>
-          <Typography variant="caption" sx={{ fontWeight: 600, color: outreachColors.info.text }}>
+        <Box sx={{ bgcolor: otherColors.outreachInfoBgSubtle, borderRadius: 1, p: 1 }}>
+          <Typography variant="caption" sx={{ fontWeight: 600, color: otherColors.outreachInfoText }}>
             Notification Results
           </Typography>
           {task.executionResult.map((er, i) => (
@@ -1111,12 +1113,12 @@ function TaskStatusTooltipContent({ task }: { task: OutreachTaskSummary }): Reac
                 sx={{
                   height: 18,
                   fontSize: '0.7rem',
-                  bgcolor: er.success ? outreachColors.success.bg : outreachColors.error.bg,
-                  color: er.success ? outreachColors.success.text : outreachColors.error.text,
+                  bgcolor: er.success ? otherColors.outreachSuccessBg : otherColors.outreachErrorBg,
+                  color: er.success ? palette.success.dark : otherColors.outreachErrorText,
                 }}
               />
               {er.error && (
-                <Typography variant="caption" sx={{ color: outreachColors.error.text }}>
+                <Typography variant="caption" sx={{ color: otherColors.outreachErrorText }}>
                   {er.error}
                 </Typography>
               )}
@@ -1203,8 +1205,8 @@ function MediumTooltipContent({
             fontSize: '0.7rem',
             fontWeight: 600,
             textTransform: 'uppercase',
-            bgcolor: MEDIUM_CHIP_COLORS[medium] || outreachColors.neutral.main,
-            color: outreachColors.white,
+            bgcolor: MEDIUM_CHIP_COLORS[medium] || otherColors.outreachNeutralMain,
+            color: palette.background.paper,
           }}
         />
         {result && (
@@ -1215,8 +1217,8 @@ function MediumTooltipContent({
               height: 18,
               fontSize: '0.65rem',
               fontWeight: 600,
-              bgcolor: result.success ? outreachColors.success.bg : outreachColors.error.bg,
-              color: result.success ? outreachColors.success.text : outreachColors.error.text,
+              bgcolor: result.success ? otherColors.outreachSuccessBg : otherColors.outreachErrorBg,
+              color: result.success ? palette.success.dark : otherColors.outreachErrorText,
             }}
           />
         )}
@@ -1270,7 +1272,7 @@ function MediumTooltipContent({
             sx={{
               whiteSpace: 'pre-wrap',
               wordBreak: 'break-word',
-              bgcolor: outreachColors.surfaceMuted,
+              bgcolor: otherColors.outreachSurfaceMuted,
               borderRadius: 0.5,
               p: 0.75,
               fontSize: '0.75rem',
@@ -1286,11 +1288,14 @@ function MediumTooltipContent({
 
       {/* Error detail */}
       {result && !result.success && result.error && (
-        <Box sx={{ bgcolor: outreachColors.error.bgSubtle, borderRadius: 0.5, p: 0.75 }}>
-          <Typography variant="caption" sx={{ fontWeight: 600, color: outreachColors.error.text, display: 'block' }}>
+        <Box sx={{ bgcolor: otherColors.outreachErrorBgSubtle, borderRadius: 0.5, p: 0.75 }}>
+          <Typography
+            variant="caption"
+            sx={{ fontWeight: 600, color: otherColors.outreachErrorText, display: 'block' }}
+          >
             Error
           </Typography>
-          <Typography variant="body2" sx={{ color: outreachColors.error.text, fontSize: '0.75rem' }}>
+          <Typography variant="body2" sx={{ color: otherColors.outreachErrorText, fontSize: '0.75rem' }}>
             {result.error}
           </Typography>
         </Box>
@@ -1346,9 +1351,9 @@ function SmsHistoryButton({
               width: 28,
               height: 28,
               borderRadius: '100%',
-              bgcolor: disabled ? undefined : outreachColors.medium.sms,
-              color: disabled ? undefined : outreachColors.white,
-              '&:hover': { bgcolor: disabled ? undefined : outreachColors.success.main },
+              bgcolor: disabled ? undefined : otherColors.outreachMediumSms,
+              color: disabled ? undefined : palette.background.paper,
+              '&:hover': { bgcolor: disabled ? undefined : palette.success.main },
             }}
           >
             <ChatOutlinedIcon sx={{ fontSize: 16 }} />
@@ -1443,7 +1448,7 @@ function SmsHistoryDialog({
                     width: 28,
                     height: 28,
                     fontSize: '0.75rem',
-                    bgcolor: msg.isFromPatient ? outreachColors.avatar.patient : outreachColors.avatar.clinic,
+                    bgcolor: msg.isFromPatient ? otherColors.outreachNeutralAvatar : otherColors.outreachInfoMain,
                   }}
                 >
                   {msg.isFromPatient ? AVATAR_INITIAL_PATIENT : AVATAR_INITIAL_CLINIC}
@@ -1451,7 +1456,7 @@ function SmsHistoryDialog({
                 <Box
                   sx={{
                     maxWidth: '70%',
-                    bgcolor: msg.isFromPatient ? outreachColors.surfaceMuted : outreachColors.info.bgSubtle,
+                    bgcolor: msg.isFromPatient ? otherColors.outreachSurfaceMuted : otherColors.outreachInfoBgSubtle,
                     borderRadius: 2,
                     p: 1,
                   }}
@@ -1497,9 +1502,9 @@ function EmailHistoryButton({
               width: 28,
               height: 28,
               borderRadius: '100%',
-              bgcolor: disabled ? undefined : outreachColors.info.main,
-              color: disabled ? undefined : outreachColors.white,
-              '&:hover': { bgcolor: disabled ? undefined : outreachColors.info.dark },
+              bgcolor: disabled ? undefined : otherColors.outreachInfoMain,
+              color: disabled ? undefined : palette.background.paper,
+              '&:hover': { bgcolor: disabled ? undefined : otherColors.outreachInfoDark },
             }}
           >
             <Box sx={{ position: 'relative', display: 'inline-flex', width: 16, height: 16 }}>
@@ -1637,7 +1642,7 @@ function EmailHistoryDialog({
                     width: 28,
                     height: 28,
                     fontSize: '0.75rem',
-                    bgcolor: outreachColors.avatar.clinic,
+                    bgcolor: otherColors.outreachInfoMain,
                   }}
                 >
                   {AVATAR_INITIAL_CLINIC}
@@ -1645,7 +1650,7 @@ function EmailHistoryDialog({
                 <Box
                   sx={{
                     maxWidth: '80%',
-                    bgcolor: outreachColors.info.bgSubtle,
+                    bgcolor: otherColors.outreachInfoBgSubtle,
                     borderRadius: 2,
                     p: 1.5,
                   }}
@@ -1698,9 +1703,9 @@ function PaperMailHistoryButton({
               width: 28,
               height: 28,
               borderRadius: '100%',
-              bgcolor: disabled ? undefined : outreachColors.paperMailButton.main,
-              color: disabled ? undefined : outreachColors.white,
-              '&:hover': { bgcolor: disabled ? undefined : outreachColors.paperMailButton.hover },
+              bgcolor: disabled ? undefined : otherColors.outreachPaperMailButton,
+              color: disabled ? undefined : palette.background.paper,
+              '&:hover': { bgcolor: disabled ? undefined : otherColors.outreachPaperMailButtonHover },
             }}
           >
             <Box sx={{ position: 'relative', display: 'inline-flex', width: 16, height: 16 }}>
@@ -1711,8 +1716,8 @@ function PaperMailHistoryButton({
                   bottom: -2,
                   right: -3,
                   fontSize: 12,
-                  bgcolor: disabled ? outreachColors.white : outreachColors.paperMailButton.main,
-                  color: disabled ? undefined : outreachColors.white,
+                  bgcolor: disabled ? palette.background.paper : otherColors.outreachPaperMailButton,
+                  color: disabled ? undefined : palette.background.paper,
                   borderRadius: '2px',
                 }}
               />
@@ -1835,16 +1840,16 @@ function PaperMailHistoryDialog({
                         fontWeight: 600,
                         bgcolor:
                           record.statementType === 'final-notice'
-                            ? outreachColors.error.bgSubtle
+                            ? otherColors.outreachErrorBgSubtle
                             : record.statementType === 'past-due'
-                            ? outreachColors.warning.bgSubtle
-                            : outreachColors.success.bgSubtle,
+                            ? otherColors.outreachWarningBgSubtle
+                            : otherColors.outreachSuccessBgSubtle,
                         color:
                           record.statementType === 'final-notice'
-                            ? outreachColors.error.main
+                            ? palette.error.dark
                             : record.statementType === 'past-due'
-                            ? outreachColors.warning.text
-                            : outreachColors.success.main,
+                            ? palette.warning.dark
+                            : palette.success.main,
                       }}
                     />
                     <Typography variant="caption" sx={{ color: 'text.secondary', flexGrow: 1 }}>
