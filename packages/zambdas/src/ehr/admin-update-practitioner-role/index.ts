@@ -107,15 +107,28 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     : (currentRole.healthcareService ?? [])
         .map((ref) => ref.reference?.split('/')[1])
         .filter((id): id is string => !!id);
+  // Compute the post-update allCategories value: caller-provided wins; if not
+  // provided, fall back to the role's existing value. Needed so the conflict
+  // check sees the post-update offering, not the pre-update one.
+  const currentAllCategories = (currentRole.extension ?? []).some(
+    (ext) => ext.url === PRACTITIONER_ROLE_ALL_CATEGORIES_EXTENSION_URL && ext.valueBoolean === true
+  );
+  const targetAllCategories = hasAllCategories ? parsed.allCategories === true : currentAllCategories;
 
-  if (practitionerRef && targetLocationRef && targetCategoryIds.length > 0) {
+  // Run the conflict check whenever the post-update role offers anything —
+  // either via specific category refs or via the all-categories toggle. The
+  // helper has its own early-out for the "offers nothing" case, but we still
+  // need the outer guard for the practitioner-ref/location-ref preconditions.
+  if (practitionerRef && targetLocationRef && (targetCategoryIds.length > 0 || targetAllCategories)) {
     const categoryNameById = new Map<string, string>();
-    const hsBundle = await oystehr.fhir.search<HealthcareService>({
-      resourceType: 'HealthcareService',
-      params: [{ name: '_id', value: targetCategoryIds.join(',') }],
-    });
-    for (const hs of hsBundle.unbundle()) {
-      if (hs.id) categoryNameById.set(hs.id, hs.name ?? hs.id);
+    if (targetCategoryIds.length > 0) {
+      const hsBundle = await oystehr.fhir.search<HealthcareService>({
+        resourceType: 'HealthcareService',
+        params: [{ name: '_id', value: targetCategoryIds.join(',') }],
+      });
+      for (const hs of hsBundle.unbundle()) {
+        if (hs.id) categoryNameById.set(hs.id, hs.name ?? hs.id);
+      }
     }
     const conflict = await checkPractitionerRoleConflict(
       oystehr,
@@ -124,6 +137,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         practitionerRef,
         locationRef: targetLocationRef,
         categoryHsIds: targetCategoryIds,
+        allCategories: targetAllCategories,
       },
       { categoryNameById }
     );

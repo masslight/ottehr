@@ -118,6 +118,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       practitionerRef: `Practitioner/${parsed.practitionerId}`,
       locationRef: `Location/${parsed.locationId}`,
       categoryHsIds: parsed.categoryHealthcareServiceIds,
+      allCategories: parsed.allCategories === true,
     },
     { categoryNameById }
   );
