@@ -1,7 +1,31 @@
 import Oystehr from '@oystehr/sdk';
-import { Claim, DomainResource, HumanName, Organization, Patient, Practitioner, Resource } from 'fhir/r4b';
+import {
+  Account,
+  Claim,
+  Coverage,
+  HumanName,
+  Location,
+  Organization,
+  Patient,
+  Person,
+  Practitioner,
+  RelatedPerson,
+  Resource,
+} from 'fhir/r4b';
 import { convertFhirNameToDisplayName, isPayerUrl, Secrets } from 'utils';
 import { createOystehrClient } from '../shared/helpers';
+
+// Type alias for resources relevant to billing
+export type BillingFhirResource =
+  | Patient
+  | Coverage
+  | Practitioner
+  | Organization
+  | Location
+  | Person
+  | Claim
+  | Account
+  | RelatedPerson;
 
 export const BILLING_RESOURCE_TAG = {
   system: 'https://ottehr.com/billing/resource-type',
@@ -94,16 +118,25 @@ export function fhirName(resource?: Patient | Practitioner): string {
   return name ? convertFhirNameToDisplayName(name) : '';
 }
 
-// Clone a billing resource into a working copy: strips id, tags it, adds source identifier.
-export function prepareWorkingCopy<T extends Resource>(resource: T, originalId?: string): T {
+/**
+ * Clone a billing resource into a working copy: strips id, tags it, adds source identifier.
+ */
+export function prepareWorkingCopy<T extends CopyableBillingResource>(resource: CRT<T>, originalId?: string): CRT<T> {
   const copy = prepareCopy<T>(resource, originalId);
   copy.meta = { tag: [BILLING_WORKING_COPY_TAG] };
   return copy;
 }
 
-// Clone a billing resource into a working copy: strips id, tags it, adds source identifier.
-export function prepareCopy<T extends DomainResource>(resource: T, originalId?: string): T {
-  const copy: T = structuredClone(resource);
+/**
+ * Clone a billing resource into a working copy: strips id, tags it, adds source identifier.
+ */
+export function prepareCopy<T extends CopyableBillingResource>(resource: CRT<T>, originalId?: string): CRT<T> {
+  const propHolder: Partial<Writable<CRT<T>>> = {};
+  const resourceProps = copyableProps(resource);
+  for (const prop of resourceProps) {
+    propHolder[prop] = resource[prop];
+  }
+  const copy: CRT<T> = structuredClone(propHolder) as CRT<T>;
   delete copy.id;
   const existing = (copy.extension ?? []).filter((ext) => ext.url !== SOURCE_IDENTIFIER_SYSTEM);
   copy.extension = [
@@ -120,6 +153,44 @@ export function prepareCopy<T extends DomainResource>(resource: T, originalId?: 
       : []),
   ];
   return copy;
+}
+
+/**
+ * Map of resource types and their valid properties
+ */
+type ResourceProperties<Resources extends BillingFhirResource> = { [R in Resources as R['resourceType']]: (keyof R)[] };
+/**
+ * Billing resources that are eligible to be copied
+ */
+export type CopyableBillingResource = Exclude<BillingFhirResource, Claim | Person>;
+/**
+ * Extracts the specific billing resource out of the union type
+ */
+type CRT<T extends CopyableBillingResource> = Extract<CopyableBillingResource, { resourceType: T['resourceType'] }>;
+/**
+ * List of copyable properties for each resource type
+ */
+const CopyableProperties: ResourceProperties<CopyableBillingResource> = {
+  Account: ['resourceType', 'status', 'type', 'subject', 'guarantor', 'coverage'],
+  Coverage: ['resourceType', 'status', 'subscriber', 'beneficiary', 'payor', 'subscriberId', 'relationship', 'class'],
+  Location: ['resourceType', 'address', 'description', 'name', 'telecom', 'type'],
+  Organization: ['resourceType', 'active', 'address', 'contact', 'name', 'telecom', 'type'],
+  Patient: ['resourceType', 'name', 'active', 'gender', 'address', 'telecom', 'birthDate'],
+  Practitioner: ['resourceType', 'active', 'address', 'birthDate', 'gender', 'name', 'qualification', 'telecom'],
+  RelatedPerson: ['resourceType', 'name', 'birthDate', 'gender', 'patient', 'address', 'relationship'],
+} as const;
+/**
+ * Helper to remove readonly from fields
+ */
+type Writable<T> = { -readonly [K in keyof T]: T[K] };
+/**
+ * Helper to handle types for CopyableProperties
+ * @param r
+ * @returns
+ */
+function copyableProps<R extends CopyableBillingResource>(r: CRT<R>): (keyof CRT<R>)[] {
+  const props = CopyableProperties[r.resourceType];
+  return props as (keyof CRT<R>)[];
 }
 
 // Resolve FHIR reference like "Patient/uuid-12345" from resource array.

@@ -72,6 +72,7 @@ import {
 import {
   BILLING_RESOURCE_TAG,
   BILLING_WORKING_COPY_TAG,
+  BillingFhirResource,
   createBillingClient,
   CURRENT_STATUS_TAG_SYSTEM,
   findRef,
@@ -85,18 +86,6 @@ export interface CreateClaimFromEncounterParams extends CreateBillingClaimFromEn
 }
 
 export type ComplexValidationOutput = { clinicalResources: ClinicalResources; billingResources: BillingResources };
-
-// Type alias for resources relevant to billing
-type BillingFhirResource =
-  | Patient
-  | Coverage
-  | Practitioner
-  | Organization
-  | Location
-  | Person
-  | Claim
-  | Account
-  | RelatedPerson;
 
 type CoverageRefs = { coverageRef: Reference; payorRef: Reference }[];
 type EncounterType = 'uc' | 'wc' | 'occmed' | 'auto';
@@ -176,12 +165,12 @@ export async function performEffect(
   // Create or update main billing patient from clinical patient
   let mainPatient = billingResources.mainPatient;
   if (!mainPatient) {
-    mainPatient = prepareCopy(clinicalResources.patient, clinicalResources.patient.id!);
+    mainPatient = prepareCopy<Patient>(clinicalResources.patient, clinicalResources.patient.id!);
     mainPatient.id = 'urn:uuid:main-patient';
     requests.push({ method: 'POST', url: '/Patient', resource: mainPatient, fullUrl: mainPatient.id });
     order.push('patient');
   } else {
-    const updatedMainPatient = prepareCopy(clinicalResources.patient, clinicalResources.patient.id!);
+    const updatedMainPatient = prepareCopy<Patient>(clinicalResources.patient, clinicalResources.patient.id!);
     updatedMainPatient.id = mainPatient.id;
     try {
       deepStrictEqual(mainPatient, updatedMainPatient);
@@ -503,7 +492,7 @@ export function getClaimCoveragesForEncounter(
 }
 
 export function copyAccount(account: Account, patientId: string, billingCoverages?: Coverage[]): Account {
-  const copy = prepareCopy(account, account.id!);
+  const copy = prepareCopy<Account>(account, account.id!);
   copy.subject = [uuidOrUrnReference('Patient', patientId)];
   if (billingCoverages?.length) {
     copy.coverage = account.coverage
@@ -559,7 +548,9 @@ export function copyCoverageAndSubscriber(
   const requests: CreateClaimFromEncounterRequests = [];
   const order: string[] = [];
   const cleanedCoverageId = coverage.id?.replace('urn:uuid:', '');
-  const copy = workingCopy ? prepareWorkingCopy(coverage, coverage.id!) : prepareCopy(coverage, coverage.id!);
+  const copy = workingCopy
+    ? prepareWorkingCopy<Coverage>(coverage, coverage.id!)
+    : prepareCopy<Coverage>(coverage, coverage.id!);
   copy.beneficiary = uuidOrUrnReference('Patient', patientUuidOrUrn);
   // Subscriber is patient by default, check for contained RelatedPerson
   let subscriberId = patientUuidOrUrn;
@@ -570,7 +561,9 @@ export function copyCoverageAndSubscriber(
         contained.id === copy.subscriber?.reference?.replace('#', '') && contained.resourceType === 'RelatedPerson'
     );
     if (containedSubscriber) {
-      const subscriber = workingCopy ? prepareWorkingCopy(containedSubscriber) : prepareCopy(containedSubscriber);
+      const subscriber = workingCopy
+        ? prepareWorkingCopy<RelatedPerson>(containedSubscriber)
+        : prepareCopy<RelatedPerson>(containedSubscriber);
       subscriber.id = `urn:uuid:${workingCopy ? 'claim' : 'billing'}-coverage-rp-${cleanedCoverageId}`;
       subscriber.patient = uuidOrUrnReference('Patient', patientUuidOrUrn);
       requests.push({
@@ -586,8 +579,8 @@ export function copyCoverageAndSubscriber(
   } else if (coverageSubscriber) {
     // Subscriber was found and passed in to the function
     const subscriber = workingCopy
-      ? prepareWorkingCopy(coverageSubscriber, coverageSubscriber.id!)
-      : prepareCopy(coverageSubscriber, coverageSubscriber.id!);
+      ? prepareWorkingCopy<RelatedPerson>(coverageSubscriber, coverageSubscriber.id!)
+      : prepareCopy<RelatedPerson>(coverageSubscriber, coverageSubscriber.id!);
     subscriber.id = `urn:uuid:${workingCopy ? 'claim' : 'billing'}-coverage-rp-${cleanedCoverageId}`;
     requests.push({
       method: 'POST',
