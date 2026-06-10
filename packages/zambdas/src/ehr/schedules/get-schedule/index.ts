@@ -3,6 +3,7 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { HealthcareService, Location, PractitionerRole, Schedule } from 'fhir/r4b';
 import {
   BLANK_SCHEDULE_JSON_TEMPLATE,
+  getPractitionerRoleAllCategories,
   getScheduleExtension,
   getSlugForBookableResource,
   getTimezone,
@@ -152,6 +153,10 @@ const performEffect = (
           (ext) => ext.url === SCHEDULE_DISPLAY_NAME_EXTENSION_URL
         )?.valueString
       : undefined;
+  const allCategories =
+    ownerResource.resourceType === 'PractitionerRole'
+      ? getPractitionerRoleAllCategories(ownerResource as PractitionerRole)
+      : undefined;
 
   const owner: ScheduleDTOOwner = {
     type: ownerResource.resourceType,
@@ -164,6 +169,7 @@ const performEffect = (
     hoursOfOperation: (ownerResource as Location)?.hoursOfOperation,
     isVirtual,
     healthcareServiceIds,
+    allCategories,
     locationId,
     displayName,
     stripeAccountId,

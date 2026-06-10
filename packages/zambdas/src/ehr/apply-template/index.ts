@@ -535,6 +535,14 @@ export const makeCreateRequests = (
     ) {
       const isDuplicate = isDuplicateDiagnosis(resourceToCreate, encounterDiagnosesConditions);
 
+      if (isDuplicate && isClaimedByProcedure && containedResource.id) {
+        const existingCondition = encounterDiagnosesConditions.find((c) => isDuplicateDiagnosis(resourceToCreate, [c]));
+        if (existingCondition?.id) {
+          containedIdToNewFullUrl.set(containedResource.id, existingCondition.id);
+          continue;
+        }
+      }
+
       // we should only add to encounter diagnoses after a dedupe when appending, to ensure the template doesn't add Dx already on the chart
       if ((!isDuplicate && effectiveAction === 'append') || effectiveAction === 'overwrite') {
         const diagnosisToAdd = templateEncounterDiagnoses?.find((d) => {
