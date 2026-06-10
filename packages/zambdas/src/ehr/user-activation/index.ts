@@ -23,7 +23,10 @@ export const index = wrapHandler('user-activation', async (input: ZambdaInput): 
   const oystehr = createOystehrClient(oystehrToken, secrets);
   const fetchClient = createFetchClientWithOystehrAuth({ authToken: oystehrToken });
   let user = await oystehr.user.get({ id: userId });
-  console.log(`user before ${userActivationMode === 'activate' ? 'activating' : 'deactivating'}: `, JSON.stringify(user));
+  console.log(
+    `user before ${userActivationMode === 'activate' ? 'activating' : 'deactivating'}: `,
+    JSON.stringify(user)
+  );
 
   let response: UserActivationZambdaOutput = {};
   if (userActivationMode === 'activate') {
@@ -33,7 +36,10 @@ export const index = wrapHandler('user-activation', async (input: ZambdaInput): 
   }
 
   user = await oystehr.user.get({ id: userId });
-  console.log(`user after ${userActivationMode === 'activate' ? 'activating' : 'deactivating'}: `, JSON.stringify(user));
+  console.log(
+    `user after ${userActivationMode === 'activate' ? 'activating' : 'deactivating'}: `,
+    JSON.stringify(user)
+  );
 
   return {
     statusCode: 200,
