@@ -22,6 +22,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useCopyChartDataToFollowup } from 'src/features/visits/shared/components/patient/useCopyChartDataToFollowup';
 import { AddVisitPatientInformationCard } from 'src/features/visits/shared/components/staff-add-visit/AddVisitPatientInformationCard';
+import { useReasonForVisitOptions } from 'src/features/visits/shared/hooks/useReasonForVisitOptions';
 import {
   APIError,
   BOOKING_CONFIG,
@@ -30,7 +31,6 @@ import {
   CreateSlotParams,
   FollowUpOptions,
   getAppointmentDurationFromSlot,
-  getReasonForVisitOptionsForServiceCategory,
   GetScheduleRequestParams,
   GetScheduleResponse,
   getTimezone,
@@ -193,10 +193,16 @@ export default function AddPatient(): JSX.Element {
     setReasonForVisitAdditional('');
   }, [serviceCategory]);
 
-  // Scheduled follow-ups use a fixed follow-up-reason list instead of the service-category reasons.
+  // Scheduled follow-ups use a fixed follow-up-reason list instead of the
+  // service-category reasons. The per-service path goes through the shared
+  // hook so admin-managed FHIR categories surface their configured RFV
+  // options (the previous synchronous helper only read BOOKING_CONFIG).
+  // The hook is called unconditionally to satisfy the rules of hooks; it
+  // short-circuits internally when the code is in BOOKING_CONFIG or absent.
+  const serviceCategoryRfvOptions = useReasonForVisitOptions(serviceCategory ?? '');
   const reasonForVisitOptions = isScheduledFollowUp
     ? SCHEDULED_FOLLOWUP_REASONS.map((reason) => ({ value: reason, label: reason }))
-    : getReasonForVisitOptionsForServiceCategory(serviceCategory ?? '');
+    : serviceCategoryRfvOptions;
   const isOtherFollowUpReason = isScheduledFollowUp && reasonForVisit === SCHEDULED_FOLLOWUP_OTHER_REASON;
   const shouldShowReasonForVisitFields = useMemo(() => {
     return showFields !== 'initialPatientSearch' && reasonForVisitOptions.length > 0;
