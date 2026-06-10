@@ -1,12 +1,13 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
-import { getOrCreateCandidApiClient, MISSING_REQUEST_SECRETS } from 'utils';
+import { chooseJson, getOrCreateCandidApiClient, getSecret, MISSING_REQUEST_SECRETS, SecretsKeys } from 'utils';
 import {
   CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM,
   createEncounterFromAppointment,
   createOystehrClient,
   getAuth0Token,
+  sendErrors,
   shouldSendClaim,
   shouldUseCandid,
   shouldUseOttehrBilling,
@@ -106,7 +107,18 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         }
         // no else, these are not mutually exclusive
         if (shouldUseOttehrBilling(secrets)) {
-          // currently a no op
+          try {
+            const response = await oystehr.zambda.execute({
+              id: 'create-billing-claim-from-encounter',
+              encounterId: encounter.id,
+            });
+            const { claimId } = chooseJson<{ claimId: string }>(response);
+            console.log(`Claim ${claimId} created in Ottehr Billing`);
+          } catch (err) {
+            // for now, do not prevent task completion
+            console.error(err);
+            void sendErrors(err, getSecret(SecretsKeys.ENVIRONMENT, secrets));
+          }
         }
       }
 
