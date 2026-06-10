@@ -33,7 +33,7 @@ export const index = wrapHandler('user-activation', async (input: ZambdaInput): 
   }
 
   user = await oystehr.user.get({ id: userId });
-  console.log(`user after ${userActivationMode}ing: `, JSON.stringify(user));
+  console.log(`user after ${userActivationMode === 'activate' ? 'activating' : 'deactivating'}: `, JSON.stringify(user));
 
   return {
     statusCode: 200,
