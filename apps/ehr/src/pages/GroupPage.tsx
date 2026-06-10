@@ -28,6 +28,7 @@ import { Link, useParams } from 'react-router-dom';
 import { listServiceCategories } from 'src/api/api';
 import CustomBreadcrumbs from 'src/components/CustomBreadcrumbs';
 import {
+  BOOKING_CONFIG,
   getAllFhirSearchPages,
   getGroupAllLocations,
   getGroupAssignmentMode,
@@ -102,10 +103,22 @@ function GroupPageContent(): ReactElement {
     },
     enabled: !!oystehrZambda,
   });
-  // Quick lookup: HealthcareService.id → category metadata. Derived inside
-  // useMemo so the dependency is stable across renders.
+  // Lookup: synthetic-id → category metadata. Keys are FHIR HealthcareService
+  // ids (UUIDs) for runtime-registered categories and category codes (kebab
+  // slugs) for BOOKING_CONFIG entries. The two namespaces don't collide.
+  // Why merge: the group's `type[]` allow-list stores codes, and BOOKING_CONFIG
+  // codes (urgent-care, workers-comp, …) are valid entries — if we keyed the
+  // catalog on FHIR ids only, hydration would silently drop those codes and
+  // the booking-links section would render empty for any group that allow-
+  // listed a compiled-in category. Same merge pattern as
+  // ServiceCategoriesAdminPage.
+  //
+  // Each entry carries a `source`: PR.healthcareService correlation (the
+  // "offered at this location" check below) only applies to FHIR-backed
+  // entries — PRs reference real HealthcareService ids, never compiled-in
+  // codes. Code-keyed BOOKING_CONFIG entries are implicitly offered everywhere
+  // by every provider; the correlation skips them.
   const categoryByHsId = useMemo(() => {
-    const available = categoryData?.serviceCategories || [];
     const map = new Map<
       string,
       {
@@ -114,18 +127,39 @@ function GroupPageContent(): ReactElement {
         durationMinutes: number;
         serviceModes: Array<'in-person' | 'virtual'>;
         visitTypes: Array<'prebook' | 'walk-in'>;
+        source: 'booking-config' | 'fhir';
       }
     >();
-    for (const sc of available) {
-      if ((sc as any).id) {
-        map.set((sc as any).id, {
-          code: sc.code,
-          name: sc.name,
-          durationMinutes: (sc as any).config?.durationMinutes ?? 15,
-          serviceModes: ((sc as any).config?.serviceModes ?? ['in-person']) as Array<'in-person' | 'virtual'>,
-          visitTypes: ((sc as any).config?.visitTypes ?? ['prebook']) as Array<'prebook' | 'walk-in'>,
-        });
-      }
+    // BOOKING_CONFIG first: it's the source of truth on collision (admin-
+    // create-service-category rejects new FHIR records with a colliding code,
+    // but legacy data could still exist). Tracking the booking codes lets
+    // the FHIR loop skip any same-code entry instead of double-listing it.
+    const bookingCodes = new Set<string>();
+    for (const sc of BOOKING_CONFIG.serviceCategories) {
+      const code = sc.category.code;
+      if (!code) continue;
+      bookingCodes.add(code);
+      map.set(code, {
+        code,
+        name: sc.category.display || code,
+        durationMinutes: 15,
+        serviceModes: sc.serviceModes as Array<'in-person' | 'virtual'>,
+        visitTypes: sc.visitTypes as Array<'prebook' | 'walk-in'>,
+        source: 'booking-config',
+      });
+    }
+    for (const sc of categoryData?.serviceCategories || []) {
+      const id = (sc as any).id;
+      if (!id) continue;
+      if (bookingCodes.has(sc.code)) continue; // BOOKING_CONFIG wins; don't duplicate.
+      map.set(id, {
+        code: sc.code,
+        name: sc.name,
+        durationMinutes: (sc as any).config?.durationMinutes ?? 15,
+        serviceModes: ((sc as any).config?.serviceModes ?? ['in-person']) as Array<'in-person' | 'virtual'>,
+        visitTypes: ((sc as any).config?.visitTypes ?? ['prebook']) as Array<'prebook' | 'walk-in'>,
+        source: 'fhir',
+      });
     }
     return map;
   }, [categoryData]);
@@ -654,18 +688,29 @@ function GroupPageContent(): ReactElement {
                     const targetLocationIdSet = allLocations
                       ? new Set((locations || []).map((l) => l.id).filter((id): id is string => !!id))
                       : new Set(selectedLocationIds);
+                    // BOOKING_CONFIG categories have no provider-level opt-in
+                    // (no FHIR HS for PR.healthcareService to reference), so
+                    // we skip the FHIR correlation and list all selected
+                    // locations instead.
                     const offeringLocationNames = new Set<string>();
-                    for (const role of practitionerRoles || []) {
-                      if (role.active === false) continue;
-                      const offers = role.healthcareService?.some(
-                        (ref) => ref.reference === `HealthcareService/${hsId}`
-                      );
-                      if (!offers) continue;
-                      for (const locRef of role.location || []) {
-                        const locId = locRef.reference?.split('/')[1];
-                        if (!locId || !targetLocationIdSet.has(locId)) continue;
+                    if (info.source === 'booking-config') {
+                      for (const locId of targetLocationIdSet) {
                         const loc = (locations || []).find((l) => l.id === locId);
                         if (loc?.name) offeringLocationNames.add(loc.name);
+                      }
+                    } else {
+                      for (const role of practitionerRoles || []) {
+                        if (role.active === false) continue;
+                        const offers = role.healthcareService?.some(
+                          (ref) => ref.reference === `HealthcareService/${hsId}`
+                        );
+                        if (!offers) continue;
+                        for (const locRef of role.location || []) {
+                          const locId = locRef.reference?.split('/')[1];
+                          if (!locId || !targetLocationIdSet.has(locId)) continue;
+                          const loc = (locations || []).find((l) => l.id === locId);
+                          if (loc?.name) offeringLocationNames.add(loc.name);
+                        }
                       }
                     }
                     const locationsText =
