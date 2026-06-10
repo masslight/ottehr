@@ -189,6 +189,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       return false;
     }
 
+    // 'all' → every encounter that has an appointment in range, regardless of visit status
+    // (used by ad-hoc reporting, which wants the full dataset to slice however the user asks).
+    if (encounterStatus === 'all') {
+      return true;
+    }
+
     // Get visit status
     const visitStatus = getInPersonVisitStatus(appointment, encounter, true);
 

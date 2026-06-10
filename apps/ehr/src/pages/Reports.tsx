@@ -2,6 +2,7 @@ import AssessmentIcon from '@mui/icons-material/Assessment';
 import AssignmentLateIcon from '@mui/icons-material/AssignmentLate';
 import AssignmentTurnedInIcon from '@mui/icons-material/AssignmentTurnedIn';
 import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
+import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import InsightsIcon from '@mui/icons-material/Insights';
 import MailOutlineIcon from '@mui/icons-material/MailOutline';
 import PeopleIcon from '@mui/icons-material/People';
@@ -113,6 +114,13 @@ const REPORT_TILES: ReportTileConfig[] = [
     description: 'View encounters with AI-generated documentation and assistant interactions',
     icon: <PsychologyIcon />,
     path: '/reports/ai-assisted-encounters',
+    adminOnly: true,
+  },
+  {
+    title: 'Ad-Hoc Report',
+    description: 'Describe a report in plain language and the AI generates it over the encounters dataset',
+    icon: <AutoAwesomeIcon />,
+    path: '/reports/ad-hoc',
     adminOnly: true,
   },
   {

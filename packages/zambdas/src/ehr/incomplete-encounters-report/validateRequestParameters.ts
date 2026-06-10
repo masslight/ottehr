@@ -27,8 +27,13 @@ export function validateRequestParameters(
     throw new Error('dateRange.end must be a valid ISO date string');
   }
 
-  if (encounterStatus && encounterStatus !== 'incomplete' && encounterStatus !== 'complete') {
-    throw new Error("encounterStatus must be 'incomplete' or 'complete'");
+  if (
+    encounterStatus &&
+    encounterStatus !== 'incomplete' &&
+    encounterStatus !== 'complete' &&
+    encounterStatus !== 'all'
+  ) {
+    throw new Error("encounterStatus must be 'incomplete', 'complete', or 'all'");
   }
 
   if (!input.secrets) {

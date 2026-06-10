@@ -1,4 +1,4 @@
-export type EncounterStatusFilter = 'incomplete' | 'complete';
+export type EncounterStatusFilter = 'incomplete' | 'complete' | 'all';
 
 export interface IncompleteEncountersReportZambdaInput {
   dateRange: {

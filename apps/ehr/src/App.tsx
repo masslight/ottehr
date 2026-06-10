@@ -56,6 +56,7 @@ import PatientsPage from './pages/Patients';
 import PaymentLocationDetailPage from './pages/PaymentLocationDetailPage';
 import Reports from './pages/Reports';
 import {
+  AdHocReport,
   AiAssistedEncounters,
   CompleteEncounters,
   DailyPayments,
@@ -220,6 +221,7 @@ function App(): ReactElement {
             {currentUser?.hasRole([RoleType.Administrator]) && (
               <>
                 <Route path="/reports/ai-assisted-encounters" element={<AiAssistedEncounters />} />
+                <Route path="/reports/ad-hoc" element={<AdHocReport />} />
                 <Route path="/reports/practice-kpis" element={<PracticeKpis />} />
                 <Route path="/reports/data-exports" element={<DataExports />} />
                 <Route path="/reports/invoiceable-patients" element={<InvoiceablePatientsReportPage />} />
