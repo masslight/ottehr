@@ -360,5 +360,48 @@ describe('admin-create-practitioner-role + admin-update-practitioner-role — al
       expect(err.code).toBe('PRACTITIONER_SCHEDULE_CONFLICT');
       expect(err.message ?? '').toContain(cat.name ?? '');
     });
+
+    // `healthcareService[]` is overloaded — it carries service-category refs
+    // *and* group-membership refs. Only the former count toward conflict
+    // overlap. Without filtering, a PR that's only a group member (and offers
+    // no real categories) would falsely block an allCategories PR at the same
+    // location.
+    it('ignores non-service-category healthcareService refs on the other PR when checking overlap', async () => {
+      const sharedLocation = await makeFreshLocation();
+
+      // Create a non-category HS — no SERVICE_CATEGORY_TAG, no category tag.
+      // Mimics a group-membership-style HS reference that may live on a PR.
+      const nonCategoryHs = await oystehrAdmin.fhir.create<HealthcareService>({
+        resourceType: 'HealthcareService',
+        active: true,
+        name: `pr-conflict-noncat-${randomUUID().slice(0, 8)}`,
+        meta: { tag: [{ system: INTEGRATION_TEST_TAG_SYSTEM, code: `DELETE_ME-${processId}` }] },
+      });
+      assert(nonCategoryHs.id);
+      createdServiceCategoryIds.push(nonCategoryHs.id);
+
+      // Existing PR: at sharedLocation, no allCategories, only references the
+      // non-category HS. The conflict check should treat this as "offers
+      // nothing" — its single ref isn't a service category.
+      const existingRole = await oystehrAdmin.fhir.create<PractitionerRole>({
+        resourceType: 'PractitionerRole',
+        active: true,
+        practitioner: { reference: `Practitioner/${testPractitioner.id}` },
+        location: [{ reference: `Location/${sharedLocation.id}` }],
+        healthcareService: [{ reference: `HealthcareService/${nonCategoryHs.id}` }],
+        meta: { tag: [{ system: INTEGRATION_TEST_TAG_SYSTEM, code: `DELETE_ME-${processId}` }] },
+      });
+      assert(existingRole.id);
+      createdPrIds.push(existingRole.id);
+
+      // New PR: allCategories=true at the same location. Without the filter,
+      // the existing PR's non-category ref would count as a service offer and
+      // we'd false-positive a conflict. With the filter, this should succeed.
+      const { role } = await callCreate({
+        allCategories: true,
+        locationId: sharedLocation.id!,
+      });
+      assert(role.id);
+    });
   });
 });

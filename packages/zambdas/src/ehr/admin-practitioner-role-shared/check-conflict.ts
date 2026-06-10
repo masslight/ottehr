@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { HealthcareService, PractitionerRole } from 'fhir/r4b';
-import { getPractitionerRoleAllCategories } from 'utils';
+import { getPractitionerRoleAllCategories, isServiceCategoryHealthcareService } from 'utils';
 
 export interface PractitionerRoleConflict {
   /**
@@ -44,6 +44,14 @@ export interface PractitionerRoleConflict {
  *     (specific cats OR the toggle).
  *   - other.allCategories=true overlaps any candidate that offers anything.
  *   - both falsy + empty arrays → no conflict possible.
+ *
+ * `PractitionerRole.healthcareService[]` may also carry non-service-category
+ * refs (e.g., group-membership HSes). Only refs that resolve to
+ * service-category HealthcareServices count toward overlap — otherwise a PR
+ * that offers no real categories but happens to be in a group would
+ * incorrectly block an allCategories PR at the same location. We resolve
+ * referenced HSes inline via `_include` and discriminate with
+ * `isServiceCategoryHealthcareService`.
  */
 export async function checkPractitionerRoleConflict(
   oystehr: Oystehr,
@@ -62,16 +70,38 @@ export async function checkPractitionerRoleConflict(
   // Candidate that offers nothing can't conflict with anyone.
   if (!candidate.allCategories && candidate.categoryHsIds.length === 0) return null;
 
-  // Active PRs for this practitioner. Cheap query — most providers have
-  // single-digit PR counts. Inactive (soft-deleted) PRs aren't candidates.
-  const bundle = await oystehr.fhir.search<PractitionerRole>({
+  // Active PRs for this practitioner, with their HealthcareServices included
+  // inline so we can discriminate category-HSes from group/other refs in the
+  // same round-trip. Cheap query — most providers have single-digit PR counts.
+  // Inactive (soft-deleted) PRs aren't candidates.
+  const bundle = await oystehr.fhir.search<PractitionerRole | HealthcareService>({
     resourceType: 'PractitionerRole',
     params: [
       { name: 'practitioner', value: candidate.practitionerRef },
       { name: 'active', value: 'true' },
+      { name: '_include', value: 'PractitionerRole:service' },
     ],
   });
-  const others = bundle.unbundle().filter((pr) => pr.id !== candidate.id);
+  const resources = bundle.unbundle();
+
+  // Split the mixed bundle and build a category-HS id set + a name map for
+  // error-message resolution. Only HSes that actually pass the category
+  // classifier go in; non-category refs (groups, etc.) are excluded so they
+  // can't drive conflict logic. Pre-seeded names from the caller win when the
+  // included HS lacks a display name.
+  const others: PractitionerRole[] = [];
+  const categoryHsIds = new Set<string>();
+  const nameById = new Map<string, string>(options.categoryNameById ?? []);
+  for (const r of resources) {
+    if (r.resourceType === 'PractitionerRole') {
+      if (r.id !== candidate.id) others.push(r);
+    } else if (r.resourceType === 'HealthcareService' && isServiceCategoryHealthcareService(r)) {
+      if (r.id) {
+        categoryHsIds.add(r.id);
+        if (!nameById.has(r.id)) nameById.set(r.id, r.name ?? r.id);
+      }
+    }
+  }
 
   const candidateCategorySet = new Set(candidate.categoryHsIds);
 
@@ -82,47 +112,24 @@ export async function checkPractitionerRoleConflict(
     const otherAllCategories = getPractitionerRoleAllCategories(other);
     const otherCategoryIds = (other.healthcareService ?? [])
       .map((ref) => ref.reference?.split('/')[1])
-      .filter((id): id is string => !!id);
+      .filter((id): id is string => !!id && categoryHsIds.has(id));
 
     // Other offers nothing → can't conflict with whatever candidate offers.
     if (!otherAllCategories && otherCategoryIds.length === 0) continue;
 
     // Compute the overlap. Three "any" combinations short-circuit; the
-    // fall-through is the specific-vs-specific intersection. The set of
-    // category IDs that need display names depends on which branch fires.
-    let conflictingIds: string[] | null = null;
+    // fall-through is the specific-vs-specific intersection.
     let conflictingNames: string[];
     if (candidate.allCategories && otherAllCategories) {
       conflictingNames = ['All services'];
     } else if (candidate.allCategories) {
-      // Candidate's "any" overlaps every concrete category other has. Names
-      // for these IDs likely aren't in the caller's map (the caller only
-      // knows about the candidate's own cat IDs), so we'll resolve them
-      // below if not already present.
-      conflictingIds = otherCategoryIds;
-      conflictingNames = [];
+      conflictingNames = otherCategoryIds.map((id) => nameById.get(id) ?? id);
     } else if (otherAllCategories) {
       conflictingNames = ['All services'];
     } else {
       const overlapping = otherCategoryIds.filter((id) => candidateCategorySet.has(id));
       if (overlapping.length === 0) continue;
-      conflictingIds = overlapping;
-      conflictingNames = [];
-    }
-
-    if (conflictingIds) {
-      const missingIds = conflictingIds.filter((id) => !options.categoryNameById?.has(id));
-      const nameById = new Map(options.categoryNameById ?? []);
-      if (missingIds.length > 0) {
-        const hsBundle = await oystehr.fhir.search<HealthcareService>({
-          resourceType: 'HealthcareService',
-          params: [{ name: '_id', value: missingIds.join(',') }],
-        });
-        for (const hs of hsBundle.unbundle()) {
-          if (hs.id) nameById.set(hs.id, hs.name ?? hs.id);
-        }
-      }
-      conflictingNames = conflictingIds.map((id) => nameById.get(id) ?? id);
+      conflictingNames = overlapping.map((id) => nameById.get(id) ?? id);
     }
 
     return {
