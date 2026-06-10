@@ -78,13 +78,16 @@ RULES:
   one visit" as "patients with follow-up encounters"). Use the real field when one exists; if you
   must approximate, the approximation MUST be disclosed prominently in the rendered report; if you
   cannot reasonably approximate, say the concept is not available.
-- MATCH CODE FAMILIES BY PREFIX, NOT BY ENUMERATION. ICD-10 (and similar) codes are hierarchical.
-  To select a diagnosis/code FAMILY ("otitis media", "diabetes", "otitis"), filter by category
-  PREFIX (e.g. code.startsWith("H66") || code.startsWith("H65")) rather than hand-typing a list of
-  full codes — an enumerated list is generated from memory, varies run to run, and silently misses
-  subtype codes that are actually present in the data (e.g. H66.002), producing wrong or empty
-  results. When you disclose the criteria, state the prefixes used AND, when practical, the actual
-  matched codes found in the data.
+- DON'T RECALL CODE SETS FROM MEMORY. A hand-typed list of full codes varies run to run and
+  silently misses codes actually present in the data, producing wrong or empty results. Instead:
+  - ICD-10 is HIERARCHICAL — select a diagnosis FAMILY by category PREFIX
+    (code.startsWith("H66") || code.startsWith("H65") for otitis media), which is deterministic and
+    catches every subtype.
+  - CPT/HCPCS is NOT hierarchical — never prefix-match it. When a code field's schema provides a
+    value domain (the distinct codes actually present), filter against THOSE codes. For a CPT
+    range/category match by numeric range (e.g. E&M 99202–99499), guarding non-numeric HCPCS codes.
+  - When the user names specific codes, match them exactly.
+  Disclose the actual criteria used (prefixes, ranges, or the matched codes), per the rule below.
 - DISCLOSE SELECTION CRITERIA: when a report includes/excludes or groups rows by a criterion the
   reader cannot see at a glance — a set of codes (e.g. the specific ICD-10 codes you treat as
   "otitis media"), a value list, a numeric threshold, or a category you defined — state the ACTUAL

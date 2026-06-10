@@ -5,6 +5,12 @@ import { AdHocRow, DatasetSchema, FieldSchema, FieldType } from './types';
 // patient name as a "value domain".
 const MAX_DISTINCT_VALUES = 50;
 
+// Multi-valued CODE columns (ICD-10 / CPT arrays) get a much higher cap: the distinct set is
+// bounded and clinically meaningful, and showing the model the codes ACTUALLY present lets it
+// filter against real values instead of recalling a code list from memory (which is fragile —
+// see the otitis prefix fix). A few hundred short codes is cheap.
+const MAX_DISTINCT_CODE_VALUES = 500;
+
 export interface FieldDef {
   name: string;
   type: FieldType;
@@ -35,7 +41,7 @@ export function buildSchema(
       // across all rows' array elements.
       const flattened = present.flatMap((v) => (Array.isArray(v) ? v.map((x) => String(x)) : []));
       const distinct = [...new Set(flattened)];
-      if (distinct.length > 0 && distinct.length <= MAX_DISTINCT_VALUES) {
+      if (distinct.length > 0 && distinct.length <= MAX_DISTINCT_CODE_VALUES) {
         field.values = distinct.sort();
       }
     } else if (def.type === 'number') {

@@ -57,8 +57,12 @@ const FIELDS: FieldDef[] = [
     name: 'cptCodes',
     type: 'string[]',
     description:
-      'CPT procedure/billing codes charted on the visit, e.g. ["96372","J1885"]. Excludes the E&M code ' +
-      '(see emCode). Empty array when none were charted.',
+      'CPT/HCPCS procedure/billing codes charted on the visit, e.g. ["96372","J1885"]. Excludes the E&M ' +
+      'code (see emCode). Empty array when none were charted. Unlike ICD-10, CPT/HCPCS are NOT ' +
+      "hierarchical — do NOT prefix-match. The distinct codes present are listed in this field's " +
+      'value domain: filter against THOSE actual codes, not a list recalled from memory. For a code ' +
+      'RANGE/category (e.g. E&M 99202–99499, vaccines 90460–90474) match by numeric range, guarding ' +
+      'non-numeric HCPCS codes (e.g. J/G/A/U/M/T codes) which have no numeric range.',
   },
   {
     name: 'emCode',
