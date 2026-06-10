@@ -134,11 +134,16 @@ export default function PatientsList(): ReactElement {
   return (
     <Box sx={{ p: 0 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h4" color="primary.dark" fontWeight={600}>
-          Patients
-        </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1.5 }}>
+          <Typography variant="h4" color="primary.dark" fontWeight={600}>
+            Patients
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            {total} total
+          </Typography>
+        </Box>
         <Button variant="contained" startIcon={<AddIcon />} onClick={() => setAddOpen(true)}>
-          Add Patient
+          Add patient
         </Button>
       </Box>
 

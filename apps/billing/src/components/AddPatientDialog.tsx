@@ -1,3 +1,4 @@
+import { Close as CloseIcon } from '@mui/icons-material';
 import {
   Alert,
   Box,
@@ -6,6 +7,8 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  Divider,
+  IconButton,
   MenuItem,
   Select,
   SxProps,
@@ -23,11 +26,29 @@ interface AddPatientDialogProps {
   onCreated: () => void;
 }
 
-function Field({ label, children, sx }: { label: string; children: ReactNode; sx?: SxProps<Theme> }): ReactElement {
+function Field({
+  label,
+  optional,
+  children,
+  sx,
+}: {
+  label: string;
+  optional?: boolean;
+  children: ReactNode;
+  sx?: SxProps<Theme>;
+}): ReactElement {
   return (
     <Box sx={sx}>
-      <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mb: 0.5 }}>
+      <Typography
+        variant="body2"
+        sx={{ color: 'text.primary', fontSize: 13, fontWeight: 500, display: 'block', mb: 0.75 }}
+      >
         {label}
+        {optional && (
+          <Box component="span" sx={{ color: 'text.secondary', fontWeight: 400 }}>
+            {' · optional'}
+          </Box>
+        )}
       </Typography>
       {children}
     </Box>
@@ -101,26 +122,40 @@ export function AddPatientDialog({ open, onClose, onCreated }: AddPatientDialogP
   };
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth={false} PaperProps={{ sx: { width: 760, maxWidth: '95vw' } }}>
-      <DialogTitle sx={{ fontWeight: 700 }}>Add Patient</DialogTitle>
-      <DialogContent>
+    <Dialog open={open} onClose={onClose} maxWidth={false} PaperProps={{ sx: { width: 480, maxWidth: '95vw' } }}>
+      <DialogTitle sx={{ px: 3, pt: 3, pb: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        Add patient
+        <IconButton size="small" onClick={onClose} aria-label="Close">
+          <CloseIcon fontSize="small" />
+        </IconButton>
+      </DialogTitle>
+      <DialogContent sx={{ px: 3, pb: 0 }}>
         {error && (
           <Alert severity="error" sx={{ mb: 2 }}>
             {error}
           </Alert>
         )}
-        <Box sx={{ display: 'flex', gap: 5, mt: 1 }}>
-          <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 2.5 }}>
-            <Field label="First Name">
-              <TextField size="small" fullWidth value={firstName} onChange={(e) => setFirstName(e.target.value)} />
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.25, mt: 0.5 }}>
+          <Box sx={{ display: 'flex', gap: 2 }}>
+            <Field label="First name" sx={{ flex: 1 }}>
+              <TextField
+                size="small"
+                fullWidth
+                autoFocus
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+              />
             </Field>
-            <Field label="Last Name">
+            <Field label="Last name" sx={{ flex: 1 }}>
               <TextField size="small" fullWidth value={lastName} onChange={(e) => setLastName(e.target.value)} />
             </Field>
-            <Field label="Date of Birth">
+          </Box>
+
+          <Box sx={{ display: 'flex', gap: 2 }}>
+            <Field label="Date of birth" sx={{ flex: 1 }}>
               <TextField size="small" fullWidth type="date" value={dob} onChange={(e) => setDob(e.target.value)} />
             </Field>
-            <Field label="Gender">
+            <Field label="Gender" sx={{ flex: 1 }}>
               <Select
                 size="small"
                 fullWidth
@@ -143,49 +178,64 @@ export function AddPatientDialog({ open, onClose, onCreated }: AddPatientDialogP
                 <MenuItem value="unknown">Unknown</MenuItem>
               </Select>
             </Field>
-            <Field label="Phone Number">
-              <TextField size="small" fullWidth value={phone} onChange={(e) => setPhone(e.target.value)} />
-            </Field>
           </Box>
 
-          <Box
-            sx={{
-              flex: 1,
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 2.5,
-              borderLeft: 1,
-              borderColor: 'divider',
-              pl: 5,
-            }}
-          >
-            <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+          <Field label="Phone number" optional>
+            <TextField
+              size="small"
+              fullWidth
+              placeholder="(555) 000-0000"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+            />
+          </Field>
+
+          <Divider textAlign="left">
+            <Typography
+              variant="body2"
+              sx={{
+                color: 'text.secondary',
+                fontSize: 12,
+                fontWeight: 500,
+                letterSpacing: '0.04em',
+                textTransform: 'uppercase',
+              }}
+            >
               Address
             </Typography>
-            <Field label="Address 1">
-              <TextField size="small" fullWidth value={line1} onChange={(e) => setLine1(e.target.value)} />
-            </Field>
-            <Field label="Address 2 (Optional)">
-              <TextField size="small" fullWidth value={line2} onChange={(e) => setLine2(e.target.value)} />
-            </Field>
-            <Field label="City">
+          </Divider>
+
+          <Field label="Address line 1">
+            <TextField size="small" fullWidth value={line1} onChange={(e) => setLine1(e.target.value)} />
+          </Field>
+          <Field label="Address line 2" optional>
+            <TextField size="small" fullWidth value={line2} onChange={(e) => setLine2(e.target.value)} />
+          </Field>
+          <Box sx={{ display: 'flex', gap: 2 }}>
+            <Field label="City" sx={{ flex: 2 }}>
               <TextField size="small" fullWidth value={city} onChange={(e) => setCity(e.target.value)} />
             </Field>
-            <Box sx={{ display: 'flex', gap: 2 }}>
-              <Field label="State" sx={{ flex: 1 }}>
-                <TextField size="small" fullWidth value={state} onChange={(e) => setState(e.target.value)} />
-              </Field>
-              <Field label="Zip Code" sx={{ flex: 1 }}>
-                <TextField size="small" fullWidth value={zip} onChange={(e) => setZip(e.target.value)} />
-              </Field>
-            </Box>
+            <Field label="State" sx={{ flex: 1 }}>
+              <TextField
+                size="small"
+                fullWidth
+                value={state}
+                onChange={(e) => setState(e.target.value)}
+                inputProps={{ maxLength: 2, style: { textTransform: 'uppercase' } }}
+              />
+            </Field>
+            <Field label="ZIP" sx={{ flex: 1 }}>
+              <TextField size="small" fullWidth value={zip} onChange={(e) => setZip(e.target.value)} />
+            </Field>
           </Box>
         </Box>
       </DialogContent>
-      <DialogActions sx={{ px: 3, pb: 2 }}>
-        <Button onClick={onClose}>Cancel</Button>
+      <DialogActions sx={{ px: 3, py: 2.5 }}>
+        <Button onClick={onClose} sx={{ color: 'text.secondary' }}>
+          Cancel
+        </Button>
         <Button variant="contained" onClick={() => void handleSave()} disabled={saving || !canSave}>
-          {saving ? 'Saving...' : 'Save'}
+          {saving ? 'Saving...' : 'Save patient'}
         </Button>
       </DialogActions>
     </Dialog>
