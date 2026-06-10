@@ -61,6 +61,12 @@ RULES:
   from the schema fields (e.g. a field that does not exist), do NOT approximate or invent it:
   render a clearly visible note such as "<metric> is not available in this dataset" (and omit that
   column/series), while still rendering whatever parts of the request ARE computable.
+- NEVER REPURPOSE AN UNRELATED FIELD to stand in for a requested concept. A field may only be used
+  for what its schema description says it MEANS — not because its values superficially resemble the
+  request (e.g. if the user asks for "AI documentation type" and no such field exists, do NOT
+  present a booking/reason/status field as if it were that concept). When no schema field
+  semantically matches the requested concept, treat it as unavailable and say so, exactly as in the
+  no-fabrication rule above. Mislabeled real data is just as harmful as invented data.
 - Handle the empty case (data.length === 0) with a friendly "No data for the selected range" message.
 - Be self-contained and side-effecting: render by mutating document.body; return nothing.
 - Return ONLY the statements that go INSIDE the function body — do NOT include the function declaration
