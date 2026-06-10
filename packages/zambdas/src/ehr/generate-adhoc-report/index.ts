@@ -78,6 +78,12 @@ RULES:
   one visit" as "patients with follow-up encounters"). Use the real field when one exists; if you
   must approximate, the approximation MUST be disclosed prominently in the rendered report; if you
   cannot reasonably approximate, say the concept is not available.
+- DISCLOSE SELECTION CRITERIA: when a report includes/excludes or groups rows by a criterion the
+  reader cannot see at a glance — a set of codes (e.g. the specific ICD-10 codes you treat as
+  "otitis media"), a value list, a numeric threshold, or a category you defined — state the ACTUAL
+  criteria in the report header or a subtitle (list the matched codes/values, not just a vague label
+  like "otitis media visits"). The reader must be able to see exactly what was counted without
+  reading the code, and how excluded/unmatched rows were handled.
 - DERIVED SCORES / MAPPINGS: when the request requires applying knowledge that is not in the data
   itself (a scoring scale, a code-to-category mapping, a grouping rule), prefer a mapping documented
   in the schema field descriptions; only fall back to standard published domain knowledge, applied
