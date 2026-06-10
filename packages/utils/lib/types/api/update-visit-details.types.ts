@@ -1,7 +1,6 @@
 import { Attachment, Reference } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { z } from 'zod';
-import { getServiceCategoryCodings } from '../../config-helpers/booking';
 import { isValidUUID } from '../../validation';
 import { REASON_ADDITIONAL_MAX_CHAR } from '../../validation/constants';
 import {
@@ -77,11 +76,6 @@ const patientNameSchema = z
     message: 'patientName must have a non-empty last name',
   });
 
-const serviceCategorySchema = z.string().refine(
-  (value) => getServiceCategoryCodings().some((coding) => coding.code === value),
-  (value) => ({ message: `serviceCategory, "${value}", is not a valid option` })
-);
-
 export const BookingDetailsSchema = z
   .object({
     reasonForVisit: z.string().optional(),
@@ -94,7 +88,7 @@ export const BookingDetailsSchema = z
         consentAttested: z.boolean(),
       })
       .optional(),
-    serviceCategory: serviceCategorySchema.optional(),
+    serviceCategory: z.string().optional(),
     visitOccupationalMedicineEmployer: z.union([FhirOrganizationReferenceSchema, z.null()]).optional(),
   })
   .refine(

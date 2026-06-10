@@ -1,10 +1,10 @@
 import { Coding } from 'fhir/r4b';
 import {
-  getServiceCategoryCodings,
   INVALID_INPUT_ERROR,
   MISSING_REQUEST_BODY,
   NOT_AUTHORIZED,
   Secrets,
+  SERVICE_CATEGORY_SYSTEM,
   UpdateVisitDetailsRequest,
   UpdateVisitDetailsRequestSchema,
 } from 'utils';
@@ -39,8 +39,8 @@ export const validateRequestParameters = (input: ZambdaInput): UpdateVisitDetail
 
   const { serviceCategory, ...restBookingDetails } = request.bookingDetails;
 
-  const serviceCategoryCoding = serviceCategory
-    ? getServiceCategoryCodings().find((coding) => coding.code === serviceCategory)
+  const serviceCategoryCoding: Coding | undefined = serviceCategory
+    ? { system: SERVICE_CATEGORY_SYSTEM, code: serviceCategory }
     : undefined;
 
   return {
