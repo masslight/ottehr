@@ -52,7 +52,6 @@ import {
   MeetingData,
   ProcedureDetail,
   PromiseReturnType,
-  tagEncounterAsErxSynced,
   UpdateMedicationOrderInput,
 } from 'utils';
 import { useErrorQuery, useSuccessQuery } from 'utils/lib/frontend';
@@ -725,13 +724,6 @@ export const useSyncERXPatient = ({
         } catch (err) {
           console.error('Error during syncing erx patient: ', err);
           throw err;
-        }
-
-        try {
-          await tagEncounterAsErxSynced(oystehr, encounter);
-        } catch (tagErr) {
-          // it's fine if it fails, it'll just try syncing again later
-          console.error('Failed to tag encounter as erx-synced: ', tagErr);
         }
         return true;
       }

@@ -4,6 +4,11 @@ import { DateTime } from 'luxon';
 import Stripe from 'stripe';
 import { Secrets } from 'utils';
 import { getStripeClient } from '../../../../shared';
+import {
+  getOrCreateOutreachConfig,
+  parseConfiguredAt,
+  parsePlanDefinitionToActions,
+} from '../../../scheduled-outreach-config/helpers';
 import { OUTREACH_TASK_TAG_SYSTEM, produceOutreachTasks } from './produce-outreach-tasks';
 
 export interface ProduceInvoiceDueOutreachResult {
@@ -29,7 +34,18 @@ export async function produceInvoiceDueOutreach(
   const today = DateTime.now().startOf('day');
   const todayUnix = Math.floor(today.toSeconds());
 
-  const pastDueInvoices = await findPastDueStripeInvoices(stripe, todayUnix);
+  // Calculate earliest eligible due date to prevent retroactive outreach for old invoices.
+  // Uses the PlanDefinition's immutable configuredAt minus the max configured offset as the cutoff.
+  const earliestDueDateUnix = await calculateEarliestEligibleDueDate(oystehr);
+  if (earliestDueDateUnix) {
+    console.log(
+      `produceInvoiceDueOutreach: Only processing invoices with due_date >= ${DateTime.fromSeconds(
+        earliestDueDateUnix
+      ).toISODate()}`
+    );
+  }
+
+  const pastDueInvoices = await findPastDueStripeInvoices(stripe, todayUnix, earliestDueDateUnix);
 
   console.log(`produceInvoiceDueOutreach: Found ${pastDueInvoices.length} past-due Stripe invoices to evaluate`);
 
@@ -106,18 +122,59 @@ export async function produceInvoiceDueOutreach(
 }
 
 /**
+ * Calculate the earliest eligible invoice due date based on the PlanDefinition's immutable
+ * activation date (configuredAt) minus the maximum configured offset.
+ * This prevents the system from retroactively processing old invoices that existed
+ * before outreach was configured. We deliberately use the immutable configuredAt stamp rather
+ * than meta.lastUpdated, which would move the cutoff forward on every config edit and silently
+ * exclude older-but-still-open invoices. Legacy configs without the stamp fall back to lastUpdated.
+ */
+async function calculateEarliestEligibleDueDate(oystehr: Oystehr): Promise<number | undefined> {
+  try {
+    const planDefinition = await getOrCreateOutreachConfig(oystehr);
+    const activationTimestamp = parseConfiguredAt(planDefinition) ?? planDefinition.meta?.lastUpdated;
+    if (!activationTimestamp) return undefined;
+
+    // Find the maximum offset across all invoice-due actions
+    const actions = parsePlanDefinitionToActions(planDefinition);
+    const invoiceDueActions = actions.filter((a) => a.trigger.event === 'invoice-due');
+    const maxOffsetDays = Math.max(0, ...invoiceDueActions.map((a) => a.trigger.daysAfter));
+
+    // Earliest eligible = config activation date minus max offset
+    // This ensures an invoice due N days before activation can still trigger its day-N action
+    const activationDate = DateTime.fromISO(activationTimestamp).startOf('day');
+    const earliestEligible = activationDate.minus({ days: maxOffsetDays });
+
+    return Math.floor(earliestEligible.toSeconds());
+  } catch (err) {
+    console.warn('Could not calculate earliest eligible due date, processing all invoices:', err);
+    return undefined;
+  }
+}
+
+/**
  * Find Stripe invoices that are open and past their due date.
  * Paginates through all results using auto-pagination.
+ * @param dueDateGteUnix - Optional minimum due date to filter out old invoices
  */
-async function findPastDueStripeInvoices(stripe: Stripe, dueDateLteUnix: number): Promise<Stripe.Invoice[]> {
+async function findPastDueStripeInvoices(
+  stripe: Stripe,
+  dueDateLteUnix: number,
+  dueDateGteUnix?: number
+): Promise<Stripe.Invoice[]> {
   const invoices: Stripe.Invoice[] = [];
   let hasMore = true;
   let startingAfter: string | undefined;
 
+  const dueDateFilter: { lte: number; gte?: number } = { lte: dueDateLteUnix };
+  if (dueDateGteUnix) {
+    dueDateFilter.gte = dueDateGteUnix;
+  }
+
   while (hasMore) {
     const response = await stripe.invoices.list({
       status: 'open',
-      due_date: { lte: dueDateLteUnix },
+      due_date: dueDateFilter,
       limit: 100,
       starting_after: startingAfter,
     });
