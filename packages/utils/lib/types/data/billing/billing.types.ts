@@ -125,6 +125,13 @@ export interface PatientDetailResponse {
   phone: string;
   email: string;
   address: string;
+  addressParts: {
+    line1: string;
+    line2: string;
+    city: string;
+    state: string;
+    postalCode: string;
+  };
   friendlyId: string;
   active: boolean;
   // TODO: wire real balance from ClaimResponse/PaymentReconciliation

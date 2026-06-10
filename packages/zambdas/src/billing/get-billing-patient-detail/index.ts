@@ -32,6 +32,7 @@ async function performEffect(oystehr: Oystehr, params: GetPatientDetailParams): 
   const friendlyId = ids.find((id) => id.system?.startsWith(FRIENDLY_PATIENT_ID_SYSTEM_BASE))?.value ?? '';
   const phone = patient.telecom?.find((t) => t.system === 'phone')?.value ?? '';
   const email = patient.telecom?.find((t) => t.system === 'email')?.value ?? '';
+  const addr = patient.address?.[0];
 
   return {
     id: patient.id ?? '',
@@ -41,7 +42,14 @@ async function performEffect(oystehr: Oystehr, params: GetPatientDetailParams): 
     gender: patient.gender ?? '',
     phone,
     email,
-    address: formatAddress(patient.address?.[0]),
+    address: formatAddress(addr),
+    addressParts: {
+      line1: addr?.line?.[0] ?? '',
+      line2: addr?.line?.[1] ?? '',
+      city: addr?.city ?? '',
+      state: addr?.state ?? '',
+      postalCode: addr?.postalCode ?? '',
+    },
     friendlyId,
     active: patient.active !== false,
     // TODO: wire real balance from ClaimResponse/PaymentReconciliation

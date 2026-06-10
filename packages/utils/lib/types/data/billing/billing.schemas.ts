@@ -226,6 +226,17 @@ export const CreateBillingPatientInputSchema = z.object({
   address: billingAddressSchema.optional(),
 });
 
+export const UpdateBillingPatientInputSchema = z.object({
+  patientId: nonEmptyString,
+  firstName: nonEmptyString,
+  lastName: nonEmptyString,
+  dob: nonEmptyString.optional(),
+  gender: z.enum(['male', 'female', 'other', 'unknown']).optional(),
+  phone: nonEmptyString.optional(),
+  email: nonEmptyString.optional(),
+  address: billingAddressSchema.optional(),
+});
+
 export const CreateBillingWorkingCopyInputSchema = z.object({
   resourceType: z.enum(ALLOWED_BILLING_RESOURCE_TYPES),
   resourceId: nonEmptyString,
@@ -290,6 +301,7 @@ export type SearchBillingPayersInput = z.infer<typeof SearchBillingPayersInputSc
 export type CreateBillingClaimInput = z.infer<typeof CreateBillingClaimInputSchema>;
 export type CreateBillingProviderInput = z.infer<typeof CreateBillingProviderInputSchema>;
 export type CreateBillingPatientInput = z.infer<typeof CreateBillingPatientInputSchema>;
+export type UpdateBillingPatientInput = z.infer<typeof UpdateBillingPatientInputSchema>;
 export type CreateBillingWorkingCopyInput = z.infer<typeof CreateBillingWorkingCopyInputSchema>;
 export type UpdateBillingResourceInput = z.infer<typeof UpdateBillingResourceInputSchema>;
 export type BillingResourceType = (typeof ALLOWED_BILLING_RESOURCE_TYPES)[number];
