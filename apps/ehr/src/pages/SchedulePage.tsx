@@ -222,8 +222,14 @@ export default function SchedulePage(): ReactElement {
   // headerless schedule editor (tabs hidden because createMode === true)
   // even though the schedule exists. Redirecting to /id/<existing> drops
   // us into edit mode where the General/Location tabs render correctly.
+  // Guard on isValidUUID: when no Schedule exists yet for the owner, the
+  // get-schedule zambda returns the sentinel id 'new-schedule' (not a real
+  // resource id). Redirecting on that sentinel would push us into edit mode
+  // (/id/new-schedule) where the tabs render and Save fails with
+  // '"scheduleId" value must be a valid UUID'. Only redirect when the owner
+  // genuinely has a persisted Schedule.
   useEffect(() => {
-    if (createMode && scheduleData?.id) {
+    if (createMode && scheduleData?.id && isValidUUID(scheduleData.id)) {
       navigate(`/admin/schedule/id/${scheduleData.id}`, { replace: true });
     }
   }, [createMode, scheduleData?.id, navigate]);
@@ -515,12 +521,51 @@ export default function SchedulePage(): ReactElement {
               </Typography>
             )}
             <TabContext value={tabName}>
-              <Box sx={{ borderBottom: 1, borderColor: 'divider', display: createMode ? 'none' : 'block' }}>
+              <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
                 <TabList onChange={handleTabChange} aria-label="Tabs">
                   <Tab label="Schedule" value="schedule" sx={{ textTransform: 'none', fontWeight: 700 }} />
-                  <Tab label="General" value="general" sx={{ textTransform: 'none', fontWeight: 700 }} />
+                  <Tab
+                    label={
+                      createMode ? (
+                        <Tooltip title="Set up the schedule first to configure general settings." arrow>
+                          <span>General</span>
+                        </Tooltip>
+                      ) : (
+                        'General'
+                      )
+                    }
+                    value="general"
+                    disabled={createMode}
+                    // Re-enable pointer events on the disabled tab so the
+                    // tooltip still fires on hover; `disabled` already blocks
+                    // selection. Target the .Mui-disabled class directly —
+                    // MUI's disabled rule sets pointer-events: none with
+                    // higher specificity than a plain root override.
+                    sx={{
+                      textTransform: 'none',
+                      fontWeight: 700,
+                      ...(createMode ? { '&.Mui-disabled': { pointerEvents: 'auto' } } : {}),
+                    }}
+                  />
                   {item?.owner.type === 'Location' && (
-                    <Tab label="Location" value="location" sx={{ textTransform: 'none', fontWeight: 700 }} />
+                    <Tab
+                      label={
+                        createMode ? (
+                          <Tooltip title="Set up the schedule first to configure location settings." arrow>
+                            <span>Location</span>
+                          </Tooltip>
+                        ) : (
+                          'Location'
+                        )
+                      }
+                      value="location"
+                      disabled={createMode}
+                      sx={{
+                        textTransform: 'none',
+                        fontWeight: 700,
+                        ...(createMode ? { '&.Mui-disabled': { pointerEvents: 'auto' } } : {}),
+                      }}
+                    />
                   )}
                 </TabList>
               </Box>
