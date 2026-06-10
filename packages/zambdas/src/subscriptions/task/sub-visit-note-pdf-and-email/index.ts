@@ -122,7 +122,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     // Follow-ups hang off the top-level encounter, so resolve to the parent if this one is a follow-up.
     const followUpParentEncounterId = encounter.partOf?.reference?.split('/')[1] ?? encounter.id!;
-    const upcomingFollowUpsPromise = getUpcomingFollowUps(oystehr, followUpParentEncounterId, visitResources.timezone);
+    const upcomingFollowUpsPromise = getUpcomingFollowUps(
+      oystehr,
+      followUpParentEncounterId,
+      visitResources.timezone,
+      encounter.id
+    );
 
     const [chartDataResult, additionalChartDataResult, medicationOrdersData, upcomingFollowUps] = await Promise.all([
       chartDataPromise,
