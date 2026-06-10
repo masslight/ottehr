@@ -7,6 +7,7 @@ import {
 } from 'utils';
 import { describe, expect, test } from 'vitest';
 import {
+  deduplicateTemplateResourcesByMetaTag,
   filterEntriesToTemplateContent,
   isValidInHouseLabServiceRequest,
   isValidProcedureServiceRequest,
@@ -376,5 +377,97 @@ describe('isValidProcedureServiceRequest', () => {
       meta: { tag: [{ system: chartDataTagSystem('procedure'), code: 'procedure' }] },
     };
     expect(isValidProcedureServiceRequest(obs)).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// deduplicateTemplateResourcesByMetaTag — additive-section preservation
+// ---------------------------------------------------------------------------
+
+const makeProcedureSR = (id: string): ServiceRequest => ({
+  resourceType: 'ServiceRequest',
+  id,
+  status: 'completed',
+  intent: 'original-order',
+  subject: { reference: 'Patient/p1' },
+  meta: { tag: [{ system: chartDataTagSystem('procedure'), code: 'procedure' }] },
+});
+
+const makeCptProcedure = (id: string): Procedure => ({
+  resourceType: 'Procedure',
+  id,
+  status: 'completed',
+  subject: { reference: 'Patient/p1' },
+  meta: { tag: [{ system: chartDataTagSystem('cpt-code'), code: 'cpt-code' }] },
+  code: { coding: [{ system: 'http://www.ama-assn.org/go/cpt', code: '29105' }] },
+});
+
+const makePatientInstruction = (id: string): TemplateEncounterResource =>
+  ({
+    resourceType: 'Communication',
+    id,
+    status: 'completed',
+    meta: { tag: [{ system: chartDataTagSystem('patient-instruction'), code: 'patient-instruction' }] },
+  }) as unknown as TemplateEncounterResource;
+
+describe('deduplicateTemplateResourcesByMetaTag', () => {
+  test('preserves multiple in-office procedure ServiceRequests (additive section)', () => {
+    // Regression: chart-data procedures all carry the same 'procedure' meta
+    // tag, so without the additive exemption they'd collapse down to one
+    // procedure plan in the template (QA caught this for templates saved off
+    // charts with multiple procedures documented).
+    const resources: TemplateEncounterResource[] = [
+      makeProcedureSR('proc-1'),
+      makeProcedureSR('proc-2'),
+      makeProcedureSR('proc-3'),
+    ];
+    const result = deduplicateTemplateResourcesByMetaTag(resources);
+    expect(result.map((r) => r.id)).toEqual(['proc-1', 'proc-2', 'proc-3']);
+  });
+
+  test('preserves multiple CPT-code Procedures and patient-instruction Communications', () => {
+    const resources: TemplateEncounterResource[] = [
+      makeCptProcedure('cpt-1'),
+      makeCptProcedure('cpt-2'),
+      makePatientInstruction('instr-1'),
+      makePatientInstruction('instr-2'),
+    ];
+    const result = deduplicateTemplateResourcesByMetaTag(resources);
+    expect(result.map((r) => r.id)).toEqual(['cpt-1', 'cpt-2', 'instr-1', 'instr-2']);
+  });
+
+  test('preserves multiple diagnosis Conditions (identified by diagnosis tag, not ICD-10 code)', () => {
+    const resources: TemplateEncounterResource[] = [makeDxCondition('dx-1'), makeDxCondition('dx-2')];
+    const result = deduplicateTemplateResourcesByMetaTag(resources);
+    expect(result.map((r) => r.id)).toEqual(['dx-1', 'dx-2']);
+  });
+
+  test('coalesces non-additive resources that share a meta tag (keeps the first one seen)', () => {
+    // Single-resource sections (e.g. HPI's chief-complaint Condition) shouldn't
+    // accumulate duplicates - if two resources share the same system|code, the
+    // first wins. (The caller sorts by lastUpdated DESC before passing in, so
+    // "first" means most-recent.)
+    const hpi1: TemplateEncounterResource = {
+      resourceType: 'Condition',
+      id: 'hpi-1',
+      meta: { tag: [{ system: chartDataTagSystem('chief-complaint'), code: 'chief-complaint' }] },
+      subject: { reference: 'Patient/p1' },
+    } as TemplateEncounterResource;
+    const hpi2: TemplateEncounterResource = { ...hpi1, id: 'hpi-2' } as TemplateEncounterResource;
+    const result = deduplicateTemplateResourcesByMetaTag([hpi1, hpi2]);
+    expect(result.map((r) => r.id)).toEqual(['hpi-1']);
+  });
+
+  test('keeps resources with no meta tags', () => {
+    // Defensive: a resource with no tags doesn't have a fingerprint to dedup
+    // against; pass it through.
+    const enc: TemplateEncounterResource = {
+      resourceType: 'Encounter',
+      id: 'enc-1',
+      status: 'in-progress',
+      class: { system: 'http://terminology.hl7.org/CodeSystem/v3-ActCode', code: 'AMB' },
+    };
+    const result = deduplicateTemplateResourcesByMetaTag([enc]);
+    expect(result.map((r) => r.id)).toEqual(['enc-1']);
   });
 });
