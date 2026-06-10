@@ -57,6 +57,7 @@ export default function AdHocReport(): React.ReactElement {
   const [generateError, setGenerateError] = useState<string | null>(null);
   const [renderError, setRenderError] = useState<string | null>(null);
   const [showCode, setShowCode] = useState(false);
+  const [showSchema, setShowSchema] = useState(false);
   const [conversation, setConversation] = useState<AdHocReportTurn[]>([]);
   const [refineText, setRefineText] = useState('');
 
@@ -251,41 +252,48 @@ export default function AdHocReport(): React.ReactElement {
 
         {schema && rows && (
           <>
-            <Typography variant="subtitle1" sx={{ mb: 1 }}>
-              Fetched <strong>{rows.length.toLocaleString()}</strong> rows · schema:{' '}
-              <strong>{schema.fields.length}</strong> fields
-            </Typography>
+            <Box sx={{ mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Typography variant="subtitle1">
+                Fetched <strong>{rows.length.toLocaleString()}</strong> rows · schema:{' '}
+                <strong>{schema.fields.length}</strong> fields
+              </Typography>
+              <Button size="small" onClick={() => setShowSchema((v) => !v)}>
+                {showSchema ? 'Hide fields' : 'Show fields'}
+              </Button>
+            </Box>
 
-            <Paper variant="outlined" sx={{ mb: 3, overflow: 'auto' }}>
-              <Table size="small">
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Field</TableCell>
-                    <TableCell>Type</TableCell>
-                    <TableCell>Description</TableCell>
-                    <TableCell>Domain</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {schema.fields.map((f) => (
-                    <TableRow key={f.name}>
-                      <TableCell sx={{ fontFamily: 'monospace' }}>{f.name}</TableCell>
-                      <TableCell>{f.type}</TableCell>
-                      <TableCell>{f.description}</TableCell>
-                      <TableCell sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>
-                        {f.values
-                          ? `${f.values.length} values: ${f.values.slice(0, 8).join(', ')}${
-                              f.values.length > 8 ? '…' : ''
-                            }`
-                          : f.min !== undefined
-                          ? `${f.min} … ${f.max}`
-                          : '(free text)'}
-                      </TableCell>
+            <Collapse in={showSchema}>
+              <Paper variant="outlined" sx={{ mb: 3, overflow: 'auto' }}>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Field</TableCell>
+                      <TableCell>Type</TableCell>
+                      <TableCell>Description</TableCell>
+                      <TableCell>Domain</TableCell>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </Paper>
+                  </TableHead>
+                  <TableBody>
+                    {schema.fields.map((f) => (
+                      <TableRow key={f.name}>
+                        <TableCell sx={{ fontFamily: 'monospace' }}>{f.name}</TableCell>
+                        <TableCell>{f.type}</TableCell>
+                        <TableCell>{f.description}</TableCell>
+                        <TableCell sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>
+                          {f.values
+                            ? `${f.values.length} values: ${f.values.slice(0, 8).join(', ')}${
+                                f.values.length > 8 ? '…' : ''
+                              }`
+                            : f.min !== undefined
+                            ? `${f.min} … ${f.max}`
+                            : '(free text)'}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </Paper>
+            </Collapse>
 
             {/* Report request → generate. The model gets schema + request only (no rows). Phase 3 will
                 execute the returned code on the fetched rows inside a sandboxed iframe. */}
