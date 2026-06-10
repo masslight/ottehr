@@ -26,6 +26,7 @@ export const dataTestIds = {
     completeIntakeButton: 'complete-intake-button',
     intakeButton: `intake-button`,
     readyButton: 'ready-button',
+    reviewAndSignButton: 'review-and-sign-button',
     startProviderButton: 'start-provider-button',
     visitDetailsButton: `visit-details-button`,
     progressNoteButton: `progress-note-button`,
