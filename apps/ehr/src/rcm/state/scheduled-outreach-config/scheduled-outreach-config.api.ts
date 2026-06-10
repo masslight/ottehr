@@ -65,6 +65,7 @@ export interface BirthdayConfigDTO {
 
 export interface OutreachActionDTO {
   id: string;
+  enabled?: boolean;
   trigger: {
     event: TriggerEvent;
     daysAfter: number;
@@ -132,9 +133,15 @@ export interface OutreachTaskSummary {
   description: string;
   mediums?: string;
   errorMessage?: string;
+  cancellationReason?: string;
   chargeResult?: { success: boolean; transactionId?: string; error?: string; amountCents?: number };
   notificationResults?: { medium: string; success: boolean; error?: string }[];
   executionResult?: { medium: string; success: boolean; error?: string }[];
+  retryInfo?: {
+    attemptCount: number;
+    maxAttempts: number;
+    nextRetryDate?: string;
+  };
 }
 
 export interface ListOutreachTasksResponse {
@@ -149,6 +156,7 @@ export interface ListOutreachTasksInput {
   actionType?: string;
   medium?: string;
   triggerEvent?: string;
+  patientSearch?: string;
   dueDateFrom?: string;
   dueDateTo?: string;
   createdFrom?: string;

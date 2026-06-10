@@ -1,6 +1,6 @@
 {
   "name": "zambdas",
-  "version": "1.36.3",
+  "version": "1.36.12",
   "private": true,
   "sideEffects": false,
   "scripts": {
@@ -11,6 +11,7 @@
     "start:labcorp": "ENV=labcorp-local npm run start",
     "start:local:iac": "ENV=local npm run start:iac",
     "start:demo:iac": "ENV=demo npm run start:iac",
+    "recreate-global-templates": "tsx src/scripts/recreate-global-templates.ts",
     "cancel-telemed-appointments": "tsx src/scripts/cancel-telemed-appointments.ts",
     "charge-due-and-past-due-invoices": "tsx src/scripts/charge-due-and-past-due-invoices.ts",
     "report-daily-payments": "tsx src/scripts/report-daily-payments.ts",

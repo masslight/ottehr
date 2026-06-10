@@ -1,18 +1,22 @@
-import { Coverage, Location, Organization, Patient, Practitioner, Resource } from 'fhir/r4b';
+import { Coverage, DomainResource, Extension, Location, Organization, Patient, Practitioner, Resource } from 'fhir/r4b';
 import { describe, expect, it } from 'vitest';
-import { BILLING_WORKING_COPY_TAG, prepareWorkingCopy, SOURCE_IDENTIFIER_SYSTEM } from '../../src/billing/shared';
+import {
+  BILLING_WORKING_COPY_TAG,
+  prepareCopy,
+  prepareWorkingCopy,
+  SOURCE_IDENTIFIER_SYSTEM,
+} from '../../../src/billing/shared';
 
 const ORIGINAL_ID = '11111111-1111-4111-8111-111111111111';
 
-const identifiersOf = (r: Resource): { system?: string; value?: string }[] =>
-  (r as { identifier?: { system?: string; value?: string }[] }).identifier ?? [];
+const extensionsOf = (r: DomainResource): Extension[] => r.extension ?? [];
 
 // Everything prepareWorkingCopy is allowed to change: id, meta, identifier.
 const withoutCopyFields = (r: Resource): Record<string, unknown> => {
   const clone = structuredClone(r) as unknown as Record<string, unknown>;
   delete clone.id;
   delete clone.meta;
-  delete clone.identifier;
+  delete clone.extension;
   return clone;
 };
 
@@ -65,9 +69,9 @@ describe('prepareWorkingCopy', () => {
     });
 
     it('links back to the original via a source identifier', () => {
-      expect(identifiersOf(prepareWorkingCopy(resource, ORIGINAL_ID))).toContainEqual({
-        system: SOURCE_IDENTIFIER_SYSTEM,
-        value: `${resourceType}/${ORIGINAL_ID}`,
+      expect(extensionsOf(prepareWorkingCopy(resource, ORIGINAL_ID))).toContainEqual({
+        url: SOURCE_IDENTIFIER_SYSTEM,
+        valueReference: { reference: `${resourceType}/${ORIGINAL_ID}` },
       });
     });
 
@@ -82,12 +86,12 @@ describe('prepareWorkingCopy', () => {
     });
   });
 
-  describe('identifier list handling', () => {
-    const otherId = { system: 'https://example.org/external-id', value: 'EXT-1' };
+  describe('extension list handling', () => {
+    const otherId = { url: 'https://example.org/external-id', valueString: 'EXT-1' };
 
     it('preserves existing non-source identifiers', () => {
-      const patient: Patient = { resourceType: 'Patient', id: ORIGINAL_ID, identifier: [{ ...otherId }] };
-      expect(identifiersOf(prepareWorkingCopy(patient, ORIGINAL_ID))).toContainEqual(otherId);
+      const patient: Patient = { resourceType: 'Patient', id: ORIGINAL_ID, extension: [{ ...otherId }] };
+      expect(extensionsOf(prepareWorkingCopy(patient, ORIGINAL_ID))).toContainEqual(otherId);
     });
 
     it('creates the identifier list when the original has none', () => {
@@ -98,8 +102,8 @@ describe('prepareWorkingCopy', () => {
         beneficiary: { reference: 'Patient/p1' },
         payor: [{ reference: 'Organization/o1' }],
       };
-      expect(prepareWorkingCopy(coverage, ORIGINAL_ID).identifier).toEqual([
-        { system: SOURCE_IDENTIFIER_SYSTEM, value: `Coverage/${ORIGINAL_ID}` },
+      expect(extensionsOf(prepareWorkingCopy(coverage, ORIGINAL_ID))).toEqual([
+        { url: SOURCE_IDENTIFIER_SYSTEM, valueReference: { reference: `Coverage/${ORIGINAL_ID}` } },
       ]);
     });
 
@@ -107,12 +111,14 @@ describe('prepareWorkingCopy', () => {
       const patient: Patient = {
         resourceType: 'Patient',
         id: ORIGINAL_ID,
-        identifier: [{ system: SOURCE_IDENTIFIER_SYSTEM, value: 'Patient/stale' }, { ...otherId }],
+        extension: [{ url: SOURCE_IDENTIFIER_SYSTEM, valueReference: { reference: 'Patient/stale' } }, { ...otherId }],
       };
-      const sources = identifiersOf(prepareWorkingCopy(patient, ORIGINAL_ID)).filter(
-        (i) => i.system === SOURCE_IDENTIFIER_SYSTEM
+      const sources = extensionsOf(prepareWorkingCopy(patient, ORIGINAL_ID)).filter(
+        (i) => i.url === SOURCE_IDENTIFIER_SYSTEM
       );
-      expect(sources).toEqual([{ system: SOURCE_IDENTIFIER_SYSTEM, value: `Patient/${ORIGINAL_ID}` }]);
+      expect(sources).toEqual([
+        { url: SOURCE_IDENTIFIER_SYSTEM, valueReference: { reference: `Patient/${ORIGINAL_ID}` } },
+      ]);
     });
 
     it('overwrites any pre-existing meta.tag', () => {
@@ -122,6 +128,36 @@ describe('prepareWorkingCopy', () => {
         meta: { tag: [{ system: 'old', code: 'x' }] },
       };
       expect(prepareWorkingCopy(patient, ORIGINAL_ID).meta?.tag).not.toContainEqual({ system: 'old', code: 'x' });
+    });
+  });
+});
+
+describe('prepareCopy', () => {
+  describe.each(cases)('for $resourceType', ({ resourceType, resource }) => {
+    it('does not tag the copy as a working copy', () => {
+      // Only the working-copy tag is set explicitly; the workspace SDK client adds BILLING_RESOURCE_TAG on write.
+      expect(prepareCopy(resource, ORIGINAL_ID).meta?.tag).toBeUndefined();
+    });
+
+    it('drops the original id so create() makes a new resource', () => {
+      expect(prepareWorkingCopy(resource, ORIGINAL_ID).id).toBeUndefined();
+    });
+
+    it('links back to the original via a source identifier', () => {
+      expect(extensionsOf(prepareWorkingCopy(resource, ORIGINAL_ID))).toContainEqual({
+        url: SOURCE_IDENTIFIER_SYSTEM,
+        valueReference: { reference: `${resourceType}/${ORIGINAL_ID}` },
+      });
+    });
+
+    it('preserves every other field unchanged', () => {
+      expect(withoutCopyFields(prepareWorkingCopy(resource, ORIGINAL_ID))).toEqual(withoutCopyFields(resource));
+    });
+
+    it('does not mutate the original', () => {
+      const before = structuredClone(resource);
+      prepareWorkingCopy(resource, ORIGINAL_ID);
+      expect(resource).toEqual(before);
     });
   });
 });
