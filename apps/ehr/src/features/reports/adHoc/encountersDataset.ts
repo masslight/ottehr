@@ -40,6 +40,25 @@ const FIELDS: FieldDef[] = [
   },
   { name: 'patientName', type: 'string', description: 'Patient full name (free text).' },
   { name: 'dateOfBirth', type: 'date', description: 'Patient date of birth (yyyy-MM-dd).' },
+  {
+    name: 'icdCodes',
+    type: 'string[]',
+    description:
+      'ICD-10 diagnosis codes charted on the visit (assessment), e.g. ["J06.9","H66.91"]. The primary ' +
+      'diagnosis is FIRST when one was marked. Empty array when no diagnoses were charted.',
+  },
+  {
+    name: 'cptCodes',
+    type: 'string[]',
+    description:
+      'CPT procedure/billing codes charted on the visit, e.g. ["96372","J1885"]. Excludes the E&M code ' +
+      '(see emCode). Empty array when none were charted.',
+  },
+  {
+    name: 'emCode',
+    type: 'string',
+    description: 'The visit\'s E&M (evaluation & management) code, e.g. "99213". Null when not set.',
+  },
 ];
 
 function toRow(e: IncompleteEncounterItem): AdHocRow {
@@ -62,6 +81,9 @@ function toRow(e: IncompleteEncounterItem): AdHocRow {
     timeWithProviderMinutes: e.timeWithProviderMinutes ?? null,
     patientName: e.patientName ?? '',
     dateOfBirth: e.dateOfBirth ?? null,
+    icdCodes: e.icdCodes ?? [],
+    cptCodes: e.cptCodes ?? [],
+    emCode: e.emCode ?? null,
   };
 }
 
@@ -71,13 +93,19 @@ async function fetchEncounters({ oystehrZambda, dateRange }: FetchContext): Prom
 
   let items: IncompleteEncounterItem[];
   if (days <= DEFAULT_BATCH_DAYS) {
-    const resp = await getEncountersReport(oystehrZambda, { dateRange: { start, end }, encounterStatus: 'all' });
+    const resp = await getEncountersReport(oystehrZambda, {
+      dateRange: { start, end },
+      encounterStatus: 'all',
+      includeCodes: true,
+    });
     items = resp.encounters;
   } else {
     // Wide ranges: fetch in batches in parallel (same pattern as the Complete Encounters report).
     const batches = splitDateRangeIntoBatches(start, end, DEFAULT_BATCH_DAYS);
     const results = await Promise.all(
-      batches.map((batch) => getEncountersReport(oystehrZambda, { dateRange: batch, encounterStatus: 'all' }))
+      batches.map((batch) =>
+        getEncountersReport(oystehrZambda, { dateRange: batch, encounterStatus: 'all', includeCodes: true })
+      )
     );
     const merged = results.flatMap((r) => r.encounters);
     // Dedupe by appointmentId in case of batch-boundary overlap.

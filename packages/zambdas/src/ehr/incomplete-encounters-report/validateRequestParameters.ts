@@ -8,7 +8,7 @@ export function validateRequestParameters(
     throw new Error('Missing request body');
   }
 
-  const { dateRange, encounterStatus } = JSON.parse(input.body);
+  const { dateRange, encounterStatus, includeCodes } = JSON.parse(input.body);
 
   if (!dateRange) {
     throw new Error('Missing dateRange parameter');
@@ -43,6 +43,7 @@ export function validateRequestParameters(
   return {
     dateRange,
     encounterStatus,
+    includeCodes: includeCodes === true,
     secrets: input.secrets,
   };
 }

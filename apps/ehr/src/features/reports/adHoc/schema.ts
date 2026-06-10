@@ -30,6 +30,14 @@ export function buildSchema(
       if (distinct.length > 0 && distinct.length <= MAX_DISTINCT_VALUES) {
         field.values = distinct.sort();
       }
+    } else if (def.type === 'string[]') {
+      // Multi-valued column (e.g. a visit's ICD-10 codes): the value domain is the distinct set
+      // across all rows' array elements.
+      const flattened = present.flatMap((v) => (Array.isArray(v) ? v.map((x) => String(x)) : []));
+      const distinct = [...new Set(flattened)];
+      if (distinct.length > 0 && distinct.length <= MAX_DISTINCT_VALUES) {
+        field.values = distinct.sort();
+      }
     } else if (def.type === 'number') {
       const nums = present.map((v) => Number(v)).filter((n) => !Number.isNaN(n));
       if (nums.length) {

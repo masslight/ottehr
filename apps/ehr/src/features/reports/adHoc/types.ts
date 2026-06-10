@@ -3,7 +3,7 @@ import Oystehr from '@oystehr/sdk';
 /** A row of a fetched ad-hoc dataset. Plain JSON — this is what the generated report code runs over. */
 export type AdHocRow = Record<string, unknown>;
 
-export type FieldType = 'string' | 'number' | 'date' | 'boolean';
+export type FieldType = 'string' | 'number' | 'date' | 'boolean' | 'string[]';
 
 /**
  * Column-level metadata describing one field of the dataset. This — and ONLY this — is what we

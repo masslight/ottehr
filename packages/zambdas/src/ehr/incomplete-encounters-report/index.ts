@@ -1,5 +1,5 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Appointment, Encounter, Location, Patient, Practitioner } from 'fhir/r4b';
+import { Appointment, Condition, Encounter, Location, Patient, Practitioner, Procedure, Resource } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   getAttendingPractitionerId,
@@ -25,7 +25,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   console.group('validateRequestParameters');
   const validatedParameters: IncompleteEncountersReportZambdaInput & { secrets: Secrets } =
     validateRequestParameters(input);
-  const { dateRange, encounterStatus = 'incomplete', secrets } = validatedParameters;
+  const { dateRange, encounterStatus = 'incomplete', includeCodes = false, secrets } = validatedParameters;
   console.groupEnd();
   console.debug('validateRequestParameters success');
 
@@ -41,7 +41,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   // Search for appointments within the date range with proper pagination
   // Fetch all appointments, encounters, patients, locations, and practitioners with proper FHIR pagination
-  let allResources: (Appointment | Encounter | Patient | Location | Practitioner)[] = [];
+  type ReportResource = Appointment | Encounter | Patient | Location | Practitioner | Condition | Procedure;
+  let allResources: ReportResource[] = [];
   let offset = 0;
   const pageSize = 1000;
 
@@ -88,7 +89,16 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     },
   ];
 
-  let searchBundle = await oystehr.fhir.search<Appointment | Encounter | Patient | Location | Practitioner>({
+  if (includeCodes) {
+    // Join each encounter's charted codes: Encounter.diagnosis → Condition (ICD-10), and the
+    // chart-data Procedure resources carrying the visit's CPT and E&M codes.
+    baseSearchParams.push(
+      { name: '_include:iterate', value: 'Encounter:diagnosis' },
+      { name: '_revinclude:iterate', value: 'Procedure:encounter' }
+    );
+  }
+
+  let searchBundle = await oystehr.fhir.search<ReportResource>({
     resourceType: 'Appointment',
     params: [...baseSearchParams, { name: '_offset', value: offset.toString() }],
   });
@@ -112,7 +122,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     pageCount++;
     console.log(`Fetching page ${pageCount} of incomplete encounters...`);
 
-    searchBundle = await oystehr.fhir.search<Appointment | Encounter | Patient | Location | Practitioner>({
+    searchBundle = await oystehr.fhir.search<ReportResource>({
       resourceType: 'Appointment',
       params: [...baseSearchParams, { name: '_offset', value: offset.toString() }],
     });
@@ -180,6 +190,25 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     }
   });
 
+  // Charted-code lookups (populated only when includeCodes was requested).
+  const conditionById = new Map<string, Condition>();
+  const proceduresByEncounterId = new Map<string, Procedure[]>();
+  if (includeCodes) {
+    for (const resource of allResources) {
+      if (resource.resourceType === 'Condition' && resource.id) {
+        conditionById.set(resource.id, resource);
+      } else if (resource.resourceType === 'Procedure') {
+        const encounterId = resource.encounter?.reference?.replace('Encounter/', '');
+        if (!encounterId) continue;
+        const list = proceduresByEncounterId.get(encounterId) ?? [];
+        list.push(resource);
+        proceduresByEncounterId.set(encounterId, list);
+      }
+    }
+  }
+  const hasChartTag = (resource: Resource, code: string): boolean =>
+    Boolean(resource.meta?.tag?.some((tag) => tag.code === code));
+
   // Filter encounters based on encounterStatus parameter
   const filteredEncounters = encounters.filter((encounter) => {
     // Find the corresponding appointment
@@ -241,6 +270,33 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     const visitStatus = appointment ? getInPersonVisitStatus(appointment, encounter, true) : 'unknown';
 
+    // Charted codes: ICD-10 diagnoses (primary first via Encounter.diagnosis rank), CPT codes,
+    // and the E&M code from the chart-data Procedure resources.
+    let icdCodes: string[] | undefined;
+    let cptCodes: string[] | undefined;
+    let emCode: string | undefined;
+    if (includeCodes) {
+      icdCodes = [];
+      const dxEntries = [...(encounter.diagnosis ?? [])].sort((a, b) => (a.rank ?? 99) - (b.rank ?? 99));
+      for (const dx of dxEntries) {
+        const conditionId = dx.condition?.reference?.replace('Condition/', '');
+        const condition = conditionId ? conditionById.get(conditionId) : undefined;
+        const codings = condition?.code?.coding ?? [];
+        const code = codings.find((c) => c.system?.toLowerCase().includes('icd-10'))?.code ?? codings[0]?.code;
+        if (code && !icdCodes.includes(code)) icdCodes.push(code);
+      }
+      cptCodes = [];
+      for (const procedure of encounter.id ? proceduresByEncounterId.get(encounter.id) ?? [] : []) {
+        const code = procedure.code?.coding?.[0]?.code;
+        if (!code) continue;
+        if (hasChartTag(procedure, 'em-code')) {
+          emCode = emCode ?? code;
+        } else if (hasChartTag(procedure, 'cpt-code') && !cptCodes.includes(code)) {
+          cptCodes.push(code);
+        }
+      }
+    }
+
     // Time actually spent with the provider: sum of CLOSED "provider" status periods from the
     // visit-status history. Open periods are excluded — an encounter that was never properly
     // closed out would otherwise report days-long "provider time".
@@ -269,6 +325,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       visitType,
       reason: encounter.reasonCode?.[0]?.text || appointment?.appointmentType?.text || '',
       timeWithProviderMinutes,
+      ...(includeCodes ? { icdCodes, cptCodes, emCode } : {}),
     };
   });
 
