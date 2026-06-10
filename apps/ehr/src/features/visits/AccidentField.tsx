@@ -52,9 +52,12 @@ export const AccidentField: FC<Props> = ({ readOnly }) => {
       date: chartDataFields?.accident?.date,
       state: chartDataFields?.accident?.state,
     });
-    const hasType = (chartDataFields?.accident?.type?.length ?? 0) > 0;
-    if (hasType && !chartDataFields?.accident?.date) {
+    const isAutoAccident = chartDataFields?.accident?.type?.includes('AA') ?? false;
+    if (isAutoAccident && !chartDataFields?.accident?.date) {
       methods.setError('date', { message: 'Date is required' });
+    }
+    if (isAutoAccident && !chartDataFields?.accident?.state) {
+      methods.setError('state', { message: 'State is required for Auto Accident' });
     }
   }, [chartDataFields, methods]);
 
@@ -74,32 +77,32 @@ export const AccidentField: FC<Props> = ({ readOnly }) => {
         if (values.otherAccident) {
           types.push('OA');
         }
-        if (types.length === 0 && chartDataFields?.accident != null) {
-          deleteChartData({
-            accident: chartDataFields?.accident,
-          });
-          return;
-        }
-
         if (types.length === 0) {
+          if (chartDataFields?.accident != null) {
+            deleteChartData({
+              accident: chartDataFields?.accident,
+            });
+          }
           return;
         }
 
-        if (!values.date) {
+        // Surface inline validation, but still persist the data below so that missing
+        // required fields are detected and shown in the progress note's missing items.
+        if (values.autoAccident && !values.date) {
           methods.setError('date', {
             message: 'Date is required',
           });
-          return;
+        } else {
+          methods.clearErrors('date');
         }
 
         if (values.autoAccident && !values.state) {
           methods.setError('state', {
             message: 'State is required for Auto Accident',
           });
-          return;
+        } else {
+          methods.clearErrors('state');
         }
-
-        methods.clearErrors();
 
         saveChartData(
           {

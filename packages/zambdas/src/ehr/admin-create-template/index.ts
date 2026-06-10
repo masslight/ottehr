@@ -128,26 +128,7 @@ const performEffect = async (
     return a.meta.lastUpdated > b.meta.lastUpdated ? -1 : 1;
   });
 
-  const seenTags = new Set<string>();
-  encounterBundle = encounterBundle.filter((resource) => {
-    // Diagnoses are additive (multiple per encounter), so skip deduplication for them.
-    // We identify diagnoses by the `diagnosis` meta tag, NOT by ICD-10 code — Medical Conditions can also
-    // carry ICD-10 codes but they are patient-specific history, not template content.
-    if (isDiagnosisCondition(resource)) return true;
-    const tags = resource?.meta?.tag?.map((tag) => `${tag.system}|${tag.code}`);
-    if (!tags) return true;
-    // CPT codes and patient instructions are additive (multiple per encounter), so skip deduplication for them
-    if (
-      tags.some(
-        (tag) =>
-          tag?.includes(chartDataTagSystem('cpt-code')) || tag?.includes(chartDataTagSystem('patient-instruction'))
-      )
-    )
-      return true;
-    const isDuplicate = tags.some((tag) => seenTags.has(tag!));
-    if (!isDuplicate) tags.forEach((tag) => seenTags.add(tag!));
-    return !isDuplicate;
-  });
+  encounterBundle = deduplicateTemplateResourcesByMetaTag(encounterBundle);
 
   // Capture in-house lab orders on the encounter BEFORE the TEMPLATE_TAG_SYSTEMS
   // filter runs. In-house lab ServiceRequests aren't marked with any chart-data
@@ -377,6 +358,47 @@ const performEffect = async (
     templateName: createdList.title ?? templateName,
     templateId: createdList.id!,
   };
+};
+
+// Drops chart-data resources that duplicate a previously-seen meta tag
+// (system|code pair). Used at the top of template creation to coalesce
+// stale or re-saved chart entries down to the most recent one.
+//
+// Some chart-data sections legitimately have multiple resources sharing the
+// same meta tag - they're list-shaped, with each new entry adding to the
+// collection rather than replacing the previous one. Those are exempted:
+//
+//   - Diagnoses (identified by the 'diagnosis' meta tag, NOT by ICD-10 code:
+//     Medical Conditions also carry ICD-10 codes but are patient-specific
+//     history, not template content).
+//   - CPT codes.
+//   - Patient instructions.
+//   - In-office procedures (each procedure ServiceRequest carries the same
+//     'procedure' meta tag, so without this exemption a chart with N
+//     procedures would get coalesced down to one).
+//
+// Caller is responsible for any other sorting / shaping of the resource list.
+export const deduplicateTemplateResourcesByMetaTag = (
+  resources: TemplateEncounterResource[]
+): TemplateEncounterResource[] => {
+  const seenTags = new Set<string>();
+  return resources.filter((resource) => {
+    if (isDiagnosisCondition(resource)) return true;
+    const tags = resource?.meta?.tag?.map((tag) => `${tag.system}|${tag.code}`);
+    if (!tags) return true;
+    if (
+      tags.some(
+        (tag) =>
+          tag?.includes(chartDataTagSystem('cpt-code')) ||
+          tag?.includes(chartDataTagSystem('patient-instruction')) ||
+          tag?.includes(chartDataTagSystem('procedure'))
+      )
+    )
+      return true;
+    const isDuplicate = tags.some((tag) => seenTags.has(tag!));
+    if (!isDuplicate) tags.forEach((tag) => seenTags.add(tag!));
+    return !isDuplicate;
+  });
 };
 
 export const filterEntriesToTemplateContent = (

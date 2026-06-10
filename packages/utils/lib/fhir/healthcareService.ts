@@ -37,6 +37,7 @@ import {
   GROUP_ASSIGNMENT_MODE_SYSTEM,
   GroupAllLocationsCoding,
   GroupAssignmentModeCoding,
+  PRACTITIONER_ROLE_ALL_CATEGORIES_EXTENSION_URL,
   SERVICE_CATEGORY_CADENCE_MINUTES_SYSTEM,
   SERVICE_CATEGORY_CONFIG_EXTENSION_URL,
   SERVICE_CATEGORY_DURATION_MINUTES_SYSTEM,
@@ -229,6 +230,40 @@ export function groupCharacteristics(input: {
  * filter is a no-op (back-compat for callers that don't have the Location
  * resources to hand).
  */
+/**
+ * True when the PR's `practitioner-role-all-categories` extension is set to
+ * boolean `true`. Absent extension (or any non-true value) reads as false —
+ * admins opt in explicitly, no implicit semantic on the `healthcareService[]`
+ * field's length. Mirrors `getGroupAllLocations` in shape and intent.
+ */
+export function getPractitionerRoleAllCategories(pr: PractitionerRole): boolean {
+  for (const ext of pr.extension ?? []) {
+    if (ext.url === PRACTITIONER_ROLE_ALL_CATEGORIES_EXTENSION_URL && ext.valueBoolean === true) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Single source of truth for the question "does this PractitionerRole offer
+ * the service-category HealthcareService whose id is `categoryHsId`?". Two
+ * sources combine:
+ *   (a) the explicit per-PR opt-in list — `role.healthcareService[]` contains
+ *       a reference to `HealthcareService/${categoryHsId}`.
+ *   (b) the per-PR "all categories" opt-in — `getPractitionerRoleAllCategories`.
+ *
+ * The opt-in toggle is the explicit replacement for the implicit "empty
+ * array = all categories" semantic that the codebase historically leaned on
+ * but never reliably honored at all read sites; consolidating the dispatch
+ * here keeps the rollup, the multi-select offering check, and the slot
+ * resolver from drifting apart again.
+ */
+export function practitionerRoleOffersCategory(role: PractitionerRole, categoryHsId: string): boolean {
+  if (getPractitionerRoleAllCategories(role)) return true;
+  return (role.healthcareService ?? []).some((ref) => ref.reference === `HealthcareService/${categoryHsId}`);
+}
+
 export function isPractitionerRoleMemberOfGroup(input: {
   role: PractitionerRole;
   group: HealthcareService;
