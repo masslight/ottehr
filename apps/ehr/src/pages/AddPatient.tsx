@@ -22,6 +22,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useCopyChartDataToFollowup } from 'src/features/visits/shared/components/patient/useCopyChartDataToFollowup';
 import { AddVisitPatientInformationCard } from 'src/features/visits/shared/components/staff-add-visit/AddVisitPatientInformationCard';
+import { useReasonForVisitOptions } from 'src/features/visits/shared/hooks/useReasonForVisitOptions';
 import {
   BOOKING_CONFIG,
   CopyableFollowupField,
@@ -29,7 +30,6 @@ import {
   CreateSlotParams,
   FollowUpOptions,
   getAppointmentDurationFromSlot,
-  getReasonForVisitOptionsForServiceCategory,
   GetScheduleRequestParams,
   GetScheduleResponse,
   getTimezone,
@@ -185,7 +185,7 @@ export default function AddPatient(): JSX.Element {
     setReasonForVisitAdditional('');
   }, [serviceCategory]);
 
-  const reasonForVisitOptions = getReasonForVisitOptionsForServiceCategory(serviceCategory ?? '');
+  const reasonForVisitOptions = useReasonForVisitOptions(serviceCategory ?? '');
   const shouldShowReasonForVisitFields = useMemo(() => {
     return showFields !== 'initialPatientSearch' && reasonForVisitOptions.length > 0;
   }, [showFields, reasonForVisitOptions.length]);
