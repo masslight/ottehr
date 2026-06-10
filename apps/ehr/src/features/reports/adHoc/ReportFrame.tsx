@@ -20,6 +20,9 @@ const CSP = [
   'img-src data: blob:',
   'font-src data:',
   "connect-src 'none'",
+  // Redundant with the sandbox (no allow-forms already blocks form submission) but explicit:
+  // no form may post anywhere.
+  "form-action 'none'",
 ].join('; ');
 
 const BASE_CSS = `
@@ -36,6 +39,19 @@ const BASE_CSS = `
 const BOOTSTRAP = `
   (function () {
     function send(m) { try { parent.postMessage(m, '*'); } catch (e) {} }
+    // Egress guard: only app-internal links may navigate. Anchors must use a single-slash relative
+    // href (resolved against the <base> to the EHR origin); anything else — absolute URLs,
+    // protocol-relative, javascript:, etc. — is cancelled. This closes the "render an external
+    // link carrying computed data in the URL" channel.
+    document.addEventListener('click', function (ev) {
+      var a = ev.target && ev.target.closest ? ev.target.closest('a') : null;
+      if (!a) return;
+      var href = a.getAttribute('href') || '';
+      if (!(href.charAt(0) === '/' && href.charAt(1) !== '/')) {
+        ev.preventDefault();
+        ev.stopPropagation();
+      }
+    }, true);
     window.addEventListener('message', function (ev) {
       var msg = ev && ev.data;
       if (!msg || msg.type !== 'render') return;
@@ -83,7 +99,28 @@ export function ReportFrame({ code, data, schema, onError }: ReportFrameProps): 
   const ref = useRef<HTMLIFrameElement>(null);
   const readyRef = useRef(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const loadCountRef = useRef(0);
+  const tornDownRef = useRef(false);
   const [height, setHeight] = useState(400);
+
+  // Egress backstop: legitimate report links open in a NEW tab (target=_blank), so they never
+  // reload THIS frame. The srcdoc therefore loads exactly once. Any subsequent load event means the
+  // frame navigated its own document — the one exfiltration channel CSP/sandbox can't block
+  // (self-navigation to an external URL). We can't un-send that first request, but we blank the
+  // frame to stop any repeat/streamed leak and surface the event loudly. (Full prevention requires
+  // a frame-src allowlist on the app's CSP — tracked separately.)
+  const handleLoad = useCallback((): void => {
+    loadCountRef.current += 1;
+    // Fire once: blanking the frame re-triggers `load`, so guard against re-entry.
+    if (loadCountRef.current > 1 && !tornDownRef.current) {
+      tornDownRef.current = true;
+      const frame = ref.current;
+      if (frame) frame.srcdoc = '<!DOCTYPE html><html><body></body></html>';
+
+      console.error('[AdHocReport] report frame attempted to navigate away — blanked for safety');
+      onError('The report was stopped because it attempted to navigate away from the page.');
+    }
+  }, [onError]);
 
   const postRender = useCallback(() => {
     const win = ref.current?.contentWindow;
@@ -134,6 +171,7 @@ export function ReportFrame({ code, data, schema, onError }: ReportFrameProps): 
       title="Ad-hoc report"
       sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox"
       srcDoc={SRC_DOC}
+      onLoad={handleLoad}
       style={{ width: '100%', height, border: '1px solid #e0e0e0', borderRadius: 4, background: '#fff' }}
     />
   );
