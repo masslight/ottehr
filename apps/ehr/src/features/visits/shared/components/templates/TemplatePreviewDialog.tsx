@@ -12,6 +12,8 @@ import {
   DialogContent,
   DialogTitle,
   IconButton,
+  MenuItem,
+  Select,
   Stack,
   ToggleButtonGroup,
   Typography,
@@ -26,7 +28,11 @@ import { useApiClients } from 'src/hooks/useAppClients';
 import {
   AdminGetTemplateDetailOutput,
   buildExamFieldToSectionMap,
+  CreateLabCoverageInfo,
+  CreateLabPaymentMethod,
   isTemplateCptCodeInfo,
+  LAB_PAYMENT_METHOD_DISPLAY,
+  LabPaymentMethod,
   RosFindingState,
   RosFindingStateLabel,
   TEMPLATE_SECTION_DEFAULT_ACTIONS,
@@ -34,6 +40,7 @@ import {
   TEMPLATE_SECTIONS_NO_APPEND,
   TEMPLATE_SECTIONS_NO_OVERWRITE,
   TemplateCptCodeInfo,
+  TemplateExternalLabPlanDetail,
   TemplateInHouseLabPlanDetail,
   TemplateProcedurePlan,
   TemplateSectionAction,
@@ -42,6 +49,8 @@ import {
   TemplateSectionKey,
 } from 'utils';
 import { DefaultExamComponentsConfig } from 'utils/lib/ottehr-config/examination/default-components.config';
+import { useGetCreateExternalLabResources } from '../../stores/appointment/appointment.queries';
+import { useAppointmentData } from '../../stores/appointment/appointment.store';
 
 // Maps an exam field name (e.g. "soft", "tender") to the body-system section it
 // belongs to ("Abdomen"). Built once at module load from
@@ -53,13 +62,21 @@ const EXAM_SECTION_KEYS_IN_ORDER = Object.keys(DefaultExamComponentsConfig);
 
 const EXAM_OTHER_SECTION_KEY = '__other__';
 
+// Extra inputs collected by the preview dialog beyond the per-section actions.
+// External lab orders require a payment method at create time, so when the
+// External Lab Orders section is appended the user's confirmed selection rides
+// along with the apply call.
+export interface TemplatePreviewApplyOptions {
+  externalLabs?: { paymentMethod: CreateLabPaymentMethod };
+}
+
 interface TemplatePreviewDialogProps {
   open: boolean;
   templateId: string | null;
   templateName: string;
   isApplying: boolean;
   onCancel: () => void;
-  onApply: (actions: TemplateSectionActions) => void;
+  onApply: (actions: TemplateSectionActions, options?: TemplatePreviewApplyOptions) => void;
 }
 
 const ACTION_LABELS: Record<TemplateSectionAction, string> = {
@@ -150,6 +167,16 @@ const getSectionSummary = (sections: AdminGetTemplateDetailOutput['sections'], k
       const missing = sections.inHouseLabs.filter((p) => p.missing).length;
       return missing > 0 ? `${summary} (${missing} unavailable)` : summary;
     }
+    case 'externalLabs': {
+      const names = sections.externalLabs
+        .slice(0, NUM_ITEMS_IN_SECTION_TO_SHOW)
+        .map((p) => p.testName)
+        .join(', ');
+      const extra = sections.externalLabs.length - NUM_ITEMS_IN_SECTION_TO_SHOW;
+      const summary = extra > 0 ? `${names} +${extra} more` : names;
+      const missing = sections.externalLabs.filter((p) => p.missing).length;
+      return missing > 0 ? `${summary} (${missing} unavailable)` : summary;
+    }
     case 'procedures': {
       // Use whatever short label we have for each plan: procedureType code if
       // it's there, otherwise fall back to the first CPT code so the summary
@@ -188,6 +215,8 @@ const sectionHasContent = (sections: AdminGetTemplateDetailOutput['sections'], k
       return Boolean(sections.emCode);
     case 'inHouseLabs':
       return sections.inHouseLabs.length > 0;
+    case 'externalLabs':
+      return sections.externalLabs.length > 0;
     case 'procedures':
       return sections.procedures.length > 0;
     default:
@@ -347,6 +376,8 @@ const SectionPreview: React.FC<{
       return sections.emCode ? <CodeList items={[sections.emCode]} /> : null;
     case 'inHouseLabs':
       return <InHouseLabPlansList plans={sections.inHouseLabs} />;
+    case 'externalLabs':
+      return <ExternalLabPlansList plans={sections.externalLabs} />;
     case 'procedures':
       return <ProcedurePlansList plans={sections.procedures} />;
     default:
@@ -405,6 +436,59 @@ const InHouseLabPlansList: React.FC<{ plans: TemplateInHouseLabPlanDetail[] }> =
             sx={{ display: 'block', mt: 0.5, color: 'text.secondary', whiteSpace: 'pre-wrap' }}
           >
             Notes: {plan.notes.join('\n\n')}
+          </Typography>
+        ) : null}
+      </Box>
+    ))}
+  </Stack>
+);
+
+// Each external lab plan renders the test + lab combo with the saved ordering
+// details (Dx chips, PSC chip, configured payment method, clinical info note)
+// underneath. Plans whose test no longer resolves in the lab's compendium
+// render muted so the provider knows they'll be skipped at apply-time. The
+// ordering office and the (required) payment method confirmation live in the
+// section card's always-visible controls, not here - they're apply inputs, not
+// template content.
+const ExternalLabPlansList: React.FC<{ plans: TemplateExternalLabPlanDetail[] }> = ({ plans }) => (
+  <Stack spacing={1.5}>
+    {plans.map((plan) => (
+      <Box key={plan.planId} sx={{ opacity: plan.missing ? 0.55 : 1 }}>
+        <Typography variant="body2" sx={{ color: 'text.primary', fontWeight: 500 }}>
+          {plan.testName}
+          {plan.labName ? (
+            <Typography component="span" variant="body2" sx={{ color: 'text.secondary' }}>
+              {` / ${plan.labName}`}
+            </Typography>
+          ) : null}
+          {plan.missing ? (
+            <Typography component="span" variant="caption" sx={{ ml: 1, color: 'warning.main', fontStyle: 'italic' }}>
+              unavailable in this environment — will be skipped
+            </Typography>
+          ) : null}
+        </Typography>
+        <Stack direction="row" flexWrap="wrap" gap={0.5} sx={{ mt: 0.5 }}>
+          {plan.psc ? <Chip size="small" color="primary" variant="outlined" label="PSC Hold" /> : null}
+          {plan.diagnoses.map((d, idx) => (
+            <Chip
+              key={`${plan.planId}-dx-${idx}`}
+              size="small"
+              variant="outlined"
+              label={d.display ? `${d.code} — ${d.display}` : d.code}
+            />
+          ))}
+        </Stack>
+        {plan.paymentMethod ? (
+          <Typography variant="caption" sx={{ display: 'block', mt: 0.5, color: 'text.secondary' }}>
+            Configured payment method: {LAB_PAYMENT_METHOD_DISPLAY[plan.paymentMethod]}
+          </Typography>
+        ) : null}
+        {plan.note ? (
+          <Typography
+            variant="caption"
+            sx={{ display: 'block', mt: 0.5, color: 'text.secondary', whiteSpace: 'pre-wrap' }}
+          >
+            Note: {plan.note}
           </Typography>
         ) : null}
       </Box>
@@ -477,7 +561,12 @@ const SectionCard: React.FC<{
   action: TemplateSectionAction;
   onActionChange: (action: TemplateSectionAction) => void;
   disabled: boolean;
-}> = ({ descriptor, sections, action, onActionChange, disabled }) => {
+  // Always-visible controls rendered below the header (outside the collapsible
+  // preview), used for apply inputs the user must see without expanding the
+  // card - e.g. the external labs payment method confirmation. Hidden while
+  // the section action is 'skip'.
+  extraContent?: React.ReactNode;
+}> = ({ descriptor, sections, action, onActionChange, disabled, extraContent }) => {
   const theme = useTheme();
   const [expanded, setExpanded] = useState(false);
   const noAppend = TEMPLATE_SECTIONS_NO_APPEND.has(descriptor.key);
@@ -582,6 +671,14 @@ const SectionCard: React.FC<{
           </ToggleButtonGroup>
         </Box>
       </Box>
+      {extraContent && action !== 'skip' ? (
+        <Box
+          data-testid={`template-section-${descriptor.key}-controls`}
+          sx={{ px: 2, py: 1.5, borderTop: `1px solid ${theme.palette.divider}` }}
+        >
+          {extraContent}
+        </Box>
+      ) : null}
       <Collapse in={expanded} unmountOnExit>
         <Box
           id={`template-section-${descriptor.key}-body`}
@@ -594,6 +691,120 @@ const SectionCard: React.FC<{
   );
 };
 
+// The apply-time inputs for the External Lab Orders section: the ordering
+// office (auto-selected from the visit's location, display-only) and the
+// payment method the created orders will use (required before the section can
+// be appended). Payment options mirror the chart's create-order page:
+// Insurance only when the patient has coverage, Workers' Comp only when the
+// appointment is flagged workers comp, Self Pay and Client Bill always.
+const ExternalLabsApplyControls: React.FC<{
+  resourcesLoading: boolean;
+  resourcesError: boolean;
+  hasInsurance: boolean;
+  isWorkersComp: boolean;
+  coverageInfo: CreateLabCoverageInfo[] | undefined;
+  orderingOfficeName: string | undefined;
+  paymentMethod: CreateLabPaymentMethod | '';
+  onPaymentMethodChange: (method: CreateLabPaymentMethod) => void;
+  disabled: boolean;
+}> = ({
+  resourcesLoading,
+  resourcesError,
+  hasInsurance,
+  isWorkersComp,
+  coverageInfo,
+  orderingOfficeName,
+  paymentMethod,
+  onPaymentMethodChange,
+  disabled,
+}) => {
+  if (resourcesLoading) {
+    return (
+      <Stack direction="row" alignItems="center" spacing={1}>
+        <CircularProgress size={16} />
+        <Typography variant="body2" color="text.secondary">
+          Loading ordering options…
+        </Typography>
+      </Stack>
+    );
+  }
+
+  if (resourcesError) {
+    return (
+      <Alert severity="warning" sx={{ py: 0 }}>
+        Couldn't load payment options for external lab orders. Orders will use the payment method configured on the
+        template, or be skipped if none is configured.
+      </Alert>
+    );
+  }
+
+  return (
+    <Stack spacing={1}>
+      {orderingOfficeName ? (
+        <Typography variant="body2" data-testid="template-external-labs-ordering-office">
+          <strong>Ordering Office:</strong> {orderingOfficeName}{' '}
+          <Typography component="span" variant="caption" color="text.secondary">
+            (from this visit)
+          </Typography>
+        </Typography>
+      ) : (
+        <Alert severity="warning" sx={{ py: 0 }} data-testid="template-external-labs-office-warning">
+          This visit's office is not configured for external lab ordering — external lab orders will be skipped.
+        </Alert>
+      )}
+      {orderingOfficeName ? (
+        <Stack direction="row" alignItems="center" spacing={1.5} flexWrap="wrap" useFlexGap>
+          <Typography variant="body2">
+            <strong>Payment Method</strong> (required):
+          </Typography>
+          <Select
+            size="small"
+            displayEmpty
+            value={paymentMethod}
+            onChange={(e) => onPaymentMethodChange(e.target.value as CreateLabPaymentMethod)}
+            disabled={disabled}
+            sx={{ minWidth: 180 }}
+            data-testid="template-external-labs-payment-method"
+            renderValue={(value) =>
+              value ? (
+                LAB_PAYMENT_METHOD_DISPLAY[value as CreateLabPaymentMethod]
+              ) : (
+                <Typography component="span" variant="body2" color="text.secondary">
+                  Select payment method
+                </Typography>
+              )
+            }
+          >
+            {hasInsurance && (
+              <MenuItem value={LabPaymentMethod.Insurance}>
+                {LAB_PAYMENT_METHOD_DISPLAY[LabPaymentMethod.Insurance]}
+              </MenuItem>
+            )}
+            {isWorkersComp && (
+              <MenuItem value={LabPaymentMethod.WorkersComp}>
+                {LAB_PAYMENT_METHOD_DISPLAY[LabPaymentMethod.WorkersComp]}
+              </MenuItem>
+            )}
+            <MenuItem value={LabPaymentMethod.SelfPay}>{LAB_PAYMENT_METHOD_DISPLAY[LabPaymentMethod.SelfPay]}</MenuItem>
+            <MenuItem value={LabPaymentMethod.ClientBill}>
+              {LAB_PAYMENT_METHOD_DISPLAY[LabPaymentMethod.ClientBill]}
+            </MenuItem>
+          </Select>
+        </Stack>
+      ) : null}
+      {orderingOfficeName && paymentMethod === LabPaymentMethod.Insurance && coverageInfo?.length ? (
+        <Box>
+          {coverageInfo.map((coverage, idx) => (
+            <Typography key={`coverage-name-${idx}`} variant="caption" sx={{ display: 'block' }}>
+              {`${coverage.coverageName}${coverage.isPrimary ? ' (primary)' : ''}`}
+            </Typography>
+          ))}
+        </Box>
+      ) : null}
+    </Stack>
+  );
+};
+
 export const TemplatePreviewDialog: React.FC<TemplatePreviewDialogProps> = ({
   open,
   templateId,
@@ -603,9 +814,11 @@ export const TemplatePreviewDialog: React.FC<TemplatePreviewDialogProps> = ({
   onApply,
 }) => {
   const { oystehrZambda } = useApiClients();
+  const { patient, location: apptLocation } = useAppointmentData();
   const [actions, setActions] = useState<Record<TemplateSectionKey, TemplateSectionAction>>({
     ...TEMPLATE_SECTION_DEFAULT_ACTIONS,
   });
+  const [externalLabPaymentMethod, setExternalLabPaymentMethod] = useState<CreateLabPaymentMethod | ''>('');
 
   const detailQuery = useQuery({
     queryKey: ['admin-get-template-detail', templateId],
@@ -619,6 +832,7 @@ export const TemplatePreviewDialog: React.FC<TemplatePreviewDialogProps> = ({
   useEffect(() => {
     if (open) {
       setActions({ ...TEMPLATE_SECTION_DEFAULT_ACTIONS });
+      setExternalLabPaymentMethod('');
     }
   }, [open, templateId]);
 
@@ -626,6 +840,50 @@ export const TemplatePreviewDialog: React.FC<TemplatePreviewDialogProps> = ({
     if (!detailQuery.data) return [];
     return TEMPLATE_SECTIONS_IN_ORDER.filter((s) => sectionHasContent(detailQuery.data.sections, s.key));
   }, [detailQuery.data]);
+
+  // External labs apply inputs: the payment method options depend on the
+  // patient's coverage and the appointment's workers comp flag, fetched via
+  // the same resource endpoint the chart's create-order page uses. Only
+  // fetched when the open template actually carries external lab plans.
+  const externalLabPlans = detailQuery.data?.sections.externalLabs;
+  const hasExternalLabs = (externalLabPlans?.length ?? 0) > 0;
+  const externalLabResourcesQuery = useGetCreateExternalLabResources({
+    patientId: open && hasExternalLabs ? patient?.id : undefined,
+  });
+  const externalLabResources = externalLabResourcesQuery.data;
+  const coverageInfo = externalLabResources?.coverages;
+  const hasInsurance = !!coverageInfo?.length;
+  const isWorkersComp = !!externalLabResources?.appointmentIsWorkersComp;
+
+  // The ordering office is auto-selected from the visit's location; undefined
+  // means the location isn't configured for external lab ordering (orders will
+  // be skipped server-side with a warning).
+  const orderingOfficeName = useMemo(() => {
+    if (!apptLocation?.id || !externalLabResources) return undefined;
+    return externalLabResources.orderingLocations.find((loc) => loc.id === apptLocation.id)?.name;
+  }, [apptLocation?.id, externalLabResources]);
+
+  // Pre-select the payment method: the template's configured value when it's
+  // still available for this patient, otherwise the same auto-default the
+  // create-order page uses (workers comp → insurance → self pay).
+  useEffect(() => {
+    if (!open || !hasExternalLabs || !externalLabResources) return;
+    setExternalLabPaymentMethod((current) => {
+      if (current) return current;
+      const configured = externalLabPlans?.find((p) => p.paymentMethod)?.paymentMethod ?? undefined;
+      const configuredIsAvailable =
+        configured &&
+        (configured === LabPaymentMethod.SelfPay ||
+          configured === LabPaymentMethod.ClientBill ||
+          (configured === LabPaymentMethod.Insurance && hasInsurance) ||
+          (configured === LabPaymentMethod.WorkersComp && isWorkersComp));
+      if (configuredIsAvailable) return configured;
+      if (isWorkersComp) return LabPaymentMethod.WorkersComp;
+      if (hasInsurance) return LabPaymentMethod.Insurance;
+      if (coverageInfo) return LabPaymentMethod.SelfPay;
+      return current;
+    });
+  }, [open, hasExternalLabs, externalLabResources, externalLabPlans, hasInsurance, isWorkersComp, coverageInfo]);
 
   const handleActionChange = (key: TemplateSectionKey, action: TemplateSectionAction): void => {
     setActions((prev) => ({ ...prev, [key]: action }));
@@ -643,7 +901,11 @@ export const TemplatePreviewDialog: React.FC<TemplatePreviewDialogProps> = ({
     for (const key of Object.keys(TEMPLATE_SECTION_DEFAULT_ACTIONS) as TemplateSectionKey[]) {
       payload[key] = visibleKeys.has(key) ? actions[key] : 'skip';
     }
-    onApply(payload);
+    const options: TemplatePreviewApplyOptions | undefined =
+      payload.externalLabs === 'append' && externalLabPaymentMethod
+        ? { externalLabs: { paymentMethod: externalLabPaymentMethod } }
+        : undefined;
+    onApply(payload, options);
   };
 
   const buttonSx = {
@@ -653,6 +915,17 @@ export const TemplatePreviewDialog: React.FC<TemplatePreviewDialogProps> = ({
   };
 
   const allSkipped = sectionsWithContent.length > 0 && sectionsWithContent.every((s) => actions[s.key] === 'skip');
+
+  // Appending external lab orders requires a confirmed payment method before
+  // the template can be applied. When the office isn't lab-configured (or the
+  // resource fetch failed) there's nothing actionable to require - the orders
+  // are skipped (or fall back to the template's configured method) server-side
+  // with a warning.
+  const externalLabsAppendSelected = hasExternalLabs && actions.externalLabs === 'append';
+  const externalLabsRequirementUnmet =
+    externalLabsAppendSelected &&
+    !externalLabResourcesQuery.isError &&
+    (externalLabResourcesQuery.isLoading || (Boolean(orderingOfficeName) && !externalLabPaymentMethod));
 
   return (
     <Dialog
@@ -694,6 +967,21 @@ export const TemplatePreviewDialog: React.FC<TemplatePreviewDialogProps> = ({
                 action={actions[section.key]}
                 onActionChange={(action) => handleActionChange(section.key, action)}
                 disabled={isApplying}
+                extraContent={
+                  section.key === 'externalLabs' ? (
+                    <ExternalLabsApplyControls
+                      resourcesLoading={externalLabResourcesQuery.isLoading}
+                      resourcesError={externalLabResourcesQuery.isError}
+                      hasInsurance={hasInsurance}
+                      isWorkersComp={isWorkersComp}
+                      coverageInfo={coverageInfo}
+                      orderingOfficeName={orderingOfficeName}
+                      paymentMethod={externalLabPaymentMethod}
+                      onPaymentMethodChange={setExternalLabPaymentMethod}
+                      disabled={isApplying}
+                    />
+                  ) : undefined
+                }
               />
             ))}
           </Stack>
@@ -709,7 +997,13 @@ export const TemplatePreviewDialog: React.FC<TemplatePreviewDialogProps> = ({
           size="medium"
           sx={buttonSx}
           loading={isApplying}
-          disabled={detailQuery.isLoading || !!detailQuery.error || sectionsWithContent.length === 0 || allSkipped}
+          disabled={
+            detailQuery.isLoading ||
+            !!detailQuery.error ||
+            sectionsWithContent.length === 0 ||
+            allSkipped ||
+            externalLabsRequirementUnmet
+          }
         >
           Apply Template
         </LoadingButton>

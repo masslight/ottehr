@@ -963,6 +963,8 @@ export const ATTORNEY_FIRM_EXTENSION_URL = `${PRIVATE_EXTENSION_BASE_URL}/attorn
 
 export const GLOBAL_TEMPLATE_META_TAG_CODE_SYSTEM = `${PRIVATE_EXTENSION_BASE_URL}/global-template-list`;
 export const GLOBAL_TEMPLATE_IN_PERSON_CODE_SYSTEM = `${OTTEHR_CODE_SYSTEM_BASE_URL}/global-template-in-person`;
+// Stores the payment method configured on an external lab plan ServiceRequest saved on a global template.
+export const EXTERNAL_LAB_TEMPLATE_PLAN_PAYMENT_METHOD_EXT_URL = `${PRIVATE_EXTENSION_BASE_URL}/external-lab-template-plan-payment-method`;
 
 /** Builds the full meta.tag system URL from a chart data field name (e.g. 'chief-complaint' → full URL). */
 export const chartDataTagSystem = (fieldName: string): string => `${PRIVATE_EXTENSION_BASE_URL}/${fieldName}`;

@@ -3,11 +3,13 @@ import {
   chartDataTagSystem,
   ICD_10_CODE_SYSTEM,
   IN_HOUSE_TEST_CODE_SYSTEM,
+  OYSTEHR_LAB_OI_CODE_SYSTEM,
   REPEAT_TEST_ORDER_DETAIL_TAG_CONFIG,
 } from 'utils';
 import { describe, expect, test } from 'vitest';
 import {
   filterEntriesToTemplateContent,
+  isValidExternalLabServiceRequest,
   isValidInHouseLabServiceRequest,
   isValidProcedureServiceRequest,
 } from '../../src/ehr/admin-create-template/index';
@@ -309,6 +311,73 @@ describe('filterEntriesToTemplateContent — in-house lab repeat CPT filtering',
     const ids = result.map((r) => r.id);
     expect(ids).not.toContain('proc-repeat');
     expect(ids).toContain('proc-standard');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// isValidExternalLabServiceRequest — external lab SR capture filter
+// ---------------------------------------------------------------------------
+
+const makeStandardExternalLabSR = (id: string, overrides: Partial<ServiceRequest> = {}): ServiceRequest => ({
+  resourceType: 'ServiceRequest',
+  id,
+  status: 'draft',
+  intent: 'order',
+  subject: { reference: 'Patient/p1' },
+  code: { coding: [{ system: OYSTEHR_LAB_OI_CODE_SYSTEM, code: '7788', display: 'CBC With Differential' }] },
+  ...overrides,
+});
+
+describe('isValidExternalLabServiceRequest', () => {
+  test('includes a standard draft external lab order', () => {
+    expect(isValidExternalLabServiceRequest(makeStandardExternalLabSR('sr-1'))).toBe(true);
+  });
+
+  test('includes orders with includable statuses: draft, active, on-hold, completed', () => {
+    for (const status of ['draft', 'active', 'on-hold', 'completed'] as ServiceRequest['status'][]) {
+      expect(isValidExternalLabServiceRequest(makeStandardExternalLabSR(`sr-${status}`, { status }))).toBe(true);
+    }
+  });
+
+  test('excludes a revoked (canceled) order — should not carry deleted orders into templates', () => {
+    expect(isValidExternalLabServiceRequest(makeStandardExternalLabSR('sr-revoked', { status: 'revoked' }))).toBe(
+      false
+    );
+  });
+
+  test('excludes an entered-in-error order', () => {
+    expect(
+      isValidExternalLabServiceRequest(makeStandardExternalLabSR('sr-error', { status: 'entered-in-error' }))
+    ).toBe(false);
+  });
+
+  test('excludes a reflex/downstream SR (basedOn references another ServiceRequest)', () => {
+    const sr = makeStandardExternalLabSR('sr-reflex', {
+      basedOn: [{ reference: 'ServiceRequest/sr-parent' }],
+    });
+    expect(isValidExternalLabServiceRequest(sr)).toBe(false);
+  });
+
+  test('excludes a template plan SR (intent is plan, not order)', () => {
+    const sr = makeStandardExternalLabSR('sr-plan', { intent: 'plan' });
+    expect(isValidExternalLabServiceRequest(sr)).toBe(false);
+  });
+
+  test('excludes an in-house lab SR (different code system)', () => {
+    const sr = makeStandardExternalLabSR('sr-in-house', {
+      code: { coding: [{ system: IN_HOUSE_TEST_CODE_SYSTEM, code: 'STREP-RAPID' }] },
+    });
+    expect(isValidExternalLabServiceRequest(sr)).toBe(false);
+  });
+
+  test('non-ServiceRequest resource returns false', () => {
+    const obs: TemplateEncounterResource = {
+      resourceType: 'Observation',
+      id: 'obs-1',
+      status: 'final',
+      code: { coding: [{ system: OYSTEHR_LAB_OI_CODE_SYSTEM, code: '7788' }] },
+    };
+    expect(isValidExternalLabServiceRequest(obs)).toBe(false);
   });
 });
 

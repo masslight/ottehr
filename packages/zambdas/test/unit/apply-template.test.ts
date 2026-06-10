@@ -114,6 +114,48 @@ describe('Apply Template - validateRequestParameters', () => {
     ).not.toThrow();
   });
 
+  test("rejects 'overwrite' for externalLabs", () => {
+    // External lab orders are additive only - replacing existing orders is
+    // destructive (they may have specimens collected or be mid-flight to the
+    // lab), so the section is constrained to skip/append.
+    const input = createInput({ ...baseBody, sectionActions: { externalLabs: 'overwrite' } });
+    expect(() => validateRequestParameters(input)).toThrow(/does not support the 'overwrite' action/);
+  });
+
+  test("accepts 'skip' and 'append' for externalLabs", () => {
+    expect(() =>
+      validateRequestParameters(createInput({ ...baseBody, sectionActions: { externalLabs: 'skip' } }))
+    ).not.toThrow();
+    expect(() =>
+      validateRequestParameters(createInput({ ...baseBody, sectionActions: { externalLabs: 'append' } }))
+    ).not.toThrow();
+  });
+
+  test('accepts a valid externalLabs payment method input', () => {
+    const result = validateRequestParameters(createInput({ ...baseBody, externalLabs: { paymentMethod: 'selfPay' } }));
+    expect(result.externalLabs).toEqual({ paymentMethod: 'selfPay' });
+  });
+
+  test('externalLabs input is optional', () => {
+    const result = validateRequestParameters(createInput({ ...baseBody }));
+    expect(result.externalLabs).toBeUndefined();
+  });
+
+  test('rejects an externalLabs input that is not an object', () => {
+    const input = createInput({ ...baseBody, externalLabs: 'insurance' });
+    expect(() => validateRequestParameters(input)).toThrow(/externalLabs must be an object/);
+  });
+
+  test('rejects an unknown externalLabs payment method', () => {
+    const input = createInput({ ...baseBody, externalLabs: { paymentMethod: 'barter' } });
+    expect(() => validateRequestParameters(input)).toThrow(/Invalid externalLabs.paymentMethod/);
+  });
+
+  test('rejects an externalLabs input missing paymentMethod', () => {
+    const input = createInput({ ...baseBody, externalLabs: {} });
+    expect(() => validateRequestParameters(input)).toThrow(/Invalid externalLabs.paymentMethod/);
+  });
+
   test('rejects sectionActions that is not an object', () => {
     const input = createInput({ ...baseBody, sectionActions: 'not-an-object' });
     expect(() => validateRequestParameters(input)).toThrow(/must be an object/);

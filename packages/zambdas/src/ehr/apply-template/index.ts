@@ -31,6 +31,7 @@ import { v4 as uuidV4 } from 'uuid';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
 import { getTemplateBaseResources, hasTemplateRelevantTag, isDiagnosisCondition } from '../shared/template-helpers';
+import { applyExternalLabPlans } from './apply-external-labs';
 import { applyInHouseLabPlans, canApplyActivityDefinition } from './apply-in-house-labs';
 import {
   buildLiveProcedureRequest,
@@ -57,7 +58,7 @@ export const index = wrapHandler('apply-template', async (input: ZambdaInput): P
   const oystehr = createOystehrClient(m2mToken, secrets);
 
   const { templateList, encounter } = await complexValidation(validatedInput, oystehr);
-  const result = await performEffect(validatedInput, templateList, encounter, oystehr);
+  const result = await performEffect(validatedInput, templateList, encounter, oystehr, m2mToken);
   const body: ApplyTemplateZambdaOutput = result.warnings.length > 0 ? { warnings: result.warnings } : {};
   return {
     statusCode: 200,
@@ -170,7 +171,8 @@ const performEffect = async (
   validatedInput: ApplyTemplateZambdaInput & Pick<ZambdaInput, 'secrets'> & { userToken: string },
   templateList: List,
   encounter: Encounter,
-  oystehr: Oystehr
+  oystehr: Oystehr,
+  m2mToken: string
 ): Promise<{ warnings: ApplyTemplateWarning[] }> => {
   const { encounterId, sectionActions } = validatedInput;
   const actions = resolveSectionActions(sectionActions);
@@ -194,6 +196,21 @@ const performEffect = async (
     action: actions.inHouseLabs,
     activityDefinitions: applicableInHouseLabAds,
     encounterResources: encounterBundle,
+  });
+
+  // External lab plans are likewise independent of the chart-data batches (the
+  // create flow writes its own SR/Task/Provenance graph), so they run in
+  // parallel too.
+  const externalLabsPromise = applyExternalLabPlans({
+    templateList,
+    encounter,
+    encounterResources: encounterBundle,
+    userToken: validatedInput.userToken,
+    secrets: validatedInput.secrets,
+    oystehr,
+    m2mToken,
+    action: actions.externalLabs,
+    selectedPaymentMethod: validatedInput.externalLabs?.paymentMethod,
   });
 
   // Make 1 transaction to delete old resources that are being replaced and write the new ones
@@ -264,14 +281,15 @@ const performEffect = async (
     requests: miniTransactionRequests,
   });
 
-  const [bundles, inHouseLabsResult] = await Promise.all([
+  const [bundles, inHouseLabsResult, externalLabsResult] = await Promise.all([
     Promise.all([...deleteBatches, ...createObservationBatches, miniTransactionPromise]),
     inHouseLabsPromise,
+    externalLabsPromise,
   ]);
 
   console.log('Outcome bundles, ', JSON.stringify(bundles));
 
-  return { warnings: inHouseLabsResult.warnings };
+  return { warnings: [...inHouseLabsResult.warnings, ...externalLabsResult.warnings] };
 };
 
 // Decide whether an existing chart-data resource on the encounter should be deleted

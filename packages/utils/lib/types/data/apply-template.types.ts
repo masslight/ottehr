@@ -1,3 +1,5 @@
+import { CreateLabPaymentMethod } from './labs/labs.types';
+
 export type TemplateSectionAction = 'skip' | 'overwrite' | 'append';
 
 export type TemplateSectionKey =
@@ -11,6 +13,7 @@ export type TemplateSectionKey =
   | 'cptCodes'
   | 'emCode'
   | 'inHouseLabs'
+  | 'externalLabs'
   | 'procedures';
 
 export type TemplateSectionActions = Partial<Record<TemplateSectionKey, TemplateSectionAction>>;
@@ -26,6 +29,7 @@ export const TEMPLATE_SECTION_DEFAULT_ACTIONS: Record<TemplateSectionKey, Templa
   cptCodes: 'append',
   emCode: 'overwrite',
   inHouseLabs: 'append',
+  externalLabs: 'append',
   procedures: 'append',
 };
 
@@ -51,15 +55,17 @@ export const TEMPLATE_SECTIONS_IN_ORDER: readonly TemplateSectionDescriptor[] = 
   { key: 'cptCodes', label: 'CPT Codes' },
   { key: 'emCode', label: 'E&M Code' },
   { key: 'inHouseLabs', label: 'In-House Lab Orders' },
+  { key: 'externalLabs', label: 'External Lab Orders' },
   { key: 'procedures', label: 'Procedures' },
 ];
-// In-house lab orders and in-office Procedures are additive only - replacing
-// existing entries on an encounter is destructive (in-house labs may have
-// specimens/results; procedures carry post-facto documentation a provider
-// shouldn't lose by clicking the wrong toggle), so we constrain both sections
-// to Skip or Append.
+// Lab orders (in-house and external) and in-office Procedures are additive
+// only - replacing existing entries on an encounter is destructive (lab orders
+// may have specimens/results; procedures carry post-facto documentation a
+// provider shouldn't lose by clicking the wrong toggle), so we constrain these
+// sections to Skip or Append.
 export const TEMPLATE_SECTIONS_NO_OVERWRITE: ReadonlySet<TemplateSectionKey> = new Set<TemplateSectionKey>([
   'inHouseLabs',
+  'externalLabs',
   'procedures',
 ]);
 
@@ -67,6 +73,12 @@ export interface ApplyTemplateZambdaInput {
   encounterId: string;
   templateName: string;
   sectionActions?: TemplateSectionActions;
+  // External lab orders require a payment method at create time. The preview
+  // dialog requires the user to confirm one before appending the External Lab
+  // Orders section; it's passed here and used for every external lab plan on
+  // the template. Falls back to the payment method configured on each plan
+  // when omitted (e.g. API callers bypassing the EHR UI).
+  externalLabs?: { paymentMethod: CreateLabPaymentMethod };
 }
 
 export interface ApplyTemplateWarning {

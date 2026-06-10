@@ -1,6 +1,8 @@
 import {
   ApplyTemplateZambdaInput,
+  CreateLabPaymentMethod,
   INVALID_INPUT_ERROR,
+  LabPaymentMethod,
   MISSING_REQUIRED_PARAMETERS,
   TEMPLATE_SECTION_DEFAULT_ACTIONS,
   TEMPLATE_SECTIONS_NO_APPEND,
@@ -44,6 +46,24 @@ const parseSectionActions = (raw: unknown): TemplateSectionActions => {
   return result;
 };
 
+const VALID_PAYMENT_METHODS: ReadonlySet<string> = new Set(Object.values(LabPaymentMethod));
+
+const parseExternalLabsInput = (raw: unknown): ApplyTemplateZambdaInput['externalLabs'] => {
+  if (raw === undefined) return undefined;
+  if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) {
+    throw INVALID_INPUT_ERROR('externalLabs must be an object');
+  }
+  const { paymentMethod } = raw as Record<string, unknown>;
+  if (typeof paymentMethod !== 'string' || !VALID_PAYMENT_METHODS.has(paymentMethod)) {
+    throw INVALID_INPUT_ERROR(
+      `Invalid externalLabs.paymentMethod: ${String(paymentMethod)}. Must be one of: ${Array.from(
+        VALID_PAYMENT_METHODS
+      ).join(', ')}`
+    );
+  }
+  return { paymentMethod: paymentMethod as CreateLabPaymentMethod };
+};
+
 export function validateRequestParameters(
   input: ZambdaInput
 ): ApplyTemplateZambdaInput & Pick<ZambdaInput, 'secrets'> & { userToken: string } {
@@ -58,7 +78,7 @@ export function validateRequestParameters(
     throw INVALID_INPUT_ERROR('Request body must be a valid JSON object');
   }
 
-  const { templateName, encounterId, sectionActions } = parsedInput as Record<string, unknown>;
+  const { templateName, encounterId, sectionActions, externalLabs } = parsedInput as Record<string, unknown>;
 
   // Validate required parameters
   const missingFields = [];
@@ -96,11 +116,13 @@ export function validateRequestParameters(
   }
 
   const validatedSectionActions = parseSectionActions(sectionActions);
+  const validatedExternalLabs = parseExternalLabsInput(externalLabs);
 
   return {
     templateName,
     encounterId,
     sectionActions: validatedSectionActions,
+    ...(validatedExternalLabs ? { externalLabs: validatedExternalLabs } : {}),
     secrets: input.secrets,
     userToken,
   };

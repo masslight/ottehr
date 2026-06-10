@@ -29,7 +29,7 @@ import { useGetAppointmentAccessibility } from '../../hooks/useGetAppointmentAcc
 import { useAppointmentData } from '../../stores/appointment/appointment.store';
 import { resetExamObservationsStore } from '../../stores/appointment/reset-exam-observations';
 import { resetRosObservationsStore } from '../../stores/appointment/reset-ros-observations';
-import { TemplatePreviewDialog } from './TemplatePreviewDialog';
+import { TemplatePreviewApplyOptions, TemplatePreviewDialog } from './TemplatePreviewDialog';
 import { TemplateOption, useListTemplates } from './useListTemplates';
 
 const ADD_NEW_SENTINEL = '__ADD_NEW__';
@@ -108,7 +108,10 @@ export const ApplyTemplate: React.FC = () => {
     setDialogOpen(false);
   };
 
-  const handleApplyTemplate = async (sectionActions: TemplateSectionActions): Promise<void> => {
+  const handleApplyTemplate = async (
+    sectionActions: TemplateSectionActions,
+    options?: TemplatePreviewApplyOptions
+  ): Promise<void> => {
     if (!pendingTemplate) return;
     if (oystehrZambda && encounter.id) {
       setIsApplyingTemplate(true);
@@ -117,6 +120,7 @@ export const ApplyTemplate: React.FC = () => {
           encounterId: encounter.id,
           templateName: pendingTemplate.value,
           sectionActions,
+          ...(options?.externalLabs ? { externalLabs: options.externalLabs } : {}),
         });
 
         // Reset exam observations store to force reload from server

@@ -1,23 +1,31 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Encounter, List, Patient, ServiceRequest } from 'fhir/r4b';
+import { ActivityDefinition, Coverage, Encounter, List, Patient, ServiceRequest } from 'fhir/r4b';
 import {
   AdminCreateTemplateInput,
   AdminCreateTemplateOutput,
   chartDataTagSystem,
   examConfig,
+  EXTERNAL_LAB_TEMPLATE_PLAN_PAYMENT_METHOD_EXT_URL,
   getSecret,
   GLOBAL_TEMPLATE_IN_PERSON_CODE_SYSTEM,
   IN_HOUSE_TEST_CODE_SYSTEM,
+  isExternalLabServiceRequest,
+  isPSCOrder,
   makeOptimisticLockIfMatchHeader,
+  OYSTEHR_LAB_GUID_SYSTEM,
+  OYSTEHR_LAB_OI_CODE_SYSTEM,
+  PSC_HOLD_CONFIG,
   REPEAT_TEST_ORDER_DETAIL_TAG_CONFIG,
   resourceHasTagSystem,
   SecretsKeys,
+  serviceRequestPaymentMethod,
   transactionWasSuccessful,
 } from 'utils';
 import { v4 as uuidV4 } from 'uuid';
 import { checkOrCreateM2MClientToken, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
+import { labOrderCommunicationType } from '../lab/external/get-lab-orders/helpers';
 import { AD_CANONICAL_URL_BASE } from '../lab/shared/in-house-labs';
 import {
   findHolderList,
@@ -134,6 +142,10 @@ const performEffect = async (
     // We identify diagnoses by the `diagnosis` meta tag, NOT by ICD-10 code — Medical Conditions can also
     // carry ICD-10 codes but they are patient-specific history, not template content.
     if (isDiagnosisCondition(resource)) return true;
+    // External lab order SRs are additive too and may legitimately share meta
+    // tags (generic-compendium orders all carry the same generic-order tag), so
+    // the tag-based dedup below must not collapse them.
+    if (isValidExternalLabServiceRequest(resource)) return true;
     const tags = resource?.meta?.tag?.map((tag) => `${tag.system}|${tag.code}`);
     if (!tags) return true;
     // CPT codes and patient instructions are additive (multiple per encounter), so skip deduplication for them
@@ -168,6 +180,29 @@ const performEffect = async (
   const procedureOrders = encounterBundle.filter((resource): resource is ServiceRequest =>
     isValidProcedureServiceRequest(resource)
   );
+
+  // Capture external lab orders the same way. Their clinical info note lives
+  // on a Communication that references the order SR via basedOn (it carries no
+  // chart-data tag and no encounter reference), and the payment method is
+  // derived from the Coverage the order's insurance points at - both have to
+  // be collected before the tag filter strips those resources out.
+  const externalLabOrders = encounterBundle.filter((resource): resource is ServiceRequest =>
+    isValidExternalLabServiceRequest(resource)
+  );
+  const activeCoverages = encounterBundle.filter(
+    (resource): resource is Coverage => resource.resourceType === 'Coverage' && resource.status === 'active'
+  );
+  const clinicalInfoNoteBySrId = new Map<string, string>();
+  for (const resource of encounterBundle) {
+    if (resource.resourceType !== 'Communication') continue;
+    if (labOrderCommunicationType(resource) !== 'clinical-info-note') continue;
+    const text = resource.payload?.[0]?.contentString;
+    if (!text) continue;
+    for (const basedOn of resource.basedOn ?? []) {
+      const srId = basedOn.reference?.startsWith('ServiceRequest/') ? basedOn.reference.split('/')[1] : undefined;
+      if (srId) clinicalInfoNoteBySrId.set(srId, text);
+    }
+  }
 
   // Filter to only resources relevant to template sections
   const diagnosesRefFromEncounterSet = new Set(
@@ -238,6 +273,80 @@ const performEffect = async (
           {
             system: chartDataTagSystem('in-house-lab-template-plan'),
             code: 'in-house-lab-template-plan',
+          },
+        ],
+      },
+    };
+    listToCreate.contained!.push(plan);
+    listToCreate.entry!.push({
+      item: { reference: `#${planId}` },
+    });
+  }
+
+  // Materialize each captured external lab order as a "plan" ServiceRequest on
+  // the template. Like in-house labs, we don't snapshot the live order graph;
+  // the plan stores the lab + test combo (lab GUID + name, orderable item
+  // code), the Dx reason codes, the clinical info note, the PSC flag, and the
+  // payment method the order used. At apply time the test is re-resolved
+  // against the lab's current compendium and the ordering office is derived
+  // from the encounter the template is applied to.
+  const externalLabPlanTag = chartDataTagSystem('external-lab-template-plan');
+  for (const order of externalLabOrders) {
+    const labPerformer = order.performer?.find((p) => p.identifier?.system === OYSTEHR_LAB_GUID_SYSTEM);
+    const itemCoding = order.code?.coding?.find((c) => c.system === OYSTEHR_LAB_OI_CODE_SYSTEM);
+    if (!labPerformer?.identifier?.value || !itemCoding?.code) {
+      console.warn(
+        `Skipping external lab order ServiceRequest/${order.id} when saving template - missing lab guid or item code`
+      );
+      continue;
+    }
+    // The lab name disambiguates generic (static-compendium) labs, which all
+    // share a single lab GUID; the create flow stamps it on the order's
+    // contained ActivityDefinition as publisher.
+    const containedAd = order.contained?.find((r): r is ActivityDefinition => r.resourceType === 'ActivityDefinition');
+    const labName = containedAd?.publisher ?? labPerformer.display;
+    const clinicalInfoNote = order.id ? clinicalInfoNoteBySrId.get(order.id) : undefined;
+    const paymentMethod = serviceRequestPaymentMethod(order, activeCoverages);
+
+    const planId = uuidV4();
+    const plan: ServiceRequest = {
+      resourceType: 'ServiceRequest',
+      id: planId,
+      status: 'active',
+      intent: 'plan',
+      subject: { reference: `#${stubPatient.id}` },
+      code: {
+        coding: [{ system: OYSTEHR_LAB_OI_CODE_SYSTEM, code: itemCoding.code, display: itemCoding.display }],
+        text: itemCoding.display ?? order.code?.text,
+      },
+      performer: [
+        {
+          identifier: { system: OYSTEHR_LAB_GUID_SYSTEM, value: labPerformer.identifier.value },
+          ...(labName ? { display: labName } : {}),
+        },
+      ],
+      ...(order.reasonCode ? { reasonCode: order.reasonCode } : {}),
+      ...(clinicalInfoNote ? { note: [{ text: clinicalInfoNote }] } : {}),
+      ...(isPSCOrder(order)
+        ? {
+            orderDetail: [
+              {
+                coding: [
+                  { system: PSC_HOLD_CONFIG.system, code: PSC_HOLD_CONFIG.code, display: PSC_HOLD_CONFIG.display },
+                ],
+                text: PSC_HOLD_CONFIG.display,
+              },
+            ],
+          }
+        : {}),
+      ...(paymentMethod
+        ? { extension: [{ url: EXTERNAL_LAB_TEMPLATE_PLAN_PAYMENT_METHOD_EXT_URL, valueString: paymentMethod }] }
+        : {}),
+      meta: {
+        tag: [
+          {
+            system: externalLabPlanTag,
+            code: 'external-lab-template-plan',
           },
         ],
       },
@@ -415,6 +524,22 @@ export const isValidInHouseLabServiceRequest = (resource: TemplateEncounterResou
     !resource.basedOn?.some((basedOn) => basedOn.reference?.startsWith('ServiceRequest/')) && // we don't want reflex tests included either
     resource.instantiatesCanonical?.some((canonical) => canonical.startsWith(AD_CANONICAL_URL_BASE)) === true &&
     TEMPLATE_INCLUDABLE_SR_STATUSES.has((resource as ServiceRequest).status)
+  );
+};
+
+// External lab order SRs are identified by their orderable-item code system.
+// Reflex/repeat tests created downstream reference their parent order via
+// basedOn and are excluded - templates only capture orders a provider placed.
+// The includable-status set keeps cancelled (revoked / entered-in-error)
+// orders out of saved templates, mirroring the in-house lab capture.
+export const isValidExternalLabServiceRequest = (resource: TemplateEncounterResource): boolean => {
+  if (resource.resourceType !== 'ServiceRequest') return false;
+  const sr = resource as ServiceRequest;
+  return (
+    sr.intent === 'order' &&
+    isExternalLabServiceRequest(sr) &&
+    !sr.basedOn?.some((basedOn) => basedOn.reference?.startsWith('ServiceRequest/')) &&
+    TEMPLATE_INCLUDABLE_SR_STATUSES.has(sr.status)
   );
 };
 

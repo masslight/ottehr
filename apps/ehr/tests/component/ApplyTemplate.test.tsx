@@ -42,7 +42,15 @@ vi.mock('src/hooks/useAppClients', () => ({
 vi.mock('../../src/features/visits/shared/stores/appointment/appointment.store', () => ({
   useAppointmentData: () => ({
     encounter: { id: 'test-encounter-id' },
+    patient: { id: 'test-patient-id' },
+    location: { id: 'test-location-id', name: 'Test Office' },
   }),
+}));
+
+const mockUseGetCreateExternalLabResources = vi.fn();
+
+vi.mock('../../src/features/visits/shared/stores/appointment/appointment.queries', () => ({
+  useGetCreateExternalLabResources: (...args: any[]) => mockUseGetCreateExternalLabResources(...args),
 }));
 
 let mockIsReadOnly = false;
@@ -142,6 +150,32 @@ const mockTemplateDetail = {
         missing: true,
       },
     ],
+    externalLabs: [
+      {
+        planId: 'ext-plan-1',
+        labGuid: 'lab-guid-1',
+        labName: 'Quest Diagnostics',
+        testName: 'CBC With Differential',
+        testCode: '7788',
+        diagnoses: [{ code: 'J02.9', display: 'Acute pharyngitis, unspecified' }],
+        note: 'fasting required',
+        psc: true,
+        paymentMethod: 'insurance',
+        missing: false,
+      },
+      {
+        planId: 'ext-plan-2',
+        labGuid: 'lab-guid-1',
+        labName: 'Quest Diagnostics',
+        testName: 'Discontinued Panel',
+        testCode: '9999',
+        diagnoses: [],
+        note: null,
+        psc: false,
+        paymentMethod: null,
+        missing: true,
+      },
+    ],
     procedures: [
       {
         planId: 'proc-1',
@@ -165,6 +199,15 @@ const mockTemplateDetail = {
       },
     ],
   },
+};
+
+const mockExternalLabResources = {
+  coverages: [{ coverageName: 'Aetna', coverageId: 'cov-1', isPrimary: true }],
+  appointmentIsWorkersComp: false,
+  orderingLocations: [{ id: 'test-location-id', name: 'Test Office', enabledLabs: [] }],
+  orderingLocationIds: ['test-location-id'],
+  labs: [],
+  labSets: undefined,
 };
 
 const createWrapper = () => {
@@ -195,6 +238,11 @@ describe('ApplyTemplate', () => {
     mockDeleteTemplate.mockResolvedValue({ message: 'Deleted' });
     mockApplyTemplate.mockResolvedValue({ message: 'Applied' });
     mockGetTemplateDetail.mockResolvedValue(mockTemplateDetail);
+    mockUseGetCreateExternalLabResources.mockReturnValue({
+      data: mockExternalLabResources,
+      isLoading: false,
+      isError: false,
+    });
   });
 
   it('should render the template select autocomplete', async () => {
@@ -471,8 +519,13 @@ describe('ApplyTemplate', () => {
             cptCodes: 'append',
             emCode: 'overwrite',
             inHouseLabs: 'append',
+            externalLabs: 'append',
             procedures: 'append',
           },
+          // The payment method auto-selects to the template's configured value
+          // ('insurance', available because the patient has coverage) and rides
+          // along with the apply call.
+          externalLabs: { paymentMethod: 'insurance' },
         })
       );
     });
@@ -650,6 +703,7 @@ describe('ApplyTemplate', () => {
         emCode: null,
         mdm: null,
         inHouseLabs: [],
+        externalLabs: [],
         procedures: [],
         // Only HPI has content.
       },
@@ -664,6 +718,148 @@ describe('ApplyTemplate', () => {
 
     const applyButton = screen.getByRole('button', { name: 'Apply Template' });
     expect(applyButton).toBeDisabled();
+  });
+
+  it('should render the external lab plans with apply controls, hide Overwrite, and mark missing tests', async () => {
+    const user = userEvent.setup();
+    render(<ApplyTemplate />, { wrapper: createWrapper() });
+
+    await user.click(await screen.findByLabelText('Select condition'));
+    await user.click(await screen.findByText('Sore Throat'));
+
+    const labCard = await screen.findByTestId('template-section-externalLabs');
+    // Summary calls out the missing-test count in addition to the test names.
+    expect(within(labCard).getByText(/CBC With Differential/)).toBeInTheDocument();
+    expect(within(labCard).getByText(/1 unavailable/)).toBeInTheDocument();
+
+    // External labs are append-or-skip only; the Overwrite toggle should not render.
+    expect(within(labCard).queryByRole('button', { name: 'Overwrite' })).toBeNull();
+    expect(within(labCard).getByRole('button', { name: 'Skip' })).toBeInTheDocument();
+    expect(within(labCard).getByRole('button', { name: 'Append' })).toBeInTheDocument();
+
+    // The always-visible apply controls show the auto-selected ordering office
+    // (from the visit) and the payment method select, pre-filled from the
+    // template's configured value since the patient has coverage.
+    const controls = within(labCard).getByTestId('template-section-externalLabs-controls');
+    expect(within(controls).getByTestId('template-external-labs-ordering-office')).toHaveTextContent('Test Office');
+    expect(within(controls).getByTestId('template-external-labs-payment-method')).toHaveTextContent('Insurance');
+
+    await user.click(within(labCard).getByTestId('template-section-externalLabs-header'));
+
+    // Both plans appear in the expanded preview with their saved ordering
+    // details (the test name also shows in the collapsed summary, hence 2).
+    await waitFor(() => {
+      expect(within(labCard).getAllByText(/Discontinued Panel/)).toHaveLength(2);
+    });
+    expect(within(labCard).getByText(/unavailable in this environment/)).toBeInTheDocument();
+    expect(within(labCard).getByText('PSC Hold')).toBeInTheDocument();
+    expect(within(labCard).getByText(/Configured payment method: Insurance/)).toBeInTheDocument();
+    expect(within(labCard).getByText(/fasting required/)).toBeInTheDocument();
+  });
+
+  it('should require a payment method before Apply when none can be auto-selected', async () => {
+    const user = userEvent.setup();
+    // No coverage info at all: nothing to auto-select from, so the user must
+    // pick a payment method before the section can be appended.
+    mockUseGetCreateExternalLabResources.mockReturnValue({
+      data: { ...mockExternalLabResources, coverages: undefined },
+      isLoading: false,
+      isError: false,
+    });
+    render(<ApplyTemplate />, { wrapper: createWrapper() });
+
+    await user.click(await screen.findByLabelText('Select condition'));
+    await user.click(await screen.findByText('Sore Throat'));
+
+    const labCard = await screen.findByTestId('template-section-externalLabs');
+    const applyButton = screen.getByRole('button', { name: 'Apply Template' });
+    expect(applyButton).toBeDisabled();
+
+    // Selecting a payment method satisfies the requirement.
+    const paymentSelect = within(labCard).getByTestId('template-external-labs-payment-method');
+    await user.click(within(paymentSelect).getByRole('combobox'));
+    await user.click(await screen.findByRole('option', { name: 'Self Pay' }));
+
+    expect(applyButton).toBeEnabled();
+    await user.click(applyButton);
+
+    await waitFor(() => {
+      expect(mockApplyTemplate).toHaveBeenCalledWith(
+        mockOystehrZambda,
+        expect.objectContaining({
+          sectionActions: expect.objectContaining({ externalLabs: 'append' }),
+          externalLabs: { paymentMethod: 'selfPay' },
+        })
+      );
+    });
+  });
+
+  it('should not require a payment method when the external labs section is skipped', async () => {
+    const user = userEvent.setup();
+    mockUseGetCreateExternalLabResources.mockReturnValue({
+      data: { ...mockExternalLabResources, coverages: undefined },
+      isLoading: false,
+      isError: false,
+    });
+    render(<ApplyTemplate />, { wrapper: createWrapper() });
+
+    await user.click(await screen.findByLabelText('Select condition'));
+    await user.click(await screen.findByText('Sore Throat'));
+
+    const labCard = await screen.findByTestId('template-section-externalLabs');
+    await user.click(within(labCard).getByRole('button', { name: 'Skip' }));
+
+    // Skipping hides the apply controls and unblocks Apply.
+    expect(within(labCard).queryByTestId('template-section-externalLabs-controls')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Apply Template' })).toBeEnabled();
+    await user.click(screen.getByRole('button', { name: 'Apply Template' }));
+
+    await waitFor(() => {
+      expect(mockApplyTemplate).toHaveBeenCalledWith(
+        mockOystehrZambda,
+        expect.not.objectContaining({ externalLabs: expect.anything() })
+      );
+    });
+    expect(mockApplyTemplate.mock.calls[0][1].sectionActions.externalLabs).toBe('skip');
+  });
+
+  it('should warn without blocking Apply when the visit office is not configured for external labs', async () => {
+    const user = userEvent.setup();
+    mockUseGetCreateExternalLabResources.mockReturnValue({
+      data: {
+        ...mockExternalLabResources,
+        orderingLocations: [{ id: 'some-other-location', name: 'Other Office', enabledLabs: [] }],
+        orderingLocationIds: ['some-other-location'],
+      },
+      isLoading: false,
+      isError: false,
+    });
+    render(<ApplyTemplate />, { wrapper: createWrapper() });
+
+    await user.click(await screen.findByLabelText('Select condition'));
+    await user.click(await screen.findByText('Sore Throat'));
+
+    const labCard = await screen.findByTestId('template-section-externalLabs');
+    // Orders will be skipped server-side with a warning, so the preview warns
+    // and there is no payment method to require.
+    expect(within(labCard).getByTestId('template-external-labs-office-warning')).toBeInTheDocument();
+    expect(within(labCard).queryByTestId('template-external-labs-payment-method')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Apply Template' })).toBeEnabled();
+  });
+
+  it('should not render the external labs section when the template carries none', async () => {
+    mockGetTemplateDetail.mockResolvedValue({
+      ...mockTemplateDetail,
+      sections: { ...mockTemplateDetail.sections, externalLabs: [] },
+    });
+    const user = userEvent.setup();
+    render(<ApplyTemplate />, { wrapper: createWrapper() });
+
+    await user.click(await screen.findByLabelText('Select condition'));
+    await user.click(await screen.findByText('Sore Throat'));
+
+    await screen.findByTestId('template-section-hpi');
+    expect(screen.queryByTestId('template-section-externalLabs')).toBeNull();
   });
 
   it('should disable autocomplete when in read-only mode', async () => {
