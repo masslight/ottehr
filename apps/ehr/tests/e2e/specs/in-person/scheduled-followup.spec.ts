@@ -1,5 +1,6 @@
 import { BrowserContext, expect, Page, test } from '@playwright/test';
 import { dataTestIds } from 'src/constants/data-test-ids';
+import { BOOKING_CONFIG, getReasonForVisitOptionsForServiceCategory } from 'utils';
 import { ResourceHandler } from '../../../e2e-utils/resource-handler';
 
 const DEFAULT_TIMEOUT = { timeout: 15000 };
@@ -86,26 +87,58 @@ test.describe.serial('Scheduled Follow-up Visit E2E', () => {
       await page.getByText('Walk-in In Person Visit').click();
     });
 
-    // Step 5: Select service category if not disabled (auto-selected when only one)
+    // Step 5: Select a service category. The Reason-for-visit field (asserted below) only renders
+    // for a category that has reason-for-visit options configured in BOOKING_CONFIG, so pick such a
+    // category from config rather than blindly taking the first dropdown option.
     await test.step('Select service category', async () => {
+      const categoryWithReasons = BOOKING_CONFIG.serviceCategories.find(
+        (sc) => sc.category.code && getReasonForVisitOptionsForServiceCategory(sc.category.code).length > 0
+      );
+
       const serviceCategoryDropdown = page.getByTestId(dataTestIds.addPatientPage.serviceCategoryDropdown);
       const isDisabled =
         (await serviceCategoryDropdown.locator('[aria-disabled="true"]').count()) > 0 ||
         (await serviceCategoryDropdown.locator('input[disabled]').count()) > 0;
+
+      // When disabled the only category is auto-selected, so there's nothing to pick.
       if (!isDisabled) {
         await serviceCategoryDropdown.click();
-        await page.getByRole('option').first().waitFor(DEFAULT_TIMEOUT);
-        await page.getByRole('option').first().click();
+        if (categoryWithReasons?.category.display) {
+          const option = page.getByRole('option', { name: categoryWithReasons.category.display, exact: true }).first();
+          await expect(option).toBeVisible(DEFAULT_TIMEOUT);
+          await option.click();
+        } else {
+          // No config category advertises reasons — fall back to the first available option.
+          await page.getByRole('option').first().waitFor(DEFAULT_TIMEOUT);
+          await page.getByRole('option').first().click();
+        }
       }
     });
 
-    // Step 6: Select location from dropdown (must use dropdown to get walkinSchedule)
-    await test.step('Select location', async () => {
-      const locationSelect = page.getByTestId(dataTestIds.addPatientPage.bookableSelect);
-      // Clear and re-select to ensure walkinSchedule data is loaded
-      await locationSelect.click();
-      await page.locator('li[role="option"]').first().waitFor(DEFAULT_TIMEOUT);
-      await page.locator('li[role="option"]').first().click();
+    // Step 6: Ensure a location (bookable target) is selected. It's normally pre-populated from the
+    // parent encounter, but don't assume that — verify a value is present and pick one if it isn't.
+    await test.step('Ensure location is selected', async () => {
+      const bookableSelect = page.getByTestId(dataTestIds.addPatientPage.bookableSelect);
+      await expect(bookableSelect).toBeVisible(LONG_TIMEOUT);
+
+      const input = bookableSelect.locator('input');
+      // Wait until the picker has finished loading its options (the input is disabled/empty while
+      // the FHIR fetch is in flight). A non-empty value means a target is already selected.
+      const currentValue = await input.inputValue();
+      if (currentValue.trim().length > 0) {
+        return;
+      }
+
+      // Nothing pre-selected — open the dropdown, wait for options to load, and pick the first one.
+      await bookableSelect.locator('[role="combobox"]').click();
+      const firstOption = page.locator('li[role="option"]').first();
+      await expect(firstOption).toBeVisible(LONG_TIMEOUT);
+      await firstOption.click();
+
+      // Confirm the value is now populated before moving on.
+      await expect(async () => {
+        expect((await input.inputValue()).trim().length).toBeGreaterThan(0);
+      }).toPass(DEFAULT_TIMEOUT);
     });
 
     // Step 7: Select reason for visit and submit

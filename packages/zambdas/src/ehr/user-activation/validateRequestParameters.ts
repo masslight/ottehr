@@ -11,13 +11,13 @@ export function validateRequestParameters(input: ZambdaInput): UserActivationZam
   }
 
   const parsedJSON = JSON.parse(input.body);
-  const { mode, userId } = UserActivationZambdaInputSchema.parse(parsedJSON);
+  const { userActivationMode, userId } = UserActivationZambdaInputSchema.parse(parsedJSON);
   console.log('parsed userId: ', JSON.stringify(userId));
-  console.log('parsed mode: ', JSON.stringify(mode));
+  console.log('parsed userActivationMode: ', JSON.stringify(userActivationMode));
 
   return {
     userId,
-    mode,
+    userActivationMode,
     secrets: input.secrets,
   };
 }

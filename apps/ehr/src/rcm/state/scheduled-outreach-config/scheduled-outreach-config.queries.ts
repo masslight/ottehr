@@ -60,6 +60,7 @@ export const useListOutreachTasksQuery = (
       params?.actionType,
       params?.medium,
       params?.triggerEvent,
+      params?.patientSearch,
       params?.dueDateFrom,
       params?.dueDateTo,
       params?.createdFrom,
