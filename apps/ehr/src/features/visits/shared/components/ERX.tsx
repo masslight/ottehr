@@ -17,9 +17,6 @@ import {
 } from '../stores/appointment/appointment.queries';
 import { useAppointmentData } from '../stores/appointment/appointment.store';
 import { ERXDialog } from './ERXDialog';
-
-const ERX_MISSING_FIELDS_SNACKBAR_KEY = 'erx-practitioner-missing-fields';
-
 export enum ERXStatus {
   INITIAL,
   LOADING,
@@ -47,15 +44,6 @@ export const ERX: FC<{
 
   const [isTimeout, setIsTimeout] = useState<boolean>(false);
   const [pendingErxEnrollmentDialogOpen, setPendingErxEnrollmentDialogOpen] = useState<boolean>(false);
-
-  // The missing-fields snackbar is persistent (persist: true), so it must be explicitly
-  // dismissed when this component unmounts. Otherwise it lingers after the provider leaves
-  // the medication-ordering context, overlaying the rest of the UI and intercepting clicks.
-  useEffect(() => {
-    return () => {
-      closeSnackbar(ERX_MISSING_FIELDS_SNACKBAR_KEY);
-    };
-  }, []);
 
   // Step 1: Get patient vitals
   const heightSearchConfig = createVitalsSearchConfig(VitalFieldNames.VitalHeight, 'patient', 1);
@@ -125,7 +113,7 @@ export const ERX: FC<{
           variant: 'error',
           persist: true,
           preventDuplicate: true,
-          key: ERX_MISSING_FIELDS_SNACKBAR_KEY,
+          key: 'erx-practitioner-missing-fields',
           action: (snackbarId) => (
             <>
               {isAdmin && employeeProfileLink && (
