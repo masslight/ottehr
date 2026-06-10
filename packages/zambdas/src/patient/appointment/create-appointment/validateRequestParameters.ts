@@ -29,6 +29,7 @@ import {
   ServiceMode,
   SLOT_FALLBACK_REROUTED_TAG,
   SLOT_QUESTIONNAIRE_CANONICAL_EXTENSION_URL,
+  SLOT_UNAVAILABLE_ERROR,
   VisitType,
 } from 'utils';
 import {
@@ -338,7 +339,7 @@ export const createAppointmentComplexValidation = async (
     // capacity at the originating Location — see groupMemberFallback.ts.
     const fallback = await tryGroupMemberFallback({ slot, schedule, scheduleOwner, oystehrClient });
     if (!fallback) {
-      throw INVALID_INPUT_ERROR('This time slot is no longer available. Please choose another time.');
+      throw SLOT_UNAVAILABLE_ERROR;
     }
     schedule = fallback.schedule;
     scheduleOwner = fallback.scheduleOwner;
