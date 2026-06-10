@@ -14,16 +14,21 @@ import {
   ACCIDENT_TYPE_SYSTEM,
   AdminGetTemplateDetailInput,
   AdminGetTemplateDetailOutput,
+  BODY_SITE_SYSTEM,
   chartDataTagSystem,
   collectKnownExamFields,
   collectKnownRosFields,
+  CPT_CODE_SYSTEM,
   examConfig,
   extractCptCodeModifiersFromCoding,
+  FHIR_EXTENSION,
   getRosFindingStateFromKey,
   getSecret,
   getTag,
   ICD_10_CODE_SYSTEM,
   IN_HOUSE_TEST_CODE_SYSTEM,
+  PERFORMER_TYPE_SYSTEM,
+  PROCEDURE_TYPE_SYSTEM,
   resourceHasTagSystem,
   SecretsKeys,
   TemplateAccidentInfo,
@@ -31,6 +36,7 @@ import {
   TemplateCptCodeInfo,
   TemplateExamFinding,
   TemplateInHouseLabPlanDetail,
+  TemplateProcedurePlan,
   TemplateRosFinding,
 } from 'utils';
 import { checkOrCreateM2MClientToken, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
@@ -39,6 +45,7 @@ import {
   indexLatestActivityDefinitionsByUrl,
   urlFromInstantiatesCanonical,
 } from '../apply-template/apply-in-house-labs';
+import { findProcedurePlans } from '../apply-template/apply-procedures';
 import { analyzeTemplateVersionData, isDiagnosisCondition, verifyIsTemplate } from '../shared/template-helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -304,23 +311,27 @@ const performEffect = async (
     new Set(inHouseLabPlans.flatMap((p) => p.instantiatesCanonical ?? []).filter((ref): ref is string => Boolean(ref)))
   );
 
-  let adByUrl = new Map<string, ActivityDefinition>();
+  let activeAdByUrl = new Map<string, ActivityDefinition>();
+  const retiredAdByUrl = new Map<string, ActivityDefinition>();
   if (canonicalRefs.length > 0) {
     const urlsToSearch = Array.from(new Set(canonicalRefs.map(urlFromInstantiatesCanonical)));
     try {
       const ads = (
         await oystehr.fhir.search<ActivityDefinition>({
           resourceType: 'ActivityDefinition',
-          // Active-only - retired ADs can outrank active ones by semver and
-          // would otherwise show up as the "current" definition on the admin
-          // detail page even though apply-template would reject them.
-          params: [
-            { name: 'url', value: urlsToSearch.join(',') },
-            { name: 'status', value: 'active' },
-          ],
+          params: [{ name: 'url', value: urlsToSearch.join(',') }],
         })
       ).unbundle() as ActivityDefinition[];
-      adByUrl = indexLatestActivityDefinitionsByUrl(ads);
+      activeAdByUrl = indexLatestActivityDefinitionsByUrl(ads.filter((ad) => ad.status === 'active'));
+
+      // we still query the inactive ads and set them aside so we can display useful info like the in-applicable test's name
+      // so a user might be able to fix it
+      ads
+        .filter((ad) => ad.status === 'retired')
+        .forEach((retiredAd) => {
+          if (!retiredAd.url) return;
+          retiredAdByUrl.set(retiredAd.url, retiredAd);
+        });
     } catch (err) {
       console.warn('Could not resolve ActivityDefinitions for in-house lab plans:', err);
     }
@@ -330,9 +341,14 @@ const performEffect = async (
     const canonical = plan.instantiatesCanonical?.[0] ?? '';
 
     // cpts codes, test code, and test name should all come from the AD itself to pick up any changes to the test
-    const ad = canonical ? adByUrl.get(urlFromInstantiatesCanonical(canonical)) : undefined;
+    const ad = canonical ? activeAdByUrl.get(urlFromInstantiatesCanonical(canonical)) : undefined;
+    let fallbackTestName = 'Unknown test';
     if (!ad) {
-      console.warn(`Could not resolve ActivityDefinitions for in-house lab plans canonical ${canonical}`);
+      console.warn(
+        `Could not resolve ActivityDefinitions for in-house lab plans canonical ${canonical}. Trying in the retired ads collection`
+      );
+      const maybeRetiredAd = retiredAdByUrl.get(urlFromInstantiatesCanonical(canonical));
+      fallbackTestName = maybeRetiredAd?.name ?? maybeRetiredAd?.title ?? fallbackTestName;
     }
     const inHouseCoding = ad?.code?.coding?.find((c) => c.system === IN_HOUSE_TEST_CODE_SYSTEM);
     const cptCodes: TemplateCptCodeInfo[] = (ad?.code?.coding ?? [])
@@ -349,13 +365,100 @@ const performEffect = async (
 
     return {
       planId: plan.id ?? '',
-      testName: ad?.name ?? ad?.title ?? 'Unknown test',
+      testName: ad?.name ?? ad?.title ?? fallbackTestName,
       activityDefinitionRef: canonical,
       code: inHouseCoding?.code ?? '',
       diagnoses,
       notes,
       cptCodes,
       missing: !ad,
+    };
+  });
+
+  // Parse in-office procedure plans. Each plan is a ServiceRequest with intent
+  // 'plan' and the procedure-template-plan meta tag, carrying the procedure
+  // form's data via category/performerType/bodySite plus a stable set of
+  // extensions for the remaining fields. Diagnoses and CPT codes are stored as
+  // cross-references into the template's own contained Conditions and CPT
+  // Procedures, so we look those up here and surface inline {code, display}
+  // tuples for the UI.
+  const procedurePlans = findProcedurePlans(templateList);
+
+  // Build the lookup tables in a single pass so procedure plans' cross-refs
+  // (reasonReference -> Condition, supportingInfo -> CPT Procedure) can resolve
+  // to inline {code, display} tuples in the detail output without scanning
+  // contained twice.
+  const conditionById = new Map<string, Condition>();
+  const cptProcedureById = new Map<string, Procedure>();
+  const cptCodeTagSystem = chartDataTagSystem('cpt-code');
+  for (const r of contained) {
+    if (!r.id) continue;
+    if (r.resourceType === 'Condition') conditionById.set(r.id, r as Condition);
+    else if (r.resourceType === 'Procedure' && resourceHasTagSystem(r as Procedure, cptCodeTagSystem)) {
+      cptProcedureById.set(r.id, r as Procedure);
+    }
+  }
+
+  const getExtensionString = (sr: ServiceRequest, url: string): string | undefined =>
+    sr.extension?.find((e) => e.url === url)?.valueString;
+  const getExtensionBoolean = (sr: ServiceRequest, url: string): boolean | undefined =>
+    sr.extension?.find((e) => e.url === url)?.valueBoolean;
+  const getExtensionStrings = (sr: ServiceRequest, url: string): string[] =>
+    (sr.extension ?? []).filter((e) => e.url === url).flatMap((e) => (e.valueString ? [e.valueString] : []));
+  const getCodingCode = (
+    concept: { coding?: { system?: string; code?: string }[] } | undefined,
+    system: string
+  ): string | undefined => concept?.coding?.find((c) => c.system === system)?.code;
+
+  const procedures: TemplateProcedurePlan[] = procedurePlans.map((plan) => {
+    const procedureDiagnoses: TemplateCodeInfo[] = (plan.reasonReference ?? []).flatMap((ref) => {
+      const id = ref.reference?.split('/')[1];
+      if (!id) return [];
+      const cond = conditionById.get(id);
+      if (!cond) return [];
+      const icd = cond.code?.coding?.find((c) => c.system === ICD_10_CODE_SYSTEM) ?? cond.code?.coding?.[0];
+      if (!icd?.code && !icd?.display) return [];
+      return [{ code: icd?.code ?? '', display: icd?.display ?? '' }];
+    });
+    const procedureCptCodes: TemplateCptCodeInfo[] = (plan.supportingInfo ?? []).flatMap((ref) => {
+      const id = ref.reference?.split('/')[1];
+      if (!id) return [];
+      const proc = cptProcedureById.get(id);
+      if (!proc) return [];
+      const coding = proc.code?.coding?.find((c) => c.system === CPT_CODE_SYSTEM) ?? proc.code?.coding?.[0];
+      if (!coding?.code && !coding?.display) return [];
+      // Preserve any CPT modifiers stored as Coding.extension on the CPT
+      // Procedure. The standalone CPT Codes section does the same, so a CPT
+      // that the provider modified (e.g. -LT) reads consistently between the
+      // two places it surfaces in the preview.
+      return [
+        {
+          code: coding?.code ?? '',
+          display: coding?.display ?? '',
+          modifiers: extractCptCodeModifiersFromCoding(coding),
+        },
+      ];
+    });
+
+    return {
+      planId: plan.id ?? '',
+      procedureType: getCodingCode(plan.category?.[0], PROCEDURE_TYPE_SYSTEM),
+      performerType: getCodingCode(plan.performerType, PERFORMER_TYPE_SYSTEM),
+      bodySite: getCodingCode(plan.bodySite?.[0], BODY_SITE_SYSTEM),
+      bodySide: getExtensionString(plan, FHIR_EXTENSION.ServiceRequest.bodySide.url),
+      technique: getExtensionStrings(plan, FHIR_EXTENSION.ServiceRequest.technique.url),
+      medicationUsed: getExtensionString(plan, FHIR_EXTENSION.ServiceRequest.medicationUsed.url),
+      suppliesUsed: getExtensionString(plan, FHIR_EXTENSION.ServiceRequest.suppliesUsed.url),
+      procedureDetails: getExtensionString(plan, FHIR_EXTENSION.ServiceRequest.procedureDetails.url),
+      specimenSent: getExtensionBoolean(plan, FHIR_EXTENSION.ServiceRequest.specimenSent.url),
+      complications: getExtensionString(plan, FHIR_EXTENSION.ServiceRequest.complications.url),
+      patientResponse: getExtensionString(plan, FHIR_EXTENSION.ServiceRequest.patientResponse.url),
+      postInstructions: getExtensionString(plan, FHIR_EXTENSION.ServiceRequest.postInstructions.url),
+      timeSpent: getExtensionString(plan, FHIR_EXTENSION.ServiceRequest.timeSpent.url),
+      documentedBy: getExtensionString(plan, FHIR_EXTENSION.ServiceRequest.documentedBy.url),
+      consentObtained: getExtensionBoolean(plan, FHIR_EXTENSION.ServiceRequest.consentObtained.url),
+      diagnoses: procedureDiagnoses,
+      cptCodes: procedureCptCodes,
     };
   });
 
@@ -377,6 +480,7 @@ const performEffect = async (
       emCode,
       accident,
       inHouseLabs,
+      procedures,
     },
   };
 };

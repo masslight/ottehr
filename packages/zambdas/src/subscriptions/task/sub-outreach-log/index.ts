@@ -1,3 +1,4 @@
+import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
@@ -25,12 +26,25 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, input.secrets);
   const oystehr = createOystehrClient(m2mToken, input.secrets);
 
-  // Mark as in-progress
-  await oystehr.fhir.patch<Task>({
-    resourceType: 'Task',
-    id: task.id!,
-    operations: [{ op: 'replace', path: '/status', value: 'in-progress' }],
-  });
+  // Mark as in-progress with optimistic locking to guard against duplicate
+  // subscription deliveries racing to execute the same task. If another
+  // invocation already claimed it, the version will be stale (412) and we skip.
+  try {
+    await oystehr.fhir.patch<Task>(
+      {
+        resourceType: 'Task',
+        id: task.id!,
+        operations: [{ op: 'replace', path: '/status', value: 'in-progress' }],
+      },
+      { optimisticLockingVersionId: task.meta?.versionId }
+    );
+  } catch (err) {
+    if (err instanceof Oystehr.OystehrFHIRError && err.code === 412) {
+      console.log(`Task ${task.id} was already claimed by another invocation (version conflict), skipping`);
+      return { statusCode: 200, body: JSON.stringify({ message: 'Task already claimed, skipped' }) };
+    }
+    throw err;
+  }
 
   try {
     const patientRef = task.for?.reference;

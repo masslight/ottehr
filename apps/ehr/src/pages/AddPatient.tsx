@@ -24,6 +24,7 @@ import { useCopyChartDataToFollowup } from 'src/features/visits/shared/component
 import { AddVisitPatientInformationCard } from 'src/features/visits/shared/components/staff-add-visit/AddVisitPatientInformationCard';
 import { useReasonForVisitOptions } from 'src/features/visits/shared/hooks/useReasonForVisitOptions';
 import {
+  APIError,
   BOOKING_CONFIG,
   CopyableFollowupField,
   CreateAppointmentInputParams,
@@ -33,7 +34,10 @@ import {
   GetScheduleRequestParams,
   GetScheduleResponse,
   getTimezone,
+  isApiError,
   PatientInfo,
+  SCHEDULED_FOLLOWUP_OTHER_REASON,
+  SCHEDULED_FOLLOWUP_REASONS,
   ScheduleType,
   ServiceMode,
   SLUG_SYSTEM,
@@ -70,6 +74,7 @@ export interface AddVisitErrorState {
   dateOfBirth?: boolean;
   sexAtBirth?: boolean;
   reasonForVisit?: boolean;
+  otherReason?: boolean;
   search?: boolean;
   searchEntry?: boolean;
 }
@@ -152,6 +157,8 @@ export default function AddPatient(): JSX.Element {
     followUpState?.patientInfo || undefined
   );
   const [reasonForVisit, setReasonForVisit] = useState<string>('');
+  // Scheduled follow-ups pick a reason from SCHEDULED_FOLLOWUP_REASONS; "Other" reveals this free text.
+  const [otherReason, setOtherReason] = useState<string>('');
   const [reasonForVisitAdditional, setReasonForVisitAdditional] = useState<string>('');
   const [visitType, setVisitType] = useState<VisitType>();
   const [serviceCategory, setServiceCategory] = useState<string>(defaultServiceCategory);
@@ -182,10 +189,21 @@ export default function AddPatient(): JSX.Element {
 
   useEffect(() => {
     setReasonForVisit('');
+    setOtherReason('');
     setReasonForVisitAdditional('');
   }, [serviceCategory]);
 
-  const reasonForVisitOptions = useReasonForVisitOptions(serviceCategory ?? '');
+  // Scheduled follow-ups use a fixed follow-up-reason list instead of the
+  // service-category reasons. The per-service path goes through the shared
+  // hook so admin-managed FHIR categories surface their configured RFV
+  // options (the previous synchronous helper only read BOOKING_CONFIG).
+  // The hook is called unconditionally to satisfy the rules of hooks; it
+  // short-circuits internally when the code is in BOOKING_CONFIG or absent.
+  const serviceCategoryRfvOptions = useReasonForVisitOptions(serviceCategory ?? '');
+  const reasonForVisitOptions = isScheduledFollowUp
+    ? SCHEDULED_FOLLOWUP_REASONS.map((reason) => ({ value: reason, label: reason }))
+    : serviceCategoryRfvOptions;
+  const isOtherFollowUpReason = isScheduledFollowUp && reasonForVisit === SCHEDULED_FOLLOWUP_OTHER_REASON;
   const shouldShowReasonForVisitFields = useMemo(() => {
     return showFields !== 'initialPatientSearch' && reasonForVisitOptions.length > 0;
   }, [showFields, reasonForVisitOptions.length]);
@@ -302,6 +320,7 @@ export default function AddPatient(): JSX.Element {
       { field: 'serviceCategory', invalid: !serviceCategory },
       { field: 'location', invalid: !!visitType && !selectedBookable },
       { field: 'reasonForVisit', invalid: shouldShowReasonForVisitFields && !reasonForVisit },
+      { field: 'otherReason', invalid: isOtherFollowUpReason && !otherReason.trim() },
     ];
     const fieldErrors = Object.fromEntries(validations.map((v) => [v.field, v.invalid]));
     setErrors((prev) => ({ ...prev, ...fieldErrors }));
@@ -383,12 +402,25 @@ export default function AddPatient(): JSX.Element {
           serviceCategoryCode: serviceCategory,
         };
       }
-      const persistedSlot = await createSlot(createSlotInput, oystehrZambda);
+      console.log('slot input: ', createSlotInput);
+      let persistedSlot: Slot;
+      try {
+        persistedSlot = await createSlot(createSlotInput, oystehrZambda);
+      } catch (error) {
+        console.error(`Failed to create slot: ${error}`);
+        let errorMessage = 'An unexpected error occurred creating the slot, please try again.';
+        if (isApiError(error)) {
+          errorMessage = (error as APIError).message;
+        }
+        enqueueSnackbar(errorMessage, { variant: 'error' });
+        setLoading(false);
+        return;
+      }
       const zambdaParams: CreateAppointmentInputParams = {
         patient: {
           ...patientInfo,
           dateOfBirth: patientInfo?.dateOfBirth || birthDate?.toISODate() || undefined,
-          reasonForVisit: reasonForVisit,
+          reasonForVisit: isOtherFollowUpReason ? otherReason.trim() : reasonForVisit,
           reasonAdditional: reasonForVisitAdditional !== '' ? reasonForVisitAdditional : undefined,
         },
         slotId: persistedSlot.id!,
@@ -575,7 +607,12 @@ export default function AddPatient(): JSX.Element {
                           value={reasonForVisit || ''}
                           label="Reason for visit *"
                           required
-                          onChange={(event) => setReasonForVisit(event.target.value)}
+                          onChange={(event) => {
+                            setReasonForVisit(event.target.value);
+                            if (event.target.value !== SCHEDULED_FOLLOWUP_OTHER_REASON) {
+                              setOtherReason('');
+                            }
+                          }}
                         >
                           {reasonForVisitOptions.map((reason) => (
                             <MenuItem key={reason.value} value={reason.value}>
@@ -586,6 +623,28 @@ export default function AddPatient(): JSX.Element {
                         {errors.reasonForVisit && <FormHelperText>Reason for visit is required</FormHelperText>}
                       </FormControl>
                     </Box>
+                    {isOtherFollowUpReason && (
+                      <Box marginTop={2}>
+                        <FormControl fullWidth error={!!errors.otherReason}>
+                          <TextField
+                            label="Other reason"
+                            id="follow-up-other-reason-text"
+                            value={otherReason}
+                            required
+                            onChange={(e) => {
+                              setOtherReason(e.target.value);
+                              if (errors.otherReason) setErrors((prev) => ({ ...prev, otherReason: false }));
+                            }}
+                            error={!!errors.otherReason}
+                            helperText={
+                              errors.otherReason
+                                ? 'Please specify the follow-up reason'
+                                : "If the follow-up reason matches the initial visit's reason for visit, enter it here."
+                            }
+                          />
+                        </FormControl>
+                      </Box>
+                    )}
                     <Box marginTop={2}>
                       <FormControl fullWidth>
                         <TextField
