@@ -1,5 +1,6 @@
 import { BrowserContext, expect, Page, test } from '@playwright/test';
 import { dataTestIds } from 'src/constants/data-test-ids';
+import { BOOKING_CONFIG, getReasonForVisitOptionsForServiceCategory } from 'utils';
 import { ResourceHandler } from '../../../e2e-utils/resource-handler';
 
 const DEFAULT_TIMEOUT = { timeout: 15000 };
@@ -86,16 +87,31 @@ test.describe.serial('Scheduled Follow-up Visit E2E', () => {
       await page.getByText('Walk-in In Person Visit').click();
     });
 
-    // Step 5: Select service category if not disabled (auto-selected when only one)
+    // Step 5: Select a service category. The Reason-for-visit field (asserted below) only renders
+    // for a category that has reason-for-visit options configured in BOOKING_CONFIG, so pick such a
+    // category from config rather than blindly taking the first dropdown option.
     await test.step('Select service category', async () => {
+      const categoryWithReasons = BOOKING_CONFIG.serviceCategories.find(
+        (sc) => sc.category.code && getReasonForVisitOptionsForServiceCategory(sc.category.code).length > 0
+      );
+
       const serviceCategoryDropdown = page.getByTestId(dataTestIds.addPatientPage.serviceCategoryDropdown);
       const isDisabled =
         (await serviceCategoryDropdown.locator('[aria-disabled="true"]').count()) > 0 ||
         (await serviceCategoryDropdown.locator('input[disabled]').count()) > 0;
+
+      // When disabled the only category is auto-selected, so there's nothing to pick.
       if (!isDisabled) {
         await serviceCategoryDropdown.click();
-        await page.getByRole('option').first().waitFor(DEFAULT_TIMEOUT);
-        await page.getByRole('option').first().click();
+        if (categoryWithReasons?.category.display) {
+          const option = page.getByRole('option', { name: categoryWithReasons.category.display, exact: true }).first();
+          await expect(option).toBeVisible(DEFAULT_TIMEOUT);
+          await option.click();
+        } else {
+          // No config category advertises reasons — fall back to the first available option.
+          await page.getByRole('option').first().waitFor(DEFAULT_TIMEOUT);
+          await page.getByRole('option').first().click();
+        }
       }
     });
 
