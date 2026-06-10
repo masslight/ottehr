@@ -122,10 +122,17 @@ export const index = wrapHandler('get-schedule', async (input: ZambdaInput): Pro
   }
 
   // 2. PR-direct booking with a single offered category — infer it.
+  // `healthcareService[]` mixes category refs and group-membership refs, so
+  // counting (and resolving) only the category subset — otherwise a PR that
+  // happens to belong to a group would be treated as ambiguous and skip the
+  // inference path even when it offers exactly one real category.
   if (!resolvedCoding && scheduleOwner.resourceType === 'PractitionerRole') {
-    const roleServices = (scheduleOwner as any).healthcareService ?? [];
-    if (roleServices.length === 1) {
-      const onlyId = (roleServices[0]?.reference as string | undefined)?.split('/')[1];
+    const fhirCategoryIds = new Set(fhirCategoryHits.map((hs) => hs.id).filter((id): id is string => !!id));
+    const roleCategoryIds = ((scheduleOwner as PractitionerRole).healthcareService ?? [])
+      .map((ref) => ref.reference?.split('/')[1])
+      .filter((id): id is string => !!id && fhirCategoryIds.has(id));
+    if (roleCategoryIds.length === 1) {
+      const onlyId = roleCategoryIds[0];
       const inferredHit = fhirCategoryHits.find((hs) => hs.id === onlyId);
       const inferredCode = inferredHit?.type?.[0]?.coding?.find((c) => c.code)?.code;
       if (inferredHit && inferredCode) {

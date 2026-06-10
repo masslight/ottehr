@@ -330,10 +330,14 @@ const complexValidationForPractitioner = async (_input: BasicInput, oystehr: Oys
         if (getPractitionerRoleAllCategories(role)) {
           categoryLabels.add('All services');
         } else {
+          // `healthcareService[]` carries both service-category refs AND
+          // group-membership refs. Without the category-tag filter, a PR that
+          // belongs to a group would have the group's name surface as a
+          // phantom service in the admin rollup.
           for (const ref of role.healthcareService ?? []) {
             const hsId = ref.reference?.split('/')[1];
             const hs = healthcareServices.find((h) => h.id === hsId);
-            if (hs?.name) categoryLabels.add(hs.name);
+            if (hs && isServiceCategoryHealthcareService(hs) && hs.name) categoryLabels.add(hs.name);
           }
         }
         for (const s of schedules) {
