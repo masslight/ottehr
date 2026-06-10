@@ -14,6 +14,7 @@ import {
   getPatientDetailsStepAnswers,
   getPaymentOptionInsuranceAnswers,
   getResponsiblePartyStepAnswers,
+  getTimezone,
   hasAttorneyInformationPage,
   hasEmployerInformationPage,
   INSURANCE_PLAN_PAYER_META_TAG_CODE,
@@ -161,6 +162,17 @@ test.describe('In-person visit', async () => {
 
       const visitsPage = await openVisitsPage(page);
       await visitsPage.selectLocation(ENV_LOCATION_NAME!);
+      // Match the tracking-board date filter to the appointment's local date in the
+      // location's timezone. The filter defaults to today; when the test runs late
+      // enough that the appointment landed on tomorrow (in the location TZ), the
+      // appointment exists but is hidden by the filter.
+      const location = resourceHandler.appointmentLocation;
+      const appointmentStart = resourceHandler.appointment.start;
+      if (location && appointmentStart) {
+        const timezone = getTimezone(location);
+        const appointmentLocalDate = DateTime.fromISO(appointmentStart).setZone(timezone).toFormat('MM/dd/yyyy');
+        await visitsPage.selectDate(appointmentLocalDate);
+      }
 
       // If it was a prebook, find on prebook tab and move to arrived
       // else it is a walk in go straight to in office tab.
@@ -317,6 +329,15 @@ test.describe('In-person visit', async () => {
 
       const visitsPage = await openVisitsPage(page);
       await visitsPage.selectLocation(ENV_LOCATION_NAME!);
+      // See the matching @smoke test above for why this matches the date filter to the
+      // appointment's local date in the location's timezone.
+      const location = resourceHandler.appointmentLocation;
+      const appointmentStart = resourceHandler.appointment.start;
+      if (location && appointmentStart) {
+        const timezone = getTimezone(location);
+        const appointmentLocalDate = DateTime.fromISO(appointmentStart).setZone(timezone).toFormat('MM/dd/yyyy');
+        await visitsPage.selectDate(appointmentLocalDate);
+      }
 
       // If it was a prebook, find on prebook tab and move to arrived
       // else it is a walk in go straight to in office tab.

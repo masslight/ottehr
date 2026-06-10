@@ -28,14 +28,22 @@ export function buildCatalog(fhirResources: HealthcareService[]): ServiceCategor
     source: 'booking-config',
   }));
   const bookingCodes = new Set(bookingConfigRecords.map((r) => r.code).filter(Boolean));
-  // toRecord (admin-service-categories/helpers) tags each record with source: 'fhir'.
-  // Sort FHIR-only entries alphabetically by name so the picker order is stable
-  // regardless of how the FHIR server happens to return them. BOOKING_CONFIG
-  // entries keep their compiled-in order (the first entries the patient sees).
-  const fhirOnlyRecords = fhirResources
-    .map(toRecord)
-    .filter((r) => r.code && !bookingCodes.has(r.code))
-    .sort((a, b) => a.name.localeCompare(b.name));
+  // toRecord (admin-service-categories/helpers) throws on tagged-but-malformed
+  // HealthcareServices (missing code/name). Log per-record and skip — a single
+  // bad record shouldn't blank the patient-facing catalog. Sort FHIR-only
+  // entries alphabetically by name so picker order is stable regardless of
+  // how the FHIR server returns them. BOOKING_CONFIG entries keep their
+  // compiled-in order (the first entries the patient sees).
+  const fhirOnlyRecords: ServiceCategory[] = [];
+  for (const r of fhirResources) {
+    try {
+      const record = toRecord(r);
+      if (record.code && !bookingCodes.has(record.code)) fhirOnlyRecords.push(record);
+    } catch (e) {
+      console.error(`Skipping malformed service-category HealthcareService ${r.id}:`, e);
+    }
+  }
+  fhirOnlyRecords.sort((a, b) => a.name.localeCompare(b.name));
   return [...bookingConfigRecords, ...fhirOnlyRecords];
 }
 

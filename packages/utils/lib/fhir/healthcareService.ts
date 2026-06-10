@@ -37,7 +37,9 @@ import {
   GROUP_ASSIGNMENT_MODE_SYSTEM,
   GroupAllLocationsCoding,
   GroupAssignmentModeCoding,
+  PRACTITIONER_ROLE_ALL_CATEGORIES_EXTENSION_URL,
   SERVICE_CATEGORY_CADENCE_MINUTES_SYSTEM,
+  SERVICE_CATEGORY_CONFIG_EXTENSION_URL,
   SERVICE_CATEGORY_DURATION_MINUTES_SYSTEM,
   SERVICE_CATEGORY_MODE_SYSTEM,
   SERVICE_CATEGORY_TAG,
@@ -73,6 +75,41 @@ export function getServiceCategoryDurationMinutes(hs: HealthcareService): number
 
 export function getServiceCategoryCadenceMinutes(hs: HealthcareService): number | undefined {
   return extractMinutesCharacteristic(hs, SERVICE_CATEGORY_CADENCE_MINUTES_SYSTEM);
+}
+
+/**
+ * Parse the JSON-blob extension at SERVICE_CATEGORY_CONFIG_EXTENSION_URL that
+ * holds the free-form reasonsForVisit field. Returns an empty array when the
+ * extension is absent, empty, or unparseable. The queryable runtime fields
+ * (mode / visit-type / duration / cadence) live on characteristic[] instead
+ * and are read by the per-dimension helpers above.
+ */
+export function parseReasonsForVisit(hs: HealthcareService): Array<{ label: string; value: string }> {
+  const ext = hs.extension?.find((e) => e.url === SERVICE_CATEGORY_CONFIG_EXTENSION_URL);
+  const raw = ext?.valueString;
+  if (!raw) return [];
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return [];
+  }
+  // Shape-check each entry before returning. Admin-authored JSON can drift
+  // (legacy records, manual FHIR edits, mid-migration shapes); downstream
+  // callers index `r.label`/`r.value` and would crash on a missing field or
+  // a non-array root. Guard against non-object roots first — `JSON.parse`
+  // legally returns `null` for the literal `'null'`, and `typeof null` is
+  // `'object'`, so naive property access would throw at runtime.
+  if (parsed === null || typeof parsed !== 'object') return [];
+  const list = (parsed as { reasonsForVisit?: unknown }).reasonsForVisit;
+  if (!Array.isArray(list)) return [];
+  return list.filter(
+    (r): r is { label: string; value: string } =>
+      r != null &&
+      typeof r === 'object' &&
+      typeof (r as { label?: unknown }).label === 'string' &&
+      typeof (r as { value?: unknown }).value === 'string'
+  );
 }
 
 // ── Group readers ───────────────────────────────────────────────────────────
@@ -193,6 +230,40 @@ export function groupCharacteristics(input: {
  * filter is a no-op (back-compat for callers that don't have the Location
  * resources to hand).
  */
+/**
+ * True when the PR's `practitioner-role-all-categories` extension is set to
+ * boolean `true`. Absent extension (or any non-true value) reads as false —
+ * admins opt in explicitly, no implicit semantic on the `healthcareService[]`
+ * field's length. Mirrors `getGroupAllLocations` in shape and intent.
+ */
+export function getPractitionerRoleAllCategories(pr: PractitionerRole): boolean {
+  for (const ext of pr.extension ?? []) {
+    if (ext.url === PRACTITIONER_ROLE_ALL_CATEGORIES_EXTENSION_URL && ext.valueBoolean === true) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Single source of truth for the question "does this PractitionerRole offer
+ * the service-category HealthcareService whose id is `categoryHsId`?". Two
+ * sources combine:
+ *   (a) the explicit per-PR opt-in list — `role.healthcareService[]` contains
+ *       a reference to `HealthcareService/${categoryHsId}`.
+ *   (b) the per-PR "all categories" opt-in — `getPractitionerRoleAllCategories`.
+ *
+ * The opt-in toggle is the explicit replacement for the implicit "empty
+ * array = all categories" semantic that the codebase historically leaned on
+ * but never reliably honored at all read sites; consolidating the dispatch
+ * here keeps the rollup, the multi-select offering check, and the slot
+ * resolver from drifting apart again.
+ */
+export function practitionerRoleOffersCategory(role: PractitionerRole, categoryHsId: string): boolean {
+  if (getPractitionerRoleAllCategories(role)) return true;
+  return (role.healthcareService ?? []).some((ref) => ref.reference === `HealthcareService/${categoryHsId}`);
+}
+
 export function isPractitionerRoleMemberOfGroup(input: {
   role: PractitionerRole;
   group: HealthcareService;
