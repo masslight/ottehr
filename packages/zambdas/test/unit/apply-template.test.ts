@@ -18,6 +18,7 @@ import {
 } from 'utils';
 import { DefaultExamComponentsConfig } from 'utils/lib/ottehr-config/examination/default-components.config';
 import { describe, expect, test } from 'vitest';
+import { collectContainedIdsClaimedByProcedures } from '../../src/ehr/apply-template/apply-procedures';
 import {
   collectCptCodesFromApplicableActivityDefinitions,
   makeCreateRequests,
@@ -55,6 +56,7 @@ describe('Apply Template - validateRequestParameters', () => {
       cptCodes: 'overwrite',
       emCode: 'skip',
       inHouseLabs: 'append',
+      procedures: 'append',
     };
     const result = validateRequestParameters(createInput({ ...baseBody, sectionActions }));
     expect(result.sectionActions).toEqual(sectionActions);
@@ -91,6 +93,24 @@ describe('Apply Template - validateRequestParameters', () => {
     ).not.toThrow();
     expect(() =>
       validateRequestParameters(createInput({ ...baseBody, sectionActions: { inHouseLabs: 'append' } }))
+    ).not.toThrow();
+  });
+
+  test("rejects 'overwrite' for procedures", () => {
+    // Like in-house labs, procedures are constrained to skip/append - applying
+    // a template should never silently delete a provider's existing procedure
+    // documentation. The validator enforces that constraint by reading
+    // TEMPLATE_SECTIONS_NO_OVERWRITE.
+    const input = createInput({ ...baseBody, sectionActions: { procedures: 'overwrite' } });
+    expect(() => validateRequestParameters(input)).toThrow(/does not support the 'overwrite' action/);
+  });
+
+  test("accepts 'skip' and 'append' for procedures", () => {
+    expect(() =>
+      validateRequestParameters(createInput({ ...baseBody, sectionActions: { procedures: 'skip' } }))
+    ).not.toThrow();
+    expect(() =>
+      validateRequestParameters(createInput({ ...baseBody, sectionActions: { procedures: 'append' } }))
     ).not.toThrow();
   });
 
@@ -193,6 +213,7 @@ describe('makeCreateRequests — diagnosis behavior', () => {
       templateList,
       [existingCond],
       makeActions({ diagnoses: 'append' }),
+      new Set(),
       new Set()
     );
     const diagnosisPatchOps = getEncounterDiagnosisPatchOperations(requests);
@@ -224,6 +245,7 @@ describe('makeCreateRequests — diagnosis behavior', () => {
       templateList,
       [existingCond],
       makeActions({ diagnoses: 'append' }),
+      new Set(),
       new Set()
     );
     const diagnosisPatchOp = getEncounterDiagnosisPatchOperations(requests);
@@ -261,6 +283,7 @@ describe('makeCreateRequests — diagnosis behavior', () => {
       templateList,
       [existingCond],
       makeActions({ diagnoses: 'append' }),
+      new Set(),
       new Set()
     );
     const diagnosisPatchOp = getEncounterDiagnosisPatchOperations(requests);
@@ -296,6 +319,7 @@ describe('makeCreateRequests — diagnosis behavior', () => {
       templateList,
       [existingCond],
       makeActions({ diagnoses: 'overwrite' }),
+      new Set(),
       new Set()
     );
     const diagnosisPatchOp = getEncounterDiagnosisPatchOperations(requests);
@@ -455,7 +479,14 @@ describe('makeCreateRequests — CPT / in-house lab overlap', () => {
       [makeInHouseLabAD('ad-1', ['87880'])],
       actions
     );
-    const requests = makeCreateRequests(makeSimpleCptEncounter(), templateList, [], actions, cptCodesFromLabsToSkip);
+    const requests = makeCreateRequests(
+      makeSimpleCptEncounter(),
+      templateList,
+      [],
+      actions,
+      cptCodesFromLabsToSkip,
+      new Set()
+    );
 
     const createdCpts = getCptPostRequests(requests);
     expect(createdCpts.map((c) => c.code)).toContain('87880');
@@ -472,7 +503,14 @@ describe('makeCreateRequests — CPT / in-house lab overlap', () => {
       [makeInHouseLabAD('ad-1', ['87880'])],
       actions
     );
-    const requests = makeCreateRequests(makeSimpleCptEncounter(), templateList, [], actions, cptCodesFromLabsToSkip);
+    const requests = makeCreateRequests(
+      makeSimpleCptEncounter(),
+      templateList,
+      [],
+      actions,
+      cptCodesFromLabsToSkip,
+      new Set()
+    );
 
     const createdCpts = getCptPostRequests(requests);
     expect(createdCpts).toHaveLength(0);
@@ -489,7 +527,14 @@ describe('makeCreateRequests — CPT / in-house lab overlap', () => {
       [makeInHouseLabAD('ad-1', ['87880'])],
       actions
     );
-    const requests = makeCreateRequests(makeSimpleCptEncounter(), templateList, [], actions, cptCodesFromLabsToSkip);
+    const requests = makeCreateRequests(
+      makeSimpleCptEncounter(),
+      templateList,
+      [],
+      actions,
+      cptCodesFromLabsToSkip,
+      new Set()
+    );
 
     const createdCpts = getCptPostRequests(requests);
     expect(createdCpts).toHaveLength(0);
@@ -508,10 +553,301 @@ describe('makeCreateRequests — CPT / in-house lab overlap', () => {
       [makeInHouseLabAD('ad-1', ['87880'])],
       actions
     );
-    const requests = makeCreateRequests(makeSimpleCptEncounter(), templateList, [], actions, cptCodesFromLabsToSkip);
+    const requests = makeCreateRequests(
+      makeSimpleCptEncounter(),
+      templateList,
+      [],
+      actions,
+      cptCodesFromLabsToSkip,
+      new Set()
+    );
 
     const createdCptCodes = getCptPostRequests(requests).map((c) => c.code);
     expect(createdCptCodes).not.toContain('87880');
     expect(createdCptCodes).toContain('99213');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// makeCreateRequests — procedure plans
+// ---------------------------------------------------------------------------
+
+const PROCEDURE_PLAN_TAG_SYSTEM = chartDataTagSystem('procedure-template-plan');
+const PROCEDURE_META_TAG_SYSTEM = chartDataTagSystem('procedure');
+
+const makeProcedurePlan = (id: string, opts: { dxRefIds?: string[]; cptRefIds?: string[] } = {}): ServiceRequest => ({
+  resourceType: 'ServiceRequest',
+  id,
+  status: 'active',
+  intent: 'plan',
+  subject: { reference: '#stub-patient' },
+  category: [{ coding: [{ system: 'https://fhir.ottehr.com/CodeSystem/Procedure/procedure-type', code: 'splint' }] }],
+  reasonReference: (opts.dxRefIds ?? []).map((refId) => ({ reference: `Condition/${refId}` })),
+  supportingInfo: (opts.cptRefIds ?? []).map((refId) => ({ reference: `Procedure/${refId}` })),
+  meta: { tag: [{ system: PROCEDURE_PLAN_TAG_SYSTEM, code: 'procedure-template-plan' }] },
+});
+
+const makeProcedureTemplateList = (resources: Array<Procedure | ServiceRequest | Condition>): List => ({
+  resourceType: 'List',
+  id: 'proc-template',
+  status: 'current',
+  mode: 'working',
+  entry: resources.map((r) => ({ item: { reference: `#${r.id}` } })),
+  contained: [
+    ...resources,
+    {
+      resourceType: 'Encounter',
+      id: 'stub-enc',
+      status: 'unknown',
+      class: { system: 'http://terminology.hl7.org/CodeSystem/v3-ActCode', code: 'AMB' },
+    } as Encounter,
+  ],
+});
+
+const getProcedureServiceRequestPosts = (
+  requests: ReturnType<typeof makeCreateRequests>
+): Array<{ method: 'POST'; url: string; resource: ServiceRequest; fullUrl?: string }> =>
+  requests.filter(
+    (r): r is { method: 'POST'; url: string; resource: ServiceRequest; fullUrl?: string } =>
+      r.method === 'POST' && (r as any).resource?.resourceType === 'ServiceRequest'
+  );
+
+describe('makeCreateRequests — procedure plans', () => {
+  test("procedures='skip' emits no procedure ServiceRequest", () => {
+    const plan = makeProcedurePlan('plan-1');
+    const templateList = makeProcedureTemplateList([plan]);
+    const actions = makeActions({ procedures: 'skip' });
+    const requests = makeCreateRequests(makeSimpleCptEncounter(), templateList, [], actions, new Set(), new Set());
+    expect(getProcedureServiceRequestPosts(requests)).toHaveLength(0);
+  });
+
+  test("procedures='append' creates one live ServiceRequest per plan, tagged for chart-data", () => {
+    const planA = makeProcedurePlan('plan-a');
+    const planB = makeProcedurePlan('plan-b');
+    const templateList = makeProcedureTemplateList([planA, planB]);
+    const actions = makeActions({ procedures: 'append' });
+    const requests = makeCreateRequests(makeSimpleCptEncounter(), templateList, [], actions, new Set(), new Set());
+
+    const created = getProcedureServiceRequestPosts(requests);
+    expect(created).toHaveLength(2);
+    for (const req of created) {
+      // Each must be the chart-data shape (completed/original-order/procedure tag)
+      // rather than the plan shape — get-chart-data filters on these.
+      expect(req.resource.status).toBe('completed');
+      expect(req.resource.intent).toBe('original-order');
+      expect(
+        req.resource.meta?.tag?.some((t) => t.system === PROCEDURE_META_TAG_SYSTEM && t.code === 'procedure')
+      ).toBe(true);
+      expect(req.resource.meta?.tag?.some((t) => t.system === PROCEDURE_PLAN_TAG_SYSTEM)).toBe(false);
+      // Cross-section linkage requires the SR's fullUrl to be a urn:uuid so other
+      // resources in the transaction (encounter.diagnosis, etc) could reference it.
+      expect(req.fullUrl).toMatch(/^urn:uuid:/);
+    }
+  });
+
+  test('rewrites reasonReference and supportingInfo to the new fullUrls of the contained diagnoses and CPT Procedures', () => {
+    // The diagnosis Condition and CPT Procedure live in the template's contained
+    // array — when applied they each get a fresh urn:uuid fullUrl in the same
+    // transaction. The procedure plan's cross-refs (Condition/dx-1, Procedure/cpt-1)
+    // must be rewritten to point at those fullUrls so the live procedure links to
+    // the live resources, not the template stub ids.
+    const dxCondition = makeDxCondition('dx-1', 'J02.9');
+    const cptProcedure = makeCptProcedure('cpt-1', '29105');
+    const plan = makeProcedurePlan('plan-1', { dxRefIds: ['dx-1'], cptRefIds: ['cpt-1'] });
+    const templateList: List = {
+      resourceType: 'List',
+      id: 'proc-template',
+      status: 'current',
+      mode: 'working',
+      entry: [{ item: { reference: `#dx-1` } }, { item: { reference: `#cpt-1` } }, { item: { reference: `#plan-1` } }],
+      contained: [
+        dxCondition,
+        cptProcedure,
+        plan,
+        {
+          resourceType: 'Encounter',
+          id: 'stub-enc',
+          status: 'unknown',
+          class: { system: 'http://terminology.hl7.org/CodeSystem/v3-ActCode', code: 'AMB' },
+          diagnosis: [{ condition: { reference: 'Condition/dx-1' } }],
+        } as Encounter,
+      ],
+    };
+    const actions = makeActions({ procedures: 'append', diagnoses: 'append', cptCodes: 'append' });
+    const requests = makeCreateRequests(makeSimpleCptEncounter(), templateList, [], actions, new Set(), new Set());
+
+    // Find the fullUrls assigned to the new live Condition and CPT Procedure.
+    const dxPostRequest = requests.find(
+      (r): r is { method: 'POST'; resource: Condition; fullUrl?: string; url: string } =>
+        r.method === 'POST' && (r as any).resource?.resourceType === 'Condition'
+    )!;
+    const cptPostRequest = requests.find(
+      (r): r is { method: 'POST'; resource: Procedure; fullUrl?: string; url: string } =>
+        r.method === 'POST' && (r as any).resource?.resourceType === 'Procedure'
+    )!;
+    expect(dxPostRequest.fullUrl).toMatch(/^urn:uuid:/);
+    expect(cptPostRequest.fullUrl).toMatch(/^urn:uuid:/);
+
+    // The procedure SR's refs must match those fullUrls exactly.
+    const procedureSR = getProcedureServiceRequestPosts(requests)[0]!.resource;
+    expect(procedureSR.reasonReference).toEqual([{ reference: dxPostRequest.fullUrl }]);
+    expect(procedureSR.supportingInfo).toEqual([{ reference: cptPostRequest.fullUrl }]);
+  });
+
+  // Helper to build the linked-procedure template fixture used by the
+  // skip-override tests below: a Dx Condition + a CPT Procedure on the
+  // template, plus a procedure plan that links to both.
+  const makeLinkedProcedureTemplate = (): List => ({
+    resourceType: 'List',
+    id: 'proc-template',
+    status: 'current',
+    mode: 'working',
+    entry: [{ item: { reference: `#dx-1` } }, { item: { reference: `#cpt-1` } }, { item: { reference: `#plan-1` } }],
+    contained: [
+      makeDxCondition('dx-1', 'J02.9'),
+      makeCptProcedure('cpt-1', '29105'),
+      makeProcedurePlan('plan-1', { dxRefIds: ['dx-1'], cptRefIds: ['cpt-1'] }),
+      {
+        resourceType: 'Encounter',
+        id: 'stub-enc',
+        status: 'unknown',
+        class: { system: 'http://terminology.hl7.org/CodeSystem/v3-ActCode', code: 'AMB' },
+        diagnosis: [{ condition: { reference: 'Condition/dx-1' } }],
+      } as Encounter,
+    ],
+  });
+
+  test("procedures='append' + diagnoses='skip': procedure's linked Dx is force-created and added to encounter.diagnosis", () => {
+    // The user skipped the standalone Diagnoses section but kept Procedures,
+    // so the procedure's linked Dx still needs to land on the chart - same
+    // shape as in-house labs where the lab's reasonCode diagnoses apply
+    // regardless of the standalone Dx section. Verify the Condition gets
+    // created, the procedure references it via reasonReference, and
+    // encounter.diagnosis gets patched so the Dx shows in the chart's Dx tab.
+    const templateList = makeLinkedProcedureTemplate();
+    const actions = makeActions({ procedures: 'append', diagnoses: 'skip', cptCodes: 'append' });
+    const claimedByProcedures = collectContainedIdsClaimedByProcedures(templateList, actions.procedures);
+    const requests = makeCreateRequests(
+      makeSimpleCptEncounter(),
+      templateList,
+      [],
+      actions,
+      new Set(),
+      claimedByProcedures
+    );
+
+    const dxPostRequest = requests.find(
+      (r): r is { method: 'POST'; resource: Condition; fullUrl?: string; url: string } =>
+        r.method === 'POST' && (r as any).resource?.resourceType === 'Condition'
+    );
+    expect(dxPostRequest, 'Dx Condition should still be created even with diagnoses=skip').toBeDefined();
+    expect(dxPostRequest!.fullUrl).toMatch(/^urn:uuid:/);
+
+    const procedureSR = getProcedureServiceRequestPosts(requests)[0]!.resource;
+    expect(procedureSR.reasonReference).toEqual([{ reference: dxPostRequest!.fullUrl }]);
+
+    // encounter.diagnosis gets patched to include the new procedure-claimed Dx
+    // so it shows in the chart's standalone Diagnoses list too.
+    const dxPatch = getEncounterDiagnosisPatchOperations(requests);
+    expect(dxPatch).not.toBeNull();
+    if (dxPatch && (dxPatch.op === 'add' || dxPatch.op === 'replace')) {
+      expect(dxPatch.value).toContainEqual(
+        expect.objectContaining({ condition: { reference: dxPostRequest!.fullUrl } })
+      );
+    }
+  });
+
+  test("procedures='append' + cptCodes='skip': procedure's linked CPT is force-created and procedure links to it", () => {
+    // Same idea as the Dx test above but for the CPT side. The procedure's
+    // CPT lives on the chart via its meta tag regardless of encounter
+    // linkage, so we don't need an encounter-side patch for CPT codes.
+    const templateList = makeLinkedProcedureTemplate();
+    const actions = makeActions({ procedures: 'append', diagnoses: 'append', cptCodes: 'skip' });
+    const claimedByProcedures = collectContainedIdsClaimedByProcedures(templateList, actions.procedures);
+    const requests = makeCreateRequests(
+      makeSimpleCptEncounter(),
+      templateList,
+      [],
+      actions,
+      new Set(),
+      claimedByProcedures
+    );
+
+    const cptPostRequest = requests.find(
+      (r): r is { method: 'POST'; resource: Procedure; fullUrl?: string; url: string } =>
+        r.method === 'POST' && (r as any).resource?.resourceType === 'Procedure'
+    );
+    expect(cptPostRequest, 'CPT Procedure should still be created even with cptCodes=skip').toBeDefined();
+
+    const procedureSR = getProcedureServiceRequestPosts(requests)[0]!.resource;
+    expect(procedureSR.supportingInfo).toEqual([{ reference: cptPostRequest!.fullUrl }]);
+  });
+
+  test("procedures='append' + both diagnoses and cptCodes='skip': both linked resources are force-created", () => {
+    const templateList = makeLinkedProcedureTemplate();
+    const actions = makeActions({ procedures: 'append', diagnoses: 'skip', cptCodes: 'skip' });
+    const claimedByProcedures = collectContainedIdsClaimedByProcedures(templateList, actions.procedures);
+    const requests = makeCreateRequests(
+      makeSimpleCptEncounter(),
+      templateList,
+      [],
+      actions,
+      new Set(),
+      claimedByProcedures
+    );
+
+    const dxPostRequest = requests.find(
+      (r): r is { method: 'POST'; resource: Condition; fullUrl?: string; url: string } =>
+        r.method === 'POST' && (r as any).resource?.resourceType === 'Condition'
+    );
+    const cptPostRequest = requests.find(
+      (r): r is { method: 'POST'; resource: Procedure; fullUrl?: string; url: string } =>
+        r.method === 'POST' && (r as any).resource?.resourceType === 'Procedure'
+    );
+    expect(dxPostRequest, 'Dx Condition should be force-created').toBeDefined();
+    expect(cptPostRequest, 'CPT Procedure should be force-created').toBeDefined();
+
+    const procedureSR = getProcedureServiceRequestPosts(requests)[0]!.resource;
+    expect(procedureSR.reasonReference).toEqual([{ reference: dxPostRequest!.fullUrl }]);
+    expect(procedureSR.supportingInfo).toEqual([{ reference: cptPostRequest!.fullUrl }]);
+  });
+
+  test("procedures='skip': claimedByProcedures is empty, standalone Dx skip really skips the Dx", () => {
+    // When procedures itself is skipped, no plans claim anything, so the
+    // skip-override doesn't kick in - this confirms collectContainedIdsClaimedByProcedures
+    // returns an empty Set in that case and the standalone Dx behavior is
+    // unchanged.
+    const templateList = makeLinkedProcedureTemplate();
+    const actions = makeActions({ procedures: 'skip', diagnoses: 'skip', cptCodes: 'append' });
+    const claimedByProcedures = collectContainedIdsClaimedByProcedures(templateList, actions.procedures);
+    expect(claimedByProcedures.size).toBe(0);
+    const requests = makeCreateRequests(
+      makeSimpleCptEncounter(),
+      templateList,
+      [],
+      actions,
+      new Set(),
+      claimedByProcedures
+    );
+
+    expect(getProcedureServiceRequestPosts(requests)).toHaveLength(0);
+    const dxPostRequest = requests.find(
+      (r) => r.method === 'POST' && (r as any).resource?.resourceType === 'Condition'
+    );
+    expect(dxPostRequest, 'Dx should NOT be created when procedures is also skipped').toBeUndefined();
+  });
+
+  test('a sparse procedure plan with no cross-refs still produces a clean ServiceRequest', () => {
+    // Some templates may carry procedures with no diagnoses or CPT codes -
+    // those should still apply without emitting empty reasonReference/[]
+    // arrays on the live SR.
+    const plan = makeProcedurePlan('plan-1');
+    const templateList = makeProcedureTemplateList([plan]);
+    const actions = makeActions({ procedures: 'append' });
+    const requests = makeCreateRequests(makeSimpleCptEncounter(), templateList, [], actions, new Set(), new Set());
+
+    const procedureSR = getProcedureServiceRequestPosts(requests)[0]!.resource;
+    expect(procedureSR.reasonReference).toBeUndefined();
+    expect(procedureSR.supportingInfo).toBeUndefined();
   });
 });
