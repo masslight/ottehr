@@ -17,13 +17,8 @@ export function safeValidate<T>(schema: ZodSchema<T>, input: unknown): T {
       throw INVALID_INPUT_ERROR(formatted.message);
     }
 
-    if (error instanceof Error) {
-      console.error('[Unknown Validation Error]', error.message);
-      throw INVALID_INPUT_ERROR(error.message);
-    }
-
     console.error('[Unknown Validation Error]', error);
-    throw INVALID_INPUT_ERROR('Unknown validation error');
+    throw new Error('Unknown validation error');
   }
 }
 
