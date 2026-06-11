@@ -753,17 +753,16 @@ export async function performMerge(input: PerformMergeInput, oystehr: Oystehr, m
     if (mainPatientCoverages) {
       // check to see if a coverage for this patient already exists
       const coverageIsDuplicated = mainPatientCoverages.some((coverageForMainPatient) => {
-        console.log('check if these coverages are duplicates: ', coverageForMainPatient.id, coverage.id);
         const duplicated = checkIfCoveragesAreDuplicates(coverageForMainPatient, coverage);
-        console.log('duplicated', duplicated);
+        if (duplicated) {
+          console.log('these coverages are flagged as duplicates: ', coverageForMainPatient.id, coverage.id);
+        }
         return duplicated;
       });
 
-      console.log('coverageIsDuplicated', coverageIsDuplicated);
-
       if (coverageIsDuplicated) {
         // if duplicated, we should still move the coverage under the new main patient
-        // but make it cancelled
+        // but mark it cancelled
         coverage.status = 'cancelled';
         changed = true;
       }
@@ -863,7 +862,7 @@ export async function performMerge(input: PerformMergeInput, oystehr: Oystehr, m
   }
   console.log(`Merge complete: ${requests.length} resources updated across ${chunks.length} transaction(s)`);
 
-  console.log('check processedIds', processedIds);
+  console.log('processedIds', processedIds);
 
   // ════════════════════════════════════════════════════════════════════════
   // Step 6: Write audit event
