@@ -206,3 +206,107 @@ describe('performCandidPreEncounterSync – amountCents guard (real implementati
     expect(createCall.allocations[0].target.type).toBe('appointment_by_id_and_patient_external_id');
   });
 });
+
+// ── Employer org 410 fallback ─────────────────────────────────────────────────
+
+describe('performCandidPreEncounterSync – deleted employer Organization (410) fallback', () => {
+  const EMPLOYER_ORG_ID = 'org-employer-deleted';
+
+  let mockOystehr: any;
+  let mockCandidApiClient: ReturnType<typeof makeMockCandidApiClient>;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockCandidApiClient = makeMockCandidApiClient();
+
+    // Return a base oystehr with a fhir.search that produces the minimum required
+    // Patient + Appointment for fetchFHIRPatientAndAppointmentFromEncounter.
+    mockOystehr = {
+      fhir: {
+        search: vi.fn().mockReturnValue({
+          unbundle: () => [
+            {
+              resourceType: 'Patient',
+              id: PATIENT_ID,
+              name: [{ given: ['Test'], family: 'Patient' }],
+              birthDate: '1990-01-01',
+              gender: 'male',
+              address: [{ use: 'home', line: ['1 Main St'], city: 'Anytown', state: 'CA', postalCode: '90210' }],
+              telecom: [{ system: 'phone', value: '555-0100' }],
+            },
+            {
+              resourceType: 'Appointment',
+              id: 'appt-1',
+              status: 'fulfilled',
+              start: '2026-04-22T10:00:00Z',
+              participant: [],
+            },
+          ],
+        }),
+        get: vi.fn(),
+        patch: vi.fn(),
+      },
+    };
+
+    // Default: occupational-medicine account whose owner org is "deleted"
+    mockGetAccountAndCoverageResourcesForPatient.mockResolvedValue({
+      coverages: {},
+      insuranceOrgs: [],
+      occupationalMedicineAccount: {
+        resourceType: 'Account',
+        id: 'account-occ-med',
+        owner: { reference: `Organization/${EMPLOYER_ORG_ID}` },
+      },
+    });
+  });
+
+  it('does not throw when the employer Organization returns 410', async () => {
+    mockOystehr.fhir.get.mockRejectedValue(Object.assign(new Error('Gone'), { status: 410 }));
+
+    await expect(
+      performCandidPreEncounterSync({
+        encounterId: ENCOUNTER_ID,
+        oystehr: mockOystehr,
+        candidApiClient: mockCandidApiClient,
+      })
+    ).resolves.not.toThrow();
+  });
+
+  it('creates the Candid patient without nonInsurancePayerAssociations when employer org is deleted', async () => {
+    mockOystehr.fhir.get.mockRejectedValue(Object.assign(new Error('Gone'), { status: 410 }));
+
+    await performCandidPreEncounterSync({
+      encounterId: ENCOUNTER_ID,
+      oystehr: mockOystehr,
+      candidApiClient: mockCandidApiClient,
+    });
+
+    const createArg = mockCandidApiClient.preEncounter.patients.v1.createWithMrn.mock.calls[0][0];
+    expect(createArg.body.nonInsurancePayerAssociations).toBeUndefined();
+  });
+
+  it('still creates the Candid patient and appointment after the 410 fallback', async () => {
+    mockOystehr.fhir.get.mockRejectedValue(Object.assign(new Error('Gone'), { status: 410 }));
+
+    await performCandidPreEncounterSync({
+      encounterId: ENCOUNTER_ID,
+      oystehr: mockOystehr,
+      candidApiClient: mockCandidApiClient,
+    });
+
+    expect(mockCandidApiClient.preEncounter.patients.v1.createWithMrn).toHaveBeenCalledOnce();
+    expect(mockCandidApiClient.preEncounter.appointments.v1.create).toHaveBeenCalledOnce();
+  });
+
+  it('re-throws non-410 errors from the employer org GET', async () => {
+    mockOystehr.fhir.get.mockRejectedValue(Object.assign(new Error('Internal Server Error'), { status: 500 }));
+
+    await expect(
+      performCandidPreEncounterSync({
+        encounterId: ENCOUNTER_ID,
+        oystehr: mockOystehr,
+        candidApiClient: mockCandidApiClient,
+      })
+    ).rejects.toMatchObject({ status: 500 });
+  });
+});
