@@ -1,6 +1,6 @@
 import { Operation } from 'fast-json-patch';
 import { Organization, Patient, QuestionnaireResponseItem } from 'fhir/r4b';
-import { PHARMACY_COLLECTION_LINK_IDS } from 'utils';
+import { PHARMACY_COLLECTION_LINK_IDS, PREFERRED_PHARMACY_EXTENSION_URL } from 'utils';
 import { describe, expect, it } from 'vitest';
 import { createUpdatePharmacyPatchOps, PATIENT_CONTAINED_PHARMACY_ID } from '../src/ehr/shared/harvest';
 
@@ -120,5 +120,30 @@ describe('createUpdatePharmacyPatchOps phone handling', () => {
     const pharmacy = getContainedPharmacy(createUpdatePharmacyPatchOps(patient, placesItems));
     expect(pharmacy).toBeDefined();
     expect(pharmacy?.telecom).toBeUndefined();
+  });
+
+  it('keeps a contained pharmacy and its reference for a phone-only response', () => {
+    const patientWithPharmacy: Patient = {
+      ...patient,
+      contained: [
+        {
+          resourceType: 'Organization',
+          id: PATIENT_CONTAINED_PHARMACY_ID,
+          name: 'Walgreens',
+        },
+      ],
+    };
+    const ops = createUpdatePharmacyPatchOps(patientWithPharmacy, [placesPhoneItem]);
+    expect(ops.find((op) => op.op === 'remove' && op.path === '/contained')).toBeUndefined();
+    const pharmacy = getContainedPharmacy(ops);
+    expect(pharmacy?.telecom?.[0]?.value).toBe('(555) 867-5309');
+
+    const extensionOp = ops.find((op) => op.path === '/extension');
+    expect(extensionOp && 'value' in extensionOp ? extensionOp.value : undefined).toContainEqual({
+      url: PREFERRED_PHARMACY_EXTENSION_URL,
+      valueReference: {
+        reference: `#${PATIENT_CONTAINED_PHARMACY_ID}`,
+      },
+    });
   });
 });

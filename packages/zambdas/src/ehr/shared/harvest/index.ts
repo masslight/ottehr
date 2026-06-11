@@ -1290,6 +1290,7 @@ export const createUpdatePharmacyPatchOps = (
   const inputPharmacyName = pharmacyNameAnswer?.valueString ?? placesPharmacyNameAnswer?.valueString;
   const inputPharmacyAddress = pharmacyAddressAnswer?.valueString ?? placesPharmacyAddressAnswer?.valueString;
   const inputPharmacyPhone = pharmacyPhoneAnswer?.valueString ?? placesPharmacyPhoneAnswer?.valueString;
+  const hasPharmacyInput = Boolean(inputPharmacyName || inputPharmacyAddress || inputPharmacyPhone);
 
   const operations: Operation[] = [];
 
@@ -1297,7 +1298,7 @@ export const createUpdatePharmacyPatchOps = (
   const filteredContained = currentContained.filter((resource) => resource.id !== PATIENT_CONTAINED_PHARMACY_ID);
 
   // Add new pharmacy if provided
-  if (inputPharmacyName || inputPharmacyAddress) {
+  if (hasPharmacyInput) {
     const pharmacyOrg: Organization = {
       resourceType: 'Organization',
       id: PATIENT_CONTAINED_PHARMACY_ID,
@@ -1363,7 +1364,7 @@ export const createUpdatePharmacyPatchOps = (
   );
 
   // Add pharmacy reference if we have pharmacy data
-  if (inputPharmacyName || inputPharmacyAddress) {
+  if (hasPharmacyInput) {
     filteredExtensions.push({
       url: PREFERRED_PHARMACY_EXTENSION_URL,
       valueReference: {
