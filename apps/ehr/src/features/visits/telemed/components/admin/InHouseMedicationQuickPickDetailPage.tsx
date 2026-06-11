@@ -77,6 +77,27 @@ export default function InHouseMedicationQuickPickDetailPage(): ReactElement {
           <Row label="NDC">
             <ValueDisplay value={quickPick.ndc} />
           </Row>
+          <Row label="CPT / HCPCS">
+            {quickPick.cptCodes && quickPick.cptCodes.length > 0 ? (
+              <Stack spacing={0.5}>
+                {quickPick.cptCodes.map((cptCode) => (
+                  <Typography key={cptCode.code} variant="body2">
+                    {cptCode.code} {cptCode.display}
+                    {cptCode.billableUnitSize != null && (
+                      <Typography component="span" variant="body2" color="text.secondary">
+                        {' '}
+                        — Billable Unit Size: {cptCode.billableUnitSize}
+                        {quickPick.units ? ` ${quickPick.units}` : ''}
+                        {cptCode.billableUnits != null ? `, Billable Units: ${cptCode.billableUnits}` : ''}
+                      </Typography>
+                    )}
+                  </Typography>
+                ))}
+              </Stack>
+            ) : (
+              <ValueDisplay value={undefined} />
+            )}
+          </Row>
         </Section>
 
         <Section title="Administration Details">

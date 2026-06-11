@@ -232,6 +232,21 @@ export const medicationExtendedToMedicationData = (
   };
 };
 
+/** Billable units = ceil(dose / billable unit size), minimum 1. Defaults to 1 when either value is missing/invalid. */
+export const computeBillableUnits = (dose: number | undefined, billableUnitSize: number | undefined): number => {
+  const doseNum = Number(dose);
+  if (
+    billableUnitSize == null ||
+    !Number.isFinite(billableUnitSize) ||
+    billableUnitSize <= 0 ||
+    !Number.isFinite(doseNum) ||
+    doseNum <= 0
+  ) {
+    return 1;
+  }
+  return Math.max(1, Math.ceil(doseNum / billableUnitSize));
+};
+
 export const makeMedicationOrderUpdateRequestInput = ({
   id,
   newStatus,

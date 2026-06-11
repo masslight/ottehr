@@ -78,7 +78,7 @@ export interface MedicationData {
   manufacturer?: string;
   location?: { code: string; name: string };
   providerId?: string;
-  cptCodes?: { code: string; display: string }[];
+  cptCodes?: { code: string; display: string; billableUnitSize?: number; billableUnits?: number }[];
 
   // scanning part
   lotNumber?: string;

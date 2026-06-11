@@ -2,12 +2,13 @@ import { otherColors } from '@ehrTheme/colors';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import CheckCircleOutline from '@mui/icons-material/CheckCircleOutline';
 import ErrorOutlineOutlined from '@mui/icons-material/ErrorOutlineOutlined';
-import { Box, CircularProgress, Grid, Paper, Typography, useTheme } from '@mui/material';
+import { Box, CircularProgress, Grid, InputAdornment, Paper, TextField, Typography, useTheme } from '@mui/material';
 import { Stack } from '@mui/system';
 import { DateTime } from 'luxon';
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
+  computeBillableUnits,
   ExtendedMedicationDataForResponse,
   IN_HOUSE_CONTAINED_MEDICATION_ID,
   InHouseMedicationQuickPickData,
@@ -110,6 +111,70 @@ export const MedicationCardView: React.FC<MedicationCardViewProps> = ({
   const { id: appointmentId } = useParams();
   const theme = useTheme();
 
+  // Billing unit size: local UI state (string, to allow intermediate values like "2."),
+  // initialized from the saved per-CPT-code billing data when editing an existing order
+  const [billableUnitSizeInput, setBillableUnitSizeInput] = useState(() => {
+    const saved = localValues.cptCodes?.find((c) => c.billableUnitSize != null)?.billableUnitSize;
+    return saved != null ? String(saved) : '';
+  });
+
+  const billableUnitSize = useMemo(() => {
+    const parsed = Number(billableUnitSizeInput);
+    return billableUnitSizeInput !== '' && Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
+  }, [billableUnitSizeInput]);
+
+  const doseUnitsLabel = useMemo(() => {
+    const unitsValue = localValues.units;
+    if (!unitsValue) return '';
+    return selectsOptions.units.options.find((option) => option.value === unitsValue)?.label ?? unitsValue;
+  }, [localValues.units, selectsOptions.units.options]);
+
+  const billableUnits = useMemo(
+    () => computeBillableUnits(localValues.dose, billableUnitSize),
+    [localValues.dose, billableUnitSize]
+  );
+
+  const withBillingData = (
+    codes: { code: string; display: string }[],
+    unitSize: number | undefined
+  ): NonNullable<MedicationData['cptCodes']> =>
+    codes.map(({ code, display }) => ({
+      code,
+      display,
+      ...(unitSize != null
+        ? { billableUnitSize: unitSize, billableUnits: computeBillableUnits(localValues.dose, unitSize) }
+        : {}),
+    }));
+
+  const handleBillableUnitSizeChange = (value: string): void => {
+    if (value !== '' && !/^\d*\.?\d*$/.test(value)) return;
+    setBillableUnitSizeInput(value);
+    // Write billing data through to the CPT code entries so it is included
+    // anywhere localValues is saved (order save, quick pick save)
+    const parsed = Number(value);
+    const newUnitSize = value !== '' && Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
+    if (localValues.cptCodes?.length) {
+      onFieldValueChange('cptCodes', withBillingData(localValues.cptCodes, newUnitSize));
+    }
+  };
+
+  // Sync the input when billing data changes externally (e.g. a quick pick is selected)
+  const externalUnitSize = localValues.cptCodes?.find((c) => c.billableUnitSize != null)?.billableUnitSize;
+  useEffect(() => {
+    if (externalUnitSize != null) {
+      if (externalUnitSize !== billableUnitSize) setBillableUnitSizeInput(String(externalUnitSize));
+    } else if ((localValues.cptCodes?.length ?? 0) > 0 && billableUnitSize != null) {
+      setBillableUnitSizeInput('');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [externalUnitSize, localValues.cptCodes]);
+
+  // Recompute billable units against the current dose at save time
+  const buildOrderDataForSave = (): Partial<MedicationData> => ({
+    ...localValues,
+    cptCodes: localValues.cptCodes ? withBillingData(localValues.cptCodes, billableUnitSize) : undefined,
+  });
+
   const inHouseMedicationsquickPicksList = useMemo(() => {
     const medispanCodeSet = selectsOptions.medicationId.medispanCodeSet ?? new Set<string>();
     const ndcCodeSet = selectsOptions.medicationId.ndcCodeSet ?? new Set<string>();
@@ -153,7 +218,7 @@ export const MedicationCardView: React.FC<MedicationCardViewProps> = ({
               onSave(
                 makeMedicationOrderUpdateRequestInput({
                   id: medication?.id,
-                  orderData: { ...localValues },
+                  orderData: buildOrderDataForSave(),
                   newStatus: selectedStatus,
                 })
               )
@@ -194,7 +259,7 @@ export const MedicationCardView: React.FC<MedicationCardViewProps> = ({
                 onSave(
                   makeMedicationOrderUpdateRequestInput({
                     id: medication?.id,
-                    orderData: { ...localValues },
+                    orderData: buildOrderDataForSave(),
                     newStatus: 'administered-not',
                   })
                 )
@@ -212,7 +277,7 @@ export const MedicationCardView: React.FC<MedicationCardViewProps> = ({
                 onSave(
                   makeMedicationOrderUpdateRequestInput({
                     id: medication?.id,
-                    orderData: { ...localValues },
+                    orderData: buildOrderDataForSave(),
                     newStatus: 'administered-partly',
                   })
                 )
@@ -230,7 +295,7 @@ export const MedicationCardView: React.FC<MedicationCardViewProps> = ({
                 onSave(
                   makeMedicationOrderUpdateRequestInput({
                     id: medication?.id,
-                    orderData: { ...localValues },
+                    orderData: buildOrderDataForSave(),
                     newStatus: 'administered',
                   })
                 )
@@ -349,8 +414,37 @@ export const MedicationCardView: React.FC<MedicationCardViewProps> = ({
         <Grid item xs={12}>
           <MedicationCptCodes
             cptCodes={localValues.cptCodes ?? []}
-            onChange={(codes) => onFieldValueChange('cptCodes', codes)}
+            onChange={(codes) => onFieldValueChange('cptCodes', withBillingData(codes, billableUnitSize))}
             isEditable={isEditable}
+          />
+        </Grid>
+        <Grid item xs={6}>
+          <TextField
+            label="Billable Unit Size"
+            size="small"
+            fullWidth
+            value={billableUnitSizeInput}
+            onChange={(e) => handleBillableUnitSizeChange(e.target.value)}
+            disabled={!isEditable}
+            inputProps={{ inputMode: 'decimal' }}
+            InputProps={{
+              endAdornment: doseUnitsLabel ? (
+                <InputAdornment position="end">
+                  <Typography variant="body2" color="text.secondary">
+                    {doseUnitsLabel}
+                  </Typography>
+                </InputAdornment>
+              ) : undefined,
+            }}
+          />
+        </Grid>
+        <Grid item xs={6}>
+          <TextField
+            label="Billable Units"
+            size="small"
+            fullWidth
+            value={billableUnits}
+            InputProps={{ readOnly: true }}
           />
         </Grid>
         {interactionsMessage ? (

@@ -182,7 +182,7 @@ export interface InHouseMedicationQuickPickData {
   lotNumber?: string;
   ndc?: string;
   expDate?: string;
-  cptCodes?: { code: string; display: string }[];
+  cptCodes?: { code: string; display: string; billableUnitSize?: number; billableUnits?: number }[];
 }
 
 export type CreateInHouseMedicationQuickPickInput = QuickPickCreateInput<InHouseMedicationQuickPickData>;

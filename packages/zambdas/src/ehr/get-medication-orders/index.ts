@@ -122,14 +122,19 @@ function mapMedicalAdministrationToDTO(orderPackage: OrderPackage): ExtendedMedi
 
     interactions: getMedicationInteractions(medicationRequest),
 
-    // CPT/HCPCS codes stored on the MedicationAdministration
+    // CPT/HCPCS codes (with optional billing unit data) stored on the MedicationAdministration
     cptCodes: (() => {
       const ext = medicationAdministration.extension?.find(
         (e) => e.url === 'https://fhir.ottehr.com/Extension/medication-cpt-codes'
       );
       if (ext?.valueString) {
         try {
-          return JSON.parse(ext.valueString) as { code: string; display: string }[];
+          return JSON.parse(ext.valueString) as {
+            code: string;
+            display: string;
+            billableUnitSize?: number;
+            billableUnits?: number;
+          }[];
         } catch {
           return undefined;
         }
