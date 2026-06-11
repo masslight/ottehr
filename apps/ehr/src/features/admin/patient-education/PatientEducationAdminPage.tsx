@@ -122,8 +122,7 @@ export const PatientEducationAdminPage = (): ReactElement => {
                     <TableCell>
                       <Chip
                         size="small"
-                        variant="outlined"
-                        color={item.language === 'es' ? 'secondary' : 'default'}
+                        color={item.language === 'es' ? 'info' : 'default'}
                         label={item.language === 'es' ? 'Español' : 'English'}
                       />
                     </TableCell>
