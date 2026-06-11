@@ -118,11 +118,11 @@ export const getAddressParamsForErxPharmacySearch = (
 };
 
 export const extractPharmacyIdFromSearchRes = (
-  placesPharmacyName: string,
+  placesPharmacyName: string | undefined,
   placesPharmacyAddress: PlacesDetailAddress | undefined,
   erxSearchResults: ErxSearchPharmaciesResponse['data'] | undefined
 ): string | undefined => {
-  if (!placesPharmacyAddress) return;
+  if (!placesPharmacyAddress || !placesPharmacyName) return;
   if (!erxSearchResults || !erxSearchResults.length) return;
 
   const match = erxSearchResults.find((res) => {
@@ -180,4 +180,9 @@ export const searchErxPharmacy = async (
   if (oystehrPharmacySearchRes.data.length === 0) return;
 
   return oystehrPharmacySearchRes.data;
+};
+
+export const validateIsString = (input: unknown): string | undefined => {
+  if (typeof input === 'string') return input;
+  return;
 };

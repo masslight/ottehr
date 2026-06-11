@@ -316,4 +316,9 @@ describe('extractPharmacyIdFromSearchRes', () => {
     const result = extractPharmacyIdFromSearchRes(PLACES_NAME, wrongZip, ERX_RESULTS);
     expect(result).toBeUndefined();
   });
+
+  it('returns undefined when name is undefined', () => {
+    const result = extractPharmacyIdFromSearchRes(undefined, PARSED_ADDRESS, ERX_RESULTS);
+    expect(result).toBeUndefined();
+  });
 });

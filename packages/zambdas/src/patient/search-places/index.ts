@@ -8,6 +8,7 @@ import {
   getAddressParamsForErxPharmacySearch,
   PLACES_API_BASE_URL,
   searchErxPharmacy,
+  validateIsString,
 } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -145,8 +146,8 @@ const getPharmacyDetail = async (placesId: string, googleApiKey: string, oystehr
   });
 
   const data = await response.json();
-  const placesName = data?.displayName?.text;
-  const placesAddress = data?.formattedAddress;
+  const placesName = validateIsString(data?.displayName?.text);
+  const placesAddress = validateIsString(data?.formattedAddress);
 
   const addressParsed = addressComponentsFromPlacesDetailRes(data?.addressComponents);
   const pharmacySearchParams = getAddressParamsForErxPharmacySearch(addressParsed);
