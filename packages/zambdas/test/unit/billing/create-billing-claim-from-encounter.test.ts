@@ -580,7 +580,7 @@ describe('create-billing-claim-from-encounter', () => {
         billingOystehrSearch: vi.fn().mockResolvedValueOnce({
           unbundle: () => [],
         }),
-        secrets: { DEFAULT_BILLING_PROVIDER: 'Organization/organization-123' },
+        secrets: { DEFAULT_BILLING_RESOURCE: 'Organization/organization-123' },
         expectedError: FHIR_RESOURCE_NOT_FOUND('Organization'),
       },
       {
@@ -623,7 +623,7 @@ describe('create-billing-claim-from-encounter', () => {
           .mockResolvedValueOnce({
             unbundle: () => [],
           }),
-        secrets: { DEFAULT_BILLING_PROVIDER: 'Organization/organization-123' },
+        secrets: { DEFAULT_BILLING_RESOURCE: 'Organization/organization-123' },
         expectedError: null,
         expectedResult: {
           clinicalResources: {
@@ -699,7 +699,7 @@ describe('create-billing-claim-from-encounter', () => {
           .mockResolvedValueOnce({
             unbundle: () => [billingResources.billingProvider],
           }),
-        secrets: { DEFAULT_BILLING_PROVIDER: 'Organization/organization-123' },
+        secrets: { DEFAULT_BILLING_RESOURCE: 'Organization/organization-123' },
         expectedError: null,
         expectedResult: {
           clinicalResources: {
