@@ -107,6 +107,7 @@ const VitalsHeightCard: React.FC<VitalsHeightCardProps> = ({ field }): JSX.Eleme
                       isInputError={localState.validationError}
                       onChange={localState.handleInchesChange}
                       onKeyDown={handleKeyDown}
+                      data-testid={dataTestIds.vitalsPage.heightTotalInchesInput}
                     />
                     <Typography fontSize={25}>=</Typography>
                     <VitalsTextInputFiled
@@ -116,6 +117,7 @@ const VitalsHeightCard: React.FC<VitalsHeightCardProps> = ({ field }): JSX.Eleme
                       isInputError={localState.validationError}
                       onChange={localState.handleFeetChange}
                       onKeyDown={handleKeyDown}
+                      data-testid={dataTestIds.vitalsPage.heightFeetInput}
                     />
                     <VitalsTextInputFiled
                       label="inches"
@@ -124,6 +126,7 @@ const VitalsHeightCard: React.FC<VitalsHeightCardProps> = ({ field }): JSX.Eleme
                       isInputError={localState.validationError}
                       onChange={localState.handleInchRemainderChange}
                       onKeyDown={handleKeyDown}
+                      data-testid={dataTestIds.vitalsPage.heightInchRemainderInput}
                     />
                   </Box>
                 </Grid>
