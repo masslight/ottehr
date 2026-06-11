@@ -1,14 +1,12 @@
 import BadgeOutlinedIcon from '@mui/icons-material/BadgeOutlined';
 import LocalHospitalOutlinedIcon from '@mui/icons-material/LocalHospitalOutlined';
-import { Box } from '@mui/material';
 import HealthMetricIcon from '@theme/icons/health-metric.svg?react';
 import PersonalInjuryIcon from '@theme/icons/personal-injury.svg?react';
-import { ReactNode } from 'react';
+import { ReactNode, useMemo } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { BOOKING_CONFIG } from 'utils';
-// import { intakeFlowPageRoute } from '../App';
 import { getWelcomeTitle } from '../branding/welcomeTitle';
-import HomepageOption from '../components/HomepageOption';
+import ServiceCategoryPicker, { ServiceCategoryOption } from '../components/ServiceCategoryPicker';
 import { useServiceCategories } from '../hooks/useServiceCategories';
 import { CustomContainer } from '../telemed/features/common';
 
@@ -37,10 +35,17 @@ const SelectServiceCategoryPage = (): JSX.Element => {
   // prebook-only category that the subsequent step couldn't actually handle.
   const isWalkinFlow = currentPath.startsWith('/walkin/');
   const requiredVisitType = isWalkinFlow ? 'walk-in' : 'prebook';
-  const filteredServiceCategories = serviceCategories?.filter((sc) =>
-    (sc.visitTypes ?? ['prebook']).includes(requiredVisitType)
-  );
-  const serviceCategoryIcons = BOOKING_CONFIG.serviceCategoryIcons ?? {};
+
+  const options: ServiceCategoryOption[] = useMemo(() => {
+    const serviceCategoryIcons = BOOKING_CONFIG.serviceCategoryIcons ?? {};
+    return (serviceCategories ?? [])
+      .filter((sc) => (sc.visitTypes ?? ['prebook']).includes(requiredVisitType))
+      .map((sc) => ({
+        code: sc.category.code,
+        display: sc.category.display ?? sc.category.code,
+        icon: serviceCategoryIcons[sc.category.code] ?? IconMap[sc.category.code] ?? <LocalHospitalOutlinedIcon />,
+      }));
+  }, [serviceCategories, requiredVisitType]);
 
   const handleSelection = (serviceCategory: string): void => {
     const destination = currentPath.replace('/select-service-category', '');
@@ -53,16 +58,7 @@ const SelectServiceCategoryPage = (): JSX.Element => {
 
   return (
     <CustomContainer title={getWelcomeTitle()} description="" isFirstPage={true}>
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-        {filteredServiceCategories?.map((sc) => (
-          <HomepageOption
-            key={sc.category.code}
-            title={sc.category.display}
-            icon={serviceCategoryIcons[sc.category.code] ?? IconMap[sc.category.code] ?? <LocalHospitalOutlinedIcon />}
-            handleClick={() => handleSelection(sc.category.code)}
-          />
-        ))}
-      </Box>
+      <ServiceCategoryPicker options={options} onSelect={handleSelection} dataTestIdPrefix="service-category-option" />
     </CustomContainer>
   );
 };

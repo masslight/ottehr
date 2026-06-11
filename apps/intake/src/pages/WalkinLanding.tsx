@@ -3,7 +3,7 @@ import { Box } from '@mui/system';
 import { useQuery } from '@tanstack/react-query';
 import { t } from 'i18next';
 import { DateTime } from 'luxon';
-import { FC, useState } from 'react';
+import { FC, useEffect, useMemo, useState } from 'react';
 import { generatePath, Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
   APIError,
@@ -21,6 +21,7 @@ import { getWelcomeTitle } from '../branding/welcomeTitle';
 import { PageContainer } from '../components';
 import { ErrorDialog, ErrorDialogConfig } from '../components/ErrorDialog';
 import PageForm from '../components/PageForm';
+import { useServiceCategories } from '../hooks/useServiceCategories';
 import { useUCZambdaClient } from '../hooks/useUCZambdaClient';
 
 export const WalkinLanding: FC = () => {
@@ -42,7 +43,43 @@ export const WalkinLanding: FC = () => {
     enabled: Boolean(scheduleId || locationName) && Boolean(tokenlessZambdaClient),
   });
 
-  const somethingIsLoadingInSomeWay = isLoading || isFetching || isRefetching;
+  // Service-category routing. Three outcomes once the catalog loads:
+  //   - 0 walk-in-capable categories → fall through (legacy behavior: create
+  //     the slot without a category so the schedule isn't broken until the
+  //     admin configures one)
+  //   - 1 walk-in-capable category → auto-select silently at slot creation
+  //   - 2+ → redirect to the picker child route so the patient chooses
+  // Skip the fetch + decision entirely when the URL already carries a
+  // serviceCategory (the picker just sent us back here, or the EHR put it on
+  // the link).
+  const { serviceCategories, isLoading: isCategoriesLoading } = useServiceCategories({});
+  const walkinCapableCategories = useMemo(
+    () => (serviceCategories ?? []).filter((sc) => (sc.visitTypes ?? ['prebook']).includes('walk-in')),
+    [serviceCategories]
+  );
+  const categoryDecisionNeeded = !serviceCategory;
+  const waitingForCategoryDecision = categoryDecisionNeeded && isCategoriesLoading;
+  const resolvedServiceCategory =
+    serviceCategory ?? (walkinCapableCategories.length === 1 ? walkinCapableCategories[0].category.code : undefined);
+  const needsPickerRedirect = categoryDecisionNeeded && !isCategoriesLoading && walkinCapableCategories.length >= 2;
+
+  useEffect(() => {
+    if (!needsPickerRedirect) return;
+    // Mirror the entry URL shape so the picker's destination calculation
+    // (strip `/select-service-category`, append `?serviceCategory=<code>`)
+    // brings the patient back to this same page.
+    const basePath = scheduleId
+      ? `/walkin/schedule/${scheduleId}/select-service-category`
+      : name
+      ? `/walkin/location/${name}/select-service-category`
+      : null;
+    if (!basePath) return;
+    // Preserve any other query params already on the URL (analytics, etc.).
+    const query = searchParams.toString();
+    navigate(`${basePath}${query ? `?${query}` : ''}`, { replace: true });
+  }, [needsPickerRedirect, scheduleId, name, searchParams, navigate]);
+
+  const somethingIsLoadingInSomeWay = isLoading || isFetching || isRefetching || waitingForCategoryDecision;
 
   // todo: actually check error type
   const pageNotFound = error && isRefetching === false && !isLoading && !isFetching;
@@ -86,7 +123,7 @@ export const WalkinLanding: FC = () => {
                     lengthInMinutes: 15,
                     status: 'busy-tentative',
                     walkin: true,
-                    ...(serviceCategory ? { serviceCategoryCode: serviceCategory } : {}),
+                    ...(resolvedServiceCategory ? { serviceCategoryCode: resolvedServiceCategory } : {}),
                     ...(questionnaireCanonical && { questionnaireCanonical }),
                   };
                   try {
