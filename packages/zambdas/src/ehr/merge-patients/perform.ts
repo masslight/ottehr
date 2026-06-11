@@ -281,7 +281,6 @@ export async function performMerge(input: PerformMergeInput, oystehr: Oystehr, m
     }
 
     try {
-      // dupe coverage is being created here
       const resultBundle = await updatePatientAccountFromQuestionnaire(
         {
           questionnaireResponseItem: items,
@@ -750,8 +749,8 @@ export async function performMerge(input: PerformMergeInput, oystehr: Oystehr, m
       changed = true;
     }
 
-    if (mainPatientCoverages) {
-      // check to see if a coverage for this patient already exists
+    if (mainPatientCoverages && mainPatientCoverages.length > 0) {
+      // check to see if a coverage for the main already exists
       const coverageIsDuplicated = mainPatientCoverages.some((coverageForMainPatient) => {
         const duplicated = checkIfCoveragesAreDuplicates(coverageForMainPatient, coverage);
         if (duplicated) {
