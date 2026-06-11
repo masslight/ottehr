@@ -445,23 +445,6 @@ describe('create-billing-claim-from-encounter', () => {
         expectedError: FHIR_RESOURCE_NOT_FOUND('Account'),
       },
       {
-        name: 'throws error when coverage does not exist',
-        clinicalOystehrSearch: vi.fn().mockResolvedValueOnce({
-          unbundle: () => [
-            clinicalResources.encounter,
-            clinicalResources.patient,
-            clinicalResources.appointment,
-            clinicalResources.location,
-            clinicalResources.practitioner,
-            clinicalResources.account,
-          ],
-        }),
-        billingOystehrSearch: vi.fn().mockResolvedValueOnce({
-          unbundle: () => [],
-        }),
-        expectedError: FHIR_RESOURCE_NOT_FOUND('Coverage'),
-      },
-      {
         name: 'throws error when diagnosis does not exist',
         clinicalOystehrSearch: vi.fn().mockResolvedValueOnce({
           unbundle: () => [
@@ -471,7 +454,6 @@ describe('create-billing-claim-from-encounter', () => {
             clinicalResources.location,
             clinicalResources.practitioner,
             clinicalResources.account,
-            clinicalResources.coverage,
           ],
         }),
         billingOystehrSearch: vi.fn().mockResolvedValueOnce({
@@ -489,7 +471,6 @@ describe('create-billing-claim-from-encounter', () => {
             clinicalResources.location,
             clinicalResources.practitioner,
             clinicalResources.account,
-            clinicalResources.coverage,
             clinicalResources.condition,
           ],
         }),
@@ -499,23 +480,51 @@ describe('create-billing-claim-from-encounter', () => {
         expectedError: FHIR_RESOURCE_NOT_FOUND('Procedure'),
       },
       {
-        name: 'throws error when coverage does not have payor',
-        clinicalOystehrSearch: vi.fn().mockResolvedValueOnce({
-          unbundle: () => [
-            clinicalResources.encounter,
-            clinicalResources.patient,
-            clinicalResources.appointment,
-            clinicalResources.location,
-            clinicalResources.practitioner,
-            clinicalResources.account,
-            {
-              ...clinicalResources.coverage,
-              payor: undefined,
-            },
-            clinicalResources.condition,
-            clinicalResources.procedure,
-          ],
+        name: 'throws error when coverage does not exist',
+        clinicalOystehrSearch: vi
+          .fn()
+          .mockResolvedValueOnce({
+            unbundle: () => [
+              clinicalResources.encounter,
+              clinicalResources.patient,
+              clinicalResources.appointment,
+              clinicalResources.location,
+              clinicalResources.practitioner,
+              clinicalResources.account,
+              clinicalResources.condition,
+              clinicalResources.procedure,
+            ],
+          })
+          .mockResolvedValueOnce({ unbundle: () => [] }),
+        billingOystehrSearch: vi.fn().mockResolvedValueOnce({
+          unbundle: () => [],
         }),
+        expectedError: FHIR_RESOURCE_NOT_FOUND('Coverage'),
+      },
+      {
+        name: 'throws error when coverage does not have payor',
+        clinicalOystehrSearch: vi
+          .fn()
+          .mockResolvedValueOnce({
+            unbundle: () => [
+              clinicalResources.encounter,
+              clinicalResources.patient,
+              clinicalResources.appointment,
+              clinicalResources.location,
+              clinicalResources.practitioner,
+              clinicalResources.account,
+              clinicalResources.condition,
+              clinicalResources.procedure,
+            ],
+          })
+          .mockResolvedValueOnce({
+            unbundle: () => [
+              {
+                ...clinicalResources.coverage,
+                payor: undefined,
+              },
+            ],
+          }),
         billingOystehrSearch: vi.fn().mockResolvedValueOnce({
           unbundle: () => [],
         }),
@@ -523,19 +532,23 @@ describe('create-billing-claim-from-encounter', () => {
       },
       {
         name: 'throws error when billing provider not in secrets',
-        clinicalOystehrSearch: vi.fn().mockResolvedValueOnce({
-          unbundle: () => [
-            clinicalResources.encounter,
-            clinicalResources.patient,
-            clinicalResources.appointment,
-            clinicalResources.location,
-            clinicalResources.practitioner,
-            clinicalResources.account,
-            clinicalResources.coverage,
-            clinicalResources.condition,
-            clinicalResources.procedure,
-          ],
-        }),
+        clinicalOystehrSearch: vi
+          .fn()
+          .mockResolvedValueOnce({
+            unbundle: () => [
+              clinicalResources.encounter,
+              clinicalResources.patient,
+              clinicalResources.appointment,
+              clinicalResources.location,
+              clinicalResources.practitioner,
+              clinicalResources.account,
+              clinicalResources.condition,
+              clinicalResources.procedure,
+            ],
+          })
+          .mockResolvedValueOnce({
+            unbundle: () => [clinicalResources.coverage],
+          }),
         billingOystehrSearch: vi.fn().mockResolvedValueOnce({
           unbundle: () => [],
         }),
@@ -557,6 +570,9 @@ describe('create-billing-claim-from-encounter', () => {
               clinicalResources.condition,
               clinicalResources.procedure,
             ],
+          })
+          .mockResolvedValueOnce({
+            unbundle: () => [clinicalResources.coverage],
           })
           .mockResolvedValueOnce({
             unbundle: () => [],
@@ -583,6 +599,9 @@ describe('create-billing-claim-from-encounter', () => {
               clinicalResources.condition,
               clinicalResources.procedure,
             ],
+          })
+          .mockResolvedValueOnce({
+            unbundle: () => [clinicalResources.coverage],
           })
           .mockResolvedValueOnce({
             unbundle: () => [clinicalResources.billingProvider],
@@ -649,6 +668,9 @@ describe('create-billing-claim-from-encounter', () => {
               clinicalResources.condition,
               clinicalResources.procedure,
             ],
+          })
+          .mockResolvedValueOnce({
+            unbundle: () => [clinicalResources.coverage],
           })
           .mockResolvedValueOnce({
             unbundle: () => [clinicalResources.billingProvider],
