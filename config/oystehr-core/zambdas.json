@@ -1608,6 +1608,13 @@
       "src": "src/ehr/easy-chart-planner/index",
       "zip": ".dist/zips/easy-chart-planner.zip"
     },
+    "EASY-CHART-EVAL-JUDGE": {
+      "name": "easy-chart-eval-judge",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/easy-chart-eval-judge/index",
+      "zip": ".dist/zips/easy-chart-eval-judge.zip"
+    },
     "ADMIN-CREATE-TEMPLATE": {
       "name": "admin-create-template",
       "type": "http_auth",
