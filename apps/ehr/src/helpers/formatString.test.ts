@@ -33,10 +33,4 @@ describe('addSpacesAfterCommas', () => {
   it('should preserve existing whitespace', () => {
     expect(addSpacesAfterCommas('One,  Two,Three')).toBe('One,  Two, Three');
   });
-
-  // TEMP: intentional failure to demo CI output formatting — revert before merge
-  it('TEMP intentional failure for CI output demo', () => {
-    console.log('this stdout should only appear because the test fails');
-    expect(addSpacesAfterCommas('a,b')).toBe('this will not match');
-  });
 });
