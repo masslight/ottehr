@@ -881,7 +881,7 @@ function NoteSections({
                     onDelete={removeHandler('rosObservations', o)}
                   >
                     <Typography variant="body2">
-                      • {o.label ?? o.field}
+                      • {o.field.endsWith('-denies') ? 'Denies' : 'Reports'} {o.label ?? o.field}
                       {o.note ? ` — ${o.note}` : ''}
                     </Typography>
                   </DeletableRow>
@@ -1525,6 +1525,32 @@ const EXAM_QUERY_STOPWORDS = new Set([
   'to',
   'and',
 ]);
+// ROS matching uses the exam stopwords plus generic symptom MODIFIERS that, on their own, cause
+// false matches (e.g. "loss of sensation" matching "Weight loss/gain" on the shared word "loss").
+// Stripping these from BOTH the query and the catalog labels forces matches onto the key symptom
+// noun, so a symptom with no catalog item (e.g. "loss of sensation") correctly finds nothing.
+const ROS_QUERY_STOPWORDS = new Set([
+  ...EXAM_QUERY_STOPWORDS,
+  'denies',
+  'reports',
+  'loss',
+  'gain',
+  'poor',
+  'changes',
+  'change',
+  'difficulty',
+  'problems',
+  'problem',
+  'recent',
+  'new',
+  'any',
+  'no',
+  'history',
+  'symptoms',
+  'symptom',
+  'in',
+  'or',
+]);
 // Body-region equivalence classes — every token in a list collapses to the same region key.
 // Used by findExamLeafMatches to constrain candidates to the body region the provider named.
 // "throat" should match the "Oral Cavity" section's "Erythematous pharynx" leaf because
@@ -1725,22 +1751,25 @@ function findExamLeafMatches(intent: AddExamFindingIntent, leaves: ExamLeaf[]): 
 function findRosLeafMatches(intent: AddRosFindingIntent, leaves: RosLeaf[]): RosLeaf[] {
   const queryStrings = [intent.display, ...(intent.searchTerms ?? [])];
   const queryTokens = new Set(
-    queryStrings.flatMap((s) => tokenize(s)).filter((tok) => tok.length >= 2 && !EXAM_QUERY_STOPWORDS.has(tok))
+    queryStrings.flatMap((s) => tokenize(s)).filter((tok) => tok.length >= 3 && !ROS_QUERY_STOPWORDS.has(tok))
   );
   if (queryTokens.size === 0) return [];
   const scored = leaves
     .map((leaf) => {
-      const labelTokens = tokenize(leaf.label);
+      // Strip the same modifier stopwords from the label so a match must land on the key symptom
+      // noun, not a generic word like "loss"/"poor"/"changes".
+      const labelTokens = tokenize(leaf.label).filter((t) => !ROS_QUERY_STOPWORDS.has(t));
       const systemTokens = tokenize(leaf.system);
       let score = 0;
       for (const qt of queryTokens) {
         if (labelTokens.includes(qt)) score += 4;
-        else if (labelTokens.some((lt) => lt.startsWith(qt) || qt.startsWith(lt))) score += 2;
+        else if (labelTokens.some((lt) => lt.length >= 4 && (lt.startsWith(qt) || qt.startsWith(lt)))) score += 2;
         if (systemTokens.includes(qt)) score += 1;
       }
       return { leaf, score };
     })
-    .filter((s) => s.score > 0)
+    // Require a real symptom-token match (>=4) — a lone system-name overlap (score 1) isn't enough.
+    .filter((s) => s.score >= 4)
     .sort((a, b) => b.score - a.score);
   return scored.slice(0, 12).map((s) => s.leaf);
 }
