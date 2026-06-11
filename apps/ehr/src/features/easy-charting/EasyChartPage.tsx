@@ -60,6 +60,7 @@ import { applyTemplate, easyChartAgent, easyChartPlanner, icd10Search, listTempl
 import { showEnvironmentBanner } from '../../App';
 import { HospitalizationOptions } from '../visits/in-person/components/hospitalization/hospitalizationOptions';
 import { SURGICAL_HISTORY_OPTIONS } from '../visits/shared/components/medical-history-tab/SurgicalHistory/surgicalHistoryOptions';
+import { useEMCodes } from '../visits/shared/hooks/useEMCodes';
 import { useOystehrAPIClient } from '../visits/shared/hooks/useOystehrAPIClient';
 import { AiAlternative, AiChartedItem } from './AiChartedItem';
 import InlineNoteField from './InlineNoteField';
@@ -350,7 +351,7 @@ function CollapsibleSection({
 // the CC↔HPI label swap is applied at the render site, so these are already the storage keys).
 type ChartNoteKey = 'chiefComplaint' | 'historyOfPresentIllness' | 'mechanismOfInjury' | 'ros' | 'medicalDecision';
 
-// The structured, search-based chart-data fields that support the AI click-to-correct affordance.
+// The structured, SEARCH-based chart-data fields (resolved via runIntentSearch + buildIntentPayload).
 export type ChartedField =
   | 'allergies'
   | 'conditions'
@@ -358,11 +359,14 @@ export type ChartedField =
   | 'surgicalHistory'
   | 'episodeOfCare'
   | 'diagnosis';
+// All fields that support AI click-to-correct — adds the CODE-based billing fields (E&M is a scalar,
+// CPT is an array) which use a terminology search and their own replace logic.
+export type AiField = ChartedField | 'cptCodes' | 'emCode';
 
 // Provenance for an item the assistant auto-charted and that still needs the provider's review.
-// `field` ties it to the chart-data array; `lowConfidence` is set when the auto-pick was ambiguous.
+// `field` ties it to the chart-data; `lowConfidence` is set when the auto-pick was ambiguous.
 export interface AiChartedMeta {
-  field: ChartedField;
+  field: AiField;
   display: string;
   searchTerms: string[];
   lowConfidence: boolean;
@@ -380,10 +384,10 @@ interface NoteSectionsProps {
   // AI-charted items needing review (keyed by resourceId), plus the correction callbacks. When a
   // row's resourceId is in this map it renders as a clickable <AiChartedItem> instead of a row.
   aiCharted?: Map<string, AiChartedMeta>;
-  onAiSearch?: (field: ChartedField, query: string) => Promise<AiAlternative[]>;
-  onAiReplace?: (field: ChartedField, dto: { resourceId?: string }, key: string, dosageUnconfirmed?: boolean) => void;
-  onAiRemove?: (field: ChartedField, dto: { resourceId?: string }) => void;
-  onAiDiscuss?: (field: ChartedField, dto: { resourceId?: string }, meta: AiChartedMeta) => void;
+  onAiSearch?: (field: AiField, query: string) => Promise<AiAlternative[]>;
+  onAiReplace?: (field: AiField, dto: { resourceId?: string }, key: string, dosageUnconfirmed?: boolean) => void;
+  onAiRemove?: (field: AiField, dto: { resourceId?: string }) => void;
+  onAiDiscuss?: (field: AiField, dto: { resourceId?: string }, meta: AiChartedMeta) => void;
   onAiSetMedDosage?: (dto: { resourceId?: string }, value: boolean) => void;
 }
 
@@ -511,7 +515,7 @@ function NoteSections({
   const aiMeta = (dto: { resourceId?: string }): AiChartedMeta | undefined =>
     dto.resourceId ? aiCharted?.get(dto.resourceId) : undefined;
   const renderAiChartable = (
-    field: ChartedField,
+    field: AiField,
     dto: { resourceId?: string },
     label: React.ReactNode,
     fallback: JSX.Element
@@ -519,6 +523,7 @@ function NoteSections({
     const meta = aiMeta(dto);
     if (!editable || !meta || !onAiSearch || !onAiReplace || !onAiRemove || !onAiDiscuss) return fallback;
     const isMed = field === 'medications';
+    const isCode = field === 'cptCodes' || field === 'emCode';
     const medDosage = isMed ? !!(dto as MedicationDTO).intakeInfo?.patientCouldNotConfirmDosage : undefined;
     return (
       <AiChartedItem
@@ -529,6 +534,7 @@ function NoteSections({
         onReplace={(key, dosage) => onAiReplace(field, dto, key, dosage)}
         onRemove={() => onAiRemove(field, dto)}
         onDiscuss={() => onAiDiscuss(field, dto, meta)}
+        hideDiscuss={isCode}
         showDosageOption={isMed}
         dosageUnconfirmed={medDosage}
         onDosageUnconfirmedChange={isMed && onAiSetMedDosage ? (v) => onAiSetMedDosage(dto, v) : undefined}
@@ -1078,37 +1084,53 @@ function NoteSections({
 
         {emCode && (
           <Section title="E&M Code">
-            <DeletableRow
-              editable={editable}
-              resourceId={emCode.resourceId}
-              flashSx={itemSx(emCode.resourceId)}
-              onDelete={removeHandler('emCode', emCode)}
-            >
+            {renderAiChartable(
+              'emCode',
+              emCode,
               <Typography variant="body2">
                 <strong>{emCode.code}</strong>
                 {emCode.display ? ` — ${emCode.display}` : ''}
-              </Typography>
-            </DeletableRow>
+              </Typography>,
+              <DeletableRow
+                editable={editable}
+                resourceId={emCode.resourceId}
+                flashSx={itemSx(emCode.resourceId)}
+                onDelete={removeHandler('emCode', emCode)}
+              >
+                <Typography variant="body2">
+                  <strong>{emCode.code}</strong>
+                  {emCode.display ? ` — ${emCode.display}` : ''}
+                </Typography>
+              </DeletableRow>
+            )}
           </Section>
         )}
 
         {cptCodes.length > 0 && (
           <Section title="CPT Codes">
             <Stack spacing={0.25}>
-              {cptCodes.map((c, i) => (
-                <DeletableRow
-                  key={c.resourceId ?? `${c.code}-${i}`}
-                  editable={editable}
-                  resourceId={c.resourceId}
-                  flashSx={itemSx(c.resourceId)}
-                  onDelete={removeHandler('cptCodes', c)}
-                >
+              {cptCodes.map((c, i) =>
+                renderAiChartable(
+                  'cptCodes',
+                  c,
                   <Typography variant="body2">
                     <strong>{c.code}</strong>
                     {c.display ? ` — ${c.display}` : ''}
-                  </Typography>
-                </DeletableRow>
-              ))}
+                  </Typography>,
+                  <DeletableRow
+                    key={c.resourceId ?? `${c.code}-${i}`}
+                    editable={editable}
+                    resourceId={c.resourceId}
+                    flashSx={itemSx(c.resourceId)}
+                    onDelete={removeHandler('cptCodes', c)}
+                  >
+                    <Typography variant="body2">
+                      <strong>{c.code}</strong>
+                      {c.display ? ` — ${c.display}` : ''}
+                    </Typography>
+                  </DeletableRow>
+                )
+              )}
             </Stack>
           </Section>
         )}
@@ -2050,7 +2072,7 @@ async function runIntentSearch(
 
 // The human-readable label for a charted item, per its field (used for the correction popover's
 // seed query and the needs-review provenance).
-function chartedItemDisplay(field: ChartedField, item: { name?: string; display?: string; code?: string }): string {
+function chartedItemDisplay(field: AiField, item: { name?: string; display?: string; code?: string }): string {
   if (field === 'allergies' || field === 'medications') return item.name ?? '';
   return item.display ?? item.code ?? '';
 }
@@ -2114,6 +2136,8 @@ export default function EasyChartPage(): JSX.Element {
   const { encounterId } = useParams<{ encounterId: string }>();
   const { oystehr, oystehrZambda } = useApiClients();
   const apiClient = useOystehrAPIClient();
+  // E&M code list — the alternatives offered when correcting an auto-charted E&M code.
+  const { emCodes } = useEMCodes();
 
   const [chartData, setChartData] = useState<GetChartDataResponse | null>(null);
   // Mirror of chartData for synchronous reads inside async callbacks (e.g. mergeSaveResponse
@@ -2163,7 +2187,7 @@ export default function EasyChartPage(): JSX.Element {
   // resolved back to a SearchResult; `replaceTargetRef` lets a "Discuss" picker REPLACE the item.
   const [aiCharted, setAiCharted] = useState<Map<string, AiChartedMeta>>(new Map());
   const aiSearchResultsRef = useRef<Map<string, SearchResult>>(new Map());
-  const replaceTargetRef = useRef<{ field: ChartedField; dto: { resourceId?: string } } | null>(null);
+  const replaceTargetRef = useRef<{ field: AiField; dto: { resourceId?: string } } | null>(null);
   // Search-based add intents that auto-chart with the needs-review highlight + click-to-correct,
   // and the field each maps to. (CPT/E&M, exam findings and procedures use different mechanisms.)
   const KIND_TO_FIELD: Record<string, ChartedField> = {
@@ -2315,9 +2339,23 @@ export default function EasyChartPage(): JSX.Element {
 
   // Delete a charted allergy/diagnosis by its dto (flash + local removal), and drop it from the
   // needs-review set. Shared by Remove and the replace flow.
-  const deleteChartedResource = async (field: ChartedField, dto: { resourceId?: string }): Promise<void> => {
+  const deleteChartedResource = async (field: AiField, dto: { resourceId?: string }): Promise<void> => {
     if (!apiClient || !encounterId || !dto.resourceId) return;
     const resourceId = dto.resourceId;
+    const dropFromAiCharted = (): void =>
+      setAiCharted((prev) => {
+        if (!prev.has(resourceId)) return prev;
+        const n = new Map(prev);
+        n.delete(resourceId);
+        return n;
+      });
+    // E&M is a scalar field (not an array) — delete + null it out, not array-filter.
+    if (field === 'emCode') {
+      await apiClient.deleteChartData({ encounterId, emCode: dto } as Parameters<typeof apiClient.deleteChartData>[0]);
+      flashAndRemoveItem(resourceId, () => setChartData((prev) => (prev ? { ...prev, emCode: undefined } : prev)));
+      dropFromAiCharted();
+      return;
+    }
     await apiClient.deleteChartData({ encounterId, [field]: [dto] } as Parameters<typeof apiClient.deleteChartData>[0]);
     flashAndRemoveItem(resourceId, () => {
       setChartData((prev) => {
@@ -2328,12 +2366,7 @@ export default function EasyChartPage(): JSX.Element {
         return next;
       });
     });
-    setAiCharted((prev) => {
-      if (!prev.has(resourceId)) return prev;
-      const n = new Map(prev);
-      n.delete(resourceId);
-      return n;
-    });
+    dropFromAiCharted();
   };
 
   // Build a minimal synthetic add-intent so we can reuse runIntentSearch / buildIntentPayload for
@@ -2353,7 +2386,33 @@ export default function EasyChartPage(): JSX.Element {
 
   // Popover "search alternatives": reuse the same search the pickers use, and cache the results so
   // a chosen key can be resolved back to its SearchResult on replace.
-  const aiSearch = async (field: ChartedField, query: string): Promise<AiAlternative[]> => {
+  const aiSearch = async (field: AiField, query: string): Promise<AiAlternative[]> => {
+    // CODE-based fields: CPT/HCPCS via the terminology service, E&M from the configured code list.
+    if (field === 'cptCodes' || field === 'emCode') {
+      let codes: Array<{ code: string; display: string }> = [];
+      if (field === 'emCode') {
+        const q = query.trim().toLowerCase();
+        codes = q
+          ? emCodes.filter((c) => c.code.toLowerCase().includes(q) || c.display.toLowerCase().includes(q))
+          : emCodes;
+        if (codes.length === 0) codes = emCodes;
+      } else {
+        // CPT + HCPCS terminology search — same source as the regular-note CPT picker (type 'both').
+        const [cpt, hcpcs] = await Promise.all([
+          oystehr?.terminology.searchCpt({ query, searchType: 'all', limit: 40 }).catch(() => undefined),
+          oystehr?.terminology.searchHcpcs({ query, searchType: 'all', limit: 40 }).catch(() => undefined),
+        ]);
+        codes = [...(cpt?.codes ?? []), ...(hcpcs?.codes ?? [])];
+      }
+      const map = new Map<string, SearchResult>();
+      const alts: AiAlternative[] = codes.slice(0, 40).map((c, i) => {
+        const key = `${c.code}-${i}`;
+        map.set(key, { name: c.display, code: c.code });
+        return { key, label: `${c.code} — ${c.display}` };
+      });
+      aiSearchResultsRef.current = map;
+      return alts;
+    }
     const intent = synthAddIntent(field, query, [query]);
     const results = await runIntentSearch(intent, oystehr, oystehrZambda);
     const map = new Map<string, SearchResult>();
@@ -2374,14 +2433,35 @@ export default function EasyChartPage(): JSX.Element {
   // Replace an AI-charted item with a chosen alternative: delete the old, add the new (NOT flagged
   // for review — the provider chose it). Preserves primary flag for diagnoses; carries the
   // dosage-unconfirmed flag for medications.
-  const aiReplace = (
-    field: ChartedField,
-    dto: { resourceId?: string },
-    key: string,
-    dosageUnconfirmed?: boolean
-  ): void => {
+  const aiReplace = (field: AiField, dto: { resourceId?: string }, key: string, dosageUnconfirmed?: boolean): void => {
     const result = aiSearchResultsRef.current.get(key);
-    if (!result || !encounterId) return;
+    if (!result || !encounterId || !result.code) return;
+    // CODE-based fields: E&M is a scalar (overwrite); CPT is an array (delete old, add new).
+    if (field === 'emCode' || field === 'cptCodes') {
+      const code = result.code;
+      const display = result.name;
+      void (async () => {
+        try {
+          if (dto.resourceId) {
+            setAiCharted((prev) => {
+              if (!prev.has(dto.resourceId!)) return prev;
+              const n = new Map(prev);
+              n.delete(dto.resourceId!);
+              return n;
+            });
+          }
+          if (field === 'emCode') {
+            await saveAndMerge({ encounterId, emCode: { code, display } });
+          } else {
+            await deleteChartedResource('cptCodes', dto);
+            await saveAndMerge({ encounterId, cptCodes: [{ code, display }] });
+          }
+        } catch (e) {
+          console.error('AI replace failed:', e);
+        }
+      })();
+      return;
+    }
     const isPrimary = field === 'diagnosis' ? !!(dto as { isPrimary?: boolean }).isPrimary : undefined;
     const intent = synthAddIntent(field, result.name, [], isPrimary);
     const payload = buildIntentPayload(encounterId, intent, result, dosageUnconfirmed ?? true);
@@ -2406,14 +2486,16 @@ export default function EasyChartPage(): JSX.Element {
     void saveAndMerge(payload).catch((e) => console.error('AI dosage toggle failed:', e));
   };
 
-  const aiRemove = (field: ChartedField, dto: { resourceId?: string }): void => {
+  const aiRemove = (field: AiField, dto: { resourceId?: string }): void => {
     void deleteChartedResource(field, dto).catch((e) => console.error('AI remove failed:', e));
   };
 
   // "Discuss": hand the item to the right-hand panel as a full picker (all alternatives + Skip /
   // Refine). Picking there REPLACES the item (replaceTargetRef is consumed in handlePick). The row
   // leaves the needs-review set because it's now under active review in the panel.
-  const aiDiscuss = (field: ChartedField, dto: { resourceId?: string }, meta: AiChartedMeta): void => {
+  const aiDiscuss = (field: AiField, dto: { resourceId?: string }, meta: AiChartedMeta): void => {
+    // CODE-based fields have no right-panel picker; Discuss is hidden for them.
+    if (field === 'cptCodes' || field === 'emCode') return;
     void (async () => {
       try {
         const isPrimary = field === 'diagnosis' ? !!(dto as { isPrimary?: boolean }).isPrimary : undefined;
@@ -2724,7 +2806,22 @@ export default function EasyChartPage(): JSX.Element {
             intent.kind === 'set-em-code'
               ? { encounterId, emCode: { code: intent.code, display: intent.display } }
               : { encounterId, cptCodes: [{ code: intent.code, display: intent.display }] };
-          await saveAndMerge(payload);
+          const newIds = await saveAndMerge(payload);
+          // Flag the auto-charted billing code as needing review (clickable-to-correct).
+          if (newIds.length > 0) {
+            const field: AiField = intent.kind === 'set-em-code' ? 'emCode' : 'cptCodes';
+            setAiCharted((prev) => {
+              const next = new Map(prev);
+              for (const id of newIds)
+                next.set(id, {
+                  field,
+                  display: intent.display ?? intent.code,
+                  searchTerms: [],
+                  lowConfidence: false,
+                });
+              return next;
+            });
+          }
           setConv({ kind: 'done', user: message, chosenName: label });
         } catch (e) {
           console.error('Save failed:', e);
@@ -3093,7 +3190,7 @@ export default function EasyChartPage(): JSX.Element {
       const newIdSet = new Set(newIds);
       const templateAiCharted = new Map<string, AiChartedMeta>();
       const flagNew = (
-        field: ChartedField,
+        field: AiField,
         items: Array<{ resourceId?: string; name?: string; display?: string; code?: string }> | undefined
       ): void => {
         for (const item of items ?? []) {
@@ -3113,6 +3210,16 @@ export default function EasyChartPage(): JSX.Element {
       flagNew('medications', fresh.medications);
       flagNew('surgicalHistory', fresh.surgicalHistory);
       flagNew('episodeOfCare', fresh.episodeOfCare);
+      flagNew('cptCodes', fresh.cptCodes);
+      // E&M is a scalar, not an array — flag it directly if the template added it.
+      if (fresh.emCode?.resourceId && newIdSet.has(fresh.emCode.resourceId)) {
+        templateAiCharted.set(fresh.emCode.resourceId, {
+          field: 'emCode',
+          display: chartedItemDisplay('emCode', fresh.emCode),
+          searchTerms: [],
+          lowConfidence: false,
+        });
+      }
       if (templateAiCharted.size > 0) {
         setAiCharted((prev) => {
           const next = new Map(prev);

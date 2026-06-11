@@ -38,6 +38,8 @@ interface AiChartedItemProps {
   onReplace: (key: string, dosageUnconfirmed?: boolean) => void | Promise<void>;
   onRemove: () => void | Promise<void>;
   onDiscuss: () => void;
+  /** Hide the "Discuss" action (code-based items have no right-panel picker). */
+  hideDiscuss?: boolean;
   // Medications: a "Patient doesn't know dosage" checkbox (mirrors the regular-note AI suggestion).
   // Toggling it updates the CURRENT item in place; it also carries to any replacement chosen.
   showDosageOption?: boolean;
@@ -59,6 +61,7 @@ export function AiChartedItem({
   onReplace,
   onRemove,
   onDiscuss,
+  hideDiscuss,
   showDosageOption,
   dosageUnconfirmed,
   onDosageUnconfirmedChange,
@@ -198,16 +201,18 @@ export function AiChartedItem({
           </Box>
           <Divider sx={{ my: 1 }} />
           <Stack direction="row" spacing={1}>
-            <Button
-              size="small"
-              startIcon={<ChatBubbleOutlineIcon sx={{ fontSize: 16 }} />}
-              onClick={() => {
-                close();
-                onDiscuss();
-              }}
-            >
-              Discuss
-            </Button>
+            {!hideDiscuss && (
+              <Button
+                size="small"
+                startIcon={<ChatBubbleOutlineIcon sx={{ fontSize: 16 }} />}
+                onClick={() => {
+                  close();
+                  onDiscuss();
+                }}
+              >
+                Discuss
+              </Button>
+            )}
             <Button
               size="small"
               color="error"
