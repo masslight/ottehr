@@ -13,7 +13,9 @@ environment   = ""
 # Domains are optional for AWS and required for GCP
 # ehr_domain = ""
 # patient_portal_domain = ""
+# billing_domain = "" # used by the billing stack (deploy/billing)
 
 # Cert domains are only supported for AWS
 # ehr_cert_domain = ""
 # patient_portal_cert_domain = ""
+# billing_cert_domain = "" # used by the billing stack (deploy/billing)

@@ -2,6 +2,19 @@
 
 This directory contains scripts and Terraform configuration for deploying Ottehr.
 
+## Deployment Stacks
+
+Ottehr is deployed as two independent Terraform stacks, each with its own root module, state, and apply pipeline:
+
+- **Ottehr Clinical** (`deploy/`) — the EHR and Patient Portal apps, their infrastructure, and all shared Oystehr resources (project configuration, roles, M2M clients, secrets, FHIR resources, SendGrid templates) plus every zambda not owned by another stack.
+- **Ottehr Billing** (`deploy/billing/`) — the Billing app, its bucket/CDN, the `OTTEHR_BILLING` Oystehr application, and the billing zambdas.
+
+Which stack owns an Oystehr resource is declared in the spec files in `config/` via the optional `stack` field on each resource entry (see [the Schema package README](/packages/spec/README.md#deployment-stacks)); resources without a `stack` field belong to the clinical stack. `npm run generate` emits the clinical stack's resources into `deploy/oystehr/`, and `npm run generate-billing` emits the billing stack's into `deploy/billing/oystehr/`.
+
+Both stacks share `deploy/backend.config` and the per-environment `deploy/${env}.tfvars` files. The billing stack stores its state under the `billing/terraform.tfstate` key (the billing `apply.sh` passes the key override during init) and manages its own Terraform workspaces, which it creates on demand.
+
+The stacks deploy independently: `npm run apply-${env}` deploys clinical, `npm run apply-billing-${env}` deploys billing. The billing stack reads nothing from the clinical state — shared values like secrets are provisioned by the clinical stack and consumed by billing zambdas at runtime through the Oystehr project. On a brand-new environment, apply clinical first so project-level resources (project configuration, roles, secrets) exist before the billing stack deploys.
+
 ## Requirements
 
 ### Terraform
@@ -37,9 +50,11 @@ The following config files must be in place before running Terraform:
 There are npm scripts for deploying to local, staging, and production, as well as generating config, initializing the local environment, and creating workspaces.
 
 - `npm run terraform-init` &mdash; configures the local Terraform environment, using the backend configuration specified in `deploy/main.tf` and `deploy/backend.config`
-- `ENV=${env} npm run generate` &mdash; generates Terraform config from the Ottehr spec file and the variable JSON file at `packages/zambda/.env/${env}.json`
-- `npm run apply-${env}` &mdash; generates Terraform config and deploys using `main.tf` and the `deploy/${env}.tfvars` file; the state is stored in the Terraform workspace corresponding to the environment
-- `npm run terraform-setup` &mdash; one-time configuration to set up Terraform workspaces for all environments
+- `ENV=${env} npm run generate` &mdash; generates Terraform config for the clinical stack from the Ottehr spec file and the variable JSON file at `packages/zambda/.env/${env}.json`
+- `ENV=${env} npm run generate-billing` &mdash; generates Terraform config for the billing stack into `deploy/billing/oystehr/`
+- `npm run apply-${env}` &mdash; generates Terraform config and deploys the clinical stack using `main.tf` and the `deploy/${env}.tfvars` file; the state is stored in the Terraform workspace corresponding to the environment
+- `npm run apply-billing-${env}` &mdash; same for the billing stack, using `deploy/billing/main.tf` and the same tfvars file; billing state is stored under the `billing/terraform.tfstate` backend key
+- `npm run terraform-setup` &mdash; one-time configuration to set up Terraform workspaces for all environments (clinical stack only; the billing stack creates its workspaces on demand)
 
 ## Setting up a New Project
 
@@ -219,7 +234,18 @@ When running `npm run generate` with a specific environment, the script:
 
 This allows environment-specific resources like test data cleanup cron jobs to be deployed only to test environments without affecting production.
 
+## Migrating an Existing Environment to the Split Billing Stack
+
+Environments deployed before the billing stack split have the billing resources (the Billing app build, its bucket/CDN, the `OTTEHR_BILLING` application, and the billing zambdas) in the clinical stack's state. The split moves them by **destroy and recreate**, not by state migration:
+
+1. Run `npm run apply-${env}` (clinical). The plan will destroy the billing resources — review it to confirm nothing else changes. Note: the Billing app will be down until step 2 completes, so don't do this on an environment where billing is live without scheduling downtime.
+2. Run `npm run apply-billing-${env}`. This creates the billing stack's workspace and state and recreates all billing resources.
+
+Run the steps in that order: the billing bucket keeps the same name in both stacks, so the clinical apply must release it before the billing apply can create it.
+
 ## Modules
+
+The clinical stack's modules live in `deploy/`; the billing stack mirrors the same structure under `deploy/billing/` (`infra`, `oystehr`, `billing_app`, `apps_upload`) but only manages billing resources.
 
 ### Oystehr
 

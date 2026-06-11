@@ -74,6 +74,30 @@ All spec files must use the same schema version. The version is specified in eac
 | `zambdas`       | `oystehr_zambda`                | Serverless functions                 |
 | `outputs`       | Terraform outputs               | Custom output values                 |
 
+## Deployment Stacks
+
+Every resource entry may carry an optional `stack` field naming the deployment stack (or list of stacks) it belongs to. Resources without a `stack` field belong to the `clinical` stack. The generator (`deploy/generate-oystehr-resources.ts`) is invoked once per stack and emits only that stack's resources, so each Terraform root manages an independent slice of the project. Valid stacks are `clinical` and `billing`.
+
+```json
+{
+  "zambdas": {
+    "SEARCH-BILLING-CLAIMS": {
+      "name": "search-billing-claims",
+      "type": "http_auth",
+      "stack": "billing"
+    }
+  },
+  "outputs": {
+    "MUI_X_LICENSE_KEY": {
+      "value": "#{var/MUI_X_LICENSE_KEY}",
+      "stack": ["clinical", "billing"]
+    }
+  }
+}
+```
+
+The `stack` field is stripped before Terraform JSON is generated. References (`#{ref/...}`) cannot cross stacks — a resource may only reference resources generated into the same stack.
+
 ## Variable and Reference Syntax
 
 ### Variables `#{var/...}`

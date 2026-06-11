@@ -143,6 +143,8 @@ Both apps are Vite + React + TypeScript + MUI. State management uses Zustand sto
 
 Static Oystehr resource definitions live in `config/oystehr/` as JSON files validated by schema versions defined in `packages/spec/`. The `deploy/` directory contains Terraform scripts that consume these configs to provision environments. Schema version `2025-09-25` is current.
 
+Deployment is split into two independent Terraform stacks: **clinical** (`deploy/`, the default — EHR, intake, shared Oystehr resources, and all untagged zambdas) and **billing** (`deploy/billing/` — the billing app and zambdas). Resources are assigned to a stack via the optional `stack` field on spec entries in `config/`; deploy with `npm run apply-${env}` (clinical) and `npm run apply-billing-${env}` (billing) from `deploy/`.
+
 Canonical FHIR resources (referenced by URL + version) must be versioned using `npm run bump-canonical-version` before modification—never edit them in-place.
 
 ## EHR Feature Flags

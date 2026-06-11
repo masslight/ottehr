@@ -11,10 +11,13 @@ vi.mock('utils', () => ({
 
 // Import after mocks are set up
 import {
+  filterSpecByStack,
   GenerateFhirResourcesArgs,
   generateOystehrResources,
   isObject,
+  stacksForResource,
   validSchemas,
+  validStacks,
 } from './generate-oystehr-resources';
 
 // Type definitions for test data
@@ -106,6 +109,80 @@ describe('generate-oystehr-resources', () => {
       expect(validSchemas).toContain('2025-03-19');
       expect(validSchemas).toContain('2025-09-25');
       expect(validSchemas).toHaveLength(2);
+    });
+  });
+
+  describe('validStacks', () => {
+    it('contains the clinical and billing stacks', () => {
+      expect(validStacks).toContain('clinical');
+      expect(validStacks).toContain('billing');
+      expect(validStacks).toHaveLength(2);
+    });
+  });
+
+  describe('stacksForResource', () => {
+    it('defaults to the clinical stack when no stack field is present', () => {
+      expect(stacksForResource({ name: 'my-zambda' })).toEqual(['clinical']);
+    });
+
+    it('accepts a single stack name', () => {
+      expect(stacksForResource({ name: 'my-zambda', stack: 'billing' })).toEqual(['billing']);
+    });
+
+    it('accepts a list of stack names', () => {
+      expect(stacksForResource({ value: 'x', stack: ['clinical', 'billing'] })).toEqual(['clinical', 'billing']);
+    });
+
+    it('throws for unknown stack names', () => {
+      expect(() => stacksForResource({ stack: 'unknown' })).toThrow('Invalid stack value');
+    });
+
+    it('throws for an empty stack list', () => {
+      expect(() => stacksForResource({ stack: [] })).toThrow('Invalid stack value');
+    });
+  });
+
+  describe('filterSpecByStack', () => {
+    const spec = {
+      'schema-version': '2025-09-25',
+      zambdas: {
+        'CLINICAL-ZAMBDA': { name: 'clinical-zambda', type: 'http_auth' },
+        'BILLING-ZAMBDA': { name: 'billing-zambda', type: 'http_auth', stack: 'billing' },
+      },
+      outputs: {
+        SHARED_OUTPUT: { value: 'shared', stack: ['clinical', 'billing'] },
+        BILLING_OUTPUT: { value: 'billing-only', stack: 'billing' },
+      },
+    };
+
+    it('keeps untagged resources in the clinical stack only', () => {
+      const clinical = filterSpecByStack(spec, 'clinical');
+      expect(Object.keys((clinical as any).zambdas)).toEqual(['CLINICAL-ZAMBDA']);
+      const billing = filterSpecByStack(spec, 'billing');
+      expect(Object.keys((billing as any).zambdas)).toEqual(['BILLING-ZAMBDA']);
+    });
+
+    it('includes resources tagged with multiple stacks in each of them', () => {
+      const clinical = filterSpecByStack(spec, 'clinical');
+      expect(Object.keys((clinical as any).outputs)).toEqual(['SHARED_OUTPUT']);
+      const billing = filterSpecByStack(spec, 'billing');
+      expect(Object.keys((billing as any).outputs)).toEqual(['SHARED_OUTPUT', 'BILLING_OUTPUT']);
+    });
+
+    it('strips the stack field from filtered resources', () => {
+      const billing = filterSpecByStack(spec, 'billing');
+      expect((billing as any).zambdas['BILLING-ZAMBDA']).toEqual({ name: 'billing-zambda', type: 'http_auth' });
+      expect((billing as any).outputs.SHARED_OUTPUT).toEqual({ value: 'shared' });
+    });
+
+    it('preserves non-resource top-level keys', () => {
+      const billing = filterSpecByStack(spec, 'billing');
+      expect(billing['schema-version']).toBe('2025-09-25');
+    });
+
+    it('does not mutate the input spec', () => {
+      filterSpecByStack(spec, 'billing');
+      expect((spec.zambdas['BILLING-ZAMBDA'] as any).stack).toBe('billing');
     });
   });
 
@@ -227,6 +304,70 @@ describe('generate-oystehr-resources', () => {
         vi.mocked(fs.stat).mockRejectedValue(eaccesError);
 
         await expect(generateOystehrResources(createTestArgs())).rejects.toThrow('EACCES');
+      });
+    });
+
+    describe('stack filtering', () => {
+      const specWithStacks: SpecFile & { outputs?: Record<string, unknown> } = {
+        'schema-version': '2025-09-25',
+        zambdas: {
+          'CLINICAL-ZAMBDA': {
+            name: 'clinical',
+            type: 'http_auth',
+            runtime: 'nodejs20.x',
+            src: 'src/test/index',
+            zip: '.dist/zips/clinical.zip',
+          },
+          'BILLING-ZAMBDA': {
+            name: 'billing',
+            type: 'http_auth',
+            runtime: 'nodejs20.x',
+            src: 'src/billing/test/index',
+            zip: '.dist/zips/billing.zip',
+            stack: 'billing',
+          } as never,
+        },
+      };
+
+      const setupMocks = (): void => {
+        mockFsForSuccess();
+        vi.mocked(fs.readdir).mockImplementation(async (dirPath) => {
+          if (String(dirPath) === '/config/oystehr') {
+            return [createMockDirent('zambdas.json', true)] as never;
+          }
+          return [];
+        });
+        vi.mocked(fs.stat).mockRejectedValue(createEnoentError());
+        vi.mocked(fs.readFile).mockImplementation(async (filePath) => {
+          const pathStr = String(filePath);
+          if (pathStr === '/config/oystehr/zambdas.json') {
+            return JSON.stringify(specWithStacks);
+          }
+          if (pathStr.includes('.env/local.json')) {
+            return JSON.stringify({});
+          }
+          throw new Error(`Unexpected file read: ${pathStr}`);
+        });
+      };
+
+      const writtenZambdas = (): Record<string, unknown> => {
+        const zambdasWrite = vi
+          .mocked(fs.writeFile)
+          .mock.calls.find(([file]) => String(file).endsWith('zambdas.tf.json'));
+        expect(zambdasWrite).toBeDefined();
+        return JSON.parse(String(zambdasWrite![1])).resource.oystehr_zambda;
+      };
+
+      it('generates only clinical resources by default', async () => {
+        setupMocks();
+        await generateOystehrResources(createTestArgs());
+        expect(Object.keys(writtenZambdas())).toEqual(['CLINICAL-ZAMBDA']);
+      });
+
+      it('generates only billing resources for the billing stack', async () => {
+        setupMocks();
+        await generateOystehrResources(createTestArgs({ stack: 'billing' }));
+        expect(Object.keys(writtenZambdas())).toEqual(['BILLING-ZAMBDA']);
       });
     });
 

@@ -15,6 +15,7 @@ interface ZambdaSpec {
   runtime: string;
   src: string;
   zip: string;
+  stack?: string | string[];
 }
 
 interface ZambdasJson {
@@ -36,14 +37,27 @@ const loadEnvZambdas = (env: string): ZambdaSpec[] => {
   return [];
 };
 
+// Zambdas without a stack field belong to the clinical stack. Set STACK=billing or
+// STACK=clinical to bundle only that deployment stack's zambdas; leave unset to bundle all.
+const matchesStack = (spec: ZambdaSpec, stack: string): boolean => {
+  const specStacks = spec.stack === undefined ? ['clinical'] : Array.isArray(spec.stack) ? spec.stack : [spec.stack];
+  return specStacks.includes(stack);
+};
+
 const zambdasList = (): ZambdaSpec[] => {
   const baseZambdas = Object.entries(zambdasSpec.zambdas).map(([_key, spec]) => spec);
   const env = process.env.ENV || '';
+  let zambdas = baseZambdas;
   if (env) {
     const envZambdas = loadEnvZambdas(env);
-    return [...baseZambdas, ...envZambdas];
+    zambdas = [...baseZambdas, ...envZambdas];
   }
-  return baseZambdas;
+  const stack = process.env.STACK || '';
+  if (stack) {
+    zambdas = zambdas.filter((spec) => matchesStack(spec, stack));
+    console.log(`Bundling ${zambdas.length} zambdas for stack: ${stack}`);
+  }
+  return zambdas;
 };
 
 const BUNDLE_CHUNK_SIZE = 35;

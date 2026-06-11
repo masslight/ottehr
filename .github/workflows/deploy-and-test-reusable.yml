@@ -137,6 +137,12 @@ jobs:
           npm run terraform-init -- -input=false
           npm run apply-$ENV
 
+      - name: Deploy Ottehr Billing Resources Using Terraform
+        working-directory: deploy
+        run: |
+          ENV="${{ inputs.environment }}"
+          npm run apply-billing-$ENV
+
   automated-tests:
     needs: deploy
     if: |

@@ -5,7 +5,12 @@
  * and optionally from config/oystehr/env/<env>/ for environment-specific resources,
  * then generates Terraform-compatible JSON files in the output directory.
  *
- * Usage: tsx generate-oystehr-resources.ts <config-dir> <env> <output-path>
+ * Resources are partitioned into deployment stacks via an optional `stack` field on
+ * each resource entry (a stack name or list of names; entries without one belong to
+ * the "clinical" stack). Only resources belonging to the requested stack are
+ * generated, so each Terraform root manages an independent slice of the project.
+ *
+ * Usage: tsx generate-oystehr-resources.ts <config-dir> <env> <output-path> [stack]
  *
  * @see packages/spec/README.md for schema documentation
  */
@@ -18,13 +23,33 @@ import { Schema20250925 } from '../packages/spec/src/schema-20250925';
 
 const validSchemas = ['2025-03-19', '2025-09-25'];
 
+const DEFAULT_STACK = 'clinical';
+const validStacks = ['clinical', 'billing'];
+
+const RESOURCE_TYPE_KEYS = [
+  'project',
+  'apps',
+  'buckets',
+  'faxNumbers',
+  'fhirResources',
+  'labRoutes',
+  'm2ms',
+  'outputs',
+  'roles',
+  'secrets',
+  'zambdas',
+];
+
 const zambdasDirPath = path.resolve(__dirname, '../packages/zambdas');
 
 // args
 
 async function generate(input: GenerateResourcesArgs): Promise<void> {
-  const { configDir, env, outputPath } = input;
-  await generateSendgridResources({ configDir, env });
+  const { configDir, env, outputPath, stack } = input;
+  // Sendgrid resources are owned by the clinical stack
+  if (stack === DEFAULT_STACK) {
+    await generateSendgridResources({ configDir, env });
+  }
   const varFile = `../config/.env/${env}.json`;
   await generateOystehrResources({
     configDir: `${configDir}/oystehr`,
@@ -32,7 +57,54 @@ async function generate(input: GenerateResourcesArgs): Promise<void> {
     varFile,
     outputPath,
     env,
+    stack,
   });
+}
+
+/**
+ * Returns the list of stacks a resource entry belongs to. The `stack` field may be a
+ * single stack name or a list of names; entries without one belong to the default stack.
+ */
+function stacksForResource(resource: unknown): string[] {
+  const stack = isObject(resource) ? resource.stack : undefined;
+  if (stack === undefined) {
+    return [DEFAULT_STACK];
+  }
+  const stacks = Array.isArray(stack) ? stack : [stack];
+  if (!stacks.length || !stacks.every((s) => typeof s === 'string' && validStacks.includes(s))) {
+    throw new Error(`Invalid stack value: ${JSON.stringify(stack)}. Valid stacks are: ${validStacks.join(', ')}`);
+  }
+  return stacks;
+}
+
+/**
+ * Filters a spec to the resources belonging to the requested stack, stripping the
+ * `stack` field so it does not leak into generated Terraform configuration.
+ */
+function filterSpecByStack(spec: { [key: string]: unknown }, stack: string): { [key: string]: unknown } {
+  if (!isObject(spec)) {
+    return spec;
+  }
+  const filtered: { [key: string]: unknown } = {};
+  for (const [key, value] of Object.entries(spec)) {
+    if (!RESOURCE_TYPE_KEYS.includes(key) || !isObject(value)) {
+      filtered[key] = value;
+      continue;
+    }
+    const filteredResources: { [key: string]: unknown } = {};
+    for (const [resourceName, resource] of Object.entries(value)) {
+      if (stacksForResource(resource).includes(stack)) {
+        if (isObject(resource)) {
+          const { stack: _stack, ...rest } = resource;
+          filteredResources[resourceName] = rest;
+        } else {
+          filteredResources[resourceName] = resource;
+        }
+      }
+    }
+    filtered[key] = filteredResources;
+  }
+  return filtered;
 }
 interface GenerateSendgridResources {
   configDir: string;
@@ -75,9 +147,10 @@ interface GenerateFhirResourcesArgs {
   varFile: string;
   outputPath: string;
   env: string;
+  stack?: string;
 }
 async function generateOystehrResources(input: GenerateFhirResourcesArgs): Promise<void> {
-  const { configDir, coreConfigDir, varFile, outputPath, env } = input;
+  const { configDir, coreConfigDir, varFile, outputPath, env, stack = DEFAULT_STACK } = input;
 
   if (!configDir) {
     throw new Error('Config directory is required.');
@@ -138,11 +211,13 @@ async function generateOystehrResources(input: GenerateFhirResourcesArgs): Promi
   const specs: SpecFile[] = await Promise.all(
     jsonSpecFiles.map(async (file) => {
       const content = await fs.readFile(file, 'utf-8');
+      let spec: { [key: string]: unknown };
       try {
-        return { path: file, spec: JSON.parse(content) as { [key: string]: unknown } };
+        spec = JSON.parse(content) as { [key: string]: unknown };
       } catch (err) {
         throw new Error(`Error parsing JSON file ${file}: ${err}`);
       }
+      return { path: file, spec: filterSpecByStack(spec, stack) };
     })
   );
 
@@ -186,17 +261,19 @@ interface GenerateResourcesArgs {
   configDir: string;
   env: string;
   outputPath: string;
+  stack: string;
 }
 
 const validateInput = (): GenerateResourcesArgs => {
   const args = process.argv.slice(2);
-  if (args.length !== 3) {
-    throw new Error('Usage: tsx generate-oystehr-resources.ts <config-dir> <env> <output-path>');
+  if (args.length !== 3 && args.length !== 4) {
+    throw new Error('Usage: tsx generate-oystehr-resources.ts <config-dir> <env> <output-path> [stack]');
   }
 
-  const [configDir, env, outputPath] = args;
+  const [configDir, env, outputPath, stack = DEFAULT_STACK] = args;
 
   console.log('env', env);
+  console.log('stack', stack);
 
   if (!configDir) {
     throw new Error('Config directory is required.');
@@ -210,16 +287,23 @@ const validateInput = (): GenerateResourcesArgs => {
     throw new Error('Output path is required.');
   }
 
-  return { configDir, env, outputPath };
+  if (!validStacks.includes(stack)) {
+    throw new Error(`Invalid stack: ${stack}. Valid stacks are: ${validStacks.join(', ')}`);
+  }
+
+  return { configDir, env, outputPath, stack };
 };
 
 // Export for testing
 export {
+  filterSpecByStack,
   generate,
   generateOystehrResources,
   isObject,
+  stacksForResource,
   validateInput,
   validSchemas,
+  validStacks,
   type GenerateResourcesArgs,
   type GenerateFhirResourcesArgs,
 };

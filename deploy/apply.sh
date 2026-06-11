@@ -14,7 +14,9 @@ fi
 
 echo "Deploying environment: ${ENV}"
 
-npm run bundle-zambdas
+# Bundle only the clinical stack's zambdas; the billing stack is deployed
+# separately via billing/apply.sh
+STACK=clinical npm run bundle-zambdas
 ENV="${ENV}" npm run generate
 rm -f aws_override.tf
 rm -f gcp_override.tf

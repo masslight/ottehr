@@ -161,6 +161,11 @@ jobs:
           npm run terraform-init -- -input=false
           npm run apply-${{ env.ENVIRONMENT }}
 
+      - name: Deploy Ottehr Billing Resources Using Terraform
+        working-directory: deploy
+        run: |
+          npm run apply-billing-${{ env.ENVIRONMENT }}
+
       - name: Notify Slack
         if: always()
         uses: edge/simple-slack-notify@d841831738af1d83ecc27186e722322145c21488 # v1.1.2

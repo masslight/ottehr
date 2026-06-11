@@ -2,7 +2,8 @@
   "schema-version": "2025-09-25",
   "outputs": {
     "MUI_X_LICENSE_KEY": {
-      "value": "#{var/MUI_X_LICENSE_KEY}"
+      "value": "#{var/MUI_X_LICENSE_KEY}",
+      "stack": ["clinical", "billing"]
     },
     "GTM_ID": {
       "value": "#{var/GTM_ID}"
@@ -17,7 +18,8 @@
       "value": "#{var/EHR_APP_NAME}"
     },
     "BILLING_APP_NAME": {
-      "value": "#{var/BILLING_APP_NAME}"
+      "value": "#{var/BILLING_APP_NAME}",
+      "stack": "billing"
     },
     "EHR_ORGANIZATION_NAME_LONG": {
       "value": "#{var/EHR_ORGANIZATION_NAME_LONG}"

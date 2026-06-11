@@ -41,7 +41,8 @@
       "allowedWebOriginsUrls": ["#{var/BILLING_ALLOWED_URL_1}"],
       "allowedCORSOriginsUrls": ["#{var/BILLING_ALLOWED_URL_1}"],
       "shouldSendInviteEmail": true,
-      "logoUri": "#{var/BILLING_APP_LOGO_URI}"
+      "logoUri": "#{var/BILLING_APP_LOGO_URI}",
+      "stack": "billing"
     }
   }
 }

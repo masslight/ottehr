@@ -74,27 +74,6 @@ variable "patient_portal_cert_domain" {
   default     = null
 }
 
-variable "billing_bucket_name" {
-  description = "Billing S3 Bucket Name; only specify this when importing existing buckets"
-  type        = string
-  nullable    = true
-  default     = null
-}
-
-variable "billing_domain" {
-  description = "Billing domain, for example, dev-billing.ottehr.com"
-  type        = string
-  nullable    = true
-  default     = null
-}
-
-variable "billing_cert_domain" {
-  description = "Billing Certificate domain, for example, *.ottehr.com"
-  type        = string
-  nullable    = true
-  default     = null
-}
-
 variable "aws_profile" {
   description = "AWS profile to use for deployment"
   type        = string
