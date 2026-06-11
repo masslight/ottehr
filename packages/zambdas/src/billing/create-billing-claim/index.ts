@@ -95,13 +95,13 @@ async function createWorkingCopies(
   const order: string[] = [];
 
   const patientUrn = `urn:uuid:${randomUUID()}`;
-  let patientCopy = prepareWorkingCopy(originals.patient, originals.patient.id!);
+  let patientCopy = prepareWorkingCopy<Patient>(originals.patient, originals.patient.id!);
   patientCopy = applyPatientOverrides(patientCopy, params.patientOverrides);
   requests.push({ method: 'POST', url: '/Patient', resource: patientCopy, fullUrl: patientUrn });
   order.push('patient');
 
   if (originals.coverage) {
-    const copy = prepareWorkingCopy(originals.coverage, originals.coverage.id!);
+    const copy = prepareWorkingCopy<Coverage>(originals.coverage, originals.coverage.id!);
     if (params.coverageOverrides?.subscriberId) copy.subscriberId = params.coverageOverrides.subscriberId;
     copy.beneficiary = { reference: patientUrn };
     copy.subscriber = { reference: patientUrn };
@@ -111,13 +111,13 @@ async function createWorkingCopies(
   }
 
   if (originals.practitioner) {
-    let copy = prepareWorkingCopy(originals.practitioner, originals.practitioner.id!);
+    let copy = prepareWorkingCopy<Practitioner>(originals.practitioner, originals.practitioner.id!);
     copy = applyPractitionerOverrides(copy, params.practitionerOverrides);
     requests.push({ method: 'POST', url: '/Practitioner', resource: copy });
     order.push('practitioner');
   }
   if (originals.facility) {
-    const copy = prepareWorkingCopy(originals.facility, originals.facility.id!);
+    const copy = prepareWorkingCopy<Location>(originals.facility, originals.facility.id!);
     if (params.facilityOverrides?.name) copy.name = params.facilityOverrides.name;
     if (params.facilityOverrides?.npi) applyNpiOverride(copy, params.facilityOverrides.npi);
     if (params.facilityOverrides?.address) {
@@ -127,7 +127,7 @@ async function createWorkingCopies(
     order.push('facility');
   }
   if (originals.billingProvider) {
-    const copy = prepareWorkingCopy(originals.billingProvider, originals.billingProvider.id!);
+    const copy = prepareWorkingCopy<Organization>(originals.billingProvider, originals.billingProvider.id!);
     if (params.billingProviderOverrides?.name) copy.name = params.billingProviderOverrides.name;
     if (params.billingProviderOverrides?.npi) applyNpiOverride(copy, params.billingProviderOverrides.npi);
     if (params.billingProviderOverrides?.tin) applyTinOverride(copy, params.billingProviderOverrides.tin);

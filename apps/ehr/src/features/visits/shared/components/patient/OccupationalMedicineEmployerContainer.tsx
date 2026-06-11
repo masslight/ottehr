@@ -12,11 +12,13 @@ interface OccupationalMedicineEmployerInformationContainerProps {
   isLoading: boolean;
   patientId?: string;
   encounterId?: string;
+  appointmentId?: string;
+  useUpdateVisitDetailsForEmployer?: boolean;
 }
 
 export const OccupationalMedicineEmployerInformationContainer: FC<
   OccupationalMedicineEmployerInformationContainerProps
-> = ({ isLoading, patientId, encounterId }) => {
+> = ({ isLoading, patientId, encounterId, appointmentId, useUpdateVisitDetailsForEmployer }) => {
   const { items, hiddenFields, requiredFields } = usePatientRecordFormSection({
     formSection: occupationalMedicineEmployerInformation,
   });
@@ -30,6 +32,8 @@ export const OccupationalMedicineEmployerInformationContainer: FC<
           requiredFieldKeys={REQUIRED_FIELD_KEYS}
           patientId={patientId}
           encounterId={encounterId}
+          appointmentId={appointmentId}
+          useUpdateVisitDetailsForEmployer={useUpdateVisitDetailsForEmployer}
         />
       }
     >

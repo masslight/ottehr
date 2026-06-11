@@ -18,8 +18,15 @@ import {
   PatientInfo,
   SCHEDULE_EXTENSION_URL,
   ScheduleStrategyCoding,
+  SERVICE_CATEGORY_CONFIG_EXTENSION_URL,
+  SERVICE_CATEGORY_SYSTEM,
+  SERVICE_CATEGORY_TAG,
+  serviceCategoryCharacteristics,
+  ServiceMode,
+  ServiceVisitType,
   SLOT_BOOKED_VIA_GROUP_EXTENSION_URL,
   SLOT_FALLBACK_REROUTED_TAG_SYSTEM,
+  SLOT_UNAVAILABLE_ERROR,
   SlotServiceCategory,
 } from 'utils';
 import { afterAll, assert, beforeAll, describe, expect, inject, test } from 'vitest';
@@ -356,13 +363,16 @@ describe('create-appointment group-member fallback (D-6 phase 2)', () => {
   // The capacity guard's specific rejection code. Asserting this catches
   // false positives where create-appointment threw for some unrelated reason
   // (schedule misconfiguration, slot not found, service mode resolution
-  // failure, etc.) and the test happily accepted it as "ok=false".
-  const SLOT_UNAVAILABLE_ERROR_CODE = 4340;
+  // failure, etc.) and the test happily accepted it as "ok=false". Imported
+  // from utils so the assertion follows the canonical APIErrorCode rather
+  // than a hand-typed number — the previous local `= 4340` happened to be
+  // INVALID_INPUT's code, not SLOT_UNAVAILABLE's, and matched only because
+  // the validator used to throw INVALID_INPUT_ERROR here.
   const expectCapacityRejection = (result: { ok: boolean; error?: unknown }): void => {
     expect(result.ok).toBe(false);
     if (result.ok) return;
     const err = result.error as { code?: number };
-    expect(err?.code).toBe(SLOT_UNAVAILABLE_ERROR_CODE);
+    expect(err?.code).toBe(SLOT_UNAVAILABLE_ERROR.code);
   };
 
   const callCreateAppointment = async (
@@ -531,6 +541,83 @@ describe('create-appointment group-member fallback (D-6 phase 2)', () => {
       expect(fetchedAfterRecovery.schedule.reference).toBe(`Schedule/${fixture.schedule2.id}`);
     } finally {
       await cleanupFixture(fixture.explicitCleanup, [patientSlot.id!, busy1.id!, busy2.id!]);
+    }
+  });
+
+  // Locks in the cadence fix: before resolveServiceCategory was plumbed into
+  // checkSlotAvailable, a slot vended at a non-default-cadence offset (e.g.,
+  // :15 with 30-min duration on a 15-min cadence) would silently fail the
+  // capacity check, because slotAvailableAgainstBusy regenerated the day's
+  // grid at the default cadence (gcd(slotLength, 60) = 30) and the slot's
+  // start wasn't on it. The bug surfaced for FHIR-backed admin categories
+  // (BOOKING_CONFIG entries don't carry cadence and happened to use divisor
+  // values) and presented as "always slot unavailable" for any booking
+  // through a group with a custom-cadence category.
+  test('(e) FHIR-backed service category with non-default cadence — :15 slot succeeds', async () => {
+    const fixture = await buildGroupFixture({ assignmentMode: 'anonymous' });
+
+    // Admin-managed service category, duration=30, cadence=15. The
+    // characteristic system + extension shape mirror what the Services
+    // admin UI writes via admin-service-categories.
+    const categoryCode = `cadence-test-${randomUUID().slice(0, 8)}`;
+    const categoryHs = await oystehr.fhir.create<HealthcareService>({
+      resourceType: 'HealthcareService',
+      active: true,
+      name: `Cadence Test ${categoryCode}`,
+      meta: { tag: [SERVICE_CATEGORY_TAG, tag] },
+      type: [{ coding: [{ system: SERVICE_CATEGORY_SYSTEM, code: categoryCode, display: categoryCode }] }],
+      characteristic: serviceCategoryCharacteristics({
+        modes: [ServiceMode['in-person']],
+        visitTypes: [ServiceVisitType.prebook],
+        durationMinutes: 30,
+        cadenceMinutes: 15,
+      }),
+      extension: [
+        {
+          url: SERVICE_CATEGORY_CONFIG_EXTENSION_URL,
+          valueString: JSON.stringify({ reasonsForVisit: [{ value: 'rfv-1', label: 'RFV 1' }] }),
+        },
+      ],
+    });
+    assert(categoryHs.id);
+
+    // Slot at :15 — the offset that fails when cadence isn't resolved. 30-min
+    // duration so the bucket math is sharp.
+    const start = slotDayBase().plus({ hours: 14, minutes: 15 });
+    const end = start.plus({ minutes: 30 });
+    const patientSlot = await oystehr.fhir.create<Slot>({
+      resourceType: 'Slot',
+      status: 'busy-tentative',
+      start: start.toISO()!,
+      end: end.toISO()!,
+      schedule: { reference: `Schedule/${fixture.schedule1.id}` },
+      serviceCategory: [
+        SlotServiceCategory.inPersonServiceMode,
+        { coding: [{ system: SERVICE_CATEGORY_SYSTEM, code: categoryCode }] },
+      ],
+      extension: [
+        {
+          url: SLOT_BOOKED_VIA_GROUP_EXTENSION_URL,
+          valueReference: { reference: `HealthcareService/${fixture.groupHs.id}` },
+        },
+      ],
+      meta: { tag: [tag] },
+    });
+
+    try {
+      const result = await callCreateAppointment(patientSlot.id!);
+      if (!result.ok) {
+        throw new Error(
+          `Expected the :15 slot to be bookable once cadence is resolved from the service category, but got: ${result.message}`
+        );
+      }
+    } finally {
+      await cleanupFixture(fixture.explicitCleanup, [patientSlot.id!]);
+      try {
+        await oystehr.fhir.delete({ resourceType: 'HealthcareService', id: categoryHs.id! });
+      } catch {
+        // best-effort
+      }
     }
   });
 });

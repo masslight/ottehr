@@ -40,7 +40,7 @@ import {
   ProviderTypeCode,
   ScheduleOwnerFhirResource,
 } from '../types';
-import { phoneRegex, zipRegex } from '../validation';
+import { emailRegex, phoneRegex, zipRegex } from '../validation';
 
 export function createOystehrClient(token: string, fhirAPI: string, projectAPI: string): Oystehr {
   const FHIR_API = fhirAPI.replace(/\/r4/g, '');
@@ -173,6 +173,13 @@ export function formatPhoneNumber(phoneNumber: string | undefined): string | und
   return tenDigitRegex.test(phoneNumber) ? `+1${phoneNumber}` : phoneNumber;
 }
 
+export const isEmailValid = (email: string | undefined): boolean => {
+  if (!email) {
+    return false;
+  }
+  return emailRegex.test(email);
+};
+
 export const isNPIValid = (npi: string): boolean => {
   const npiRegex = /^\d{10}$/;
   return npiRegex.test(npi);
@@ -183,7 +190,9 @@ export function formatPhoneNumberDisplay(phoneNumber?: string): string {
     return '';
   }
 
-  const cleaned = ('' + phoneNumber.slice(-10)).replace(/\D/g, '');
+  // Strip non-digits first, then take the last 10 digits so formatted inputs
+  // like "+1 (212) 555-1234" don't lose digits to the slice.
+  const cleaned = ('' + phoneNumber).replace(/\D/g, '').slice(-10);
   const match = cleaned.match(/^(\d{3})(\d{3})(\d{4})$/);
 
   if (match) {
@@ -191,6 +200,43 @@ export function formatPhoneNumberDisplay(phoneNumber?: string): string {
   }
 
   return phoneNumber;
+}
+
+/**
+ * Masks a phone number for safe logging, keeping the area code and the last 4 digits.
+ * e.g. "+12125551234" -> "(212) ***-1234". Falls back to a fully masked value when the
+ * input can't be parsed to 10 digits. Intended for logs only — do not persist on resources.
+ */
+export function maskPhoneNumber(phoneNumber?: string): string {
+  if (!phoneNumber) {
+    return '';
+  }
+  const formatted = formatPhoneNumberDisplay(phoneNumber);
+  // Mask the middle (exchange) group of a "(212) 555-1234" formatted number.
+  const masked = formatted.replace(/^(\(\d{3}\) )\d{3}(-\d{4})$/, '$1***$2');
+  // When the input can't be parsed to a 10-digit number, formatPhoneNumberDisplay
+  // returns the raw input unchanged (no replacement happens), so fully mask it.
+  return masked === formatted ? '***' : masked;
+}
+
+/**
+ * Masks an email address for safe logging, keeping the first few characters of the local
+ * part and the full domain. e.g. "jonathan@example.com" -> "jon***@example.com". Falls back
+ * to a fully masked value when there is no parseable local/domain. Intended for logs only —
+ * do not persist on resources.
+ */
+export function maskEmail(email?: string): string {
+  if (!email) {
+    return '';
+  }
+  const atIndex = email.lastIndexOf('@');
+  if (atIndex <= 0) {
+    return '***';
+  }
+  const local = email.slice(0, atIndex);
+  const domain = email.slice(atIndex); // includes leading '@'
+  const visible = local.slice(0, Math.min(3, local.length));
+  return `${visible}***${domain}`;
 }
 
 const getExtensionStartTimeValue = (extension: Extension): string | undefined =>
