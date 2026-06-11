@@ -14,7 +14,7 @@ import {
   SecretsKeys,
 } from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
-import { extractDiagnosticsFromAdvaPacsErrorBody } from '../shared';
+import { extractDiagnosticsFromAdvaPACSErrorBody } from '../shared';
 import { ValidatedInput, validateInput, validateSecrets } from './validation';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
@@ -158,7 +158,7 @@ const createDiagnosticReportInAdvaPACS = async (
   if (!response.ok) {
     if (response.status === 422) {
       const alreadySentDiagnosticsMsg = 'The ServiceRequest is already linked to a different DiagnosticReport';
-      const diagnostics = extractDiagnosticsFromAdvaPacsErrorBody(body);
+      const diagnostics = extractDiagnosticsFromAdvaPACSErrorBody(body);
       if (diagnostics === alreadySentDiagnosticsMsg) {
         throw RADIOLOGY_ERROR('This report has already been saved, please refresh the page.');
       }

@@ -156,10 +156,15 @@ export const getMostRecentReport = (reports: DiagnosticReport[]): DiagnosticRepo
   });
 };
 
-export const extractDiagnosticsFromAdvaPacsErrorBody = (errBody: any): string | undefined => {
-  if (typeof errBody !== 'object') return;
+export const extractDiagnosticsFromAdvaPACSErrorBody = (errBody: unknown): string | undefined => {
+  if (typeof errBody !== 'object' || !errBody) return;
 
-  const diagnostics = errBody?.issue?.[0]?.diagnostics;
+  if (!('issue' in errBody)) return;
+  const issue = errBody.issue;
+
+  if (!Array.isArray(issue)) return;
+
+  const diagnostics = issue?.[0]?.diagnostics;
 
   if (typeof diagnostics === 'string') return diagnostics;
 

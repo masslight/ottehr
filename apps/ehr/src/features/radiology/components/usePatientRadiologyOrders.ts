@@ -240,11 +240,11 @@ export const usePatientRadiologyOrders = (options: {
         const searchParams = getCurrentSearchParamsForPage(page);
         await fetchOrders(searchParams);
       } catch (err) {
-        console.error('Error saving report:', JSON.stringify(err));
+        console.error('Error saving report:', err, JSON.stringify(err));
         const defaultError = `Failed to save ${reportType} report`;
         const errorMsg = getApiError({ error: err, defaultError });
 
-        const errorObj = new Error(errorMsg);
+        const errorObj = err instanceof Error ? err : new Error(errorMsg);
         setError(errorObj);
 
         enqueueSnackbar(errorMsg, { variant: 'error' });
