@@ -1,17 +1,24 @@
 import Oystehr, { BatchInputPostRequest, BatchInputRequest } from '@oystehr/sdk';
 import { randomUUID } from 'crypto';
-import { FhirResource, Location, Practitioner, PractitionerRole, Schedule } from 'fhir/r4b';
+import { FhirResource, HealthcareService, Location, Practitioner, PractitionerRole, Schedule } from 'fhir/r4b';
+import { DateTime } from 'luxon';
 import {
   GetScheduleResponse,
   SCHEDULE_EXTENSION_URL,
   SCHEDULE_NOT_FOUND_ERROR,
+  ScheduleStrategyCoding,
   SLUG_SYSTEM,
   TIMEZONE_EXTENSION_URL,
 } from 'utils';
 import { afterAll, assert, beforeAll, describe, expect, inject, test } from 'vitest';
 import { getAuth0Token } from '../../src/shared';
 import { SECRETS } from '../data/secrets';
-import { buildSimpleScheduleExt, cleanupTestScheduleResources, persistSchedule } from '../helpers/testScheduleUtils';
+import {
+  buildSimpleScheduleExt,
+  cleanupTestScheduleResources,
+  persistSchedule,
+  startOfDayWithTimezone,
+} from '../helpers/testScheduleUtils';
 
 // Locks in the fix for "deleted schedules still vend slots when the booking
 // URL is navigated to": the EHR-side schedule "delete" path marks the owner
@@ -40,8 +47,10 @@ describe('get-schedule filters out inactive owners and Schedules', () => {
   // Schedule + the Schedule's direct `_include`d actor; for PR-actored
   // fixtures the actor is the PR, so PR + Practitioner + Location all leak
   // unless tracked explicitly here.
-  const extraResourceCleanup: Array<{ resourceType: 'Practitioner' | 'PractitionerRole' | 'Location'; id: string }> =
-    [];
+  const extraResourceCleanup: Array<{
+    resourceType: 'Practitioner' | 'PractitionerRole' | 'Location' | 'HealthcareService';
+    id: string;
+  }> = [];
 
   beforeAll(async () => {
     processId = randomUUID();
@@ -197,9 +206,172 @@ describe('get-schedule filters out inactive owners and Schedules', () => {
     return { slug, location, practitioner, pr, schedule };
   };
 
+  interface GroupFixture {
+    slug: string;
+    group: HealthcareService;
+    location: Location;
+    practitionerA: Practitioner;
+    practitionerB: Practitioner;
+    prA: PractitionerRole;
+    prB: PractitionerRole;
+    scheduleA: Schedule;
+    scheduleB: Schedule;
+  }
+  // Single-Location, pools-providers group with two member PRs (each with
+  // its own Practitioner + Schedule). Members are joined via the
+  // `PR.healthcareService` back-reference path so the walker picks them up
+  // without needing location-overlap setup.
+  const createGroupFixture = async (): Promise<GroupFixture> => {
+    assert(processId);
+    const slug = `inactive-group-${randomUUID().slice(0, 8)}`;
+    const locationUrn = `urn:uuid:${randomUUID()}`;
+    const practitionerAUrn = `urn:uuid:${randomUUID()}`;
+    const practitionerBUrn = `urn:uuid:${randomUUID()}`;
+    const prAUrn = `urn:uuid:${randomUUID()}`;
+    const prBUrn = `urn:uuid:${randomUUID()}`;
+    const groupUrn = `urn:uuid:${randomUUID()}`;
+    const tag = { system: 'OTTEHR_AUTOMATED_TEST', code: `DELETE_ME-${processId}` };
+
+    const makePractitioner = (urn: string, family: string): BatchInputPostRequest<Practitioner> => ({
+      method: 'POST',
+      url: 'Practitioner',
+      fullUrl: urn,
+      resource: {
+        resourceType: 'Practitioner',
+        active: true,
+        name: [{ family, given: ['Test'] }],
+        meta: { tag: [tag] },
+      },
+    });
+    const makePr = (urn: string, practitionerUrn: string): BatchInputPostRequest<PractitionerRole> => ({
+      method: 'POST',
+      url: 'PractitionerRole',
+      fullUrl: urn,
+      resource: {
+        resourceType: 'PractitionerRole',
+        active: true,
+        practitioner: { reference: practitionerUrn },
+        location: [{ reference: locationUrn }],
+        healthcareService: [{ reference: groupUrn }],
+        meta: { tag: [tag] },
+      },
+    });
+    // Disjoint hour ranges per member: slot dedup picks one Schedule per
+    // start time, so identical schedules would always surface the same id
+    // (alphabetically-earlier wins ties) and Schedule-B's reference would
+    // never appear even before deactivation. Splitting the day lets both
+    // schedules' ids surface in the response, so the negative case has
+    // a meaningful signal — a missing Schedule-B reference means the
+    // inactive-Practitioner filter actually took effect.
+    const makeSchedule = (prUrn: string, openHour: number, closeHour: number): BatchInputPostRequest<Schedule> => ({
+      method: 'POST',
+      url: 'Schedule',
+      resource: {
+        resourceType: 'Schedule',
+        actor: [{ reference: prUrn }],
+        extension: [
+          { url: TIMEZONE_EXTENSION_URL, valueString: 'America/New_York' },
+          {
+            url: SCHEDULE_EXTENSION_URL,
+            // The `open`/`close` types in buildSimpleScheduleExt's input are
+            // narrowed to specific hour literals; numeric inputs from the
+            // caller need an explicit any-cast at the boundary.
+            valueString: JSON.stringify(buildSimpleScheduleExt({ open: openHour as never, close: closeHour as never })),
+          },
+        ],
+        meta: { tag: [tag] },
+      },
+    });
+
+    const requests: BatchInputRequest<FhirResource>[] = [
+      {
+        method: 'POST',
+        url: 'Location',
+        fullUrl: locationUrn,
+        resource: { resourceType: 'Location', status: 'active', name: 'Group Test Location', meta: { tag: [tag] } },
+      } as BatchInputPostRequest<Location>,
+      makePractitioner(practitionerAUrn, 'ProviderA'),
+      makePractitioner(practitionerBUrn, 'ProviderB'),
+      makePr(prAUrn, practitionerAUrn),
+      makePr(prBUrn, practitionerBUrn),
+      makeSchedule(prAUrn, 9, 12), // morning-only member
+      makeSchedule(prBUrn, 13, 17), // afternoon-only member
+      {
+        method: 'POST',
+        url: 'HealthcareService',
+        fullUrl: groupUrn,
+        resource: {
+          resourceType: 'HealthcareService',
+          active: true,
+          name: 'Inactive-Test Group',
+          identifier: [{ system: SLUG_SYSTEM, value: slug }],
+          location: [{ reference: locationUrn }],
+          characteristic: [
+            {
+              coding: [
+                {
+                  system: ScheduleStrategyCoding.poolsProviders.system,
+                  code: ScheduleStrategyCoding.poolsProviders.code,
+                },
+              ],
+            },
+          ],
+          meta: { tag: [tag] },
+        },
+      } as BatchInputPostRequest<HealthcareService>,
+    ];
+
+    const tx = await oystehr.fhir.transaction({ requests });
+    const created = (tx.entry ?? []).map((e) => e.resource).filter((r): r is FhirResource => !!r);
+    const location = created.find((r): r is Location => r.resourceType === 'Location');
+    const practitioners = created.filter((r): r is Practitioner => r.resourceType === 'Practitioner');
+    const prs = created.filter((r): r is PractitionerRole => r.resourceType === 'PractitionerRole');
+    const schedules = created.filter((r): r is Schedule => r.resourceType === 'Schedule');
+    const group = created.find((r): r is HealthcareService => r.resourceType === 'HealthcareService');
+    assert(location?.id);
+    assert(practitioners.length === 2);
+    assert(prs.length === 2);
+    assert(schedules.length === 2);
+    assert(group?.id);
+
+    // Pair PR ↔ Schedule by the actor reference, since transaction order isn't
+    // guaranteed to map to fixture order — the actor reference is the
+    // unambiguous join.
+    const prA = prs.find((r) => r.practitioner?.reference === `Practitioner/${practitioners[0].id}`);
+    const prB = prs.find((r) => r.practitioner?.reference === `Practitioner/${practitioners[1].id}`);
+    assert(prA?.id);
+    assert(prB?.id);
+    const scheduleA = schedules.find((s) => s.actor?.[0]?.reference === `PractitionerRole/${prA.id}`);
+    const scheduleB = schedules.find((s) => s.actor?.[0]?.reference === `PractitionerRole/${prB.id}`);
+    assert(scheduleA?.id);
+    assert(scheduleB?.id);
+
+    extraResourceCleanup.push({ resourceType: 'PractitionerRole', id: prA.id });
+    extraResourceCleanup.push({ resourceType: 'PractitionerRole', id: prB.id });
+    extraResourceCleanup.push({ resourceType: 'Practitioner', id: practitioners[0].id! });
+    extraResourceCleanup.push({ resourceType: 'Practitioner', id: practitioners[1].id! });
+    extraResourceCleanup.push({ resourceType: 'Location', id: location.id });
+    // cleanupTestScheduleResources sweeps Schedule (and via Schedule:actor:HS
+    // it would normally sweep the group HS for HS-actored schedules); these
+    // schedules are PR-actored so the group HS leaks if not tracked.
+    extraResourceCleanup.push({ resourceType: 'HealthcareService', id: group.id });
+
+    return {
+      slug,
+      group,
+      location,
+      practitionerA: practitioners[0],
+      practitionerB: practitioners[1],
+      prA,
+      prB,
+      scheduleA,
+      scheduleB,
+    };
+  };
+
   const callGetSchedule = async (
     slug: string,
-    scheduleType: 'location' | 'provider'
+    scheduleType: 'location' | 'provider' | 'group'
   ): Promise<{ ok: true; output: GetScheduleResponse } | { ok: false; error: unknown }> => {
     try {
       const res = await oystehr.zambda.executePublic({ id: 'get-schedule', slug, scheduleType });
@@ -283,5 +455,85 @@ describe('get-schedule filters out inactive owners and Schedules', () => {
     const after = await callGetSchedule(fixture.slug, 'provider');
     expect(after.ok).toBe(false);
     if (!after.ok) expectScheduleNotFound(after.error);
+  });
+
+  test('Practitioner with active=false — provider booking URL fails with SCHEDULE_NOT_FOUND', async () => {
+    // The third place a "provider" can be marked inactive: Employees >
+    // Provider details (the Practitioner.active toggle). Distinct from the
+    // PR or Schedule being inactive — the human is deactivated globally,
+    // which should kill every booking URL that resolves to a Schedule whose
+    // PR points at this Practitioner. This covers the PR-direct path; the
+    // group-pooled path is exercised via walkGroupMemberPractitionerRoleSchedules
+    // and additionally filtered to active-Practitioners in fhir.ts.
+    const fixture = await createPrFixture();
+
+    const before = await callGetSchedule(fixture.slug, 'provider');
+    expect(before.ok).toBe(true);
+
+    await oystehr.fhir.patch<Practitioner>({
+      resourceType: 'Practitioner',
+      id: fixture.practitioner.id!,
+      operations: [{ op: 'add', path: '/active', value: false }],
+    });
+
+    const after = await callGetSchedule(fixture.slug, 'provider');
+    expect(after.ok).toBe(false);
+    if (!after.ok) expectScheduleNotFound(after.error);
+  });
+
+  test('pools-providers group with an inactive member Practitioner — group URL still vends, but only from active members', async () => {
+    // The same human-deactivation toggle from Employees > Provider details
+    // applies to providers participating in a group: their slots must drop
+    // out of the group's bookable pool. Unlike the PR-direct case the group
+    // itself stays bookable — slots from the *other* active members must
+    // still surface — so the assertion is targeted: response succeeds, but
+    // no slot's owning Schedule is the inactive member's.
+    //
+    // Members A and B have disjoint hours (morning vs afternoon). Slot
+    // dedup picks the same schedule for tied start times, so without
+    // disjoint hours Schedule-B's id would never surface even before
+    // deactivation and the negative case would pass for the wrong reason.
+    const fixture = await createGroupFixture();
+    // `selectedDate` = tomorrow in the schedule's timezone so every working
+    // hour (09–12 for A, 13–17 for B) is in the future regardless of when
+    // the test runs.
+    const selectedDate = startOfDayWithTimezone({
+      date: DateTime.now().plus({ days: 1 }),
+      timezone: 'America/New_York',
+    }).toISODate();
+    assert(selectedDate);
+
+    const callGroup = async (): Promise<GetScheduleResponse> => {
+      const res = await oystehr.zambda.executePublic({
+        id: 'get-schedule',
+        slug: fixture.slug,
+        scheduleType: 'group',
+        selectedDate,
+      });
+      return res.output as GetScheduleResponse;
+    };
+
+    const before = await callGroup();
+    const beforeScheduleRefs = new Set(
+      (before.available ?? []).map((sli) => sli.slot.schedule?.reference).filter((ref): ref is string => !!ref)
+    );
+    // Positive control: both members vend at least one slot. Confirms the
+    // fixture is wired up correctly before the deactivation.
+    expect(beforeScheduleRefs.has(`Schedule/${fixture.scheduleA.id}`)).toBe(true);
+    expect(beforeScheduleRefs.has(`Schedule/${fixture.scheduleB.id}`)).toBe(true);
+
+    // Deactivate Practitioner B via the Employees-side toggle equivalent.
+    await oystehr.fhir.patch<Practitioner>({
+      resourceType: 'Practitioner',
+      id: fixture.practitionerB.id!,
+      operations: [{ op: 'add', path: '/active', value: false }],
+    });
+
+    const after = await callGroup();
+    const afterScheduleRefs = new Set(
+      (after.available ?? []).map((sli) => sli.slot.schedule?.reference).filter((ref): ref is string => !!ref)
+    );
+    expect(afterScheduleRefs.has(`Schedule/${fixture.scheduleA.id}`)).toBe(true);
+    expect(afterScheduleRefs.has(`Schedule/${fixture.scheduleB.id}`)).toBe(false);
   });
 });
