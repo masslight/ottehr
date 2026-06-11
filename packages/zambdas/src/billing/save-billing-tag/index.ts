@@ -1,9 +1,9 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Basic, Claim } from 'fhir/r4b';
-import { FHIR_RESOURCE_NOT_FOUND, getPatchBinary, INVALID_INPUT_ERROR } from 'utils';
+import { getPatchBinary, INVALID_INPUT_ERROR } from 'utils';
 import { checkOrCreateM2MClientToken, fetchAllPages, wrapHandler, ZambdaInput } from '../../shared';
-import { CLAIM_TAG_SYSTEM, createBillingClient, TAG_CODE_SYSTEM, TAG_DESCRIPTION_URL } from '../shared';
+import { CLAIM_TAG_SYSTEM, createBillingClient, fetchById, TAG_CODE_SYSTEM, TAG_DESCRIPTION_URL } from '../shared';
 import { SaveBillingTagParams, validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -22,13 +22,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 // When updating, load the tag being edited and confirm it exists. No-op for create.
 async function complexValidation(oystehr: Oystehr, params: SaveBillingTagParams): Promise<Basic | undefined> {
   if (!params.tagId) return undefined;
-  const bundle = await oystehr.fhir.search<Basic>({
-    resourceType: 'Basic',
-    params: [{ name: '_id', value: params.tagId }],
-  });
-  const existing = bundle.unbundle()[0];
-  if (!existing) throw FHIR_RESOURCE_NOT_FOUND('Basic');
-  return existing;
+  return fetchById<Basic>(oystehr, 'Basic', params.tagId);
 }
 
 async function performEffect(

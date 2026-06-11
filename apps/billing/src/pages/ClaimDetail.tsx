@@ -38,7 +38,7 @@ import { Field } from '../components/Field';
 import { CLAIM_STATUS_COLORS, formatClaimStatus } from '../constants/claimStatus';
 import { useApiClients } from '../hooks/useAppClients';
 import { otherColors } from '../themes/ottehr/colors';
-import { formatCurrency } from '../utils/format';
+import { buildAddressInput, formatCurrency, splitDisplayName } from '../utils/format';
 
 type UpdateFn = (resourceType: string, resourceId: string, fields: Record<string, unknown>) => Promise<string | null>;
 
@@ -239,9 +239,9 @@ function PatientSection({
   claim: ClaimDetailResponse;
   updateResource: UpdateFn;
 }): ReactElement {
-  const nameParts = claim.patientName.split(', ');
-  const [firstName, setFirstName] = useState(nameParts[1] ?? '');
-  const [lastName, setLastName] = useState(nameParts[0] ?? '');
+  const initialName = splitDisplayName(claim.patientName);
+  const [firstName, setFirstName] = useState(initialName.firstName);
+  const [lastName, setLastName] = useState(initialName.lastName);
   const [dob, setDob] = useState(claim.patientDob);
   const [gender, setGender] = useState(claim.patientGender);
   const [line1, setLine1] = useState(claim.patientAddressParts.line1);
@@ -251,9 +251,9 @@ function PatientSection({
   const [zip, setZip] = useState(claim.patientAddressParts.postalCode);
 
   const resetFields = useCallback((): void => {
-    const parts = claim.patientName.split(', ');
-    setFirstName(parts[1] ?? '');
-    setLastName(parts[0] ?? '');
+    const name = splitDisplayName(claim.patientName);
+    setFirstName(name.firstName);
+    setLastName(name.lastName);
     setDob(claim.patientDob);
     setGender(claim.patientGender);
     setLine1(claim.patientAddressParts.line1);
@@ -269,19 +269,13 @@ function PatientSection({
 
   const handleSave = async (): Promise<string | null> => {
     if (!firstName.trim() || !lastName.trim()) return 'First and last name are required';
-    const address = {
-      ...(line1.trim() ? { line1: line1.trim() } : {}),
-      ...(line2.trim() ? { line2: line2.trim() } : {}),
-      ...(city.trim() ? { city: city.trim() } : {}),
-      ...(state.trim() ? { state: state.trim() } : {}),
-      ...(zip.trim() ? { postalCode: zip.trim() } : {}),
-    };
+    const address = buildAddressInput(line1, line2, city, state, zip);
     return updateResource('Patient', claim.patientId, {
       firstName: firstName.trim(),
       lastName: lastName.trim(),
       dob,
       gender,
-      ...(Object.keys(address).length ? { address } : {}),
+      ...(address ? { address } : {}),
     });
   };
 
@@ -525,10 +519,10 @@ function RenderingProviderSection({
   const hasProvider = !!claim.renderingProviderId;
   const isOrganization = claim.renderingProviderType === 'Organization';
 
-  const nameParts = claim.renderingProvider.split(', ');
+  const initialName = splitDisplayName(claim.renderingProvider);
   const [name, setName] = useState(claim.renderingProvider);
-  const [firstName, setFirstName] = useState(nameParts[1] ?? '');
-  const [lastName, setLastName] = useState(nameParts[0] ?? '');
+  const [firstName, setFirstName] = useState(initialName.firstName);
+  const [lastName, setLastName] = useState(initialName.lastName);
   const [npi, setNpi] = useState(claim.renderingNpi);
 
   const [options, setOptions] = useState<BillingProviderOption[]>([]);
@@ -536,10 +530,10 @@ function RenderingProviderSection({
   const searchTimer = useRef<ReturnType<typeof setTimeout>>();
 
   const resetFields = useCallback((): void => {
-    const parts = claim.renderingProvider.split(', ');
+    const parsed = splitDisplayName(claim.renderingProvider);
     setName(claim.renderingProvider);
-    setFirstName(parts[1] ?? '');
-    setLastName(parts[0] ?? '');
+    setFirstName(parsed.firstName);
+    setLastName(parsed.lastName);
     setNpi(claim.renderingNpi);
     setSelected(null);
   }, [claim]);
@@ -719,17 +713,11 @@ function FacilitySection({
       return updateResource('Claim', claim.id, { facilityId: selected.id });
     }
     if (!hasFacility) return 'Choose a facility';
-    const address = {
-      ...(line1.trim() ? { line1: line1.trim() } : {}),
-      ...(line2.trim() ? { line2: line2.trim() } : {}),
-      ...(city.trim() ? { city: city.trim() } : {}),
-      ...(state.trim() ? { state: state.trim() } : {}),
-      ...(zip.trim() ? { postalCode: zip.trim() } : {}),
-    };
+    const address = buildAddressInput(line1, line2, city, state, zip);
     return updateResource('Location', claim.facilityFhirId, {
       name,
       npi: npi.trim(),
-      ...(Object.keys(address).length ? { address } : {}),
+      ...(address ? { address } : {}),
     });
   };
 
@@ -825,10 +813,10 @@ function BillingProviderSection({
   const hasProvider = !!claim.billingProviderFhirId;
   const isPractitioner = claim.billingProviderType === 'Practitioner';
 
-  const nameParts = claim.billingProvider.split(', ');
+  const initialName = splitDisplayName(claim.billingProvider);
   const [name, setName] = useState(claim.billingProvider);
-  const [firstName, setFirstName] = useState(nameParts[1] ?? '');
-  const [lastName, setLastName] = useState(nameParts[0] ?? '');
+  const [firstName, setFirstName] = useState(initialName.firstName);
+  const [lastName, setLastName] = useState(initialName.lastName);
   const [npi, setNpi] = useState(claim.billingNpi);
   const [tin, setTin] = useState(claim.billingTin);
 
@@ -837,10 +825,10 @@ function BillingProviderSection({
   const searchTimer = useRef<ReturnType<typeof setTimeout>>();
 
   const resetFields = useCallback((): void => {
-    const parts = claim.billingProvider.split(', ');
+    const parsed = splitDisplayName(claim.billingProvider);
     setName(claim.billingProvider);
-    setFirstName(parts[1] ?? '');
-    setLastName(parts[0] ?? '');
+    setFirstName(parsed.firstName);
+    setLastName(parsed.lastName);
     setNpi(claim.billingNpi);
     setTin(claim.billingTin);
     setSelected(null);

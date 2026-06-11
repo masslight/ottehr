@@ -1,11 +1,11 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Organization, Practitioner } from 'fhir/r4b';
-import { FHIR_RESOURCE_NOT_FOUND } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import {
   buildAddress,
   createBillingClient,
+  fetchById,
   LICENSE_TAG,
   PROVIDER_ROLE_BILLING,
   PROVIDER_ROLE_RENDERING,
@@ -30,7 +30,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
 async function performEffect(oystehr: Oystehr, params: UpdateBillingProviderParams): Promise<{ id: string }> {
   if (params.kind === 'individual') {
-    const provider = await fetchProvider<Practitioner>(oystehr, 'Practitioner', params.providerId);
+    const provider = await fetchById<Practitioner>(oystehr, 'Practitioner', params.providerId);
     provider.name = [{ family: params.lastName, given: [params.firstName] }];
     applyIdentifiersAndAddress(provider, params);
     applyTags(provider, params.roles, params.licenseType);
@@ -38,23 +38,12 @@ async function performEffect(oystehr: Oystehr, params: UpdateBillingProviderPara
     return { id: updated.id! };
   }
 
-  const provider = await fetchProvider<Organization>(oystehr, 'Organization', params.providerId);
+  const provider = await fetchById<Organization>(oystehr, 'Organization', params.providerId);
   provider.name = params.name;
   applyIdentifiersAndAddress(provider, params);
   applyTags(provider, params.roles, undefined);
   const updated = await oystehr.fhir.update(provider);
   return { id: updated.id! };
-}
-
-async function fetchProvider<T extends Practitioner | Organization>(
-  oystehr: Oystehr,
-  resourceType: T['resourceType'],
-  id: string
-): Promise<T> {
-  const result = await oystehr.fhir.search<T>({ resourceType, params: [{ name: '_id', value: id }] });
-  const provider = result.unbundle()[0];
-  if (!provider) throw FHIR_RESOURCE_NOT_FOUND(resourceType);
-  return provider;
 }
 
 // Roles and license type are meta tags; replace those two systems, preserve everything else.

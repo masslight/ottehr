@@ -1,9 +1,17 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim, Coverage, FhirResource, Location, Organization, Patient, Practitioner } from 'fhir/r4b';
-import { CODE_SYSTEM_OYSTEHR_RCM_CMS1500_REFERRING_PROVIDER_TYPE, FHIR_RESOURCE_NOT_FOUND, getPayerUrl } from 'utils';
+import { CODE_SYSTEM_OYSTEHR_RCM_CMS1500_REFERRING_PROVIDER_TYPE, getPayerUrl } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
-import { buildAddress, createBillingClient, prepareWorkingCopy, setNpi, setTaxId, sortClaimInsurance } from '../shared';
+import {
+  buildAddress,
+  createBillingClient,
+  fetchById,
+  prepareWorkingCopy,
+  setNpi,
+  setTaxId,
+  sortClaimInsurance,
+} from '../shared';
 import { UpdateBillingClaimParams, validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -18,7 +26,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   return { statusCode: 200, body: JSON.stringify(response) };
 });
 
-// Fetch the working copy, apply the provided fields, write it back. Only provided fields are touched.
+// Only fields present in the request are touched.
 async function performEffect(oystehr: Oystehr, params: UpdateBillingClaimParams): Promise<{ id: string | undefined }> {
   switch (params.resourceType) {
     case 'Claim':
@@ -65,8 +73,7 @@ async function performEffect(oystehr: Oystehr, params: UpdateBillingClaimParams)
   }
 }
 
-// Attach resources the claim was created without: working copy of the original + claim reference
-// (mirrors create-billing-claim's working-copy wiring).
+// Working copy of the chosen original + claim reference, same wiring as create-billing-claim.
 async function attachClaimResources(
   oystehr: Oystehr,
   params: Extract<UpdateBillingClaimParams, { resourceType: 'Claim' }>
@@ -137,17 +144,6 @@ async function createCopy(
 ): Promise<FhirResource> {
   const original = await fetchById<FhirResource>(oystehr, resourceType, resourceId);
   return oystehr.fhir.create(prepareWorkingCopy(original, resourceId));
-}
-
-async function fetchById<T extends FhirResource>(
-  oystehr: Oystehr,
-  resourceType: T['resourceType'],
-  id: string
-): Promise<T> {
-  const result = await oystehr.fhir.search<T>({ resourceType, params: [{ name: '_id', value: id }] });
-  const resource = result.unbundle()[0];
-  if (!resource) throw FHIR_RESOURCE_NOT_FOUND(resourceType);
-  return resource;
 }
 
 async function save(oystehr: Oystehr, resource: FhirResource): Promise<{ id: string | undefined }> {

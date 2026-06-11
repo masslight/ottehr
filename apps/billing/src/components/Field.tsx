@@ -1,7 +1,6 @@
 import { Box, SxProps, Theme, Typography } from '@mui/material';
 import { ReactElement, ReactNode } from 'react';
 
-// Top-label form field used by the billing edit forms and dialogs.
 export function Field({
   label,
   optional,

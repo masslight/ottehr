@@ -1,9 +1,8 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Patient } from 'fhir/r4b';
-import { FHIR_RESOURCE_NOT_FOUND } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
-import { buildAddress, createBillingClient } from '../shared';
+import { buildAddress, createBillingClient, fetchById } from '../shared';
 import { UpdateBillingPatientParams, validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -19,12 +18,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 });
 
 async function performEffect(oystehr: Oystehr, params: UpdateBillingPatientParams): Promise<{ id: string }> {
-  const result = await oystehr.fhir.search<Patient>({
-    resourceType: 'Patient',
-    params: [{ name: '_id', value: params.patientId }],
-  });
-  const patient = result.unbundle()[0];
-  if (!patient) throw FHIR_RESOURCE_NOT_FOUND('Patient');
+  const patient = await fetchById<Patient>(oystehr, 'Patient', params.patientId);
 
   patient.name = [{ family: params.lastName, given: [params.firstName] }];
 

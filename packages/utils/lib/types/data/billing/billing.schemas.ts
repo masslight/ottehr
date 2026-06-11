@@ -331,8 +331,7 @@ export const UpdateBillingResourceInputSchema = z.discriminatedUnion('resourceTy
       taxId: z.string().optional(),
     }),
   }),
-  // Attach resources the claim was created without (working copy of the original + claim reference),
-  // or re-point the claim's payer (payerId is the RCM payer id).
+  // Attach working copies for resources the claim was created without, or re-point the payer (RCM payer id).
   z.object({
     resourceType: z.literal('Claim'),
     resourceId: nonEmptyString,

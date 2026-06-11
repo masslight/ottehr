@@ -2,6 +2,7 @@ import Oystehr from '@oystehr/sdk';
 import {
   Address,
   Claim,
+  FhirResource,
   HumanName,
   Identifier,
   Location,
@@ -17,6 +18,7 @@ import {
   FHIR_IDENTIFIER_CODE_TAXONOMY,
   FHIR_IDENTIFIER_NPI,
   FHIR_IDENTIFIER_SYSTEM,
+  FHIR_RESOURCE_NOT_FOUND,
   isPayerUrl,
   Secrets,
 } from 'utils';
@@ -98,6 +100,17 @@ export const EXCLUDE_WORKING_COPIES_PARAMS = [
 
 export function createBillingClient(token: string, secrets: Secrets | null): Oystehr {
   return createOystehrClient(token, secrets, { workspaceTag: BILLING_RESOURCE_TAG });
+}
+
+export async function fetchById<T extends FhirResource>(
+  oystehr: Oystehr,
+  resourceType: T['resourceType'],
+  id: string
+): Promise<T> {
+  const result = await oystehr.fhir.search<T>({ resourceType, params: [{ name: '_id', value: id }] });
+  const resource = result.unbundle()[0];
+  if (!resource) throw FHIR_RESOURCE_NOT_FOUND(resourceType);
+  return resource;
 }
 
 export function getTag(resource: Resource, system: string): string | undefined {

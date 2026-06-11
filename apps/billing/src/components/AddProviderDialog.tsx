@@ -17,6 +17,7 @@ import {
 import { ReactElement, useEffect, useState } from 'react';
 import { chooseJson, PractitionerQualificationCodesDisplay } from 'utils';
 import { useApiClients } from '../hooks/useAppClients';
+import { buildAddressInput } from '../utils/format';
 import { Field } from './Field';
 
 type ProviderKind = 'individual' | 'organization';
@@ -79,19 +80,13 @@ export function AddProviderDialog({ open, defaultRole, onClose, onCreated }: Add
     setError(null);
     try {
       const roles = [...(bills ? ['billing'] : []), ...(renders ? ['rendering'] : [])];
-      const address = {
-        ...(line1.trim() ? { line1: line1.trim() } : {}),
-        ...(line2.trim() ? { line2: line2.trim() } : {}),
-        ...(city.trim() ? { city: city.trim() } : {}),
-        ...(state.trim() ? { state: state.trim() } : {}),
-        ...(zip.trim() ? { postalCode: zip.trim() } : {}),
-      };
+      const address = buildAddressInput(line1, line2, city, state, zip);
       const common = {
         roles,
         ...(npi.trim() ? { npi: npi.trim() } : {}),
         ...(taxonomyCode.trim() ? { taxonomyCode: taxonomyCode.trim() } : {}),
         ...(taxId.trim() ? { taxId: taxId.trim() } : {}),
-        ...(Object.keys(address).length ? { address } : {}),
+        ...(address ? { address } : {}),
       };
       const payload =
         kind === 'individual'

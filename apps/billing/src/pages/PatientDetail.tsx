@@ -26,7 +26,7 @@ import { Field } from '../components/Field';
 import { CLAIM_STATUS_COLORS, formatClaimStatus } from '../constants/claimStatus';
 import { useApiClients } from '../hooks/useAppClients';
 import { otherColors } from '../themes/ottehr/colors';
-import { formatCurrency } from '../utils/format';
+import { buildAddressInput, formatCurrency } from '../utils/format';
 
 const claimColumns: GridColDef[] = [
   { field: 'serviceDate', headerName: 'Date of Service', width: 130 },
@@ -249,13 +249,7 @@ function DemographicsSection({
 
   const handleSave = async (): Promise<string | null> => {
     if (!firstName.trim() || !lastName.trim()) return 'First and last name are required';
-    const address = {
-      ...(line1.trim() ? { line1: line1.trim() } : {}),
-      ...(line2.trim() ? { line2: line2.trim() } : {}),
-      ...(city.trim() ? { city: city.trim() } : {}),
-      ...(state.trim() ? { state: state.trim() } : {}),
-      ...(zip.trim() ? { postalCode: zip.trim() } : {}),
-    };
+    const address = buildAddressInput(line1, line2, city, state, zip);
     return onSave({
       firstName: firstName.trim(),
       lastName: lastName.trim(),
@@ -263,7 +257,7 @@ function DemographicsSection({
       ...(gender ? { gender } : {}),
       ...(phone.trim() ? { phone: phone.trim() } : {}),
       ...(email.trim() ? { email: email.trim() } : {}),
-      ...(Object.keys(address).length ? { address } : {}),
+      ...(address ? { address } : {}),
     });
   };
 

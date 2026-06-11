@@ -1,9 +1,8 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim } from 'fhir/r4b';
-import { FHIR_RESOURCE_NOT_FOUND } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
-import { CLAIM_TAG_SYSTEM, createBillingClient } from '../shared';
+import { CLAIM_TAG_SYSTEM, createBillingClient, fetchById } from '../shared';
 import { TagBillingClaimParams, validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -19,12 +18,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 });
 
 async function performEffect(oystehr: Oystehr, params: TagBillingClaimParams): Promise<{ ok: true }> {
-  const bundle = await oystehr.fhir.search<Claim>({
-    resourceType: 'Claim',
-    params: [{ name: '_id', value: params.claimId }],
-  });
-  const claim = bundle.unbundle()[0];
-  if (!claim) throw FHIR_RESOURCE_NOT_FOUND('Claim');
+  const claim = await fetchById<Claim>(oystehr, 'Claim', params.claimId);
 
   const existingTags = claim.meta?.tag ?? [];
   const hasTag = existingTags.some((t) => t.system === CLAIM_TAG_SYSTEM && t.code === params.tagName);

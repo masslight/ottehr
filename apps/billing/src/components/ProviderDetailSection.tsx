@@ -2,11 +2,11 @@ import { Autocomplete, Box, FormControlLabel, Switch, TextField } from '@mui/mat
 import { ReactElement, useCallback, useEffect, useState } from 'react';
 import { BillingProviderOption, PractitionerQualificationCodesDisplay } from 'utils';
 import { useApiClients } from '../hooks/useAppClients';
+import { buildAddressInput } from '../utils/format';
 import { EditableSection } from './claim/EditableSection';
 import { DetailRow } from './DetailRow';
 import { Field } from './Field';
 
-// Editable details card for a provider original (Rendering/Billing provider detail pages).
 export function ProviderDetailSection({
   provider,
   onSaved,
@@ -60,13 +60,7 @@ export function ProviderDetailSection({
     if (!renders && !bills) return 'Select at least one role';
 
     const roles = [...(bills ? ['billing'] : []), ...(renders ? ['rendering'] : [])];
-    const address = {
-      ...(line1.trim() ? { line1: line1.trim() } : {}),
-      ...(line2.trim() ? { line2: line2.trim() } : {}),
-      ...(city.trim() ? { city: city.trim() } : {}),
-      ...(state.trim() ? { state: state.trim() } : {}),
-      ...(zip.trim() ? { postalCode: zip.trim() } : {}),
-    };
+    const address = buildAddressInput(line1, line2, city, state, zip);
     const payload = {
       kind: provider.kind,
       providerId: provider.id,
@@ -81,7 +75,7 @@ export function ProviderDetailSection({
       ...(npi.trim() ? { npi: npi.trim() } : {}),
       ...(taxonomyCode.trim() ? { taxonomyCode: taxonomyCode.trim() } : {}),
       ...(taxId.trim() ? { taxId: taxId.trim() } : {}),
-      ...(Object.keys(address).length ? { address } : {}),
+      ...(address ? { address } : {}),
     };
 
     try {

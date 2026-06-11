@@ -17,6 +17,7 @@ import {
 import { ReactElement, useEffect, useState } from 'react';
 import { chooseJson } from 'utils';
 import { useApiClients } from '../hooks/useAppClients';
+import { buildAddressInput } from '../utils/format';
 import { Field } from './Field';
 
 interface AddPatientDialogProps {
@@ -64,20 +65,14 @@ export function AddPatientDialog({ open, onClose, onCreated }: AddPatientDialogP
     setSaving(true);
     setError(null);
     try {
-      const address = {
-        ...(line1.trim() ? { line1: line1.trim() } : {}),
-        ...(line2.trim() ? { line2: line2.trim() } : {}),
-        ...(city.trim() ? { city: city.trim() } : {}),
-        ...(state.trim() ? { state: state.trim() } : {}),
-        ...(zip.trim() ? { postalCode: zip.trim() } : {}),
-      };
+      const address = buildAddressInput(line1, line2, city, state, zip);
       const payload = {
         firstName: firstName.trim(),
         lastName: lastName.trim(),
         ...(dob ? { dob } : {}),
         ...(gender ? { gender } : {}),
         ...(phone.trim() ? { phone: phone.trim() } : {}),
-        ...(Object.keys(address).length ? { address } : {}),
+        ...(address ? { address } : {}),
       };
       const res = await oystehrZambda.zambda.execute({ id: 'create-billing-patient', ...payload });
       const data = chooseJson(res);
