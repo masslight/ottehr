@@ -155,3 +155,13 @@ export const getMostRecentReport = (reports: DiagnosticReport[]): DiagnosticRepo
     return new Date(current.issued) > new Date(mostRecent.issued) ? current : mostRecent;
   });
 };
+
+export const extractDiagnosticsFromAdvaPacsErrorBody = (errBody: any): string | undefined => {
+  if (typeof errBody !== 'object') return;
+
+  const diagnostics = errBody?.issue?.[0]?.diagnostics;
+
+  if (typeof diagnostics === 'string') return diagnostics;
+
+  return;
+};
