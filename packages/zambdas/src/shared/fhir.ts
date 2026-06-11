@@ -143,12 +143,17 @@ export async function getSchedules(
   }
 
   console.log('searching for resource with search params: ', searchParams);
-  // Drop soft-deleted Schedule and Practitioner resources at the bundle
-  // level. "Active" on a Practitioner is the Employees > Provider details
-  // toggle; inactive there means the human can't take bookings anywhere, so
-  // their booking URL (and any group they participate in) should behave as
-  // if no Schedule exists. The Schedule filter has the same intent at the
-  // per-schedule level. Filtering uniformly here means every downstream
+  // Drop soft-deleted Schedule, Practitioner, and PractitionerRole resources
+  // at the bundle level. Each represents a distinct "deactivate this" toggle
+  // surfaced in the EHR: Schedule.active = Schedules > General toggle for
+  // the schedule resource itself; Practitioner.active = Employees > Provider
+  // details (the human can't take bookings anywhere); PractitionerRole.active
+  // = per-(provider, location, services) toggle (the same human may be
+  // active at one Location and inactive at another). The PR filter is
+  // partially redundant with the FHIR search-level `active:not=false` filter
+  // for the provider-scheduleType case but is essential for the group case,
+  // where PRs arrive via `_revinclude` and aren't constrained by the
+  // primary's filter. Filtering uniformly here means every downstream
   // consumer of `scheduleResources` — including `scheduleList` for slot
   // vending — sees only active records. `r.active === undefined` is treated
   // as active per FHIR convention.

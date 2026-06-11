@@ -4,6 +4,7 @@ import { FhirResource, HealthcareService, Location, Practitioner, PractitionerRo
 import { DateTime } from 'luxon';
 import {
   GetScheduleResponse,
+  HourOfDay,
   SCHEDULE_EXTENSION_URL,
   SCHEDULE_NOT_FOUND_ERROR,
   ScheduleStrategyCoding,
@@ -44,11 +45,11 @@ describe('get-schedule filters out inactive owners and Schedules', () => {
   let token: string | null = null;
   let processId: string | null = null;
   // Resources `cleanupTestScheduleResources` doesn't sweep. It only deletes
-  // Schedule + the Schedule's direct `_include`d actor; for PR-actored
-  // fixtures the actor is the PR, so PR + Practitioner + Location all leak
-  // unless tracked explicitly here.
+  // Schedule + the Schedule's direct `_include`d actor; PR-actored fixtures
+  // get their PR swept that way, but the PR's referenced Practitioner /
+  // Location and any HealthcareService (group) need explicit tracking here.
   const extraResourceCleanup: Array<{
-    resourceType: 'Practitioner' | 'PractitionerRole' | 'Location' | 'HealthcareService';
+    resourceType: 'Practitioner' | 'Location' | 'HealthcareService';
     id: string;
   }> = [];
 
@@ -197,10 +198,11 @@ describe('get-schedule filters out inactive owners and Schedules', () => {
     assert(practitioner?.id);
     assert(pr?.id);
     assert(schedule?.id);
-    // PR-actored fixture: the Schedule's `_include`d actor is the PR, so
-    // cleanupTestScheduleResources sweeps the PR but not the PR's referenced
-    // Practitioner or Location. Track all three for the afterAll pass.
-    extraResourceCleanup.push({ resourceType: 'PractitionerRole', id: pr.id });
+    // PR-actored fixture: cleanupTestScheduleResources sweeps Schedule and
+    // its `_include`d actor (the PR), so PR + Schedule are already covered.
+    // The PR's referenced Practitioner and Location aren't included though —
+    // those are referenced by the PR, not actors of the Schedule — so they
+    // leak unless tracked.
     extraResourceCleanup.push({ resourceType: 'Practitioner', id: practitioner.id });
     extraResourceCleanup.push({ resourceType: 'Location', id: location.id });
     return { slug, location, practitioner, pr, schedule };
@@ -263,7 +265,11 @@ describe('get-schedule filters out inactive owners and Schedules', () => {
     // schedules' ids surface in the response, so the negative case has
     // a meaningful signal — a missing Schedule-B reference means the
     // inactive-Practitioner filter actually took effect.
-    const makeSchedule = (prUrn: string, openHour: number, closeHour: number): BatchInputPostRequest<Schedule> => ({
+    const makeSchedule = (
+      prUrn: string,
+      openHour: HourOfDay,
+      closeHour: HourOfDay | 24
+    ): BatchInputPostRequest<Schedule> => ({
       method: 'POST',
       url: 'Schedule',
       resource: {
@@ -273,10 +279,7 @@ describe('get-schedule filters out inactive owners and Schedules', () => {
           { url: TIMEZONE_EXTENSION_URL, valueString: 'America/New_York' },
           {
             url: SCHEDULE_EXTENSION_URL,
-            // The `open`/`close` types in buildSimpleScheduleExt's input are
-            // narrowed to specific hour literals; numeric inputs from the
-            // caller need an explicit any-cast at the boundary.
-            valueString: JSON.stringify(buildSimpleScheduleExt({ open: openHour as never, close: closeHour as never })),
+            valueString: JSON.stringify(buildSimpleScheduleExt({ open: openHour, close: closeHour })),
           },
         ],
         meta: { tag: [tag] },
@@ -354,14 +357,13 @@ describe('get-schedule filters out inactive owners and Schedules', () => {
     assert(scheduleA?.id);
     assert(scheduleB?.id);
 
-    extraResourceCleanup.push({ resourceType: 'PractitionerRole', id: prA.id });
-    extraResourceCleanup.push({ resourceType: 'PractitionerRole', id: prB.id });
+    // PRs are swept by cleanupTestScheduleResources via the Schedule:actor
+    // _include, so they're not tracked here (would just generate noisy
+    // double-delete failures). Practitioners, Location, and the group HS
+    // aren't on the Schedule.actor chain — they need explicit tracking.
     extraResourceCleanup.push({ resourceType: 'Practitioner', id: practitionerA.id });
     extraResourceCleanup.push({ resourceType: 'Practitioner', id: practitionerB.id });
     extraResourceCleanup.push({ resourceType: 'Location', id: location.id });
-    // cleanupTestScheduleResources sweeps Schedule (and via Schedule:actor:HS
-    // it would normally sweep the group HS for HS-actored schedules); these
-    // schedules are PR-actored so the group HS leaks if not tracked.
     extraResourceCleanup.push({ resourceType: 'HealthcareService', id: group.id });
 
     return {
