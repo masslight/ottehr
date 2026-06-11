@@ -377,9 +377,15 @@ describe('get-schedule filters out inactive owners and Schedules', () => {
     };
   };
 
+  // Narrow to scheduleTypes that don't need extra params. The group case
+  // typically needs `selectedDate` to land slots in a future window and
+  // (sometimes) `atLocationSlug`; group tests use their own inline caller
+  // that passes those explicitly. Excluding 'group' here prevents a future
+  // edit from calling this helper for a group and getting a confusing
+  // empty-result or runtime error.
   const callGetSchedule = async (
     slug: string,
-    scheduleType: 'location' | 'provider' | 'group'
+    scheduleType: 'location' | 'provider'
   ): Promise<{ ok: true; output: GetScheduleResponse } | { ok: false; error: unknown }> => {
     try {
       const res = await oystehr.zambda.executePublic({ id: 'get-schedule', slug, scheduleType });
