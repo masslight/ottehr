@@ -21,6 +21,7 @@ import {
   appointmentAttendanceTypeAppointment,
   AppointmentRelatedResources,
   appointmentTypeForAppointment,
+  chunkThings,
   CONSENT_FORMS_CONFIG,
   flattenItems,
   GetAppointmentsZambdaInput,
@@ -408,12 +409,15 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput):
     .map((enc) => enc.id)
     .filter(isTruthy);
 
-  const provenancePromises = encounterIds.map((encId) =>
+  // Batch encounter ids into a few searches instead of one search per encounter;
+  // chunking keeps the query string within URL length limits.
+  const provenancePromises = chunkThings(encounterIds, 50).map((encIdChunk) =>
     oystehr.fhir.search<Provenance>({
       resourceType: 'Provenance',
       params: [
-        { name: 'target', value: `Encounter/${encId}` },
+        { name: 'target', value: encIdChunk.map((encId) => `Encounter/${encId}`).join(',') },
         { name: 'agent-role', value: 'verifier' },
+        { name: '_count', value: '1000' },
       ],
     })
   );
