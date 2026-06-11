@@ -764,7 +764,7 @@ async function findExistingBillingResources(
       resourceType: 'Person',
       params: [
         { name: 'link', value: `Patient/${originals.patient.id}` },
-        { name: 'include', value: 'patient' },
+        { name: '_include', value: 'patient' },
         {
           // Include account coverages
           name: '_revinclude',
