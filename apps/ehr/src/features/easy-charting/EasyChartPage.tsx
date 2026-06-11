@@ -381,9 +381,10 @@ interface NoteSectionsProps {
   // row's resourceId is in this map it renders as a clickable <AiChartedItem> instead of a row.
   aiCharted?: Map<string, AiChartedMeta>;
   onAiSearch?: (field: ChartedField, query: string) => Promise<AiAlternative[]>;
-  onAiReplace?: (field: ChartedField, dto: { resourceId?: string }, key: string) => void;
+  onAiReplace?: (field: ChartedField, dto: { resourceId?: string }, key: string, dosageUnconfirmed?: boolean) => void;
   onAiRemove?: (field: ChartedField, dto: { resourceId?: string }) => void;
   onAiDiscuss?: (field: ChartedField, dto: { resourceId?: string }, meta: AiChartedMeta) => void;
+  onAiSetMedDosage?: (dto: { resourceId?: string }, value: boolean) => void;
 }
 
 // Keyframes defined at module level so the animation runs reliably whether `flashSx` is
@@ -500,6 +501,7 @@ function NoteSections({
   onAiReplace,
   onAiRemove,
   onAiDiscuss,
+  onAiSetMedDosage,
 }: NoteSectionsProps): JSX.Element {
   const removeHandler = (field: string, dto: { resourceId?: string }): (() => void) | undefined =>
     editable && onRemoveItem && dto.resourceId ? () => onRemoveItem(field, dto) : undefined;
@@ -516,15 +518,20 @@ function NoteSections({
   ): JSX.Element => {
     const meta = aiMeta(dto);
     if (!editable || !meta || !onAiSearch || !onAiReplace || !onAiRemove || !onAiDiscuss) return fallback;
+    const isMed = field === 'medications';
+    const medDosage = isMed ? !!(dto as MedicationDTO).intakeInfo?.patientCouldNotConfirmDosage : undefined;
     return (
       <AiChartedItem
         key={dto.resourceId}
         lowConfidence={meta.lowConfidence}
         initialQuery={meta.display}
         onSearch={(q) => onAiSearch(field, q)}
-        onReplace={(key) => onAiReplace(field, dto, key)}
+        onReplace={(key, dosage) => onAiReplace(field, dto, key, dosage)}
         onRemove={() => onAiRemove(field, dto)}
         onDiscuss={() => onAiDiscuss(field, dto, meta)}
+        showDosageOption={isMed}
+        dosageUnconfirmed={medDosage}
+        onDosageUnconfirmedChange={isMed && onAiSetMedDosage ? (v) => onAiSetMedDosage(dto, v) : undefined}
       >
         {label}
       </AiChartedItem>
@@ -638,6 +645,12 @@ function NoteSections({
                   <Typography variant="body2">
                     • {m.name}
                     {m.intakeInfo?.dose ? ` — ${m.intakeInfo.dose}` : ''}
+                    {m.intakeInfo?.patientCouldNotConfirmDosage && (
+                      <Typography component="span" variant="caption" color="text.secondary">
+                        {' '}
+                        (dosage unconfirmed)
+                      </Typography>
+                    )}
                   </Typography>,
                   <DeletableRow
                     key={m.resourceId ?? i}
@@ -649,6 +662,12 @@ function NoteSections({
                     <Typography variant="body2">
                       • {m.name}
                       {m.intakeInfo?.dose ? ` — ${m.intakeInfo.dose}` : ''}
+                      {m.intakeInfo?.patientCouldNotConfirmDosage && (
+                        <Typography component="span" variant="caption" color="text.secondary">
+                          {' '}
+                          (dosage unconfirmed)
+                        </Typography>
+                      )}
                     </Typography>
                   </DeletableRow>
                 )
@@ -2039,7 +2058,10 @@ function chartedItemDisplay(field: ChartedField, item: { name?: string; display?
 function buildIntentPayload(
   encounterId: string,
   intent: AddSearchIntent,
-  result: SearchResult
+  result: SearchResult,
+  // Medications: the AI never confirms the dose, so default to "patient couldn't confirm dosage"
+  // (matches the regular-note AI suggestion default). The correction popover can override it.
+  dosageUnconfirmed = true
 ): SaveChartDataRequest | null {
   if (intent.kind === 'add-diagnosis' && result.code) {
     return { encounterId, diagnosis: [{ code: result.code, display: result.name, isPrimary: intent.isPrimary }] };
@@ -2074,7 +2096,7 @@ function buildIntentPayload(
           id: result.id != null ? String(result.id) : undefined,
           type: 'scheduled',
           status: 'active',
-          intakeInfo: {},
+          intakeInfo: { patientCouldNotConfirmDosage: dosageUnconfirmed || undefined },
         } satisfies MedicationDTO,
       ],
     };
@@ -2335,23 +2357,34 @@ export default function EasyChartPage(): JSX.Element {
     const intent = synthAddIntent(field, query, [query]);
     const results = await runIntentSearch(intent, oystehr, oystehrZambda);
     const map = new Map<string, SearchResult>();
-    const alts = results.map((r, i) => {
+    const alts: AiAlternative[] = results.map((r, i) => {
       const key = `${r.code ?? r.id ?? r.name}-${i}`;
       map.set(key, r);
-      return { key, label: r.code ? `${r.code} — ${r.name}` : r.name };
+      return {
+        key,
+        label: r.code ? `${r.code} — ${r.name}` : r.name,
+        // Medications show strength as a secondary line (mirrors the regular-note suggestion).
+        secondary: field === 'medications' ? r.strength : undefined,
+      };
     });
     aiSearchResultsRef.current = map;
     return alts;
   };
 
   // Replace an AI-charted item with a chosen alternative: delete the old, add the new (NOT flagged
-  // for review — the provider chose it). Preserves primary flag for diagnoses.
-  const aiReplace = (field: ChartedField, dto: { resourceId?: string }, key: string): void => {
+  // for review — the provider chose it). Preserves primary flag for diagnoses; carries the
+  // dosage-unconfirmed flag for medications.
+  const aiReplace = (
+    field: ChartedField,
+    dto: { resourceId?: string },
+    key: string,
+    dosageUnconfirmed?: boolean
+  ): void => {
     const result = aiSearchResultsRef.current.get(key);
     if (!result || !encounterId) return;
     const isPrimary = field === 'diagnosis' ? !!(dto as { isPrimary?: boolean }).isPrimary : undefined;
     const intent = synthAddIntent(field, result.name, [], isPrimary);
-    const payload = buildIntentPayload(encounterId, intent, result);
+    const payload = buildIntentPayload(encounterId, intent, result, dosageUnconfirmed ?? true);
     void (async () => {
       try {
         await deleteChartedResource(field, dto);
@@ -2360,6 +2393,17 @@ export default function EasyChartPage(): JSX.Element {
         console.error('AI replace failed:', e);
       }
     })();
+  };
+
+  // Toggle "patient doesn't know dosage" on an already-charted medication, in place (no replace).
+  const aiSetMedDosage = (dto: { resourceId?: string }, value: boolean): void => {
+    if (!encounterId || !dto.resourceId) return;
+    const med = dto as MedicationDTO;
+    const payload: SaveChartDataRequest = {
+      encounterId,
+      medications: [{ ...med, intakeInfo: { ...med.intakeInfo, patientCouldNotConfirmDosage: value || undefined } }],
+    };
+    void saveAndMerge(payload).catch((e) => console.error('AI dosage toggle failed:', e));
   };
 
   const aiRemove = (field: ChartedField, dto: { resourceId?: string }): void => {
@@ -4135,6 +4179,7 @@ export default function EasyChartPage(): JSX.Element {
         onAiReplace={aiReplace}
         onAiRemove={aiRemove}
         onAiDiscuss={aiDiscuss}
+        onAiSetMedDosage={aiSetMedDosage}
       />
     </>
   ) : null;

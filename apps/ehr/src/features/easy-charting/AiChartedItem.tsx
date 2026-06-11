@@ -4,8 +4,10 @@ import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import {
   Box,
   Button,
+  Checkbox,
   CircularProgress,
   Divider,
+  FormControlLabel,
   List,
   ListItemButton,
   ListItemText,
@@ -20,6 +22,8 @@ import React, { useCallback, useState } from 'react';
 export interface AiAlternative {
   key: string;
   label: string;
+  /** Secondary line (e.g. a medication's strength). */
+  secondary?: string;
 }
 
 interface AiChartedItemProps {
@@ -30,9 +34,15 @@ interface AiChartedItemProps {
   /** Seed query for the alternatives search (usually the item's display text). */
   initialQuery: string;
   onSearch: (query: string) => Promise<AiAlternative[]>;
-  onReplace: (key: string) => void | Promise<void>;
+  /** Replace the item with the chosen alternative; dosageUnconfirmed carries for medications. */
+  onReplace: (key: string, dosageUnconfirmed?: boolean) => void | Promise<void>;
   onRemove: () => void | Promise<void>;
   onDiscuss: () => void;
+  // Medications: a "Patient doesn't know dosage" checkbox (mirrors the regular-note AI suggestion).
+  // Toggling it updates the CURRENT item in place; it also carries to any replacement chosen.
+  showDosageOption?: boolean;
+  dosageUnconfirmed?: boolean;
+  onDosageUnconfirmedChange?: (value: boolean) => void;
 }
 
 /**
@@ -49,11 +59,15 @@ export function AiChartedItem({
   onReplace,
   onRemove,
   onDiscuss,
+  showDosageOption,
+  dosageUnconfirmed,
+  onDosageUnconfirmedChange,
 }: AiChartedItemProps): JSX.Element {
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
   const [query, setQuery] = useState(initialQuery);
   const [results, setResults] = useState<AiAlternative[]>([]);
   const [loading, setLoading] = useState(false);
+  const [dosage, setDosage] = useState(!!dosageUnconfirmed);
   const open = Boolean(anchor);
 
   const doSearch = useCallback(
@@ -73,6 +87,7 @@ export function AiChartedItem({
   const handleOpen = (e: React.MouseEvent<HTMLElement>): void => {
     setAnchor(e.currentTarget);
     setQuery(initialQuery);
+    setDosage(!!dosageUnconfirmed);
     void doSearch(initialQuery);
   };
   const close = (): void => setAnchor(null);
@@ -119,6 +134,24 @@ export function AiChartedItem({
           <Typography variant="subtitle2" sx={{ mb: 1 }}>
             Replace or correct
           </Typography>
+          {showDosageOption && (
+            <FormControlLabel
+              sx={{ mb: 0.5 }}
+              control={
+                <Checkbox
+                  size="small"
+                  checked={dosage}
+                  onChange={(e) => {
+                    setDosage(e.target.checked);
+                    // Toggle applies to the CURRENT item in place (mirrors keeping the med, just
+                    // marking the dosage). It also carries to a replacement if one is chosen.
+                    onDosageUnconfirmedChange?.(e.target.checked);
+                  }}
+                />
+              }
+              label={<Typography variant="caption">Patient doesn&apos;t know dosage</Typography>}
+            />
+          )}
           <TextField
             size="small"
             fullWidth
@@ -149,10 +182,15 @@ export function AiChartedItem({
                     key={r.key}
                     onClick={() => {
                       close();
-                      void onReplace(r.key);
+                      void onReplace(r.key, dosage);
                     }}
                   >
-                    <ListItemText primaryTypographyProps={{ variant: 'body2' }} primary={r.label} />
+                    <ListItemText
+                      primaryTypographyProps={{ variant: 'body2' }}
+                      primary={r.label}
+                      secondary={r.secondary || undefined}
+                      secondaryTypographyProps={{ variant: 'caption' }}
+                    />
                   </ListItemButton>
                 ))}
               </List>
