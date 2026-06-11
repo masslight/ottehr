@@ -726,29 +726,34 @@ describe('ApplyTemplate', () => {
     await user.click(await screen.findByText('Sore Throat'));
 
     const labCard = await screen.findByTestId('template-section-externalLabs');
-    // Summary calls out the missing-test count in addition to the test names.
-    expect(within(labCard).getByText(/CBC With Differential/)).toBeInTheDocument();
-    expect(within(labCard).getByText(/1 unavailable/)).toBeInTheDocument();
+    // Summary calls out the missing-test count and echoes the payment method
+    // that will be used (defaulted from the visit's payment details -
+    // insurance, since the patient has coverage) so the user gets a reminder
+    // without expanding the card.
+    const header = within(labCard).getByTestId('template-section-externalLabs-header');
+    expect(header).toHaveTextContent(/CBC With Differential/);
+    expect(header).toHaveTextContent(/1 unavailable/);
+    expect(header).toHaveTextContent(/Payment: Insurance/);
 
     // External labs are append-or-skip only; the Overwrite toggle should not render.
     expect(within(labCard).queryByRole('button', { name: 'Overwrite' })).toBeNull();
     expect(within(labCard).getByRole('button', { name: 'Skip' })).toBeInTheDocument();
     expect(within(labCard).getByRole('button', { name: 'Append' })).toBeInTheDocument();
 
-    // The always-visible apply controls show the auto-selected ordering office
-    // (from the visit) and the payment method select, defaulted from the
-    // visit's payment details (insurance, since the patient has coverage).
-    const controls = within(labCard).getByTestId('template-section-externalLabs-controls');
-    expect(within(controls).getByTestId('template-external-labs-ordering-office')).toHaveTextContent('Test Office');
-    expect(within(controls).getByTestId('template-external-labs-payment-method')).toHaveTextContent('Insurance');
+    // The apply controls live in the expanded body - not in the DOM while collapsed.
+    expect(within(labCard).queryByTestId('template-section-externalLabs-controls')).toBeNull();
 
     await user.click(within(labCard).getByTestId('template-section-externalLabs-header'));
 
+    // Expanding reveals the auto-selected ordering office and the payment
+    // method select for the rare case where the user wants to change it.
+    const controls = await within(labCard).findByTestId('template-section-externalLabs-controls');
+    expect(within(controls).getByTestId('template-external-labs-ordering-office')).toHaveTextContent('Test Office');
+    expect(within(controls).getByTestId('template-external-labs-payment-method')).toHaveTextContent('Insurance');
+
     // Both plans appear in the expanded preview with their saved ordering
     // details (the test name also shows in the collapsed summary, hence 2).
-    await waitFor(() => {
-      expect(within(labCard).getAllByText(/Discontinued Panel/)).toHaveLength(2);
-    });
+    expect(within(labCard).getAllByText(/Discontinued Panel/)).toHaveLength(2);
     expect(within(labCard).getByText(/unavailable in this environment/)).toBeInTheDocument();
     expect(within(labCard).getByText('PSC Hold')).toBeInTheDocument();
     expect(within(labCard).getByText(/fasting required/)).toBeInTheDocument();
@@ -772,8 +777,14 @@ describe('ApplyTemplate', () => {
     const applyButton = screen.getByRole('button', { name: 'Apply Template' });
     expect(applyButton).toBeDisabled();
 
-    // Selecting a payment method satisfies the requirement.
-    const paymentSelect = within(labCard).getByTestId('template-external-labs-payment-method');
+    // The header summary flags the missing requirement while collapsed.
+    expect(within(labCard).getByTestId('template-section-externalLabs-header')).toHaveTextContent(
+      /payment method needed/
+    );
+
+    // Expanding the card and selecting a payment method satisfies the requirement.
+    await user.click(within(labCard).getByTestId('template-section-externalLabs-header'));
+    const paymentSelect = await within(labCard).findByTestId('template-external-labs-payment-method');
     await user.click(within(paymentSelect).getByRole('combobox'));
     await user.click(await screen.findByRole('option', { name: 'Self Pay' }));
 
@@ -806,7 +817,7 @@ describe('ApplyTemplate', () => {
     const labCard = await screen.findByTestId('template-section-externalLabs');
     await user.click(within(labCard).getByRole('button', { name: 'Skip' }));
 
-    // Skipping hides the apply controls and unblocks Apply.
+    // Skipping unblocks Apply (the controls stay tucked away in the collapsed body).
     expect(within(labCard).queryByTestId('template-section-externalLabs-controls')).toBeNull();
     expect(screen.getByRole('button', { name: 'Apply Template' })).toBeEnabled();
     await user.click(screen.getByRole('button', { name: 'Apply Template' }));
@@ -836,8 +847,13 @@ describe('ApplyTemplate', () => {
     await user.click(await screen.findByText('Sore Throat'));
 
     const labCard = await screen.findByTestId('template-section-externalLabs');
-    expect(within(labCard).getByTestId('template-external-labs-resources-error')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Apply Template' })).toBeDisabled();
+    // The header summary flags the problem; expanding shows the explanation.
+    expect(within(labCard).getByTestId('template-section-externalLabs-header')).toHaveTextContent(
+      /payment options unavailable/
+    );
+    await user.click(within(labCard).getByTestId('template-section-externalLabs-header'));
+    expect(await within(labCard).findByTestId('template-external-labs-resources-error')).toBeInTheDocument();
 
     await user.click(within(labCard).getByRole('button', { name: 'Skip' }));
     expect(screen.getByRole('button', { name: 'Apply Template' })).toBeEnabled();
@@ -860,11 +876,13 @@ describe('ApplyTemplate', () => {
     await user.click(await screen.findByText('Sore Throat'));
 
     const labCard = await screen.findByTestId('template-section-externalLabs');
-    // Orders will be skipped server-side with a warning, so the preview warns
-    // and there is no payment method to require.
-    expect(within(labCard).getByTestId('template-external-labs-office-warning')).toBeInTheDocument();
-    expect(within(labCard).queryByTestId('template-external-labs-payment-method')).toBeNull();
+    // Orders will be skipped server-side with a warning, so there is no
+    // payment method to require and Apply stays enabled.
     expect(screen.getByRole('button', { name: 'Apply Template' })).toBeEnabled();
+    // Expanding shows the office warning instead of the payment selector.
+    await user.click(within(labCard).getByTestId('template-section-externalLabs-header'));
+    expect(await within(labCard).findByTestId('template-external-labs-office-warning')).toBeInTheDocument();
+    expect(within(labCard).queryByTestId('template-external-labs-payment-method')).toBeNull();
   });
 
   it('should not render the external labs section when the template carries none', async () => {

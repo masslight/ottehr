@@ -444,12 +444,11 @@ const InHouseLabPlansList: React.FC<{ plans: TemplateInHouseLabPlanDetail[] }> =
 );
 
 // Each external lab plan renders the test + lab combo with the saved ordering
-// details (Dx chips, PSC chip, configured payment method, clinical info note)
-// underneath. Plans whose test no longer resolves in the lab's compendium
-// render muted so the provider knows they'll be skipped at apply-time. The
-// ordering office and the (required) payment method confirmation live in the
-// section card's always-visible controls, not here - they're apply inputs, not
-// template content.
+// details (Dx chips, PSC chip, clinical info note) underneath. Plans whose
+// test no longer resolves in the lab's compendium render muted so the
+// provider knows they'll be skipped at apply-time. The ordering office and
+// the (required) payment method selector live in the card's expanded
+// controls, not here - they're apply inputs, not template content.
 const ExternalLabPlansList: React.FC<{ plans: TemplateExternalLabPlanDetail[] }> = ({ plans }) => (
   <Stack spacing={1.5}>
     {plans.map((plan) => (
@@ -556,17 +555,20 @@ const SectionCard: React.FC<{
   action: TemplateSectionAction;
   onActionChange: (action: TemplateSectionAction) => void;
   disabled: boolean;
-  // Always-visible controls rendered below the header (outside the collapsible
-  // preview), used for apply inputs the user must see without expanding the
-  // card - e.g. the external labs payment method confirmation. Hidden while
-  // the section action is 'skip'.
-  extraContent?: React.ReactNode;
-}> = ({ descriptor, sections, action, onActionChange, disabled, extraContent }) => {
+  // Extra text appended to the header summary (separator included by the
+  // caller) - e.g. the external labs card shows the payment method that will
+  // be used so the user gets a reminder without expanding the card.
+  summarySuffix?: string;
+  // Apply inputs rendered at the top of the expanded body, above the preview -
+  // e.g. the external labs ordering office + payment method selector. Most
+  // users never need to change these, so they live behind the expand toggle.
+  expandedContent?: React.ReactNode;
+}> = ({ descriptor, sections, action, onActionChange, disabled, summarySuffix, expandedContent }) => {
   const theme = useTheme();
   const [expanded, setExpanded] = useState(false);
   const noAppend = TEMPLATE_SECTIONS_NO_APPEND.has(descriptor.key);
   const noOverwrite = TEMPLATE_SECTIONS_NO_OVERWRITE.has(descriptor.key);
-  const summary = getSectionSummary(sections, descriptor.key);
+  const summary = `${getSectionSummary(sections, descriptor.key)}${summarySuffix ?? ''}`;
 
   const previewSx = {
     opacity: action === 'skip' ? 0.5 : 1,
@@ -666,19 +668,16 @@ const SectionCard: React.FC<{
           </ToggleButtonGroup>
         </Box>
       </Box>
-      {extraContent && action !== 'skip' ? (
-        <Box
-          data-testid={`template-section-${descriptor.key}-controls`}
-          sx={{ px: 2, py: 1.5, borderTop: `1px solid ${theme.palette.divider}` }}
-        >
-          {extraContent}
-        </Box>
-      ) : null}
       <Collapse in={expanded} unmountOnExit>
         <Box
           id={`template-section-${descriptor.key}-body`}
           sx={{ px: 2, pb: 2, pt: 2, borderTop: `1px solid ${theme.palette.divider}`, ...previewSx }}
         >
+          {expandedContent ? (
+            <Box data-testid={`template-section-${descriptor.key}-controls`} sx={{ mb: 2 }}>
+              {expandedContent}
+            </Box>
+          ) : null}
           <SectionPreview sectionKey={descriptor.key} sections={sections} />
         </Box>
       </Collapse>
@@ -689,9 +688,12 @@ const SectionCard: React.FC<{
 // The apply-time inputs for the External Lab Orders section: the ordering
 // office (auto-selected from the visit's location, display-only) and the
 // payment method the created orders will use (required before the section can
-// be appended). Payment options mirror the chart's create-order page:
-// Insurance only when the patient has coverage, Workers' Comp only when the
-// appointment is flagged workers comp, Self Pay and Client Bill always.
+// be appended). The selection defaults from the visit's payment details and
+// is echoed in the card's header summary, so most users never need to open
+// this - it lives in the card's expanded body for the rare change. Payment
+// options mirror the chart's create-order page: Insurance only when the
+// patient has coverage, Workers' Comp only when the appointment is flagged
+// workers comp, Self Pay and Client Bill always.
 const ExternalLabsApplyControls: React.FC<{
   resourcesLoading: boolean;
   resourcesError: boolean;
@@ -917,6 +919,17 @@ export const TemplatePreviewDialog: React.FC<TemplatePreviewDialogProps> = ({
       externalLabResourcesQuery.isError ||
       (Boolean(orderingOfficeName) && !externalLabPaymentMethod));
 
+  // Echo the payment selection in the card's header summary so the user gets
+  // a reminder of what the orders will use without expanding the card (the
+  // selector itself lives in the expanded body - it rarely needs changing).
+  const externalLabsSummarySuffix = ((): string | undefined => {
+    if (!hasExternalLabs) return undefined;
+    if (externalLabResourcesQuery.isError) return ' · payment options unavailable';
+    if (externalLabPaymentMethod) return ` · Payment: ${LAB_PAYMENT_METHOD_DISPLAY[externalLabPaymentMethod]}`;
+    if (!externalLabResourcesQuery.isLoading && orderingOfficeName) return ' · payment method needed';
+    return undefined;
+  })();
+
   return (
     <Dialog
       open={open}
@@ -957,7 +970,8 @@ export const TemplatePreviewDialog: React.FC<TemplatePreviewDialogProps> = ({
                 action={actions[section.key]}
                 onActionChange={(action) => handleActionChange(section.key, action)}
                 disabled={isApplying}
-                extraContent={
+                summarySuffix={section.key === 'externalLabs' ? externalLabsSummarySuffix : undefined}
+                expandedContent={
                   section.key === 'externalLabs' ? (
                     <ExternalLabsApplyControls
                       resourcesLoading={externalLabResourcesQuery.isLoading}
@@ -968,7 +982,7 @@ export const TemplatePreviewDialog: React.FC<TemplatePreviewDialogProps> = ({
                       orderingOfficeName={orderingOfficeName}
                       paymentMethod={externalLabPaymentMethod}
                       onPaymentMethodChange={setExternalLabPaymentMethod}
-                      disabled={isApplying}
+                      disabled={isApplying || actions.externalLabs === 'skip'}
                     />
                   ) : undefined
                 }
