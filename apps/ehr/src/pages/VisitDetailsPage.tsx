@@ -465,6 +465,8 @@ export default function VisitDetailsPage(): ReactElement {
       return getPatientVisitDetails(oystehrZambda!, { appointmentId: appointmentID! });
     },
     enabled: Boolean(oystehrZambda) && appointmentID !== undefined,
+    staleTime: 0,
+    refetchOnMount: 'always',
   });
 
   const appointment = visitDetailsData?.appointment;
