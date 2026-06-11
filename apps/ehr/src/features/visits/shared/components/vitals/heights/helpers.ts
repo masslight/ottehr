@@ -1,11 +1,4 @@
-import {
-  cmToFeetText,
-  cmToInchesText,
-  feetToCm,
-  inchesToCm,
-  roundNumberToDecimalPlaces,
-  textToNumericValue,
-} from 'utils';
+import { feetInchesToCm, inchesToCm, roundNumberToDecimalPlaces, textToNumericValue } from 'utils';
 
 export const textToHeightNumber = (text: string): number | undefined => {
   const heightVal = textToNumericValue(text);
@@ -19,18 +12,21 @@ export const textToHeightNumberFromInches = (inchesText: string): number | undef
   return roundHeightValue(inchesToCm(inches));
 };
 
-export const textToHeightNumberFromFeet = (feetText: string): number | undefined => {
-  const feet = textToNumericValue(feetText);
-  if (feet === undefined) return;
-  return roundHeightValue(feetToCm(feet));
-};
+export const textToHeightNumberFromFeetAndInchRemainder = (
+  feetText: string,
+  inchRemainderText: string
+): number | undefined => {
+  const hasFeet = feetText.trim().length > 0;
+  const hasInchRemainder = inchRemainderText.trim().length > 0;
 
-export const heightCmToInchesText = (heightCm: number): string => {
-  return cmToInchesText(heightCm);
-};
+  if (!hasFeet && !hasInchRemainder) return;
 
-export const heightCmToFeetText = (heightCm: number): string => {
-  return cmToFeetText(heightCm);
+  const feet = hasFeet ? textToNumericValue(feetText) : 0;
+  const inchRemainder = hasInchRemainder ? textToNumericValue(inchRemainderText) : 0;
+
+  if (feet === undefined || inchRemainder === undefined) return;
+
+  return roundHeightValue(feetInchesToCm(feet, inchRemainder));
 };
 
 const roundHeightValue = (heightVal: number): number => roundNumberToDecimalPlaces(heightVal, 1);

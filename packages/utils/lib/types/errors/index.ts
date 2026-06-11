@@ -57,6 +57,7 @@ export enum APIErrorCode {
   MISSING_WC_INFO_FOR_LABS = 4403,
   ADMIN_IN_HOUSE_TEST_EXISTS = 4404,
   LABEL_PRINTING_GENERAL = 4405,
+  RADIOLOGY_GENERAL = 4406,
 
   // 45xx
   STRIPE_PAYMENT_ERROR_GENERIC = 4500,
@@ -473,3 +474,10 @@ export const PRECONDITION_FAILED = (message?: string): APIError => ({
   code: APIErrorCode.PRECONDITION_FAILED,
   message: message ?? 'Resource was edited during operation',
 });
+
+export const RADIOLOGY_ERROR = (message: string): APIError => {
+  return {
+    code: APIErrorCode.RADIOLOGY_GENERAL,
+    message,
+  };
+};

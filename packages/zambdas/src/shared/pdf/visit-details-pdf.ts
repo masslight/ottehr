@@ -4,6 +4,7 @@ import {
   getCoding,
   getReasonForVisitAndAdditionalDetailsFromAppointment,
   getReasonForVisitOptionsForServiceCategory,
+  getVisitOccupationalMedicineEmployerFromEncounter,
   isInPersonAppointment,
   isTelemedAppointment,
   Secrets,
@@ -65,7 +66,15 @@ const buildAppointmentContext = (input: VisitDetailsInput): AppointmentContext =
     : [];
   const reasonForVisit = validReasons.some((option) => option.value === firstComplaint) ? firstComplaint : undefined;
 
-  return { appointmentServiceCategory, appointmentServiceMode, reasonForVisit, encounterId: encounter?.id };
+  return {
+    appointmentServiceCategory,
+    appointmentServiceMode,
+    reasonForVisit,
+    encounterId: encounter?.id,
+    visitOccupationalMedicineEmployerReference: encounter
+      ? getVisitOccupationalMedicineEmployerFromEncounter(encounter)
+      : undefined,
+  };
 };
 
 const composeVisitDetailsData: DataComposer<VisitDetailsInput, VisitDetailsData> = (input) => {

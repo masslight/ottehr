@@ -402,6 +402,8 @@ export const extractFirstValueFromAnswer = (
 export interface PrePopulationFromPatientRecordInput extends PatientAccountResponse {
   questionnaire: Questionnaire;
   overriddenItems?: QuestionnaireResponseItem[];
+  visitOccupationalMedicineEmployerReference?: Reference;
+  appointmentServiceCategory?: string;
 }
 
 export const makePrepopulatedItemsFromPatientRecord = (
@@ -487,9 +489,16 @@ export const makePrepopulatedItemsFromPatientRecord = (
         });
       }
       if (OCCUPATIONAL_MEDICINE_EMPLOYER_ITEMS.includes(item.linkId)) {
+        // Visit-level employer wins; for pre-op don't fall back to the Account employer.
+        const useAccountEmployer =
+          !input.visitOccupationalMedicineEmployerReference && input.appointmentServiceCategory !== 'pre-op';
+
         return mapOccupationalMedicineEmployerToQuestionnaireResponseItems({
           items: itemItems,
-          occupationalMedicineEmployerOrganization,
+          occupationalMedicineEmployerOrganization: useAccountEmployer
+            ? occupationalMedicineEmployerOrganization
+            : undefined,
+          occupationalMedicineEmployerReference: input.visitOccupationalMedicineEmployerReference,
         });
       }
       if (ATTORNEY_ITEMS.includes(item.linkId)) {
@@ -1175,14 +1184,21 @@ const mapEmployerToQuestionnaireResponseItems = (input: MapEmployerItemsInput): 
 interface MapOccupationalMedicineEmployerItemsInput {
   items: QuestionnaireItem[];
   occupationalMedicineEmployerOrganization?: Organization;
+  occupationalMedicineEmployerReference?: Reference;
 }
 
 const mapOccupationalMedicineEmployerToQuestionnaireResponseItems = (
   input: MapOccupationalMedicineEmployerItemsInput
 ): QuestionnaireResponseItem[] => {
-  const { occupationalMedicineEmployerOrganization, items } = input;
-  let occupationalMedicineEmployerReference: Reference | undefined;
-  if (occupationalMedicineEmployerOrganization) {
+  const {
+    occupationalMedicineEmployerOrganization,
+    occupationalMedicineEmployerReference: referenceOverride,
+    items,
+  } = input;
+
+  let occupationalMedicineEmployerReference: Reference | undefined = referenceOverride;
+
+  if (!occupationalMedicineEmployerReference && occupationalMedicineEmployerOrganization) {
     occupationalMedicineEmployerReference = {
       reference: `Organization/${occupationalMedicineEmployerOrganization.id}`,
       display: occupationalMedicineEmployerOrganization.name,
