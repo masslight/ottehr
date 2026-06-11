@@ -856,12 +856,15 @@ test.describe('Patient Record Page tests', { tag: '@smoke' }, () => {
           fieldType: 'text' | 'date' | 'select' | 'phone';
         }> = [];
 
-        // Find all responsible party fields that have dynamicPopulation
+        // Find all responsible party fields that have dynamicPopulation.
+        // Exclude fields with disabledDisplay: 'hidden' — they are not in the DOM when
+        // relationship is "Self", so auto-populated values cannot be verified on them.
         for (const [fieldName, fieldConfig] of Object.entries(responsibleParty)) {
           if (
             fieldConfig.type === 'display' ||
             fieldConfig.type === 'attachment' ||
-            !('dynamicPopulation' in fieldConfig)
+            !('dynamicPopulation' in fieldConfig) ||
+            ('disabledDisplay' in fieldConfig && fieldConfig.disabledDisplay === 'hidden')
           )
             continue;
 
