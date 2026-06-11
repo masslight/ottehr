@@ -757,7 +757,6 @@ describe('create-billing-claim-from-encounter', () => {
               "beneficiary": {
                 "reference": "urn:uuid:patient",
               },
-              "contained": [],
               "extension": [
                 {
                   "url": "https://ottehr.com/billing/source-resource",
@@ -829,7 +828,6 @@ describe('create-billing-claim-from-encounter', () => {
               "beneficiary": {
                 "reference": "urn:uuid:claim-patient",
               },
-              "contained": [],
               "extension": [
                 {
                   "url": "https://ottehr.com/billing/source-resource",

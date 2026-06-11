@@ -11,6 +11,17 @@ export async function waitForSnackbar(page: Page): Promise<void> {
   await expect(snackbar).toBeVisible();
 }
 
+/**
+ * Removes any visible notistack snackbars from the DOM. Error/success toasts render in an overlay
+ * container that can intercept pointer events and block clicks on underlying controls (e.g. the side
+ * menu). Use this before interacting with elements that a lingering snackbar might cover.
+ */
+export async function dismissSnackbars(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    document.querySelectorAll('.notistack-SnackbarContainer').forEach((el) => el.remove());
+  });
+}
+
 export async function telemedDialogConfirm(page: Page): Promise<void> {
   const dialogButtonConfirm = page.getByTestId(dataTestIds.dialog.proceedButton);
   await expect(dialogButtonConfirm).toBeVisible();

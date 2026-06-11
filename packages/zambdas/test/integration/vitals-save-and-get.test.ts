@@ -145,7 +145,7 @@ describe('saving and getting vitals', () => {
       await oystehr.zambda.execute({
         id: 'get-vitals',
         encounterId,
-        mode: 'current',
+        currentOrHistorical: 'current',
       })
     ).output as Promise<GetVitalsResponseData>;
     return response;
@@ -156,7 +156,7 @@ describe('saving and getting vitals', () => {
       await oystehr.zambda.execute({
         id: 'get-vitals',
         encounterId,
-        mode: 'historical',
+        currentOrHistorical: 'historical',
       })
     ).output as Promise<GetVitalsResponseData>;
     return response;

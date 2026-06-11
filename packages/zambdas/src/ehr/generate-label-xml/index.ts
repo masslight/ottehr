@@ -16,7 +16,10 @@ import {
   createXmlExternalLabLabel_30334_LongId,
   createXmlExternalLabLabel_30334_ShortId,
 } from './xml-templates/external-lab-label-templates';
-import { createXmlVisitLabel_30334_LongId } from './xml-templates/visit-label-templates';
+import {
+  createXmlVisitLabel_30334_LongId,
+  createXmlVisitLabel_30334_ShortId,
+} from './xml-templates/visit-label-templates';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let m2mToken: string;
@@ -38,7 +41,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const getLabelConfig = async (): Promise<VisitLabelConfig | ExternalLabsLabelConfig> => {
     if (type === 'visit') {
       const { encounterId } = validatedRequestParams;
-      // LABEL TODO: update this functionality to use the correct label for the given id length
       return getVisitLabelConfig(oystehr, encounterId);
     } else {
       const { serviceRequestId, userTimezone } = validatedRequestParams;
@@ -97,7 +99,7 @@ type LabelFunctionMap<TContent> = {
 };
 
 const VISIT_LABEL_FUNCTION_MAP: LabelFunctionMap<VisitLabelContent> = {
-  DYMO: { '30334': { longId: createXmlVisitLabel_30334_LongId, shortId: createXmlVisitLabel_30334_LongId } },
+  DYMO: { '30334': { longId: createXmlVisitLabel_30334_LongId, shortId: createXmlVisitLabel_30334_ShortId } },
 };
 
 const EXTERNAL_LAB_LABEL_FUNCTION_MAP: LabelFunctionMap<ExternalLabsLabelContent> = {

@@ -7,6 +7,7 @@ import {
   getOrCreateOutreachConfig,
   parseNotificationsTimeRestriction,
   parsePlanDefinitionToActions,
+  preserveConfiguredAtExtension,
 } from '../helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -30,6 +31,8 @@ export const index = wrapHandler(
       ...buildPlanDefinitionFromActions(validated.actions, validated.notificationsTimeRestriction),
       id: existing.id,
     };
+    // Preserve the immutable activation timestamp across edits (stamps one now for legacy configs).
+    updatedPlanDef.extension = preserveConfiguredAtExtension(updatedPlanDef.extension, existing);
 
     // Parse new actions from the built PlanDefinition to get stable IDs
     const newActions = parsePlanDefinitionToActions(updatedPlanDef);

@@ -24,6 +24,7 @@ import {
   makeBookingOriginExtensionEntry,
   makeSlotAtLocationExtensionEntry,
   makeSlotBookedViaGroupExtensionEntry,
+  resolveServiceCategory,
   SCHEDULE_EXTENSION_URL,
   SCHEDULE_NUM_DAYS,
   ScheduleAndOwner,
@@ -39,7 +40,8 @@ import {
   TIMEZONE_EXTENSION_URL,
   WALKIN_APPOINTMENT_TYPE_CODE,
 } from '../fhir';
-import { BOOKING_CONFIG, ServiceCategoryCode } from '../ottehr-config';
+import { SERVICE_CATEGORY_SYSTEM } from '../fhir/constants';
+import { ServiceCategoryCode } from '../ottehr-config';
 import {
   Closure,
   ClosureType,
@@ -155,6 +157,13 @@ export interface ScheduleDTOOwner {
   isVirtual?: boolean;
   /** PR owners only — IDs of HealthcareService resources this role offers. */
   healthcareServiceIds?: string[];
+  /**
+   * PR owners only — when true, the role is treated as offering every service
+   * category in the system. Replaces the implicit-empty-array semantic that
+   * used to mean "all services" but was inconsistently honored across read
+   * sites. Defaults to false (admin opts in explicitly).
+   */
+  allCategories?: boolean;
   /** PR owners only — id of the Location this role is bound to. */
   locationId?: string;
   /**
@@ -2019,6 +2028,15 @@ interface CheckSlotAvailableInput {
    * create-appointment runs) from counting against itself.
    */
   excludeSlotId?: string;
+  /**
+   * Pre-resolved cadence for the slot's service category. When omitted, the
+   * helper resolves it by paginating the FHIR catalog — fine for one-off
+   * calls, wasteful when the same slot is checked against N candidate
+   * schedules (e.g., anonymous-mode group fallback). Resolve once at the
+   * caller and pass through; the slot's serviceCategory is invariant across
+   * candidate schedules so the cadence is too.
+   */
+  cadenceMinutes?: number;
 }
 /**
  * Pure predicate, extracted from checkSlotAvailable so the rule can be
@@ -2033,8 +2051,20 @@ interface CheckSlotAvailableInput {
  * vending grid — sharper than the previous heuristic which assumed
  * Schedule-default slot length.
  */
-export const slotAvailableAgainstBusy = (input: { slot: Slot; schedule: Schedule; busySlots: Slot[] }): boolean => {
-  const { slot, schedule, busySlots } = input;
+export const slotAvailableAgainstBusy = (input: {
+  slot: Slot;
+  schedule: Schedule;
+  busySlots: Slot[];
+  /**
+   * Cadence between offered slot starts in minutes. When omitted,
+   * getAvailableSlots derives a default (`gcd(slotLength, 60)`) — which
+   * silently rejects slots vended at non-default-cadence offsets, e.g. a
+   * 10:15 slot on a 30-min duration with a 15-min cadence. Resolve from the
+   * slot's serviceCategory at the call site and pass through.
+   */
+  cadenceMinutes?: number;
+}): boolean => {
+  const { slot, schedule, busySlots, cadenceMinutes } = input;
   if (!slot.start || !slot.end) return false;
   // `{ setZone: true }` preserves the slot's stored offset on the resulting
   // DateTime. Without it, Luxon re-anchors to the runtime's local zone —
@@ -2056,6 +2086,7 @@ export const slotAvailableAgainstBusy = (input: { slot: Slot; schedule: Schedule
     schedule,
     busySlots,
     slotLengthMinutes,
+    cadenceMinutes,
   });
   const slotStartMs = +slotStart;
   return availableSlots.some((iso) => {
@@ -2089,7 +2120,35 @@ export const checkSlotAvailable = async (input: CheckSlotAvailableInput, oystehr
   if (input.excludeSlotId) {
     busySlots = busySlots.filter((s) => s.id !== input.excludeSlotId);
   }
-  return slotAvailableAgainstBusy({ slot: input.slot, schedule: input.schedule, busySlots });
+  // Resolve the slot's serviceCategory to recover the configured cadence.
+  // Without it, slotAvailableAgainstBusy regenerates the day's grid at the
+  // default cadence (`gcd(slotLength, 60)`) and silently rejects every
+  // valid slot vended at a non-divisor offset — e.g., a 30-min slot at
+  // :15 from a 15-min-cadence service category. The lookup mirrors what
+  // get-schedule does at vending time so the two surfaces agree on what
+  // counts as "on the grid". BOOKING_CONFIG entries don't carry cadence,
+  // so this is a no-op for compiled-in production categories.
+  //
+  // Callers that already know the cadence (e.g., the create-appointment
+  // validator, which checks the same slot against N candidate schedules
+  // during anonymous-mode group fallback) should pass it via input to skip
+  // the per-call catalog fetch.
+  let cadenceMinutes = input.cadenceMinutes;
+  if (cadenceMinutes === undefined) {
+    const slotCategoryCode = (input.slot.serviceCategory ?? [])
+      .flatMap((cc) => cc.coding ?? [])
+      .find((c) => c.system === SERVICE_CATEGORY_SYSTEM)?.code;
+    if (slotCategoryCode) {
+      const resolved = await resolveServiceCategory(slotCategoryCode, oystehr);
+      cadenceMinutes = resolved?.cadenceMinutes;
+    }
+  }
+  return slotAvailableAgainstBusy({
+    slot: input.slot,
+    schedule: input.schedule,
+    busySlots,
+    cadenceMinutes,
+  });
 };
 
 export const getSlotServiceCategoryCodingFromScheduleOwner = (
@@ -2178,15 +2237,23 @@ export const getServiceModeFromSlot = (slot: Slot): ServiceMode | undefined => {
 };
 
 export const getServiceCategoryFromSlot = (slot: Slot): ServiceCategoryCode | undefined => {
-  const knownCategories = BOOKING_CONFIG.serviceCategories.map((sc) => sc.category);
-  let serviceCategory: ServiceCategoryCode | undefined;
-  (slot.serviceCategory ?? []).forEach((category) => {
-    const categoryCoding = category.coding?.[0] ?? {};
-    if (codingContainedInList(categoryCoding, knownCategories)) {
-      serviceCategory = categoryCoding.code;
+  // Return the code of the first coding under SERVICE_CATEGORY_SYSTEM.
+  // Historically this was filtered against BOOKING_CONFIG.serviceCategories,
+  // but that hid runtime/FHIR-backed categories (registered via the
+  // service-category admin UI) from every downstream consumer — including
+  // the booking-questionnaire RFV picker, which then fell back to the
+  // compiled-in default and showed the wrong reason-for-visit list. Any
+  // coding under SERVICE_CATEGORY_SYSTEM is a legitimate service-category
+  // reference; downstream resolution (e.g. duration, mode, RFV) happens
+  // against the merged FHIR + BOOKING_CONFIG catalog.
+  for (const concept of slot.serviceCategory ?? []) {
+    for (const coding of concept.coding ?? []) {
+      if (coding.system === SERVICE_CATEGORY_SYSTEM && coding.code) {
+        return coding.code;
+      }
     }
-  });
-  return serviceCategory;
+  }
+  return undefined;
 };
 
 export const getSlotIsWalkin = (slot: Slot): boolean => {

@@ -53,6 +53,18 @@ const performEffect = async (
   validatedInput: UpdateProgressNoteConfigInputValidated,
   oystehr: Oystehr
 ): Promise<void> => {
-  const { mdmRequired } = validatedInput;
-  await saveProgressNoteConfig(oystehr, { mdmRequired });
+  const {
+    mdmRequired,
+    medicalDecisionDefaultText,
+    pcpNoTypeDispositionDefaultText,
+    anotherDispositionDefaultText,
+    edDispositionDefaultText,
+  } = validatedInput;
+  await saveProgressNoteConfig(oystehr, {
+    mdmRequired,
+    medicalDecisionDefaultText,
+    pcpNoTypeDispositionDefaultText,
+    anotherDispositionDefaultText,
+    edDispositionDefaultText,
+  });
 };

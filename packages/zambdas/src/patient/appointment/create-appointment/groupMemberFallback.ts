@@ -14,6 +14,14 @@ export interface GroupMemberFallbackInput {
   schedule: Schedule;
   scheduleOwner: ScheduleOwnerFhirResource;
   oystehrClient: Oystehr;
+  /**
+   * Pre-resolved cadence for the slot's service category. Forwarded into
+   * each per-candidate checkSlotAvailable call so the FHIR catalog isn't
+   * paginated once per candidate schedule. Omit when no service category is
+   * configured (the resolver inside checkSlotAvailable is a no-op for that
+   * case anyway).
+   */
+  cadenceMinutes?: number;
 }
 
 export interface GroupMemberFallbackResult {
@@ -43,20 +51,31 @@ export interface GroupMemberFallbackResult {
 export async function tryGroupMemberFallback(
   input: GroupMemberFallbackInput
 ): Promise<GroupMemberFallbackResult | null> {
-  const { slot, schedule, scheduleOwner, oystehrClient } = input;
+  const { slot, schedule, scheduleOwner, oystehrClient, cadenceMinutes } = input;
 
   const bookedViaGroupId = getSlotBookedViaGroupId(slot);
   if (!bookedViaGroupId) return null;
 
+  // Distinguish the two failure modes that used to be silently coalesced:
+  //   (1) FHIR search itself fails — let the error surface (caller renders a
+  //       5xx); swallowing turned every transient or auth failure into a
+  //       silent "no fallback".
+  //   (2) Search succeeds but no HS exists for the id — slot's
+  //       bookedViaGroupId extension references a resource that's been
+  //       deleted (or was never written correctly). That's a slot/group data
+  //       integrity issue worth surfacing, not a fallback-not-applicable
+  //       business case.
   const groupHs = (
-    await oystehrClient.fhir
-      .search<HealthcareService>({
-        resourceType: 'HealthcareService',
-        params: [{ name: '_id', value: bookedViaGroupId }],
-      })
-      .catch(() => undefined)
-  )?.unbundle()[0];
-  if (!groupHs) return null;
+    await oystehrClient.fhir.search<HealthcareService>({
+      resourceType: 'HealthcareService',
+      params: [{ name: '_id', value: bookedViaGroupId }],
+    })
+  ).unbundle()[0];
+  if (!groupHs) {
+    // Unknown-shape error → unwrapped Error so wrapHandler's topLevelCatch
+    // routes it through observability as a 500.
+    throw new Error(`Slot's bookedViaGroupId=${bookedViaGroupId} references a HealthcareService that does not exist.`);
+  }
   if (getGroupAssignmentMode(groupHs) !== 'anonymous') return null;
 
   const originatingLocationId = resolveBookingLocationId({ scheduleOwner, slot });
@@ -78,7 +97,7 @@ export async function tryGroupMemberFallback(
       schedule: { reference: `Schedule/${candidate.schedule.id}` },
     };
     const isAvailable = await checkSlotAvailable(
-      { slot: candidateSlot, schedule: candidate.schedule, excludeSlotId: slot.id },
+      { slot: candidateSlot, schedule: candidate.schedule, excludeSlotId: slot.id, cadenceMinutes },
       oystehrClient
     );
     if (!isAvailable) continue;

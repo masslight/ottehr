@@ -407,16 +407,45 @@ export async function createPdfClient(initialStyles: PdfClientStyles): Promise<P
       }
 
       if (!fittingText) {
+        // Fresh line. newLine resets to pageLeftBound, so re-pin to the column.
         newLine(lineHeight + spacing);
+        currXPos = leftBound;
 
-        const newAvailableWidth = rightBound - currXPos;
         const { width: firstWidth } = getTextDimensions(elements[0], textStyle);
 
-        if (newAvailableWidth < firstWidth) {
-          console.warn('Bounds too narrow to render text — skipping to avoid infinite recursion');
+        if (firstWidth > totalWidth) {
+          // Column too narrow for even one element (caller pinned leftBound to a
+          // nearly-full line). Re-flow at full page width so nothing is dropped,
+          // mangled one glyph per line, or recursed on forever.
+          const pageWidth = pageRightBound - pageLeftBound;
+          if (firstWidth <= pageWidth) {
+            currXPos = pageLeftBound;
+            drawTextSequential(text, textStyle, { leftBound: pageLeftBound, rightBound: pageRightBound });
+            return;
+          }
+
+          // Element wider than the whole page: draw with overflow to make
+          // progress, then continue at full width.
+          console.warn('Element wider than the full page width; drawing with overflow', {
+            firstWidth,
+            pageWidth,
+          });
+          page.drawText(elements[0], {
+            font: font,
+            size: fontSize,
+            x: currXPos,
+            y: currYPos,
+            color,
+          });
+          const rest = elements.slice(1).join(separator);
+          if (rest) {
+            newLine(lineHeight);
+            drawTextSequential(rest, textStyle, { leftBound: pageLeftBound, rightBound: pageRightBound });
+          }
           return;
         }
 
+        // First element fits on a fresh line; retry there.
         drawTextSequential(text, textStyle, bounds);
         return;
       }

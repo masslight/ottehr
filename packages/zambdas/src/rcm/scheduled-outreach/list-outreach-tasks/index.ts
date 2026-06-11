@@ -1,6 +1,11 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Patient, Task } from 'fhir/r4b';
-import { FRIENDLY_PATIENT_ID_SYSTEM_BASE, MISSING_REQUEST_SECRETS, PRIVATE_EXTENSION_BASE_URL } from 'utils';
+import {
+  FRIENDLY_PATIENT_ID_SYSTEM_BASE,
+  isValidUUID,
+  MISSING_REQUEST_SECRETS,
+  PRIVATE_EXTENSION_BASE_URL,
+} from 'utils';
 import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
 
 const OUTREACH_TASK_TAG_SYSTEM = `${PRIVATE_EXTENSION_BASE_URL}/outreach-task`;
@@ -28,6 +33,7 @@ export interface OutreachTaskSummary {
   description: string;
   mediums?: string;
   errorMessage?: string;
+  cancellationReason?: string;
   chargeResult?: { success: boolean; transactionId?: string; error?: string; amountCents?: number };
   notificationResults?: { medium: string; success: boolean; error?: string }[];
   executionResult?: { medium: string; success: boolean; error?: string }[];
@@ -47,12 +53,53 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const mediumFilter = params.medium as string | undefined;
   const mediumFilterSet = mediumFilter ? new Set(mediumFilter.split(',')) : undefined;
   const triggerEventFilter = params.triggerEvent as string | undefined;
+  const patientSearch = (params.patientSearch as string | undefined)?.trim();
+
+  // Resolve patient search to patient references if provided
+  let patientReferences: string[] | undefined;
+  if (patientSearch) {
+    if (isValidUUID(patientSearch)) {
+      patientReferences = [`Patient/${patientSearch}`];
+    } else {
+      // Search by friendly ID or name
+      const patientBundle = await oystehr.fhir.search<Patient>({
+        resourceType: 'Patient',
+        params: [
+          { name: 'identifier', value: patientSearch },
+          { name: '_count', value: '50' },
+        ],
+      });
+      let foundPatients = patientBundle.unbundle();
+      if (foundPatients.length === 0) {
+        // Try name search
+        const nameBundle = await oystehr.fhir.search<Patient>({
+          resourceType: 'Patient',
+          params: [
+            { name: 'name', value: patientSearch },
+            { name: '_count', value: '50' },
+          ],
+        });
+        foundPatients = nameBundle.unbundle();
+      }
+      if (foundPatients.length === 0) {
+        return {
+          statusCode: 200,
+          body: JSON.stringify({ tasks: [], totalCount: 0, pageSize, offset }),
+        };
+      }
+      patientReferences = foundPatients.map((p) => `Patient/${p.id}`);
+    }
+  }
 
   // Build base search params shared between count and data queries
   const baseSearchParams: { name: string; value: string }[] = [
     { name: '_tag', value: `${OUTREACH_TASK_TAG_SYSTEM}|` },
     { name: 'status', value: statusFilter },
   ];
+
+  if (patientReferences) {
+    baseSearchParams.push({ name: 'patient', value: patientReferences.join(',') });
+  }
 
   if (actionTypeFilter) {
     const codeTokens = actionTypeFilter.split(',').map((at) => `${OUTREACH_ACTION_TYPE_SYSTEM}|${at}`);
@@ -179,9 +226,11 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       description: task.description || '',
       mediums: extractInput(task, 'mediums') || extractChargeCardMediums(task),
       errorMessage: extractErrorMessage(task),
+      cancellationReason: task.statusReason?.text,
       chargeResult: extractJsonOutput(task, 'charge-result'),
       notificationResults: extractJsonOutput(task, 'notification-results'),
       executionResult: extractJsonOutput(task, 'execution-result'),
+      retryInfo: extractRetryInfo(task),
     };
   });
 
@@ -247,6 +296,34 @@ function extractJsonOutput(task: Task, key: string): any | undefined {
   if (!output?.valueString) return undefined;
   try {
     return JSON.parse(output.valueString);
+  } catch {
+    return undefined;
+  }
+}
+
+function extractRetryInfo(
+  task: Task
+): { attemptCount: number; maxAttempts: number; nextRetryDate?: string } | undefined {
+  if (task.code?.coding?.[0]?.code !== 'charge-card') return undefined;
+
+  const configStr = task.input?.find((i) => i.type?.text === 'charge-card-config')?.valueString;
+  if (!configStr) return undefined;
+
+  try {
+    const config = JSON.parse(configStr) as { retryAttempts?: number };
+    const maxAttempts = (config.retryAttempts ?? 0) + 1; // total attempts = initial + retries
+
+    const attemptOutput = task.output?.find((o) => o.type?.text === 'attempt-count');
+    const attemptCount = attemptOutput?.valueInteger ?? 0;
+
+    // If the task is in draft and has previous attempts, the executionPeriod.start is the next retry date
+    const nextRetryDate = task.status === 'draft' && attemptCount > 0 ? task.executionPeriod?.start : undefined;
+
+    // Only return retry info if retries are configured
+    if (config.retryAttempts && config.retryAttempts > 0) {
+      return { attemptCount, maxAttempts, nextRetryDate };
+    }
+    return undefined;
   } catch {
     return undefined;
   }

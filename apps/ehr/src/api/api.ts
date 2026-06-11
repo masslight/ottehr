@@ -2914,6 +2914,8 @@ export const createPractitionerRole = async (
     timezone: string;
     /** Optional admin-set display name for the new schedule. */
     displayName?: string;
+    /** Whether the role offers every service category in the system. Defaults to false. */
+    allCategories?: boolean;
   }
 ): Promise<{ role: PractitionerRole; schedule: Schedule }> => {
   const response = await oystehr.zambda.execute({
@@ -2931,6 +2933,8 @@ export const updatePractitionerRole = async (
     locationId?: string;
     /** Optional admin-set display name. Empty string clears the override. */
     displayName?: string;
+    /** Whether the role offers every service category. Omit to leave untouched. */
+    allCategories?: boolean;
   }
 ): Promise<{ role: PractitionerRole }> => {
   const response = await oystehr.zambda.execute({

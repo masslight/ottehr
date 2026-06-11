@@ -21,11 +21,11 @@ import { useQuery } from '@tanstack/react-query';
 import React, { useEffect, useMemo, useState } from 'react';
 import { getTemplateDetail } from 'src/api/api';
 import { ContainedPrimaryToggleButton } from 'src/components/ContainedPrimaryToggleButton';
-import { formatCptCodeAndModifiersForDisplay } from 'src/helpers/templates';
+import { formatCptCodeAndModifiersForDisplay, getProcedureDisplayFields } from 'src/helpers/templates';
 import { useApiClients } from 'src/hooks/useAppClients';
 import {
   AdminGetTemplateDetailOutput,
-  buildExamFieldToSectionMap,
+  groupExamFindingsBySection,
   isTemplateCptCodeInfo,
   RosFindingState,
   RosFindingStateLabel,
@@ -35,22 +35,12 @@ import {
   TEMPLATE_SECTIONS_NO_OVERWRITE,
   TemplateCptCodeInfo,
   TemplateInHouseLabPlanDetail,
+  TemplateProcedurePlan,
   TemplateSectionAction,
   TemplateSectionActions,
   TemplateSectionDescriptor,
   TemplateSectionKey,
 } from 'utils';
-import { DefaultExamComponentsConfig } from 'utils/lib/ottehr-config/examination/default-components.config';
-
-// Maps an exam field name (e.g. "soft", "tender") to the body-system section it
-// belongs to ("Abdomen"). Built once at module load from
-// `DefaultExamComponentsConfig` so the preview can group finding chips under their
-// owning section header.
-const DEFAULT_EXAM_FIELD_TO_SECTION = buildExamFieldToSectionMap(DefaultExamComponentsConfig);
-
-const EXAM_SECTION_KEYS_IN_ORDER = Object.keys(DefaultExamComponentsConfig);
-
-const EXAM_OTHER_SECTION_KEY = '__other__';
 
 interface TemplatePreviewDialogProps {
   open: boolean;
@@ -149,6 +139,17 @@ const getSectionSummary = (sections: AdminGetTemplateDetailOutput['sections'], k
       const missing = sections.inHouseLabs.filter((p) => p.missing).length;
       return missing > 0 ? `${summary} (${missing} unavailable)` : summary;
     }
+    case 'procedures': {
+      // Use whatever short label we have for each plan: procedureType code if
+      // it's there, otherwise fall back to the first CPT code so the summary
+      // still says something concrete. "Unnamed procedure" is a last resort for
+      // very sparse template entries.
+      const labels = sections.procedures
+        .slice(0, NUM_ITEMS_IN_SECTION_TO_SHOW)
+        .map((p) => p.procedureType ?? p.cptCodes[0]?.code ?? 'Unnamed procedure');
+      const extra = sections.procedures.length - NUM_ITEMS_IN_SECTION_TO_SHOW;
+      return extra > 0 ? `${labels.join(', ')} +${extra} more` : labels.join(', ');
+    }
     default:
       return '';
   }
@@ -176,6 +177,8 @@ const sectionHasContent = (sections: AdminGetTemplateDetailOutput['sections'], k
       return Boolean(sections.emCode);
     case 'inHouseLabs':
       return sections.inHouseLabs.length > 0;
+    case 'procedures':
+      return sections.procedures.length > 0;
     default:
       return false;
   }
@@ -261,48 +264,28 @@ const SectionPreview: React.FC<{
     case 'examFindings': {
       // Group findings by body-system section so each chip is anchored under a
       // header like "Abdomen". Anything whose fieldName isn't in the exam config
-      // (e.g. comment fields with custom keys) falls into an "Other" bucket.
-      const groupedByKey = new Map<string, typeof sections.examFindings>();
-      for (const finding of sections.examFindings) {
-        const info = DEFAULT_EXAM_FIELD_TO_SECTION.get(finding.fieldName);
-        const key = info?.sectionKey ?? EXAM_OTHER_SECTION_KEY;
-        const existing = groupedByKey.get(key);
-        if (existing) existing.push(finding);
-        else groupedByKey.set(key, [finding]);
-      }
-
-      const orderedKeys = [
-        ...EXAM_SECTION_KEYS_IN_ORDER.filter((k) => groupedByKey.has(k)),
-        ...(groupedByKey.has(EXAM_OTHER_SECTION_KEY) ? [EXAM_OTHER_SECTION_KEY] : []),
-      ];
-
+      // (e.g. comment fields with custom keys) falls into a trailing "Other" bucket.
+      const groups = groupExamFindingsBySection(sections.examFindings);
       return (
         <Stack spacing={1.5}>
-          {orderedKeys.map((key) => {
-            const findings = groupedByKey.get(key)!;
-            const label =
-              key === EXAM_OTHER_SECTION_KEY
-                ? 'Other'
-                : DEFAULT_EXAM_FIELD_TO_SECTION.get(findings[0].fieldName)?.sectionLabel ?? key;
-            return (
-              <Box key={key}>
-                <Typography variant="caption" sx={{ color: 'text.secondary', textTransform: 'uppercase' }}>
-                  {label}
-                </Typography>
-                <Stack direction="row" flexWrap="wrap" gap={0.5} sx={{ mt: 0.5 }}>
-                  {findings.map((f) => (
-                    <Chip
-                      key={f.fieldName}
-                      label={f.note ? `${f.label}: ${f.note}` : f.label}
-                      size="small"
-                      color={f.isAbnormal ? 'warning' : undefined}
-                      variant={f.isAbnormal ? 'filled' : 'outlined'}
-                    />
-                  ))}
-                </Stack>
-              </Box>
-            );
-          })}
+          {groups.map((group) => (
+            <Box key={group.sectionKey}>
+              <Typography variant="caption" sx={{ color: 'text.secondary', textTransform: 'uppercase' }}>
+                {group.sectionLabel}
+              </Typography>
+              <Stack direction="row" flexWrap="wrap" gap={0.5} sx={{ mt: 0.5 }}>
+                {group.findings.map((f) => (
+                  <Chip
+                    key={f.fieldName}
+                    label={f.note ? `${f.label}: ${f.note}` : f.label}
+                    size="small"
+                    color={f.isAbnormal ? 'warning' : undefined}
+                    variant={f.isAbnormal ? 'filled' : 'outlined'}
+                  />
+                ))}
+              </Stack>
+            </Box>
+          ))}
         </Stack>
       );
     }
@@ -333,6 +316,8 @@ const SectionPreview: React.FC<{
       return sections.emCode ? <CodeList items={[sections.emCode]} /> : null;
     case 'inHouseLabs':
       return <InHouseLabPlansList plans={sections.inHouseLabs} />;
+    case 'procedures':
+      return <ProcedurePlansList plans={sections.procedures} />;
     default:
       return null;
   }
@@ -395,6 +380,65 @@ const InHouseLabPlansList: React.FC<{ plans: TemplateInHouseLabPlanDetail[] }> =
     ))}
   </Stack>
 );
+
+// Procedure cards show the procedure type as a clear subheading, then a
+// left-indented block of details: labeled CPT and diagnosis lists (with the
+// uppercase-caption section labels the ROS preview uses, so the codes
+// underneath visibly belong to them) and the form-field rows. We only render
+// fields the template actually carried - the procedure form has a lot of
+// optional inputs and a template that didn't fill them in would look noisy
+// with a wall of empty rows.
+const ProcedurePlansList: React.FC<{ plans: TemplateProcedurePlan[] }> = ({ plans }) => (
+  <Stack spacing={2}>
+    {plans.map((plan) => (
+      <Box key={plan.planId}>
+        <Typography variant="subtitle2" sx={{ color: 'text.primary', fontWeight: 600 }}>
+          {plan.procedureType ?? plan.cptCodes[0]?.display ?? plan.cptCodes[0]?.code ?? 'Procedure'}
+        </Typography>
+        <Stack spacing={1} sx={{ mt: 0.5, pl: 2 }}>
+          {plan.cptCodes.length > 0 ? (
+            <Box>
+              <Typography variant="caption" sx={{ color: 'text.secondary', textTransform: 'uppercase' }}>
+                CPT codes
+              </Typography>
+              <CodeList items={plan.cptCodes} />
+            </Box>
+          ) : null}
+          {plan.diagnoses.length > 0 ? (
+            <Box>
+              <Typography variant="caption" sx={{ color: 'text.secondary', textTransform: 'uppercase' }}>
+                Diagnoses
+              </Typography>
+              <CodeList items={plan.diagnoses} />
+            </Box>
+          ) : null}
+          <ProcedurePlanFields plan={plan} />
+        </Stack>
+      </Box>
+    ))}
+  </Stack>
+);
+
+// Renders the procedure form fields as a compact label/value list, with the
+// `multiline` flag selecting whiteSpace: pre-wrap so free-text fields wrap
+// cleanly without being forced onto their own line for short values.
+const ProcedurePlanFields: React.FC<{ plan: TemplateProcedurePlan }> = ({ plan }) => {
+  const fields = getProcedureDisplayFields(plan);
+  if (fields.length === 0) return null;
+  return (
+    <Stack spacing={0.75}>
+      {fields.map((f) => (
+        <Typography
+          key={f.label}
+          variant="body2"
+          sx={{ color: 'text.primary', ...(f.multiline ? { whiteSpace: 'pre-wrap' } : {}) }}
+        >
+          <strong>{f.label}:</strong> {f.value}
+        </Typography>
+      ))}
+    </Stack>
+  );
+};
 
 const SectionCard: React.FC<{
   descriptor: TemplateSectionDescriptor;

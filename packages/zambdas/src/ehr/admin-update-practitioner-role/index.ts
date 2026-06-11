@@ -5,6 +5,7 @@ import {
   isServiceCategoryHealthcareService,
   MISSING_REQUEST_BODY,
   MISSING_REQUIRED_PARAMETERS,
+  PRACTITIONER_ROLE_ALL_CATEGORIES_EXTENSION_URL,
   SCHEDULE_DISPLAY_NAME_EXTENSION_URL,
   Secrets,
 } from 'utils';
@@ -24,6 +25,12 @@ interface AdminUpdatePractitionerRoleInput {
    * the field entirely to leave the existing value untouched.
    */
   displayName?: string;
+  /**
+   * Whether the role offers every service category in the system. Stored as
+   * a boolean PR extension. Omit the field to leave the existing value
+   * untouched; pass `false` to explicitly clear.
+   */
+  allCategories?: boolean;
 }
 
 const ZAMBDA_NAME = 'admin-update-practitioner-role';
@@ -37,13 +44,14 @@ const validateRequestParameters = (input: ZambdaInput): AdminUpdatePractitionerR
     categoryHealthcareServiceIds?: unknown;
     locationId?: unknown;
     displayName?: unknown;
+    allCategories?: unknown;
   };
   try {
     parsed = JSON.parse(input.body);
   } catch {
     throw INVALID_INPUT_ERROR('Request body must be valid JSON');
   }
-  const { roleId, categoryHealthcareServiceIds, locationId, displayName } = parsed;
+  const { roleId, categoryHealthcareServiceIds, locationId, displayName, allCategories } = parsed;
 
   if (!roleId) throw MISSING_REQUIRED_PARAMETERS(['roleId']);
   if (typeof roleId !== 'string') throw INVALID_INPUT_ERROR('"roleId" must be a string');
@@ -58,17 +66,20 @@ const validateRequestParameters = (input: ZambdaInput): AdminUpdatePractitionerR
     throw INVALID_INPUT_ERROR('"locationId" must be a string if provided');
   if (displayName !== undefined && typeof displayName !== 'string')
     throw INVALID_INPUT_ERROR('"displayName" must be a string if provided');
+  if (allCategories !== undefined && typeof allCategories !== 'boolean')
+    throw INVALID_INPUT_ERROR('"allCategories" must be a boolean if provided');
 
   const hasCategories = Array.isArray(categoryHealthcareServiceIds);
   const hasLocation = typeof locationId === 'string' && locationId.length > 0;
   const hasDisplayName = typeof displayName === 'string';
-  if (!hasCategories && !hasLocation && !hasDisplayName) {
+  const hasAllCategories = typeof allCategories === 'boolean';
+  if (!hasCategories && !hasLocation && !hasDisplayName && !hasAllCategories) {
     throw INVALID_INPUT_ERROR(
-      'At least one of "categoryHealthcareServiceIds", "locationId", or "displayName" must be provided'
+      'At least one of "categoryHealthcareServiceIds", "locationId", "displayName", or "allCategories" must be provided'
     );
   }
 
-  return { secrets: input.secrets, roleId, categoryHealthcareServiceIds, locationId, displayName };
+  return { secrets: input.secrets, roleId, categoryHealthcareServiceIds, locationId, displayName, allCategories };
 };
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
@@ -76,6 +87,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const hasCategories = Array.isArray(parsed.categoryHealthcareServiceIds);
   const hasLocation = typeof parsed.locationId === 'string' && parsed.locationId.length > 0;
   const hasDisplayName = typeof parsed.displayName === 'string';
+  const hasAllCategories = typeof parsed.allCategories === 'boolean';
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, parsed.secrets);
   const oystehr = createClinicalOystehrClient(m2mToken, parsed.secrets);
@@ -95,15 +107,28 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     : (currentRole.healthcareService ?? [])
         .map((ref) => ref.reference?.split('/')[1])
         .filter((id): id is string => !!id);
+  // Compute the post-update allCategories value: caller-provided wins; if not
+  // provided, fall back to the role's existing value. Needed so the conflict
+  // check sees the post-update offering, not the pre-update one.
+  const currentAllCategories = (currentRole.extension ?? []).some(
+    (ext) => ext.url === PRACTITIONER_ROLE_ALL_CATEGORIES_EXTENSION_URL && ext.valueBoolean === true
+  );
+  const targetAllCategories = hasAllCategories ? parsed.allCategories === true : currentAllCategories;
 
-  if (practitionerRef && targetLocationRef && targetCategoryIds.length > 0) {
+  // Run the conflict check whenever the post-update role offers anything —
+  // either via specific category refs or via the all-categories toggle. The
+  // helper has its own early-out for the "offers nothing" case, but we still
+  // need the outer guard for the practitioner-ref/location-ref preconditions.
+  if (practitionerRef && targetLocationRef && (targetCategoryIds.length > 0 || targetAllCategories)) {
     const categoryNameById = new Map<string, string>();
-    const hsBundle = await oystehr.fhir.search<HealthcareService>({
-      resourceType: 'HealthcareService',
-      params: [{ name: '_id', value: targetCategoryIds.join(',') }],
-    });
-    for (const hs of hsBundle.unbundle()) {
-      if (hs.id) categoryNameById.set(hs.id, hs.name ?? hs.id);
+    if (targetCategoryIds.length > 0) {
+      const hsBundle = await oystehr.fhir.search<HealthcareService>({
+        resourceType: 'HealthcareService',
+        params: [{ name: '_id', value: targetCategoryIds.join(',') }],
+      });
+      for (const hs of hsBundle.unbundle()) {
+        if (hs.id) categoryNameById.set(hs.id, hs.name ?? hs.id);
+      }
     }
     const conflict = await checkPractitionerRoleConflict(
       oystehr,
@@ -112,6 +137,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         practitionerRef,
         locationRef: targetLocationRef,
         categoryHsIds: targetCategoryIds,
+        allCategories: targetAllCategories,
       },
       { categoryNameById }
     );
@@ -125,7 +151,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
           )}. Remove ${
             conflict.conflictingCategoryNames.length === 1 ? 'it' : 'them'
           } from that schedule first, or pick a different location.`,
-          conflictingScheduleId: conflict.conflictingScheduleId,
+          conflictingPractitionerRoleId: conflict.conflictingPractitionerRoleId,
           conflictingCategoryNames: conflict.conflictingCategoryNames,
         }),
       };
@@ -175,17 +201,55 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       value: [{ reference: `Location/${parsed.locationId}` }],
     });
   }
-  if (hasDisplayName) {
-    // Replace the display-name extension wholesale: drop any existing one and
-    // (if the value is non-empty) add a fresh entry. Empty string → just drop,
-    // so callers fall back to the auto-derived "<Provider> @ <Location>" form.
-    const trimmed = (parsed.displayName ?? '').trim();
-    const otherExtensions = (currentRole.extension ?? []).filter(
-      (ext) => ext.url !== SCHEDULE_DISPLAY_NAME_EXTENSION_URL
-    );
-    const newExtension = trimmed
-      ? [...otherExtensions, { url: SCHEDULE_DISPLAY_NAME_EXTENSION_URL, valueString: trimmed }]
-      : otherExtensions;
+  if (hasDisplayName || hasAllCategories) {
+    // Both display-name and all-categories live on the role's extension[]
+    // array, so the patch is a single wholesale replace combining all the
+    // managed extensions plus any preserved foreign ones. For each managed
+    // extension:
+    //   - field omitted from the payload → preserve the existing extension
+    //     (no touch — the caller wasn't editing this field)
+    //   - field provided with the absence-sentinel value (empty string for
+    //     display name; explicit false for all-categories) → drop the
+    //     extension (caller is explicitly clearing it)
+    //   - field provided with a meaningful value → write the extension
+    const managedUrls = new Set<string>([
+      SCHEDULE_DISPLAY_NAME_EXTENSION_URL,
+      PRACTITIONER_ROLE_ALL_CATEGORIES_EXTENSION_URL,
+    ]);
+    const preservedExtensions = (currentRole.extension ?? []).filter((ext) => !managedUrls.has(ext.url ?? ''));
+
+    // Display name: caller omitted → preserve existing; passed string → write
+    // (empty trims to "drop"); other types blocked by validator.
+    let displayNameExt: { url: string; valueString: string } | undefined;
+    if (hasDisplayName) {
+      const trimmed = (parsed.displayName ?? '').trim();
+      if (trimmed) displayNameExt = { url: SCHEDULE_DISPLAY_NAME_EXTENSION_URL, valueString: trimmed };
+    } else {
+      const existing = (currentRole.extension ?? []).find((ext) => ext.url === SCHEDULE_DISPLAY_NAME_EXTENSION_URL);
+      if (existing?.valueString)
+        displayNameExt = { url: SCHEDULE_DISPLAY_NAME_EXTENSION_URL, valueString: existing.valueString };
+    }
+
+    // all-categories: only written when the toggle is explicitly true; false
+    // (or omitted-with-no-existing) → no extension persisted, since absence
+    // already reads as false per getPractitionerRoleAllCategories.
+    let allCategoriesExt: { url: string; valueBoolean: true } | undefined;
+    if (hasAllCategories) {
+      if (parsed.allCategories === true)
+        allCategoriesExt = { url: PRACTITIONER_ROLE_ALL_CATEGORIES_EXTENSION_URL, valueBoolean: true };
+    } else {
+      const existing = (currentRole.extension ?? []).find(
+        (ext) => ext.url === PRACTITIONER_ROLE_ALL_CATEGORIES_EXTENSION_URL
+      );
+      if (existing?.valueBoolean === true)
+        allCategoriesExt = { url: PRACTITIONER_ROLE_ALL_CATEGORIES_EXTENSION_URL, valueBoolean: true };
+    }
+
+    const newExtension = [
+      ...preservedExtensions,
+      ...(displayNameExt ? [displayNameExt] : []),
+      ...(allCategoriesExt ? [allCategoriesExt] : []),
+    ];
     operations.push({
       op: 'add',
       path: '/extension',

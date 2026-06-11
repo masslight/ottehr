@@ -259,6 +259,19 @@ export const SLUG_SYSTEM = `${FHIR_BASE_URL}/r4/slug`;
  */
 export const SCHEDULE_DISPLAY_NAME_EXTENSION_URL = `${FHIR_BASE_URL}/StructureDefinitions/schedule-display-name`;
 
+/**
+ * Per-PractitionerRole "offers every service category" toggle. When `true`,
+ * the PR is treated as qualified for every service the slot generator asks
+ * about — equivalent to the PR.healthcareService[] list containing every
+ * service-category HealthcareService in the system (plus, by definition,
+ * every BOOKING_CONFIG compiled-in category, which has no FHIR HS to
+ * reference and is otherwise un-opt-into-able). Stored as a boolean PR
+ * extension. Absent extension = false (admin opts in explicitly).
+ *
+ * The analogous group-side mechanism is `GROUP_ALL_LOCATIONS_SYSTEM`.
+ */
+export const PRACTITIONER_ROLE_ALL_CATEGORIES_EXTENSION_URL = `${FHIR_BASE_URL}/StructureDefinitions/practitioner-role-all-categories`;
+
 export const SERVICE_EXTENSION = 'http://extensions.ottehr.com';
 
 export const AppointmentInsuranceRelatedResourcesExtension = {
@@ -464,6 +477,14 @@ export const ServiceCategoryVisitTypeCoding = {
  * `{ system: SERVICE_CATEGORY_DURATION_MINUTES_SYSTEM, code: String(minutes), display: '<n> min' }`.
  */
 export const SERVICE_CATEGORY_DURATION_MINUTES_SYSTEM = ottehrCodeSystemUrl('service-category-duration-minutes');
+
+/**
+ * Default slot duration in minutes when a service-category HealthcareService
+ * doesn't carry a SERVICE_CATEGORY_DURATION_MINUTES_SYSTEM characteristic.
+ * Used as a soft fallback for legacy / partially-configured records. New
+ * admin saves always set the field explicitly.
+ */
+export const DEFAULT_SERVICE_CATEGORY_DURATION_MINUTES = 15;
 
 /** Cadence-minutes characteristic system for a service-category HealthcareService. Same call-site shape as duration-minutes. */
 export const SERVICE_CATEGORY_CADENCE_MINUTES_SYSTEM = ottehrCodeSystemUrl('service-category-cadence-minutes');
@@ -901,6 +922,11 @@ export const PREFERRED_PHARMACY_ERX_ID_FOR_SYNC_URL =
   'https://extensions.fhir.oystehr.com/patient/erx-preferred-pharmacy-id';
 
 export const ENCOUNTER_PAYMENT_VARIANT_EXTENSION_URL = ottehrExtensionUrl('payment-variant');
+
+/** Employer Organization selected for this visit (staff / pre-op); not the patient Account occ-med employer. */
+export const ENCOUNTER_VISIT_OCCUPATIONAL_MEDICINE_EMPLOYER_EXTENSION_URL = ottehrExtensionUrl(
+  'visit-occupational-medicine-employer'
+);
 
 export const CONSENT_ATTESTATION_SIG_TYPE: Coding = Object.freeze({
   system: 'http://uri.etsi.org/01903/v1.2.2',
