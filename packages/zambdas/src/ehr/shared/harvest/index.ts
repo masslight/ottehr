@@ -1662,7 +1662,7 @@ export async function searchInsuranceInformation(
       try {
         return await oystehr.fhir.get<Organization>({ resourceType: 'Organization', id: ref.split('/')[1] });
       } catch (error: unknown) {
-        const status = (error as any)?.status ?? (error as any)?.statusCode;
+        const status = Number((error as any)?.status ?? (error as any)?.statusCode ?? (error as any)?.code);
         if (status === 410) {
           console.warn(`[CLAIM SUBMISSION] Organization ${ref} is deleted (410 Gone), excluding from payer list.`);
           return undefined;

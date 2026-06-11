@@ -662,7 +662,7 @@ export const performCandidPreEncounterSync = async (input: PerformCandidPreEncou
           );
         }
       } catch (error: unknown) {
-        const status = (error as any)?.status ?? (error as any)?.statusCode;
+        const status = Number((error as any)?.status ?? (error as any)?.statusCode ?? (error as any)?.code);
         if (status === 410) {
           console.warn(
             `[CLAIM SUBMISSION] Occupational Medicine Employer Organization ${occupationalMedicineAccount.owner?.reference} ` +
@@ -1120,7 +1120,8 @@ export async function createEncounterFromAppointment(
     console.log('Created Candid encounter:' + JSON.stringify(response.body));
   }
 
-  // here we're setting claim type (self-pay or insurance-pay), if nothing provided it'll be insurance-pay
+  // here we're setting claim type (self-pay or insurance-pay), if insurance resources are missing we're defaulting to self pay
+  // in particular we're handling deleted payor Organization resource so it'll not be an error just self pay variant
   const packageEncounter = visitResources.encounter;
   const paymentVariantFromEncounter = getPaymentVariantFromEncounter(packageEncounter);
   const candidResponsibleParty: ResponsiblePartyType =
