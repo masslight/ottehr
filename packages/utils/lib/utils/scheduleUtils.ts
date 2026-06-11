@@ -2028,6 +2028,15 @@ interface CheckSlotAvailableInput {
    * create-appointment runs) from counting against itself.
    */
   excludeSlotId?: string;
+  /**
+   * Pre-resolved cadence for the slot's service category. When omitted, the
+   * helper resolves it by paginating the FHIR catalog — fine for one-off
+   * calls, wasteful when the same slot is checked against N candidate
+   * schedules (e.g., anonymous-mode group fallback). Resolve once at the
+   * caller and pass through; the slot's serviceCategory is invariant across
+   * candidate schedules so the cadence is too.
+   */
+  cadenceMinutes?: number;
 }
 /**
  * Pure predicate, extracted from checkSlotAvailable so the rule can be
@@ -2119,13 +2128,20 @@ export const checkSlotAvailable = async (input: CheckSlotAvailableInput, oystehr
   // get-schedule does at vending time so the two surfaces agree on what
   // counts as "on the grid". BOOKING_CONFIG entries don't carry cadence,
   // so this is a no-op for compiled-in production categories.
-  const slotCategoryCode = (input.slot.serviceCategory ?? [])
-    .flatMap((cc) => cc.coding ?? [])
-    .find((c) => c.system === SERVICE_CATEGORY_SYSTEM)?.code;
-  let cadenceMinutes: number | undefined;
-  if (slotCategoryCode) {
-    const resolved = await resolveServiceCategory(slotCategoryCode, oystehr);
-    cadenceMinutes = resolved?.cadenceMinutes;
+  //
+  // Callers that already know the cadence (e.g., the create-appointment
+  // validator, which checks the same slot against N candidate schedules
+  // during anonymous-mode group fallback) should pass it via input to skip
+  // the per-call catalog fetch.
+  let cadenceMinutes = input.cadenceMinutes;
+  if (cadenceMinutes === undefined) {
+    const slotCategoryCode = (input.slot.serviceCategory ?? [])
+      .flatMap((cc) => cc.coding ?? [])
+      .find((c) => c.system === SERVICE_CATEGORY_SYSTEM)?.code;
+    if (slotCategoryCode) {
+      const resolved = await resolveServiceCategory(slotCategoryCode, oystehr);
+      cadenceMinutes = resolved?.cadenceMinutes;
+    }
   }
   return slotAvailableAgainstBusy({
     slot: input.slot,
