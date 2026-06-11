@@ -153,7 +153,14 @@ export async function getSchedules(
   // vending — sees only active records. `r.active === undefined` is treated
   // as active per FHIR convention.
   const isBundleResourceActive = (r: { resourceType: string; active?: boolean }): boolean => {
-    if (r.resourceType === 'Schedule' || r.resourceType === 'Practitioner') {
+    // PractitionerRole.active is the per-(provider, location, services)
+    // toggle (Schedules > General "Active" switch). A PR can be active
+    // while a sibling PR for the same Practitioner at a different Location
+    // is inactive — we want only the active ones to surface. Inactive PRs
+    // arrive here via `_revinclude` (group case) or the primary search
+    // (provider case is already covered by the search-level filter, but
+    // the in-code check is redundant-safe).
+    if (r.resourceType === 'Schedule' || r.resourceType === 'Practitioner' || r.resourceType === 'PractitionerRole') {
       return r.active !== false;
     }
     return true;

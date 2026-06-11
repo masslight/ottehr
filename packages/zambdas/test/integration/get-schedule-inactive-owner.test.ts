@@ -334,11 +334,19 @@ describe('get-schedule filters out inactive owners and Schedules', () => {
     assert(schedules.length === 2);
     assert(group?.id);
 
-    // Pair PR ↔ Schedule by the actor reference, since transaction order isn't
-    // guaranteed to map to fixture order — the actor reference is the
-    // unambiguous join.
-    const prA = prs.find((r) => r.practitioner?.reference === `Practitioner/${practitioners[0].id}`);
-    const prB = prs.find((r) => r.practitioner?.reference === `Practitioner/${practitioners[1].id}`);
+    // Identify A/B by the family name we wrote at create time. Transaction
+    // response order is server-dependent and isn't guaranteed to match
+    // request order, so indexing by `practitioners[0]/[1]` would let the
+    // test silently swap which Practitioner gets deactivated under different
+    // server orderings. The family name is the durable identity here.
+    const practitionerA = practitioners.find((p) => p.name?.[0]?.family === 'ProviderA');
+    const practitionerB = practitioners.find((p) => p.name?.[0]?.family === 'ProviderB');
+    assert(practitionerA?.id);
+    assert(practitionerB?.id);
+    // Pair PR ↔ Practitioner ↔ Schedule by the reference chain rather than
+    // array order.
+    const prA = prs.find((r) => r.practitioner?.reference === `Practitioner/${practitionerA.id}`);
+    const prB = prs.find((r) => r.practitioner?.reference === `Practitioner/${practitionerB.id}`);
     assert(prA?.id);
     assert(prB?.id);
     const scheduleA = schedules.find((s) => s.actor?.[0]?.reference === `PractitionerRole/${prA.id}`);
@@ -348,8 +356,8 @@ describe('get-schedule filters out inactive owners and Schedules', () => {
 
     extraResourceCleanup.push({ resourceType: 'PractitionerRole', id: prA.id });
     extraResourceCleanup.push({ resourceType: 'PractitionerRole', id: prB.id });
-    extraResourceCleanup.push({ resourceType: 'Practitioner', id: practitioners[0].id! });
-    extraResourceCleanup.push({ resourceType: 'Practitioner', id: practitioners[1].id! });
+    extraResourceCleanup.push({ resourceType: 'Practitioner', id: practitionerA.id });
+    extraResourceCleanup.push({ resourceType: 'Practitioner', id: practitionerB.id });
     extraResourceCleanup.push({ resourceType: 'Location', id: location.id });
     // cleanupTestScheduleResources sweeps Schedule (and via Schedule:actor:HS
     // it would normally sweep the group HS for HS-actored schedules); these
@@ -360,8 +368,8 @@ describe('get-schedule filters out inactive owners and Schedules', () => {
       slug,
       group,
       location,
-      practitionerA: practitioners[0],
-      practitionerB: practitioners[1],
+      practitionerA,
+      practitionerB,
       prA,
       prB,
       scheduleA,
@@ -527,6 +535,58 @@ describe('get-schedule filters out inactive owners and Schedules', () => {
       resourceType: 'Practitioner',
       id: fixture.practitionerB.id!,
       operations: [{ op: 'add', path: '/active', value: false }],
+    });
+
+    const after = await callGroup();
+    const afterScheduleRefs = new Set(
+      (after.available ?? []).map((sli) => sli.slot.schedule?.reference).filter((ref): ref is string => !!ref)
+    );
+    expect(afterScheduleRefs.has(`Schedule/${fixture.scheduleA.id}`)).toBe(true);
+    expect(afterScheduleRefs.has(`Schedule/${fixture.scheduleB.id}`)).toBe(false);
+  });
+
+  test('pools-providers group with an inactive member PractitionerRole — group URL still vends, but only from active members', async () => {
+    // PR-level deactivation (Schedules > General "Active" toggle for that
+    // specific location-scoped role) is independent of the Practitioner-
+    // level deactivation. A provider may be active globally (Employees >
+    // Provider details ON) while one of their location-scoped PRs is
+    // turned off, in which case only that PR's schedule should drop out
+    // of any group it participates in.
+    //
+    // PRs `_revinclude`d into the bundle aren't filtered by the FHIR
+    // search-level active filter (that filter targets the *primary*
+    // resource type — HealthcareService for groups), so the inactive PR
+    // would reach `walkGroupMemberPractitionerRoleSchedules` unchecked
+    // without the in-code bundle filter.
+    const fixture = await createGroupFixture();
+    const selectedDate = startOfDayWithTimezone({
+      date: DateTime.now().plus({ days: 1 }),
+      timezone: 'America/New_York',
+    }).toISODate();
+    assert(selectedDate);
+
+    const callGroup = async (): Promise<GetScheduleResponse> => {
+      const res = await oystehr.zambda.executePublic({
+        id: 'get-schedule',
+        slug: fixture.slug,
+        scheduleType: 'group',
+        selectedDate,
+      });
+      return res.output as GetScheduleResponse;
+    };
+
+    const before = await callGroup();
+    const beforeScheduleRefs = new Set(
+      (before.available ?? []).map((sli) => sli.slot.schedule?.reference).filter((ref): ref is string => !!ref)
+    );
+    expect(beforeScheduleRefs.has(`Schedule/${fixture.scheduleA.id}`)).toBe(true);
+    expect(beforeScheduleRefs.has(`Schedule/${fixture.scheduleB.id}`)).toBe(true);
+
+    // Deactivate the PR (not the Practitioner) for member B.
+    await oystehr.fhir.patch<PractitionerRole>({
+      resourceType: 'PractitionerRole',
+      id: fixture.prB.id!,
+      operations: [{ op: 'replace', path: '/active', value: false }],
     });
 
     const after = await callGroup();
