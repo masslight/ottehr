@@ -4,9 +4,10 @@ import { getSecret, PlacesResult, SearchPlacesInput, SearchPlacesOutput, Secrets
 import { createOystehrClient, getAuth0Token, wrapHandler, ZambdaInput } from '../../shared';
 import {
   addressComponentsFromPlacesDetailRes,
-  extractPharmacyIdFromSearchRes,
+  findMatchingErxPharmacy,
   getParamsForErxPharmacySearch,
   PLACES_API_BASE_URL,
+  reconcilePharmacyPhone,
 } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -139,13 +140,15 @@ const getPharmacyDetail = async (placesId: string, googleApiKey: string, oystehr
     headers: {
       'Content-Type': 'application/json',
       'X-Goog-Api-Key': googleApiKey,
-      'X-Goog-FieldMask': 'id,displayName,formattedAddress,addressComponents',
+      'X-Goog-FieldMask':
+        'id,displayName,formattedAddress,addressComponents,nationalPhoneNumber,internationalPhoneNumber',
     },
   });
 
   const data = await response.json();
   const placesName = data?.displayName?.text;
   const placesAddress = data?.formattedAddress;
+  const placesPhone = data?.nationalPhoneNumber ?? data?.internationalPhoneNumber;
 
   const addressParsed = addressComponentsFromPlacesDetailRes(data?.addressComponents);
   const pharmacySearchParams = getParamsForErxPharmacySearch(addressParsed, placesName);
@@ -154,11 +157,14 @@ const getPharmacyDetail = async (placesId: string, googleApiKey: string, oystehr
   const oystehrPharmacySearchRes = await oystehr.erx.searchPharmacies(pharmacySearchParams);
   console.log('oystehrPharmacySearchRes', oystehrPharmacySearchRes);
 
+  const erxPharmacyMatch = findMatchingErxPharmacy(placesName, addressParsed, oystehrPharmacySearchRes);
+
   const formattedPlace: PlacesResult = {
     placesId,
     name: placesName ?? '',
     address: placesAddress ?? '',
-    erxPharmacyId: extractPharmacyIdFromSearchRes(placesName, addressParsed, oystehrPharmacySearchRes),
+    phone: reconcilePharmacyPhone(placesPhone, erxPharmacyMatch?.phone),
+    erxPharmacyId: erxPharmacyMatch?.id.toString(),
   };
 
   console.log('returning this formatted pharmacy info', JSON.stringify(formattedPlace));
