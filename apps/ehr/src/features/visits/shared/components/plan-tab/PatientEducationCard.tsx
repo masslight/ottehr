@@ -274,7 +274,7 @@ export const PatientEducationCard: FC = () => {
                           (Primary)
                         </Typography>
                       )}
-                      {approvedByCode.has(diagnosis.code) && (
+                      {language === 'en' && approvedByCode.has(diagnosis.code) && (
                         <Typography component="span" variant="caption" color="success.main" sx={{ ml: 1 }}>
                           (Pre-approved PDF)
                         </Typography>

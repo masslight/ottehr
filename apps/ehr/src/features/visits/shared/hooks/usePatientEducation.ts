@@ -136,7 +136,8 @@ export function usePatientEducation(): UsePatientEducationResult {
     (language: PatientEducationLanguage) => {
       if (!apiClient) return;
       for (const diagnosis of allDiagnoses) {
-        if (approvedByCode.has(diagnosis.code)) continue;
+        // Approved (English-only) PDFs are reused only for English; in Spanish, generate every code.
+        if (language === 'en' && approvedByCode.has(diagnosis.code)) continue;
         const key = cacheKey(diagnosis.code, language);
         if (prefetchCacheRef.current.has(key)) continue;
         const promise = apiClient
@@ -178,7 +179,10 @@ export function usePatientEducation(): UsePatientEducationResult {
       }
 
       const sectionsByCode = new Map(sections.map((section) => [section.icdCode, section]));
-      const hasApprovedContent = selection.some((dx) => approvedByCode.has(dx.code));
+      // The pre-approved PDF library is English-only, so it only applies to English documents — never
+      // splice an English approved PDF into a Spanish document. In Spanish, generate every code instead.
+      const approvedActive = language === 'en' ? approvedByCode : new Map<string, ApprovedPatientEducationItem>();
+      const hasApprovedContent = selection.some((dx) => approvedActive.has(dx.code));
 
       let mergedPdfBytes: Uint8Array | undefined;
 
@@ -195,7 +199,7 @@ export function usePatientEducation(): UsePatientEducationResult {
         };
 
         for (const dx of selection) {
-          const approved = approvedByCode.get(dx.code);
+          const approved = approvedActive.get(dx.code);
           if (approved) {
             // One approved item can cover multiple ICD codes; append each item only once.
             if (appendedApprovedIds.has(approved.documentReferenceId)) continue;
@@ -229,7 +233,7 @@ export function usePatientEducation(): UsePatientEducationResult {
       const titleParts: string[] = [];
       const titledApprovedIds = new Set<string>();
       for (const dx of selection) {
-        const approved = approvedByCode.get(dx.code);
+        const approved = approvedActive.get(dx.code);
         if (approved) {
           if (titledApprovedIds.has(approved.documentReferenceId)) continue;
           titledApprovedIds.add(approved.documentReferenceId);
@@ -335,7 +339,8 @@ export function usePatientEducation(): UsePatientEducationResult {
       setGeneratedSections(null);
       lastSelectionRef.current = selectedDiagnoses;
 
-      const toGenerate = selectedDiagnoses.filter((d) => !approvedByCode.has(d.code));
+      // In Spanish, ignore the English-only approved library and generate every selected code.
+      const toGenerate = selectedDiagnoses.filter((d) => !(language === 'en' && approvedByCode.has(d.code)));
 
       try {
         // Fast path: every selected diagnosis has a pre-approved PDF — skip review and merge directly.
