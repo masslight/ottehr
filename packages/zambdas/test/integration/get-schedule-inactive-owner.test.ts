@@ -36,7 +36,12 @@ describe('get-schedule filters out inactive owners and Schedules', () => {
   let oystehr: Oystehr;
   let token: string | null = null;
   let processId: string | null = null;
-  const extraResourceCleanup: Array<{ resourceType: string; id: string }> = [];
+  // Resources `cleanupTestScheduleResources` doesn't sweep. It only deletes
+  // Schedule + the Schedule's direct `_include`d actor; for PR-actored
+  // fixtures the actor is the PR, so PR + Practitioner + Location all leak
+  // unless tracked explicitly here.
+  const extraResourceCleanup: Array<{ resourceType: 'Practitioner' | 'PractitionerRole' | 'Location'; id: string }> =
+    [];
 
   beforeAll(async () => {
     processId = randomUUID();
@@ -59,13 +64,16 @@ describe('get-schedule filters out inactive owners and Schedules', () => {
   });
 
   afterAll(async () => {
-    if (!oystehr || !processId) return;
+    // Throw rather than silently no-op so a setup failure can't leave tagged
+    // fixtures behind unnoticed — matches cleanupTestScheduleResources' own
+    // convention.
+    if (!oystehr || !processId) {
+      throw new Error('oystehr or processId is null; cannot clean up fixtures');
+    }
     await cleanupTestScheduleResources(processId, oystehr);
-    // cleanupTestScheduleResources sweeps Schedule + Location by process tag;
-    // Practitioner / PractitionerRole are deleted explicitly here.
     for (const { resourceType, id } of extraResourceCleanup) {
       try {
-        await oystehr.fhir.delete({ resourceType: resourceType as 'Practitioner' | 'PractitionerRole', id });
+        await oystehr.fhir.delete({ resourceType, id });
       } catch (e) {
         console.error(`Failed to delete fixture ${resourceType}/${id}:`, e);
       }
@@ -180,8 +188,12 @@ describe('get-schedule filters out inactive owners and Schedules', () => {
     assert(practitioner?.id);
     assert(pr?.id);
     assert(schedule?.id);
+    // PR-actored fixture: the Schedule's `_include`d actor is the PR, so
+    // cleanupTestScheduleResources sweeps the PR but not the PR's referenced
+    // Practitioner or Location. Track all three for the afterAll pass.
     extraResourceCleanup.push({ resourceType: 'PractitionerRole', id: pr.id });
     extraResourceCleanup.push({ resourceType: 'Practitioner', id: practitioner.id });
+    extraResourceCleanup.push({ resourceType: 'Location', id: location.id });
     return { slug, location, practitioner, pr, schedule };
   };
 

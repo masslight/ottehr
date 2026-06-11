@@ -143,12 +143,20 @@ export async function getSchedules(
   }
 
   console.log('searching for resource with search params: ', searchParams);
+  // Drop inactive Schedule resources at the bundle level. The single-Schedule
+  // `.find()` below has its own active check, but `scheduleResources` is also
+  // consumed downstream when building `scheduleList` for slot vending — for
+  // group / pools strategies with multiple Schedules in the bundle, an
+  // inactive sibling would otherwise still get its slots vended.
+  // `r.active === undefined` is treated as active per FHIR convention.
   const scheduleResources = (
     await oystehr.fhir.search<Location | Practitioner | HealthcareService | Schedule | PractitionerRole>({
       resourceType: resourceType as 'Location' | 'Practitioner' | 'HealthcareService' | 'Schedule' | 'PractitionerRole',
       params: searchParams,
     })
-  ).unbundle();
+  )
+    .unbundle()
+    .filter((r) => r.resourceType !== 'Schedule' || (r as Schedule).active !== false);
 
   const scheduleOwner = scheduleResources.find((res) => {
     if (res.resourceType !== fhirType) return false;
@@ -192,7 +200,12 @@ export async function getSchedules(
           { name: '_count', value: '1000' },
         ],
       })
-    ).unbundle();
+    )
+      .unbundle()
+      // Same inactive-Schedule filter as the initial bundle; the widened
+      // search doesn't gate on Schedule.active and would otherwise leak
+      // soft-deleted member Schedules back into scheduleList.
+      .filter((r) => r.resourceType !== 'Schedule' || (r as Schedule).active !== false);
     // Dedup by `${resourceType}/${id}` so we don't double-count resources
     // that were already pulled in by the initial search's _include chains.
     const seen = new Set(scheduleResources.map((r) => `${r.resourceType}/${r.id}`));
@@ -205,12 +218,10 @@ export async function getSchedules(
     }
   }
 
+  // Inactive Schedules were already dropped from scheduleResources above;
+  // no per-find active check needed here.
   const schedule = scheduleResources.find((res) => {
-    return (
-      res.resourceType === 'Schedule' &&
-      res.actor?.[0]?.reference === `${fhirType}/${scheduleOwner.id}` &&
-      res.active !== false
-    );
+    return res.resourceType === 'Schedule' && res.actor?.[0]?.reference === `${fhirType}/${scheduleOwner.id}`;
   }) as Schedule | undefined;
 
   //const schedule: Location | Practitioner | HealthcareService = scheduleResources[0];
