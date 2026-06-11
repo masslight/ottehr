@@ -190,8 +190,7 @@ describe('get-schedule filters out inactive owners and Schedules', () => {
     assert(schedule?.id);
     // PR-actored fixture: the Schedule's `_include`d actor is the PR, so
     // cleanupTestScheduleResources sweeps the PR but not the PR's referenced
-    // Practitioner or Location. Track all three for the afterAll pass.
-    extraResourceCleanup.push({ resourceType: 'PractitionerRole', id: pr.id });
+    // Practitioner or Location. Track those for the afterAll pass.
     extraResourceCleanup.push({ resourceType: 'Practitioner', id: practitioner.id });
     extraResourceCleanup.push({ resourceType: 'Location', id: location.id });
     return { slug, location, practitioner, pr, schedule };
