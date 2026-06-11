@@ -724,7 +724,7 @@ async function getClinicalResources(
     })
   );
 
-  const defaultBillingProviderRef = params.secrets.DEFAULT_BILLING_PROVIDER;
+  const defaultBillingProviderRef = params.secrets.DEFAULT_BILLING_RESOURCE;
   if (!defaultBillingProviderRef) throw FHIR_RESOURCE_NOT_FOUND('Organization');
   const billingProviders = (
     await oystehr.fhir.search<Organization>({
