@@ -34,17 +34,16 @@ interface AiChartedItemProps {
   /** Seed query for the alternatives search (usually the item's display text). */
   initialQuery: string;
   onSearch: (query: string) => Promise<AiAlternative[]>;
-  /** Replace the item with the chosen alternative; dosageUnconfirmed carries for medications. */
-  onReplace: (key: string, dosageUnconfirmed?: boolean) => void | Promise<void>;
+  /** Replace the item with the chosen alternative; the checkboxOption state (if any) carries over. */
+  onReplace: (key: string, checkboxChecked?: boolean) => void | Promise<void>;
   onRemove: () => void | Promise<void>;
   onDiscuss: () => void;
   /** Hide the "Discuss" action (code-based items have no right-panel picker). */
   hideDiscuss?: boolean;
-  // Medications: a "Patient doesn't know dosage" checkbox (mirrors the regular-note AI suggestion).
-  // Toggling it updates the CURRENT item in place; it also carries to any replacement chosen.
-  showDosageOption?: boolean;
-  dosageUnconfirmed?: boolean;
-  onDosageUnconfirmedChange?: (value: boolean) => void;
+  // An optional checkbox shown at the top of the popover (e.g. medications' "Patient doesn't know
+  // dosage", or ROS "Patient denies"). Toggling it updates the CURRENT item in place via onChange;
+  // its state is also passed to onReplace so a chosen replacement inherits it.
+  checkboxOption?: { label: string; checked: boolean; onChange: (checked: boolean) => void };
 }
 
 /**
@@ -62,15 +61,13 @@ export function AiChartedItem({
   onRemove,
   onDiscuss,
   hideDiscuss,
-  showDosageOption,
-  dosageUnconfirmed,
-  onDosageUnconfirmedChange,
+  checkboxOption,
 }: AiChartedItemProps): JSX.Element {
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
   const [query, setQuery] = useState(initialQuery);
   const [results, setResults] = useState<AiAlternative[]>([]);
   const [loading, setLoading] = useState(false);
-  const [dosage, setDosage] = useState(!!dosageUnconfirmed);
+  const [optChecked, setOptChecked] = useState(!!checkboxOption?.checked);
   const open = Boolean(anchor);
 
   const doSearch = useCallback(
@@ -90,7 +87,7 @@ export function AiChartedItem({
   const handleOpen = (e: React.MouseEvent<HTMLElement>): void => {
     setAnchor(e.currentTarget);
     setQuery(initialQuery);
-    setDosage(!!dosageUnconfirmed);
+    setOptChecked(!!checkboxOption?.checked);
     void doSearch(initialQuery);
   };
   const close = (): void => setAnchor(null);
@@ -137,22 +134,21 @@ export function AiChartedItem({
           <Typography variant="subtitle2" sx={{ mb: 1 }}>
             Replace or correct
           </Typography>
-          {showDosageOption && (
+          {checkboxOption && (
             <FormControlLabel
               sx={{ mb: 0.5 }}
               control={
                 <Checkbox
                   size="small"
-                  checked={dosage}
+                  checked={optChecked}
                   onChange={(e) => {
-                    setDosage(e.target.checked);
-                    // Toggle applies to the CURRENT item in place (mirrors keeping the med, just
-                    // marking the dosage). It also carries to a replacement if one is chosen.
-                    onDosageUnconfirmedChange?.(e.target.checked);
+                    setOptChecked(e.target.checked);
+                    // Toggle applies to the CURRENT item in place; it also carries to a replacement.
+                    checkboxOption.onChange(e.target.checked);
                   }}
                 />
               }
-              label={<Typography variant="caption">Patient doesn&apos;t know dosage</Typography>}
+              label={<Typography variant="caption">{checkboxOption.label}</Typography>}
             />
           )}
           <TextField
@@ -185,7 +181,7 @@ export function AiChartedItem({
                     key={r.key}
                     onClick={() => {
                       close();
-                      void onReplace(r.key, dosage);
+                      void onReplace(r.key, optChecked);
                     }}
                   >
                     <ListItemText

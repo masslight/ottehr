@@ -381,8 +381,9 @@ export type ChartedField =
   | 'episodeOfCare'
   | 'diagnosis';
 // All fields that support AI click-to-correct — adds the CODE-based billing fields (E&M is a scalar,
-// CPT is an array) which use a terminology search and their own replace logic.
-export type AiField = ChartedField | 'cptCodes' | 'emCode';
+// CPT is an array) and the structured OBSERVATION fields (exam + ROS), which resolve against the
+// exam/ROS leaf catalogs instead of a terminology/text search.
+export type AiField = ChartedField | 'cptCodes' | 'emCode' | 'examObservations' | 'rosObservations';
 
 // Provenance for an item the assistant auto-charted and that still needs the provider's review.
 // `field` ties it to the chart-data; `lowConfidence` is set when the auto-pick was ambiguous.
@@ -406,10 +407,11 @@ interface NoteSectionsProps {
   // row's resourceId is in this map it renders as a clickable <AiChartedItem> instead of a row.
   aiCharted?: Map<string, AiChartedMeta>;
   onAiSearch?: (field: AiField, query: string) => Promise<AiAlternative[]>;
-  onAiReplace?: (field: AiField, dto: { resourceId?: string }, key: string, dosageUnconfirmed?: boolean) => void;
+  onAiReplace?: (field: AiField, dto: { resourceId?: string }, key: string, checkboxChecked?: boolean) => void;
   onAiRemove?: (field: AiField, dto: { resourceId?: string }) => void;
   onAiDiscuss?: (field: AiField, dto: { resourceId?: string }, meta: AiChartedMeta) => void;
   onAiSetMedDosage?: (dto: { resourceId?: string }, value: boolean) => void;
+  onAiSetRosState?: (dto: { resourceId?: string }, denies: boolean) => void;
 }
 
 // Keyframes defined at module level so the animation runs reliably whether `flashSx` is
@@ -527,6 +529,7 @@ function NoteSections({
   onAiRemove,
   onAiDiscuss,
   onAiSetMedDosage,
+  onAiSetRosState,
 }: NoteSectionsProps): JSX.Element {
   const removeHandler = (field: string, dto: { resourceId?: string }): (() => void) | undefined =>
     editable && onRemoveItem && dto.resourceId ? () => onRemoveItem(field, dto) : undefined;
@@ -544,21 +547,36 @@ function NoteSections({
     const meta = aiMeta(dto);
     if (!editable || !meta || !onAiSearch || !onAiReplace || !onAiRemove || !onAiDiscuss) return fallback;
     const isMed = field === 'medications';
-    const isCode = field === 'cptCodes' || field === 'emCode';
-    const medDosage = isMed ? !!(dto as MedicationDTO).intakeInfo?.patientCouldNotConfirmDosage : undefined;
+    // Observations (exam/ROS) and the billing codes have no right-panel picker → hide Discuss.
+    const hideDiscuss =
+      field === 'cptCodes' || field === 'emCode' || field === 'examObservations' || field === 'rosObservations';
+    // The optional in-popover checkbox: medications carry "doesn't know dosage", ROS carries the
+    // denies/reports polarity. Both update the current item in place and carry to a replacement.
+    let checkboxOption: { label: string; checked: boolean; onChange: (v: boolean) => void } | undefined;
+    if (isMed && onAiSetMedDosage) {
+      checkboxOption = {
+        label: "Patient doesn't know dosage",
+        checked: !!(dto as MedicationDTO).intakeInfo?.patientCouldNotConfirmDosage,
+        onChange: (v) => onAiSetMedDosage(dto, v),
+      };
+    } else if (field === 'rosObservations' && onAiSetRosState) {
+      checkboxOption = {
+        label: 'Patient denies (uncheck for reports)',
+        checked: !!(dto as ExamObservationDTO).field?.endsWith('-denies'),
+        onChange: (v) => onAiSetRosState(dto, v),
+      };
+    }
     return (
       <AiChartedItem
         key={dto.resourceId}
         lowConfidence={meta.lowConfidence}
         initialQuery={meta.display}
         onSearch={(q) => onAiSearch(field, q)}
-        onReplace={(key, dosage) => onAiReplace(field, dto, key, dosage)}
+        onReplace={(key, checked) => onAiReplace(field, dto, key, checked)}
         onRemove={() => onAiRemove(field, dto)}
         onDiscuss={() => onAiDiscuss(field, dto, meta)}
-        hideDiscuss={isCode}
-        showDosageOption={isMed}
-        dosageUnconfirmed={medDosage}
-        onDosageUnconfirmedChange={isMed && onAiSetMedDosage ? (v) => onAiSetMedDosage(dto, v) : undefined}
+        hideDiscuss={hideDiscuss}
+        checkboxOption={checkboxOption}
       >
         {label}
       </AiChartedItem>
@@ -872,20 +890,28 @@ function NoteSections({
           <Section title="Review of Systems">
             {positiveRos.length > 0 && (
               <Stack spacing={0.25}>
-                {positiveRos.map((o) => (
-                  <DeletableRow
-                    key={o.field}
-                    editable={editable}
-                    resourceId={o.resourceId}
-                    flashSx={itemSx(o.resourceId)}
-                    onDelete={removeHandler('rosObservations', o)}
-                  >
+                {positiveRos.map((o) => {
+                  const rosLabel = (
                     <Typography variant="body2">
                       • {o.field.endsWith('-denies') ? 'Denies' : 'Reports'} {o.label ?? o.field}
                       {o.note ? ` — ${o.note}` : ''}
                     </Typography>
-                  </DeletableRow>
-                ))}
+                  );
+                  return renderAiChartable(
+                    'rosObservations',
+                    o,
+                    rosLabel,
+                    <DeletableRow
+                      key={o.field}
+                      editable={editable}
+                      resourceId={o.resourceId}
+                      flashSx={itemSx(o.resourceId)}
+                      onDelete={removeHandler('rosObservations', o)}
+                    >
+                      {rosLabel}
+                    </DeletableRow>
+                  );
+                })}
               </Stack>
             )}
             {rosText && (
@@ -936,7 +962,17 @@ function NoteSections({
                           const componentSummary = Array.from(componentsByGroup.entries())
                             .map(([g, labels]) => (g ? `${g}: ${labels.join(', ')}` : labels.join(', ')))
                             .join('; ');
-                          return (
+                          const examLabel = (
+                            <Typography variant="body2">
+                              • {f.label ?? f.field}
+                              {componentSummary ? ` — ${componentSummary}` : ''}
+                              {f.note ? ` — ${f.note}` : ''}
+                            </Typography>
+                          );
+                          return renderAiChartable(
+                            'examObservations',
+                            f,
+                            examLabel,
                             <DeletableRow
                               key={f.field}
                               editable={editable}
@@ -944,11 +980,7 @@ function NoteSections({
                               flashSx={itemSx(f.resourceId)}
                               onDelete={removeHandler('examObservations', f)}
                             >
-                              <Typography variant="body2">
-                                • {f.label ?? f.field}
-                                {componentSummary ? ` — ${componentSummary}` : ''}
-                                {f.note ? ` — ${f.note}` : ''}
-                              </Typography>
+                              {examLabel}
                             </DeletableRow>
                           );
                         })}
@@ -2264,6 +2296,8 @@ export default function EasyChartPage(): JSX.Element {
   // resolved back to a SearchResult; `replaceTargetRef` lets a "Discuss" picker REPLACE the item.
   const [aiCharted, setAiCharted] = useState<Map<string, AiChartedMeta>>(new Map());
   const aiSearchResultsRef = useRef<Map<string, SearchResult>>(new Map());
+  // Parallel cache for the OBSERVATION fields: a chosen popover key resolves back to an exam/ROS leaf.
+  const aiLeafResultsRef = useRef<Map<string, ExamLeaf | RosLeaf>>(new Map());
   const replaceTargetRef = useRef<{ field: AiField; dto: { resourceId?: string } } | null>(null);
   // Search-based add intents that auto-chart with the needs-review highlight + click-to-correct,
   // and the field each maps to. (CPT/E&M, exam findings and procedures use different mechanisms.)
@@ -2490,6 +2524,34 @@ export default function EasyChartPage(): JSX.Element {
       aiSearchResultsRef.current = map;
       return alts;
     }
+    // OBSERVATION fields: resolve against the exam / ROS leaf catalogs (not a term search).
+    if (field === 'examObservations' || field === 'rosObservations') {
+      const leafMap = new Map<string, ExamLeaf | RosLeaf>();
+      let alts: AiAlternative[];
+      if (field === 'examObservations') {
+        const matches = findExamLeafMatches(
+          { kind: 'add-exam-finding', display: query, searchTerms: [query] },
+          EXAM_LEAVES
+        );
+        alts = matches.map((leaf, i) => {
+          const key = `${leaf.field}-${i}`;
+          leafMap.set(key, leaf);
+          return { key, label: leaf.label, secondary: leaf.section };
+        });
+      } else {
+        const matches = findRosLeafMatches(
+          { kind: 'add-ros-finding', display: query, searchTerms: [query] },
+          ROS_LEAVES
+        );
+        alts = matches.map((leaf, i) => {
+          const key = `${leaf.baseKey}-${i}`;
+          leafMap.set(key, leaf);
+          return { key, label: leaf.label, secondary: leaf.system };
+        });
+      }
+      aiLeafResultsRef.current = leafMap;
+      return alts;
+    }
     const intent = synthAddIntent(field, query, [query]);
     const results = await runIntentSearch(intent, oystehr, oystehrZambda);
     const map = new Map<string, SearchResult>();
@@ -2510,7 +2572,52 @@ export default function EasyChartPage(): JSX.Element {
   // Replace an AI-charted item with a chosen alternative: delete the old, add the new (NOT flagged
   // for review — the provider chose it). Preserves primary flag for diagnoses; carries the
   // dosage-unconfirmed flag for medications.
-  const aiReplace = (field: AiField, dto: { resourceId?: string }, key: string, dosageUnconfirmed?: boolean): void => {
+  const clearAiChartedId = (resourceId?: string): void => {
+    if (!resourceId) return;
+    setAiCharted((prev) => {
+      if (!prev.has(resourceId)) return prev;
+      const n = new Map(prev);
+      n.delete(resourceId);
+      return n;
+    });
+  };
+  // Flag newly-charted observation ids (returned by saveAndMerge) as AI-charted/needs-review so they
+  // render clickable-to-correct. (Can't diff chartDataRef here — it's only synced post-render.)
+  const flagAiObsIds = (ids: string[], field: 'examObservations' | 'rosObservations', display: string): void => {
+    if (ids.length === 0) return;
+    setAiCharted((prev) => {
+      const n = new Map(prev);
+      for (const id of ids) n.set(id, { field, display, searchTerms: [], lowConfidence: false });
+      return n;
+    });
+  };
+  const aiReplace = (field: AiField, dto: { resourceId?: string }, key: string, checkboxChecked?: boolean): void => {
+    // OBSERVATION fields resolve the chosen key against the exam/ROS leaf cache, then delete the old
+    // observation and save the new leaf (ROS carries the denies/reports state from the checkbox).
+    if (field === 'examObservations' || field === 'rosObservations') {
+      const leaf = aiLeafResultsRef.current.get(key);
+      if (!leaf || !encounterId) return;
+      void (async () => {
+        try {
+          clearAiChartedId(dto.resourceId);
+          await deleteChartedResource(field, dto);
+          if (field === 'examObservations') {
+            const ex = leaf as ExamLeaf;
+            await saveAndMerge({ encounterId, examObservations: [{ field: ex.field, label: ex.label, value: true }] });
+          } else {
+            const ros = leaf as RosLeaf;
+            const state = checkboxChecked ? RosFindingState.Denies : RosFindingState.Reports;
+            await saveAndMerge({
+              encounterId,
+              rosObservations: [{ field: rosField(ros.baseKey, state), label: ros.label, value: true }],
+            });
+          }
+        } catch (e) {
+          console.error('AI replace failed:', e);
+        }
+      })();
+      return;
+    }
     const result = aiSearchResultsRef.current.get(key);
     if (!result || !encounterId || !result.code) return;
     // CODE-based fields: E&M is a scalar (overwrite); CPT is an array (delete old, add new).
@@ -2541,7 +2648,7 @@ export default function EasyChartPage(): JSX.Element {
     }
     const isPrimary = field === 'diagnosis' ? !!(dto as { isPrimary?: boolean }).isPrimary : undefined;
     const intent = synthAddIntent(field, result.name, [], isPrimary);
-    const payload = buildIntentPayload(encounterId, intent, result, dosageUnconfirmed ?? true);
+    const payload = buildIntentPayload(encounterId, intent, result, checkboxChecked ?? true);
     void (async () => {
       try {
         await deleteChartedResource(field, dto);
@@ -2563,6 +2670,35 @@ export default function EasyChartPage(): JSX.Element {
     void saveAndMerge(payload).catch((e) => console.error('AI dosage toggle failed:', e));
   };
 
+  // Flip a charted ROS finding's polarity in place (denies ↔ reports). Switching the field-key
+  // suffix means a new observation; uncheck the old one and keep the new one flagged for review.
+  const aiSetRosState = (dto: { resourceId?: string }, denies: boolean): void => {
+    if (!encounterId) return;
+    const obs = dto as ExamObservationDTO;
+    if (!obs.field) return;
+    const baseKey = obs.field.replace(/-(denies|reports)$/, '');
+    const newField = rosField(baseKey, denies ? RosFindingState.Denies : RosFindingState.Reports);
+    if (newField === obs.field) return;
+    const updates: ExamObservationDTO[] = [
+      { field: newField, label: obs.label, value: true },
+      { field: obs.field, label: obs.label, value: false, resourceId: obs.resourceId },
+    ];
+    void (async () => {
+      try {
+        const newIds = await saveAndMerge({ encounterId, rosObservations: updates });
+        setAiCharted((prev) => {
+          const n = new Map(prev);
+          if (obs.resourceId) n.delete(obs.resourceId);
+          for (const id of newIds)
+            n.set(id, { field: 'rosObservations', display: obs.label ?? '', searchTerms: [], lowConfidence: false });
+          return n;
+        });
+      } catch (e) {
+        console.error('AI ROS state toggle failed:', e);
+      }
+    })();
+  };
+
   const aiRemove = (field: AiField, dto: { resourceId?: string }): void => {
     void deleteChartedResource(field, dto).catch((e) => console.error('AI remove failed:', e));
   };
@@ -2571,8 +2707,9 @@ export default function EasyChartPage(): JSX.Element {
   // Refine). Picking there REPLACES the item (replaceTargetRef is consumed in handlePick). The row
   // leaves the needs-review set because it's now under active review in the panel.
   const aiDiscuss = (field: AiField, dto: { resourceId?: string }, meta: AiChartedMeta): void => {
-    // CODE-based fields have no right-panel picker; Discuss is hidden for them.
-    if (field === 'cptCodes' || field === 'emCode') return;
+    // CODE-based and OBSERVATION fields have no right-panel picker; Discuss is hidden for them.
+    if (field === 'cptCodes' || field === 'emCode' || field === 'examObservations' || field === 'rosObservations')
+      return;
     void (async () => {
       try {
         const isPrimary = field === 'diagnosis' ? !!(dto as { isPrimary?: boolean }).isPrimary : undefined;
@@ -3038,8 +3175,9 @@ export default function EasyChartPage(): JSX.Element {
           // unrelated Left ear options).
           setConv({ kind: 'skipped', user: message });
         } else {
-          // No stopping: auto-pick the top exam-finding match.
-          await handleExamPick(remaining[0], message);
+          // No stopping: auto-pick the top exam-finding match, then flag it for review.
+          const ids = await handleExamPick(remaining[0], message);
+          flagAiObsIds(ids, 'examObservations', remaining[0].label);
         }
         return;
       }
@@ -3078,8 +3216,9 @@ export default function EasyChartPage(): JSX.Element {
         if (matches.length === 0 || remaining.length === 0) {
           setConv({ kind: 'skipped', user: message });
         } else {
-          // No stopping: auto-pick the top ROS item match.
-          await handleRosPick(remaining[0], finding, message);
+          // No stopping: auto-pick the top ROS item match, then flag it for review.
+          const ids = await handleRosPick(remaining[0], finding, message);
+          flagAiObsIds(ids, 'rosObservations', remaining[0].label);
         }
         return;
       }
@@ -3443,8 +3582,8 @@ export default function EasyChartPage(): JSX.Element {
 
   // Chart a structured ROS finding: save the leaf's -reports or -denies observation (value=true),
   // and uncheck the opposite-state observation if it was set (denies/reports are mutually exclusive).
-  const handleRosPick = async (leaf: RosLeaf, finding: 'reports' | 'denies', user: string): Promise<void> => {
-    if (!apiClient || !encounterId) return;
+  const handleRosPick = async (leaf: RosLeaf, finding: 'reports' | 'denies', user: string): Promise<string[]> => {
+    if (!apiClient || !encounterId) return [];
     const stateLabel = `${finding === 'denies' ? 'Denies' : 'Reports'} ${leaf.label}`;
     setConv({ kind: 'saving', user, chosenName: stateLabel });
     try {
@@ -3461,17 +3600,20 @@ export default function EasyChartPage(): JSX.Element {
       if (paired?.value === true) {
         updates.push({ field: pairedKey, label: leaf.label, value: false, resourceId: paired.resourceId });
       }
-      await saveAndMerge({ encounterId, rosObservations: updates });
+      const newIds = await saveAndMerge({ encounterId, rosObservations: updates });
       setConv({ kind: 'done', user, chosenName: stateLabel });
+      return newIds;
     } catch (e) {
       console.error('Add ROS finding failed:', e);
       setConv({ kind: 'error', user, reply: `Could not add "${stateLabel}". Please try again.` });
+      return [];
     }
   };
 
-  const handleExamPick = async (leaf: ExamLeaf, user: string): Promise<void> => {
-    if (!apiClient || !encounterId) return;
+  const handleExamPick = async (leaf: ExamLeaf, user: string): Promise<string[]> => {
+    if (!apiClient || !encounterId) return [];
     setConv({ kind: 'saving', user, chosenName: leaf.label });
+    let newIds: string[] = [];
     try {
       if (leaf.modalOption) {
         // Modal-option leaf: write as a `components` entry on the parent observation, the
@@ -3490,7 +3632,7 @@ export default function EasyChartPage(): JSX.Element {
         };
         // Dedup: replace by code if already present
         const merged = [...existingComponents.filter((c) => c.code !== newComponent.code), newComponent];
-        await saveAndMerge({
+        newIds = await saveAndMerge({
           encounterId,
           examObservations: [
             {
@@ -3507,15 +3649,17 @@ export default function EasyChartPage(): JSX.Element {
         });
       } else {
         // Plain checkbox leaf: simple field+value save.
-        await saveAndMerge({
+        newIds = await saveAndMerge({
           encounterId,
           examObservations: [{ field: leaf.field, label: leaf.label, value: true }],
         });
       }
       setConv({ kind: 'done', user, chosenName: leaf.label });
+      return newIds;
     } catch (e) {
       console.error('Add exam finding failed:', e);
       setConv({ kind: 'error', user, reply: `Could not add "${leaf.label}" to the exam. Please try again.` });
+      return [];
     }
   };
 
@@ -4423,6 +4567,7 @@ export default function EasyChartPage(): JSX.Element {
         onAiRemove={aiRemove}
         onAiDiscuss={aiDiscuss}
         onAiSetMedDosage={aiSetMedDosage}
+        onAiSetRosState={aiSetRosState}
       />
     </>
   ) : null;
