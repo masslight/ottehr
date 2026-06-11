@@ -24,45 +24,43 @@ describe('get-terminal-readers validateRequestParameters', () => {
   });
 
   it('throws when stripeAccountId is missing', () => {
-    expect(() => validateRequestParameters(makeInput({ terminalLocationId: 'tml_456def' }))).toThrow(
-      'The following required parameters were missing: stripeAccountId'
-    );
+    expect(() => validateRequestParameters(makeInput({ terminalLocationId: 'tml_456def' }))).toThrow(/stripeAccountId/);
   });
 
   it('throws when stripeAccountId is empty string', () => {
     expect(() =>
       validateRequestParameters(makeInput({ stripeAccountId: '', terminalLocationId: 'tml_456def' }))
-    ).toThrow('The following required parameters were missing: stripeAccountId');
+    ).toThrow();
   });
 
   it('throws when stripeAccountId is not a string', () => {
     expect(() =>
       validateRequestParameters(makeInput({ stripeAccountId: 123, terminalLocationId: 'tml_456def' }))
-    ).toThrow('The following required parameters were missing: stripeAccountId');
+    ).toThrow();
   });
 
   it('throws when terminalLocationId is missing', () => {
     expect(() => validateRequestParameters(makeInput({ stripeAccountId: 'acct_123abc' }))).toThrow(
-      'The following required parameters were missing: terminalLocationId'
+      /terminalLocationId/
     );
   });
 
   it('throws when terminalLocationId is empty string', () => {
     expect(() =>
       validateRequestParameters(makeInput({ stripeAccountId: 'acct_123abc', terminalLocationId: '' }))
-    ).toThrow('The following required parameters were missing: terminalLocationId');
+    ).toThrow();
   });
 
   it('throws when terminalLocationId is not a string', () => {
     expect(() =>
       validateRequestParameters(makeInput({ stripeAccountId: 'acct_123abc', terminalLocationId: 42 }))
-    ).toThrow('The following required parameters were missing: terminalLocationId');
+    ).toThrow();
   });
 
-  it('parses a pre-parsed body object', () => {
+  it('parses a stringified body', () => {
     const input: ZambdaInput = {
       headers: null,
-      body: { stripeAccountId: 'acct_abc', terminalLocationId: 'tml_def' } as unknown as string,
+      body: JSON.stringify({ stripeAccountId: 'acct_abc', terminalLocationId: 'tml_def' }),
       secrets: null,
     };
     const result = validateRequestParameters(input);

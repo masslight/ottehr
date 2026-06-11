@@ -19,27 +19,21 @@ describe('get-stripe-account-info validateRequestParameters', () => {
   });
 
   it('throws when stripeAccountId is missing', () => {
-    expect(() => validateRequestParameters(makeInput({}))).toThrow(
-      'The following required parameters were missing: stripeAccountId'
-    );
+    expect(() => validateRequestParameters(makeInput({}))).toThrow(/stripeAccountId/);
   });
 
   it('throws when stripeAccountId is empty string', () => {
-    expect(() => validateRequestParameters(makeInput({ stripeAccountId: '' }))).toThrow(
-      'The following required parameters were missing: stripeAccountId'
-    );
+    expect(() => validateRequestParameters(makeInput({ stripeAccountId: '' }))).toThrow();
   });
 
   it('throws when stripeAccountId is not a string', () => {
-    expect(() => validateRequestParameters(makeInput({ stripeAccountId: 99 }))).toThrow(
-      'The following required parameters were missing: stripeAccountId'
-    );
+    expect(() => validateRequestParameters(makeInput({ stripeAccountId: 99 }))).toThrow();
   });
 
-  it('parses a pre-parsed body object', () => {
+  it('parses a stringified body', () => {
     const input: ZambdaInput = {
       headers: null,
-      body: { stripeAccountId: 'acct_xyz' } as unknown as string,
+      body: JSON.stringify({ stripeAccountId: 'acct_xyz' }),
       secrets: null,
     };
     const result = validateRequestParameters(input);

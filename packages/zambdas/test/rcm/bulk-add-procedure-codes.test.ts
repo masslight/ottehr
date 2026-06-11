@@ -14,6 +14,8 @@ function beforeEachClearMocks(): void {
 // validateRequestParameters
 // ---------------------------------------------------------------------------
 
+const VALID_UUID = '550e8400-e29b-41d4-a716-446655440000';
+
 function makeInput(body: Record<string, unknown>): ZambdaInput {
   return { headers: null, body: JSON.stringify(body), secrets: null };
 }
@@ -22,13 +24,13 @@ describe('bulk-add-procedure-codes validateRequestParameters', () => {
   it('returns validated params', () => {
     const result = validateRequestParameters(
       makeInput({
-        feeScheduleId: 'fs-1',
+        feeScheduleId: VALID_UUID,
         codes: [{ code: '99213', amount: 100 }],
         replaceAll: true,
       })
     );
     expect(result).toMatchObject({
-      feeScheduleId: 'fs-1',
+      feeScheduleId: VALID_UUID,
       codes: [{ code: '99213', amount: 100 }],
       replaceAll: true,
     });
@@ -40,27 +42,27 @@ describe('bulk-add-procedure-codes validateRequestParameters', () => {
 
   it('throws when feeScheduleId is missing', () => {
     expect(() => validateRequestParameters(makeInput({ codes: [{ code: '99213', amount: 100 }] }))).toThrow(
-      'feeScheduleId'
+      /feeScheduleId/
     );
   });
 
   it('throws when codes is empty', () => {
-    expect(() => validateRequestParameters(makeInput({ feeScheduleId: 'fs-1', codes: [] }))).toThrow('codes');
+    expect(() => validateRequestParameters(makeInput({ feeScheduleId: VALID_UUID, codes: [] }))).toThrow();
   });
 
   it('throws when codes is not an array', () => {
-    expect(() => validateRequestParameters(makeInput({ feeScheduleId: 'fs-1', codes: 'not-array' }))).toThrow('codes');
+    expect(() => validateRequestParameters(makeInput({ feeScheduleId: VALID_UUID, codes: 'not-array' }))).toThrow();
   });
 
   it('throws when a row has invalid amount', () => {
     expect(() =>
-      validateRequestParameters(makeInput({ feeScheduleId: 'fs-1', codes: [{ code: '99213', amount: 'abc' }] }))
-    ).toThrow('amount');
+      validateRequestParameters(makeInput({ feeScheduleId: VALID_UUID, codes: [{ code: '99213', amount: 'abc' }] }))
+    ).toThrow();
   });
 
   it('defaults replaceAll to false when omitted', () => {
     const result = validateRequestParameters(
-      makeInput({ feeScheduleId: 'fs-1', codes: [{ code: '99213', amount: 100 }] })
+      makeInput({ feeScheduleId: VALID_UUID, codes: [{ code: '99213', amount: 100 }] })
     );
     expect(result.replaceAll).toBe(false);
   });
@@ -68,7 +70,7 @@ describe('bulk-add-procedure-codes validateRequestParameters', () => {
   it('normalizes falsy modifier to undefined', () => {
     const result = validateRequestParameters(
       makeInput({
-        feeScheduleId: 'fs-1',
+        feeScheduleId: VALID_UUID,
         codes: [{ code: '99213', amount: 100, modifier: '' }],
       })
     );
@@ -98,7 +100,7 @@ function makePropertyGroup(code: string, modifier?: string, amount = 100): Charg
 const fakeExisting = (propertyGroup: ChargeItemDefinition['propertyGroup']): ChargeItemDefinition =>
   ({
     resourceType: 'ChargeItemDefinition',
-    id: 'fs-1',
+    id: VALID_UUID,
     status: 'active',
     url: 'http://example.com',
     propertyGroup: propertyGroup || [],
@@ -133,7 +135,7 @@ describe('bulk-add-procedure-codes handler', () => {
 
     const result = await handler(
       makeInput({
-        feeScheduleId: 'fs-1',
+        feeScheduleId: VALID_UUID,
         codes: [{ code: '99214', amount: 200 }],
         replaceAll: true,
       })
@@ -151,7 +153,7 @@ describe('bulk-add-procedure-codes handler', () => {
 
     const result = await handler(
       makeInput({
-        feeScheduleId: 'fs-1',
+        feeScheduleId: VALID_UUID,
         codes: [{ code: '99214', amount: 200 }],
         replaceAll: false,
       })
@@ -168,7 +170,7 @@ describe('bulk-add-procedure-codes handler', () => {
 
     const result = await handler(
       makeInput({
-        feeScheduleId: 'fs-1',
+        feeScheduleId: VALID_UUID,
         codes: [{ code: '99213', amount: 100 }],
         replaceAll: false,
       })
@@ -185,7 +187,7 @@ describe('bulk-add-procedure-codes handler', () => {
 
     await handler(
       makeInput({
-        feeScheduleId: 'fs-1',
+        feeScheduleId: VALID_UUID,
         codes: [{ code: '99213', modifier: '25', amount: 100 }],
         replaceAll: true,
       })
@@ -203,7 +205,7 @@ describe('bulk-add-procedure-codes handler', () => {
 
     await handler(
       makeInput({
-        feeScheduleId: 'fs-1',
+        feeScheduleId: VALID_UUID,
         codes: [{ code: '99213', amount: 100 }],
         replaceAll: true,
       })

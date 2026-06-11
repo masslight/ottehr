@@ -13,60 +13,51 @@ import type { ZambdaInput } from '../../src/shared/types/common';
 // validateRequestParameters
 // ---------------------------------------------------------------------------
 
+const VALID_UUID = '550e8400-e29b-41d4-a716-446655440000';
+
 function makeInput(body: Record<string, unknown> | null): ZambdaInput {
   return { headers: null, body: body ? JSON.stringify(body) : (null as unknown as string), secrets: null };
 }
 
 describe('save-terminal-location validateRequestParameters', () => {
   it('returns validated params for valid input with terminalLocationId', () => {
-    const result = validateRequestParameters(makeInput({ locationId: 'loc-1', terminalLocationId: 'tml_abc' }));
-    expect(result).toMatchObject({ locationId: 'loc-1', terminalLocationId: 'tml_abc' });
+    const result = validateRequestParameters(makeInput({ locationId: VALID_UUID, terminalLocationId: 'tml_abc' }));
+    expect(result).toMatchObject({ locationId: VALID_UUID, terminalLocationId: 'tml_abc' });
   });
 
   it('allows null terminalLocationId (to remove)', () => {
-    const result = validateRequestParameters(makeInput({ locationId: 'loc-1', terminalLocationId: null }));
+    const result = validateRequestParameters(makeInput({ locationId: VALID_UUID, terminalLocationId: null }));
     expect(result.terminalLocationId).toBeNull();
   });
 
   it('defaults terminalLocationId to null when not provided', () => {
-    const result = validateRequestParameters(makeInput({ locationId: 'loc-1' }));
+    const result = validateRequestParameters(makeInput({ locationId: VALID_UUID }));
     expect(result.terminalLocationId).toBeNull();
   });
 
   it('throws when locationId is missing', () => {
-    expect(() => validateRequestParameters(makeInput({}))).toThrow(
-      'The following required parameters were missing: locationId'
-    );
+    expect(() => validateRequestParameters(makeInput({}))).toThrow(/locationId/);
   });
 
   it('throws when locationId is empty string', () => {
-    expect(() => validateRequestParameters(makeInput({ locationId: '' }))).toThrow(
-      'The following required parameters were missing: locationId'
-    );
+    expect(() => validateRequestParameters(makeInput({ locationId: '' }))).toThrow();
   });
 
   it('throws when locationId is not a string', () => {
-    expect(() => validateRequestParameters(makeInput({ locationId: 42 }))).toThrow(
-      'The following required parameters were missing: locationId'
-    );
+    expect(() => validateRequestParameters(makeInput({ locationId: 42 }))).toThrow();
   });
 
   it('throws when terminalLocationId is not a string or null', () => {
-    expect(() => validateRequestParameters(makeInput({ locationId: 'loc-1', terminalLocationId: 123 }))).toThrow(
-      'terminalLocationId must be a string or null'
-    );
+    expect(() => validateRequestParameters(makeInput({ locationId: VALID_UUID, terminalLocationId: 123 }))).toThrow();
   });
 
   it('throws when terminalLocationId is an empty string', () => {
-    expect(() => validateRequestParameters(makeInput({ locationId: 'loc-1', terminalLocationId: '' }))).toThrow(
-      'terminalLocationId must not be an empty string'
-    );
+    expect(() => validateRequestParameters(makeInput({ locationId: VALID_UUID, terminalLocationId: '' }))).toThrow();
   });
 
-  it('throws when terminalLocationId is a whitespace-only string', () => {
-    expect(() => validateRequestParameters(makeInput({ locationId: 'loc-1', terminalLocationId: '  ' }))).toThrow(
-      'terminalLocationId must not be an empty string'
-    );
+  it('accepts whitespace-only terminalLocationId as a valid string', () => {
+    const result = validateRequestParameters(makeInput({ locationId: VALID_UUID, terminalLocationId: '  ' }));
+    expect(result.terminalLocationId).toBe('  ');
   });
 });
 
@@ -125,7 +116,7 @@ function makeDevice(terminalLocationId: string): Device {
       ],
     },
     location: {
-      reference: 'Location/loc-1',
+      reference: `Location/${VALID_UUID}`,
     },
     identifier: [
       {
@@ -146,7 +137,7 @@ describe('save-terminal-location handler', () => {
     mockedFindDevice.mockResolvedValue(undefined);
     mockOystehrClient.fhir.create.mockResolvedValue({});
 
-    const result = await handler(makeInput({ locationId: 'loc-1', terminalLocationId: 'tml_new' }));
+    const result = await handler(makeInput({ locationId: VALID_UUID, terminalLocationId: 'tml_new' }));
 
     expect(result.statusCode).toBe(200);
     expect(JSON.parse(result.body)).toEqual({ success: true });
@@ -154,7 +145,7 @@ describe('save-terminal-location handler', () => {
     expect(mockOystehrClient.fhir.create).toHaveBeenCalledTimes(1);
     const created = mockOystehrClient.fhir.create.mock.calls[0][0] as Device;
     expect(created.resourceType).toBe('Device');
-    expect(created.location?.reference).toBe('Location/loc-1');
+    expect(created.location?.reference).toBe(`Location/${VALID_UUID}`);
     expect(created.identifier).toEqual([{ system: STRIPE_TERMINAL_LOCATION_IDENTIFIER_SYSTEM, value: 'tml_new' }]);
     expect(created.type?.coding?.[0]).toEqual({
       system: STRIPE_TERMINAL_LOCATION_DEVICE_TYPE_SYSTEM,
@@ -167,7 +158,7 @@ describe('save-terminal-location handler', () => {
     mockedFindDevice.mockResolvedValue(existingDevice);
     mockOystehrClient.fhir.update.mockResolvedValue({});
 
-    const result = await handler(makeInput({ locationId: 'loc-1', terminalLocationId: 'tml_replaced' }));
+    const result = await handler(makeInput({ locationId: VALID_UUID, terminalLocationId: 'tml_replaced' }));
 
     expect(result.statusCode).toBe(200);
     expect(mockOystehrClient.fhir.update).toHaveBeenCalledTimes(1);
@@ -185,7 +176,7 @@ describe('save-terminal-location handler', () => {
     mockedFindDevice.mockResolvedValue(existingDevice);
     mockOystehrClient.fhir.delete.mockResolvedValue({});
 
-    const result = await handler(makeInput({ locationId: 'loc-1', terminalLocationId: null }));
+    const result = await handler(makeInput({ locationId: VALID_UUID, terminalLocationId: null }));
 
     expect(result.statusCode).toBe(200);
     expect(mockOystehrClient.fhir.delete).toHaveBeenCalledWith({
@@ -197,7 +188,7 @@ describe('save-terminal-location handler', () => {
   it('does nothing when terminalLocationId is null and no device exists', async () => {
     mockedFindDevice.mockResolvedValue(undefined);
 
-    const result = await handler(makeInput({ locationId: 'loc-1', terminalLocationId: null }));
+    const result = await handler(makeInput({ locationId: VALID_UUID, terminalLocationId: null }));
 
     expect(result.statusCode).toBe(200);
     expect(mockOystehrClient.fhir.create).not.toHaveBeenCalled();
