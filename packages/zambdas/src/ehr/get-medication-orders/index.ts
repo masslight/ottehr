@@ -132,6 +132,7 @@ function mapMedicalAdministrationToDTO(orderPackage: OrderPackage): ExtendedMedi
           return JSON.parse(ext.valueString) as {
             code: string;
             display: string;
+            isMedication?: boolean;
             billableUnitSize?: number;
             billableUnits?: number;
           }[];
