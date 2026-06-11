@@ -768,10 +768,14 @@ test.describe('Patient Record Page tests', { tag: '@smoke' }, () => {
         // Change relationship to "Self"
         await patientInformationPage.selectFieldOption(responsibleParty.relationship.key, 'Self');
 
-        // Verify all triggered fields are disabled (by checking they're not enabled)
+        // Verify all triggered fields are disabled/hidden (by checking they're not enabled)
         for (const field of relationshipOnlyFields) {
           const fieldElement = patientInformationPage.inputByName(field.key);
-          await test.expect(fieldElement).toBeDisabled();
+          if (field.disabledDisplay === 'hidden') {
+            await test.expect(fieldElement).toBeHidden();
+          } else {
+            await test.expect(fieldElement).toBeDisabled();
+          }
         }
 
         // Change back to a different relationship and verify fields are enabled again
@@ -782,7 +786,11 @@ test.describe('Patient Record Page tests', { tag: '@smoke' }, () => {
 
         for (const field of relationshipOnlyFields) {
           const fieldElement = patientInformationPage.inputByName(field.key);
-          await test.expect(fieldElement).toBeEnabled();
+          if (field.disabledDisplay === 'hidden') {
+            await test.expect(fieldElement).toBeVisible();
+          } else {
+            await test.expect(fieldElement).toBeEnabled();
+          }
         }
       });
 
