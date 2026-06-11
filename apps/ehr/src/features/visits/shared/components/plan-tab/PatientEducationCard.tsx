@@ -233,6 +233,40 @@ export const PatientEducationCard: FC = () => {
       >
         <DialogTitle>Generate Patient Education Materials</DialogTitle>
         <DialogContent>
+          {allDiagnoses.length > 0 && (
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                Language
+                {defaultLanguage === 'es' && (
+                  <Typography component="span" variant="caption" color="primary" sx={{ ml: 1 }}>
+                    (patient's preferred language is Spanish)
+                  </Typography>
+                )}
+              </Typography>
+              <RadioGroup
+                row
+                value={language}
+                onChange={(e) => {
+                  const next = e.target.value as PatientEducationLanguage;
+                  setLanguage(next);
+                  // Warm the cache for the newly-selected language so Generate is fast.
+                  prefetchAllDiagnoses(next);
+                }}
+              >
+                <FormControlLabel
+                  value="en"
+                  control={<Radio size="small" disabled={isEducationLoading} />}
+                  label="English"
+                />
+                <FormControlLabel
+                  value="es"
+                  control={<Radio size="small" disabled={isEducationLoading} />}
+                  label="Español"
+                />
+              </RadioGroup>
+              <Divider sx={{ mt: 1 }} />
+            </Box>
+          )}
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
             Select the diagnoses to include in the patient education document.
           </Typography>
@@ -284,40 +318,6 @@ export const PatientEducationCard: FC = () => {
                 />
               ))}
             </Box>
-          )}
-          {allDiagnoses.length > 0 && (
-            <>
-              <Divider sx={{ my: 1.5 }} />
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
-                Language
-                {defaultLanguage === 'es' && (
-                  <Typography component="span" variant="caption" color="primary" sx={{ ml: 1 }}>
-                    (patient's preferred language is Spanish)
-                  </Typography>
-                )}
-              </Typography>
-              <RadioGroup
-                row
-                value={language}
-                onChange={(e) => {
-                  const next = e.target.value as PatientEducationLanguage;
-                  setLanguage(next);
-                  // Warm the cache for the newly-selected language so Generate is fast.
-                  prefetchAllDiagnoses(next);
-                }}
-              >
-                <FormControlLabel
-                  value="en"
-                  control={<Radio size="small" disabled={isEducationLoading} />}
-                  label="English"
-                />
-                <FormControlLabel
-                  value="es"
-                  control={<Radio size="small" disabled={isEducationLoading} />}
-                  label="Español"
-                />
-              </RadioGroup>
-            </>
           )}
           {educationProgress && (
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 2 }}>
