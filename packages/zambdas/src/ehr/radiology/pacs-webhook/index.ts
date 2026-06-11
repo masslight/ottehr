@@ -261,7 +261,14 @@ const handleCreateDiagnosticReport = async (
     throw new Error('The ServiceRequest was not associated with any accession number');
   }
   const ourServiceRequest = await getOurServiceRequestByAccessionNumber(pacsServiceRequestAccessionNumber, oystehr);
-  console.log('Found our ServiceRequest: ', pacsServiceRequest);
+  if (ourServiceRequest == null) {
+    console.log(
+      'No matching ServiceRequest found in Oystehr. Will not create DR for SR with accession number: ',
+      pacsServiceRequestAccessionNumber
+    );
+    return;
+  }
+  console.log('Found our ServiceRequest: ', ourServiceRequest);
   await createOurDiagnosticReport(ourServiceRequest, advaPacsDiagnosticReport, undefined, oystehr);
 };
 
@@ -391,7 +398,7 @@ const getAdvaPacsServiceRequestByID = async (
 const getOurServiceRequestByAccessionNumber = async (
   accessionNumber: string,
   oystehr: Oystehr
-): Promise<ServiceRequest> => {
+): Promise<ServiceRequest | undefined> => {
   const srResults = (
     await oystehr.fhir.search<ServiceRequest>({
       resourceType: 'ServiceRequest',
@@ -410,7 +417,8 @@ const getOurServiceRequestByAccessionNumber = async (
   ).unbundle();
 
   if (srResults.length === 0) {
-    throw new Error('No ServiceRequest found with the given accession number');
+    console.log('No matching ServiceRequest found in Oystehr. Accession number: ', accessionNumber);
+    return undefined;
   }
 
   if (srResults.length > 1) {
