@@ -25,6 +25,7 @@ import { injectTestConfig } from '../config/injectTestConfig';
 import { PagedQuestionnaireFlowHelper } from '../paperwork/PagedQuestionnaireFlowHelper';
 import { getTestDataForPage } from '../paperwork/paperworkDataTemplates';
 import { BookingFlowHelpers } from './BookingFlowHelpers';
+import { TEST_FIXTURE_TIMEZONES } from './TestLocationManager';
 
 /**
  * A test scenario representing one path through the booking system
@@ -415,7 +416,10 @@ export async function executeBookingScenario(
       // Standard Location booking: select from dropdown
       await BookingFlowHelpers.selectFirstAvailableLocation(page, testLocationName, scenario.serviceMode);
     }
-    await BookingFlowHelpers.selectFirstAvailableTimeSlot(page);
+    await BookingFlowHelpers.selectFirstAvailableTimeSlot(
+      page,
+      scenario.serviceMode === 'virtual' ? TEST_FIXTURE_TIMEZONES.virtual : TEST_FIXTURE_TIMEZONES.inPerson
+    );
     await BookingFlowHelpers.clickContinueButtonIfPresent(page, 'after time slot selection');
   } else if (scenario.visitType === 'walk-in' && scenario.serviceMode === 'virtual') {
     // Virtual walk-in (start virtual visit): select location before patient info

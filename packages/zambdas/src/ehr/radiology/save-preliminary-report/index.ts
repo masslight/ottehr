@@ -8,7 +8,7 @@ import {
   createOurDiagnosticReport,
   fetchServiceRequestFromAdvaPACS,
   getSecret,
-  SavePreliminaryReportZambdaOutput,
+  SaveRadiologyReportZambdaOutput,
   Secrets,
   SecretsKeys,
 } from 'utils';
@@ -48,8 +48,8 @@ async function performEffect(
   validatedInput: ValidatedInput,
   secrets: Secrets,
   oystehr: Oystehr
-): Promise<SavePreliminaryReportZambdaOutput> {
-  const { serviceRequestId, preliminaryReport } = validatedInput.body;
+): Promise<SaveRadiologyReportZambdaOutput> {
+  const { serviceRequestId, report: preliminaryReport } = validatedInput.body;
 
   // Get the existing service request from Oystehr
   console.group('Fetching service request from Oystehr');

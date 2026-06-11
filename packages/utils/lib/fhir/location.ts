@@ -1,5 +1,5 @@
 import Oystehr from '@oystehr/sdk';
-import { Encounter, HealthcareService, Location, Practitioner, Resource, Schedule } from 'fhir/r4b';
+import { Encounter, HealthcareService, Location, Practitioner, PractitionerRole, Resource, Schedule } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   AvailableLocationInformation,
@@ -183,7 +183,7 @@ export const defaultLocation: Location = {
 // todo 1.8: this needs to take a schedule (or be async and go get a schedule), have a better name
 // also check that this data is truly needed everywhere it is used
 export function getLocationInformation(
-  scheduleResource: Location | Practitioner | HealthcareService,
+  scheduleResource: Location | Practitioner | PractitionerRole | HealthcareService,
   schedule?: Schedule
 ): AvailableLocationInformation {
   const slug = scheduleResource.identifier?.find((identifierTemp) => identifierTemp.system === SLUG_SYSTEM)?.value;
@@ -198,6 +198,12 @@ export function getLocationInformation(
       scheduleType = ScheduleType['group'];
       break;
     case 'Practitioner':
+      scheduleType = ScheduleType['provider'];
+      break;
+    case 'PractitionerRole':
+      // A PractitionerRole scheduleOwner surfaces as a "provider" for the
+      // patient-facing flows — from the patient's perspective they're still
+      // booking with a specific provider, just via the role binding.
       scheduleType = ScheduleType['provider'];
       break;
   }
@@ -217,7 +223,13 @@ export function getLocationInformation(
   };
 }
 
-function getName(item: Location | Practitioner | HealthcareService): string {
+function getName(item: Location | Practitioner | PractitionerRole | HealthcareService): string {
+  if (item.resourceType === 'PractitionerRole') {
+    // PractitionerRoles don't carry a display name — the caller should fetch
+    // the underlying Practitioner for a pretty label. Return a role-id-scoped
+    // placeholder so reports/UIs don't blow up.
+    return `Role ${item.id ?? ''}`.trim() || 'Unknown';
+  }
   if (!item.name) {
     return 'Unknown';
   }

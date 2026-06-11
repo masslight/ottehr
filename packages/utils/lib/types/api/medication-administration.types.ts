@@ -18,11 +18,11 @@ export const GetMedicationOrdersInputSchema = z.object({
   searchBy: z.union([
     z.object({
       field: z.literal('encounterId'),
-      value: z.string(),
+      value: z.string().uuid(),
     }),
     z.object({
       field: z.literal('encounterIds'),
-      value: z.array(z.string()),
+      value: z.array(z.string().uuid()),
     }),
   ]),
 });

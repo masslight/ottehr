@@ -95,6 +95,7 @@ import {
   isoStringFromDateComponents,
   isPayerUrl,
   isValidUUID,
+  makeOptimisticLockIfMatchHeader,
   makeSSNIdentifier,
   mapBirthSexToGender,
   OCCUPATIONAL_MEDICINE_ACCOUNT_TYPE,
@@ -2771,6 +2772,16 @@ export const getAccountOperations = (input: GetAccountOperationsInput): GetAccou
       method: 'PUT',
       url: `Account/${existingAccount.id}`,
       resource: updatedAccount,
+      // Optimistic lock: this PUT replaces the entire Account (including the
+      // coverage array). Harvest may run as several concurrent page-level Tasks,
+      // each reading the Account, recomputing coverage from its own (possibly
+      // stale) snapshot, and writing the whole resource back. Without a version
+      // guard the last writer wins and can clobber Account.coverage to an empty
+      // or partial list while another round was mid-flight, which surfaces as a
+      // blank insurance carrier on read. The If-Match makes the transaction fail
+      // with 412 on a concurrent change so updatePatientAccountFromQuestionnaire
+      // can re-read the latest Account and retry against the current coverages.
+      ifMatch: makeOptimisticLockIfMatchHeader(existingAccount),
     });
   }
 
@@ -4118,123 +4129,182 @@ export const updatePatientAccountFromQuestionnaire = async (
 
   const organizationResources = await searchInsuranceInformation(oystehr, insuranceOrgs);
 
-  const {
-    patient: existingPatient,
-    coverages: existingCoverages,
-    account: existingAccount,
-    guarantorResource: existingGuarantorResource,
-    emergencyContactResource: existingEmergencyContact,
-    workersCompAccount: existingWorkersCompAccount,
-    occupationalMedicineAccount: existingOccupationalMedicineAccount,
-    employerOrganization: existingEmployerOrganization,
-    attorneyRelatedPerson: existingAttorneyRelatedPerson,
-  } = await getAccountAndCoverageResourcesForPatient(patientId, oystehr);
+  // Harvest fires several page-level Tasks concurrently (six paperwork pages run the
+  // account-coverage strategy), each of which reads the Account, recomputes its coverage
+  // array, and writes the whole Account back via an optimistically-locked PUT (see the
+  // If-Match in getAccountOperations). On a concurrent change the transaction fails with
+  // 412; re-read the latest Account and retry so we reconcile against the current coverages
+  // instead of clobbering them to an empty/partial list (which surfaces as a blank
+  // insurance carrier). The first iteration also conditionally creates the billing Account
+  // (below) to collapse the create race. With up to six concurrent writers a single Task
+  // can lose several optimistic-lock rounds before winning, so allow generous retries.
+  const MAX_ACCOUNT_UPDATE_ATTEMPTS = 10;
+  let lastError: unknown;
+  for (let attempt = 0; attempt < MAX_ACCOUNT_UPDATE_ATTEMPTS; attempt++) {
+    const {
+      patient: existingPatient,
+      coverages: existingCoverages,
+      account: existingAccount,
+      guarantorResource: existingGuarantorResource,
+      emergencyContactResource: existingEmergencyContact,
+      workersCompAccount: existingWorkersCompAccount,
+      occupationalMedicineAccount: existingOccupationalMedicineAccount,
+      employerOrganization: existingEmployerOrganization,
+      attorneyRelatedPerson: existingAttorneyRelatedPerson,
+    } = await getAccountAndCoverageResourcesForPatient(patientId, oystehr);
 
-  // Prefer the patient passed in by the caller (already reflects any in-flight
-  // patches) so same-as-patient address resolution doesn't silently use a stale
-  // copy when read-after-write isn't guaranteed.
-  const patient = patientFromInput ?? existingPatient;
+    // Prefer the patient passed in by the caller (already reflects any in-flight
+    // patches) so same-as-patient address resolution doesn't silently use a stale
+    // copy when read-after-write isn't guaranteed.
+    const patient = patientFromInput ?? existingPatient;
 
-  /*
-  console.log('existing coverages', JSON.stringify(existingCoverages, null, 2));
-  console.log('existing account', JSON.stringify(existingAccount, null, 2));
-  console.log('existing guarantor resource', JSON.stringify(existingGuarantorResource, null, 2));
-*/
-  const accountOperations = getAccountOperations({
-    patient,
-    questionnaireResponseItem: flattenedPaperwork,
-    organizationResources,
-    existingCoverages,
-    existingAccount,
-    existingGuarantorResource,
-    preserveOmittedCoverages,
-    existingEmergencyContact,
-    existingWorkersCompAccount,
-    existingOccupationalMedicineAccount,
-    existingEmployerOrganization,
-    existingAttorneyRelatedPerson,
-  });
+    // Ensure exactly one billing Account exists before computing the update.
+    // Concurrent account-coverage Tasks can each POST their own Account when
+    // none is found on the first round, leaving duplicate billing Accounts — one populated
+    // with coverage, the rest empty — after which the read path's Account selection is a
+    // coin flip and insurance intermittently reads blank. A conditional create (If-None-Exist)
+    // serializes this: the first Task creates the Account, the rest match it and no-op. We
+    // then re-read so every Task applies its own data to that single Account through the
+    // optimistically-locked PUT below, rather than creating a competing one.
+    if (!existingAccount) {
+      const billingType = PATIENT_BILLING_ACCOUNT_TYPE?.coding?.[0];
+      await oystehr.fhir.create(
+        {
+          resourceType: 'Account',
+          status: 'active',
+          type: { ...PATIENT_BILLING_ACCOUNT_TYPE },
+          subject: [{ reference: `Patient/${patientId}` }],
+          description: 'Patient account',
+        },
+        {
+          ifNoneExist: [
+            { name: 'patient', value: `Patient/${patientId}` },
+            { name: 'type', value: `${billingType?.system}|${billingType?.code}` },
+            { name: 'status', value: 'active' },
+          ],
+        }
+      );
+      // Re-read so the now-existing Account is treated as existing (and merged via the
+      // PUT path) instead of created again. Skips computing/committing this iteration.
+      continue;
+    }
 
-  console.log('account and coverage operations created', JSON.stringify(accountOperations, null, 2));
-
-  const {
-    patch,
-    accountPost,
-    put,
-    coveragePosts,
-    emergencyContactPost,
-    employerOrganizationPost,
-    employerOrganizationPut,
-    workersCompAccountPost,
-    workersCompAccountPut,
-    occupationalMedicineAccountPost,
-    occupationalMedicineAccountPut,
-    occupationalMedicineAccountDelete,
-    attorneyRelatedPersonPost,
-    attorneyRelatedPersonPut,
-  } = accountOperations;
-
-  const transactionRequests: BatchInputRequest<Account | RelatedPerson | Coverage | Patient | Organization>[] = [
-    ...coveragePosts,
-    ...patch,
-    ...put,
-  ];
-  if (employerOrganizationPost) {
-    transactionRequests.push(employerOrganizationPost);
-  }
-  if (employerOrganizationPut) {
-    transactionRequests.push(employerOrganizationPut);
-  }
-  if (attorneyRelatedPersonPost) {
-    transactionRequests.push(attorneyRelatedPersonPost);
-  }
-  if (attorneyRelatedPersonPut) {
-    transactionRequests.push(attorneyRelatedPersonPut);
-  }
-  if (workersCompAccountPut) {
-    transactionRequests.push(workersCompAccountPut);
-  }
-  if (occupationalMedicineAccountPut) {
-    transactionRequests.push(occupationalMedicineAccountPut);
-  }
-  if (occupationalMedicineAccountDelete) {
-    transactionRequests.push(occupationalMedicineAccountDelete);
-  }
-  if (accountPost) {
-    transactionRequests.push({
-      url: '/Account',
-      method: 'POST',
-      resource: accountPost,
+    /*
+    console.log('existing coverages', JSON.stringify(existingCoverages, null, 2));
+    console.log('existing account', JSON.stringify(existingAccount, null, 2));
+    console.log('existing guarantor resource', JSON.stringify(existingGuarantorResource, null, 2));
+  */
+    const accountOperations = getAccountOperations({
+      patient,
+      questionnaireResponseItem: flattenedPaperwork,
+      organizationResources,
+      existingCoverages,
+      existingAccount,
+      existingGuarantorResource,
+      preserveOmittedCoverages,
+      existingEmergencyContact,
+      existingWorkersCompAccount,
+      existingOccupationalMedicineAccount,
+      existingEmployerOrganization,
+      existingAttorneyRelatedPerson,
     });
-  }
-  if (workersCompAccountPost) {
-    transactionRequests.push({
-      url: '/Account',
-      method: 'POST',
-      resource: workersCompAccountPost,
-    });
-  }
-  if (occupationalMedicineAccountPost) {
-    transactionRequests.push({
-      url: '/Account',
-      method: 'POST',
-      resource: occupationalMedicineAccountPost,
-    });
-  }
-  if (emergencyContactPost) {
-    transactionRequests.push(emergencyContactPost);
+
+    console.log('account and coverage operations created', JSON.stringify(accountOperations, null, 2));
+
+    const {
+      patch,
+      accountPost,
+      put,
+      coveragePosts,
+      emergencyContactPost,
+      employerOrganizationPost,
+      employerOrganizationPut,
+      workersCompAccountPost,
+      workersCompAccountPut,
+      occupationalMedicineAccountPost,
+      occupationalMedicineAccountPut,
+      occupationalMedicineAccountDelete,
+      attorneyRelatedPersonPost,
+      attorneyRelatedPersonPut,
+    } = accountOperations;
+
+    const transactionRequests: BatchInputRequest<Account | RelatedPerson | Coverage | Patient | Organization>[] = [
+      ...coveragePosts,
+      ...patch,
+      ...put,
+    ];
+    if (employerOrganizationPost) {
+      transactionRequests.push(employerOrganizationPost);
+    }
+    if (employerOrganizationPut) {
+      transactionRequests.push(employerOrganizationPut);
+    }
+    if (attorneyRelatedPersonPost) {
+      transactionRequests.push(attorneyRelatedPersonPost);
+    }
+    if (attorneyRelatedPersonPut) {
+      transactionRequests.push(attorneyRelatedPersonPut);
+    }
+    if (workersCompAccountPut) {
+      transactionRequests.push(workersCompAccountPut);
+    }
+    if (occupationalMedicineAccountPut) {
+      transactionRequests.push(occupationalMedicineAccountPut);
+    }
+    if (occupationalMedicineAccountDelete) {
+      transactionRequests.push(occupationalMedicineAccountDelete);
+    }
+    if (accountPost) {
+      transactionRequests.push({
+        url: '/Account',
+        method: 'POST',
+        resource: accountPost,
+      });
+    }
+    if (workersCompAccountPost) {
+      transactionRequests.push({
+        url: '/Account',
+        method: 'POST',
+        resource: workersCompAccountPost,
+      });
+    }
+    if (occupationalMedicineAccountPost) {
+      transactionRequests.push({
+        url: '/Account',
+        method: 'POST',
+        resource: occupationalMedicineAccountPost,
+      });
+    }
+    if (emergencyContactPost) {
+      transactionRequests.push(emergencyContactPost);
+    }
+
+    try {
+      const bundle = await oystehr.fhir.transaction({ requests: transactionRequests });
+      // return the bundle to allow writing AuditEvents, etc.
+      return bundle;
+    } catch (error: unknown) {
+      const is412 =
+        (error as any)?.code === 412 ||
+        (error as any)?.statusCode === 412 ||
+        (typeof (error as any)?.message === 'string' && (error as any).message.includes('412'));
+      if (is412 && attempt < MAX_ACCOUNT_UPDATE_ATTEMPTS - 1) {
+        lastError = error;
+        console.log(
+          `Account update conflict (412) for patient ${patientId}, re-reading and retrying (attempt ${attempt + 1}/${
+            MAX_ACCOUNT_UPDATE_ATTEMPTS - 1
+          })`
+        );
+        continue;
+      }
+      console.log(`Failed to update Account: ${JSON.stringify(error)}`);
+      throw error;
+    }
   }
 
-  try {
-    console.time('updating account resources');
-    const bundle = await oystehr.fhir.transaction({ requests: transactionRequests });
-    console.timeEnd('updating account resources');
-    // return the bundle to allow writing AuditEvents, etc.
-    return bundle;
-  } catch (error: unknown) {
-    console.log(`Failed to update Account: ${JSON.stringify(error)}`);
-    throw error;
-  }
+  // Loop only exits via return or throw above; this satisfies the type checker
+  // and guards against an unexpected fall-through after exhausting retries.
+  throw lastError ?? new Error(`Failed to update Account for patient ${patientId} after optimistic-lock retries`);
 };
 
 interface UpdateStripeCustomerInput {

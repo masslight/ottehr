@@ -3,7 +3,6 @@ import ContentCopyRoundedIcon from '@mui/icons-material/ContentCopyRounded';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import { LoadingButton } from '@mui/lab';
 import {
-  Autocomplete,
   Box,
   Button,
   Checkbox,
@@ -20,7 +19,7 @@ import { Location, Practitioner } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { RoleType, ScheduleDTO, scheduleTypeFromFHIRType, TIMEZONES, UpdateScheduleParams } from 'utils';
+import { RoleType, ScheduleDTO, scheduleTypeFromFHIRType, UpdateScheduleParams } from 'utils';
 import { useApiClients } from '../../hooks/useAppClients';
 import useEvolveUser from '../../hooks/useEvolveUser';
 
@@ -48,8 +47,8 @@ export default function ScheduleGeneralTab({
 
   const isLocation = item.owner.type === 'Location';
 
-  const [slug, setSlug] = useState<string>(item.owner.slug ?? '');
-  const [timezone, setTimezone] = useState<string>(item.owner.timezone ?? TIMEZONES[0]);
+  // Slug and timezone live on the General tab, not here — keeping them
+  // editable here would let this tab's save overwrite General-tab edits.
   const [isVirtual, setIsVirtual] = useState<boolean>(Boolean(item.owner.isVirtual));
   const [stripeAccountId, setStripeAccountId] = useState<string>(item.owner.stripeAccountId ?? '');
   const [advapacsLocationId, setAdvapacsLocationId] = useState<string>(item.owner.advapacsLocationId ?? '');
@@ -80,8 +79,6 @@ export default function ScheduleGeneralTab({
   const [isCopied, setIsCopied] = useState<boolean>(false);
 
   useEffect(() => {
-    setSlug(item.owner.slug ?? '');
-    setTimezone(item.owner.timezone ?? TIMEZONES[0]);
     setIsVirtual(Boolean(item.owner.isVirtual));
     setStripeAccountId(item.owner.stripeAccountId ?? '');
     setAdvapacsLocationId(item.owner.advapacsLocationId ?? '');
@@ -100,13 +97,14 @@ export default function ScheduleGeneralTab({
   const defaultIntakeUrl = useMemo(() => {
     const fhirType = item.owner.type;
     const locationType = item.owner.isVirtual ? 'virtual' : 'in-person';
-    if (slug && fhirType) {
-      return `${INTAKE_URL}/prebook/${locationType}?bookingOn=${slug}&scheduleType=${scheduleTypeFromFHIRType(
+    const ownerSlug = item.owner.slug;
+    if (ownerSlug && fhirType) {
+      return `${INTAKE_URL}/prebook/${locationType}?bookingOn=${ownerSlug}&scheduleType=${scheduleTypeFromFHIRType(
         fhirType
       )}`;
     }
     return '';
-  }, [item.owner.type, item.owner.isVirtual, slug]);
+  }, [item.owner.type, item.owner.isVirtual, item.owner.slug]);
 
   const setActiveStatus = async (isActive: boolean): Promise<void> => {
     if (!oystehr || !item?.id) {
@@ -133,10 +131,6 @@ export default function ScheduleGeneralTab({
       } else {
         newActiveStatus = patched.active === true;
       }
-      // Preserve old behavior: toggling active also persists current timezone/slug.
-      // Fire-and-forget; the parent mutation's onError already surfaces a snackbar,
-      // so we just swallow here to avoid an unhandled rejection.
-      onSave({ scheduleId: item.id, timezone, slug }).catch(() => undefined);
       onSchedulePersisted({
         ...item,
         owner: {
@@ -192,8 +186,6 @@ export default function ScheduleGeneralTab({
     event.preventDefault();
     const params: UpdateScheduleParams = {
       scheduleId: item.id,
-      timezone,
-      slug,
     };
     if (isLocation) {
       params.isVirtual = isVirtual;
@@ -239,7 +231,13 @@ export default function ScheduleGeneralTab({
         <br />
 
         <form onSubmit={(e) => void handleSubmit(e)}>
-          <TextField label="Slug" value={slug} InputProps={{ readOnly: true }} disabled sx={{ width: '250px' }} />
+          <TextField
+            label="Slug"
+            value={item.owner.slug ?? ''}
+            InputProps={{ readOnly: true }}
+            disabled
+            sx={{ width: '250px' }}
+          />
           <br />
 
           <Typography variant="body2" sx={{ pt: 1, pb: 0.5, fontWeight: 600 }}>
@@ -271,17 +269,6 @@ export default function ScheduleGeneralTab({
               <Typography variant="body2">{defaultIntakeUrl}</Typography>
             </Link>
           </Box>
-          <Autocomplete
-            options={TIMEZONES}
-            renderInput={(params) => <TextField {...params} label="Timezone" />}
-            sx={{ marginTop: 2, width: '250px' }}
-            value={timezone}
-            onChange={(_event, newValue) => {
-              if (newValue) {
-                setTimezone(newValue);
-              }
-            }}
-          />
 
           {isLocation && (
             <Box sx={{ marginTop: 3 }}>

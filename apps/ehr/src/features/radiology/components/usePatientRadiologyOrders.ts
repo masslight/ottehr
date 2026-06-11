@@ -6,7 +6,13 @@ import {
   GetRadiologyOrderListZambdaInput,
   GetRadiologyOrderListZambdaOrder,
 } from 'utils';
-import { cancelRadiologyOrder, getRadiologyOrders, savePreliminaryReport, sendForFinalRead } from '../../../api/api';
+import {
+  cancelRadiologyOrder,
+  getRadiologyOrders,
+  saveFinalReport,
+  savePreliminaryReport,
+  sendForFinalRead,
+} from '../../../api/api';
 import { useApiClients } from '../../../hooks/useAppClients';
 import { useDeleteRadiologyOrderDialog } from './useDeleteRadiologyOrderDialog';
 
@@ -29,9 +35,9 @@ interface UsePatientRadiologyOrdersResult {
     studyType: string;
   }) => void;
   DeleteOrderDialog: ReactElement | null;
-  handleSavePreliminaryReport: (serviceRequestId: string, preliminaryReport: string) => Promise<void>;
+  handleSaveReport: (serviceRequestId: string, report: string, reportType: 'preliminary' | 'final') => Promise<void>;
   handleSendForFinalRead: (serviceRequestId: string) => Promise<void>;
-  isSavingPreliminaryReport: boolean;
+  isSavingReport: boolean;
   isSendingForFinalRead: boolean;
 }
 
@@ -53,7 +59,7 @@ export const usePatientRadiologyOrders = (options: {
   const [totalPages, setTotalPages] = useState(1);
   const [page, setPage] = useState(1);
   const [showPagination, setShowPagination] = useState(false);
-  const [isSavingPreliminaryReport, setIsSavingPreliminaryReport] = useState(false);
+  const [isSavingReport, setIsSavingReport] = useState(false);
   const [isSendingForFinalRead, setIsSendingForFinalRead] = useState(false);
 
   const getCurrentSearchParamsWithoutPageIndex = useCallback((): GetRadiologyOrderListZambdaInput => {
@@ -206,10 +212,10 @@ export const usePatientRadiologyOrders = (options: {
     [fetchOrders, getCurrentSearchParamsForPage, oystehrZambda]
   );
 
-  const handleSavePreliminaryReport = useCallback(
-    async (serviceRequestId: string, preliminaryReport: string): Promise<void> => {
-      if (!preliminaryReport) {
-        enqueueSnackbar('Please enter a preliminary report before saving.', { variant: 'error' });
+  const handleSaveReport = useCallback(
+    async (serviceRequestId: string, report: string, reportType: 'preliminary' | 'final'): Promise<void> => {
+      if (!report) {
+        enqueueSnackbar(`Please enter a ${reportType} report before saving.`, { variant: 'error' });
         return;
       }
 
@@ -219,22 +225,26 @@ export const usePatientRadiologyOrders = (options: {
         return;
       }
 
-      setIsSavingPreliminaryReport(true);
+      setIsSavingReport(true);
       setError(null);
 
       try {
-        await savePreliminaryReport(oystehrZambda, { serviceRequestId, preliminaryReport });
+        if (reportType === 'preliminary') {
+          await savePreliminaryReport(oystehrZambda, { serviceRequestId, report });
+        } else {
+          await saveFinalReport(oystehrZambda, { serviceRequestId, report });
+        }
 
         // Refetch the orders to get the updated data
         const searchParams = getCurrentSearchParamsForPage(page);
         await fetchOrders(searchParams);
       } catch (err) {
-        console.error('Error saving preliminary report:', err);
-        enqueueSnackbar('An error occurred while saving preliminary report', { variant: 'error' });
-        const errorObj = err instanceof Error ? err : new Error('Failed to save preliminary report');
+        console.error('Error saving report:', err);
+        enqueueSnackbar(`An error occurred while saving ${reportType} report`, { variant: 'error' });
+        const errorObj = err instanceof Error ? err : new Error(`Failed to save ${reportType} report`);
         setError(errorObj);
       } finally {
-        setIsSavingPreliminaryReport(false);
+        setIsSavingReport(false);
       }
     },
     [fetchOrders, getCurrentSearchParamsForPage, oystehrZambda, page]
@@ -287,9 +297,9 @@ export const usePatientRadiologyOrders = (options: {
     showDeleteRadiologyOrderDialog,
     DeleteOrderDialog,
     getCurrentSearchParams: getCurrentSearchParamsWithoutPageIndex,
-    handleSavePreliminaryReport,
+    handleSaveReport,
     handleSendForFinalRead,
-    isSavingPreliminaryReport,
+    isSavingReport,
     isSendingForFinalRead,
   };
 };

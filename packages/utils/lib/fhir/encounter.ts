@@ -35,6 +35,24 @@ export const FOLLOWUP_REASONS = [
 type FollowupReasons = (typeof FOLLOWUP_REASONS)[number];
 export type FollowupReason = FollowupReasons;
 
+// Reason-for-visit options shown when booking a scheduled follow-up visit (replaces the
+// service-category reason-for-visit list for that flow). "Other" reveals a free-text field; if the
+// follow-up reason matches the initial visit's reason for visit, the provider enters it there.
+export const SCHEDULED_FOLLOWUP_REASONS = [
+  'Suture / Staple Removal',
+  'Dressing Change',
+  'DOT / CDL Medical Hold Completion',
+  'Immigration Exam (I-693) Finalization',
+  'Work Status / Fit-for-Duty Clearance',
+  'Post-Accident Follow-up (Auto/Work)',
+  'Drug / Alcohol Screen Collection',
+  'Test Results Review (Lab/Imaging)',
+  'Tuberculosis (PPD) Skin Test Read',
+  'Other',
+] as const;
+export type ScheduledFollowupReason = (typeof SCHEDULED_FOLLOWUP_REASONS)[number];
+export const SCHEDULED_FOLLOWUP_OTHER_REASON: ScheduledFollowupReason = 'Other';
+
 export const FOLLOWUP_SYSTEMS = {
   callerUrl: `${FHIR_BASE_URL}/followup-caller`,
   answeredUrl: `${FHIR_BASE_URL}/followup-answered`,
@@ -408,17 +426,13 @@ export const tagEncounterAsErxSynced = async (oystehr: Oystehr, encounter: Encou
       return;
     } catch (patchError) {
       retries++;
-      console.warn(`Tagging encounter ${encounterId} failed (attempt ${retries}), refreshing encounter`, patchError);
       try {
         current = await oystehr.fhir.get<Encounter>({
           resourceType: 'Encounter',
           id: encounterId,
         });
       } catch (refreshError) {
-        console.error(
-          `Failed to refresh encounter ${encounterId} while tagging eRx sync status, giving up`,
-          refreshError
-        );
+        console.warn(`Failed to tag encounter ${encounterId} after ${retries} attempts`, refreshError || patchError);
         return;
       }
     }

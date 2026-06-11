@@ -82,6 +82,7 @@ module "oystehr" {
   sendgrid_send_email_api_key = local.sendgrid_enabled ? var.sendgrid_api_key : null
   ehr_domain                  = var.ehr_domain == null ? var.aws_profile == null ? null : one(module.infra[*].ehr_domain) : var.ehr_domain
   patient_portal_domain       = var.patient_portal_domain == null ? var.aws_profile == null ? null : one(module.infra[*].patient_portal_domain) : var.patient_portal_domain
+  environment                 = var.environment
 }
 
 module "ottehr_apps" {

@@ -161,7 +161,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       }
       // no else, these are not mutually exclusive
       if (shouldUseOttehrBilling(secrets) && shouldRecordPaymentInBillingPlatform) {
-        // currently a no op
+        // TODO: currently a no op
       }
 
       // Create patient payment receipt PDF

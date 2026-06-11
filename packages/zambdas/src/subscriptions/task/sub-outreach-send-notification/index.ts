@@ -2,13 +2,18 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Encounter, Patient, Task, TaskInput } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { phone } from 'phone';
 import {
   convertOutreachTextToHtml,
   FEATURE_FLAGS_CONFIG,
   getFullestAvailableName,
   getPatientContactEmail,
+  getPhoneNumberForIndividual,
   getSecret,
   getTaskResource,
+  isEmailValid,
+  maskEmail,
+  maskPhoneNumber,
   Secrets,
   SecretsKeys,
   TaskIndicator,
@@ -16,6 +21,7 @@ import {
 import { NotificationMedium } from '../../../rcm/scheduled-outreach-config/helpers';
 import {
   checkOrCreateM2MClientToken,
+  createOutreachEmailCommunication,
   createOystehrClient,
   fillOutreachTemplate,
   getEmailClient,
@@ -48,18 +54,43 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, input.secrets);
   const oystehr = createOystehrClient(m2mToken, input.secrets);
 
-  // Mark as in-progress
-  await oystehr.fhir.patch<Task>({
-    resourceType: 'Task',
-    id: task.id!,
-    operations: [{ op: 'replace', path: '/status', value: 'in-progress' }],
-  });
+  // Mark as in-progress with optimistic locking to guard against duplicate
+  // subscription deliveries racing to execute the same task. If another
+  // invocation already claimed it, the version will be stale (412) and we skip.
+  try {
+    await oystehr.fhir.patch<Task>(
+      {
+        resourceType: 'Task',
+        id: task.id!,
+        operations: [{ op: 'replace', path: '/status', value: 'in-progress' }],
+      },
+      { optimisticLockingVersionId: task.meta?.versionId }
+    );
+  } catch (err) {
+    if (err instanceof Oystehr.OystehrFHIRError && err.code === 412) {
+      console.log(`Task ${task.id} was already claimed by another invocation (version conflict), skipping`);
+      return { statusCode: 200, body: JSON.stringify({ message: 'Task already claimed, skipped' }) };
+    }
+    throw err;
+  }
 
   try {
     const mediums = extractMediums(task);
     const smsTemplate = extractInputValue(task, 'sms-template');
     const emailTemplate = extractInputValue(task, 'email-template');
     const patientRef = task.for?.reference;
+
+    // Fetch the Patient once for the whole task. All mediums validate against and send to the same
+    // snapshot, avoiding redundant FHIR reads and validate-vs-send inconsistencies. Missing reference
+    // or a failed fetch is a system/data error (not an invalid contact), so we throw and fail the task.
+    const patientId = patientRef?.replace('Patient/', '');
+    if (!patientId) throw new Error('Task has no patient reference');
+    let patient: Patient;
+    try {
+      patient = await oystehr.fhir.get<Patient>({ resourceType: 'Patient', id: patientId });
+    } catch {
+      throw new Error(`Failed to fetch patient ${patientId} for notification`);
+    }
 
     console.log(`Executing send-notification for patient ${patientRef}, mediums: ${mediums.join(', ')}`);
     console.log('--- NOTIFICATION CONTENT ---');
@@ -74,18 +105,48 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     }
     console.log('--- END NOTIFICATION CONTENT ---');
 
-    const results: { medium: NotificationMedium; success: boolean; skipped?: boolean; error?: string }[] = [];
+    const results: {
+      medium: NotificationMedium;
+      success: boolean;
+      error?: string;
+      skippedReason?: string;
+    }[] = [];
 
     for (const medium of mediums) {
       try {
         switch (medium) {
-          case 'sms':
-            await sendOutreachSms(task, smsTemplate || '', oystehr, input.secrets);
+          case 'sms': {
+            const smsValidation = validatePatientPhone(patient);
+            if (!smsValidation.valid) {
+              console.log(`[SMS] Skipping SMS for task ${task.id}, patient ${patientRef}: ${smsValidation.reason}`);
+              results.push({
+                medium,
+                success: false,
+                error: smsValidation.reason,
+                skippedReason: smsValidation.reason,
+              });
+              break;
+            }
+            await sendOutreachSms(task, smsTemplate || '', oystehr, input.secrets, patient);
             console.log(`[SMS] Successfully sent SMS notification for task ${task.id}, patient ${patientRef}`);
             results.push({ medium, success: true });
             break;
+          }
           case 'email': {
-            const emailSent = await sendOutreachEmail(task, emailTemplate || '', oystehr, input.secrets);
+            const emailValidation = validatePatientEmail(patient);
+            if (!emailValidation.valid) {
+              console.log(
+                `[Email] Skipping email for task ${task.id}, patient ${patientRef}: ${emailValidation.reason}`
+              );
+              results.push({
+                medium,
+                success: false,
+                error: emailValidation.reason,
+                skippedReason: emailValidation.reason,
+              });
+              break;
+            }
+            const emailSent = await sendOutreachEmail(task, emailTemplate || '', oystehr, input.secrets, patient);
             if (emailSent) {
               console.log(`[Email] Successfully sent email notification for task ${task.id}, patient ${patientRef}`);
               results.push({ medium, success: true });
@@ -93,7 +154,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
               console.log(
                 `[Email] Skipped email notification for task ${task.id}, patient ${patientRef}: no email address on file`
               );
-              results.push({ medium, success: true, skipped: true });
+              results.push({ medium, success: true, skippedReason: 'Patient does not have an email on file' });
             }
             break;
           }
@@ -106,7 +167,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
               break;
             }
             const statementType = extractInputValue(task, 'statement-type') || 'standard';
-            await sendPaperMail(task, statementType, oystehr, input.secrets);
+            await sendPaperMail(task, statementType, oystehr, input.secrets, patient);
             console.log(`[Paper Mail] Successfully created paper mail task for task ${task.id}, patient ${patientRef}`);
             results.push({ medium, success: true });
             break;
@@ -124,25 +185,52 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     }
 
     const allSucceeded = results.every((r) => r.success);
-    const finalStatus = allSucceeded ? 'completed' : 'failed';
+    const anySucceeded = results.some((r) => r.success);
+    const allSkippedDueToContacts = !allSucceeded && results.every((r) => r.success || !!r.skippedReason);
+
+    // If at least one medium succeeded, treat the task as completed.
+    // Only cancel if every medium was skipped due to invalid contacts.
+    // Only fail if no medium succeeded and at least one had a real (non-contact) error.
+    const finalStatus = allSucceeded || anySucceeded ? 'completed' : allSkippedDueToContacts ? 'cancelled' : 'failed';
+
+    // Log per-medium failures even when the task overall succeeds
+    const failedMediums = results.filter((r) => !r.success);
+    if (failedMediums.length > 0 && finalStatus === 'completed') {
+      console.log(
+        `Task ${task.id} completed with partial medium failures: ${failedMediums
+          .map((r) => `${r.medium}: ${r.error || r.skippedReason}`)
+          .join('; ')}`
+      );
+    }
+
+    const patchOps: { op: 'replace' | 'add'; path: string; value: unknown }[] = [
+      { op: 'replace', path: '/status', value: finalStatus },
+      { op: 'add', path: '/executionPeriod/end', value: DateTime.now().toISO() },
+      {
+        op: 'add',
+        path: '/output',
+        value: [
+          {
+            type: { text: 'execution-result' },
+            valueString: JSON.stringify(results),
+          },
+        ],
+      },
+    ];
+
+    if (allSkippedDueToContacts) {
+      const reasons = results.filter((r) => r.skippedReason).map((r) => `${r.medium}: ${r.skippedReason}`);
+      patchOps.push({
+        op: 'add',
+        path: '/statusReason',
+        value: { text: `No valid contact methods: ${reasons.join('; ')}` },
+      });
+    }
 
     await oystehr.fhir.patch<Task>({
       resourceType: 'Task',
       id: task.id!,
-      operations: [
-        { op: 'replace', path: '/status', value: finalStatus },
-        { op: 'add', path: '/executionPeriod/end', value: DateTime.now().toISO() },
-        {
-          op: 'add',
-          path: '/output',
-          value: [
-            {
-              type: { text: 'execution-result' },
-              valueString: JSON.stringify(results),
-            },
-          ],
-        },
-      ],
+      operations: patchOps,
     });
 
     console.log(`Task ${task.id} completed with status: ${finalStatus}`);
@@ -180,18 +268,45 @@ function extractInputValue(task: Task, key: string): string | undefined {
   return task.input?.find((i) => i.type?.text === key)?.valueString;
 }
 
+// ── Contact validation ─────────────────────────────────────────────────────
+
+function validatePatientPhone(patient: Patient): { valid: boolean; reason?: string } {
+  const rawPhone = getPhoneNumberForIndividual(patient);
+  if (!rawPhone) {
+    return { valid: false, reason: 'No phone number on file' };
+  }
+  const result = phone(rawPhone, { country: 'USA' });
+  if (!result.isValid) {
+    console.log(`Invalid phone number for patient ${patient.id}: ${maskPhoneNumber(rawPhone)}`);
+    // Store a generic reason on the Task — never persist the raw/masked contact value.
+    return { valid: false, reason: 'Invalid phone number' };
+  }
+  return { valid: true };
+}
+
+function validatePatientEmail(patient: Patient): { valid: boolean; reason?: string } {
+  const rawEmail = getPatientContactEmail(patient);
+  if (!rawEmail) {
+    return { valid: false, reason: 'No email address on file' };
+  }
+  if (!isEmailValid(rawEmail)) {
+    console.log(`Invalid email address for patient ${patient.id}: ${maskEmail(rawEmail)}`);
+    // Store a generic reason on the Task — never persist the raw/masked contact value.
+    return { valid: false, reason: 'Invalid email address' };
+  }
+  return { valid: true };
+}
+
 // ── Integration placeholders ───────────────────────────────────────────────
 // These will be replaced with actual integrations (Twilio, SendGrid, Lob, etc.)
 
-async function sendOutreachSms(task: Task, template: string, oystehr: Oystehr, secrets: Secrets | null): Promise<void> {
-  const patientId = task.for?.reference?.replace('Patient/', '');
-  if (!patientId) throw new Error('Task has no patient reference');
-
-  const patient = await oystehr.fhir.get<Patient>({
-    resourceType: 'Patient',
-    id: patientId,
-  });
-
+async function sendOutreachSms(
+  task: Task,
+  template: string,
+  oystehr: Oystehr,
+  secrets: Secrets | null,
+  patient: Patient
+): Promise<void> {
   const placeholderInput = await resolveTemplatePlaceholders({
     patient,
     encounterRef: task.focus?.reference,
@@ -215,15 +330,10 @@ async function sendOutreachEmail(
   task: Task,
   template: string,
   oystehr: Oystehr,
-  secrets: Secrets | null
+  secrets: Secrets | null,
+  patient: Patient
 ): Promise<boolean> {
-  const patientId = task.for?.reference?.replace('Patient/', '');
-  if (!patientId) throw new Error('Task has no patient reference');
-
-  const patient = await oystehr.fhir.get<Patient>({
-    resourceType: 'Patient',
-    id: patientId,
-  });
+  const patientId = patient.id!;
 
   const email = getPatientContactEmail(patient);
   if (!email) {
@@ -253,6 +363,16 @@ async function sendOutreachEmail(
     content: htmlContent,
     'subject-text': 'Important information about your visit',
   });
+
+  // Record email as a FHIR Communication resource
+  await createOutreachEmailCommunication({
+    oystehr,
+    patientId,
+    encounterRef: task.focus?.reference,
+    recipientEmail: email,
+    htmlContent,
+    resolvedMessage,
+  });
   return true;
 }
 
@@ -262,10 +382,10 @@ async function sendPaperMail(
   task: Task,
   statementType: string,
   oystehr: Oystehr,
-  _secrets: Secrets | null
+  _secrets: Secrets | null,
+  patient: Patient
 ): Promise<void> {
-  const patientId = task.for?.reference?.replace('Patient/', '');
-  if (!patientId) throw new Error('Task has no patient reference');
+  const patientId = patient.id!;
 
   const encounterRef = task.focus?.reference;
   const encounterId = encounterRef?.replace('Encounter/', '');
@@ -280,10 +400,7 @@ async function sendPaperMail(
   const appointmentId = appointmentRef?.split('/')[1];
   if (!appointmentId) throw new Error(`No appointment reference in Encounter/${encounterId}`);
 
-  const [patient, appointment] = await Promise.all([
-    oystehr.fhir.get<Patient>({ resourceType: 'Patient', id: patientId }),
-    oystehr.fhir.get<Appointment>({ resourceType: 'Appointment', id: appointmentId }),
-  ]);
+  const appointment = await oystehr.fhir.get<Appointment>({ resourceType: 'Appointment', id: appointmentId });
 
   const patientName = getFullestAvailableName(patient);
   const appointmentDate = appointment.start

@@ -419,3 +419,9 @@ export const LAB_PAYMENT_METHOD_DISPLAY: Record<LabPaymentMethod, string> = {
   [LabPaymentMethod.ClientBill]: 'Client Bill',
   [LabPaymentMethod.WorkersComp]: 'Workers Comp',
 };
+
+export const LAB_ORDER_WITH_FRIENDLY_PATIENT_ID_DETAIL = {
+  system: 'submission-detail',
+  code: 'friendly-patient-id-submission',
+  display: 'Submitted using friendly patient ID',
+};
