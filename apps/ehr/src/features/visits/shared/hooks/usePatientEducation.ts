@@ -64,7 +64,8 @@ export interface UsePatientEducationResult {
   error: string | null;
   progress: string | null;
   allDiagnoses: DiagnosisOption[];
-  approvedByCode: Map<string, ApprovedPatientEducationItem>;
+  // The approved PDF for a code in a given language, if one exists (codes can have EN and ES variants).
+  approvedFor: (code: string, language: PatientEducationLanguage) => ApprovedPatientEducationItem | undefined;
   // Language to default the generate dialog to — the patient's preferred language when it's one we
   // support (Spanish), else English. The clinician can still change it (never auto-generates).
   defaultLanguage: PatientEducationLanguage;
@@ -106,10 +107,11 @@ export function usePatientEducation(): UsePatientEducationResult {
       .listApprovedPatientEducation()
       .then((res) => {
         if (cancelled) return;
+        // Keyed by `${code}:${language}` so a code can have both an English and a Spanish approved PDF.
         const map = new Map<string, ApprovedPatientEducationItem>();
         for (const item of res.items) {
           for (const icd of item.icdCodes) {
-            map.set(icd.code, item);
+            map.set(`${icd.code}:${item.language}`, item);
           }
         }
         setApprovedByCode(map);
@@ -127,6 +129,14 @@ export function usePatientEducation(): UsePatientEducationResult {
     setError(null);
   }, []);
 
+  // The approved PDF for a code in a specific language, if one exists. A code can have an English
+  // and a Spanish variant; only the matching-language one is used (else we generate fresh).
+  const approvedFor = useCallback(
+    (code: string, lang: PatientEducationLanguage): ApprovedPatientEducationItem | undefined =>
+      approvedByCode.get(`${code}:${lang}`),
+    [approvedByCode]
+  );
+
   // Prefetch cache: fires off requests for all non-approved diagnoses as soon as the modal opens.
   // Keyed by `${code}:${language}` so switching language fetches the right-language content.
   const prefetchCacheRef = useRef<Map<string, Promise<EducationSection | null>>>(new Map());
@@ -136,8 +146,8 @@ export function usePatientEducation(): UsePatientEducationResult {
     (language: PatientEducationLanguage) => {
       if (!apiClient) return;
       for (const diagnosis of allDiagnoses) {
-        // Approved (English-only) PDFs are reused only for English; in Spanish, generate every code.
-        if (language === 'en' && approvedByCode.has(diagnosis.code)) continue;
+        // Skip generating a code that already has an approved PDF in the chosen language.
+        if (approvedFor(diagnosis.code, language)) continue;
         const key = cacheKey(diagnosis.code, language);
         if (prefetchCacheRef.current.has(key)) continue;
         const promise = apiClient
@@ -164,7 +174,7 @@ export function usePatientEducation(): UsePatientEducationResult {
         prefetchCacheRef.current.set(key, promise);
       }
     },
-    [apiClient, allDiagnoses, approvedByCode]
+    [apiClient, allDiagnoses, approvedFor]
   );
 
   const buildAndSaveMergedPdf = useCallback(
@@ -179,10 +189,9 @@ export function usePatientEducation(): UsePatientEducationResult {
       }
 
       const sectionsByCode = new Map(sections.map((section) => [section.icdCode, section]));
-      // The pre-approved PDF library is English-only, so it only applies to English documents — never
-      // splice an English approved PDF into a Spanish document. In Spanish, generate every code instead.
-      const approvedActive = language === 'en' ? approvedByCode : new Map<string, ApprovedPatientEducationItem>();
-      const hasApprovedContent = selection.some((dx) => approvedActive.has(dx.code));
+      // Use only approved PDFs whose language matches the document being produced — never splice an
+      // English approved PDF into a Spanish document (and vice versa).
+      const hasApprovedContent = selection.some((dx) => approvedFor(dx.code, language));
 
       let mergedPdfBytes: Uint8Array | undefined;
 
@@ -199,7 +208,7 @@ export function usePatientEducation(): UsePatientEducationResult {
         };
 
         for (const dx of selection) {
-          const approved = approvedActive.get(dx.code);
+          const approved = approvedFor(dx.code, language);
           if (approved) {
             // One approved item can cover multiple ICD codes; append each item only once.
             if (appendedApprovedIds.has(approved.documentReferenceId)) continue;
@@ -233,7 +242,7 @@ export function usePatientEducation(): UsePatientEducationResult {
       const titleParts: string[] = [];
       const titledApprovedIds = new Set<string>();
       for (const dx of selection) {
-        const approved = approvedActive.get(dx.code);
+        const approved = approvedFor(dx.code, language);
         if (approved) {
           if (titledApprovedIds.has(approved.documentReferenceId)) continue;
           titledApprovedIds.add(approved.documentReferenceId);
@@ -309,7 +318,7 @@ export function usePatientEducation(): UsePatientEducationResult {
     },
     [
       apiClient,
-      approvedByCode,
+      approvedFor,
       chartData?.instructions,
       encounter,
       patient,
@@ -339,8 +348,8 @@ export function usePatientEducation(): UsePatientEducationResult {
       setGeneratedSections(null);
       lastSelectionRef.current = selectedDiagnoses;
 
-      // In Spanish, ignore the English-only approved library and generate every selected code.
-      const toGenerate = selectedDiagnoses.filter((d) => !(language === 'en' && approvedByCode.has(d.code)));
+      // Generate every selected code that lacks an approved PDF in the chosen language.
+      const toGenerate = selectedDiagnoses.filter((d) => !approvedFor(d.code, language));
 
       try {
         // Fast path: every selected diagnosis has a pre-approved PDF — skip review and merge directly.
@@ -400,7 +409,7 @@ export function usePatientEducation(): UsePatientEducationResult {
         setProgress(null);
       }
     },
-    [apiClient, approvedByCode, buildAndSaveMergedPdf]
+    [apiClient, approvedFor, buildAndSaveMergedPdf]
   );
 
   const saveFromSections = useCallback(
@@ -438,7 +447,7 @@ export function usePatientEducation(): UsePatientEducationResult {
     error,
     progress,
     allDiagnoses,
-    approvedByCode,
+    approvedFor,
     defaultLanguage,
   };
 }

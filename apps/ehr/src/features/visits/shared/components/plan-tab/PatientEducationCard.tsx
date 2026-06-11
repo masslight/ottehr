@@ -51,7 +51,7 @@ export const PatientEducationCard: FC = () => {
     error: educationError,
     progress: educationProgress,
     allDiagnoses,
-    approvedByCode,
+    approvedFor,
     defaultLanguage,
   } = usePatientEducation();
   // Language the clinician chose for this generate run; seeded from the patient's preferred language
@@ -308,7 +308,7 @@ export const PatientEducationCard: FC = () => {
                           (Primary)
                         </Typography>
                       )}
-                      {language === 'en' && approvedByCode.has(diagnosis.code) && (
+                      {approvedFor(diagnosis.code, language) && (
                         <Typography component="span" variant="caption" color="success.main" sx={{ ml: 1 }}>
                           (Pre-approved PDF)
                         </Typography>

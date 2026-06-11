@@ -11,6 +11,7 @@ const saveApprovedPatientEducationInputSchema: z.ZodType<SaveApprovedPatientEduc
   pdfBase64: z.string().min(1, 'pdfBase64 is required'),
   title: z.string().min(1, 'title is required'),
   icdCodes: z.array(icdCodeSchema).min(1, 'icdCodes must be a non-empty array'),
+  language: z.enum(['en', 'es']).optional(),
 });
 
 export function validateRequestParameters(

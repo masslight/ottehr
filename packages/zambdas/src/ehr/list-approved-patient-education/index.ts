@@ -78,6 +78,8 @@ const performEffect = async (oystehr: Oystehr, token: string): Promise<ListAppro
         title: docRef.content?.[0]?.attachment?.title ?? docRef.description ?? '',
         icdCodes: extractApprovedEducationIcdCodes(docRef),
         pdfPresignedUrl: presignedUrl,
+        // Legacy approved PDFs created before language support have no attachment.language → English.
+        language: docRef.content?.[0]?.attachment?.language === 'es' ? 'es' : 'en',
       };
     })
   );

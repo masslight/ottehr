@@ -59,6 +59,7 @@ const performEffect = async (
   token: string
 ): Promise<SaveApprovedPatientEducationOutput> => {
   const { pdfBase64, title, icdCodes, secrets } = validatedInput;
+  const language = validatedInput.language ?? 'en';
 
   // 1. Upload PDF to Z3
   const pdfBytes = new Uint8Array(Buffer.from(pdfBase64, 'base64'));
@@ -89,10 +90,14 @@ const performEffect = async (
       (r.type?.coding ?? []).some((c) => c.code === PATIENT_EDUCATION_APPROVED_DOC_TYPE_CODE)
   );
 
-  // 3. Identify DocRefs to delete-and-replace (any whose ICD set overlaps with incoming)
+  // 3. Identify DocRefs to delete-and-replace: existing approved docs of the SAME language whose ICD
+  //    set overlaps with the incoming one. Language-scoping lets EN and ES variants for a code coexist
+  //    (saving a Spanish PDF for H66.01 does not supersede the English one).
   const incomingIcdSet = new Set(icdCodes.map((c) => c.code));
-  const toReplace = existingDocRefs.filter((dr) =>
-    extractApprovedEducationIcdCodes(dr).some(({ code }) => incomingIcdSet.has(code))
+  const docLanguage = (dr: DocumentReference): string => dr.content?.[0]?.attachment?.language ?? 'en';
+  const toReplace = existingDocRefs.filter(
+    (dr) =>
+      docLanguage(dr) === language && extractApprovedEducationIcdCodes(dr).some(({ code }) => incomingIcdSet.has(code))
   );
   const toReplaceIds = new Set(toReplace.map((dr) => dr.id!));
   const toReplaceZ3Urls = toReplace.map((dr) => dr.content?.[0]?.attachment?.url).filter((u): u is string => !!u);
@@ -119,6 +124,7 @@ const performEffect = async (
           url: z3Url,
           contentType: 'application/pdf',
           title,
+          language,
         },
       },
     ],
