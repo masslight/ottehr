@@ -146,7 +146,7 @@ async function addVitals(page: Page, weightKg: string, heightCm: string): Promis
   await expect(page.getByText(weightRegex).first()).toBeVisible({ timeout: 10000 });
 
   // Fill height
-  const heightInput = page.getByLabel('Height (cm)');
+  const heightInput = page.getByTestId(dataTestIds.vitalsPage.heightInput).locator('input');
   await heightInput.scrollIntoViewIfNeeded();
   await heightInput.fill(heightCm);
 

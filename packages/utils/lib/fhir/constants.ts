@@ -923,6 +923,11 @@ export const PREFERRED_PHARMACY_ERX_ID_FOR_SYNC_URL =
 
 export const ENCOUNTER_PAYMENT_VARIANT_EXTENSION_URL = ottehrExtensionUrl('payment-variant');
 
+/** Employer Organization selected for this visit (staff / pre-op); not the patient Account occ-med employer. */
+export const ENCOUNTER_VISIT_OCCUPATIONAL_MEDICINE_EMPLOYER_EXTENSION_URL = ottehrExtensionUrl(
+  'visit-occupational-medicine-employer'
+);
+
 export const CONSENT_ATTESTATION_SIG_TYPE: Coding = Object.freeze({
   system: 'http://uri.etsi.org/01903/v1.2.2',
   code: 'ProofOfReceipt',

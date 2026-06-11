@@ -16,8 +16,7 @@ import {
 import { formatDateTimeToZone } from '../../utils';
 import {
   celsiusToFahrenheit,
-  cmToFeet,
-  cmToInches,
+  formatHeightObservationValue,
   formatWeightKg,
   formatWeightLbs,
   getVisionExtraOptionsFormattedString,
@@ -79,7 +78,7 @@ export const mapVitalsToDisplay = (
       }
       case VitalFieldNames.VitalHeight:
         parsed = observation as VitalsHeightObservationDTO;
-        text = `${parsed.value} cm = ${cmToInches(parsed.value)} inch = ${cmToFeet(parsed.value)} ft`;
+        text = formatHeightObservationValue(parsed.value);
         break;
       case VitalFieldNames.VitalVision: {
         parsed = observation as VitalsVisionObservationDTO;
