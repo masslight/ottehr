@@ -17,20 +17,22 @@ import {
   ACCESSION_NUMBER_CODE_SYSTEM,
   ADVAPACS_FHIR_BASE_URL,
   ADVAPACS_FHIR_RESOURCE_ID_CODE_SYSTEM,
-  CODE_SYSTEM_CPT,
   createOurDiagnosticReport,
-  getFullestAvailableName,
   getSecret,
   HL7_IDENTIFIER_TYPE_CODE_SYSTEM,
   HL7_IDENTIFIER_TYPE_CODE_SYSTEM_ACCESSION_NUMBER,
   ORDER_TYPE_CODE_SYSTEM,
-  RADIOLOGY_TASK,
   Secrets,
   SecretsKeys,
   SERVICE_REQUEST_PERFORMED_ON_EXTENSION_URL,
 } from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
-import { createTask } from '../../../shared/tasks';
+import {
+  configReviewResultTask,
+  parseRadiologyResourcesForTask,
+  ResourcesForTask,
+  validateResourcesAgainstDR,
+} from '../shared';
 import { validateInput, validateSecrets } from './validation';
 
 // Types
@@ -40,14 +42,6 @@ export interface PacsWebhookBody {
 
 export interface ValidatedInput {
   resource: ServiceRequest | DiagnosticReport | ImagingStudyR5;
-}
-
-interface HandleDrAdditionalResources {
-  serviceRequest: ServiceRequest;
-  patient: Patient;
-  encounter: Encounter;
-  requestingProvider: Practitioner;
-  location: Location | undefined;
 }
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
@@ -230,28 +224,7 @@ const handleDiagnosticReport = async (
     })
   ).unbundle();
 
-  const { diagnosticReports, serviceRequests, patients, encounters, practitioners, locations } = drSearchResults.reduce(
-    (
-      acc: {
-        diagnosticReports: DiagnosticReport[];
-        serviceRequests: ServiceRequest[];
-        patients: Patient[];
-        encounters: Encounter[];
-        practitioners: Practitioner[];
-        locations: Location[];
-      },
-      resource
-    ) => {
-      if (resource.resourceType === 'DiagnosticReport') acc.diagnosticReports.push(resource);
-      if (resource.resourceType === 'ServiceRequest') acc.serviceRequests.push(resource);
-      if (resource.resourceType === 'Patient') acc.patients.push(resource);
-      if (resource.resourceType === 'Encounter') acc.encounters.push(resource);
-      if (resource.resourceType === 'Practitioner') acc.practitioners.push(resource);
-      if (resource.resourceType === 'Location') acc.locations.push(resource);
-      return acc;
-    },
-    { diagnosticReports: [], serviceRequests: [], patients: [], encounters: [], practitioners: [], locations: [] }
-  );
+  const { diagnosticReports, ...additionalResources } = parseRadiologyResourcesForTask(drSearchResults);
 
   if (diagnosticReports.length > 1) {
     throw new Error('Multiple DiagnosticReports found with the given ID');
@@ -260,15 +233,8 @@ const handleDiagnosticReport = async (
     if (drToUpdate.id == null) {
       throw new Error('DiagnosticReport ID is required');
     }
-    const additionalResources = validateAdditionalResources(
-      drToUpdate,
-      serviceRequests,
-      patients,
-      encounters,
-      practitioners,
-      locations
-    );
-    await handleUpdateDiagnosticReport(advaPacsDiagnosticReport, drToUpdate, additionalResources, oystehr);
+    const resourcesForTask = validateResourcesAgainstDR({ ...additionalResources, diagnosticReport: drToUpdate });
+    await handleUpdateDiagnosticReport(advaPacsDiagnosticReport, drToUpdate, resourcesForTask, oystehr);
   } else if (drSearchResults.length === 0) {
     await handleCreateDiagnosticReport(advaPacsDiagnosticReport, oystehr, secrets);
   }
@@ -295,14 +261,21 @@ const handleCreateDiagnosticReport = async (
     throw new Error('The ServiceRequest was not associated with any accession number');
   }
   const ourServiceRequest = await getOurServiceRequestByAccessionNumber(pacsServiceRequestAccessionNumber, oystehr);
-  console.log('Found our ServiceRequest: ', pacsServiceRequest);
+  if (ourServiceRequest == null) {
+    console.log(
+      'No matching ServiceRequest found in Oystehr. Will not create DR for SR with accession number: ',
+      pacsServiceRequestAccessionNumber
+    );
+    return;
+  }
+  console.log('Found our ServiceRequest: ', ourServiceRequest);
   await createOurDiagnosticReport(ourServiceRequest, advaPacsDiagnosticReport, undefined, oystehr);
 };
 
 const handleUpdateDiagnosticReport = async (
   advaPacsDiagnosticReport: DiagnosticReport,
   ourDiagnosticReport: DiagnosticReport,
-  additionalResources: HandleDrAdditionalResources,
+  resourcesForTask: ResourcesForTask,
   oystehr: Oystehr
 ): Promise<void> => {
   console.log('processing DiagnosticReport update');
@@ -347,7 +320,12 @@ const handleUpdateDiagnosticReport = async (
   }
 
   if (ourDiagnosticReport.status !== advaPacsDiagnosticReport.status && advaPacsDiagnosticReport.status === 'final') {
-    const reviewTaskPostRequest = configReviewResultTask(ourDiagnosticReport, additionalResources);
+    const newTask = configReviewResultTask({ ...resourcesForTask, diagnosticReport: ourDiagnosticReport });
+    const reviewTaskPostRequest: BatchInputPostRequest<Task> = {
+      method: 'POST',
+      url: 'Task/',
+      resource: newTask,
+    };
     console.log('task config to be made', JSON.stringify(reviewTaskPostRequest.resource));
     requests.push(reviewTaskPostRequest);
   }
@@ -362,124 +340,6 @@ const handleUpdateDiagnosticReport = async (
 
   console.log(`making transaction request for handleUpdateDiagnosticReport`);
   await oystehr.fhir.transaction({ requests });
-};
-
-const configReviewResultTask = (
-  diagnosticReport: DiagnosticReport,
-  additionalResources: HandleDrAdditionalResources
-): BatchInputPostRequest<Task> => {
-  console.log('configuring review radiology final results task for', diagnosticReport.id);
-  const { encounter, serviceRequest, patient, requestingProvider, location } = additionalResources;
-  const serviceRequestRef = diagnosticReport.basedOn?.find((ref) => ref.reference?.startsWith('ServiceRequest/'))
-    ?.reference;
-  const appointmentId = encounter.appointment?.[0].reference?.replace('Appointment/', '');
-
-  let locationInput:
-    | {
-        id: string;
-        name?: string;
-      }
-    | undefined = undefined;
-  if (location?.id) {
-    locationInput = { id: location.id };
-    if (location.name) locationInput.name = location.name;
-  }
-
-  const providerFirstName = requestingProvider?.name?.[0]?.given?.[0];
-  const providerLastName = requestingProvider?.name?.[0]?.family;
-
-  const studyTypeCoding = serviceRequest.code?.coding?.find((c) => c.system === CODE_SYSTEM_CPT);
-  const studyTypeCode = studyTypeCoding?.code;
-  const studyTypeDisplay = studyTypeCoding?.display;
-
-  const newTask = createTask({
-    category: RADIOLOGY_TASK.category,
-    title: 'Review Radiology Final Results',
-    code: {
-      system: RADIOLOGY_TASK.system,
-      code: RADIOLOGY_TASK.code.reviewFinalResultTask,
-    },
-    encounterId: encounter.id,
-    basedOn: [`DiagnosticReport/${diagnosticReport.id}`, ...(serviceRequestRef ? [serviceRequestRef] : [])],
-    location: locationInput,
-    input: [
-      {
-        type: RADIOLOGY_TASK.input.appointmentId,
-        valueString: appointmentId,
-      },
-      {
-        type: RADIOLOGY_TASK.input.orderDate,
-        valueString: serviceRequest.authoredOn,
-      },
-      {
-        type: RADIOLOGY_TASK.input.patientName,
-        valueString: getFullestAvailableName(patient),
-      },
-      {
-        type: RADIOLOGY_TASK.input.providerName,
-        valueString: `${providerFirstName} ${providerLastName}`,
-      },
-      {
-        type: RADIOLOGY_TASK.input.studyTypeCode,
-        valueString: studyTypeCode,
-      },
-      {
-        type: RADIOLOGY_TASK.input.studyTypeDisplay,
-        valueString: studyTypeDisplay,
-      },
-    ],
-  });
-
-  const taskPostRequest: BatchInputPostRequest<Task> = {
-    method: 'POST',
-    url: 'Task/',
-    resource: newTask,
-  };
-  return taskPostRequest;
-};
-
-const validateAdditionalResources = (
-  diagnosticReport: DiagnosticReport,
-  serviceRequests: ServiceRequest[],
-  patients: Patient[],
-  encounters: Encounter[],
-  practitioners: Practitioner[],
-  locations: Location[]
-): HandleDrAdditionalResources => {
-  if (serviceRequests.length !== 1) {
-    throw new Error(
-      `Unexpected number of serviceRequests found for diagnostic report: ${diagnosticReport.id}. SR Len: ${serviceRequests.length}`
-    );
-  }
-  if (patients.length !== 1) {
-    throw new Error(
-      `Unexpected number of patients found for diagnostic report: ${diagnosticReport.id}. Patients Len: ${patients.length}`
-    );
-  }
-  if (encounters.length !== 1) {
-    throw new Error(
-      `Unexpected number of encounters found for diagnostic report: ${diagnosticReport.id}. Encounters Len: ${encounters.length}`
-    );
-  }
-  if (practitioners.length !== 1) {
-    throw new Error(
-      `Unexpected number of practitioners found for diagnostic report: ${diagnosticReport.id}. Practitioners Len: ${practitioners.length}`
-    );
-  }
-
-  const encounter = encounters[0];
-  const locationId = encounter?.location
-    ?.find((loc) => loc.location.reference?.startsWith('Location/'))
-    ?.location.reference?.replace('Location/', '');
-  const locationFromEncounter = locations.find((loc) => loc.id === locationId);
-
-  return {
-    patient: patients[0],
-    serviceRequest: serviceRequests[0],
-    encounter,
-    requestingProvider: practitioners[0],
-    location: locationFromEncounter,
-  };
 };
 
 const handleImagingStudy = async (
@@ -538,7 +398,7 @@ const getAdvaPacsServiceRequestByID = async (
 const getOurServiceRequestByAccessionNumber = async (
   accessionNumber: string,
   oystehr: Oystehr
-): Promise<ServiceRequest> => {
+): Promise<ServiceRequest | undefined> => {
   const srResults = (
     await oystehr.fhir.search<ServiceRequest>({
       resourceType: 'ServiceRequest',
@@ -557,7 +417,8 @@ const getOurServiceRequestByAccessionNumber = async (
   ).unbundle();
 
   if (srResults.length === 0) {
-    throw new Error('No ServiceRequest found with the given accession number');
+    console.log('No matching ServiceRequest found in Oystehr. Accession number: ', accessionNumber);
+    return undefined;
   }
 
   if (srResults.length > 1) {

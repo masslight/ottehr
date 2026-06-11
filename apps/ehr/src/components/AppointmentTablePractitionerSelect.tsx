@@ -93,8 +93,9 @@ export default function AppointmentTablePractitionerSelect({
           disabled={isEncounterUpdatePending}
           fullWidth
           size="small"
-          // Selecting always (re)assigns; clearing is intentionally a no-op so a visit can't be left
-          // unassigned from here — matching the chart header behaviour.
+          // Selecting always (re)assigns; there is no clear icon because the data model has no clean
+          // "unassign" — a visit can't be left unassigned from here, matching the chart header behaviour.
+          clearIcon={null}
           onChange={(_event, newValue) => {
             if (newValue) {
               void handleChange(newValue.practitionerId);

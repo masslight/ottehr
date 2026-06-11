@@ -3,6 +3,7 @@ import { BatchInputPostRequest } from '@oystehr/sdk';
 import { Account, Coverage, Organization, Patient, QuestionnaireResponse, RelatedPerson } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
+  ACCOUNT_TYPE_CODE_SYSTEM,
   COVERAGE_MEMBER_IDENTIFIER_BASE,
   flattenItems,
   IN_PERSON_INTAKE_PAPERWORK_QUESTIONNAIRE,
@@ -61,7 +62,7 @@ describe('Harvest Module', () => {
     type: {
       coding: [
         {
-          system: 'http://terminology.hl7.org/CodeSystem/account-type',
+          system: ACCOUNT_TYPE_CODE_SYSTEM,
           code: 'PBILLACCT',
           display: 'patient billing account',
         },
@@ -2056,7 +2057,7 @@ describe('Harvest Module', () => {
       expect(post?.type).toBeDefined();
       expect(post?.type?.coding).toBeDefined();
       expect(post?.type?.coding?.length).toBe(1);
-      expect(post?.type?.coding?.[0].system).toBe('http://terminology.hl7.org/CodeSystem/account-type');
+      expect(post?.type?.coding?.[0].system).toBe(ACCOUNT_TYPE_CODE_SYSTEM);
       expect(post?.type?.coding?.[0].code).toBe('PBILLACCT');
       expect(post?.type?.coding?.[0].display).toBe('patient billing account');
       expect(post?.subject).toBeDefined();
@@ -3962,7 +3963,7 @@ const bundle1Account: Account = {
   type: {
     coding: [
       {
-        system: 'http://terminology.hl7.org/CodeSystem/account-type',
+        system: ACCOUNT_TYPE_CODE_SYSTEM,
         code: 'PBILLACCT',
         display: 'patient billing account',
       },
@@ -4003,7 +4004,7 @@ const workersCompAccountResource: Account = {
   type: {
     coding: [
       {
-        system: 'http://terminology.hl7.org/CodeSystem/account-type',
+        system: ACCOUNT_TYPE_CODE_SYSTEM,
         code: 'WCOMPACCT',
         display: 'worker compensation account',
       },

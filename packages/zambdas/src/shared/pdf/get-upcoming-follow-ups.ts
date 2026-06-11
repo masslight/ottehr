@@ -24,11 +24,15 @@ const resolveFollowUpReason = (encounter: Encounter, ownAppointment?: Appointmen
  *
  * Membership matches the EHR sidebar: any child encounter (has `partOf`), regardless of status or
  * subtype. Only visits at or after generation time are kept; past ones are dropped.
+ *
+ * `excludeEncounterId` omits a specific follow-up — used when the document is generated for a scheduled
+ * follow-up itself, so that visit doesn't list itself under "Upcoming Visits".
  */
 export const getUpcomingFollowUps = async (
   oystehr: Oystehr,
   originEncounterId: string,
-  fallbackTimezone: string
+  fallbackTimezone: string,
+  excludeEncounterId?: string
 ): Promise<UpcomingFollowUp[]> => {
   // Origin encounter → follow-up children (part-of), iterate-including each child's appointment,
   // location, and that location's schedule. Origin itself returns too but is dropped (no `partOf`).
@@ -64,7 +68,8 @@ export const getUpcomingFollowUps = async (
         break;
       }
       case 'Encounter':
-        if (item.partOf) followUpEncounters.push(item);
+        // Any child encounter (sidebar predicate), except the one this document is generated for.
+        if (item.partOf && item.id !== excludeEncounterId) followUpEncounters.push(item);
         break;
     }
   }
