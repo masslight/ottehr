@@ -134,7 +134,9 @@ export function prepareCopy<T extends CopyableBillingResource>(resource: CRT<T>,
   const propHolder: Partial<Writable<CRT<T>>> = {};
   const resourceProps = copyableProps(resource);
   for (const prop of resourceProps) {
-    propHolder[prop] = resource[prop];
+    if (resource[prop]) {
+      propHolder[prop] = resource[prop];
+    }
   }
   const copy: CRT<T> = structuredClone(propHolder) as CRT<T>;
   delete copy.id;

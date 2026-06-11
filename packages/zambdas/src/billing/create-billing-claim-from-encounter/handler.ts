@@ -554,11 +554,11 @@ export function copyCoverageAndSubscriber(
   copy.beneficiary = uuidOrUrnReference('Patient', patientUuidOrUrn);
   // Subscriber is patient by default, check for contained RelatedPerson
   let subscriberId = patientUuidOrUrn;
-  if (copy.subscriber?.reference?.startsWith('#') && copy.contained && copy.contained.length > 0) {
+  if (coverage.subscriber?.reference?.startsWith('#') && coverage.contained && coverage.contained.length > 0) {
     // Subscriber is contained on the coverage
-    const containedSubscriber = copy.contained.find(
+    const containedSubscriber = coverage.contained.find(
       (contained): contained is RelatedPerson =>
-        contained.id === copy.subscriber?.reference?.replace('#', '') && contained.resourceType === 'RelatedPerson'
+        contained.id === coverage.subscriber?.reference?.replace('#', '') && contained.resourceType === 'RelatedPerson'
     );
     if (containedSubscriber) {
       const subscriber = workingCopy
@@ -574,7 +574,6 @@ export function copyCoverageAndSubscriber(
       });
       order.push('relatedperson');
       subscriberId = subscriber.id;
-      copy.contained = copy.contained.filter((contained) => contained.id !== containedSubscriber.id);
     }
   } else if (coverageSubscriber) {
     // Subscriber was found and passed in to the function
