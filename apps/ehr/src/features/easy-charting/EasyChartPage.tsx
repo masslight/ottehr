@@ -2601,10 +2601,9 @@ export default function EasyChartPage(): JSX.Element {
         const matches = findRemoveMatches(intent, chartData);
         if (matches.length === 0) {
           setConv({ kind: 'no-match-remove', user: message, intent });
-        } else if (matches.length === 1) {
-          await handleRemovePick(matches[0], message);
         } else {
-          setConv({ kind: 'choose-remove', user: message, intent, matches });
+          // No stopping: auto-pick the top match instead of showing a remove picker.
+          await handleRemovePick(matches[0], message);
         }
         return;
       }
@@ -2689,10 +2688,9 @@ export default function EasyChartPage(): JSX.Element {
         const matches = findTemplateMatches(intent, all.templates);
         if (matches.length === 0) {
           setConv({ kind: 'no-match-template', user: message, intent });
-        } else if (matches.length === 1) {
-          await handleApplyTemplate(matches[0], message);
         } else {
-          setConv({ kind: 'choose-template', user: message, intent, matches });
+          // No stopping: auto-apply the best-matching template.
+          await handleApplyTemplate(matches[0], message);
         }
         return;
       }
@@ -2700,10 +2698,9 @@ export default function EasyChartPage(): JSX.Element {
         const matches = findProcedureMatches(intent, procedureQuickPicks);
         if (matches.length === 0) {
           setConv({ kind: 'no-match-procedure', user: message, intent });
-        } else if (matches.length === 1) {
-          await handleProcedurePick(matches[0], message);
         } else {
-          setConv({ kind: 'choose-procedure', user: message, intent, matches });
+          // No stopping: auto-pick the best-matching procedure quick-pick.
+          await handleProcedurePick(matches[0], message);
         }
         return;
       }
@@ -2713,10 +2710,11 @@ export default function EasyChartPage(): JSX.Element {
           setConv({ kind: 'no-procedure-to-update', user: message, intent });
         } else {
           const candidates = findProceduresToUpdate(intent, allProcedures);
-          if (candidates.length === 1) {
-            await handleProcedureUpdate(candidates[0], intent, message);
+          if (candidates.length === 0) {
+            setConv({ kind: 'no-procedure-to-update', user: message, intent });
           } else {
-            setConv({ kind: 'choose-procedure-to-update', user: message, intent, candidates });
+            // No stopping: auto-pick the top candidate procedure to update.
+            await handleProcedureUpdate(candidates[0], intent, message);
           }
         }
         return;
@@ -2755,11 +2753,9 @@ export default function EasyChartPage(): JSX.Element {
           // is on the chart, was removed by dedup; the picker would otherwise fall back to
           // unrelated Left ear options).
           setConv({ kind: 'skipped', user: message });
-        } else if (remaining.length === 1) {
-          await handleExamPick(remaining[0], message);
         } else {
-          setExamPickSelected(new Set());
-          setConv({ kind: 'choose-exam', user: message, intent, matches: remaining });
+          // No stopping: auto-pick the top exam-finding match.
+          await handleExamPick(remaining[0], message);
         }
         return;
       }
@@ -2768,21 +2764,19 @@ export default function EasyChartPage(): JSX.Element {
         const matches = findExamRemoveMatches(intent, items);
         if (matches.length === 0) {
           setConv({ kind: 'no-match-exam-remove', user: message, intent });
-        } else if (matches.length === 1) {
-          await handleExamRemove(matches[0], message);
         } else {
-          setConv({ kind: 'choose-exam-remove', user: message, intent, matches });
+          // No stopping: auto-pick the top exam-finding to remove.
+          await handleExamRemove(matches[0], message);
         }
         return;
       }
-      // Add flow
+      // Add flow — no stopping: always auto-pick the top match.
       const results = await runIntentSearch(intent, oystehr, oystehrZambda);
       if (results.length === 0) {
         setConv({ kind: 'no-match', user: message, intent });
       } else if (AUTO_CHART_KINDS.has(intent.kind)) {
-        // No stopping: auto-pick the top match and chart it as needing review; flag low-confidence
-        // when the search was ambiguous (>1 plausible match). The provider corrects later by
-        // clicking the highlighted item, instead of being interrupted by a picker now.
+        // Allergies/diagnoses additionally get the needs-review highlight + click-to-correct, with
+        // low-confidence flagged when the search was ambiguous (>1 plausible match).
         const field = intent.kind === 'add-allergy' ? 'allergies' : 'diagnosis';
         const provenance: AiChartedMeta = {
           field,
@@ -2791,10 +2785,10 @@ export default function EasyChartPage(): JSX.Element {
           lowConfidence: results.length > 1,
         };
         await handlePick(intent, results[0], message, provenance);
-      } else if (results.length === 1) {
-        await handlePick(intent, results[0], message);
       } else {
-        setConv({ kind: 'choose', user: message, intent, results });
+        // Other add types (condition, medication, surgical-history, hospitalization) auto-pick the
+        // top match too; they don't yet have the inline click-to-correct affordance.
+        await handlePick(intent, results[0], message);
       }
     } catch (e) {
       console.error('Dispatch failed:', e);
