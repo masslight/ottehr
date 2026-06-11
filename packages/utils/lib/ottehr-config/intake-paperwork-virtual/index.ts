@@ -27,7 +27,7 @@ import {
 
 // Canonical identifiers — see intake-paperwork/index.ts for rationale.
 export const VIRTUAL_INTAKE_PAPERWORK_URL = 'https://ottehr.com/FHIR/Questionnaire/intake-paperwork-virtual';
-export const VIRTUAL_INTAKE_PAPERWORK_VERSION = '1.1.0';
+export const VIRTUAL_INTAKE_PAPERWORK_VERSION = '1.1.2';
 export const VIRTUAL_INTAKE_PAPERWORK_CANONICAL = {
   url: VIRTUAL_INTAKE_PAPERWORK_URL,
   version: VIRTUAL_INTAKE_PAPERWORK_VERSION,
@@ -334,6 +334,11 @@ function buildFormFields(
               label: 'places address',
               type: 'string',
             },
+            pharmacyPlacesPhone: {
+              key: 'pharmacy-places-phone',
+              label: 'places phone',
+              type: 'string',
+            },
             pharmacyPlacesSaved: {
               key: 'pharmacy-places-saved',
               label: 'places saved',
@@ -406,6 +411,27 @@ function buildFormFields(
           key: 'pharmacy-address',
           label: 'Pharmacy address',
           type: 'string',
+          disabledDisplay: 'hidden',
+          triggers: [
+            {
+              targetQuestionLinkId: 'pharmacy-page-manual-entry',
+              effect: ['enable'],
+              operator: '=',
+              answerBoolean: true,
+            },
+            {
+              targetQuestionLinkId: 'pharmacy-page-manual-entry',
+              effect: ['filter'],
+              operator: '!=',
+              answerBoolean: true,
+            },
+          ],
+        },
+        phone: {
+          key: 'pharmacy-phone',
+          label: 'Pharmacy phone',
+          type: 'string',
+          dataType: 'Phone Number',
           disabledDisplay: 'hidden',
           triggers: [
             {
