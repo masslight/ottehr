@@ -265,6 +265,7 @@ const KIND_VALUES = [
   'edit-note-text',
   'add-exam-finding',
   'remove-exam-finding',
+  'add-ros-finding',
 ] as const;
 
 const NOTE_TEXT_FIELDS = [
@@ -306,6 +307,7 @@ const RESPONSE_SCHEMA = {
           },
           field: { type: 'string' },
           newText: { type: 'string' },
+          finding: { type: 'string', enum: ['reports', 'denies'] },
         },
         required: ['kind'],
       },
@@ -405,15 +407,20 @@ doesn't mention):
      so the correct primary diagnosis lands on the chart instead of the generic symptom code.
   2. Patient history (add/remove-allergy, condition, medication, surgical-history, hospitalization)
   3. Free-text fields, in note order: edit-note-text for chiefComplaint, historyOfPresentIllness,
-     mechanismOfInjury, ros, medicalDecision. When a template was applied in step 1, ONLY emit
-     edit-note-text for fields where the narrative has content that meaningfully DIFFERS from
-     what the template would default. The template typically fills CC, HPI structure, MDM and
-     patient instructions — don't re-emit those if the narrative content is what the template
-     already provides.
+     mechanismOfInjury, medicalDecision. (Review of Systems is NOT free text — it is structured
+     checkboxes; use add-ros-finding, NOT edit-note-text, for ROS.) When a template was applied in
+     step 1, ONLY emit edit-note-text for fields where the narrative has content that meaningfully
+     DIFFERS from what the template would default. The template typically fills CC, HPI structure,
+     MDM and patient instructions — don't re-emit those if the narrative content is what the
+     template already provides.
   4. Exam findings (add-exam-finding / remove-exam-finding). When a template was applied, ONLY
      emit add-exam-finding for ABNORMAL findings (or normal findings the narrative specifically
      calls out that the template doesn't cover by default). Templates already check the default
      normal findings for that section — don't re-add them.
+  4b. ROS findings (add-ros-finding) — one per symptom the patient REPORTS or DENIES in the
+     history, with finding="reports" or "denies". These are structured (rosObservations), separate
+     from the exam. The HPI prose can mention the same symptoms; ROS still records them as discrete
+     findings so the structured ROS section is populated.
   5. Diagnoses (add-diagnosis — mark isPrimary=true for exactly ONE primary; all other diagnoses
      are secondary with isPrimary=false). Emit a SEPARATE add-diagnosis for EVERY distinct
      diagnosis the provider made this visit — many encounters have 2-3 (e.g. "otitis media AND
@@ -547,6 +554,17 @@ ACTION SHAPES (use these intent kinds and the same fields the single-shot agent 
         chart template already provides — focus on what's specific to THIS encounter.
 - add-exam-finding: { kind, display, searchTerms } — match against the practice's exam-template
   leaf labels. Use specific wording the provider used.
+- add-ros-finding: { kind, display, searchTerms } — a structured Review-of-Systems finding. The
+  display MUST begin with the word "Denies" or "Reports" followed by the symptom name, e.g.
+  "Denies fever", "Reports insomnia". UNLIKE exam findings and allergies, ROS records NEGATIVES too:
+  when the narrative says the patient "denies fevers, nausea, vomiting" emit a SEPARATE
+  add-ros-finding for EACH symptom with a "Denies …" display; when the patient reports a symptom in
+  the history ("left leg pain", "couldn't sleep") use a "Reports …" display. searchTerms are 1-3
+  synonyms for the symptom (do NOT include the word Denies/Reports). Example of the FORMAT — for a
+  narrative "denies chest pain and shortness of breath; reports a headache" the steps are EXACTLY:
+    {"kind":"add-ros-finding","display":"Denies chest pain","searchTerms":["chest pain"]}
+    {"kind":"add-ros-finding","display":"Denies shortness of breath","searchTerms":["shortness of breath","dyspnea"]}
+    {"kind":"add-ros-finding","display":"Reports headache","searchTerms":["headache","cephalgia"]}
 - unknown: { kind, message } — use sparingly; prefer omitting an action you can't classify.
 
 RULES:
@@ -580,12 +598,16 @@ RULES:
     "PMH unremarkable" / "no past medical history" → DO NOT emit add-condition.
     "No prior surgeries" / "no surgical history" → DO NOT emit add-surgical-history.
     "No hospitalizations" → DO NOT emit add-hospitalization.
-    "No vomiting", "no rash", "no fever", etc. → DO NOT emit add-exam-finding (the chart
-      defaults already capture the absence of these). Emit add-exam-finding ONLY for findings
+    "No vomiting", "no rash", "no fever" as EXAM observations → DO NOT emit add-exam-finding (the
+      chart defaults already capture the absence of these). Emit add-exam-finding ONLY for findings
       the provider explicitly observed as ABNORMAL (e.g. "TM erythematous", "throat injected").
   These statements ARE clinically important, but they belong in the HPI/MDM free text (which
   the planner emits as edit-note-text), not as add-* actions whose pickers would match nothing
   or, worse, the wrong thing.
+  EXCEPTION — REVIEW OF SYSTEMS: a patient DENYING a symptom in the history (e.g. "denies cough,
+  congestion, or sore throat") IS a chartable ROS finding — emit a "Denies …" add-ros-finding for
+  each. This is the opposite of the exam/allergy rule above: ROS records both reported AND denied
+  symptoms.
 - DISPOSITION IS NEVER OPTIONAL — this is a patient-safety rule. If the provider directs the
   patient to a higher level of care or emergency services — "go to the ER / emergency department",
   "call 911", "I'm sending you to the hospital", "we're admitting you", "go straight to urgent

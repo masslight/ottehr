@@ -61,7 +61,14 @@ export type EasyChartAgentIntent =
   // Remove an exam finding that's currently on the chart. The client matches against the
   // checked observations (and their picked components for modal-with-options observations),
   // not the full catalog.
-  | { kind: 'remove-exam-finding'; display: string; searchTerms: string[] };
+  | { kind: 'remove-exam-finding'; display: string; searchTerms: string[] }
+  // Add a structured Review-of-Systems finding (a ROS checkbox). Unlike exam, ROS records BOTH
+  // positives (the patient REPORTS a symptom) and negatives (the patient DENIES it). The state is
+  // carried as a leading "Denies …" / "Reports …" word in `display` (the model emits display
+  // reliably; the optional `finding` enum is only a secondary signal). The client parses the state,
+  // strips it, matches the symptom against the ROS catalog (InPersonRosConfig), and saves to
+  // rosObservations with the -reports/-denies field suffix.
+  | { kind: 'add-ros-finding'; display: string; searchTerms: string[]; finding?: 'reports' | 'denies' };
 
 // Snapshot of the current free-text note fields, sent with each agent call so the LLM can
 // perform in-place edits (e.g. "change HPI to fill in the area affected as 'left arm'").

@@ -41,6 +41,7 @@ import {
   type ExamObservationDTO,
   GetChartDataResponse,
   HospitalizationDTO,
+  InPersonRosConfig,
   MedicalConditionDTO,
   MedicationDTO,
   MEDICATIONS_USED_VALUE_SET_URL,
@@ -50,6 +51,8 @@ import {
   ProcedureDTO,
   ProcedureQuickPickData,
   progressNoteChartDataRequestedFields,
+  rosField,
+  RosFindingState,
   SaveChartDataRequest,
   SUPPLIES_VALUE_SET_URL,
   TECHNIQUES_VALUE_SET_URL,
@@ -233,6 +236,24 @@ function buildExamLeafIndex(config: ExamItemConfig): ExamLeaf[] {
   return out;
 }
 const EXAM_LEAVES = buildExamLeafIndex(examConfig.default.components);
+
+// ROS catalog — one leaf per Review-of-Systems item (baseKey + label + system), built from the
+// practice's ROS config. The denies/reports state is applied at save time via the field suffix.
+interface RosLeaf {
+  baseKey: string;
+  label: string;
+  system: string;
+}
+function buildRosLeafIndex(): RosLeaf[] {
+  const out: RosLeaf[] = [];
+  for (const card of Object.values(InPersonRosConfig)) {
+    for (const [baseKey, item] of Object.entries(card.items)) {
+      out.push({ baseKey, label: item.label, system: card.label });
+    }
+  }
+  return out;
+}
+const ROS_LEAVES = buildRosLeafIndex();
 
 const VITAL_LABEL: Record<string, string> = {
   'vital-temperature': 'Temp',
@@ -1256,6 +1277,7 @@ type AddProcedureIntent = Extract<EasyChartAgentIntent, { kind: 'add-procedure' 
 type UpdateProcedureIntent = Extract<EasyChartAgentIntent, { kind: 'update-procedure' }>;
 type AddExamFindingIntent = Extract<EasyChartAgentIntent, { kind: 'add-exam-finding' }>;
 type RemoveExamFindingIntent = Extract<EasyChartAgentIntent, { kind: 'remove-exam-finding' }>;
+type AddRosFindingIntent = Extract<EasyChartAgentIntent, { kind: 'add-ros-finding' }>;
 interface TemplateMatch {
   id: string;
   title: string;
@@ -1692,6 +1714,32 @@ function findExamLeafMatches(intent: AddExamFindingIntent, leaves: ExamLeaf[]): 
 
   const scored = leaves
     .map((leaf) => ({ leaf, score: scoreLeaf(leaf) }))
+    .filter((s) => s.score > 0)
+    .sort((a, b) => b.score - a.score);
+  return scored.slice(0, 12).map((s) => s.leaf);
+}
+
+// Match a ROS finding intent (e.g. "Fever") to ROS catalog items by token overlap on the item
+// label (and a weaker signal from the system name). The denies/reports state is on the intent, not
+// matched here.
+function findRosLeafMatches(intent: AddRosFindingIntent, leaves: RosLeaf[]): RosLeaf[] {
+  const queryStrings = [intent.display, ...(intent.searchTerms ?? [])];
+  const queryTokens = new Set(
+    queryStrings.flatMap((s) => tokenize(s)).filter((tok) => tok.length >= 2 && !EXAM_QUERY_STOPWORDS.has(tok))
+  );
+  if (queryTokens.size === 0) return [];
+  const scored = leaves
+    .map((leaf) => {
+      const labelTokens = tokenize(leaf.label);
+      const systemTokens = tokenize(leaf.system);
+      let score = 0;
+      for (const qt of queryTokens) {
+        if (labelTokens.includes(qt)) score += 4;
+        else if (labelTokens.some((lt) => lt.startsWith(qt) || qt.startsWith(lt))) score += 2;
+        if (systemTokens.includes(qt)) score += 1;
+      }
+      return { leaf, score };
+    })
     .filter((s) => s.score > 0)
     .sort((a, b) => b.score - a.score);
   return scored.slice(0, 12).map((s) => s.leaf);
@@ -2683,6 +2731,8 @@ export default function EasyChartPage(): JSX.Element {
         return `edit ${intent.field}`;
       case 'add-exam-finding':
         return `add exam finding: ${intent.display}`;
+      case 'add-ros-finding':
+        return `add ROS: ${intent.display}`;
       case 'unknown':
         return 'unknown action';
     }
@@ -2972,6 +3022,35 @@ export default function EasyChartPage(): JSX.Element {
         } else {
           // No stopping: auto-pick the top exam-finding to remove.
           await handleExamRemove(matches[0], message);
+        }
+        return;
+      }
+      if (intent.kind === 'add-ros-finding') {
+        // State comes from the leading "Denies"/"Reports" word in display (reliably emitted),
+        // falling back to the optional `finding` enum. Strip the verb before matching the symptom.
+        const verb = /^(denies|reports)\b[:\s-]*/i.exec(intent.display);
+        const finding: 'reports' | 'denies' = verb
+          ? verb[1].toLowerCase() === 'denies'
+            ? 'denies'
+            : 'reports'
+          : intent.finding === 'denies'
+          ? 'denies'
+          : 'reports';
+        const symptom = intent.display.replace(/^(denies|reports)\b[:\s-]*/i, '').trim();
+        const matchIntent: AddRosFindingIntent = { ...intent, display: symptom || intent.display };
+        const matches = findRosLeafMatches(matchIntent, ROS_LEAVES);
+        // Skip if this exact finding (same item + same denies/reports state) is already charted.
+        const obs = chartDataRef.current?.rosObservations ?? [];
+        const isCharted = (leaf: RosLeaf): boolean => {
+          const fk = rosField(leaf.baseKey, finding === 'denies' ? RosFindingState.Denies : RosFindingState.Reports);
+          return obs.some((o) => o.field === fk && o.value === true);
+        };
+        const remaining = matches.filter((m) => !isCharted(m));
+        if (matches.length === 0 || remaining.length === 0) {
+          setConv({ kind: 'skipped', user: message });
+        } else {
+          // No stopping: auto-pick the top ROS item match.
+          await handleRosPick(remaining[0], finding, message);
         }
         return;
       }
@@ -3330,6 +3409,34 @@ export default function EasyChartPage(): JSX.Element {
     } catch (e) {
       console.error('Add procedure failed:', e);
       setConv({ kind: 'error', user, reply: `Could not add procedure "${qp.name}". Please try again.` });
+    }
+  };
+
+  // Chart a structured ROS finding: save the leaf's -reports or -denies observation (value=true),
+  // and uncheck the opposite-state observation if it was set (denies/reports are mutually exclusive).
+  const handleRosPick = async (leaf: RosLeaf, finding: 'reports' | 'denies', user: string): Promise<void> => {
+    if (!apiClient || !encounterId) return;
+    const stateLabel = `${finding === 'denies' ? 'Denies' : 'Reports'} ${leaf.label}`;
+    setConv({ kind: 'saving', user, chosenName: stateLabel });
+    try {
+      const state = finding === 'denies' ? RosFindingState.Denies : RosFindingState.Reports;
+      const pairedState = finding === 'denies' ? RosFindingState.Reports : RosFindingState.Denies;
+      const fieldKey = rosField(leaf.baseKey, state);
+      const pairedKey = rosField(leaf.baseKey, pairedState);
+      const obs = chartDataRef.current?.rosObservations ?? [];
+      const existing = obs.find((o) => o.field === fieldKey);
+      const paired = obs.find((o) => o.field === pairedKey);
+      const updates: ExamObservationDTO[] = [
+        { field: fieldKey, label: leaf.label, value: true, resourceId: existing?.resourceId },
+      ];
+      if (paired?.value === true) {
+        updates.push({ field: pairedKey, label: leaf.label, value: false, resourceId: paired.resourceId });
+      }
+      await saveAndMerge({ encounterId, rosObservations: updates });
+      setConv({ kind: 'done', user, chosenName: stateLabel });
+    } catch (e) {
+      console.error('Add ROS finding failed:', e);
+      setConv({ kind: 'error', user, reply: `Could not add "${stateLabel}". Please try again.` });
     }
   };
 
