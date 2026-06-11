@@ -25,6 +25,7 @@ import { createDynamicValidationResolver } from 'src/features/visits/shared/comp
 import { PharmacyContainer } from 'src/features/visits/shared/components/patient/PharmacyContainer';
 import { PrimaryCareContainer } from 'src/features/visits/shared/components/patient/PrimaryCareContainer';
 import { ResponsibleInformationContainer } from 'src/features/visits/shared/components/patient/ResponsibleInformationContainer';
+import { scrollToFirstInvalidField } from 'src/features/visits/shared/components/patient/scrollToFirstInvalidField';
 import { WarningBanner } from 'src/features/visits/shared/components/patient/WarningBanner';
 import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
 import {
@@ -618,8 +619,9 @@ export const PatientAccountComponent: FC<PatientAccountComponentProps> = ({
           </Box>
           <ActionBar
             handleDiscard={handleBackClickWithConfirmation}
-            handleSave={handleSubmit(handleSaveForm, () => {
+            handleSave={handleSubmit(handleSaveForm, (validationErrors) => {
               enqueueSnackbar('Please fix all field validation errors and try again', { variant: 'error' });
+              scrollToFirstInvalidField(Object.keys(validationErrors), (key) => Boolean(validationErrors[key]));
             })}
             loading={submitQR.isPending}
             hidden={false}
