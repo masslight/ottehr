@@ -20,6 +20,7 @@ import {
   resolvePayersByRef,
   sortClaimInsurance,
   SOURCE_IDENTIFIER_SYSTEM,
+  toAddressParts,
 } from '../shared';
 import { GetClaimDetailParams, validateRequestParameters } from './validateRequestParameters';
 
@@ -125,13 +126,7 @@ async function performEffect(oystehr: Oystehr, params: GetClaimDetailParams): Pr
     patientOriginalId:
       patient?.identifier?.find((id) => id.system === SOURCE_IDENTIFIER_SYSTEM)?.value?.replace('Patient/', '') ?? '',
     patientAddress: formatAddress(patientAddr),
-    patientAddressParts: {
-      line1: patientAddr?.line?.[0] ?? '',
-      line2: patientAddr?.line?.[1] ?? '',
-      city: patientAddr?.city ?? '',
-      state: patientAddr?.state ?? '',
-      postalCode: patientAddr?.postalCode ?? '',
-    },
+    patientAddressParts: toAddressParts(patientAddr),
     coverageFhirId: coverage?.id ?? '',
     payorFhirId: insurer?.id ?? '',
     payerName: insurer?.name ?? '',
@@ -166,13 +161,7 @@ async function performEffect(oystehr: Oystehr, params: GetClaimDetailParams): Pr
     facilityFhirId: facility?.id ?? '',
     serviceFacility: facility?.name ?? '',
     serviceFacilityAddress: formatAddress(facility?.address),
-    serviceFacilityAddressParts: {
-      line1: facility?.address?.line?.[0] ?? '',
-      line2: facility?.address?.line?.[1] ?? '',
-      city: facility?.address?.city ?? '',
-      state: facility?.address?.state ?? '',
-      postalCode: facility?.address?.postalCode ?? '',
-    },
+    serviceFacilityAddressParts: toAddressParts(facility?.address),
     serviceFacilityNpi: facility ? getNPI(facility) ?? '' : '',
     diagnoses: (claim.diagnosis ?? []).map((dx) => ({
       sequence: dx.sequence,

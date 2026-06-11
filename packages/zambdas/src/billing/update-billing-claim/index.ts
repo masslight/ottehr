@@ -1,27 +1,9 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import {
-  Address,
-  Claim,
-  Coverage,
-  FhirResource,
-  Identifier,
-  Location,
-  Organization,
-  Patient,
-  Practitioner,
-} from 'fhir/r4b';
-import {
-  CODE_SYSTEM_OYSTEHR_RCM_CMS1500_REFERRING_PROVIDER_TYPE,
-  FHIR_IDENTIFIER_CODE_TAX_EMPLOYER,
-  FHIR_IDENTIFIER_CODE_TAX_SS,
-  FHIR_IDENTIFIER_NPI,
-  FHIR_IDENTIFIER_SYSTEM,
-  FHIR_RESOURCE_NOT_FOUND,
-  getPayerUrl,
-} from 'utils';
+import { Claim, Coverage, FhirResource, Location, Organization, Patient, Practitioner } from 'fhir/r4b';
+import { CODE_SYSTEM_OYSTEHR_RCM_CMS1500_REFERRING_PROVIDER_TYPE, FHIR_RESOURCE_NOT_FOUND, getPayerUrl } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
-import { createBillingClient, prepareWorkingCopy, sortClaimInsurance } from '../shared';
+import { buildAddress, createBillingClient, prepareWorkingCopy, setNpi, setTaxId, sortClaimInsurance } from '../shared';
 import { UpdateBillingClaimParams, validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -178,57 +160,4 @@ function applyName(resource: Patient | Practitioner, firstName?: string, lastNam
   if (firstName !== undefined) name.given = [firstName];
   if (lastName !== undefined) name.family = lastName;
   if (name.given || name.family) resource.name = [name];
-}
-
-function buildAddress(parts: {
-  line1?: string;
-  line2?: string;
-  city?: string;
-  state?: string;
-  postalCode?: string;
-}): Address {
-  const line = [parts.line1, parts.line2].filter((l): l is string => !!l);
-  return {
-    ...(line.length ? { line } : {}),
-    city: parts.city,
-    state: parts.state,
-    postalCode: parts.postalCode,
-  };
-}
-
-// getNPI reads identifier.system === FHIR_IDENTIFIER_NPI; write the same shape (as create-billing-provider does).
-function setNpi(resource: Practitioner | Organization | Location, npi: string): void {
-  const identifier = resource.identifier ?? [];
-  const existing = identifier.find((id) => id.system === FHIR_IDENTIFIER_NPI);
-  if (npi) {
-    if (existing) existing.value = npi;
-    else identifier.push({ system: FHIR_IDENTIFIER_NPI, value: npi });
-    resource.identifier = identifier;
-  } else if (existing) {
-    resource.identifier = identifier.filter((id) => id.system !== FHIR_IDENTIFIER_NPI);
-  }
-}
-
-// getTaxID matches type.coding TAX_EMPLOYER/TAX_SS; new entries use TAX_EMPLOYER (as create-billing-provider does).
-function setTaxId(resource: Practitioner | Organization, taxId: string): void {
-  const isTax = (id: Identifier): boolean =>
-    !!id.type?.coding?.some(
-      (tc) =>
-        tc.system === FHIR_IDENTIFIER_SYSTEM &&
-        (tc.code === FHIR_IDENTIFIER_CODE_TAX_EMPLOYER || tc.code === FHIR_IDENTIFIER_CODE_TAX_SS)
-    );
-  const identifier = resource.identifier ?? [];
-  const existing = identifier.find(isTax);
-  if (taxId) {
-    if (existing) existing.value = taxId;
-    else {
-      identifier.push({
-        type: { coding: [{ system: FHIR_IDENTIFIER_SYSTEM, code: FHIR_IDENTIFIER_CODE_TAX_EMPLOYER }] },
-        value: taxId,
-      });
-    }
-    resource.identifier = identifier;
-  } else if (existing) {
-    resource.identifier = identifier.filter((id) => !isTax(id));
-  }
 }

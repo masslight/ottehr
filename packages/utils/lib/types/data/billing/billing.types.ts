@@ -45,8 +45,14 @@ export interface BillingProviderOption {
   taxonomyCode?: string;
   licenseType?: string;
   taxId?: string;
-  clia?: string;
   address?: string;
+  addressParts?: {
+    line1: string;
+    line2: string;
+    city: string;
+    state: string;
+    postalCode: string;
+  };
   renders: boolean;
   bills: boolean;
 }

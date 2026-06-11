@@ -2,7 +2,7 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Patient } from 'fhir/r4b';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
-import { createBillingClient } from '../shared';
+import { buildAddress, createBillingClient } from '../shared';
 import { CreateBillingPatientParams, validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -26,17 +26,7 @@ async function performEffect(oystehr: Oystehr, params: CreateBillingPatientParam
   if (params.dob) patient.birthDate = params.dob;
   if (params.gender) patient.gender = params.gender;
   if (params.phone) patient.telecom = [{ system: 'phone', value: params.phone }];
-  if (params.address) {
-    const line = [params.address.line1, params.address.line2].filter((l): l is string => !!l);
-    patient.address = [
-      {
-        ...(line.length ? { line } : {}),
-        city: params.address.city,
-        state: params.address.state,
-        postalCode: params.address.postalCode,
-      },
-    ];
-  }
+  if (params.address) patient.address = [buildAddress(params.address)];
 
   const created = await oystehr.fhir.create<Patient>(patient);
   return { id: created.id! };

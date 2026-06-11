@@ -226,6 +226,31 @@ export const CreateBillingPatientInputSchema = z.object({
   address: billingAddressSchema.optional(),
 });
 
+export const UpdateBillingProviderInputSchema = z.discriminatedUnion('kind', [
+  z.object({
+    kind: z.literal('individual'),
+    providerId: nonEmptyString,
+    firstName: nonEmptyString,
+    lastName: nonEmptyString,
+    roles: z.array(billingProviderRole).min(1),
+    npi: nonEmptyString.optional(),
+    taxonomyCode: nonEmptyString.optional(),
+    licenseType: nonEmptyString.optional(),
+    taxId: nonEmptyString.optional(),
+    address: billingAddressSchema.optional(),
+  }),
+  z.object({
+    kind: z.literal('organization'),
+    providerId: nonEmptyString,
+    name: nonEmptyString,
+    roles: z.array(billingProviderRole).min(1),
+    npi: nonEmptyString.optional(),
+    taxonomyCode: nonEmptyString.optional(),
+    taxId: nonEmptyString.optional(),
+    address: billingAddressSchema.optional(),
+  }),
+]);
+
 export const UpdateBillingPatientInputSchema = z.object({
   patientId: nonEmptyString,
   firstName: nonEmptyString,
@@ -338,6 +363,7 @@ export type CreateBillingClaimInput = z.infer<typeof CreateBillingClaimInputSche
 export type CreateBillingProviderInput = z.infer<typeof CreateBillingProviderInputSchema>;
 export type CreateBillingPatientInput = z.infer<typeof CreateBillingPatientInputSchema>;
 export type UpdateBillingPatientInput = z.infer<typeof UpdateBillingPatientInputSchema>;
+export type UpdateBillingProviderInput = z.infer<typeof UpdateBillingProviderInputSchema>;
 export type CreateBillingWorkingCopyInput = z.infer<typeof CreateBillingWorkingCopyInputSchema>;
 export type UpdateBillingResourceInput = z.infer<typeof UpdateBillingResourceInputSchema>;
 export type BillingResourceType = (typeof ALLOWED_BILLING_RESOURCE_TYPES)[number];

@@ -3,7 +3,7 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Patient } from 'fhir/r4b';
 import { FHIR_RESOURCE_NOT_FOUND } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
-import { createBillingClient } from '../shared';
+import { buildAddress, createBillingClient } from '../shared';
 import { UpdateBillingPatientParams, validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -52,19 +52,8 @@ async function performEffect(oystehr: Oystehr, params: UpdateBillingPatientParam
   if (telecom.length) patient.telecom = telecom;
   else delete patient.telecom;
 
-  if (params.address) {
-    const line = [params.address.line1, params.address.line2].filter((l): l is string => !!l);
-    patient.address = [
-      {
-        ...(line.length ? { line } : {}),
-        city: params.address.city,
-        state: params.address.state,
-        postalCode: params.address.postalCode,
-      },
-    ];
-  } else {
-    delete patient.address;
-  }
+  if (params.address) patient.address = [buildAddress(params.address)];
+  else delete patient.address;
 
   const updated = await oystehr.fhir.update<Patient>(patient);
   return { id: updated.id! };

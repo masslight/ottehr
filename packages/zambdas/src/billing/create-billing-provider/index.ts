@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Address, Identifier, Organization, Practitioner } from 'fhir/r4b';
+import { Identifier, Organization, Practitioner } from 'fhir/r4b';
 import {
   FHIR_IDENTIFIER_CODE_TAX_EMPLOYER,
   FHIR_IDENTIFIER_CODE_TAXONOMY,
@@ -9,6 +9,7 @@ import {
 } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import {
+  buildAddress,
   createBillingClient,
   LICENSE_TAG,
   PROVIDER_ROLE_BILLING,
@@ -55,18 +56,7 @@ function buildProvider(params: CreateBillingProviderParams): Practitioner | Orga
     });
   }
 
-  let address: Address[] | undefined;
-  if (params.address) {
-    const line = [params.address.line1, params.address.line2].filter((l): l is string => !!l);
-    address = [
-      {
-        ...(line.length ? { line } : {}),
-        city: params.address.city,
-        state: params.address.state,
-        postalCode: params.address.postalCode,
-      },
-    ];
-  }
+  const address = params.address ? [buildAddress(params.address)] : undefined;
 
   if (params.kind === 'individual') {
     if (params.licenseType) tag.push({ system: LICENSE_TAG, code: params.licenseType });

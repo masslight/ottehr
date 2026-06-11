@@ -1,6 +1,25 @@
 import Oystehr from '@oystehr/sdk';
-import { Claim, HumanName, Organization, Patient, Practitioner, Resource } from 'fhir/r4b';
-import { convertFhirNameToDisplayName, isPayerUrl, Secrets } from 'utils';
+import {
+  Address,
+  Claim,
+  HumanName,
+  Identifier,
+  Location,
+  Organization,
+  Patient,
+  Practitioner,
+  Resource,
+} from 'fhir/r4b';
+import {
+  convertFhirNameToDisplayName,
+  FHIR_IDENTIFIER_CODE_TAX_EMPLOYER,
+  FHIR_IDENTIFIER_CODE_TAX_SS,
+  FHIR_IDENTIFIER_CODE_TAXONOMY,
+  FHIR_IDENTIFIER_NPI,
+  FHIR_IDENTIFIER_SYSTEM,
+  isPayerUrl,
+  Secrets,
+} from 'utils';
 import { createOystehrClient } from '../shared/helpers';
 
 export const BILLING_RESOURCE_TAG = {
@@ -93,6 +112,92 @@ export function hasTag(resource: Resource, system: string, code: string): boolea
 export function formatAddress(addr?: { line?: string[]; city?: string; state?: string; postalCode?: string }): string {
   if (!addr) return '';
   return [...(addr.line ?? []), addr.city, addr.state, addr.postalCode].filter(Boolean).join(', ');
+}
+
+export function toAddressParts(addr?: Address): {
+  line1: string;
+  line2: string;
+  city: string;
+  state: string;
+  postalCode: string;
+} {
+  return {
+    line1: addr?.line?.[0] ?? '',
+    line2: addr?.line?.[1] ?? '',
+    city: addr?.city ?? '',
+    state: addr?.state ?? '',
+    postalCode: addr?.postalCode ?? '',
+  };
+}
+
+export function buildAddress(parts: {
+  line1?: string;
+  line2?: string;
+  city?: string;
+  state?: string;
+  postalCode?: string;
+}): Address {
+  const line = [parts.line1, parts.line2].filter((l): l is string => !!l);
+  return {
+    ...(line.length ? { line } : {}),
+    city: parts.city,
+    state: parts.state,
+    postalCode: parts.postalCode,
+  };
+}
+
+export function setNpi(resource: Practitioner | Organization | Location, npi: string): void {
+  const identifier = resource.identifier ?? [];
+  const existing = identifier.find((id) => id.system === FHIR_IDENTIFIER_NPI);
+  if (npi) {
+    if (existing) existing.value = npi;
+    else identifier.push({ system: FHIR_IDENTIFIER_NPI, value: npi });
+    resource.identifier = identifier;
+  } else if (existing) {
+    resource.identifier = identifier.filter((id) => id.system !== FHIR_IDENTIFIER_NPI);
+  }
+}
+
+export function setTaxId(resource: Practitioner | Organization, taxId: string): void {
+  const isTax = (id: Identifier): boolean =>
+    !!id.type?.coding?.some(
+      (tc) =>
+        tc.system === FHIR_IDENTIFIER_SYSTEM &&
+        (tc.code === FHIR_IDENTIFIER_CODE_TAX_EMPLOYER || tc.code === FHIR_IDENTIFIER_CODE_TAX_SS)
+    );
+  const identifier = resource.identifier ?? [];
+  const existing = identifier.find(isTax);
+  if (taxId) {
+    if (existing) existing.value = taxId;
+    else {
+      identifier.push({
+        type: { coding: [{ system: FHIR_IDENTIFIER_SYSTEM, code: FHIR_IDENTIFIER_CODE_TAX_EMPLOYER }] },
+        value: taxId,
+      });
+    }
+    resource.identifier = identifier;
+  } else if (existing) {
+    resource.identifier = identifier.filter((id) => !isTax(id));
+  }
+}
+
+export function setTaxonomy(resource: Practitioner | Organization, taxonomyCode: string): void {
+  const isTaxonomy = (id: Identifier): boolean =>
+    !!id.type?.coding?.some((tc) => tc.code === FHIR_IDENTIFIER_CODE_TAXONOMY);
+  const identifier = resource.identifier ?? [];
+  const existing = identifier.find(isTaxonomy);
+  if (taxonomyCode) {
+    if (existing) existing.value = taxonomyCode;
+    else {
+      identifier.push({
+        type: { coding: [{ system: FHIR_IDENTIFIER_SYSTEM, code: FHIR_IDENTIFIER_CODE_TAXONOMY }] },
+        value: taxonomyCode,
+      });
+    }
+    resource.identifier = identifier;
+  } else if (existing) {
+    resource.identifier = identifier.filter((id) => !isTaxonomy(id));
+  }
 }
 
 export function fhirName(resource?: Patient | Practitioner): string {

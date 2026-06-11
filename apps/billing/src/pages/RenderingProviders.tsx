@@ -3,10 +3,10 @@ import { Alert, Box, Button, CircularProgress, IconButton, InputAdornment, TextF
 import { DataGridPro, GridColDef, GridPaginationModel } from '@mui/x-data-grid-pro';
 import { ReactElement, useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { chooseJson } from 'utils';
+import { BillingProviderOption, chooseJson } from 'utils';
 import { AddProviderDialog } from '../components/AddProviderDialog';
 import { dataGridSlots, dataGridSx } from '../components/BillingDataGrid';
-import { DetailRow } from '../components/DetailRow';
+import { ProviderDetailSection } from '../components/ProviderDetailSection';
 import { useApiClients } from '../hooks/useAppClients';
 import { useDebounce } from '../hooks/useDebounce';
 
@@ -145,7 +145,7 @@ export function RenderingProviderDetail(): ReactElement {
   const navigate = useNavigate();
   const { oystehrZambda } = useApiClients();
 
-  const [provider, setProvider] = useState<ProviderRow | null>(null);
+  const [provider, setProvider] = useState<BillingProviderOption | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -172,7 +172,7 @@ export function RenderingProviderDetail(): ReactElement {
     void fetchDetail();
   }, [fetchDetail]);
 
-  if (loading) {
+  if (loading && !provider) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50vh' }}>
         <CircularProgress />
@@ -201,11 +201,7 @@ export function RenderingProviderDetail(): ReactElement {
           {provider.name}
         </Typography>
       </Box>
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-        <DetailRow label="Name" value={provider.name} />
-        <DetailRow label="NPI" value={provider.npi} />
-        <DetailRow label="Taxonomy Code" value={provider.taxonomyCode ?? ''} />
-      </Box>
+      <ProviderDetailSection provider={provider} onSaved={fetchDetail} />
     </Box>
   );
 }

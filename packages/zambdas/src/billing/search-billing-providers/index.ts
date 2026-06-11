@@ -14,6 +14,7 @@ import {
   PROVIDER_ROLE_BILLING,
   PROVIDER_ROLE_RENDERING,
   PROVIDER_ROLE_TAG,
+  toAddressParts,
 } from '../shared';
 import { SearchBillingProvidersParams, validateRequestParameters } from './validateRequestParameters';
 
@@ -72,6 +73,7 @@ async function performEffect(
 }
 
 function mapProvider(resource: Practitioner | Organization): BillingProviderOption {
+  const addr = resource.address?.[0];
   const common = {
     id: resource.id ?? '',
     npi: getNPI(resource) ?? '',
@@ -80,8 +82,8 @@ function mapProvider(resource: Practitioner | Organization): BillingProviderOpti
         ?.value ?? '',
     licenseType: getTag(resource, LICENSE_TAG),
     taxId: getTaxID(resource) ?? '',
-    clia: '', // TODO: define and store CLIA
-    address: formatAddress(resource.address?.[0]),
+    address: formatAddress(addr),
+    addressParts: toAddressParts(addr),
     renders: hasTag(resource, PROVIDER_ROLE_TAG, PROVIDER_ROLE_RENDERING),
     bills: hasTag(resource, PROVIDER_ROLE_TAG, PROVIDER_ROLE_BILLING),
   };

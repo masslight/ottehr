@@ -3,7 +3,7 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim, Patient, Person } from 'fhir/r4b';
 import { FHIR_RESOURCE_NOT_FOUND, FRIENDLY_PATIENT_ID_SYSTEM_BASE, PatientDetailResponse } from 'utils';
 import { checkOrCreateM2MClientToken, fetchAllPages, wrapHandler, ZambdaInput } from '../../shared';
-import { createBillingClient, formatAddress, getClaimStatus, resolvePayersByRef } from '../shared';
+import { createBillingClient, formatAddress, getClaimStatus, resolvePayersByRef, toAddressParts } from '../shared';
 import { GetPatientDetailParams, validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -43,13 +43,7 @@ async function performEffect(oystehr: Oystehr, params: GetPatientDetailParams): 
     phone,
     email,
     address: formatAddress(addr),
-    addressParts: {
-      line1: addr?.line?.[0] ?? '',
-      line2: addr?.line?.[1] ?? '',
-      city: addr?.city ?? '',
-      state: addr?.state ?? '',
-      postalCode: addr?.postalCode ?? '',
-    },
+    addressParts: toAddressParts(addr),
     friendlyId,
     active: patient.active !== false,
     // TODO: wire real balance from ClaimResponse/PaymentReconciliation

@@ -480,6 +480,13 @@
       "src": "src/billing/update-billing-patient/index",
       "zip": ".dist/zips/update-billing-patient.zip"
     },
+    "UPDATE-BILLING-PROVIDER": {
+      "name": "update-billing-provider",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/update-billing-provider/index",
+      "zip": ".dist/zips/update-billing-provider.zip"
+    },
     "CREATE-UPDATE-MEDICATION-ORDER": {
       "name": "create-update-medication-order",
       "type": "http_auth",
