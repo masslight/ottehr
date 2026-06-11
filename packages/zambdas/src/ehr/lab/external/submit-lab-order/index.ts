@@ -5,9 +5,11 @@ import { Operation } from 'fast-json-patch';
 import { DocumentReference, FhirResource, Provenance, ServiceRequest } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
+  EXTERNAL_LAB_ERROR,
+  externalLabOrderUsesFriendlyPatientId,
   getPatchBinary,
+  getPatientFriendlyId,
   MANUAL_EXTERNAL_LAB_ORDER_CATEGORY_CODING,
-  OYSTEHR_SUBMIT_LAB_API,
   SubmitLabOrderOutput,
   userMe,
 } from 'utils';
@@ -48,7 +50,13 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   // submit to oystehr labs when NOT manual order
   const successfulBundledOrders: OrderResourcesByOrderNumber = {};
-  const failedBundledOrders: OrderResourcesByOrderNumber = {};
+  const failedBundledOrders: { [orderNumber: string]: string } = {};
+  const firstItemInBundle = Object.values(bundledOrdersByOrderNumber)[0];
+  if (!firstItemInBundle)
+    throw EXTERNAL_LAB_ERROR(`No resources found for these ServiceRequests: ${JSON.stringify(serviceRequestIDs)}`);
+  const submitWithFriendlyId =
+    externalLabOrderUsesFriendlyPatientId(firstItemInBundle.serviceRequest) &&
+    !!getPatientFriendlyId(firstItemInBundle.patient);
   if (!manualOrder) {
     console.log('calling oystehr submit lab');
 
@@ -59,22 +67,11 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
           serviceRequest: resources.testDetails.map((test) => `ServiceRequest/${test.serviceRequestID}`),
           accountNumber: resources.accountNumber,
           orderNumber: orderNumber,
+          useFriendlyPatientId: submitWithFriendlyId,
         };
         console.log('params being sent to oystehr submit lab', JSON.stringify(params));
-        const res = await fetch(OYSTEHR_SUBMIT_LAB_API, {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${m2mToken}`,
-          },
-          body: JSON.stringify(params),
-        });
+        const result = await oystehr.lab.orderSubmit(params);
 
-        if (!res.ok) {
-          const body = await res.json();
-          throw new Error(`Error submitting requisition number: ${orderNumber}. Error: ${body.message}`);
-        }
-
-        const result = await res.json();
         const eReq: DocumentReference | undefined = result?.eRequisitionDocumentReference;
         const abn: DocumentReference | undefined = result?.abnDocumentReference;
         return {
@@ -106,8 +103,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         }
       } else if (res.status === 'rejected') {
         console.error('rejected result', res);
-        const resources = bundledOrdersByOrderNumber[res.orderNumber];
-        failedBundledOrders[res.orderNumber] = resources;
+        failedBundledOrders[res.orderNumber] = res.reason ?? 'Reason unknown';
       }
     }
   } else {
@@ -166,7 +162,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   const hasFailures = Object.keys(failedBundledOrders).length > 0;
   const failedOrdersByOrderNumber: { [orderNumber: string]: string } | undefined = hasFailures
-    ? Object.fromEntries(Object.keys(failedBundledOrders).map((orderNumber) => [orderNumber, '']))
+    ? Object.fromEntries(Object.entries(failedBundledOrders).map(([orderNumber, reason]) => [orderNumber, reason]))
     : undefined;
 
   const responseBody: SubmitLabOrderOutput = { orderPdfUrls, failedOrdersByOrderNumber };

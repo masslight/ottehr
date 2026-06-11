@@ -16,6 +16,7 @@ import {
   RadiologyPage,
 } from 'tests/e2e/page/RadiologyPage';
 import { SideMenu } from 'tests/e2e/page/SideMenu';
+import { dismissSnackbars } from 'tests/e2e-utils/helpers/tests-utils';
 import { ResourceHandler } from 'tests/e2e-utils/resource-handler';
 import {
   FEATURE_FLAGS_CONFIG,
@@ -435,6 +436,8 @@ test.describe('Order Deletion - Happy Path', () => {
       });
 
       await test.step('Verify medication not shown in Progress Note', async () => {
+        // A lingering toast can overlay the side menu and intercept the click; clear it first.
+        await dismissSnackbars(page);
         // Navigate to Review & Sign (Progress Note) page
         await sideMenu.clickReviewAndSign();
 

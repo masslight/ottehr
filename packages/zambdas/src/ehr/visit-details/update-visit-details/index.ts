@@ -4,7 +4,6 @@ import { Operation } from 'fast-json-patch';
 import { Account, Appointment, Coding, Encounter, Extension, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
-  BOOKING_CONFIG,
   BookingDetails,
   cleanUpStaffHistoryTag,
   FHIR_EXTENSION,
@@ -20,6 +19,7 @@ import {
   MISSING_REQUIRED_PARAMETERS,
   OCCUPATIONAL_MEDICINE_ACCOUNT_TYPE,
   REASON_ADDITIONAL_MAX_CHAR,
+  resolveServiceCategory,
   Secrets,
   SERVICE_CATEGORY_SYSTEM,
   userMe,
@@ -365,15 +365,29 @@ const complexValidation = async (input: Input, oystehr: Oystehr): Promise<Effect
     throw FHIR_RESOURCE_NOT_FOUND('Encounter');
   }
 
-  // validate the reason for visit against the service category
-  // 1. get the service category for the appointment
   let appointmentServiceCategory = getCoding(appointment?.serviceCategory, SERVICE_CATEGORY_SYSTEM)?.code;
+  let validReasonsForVisit: Array<{ value: string; label: string }>;
+
   if (input.bookingDetails.serviceCategory) {
-    appointmentServiceCategory = input.bookingDetails.serviceCategory.code;
+    const newCode = input.bookingDetails.serviceCategory.code!;
+    const resolved = await resolveServiceCategory(newCode, oystehr);
+    if (!resolved) {
+      throw INVALID_INPUT_ERROR(`serviceCategory, "${newCode}", is not a valid option`);
+    }
+    input.bookingDetails.serviceCategory.display = resolved.display;
+    appointmentServiceCategory = newCode;
+    validReasonsForVisit = resolved.reasonsForVisit;
+  } else if (appointmentServiceCategory) {
+    // RFV is being changed without a category switch. Resolve against the
+    // appointment's existing category (which may be FHIR-backed).
+    const resolved = await resolveServiceCategory(appointmentServiceCategory, oystehr);
+    validReasonsForVisit = resolved?.reasonsForVisit ?? [];
+  } else {
+    // No category on the appointment and none in the request — fall back to
+    // BOOKING_CONFIG's first entry, matching the prior behaviour.
+    validReasonsForVisit = getReasonForVisitOptionsForServiceCategory('urgent-care');
   }
-  // 2. get the list of valid reasons for visit for that service category from the config
-  const validReasonsForVisit = getReasonForVisitOptionsForServiceCategory(appointmentServiceCategory || 'urgent-care');
-  // 3. if the reason for visit provided in the request is not in the list of valid reasons for visit, throw an error
+
   const newRFV = input.bookingDetails.reasonForVisit;
   if (newRFV) {
     const isValidReason = validReasonsForVisit.some((reason: { value: string }) => reason.value === newRFV);
@@ -505,15 +519,15 @@ const validateRequestParameters = (input: ZambdaInput): Input => {
     }
   }
 
+  // Shape-only validation here: build a placeholder Coding so downstream code
+  // can read `.code`. Existence (against BOOKING_CONFIG ∪ FHIR-backed catalog)
+  // and display-name resolution happen in complexValidation where we have an
+  // Oystehr client for the FHIR lookup.
   let serviceCategory: Coding | undefined = undefined;
   if (bookingDetails.serviceCategory && typeof bookingDetails.serviceCategory !== 'string') {
     throw INVALID_INPUT_ERROR('serviceCategory must be a string');
   } else if (bookingDetails.serviceCategory) {
-    serviceCategory = BOOKING_CONFIG.serviceCategories.find((sc) => sc.category.code === bookingDetails.serviceCategory)
-      ?.category;
-    if (!serviceCategory) {
-      throw INVALID_INPUT_ERROR(`serviceCategory, "${bookingDetails.serviceCategory}", is not a valid option`);
-    }
+    serviceCategory = { system: SERVICE_CATEGORY_SYSTEM, code: bookingDetails.serviceCategory };
   }
 
   // Require at least one field to be present

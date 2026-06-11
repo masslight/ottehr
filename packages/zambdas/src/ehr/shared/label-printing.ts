@@ -17,6 +17,7 @@ import {
   getMiddleName,
   getOrderNumber,
   getPatientFirstName,
+  getPatientFriendlyId,
   getPatientLastName,
   getTimezone,
   LAB_ACCOUNT_NUMBER_SYSTEM,
@@ -77,7 +78,7 @@ export const getVisitLabelConfig = async (oystehr: Oystehr, encounterId: string)
   const labelConfig: VisitLabelConfig = {
     labelConfig: DYMO_30334_LABEL_CONFIG, // future todo: this is a bit of a vestige at this point, should clean up at some point
     content: {
-      patientId: patient.id!,
+      patientId: getPatientFriendlyId(patient) || patient.id!,
       patientFirstName: getPatientFirstName(patient) ?? '',
       patientMiddleName: getMiddleName(patient),
       patientLastName: getPatientLastName(patient) ?? '',
@@ -196,5 +197,6 @@ export const getExternalLabLabelConfig = async (
     labOrganization,
     specimenCollectionDateTime,
     userTimezone,
+    serviceRequest,
   });
 };
