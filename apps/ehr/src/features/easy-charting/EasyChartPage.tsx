@@ -350,10 +350,19 @@ function CollapsibleSection({
 // the CC↔HPI label swap is applied at the render site, so these are already the storage keys).
 type ChartNoteKey = 'chiefComplaint' | 'historyOfPresentIllness' | 'mechanismOfInjury' | 'ros' | 'medicalDecision';
 
+// The structured, search-based chart-data fields that support the AI click-to-correct affordance.
+export type ChartedField =
+  | 'allergies'
+  | 'conditions'
+  | 'medications'
+  | 'surgicalHistory'
+  | 'episodeOfCare'
+  | 'diagnosis';
+
 // Provenance for an item the assistant auto-charted and that still needs the provider's review.
 // `field` ties it to the chart-data array; `lowConfidence` is set when the auto-pick was ambiguous.
 export interface AiChartedMeta {
-  field: 'allergies' | 'diagnosis';
+  field: ChartedField;
   display: string;
   searchTerms: string[];
   lowConfidence: boolean;
@@ -371,10 +380,10 @@ interface NoteSectionsProps {
   // AI-charted items needing review (keyed by resourceId), plus the correction callbacks. When a
   // row's resourceId is in this map it renders as a clickable <AiChartedItem> instead of a row.
   aiCharted?: Map<string, AiChartedMeta>;
-  onAiSearch?: (field: 'allergies' | 'diagnosis', query: string) => Promise<AiAlternative[]>;
-  onAiReplace?: (field: 'allergies' | 'diagnosis', dto: { resourceId?: string }, key: string) => void;
-  onAiRemove?: (field: 'allergies' | 'diagnosis', dto: { resourceId?: string }) => void;
-  onAiDiscuss?: (field: 'allergies' | 'diagnosis', dto: { resourceId?: string }, meta: AiChartedMeta) => void;
+  onAiSearch?: (field: ChartedField, query: string) => Promise<AiAlternative[]>;
+  onAiReplace?: (field: ChartedField, dto: { resourceId?: string }, key: string) => void;
+  onAiRemove?: (field: ChartedField, dto: { resourceId?: string }) => void;
+  onAiDiscuss?: (field: ChartedField, dto: { resourceId?: string }, meta: AiChartedMeta) => void;
 }
 
 // Keyframes defined at module level so the animation runs reliably whether `flashSx` is
@@ -500,7 +509,7 @@ function NoteSections({
   const aiMeta = (dto: { resourceId?: string }): AiChartedMeta | undefined =>
     dto.resourceId ? aiCharted?.get(dto.resourceId) : undefined;
   const renderAiChartable = (
-    field: 'allergies' | 'diagnosis',
+    field: ChartedField,
     dto: { resourceId?: string },
     label: React.ReactNode,
     fallback: JSX.Element
@@ -622,20 +631,28 @@ function NoteSections({
         {medications.length > 0 && (
           <Section title="Medications">
             <Stack spacing={0.25}>
-              {medications.map((m, i) => (
-                <DeletableRow
-                  key={m.resourceId ?? i}
-                  editable={editable}
-                  resourceId={m.resourceId}
-                  flashSx={itemSx(m.resourceId)}
-                  onDelete={removeHandler('medications', m)}
-                >
+              {medications.map((m, i) =>
+                renderAiChartable(
+                  'medications',
+                  m,
                   <Typography variant="body2">
                     • {m.name}
                     {m.intakeInfo?.dose ? ` — ${m.intakeInfo.dose}` : ''}
-                  </Typography>
-                </DeletableRow>
-              ))}
+                  </Typography>,
+                  <DeletableRow
+                    key={m.resourceId ?? i}
+                    editable={editable}
+                    resourceId={m.resourceId}
+                    flashSx={itemSx(m.resourceId)}
+                    onDelete={removeHandler('medications', m)}
+                  >
+                    <Typography variant="body2">
+                      • {m.name}
+                      {m.intakeInfo?.dose ? ` — ${m.intakeInfo.dose}` : ''}
+                    </Typography>
+                  </DeletableRow>
+                )
+              )}
             </Stack>
           </Section>
         )}
@@ -643,21 +660,30 @@ function NoteSections({
         {conditions.length > 0 && (
           <Section title="Medical History">
             <Stack spacing={0.25}>
-              {conditions.map((c, i) => (
-                <DeletableRow
-                  key={c.resourceId ?? i}
-                  editable={editable}
-                  resourceId={c.resourceId}
-                  flashSx={itemSx(c.resourceId)}
-                  onDelete={removeHandler('conditions', c)}
-                >
+              {conditions.map((c, i) =>
+                renderAiChartable(
+                  'conditions',
+                  c,
                   <Typography variant="body2">
                     {c.code ? <strong>{c.code}</strong> : null}
                     {c.code ? ' — ' : ''}
                     {c.display ?? '(no display)'}
-                  </Typography>
-                </DeletableRow>
-              ))}
+                  </Typography>,
+                  <DeletableRow
+                    key={c.resourceId ?? i}
+                    editable={editable}
+                    resourceId={c.resourceId}
+                    flashSx={itemSx(c.resourceId)}
+                    onDelete={removeHandler('conditions', c)}
+                  >
+                    <Typography variant="body2">
+                      {c.code ? <strong>{c.code}</strong> : null}
+                      {c.code ? ' — ' : ''}
+                      {c.display ?? '(no display)'}
+                    </Typography>
+                  </DeletableRow>
+                )
+              )}
             </Stack>
           </Section>
         )}
@@ -665,20 +691,28 @@ function NoteSections({
         {surgicalHistory.length > 0 && (
           <Section title="Surgical History">
             <Stack spacing={0.25}>
-              {surgicalHistory.map((s, i) => (
-                <DeletableRow
-                  key={s.resourceId ?? i}
-                  editable={editable}
-                  resourceId={s.resourceId}
-                  flashSx={itemSx(s.resourceId)}
-                  onDelete={removeHandler('surgicalHistory', s)}
-                >
+              {surgicalHistory.map((s, i) =>
+                renderAiChartable(
+                  'surgicalHistory',
+                  s,
                   <Typography variant="body2">
                     <strong>{s.code}</strong>
                     {s.display ? ` — ${s.display}` : ''}
-                  </Typography>
-                </DeletableRow>
-              ))}
+                  </Typography>,
+                  <DeletableRow
+                    key={s.resourceId ?? i}
+                    editable={editable}
+                    resourceId={s.resourceId}
+                    flashSx={itemSx(s.resourceId)}
+                    onDelete={removeHandler('surgicalHistory', s)}
+                  >
+                    <Typography variant="body2">
+                      <strong>{s.code}</strong>
+                      {s.display ? ` — ${s.display}` : ''}
+                    </Typography>
+                  </DeletableRow>
+                )
+              )}
             </Stack>
           </Section>
         )}
@@ -686,20 +720,28 @@ function NoteSections({
         {hospitalizations.length > 0 && (
           <Section title="Hospitalizations">
             <Stack spacing={0.25}>
-              {hospitalizations.map((h, i) => (
-                <DeletableRow
-                  key={h.resourceId ?? i}
-                  editable={editable}
-                  resourceId={h.resourceId}
-                  flashSx={itemSx(h.resourceId)}
-                  onDelete={removeHandler('episodeOfCare', h)}
-                >
+              {hospitalizations.map((h, i) =>
+                renderAiChartable(
+                  'episodeOfCare',
+                  h,
                   <Typography variant="body2">
                     <strong>{h.code}</strong>
                     {h.display ? ` — ${h.display}` : ''}
-                  </Typography>
-                </DeletableRow>
-              ))}
+                  </Typography>,
+                  <DeletableRow
+                    key={h.resourceId ?? i}
+                    editable={editable}
+                    resourceId={h.resourceId}
+                    flashSx={itemSx(h.resourceId)}
+                    onDelete={removeHandler('episodeOfCare', h)}
+                  >
+                    <Typography variant="body2">
+                      <strong>{h.code}</strong>
+                      {h.display ? ` — ${h.display}` : ''}
+                    </Typography>
+                  </DeletableRow>
+                )
+              )}
             </Stack>
           </Section>
         )}
@@ -1987,6 +2029,13 @@ async function runIntentSearch(
   return all;
 }
 
+// The human-readable label for a charted item, per its field (used for the correction popover's
+// seed query and the needs-review provenance).
+function chartedItemDisplay(field: ChartedField, item: { name?: string; display?: string; code?: string }): string {
+  if (field === 'allergies' || field === 'medications') return item.name ?? '';
+  return item.display ?? item.code ?? '';
+}
+
 function buildIntentPayload(
   encounterId: string,
   intent: AddSearchIntent,
@@ -2092,8 +2141,26 @@ export default function EasyChartPage(): JSX.Element {
   // resolved back to a SearchResult; `replaceTargetRef` lets a "Discuss" picker REPLACE the item.
   const [aiCharted, setAiCharted] = useState<Map<string, AiChartedMeta>>(new Map());
   const aiSearchResultsRef = useRef<Map<string, SearchResult>>(new Map());
-  const replaceTargetRef = useRef<{ field: 'allergies' | 'diagnosis'; dto: { resourceId?: string } } | null>(null);
-  const AUTO_CHART_KINDS = new Set(['add-allergy', 'add-diagnosis']);
+  const replaceTargetRef = useRef<{ field: ChartedField; dto: { resourceId?: string } } | null>(null);
+  // Search-based add intents that auto-chart with the needs-review highlight + click-to-correct,
+  // and the field each maps to. (CPT/E&M, exam findings and procedures use different mechanisms.)
+  const KIND_TO_FIELD: Record<string, ChartedField> = {
+    'add-allergy': 'allergies',
+    'add-condition': 'conditions',
+    'add-medication': 'medications',
+    'add-surgical-history': 'surgicalHistory',
+    'add-hospitalization': 'episodeOfCare',
+    'add-diagnosis': 'diagnosis',
+  };
+  const FIELD_TO_KIND: Record<ChartedField, AddSearchIntent['kind']> = {
+    allergies: 'add-allergy',
+    conditions: 'add-condition',
+    medications: 'add-medication',
+    surgicalHistory: 'add-surgical-history',
+    episodeOfCare: 'add-hospitalization',
+    diagnosis: 'add-diagnosis',
+  };
+  const AUTO_CHART_KINDS = new Set(Object.keys(KIND_TO_FIELD));
   const [conv, setConv] = useState<ConvStep | null>(null);
 
   // For removes: scroll to the item, flash it red for 1.5s so the user sees what's being
@@ -2226,10 +2293,7 @@ export default function EasyChartPage(): JSX.Element {
 
   // Delete a charted allergy/diagnosis by its dto (flash + local removal), and drop it from the
   // needs-review set. Shared by Remove and the replace flow.
-  const deleteChartedResource = async (
-    field: 'allergies' | 'diagnosis',
-    dto: { resourceId?: string }
-  ): Promise<void> => {
+  const deleteChartedResource = async (field: ChartedField, dto: { resourceId?: string }): Promise<void> => {
     if (!apiClient || !encounterId || !dto.resourceId) return;
     const resourceId = dto.resourceId;
     await apiClient.deleteChartData({ encounterId, [field]: [dto] } as Parameters<typeof apiClient.deleteChartData>[0]);
@@ -2253,13 +2317,13 @@ export default function EasyChartPage(): JSX.Element {
   // Build a minimal synthetic add-intent so we can reuse runIntentSearch / buildIntentPayload for
   // the inline correction flows (the popover and the Discuss picker).
   const synthAddIntent = (
-    field: 'allergies' | 'diagnosis',
+    field: ChartedField,
     display: string,
     searchTerms: string[],
     isPrimary?: boolean
   ): AddSearchIntent =>
     ({
-      kind: field === 'allergies' ? 'add-allergy' : 'add-diagnosis',
+      kind: FIELD_TO_KIND[field],
       display,
       searchTerms,
       ...(field === 'diagnosis' ? { isPrimary: !!isPrimary } : {}),
@@ -2267,7 +2331,7 @@ export default function EasyChartPage(): JSX.Element {
 
   // Popover "search alternatives": reuse the same search the pickers use, and cache the results so
   // a chosen key can be resolved back to its SearchResult on replace.
-  const aiSearch = async (field: 'allergies' | 'diagnosis', query: string): Promise<AiAlternative[]> => {
+  const aiSearch = async (field: ChartedField, query: string): Promise<AiAlternative[]> => {
     const intent = synthAddIntent(field, query, [query]);
     const results = await runIntentSearch(intent, oystehr, oystehrZambda);
     const map = new Map<string, SearchResult>();
@@ -2282,7 +2346,7 @@ export default function EasyChartPage(): JSX.Element {
 
   // Replace an AI-charted item with a chosen alternative: delete the old, add the new (NOT flagged
   // for review — the provider chose it). Preserves primary flag for diagnoses.
-  const aiReplace = (field: 'allergies' | 'diagnosis', dto: { resourceId?: string }, key: string): void => {
+  const aiReplace = (field: ChartedField, dto: { resourceId?: string }, key: string): void => {
     const result = aiSearchResultsRef.current.get(key);
     if (!result || !encounterId) return;
     const isPrimary = field === 'diagnosis' ? !!(dto as { isPrimary?: boolean }).isPrimary : undefined;
@@ -2298,14 +2362,14 @@ export default function EasyChartPage(): JSX.Element {
     })();
   };
 
-  const aiRemove = (field: 'allergies' | 'diagnosis', dto: { resourceId?: string }): void => {
+  const aiRemove = (field: ChartedField, dto: { resourceId?: string }): void => {
     void deleteChartedResource(field, dto).catch((e) => console.error('AI remove failed:', e));
   };
 
   // "Discuss": hand the item to the right-hand panel as a full picker (all alternatives + Skip /
   // Refine). Picking there REPLACES the item (replaceTargetRef is consumed in handlePick). The row
   // leaves the needs-review set because it's now under active review in the panel.
-  const aiDiscuss = (field: 'allergies' | 'diagnosis', dto: { resourceId?: string }, meta: AiChartedMeta): void => {
+  const aiDiscuss = (field: ChartedField, dto: { resourceId?: string }, meta: AiChartedMeta): void => {
     void (async () => {
       try {
         const isPrimary = field === 'diagnosis' ? !!(dto as { isPrimary?: boolean }).isPrimary : undefined;
@@ -2775,19 +2839,17 @@ export default function EasyChartPage(): JSX.Element {
       if (results.length === 0) {
         setConv({ kind: 'no-match', user: message, intent });
       } else if (AUTO_CHART_KINDS.has(intent.kind)) {
-        // Allergies/diagnoses additionally get the needs-review highlight + click-to-correct, with
+        // Search-based add types get the needs-review highlight + click-to-correct, with
         // low-confidence flagged when the search was ambiguous (>1 plausible match).
-        const field = intent.kind === 'add-allergy' ? 'allergies' : 'diagnosis';
         const provenance: AiChartedMeta = {
-          field,
+          field: KIND_TO_FIELD[intent.kind],
           display: 'display' in intent && intent.display ? intent.display : results[0].name,
           searchTerms: 'searchTerms' in intent && Array.isArray(intent.searchTerms) ? intent.searchTerms : [],
           lowConfidence: results.length > 1,
         };
         await handlePick(intent, results[0], message, provenance);
       } else {
-        // Other add types (condition, medication, surgical-history, hospitalization) auto-pick the
-        // top match too; they don't yet have the inline click-to-correct affordance.
+        // Anything else (no field mapping) auto-picks the top match without the correct affordance.
         await handlePick(intent, results[0], message);
       }
     } catch (e) {
@@ -2981,32 +3043,32 @@ export default function EasyChartPage(): JSX.Element {
       const fresh = await fetchEasyChartData(apiClient, encounterId);
       setChartData(fresh);
       const newIds = [...collectResourceIds(fresh)].filter((id) => !before.has(id));
-      // Flag template-applied diagnoses & allergies as AI-charted (needs review) so they get the
+      // Flag template-applied structured items as AI-charted (needs review) so they get the
       // highlight + click-to-correct — the most common way a diagnosis reaches the chart is via a
       // template, which otherwise bypasses the review affordance.
       const newIdSet = new Set(newIds);
       const templateAiCharted = new Map<string, AiChartedMeta>();
-      for (const d of fresh.diagnosis ?? []) {
-        if (d.resourceId && newIdSet.has(d.resourceId)) {
-          const display = d.display ?? d.code ?? '';
-          templateAiCharted.set(d.resourceId, {
-            field: 'diagnosis',
+      const flagNew = (
+        field: ChartedField,
+        items: Array<{ resourceId?: string; name?: string; display?: string; code?: string }> | undefined
+      ): void => {
+        for (const item of items ?? []) {
+          if (!item.resourceId || !newIdSet.has(item.resourceId)) continue;
+          const display = chartedItemDisplay(field, item);
+          templateAiCharted.set(item.resourceId, {
+            field,
             display,
             searchTerms: [display].filter(Boolean),
             lowConfidence: false,
           });
         }
-      }
-      for (const a of fresh.allergies ?? []) {
-        if (a.resourceId && newIdSet.has(a.resourceId)) {
-          templateAiCharted.set(a.resourceId, {
-            field: 'allergies',
-            display: a.name ?? '',
-            searchTerms: [a.name ?? ''].filter(Boolean),
-            lowConfidence: false,
-          });
-        }
-      }
+      };
+      flagNew('diagnosis', fresh.diagnosis);
+      flagNew('allergies', fresh.allergies);
+      flagNew('conditions', fresh.conditions);
+      flagNew('medications', fresh.medications);
+      flagNew('surgicalHistory', fresh.surgicalHistory);
+      flagNew('episodeOfCare', fresh.episodeOfCare);
       if (templateAiCharted.size > 0) {
         setAiCharted((prev) => {
           const next = new Map(prev);
