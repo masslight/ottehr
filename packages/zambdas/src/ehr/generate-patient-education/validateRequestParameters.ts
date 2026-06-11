@@ -5,6 +5,7 @@ import { safeValidate, ZambdaInput } from '../../shared';
 const generatePatientEducationInputSchema: z.ZodType<GeneratePatientEducationInput> = z.object({
   icdCode: z.string().min(1, 'icdCode is required'),
   icdDescription: z.string().min(1, 'icdDescription is required'),
+  language: z.enum(['en', 'es']).optional(),
 });
 
 export function validateRequestParameters(

@@ -29,6 +29,8 @@ const baseFields = {
   encounterId: z.string().min(1, 'encounterId is required'),
   patientId: z.string().min(1, 'patientId is required'),
   title: z.string().min(1, 'title is required'),
+  language: z.enum(['en', 'es']).optional(),
+  relatedDocumentReferenceId: z.string().optional(),
 };
 
 const savePatientEducationPdfInputSchema: z.ZodType<SavePatientEducationPdfInput> = z.union([

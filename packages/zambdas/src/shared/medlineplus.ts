@@ -28,10 +28,13 @@ export interface MedlineLink {
   url: string;
 }
 
-export async function fetchMedlineLinks(icdCode: string): Promise<MedlineLink[]> {
+export async function fetchMedlineLinks(icdCode: string, language: 'en' | 'es' = 'en'): Promise<MedlineLink[]> {
+  // `informationRecipient.languageCode.c` controls the language of the returned materials:
+  // `en` (default) → English, `es` → Spanish. MedlinePlus returns Spanish-language resources for
+  // the same ICD-10 code when es is requested.
   const url = `${MEDLINE_BASE_URL}?mainSearchCriteria.v.cs=${ICD10_CM_OID}&mainSearchCriteria.v.c=${encodeURIComponent(
     icdCode
-  )}&knowledgeResponseType=application/json`;
+  )}&informationRecipient.languageCode.c=${language}&knowledgeResponseType=application/json`;
   const response = await fetch(url);
   if (!response.ok) {
     throw new Error(`MedlinePlus request failed: ${response.status}`);
