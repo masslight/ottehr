@@ -2981,6 +2981,39 @@ export default function EasyChartPage(): JSX.Element {
       const fresh = await fetchEasyChartData(apiClient, encounterId);
       setChartData(fresh);
       const newIds = [...collectResourceIds(fresh)].filter((id) => !before.has(id));
+      // Flag template-applied diagnoses & allergies as AI-charted (needs review) so they get the
+      // highlight + click-to-correct — the most common way a diagnosis reaches the chart is via a
+      // template, which otherwise bypasses the review affordance.
+      const newIdSet = new Set(newIds);
+      const templateAiCharted = new Map<string, AiChartedMeta>();
+      for (const d of fresh.diagnosis ?? []) {
+        if (d.resourceId && newIdSet.has(d.resourceId)) {
+          const display = d.display ?? d.code ?? '';
+          templateAiCharted.set(d.resourceId, {
+            field: 'diagnosis',
+            display,
+            searchTerms: [display].filter(Boolean),
+            lowConfidence: false,
+          });
+        }
+      }
+      for (const a of fresh.allergies ?? []) {
+        if (a.resourceId && newIdSet.has(a.resourceId)) {
+          templateAiCharted.set(a.resourceId, {
+            field: 'allergies',
+            display: a.name ?? '',
+            searchTerms: [a.name ?? ''].filter(Boolean),
+            lowConfidence: false,
+          });
+        }
+      }
+      if (templateAiCharted.size > 0) {
+        setAiCharted((prev) => {
+          const next = new Map(prev);
+          for (const [id, meta] of templateAiCharted) next.set(id, meta);
+          return next;
+        });
+      }
       if (newIds.length > 0) {
         setFreshlyAdded((prev) => {
           const next = new Set(prev);
