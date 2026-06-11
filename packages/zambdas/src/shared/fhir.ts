@@ -70,7 +70,21 @@ export async function getSchedules(
       ? { name: 'identifier', value: `${SLUG_SYSTEM}|${identifier.slug}` }
       : { name: '_id', value: identifier.id };
   const ownerDescriptor = 'slug' in identifier ? `slug "${identifier.slug}"` : `id "${identifier.id}"`;
-  const searchParams: SearchParam[] = [ownerLookupParam, { name: '_revinclude', value: `Schedule:actor:${fhirType}` }];
+  // Filter out soft-deleted owners. The EHR-side "delete schedule" flow
+  // marks the owner inactive rather than hard-deleting; without this filter
+  // those still resolve and vend slots. FHIR's `active` search param is
+  // defined on PractitionerRole and HealthcareService but not on Location —
+  // Location uses the `status` field instead, with `inactive` as the
+  // dead-row value. The Oystehr FHIR server rejects unsupported params with
+  // a 400, so the filter has to branch by resource type rather than be
+  // applied uniformly.
+  const ownerActiveFilter: SearchParam =
+    fhirType === 'Location' ? { name: 'status:not', value: 'inactive' } : { name: 'active:not', value: 'false' };
+  const searchParams: SearchParam[] = [
+    ownerLookupParam,
+    { name: '_revinclude', value: `Schedule:actor:${fhirType}` },
+    ownerActiveFilter,
+  ];
 
   let resourceType;
   if (scheduleType === 'location') {
@@ -192,7 +206,11 @@ export async function getSchedules(
   }
 
   const schedule = scheduleResources.find((res) => {
-    return res.resourceType === 'Schedule' && res.actor?.[0]?.reference === `${fhirType}/${scheduleOwner.id}`;
+    return (
+      res.resourceType === 'Schedule' &&
+      res.actor?.[0]?.reference === `${fhirType}/${scheduleOwner.id}` &&
+      res.active !== false
+    );
   }) as Schedule | undefined;
 
   //const schedule: Location | Practitioner | HealthcareService = scheduleResources[0];
