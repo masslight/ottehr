@@ -1,3 +1,4 @@
+import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import CloseIcon from '@mui/icons-material/Close';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import {
@@ -60,6 +61,7 @@ import { showEnvironmentBanner } from '../../App';
 import { HospitalizationOptions } from '../visits/in-person/components/hospitalization/hospitalizationOptions';
 import { SURGICAL_HISTORY_OPTIONS } from '../visits/shared/components/medical-history-tab/SurgicalHistory/surgicalHistoryOptions';
 import { useOystehrAPIClient } from '../visits/shared/hooks/useOystehrAPIClient';
+import { AiAlternative, AiChartedItem } from './AiChartedItem';
 import InlineNoteField from './InlineNoteField';
 import { useEasyChartQuickPicks } from './useEasyChartQuickPicks';
 
@@ -348,6 +350,15 @@ function CollapsibleSection({
 // the CC↔HPI label swap is applied at the render site, so these are already the storage keys).
 type ChartNoteKey = 'chiefComplaint' | 'historyOfPresentIllness' | 'mechanismOfInjury' | 'ros' | 'medicalDecision';
 
+// Provenance for an item the assistant auto-charted and that still needs the provider's review.
+// `field` ties it to the chart-data array; `lowConfidence` is set when the auto-pick was ambiguous.
+export interface AiChartedMeta {
+  field: 'allergies' | 'diagnosis';
+  display: string;
+  searchTerms: string[];
+  lowConfidence: boolean;
+}
+
 interface NoteSectionsProps {
   data: GetChartDataResponse;
   freshlyAdded: Set<string>;
@@ -357,6 +368,13 @@ interface NoteSectionsProps {
   editable?: boolean;
   onSaveField?: (key: ChartNoteKey, text: string) => void;
   onRemoveItem?: (field: string, dto: { resourceId?: string }) => void;
+  // AI-charted items needing review (keyed by resourceId), plus the correction callbacks. When a
+  // row's resourceId is in this map it renders as a clickable <AiChartedItem> instead of a row.
+  aiCharted?: Map<string, AiChartedMeta>;
+  onAiSearch?: (field: 'allergies' | 'diagnosis', query: string) => Promise<AiAlternative[]>;
+  onAiReplace?: (field: 'allergies' | 'diagnosis', dto: { resourceId?: string }, key: string) => void;
+  onAiRemove?: (field: 'allergies' | 'diagnosis', dto: { resourceId?: string }) => void;
+  onAiDiscuss?: (field: 'allergies' | 'diagnosis', dto: { resourceId?: string }, meta: AiChartedMeta) => void;
 }
 
 // Keyframes defined at module level so the animation runs reliably whether `flashSx` is
@@ -468,9 +486,41 @@ function NoteSections({
   editable = false,
   onSaveField,
   onRemoveItem,
+  aiCharted,
+  onAiSearch,
+  onAiReplace,
+  onAiRemove,
+  onAiDiscuss,
 }: NoteSectionsProps): JSX.Element {
   const removeHandler = (field: string, dto: { resourceId?: string }): (() => void) | undefined =>
     editable && onRemoveItem && dto.resourceId ? () => onRemoveItem(field, dto) : undefined;
+  // Render an allergy/diagnosis row that the assistant charted as a clickable, highlighted
+  // AiChartedItem (review affordance); fall back to `fallback` (the normal row) when it's a
+  // provider-entered item or the AI-review wiring isn't supplied.
+  const aiMeta = (dto: { resourceId?: string }): AiChartedMeta | undefined =>
+    dto.resourceId ? aiCharted?.get(dto.resourceId) : undefined;
+  const renderAiChartable = (
+    field: 'allergies' | 'diagnosis',
+    dto: { resourceId?: string },
+    label: React.ReactNode,
+    fallback: JSX.Element
+  ): JSX.Element => {
+    const meta = aiMeta(dto);
+    if (!editable || !meta || !onAiSearch || !onAiReplace || !onAiRemove || !onAiDiscuss) return fallback;
+    return (
+      <AiChartedItem
+        key={dto.resourceId}
+        lowConfidence={meta.lowConfidence}
+        initialQuery={meta.display}
+        onSearch={(q) => onAiSearch(field, q)}
+        onReplace={(key) => onAiReplace(field, dto, key)}
+        onRemove={() => onAiRemove(field, dto)}
+        onDiscuss={() => onAiDiscuss(field, dto, meta)}
+      >
+        {label}
+      </AiChartedItem>
+    );
+  };
   // Pick the right flash style: red if the item is being removed, yellow if it was just added,
   // none otherwise. Removing wins so adding-then-immediately-removing still reads as a removal.
   const itemSx = (resourceId: string | undefined): typeof flashSx | undefined => {
@@ -549,17 +599,22 @@ function NoteSections({
         {allergies.length > 0 && (
           <Section title="Allergies">
             <Stack spacing={0.25}>
-              {allergies.map((a, i) => (
-                <DeletableRow
-                  key={a.resourceId ?? i}
-                  editable={editable}
-                  resourceId={a.resourceId}
-                  flashSx={itemSx(a.resourceId)}
-                  onDelete={removeHandler('allergies', a)}
-                >
-                  <Typography variant="body2">• {a.name ?? '(unnamed)'}</Typography>
-                </DeletableRow>
-              ))}
+              {allergies.map((a, i) =>
+                renderAiChartable(
+                  'allergies',
+                  a,
+                  <Typography variant="body2">• {a.name ?? '(unnamed)'}</Typography>,
+                  <DeletableRow
+                    key={a.resourceId ?? i}
+                    editable={editable}
+                    resourceId={a.resourceId}
+                    flashSx={itemSx(a.resourceId)}
+                    onDelete={removeHandler('allergies', a)}
+                  >
+                    <Typography variant="body2">• {a.name ?? '(unnamed)'}</Typography>
+                  </DeletableRow>
+                )
+              )}
             </Stack>
           </Section>
         )}
@@ -910,20 +965,28 @@ function NoteSections({
         {dx.length > 0 && (
           <Section title="Assessment / Diagnoses">
             <Stack spacing={0.25}>
-              {dx.map((d, i) => (
-                <DeletableRow
-                  key={d.resourceId ?? `${d.code}-${i}`}
-                  editable={editable}
-                  resourceId={d.resourceId}
-                  flashSx={itemSx(d.resourceId)}
-                  onDelete={removeHandler('diagnosis', d)}
-                >
+              {dx.map((d, i) =>
+                renderAiChartable(
+                  'diagnosis',
+                  d,
                   <Typography variant="body2">
                     <strong>{d.code}</strong> — {d.display}
                     {d.isPrimary && ' (primary)'}
-                  </Typography>
-                </DeletableRow>
-              ))}
+                  </Typography>,
+                  <DeletableRow
+                    key={d.resourceId ?? `${d.code}-${i}`}
+                    editable={editable}
+                    resourceId={d.resourceId}
+                    flashSx={itemSx(d.resourceId)}
+                    onDelete={removeHandler('diagnosis', d)}
+                  >
+                    <Typography variant="body2">
+                      <strong>{d.code}</strong> — {d.display}
+                      {d.isPrimary && ' (primary)'}
+                    </Typography>
+                  </DeletableRow>
+                )
+              )}
             </Stack>
           </Section>
         )}
@@ -2023,6 +2086,14 @@ export default function EasyChartPage(): JSX.Element {
   }, [plan]);
   const [freshlyAdded, setFreshlyAdded] = useState<Set<string>>(new Set());
   const [removingItems, setRemovingItems] = useState<Set<string>>(new Set());
+  // Items the assistant auto-charted this session that still need the provider's review (keyed by
+  // resourceId). Client-only — cleared when the provider corrects/removes/discusses an item, never
+  // persisted. `aiSearchResultsRef` holds the last popover search so a chosen alternative key can be
+  // resolved back to a SearchResult; `replaceTargetRef` lets a "Discuss" picker REPLACE the item.
+  const [aiCharted, setAiCharted] = useState<Map<string, AiChartedMeta>>(new Map());
+  const aiSearchResultsRef = useRef<Map<string, SearchResult>>(new Map());
+  const replaceTargetRef = useRef<{ field: 'allergies' | 'diagnosis'; dto: { resourceId?: string } } | null>(null);
+  const AUTO_CHART_KINDS = new Set(['add-allergy', 'add-diagnosis']);
   const [conv, setConv] = useState<ConvStep | null>(null);
 
   // For removes: scroll to the item, flash it red for 1.5s so the user sees what's being
@@ -2050,10 +2121,10 @@ export default function EasyChartPage(): JSX.Element {
 
   // Merge the saved-chart-data response into local state and flash the new items.
   // Avoids a full refetch for single-item adds.
-  const mergeSaveResponse = (response: { chartData: GetChartDataResponse }): void => {
+  const mergeSaveResponse = (response: { chartData: GetChartDataResponse }): string[] => {
     const saved = response.chartData;
     const prev = chartDataRef.current;
-    if (!prev) return;
+    if (!prev) return [];
     const next: GetChartDataResponse = { ...prev };
     const newIds: string[] = [];
     const arrayFields = [
@@ -2144,15 +2215,121 @@ export default function EasyChartPage(): JSX.Element {
         });
       }, 2500);
     }
+    return newIds;
   };
 
-  const saveAndMerge = async (payload: SaveChartDataRequest): Promise<void> => {
-    if (!apiClient) return;
+  const saveAndMerge = async (payload: SaveChartDataRequest): Promise<string[]> => {
+    if (!apiClient) return [];
     const response = await apiClient.saveChartData(payload);
-    mergeSaveResponse(response);
+    return mergeSaveResponse(response);
   };
 
-  useEasyChartQuickPicks(encounterId, saveAndMerge);
+  // Delete a charted allergy/diagnosis by its dto (flash + local removal), and drop it from the
+  // needs-review set. Shared by Remove and the replace flow.
+  const deleteChartedResource = async (
+    field: 'allergies' | 'diagnosis',
+    dto: { resourceId?: string }
+  ): Promise<void> => {
+    if (!apiClient || !encounterId || !dto.resourceId) return;
+    const resourceId = dto.resourceId;
+    await apiClient.deleteChartData({ encounterId, [field]: [dto] } as Parameters<typeof apiClient.deleteChartData>[0]);
+    flashAndRemoveItem(resourceId, () => {
+      setChartData((prev) => {
+        if (!prev) return prev;
+        const next: GetChartDataResponse = { ...prev };
+        const list = (next[field] as Array<{ resourceId?: string }> | undefined) ?? [];
+        (next[field] as unknown[]) = list.filter((x) => x.resourceId !== resourceId);
+        return next;
+      });
+    });
+    setAiCharted((prev) => {
+      if (!prev.has(resourceId)) return prev;
+      const n = new Map(prev);
+      n.delete(resourceId);
+      return n;
+    });
+  };
+
+  // Build a minimal synthetic add-intent so we can reuse runIntentSearch / buildIntentPayload for
+  // the inline correction flows (the popover and the Discuss picker).
+  const synthAddIntent = (
+    field: 'allergies' | 'diagnosis',
+    display: string,
+    searchTerms: string[],
+    isPrimary?: boolean
+  ): AddSearchIntent =>
+    ({
+      kind: field === 'allergies' ? 'add-allergy' : 'add-diagnosis',
+      display,
+      searchTerms,
+      ...(field === 'diagnosis' ? { isPrimary: !!isPrimary } : {}),
+    }) as unknown as AddSearchIntent;
+
+  // Popover "search alternatives": reuse the same search the pickers use, and cache the results so
+  // a chosen key can be resolved back to its SearchResult on replace.
+  const aiSearch = async (field: 'allergies' | 'diagnosis', query: string): Promise<AiAlternative[]> => {
+    const intent = synthAddIntent(field, query, [query]);
+    const results = await runIntentSearch(intent, oystehr, oystehrZambda);
+    const map = new Map<string, SearchResult>();
+    const alts = results.map((r, i) => {
+      const key = `${r.code ?? r.id ?? r.name}-${i}`;
+      map.set(key, r);
+      return { key, label: r.code ? `${r.code} — ${r.name}` : r.name };
+    });
+    aiSearchResultsRef.current = map;
+    return alts;
+  };
+
+  // Replace an AI-charted item with a chosen alternative: delete the old, add the new (NOT flagged
+  // for review — the provider chose it). Preserves primary flag for diagnoses.
+  const aiReplace = (field: 'allergies' | 'diagnosis', dto: { resourceId?: string }, key: string): void => {
+    const result = aiSearchResultsRef.current.get(key);
+    if (!result || !encounterId) return;
+    const isPrimary = field === 'diagnosis' ? !!(dto as { isPrimary?: boolean }).isPrimary : undefined;
+    const intent = synthAddIntent(field, result.name, [], isPrimary);
+    const payload = buildIntentPayload(encounterId, intent, result);
+    void (async () => {
+      try {
+        await deleteChartedResource(field, dto);
+        if (payload) await saveAndMerge(payload);
+      } catch (e) {
+        console.error('AI replace failed:', e);
+      }
+    })();
+  };
+
+  const aiRemove = (field: 'allergies' | 'diagnosis', dto: { resourceId?: string }): void => {
+    void deleteChartedResource(field, dto).catch((e) => console.error('AI remove failed:', e));
+  };
+
+  // "Discuss": hand the item to the right-hand panel as a full picker (all alternatives + Skip /
+  // Refine). Picking there REPLACES the item (replaceTargetRef is consumed in handlePick). The row
+  // leaves the needs-review set because it's now under active review in the panel.
+  const aiDiscuss = (field: 'allergies' | 'diagnosis', dto: { resourceId?: string }, meta: AiChartedMeta): void => {
+    void (async () => {
+      try {
+        const isPrimary = field === 'diagnosis' ? !!(dto as { isPrimary?: boolean }).isPrimary : undefined;
+        const intent = synthAddIntent(field, meta.display, meta.searchTerms, isPrimary);
+        replaceTargetRef.current = { field, dto };
+        const results = await runIntentSearch(intent, oystehr, oystehrZambda);
+        if (dto.resourceId) {
+          setAiCharted((prev) => {
+            if (!prev.has(dto.resourceId!)) return prev;
+            const n = new Map(prev);
+            n.delete(dto.resourceId!);
+            return n;
+          });
+        }
+        setConv({ kind: 'choose', user: `Review: ${meta.display}`, intent, results });
+      } catch (e) {
+        console.error('AI discuss failed:', e);
+      }
+    })();
+  };
+
+  useEasyChartQuickPicks(encounterId, async (p) => {
+    await saveAndMerge(p);
+  });
   const { quickPicks: procedureQuickPicks } = useMergedProcedureQuickPicks({ enabled: !!encounterId });
 
   // Register procedure quick-picks into the command palette ("Add Procedure"), mirroring the
@@ -2602,6 +2779,18 @@ export default function EasyChartPage(): JSX.Element {
       const results = await runIntentSearch(intent, oystehr, oystehrZambda);
       if (results.length === 0) {
         setConv({ kind: 'no-match', user: message, intent });
+      } else if (AUTO_CHART_KINDS.has(intent.kind)) {
+        // No stopping: auto-pick the top match and chart it as needing review; flag low-confidence
+        // when the search was ambiguous (>1 plausible match). The provider corrects later by
+        // clicking the highlighted item, instead of being interrupted by a picker now.
+        const field = intent.kind === 'add-allergy' ? 'allergies' : 'diagnosis';
+        const provenance: AiChartedMeta = {
+          field,
+          display: 'display' in intent && intent.display ? intent.display : results[0].name,
+          searchTerms: 'searchTerms' in intent && Array.isArray(intent.searchTerms) ? intent.searchTerms : [],
+          lowConfidence: results.length > 1,
+        };
+        await handlePick(intent, results[0], message, provenance);
       } else if (results.length === 1) {
         await handlePick(intent, results[0], message);
       } else {
@@ -3090,13 +3279,13 @@ export default function EasyChartPage(): JSX.Element {
   // to the same field are serialized through a per-field promise chain so they can't race.
   const saveNoteField = (key: ChartNoteKey, text: string): Promise<void> => {
     if (!apiClient || !encounterId) return Promise.resolve();
-    const run = (): Promise<void> => {
+    const run = async (): Promise<void> => {
       const existing = chartDataRef.current?.[key] as { resourceId?: string } | undefined;
       const payload: SaveChartDataRequest = {
         encounterId,
         [key]: { resourceId: existing?.resourceId, text },
       } as SaveChartDataRequest;
-      return saveAndMerge(payload);
+      await saveAndMerge(payload);
     };
     const prior = noteSaveChainRef.current[key] ?? Promise.resolve();
     const next = prior.then(run, run);
@@ -3218,13 +3407,34 @@ export default function EasyChartPage(): JSX.Element {
     }
   };
 
-  const handlePick = async (intent: AddSearchIntent, result: SearchResult, user: string): Promise<void> => {
+  const handlePick = async (
+    intent: AddSearchIntent,
+    result: SearchResult,
+    user: string,
+    // When set, the saved item is registered as AI-charted (needs review) — used by the
+    // no-stopping auto-chart path.
+    provenance?: AiChartedMeta
+  ): Promise<void> => {
     if (!apiClient || !encounterId) return;
+    // A "Discuss" picker replaces the item it came from: delete the original first.
+    const replaceTarget = replaceTargetRef.current;
+    replaceTargetRef.current = null;
     setConv({ kind: 'saving', user, chosenName: result.name });
     try {
+      if (replaceTarget) {
+        await deleteChartedResource(replaceTarget.field, replaceTarget.dto);
+      }
       const payload = buildIntentPayload(encounterId, intent, result);
+      let newIds: string[] = [];
       if (payload) {
-        await saveAndMerge(payload);
+        newIds = await saveAndMerge(payload);
+      }
+      if (provenance && newIds.length > 0) {
+        setAiCharted((prev) => {
+          const next = new Map(prev);
+          for (const id of newIds) next.set(id, provenance);
+          return next;
+        });
       }
       setConv({ kind: 'done', user, chosenName: result.name });
     } catch (e) {
@@ -3801,14 +4011,43 @@ export default function EasyChartPage(): JSX.Element {
       </Typography>
     </Paper>
   ) : chartData ? (
-    <NoteSections
-      data={chartData}
-      freshlyAdded={freshlyAdded}
-      removingItems={removingItems}
-      editable
-      onSaveField={saveNoteField}
-      onRemoveItem={handleInlineRemove}
-    />
+    <>
+      {aiCharted.size > 0 && (
+        <Box
+          sx={{
+            mb: 1.5,
+            px: 1.5,
+            py: 1,
+            borderRadius: 1,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1,
+            bgcolor: 'rgba(25,118,210,0.08)',
+            border: '1px solid',
+            borderColor: 'rgba(25,118,210,0.3)',
+          }}
+        >
+          <AutoAwesomeIcon sx={{ fontSize: 18, color: 'primary.main' }} />
+          <Typography variant="body2" color="text.secondary">
+            <strong>{aiCharted.size}</strong> AI-charted {aiCharted.size === 1 ? 'item needs' : 'items need'} review —
+            click a highlighted item to confirm, change, or remove it.
+          </Typography>
+        </Box>
+      )}
+      <NoteSections
+        data={chartData}
+        freshlyAdded={freshlyAdded}
+        removingItems={removingItems}
+        editable
+        onSaveField={saveNoteField}
+        onRemoveItem={handleInlineRemove}
+        aiCharted={aiCharted}
+        onAiSearch={aiSearch}
+        onAiReplace={aiReplace}
+        onAiRemove={aiRemove}
+        onAiDiscuss={aiDiscuss}
+      />
+    </>
   ) : null;
 
   return (
