@@ -98,6 +98,8 @@ Every resource entry may carry an optional `stack` field naming the deployment s
 
 The `stack` field is stripped before Terraform JSON is generated. References (`#{ref/...}`) cannot cross stacks — a resource may only reference resources generated into the same stack.
 
+`secrets` and `project` entries cannot be assigned to another stack; the generator rejects such specs. Oystehr secrets are project-scoped at runtime and read by zambdas in every stack, so they are always provisioned by the clinical stack, and project configuration is a singleton owned by the clinical stack.
+
 ## Variable and Reference Syntax
 
 ### Variables `#{var/...}`

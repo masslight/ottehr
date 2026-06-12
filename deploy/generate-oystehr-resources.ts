@@ -40,6 +40,11 @@ const RESOURCE_TYPE_KEYS = [
   'zambdas',
 ];
 
+// Secrets are shared across stacks at runtime (Oystehr secrets are project-scoped, and
+// zambdas in every stack read the same ones), so they are owned by the clinical stack.
+// Project configuration is a singleton, also owned by the clinical stack.
+const CLINICAL_ONLY_RESOURCE_TYPES = ['project', 'secrets'];
+
 const zambdasDirPath = path.resolve(__dirname, '../packages/zambdas');
 
 // args
@@ -93,7 +98,15 @@ function filterSpecByStack(spec: { [key: string]: unknown }, stack: string): { [
     }
     const filteredResources: { [key: string]: unknown } = {};
     for (const [resourceName, resource] of Object.entries(value)) {
-      if (stacksForResource(resource).includes(stack)) {
+      const resourceStacks = stacksForResource(resource);
+      if (CLINICAL_ONLY_RESOURCE_TYPES.includes(key) && resourceStacks.some((s) => s !== DEFAULT_STACK)) {
+        throw new Error(
+          `Resource "${resourceName}" of type "${key}" cannot be assigned to stack ${JSON.stringify(
+            resourceStacks
+          )}: ${key} are shared across stacks and always belong to the "${DEFAULT_STACK}" stack.`
+        );
+      }
+      if (resourceStacks.includes(stack)) {
         if (isObject(resource)) {
           const { stack: _stack, ...rest } = resource;
           filteredResources[resourceName] = rest;

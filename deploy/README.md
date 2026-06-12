@@ -13,7 +13,7 @@ Which stack owns an Oystehr resource is declared in the spec files in `config/` 
 
 Both stacks share `deploy/backend.config` and the per-environment `deploy/${env}.tfvars` files. The billing stack stores its state under the `billing/terraform.tfstate` key (the billing `apply.sh` passes the key override during init) and manages its own Terraform workspaces, which it creates on demand.
 
-The stacks deploy independently: `npm run apply-${env}` deploys clinical, `npm run apply-billing-${env}` deploys billing. The billing stack reads nothing from the clinical state — shared values like secrets are provisioned by the clinical stack and consumed by billing zambdas at runtime through the Oystehr project. On a brand-new environment, apply clinical first so project-level resources (project configuration, roles, secrets) exist before the billing stack deploys.
+The stacks deploy independently: `npm run apply-${env}` deploys clinical, `npm run apply-billing-${env}` deploys billing. The billing stack reads nothing from the clinical state. In particular, all Oystehr secrets belong to the clinical stack (the generator enforces this): secrets are project-scoped at runtime, so billing zambdas read the same secrets as clinical zambdas regardless of which stack provisioned them. On a brand-new environment, apply clinical first so project-level resources (project configuration, roles, secrets) exist before the billing stack deploys.
 
 ## Requirements
 

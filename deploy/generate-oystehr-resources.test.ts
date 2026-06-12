@@ -184,6 +184,46 @@ describe('generate-oystehr-resources', () => {
       filterSpecByStack(spec, 'billing');
       expect((spec.zambdas['BILLING-ZAMBDA'] as any).stack).toBe('billing');
     });
+
+    it('rejects secrets assigned to a non-clinical stack', () => {
+      const specWithBillingSecret = {
+        'schema-version': '2025-09-25',
+        secrets: {
+          MY_SECRET: { name: 'MY_SECRET', value: 'x', stack: 'billing' },
+        },
+      };
+      expect(() => filterSpecByStack(specWithBillingSecret, 'billing')).toThrow(
+        'secrets are shared across stacks and always belong to the "clinical" stack'
+      );
+      expect(() => filterSpecByStack(specWithBillingSecret, 'clinical')).toThrow(
+        'secrets are shared across stacks and always belong to the "clinical" stack'
+      );
+    });
+
+    it('rejects project configuration assigned to a non-clinical stack', () => {
+      const specWithBillingProject = {
+        'schema-version': '2025-09-25',
+        project: {
+          PROJECT: { name: 'my-project', stack: ['clinical', 'billing'] },
+        },
+      };
+      expect(() => filterSpecByStack(specWithBillingProject, 'clinical')).toThrow(
+        'project are shared across stacks and always belong to the "clinical" stack'
+      );
+    });
+
+    it('allows secrets explicitly tagged clinical', () => {
+      const specWithClinicalSecret = {
+        'schema-version': '2025-09-25',
+        secrets: {
+          MY_SECRET: { name: 'MY_SECRET', value: 'x', stack: 'clinical' },
+        },
+      };
+      const clinical = filterSpecByStack(specWithClinicalSecret, 'clinical');
+      expect(Object.keys((clinical as any).secrets)).toEqual(['MY_SECRET']);
+      const billing = filterSpecByStack(specWithClinicalSecret, 'billing');
+      expect(Object.keys((billing as any).secrets)).toEqual([]);
+    });
   });
 
   describe('generateOystehrResources', () => {
