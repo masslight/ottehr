@@ -13,6 +13,7 @@ import {
   normalizeFormDataToQRItems,
   PatientInfo,
   ServiceMode,
+  SLOT_UNAVAILABLE_ERROR,
   VisitType,
 } from 'utils';
 import { safelyCaptureException } from 'utils/lib/frontend/sentry';
@@ -154,6 +155,14 @@ const Review = (): JSX.Element => {
     } catch (err) {
       if ((err as APIError)?.code === APPOINTMENT_CANT_BE_IN_PAST_ERROR.code) {
         setErrorConfig(PAST_APPT_ERROR(t));
+      } else if ((err as APIError)?.code === SLOT_UNAVAILABLE_ERROR.code) {
+        setErrorConfig({
+          title: 'Sorry, this time slot is no longer available',
+          description:
+            'It looks like someone else booked this time slot just before you. Please go back and select a different time.',
+          closeButtonText: 'Back to scheduling',
+          destinationOnClose: originalBookingUrl ?? intakeFlowPageRoute.PrebookVisit.path,
+        });
       } else {
         // Catch validation errors
         console.error(err);
@@ -277,7 +286,16 @@ const Review = (): JSX.Element => {
         description={errorConfig?.description ?? ''}
         closeButtonText={errorConfig?.closeButtonText ?? t('reviewAndSubmit.ok')}
         handleClose={() => {
-          setErrorConfig(undefined);
+          if (errorConfig?.destinationOnClose) {
+            // Server-persisted entry URL is the canonical "where the user
+            // came from"; falls back to the generic prebook page if the
+            // Slot resource somehow lost its originalBookingUrl. Uses
+            // `replace` so the forward button doesn't bounce the user
+            // back into the errored Review page.
+            navigate(errorConfig.destinationOnClose, { replace: true });
+          } else {
+            setErrorConfig(undefined);
+          }
         }}
       />
     </PageContainer>

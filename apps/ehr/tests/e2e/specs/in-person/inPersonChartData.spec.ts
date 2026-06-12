@@ -27,7 +27,14 @@ import {
   testTextComponent,
   waitForFieldSave,
 } from 'tests/e2e-utils/helpers/exam-tab.test-helpers';
-import { getFirstName, getLastName, MDM_FIELD_DEFAULT_TEXT, PROVIDER_CONFIG } from 'utils';
+import {
+  chooseJson,
+  DEFAULT_PROGRESS_NOTE_CONFIG,
+  getFirstName,
+  getLastName,
+  ProgressNoteConfig,
+  PROVIDER_CONFIG,
+} from 'utils';
 import { ResourceHandler } from '../../../e2e-utils/resource-handler';
 import { AllergiesPage, expectAllergiesPage } from '../../page/in-person/AllergiesPage';
 
@@ -38,6 +45,8 @@ const ALLERGY = 'Aspirin';
 const MEDICAL_CONDITION = 'Paratyphoid fever A';
 
 let SURGERY: string;
+let mdmDefaultText = DEFAULT_PROGRESS_NOTE_CONFIG.medicalDecisionDefaultText;
+let mdmRequired = DEFAULT_PROGRESS_NOTE_CONFIG.mdmRequired;
 
 const DIAGNOSIS_CODE = 'J45.901';
 const DIAGNOSIS_NAME = 'injury';
@@ -105,6 +114,14 @@ test.describe('In-Person Visit Chart Data', async () => {
   test.beforeAll(async ({ browser }) => {
     await resourceHandler.setResources();
     await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!);
+
+    const oystehr = await ResourceHandler.getOystehr();
+    const progressNoteConfig = chooseJson<ProgressNoteConfig>(
+      await oystehr.zambda.execute({ id: 'get-progress-note-config' })
+    );
+    mdmDefaultText =
+      progressNoteConfig?.medicalDecisionDefaultText ?? DEFAULT_PROGRESS_NOTE_CONFIG.medicalDecisionDefaultText;
+    mdmRequired = progressNoteConfig?.mdmRequired ?? DEFAULT_PROGRESS_NOTE_CONFIG.mdmRequired;
 
     context = await browser.newContext();
     page = await context.newPage();
@@ -519,7 +536,7 @@ test.describe('In-Person Visit Chart Data', async () => {
       await assessmentPage.expectDiagnosisDropdown();
       await expect(page.getByTestId(dataTestIds.diagnosisContainer.primaryDiagnosis)).not.toBeVisible();
       await expect(page.getByTestId(dataTestIds.diagnosisContainer.secondaryDiagnosis)).not.toBeVisible();
-      await assessmentPage.expectMdmField({ text: MDM_FIELD_DEFAULT_TEXT });
+      await assessmentPage.expectMdmField({ text: mdmDefaultText });
     });
 
     test('Remove MDM and check missing required fields on review and sign page', async () => {
@@ -549,6 +566,11 @@ test.describe('In-Person Visit Chart Data', async () => {
       await test.step('Verify missing card is visible and has all required missing fields', async () => {
         await expect(page.getByTestId(dataTestIds.progressNotePage.missingCard)).toBeVisible();
         await expect(page.getByTestId(dataTestIds.progressNotePage.emCodeLink)).toBeVisible();
+        if (mdmRequired) {
+          await expect(page.getByTestId(dataTestIds.progressNotePage.medicalDecisionLink)).toBeVisible();
+        } else {
+          await expect(page.getByTestId(dataTestIds.progressNotePage.medicalDecisionLink)).not.toBeVisible();
+        }
         await expect(page.getByTestId(dataTestIds.progressNotePage.medicalDecisionLink)).toBeVisible();
         await expect(page.getByTestId(dataTestIds.progressNotePage.primaryDiagnosisLink)).toBeVisible();
         await expect(page.getByTestId(dataTestIds.progressNotePage.hpiLink)).toBeVisible();

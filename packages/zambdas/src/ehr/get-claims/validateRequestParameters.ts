@@ -1,52 +1,35 @@
-import { ClaimsQueueGetRequest, getSecret, SecretsKeys } from 'utils';
-import { ZambdaInput } from '../../shared';
+import { ClaimsQueueGetRequest, ClaimsQueueItemStatuses, getSecret, SecretsKeys } from 'utils';
+import { z } from 'zod';
+import { safeValidate, ZambdaInput } from '../../shared';
+
+const GetClaimsBodySchema = z.object({
+  patient: z.string().optional(),
+  visitId: z.string().uuid().optional(),
+  claimId: z.string().uuid().optional(),
+  teamMember: z.string().optional(),
+  queue: z.string().optional(),
+  dayInQueue: z.number().optional(),
+  status: z.enum(ClaimsQueueItemStatuses).optional(),
+  state: z.string().optional(),
+  facilityGroup: z.string().optional(),
+  facility: z.string().optional(),
+  insurance: z.string().optional(),
+  balance: z.number().optional(),
+  dosFrom: z.string().optional(),
+  dosTo: z.string().optional(),
+  offset: z.number().int().min(0).optional(),
+  pageSize: z.number().int().min(1).optional(),
+});
 
 export function validateRequestParameters(input: ZambdaInput): ClaimsQueueGetRequest & Pick<ZambdaInput, 'secrets'> {
-  console.group('validateRequestParameters');
-
-  if (getSecret(SecretsKeys.PROJECT_API, input.secrets) === undefined) {
-    throw new Error('"PROJECT_API" configuration not provided');
-  }
-  console.groupEnd();
-  console.debug('validateRequestParameters success');
+  getSecret(SecretsKeys.PROJECT_API, input.secrets);
 
   if (input.body) {
-    const {
-      patient,
-      visitId,
-      claimId,
-      teamMember,
-      queue,
-      dayInQueue,
-      status,
-      state,
-      facilityGroup,
-      facility,
-      insurance,
-      balance,
-      dosFrom,
-      dosTo,
-      offset,
-      pageSize,
-    } = JSON.parse(input.body);
+    const parsedJSON = JSON.parse(input.body) as unknown;
+    const data = safeValidate(GetClaimsBodySchema, parsedJSON);
     return {
       secrets: input.secrets,
-      patient,
-      visitId,
-      claimId,
-      teamMember,
-      queue,
-      dayInQueue,
-      status,
-      state,
-      facilityGroup,
-      facility,
-      insurance,
-      balance,
-      dosFrom,
-      dosTo,
-      offset,
-      pageSize,
+      ...data,
     };
   } else return { secrets: input.secrets };
 }

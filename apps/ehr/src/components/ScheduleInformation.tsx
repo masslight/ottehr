@@ -248,11 +248,7 @@ export const ScheduleInformation = ({ scheduleType }: ScheduleInformationProps):
                     <Typography>{item.owner.providerSchedulesSummary?.locationNames?.join(', ') ?? ''}</Typography>
                   </TableCell>
                   <TableCell align="left">
-                    <Typography>
-                      {item.owner.providerSchedulesSummary?.categoryLabels?.length
-                        ? item.owner.providerSchedulesSummary.categoryLabels.join(', ')
-                        : 'All'}
-                    </Typography>
+                    <Typography>{item.owner.providerSchedulesSummary?.categoryLabels?.join(', ') ?? ''}</Typography>
                   </TableCell>
                 </TableRow>
               ))}

@@ -5,9 +5,23 @@ import { AllChartData } from '../../visit-details-pdf/types';
 export const composeRadiology: DataComposer<{ allChartData: AllChartData }, RadiologyData> = ({ allChartData }) => {
   const { radiologyData } = allChartData;
 
+  const handleFinalReport = (finalReport: string | undefined): string => {
+    let result = '';
+
+    if (!finalReport) return result;
+
+    try {
+      result = atob(finalReport);
+    } catch {
+      result = finalReport;
+    }
+
+    return result;
+  };
+
   const radiology = radiologyData?.orders.map((order) => ({
     name: order.studyType,
-    result: order.finalReport,
+    result: handleFinalReport(order.finalReport),
   }));
   return { radiology };
 };

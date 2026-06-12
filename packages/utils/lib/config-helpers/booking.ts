@@ -6,7 +6,7 @@ import {
   QuestionnaireResponseItem,
   QuestionnaireResponseItemAnswer,
 } from 'fhir/r4b';
-import { FHIR_EXTENSION, getFirstName, getLastName, getMiddleName, SCHEDULED_FOLLOWUP_REASONS } from '../fhir';
+import { FHIR_EXTENSION, getFirstName, getLastName, getMiddleName } from '../fhir';
 import { makeAnswer, pickFirstValueFromAnswerItem } from '../helpers';
 import { BOOKING_CONFIG, type StrongCoding } from '../ottehr-config/booking';
 import { flattenQuestionnaireAnswers, PatientInfo, PersonSex } from '../types';
@@ -110,22 +110,6 @@ export const getReasonForVisitOptionsForServiceCategory = (
   serviceMode?: string
 ): { value: string; label: string }[] => {
   return resolveReasonForVisitOptions(BOOKING_CONFIG.serviceCategories, serviceCategory, serviceMode);
-};
-
-/**
- * Reason-for-visit options for a reason-for-visit selector. Scheduled follow-ups use the fixed
- * SCHEDULED_FOLLOWUP_REASONS list (serviceCategory is irrelevant); all other visits resolve options
- * from the service category. Callers pass their own serviceCategory fallback.
- */
-export const getReasonForVisitOptions = (
-  isScheduledFollowUp: boolean,
-  serviceCategory: string,
-  serviceMode?: string
-): { value: string; label: string }[] => {
-  if (isScheduledFollowUp) {
-    return SCHEDULED_FOLLOWUP_REASONS.map((reason) => ({ value: reason, label: reason }));
-  }
-  return getReasonForVisitOptionsForServiceCategory(serviceCategory, serviceMode);
 };
 
 // Helper to normalize form data by converting empty objects to proper questionnaire response format

@@ -15,7 +15,6 @@ import { FC, useEffect, useMemo, useState } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import {
   getCoding,
-  getReasonForVisitOptions,
   isScheduledFollowupEncounter,
   SCHEDULED_FOLLOWUP_OTHER_REASON,
   SCHEDULED_FOLLOWUP_REASONS,
@@ -23,6 +22,7 @@ import {
 } from 'utils';
 import { useChartFields } from './shared/hooks/useChartFields';
 import { useDebounceNotesField } from './shared/hooks/useDebounceNotesField';
+import { useReasonForVisitOptions } from './shared/hooks/useReasonForVisitOptions';
 import { useAppointmentData, useSaveChartData } from './shared/stores/appointment/appointment.store';
 
 export const ReasonForVisitField: FC = () => {
@@ -37,10 +37,17 @@ export const ReasonForVisitField: FC = () => {
     requestedFields: { reasonForVisit: {} },
   });
 
-  const rfvOptions = useMemo(() => {
-    const serviceCategory = getCoding(appointment?.serviceCategory, SERVICE_CATEGORY_SYSTEM)?.code;
-    return getReasonForVisitOptions(isScheduledFollowUp, serviceCategory || 'urgent-care');
-  }, [isScheduledFollowUp, appointment?.serviceCategory]);
+  // Service-category options resolve via the shared hook (covers admin-managed FHIR categories);
+  // scheduled follow-ups use the fixed reason list instead.
+  const serviceCategory = getCoding(appointment?.serviceCategory, SERVICE_CATEGORY_SYSTEM)?.code;
+  const serviceCategoryRfvOptions = useReasonForVisitOptions(serviceCategory || 'urgent-care');
+  const rfvOptions = useMemo(
+    () =>
+      isScheduledFollowUp
+        ? SCHEDULED_FOLLOWUP_REASONS.map((reason) => ({ value: reason, label: reason }))
+        : serviceCategoryRfvOptions,
+    [isScheduledFollowUp, serviceCategoryRfvOptions]
+  );
 
   useEffect(() => {
     if (!isChartFieldsFetched) return;
@@ -62,6 +69,11 @@ export const ReasonForVisitField: FC = () => {
     onOtherReasonChange(value);
   };
 
+  // Defer binding the Select until its options resolve, so a saved value not yet in the loaded
+  // catalog doesn't trigger MUI's out-of-range warning; it snaps in once options arrive.
+  const valueIsAvailable = rfvOptions.some((opt) => opt.value === reasonForVisit);
+  const safeValue = valueIsAvailable ? reasonForVisit : '';
+
   return (
     <Stack spacing={2}>
       <FormControl fullWidth>
@@ -70,12 +82,11 @@ export const ReasonForVisitField: FC = () => {
           data-testid={dataTestIds.addPatientPage.reasonForVisitDropdown}
           labelId="reason-for-visit-label"
           id="reason-for-visit-select"
-          value={reasonForVisit || ''}
+          value={safeValue}
           label="Reason for visit"
           onChange={(event) => {
             const value = event.target.value as string;
             setReasonForVisit(value);
-
             // "Other" is persisted only once the free text is entered.
             if (isScheduledFollowUp && value === SCHEDULED_FOLLOWUP_OTHER_REASON) {
               return;
