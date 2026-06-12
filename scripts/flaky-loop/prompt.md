@@ -29,6 +29,14 @@ Pick exactly one of these per invocation, then stop:
   find a flaky test. Run the entire EHR e2e suite and look for a
   test that fails intermittently. When you confirm one, add it to the progress
   file as `identified` with its baseline failure rate, then stop.
+  - **Skipped tests are OUT OF SCOPE.** Tests marked `test.skip`, `test.fixme`,
+    or otherwise disabled were turned off deliberately by a human. Do NOT enable,
+    un-skip, or otherwise try to "de-flake" them — a skipped test is not a flaky
+    test. Ignore them entirely.
+  - **If everything passes (no flaky test found), you are done — just stop.** Do
+    not go looking for something to fix. Record in the progress file that the run
+    found no flakiness, and let the next iteration start a fresh run. A clean
+    suite is a success, not a problem to solve.
 
 - **Fix one test** — if a test is `identified` or `in-progress`: work that ONE
   test through the reproduce → hypothesize → fix → validate cycle below. Do not
@@ -61,7 +69,9 @@ the loop can run all night. Resist the urge to fix everything in one session.
 ## Allowed vs forbidden fixes (IMPORTANT — do not cheat)
 
 The goal is genuinely stable tests, not green-by-hiding. NEVER do these:
-- `test.skip`, `test.fixme`, `.only`, deleting or commenting out tests/assertions
+- Add `test.skip`, `test.fixme`, `.only`, or delete/comment out tests/assertions
+- Re-enable or un-skip an already-skipped test (`test.skip`/`test.fixme`) — those
+  were disabled deliberately and are out of scope; never touch them
 - Adding arbitrary sleeps (`page.waitForTimeout(...)`) to paper over a race
 - Weakening assertions so they always pass, or wrapping flaky steps in try/catch
 - Raising global timeouts or `retries` in the Playwright config to mask flakiness
