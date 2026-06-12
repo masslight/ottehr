@@ -24,8 +24,8 @@ describe('reconcilePharmacyPhone', () => {
     expect(reconcilePharmacyPhone('5558675309 x55', '(555) 867-5309 x66')).toBe('(555) 867-5309');
   });
 
-  it('returns undefined when both sources are present but differ', () => {
-    expect(reconcilePharmacyPhone('(555) 867-5309', '(555) 111-2222')).toBeUndefined();
+  it('prefers the places phone when both sources are present but differ', () => {
+    expect(reconcilePharmacyPhone('(555) 867-5309', '(555) 111-2222')).toBe('(555) 867-5309');
   });
 
   it('returns undefined when neither can be standardized, even if equal', () => {

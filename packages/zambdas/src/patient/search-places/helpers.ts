@@ -133,7 +133,7 @@ export const findMatchingErxPharmacy = (
  * - If they match, return the standardized phone.
  * - If only one has an extension, return that one.
  * - If the extensions differ, return only the base.
- * - Otherwise if the base differs, neither can be trusted so return undefined.
+ * - Otherwise if the base differs, prefer Places since its data is usually fresher.
  */
 export const reconcilePharmacyPhone = (placesPhone?: string, erxPhone?: string): string | undefined => {
   const placesStandardized = standardizePhoneWithExtension(placesPhone);
@@ -157,7 +157,7 @@ export const reconcilePharmacyPhone = (placesPhone?: string, erxPhone?: string):
     return placesBase;
   }
 
-  return undefined;
+  return placesStandardized;
 };
 
 const namePartialMatch = (name1: string, name2: string): boolean => {
