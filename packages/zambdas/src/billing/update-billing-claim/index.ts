@@ -109,7 +109,7 @@ async function attachClaimResources(
 
   if (fields.coverageId) {
     const original = await fetchById<Coverage>(oystehr, 'Coverage', fields.coverageId);
-    const copy = prepareWorkingCopy(original, fields.coverageId);
+    const copy = prepareWorkingCopy<Coverage>(original, fields.coverageId);
     if (claim.patient?.reference) {
       copy.beneficiary = { reference: claim.patient.reference };
       copy.subscriber = { reference: claim.patient.reference };
@@ -142,7 +142,7 @@ async function createCopy(
   resourceType: 'Practitioner' | 'Organization' | 'Location',
   resourceId: string
 ): Promise<FhirResource> {
-  const original = await fetchById<FhirResource>(oystehr, resourceType, resourceId);
+  const original = await fetchById<Practitioner | Organization | Location>(oystehr, resourceType, resourceId);
   return oystehr.fhir.create(prepareWorkingCopy(original, resourceId));
 }
 

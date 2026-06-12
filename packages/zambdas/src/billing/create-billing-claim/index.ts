@@ -95,13 +95,13 @@ async function createWorkingCopies(
   const order: string[] = [];
 
   const patientUrn = `urn:uuid:${randomUUID()}`;
-  let patientCopy = prepareWorkingCopy(originals.patient, originals.patient.id!);
+  let patientCopy = prepareWorkingCopy<Patient>(originals.patient, originals.patient.id!);
   patientCopy = applyPatientOverrides(patientCopy, params.patientOverrides);
   requests.push({ method: 'POST', url: '/Patient', resource: patientCopy, fullUrl: patientUrn });
   order.push('patient');
 
   if (originals.coverage) {
-    const copy = prepareWorkingCopy(originals.coverage, originals.coverage.id!);
+    const copy = prepareWorkingCopy<Coverage>(originals.coverage, originals.coverage.id!);
     if (params.coverageOverrides?.subscriberId) copy.subscriberId = params.coverageOverrides.subscriberId;
     copy.beneficiary = { reference: patientUrn };
     copy.subscriber = { reference: patientUrn };
@@ -111,9 +111,11 @@ async function createWorkingCopies(
   }
 
   if (originals.renderingProvider) {
-    let copy = prepareWorkingCopy(originals.renderingProvider, originals.renderingProvider.id!);
+    let copy = prepareWorkingCopy<Practitioner | Organization>(
+      originals.renderingProvider,
+      originals.renderingProvider.id
+    );
     const overrides = params.renderingProvider?.overrides;
-    // Name overrides apply only to a Practitioner; NPI applies to either type.
     // TODO: an Organization rendering provider has no name override yet (schema offers firstName/lastName).
     if (copy.resourceType === 'Practitioner') {
       copy = applyPractitionerOverrides(copy, overrides);
@@ -124,7 +126,7 @@ async function createWorkingCopies(
     order.push('renderingProvider');
   }
   if (originals.facility) {
-    const copy = prepareWorkingCopy(originals.facility, originals.facility.id!);
+    const copy = prepareWorkingCopy<Location>(originals.facility, originals.facility.id!);
     if (params.facilityOverrides?.name) copy.name = params.facilityOverrides.name;
     if (params.facilityOverrides?.npi) applyNpiOverride(copy, params.facilityOverrides.npi);
     if (params.facilityOverrides?.address) {
@@ -134,9 +136,11 @@ async function createWorkingCopies(
     order.push('facility');
   }
   if (originals.billingProvider) {
-    const copy = prepareWorkingCopy(originals.billingProvider, originals.billingProvider.id!);
+    const copy = prepareWorkingCopy<Practitioner | Organization>(
+      originals.billingProvider,
+      originals.billingProvider.id
+    );
     const overrides = params.billingProvider?.overrides;
-    // Name override applies to an Organization; NPI/TIN apply to either type.
     // TODO: a Practitioner billing provider can't be renamed inline yet (needs firstName/lastName, not name).
     if (overrides?.name && copy.resourceType === 'Organization') copy.name = overrides.name;
     if (overrides?.npi) applyNpiOverride(copy, overrides.npi);

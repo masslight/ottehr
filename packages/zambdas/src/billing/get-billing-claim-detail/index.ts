@@ -124,7 +124,9 @@ async function performEffect(oystehr: Oystehr, params: GetClaimDetailParams): Pr
     patientGender: patient?.gender ?? '',
     patientId: patient?.id ?? '',
     patientOriginalId:
-      patient?.identifier?.find((id) => id.system === SOURCE_IDENTIFIER_SYSTEM)?.value?.replace('Patient/', '') ?? '',
+      patient?.extension
+        ?.find((ext) => ext.url === SOURCE_IDENTIFIER_SYSTEM)
+        ?.valueReference?.reference?.replace('Patient/', '') ?? '',
     patientAddress: formatAddress(patientAddr),
     patientAddressParts: toAddressParts(patientAddr),
     coverageFhirId: coverage?.id ?? '',

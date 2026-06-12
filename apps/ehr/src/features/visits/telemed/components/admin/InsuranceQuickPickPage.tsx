@@ -35,7 +35,16 @@ export default function InsuranceQuickPickPage(): ReactElement {
     <QuickPickEditor<InsuranceQuickPickData>
       title="Insurance Quick Picks"
       description="Manage common insurance carriers that appear as quick picks when selecting a patient's insurance."
-      columns={[{ label: 'Insurance Name', getValue: (item) => item.name }]}
+      columns={[
+        {
+          label: 'Insurance Name',
+          getValue: (item) => item.name,
+          getSortValue: (item) => {
+            const prefix = `${item.payerId} - `;
+            return item.name.startsWith(prefix) ? item.name.slice(prefix.length) : item.name;
+          },
+        },
+      ]}
       fields={[
         {
           key: 'name',

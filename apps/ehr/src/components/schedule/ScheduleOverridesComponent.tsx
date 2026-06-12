@@ -39,6 +39,7 @@ interface ScheduleOverridesProps {
   setToastMessage: React.Dispatch<React.SetStateAction<string | undefined>>;
   setToastType: React.Dispatch<React.SetStateAction<AlertColor | undefined>>;
   setSnackbarOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  ownerType?: string;
 }
 
 export function ScheduleOverridesComponent({
@@ -48,6 +49,7 @@ export function ScheduleOverridesComponent({
   setToastMessage,
   setToastType,
   setSnackbarOpen,
+  ownerType,
 }: ScheduleOverridesProps): ReactElement {
   const [isScheduleOverridesDialogOpen, setIsScheduleOverridesDialogOpen] = useState<boolean>(false);
   const [overridesOpen, setOverridesOpen] = React.useState<{ [index: string]: boolean }>({});
@@ -318,6 +320,7 @@ export function ScheduleOverridesComponent({
                                 closingHour={overrides[dateString].close}
                                 openingBuffer={overrides[dateString].openingBuffer}
                                 closingBuffer={overrides[dateString].closingBuffer}
+                                ownerType={ownerType}
                               />
                             </TableCell>
                           </TableRow>

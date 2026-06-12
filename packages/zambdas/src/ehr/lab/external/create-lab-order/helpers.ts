@@ -20,8 +20,10 @@ import {
   FHIR_IDC10_VALUESET_SYSTEM,
   GENERIC_LAB_ORDER_TAG,
   getFullestAvailableName,
+  getPatientFriendlyId,
   LAB_ORDER_CLINICAL_INFO_COMM_CATEGORY,
   LAB_ORDER_TASK,
+  LAB_ORDER_WITH_FRIENDLY_PATIENT_ID_DETAIL,
   LabPaymentMethod,
   ModifiedOrderingLocation,
   OrderableItemSearchResult,
@@ -219,6 +221,21 @@ export const formatServiceRequestConfig = (
           },
         ],
         text: PSC_HOLD_CONFIG.display,
+      },
+    ];
+  }
+
+  if (getPatientFriendlyId(patient)) {
+    serviceRequestConfig.orderDetail = [
+      ...(serviceRequestConfig.orderDetail ?? []),
+      {
+        coding: [
+          {
+            system: LAB_ORDER_WITH_FRIENDLY_PATIENT_ID_DETAIL.system,
+            code: LAB_ORDER_WITH_FRIENDLY_PATIENT_ID_DETAIL.code,
+            display: LAB_ORDER_WITH_FRIENDLY_PATIENT_ID_DETAIL.display,
+          },
+        ],
       },
     ];
   }

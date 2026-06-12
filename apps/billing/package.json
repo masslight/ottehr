@@ -1,6 +1,6 @@
 {
   "name": "billing-ui",
-  "version": "1.36.0",
+  "version": "1.36.13",
   "private": true,
   "type": "module",
   "engines": {
@@ -22,6 +22,17 @@
   "scripts": {
     "start": "vite --mode $([ \"$ENV\" = \"local\" ] && echo default || echo ${ENV:-default})",
     "build": "tsc && vite build --mode default",
+    "build:env": "ENV=$npm_config_env npm run build-skeleton",
+    "build:local": "npm run build",
+    "build:e2e": "ENV=e2e npm run build-skeleton",
+    "build:e2e2": "ENV=e2e2 npm run build-skeleton",
+    "build:e2e3": "ENV=e2e3 npm run build-skeleton",
+    "build:development": "ENV=development npm run build-skeleton",
+    "build:testing": "ENV=testing npm run build-skeleton",
+    "build:staging": "ENV=staging npm run build-skeleton",
+    "build:demo": "ENV=demo npm run build-skeleton",
+    "build:production": "ENV=production npm run build-skeleton",
+    "build-skeleton": "tsc && vite build --mode ${ENV}",
     "lint": "eslint --ext .ts,.tsx --max-warnings 0 ."
   },
   "dependencies": {

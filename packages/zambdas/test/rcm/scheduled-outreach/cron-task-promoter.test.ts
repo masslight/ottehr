@@ -1,6 +1,11 @@
 import type { APIGatewayProxyResult } from 'aws-lambda';
 import { PlanDefinition, Task } from 'fhir/r4b';
+import { DateTime } from 'luxon';
+import { PRIVATE_EXTENSION_BASE_URL } from 'utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { dedupeOutreachTasks } from '../../../src/cron/rcm/outreach-task-promoter/dedupe-outreach-tasks';
+import { index } from '../../../src/cron/rcm/outreach-task-promoter/index';
+import { parseNotificationsTimeRestriction } from '../../../src/rcm/scheduled-outreach-config/helpers';
 import type { ZambdaInput } from '../../../src/shared/types/common';
 
 // ── Mocks ──────────────────────────────────────────────────────────────────
@@ -79,12 +84,10 @@ function makeDraftTask(id: string, overrides?: Partial<Task>): Task {
 }
 
 describe('cron-outreach-task-promoter', () => {
-  let handler: ZambdaHandler;
+  const handler = index as ZambdaHandler;
 
-  beforeEach(async () => {
+  beforeEach(() => {
     vi.clearAllMocks();
-    const mod = await import('../../../src/cron/rcm/outreach-task-promoter/index');
-    handler = mod.index as ZambdaHandler;
   });
 
   it('promotes draft tasks to requested status', async () => {
@@ -139,29 +142,56 @@ describe('cron-outreach-task-promoter', () => {
     expect(mockPatch).toHaveBeenCalledTimes(3);
   });
 
+  it('cancels duplicate drafts and promotes only one', async () => {
+    const TAG_SYSTEM = `${PRIVATE_EXTENSION_BASE_URL}/outreach-task`;
+    const tag = [
+      { system: TAG_SYSTEM, code: 'discharge-time' },
+      { system: `${TAG_SYSTEM}/action-id`, code: 'act-1' },
+    ];
+    const dupA = makeDraftTask('dup-a', {
+      authoredOn: '2024-01-01T00:00:00Z',
+      focus: { reference: 'Encounter/1' },
+      meta: { tag },
+    });
+    const dupB = makeDraftTask('dup-b', {
+      authoredOn: '2024-01-02T00:00:00Z',
+      focus: { reference: 'Encounter/1' },
+      meta: { tag },
+    });
+    mockSearch.mockResolvedValueOnce(mockBundle([dupA, dupB]));
+    mockPatch.mockResolvedValue({});
+
+    const result = await handler({ headers: null, body: null, secrets: testSecrets });
+
+    const body = JSON.parse(result.body);
+    expect(body.promoted).toBe(1);
+    expect(body.cancelled).toBe(1);
+
+    // One cancel patch (for the later duplicate) and one promote patch (for the earlier one)
+    const cancelCall = mockPatch.mock.calls.find((c) =>
+      c[0].operations.some((op: any) => op.path === '/status' && op.value === 'cancelled')
+    );
+    const promoteCall = mockPatch.mock.calls.find((c) =>
+      c[0].operations.some((op: any) => op.path === '/status' && op.value === 'requested')
+    );
+    expect(cancelCall?.[0].id).toBe('dup-b');
+    expect(promoteCall?.[0].id).toBe('dup-a');
+  });
+
   it('throws when secrets are not defined', async () => {
     await expect(handler({ headers: null, body: null, secrets: null })).rejects.toThrow('Secrets are not defined');
   });
 });
 
 describe('cron-outreach-task-promoter with SMS time restriction', () => {
-  let handler: ZambdaHandler;
-  let parseNotificationsTimeRestriction: any;
+  const handler = index as ZambdaHandler;
 
-  beforeEach(async () => {
+  beforeEach(() => {
     vi.clearAllMocks();
-
-    // Re-import to get the mocked version
-    const helpersModule = await import('../../../src/rcm/scheduled-outreach-config/helpers');
-    parseNotificationsTimeRestriction = helpersModule.parseNotificationsTimeRestriction;
-
-    const mod = await import('../../../src/cron/rcm/outreach-task-promoter/index');
-    handler = mod.index as ZambdaHandler;
   });
 
   it('blocks SMS tasks when outside notification window', async () => {
     // Mock DateTime.now() to a fixed time outside the narrow window to avoid flakiness
-    const { DateTime } = await import('luxon');
     const realNow = DateTime.now;
     vi.spyOn(DateTime, 'now').mockImplementation(() =>
       realNow.call(DateTime).set({ hour: 12, minute: 0, second: 0, millisecond: 0 })
@@ -186,5 +216,124 @@ describe('cron-outreach-task-promoter with SMS time restriction', () => {
     expect(body.blocked).toBe(1);
     expect(body.promoted).toBe(0);
     expect(mockPatch).not.toHaveBeenCalled();
+  });
+});
+
+// ── Deduplication ────────────────────────────────────────────────────────────
+
+describe('dedupeOutreachTasks', () => {
+  const TAG_SYSTEM = `${PRIVATE_EXTENSION_BASE_URL}/outreach-task`;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  function makeKeyedTask(
+    id: string,
+    opts: {
+      focus: string;
+      triggerEvent: string;
+      actionId: string;
+      birthdayYear?: string;
+      status?: Task['status'];
+      authoredOn?: string;
+    }
+  ): Task {
+    const tag = [
+      { system: TAG_SYSTEM, code: opts.triggerEvent },
+      { system: `${TAG_SYSTEM}/action-id`, code: opts.actionId },
+    ];
+    if (opts.birthdayYear) {
+      tag.push({ system: `${TAG_SYSTEM}/birthday-year`, code: opts.birthdayYear });
+    }
+    return {
+      resourceType: 'Task',
+      id,
+      status: opts.status ?? 'draft',
+      intent: 'order',
+      focus: { reference: opts.focus },
+      authoredOn: opts.authoredOn,
+      executionPeriod: { start: '2024-01-01T00:00:00Z' },
+      meta: { tag },
+    } as Task;
+  }
+
+  it('passes through unique tasks untouched', () => {
+    const tasks = [
+      makeKeyedTask('a', { focus: 'Encounter/1', triggerEvent: 'discharge-time', actionId: 'act-1' }),
+      makeKeyedTask('b', { focus: 'Encounter/2', triggerEvent: 'discharge-time', actionId: 'act-1' }),
+    ];
+    const { tasksToProcess, tasksToCancel } = dedupeOutreachTasks(tasks);
+    expect(tasksToProcess.map((t) => t.id).sort()).toEqual(['a', 'b']);
+    expect(tasksToCancel).toHaveLength(0);
+  });
+
+  it('collapses duplicate drafts, keeping the earliest-authored and cancelling the rest', () => {
+    const tasks = [
+      makeKeyedTask('newer', {
+        focus: 'Encounter/1',
+        triggerEvent: 'discharge-time',
+        actionId: 'act-1',
+        authoredOn: '2024-01-02T00:00:00Z',
+      }),
+      makeKeyedTask('earlier', {
+        focus: 'Encounter/1',
+        triggerEvent: 'discharge-time',
+        actionId: 'act-1',
+        authoredOn: '2024-01-01T00:00:00Z',
+      }),
+    ];
+    const { tasksToProcess, tasksToCancel } = dedupeOutreachTasks(tasks);
+    expect(tasksToProcess.map((t) => t.id)).toEqual(['earlier']);
+    expect(tasksToCancel.map((c) => c.task.id)).toEqual(['newer']);
+  });
+
+  it('keeps an already-requested duplicate and cancels only the redundant draft', () => {
+    const tasks = [
+      makeKeyedTask('req', {
+        focus: 'Encounter/1',
+        triggerEvent: 'discharge-time',
+        actionId: 'act-1',
+        status: 'requested',
+      }),
+      makeKeyedTask('draft', {
+        focus: 'Encounter/1',
+        triggerEvent: 'discharge-time',
+        actionId: 'act-1',
+        status: 'draft',
+      }),
+    ];
+    const { tasksToProcess, tasksToCancel } = dedupeOutreachTasks(tasks);
+    // The requested task is not re-processed; the draft is cancelled.
+    expect(tasksToProcess).toHaveLength(0);
+    expect(tasksToCancel.map((c) => c.task.id)).toEqual(['draft']);
+  });
+
+  it('treats same action-id across different birthday years as distinct', () => {
+    const tasks = [
+      makeKeyedTask('y2026', {
+        focus: 'Patient/1',
+        triggerEvent: 'patient-birthday',
+        actionId: 'act-1',
+        birthdayYear: '2026',
+      }),
+      makeKeyedTask('y2027', {
+        focus: 'Patient/1',
+        triggerEvent: 'patient-birthday',
+        actionId: 'act-1',
+        birthdayYear: '2027',
+      }),
+    ];
+    const { tasksToProcess, tasksToCancel } = dedupeOutreachTasks(tasks);
+    expect(tasksToProcess.map((t) => t.id).sort()).toEqual(['y2026', 'y2027']);
+    expect(tasksToCancel).toHaveLength(0);
+  });
+
+  it('treats tasks without a derivable key as unique', () => {
+    const noKeyA = { resourceType: 'Task', id: 'nk-1', status: 'draft', intent: 'order' } as Task;
+    const noKeyB = { resourceType: 'Task', id: 'nk-2', status: 'draft', intent: 'order' } as Task;
+    const { tasksToProcess, tasksToCancel } = dedupeOutreachTasks([noKeyA, noKeyB]);
+    expect(tasksToProcess.map((t) => t.id).sort()).toEqual(['nk-1', 'nk-2']);
+    expect(tasksToCancel).toHaveLength(0);
   });
 });

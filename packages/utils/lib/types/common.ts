@@ -642,6 +642,16 @@ export enum ServiceMode {
   'virtual' = 'virtual',
 }
 
+/**
+ * Booking-flow capability a service supports. Narrower than the appointment-
+ * lifecycle `VisitType` enum elsewhere in the codebase — this enum is the
+ * single source of truth for "can this service be prebooked / walked into".
+ */
+export enum ServiceVisitType {
+  'prebook' = 'prebook',
+  'walk-in' = 'walk-in',
+}
+
 export enum ScheduleType {
   'location' = 'location',
   'group' = 'group',

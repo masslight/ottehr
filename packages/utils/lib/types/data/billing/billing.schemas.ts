@@ -268,6 +268,10 @@ export const CreateBillingWorkingCopyInputSchema = z.object({
   overrides: z.record(z.unknown()).optional(),
 });
 
+export const CreateBillingClaimFromEncounterInputSchema = z.object({
+  encounterId: z.string().uuid(),
+});
+
 const updatableAddressSchema = z
   .object({
     line1: z.string().optional(),
@@ -364,5 +368,6 @@ export type CreateBillingPatientInput = z.infer<typeof CreateBillingPatientInput
 export type UpdateBillingPatientInput = z.infer<typeof UpdateBillingPatientInputSchema>;
 export type UpdateBillingProviderInput = z.infer<typeof UpdateBillingProviderInputSchema>;
 export type CreateBillingWorkingCopyInput = z.infer<typeof CreateBillingWorkingCopyInputSchema>;
+export type CreateBillingClaimFromEncounterInput = z.input<typeof CreateBillingClaimFromEncounterInputSchema>;
 export type UpdateBillingResourceInput = z.infer<typeof UpdateBillingResourceInputSchema>;
 export type BillingResourceType = (typeof ALLOWED_BILLING_RESOURCE_TYPES)[number];

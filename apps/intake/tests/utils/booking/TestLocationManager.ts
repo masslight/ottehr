@@ -13,6 +13,17 @@ import {
 import { ResourceHandler } from '../resource-handler';
 
 /**
+ * Timezones the test fixtures persist on their Locations. Slot button text is
+ * rendered in the Location's timezone; helpers that parse those buttons must
+ * be told which TZ to interpret them in. Keep these in sync with the explicit
+ * `timezone` values passed to `createLocationSchedule` in this file.
+ */
+export const TEST_FIXTURE_TIMEZONES = {
+  inPerson: 'America/New_York',
+  virtual: 'America/Los_Angeles',
+} as const;
+
+/**
  * Created group booking resources (HealthcareService with Location and Practitioner members)
  */
 export interface CreatedGroupBookingResources {
@@ -75,27 +86,58 @@ export class TestLocationManager {
   }
 
   /**
-   * Create a 24/7 schedule for a resource (Location, Practitioner, or HealthcareService)
+   * Create a 24/7 Location-actored schedule. Capacity is set via `prebookSlots`
+   * (the Location-semantic field: slots-per-hour at the default cadence).
+   * Default of 32 gives ~8 effective providers at 15-min cadence — plenty of
+   * test headroom while staying within a Location's natural shape.
    */
-  private async create247Schedule(params: {
+  private async createLocationSchedule(params: {
+    actorId: string;
+    actorName: string;
+    processId: string;
+    tagCode: string;
+    prebookSlots?: number;
+    timezone?: string;
+  }): Promise<Schedule> {
+    const { prebookSlots = 32 } = params;
+    const hours = Array.from({ length: 24 }, (_, hour) => ({ hour, prebookSlots }));
+    return this.buildAndPersist247Schedule({ ...params, actorType: 'Location', hours });
+  }
+
+  /**
+   * Create a 24/7 Practitioner-actored schedule. Capacity is set via
+   * `providers` (used as-is). Default of 1 matches the PR-as-Schedule
+   * invariant — one human, one calendar. Tests that need to book more than
+   * one concurrent appointment against the same PR are testing the wrong
+   * thing semantically; raise the cap deliberately if a test really needs it.
+   */
+  private async createPractitionerSchedule(params: {
+    actorId: string;
+    actorName: string;
+    processId: string;
+    tagCode: string;
+    providers?: number;
+    timezone?: string;
+  }): Promise<Schedule> {
+    const { providers = 1 } = params;
+    const hours = Array.from({ length: 24 }, (_, hour) => ({ hour, providers }));
+    return this.buildAndPersist247Schedule({ ...params, actorType: 'Practitioner', hours });
+  }
+
+  private async buildAndPersist247Schedule(params: {
     actorType: 'Location' | 'Practitioner' | 'HealthcareService';
     actorId: string;
     actorName: string;
     processId: string;
     tagCode: string;
-    capacity?: number;
+    hours: Array<Record<string, number>>;
     timezone?: string;
   }): Promise<Schedule> {
     const oystehr = this.resourceHandler.apiClient;
-    const { actorType, actorId, actorName, processId, tagCode, capacity = 10, timezone = 'America/New_York' } = params;
+    const { actorType, actorId, actorName, processId, tagCode, hours, timezone = 'America/New_York' } = params;
 
     const now = DateTime.now().toUTC();
     const oneYearFromNow = now.plus({ years: 1 });
-
-    const hours = Array.from({ length: 24 }, (_, hour) => ({
-      hour,
-      capacity,
-    }));
 
     const daySchedule = {
       open: 0,
@@ -246,13 +288,11 @@ export class TestLocationManager {
     }
 
     // Create 24/7 schedule for the location
-    this.walkinSchedule = await this.create247Schedule({
-      actorType: 'Location',
+    this.walkinSchedule = await this.createLocationSchedule({
       actorId: this.walkinLocation.id,
       actorName: this.walkinLocation.name || 'Walk-in Location',
       processId,
       tagCode: 'test-schedule-24-7',
-      capacity: 10,
     });
 
     return { location: this.walkinLocation, schedule: this.walkinSchedule };
@@ -349,7 +389,7 @@ export class TestLocationManager {
         tag: [
           {
             system: E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM,
-            code: `${processId}-test-location-prebook`,
+            code: `${processId}-test-location-prebook-in-person`,
             display: 'E2E Test Location Prebook',
           },
         ],
@@ -362,14 +402,12 @@ export class TestLocationManager {
       throw new Error('Failed to create prebook in-person test location');
     }
 
-    // Create 24/7 schedule with 8 slots per hour
-    this.prebookInPersonSchedule = await this.create247Schedule({
-      actorType: 'Location',
+    // Create 24/7 schedule
+    this.prebookInPersonSchedule = await this.createLocationSchedule({
       actorId: this.prebookInPersonLocation.id,
       actorName: this.prebookInPersonLocation.name || 'Prebook In-Person Location',
       processId,
       tagCode: 'test-schedule-prebook-in-person',
-      capacity: 8,
     });
 
     return { location: this.prebookInPersonLocation, schedule: this.prebookInPersonSchedule };
@@ -596,24 +634,20 @@ export class TestLocationManager {
     console.log(`Created group PractitionerRole: ${createdPractitionerRole.id}`);
 
     // Create Schedule for the Location
-    const locationSchedule = await this.create247Schedule({
-      actorType: 'Location',
+    const locationSchedule = await this.createLocationSchedule({
       actorId: createdLocation.id,
       actorName: createdLocation.name || 'Group Location',
       processId,
       tagCode: `${tagCode}-location-schedule`,
-      capacity: 8,
     });
     console.log(`Created group location schedule: ${locationSchedule.id}`);
 
     // Create Schedule for the Practitioner
-    const practitionerSchedule = await this.create247Schedule({
-      actorType: 'Practitioner',
+    const practitionerSchedule = await this.createPractitionerSchedule({
       actorId: createdPractitioner.id,
       actorName: 'Dr. E2E TestProvider',
       processId,
       tagCode: `${tagCode}-practitioner-schedule`,
-      capacity: 8,
     });
     console.log(`Created group practitioner schedule: ${practitionerSchedule.id}`);
 
@@ -804,14 +838,12 @@ export class TestLocationManager {
       throw new Error('Failed to create prebook virtual test location');
     }
 
-    // Create 24/7 schedule with 8 slots per hour
-    this.prebookVirtualSchedule = await this.create247Schedule({
-      actorType: 'Location',
+    // Create 24/7 schedule
+    this.prebookVirtualSchedule = await this.createLocationSchedule({
       actorId: this.prebookVirtualLocation.id,
       actorName: this.prebookVirtualLocation.name || 'Prebook Virtual Location',
       processId,
       tagCode: 'test-schedule-prebook-virtual',
-      capacity: 8,
       timezone: 'America/Los_Angeles',
     });
 
@@ -988,13 +1020,11 @@ export class TestLocationManager {
     }
 
     // Create 24/7 schedule for the location
-    this.deeplinkOpenSchedule = await this.create247Schedule({
-      actorType: 'Location',
+    this.deeplinkOpenSchedule = await this.createLocationSchedule({
       actorId: this.deeplinkOpenLocation.id,
       actorName: this.deeplinkOpenLocation.name || 'Deeplink Open Location',
       processId,
       tagCode: 'test-schedule-deeplink-open',
-      capacity: 10,
     });
 
     return { location: this.deeplinkOpenLocation, schedule: this.deeplinkOpenSchedule };
