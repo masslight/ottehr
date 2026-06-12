@@ -298,12 +298,8 @@ export async function performEffect(
       operations: [
         {
           op: 'replace',
-          path: 'link',
-          value: [
-            ...(billingResources.person.link ?? []),
-            { target: uuidOrUrnReference('Patient', mainPatient.id!) },
-            { target: uuidOrUrnReference('Patient', claimPatient.id) },
-          ],
+          path: '/link',
+          value: [...(billingResources.person.link ?? []), { target: uuidOrUrnReference('Patient', claimPatient.id) }],
         },
       ],
       ifMatch: `W/"${billingResources.person.meta?.versionId}"`,
