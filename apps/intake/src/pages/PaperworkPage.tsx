@@ -71,6 +71,10 @@ interface PaperworkStateActions {
   clear: () => void;
 }
 
+// Practice-managed insertion boundary per appointment — stable for the visit, so one
+// fetch per session instead of one per page transition.
+const pmInsertAfterCache = new Map<string, string | null>();
+
 const PAPERWORK_STATE_INITIAL: PaperworkState = {
   updateTimestamp: undefined,
   paperworkInProgress: {},
@@ -450,9 +454,48 @@ export const PaperworkPage: FC = () => {
             saveProgress(currentPage.linkId, undefined);
             const nextPage = getNextPage(updatedPaperwork);
 
-            navigate(
-              `/paperwork/${appointmentID}/${nextPage !== undefined ? slugFromLinkId(nextPage.linkId) : 'review'}`
-            );
+            if (nextPage !== undefined) {
+              // Practice-managed form insertion. The server is the single source of truth
+              // for the insertion boundary (insertAfterPageLinkId) — guessing it from page
+              // name substrings silently skips form insertion on deployments whose intake
+              // pages are named differently. The boundary is stable for the appointment so
+              // it's fetched once and cached; questionnaire completion statuses change as
+              // forms are filled, so those are re-fetched when actually at the boundary.
+              try {
+                const fetchPmData = async (): Promise<any> => {
+                  const pmResponse = await zambdaClient.execute('get-practice-managed-questionnaires', {
+                    appointmentId: appointmentID,
+                  });
+                  return typeof pmResponse.output === 'string' ? JSON.parse(pmResponse.output) : pmResponse.output;
+                };
+
+                let freshPmData: any | undefined;
+                let insertAfter: string | null | undefined = pmInsertAfterCache.get(appointmentID);
+                if (insertAfter === undefined) {
+                  freshPmData = await fetchPmData();
+                  insertAfter = (freshPmData?.insertAfterPageLinkId as string | undefined) ?? null;
+                  pmInsertAfterCache.set(appointmentID, insertAfter);
+                }
+
+                if (insertAfter && currentPage.linkId === insertAfter) {
+                  const pmData = freshPmData ?? (await fetchPmData());
+                  const pmQuestionnaires = pmData?.questionnaires || [];
+                  const firstIncomplete = pmQuestionnaires.find(
+                    (q: any) => q.questionnaireResponseStatus !== 'completed'
+                  );
+                  if (firstIncomplete) {
+                    const returnSlug = slugFromLinkId(nextPage.linkId);
+                    navigate(`/paperwork/${appointmentID}/custom/${firstIncomplete.id}/${returnSlug}`);
+                    return;
+                  }
+                }
+              } catch (err) {
+                console.error('Failed to check practice-managed questionnaires:', err);
+              }
+              navigate(`/paperwork/${appointmentID}/${slugFromLinkId(nextPage.linkId)}`);
+            } else {
+              navigate(`/paperwork/${appointmentID}/review`);
+            }
           } catch (e) {
             // todo: handle this better
             console.error('error patching paperwork', e);

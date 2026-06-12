@@ -1,0 +1,268 @@
+import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
+import { Alert, Box, CircularProgress, Typography } from '@mui/material';
+import { QuestionnaireItem, QuestionnaireResponseItem } from 'fhir/r4b';
+import { FC, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { useParams } from 'react-router-dom';
+import {
+  buildQuestionnairePages,
+  evaluateCalculatedExpressions,
+  formDataToResponseItem,
+  QuestionnaireFormPage,
+  responseItemsToFormValues,
+} from 'ui-components';
+import { PageContainer } from '../components';
+import { useUCZambdaClient, ZambdaClient } from '../hooks/useUCZambdaClient';
+
+const GET_PM_ZAMBDA = 'get-practice-managed-questionnaires';
+const SAVE_PM_ZAMBDA = 'save-practice-managed-response';
+const FINALIZE_PM_ZAMBDA = 'finalize-practice-managed-response';
+
+interface PracticeManagedQ {
+  id: string;
+  url: string;
+  version?: string;
+  title: string;
+  item: QuestionnaireItem[];
+  questionnaireResponseId?: string;
+  questionnaireResponseItems?: QuestionnaireResponseItem[];
+}
+
+export const StandaloneFormPage: FC = () => {
+  // Two route shapes converge here:
+  //   /forms/:appointmentId/:questionnaireId   (visit-scoped)
+  //   /forms/patient/:patientId/:questionnaireId  (patient-scoped, no encounter)
+  const { appointmentId, patientId: patientIdParam, questionnaireId } = useParams();
+  const zambdaClient = useUCZambdaClient({ tokenless: false });
+
+  const [questionnaire, setQuestionnaire] = useState<PracticeManagedQ | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState(false);
+  const [completed, setCompleted] = useState(false);
+  const [accessDeniedMessage, setAccessDeniedMessage] = useState<string | null>(null);
+  const [currentPageIndex, setCurrentPageIndex] = useState(0);
+  const [allAnswers, setAllAnswers] = useState<Record<string, any>>({});
+  const [qrId, setQrId] = useState<string | undefined>(undefined);
+  const [encounterId, setEncounterId] = useState<string>('');
+  const [patientId, setPatientId] = useState<string>('');
+
+  const methods = useForm();
+
+  useEffect(() => {
+    if (!zambdaClient || (!appointmentId && !patientIdParam)) return;
+
+    const fetchData = async (): Promise<void> => {
+      try {
+        const response = await (zambdaClient as ZambdaClient).execute(GET_PM_ZAMBDA, {
+          ...(appointmentId ? { appointmentId } : { patientId: patientIdParam }),
+          questionnaireId,
+        });
+        const data = typeof response.output === 'string' ? JSON.parse(response.output) : response.output;
+
+        if (data?.error === 'ACCESS_DENIED') {
+          setAccessDeniedMessage(data.message);
+          return;
+        }
+
+        const questionnaires = (data?.questionnaires || []) as PracticeManagedQ[];
+        setEncounterId(data?.encounterId || '');
+        setPatientId(data?.patientId || '');
+
+        const current = questionnaires.find((q) => q.id === questionnaireId);
+        if (current) {
+          setQuestionnaire(current);
+          setQrId(current.questionnaireResponseId);
+          // Resume an in-progress response — without seeding, page saves would
+          // silently overwrite the previously-entered answers.
+          const resumed = responseItemsToFormValues(current.questionnaireResponseItems);
+          if (Object.keys(resumed).length > 0) {
+            setAllAnswers(resumed);
+            methods.reset(resumed);
+          }
+        }
+      } catch (err: any) {
+        const errBody = err?.cause || err;
+        if (errBody?.error === 'ACCESS_DENIED') {
+          setAccessDeniedMessage(errBody.message);
+        } else {
+          console.error('Failed to fetch questionnaire:', err);
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    void fetchData();
+  }, [zambdaClient, appointmentId, patientIdParam, questionnaireId, methods]);
+
+  const pages = useMemo(
+    () => buildQuestionnairePages(questionnaire?.item || [], questionnaire?.title),
+    [questionnaire]
+  );
+  const currentPage = pages[currentPageIndex];
+  const isLastPage = currentPageIndex >= pages.length - 1;
+
+  // Restore previously-entered answers on page change so Back doesn't blank the form.
+  const allAnswersRef = useRef(allAnswers);
+  allAnswersRef.current = allAnswers;
+  useEffect(() => {
+    methods.reset(allAnswersRef.current);
+  }, [currentPageIndex, methods]);
+
+  const handleSubmit = useCallback(
+    async (data: Record<string, any>) => {
+      if (!zambdaClient || !questionnaire || !currentPage) return;
+
+      setSaving(true);
+      setSaveError(false);
+      try {
+        const updatedAnswers = { ...allAnswers, ...data };
+        setAllAnswers(updatedAnswers);
+
+        const pageItem = formDataToResponseItem(data, currentPage);
+
+        const response = await (zambdaClient as ZambdaClient).execute(SAVE_PM_ZAMBDA, {
+          questionnaireResponseId: qrId,
+          questionnaireUrl: questionnaire.url,
+          questionnaireVersion: questionnaire.version,
+          encounterId,
+          patientId,
+          pageIndex: currentPageIndex,
+          answers: pageItem,
+        });
+        const result = typeof response.output === 'string' ? JSON.parse(response.output) : response.output;
+
+        const currentQrId = result?.questionnaireResponseId || qrId;
+        if (currentQrId) {
+          setQrId(currentQrId);
+        }
+
+        if (!isLastPage) {
+          setCurrentPageIndex((prev) => prev + 1);
+        } else {
+          // Evaluate calculated expressions and save computed values
+          const qItems = questionnaire.item || [];
+          const computedValues = evaluateCalculatedExpressions(qItems, updatedAnswers);
+          const computedEntries = Object.entries(computedValues).filter(([, v]) => v !== undefined);
+
+          if (computedEntries.length > 0) {
+            const computedQrItems = computedEntries.map(([linkId, value]) => ({
+              linkId,
+              answer: [
+                typeof value === 'boolean'
+                  ? { valueBoolean: value }
+                  : typeof value === 'number'
+                  ? { valueDecimal: value }
+                  : { valueString: String(value) },
+              ],
+            }));
+
+            await (zambdaClient as ZambdaClient).execute(SAVE_PM_ZAMBDA, {
+              questionnaireResponseId: currentQrId,
+              questionnaireUrl: questionnaire.url,
+              questionnaireVersion: questionnaire.version,
+              encounterId,
+              patientId,
+              pageIndex: currentPageIndex + 1,
+              answers: { linkId: 'results', item: computedQrItems },
+            });
+          }
+
+          // Finalize: mark complete, render PDF, and file into the patient's Paperwork folder.
+          // A finalize failure propagates to the outer catch — the patient must NOT see
+          // "Form Submitted" when the form never completed; Submit can be pressed again.
+          if (currentQrId) {
+            await (zambdaClient as ZambdaClient).execute(FINALIZE_PM_ZAMBDA, {
+              questionnaireResponseId: currentQrId,
+            });
+          }
+
+          setCompleted(true);
+        }
+      } catch (err) {
+        // Stay on the page and tell the patient — a silent failure looks like a dead
+        // Submit button and risks the patient closing the tab thinking they're done.
+        console.error('Failed to save response:', err);
+        setSaveError(true);
+      } finally {
+        setSaving(false);
+      }
+    },
+    [zambdaClient, questionnaire, currentPage, qrId, encounterId, patientId, currentPageIndex, isLastPage, allAnswers]
+  );
+
+  if (loading) {
+    return (
+      <PageContainer>
+        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 300 }}>
+          <CircularProgress />
+        </Box>
+      </PageContainer>
+    );
+  }
+
+  if (accessDeniedMessage) {
+    return (
+      <PageContainer>
+        <Box sx={{ textAlign: 'center', py: 6 }}>
+          <Typography variant="h6" color="error" sx={{ mb: 2 }}>
+            Access Denied
+          </Typography>
+          <Typography variant="body1" color="text.secondary">
+            {accessDeniedMessage}
+          </Typography>
+        </Box>
+      </PageContainer>
+    );
+  }
+
+  if (!questionnaire || !currentPage) {
+    return (
+      <PageContainer>
+        <Typography color="error" sx={{ p: 3 }}>
+          Form not found.
+        </Typography>
+      </PageContainer>
+    );
+  }
+
+  if (completed) {
+    return (
+      <PageContainer>
+        <Box sx={{ textAlign: 'center', py: 6 }}>
+          <CheckCircleOutlineIcon sx={{ fontSize: 64, color: 'success.main', mb: 2 }} />
+          <Typography variant="h5" sx={{ fontWeight: 700, color: '#0F347C', mb: 1 }}>
+            Form Submitted
+          </Typography>
+          <Typography variant="body1" color="text.secondary">
+            Thank you for completing {questionnaire.title}. You may close this page.
+          </Typography>
+        </Box>
+      </PageContainer>
+    );
+  }
+
+  return (
+    <PageContainer>
+      {saveError && (
+        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setSaveError(false)}>
+          We couldn't save your answers. Please check your connection and try again.
+        </Alert>
+      )}
+      <QuestionnaireFormPage
+        page={currentPage}
+        title={currentPage.text || questionnaire.title}
+        subtitle={questionnaire.title}
+        methods={methods}
+        onSubmit={handleSubmit}
+        onBack={currentPageIndex > 0 ? () => setCurrentPageIndex((prev) => prev - 1) : undefined}
+        isLastPage={isLastPage}
+        saving={saving}
+        submitLabel={isLastPage ? 'Submit' : 'Continue'}
+      />
+    </PageContainer>
+  );
+};
+
+export default StandaloneFormPage;

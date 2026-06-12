@@ -11,6 +11,7 @@ export * from './forms';
 export * from './review-of-systems';
 export * from './intake-paperwork';
 export * from './intake-paperwork-virtual';
+export * from './intake-paperwork-lite';
 export * from './legal';
 export * from './medical-history';
 export * from './patient-record';

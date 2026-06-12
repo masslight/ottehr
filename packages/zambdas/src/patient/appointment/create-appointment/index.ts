@@ -24,6 +24,7 @@ import { DateTime } from 'luxon';
 import { uuid } from 'short-uuid';
 import {
   ACCIDENT_TYPE_SYSTEM,
+  APPOINTMENT_PAPERWORK_SUBTYPE_SYSTEM,
   CanonicalUrl,
   CreateAppointmentResponse,
   CREATED_BY_SYSTEM,
@@ -98,6 +99,7 @@ interface CreateAppointmentInput {
   bookingLocation?: ResolvedBookingLocation;
   /** Resolved attending Practitioner (populated for PractitionerRole bookings). */
   attendingPractitioner?: ResolvedAttendingPractitioner;
+  paperworkSubtype?: string;
 }
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
@@ -136,6 +138,7 @@ export const index = wrapHandler('create-appointment', async (input: ZambdaInput
     followUpOptions,
     bookingLocation,
     attendingPractitioner,
+    paperworkSubtype,
   } = effectInput;
   console.log('effectInput', effectInput);
   console.timeEnd('performing-complex-validation');
@@ -171,6 +174,7 @@ export const index = wrapHandler('create-appointment', async (input: ZambdaInput
       followUpOptions,
       bookingLocation,
       attendingPractitioner,
+      paperworkSubtype,
     },
     oystehr
   );
@@ -221,6 +225,7 @@ export async function createAppointment(
     appointmentMetadata,
     bookingLocation,
     attendingPractitioner,
+    paperworkSubtype,
   } = input;
 
   const { verifiedPhoneNumber, listRequests, createPatientRequest, updatePatientRequest, isEHRUser, maybeFhirPatient } =
@@ -304,6 +309,7 @@ export async function createAppointment(
     slot,
     appointmentMetadata,
     followUpOptions: input.followUpOptions,
+    paperworkSubtype,
   });
 
   let relatedPersonId = '';
@@ -397,6 +403,7 @@ interface TransactionInput {
   slot?: Slot;
   appointmentMetadata?: Appointment['meta'];
   followUpOptions?: FollowUpOptions;
+  paperworkSubtype?: string;
 }
 interface TransactionOutput {
   appointment: Appointment;
@@ -432,6 +439,7 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
     slot,
     appointmentMetadata,
     followUpOptions,
+    paperworkSubtype,
   } = input;
 
   const parentEncounterId = followUpOptions?.parentEncounterId;
@@ -622,6 +630,19 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
     slot: slotReference ? [slotReference] : undefined,
     appointmentType: {
       text: visitType,
+      // When the appointment uses a non-default paperwork flow (e.g. consent-form-only for
+      // a return visit that skips full demographics), tag the coding so the EHR can surface
+      // a paperwork-type badge / filter without re-reading the encounter's QR canonical.
+      ...(paperworkSubtype
+        ? {
+            coding: [
+              {
+                system: APPOINTMENT_PAPERWORK_SUBTYPE_SYSTEM,
+                code: paperworkSubtype,
+              },
+            ],
+          }
+        : {}),
     },
     serviceCategory: slot?.serviceCategory,
     description: reasonForVisit,

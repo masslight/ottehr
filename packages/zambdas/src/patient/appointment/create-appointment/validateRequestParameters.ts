@@ -4,6 +4,8 @@ import { DateTime } from 'luxon';
 import {
   AllStates,
   APPOINTMENT_ALREADY_EXISTS_ERROR,
+  APPOINTMENT_PAPERWORK_SUBTYPE,
+  AppointmentPaperworkSubtype,
   CanonicalUrl,
   CHARACTER_LIMIT_EXCEEDED_ERROR,
   checkSlotAvailable,
@@ -60,7 +62,7 @@ export function validateCreateAppointmentParams(input: ZambdaInput, user: User):
   const isEHRUser = user && checkIsEHRUser(user);
 
   const bodyJSON = JSON.parse(input.body);
-  const { slotId, language, patient, locationState, appointmentMetadata, followUpOptions } = bodyJSON;
+  const { slotId, language, patient, locationState, appointmentMetadata, followUpOptions, paperworkSubtype } = bodyJSON;
   console.log('patient:', patient, 'slotId:', slotId);
   // Check existence of necessary fields
   if (patient === undefined) {
@@ -153,6 +155,7 @@ export function validateCreateAppointmentParams(input: ZambdaInput, user: User):
     locationState,
     appointmentMetadata,
     followUpOptions: validatedFollowUpOptions,
+    paperworkSubtype,
   };
 }
 
@@ -190,6 +193,7 @@ export interface CreateAppointmentEffectInput {
   locationState?: string;
   appointmentMetadata?: Appointment['meta'];
   followUpOptions?: FollowUpOptions;
+  paperworkSubtype?: AppointmentPaperworkSubtype;
   /**
    * Unified booking-location resolution. Populated when the booking should be
    * attributed to a specific Location — either because the scheduleOwner IS
@@ -251,7 +255,7 @@ export const createAppointmentComplexValidation = async (
   input: CreateAppointmentBasicInput,
   oystehrClient: Oystehr
 ): Promise<CreateAppointmentEffectInput> => {
-  const { slotId, isEHRUser, user, patient, appointmentMetadata } = input;
+  const { slotId, isEHRUser, user, patient, appointmentMetadata, paperworkSubtype } = input;
 
   console.log('createAppointmentComplexValidation metadata:', appointmentMetadata);
 
@@ -405,12 +409,32 @@ export const createAppointmentComplexValidation = async (
   const slotQuestionnaireExtension = slot.extension?.find(
     (ext) => ext.url === SLOT_QUESTIONNAIRE_CANONICAL_EXTENSION_URL
   );
+  // Validate paperworkSubtype if provided — must be a known APPOINTMENT_PAPERWORK_SUBTYPE
+  // value. The router in getCanonicalUrlForPrevisitQuestionnaire uses it to pick the lite
+  // canonical; rejecting unknown values here protects against typos that would silently
+  // fall through to the ServiceMode default.
+  const validatedPaperworkSubtype: AppointmentPaperworkSubtype | undefined =
+    typeof paperworkSubtype === 'string'
+      ? (Object.values(APPOINTMENT_PAPERWORK_SUBTYPE) as string[]).includes(paperworkSubtype)
+        ? (paperworkSubtype as AppointmentPaperworkSubtype)
+        : (() => {
+            throw INVALID_INPUT_ERROR(
+              `Unknown paperworkSubtype "${paperworkSubtype}". Allowed: ${Object.values(
+                APPOINTMENT_PAPERWORK_SUBTYPE
+              ).join(', ')}`
+            );
+          })()
+      : undefined;
+
   if (slotQuestionnaireExtension?.valueString) {
+    // Slot extension wins over both subtype and ServiceMode — it's the explicit per-slot
+    // override (used when a slot is set up for a specific questionnaire that isn't covered
+    // by either the ServiceMode default or the paperworkSubtype shortcut).
     questionnaireCanonical = parseQuestionnaireCanonicalExtension(slotQuestionnaireExtension.valueString);
     console.log('Using questionnaire canonical from slot extension:', questionnaireCanonical);
   } else {
-    // Fall back to service-mode-based questionnaire selection
-    questionnaireCanonical = getCanonicalUrlForPrevisitQuestionnaire(serviceMode);
+    // Fall back to subtype-aware service-mode-based selection.
+    questionnaireCanonical = getCanonicalUrlForPrevisitQuestionnaire(serviceMode, validatedPaperworkSubtype);
   }
 
   let visitType = getSlotIsPostTelemed(slot) ? VisitType.PostTelemed : VisitType.PreBook;
@@ -495,6 +519,7 @@ export const createAppointmentComplexValidation = async (
     locationState,
     appointmentMetadata,
     followUpOptions: input.followUpOptions,
+    paperworkSubtype: validatedPaperworkSubtype,
     bookingLocation,
     attendingPractitioner,
   };

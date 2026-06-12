@@ -74,6 +74,13 @@
       "src": "src/ehr/ai-assisted-encounters-report/index",
       "zip": ".dist/zips/ai-assisted-encounters-report.zip"
     },
+    "SEND-PATIENT-FORM": {
+      "name": "send-patient-form",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/send-patient-form/index",
+      "zip": ".dist/zips/send-patient-form.zip"
+    },
     "DAILY-PAYMENTS-REPORT": {
       "name": "daily-payments-report",
       "type": "http_auth",
@@ -1460,6 +1467,62 @@
       "runtime": "nodejs22.x",
       "src": "src/ehr/admin-get-template-detail/index",
       "zip": ".dist/zips/admin-get-template-detail.zip"
+    },
+    "SAVE-PRACTICE-MANAGED-RESPONSE": {
+      "name": "save-practice-managed-response",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/patient/paperwork/save-practice-managed-response/index",
+      "zip": ".dist/zips/save-practice-managed-response.zip"
+    },
+    "GET-PRACTICE-MANAGED-QUESTIONNAIRES": {
+      "name": "get-practice-managed-questionnaires",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/patient/paperwork/get-practice-managed-questionnaires/index",
+      "zip": ".dist/zips/get-practice-managed-questionnaires.zip"
+    },
+    "FINALIZE-PRACTICE-MANAGED-RESPONSE": {
+      "name": "finalize-practice-managed-response",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/patient/paperwork/finalize-practice-managed-response/index",
+      "zip": ".dist/zips/finalize-practice-managed-response.zip"
+    },
+    "ADMIN-LIST-QUESTIONNAIRES": {
+      "name": "admin-list-questionnaires",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/admin-list-questionnaires/index",
+      "zip": ".dist/zips/admin-list-questionnaires.zip"
+    },
+    "ADMIN-GET-QUESTIONNAIRE": {
+      "name": "admin-get-questionnaire",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/admin-get-questionnaire/index",
+      "zip": ".dist/zips/admin-get-questionnaire.zip"
+    },
+    "ADMIN-CREATE-QUESTIONNAIRE": {
+      "name": "admin-create-questionnaire",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/admin-create-questionnaire/index",
+      "zip": ".dist/zips/admin-create-questionnaire.zip"
+    },
+    "ADMIN-UPDATE-QUESTIONNAIRE": {
+      "name": "admin-update-questionnaire",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/admin-update-questionnaire/index",
+      "zip": ".dist/zips/admin-update-questionnaire.zip"
+    },
+    "ADMIN-DELETE-QUESTIONNAIRE": {
+      "name": "admin-delete-questionnaire",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/admin-delete-questionnaire/index",
+      "zip": ".dist/zips/admin-delete-questionnaire.zip"
     },
     "DELETE-PATIENT-DOCUMENT": {
       "name": "delete-patient-document",

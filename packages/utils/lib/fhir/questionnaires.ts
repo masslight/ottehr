@@ -4,6 +4,7 @@ import inPersonIntakeQuestionnaireArchive from '../../../../config/oystehr/in-pe
 import virtualIntakeQuestionnaireArchive from '../../../../config/oystehr/virtual-intake-questionnaire-archive.json' assert { type: 'json' };
 import {
   IN_PERSON_INTAKE_PAPERWORK_QUESTIONNAIRE,
+  LITE_INTAKE_PAPERWORK_QUESTIONNAIRE,
   PATIENT_RECORD_QUESTIONNAIRE,
   VIRTUAL_INTAKE_PAPERWORK_QUESTIONNAIRE,
 } from '../ottehr-config';
@@ -79,8 +80,10 @@ export const selectIntakeQuestionnaireResponse = (resources: FhirResource[]): Qu
     if (!questionnaireUrl) {
       return false;
     }
-    return [IN_PERSON_INTAKE_PAPERWORK_QUESTIONNAIRE(), VIRTUAL_INTAKE_PAPERWORK_QUESTIONNAIRE()].some(
-      (questionnaire: Questionnaire) => questionnaireUrl.startsWith(questionnaire.url!)
-    );
+    return [
+      IN_PERSON_INTAKE_PAPERWORK_QUESTIONNAIRE(),
+      VIRTUAL_INTAKE_PAPERWORK_QUESTIONNAIRE(),
+      LITE_INTAKE_PAPERWORK_QUESTIONNAIRE(),
+    ].some((questionnaire: Questionnaire) => questionnaireUrl.startsWith(questionnaire.url!));
   }) as QuestionnaireResponse | undefined;
 };

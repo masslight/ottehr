@@ -20,6 +20,7 @@ import {
   getSecret,
   getTimezone,
   INVALID_INPUT_ERROR,
+  LITE_INTAKE_PAPERWORK_URL,
   pickFirstValueFromAnswerItem,
   PRIVATE_EXTENSION_BASE_URL,
   PUBLIC_EXTENSION_BASE_URL,
@@ -236,17 +237,18 @@ export function getOtherOfficesForLocation(location: Location): { display: strin
 }
 
 export function checkPaperworkComplete(questionnaireResponse: QuestionnaireResponse): boolean {
-  if (questionnaireResponse?.status === 'completed' || questionnaireResponse?.status === 'amended') {
-    let photoIdFront: Attachment | undefined;
-    const photoIdFrontItem = findQuestionnaireResponseItemLinkId('photo-id-front', questionnaireResponse?.item ?? []);
-    if (photoIdFrontItem) {
-      photoIdFront = pickFirstValueFromAnswerItem(photoIdFrontItem, 'attachment');
-    }
-    if (photoIdFront) {
-      return true;
-    }
+  if (questionnaireResponse?.status !== 'completed' && questionnaireResponse?.status !== 'amended') {
+    return false;
   }
-  return false;
+  // The lite intake flow never collects a photo ID — a finalized QR is sufficient.
+  if (questionnaireResponse.questionnaire?.startsWith(LITE_INTAKE_PAPERWORK_URL)) {
+    return true;
+  }
+  const photoIdFrontItem = findQuestionnaireResponseItemLinkId('photo-id-front', questionnaireResponse?.item ?? []);
+  const photoIdFront: Attachment | undefined = photoIdFrontItem
+    ? pickFirstValueFromAnswerItem(photoIdFrontItem, 'attachment')
+    : undefined;
+  return Boolean(photoIdFront);
 }
 
 export function resolveTimezone(schedule?: Schedule, location?: Location, fallback: string = TIMEZONES[0]): string {

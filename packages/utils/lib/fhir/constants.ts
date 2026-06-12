@@ -434,6 +434,25 @@ export const SERVICE_CATEGORY_SYSTEM = ottehrCodeSystemUrl('service-category');
 /** Extension URL for the JSON-blob runtime config on service-category resources. */
 export const SERVICE_CATEGORY_CONFIG_EXTENSION_URL = ottehrExtensionUrl('service-category-config');
 
+// ── Practice Paperwork Flows (OTR-2309) ─────────────────────────────────────
+// A "paperwork flow" is a reusable pre-visit paperwork definition = a base intake
+// (standard full intake, resolved by visit mode, or consent-only lite) + an ordered
+// set of practice-managed form Questionnaires. Stored as a FHIR List; ServiceCategories
+// reference one by id (in their config blob), and booked Appointments are stamped with
+// the resolved flow id so the intake renderer pulls that flow's forms.
+
+/** meta.tag identifying a Questionnaire as practice-managed (admin-authored custom form). */
+export const PRACTICE_MANAGED_QUESTIONNAIRE_TAG = {
+  system: ottehrCodeSystemUrl('questionnaire-type'),
+  code: 'practice-managed',
+};
+
+/** meta.tag identifying a QuestionnaireResponse to a practice-managed form. */
+export const PRACTICE_MANAGED_QR_TAG = {
+  system: ottehrCodeSystemUrl('questionnaire-response-type'),
+  code: 'practice-managed',
+};
+
 // ── Service-category characteristic systems (one per dimension) ─────────────
 
 /** Service-mode characteristic for a service-category HealthcareService. Codes match the ServiceMode enum. */

@@ -42,6 +42,7 @@ import {
   updatePatientVisitDetails,
   updateVisitFiles,
 } from 'src/api/api';
+import { SendFormDialog } from 'src/components/dialogs/SendFormDialog';
 import ImageCarousel, { ImageCarouselObject } from 'src/components/ImageCarousel';
 import ImageUploader from 'src/components/ImageUploader';
 import PatientBalances from 'src/components/PatientBalances';
@@ -52,6 +53,7 @@ import { useGetPatientAccount, useGetPatientCoverages } from 'src/hooks/useGetPa
 import { useGetPatientBalances } from 'src/hooks/useGetPatientBalances';
 import { useGetPatientDocs } from 'src/hooks/useGetPatientDocs';
 import { useGetPatientPaymentsList } from 'src/hooks/useGetPatientPaymentsList';
+import { QuestionnaireResponseViewer } from 'ui-components';
 import {
   BOOKING_CONFIG,
   DocumentInfo,
@@ -276,6 +278,31 @@ export default function VisitDetailsPage(): ReactElement {
 
     enabled: Boolean(oystehrZambda) && appointmentID !== undefined,
   });
+
+  // Fetch practice-managed questionnaire responses for this visit
+  const { data: practiceManagedData } = useQuery({
+    queryKey: ['practice-managed-questionnaires', appointmentID],
+    queryFn: async () => {
+      if (!oystehrZambda || !appointmentID) return { questionnaires: [] };
+      const response = await oystehrZambda.zambda.execute({
+        id: 'get-practice-managed-questionnaires',
+        appointmentId: appointmentID,
+      } as any);
+      const output = typeof response.output === 'string' ? JSON.parse(response.output) : response.output;
+      return output as {
+        questionnaires: {
+          id: string;
+          title: string;
+          questionnaireResponseId?: string;
+          questionnaireResponseStatus?: string;
+          item?: any[];
+        }[];
+      };
+    },
+    enabled: Boolean(oystehrZambda) && appointmentID !== undefined,
+  });
+
+  const [sendFormDialogOpen, setSendFormDialogOpen] = useState(false);
 
   const { fullCardPdfs, consentPdfUrls } = imageFileData || {
     fullCardPdfs: [],
@@ -991,6 +1018,14 @@ export default function VisitDetailsPage(): ReactElement {
                     Legacy Data
                   </Button>
                 )}
+                <Button
+                  variant="outlined"
+                  sx={{ borderRadius: '20px', textTransform: 'none' }}
+                  disabled={!appointment?.id}
+                  onClick={() => setSendFormDialogOpen(true)}
+                >
+                  Send Form
+                </Button>
               </Grid>
             </Grid>
             {/* page title row */}
@@ -1362,6 +1397,35 @@ export default function VisitDetailsPage(): ReactElement {
                         }
                       />
                     </Grid>
+                    {(practiceManagedData?.questionnaires || []).length > 0 ? (
+                      (practiceManagedData?.questionnaires || []).map((pmQ: any) => (
+                        <Grid item key={pmQ.id}>
+                          <Paper sx={{ p: 2 }}>
+                            <Typography variant="subtitle1" sx={{ fontWeight: 700, color: '#0F347C', mb: 1 }}>
+                              {pmQ.title}
+                            </Typography>
+                            {!pmQ.questionnaireResponseItems ? (
+                              <Typography variant="body2" color="text.secondary">
+                                Not Started
+                              </Typography>
+                            ) : (
+                              <QuestionnaireResponseViewer
+                                questionnaire={{ item: pmQ.item, title: pmQ.title }}
+                                responseItems={pmQ.questionnaireResponseItems}
+                              />
+                            )}
+                          </Paper>
+                        </Grid>
+                      ))
+                    ) : (
+                      <Grid item>
+                        <PatientInformation
+                          title="Custom Paperwork"
+                          loading={loading}
+                          patientDetails={{ Status: 'No custom questionnaires attached' }}
+                        />
+                      </Grid>
+                    )}
                   </Grid>
                   <Grid container item xs={12} sm={6} direction="column">
                     {!patientBalancesLoading &&
@@ -1652,6 +1716,13 @@ export default function VisitDetailsPage(): ReactElement {
           outputFormat="png"
           onScanComplete={handleScanComplete}
         />
+        {appointmentID && (
+          <SendFormDialog
+            open={sendFormDialogOpen}
+            onClose={() => setSendFormDialogOpen(false)}
+            appointmentId={appointmentID}
+          />
+        )}
       </>
     </PageContainer>
   );

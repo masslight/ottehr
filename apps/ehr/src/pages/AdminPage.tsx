@@ -6,6 +6,7 @@ import ProgressNoteAdminPage from 'src/features/admin/ProgressNoteAdminPage';
 import InHouseLabAdminPage from 'src/features/visits/telemed/components/admin/in-house-labs/InHouseLabAdminPage';
 import LabSetsAdminPage from 'src/features/visits/telemed/components/admin/lab-sets/LabSetsAdminPage';
 import AdminPrintingConfig from 'src/features/visits/telemed/components/admin/label-printing-config/AdminLabelPrintingConfigPage';
+import QuestionnaireAdminPage from 'src/features/visits/telemed/components/admin/questionnaires/QuestionnaireAdminPage';
 import SupportDialogAdminPage from 'src/features/visits/telemed/components/admin/support-dialog/SupportDialogAdminPage';
 import BillingConfiguration from '../features/admin/BillingConfiguration';
 import EMCodesAdminPage from '../features/visits/telemed/components/admin/EMCodesAdminPage';
@@ -36,6 +37,7 @@ enum PageTab {
   'label-printing-config' = 'label-printing-config',
   'em-codes' = 'em-codes',
   'lab-sets' = 'lab-sets',
+  questionnaires = 'questionnaires',
   'docs-folders' = 'docs-folders',
   'support-dialog' = 'support-dialog',
   'progress-note' = 'progress-note',
@@ -149,6 +151,12 @@ export function AdminPage(): JSX.Element {
                   onClick={() => navigate(`/admin/${PageTab['lab-sets']}`)}
                 />
                 <Tab
+                  label="Questionnaires"
+                  value={PageTab.questionnaires}
+                  sx={{ textTransform: 'none', fontWeight: 500 }}
+                  onClick={() => navigate(`/admin/${PageTab.questionnaires}`)}
+                />
+                <Tab
                   label="Label Printing Config"
                   value={PageTab['label-printing-config']}
                   sx={{ textTransform: 'none', fontWeight: 500 }}
@@ -216,6 +224,9 @@ export function AdminPage(): JSX.Element {
           </TabPanel>
           <TabPanel value={PageTab['lab-sets']} sx={{ padding: 0 }}>
             <LabSetsAdminPage />
+          </TabPanel>
+          <TabPanel value={PageTab.questionnaires} sx={{ padding: 0 }}>
+            <QuestionnaireAdminPage />
           </TabPanel>
           <TabPanel value={PageTab['label-printing-config']} sx={{ padding: 0 }}>
             <AdminPrintingConfig />

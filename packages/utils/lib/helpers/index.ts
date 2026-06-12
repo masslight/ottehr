@@ -5,6 +5,7 @@ export * from './deploy';
 export * from './helpers';
 export * from './in-house-labs';
 export * from './parseCommaSeparatedTags';
+export * from './slugify';
 export * from './labs';
 export * from './medications';
 export * from './operations';
