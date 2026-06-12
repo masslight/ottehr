@@ -86,6 +86,7 @@ describe('WalkinLanding — service-category routing', () => {
   });
 
   test('URL carries serviceCategory → no redirect, slot uses the URL category', async () => {
+    const user = userEvent.setup();
     mockUseServiceCategories.mockReturnValue({ serviceCategories: [], isLoading: false });
 
     renderAt('/walkin/schedule/sched-1?serviceCategory=urgent-care');
@@ -98,7 +99,7 @@ describe('WalkinLanding — service-category routing', () => {
     );
 
     const submitButton = screen.getByRole('button', { name: /continue|check.?in|next/i });
-    await userEvent.click(submitButton);
+    await user.click(submitButton);
 
     await waitFor(() => expect(mockCreateSlot).toHaveBeenCalled());
     const createSlotArg = mockCreateSlot.mock.calls[0][0];
@@ -106,6 +107,7 @@ describe('WalkinLanding — service-category routing', () => {
   });
 
   test('0 walk-in-capable categories → no redirect, slot has no serviceCategoryCode', async () => {
+    const user = userEvent.setup();
     mockUseServiceCategories.mockReturnValue({
       // A prebook-only category is in the catalog but none support walk-in.
       serviceCategories: [makeCategory('massage-90', ['prebook'])],
@@ -121,7 +123,7 @@ describe('WalkinLanding — service-category routing', () => {
     );
 
     const submitButton = screen.getByRole('button', { name: /continue|check.?in|next/i });
-    await userEvent.click(submitButton);
+    await user.click(submitButton);
 
     await waitFor(() => expect(mockCreateSlot).toHaveBeenCalled());
     const createSlotArg = mockCreateSlot.mock.calls[0][0];
@@ -129,6 +131,7 @@ describe('WalkinLanding — service-category routing', () => {
   });
 
   test('exactly one walk-in-capable category → no redirect, auto-select at slot creation', async () => {
+    const user = userEvent.setup();
     mockUseServiceCategories.mockReturnValue({
       serviceCategories: [makeCategory('urgent-care')],
       isLoading: false,
@@ -143,7 +146,7 @@ describe('WalkinLanding — service-category routing', () => {
     );
 
     const submitButton = screen.getByRole('button', { name: /continue|check.?in|next/i });
-    await userEvent.click(submitButton);
+    await user.click(submitButton);
 
     await waitFor(() => expect(mockCreateSlot).toHaveBeenCalled());
     const createSlotArg = mockCreateSlot.mock.calls[0][0];
@@ -190,6 +193,35 @@ describe('WalkinLanding — service-category routing', () => {
       );
     });
     expect(screen.queryByRole('button', { name: /continue|check.?in|next/i })).toBeNull();
+    expect(mockCreateSlot).not.toHaveBeenCalled();
+  });
+
+  test('closed location with 2+ walk-in-capable categories → no redirect, closed message renders', async () => {
+    // A patient hitting a deeplink for a closed location should land on
+    // the "we are closed" message directly. Routing through the picker
+    // first would cost them a click + a category selection just to discover
+    // the location is unavailable. The redirect must be gated on
+    // walkinOpen === true.
+    mockGetWalkinAvailability.mockResolvedValueOnce({
+      walkinOpen: false,
+      scheduleId: 'sched-1',
+      scheduleOwnerName: 'Test Clinic',
+    });
+    mockUseServiceCategories.mockReturnValue({
+      serviceCategories: [makeCategory('urgent-care'), makeCategory('workers-comp')],
+      isLoading: false,
+    });
+
+    renderAt('/walkin/schedule/sched-1');
+
+    // Wait for the availability query to settle so the closed branch can
+    // render; then assert no redirect navigation fired.
+    await waitFor(() =>
+      expect(mockNavigate).not.toHaveBeenCalledWith(
+        expect.stringContaining('/select-service-category'),
+        expect.anything()
+      )
+    );
     expect(mockCreateSlot).not.toHaveBeenCalled();
   });
 });

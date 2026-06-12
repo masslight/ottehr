@@ -60,10 +60,19 @@ export const WalkinLanding: FC = () => {
     [serviceCategories]
   );
   const categoryDecisionNeeded = !serviceCategory;
-  const waitingForCategoryDecision = categoryDecisionNeeded && isCategoriesLoading;
+  // Only block on the category fetch when walk-in is actually open. When
+  // it's closed there's no slot to create, so the picker never runs and
+  // we can let the "we are closed" branch render as soon as availability
+  // resolves — no need to also wait for the catalog.
+  const walkinIsOpen = data?.walkinOpen === true;
+  const waitingForCategoryDecision = categoryDecisionNeeded && isCategoriesLoading && walkinIsOpen;
   const resolvedServiceCategory =
     serviceCategory ?? (walkinCapableCategories.length === 1 ? walkinCapableCategories[0].category.code : undefined);
-  const needsPickerRedirect = categoryDecisionNeeded && !isCategoriesLoading && walkinCapableCategories.length >= 2;
+  // Same gate on `walkinIsOpen` — a closed location's deeplink should land
+  // on the "closed" message directly, not detour through the picker only
+  // to discover the location is closed on the next page.
+  const needsPickerRedirect =
+    categoryDecisionNeeded && !isCategoriesLoading && walkinCapableCategories.length >= 2 && walkinIsOpen;
 
   useEffect(() => {
     if (!needsPickerRedirect) return;
