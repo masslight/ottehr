@@ -72,6 +72,7 @@ import {
   findOrgMatchingReference,
   getAttendingPractitionerId,
   getCandidPlanTypeCodeFromCoverage,
+  getCptCodesFromMA,
   getDosageFromMA,
   getEmCodes,
   getMedicationFromMA,
@@ -1270,11 +1271,12 @@ async function candidCreateEncounterFromAppointmentRequest(
     }
 
     const drugIdentification = buildDrugIdentification(procedure, medicationAdministrations);
+    const billableUnits = getBillableUnitsForProcedure(procedure, medicationAdministrations);
 
     serviceLines.push({
       procedureCode: procedureCode,
       modifiers,
-      quantity: Decimal('1'),
+      quantity: Decimal(String(billableUnits ?? 1)),
       units: ServiceLineUnits.Un,
       diagnosisPointers: [primaryDiagnosisIndex],
       dateOfService:
@@ -1396,6 +1398,25 @@ export function buildDrugIdentification(
     nationalDrugUnitCount: doseValue != null ? String(doseValue) : '1',
     measurementUnitCode: dosage ? mapMedicationUnitToCandid(dosage.units) : MeasurementUnitCode.Units,
   };
+}
+
+/** Returns the billable units stored for the procedure's CPT code on the linked MedicationAdministration, if any. */
+export function getBillableUnitsForProcedure(
+  procedure: Procedure,
+  medicationAdministrations: MedicationAdministration[]
+): number | undefined {
+  const maRef = procedure.partOf?.find((ref) => ref.reference?.startsWith('MedicationAdministration/'));
+  if (!maRef?.reference) return undefined;
+
+  const maId = maRef.reference.replace('MedicationAdministration/', '');
+  const ma = medicationAdministrations.find((m) => m.id === maId);
+  if (!ma) return undefined;
+
+  const procedureCode = procedure.code?.coding?.[0]?.code;
+  if (!procedureCode) return undefined;
+
+  const billableUnits = getCptCodesFromMA(ma)?.find((entry) => entry.code === procedureCode)?.billableUnits;
+  return billableUnits != null && Number.isFinite(billableUnits) && billableUnits > 0 ? billableUnits : undefined;
 }
 
 export function mapMedicationUnitToCandid(unit: MedicationUnitOptions): MeasurementUnitCode {
