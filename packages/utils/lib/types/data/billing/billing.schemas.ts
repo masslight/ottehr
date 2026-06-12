@@ -106,6 +106,22 @@ export const SearchBillingPayersInputSchema = z.object({
   name: nonEmptyString.optional(),
 });
 
+const claimDiagnosisSchema = z.object({
+  code: nonEmptyString,
+  display: z.string().optional(),
+});
+
+const claimServiceLineSchema = z.object({
+  cptCode: nonEmptyString,
+  units: z.number().positive(),
+  charges: z.number(),
+  serviceDate: nonEmptyString,
+  placeOfService: z.string().optional(),
+  modifiers: z.array(z.string()).optional(),
+  // 1-based references into the claim's diagnosis list (FHIR item.diagnosisSequence)
+  diagnosisPointers: z.array(z.number().int().positive()).optional(),
+});
+
 export const CreateBillingClaimInputSchema = z.object({
   patientId: nonEmptyString,
   patientOverrides: z
@@ -161,26 +177,8 @@ export const CreateBillingClaimInputSchema = z.object({
         .optional(),
     })
     .optional(),
-  diagnoses: z
-    .array(
-      z.object({
-        code: nonEmptyString,
-        display: z.string().optional(),
-      })
-    )
-    .optional(),
-  serviceLines: z
-    .array(
-      z.object({
-        cptCode: nonEmptyString,
-        units: z.number().positive(),
-        charges: z.number(),
-        serviceDate: nonEmptyString,
-        placeOfService: z.string().optional(),
-        modifiers: z.array(z.string()).optional(),
-      })
-    )
-    .optional(),
+  diagnoses: z.array(claimDiagnosisSchema).optional(),
+  serviceLines: z.array(claimServiceLineSchema).optional(),
 });
 
 const billingProviderRole = z.enum(['billing', 'rendering']);
@@ -352,7 +350,8 @@ export const UpdateBillingResourceInputSchema = z.discriminatedUnion('resourceTy
       taxId: z.string().optional(),
     }),
   }),
-  // Attach working copies for resources the claim was created without, or re-point the payer (RCM payer id).
+  // Attach working copies for resources the claim was created without, re-point the payer (RCM payer id),
+  // or replace the diagnosis / service line sets.
   z.object({
     resourceType: z.literal('Claim'),
     resourceId: nonEmptyString,
@@ -362,6 +361,8 @@ export const UpdateBillingResourceInputSchema = z.discriminatedUnion('resourceTy
       facilityId: nonEmptyString.optional(),
       coverageId: nonEmptyString.optional(),
       payerId: nonEmptyString.optional(),
+      diagnoses: z.array(claimDiagnosisSchema).optional(),
+      serviceLines: z.array(claimServiceLineSchema).optional(),
     }),
   }),
 ]);

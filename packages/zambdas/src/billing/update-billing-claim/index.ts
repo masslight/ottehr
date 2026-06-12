@@ -1,10 +1,18 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim, Coverage, FhirResource, Location, Organization, Patient, Practitioner } from 'fhir/r4b';
-import { CODE_SYSTEM_OYSTEHR_RCM_CMS1500_REFERRING_PROVIDER_TYPE, getPayerUrl } from 'utils';
+import {
+  CODE_SYSTEM_CMS_PLACE_OF_SERVICE,
+  CODE_SYSTEM_HCPCS,
+  CODE_SYSTEM_ICD_10,
+  CODE_SYSTEM_OYSTEHR_RCM_CMS1500_PROCEDURE_MODIFIER,
+  CODE_SYSTEM_OYSTEHR_RCM_CMS1500_REFERRING_PROVIDER_TYPE,
+  getPayerUrl,
+} from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import {
   buildAddress,
+  buildDiagnosisSequence,
   createBillingClient,
   fetchById,
   prepareWorkingCopy,
@@ -132,6 +140,50 @@ async function attachClaimResources(
       coverage.payor = [{ reference: payerUrl }];
       await oystehr.fhir.update(coverage);
     }
+  }
+
+  if (fields.diagnoses) {
+    const seen = new Set<string>();
+    claim.diagnosis = fields.diagnoses
+      .filter((dx) => {
+        if (seen.has(dx.code)) return false;
+        seen.add(dx.code);
+        return true;
+      })
+      .map((dx, i) => ({
+        sequence: i + 1,
+        diagnosisCodeableConcept: { coding: [{ system: CODE_SYSTEM_ICD_10, code: dx.code, display: dx.display }] },
+      }));
+  }
+
+  if (fields.serviceLines) {
+    const diagnosisCount = claim.diagnosis?.length ?? 0;
+    const hasRenderingProvider = (claim.careTeam ?? []).some((member) => member.sequence === 1);
+    claim.item = fields.serviceLines.map((line, i) => ({
+      sequence: i + 1,
+      careTeamSequence: hasRenderingProvider ? [1] : undefined,
+      diagnosisSequence: buildDiagnosisSequence(line.diagnosisPointers, diagnosisCount),
+      productOrService: { coding: [{ system: CODE_SYSTEM_HCPCS, code: line.cptCode }] },
+      modifier: line.modifiers?.length
+        ? line.modifiers.map((m) => ({
+            coding: [{ system: CODE_SYSTEM_OYSTEHR_RCM_CMS1500_PROCEDURE_MODIFIER, code: m }],
+          }))
+        : undefined,
+      servicedPeriod: { start: line.serviceDate },
+      locationCodeableConcept: line.placeOfService
+        ? { coding: [{ system: CODE_SYSTEM_CMS_PLACE_OF_SERVICE, code: line.placeOfService }] }
+        : undefined,
+      net: { value: line.charges, currency: 'USD' },
+      quantity: { value: line.units, unit: 'UN' },
+    }));
+    claim.total = { value: fields.serviceLines.reduce((sum, l) => sum + l.charges, 0), currency: 'USD' };
+  } else if (fields.diagnoses) {
+    // Diagnoses changed without lines: re-point items whose pointers no longer exist.
+    const diagnosisCount = claim.diagnosis?.length ?? 0;
+    claim.item = claim.item?.map((item) => ({
+      ...item,
+      diagnosisSequence: buildDiagnosisSequence(item.diagnosisSequence, diagnosisCount),
+    }));
   }
 
   return save(oystehr, claim);

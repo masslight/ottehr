@@ -17,6 +17,7 @@ import {
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import {
   applyNameOverrides,
+  buildDiagnosisSequence,
   createBillingClient,
   CURRENT_STATUS_TAG_SYSTEM,
   findRef,
@@ -257,10 +258,11 @@ function buildClaim(copies: OriginalResources, params: CreateClaimParams): Claim
   }
 
   if (params.serviceLines?.length) {
+    const diagnosisCount = claim.diagnosis?.length ?? 0;
     claim.item = params.serviceLines.map((line, i) => ({
       sequence: i + 1,
       careTeamSequence: copies.renderingProvider ? [1] : undefined,
-      diagnosisSequence: params.diagnoses?.length ? [1] : undefined,
+      diagnosisSequence: buildDiagnosisSequence(line.diagnosisPointers, diagnosisCount),
       productOrService: {
         coding: [{ system: CODE_SYSTEM_HCPCS, code: line.cptCode }],
       },

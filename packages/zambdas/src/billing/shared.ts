@@ -133,6 +133,13 @@ export function getTag(resource: Resource, system: string): string | undefined {
   return resource.meta?.tag?.find((t) => t.system === system)?.code;
 }
 
+// Valid 1-based pointers into the claim's diagnosis list; falls back to the first diagnosis.
+export function buildDiagnosisSequence(pointers: number[] | undefined, diagnosisCount: number): number[] | undefined {
+  const valid = [...new Set((pointers ?? []).filter((p) => p <= diagnosisCount))];
+  if (valid.length) return valid;
+  return diagnosisCount ? [1] : undefined;
+}
+
 // A resource can carry multiple tags in the same system (e.g. both provider roles), so check (system, code).
 export function hasTag(resource: Resource, system: string, code: string): boolean {
   return resource.meta?.tag?.some((t) => t.system === system && t.code === code) ?? false;

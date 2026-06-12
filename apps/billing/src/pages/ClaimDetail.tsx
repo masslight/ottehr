@@ -212,8 +212,8 @@ export default function ClaimDetail(): ReactElement {
           </TabPanel>
 
           <TabPanel value="2" sx={{ px: 0, pt: 2 }}>
-            <DiagnosesSection claim={claim} />
-            <ServiceLinesSection claim={claim} />
+            <DiagnosesSection claim={claim} updateResource={updateResource} />
+            <ServiceLinesSection claim={claim} updateResource={updateResource} />
             <ReadOnlySection title="Remits">No remits yet</ReadOnlySection>
             <ReadOnlySection title="Insurance Payments">No insurance payments yet</ReadOnlySection>
           </TabPanel>
@@ -957,9 +957,77 @@ function BillingProviderSection({
   );
 }
 
-function DiagnosesSection({ claim }: { claim: ClaimDetailResponse }): ReactElement {
+function DiagnosesSection({
+  claim,
+  updateResource,
+}: {
+  claim: ClaimDetailResponse;
+  updateResource: UpdateFn;
+}): ReactElement {
+  const toRows = useCallback(
+    () => claim.diagnoses.map((dx) => ({ code: dx.code, display: dx.display === dx.code ? '' : dx.display })),
+    [claim]
+  );
+  const [rows, setRows] = useState(toRows);
+
+  const resetFields = useCallback((): void => setRows(toRows()), [toRows]);
+
+  useEffect(() => {
+    resetFields();
+  }, [resetFields]);
+
+  const setRow = (index: number, field: 'code' | 'display', value: string): void =>
+    setRows((prev) => prev.map((row, i) => (i === index ? { ...row, [field]: value } : row)));
+
+  const handleSave = async (): Promise<string | null> => {
+    if (rows.some((row) => !row.code.trim())) return 'Each diagnosis needs an ICD-10 code';
+    return updateResource('Claim', claim.id, {
+      diagnoses: rows.map((row) => ({
+        code: row.code.trim(),
+        ...(row.display.trim() ? { display: row.display.trim() } : {}),
+      })),
+    });
+  };
+
   return (
-    <ReadOnlySection title="Diagnoses">
+    <EditableSection
+      title="Diagnoses"
+      onSave={handleSave}
+      onCancel={resetFields}
+      editForm={
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, maxWidth: 680 }}>
+          {rows.map((row, i) => (
+            <Box key={i} sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+              <Typography variant="body2" color="text.secondary" sx={{ width: 16 }}>
+                {i + 1}
+              </Typography>
+              <TextField
+                size="small"
+                label="ICD-10"
+                value={row.code}
+                onChange={(e) => setRow(i, 'code', e.target.value)}
+                sx={{ width: 140 }}
+              />
+              <TextField
+                size="small"
+                label="Description"
+                fullWidth
+                value={row.display}
+                onChange={(e) => setRow(i, 'display', e.target.value)}
+              />
+              <Button size="small" color="error" onClick={() => setRows((prev) => prev.filter((_, j) => j !== i))}>
+                Remove
+              </Button>
+            </Box>
+          ))}
+          <Box>
+            <Button size="small" onClick={() => setRows((prev) => [...prev, { code: '', display: '' }])}>
+              + Add diagnosis
+            </Button>
+          </Box>
+        </Box>
+      }
+    >
       {claim.diagnoses.length > 0 ? (
         <>
           {claim.diagnoses.map((dx) => (
@@ -975,13 +1043,185 @@ function DiagnosesSection({ claim }: { claim: ClaimDetailResponse }): ReactEleme
           No diagnoses
         </Typography>
       )}
-    </ReadOnlySection>
+    </EditableSection>
   );
 }
 
-function ServiceLinesSection({ claim }: { claim: ClaimDetailResponse }): ReactElement {
+interface ServiceLineRow {
+  cptCode: string;
+  modifiers: string;
+  units: string;
+  charges: string;
+  serviceDate: string;
+  placeOfService: string;
+  diagnosisPointers: number[];
+}
+
+function ServiceLinesSection({
+  claim,
+  updateResource,
+}: {
+  claim: ClaimDetailResponse;
+  updateResource: UpdateFn;
+}): ReactElement {
+  const toRows = useCallback(
+    (): ServiceLineRow[] =>
+      claim.serviceLines.map((line) => ({
+        cptCode: line.cptCode,
+        modifiers: line.modifiers.join(', '),
+        units: String(line.units),
+        charges: String(line.charges),
+        serviceDate: line.serviceDate,
+        placeOfService: line.placeOfService,
+        diagnosisPointers: line.diagnosisPointers,
+      })),
+    [claim]
+  );
+  const [rows, setRows] = useState<ServiceLineRow[]>(toRows);
+
+  const resetFields = useCallback((): void => setRows(toRows()), [toRows]);
+
+  useEffect(() => {
+    resetFields();
+  }, [resetFields]);
+
+  const setRow = <K extends keyof ServiceLineRow>(index: number, field: K, value: ServiceLineRow[K]): void =>
+    setRows((prev) => prev.map((row, i) => (i === index ? { ...row, [field]: value } : row)));
+
+  const addRow = (): void =>
+    setRows((prev) => [
+      ...prev,
+      {
+        cptCode: '',
+        modifiers: '',
+        units: '1',
+        charges: '',
+        serviceDate: claim.serviceLines[0]?.serviceDate ?? claim.created,
+        placeOfService: claim.serviceLines[0]?.placeOfService ?? '',
+        diagnosisPointers: claim.diagnoses.length ? [claim.diagnoses[0].sequence] : [],
+      },
+    ]);
+
+  const dxCode = (sequence: number): string =>
+    claim.diagnoses.find((dx) => dx.sequence === sequence)?.code ?? String(sequence);
+
+  const handleSave = async (): Promise<string | null> => {
+    for (const row of rows) {
+      if (!row.cptCode.trim()) return 'Each service line needs a CPT code';
+      if (!row.serviceDate) return 'Each service line needs a date of service';
+      if (!(Number(row.units) > 0)) return 'Units must be a positive number';
+      if (row.charges.trim() === '' || !Number.isFinite(Number(row.charges))) return 'Charges must be a number';
+    }
+    return updateResource('Claim', claim.id, {
+      serviceLines: rows.map((row) => {
+        const modifiers = row.modifiers
+          .split(/[,\s]+/)
+          .map((m) => m.trim())
+          .filter(Boolean);
+        return {
+          cptCode: row.cptCode.trim(),
+          units: Number(row.units),
+          charges: Number(row.charges),
+          serviceDate: row.serviceDate,
+          ...(row.placeOfService.trim() ? { placeOfService: row.placeOfService.trim() } : {}),
+          ...(modifiers.length ? { modifiers } : {}),
+          ...(row.diagnosisPointers.length ? { diagnosisPointers: row.diagnosisPointers } : {}),
+        };
+      }),
+    });
+  };
+
   return (
-    <ReadOnlySection title="Service Lines">
+    <EditableSection
+      title="Service Lines"
+      onSave={handleSave}
+      onCancel={resetFields}
+      editForm={
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+          {rows.map((row, i) => (
+            <Box key={i} sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
+              <TextField
+                size="small"
+                label="CPT"
+                value={row.cptCode}
+                onChange={(e) => setRow(i, 'cptCode', e.target.value)}
+                sx={{ width: 100 }}
+              />
+              <TextField
+                size="small"
+                label="Mod"
+                value={row.modifiers}
+                onChange={(e) => setRow(i, 'modifiers', e.target.value)}
+                sx={{ width: 90 }}
+              />
+              <TextField
+                size="small"
+                label="Units"
+                type="number"
+                value={row.units}
+                onChange={(e) => setRow(i, 'units', e.target.value)}
+                sx={{ width: 80 }}
+              />
+              <TextField
+                size="small"
+                label="Charges"
+                type="number"
+                value={row.charges}
+                onChange={(e) => setRow(i, 'charges', e.target.value)}
+                sx={{ width: 110 }}
+              />
+              <TextField
+                size="small"
+                label="Date"
+                type="date"
+                value={row.serviceDate}
+                onChange={(e) => setRow(i, 'serviceDate', e.target.value)}
+                sx={{ width: 160 }}
+                InputLabelProps={{ shrink: true }}
+              />
+              <TextField
+                size="small"
+                label="POS"
+                value={row.placeOfService}
+                onChange={(e) => setRow(i, 'placeOfService', e.target.value)}
+                sx={{ width: 80 }}
+              />
+              <Select
+                multiple
+                size="small"
+                displayEmpty
+                value={row.diagnosisPointers}
+                onChange={(e) => setRow(i, 'diagnosisPointers', e.target.value as number[])}
+                renderValue={(selected) =>
+                  selected.length ? (
+                    selected.map(dxCode).join(', ')
+                  ) : (
+                    <Box component="span" sx={{ color: 'text.disabled' }}>
+                      Dx
+                    </Box>
+                  )
+                }
+                sx={{ width: 160 }}
+              >
+                {claim.diagnoses.map((dx) => (
+                  <MenuItem key={dx.sequence} value={dx.sequence}>
+                    {dx.sequence}: {dx.code}
+                  </MenuItem>
+                ))}
+              </Select>
+              <Button size="small" color="error" onClick={() => setRows((prev) => prev.filter((_, j) => j !== i))}>
+                Remove
+              </Button>
+            </Box>
+          ))}
+          <Box>
+            <Button size="small" onClick={addRow}>
+              + Add service line
+            </Button>
+          </Box>
+        </Box>
+      }
+    >
       {claim.serviceLines.length > 0 ? (
         <TableContainer>
           <Table size="small">
@@ -991,6 +1231,7 @@ function ServiceLinesSection({ claim }: { claim: ClaimDetailResponse }): ReactEl
                 <TableCell sx={thSx}>Date of Service</TableCell>
                 <TableCell sx={thSx}>CPT Code</TableCell>
                 <TableCell sx={thSx}>Modifiers</TableCell>
+                <TableCell sx={thSx}>Dx</TableCell>
                 <TableCell sx={thSx}>POS</TableCell>
                 <TableCell sx={thSx}>Qty</TableCell>
                 <TableCell sx={thSx} align="right">
@@ -1005,6 +1246,7 @@ function ServiceLinesSection({ claim }: { claim: ClaimDetailResponse }): ReactEl
                   <TableCell>{line.serviceDate}</TableCell>
                   <TableCell>{line.cptCode}</TableCell>
                   <TableCell>{line.modifiers.join(', ') || '-'}</TableCell>
+                  <TableCell>{line.diagnosisPointers.map(dxCode).join(', ') || '-'}</TableCell>
                   <TableCell>{line.placeOfService || '-'}</TableCell>
                   <TableCell>{line.units} UN</TableCell>
                   <TableCell align="right">{formatCurrency(line.charges)}</TableCell>
@@ -1018,7 +1260,7 @@ function ServiceLinesSection({ claim }: { claim: ClaimDetailResponse }): ReactEl
           No service lines
         </Typography>
       )}
-    </ReadOnlySection>
+    </EditableSection>
   );
 }
 
