@@ -1,5 +1,5 @@
 import Oystehr, { User } from '@oystehr/sdk';
-import { Appointment, Location, Practitioner, PractitionerRole, Schedule, Slot } from 'fhir/r4b';
+import { Appointment, List, Location, Practitioner, PractitionerRole, Schedule, Slot } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   AllStates,
@@ -21,6 +21,7 @@ import {
   makeSlotAtLocationExtensionEntry,
   MISSING_REQUIRED_PARAMETERS,
   NO_READ_ACCESS_TO_PATIENT_ERROR,
+  PaperworkFlowBase,
   parseQuestionnaireCanonicalExtension,
   PatientInfo,
   PersonSex,
@@ -34,6 +35,7 @@ import {
   SLOT_FALLBACK_REROUTED_TAG,
   SLOT_QUESTIONNAIRE_CANONICAL_EXTENSION_URL,
   SLOT_UNAVAILABLE_ERROR,
+  toPaperworkFlowRecord,
   VisitType,
 } from 'utils';
 import {
@@ -194,6 +196,8 @@ export interface CreateAppointmentEffectInput {
   appointmentMetadata?: Appointment['meta'];
   followUpOptions?: FollowUpOptions;
   paperworkSubtype?: AppointmentPaperworkSubtype;
+  /** Practice paperwork flow id resolved from the booked service category (OTR-2309); stamped on the encounter. */
+  paperworkFlowId?: string;
   /**
    * Unified booking-location resolution. Populated when the booking should be
    * attributed to a specific Location — either because the scheduleOwner IS
@@ -426,15 +430,41 @@ export const createAppointmentComplexValidation = async (
           })()
       : undefined;
 
+  // Practice paperwork flow (OTR-2309): if the booked service category configures a flow, it sets
+  // the base intake and is stamped on the encounter so the intake renderer serves the flow's forms.
+  // A 'consent-only' base behaves like the consent-form-only subtype; 'standard' uses the mode
+  // default. An explicit staff paperworkSubtype still overrides the flow's base.
+  let paperworkFlowId: string | undefined;
+  let flowBase: PaperworkFlowBase | undefined;
+  const slotCategoryCode = (slot.serviceCategory ?? [])
+    .flatMap((cc) => cc.coding ?? [])
+    .find((c) => c.system === SERVICE_CATEGORY_SYSTEM)?.code;
+  if (slotCategoryCode) {
+    const resolvedCategory = await resolveServiceCategory(slotCategoryCode, oystehrClient);
+    paperworkFlowId = resolvedCategory?.paperworkFlowId;
+    if (paperworkFlowId) {
+      // Booking must not fail over a paperwork-flow lookup, but a transient error here
+      // silently books the patient with the mode-default intake — log so it's visible.
+      const flowList = await oystehrClient.fhir
+        .get<List>({ resourceType: 'List', id: paperworkFlowId })
+        .catch((err) => {
+          console.warn(`create-appointment: failed to fetch paperwork flow List/${paperworkFlowId}:`, err);
+          return undefined;
+        });
+      flowBase = flowList ? toPaperworkFlowRecord(flowList)?.base : undefined;
+    }
+  }
+  const effectivePaperworkSubtype =
+    validatedPaperworkSubtype ??
+    (flowBase === 'consent-only' ? APPOINTMENT_PAPERWORK_SUBTYPE.CONSENT_FORM_ONLY : undefined);
+
   if (slotQuestionnaireExtension?.valueString) {
-    // Slot extension wins over both subtype and ServiceMode — it's the explicit per-slot
-    // override (used when a slot is set up for a specific questionnaire that isn't covered
-    // by either the ServiceMode default or the paperworkSubtype shortcut).
+    // Slot extension wins over flow, subtype, and ServiceMode — the explicit per-slot override.
     questionnaireCanonical = parseQuestionnaireCanonicalExtension(slotQuestionnaireExtension.valueString);
     console.log('Using questionnaire canonical from slot extension:', questionnaireCanonical);
   } else {
-    // Fall back to subtype-aware service-mode-based selection.
-    questionnaireCanonical = getCanonicalUrlForPrevisitQuestionnaire(serviceMode, validatedPaperworkSubtype);
+    // Flow base / subtype-aware service-mode-based selection.
+    questionnaireCanonical = getCanonicalUrlForPrevisitQuestionnaire(serviceMode, effectivePaperworkSubtype);
   }
 
   let visitType = getSlotIsPostTelemed(slot) ? VisitType.PostTelemed : VisitType.PreBook;
@@ -520,6 +550,7 @@ export const createAppointmentComplexValidation = async (
     appointmentMetadata,
     followUpOptions: input.followUpOptions,
     paperworkSubtype: validatedPaperworkSubtype,
+    paperworkFlowId,
     bookingLocation,
     attendingPractitioner,
   };

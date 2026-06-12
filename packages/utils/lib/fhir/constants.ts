@@ -441,6 +441,34 @@ export const SERVICE_CATEGORY_CONFIG_EXTENSION_URL = ottehrExtensionUrl('service
 // reference one by id (in their config blob), and booked Appointments are stamped with
 // the resolved flow id so the intake renderer pulls that flow's forms.
 
+/** The two base intakes a paperwork flow can use. `standard` resolves to the full
+ *  in-person/virtual intake from the visit's service mode; `consent-only` is the lite flow. */
+export type PaperworkFlowBase = 'standard' | 'consent-only';
+export const PAPERWORK_FLOW_BASES: PaperworkFlowBase[] = ['standard', 'consent-only'];
+
+/** meta.tag identifying a List as a practice paperwork flow. */
+export const PAPERWORK_FLOW_TAG = {
+  system: ottehrCodeSystemUrl('list-type'),
+  code: 'practice-paperwork-flow',
+};
+
+/** Stable identifier system for a paperwork-flow List (value = the flow's slug). */
+export const PAPERWORK_FLOW_IDENTIFIER_SYSTEM = ottehrCodeSystemUrl('paperwork-flow-slug');
+
+/** Extension on the paperwork-flow List holding the base intake (valueCode = PaperworkFlowBase). */
+export const PAPERWORK_FLOW_BASE_EXTENSION_URL = ottehrExtensionUrl('paperwork-flow-base');
+
+/**
+ * Extension on a *base* paperwork-flow List binding it to a base intake canonical
+ * (valueUri = the in-person / virtual / consent-only intake URL). Presence marks the
+ * List as a base flow: its forms compose onto every booking that resolves to that
+ * canonical. Service flows do not carry this. See `isBaseFlow`.
+ */
+export const PAPERWORK_FLOW_CANONICAL_EXTENSION_URL = ottehrExtensionUrl('paperwork-flow-canonical');
+
+/** Extension stamped on a booked Appointment with the resolved paperwork-flow id (valueString). */
+export const APPOINTMENT_PAPERWORK_FLOW_EXTENSION_URL = ottehrExtensionUrl('appointment-paperwork-flow');
+
 /** meta.tag identifying a Questionnaire as practice-managed (admin-authored custom form). */
 export const PRACTICE_MANAGED_QUESTIONNAIRE_TAG = {
   system: ottehrCodeSystemUrl('questionnaire-type'),
