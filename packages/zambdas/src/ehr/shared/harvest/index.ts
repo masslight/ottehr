@@ -790,7 +790,7 @@ interface MasterRecordPatchOperations {
   relatedPerson: { [key: string]: ResourcePatchOperations }; // key is RelatedPerson.id
 }
 
-const PCP_FIELDS = ['pcp-first', 'pcp-last', 'pcp-practice', 'pcp-address', 'pcp-number', 'pcp-active'];
+const PCP_FIELDS = ['pcp-first', 'pcp-last', 'pcp-practice', 'pcp-address', 'pcp-number', 'pcp-fax', 'pcp-active'];
 
 export function createMasterRecordPatchOperations(
   questionnaireResponseHarvestInput: QuestionnaireResponseHarvestInput,
@@ -1136,13 +1136,14 @@ const getPCPPatchOps = (flattenedItems: QuestionnaireResponseItem[], patient: Pa
   const practiceName = flattenedItems.find((field) => field.linkId === 'pcp-practice')?.answer?.[0]?.valueString;
   const pcpAddress = flattenedItems.find((field) => field.linkId === 'pcp-address')?.answer?.[0]?.valueString;
   const phone = flattenedItems.find((field) => field.linkId === 'pcp-number')?.answer?.[0]?.valueString;
+  const fax = flattenedItems.find((field) => field.linkId === 'pcp-fax')?.answer?.[0]?.valueString;
 
-  console.log('pcp patch inputs', isActive, firstName, lastName, practiceName, pcpAddress, phone);
+  console.log('pcp patch inputs', isActive, firstName, lastName, practiceName, pcpAddress, phone, fax);
 
   const pcpActiveFieldExists = flattenedItems.some((field) => field.linkId === 'pcp-active');
   const shouldDeactivate = isActive === false || (pcpActiveFieldExists && isActive === undefined);
 
-  const hasSomeValue = (firstName && lastName) || practiceName || pcpAddress || phone;
+  const hasSomeValue = (firstName && lastName) || practiceName || pcpAddress || phone || fax;
 
   const hasAnyPCPFields = flattenedItems.some((field) => PCP_FIELDS.includes(field.linkId));
   const shouldClearAllData = hasAnyPCPFields && !hasSomeValue;
@@ -1195,8 +1196,10 @@ const getPCPPatchOps = (flattenedItems: QuestionnaireResponseItem[], patient: Pa
       }
     }
 
-    if (phone) {
-      telecom = [{ system: 'phone', value: formatPhoneNumber(phone) }];
+    if (phone || fax) {
+      telecom = [];
+      if (phone) telecom.push({ system: 'phone', value: formatPhoneNumber(phone) });
+      if (fax) telecom.push({ system: 'fax', value: formatPhoneNumber(fax) });
     }
     if (pcpAddress) {
       address = [{ text: pcpAddress }];
