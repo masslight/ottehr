@@ -146,9 +146,9 @@ const getPharmacyDetail = async (placesId: string, googleApiKey: string, oystehr
   });
 
   const data = await response.json();
-  const placesName = data?.displayName?.text;
-  const placesAddress = data?.formattedAddress;
-  const placesPhone = data?.nationalPhoneNumber ?? data?.internationalPhoneNumber;
+  const placesName: string = data?.displayName?.text ?? '';
+  const placesAddress: string = data?.formattedAddress ?? '';
+  const placesPhone: string | undefined = data?.nationalPhoneNumber ?? data?.internationalPhoneNumber;
 
   const addressParsed = addressComponentsFromPlacesDetailRes(data?.addressComponents);
   const pharmacySearchParams = getParamsForErxPharmacySearch(addressParsed, placesName);
@@ -161,8 +161,8 @@ const getPharmacyDetail = async (placesId: string, googleApiKey: string, oystehr
 
   const formattedPlace: PlacesResult = {
     placesId,
-    name: placesName ?? '',
-    address: placesAddress ?? '',
+    name: placesName,
+    address: placesAddress,
     phone: reconcilePharmacyPhone(placesPhone, erxPharmacyMatch?.phone),
     erxPharmacyId: erxPharmacyMatch?.id.toString(),
   };
