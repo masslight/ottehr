@@ -166,8 +166,12 @@ describe('WalkinLanding — service-category routing', () => {
         expect.objectContaining({ replace: true })
       );
     });
-    // The form should NOT have rendered — the redirect intercepts before
-    // PageForm mounts. (The page may still be in the loading state.)
+    // The form must NOT render — otherwise a fast-clicking user could
+    // submit a slot without picking a category in the tick between this
+    // render and the redirect navigation. The loading-state guard
+    // (`needsPickerRedirect` folded into `somethingIsLoadingInSomeWay`)
+    // prevents the PageForm from mounting at all in this window.
+    expect(screen.queryByRole('button', { name: /continue|check.?in|next/i })).toBeNull();
     expect(mockCreateSlot).not.toHaveBeenCalled();
   });
 
@@ -185,6 +189,7 @@ describe('WalkinLanding — service-category routing', () => {
         expect.objectContaining({ replace: true })
       );
     });
+    expect(screen.queryByRole('button', { name: /continue|check.?in|next/i })).toBeNull();
     expect(mockCreateSlot).not.toHaveBeenCalled();
   });
 });

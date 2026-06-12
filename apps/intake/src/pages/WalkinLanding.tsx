@@ -49,9 +49,11 @@ export const WalkinLanding: FC = () => {
   //     admin configures one)
   //   - 1 walk-in-capable category → auto-select silently at slot creation
   //   - 2+ → redirect to the picker child route so the patient chooses
-  // Skip the fetch + decision entirely when the URL already carries a
-  // serviceCategory (the picker just sent us back here, or the EHR put it on
-  // the link).
+  // The category-list query still runs when the URL already carries a
+  // serviceCategory — useServiceCategories is unconditional and React Query
+  // caches per (scheduleType, bookingOn) key — but the decision logic below
+  // short-circuits, so neither the auto-select nor the redirect fires when
+  // we already have a category in hand.
   const { serviceCategories, isLoading: isCategoriesLoading } = useServiceCategories({});
   const walkinCapableCategories = useMemo(
     () => (serviceCategories ?? []).filter((sc) => (sc.visitTypes ?? ['prebook']).includes('walk-in')),
@@ -79,7 +81,12 @@ export const WalkinLanding: FC = () => {
     navigate(`${basePath}${query ? `?${query}` : ''}`, { replace: true });
   }, [needsPickerRedirect, scheduleId, name, searchParams, navigate]);
 
-  const somethingIsLoadingInSomeWay = isLoading || isFetching || isRefetching || waitingForCategoryDecision;
+  // Include `needsPickerRedirect` so the PageForm doesn't render in the
+  // tick between this render and the useEffect-driven navigation. Without
+  // it, a fast clicker could create a slot without picking a category in
+  // that window — the very thing the redirect is meant to prevent.
+  const somethingIsLoadingInSomeWay =
+    isLoading || isFetching || isRefetching || waitingForCategoryDecision || needsPickerRedirect;
 
   // todo: actually check error type
   const pageNotFound = error && isRefetching === false && !isLoading && !isFetching;
