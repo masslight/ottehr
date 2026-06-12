@@ -30,14 +30,13 @@ import {
   CreateSlotParams,
   FollowUpOptions,
   getAppointmentDurationFromSlot,
-  getReasonForVisitOptionsForServiceCategory,
+  getReasonForVisitOptions,
   GetScheduleRequestParams,
   GetScheduleResponse,
   getTimezone,
   isApiError,
   PatientInfo,
   SCHEDULED_FOLLOWUP_OTHER_REASON,
-  SCHEDULED_FOLLOWUP_REASONS,
   ScheduleType,
   ServiceMode,
   SLUG_SYSTEM,
@@ -194,9 +193,7 @@ export default function AddPatient(): JSX.Element {
   }, [serviceCategory]);
 
   // Scheduled follow-ups use a fixed follow-up-reason list instead of the service-category reasons.
-  const reasonForVisitOptions = isScheduledFollowUp
-    ? SCHEDULED_FOLLOWUP_REASONS.map((reason) => ({ value: reason, label: reason }))
-    : getReasonForVisitOptionsForServiceCategory(serviceCategory ?? '');
+  const reasonForVisitOptions = getReasonForVisitOptions(isScheduledFollowUp, serviceCategory ?? '');
   const isOtherFollowUpReason = isScheduledFollowUp && reasonForVisit === SCHEDULED_FOLLOWUP_OTHER_REASON;
   const shouldShowReasonForVisitFields = useMemo(() => {
     return showFields !== 'initialPatientSearch' && reasonForVisitOptions.length > 0;
@@ -630,11 +627,7 @@ export default function AddPatient(): JSX.Element {
                               if (errors.otherReason) setErrors((prev) => ({ ...prev, otherReason: false }));
                             }}
                             error={!!errors.otherReason}
-                            helperText={
-                              errors.otherReason
-                                ? 'Please specify the follow-up reason'
-                                : "If the follow-up reason matches the initial visit's reason for visit, enter it here."
-                            }
+                            helperText={errors.otherReason ? 'Please specify the follow-up reason' : undefined}
                           />
                         </FormControl>
                       </Box>
