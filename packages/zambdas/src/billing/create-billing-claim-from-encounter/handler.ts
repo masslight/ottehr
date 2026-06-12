@@ -119,6 +119,7 @@ interface BillingResources {
 interface ClaimResources {
   patientId: string;
   encounter: Encounter;
+  appointment: Appointment;
   // Only patient is required, everything else will prompt for data before claim submission in the UI
   /** Ordered list of coverages. First entry is the target of the claim. */
   coverageRefs: CoverageRefs;
@@ -328,6 +329,7 @@ export async function performEffect(
   const claim = buildClaim({
     patientId: claimPatient.id,
     encounter: clinicalResources.encounter,
+    appointment: clinicalResources.appointment,
     diagnoses: clinicalResources.diagnoses,
     procedures: clinicalResources.procedures,
     coverageRefs: getClaimCoveragesForEncounter(encounterType, mainPatientAccounts, claimCoverages),
@@ -345,6 +347,7 @@ export async function performEffect(
     }
   });
 
+  console.log('all claim requests', JSON.stringify(requests, undefined, 2));
   const txResult = await billingOystehr.fhir.transaction<BillingFhirResource>({ requests });
   const entries = (txResult.entry ?? []).map((e) => e.resource).filter(Boolean) as Resource[];
 
@@ -430,8 +433,6 @@ export function getClaimCoveragesForEncounter(
       );
       let primaryCoverage: Coverage | undefined;
       let secondaryCoverage: Coverage | undefined;
-      console.log('colin', JSON.stringify(ucAccount?.coverage));
-      console.log('colin', JSON.stringify(claimCoverages));
       ucAccount?.coverage?.forEach((uccov) => {
         const foundClaimCoverage = claimCoverages.find(
           (ccov) =>
@@ -695,18 +696,15 @@ async function getClinicalResources(
       .map<string | undefined>((coverage) => coverage.coverage.reference?.replace('Coverage/', ''))
       .filter<string>((coverageId): coverageId is string => !!coverageId)
   );
-  const coverages = (
-    await Promise.all(
-      coverageIds.map(async (coverageId) =>
-        (
-          await oystehr.fhir.search<Coverage>({
-            resourceType: 'Coverage',
-            params: [{ name: '_id', value: coverageId }],
-          })
-        ).unbundle()
-      )
-    )
-  ).flat();
+  let coverages: Coverage[] = [];
+  if (coverageIds.length > 0) {
+    coverages = (
+      await oystehr.fhir.search<Coverage>({
+        resourceType: 'Coverage',
+        params: [{ name: '_id', value: coverageIds.join(',') }],
+      })
+    ).unbundle();
+  }
   if (!coverages.length) throw FHIR_RESOURCE_NOT_FOUND('Coverage');
 
   // Manually look up payors because they may be internal Organization resources or Oystehr RCM payer URLs
@@ -760,25 +758,15 @@ async function findExistingBillingResources(
   secrets: Secrets
 ): Promise<BillingResources> {
   const personSearch = (
-    await billingOystehr.fhir.search<Person | Patient | Account | Coverage | RelatedPerson>({
+    await billingOystehr.fhir.search<Person | Patient | Account>({
       resourceType: 'Person',
       params: [
         { name: 'link', value: `Patient/${originals.patient.id}` },
-        { name: '_include', value: 'patient' },
+        { name: '_include', value: 'Person:patient' },
         {
           // Include account coverages
           name: '_revinclude',
           value: 'Account:patient:Patient',
-        },
-        {
-          // Include account coverages
-          name: '_include',
-          value: 'Account:coverage:Coverage',
-        },
-        {
-          // Include coverage subscribers
-          name: '_include',
-          value: 'Coverage:subscriber:RelatedPerson',
         },
       ],
     })
@@ -807,8 +795,32 @@ async function findExistingBillingResources(
   }
   const existingMainPatient = existingMainPatients.length ? existingMainPatients[0] : undefined;
   const existingAccounts = personSearch.filter((r): r is Account => r.resourceType === 'Account');
-  const existingCoverages = personSearch.filter((r): r is Coverage => r.resourceType === 'Coverage');
-  const existingSubscribers = personSearch.filter((r): r is RelatedPerson => r.resourceType === 'RelatedPerson');
+
+  // Manually look up coverages because FHIR doesn't support Account:coverage include
+  const coverageIds = existingAccounts.flatMap<string>((account) =>
+    (account.coverage ?? [])
+      .map<string | undefined>((coverage) => coverage.coverage.reference?.replace('Coverage/', ''))
+      .filter<string>((coverageId): coverageId is string => !!coverageId)
+  );
+  let existingCoverages: Coverage[] = [];
+  let existingSubscribers: RelatedPerson[] = [];
+  if (coverageIds.length > 0) {
+    const coverageSearch = (
+      await billingOystehr.fhir.search<Coverage | RelatedPerson>({
+        resourceType: 'Coverage',
+        params: [
+          { name: '_id', value: coverageIds.join(',') },
+          {
+            // Include coverage subscribers
+            name: '_include',
+            value: 'Coverage:subscriber',
+          },
+        ],
+      })
+    ).unbundle();
+    existingCoverages = coverageSearch.filter((r): r is Coverage => r.resourceType === 'Coverage');
+    existingSubscribers = coverageSearch.filter((r): r is RelatedPerson => r.resourceType === 'RelatedPerson');
+  }
 
   const serviceFacilitySearch = (
     await billingOystehr.fhir.search<Location>({
@@ -940,11 +952,11 @@ function buildClaim(resources: ClaimResources): Claim {
             .filter((cca): cca is CodeableConcept => !!cca),
           servicedPeriod: {
             start: getLocalDateOfService(
-              assertDefined(resources.encounter.period?.start, 'Encounter start'),
+              assertDefined(resources.appointment.start, 'Encounter start'),
               resources.serviceFacility
             ),
-            end: resources.encounter.period?.end
-              ? getLocalDateOfService(resources.encounter.period.end, resources.serviceFacility)
+            end: resources.appointment.end
+              ? getLocalDateOfService(resources.appointment.end, resources.serviceFacility)
               : undefined,
           },
           locationCodeableConcept:
@@ -989,7 +1001,9 @@ export async function complexValidation(
   if (existingClaims.length > 0) {
     throw INVALID_INPUT_ERROR('Claim has already been created for this encounter');
   }
+  console.log('getting clinical resources');
   const clinicalResources = await getClinicalResources(clinicalOystehr, params);
+  console.log('getting billing resources');
   const billingResources = await findExistingBillingResources(billingOystehr, clinicalResources, params.secrets);
   return { clinicalResources, billingResources };
 }

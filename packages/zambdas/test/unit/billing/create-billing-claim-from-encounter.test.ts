@@ -68,9 +68,6 @@ const clinicalResources: {
         reference: 'Appointment/appointment-123',
       },
     ],
-    period: {
-      start: '2026-01-01',
-    },
     location: [
       {
         location: {
@@ -106,6 +103,7 @@ const clinicalResources: {
     status: 'fulfilled',
     participant: [],
     serviceCategory: [{ coding: [{ system: SERVICE_CATEGORY_SYSTEM, code: 'urgent-care' }] }],
+    start: '2026-01-01',
   },
   location: {
     resourceType: 'Location',
@@ -682,13 +680,10 @@ describe('create-billing-claim-from-encounter', () => {
             unbundle: () => [],
           })
           .mockResolvedValueOnce({
-            unbundle: () => [
-              billingResources.person,
-              billingResources.patient,
-              billingResources.account,
-              billingResources.coverage,
-              billingResources.relatedPerson,
-            ],
+            unbundle: () => [billingResources.person, billingResources.patient, billingResources.account],
+          })
+          .mockResolvedValueOnce({
+            unbundle: () => [billingResources.coverage, billingResources.relatedPerson],
           })
           .mockResolvedValueOnce({
             unbundle: () => [billingResources.location],
