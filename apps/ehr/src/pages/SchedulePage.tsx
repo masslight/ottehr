@@ -1,4 +1,3 @@
-import { otherColors } from '@ehrTheme/colors';
 import CheckIcon from '@mui/icons-material/Check';
 import CheckBoxIcon from '@mui/icons-material/CheckBox';
 import CheckBoxOutlineBlankIcon from '@mui/icons-material/CheckBoxOutlineBlank';
@@ -13,7 +12,6 @@ import {
   Checkbox,
   CircularProgress,
   FormControlLabel,
-  Grid,
   IconButton,
   Paper,
   Skeleton,
@@ -785,30 +783,6 @@ export default function SchedulePage(): ReactElement {
                         Save
                       </LoadingButton>
                     </form>
-                  </Paper>
-                  <Paper sx={{ padding: 3 }}>
-                    <Grid container direction="row" justifyContent="flex-start" alignItems="flex-start">
-                      <Grid item xs={6}>
-                        <Typography variant="h4" color={'primary.dark'}>
-                          Information to the patients
-                        </Typography>
-                        <Typography variant="body1" color="primary.dark" marginTop={1}>
-                          This message will be displayed to the patients before they proceed with booking the visit.
-                        </Typography>
-                        <Box
-                          marginTop={2}
-                          sx={{
-                            background: otherColors.locationGeneralBlue,
-                            borderRadius: 1,
-                          }}
-                          padding={3}
-                        >
-                          <Typography color="primary.dark" variant="body1">
-                            No description
-                          </Typography>
-                        </Box>
-                      </Grid>
-                    </Grid>
                   </Paper>
                 </TabPanel>
                 {item?.owner.type === 'Location' && (
