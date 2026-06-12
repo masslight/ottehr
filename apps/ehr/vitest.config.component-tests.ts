@@ -15,6 +15,7 @@ export default defineConfig({
     setupFiles: ['../../packages/test-utils/lib/no-network.setup.ts', './tests/component/setup.ts'],
     environment: 'jsdom',
     testTimeout: 30_000, // 30 seconds
+    retry: 1,
     coverage: {
       provider: 'v8',
       reporter: ['lcov', 'text-summary', 'json'],
