@@ -1,8 +1,8 @@
-import { Secrets, UpdateRadiologyOrderConsentZambdaInput } from 'utils';
+import { Secrets, UpdateRadiologyOrderZambdaInput } from 'utils';
 import { validateJsonBody, ZambdaInput } from '../../../shared';
 
 export interface ValidatedInput {
-  body: UpdateRadiologyOrderConsentZambdaInput;
+  body: UpdateRadiologyOrderZambdaInput;
   callerAccessToken: string;
 }
 
@@ -20,7 +20,7 @@ export const validateInput = async (input: ZambdaInput): Promise<ValidatedInput>
   };
 };
 
-const validateBody = (input: ZambdaInput): UpdateRadiologyOrderConsentZambdaInput => {
+const validateBody = (input: ZambdaInput): UpdateRadiologyOrderZambdaInput => {
   const { serviceRequestId, consentObtained } = validateJsonBody(input);
 
   if (!serviceRequestId) {

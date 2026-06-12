@@ -1,18 +1,14 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { ServiceRequest } from 'fhir/r4b';
-import {
-  FHIR_EXTENSION,
-  getPatchOperationToUpdateExtension,
-  UpdateRadiologyOrderConsentZambdaOutput,
-} from 'utils';
+import { FHIR_EXTENSION, getPatchOperationToUpdateExtension, UpdateRadiologyOrderZambdaOutput } from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
 import { ValidatedInput, validateInput, validateSecrets } from './validation';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let m2mToken: string;
 
-const ZAMBDA_NAME = 'radiology-update-consent';
+const ZAMBDA_NAME = 'radiology-update-order';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (unsafeInput: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
@@ -41,7 +37,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (unsafeInput: ZambdaInput): 
 async function performEffect(
   validatedInput: ValidatedInput,
   oystehr: Oystehr
-): Promise<UpdateRadiologyOrderConsentZambdaOutput> {
+): Promise<UpdateRadiologyOrderZambdaOutput> {
   const { serviceRequestId, consentObtained } = validatedInput.body;
 
   // Get the existing service request from Oystehr

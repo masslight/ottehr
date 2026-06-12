@@ -213,8 +213,8 @@ import {
   UpdatePatientLoginPhoneNumbersInput,
   UpdateProcedureQuickPickResponse,
   UpdateQuickTextQuickPickResponse,
-  UpdateRadiologyOrderConsentZambdaInput,
-  UpdateRadiologyOrderConsentZambdaOutput,
+  UpdateRadiologyOrderZambdaInput,
+  UpdateRadiologyOrderZambdaOutput,
   UpdateRadiologyQuickPickResponse,
   UpdateScheduleParams,
   UpdateUserParams,
@@ -1215,13 +1215,13 @@ export const sendForFinalRead = async (
   }
 };
 
-export const updateRadiologyOrderConsent = async (
+export const updateRadiologyOrder = async (
   oystehr: Oystehr,
-  parameters: UpdateRadiologyOrderConsentZambdaInput
-): Promise<UpdateRadiologyOrderConsentZambdaOutput> => {
+  parameters: UpdateRadiologyOrderZambdaInput
+): Promise<UpdateRadiologyOrderZambdaOutput> => {
   try {
     const response = await oystehr.zambda.execute({
-      id: 'radiology-update-consent',
+      id: 'radiology-update-order',
       ...parameters,
     });
     return chooseJson(response);

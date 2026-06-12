@@ -11,7 +11,7 @@ import {
   getRadiologyOrders,
   savePreliminaryReport,
   sendForFinalRead,
-  updateRadiologyOrderConsent,
+  updateRadiologyOrder,
 } from '../../../api/api';
 import { useApiClients } from '../../../hooks/useAppClients';
 import { useDeleteRadiologyOrderDialog } from './useDeleteRadiologyOrderDialog';
@@ -290,7 +290,7 @@ export const usePatientRadiologyOrders = (options: {
       setError(null);
 
       try {
-        await updateRadiologyOrderConsent(oystehrZambda, { serviceRequestId, consentObtained });
+        await updateRadiologyOrder(oystehrZambda, { serviceRequestId, consentObtained });
 
         // Refetch the orders to get the updated data
         const searchParams = getCurrentSearchParamsForPage(page);
