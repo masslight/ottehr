@@ -16,7 +16,6 @@ import {
   RelatedPerson,
   Resource,
 } from 'fhir/r4b';
-import { isEqual } from 'lodash';
 import { DateTime } from 'luxon';
 import {
   AUDIT_EVENT_OUTCOME_CODE,
@@ -34,6 +33,7 @@ import { getStripeClient } from '../../shared';
 import { getChartData } from '../get-chart-data';
 import {
   accountMatchesType,
+  coveragesAreSame,
   createMasterRecordPatchOperations,
   createUpdatePharmacyPatchOps,
   getAccountAndCoverageResourcesForPatient,
@@ -193,16 +193,6 @@ async function collectEncounterResources(
     resourcesToUpdate.push(resource as FhirResource);
   }
   return resourcesToUpdate;
-}
-
-function checkIfCoveragesAreDuplicates(coveragePatientA: Coverage, coveragePatientB: Coverage): boolean {
-  const identifiersAreEqual = isEqual(coveragePatientA.identifier, coveragePatientB.identifier);
-  const payorsAreEqual = isEqual(coveragePatientA.payor, coveragePatientB.payor);
-  const subscriberIdsAreEqual = coveragePatientA.subscriberId === coveragePatientB.subscriberId;
-  const relationshipIsEqual = isEqual(coveragePatientA.relationship, coveragePatientB.relationship);
-  const classIsEqual = isEqual(coveragePatientA.class, coveragePatientB.class);
-
-  return identifiersAreEqual && payorsAreEqual && subscriberIdsAreEqual && relationshipIsEqual && classIsEqual;
 }
 
 export async function performMerge(input: PerformMergeInput, oystehr: Oystehr, m2mToken: string): Promise<void> {
@@ -724,7 +714,7 @@ export async function performMerge(input: PerformMergeInput, oystehr: Oystehr, m
     requests.push({ method: 'PUT', url: `/Account/${id}`, resource: acct as FhirResource });
   }
 
-  console.log('mainPatientCoverages', mainPatientCoverages);
+  console.log('mainPatientCoverages', mainPatientCoverages?.map((c) => `Coverage/${c.id}`));
 
   const coverages = (
     await oystehr.fhir.search<Coverage>({
@@ -752,7 +742,7 @@ export async function performMerge(input: PerformMergeInput, oystehr: Oystehr, m
     if (mainPatientCoverages && mainPatientCoverages.length > 0) {
       // check to see if a coverage for the main already exists
       const coverageIsDuplicated = mainPatientCoverages.some((coverageForMainPatient) => {
-        const duplicated = checkIfCoveragesAreDuplicates(coverageForMainPatient, coverage);
+        const duplicated = coveragesAreSame(coverageForMainPatient, coverage);
         if (duplicated) {
           console.log('these coverages are flagged as duplicates: ', coverageForMainPatient.id, coverage.id);
         }
@@ -860,8 +850,6 @@ export async function performMerge(input: PerformMergeInput, oystehr: Oystehr, m
     }
   }
   console.log(`Merge complete: ${requests.length} resources updated across ${chunks.length} transaction(s)`);
-
-  console.log('processedIds', processedIds);
 
   // ════════════════════════════════════════════════════════════════════════
   // Step 6: Write audit event
