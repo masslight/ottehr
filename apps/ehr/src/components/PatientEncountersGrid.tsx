@@ -42,7 +42,9 @@ import {
   FollowUpVisitHistoryRow,
   formatMinutes,
   getAnnotationFollowupStatusLabel,
+  getFirstName,
   getFollowUpProgressNotePathSegment,
+  getLastName,
   getServiceCategoryAbbreviation,
   PatientVisitListResponse,
   ServiceMode,
@@ -344,7 +346,27 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
           Encounters - {totalCount}
         </Typography>
         {latestVisitDate && <Typography>Latest visit: {formatISOStringToDateAndTime(latestVisitDate)}</Typography>}
-        <RoundedButton to="/visits/add" target="_blank" variant="contained" startIcon={<AddIcon fontSize="small" />}>
+        <RoundedButton
+          variant="contained"
+          startIcon={<AddIcon fontSize="small" />}
+          onClick={() =>
+            navigate('/visits/add', {
+              state: patient
+                ? {
+                    patientInfo: {
+                      id: patient.id,
+                      newPatient: false,
+                      firstName: getFirstName(patient),
+                      lastName: getLastName(patient),
+                      dateOfBirth: patient.birthDate,
+                      sex: patient.gender,
+                      phoneNumber: patient?.telecom?.find((t) => t.system === 'phone')?.value?.replace('+1', ''),
+                    },
+                  }
+                : undefined,
+            })
+          }
+        >
           New Visit
         </RoundedButton>
         <RoundedButton

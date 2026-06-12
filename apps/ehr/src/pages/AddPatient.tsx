@@ -184,7 +184,7 @@ export default function AddPatient(): JSX.Element {
   const [selectSlotDialogOpen, setSelectSlotDialogOpen] = useState<boolean>(false);
   const [validReasonForVisit, setValidReasonForVisit] = useState<boolean>(true);
   const [showFields, setShowFields] = useState<AddVisitFormState>(
-    isScheduledFollowUp ? 'existingPatientSelected' : 'initialPatientSearch'
+    isScheduledFollowUp || !!followUpState?.patientInfo ? 'existingPatientSelected' : 'initialPatientSearch'
   );
 
   useEffect(() => {
