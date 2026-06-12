@@ -42,6 +42,7 @@ import {
   performEffect,
   validateRequestParameters,
 } from '../../../src/billing/create-billing-claim-from-encounter/handler';
+import { BILLING_RESOURCE_TAG } from '../../../src/billing/shared';
 
 const clinicalResources: {
   encounter: Encounter;
@@ -201,6 +202,9 @@ const billingResources: {
     extension: [
       { url: 'https://ottehr.com/billing/source-resource', valueReference: { reference: 'Patient/patient-123' } },
     ],
+    meta: {
+      tag: [BILLING_RESOURCE_TAG],
+    },
   },
   account: {
     resourceType: 'Account',
@@ -1127,6 +1131,7 @@ describe('create-billing-claim-from-encounter', () => {
     it('creates appropriate billing resources and claim when all exist', async () => {
       const txFn = vi.fn().mockResolvedValueOnce({
         entry: [
+          { resource: { resourceType: 'Patient', id: 'billing-patient' } },
           { resource: { resourceType: 'Patient', id: 'claim-patient' } },
           { resource: { resourceType: 'RelatedPerson', id: 'claim-subscriber' } },
           { resource: { resourceType: 'Coverage', id: 'claim-coverage' } },

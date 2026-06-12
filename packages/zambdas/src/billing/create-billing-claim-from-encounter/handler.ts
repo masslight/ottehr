@@ -315,9 +315,16 @@ export async function performEffect(
       resource: {
         resourceType: 'Person',
         link: [
-          { target: { reference: `Patient/${clinicalResources.patient.id!}` } },
           { target: uuidOrUrnReference('Patient', mainPatient.id!) },
           { target: uuidOrUrnReference('Patient', claimPatient.id) },
+        ],
+        extension: [
+          {
+            url: SOURCE_IDENTIFIER_SYSTEM,
+            valueReference: {
+              reference: `Patient/${clinicalResources.patient.id!}`,
+            },
+          },
         ],
       },
     });
@@ -783,6 +790,7 @@ async function findExistingBillingResources(
   const existingMainPatients = personSearch.filter(
     (r): r is Patient =>
       r.resourceType === 'Patient' &&
+      !!r.meta?.tag?.some((t) => t.system === BILLING_RESOURCE_TAG.system && t.code === BILLING_RESOURCE_TAG.code) &&
       !r.meta?.tag?.some(
         (t) => t.system === BILLING_WORKING_COPY_TAG.system && t.code === BILLING_WORKING_COPY_TAG.code
       )
