@@ -63,28 +63,22 @@ export const convertCapacityListToBucketedTimeSlots = (
   const timeSlots: { [slot: string]: number } = {};
   const effectiveSlotLength = slotLength ?? 15;
 
-  // When the caller supplies an explicit cadence (e.g. group admin picked
-  // "every 15 minutes"), that always wins and we route through the
-  // session-based path — the per-hour bucket fast path can't express a cadence
-  // finer than the slot length.
-  const hasExplicitCadence = cadenceMinutes !== undefined && cadenceMinutes > 0;
+  // Resolve cadence once up front so the branch below can decide on what
+  // the path actually needs (slot length divides 60 AND cadence == slot
+  // length), not on whether the caller passed an explicit value. An admin
+  // who explicitly sets cadence to its default value used to take the
+  // session path and silently lose fractional-providers hours; same input
+  // now produces the same output as leaving cadence unset.
+  const effectiveCadenceMinutes =
+    cadenceMinutes !== undefined && cadenceMinutes > 0 ? cadenceMinutes : getDefaultCadenceMinutes(effectiveSlotLength);
 
-  // Two branches:
-  //   - slotLength evenly divides 60 (15/30/60) AND no explicit cadence:
-  //     per-hour bucket math. Each slot fits within one open hour; capacity is
-  //     distributed across sub-hour buckets. Preserves legacy behaviour.
-  //   - everything else (20, 45, 90, 120, …, or explicit cadence): session-
-  //     based math. Slots may straddle hours; offered starts step at the
-  //     caller's cadence (if any) else gcd(slotLength, 60) (e.g. 45-min →
-  //     15-min cadence). Per-slot capacity is the minimum providers count
-  //     across every hour the slot touches (a 45-min visit needs a provider
-  //     free for the whole 45 minutes).
-  // Resolve the effective concurrent-provider count for an hour entry, picking
-  // whichever field the admin filled in. Precedence:
-  //   1. `prebookSlots` (Location semantic): slots × slotLength / 60.
-  //   2. `providers`    (Practitioner semantic): used as-is.
-  //   3. legacy `capacity` (bookings/hr at 15-min cadence): capacity × 15/60
-  //      = capacity/4, which matches the old math for the 15-min-only world.
+  // Per-hour bucket math (each slot fits in one open hour, capacity
+  // distributed across sub-hour buckets) vs session-based math (slots may
+  // straddle hours, capacity is min providers across hours touched). The
+  // bucket path can't express a cadence finer than slot length, so it's
+  // only valid when those two are equal.
+  // Resolve effective providers per hour: prebookSlots × slotLen/60, else
+  // providers as-is, else legacy capacity/4 (legacy = bookings/hr at 15-min cadence).
   const effectiveProviders = (entry: Capacity): number => {
     if (entry.prebookSlots !== undefined && entry.prebookSlots !== null) {
       return (entry.prebookSlots * effectiveSlotLength) / 60;
@@ -95,7 +89,7 @@ export const convertCapacityListToBucketedTimeSlots = (
     return (entry.capacity ?? 0) / 4;
   };
 
-  if (!hasExplicitCadence && effectiveSlotLength <= 60 && 60 % effectiveSlotLength === 0) {
+  if (effectiveSlotLength <= 60 && 60 % effectiveSlotLength === 0 && effectiveCadenceMinutes === effectiveSlotLength) {
     scheduleCapacityList.forEach((entry) => {
       const providersForHour = effectiveProviders(entry);
       const totalBookings = Math.max(0, Math.floor((providersForHour * 60) / effectiveSlotLength));
@@ -126,11 +120,7 @@ export const convertCapacityListToBucketedTimeSlots = (
     else sessions.push([h]);
   }
 
-  // Explicit cadence wins; otherwise fall back to the default rule shared
-  // with admin UIs (getDefaultCadenceMinutes) — keeps the "Default" label
-  // an admin sees on the cadence picker in sync with what they'll actually
-  // get when the admin leaves cadence unset.
-  const stepMinutes = hasExplicitCadence ? cadenceMinutes! : getDefaultCadenceMinutes(effectiveSlotLength);
+  const stepMinutes = effectiveCadenceMinutes;
 
   for (const sessionHours of sessions) {
     const sessionStartHour = sessionHours[0];
