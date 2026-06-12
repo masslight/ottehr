@@ -4,7 +4,7 @@ import { AccordionCard } from 'src/components/AccordionCard';
 import { DoubleColumnContainer } from 'src/components/DoubleColumnContainer';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { VitalsHeightObservationDTO } from 'utils';
+import { HEIGHT_CM_DISPLAY_PRECISION, HeightMeasurement, VitalsHeightObservationDTO } from 'utils';
 import { useGetAppointmentAccessibility } from '../../../hooks/useGetAppointmentAccessibility';
 import VitalsHistoryContainer from '../components/VitalsHistoryContainer';
 import VitalHistoryElement from '../components/VitalsHistoryEntry';
@@ -21,11 +21,16 @@ const VitalsHeightCard: React.FC<VitalsHeightCardProps> = ({ field }): JSX.Eleme
   const { isLargeScreen } = useScreenDimensions();
 
   const [isCollapsed, setIsCollapsed] = useState<boolean>(false);
+
   const handleSectionCollapse = useCallback(() => {
     setIsCollapsed((prevCollapseState) => !prevCollapseState);
   }, [setIsCollapsed]);
 
-  const latestHeightValue = field.current[0]?.value;
+  const latestHeightCm = field.current[0]?.value;
+
+  const latestHeightValue =
+    latestHeightCm === undefined ? '' : HeightMeasurement.fromCm(latestHeightCm).getCm(HEIGHT_CM_DISPLAY_PRECISION);
+
   const { localState } = field;
 
   const { handleKeyDown } = useVitalsSaveOnEnter({
