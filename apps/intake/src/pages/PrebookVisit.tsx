@@ -261,6 +261,12 @@ const PrebookVisit: FC = () => {
         ...createSlotParamsFromSlotAndOptions(slot, {
           originalBookingUrl: getUrl(),
           status: 'busy-tentative',
+          // The /prebook/:mode URL segment is the patient's chosen modality and is
+          // authoritative. For group links the vended slot can carry the wrong
+          // modality (owner is a PractitionerRole/group, not a virtual Location),
+          // so a /prebook/virtual group booking would otherwise create an
+          // in-person visit. Passing it here keeps the appointment's type correct.
+          serviceModality: serviceMode,
         }),
         ...(questionnaireCanonical && { questionnaireCanonical }),
       };

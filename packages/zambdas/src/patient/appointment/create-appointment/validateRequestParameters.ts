@@ -418,28 +418,17 @@ export const createAppointmentComplexValidation = async (
     visitType = VisitType.WalkIn;
   }
 
-  if (serviceMode === ServiceMode.virtual && !locationState) {
-    if (scheduleOwner.resourceType === 'Location' && isLocationVirtual(scheduleOwner as Location)) {
-      const state = scheduleOwner.address?.state;
-      const isValidLocationState = AllStates.some(
-        (stateTemp) => state && stateTemp.value.toLowerCase() === state.toLowerCase()
-      );
-      if (isValidLocationState) {
-        locationState = state;
-      }
-    }
-  }
-
-  if (serviceMode === ServiceMode.virtual && !locationState) {
-    throw INVALID_INPUT_ERROR('"locationState" is required for virtual appointments');
-  }
-
   // Resolve the unified bookingLocation (and, when relevant, the attending
   // Practitioner). The resolution-rule logic lives in
   // resolveBookingLocationId as a pure helper so it's exhaustively unit-
   // testable; this function just materialises the resolved id into a
   // Location resource and handles the PR-actor → Practitioner side, which
   // is independent of where the Location came from.
+  //
+  // Resolved before the virtual-appointment locationState check below, because
+  // group bookings derive their state from the (virtual) member Location
+  // resolved here — the schedule owner is a HealthcareService or
+  // PractitionerRole and carries no state of its own.
   let bookingLocation: ResolvedBookingLocation | undefined;
   let attendingPractitioner: ResolvedAttendingPractitioner | undefined;
 
@@ -463,6 +452,24 @@ export const createAppointmentComplexValidation = async (
       throw INVALID_INPUT_ERROR(`Resolved booking Location is missing an id (expected ${bookingLocationId})`);
     }
     bookingLocation = resolved as ResolvedBookingLocation | undefined;
+  }
+
+  // When the caller didn't pass locationState explicitly, derive it from a virtual
+  // Location, otherwise the resolved booking Location (group bookings,
+  // where the virtual member Location is identified by the slot's
+  // at-location stamp).
+  if (serviceMode === ServiceMode.virtual && !locationState) {
+    const virtualLocationForState = [scheduleOwner, bookingLocation].find(
+      (loc): loc is Location => !!loc && loc.resourceType === 'Location' && isLocationVirtual(loc as Location)
+    );
+    const state = virtualLocationForState?.address?.state;
+    if (state && AllStates.some((stateTemp) => stateTemp.value.toLowerCase() === state.toLowerCase())) {
+      locationState = state;
+    }
+  }
+
+  if (serviceMode === ServiceMode.virtual && !locationState) {
+    throw INVALID_INPUT_ERROR('"locationState" is required for virtual appointments');
   }
 
   if (scheduleOwner.resourceType === 'PractitionerRole') {

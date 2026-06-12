@@ -277,7 +277,7 @@ export const MedicationCardView: React.FC<MedicationCardViewProps> = ({
             onClick={onStatusSelect}
             status={selectedStatus}
           />
-          {!isReadOnly && onDelete && (
+          {!isReadOnly && onDelete && type !== 'completed-edit' && (
             <ButtonRounded onClick={onDelete} variant="outlined" color="error" size="large">
               Delete Order
             </ButtonRounded>
