@@ -503,16 +503,8 @@ describe('get-schedule filters out inactive owners and Schedules', () => {
     // disjoint hours Schedule-B's id would never surface even before
     // deactivation and the negative case would pass for the wrong reason.
     const fixture = await createGroupFixture();
-    // `selectedDate` = tomorrow in the schedule's timezone so every working
-    // hour (09–12 for A, 13–17 for B) is in the future regardless of when
-    // the test runs.
-    // Adding the day BEFORE calling startOfDayWithTimezone (in NY) would
-    // be evaluated in the runtime's local zone, so `.toFormat('MM/dd/yyyy')`
-    // inside the helper would read the runtime calendar date. That's an
-    // off-by-one near midnight UTC. Instead: let the helper anchor "today"
-    // in NY (default behavior when `date` is omitted), then advance the
-    // calendar day in NY zone where Luxon's `plus({ days: 1 })` is
-    // DST-correct.
+    // Tomorrow in NY — anchor in NY first, then advance. Doing `now().plus(1d)`
+    // before the helper computes the day in the runtime zone (off-by-one at UTC midnight).
     const selectedDate = startOfDayWithTimezone({ timezone: 'America/New_York' }).plus({ days: 1 }).toISODate();
     assert(selectedDate);
 

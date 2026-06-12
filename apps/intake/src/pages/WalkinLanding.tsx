@@ -43,57 +43,39 @@ export const WalkinLanding: FC = () => {
     enabled: Boolean(scheduleId || locationName) && Boolean(tokenlessZambdaClient),
   });
 
-  // Service-category routing. Three outcomes once the catalog loads:
-  //   - 0 walk-in-capable categories → fall through (legacy behavior: create
-  //     the slot without a category so the schedule isn't broken until the
-  //     admin configures one)
-  //   - 1 walk-in-capable category → auto-select silently at slot creation
-  //   - 2+ → redirect to the picker child route so the patient chooses
-  // The category-list query still runs when the URL already carries a
-  // serviceCategory — useServiceCategories is unconditional and React Query
-  // caches per (scheduleType, bookingOn) key — but the decision logic below
-  // short-circuits, so neither the auto-select nor the redirect fires when
-  // we already have a category in hand.
+  // Branches when serviceCategory isn't in the URL: 0 walk-in-capable cats →
+  // fall through (slot has no category; legacy zambda default kicks in);
+  // 1 → silent auto-select; 2+ → redirect to picker. Closed location skips
+  // all of this and goes straight to the "closed" message.
   const { serviceCategories, isLoading: isCategoriesLoading } = useServiceCategories({});
   const walkinCapableCategories = useMemo(
     () => (serviceCategories ?? []).filter((sc) => (sc.visitTypes ?? ['prebook']).includes('walk-in')),
     [serviceCategories]
   );
   const categoryDecisionNeeded = !serviceCategory;
-  // Only block on the category fetch when walk-in is actually open. When
-  // it's closed there's no slot to create, so the picker never runs and
-  // we can let the "we are closed" branch render as soon as availability
-  // resolves — no need to also wait for the catalog.
   const walkinIsOpen = data?.walkinOpen === true;
   const waitingForCategoryDecision = categoryDecisionNeeded && isCategoriesLoading && walkinIsOpen;
   const resolvedServiceCategory =
     serviceCategory ?? (walkinCapableCategories.length === 1 ? walkinCapableCategories[0].category.code : undefined);
-  // Same gate on `walkinIsOpen` — a closed location's deeplink should land
-  // on the "closed" message directly, not detour through the picker only
-  // to discover the location is closed on the next page.
   const needsPickerRedirect =
     categoryDecisionNeeded && !isCategoriesLoading && walkinCapableCategories.length >= 2 && walkinIsOpen;
 
   useEffect(() => {
     if (!needsPickerRedirect) return;
-    // Mirror the entry URL shape so the picker's destination calculation
-    // (strip `/select-service-category`, append `?serviceCategory=<code>`)
-    // brings the patient back to this same page.
+    // Mirror the entry URL shape so the picker's strip-and-return lands back here.
     const basePath = scheduleId
       ? `/walkin/schedule/${scheduleId}/select-service-category`
       : name
       ? `/walkin/location/${name}/select-service-category`
       : null;
     if (!basePath) return;
-    // Preserve any other query params already on the URL (analytics, etc.).
     const query = searchParams.toString();
     navigate(`${basePath}${query ? `?${query}` : ''}`, { replace: true });
   }, [needsPickerRedirect, scheduleId, name, searchParams, navigate]);
 
-  // Include `needsPickerRedirect` so the PageForm doesn't render in the
-  // tick between this render and the useEffect-driven navigation. Without
-  // it, a fast clicker could create a slot without picking a category in
-  // that window — the very thing the redirect is meant to prevent.
+  // `needsPickerRedirect` is in here so PageForm doesn't briefly mount
+  // before the useEffect navigation runs (race that would let a fast click
+  // create a slot without picking a category).
   const somethingIsLoadingInSomeWay =
     isLoading || isFetching || isRefetching || waitingForCategoryDecision || needsPickerRedirect;
 

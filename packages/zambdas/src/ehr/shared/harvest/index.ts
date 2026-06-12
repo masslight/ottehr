@@ -4147,10 +4147,8 @@ export const updatePatientAccountFromQuestionnaire = async (
     // optimistically-locked PUT below, rather than creating a competing one.
     if (!existingAccount) {
       const billingType = PATIENT_BILLING_ACCOUNT_TYPE?.coding?.[0];
-      // SDK ≥4.3.11 takes `ifNoneExist` as a single search-param query string
-      // (server sets it as the `If-None-Exist` HTTP header verbatim). Build
-      // with URLSearchParams so reserved characters in the system URL — `|`
-      // is the worst offender — are encoded the way FHIR expects.
+      // `ifNoneExist` is a single query string (set verbatim as the
+      // If-None-Exist header). URLSearchParams encodes the `|` in `system|code`.
       const ifNoneExist = new URLSearchParams({
         patient: `Patient/${patientId}`,
         type: `${billingType?.system}|${billingType?.code}`,

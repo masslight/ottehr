@@ -484,13 +484,8 @@ const generateRandomPatientInfo = async (
   selectedLocationId?: string,
   locationState?: string,
   serviceCategory?: ServiceCategoryCode,
-  /**
-   * Index in the parallel createSampleAppointments batch. Used only by the
-   * in-person path to space slot start times so concurrent callers don't
-   * all race for the same capacity bucket on the Schedule's grid; one of
-   * them wins, the rest fail with SLOT_UNAVAILABLE. Defaults to 0 (no
-   * stagger) for single-call use.
-   */
+  // Stagger key: parallel callers without this all race for the same capacity
+  // bucket and 9 of 10 fail with SLOT_UNAVAILABLE.
   appointmentIndex = 0
 ): Promise<SampleAppointmentInputParams> => {
   const {
@@ -582,14 +577,7 @@ const generateRandomPatientInfo = async (
     throw new Error(`No matching schedule found for location ID: ${locationId}`);
   }
   const now = DateTime.now();
-  // Round to the next 15-minute interval (0, 15, 30, 45), then push forward
-  // by 15 min per index in the parallel batch so each caller targets its
-  // own bucket on the Schedule's grid. Without the per-index stagger,
-  // every concurrent generateRandomPatientInfo call computes the same
-  // start time, races for the same single capacity bucket, and 9 out of
-  // 10 fail with SLOT_UNAVAILABLE. 10 in-person slots * 15 min = 2.5 hr
-  // window, well within typical office hours; virtual slots use `now`
-  // verbatim, so the index there is harmless.
+  // Round to the next 15-min boundary, then stagger by index — see appointmentIndex.
   const currentMinutes = now.minute;
   const minutesToAdd = (15 - (currentMinutes % 15)) % 15 || 15;
   const nextInPersonSlot = now.plus({ minutes: minutesToAdd + 15 * appointmentIndex }).startOf('minute');

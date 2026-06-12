@@ -1,20 +1,8 @@
 /**
- * In-person walk-in deeplink tests
- *
- * Tests the deeplink behavior for walk-in check-in flows:
- * - Open location with explicit serviceCategory: navigates to check-in landing page
- * - Closed location: displays "location currently closed" message
- * - Open location with NO serviceCategory and 2+ walk-in-capable categories:
- *   redirects to the service-category picker so the patient chooses
- *
- * Deeplink URL pattern: /walkin/location/{LOCATION_NAME}?serviceCategory={SERVICE_CATEGORY}
- * - Location names use underscores instead of spaces
- * - Omitting serviceCategory used to silently default to 'urgent-care'.
- *   That behavior was replaced by a picker step (see the picker test
- *   below) — the patient now owns the category choice when more than one
- *   walk-in-capable option exists.
- *
- * All instances should run these tests.
+ * In-person walk-in deeplink tests.
+ * URL: /walkin/location/{LOCATION_NAME}?serviceCategory={SERVICE_CATEGORY}
+ * Location names use underscores for spaces. Omitting serviceCategory used
+ * to default to 'urgent-care'; that was replaced by the picker step.
  */
 
 import { expect, test } from '@playwright/test';
@@ -113,13 +101,8 @@ test.describe('Walk-in deeplink flows', () => {
   });
 
   test('Deeplink without serviceCategory redirects to the service-category picker', async ({ page }) => {
-    // BOOKING_CONFIG ships urgent-care, workers-comp, and occupational-
-    // medicine — all walk-in-capable by default. With 2+ options and no
-    // serviceCategory in the URL, WalkinLanding must redirect to the
-    // picker child route so the patient chooses; the check-in landing
-    // page must NOT render (a continue click in that window would create
-    // a slot without a category, which the picker exists to prevent).
-    // Previous product behavior silently defaulted to urgent-care.
+    // BOOKING_CONFIG ships 3 walk-in-capable categories by default, so the
+    // picker fires. Replaces the prior silent default to urgent-care.
     const locationSlug = openLocationName.replace(/\s+/g, '_');
     const deeplinkUrl = `/walkin/location/${locationSlug}`;
     console.log(`Navigating to deeplink without serviceCategory: ${deeplinkUrl}`);
@@ -129,9 +112,7 @@ test.describe('Walk-in deeplink flows', () => {
     await expect(page).toHaveURL(/\/walkin\/location\/[^/]+\/select-service-category/, { timeout: 20000 });
     console.log('✓ Redirected to service-category picker');
 
-    // The check-in landing page's continue button must be absent —
-    // confirms the redirect intercepted before WalkinLanding could
-    // render PageForm.
+    // Continue must be absent — confirms the redirect intercepted before PageForm mounted.
     const continueButton = page.getByRole('button', { name: /continue/i });
     await expect(continueButton).toHaveCount(0);
     console.log('✓ Continue button absent on picker page');

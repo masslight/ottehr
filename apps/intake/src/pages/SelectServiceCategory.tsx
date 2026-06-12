@@ -20,19 +20,13 @@ const IconMap: Record<string, ReactNode> = {
 const SelectServiceCategoryPage = (): JSX.Element => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  // Scope the category list to whatever bookable entity (group/location/provider)
-  // this URL is targeting. Groups additionally filter to their declared category
-  // list; other scheduleTypes fall through to the full catalog.
+  // Group-scoped queries hit the group's allow-list; everything else uses the full catalog.
   const scheduleType = searchParams.get('scheduleType') || undefined;
   const bookingOn = searchParams.get('bookingOn') || undefined;
   const { serviceCategories } = useServiceCategories({ scheduleType, bookingOn });
 
   const location = useLocation();
   const currentPath = location.pathname;
-  // Filter to services that support the flow the URL is for: walk-in picker
-  // shows only walk-in-capable services; prebook picker shows only prebook.
-  // Prevents a patient from arriving via a walk-in URL and selecting a
-  // prebook-only category that the subsequent step couldn't actually handle.
   const isWalkinFlow = currentPath.startsWith('/walkin/');
   const requiredVisitType = isWalkinFlow ? 'walk-in' : 'prebook';
 
@@ -52,7 +46,6 @@ const SelectServiceCategoryPage = (): JSX.Element => {
     searchParams.set('serviceCategory', serviceCategory);
     const newDestination = `${destination}?${searchParams.toString()}`;
     console.log('Navigating to:', serviceCategory, newDestination);
-    // add the service category to the current query params and navigate to the next page
     navigate(newDestination);
   };
 

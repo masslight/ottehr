@@ -6,27 +6,22 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { WalkinLanding } from '../../src/pages/WalkinLanding';
 
-// Mock react-router's useNavigate so we can assert on path arguments.
-// useParams + useSearchParams stay live so MemoryRouter's path drives them.
+// Mock useNavigate so we can assert on path args; useParams + useSearchParams stay live.
 const mockNavigate = vi.fn();
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom');
   return { ...actual, useNavigate: () => mockNavigate };
 });
 
-// Control category-list resolution per test.
 const mockUseServiceCategories = vi.fn();
 vi.mock('../../src/hooks/useServiceCategories', () => ({
   useServiceCategories: () => mockUseServiceCategories(),
 }));
 
-// Provide a non-null client so the availability useQuery fires; the mocked
-// API functions below ignore the actual client value.
 vi.mock('../../src/hooks/useUCZambdaClient', () => ({
   useUCZambdaClient: () => ({}) as unknown,
 }));
 
-// Mock the two api endpoints WalkinLanding consumes.
 const mockGetWalkinAvailability = vi.fn();
 const mockCreateSlot = vi.fn();
 vi.mock('../../src/api', () => ({
@@ -36,8 +31,7 @@ vi.mock('../../src/api', () => ({
   },
 }));
 
-// Branding pulls SVGs and exports that intake's test harness doesn't fully
-// resolve in jsdom; stub the bits WalkinLanding uses so the page can mount.
+// Branding imports drag in SVGs jsdom can't resolve — stub the bits we use.
 vi.mock('../../src/branding/welcomeTitle', () => ({ getWelcomeTitle: () => 'Welcome' }));
 vi.mock('../../src/branding/primaryIconVisibility', () => ({
   getPrimaryIconContainerProps: () => ({}),
@@ -70,8 +64,6 @@ const renderAt = (path: string, scheduleParamPattern = '/walkin/schedule/:id'): 
 describe('WalkinLanding — service-category routing', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    // Default mocks: walk-in is open with a schedule id; tests override
-    // category-list state per case.
     mockGetWalkinAvailability.mockResolvedValue({
       walkinOpen: true,
       scheduleId: 'sched-1',
@@ -91,7 +83,6 @@ describe('WalkinLanding — service-category routing', () => {
 
     renderAt('/walkin/schedule/sched-1?serviceCategory=urgent-care');
 
-    // Wait for availability to resolve and the form to mount.
     await waitFor(() => expect(screen.queryByText('Welcome')).not.toBeNull());
     expect(mockNavigate).not.toHaveBeenCalledWith(
       expect.stringContaining('/select-service-category'),
@@ -109,7 +100,6 @@ describe('WalkinLanding — service-category routing', () => {
   test('0 walk-in-capable categories → no redirect, slot has no serviceCategoryCode', async () => {
     const user = userEvent.setup();
     mockUseServiceCategories.mockReturnValue({
-      // A prebook-only category is in the catalog but none support walk-in.
       serviceCategories: [makeCategory('massage-90', ['prebook'])],
       isLoading: false,
     });
@@ -150,8 +140,7 @@ describe('WalkinLanding — service-category routing', () => {
 
     await waitFor(() => expect(mockCreateSlot).toHaveBeenCalled());
     const createSlotArg = mockCreateSlot.mock.calls[0][0];
-    // Auto-select happens silently — the URL never gained the param, but the
-    // slot creation request carries the only walk-in-capable category.
+    // URL never gained the param, but the slot creation carries the only walk-in option.
     expect(createSlotArg.serviceCategoryCode).toBe('urgent-care');
   });
 
@@ -169,11 +158,8 @@ describe('WalkinLanding — service-category routing', () => {
         expect.objectContaining({ replace: true })
       );
     });
-    // The form must NOT render — otherwise a fast-clicking user could
-    // submit a slot without picking a category in the tick between this
-    // render and the redirect navigation. The loading-state guard
-    // (`needsPickerRedirect` folded into `somethingIsLoadingInSomeWay`)
-    // prevents the PageForm from mounting at all in this window.
+    // Form must not render during the redirect tick — otherwise a fast click
+    // creates a slot without a category.
     expect(screen.queryByRole('button', { name: /continue|check.?in|next/i })).toBeNull();
     expect(mockCreateSlot).not.toHaveBeenCalled();
   });
@@ -197,11 +183,8 @@ describe('WalkinLanding — service-category routing', () => {
   });
 
   test('closed location with 2+ walk-in-capable categories → no redirect, closed message renders', async () => {
-    // A patient hitting a deeplink for a closed location should land on
-    // the "we are closed" message directly. Routing through the picker
-    // first would cost them a click + a category selection just to discover
-    // the location is unavailable. The redirect must be gated on
-    // walkinOpen === true.
+    // Closed deeplinks must skip the picker — otherwise the patient picks a
+    // category just to discover the location is unavailable on the next page.
     mockGetWalkinAvailability.mockResolvedValueOnce({
       walkinOpen: false,
       scheduleId: 'sched-1',
@@ -214,8 +197,6 @@ describe('WalkinLanding — service-category routing', () => {
 
     renderAt('/walkin/schedule/sched-1');
 
-    // Wait for the availability query to settle so the closed branch can
-    // render; then assert no redirect navigation fired.
     await waitFor(() =>
       expect(mockNavigate).not.toHaveBeenCalledWith(
         expect.stringContaining('/select-service-category'),
