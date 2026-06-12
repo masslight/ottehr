@@ -32,13 +32,20 @@ export class ScreeningPage {
   }
 
   async clickAddScreeningNoteButton(): Promise<ScreeningPage> {
-    // Wait for the save API call to complete before returning
+    // Wait for a save-chart-data 200 response. Note: the ASQ observation save fires
+    // just before this and may be in-flight — its response could satisfy waitForResponse
+    // instead of the actual note save. The toHaveValue('') check below closes that race:
+    // the note input is only cleared after useSaveNote.handleSave resolves (the actual
+    // note save), so waiting for it to be empty guarantees the note is persisted before we navigate.
     const savePromise = this.#page.waitForResponse(
       (response) => response.url().includes('/save-chart-data') && response.status() === 200,
       { timeout: 30_000 }
     );
     await this.#page.getByTestId(dataTestIds.screeningPage.addNoteButton).click();
     await savePromise;
+    await expect(
+      this.#page.getByTestId(dataTestIds.screeningPage.screeningNoteField).locator('input').locator('visible=true')
+    ).toHaveValue('', { timeout: 15_000 });
     return expectScreeningPage(this.#page);
   }
 
