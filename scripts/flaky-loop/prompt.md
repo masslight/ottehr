@@ -26,7 +26,7 @@ you can't make sense of it. Record which you did in the progress file.
 Pick exactly one of these per invocation, then stop:
 
 - **Discovery** — if no test currently has status `identified` or `in-progress`:
-  find a flaky test. Run the suite (or a likely-flaky subset) and look for a
+  find a flaky test. Run the entire EHR e2e suite and look for a
   test that fails intermittently. When you confirm one, add it to the progress
   file as `identified` with its baseline failure rate, then stop.
 

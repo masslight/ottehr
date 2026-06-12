@@ -33,7 +33,7 @@ PROGRESS_FILE="$STATE_DIR/FLAKY_PROGRESS.md"
 STOP_FILE="$STATE_DIR/STOP"
 
 MAX_ITERS="${MAX_ITERS:-50}"
-MODEL="${MODEL:-claude-opus-4-8}"
+MODEL="${MODEL:-claude-sonnet-4-6}"
 ITER_TIMEOUT="${ITER_TIMEOUT:-7200}"
 BACKOFF="${BACKOFF:-60}"
 STREAM="${STREAM:-1}"           # 1 = live, readable streaming of each session's steps; 0 = plain final output
