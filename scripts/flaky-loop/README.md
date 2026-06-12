@@ -47,9 +47,9 @@ MAX_ITERS=30 MODEL=claude-sonnet-4-6 ITER_TIMEOUT=5400 scripts/flaky-loop/driver
 
 `MODEL=claude-fable-5` gives the strongest debugging at the highest cost;
 `claude-sonnet-4-6` is the budget option. Only one driver can run at a time: a
-lock in `state/driver.lock` makes a second launch refuse to start, and killing
-the driver (Ctrl+C or `kill`) now also takes down its claude session instead of
-orphaning it.
+lock in `state/driver.lock` makes a second launch refuse to start, and stopping
+the driver (STOP file, Ctrl+C, or `kill`) takes down its claude session and
+frees the e2e app ports instead of orphaning them.
 
 ### Watching it work
 
@@ -92,11 +92,18 @@ Leave it overnight:
 nohup scripts/flaky-loop/driver.sh > scripts/flaky-loop/logs/driver.out 2>&1 &
 ```
 
-Stop it cleanly (after the current iteration):
+Stop it (takes effect within ~5s — it interrupts the in-flight iteration; the
+next launch recovers any half-done work via its git-status check):
 
 ```bash
 touch scripts/flaky-loop/state/STOP
 ```
+
+`Ctrl+C` or `kill <driver-pid>` do the same and clean up just as well — the
+driver tears down the running claude session and frees the e2e app ports
+(3000/3002/4002) on its way out. **You should never need `kill -9`.** If a
+previous run *was* `kill -9`'d and left app servers running, the next launch
+detects and frees those ports automatically at startup.
 
 ## In the morning
 

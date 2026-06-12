@@ -13,14 +13,17 @@
 #
 # Environment overrides:
 #   MAX_ITERS=50      number of iterations before the loop stops
-#   MODEL=...         model id (default claude-opus-4-8; claude-fable-5 is stronger,
-#                     claude-sonnet-4-6 is cheaper)
+#   MODEL=...         model id (default claude-sonnet-4-6; claude-opus-4-8 and
+#                     claude-fable-5 are stronger but pricier)
 #   ITER_TIMEOUT=7200 hard cap (seconds) per iteration; killed if exceeded
 #   BACKOFF=60        seconds to wait after a non-zero claude exit (rate limits etc.)
 #   STREAM=1          live, readable streaming of each session's steps (0 = plain final output)
 #
-# Stop early at any time by creating the stop file:
+# Stop early at any time (takes effect within ~5s, abandoning the in-flight
+# iteration; the next launch's git-status check recovers any half-done work):
 #   touch scripts/flaky-loop/state/STOP
+# Or just `kill <driver-pid>` / Ctrl+C — both shut down cleanly, kill the
+# running session, and free the app ports. `kill -9` is never needed.
 #
 set -uo pipefail
 
@@ -53,7 +56,7 @@ acquire_lock() {
   oldpid="$(cat "$LOCK_DIR/pid" 2>/dev/null || true)"
   if [[ -n "$oldpid" ]] && kill -0 "$oldpid" 2>/dev/null; then
     echo "FATAL: another driver is already running (pid $oldpid). Refusing to start a second one." >&2
-    echo "       Stop it first (touch $STOP_FILE, or kill $oldpid)." >&2
+    echo "       Stop it first: touch $STOP_FILE  (or: kill $oldpid). No kill -9 needed." >&2
     exit 1
   fi
   echo "Removing stale lock left by pid ${oldpid:-unknown}."
@@ -62,16 +65,53 @@ acquire_lock() {
 }
 acquire_lock
 
-# On any exit (normal, Ctrl+C, kill), take down our direct children — the
-# timeout/claude pipeline — so a killed driver doesn't leave an orphaned
-# session running (the cause of the "two Claudes" incident), then drop the lock.
+# Free the e2e app ports — a safety net for dev servers orphaned by a previous
+# iteration or run. Used between iterations (the watcher must survive, so this
+# does NOT pkill our children).
+APP_PORTS=(3000 3002 4002)
+free_ports() {
+  command -v lsof >/dev/null 2>&1 || return 0
+  local p pids
+  for p in "${APP_PORTS[@]}"; do
+    pids="$(lsof -ti :"$p" 2>/dev/null || true)"
+    [[ -n "$pids" ]] && kill -TERM $pids 2>/dev/null || true
+  done
+}
+
+# Recursively kill every descendant of $1 with signal $2, deepest first. We can
+# rely on neither flock nor process groups (the driver isn't a group leader when
+# backgrounded), and `pkill -P` only reaches DIRECT children — so the claude
+# under the pipeline subshell would survive. Walking the tree with `pgrep -P`
+# and killing leaves first stops e2e servers before they can reparent/orphan.
+kill_descendants() {
+  local parent="$1" sig="$2" child
+  for child in $(pgrep -P "$parent" 2>/dev/null); do
+    kill_descendants "$child" "$sig"
+    kill -"$sig" "$child" 2>/dev/null || true
+  done
+}
+
+# Full teardown: kill the current iteration's process subtree AND free the
+# ports. Used only at driver exit (cleanup), where killing all descendants —
+# including the watcher — is what we want.
+terminate_children() {
+  kill_descendants $$ TERM
+  free_ports
+}
+
+# On any exit (normal, Ctrl+C, kill TERM), tear down the running session so a
+# stopped driver never leaves an orphaned claude/e2e run behind, then drop the
+# lock. Re-arm the trap to empty first so this can't re-enter.
 cleanup() {
-  pkill -TERM -P $$ 2>/dev/null || true
+  trap '' EXIT INT TERM
+  terminate_children
+  sleep 1
+  kill_descendants $$ KILL   # hard-kill any straggler that ignored TERM
   rm -rf "$LOCK_DIR"
 }
 trap cleanup EXIT
-trap 'exit 130' INT
-trap 'exit 143' TERM
+trap 'echo; echo "Interrupted — shutting down."; exit 130' INT
+trap 'echo; echo "Terminated — shutting down."; exit 143' TERM
 
 if [[ ! -f "$PROMPT_FILE" ]]; then
   echo "FATAL: prompt file not found at $PROMPT_FILE" >&2
@@ -104,6 +144,24 @@ if [[ -f "$STOP_FILE" ]]; then
   rm -f "$STOP_FILE"
   echo "Cleared a stale STOP file from a previous run."
 fi
+
+# Clear any app servers orphaned by a previous run that ended in `kill -9`
+# (which can't run cleanup). Start from a known-clean slate.
+if command -v lsof >/dev/null 2>&1; then
+  for p in "${APP_PORTS[@]}"; do
+    pids="$(lsof -ti :"$p" 2>/dev/null || true)"
+    if [[ -n "$pids" ]]; then
+      echo "Freeing port $p left in use by a previous run (pids: $pids)."
+      kill -TERM $pids 2>/dev/null || true
+    fi
+  done
+fi
+
+# Background watcher: if STOP appears mid-iteration, signal the driver to shut
+# down promptly (cleanup() then tears down the running session). $$ inside this
+# subshell is still the driver's pid.
+( while [[ ! -f "$STOP_FILE" ]]; do sleep 5; done
+  kill -TERM $$ 2>/dev/null ) &
 
 echo "Driver starting in $REPO_ROOT (model=$MODEL, max_iters=$MAX_ITERS, timeout=${TIMEOUT_BIN:-none})"
 
@@ -152,21 +210,35 @@ for (( i=1; i<=MAX_ITERS; i++ )); do
     full=("${cmd[@]}")
   fi
 
-  # </dev/null: headless claude must never block waiting on stdin.
-  # Raw stream-json goes to $raw_log; the human-readable view goes to the
-  # terminal AND $log, so `tail -f` on the .log is live and readable.
+  # Run the pipeline in the BACKGROUND and `wait` on it. A foreground external
+  # command makes bash defer signal traps until it finishes — that's why a plain
+  # `kill` of the driver used to do nothing until the iteration ended (forcing
+  # kill -9, which orphaned the e2e servers). `wait` is interruptible, so STOP /
+  # Ctrl+C / kill take effect within seconds and cleanup() runs.
+  #
+  # </dev/null: headless claude must never block on stdin. Raw stream-json goes
+  # to $raw_log; the readable view goes to the terminal AND $log (so `tail -f`
+  # on the .log is live and readable). pipefail surfaces a non-zero claude exit.
   if [[ "$use_formatter" -eq 1 ]]; then
-    "${full[@]}" </dev/null 2>&1 | tee "$raw_log" | node "$HERE/format-stream.mjs" | tee "$log"
+    { "${full[@]}" </dev/null 2>&1 | tee "$raw_log" | node "$HERE/format-stream.mjs" | tee "$log"; } &
   else
-    "${full[@]}" </dev/null 2>&1 | tee "$log"
+    { "${full[@]}" </dev/null 2>&1 | tee "$log"; } &
   fi
-  code=${PIPESTATUS[0]}
+  wait $! ; code=$?
+
+  # Free the app ports between iterations so nothing lingers into the next run.
+  # (The e2e runner also clears them at startup, but belt-and-suspenders.)
+  free_ports
+
+  if [[ -f "$STOP_FILE" ]]; then
+    continue   # let the top-of-loop check report and exit without a backoff wait
+  fi
 
   if [[ $code -eq 124 ]]; then
     echo "Iteration $i timed out after ${ITER_TIMEOUT}s (killed)."
   elif [[ $code -ne 0 ]]; then
     echo "Iteration $i: claude exited $code. Backing off ${BACKOFF}s before next."
-    sleep "$BACKOFF"
+    sleep "$BACKOFF" & wait $!   # interruptible backoff (see note above)
   fi
 done
 
