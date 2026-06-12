@@ -1,7 +1,6 @@
 import Oystehr, { BatchInputPostRequest, BatchInputRequest } from '@oystehr/sdk';
 import { randomUUID } from 'crypto';
 import { FhirResource, HealthcareService, Location, Practitioner, PractitionerRole, Schedule } from 'fhir/r4b';
-import { DateTime } from 'luxon';
 import {
   GetScheduleResponse,
   HourOfDay,
@@ -198,9 +197,8 @@ describe('get-schedule filters out inactive owners and Schedules', () => {
     assert(practitioner?.id);
     assert(pr?.id);
     assert(schedule?.id);
-    // PR-actored fixture: the Schedule's `_include`d actor is the PR, so
-    // cleanupTestScheduleResources sweeps the PR but not the PR's referenced
-    // Practitioner or Location. Track those for the afterAll pass.
+    // PR-actored fixture: cleanup sweeps Schedule + its `_include`d actor (the PR);
+    // the PR's referenced Practitioner and Location leak unless tracked here.
     extraResourceCleanup.push({ resourceType: 'Practitioner', id: practitioner.id });
     extraResourceCleanup.push({ resourceType: 'Location', id: location.id });
     return { slug, location, practitioner, pr, schedule };
@@ -508,13 +506,9 @@ describe('get-schedule filters out inactive owners and Schedules', () => {
     // disjoint hours Schedule-B's id would never surface even before
     // deactivation and the negative case would pass for the wrong reason.
     const fixture = await createGroupFixture();
-    // `selectedDate` = tomorrow in the schedule's timezone so every working
-    // hour (09–12 for A, 13–17 for B) is in the future regardless of when
-    // the test runs.
-    const selectedDate = startOfDayWithTimezone({
-      date: DateTime.now().plus({ days: 1 }),
-      timezone: 'America/New_York',
-    }).toISODate();
+    // Tomorrow in NY — anchor in NY first, then advance. Doing `now().plus(1d)`
+    // before the helper computes the day in the runtime zone (off-by-one at UTC midnight).
+    const selectedDate = startOfDayWithTimezone({ timezone: 'America/New_York' }).plus({ days: 1 }).toISODate();
     assert(selectedDate);
 
     const callGroup = async (): Promise<GetScheduleResponse> => {
@@ -565,10 +559,14 @@ describe('get-schedule filters out inactive owners and Schedules', () => {
     // would reach `walkGroupMemberPractitionerRoleSchedules` unchecked
     // without the in-code bundle filter.
     const fixture = await createGroupFixture();
-    const selectedDate = startOfDayWithTimezone({
-      date: DateTime.now().plus({ days: 1 }),
-      timezone: 'America/New_York',
-    }).toISODate();
+    // Adding the day BEFORE calling startOfDayWithTimezone (in NY) would
+    // be evaluated in the runtime's local zone, so `.toFormat('MM/dd/yyyy')`
+    // inside the helper would read the runtime calendar date. That's an
+    // off-by-one near midnight UTC. Instead: let the helper anchor "today"
+    // in NY (default behavior when `date` is omitted), then advance the
+    // calendar day in NY zone where Luxon's `plus({ days: 1 })` is
+    // DST-correct.
+    const selectedDate = startOfDayWithTimezone({ timezone: 'America/New_York' }).plus({ days: 1 }).toISODate();
     assert(selectedDate);
 
     const callGroup = async (): Promise<GetScheduleResponse> => {

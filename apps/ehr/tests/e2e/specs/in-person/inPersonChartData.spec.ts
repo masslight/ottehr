@@ -46,6 +46,7 @@ const MEDICAL_CONDITION = 'Paratyphoid fever A';
 
 let SURGERY: string;
 let mdmDefaultText = DEFAULT_PROGRESS_NOTE_CONFIG.medicalDecisionDefaultText;
+let mdmRequired = DEFAULT_PROGRESS_NOTE_CONFIG.mdmRequired;
 
 const DIAGNOSIS_CODE = 'J45.901';
 const DIAGNOSIS_NAME = 'injury';
@@ -120,6 +121,7 @@ test.describe('In-Person Visit Chart Data', async () => {
     );
     mdmDefaultText =
       progressNoteConfig?.medicalDecisionDefaultText ?? DEFAULT_PROGRESS_NOTE_CONFIG.medicalDecisionDefaultText;
+    mdmRequired = progressNoteConfig?.mdmRequired ?? DEFAULT_PROGRESS_NOTE_CONFIG.mdmRequired;
 
     context = await browser.newContext();
     page = await context.newPage();
@@ -564,6 +566,11 @@ test.describe('In-Person Visit Chart Data', async () => {
       await test.step('Verify missing card is visible and has all required missing fields', async () => {
         await expect(page.getByTestId(dataTestIds.progressNotePage.missingCard)).toBeVisible();
         await expect(page.getByTestId(dataTestIds.progressNotePage.emCodeLink)).toBeVisible();
+        if (mdmRequired) {
+          await expect(page.getByTestId(dataTestIds.progressNotePage.medicalDecisionLink)).toBeVisible();
+        } else {
+          await expect(page.getByTestId(dataTestIds.progressNotePage.medicalDecisionLink)).not.toBeVisible();
+        }
         await expect(page.getByTestId(dataTestIds.progressNotePage.medicalDecisionLink)).toBeVisible();
         await expect(page.getByTestId(dataTestIds.progressNotePage.primaryDiagnosisLink)).toBeVisible();
         await expect(page.getByTestId(dataTestIds.progressNotePage.hpiLink)).toBeVisible();
