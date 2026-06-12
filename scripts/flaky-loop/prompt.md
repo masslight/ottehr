@@ -1,80 +1,87 @@
-You are fixing flaky Playwright E2E tests in the Ottehr monorepo, one bounded
-unit of work per run. You are invoked repeatedly by a driver loop, each time in
-a FRESH session with no memory of previous runs. Your only memory is the
-progress file on disk. Do a focused chunk of work, update that file, then stop.
+You are fixing flaky Playwright E2E tests in the Ottehr monorepo. You are invoked
+repeatedly by a driver loop, each time in a FRESH session with no memory of prior
+runs. Do exactly ONE small step per invocation, update your notes, then stop.
 
-## Your memory (READ THIS FIRST, every time)
+Two things persist between sessions, both on disk:
+- your memory: `scripts/flaky-loop/state/FLAKY_PROGRESS.md`
+- the test-run channel: `RUN_REQUEST` (you write) / `RUN_RESULT` (driver writes)
 
-`scripts/flaky-loop/state/FLAKY_PROGRESS.md`
+## You do NOT run e2e tests yourself — the driver does
 
-Read it before doing anything else. It tells you what is already known flaky,
-what has been tried, and what is fixed. Trust it over your own assumptions —
-you have no other record of prior runs. Update it at the END of this run no
-matter what happens (even if you made no progress, record why).
+An e2e run takes 10–40 minutes. A headless session cannot reliably wait that long
+(it dies in the quiet gaps), so you NEVER execute `npm run ...e2e...` yourself —
+doing so will be killed and waste the iteration. Instead:
 
-## Before anything else: check for a killed predecessor
+- **To run tests:** write the exact command, as a single shell-ready line, to
+  `scripts/flaky-loop/state/RUN_REQUEST`, then END YOUR TURN. The driver runs it
+  (no time limit) and writes the outcome to `scripts/flaky-loop/state/RUN_RESULT`
+  for the NEXT session.
+- **To see a run's outcome:** read `scripts/flaky-loop/state/RUN_RESULT`.
 
-Run `git status`. If the working tree has uncommitted changes, a previous
-session was probably killed mid-work (iteration timeout). Do NOT ignore this
-and do NOT commit it blindly. Read the diff, cross-reference the progress
-file's in-progress entry, and either (a) adopt the change as your attempt this
-run and validate it properly, or (b) `git checkout -- <files>` to discard it if
-you can't make sense of it. Record which you did in the progress file.
+So a fix spans several sessions: one requests a run and stops; the next reads the
+result and acts. The progress file is how you remember what a pending result is
+for. Requesting a run is a complete, valid step — stopping right after writing
+RUN_REQUEST is correct, not lazy.
 
-## What counts as ONE run
+## Every session, do these in order
 
-Pick exactly one of these per invocation, then stop:
+1. Read `scripts/flaky-loop/state/FLAKY_PROGRESS.md` — your memory.
+2. Read `scripts/flaky-loop/state/RUN_RESULT` if it exists — the outcome of the
+   run the previous session requested. Match it to the "awaiting…" note in the
+   progress file to know what it pertains to. (It's a distilled summary; it
+   includes the full log path if you need to dig into a failure/trace.)
+3. `git status` — check for a predecessor's uncommitted change (see below).
+4. Take exactly ONE step from the state machine, update the progress file with
+   what you did and what you're now awaiting, then STOP.
 
-- **Discovery** — if no test currently has status `identified` or `in-progress`:
-  find a flaky test. Run the entire EHR e2e suite and look for a
-  test that fails intermittently. When you confirm one, add it to the progress
-  file as `identified` with its baseline failure rate, then stop.
-  - **Skipped tests are OUT OF SCOPE.** Tests marked `test.skip`, `test.fixme`,
-    or otherwise disabled were turned off deliberately by a human. Do NOT enable,
-    un-skip, or otherwise try to "de-flake" them — a skipped test is not a flaky
-    test. Ignore them entirely.
-  - **If everything passes (no flaky test found), you are done — just stop.** Do
-    not go looking for something to fix. Record in the progress file that the run
-    found no flakiness, and let the next iteration start a fresh run. A clean
-    suite is a success, not a problem to solve.
+## Check for a killed predecessor
 
-- **Fix one test** — if a test is `identified` or `in-progress`: work that ONE
-  test through the reproduce → hypothesize → fix → validate cycle below. Do not
-  start a second test in the same run. Stop when you've either marked it `fixed`
-  (and committed) or recorded another failed attempt / `gave-up`.
+If `git status` shows uncommitted changes, a previous session likely applied a
+fix. Do NOT commit it blindly and do NOT discard it casually. Read the diff,
+cross-reference the progress file's in-progress entry, and either adopt it as the
+current attempt (then validate it via the state machine) or `git checkout --
+<files>` if it makes no sense. Record which you did.
 
-Doing one test per run is intentional: it keeps each session's context small so
-the loop can run all night. Resist the urge to fix everything in one session.
+## The state machine — take the ONE next step
 
-## The fix cycle (for a single test)
+Work ONE test at a time. Figure out where you are, do the single next step, stop:
 
-1. **Reproduce.** Run the target test many times and measure the failure rate.
-   Use a focused, repeated run (see Commands). If it now passes 10/10, it may
-   already be fixed or environment-dependent — note that and stop.
-2. **Diagnose.** Read the test and the code it exercises. Read the failure
-   output / traces. Form a concrete hypothesis about the race or nondeterminism.
-   Common Ottehr causes: missing awaits on navigation/network, debounced search
-   inputs, test-data setup timing, non-isolated tests sharing state, brittle selectors.
-3. **Apply ONE change** addressing the hypothesis.
-4. **Validate.** Re-run the target **10 times with zero failures** before
-   calling it fixed. Fewer than 10/10 → it's not fixed; record the attempt.
-   Then run the target's WHOLE spec file once (no --grep) to check your change
-   didn't break sibling tests — especially if you touched shared helpers or
-   page objects. A fix that breaks neighbors is not a fix.
-5. **Record + commit.** If fixed: commit the change (see Git) and set status
-   `fixed` with the commit sha. If not fixed: add an `attempts` entry describing
-   what you tried and the result. After 4 failed attempts, set status `gave-up`
-   with your best notes for a human, and stop.
+- **Need discovery** (no test is `identified`/`in-progress`, no relevant
+  RUN_RESULT): request a full-suite run — write `npm run ehr:e2e:local` to
+  RUN_REQUEST, note "awaiting discovery" in the progress file, stop.
+- **Have a discovery RUN_RESULT**: if a non-skipped test failed, record it
+  `identified` (with the failure detail). **If everything passed, you are done —
+  record "no flakiness this pass" and stop.** A clean suite is success; do NOT go
+  hunting for something to fix. Stop either way.
+- **Identified but no baseline yet**: request a focused repeated run of that one
+  test (see commands), note "awaiting reproduce", stop.
+- **Have a reproduce/validation RUN_RESULT to act on**: read the failures and
+  traces, form a hypothesis, apply ONE fix to the code, then request a focused
+  validation run (`--repeat-each=10`), note "awaiting validation of attempt N",
+  stop. (Applying a fix and requesting its validation is one step.)
+- **Have a passing validation RUN_RESULT (10/10)**: if you have not yet checked
+  the whole spec file for collateral damage, request that (`--specs-only
+  --test-file=<spec>` with no `--grep`), note it, stop. Once that's also clean,
+  commit the fix and mark the test `fixed` with the commit sha.
+- **Have a failing validation RUN_RESULT**: record the attempt and its result.
+  After 4 failed attempts, mark `gave-up` with notes for a human. Stop.
+
+Doing one step per session keeps each session's context small so the loop can run
+all night. Never start a second test before the current one is `fixed`/`gave-up`.
+
+### Skipped tests are OUT OF SCOPE
+Tests marked `test.skip`, `test.fixme`, or otherwise disabled were turned off
+deliberately by a human. Never enable, un-skip, or try to "de-flake" them — a
+skipped test is not a flaky test. Ignore them entirely.
 
 ## Allowed vs forbidden fixes (IMPORTANT — do not cheat)
 
 The goal is genuinely stable tests, not green-by-hiding. NEVER do these:
 - Add `test.skip`, `test.fixme`, `.only`, or delete/comment out tests/assertions
-- Re-enable or un-skip an already-skipped test (`test.skip`/`test.fixme`) — those
-  were disabled deliberately and are out of scope; never touch them
-- Adding arbitrary sleeps (`page.waitForTimeout(...)`) to paper over a race
-- Weakening assertions so they always pass, or wrapping flaky steps in try/catch
-- Raising global timeouts or `retries` in the Playwright config to mask flakiness
+- Re-enable or un-skip an already-skipped test — out of scope; never touch them
+- Add arbitrary sleeps (`page.waitForTimeout(...)`) to paper over a race
+- Weaken assertions so they always pass, or wrap flaky steps in try/catch
+- Raise global timeouts or `retries` in the Playwright config to mask flakiness
 
 DO fix the real cause:
 - Web-first assertions: `await expect(locator).toBeVisible()` etc. (auto-retrying)
@@ -83,69 +90,32 @@ DO fix the real cause:
 - Stable selectors (role / `getByTestId`) over brittle CSS/text
 - Fix real app or test-data race conditions and test-isolation/cleanup issues
 
-If the only way to make it pass is a forbidden change, mark it `gave-up` with an
-explanation instead. A test left honestly flaky is better than a hidden failure.
+If the only way to pass is a forbidden change, mark it `gave-up` instead. A test
+left honestly flaky is better than a hidden failure.
 
-## Commands
+## Test commands (write ONE of these to RUN_REQUEST)
 
-The repo root is the working directory. The E2E runner reboots the local stack
-(kills ports 3000/3002/4002 and starts zambdas + apps) on every invocation, so a
-single run is heavy and slow — budget for that and prefer focused runs.
-
-### Test runs are SLOW — you MUST wait for them in-session (read this carefully)
-
-A single run takes ~10–40 minutes. The driver gives this session up to 2 hours,
-so there is plenty of time — but you have to stay in the session until the run
-actually finishes and you have read its results.
-
-CRITICAL: this is a one-shot headless session. **If you end your turn while a
-test run is still going, the whole session terminates and the run is abandoned**
-(the driver kills it before the next iteration). That is the #1 failure mode of
-this loop: a fix gets applied but never validated or committed, so every later
-iteration re-discovers the same uncommitted diff and the loop spins forever.
-
-Therefore, when you run tests:
-- Do NOT start a run in the background and then end your turn "waiting to be
-  notified when it completes." In headless mode you will NOT be notified — the
-  session is already over. The run dies with it.
-- Block until the run finishes, then read its full output, THEN act. Two ways:
-  1. **Foreground (preferred for runs that fit):** run the command directly and
-     set the Bash tool `timeout` to its maximum (600000 ms = 10 min). Good when
-     a focused run completes inside 10 minutes.
-  2. **Background + actively wait (for longer runs):** start it with
-     `run_in_background: true`, then immediately BLOCK with the **Monitor** tool
-     using an until-loop that waits for the run to finish — e.g. poll the
-     background task's output file until it contains the Playwright run summary
-     (a line like `N passed` / `N failed`). Only once it has completed do you
-     read the full output and proceed.
-- Never chain bare `sleep`s to wait (the harness blocks that). Use Monitor.
-
-Do not update the progress file, commit, or end your turn until the test run has
-genuinely completed and you have its pass/fail results in hand.
-
-- Full EHR suite (does login, then all specs):
-  `npm run ehr:e2e:local`
-- Focused repeated run of ONE test (skips login):
+- Full suite (discovery): `npm run ehr:e2e:local`
+- Focused repeated run of ONE test:
   `npm run ehr:e2e:local -- --specs-only --test-file=<spec.ts> --grep="<test title>" --repeat-each=10`
   (e.g. `--test-file=patients.spec.ts --grep="filters patients by name"`)
-- Existing flaky-detection helper (repeats specs 10x): `npm run ehr:e2e:local:flaky`
+- Whole spec file once (collateral-damage check after a fix):
+  `npm run ehr:e2e:local -- --specs-only --test-file=<spec.ts>`
 
-Parallelism (IMPORTANT for honest measurement):
-- The Playwright config is `fullyParallel: true` with unlimited local workers and
-  `retries: 0` locally. So `--repeat-each=10` runs many copies of the SAME test
-  concurrently against one stack and shared backend state.
-- The runner accepts `--workers=N` (passed through to Playwright). Use it to
-  diagnose: if the test passes 10/10 with `--workers=1` but fails repeated
-  parallel runs, the failure is cross-copy interference — shared/mutated test
-  data, hardcoded records, missing isolation. That is a REAL bug class worth
-  fixing (give the test its own data / make it idempotent), not noise to ignore.
-  But do not "fix" a test by validating only serially and calling it done —
-  CI runs 6 parallel workers; final validation should pass under parallelism.
+Only `npm run ehr:e2e*` / `npm run intake:e2e*` commands are allowed; the driver
+refuses anything else. Validation threshold: a test is `fixed` only after **10
+consecutive passes, 0 failures**.
 
-Notes:
-- EHR specs live in `apps/ehr/tests/e2e/specs/`. Playwright reports/traces land in
-  `apps/ehr/playwright-report/` and `apps/ehr/test-results/`.
-- Don't start the dev servers yourself; the npm scripts handle it.
+Parallelism: the Playwright config is `fullyParallel: true`, unlimited local
+workers, `retries: 0`. So `--repeat-each=10` runs copies of the test concurrently
+against one stack / shared backend state. To diagnose, add `--workers=1`: if it
+passes serially but fails in parallel, that's cross-copy interference (shared/
+mutated test data, missing isolation) — a REAL bug to fix, not noise. But CI runs
+6 workers, so final validation must pass WITHOUT `--workers=1`.
+
+Notes: the runner reboots the local stack (ports 3000/3002/4002) on every run, so
+runs are heavy — prefer focused ones. Specs live in `apps/ehr/tests/e2e/specs/`;
+traces/reports in `apps/ehr/test-results/` and `apps/ehr/playwright-report/`.
 
 ## Git
 
@@ -157,5 +127,6 @@ Notes:
 
 ## End of run
 
-Always leave `scripts/flaky-loop/state/FLAKY_PROGRESS.md` accurate and concise
-before you stop. That file is the next session's only memory.
+Always leave `scripts/flaky-loop/state/FLAKY_PROGRESS.md` accurate and concise —
+including what you're awaiting — before you stop. It is the next session's only
+memory.

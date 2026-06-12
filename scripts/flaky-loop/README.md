@@ -7,21 +7,35 @@ session each time so it can run for hours without exhausting context.
 ## How it works
 
 ```
-driver.sh  ──loop──▶  claude -p (fresh session)  ──reads/writes──▶  state/FLAKY_PROGRESS.md
-                              │
-                              └─ runs e2e tests, diagnoses, fixes, validates, commits
+driver.sh ─loop─▶ claude -p (fresh, short session) ─┬─▶ state/FLAKY_PROGRESS.md  (memory)
+      ▲                                             └─▶ state/RUN_REQUEST        (a test to run)
+      │                                                        │
+      └──── runs the requested e2e test (no time cap) ◀────────┘
+            and writes the outcome to state/RUN_RESULT for the next session
 ```
 
-The key idea: **each iteration is a brand-new `claude -p` process.** Context
-never accumulates across iterations — instead, knowledge is carried forward in
-`state/FLAKY_PROGRESS.md`, which every session reads first and updates last.
-That's what lets it grind all night without degrading.
+Two key ideas:
 
-- `driver.sh` — the outer loop (fresh session per iteration, logging, stop/backoff)
-- `prompt.md` — the per-iteration instructions (the "brain")
+1. **Each iteration is a brand-new `claude -p` process.** Context never
+   accumulates — knowledge is carried forward in `state/FLAKY_PROGRESS.md`, which
+   every session reads first and updates last. That's what lets it grind all
+   night without degrading.
+2. **The driver runs the tests, not the agent.** An e2e run takes 10–40 min,
+   which a one-shot headless session can't reliably wait on (it dies in the quiet
+   gaps, and the Bash tool caps foreground commands at 10 min). So the agent just
+   *requests* a run by writing the command to `state/RUN_REQUEST` and stops; the
+   driver runs it (plain bash, no cap) and leaves a distilled result in
+   `state/RUN_RESULT` for the next session. A fix therefore spans several short
+   sessions (request a run → next session reads the result → acts).
+
+- `driver.sh` — the outer loop: fresh session per iteration, runs requested
+  tests, logging, stop/backoff, cleanup
+- `prompt.md` — the per-session instructions (the "brain"): a step-at-a-time
+  state machine driven by the progress file + RUN_RESULT
 - `FLAKY_PROGRESS.template.md` — seed for the on-disk memory file
-- `state/` — runtime state (progress file, STOP sentinel) — git-ignored
-- `logs/` — per-iteration logs — git-ignored
+- `state/` — runtime state (progress file, STOP sentinel, RUN_REQUEST/RUN_RESULT,
+  lock) — git-ignored
+- `logs/` — per-iteration session logs and per-run test logs — git-ignored
 
 ## Prerequisites
 
@@ -44,6 +58,12 @@ Tune via env vars:
 ```bash
 MAX_ITERS=30 MODEL=claude-sonnet-4-6 ITER_TIMEOUT=5400 scripts/flaky-loop/driver.sh
 ```
+
+`MAX_ITERS` counts **sessions**, not fixes. Since the driver runs tests between
+sessions, a single fix now spans several short sessions (request discovery → read
+result → request validation → commit), plus a long driver-side test run between
+each. Set it generously (the default is 50). `ITER_TIMEOUT` caps each individual
+test run (default 2h), not the whole loop.
 
 `MODEL=claude-fable-5` gives the strongest debugging at the highest cost;
 `claude-sonnet-4-6` is the budget option. Only one driver can run at a time: a
