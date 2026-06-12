@@ -21,15 +21,20 @@
       "dependsOn": ["build", "lint"]
     },
     "test": {
+      "dependsOn": ["^build"],
       "env": ["ENV"],
       "outputs": ["coverage/**"],
       "inputs": [
         "src/**/*.ts",
         "src/**/*.tsx",
+        "lib/**/*.ts",
+        "lib/**/*.tsx",
         "test/**/*.ts",
         "test/**/*.tsx",
         "tests/**/*.ts",
         "tests/**/*.tsx",
+        "*.ts",
+        "*.tsx",
         "vitest.config.ts",
         "vitest.config.*.ts",
         "vitest.setup.ts",
@@ -38,15 +43,20 @@
       ]
     },
     "test:ci": {
+      "dependsOn": ["^build"],
       "env": ["ENV", "CI"],
       "outputs": ["coverage/**"],
       "inputs": [
         "src/**/*.ts",
         "src/**/*.tsx",
+        "lib/**/*.ts",
+        "lib/**/*.tsx",
         "test/**/*.ts",
         "test/**/*.tsx",
         "tests/**/*.ts",
         "tests/**/*.tsx",
+        "*.ts",
+        "*.tsx",
         "vitest.config.ts",
         "vitest.config.*.ts",
         "vitest.setup.ts",
@@ -55,28 +65,45 @@
       ]
     },
     "test:unit:ci": {
+      "dependsOn": ["^build"],
       "env": ["ENV", "CI"],
       "outputs": ["coverage/unit/**"],
       "inputs": [
         "src/**/*.ts",
         "src/**/*.tsx",
+        "lib/**/*.ts",
+        "lib/**/*.tsx",
         "test/**/*.ts",
+        "test/**/*.tsx",
         "tests/**/*.ts",
+        "tests/**/*.tsx",
+        "*.ts",
+        "*.tsx",
         "vitest.config.ts",
+        "vitest.config.*.ts",
         "vitest.setup.ts",
         "tsconfig*.json",
         "package.json"
       ]
     },
     "test:component:ci": {
+      "dependsOn": ["^build"],
       "env": ["ENV", "CI"],
       "outputs": ["coverage/component/**"],
       "inputs": [
         "src/**/*.ts",
         "src/**/*.tsx",
+        "lib/**/*.ts",
+        "lib/**/*.tsx",
+        "test/**/*.ts",
+        "test/**/*.tsx",
+        "tests/**/*.ts",
         "tests/**/*.tsx",
-        "tests/component/**",
-        "vitest.config.component-tests.ts",
+        "*.ts",
+        "*.tsx",
+        "vitest.config.ts",
+        "vitest.config.*.ts",
+        "vitest.setup.ts",
         "tsconfig*.json",
         "package.json"
       ]
