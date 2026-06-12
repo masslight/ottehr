@@ -46,7 +46,7 @@ the loop can run all night. Resist the urge to fix everything in one session.
 2. **Diagnose.** Read the test and the code it exercises. Read the failure
    output / traces. Form a concrete hypothesis about the race or nondeterminism.
    Common Ottehr causes: missing awaits on navigation/network, debounced search
-   inputs, seed-data timing, non-isolated tests sharing state, brittle selectors.
+   inputs, test-data setup timing, non-isolated tests sharing state, brittle selectors.
 3. **Apply ONE change** addressing the hypothesis.
 4. **Validate.** Re-run the target **25 times with zero failures** before
    calling it fixed. Fewer than 25/25 → it's not fixed; record the attempt.
@@ -71,7 +71,7 @@ DO fix the real cause:
 - Wait on the actual condition: `page.waitForResponse(...)`, `waitForURL(...)`,
   `expect(...).toHaveText(...)` instead of fixed delays
 - Stable selectors (role / `getByTestId`) over brittle CSS/text
-- Fix real app or seed-data race conditions and test-isolation/cleanup issues
+- Fix real app or test-data race conditions and test-isolation/cleanup issues
 
 If the only way to make it pass is a forbidden change, mark it `gave-up` with an
 explanation instead. A test left honestly flaky is better than a hidden failure.
@@ -82,9 +82,9 @@ The repo root is the working directory. The E2E runner reboots the local stack
 (kills ports 3000/3002/4002 and starts zambdas + apps) on every invocation, so a
 single run is heavy and slow — budget for that and prefer focused runs.
 
-- Full EHR suite (does login + seed-data generation, then all specs):
+- Full EHR suite (does login, then all specs):
   `npm run ehr:e2e:local`
-- Focused repeated run of ONE test (reuses existing seed data, skips login):
+- Focused repeated run of ONE test (skips login):
   `npm run ehr:e2e:local -- --specs-only --test-file=<spec.ts> --grep="<test title>" --repeat-each=25`
   (e.g. `--test-file=patients.spec.ts --grep="filters patients by name"`)
 - Existing flaky-detection helper (repeats specs 10x): `npm run ehr:e2e:local:flaky`
@@ -92,7 +92,7 @@ single run is heavy and slow — budget for that and prefer focused runs.
 Parallelism (IMPORTANT for honest measurement):
 - The Playwright config is `fullyParallel: true` with unlimited local workers and
   `retries: 0` locally. So `--repeat-each=25` runs many copies of the SAME test
-  concurrently against one stack and one set of seed data.
+  concurrently against one stack and shared backend state.
 - The runner accepts `--workers=N` (passed through to Playwright). Use it to
   diagnose: if the test passes 25/25 with `--workers=1` but fails repeated
   parallel runs, the failure is cross-copy interference — shared/mutated test
@@ -102,9 +102,6 @@ Parallelism (IMPORTANT for honest measurement):
   CI runs 6 parallel workers; final validation should pass under parallelism.
 
 Notes:
-- Seed data is generated only on a full (non-`--specs-only`) run. If focused runs
-  fail due to missing/stale seed data, do one full run first, then iterate with
-  `--specs-only`. Record this in the progress file if it bites you.
 - EHR specs live in `apps/ehr/tests/e2e/specs/`. Playwright reports/traces land in
   `apps/ehr/playwright-report/` and `apps/ehr/test-results/`.
 - Don't start the dev servers yourself; the npm scripts handle it.

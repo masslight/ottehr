@@ -37,6 +37,6 @@ Add one entry per discovered flaky test. Example:
 ---
 
 ## Notes / environment quirks
-<!-- Anything a future iteration should know: slow specs, known-bad seed data,
+<!-- Anything a future iteration should know: slow specs, flaky test data,
      specs that can't run in isolation, etc. -->
 (none yet)
