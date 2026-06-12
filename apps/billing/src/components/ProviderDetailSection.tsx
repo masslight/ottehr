@@ -3,6 +3,7 @@ import { ReactElement, useCallback, useEffect, useState } from 'react';
 import { BillingProviderOption, PractitionerQualificationCodesDisplay } from 'utils';
 import { useApiClients } from '../hooks/useAppClients';
 import { buildAddressInput } from '../utils/format';
+import { validateProviderFields } from '../utils/validation';
 import { EditableSection } from './claim/EditableSection';
 import { DetailRow } from './DetailRow';
 import { Field } from './Field';
@@ -58,6 +59,8 @@ export function ProviderDetailSection({
     if (isIndividual && (!firstName.trim() || !lastName.trim())) return 'First and last name are required';
     if (!isIndividual && !orgName.trim()) return 'Organization name is required';
     if (!renders && !bills) return 'Select at least one role';
+    const validationError = validateProviderFields({ npi, taxId, taxonomyCode, zip });
+    if (validationError) return validationError;
 
     const roles = [...(bills ? ['billing'] : []), ...(renders ? ['rendering'] : [])];
     const address = buildAddressInput(line1, line2, city, state, zip);

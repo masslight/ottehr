@@ -4,6 +4,7 @@ import { Organization, Practitioner } from 'fhir/r4b';
 import { BillingProviderOption, FHIR_IDENTIFIER_CODE_TAXONOMY, getNPI, getTaxID } from 'utils';
 import { checkOrCreateM2MClientToken, fetchAllPages, wrapHandler, ZambdaInput } from '../../shared';
 import {
+  BILLING_WORKING_COPY_TAG,
   createBillingClient,
   EXCLUDE_WORKING_COPIES_PARAMS,
   fhirName,
@@ -86,6 +87,7 @@ function mapProvider(resource: Practitioner | Organization): BillingProviderOpti
     addressParts: toAddressParts(addr),
     renders: hasTag(resource, PROVIDER_ROLE_TAG, PROVIDER_ROLE_RENDERING),
     bills: hasTag(resource, PROVIDER_ROLE_TAG, PROVIDER_ROLE_BILLING),
+    isWorkingCopy: hasTag(resource, BILLING_WORKING_COPY_TAG.system, BILLING_WORKING_COPY_TAG.code),
   };
   if (resource.resourceType === 'Practitioner') {
     return {

@@ -55,6 +55,7 @@ export interface BillingProviderOption {
   };
   renders: boolean;
   bills: boolean;
+  isWorkingCopy: boolean;
 }
 
 // Payer option from the Oystehr RCM service. id is the RCM payer id (used in payer URLs);

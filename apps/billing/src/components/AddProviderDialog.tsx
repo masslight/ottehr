@@ -18,6 +18,7 @@ import { ReactElement, useEffect, useState } from 'react';
 import { chooseJson, PractitionerQualificationCodesDisplay } from 'utils';
 import { useApiClients } from '../hooks/useAppClients';
 import { buildAddressInput } from '../utils/format';
+import { validateProviderFields } from '../utils/validation';
 import { Field } from './Field';
 
 type ProviderKind = 'individual' | 'organization';
@@ -76,6 +77,11 @@ export function AddProviderDialog({ open, defaultRole, onClose, onCreated }: Add
 
   const handleSave = async (): Promise<void> => {
     if (!oystehrZambda || !canSave) return;
+    const validationError = validateProviderFields({ npi, taxId, taxonomyCode, zip });
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
     setSaving(true);
     setError(null);
     try {

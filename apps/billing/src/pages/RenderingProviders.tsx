@@ -1,5 +1,15 @@
 import { Add as AddIcon, ArrowBack as ArrowBackIcon, Search as SearchIcon } from '@mui/icons-material';
-import { Alert, Box, Button, CircularProgress, IconButton, InputAdornment, TextField, Typography } from '@mui/material';
+import {
+  Alert,
+  Box,
+  Button,
+  Chip,
+  CircularProgress,
+  IconButton,
+  InputAdornment,
+  TextField,
+  Typography,
+} from '@mui/material';
 import { DataGridPro, GridColDef, GridPaginationModel } from '@mui/x-data-grid-pro';
 import { ReactElement, useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -15,10 +25,24 @@ interface ProviderRow {
   name: string;
   npi: string;
   taxonomyCode?: string;
+  isWorkingCopy: boolean;
 }
 
 const columns: GridColDef[] = [
-  { field: 'name', headerName: 'Name', flex: 1, minWidth: 200 },
+  {
+    field: 'name',
+    headerName: 'Name',
+    flex: 1,
+    minWidth: 200,
+    renderCell: (params) => (
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, height: '100%' }}>
+        {params.row.name}
+        {params.row.isWorkingCopy && (
+          <Chip label="Working copy" variant="outlined" size="small" sx={{ borderRadius: '4px', fontSize: 12 }} />
+        )}
+      </Box>
+    ),
+  },
   { field: 'npi', headerName: 'NPI', width: 130 },
   { field: 'taxonomyCode', headerName: 'Taxonomy Code', width: 150 },
 ];
@@ -158,6 +182,7 @@ export function RenderingProviderDetail(): ReactElement {
         id: 'search-billing-providers',
         providerType: 'rendering',
         providerId: id,
+        includeWorkingCopies: true,
       });
       const data = chooseJson(response);
       setProvider((data.providers ?? [])[0] ?? null);
@@ -200,6 +225,9 @@ export function RenderingProviderDetail(): ReactElement {
         <Typography variant="h5" color="primary.dark" fontWeight={600}>
           {provider.name}
         </Typography>
+        {provider.isWorkingCopy && (
+          <Chip label="Working copy" variant="outlined" size="small" sx={{ borderRadius: '4px', fontSize: 12 }} />
+        )}
       </Box>
       <ProviderDetailSection provider={provider} onSaved={fetchDetail} />
     </Box>

@@ -487,6 +487,13 @@
       "src": "src/billing/update-billing-provider/index",
       "zip": ".dist/zips/update-billing-provider.zip"
     },
+    "DELETE-BILLING-PROVIDER": {
+      "name": "delete-billing-provider",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/delete-billing-provider/index",
+      "zip": ".dist/zips/delete-billing-provider.zip"
+    },
     "CREATE-BILLING-CLAIM-FROM-ENCOUNTER": {
       "name": "create-billing-claim-from-encounter",
       "type": "http_auth",

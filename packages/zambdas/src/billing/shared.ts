@@ -239,7 +239,12 @@ export function fhirName(resource?: Patient | Practitioner): string {
  */
 export function prepareWorkingCopy<T extends CopyableBillingResource>(resource: CRT<T>, originalId?: string): CRT<T> {
   const copy = prepareCopy<T>(resource, originalId);
-  copy.meta = { tag: [BILLING_WORKING_COPY_TAG] };
+  // Keep provider role/license tags so the snapshot mirrors the original; the working-copy tag
+  // is what keeps it out of default lists and pick lists, not the absence of role tags.
+  const providerTags = (resource.meta?.tag ?? []).filter(
+    (t) => t.system === PROVIDER_ROLE_TAG || t.system === LICENSE_TAG
+  );
+  copy.meta = { tag: [...providerTags, BILLING_WORKING_COPY_TAG] };
   return copy;
 }
 

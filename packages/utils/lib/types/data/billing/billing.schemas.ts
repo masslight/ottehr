@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { npiRegex, taxIdRegex, zipRegex } from '../../../validation';
 
 const nonEmptyString = z.string().trim().min(1);
 const nonNegativeInt = z.number().int().nonnegative();
@@ -194,26 +195,37 @@ const billingAddressSchema = z
   })
   .strict();
 
+const billingNpiSchema = nonEmptyString.regex(npiRegex, 'NPI must be exactly 10 digits');
+const billingTaxIdSchema = nonEmptyString.regex(taxIdRegex, 'Tax ID / EIN must be exactly 9 digits');
+const billingTaxonomyCodeSchema = z.string().trim().length(10, 'Taxonomy code must be exactly 10 characters');
+// Providers require a validated ZIP (5-digit or ZIP+4); the base address schema stays loose
+// because patient working copies carry addresses cloned from clinical data.
+const billingProviderAddressSchema = billingAddressSchema.extend({
+  postalCode: nonEmptyString
+    .regex(zipRegex, 'ZIP code must be 5 digits, optionally with a 4-digit extension')
+    .optional(),
+});
+
 export const CreateBillingProviderInputSchema = z.discriminatedUnion('kind', [
   z.object({
     kind: z.literal('individual'),
     firstName: nonEmptyString,
     lastName: nonEmptyString,
     roles: z.array(billingProviderRole).min(1),
-    npi: nonEmptyString.optional(),
-    taxonomyCode: nonEmptyString.optional(),
+    npi: billingNpiSchema.optional(),
+    taxonomyCode: billingTaxonomyCodeSchema.optional(),
     licenseType: nonEmptyString.optional(),
-    taxId: nonEmptyString.optional(),
-    address: billingAddressSchema.optional(),
+    taxId: billingTaxIdSchema.optional(),
+    address: billingProviderAddressSchema.optional(),
   }),
   z.object({
     kind: z.literal('organization'),
     name: nonEmptyString,
     roles: z.array(billingProviderRole).min(1),
-    npi: nonEmptyString.optional(),
-    taxonomyCode: nonEmptyString.optional(),
-    taxId: nonEmptyString.optional(),
-    address: billingAddressSchema.optional(),
+    npi: billingNpiSchema.optional(),
+    taxonomyCode: billingTaxonomyCodeSchema.optional(),
+    taxId: billingTaxIdSchema.optional(),
+    address: billingProviderAddressSchema.optional(),
   }),
 ]);
 
@@ -233,23 +245,28 @@ export const UpdateBillingProviderInputSchema = z.discriminatedUnion('kind', [
     firstName: nonEmptyString,
     lastName: nonEmptyString,
     roles: z.array(billingProviderRole).min(1),
-    npi: nonEmptyString.optional(),
-    taxonomyCode: nonEmptyString.optional(),
+    npi: billingNpiSchema.optional(),
+    taxonomyCode: billingTaxonomyCodeSchema.optional(),
     licenseType: nonEmptyString.optional(),
-    taxId: nonEmptyString.optional(),
-    address: billingAddressSchema.optional(),
+    taxId: billingTaxIdSchema.optional(),
+    address: billingProviderAddressSchema.optional(),
   }),
   z.object({
     kind: z.literal('organization'),
     providerId: nonEmptyString,
     name: nonEmptyString,
     roles: z.array(billingProviderRole).min(1),
-    npi: nonEmptyString.optional(),
-    taxonomyCode: nonEmptyString.optional(),
-    taxId: nonEmptyString.optional(),
-    address: billingAddressSchema.optional(),
+    npi: billingNpiSchema.optional(),
+    taxonomyCode: billingTaxonomyCodeSchema.optional(),
+    taxId: billingTaxIdSchema.optional(),
+    address: billingProviderAddressSchema.optional(),
   }),
 ]);
+
+export const DeleteBillingProviderInputSchema = z.object({
+  providerId: nonEmptyString,
+  kind: z.enum(['individual', 'organization']),
+});
 
 export const UpdateBillingPatientInputSchema = z.object({
   patientId: nonEmptyString,
@@ -364,6 +381,7 @@ export type SearchBillingLocationsInput = z.infer<typeof SearchBillingLocationsI
 export type SearchBillingPayersInput = z.infer<typeof SearchBillingPayersInputSchema>;
 export type CreateBillingClaimInput = z.infer<typeof CreateBillingClaimInputSchema>;
 export type CreateBillingProviderInput = z.infer<typeof CreateBillingProviderInputSchema>;
+export type DeleteBillingProviderInput = z.infer<typeof DeleteBillingProviderInputSchema>;
 export type CreateBillingPatientInput = z.infer<typeof CreateBillingPatientInputSchema>;
 export type UpdateBillingPatientInput = z.infer<typeof UpdateBillingPatientInputSchema>;
 export type UpdateBillingProviderInput = z.infer<typeof UpdateBillingProviderInputSchema>;
