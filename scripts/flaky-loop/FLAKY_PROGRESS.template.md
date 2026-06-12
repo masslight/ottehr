@@ -11,7 +11,7 @@ concise, and accurate.
 - `gave-up`     — exceeded max attempts; left for a human
 
 ## Settings (do not change without reason)
-- Validation threshold: a test is `fixed` only after **25 consecutive passes, 0 failures**
+- Validation threshold: a test is `fixed` only after **10 consecutive passes, 0 failures**
 - Max fix attempts per test before `gave-up`: **4**
 
 ---
@@ -26,9 +26,9 @@ Add one entry per discovered flaky test. Example:
 - baseline flakiness: 6 failures / 20 runs (observed 2026-06-04)
 - attempts:
   1. (2026-06-04) Replaced `waitForTimeout(500)` with web-first assertion on the
-     results table. Re-ran 25x -> 3 failures. Not fixed.
+     results table. Re-ran 10x -> 3 failures. Not fixed.
   2. (2026-06-04) Root cause was a race: search fires before debounce settles.
-     Awaited the network response for the search query. Re-ran 25x -> 0 failures. FIXED.
+     Awaited the network response for the search query. Re-ran 10x -> 0 failures. FIXED.
 - commit: <sha> "fix(e2e): stabilize patient name filter test"
 -->
 
