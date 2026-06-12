@@ -66,8 +66,7 @@ acquire_lock() {
 acquire_lock
 
 # Free the e2e app ports — a safety net for dev servers orphaned by a previous
-# iteration or run. Used between iterations (the watcher must survive, so this
-# does NOT pkill our children).
+# iteration or run.
 APP_PORTS=(3000 3002 4002)
 free_ports() {
   command -v lsof >/dev/null 2>&1 || return 0
@@ -76,6 +75,21 @@ free_ports() {
     pids="$(lsof -ti :"$p" 2>/dev/null || true)"
     [[ -n "$pids" ]] && kill -TERM $pids 2>/dev/null || true
   done
+}
+
+# Kill leftover e2e dev servers by command signature. Port-killing alone is not
+# enough: the zambda server runs under `tsx watch`, which RESPAWNS it; and once
+# a run is `kill -9`'d the whole npm/turbo/tsx chain orphans (reparents) so it's
+# unreachable by process tree. These patterns are specific to the e2e stack, so
+# they don't touch the driver, the claude session, or the stream formatter.
+# (Used between iterations and at startup — never while a wanted run is live.)
+DEV_SERVER_PATTERNS=('start:iac' 'tsx watch' 'tsx scripts/run-e2e' 'playwright test')
+kill_dev_servers() {
+  local pat
+  for pat in "${DEV_SERVER_PATTERNS[@]}"; do
+    pkill -f "$pat" 2>/dev/null || true
+  done
+  free_ports
 }
 
 # Recursively kill every descendant of $1 with signal $2, deepest first. We can
@@ -91,12 +105,12 @@ kill_descendants() {
   done
 }
 
-# Full teardown: kill the current iteration's process subtree AND free the
-# ports. Used only at driver exit (cleanup), where killing all descendants —
-# including the watcher — is what we want.
+# Full teardown: kill the current iteration's process subtree (claude + the
+# pipeline) AND any e2e dev servers it spawned. Used at driver exit (cleanup),
+# where killing all descendants — including the watcher — is what we want.
 terminate_children() {
   kill_descendants $$ TERM
-  free_ports
+  kill_dev_servers
 }
 
 # On any exit (normal, Ctrl+C, kill TERM), tear down the running session so a
@@ -145,17 +159,10 @@ if [[ -f "$STOP_FILE" ]]; then
   echo "Cleared a stale STOP file from a previous run."
 fi
 
-# Clear any app servers orphaned by a previous run that ended in `kill -9`
-# (which can't run cleanup). Start from a known-clean slate.
-if command -v lsof >/dev/null 2>&1; then
-  for p in "${APP_PORTS[@]}"; do
-    pids="$(lsof -ti :"$p" 2>/dev/null || true)"
-    if [[ -n "$pids" ]]; then
-      echo "Freeing port $p left in use by a previous run (pids: $pids)."
-      kill -TERM $pids 2>/dev/null || true
-    fi
-  done
-fi
+# Clear e2e dev servers orphaned by a previous run (e.g. one that ended in
+# `kill -9`, which can't run cleanup). Start from a known-clean slate.
+echo "Clearing any e2e dev servers left over from a previous run..."
+kill_dev_servers
 
 # Background watcher: if STOP appears mid-iteration, signal the driver to shut
 # down promptly (cleanup() then tears down the running session). $$ inside this
@@ -226,9 +233,9 @@ for (( i=1; i<=MAX_ITERS; i++ )); do
   fi
   wait $! ; code=$?
 
-  # Free the app ports between iterations so nothing lingers into the next run.
-  # (The e2e runner also clears them at startup, but belt-and-suspenders.)
-  free_ports
+  # Tear down any e2e dev servers between iterations so nothing (especially the
+  # respawning zambda `tsx watch`) lingers into the next run.
+  kill_dev_servers
 
   if [[ -f "$STOP_FILE" ]]; then
     continue   # let the top-of-loop check report and exit without a backoff wait
