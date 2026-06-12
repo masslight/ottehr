@@ -566,7 +566,6 @@ test.describe('In-Person Visit Chart Data', async () => {
       await test.step('Verify missing card is visible and has all required missing fields', async () => {
         await expect(page.getByTestId(dataTestIds.progressNotePage.missingCard)).toBeVisible();
         await expect(page.getByTestId(dataTestIds.progressNotePage.emCodeLink)).toBeVisible();
-        // The MDM missing-field link only renders on instances whose progress note config requires MDM
         if (mdmRequired) {
           await expect(page.getByTestId(dataTestIds.progressNotePage.medicalDecisionLink)).toBeVisible();
         } else {
