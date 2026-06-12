@@ -45,6 +45,12 @@ Tune via env vars:
 MAX_ITERS=30 MODEL=claude-sonnet-4-6 ITER_TIMEOUT=5400 scripts/flaky-loop/driver.sh
 ```
 
+`MODEL=claude-fable-5` gives the strongest debugging at the highest cost;
+`claude-sonnet-4-6` is the budget option. Only one driver can run at a time: a
+lock in `state/driver.lock` makes a second launch refuse to start, and killing
+the driver (Ctrl+C or `kill`) now also takes down its claude session instead of
+orphaning it.
+
 ### Watching it work
 
 Run it in the foreground and each session streams its steps (tool calls, test
@@ -60,9 +66,10 @@ readable view. Without this, headless `claude -p` only prints at the very end,
 so it *looks* frozen for the many minutes the first full e2e run takes — that's
 the usual "it's stuck doing nothing" symptom.
 
-Set `STREAM=0` to fall back to plain text (final output only). Either way, the
-raw output of every iteration is captured to `logs/iter-NNN-*.log`, so from
-another terminal you can follow the newest one:
+Set `STREAM=0` to fall back to plain text (final output only). Each iteration
+writes two logs: `logs/iter-NNN-*.jsonl` (raw stream-json events) and
+`logs/iter-NNN-*.log` (the readable view, written live). Follow the newest from
+another terminal:
 
 ```bash
 tail -f "$(ls -t scripts/flaky-loop/logs/iter-*.log | head -1)"

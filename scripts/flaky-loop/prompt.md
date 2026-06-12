@@ -12,6 +12,15 @@ what has been tried, and what is fixed. Trust it over your own assumptions —
 you have no other record of prior runs. Update it at the END of this run no
 matter what happens (even if you made no progress, record why).
 
+## Before anything else: check for a killed predecessor
+
+Run `git status`. If the working tree has uncommitted changes, a previous
+session was probably killed mid-work (iteration timeout). Do NOT ignore this
+and do NOT commit it blindly. Read the diff, cross-reference the progress
+file's in-progress entry, and either (a) adopt the change as your attempt this
+run and validate it properly, or (b) `git checkout -- <files>` to discard it if
+you can't make sense of it. Record which you did in the progress file.
+
 ## What counts as ONE run
 
 Pick exactly one of these per invocation, then stop:
@@ -41,6 +50,9 @@ the loop can run all night. Resist the urge to fix everything in one session.
 3. **Apply ONE change** addressing the hypothesis.
 4. **Validate.** Re-run the target **25 times with zero failures** before
    calling it fixed. Fewer than 25/25 → it's not fixed; record the attempt.
+   Then run the target's WHOLE spec file once (no --grep) to check your change
+   didn't break sibling tests — especially if you touched shared helpers or
+   page objects. A fix that breaks neighbors is not a fix.
 5. **Record + commit.** If fixed: commit the change (see Git) and set status
    `fixed` with the commit sha. If not fixed: add an `attempts` entry describing
    what you tried and the result. After 4 failed attempts, set status `gave-up`
@@ -76,6 +88,18 @@ single run is heavy and slow — budget for that and prefer focused runs.
   `npm run ehr:e2e:local -- --specs-only --test-file=<spec.ts> --grep="<test title>" --repeat-each=25`
   (e.g. `--test-file=patients.spec.ts --grep="filters patients by name"`)
 - Existing flaky-detection helper (repeats specs 10x): `npm run ehr:e2e:local:flaky`
+
+Parallelism (IMPORTANT for honest measurement):
+- The Playwright config is `fullyParallel: true` with unlimited local workers and
+  `retries: 0` locally. So `--repeat-each=25` runs many copies of the SAME test
+  concurrently against one stack and one set of seed data.
+- The runner accepts `--workers=N` (passed through to Playwright). Use it to
+  diagnose: if the test passes 25/25 with `--workers=1` but fails repeated
+  parallel runs, the failure is cross-copy interference — shared/mutated test
+  data, hardcoded records, missing isolation. That is a REAL bug class worth
+  fixing (give the test its own data / make it idempotent), not noise to ignore.
+  But do not "fix" a test by validating only serially and calling it done —
+  CI runs 6 parallel workers; final validation should pass under parallelism.
 
 Notes:
 - Seed data is generated only on a full (non-`--specs-only`) run. If focused runs

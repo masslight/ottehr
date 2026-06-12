@@ -13,7 +13,8 @@
 #
 # Environment overrides:
 #   MAX_ITERS=50      number of iterations before the loop stops
-#   MODEL=...         model id (default claude-opus-4-8; claude-sonnet-4-6 is cheaper)
+#   MODEL=...         model id (default claude-opus-4-8; claude-fable-5 is stronger,
+#                     claude-sonnet-4-6 is cheaper)
 #   ITER_TIMEOUT=7200 hard cap (seconds) per iteration; killed if exceeded
 #   BACKOFF=60        seconds to wait after a non-zero claude exit (rate limits etc.)
 #   STREAM=1          live, readable streaming of each session's steps (0 = plain final output)
@@ -38,6 +39,39 @@ BACKOFF="${BACKOFF:-60}"
 STREAM="${STREAM:-1}"           # 1 = live, readable streaming of each session's steps; 0 = plain final output
 
 mkdir -p "$STATE_DIR" "$LOG_DIR"
+
+# Single-instance lock: a second driver editing the same working tree would
+# race the first on file edits and git commits. mkdir is atomic and portable
+# (no flock on macOS). A stale lock from a crashed run is detected via its pid.
+LOCK_DIR="$STATE_DIR/driver.lock"
+acquire_lock() {
+  if mkdir "$LOCK_DIR" 2>/dev/null; then
+    echo $$ > "$LOCK_DIR/pid"
+    return 0
+  fi
+  local oldpid
+  oldpid="$(cat "$LOCK_DIR/pid" 2>/dev/null || true)"
+  if [[ -n "$oldpid" ]] && kill -0 "$oldpid" 2>/dev/null; then
+    echo "FATAL: another driver is already running (pid $oldpid). Refusing to start a second one." >&2
+    echo "       Stop it first (touch $STOP_FILE, or kill $oldpid)." >&2
+    exit 1
+  fi
+  echo "Removing stale lock left by pid ${oldpid:-unknown}."
+  rm -rf "$LOCK_DIR"
+  mkdir "$LOCK_DIR" && echo $$ > "$LOCK_DIR/pid"
+}
+acquire_lock
+
+# On any exit (normal, Ctrl+C, kill), take down our direct children — the
+# timeout/claude pipeline — so a killed driver doesn't leave an orphaned
+# session running (the cause of the "two Claudes" incident), then drop the lock.
+cleanup() {
+  pkill -TERM -P $$ 2>/dev/null || true
+  rm -rf "$LOCK_DIR"
+}
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 if [[ ! -f "$PROMPT_FILE" ]]; then
   echo "FATAL: prompt file not found at $PROMPT_FILE" >&2
@@ -81,6 +115,7 @@ for (( i=1; i<=MAX_ITERS; i++ )); do
   fi
 
   ts="$(date +%Y%m%d-%H%M%S)"
+  raw_log="$LOG_DIR/iter-$(printf '%03d' "$i")-$ts.jsonl"
   log="$LOG_DIR/iter-$(printf '%03d' "$i")-$ts.log"
   echo "==================================================================="
   echo "=== Iteration $i / $MAX_ITERS @ $ts"
@@ -110,16 +145,20 @@ for (( i=1; i<=MAX_ITERS; i++ )); do
   # — rather than via a shell function — lets bash exec-replace the subshell, so
   # `ps` shows the real `timeout`/`claude` process instead of a confusing second
   # copy of this script.
+  # -k 30: if claude ignores the TERM at ITER_TIMEOUT, SIGKILL it 30s later.
   if [[ -n "$TIMEOUT_BIN" ]]; then
-    full=("$TIMEOUT_BIN" "$ITER_TIMEOUT" "${cmd[@]}")
+    full=("$TIMEOUT_BIN" -k 30 "$ITER_TIMEOUT" "${cmd[@]}")
   else
     full=("${cmd[@]}")
   fi
 
+  # </dev/null: headless claude must never block waiting on stdin.
+  # Raw stream-json goes to $raw_log; the human-readable view goes to the
+  # terminal AND $log, so `tail -f` on the .log is live and readable.
   if [[ "$use_formatter" -eq 1 ]]; then
-    "${full[@]}" 2>&1 | tee "$log" | node "$HERE/format-stream.mjs"
+    "${full[@]}" </dev/null 2>&1 | tee "$raw_log" | node "$HERE/format-stream.mjs" | tee "$log"
   else
-    "${full[@]}" 2>&1 | tee "$log"
+    "${full[@]}" </dev/null 2>&1 | tee "$log"
   fi
   code=${PIPESTATUS[0]}
 

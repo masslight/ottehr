@@ -16,6 +16,8 @@ const testFileArg = process.argv.find((arg) => arg.startsWith('--test-file='));
 const testFile = testFileArg ? testFileArg.split('=')[1] : undefined;
 const repeatEachArg = process.argv.find((arg) => arg.startsWith('--repeat-each='));
 const repeatEach = repeatEachArg ? parseInt(repeatEachArg.split('=')[1], 10) : undefined;
+const workersArg = process.argv.find((arg) => arg.startsWith('--workers='));
+const workers = workersArg ? parseInt(workersArg.split('=')[1], 10) : undefined;
 const grepArg = process.argv.find((arg) => arg.startsWith('--grep='));
 const grepPattern = grepArg ? grepArg.split('=').slice(1).join('=') : undefined;
 const supportedApps = ['ehr', 'intake'] as const;
@@ -254,6 +256,10 @@ function createTestProcess(testType: 'login' | 'specs', appName: string): any {
       playwrightArgs.push('--repeat-each', String(repeatEach));
     }
 
+    if (workers) {
+      playwrightArgs.push('--workers', String(workers));
+    }
+
     return spawn('env-cmd', ['-f', `./env/tests.${ENV}.json`, 'npx', 'playwright', ...playwrightArgs], {
       shell: true,
       stdio: 'inherit',
@@ -288,6 +294,10 @@ function createTestProcess(testType: 'login' | 'specs', appName: string): any {
 
   if (repeatEach && testType !== 'login') {
     extraArgs.push('--repeat-each', String(repeatEach));
+  }
+
+  if (workers && testType !== 'login') {
+    extraArgs.push('--workers', String(workers));
   }
 
   // Build the playwright args as an environment variable for turbo to pass through
