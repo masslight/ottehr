@@ -1,7 +1,6 @@
 import Oystehr, { BatchInputPostRequest, BatchInputRequest } from '@oystehr/sdk';
 import { randomUUID } from 'crypto';
 import { FhirResource, HealthcareService, Location, Practitioner, PractitionerRole, Schedule } from 'fhir/r4b';
-import { DateTime } from 'luxon';
 import {
   GetScheduleResponse,
   HourOfDay,
@@ -507,10 +506,14 @@ describe('get-schedule filters out inactive owners and Schedules', () => {
     // `selectedDate` = tomorrow in the schedule's timezone so every working
     // hour (09–12 for A, 13–17 for B) is in the future regardless of when
     // the test runs.
-    const selectedDate = startOfDayWithTimezone({
-      date: DateTime.now().plus({ days: 1 }),
-      timezone: 'America/New_York',
-    }).toISODate();
+    // Adding the day BEFORE calling startOfDayWithTimezone (in NY) would
+    // be evaluated in the runtime's local zone, so `.toFormat('MM/dd/yyyy')`
+    // inside the helper would read the runtime calendar date. That's an
+    // off-by-one near midnight UTC. Instead: let the helper anchor "today"
+    // in NY (default behavior when `date` is omitted), then advance the
+    // calendar day in NY zone where Luxon's `plus({ days: 1 })` is
+    // DST-correct.
+    const selectedDate = startOfDayWithTimezone({ timezone: 'America/New_York' }).plus({ days: 1 }).toISODate();
     assert(selectedDate);
 
     const callGroup = async (): Promise<GetScheduleResponse> => {
@@ -561,10 +564,14 @@ describe('get-schedule filters out inactive owners and Schedules', () => {
     // would reach `walkGroupMemberPractitionerRoleSchedules` unchecked
     // without the in-code bundle filter.
     const fixture = await createGroupFixture();
-    const selectedDate = startOfDayWithTimezone({
-      date: DateTime.now().plus({ days: 1 }),
-      timezone: 'America/New_York',
-    }).toISODate();
+    // Adding the day BEFORE calling startOfDayWithTimezone (in NY) would
+    // be evaluated in the runtime's local zone, so `.toFormat('MM/dd/yyyy')`
+    // inside the helper would read the runtime calendar date. That's an
+    // off-by-one near midnight UTC. Instead: let the helper anchor "today"
+    // in NY (default behavior when `date` is omitted), then advance the
+    // calendar day in NY zone where Luxon's `plus({ days: 1 })` is
+    // DST-correct.
+    const selectedDate = startOfDayWithTimezone({ timezone: 'America/New_York' }).plus({ days: 1 }).toISODate();
     assert(selectedDate);
 
     const callGroup = async (): Promise<GetScheduleResponse> => {
