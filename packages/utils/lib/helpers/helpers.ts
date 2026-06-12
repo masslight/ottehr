@@ -330,8 +330,6 @@ export function resourceHasMetaTag(resource: Resource, metaTag: OTTEHR_MODULE): 
   return Boolean(resource.meta?.tag?.find((coding) => coding.code === metaTag));
 }
 
-export const PHONE_NOT_ON_FILE = 'Phone Number not on file';
-
 /**
  * Standardizes a phone number that may carry an extension (`x`/`ext.`/`extension`) to
  * `(XXX) XXX-XXXX` or `(XXX) XXX-XXXX x{ext}`. Returns undefined when the base number can't be
