@@ -617,9 +617,7 @@ async function getClinicalResources(
   params: CreateClaimFromEncounterParams
 ): Promise<ClinicalResources> {
   const resources = (
-    await oystehr.fhir.search<
-      Encounter | Patient | Location | Practitioner | Account | Coverage | Condition | Procedure
-    >({
+    await oystehr.fhir.search<Encounter | Patient | Location | Practitioner | Account | Condition | Procedure>({
       resourceType: 'Encounter',
       params: [
         {
@@ -651,11 +649,6 @@ async function getClinicalResources(
           // Include accounts
           name: '_include',
           value: 'Encounter:account',
-        },
-        {
-          // Include account coverages
-          name: '_include',
-          value: 'Account:coverage:Coverage',
         },
         {
           // Include diagnosis
@@ -690,15 +683,33 @@ async function getClinicalResources(
   const accounts = resources.filter((r): r is Account => r.resourceType === 'Account');
   if (!accounts.length) throw FHIR_RESOURCE_NOT_FOUND('Account');
 
-  const coverages = resources.filter((r): r is Coverage => r.resourceType === 'Coverage');
-  if (!coverages.length) throw FHIR_RESOURCE_NOT_FOUND('Coverage');
-
   const diagnoses = resources.filter((r): r is Condition => r.resourceType === 'Condition');
   if (!diagnoses.length) throw FHIR_RESOURCE_NOT_FOUND('Condition');
 
   const procedures = resources.filter((r): r is Procedure => r.resourceType === 'Procedure');
   if (!procedures.length) throw FHIR_RESOURCE_NOT_FOUND('Procedure');
 
+  // Manually look up coverages because FHIR doesn't support Account:coverage include
+  const coverageIds = accounts.flatMap<string>((account) =>
+    (account.coverage ?? [])
+      .map<string | undefined>((coverage) => coverage.coverage.reference?.replace('Coverage/', ''))
+      .filter<string>((coverageId): coverageId is string => !!coverageId)
+  );
+  const coverages = (
+    await Promise.all(
+      coverageIds.map(async (coverageId) =>
+        (
+          await oystehr.fhir.search<Coverage>({
+            resourceType: 'Coverage',
+            params: [{ name: '_id', value: coverageId }],
+          })
+        ).unbundle()
+      )
+    )
+  ).flat();
+  if (!coverages.length) throw FHIR_RESOURCE_NOT_FOUND('Coverage');
+
+  // Manually look up payors because they may be internal Organization resources or Oystehr RCM payer URLs
   const payors = await Promise.all(
     coverages.map<Promise<Organization>>(async (c) => {
       // Assume single payor per coverage
@@ -713,7 +724,7 @@ async function getClinicalResources(
     })
   );
 
-  const defaultBillingProviderRef = params.secrets.DEFAULT_BILLING_PROVIDER;
+  const defaultBillingProviderRef = params.secrets.DEFAULT_BILLING_RESOURCE;
   if (!defaultBillingProviderRef) throw FHIR_RESOURCE_NOT_FOUND('Organization');
   const billingProviders = (
     await oystehr.fhir.search<Organization>({
@@ -753,7 +764,7 @@ async function findExistingBillingResources(
       resourceType: 'Person',
       params: [
         { name: 'link', value: `Patient/${originals.patient.id}` },
-        { name: 'include', value: 'patient' },
+        { name: '_include', value: 'patient' },
         {
           // Include account coverages
           name: '_revinclude',
