@@ -1,19 +1,10 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Practitioner } from 'fhir/r4b';
-import { getNPI } from 'utils';
+import { BillingPractitionerOption, getNPI } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
-import { createBillingClient, EXCLUDE_WORKING_COPIES_PARAM, fhirName } from '../shared';
+import { createBillingClient, EXCLUDE_WORKING_COPIES_PARAMS, fhirName } from '../shared';
 import { SearchBillingPractitionersParams, validateRequestParameters } from './validateRequestParameters';
-
-interface PractitionerSearchItem {
-  id: string | undefined;
-  name: string;
-  firstName: string;
-  lastName: string;
-  npi: string;
-  taxonomy: string;
-}
 
 let m2mToken: string;
 const ZAMBDA_NAME = 'search-billing-practitioners';
@@ -30,12 +21,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 async function performEffect(
   oystehr: Oystehr,
   params: SearchBillingPractitionersParams
-): Promise<{ practitioners: PractitionerSearchItem[] }> {
+): Promise<{ practitioners: BillingPractitionerOption[] }> {
   const searchParams: { name: string; value: string }[] = [
     { name: '_count', value: '50' },
     { name: '_sort', value: 'family' },
   ];
-  if (!params.name) searchParams.push(EXCLUDE_WORKING_COPIES_PARAM);
+  if (!params.includeWorkingCopies) searchParams.push(...EXCLUDE_WORKING_COPIES_PARAMS);
   if (params.name) searchParams.push({ name: 'name', value: params.name });
 
   const response = await oystehr.fhir.search<Practitioner>({ resourceType: 'Practitioner', params: searchParams });

@@ -1,4 +1,4 @@
-import Oystehr, { BatchInputPostRequest, SearchParam } from '@oystehr/sdk';
+import Oystehr, { BatchInputPostRequest, SearchParam, TransactionBundle } from '@oystehr/sdk';
 import { Operation } from 'fast-json-patch';
 import {
   Account,
@@ -1373,6 +1373,20 @@ export function getExtension(resource: DomainResource | Element, url: string): E
   return resource.extension?.find((extension) => extension.url === url);
 }
 
+/**
+ * Returns the value of a typed key on the first extension matching `url`. Use this to read
+ * `valueString`/`valueBoolean`/etc. from a resource extension in a single call without manually
+ * narrowing through `.extension?.find(...)?.valueX`.
+ */
+export function getExtensionValue<K extends keyof Extension>(
+  resource: DomainResource | Element | undefined,
+  url: string,
+  key: K
+): Extension[K] | undefined {
+  if (!resource) return undefined;
+  return getExtension(resource, url)?.[key];
+}
+
 export const cleanUpStaffHistoryTag = (resource: Resource, field: string): Operation | undefined => {
   // going forward we will be using the history of the patient resource so this isn't needed
   // check if there is a tag to clean up
@@ -1563,4 +1577,8 @@ export function sanitizeStringForFhirCode(input: string): Coding['code'] {
   } else {
     return input;
   }
+}
+
+export function transactionWasSuccessful(transactionResponse: Pick<TransactionBundle<FhirResource>, 'entry'>): boolean {
+  return transactionResponse.entry?.every((entry) => entry.response?.status[0] === '2') ?? false;
 }

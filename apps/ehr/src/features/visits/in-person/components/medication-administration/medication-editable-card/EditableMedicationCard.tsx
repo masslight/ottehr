@@ -104,7 +104,11 @@ export const EditableMedicationCard: React.FC<{
   const { isLoading: isMedicationHistoryLoading, medicationHistory, refetchHistory } = useMedicationHistory();
   const currentUser = useEvolveUser();
   const isAdmin = currentUser?.hasRole([RoleType.Administrator]) ?? false;
-  const { quickPicks: fhirQuickPicks } = useMergedInHouseMedicationQuickPicks();
+  const {
+    quickPicks: fhirQuickPicks,
+    loading: fhirQuickPicksLoading,
+    refetch: refetchQuickPicks,
+  } = useMergedInHouseMedicationQuickPicks();
   const [quickPickDialogOpen, setQuickPickDialogOpen] = useState(false);
   const [quickPickName, setQuickPickName] = useState('');
   const [existingQuickPicksForDialog, setExistingQuickPicksForDialog] = useState<InHouseMedicationQuickPickData[]>([]);
@@ -138,7 +142,7 @@ export const EditableMedicationCard: React.FC<{
   const isSavedRef = useRef(false);
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
 
-  const handleStatusChange = async (newStatus: MedicationOrderStatusesType): Promise<void> => {
+  const handleUnsavedStatusChange = async (newStatus: MedicationOrderStatusesType): Promise<void> => {
     isSavedRef.current = false;
     setCurrentStatus(newStatus);
   };
@@ -324,6 +328,7 @@ export const EditableMedicationCard: React.FC<{
         await createInHouseMedicationQuickPick(oystehrZambda, { quickPick: quickPickData });
         enqueueSnackbar(`Quick pick "${quickPickName}" created`, { variant: 'success' });
       }
+      await refetchQuickPicks();
       setQuickPickDialogOpen(false);
     } catch (error) {
       console.error('Failed to save quick pick:', error);
@@ -431,9 +436,8 @@ export const EditableMedicationCard: React.FC<{
       await updateMedication(medicationUpdateRequestInputRefRef.current);
       isSavedRef.current = true;
 
-      // update saved status in the local state
       if (newStatus) {
-        await handleStatusChange(newStatus);
+        setCurrentStatus(newStatus);
       }
 
       if (
@@ -466,7 +470,18 @@ export const EditableMedicationCard: React.FC<{
 
   const getFieldValue = useCallback(
     <Field extends keyof MedicationData>(field: Field, type = 'text'): MedicationData[Field] | '' | undefined => {
-      return localValues[field] ?? (medication ? getMedicationFieldValue(medication || {}, field, type) : undefined);
+      // user touched the field (incl. explicitly cleared to `undefined`)
+      if (field in localValues) {
+        return localValues[field];
+      }
+
+      // not touched yet — fall back to the saved order
+      if (medication) {
+        return getMedicationFieldValue(medication || {}, field, type);
+      }
+
+      // new order, nothing entered yet
+      return undefined;
     },
     [localValues, medication, getMedicationFieldValue]
   );
@@ -671,7 +686,7 @@ export const EditableMedicationCard: React.FC<{
         selectedStatus={currentStatus}
         isUpdating={isOrderUpdating}
         onFieldValueChange={handleFieldValueChange}
-        onStatusSelect={handleStatusChange}
+        onStatusSelect={handleUnsavedStatusChange}
         getFieldValue={getFieldValue}
         showErrors={showErrors}
         fieldErrors={fieldErrors}
@@ -696,6 +711,7 @@ export const EditableMedicationCard: React.FC<{
           typeFromProps === 'order-new' || typeFromProps === 'order-edit' ? handleQuickPickSelect : undefined
         }
         fhirQuickPicks={fhirQuickPicks}
+        fhirQuickPicksLoading={fhirQuickPicksLoading}
         onFhirQuickPickSelect={handleFhirQuickPickSelect}
         showQuickPickAddOption
         isAdmin={isAdmin}

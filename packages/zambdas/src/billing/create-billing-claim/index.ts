@@ -45,7 +45,6 @@ interface OriginalResources {
   practitioner?: Practitioner;
   facility?: Location;
   billingProvider?: Organization;
-  payor?: Organization;
 }
 
 async function performEffect(oystehr: Oystehr, params: CreateClaimParams): Promise<{ claimId: string }> {
@@ -64,7 +63,7 @@ async function performEffect(oystehr: Oystehr, params: CreateClaimParams): Promi
 
 async function readOriginals(oystehr: Oystehr, params: CreateClaimParams): Promise<OriginalResources> {
   const searches: string[] = [`/Patient?_id=${params.patientId}`];
-  if (params.coverageId) searches.push(`/Coverage?_id=${params.coverageId}&_include=Coverage:payor`);
+  if (params.coverageId) searches.push(`/Coverage?_id=${params.coverageId}`);
   if (params.practitionerId) searches.push(`/Practitioner?_id=${params.practitionerId}`);
   if (params.facilityId) searches.push(`/Location?_id=${params.facilityId}`);
   if (params.billingProviderId) searches.push(`/Organization?_id=${params.billingProviderId}`);
@@ -84,10 +83,7 @@ async function readOriginals(oystehr: Oystehr, params: CreateClaimParams): Promi
     resources,
     params.billingProviderId ? `Organization/${params.billingProviderId}` : undefined
   );
-  // TODO: payor ref will move to external Oystehr payer URLs (#6603)
-  const payor = findRef<Organization>(resources, coverage?.payor?.[0]?.reference);
-
-  return { patient, coverage, practitioner, facility, billingProvider, payor };
+  return { patient, coverage, practitioner, facility, billingProvider };
 }
 
 async function createWorkingCopies(
@@ -99,45 +95,42 @@ async function createWorkingCopies(
   const order: string[] = [];
 
   const patientUrn = `urn:uuid:${randomUUID()}`;
-  let patientCopy = prepareWorkingCopy(originals.patient, originals.patient.id!);
+  let patientCopy = prepareWorkingCopy<Patient>(originals.patient, originals.patient.id!);
   patientCopy = applyPatientOverrides(patientCopy, params.patientOverrides);
   requests.push({ method: 'POST', url: '/Patient', resource: patientCopy, fullUrl: patientUrn });
   order.push('patient');
 
-  if (originals.payor) {
-    const copy = prepareWorkingCopy(originals.payor, originals.payor.id!);
-    requests.push({ method: 'POST', url: '/Organization', resource: copy, fullUrl: `urn:uuid:${randomUUID()}` });
-    order.push('payor');
-  }
-
   if (originals.coverage) {
-    const copy = prepareWorkingCopy(originals.coverage, originals.coverage.id!);
+    const copy = prepareWorkingCopy<Coverage>(originals.coverage, originals.coverage.id!);
     if (params.coverageOverrides?.subscriberId) copy.subscriberId = params.coverageOverrides.subscriberId;
     copy.beneficiary = { reference: patientUrn };
     copy.subscriber = { reference: patientUrn };
-    // TODO: payor ref will move to external Oystehr payer URLs (#6603)
-    if (originals.payor) {
-      const payorUrn = requests.find((_, i) => order[i] === 'payor')!.fullUrl!;
-      copy.payor = [{ reference: payorUrn }];
-    }
+    // payor is an Oystehr payer list URL kept from the original coverage
     requests.push({ method: 'POST', url: '/Coverage', resource: copy });
     order.push('coverage');
   }
 
   if (originals.practitioner) {
-    let copy = prepareWorkingCopy(originals.practitioner, originals.practitioner.id!);
+    let copy = prepareWorkingCopy<Practitioner>(originals.practitioner, originals.practitioner.id!);
     copy = applyPractitionerOverrides(copy, params.practitionerOverrides);
     requests.push({ method: 'POST', url: '/Practitioner', resource: copy });
     order.push('practitioner');
   }
   if (originals.facility) {
-    const copy = prepareWorkingCopy(originals.facility, originals.facility.id!);
+    const copy = prepareWorkingCopy<Location>(originals.facility, originals.facility.id!);
     if (params.facilityOverrides?.name) copy.name = params.facilityOverrides.name;
+    if (params.facilityOverrides?.npi) applyNpiOverride(copy, params.facilityOverrides.npi);
+    if (params.facilityOverrides?.address) {
+      copy.address = { ...(copy.address ?? {}), line: [params.facilityOverrides.address] };
+    }
     requests.push({ method: 'POST', url: '/Location', resource: copy });
     order.push('facility');
   }
   if (originals.billingProvider) {
-    const copy = prepareWorkingCopy(originals.billingProvider, originals.billingProvider.id!);
+    const copy = prepareWorkingCopy<Organization>(originals.billingProvider, originals.billingProvider.id!);
+    if (params.billingProviderOverrides?.name) copy.name = params.billingProviderOverrides.name;
+    if (params.billingProviderOverrides?.npi) applyNpiOverride(copy, params.billingProviderOverrides.npi);
+    if (params.billingProviderOverrides?.tin) applyTinOverride(copy, params.billingProviderOverrides.tin);
     requests.push({ method: 'POST', url: '/Organization', resource: copy });
     order.push('billingProvider');
   }
@@ -178,6 +171,22 @@ function applyPractitionerOverrides(
   return p;
 }
 
+function applyNpiOverride(
+  resource: { identifier?: { type?: { coding?: { code?: string }[] }; value?: string }[] },
+  npi: string
+): void {
+  const npiIdent = resource.identifier?.find((id) => id.type?.coding?.some((c) => c.code === 'NPI'));
+  if (npiIdent) npiIdent.value = npi;
+}
+
+function applyTinOverride(
+  resource: { identifier?: { type?: { coding?: { code?: string }[] }; value?: string }[] },
+  tin: string
+): void {
+  const taxIdent = resource.identifier?.find((id) => id.type?.coding?.some((c) => c.code === 'TAX'));
+  if (taxIdent) taxIdent.value = tin;
+}
+
 function buildClaim(copies: OriginalResources, params: CreateClaimParams): Claim {
   const now = new Date().toISOString().slice(0, 10);
 
@@ -198,7 +207,8 @@ function buildClaim(copies: OriginalResources, params: CreateClaimParams): Claim
     item: [],
   };
 
-  if (copies.payor?.id) claim.insurer = { reference: `Organization/${copies.payor.id}` };
+  const payerRef = copies.coverage?.payor?.[0]?.reference;
+  if (payerRef) claim.insurer = { reference: payerRef };
   if (copies.facility?.id) claim.facility = { reference: `Location/${copies.facility.id}` };
   if (copies.coverage?.id) {
     claim.insurance = [{ sequence: 1, focal: true, coverage: { reference: `Coverage/${copies.coverage.id}` } }];

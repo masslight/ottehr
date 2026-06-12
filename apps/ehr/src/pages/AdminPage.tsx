@@ -2,6 +2,7 @@ import { TabContext, TabList, TabPanel } from '@mui/lab';
 import { Box, Tab } from '@mui/material';
 import { useNavigate, useParams } from 'react-router-dom';
 import { PatientEducationAdminPage } from 'src/features/admin/patient-education/PatientEducationAdminPage';
+import ProgressNoteAdminPage from 'src/features/admin/ProgressNoteAdminPage';
 import InHouseLabAdminPage from 'src/features/visits/telemed/components/admin/in-house-labs/InHouseLabAdminPage';
 import LabSetsAdminPage from 'src/features/visits/telemed/components/admin/lab-sets/LabSetsAdminPage';
 import AdminPrintingConfig from 'src/features/visits/telemed/components/admin/label-printing-config/AdminLabelPrintingConfigPage';
@@ -17,9 +18,11 @@ import MedicationsConfigurationPage from './configuration/MedicationsConfigurati
 import EmployeesPage, { EmployeeTypes } from './Employees';
 import OutreachTab from './OutreachTab';
 import SchedulesPage from './Schedules';
+import ServiceCategoriesAdminPage from './ServiceCategoriesAdminPage';
 
 enum PageTab {
   schedules = 'schedules',
+  services = 'services',
   'virtual-locations' = 'virtual-locations',
   employees = 'employees',
   providers = 'providers',
@@ -35,6 +38,7 @@ enum PageTab {
   'lab-sets' = 'lab-sets',
   'docs-folders' = 'docs-folders',
   'support-dialog' = 'support-dialog',
+  'progress-note' = 'progress-note',
 }
 
 export function AdminPage(): JSX.Element {
@@ -65,6 +69,12 @@ export function AdminPage(): JSX.Element {
                   value={PageTab.schedules}
                   sx={{ textTransform: 'none', fontWeight: 500 }}
                   onClick={() => navigate(`/admin/${PageTab.schedules}`)}
+                />
+                <Tab
+                  label="Services"
+                  value={PageTab.services}
+                  sx={{ textTransform: 'none', fontWeight: 500 }}
+                  onClick={() => navigate(`/admin/${PageTab.services}`)}
                 />
                 <Tab
                   label="Virtual Locations"
@@ -156,11 +166,20 @@ export function AdminPage(): JSX.Element {
                   sx={{ textTransform: 'none', fontWeight: 500 }}
                   onClick={() => navigate(`/admin/${PageTab['support-dialog']}`)}
                 />
+                <Tab
+                  label="Progress Note"
+                  value={PageTab['progress-note']}
+                  sx={{ textTransform: 'none', fontWeight: 500 }}
+                  onClick={() => navigate(`/admin/${PageTab['progress-note']}`)}
+                />
               </TabList>
             </Box>
           </Box>
           <TabPanel value={PageTab.schedules} sx={{ padding: 0 }}>
             <SchedulesPage />
+          </TabPanel>
+          <TabPanel value={PageTab.services} sx={{ padding: 0 }}>
+            <ServiceCategoriesAdminPage />
           </TabPanel>
           <TabPanel value={PageTab['virtual-locations']} sx={{ padding: 0 }}>
             <States />
@@ -206,6 +225,9 @@ export function AdminPage(): JSX.Element {
           </TabPanel>
           <TabPanel value={PageTab['support-dialog']} sx={{ padding: 0 }}>
             <SupportDialogAdminPage />
+          </TabPanel>
+          <TabPanel value={PageTab['progress-note']} sx={{ padding: 0 }}>
+            <ProgressNoteAdminPage />
           </TabPanel>
         </TabContext>
       </Box>

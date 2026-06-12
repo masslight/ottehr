@@ -25,9 +25,18 @@ export const getServiceCategoryCodings = (): StrongCoding[] => {
 /**
  * Get service categories available for a given service mode and visit type.
  * Returns the StrongCoding for each matching category.
+ *
+ * Optionally accepts an explicit list of service categories (e.g., from the
+ * FHIR-backed registry). Falls back to BOOKING_CONFIG when not provided, so
+ * existing call sites keep working.
  */
-export const getServiceCategoriesForContext = (serviceMode: string, visitType: string): StrongCoding[] => {
-  return BOOKING_CONFIG.serviceCategories
+export const getServiceCategoriesForContext = (
+  serviceMode: string,
+  visitType: string,
+  serviceCategories?: ServiceCategoryConfig[]
+): StrongCoding[] => {
+  const source = serviceCategories ?? BOOKING_CONFIG.serviceCategories;
+  return source
     .filter((sc) => sc.serviceModes.includes(serviceMode as any) && sc.visitTypes.includes(visitType as any))
     .map((sc) => sc.category);
 };
@@ -36,8 +45,12 @@ export const getServiceCategoriesForContext = (serviceMode: string, visitType: s
  * Determine whether to show the service category selection page.
  * Returns true when more than one category matches the given mode and visit type.
  */
-export const shouldShowServiceCategorySelectionPage = (params: { serviceMode: string; visitType: string }): boolean => {
-  return getServiceCategoriesForContext(params.serviceMode, params.visitType).length > 1;
+export const shouldShowServiceCategorySelectionPage = (params: {
+  serviceMode: string;
+  visitType: string;
+  serviceCategories?: ServiceCategoryConfig[];
+}): boolean => {
+  return getServiceCategoriesForContext(params.serviceMode, params.visitType, params.serviceCategories).length > 1;
 };
 
 /**

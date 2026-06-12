@@ -1,4 +1,5 @@
 import { ProcedureModifier } from 'candidhealth/api/index.js';
+import { Account, Coverage, Encounter, Location, Patient } from 'fhir/r4b';
 import {
   CPTCodeDTO,
   DiagnosisDTO,
@@ -176,6 +177,8 @@ export type GetInHouseOrdersParameters = InHouseOrdersSearchBy &
   InHouseOrdersSearchFilters &
   InHouseOrdersPaginationOptions;
 
+export type CreateInHouseLabEnconuterResource = Encounter | Patient | Location | Coverage | Account;
+
 export type CreateInHouseLabOrderParameters = {
   encounterId: string;
   testItems: DataEntryTestItem[];
@@ -312,7 +315,11 @@ export interface StringComponent extends BaseComponent {
 export type TestItemComponent = CodeableConceptComponent | QuantityComponent | StringComponent;
 
 // This could almost have matched the CPTCodeDTO if not for the ProcedureModifier
-export type CptCodeInHouseLabDefinition = { code: string; modifier?: { code: ProcedureModifier; display: string }[] };
+export type CptCodeInHouseLabDefinition = {
+  code: string;
+  display?: string;
+  modifier?: { code: ProcedureModifier; display: string }[];
+};
 export interface AdminInHouseLabItemDefinition {
   name: string;
   methods?: TestItemMethods;

@@ -1449,14 +1449,14 @@ export const getCptModifierCodeFromProcedure = (
 
 export function shouldUseCandid(secrets: Secrets): boolean {
   return (
-    ['candid', 'all'].includes(secrets.BILLING_INTEGRATION_FEATURE_FLAG) ||
+    ['candid', 'all'].includes(secrets.BILLING_INTEGRATION) ||
     // TODO: remove this once secrets migrated
-    !secrets.BILLING_INTEGRATION_FEATURE_FLAG
+    !secrets.BILLING_INTEGRATION
   );
 }
 
 export function shouldUseOttehrBilling(secrets: Secrets): boolean {
-  return ['ottehr', 'all'].includes(secrets.BILLING_INTEGRATION_FEATURE_FLAG);
+  return ['ottehr', 'all'].includes(secrets.BILLING_INTEGRATION);
 }
 
 export function shouldSendClaim(secrets: Secrets, encounter: Encounter): boolean {

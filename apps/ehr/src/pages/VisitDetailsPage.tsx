@@ -38,6 +38,7 @@ import {
   getPatientVisitDetails,
   getPatientVisitFiles,
   getVisitFaxHistory,
+  listServiceCategories,
   updatePatientVisitDetails,
   updateVisitFiles,
 } from 'src/api/api';
@@ -67,6 +68,7 @@ import {
   getReasonForVisitAndAdditionalDetailsFromAppointment,
   getReasonForVisitOptionsForServiceCategory,
   GetVisitFaxHistoryOutput,
+  getVisitOccupationalMedicineEmployerFromEncounter,
   isApiError,
   isInPersonAppointment,
   isTelemedAppointment,
@@ -463,6 +465,8 @@ export default function VisitDetailsPage(): ReactElement {
       return getPatientVisitDetails(oystehrZambda!, { appointmentId: appointmentID! });
     },
     enabled: Boolean(oystehrZambda) && appointmentID !== undefined,
+    staleTime: 0,
+    refetchOnMount: 'always',
   });
 
   const appointment = visitDetailsData?.appointment;
@@ -482,6 +486,28 @@ export default function VisitDetailsPage(): ReactElement {
 
     enabled: Boolean(oystehrZambda) && appointmentID !== undefined,
   });
+
+  // FHIR-backed service categories (admin-registered via the Services admin UI).
+  // Needed so the page can resolve display names, edit options, and RFV lists
+  // for appointments whose serviceCategory lives outside BOOKING_CONFIG. The
+  // page merges these with BOOKING_CONFIG below.
+  const { data: fhirBackedCatsData } = useQuery({
+    queryKey: ['visit-details-list-service-categories'],
+    queryFn: async () => {
+      if (!oystehrZambda) return { serviceCategories: [] };
+      try {
+        return await listServiceCategories(oystehrZambda);
+      } catch {
+        return { serviceCategories: [] };
+      }
+    },
+    enabled: Boolean(oystehrZambda),
+  });
+  // Memoize the resolved array so downstream useMemos that depend on it
+  // (e.g. reasonsForVisitForCurrentCategory) don't churn while the query is
+  // still loading — `?? []` would otherwise produce a fresh array reference
+  // on every render and invalidate those memos.
+  const fhirBackedCats = useMemo(() => fhirBackedCatsData?.serviceCategories ?? [], [fhirBackedCatsData]);
 
   const {
     data: patientBalancesData,
@@ -673,10 +699,28 @@ export default function VisitDetailsPage(): ReactElement {
   const appointmentTime = appointmentStartTime.toLocaleString(DateTime.TIME_SIMPLE);
   const appointmentDate = formatDateForDisplay(appointmentStartTime.toISO() || '', locationTimeZone);
   const serviceCategory = getCoding(appointment?.serviceCategory, SERVICE_CATEGORY_SYSTEM)?.code;
+  // Display label resolution: BOOKING_CONFIG (compiled-in) takes precedence,
+  // then the FHIR-backed catalog; fall back to the raw code only if neither
+  // knows about it. Without the FHIR-backed lookup the row showed e.g.
+  // "swedish30" instead of "Swedish Massage (30 minute)".
   const serviceCategoryLabel =
     BOOKING_CONFIG.serviceCategories.find((sc) => sc.category.code === serviceCategory)?.category.display ??
+    fhirBackedCats.find((sc) => sc.code === serviceCategory)?.name ??
     serviceCategory ??
     '';
+  // RFV options for the current category, merged across BOOKING_CONFIG and
+  // the FHIR-backed catalog. Used for both display-time filtering (was
+  // hiding valid values configured on FHIR-backed categories) and for the
+  // edit dropdown (was empty). Memoized so its reference is stable across
+  // renders — otherwise the downstream `reasonForVisit` useMemo would re-run
+  // every render (the dependency reference would change each time), and the
+  // identity-stable contract on the edit dropdown's options would break.
+  const reasonsForVisitForCurrentCategory = useMemo<{ value: string; label: string }[]>(() => {
+    if (!serviceCategory) return [];
+    const bookingOpts = getReasonForVisitOptionsForServiceCategory(serviceCategory);
+    if (bookingOpts.length > 0) return bookingOpts;
+    return fhirBackedCats.find((sc) => sc.code === serviceCategory)?.config?.reasonsForVisit ?? [];
+  }, [serviceCategory, fhirBackedCats]);
   const nameLastModifiedOld = formatLastModifiedTag('name', patient, locationTimeZone);
   const dobLastModifiedOld = formatLastModifiedTag('dob', patient, locationTimeZone);
 
@@ -820,10 +864,9 @@ export default function VisitDetailsPage(): ReactElement {
     if (!maybeReasonForVisit) {
       return maybeReasonForVisit;
     }
-    const options = getReasonForVisitOptionsForServiceCategory(serviceCategory ?? '');
-    const match = options.some((option) => option.value === maybeReasonForVisit);
+    const match = reasonsForVisitForCurrentCategory.some((option) => option.value === maybeReasonForVisit);
     return match ? maybeReasonForVisit : undefined;
-  }, [maybeReasonForVisit, serviceCategory]);
+  }, [maybeReasonForVisit, reasonsForVisitForCurrentCategory]);
 
   const authorizedGuardians =
     patient?.extension?.find((e) => e.url === FHIR_EXTENSION.Patient.authorizedNonLegalGuardians.url)?.valueString ??
@@ -881,8 +924,11 @@ export default function VisitDetailsPage(): ReactElement {
       appointmentServiceMode: isTelemedAppointment(appointment) ? ServiceMode.virtual : ServiceMode['in-person'],
       reasonForVisit,
       encounterId: encounter?.id,
+      visitOccupationalMedicineEmployerReference: encounter
+        ? getVisitOccupationalMedicineEmployerFromEncounter(encounter)
+        : undefined,
     }),
-    [serviceCategory, appointment, reasonForVisit, encounter?.id]
+    [serviceCategory, appointment, reasonForVisit, encounter]
   );
 
   return (
@@ -1369,6 +1415,7 @@ export default function VisitDetailsPage(): ReactElement {
                 loadingComponent={<Skeleton width={200} height={40} />}
                 renderBackButton={false}
                 appointmentContext={appointmentContext}
+                appointmentId={appointmentID}
               />
             </Grid>
           </Grid>
@@ -1467,7 +1514,7 @@ export default function VisitDetailsPage(): ReactElement {
                           )
                         }
                       >
-                        {getReasonForVisitOptionsForServiceCategory(serviceCategory ?? '').map((reason) => (
+                        {reasonsForVisitForCurrentCategory.map((reason) => (
                           <MenuItem key={reason.value} value={reason.value}>
                             {reason.label}
                           </MenuItem>
@@ -1496,11 +1543,27 @@ export default function VisitDetailsPage(): ReactElement {
                           )
                         }
                       >
-                        {BOOKING_CONFIG.serviceCategories.map((sc) => (
-                          <MenuItem key={sc.category.code} value={sc.category.code}>
-                            {sc.category.display}
-                          </MenuItem>
-                        ))}
+                        {(() => {
+                          // Merge BOOKING_CONFIG (compiled-in, source of truth on collision)
+                          // with the FHIR-backed catalog so admins can switch a visit to a
+                          // runtime-registered category. Dedup by code. Filter inactive
+                          // FHIR-backed entries — the update-visit-details validator only
+                          // resolves against `active=true` HSes, so offering an inactive
+                          // category here would let the admin pick something that fails
+                          // on save with "not a valid option".
+                          const bookingEntries = BOOKING_CONFIG.serviceCategories
+                            .map((sc) => ({ code: sc.category.code, label: sc.category.display }))
+                            .filter((e): e is { code: string; label: string } => !!e.code);
+                          const bookingCodes = new Set(bookingEntries.map((e) => e.code));
+                          const fhirEntries = fhirBackedCats
+                            .filter((sc) => sc.active && sc.code && !bookingCodes.has(sc.code))
+                            .map((sc) => ({ code: sc.code, label: sc.name }));
+                          return [...bookingEntries, ...fhirEntries].map((entry) => (
+                            <MenuItem key={entry.code} value={entry.code}>
+                              {entry.label}
+                            </MenuItem>
+                          ));
+                        })()}
                       </Select>
                     </>
                   );

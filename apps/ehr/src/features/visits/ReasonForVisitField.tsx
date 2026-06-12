@@ -1,8 +1,9 @@
 import { Box, FormControl, InputLabel, MenuItem, Select, Skeleton, Typography, useTheme } from '@mui/material';
 import { FC, useEffect, useState } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { getCoding, getReasonForVisitOptionsForServiceCategory, SERVICE_CATEGORY_SYSTEM } from 'utils';
+import { getCoding, SERVICE_CATEGORY_SYSTEM } from 'utils';
 import { useChartFields } from './shared/hooks/useChartFields';
+import { useReasonForVisitOptions } from './shared/hooks/useReasonForVisitOptions';
 import { useAppointmentData, useSaveChartData } from './shared/stores/appointment/appointment.store';
 
 export const ReasonForVisitField: FC = () => {
@@ -20,7 +21,14 @@ export const ReasonForVisitField: FC = () => {
 
   const { appointment } = useAppointmentData();
   const serviceCategory = getCoding(appointment?.serviceCategory, SERVICE_CATEGORY_SYSTEM)?.code;
-  const rfvOptions = getReasonForVisitOptionsForServiceCategory(serviceCategory || 'urgent-care');
+  const rfvOptions = useReasonForVisitOptions(serviceCategory || 'urgent-care');
+  // Saved chart data can resolve before the paginated FHIR catalog does.
+  // If the saved value isn't in the loaded options yet (or has been removed
+  // from the catalog entirely), passing it as Select.value triggers MUI's
+  // "out-of-range value" console warning and renders blank. Defer the bind
+  // until the options catch up; it snaps to the saved value on load.
+  const valueIsAvailable = rfvOptions.some((opt) => opt.value === reasonForVisit);
+  const safeValue = valueIsAvailable ? reasonForVisit : '';
   return (
     <FormControl fullWidth>
       <InputLabel id="reason-for-visit-label">Reason for visit</InputLabel>
@@ -28,7 +36,7 @@ export const ReasonForVisitField: FC = () => {
         data-testid={dataTestIds.addPatientPage.reasonForVisitDropdown}
         labelId="reason-for-visit-label"
         id="reason-for-visit-select"
-        value={reasonForVisit || ''}
+        value={safeValue}
         label="Reason for visit"
         onChange={(event) => {
           const value = event.target.value as string;

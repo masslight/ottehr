@@ -120,6 +120,50 @@ const mockTemplateDetail = {
     patientInstructions: [{ title: 'Hydration', text: 'Drink plenty of fluids.' }],
     cptCodes: [{ code: '99213', display: 'Office visit' }],
     emCode: { code: '99213', display: 'Office visit' },
+    inHouseLabs: [
+      {
+        planId: 'plan-1',
+        testName: 'Strep test',
+        activityDefinitionRef: 'http://example.com/ad/strep|1',
+        code: 'strep',
+        diagnoses: [{ code: 'J02.9', display: 'Acute pharyngitis, unspecified' }],
+        notes: [],
+        cptCodes: [{ code: '87880', display: 'Strep rapid', modifiers: [] }],
+        missing: false,
+      },
+      {
+        planId: 'plan-2',
+        testName: 'Retired Test',
+        activityDefinitionRef: 'http://example.com/ad/retired|1',
+        code: 'retired',
+        diagnoses: [],
+        notes: [],
+        cptCodes: [],
+        missing: true,
+      },
+    ],
+    procedures: [
+      {
+        planId: 'proc-1',
+        procedureType: 'Splint application',
+        performerType: 'Provider',
+        bodySite: 'Wrist',
+        bodySide: 'Left',
+        technique: ['Closed reduction'],
+        medicationUsed: 'Lidocaine 1%',
+        suppliesUsed: 'Splint kit',
+        procedureDetails: 'Applied volar splint after reduction.',
+        specimenSent: false,
+        complications: undefined,
+        patientResponse: 'Tolerated well',
+        postInstructions: 'Keep splint dry. Follow up in 1 week.',
+        timeSpent: '15 minutes',
+        documentedBy: 'Provider',
+        consentObtained: true,
+        diagnoses: [{ code: 'S62.001A', display: 'Fracture of left wrist' }],
+        cptCodes: [{ code: '29105', display: 'Application of long arm splint', modifiers: [] }],
+      },
+    ],
   },
 };
 
@@ -426,6 +470,8 @@ describe('ApplyTemplate', () => {
             patientInstructions: 'overwrite',
             cptCodes: 'append',
             emCode: 'overwrite',
+            inHouseLabs: 'append',
+            procedures: 'append',
           },
         })
       );
@@ -501,6 +547,95 @@ describe('ApplyTemplate', () => {
     expect(within(examCard).getByText('Soft')).toBeInTheDocument();
   });
 
+  it('should render the in-house lab plans, hide Overwrite, and mark missing ADs', async () => {
+    const user = userEvent.setup();
+    render(<ApplyTemplate />, { wrapper: createWrapper() });
+
+    await user.click(await screen.findByLabelText('Select condition'));
+    await user.click(await screen.findByText('Sore Throat'));
+
+    const labCard = await screen.findByTestId('template-section-inHouseLabs');
+    // Summary calls out the missing-AD count in addition to the test names.
+    expect(within(labCard).getByText(/Strep test/)).toBeInTheDocument();
+    expect(within(labCard).getByText(/1 unavailable/)).toBeInTheDocument();
+
+    // In-house labs are append-or-skip only; the Overwrite toggle should not render.
+    expect(within(labCard).queryByRole('button', { name: 'Overwrite' })).toBeNull();
+    expect(within(labCard).getByRole('button', { name: 'Skip' })).toBeInTheDocument();
+    expect(within(labCard).getByRole('button', { name: 'Append' })).toBeInTheDocument();
+
+    await user.click(within(labCard).getByTestId('template-section-inHouseLabs-header'));
+
+    // Both plans appear in the expanded preview, with the missing one flagged.
+    await waitFor(() => {
+      expect(within(labCard).getByText('Retired Test')).toBeInTheDocument();
+    });
+    expect(within(labCard).getByText(/unavailable in this environment/)).toBeInTheDocument();
+  });
+
+  it('should surface zambda warnings as snackbars after apply', async () => {
+    const user = userEvent.setup();
+    mockApplyTemplate.mockResolvedValue({
+      warnings: [{ section: 'inHouseLabs', message: 'Skipped "Retired Test" — definition not found.' }],
+    });
+    render(<ApplyTemplate />, { wrapper: createWrapper() });
+
+    await user.click(await screen.findByLabelText('Select condition'));
+    await user.click(await screen.findByText('Sore Throat'));
+    await screen.findByTestId('template-section-inHouseLabs');
+    await user.click(screen.getByRole('button', { name: 'Apply Template' }));
+
+    await waitFor(() => {
+      expect(mockEnqueueSnackbar).toHaveBeenCalledWith('Template applied successfully!', { variant: 'success' });
+    });
+    expect(mockEnqueueSnackbar).toHaveBeenCalledWith('Skipped "Retired Test" — definition not found.', {
+      variant: 'warning',
+    });
+  });
+
+  it('should render the procedures section and hide Overwrite', async () => {
+    const user = userEvent.setup();
+    render(<ApplyTemplate />, { wrapper: createWrapper() });
+
+    await user.click(await screen.findByLabelText('Select condition'));
+    await user.click(await screen.findByText('Sore Throat'));
+
+    const procCard = await screen.findByTestId('template-section-procedures');
+    // Summary surfaces the procedure type so the user can identify the entry while collapsed.
+    expect(within(procCard).getByText(/Splint application/)).toBeInTheDocument();
+
+    // Procedures are append-or-skip only, like in-house labs.
+    expect(within(procCard).queryByRole('button', { name: 'Overwrite' })).toBeNull();
+    expect(within(procCard).getByRole('button', { name: 'Skip' })).toBeInTheDocument();
+    expect(within(procCard).getByRole('button', { name: 'Append' })).toBeInTheDocument();
+
+    await user.click(within(procCard).getByTestId('template-section-procedures-header'));
+
+    // Expanding shows the linked CPT/diagnosis codes and a few of the form fields.
+    await waitFor(() => {
+      expect(within(procCard).getByText(/29105/)).toBeInTheDocument();
+    });
+    expect(within(procCard).getByText(/S62.001A/)).toBeInTheDocument();
+    expect(within(procCard).getByText(/Wrist/)).toBeInTheDocument();
+    expect(within(procCard).getByText(/Closed reduction/)).toBeInTheDocument();
+  });
+
+  it('should not render the procedures section when the template carries no procedures', async () => {
+    mockGetTemplateDetail.mockResolvedValue({
+      ...mockTemplateDetail,
+      sections: { ...mockTemplateDetail.sections, procedures: [] },
+    });
+    const user = userEvent.setup();
+    render(<ApplyTemplate />, { wrapper: createWrapper() });
+
+    await user.click(await screen.findByLabelText('Select condition'));
+    await user.click(await screen.findByText('Sore Throat'));
+
+    // Other sections still render; the procedures card is suppressed when empty.
+    await screen.findByTestId('template-section-hpi');
+    expect(screen.queryByTestId('template-section-procedures')).toBeNull();
+  });
+
   it('should disable Apply when every section is set to Skip', async () => {
     const user = userEvent.setup();
     mockGetTemplateDetail.mockResolvedValue({
@@ -514,6 +649,8 @@ describe('ApplyTemplate', () => {
         cptCodes: [],
         emCode: null,
         mdm: null,
+        inHouseLabs: [],
+        procedures: [],
         // Only HPI has content.
       },
     });
