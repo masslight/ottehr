@@ -320,6 +320,10 @@ export interface CPTCodeDTO extends SaveableDTO {
   code: string;
   display: string;
   modifier?: { code: string; display: string }[];
+  ndcCode?: string;
+  dose?: number;
+  doseUnits?: string;
+  billableUnits?: number;
 }
 
 export const clinicalImpressionDTOSchema = z.object({
@@ -332,6 +336,7 @@ export type ClinicalImpressionDTO = z.infer<typeof clinicalImpressionDTOSchema>;
 export interface CommunicationDTO extends SaveableDTO {
   text?: string;
   title?: string;
+  educationDocRefId?: string;
 }
 
 export enum NOTE_TYPE {
@@ -346,6 +351,7 @@ export enum NOTE_TYPE {
   MEDICAL_CONDITION = 'medical-condition',
   SURGICAL_HISTORY = 'surgical-history',
   HOSPITALIZATION = 'hospitalization',
+  ADDENDUM = 'addendum',
   UNKNOWN = 'unknown',
 }
 
@@ -358,6 +364,8 @@ export interface NoteDTO extends CommunicationDTO {
   authorId: string;
   authorName: string;
   lastUpdated?: string; // system generated, not sent from frontend
+  edited?: boolean; // server-computed: true when Communication.sent and meta.lastUpdated have drifted past a small window
+  deleted?: boolean; // soft-delete marker; backed by Communication.status === 'entered-in-error'
 }
 
 export type DispositionType = 'ip' | 'ip-lab' | 'pcp' | 'ed' | 'ip-oth' | 'pcp-no-type' | 'another' | 'specialty';
@@ -369,6 +377,7 @@ export interface DispositionDTO {
   note: string;
   reason?: string;
   specialty?: string;
+  specialtyOther?: string;
   labService?: string[];
   virusTest?: string[];
   followUp?: {
@@ -447,7 +456,7 @@ const defaultNotes: Record<DispositionType, string> = {
   ed: 'Please go to the Emergency Department immediately.',
   'ip-oth': 'Please go to an In Person Office.',
   'pcp-no-type': 'Please see your Primary Care Physician as discussed.',
-  another: 'Please proceed to the ABC Office as advised.',
+  another: 'Please proceed to the ____ Office as advised.',
   specialty: '',
 };
 

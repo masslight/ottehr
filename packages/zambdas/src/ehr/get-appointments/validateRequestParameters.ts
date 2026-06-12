@@ -1,89 +1,42 @@
-import { ZambdaInput } from '../../shared';
+import { AppointmentTypeOptions, MISSING_REQUEST_BODY, ServiceMode } from 'utils';
+import { z } from 'zod';
+import { safeValidate, ZambdaInput } from '../../shared';
 import { GetAppointmentsZambdaInputValidated } from '.';
+
+const visitTypeOptions = Object.values(ServiceMode).flatMap((mode) =>
+  AppointmentTypeOptions.map((type) => `${mode}-${type}`)
+) as [string, ...string[]];
+
+const GetAppointmentsBodySchema = z
+  .object({
+    searchDate: z.string().date(),
+    timezone: z.string(),
+    locationIds: z.array(z.string().uuid()).optional(),
+    providerIds: z.array(z.string().uuid()).optional(),
+    serviceCategories: z.array(z.string()).optional(),
+    visitType: z.array(z.enum(visitTypeOptions)),
+    supervisorApprovalEnabled: z.boolean().default(false),
+  })
+  .refine((data) => data.locationIds || data.providerIds || data.serviceCategories, {
+    message: 'Either "locationIds" or "providerIds" or "serviceCategories" is required',
+  });
 
 export function validateRequestParameters(input: ZambdaInput): GetAppointmentsZambdaInputValidated {
   if (!input.body) {
-    throw new Error('No request body provided');
+    throw MISSING_REQUEST_BODY;
   }
 
-  // Parse and validate the JSON body
-  let parsedBody: unknown;
-  try {
-    parsedBody = JSON.parse(input.body);
-  } catch {
-    throw new Error('Invalid JSON in request body');
-  }
-
-  // Validate that the parsed body is an object
-  if (!parsedBody || typeof parsedBody !== 'object') {
-    throw new Error('Request body must be a valid JSON object');
-  }
-
-  const body = parsedBody as Record<string, unknown>;
-
-  // Safely extract and validate searchDate (required string)
-  if (typeof body.searchDate !== 'string') {
-    throw new Error('searchDate is required and must be a string');
-  }
-  const searchDate = body.searchDate;
-
-  // Safely extract and validate locationID (optional string)
-  let locationID: string | undefined;
-  if (body.locationID !== undefined) {
-    if (typeof body.locationID !== 'string') {
-      throw new Error('locationID must be a string if provided');
-    }
-    locationID = body.locationID;
-  }
-
-  // Safely extract and validate providerIDs (optional string array)
-  let providerIDs: string[] | undefined;
-  if (body.providerIDs !== undefined) {
-    if (!Array.isArray(body.providerIDs)) {
-      throw new Error('providerIDs must be an array if provided');
-    }
-    if (!body.providerIDs.every((id): id is string => typeof id === 'string')) {
-      throw new Error('All providerIDs must be strings');
-    }
-    providerIDs = body.providerIDs;
-  }
-
-  // Safely extract and validate serviceCategories (optional string array)
-  let serviceCategories: string[] | undefined;
-  if (body.serviceCategories !== undefined) {
-    if (!Array.isArray(body.serviceCategories)) {
-      throw new Error('serviceCategories must be an array if provided');
-    }
-    if (!body.serviceCategories.every((val): val is string => typeof val === 'string')) {
-      throw new Error('All serviceCategories must be strings');
-    }
-    serviceCategories = body.serviceCategories;
-  }
-
-  // Safely extract and validate visitType (required string array)
-  if (!Array.isArray(body.visitType)) {
-    throw new Error('visitType is required and must be an array');
-  }
-  if (!body.visitType.every((type): type is string => typeof type === 'string')) {
-    throw new Error('All visitType values must be strings');
-  }
-  const visitType = body.visitType;
-
-  // Validate business logic constraints
-  if (locationID === undefined && providerIDs === undefined && serviceCategories === undefined) {
-    throw new Error('Either "locationID" or "providerIDs" or "serviceCategories" is required');
-  }
-
-  const supervisorApprovalEnabled =
-    typeof body.supervisorApprovalEnabled === 'boolean' ? body.supervisorApprovalEnabled : false;
+  const { searchDate, timezone, locationIds, providerIds, serviceCategories, visitType, supervisorApprovalEnabled } =
+    safeValidate(GetAppointmentsBodySchema, JSON.parse(input.body));
 
   return {
     searchDate,
-    locationID,
-    providerIDs,
+    timezone,
+    locationIds,
+    providerIds,
     serviceCategories,
     visitType,
-    supervisorApprovalEnabled,
+    supervisorApprovalEnabled: supervisorApprovalEnabled ?? false,
     secrets: input.secrets,
   };
 }

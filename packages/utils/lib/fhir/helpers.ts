@@ -1,4 +1,4 @@
-import Oystehr, { BatchInputPostRequest, SearchParam } from '@oystehr/sdk';
+import Oystehr, { BatchInputPostRequest, SearchParam, TransactionBundle } from '@oystehr/sdk';
 import { Operation } from 'fast-json-patch';
 import {
   Account,
@@ -50,13 +50,13 @@ import {
   getPatchOperationToRemoveMetaTags,
   getPayerId,
   getPayerUrl,
+  isValidUUID,
   LAB_RESULT_DOC_REF_CODING_CODE,
   PatientMasterRecordResourceType,
   replaceOperation,
   TaskCoding,
   TELEMED_VIDEO_ROOM_CODE,
   User,
-  uuidRegex,
   VisitStatusWithoutUnknown,
 } from 'utils';
 import { PROJECT_WEBSITE } from '../ottehr-config/branding';
@@ -65,6 +65,7 @@ import {
   BookableResource,
   CPTCodeDTO,
   EncounterVirtualServiceExtension,
+  FHIR_CODE_REGEX,
   HealthcareServiceWithLocationContext,
   PractitionerLicense,
   PractitionerQualificationCode,
@@ -1056,11 +1057,7 @@ export const createCoverageMemberIdentifier = (memberId: string, insuranceOrg: O
     ...COVERAGE_MEMBER_IDENTIFIER_BASE, // this holds the 'type'
     value: memberId,
     assigner: {
-      reference: payerId
-        ? getPayerUrl(payerId)
-        : insuranceOrg.id?.match(uuidRegex)
-        ? `Organization/${insuranceOrg.id}`
-        : getPayerUrl(insuranceOrg.id!),
+      reference: isValidUUID(insuranceOrg.id ?? '') ? `Organization/${insuranceOrg.id}` : getPayerUrl(payerId!),
       display: insuranceOrg.name,
     },
   };
@@ -1376,6 +1373,20 @@ export function getExtension(resource: DomainResource | Element, url: string): E
   return resource.extension?.find((extension) => extension.url === url);
 }
 
+/**
+ * Returns the value of a typed key on the first extension matching `url`. Use this to read
+ * `valueString`/`valueBoolean`/etc. from a resource extension in a single call without manually
+ * narrowing through `.extension?.find(...)?.valueX`.
+ */
+export function getExtensionValue<K extends keyof Extension>(
+  resource: DomainResource | Element | undefined,
+  url: string,
+  key: K
+): Extension[K] | undefined {
+  if (!resource) return undefined;
+  return getExtension(resource, url)?.[key];
+}
+
 export const cleanUpStaffHistoryTag = (resource: Resource, field: string): Operation | undefined => {
   // going forward we will be using the history of the patient resource so this isn't needed
   // check if there is a tag to clean up
@@ -1549,4 +1560,25 @@ export function makeOptimisticLockIfMatchHeader(res: FhirResource | string): str
   }
 
   return versionId ? `W/"${versionId}"` : undefined;
+}
+
+export const resourceHasTagSystem = (resource: FhirResource, system: string): boolean =>
+  resource.meta?.tag?.some((t) => t.system === system) ?? false;
+
+export const getTag = (resource: Resource, tagSystem: string, tagCode?: string): Coding | undefined => {
+  if (tagCode) return resource.meta?.tag?.find((tag) => tag.system === tagSystem && tag.code === tagCode);
+  else return resource.meta?.tag?.find((tag) => tag.system === tagSystem);
+};
+
+// https://hl7.org/fhir/R4B/datatypes.html#code
+export function sanitizeStringForFhirCode(input: string): Coding['code'] {
+  if (!FHIR_CODE_REGEX.test(input)) {
+    return input.trim().replace(/\s+/g, ' ');
+  } else {
+    return input;
+  }
+}
+
+export function transactionWasSuccessful(transactionResponse: Pick<TransactionBundle<FhirResource>, 'entry'>): boolean {
+  return transactionResponse.entry?.every((entry) => entry.response?.status[0] === '2') ?? false;
 }

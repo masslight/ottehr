@@ -15,6 +15,7 @@ import {
   composePatientInstructions,
   composePhysician,
   composeRadiology,
+  composeUpcomingVisits,
   composeVisitData,
   composeVitalsForDischargeSummary,
   composeWorkSchoolExcuseSection,
@@ -32,6 +33,7 @@ import {
   createPhysicianSection,
   createRadiologySection,
   createReasonForVisitSection,
+  createUpcomingVisitsSection,
   createVisitInfoSection,
   createVitalsSectionForDischargeSummary,
   createWorkSchoolExcuseSection,
@@ -39,7 +41,7 @@ import {
 import { AssetPaths, DischargeSummaryData, DischargeSummaryInput, PdfResult } from './types';
 
 const composeDischargeSummaryData: DataComposer<DischargeSummaryInput, DischargeSummaryData> = (input) => {
-  const { allChartData, appointmentPackage } = input;
+  const { allChartData, appointmentPackage, upcomingFollowUps } = input;
   const { appointment, location, timezone } = appointmentPackage;
   const visit = composeVisitData({ appointment, location, timezone });
   const workSchoolExcuse = composeWorkSchoolExcuseSection({ allChartData });
@@ -56,10 +58,11 @@ const composeDischargeSummaryData: DataComposer<DischargeSummaryInput, Discharge
     erxMedications: composeErxMedications({ allChartData, appointmentPackage }),
     diagnoses: composeDiagnoses({ allChartData }),
     patientInstructions: composePatientInstructions({ allChartData }),
-    educationDocuments: composeEducationalDocuments(null),
+    educationDocuments: composeEducationalDocuments({ allChartData }),
     disposition: composeDisposition({ allChartData }),
     physician: composePhysician({ appointmentPackage }),
     workSchoolExcuse,
+    upcomingVisits: composeUpcomingVisits({ upcomingFollowUps }),
     attachmentDocRefs: workSchoolExcuse.attachmentDocRefs,
   };
 };
@@ -117,6 +120,13 @@ const createDischargeSummaryStyles: StyleFactory = (assets) => ({
       spacing: 2,
       newLineAfter: true,
     },
+    muted: {
+      fontSize: 12,
+      font: assets.fonts.regular,
+      color: rgbNormalized(102, 102, 102),
+      spacing: 2,
+      newLineAfter: true,
+    },
     bold: {
       fontSize: 12,
       font: assets.fonts.bold,
@@ -157,6 +167,7 @@ const dischargeSummaryRenderConfig: PdfRenderConfig<DischargeSummaryData> = {
     createEducationalDocumentsSection(),
     createDispositionSection(),
     createWorkSchoolExcuseSection(),
+    createUpcomingVisitsSection(),
     createPhysicianSection(),
   ],
 };

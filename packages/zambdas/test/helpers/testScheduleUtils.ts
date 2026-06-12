@@ -23,6 +23,84 @@ import {
 const DAYS_LONG = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
 type DayLong = (typeof DAYS_LONG)[number];
 
+interface BuildSimpleScheduleExtInput {
+  /**
+   * Concurrent providers on shift every open hour. Capacity scales with
+   * slot length (1 provider → 1 booking/hr for 60-min slots, 4/hr for
+   * 15-min slots). Defaults to 1. Mutually exclusive with `prebookSlots`.
+   */
+  providers?: number;
+  /**
+   * Demand cap as bookings/hour, slot-length-invariant. The slot generator
+   * inverts the normalization so the round-trip yields N bookings/hour
+   * regardless of slot length. Use this when a test asserts "N bookings
+   * per hour" semantics directly. Mutually exclusive with `providers`.
+   */
+  prebookSlots?: number;
+  /** Hour the day opens (inclusive). Defaults to 0 (24/7 open). */
+  open?: HourOfDay;
+  /** Hour the day closes (exclusive). Defaults to 24. */
+  close?: HourOfDay | 24;
+}
+
+/**
+ * Builds a ScheduleExtension with a uniform open-window for every day.
+ * Use this when a test needs a simple always-bookable schedule — it
+ * sidesteps the legacy `capacity` field's quirky semantics: `capacity`
+ * encodes a 15-minute cadence (capacity / 4 = effective providers per
+ * hour), so e.g. `capacity: 1` legacy = 0.25 providers/hr, which rounds
+ * to 0 bookings for a 60-minute visit. Prefer the explicit `providers`
+ * or `prebookSlots` fields below over hand-rolling a legacy capacity.
+ *
+ * Default: 24/7 open with `providers: 1`. Choose between `providers` and
+ * `prebookSlots` depending on which semantic your assertions are written
+ * against (provider-count vs demand-cap).
+ */
+export const buildSimpleScheduleExt = (input: BuildSimpleScheduleExtInput = {}): ScheduleExtension => {
+  if (input.providers !== undefined && input.prebookSlots !== undefined) {
+    throw new Error('buildSimpleScheduleExt: pass providers OR prebookSlots, not both');
+  }
+  const open = input.open ?? (0 as HourOfDay);
+  const close = input.close ?? 24;
+  const usePrebookSlots = input.prebookSlots !== undefined;
+  const providers = usePrebookSlots ? undefined : input.providers ?? 1;
+  const prebookSlots = input.prebookSlots;
+  // Legacy `capacity` is required by the Capacity type but ignored by readers
+  // when providers/prebookSlots is set. Compute it from whichever explicit
+  // field the caller supplied so the extension is internally consistent
+  // (capacity = providers * 4 mirrors the reader's `capacity / 4 = effective
+  // providers` formula at 15-min cadence; for prebookSlots, capacity equals
+  // prebookSlots since both express bookings/hour at 15-min cadence).
+  const legacyCapacity = providers !== undefined ? providers * 4 : prebookSlots ?? 4;
+  const hours: Capacity[] = [];
+  for (let h = 0; h < 24; h++) {
+    hours.push({
+      hour: h as HourOfDay,
+      capacity: legacyCapacity,
+      ...(providers !== undefined ? { providers } : {}),
+      ...(prebookSlots !== undefined ? { prebookSlots } : {}),
+    });
+  }
+  const day: ScheduleDay = {
+    open,
+    close,
+    openingBuffer: 0,
+    closingBuffer: 0,
+    workingDay: true,
+    hours,
+  };
+  const schedule: DailySchedule = {
+    monday: day,
+    tuesday: day,
+    wednesday: day,
+    thursday: day,
+    friday: day,
+    saturday: day,
+    sunday: day,
+  };
+  return { schedule, scheduleOverrides: {}, closures: [] };
+};
+
 const DAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] as const;
 type DayOfWeek = (typeof DAYS)[number];
 

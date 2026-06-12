@@ -48,6 +48,7 @@ import {
   ServiceMode,
   visitStatusArray,
 } from 'utils';
+import { FEATURE_FLAGS } from '../constants/feature-flags';
 import { formatISOStringToDateAndTime } from '../helpers/formatDateTime';
 import { useApiClients } from '../hooks/useAppClients';
 import { RoundedButton } from './RoundedButton';
@@ -176,6 +177,7 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
           status: status !== 'all' ? [status] : undefined,
           from,
           sortDirection,
+          supervisorApprovalEnabled: FEATURE_FLAGS.SUPERVISOR_APPROVAL_ENABLED,
         });
         return result.output as PatientVisitListResponse;
       }

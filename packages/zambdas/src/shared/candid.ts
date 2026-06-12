@@ -39,7 +39,13 @@ import { Coverage as CandidPreEncounterCoverage } from 'candidhealth/api/resourc
 import { MutableCoverage } from 'candidhealth/api/resources/preEncounter/resources/coverages/resources/v1/types/MutableCoverage';
 import { Patient as CandidPreEncounterPatient } from 'candidhealth/api/resources/preEncounter/resources/patients/resources/v1/types/Patient';
 import { RelatedCausesCode } from 'candidhealth/api/resources/relatedCauses/resources/v1';
-import { ServiceLineCreate } from 'candidhealth/api/resources/serviceLines/resources/v2';
+import {
+  DrugIdentification,
+  MeasurementUnitCode,
+  ServiceIdQualifier,
+  ServiceLineCreate,
+} from 'candidhealth/api/resources/serviceLines/resources/v2';
+import { APIResponse } from 'candidhealth/core';
 import { Operation } from 'fast-json-patch';
 import {
   Appointment,
@@ -49,6 +55,7 @@ import {
   Extension,
   Identifier,
   Location,
+  MedicationAdministration,
   Organization,
   Patient,
   Practitioner,
@@ -65,8 +72,13 @@ import {
   findOrgMatchingReference,
   getAttendingPractitionerId,
   getCandidPlanTypeCodeFromCoverage,
+  getCptCodesFromMA,
+  getDosageFromMA,
   getEmCodes,
+  getMedicationFromMA,
+  getNdcCodeFromMedication,
   getPayerId,
+  getPayerUrl,
   getPaymentVariantFromEncounter,
   getTimezone,
   INVALID_INPUT_ERROR,
@@ -74,9 +86,11 @@ import {
   isAppointmentOccupationalMedicine,
   isAppointmentWorkersComp,
   isTelemedAppointment,
+  MedicationUnitOptions,
   MISSING_PATIENT_COVERAGE_INFO_ERROR,
   OrderedCoveragesWithSubscribers,
   PaymentVariant,
+  Secrets,
   TIMEZONES,
 } from 'utils';
 import {
@@ -133,6 +147,7 @@ interface CreateEncounterInput {
   practitioner: Practitioner;
   diagnoses: Condition[];
   procedures: Procedure[];
+  medicationAdministrations: MedicationAdministration[];
   insuranceResources?: InsuranceResources;
   accident?: Condition;
   emCodes: EmCodeOption[];
@@ -210,6 +225,44 @@ const createCandidCreateEncounterInput = async (
     getEmCodes(oystehr),
   ]);
 
+  const procedures = (
+    await oystehr.fhir.search<Procedure>({
+      resourceType: 'Procedure',
+      params: [
+        {
+          name: 'subject',
+          value: assertDefined(encounter.subject?.reference, `Patient id on encounter ${encounterId}`),
+        },
+        {
+          name: 'encounter',
+          value: `Encounter/${encounterId}`,
+        },
+      ],
+    })
+  )
+    .unbundle()
+    .filter(
+      (procedure) =>
+        chartDataResourceHasMetaTagByCode(procedure, 'cpt-code') ||
+        chartDataResourceHasMetaTagByCode(procedure, 'em-code')
+    );
+
+  const maIds = procedures
+    .flatMap((p) => p.partOf ?? [])
+    .map((ref) => ref.reference)
+    .filter((ref): ref is string => ref != null && ref.startsWith('MedicationAdministration/'))
+    .map((ref) => ref.replace('MedicationAdministration/', ''));
+  const uniqueMaIds = [...new Set(maIds)];
+  let medicationAdministrations: MedicationAdministration[] = [];
+  if (uniqueMaIds.length > 0) {
+    medicationAdministrations = (
+      await oystehr.fhir.search<MedicationAdministration>({
+        resourceType: 'MedicationAdministration',
+        params: [{ name: '_id', value: uniqueMaIds.join(',') }],
+      })
+    ).unbundle() as MedicationAdministration[];
+  }
+
   return {
     appointment: appointment,
     location,
@@ -220,27 +273,8 @@ const createCandidCreateEncounterInput = async (
       (condition) =>
         encounter.diagnosis?.find((diagnosis) => diagnosis.condition?.reference === 'Condition/' + condition.id) != null
     ),
-    procedures: (
-      await oystehr.fhir.search<Procedure>({
-        resourceType: 'Procedure',
-        params: [
-          {
-            name: 'subject',
-            value: assertDefined(encounter.subject?.reference, `Patient id on encounter ${encounterId}`),
-          },
-          {
-            name: 'encounter',
-            value: `Encounter/${encounterId}`,
-          },
-        ],
-      })
-    )
-      .unbundle()
-      .filter(
-        (procedure) =>
-          chartDataResourceHasMetaTagByCode(procedure, 'cpt-code') ||
-          chartDataResourceHasMetaTagByCode(procedure, 'em-code')
-      ),
+    procedures,
+    medicationAdministrations,
     insuranceResources: coverage
       ? {
           coverage,
@@ -266,13 +300,15 @@ function getExtensionString(extensions: Extension[] | undefined, url: string): s
 }
 
 function createCandidDiagnoses(encounter: Encounter, diagnoses: Condition[]): DiagnosisCreate[] {
+  const seenCodes = new Set<string>();
   return (encounter.diagnosis ?? []).flatMap<DiagnosisCreate>((encounterDiagnosis) => {
     const diagnosisResourceId = encounterDiagnosis.condition.reference?.split('/')[1];
     const diagnosisResource = diagnoses.find((resource) => resource.id === diagnosisResourceId);
     const diagnosisCode = diagnosisResource?.code?.coding?.[0].code;
-    if (diagnosisCode == null) {
+    if (diagnosisCode == null || seenCodes.has(diagnosisCode)) {
       return [];
     }
+    seenCodes.add(diagnosisCode);
     return [
       {
         codeType: (encounterDiagnosis.rank ?? -1) === 1 ? DiagnosisTypeCode.Abk : DiagnosisTypeCode.Abf,
@@ -806,15 +842,27 @@ const createCandidCoverages = async (
   if (coverages === undefined) {
     return candidCoverages;
   }
-  const primaryInsuranceOrg = insuranceOrgs.find(
-    (org) => createReference(org).reference === coverages.primary?.payor?.[0].reference
-  );
-  const secondaryInsuranceOrg = insuranceOrgs.find(
-    (org) => createReference(org).reference === coverages.secondary?.payor?.[0].reference
-  );
-  const workersCompInsuranceOrg = insuranceOrgs.find(
-    (org) => createReference(org).reference === coverages.workersComp?.payor?.[0].reference
-  );
+  const primaryInsuranceOrg = insuranceOrgs.find((org) => {
+    const payerId = getPayerId(org);
+    return (
+      createReference(org).reference === coverages.primary?.payor?.[0].reference ||
+      (payerId !== undefined && getPayerUrl(payerId) === coverages.primary?.payor?.[0].reference)
+    );
+  });
+  const secondaryInsuranceOrg = insuranceOrgs.find((org) => {
+    const payerId = getPayerId(org);
+    return (
+      createReference(org).reference === coverages.secondary?.payor?.[0].reference ||
+      (payerId !== undefined && getPayerUrl(payerId) === coverages.secondary?.payor?.[0].reference)
+    );
+  });
+  const workersCompInsuranceOrg = insuranceOrgs.find((org) => {
+    const payerId = getPayerId(org);
+    return (
+      createReference(org).reference === coverages.workersComp?.payor?.[0].reference ||
+      (payerId !== undefined && getPayerUrl(payerId) === coverages.workersComp?.payor?.[0].reference)
+    );
+  });
 
   if (coverages.primary && coverages.primarySubscriber && primaryInsuranceOrg) {
     const candidCoverage = buildCandidCoverageCreateInput(
@@ -1039,13 +1087,20 @@ export async function createEncounterFromAppointment(
   const request = await candidCreateEncounterFromAppointmentRequest(createEncounterInput, candidApiClient);
   console.log('Candid request:' + JSON.stringify(request, null, 2));
   console.log(`[CLAIM SUBMISSION] Sending encounter to candid`);
-  const response = await candidApiClient.encounters.v4.createFromPreEncounterPatient(request);
+  const response = await retryCandidCall(() => candidApiClient.encounters.v4.createFromPreEncounterPatient(request));
   console.log(`[CLAIM SUBMISSION] Encounter sent to candid, response from candid ${JSON.stringify(response)}`);
+
+  let candidEncounterId: CandidApi.EncounterId | undefined;
   if (!response.ok) {
-    throw new Error(`Error creating a Candid encounter. Response body: ${JSON.stringify(response.error)}`);
+    if (response.rawResponse.status === 422) {
+      candidEncounterId = await recoverCandidEncounterAfter422(visitResources.encounter.id!, candidApiClient);
+    } else {
+      throw new Error(`Error creating a Candid encounter. Response body: ${JSON.stringify(response.error)}`);
+    }
+  } else {
+    candidEncounterId = response.body.encounterId;
+    console.log('Created Candid encounter:' + JSON.stringify(response.body));
   }
-  const encounter = response.body;
-  console.log('Created Candid encounter:' + JSON.stringify(encounter));
 
   // here we're setting claim type (self-pay or insurance-pay), if nothing provided it'll be insurance-pay
   const packageEncounter = visitResources.encounter;
@@ -1054,10 +1109,12 @@ export async function createEncounterFromAppointment(
     paymentVariantFromEncounter && paymentVariantFromEncounter === PaymentVariant.selfPay
       ? ResponsiblePartyType.SelfPay
       : ResponsiblePartyType.InsurancePay;
-  if (candidResponsibleParty) {
-    const updateResponse = await candidApiClient.encounters.v4.update(encounter.encounterId, {
-      responsibleParty: candidResponsibleParty,
-    });
+  if (candidResponsibleParty && candidEncounterId) {
+    const updateResponse = await retryCandidCall(() =>
+      candidApiClient.encounters.v4.update(candidEncounterId, {
+        responsibleParty: candidResponsibleParty,
+      })
+    );
     if (!updateResponse.ok) {
       throw new Error(`Error updating a Candid encounter. Response body: ${JSON.stringify(updateResponse.error)}`);
     } else {
@@ -1065,7 +1122,59 @@ export async function createEncounterFromAppointment(
     }
   }
 
-  return encounter.encounterId;
+  return candidEncounterId?.toString();
+}
+
+export async function recoverCandidEncounterAfter422(
+  fhirEncounterId: string,
+  candidApiClient: CandidApiClient
+): Promise<CandidApi.EncounterId | undefined> {
+  console.log(
+    `[CLAIM SUBMISSION] EncounterExternalIdUniquenessError occurred during encounter creation with ${fhirEncounterId} external id`
+  );
+  const existing = await candidApiClient.encounters.v4.getAll({
+    externalId: EncounterExternalId(fhirEncounterId),
+    limit: 1,
+  });
+  if (!existing.ok || existing.body.items.length === 0) {
+    throw new Error(
+      `EncounterExternalIdUniquenessError: encounter with externalId ${fhirEncounterId} exists but lookup failed: ${JSON.stringify(
+        existing
+      )}`
+    );
+  }
+  const candidEncounterId = existing.body.items.find((item) => item.externalId === fhirEncounterId)?.encounterId;
+  console.log(`[CLAIM SUBMISSION] Recovered existing Candid encounter: ${candidEncounterId}`);
+  return candidEncounterId;
+}
+
+export async function retryCandidCall<T, E>(
+  fn: () => Promise<APIResponse<T, E>>,
+  maxRetries = 3,
+  baseDelayMs = 500
+): Promise<APIResponse<T, E>> {
+  let response;
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      response = await fn();
+      // Rate-limit may come back as a non-ok response with no HTTP status; detect by error name.
+      const isResponseRateLimited = !response.ok && (response.error as any)?.errorName === 'TooManyRequestsError';
+      if (response.ok || (!isResponseRateLimited && !response.ok) || attempt === maxRetries) return response;
+    } catch (error: any) {
+      if (attempt === maxRetries) throw error;
+      // "Too many requests" arrives as a thrown exception with no statusCode.
+      const isRetryable =
+        error?.body?.errorName === 'TooManyRequestsError' ||
+        error?.message?.toLowerCase().includes('too many requests');
+      if (!isRetryable) throw error;
+    }
+    const delay = baseDelayMs * Math.pow(2, attempt) + Math.random() * 100;
+    console.warn(
+      `Candid request ok: ${response?.ok}, retrying in ${Math.round(delay)}ms (attempt ${attempt + 1}/${maxRetries})`
+    );
+    await new Promise((resolve) => setTimeout(resolve, delay));
+  }
+  throw new Error('Candid call failed after all retries');
 }
 
 async function candidCreateEncounterFromAppointmentRequest(
@@ -1079,6 +1188,7 @@ async function candidCreateEncounterFromAppointmentRequest(
     practitioner,
     diagnoses,
     procedures,
+    medicationAdministrations,
     insuranceResources,
     location,
     accident,
@@ -1159,14 +1269,19 @@ async function candidCreateEncounterFromAppointmentRequest(
     if (isEAndMCode && isTelemedAppointment(appointment)) {
       modifiers = ['95'];
     }
+
+    const drugIdentification = buildDrugIdentification(procedure, medicationAdministrations);
+    const billableUnits = getBillableUnitsForProcedure(procedure, medicationAdministrations);
+
     serviceLines.push({
       procedureCode: procedureCode,
       modifiers,
-      quantity: Decimal('1'),
+      quantity: Decimal(String(billableUnits ?? 1)),
       units: ServiceLineUnits.Un,
       diagnosisPointers: [primaryDiagnosisIndex],
       dateOfService:
         dateOfServiceString ?? getLocalDateOfService(assertDefined(appointment.start, 'Appointment start'), location),
+      drugIdentification,
     });
   });
 
@@ -1260,6 +1375,70 @@ const isProcedureModifier = (code: unknown): code is ProcedureModifier => {
   return typeof code === 'string' && procedureModifierValues.has(code as ProcedureModifier);
 };
 
+export function buildDrugIdentification(
+  procedure: Procedure,
+  medicationAdministrations: MedicationAdministration[]
+): DrugIdentification | undefined {
+  const maRef = procedure.partOf?.find((ref) => ref.reference?.startsWith('MedicationAdministration/'));
+  if (!maRef?.reference) return undefined;
+
+  const maId = maRef.reference.replace('MedicationAdministration/', '');
+  const ma = medicationAdministrations.find((m) => m.id === maId);
+  if (!ma) return undefined;
+
+  const medication = getMedicationFromMA(ma);
+  const ndc = medication ? getNdcCodeFromMedication(medication) : undefined;
+  if (!ndc) return undefined;
+
+  const dosage = getDosageFromMA(ma);
+  const doseValue = dosage?.dose ?? ma.dosage?.dose?.value;
+  return {
+    serviceIdQualifier: ServiceIdQualifier.Ndc542Format,
+    nationalDrugCode: ndc,
+    nationalDrugUnitCount: doseValue != null ? String(doseValue) : '1',
+    measurementUnitCode: dosage ? mapMedicationUnitToCandid(dosage.units) : MeasurementUnitCode.Units,
+  };
+}
+
+/** Returns the billable units stored for the procedure's CPT code on the linked MedicationAdministration, if any. */
+export function getBillableUnitsForProcedure(
+  procedure: Procedure,
+  medicationAdministrations: MedicationAdministration[]
+): number | undefined {
+  const maRef = procedure.partOf?.find((ref) => ref.reference?.startsWith('MedicationAdministration/'));
+  if (!maRef?.reference) return undefined;
+
+  const maId = maRef.reference.replace('MedicationAdministration/', '');
+  const ma = medicationAdministrations.find((m) => m.id === maId);
+  if (!ma) return undefined;
+
+  const procedureCode = procedure.code?.coding?.[0]?.code;
+  if (!procedureCode) return undefined;
+
+  const billableUnits = getCptCodesFromMA(ma)?.find((entry) => entry.code === procedureCode)?.billableUnits;
+  return billableUnits != null && Number.isFinite(billableUnits) && billableUnits > 0 ? billableUnits : undefined;
+}
+
+export function mapMedicationUnitToCandid(unit: MedicationUnitOptions): MeasurementUnitCode {
+  switch (unit) {
+    case 'mg':
+      return MeasurementUnitCode.Milligram;
+    case 'ml':
+      return MeasurementUnitCode.Milliliters;
+    case 'g':
+      return MeasurementUnitCode.Grams;
+    case 'cc':
+      return MeasurementUnitCode.Milliliters;
+    case 'unit':
+      return MeasurementUnitCode.Units;
+    case 'application':
+      return MeasurementUnitCode.Units;
+    default:
+      console.warn(`[CANDID] Unexpected medication unit "${String(unit)}"; defaulting to Units`);
+      return MeasurementUnitCode.Units;
+  }
+}
+
 export const makeCptModifierExtension = (input: { code: string; display: string }[]): Extension => {
   return {
     url: EXTENSION_URL_CPT_MODIFIER,
@@ -1288,3 +1467,36 @@ export const getCptModifierCodeFromProcedure = (
 
   return modifier;
 };
+
+export function shouldUseCandid(secrets: Secrets): boolean {
+  return (
+    ['candid', 'all'].includes(secrets.BILLING_INTEGRATION) ||
+    // TODO: remove this once secrets migrated
+    !secrets.BILLING_INTEGRATION
+  );
+}
+
+export function shouldUseOttehrBilling(secrets: Secrets): boolean {
+  return ['ottehr', 'all'].includes(secrets.BILLING_INTEGRATION);
+}
+
+export function shouldSendClaim(secrets: Secrets, encounter: Encounter): boolean {
+  if (shouldUseCandid(secrets)) {
+    // Check if candid encounter ID already exists in encounter identifier
+    const existingCandidEncounterId = encounter.identifier?.find(
+      (identifier) => identifier.system === CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM
+    )?.value;
+    if (existingCandidEncounterId) {
+      console.log(
+        `[CLAIM SUBMISSION] Candid encounter already exists with ID ${existingCandidEncounterId}, skipping creation`
+      );
+      return false;
+    }
+    return true;
+  }
+  if (shouldUseOttehrBilling(secrets)) {
+    // Always send to Ottehr billing
+    return true;
+  }
+  return false;
+}

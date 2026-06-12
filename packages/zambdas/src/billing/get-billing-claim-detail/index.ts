@@ -10,7 +10,16 @@ import {
   getTaxID,
 } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
-import { createBillingClient, fhirName, findRef, formatAddress, getClaimStatus, sortClaimInsurance } from '../shared';
+import {
+  CLAIM_TAG_SYSTEM,
+  createBillingClient,
+  fhirName,
+  findRef,
+  formatAddress,
+  getClaimStatus,
+  resolvePayersByRef,
+  sortClaimInsurance,
+} from '../shared';
 import { GetClaimDetailParams, validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -33,7 +42,6 @@ async function performEffect(oystehr: Oystehr, params: GetClaimDetailParams): Pr
     params: [
       { name: '_id', value: claimId },
       { name: '_include', value: 'Claim:patient' },
-      { name: '_include', value: 'Claim:insurer' },
       { name: '_include', value: 'Claim:provider' },
       { name: '_include', value: 'Claim:facility' },
     ],
@@ -44,8 +52,6 @@ async function performEffect(oystehr: Oystehr, params: GetClaimDetailParams): Pr
   if (!claim) throw FHIR_RESOURCE_NOT_FOUND('Claim');
 
   const patient = findRef<Patient>(resources, claim.patient?.reference);
-  // TODO: insurer ref will move to external Oystehr payer URLs (#6603)
-  const insurer = findRef<Organization>(resources, claim.insurer?.reference);
   const provider = findRef<Organization>(resources, claim.provider?.reference);
   const facility = findRef<Location>(resources, claim.facility?.reference);
 
@@ -61,7 +67,7 @@ async function performEffect(oystehr: Oystehr, params: GetClaimDetailParams): Pr
   }
   const secCovRef = sortedInsurance[1]?.coverage?.reference;
   if (secCovRef) {
-    followUpQueries.push(`/Coverage?_id=${secCovRef.replace('Coverage/', '')}&_include=Coverage:payor`);
+    followUpQueries.push(`/Coverage?_id=${secCovRef.replace('Coverage/', '')}`);
   }
 
   const followUp =
@@ -77,19 +83,22 @@ async function performEffect(oystehr: Oystehr, params: GetClaimDetailParams): Pr
     : undefined;
 
   let secondaryCoverage: Coverage | undefined;
-  let secondaryInsurer: Organization | undefined;
   if (secCovRef) {
     const secCovId = secCovRef.replace('Coverage/', '');
     secondaryCoverage = followUp.find((r) => r.resourceType === 'Coverage' && r.id === secCovId) as
       | Coverage
       | undefined;
-    if (secondaryCoverage?.payor?.[0]?.reference) {
-      const payorId = secondaryCoverage.payor[0].reference.replace('Organization/', '');
-      secondaryInsurer = followUp.find((r) => r.resourceType === 'Organization' && r.id === payorId) as
-        | Organization
-        | undefined;
-    }
   }
+
+  // Resolve primary and secondary payers from the Oystehr payer list
+  const payersByRef = await resolvePayersByRef(oystehr, [
+    claim.insurer?.reference,
+    secondaryCoverage?.payor?.[0]?.reference,
+  ]);
+  const insurer = claim.insurer?.reference ? payersByRef.get(claim.insurer.reference) : undefined;
+  const secondaryInsurer = secondaryCoverage?.payor?.[0]?.reference
+    ? payersByRef.get(secondaryCoverage.payor[0].reference)
+    : undefined;
 
   // Other claims via Person lookup
   const otherClaims = await fetchOtherClaims(oystehr, patient?.id, claimId);
@@ -158,6 +167,10 @@ async function performEffect(oystehr: Oystehr, params: GetClaimDetailParams): Pr
     patientPaid: 0,
     balance: billed,
     otherClaims,
+    tags: (claim.meta?.tag ?? [])
+      .filter((t) => t.system === CLAIM_TAG_SYSTEM)
+      .map((t) => t.code ?? '')
+      .filter(Boolean),
   };
 }
 
@@ -183,16 +196,20 @@ async function fetchOtherClaims(
   }
 
   const patientParam = patientIds.map((pid) => `Patient/${pid}`).join(',');
-  const otherQuery = `/Claim?patient=${patientParam}&_include=Claim:insurer&_sort=-created&_count=20`;
+  const otherQuery = `/Claim?patient=${patientParam}&_sort=-created&_count=20`;
   const otherResources = await getResourcesFromBatchInlineRequests(oystehr, [otherQuery]);
   const otherClaims = otherResources.filter((r) => r.resourceType === 'Claim' && r.id !== currentClaimId) as Claim[];
-  const otherOrgs = otherResources.filter((r) => r.resourceType === 'Organization') as Organization[];
+
+  const payersByRef = await resolvePayersByRef(
+    oystehr,
+    otherClaims.map((c) => c.insurer?.reference)
+  );
 
   return otherClaims.map((c) => ({
     id: c.id ?? '',
     status: getClaimStatus(c),
     serviceDate: c.item?.[0]?.servicedPeriod?.start ?? c.created ?? '',
-    payerName: findRef<Organization>(otherOrgs, c.insurer?.reference)?.name ?? '',
+    payerName: (c.insurer?.reference ? payersByRef.get(c.insurer.reference) : undefined)?.name ?? '',
     billed: c.total?.value ?? 0,
     cptCodes: (c.item ?? []).map((item) => item.productOrService?.coding?.[0]?.code ?? '').filter(Boolean),
   }));

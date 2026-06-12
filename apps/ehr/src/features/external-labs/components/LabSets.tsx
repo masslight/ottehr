@@ -31,6 +31,12 @@ export const LabSets: FC<LabSetsProps> = ({ labSets, setSelectedLabs }) => {
     }
   };
 
+  // lab sets get their item code added in admin on create/edit. This just covers historical cases
+  const formatLabSetDisplay = (display: string, itemCode: string): string => {
+    if (display.startsWith(`(${itemCode})`)) return display;
+    return `(${itemCode}) ${display}`;
+  };
+
   if (labSets.length === 0) return <></>;
 
   return (
@@ -92,8 +98,7 @@ export const LabSets: FC<LabSetsProps> = ({ labSets, setSelectedLabs }) => {
                   {set.listType === LabType.external
                     ? set.labs.map((lab, idx) => (
                         <Typography key={`set-item-${set.listId}-${idx}`}>
-                          {`(${lab.itemCode}) `}
-                          {lab.display}
+                          {formatLabSetDisplay(lab.display, lab.itemCode)}
                         </Typography>
                       ))
                     : set.labs.map((lab, idx) => (

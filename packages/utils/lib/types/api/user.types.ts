@@ -1,5 +1,6 @@
 import { User as OystehrUser } from '@oystehr/sdk';
 import { Coding, Practitioner } from 'fhir/r4b';
+import { PARTICIPATION_CODE_SYSTEM } from '../../fhir';
 
 export type User = OystehrUser & {
   profileResource?: Practitioner;
@@ -23,7 +24,6 @@ export enum RoleType {
   Manager = 'Manager',
   // Medical Assistant
   NewUser = 'NewUser',
-  Prescriber = 'Prescriber',
   Provider = 'Provider',
   RegionalTelemedLead = 'RegionalTelemedLead',
   Staff = 'Staff',
@@ -39,7 +39,7 @@ export interface AccessPolicy {
 
 export const UserRole = (code: string, display: string): Coding[] => [
   {
-    system: 'http://terminology.hl7.org/CodeSystem/v3-ParticipationType',
+    system: PARTICIPATION_CODE_SYSTEM,
     code,
     display,
   },
@@ -75,9 +75,4 @@ export const AVAILABLE_EMPLOYEE_ROLES: {
     label: 'Customer Support',
     hint: `A customer support representative`,
   },
-  // {
-  //   value: RoleType.Prescriber,
-  //   label: 'Prescriber',
-  //   hint: `A clinician that is allowed to prescribe`,
-  // },
 ];

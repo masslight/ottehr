@@ -17,7 +17,8 @@ import {
 import { useMutation } from '@tanstack/react-query';
 import { lazy, ReactElement, Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { LegacyPatientRecord, searchLegacyRecords, SearchLegacyRecordsOutput } from 'src/api/api';
+import { searchLegacyRecords } from 'src/api/api';
+import { FileType, FileTypeMap, SearchLegacyRecordsOutput } from 'utils';
 import { useApiClients } from '../hooks/useAppClients';
 import PageContainer from '../layout/PageContainer';
 
@@ -80,15 +81,12 @@ export default function LegacyDataPage(): ReactElement {
     searchMutation.mutate(1);
   };
 
-  const fileTypeLabel = (fileType: LegacyPatientRecord['files'][number]['fileType']): string => {
-    if (fileType === 'medical-summary') return 'Medical Summary';
-    if (fileType === 'progress-note') return 'Progress Note';
-    return 'Other';
+  const fileTypeLabel = (fileType: FileType): string => {
+    return FileTypeMap[fileType].label;
   };
 
-  const fileTypeColor = (fileType: LegacyPatientRecord['files'][number]['fileType']): { bg: string; text: string } => {
-    if (fileType === 'medical-summary') return { bg: '#B2EBF2', text: '#006064' };
-    if (fileType === 'progress-note') return { bg: '#C8E6C9', text: '#1B5E20' };
+  const fileTypeColor = (fileType: FileType): { bg: string; text: string } => {
+    if (FileTypeMap[fileType].color) return FileTypeMap[fileType].color;
     return { bg: '#E6E8EE', text: '#616161' };
   };
 

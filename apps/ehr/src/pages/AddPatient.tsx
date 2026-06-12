@@ -14,30 +14,38 @@ import {
   Typography,
 } from '@mui/material';
 import Oystehr from '@oystehr/sdk';
+import { useQuery } from '@tanstack/react-query';
 import { Location, Schedule, Slot } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { useCopyChartDataToFollowup } from 'src/features/visits/shared/components/patient/useCopyChartDataToFollowup';
 import { AddVisitPatientInformationCard } from 'src/features/visits/shared/components/staff-add-visit/AddVisitPatientInformationCard';
+import { useReasonForVisitOptions } from 'src/features/visits/shared/hooks/useReasonForVisitOptions';
 import {
+  APIError,
   BOOKING_CONFIG,
+  CopyableFollowupField,
   CreateAppointmentInputParams,
   CreateSlotParams,
+  FollowUpOptions,
   getAppointmentDurationFromSlot,
-  getReasonForVisitOptionsForServiceCategory,
   GetScheduleRequestParams,
   GetScheduleResponse,
   getTimezone,
+  isApiError,
   PatientInfo,
+  SCHEDULED_FOLLOWUP_OTHER_REASON,
+  SCHEDULED_FOLLOWUP_REASONS,
   ScheduleType,
   ServiceMode,
   SLUG_SYSTEM,
 } from 'utils';
-import { createAppointment, createSlot, getLocations } from '../api/api';
+import { createAppointment, createSlot, getLocations, listServiceCategories } from '../api/api';
+import BookableSelect, { BookableMode, BookableTarget } from '../components/BookableSelect';
 import CustomBreadcrumbs from '../components/CustomBreadcrumbs';
 import { CustomDialog } from '../components/dialogs/CustomDialog';
-import LocationSelect, { LocationType } from '../components/LocationSelect';
 import SlotPicker from '../components/SlotPicker';
 import { MAXIMUM_CHARACTER_LIMIT } from '../constants';
 import { dataTestIds } from '../constants/data-test-ids';
@@ -66,6 +74,7 @@ export interface AddVisitErrorState {
   dateOfBirth?: boolean;
   sexAtBirth?: boolean;
   reasonForVisit?: boolean;
+  otherReason?: boolean;
   search?: boolean;
   searchEntry?: boolean;
 }
@@ -90,23 +99,57 @@ enum VisitType {
   VirtualScheduled = 'virtual-scheduled',
 }
 
+export const getPostAppointmentSnackbar = ({
+  hasClientCopyFailures,
+  isScheduledFollowUp,
+  copyAttempted,
+}: {
+  hasClientCopyFailures: boolean;
+  isScheduledFollowUp: boolean;
+  copyAttempted: boolean;
+}): { message: string; variant: 'warning' | 'success' } => {
+  if (hasClientCopyFailures) {
+    return {
+      message: "Visit created, but some fields couldn't be copied from the previous visit.",
+      variant: 'warning',
+    };
+  }
+  if (isScheduledFollowUp && copyAttempted) {
+    return { message: 'Visit added; notes copied from the previous visit.', variant: 'success' };
+  }
+  return { message: 'Visit added successfully', variant: 'success' };
+};
+
 export default function AddPatient(): JSX.Element {
   const location = useLocation();
   const followUpState = location.state as
     | {
-        parentEncounterId?: string;
+        followUpOptions?: FollowUpOptions;
         parentLocation?: LocationWithWalkinSchedule;
         patientId?: string;
         patientInfo?: AddVisitPatientInfo;
+        clientCopyFields?: CopyableFollowupField[];
       }
     | undefined;
-  const parentEncounterId = followUpState?.parentEncounterId;
-  const isScheduledFollowUp = !!parentEncounterId;
-  console.log('[AddPatient] location.state:', location.state, 'parentEncounterId:', parentEncounterId);
+  const followUpOptions = followUpState?.followUpOptions;
+  const isScheduledFollowUp = !!followUpOptions?.parentEncounterId;
 
-  const [selectedLocation, setSelectedLocation] = useState<LocationWithWalkinSchedule | undefined>(
-    followUpState?.parentLocation
-  );
+  // selectedBookable is the canonical "what was picked" state — Location,
+  // Group, or PR-direct Schedule. For follow-ups we seed it from the parent
+  // location so existing flows behave unchanged.
+  const [selectedBookable, setSelectedBookable] = useState<BookableTarget | undefined>(() => {
+    const parent = followUpState?.parentLocation;
+    const parentSlug = parent?.identifier?.find((i) => i.system === SLUG_SYSTEM)?.value;
+    if (!parent || !parent.id || !parentSlug) return undefined;
+    return {
+      resourceType: 'Location',
+      id: parent.id,
+      slug: parentSlug,
+      name: parent.name ?? 'Location',
+      walkinSchedule: parent.walkinSchedule,
+      rawLocation: parent,
+    };
+  });
   const [birthDate, setBirthDate] = useState<DateTime | null>(
     followUpState?.patientInfo?.dateOfBirth ? DateTime.fromISO(followUpState.patientInfo.dateOfBirth) : null
   );
@@ -114,6 +157,8 @@ export default function AddPatient(): JSX.Element {
     followUpState?.patientInfo || undefined
   );
   const [reasonForVisit, setReasonForVisit] = useState<string>('');
+  // Scheduled follow-ups pick a reason from SCHEDULED_FOLLOWUP_REASONS; "Other" reveals this free text.
+  const [otherReason, setOtherReason] = useState<string>('');
   const [reasonForVisitAdditional, setReasonForVisitAdditional] = useState<string>('');
   const [visitType, setVisitType] = useState<VisitType>();
   const [serviceCategory, setServiceCategory] = useState<string>(defaultServiceCategory);
@@ -144,17 +189,66 @@ export default function AddPatient(): JSX.Element {
 
   useEffect(() => {
     setReasonForVisit('');
+    setOtherReason('');
     setReasonForVisitAdditional('');
   }, [serviceCategory]);
 
-  const reasonForVisitOptions = getReasonForVisitOptionsForServiceCategory(serviceCategory ?? '');
+  // Scheduled follow-ups use a fixed follow-up-reason list instead of the
+  // service-category reasons. The per-service path goes through the shared
+  // hook so admin-managed FHIR categories surface their configured RFV
+  // options (the previous synchronous helper only read BOOKING_CONFIG).
+  // The hook is called unconditionally to satisfy the rules of hooks; it
+  // short-circuits internally when the code is in BOOKING_CONFIG or absent.
+  const serviceCategoryRfvOptions = useReasonForVisitOptions(serviceCategory ?? '');
+  const reasonForVisitOptions = isScheduledFollowUp
+    ? SCHEDULED_FOLLOWUP_REASONS.map((reason) => ({ value: reason, label: reason }))
+    : serviceCategoryRfvOptions;
+  const isOtherFollowUpReason = isScheduledFollowUp && reasonForVisit === SCHEDULED_FOLLOWUP_OTHER_REASON;
   const shouldShowReasonForVisitFields = useMemo(() => {
     return showFields !== 'initialPatientSearch' && reasonForVisitOptions.length > 0;
   }, [showFields, reasonForVisitOptions.length]);
   // general variables
   const navigate = useNavigate();
   const { oystehrZambda } = useApiClients();
+  const copyChartDataToFollowupMutation = useCopyChartDataToFollowup();
   const reasonForVisitErrorMessage = `Input cannot be more than ${MAXIMUM_CHARACTER_LIMIT} characters`;
+
+  // The Service category dropdown was historically hardcoded to BOOKING_CONFIG
+  // (urgent-care / workers-comp / occupational-medicine). Now: merge with
+  // FHIR-managed admin-created services so categories created in Admin →
+  // Services (e.g., massage30/45/90) appear here too. BOOKING_CONFIG wins on
+  // code collisions, matching the patient-side useServiceCategories merge.
+  const { data: fhirServiceCategories } = useQuery({
+    queryKey: ['add-patient-service-categories'],
+    queryFn: async () => {
+      if (!oystehrZambda) return { serviceCategories: [] };
+      try {
+        return await listServiceCategories(oystehrZambda);
+      } catch {
+        return { serviceCategories: [] };
+      }
+    },
+    enabled: !!oystehrZambda,
+  });
+  const mergedServiceCategories = useMemo(() => {
+    const fhirRecords = fhirServiceCategories?.serviceCategories ?? [];
+    const bookingCodes = new Set(
+      BOOKING_CONFIG.serviceCategories.map((sc) => sc.category.code).filter((c): c is string => !!c)
+    );
+    const fhirOnly = fhirRecords
+      .filter((r) => r.active !== false && r.code && !bookingCodes.has(r.code))
+      .map((r) => ({ code: r.code as string, display: r.name }));
+    const bookingEntries = BOOKING_CONFIG.serviceCategories.map((sc) => ({
+      code: sc.category.code as string,
+      display: sc.category.display ?? sc.category.code ?? '',
+    }));
+    return [...bookingEntries, ...fhirOnly].sort((a, b) => a.display.localeCompare(b.display));
+  }, [fhirServiceCategories]);
+  // When a bookable target is later selected, a v2 enhancement could narrow
+  // this list further to the target's offered services. For now (v1) we show
+  // the merged catalog — the slot picker will return no slots if the wrong
+  // category is picked for the chosen target, which is a recoverable state.
+  const filteredServiceCategories = mergedServiceCategories;
 
   const handleAdditionalReasonForVisitChange = (newValue: string): void => {
     setValidReasonForVisit(newValue.length <= MAXIMUM_CHARACTER_LIMIT);
@@ -162,32 +256,47 @@ export default function AddPatient(): JSX.Element {
   };
 
   useEffect(() => {
-    const fetchLocationWithSlotData = async (params: GetScheduleRequestParams, client: Oystehr): Promise<void> => {
+    const fetchSlotData = async (params: GetScheduleRequestParams, client: Oystehr): Promise<void> => {
       setLoadingSlotState({ status: 'loading', input: undefined });
       try {
-        const locationResponse = await getLocations(client, params);
-        setLocationWithSlotData(locationResponse);
+        const response = await getLocations(client, params);
+        setLocationWithSlotData(response);
       } catch (e) {
-        console.error('error loading location with slot data', e);
+        console.error('error loading slot data', e);
       } finally {
-        setLoadingSlotState({ status: 'loaded', input: `${params.slug}` });
+        setLoadingSlotState({
+          status: 'loaded',
+          input: `${params.slug}|${params.scheduleType}|${params.serviceCategoryCode ?? ''}`,
+        });
       }
     };
-    const locationSlug = selectedLocation?.identifier?.find((identifierTemp) => identifierTemp.system === SLUG_SYSTEM)
-      ?.value;
-    if (!locationSlug) {
-      // console.log('show some toast: location is missing slug', selectedLocation, locationSlug);
-      return;
-    }
+    if (!selectedBookable || !oystehrZambda) return;
+
+    const scheduleType =
+      selectedBookable.resourceType === 'HealthcareService'
+        ? ScheduleType.group
+        : selectedBookable.resourceType === 'PractitionerRole'
+        ? ScheduleType.provider
+        : ScheduleType.location;
+
+    // For groups, the picked service category is required so the slot grid
+    // reflects the right service's duration/cadence. For locations and
+    // PR-direct (typically single-service), it's optional.
+    const params: GetScheduleRequestParams = {
+      slug: selectedBookable.slug,
+      scheduleType,
+      ...(serviceCategory ? { serviceCategoryCode: serviceCategory as any } : {}),
+    };
+    const key = `${params.slug}|${params.scheduleType}|${params.serviceCategoryCode ?? ''}`;
+
     if (
-      !oystehrZambda ||
       loadingSlotState.status === 'loading' ||
-      (loadingSlotState.status === 'loaded' && loadingSlotState.input === locationSlug)
+      (loadingSlotState.status === 'loaded' && loadingSlotState.input === key)
     ) {
       return;
     }
-    void fetchLocationWithSlotData({ slug: locationSlug, scheduleType: ScheduleType.location }, oystehrZambda);
-  }, [selectedLocation, loadingSlotState, oystehrZambda]);
+    void fetchSlotData(params, oystehrZambda);
+  }, [selectedBookable, serviceCategory, loadingSlotState, oystehrZambda]);
 
   // handle functions
   const handleFormSubmit = async (event: React.FormEvent<HTMLFormElement>): Promise<void> => {
@@ -209,8 +318,9 @@ export default function AddPatient(): JSX.Element {
       { field: 'sexAtBirth', invalid: !patientInfo.sex },
       { field: 'visitType', invalid: !visitType },
       { field: 'serviceCategory', invalid: !serviceCategory },
-      { field: 'location', invalid: !!visitType && !selectedLocation },
+      { field: 'location', invalid: !!visitType && !selectedBookable },
       { field: 'reasonForVisit', invalid: shouldShowReasonForVisitFields && !reasonForVisit },
+      { field: 'otherReason', invalid: isOtherFollowUpReason && !otherReason.trim() },
     ];
     const fieldErrors = Object.fromEntries(validations.map((v) => [v.field, v.invalid]));
     setErrors((prev) => ({ ...prev, ...fieldErrors }));
@@ -237,18 +347,35 @@ export default function AddPatient(): JSX.Element {
     if (validDate && validReasonForVisit) {
       setLoading(true);
 
-      console.log('slot', slot);
       if (!oystehrZambda) throw new Error('Zambda client not found');
       let createSlotInput: CreateSlotParams;
       if (visitType === VisitType.InPersonWalkIn || visitType === VisitType.VirtualOnDemand) {
-        if (!selectedLocation) {
-          enqueueSnackbar('Please select a location', { variant: 'error' });
+        if (!selectedBookable) {
+          enqueueSnackbar('Please select where to book', { variant: 'error' });
           setLoading(false);
           return;
         }
-        const timezone = getTimezone(selectedLocation?.walkinSchedule ?? selectedLocation);
+        // Walk-in scheduleId:
+        //   - Location: the Location's walk-in Schedule resource (existing)
+        //   - Group / PR-direct: derived from the first candidate slot's
+        //     scheduleId, same approach used by the patient WalkinGroup page.
+        let walkinScheduleId: string | undefined;
+        let timezone: string;
+        if (selectedBookable.resourceType === 'Location' && selectedBookable.rawLocation) {
+          walkinScheduleId = selectedBookable.walkinSchedule?.id;
+          timezone = getTimezone(selectedBookable.walkinSchedule ?? selectedBookable.rawLocation);
+        } else {
+          const candidate = locationWithSlotData?.available?.[0] ?? locationWithSlotData?.telemedAvailable?.[0];
+          walkinScheduleId = candidate?.slot.schedule?.reference?.split('/')[1];
+          timezone = locationWithSlotData?.location?.timezone ?? 'UTC';
+        }
+        if (!walkinScheduleId) {
+          enqueueSnackbar('No walk-in availability for this target right now.', { variant: 'error' });
+          setLoading(false);
+          return;
+        }
         createSlotInput = {
-          scheduleId: selectedLocation?.walkinSchedule?.id ?? '',
+          scheduleId: walkinScheduleId,
           startISO: DateTime.now().setZone(timezone).toISO() ?? '',
           lengthInMinutes: 15,
           serviceModality: visitType === VisitType.InPersonWalkIn ? ServiceMode['in-person'] : ServiceMode['virtual'],
@@ -276,16 +403,28 @@ export default function AddPatient(): JSX.Element {
         };
       }
       console.log('slot input: ', createSlotInput);
-      const persistedSlot = await createSlot(createSlotInput, oystehrZambda);
+      let persistedSlot: Slot;
+      try {
+        persistedSlot = await createSlot(createSlotInput, oystehrZambda);
+      } catch (error) {
+        console.error(`Failed to create slot: ${error}`);
+        let errorMessage = 'An unexpected error occurred creating the slot, please try again.';
+        if (isApiError(error)) {
+          errorMessage = (error as APIError).message;
+        }
+        enqueueSnackbar(errorMessage, { variant: 'error' });
+        setLoading(false);
+        return;
+      }
       const zambdaParams: CreateAppointmentInputParams = {
         patient: {
           ...patientInfo,
           dateOfBirth: patientInfo?.dateOfBirth || birthDate?.toISODate() || undefined,
-          reasonForVisit: reasonForVisit,
+          reasonForVisit: isOtherFollowUpReason ? otherReason.trim() : reasonForVisit,
           reasonAdditional: reasonForVisitAdditional !== '' ? reasonForVisitAdditional : undefined,
         },
         slotId: persistedSlot.id!,
-        parentEncounterId,
+        ...(followUpOptions && { followUpOptions }),
       };
 
       let response;
@@ -296,14 +435,38 @@ export default function AddPatient(): JSX.Element {
         console.error(`Failed to add patient: ${error}`);
         enqueueSnackbar('An unexpected error occurred, please try again.', { variant: 'error' });
         apiErr = true;
-      } finally {
-        setLoading(false);
-        if (response && !apiErr) {
-          enqueueSnackbar('Visit added successfully', { variant: 'success' });
-          navigate('/visits');
-        } else {
-          setErrors({ submit: true });
+      }
+
+      // Best-effort copy: failure here must not block navigation since the visit is already created.
+      const clientCopyFields = followUpState?.clientCopyFields;
+      const parentEncounterIdForCopy = followUpOptions?.parentEncounterId;
+      let clientFailedFields: CopyableFollowupField[] = [];
+      if (response && !apiErr && parentEncounterIdForCopy && clientCopyFields && clientCopyFields.length > 0) {
+        try {
+          await copyChartDataToFollowupMutation.mutateAsync({
+            sourceEncounterId: parentEncounterIdForCopy,
+            targetEncounterId: response.encounterId,
+            fields: clientCopyFields,
+          });
+        } catch (e) {
+          console.error('Failed to copy chart data to follow-up visit:', e);
+          // save-chart-data is transactional — treat the whole batch as failed.
+          clientFailedFields = clientCopyFields;
         }
+      }
+
+      setLoading(false);
+
+      if (response && !apiErr) {
+        const { message, variant } = getPostAppointmentSnackbar({
+          hasClientCopyFailures: clientFailedFields.length > 0,
+          isScheduledFollowUp,
+          copyAttempted: (clientCopyFields?.length ?? 0) > 0,
+        });
+        enqueueSnackbar(message, { variant });
+        navigate('/visits');
+      } else {
+        setErrors({ submit: true });
       }
     }
   };
@@ -372,30 +535,39 @@ export default function AddPatient(): JSX.Element {
                       setServiceCategory(event.target.value);
                     }}
                   >
-                    {BOOKING_CONFIG.serviceCategories.map((sc) => {
-                      return (
-                        <MenuItem value={sc.category.code} key={sc.category.code}>
-                          {sc.category.display}
-                        </MenuItem>
-                      );
-                    })}
+                    {filteredServiceCategories.map((sc) => (
+                      <MenuItem value={sc.code} key={sc.code}>
+                        {sc.display}
+                      </MenuItem>
+                    ))}
                   </Select>
                   {errors.serviceCategory && <FormHelperText>Service category is required</FormHelperText>}
                 </FormControl>
 
-                <LocationSelect
-                  location={selectedLocation}
-                  setLocation={setSelectedLocation}
-                  updateURL={false}
+                <BookableSelect
+                  dataTestId={dataTestIds.addPatientPage.bookableSelect}
+                  selected={selectedBookable}
+                  setSelected={(target) => {
+                    setSelectedBookable(target);
+                    // Reset slot when the target changes so we don't try to
+                    // book a slot belonging to a previously-picked target.
+                    setSlot(undefined);
+                    setLoadingSlotState({ status: 'initial', input: undefined });
+                  }}
                   required
-                  renderInputProps={{ disabled: !visitType }}
-                  locationType={
+                  disabled={!visitType}
+                  mode={
                     visitType === VisitType.InPersonWalkIn ||
                     visitType === VisitType.InPersonPreBook ||
                     visitType === VisitType.InPersonPostTelemed
-                      ? [LocationType.IN_PERSON]
-                      : [LocationType.VIRTUAL]
+                      ? [BookableMode.IN_PERSON]
+                      : [BookableMode.VIRTUAL]
                   }
+                  onLocationsLoaded={() => {
+                    // Side-load not strictly required by the new flow but kept
+                    // so existing callers that consumed setLocations stay
+                    // unaffected if they're added later.
+                  }}
                   error={!!errors.location}
                   helperText="Location is required"
                 />
@@ -435,7 +607,12 @@ export default function AddPatient(): JSX.Element {
                           value={reasonForVisit || ''}
                           label="Reason for visit *"
                           required
-                          onChange={(event) => setReasonForVisit(event.target.value)}
+                          onChange={(event) => {
+                            setReasonForVisit(event.target.value);
+                            if (event.target.value !== SCHEDULED_FOLLOWUP_OTHER_REASON) {
+                              setOtherReason('');
+                            }
+                          }}
                         >
                           {reasonForVisitOptions.map((reason) => (
                             <MenuItem key={reason.value} value={reason.value}>
@@ -446,6 +623,28 @@ export default function AddPatient(): JSX.Element {
                         {errors.reasonForVisit && <FormHelperText>Reason for visit is required</FormHelperText>}
                       </FormControl>
                     </Box>
+                    {isOtherFollowUpReason && (
+                      <Box marginTop={2}>
+                        <FormControl fullWidth error={!!errors.otherReason}>
+                          <TextField
+                            label="Other reason"
+                            id="follow-up-other-reason-text"
+                            value={otherReason}
+                            required
+                            onChange={(e) => {
+                              setOtherReason(e.target.value);
+                              if (errors.otherReason) setErrors((prev) => ({ ...prev, otherReason: false }));
+                            }}
+                            error={!!errors.otherReason}
+                            helperText={
+                              errors.otherReason
+                                ? 'Please specify the follow-up reason'
+                                : "If the follow-up reason matches the initial visit's reason for visit, enter it here."
+                            }
+                          />
+                        </FormControl>
+                      </Box>
+                    )}
                     <Box marginTop={2}>
                       <FormControl fullWidth>
                         <TextField
@@ -481,7 +680,15 @@ export default function AddPatient(): JSX.Element {
                             : locationWithSlotData?.available?.map((si) => si.slot)
                         }
                         slotsLoading={loadingSlotState.status === 'loading'}
-                        selectedLocation={selectedLocation}
+                        bookableSlug={selectedBookable?.slug}
+                        bookableScheduleType={
+                          selectedBookable?.resourceType === 'HealthcareService'
+                            ? ScheduleType.group
+                            : selectedBookable?.resourceType === 'PractitionerRole'
+                            ? ScheduleType.provider
+                            : ScheduleType.location
+                        }
+                        serviceCategoryCode={serviceCategory as any}
                         timezone={locationWithSlotData?.location?.timezone || 'Undefined'}
                         selectedSlot={slot}
                         setSelectedSlot={setSlot}

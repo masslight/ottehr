@@ -23,6 +23,7 @@ import { uuid } from 'short-uuid';
 import {
   BookableScheduleData,
   checkResourceHasSlug,
+  getGroupAllLocations,
   isValidUUID,
   MISCONFIGURED_SCHEDULING_GROUP,
   SCHEDULE_NOT_FOUND_CUSTOM_ERROR,
@@ -32,6 +33,7 @@ import {
   scheduleStrategyForHealthcareService,
   SLUG_SYSTEM,
   unbundleBatchPostOutput,
+  walkGroupMemberPractitionerRoleSchedules,
 } from 'utils';
 
 export async function getPatientResource(patientID: string, oystehr: Oystehr): Promise<Patient> {
@@ -50,32 +52,59 @@ interface GetScheduleResponse extends BookableScheduleData {
 export async function getSchedules(
   oystehr: Oystehr,
   scheduleType: 'location' | 'provider' | 'group',
-  slug: string
+  identifier: { slug: string } | { id: string }
 ): Promise<GetScheduleResponse> {
+  // 'provider' resolves to a PractitionerRole — a PR pins (Practitioner,
+  // Location, categories) so the share-link is meaningfully scoped.
   const fhirType = (() => {
     if (scheduleType === 'location') {
       return 'Location';
     }
     if (scheduleType === 'provider') {
-      return 'Practitioner';
+      return 'PractitionerRole';
     }
     return 'HealthcareService';
   })();
-  // get specific schedule resource with all the slots
+  const ownerLookupParam: SearchParam =
+    'slug' in identifier
+      ? { name: 'identifier', value: `${SLUG_SYSTEM}|${identifier.slug}` }
+      : { name: '_id', value: identifier.id };
+  const ownerDescriptor = 'slug' in identifier ? `slug "${identifier.slug}"` : `id "${identifier.id}"`;
+  // Filter out soft-deleted owners. The EHR-side "delete schedule" flow
+  // marks the owner inactive rather than hard-deleting; without this filter
+  // those still resolve and vend slots. FHIR's `active` search param is
+  // defined on PractitionerRole and HealthcareService but not on Location —
+  // Location uses the `status` field instead, with `inactive` as the
+  // dead-row value. The Oystehr FHIR server rejects unsupported params with
+  // a 400, so the filter has to branch by resource type rather than be
+  // applied uniformly.
+  const ownerActiveFilter: SearchParam =
+    fhirType === 'Location' ? { name: 'status:not', value: 'inactive' } : { name: 'active:not', value: 'false' };
   const searchParams: SearchParam[] = [
-    { name: 'identifier', value: `${SLUG_SYSTEM}|${slug}` },
+    ownerLookupParam,
     { name: '_revinclude', value: `Schedule:actor:${fhirType}` },
+    ownerActiveFilter,
   ];
 
   let resourceType;
   if (scheduleType === 'location') {
     resourceType = 'Location';
   } else if (scheduleType === 'provider') {
-    resourceType = 'Practitioner';
+    resourceType = 'PractitionerRole';
   } else if (scheduleType === 'group') {
     resourceType = 'HealthcareService';
   } else {
     throw new Error('resourceType is not expected');
+  }
+
+  if (scheduleType === 'provider') {
+    // Pull in the PR's Practitioner + Location so downstream code has the
+    // resources to render a meaningful name + address without a follow-up
+    // FHIR roundtrip.
+    searchParams.push(
+      { name: '_include', value: 'PractitionerRole:practitioner' },
+      { name: '_include', value: 'PractitionerRole:location' }
+    );
   }
 
   if (scheduleType === 'group') {
@@ -100,22 +129,39 @@ export async function getSchedules(
         name: '_include:iterate',
         value: 'PractitionerRole:service',
       },
-      { name: '_revinclude:iterate', value: 'Schedule:actor:Practitioner' },
-      { name: '_revinclude:iterate', value: 'Schedule:actor:Location' }
+      // Also pull in PRs whose .location references one of the group's
+      // Locations (additive to the .healthcareService back-reference path
+      // above). This is the location-based pooling for `pools-providers`
+      // groups whose membership is defined by Locations rather than by
+      // direct PR back-references.
+      { name: '_revinclude:iterate', value: 'PractitionerRole:location' },
+      { name: '_revinclude:iterate', value: 'Schedule:actor:Location' },
+      // Pull in any Schedule whose actor is one of the PractitionerRoles we
+      // included above — the per-provider schedule lives on a PractitionerRole.
+      { name: '_revinclude:iterate', value: 'Schedule:actor:PractitionerRole' }
     );
   }
 
   console.log('searching for resource with search params: ', searchParams);
+  // Drop inactive Schedule resources at the bundle level. The single-Schedule
+  // `.find()` below has its own active check, but `scheduleResources` is also
+  // consumed downstream when building `scheduleList` for slot vending — for
+  // group / pools strategies with multiple Schedules in the bundle, an
+  // inactive sibling would otherwise still get its slots vended.
+  // `r.active === undefined` is treated as active per FHIR convention.
   const scheduleResources = (
     await oystehr.fhir.search<Location | Practitioner | HealthcareService | Schedule | PractitionerRole>({
       resourceType: resourceType as 'Location' | 'Practitioner' | 'HealthcareService' | 'Schedule' | 'PractitionerRole',
       params: searchParams,
     })
-  ).unbundle();
+  )
+    .unbundle()
+    .filter((r) => r.resourceType !== 'Schedule' || (r as Schedule).active !== false);
 
   const scheduleOwner = scheduleResources.find((res) => {
-    return res.resourceType === fhirType && checkResourceHasSlug(res, slug);
-  }) as Location | Practitioner | HealthcareService;
+    if (res.resourceType !== fhirType) return false;
+    return 'slug' in identifier ? checkResourceHasSlug(res, identifier.slug) : res.id === identifier.id;
+  }) as Location | Practitioner | HealthcareService | PractitionerRole;
 
   let hsSchedulingStrategy: ScheduleStrategy | undefined;
   if (scheduleOwner?.resourceType === 'HealthcareService') {
@@ -132,10 +178,48 @@ export async function getSchedules(
   }
 
   if (scheduleResources.length === 0) {
-    console.log(`schedule for ${fhirType} with identifier "${slug}" was not found`);
+    console.log(`schedule for ${fhirType} with ${ownerDescriptor} was not found`);
     throw SCHEDULE_NOT_FOUND_ERROR;
   }
 
+  // If the group is flagged as "all locations," widen the bundle with every
+  // active PractitionerRole + their Practitioners + their Schedules. The
+  // poolsProviders branch below then accepts any PR (regardless of whether
+  // it back-references this group or sits at one of the group's Locations).
+  const allLocationsFlag =
+    scheduleOwner?.resourceType === 'HealthcareService' &&
+    getGroupAllLocations(scheduleOwner as HealthcareService) === true;
+  if (allLocationsFlag) {
+    const widened = (
+      await oystehr.fhir.search<PractitionerRole | Practitioner | Schedule>({
+        resourceType: 'PractitionerRole',
+        params: [
+          { name: 'active', value: 'true' },
+          { name: '_include', value: 'PractitionerRole:practitioner' },
+          { name: '_revinclude', value: 'Schedule:actor:PractitionerRole' },
+          { name: '_count', value: '1000' },
+        ],
+      })
+    )
+      .unbundle()
+      // Same inactive-Schedule filter as the initial bundle; the widened
+      // search doesn't gate on Schedule.active and would otherwise leak
+      // soft-deleted member Schedules back into scheduleList.
+      .filter((r) => r.resourceType !== 'Schedule' || (r as Schedule).active !== false);
+    // Dedup by `${resourceType}/${id}` so we don't double-count resources
+    // that were already pulled in by the initial search's _include chains.
+    const seen = new Set(scheduleResources.map((r) => `${r.resourceType}/${r.id}`));
+    for (const r of widened) {
+      const key = `${r.resourceType}/${r.id}`;
+      if (!seen.has(key)) {
+        scheduleResources.push(r);
+        seen.add(key);
+      }
+    }
+  }
+
+  // Inactive Schedules were already dropped from scheduleResources above;
+  // no per-find active check needed here.
   const schedule = scheduleResources.find((res) => {
     return res.resourceType === 'Schedule' && res.actor?.[0]?.reference === `${fhirType}/${scheduleOwner.id}`;
   }) as Schedule | undefined;
@@ -144,7 +228,7 @@ export async function getSchedules(
 
   if (!schedule?.id && (hsSchedulingStrategy === undefined || hsSchedulingStrategy === ScheduleStrategy.owns)) {
     throw SCHEDULE_NOT_FOUND_CUSTOM_ERROR(
-      `No Schedule associated with ${fhirType} with identifier "${slug}" could be found. To cure this, create a Schedule resource referencing this ${fhirType} resource via its "actor" field and give it an extension with the requisite schedule extension json.`
+      `No Schedule associated with ${fhirType} with ${ownerDescriptor} could be found. To cure this, create a Schedule resource referencing this ${fhirType} resource via its "actor" field and give it an extension with the requisite schedule extension json.`
     );
   }
 
@@ -166,33 +250,35 @@ export async function getSchedules(
 
   const scheduleList: BookableScheduleData['scheduleList'] = [];
   if (hsSchedulingStrategy === ScheduleStrategy.poolsAll || hsSchedulingStrategy === ScheduleStrategy.poolsProviders) {
+    // Legacy Practitioner-actored Schedules: still supported inline. No
+    // current caller produces these via the slot-vending path, but the
+    // legacy schedules in older deployments may still be PR-less.
     const practitioners: Practitioner[] = [];
     const schedules: Schedule[] = [];
-
     scheduleResources.forEach((res) => {
-      if (res.resourceType === 'Practitioner') {
-        practitioners.push(res);
-      }
-      if (res.resourceType === 'Schedule') {
-        schedules.push(res);
-      }
+      if (res.resourceType === 'Practitioner') practitioners.push(res);
+      if (res.resourceType === 'Schedule') schedules.push(res);
     });
-
     schedules.forEach((scheduleObj) => {
       const owner = scheduleObj.actor[0]?.reference ?? '';
       const [ownerResourceType, ownerId] = owner.split('/');
-      if (ownerResourceType === 'Practitioner' && ownerId) {
-        const practitioner = practitioners.find((practitionerObj) => {
-          return practitionerObj.id === ownerId;
-        });
-        if (practitioner) {
-          scheduleList.push({
-            schedule: scheduleObj,
-            owner: practitioner,
-          });
-        }
-      }
+      if (ownerResourceType !== 'Practitioner' || !ownerId) return;
+      const practitioner = practitioners.find((p) => p.id === ownerId);
+      if (practitioner) scheduleList.push({ schedule: scheduleObj, owner: practitioner });
     });
+
+    // PR-actored Schedules: factored into the shared walker so the
+    // membership rules (back-reference / location-overlap / all-locations)
+    // are defined once and reusable by other callers — see
+    // getGroupMemberPractitionerRoleSchedules below for the focused-query
+    // entry point used by create-appointment's fallback.
+    const memberPairs = walkGroupMemberPractitionerRoleSchedules({
+      bundle: scheduleResources,
+      group: scheduleOwner as HealthcareService,
+    });
+    for (const { schedule: sched, role } of memberPairs) {
+      scheduleList.push({ schedule: sched, owner: role });
+    }
   }
 
   // todo: there's clearly a generic func to be extracted here...
@@ -241,6 +327,70 @@ export async function getSchedules(
     scheduleList,
     rootScheduleOwner: scheduleOwner, // this probable isn't needed. just the ref can go in metadata
   };
+}
+
+/**
+ * Returns the (Schedule, PractitionerRole) pairs that make up a `pools-
+ * providers` group's member set. Lighter than `getSchedules` — no
+ * BookableScheduleData metadata aggregation, no scheduling-strategy
+ * branching, no slug-or-id owner dispatch. The query is focused on the
+ * minimum bundle needed for membership resolution: the group HS, its
+ * Locations, PRs reachable via `.service` back-ref or `.location` overlap,
+ * and Schedules actored by those PRs.
+ *
+ * Used by the create-appointment fallback (groupMemberFallback.ts), which
+ * needs the bare member list and would otherwise pay for the full
+ * slot-vending query that `getSchedules` does. Membership rules and the
+ * actor-walking logic live in `walkGroupMemberPractitionerRoleSchedules`
+ * (utils/lib/fhir/healthcareService.ts) and are shared with `getSchedules`'
+ * pools-providers branch above — single source of truth.
+ */
+export async function getGroupMemberPractitionerRoleSchedules(
+  oystehr: Oystehr,
+  group: HealthcareService
+): Promise<{ schedule: Schedule; role: PractitionerRole }[]> {
+  if (!group.id) return [];
+  const allLocationsFlag = getGroupAllLocations(group) === true;
+
+  const bundle = (
+    await oystehr.fhir.search<HealthcareService | Location | PractitionerRole | Schedule>({
+      resourceType: 'HealthcareService',
+      params: [
+        { name: '_id', value: group.id },
+        { name: '_include', value: 'HealthcareService:location' },
+        { name: '_revinclude:iterate', value: 'PractitionerRole:service' },
+        { name: '_revinclude:iterate', value: 'PractitionerRole:location' },
+        { name: '_revinclude:iterate', value: 'Schedule:actor:PractitionerRole' },
+      ],
+    })
+  ).unbundle();
+
+  // All-locations widening: pull every active PR + their Schedules into the
+  // bundle so the walker's `isMemberByAllLocations` branch has the candidates
+  // to match against. Mirrors the same widening getSchedules does for
+  // group-type lookups when the flag is set.
+  if (allLocationsFlag) {
+    const widened = (
+      await oystehr.fhir.search<PractitionerRole | Schedule>({
+        resourceType: 'PractitionerRole',
+        params: [
+          { name: 'active', value: 'true' },
+          { name: '_revinclude', value: 'Schedule:actor:PractitionerRole' },
+          { name: '_count', value: '1000' },
+        ],
+      })
+    ).unbundle();
+    const seen = new Set(bundle.map((r) => `${r.resourceType}/${r.id}`));
+    for (const r of widened) {
+      const key = `${r.resourceType}/${r.id}`;
+      if (!seen.has(key)) {
+        bundle.push(r);
+        seen.add(key);
+      }
+    }
+  }
+
+  return walkGroupMemberPractitionerRoleSchedules({ bundle, group });
 }
 
 export async function updatePatientResource(

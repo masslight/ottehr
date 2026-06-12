@@ -95,6 +95,7 @@ import {
   isoStringFromDateComponents,
   isPayerUrl,
   isValidUUID,
+  makeOptimisticLockIfMatchHeader,
   makeSSNIdentifier,
   mapBirthSexToGender,
   OCCUPATIONAL_MEDICINE_ACCOUNT_TYPE,
@@ -1612,17 +1613,55 @@ function resolveInsurancePriorities(
 
 export async function searchInsuranceInformation(
   oystehr: Oystehr,
-  insuranceOrgRefs: string[]
+  insuranceOrgRefs: string[],
+  resources?: Organization[]
 ): Promise<Organization[]> {
   if (insuranceOrgRefs.length === 0) {
     return [];
   }
   return await Promise.all(
-    insuranceOrgRefs.map((ref) =>
-      isPayerUrl(ref)
-        ? oystehr.rcm.getPayerByUrl({ url: ref })
-        : oystehr.fhir.get<Organization>({ resourceType: 'Organization', id: ref.split('/')[1] })
-    )
+    insuranceOrgRefs.map((ref) => {
+      if (isPayerUrl(ref)) {
+        if (oystehr.rcm.constructPayerUrl({ id: '00000' }) === ref) {
+          // We have added a dummy payer option to paperwork, so we need to handle it here
+          return {
+            resourceType: 'Organization',
+            id: '00000',
+            name: 'Other',
+            identifier: [
+              {
+                type: {
+                  coding: [
+                    {
+                      system: 'http://terminology.hl7.org/CodeSystem/v2-0203',
+                      code: 'PAYERID',
+                    },
+                  ],
+                },
+                system: 'https://identifiers.fhir.oystehr.com/rcm-payer-id',
+                value: '00000',
+              },
+            ],
+            type: [
+              {
+                coding: [
+                  {
+                    system: 'http://terminology.hl7.org/CodeSystem/organization-type',
+                    code: 'pay',
+                  },
+                ],
+              },
+            ],
+          };
+        }
+        return oystehr.rcm.getPayerByUrl({ url: ref });
+      }
+      const orgFromFhir = findOrgMatchingReference(ref, resources);
+      if (orgFromFhir) {
+        return orgFromFhir;
+      }
+      return oystehr.fhir.get<Organization>({ resourceType: 'Organization', id: ref.split('/')[1] });
+    })
   );
 }
 
@@ -2342,7 +2381,6 @@ const createCoverageResource = (input: CreateCoverageResourceInput): Coverage =>
   if (!payerId) {
     throw new Error('payerId unexpectedly missing from insuranceOrg');
   }
-  const payerUrl = new Oystehr({}).rcm.constructPayerUrl({ id: payerId });
 
   const policyHolderId = 'coverageSubscriber';
   const policyHolderName = createFhirHumanName(policyHolder.firstName, policyHolder.middleName, policyHolder.lastName);
@@ -2390,7 +2428,11 @@ const createCoverageResource = (input: CreateCoverageResourceInput): Coverage =>
       reference: `Patient/${patientId}`,
     },
     type: typeCode !== undefined ? { coding: [{ system: CANDID_PLAN_TYPE_SYSTEM, code: typeCode }] } : undefined,
-    payor: [{ reference: payerUrl }],
+    payor: [
+      {
+        reference: isValidUUID(org.id ?? '') ? `Organization/${org.id}` : getPayerUrl(payerId),
+      },
+    ],
     subscriberId: policyHolder.memberId,
     relationship: getPolicyHolderRelationshipCodeableConcept(policyHolder.relationship),
     class: [
@@ -2713,6 +2755,16 @@ export const getAccountOperations = (input: GetAccountOperationsInput): GetAccou
       method: 'PUT',
       url: `Account/${existingAccount.id}`,
       resource: updatedAccount,
+      // Optimistic lock: this PUT replaces the entire Account (including the
+      // coverage array). Harvest may run as several concurrent page-level Tasks,
+      // each reading the Account, recomputing coverage from its own (possibly
+      // stale) snapshot, and writing the whole resource back. Without a version
+      // guard the last writer wins and can clobber Account.coverage to an empty
+      // or partial list while another round was mid-flight, which surfaces as a
+      // blank insurance carrier on read. The If-Match makes the transaction fail
+      // with 412 on a concurrent change so updatePatientAccountFromQuestionnaire
+      // can re-read the latest Account and retry against the current coverages.
+      ifMatch: makeOptimisticLockIfMatchHeader(existingAccount),
     });
   }
 
@@ -2847,7 +2899,7 @@ export const getAccountOperations = (input: GetAccountOperationsInput): GetAccou
             {
               reference: isValidUUID(workersCompInsuranceOrg.id ?? '')
                 ? `Organization/${workersCompInsuranceOrg.id}`
-                : getPayerUrl(workersCompInsuranceOrg.id!),
+                : getPayerUrl(payerId),
             },
           ];
           updatedWorkersCompCoverage.class = [
@@ -3290,25 +3342,33 @@ export const resolveCoverageUpdates = (input: CompareCoverageInput): CompareCove
     }
   }
 
+  // we should only split if it's an actual reference, and not a bare id like urn:uuid etc
+  const getNewCoverageRefId = (coverageRef: Reference | undefined): string | undefined => {
+    const ref = coverageRef?.reference;
+    return ref?.startsWith('Coverage/') ? ref.split('/')[1] : ref;
+  };
+
   const newPrimaryCoverage = suggestedNewCoverageObject.find((c) => c.priority === 1)?.coverage;
+  const newPrimaryCoverageId = getNewCoverageRefId(newPrimaryCoverage);
   const newSecondaryCoverage = suggestedNewCoverageObject.find((c) => c.priority === 2)?.coverage;
+  const newSecondaryCoverageId = getNewCoverageRefId(newSecondaryCoverage);
 
   if (
     existingCoverages.primary &&
-    existingCoverages.primary.id !== newPrimaryCoverage?.reference?.split('/')[1] &&
-    existingCoverages.primary.id !== newSecondaryCoverage?.reference?.split('/')[1]
+    existingCoverages.primary.id !== newPrimaryCoverageId &&
+    existingCoverages.primary.id !== newSecondaryCoverageId
   ) {
-    if (!preserveOmittedCoverages || newPrimaryCoverage?.reference?.split('/')[1] !== undefined) {
+    if (!preserveOmittedCoverages || newPrimaryCoverageId !== undefined) {
       deactivatedCoverages.push(existingCoverages.primary);
     }
   }
 
   if (
     existingCoverages.secondary &&
-    existingCoverages.secondary.id !== newSecondaryCoverage?.reference?.split('/')[1] &&
-    existingCoverages.secondary.id !== newPrimaryCoverage?.reference?.split('/')[1]
+    existingCoverages.secondary.id !== newSecondaryCoverageId &&
+    existingCoverages.secondary.id !== newPrimaryCoverageId
   ) {
-    if (!preserveOmittedCoverages || newSecondaryCoverage?.reference?.split('/')[1] !== undefined) {
+    if (!preserveOmittedCoverages || newSecondaryCoverageId !== undefined) {
       deactivatedCoverages.push(existingCoverages.secondary);
     }
   }
@@ -3713,25 +3773,9 @@ export const getCoverageUpdateResourcesFromUnbundled = (
   const accountResources = resources.filter((res): res is Account => res.resourceType === 'Account');
   const coverageResources = resources.filter((res): res is Coverage => res.resourceType === 'Coverage');
 
-  let existingAccount: Account | undefined;
-  let existingGuarantorResource: RelatedPerson | Patient | undefined;
-  let workersCompAccount: Account | undefined;
-  let occupationalMedicineAccount: Account | undefined;
+  const { existingAccount, workersCompAccount, occupationalMedicineAccount } = organizeAccounts(accountResources);
 
-  if (accountResources.length > 0) {
-    existingAccount = accountResources.find((account) => accountMatchesType(account, PATIENT_BILLING_ACCOUNT_TYPE));
-    workersCompAccount = accountResources.find((account) => accountMatchesType(account, WORKERS_COMP_ACCOUNT_TYPE));
-    occupationalMedicineAccount = accountResources.find((account) =>
-      accountMatchesType(account, OCCUPATIONAL_MEDICINE_ACCOUNT_TYPE)
-    );
-    if (!existingAccount) {
-      existingAccount = accountResources.find(
-        (account) =>
-          !accountMatchesType(account, WORKERS_COMP_ACCOUNT_TYPE) &&
-          !accountMatchesType(account, OCCUPATIONAL_MEDICINE_ACCOUNT_TYPE)
-      );
-    }
-  }
+  let existingGuarantorResource: RelatedPerson | Patient | undefined;
 
   const employerOrganization: Organization | undefined = resources.find(
     (res): res is Organization =>
@@ -3879,6 +3923,35 @@ export const getCoverageUpdateResourcesFromUnbundled = (
   };
 };
 
+export const organizeAccounts = (
+  accountResources: Account[]
+): {
+  existingAccount: Account | undefined;
+  workersCompAccount: Account | undefined;
+  occupationalMedicineAccount: Account | undefined;
+} => {
+  let existingAccount: Account | undefined;
+  let workersCompAccount: Account | undefined;
+  let occupationalMedicineAccount: Account | undefined;
+
+  if (accountResources.length > 0) {
+    existingAccount = accountResources.find((account) => accountMatchesType(account, PATIENT_BILLING_ACCOUNT_TYPE));
+    workersCompAccount = accountResources.find((account) => accountMatchesType(account, WORKERS_COMP_ACCOUNT_TYPE));
+    occupationalMedicineAccount = accountResources.find((account) =>
+      accountMatchesType(account, OCCUPATIONAL_MEDICINE_ACCOUNT_TYPE)
+    );
+    if (!existingAccount) {
+      existingAccount = accountResources.find(
+        (account) =>
+          !accountMatchesType(account, WORKERS_COMP_ACCOUNT_TYPE) &&
+          !accountMatchesType(account, OCCUPATIONAL_MEDICINE_ACCOUNT_TYPE)
+      );
+    }
+  }
+
+  return { existingAccount, workersCompAccount, occupationalMedicineAccount };
+};
+
 enum InsuranceCarrierKeys {
   primary = 'insurance-carrier',
   secondary = 'insurance-carrier-2',
@@ -3945,27 +4018,25 @@ export const getAccountAndCoverageResourcesForPatient = async (
   }
 
   const coverageResources = resources.filter((res): res is Coverage => res.resourceType === 'Coverage');
-  const insuranceOrgsFromFhir = resources.filter((res): res is Organization => res.resourceType === 'Organization');
-  const resourcesWithoutInsuranceOrgsFromFhir = resources.filter((res) => res.resourceType !== 'Organization');
+  const insuranceOrgsFromFhir = resources.filter(
+    (res): res is Organization =>
+      res.resourceType === 'Organization' &&
+      organizationMatchesType(res, codeableConcept('pay', FHIR_EXTENSION.Organization.organizationType.url))
+  );
+  const resourcesWithoutInsuranceOrgsFromFhir = resources.filter(
+    (res) =>
+      res.resourceType !== 'Organization' ||
+      !organizationMatchesType(res, codeableConcept('pay', FHIR_EXTENSION.Organization.organizationType.url))
+  );
 
   // Get payer info for coverages
-  const insuranceOrgs: Organization[] = (
-    await Promise.all(
-      coverageResources
-        .flatMap<string | undefined>((cov) => cov.payor.map((ref) => ref.reference))
-        .filter<string>((ref): ref is string => !!ref)
-        .map(async (ref): Promise<Organization | undefined> => {
-          if (ref.startsWith('https://rcm-api.zapehr.com')) {
-            return oystehr.rcm.getPayerByUrl({ url: ref });
-          }
-          const orgFromFhir = findOrgMatchingReference(ref, insuranceOrgsFromFhir);
-          if (orgFromFhir) {
-            return orgFromFhir;
-          }
-          return undefined;
-        })
-    )
-  ).filter<Organization>((org): org is Organization => !!org);
+  const insuranceOrgs = await searchInsuranceInformation(
+    oystehr,
+    coverageResources
+      .flatMap<string | undefined>((cov) => cov.payor.map((ref) => ref.reference))
+      .filter<string>((ref): ref is string => !!ref),
+    insuranceOrgsFromFhir
+  );
 
   // Get EHR-facing payer notes
   const ehrPayerList = await getInsuranceOverrideList(oystehr, ListName.EHR);
@@ -4037,123 +4108,182 @@ export const updatePatientAccountFromQuestionnaire = async (
 
   const organizationResources = await searchInsuranceInformation(oystehr, insuranceOrgs);
 
-  const {
-    patient: existingPatient,
-    coverages: existingCoverages,
-    account: existingAccount,
-    guarantorResource: existingGuarantorResource,
-    emergencyContactResource: existingEmergencyContact,
-    workersCompAccount: existingWorkersCompAccount,
-    occupationalMedicineAccount: existingOccupationalMedicineAccount,
-    employerOrganization: existingEmployerOrganization,
-    attorneyRelatedPerson: existingAttorneyRelatedPerson,
-  } = await getAccountAndCoverageResourcesForPatient(patientId, oystehr);
+  // Harvest fires several page-level Tasks concurrently (six paperwork pages run the
+  // account-coverage strategy), each of which reads the Account, recomputes its coverage
+  // array, and writes the whole Account back via an optimistically-locked PUT (see the
+  // If-Match in getAccountOperations). On a concurrent change the transaction fails with
+  // 412; re-read the latest Account and retry so we reconcile against the current coverages
+  // instead of clobbering them to an empty/partial list (which surfaces as a blank
+  // insurance carrier). The first iteration also conditionally creates the billing Account
+  // (below) to collapse the create race. With up to six concurrent writers a single Task
+  // can lose several optimistic-lock rounds before winning, so allow generous retries.
+  const MAX_ACCOUNT_UPDATE_ATTEMPTS = 10;
+  let lastError: unknown;
+  for (let attempt = 0; attempt < MAX_ACCOUNT_UPDATE_ATTEMPTS; attempt++) {
+    const {
+      patient: existingPatient,
+      coverages: existingCoverages,
+      account: existingAccount,
+      guarantorResource: existingGuarantorResource,
+      emergencyContactResource: existingEmergencyContact,
+      workersCompAccount: existingWorkersCompAccount,
+      occupationalMedicineAccount: existingOccupationalMedicineAccount,
+      employerOrganization: existingEmployerOrganization,
+      attorneyRelatedPerson: existingAttorneyRelatedPerson,
+    } = await getAccountAndCoverageResourcesForPatient(patientId, oystehr);
 
-  // Prefer the patient passed in by the caller (already reflects any in-flight
-  // patches) so same-as-patient address resolution doesn't silently use a stale
-  // copy when read-after-write isn't guaranteed.
-  const patient = patientFromInput ?? existingPatient;
+    // Prefer the patient passed in by the caller (already reflects any in-flight
+    // patches) so same-as-patient address resolution doesn't silently use a stale
+    // copy when read-after-write isn't guaranteed.
+    const patient = patientFromInput ?? existingPatient;
 
-  /*
-  console.log('existing coverages', JSON.stringify(existingCoverages, null, 2));
-  console.log('existing account', JSON.stringify(existingAccount, null, 2));
-  console.log('existing guarantor resource', JSON.stringify(existingGuarantorResource, null, 2));
-*/
-  const accountOperations = getAccountOperations({
-    patient,
-    questionnaireResponseItem: flattenedPaperwork,
-    organizationResources,
-    existingCoverages,
-    existingAccount,
-    existingGuarantorResource,
-    preserveOmittedCoverages,
-    existingEmergencyContact,
-    existingWorkersCompAccount,
-    existingOccupationalMedicineAccount,
-    existingEmployerOrganization,
-    existingAttorneyRelatedPerson,
-  });
+    // Ensure exactly one billing Account exists before computing the update.
+    // Concurrent account-coverage Tasks can each POST their own Account when
+    // none is found on the first round, leaving duplicate billing Accounts — one populated
+    // with coverage, the rest empty — after which the read path's Account selection is a
+    // coin flip and insurance intermittently reads blank. A conditional create (If-None-Exist)
+    // serializes this: the first Task creates the Account, the rest match it and no-op. We
+    // then re-read so every Task applies its own data to that single Account through the
+    // optimistically-locked PUT below, rather than creating a competing one.
+    if (!existingAccount) {
+      const billingType = PATIENT_BILLING_ACCOUNT_TYPE?.coding?.[0];
+      await oystehr.fhir.create(
+        {
+          resourceType: 'Account',
+          status: 'active',
+          type: { ...PATIENT_BILLING_ACCOUNT_TYPE },
+          subject: [{ reference: `Patient/${patientId}` }],
+          description: 'Patient account',
+        },
+        {
+          ifNoneExist: [
+            { name: 'patient', value: `Patient/${patientId}` },
+            { name: 'type', value: `${billingType?.system}|${billingType?.code}` },
+            { name: 'status', value: 'active' },
+          ],
+        }
+      );
+      // Re-read so the now-existing Account is treated as existing (and merged via the
+      // PUT path) instead of created again. Skips computing/committing this iteration.
+      continue;
+    }
 
-  console.log('account and coverage operations created', JSON.stringify(accountOperations, null, 2));
-
-  const {
-    patch,
-    accountPost,
-    put,
-    coveragePosts,
-    emergencyContactPost,
-    employerOrganizationPost,
-    employerOrganizationPut,
-    workersCompAccountPost,
-    workersCompAccountPut,
-    occupationalMedicineAccountPost,
-    occupationalMedicineAccountPut,
-    occupationalMedicineAccountDelete,
-    attorneyRelatedPersonPost,
-    attorneyRelatedPersonPut,
-  } = accountOperations;
-
-  const transactionRequests: BatchInputRequest<Account | RelatedPerson | Coverage | Patient | Organization>[] = [
-    ...coveragePosts,
-    ...patch,
-    ...put,
-  ];
-  if (employerOrganizationPost) {
-    transactionRequests.push(employerOrganizationPost);
-  }
-  if (employerOrganizationPut) {
-    transactionRequests.push(employerOrganizationPut);
-  }
-  if (attorneyRelatedPersonPost) {
-    transactionRequests.push(attorneyRelatedPersonPost);
-  }
-  if (attorneyRelatedPersonPut) {
-    transactionRequests.push(attorneyRelatedPersonPut);
-  }
-  if (workersCompAccountPut) {
-    transactionRequests.push(workersCompAccountPut);
-  }
-  if (occupationalMedicineAccountPut) {
-    transactionRequests.push(occupationalMedicineAccountPut);
-  }
-  if (occupationalMedicineAccountDelete) {
-    transactionRequests.push(occupationalMedicineAccountDelete);
-  }
-  if (accountPost) {
-    transactionRequests.push({
-      url: '/Account',
-      method: 'POST',
-      resource: accountPost,
+    /*
+    console.log('existing coverages', JSON.stringify(existingCoverages, null, 2));
+    console.log('existing account', JSON.stringify(existingAccount, null, 2));
+    console.log('existing guarantor resource', JSON.stringify(existingGuarantorResource, null, 2));
+  */
+    const accountOperations = getAccountOperations({
+      patient,
+      questionnaireResponseItem: flattenedPaperwork,
+      organizationResources,
+      existingCoverages,
+      existingAccount,
+      existingGuarantorResource,
+      preserveOmittedCoverages,
+      existingEmergencyContact,
+      existingWorkersCompAccount,
+      existingOccupationalMedicineAccount,
+      existingEmployerOrganization,
+      existingAttorneyRelatedPerson,
     });
-  }
-  if (workersCompAccountPost) {
-    transactionRequests.push({
-      url: '/Account',
-      method: 'POST',
-      resource: workersCompAccountPost,
-    });
-  }
-  if (occupationalMedicineAccountPost) {
-    transactionRequests.push({
-      url: '/Account',
-      method: 'POST',
-      resource: occupationalMedicineAccountPost,
-    });
-  }
-  if (emergencyContactPost) {
-    transactionRequests.push(emergencyContactPost);
+
+    console.log('account and coverage operations created', JSON.stringify(accountOperations, null, 2));
+
+    const {
+      patch,
+      accountPost,
+      put,
+      coveragePosts,
+      emergencyContactPost,
+      employerOrganizationPost,
+      employerOrganizationPut,
+      workersCompAccountPost,
+      workersCompAccountPut,
+      occupationalMedicineAccountPost,
+      occupationalMedicineAccountPut,
+      occupationalMedicineAccountDelete,
+      attorneyRelatedPersonPost,
+      attorneyRelatedPersonPut,
+    } = accountOperations;
+
+    const transactionRequests: BatchInputRequest<Account | RelatedPerson | Coverage | Patient | Organization>[] = [
+      ...coveragePosts,
+      ...patch,
+      ...put,
+    ];
+    if (employerOrganizationPost) {
+      transactionRequests.push(employerOrganizationPost);
+    }
+    if (employerOrganizationPut) {
+      transactionRequests.push(employerOrganizationPut);
+    }
+    if (attorneyRelatedPersonPost) {
+      transactionRequests.push(attorneyRelatedPersonPost);
+    }
+    if (attorneyRelatedPersonPut) {
+      transactionRequests.push(attorneyRelatedPersonPut);
+    }
+    if (workersCompAccountPut) {
+      transactionRequests.push(workersCompAccountPut);
+    }
+    if (occupationalMedicineAccountPut) {
+      transactionRequests.push(occupationalMedicineAccountPut);
+    }
+    if (occupationalMedicineAccountDelete) {
+      transactionRequests.push(occupationalMedicineAccountDelete);
+    }
+    if (accountPost) {
+      transactionRequests.push({
+        url: '/Account',
+        method: 'POST',
+        resource: accountPost,
+      });
+    }
+    if (workersCompAccountPost) {
+      transactionRequests.push({
+        url: '/Account',
+        method: 'POST',
+        resource: workersCompAccountPost,
+      });
+    }
+    if (occupationalMedicineAccountPost) {
+      transactionRequests.push({
+        url: '/Account',
+        method: 'POST',
+        resource: occupationalMedicineAccountPost,
+      });
+    }
+    if (emergencyContactPost) {
+      transactionRequests.push(emergencyContactPost);
+    }
+
+    try {
+      const bundle = await oystehr.fhir.transaction({ requests: transactionRequests });
+      // return the bundle to allow writing AuditEvents, etc.
+      return bundle;
+    } catch (error: unknown) {
+      const is412 =
+        (error as any)?.code === 412 ||
+        (error as any)?.statusCode === 412 ||
+        (typeof (error as any)?.message === 'string' && (error as any).message.includes('412'));
+      if (is412 && attempt < MAX_ACCOUNT_UPDATE_ATTEMPTS - 1) {
+        lastError = error;
+        console.log(
+          `Account update conflict (412) for patient ${patientId}, re-reading and retrying (attempt ${attempt + 1}/${
+            MAX_ACCOUNT_UPDATE_ATTEMPTS - 1
+          })`
+        );
+        continue;
+      }
+      console.log(`Failed to update Account: ${JSON.stringify(error)}`);
+      throw error;
+    }
   }
 
-  try {
-    console.time('updating account resources');
-    const bundle = await oystehr.fhir.transaction({ requests: transactionRequests });
-    console.timeEnd('updating account resources');
-    // return the bundle to allow writing AuditEvents, etc.
-    return bundle;
-  } catch (error: unknown) {
-    console.log(`Failed to update Account: ${JSON.stringify(error)}`);
-    throw error;
-  }
+  // Loop only exits via return or throw above; this satisfies the type checker
+  // and guards against an unexpected fall-through after exhausting retries.
+  throw lastError ?? new Error(`Failed to update Account for patient ${patientId} after optimistic-lock retries`);
 };
 
 interface UpdateStripeCustomerInput {
@@ -4187,6 +4317,32 @@ export const updateStripeCustomer = async (input: UpdateStripeCustomerInput): Pr
 function getAnswer(linkId: string, items: QuestionnaireResponseItem[]): QuestionnaireResponseItemAnswer | undefined {
   return items.find((data) => data.linkId === linkId)?.answer?.[0];
 }
+
+export const makeEncounterAccountPatchOp = (
+  currentEncounter: Encounter,
+  account: Account | undefined,
+  workersCompAccount: Account | undefined
+): Operation[] => {
+  const ops: Operation[] = [];
+
+  const patientAccountReference = account?.id ? `Account/${account.id}` : undefined;
+  const workersCompAccountReference = workersCompAccount?.id ? `Account/${workersCompAccount.id}` : undefined;
+
+  const { accounts: updatedEncounterAccounts, changed: accountsChanged } = mergeEncounterAccounts(
+    currentEncounter.account,
+    [patientAccountReference, workersCompAccountReference]
+  );
+
+  if (accountsChanged && updatedEncounterAccounts) {
+    ops.push({
+      op: currentEncounter.account ? 'replace' : 'add',
+      path: '/account',
+      value: updatedEncounterAccounts,
+    });
+  }
+
+  return ops;
+};
 
 export const mergeEncounterAccounts = (
   existingAccounts: Encounter['account'],

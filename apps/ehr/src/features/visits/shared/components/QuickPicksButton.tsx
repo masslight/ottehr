@@ -9,10 +9,12 @@ interface QuickPicksButtonProps<T> {
   getLabel: (item: T) => string;
   onSelect: (item: T) => void;
   disabled?: boolean;
+  loading?: boolean;
   showAddOption?: boolean;
   isAdmin?: boolean;
   onAddOrUpdate?: () => void;
   searchable?: boolean;
+  label?: string;
 }
 
 export const QuickPicksButton = <T,>({
@@ -20,10 +22,12 @@ export const QuickPicksButton = <T,>({
   getLabel,
   onSelect,
   disabled = false,
+  loading = false,
   showAddOption = false,
   isAdmin = false,
   onAddOrUpdate,
   searchable = false,
+  label = 'Quick Picks',
 }: QuickPicksButtonProps<T>): JSX.Element | null => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [searchText, setSearchText] = useState('');
@@ -31,7 +35,7 @@ export const QuickPicksButton = <T,>({
   const searchInputRef = useRef<HTMLInputElement>(null);
   const open = Boolean(anchorEl);
 
-  if (quickPicks.length === 0 && !showAddOption) {
+  if (quickPicks.length === 0 && !showAddOption && !loading) {
     return null;
   }
 
@@ -84,7 +88,7 @@ export const QuickPicksButton = <T,>({
           mb: 0.5,
         }}
       >
-        Quick Picks
+        {label}
       </Button>
       <Menu
         anchorEl={anchorEl}
@@ -154,7 +158,12 @@ export const QuickPicksButton = <T,>({
             />
           </MenuItem>
         )}
-        {(showAddOption || searchable) && filteredQuickPicks.length > 0 && <Divider />}
+        {(showAddOption || searchable) && (filteredQuickPicks.length > 0 || loading) && <Divider />}
+        {loading && quickPicks.length === 0 && (
+          <MenuItem disabled sx={{ fontStyle: 'italic', color: 'text.disabled' }}>
+            Loading…
+          </MenuItem>
+        )}
         {filteredQuickPicks.map((item, index) => (
           <MenuItem
             key={getLabel(item)}
@@ -164,7 +173,7 @@ export const QuickPicksButton = <T,>({
             {getLabel(item)}
           </MenuItem>
         ))}
-        {searchable && searchText && filteredQuickPicks.length === 0 && (
+        {searchable && searchText && filteredQuickPicks.length === 0 && !loading && (
           <MenuItem disabled sx={{ fontStyle: 'italic' }}>
             No matches
           </MenuItem>

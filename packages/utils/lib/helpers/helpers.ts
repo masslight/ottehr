@@ -40,7 +40,7 @@ import {
   ProviderTypeCode,
   ScheduleOwnerFhirResource,
 } from '../types';
-import { phoneRegex, zipRegex } from '../validation';
+import { emailRegex, phoneRegex, zipRegex } from '../validation';
 
 export function createOystehrClient(token: string, fhirAPI: string, projectAPI: string): Oystehr {
   const FHIR_API = fhirAPI.replace(/\/r4/g, '');
@@ -173,6 +173,13 @@ export function formatPhoneNumber(phoneNumber: string | undefined): string | und
   return tenDigitRegex.test(phoneNumber) ? `+1${phoneNumber}` : phoneNumber;
 }
 
+export const isEmailValid = (email: string | undefined): boolean => {
+  if (!email) {
+    return false;
+  }
+  return emailRegex.test(email);
+};
+
 export const isNPIValid = (npi: string): boolean => {
   const npiRegex = /^\d{10}$/;
   return npiRegex.test(npi);
@@ -183,7 +190,9 @@ export function formatPhoneNumberDisplay(phoneNumber?: string): string {
     return '';
   }
 
-  const cleaned = ('' + phoneNumber.slice(-10)).replace(/\D/g, '');
+  // Strip non-digits first, then take the last 10 digits so formatted inputs
+  // like "+1 (212) 555-1234" don't lose digits to the slice.
+  const cleaned = ('' + phoneNumber).replace(/\D/g, '').slice(-10);
   const match = cleaned.match(/^(\d{3})(\d{3})(\d{4})$/);
 
   if (match) {
@@ -191,6 +200,43 @@ export function formatPhoneNumberDisplay(phoneNumber?: string): string {
   }
 
   return phoneNumber;
+}
+
+/**
+ * Masks a phone number for safe logging, keeping the area code and the last 4 digits.
+ * e.g. "+12125551234" -> "(212) ***-1234". Falls back to a fully masked value when the
+ * input can't be parsed to 10 digits. Intended for logs only — do not persist on resources.
+ */
+export function maskPhoneNumber(phoneNumber?: string): string {
+  if (!phoneNumber) {
+    return '';
+  }
+  const formatted = formatPhoneNumberDisplay(phoneNumber);
+  // Mask the middle (exchange) group of a "(212) 555-1234" formatted number.
+  const masked = formatted.replace(/^(\(\d{3}\) )\d{3}(-\d{4})$/, '$1***$2');
+  // When the input can't be parsed to a 10-digit number, formatPhoneNumberDisplay
+  // returns the raw input unchanged (no replacement happens), so fully mask it.
+  return masked === formatted ? '***' : masked;
+}
+
+/**
+ * Masks an email address for safe logging, keeping the first few characters of the local
+ * part and the full domain. e.g. "jonathan@example.com" -> "jon***@example.com". Falls back
+ * to a fully masked value when there is no parseable local/domain. Intended for logs only —
+ * do not persist on resources.
+ */
+export function maskEmail(email?: string): string {
+  if (!email) {
+    return '';
+  }
+  const atIndex = email.lastIndexOf('@');
+  if (atIndex <= 0) {
+    return '***';
+  }
+  const local = email.slice(0, atIndex);
+  const domain = email.slice(atIndex); // includes leading '@'
+  const visible = local.slice(0, Math.min(3, local.length));
+  return `${visible}***${domain}`;
 }
 
 const getExtensionStartTimeValue = (extension: Extension): string | undefined =>
@@ -1588,6 +1634,10 @@ export const getNameFromScheduleResource = (scheduleResource: ScheduleOwnerFhirR
     location = scheduleResource.name;
   } else if (scheduleResource.resourceType === 'Practitioner') {
     location = getFullName(scheduleResource);
+  } else if (scheduleResource.resourceType === 'PractitionerRole') {
+    // Role doesn't carry a display name; callers that need a human-readable
+    // label should resolve the role's Practitioner separately.
+    location = `Role ${scheduleResource.id ?? ''}`.trim() || undefined;
   } else {
     location = scheduleResource.name;
   }
@@ -1731,6 +1781,67 @@ export function replaceTemplateVariablesHandlebars(template: string, variables: 
   } catch {
     return template;
   }
+}
+
+/**
+ * Escape HTML special characters to prevent XSS.
+ */
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+/** Only allow safe URL protocols for links. */
+function isSafeUrl(url: string): boolean {
+  const trimmed = url.trim().toLowerCase();
+  return trimmed.startsWith('http://') || trimmed.startsWith('https://') || trimmed.startsWith('mailto:');
+}
+
+/**
+ * Converts markdown-style links `[text](url)` in a string to HTML `<a>` tags.
+ * Escapes all text content and validates link protocols to prevent XSS.
+ */
+export function convertMarkdownLinksToHtml(text: string): string {
+  // Extract links from the original text, escape their parts, then rebuild.
+  let result = '';
+  let lastIndex = 0;
+  const linkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
+  let match;
+  while ((match = linkRegex.exec(text)) !== null) {
+    // Escape the text before this match
+    result += escapeHtml(text.slice(lastIndex, match.index));
+    const linkText = escapeHtml(match[1]);
+    const linkUrl = match[2].trim();
+    if (isSafeUrl(linkUrl)) {
+      result += `<a href="${escapeHtml(linkUrl)}">${linkText}</a>`;
+    } else {
+      // Unsafe protocol — render as plain text
+      result += linkText;
+    }
+    lastIndex = match.index + match[0].length;
+  }
+  result += escapeHtml(text.slice(lastIndex));
+  return result;
+}
+
+/**
+ * Converts plain-text outreach content (with optional markdown-style links)
+ * into HTML suitable for the generic outreach email template.
+ *
+ * - `[text](url)` → `<a href="url">text</a>` (safe protocols only)
+ * - Newlines → `<br>`
+ * - Wraps in a `<p>` tag
+ * - All text content is HTML-escaped to prevent XSS
+ */
+export function convertOutreachTextToHtml(text: string): string {
+  if (!text) return '';
+  const withLinks = convertMarkdownLinksToHtml(text);
+  const withBreaks = withLinks.replace(/\n/g, '<br>');
+  return `<p>${withBreaks}</p>`;
 }
 
 /**
