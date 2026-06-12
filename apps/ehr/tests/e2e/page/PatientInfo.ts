@@ -27,12 +27,12 @@ export class PatientInfoPage {
 
 export async function expectPatientInfoPage(page: Page): Promise<PatientInfoPage> {
   await page.waitForURL(new RegExp(`/in-person/.*/cc-and-intake-notes`), { timeout: 10000 });
-  await expect(
-    page.getByTestId(dataTestIds.patientInfoPage.patientInfoVerifiedCheckbox).locator('input')
-  ).toBeEnabled();
-  await page.getByTestId(dataTestIds.patientInfoPage.patientInfoVerifiedCheckbox).locator('input').setChecked(true);
-  await expect(
-    page.getByTestId(dataTestIds.patientInfoPage.patientInfoVerifiedCheckbox).locator('input')
-  ).toBeEnabled();
+  const checkbox = page.getByTestId(dataTestIds.patientInfoPage.patientInfoVerifiedCheckbox).locator('input');
+  // toPass retries the whole sequence: chart-data loading can briefly re-disable the checkbox mid-click.
+  await expect(async () => {
+    await expect(checkbox).toBeEnabled();
+    await checkbox.check({ timeout: 3000 });
+    await expect(checkbox).toBeChecked();
+  }).toPass({ timeout: 15000 });
   return new PatientInfoPage(page);
 }
