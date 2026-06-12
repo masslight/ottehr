@@ -141,9 +141,12 @@ export const MedicationCardView: React.FC<MedicationCardViewProps> = ({
     codes: NonNullable<MedicationData['cptCodes']>,
     unitSize: number | undefined
   ): NonNullable<MedicationData['cptCodes']> => {
-    const anyDesignated = codes.some((c) => c.isMedication);
-    return codes.map(({ code, display, isMedication }, index) => {
-      const isMedicationCode = anyDesignated ? isMedication === true : index === 0;
+    const designatedIndex = Math.max(
+      0,
+      codes.findIndex((c) => c.isMedication)
+    );
+    return codes.map(({ code, display }, index) => {
+      const isMedicationCode = index === designatedIndex;
       return {
         code,
         display,

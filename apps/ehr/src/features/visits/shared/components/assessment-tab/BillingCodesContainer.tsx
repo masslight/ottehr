@@ -414,11 +414,17 @@ export const BillingCodesContainer: FC<BillingCodesContainerProps> = ({
                 <Typography data-testid={dataTestIds.billingContainer.cptCodeEntry(value.code)}>
                   {makeCptCodeDisplay(value)}
                 </Typography>
-                {value.ndcCode && (
+                {(value.ndcCode || value.dose != null || value.billableUnits != null) && (
                   <Typography variant="body2" color="textSecondary">
-                    NDC: {value.ndcCode}
-                    {value.dose != null && ` • Dose: ${value.dose}${value.doseUnits ? ` ${value.doseUnits}` : ''}`}
-                    {` • Billable Units: ${value.billableUnits ?? 1}`}
+                    {[
+                      value.ndcCode ? `NDC: ${value.ndcCode}` : undefined,
+                      value.dose != null
+                        ? `Dose: ${value.dose}${value.doseUnits ? ` ${value.doseUnits}` : ''}`
+                        : undefined,
+                      `Billable Units: ${value.billableUnits ?? 1}`,
+                    ]
+                      .filter(Boolean)
+                      .join(' • ')}
                   </Typography>
                 )}
               </Box>
