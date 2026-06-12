@@ -1,11 +1,16 @@
+import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Encounter, Questionnaire, QuestionnaireItem, QuestionnaireResponse } from 'fhir/r4b';
+import { Encounter, List, Questionnaire, QuestionnaireItem, QuestionnaireResponse } from 'fhir/r4b';
 import {
+  APPOINTMENT_PAPERWORK_FLOW_EXTENSION_URL,
+  composeFormIds,
   getAllFhirSearchPages,
   INVALID_INPUT_ERROR,
   MISSING_REQUEST_BODY,
+  PAPERWORK_FLOW_TAG,
   PRACTICE_MANAGED_QR_TAG,
   PRACTICE_MANAGED_QUESTIONNAIRE_TAG,
+  toPaperworkFlowRecord,
 } from 'utils';
 import {
   createOystehrClient,
@@ -53,6 +58,49 @@ function findInsertionPoint(items: QuestionnaireItem[]): string | undefined {
   }
   // No finalization pages found — insert after the last page
   return pages.length > 0 ? pages[pages.length - 1].linkId : undefined;
+}
+
+/**
+ * If the encounter was booked with a practice paperwork flow (OTR-2309), return the flow's ordered
+ * form Questionnaire ids; otherwise undefined (so the caller falls back to per-canonical association).
+ * The flow id is stamped on the booked Encounter at create-appointment time.
+ */
+async function resolveFlowFormIds(oystehr: Oystehr, encounterId: string): Promise<string[] | undefined> {
+  // Lookup failures fall back to no-service-flow rather than breaking paperwork, but a
+  // transient error here silently drops the flow's forms — log so the signal isn't lost.
+  const encounter = await oystehr.fhir.get<Encounter>({ resourceType: 'Encounter', id: encounterId }).catch((err) => {
+    console.warn(`resolveFlowFormIds: failed to fetch Encounter/${encounterId}:`, err);
+    return null;
+  });
+  const flowId = (encounter?.extension ?? []).find((e) => e.url === APPOINTMENT_PAPERWORK_FLOW_EXTENSION_URL)
+    ?.valueString;
+  if (!flowId) return undefined;
+  const flowList = await oystehr.fhir.get<List>({ resourceType: 'List', id: flowId }).catch((err) => {
+    console.warn(`resolveFlowFormIds: failed to fetch flow List/${flowId}:`, err);
+    return null;
+  });
+  const record = flowList ? toPaperworkFlowRecord(flowList) : null;
+  return record?.formIds;
+}
+
+/**
+ * The base intake's attached form ids (OTR-2309 v2): the base flow bound to `intakeUrl` (the
+ * booking's resolved base canonical). These compose onto every booking on that base intake,
+ * regardless of service flow. Returns [] when no base flow / no forms.
+ */
+async function resolveBaseFlowForms(oystehr: Oystehr, intakeUrl: string): Promise<string[]> {
+  const lists = await getAllFhirSearchPages<List>(
+    {
+      resourceType: 'List',
+      params: [{ name: '_tag', value: PAPERWORK_FLOW_TAG.code }],
+    },
+    oystehr
+  );
+  for (const list of lists) {
+    const record = toPaperworkFlowRecord(list);
+    if (record?.canonical === intakeUrl) return record.formIds;
+  }
+  return [];
 }
 
 let oystehrToken: string;
@@ -240,16 +288,21 @@ export const index = wrapHandler(
     );
     const activePracticeManaged = allPracticeManaged.filter((q) => q.status === 'active');
 
-    // A standalone direct-id request returns just that form. Attaching forms to the intake
-    // itself is handled by paperwork flows (a separate change); here that set is empty, but
-    // forms with an existing QR on the encounter are still surfaced below (e.g. completed
-    // forms sent to the patient, shown in the EHR).
+    // Compose the forms this booking shows (OTR-2309 v2):
+    //   base intake forms (the base flow bound to the resolved canonical, on every such booking)
+    //   + service flow forms (the flow stamped on the encounter, if any),
+    // base-first, de-duped keep-first. A standalone direct-id request bypasses composition.
     let associated: Questionnaire[];
     if (directQuestionnaireId) {
       // Standalone form lookups must not serve retired forms to patients.
       associated = activePracticeManaged.filter((q) => q.id === directQuestionnaireId);
     } else {
-      associated = [];
+      const baseFormIds = await resolveBaseFlowForms(oystehr, intakeUrl);
+      const serviceFormIds = (encounterId ? await resolveFlowFormIds(oystehr, encounterId) : undefined) ?? [];
+      const byId = new Map(activePracticeManaged.map((q) => [q.id, q]));
+      associated = composeFormIds(baseFormIds, serviceFormIds)
+        .map((id) => byId.get(id))
+        .filter((q): q is Questionnaire => q !== undefined);
     }
 
     // Check for existing QRs on this encounter

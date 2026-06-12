@@ -12,6 +12,8 @@ export * from './convertFhirNameToDisplayName';
 export * from './list';
 export * from './location';
 export * from './healthcareService';
+export * from './base-paperwork-flows';
+export * from './paperwork-flow';
 export * from './medication-administration';
 export * from './vitals';
 export * from './encounter';

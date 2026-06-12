@@ -24,6 +24,7 @@ import { DateTime } from 'luxon';
 import { uuid } from 'short-uuid';
 import {
   ACCIDENT_TYPE_SYSTEM,
+  APPOINTMENT_PAPERWORK_FLOW_EXTENSION_URL,
   APPOINTMENT_PAPERWORK_SUBTYPE_SYSTEM,
   CanonicalUrl,
   CreateAppointmentResponse,
@@ -100,6 +101,7 @@ interface CreateAppointmentInput {
   /** Resolved attending Practitioner (populated for PractitionerRole bookings). */
   attendingPractitioner?: ResolvedAttendingPractitioner;
   paperworkSubtype?: string;
+  paperworkFlowId?: string;
 }
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
@@ -139,6 +141,7 @@ export const index = wrapHandler('create-appointment', async (input: ZambdaInput
     bookingLocation,
     attendingPractitioner,
     paperworkSubtype,
+    paperworkFlowId,
   } = effectInput;
   console.log('effectInput', effectInput);
   console.timeEnd('performing-complex-validation');
@@ -175,6 +178,7 @@ export const index = wrapHandler('create-appointment', async (input: ZambdaInput
       bookingLocation,
       attendingPractitioner,
       paperworkSubtype,
+      paperworkFlowId,
     },
     oystehr
   );
@@ -226,6 +230,7 @@ export async function createAppointment(
     bookingLocation,
     attendingPractitioner,
     paperworkSubtype,
+    paperworkFlowId,
   } = input;
 
   const { verifiedPhoneNumber, listRequests, createPatientRequest, updatePatientRequest, isEHRUser, maybeFhirPatient } =
@@ -310,6 +315,7 @@ export async function createAppointment(
     appointmentMetadata,
     followUpOptions: input.followUpOptions,
     paperworkSubtype,
+    paperworkFlowId,
   });
 
   let relatedPersonId = '';
@@ -404,6 +410,7 @@ interface TransactionInput {
   appointmentMetadata?: Appointment['meta'];
   followUpOptions?: FollowUpOptions;
   paperworkSubtype?: string;
+  paperworkFlowId?: string;
 }
 interface TransactionOutput {
   appointment: Appointment;
@@ -440,6 +447,7 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
     appointmentMetadata,
     followUpOptions,
     paperworkSubtype,
+    paperworkFlowId,
   } = input;
 
   const parentEncounterId = followUpOptions?.parentEncounterId;
@@ -511,6 +519,13 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
       getTelemedRequiredAppointmentEncounterExtensions(patientRef, nowIso);
     apptExtensions.push(...telemedApptExtensions);
     encExtensions.push(...telemedEncExtensions);
+  }
+
+  // Stamp the resolved practice paperwork flow (OTR-2309) on the encounter so the intake renderer
+  // serves this flow's forms. Mirror it onto the appointment so the flow is visible there too.
+  if (paperworkFlowId) {
+    encExtensions.push({ url: APPOINTMENT_PAPERWORK_FLOW_EXTENSION_URL, valueString: paperworkFlowId });
+    apptExtensions.push({ url: APPOINTMENT_PAPERWORK_FLOW_EXTENSION_URL, valueString: paperworkFlowId });
   }
 
   if (additionalInfo) {

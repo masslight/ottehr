@@ -112,6 +112,24 @@ export function parseReasonsForVisit(hs: HealthcareService): Array<{ label: stri
   );
 }
 
+/**
+ * Read the paperwork-flow id (OTR-2309) from the service-category JSON-blob config
+ * extension. Returns undefined when absent or the blob is unparseable.
+ */
+export function parsePaperworkFlowId(hs: HealthcareService): string | undefined {
+  const raw = hs.extension?.find((e) => e.url === SERVICE_CATEGORY_CONFIG_EXTENSION_URL)?.valueString;
+  if (!raw) return undefined;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return undefined;
+  }
+  if (parsed === null || typeof parsed !== 'object') return undefined;
+  const id = (parsed as { paperworkFlowId?: unknown }).paperworkFlowId;
+  return typeof id === 'string' && id.length > 0 ? id : undefined;
+}
+
 // ── Group readers ───────────────────────────────────────────────────────────
 
 export function getGroupAssignmentMode(hs: HealthcareService): GroupAssignmentMode | undefined {
