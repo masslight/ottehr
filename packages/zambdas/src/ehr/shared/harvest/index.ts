@@ -4147,6 +4147,15 @@ export const updatePatientAccountFromQuestionnaire = async (
     // optimistically-locked PUT below, rather than creating a competing one.
     if (!existingAccount) {
       const billingType = PATIENT_BILLING_ACCOUNT_TYPE?.coding?.[0];
+      // SDK ≥4.3.11 takes `ifNoneExist` as a single search-param query string
+      // (server sets it as the `If-None-Exist` HTTP header verbatim). Build
+      // with URLSearchParams so reserved characters in the system URL — `|`
+      // is the worst offender — are encoded the way FHIR expects.
+      const ifNoneExist = new URLSearchParams({
+        patient: `Patient/${patientId}`,
+        type: `${billingType?.system}|${billingType?.code}`,
+        status: 'active',
+      }).toString();
       await oystehr.fhir.create(
         {
           resourceType: 'Account',
@@ -4155,13 +4164,7 @@ export const updatePatientAccountFromQuestionnaire = async (
           subject: [{ reference: `Patient/${patientId}` }],
           description: 'Patient account',
         },
-        {
-          ifNoneExist: [
-            { name: 'patient', value: `Patient/${patientId}` },
-            { name: 'type', value: `${billingType?.system}|${billingType?.code}` },
-            { name: 'status', value: 'active' },
-          ],
-        }
+        { ifNoneExist }
       );
       // Re-read so the now-existing Account is treated as existing (and merged via the
       // PUT path) instead of created again. Skips computing/committing this iteration.

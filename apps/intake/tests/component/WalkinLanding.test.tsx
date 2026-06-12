@@ -91,7 +91,7 @@ describe('WalkinLanding — service-category routing', () => {
     renderAt('/walkin/schedule/sched-1?serviceCategory=urgent-care');
 
     // Wait for availability to resolve and the form to mount.
-    await waitFor(() => expect(screen.queryByText('Welcome')).toBeInTheDocument());
+    await waitFor(() => expect(screen.queryByText('Welcome')).not.toBeNull());
     expect(mockNavigate).not.toHaveBeenCalledWith(
       expect.stringContaining('/select-service-category'),
       expect.anything()
@@ -114,7 +114,7 @@ describe('WalkinLanding — service-category routing', () => {
 
     renderAt('/walkin/schedule/sched-1');
 
-    await waitFor(() => expect(screen.queryByText('Welcome')).toBeInTheDocument());
+    await waitFor(() => expect(screen.queryByText('Welcome')).not.toBeNull());
     expect(mockNavigate).not.toHaveBeenCalledWith(
       expect.stringContaining('/select-service-category'),
       expect.anything()
@@ -136,7 +136,7 @@ describe('WalkinLanding — service-category routing', () => {
 
     renderAt('/walkin/schedule/sched-1');
 
-    await waitFor(() => expect(screen.queryByText('Welcome')).toBeInTheDocument());
+    await waitFor(() => expect(screen.queryByText('Welcome')).not.toBeNull());
     expect(mockNavigate).not.toHaveBeenCalledWith(
       expect.stringContaining('/select-service-category'),
       expect.anything()
