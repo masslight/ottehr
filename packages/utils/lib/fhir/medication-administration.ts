@@ -376,6 +376,29 @@ export function getMedicationFromMA(medicationAdministration: MedicationAdminist
   return medicationAdministration.contained?.find((res) => res.resourceType === 'Medication') as Medication;
 }
 
+export const MEDICATION_CPT_CODES_EXTENSION_URL = 'https://fhir.ottehr.com/Extension/medication-cpt-codes';
+
+export interface MedicationCptCodeEntry {
+  code: string;
+  display: string;
+  isMedication?: boolean;
+  billableUnitSize?: number;
+  billableUnits?: number;
+}
+
+/** Parses the CPT/HCPCS codes (with optional billing unit data) stored on a MedicationAdministration extension. */
+export function getCptCodesFromMA(
+  medicationAdministration: MedicationAdministration
+): MedicationCptCodeEntry[] | undefined {
+  const ext = medicationAdministration.extension?.find((e) => e.url === MEDICATION_CPT_CODES_EXTENSION_URL);
+  if (!ext?.valueString) return undefined;
+  try {
+    return JSON.parse(ext.valueString) as MedicationCptCodeEntry[];
+  } catch {
+    return undefined;
+  }
+}
+
 export function getNdcCodeFromMedication(medication: Medication): string | undefined {
   const medicationCoding = medication.code;
   return getCoding(medicationCoding, CODE_SYSTEM_NDC)?.code;

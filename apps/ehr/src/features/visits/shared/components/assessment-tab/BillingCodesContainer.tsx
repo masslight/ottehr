@@ -417,6 +417,8 @@ export const BillingCodesContainer: FC<BillingCodesContainerProps> = ({
                 {value.ndcCode && (
                   <Typography variant="body2" color="textSecondary">
                     NDC: {value.ndcCode}
+                    {value.dose != null && ` • Dose: ${value.dose}${value.doseUnits ? ` ${value.doseUnits}` : ''}`}
+                    {` • Billable Units: ${value.billableUnits ?? 1}`}
                   </Typography>
                 )}
               </Box>
