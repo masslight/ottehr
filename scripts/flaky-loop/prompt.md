@@ -49,15 +49,15 @@ the loop can run all night. Resist the urge to fix everything in one session.
 ## The fix cycle (for a single test)
 
 1. **Reproduce.** Run the target test many times and measure the failure rate.
-   Use a focused, repeated run (see Commands). If it now passes 25/25, it may
+   Use a focused, repeated run (see Commands). If it now passes 10/10, it may
    already be fixed or environment-dependent — note that and stop.
 2. **Diagnose.** Read the test and the code it exercises. Read the failure
    output / traces. Form a concrete hypothesis about the race or nondeterminism.
    Common Ottehr causes: missing awaits on navigation/network, debounced search
    inputs, test-data setup timing, non-isolated tests sharing state, brittle selectors.
 3. **Apply ONE change** addressing the hypothesis.
-4. **Validate.** Re-run the target **25 times with zero failures** before
-   calling it fixed. Fewer than 25/25 → it's not fixed; record the attempt.
+4. **Validate.** Re-run the target **10 times with zero failures** before
+   calling it fixed. Fewer than 10/10 → it's not fixed; record the attempt.
    Then run the target's WHOLE spec file once (no --grep) to check your change
    didn't break sibling tests — especially if you touched shared helpers or
    page objects. A fix that breaks neighbors is not a fix.
@@ -95,16 +95,16 @@ single run is heavy and slow — budget for that and prefer focused runs.
 - Full EHR suite (does login, then all specs):
   `npm run ehr:e2e:local`
 - Focused repeated run of ONE test (skips login):
-  `npm run ehr:e2e:local -- --specs-only --test-file=<spec.ts> --grep="<test title>" --repeat-each=25`
+  `npm run ehr:e2e:local -- --specs-only --test-file=<spec.ts> --grep="<test title>" --repeat-each=10`
   (e.g. `--test-file=patients.spec.ts --grep="filters patients by name"`)
 - Existing flaky-detection helper (repeats specs 10x): `npm run ehr:e2e:local:flaky`
 
 Parallelism (IMPORTANT for honest measurement):
 - The Playwright config is `fullyParallel: true` with unlimited local workers and
-  `retries: 0` locally. So `--repeat-each=25` runs many copies of the SAME test
+  `retries: 0` locally. So `--repeat-each=10` runs many copies of the SAME test
   concurrently against one stack and shared backend state.
 - The runner accepts `--workers=N` (passed through to Playwright). Use it to
-  diagnose: if the test passes 25/25 with `--workers=1` but fails repeated
+  diagnose: if the test passes 10/10 with `--workers=1` but fails repeated
   parallel runs, the failure is cross-copy interference — shared/mutated test
   data, hardcoded records, missing isolation. That is a REAL bug class worth
   fixing (give the test its own data / make it idempotent), not noise to ignore.
