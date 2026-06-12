@@ -62,6 +62,48 @@ describe('HeightMeasurement half-inch snapping (.25 / .50 / .75 ties round up)',
   });
 });
 
+describe('HeightMeasurement text parsing', () => {
+  it('parses valid cm / inches text', () => {
+    expect(HeightMeasurement.fromCmText('169.5')?.getCm(1)).toBe(169.5);
+    expect(HeightMeasurement.fromInchesText('66.75')?.getInches()).toBe(66.75);
+  });
+
+  it('tolerates a trailing decimal point (in-progress typing)', () => {
+    expect(HeightMeasurement.fromCmText('169.')?.getCm(1)).toBe(169);
+  });
+
+  it('returns undefined for blank, whitespace and invalid text', () => {
+    expect(HeightMeasurement.fromCmText('')).toBeUndefined();
+    expect(HeightMeasurement.fromCmText('   ')).toBeUndefined();
+    expect(HeightMeasurement.fromCmText('abc')).toBeUndefined();
+    expect(HeightMeasurement.fromInchesText('')).toBeUndefined();
+    expect(HeightMeasurement.fromInchesText('1.2.3')).toBeUndefined();
+  });
+
+  describe('fromFeetInchesText', () => {
+    it('returns undefined when both inputs are empty/whitespace', () => {
+      expect(HeightMeasurement.fromFeetInchesText('', '')).toBeUndefined();
+      expect(HeightMeasurement.fromFeetInchesText('  ', '')).toBeUndefined();
+    });
+
+    it('treats a missing part as zero', () => {
+      expect(HeightMeasurement.fromFeetInchesText('5', '')?.getInches()).toBe(60);
+      expect(HeightMeasurement.fromFeetInchesText('', '6')?.getInches()).toBe(6);
+    });
+
+    it('combines feet and inch remainder', () => {
+      const height = HeightMeasurement.fromFeetInchesText('5', '9');
+      expect(height?.getFeet()).toBe(5);
+      expect(height?.getInchRemainder()).toBe(9);
+    });
+
+    it('returns undefined when a provided part is invalid', () => {
+      expect(HeightMeasurement.fromFeetInchesText('abc', '6')).toBeUndefined();
+      expect(HeightMeasurement.fromFeetInchesText('5', 'xx')).toBeUndefined();
+    });
+  });
+});
+
 describe('height labels', () => {
   it('formats the feet-inches label with half inches', () => {
     expect(HeightMeasurement.fromFeetInches(5, 6.5).getFeetInchesLabel()).toBe(`5'6.5"`);
