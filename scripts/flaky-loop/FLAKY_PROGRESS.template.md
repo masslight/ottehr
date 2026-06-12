@@ -14,6 +14,12 @@ concise, and accurate.
 - Validation threshold: a test is `fixed` only after **10 consecutive passes, 0 failures**
 - Max fix attempts per test before `gave-up`: **4**
 
+## Awaiting
+<!-- When you request a test run (write to state/RUN_REQUEST) and stop, note here
+     exactly what the pending RUN_RESULT will be for, so the next session knows
+     what to do with it. Clear it once consumed. -->
+- (nothing pending)
+
 ---
 
 ## Flaky tests

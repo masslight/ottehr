@@ -34,6 +34,11 @@ LOG_DIR="$HERE/logs"
 PROMPT_FILE="$HERE/prompt.md"
 PROGRESS_FILE="$STATE_DIR/FLAKY_PROGRESS.md"
 STOP_FILE="$STATE_DIR/STOP"
+# Test-run channel: the agent writes the command it wants run to RUN_REQUEST and
+# exits; the driver runs it (no 10-min Bash-tool cap, no fragile in-session
+# waiting) and leaves the outcome in RUN_RESULT for the next session to read.
+RUN_REQUEST="$STATE_DIR/RUN_REQUEST"
+RUN_RESULT="$STATE_DIR/RUN_RESULT"
 
 MAX_ITERS="${MAX_ITERS:-50}"
 MODEL="${MODEL:-claude-sonnet-4-6}"
@@ -149,6 +154,52 @@ else
   echo "         (macOS: 'brew install coreutils' to get gtimeout.)"
 fi
 
+# Run the test command the agent requested this iteration (if any), in the
+# driver itself. The agent CANNOT reliably wait on a 20-40 min run inside a
+# one-shot `claude -p` session (it dies in the quiet gaps; the Bash tool also
+# caps foreground commands at 10 min), so the driver — plain bash, no cap — does
+# the waiting and leaves a distilled result for the next session to read.
+run_requested_test() {
+  [[ -f "$RUN_REQUEST" ]] || return 0
+  local req; req="$(head -1 "$RUN_REQUEST")"
+  rm -f "$RUN_REQUEST"
+
+  # Safety: only ever run the e2e npm scripts, never arbitrary file contents.
+  if [[ "$req" != npm\ run\ ehr:e2e* && "$req" != npm\ run\ intake:e2e* ]]; then
+    { echo "command: $req"; echo "exit_code: -1"
+      echo "error: refused — only 'npm run ehr:e2e*' / 'npm run intake:e2e*' allowed"; } > "$RUN_RESULT"
+    echo ">>> Refused test request (not an allowed e2e script): $req"
+    return 0
+  fi
+
+  local rts run_log rc
+  rts="$(date +%Y%m%d-%H%M%S)"
+  run_log="$LOG_DIR/run-$(printf '%03d' "$i")-$rts.log"
+  echo ">>> Driver running requested test (can take 10-40 min): $req"
+  echo ">>>   log: $run_log"
+  if [[ -n "$TIMEOUT_BIN" ]]; then
+    { "$TIMEOUT_BIN" -k 30 "$ITER_TIMEOUT" bash -c "$req" >"$run_log" 2>&1; } &
+  else
+    { bash -c "$req" >"$run_log" 2>&1; } &
+  fi
+  wait $! ; rc=$?
+  kill_dev_servers
+
+  # Distill to a small, signal-rich summary (the full log is huge and mostly
+  # zambda server noise); the next session reads this instead of the raw log.
+  {
+    echo "command: $req"
+    echo "exit_code: $rc"
+    [[ $rc -eq 124 ]] && echo "note: TIMED OUT after ${ITER_TIMEOUT}s"
+    echo "log: $run_log"
+    echo "--- result lines (filtered) ---"
+    grep -aE '✓|✘|✗|×|[0-9]+ (passed|failed|flaky|skipped)|Error:|TimeoutError|expect\(' "$run_log" \
+      | grep -avE 'zambdas:start:iac|ehr-ui:|intake-ui:|Got auth0|Fetching auth0' \
+      | tail -80
+  } > "$RUN_RESULT"
+  echo ">>> Test run finished (exit $rc). Summary -> $RUN_RESULT"
+}
+
 cd "$REPO_ROOT"
 
 # A leftover STOP from a previous run shouldn't silently abort a fresh launch.
@@ -158,6 +209,10 @@ if [[ -f "$STOP_FILE" ]]; then
   rm -f "$STOP_FILE"
   echo "Cleared a stale STOP file from a previous run."
 fi
+
+# Clear any stale test-run channel files so the first session starts clean: a
+# leftover RUN_REQUEST must not auto-run, and a stale RUN_RESULT must not mislead.
+rm -f "$RUN_REQUEST" "$RUN_RESULT"
 
 # Clear e2e dev servers orphaned by a previous run (e.g. one that ended in
 # `kill -9`, which can't run cleanup). Start from a known-clean slate.
@@ -239,6 +294,14 @@ for (( i=1; i<=MAX_ITERS; i++ )); do
 
   if [[ -f "$STOP_FILE" ]]; then
     continue   # let the top-of-loop check report and exit without a backoff wait
+  fi
+
+  # If the session asked for a test run, the driver executes it now (the agent
+  # never runs e2e tests itself) and leaves the outcome for the next session.
+  run_requested_test
+
+  if [[ -f "$STOP_FILE" ]]; then
+    continue
   fi
 
   if [[ $code -eq 124 ]]; then
