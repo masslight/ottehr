@@ -92,6 +92,37 @@ The repo root is the working directory. The E2E runner reboots the local stack
 (kills ports 3000/3002/4002 and starts zambdas + apps) on every invocation, so a
 single run is heavy and slow — budget for that and prefer focused runs.
 
+### Test runs are SLOW — you MUST wait for them in-session (read this carefully)
+
+A single run takes ~10–40 minutes. The driver gives this session up to 2 hours,
+so there is plenty of time — but you have to stay in the session until the run
+actually finishes and you have read its results.
+
+CRITICAL: this is a one-shot headless session. **If you end your turn while a
+test run is still going, the whole session terminates and the run is abandoned**
+(the driver kills it before the next iteration). That is the #1 failure mode of
+this loop: a fix gets applied but never validated or committed, so every later
+iteration re-discovers the same uncommitted diff and the loop spins forever.
+
+Therefore, when you run tests:
+- Do NOT start a run in the background and then end your turn "waiting to be
+  notified when it completes." In headless mode you will NOT be notified — the
+  session is already over. The run dies with it.
+- Block until the run finishes, then read its full output, THEN act. Two ways:
+  1. **Foreground (preferred for runs that fit):** run the command directly and
+     set the Bash tool `timeout` to its maximum (600000 ms = 10 min). Good when
+     a focused run completes inside 10 minutes.
+  2. **Background + actively wait (for longer runs):** start it with
+     `run_in_background: true`, then immediately BLOCK with the **Monitor** tool
+     using an until-loop that waits for the run to finish — e.g. poll the
+     background task's output file until it contains the Playwright run summary
+     (a line like `N passed` / `N failed`). Only once it has completed do you
+     read the full output and proceed.
+- Never chain bare `sleep`s to wait (the harness blocks that). Use Monitor.
+
+Do not update the progress file, commit, or end your turn until the test run has
+genuinely completed and you have its pass/fail results in hand.
+
 - Full EHR suite (does login, then all specs):
   `npm run ehr:e2e:local`
 - Focused repeated run of ONE test (skips login):
