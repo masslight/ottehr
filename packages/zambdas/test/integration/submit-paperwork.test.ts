@@ -10,11 +10,13 @@ import {
 } from '../helpers/integration-test-seed-data-setup';
 import { generatePaperworkAnswers } from '../helpers/paperwork-answers';
 
-// Happy path for submit-paperwork: submit the full set of intake answers for an
-// in-progress paperwork QuestionnaireResponse. The questionnaire (and therefore
-// the required answer set) is resolved from the running instance's config and
-// the answers are synthesized from that definition, so this is valid for any
-// instance regardless of questionnaire version/shape.
+// Happy path for submit-paperwork, exercised the way the intake app actually
+// drives it: the QR starts as empty page skeletons, every page is saved through
+// the real patch-paperwork endpoint (page-by-page, just like a patient filling
+// out the form), and only then is submit-paperwork called to finalize. The
+// questionnaire — and therefore the answer set — is resolved from the running
+// instance's config and synthesized from that definition, so this is valid for
+// any instance regardless of questionnaire version/shape.
 describe('submit-paperwork integration — happy path', () => {
   let oystehrAdmin: Oystehr;
   let oystehrPatient: Oystehr;
@@ -36,10 +38,10 @@ describe('submit-paperwork integration — happy path', () => {
       ...base.questionnaireResponse,
       questionnaire: `${questionnaire.url}|${questionnaire.version}`,
       status: 'in-progress',
-      item: [],
+      // Start from empty page skeletons so each page index exists for patch to target.
+      item: (questionnaire.item ?? []).map((page) => ({ linkId: page.linkId, item: [] })),
     });
     questionnaireResponseId = qr.id!;
-    // Synthesize a complete, valid answer set from this instance's questionnaire.
     answers = generatePaperworkAnswers(questionnaire, qr);
   }, 60_000);
 
@@ -47,7 +49,20 @@ describe('submit-paperwork integration — happy path', () => {
     await cleanup();
   });
 
-  it('submits the full paperwork', async () => {
+  it('fills out every page via patch-paperwork, then submits', async () => {
+    // Save each page through the real save-page endpoint, serially (each call
+    // patches the same QR, so concurrent writes would race on the version).
+    for (const page of answers) {
+      if (!page.item?.length) continue;
+      const patchResponse = await oystehrPatient.zambda.executePublic({
+        id: 'patch-paperwork',
+        questionnaireResponseId,
+        appointmentId: base.appointment.id,
+        answers: page,
+      });
+      expect(patchResponse.output).toBeDefined();
+    }
+
     const response = await oystehrPatient.zambda.executePublic({
       id: 'submit-paperwork',
       questionnaireResponseId,
@@ -55,5 +70,12 @@ describe('submit-paperwork integration — happy path', () => {
       answers,
     });
     expect(response.output).toBeDefined();
+
+    // The submission finalized the paperwork: the QR is no longer in-progress.
+    const finalQr = await oystehrAdmin.fhir.get<QuestionnaireResponse>({
+      resourceType: 'QuestionnaireResponse',
+      id: questionnaireResponseId,
+    });
+    expect(['completed', 'amended']).toContain(finalQr.status);
   });
 });

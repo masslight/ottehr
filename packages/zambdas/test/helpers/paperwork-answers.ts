@@ -10,6 +10,7 @@ import {
   evalEnableWhen,
   evalFilterWhen,
   evalRequired,
+  flattenIntakeQuestionnaireItems,
   IntakeQuestionnaireItem,
   mapQuestionnaireAndValueSetsToItemsList,
 } from 'utils';
@@ -51,7 +52,49 @@ const stringValueForItem = (item: IntakeQuestionnaireItem): string => {
   return 'Integration Test';
 };
 
-const answerForLeaf = (item: IntakeQuestionnaireItem): QuestionnaireResponseItemAnswer[] | undefined => {
+// Counts how many other fields/pages a given answer value to `item` would pull
+// in (via enableWhen/requireWhen `=` conditions referencing it). Used to choose
+// the answer option that triggers the fewest downstream required fields — e.g.
+// preferring a self-pay payment option over an insurance one, instance-agnostically.
+const cascadeCountForValue = (
+  linkId: string,
+  value: string | undefined,
+  allItems: IntakeQuestionnaireItem[]
+): number => {
+  if (value === undefined) return Number.MAX_SAFE_INTEGER;
+  let count = 0;
+  for (const it of allItems) {
+    for (const ew of it.enableWhen ?? []) {
+      if (ew.question === linkId && ew.operator === '=' && ew.answerString === value) count++;
+    }
+    const rw = it.requireWhen;
+    if (rw && rw.question === linkId && rw.operator === '=' && rw.answerString === value) count++;
+  }
+  return count;
+};
+
+const leastCascadingOption = (
+  item: IntakeQuestionnaireItem,
+  allItems: IntakeQuestionnaireItem[]
+): string | undefined => {
+  const options = (item.answerOption ?? []).map((o) => o.valueString).filter((v): v is string => v !== undefined);
+  if (options.length === 0) return undefined;
+  let best = options[0];
+  let bestCount = cascadeCountForValue(item.linkId, best, allItems);
+  for (const value of options.slice(1)) {
+    const c = cascadeCountForValue(item.linkId, value, allItems);
+    if (c < bestCount) {
+      best = value;
+      bestCount = c;
+    }
+  }
+  return best;
+};
+
+const answerForLeaf = (
+  item: IntakeQuestionnaireItem,
+  allItems: IntakeQuestionnaireItem[]
+): QuestionnaireResponseItemAnswer[] | undefined => {
   switch (item.type) {
     case 'boolean':
       return [{ valueBoolean: item.requiredBooleanValue ?? true }];
@@ -72,11 +115,18 @@ const answerForLeaf = (item: IntakeQuestionnaireItem): QuestionnaireResponseItem
     case 'choice':
     case 'open-choice': {
       if (item.answerOption && item.answerOption.length > 0) {
-        return [{ valueString: item.answerOption[0].valueString }];
+        return [{ valueString: leastCascadingOption(item, allItems) }];
       }
       if (item.answerLoadingOptions?.answerSource) {
-        // reference-backed choice — schema only requires reference + display strings
-        return [{ valueReference: { reference: 'Organization/example', display: 'Integration Test' } }];
+        // reference-backed choice — value must be a syntactically valid FHIR reference (uuid)
+        return [
+          {
+            valueReference: {
+              reference: 'Organization/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+              display: 'Integration Test',
+            },
+          },
+        ];
       }
       // value-set-backed or free choice — any non-empty string passes validation
       return [{ valueString: stringValueForItem(item) }];
@@ -91,7 +141,8 @@ const answerForLeaf = (item: IntakeQuestionnaireItem): QuestionnaireResponseItem
 
 const buildAnswersForFields = (
   fields: IntakeQuestionnaireItem[],
-  context: Record<string, any>
+  context: Record<string, any>,
+  allItems: IntakeQuestionnaireItem[]
 ): QuestionnaireResponseItem[] => {
   const out: QuestionnaireResponseItem[] = [];
   for (const field of fields) {
@@ -99,7 +150,7 @@ const buildAnswersForFields = (
     if (evalFilterWhen(field, context)) continue;
 
     if (field.type === 'group') {
-      const children = buildAnswersForFields(field.item ?? [], context);
+      const children = buildAnswersForFields(field.item ?? [], context, allItems);
       if (children.length > 0) {
         out.push({ linkId: field.linkId, item: children });
       }
@@ -107,7 +158,7 @@ const buildAnswersForFields = (
     }
 
     if (!evalRequired(field, context)) continue;
-    const answer = answerForLeaf(field);
+    const answer = answerForLeaf(field, allItems);
     if (answer) out.push({ linkId: field.linkId, answer });
   }
   return out;
@@ -124,6 +175,7 @@ export const generatePaperworkAnswers = (
   questionnaireResponse?: QuestionnaireResponse
 ): QuestionnaireResponseItem[] => {
   const pages = mapQuestionnaireAndValueSetsToItemsList(questionnaire.item ?? [], []);
+  const allItems = flattenIntakeQuestionnaireItems(pages);
 
   let answers: QuestionnaireResponseItem[] = [];
   for (let pass = 0; pass < 6; pass++) {
@@ -131,7 +183,7 @@ export const generatePaperworkAnswers = (
     const next: QuestionnaireResponseItem[] = [];
     for (const page of pages) {
       if (!evalEnableWhen(page, pages, context, questionnaireResponse)) continue;
-      const pageItems = buildAnswersForFields(page.item ?? [], context);
+      const pageItems = buildAnswersForFields(page.item ?? [], context, allItems);
       next.push({ linkId: page.linkId, item: pageItems });
     }
     const stable = JSON.stringify(next) === JSON.stringify(answers);
