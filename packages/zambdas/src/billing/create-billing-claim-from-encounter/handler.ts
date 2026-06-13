@@ -14,6 +14,7 @@ import {
   ClaimDiagnosis,
   ClaimItem,
   CodeableConcept,
+  Coding,
   Condition,
   Coverage,
   Encounter,
@@ -47,7 +48,6 @@ import {
   getSecret,
   getTimezone,
   InternalError,
-  isAppointmentAutoAccident,
   isAppointmentOccupationalMedicine,
   isAppointmentUrgentCare,
   isAppointmentWorkersComp,
@@ -70,6 +70,7 @@ import {
   ZambdaInput,
 } from '../../shared';
 import {
+  APPOINTMENT_TYPE_TAG_SYSTEM,
   BILLING_RESOURCE_TAG,
   BILLING_WORKING_COPY_TAG,
   BillingFhirResource,
@@ -88,7 +89,7 @@ export interface CreateClaimFromEncounterParams extends CreateBillingClaimFromEn
 export type ComplexValidationOutput = { clinicalResources: ClinicalResources; billingResources: BillingResources };
 
 type CoverageRefs = { coverageRef: Reference; payorRef: Reference }[];
-type EncounterType = 'uc' | 'wc' | 'occmed' | 'auto';
+type AppointmentType = 'uc' | 'wc' | 'occmed';
 
 interface ClinicalResources {
   encounter: Encounter;
@@ -327,15 +328,17 @@ export async function performEffect(
   }
   order.push('person');
 
-  const encounterType = determineEncounterType(clinicalResources.appointment);
-
   const claim = buildClaim({
     patientId: claimPatient.id,
     encounter: clinicalResources.encounter,
     appointment: clinicalResources.appointment,
     diagnoses: clinicalResources.diagnoses,
     procedures: clinicalResources.procedures,
-    coverageRefs: getClaimCoveragesForEncounter(encounterType, mainPatientAccounts, claimCoverages),
+    coverageRefs: getClaimCoveragesForEncounter(
+      getAppointmentType(clinicalResources.appointment),
+      mainPatientAccounts,
+      claimCoverages
+    ),
     renderingProvider: billingResources.renderingProvider,
     serviceFacility: billingResources.serviceFacility,
     billingProvider: billingResources.billingProvider,
@@ -407,12 +410,8 @@ function uuidOrUrnReferenceString(resourceType: BillingFhirResource['resourceTyp
   return `${resourceType}/${uuidOrUrn}`;
 }
 
-function determineEncounterType(appointment: Appointment): EncounterType {
+function getAppointmentType(appointment: Appointment): AppointmentType {
   if (isAppointmentUrgentCare(appointment)) {
-    // Auto is a subset of UC
-    if (isAppointmentAutoAccident(appointment)) {
-      return 'auto';
-    }
     return 'uc';
   }
   if (isAppointmentWorkersComp(appointment)) {
@@ -425,11 +424,11 @@ function determineEncounterType(appointment: Appointment): EncounterType {
 }
 
 export function getClaimCoveragesForEncounter(
-  encounterType: EncounterType,
+  appointmentType: AppointmentType,
   mainPatientAccounts: Account[],
   claimCoverages: Coverage[]
 ): CoverageRefs {
-  switch (encounterType) {
+  switch (appointmentType) {
     case 'uc': {
       const ucAccount = mainPatientAccounts.find(
         (mpacc) => mpacc.type?.coding?.some((c) => c.system === ACCOUNT_TYPE_CODE_SYSTEM && c.code === 'PBILLACCT')
@@ -465,7 +464,7 @@ export function getClaimCoveragesForEncounter(
     }
     case 'wc': {
       const wcAccount = mainPatientAccounts.find(
-        (mpacc) => mpacc.type?.coding?.some((c) => c.system === ACCOUNT_TYPE_CODE_SYSTEM && c.code === 'WCMOPACCT')
+        (mpacc) => mpacc.type?.coding?.some((c) => c.system === ACCOUNT_TYPE_CODE_SYSTEM && c.code === 'WCOMPACCT')
       );
       let wcCoverage: Coverage | undefined;
       wcAccount?.coverage?.forEach((wccov) => {
@@ -489,9 +488,6 @@ export function getClaimCoveragesForEncounter(
       // TODO: Support non-insurance payers
       return [];
     }
-    case 'auto':
-      // Really depends on the case, resolve manually
-      return [];
   }
 }
 
@@ -903,7 +899,7 @@ function buildClaim(resources: ClaimResources): Claim {
   const claim: Claim = {
     resourceType: 'Claim',
     status: 'draft',
-    meta: { tag: [{ system: CURRENT_STATUS_TAG_SYSTEM, code: 'open' }] },
+    meta: { tag: [{ system: CURRENT_STATUS_TAG_SYSTEM, code: 'open' }, getAppointmentTypeTag(resources.appointment)] },
     type: { coding: [{ system: CODE_SYSTEM_CLAIM_TYPE, code: 'professional' }] },
     use: 'claim',
     created: now,
@@ -912,7 +908,11 @@ function buildClaim(resources: ClaimResources): Claim {
       ? { reference: `Organization/${resources.billingProvider.id}` }
       : { display: 'Unknown' },
     facility: resources.serviceFacility ? { reference: `Location/${resources.serviceFacility.id}` } : undefined,
-    insurer: resources.coverageRefs[0].payorRef ? resources.coverageRefs[0].payorRef : undefined,
+    insurer: resources.coverageRefs.length
+      ? resources.coverageRefs[0].payorRef
+        ? resources.coverageRefs[0].payorRef
+        : undefined
+      : undefined,
     insurance: resources.coverageRefs.map((cov, i) => ({
       sequence: i + 1,
       focal: i === 0,
@@ -989,6 +989,18 @@ function buildClaim(resources: ClaimResources): Claim {
 function getLocalDateOfService(appointmentStart: string, location: Location | undefined): string {
   const timezone = location ? getTimezone(location) : TIMEZONES[0];
   return DateTime.fromISO(appointmentStart).setZone(timezone).toISODate()!;
+}
+
+function getAppointmentTypeTag(appointment: Appointment): Coding {
+  const type = getAppointmentType(appointment);
+  switch (type) {
+    case 'uc':
+      return { system: APPOINTMENT_TYPE_TAG_SYSTEM, code: 'urgent-care' };
+    case 'occmed':
+      return { system: APPOINTMENT_TYPE_TAG_SYSTEM, code: 'occupational-medicine' };
+    case 'wc':
+      return { system: APPOINTMENT_TYPE_TAG_SYSTEM, code: 'workers-comp' };
+  }
 }
 
 export async function complexValidation(

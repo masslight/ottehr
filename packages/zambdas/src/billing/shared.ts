@@ -38,6 +38,7 @@ export const BILLING_WORKING_COPY_TAG = {
 };
 
 export const CURRENT_STATUS_TAG_SYSTEM = 'current-status';
+export const APPOINTMENT_TYPE_TAG_SYSTEM = 'appointment-type';
 
 // TODO: this function has fallback chain so it is hard to return enum and we don't have standardized status codes yet
 export function getClaimStatus(claim: Claim): string {
