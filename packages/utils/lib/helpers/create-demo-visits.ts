@@ -318,8 +318,20 @@ export const createSampleAppointments = async ({
             } catch {
               responseBody = text;
             }
+            // On-failure diagnostic for the recurring 4019 flake. slotId +
+            // worker + timestamp is enough to fetch the slot manually
+            // later, correlate against parallel runs, and check whether it
+            // elapsed between create-slot and create-appointment.
+            const diagnostic = JSON.stringify({
+              slotId: randomPatientInfo.slotId,
+              worker: process.env.TEST_PARALLEL_INDEX ?? 'n/a',
+              appointmentIndex: i,
+              serviceMode: serviceModeToUse,
+              timestamp: DateTime.now().toISO(),
+            });
             throw new Error(
-              `Failed to create appointment. Status: ${createAppointmentResponse.status}\nResponse body: ${responseBody}`
+              `Failed to create appointment. Diagnostic: ${diagnostic}\n` +
+                `Status: ${createAppointmentResponse.status}\nResponse body: ${responseBody}`
             );
           }
 
