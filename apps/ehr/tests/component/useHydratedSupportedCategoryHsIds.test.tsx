@@ -98,6 +98,31 @@ describe('useHydratedSupportedCategoryHsIds', () => {
     expect(result.current[0]).toEqual([]);
   });
 
+  it('re-hydrates when `group.id` changes (multi-group navigation in the same mounted component)', () => {
+    // Without per-group tracking, a single boolean ref would lock after the
+    // first group hydrates and the second group's allow-list would never
+    // appear. The ref keys on group.id so a new id triggers re-hydration
+    // even though the hook hasn't unmounted.
+    const fullMap = new Map([
+      BOOKING_CONFIG_ENTRY('urgent-care'),
+      FHIR_ENTRY('hs-uuid-massage', 'massage'),
+      FHIR_ENTRY('hs-uuid-acne', 'acne-facial'),
+    ]);
+    const groupA = { ...groupWithCategories('urgent-care', 'massage'), id: 'group-a' };
+    const groupB = { ...groupWithCategories('acne-facial'), id: 'group-b' };
+
+    const { result, rerender } = renderHook(
+      ({ group }: { group: HealthcareService }) => useHydratedSupportedCategoryHsIds(group, fullMap, true),
+      { initialProps: { group: groupA } }
+    );
+    expect(new Set(result.current[0])).toEqual(new Set(['urgent-care', 'hs-uuid-massage']));
+
+    // Navigate to group B (same component instance, new id). State should
+    // reflect group B's stored codes, not group A's.
+    rerender({ group: groupB });
+    expect(result.current[0]).toEqual(['hs-uuid-acne']);
+  });
+
   it('group with no matching codes hydrates to empty allow-list', () => {
     // A freshly-created group has empty type[]. Hydration must produce []
     // (and mark itself done so subsequent edits aren't clobbered).

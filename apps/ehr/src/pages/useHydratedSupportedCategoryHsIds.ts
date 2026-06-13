@@ -10,9 +10,11 @@ export interface SupportedCategoryCatalogEntry {
 /**
  * Hydrates the group's stored `type[]` codes into the multi-select keying
  * shape the UI uses (FHIR HealthcareService ids for runtime-registered
- * categories; category codes for BOOKING_CONFIG entries). Idempotent — once
- * hydrated, the returned setter takes over so user edits aren't clobbered
- * by re-renders.
+ * categories; category codes for BOOKING_CONFIG entries). Idempotent per
+ * group — once hydrated for a given `group.id`, the returned setter takes
+ * over so user edits aren't clobbered. When `group.id` changes (e.g.,
+ * navigating to a different group in the same mounted component),
+ * hydration runs again for the new group.
  *
  * The `categoryDataLoaded` flag is the *real* guard. The catalog map can
  * appear populated on the first render because BOOKING_CONFIG entries are
@@ -25,23 +27,27 @@ export function useHydratedSupportedCategoryHsIds(
   categoryDataLoaded: boolean
 ): [string[], Dispatch<SetStateAction<string[]>>] {
   const [supportedCategoryHsIds, setSupportedCategoryHsIds] = useState<string[]>([]);
-  const hydratedRef = useRef(false);
+  // Stores the `group.id` we've hydrated state for. `undefined` = not yet;
+  // re-runs when the value changes so navigating between groups re-hydrates.
+  const hydratedForGroupIdRef = useRef<string | undefined>(undefined);
 
   useEffect(() => {
-    if (hydratedRef.current) return;
     if (!group || !categoryDataLoaded) return;
+    if (hydratedForGroupIdRef.current === group.id) return;
 
-    const codes = (group.type || [])
-      .flatMap((t) => t.coding || [])
-      .map((c) => c.code)
-      .filter((c): c is string => !!c);
-
-    const allowed = new Set<string>();
-    for (const [id, info] of categoryByHsId.entries()) {
-      if (codes.includes(info.code)) allowed.add(id);
+    const codes = new Set<string>();
+    for (const t of group.type ?? []) {
+      for (const c of t.coding ?? []) {
+        if (c.code) codes.add(c.code);
+      }
     }
-    setSupportedCategoryHsIds([...allowed]);
-    hydratedRef.current = true;
+
+    const allowed: string[] = [];
+    for (const [id, info] of categoryByHsId.entries()) {
+      if (codes.has(info.code)) allowed.push(id);
+    }
+    setSupportedCategoryHsIds(allowed);
+    hydratedForGroupIdRef.current = group.id;
   }, [group, categoryByHsId, categoryDataLoaded]);
 
   return [supportedCategoryHsIds, setSupportedCategoryHsIds];
