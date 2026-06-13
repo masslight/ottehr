@@ -1,53 +1,26 @@
 import Oystehr from '@oystehr/sdk';
-import { QuestionnaireResponse, QuestionnaireResponseItem } from 'fhir/r4b';
-import { M2MClientMockType } from 'utils';
+import { Questionnaire, QuestionnaireResponse, QuestionnaireResponseItem } from 'fhir/r4b';
+import { M2MClientMockType, ServiceMode } from 'utils';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import baseQr from '../data/base-qr.json';
+import { getCurrentQuestionnaireForServiceType } from '../../src/patient/appointment/helpers';
 import {
   InsertFullAppointmentDataBaseResult,
   insertInPersonAppointmentBase,
   setupIntegrationTest,
 } from '../helpers/integration-test-seed-data-setup';
-
-// Pin to the questionnaire version the sample QR (base-qr.json) targets so its
-// full answer set validates as a complete submission.
-const INTAKE_QUESTIONNAIRE = 'https://ottehr.com/FHIR/Questionnaire/intake-paperwork-inperson|1.0.9';
-
-// The sample QR omits a couple of fields the project's questionnaire requires;
-// augment those pages so the submission validates.
-const ANSWERS: QuestionnaireResponseItem[] = (baseQr.item as QuestionnaireResponseItem[]).map((page) => {
-  if (page.linkId === 'patient-details-page') {
-    return {
-      ...page,
-      item: [
-        ...(page.item ?? []),
-        { linkId: 'patient-point-of-discovery', answer: [{ valueString: 'Friend/Family' }] },
-      ],
-    };
-  }
-  if (page.linkId === 'consent-forms-page') {
-    // base-qr leaves this page empty; the questionnaire requires the consent
-    // checkboxes + signature/full-name/relationship.
-    return {
-      linkId: 'consent-forms-page',
-      item: [
-        { linkId: 'hipaa-acknowledgement', answer: [{ valueBoolean: true }] },
-        { linkId: 'consent-to-treat', answer: [{ valueBoolean: true }] },
-        { linkId: 'signature', answer: [{ valueString: 'Jon Snow' }] },
-        { linkId: 'full-name', answer: [{ valueString: 'Jon Snow' }] },
-        { linkId: 'consent-form-signer-relationship', answer: [{ valueString: 'Self' }] },
-      ],
-    };
-  }
-  return page;
-});
+import { generatePaperworkAnswers } from '../helpers/paperwork-answers';
 
 // Happy path for submit-paperwork: submit the full set of intake answers for an
-// in-progress paperwork QuestionnaireResponse.
+// in-progress paperwork QuestionnaireResponse. The questionnaire (and therefore
+// the required answer set) is resolved from the running instance's config and
+// the answers are synthesized from that definition, so this is valid for any
+// instance regardless of questionnaire version/shape.
 describe('submit-paperwork integration — happy path', () => {
   let oystehrAdmin: Oystehr;
   let oystehrPatient: Oystehr;
   let base: InsertFullAppointmentDataBaseResult;
+  let questionnaire: Questionnaire;
+  let answers: QuestionnaireResponseItem[];
   let questionnaireResponseId: string;
   let cleanup: () => Promise<void>;
 
@@ -57,13 +30,17 @@ describe('submit-paperwork integration — happy path', () => {
     oystehrPatient = setup.oystehrTestUserM2M;
     cleanup = setup.cleanup;
     base = await insertInPersonAppointmentBase(setup.oystehr, setup.processId);
+
+    questionnaire = await getCurrentQuestionnaireForServiceType(ServiceMode['in-person'], oystehrAdmin);
     const qr = await oystehrAdmin.fhir.update<QuestionnaireResponse>({
       ...base.questionnaireResponse,
-      questionnaire: INTAKE_QUESTIONNAIRE,
+      questionnaire: `${questionnaire.url}|${questionnaire.version}`,
       status: 'in-progress',
-      item: ANSWERS,
+      item: [],
     });
     questionnaireResponseId = qr.id!;
+    // Synthesize a complete, valid answer set from this instance's questionnaire.
+    answers = generatePaperworkAnswers(questionnaire, qr);
   }, 60_000);
 
   afterAll(async () => {
@@ -75,7 +52,7 @@ describe('submit-paperwork integration — happy path', () => {
       id: 'submit-paperwork',
       questionnaireResponseId,
       appointmentId: base.appointment.id,
-      answers: ANSWERS,
+      answers,
     });
     expect(response.output).toBeDefined();
   });
