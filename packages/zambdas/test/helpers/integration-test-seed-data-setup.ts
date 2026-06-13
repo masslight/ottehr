@@ -1,5 +1,4 @@
-import { assert } from 'node:console';
-import Oystehr, { BatchInputPostRequest, M2mListItem } from '@oystehr/sdk';
+import Oystehr, { BatchInputPostRequest } from '@oystehr/sdk';
 import {
   Account,
   Appointment,
@@ -9,15 +8,13 @@ import {
   FhirResource,
   Location,
   Patient,
-  Practitioner,
   QuestionnaireResponse,
   RelatedPerson,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { M2MClientMockType, PATIENT_BILLING_ACCOUNT_TYPE, RoleType } from 'utils';
+import { M2MClientMockType, PATIENT_BILLING_ACCOUNT_TYPE } from 'utils';
 import { cleanAppointmentGraph } from 'utils/lib/utils/e2eCleanup';
 import { inject } from 'vitest';
-import { getAuth0Token } from '../../src/shared';
 import { SECRETS } from '../data/secrets';
 
 /**
@@ -300,95 +297,31 @@ export const setupIntegrationTest = async (
   testFileName: string,
   m2mClientMockType: M2MClientMockType
 ): Promise<IntegrationTestSetupResult> => {
-  const { AUTH0_ENDPOINT, AUTH0_AUDIENCE, FHIR_API, PROJECT_ID } = SECRETS;
+  const { FHIR_API, PROJECT_ID } = SECRETS;
 
-  // Get authentication token
-  const token = await getAuth0Token({
-    AUTH0_ENDPOINT: AUTH0_ENDPOINT,
-    AUTH0_CLIENT: SECRETS.AUTH0_CLIENT_TESTS,
-    AUTH0_SECRET: SECRETS.AUTH0_SECRET_TESTS,
-    AUTH0_AUDIENCE: AUTH0_AUDIENCE,
-  });
-
-  // Get the zambda execution URL from vitest inject
+  // The admin token and the two shared M2M client tokens (one provider, one
+  // patient) are provisioned once for the whole suite in the global setup
+  // (test/helpers/integration-global-setup.ts) and handed to every test via
+  // vitest inject. We deliberately do NOT mint a per-test M2M client here:
+  // that previously created one persistent client + profile per test file, and
+  // having many test files concurrently rotate-and-mint clients is both wasteful
+  // and racy.
+  const token = inject('ADMIN_TOKEN');
   const EXECUTE_ZAMBDA_URL = inject('EXECUTE_ZAMBDA_URL');
   if (!EXECUTE_ZAMBDA_URL) {
     throw new Error('EXECUTE_ZAMBDA_URL is not defined in vitest inject');
   }
 
-  // Create Oystehr client for FHIR operations
+  const testUserM2MToken =
+    m2mClientMockType === M2MClientMockType.patient ? inject('M2M_PATIENT_TOKEN') : inject('M2M_PROVIDER_TOKEN');
+  const testUserM2MProfile =
+    m2mClientMockType === M2MClientMockType.patient ? inject('M2M_PATIENT_PROFILE') : inject('M2M_PROVIDER_PROFILE');
+
+  // Create Oystehr client for FHIR operations (admin)
   const oystehrAdmin = new Oystehr({
     accessToken: token,
     fhirApiUrl: FHIR_API,
     projectId: PROJECT_ID,
-  });
-
-  // We need to find or create the M2M client who will pretend to be a real EHR user.
-  const m2mListSearchResultData = (
-    await oystehrAdmin.m2m.listV2({
-      name: testFileName,
-    })
-  ).data;
-
-  let testUserM2M: M2mListItem;
-
-  if (m2mListSearchResultData.length > 0) {
-    console.log('found existing M2M client for tests');
-    testUserM2M = await oystehrAdmin.m2m.get({
-      id: m2mListSearchResultData[0].id,
-    });
-    assert(testUserM2M.description === m2mClientMockType, 'Found Test User M2M client should have correct mock type');
-  } else {
-    console.log('creating new M2M client for tests');
-    const projectRoles = await oystehrAdmin.role.list();
-
-    if (m2mClientMockType === M2MClientMockType.patient) {
-      const patientRoleId = projectRoles.find((role) => role.name === 'Patient')?.id;
-      expect(patientRoleId).toBeDefined();
-      const patientForM2M = await oystehrAdmin.fhir.create<Patient>({
-        resourceType: 'Patient',
-        name: [{ given: ['M2M'], family: 'Client' }],
-        birthDate: '1978-01-01',
-        telecom: [{ system: 'phone', value: '+11231231234', use: 'mobile' }],
-      });
-
-      testUserM2M = await oystehrAdmin.m2m.create({
-        name: testFileName,
-        description: M2MClientMockType.patient,
-        profile: `Patient/${patientForM2M.id}`,
-        roles: [patientRoleId!],
-      });
-    } else {
-      const providerRoleId = projectRoles.find((role) => role.name === RoleType.Provider)?.id;
-      expect(providerRoleId).toBeDefined();
-      const practitionerForM2M = await oystehrAdmin.fhir.create<Practitioner>({
-        resourceType: 'Practitioner',
-        name: [{ given: ['M2M'], family: 'Client' }],
-        birthDate: '1978-01-01',
-        telecom: [{ system: 'phone', value: '+11231231234', use: 'mobile' }],
-      });
-
-      testUserM2M = await oystehrAdmin.m2m.create({
-        name: testFileName,
-        description: M2MClientMockType.provider,
-        profile: `Practitioner/${practitionerForM2M.id}`,
-        roles: [providerRoleId!],
-      });
-    }
-  }
-
-  const testUserM2MClientId = testUserM2M.clientId;
-  const testUserM2MClientSecret = (
-    await oystehrAdmin.m2m.rotateSecret({
-      id: testUserM2M.id,
-    })
-  ).secret;
-
-  const testUserM2MToken = await getAuth0Token({
-    AUTH0_ENDPOINT: AUTH0_ENDPOINT,
-    AUTH0_CLIENT: testUserM2MClientId,
-    AUTH0_SECRET: testUserM2MClientSecret,
-    AUTH0_AUDIENCE: AUTH0_AUDIENCE,
   });
 
   const oystehrTestUserM2M = new Oystehr({
@@ -416,7 +349,7 @@ export const setupIntegrationTest = async (
     oystehr: oystehrAdmin,
     oystehrTestUserM2M: oystehrTestUserM2M,
     testUserM2MToken,
-    testUserM2MProfile: testUserM2M.profile,
+    testUserM2MProfile,
     token,
     processId,
     cleanup,
