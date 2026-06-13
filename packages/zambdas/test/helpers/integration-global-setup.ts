@@ -133,7 +133,10 @@ function installAdvaPacsFetchMock(): () => void {
       // an id (callers fetch it, then PUT a status update back). Everything else
       // (the create-order transaction POST, the revoke PUT, etc.) just needs a 2xx.
       let body: unknown;
-      if (method === 'GET' && url.includes('/ServiceRequest')) {
+      if (url.includes('/viewer/launch')) {
+        // launch-viewer expects the response to carry a viewer `url`.
+        body = { url: 'https://advapacs-mock.example/viewer/launch/session' };
+      } else if (method === 'GET' && url.includes('/ServiceRequest')) {
         // Callers fetch the AdvaPACS ServiceRequest then PUT a status update; the
         // search must resolve to exactly one entry with an id.
         body = {
