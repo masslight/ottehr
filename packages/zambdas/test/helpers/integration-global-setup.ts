@@ -113,12 +113,41 @@ async function provisionSharedClient(oystehrAdmin: Oystehr, mockType: M2MClientM
 }
 
 /**
+ * Intercepts outbound calls to AdvaPACS (the radiology PACS vendor) and returns
+ * a successful empty transaction-response Bundle, so integration tests never hit
+ * the real third-party service. The zambda handlers run in THIS (global-setup)
+ * process — the in-process express server lives here — so patching the global
+ * `fetch` here covers their AdvaPACS calls. All non-AdvaPACS requests (real
+ * Oystehr/FHIR traffic) pass straight through to the original fetch.
+ *
+ * Returns a function that restores the original fetch.
+ */
+function installAdvaPacsFetchMock(): () => void {
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = (async (input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) => {
+    const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : (input as Request).url;
+    if (url && url.includes('advapacs')) {
+      console.log(`[advapacs-mock] intercepted ${init?.method ?? 'GET'} ${url}`);
+      return new Response(JSON.stringify({ resourceType: 'Bundle', type: 'transaction-response', entry: [] }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/fhir+json' },
+      });
+    }
+    return realFetch(input, init);
+  }) as typeof fetch;
+  return () => {
+    globalThis.fetch = realFetch;
+  };
+}
+
+/**
  * Starts a fresh integration-test zambda server on an OS-assigned free port so
  * the suite never depends on (or conflicts with) whatever the developer might
  * have running on port 3000, and provisions the shared auth tokens used by all
  * integration tests. Published to tests via vitest `inject`.
  */
 export default async function setup(project: TestProject): Promise<() => Promise<void>> {
+  const restoreFetch = installAdvaPacsFetchMock();
   const port = await new Promise<number>((resolve, reject) => {
     const listener = app.listen(0, () => {
       const address = listener.address();
@@ -176,6 +205,8 @@ export default async function setup(project: TestProject): Promise<() => Promise
       }
     }
     console.log('Deleted shared integration-test M2M clients');
+
+    restoreFetch();
 
     if (server) {
       await new Promise<void>((resolve) => {
