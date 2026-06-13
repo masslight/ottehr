@@ -35,7 +35,7 @@ describe('cm-associate-payer integration — happy path', () => {
 
   afterAll(async () => {
     for (const del of [
-      () => oystehrZambdas.zambda.execute({ id: 'delete-charge-master', id: chargeMasterId }),
+      () => oystehrAdmin.fhir.delete({ resourceType: 'ChargeItemDefinition', id: chargeMasterId }),
       () => oystehrAdmin.fhir.delete({ resourceType: 'Organization', id: organizationId }),
     ]) {
       try {

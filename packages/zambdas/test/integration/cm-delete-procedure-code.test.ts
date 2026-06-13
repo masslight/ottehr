@@ -7,11 +7,11 @@ import { setupIntegrationTest } from '../helpers/integration-test-seed-data-setu
 // Happy path for delete-procedure-code: delete a procedure code from a fee
 // schedule. A fresh fee schedule with one code is created in setup and removed
 // afterwards.
-describe('delete-procedure-code integration — happy path', () => {
+describe('cm-delete-procedure-code integration — happy path', () => {
   let oystehrAdmin: Oystehr;
   let oystehrZambdas: Oystehr;
   let cleanup: () => Promise<void>;
-  let feeScheduleId: string;
+  let chargeMasterId: string;
 
   beforeAll(async () => {
     const setup = await setupIntegrationTest('delete-procedure-code.test.ts', M2MClientMockType.provider);
@@ -19,14 +19,14 @@ describe('delete-procedure-code integration — happy path', () => {
     oystehrZambdas = setup.oystehrTestUserM2M;
     cleanup = setup.cleanup;
     const created = await oystehrZambdas.zambda.execute({
-      id: 'create-fee-schedule',
-      name: `IT Fee Schedule ${randomUUID().slice(0, 8)}`,
+      id: 'create-charge-master',
+      name: `IT Charge Master ${randomUUID().slice(0, 8)}`,
       effectiveDate: '2026-01-01',
     });
-    feeScheduleId = (created.output as { id: string }).id;
+    chargeMasterId = (created.output as { id: string }).id;
     await oystehrZambdas.zambda.execute({
-      id: 'add-procedure-code',
-      feeScheduleId,
+      id: 'cm-add-procedure-code',
+      chargeMasterId,
       code: '99213',
       description: 'Office visit',
       amount: 10000,
@@ -35,17 +35,17 @@ describe('delete-procedure-code integration — happy path', () => {
 
   afterAll(async () => {
     try {
-      await oystehrAdmin.fhir.delete({ resourceType: 'ChargeItemDefinition', id: feeScheduleId });
+      await oystehrAdmin.fhir.delete({ resourceType: 'ChargeItemDefinition', id: chargeMasterId });
     } catch {
       // best-effort
     }
     await cleanup();
   });
 
-  it('deletes a procedure code from a fee schedule', async () => {
+  it('deletes a procedure code from a charge master', async () => {
     const response = await oystehrZambdas.zambda.execute({
-      id: 'delete-procedure-code',
-      feeScheduleId,
+      id: 'cm-delete-procedure-code',
+      chargeMasterId,
       index: 0,
     });
     expect(response.output).toBeDefined();

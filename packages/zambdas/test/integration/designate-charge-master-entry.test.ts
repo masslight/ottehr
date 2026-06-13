@@ -7,12 +7,14 @@ import { setupIntegrationTest } from '../helpers/integration-test-seed-data-setu
 // Happy path for designate-charge-master-entry: tag a charge master with a
 // designation (self-pay). A fresh charge master is created in setup and removed.
 describe('designate-charge-master-entry integration — happy path', () => {
+  let oystehrAdmin: Oystehr;
   let oystehrZambdas: Oystehr;
   let cleanup: () => Promise<void>;
   let chargeMasterId: string;
 
   beforeAll(async () => {
     const setup = await setupIntegrationTest('designate-charge-master-entry.test.ts', M2MClientMockType.provider);
+    oystehrAdmin = setup.oystehr;
     oystehrZambdas = setup.oystehrTestUserM2M;
     cleanup = setup.cleanup;
     const created = await oystehrZambdas.zambda.execute({
@@ -25,7 +27,7 @@ describe('designate-charge-master-entry integration — happy path', () => {
 
   afterAll(async () => {
     try {
-      await oystehrZambdas.zambda.execute({ id: 'delete-charge-master', id: chargeMasterId });
+      await oystehrAdmin.fhir.delete({ resourceType: 'ChargeItemDefinition', id: chargeMasterId });
     } catch {
       // best-effort
     }

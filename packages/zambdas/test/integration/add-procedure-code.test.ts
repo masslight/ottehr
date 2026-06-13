@@ -7,12 +7,14 @@ import { setupIntegrationTest } from '../helpers/integration-test-seed-data-setu
 // Happy path for add-procedure-code: add a procedure code to a fee schedule.
 // A fresh fee schedule is created in setup and removed afterwards.
 describe('add-procedure-code integration — happy path', () => {
+  let oystehrAdmin: Oystehr;
   let oystehrZambdas: Oystehr;
   let cleanup: () => Promise<void>;
   let feeScheduleId: string;
 
   beforeAll(async () => {
     const setup = await setupIntegrationTest('add-procedure-code.test.ts', M2MClientMockType.provider);
+    oystehrAdmin = setup.oystehr;
     oystehrZambdas = setup.oystehrTestUserM2M;
     cleanup = setup.cleanup;
     const created = await oystehrZambdas.zambda.execute({
@@ -25,7 +27,7 @@ describe('add-procedure-code integration — happy path', () => {
 
   afterAll(async () => {
     try {
-      await oystehrZambdas.zambda.execute({ id: 'delete-fee-schedule', id: feeScheduleId });
+      await oystehrAdmin.fhir.delete({ resourceType: 'ChargeItemDefinition', id: feeScheduleId });
     } catch {
       // best-effort
     }

@@ -7,12 +7,14 @@ import { setupIntegrationTest } from '../helpers/integration-test-seed-data-setu
 // Happy path for create-charge-master: create a charge master
 // (ChargeItemDefinition). The created resource is removed afterwards.
 describe('create-charge-master integration — happy path', () => {
+  let oystehrAdmin: Oystehr;
   let oystehrZambdas: Oystehr;
   let cleanup: () => Promise<void>;
   let chargeMasterId: string | undefined;
 
   beforeAll(async () => {
     const setup = await setupIntegrationTest('create-charge-master.test.ts', M2MClientMockType.provider);
+    oystehrAdmin = setup.oystehr;
     oystehrZambdas = setup.oystehrTestUserM2M;
     cleanup = setup.cleanup;
   }, 60_000);
@@ -20,7 +22,7 @@ describe('create-charge-master integration — happy path', () => {
   afterAll(async () => {
     if (chargeMasterId) {
       try {
-        await oystehrZambdas.zambda.execute({ id: 'delete-charge-master', id: chargeMasterId });
+        await oystehrAdmin.fhir.delete({ resourceType: 'ChargeItemDefinition', id: chargeMasterId });
       } catch {
         // best-effort
       }

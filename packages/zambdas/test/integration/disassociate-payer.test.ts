@@ -35,7 +35,7 @@ describe('disassociate-payer integration — happy path', () => {
 
   afterAll(async () => {
     for (const del of [
-      () => oystehrZambdas.zambda.execute({ id: 'delete-fee-schedule', id: feeScheduleId }),
+      () => oystehrAdmin.fhir.delete({ resourceType: 'ChargeItemDefinition', id: feeScheduleId }),
       () => oystehrAdmin.fhir.delete({ resourceType: 'Organization', id: organizationId }),
     ]) {
       try {

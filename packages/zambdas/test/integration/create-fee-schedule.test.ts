@@ -7,12 +7,14 @@ import { setupIntegrationTest } from '../helpers/integration-test-seed-data-setu
 // Happy path for create-fee-schedule: create a fee schedule
 // (ChargeItemDefinition). The created resource is removed afterwards.
 describe('create-fee-schedule integration — happy path', () => {
+  let oystehrAdmin: Oystehr;
   let oystehrZambdas: Oystehr;
   let cleanup: () => Promise<void>;
   let feeScheduleId: string | undefined;
 
   beforeAll(async () => {
     const setup = await setupIntegrationTest('create-fee-schedule.test.ts', M2MClientMockType.provider);
+    oystehrAdmin = setup.oystehr;
     oystehrZambdas = setup.oystehrTestUserM2M;
     cleanup = setup.cleanup;
   }, 60_000);
@@ -20,7 +22,7 @@ describe('create-fee-schedule integration — happy path', () => {
   afterAll(async () => {
     if (feeScheduleId) {
       try {
-        await oystehrZambdas.zambda.execute({ id: 'delete-fee-schedule', id: feeScheduleId });
+        await oystehrAdmin.fhir.delete({ resourceType: 'ChargeItemDefinition', id: feeScheduleId });
       } catch {
         // best-effort
       }
