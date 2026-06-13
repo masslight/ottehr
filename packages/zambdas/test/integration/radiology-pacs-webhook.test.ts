@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
-import { ServiceRequest } from 'fhir/r4b';
-import { M2MClientMockType } from 'utils';
+import { DiagnosticReport, ServiceRequest } from 'fhir/r4b';
+import { ACCESSION_NUMBER_CODE_SYSTEM, M2MClientMockType } from 'utils';
 import { afterAll, beforeAll, describe, expect, inject, it } from 'vitest';
 import { SECRETS } from '../data/secrets';
 import {
@@ -9,13 +9,13 @@ import {
   setupIntegrationTest,
 } from '../helpers/integration-test-seed-data-setup';
 
-// Happy path for radiology-pacs-webhook: AdvaPACS posts us a FHIR resource
-// (ServiceRequest / DiagnosticReport / ImagingStudy). This exercises the
-// ServiceRequest case: a webhook ServiceRequest carrying our order's accession
-// number flips our matching order's status. The webhook is http_open and
-// authenticated by a Bearer ADVAPACS_WEBHOOK_SECRET header, so it's invoked
-// with a direct POST (the SDK can't set that header).
-describe('radiology-pacs-webhook integration — happy path', () => {
+// Happy paths for radiology-pacs-webhook: AdvaPACS posts us a FHIR resource of
+// one of three kinds — ServiceRequest, DiagnosticReport, ImagingStudy. The
+// webhook is http_open and authed by a Bearer ADVAPACS_WEBHOOK_SECRET header, so
+// it's invoked with a direct POST (the SDK can't set that header). AdvaPACS
+// callbacks are mocked by the global setup. One radiology order is created in
+// setup and reused; created radiology resources are removed afterwards.
+describe('radiology-pacs-webhook integration — happy paths', () => {
   let oystehrAdmin: Oystehr;
   let oystehrZambdas: Oystehr;
   let base: InsertFullAppointmentDataBaseResult;
@@ -23,6 +23,19 @@ describe('radiology-pacs-webhook integration — happy path', () => {
   let orderServiceRequest: ServiceRequest;
   let executeUrl: string;
   let cleanup: () => Promise<void>;
+
+  const postWebhook = (resource: unknown): Promise<Response> =>
+    fetch(`${executeUrl}/zambda/radiology-pacs-webhook/execute-public`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${SECRETS.ADVAPACS_WEBHOOK_SECRET}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(resource),
+    });
+
+  const accessionNumber = (): string =>
+    orderServiceRequest.identifier?.find((i) => i.system === ACCESSION_NUMBER_CODE_SYSTEM)?.value as string;
 
   beforeAll(async () => {
     const setup = await setupIntegrationTest('radiology-pacs-webhook.test.ts', M2MClientMockType.provider);
@@ -67,28 +80,17 @@ describe('radiology-pacs-webhook integration — happy path', () => {
     await cleanup();
   });
 
-  it('processes a ServiceRequest webhook and updates the matching order', async () => {
-    // Mimic the ServiceRequest AdvaPACS would post back: same accession
-    // identifier as our order, now in a completed state.
+  it('ServiceRequest webhook updates the matching order status', async () => {
     const webhookServiceRequest: ServiceRequest = {
       resourceType: 'ServiceRequest',
-      // AdvaPACS includes its own resource id on the posted resource; the webhook
-      // requires it to be present (it matches our order by accession number).
+      // AdvaPACS includes its own resource id on the posted resource (required).
       id: 'advapacs-mock-service-request',
       status: 'completed',
       intent: 'order',
       subject: orderServiceRequest.subject,
       identifier: orderServiceRequest.identifier,
     };
-
-    const response = await fetch(`${executeUrl}/zambda/radiology-pacs-webhook/execute-public`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${SECRETS.ADVAPACS_WEBHOOK_SECRET}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(webhookServiceRequest),
-    });
+    const response = await postWebhook(webhookServiceRequest);
     expect(response.status).toBe(200);
 
     const updated = await oystehrAdmin.fhir.get<ServiceRequest>({
@@ -96,5 +98,51 @@ describe('radiology-pacs-webhook integration — happy path', () => {
       id: serviceRequestId,
     });
     expect(updated.status).toBe('completed');
+  });
+
+  it('DiagnosticReport webhook finalizes our matching DiagnosticReport', async () => {
+    // Seed our DiagnosticReport (created from the mocked AdvaPACS report, whose id
+    // is 'advapacs-mock-diagnostic-report'); the webhook DR with the same id
+    // matches it and drives the update path.
+    await oystehrZambdas.zambda.execute({
+      id: 'radiology-save-preliminary-report',
+      serviceRequestId,
+      report: 'Integration test preliminary report',
+    });
+    const webhookDiagnosticReport: DiagnosticReport = {
+      resourceType: 'DiagnosticReport',
+      id: 'advapacs-mock-diagnostic-report',
+      status: 'final',
+      code: { coding: [{ system: 'http://loinc.org', code: '18748-4', display: 'Diagnostic imaging study' }] },
+      presentedForm: [
+        { contentType: 'text/html', data: Buffer.from('Final report body').toString('base64'), title: 'Final report' },
+      ],
+      issued: '2026-06-13T12:00:00.000Z',
+    } as DiagnosticReport;
+
+    const response = await postWebhook(webhookDiagnosticReport);
+    expect(response.status).toBe(200);
+
+    const reports = (
+      await oystehrAdmin.fhir.search<DiagnosticReport>({
+        resourceType: 'DiagnosticReport',
+        params: [{ name: 'based-on', value: `ServiceRequest/${serviceRequestId}` }],
+      })
+    ).unbundle();
+    expect(reports.some((r) => r.status === 'final')).toBe(true);
+  });
+
+  it('ImagingStudy webhook is accepted and marks the study complete', async () => {
+    // handleImagingStudy reads the accession number and marks the order complete
+    // in AdvaPACS (mocked) — no local FHIR write, so a 200 is the happy path.
+    const webhookImagingStudy = {
+      resourceType: 'ImagingStudy',
+      id: 'advapacs-mock-imaging-study',
+      status: 'available',
+      subject: orderServiceRequest.subject,
+      identifier: [{ system: ACCESSION_NUMBER_CODE_SYSTEM, value: accessionNumber() }],
+    };
+    const response = await postWebhook(webhookImagingStudy);
+    expect(response.status).toBe(200);
   });
 });
