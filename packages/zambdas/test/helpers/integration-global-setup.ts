@@ -127,8 +127,35 @@ function installAdvaPacsFetchMock(): () => void {
   globalThis.fetch = (async (input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) => {
     const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : (input as Request).url;
     if (url && url.includes('advapacs')) {
-      console.log(`[advapacs-mock] intercepted ${init?.method ?? 'GET'} ${url}`);
-      return new Response(JSON.stringify({ resourceType: 'Bundle', type: 'transaction-response', entry: [] }), {
+      const method = (init?.method ?? 'GET').toUpperCase();
+      console.log(`[advapacs-mock] intercepted ${method} ${url}`);
+      // A GET search for a ServiceRequest must resolve to exactly one entry with
+      // an id (callers fetch it, then PUT a status update back). Everything else
+      // (the create-order transaction POST, the revoke PUT, etc.) just needs a 2xx.
+      let body: unknown;
+      if (method === 'GET' && url.includes('/ServiceRequest')) {
+        // Callers fetch the AdvaPACS ServiceRequest then PUT a status update; the
+        // search must resolve to exactly one entry with an id.
+        body = {
+          resourceType: 'Bundle',
+          type: 'searchset',
+          entry: [
+            { resource: { resourceType: 'ServiceRequest', id: 'advapacs-mock-service-request', status: 'active' } },
+          ],
+        };
+      } else if (url.includes('/DiagnosticReport')) {
+        // save-preliminary-report POSTs a DiagnosticReport and builds our local
+        // copy from the response — it must carry a status and id.
+        body = {
+          resourceType: 'DiagnosticReport',
+          id: 'advapacs-mock-diagnostic-report',
+          status: 'preliminary',
+          code: { coding: [{ system: 'http://loinc.org', code: '18748-4', display: 'Diagnostic imaging study' }] },
+        };
+      } else {
+        body = { resourceType: 'Bundle', type: 'transaction-response', entry: [] };
+      }
+      return new Response(JSON.stringify(body), {
         status: 200,
         headers: { 'Content-Type': 'application/fhir+json' },
       });
