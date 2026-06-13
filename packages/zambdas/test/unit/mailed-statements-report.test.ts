@@ -9,6 +9,7 @@ import type { ZambdaInput } from '../../src/shared/types/common';
 const mockOystehrClient = {
   fhir: {
     search: vi.fn(),
+    waitForAsyncBulkBundle: vi.fn(),
   },
 };
 
@@ -38,14 +39,31 @@ function makeInput(body: Record<string, unknown>): ZambdaInput {
   };
 }
 
+// Synchronous search result (used for the Patient / Encounter `_id` lookups which remain sync)
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-function makeSearchBundle(resources: (Communication | Patient | Encounter | Appointment)[], hasNext = false) {
+function makeSearchBundle(resources: (Communication | Patient | Encounter | Appointment)[]) {
   return {
     resourceType: 'Bundle',
     type: 'searchset',
-    link: hasNext ? [{ relation: 'next', url: 'http://next' }] : [],
     unbundle: () => resources,
   };
+}
+
+// Bundle returned by the async-bulk workflow (used for the Communications search)
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+function makeAsyncBulkBundle(resources: (Communication | Patient | Encounter | Appointment)[]) {
+  return {
+    resourceType: 'Bundle',
+    type: 'batch-response',
+    entry: resources.map((resource) => ({ resource })),
+  };
+}
+
+// Queue an async-bulk Communications search: the kickoff `search` returns a job handle and
+// `waitForAsyncBulkBundle` resolves to the assembled bundle.
+function mockCommunicationsAsyncSearch(communications: Communication[]): void {
+  mockOystehrClient.fhir.search.mockResolvedValueOnce({ jobId: 'job-communications', contentLocation: '', mode: 'bulk' });
+  mockOystehrClient.fhir.waitForAsyncBulkBundle.mockResolvedValueOnce(makeAsyncBulkBundle(communications));
 }
 
 function makeCommunication(id: string, overrides: Partial<Communication> = {}): Communication {
@@ -125,7 +143,7 @@ beforeEach(() => {
 
 describe('mailed-statements-report handler', () => {
   it('returns empty statements array when no Communications match', async () => {
-    mockOystehrClient.fhir.search.mockResolvedValueOnce(makeSearchBundle([]));
+    mockCommunicationsAsyncSearch([]);
 
     const result = await (index as (input: ZambdaInput) => Promise<{ statusCode: number; body: string }>)(
       makeInput({ dateRange: { start: '2025-01-01', end: '2025-01-31' } })
@@ -143,8 +161,8 @@ describe('mailed-statements-report handler', () => {
     const encounter = makeEncounter('encounter-1', 'appt-1');
     const appointment = makeAppointment('appt-1');
 
-    // Communication search (single page)
-    mockOystehrClient.fhir.search.mockResolvedValueOnce(makeSearchBundle([comm]));
+    // Communication search (async-bulk workflow)
+    mockCommunicationsAsyncSearch([comm]);
     // Patient search
     mockOystehrClient.fhir.search.mockResolvedValueOnce(makeSearchBundle([patient]));
     // Encounter + Appointment search (_include)
@@ -186,7 +204,7 @@ describe('mailed-statements-report handler', () => {
       status: 'in-progress',
     };
 
-    mockOystehrClient.fhir.search.mockResolvedValueOnce(makeSearchBundle([bareComm]));
+    mockCommunicationsAsyncSearch([bareComm]);
     // No patients or encounters to fetch (empty sets)
 
     const result = await (index as (input: ZambdaInput) => Promise<{ statusCode: number; body: string }>)(
@@ -206,17 +224,15 @@ describe('mailed-statements-report handler', () => {
     expect(stmt.description).toBe('');
   });
 
-  it('paginates Communications correctly', async () => {
-    const comm1 = makeCommunication('comm-page1');
-    const comm2 = makeCommunication('comm-page2', {
+  it('returns all Communications from the async-bulk result', async () => {
+    const comm1 = makeCommunication('comm-1');
+    const comm2 = makeCommunication('comm-2', {
       subject: { reference: 'Patient/patient-1' },
       encounter: { reference: 'Encounter/encounter-1' },
     });
 
-    // Page 1 with next link
-    mockOystehrClient.fhir.search.mockResolvedValueOnce(makeSearchBundle([comm1], true));
-    // Page 2 without next link
-    mockOystehrClient.fhir.search.mockResolvedValueOnce(makeSearchBundle([comm2], false));
+    // Async-bulk Communications search returns the complete result set in a single bundle
+    mockCommunicationsAsyncSearch([comm1, comm2]);
     // Patient search
     mockOystehrClient.fhir.search.mockResolvedValueOnce(makeSearchBundle([makePatient('patient-1')]));
     // Encounter search

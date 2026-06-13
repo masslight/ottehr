@@ -16,7 +16,13 @@ import {
   Secrets,
   VISIT_CONSULT_NOTE_DOC_REF_CODING_CODE,
 } from 'utils';
-import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
+import {
+  checkOrCreateM2MClientToken,
+  createOystehrClient,
+  searchAllFhirAsync,
+  wrapHandler,
+  ZambdaInput,
+} from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -44,12 +50,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     console.log('Filtering by locations:', locationIds);
   }
 
-  // Search for appointments within the date range with proper pagination
-  // Fetch all appointments, encounters, patients, locations, practitioners, and document references
-  let allResources: (Appointment | Encounter | Patient | Location | Practitioner | DocumentReference)[] = [];
-  let offset = 0;
-  const pageSize = 1000;
-
+  // Search for appointments within the date range using the async-bulk FHIR workflow.
+  // This fetches all appointments, encounters, patients, locations, practitioners, and document
+  // references without being subject to the 6MB response-size limit or pagination timeouts.
   const baseSearchParams = [
     {
       name: 'date',
@@ -91,10 +94,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       name: '_sort',
       value: 'date',
     },
-    {
-      name: '_count',
-      value: pageSize.toString(),
-    },
   ];
 
   // Add location filter if provided
@@ -105,57 +104,14 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     });
   }
 
-  let searchBundle = await oystehr.fhir.search<
+  const allResources = await searchAllFhirAsync<
     Appointment | Encounter | Patient | Location | Practitioner | DocumentReference
-  >({
+  >(oystehr, {
     resourceType: 'Appointment',
-    params: [...baseSearchParams, { name: '_offset', value: offset.toString() }],
+    params: baseSearchParams,
   });
 
-  let pageCount = 1;
-  console.log(`Fetching page ${pageCount} of AI-assisted encounters...`);
-
-  // Get resources from first page
-  let pageResources = searchBundle.unbundle();
-  allResources = allResources.concat(pageResources);
-  const pageAppointments = pageResources.filter(
-    (resource): resource is Appointment => resource.resourceType === 'Appointment'
-  );
-  console.log(
-    `Page ${pageCount}: Found ${pageResources.length} total resources (${pageAppointments.length} appointments)`
-  );
-
-  // Follow pagination links to get all pages
-  while (searchBundle.link?.find((link) => link.relation === 'next')) {
-    offset += pageSize;
-    pageCount++;
-    console.log(`Fetching page ${pageCount} of AI-assisted encounters...`);
-
-    searchBundle = await oystehr.fhir.search<
-      Appointment | Encounter | Patient | Location | Practitioner | DocumentReference
-    >({
-      resourceType: 'Appointment',
-      params: [...baseSearchParams, { name: '_offset', value: offset.toString() }],
-    });
-
-    pageResources = searchBundle.unbundle();
-    allResources = allResources.concat(pageResources);
-    const pageAppointmentsCount = pageResources.filter(
-      (resource): resource is Appointment => resource.resourceType === 'Appointment'
-    ).length;
-
-    console.log(
-      `Page ${pageCount}: Found ${pageResources.length} total resources (${pageAppointmentsCount} appointments)`
-    );
-
-    // Safety check to prevent infinite loops
-    if (pageCount > 100) {
-      console.warn('Reached maximum pagination limit (100 pages). Stopping search.');
-      break;
-    }
-  }
-
-  console.log(`Found ${allResources.length} total resources across ${pageCount} pages`);
+  console.log(`Found ${allResources.length} total resources`);
 
   // Separate resources by type
   const encounters = allResources.filter((resource): resource is Encounter => resource.resourceType === 'Encounter');

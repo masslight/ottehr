@@ -2,7 +2,7 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { DiagnosticReport, Encounter, Patient, ServiceRequest } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { ORDER_TYPE_CODE_SYSTEM, SERVICE_REQUEST_NEEDS_TO_BE_SENT_TO_TELERADIOLOGY_EXTENSION_URL } from 'utils';
-import { createOystehrClient, getAuth0Token, wrapHandler, ZambdaInput } from '../../shared';
+import { createOystehrClient, getAuth0Token, searchAllFhirAsync, wrapHandler, ZambdaInput } from '../../shared';
 
 interface RadiologyStudyReportItem {
   serviceRequestId: string;
@@ -34,73 +34,26 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   console.log(`Fetching radiology studies for date range: ${oneMonthAgo.toISO()} to ${now.toISO()}`);
 
-  // Fetch in batches of 3 days to avoid 5MB response payload limit
-  const serviceRequests: ServiceRequest[] = [];
-  const diagnosticReports: DiagnosticReport[] = [];
-  const encounters: Encounter[] = [];
-  const patients: Patient[] = [];
-
-  // Calculate 10 batches of 3 days each to cover 30 days
-  const batchSizeDays = 3;
-  const numberOfBatches = 10;
-
-  for (let i = 0; i < numberOfBatches; i++) {
-    const batchStart = oneMonthAgo.plus({ days: i * batchSizeDays });
-    const batchEnd = oneMonthAgo.plus({ days: (i + 1) * batchSizeDays });
-
-    console.log(`Fetching batch ${i + 1}/${numberOfBatches}: ${batchStart.toISO()} to ${batchEnd.toISO()}`);
-
-    // Search for radiology service requests within the batch date range
-    const searchParams: { name: string; value: string }[] = [
+  // Fetch the full 30-day window in a single async-bulk FHIR search. The async-bulk workflow is
+  // not subject to the response payload size limit, so it replaces the previous 3-day batching
+  // workaround (and the associated cross-batch de-duplication).
+  const allResources = await searchAllFhirAsync<ServiceRequest | DiagnosticReport | Encounter | Patient>(oystehr, {
+    resourceType: 'ServiceRequest',
+    params: [
       { name: '_tag', value: `${ORDER_TYPE_CODE_SYSTEM}|radiology` },
       { name: 'status:not', value: 'revoked' },
-      { name: 'authored', value: `ge${batchStart.toISO()}` },
-      { name: 'authored', value: `le${batchEnd.toISO()}` },
-      { name: '_count', value: '1000' },
+      { name: 'authored', value: `ge${oneMonthAgo.toISO()}` },
+      { name: 'authored', value: `le${now.toISO()}` },
       { name: '_revinclude', value: 'DiagnosticReport:based-on' },
       { name: '_include', value: 'ServiceRequest:encounter' },
       { name: '_include', value: 'ServiceRequest:subject' },
-    ];
+    ],
+  });
 
-    const searchResponse = await oystehr.fhir.search({
-      resourceType: 'ServiceRequest',
-      params: searchParams,
-    });
-
-    const batchResources = searchResponse.unbundle();
-
-    // Aggregate results from this batch
-    const batchServiceRequests = batchResources.filter((r) => r.resourceType === 'ServiceRequest') as ServiceRequest[];
-    const batchDiagnosticReports = batchResources.filter(
-      (r) => r.resourceType === 'DiagnosticReport'
-    ) as DiagnosticReport[];
-    const batchEncounters = batchResources.filter((r) => r.resourceType === 'Encounter') as Encounter[];
-    const batchPatients = batchResources.filter((r) => r.resourceType === 'Patient') as Patient[];
-
-    console.log(`Batch ${i + 1} found ${batchServiceRequests.length} radiology studies`);
-
-    // Add to aggregated lists, avoiding duplicates by ID
-    batchServiceRequests.forEach((sr) => {
-      if (!serviceRequests.find((existing) => existing.id === sr.id)) {
-        serviceRequests.push(sr);
-      }
-    });
-    batchDiagnosticReports.forEach((dr) => {
-      if (!diagnosticReports.find((existing) => existing.id === dr.id)) {
-        diagnosticReports.push(dr);
-      }
-    });
-    batchEncounters.forEach((enc) => {
-      if (!encounters.find((existing) => existing.id === enc.id)) {
-        encounters.push(enc);
-      }
-    });
-    batchPatients.forEach((pat) => {
-      if (!patients.find((existing) => existing.id === pat.id)) {
-        patients.push(pat);
-      }
-    });
-  }
+  const serviceRequests = allResources.filter((r): r is ServiceRequest => r.resourceType === 'ServiceRequest');
+  const diagnosticReports = allResources.filter((r): r is DiagnosticReport => r.resourceType === 'DiagnosticReport');
+  const encounters = allResources.filter((r): r is Encounter => r.resourceType === 'Encounter');
+  const patients = allResources.filter((r): r is Patient => r.resourceType === 'Patient');
 
   console.log(`Found ${serviceRequests.length} radiology studies`);
 

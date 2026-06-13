@@ -5,6 +5,7 @@ import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
   MAIL_VENDOR_EXTENSION_URL,
+  searchAllFhirAsync,
   wrapHandler,
   ZambdaInput,
 } from '../../shared';
@@ -23,53 +24,20 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   console.log('Searching for mailed statement Communications in date range:', dateRange);
 
-  // Search for Communication resources with medium MAILWRIT in the date range
-  let allCommunications: Communication[] = [];
-  let offset = 0;
-  const pageSize = 200;
-
-  let searchBundle = await oystehr.fhir.search<Communication>({
+  // Search for Communication resources with medium MAILWRIT in the date range using the
+  // async-bulk FHIR workflow. Mailed-statement Communications carry large HTML payloads, so this
+  // search is especially prone to the 6MB response-size limit; the async-bulk workflow avoids it.
+  const allCommunications = await searchAllFhirAsync<Communication>(oystehr, {
     resourceType: 'Communication',
     params: [
       { name: 'medium', value: 'MAILWRIT' },
       { name: 'sent', value: `ge${dateRange.start}` },
       { name: 'sent', value: `le${dateRange.end}` },
       { name: '_sort', value: '-sent' },
-      { name: '_count', value: pageSize.toString() },
-      { name: '_offset', value: offset.toString() },
     ],
   });
 
-  let pageCount = 1;
-  let pageCommunications = searchBundle.unbundle();
-  allCommunications = allCommunications.concat(pageCommunications);
-
-  while (searchBundle.link?.find((link) => link.relation === 'next')) {
-    offset += pageSize;
-    pageCount++;
-
-    searchBundle = await oystehr.fhir.search<Communication>({
-      resourceType: 'Communication',
-      params: [
-        { name: 'medium', value: 'MAILWRIT' },
-        { name: 'sent', value: `ge${dateRange.start}` },
-        { name: 'sent', value: `le${dateRange.end}` },
-        { name: '_sort', value: '-sent' },
-        { name: '_count', value: pageSize.toString() },
-        { name: '_offset', value: offset.toString() },
-      ],
-    });
-
-    pageCommunications = searchBundle.unbundle();
-    allCommunications = allCommunications.concat(pageCommunications);
-
-    if (pageCount > 50) {
-      console.warn('Reached maximum pagination limit (50 pages). Stopping search.');
-      break;
-    }
-  }
-
-  console.log(`Found ${allCommunications.length} mailed statement Communications across ${pageCount} pages`);
+  console.log(`Found ${allCommunications.length} mailed statement Communications`);
 
   // Collect unique patient IDs and encounter IDs
   const patientIds = new Set<string>();

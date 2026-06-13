@@ -11,7 +11,13 @@ import {
   RecentPatientRecord,
   RecentPatientsReportZambdaOutput,
 } from 'utils';
-import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
+import {
+  checkOrCreateM2MClientToken,
+  createOystehrClient,
+  searchAllFhirAsync,
+  wrapHandler,
+  ZambdaInput,
+} from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -32,11 +38,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   console.log('Searching for appointments in date range:', dateRange, 'location:', locationId);
 
-  // Search for appointments within the date range
-  let allResources: (Appointment | Location | Encounter | Patient)[] = [];
-  let offset = 0;
-  const pageSize = 1000;
-
+  // Search for appointments within the date range using the async-bulk FHIR workflow, which is
+  // not subject to the 6MB response-size limit and avoids paginating large result sets.
   const baseSearchParams = [
     {
       name: 'date',
@@ -62,10 +65,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       name: '_revinclude',
       value: 'Encounter:appointment',
     },
-    {
-      name: '_count',
-      value: pageSize.toString(),
-    },
   ];
 
   // Add location filter if provided
@@ -76,51 +75,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     });
   }
 
-  let searchBundle = await oystehr.fhir.search<Appointment | Location | Encounter | Patient>({
+  const allResources = await searchAllFhirAsync<Appointment | Location | Encounter | Patient>(oystehr, {
     resourceType: 'Appointment',
-    params: [...baseSearchParams, { name: '_offset', value: offset.toString() }],
+    params: baseSearchParams,
   });
-
-  let pageCount = 1;
-  console.log(`Fetching page ${pageCount} of appointments, patients, encounters, and locations...`);
-
-  // Get resources from first page
-  let pageResources = searchBundle.unbundle();
-  allResources = allResources.concat(pageResources);
-  const pageAppointments = pageResources.filter(
-    (resource): resource is Appointment => resource.resourceType === 'Appointment'
-  );
-  console.log(
-    `Page ${pageCount}: Found ${pageResources.length} total resources (${pageAppointments.length} appointments)`
-  );
-
-  // Follow pagination links to get all pages
-  while (searchBundle.link?.find((link) => link.relation === 'next')) {
-    offset += pageSize;
-    pageCount++;
-    console.log(`Fetching page ${pageCount} of appointments, patients, encounters, and locations...`);
-
-    searchBundle = await oystehr.fhir.search<Appointment | Location | Encounter | Patient>({
-      resourceType: 'Appointment',
-      params: [...baseSearchParams, { name: '_offset', value: offset.toString() }],
-    });
-
-    pageResources = searchBundle.unbundle();
-    allResources = allResources.concat(pageResources);
-    const pageAppointmentsCount = pageResources.filter(
-      (resource): resource is Appointment => resource.resourceType === 'Appointment'
-    ).length;
-
-    console.log(
-      `Page ${pageCount}: Found ${pageResources.length} total resources (${pageAppointmentsCount} appointments)`
-    );
-
-    // Safety check to prevent infinite loops
-    if (pageCount > 100) {
-      console.warn('Reached maximum pagination limit (100 pages). Stopping search.');
-      break;
-    }
-  }
 
   // Separate resources by type
   const appointments = allResources.filter(
@@ -131,7 +89,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const locations = allResources.filter((resource): resource is Location => resource.resourceType === 'Location');
 
   console.log(
-    `Total resources found across ${pageCount} pages: ${allResources.length} (${appointments.length} appointments, ${patients.length} patients, ${encounters.length} encounters, ${locations.length} locations)`
+    `Total resources found: ${allResources.length} (${appointments.length} appointments, ${patients.length} patients, ${encounters.length} encounters, ${locations.length} locations)`
   );
 
   // Create maps for quick lookups

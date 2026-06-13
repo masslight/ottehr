@@ -1,7 +1,13 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Encounter, PaymentNotice } from 'fhir/r4b';
 import { DailyPaymentsReportZambdaOutput, PaymentItem, PaymentMethodSummary } from 'utils';
-import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
+import {
+  checkOrCreateM2MClientToken,
+  createOystehrClient,
+  searchAllFhirAsync,
+  wrapHandler,
+  ZambdaInput,
+} from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -71,10 +77,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       name: 'created',
       value: `le${dateRange.end}`,
     },
-    {
-      name: '_count',
-      value: '1000',
-    },
   ];
 
   // Add _include parameters to get related resources for location filtering
@@ -95,13 +97,11 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     );
   }
 
-  const paymentNoticeSearchResult = await oystehr.fhir.search<PaymentNotice | Encounter | Appointment>({
+  // Use the async-bulk FHIR workflow so the search is not subject to the 6MB response-size limit.
+  const allResources = await searchAllFhirAsync<PaymentNotice | Encounter | Appointment>(oystehr, {
     resourceType: 'PaymentNotice',
     params: searchParams,
   });
-
-  // Get all resources from the search
-  const allResources = paymentNoticeSearchResult.unbundle();
 
   // Separate resources by type
   let paymentNotices = allResources.filter((r) => r.resourceType === 'PaymentNotice');

@@ -21,7 +21,7 @@ import {
 import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
-  fetchAllPages,
+  searchAllFhirAsync,
   wrapHandler,
   ZambdaInput,
 } from '../../shared';
@@ -30,7 +30,6 @@ import { validateRequestParameters } from './validateRequestParameters';
 let m2mToken: string;
 
 const ZAMBDA_NAME = 'visits-overview-report';
-const INITIAL_PAGE_SIZE = 1000;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   const validatedParameters = validateRequestParameters(input);
@@ -46,51 +45,38 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   console.log('Searching for appointments in date range:', dateRange);
 
-  // Search for appointments within the date range
-  // Fetch all appointments, locations, encounters, and practitioners with proper FHIR pagination
-  let allResources: (Appointment | Location | Encounter | Practitioner)[] = [];
-
-  await fetchAllPages(async (offset, count) => {
-    console.log(`Fetching resources with offset=${offset}, count=${count} of appointments and locations...`);
-    const searchBundle = await oystehr.fhir.search<Appointment | Location | Encounter | Practitioner>({
-      resourceType: 'Appointment',
-      params: [
-        { name: 'date', value: `ge${dateRange.start}` },
-        { name: 'date', value: `le${dateRange.end}` },
-        { name: '_tag', value: `${OTTEHR_MODULE.TM},${OTTEHR_MODULE.IP}` },
-        { name: '_include', value: 'Appointment:location' },
-        { name: '_revinclude', value: 'Encounter:appointment' },
-        { name: '_include:iterate', value: 'Encounter:participant:Practitioner' },
-        {
-          name: '_elements',
-          value: [
-            'id',
-            'status',
-            'serviceCategory',
-            'Location.id',
-            'Location.name',
-            'Practitioner.id',
-            'Practitioner.name',
-            'Encounter.id',
-            'Encounter.type',
-            'Encounter.status',
-            'Encounter.appointment',
-            'Encounter.participant',
-            'Encounter.extension',
-          ].join(','),
-        },
-        { name: '_offset', value: offset.toString() },
-        { name: '_count', value: count.toString() },
-      ],
-    });
-    const pageResources = searchBundle?.unbundle() ?? [];
-    allResources = allResources.concat(pageResources);
-    const pageAppointmentsCount = pageResources.filter(
-      (resource): resource is Appointment => resource.resourceType === 'Appointment'
-    ).length;
-    console.log(`Found ${pageResources.length} total resources (${pageAppointmentsCount} appointments)`);
-    return searchBundle;
-  }, INITIAL_PAGE_SIZE);
+  // Search for appointments within the date range using the async-bulk FHIR workflow.
+  // This fetches all appointments, locations, encounters, and practitioners without being
+  // subject to the 6MB response-size limit or pagination timeouts.
+  const allResources = await searchAllFhirAsync<Appointment | Location | Encounter | Practitioner>(oystehr, {
+    resourceType: 'Appointment',
+    params: [
+      { name: 'date', value: `ge${dateRange.start}` },
+      { name: 'date', value: `le${dateRange.end}` },
+      { name: '_tag', value: `${OTTEHR_MODULE.TM},${OTTEHR_MODULE.IP}` },
+      { name: '_include', value: 'Appointment:location' },
+      { name: '_revinclude', value: 'Encounter:appointment' },
+      { name: '_include:iterate', value: 'Encounter:participant:Practitioner' },
+      {
+        name: '_elements',
+        value: [
+          'id',
+          'status',
+          'serviceCategory',
+          'Location.id',
+          'Location.name',
+          'Practitioner.id',
+          'Practitioner.name',
+          'Encounter.id',
+          'Encounter.type',
+          'Encounter.status',
+          'Encounter.appointment',
+          'Encounter.participant',
+          'Encounter.extension',
+        ].join(','),
+      },
+    ],
+  });
 
   // Separate resources by type
   const appointments = allResources.filter(

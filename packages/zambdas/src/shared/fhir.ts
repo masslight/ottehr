@@ -2,6 +2,9 @@ import Oystehr, {
   BatchInputDeleteRequest,
   BatchInputPatchRequest,
   BatchInputPostRequest,
+  FhirAsyncWaitOptions,
+  FhirResource,
+  FhirSearchParams,
   SearchParam,
 } from '@oystehr/sdk';
 import { Operation } from 'fast-json-patch';
@@ -381,6 +384,35 @@ export async function searchInvitedParticipantResourcesByEncounterId(
     (r): r is RelatedPerson => r.resourceType === 'RelatedPerson'
   );
   return relatedPersons.filter((r) => r.relationship?.[0].coding?.[0].code === 'WIT');
+}
+
+/**
+ * Performs a FHIR search using the asynchronous "bulk" workflow and returns every matching
+ * resource (including any `_include` / `_revinclude` results) flattened into a single array.
+ *
+ * Unlike a synchronous `oystehr.fhir.search`, the async-bulk workflow is not subject to the 6MB
+ * response-size limit and will not time out on large result sets: the FHIR server streams the
+ * results into downloadable files which the SDK polls for and assembles into a Bundle. This makes
+ * it the right tool for report queries whose result sets can grow without bound, replacing the
+ * previous patterns of manual pagination, adaptive page-size reduction, and date-window batching.
+ *
+ * Do NOT pass `_count` / `_offset` — the async-bulk workflow always returns the complete result set.
+ *
+ * @param oystehr the Oystehr client
+ * @param params FHIR resource type and search parameters (same shape as `oystehr.fhir.search`)
+ * @param waitOptions optional polling configuration (poll interval / timeout); SDK defaults are used when omitted
+ * @returns all resources returned by the search, flattened into a single array
+ */
+export async function searchAllFhirAsync<T extends FhirResource = FhirResource>(
+  oystehr: Oystehr,
+  params: FhirSearchParams<T>,
+  waitOptions?: FhirAsyncWaitOptions
+): Promise<T[]> {
+  const { jobId } = await oystehr.fhir.search<T>(params, { mode: 'async-bulk' });
+  const bundle = await oystehr.fhir.waitForAsyncBulkBundle<T>(jobId, waitOptions);
+  return (bundle.entry ?? [])
+    .map((entry) => entry.resource)
+    .filter((resource): resource is T => resource !== undefined);
 }
 
 export async function fetchAllPages(
