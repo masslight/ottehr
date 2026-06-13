@@ -1,20 +1,18 @@
 import Oystehr from '@oystehr/sdk';
 import { QuestionnaireResponse } from 'fhir/r4b';
-import { M2MClientMockType } from 'utils';
+import { M2MClientMockType, ServiceMode } from 'utils';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { getCurrentQuestionnaireForServiceType } from '../../src/patient/appointment/helpers';
 import {
   InsertFullAppointmentDataBaseResult,
   insertInPersonAppointmentBase,
   setupIntegrationTest,
 } from '../helpers/integration-test-seed-data-setup';
 
-// A QuestionnaireResponse counts as "paperwork" when it references the intake
-// paperwork Questionnaire canonical. The seed encounter's QR is pointed at the
-// in-person intake questionnaire so get-paperwork resolves it.
-const INTAKE_QUESTIONNAIRE = 'https://ottehr.com/FHIR/Questionnaire/intake-paperwork-inperson|1.2.1';
-
 // Happy path for get-paperwork: returns the intake questionnaire (merged with
-// value sets) and the patient's in-progress answers for an appointment.
+// value sets) and the patient's answers for an appointment. The questionnaire is
+// resolved from the running instance's config (getCurrentQuestionnaireForServiceType)
+// rather than hardcoded, so this is valid for any instance.
 describe('get-paperwork integration — happy path', () => {
   let oystehrAdmin: Oystehr;
   let oystehrPatient: Oystehr;
@@ -27,9 +25,12 @@ describe('get-paperwork integration — happy path', () => {
     oystehrPatient = setup.oystehrTestUserM2M;
     cleanup = setup.cleanup;
     base = await insertInPersonAppointmentBase(setup.oystehr, setup.processId);
+    // Point the seed QR at this instance's active in-person intake questionnaire
+    // (a QR is treated as "paperwork" when it references that canonical).
+    const questionnaire = await getCurrentQuestionnaireForServiceType(ServiceMode['in-person'], oystehrAdmin);
     await oystehrAdmin.fhir.update<QuestionnaireResponse>({
       ...base.questionnaireResponse,
-      questionnaire: INTAKE_QUESTIONNAIRE,
+      questionnaire: `${questionnaire.url}|${questionnaire.version}`,
       status: 'in-progress',
     });
   }, 60_000);
