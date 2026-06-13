@@ -23,7 +23,7 @@ export interface SupportedCategoryCatalogEntry {
  */
 export function useHydratedSupportedCategoryHsIds(
   group: HealthcareService | undefined,
-  categoryByHsId: Map<string, SupportedCategoryCatalogEntry>,
+  categoryByHsId: ReadonlyMap<string, SupportedCategoryCatalogEntry>,
   categoryDataLoaded: boolean
 ): [string[], Dispatch<SetStateAction<string[]>>] {
   const [supportedCategoryHsIds, setSupportedCategoryHsIds] = useState<string[]>([]);

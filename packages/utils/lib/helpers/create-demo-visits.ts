@@ -318,9 +318,19 @@ export const createSampleAppointments = async ({
             } catch {
               responseBody = text;
             }
+            // On-failure diagnostic for the recurring 4019 flake. slotId +
+            // worker + timestamp is enough to fetch the slot manually
+            // later, correlate against parallel runs, and check whether it
+            // elapsed between create-slot and create-appointment.
+            const diagnostic = JSON.stringify({
+              slotId: randomPatientInfo.slotId,
+              worker: process.env.TEST_PARALLEL_INDEX ?? 'n/a',
+              appointmentIndex: i,
+              serviceMode: serviceModeToUse,
+              timestamp: DateTime.now().toISO(),
+            });
             throw new Error(
-              `Failed to create appointment (slotId=${randomPatientInfo.slotId}, ` +
-                `worker=${process.env.TEST_PARALLEL_INDEX ?? 'n/a'}, appointmentIndex=${i}). ` +
+              `Failed to create appointment. Diagnostic: ${diagnostic}\n` +
                 `Status: ${createAppointmentResponse.status}\nResponse body: ${responseBody}`
             );
           }
@@ -579,25 +589,10 @@ const generateRandomPatientInfo = async (
     throw new Error(`No matching schedule found for location ID: ${locationId}`);
   }
   const now = DateTime.now();
-  // Stagger slot start times in two dimensions:
-  //   - `appointmentIndex` covers within-call parallelism (one batch of
-  //     concurrent appointments inside this call's Promise.all loop).
-  //   - The per-worker offset covers across-call concurrency. Playwright
-  //     runs e2e specs in parallel workers; each worker calls
-  //     createSampleAppointments with `numberOfAppointments: 1` (so
-  //     appointmentIndex=0 every time), and without a per-worker offset
-  //     all workers would race for the same `next 15-min boundary` slot.
-  //     `TEST_PARALLEL_INDEX` is Playwright's per-worker integer (also
-  //     respected by some other runners); a random fallback covers ad-hoc
-  //     concurrent callers outside a worker pool. Stride is 16 slots
-  //     (4 hours) per worker — fits ~16 numberOfAppointments per call
-  //     without bleeding into the next worker's block.
+  // Round to the next 15-min boundary, then stagger by index — see appointmentIndex.
   const currentMinutes = now.minute;
   const minutesToAdd = (15 - (currentMinutes % 15)) % 15 || 15;
-  const workerEnvIndex = parseInt(process.env.TEST_PARALLEL_INDEX ?? '', 10);
-  const workerOffsetSlots = (Number.isFinite(workerEnvIndex) ? workerEnvIndex : Math.floor(Math.random() * 32)) * 16;
-  const totalStaggerSlots = workerOffsetSlots + appointmentIndex;
-  const nextInPersonSlot = now.plus({ minutes: minutesToAdd + 15 * totalStaggerSlots }).startOf('minute');
+  const nextInPersonSlot = now.plus({ minutes: minutesToAdd + 15 * appointmentIndex }).startOf('minute');
   const createSlotInput: CreateSlotParams = {
     scheduleId: matchingSchedule.id,
     startISO: serviceMode === ServiceMode['in-person'] ? nextInPersonSlot.toISO() : now.toISO(),
@@ -623,26 +618,6 @@ const generateRandomPatientInfo = async (
     console.error('Error creating slot:', error);
     throw new Error('Failed to create slot');
   }
-
-  // Temporary diagnostics for the recurring 4019 (SLOT_UNAVAILABLE) flakes.
-  // Surfaces the inputs that determine which validator branch rejects: slot
-  // wall-clock window, scheduled tz, worker offset, requested cadence.
-  console.log(
-    '[create-demo-visits] persistedSlot',
-    JSON.stringify({
-      slotId: persistedSlot.id,
-      start: persistedSlot.start,
-      end: persistedSlot.end,
-      scheduleRef: persistedSlot.schedule?.reference,
-      serviceCategory: persistedSlot.serviceCategory,
-      serviceMode,
-      locationId,
-      nowISO: now.toISO(),
-      requestedStartISO: createSlotInput.startISO,
-      workerIndex: process.env.TEST_PARALLEL_INDEX,
-      totalStaggerSlots,
-    })
-  );
 
   const patientData = {
     newPatient: true,
