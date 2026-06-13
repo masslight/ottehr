@@ -65,8 +65,23 @@ async function provisionSharedClient(oystehrAdmin: Oystehr, mockType: M2MClientM
       m2mId = created.id;
       profile = created.profile;
     } else {
-      const providerRoleId = roles.find((r) => r.name === RoleType.Provider)?.id;
-      if (!providerRoleId) throw new Error('Provider role not found for shared M2M client');
+      // The shared provider client stands in for a fully-privileged staff user
+      // so it can exercise both provider endpoints and the admin/manager/
+      // customer-support-gated ones (several admin-* zambdas call
+      // requireUserWithRole). Grant every staff role the project defines
+      // (excluding Patient and Inactive).
+      const providerRoleNames = [
+        RoleType.Provider,
+        RoleType.Administrator,
+        RoleType.Manager,
+        RoleType.CustomerSupport,
+        'CustomerSupport',
+        RoleType.FrontDesk,
+        RoleType.Staff,
+        RoleType.Billing,
+      ] as string[];
+      const providerRoleIds = roles.filter((r) => providerRoleNames.includes(r.name)).map((r) => r.id);
+      if (providerRoleIds.length === 0) throw new Error('No provider/staff roles found for shared M2M client');
       const practitioner = await oystehrAdmin.fhir.create<Practitioner>({
         resourceType: 'Practitioner',
         name: [{ given: ['Integration'], family: 'TestsProvider' }],
@@ -77,7 +92,7 @@ async function provisionSharedClient(oystehrAdmin: Oystehr, mockType: M2MClientM
         name,
         description: M2MClientMockType.provider,
         profile: `Practitioner/${practitioner.id}`,
-        roles: [providerRoleId],
+        roles: providerRoleIds,
       });
       m2mId = created.id;
       profile = created.profile;
