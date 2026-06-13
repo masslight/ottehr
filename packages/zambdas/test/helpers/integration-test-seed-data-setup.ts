@@ -314,6 +314,13 @@ export const setupIntegrationTest = async (
 
   const testUserM2MToken =
     m2mClientMockType === M2MClientMockType.patient ? inject('M2M_PATIENT_TOKEN') : inject('M2M_PROVIDER_TOKEN');
+  // IMPORTANT: testUserM2MProfile is the SHARED caller identity (one Practitioner
+  // for all provider tests, one Patient for all patient tests). Treat it as
+  // read-only: reference it (assign to an encounter, filter by it, set it as
+  // orderedProvider, pass as patientID) but NEVER update/patch/delete the profile
+  // resource or destructively hang state off it — that would corrupt every other
+  // test running in parallel. If a test needs a Practitioner/Patient as a mutable
+  // data subject, create its own throwaway one (tagged with processId).
   const testUserM2MProfile =
     m2mClientMockType === M2MClientMockType.patient ? inject('M2M_PATIENT_PROFILE') : inject('M2M_PROVIDER_PROFILE');
 

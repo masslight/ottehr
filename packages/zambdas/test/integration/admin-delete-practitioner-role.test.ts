@@ -1,18 +1,21 @@
 import Oystehr from '@oystehr/sdk';
 import { randomUUID } from 'crypto';
-import { Location, PractitionerRole, Schedule } from 'fhir/r4b';
+import { Location, Practitioner, PractitionerRole, Schedule } from 'fhir/r4b';
 import { M2MClientMockType } from 'utils';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { addProcessIdMetaTagToResource, setupIntegrationTest } from '../helpers/integration-test-seed-data-setup';
 
-// Happy path for admin-delete-practitioner-role: create a practitioner role
-// (for the caller practitioner at a fresh location) via the canonical create
-// zambda, then delete it. The location/schedule created alongside are removed.
+// Happy path for admin-delete-practitioner-role: create a practitioner role at a
+// fresh location via the canonical create zambda, then delete it. We use a
+// dedicated throwaway Practitioner (NOT the shared M2M caller profile) so this
+// test never hangs data off the profile resource shared by all provider tests.
+// The practitioner/location/schedule created alongside are removed.
 describe('admin-delete-practitioner-role integration — happy path', () => {
   let oystehrAdmin: Oystehr;
   let oystehrZambdas: Oystehr;
   let cleanup: () => Promise<void>;
   let roleId: string;
+  let practitionerId: string;
   let locationId: string;
   let scheduleId: string | undefined;
 
@@ -21,7 +24,13 @@ describe('admin-delete-practitioner-role integration — happy path', () => {
     oystehrAdmin = setup.oystehr;
     oystehrZambdas = setup.oystehrTestUserM2M;
     cleanup = setup.cleanup;
-    const practitionerId = setup.testUserM2MProfile.replace('Practitioner/', '');
+    const practitioner = await oystehrAdmin.fhir.create<Practitioner>(
+      addProcessIdMetaTagToResource(
+        { resourceType: 'Practitioner', name: [{ given: ['PR'], family: `Del-${randomUUID().slice(0, 8)}` }] },
+        setup.processId
+      ) as Practitioner
+    );
+    practitionerId = practitioner.id!;
     const location = await oystehrAdmin.fhir.create<Location>(
       addProcessIdMetaTagToResource(
         { resourceType: 'Location', status: 'active', name: `PR Del Loc ${randomUUID().slice(0, 8)}` },
@@ -45,6 +54,7 @@ describe('admin-delete-practitioner-role integration — happy path', () => {
     for (const del of [
       () => (scheduleId ? oystehrAdmin.fhir.delete({ resourceType: 'Schedule', id: scheduleId }) : undefined),
       () => oystehrAdmin.fhir.delete({ resourceType: 'Location', id: locationId }),
+      () => oystehrAdmin.fhir.delete({ resourceType: 'Practitioner', id: practitionerId }),
     ]) {
       try {
         await del();
