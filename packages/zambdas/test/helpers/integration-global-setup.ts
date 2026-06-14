@@ -1,4 +1,5 @@
 import Oystehr from '@oystehr/sdk';
+import { randomUUID } from 'crypto';
 import { Patient, Practitioner } from 'fhir/r4b';
 import { Server } from 'http';
 import type { AddressInfo } from 'net';
@@ -148,10 +149,13 @@ function installAdvaPacsFetchMock(): () => void {
         };
       } else if (url.includes('/DiagnosticReport')) {
         // save-preliminary-report POSTs a DiagnosticReport and builds our local
-        // copy from the response — it must carry a status and id.
+        // copy from the response — it must carry a status and id. The id is
+        // unique per invocation so concurrent radiology tests never share one
+        // AdvaPACS-resource identifier (which the pacs-webhook handler matches
+        // on); each test's local DiagnosticReport gets a distinct identifier.
         body = {
           resourceType: 'DiagnosticReport',
-          id: 'advapacs-mock-diagnostic-report',
+          id: `advapacs-mock-diagnostic-report-${randomUUID()}`,
           status: 'preliminary',
           code: { coding: [{ system: 'http://loinc.org', code: '18748-4', display: 'Diagnostic imaging study' }] },
         };

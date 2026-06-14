@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { DiagnosticReport, ServiceRequest } from 'fhir/r4b';
-import { ACCESSION_NUMBER_CODE_SYSTEM, M2MClientMockType } from 'utils';
+import { ACCESSION_NUMBER_CODE_SYSTEM, ADVAPACS_FHIR_RESOURCE_ID_CODE_SYSTEM, M2MClientMockType } from 'utils';
 import { afterAll, beforeAll, describe, expect, inject, it } from 'vitest';
 import { SECRETS } from '../data/secrets';
 import {
@@ -102,16 +102,27 @@ describe('radiology-pacs-webhook integration — happy paths', () => {
 
   it('DiagnosticReport webhook finalizes our matching DiagnosticReport', async () => {
     // Seed our DiagnosticReport (created from the mocked AdvaPACS report, whose id
-    // is 'advapacs-mock-diagnostic-report'); the webhook DR with the same id
-    // matches it and drives the update path.
+    // is now unique per mock invocation). Read back the AdvaPACS-resource-id
+    // identifier our local DR carries so the webhook DR can reuse that exact id —
+    // this keeps the test parallel-safe (no shared identifier across radiology tests).
     await oystehrZambdas.zambda.execute({
       id: 'radiology-save-preliminary-report',
       serviceRequestId,
       report: 'Integration test preliminary report',
     });
+    const seededReports = (
+      await oystehrAdmin.fhir.search<DiagnosticReport>({
+        resourceType: 'DiagnosticReport',
+        params: [{ name: 'based-on', value: `ServiceRequest/${serviceRequestId}` }],
+      })
+    ).unbundle();
+    const advapacsId = seededReports
+      .flatMap((r) => r.identifier ?? [])
+      .find((i) => i.system === ADVAPACS_FHIR_RESOURCE_ID_CODE_SYSTEM)?.value;
+    expect(advapacsId).toBeDefined();
     const webhookDiagnosticReport: DiagnosticReport = {
       resourceType: 'DiagnosticReport',
-      id: 'advapacs-mock-diagnostic-report',
+      id: advapacsId,
       status: 'final',
       code: { coding: [{ system: 'http://loinc.org', code: '18748-4', display: 'Diagnostic imaging study' }] },
       presentedForm: [
