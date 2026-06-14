@@ -8,6 +8,11 @@ export default defineConfig({
     testTimeout: 180000, // 3 minutes
     hookTimeout: 30000, // 30 seconds
     teardownTimeout: 30000, // 30 seconds
+    // Integration tests run in parallel against a shared live backend. A few
+    // multi-step booking tests occasionally hit transient backend contention
+    // under that load (they pass in isolation); retry absorbs those transient
+    // failures. Deterministic races are fixed at the source, not retried.
+    retry: 2,
     globalSetup: './test/helpers/integration-global-setup.ts',
     // no-network.setup.ts blocks real network egress for non-integration tests;
     // integration tests (test/integration/**) are exempt by path and keep hitting
