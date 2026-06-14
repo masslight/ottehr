@@ -51,6 +51,7 @@ import { MAXIMUM_CHARACTER_LIMIT } from '../constants';
 import { dataTestIds } from '../constants/data-test-ids';
 import { useApiClients } from '../hooks/useAppClients';
 import PageContainer from '../layout/PageContainer';
+import { getPostAppointmentSnackbar } from './AddPatient.helpers';
 
 type SlotLoadingState =
   | { status: 'initial'; input: undefined }
@@ -98,27 +99,6 @@ enum VisitType {
   VirtualOnDemand = 'virtual-on-demand',
   VirtualScheduled = 'virtual-scheduled',
 }
-
-export const getPostAppointmentSnackbar = ({
-  hasClientCopyFailures,
-  isScheduledFollowUp,
-  copyAttempted,
-}: {
-  hasClientCopyFailures: boolean;
-  isScheduledFollowUp: boolean;
-  copyAttempted: boolean;
-}): { message: string; variant: 'warning' | 'success' } => {
-  if (hasClientCopyFailures) {
-    return {
-      message: "Visit created, but some fields couldn't be copied from the previous visit.",
-      variant: 'warning',
-    };
-  }
-  if (isScheduledFollowUp && copyAttempted) {
-    return { message: 'Visit added; notes copied from the previous visit.', variant: 'success' };
-  }
-  return { message: 'Visit added successfully', variant: 'success' };
-};
 
 export default function AddPatient(): JSX.Element {
   const location = useLocation();

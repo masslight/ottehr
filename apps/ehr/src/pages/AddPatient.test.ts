@@ -3,7 +3,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { getPostAppointmentSnackbar } from './AddPatient';
+import { getPostAppointmentSnackbar } from './AddPatient.helpers';
 
 describe('getPostAppointmentSnackbar', () => {
   it('returns warning when any client-side copy field failed', () => {

@@ -13,6 +13,16 @@ vi.mock('browser-image-compression', () => ({
   default: vi.fn(async (file: File) => file),
 }));
 
+// convertHeicToJpegIfNeeded (ui-components) lazily imports `heic-to`, whose
+// isHeic() touches browser globals that aren't available in happy-dom and throws
+// "window is not defined", short-circuiting the upload handler before it reaches
+// compression. These tests cover the compression path, not HEIC conversion, so
+// stub heic-to to treat every file as already-JPEG.
+vi.mock('heic-to', () => ({
+  isHeic: vi.fn(async () => false),
+  heicTo: vi.fn(async (file: File) => file),
+}));
+
 vi.mock('../../src/hooks/useUCZambdaClient', () => ({
   useUCZambdaClient: () => null,
 }));
