@@ -46,6 +46,7 @@
     "test": "ENV=${ENV:-local} vitest run",
     "test:watch": "ENV=${ENV:-local} vitest watch",
     "test:coverage": "c8 npm run test",
+    "test:integration:coverage": "ENV=${ENV:-local} c8 --src=src --include='src/**' --exclude='src/**/*.test.ts' --exclude='src/local-server/**' --exclude='src/scripts/**' --all --reporter=text-summary --reporter=lcov --reporter=html --reports-dir=coverage/integration vitest run test/integration/",
     "mock-reflex-test": "tsx src/scripts/labs/reflex-test-helper.ts",
     "mock-unsolicited-result": "tsx src/scripts/labs/unsolicited-result-helper.ts",
     "make-in-house-test-items": "tsx src/scripts/labs/load-in-house-labs-tests.ts",
