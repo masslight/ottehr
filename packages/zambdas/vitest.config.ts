@@ -17,7 +17,7 @@ export default defineConfig({
     // Cap concurrent workers to keep write pressure on the shared project
     // modest — this reduces how often the search-consistency artifact occurs
     // while preserving most of the parallel speedup over a fully-serial run.
-    maxWorkers: 4,
+    maxWorkers: 6,
     minWorkers: 1,
     globalSetup: './test/helpers/integration-global-setup.ts',
     // no-network.setup.ts blocks real network egress for non-integration tests;
