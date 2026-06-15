@@ -10,6 +10,7 @@ import {
   QuestionnaireResponse,
 } from 'fhir/r4b';
 import {
+  APPOINTMENT_NOT_FOUND_ERROR,
   AppointmentSummary,
   AvailableLocationInformation,
   checkEncounterIsVirtual,
@@ -163,10 +164,11 @@ export const index = wrapHandler('get-paperwork', async (input: ZambdaInput): Pr
     return resource.resourceType == 'QuestionnaireResponse';
   }) as QuestionnaireResponse;
 
-  const missingResources: string[] = [];
   if (!appointment) {
-    missingResources.push('Appointment');
+    throw APPOINTMENT_NOT_FOUND_ERROR;
   }
+
+  const missingResources: string[] = [];
   if (!encounter) {
     missingResources.push('Encounter');
   }
