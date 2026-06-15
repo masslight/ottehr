@@ -10,6 +10,7 @@ import {
   Account,
   AccountCoverage,
   Appointment,
+  Basic,
   Claim,
   ClaimDiagnosis,
   ClaimItem,
@@ -70,9 +71,12 @@ import {
 } from '../../shared';
 import {
   APPOINTMENT_TYPE_TAG_SYSTEM,
+  AUTO_ACCIDENT_TAG_DESCRIPTION,
+  AUTO_ACCIDENT_TAG_NAME,
   BILLING_RESOURCE_TAG,
   BILLING_WORKING_COPY_TAG,
   BillingFhirResource,
+  CLAIM_TAG_SYSTEM,
   createBillingClient,
   CURRENT_STATUS_TAG_SYSTEM,
   findRef,
@@ -80,6 +84,9 @@ import {
   prepareCopy,
   prepareWorkingCopy,
   SOURCE_IDENTIFIER_SYSTEM,
+  TAG_CODE_SYSTEM,
+  TAG_DESCRIPTION_URL,
+  TAG_IS_SYSTEM_TAG_URL,
 } from '../shared';
 
 export interface CreateClaimFromEncounterParams extends CreateBillingClaimFromEncounterInput {
@@ -115,6 +122,7 @@ interface BillingResources {
   renderingProvider?: Practitioner;
   serviceFacility?: Location;
   billingProvider?: Organization;
+  autoAccidentTag?: Basic;
 }
 
 interface ClaimResources {
@@ -130,6 +138,7 @@ interface ClaimResources {
   billingProvider?: Organization;
   diagnoses?: Array<Condition>;
   procedures?: Array<Procedure>;
+  billingTags?: Array<string>;
 }
 
 type CreateClaimFromEncounterRequests = Array<
@@ -328,6 +337,26 @@ export async function performEffect(
   }
   order.push('person');
 
+  const billingTags = [];
+  if (clinicalResources.appointment.description?.toLowerCase() === 'auto accident') {
+    billingTags.push('auto-accident');
+    if (!billingResources.autoAccidentTag) {
+      requests.push({
+        method: 'POST',
+        url: '/Basic',
+        resource: {
+          resourceType: 'Basic',
+          code: { text: AUTO_ACCIDENT_TAG_NAME, coding: [{ system: TAG_CODE_SYSTEM, code: 'tag' }] },
+          extension: [
+            { url: TAG_DESCRIPTION_URL, valueString: AUTO_ACCIDENT_TAG_DESCRIPTION },
+            { url: TAG_IS_SYSTEM_TAG_URL, valueBoolean: true },
+          ],
+        },
+      });
+      order.push('auto-accident-tag');
+    }
+  }
+
   const claim = buildClaim({
     patientId: claimPatient.id,
     encounter: clinicalResources.encounter,
@@ -342,6 +371,7 @@ export async function performEffect(
     renderingProvider: billingResources.renderingProvider,
     serviceFacility: billingResources.serviceFacility,
     billingProvider: billingResources.billingProvider,
+    billingTags,
   });
   requests.push({ method: 'POST', url: '/Claim', resource: claim });
   order.push('claim');
@@ -880,6 +910,14 @@ async function findExistingBillingResources(
   ).unbundle();
   const matchingBillingProvider = billingProviderSearch.length > 0 ? billingProviderSearch[0] : undefined;
 
+  const tagSearch = (
+    await billingOystehr.fhir.search<Basic>({
+      resourceType: 'Basic',
+      params: [{ name: 'code', value: `${TAG_CODE_SYSTEM}|tag` }],
+    })
+  ).unbundle();
+  const autoAccidentTag = tagSearch.find((tag) => tag.code.text === AUTO_ACCIDENT_TAG_NAME);
+
   return {
     person: existingPerson,
     mainPatient: existingMainPatient,
@@ -890,6 +928,7 @@ async function findExistingBillingResources(
     renderingProvider: renderingProvider,
     serviceFacility: matchingServiceFacility,
     billingProvider: matchingBillingProvider,
+    autoAccidentTag,
   };
 }
 
@@ -904,6 +943,7 @@ function buildClaim(resources: ClaimResources): Claim {
         { system: CURRENT_STATUS_TAG_SYSTEM, code: 'open' },
         getAppointmentTypeCoding(resources.appointment),
         getClaimTypeCoding(),
+        ...(resources.billingTags ?? []).map((t) => ({ system: CLAIM_TAG_SYSTEM, code: t })),
       ],
     },
     type: { coding: [getClaimTypeCoding()] },
