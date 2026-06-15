@@ -716,7 +716,7 @@ function buildFormFields(
       items: Object.assign(
         {},
         ...patientScreeningQuestionsConfig.fields
-          .filter((field) => Boolean(field.existsInQuestionnaire))
+          .filter((field) => Boolean(field.existsInQuestionnaire) && !field.hideInVirtualPaperwork)
           .map((field) => ({
             [field.fhirField.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase())]: {
               key: field.fhirField,
