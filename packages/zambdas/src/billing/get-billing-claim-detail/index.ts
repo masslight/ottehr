@@ -4,6 +4,7 @@ import { Claim, Coverage, Location, Organization, Patient, Person, Practitioner,
 import {
   ClaimDetailResponse,
   FHIR_RESOURCE_NOT_FOUND,
+  getClaimStatusValues,
   getNPI,
   getPayerId,
   getResourcesFromBatchInlineRequests,
@@ -116,6 +117,7 @@ async function performEffect(oystehr: Oystehr, params: GetClaimDetailParams): Pr
   return {
     id: claim.id ?? '',
     status,
+    statuses: getClaimStatusValues(claim),
     created: claim.created ?? '',
     billingType: sortedInsurance.length ? 'Insurance Pay' : 'Self Pay',
     billableStatus: claim.status === 'entered-in-error' ? 'Not Billable' : 'Billable',
@@ -231,6 +233,7 @@ async function fetchOtherClaims(
   return otherClaims.map((c) => ({
     id: c.id ?? '',
     status: getClaimStatus(c),
+    arStage: getClaimStatusValues(c).arStage,
     serviceDate: c.item?.[0]?.servicedPeriod?.start ?? c.created ?? '',
     payerName: (c.insurer?.reference ? payersByRef.get(c.insurer.reference) : undefined)?.name ?? '',
     billed: c.total?.value ?? 0,

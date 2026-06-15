@@ -31,11 +31,15 @@ import {
   BillingProviderOption,
   BillingTag,
   chooseJson,
+  CLAIM_STATUS_FIELDS,
+  CLAIM_STATUS_FIELDS_BY_KEY,
   ClaimDetailResponse,
+  ClaimStatusFieldKey,
+  formatClaimStatusValue,
 } from 'utils';
 import { EditableSection } from '../components/claim/EditableSection';
 import { Field } from '../components/Field';
-import { CLAIM_STATUS_COLORS, formatClaimStatus } from '../constants/claimStatus';
+import { claimStatusValueColor } from '../constants/claimStatus';
 import { useApiClients } from '../hooks/useAppClients';
 import { otherColors } from '../themes/ottehr/colors';
 import { buildAddressInput, formatCurrency, splitDisplayName } from '../utils/format';
@@ -105,6 +109,26 @@ export default function ClaimDetail(): ReactElement {
     [oystehrZambda, id, fetchDetail]
   );
 
+  const updateStatus = useCallback(
+    async (field: ClaimStatusFieldKey, value: string): Promise<void> => {
+      if (!oystehrZambda || !id) return;
+      try {
+        // An empty selection clears the tag back to the field's default.
+        await oystehrZambda.zambda.execute({
+          id: 'set-billing-claim-status',
+          claimId: id,
+          field,
+          value: value || null,
+        });
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to update status');
+        return;
+      }
+      await fetchDetail();
+    },
+    [oystehrZambda, id, fetchDetail]
+  );
+
   if (loading && !claim) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50vh' }}>
@@ -124,8 +148,8 @@ export default function ClaimDetail(): ReactElement {
     );
   }
 
-  const statusColor = CLAIM_STATUS_COLORS[claim.status] ?? 'default';
-  const statusLabel = formatClaimStatus(claim.status);
+  const arStageCode = claim.statuses.arStage;
+  const arStageLabel = formatClaimStatusValue(CLAIM_STATUS_FIELDS_BY_KEY.arStage, arStageCode);
   const dos = claim.serviceLines[0]?.serviceDate ?? claim.created;
 
   return (
@@ -149,7 +173,13 @@ export default function ClaimDetail(): ReactElement {
       </Box>
 
       <Box sx={{ ml: 5, mb: 2, display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
-        <Chip label={statusLabel} color={statusColor} variant="outlined" size="small" sx={{ borderRadius: '4px' }} />
+        <Chip
+          label={arStageLabel || 'No AR Stage'}
+          color={arStageCode ? claimStatusValueColor(arStageCode) : 'default'}
+          variant="outlined"
+          size="small"
+          sx={{ borderRadius: '4px' }}
+        />
         {claim.tags.map((tag) => (
           <Chip
             key={tag}
@@ -197,6 +227,7 @@ export default function ClaimDetail(): ReactElement {
           </TabList>
 
           <TabPanel value="1" sx={{ px: 0, pt: 2 }}>
+            <ClaimStatusSection claim={claim} updateStatus={updateStatus} />
             <PatientSection claim={claim} updateResource={updateResource} />
             <InsuranceSection claim={claim} updateResource={updateResource} />
             {claim.secondaryPayerName && (
@@ -229,6 +260,57 @@ export default function ClaimDetail(): ReactElement {
         </TabContext>
       </Box>
     </Box>
+  );
+}
+
+function ClaimStatusSection({
+  claim,
+  updateStatus,
+}: {
+  claim: ClaimDetailResponse;
+  updateStatus: (field: ClaimStatusFieldKey, value: string) => Promise<void>;
+}): ReactElement {
+  return (
+    <Card variant="outlined" sx={{ mb: 2 }}>
+      <CardContent>
+        <Typography variant="h6" color="primary.dark" fontWeight={600} fontSize={16} sx={{ mb: 1.5 }}>
+          Claim Status
+        </Typography>
+        <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2.25, maxWidth: 680 }}>
+          {CLAIM_STATUS_FIELDS.map((field) => {
+            const value = claim.statuses[field.key] ?? '';
+            return (
+              <Field key={field.key} label={field.label}>
+                <Select
+                  size="small"
+                  fullWidth
+                  displayEmpty
+                  value={value}
+                  onChange={(e) => void updateStatus(field.key, e.target.value)}
+                  renderValue={
+                    value
+                      ? () => formatClaimStatusValue(field, value)
+                      : () => (
+                          <Box component="span" sx={{ color: 'text.disabled' }}>
+                            None
+                          </Box>
+                        )
+                  }
+                >
+                  {/* Nullable fields can be cleared back to their null/default state. */}
+                  {field.defaultCode === null && <MenuItem value="">None</MenuItem>}
+                  {field.options.map((o) => (
+                    <MenuItem key={o.code} value={o.code}>
+                      {o.label}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </Field>
+            );
+          })}
+        </Box>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -1287,7 +1369,7 @@ function OtherClaimsSection({
               <TableCell sx={thSx}>Claim ID</TableCell>
               <TableCell sx={thSx}>Service Date</TableCell>
               <TableCell sx={thSx}>Payer</TableCell>
-              <TableCell sx={thSx}>Status</TableCell>
+              <TableCell sx={thSx}>AR Stage</TableCell>
               <TableCell sx={thSx} align="right">
                 Billed
               </TableCell>
@@ -1305,13 +1387,17 @@ function OtherClaimsSection({
                 <TableCell>{oc.serviceDate}</TableCell>
                 <TableCell>{oc.payerName}</TableCell>
                 <TableCell>
-                  <Chip
-                    label={formatClaimStatus(oc.status)}
-                    color={CLAIM_STATUS_COLORS[oc.status] ?? 'default'}
-                    variant="outlined"
-                    size="small"
-                    sx={{ borderRadius: '4px' }}
-                  />
+                  {oc.arStage ? (
+                    <Chip
+                      label={formatClaimStatusValue(CLAIM_STATUS_FIELDS_BY_KEY.arStage, oc.arStage)}
+                      color={claimStatusValueColor(oc.arStage)}
+                      variant="outlined"
+                      size="small"
+                      sx={{ borderRadius: '4px' }}
+                    />
+                  ) : (
+                    '—'
+                  )}
                 </TableCell>
                 <TableCell align="right">{formatCurrency(oc.billed)}</TableCell>
                 <TableCell>{oc.cptCodes.join(', ')}</TableCell>

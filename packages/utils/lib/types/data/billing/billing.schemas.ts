@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { npiRegex, taxIdRegex, zipRegex } from '../../../validation';
+import { CLAIM_STATUS_FIELD_KEYS } from './claim-status';
 
 const nonEmptyString = z.string().trim().min(1);
 const nonNegativeInt = z.number().int().nonnegative();
@@ -57,6 +58,14 @@ export const TagBillingClaimInputSchema = z.object({
   tagName: nonEmptyString,
 });
 
+// Set (or clear, when value is null/empty) one claim-status meta.tag. The value is validated against
+// the selected field's allowed options inside the zambda handler.
+export const SetClaimStatusInputSchema = z.object({
+  claimId: nonEmptyString,
+  field: z.enum(CLAIM_STATUS_FIELD_KEYS),
+  value: z.string().nullable().optional(),
+});
+
 export const GetPatientDetailInputSchema = z.object({
   patientId: nonEmptyString,
 });
@@ -68,6 +77,7 @@ export const GetPatientCoveragesInputSchema = z.object({
 export const SearchBillingClaimsInputSchema = z.object({
   searchText: nonEmptyString.optional(),
   status: nonEmptyString.optional(),
+  arStage: nonEmptyString.optional(),
   tag: nonEmptyString.optional(),
   createdFrom: nonEmptyString.optional(),
   createdTo: nonEmptyString.optional(),
@@ -373,6 +383,7 @@ export type SearchErasInput = z.infer<typeof SearchErasInputSchema>;
 export type SaveBillingTagInput = z.infer<typeof SaveBillingTagInputSchema>;
 export type DeleteBillingTagInput = z.infer<typeof DeleteBillingTagInputSchema>;
 export type TagBillingClaimInput = z.infer<typeof TagBillingClaimInputSchema>;
+export type SetClaimStatusInput = z.infer<typeof SetClaimStatusInputSchema>;
 export type GetPatientDetailInput = z.infer<typeof GetPatientDetailInputSchema>;
 export type GetPatientCoveragesInput = z.infer<typeof GetPatientCoveragesInputSchema>;
 export type SearchBillingClaimsInput = z.infer<typeof SearchBillingClaimsInputSchema>;
