@@ -217,6 +217,10 @@ export const intakeFlowPageRoute = {
     path: '/walkin/location/:name/select-service-category',
     getPage: () => <SelectServiceCategoryPage />,
   },
+  SelectServiceCategoryWalkinBySchedule: {
+    path: '/walkin/schedule/:id/select-service-category',
+    getPage: () => <SelectServiceCategoryPage />,
+  },
   StartVirtualVisit: {
     path: '/start-virtual',
     getPage: () => <StartVirtualVisit />,

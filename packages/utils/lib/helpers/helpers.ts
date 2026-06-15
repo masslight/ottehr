@@ -40,7 +40,7 @@ import {
   ProviderTypeCode,
   ScheduleOwnerFhirResource,
 } from '../types';
-import { emailRegex, phoneRegex, zipRegex } from '../validation';
+import { emailRegex, npiRegex, phoneRegex, zipRegex } from '../validation';
 
 export function createOystehrClient(token: string, fhirAPI: string, projectAPI: string): Oystehr {
   const FHIR_API = fhirAPI.replace(/\/r4/g, '');
@@ -181,7 +181,6 @@ export const isEmailValid = (email: string | undefined): boolean => {
 };
 
 export const isNPIValid = (npi: string): boolean => {
-  const npiRegex = /^\d{10}$/;
   return npiRegex.test(npi);
 };
 
@@ -354,6 +353,29 @@ export function standardizePhoneNumber(phoneNumber: string | undefined): string 
 
 export function resourceHasMetaTag(resource: Resource, metaTag: OTTEHR_MODULE): boolean {
   return Boolean(resource.meta?.tag?.find((coding) => coding.code === metaTag));
+}
+
+/**
+ * Standardizes a phone number that may carry an extension (`x`/`ext.`/`extension`) to
+ * `(XXX) XXX-XXXX` or `(XXX) XXX-XXXX x{ext}`. Returns undefined when the base number can't be
+ * parsed to 10 digits.
+ */
+export function standardizePhoneWithExtension(phoneNumber?: string): string | undefined {
+  const trimmed = phoneNumber?.trim();
+  if (!trimmed) {
+    return undefined;
+  }
+
+  const extensionMatch = trimmed.match(/\s*(?:x|ext\.?|extension)\s*(\d+)$/i);
+  const extension = extensionMatch?.[1];
+  const base = extensionMatch ? trimmed.slice(0, extensionMatch.index).trim() : trimmed;
+
+  const standardizedBase = standardizePhoneNumber(base);
+  if (!standardizedBase) {
+    return undefined;
+  }
+
+  return extension ? `${standardizedBase} x${extension}` : standardizedBase;
 }
 
 export const formatPhoneNumberForQuestionnaire = (phone: string): string => {

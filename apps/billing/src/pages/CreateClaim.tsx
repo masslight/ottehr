@@ -16,9 +16,8 @@ import { useNavigate } from 'react-router-dom';
 import {
   BillingCoverageOption,
   BillingLocationOption,
-  BillingOrganizationOption,
   BillingPatientOption,
-  BillingPractitionerOption,
+  BillingProviderOption,
   chooseJson,
 } from 'utils';
 import { useApiClients } from '../hooks/useAppClients';
@@ -45,24 +44,24 @@ export default function CreateClaim(): ReactElement {
   const navigate = useNavigate();
   const { oystehrZambda } = useApiClients();
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const practTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const renderingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const locTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const orgTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const billingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const [patients, setPatients] = useState<BillingPatientOption[]>([]);
   const [coverages, setCoverages] = useState<BillingCoverageOption[]>([]);
-  const [practitioners, setPractitioners] = useState<BillingPractitionerOption[]>([]);
+  const [renderingProviders, setRenderingProviders] = useState<BillingProviderOption[]>([]);
   const [locations, setLocations] = useState<BillingLocationOption[]>([]);
-  const [billingOrgs, setBillingOrgs] = useState<BillingOrganizationOption[]>([]);
+  const [billingProviders, setBillingProviders] = useState<BillingProviderOption[]>([]);
 
   const [selectedPatient, setSelectedPatient] = useState<BillingPatientOption | null>(null);
   const [selectedCoverage, setSelectedCoverage] = useState<BillingCoverageOption | null>(null);
-  const [selectedPractitioner, setSelectedPractitioner] = useState<BillingPractitionerOption | null>(null);
+  const [selectedRenderingProvider, setSelectedRenderingProvider] = useState<BillingProviderOption | null>(null);
   const [selectedFacility, setSelectedFacility] = useState<BillingLocationOption | null>(null);
-  const [selectedBillingProvider, setSelectedBillingProvider] = useState<BillingOrganizationOption | null>(null);
+  const [selectedBillingProvider, setSelectedBillingProvider] = useState<BillingProviderOption | null>(null);
 
   const [subscriberId, setSubscriberId] = useState('');
   const [dateOfService, setDateOfService] = useState('');
@@ -89,9 +88,9 @@ export default function CreateClaim(): ReactElement {
   useEffect(() => {
     return (): void => {
       if (searchTimer.current) clearTimeout(searchTimer.current);
-      if (practTimer.current) clearTimeout(practTimer.current);
+      if (renderingTimer.current) clearTimeout(renderingTimer.current);
       if (locTimer.current) clearTimeout(locTimer.current);
-      if (orgTimer.current) clearTimeout(orgTimer.current);
+      if (billingTimer.current) clearTimeout(billingTimer.current);
     };
   }, []);
 
@@ -116,16 +115,17 @@ export default function CreateClaim(): ReactElement {
     [oystehrZambda]
   );
 
-  const searchPractitioners = useCallback(
+  const searchRenderingProviders = useCallback(
     (query?: string): void => {
       if (!oystehrZambda) return;
-      if (practTimer.current) clearTimeout(practTimer.current);
-      practTimer.current = setTimeout(async () => {
+      if (renderingTimer.current) clearTimeout(renderingTimer.current);
+      renderingTimer.current = setTimeout(async () => {
         const res = await oystehrZambda.zambda.execute({
-          id: 'search-billing-practitioners',
+          id: 'search-billing-providers',
+          providerType: 'rendering',
           ...(query ? { name: query } : {}),
         });
-        setPractitioners(chooseJson(res).practitioners ?? []);
+        setRenderingProviders(chooseJson(res).providers ?? []);
       }, 300);
     },
     [oystehrZambda]
@@ -146,17 +146,17 @@ export default function CreateClaim(): ReactElement {
     [oystehrZambda]
   );
 
-  const searchBillingOrgs = useCallback(
+  const searchBillingProviders = useCallback(
     (query?: string): void => {
       if (!oystehrZambda) return;
-      if (orgTimer.current) clearTimeout(orgTimer.current);
-      orgTimer.current = setTimeout(async () => {
+      if (billingTimer.current) clearTimeout(billingTimer.current);
+      billingTimer.current = setTimeout(async () => {
         const res = await oystehrZambda.zambda.execute({
-          id: 'search-billing-organizations',
+          id: 'search-billing-providers',
+          providerType: 'billing',
           ...(query ? { name: query } : {}),
         });
-        const allOrgs = chooseJson(res).organizations ?? [];
-        setBillingOrgs(allOrgs.filter((o: BillingOrganizationOption) => !o.isPayer));
+        setBillingProviders(chooseJson(res).providers ?? []);
       }, 300);
     },
     [oystehrZambda]
@@ -217,14 +217,17 @@ export default function CreateClaim(): ReactElement {
         }
       }
 
-      if (selectedPractitioner) {
-        payload.practitionerId = selectedPractitioner.id;
-        const practOverrides: Record<string, string> = {};
-        if (practFirstName && practFirstName !== selectedPractitioner.firstName)
-          practOverrides.firstName = practFirstName;
-        if (practLastName && practLastName !== selectedPractitioner.lastName) practOverrides.lastName = practLastName;
-        if (practNpi && practNpi !== selectedPractitioner.npi) practOverrides.npi = practNpi;
-        if (Object.keys(practOverrides).length) payload.practitionerOverrides = practOverrides;
+      if (selectedRenderingProvider) {
+        const overrides: Record<string, string> = {};
+        if (practFirstName && practFirstName !== selectedRenderingProvider.firstName)
+          overrides.firstName = practFirstName;
+        if (practLastName && practLastName !== selectedRenderingProvider.lastName) overrides.lastName = practLastName;
+        if (practNpi && practNpi !== selectedRenderingProvider.npi) overrides.npi = practNpi;
+        payload.renderingProvider = {
+          id: selectedRenderingProvider.id,
+          type: selectedRenderingProvider.kind === 'organization' ? 'Organization' : 'Practitioner',
+          ...(Object.keys(overrides).length ? { overrides } : {}),
+        };
       }
 
       if (selectedFacility) {
@@ -237,12 +240,15 @@ export default function CreateClaim(): ReactElement {
       }
 
       if (selectedBillingProvider) {
-        payload.billingProviderId = selectedBillingProvider.id;
-        const bpOverrides: Record<string, string> = {};
-        if (billingName && billingName !== selectedBillingProvider.name) bpOverrides.name = billingName;
-        if (billingNpi && billingNpi !== selectedBillingProvider.npi) bpOverrides.npi = billingNpi;
-        if (billingTin && billingTin !== selectedBillingProvider.tin) bpOverrides.tin = billingTin;
-        if (Object.keys(bpOverrides).length) payload.billingProviderOverrides = bpOverrides;
+        const overrides: Record<string, string> = {};
+        if (billingName && billingName !== selectedBillingProvider.name) overrides.name = billingName;
+        if (billingNpi && billingNpi !== selectedBillingProvider.npi) overrides.npi = billingNpi;
+        if (billingTin && billingTin !== selectedBillingProvider.taxId) overrides.tin = billingTin;
+        payload.billingProvider = {
+          id: selectedBillingProvider.id,
+          type: selectedBillingProvider.kind === 'organization' ? 'Organization' : 'Practitioner',
+          ...(Object.keys(overrides).length ? { overrides } : {}),
+        };
       }
 
       if (diagnoses.length) payload.diagnoses = diagnoses.map((code) => ({ code }));
@@ -434,18 +440,18 @@ export default function CreateClaim(): ReactElement {
 
       <FormSection label="Rendering Provider">
         <Autocomplete
-          options={practitioners}
-          value={selectedPractitioner}
+          options={renderingProviders}
+          value={selectedRenderingProvider}
           onChange={(_, v) => {
-            setSelectedPractitioner(v);
+            setSelectedRenderingProvider(v);
             setPractFirstName(v?.firstName ?? '');
             setPractLastName(v?.lastName ?? '');
             setPractNpi(v?.npi ?? '');
           }}
           onInputChange={(_, val, reason) => {
-            if (reason === 'input') searchPractitioners(val || undefined);
+            if (reason === 'input') searchRenderingProviders(val || undefined);
           }}
-          onOpen={() => searchPractitioners()}
+          onOpen={() => searchRenderingProviders()}
           filterOptions={(x) => x}
           getOptionLabel={(o) => o.name || `${o.firstName} ${o.lastName}`}
           renderOption={(props, o) => (
@@ -462,9 +468,9 @@ export default function CreateClaim(): ReactElement {
           )}
           renderInput={(p) => <TextField {...p} size="small" label="Choose Rendering Provider" />}
           isOptionEqualToValue={(o, v) => o.id === v.id}
-          sx={{ mb: selectedPractitioner ? 2 : 0 }}
+          sx={{ mb: selectedRenderingProvider ? 2 : 0 }}
         />
-        {selectedPractitioner && (
+        {selectedRenderingProvider && (
           <Box sx={{ display: 'flex', gap: 2 }}>
             <TextField
               size="small"
@@ -556,18 +562,18 @@ export default function CreateClaim(): ReactElement {
 
       <FormSection label="Billing Provider">
         <Autocomplete
-          options={billingOrgs}
+          options={billingProviders}
           value={selectedBillingProvider}
           onChange={(_, v) => {
             setSelectedBillingProvider(v);
             setBillingName(v?.name ?? '');
             setBillingNpi(v?.npi ?? '');
-            setBillingTin(v?.tin ?? '');
+            setBillingTin(v?.taxId ?? '');
           }}
           onInputChange={(_, val, reason) => {
-            if (reason === 'input') searchBillingOrgs(val || undefined);
+            if (reason === 'input') searchBillingProviders(val || undefined);
           }}
-          onOpen={() => searchBillingOrgs()}
+          onOpen={() => searchBillingProviders()}
           filterOptions={(x) => x}
           getOptionLabel={(o) => o.name}
           renderOption={(props, o) => (
@@ -577,7 +583,7 @@ export default function CreateClaim(): ReactElement {
                   {o.name}
                 </Typography>
                 <Typography variant="caption" color="text.secondary">
-                  NPI: {o.npi} | TIN: {o.tin}
+                  NPI: {o.npi} | TIN: {o.taxId}
                 </Typography>
               </Box>
             </Box>

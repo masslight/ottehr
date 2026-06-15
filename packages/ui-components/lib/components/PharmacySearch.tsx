@@ -93,6 +93,7 @@ export const PharmacySearch: FC<PharmacySearchProps> = ({ handlePharmacySelectio
         placesId: place.placesId,
         placesName: place.name,
         placesAddress: place.address,
+        placesPhone: place.phone,
         erxPharmacyId: place.erxPharmacyId,
       };
 

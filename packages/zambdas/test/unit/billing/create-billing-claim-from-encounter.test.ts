@@ -17,6 +17,7 @@ import {
   ACCOUNT_TYPE_CODE_SYSTEM,
   APIError,
   CODE_SYSTEM_CLAIM_TYPE,
+  CODE_SYSTEM_CLAIM_TYPE_CODES,
   CODE_SYSTEM_CMS_PLACE_OF_SERVICE,
   CODE_SYSTEM_CPT,
   CODE_SYSTEM_CPT_MODIFIER,
@@ -42,6 +43,7 @@ import {
   performEffect,
   validateRequestParameters,
 } from '../../../src/billing/create-billing-claim-from-encounter/handler';
+import { BILLING_RESOURCE_TAG } from '../../../src/billing/shared';
 
 const clinicalResources: {
   encounter: Encounter;
@@ -201,6 +203,9 @@ const billingResources: {
     extension: [
       { url: 'https://ottehr.com/billing/source-resource', valueReference: { reference: 'Patient/patient-123' } },
     ],
+    meta: {
+      tag: [BILLING_RESOURCE_TAG],
+    },
   },
   account: {
     resourceType: 'Account',
@@ -1072,9 +1077,13 @@ describe('create-billing-claim-from-encounter', () => {
               resourceType: 'Claim',
               status: 'draft',
               meta: {
-                tag: [{ system: 'current-status', code: 'open' }],
+                tag: [
+                  { system: 'current-status', code: 'open' },
+                  { system: 'appointment-type', code: 'urgent-care' },
+                  { system: CODE_SYSTEM_CLAIM_TYPE, code: CODE_SYSTEM_CLAIM_TYPE_CODES.professional },
+                ],
               },
-              type: { coding: [{ system: CODE_SYSTEM_CLAIM_TYPE, code: 'professional' }] },
+              type: { coding: [{ system: CODE_SYSTEM_CLAIM_TYPE, code: CODE_SYSTEM_CLAIM_TYPE_CODES.professional }] },
               use: 'claim',
               created: expect.any(String),
               patient: {
@@ -1127,6 +1136,7 @@ describe('create-billing-claim-from-encounter', () => {
     it('creates appropriate billing resources and claim when all exist', async () => {
       const txFn = vi.fn().mockResolvedValueOnce({
         entry: [
+          { resource: { resourceType: 'Patient', id: 'billing-patient' } },
           { resource: { resourceType: 'Patient', id: 'claim-patient' } },
           { resource: { resourceType: 'RelatedPerson', id: 'claim-subscriber' } },
           { resource: { resourceType: 'Coverage', id: 'claim-coverage' } },
@@ -1175,9 +1185,13 @@ describe('create-billing-claim-from-encounter', () => {
               resourceType: 'Claim',
               status: 'draft',
               meta: {
-                tag: [{ system: 'current-status', code: 'open' }],
+                tag: [
+                  { system: 'current-status', code: 'open' },
+                  { system: 'appointment-type', code: 'urgent-care' },
+                  { system: CODE_SYSTEM_CLAIM_TYPE, code: CODE_SYSTEM_CLAIM_TYPE_CODES.professional },
+                ],
               },
-              type: { coding: [{ system: CODE_SYSTEM_CLAIM_TYPE, code: 'professional' }] },
+              type: { coding: [{ system: CODE_SYSTEM_CLAIM_TYPE, code: CODE_SYSTEM_CLAIM_TYPE_CODES.professional }] },
               use: 'claim',
               created: expect.any(String),
               patient: {
@@ -1238,6 +1252,250 @@ describe('create-billing-claim-from-encounter', () => {
                       },
                     ],
                   },
+                  net: undefined,
+                  quantity: { value: 1, unit: 'UN' },
+                },
+              ],
+            },
+          },
+        ]),
+      });
+    });
+    it('creates claim with correct appointment type', async () => {
+      const txFn = vi.fn().mockResolvedValue({
+        entry: [
+          { resource: { resourceType: 'Patient', id: 'billing-patient' } },
+          { resource: { resourceType: 'Patient', id: 'claim-patient' } },
+          { resource: { resourceType: 'RelatedPerson', id: 'billing-subscriber' } },
+          { resource: { resourceType: 'Coverage', id: 'billing-coverage' } },
+          { resource: { resourceType: 'Account', id: 'billing-account' } },
+          { resource: { resourceType: 'RelatedPerson', id: 'claim-subscriber' } },
+          { resource: { resourceType: 'Coverage', id: 'claim-coverage' } },
+          { resource: { resourceType: 'Person', id: 'billing-person' } },
+          { resource: { resourceType: 'Claim', id: 'claim' } },
+        ],
+      });
+      const billingOystehr = {
+        fhir: { transaction: txFn },
+        rcm: { constructPayerUrl: vi.fn().mockReturnValue('https://rcm-api.zapehr.com/v1/payer/payer-123') },
+      } as unknown as Oystehr;
+      const cvo: ComplexValidationOutput = {
+        clinicalResources: {
+          accounts: [clinicalResources.account],
+          appointment: {
+            ...clinicalResources.appointment,
+            serviceCategory: [{ coding: [{ system: SERVICE_CATEGORY_SYSTEM, code: 'urgent-care' }] }],
+          },
+          billingProvider: clinicalResources.billingProvider,
+          coverages: [clinicalResources.coverage],
+          diagnoses: [clinicalResources.condition],
+          encounter: clinicalResources.encounter,
+          location: clinicalResources.location,
+          patient: clinicalResources.patient,
+          payors: [oystehrResources.payor],
+          practitioners: [clinicalResources.practitioner],
+          procedures: [clinicalResources.procedure],
+        },
+        billingResources: {
+          accounts: [],
+          billingProvider: undefined,
+          coverages: [],
+          mainPatient: undefined,
+          person: undefined,
+          practitioners: [],
+          renderingProvider: undefined,
+          serviceFacility: undefined,
+          subscribers: [],
+        },
+      };
+      let result = await performEffect(billingOystehr, cvo);
+      expect(result.claimId).toEqual('claim');
+      expect(txFn).toHaveBeenCalledWith({
+        requests: expect.arrayContaining([
+          {
+            method: 'POST',
+            url: '/Claim',
+            resource: {
+              resourceType: 'Claim',
+              status: 'draft',
+              meta: {
+                tag: [
+                  { system: 'current-status', code: 'open' },
+                  { system: 'appointment-type', code: 'urgent-care' },
+                  { system: CODE_SYSTEM_CLAIM_TYPE, code: CODE_SYSTEM_CLAIM_TYPE_CODES.professional },
+                ],
+              },
+              type: { coding: [{ system: CODE_SYSTEM_CLAIM_TYPE, code: CODE_SYSTEM_CLAIM_TYPE_CODES.professional }] },
+              use: 'claim',
+              created: expect.any(String),
+              patient: {
+                reference: 'urn:uuid:claim-patient',
+              },
+              provider: { display: 'Unknown' },
+              facility: undefined,
+              insurer: { reference: 'https://rcm-api.zapehr.com/v1/payer/payer-123' },
+              insurance: [
+                {
+                  sequence: 1,
+                  focal: true,
+                  coverage: { reference: 'urn:uuid:claim-coverage-billing-coverage-coverage-123' },
+                },
+              ],
+              careTeam: undefined,
+              diagnosis: [{ sequence: 1, diagnosisCodeableConcept: clinicalResources.condition.code }],
+              priority: { coding: [{ system: CODE_SYSTEM_PROCESS_PRIORITY, code: 'normal' }] },
+              total: undefined,
+              item: [
+                {
+                  sequence: 1,
+                  careTeamSequence: undefined,
+                  diagnosisSequence: [1],
+                  productOrService: clinicalResources.procedure.code,
+                  modifier: [
+                    {
+                      coding: [
+                        {
+                          code: '25',
+                          system: 'https://terminology.fhir.oystehr.com/CodeSystem/rcm-claim-procedure-modifier',
+                        },
+                      ],
+                    },
+                  ],
+                  servicedPeriod: {
+                    start: expect.any(String),
+                    end: undefined,
+                  },
+                  locationCodeableConcept: undefined,
+                  net: undefined,
+                  quantity: { value: 1, unit: 'UN' },
+                },
+              ],
+            },
+          },
+        ]),
+      });
+
+      cvo.clinicalResources.appointment.serviceCategory![0].coding![0].code = 'workers-comp';
+      cvo.clinicalResources.accounts[0].type!.coding![0].code = 'WCOMPACCT';
+      result = await performEffect(billingOystehr, cvo);
+      expect(txFn).toHaveBeenCalledWith({
+        requests: expect.arrayContaining([
+          {
+            method: 'POST',
+            url: '/Claim',
+            resource: {
+              resourceType: 'Claim',
+              status: 'draft',
+              meta: {
+                tag: [
+                  { system: 'current-status', code: 'open' },
+                  { system: 'appointment-type', code: 'workers-comp' },
+                  { system: CODE_SYSTEM_CLAIM_TYPE, code: CODE_SYSTEM_CLAIM_TYPE_CODES.professional },
+                ],
+              },
+              type: { coding: [{ system: CODE_SYSTEM_CLAIM_TYPE, code: CODE_SYSTEM_CLAIM_TYPE_CODES.professional }] },
+              use: 'claim',
+              created: expect.any(String),
+              patient: {
+                reference: 'urn:uuid:claim-patient',
+              },
+              provider: { display: 'Unknown' },
+              facility: undefined,
+              insurer: { reference: 'https://rcm-api.zapehr.com/v1/payer/payer-123' },
+              insurance: [
+                {
+                  sequence: 1,
+                  focal: true,
+                  coverage: { reference: 'urn:uuid:claim-coverage-billing-coverage-coverage-123' },
+                },
+              ],
+              careTeam: undefined,
+              diagnosis: [{ sequence: 1, diagnosisCodeableConcept: clinicalResources.condition.code }],
+              priority: { coding: [{ system: CODE_SYSTEM_PROCESS_PRIORITY, code: 'normal' }] },
+              total: undefined,
+              item: [
+                {
+                  sequence: 1,
+                  careTeamSequence: undefined,
+                  diagnosisSequence: [1],
+                  productOrService: clinicalResources.procedure.code,
+                  modifier: [
+                    {
+                      coding: [
+                        {
+                          code: '25',
+                          system: 'https://terminology.fhir.oystehr.com/CodeSystem/rcm-claim-procedure-modifier',
+                        },
+                      ],
+                    },
+                  ],
+                  servicedPeriod: {
+                    start: expect.any(String),
+                    end: undefined,
+                  },
+                  locationCodeableConcept: undefined,
+                  net: undefined,
+                  quantity: { value: 1, unit: 'UN' },
+                },
+              ],
+            },
+          },
+        ]),
+      });
+
+      cvo.clinicalResources.appointment.serviceCategory![0].coding![0].code = 'occupational-medicine';
+      cvo.clinicalResources.accounts[0].type!.coding![0].code = 'OCCUPATIONALMEDICINEACCT';
+      result = await performEffect(billingOystehr, cvo);
+      expect(txFn).toHaveBeenCalledWith({
+        requests: expect.arrayContaining([
+          {
+            method: 'POST',
+            url: '/Claim',
+            resource: {
+              resourceType: 'Claim',
+              status: 'draft',
+              meta: {
+                tag: [
+                  { system: 'current-status', code: 'open' },
+                  { system: 'appointment-type', code: 'occupational-medicine' },
+                  { system: CODE_SYSTEM_CLAIM_TYPE, code: CODE_SYSTEM_CLAIM_TYPE_CODES.professional },
+                ],
+              },
+              type: { coding: [{ system: CODE_SYSTEM_CLAIM_TYPE, code: CODE_SYSTEM_CLAIM_TYPE_CODES.professional }] },
+              use: 'claim',
+              created: expect.any(String),
+              patient: {
+                reference: 'urn:uuid:claim-patient',
+              },
+              provider: { display: 'Unknown' },
+              facility: undefined,
+              insurer: undefined,
+              insurance: [],
+              careTeam: undefined,
+              diagnosis: [{ sequence: 1, diagnosisCodeableConcept: clinicalResources.condition.code }],
+              priority: { coding: [{ system: CODE_SYSTEM_PROCESS_PRIORITY, code: 'normal' }] },
+              total: undefined,
+              item: [
+                {
+                  sequence: 1,
+                  careTeamSequence: undefined,
+                  diagnosisSequence: [1],
+                  productOrService: clinicalResources.procedure.code,
+                  modifier: [
+                    {
+                      coding: [
+                        {
+                          code: '25',
+                          system: 'https://terminology.fhir.oystehr.com/CodeSystem/rcm-claim-procedure-modifier',
+                        },
+                      ],
+                    },
+                  ],
+                  servicedPeriod: {
+                    start: expect.any(String),
+                    end: undefined,
+                  },
+                  locationCodeableConcept: undefined,
                   net: undefined,
                   quantity: { value: 1, unit: 'UN' },
                 },

@@ -19,24 +19,6 @@ export const CODE_SYSTEM_HCPCS = 'http://www.cms.gov/Medicare/Coding/HCPCSReleas
 export const CODE_SYSTEM_NDC = 'http://hl7.org/fhir/sid/ndc';
 export const CODE_SYSTEM_CMS_PLACE_OF_SERVICE =
   'http://www.cms.gov/Medicare/Coding/place-of-service-codes/Place_of_Service_Code_Set.html';
-export const CODE_SYSTEM_COVERAGE_CLASS = 'http://terminology.hl7.org/CodeSystem/coverage-class';
-export const CODE_SYSTEM_PAYEE_TYPE = 'http://terminology.hl7.org/CodeSystem/payeetype';
-export const CODE_SYSTEM_PROVIDER_TAXONOMY = 'http://nucc.org/provider-taxonomy';
-
-export const CODE_SYSTEM_OYSTEHR_RCM_CMS1500_REFERRING_PROVIDER_TYPE =
-  'https://terminology.zapehr.com/rcm/cms1500/referring-provider-type';
-export const CODE_SYSTEM_OYSTEHR_RCM_CMS1500_DATE_TYPE = 'https://terminology.zapehr.com/rcm/cms1500/date-type';
-export const CODE_SYSTEM_OYSTEHR_RCM_CMS1500_RESUBMISSION_RELATIONSHIP =
-  'https://terminology.zapehr.com/rcm/cms1500/resubmission-relationship';
-export const CODE_SYSTEM_OYSTEHR_RCM_CMS1500_PROCEDURE_MODIFIER =
-  'https://terminology.zapehr.com/rcm/cms1500/procedure-modifier';
-export const CODE_SYSTEM_OYSTEHR_RCM_CMS1500_REVENUE_CODE = 'https://terminology.zapehr.com/rcm/cms1500/revenue-code';
-
-export const EXTENSION_URL_CPT_MODIFIER = 'https://fhir.ottehr.com/Extension/cpt-code-modifier';
-export const CODE_SYSTEM_CPT_MODIFIER = 'https://fhir.ottehr.com/CodeSystem/cpt-code-modifier';
-
-export const CODE_SYSTEM_OYSTEHR_CLAIM_PROCEDURE_MODIFIER =
-  'https://terminology.fhir.oystehr.com/CodeSystem/rcm-claim-procedure-modifier';
 
 // https://www.cms.gov/medicare/coding-billing/place-of-service-codes/code-sets
 export const CMS_PLACE_OF_SERVICE_CODES: readonly { code: string; display: string }[] = [
@@ -250,3 +232,28 @@ export const CMS_PLACE_OF_SERVICE_CODES: readonly { code: string; display: strin
   },
 ] as const;
 export const CMS_PLACE_OF_SERVICE_CODE_SET = new Set(CMS_PLACE_OF_SERVICE_CODES.map((pos) => pos.code));
+
+export const CODE_SYSTEM_COVERAGE_CLASS = 'http://terminology.hl7.org/CodeSystem/coverage-class';
+export const CODE_SYSTEM_PAYEE_TYPE = 'http://terminology.hl7.org/CodeSystem/payeetype';
+export const CODE_SYSTEM_PROVIDER_TAXONOMY = 'http://nucc.org/provider-taxonomy';
+
+export const CODE_SYSTEM_OYSTEHR_RCM_CMS1500_REFERRING_PROVIDER_TYPE =
+  'https://terminology.zapehr.com/rcm/cms1500/referring-provider-type';
+export const CODE_SYSTEM_OYSTEHR_RCM_CMS1500_DATE_TYPE = 'https://terminology.zapehr.com/rcm/cms1500/date-type';
+export const CODE_SYSTEM_OYSTEHR_RCM_CMS1500_RESUBMISSION_RELATIONSHIP =
+  'https://terminology.zapehr.com/rcm/cms1500/resubmission-relationship';
+export const CODE_SYSTEM_OYSTEHR_RCM_CMS1500_PROCEDURE_MODIFIER =
+  'https://terminology.zapehr.com/rcm/cms1500/procedure-modifier';
+export const CODE_SYSTEM_OYSTEHR_RCM_CMS1500_REVENUE_CODE = 'https://terminology.zapehr.com/rcm/cms1500/revenue-code';
+
+export const EXTENSION_URL_CPT_MODIFIER = 'https://fhir.ottehr.com/Extension/cpt-code-modifier';
+export const CODE_SYSTEM_CPT_MODIFIER = 'https://fhir.ottehr.com/CodeSystem/cpt-code-modifier';
+
+export const CODE_SYSTEM_OYSTEHR_CLAIM_PROCEDURE_MODIFIER =
+  'https://terminology.fhir.oystehr.com/CodeSystem/rcm-claim-procedure-modifier';
+
+export const CODE_SYSTEM_CLAIM_TYPE_CODE_NAMES = ['professional', 'institutional'] as const;
+export const CODE_SYSTEM_CLAIM_TYPE_CODES = {
+  professional: 'professional',
+  institutional: 'institutional',
+} as const;

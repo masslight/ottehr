@@ -16,13 +16,7 @@ import {
 import { DataGridPro, GridColDef, GridPaginationModel } from '@mui/x-data-grid-pro';
 import { ReactElement, useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import {
-  BillingOrganizationOption,
-  BillingPatientOption,
-  chooseJson,
-  ClaimsQueueItemStatuses,
-  EraListItem,
-} from 'utils';
+import { BillingPatientOption, BillingPayerOption, chooseJson, ClaimsQueueItemStatuses, EraListItem } from 'utils';
 import { dataGridSlots, dataGridSx } from '../components/BillingDataGrid';
 import { formatClaimStatus } from '../constants/claimStatus';
 import { useApiClients } from '../hooks/useAppClients';
@@ -93,8 +87,8 @@ export default function ERAList(): ReactElement {
   const [eraDateFrom, setEraDateFrom] = useState('');
   const [eraDateTo, setEraDateTo] = useState('');
   const [eraStatus, setEraStatus] = useState('');
-  const [selectedPayer, setSelectedPayer] = useState<BillingOrganizationOption | null>(null);
-  const [payerOptions, setPayerOptions] = useState<BillingOrganizationOption[]>([]);
+  const [selectedPayer, setSelectedPayer] = useState<BillingPayerOption | null>(null);
+  const [payerOptions, setPayerOptions] = useState<BillingPayerOption[]>([]);
 
   // Claim-level filters
   const [searchText, setSearchText] = useState('');
@@ -146,10 +140,10 @@ export default function ERAList(): ReactElement {
       debounce(async () => {
         try {
           const res = await oystehrZambda.zambda.execute({
-            id: 'search-billing-organizations',
+            id: 'search-billing-payers',
             ...(query ? { name: query } : {}),
           });
-          setPayerOptions(chooseJson(res).organizations ?? []);
+          setPayerOptions(chooseJson(res).payers ?? []);
         } catch {
           setPayerOptions([]);
         }
@@ -190,7 +184,7 @@ export default function ERAList(): ReactElement {
       eraDateFrom: overrides?.eraDateFrom ?? eraDateFrom,
       eraDateTo: overrides?.eraDateTo ?? eraDateTo,
       eraStatus: overrides?.eraStatus ?? eraStatus,
-      payerId: overrides?.payerId ?? selectedPayer?.id,
+      payerId: overrides?.payerId ?? selectedPayer?.payerId,
       searchText: overrides?.searchText ?? searchText,
       claimStatus: overrides?.claimStatus ?? claimStatus,
       dosFrom: overrides?.dosFrom ?? dosFrom,
@@ -333,10 +327,10 @@ export default function ERAList(): ReactElement {
           value={selectedPayer}
           onChange={(_, v) => {
             setSelectedPayer(v);
-            applyFilters({ payerId: v?.id ?? '' });
+            applyFilters({ payerId: v?.payerId ?? '' });
           }}
           renderInput={(params) => <TextField {...params} label="Payer" />}
-          isOptionEqualToValue={(o, v) => o.id === v.id}
+          isOptionEqualToValue={(o, v) => o.payerId === v.payerId}
           sx={{ minWidth: 200 }}
         />
         <TextField

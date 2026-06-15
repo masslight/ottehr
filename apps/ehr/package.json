@@ -1,6 +1,6 @@
 {
   "name": "ehr-ui",
-  "version": "1.36.13",
+  "version": "1.36.22",
   "private": true,
   "type": "module",
   "engines": {
@@ -41,6 +41,8 @@
     "unit-tests": "vitest --config ./vitest.config.ts",
     "component-tests": "vitest --config ./vitest.config.component-tests.ts",
     "test": "npm run unit-tests -- --watch=false && npm run component-tests -- --watch=false",
+    "test:unit:ci": "vitest run --config ./vitest.config.ts --coverage --passWithNoTests --reporter=dot --reporter=github-actions",
+    "test:component:ci": "vitest run --config ./vitest.config.component-tests.ts --coverage --passWithNoTests --reporter=dot --reporter=github-actions",
     "e2e:login": "npm run e2e-skeleton ./tests/e2e/login",
     "e2e:specs": "npm run e2e-skeleton -- ./tests/e2e/specs $PLAYWRIGHT_EXTRA_ARGS",
     "e2e:specs:ui": "npm run e2e-skeleton -- ./tests/e2e/specs --ui $PLAYWRIGHT_EXTRA_ARGS",

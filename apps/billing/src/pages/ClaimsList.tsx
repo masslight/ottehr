@@ -16,13 +16,7 @@ import {
 import { DataGridPro, GridColDef, GridPaginationModel } from '@mui/x-data-grid-pro';
 import { ReactElement, useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import {
-  BillingClaimItem,
-  BillingOrganizationOption,
-  BillingPatientOption,
-  chooseJson,
-  ClaimsQueueItemStatuses,
-} from 'utils';
+import { BillingClaimItem, BillingPatientOption, BillingPayerOption, chooseJson, ClaimsQueueItemStatuses } from 'utils';
 import { dataGridSlots, dataGridSx } from '../components/BillingDataGrid';
 import { CLAIM_STATUS_COLORS, formatClaimStatus } from '../constants/claimStatus';
 import { useApiClients } from '../hooks/useAppClients';
@@ -85,7 +79,7 @@ export default function ClaimsList(): ReactElement {
   const [error, setError] = useState<string | null>(null);
   const [paginationModel, setPaginationModel] = useState<GridPaginationModel>({ page: 0, pageSize: 25 });
 
-  const [payerOptions, setPayerOptions] = useState<BillingOrganizationOption[]>([]);
+  const [payerOptions, setPayerOptions] = useState<BillingPayerOption[]>([]);
   const [patientOptions, setPatientOptions] = useState<BillingPatientOption[]>([]);
 
   const [searchText, setSearchText] = useState('');
@@ -94,7 +88,7 @@ export default function ClaimsList(): ReactElement {
   const [tagOptions, setTagOptions] = useState<{ id: string; name: string }[]>([]);
   const [createdFrom, setDosFrom] = useState('');
   const [createdTo, setDosTo] = useState('');
-  const [selectedPayer, setSelectedPayer] = useState<BillingOrganizationOption | null>(null);
+  const [selectedPayer, setSelectedPayer] = useState<BillingPayerOption | null>(null);
   const [selectedPatient, setSelectedPatient] = useState<BillingPatientOption | null>(null);
 
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -148,11 +142,10 @@ export default function ClaimsList(): ReactElement {
       if (payerDebounce.current) clearTimeout(payerDebounce.current);
       payerDebounce.current = setTimeout(async () => {
         const res = await oystehrZambda.zambda.execute({
-          id: 'search-billing-organizations',
-          type: 'pay',
+          id: 'search-billing-payers',
           ...(query ? { name: query } : {}),
         });
-        setPayerOptions(chooseJson(res).organizations ?? []);
+        setPayerOptions(chooseJson(res).payers ?? []);
       }, 300);
     },
     [oystehrZambda]
@@ -319,7 +312,7 @@ export default function ClaimsList(): ReactElement {
             applyFilters({ payerId: v?.payerId ?? '' });
           }}
           renderInput={(params) => <TextField {...params} label="Payer" />}
-          isOptionEqualToValue={(o, v) => o.id === v.id}
+          isOptionEqualToValue={(o, v) => o.payerId === v.payerId}
           sx={{ minWidth: 200 }}
         />
 
