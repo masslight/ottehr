@@ -6,6 +6,8 @@ import {
   ScheduleType,
   Secrets,
   ServiceCategoryCode,
+  SLUG_REGEX,
+  SLUG_VALIDATION_MESSAGE,
 } from 'utils';
 import { z } from 'zod';
 import { safeValidate, ZambdaInput } from '../../shared';
@@ -16,8 +18,7 @@ export const SCHEDULE_TYPES = ['location', 'provider', 'group'] as const;
 // `${SLUG_SYSTEM}|${slug}`. Without a format guard, a caller can include `|`
 // (or other special chars) to break out of the value side and inject extra
 // search clauses. Restrict to URL-safe slug shape: letters/digits/hyphens.
-const SLUG_REGEX = /^[a-zA-Z0-9-]+$/;
-const SlugSchema = z.string().regex(SLUG_REGEX, 'must be a URL-safe slug (letters, digits, hyphens)');
+const SlugSchema = z.string().regex(SLUG_REGEX, SLUG_VALIDATION_MESSAGE);
 
 const GetScheduleBodySchema = z.object({
   slug: SlugSchema.min(1),

@@ -37,10 +37,12 @@ import {
   getSlugForBookableResource,
   GROUP_OWNED_CHARACTERISTIC_SYSTEMS,
   groupCharacteristics,
+  isValidSlug,
   mergeOwnedCharacteristics,
   SCHEDULE_STRATEGY_SYSTEM,
   SERVICE_CATEGORY_SYSTEM,
   SLUG_SYSTEM,
+  SLUG_VALIDATION_MESSAGE,
 } from 'utils';
 import { useApiClients } from '../hooks/useAppClients';
 import PageContainer from '../layout/PageContainer';
@@ -467,6 +469,10 @@ function GroupPageContent(): ReactElement {
     try {
       event.preventDefault();
       if (!oystehr) return;
+      if (slug && !isValidSlug(slug)) {
+        enqueueSnackbar(`Permalink ${SLUG_VALIDATION_MESSAGE}.`, { variant: 'error' });
+        return;
+      }
       setLoading(true);
 
       // Locations are admin-curated directly via selectedLocationIds (the
@@ -552,6 +558,11 @@ function GroupPageContent(): ReactElement {
     }
   }
 
+  // A non-empty permalink must match the URL-safe shape the patient side
+  // enforces, otherwise the save succeeds here but booking by slug later fails
+  // with a validation error.
+  const slugError = !!slug && !isValidSlug(slug);
+
   if (!group) {
     return (
       <div style={{ width: '100%', height: '250px' }}>
@@ -597,6 +608,8 @@ function GroupPageContent(): ReactElement {
                 onChange={(event) => {
                   setSlug(event.target.value);
                 }}
+                error={slugError}
+                helperText={slugError ? SLUG_VALIDATION_MESSAGE : undefined}
                 sx={{ width: '250px' }}
               />
               <Typography
@@ -875,7 +888,14 @@ function GroupPageContent(): ReactElement {
               )}
             </Box>
             <Box>
-              <LoadingButton loading={loading} type="submit" variant="contained" color="primary" size="medium">
+              <LoadingButton
+                loading={loading}
+                type="submit"
+                variant="contained"
+                color="primary"
+                size="medium"
+                disabled={slugError}
+              >
                 Save
               </LoadingButton>
             </Box>
