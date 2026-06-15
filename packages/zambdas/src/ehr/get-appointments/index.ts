@@ -220,11 +220,12 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput):
 
         const { group } = appointmentRequestInput;
 
-        const appointmentResponse = await oystehr.fhir.search<AppointmentRelatedResources>(appointmentRequest);
+        const appointmentBundle =
+          await oystehr.fhir.searchAndGetAllPages<AppointmentRelatedResources>(appointmentRequest);
 
-        const appointments = appointmentResponse
-          .unbundle()
-          .filter((resource) => !isNonPaperworkQuestionnaireResponse(resource));
+        const appointments = (appointmentBundle.entry?.map((entry) => entry.resource).filter(isTruthy) ?? []).filter(
+          (resource) => !isNonPaperworkQuestionnaireResponse(resource)
+        );
 
         return { appointments, group };
       })

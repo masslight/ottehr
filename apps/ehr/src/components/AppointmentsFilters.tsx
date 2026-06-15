@@ -60,6 +60,8 @@ const FILTER_PARAM_KEYS = [
   'provider',
 ] as const;
 const DATE_RANGE_ERROR_MESSAGE = 'Date From must be on or before Date To.';
+const DATE_FROM_REQUIRED_MESSAGE = 'Date From is required.';
+const DATE_TO_REQUIRED_MESSAGE = 'Date To is required.';
 
 interface FilterEntity {
   id: string;
@@ -339,6 +341,11 @@ export default function AppointmentsFilters(): ReactElement {
                 dataTestId={dataTestIds.dashboard.dateFromFilter}
                 validate={(value) => {
                   const currentDateTo = methods.getValues('dateTo');
+                  // Required as a pair: a half-cleared range is one the tracking board treats as
+                  // invalid (it won't refetch), so surface it instead of leaving stale results.
+                  if (!value && currentDateTo) {
+                    return DATE_FROM_REQUIRED_MESSAGE;
+                  }
                   if (value && currentDateTo && value > currentDateTo) {
                     return DATE_RANGE_ERROR_MESSAGE;
                   }
@@ -356,6 +363,11 @@ export default function AppointmentsFilters(): ReactElement {
                 dataTestId={dataTestIds.dashboard.dateToFilter}
                 validate={(value) => {
                   const currentDateFrom = methods.getValues('dateFrom');
+                  // Required as a pair: a half-cleared range is one the tracking board treats as
+                  // invalid (it won't refetch), so surface it instead of leaving stale results.
+                  if (!value && currentDateFrom) {
+                    return DATE_TO_REQUIRED_MESSAGE;
+                  }
                   if (value && currentDateFrom && currentDateFrom > value) {
                     return DATE_RANGE_ERROR_MESSAGE;
                   }
