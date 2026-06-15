@@ -5,6 +5,7 @@ import {
   Box,
   Button,
   Checkbox,
+  Chip,
   CircularProgress,
   Collapse,
   Container,
@@ -37,6 +38,7 @@ import {
   COMPLICATIONS_VALUE_SET_URL,
   CPTCodeDTO,
   EasyChartAgentIntent,
+  EasyChartSuggestion,
   examConfig,
   type ExamObservationDTO,
   GetChartDataResponse,
@@ -59,7 +61,14 @@ import {
   TIME_SPENT_VALUE_SET_URL,
   VitalsObservationDTO,
 } from 'utils';
-import { applyTemplate, easyChartAgent, easyChartPlanner, icd10Search, listTemplates } from '../../api/api';
+import {
+  applyTemplate,
+  easyChartAgent,
+  easyChartPlanner,
+  easyChartReview,
+  icd10Search,
+  listTemplates,
+} from '../../api/api';
 import { showEnvironmentBanner } from '../../App';
 import { HospitalizationOptions } from '../visits/in-person/components/hospitalization/hospitalizationOptions';
 import { SURGICAL_HISTORY_OPTIONS } from '../visits/shared/components/medical-history-tab/SurgicalHistory/surgicalHistoryOptions';
@@ -2320,6 +2329,18 @@ export default function EasyChartPage(): JSX.Element {
   const AUTO_CHART_KINDS = new Set(Object.keys(KIND_TO_FIELD));
   const [conv, setConv] = useState<ConvStep | null>(null);
 
+  // Post-completion review suggestions (the "did you mean…/swap dx/add negatives/bump E&M" cards).
+  const [reviewSuggestions, setReviewSuggestions] = useState<EasyChartSuggestion[]>([]);
+  const [reviewLoading, setReviewLoading] = useState(false);
+  const [reviewError, setReviewError] = useState(false);
+  const [reviewBusyId, setReviewBusyId] = useState<string | null>(null);
+  const [acceptedIds, setAcceptedIds] = useState<Set<string>>(new Set());
+  const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
+  // Narrative of the last applied plan, so the manual "Review note" button has something to review;
+  // pendingReviewRef carries it from the plan-completion updater to the auto-trigger effect.
+  const lastNarrativeRef = useRef<string>('');
+  const pendingReviewRef = useRef<string | null>(null);
+
   // For removes: scroll to the item, flash it red for 1.5s so the user sees what's being
   // deleted, then actually remove it from local state. Callers pass a `commitRemove` callback
   // that does the state mutation (typically a setChartData call) — it runs after the flash.
@@ -2972,12 +2993,28 @@ export default function EasyChartPage(): JSX.Element {
           (errCount > 0 ? `, ${errCount} error${errCount === 1 ? '' : 's'}` : '') +
           '.';
         setConv({ kind: 'unknown', user: prev.narrative, reply: summary });
+        // Hand the narrative to the auto-review effect (fires when `plan` becomes null). Stashing
+        // in a ref keeps the side effect out of this updater (StrictMode-safe / idempotent).
+        pendingReviewRef.current = prev.narrative;
+        lastNarrativeRef.current = prev.narrative;
         return null;
       }
       return { ...prev, currentIdx: nextIdx, results: nextResults };
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [conv?.kind, plan?.currentIdx]);
+
+  // Auto-review: when a plan finishes (plan → null) and the completion updater stashed its
+  // narrative, run the review pass to surface suggestion cards. Clearing the ref before the call
+  // keeps this from re-firing on later plan-null transitions.
+  useEffect(() => {
+    if (plan === null && pendingReviewRef.current) {
+      const narrative = pendingReviewRef.current;
+      pendingReviewRef.current = null;
+      void runReview(narrative);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [plan]);
 
   // Build the noteContext we send to the LLM. The in-person CC↔HPI swap is applied here so
   // the LLM sees text under the labels the provider reads (chiefComplaint = CC label's text).
@@ -2991,6 +3028,53 @@ export default function EasyChartPage(): JSX.Element {
       ros: ctx.ros?.text ?? undefined,
       medicalDecision: ctx.medicalDecision?.text ?? undefined,
     };
+  };
+
+  // Run the post-completion review pass and load its suggestion cards. `narrativeArg` is the
+  // plan's narrative on auto-trigger; the manual button falls back to the last plan's narrative or
+  // a synthesis of the note text so there's always something to review against the chart.
+  const runReview = async (narrativeArg?: string): Promise<void> => {
+    if (!oystehrZambda || !encounterId) return;
+    const noteContext = buildNoteContext();
+    const synthesized = [noteContext?.historyOfPresentIllness, noteContext?.medicalDecision].filter(Boolean).join('\n');
+    const narrative = (narrativeArg || lastNarrativeRef.current || synthesized || '').trim();
+    if (!narrative) return;
+    if (narrativeArg) lastNarrativeRef.current = narrativeArg;
+    setReviewLoading(true);
+    setReviewError(false);
+    try {
+      const chartState = buildChartStateSummary(chartDataRef.current);
+      const { suggestions } = await easyChartReview(oystehrZambda, { narrative, chartState, noteContext, encounterId });
+      setReviewSuggestions(suggestions);
+      setAcceptedIds(new Set());
+      setDismissedIds(new Set());
+    } catch (e) {
+      console.error('Easy-chart review failed:', e);
+      setReviewError(true);
+    } finally {
+      setReviewLoading(false);
+    }
+  };
+
+  // Accept a suggestion: replay its action(s) through the same dispatchIntent the planner uses, in
+  // order (a swap = remove then add). On success mark the card applied; on failure leave it
+  // actionable so the provider can retry.
+  const acceptSuggestion = async (suggestion: EasyChartSuggestion): Promise<void> => {
+    setReviewBusyId(suggestion.id);
+    try {
+      for (const action of suggestion.actions) {
+        await dispatchIntent(action, `Suggestion: ${suggestion.question}`);
+      }
+      setAcceptedIds((prev) => new Set(prev).add(suggestion.id));
+    } catch (e) {
+      console.error('Applying suggestion failed:', e);
+    } finally {
+      setReviewBusyId(null);
+    }
+  };
+
+  const dismissSuggestion = (id: string): void => {
+    setDismissedIds((prev) => new Set(prev).add(id));
   };
 
   // Take a classified intent and run the appropriate per-intent path. Used by both the
@@ -4153,6 +4237,103 @@ export default function EasyChartPage(): JSX.Element {
     );
   };
 
+  const visibleSuggestions = reviewSuggestions.filter((s) => !dismissedIds.has(s.id));
+  const reviewPane = (
+    <Paper variant="outlined" sx={{ p: 2 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+        <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#0F347C' }}>
+          Review suggestions
+        </Typography>
+        <Button
+          size="small"
+          variant="outlined"
+          onClick={() => void runReview()}
+          disabled={reviewLoading || !encounterId}
+          startIcon={reviewLoading ? <CircularProgress size={14} /> : undefined}
+        >
+          {reviewLoading ? 'Reviewing…' : 'Review note'}
+        </Button>
+      </Box>
+
+      {reviewError && (
+        <Typography variant="body2" color="error">
+          Couldn't generate suggestions. Try Review note again.
+        </Typography>
+      )}
+
+      {!reviewError && !reviewLoading && visibleSuggestions.length === 0 && (
+        <Typography variant="body2" color="text.secondary">
+          {reviewSuggestions.length > 0 ? 'All suggestions handled.' : 'No suggestions — the note looks complete.'}
+        </Typography>
+      )}
+
+      <Stack spacing={1.5}>
+        {visibleSuggestions.map((s) => {
+          const accepted = acceptedIds.has(s.id);
+          const busy = reviewBusyId === s.id;
+          return (
+            <Box
+              key={s.id}
+              sx={{
+                border: '1px solid',
+                borderColor: accepted ? 'success.light' : '#E0E0E0',
+                bgcolor: accepted ? 'success.50' : '#fff',
+                borderRadius: '8px',
+                p: 1.5,
+              }}
+            >
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+                <Chip label={s.category} size="small" sx={{ height: 20, fontSize: 11 }} />
+                {s.highlight && (
+                  <Chip
+                    label={s.highlight}
+                    size="small"
+                    color="primary"
+                    variant="outlined"
+                    sx={{ height: 20, fontSize: 11 }}
+                  />
+                )}
+              </Box>
+              <Typography variant="body2" sx={{ fontWeight: 500, color: '#212130' }}>
+                {s.question}
+              </Typography>
+              {s.rationale && (
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+                  {s.rationale}
+                </Typography>
+              )}
+              {s.partialNote && (
+                <Typography variant="caption" color="warning.main" sx={{ display: 'block', mt: 0.5 }}>
+                  {s.partialNote}
+                </Typography>
+              )}
+              {accepted ? (
+                <Typography variant="caption" color="success.main" sx={{ display: 'block', mt: 1, fontWeight: 600 }}>
+                  Applied
+                </Typography>
+              ) : (
+                <Box sx={{ display: 'flex', gap: 1, mt: 1 }}>
+                  <Button
+                    size="small"
+                    variant="contained"
+                    onClick={() => void acceptSuggestion(s)}
+                    disabled={busy}
+                    startIcon={busy ? <CircularProgress size={14} /> : undefined}
+                  >
+                    Yes
+                  </Button>
+                  <Button size="small" variant="text" onClick={() => dismissSuggestion(s.id)} disabled={busy}>
+                    No
+                  </Button>
+                </Box>
+              )}
+            </Box>
+          );
+        })}
+      </Stack>
+    </Paper>
+  );
+
   const conversationCard = conv && (
     <Paper variant="outlined" sx={{ p: 2 }}>
       <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, display: 'block' }}>
@@ -4617,6 +4798,7 @@ export default function EasyChartPage(): JSX.Element {
               {refineBar}
               {planProgress}
               {conversationCard}
+              {reviewPane}
             </Stack>
           </Box>
         </Box>

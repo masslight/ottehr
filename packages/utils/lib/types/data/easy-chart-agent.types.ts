@@ -113,3 +113,44 @@ export interface EasyChartPlannerInput {
 export interface EasyChartPlannerOutput {
   steps: EasyChartAgentIntent[];
 }
+
+// Post-completion review: after a note has been charted, a second pass looks at the original
+// narrative against what actually landed on the chart and surfaces clarifying SUGGESTIONS the
+// provider can accept with one click (or dismiss). Each suggestion's `actions` are ordinary
+// planner intents replayed through the same per-intent handlers the planner/agent already use,
+// so accepting a card needs no new charting logic. A "swap" (e.g. change a diagnosis code) is
+// expressed as two intents: a remove-* followed by an add-*.
+export interface EasyChartSuggestion {
+  // Stable id for this card within a review response, used to track accept/dismiss in the UI.
+  id: string;
+  // What kind of gap this addresses. Drives grouping/iconography; not load-bearing logic.
+  category: 'med-name' | 'diagnosis' | 'pertinent-negative' | 'em-level' | 'secondary-dx' | 'other';
+  // The question shown on the card, e.g. "You wrote 'Ciner' — did you mean Cefdinir?".
+  question: string;
+  // Short "why", surfaced under the question. Most useful for E&M level changes.
+  rationale?: string;
+  // A term to visually emphasize in the card (e.g. the corrected drug name "Cefdinir").
+  highlight?: string;
+  // The intent(s) applied, in order, when the provider accepts the card.
+  actions: EasyChartAgentIntent[];
+  // True when `actions` cannot fully realize the suggestion (e.g. an eRx order can't be created
+  // programmatically yet, so the action only corrects the written note text). The card shows
+  // `partialNote` so the provider knows what still needs doing by hand.
+  partial?: boolean;
+  partialNote?: string;
+}
+
+export interface EasyChartReviewInput {
+  // The original prose the note was charted from (the planner's narrative).
+  narrative: string;
+  // Summary of what is on the chart now, so the review never re-suggests existing items.
+  chartState?: string;
+  // Current free-text note fields, same context the planner/agent receive.
+  noteContext?: EasyChartNoteContext;
+  // Optional encounter id; when supplied the review anchors on the real Patient age/sex.
+  encounterId?: string;
+}
+
+export interface EasyChartReviewOutput {
+  suggestions: EasyChartSuggestion[];
+}

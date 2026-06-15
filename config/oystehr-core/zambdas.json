@@ -1608,6 +1608,13 @@
       "src": "src/ehr/easy-chart-planner/index",
       "zip": ".dist/zips/easy-chart-planner.zip"
     },
+    "EASY-CHART-REVIEW": {
+      "name": "easy-chart-review",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/easy-chart-review/index",
+      "zip": ".dist/zips/easy-chart-review.zip"
+    },
     "EASY-CHART-EVAL-JUDGE": {
       "name": "easy-chart-eval-judge",
       "type": "http_auth",
