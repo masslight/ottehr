@@ -4,6 +4,7 @@ import { ServiceMode, ServiceVisitType } from '../types';
 import {
   GROUP_ALL_LOCATIONS_SYSTEM,
   GROUP_ASSIGNMENT_MODE_SYSTEM,
+  PRACTITIONER_ROLE_ALL_CATEGORIES_EXTENSION_URL,
   SERVICE_CATEGORY_CADENCE_MINUTES_SYSTEM,
   SERVICE_CATEGORY_DURATION_MINUTES_SYSTEM,
   SERVICE_CATEGORY_MODE_SYSTEM,
@@ -13,6 +14,7 @@ import {
 import {
   getGroupAllLocations,
   getGroupAssignmentMode,
+  getPractitionerRoleAllCategories,
   getServiceCategoryCadenceMinutes,
   getServiceCategoryDurationMinutes,
   getServiceCategoryModes,
@@ -22,6 +24,7 @@ import {
   isPractitionerRoleMemberOfGroup,
   isServiceCategoryHealthcareService,
   mergeOwnedCharacteristics,
+  practitionerRoleOffersCategory,
   SERVICE_CATEGORY_OWNED_CHARACTERISTIC_SYSTEMS,
   serviceCategoryCharacteristics,
 } from './healthcareService';
@@ -207,6 +210,84 @@ describe('getGroupAllLocations', () => {
 
   it('returns undefined when not set — caller treats as false', () => {
     expect(getGroupAllLocations(makeHs())).toBeUndefined();
+  });
+});
+
+describe('getPractitionerRoleAllCategories', () => {
+  const makePr = (overrides: Partial<PractitionerRole> = {}): PractitionerRole => ({
+    resourceType: 'PractitionerRole',
+    ...overrides,
+  });
+
+  it('returns true when the extension is set to boolean true', () => {
+    const pr = makePr({
+      extension: [{ url: PRACTITIONER_ROLE_ALL_CATEGORIES_EXTENSION_URL, valueBoolean: true }],
+    });
+    expect(getPractitionerRoleAllCategories(pr)).toBe(true);
+  });
+
+  it('returns false when the extension is absent', () => {
+    expect(getPractitionerRoleAllCategories(makePr())).toBe(false);
+  });
+
+  it('returns false when the extension is set to boolean false', () => {
+    const pr = makePr({
+      extension: [{ url: PRACTITIONER_ROLE_ALL_CATEGORIES_EXTENSION_URL, valueBoolean: false }],
+    });
+    expect(getPractitionerRoleAllCategories(pr)).toBe(false);
+  });
+
+  it('returns false when an unrelated extension is set', () => {
+    const pr = makePr({
+      extension: [{ url: 'https://example.com/something-else', valueBoolean: true }],
+    });
+    expect(getPractitionerRoleAllCategories(pr)).toBe(false);
+  });
+});
+
+describe('practitionerRoleOffersCategory', () => {
+  const makePr = (overrides: Partial<PractitionerRole> = {}): PractitionerRole => ({
+    resourceType: 'PractitionerRole',
+    ...overrides,
+  });
+
+  it('returns true for any category when the all-categories toggle is on', () => {
+    const pr = makePr({
+      extension: [{ url: PRACTITIONER_ROLE_ALL_CATEGORIES_EXTENSION_URL, valueBoolean: true }],
+    });
+    expect(practitionerRoleOffersCategory(pr, 'any-category-id')).toBe(true);
+    expect(practitionerRoleOffersCategory(pr, 'another-id')).toBe(true);
+  });
+
+  it('returns true when the role explicitly references the category HS', () => {
+    const pr = makePr({
+      healthcareService: [{ reference: 'HealthcareService/hs-123' }],
+    });
+    expect(practitionerRoleOffersCategory(pr, 'hs-123')).toBe(true);
+  });
+
+  it('returns false when neither the toggle is on nor the HS is referenced', () => {
+    const pr = makePr({
+      healthcareService: [{ reference: 'HealthcareService/hs-other' }],
+    });
+    expect(practitionerRoleOffersCategory(pr, 'hs-123')).toBe(false);
+  });
+
+  it('returns false when both extension and healthcareService are absent', () => {
+    expect(practitionerRoleOffersCategory(makePr(), 'hs-123')).toBe(false);
+  });
+
+  it('toggle wins over an empty healthcareService array — the historical implicit-empty-means-all semantic is dead, but the toggle replaces it', () => {
+    const pr = makePr({
+      extension: [{ url: PRACTITIONER_ROLE_ALL_CATEGORIES_EXTENSION_URL, valueBoolean: true }],
+      healthcareService: [],
+    });
+    expect(practitionerRoleOffersCategory(pr, 'hs-123')).toBe(true);
+  });
+
+  it('empty healthcareService array with no toggle = offers nothing (no more implicit semantic)', () => {
+    const pr = makePr({ healthcareService: [] });
+    expect(practitionerRoleOffersCategory(pr, 'hs-123')).toBe(false);
   });
 });
 

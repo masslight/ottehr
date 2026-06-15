@@ -260,17 +260,51 @@
         "linkId": "patient-email",
         "type": "string",
         "text": "Email",
-        "required": true,
+        "required": false,
+        "enableWhen": [
+          {
+            "question": "patient-no-email",
+            "operator": "!=",
+            "answerBoolean": true
+          }
+        ],
         "extension": [
           {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
             "valueString": "Email"
           },
           {
+            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
+            "valueString": "hidden"
+          },
+          {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/autocomplete",
             "valueString": "section-patient shipping email"
+          },
+          {
+            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when",
+            "extension": [
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-question",
+                "valueString": "patient-no-email"
+              },
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-operator",
+                "valueString": "!="
+              },
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-answer",
+                "valueBoolean": true
+              }
+            ]
           }
         ]
+      },
+      {
+        "linkId": "patient-no-email",
+        "type": "boolean",
+        "text": "Don't have email",
+        "required": false
       },
       {
         "linkId": "patient-number",
@@ -814,6 +848,12 @@
             "required": false
           },
           {
+            "linkId": "pharmacy-places-phone",
+            "type": "string",
+            "text": "places phone",
+            "required": false
+          },
+          {
             "linkId": "pharmacy-places-saved",
             "type": "boolean",
             "text": "places saved",
@@ -951,6 +991,46 @@
           }
         ],
         "extension": [
+          {
+            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
+            "valueString": "hidden"
+          },
+          {
+            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when",
+            "extension": [
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-question",
+                "valueString": "pharmacy-page-manual-entry"
+              },
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-operator",
+                "valueString": "!="
+              },
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-answer",
+                "valueBoolean": true
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "linkId": "pharmacy-phone",
+        "type": "string",
+        "text": "Pharmacy phone",
+        "required": false,
+        "enableWhen": [
+          {
+            "question": "pharmacy-page-manual-entry",
+            "operator": "=",
+            "answerBoolean": true
+          }
+        ],
+        "extension": [
+          {
+            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
+            "valueString": "Phone Number"
+          },
           {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
             "valueString": "hidden"
@@ -4303,7 +4383,74 @@
         "linkId": "responsible-party-email",
         "type": "string",
         "text": "Email",
-        "required": true,
+        "required": false,
+        "enableWhen": [
+          {
+            "question": "responsible-party-relationship",
+            "operator": "!=",
+            "answerString": "Self"
+          },
+          {
+            "question": "responsible-party-no-email",
+            "operator": "!=",
+            "answerBoolean": true
+          }
+        ],
+        "enableBehavior": "all",
+        "extension": [
+          {
+            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
+            "valueString": "Email"
+          },
+          {
+            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
+            "valueString": "hidden"
+          },
+          {
+            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/fill-from-when-disabled",
+            "valueString": "patient-email"
+          },
+          {
+            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when",
+            "extension": [
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-question",
+                "valueString": "responsible-party-relationship"
+              },
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-operator",
+                "valueString": "!="
+              },
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-answer",
+                "valueString": "Self"
+              }
+            ]
+          },
+          {
+            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when",
+            "extension": [
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-question",
+                "valueString": "responsible-party-no-email"
+              },
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-operator",
+                "valueString": "!="
+              },
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-answer",
+                "valueBoolean": true
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "linkId": "responsible-party-no-email",
+        "type": "boolean",
+        "text": "Don't have email",
+        "required": false,
         "enableWhen": [
           {
             "question": "responsible-party-relationship",
@@ -4313,16 +4460,8 @@
         ],
         "extension": [
           {
-            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
-            "valueString": "Email"
-          },
-          {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-            "valueString": "protected"
-          },
-          {
-            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/fill-from-when-disabled",
-            "valueString": "patient-email"
+            "valueString": "hidden"
           }
         ]
       }

@@ -11,6 +11,7 @@ import {
   Reference,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { z } from 'zod';
 import { CPTCodeOption, DiagnosisDTO, LAB_DR_TYPE_TAG, LabelConfig, Pagination } from '../..';
 import { LabelPdf } from '../printing';
 import { ExternalLabSetDTO, LabSetDTO } from './lab-set.schema';
@@ -325,11 +326,12 @@ export enum LabPaymentMethod {
   WorkersComp = 'workersComp',
 }
 
-export type CreateLabPaymentMethod =
-  | LabPaymentMethod.Insurance
-  | LabPaymentMethod.SelfPay
-  | LabPaymentMethod.ClientBill
-  | LabPaymentMethod.WorkersComp;
+export const CreateLabPaymentMethodSchema = z.enum(
+  [LabPaymentMethod.Insurance, LabPaymentMethod.SelfPay, LabPaymentMethod.ClientBill, LabPaymentMethod.WorkersComp],
+  { message: `Invalid paymentMethod. Must be one of: ${Object.values(LabPaymentMethod).join(', ')}` }
+);
+
+export type CreateLabPaymentMethod = z.infer<typeof CreateLabPaymentMethodSchema>;
 
 export type CreateLabOrderParameters = {
   dx: DiagnosisDTO[];

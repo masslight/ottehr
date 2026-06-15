@@ -94,7 +94,12 @@ export const performEffect = async (
   });
 
   const followUpParentEncounterId = encounter.partOf?.reference?.split('/')[1] ?? encounter.id!;
-  const upcomingFollowUpsPromise = getUpcomingFollowUps(oystehr, followUpParentEncounterId, visitResources.timezone);
+  const upcomingFollowUpsPromise = getUpcomingFollowUps(
+    oystehr,
+    followUpParentEncounterId,
+    visitResources.timezone,
+    encounter.id
+  );
 
   const [chartDataResult, additionalChartDataResult, radiologyData, medicationOrdersData, upcomingFollowUps] =
     await Promise.all([

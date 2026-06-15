@@ -41,6 +41,7 @@ on:
     paths:
       - "apps/ehr/**"
       - "apps/intake/**"
+      - "apps/billing/**"
       - "packages/zambdas/**"
       - "packages/utils/**"
       - "packages/ui-components/**"
@@ -55,6 +56,7 @@ on:
     paths:
       - "apps/ehr/**"
       - "apps/intake/**"
+      - "apps/billing/**"
       - "packages/zambdas/**"
       - "packages/utils/**"
       - "packages/ui-components/**"

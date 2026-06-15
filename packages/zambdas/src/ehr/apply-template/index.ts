@@ -30,9 +30,18 @@ import {
 import { v4 as uuidV4 } from 'uuid';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
-import { getTemplateBaseResources, hasTemplateRelevantTag, isDiagnosisCondition } from '../shared/template-helpers';
+import {
+  getTemplateEncounterBundle,
+  hasTemplateRelevantTag,
+  isDiagnosisCondition,
+  TemplateEncounterResource,
+} from '../shared/template-helpers';
 import { applyExternalLabPlans } from './apply-external-labs';
-import { applyInHouseLabPlans, canApplyActivityDefinition } from './apply-in-house-labs';
+import {
+  applyInHouseLabPlans,
+  canApplyActivityDefinition,
+  getLatestInHouseLabActivityDefinitionsForTemplatePlan,
+} from './apply-in-house-labs';
 import {
   buildLiveProcedureRequest,
   collectContainedIdsClaimedByProcedures,
@@ -43,6 +52,7 @@ import { validateRequestParameters } from './validateRequestParameters';
 interface ComplexValidationOutput {
   templateList: List;
   encounter: Encounter;
+  encounterBundle: TemplateEncounterResource[];
 }
 
 type ResolvedSectionActions = Record<TemplateSectionKey, TemplateSectionAction>;
@@ -57,8 +67,8 @@ export const index = wrapHandler('apply-template', async (input: ZambdaInput): P
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createOystehrClient(m2mToken, secrets);
 
-  const { templateList, encounter } = await complexValidation(validatedInput, oystehr);
-  const result = await performEffect(validatedInput, templateList, encounter, oystehr, m2mToken);
+  const { templateList, encounter, encounterBundle } = await complexValidation(validatedInput, oystehr);
+  const result = await performEffect(validatedInput, templateList, encounter, encounterBundle, oystehr);
   const body: ApplyTemplateZambdaOutput = result.warnings.length > 0 ? { warnings: result.warnings } : {};
   return {
     statusCode: 200,
@@ -72,16 +82,21 @@ const complexValidation = async (
 ): Promise<ComplexValidationOutput> => {
   const { templateName, encounterId } = validatedInput;
 
-  // Perform complex validation logic here
-  const lists = (
-    await oystehr.fhir.search<List>({
-      resourceType: 'List',
-      params: [
-        { name: 'title', value: templateName },
-        { name: '_revinclude', value: 'List:item' },
-      ],
-    })
-  ).unbundle();
+  // The template List search and the encounter bundle fetch are independent, so run them in
+  // parallel. The encounter bundle search (by _id) also returns the Encounter itself, so we
+  // pull it from there instead of issuing a separate Encounter GET.
+  const [lists, encounterBundle] = await Promise.all([
+    oystehr.fhir
+      .search<List>({
+        resourceType: 'List',
+        params: [
+          { name: 'title', value: templateName },
+          { name: '_revinclude', value: 'List:item' },
+        ],
+      })
+      .then((bundle) => bundle.unbundle()),
+    getTemplateEncounterBundle(oystehr, encounterId),
+  ]);
 
   const globalTemplatesHolders = lists.filter(
     (list) => list.meta?.tag?.some((tag) => tag.system === GLOBAL_TEMPLATE_META_TAG_CODE_SYSTEM)
@@ -111,12 +126,15 @@ const complexValidation = async (
     );
   }
 
-  const encounter = await oystehr.fhir.get<Encounter>({
-    resourceType: 'Encounter',
-    id: encounterId,
-  });
+  const encounter = encounterBundle.find(
+    (resource): resource is Encounter => resource.resourceType === 'Encounter' && resource.id === encounterId
+  );
 
-  return { templateList: templateLists[0], encounter };
+  if (!encounter) {
+    throw new Error(`No encounter found with id: ${encounterId}`);
+  }
+
+  return { templateList: templateLists[0], encounter, encounterBundle };
 };
 
 const resolveSectionActions = (input?: TemplateSectionActions): ResolvedSectionActions => {
@@ -171,17 +189,17 @@ const performEffect = async (
   validatedInput: ApplyTemplateZambdaInput & Pick<ZambdaInput, 'secrets'> & { userToken: string },
   templateList: List,
   encounter: Encounter,
-  oystehr: Oystehr,
-  m2mToken: string
+  encounterBundle: TemplateEncounterResource[],
+  oystehr: Oystehr
 ): Promise<{ warnings: ApplyTemplateWarning[] }> => {
   const { encounterId, sectionActions } = validatedInput;
   const actions = resolveSectionActions(sectionActions);
 
-  const { encounterResources: encounterBundle, latestInHouseLabAds } = await getTemplateBaseResources(
-    oystehr,
-    encounterId,
-    templateList
-  );
+  // The encounter bundle was already fetched in parallel with the template List search during
+  // validation, so we don't re-fetch it here. We still need the latest in-house lab
+  // ActivityDefinitions, which depend on the template List (and short-circuit to an empty array,
+  // with no FHIR call, when the template has no in-house lab plans).
+  const latestInHouseLabAds = await getLatestInHouseLabActivityDefinitionsForTemplatePlan(oystehr, templateList);
 
   // Kick off in-house lab plan application in parallel with the chart-data
   // batches below - the two are independent (different resources, different
@@ -552,6 +570,14 @@ export const makeCreateRequests = (
       encounterDiagnoses !== null
     ) {
       const isDuplicate = isDuplicateDiagnosis(resourceToCreate, encounterDiagnosesConditions);
+
+      if (isDuplicate && isClaimedByProcedure && containedResource.id) {
+        const existingCondition = encounterDiagnosesConditions.find((c) => isDuplicateDiagnosis(resourceToCreate, [c]));
+        if (existingCondition?.id) {
+          containedIdToNewFullUrl.set(containedResource.id, existingCondition.id);
+          continue;
+        }
+      }
 
       // we should only add to encounter diagnoses after a dedupe when appending, to ensure the template doesn't add Dx already on the chart
       if ((!isDuplicate && effectiveAction === 'append') || effectiveAction === 'overwrite') {

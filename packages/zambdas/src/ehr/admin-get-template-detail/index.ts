@@ -321,23 +321,27 @@ const performEffect = async (
     new Set(inHouseLabPlans.flatMap((p) => p.instantiatesCanonical ?? []).filter((ref): ref is string => Boolean(ref)))
   );
 
-  let adByUrl = new Map<string, ActivityDefinition>();
+  let activeAdByUrl = new Map<string, ActivityDefinition>();
+  const retiredAdByUrl = new Map<string, ActivityDefinition>();
   if (canonicalRefs.length > 0) {
     const urlsToSearch = Array.from(new Set(canonicalRefs.map(urlFromInstantiatesCanonical)));
     try {
       const ads = (
         await oystehr.fhir.search<ActivityDefinition>({
           resourceType: 'ActivityDefinition',
-          // Active-only - retired ADs can outrank active ones by semver and
-          // would otherwise show up as the "current" definition on the admin
-          // detail page even though apply-template would reject them.
-          params: [
-            { name: 'url', value: urlsToSearch.join(',') },
-            { name: 'status', value: 'active' },
-          ],
+          params: [{ name: 'url', value: urlsToSearch.join(',') }],
         })
       ).unbundle() as ActivityDefinition[];
-      adByUrl = indexLatestActivityDefinitionsByUrl(ads);
+      activeAdByUrl = indexLatestActivityDefinitionsByUrl(ads.filter((ad) => ad.status === 'active'));
+
+      // we still query the inactive ads and set them aside so we can display useful info like the in-applicable test's name
+      // so a user might be able to fix it
+      ads
+        .filter((ad) => ad.status === 'retired')
+        .forEach((retiredAd) => {
+          if (!retiredAd.url) return;
+          retiredAdByUrl.set(retiredAd.url, retiredAd);
+        });
     } catch (err) {
       console.warn('Could not resolve ActivityDefinitions for in-house lab plans:', err);
     }
@@ -347,9 +351,14 @@ const performEffect = async (
     const canonical = plan.instantiatesCanonical?.[0] ?? '';
 
     // cpts codes, test code, and test name should all come from the AD itself to pick up any changes to the test
-    const ad = canonical ? adByUrl.get(urlFromInstantiatesCanonical(canonical)) : undefined;
+    const ad = canonical ? activeAdByUrl.get(urlFromInstantiatesCanonical(canonical)) : undefined;
+    let fallbackTestName = 'Unknown test';
     if (!ad) {
-      console.warn(`Could not resolve ActivityDefinitions for in-house lab plans canonical ${canonical}`);
+      console.warn(
+        `Could not resolve ActivityDefinitions for in-house lab plans canonical ${canonical}. Trying in the retired ads collection`
+      );
+      const maybeRetiredAd = retiredAdByUrl.get(urlFromInstantiatesCanonical(canonical));
+      fallbackTestName = maybeRetiredAd?.name ?? maybeRetiredAd?.title ?? fallbackTestName;
     }
     const inHouseCoding = ad?.code?.coding?.find((c) => c.system === IN_HOUSE_TEST_CODE_SYSTEM);
     const cptCodes: TemplateCptCodeInfo[] = (ad?.code?.coding ?? [])
@@ -366,7 +375,7 @@ const performEffect = async (
 
     return {
       planId: plan.id ?? '',
-      testName: ad?.name ?? ad?.title ?? 'Unknown test',
+      testName: ad?.name ?? ad?.title ?? fallbackTestName,
       activityDefinitionRef: canonical,
       code: inHouseCoding?.code ?? '',
       diagnoses,

@@ -14,6 +14,14 @@ export interface GroupMemberFallbackInput {
   schedule: Schedule;
   scheduleOwner: ScheduleOwnerFhirResource;
   oystehrClient: Oystehr;
+  /**
+   * Pre-resolved cadence for the slot's service category. Forwarded into
+   * each per-candidate checkSlotAvailable call so the FHIR catalog isn't
+   * paginated once per candidate schedule. Omit when no service category is
+   * configured (the resolver inside checkSlotAvailable is a no-op for that
+   * case anyway).
+   */
+  cadenceMinutes?: number;
 }
 
 export interface GroupMemberFallbackResult {
@@ -43,7 +51,7 @@ export interface GroupMemberFallbackResult {
 export async function tryGroupMemberFallback(
   input: GroupMemberFallbackInput
 ): Promise<GroupMemberFallbackResult | null> {
-  const { slot, schedule, scheduleOwner, oystehrClient } = input;
+  const { slot, schedule, scheduleOwner, oystehrClient, cadenceMinutes } = input;
 
   const bookedViaGroupId = getSlotBookedViaGroupId(slot);
   if (!bookedViaGroupId) return null;
@@ -89,7 +97,7 @@ export async function tryGroupMemberFallback(
       schedule: { reference: `Schedule/${candidate.schedule.id}` },
     };
     const isAvailable = await checkSlotAvailable(
-      { slot: candidateSlot, schedule: candidate.schedule, excludeSlotId: slot.id },
+      { slot: candidateSlot, schedule: candidate.schedule, excludeSlotId: slot.id, cadenceMinutes },
       oystehrClient
     );
     if (!isAvailable) continue;

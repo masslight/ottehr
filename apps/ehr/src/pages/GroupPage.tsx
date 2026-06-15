@@ -23,7 +23,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Operation } from 'fast-json-patch';
 import { CodeableConcept, HealthcareService, Location, Practitioner, PractitionerRole, Schedule } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
-import { ReactElement, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { listServiceCategories } from 'src/api/api';
 import CustomBreadcrumbs from 'src/components/CustomBreadcrumbs';
@@ -33,6 +33,7 @@ import {
   getGroupAllLocations,
   getGroupAssignmentMode,
   getPatchBinary,
+  getPractitionerRoleAllCategories,
   getSlugForBookableResource,
   GROUP_OWNED_CHARACTERISTIC_SYSTEMS,
   groupCharacteristics,
@@ -43,6 +44,7 @@ import {
 } from 'utils';
 import { useApiClients } from '../hooks/useAppClients';
 import PageContainer from '../layout/PageContainer';
+import { useHydratedSupportedCategoryHsIds } from './useHydratedSupportedCategoryHsIds';
 
 type AssignmentMode = 'anonymous' | 'provider';
 
@@ -83,8 +85,9 @@ function GroupPageContent(): ReactElement {
   const [assignmentMode, setAssignmentMode] = useState<AssignmentMode>('anonymous');
   // Categories the group supports. Authoritative — what the patient is allowed
   // to book through this group. Admin-curated; a Massage group containing a
-  // multi-skill member shouldn't expose that member's other categories.
-  const [supportedCategoryHsIds, setSupportedCategoryHsIds] = useState<string[]>([]);
+  // multi-skill member shouldn't expose that member's other categories. State
+  // + hydration live in the hook so the race-prone "wait for both queries"
+  // logic is covered by a focused unit test.
   const [name, setName] = useState<string>('');
   const [slug, setSlug] = useState<string>('');
   const [copiedLink, setCopiedLink] = useState<string | null>(null);
@@ -163,6 +166,16 @@ function GroupPageContent(): ReactElement {
     }
     return map;
   }, [categoryData]);
+
+  // Categories the group supports — see the comment near `group` state. Hook
+  // hydrates from group.type[] once both `group` and the FHIR catalog query
+  // have resolved; the `categoryData !== undefined` flag distinguishes
+  // "query done with empty catalog" from "still loading."
+  const [supportedCategoryHsIds, setSupportedCategoryHsIds] = useHydratedSupportedCategoryHsIds(
+    group,
+    categoryByHsId,
+    categoryData !== undefined
+  );
 
   // For each Location, count the distinct active providers that picking the
   // Location would pull into the group's pool. "Provider" = distinct
@@ -277,11 +290,20 @@ function GroupPageContent(): ReactElement {
           byPrac.set(pracId, { name, services: new Set<string>(), scheduleId: scheduleIdByPrId.get(role.id) });
         }
         const entry = byPrac.get(pracId)!;
-        for (const hsRef of role.healthcareService || []) {
-          const hsId = hsRef.reference?.split('/')[1];
-          if (!hsId || !relevantHsIdSet.has(hsId)) continue;
-          const catName = categoryByHsId.get(hsId)?.name;
-          if (catName) entry.services.add(catName);
+        if (getPractitionerRoleAllCategories(role)) {
+          // PR opts into every category; expand to all of the group's
+          // supported categories so the rollup reflects the actual coverage.
+          for (const hsId of relevantHsIdSet) {
+            const catName = categoryByHsId.get(hsId)?.name;
+            if (catName) entry.services.add(catName);
+          }
+        } else {
+          for (const hsRef of role.healthcareService || []) {
+            const hsId = hsRef.reference?.split('/')[1];
+            if (!hsId || !relevantHsIdSet.has(hsId)) continue;
+            const catName = categoryByHsId.get(hsId)?.name;
+            if (catName) entry.services.add(catName);
+          }
         }
       }
     }
@@ -436,29 +458,6 @@ function GroupPageContent(): ReactElement {
     setAssignmentMode(getGroupAssignmentMode(groupTemp) ?? 'anonymous');
     setAllLocations(getGroupAllLocations(groupTemp) ?? false);
   }, [oystehr, groupID]);
-
-  // Resolve the group's authoritative supported-categories list. group.type[]
-  // stores category codes; the multi-select keys on HS ids. We map via the
-  // catalog (categoryByHsId, populated by the service-categories query). A
-  // group with empty type[] (e.g., freshly created) hydrates to an empty
-  // allow-list — the admin must explicitly select services.
-  const supportedHydratedRef = useRef(false);
-  useEffect(() => {
-    if (supportedHydratedRef.current) return;
-    if (!group || !categoryByHsId.size) return;
-
-    const codes = (group.type || [])
-      .flatMap((t) => t.coding || [])
-      .map((c) => c.code)
-      .filter((c): c is string => !!c);
-
-    const allowed = new Set<string>();
-    for (const [id, info] of categoryByHsId.entries()) {
-      if (codes.includes(info.code)) allowed.add(id);
-    }
-    setSupportedCategoryHsIds([...allowed]);
-    supportedHydratedRef.current = true;
-  }, [group, categoryByHsId]);
 
   useEffect(() => {
     void getOptions();
@@ -701,9 +700,12 @@ function GroupPageContent(): ReactElement {
                     } else {
                       for (const role of practitionerRoles || []) {
                         if (role.active === false) continue;
-                        const offers = role.healthcareService?.some(
-                          (ref) => ref.reference === `HealthcareService/${hsId}`
-                        );
+                        // A PR with the all-categories toggle is treated as
+                        // offering every catalog entry, so it offers THIS
+                        // category at every Location it lists.
+                        const offers =
+                          getPractitionerRoleAllCategories(role) ||
+                          role.healthcareService?.some((ref) => ref.reference === `HealthcareService/${hsId}`);
                         if (!offers) continue;
                         for (const locRef of role.location || []) {
                           const locId = locRef.reference?.split('/')[1];

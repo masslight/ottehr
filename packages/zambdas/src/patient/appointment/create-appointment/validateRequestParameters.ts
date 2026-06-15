@@ -24,11 +24,14 @@ import {
   PersonSex,
   REASON_FOR_VISIT_SEPARATOR,
   REASON_MAXIMUM_CHAR_LIMIT,
+  resolveServiceCategory,
   ScheduleOwnerFhirResource,
   Secrets,
+  SERVICE_CATEGORY_SYSTEM,
   ServiceMode,
   SLOT_FALLBACK_REROUTED_TAG,
   SLOT_QUESTIONNAIRE_CANONICAL_EXTENSION_URL,
+  SLOT_UNAVAILABLE_ERROR,
   VisitType,
 } from 'utils';
 import {
@@ -327,8 +330,29 @@ export const createAppointmentComplexValidation = async (
   let schedule: Schedule = initialSchedule;
   let scheduleOwner: ScheduleOwnerFhirResource = initialScheduleOwner;
 
+  // Pre-resolve the slot's service-category cadence once and forward into
+  // both the initial check and (when triggered) the per-candidate checks
+  // inside tryGroupMemberFallback. The slot's serviceCategory is invariant
+  // across candidate schedules, so resolving once avoids N catalog fetches
+  // during anonymous-mode group fallback. The resolver returns undefined for
+  // BOOKING_CONFIG-only categories (no FHIR catalog hit), so this is free
+  // for compiled-in production paths.
+  let resolvedCadenceMinutes: number | undefined;
+  if (capacityGuardApplies(slot)) {
+    const slotCategoryCode = (slot.serviceCategory ?? [])
+      .flatMap((cc) => cc.coding ?? [])
+      .find((c) => c.system === SERVICE_CATEGORY_SYSTEM)?.code;
+    if (slotCategoryCode) {
+      const resolved = await resolveServiceCategory(slotCategoryCode, oystehrClient);
+      resolvedCadenceMinutes = resolved?.cadenceMinutes;
+    }
+  }
+
   const available = capacityGuardApplies(slot)
-    ? await checkSlotAvailable({ slot, schedule, excludeSlotId: slot.id }, oystehrClient)
+    ? await checkSlotAvailable(
+        { slot, schedule, excludeSlotId: slot.id, cadenceMinutes: resolvedCadenceMinutes },
+        oystehrClient
+      )
     : true;
   if (!available) {
     // Anonymous-mode group fallback: if the originally-targeted member is
@@ -336,9 +360,15 @@ export const createAppointmentComplexValidation = async (
     // the same Location. Gated on the slot being booked-via-group AND the
     // group HS being in anonymous assignment mode AND a candidate having
     // capacity at the originating Location — see groupMemberFallback.ts.
-    const fallback = await tryGroupMemberFallback({ slot, schedule, scheduleOwner, oystehrClient });
+    const fallback = await tryGroupMemberFallback({
+      slot,
+      schedule,
+      scheduleOwner,
+      oystehrClient,
+      cadenceMinutes: resolvedCadenceMinutes,
+    });
     if (!fallback) {
-      throw INVALID_INPUT_ERROR('This time slot is no longer available. Please choose another time.');
+      throw SLOT_UNAVAILABLE_ERROR;
     }
     schedule = fallback.schedule;
     scheduleOwner = fallback.scheduleOwner;
@@ -388,28 +418,17 @@ export const createAppointmentComplexValidation = async (
     visitType = VisitType.WalkIn;
   }
 
-  if (serviceMode === ServiceMode.virtual && !locationState) {
-    if (scheduleOwner.resourceType === 'Location' && isLocationVirtual(scheduleOwner as Location)) {
-      const state = scheduleOwner.address?.state;
-      const isValidLocationState = AllStates.some(
-        (stateTemp) => state && stateTemp.value.toLowerCase() === state.toLowerCase()
-      );
-      if (isValidLocationState) {
-        locationState = state;
-      }
-    }
-  }
-
-  if (serviceMode === ServiceMode.virtual && !locationState) {
-    throw INVALID_INPUT_ERROR('"locationState" is required for virtual appointments');
-  }
-
   // Resolve the unified bookingLocation (and, when relevant, the attending
   // Practitioner). The resolution-rule logic lives in
   // resolveBookingLocationId as a pure helper so it's exhaustively unit-
   // testable; this function just materialises the resolved id into a
   // Location resource and handles the PR-actor → Practitioner side, which
   // is independent of where the Location came from.
+  //
+  // Resolved before the virtual-appointment locationState check below, because
+  // group bookings derive their state from the (virtual) member Location
+  // resolved here — the schedule owner is a HealthcareService or
+  // PractitionerRole and carries no state of its own.
   let bookingLocation: ResolvedBookingLocation | undefined;
   let attendingPractitioner: ResolvedAttendingPractitioner | undefined;
 
@@ -433,6 +452,24 @@ export const createAppointmentComplexValidation = async (
       throw INVALID_INPUT_ERROR(`Resolved booking Location is missing an id (expected ${bookingLocationId})`);
     }
     bookingLocation = resolved as ResolvedBookingLocation | undefined;
+  }
+
+  // When the caller didn't pass locationState explicitly, derive it from a virtual
+  // Location, otherwise the resolved booking Location (group bookings,
+  // where the virtual member Location is identified by the slot's
+  // at-location stamp).
+  if (serviceMode === ServiceMode.virtual && !locationState) {
+    const virtualLocationForState = [scheduleOwner, bookingLocation].find(
+      (loc): loc is Location => !!loc && loc.resourceType === 'Location' && isLocationVirtual(loc as Location)
+    );
+    const state = virtualLocationForState?.address?.state;
+    if (state && AllStates.some((stateTemp) => stateTemp.value.toLowerCase() === state.toLowerCase())) {
+      locationState = state;
+    }
+  }
+
+  if (serviceMode === ServiceMode.virtual && !locationState) {
+    throw INVALID_INPUT_ERROR('"locationState" is required for virtual appointments');
   }
 
   if (scheduleOwner.resourceType === 'PractitionerRole') {
