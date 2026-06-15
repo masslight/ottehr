@@ -227,6 +227,20 @@ const getFormFields = (
           label: 'Email',
           type: 'string',
           dataType: 'Email',
+          triggers: [
+            {
+              targetQuestionLinkId: 'patient-no-email',
+              effect: ['enable', 'require'],
+              operator: '!=',
+              answerBoolean: true,
+            },
+          ],
+          disabledDisplay: 'hidden',
+        },
+        noEmail: {
+          key: 'patient-no-email',
+          label: "Don't have email",
+          type: 'boolean',
         },
         returnPatientCheck: {
           key: 'return-patient-check',

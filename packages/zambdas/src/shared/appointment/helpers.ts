@@ -15,6 +15,7 @@ import {
   isTelemedAppointment,
   makeSSNIdentifier,
   normalizePhoneNumber,
+  PATIENT_NO_EMAIL_URL,
   PATIENT_NOT_FOUND_ERROR,
   PatientInfo,
   removeTimeFromDate,
@@ -234,13 +235,22 @@ export function creatingPatientUpdateRequest(
     ];
   }
 
+  if (patient.noEmail !== undefined) {
+    const noEmailExtIndex = patientExtension.findIndex((ext) => ext.url === PATIENT_NO_EMAIL_URL);
+    if (noEmailExtIndex >= 0) {
+      patientExtension[noEmailExtIndex] = { url: PATIENT_NO_EMAIL_URL, valueBoolean: patient.noEmail };
+    } else {
+      patientExtension.push({ url: PATIENT_NO_EMAIL_URL, valueBoolean: patient.noEmail });
+    }
+  }
+
   patientPatchOperations.push({
     op: maybeFhirPatient.extension ? 'replace' : 'add',
     path: '/extension',
     value: patientExtension,
   });
 
-  const emailPatchOps = getPatientPatchOpsPatientEmail(maybeFhirPatient, patient.email);
+  const emailPatchOps = getPatientPatchOpsPatientEmail(maybeFhirPatient, patient.noEmail ? undefined : patient.email);
   if (emailPatchOps.length >= 1) {
     patientPatchOperations.push(...emailPatchOps);
   }
@@ -451,7 +461,10 @@ export function creatingPatientCreateRequest(
     });
   }
 
-  if (patient.email) {
+  if (patient.noEmail) {
+    if (!patientResource.extension) patientResource.extension = [];
+    patientResource.extension.push({ url: PATIENT_NO_EMAIL_URL, valueBoolean: true });
+  } else if (patient.email) {
     if (isEHRUser) {
       patientResource.telecom = [
         {
