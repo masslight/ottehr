@@ -40,9 +40,14 @@ export default function Appointments(): ReactElement {
   const locationParam = searchParams.get('location');
   const visitTypeParam = searchParams.get('visitType');
   const serviceCategoryParam = searchParams.get('serviceCategory');
-  const dateParam = searchParams.get('date');
+  const legacyDateParam = searchParams.get('date');
+  const dateFromParam = searchParams.get('dateFrom') ?? legacyDateParam;
+  const dateToParam = searchParams.get('dateTo') ?? legacyDateParam;
   const providerParam = searchParams.get('provider');
-  const queryId = [locationParam, visitTypeParam, serviceCategoryParam, dateParam, providerParam].join(':');
+  const queryId = [locationParam, visitTypeParam, serviceCategoryParam, dateFromParam, dateToParam, providerParam].join(
+    ':'
+  );
+  const hasValidDateRange = Boolean(dateFromParam && dateToParam && dateFromParam <= dateToParam);
 
   const {
     preBooked: preBookedAppointments = [],
@@ -73,9 +78,15 @@ export default function Appointments(): ReactElement {
     const fetchStuff = async (client: Oystehr): Promise<void> => {
       setLoadingState({ status: 'loading' });
 
-      if ((locations.length > 0 || providers.length > 0 || serviceCategories.length > 0) && dateParam && visitType) {
+      if (
+        (locations.length > 0 || providers.length > 0 || serviceCategories.length > 0) &&
+        dateFromParam &&
+        dateToParam &&
+        visitType
+      ) {
         const searchResults = await getAppointments(client, {
-          searchDate: dateParam,
+          searchDateFrom: dateFromParam,
+          searchDateTo: dateToParam,
           timezone: DateTime.now().zoneName,
           locationIds: locations,
           providerIds: providers,
@@ -97,6 +108,7 @@ export default function Appointments(): ReactElement {
     };
     if (
       (locations.length > 0 || providers.length > 0 || serviceCategories.length > 0) &&
+      hasValidDateRange &&
       oystehrZambda &&
       !editingComment &&
       loadingState.id !== queryId &&
@@ -117,7 +129,9 @@ export default function Appointments(): ReactElement {
     visitTypeParam,
     serviceCategoryParam,
     providerParam,
-    dateParam,
+    dateFromParam,
+    dateToParam,
+    hasValidDateRange,
   ]);
 
   useEffect(() => {

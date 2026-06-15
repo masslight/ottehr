@@ -19,7 +19,7 @@ vi.mock('../../src/components/input/DateInput', () => ({
 }));
 import AppointmentsFilters, {
   LOCAL_STORAGE_FILTERS_KEY,
-  SESSION_STORAGE_DATE_KEY,
+  SESSION_STORAGE_DATE_RANGE_KEY,
 } from '../../src/components/AppointmentsFilters';
 
 // Surfaces the current query string so assertions can inspect it.
@@ -52,7 +52,8 @@ describe('AppointmentsFilters persistence', () => {
       const params = new URLSearchParams(getSearch());
       expect(params.get('tab')).toBe('in-office');
       expect(params.get('visitType')).toBeTruthy();
-      expect(params.get('date')).toBeTruthy();
+      expect(params.get('dateFrom')).toBeTruthy();
+      expect(params.get('dateTo')).toBeTruthy();
     });
   });
 
@@ -61,7 +62,10 @@ describe('AppointmentsFilters persistence', () => {
       LOCAL_STORAGE_FILTERS_KEY,
       JSON.stringify({ location: [{ id: 'L1' }], visitType: ['in-person-walk-in'] })
     );
-    sessionStorage.setItem(SESSION_STORAGE_DATE_KEY, '2026-01-01');
+    sessionStorage.setItem(
+      SESSION_STORAGE_DATE_RANGE_KEY,
+      JSON.stringify({ dateFrom: '2026-01-01', dateTo: '2026-01-03' })
+    );
 
     renderFilters('/visits?tab=in-office');
 
@@ -72,7 +76,8 @@ describe('AppointmentsFilters persistence', () => {
       // ...and the persisted filters are pushed back into the URL.
       expect(params.get('location')).toBe('L1');
       expect(params.get('visitType')).toBe('in-person-walk-in');
-      expect(params.get('date')).toBe('2026-01-01');
+      expect(params.get('dateFrom')).toBe('2026-01-01');
+      expect(params.get('dateTo')).toBe('2026-01-03');
     });
   });
 
@@ -86,9 +91,22 @@ describe('AppointmentsFilters persistence', () => {
     await waitFor(() => {
       const params = new URLSearchParams(getSearch());
       expect(params.get('location')).toBe('L1');
-      // the stale persisted date is dropped in favour of today
-      expect(params.get('date')).not.toBe('2020-01-01');
-      expect(params.get('date')).toBeTruthy();
+      expect(params.get('dateFrom')).not.toBe('2020-01-01');
+      expect(params.get('dateTo')).not.toBe('2020-01-01');
+      expect(params.get('dateFrom')).toBeTruthy();
+      expect(params.get('dateTo')).toBeTruthy();
+    });
+  });
+
+  it('normalizes a legacy date param into dateFrom/dateTo', async () => {
+    renderFilters('/visits?date=2026-01-01&tab=in-office');
+
+    await waitFor(() => {
+      const params = new URLSearchParams(getSearch());
+      expect(params.get('tab')).toBe('in-office');
+      expect(params.get('date')).toBeNull();
+      expect(params.get('dateFrom')).toBe('2026-01-01');
+      expect(params.get('dateTo')).toBe('2026-01-01');
     });
   });
 
@@ -114,7 +132,8 @@ describe('AppointmentsFilters persistence', () => {
       // falls back to default filters (date set, tab preserved)...
       const params = new URLSearchParams(getSearch());
       expect(params.get('tab')).toBe('in-office');
-      expect(params.get('date')).toBeTruthy();
+      expect(params.get('dateFrom')).toBeTruthy();
+      expect(params.get('dateTo')).toBeTruthy();
     });
     // ...and the corrupt value has been replaced with valid JSON.
     expect(() => JSON.parse(localStorage.getItem(LOCAL_STORAGE_FILTERS_KEY) ?? '')).not.toThrow();
