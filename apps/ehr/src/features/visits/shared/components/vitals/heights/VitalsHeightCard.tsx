@@ -104,7 +104,7 @@ const VitalsHeightCard: React.FC<VitalsHeightCardProps> = ({ field }): JSX.Eleme
                       onKeyDown={handleKeyDown}
                       data-testid={dataTestIds.vitalsPage.heightInput}
                     />
-                    <Typography fontSize={25}>=</Typography>
+                    <Typography fontSize={25}>≈</Typography>
                     <VitalsTextInputFiled
                       label="total inches"
                       value={localState.valueInches}
@@ -114,7 +114,7 @@ const VitalsHeightCard: React.FC<VitalsHeightCardProps> = ({ field }): JSX.Eleme
                       onKeyDown={handleKeyDown}
                       data-testid={dataTestIds.vitalsPage.heightTotalInchesInput}
                     />
-                    <Typography fontSize={25}>=</Typography>
+                    <Typography fontSize={25}>≈</Typography>
                     <VitalsTextInputFiled
                       label="ft"
                       value={localState.valueFeet}

@@ -83,7 +83,7 @@ export class HeightMeasurement {
   }
 
   getObservationLabel(): string {
-    return `${this.getCm(HEIGHT_CM_DISPLAY_PRECISION)} cm = ${this.getInches()} in = ${this.getFeetInchesLabel()}`;
+    return `${this.getCm(HEIGHT_CM_DISPLAY_PRECISION)} cm ≈ ${this.getInches()} in ≈ ${this.getFeetInchesLabel()}`;
   }
 }
 

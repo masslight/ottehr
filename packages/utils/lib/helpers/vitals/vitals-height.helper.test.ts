@@ -110,6 +110,6 @@ describe('height labels', () => {
   });
 
   it('formats the full observation value line', () => {
-    expect(formatHeightObservationValue(132)).toBe(`132 cm = 51.97 in = 4'4"`);
+    expect(formatHeightObservationValue(132)).toBe(`132 cm ≈ 51.97 in ≈ 4'4"`);
   });
 });
