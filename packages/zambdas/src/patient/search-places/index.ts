@@ -1,13 +1,15 @@
-import Oystehr from '@oystehr/sdk';
+import Oystehr, { ErxSearchPharmaciesResponse } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { getSecret, PlacesResult, SearchPlacesInput, SearchPlacesOutput, SecretsKeys } from 'utils';
 import { createOystehrClient, getAuth0Token, wrapHandler, ZambdaInput } from '../../shared';
 import {
   addressComponentsFromPlacesDetailRes,
   findMatchingErxPharmacy,
-  getParamsForErxPharmacySearch,
+  getAddressParamsForErxPharmacySearch,
   PLACES_API_BASE_URL,
   reconcilePharmacyPhone,
+  searchErxPharmacy,
+  validateIsString,
 } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -146,23 +148,30 @@ const getPharmacyDetail = async (placesId: string, googleApiKey: string, oystehr
   });
 
   const data = await response.json();
-  const placesName: string = data?.displayName?.text ?? '';
-  const placesAddress: string = data?.formattedAddress ?? '';
-  const placesPhone: string | undefined = data?.nationalPhoneNumber ?? data?.internationalPhoneNumber;
+  const placesName = validateIsString(data?.displayName?.text);
+  const placesAddress = validateIsString(data?.formattedAddress);
+  const placesPhone = data?.nationalPhoneNumber ?? data?.internationalPhoneNumber;
 
   const addressParsed = addressComponentsFromPlacesDetailRes(data?.addressComponents);
-  const pharmacySearchParams = getParamsForErxPharmacySearch(addressParsed, placesName);
+  const pharmacySearchParams = getAddressParamsForErxPharmacySearch(addressParsed);
 
-  console.log('calling erx.searchPharmacies', JSON.stringify(pharmacySearchParams));
-  const oystehrPharmacySearchRes = await oystehr.erx.searchPharmacies(pharmacySearchParams);
-  console.log('oystehrPharmacySearchRes', oystehrPharmacySearchRes);
+  // we will search with address alone and then use the name / zip in a loose match to verify further
+  // we won't include name in search params since searching with "walgreens" will not return "WALGREENS DRUG STORE #09552",
+  // we won't include zip in search params since searching with a 5 digit zip will fail to return if erx has the 9 digit zip
 
-  const erxPharmacyMatch = findMatchingErxPharmacy(placesName, addressParsed, oystehrPharmacySearchRes);
+  let erxPharmacyMatch: ErxSearchPharmaciesResponse['data'][number] | undefined;
+  let i = 0;
+  while (!erxPharmacyMatch && i < pharmacySearchParams.length) {
+    const addressParams = pharmacySearchParams[i];
+    const res = await searchErxPharmacy(addressParams, oystehr);
+    erxPharmacyMatch = findMatchingErxPharmacy(placesName, addressParsed, res);
+    i++;
+  }
 
   const formattedPlace: PlacesResult = {
     placesId,
-    name: placesName,
-    address: placesAddress,
+    name: placesName ?? '',
+    address: placesAddress ?? '',
     phone: reconcilePharmacyPhone(placesPhone, erxPharmacyMatch?.phone),
     erxPharmacyId: erxPharmacyMatch?.id.toString(),
   };

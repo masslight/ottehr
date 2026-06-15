@@ -2497,14 +2497,19 @@ interface CreateSlotOptions {
   status: Slot['status'];
   originalBookingUrl?: string;
   postTelemedLabOnly?: boolean;
+  // Explicit service modality chosen by the booking flow (e.g. the /prebook/:mode
+  // URL segment). Takes priority over the modality inferred from the vended slot,
+  // which can be wrong for group bookings whose slots are owned by a
+  // PractitionerRole or the group HealthcareService rather than a virtual Location.
+  serviceModality?: ServiceMode;
 }
 export const createSlotParamsFromSlotAndOptions = (slot: Slot, options: CreateSlotOptions): CreateSlotParams => {
-  const { status, originalBookingUrl, postTelemedLabOnly } = options;
+  const { status, originalBookingUrl, postTelemedLabOnly, serviceModality } = options;
   const walkin = getSlotIsWalkin(slot);
   return {
     scheduleId: slot.schedule.reference?.replace('Schedule/', '') ?? '',
     startISO: slot.start,
-    serviceModality: getServiceModeFromSlot(slot) ?? ServiceMode['in-person'],
+    serviceModality: serviceModality ?? getServiceModeFromSlot(slot) ?? ServiceMode['in-person'],
     lengthInMinutes: getAppointmentDurationFromSlot(slot),
     status,
     walkin,

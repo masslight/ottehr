@@ -212,7 +212,22 @@ const FormFields: PatientRecordFormFields = {
       city: { key: 'patient-city', type: 'string', label: 'City' },
       state: { key: 'patient-state', type: 'choice', label: 'State', options: formValueSets.stateOptions },
       zip: { key: 'patient-zip', type: 'string', label: 'ZIP', dataType: 'ZIP' },
-      email: { key: 'patient-email', type: 'string', label: 'Patient email', dataType: 'Email' },
+      email: {
+        key: 'patient-email',
+        type: 'string',
+        label: 'Patient email',
+        dataType: 'Email',
+        triggers: [
+          {
+            targetQuestionLinkId: 'patient-no-email',
+            effect: ['enable', 'require'],
+            operator: '!=',
+            answerBoolean: true,
+          },
+        ],
+        disabledDisplay: 'hidden',
+      },
+      noEmail: { key: 'patient-no-email', type: 'boolean', label: "Don't have email" },
       phone: { key: 'patient-number', type: 'string', label: 'Patient mobile', dataType: 'Phone Number' },
       preferredCommunicationMethod: {
         key: 'patient-preferred-communication-method',
@@ -227,7 +242,6 @@ const FormFields: PatientRecordFormFields = {
       'patient-city',
       'patient-zip',
       'patient-state',
-      'patient-email',
       'patient-number',
       'patient-preferred-communication-method',
     ],
@@ -638,9 +652,25 @@ const FormFields: PatientRecordFormFields = {
         type: 'string',
         label: 'Email',
         dataType: 'Email',
-        triggers: [RPNotSelfTrigger],
+        triggers: [
+          RPNotSelfTrigger,
+          {
+            targetQuestionLinkId: 'responsible-party-no-email',
+            effect: ['enable', 'require'],
+            operator: '!=',
+            answerBoolean: true,
+          },
+        ],
+        enableBehavior: 'all',
         dynamicPopulation: { sourceLinkId: 'patient-email', triggerState: 'disabled' },
-        disabledDisplay: 'disabled',
+        disabledDisplay: 'hidden',
+      },
+      noEmail: {
+        key: 'responsible-party-no-email',
+        type: 'boolean',
+        label: "Don't have email",
+        triggers: [RPNotSelfTrigger],
+        disabledDisplay: 'hidden',
       },
       addressSameAsPatient: {
         key: 'responsible-party-address-as-patient',
@@ -708,7 +738,6 @@ const FormFields: PatientRecordFormFields = {
       'responsible-party-city',
       'responsible-party-state',
       'responsible-party-zip',
-      'responsible-party-email',
     ],
   },
   emergencyContact: {

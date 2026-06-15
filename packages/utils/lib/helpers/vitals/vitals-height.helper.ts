@@ -4,19 +4,32 @@ export const cmToInches = (heightCm: number): number => roundNumberToDecimalPlac
 
 export const inchesToCm = (heightInches: number): number => roundNumberToDecimalPlaces(heightInches / 0.393701, 1);
 
-export const cmToFeet = (heightCm: number): number => roundNumberToDecimalPlaces(heightCm / 30.48, 1);
+export const roundToNearestHalf = (value: number): number => Math.round(value * 2) / 2;
 
-export const cmToInchesText = (heightCm: number): string => {
-  const inches = cmToInches(heightCm);
-  return inches.toString();
+export type HeightFeetInchesDisplay = {
+  heightCm: number;
+  totalInches: number;
+  feet: number;
+  inchRemainder: number;
 };
 
-export const feetToCm = (feet: number): number => {
-  const totalInches = feet * 12;
-  return inchesToCm(totalInches);
+export const heightCmToFeetInches = (heightCm: number): HeightFeetInchesDisplay => {
+  const totalInches = cmToInches(heightCm);
+  const half = roundToNearestHalf(totalInches);
+
+  return {
+    heightCm,
+    totalInches,
+    feet: Math.floor(half / 12),
+    inchRemainder: half % 12,
+  };
 };
 
-export const cmToFeetText = (heightCm: number): string => {
-  const feet = cmToFeet(heightCm);
-  return feet.toString();
+export const formatHeightFeetInchesLabel = (feet: number, inchRemainder: number): string => `${feet}'${inchRemainder}"`;
+
+export const formatHeightObservationValue = (heightCm: number): string => {
+  const { totalInches, feet, inchRemainder } = heightCmToFeetInches(heightCm);
+  return `${heightCm} cm = ${totalInches} in = ${formatHeightFeetInchesLabel(feet, inchRemainder)}`;
 };
+
+export const feetInchesToCm = (feet: number, inchRemainder: number): number => inchesToCm(feet * 12 + inchRemainder);

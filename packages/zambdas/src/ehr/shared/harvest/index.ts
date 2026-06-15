@@ -122,6 +122,7 @@ import {
   PRIVATE_EXTENSION_BASE_URL,
   QuestionnaireResponseHarvestInput,
   relatedPersonFieldPaths,
+  RESPONSIBLE_PARTY_NO_EMAIL_URL,
   SCHOOL_WORK_NOTE_SCHOOL_ID,
   SCHOOL_WORK_NOTE_TEMPLATE_CODE,
   SCHOOL_WORK_NOTE_WORK_ID,
@@ -183,6 +184,7 @@ interface ResponsiblePartyContact {
   address: Address;
   email: string;
   number?: string;
+  noEmail?: boolean;
 }
 
 interface EmergencyContact {
@@ -755,6 +757,7 @@ const paperworkToPatientFieldMap: Record<string, string> = {
   'patient-point-of-discovery': patientFieldPaths.pointOfDiscovery,
   'mobile-opt-in': patientFieldPaths.sendMarketing,
   'common-well-consent': patientFieldPaths.commonWellConsent,
+  'patient-no-email': patientFieldPaths.noEmail,
   'patient-ssn': patientFieldPaths.ssn,
   'patient-preferred-communication-method': patientFieldPaths.preferredCommunicationMethod,
   'insurance-carrier': coverageFieldPaths.carrier,
@@ -822,6 +825,8 @@ export function createMasterRecordPatchOperations(
   const extensionIntents: Array<{ url: string; action: 'set' | 'remove'; value?: string }> = [];
   let isUseMissedInPatientName = false;
 
+  const noEmail = flattenedPaperwork.find((item) => item.linkId === 'patient-no-email')?.answer?.[0]?.valueBoolean;
+
   flattenedPaperwork.forEach((item) => {
     const value = extractValueFromItem(item);
 
@@ -857,12 +862,9 @@ export function createMasterRecordPatchOperations(
     // Handle telecom fields
     const contactTelecomConfig = contactTelecomConfigs[item.linkId];
     if (contactTelecomConfig) {
-      const operation = createPatchOperationForTelecom(
-        contactTelecomConfig,
-        patient,
-        path,
-        isAnswerEmpty ? undefined : (value as string)
-      );
+      const effectiveValue =
+        item.linkId === 'patient-email' && noEmail ? undefined : isAnswerEmpty ? undefined : (value as string);
+      const operation = createPatchOperationForTelecom(contactTelecomConfig, patient, path, effectiveValue);
       if (operation) tempOperations.push(operation);
       return;
     }
@@ -1042,6 +1044,20 @@ export function createMasterRecordPatchOperations(
       }
     }
   });
+
+  // When filterByEnableWhen is active, patient-email is excluded from flattenedPaperwork when
+  // patient-no-email is true (the field's enableWhen condition fails). The loop above never sees
+  // patient-email in that case, so no telecom patch op is generated. Explicitly handle it here.
+  const emailHandledInLoop = flattenedPaperwork.some((item) => item.linkId === 'patient-email');
+  if (noEmail && !emailHandledInLoop) {
+    const op = createPatchOperationForTelecom(
+      contactTelecomConfigs['patient-email'],
+      patient,
+      patientFieldPaths.email,
+      undefined
+    );
+    if (op) tempOperations.push(op);
+  }
 
   if (isUseMissedInPatientName) {
     tempOperations.push({
@@ -1894,7 +1910,8 @@ export function extractAccountGuarantor(
       | 'Legal Guardian'
       | 'Other',
     address: guarantorAddress,
-    email: findAnswer('responsible-party-email') ?? '',
+    noEmail: findBooleanAnswer('responsible-party-no-email'),
+    email: findBooleanAnswer('responsible-party-no-email') ? '' : findAnswer('responsible-party-email') ?? '',
     number: findAnswer('responsible-party-number'),
   };
 
@@ -3712,7 +3729,7 @@ export const createContainedGuarantor = (guarantor: ResponsiblePartyContact, pat
   const policyHolderName = createFhirHumanName(guarantor.firstName, undefined, guarantor.lastName);
   const relationshipCode = SUBSCRIBER_RELATIONSHIP_CODE_MAP[guarantor.relationship] || 'other';
   const number = guarantor.number;
-  const email = guarantor.email;
+  const email = guarantor.noEmail ? undefined : guarantor.email;
   let telecom: RelatedPerson['telecom'];
   if (number || email) {
     telecom = [];
@@ -3729,6 +3746,9 @@ export const createContainedGuarantor = (guarantor: ResponsiblePartyContact, pat
       system: 'email',
     });
   }
+  const extension: RelatedPerson['extension'] = guarantor.noEmail
+    ? [{ url: RESPONSIBLE_PARTY_NO_EMAIL_URL, valueBoolean: true }]
+    : undefined;
   return {
     resourceType: 'RelatedPerson',
     id: guarantorId,
@@ -3736,6 +3756,7 @@ export const createContainedGuarantor = (guarantor: ResponsiblePartyContact, pat
     birthDate: guarantor.dob,
     gender: mapBirthSexToGender(guarantor.birthSex),
     telecom,
+    extension,
     patient: { reference: `Patient/${patientId}` },
     address: [guarantor.address],
     relationship: [
@@ -4161,6 +4182,13 @@ export const updatePatientAccountFromQuestionnaire = async (
     // optimistically-locked PUT below, rather than creating a competing one.
     if (!existingAccount) {
       const billingType = PATIENT_BILLING_ACCOUNT_TYPE?.coding?.[0];
+      // `ifNoneExist` is a single query string (set verbatim as the
+      // If-None-Exist header). URLSearchParams encodes the `|` in `system|code`.
+      const ifNoneExist = new URLSearchParams({
+        patient: `Patient/${patientId}`,
+        type: `${billingType?.system}|${billingType?.code}`,
+        status: 'active',
+      }).toString();
       await oystehr.fhir.create(
         {
           resourceType: 'Account',
@@ -4169,13 +4197,7 @@ export const updatePatientAccountFromQuestionnaire = async (
           subject: [{ reference: `Patient/${patientId}` }],
           description: 'Patient account',
         },
-        {
-          ifNoneExist: [
-            { name: 'patient', value: `Patient/${patientId}` },
-            { name: 'type', value: `${billingType?.system}|${billingType?.code}` },
-            { name: 'status', value: 'active' },
-          ],
-        }
+        { ifNoneExist }
       );
       // Re-read so the now-existing Account is treated as existing (and merged via the
       // PUT path) instead of created again. Skips computing/committing this iteration.
@@ -4319,7 +4341,7 @@ export const updateStripeCustomer = async (input: UpdateStripeCustomerInput): Pr
     await stripeClient.customers.update(
       pair.customerId,
       {
-        email,
+        email: email ?? '',
         name,
         phone,
       },
