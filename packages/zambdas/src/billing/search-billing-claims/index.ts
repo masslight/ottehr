@@ -1,7 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim, Coverage, Location, Organization, Patient, Practitioner, Resource } from 'fhir/r4b';
-import { BillingClaimItem, getPayerId, getPayerUrl } from 'utils';
+import { BillingClaimItem, CODE_SYSTEM_CLAIM_TYPE, getPayerId, getPayerUrl } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import {
   CLAIM_TAG_SYSTEM,
@@ -9,6 +9,7 @@ import {
   fhirName,
   findRef,
   getClaimStatus,
+  getClaimType,
   resolvePayersByRef,
   sortClaimInsurance,
 } from '../shared';
@@ -52,6 +53,7 @@ async function performEffect(
     { name: '_offset', value: String(offset) },
   ];
 
+  if (params.type) searchParams.push({ name: '_tag', value: `${CODE_SYSTEM_CLAIM_TYPE}|${params.type}` });
   if (params.status) searchParams.push({ name: '_tag', value: `current-status|${params.status}` });
   if (params.createdFrom) searchParams.push({ name: 'created', value: `ge${params.createdFrom}` });
   if (params.createdTo) searchParams.push({ name: 'created', value: `le${params.createdTo}` });
@@ -121,6 +123,7 @@ function mapClaimToItem(claim: Claim, lookups: ClaimLookups): BillingClaimItem {
 
   return {
     id: claim.id ?? '',
+    type: getClaimType(claim),
     status: getClaimStatus(claim),
     patientName,
     patientDob: patient?.birthDate ?? '',

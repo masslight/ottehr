@@ -17,6 +17,7 @@ import {
   ACCOUNT_TYPE_CODE_SYSTEM,
   APIError,
   CODE_SYSTEM_CLAIM_TYPE,
+  CODE_SYSTEM_CLAIM_TYPE_CODES,
   CODE_SYSTEM_CMS_PLACE_OF_SERVICE,
   CODE_SYSTEM_CPT,
   CODE_SYSTEM_CPT_MODIFIER,
@@ -1079,9 +1080,10 @@ describe('create-billing-claim-from-encounter', () => {
                 tag: [
                   { system: 'current-status', code: 'open' },
                   { system: 'appointment-type', code: 'urgent-care' },
+                  { system: CODE_SYSTEM_CLAIM_TYPE, code: CODE_SYSTEM_CLAIM_TYPE_CODES.professional },
                 ],
               },
-              type: { coding: [{ system: CODE_SYSTEM_CLAIM_TYPE, code: 'professional' }] },
+              type: { coding: [{ system: CODE_SYSTEM_CLAIM_TYPE, code: CODE_SYSTEM_CLAIM_TYPE_CODES.professional }] },
               use: 'claim',
               created: expect.any(String),
               patient: {
@@ -1185,11 +1187,11 @@ describe('create-billing-claim-from-encounter', () => {
               meta: {
                 tag: [
                   { system: 'current-status', code: 'open' },
-
                   { system: 'appointment-type', code: 'urgent-care' },
+                  { system: CODE_SYSTEM_CLAIM_TYPE, code: CODE_SYSTEM_CLAIM_TYPE_CODES.professional },
                 ],
               },
-              type: { coding: [{ system: CODE_SYSTEM_CLAIM_TYPE, code: 'professional' }] },
+              type: { coding: [{ system: CODE_SYSTEM_CLAIM_TYPE, code: CODE_SYSTEM_CLAIM_TYPE_CODES.professional }] },
               use: 'claim',
               created: expect.any(String),
               patient: {
@@ -1320,9 +1322,10 @@ describe('create-billing-claim-from-encounter', () => {
                 tag: [
                   { system: 'current-status', code: 'open' },
                   { system: 'appointment-type', code: 'urgent-care' },
+                  { system: CODE_SYSTEM_CLAIM_TYPE, code: CODE_SYSTEM_CLAIM_TYPE_CODES.professional },
                 ],
               },
-              type: { coding: [{ system: CODE_SYSTEM_CLAIM_TYPE, code: 'professional' }] },
+              type: { coding: [{ system: CODE_SYSTEM_CLAIM_TYPE, code: CODE_SYSTEM_CLAIM_TYPE_CODES.professional }] },
               use: 'claim',
               created: expect.any(String),
               patient: {
@@ -1387,9 +1390,10 @@ describe('create-billing-claim-from-encounter', () => {
                 tag: [
                   { system: 'current-status', code: 'open' },
                   { system: 'appointment-type', code: 'workers-comp' },
+                  { system: CODE_SYSTEM_CLAIM_TYPE, code: CODE_SYSTEM_CLAIM_TYPE_CODES.professional },
                 ],
               },
-              type: { coding: [{ system: CODE_SYSTEM_CLAIM_TYPE, code: 'professional' }] },
+              type: { coding: [{ system: CODE_SYSTEM_CLAIM_TYPE, code: CODE_SYSTEM_CLAIM_TYPE_CODES.professional }] },
               use: 'claim',
               created: expect.any(String),
               patient: {
@@ -1454,9 +1458,10 @@ describe('create-billing-claim-from-encounter', () => {
                 tag: [
                   { system: 'current-status', code: 'open' },
                   { system: 'appointment-type', code: 'occupational-medicine' },
+                  { system: CODE_SYSTEM_CLAIM_TYPE, code: CODE_SYSTEM_CLAIM_TYPE_CODES.professional },
                 ],
               },
-              type: { coding: [{ system: CODE_SYSTEM_CLAIM_TYPE, code: 'professional' }] },
+              type: { coding: [{ system: CODE_SYSTEM_CLAIM_TYPE, code: CODE_SYSTEM_CLAIM_TYPE_CODES.professional }] },
               use: 'claim',
               created: expect.any(String),
               patient: {

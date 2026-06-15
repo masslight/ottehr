@@ -3,6 +3,7 @@ import {
   Account,
   Address,
   Claim,
+  Coding,
   Coverage,
   FhirResource,
   HumanName,
@@ -16,6 +17,8 @@ import {
   Resource,
 } from 'fhir/r4b';
 import {
+  CODE_SYSTEM_CLAIM_TYPE,
+  CODE_SYSTEM_CLAIM_TYPE_CODES,
   convertFhirNameToDisplayName,
   FHIR_IDENTIFIER_CODE_TAX_EMPLOYER,
   FHIR_IDENTIFIER_CODE_TAX_SS,
@@ -342,4 +345,25 @@ export function applyNameOverrides<T extends { name?: HumanName[] }>(
   if (overrides.firstName !== undefined) copy.name[0].given = [overrides.firstName];
   if (overrides.lastName !== undefined) copy.name[0].family = overrides.lastName;
   return copy;
+}
+
+export function getClaimType(claim: Claim): keyof typeof CODE_SYSTEM_CLAIM_TYPE_CODES {
+  const code = claim.type.coding?.find((c) => c.system === CODE_SYSTEM_CLAIM_TYPE)?.code;
+  if (!code) {
+    return CODE_SYSTEM_CLAIM_TYPE_CODES.professional;
+  }
+  switch (code) {
+    case 'professional':
+      return CODE_SYSTEM_CLAIM_TYPE_CODES.professional;
+    case 'institutional':
+      return CODE_SYSTEM_CLAIM_TYPE_CODES.institutional;
+    default:
+      // Currently all claims start as professional claims
+      return CODE_SYSTEM_CLAIM_TYPE_CODES.professional;
+  }
+}
+
+export function getClaimTypeCoding(type?: keyof typeof CODE_SYSTEM_CLAIM_TYPE_CODES): Coding {
+  // Currently all claims start as professional claims
+  return { system: CODE_SYSTEM_CLAIM_TYPE, code: type ?? CODE_SYSTEM_CLAIM_TYPE_CODES.professional };
 }
