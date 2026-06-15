@@ -133,11 +133,16 @@ export const SaveServiceFacilityInputSchema = z.object({
     .string()
     .regex(/^\d{4}$/, 'ZIP+4 must be 4 digits')
     .optional(),
-  npi: z.string().refine(isNPIValidWithChecksum, 'NPI must be 10 digits with a valid check digit').optional(),
-  clia: z.string().refine(isCLIAValid, 'CLIA must match the format NNDNNNNNNN, e.g. 05D1234567').optional(),
+  npi: z
+    .string()
+    .refine(isNPIValidWithChecksum, 'NPI must be 10 digits with a valid check digit')
+    .nullable()
+    .optional(),
+  clia: z.string().refine(isCLIAValid, 'CLIA must match the format NNDNNNNNNN, e.g. 05D1234567').nullable().optional(),
   posCode: z
     .string()
     .refine((code) => CMS_PLACE_OF_SERVICE_CODE_SET.has(code), 'Unknown place of service code')
+    .nullable()
     .optional(),
 });
 

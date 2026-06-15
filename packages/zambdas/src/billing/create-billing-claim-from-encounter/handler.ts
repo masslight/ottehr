@@ -47,11 +47,13 @@ import {
   getSecret,
   getTimezone,
   InternalError,
+  INVALID_INPUT_ERROR,
   isAppointmentAutoAccident,
   isAppointmentOccupationalMedicine,
   isAppointmentUrgentCare,
   isAppointmentWorkersComp,
   isValidUUID,
+  MISSING_REQUEST_BODY,
   MISSING_REQUEST_SECRETS,
   PARTICIPATION_CODE_SYSTEM,
   Secrets,
@@ -59,7 +61,6 @@ import {
   SERVICE_CATEGORY_SYSTEM,
   TIMEZONES,
 } from 'utils';
-import { INVALID_INPUT_ERROR, MISSING_REQUEST_BODY } from 'utils';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import {
   assertDefined,
@@ -829,6 +830,10 @@ async function findExistingBillingResources(
         {
           name: 'identifier',
           value: `${FHIR_IDENTIFIER_NPI}|${getNPIIdentifier(originals.location)}`,
+        },
+        {
+          name: 'status',
+          value: 'active',
         },
       ],
     })

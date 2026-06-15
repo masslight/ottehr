@@ -375,12 +375,26 @@
       "src": "src/billing/search-billing-providers/index",
       "zip": ".dist/zips/search-billing-providers.zip"
     },
-    "SEARCH-BILLING-SERVICE-LOCATIONS": {
-      "name": "search-billing-service-locations",
+    "SEARCH-BILLING-SERVICE-FACILITIES": {
+      "name": "search-billing-service-facilities",
       "type": "http_auth",
       "runtime": "nodejs22.x",
-      "src": "src/billing/search-billing-service-locations/index",
-      "zip": ".dist/zips/search-billing-service-locations.zip"
+      "src": "src/billing/search-billing-service-facilities/index",
+      "zip": ".dist/zips/search-billing-service-facilities.zip"
+    },
+    "SAVE-BILLING-SERVICE-FACILITY": {
+      "name": "save-billing-service-facility",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/save-billing-service-facility/index",
+      "zip": ".dist/zips/save-billing-service-facility.zip"
+    },
+    "DELETE-BILLING-SERVICE-FACILITY": {
+      "name": "delete-billing-service-facility",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/delete-billing-service-facility/index",
+      "zip": ".dist/zips/delete-billing-service-facility.zip"
     },
     "CREATE-BILLING-CLAIM": {
       "name": "create-billing-claim",
