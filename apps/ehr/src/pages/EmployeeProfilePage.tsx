@@ -45,6 +45,7 @@ export default function EmployeeProfilePage(): JSX.Element {
   const [isPhoneInitialized, setIsPhoneInitialized] = useState<boolean>(false);
   const [phoneDirty, setPhoneDirty] = useState<boolean>(false);
   const [notificationDirty, setNotificationDirty] = useState<boolean>(false);
+  const [phoneNumberError, setPhoneNumberError] = useState<boolean>(false);
 
   const updateNotificationSettingsMutation = useUpdateProviderNotificationSettingsMutation((params) => {
     useProviderNotificationsStore.setState({
@@ -69,15 +70,15 @@ export default function EmployeeProfilePage(): JSX.Element {
   async function handleApplyNotifications(): Promise<void> {
     if (!notificationSettings) return;
     const isValidPhoneNumber = isPhoneNumberValid(phoneNumber);
-    if (
-      [ProviderNotificationMethod['phone'], ProviderNotificationMethod['phone and computer']].includes(
-        notificationMethod
-      ) &&
-      (!phoneNumber || !isValidPhoneNumber)
-    ) {
-      enqueueSnackbar('Please enter a valid phone number to receive notifications via phone', { variant: 'error' });
+    const phoneRequired = [
+      ProviderNotificationMethod['phone'],
+      ProviderNotificationMethod['phone and computer'],
+    ].includes(notificationMethod);
+    if (phoneRequired && (!phoneNumber || !isValidPhoneNumber)) {
+      setPhoneNumberError(true);
       return;
     }
+    setPhoneNumberError(false);
     const params = {
       taskNotificationsEnabled,
       telemedNotificationsEnabled,
@@ -169,8 +170,12 @@ export default function EmployeeProfilePage(): JSX.Element {
                               (!taskNotificationsEnabled && !telemedNotificationsEnabled)
                             }
                             onChange={(e) => {
-                              setNotificationMethod(e.target.value as ProviderNotificationMethod);
+                              const newMethod = e.target.value as ProviderNotificationMethod;
+                              setNotificationMethod(newMethod);
                               setNotificationDirty(true);
+                              if (newMethod === ProviderNotificationMethod['computer']) {
+                                setPhoneNumberError(false);
+                              }
                             }}
                           >
                             {Object.keys(ProviderNotificationMethod).map((key) => (
@@ -189,7 +194,13 @@ export default function EmployeeProfilePage(): JSX.Element {
                           customInput={TextField}
                           value={phoneNumber}
                           format="(###) ###-####"
-                          label="Phone"
+                          label="Mobile"
+                          required={[
+                            ProviderNotificationMethod['phone'],
+                            ProviderNotificationMethod['phone and computer'],
+                          ].includes(notificationMethod)}
+                          error={phoneNumberError}
+                          helperText={phoneNumberError ? 'Required' : undefined}
                           InputLabelProps={{ shrink: true }}
                           fullWidth
                           onValueChange={(values) => {
@@ -199,6 +210,7 @@ export default function EmployeeProfilePage(): JSX.Element {
                             }
                             setPhoneNumber(newNumber);
                             setNotificationDirty(true);
+                            if (phoneNumberError) setPhoneNumberError(false);
                           }}
                           placeholder="(XXX) XXX-XXXX"
                           readOnly={
