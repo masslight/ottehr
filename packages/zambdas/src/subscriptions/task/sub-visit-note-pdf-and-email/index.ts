@@ -20,6 +20,7 @@ import {
 import { getChartData } from '../../../ehr/get-chart-data';
 import { getMedicationOrders } from '../../../ehr/get-medication-orders';
 import { getImmunizationOrders } from '../../../ehr/immunization/get-orders';
+import { getRadiologyOrders } from '../../../ehr/radiology/order-list';
 import { getNameForOwner } from '../../../ehr/schedules/shared';
 import { getPresignedURLs } from '../../../patient/appointment/get-visit-details/helpers';
 import {
@@ -129,12 +130,18 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       encounter.id
     );
 
-    const [chartDataResult, additionalChartDataResult, medicationOrdersData, upcomingFollowUps] = await Promise.all([
-      chartDataPromise,
-      additionalChartDataPromise,
-      medicationOrdersPromise,
-      upcomingFollowUpsPromise,
-    ]);
+    const radiologyOrdersPromise = getRadiologyOrders(oystehr, {
+      encounterIds: [encounter.id!],
+    });
+
+    const [chartDataResult, additionalChartDataResult, medicationOrdersData, upcomingFollowUps, radiologyData] =
+      await Promise.all([
+        chartDataPromise,
+        additionalChartDataPromise,
+        medicationOrdersPromise,
+        upcomingFollowUpsPromise,
+        radiologyOrdersPromise,
+      ]);
     const immunizationOrders = (
       await getImmunizationOrders(oystehr, {
         encounterIds: [visitResources.encounter.id!],
@@ -160,6 +167,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
             additionalChartData,
             medicationOrders,
             immunizationOrders,
+            radiologyData,
           },
           appointmentPackage: visitResources,
           questionnaireResponse: visitResources.questionnaireResponse,

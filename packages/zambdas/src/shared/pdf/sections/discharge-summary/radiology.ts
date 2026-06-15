@@ -23,6 +23,7 @@ export const composeRadiology: DataComposer<{ allChartData: AllChartData }, Radi
     name: order.studyType,
     result: handleFinalReport(order.finalReport),
   }));
+
   return { radiology };
 };
 
@@ -36,8 +37,8 @@ export const createRadiologySection = <TData extends { radiology?: RadiologyData
     shouldRender: (sectionData) => !!sectionData.radiology?.length,
     render: (client, data, styles) => {
       data.radiology?.forEach((radiology) => {
-        client.drawText(radiology.name, styles.textStyles.bold);
-        if (radiology.result) client.drawText(`Final Read: ${radiology.result}`, styles.textStyles.regular);
+        client.drawText(radiology.name, styles.textStyles.regularText);
+        if (radiology.result) client.drawText(`Final Read: ${radiology.result}`, styles.textStyles.regularText);
       });
       client.drawSeparatedLine(styles.lineStyles.separator);
     },
