@@ -326,13 +326,6 @@
       "src": "src/ehr/get-patient-profile-photo-url/index",
       "zip": ".dist/zips/get-patient-profile-photo-url.zip"
     },
-    "GET-CLAIMS": {
-      "name": "get-claims",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/ehr/get-claims/index",
-      "zip": ".dist/zips/get-claims.zip"
-    },
     "SEARCH-BILLING-PATIENTS": {
       "name": "search-billing-patients",
       "type": "http_auth",
