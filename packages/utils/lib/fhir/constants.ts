@@ -249,6 +249,14 @@ export const PRACTITIONER_QUALIFICATION_STATE_SYSTEM = 'http://hl7.org/fhir/us/c
 
 export const SLUG_SYSTEM = `${FHIR_BASE_URL}/r4/slug`;
 
+// Slug values are interpolated raw into FHIR `identifier` search params as
+// `${SLUG_SYSTEM}|${slug}` and into patient-facing booking URLs. Restrict to a
+// URL-safe shape (letters/digits/hyphens) so a value saved in the admin UI
+// can't fail validation when the patient side later searches by it.
+export const SLUG_REGEX = /^[a-zA-Z0-9-]+$/;
+export const SLUG_VALIDATION_MESSAGE = 'must be a URL-safe slug (letters, digits, hyphens)';
+export const isValidSlug = (slug: string): boolean => SLUG_REGEX.test(slug);
+
 /**
  * Optional admin-editable display name for a PractitionerRole-actored schedule.
  * Stored as a PR.extension valueString. When absent, callers compose a name
