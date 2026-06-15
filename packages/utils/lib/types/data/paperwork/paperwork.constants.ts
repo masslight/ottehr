@@ -46,6 +46,7 @@ export const PATIENT_EDUCATION_APPROVED_LIST_IDENTIFIER = {
 export const PATIENT_EDUCATION_APPROVED_ICD_EXTENSION_URL =
   'https://fhir.ottehr.com/Extension/patient-education-approved-icd-codes';
 export const STATEMENT_CODE = 'statement-code';
+export const RADIOLOGY_REPORT_CODE = '18748-4';
 
 // only one type supported currently, but extension is invited here
 export const ComplexValidationType = {
