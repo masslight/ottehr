@@ -25,6 +25,8 @@ export const RadiologyViewImageBtn: FC<RadiologyViewImageBtnProps> = (props: Rad
 
     if (!oystehrZambda) {
       console.error('oystehrZambda is not defined');
+      setLaunchViewerError('Unable to launch viewer (API client unavailable)');
+      setIsLaunchingViewer(false);
       return;
     }
 

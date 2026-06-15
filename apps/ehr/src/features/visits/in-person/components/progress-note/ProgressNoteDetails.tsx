@@ -205,7 +205,7 @@ export const ProgressNoteDetails: FC = () => {
         resultsPending={externalLabResultsPending}
       />
     ),
-    showRadiologyContainer && <RadiologyOrdersContainer />,
+    showRadiologyContainer && <RadiologyOrdersContainer radiologyOrders={radiologyOrders} />,
     showProceduresContainer && <ProceduresContainer />,
     showPrescribedMedications && <PrescribedMedicationsContainer />,
     showPatientInstructions && <PatientInstructionsContainer />,

@@ -3,14 +3,13 @@ import { FC } from 'react';
 import { AssessmentTitle } from 'src/components/AssessmentTitle';
 import { RadiologyViewImageBtn } from 'src/features/radiology/components/RadiologyViewImageBtn';
 import { RadiologyDTO } from 'utils';
-import { useChartFields } from '../../../hooks/useChartFields';
 
-export const RadiologyOrdersContainer: FC = () => {
-  const { data: chartFields } = useChartFields({
-    requestedFields: { radiologyOrders: { _tag: 'radiology', _revinclude: 'DiagnosticReport:based-on' } },
-  });
-  const radiologyOrders = chartFields?.radiologyOrders ?? [];
+interface RadiologyOrdersContainerProps {
+  radiologyOrders: RadiologyDTO[];
+}
 
+export const RadiologyOrdersContainer: FC<RadiologyOrdersContainerProps> = (props) => {
+  const { radiologyOrders } = props;
   const { ordersWithReads, pendingPerformedOrders } = radiologyOrders.reduce(
     (acc: { ordersWithReads: RadiologyDTO[]; pendingPerformedOrders: RadiologyDTO[] }, order) => {
       if (order.preliminaryReport || order.finalReport) {
@@ -29,17 +28,25 @@ export const RadiologyOrdersContainer: FC = () => {
     let reportType = 'Preliminary Read';
     let report: string | undefined;
 
+    const decode = (value: string): string => {
+      try {
+        return atob(value);
+      } catch {
+        return value;
+      }
+    };
+
     if (finalReport) {
       reportType = 'Final Read';
-      report = atob(finalReport);
+      report = decode(finalReport);
     } else if (preliminaryReport) {
-      report = atob(preliminaryReport);
+      report = decode(preliminaryReport);
     }
 
     return (
       <Typography display="flex">
         <span style={{ fontWeight: 'bold' }}>{reportType}:&nbsp;</span>
-        {report}
+        <div dangerouslySetInnerHTML={{ __html: `${report}` }} />
       </Typography>
     );
   };
