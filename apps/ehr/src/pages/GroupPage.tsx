@@ -692,6 +692,7 @@ function GroupPageContent(): ReactElement {
               </Typography>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, maxWidth: 640 }}>
                 {Array.from(categoryByHsId.entries())
+                  .filter(([, info]) => info.source !== 'booking-config') // Only show FHIR-backed categories for now
                   .sort(([, a], [, b]) => a.name.localeCompare(b.name))
                   .map(([hsId, info]) => {
                     const isInAllowList = supportedCategoryHsIds.includes(hsId);
