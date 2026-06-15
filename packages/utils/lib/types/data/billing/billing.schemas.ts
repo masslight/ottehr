@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { CODE_SYSTEM_CLAIM_TYPE_CODE_NAMES } from '../../../helpers/rcm/constants';
 import { npiRegex, taxIdRegex, zipRegex } from '../../../validation';
 import { CLAIM_STATUS_FIELD_KEYS } from './claim-status';
 
@@ -76,6 +77,7 @@ export const GetPatientCoveragesInputSchema = z.object({
 
 export const SearchBillingClaimsInputSchema = z.object({
   searchText: nonEmptyString.optional(),
+  type: z.enum(CODE_SYSTEM_CLAIM_TYPE_CODE_NAMES).optional(),
   status: nonEmptyString.optional(),
   arStage: nonEmptyString.optional(),
   tag: nonEmptyString.optional(),
@@ -366,6 +368,7 @@ export const UpdateBillingResourceInputSchema = z.discriminatedUnion('resourceTy
     resourceType: z.literal('Claim'),
     resourceId: nonEmptyString,
     fields: z.object({
+      type: z.enum(CODE_SYSTEM_CLAIM_TYPE_CODE_NAMES).optional(),
       billingProvider: claimProviderRefSchema.optional(),
       renderingProvider: claimProviderRefSchema.optional(),
       facilityId: nonEmptyString.optional(),

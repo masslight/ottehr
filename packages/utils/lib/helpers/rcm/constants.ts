@@ -37,3 +37,9 @@ export const CODE_SYSTEM_CPT_MODIFIER = 'https://fhir.ottehr.com/CodeSystem/cpt-
 
 export const CODE_SYSTEM_OYSTEHR_CLAIM_PROCEDURE_MODIFIER =
   'https://terminology.fhir.oystehr.com/CodeSystem/rcm-claim-procedure-modifier';
+
+export const CODE_SYSTEM_CLAIM_TYPE_CODE_NAMES = ['professional', 'institutional'] as const;
+export const CODE_SYSTEM_CLAIM_TYPE_CODES = {
+  professional: 'professional',
+  institutional: 'institutional',
+} as const;

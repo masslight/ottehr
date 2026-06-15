@@ -2,7 +2,9 @@ import Oystehr from '@oystehr/sdk';
 import {
   Account,
   Address,
+  Basic,
   Claim,
+  Coding,
   Coverage,
   FhirResource,
   HumanName,
@@ -16,6 +18,8 @@ import {
   Resource,
 } from 'fhir/r4b';
 import {
+  CODE_SYSTEM_CLAIM_TYPE,
+  CODE_SYSTEM_CLAIM_TYPE_CODES,
   convertFhirNameToDisplayName,
   FHIR_IDENTIFIER_CODE_TAX_EMPLOYER,
   FHIR_IDENTIFIER_CODE_TAX_SS,
@@ -38,7 +42,8 @@ export type BillingFhirResource =
   | Person
   | Claim
   | Account
-  | RelatedPerson;
+  | RelatedPerson
+  | Basic;
 
 export const BILLING_RESOURCE_TAG = {
   system: 'https://ottehr.com/billing/resource-type',
@@ -95,6 +100,14 @@ export const ERA_CHECK_SYSTEM = 'https://identifiers.fhir.oystehr.com/era-check-
 export const TAG_CODE_SYSTEM = 'https://ottehr.com/billing/tag';
 export const CLAIM_TAG_SYSTEM = 'https://ottehr.com/billing/claim-tag';
 export const TAG_DESCRIPTION_URL = 'https://ottehr.com/billing/tag-description';
+export const TAG_IS_SYSTEM_TAG_URL = 'https://ottehr.com/billing/is-system-tag';
+
+export function isSystemTag(tag: Basic): boolean {
+  return tag.extension?.some((ext) => ext.url === TAG_IS_SYSTEM_TAG_URL && ext.valueBoolean === true) ?? false;
+}
+
+export const AUTO_ACCIDENT_TAG_NAME = 'auto-accident';
+export const AUTO_ACCIDENT_TAG_DESCRIPTION = 'Claim is for a clinical encounter resulting from an auto accident';
 
 const PROTECTED_OVERRIDE_KEYS = new Set(['id', 'meta', 'resourceType', 'extension']);
 
@@ -293,7 +306,7 @@ type ResourceProperties<Resources extends BillingFhirResource> = { [R in Resourc
 /**
  * Billing resources that are eligible to be copied
  */
-export type CopyableBillingResource = Exclude<BillingFhirResource, Claim | Person>;
+export type CopyableBillingResource = Exclude<BillingFhirResource, Claim | Person | Basic>;
 /**
  * Extracts the specific billing resource out of the union type
  */
@@ -342,4 +355,25 @@ export function applyNameOverrides<T extends { name?: HumanName[] }>(
   if (overrides.firstName !== undefined) copy.name[0].given = [overrides.firstName];
   if (overrides.lastName !== undefined) copy.name[0].family = overrides.lastName;
   return copy;
+}
+
+export function getClaimType(claim: Claim): keyof typeof CODE_SYSTEM_CLAIM_TYPE_CODES {
+  const code = claim.type.coding?.find((c) => c.system === CODE_SYSTEM_CLAIM_TYPE)?.code;
+  if (!code) {
+    return CODE_SYSTEM_CLAIM_TYPE_CODES.professional;
+  }
+  switch (code) {
+    case 'professional':
+      return CODE_SYSTEM_CLAIM_TYPE_CODES.professional;
+    case 'institutional':
+      return CODE_SYSTEM_CLAIM_TYPE_CODES.institutional;
+    default:
+      // Currently all claims start as professional claims
+      return CODE_SYSTEM_CLAIM_TYPE_CODES.professional;
+  }
+}
+
+export function getClaimTypeCoding(type?: keyof typeof CODE_SYSTEM_CLAIM_TYPE_CODES): Coding {
+  // Currently all claims start as professional claims
+  return { system: CODE_SYSTEM_CLAIM_TYPE, code: type ?? CODE_SYSTEM_CLAIM_TYPE_CODES.professional };
 }

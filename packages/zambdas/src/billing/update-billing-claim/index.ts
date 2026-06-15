@@ -2,6 +2,7 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim, Coverage, FhirResource, Location, Organization, Patient, Practitioner } from 'fhir/r4b';
 import {
+  CODE_SYSTEM_CLAIM_TYPE,
   CODE_SYSTEM_CMS_PLACE_OF_SERVICE,
   CODE_SYSTEM_HCPCS,
   CODE_SYSTEM_ICD_10,
@@ -15,6 +16,7 @@ import {
   buildDiagnosisSequence,
   createBillingClient,
   fetchById,
+  getClaimTypeCoding,
   prepareWorkingCopy,
   setNpi,
   setTaxId,
@@ -88,6 +90,16 @@ async function attachClaimResources(
 ): Promise<{ id: string | undefined }> {
   const claim = await fetchById<Claim>(oystehr, 'Claim', params.resourceId);
   const { fields } = params;
+
+  if (fields.type) {
+    claim.type = getClaimTypeCoding(fields.type);
+    const tags = [
+      ...(claim.meta?.tag ?? []).filter((t) => t.system !== CODE_SYSTEM_CLAIM_TYPE),
+      getClaimTypeCoding(fields.type),
+    ];
+    claim.meta ??= {};
+    claim.meta.tag = tags;
+  }
 
   if (fields.billingProvider) {
     const copy = await createCopy(oystehr, fields.billingProvider.type, fields.billingProvider.id);

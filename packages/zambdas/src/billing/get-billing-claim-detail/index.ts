@@ -18,6 +18,7 @@ import {
   findRef,
   formatAddress,
   getClaimStatus,
+  getClaimType,
   resolvePayersByRef,
   sortClaimInsurance,
   SOURCE_IDENTIFIER_SYSTEM,
@@ -116,6 +117,7 @@ async function performEffect(oystehr: Oystehr, params: GetClaimDetailParams): Pr
 
   return {
     id: claim.id ?? '',
+    type: getClaimType(claim),
     status,
     statuses: getClaimStatusValues(claim),
     created: claim.created ?? '',
@@ -232,6 +234,7 @@ async function fetchOtherClaims(
 
   return otherClaims.map((c) => ({
     id: c.id ?? '',
+    type: getClaimType(c),
     status: getClaimStatus(c),
     arStage: getClaimStatusValues(c).arStage,
     serviceDate: c.item?.[0]?.servicedPeriod?.start ?? c.created ?? '',
