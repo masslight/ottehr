@@ -105,7 +105,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     }
     console.log('--- END NOTIFICATION CONTENT ---');
 
-    const results: { medium: NotificationMedium; success: boolean; error?: string; skippedReason?: string }[] = [];
+    const results: {
+      medium: NotificationMedium;
+      success: boolean;
+      error?: string;
+      skippedReason?: string;
+    }[] = [];
 
     for (const medium of mediums) {
       try {
@@ -141,9 +146,16 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
               });
               break;
             }
-            await sendOutreachEmail(task, emailTemplate || '', oystehr, input.secrets, patient);
-            console.log(`[Email] Successfully sent email notification for task ${task.id}, patient ${patientRef}`);
-            results.push({ medium, success: true });
+            const emailSent = await sendOutreachEmail(task, emailTemplate || '', oystehr, input.secrets, patient);
+            if (emailSent) {
+              console.log(`[Email] Successfully sent email notification for task ${task.id}, patient ${patientRef}`);
+              results.push({ medium, success: true });
+            } else {
+              console.log(
+                `[Email] Skipped email notification for task ${task.id}, patient ${patientRef}: no email address on file`
+              );
+              results.push({ medium, success: true, skippedReason: 'Patient does not have an email on file' });
+            }
             break;
           }
           case 'paper-mail': {
@@ -320,12 +332,13 @@ async function sendOutreachEmail(
   oystehr: Oystehr,
   secrets: Secrets | null,
   patient: Patient
-): Promise<void> {
+): Promise<boolean> {
   const patientId = patient.id!;
 
   const email = getPatientContactEmail(patient);
   if (!email) {
-    throw new Error(`Patient ${patientId} has no contact email address`);
+    console.log(`Patient ${patientId} has no email address; skipping outreach email`);
+    return false;
   }
 
   const placeholderInput = await resolveTemplatePlaceholders({
@@ -360,6 +373,7 @@ async function sendOutreachEmail(
     htmlContent,
     resolvedMessage,
   });
+  return true;
 }
 
 const MAIL_STATEMENT_TASK_INPUT_SYSTEM = 'https://fhir.ottehr.com/CodeSystem/patient-statement-mail-task-input';

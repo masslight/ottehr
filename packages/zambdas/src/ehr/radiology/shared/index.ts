@@ -144,3 +144,18 @@ export const configReviewResultTask = (resources: ResourcesForTask): Task => {
     ],
   });
 };
+
+export const extractDiagnosticsFromAdvaPACSErrorBody = (errBody: unknown): string | undefined => {
+  if (typeof errBody !== 'object' || !errBody) return;
+
+  if (!('issue' in errBody)) return;
+  const issue = errBody.issue;
+
+  if (!Array.isArray(issue)) return;
+
+  const diagnostics = issue?.[0]?.diagnostics;
+
+  if (typeof diagnostics === 'string') return diagnostics;
+
+  return;
+};

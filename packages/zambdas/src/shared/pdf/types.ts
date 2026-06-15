@@ -757,6 +757,7 @@ export interface consentFormsInfo extends PdfData {
 export interface pharmacyInfo extends PdfData {
   name: string;
   address: string;
+  phone: string;
 }
 
 export interface VisitDetailsInput {
