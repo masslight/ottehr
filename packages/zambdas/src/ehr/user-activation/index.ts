@@ -77,7 +77,7 @@ async function deactivateUser(
     // after this, the user is in the "less-bad" partial state — login may
     // still work but the practitioner is correctly hidden from booking flows
     // (the read-side check downstream uses Practitioner.active). The
-    // operator can retry the activation call.
+    // operator can retry the deactivation call.
     await setPractitionerActive(user, false, oystehr);
 
     console.log('deactivating user');
