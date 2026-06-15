@@ -52,6 +52,28 @@ export interface BillingLocationOption {
   address: string;
 }
 
+export interface ServiceFacilityItem {
+  id: string;
+  name: string;
+  addressLine1: string;
+  addressLine2: string;
+  city: string;
+  state: string;
+  zip: string;
+  zipPlus4: string;
+  npi: string;
+  clia: string;
+  posCode: string;
+  status: 'active' | 'inactive';
+}
+
+export interface SearchServiceFacilitiesResponse {
+  facilities: ServiceFacilityItem[];
+  total: number;
+  offset: number;
+  pageSize: number;
+}
+
 export interface EraListItem {
   id: string;
   eraId: string;

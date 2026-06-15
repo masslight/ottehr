@@ -185,6 +185,32 @@ export const isNPIValid = (npi: string): boolean => {
   return npiRegex.test(npi);
 };
 
+// https://www.cms.gov/Regulations-and-Guidance/Administrative-Simplification/NationalProvIdentStand/Downloads/NPIcheckdigit.pdf
+export const isNPIValidWithChecksum = (npi: string): boolean => {
+  if (!isNPIValid(npi)) {
+    return false;
+  }
+  const digits = `80840${npi}`.split('').map(Number);
+  let sum = 0;
+  let double = false;
+  for (let i = digits.length - 1; i >= 0; i--) {
+    let digit = digits[i];
+    if (double) {
+      digit *= 2;
+      if (digit > 9) digit -= 9;
+    }
+    sum += digit;
+    double = !double;
+  }
+  return sum % 10 === 0;
+};
+
+// CLIA numbers are 2-digit state code + "D" + 7-digit lab identifier, e.g. 05D1234567.
+export const isCLIAValid = (clia: string): boolean => {
+  const cliaRegex = /^\d{2}D\d{7}$/;
+  return cliaRegex.test(clia);
+};
+
 export function formatPhoneNumberDisplay(phoneNumber?: string): string {
   if (!phoneNumber) {
     return '';

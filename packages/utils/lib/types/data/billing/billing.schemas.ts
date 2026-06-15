@@ -1,4 +1,6 @@
 import { z } from 'zod';
+import { isCLIAValid, isNPIValidWithChecksum } from '../../../helpers/helpers';
+import { CMS_PLACE_OF_SERVICE_CODE_SET } from '../../../helpers/rcm/constants';
 
 const nonEmptyString = z.string().trim().min(1);
 const nonNegativeInt = z.number().int().nonnegative();
@@ -110,6 +112,37 @@ export const SearchBillingOrganizationsInputSchema = z.object({
   name: nonEmptyString.optional(),
   type: nonEmptyString.optional(),
   includeWorkingCopies: z.boolean().optional(),
+});
+
+export const SearchServiceFacilitiesInputSchema = z.object({
+  facilityId: nonEmptyString.optional(),
+  name: nonEmptyString.optional(),
+  offset: nonNegativeInt.optional(),
+  pageSize: nonNegativeInt.optional(),
+});
+
+export const SaveServiceFacilityInputSchema = z.object({
+  facilityId: nonEmptyString.optional(),
+  name: nonEmptyString,
+  addressLine1: nonEmptyString,
+  addressLine2: z.string().trim().optional(),
+  city: nonEmptyString,
+  state: nonEmptyString,
+  zip: z.string().regex(/^\d{5}$/, 'ZIP must be 5 digits'),
+  zipPlus4: z
+    .string()
+    .regex(/^\d{4}$/, 'ZIP+4 must be 4 digits')
+    .optional(),
+  npi: z.string().refine(isNPIValidWithChecksum, 'NPI must be 10 digits with a valid check digit').optional(),
+  clia: z.string().refine(isCLIAValid, 'CLIA must match the format NNDNNNNNNN, e.g. 05D1234567').optional(),
+  posCode: z
+    .string()
+    .refine((code) => CMS_PLACE_OF_SERVICE_CODE_SET.has(code), 'Unknown place of service code')
+    .optional(),
+});
+
+export const DeleteServiceFacilityInputSchema = z.object({
+  facilityId: nonEmptyString,
 });
 
 export const CreateBillingClaimInputSchema = z.object({
@@ -250,3 +283,6 @@ export type CreateBillingWorkingCopyInput = z.infer<typeof CreateBillingWorkingC
 export type CreateBillingClaimFromEncounterInput = z.input<typeof CreateBillingClaimFromEncounterInputSchema>;
 export type UpdateBillingResourceInput = z.infer<typeof UpdateBillingResourceInputSchema>;
 export type BillingResourceType = (typeof ALLOWED_BILLING_RESOURCE_TYPES)[number];
+export type SearchServiceFacilitiesInput = z.infer<typeof SearchServiceFacilitiesInputSchema>;
+export type SaveServiceFacilityInput = z.infer<typeof SaveServiceFacilityInputSchema>;
+export type DeleteServiceFacilityInput = z.infer<typeof DeleteServiceFacilityInputSchema>;
