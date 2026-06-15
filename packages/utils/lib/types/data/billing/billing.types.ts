@@ -1,3 +1,5 @@
+import { CODE_SYSTEM_CLAIM_TYPE_CODES } from '../../../helpers';
+
 export interface BillingTag {
   id: string;
   name: string;
@@ -106,6 +108,7 @@ export interface EraDetailResponse {
 
 export interface BillingClaimItem {
   id: string;
+  type: keyof typeof CODE_SYSTEM_CLAIM_TYPE_CODES;
   status: string;
   patientName: string;
   patientDob: string;
@@ -165,6 +168,7 @@ export interface PatientDetailResponse {
 
 export interface ClaimDetailResponse {
   id: string;
+  type: keyof typeof CODE_SYSTEM_CLAIM_TYPE_CODES;
   status: string;
   created: string;
   billingType: string;

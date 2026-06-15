@@ -31,7 +31,6 @@ import {
 import { DateTime } from 'luxon';
 import {
   ACCOUNT_TYPE_CODE_SYSTEM,
-  CODE_SYSTEM_CLAIM_TYPE,
   CODE_SYSTEM_CMS_PLACE_OF_SERVICE,
   CODE_SYSTEM_CPT_MODIFIER,
   CODE_SYSTEM_OYSTEHR_CLAIM_PROCEDURE_MODIFIER,
@@ -77,6 +76,7 @@ import {
   createBillingClient,
   CURRENT_STATUS_TAG_SYSTEM,
   findRef,
+  getClaimTypeCoding,
   prepareCopy,
   prepareWorkingCopy,
   SOURCE_IDENTIFIER_SYSTEM,
@@ -899,8 +899,14 @@ function buildClaim(resources: ClaimResources): Claim {
   const claim: Claim = {
     resourceType: 'Claim',
     status: 'draft',
-    meta: { tag: [{ system: CURRENT_STATUS_TAG_SYSTEM, code: 'open' }, getAppointmentTypeTag(resources.appointment)] },
-    type: { coding: [{ system: CODE_SYSTEM_CLAIM_TYPE, code: 'professional' }] },
+    meta: {
+      tag: [
+        { system: CURRENT_STATUS_TAG_SYSTEM, code: 'open' },
+        getAppointmentTypeCoding(resources.appointment),
+        getClaimTypeCoding(),
+      ],
+    },
+    type: { coding: [getClaimTypeCoding()] },
     use: 'claim',
     created: now,
     patient: uuidOrUrnReference('Patient', resources.patientId),
@@ -991,7 +997,7 @@ function getLocalDateOfService(appointmentStart: string, location: Location | un
   return DateTime.fromISO(appointmentStart).setZone(timezone).toISODate()!;
 }
 
-function getAppointmentTypeTag(appointment: Appointment): Coding {
+function getAppointmentTypeCoding(appointment: Appointment): Coding {
   const type = getAppointmentType(appointment);
   switch (type) {
     case 'uc':
