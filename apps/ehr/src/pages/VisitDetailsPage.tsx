@@ -1558,11 +1558,13 @@ export default function VisitDetailsPage(): ReactElement {
                           const fhirEntries = fhirBackedCats
                             .filter((sc) => sc.active && sc.code && !bookingCodes.has(sc.code))
                             .map((sc) => ({ code: sc.code, label: sc.name }));
-                          return [...bookingEntries, ...fhirEntries].map((entry) => (
-                            <MenuItem key={entry.code} value={entry.code}>
-                              {entry.label}
-                            </MenuItem>
-                          ));
+                          return [...bookingEntries, ...fhirEntries]
+                            .sort((a, b) => a.label.localeCompare(b.label))
+                            .map((entry) => (
+                              <MenuItem key={entry.code} value={entry.code}>
+                                {entry.label}
+                              </MenuItem>
+                            ));
                         })()}
                       </Select>
                     </>
