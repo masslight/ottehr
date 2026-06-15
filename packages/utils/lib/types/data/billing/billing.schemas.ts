@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { CODE_SYSTEM_CLAIM_TYPE_CODE_NAMES } from '../../../helpers';
+import { CODE_SYSTEM_CLAIM_TYPE_CODE_NAMES } from '../../../helpers/rcm/constants';
 import { npiRegex, taxIdRegex, zipRegex } from '../../../validation';
 
 const nonEmptyString = z.string().trim().min(1);
