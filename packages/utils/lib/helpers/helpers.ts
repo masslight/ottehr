@@ -330,6 +330,29 @@ export function resourceHasMetaTag(resource: Resource, metaTag: OTTEHR_MODULE): 
   return Boolean(resource.meta?.tag?.find((coding) => coding.code === metaTag));
 }
 
+/**
+ * Standardizes a phone number that may carry an extension (`x`/`ext.`/`extension`) to
+ * `(XXX) XXX-XXXX` or `(XXX) XXX-XXXX x{ext}`. Returns undefined when the base number can't be
+ * parsed to 10 digits.
+ */
+export function standardizePhoneWithExtension(phoneNumber?: string): string | undefined {
+  const trimmed = phoneNumber?.trim();
+  if (!trimmed) {
+    return undefined;
+  }
+
+  const extensionMatch = trimmed.match(/\s*(?:x|ext\.?|extension)\s*(\d+)$/i);
+  const extension = extensionMatch?.[1];
+  const base = extensionMatch ? trimmed.slice(0, extensionMatch.index).trim() : trimmed;
+
+  const standardizedBase = standardizePhoneNumber(base);
+  if (!standardizedBase) {
+    return undefined;
+  }
+
+  return extension ? `${standardizedBase} x${extension}` : standardizedBase;
+}
+
 export const formatPhoneNumberForQuestionnaire = (phone: string): string => {
   const phoneDigits = phone.replace(/\D/g, '');
   if (phoneDigits.length !== 10) {

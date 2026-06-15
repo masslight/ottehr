@@ -1510,6 +1510,7 @@ const mapPharmacyToQuestionnaireResponseItems = (input: MapPharmacyItemsInput): 
   const { pharmacyResource, patientResource, items } = input;
   const pharmacyName = pharmacyResource?.name;
   const pharmacyAddress = pharmacyResource?.address?.[0].text;
+  const pharmacyPhone = pharmacyResource?.telecom?.find((c) => c.system === 'phone')?.value;
   const pharmacyWasManuallyEntered = !!pharmacyResource?.extension?.find(
     (ext) => ext.url === PREFERRED_PHARMACY_MANUAL_ENTRY_URL
   )?.valueBoolean;
@@ -1528,6 +1529,9 @@ const mapPharmacyToQuestionnaireResponseItems = (input: MapPharmacyItemsInput): 
     if (linkId === 'pharmacy-address' && pharmacyAddress && pharmacyWasManuallyEntered) {
       answer = makeAnswer(pharmacyAddress);
     }
+    if (linkId === 'pharmacy-phone' && pharmacyPhone && pharmacyWasManuallyEntered) {
+      answer = makeAnswer(pharmacyPhone);
+    }
 
     if (linkId === 'pharmacy-page-manual-entry' && pharmacyWasManuallyEntered) {
       answer = makeAnswer(true, 'Boolean');
@@ -1539,6 +1543,9 @@ const mapPharmacyToQuestionnaireResponseItems = (input: MapPharmacyItemsInput): 
       }
       if (linkId === PHARMACY_COLLECTION_LINK_IDS.placesAddress) {
         answer = makeAnswer(pharmacyAddress);
+      }
+      if (linkId === PHARMACY_COLLECTION_LINK_IDS.placesPhone && pharmacyPhone) {
+        answer = makeAnswer(pharmacyPhone);
       }
       if (linkId === PHARMACY_COLLECTION_LINK_IDS.placesId) {
         answer = makeAnswer(pharmacyIdFromPlaces);

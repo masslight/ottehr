@@ -814,6 +814,11 @@ const FormFields: PatientRecordFormFields = {
             label: 'places address',
             type: 'string',
           },
+          pharmacyPlacesPhone: {
+            key: 'pharmacy-places-phone',
+            label: 'places phone',
+            type: 'string',
+          },
           pharmacyPlacesSaved: {
             key: 'pharmacy-places-saved',
             label: 'places saved',
@@ -874,6 +879,21 @@ const FormFields: PatientRecordFormFields = {
         key: 'pharmacy-address',
         label: 'Pharmacy address',
         type: 'string',
+        triggers: [
+          {
+            targetQuestionLinkId: 'pharmacy-page-manual-entry',
+            effect: ['enable'],
+            operator: '=',
+            answerBoolean: true,
+          },
+        ],
+        disabledDisplay: 'hidden',
+      },
+      phone: {
+        key: 'pharmacy-phone',
+        label: 'Pharmacy phone',
+        type: 'string',
+        dataType: 'Phone Number',
         triggers: [
           {
             targetQuestionLinkId: 'pharmacy-page-manual-entry',
@@ -1027,7 +1047,7 @@ const hiddenFormSections: string[] = [];
 const questionnaireBaseDefaults = {
   resourceType: 'Questionnaire',
   url: 'http://example.org/fhir/Questionnaire/patient-record',
-  version: '1.1.0',
+  version: '1.1.1',
   name: 'PatientRecordQuestionnaire',
   title: 'Patient Record Questionnaire',
   status: 'active',
