@@ -1,11 +1,11 @@
-import { INVALID_INPUT_ERROR, SearchBillingOrganizationsInput, SearchBillingOrganizationsInputSchema } from 'utils';
+import { INVALID_INPUT_ERROR, SearchBillingPayersInput, SearchBillingPayersInputSchema } from 'utils';
 import { formatZodError, ZambdaInput } from '../../shared';
 
-export interface SearchBillingOrganizationsParams extends SearchBillingOrganizationsInput {
+export interface SearchBillingPayersParams extends SearchBillingPayersInput {
   secrets: ZambdaInput['secrets'];
 }
 
-export function validateRequestParameters(input: ZambdaInput): SearchBillingOrganizationsParams {
+export function validateRequestParameters(input: ZambdaInput): SearchBillingPayersParams {
   if (!input.body) return { secrets: input.secrets };
 
   let raw: unknown;
@@ -15,7 +15,7 @@ export function validateRequestParameters(input: ZambdaInput): SearchBillingOrga
     throw INVALID_INPUT_ERROR('Request body is not valid JSON');
   }
 
-  const result = SearchBillingOrganizationsInputSchema.safeParse(raw);
+  const result = SearchBillingPayersInputSchema.safeParse(raw);
   if (!result.success) throw INVALID_INPUT_ERROR(formatZodError(result.error));
 
   return { ...result.data, secrets: input.secrets };

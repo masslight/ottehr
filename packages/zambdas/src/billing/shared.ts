@@ -1,9 +1,12 @@
 import Oystehr from '@oystehr/sdk';
 import {
   Account,
+  Address,
   Claim,
   Coverage,
+  FhirResource,
   HumanName,
+  Identifier,
   Location,
   Organization,
   Patient,
@@ -12,7 +15,17 @@ import {
   RelatedPerson,
   Resource,
 } from 'fhir/r4b';
-import { convertFhirNameToDisplayName, isPayerUrl, Secrets } from 'utils';
+import {
+  convertFhirNameToDisplayName,
+  FHIR_IDENTIFIER_CODE_TAX_EMPLOYER,
+  FHIR_IDENTIFIER_CODE_TAX_SS,
+  FHIR_IDENTIFIER_CODE_TAXONOMY,
+  FHIR_IDENTIFIER_NPI,
+  FHIR_IDENTIFIER_SYSTEM,
+  FHIR_RESOURCE_NOT_FOUND,
+  isPayerUrl,
+  Secrets,
+} from 'utils';
 import { createOystehrClient } from '../shared/helpers';
 
 // Type alias for resources relevant to billing
@@ -69,9 +82,10 @@ export async function resolvePayersByRef(
   return byRef;
 }
 
-// Provider role tags
-export const RENDERS_TAG = 'https://fhir.ottehr.com/billing/renders-services';
-export const BILLS_TAG = 'https://fhir.ottehr.com/billing/bills-services';
+// Provider role: one tag system  (a provider can bill and/or render).
+export const PROVIDER_ROLE_TAG = 'https://fhir.ottehr.com/billing/provider-role';
+export const PROVIDER_ROLE_BILLING = 'billing';
+export const PROVIDER_ROLE_RENDERING = 'rendering';
 export const LICENSE_TAG = 'https://fhir.ottehr.com/billing/license-type';
 
 export const SOURCE_IDENTIFIER_SYSTEM = 'https://ottehr.com/billing/source-resource';
@@ -105,13 +119,122 @@ export function createBillingClient(token: string, secrets: Secrets | null): Oys
   return createOystehrClient(token, secrets, { workspaceTag: BILLING_RESOURCE_TAG });
 }
 
+export async function fetchById<T extends FhirResource>(
+  oystehr: Oystehr,
+  resourceType: T['resourceType'],
+  id: string
+): Promise<T> {
+  const result = await oystehr.fhir.search<T>({ resourceType, params: [{ name: '_id', value: id }] });
+  const resource = result.unbundle()[0];
+  if (!resource) throw FHIR_RESOURCE_NOT_FOUND(resourceType);
+  return resource;
+}
+
 export function getTag(resource: Resource, system: string): string | undefined {
   return resource.meta?.tag?.find((t) => t.system === system)?.code;
+}
+
+// Valid 1-based pointers into the claim's diagnosis list; falls back to the first diagnosis.
+export function buildDiagnosisSequence(pointers: number[] | undefined, diagnosisCount: number): number[] | undefined {
+  const valid = [...new Set((pointers ?? []).filter((p) => p <= diagnosisCount))];
+  if (valid.length) return valid;
+  return diagnosisCount ? [1] : undefined;
+}
+
+// A resource can carry multiple tags in the same system (e.g. both provider roles), so check (system, code).
+export function hasTag(resource: Resource, system: string, code: string): boolean {
+  return resource.meta?.tag?.some((t) => t.system === system && t.code === code) ?? false;
 }
 
 export function formatAddress(addr?: { line?: string[]; city?: string; state?: string; postalCode?: string }): string {
   if (!addr) return '';
   return [...(addr.line ?? []), addr.city, addr.state, addr.postalCode].filter(Boolean).join(', ');
+}
+
+export function toAddressParts(addr?: Address): {
+  line1: string;
+  line2: string;
+  city: string;
+  state: string;
+  postalCode: string;
+} {
+  return {
+    line1: addr?.line?.[0] ?? '',
+    line2: addr?.line?.[1] ?? '',
+    city: addr?.city ?? '',
+    state: addr?.state ?? '',
+    postalCode: addr?.postalCode ?? '',
+  };
+}
+
+export function buildAddress(parts: {
+  line1?: string;
+  line2?: string;
+  city?: string;
+  state?: string;
+  postalCode?: string;
+}): Address {
+  const line = [parts.line1, parts.line2].filter((l): l is string => !!l);
+  return {
+    ...(line.length ? { line } : {}),
+    city: parts.city,
+    state: parts.state,
+    postalCode: parts.postalCode,
+  };
+}
+
+export function setNpi(resource: Practitioner | Organization | Location, npi: string): void {
+  const identifier = resource.identifier ?? [];
+  const existing = identifier.find((id) => id.system === FHIR_IDENTIFIER_NPI);
+  if (npi) {
+    if (existing) existing.value = npi;
+    else identifier.push({ system: FHIR_IDENTIFIER_NPI, value: npi });
+    resource.identifier = identifier;
+  } else if (existing) {
+    resource.identifier = identifier.filter((id) => id.system !== FHIR_IDENTIFIER_NPI);
+  }
+}
+
+export function setTaxId(resource: Practitioner | Organization, taxId: string): void {
+  const isTax = (id: Identifier): boolean =>
+    !!id.type?.coding?.some(
+      (tc) =>
+        tc.system === FHIR_IDENTIFIER_SYSTEM &&
+        (tc.code === FHIR_IDENTIFIER_CODE_TAX_EMPLOYER || tc.code === FHIR_IDENTIFIER_CODE_TAX_SS)
+    );
+  const identifier = resource.identifier ?? [];
+  const existing = identifier.find(isTax);
+  if (taxId) {
+    if (existing) existing.value = taxId;
+    else {
+      identifier.push({
+        type: { coding: [{ system: FHIR_IDENTIFIER_SYSTEM, code: FHIR_IDENTIFIER_CODE_TAX_EMPLOYER }] },
+        value: taxId,
+      });
+    }
+    resource.identifier = identifier;
+  } else if (existing) {
+    resource.identifier = identifier.filter((id) => !isTax(id));
+  }
+}
+
+export function setTaxonomy(resource: Practitioner | Organization, taxonomyCode: string): void {
+  const isTaxonomy = (id: Identifier): boolean =>
+    !!id.type?.coding?.some((tc) => tc.code === FHIR_IDENTIFIER_CODE_TAXONOMY);
+  const identifier = resource.identifier ?? [];
+  const existing = identifier.find(isTaxonomy);
+  if (taxonomyCode) {
+    if (existing) existing.value = taxonomyCode;
+    else {
+      identifier.push({
+        type: { coding: [{ system: FHIR_IDENTIFIER_SYSTEM, code: FHIR_IDENTIFIER_CODE_TAXONOMY }] },
+        value: taxonomyCode,
+      });
+    }
+    resource.identifier = identifier;
+  } else if (existing) {
+    resource.identifier = identifier.filter((id) => !isTaxonomy(id));
+  }
 }
 
 export function fhirName(resource?: Patient | Practitioner): string {
@@ -124,7 +247,12 @@ export function fhirName(resource?: Patient | Practitioner): string {
  */
 export function prepareWorkingCopy<T extends CopyableBillingResource>(resource: CRT<T>, originalId?: string): CRT<T> {
   const copy = prepareCopy<T>(resource, originalId);
-  copy.meta = { tag: [BILLING_WORKING_COPY_TAG] };
+  // Keep provider role/license tags so the snapshot mirrors the original; the working-copy tag
+  // is what keeps it out of default lists and pick lists, not the absence of role tags.
+  const providerTags = (resource.meta?.tag ?? []).filter(
+    (t) => t.system === PROVIDER_ROLE_TAG || t.system === LICENSE_TAG
+  );
+  copy.meta = { tag: [...providerTags, BILLING_WORKING_COPY_TAG] };
   return copy;
 }
 

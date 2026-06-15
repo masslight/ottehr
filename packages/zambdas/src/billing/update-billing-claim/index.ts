@@ -1,8 +1,25 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Operation } from 'fast-json-patch';
+import { Claim, Coverage, FhirResource, Location, Organization, Patient, Practitioner } from 'fhir/r4b';
+import {
+  CODE_SYSTEM_CMS_PLACE_OF_SERVICE,
+  CODE_SYSTEM_HCPCS,
+  CODE_SYSTEM_ICD_10,
+  CODE_SYSTEM_OYSTEHR_RCM_CMS1500_PROCEDURE_MODIFIER,
+  CODE_SYSTEM_OYSTEHR_RCM_CMS1500_REFERRING_PROVIDER_TYPE,
+  getPayerUrl,
+} from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
-import { createBillingClient } from '../shared';
+import {
+  buildAddress,
+  buildDiagnosisSequence,
+  createBillingClient,
+  fetchById,
+  prepareWorkingCopy,
+  setNpi,
+  setTaxId,
+  sortClaimInsurance,
+} from '../shared';
 import { UpdateBillingClaimParams, validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -17,54 +34,178 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   return { statusCode: 200, body: JSON.stringify(response) };
 });
 
+// Only fields present in the request are touched.
 async function performEffect(oystehr: Oystehr, params: UpdateBillingClaimParams): Promise<{ id: string | undefined }> {
-  const operations = buildPatchOps(params);
-  const result = await oystehr.fhir.patch({
-    resourceType: params.resourceType,
-    id: params.resourceId,
-    operations,
-  });
-  return { id: result.id };
-}
-
-function buildPatchOps(params: UpdateBillingClaimParams): Operation[] {
-  const ops: Operation[] = [];
-
   switch (params.resourceType) {
+    case 'Claim':
+      return attachClaimResources(oystehr, params);
     case 'Patient': {
+      const patient = await fetchById<Patient>(oystehr, 'Patient', params.resourceId);
       const { fields } = params;
-      const name: { use: string; given?: string[]; family?: string } = { use: 'official' };
-      if (fields.firstName !== undefined) name.given = [fields.firstName];
-      if (fields.lastName !== undefined) name.family = fields.lastName;
-      if (name.given || name.family) ops.push({ op: 'add', path: '/name', value: [name] });
-      if (fields.dob !== undefined) ops.push({ op: 'add', path: '/birthDate', value: fields.dob });
-      if (fields.gender !== undefined) ops.push({ op: 'add', path: '/gender', value: fields.gender });
-      break;
+      applyName(patient, fields.firstName, fields.lastName);
+      if (fields.dob !== undefined) patient.birthDate = fields.dob;
+      if (fields.gender !== undefined) patient.gender = fields.gender as Patient['gender'];
+      if (fields.address !== undefined) patient.address = [buildAddress(fields.address)];
+      return save(oystehr, patient);
     }
     case 'Practitioner': {
+      const practitioner = await fetchById<Practitioner>(oystehr, 'Practitioner', params.resourceId);
       const { fields } = params;
-      const name: { use: string; given?: string[]; family?: string } = { use: 'official' };
-      if (fields.firstName !== undefined) name.given = [fields.firstName];
-      if (fields.lastName !== undefined) name.family = fields.lastName;
-      if (name.given || name.family) ops.push({ op: 'add', path: '/name', value: [name] });
-      break;
+      applyName(practitioner, fields.firstName, fields.lastName);
+      if (fields.npi !== undefined) setNpi(practitioner, fields.npi);
+      if (fields.taxId !== undefined) setTaxId(practitioner, fields.taxId);
+      return save(oystehr, practitioner);
     }
     case 'Coverage': {
-      const { fields } = params;
-      if (fields.subscriberId !== undefined) ops.push({ op: 'add', path: '/subscriberId', value: fields.subscriberId });
-      break;
+      const coverage = await fetchById<Coverage>(oystehr, 'Coverage', params.resourceId);
+      if (params.fields.subscriberId !== undefined) coverage.subscriberId = params.fields.subscriberId;
+      if (params.fields.status !== undefined) coverage.status = params.fields.status;
+      return save(oystehr, coverage);
     }
     case 'Location': {
+      const location = await fetchById<Location>(oystehr, 'Location', params.resourceId);
       const { fields } = params;
-      if (fields.name !== undefined) ops.push({ op: 'add', path: '/name', value: fields.name });
-      break;
+      if (fields.name !== undefined) location.name = fields.name;
+      if (fields.npi !== undefined) setNpi(location, fields.npi);
+      if (fields.address !== undefined) location.address = buildAddress(fields.address);
+      return save(oystehr, location);
     }
     case 'Organization': {
+      const organization = await fetchById<Organization>(oystehr, 'Organization', params.resourceId);
       const { fields } = params;
-      if (fields.name !== undefined) ops.push({ op: 'add', path: '/name', value: fields.name });
-      break;
+      if (fields.name !== undefined) organization.name = fields.name;
+      if (fields.npi !== undefined) setNpi(organization, fields.npi);
+      if (fields.taxId !== undefined) setTaxId(organization, fields.taxId);
+      return save(oystehr, organization);
+    }
+  }
+}
+
+// Working copy of the chosen original + claim reference, same wiring as create-billing-claim.
+async function attachClaimResources(
+  oystehr: Oystehr,
+  params: Extract<UpdateBillingClaimParams, { resourceType: 'Claim' }>
+): Promise<{ id: string | undefined }> {
+  const claim = await fetchById<Claim>(oystehr, 'Claim', params.resourceId);
+  const { fields } = params;
+
+  if (fields.billingProvider) {
+    const copy = await createCopy(oystehr, fields.billingProvider.type, fields.billingProvider.id);
+    claim.provider = { reference: `${fields.billingProvider.type}/${copy.id}` };
+  }
+
+  if (fields.renderingProvider) {
+    const copy = await createCopy(oystehr, fields.renderingProvider.type, fields.renderingProvider.id);
+    claim.careTeam = [
+      {
+        sequence: 1,
+        provider: { reference: `${fields.renderingProvider.type}/${copy.id}` },
+        role: { coding: [{ system: CODE_SYSTEM_OYSTEHR_RCM_CMS1500_REFERRING_PROVIDER_TYPE, code: '82' }] },
+      },
+      ...(claim.careTeam ?? []).filter((member) => member.sequence !== 1),
+    ];
+    claim.item = claim.item?.map((item) => ({
+      ...item,
+      careTeamSequence: Array.from(new Set([1, ...(item.careTeamSequence ?? [])])),
+    }));
+  }
+
+  if (fields.facilityId) {
+    const copy = await createCopy(oystehr, 'Location', fields.facilityId);
+    claim.facility = { reference: `Location/${copy.id}` };
+  }
+
+  if (fields.coverageId) {
+    const original = await fetchById<Coverage>(oystehr, 'Coverage', fields.coverageId);
+    const copy = prepareWorkingCopy<Coverage>(original, fields.coverageId);
+    if (claim.patient?.reference) {
+      copy.beneficiary = { reference: claim.patient.reference };
+      copy.subscriber = { reference: claim.patient.reference };
+    }
+    const created = await oystehr.fhir.create(copy);
+    claim.insurance = [
+      { sequence: 1, focal: true, coverage: { reference: `Coverage/${created.id}` } },
+      ...(claim.insurance ?? []).filter((i) => i.sequence !== 1),
+    ];
+    const payerRef = created.payor?.[0]?.reference;
+    if (payerRef) claim.insurer = { reference: payerRef };
+  }
+
+  if (fields.payerId) {
+    const payerUrl = getPayerUrl(fields.payerId);
+    claim.insurer = { reference: payerUrl };
+    const coverageRef = sortClaimInsurance(claim)[0]?.coverage?.reference;
+    if (coverageRef?.startsWith('Coverage/')) {
+      const coverage = await fetchById<Coverage>(oystehr, 'Coverage', coverageRef.replace('Coverage/', ''));
+      coverage.payor = [{ reference: payerUrl }];
+      await oystehr.fhir.update(coverage);
     }
   }
 
-  return ops;
+  if (fields.diagnoses) {
+    const seen = new Set<string>();
+    claim.diagnosis = fields.diagnoses
+      .filter((dx) => {
+        if (seen.has(dx.code)) return false;
+        seen.add(dx.code);
+        return true;
+      })
+      .map((dx, i) => ({
+        sequence: i + 1,
+        diagnosisCodeableConcept: { coding: [{ system: CODE_SYSTEM_ICD_10, code: dx.code, display: dx.display }] },
+      }));
+  }
+
+  if (fields.serviceLines) {
+    const diagnosisCount = claim.diagnosis?.length ?? 0;
+    const hasRenderingProvider = (claim.careTeam ?? []).some((member) => member.sequence === 1);
+    claim.item = fields.serviceLines.map((line, i) => ({
+      sequence: i + 1,
+      careTeamSequence: hasRenderingProvider ? [1] : undefined,
+      diagnosisSequence: buildDiagnosisSequence(line.diagnosisPointers, diagnosisCount),
+      productOrService: { coding: [{ system: CODE_SYSTEM_HCPCS, code: line.cptCode }] },
+      modifier: line.modifiers?.length
+        ? line.modifiers.map((m) => ({
+            coding: [{ system: CODE_SYSTEM_OYSTEHR_RCM_CMS1500_PROCEDURE_MODIFIER, code: m }],
+          }))
+        : undefined,
+      servicedPeriod: { start: line.serviceDate },
+      locationCodeableConcept: line.placeOfService
+        ? { coding: [{ system: CODE_SYSTEM_CMS_PLACE_OF_SERVICE, code: line.placeOfService }] }
+        : undefined,
+      net: { value: line.charges, currency: 'USD' },
+      quantity: { value: line.units, unit: 'UN' },
+    }));
+    claim.total = { value: fields.serviceLines.reduce((sum, l) => sum + l.charges, 0), currency: 'USD' };
+  } else if (fields.diagnoses) {
+    // Diagnoses changed without lines: re-point items whose pointers no longer exist.
+    const diagnosisCount = claim.diagnosis?.length ?? 0;
+    claim.item = claim.item?.map((item) => ({
+      ...item,
+      diagnosisSequence: buildDiagnosisSequence(item.diagnosisSequence, diagnosisCount),
+    }));
+  }
+
+  return save(oystehr, claim);
+}
+
+async function createCopy(
+  oystehr: Oystehr,
+  resourceType: 'Practitioner' | 'Organization' | 'Location',
+  resourceId: string
+): Promise<FhirResource> {
+  const original = await fetchById<Practitioner | Organization | Location>(oystehr, resourceType, resourceId);
+  return oystehr.fhir.create(prepareWorkingCopy(original, resourceId));
+}
+
+async function save(oystehr: Oystehr, resource: FhirResource): Promise<{ id: string | undefined }> {
+  const updated = await oystehr.fhir.update(resource);
+  return { id: updated.id };
+}
+
+function applyName(resource: Patient | Practitioner, firstName?: string, lastName?: string): void {
+  const name: { use: 'official'; given?: string[]; family?: string } = { use: 'official' };
+  if (firstName !== undefined) name.given = [firstName];
+  if (lastName !== undefined) name.family = lastName;
+  if (name.given || name.family) resource.name = [name];
 }
