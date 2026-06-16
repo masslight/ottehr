@@ -1,35 +1,28 @@
 import Oystehr, { BatchInputJSONPatchRequest, BatchInputPatchRequest, User } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
-import { Account, Appointment, Coding, Encounter, Extension, HealthcareService, Patient } from 'fhir/r4b';
+import { Account, Appointment, Encounter, Extension, Organization, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
-  BOOKING_CONFIG,
-  BookingDetails,
+  applyVisitOccupationalMedicineEmployerToEncounterExtensions,
   cleanUpStaffHistoryTag,
   FHIR_EXTENSION,
   FHIR_RESOURCE_NOT_FOUND,
-  getAllFhirSearchPages,
   getCoding,
   getCriticalUpdateTagOp,
   getReasonForVisitAndAdditionalDetailsFromAppointment,
   getReasonForVisitOptionsForServiceCategory,
   INVALID_INPUT_ERROR,
-  INVALID_RESOURCE_ID_ERROR,
-  isValidUUID,
-  MISSING_REQUEST_BODY,
-  MISSING_REQUIRED_PARAMETERS,
   OCCUPATIONAL_MEDICINE_ACCOUNT_TYPE,
-  parseReasonsForVisit,
-  REASON_ADDITIONAL_MAX_CHAR,
-  Secrets,
+  resolveServiceCategory,
   SERVICE_CATEGORY_SYSTEM,
-  SERVICE_CATEGORY_TAG,
   userMe,
   WORKERS_COMP_ACCOUNT_TYPE,
 } from 'utils';
+import { isEmployerOrganization } from '../../../rcm/employers/helpers';
 import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
 import { accountMatchesType } from '../../shared/harvest';
+import { UpdateVisitDetailsValidatedInput, validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'update-visit-details';
 
@@ -54,7 +47,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   };
 });
 
-interface EffectInput extends Input {
+interface EffectInput extends UpdateVisitDetailsValidatedInput {
   patient: Patient;
   user: User;
   appointment: Appointment;
@@ -280,6 +273,26 @@ const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<void
     }
   }
 
+  if (bookingDetails.visitOccupationalMedicineEmployer !== undefined) {
+    const updatedExtensions = applyVisitOccupationalMedicineEmployerToEncounterExtensions(
+      encounter?.extension,
+      bookingDetails.visitOccupationalMedicineEmployer
+    );
+
+    const encounterPatch: BatchInputPatchRequest<Encounter> = {
+      method: 'PATCH',
+      url: `/Encounter/${encounter.id}`,
+      operations: [
+        {
+          op: encounter?.extension?.length ? 'replace' : 'add',
+          path: '/extension',
+          value: updatedExtensions,
+        },
+      ],
+    };
+    patchRequests.push(encounterPatch);
+  }
+
   if (bookingDetails.serviceCategory) {
     const newEncounterAccounts = (encounter.account ?? [])
       .filter((reference) => reference.reference === 'Account/' + occupationalMedicineAccount?.id)
@@ -338,7 +351,7 @@ const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<void
   });
 };
 
-const complexValidation = async (input: Input, oystehr: Oystehr): Promise<EffectInput> => {
+const complexValidation = async (input: UpdateVisitDetailsValidatedInput, oystehr: Oystehr): Promise<EffectInput> => {
   const { appointmentId, userToken } = input;
   const user = await userMe(userToken, input.secrets);
   if (!user) {
@@ -368,60 +381,23 @@ const complexValidation = async (input: Input, oystehr: Oystehr): Promise<Effect
     throw FHIR_RESOURCE_NOT_FOUND('Encounter');
   }
 
-  // Resolve a service-category code against the merged catalog (compiled-in
-  // BOOKING_CONFIG ∪ FHIR-backed HealthcareServices registered via the
-  // Services admin UI). Returns the display label and the configured RFV list
-  // if found; undefined if the code matches nothing. Single source so the
-  // category-change path and the RFV-only-change path agree on what's valid.
-  const resolveCategory = async (
-    code: string
-  ): Promise<{ display: string | undefined; reasons: Array<{ value: string; label: string }> } | undefined> => {
-    const bookingConfigMatch = BOOKING_CONFIG.serviceCategories.find((sc) => sc.category.code === code);
-    if (bookingConfigMatch) {
-      return {
-        display: bookingConfigMatch.category.display,
-        reasons: getReasonForVisitOptionsForServiceCategory(code),
-      };
-    }
-    // Paginated: a >1-page catalog (FHIR default page size is small) would
-    // otherwise miss target categories on later pages, rejecting valid update
-    // attempts with "not a valid option".
-    const allCategoryHses = await getAllFhirSearchPages<HealthcareService>(
-      {
-        resourceType: 'HealthcareService',
-        params: [
-          { name: '_tag', value: SERVICE_CATEGORY_TAG.code },
-          { name: 'active', value: 'true' },
-        ],
-      },
-      oystehr
-    );
-    const fhirMatch = allCategoryHses.find((r) =>
-      (r.type ?? []).some((concept) =>
-        (concept.coding ?? []).some((c) => c.system === SERVICE_CATEGORY_SYSTEM && c.code === code)
-      )
-    );
-    if (!fhirMatch) return undefined;
-    return { display: fhirMatch.name, reasons: parseReasonsForVisit(fhirMatch) };
-  };
-
   let appointmentServiceCategory = getCoding(appointment?.serviceCategory, SERVICE_CATEGORY_SYSTEM)?.code;
   let validReasonsForVisit: Array<{ value: string; label: string }>;
 
   if (input.bookingDetails.serviceCategory) {
     const newCode = input.bookingDetails.serviceCategory.code!;
-    const resolved = await resolveCategory(newCode);
+    const resolved = await resolveServiceCategory(newCode, oystehr);
     if (!resolved) {
       throw INVALID_INPUT_ERROR(`serviceCategory, "${newCode}", is not a valid option`);
     }
     input.bookingDetails.serviceCategory.display = resolved.display;
     appointmentServiceCategory = newCode;
-    validReasonsForVisit = resolved.reasons;
+    validReasonsForVisit = resolved.reasonsForVisit;
   } else if (appointmentServiceCategory) {
     // RFV is being changed without a category switch. Resolve against the
     // appointment's existing category (which may be FHIR-backed).
-    const resolved = await resolveCategory(appointmentServiceCategory);
-    validReasonsForVisit = resolved?.reasons ?? [];
+    const resolved = await resolveServiceCategory(appointmentServiceCategory, oystehr);
+    validReasonsForVisit = resolved?.reasonsForVisit ?? [];
   } else {
     // No category on the appointment and none in the request — fall back to
     // BOOKING_CONFIG's first entry, matching the prior behaviour.
@@ -435,6 +411,35 @@ const complexValidation = async (input: Input, oystehr: Oystehr): Promise<Effect
       throw INVALID_INPUT_ERROR(
         `reasonForVisit "${newRFV}" is not valid for service category "${appointmentServiceCategory ?? 'urgent-care'}"`
       );
+    }
+  }
+
+  if (input.bookingDetails.visitOccupationalMedicineEmployer !== undefined) {
+    const appointmentCategoryCode = getCoding(appointment?.serviceCategory, SERVICE_CATEGORY_SYSTEM)?.code;
+    if (appointmentCategoryCode !== 'pre-op') {
+      throw INVALID_INPUT_ERROR('visitOccupationalMedicineEmployer is only supported for pre-op service category');
+    }
+  }
+
+  const visitEmployer = input.bookingDetails.visitOccupationalMedicineEmployer;
+  if (visitEmployer) {
+    const organizationId = visitEmployer.reference?.split('/')[1];
+
+    if (!organizationId) {
+      throw INVALID_INPUT_ERROR('visitOccupationalMedicineEmployer.reference must be Organization/{id}');
+    }
+
+    const organization = await oystehr.fhir.get<Organization>({
+      resourceType: 'Organization',
+      id: organizationId,
+    });
+
+    if (!isEmployerOrganization(organization)) {
+      throw INVALID_INPUT_ERROR('visitOccupationalMedicineEmployer must reference an occupational medicine employer');
+    }
+
+    if (organization.active === false) {
+      throw INVALID_INPUT_ERROR('visitOccupationalMedicineEmployer must reference an active organization');
     }
   }
 
@@ -457,141 +462,6 @@ const complexValidation = async (input: Input, oystehr: Oystehr): Promise<Effect
     occupationalMedicineAccount: accounts.find((account) =>
       accountMatchesType(account, OCCUPATIONAL_MEDICINE_ACCOUNT_TYPE)
     ),
-  };
-};
-
-interface Input {
-  userToken: string;
-  secrets: Secrets | null;
-  appointmentId: string;
-  bookingDetails: Omit<BookingDetails, 'serviceCategory'> & {
-    serviceCategory?: Coding;
-  };
-}
-
-const validateRequestParameters = (input: ZambdaInput): Input => {
-  if (!input.body) {
-    throw MISSING_REQUEST_BODY;
-  }
-
-  const userToken = input.headers.Authorization.replace('Bearer ', '');
-
-  if (!userToken) {
-    throw new Error('user token unexpectedly missing');
-  }
-
-  console.log('input', JSON.stringify(input, null, 2));
-  const { secrets } = input;
-  const { appointmentId, bookingDetails } = JSON.parse(input.body);
-
-  if (!appointmentId) {
-    throw MISSING_REQUIRED_PARAMETERS(['appointmentId']);
-  }
-
-  if (isValidUUID(appointmentId) === false) {
-    throw INVALID_RESOURCE_ID_ERROR('appointmentId');
-  }
-
-  if (!bookingDetails) {
-    throw MISSING_REQUIRED_PARAMETERS(['bookingDetails']);
-  }
-
-  if (typeof bookingDetails !== 'object') {
-    throw INVALID_INPUT_ERROR('bookingDetails must be an object');
-  }
-
-  if (bookingDetails.reasonForVisit && typeof bookingDetails.reasonForVisit !== 'string') {
-    throw INVALID_INPUT_ERROR('reasonForVisit must be a string');
-  }
-
-  if (bookingDetails.additionalDetails && typeof bookingDetails.additionalDetails !== 'string') {
-    throw INVALID_INPUT_ERROR('additionalDetails must be a string');
-  } else if (bookingDetails.additionalDetails && bookingDetails.additionalDetails.length > REASON_ADDITIONAL_MAX_CHAR) {
-    throw INVALID_INPUT_ERROR(`additionalDetails must be at most ${REASON_ADDITIONAL_MAX_CHAR} characters`);
-  }
-
-  if (bookingDetails.authorizedNonLegalGuardians && typeof bookingDetails.authorizedNonLegalGuardians !== 'string') {
-    throw INVALID_INPUT_ERROR('authorizedNonLegalGuardians must be a string');
-  }
-
-  if (bookingDetails.confirmedDob && typeof bookingDetails.confirmedDob !== 'string') {
-    throw INVALID_INPUT_ERROR('confirmedDob must be a string');
-  } else if (bookingDetails.confirmedDob) {
-    const dob = DateTime.fromISO(bookingDetails.confirmedDob);
-    if (!dob.isValid) {
-      throw INVALID_INPUT_ERROR(`confirmedDob, "${bookingDetails.confirmedDob}", is not a valid iso date string`);
-    }
-  }
-
-  if (bookingDetails.patientName && typeof bookingDetails.patientName !== 'object') {
-    throw INVALID_INPUT_ERROR('"patientName" must be an object');
-  } else if (bookingDetails.patientName && Object.keys(bookingDetails.patientName).length === 0) {
-    throw INVALID_INPUT_ERROR('"patientName" must have at least one field defined');
-  } else if (bookingDetails.patientName) {
-    if (bookingDetails.patientName.first && typeof bookingDetails.patientName.first !== 'string') {
-      throw INVALID_INPUT_ERROR('"patientName.first" must be a string');
-    }
-    if (bookingDetails.patientName.last && typeof bookingDetails.patientName.last !== 'string') {
-      throw INVALID_INPUT_ERROR('"patientName.last" must be a string');
-    }
-    if (bookingDetails.patientName.middle && typeof bookingDetails.patientName.middle !== 'string') {
-      throw INVALID_INPUT_ERROR('"patientName.middle" must be a string');
-    }
-    if (bookingDetails.patientName.suffix && typeof bookingDetails.patientName.suffix !== 'string') {
-      throw INVALID_INPUT_ERROR('"patientName.suffix" must be a string');
-    }
-    if (bookingDetails.patientName.first !== undefined && bookingDetails.patientName.first.trim().length === 0) {
-      throw INVALID_INPUT_ERROR('patientName must have a non-empty first name');
-    }
-    if (bookingDetails.patientName.last !== undefined && bookingDetails.patientName.last.trim().length === 0) {
-      throw INVALID_INPUT_ERROR('patientName must have a non-empty last name');
-    }
-  }
-
-  if (bookingDetails.consentForms && typeof bookingDetails.consentForms !== 'object') {
-    throw INVALID_INPUT_ERROR('"consentForms" must be an object');
-  } else if (bookingDetails.consentForms) {
-    if (
-      bookingDetails.consentForms.consentAttested &&
-      typeof bookingDetails.consentForms.consentAttested !== 'boolean'
-    ) {
-      throw INVALID_INPUT_ERROR('consentForms.consentAttested must be a boolean');
-    }
-  }
-
-  // Shape-only validation here: build a placeholder Coding so downstream code
-  // can read `.code`. Existence (against BOOKING_CONFIG ∪ FHIR-backed catalog)
-  // and display-name resolution happen in complexValidation where we have an
-  // Oystehr client for the FHIR lookup.
-  let serviceCategory: Coding | undefined = undefined;
-  if (bookingDetails.serviceCategory && typeof bookingDetails.serviceCategory !== 'string') {
-    throw INVALID_INPUT_ERROR('serviceCategory must be a string');
-  } else if (bookingDetails.serviceCategory) {
-    serviceCategory = { system: SERVICE_CATEGORY_SYSTEM, code: bookingDetails.serviceCategory };
-  }
-
-  // Require at least one field to be present
-
-  if (
-    bookingDetails.reasonForVisit === undefined &&
-    bookingDetails.additionalDetails === undefined &&
-    bookingDetails.authorizedNonLegalGuardians === undefined &&
-    bookingDetails.confirmedDob === undefined &&
-    bookingDetails.patientName === undefined &&
-    bookingDetails.consentForms === undefined &&
-    bookingDetails.serviceCategory === undefined
-  ) {
-    throw INVALID_INPUT_ERROR('at least one field in bookingDetails must be provided');
-  }
-
-  return {
-    secrets,
-    userToken,
-    appointmentId,
-    bookingDetails: {
-      ...bookingDetails,
-      serviceCategory,
-    },
   };
 };
 

@@ -1,15 +1,8 @@
 /**
- * In-person walk-in deeplink tests
- *
- * Tests the deeplink behavior for walk-in check-in flows:
- * - Open location: should navigate to check-in landing page
- * - Closed location: should display "location currently closed" message
- *
- * Deeplink URL pattern: /walkin/location/{LOCATION_NAME}?serviceCategory={SERVICE_CATEGORY}
- * - Location names use underscores instead of spaces
- * - Default service category is 'urgent-care'
- *
- * All instances should run these tests.
+ * In-person walk-in deeplink tests.
+ * URL: /walkin/location/{LOCATION_NAME}?serviceCategory={SERVICE_CATEGORY}
+ * Location names use underscores for spaces. Omitting serviceCategory used
+ * to default to 'urgent-care'; that was replaced by the picker step.
  */
 
 import { expect, test } from '@playwright/test';
@@ -107,20 +100,21 @@ test.describe('Walk-in deeplink flows', () => {
     console.log('✓ Closed location deeplink test passed');
   });
 
-  test('Deeplink without serviceCategory defaults to urgent-care', async ({ page }) => {
-    // Build the deeplink URL without serviceCategory param
+  test('Deeplink without serviceCategory redirects to the service-category picker', async ({ page }) => {
+    // BOOKING_CONFIG ships 3 walk-in-capable categories by default, so the
+    // picker fires. Replaces the prior silent default to urgent-care.
     const locationSlug = openLocationName.replace(/\s+/g, '_');
     const deeplinkUrl = `/walkin/location/${locationSlug}`;
     console.log(`Navigating to deeplink without serviceCategory: ${deeplinkUrl}`);
 
-    // Navigate to the deeplink
     await page.goto(deeplinkUrl, { waitUntil: 'networkidle' });
 
-    // Should still work and show the check-in landing page
-    const continueButton = page.getByRole('button', { name: /continue/i });
-    await expect(continueButton).toBeVisible({ timeout: 20000 });
-    console.log('✓ Deeplink without serviceCategory navigated successfully');
+    await expect(page).toHaveURL(/\/walkin\/location\/[^/]+\/select-service-category/, { timeout: 20000 });
+    console.log('✓ Redirected to service-category picker');
 
-    console.log('✓ Default service category test passed');
+    // Continue must be absent — confirms the redirect intercepted before PageForm mounted.
+    const continueButton = page.getByRole('button', { name: /continue/i });
+    await expect(continueButton).toHaveCount(0);
+    console.log('✓ Continue button absent on picker page');
   });
 });

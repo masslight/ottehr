@@ -30,7 +30,8 @@ function isContactInformationComplete(completedPaperwork: CompletedPaperwork): b
     valueExists(completedPaperwork['patient-zip']);
   const patientFillingOutAs = valueExists(completedPaperwork['patient-filling-out-as']);
   const patientInfoExists =
-    valueExists(completedPaperwork['patient-email']) && valueExists(completedPaperwork['patient-number']);
+    (valueExists(completedPaperwork['patient-email']) || completedPaperwork['patient-no-email'] === true) &&
+    valueExists(completedPaperwork['patient-number']);
   const guardianInfoExists =
     valueExists(completedPaperwork['guardian-email']) && valueExists(completedPaperwork['guardian-number']);
 
@@ -80,8 +81,13 @@ export function isPaperworkPageComplete(
       return areAllRequiredQuestionsComplete(completedPaperwork, questions);
     case 'payment-option':
       return isPaymentOptionComplete(completedPaperwork, questions);
-    case 'responsible-party':
-      return areAllRequiredQuestionsComplete(completedPaperwork, questions);
+    case 'responsible-party': {
+      const responsiblePartyQuestions =
+        completedPaperwork['responsible-party-no-email'] === true
+          ? questions.filter((q) => q.id !== 'responsible-party-email')
+          : questions;
+      return areAllRequiredQuestionsComplete(completedPaperwork, responsiblePartyQuestions);
+    }
     case 'photo-id':
       return !!fileURLs && isPhotoIdComplete(questions, fileURLs);
     case 'consent-forms':

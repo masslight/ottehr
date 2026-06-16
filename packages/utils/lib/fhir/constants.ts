@@ -49,6 +49,7 @@ export const FHIR_IDENTIFIER_NPI = 'http://hl7.org/fhir/sid/us-npi';
 export const FHIR_IDENTIFIER_SYSTEM = 'http://terminology.hl7.org/CodeSystem/v2-0203';
 export const FHIR_IDENTIFIER_CODE_TAX_EMPLOYER = 'NE';
 export const FHIR_IDENTIFIER_CODE_TAX_SS = 'SS';
+export const FHIR_IDENTIFIER_CODE_TAXONOMY = 'ZZ';
 export const FRIENDLY_PATIENT_ID_SYSTEM_BASE = 'https://identifiers.fhir.oystehr.com/friendly-patient-id';
 export const FHIR_AI_CHAT_CONSENT_CATEGORY_CODE = 'ai-chat';
 export const FHIR_HL7_ORG_VALUE_SET_BASE_URL = 'http://hl7.org/fhir/ValueSet';
@@ -258,6 +259,19 @@ export const SLUG_SYSTEM = `${FHIR_BASE_URL}/r4/slug`;
  * vs afternoon surgery schedule.
  */
 export const SCHEDULE_DISPLAY_NAME_EXTENSION_URL = `${FHIR_BASE_URL}/StructureDefinitions/schedule-display-name`;
+
+/**
+ * Per-PractitionerRole "offers every service category" toggle. When `true`,
+ * the PR is treated as qualified for every service the slot generator asks
+ * about — equivalent to the PR.healthcareService[] list containing every
+ * service-category HealthcareService in the system (plus, by definition,
+ * every BOOKING_CONFIG compiled-in category, which has no FHIR HS to
+ * reference and is otherwise un-opt-into-able). Stored as a boolean PR
+ * extension. Absent extension = false (admin opts in explicitly).
+ *
+ * The analogous group-side mechanism is `GROUP_ALL_LOCATIONS_SYSTEM`.
+ */
+export const PRACTITIONER_ROLE_ALL_CATEGORIES_EXTENSION_URL = `${FHIR_BASE_URL}/StructureDefinitions/practitioner-role-all-categories`;
 
 export const SERVICE_EXTENSION = 'http://extensions.ottehr.com';
 
@@ -909,6 +923,11 @@ export const PREFERRED_PHARMACY_ERX_ID_FOR_SYNC_URL =
   'https://extensions.fhir.oystehr.com/patient/erx-preferred-pharmacy-id';
 
 export const ENCOUNTER_PAYMENT_VARIANT_EXTENSION_URL = ottehrExtensionUrl('payment-variant');
+
+/** Employer Organization selected for this visit (staff / pre-op); not the patient Account occ-med employer. */
+export const ENCOUNTER_VISIT_OCCUPATIONAL_MEDICINE_EMPLOYER_EXTENSION_URL = ottehrExtensionUrl(
+  'visit-occupational-medicine-employer'
+);
 
 export const CONSENT_ATTESTATION_SIG_TYPE: Coding = Object.freeze({
   system: 'http://uri.etsi.org/01903/v1.2.2',

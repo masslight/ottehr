@@ -14,7 +14,7 @@ let oystehrToken: string;
 export const index = wrapHandler('user-activation', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.group('validateRequestParameters');
   const validatedParameters = validateRequestParameters(input);
-  const { userId, mode, secrets } = validatedParameters;
+  const { userId, userActivationMode, secrets } = validatedParameters;
   console.groupEnd();
   console.debug('validateRequestParameters success');
 
@@ -23,17 +23,23 @@ export const index = wrapHandler('user-activation', async (input: ZambdaInput): 
   const oystehr = createOystehrClient(oystehrToken, secrets);
   const fetchClient = createFetchClientWithOystehrAuth({ authToken: oystehrToken });
   let user = await oystehr.user.get({ id: userId });
-  console.log(`user before ${mode}ing: `, JSON.stringify(user));
+  console.log(
+    `user before ${userActivationMode === 'activate' ? 'activating' : 'deactivating'}: `,
+    JSON.stringify(user)
+  );
 
   let response: UserActivationZambdaOutput = {};
-  if (mode === 'activate') {
+  if (userActivationMode === 'activate') {
     response = await activateUser(user, fetchClient, PROJECT_API);
-  } else if (mode === 'deactivate') {
+  } else if (userActivationMode === 'deactivate') {
     response = await deactivateUser(user, fetchClient, PROJECT_API);
   }
 
   user = await oystehr.user.get({ id: userId });
-  console.log(`user after ${mode}ing: `, JSON.stringify(user));
+  console.log(
+    `user after ${userActivationMode === 'activate' ? 'activating' : 'deactivating'}: `,
+    JSON.stringify(user)
+  );
 
   return {
     statusCode: 200,

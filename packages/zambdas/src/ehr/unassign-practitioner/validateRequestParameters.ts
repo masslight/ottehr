@@ -1,33 +1,42 @@
-import { getSecret, SecretsKeys } from 'utils';
-import { ZambdaInput } from '../../shared';
+import { MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS, NOT_AUTHORIZED } from 'utils';
+import { z } from 'zod';
+import { safeValidate, ZambdaInput } from '../../shared';
 import { UnassignPractitionerZambdaInputValidated } from '.';
+
+const CodingSchema = z
+  .object({
+    code: z.string().optional(),
+    display: z.string().optional(),
+    system: z.string().optional(),
+  })
+  .passthrough();
+
+const UnassignPractitionerSchema = z.object({
+  encounterId: z.string().uuid(),
+  practitionerId: z.string().uuid(),
+  userRole: z.array(CodingSchema),
+});
 
 export function validateRequestParameters(input: ZambdaInput): UnassignPractitionerZambdaInputValidated {
   console.group('validateRequestParameters');
 
+  if (!input.secrets) {
+    throw MISSING_REQUEST_SECRETS;
+  }
+
+  if (!input.headers.Authorization) {
+    throw NOT_AUTHORIZED;
+  }
+
   if (!input.body) {
-    throw new Error('No request body provided');
+    throw MISSING_REQUEST_BODY;
   }
 
-  const { encounterId, practitionerId, userRole } = JSON.parse(input.body);
+  const parsedJSON = JSON.parse(input.body);
 
-  if (encounterId === undefined || practitionerId === undefined || userRole === undefined) {
-    throw new Error('These fields are required: "encounterId" "practitionerId" "userRole".');
-  }
-
-  if (getSecret(SecretsKeys.PROJECT_API, input.secrets) === undefined) {
-    throw new Error('"PROJECT_API" configuration not provided');
-  }
-
-  if (getSecret(SecretsKeys.ORGANIZATION_ID, input.secrets) === undefined) {
-    throw new Error('"ORGANIZATION_ID" configuration not provided');
-  }
+  const { encounterId, practitionerId, userRole } = safeValidate(UnassignPractitionerSchema, parsedJSON);
 
   const userToken = input.headers.Authorization.replace('Bearer ', '');
-
-  if (!input.secrets) {
-    throw new Error('No secrets provided');
-  }
 
   console.groupEnd();
   console.debug('validateRequestParameters success');

@@ -71,7 +71,6 @@ import {
 import SchedulePage from './pages/SchedulePage';
 import TaskAdmin from './pages/TaskAdmin';
 import VisitDetailsPage from './pages/VisitDetailsPage';
-import { Claim, Claims } from './rcm';
 import { useNavStore } from './state/nav.store';
 
 const { VITE_APP_SENTRY_DSN, VITE_APP_SENTRY_ENV, VITE_APP_SENTRY_TAGS } = import.meta.env;
@@ -306,8 +305,6 @@ function App(): ReactElement {
                 <Route path="/unsolicited-results/:diagnosticReportId/match" element={<UnsolicitedResultsMatch />} />
                 <Route path="/unsolicited-results/:diagnosticReportId/review" element={<UnsolicitedResultsReview />} />
 
-                <Route path="/rcm/claims" element={<Claims />} />
-                <Route path="/rcm/claims/:id" element={<Claim />} />
                 {FEATURE_FLAGS.LEGACY_DATA_ENABLED && <Route path="/legacy-data" element={<LegacyDataPage />} />}
                 <Route path="/tasks" element={<Tasks />} />
                 <Route path="*" element={<Navigate to={'/'} />} />

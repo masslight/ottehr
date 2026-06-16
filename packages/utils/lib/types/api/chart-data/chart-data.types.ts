@@ -321,6 +321,9 @@ export interface CPTCodeDTO extends SaveableDTO {
   display: string;
   modifier?: { code: string; display: string }[];
   ndcCode?: string;
+  dose?: number;
+  doseUnits?: string;
+  billableUnits?: number;
 }
 
 export const clinicalImpressionDTOSchema = z.object({
@@ -453,7 +456,7 @@ const defaultNotes: Record<DispositionType, string> = {
   ed: 'Please go to the Emergency Department immediately.',
   'ip-oth': 'Please go to an In Person Office.',
   'pcp-no-type': 'Please see your Primary Care Physician as discussed.',
-  another: 'Please proceed to the ABC Office as advised.',
+  another: 'Please proceed to the ____ Office as advised.',
   specialty: '',
 };
 

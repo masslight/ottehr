@@ -68,6 +68,7 @@ import {
   getReasonForVisitAndAdditionalDetailsFromAppointment,
   getReasonForVisitOptionsForServiceCategory,
   GetVisitFaxHistoryOutput,
+  getVisitOccupationalMedicineEmployerFromEncounter,
   isApiError,
   isInPersonAppointment,
   isTelemedAppointment,
@@ -464,6 +465,8 @@ export default function VisitDetailsPage(): ReactElement {
       return getPatientVisitDetails(oystehrZambda!, { appointmentId: appointmentID! });
     },
     enabled: Boolean(oystehrZambda) && appointmentID !== undefined,
+    staleTime: 0,
+    refetchOnMount: 'always',
   });
 
   const appointment = visitDetailsData?.appointment;
@@ -921,8 +924,11 @@ export default function VisitDetailsPage(): ReactElement {
       appointmentServiceMode: isTelemedAppointment(appointment) ? ServiceMode.virtual : ServiceMode['in-person'],
       reasonForVisit,
       encounterId: encounter?.id,
+      visitOccupationalMedicineEmployerReference: encounter
+        ? getVisitOccupationalMedicineEmployerFromEncounter(encounter)
+        : undefined,
     }),
-    [serviceCategory, appointment, reasonForVisit, encounter?.id]
+    [serviceCategory, appointment, reasonForVisit, encounter]
   );
 
   return (
@@ -1409,6 +1415,7 @@ export default function VisitDetailsPage(): ReactElement {
                 loadingComponent={<Skeleton width={200} height={40} />}
                 renderBackButton={false}
                 appointmentContext={appointmentContext}
+                appointmentId={appointmentID}
               />
             </Grid>
           </Grid>

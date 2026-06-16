@@ -1,21 +1,23 @@
-import { MISSING_REQUEST_BODY, MISSING_REQUIRED_PARAMETERS } from 'utils';
-import { ZambdaInput } from '../../../shared';
+import { MISSING_REQUEST_BODY } from 'utils';
+import { z } from 'zod';
+import { safeValidate, ZambdaInput } from '../../../shared';
 
 export interface DeleteChargeMasterParams {
   id: string;
   secrets: ZambdaInput['secrets'];
 }
 
+const bodySchema = z.object({
+  id: z.string().uuid(),
+});
+
 export function validateRequestParameters(input: ZambdaInput): DeleteChargeMasterParams {
   if (!input.body) {
     throw MISSING_REQUEST_BODY;
   }
 
-  const { id } = JSON.parse(input.body);
-
-  if (!id) {
-    throw MISSING_REQUIRED_PARAMETERS(['id']);
-  }
+  const parsed = JSON.parse(input.body);
+  const { id } = safeValidate(bodySchema, parsed);
 
   return {
     id,

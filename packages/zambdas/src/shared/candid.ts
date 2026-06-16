@@ -72,6 +72,7 @@ import {
   findOrgMatchingReference,
   getAttendingPractitionerId,
   getCandidPlanTypeCodeFromCoverage,
+  getCptCodesFromMA,
   getDosageFromMA,
   getEmCodes,
   getMedicationFromMA,
@@ -83,6 +84,7 @@ import {
   INVALID_INPUT_ERROR,
   isAppointmentAutoAccident,
   isAppointmentOccupationalMedicine,
+  isAppointmentPreOp,
   isAppointmentWorkersComp,
   isTelemedAppointment,
   MedicationUnitOptions,
@@ -118,6 +120,7 @@ export const CANDID_NON_INSURANCE_PAYER_ID_IDENTIFIER_SYSTEM =
 const CANDID_TAG_WORKERS_COMP = 'workers-comp';
 const CANDID_TAG_OCCUPATIONAL_MEDICINE = 'occupational-medicine';
 const CANDID_TAG_AUTO_ACCIDENT = 'auto-accident';
+const CANDID_TAG_PRE_OP = 'pre-op';
 
 interface BillingProviderData {
   organizationName?: string;
@@ -1270,11 +1273,12 @@ async function candidCreateEncounterFromAppointmentRequest(
     }
 
     const drugIdentification = buildDrugIdentification(procedure, medicationAdministrations);
+    const billableUnits = getBillableUnitsForProcedure(procedure, medicationAdministrations);
 
     serviceLines.push({
       procedureCode: procedureCode,
       modifiers,
-      quantity: Decimal('1'),
+      quantity: Decimal(String(billableUnits ?? 1)),
       units: ServiceLineUnits.Un,
       diagnosisPointers: [primaryDiagnosisIndex],
       dateOfService:
@@ -1290,6 +1294,8 @@ async function candidCreateEncounterFromAppointmentRequest(
     tags.push(TagId(CANDID_TAG_OCCUPATIONAL_MEDICINE));
   } else if (isAppointmentAutoAccident(appointment)) {
     tags.push(TagId(CANDID_TAG_AUTO_ACCIDENT));
+  } else if (isAppointmentPreOp(appointment)) {
+    tags.push(TagId(CANDID_TAG_PRE_OP));
   }
 
   const accidentTypes =
@@ -1398,6 +1404,25 @@ export function buildDrugIdentification(
   };
 }
 
+/** Returns the billable units stored for the procedure's CPT code on the linked MedicationAdministration, if any. */
+export function getBillableUnitsForProcedure(
+  procedure: Procedure,
+  medicationAdministrations: MedicationAdministration[]
+): number | undefined {
+  const maRef = procedure.partOf?.find((ref) => ref.reference?.startsWith('MedicationAdministration/'));
+  if (!maRef?.reference) return undefined;
+
+  const maId = maRef.reference.replace('MedicationAdministration/', '');
+  const ma = medicationAdministrations.find((m) => m.id === maId);
+  if (!ma) return undefined;
+
+  const procedureCode = procedure.code?.coding?.[0]?.code;
+  if (!procedureCode) return undefined;
+
+  const billableUnits = getCptCodesFromMA(ma)?.find((entry) => entry.code === procedureCode)?.billableUnits;
+  return billableUnits != null && Number.isFinite(billableUnits) && billableUnits > 0 ? billableUnits : undefined;
+}
+
 export function mapMedicationUnitToCandid(unit: MedicationUnitOptions): MeasurementUnitCode {
   switch (unit) {
     case 'mg':
@@ -1449,14 +1474,14 @@ export const getCptModifierCodeFromProcedure = (
 
 export function shouldUseCandid(secrets: Secrets): boolean {
   return (
-    ['candid', 'all'].includes(secrets.BILLING_INTEGRATION_FEATURE_FLAG) ||
+    ['candid', 'all'].includes(secrets.BILLING_INTEGRATION) ||
     // TODO: remove this once secrets migrated
-    !secrets.BILLING_INTEGRATION_FEATURE_FLAG
+    !secrets.BILLING_INTEGRATION
   );
 }
 
 export function shouldUseOttehrBilling(secrets: Secrets): boolean {
-  return ['ottehr', 'all'].includes(secrets.BILLING_INTEGRATION_FEATURE_FLAG);
+  return ['ottehr', 'all'].includes(secrets.BILLING_INTEGRATION);
 }
 
 export function shouldSendClaim(secrets: Secrets, encounter: Encounter): boolean {

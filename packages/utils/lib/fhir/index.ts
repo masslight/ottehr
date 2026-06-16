@@ -23,3 +23,4 @@ export * from './insurance';
 export * from './radiology';
 export * from './payments';
 export * from './getAllFhirSearchPages';
+export * from './serviceCategoryResolution';

@@ -2,21 +2,31 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Encounter, Patient, Task, TaskInput } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { phone } from 'phone';
 import {
   convertOutreachTextToHtml,
   getFullestAvailableName,
   getPatientContactEmail,
+  getPhoneNumberForIndividual,
   getSecret,
   getStripeCustomerIdFromAccount,
   getTaskResource,
+  isEmailValid,
+  maskEmail,
+  maskPhoneNumber,
   Secrets,
   SecretsKeys,
   TaskIndicator,
 } from 'utils';
 import { getAccountAndCoverageResourcesForPatient } from '../../../ehr/shared/harvest';
-import { ChargeCardConfig, NotificationMedium } from '../../../rcm/scheduled-outreach-config/helpers';
+import {
+  ChargeCardConfig,
+  NotificationConfig,
+  NotificationMedium,
+} from '../../../rcm/scheduled-outreach-config/helpers';
 import {
   checkOrCreateM2MClientToken,
+  createOutreachEmailCommunication,
   createOystehrClient,
   fillOutreachTemplate,
   getEmailClient,
@@ -51,12 +61,25 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, input.secrets);
   const oystehr = createOystehrClient(m2mToken, input.secrets);
 
-  // Mark as in-progress
-  await oystehr.fhir.patch<Task>({
-    resourceType: 'Task',
-    id: task.id!,
-    operations: [{ op: 'replace', path: '/status', value: 'in-progress' }],
-  });
+  // Mark as in-progress with optimistic locking to guard against duplicate
+  // subscription deliveries racing to charge the same card. If another
+  // invocation already claimed it, the version will be stale (412) and we skip.
+  try {
+    await oystehr.fhir.patch<Task>(
+      {
+        resourceType: 'Task',
+        id: task.id!,
+        operations: [{ op: 'replace', path: '/status', value: 'in-progress' }],
+      },
+      { optimisticLockingVersionId: task.meta?.versionId }
+    );
+  } catch (err) {
+    if (err instanceof Oystehr.OystehrFHIRError && err.code === 412) {
+      console.log(`Task ${task.id} was already claimed by another invocation (version conflict), skipping`);
+      return { statusCode: 200, body: JSON.stringify({ message: 'Task already claimed, skipped' }) };
+    }
+    throw err;
+  }
 
   try {
     const config = extractChargeCardConfig(task);
@@ -86,63 +109,130 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     }
     console.log('--- END CHARGE CARD CONFIG ---');
 
+    // Determine current attempt number from task output (previous attempts)
+    const currentAttempt = getAttemptCount(task) + 1;
+
     // Attempt to charge the card
     const chargeResult = await chargeCard(patientRef!, focusRef!, oystehr, input.secrets);
 
-    // Send appropriate notifications based on outcome
-    const notificationConfig = chargeResult.success ? config.onSuccess : config.onFailure;
-    const notificationResults: { medium: NotificationMedium; success: boolean; error?: string }[] = [];
+    if (chargeResult.success) {
+      // ── Success path: send success notifications and complete ──
+      const notificationResults = await sendOutcomeNotifications(
+        config.onSuccess,
+        task,
+        chargeResult,
+        oystehr,
+        input.secrets
+      );
 
-    if (notificationConfig.enabled && notificationConfig.mediums.length > 0) {
-      for (const medium of notificationConfig.mediums) {
-        try {
-          await sendNotificationForMedium(
-            medium,
-            task,
-            notificationConfig.smsTemplate,
-            notificationConfig.emailTemplate,
-            notificationConfig.statementType,
-            chargeResult,
-            oystehr,
-            input.secrets
-          );
-          notificationResults.push({ medium, success: true });
-        } catch (err: any) {
-          console.error(`Failed to send ${medium} notification after charge:`, err.message);
-          notificationResults.push({ medium, success: false, error: err.message });
-        }
-      }
+      await oystehr.fhir.patch<Task>({
+        resourceType: 'Task',
+        id: task.id!,
+        operations: [
+          { op: 'replace', path: '/status', value: 'completed' },
+          { op: 'add', path: '/executionPeriod/end', value: DateTime.now().toISO() },
+          {
+            op: 'add',
+            path: '/output',
+            value: [
+              { type: { text: 'attempt-count' }, valueInteger: currentAttempt },
+              { type: { text: `attempt-${currentAttempt}-result` }, valueString: 'success' },
+              { type: { text: `attempt-${currentAttempt}-date` }, valueDateTime: DateTime.now().toISO() },
+              { type: { text: 'charge-result' }, valueString: JSON.stringify(chargeResult) },
+              { type: { text: 'notification-results' }, valueString: JSON.stringify(notificationResults) },
+              // Preserve previous attempt history
+              ...getPreviousAttemptOutputs(task),
+            ],
+          },
+        ],
+      });
+
+      console.log(`Task ${task.id} completed successfully on attempt ${currentAttempt}`);
+      return {
+        statusCode: 200,
+        body: JSON.stringify({ status: 'completed', attempt: currentAttempt, chargeResult, notificationResults }),
+      };
     }
 
-    const finalStatus = chargeResult.success ? 'completed' : 'failed';
+    // ── Failure path: check if retries remain ──
+    // currentAttempt is 1-based; retryAttempts is the number of retries AFTER the initial attempt,
+    // so retries already used = currentAttempt - 1.
+    const retriesRemaining = config.retryAttempts - (currentAttempt - 1);
+    console.log(
+      `Charge failed on attempt ${currentAttempt}/${config.retryAttempts + 1} (retries remaining: ${retriesRemaining})`
+    );
+
+    if (retriesRemaining > 0 && config.retryIntervalDays > 0) {
+      // ── Retry: reset task to draft with a future executionPeriod.start ──
+      const nextRetryDate = DateTime.now().plus({ days: config.retryIntervalDays }).toISO();
+      console.log(`Scheduling retry for task ${task.id} at ${nextRetryDate}`);
+
+      await oystehr.fhir.patch<Task>({
+        resourceType: 'Task',
+        id: task.id!,
+        operations: [
+          { op: 'replace', path: '/status', value: 'draft' },
+          { op: 'replace', path: '/executionPeriod/start', value: nextRetryDate },
+          {
+            op: 'add',
+            path: '/output',
+            value: [
+              { type: { text: 'attempt-count' }, valueInteger: currentAttempt },
+              { type: { text: `attempt-${currentAttempt}-result` }, valueString: chargeResult.error || 'failed' },
+              { type: { text: `attempt-${currentAttempt}-date` }, valueDateTime: DateTime.now().toISO() },
+              // Preserve previous attempt history
+              ...getPreviousAttemptOutputs(task),
+            ],
+          },
+        ],
+      });
+
+      return {
+        statusCode: 200,
+        body: JSON.stringify({
+          status: 'retry-scheduled',
+          attempt: currentAttempt,
+          nextRetryDate,
+          chargeResult,
+        }),
+      };
+    }
+
+    // ── Final failure: no retries left, send failure notifications and mark failed ──
+    const notificationResults = await sendOutcomeNotifications(
+      config.onFailure,
+      task,
+      chargeResult,
+      oystehr,
+      input.secrets
+    );
 
     await oystehr.fhir.patch<Task>({
       resourceType: 'Task',
       id: task.id!,
       operations: [
-        { op: 'replace', path: '/status', value: finalStatus },
+        { op: 'replace', path: '/status', value: 'failed' },
         { op: 'add', path: '/executionPeriod/end', value: DateTime.now().toISO() },
         {
           op: 'add',
           path: '/output',
           value: [
-            {
-              type: { text: 'charge-result' },
-              valueString: JSON.stringify(chargeResult),
-            },
-            {
-              type: { text: 'notification-results' },
-              valueString: JSON.stringify(notificationResults),
-            },
+            { type: { text: 'attempt-count' }, valueInteger: currentAttempt },
+            { type: { text: `attempt-${currentAttempt}-result` }, valueString: chargeResult.error || 'failed' },
+            { type: { text: `attempt-${currentAttempt}-date` }, valueDateTime: DateTime.now().toISO() },
+            { type: { text: 'charge-result' }, valueString: JSON.stringify(chargeResult) },
+            { type: { text: 'notification-results' }, valueString: JSON.stringify(notificationResults) },
+            // Preserve previous attempt history
+            ...getPreviousAttemptOutputs(task),
           ],
         },
       ],
     });
 
-    console.log(`Task ${task.id} completed with status: ${finalStatus}`);
+    console.log(`Task ${task.id} failed permanently after ${currentAttempt} attempt(s)`);
     return {
       statusCode: 200,
-      body: JSON.stringify({ status: finalStatus, chargeResult, notificationResults }),
+      body: JSON.stringify({ status: 'failed', attempt: currentAttempt, chargeResult, notificationResults }),
     };
   } catch (err: any) {
     console.error(`Unexpected error executing task ${task.id}:`, err.message);
@@ -166,6 +256,77 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 });
 
 // ── Helpers ────────────────────────────────────────────────────────────────
+
+/**
+ * Get the number of charge attempts already recorded in the task output.
+ */
+function getAttemptCount(task: Task): number {
+  const attemptOutput = task.output?.find((o) => o.type?.text === 'attempt-count');
+  return attemptOutput?.valueInteger ?? 0;
+}
+
+/**
+ * Extract previous attempt output entries to preserve history when patching.
+ */
+function getPreviousAttemptOutputs(
+  task: Task
+): Array<{ type: { text: string }; valueString?: string; valueDateTime?: string; valueInteger?: number }> {
+  if (!task.output) return [];
+  // Keep all attempt-N-result and attempt-N-date entries from prior attempts
+  return task.output
+    .filter((o) => {
+      const text = o.type?.text || '';
+      return /^attempt-\d+-(result|date)$/.test(text);
+    })
+    .map((o) => ({
+      type: { text: o.type!.text! },
+      ...(o.valueString !== undefined && { valueString: o.valueString }),
+      ...(o.valueDateTime !== undefined && { valueDateTime: o.valueDateTime }),
+    }));
+}
+
+/**
+ * Send notifications for a charge outcome (success or failure).
+ */
+async function sendOutcomeNotifications(
+  notificationConfig: NotificationConfig,
+  task: Task,
+  chargeResult: ChargeResult,
+  oystehr: Oystehr,
+  secrets: Secrets | null
+): Promise<{ medium: NotificationMedium; success: boolean; error?: string }[]> {
+  const results: { medium: NotificationMedium; success: boolean; error?: string; skipped?: boolean }[] = [];
+
+  if (!notificationConfig.enabled || notificationConfig.mediums.length === 0) {
+    return results;
+  }
+
+  for (const medium of notificationConfig.mediums) {
+    try {
+      const { skipped } = await sendNotificationForMedium(
+        medium,
+        task,
+        notificationConfig.smsTemplate,
+        notificationConfig.emailTemplate,
+        notificationConfig.statementType,
+        chargeResult,
+        oystehr,
+        secrets
+      );
+      if (skipped) {
+        console.log(`[Email] Skipped email notification for task ${task.id}, no email address on file`);
+        results.push({ medium, success: true, skipped: true });
+      } else {
+        results.push({ medium, success: true });
+      }
+    } catch (err: any) {
+      console.log(`Post-charge ${medium} notification not sent:`, err.message);
+      results.push({ medium, success: false, error: err.message });
+    }
+  }
+
+  return results;
+}
 
 function extractChargeCardConfig(task: Task): ChargeCardConfig {
   const configInput = task.input?.find((i) => i.type?.text === 'charge-card-config');
@@ -289,7 +450,7 @@ async function sendNotificationForMedium(
   chargeResult: ChargeResult,
   oystehr: Oystehr,
   secrets: Secrets | null
-): Promise<void> {
+): Promise<{ skipped: boolean }> {
   const patientId = task.for?.reference?.replace('Patient/', '');
   if (!patientId) throw new Error('Task has no patient reference');
 
@@ -310,6 +471,16 @@ async function sendNotificationForMedium(
   });
 
   if (medium === 'sms') {
+    const rawPhone = getPhoneNumberForIndividual(patient);
+    if (!rawPhone) {
+      throw new Error('No phone number on file');
+    }
+    const phoneResult = phone(rawPhone, { country: 'USA' });
+    if (!phoneResult.isValid) {
+      console.log(`Invalid phone number for patient ${patientId}: ${maskPhoneNumber(rawPhone)}`);
+      throw new Error('Invalid phone number');
+    }
+
     const resolvedMessage = fillOutreachTemplate(smsTemplate, placeholderInput);
 
     const unresolved = resolvedMessage.match(/\{\{[\w-]+\}\}/g);
@@ -324,7 +495,12 @@ async function sendNotificationForMedium(
   } else if (medium === 'email') {
     const email = getPatientContactEmail(patient);
     if (!email) {
-      throw new Error(`Patient ${patientId} has no contact email address`);
+      console.log(`Patient ${patientId} has no email address; skipping charge-card outreach email`);
+      return { skipped: true };
+    }
+    if (!isEmailValid(email)) {
+      console.log(`Invalid email address for patient ${patientId}: ${maskEmail(email)}`);
+      throw new Error('Invalid email address');
     }
 
     const resolvedMessage = fillOutreachTemplate(emailTemplate, placeholderInput);
@@ -342,12 +518,23 @@ async function sendNotificationForMedium(
       content: htmlContent,
       'subject-text': 'Update regarding your visit',
     });
+
+    // Record email as a FHIR Communication resource
+    await createOutreachEmailCommunication({
+      oystehr,
+      patientId,
+      encounterRef: task.focus?.reference,
+      recipientEmail: email,
+      htmlContent,
+      resolvedMessage,
+    });
     console.log(`Email notification sent to patient ${patientId} after charge`);
   } else if (medium === 'paper-mail') {
     await sendPaperMailForCharge(task, statementType || 'standard', oystehr);
   } else {
     console.warn(`[NOT IMPLEMENTED] ${medium} notification for charge-card, patient ${patientId}`);
   }
+  return { skipped: false };
 }
 
 const MAIL_STATEMENT_TASK_INPUT_SYSTEM = 'https://fhir.ottehr.com/CodeSystem/patient-statement-mail-task-input';

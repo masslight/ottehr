@@ -6,9 +6,8 @@ import { DateTime } from 'luxon';
 import React, { JSX, useState } from 'react';
 import {
   celsiusToFahrenheit,
-  cmToFeet,
-  cmToInches,
   formatDateTimeToLocalTimezone,
+  formatHeightObservationValue,
   formatWeightKg,
   formatWeightLbs,
   getVisionExtraOptionsFormattedString,
@@ -154,11 +153,7 @@ export const getObservationValueElements = (
       return [];
     }
     case 'vital-height':
-      return [
-        `${historyEntry.value} cm`,
-        ` = ${cmToInches(historyEntry.value).toFixed(1)} in`,
-        ` = ${cmToFeet(historyEntry.value).toFixed(1)} ft`,
-      ];
+      return [formatHeightObservationValue(historyEntry.value)];
     case 'vital-vision':
       return [
         <>
