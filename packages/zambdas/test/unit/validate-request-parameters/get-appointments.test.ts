@@ -123,6 +123,18 @@ describe('get-appointments - validateRequestParameters', () => {
     expect(() => validateRequestParameters(input)).toThrow('searchDateTo');
   });
 
+  test('should throw when the date range exceeds the maximum allowed span', () => {
+    const input = createMockZambdaInput({ ...validBody, searchDateFrom: '2024-01-01', searchDateTo: '2024-06-01' });
+    expect(() => validateRequestParameters(input)).toThrow('90 days');
+  });
+
+  test('should accept a date range at the maximum allowed span', () => {
+    const input = createMockZambdaInput({ ...validBody, searchDateFrom: '2024-01-01', searchDateTo: '2024-03-31' });
+    const result = validateRequestParameters(input);
+    expect(result.searchDateFrom).toBe('2024-01-01');
+    expect(result.searchDateTo).toBe('2024-03-31');
+  });
+
   test('should throw when timezone is missing', () => {
     const { timezone: _timezone, ...rest } = validBody;
     const input = createMockZambdaInput(rest);

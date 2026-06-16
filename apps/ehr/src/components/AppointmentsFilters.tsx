@@ -114,9 +114,12 @@ const getPersistedDateRange = (): Pick<AppointmentsFilterValues, 'dateFrom' | 'd
   if (persistedRange) {
     try {
       const parsed = JSON.parse(persistedRange) as { dateFrom?: string | null; dateTo?: string | null };
-      const dateFrom = isValidIsoDate(parsed.dateFrom) ? parsed.dateFrom : today;
-      const dateTo = isValidIsoDate(parsed.dateTo) ? parsed.dateTo : today;
-      return { dateFrom, dateTo };
+      // Only restore a persisted range when both sides are valid. A half-cleared range is dropped
+      // rather than silently completed with today, which would load a span the user never chose.
+      if (isValidIsoDate(parsed.dateFrom) && isValidIsoDate(parsed.dateTo)) {
+        return { dateFrom: parsed.dateFrom, dateTo: parsed.dateTo };
+      }
+      sessionStorage.removeItem(SESSION_STORAGE_DATE_RANGE_KEY);
     } catch {
       sessionStorage.removeItem(SESSION_STORAGE_DATE_RANGE_KEY);
     }
@@ -216,7 +219,9 @@ export default function AppointmentsFilters(): ReactElement {
         if (values) {
           const { dateFrom, dateTo, ...rest } = values;
           localStorage.setItem(LOCAL_STORAGE_FILTERS_KEY, JSON.stringify(rest));
-          if (dateFrom || dateTo) {
+          if (dateFrom && dateTo) {
+            // Persist only a complete range; a half-cleared range is invalid for the board, so it is
+            // dropped here (and on restore) rather than stored and silently completed with today.
             sessionStorage.setItem(SESSION_STORAGE_DATE_RANGE_KEY, JSON.stringify({ dateFrom, dateTo }));
             sessionStorage.removeItem(SESSION_STORAGE_DATE_KEY);
           } else {

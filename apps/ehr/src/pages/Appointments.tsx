@@ -47,7 +47,16 @@ export default function Appointments(): ReactElement {
   const queryId = [locationParam, visitTypeParam, serviceCategoryParam, dateFromParam, dateToParam, providerParam].join(
     ':'
   );
-  const hasValidDateRange = Boolean(dateFromParam && dateToParam && dateFromParam <= dateToParam);
+  // Validate as real ISO dates (not just truthy + string ordering) so a malformed legacy `?date=`
+  // link can't trigger a get-appointments request that only fails server-side. ISO dates also sort
+  // correctly lexicographically, so the string comparison is safe once both are confirmed valid.
+  const hasValidDateRange = Boolean(
+    dateFromParam &&
+      dateToParam &&
+      DateTime.fromISO(dateFromParam).isValid &&
+      DateTime.fromISO(dateToParam).isValid &&
+      dateFromParam <= dateToParam
+  );
 
   const {
     preBooked: preBookedAppointments = [],

@@ -1,3 +1,4 @@
+import { DateTime } from 'luxon';
 import { AppointmentTypeOptions, MISSING_REQUEST_BODY, ServiceMode } from 'utils';
 import { z } from 'zod';
 import { safeValidate, ZambdaInput } from '../../shared';
@@ -6,6 +7,10 @@ import { GetAppointmentsZambdaInputValidated } from '.';
 const visitTypeOptions = Object.values(ServiceMode).flatMap((mode) =>
   AppointmentTypeOptions.map((type) => `${mode}-${type}`)
 ) as [string, ...string[]];
+
+// Cap the span so an over-broad range can't fan out into unbounded paginated FHIR traffic
+// (the handler pages through every result via searchAndGetAllPages).
+const MAX_DATE_RANGE_DAYS = 90;
 
 const GetAppointmentsBodySchema = z
   .object({
@@ -48,6 +53,20 @@ const GetAppointmentsBodySchema = z
         path: ['searchDateTo'],
         message: '"searchDateFrom" must be on or before "searchDateTo"',
       });
+      return;
+    }
+
+    const effectiveFrom = data.searchDateFrom ?? data.searchDate;
+    const effectiveTo = data.searchDateTo ?? data.searchDate;
+    if (effectiveFrom && effectiveTo) {
+      const rangeInDays = DateTime.fromISO(effectiveTo).diff(DateTime.fromISO(effectiveFrom), 'days').days;
+      if (rangeInDays > MAX_DATE_RANGE_DAYS) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['searchDateTo'],
+          message: `The date range must not exceed ${MAX_DATE_RANGE_DAYS} days`,
+        });
+      }
     }
   })
   .transform((data) => {
