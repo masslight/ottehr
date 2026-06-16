@@ -99,6 +99,8 @@
     "zambdas:start": "turbo start --filter=zambdas",
     "zambdas:start:iac": "turbo start:iac --filter=zambdas",
     "apps:start": "npm run apps:start:iac",
+    "apps:start:with-billing": "npm run apply-local --workspace deploy && turbo start --filter=intake-ui --filter=ehr-ui --filter=billing-ui --filter=zambdas",
+    "apps:start:with-billing:no-apply": "turbo start --filter=intake-ui --filter=ehr-ui --filter=billing-ui --filter=zambdas",
     "apps:start:iac": "npm run apply-local --workspace deploy && turbo start:iac --filter=intake-ui --filter=ehr-ui --filter=zambdas",
     "apps:start:e2e:iac": "npm run apply-e2e --workspace deploy && ENV=e2e turbo start:iac --filter=intake-ui --filter=ehr-ui --filter=zambdas",
     "apps:start:no-apply": "turbo start:iac --filter=intake-ui --filter=ehr-ui --filter=zambdas",

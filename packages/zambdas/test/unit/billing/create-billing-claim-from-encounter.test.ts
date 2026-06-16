@@ -2,6 +2,7 @@ import Oystehr, { BatchInputPostRequest } from '@oystehr/sdk';
 import {
   Account,
   Appointment,
+  Basic,
   Condition,
   Coverage,
   Encounter,
@@ -43,7 +44,15 @@ import {
   performEffect,
   validateRequestParameters,
 } from '../../../src/billing/create-billing-claim-from-encounter/handler';
-import { BILLING_RESOURCE_TAG } from '../../../src/billing/shared';
+import {
+  AUTO_ACCIDENT_TAG_DESCRIPTION,
+  AUTO_ACCIDENT_TAG_NAME,
+  BILLING_RESOURCE_TAG,
+  CLAIM_TAG_SYSTEM,
+  TAG_CODE_SYSTEM,
+  TAG_DESCRIPTION_URL,
+  TAG_IS_SYSTEM_TAG_URL,
+} from '../../../src/billing/shared';
 
 const clinicalResources: {
   encounter: Encounter;
@@ -192,6 +201,7 @@ const billingResources: {
   location: Location;
   practitioner: Practitioner;
   billingProvider: Organization;
+  autoAccidentTag: Basic;
 } = {
   person: {
     resourceType: 'Person',
@@ -259,6 +269,14 @@ const billingResources: {
   billingProvider: {
     resourceType: 'Organization',
     id: 'billing-organization-123',
+  },
+  autoAccidentTag: {
+    resourceType: 'Basic',
+    code: { text: AUTO_ACCIDENT_TAG_NAME, coding: [{ system: TAG_CODE_SYSTEM, code: 'tag' }] },
+    extension: [
+      { url: TAG_DESCRIPTION_URL, valueString: AUTO_ACCIDENT_TAG_DESCRIPTION },
+      { url: TAG_IS_SYSTEM_TAG_URL, valueBoolean: true },
+    ],
   },
 };
 
@@ -625,6 +643,9 @@ describe('create-billing-claim-from-encounter', () => {
           })
           .mockResolvedValueOnce({
             unbundle: () => [],
+          })
+          .mockResolvedValueOnce({
+            unbundle: () => [],
           }),
         secrets: { DEFAULT_BILLING_RESOURCE: 'Organization/organization-123' },
         expectedError: null,
@@ -652,6 +673,7 @@ describe('create-billing-claim-from-encounter', () => {
             renderingProvider: undefined,
             serviceFacility: undefined,
             subscribers: [],
+            autoAccidentTag: undefined,
           },
         },
       },
@@ -698,6 +720,10 @@ describe('create-billing-claim-from-encounter', () => {
           })
           .mockResolvedValueOnce({
             unbundle: () => [billingResources.billingProvider],
+          })
+          .mockResolvedValueOnce({
+            // Auto accident tag
+            unbundle: () => [billingResources.autoAccidentTag],
           }),
         secrets: { DEFAULT_BILLING_RESOURCE: 'Organization/organization-123' },
         expectedError: null,
@@ -725,6 +751,7 @@ describe('create-billing-claim-from-encounter', () => {
             renderingProvider: billingResources.practitioner,
             serviceFacility: billingResources.location,
             subscribers: [billingResources.relatedPerson],
+            autoAccidentTag: billingResources.autoAccidentTag,
           },
         },
       },
@@ -1470,6 +1497,115 @@ describe('create-billing-claim-from-encounter', () => {
               provider: { display: 'Unknown' },
               facility: undefined,
               insurer: undefined,
+              insurance: [],
+              careTeam: undefined,
+              diagnosis: [{ sequence: 1, diagnosisCodeableConcept: clinicalResources.condition.code }],
+              priority: { coding: [{ system: CODE_SYSTEM_PROCESS_PRIORITY, code: 'normal' }] },
+              total: undefined,
+              item: [
+                {
+                  sequence: 1,
+                  careTeamSequence: undefined,
+                  diagnosisSequence: [1],
+                  productOrService: clinicalResources.procedure.code,
+                  modifier: [
+                    {
+                      coding: [
+                        {
+                          code: '25',
+                          system: 'https://terminology.fhir.oystehr.com/CodeSystem/rcm-claim-procedure-modifier',
+                        },
+                      ],
+                    },
+                  ],
+                  servicedPeriod: {
+                    start: expect.any(String),
+                    end: undefined,
+                  },
+                  locationCodeableConcept: undefined,
+                  net: undefined,
+                  quantity: { value: 1, unit: 'UN' },
+                },
+              ],
+            },
+          },
+        ]),
+      });
+    });
+    it('creates claim with auto accident tag, creating the tag along the way', async () => {
+      const txFn = vi.fn().mockResolvedValue({
+        entry: [
+          { resource: { resourceType: 'Patient', id: 'billing-patient' } },
+          { resource: { resourceType: 'Patient', id: 'claim-patient' } },
+          { resource: { resourceType: 'RelatedPerson', id: 'billing-subscriber' } },
+          { resource: { resourceType: 'Coverage', id: 'billing-coverage' } },
+          { resource: { resourceType: 'Account', id: 'billing-account' } },
+          { resource: { resourceType: 'RelatedPerson', id: 'claim-subscriber' } },
+          { resource: { resourceType: 'Coverage', id: 'claim-coverage' } },
+          { resource: { resourceType: 'Person', id: 'billing-person' } },
+          { resource: { resourceType: 'Basic', id: 'auto-accident-tag' } },
+          { resource: { resourceType: 'Claim', id: 'claim' } },
+        ],
+      });
+      const billingOystehr = {
+        fhir: { transaction: txFn },
+        rcm: { constructPayerUrl: vi.fn().mockReturnValue('https://rcm-api.zapehr.com/v1/payer/payer-123') },
+      } as unknown as Oystehr;
+      const cvo: ComplexValidationOutput = {
+        clinicalResources: {
+          accounts: [clinicalResources.account],
+          appointment: {
+            ...clinicalResources.appointment,
+            description: 'Auto accident',
+          },
+          billingProvider: clinicalResources.billingProvider,
+          coverages: [clinicalResources.coverage],
+          diagnoses: [clinicalResources.condition],
+          encounter: clinicalResources.encounter,
+          location: clinicalResources.location,
+          patient: clinicalResources.patient,
+          payors: [oystehrResources.payor],
+          practitioners: [clinicalResources.practitioner],
+          procedures: [clinicalResources.procedure],
+        },
+        billingResources: {
+          accounts: [],
+          billingProvider: undefined,
+          coverages: [],
+          mainPatient: undefined,
+          person: undefined,
+          practitioners: [],
+          renderingProvider: undefined,
+          serviceFacility: undefined,
+          subscribers: [],
+        },
+      };
+      const result = await performEffect(billingOystehr, cvo);
+      expect(result.claimId).toEqual('claim');
+      expect(txFn).toHaveBeenCalledWith({
+        requests: expect.arrayContaining([
+          {
+            method: 'POST',
+            url: '/Claim',
+            resource: {
+              resourceType: 'Claim',
+              status: 'draft',
+              meta: {
+                tag: [
+                  { system: 'current-status', code: 'open' },
+                  { system: 'appointment-type', code: 'urgent-care' },
+                  { system: CODE_SYSTEM_CLAIM_TYPE, code: CODE_SYSTEM_CLAIM_TYPE_CODES.professional },
+                  { system: CLAIM_TAG_SYSTEM, code: AUTO_ACCIDENT_TAG_NAME },
+                ],
+              },
+              type: { coding: [{ system: CODE_SYSTEM_CLAIM_TYPE, code: CODE_SYSTEM_CLAIM_TYPE_CODES.professional }] },
+              use: 'claim',
+              created: expect.any(String),
+              patient: {
+                reference: 'urn:uuid:claim-patient',
+              },
+              provider: { display: 'Unknown' },
+              facility: undefined,
               insurance: [],
               careTeam: undefined,
               diagnosis: [{ sequence: 1, diagnosisCodeableConcept: clinicalResources.condition.code }],
