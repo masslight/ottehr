@@ -405,7 +405,16 @@ const complexValidation = async (input: UpdateVisitDetailsValidatedInput, oysteh
     validReasonsForVisit = getReasonForVisitOptionsForServiceCategory('urgent-care');
   }
 
-  const newRFV = input.bookingDetails.reasonForVisit;
+  let newRFV = input.bookingDetails.reasonForVisit;
+  // Reject blank reasons (incl. whitespace-only) before any bypass, so we never persist an empty
+  // reason or a malformed " - details" description; trim so the stored value is normalized.
+  if (newRFV !== undefined) {
+    newRFV = newRFV.trim();
+    if (!newRFV) {
+      throw INVALID_INPUT_ERROR('reasonForVisit cannot be blank');
+    }
+    input.bookingDetails.reasonForVisit = newRFV;
+  }
   // Scheduled follow-ups use the fixed follow-up list + free-text "Other", not the category reasons.
   if (newRFV && !isScheduledFollowupEncounter(encounterResource)) {
     const isValidReason = validReasonsForVisit.some((reason: { value: string }) => reason.value === newRFV);
