@@ -357,7 +357,36 @@ doesn't mention):
      the specific diagnosis (e.g. a "Headache" template when the diagnosis is migraine) MAY be
      applied for structure — and when you do, ALSO emit an add-diagnosis for the specific diagnosis
      (e.g. add-diagnosis "Migraine", isPrimary=true) so the precise primary code lands on the chart.
-  2. Patient history (add/remove-allergy, condition, medication, surgical-history, hospitalization)
+  2. Patient history (add-allergy, add-condition, add-medication, add-surgical-history,
+     add-hospitalization). This is the patient's BACKGROUND, distinct from today's diagnoses and
+     treatment — it is frequently stated in the narrative and just as frequently forgotten, so
+     extract it deliberately. Emit a SEPARATE step for each item:
+       a. ALLERGIES — any allergy the provider states the patient HAS, or directs to be added to the
+          allergy list, MUST become an add-allergy on the structured allergy list. This is REQUIRED
+          and is SEPARATE from any "allergic reaction" diagnosis: a new drug reaction this visit
+          produces BOTH an add-diagnosis for the reaction AND an add-allergy for the culprit drug.
+          "Allergic reaction to the sulfa antibiotic … add sulfa to her allergy list" →
+          add-diagnosis "Allergic reaction" AND add-allergy {display:"Sulfa", searchTerms:["sulfa",
+          "sulfonamide"]}. Do NOT bury a stated allergy only in the MDM/HPI text. (The
+          NEGATIVE-CONFIRMATION rule still applies: "NKDA"/"no known allergies" → emit NOTHING.)
+       b. PAST MEDICAL HISTORY — a chronic or pre-existing condition the patient is stated to carry
+          ("known history of asthma", "h/o COPD", "PMH includes diabetes/hypertension") MUST become
+          an add-condition with that condition's code, SEPARATE from today's visit diagnosis. E.g.
+          "9yo with a known history of asthma here with an asthma exacerbation" → add-condition
+          "Asthma" (the background) in ADDITION to the exacerbation diagnosis/template. A condition
+          that has fully RESOLVED or is in the PAST uses a personal-history Z-code, not the active
+          code: "history of a kidney stone two years ago that passed" → add-condition
+          {display:"Personal history of urinary calculus", code:"Z87.442"}, NOT N20.0.
+       c. SOCIAL HISTORY — "former smoker" / "current smoker" / "tobacco use" → add-condition with
+          the appropriate code ("former smoker" → Z87.891 personal history of nicotine dependence;
+          "current smoker" → F17.210). Capture it when stated; it is often billing-relevant.
+       d. HOME / CURRENT MEDICATIONS — medications the patient ALREADY TAKES at home (as opposed to
+          what you prescribe/administer today) → add-medication. "using her albuterol at home",
+          "takes lisinopril daily" → add-medication for each. (Meds you start/give this visit are
+          also add-medication — both are fine; do not drop the home meds just because a treatment
+          med is also present.)
+     Do NOT invent history that the narrative does not state, and do NOT chart negatives ("no
+     diabetes", "no prior surgeries") as history items — those rules from below still hold.
   3. Free-text fields, in note order: edit-note-text for chiefComplaint, historyOfPresentIllness,
      mechanismOfInjury, medicalDecision. (Review of Systems is NOT free text — it is structured
      checkboxes; use add-ros-finding, NOT edit-note-text, for ROS.)

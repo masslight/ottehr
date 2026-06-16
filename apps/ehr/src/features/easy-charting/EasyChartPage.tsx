@@ -588,7 +588,11 @@ function NoteSections({
       <AiChartedItem
         key={dto.resourceId}
         lowConfidence={meta.lowConfidence}
-        initialQuery={meta.display}
+        // Medications: seed the picker from the clean drug name (searchTerms[0], e.g. "Prednisone")
+        // rather than the verbose display ("Prednisone 40 mg tablet") — eRx's searchMedications
+        // returns no matches for a strength/form-laden string, so the verbose display made every
+        // click-to-correct on a charted med come up empty.
+        initialQuery={isMed && meta.searchTerms?.[0] ? meta.searchTerms[0] : meta.display}
         onSearch={(q) => onAiSearch(field, q)}
         onReplace={(key, checked) => onAiReplace(field, dto, key, checked)}
         onRemove={() => onAiRemove(field, dto)}
