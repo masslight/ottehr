@@ -991,6 +991,31 @@ const buildCashPayCoverageCreateInput = (
   };
 };
 
+/**
+ * Forces the Candid patient's coverage filing order to a single "Cash Pay" coverage. Used for
+ * employer-paid (occupational medicine) and self-pay claims to guarantee an insurance payer is never
+ * billed, even when the pre-encounter sync (which normally applies this override) was skipped because
+ * a Candid pre-encounter appointment already existed (e.g. payment was collected at check-in).
+ */
+const enforceCashPayCoverageForCandidPatient = async (
+  patient: Patient,
+  candidApiClient: CandidApiClient
+): Promise<void> => {
+  if (!patient.id) {
+    throw new Error(`Patient ID is not defined for patient ${JSON.stringify(patient)}`);
+  }
+  const candidPatient = await fetchPreEncounterPatient(patient.id, candidApiClient);
+  if (!candidPatient) {
+    throw new Error(`Candid patient not found for patient ${patient.id} while enforcing Cash Pay coverage`);
+  }
+  const candidCoverage = buildCashPayCoverageCreateInput(patient, candidPatient);
+  const response = await candidApiClient.preEncounter.coverages.v1.create(candidCoverage);
+  if (!response.ok) {
+    throw new Error(`Error creating Candid Cash Pay coverage. Response body: ${JSON.stringify(response.error)}`);
+  }
+  await updateCandidPatientWithCoverages(candidPatient, [response.body], candidApiClient);
+};
+
 const buildCandidCoverageCreateInput = (
   coverage: Coverage,
   subscriber: RelatedPerson | Patient, // Patient as subscriber is used in workers comp
@@ -1147,6 +1172,7 @@ export async function createEncounterFromAppointment(
   console.log('[CLAIM SUBMISSION] Starting encounter submission to candid');
   let createEncounterInput = await createCandidCreateEncounterInput(visitResources, oystehr);
 
+  let didPreEncounterSync = false;
   if (
     !createEncounterInput.appointment.identifier?.find(
       (identifier) => identifier.system === CANDID_PRE_ENCOUNTER_APPOINTMENT_ID_IDENTIFIER_SYSTEM
@@ -1166,6 +1192,20 @@ export async function createEncounterFromAppointment(
     });
     console.log(`[CLAIM SUBMISSION] Sync completed for encounter  ${visitResources.encounter.id}`);
     createEncounterInput = await createCandidCreateEncounterInput(visitResources, oystehr);
+    didPreEncounterSync = true;
+  }
+
+  // The Cash Pay override is applied during pre-encounter sync. If that sync was skipped (because a
+  // Candid pre-encounter appointment already existed, e.g. payment was collected at check-in), force
+  // the Cash Pay filing order here so employer-paid (occupational medicine) and self-pay claims never
+  // bill an insurance payer that may have been selected.
+  if (
+    !didPreEncounterSync &&
+    (isAppointmentOccupationalMedicine(createEncounterInput.appointment) ||
+      isEncounterSelfPay(visitResources.encounter))
+  ) {
+    console.log('[CLAIM SUBMISSION] Enforcing Cash Pay coverage for employer-paid/self-pay claim');
+    await enforceCashPayCoverageForCandidPatient(createEncounterInput.patient, candidApiClient);
   }
 
   const request = await candidCreateEncounterFromAppointmentRequest(createEncounterInput, candidApiClient);
