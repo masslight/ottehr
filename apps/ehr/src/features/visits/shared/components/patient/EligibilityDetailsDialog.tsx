@@ -330,6 +330,80 @@ export const EligibilityDetailsDialog: FC<EligibilityDetailsDialogProps> = ({
                     <Typography variant="body1">{eligibilityCheck.coverageDetails?.payer?.fax}</Typography>
                   </Grid>
                 </Grid>
+                {(eligibilityCheck.coverageDetails?.plans?.length ?? 0) > 0 && (
+                  <>
+                    <Typography variant="h5" sx={{ color: theme.palette.primary.dark, marginTop: '30px' }}>
+                      Plans / MCO
+                    </Typography>
+                    {eligibilityCheck.coverageDetails?.plans?.map((plan, index) => (
+                      <Box key={index} sx={{ mt: index === 0 ? 1 : 2 }}>
+                        <Grid container spacing={1}>
+                          <Grid item xs={6}>
+                            <Typography variant="body1" sx={{ color: theme.palette.primary.dark }}>
+                              Plan
+                            </Typography>
+                          </Grid>
+                          <Grid item xs={6}>
+                            <Typography variant="body1">{plan.planName || '—'}</Typography>
+                          </Grid>
+                          {plan.entityName && (
+                            <>
+                              <Grid item xs={6}>
+                                <Typography variant="body1" sx={{ color: theme.palette.primary.dark }}>
+                                  Organization
+                                </Typography>
+                              </Grid>
+                              <Grid item xs={6}>
+                                <Typography variant="body1">
+                                  {plan.entityName}
+                                  {plan.entityType ? ` (${plan.entityType})` : ''}
+                                </Typography>
+                              </Grid>
+                            </>
+                          )}
+                          {plan.phone && (
+                            <>
+                              <Grid item xs={6}>
+                                <Typography variant="body1" sx={{ color: theme.palette.primary.dark }}>
+                                  Phone
+                                </Typography>
+                              </Grid>
+                              <Grid item xs={6}>
+                                <Typography variant="body1">{plan.phone}</Typography>
+                              </Grid>
+                            </>
+                          )}
+                          {plan.payerID && (
+                            <>
+                              <Grid item xs={6}>
+                                <Typography variant="body1" sx={{ color: theme.palette.primary.dark }}>
+                                  Payer ID
+                                </Typography>
+                              </Grid>
+                              <Grid item xs={6}>
+                                <Typography variant="body1">{plan.payerID}</Typography>
+                              </Grid>
+                            </>
+                          )}
+                          {(plan.insuranceCode || plan.insuranceDescription) && (
+                            <>
+                              <Grid item xs={6}>
+                                <Typography variant="body1" sx={{ color: theme.palette.primary.dark }}>
+                                  Insurance type
+                                </Typography>
+                              </Grid>
+                              <Grid item xs={6}>
+                                <Typography variant="body1">
+                                  {[plan.insuranceCode, plan.insuranceDescription].filter(Boolean).join(' - ')}
+                                </Typography>
+                              </Grid>
+                            </>
+                          )}
+                        </Grid>
+                      </Box>
+                    ))}
+                  </>
+                )}
               </Grid>
             </Grid>
             <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>

@@ -186,12 +186,14 @@ export interface CoverageBenefitInfo {
   policyNumber?: string;
   insuranceCode?: string;
   insuranceDescription?: string;
+  insurancePlan?: string;
   payerName?: string;
   payerID?: string;
   payerAddress?: string;
   payerWebsite?: string;
   payerPhone?: string;
   payerFax?: string;
+  entityType?: string;
 
   levelDescription: string;
   levelCode: string;
@@ -251,6 +253,18 @@ export interface InsuranceDetails {
     phone?: string | undefined;
     fax?: string | undefined;
   };
+  // One entry per active-coverage line returned by the eligibility check. For Medicaid members this
+  // surfaces both the fee-for-service plan and any managed care organization (MCO) the member is
+  // enrolled in, along with the MCO entity (name/phone/id) reported on that line.
+  plans?: Array<{
+    planName?: string | undefined;
+    entityName?: string | undefined;
+    entityType?: string | undefined;
+    phone?: string | undefined;
+    payerID?: string | undefined;
+    insuranceCode?: string | undefined;
+    insuranceDescription?: string | undefined;
+  }>;
 }
 
 export interface FinancialDetails {

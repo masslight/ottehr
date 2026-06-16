@@ -13,7 +13,7 @@ import {
 } from '@mui/material';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { enqueueSnackbar } from 'notistack';
-import { FC, ReactElement, useState } from 'react';
+import { FC, ReactElement, useEffect, useState } from 'react';
 import { useFormContext } from 'react-hook-form';
 import { Row } from 'src/components/layout';
 import { StatusStyleObject } from 'src/components/RefreshableStatusWidget';
@@ -115,6 +115,45 @@ interface SimpleStatusCheckWithDate {
 
 const insuranceSection = PATIENT_RECORD_CONFIG.FormFields.insurance;
 
+// Maps the claim.md insurance type code returned by the eligibility check (left)
+// to the candid/availity insurance plan type code used by the insurance form dropdown (right).
+const insuranceCodeToCandidCode: Record<string, string> = {
+  '12': '16',
+  '13': '16',
+  '14': 'LM',
+  '15': 'WC',
+  '16': 'OF',
+  '41': '16',
+  '42': 'VA',
+  '43': '16',
+  '47': 'LM',
+  AP: 'AM',
+  C1: 'CI',
+  CO: '11',
+  CP: 'MA',
+  D: 'DS',
+  DB: 'DS',
+  EP: '12',
+  FF: '11',
+  GP: '12',
+  HM: 'HM',
+  HN: '16',
+  HS: '11',
+  IN: '15',
+  IP: 'CI',
+  LC: '11',
+  LD: '11',
+  LI: '11',
+  LT: 'LM',
+  MA: 'MA',
+  MB: 'MB',
+  MC: 'MC',
+  MH: '11',
+  MI: '11',
+  MP: 'MA',
+  OT: 'ZZ',
+};
+
 export const InsuranceContainer: FC<InsuranceContainerProps> = ({
   ordinal,
   patientId,
@@ -143,6 +182,21 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
   } = usePatientRecordFormSection({ formSection: insuranceSection, index: ordinal - 1 });
 
   const insurancePriority = watch(FormFields.insurancePriority.key);
+  const currentInsurancePlanType = watch(FormFields.insurancePlanType.key);
+
+  // Surface the insurance type determined by the eligibility check into the editable
+  // "Insurance plan type" dropdown when the field is empty. This intentionally re-applies whenever the
+  // field is empty (e.g. after the async coverage-load reset clears it) so the eligibility-derived type
+  // is not lost to that race. A value stored on the Coverage or chosen by the user takes precedence via
+  // the early return below, and setting a value makes the watched field truthy so this does not loop.
+  useEffect(() => {
+    if (currentInsurancePlanType) return;
+    const eligibilityInsuranceCode = initialEligibilityCheck?.coverageDetails?.insurance?.insuranceCode;
+    if (!eligibilityInsuranceCode) return;
+    const mappedCandidCode = insuranceCodeToCandidCode[eligibilityInsuranceCode];
+    if (!mappedCandidCode) return;
+    setValue(FormFields.insurancePlanType.key, mappedCandidCode, { shouldDirty: true });
+  }, [currentInsurancePlanType, initialEligibilityCheck, FormFields.insurancePlanType.key, setValue]);
 
   const handleRemoveInsurance = (): void => {
     handleRemoveClick?.();
@@ -177,45 +231,6 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
     },
   });
 
-  // left side is claimmd type enum from eligibility
-  // right side is the candid enum -- not candid, availity?
-  // plan type : insurance plan type :: 1:1?
-  const insuranceCodeToCandidCode = {
-    '12': '16',
-    '13': '16',
-    '14': 'LM',
-    '15': 'WC',
-    '16': 'OF',
-    '41': '16',
-    '42': 'VA',
-    '43': '16',
-    '47': 'LM',
-    AP: 'AM',
-    C1: 'CI',
-    CO: '11',
-    CP: 'MA',
-    D: 'DS',
-    DB: 'DS',
-    EP: '12',
-    FF: '11',
-    GP: '12',
-    HM: 'HM',
-    HN: '16',
-    HS: '11',
-    IN: '15',
-    IP: 'CI',
-    LC: '11',
-    LD: '11',
-    LI: '11',
-    LT: 'LM',
-    MA: 'MA',
-    MB: 'MB',
-    MC: 'MC',
-    MH: '11',
-    MI: '11',
-    MP: 'MA',
-    OT: 'ZZ',
-  };
   const queryClient = useQueryClient();
 
   const handleRecheckEligibility = async (): Promise<void> => {
@@ -251,7 +266,7 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
         const insuranceCodeTemp = result?.coverageDetails?.insurance?.insuranceCode;
 
         if (insuranceCodeTemp) {
-          const newInsurance = (insuranceCodeToCandidCode as any)[insuranceCodeTemp];
+          const newInsurance = insuranceCodeToCandidCode[insuranceCodeTemp];
 
           if (newInsurance) {
             setValue(FormFields.insurancePlanType.key, newInsurance, { shouldDirty: true });

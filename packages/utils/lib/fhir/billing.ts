@@ -164,21 +164,54 @@ export const parseCoverageEligibilityResponse = (
           const insuranceDetails = benefitsTemp.find(
             (benefit) => benefit.coverageCode === '1' && benefit.code === '30'
           );
+          // Payers do not reliably attach insurance_type_code / insurance_type_description to the
+          // Active Coverage / Health Benefit Plan Coverage (coverageCode '1' / code '30') benefit line.
+          // Scan the full raw benefit list for the first entry that carries insurance-type info and use
+          // it as a fallback so the insurance type surfaces even when it lives on another benefit line.
+          const benefitWithInsType = (Array.isArray(benefitList) ? benefitList : []).find(
+            (benefit: any) => benefit?.['insurance_type_code'] || benefit?.['insurance_type_description']
+          );
           details['insurance'] = {
             planNumber: benefitsResponse['elig']?.['plan_number'],
             policyNumber: insuranceDetails?.policyNumber,
-            insuranceCode: insuranceDetails?.insuranceCode,
-            insuranceDescription: insuranceDetails?.insuranceDescription,
+            insuranceCode: insuranceDetails?.insuranceCode || benefitWithInsType?.['insurance_type_code'],
+            insuranceDescription:
+              insuranceDetails?.insuranceDescription || benefitWithInsType?.['insurance_type_description'],
           };
 
+          // Payer/entity details (name, ID, address, phone, etc.) are not always attached to the same
+          // benefit line we read insurance type from. For Medicaid responses they typically live on the
+          // managed care organization (MCO) line rather than the fee-for-service line, so source the payer
+          // section from the first benefit that actually carries entity info, falling back to the code-30 line.
+          const payerSourceBenefit =
+            benefitsTemp.find((benefit) => benefit.payerName || benefit.payerID || benefit.payerAddress) ??
+            insuranceDetails;
           details['payer'] = {
-            name: insuranceDetails?.payerName,
-            payerID: insuranceDetails?.payerID,
-            address: insuranceDetails?.payerAddress,
-            website: insuranceDetails?.payerWebsite,
-            phone: insuranceDetails?.payerPhone,
-            fax: insuranceDetails?.payerFax,
+            name: payerSourceBenefit?.payerName,
+            payerID: payerSourceBenefit?.payerID,
+            address: payerSourceBenefit?.payerAddress,
+            website: payerSourceBenefit?.payerWebsite,
+            phone: payerSourceBenefit?.payerPhone,
+            fax: payerSourceBenefit?.payerFax,
           };
+
+          // Collect every active-coverage (code '30') line so the UI can list each plan the member is
+          // enrolled in (e.g. Medicaid FFS + the MCO), including the MCO entity reported on that line.
+          const plans = benefitsTemp
+            .filter((benefit) => benefit.coverageCode === '1' && benefit.code === '30')
+            .map((benefit) => ({
+              planName: benefit.insurancePlan,
+              entityName: benefit.payerName,
+              entityType: benefit.entityType,
+              phone: benefit.payerPhone,
+              payerID: benefit.payerID,
+              insuranceCode: benefit.insuranceCode,
+              insuranceDescription: benefit.insuranceDescription,
+            }))
+            .filter((plan) => plan.planName || plan.entityName);
+          if (plans.length > 0) {
+            details['plans'] = plans;
+          }
 
           copay = benefitsTemp.filter((benefit) => benefit.coverageCode === 'A' || benefit.coverageCode === 'B');
           deductible = benefitsTemp.filter((benefit) => benefit.coverageCode === 'C');
@@ -240,6 +273,17 @@ export const parseObjectsToCopayBenefits = (input: any[]): PatientPaymentBenefit
   return input
     .map((item) => {
       const benefitCoverageCode = item['benefit_coverage_code'] as '1' | 'A' | 'B' | 'C';
+      const payerAddressParts = [
+        item['entity_addr_1']?.[0],
+        item['entity_city'],
+        item['entity_state'],
+        item['entity_zip'],
+      ].filter(Boolean);
+      const payerAddress = payerAddressParts.length
+        ? `${item['entity_addr_1']?.[0] ?? ''} ${item['entity_city'] ?? ''}, ${item['entity_state'] ?? ''} ${
+            item['entity_zip'] ?? ''
+          }`.trim()
+        : undefined;
       const CP: PatientPaymentBenefit = {
         amountInUSD: Number(item['benefit_amount']) ?? 0,
         percentage: item['benefit_percent'] ?? 0,
@@ -256,12 +300,14 @@ export const parseObjectsToCopayBenefits = (input: any[]): PatientPaymentBenefit
         policyNumber: item['policy_number'] ?? '',
         insuranceCode: item['insurance_type_code'] ?? '',
         insuranceDescription: item['insurance_type_description'] ?? '',
+        insurancePlan: item['insurance_plan'],
         payerName: item['entity_name']?.[0],
         payerID: item['entity_id']?.[0],
-        payerAddress: `${item['entity_addr_1']?.[0]} ${item['entity_city']}, ${item['entity_state']} ${item['entity_zip']}`,
+        payerAddress,
         payerWebsite: item['entity_website']?.[0],
         payerPhone: item['entity_phone']?.[0],
         payerFax: item['entity_fax']?.[0],
+        entityType: item['entity_description']?.[0],
       };
       return CP;
     })
