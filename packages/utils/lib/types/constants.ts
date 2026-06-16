@@ -22,9 +22,6 @@ export const PATIENT_SEND_MARKETING_URL = 'https://fhir.zapehr.com/r4/StructureD
 export const PATIENT_HEARING_IMPAIRED_RELAY_SERVICE_URL =
   'https://fhir.zapehr.com/r4/StructureDefinitions/hearing-impaired-relay-service';
 export const PATIENT_COMMON_WELL_CONSENT_URL = 'https://fhir.zapehr.com/r4/StructureDefinitions/common-well-consent';
-export const PATIENT_NO_EMAIL_URL = 'https://fhir.zapehr.com/r4/StructureDefinitions/patient-no-email';
-export const RESPONSIBLE_PARTY_NO_EMAIL_URL =
-  'https://fhir.zapehr.com/r4/StructureDefinitions/responsible-party-no-email';
 export const PATIENT_GENDER_IDENTITY_URL = 'http://hl7.org/fhir/StructureDefinition/individual-genderIdentity';
 export const PATIENT_GENDER_IDENTITY_DETAILS_URL =
   'https://fhir.zapehr.com/r4/StructureDefinitions/individual-genderIdentity';
