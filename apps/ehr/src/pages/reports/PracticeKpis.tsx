@@ -1,4 +1,5 @@
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import InsightsIcon from '@mui/icons-material/Insights';
 import {
   Alert,
@@ -22,13 +23,23 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { PracticeKpisReportZambdaOutput } from 'utils';
 import { getPracticeKpisReport } from '../../api/api';
+import { encountersDataset } from '../../features/reports/adHoc/encountersDataset';
+import { setAdHocSeed } from '../../features/reports/adHoc/seed';
 import { useApiClients } from '../../hooks/useAppClients';
 import PageContainer from '../../layout/PageContainer';
+
+const DATE_FILTER_LABELS: Record<string, string> = {
+  today: 'Today',
+  yesterday: 'Yesterday',
+  last7days: 'Last 7 days',
+  last30days: 'Last 30 days',
+};
 
 export default function PracticeKpis(): React.ReactElement {
   const navigate = useNavigate();
   const { oystehrZambda } = useApiClients();
   const [loading, setLoading] = useState<boolean>(false);
+  const [seeding, setSeeding] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [reportData, setReportData] = useState<PracticeKpisReportZambdaOutput | null>(null);
   const [dateFilter, setDateFilter] = useState<string>('last7days');
@@ -451,6 +462,34 @@ export default function PracticeKpis(): React.ReactElement {
     }));
   }, [reportData]);
 
+  // Open the data BEHIND these KPIs in the ad-hoc report. The KPI zambda only returns per-location
+  // aggregates, so for real exploration/drill-down we fetch the underlying per-visit ENCOUNTERS for
+  // the same date range (the Encounters ad-hoc dataset already exposes the arrival/intake/provider
+  // time buckets the KPIs are computed from), then seed those. The ad-hoc page picks up the seed and
+  // skips its own fetch.
+  const handleOpenAsAdHoc = useCallback(async (): Promise<void> => {
+    if (!oystehrZambda) return;
+    setSeeding(true);
+    setError(null);
+    try {
+      const { start, end } = getDateRange(dateFilter, customDate);
+      const encounterRows = await encountersDataset.fetch({ oystehrZambda, dateRange: { start, end } });
+      const schema = encountersDataset.buildSchema(encounterRows);
+      const rangeLabel = DATE_FILTER_LABELS[dateFilter] ?? `${start.slice(0, 10)}…${end.slice(0, 10)}`;
+      setAdHocSeed({
+        rows: encounterRows,
+        schema,
+        sourceLabel: `Encounters behind Practice KPIs${rangeLabel ? ` · ${rangeLabel}` : ''}`,
+      });
+      navigate('/reports/ad-hoc');
+    } catch (e) {
+      console.error('Failed to load encounters for ad-hoc exploration:', e);
+      setError('Failed to load the underlying visit data for ad-hoc exploration. Please try again.');
+    } finally {
+      setSeeding(false);
+    }
+  }, [oystehrZambda, dateFilter, customDate, getDateRange, navigate]);
+
   // Custom toolbar with CSV export only
   const CustomToolbar = (): React.ReactElement => {
     return (
@@ -541,6 +580,16 @@ export default function PracticeKpis(): React.ReactElement {
 
               <Button variant="outlined" onClick={() => void fetchReport(dateFilter)} disabled={loading}>
                 Refresh
+              </Button>
+
+              <Button
+                variant="outlined"
+                color="primary"
+                startIcon={seeding ? <CircularProgress size={16} /> : <AutoAwesomeIcon />}
+                onClick={() => void handleOpenAsAdHoc()}
+                disabled={loading || seeding || !reportData}
+              >
+                {seeding ? 'Loading visits…' : 'Explore visits as ad-hoc report'}
               </Button>
 
               <Typography variant="body2" color="text.secondary" sx={{ ml: 'auto' }}>

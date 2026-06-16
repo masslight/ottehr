@@ -6,10 +6,16 @@ import {
   INVALID_INPUT_ERROR,
 } from 'utils';
 import { wrapHandler, ZambdaInput } from '../../shared';
-import { invokeChatbotVertexAI } from '../../shared/ai';
+import { DEFAULT_VERTEX_MODEL, invokeChatbotVertexAI } from '../../shared/ai';
 import { validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'generate-adhoc-report';
+
+// Vertex model used to GENERATE the report code. Code generation benefits from a stronger model than
+// the default flash-lite, so this is split out for easy tuning — bump to a larger Gemini model
+// (one provisioned in this project) to improve generated-report quality. Kept at the default until
+// the target model is confirmed available.
+const REPORT_MODEL = DEFAULT_VERTEX_MODEL;
 
 const RESPONSE_SCHEMA = {
   type: 'object',
@@ -63,13 +69,24 @@ RULES:
 - LINKS: when the user asks for clickable links to app pages, render standard anchors with a
   RELATIVE href ('<a href="/path/...">') built from id fields whose schema descriptions document a
   route. Links automatically open in a new browser tab — do NOT use window.open(), target
-  attributes, onclick handlers, or alert()/confirm()/prompt() (all blocked in this sandbox). Only
+  attributes, inline HTML onclick= attributes, or alert()/confirm()/prompt() (all blocked in this
+  sandbox). (A Chart.js options.onClick config callback is fine — see INTERACTIVE CHARTS.) Only
   build hrefs from routes documented in the schema field descriptions — never invent URLs or link
   to external sites. Match the link target to the words used: "progress note", "the note", "chart",
   "visit", or "encounter" mean the VISIT's note route (review-and-sign / follow-up-note via
   appointmentId) — NOT the patient profile. Only link to the patient profile when the user asks for
   the "patient", "patient record/profile/chart". If a row is a follow-up (encounterType), use its
   follow-up-note route.
+- INTERACTIVE CHARTS (drill-down): a chart MAY be made clickable to reveal detail. Use the Chart.js
+  config callback options.onClick(evt, elements) — this is a JS callback that runs in the sandbox
+  (NOT an HTML onclick= attribute), and it is allowed. On click, render the corresponding detail
+  rows into a container you created. CRITICAL: look up the detail rows by the SAME value you used to
+  build the axis. When the axis label is a value formatted for display (e.g. hour 13 shown as
+  "13:00", or a number shown with a unit), the safest pattern is to map the clicked element's INDEX
+  back to the original category/array (elements[0].index) rather than keying a lookup object by the
+  raw value and then reading it with the formatted label — those two keys differ ("13:00" !== 13)
+  and the lookup silently returns nothing. The report frame auto-resizes, so a detail table appended
+  on click displays normally (you don't need to pre-size for it).
 - NEVER FABRICATE DATA. Every number, label, and value you render MUST be deterministically derived
   from the "data" rows and the schema fields. Math.random(), invented values, sample/placeholder
   numbers, and estimated/made-up metrics are strictly forbidden — this is a clinical report and a
@@ -165,7 +182,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
           `(${lastError}). Return ONLY a valid JSON object whose "code" field is syntactically valid ` +
           `JavaScript for the function body — no markdown fences, no commentary, complete and unterminated.`;
 
-    const raw = await invokeChatbotVertexAI([{ text: prompt }], secrets, RESPONSE_SCHEMA);
+    const raw = await invokeChatbotVertexAI([{ text: prompt }], secrets, RESPONSE_SCHEMA, REPORT_MODEL);
 
     let parsed: { code?: unknown; title?: unknown };
     try {

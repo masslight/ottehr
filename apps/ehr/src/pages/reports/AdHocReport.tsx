@@ -21,12 +21,13 @@ import {
   Typography,
 } from '@mui/material';
 import { DateTime } from 'luxon';
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AdHocReportTurn } from 'utils';
 import { generateAdHocReport } from '../../api/api';
 import { AD_HOC_DATASETS, getDataset } from '../../features/reports/adHoc/datasets';
 import { ReportFrame } from '../../features/reports/adHoc/ReportFrame';
+import { clearAdHocSeed, peekAdHocSeed } from '../../features/reports/adHoc/seed';
 import { AdHocRow, DatasetSchema } from '../../features/reports/adHoc/types';
 import { useApiClients } from '../../hooks/useAppClients';
 import PageContainer from '../../layout/PageContainer';
@@ -40,6 +41,13 @@ export default function AdHocReport(): React.ReactElement {
   const navigate = useNavigate();
   const { oystehrZambda } = useApiClients();
 
+  // Seeded mode: another report (e.g. Practice KPIs) handed us its already-fetched rows + schema.
+  // peek (not consume) so StrictMode's double render is harmless; we clear it in an effect below.
+  const [seed] = useState(() => peekAdHocSeed());
+  useEffect(() => {
+    clearAdHocSeed();
+  }, []);
+
   const [datasetId, setDatasetId] = useState<string>(AD_HOC_DATASETS[0]?.id ?? 'encounters');
   const [dateRange, setDateRange] = useState<DateRangeFilter>('last-30-days');
   const [customDate, setCustomDate] = useState<string>(DateTime.now().toFormat('yyyy-MM-dd'));
@@ -48,8 +56,8 @@ export default function AdHocReport(): React.ReactElement {
   );
   const [customEndDate, setCustomEndDate] = useState<string>(DateTime.now().toFormat('yyyy-MM-dd'));
 
-  const [rows, setRows] = useState<AdHocRow[] | null>(null);
-  const [schema, setSchema] = useState<DatasetSchema | null>(null);
+  const [rows, setRows] = useState<AdHocRow[] | null>(seed ? seed.rows : null);
+  const [schema, setSchema] = useState<DatasetSchema | null>(seed ? seed.schema : null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -204,72 +212,100 @@ export default function AdHocReport(): React.ReactElement {
           </Typography>
         </Box>
 
-        {/* Dataset + date range + fetch */}
-        <Box sx={{ mb: 3, display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
-          <FormControl size="small" sx={{ minWidth: 180 }}>
-            <InputLabel>Dataset</InputLabel>
-            <Select value={datasetId} label="Dataset" onChange={(e: SelectChangeEvent) => setDatasetId(e.target.value)}>
-              {AD_HOC_DATASETS.map((d) => (
-                <MenuItem key={d.id} value={d.id}>
-                  {d.label}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+        {/* Seeded mode: the dataset arrived from another report — show its provenance instead of the
+            dataset/date/fetch controls. Everything below this is identical to the normal flow. */}
+        {seed && (
+          <Box
+            sx={{ mb: 3, p: 2, bgcolor: '#eef4ff', border: '1px solid', borderColor: 'primary.light', borderRadius: 1 }}
+          >
+            <Typography variant="body2">
+              Exploring <strong>{seed.sourceLabel}</strong> — {seed.rows.length.toLocaleString()} rows handed off from
+              another report. Describe the report you want below, or{' '}
+              <Button
+                size="small"
+                variant="text"
+                sx={{ p: 0, minWidth: 0, verticalAlign: 'baseline' }}
+                onClick={() => navigate(-1)}
+              >
+                go back
+              </Button>
+              .
+            </Typography>
+          </Box>
+        )}
 
-          <FormControl size="small" sx={{ minWidth: 200 }}>
-            <InputLabel>Date Range</InputLabel>
-            <Select
-              value={dateRange}
-              label="Date Range"
-              onChange={(e: SelectChangeEvent<DateRangeFilter>) => setDateRange(e.target.value as DateRangeFilter)}
-            >
-              <MenuItem value="today">Today</MenuItem>
-              <MenuItem value="yesterday">Yesterday</MenuItem>
-              <MenuItem value="last-7-days">Last 7 Days</MenuItem>
-              <MenuItem value="last-30-days">Last 30 Days</MenuItem>
-              <MenuItem value="custom">Custom Date</MenuItem>
-              <MenuItem value="customRange">Custom Date Range</MenuItem>
-            </Select>
-          </FormControl>
+        {/* Dataset + date range + fetch (hidden in seeded mode) */}
+        {!seed && (
+          <Box sx={{ mb: 3, display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
+            <FormControl size="small" sx={{ minWidth: 180 }}>
+              <InputLabel>Dataset</InputLabel>
+              <Select
+                value={datasetId}
+                label="Dataset"
+                onChange={(e: SelectChangeEvent) => setDatasetId(e.target.value)}
+              >
+                {AD_HOC_DATASETS.map((d) => (
+                  <MenuItem key={d.id} value={d.id}>
+                    {d.label}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
 
-          {dateRange === 'custom' && (
-            <TextField
-              type="date"
-              size="small"
-              value={customDate}
-              onChange={(e) => setCustomDate(e.target.value)}
-              sx={{ minWidth: 160 }}
-              InputLabelProps={{ shrink: true }}
-            />
-          )}
-          {dateRange === 'customRange' && (
-            <>
+            <FormControl size="small" sx={{ minWidth: 200 }}>
+              <InputLabel>Date Range</InputLabel>
+              <Select
+                value={dateRange}
+                label="Date Range"
+                onChange={(e: SelectChangeEvent<DateRangeFilter>) => setDateRange(e.target.value as DateRangeFilter)}
+              >
+                <MenuItem value="today">Today</MenuItem>
+                <MenuItem value="yesterday">Yesterday</MenuItem>
+                <MenuItem value="last-7-days">Last 7 Days</MenuItem>
+                <MenuItem value="last-30-days">Last 30 Days</MenuItem>
+                <MenuItem value="custom">Custom Date</MenuItem>
+                <MenuItem value="customRange">Custom Date Range</MenuItem>
+              </Select>
+            </FormControl>
+
+            {dateRange === 'custom' && (
               <TextField
                 type="date"
                 size="small"
-                label="Start"
-                value={customStartDate}
-                onChange={(e) => setCustomStartDate(e.target.value)}
+                value={customDate}
+                onChange={(e) => setCustomDate(e.target.value)}
                 sx={{ minWidth: 160 }}
                 InputLabelProps={{ shrink: true }}
               />
-              <TextField
-                type="date"
-                size="small"
-                label="End"
-                value={customEndDate}
-                onChange={(e) => setCustomEndDate(e.target.value)}
-                sx={{ minWidth: 160 }}
-                InputLabelProps={{ shrink: true }}
-              />
-            </>
-          )}
+            )}
+            {dateRange === 'customRange' && (
+              <>
+                <TextField
+                  type="date"
+                  size="small"
+                  label="Start"
+                  value={customStartDate}
+                  onChange={(e) => setCustomStartDate(e.target.value)}
+                  sx={{ minWidth: 160 }}
+                  InputLabelProps={{ shrink: true }}
+                />
+                <TextField
+                  type="date"
+                  size="small"
+                  label="End"
+                  value={customEndDate}
+                  onChange={(e) => setCustomEndDate(e.target.value)}
+                  sx={{ minWidth: 160 }}
+                  InputLabelProps={{ shrink: true }}
+                />
+              </>
+            )}
 
-          <Button variant="contained" onClick={() => void handleFetch()} disabled={loading || !oystehrZambda}>
-            {loading ? <CircularProgress size={20} /> : 'Fetch data'}
-          </Button>
-        </Box>
+            <Button variant="contained" onClick={() => void handleFetch()} disabled={loading || !oystehrZambda}>
+              {loading ? <CircularProgress size={20} /> : 'Fetch data'}
+            </Button>
+          </Box>
+        )}
 
         {error && (
           <Box sx={{ mb: 2, p: 2, bgcolor: 'error.light', borderRadius: 1 }}>

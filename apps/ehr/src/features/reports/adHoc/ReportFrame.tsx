@@ -39,6 +39,17 @@ const BASE_CSS = `
 const BOOTSTRAP = `
   (function () {
     function send(m) { try { parent.postMessage(m, '*'); } catch (e) {} }
+    function measure() { return Math.max(document.body.scrollHeight, document.documentElement.scrollHeight); }
+    // Report height on EVERY content change, not just the initial render. Interactive reports
+    // (e.g. a detail table appended when a chart bar is clicked) grow the document after render;
+    // without this the iframe stays its original height and the new content renders below the
+    // visible area. A ResizeObserver on <body> fires on those mutations; we de-dupe by last height.
+    var lastH = 0;
+    function reportResize() {
+      var h = measure();
+      if (h !== lastH) { lastH = h; send({ type: 'resize', height: h }); }
+    }
+    try { new ResizeObserver(reportResize).observe(document.body); } catch (e) {}
     // Egress guard: only app-internal links may navigate. Anchors must use a single-slash relative
     // href (resolved against the <base> to the EHR origin); anything else — absolute URLs,
     // protocol-relative, javascript:, etc. — is cancelled. This closes the "render an external
@@ -59,7 +70,8 @@ const BOOTSTRAP = `
         document.body.innerHTML = '';
         var fn = new Function('data', 'schema', 'Chart', msg.code);
         fn(msg.data, msg.schema, window.Chart);
-        var h = Math.max(document.body.scrollHeight, document.documentElement.scrollHeight);
+        var h = measure();
+        lastH = h;
         send({ type: 'rendered', height: h });
       } catch (e) {
         send({ type: 'error', message: (e && e.message) ? String(e.message) : String(e) });
@@ -142,6 +154,10 @@ export function ReportFrame({ code, data, schema, onError }: ReportFrameProps): 
         postRender();
       } else if (msg?.type === 'rendered') {
         if (timerRef.current) clearTimeout(timerRef.current);
+        if (typeof msg.height === 'number') setHeight(Math.min(Math.max(msg.height + 32, 160), 2400));
+      } else if (msg?.type === 'resize') {
+        // Post-render content change (e.g. a detail table appended on chart click). Grow the iframe
+        // so it stays visible; don't touch the render timeout — that's already cleared by 'rendered'.
         if (typeof msg.height === 'number') setHeight(Math.min(Math.max(msg.height + 32, 160), 2400));
       } else if (msg?.type === 'error') {
         if (timerRef.current) clearTimeout(timerRef.current);
