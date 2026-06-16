@@ -3,6 +3,7 @@ import { randomUUID } from 'crypto';
 import { Appointment, Location, Patient, Schedule, Slot } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
+  APIErrorCode,
   appointmentTypeForAppointment,
   checkEncounterIsVirtual,
   CreateAppointmentInputParams,
@@ -371,15 +372,37 @@ describe('tests for getting the visit history for a patient', () => {
     return response;
   };
 
+  // Retries on a transient CONCURRENT_UPDATE (4024) error. The change-in-person-visit-status
+  // zambda patches the Encounter with an optimistic lock (If-Match on the version id). When
+  // status changes fire back-to-back, an asynchronous backend process (e.g. a subscription
+  // reacting to the previous change) can bump the Encounter version between the zambda's read
+  // and its conditional write, producing a 412 that surfaces as CONCURRENT_UPDATE. The zambda
+  // re-reads the Encounter on every call, so re-issuing the call after a short backoff picks
+  // up the settled version and succeeds.
   const changeInPersonAppointmentStatus = async (
     encounterId: string,
     status: VisitStatusWithoutUnknown
   ): Promise<void> => {
-    await oystehr.zambda.execute({
-      id: 'change-in-person-visit-status',
-      encounterId,
-      updatedStatus: status,
-    });
+    const MAX_ATTEMPTS = 5;
+    const RETRY_DELAY_MS = 1_000;
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+      try {
+        await oystehr.zambda.execute({
+          id: 'change-in-person-visit-status',
+          encounterId,
+          updatedStatus: status,
+        });
+        return;
+      } catch (error: any) {
+        const isConcurrentUpdate =
+          error?.code === APIErrorCode.CONCURRENT_UPDATE || error?.message?.includes('modified during the operation');
+        if (isConcurrentUpdate && attempt < MAX_ATTEMPTS) {
+          await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY_MS));
+          continue;
+        }
+        throw error;
+      }
+    }
   };
 
   const changeVirtualAppointmentStatus = async (appointmentId: string, status: VisitStatusLabel): Promise<void> => {
