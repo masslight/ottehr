@@ -13,6 +13,7 @@ import {
   getReasonForVisitAndAdditionalDetailsFromAppointment,
   getReasonForVisitOptionsForServiceCategory,
   INVALID_INPUT_ERROR,
+  isScheduledFollowupEncounter,
   OCCUPATIONAL_MEDICINE_ACCOUNT_TYPE,
   resolveServiceCategory,
   SERVICE_CATEGORY_SYSTEM,
@@ -405,7 +406,8 @@ const complexValidation = async (input: UpdateVisitDetailsValidatedInput, oysteh
   }
 
   const newRFV = input.bookingDetails.reasonForVisit;
-  if (newRFV) {
+  // Scheduled follow-ups use the fixed follow-up list + free-text "Other", not the category reasons.
+  if (newRFV && !isScheduledFollowupEncounter(encounterResource)) {
     const isValidReason = validReasonsForVisit.some((reason: { value: string }) => reason.value === newRFV);
     if (!isValidReason) {
       throw INVALID_INPUT_ERROR(
