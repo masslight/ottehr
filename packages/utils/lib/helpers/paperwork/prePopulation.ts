@@ -39,6 +39,7 @@ import {
   COVERAGE_ADDITIONAL_INFORMATION_URL,
   PATIENT_GENDER_IDENTITY_URL,
   PATIENT_INDIVIDUAL_PRONOUNS_URL,
+  PATIENT_NO_EMAIL_URL,
   PATIENT_SEXUAL_ORIENTATION_URL,
   PatientAccountResponse,
   PHARMACY_COLLECTION_LINK_IDS,
@@ -1302,6 +1303,8 @@ const mapGuarantorToQuestionnaireResponseItems = (input: MapGuarantorItemsInput)
     guarantorResource?.resourceType === 'RelatedPerson'
       ? (guarantorResource as RelatedPerson).extension?.find((e) => e.url === RESPONSIBLE_PARTY_NO_EMAIL_URL)
           ?.valueBoolean ?? false
+      : guarantorResource?.resourceType === 'Patient'
+      ? (guarantorResource as Patient).extension?.find((e) => e.url === PATIENT_NO_EMAIL_URL)?.valueBoolean ?? false
       : false;
   const phone = formatPhoneNumberDisplay(
     guarantorResource?.telecom?.find((c) => c.system === 'phone' && c.period?.end === undefined)?.value ?? ''

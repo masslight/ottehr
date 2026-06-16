@@ -671,6 +671,7 @@ const FormFields: PatientRecordFormFields = {
         label: "Don't have email",
         triggers: [RPNotSelfTrigger],
         disabledDisplay: 'hidden',
+        dynamicPopulation: { sourceLinkId: 'patient-no-email', triggerState: 'disabled' },
       },
       addressSameAsPatient: {
         key: 'responsible-party-address-as-patient',
