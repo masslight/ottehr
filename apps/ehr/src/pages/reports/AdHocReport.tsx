@@ -543,7 +543,13 @@ export default function AdHocReport(): React.ReactElement {
                   )}
 
                   {/* The model's code runs here, sandboxed, over the fetched rows. */}
-                  <ReportFrame code={generatedCode} data={rows} schema={schema} onError={handleRenderError} />
+                  <ReportFrame
+                    code={generatedCode}
+                    data={rows}
+                    schema={schema}
+                    onError={handleRenderError}
+                    reportTitle={generatedTitle}
+                  />
 
                   {/* Refine: follow-up requests continue the conversation so the model modifies the
                     current report ("now group by month", "make it a pie chart"). */}

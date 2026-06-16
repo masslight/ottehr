@@ -40,6 +40,66 @@ const BOOTSTRAP = `
   (function () {
     function send(m) { try { parent.postMessage(m, '*'); } catch (e) {} }
     function measure() { return Math.max(document.body.scrollHeight, document.documentElement.scrollHeight); }
+
+    // --- Per-table CSV export -------------------------------------------------------------------
+    // The host wrapper (trusted code, NOT the generated report) decorates every <table> the report
+    // renders with a small "Export CSV" icon, so tabular reports get the same export affordance as
+    // the rest of the reports area. Chart/KPI-only reports render no <table> and get no icon. The
+    // sandbox can't trigger a download itself, so the click serializes that one table and posts it to
+    // the parent, which does the file download.
+    function cellText(c) { return ((c && c.textContent) || '').trim().replace(/\\s+/g, ' '); }
+    function serializeTable(table) {
+      var headers = [];
+      var bodyRows = [];
+      var headRow = table.querySelector('thead tr');
+      var rowsSource;
+      if (headRow) {
+        headers = [].map.call(headRow.querySelectorAll('th,td'), cellText);
+        rowsSource = table.querySelectorAll('tbody tr');
+      } else {
+        var trs = table.querySelectorAll('tr');
+        if (trs.length) { headers = [].map.call(trs[0].querySelectorAll('th,td'), cellText); rowsSource = [].slice.call(trs, 1); }
+        else { rowsSource = []; }
+      }
+      [].forEach.call(rowsSource, function (tr) { bodyRows.push([].map.call(tr.querySelectorAll('th,td'), cellText)); });
+      return { headers: headers, rows: bodyRows };
+    }
+    function tableLabel(table) {
+      var cap = table.querySelector('caption');
+      if (cap && cap.textContent.trim()) return cap.textContent.trim();
+      var prev = table.previousElementSibling;
+      // Skip our own export bar when looking back for a heading.
+      if (prev && prev.getAttribute && prev.getAttribute('data-export-bar')) prev = prev.previousElementSibling;
+      if (prev && /^H[1-4]$/.test(prev.tagName)) return prev.textContent.trim();
+      return '';
+    }
+    function decorateTables() {
+      var tables = document.querySelectorAll('table');
+      [].forEach.call(tables, function (table) {
+        if (table.getAttribute('data-export-decorated')) return;
+        // A table needs at least one data cell to be worth exporting.
+        if (!table.querySelector('td')) return;
+        table.setAttribute('data-export-decorated', '1');
+        var label = tableLabel(table);
+        var bar = document.createElement('div');
+        bar.setAttribute('data-export-bar', '1');
+        bar.style.cssText = 'display:flex;justify-content:flex-end;margin:8px 0 -2px;';
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.title = 'Export this table to CSV';
+        btn.style.cssText = 'display:inline-flex;align-items:center;gap:4px;font:600 12px Roboto,system-ui,sans-serif;' +
+          'color:#1565c0;background:#fff;border:1px solid #c5d6ea;border-radius:4px;padding:3px 8px;cursor:pointer;';
+        btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">' +
+          '<path d="M5 20h14v-2H5v2zM19 9h-4V3H9v6H5l7 7 7-7z"/></svg>Export CSV';
+        btn.addEventListener('click', function () {
+          var t = serializeTable(table);
+          send({ type: 'export-table', label: label, headers: t.headers, rows: t.rows });
+        });
+        bar.appendChild(btn);
+        table.parentNode.insertBefore(bar, table);
+      });
+    }
+
     // Report height on EVERY content change, not just the initial render. Interactive reports
     // (e.g. a detail table appended when a chart bar is clicked) grow the document after render;
     // without this the iframe stays its original height and the new content renders below the
@@ -50,6 +110,9 @@ const BOOTSTRAP = `
       if (h !== lastH) { lastH = h; send({ type: 'resize', height: h }); }
     }
     try { new ResizeObserver(reportResize).observe(document.body); } catch (e) {}
+    // Decorate tables on any DOM change too — drill-down detail tables are appended after render.
+    // decorateTables() is idempotent (marks each table), so inserting our own bars can't loop.
+    try { new MutationObserver(decorateTables).observe(document.body, { childList: true, subtree: true }); } catch (e) {}
     // Egress guard: only app-internal links may navigate. Anchors must use a single-slash relative
     // href (resolved against the <base> to the EHR origin); anything else — absolute URLs,
     // protocol-relative, javascript:, etc. — is cancelled. This closes the "render an external
@@ -70,6 +133,7 @@ const BOOTSTRAP = `
         document.body.innerHTML = '';
         var fn = new Function('data', 'schema', 'Chart', msg.code);
         fn(msg.data, msg.schema, window.Chart);
+        decorateTables();
         var h = measure();
         lastH = h;
         send({ type: 'rendered', height: h });
@@ -100,14 +164,51 @@ const SRC_DOC = [
 
 const TIMEOUT_MS = 8000;
 
+// CSV cell escaping per RFC 4180; a leading BOM makes Excel read UTF-8 correctly.
+function buildCsv(headers: string[], rows: string[][]): string {
+  const esc = (v: string): string => (/[",\n\r]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v);
+  const lines: string[] = [];
+  if (headers.length) lines.push(headers.map(esc).join(','));
+  for (const r of rows) lines.push(r.map(esc).join(','));
+  return '﻿' + lines.join('\r\n');
+}
+
+function slugify(s: string): string {
+  return (
+    s
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 60) || 'ad-hoc-report'
+  );
+}
+
+// The download itself runs in the parent (same-origin) — the sandboxed frame can't trigger one.
+function downloadTableCsv(reportTitle: string | undefined, label: string, headers: string[], rows: string[][]): void {
+  const csv = buildCsv(headers, rows);
+  const namePart = slugify(reportTitle || 'ad-hoc-report');
+  const labelPart = label ? '-' + slugify(label) : '';
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${namePart}${labelPart}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
 interface ReportFrameProps {
   code: string;
   data: AdHocRow[];
   schema: DatasetSchema;
   onError: (message: string) => void;
+  /** Used to name the exported CSV file (the report's title). */
+  reportTitle?: string;
 }
 
-export function ReportFrame({ code, data, schema, onError }: ReportFrameProps): React.ReactElement {
+export function ReportFrame({ code, data, schema, onError, reportTitle }: ReportFrameProps): React.ReactElement {
   const ref = useRef<HTMLIFrameElement>(null);
   const readyRef = useRef(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -148,7 +249,14 @@ export function ReportFrame({ code, data, schema, onError }: ReportFrameProps): 
   useEffect(() => {
     const handler = (ev: MessageEvent): void => {
       if (ev.source !== ref.current?.contentWindow) return;
-      const msg = ev.data as { type?: string; height?: number; message?: string };
+      const msg = ev.data as {
+        type?: string;
+        height?: number;
+        message?: string;
+        label?: string;
+        headers?: string[];
+        rows?: string[][];
+      };
       if (msg?.type === 'ready') {
         readyRef.current = true;
         postRender();
@@ -159,6 +267,9 @@ export function ReportFrame({ code, data, schema, onError }: ReportFrameProps): 
         // Post-render content change (e.g. a detail table appended on chart click). Grow the iframe
         // so it stays visible; don't touch the render timeout — that's already cleared by 'rendered'.
         if (typeof msg.height === 'number') setHeight(Math.min(Math.max(msg.height + 32, 160), 2400));
+      } else if (msg?.type === 'export-table') {
+        // A per-table "Export CSV" icon was clicked inside the frame; do the download here.
+        downloadTableCsv(reportTitle, msg.label ?? '', msg.headers ?? [], msg.rows ?? []);
       } else if (msg?.type === 'error') {
         if (timerRef.current) clearTimeout(timerRef.current);
         onError(msg.message || 'The report code threw an error.');
@@ -169,7 +280,7 @@ export function ReportFrame({ code, data, schema, onError }: ReportFrameProps): 
       window.removeEventListener('message', handler);
       if (timerRef.current) clearTimeout(timerRef.current);
     };
-  }, [postRender, onError]);
+  }, [postRender, onError, reportTitle]);
 
   // (Re)render whenever the code or data changes and the frame is ready.
   useEffect(() => {
