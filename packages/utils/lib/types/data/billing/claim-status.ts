@@ -49,13 +49,29 @@ export type ClaimStatusGroupKey = 'insurance' | 'patient' | 'nonInsurance';
 export interface ClaimStatusGroupDef {
   key: ClaimStatusGroupKey;
   label: string;
+  // The AR Stage value that makes this group the "active" one (its statuses are the ones in play).
+  arStageCode: string;
+  // The field tracking progress through this AR stage. Initialized to its first value when the claim
+  // first enters the stage (so it doesn't sit at "None").
+  primaryFieldKey: ClaimStatusFieldKey;
 }
 
 export const CLAIM_STATUS_GROUPS: ClaimStatusGroupDef[] = [
-  { key: 'insurance', label: 'Insurance' },
-  { key: 'patient', label: 'Patient' },
-  { key: 'nonInsurance', label: 'Non-insurance' },
+  { key: 'insurance', label: 'Insurance', arStageCode: 'insurance-payer-ar', primaryFieldKey: 'insuranceStatus' },
+  { key: 'patient', label: 'Patient', arStageCode: 'patient-ar', primaryFieldKey: 'patientArStatus' },
+  {
+    key: 'nonInsurance',
+    label: 'Non-insurance',
+    arStageCode: 'non-insurance-payer-ar',
+    primaryFieldKey: 'nonInsuranceArStatus',
+  },
 ];
+
+// The status group relevant to a given AR Stage value, if any (undefined when no AR Stage is set).
+export function getActiveStatusGroup(arStageCode: string | undefined): ClaimStatusGroupDef | undefined {
+  if (!arStageCode) return undefined;
+  return CLAIM_STATUS_GROUPS.find((group) => group.arStageCode === arStageCode);
+}
 
 export interface ClaimStatusOption {
   code: string;
@@ -113,7 +129,7 @@ export const CLAIM_STATUS_FIELDS: ClaimStatusFieldDef[] = [
     label: 'Insurance Paid Status',
     system: CLAIM_STATUS_TAG_SYSTEMS.insurancePaidStatus,
     group: 'insurance',
-    defaultCode: 'unpaid',
+    defaultCode: null,
     options: PAID_STATUS_OPTIONS,
   },
   {
@@ -133,7 +149,7 @@ export const CLAIM_STATUS_FIELDS: ClaimStatusFieldDef[] = [
     label: 'Patient AR Status',
     system: CLAIM_STATUS_TAG_SYSTEMS.patientArStatus,
     group: 'patient',
-    defaultCode: 'not-invoiced',
+    defaultCode: null,
     options: [
       { code: 'not-invoiced', label: 'Not invoiced' },
       { code: 'ready-to-invoice', label: 'Ready to invoice' },
@@ -146,7 +162,7 @@ export const CLAIM_STATUS_FIELDS: ClaimStatusFieldDef[] = [
     label: 'Patient Paid Status',
     system: CLAIM_STATUS_TAG_SYSTEMS.patientPaidStatus,
     group: 'patient',
-    defaultCode: 'unpaid',
+    defaultCode: null,
     options: PAID_STATUS_OPTIONS,
   },
   {
@@ -166,7 +182,7 @@ export const CLAIM_STATUS_FIELDS: ClaimStatusFieldDef[] = [
     label: 'Non-insurance Paid Status',
     system: CLAIM_STATUS_TAG_SYSTEMS.nonInsurancePaidStatus,
     group: 'nonInsurance',
-    defaultCode: 'unpaid',
+    defaultCode: null,
     options: PAID_STATUS_OPTIONS,
   },
 ];

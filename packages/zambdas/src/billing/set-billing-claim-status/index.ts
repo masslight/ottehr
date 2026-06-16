@@ -1,7 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim } from 'fhir/r4b';
-import { CLAIM_STATUS_FIELDS_BY_KEY, INVALID_INPUT_ERROR, isValidClaimStatusValue } from 'utils';
+import { CLAIM_STATUS_FIELDS_BY_KEY, getActiveStatusGroup, INVALID_INPUT_ERROR, isValidClaimStatusValue } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import { createBillingClient, fetchById } from '../shared';
 import { SetClaimStatusParams, validateRequestParameters } from './validateRequestParameters';
@@ -29,8 +29,19 @@ async function performEffect(oystehr: Oystehr, params: SetClaimStatusParams): Pr
   const claim = await fetchById<Claim>(oystehr, 'Claim', params.claimId);
 
   // Replace this field's tag while preserving every other tag (other status fields, claim tags, etc.).
-  const otherTags = (claim.meta?.tag ?? []).filter((t) => t.system !== field.system);
-  const updatedTags = value ? [...otherTags, { system: field.system, code: value }] : otherTags;
+  const updatedTags = (claim.meta?.tag ?? []).filter((t) => t.system !== field.system);
+  if (value) updatedTags.push({ system: field.system, code: value });
+
+  // Entering an AR Stage initializes that stage's progress status (e.g. Insurance Status -> "Created")
+  // to its first value when it hasn't been set yet, so a freshly-entered stage doesn't sit at "None".
+  if (params.field === 'arStage' && value) {
+    const group = getActiveStatusGroup(value);
+    const primaryField = group ? CLAIM_STATUS_FIELDS_BY_KEY[group.primaryFieldKey] : undefined;
+    const firstValue = primaryField?.options[0]?.code;
+    if (primaryField && firstValue && !updatedTags.some((t) => t.system === primaryField.system)) {
+      updatedTags.push({ system: primaryField.system, code: firstValue });
+    }
+  }
 
   const versionId = claim.meta?.versionId;
   await oystehr.fhir.patch(

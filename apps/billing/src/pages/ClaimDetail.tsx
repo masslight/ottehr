@@ -1,4 +1,8 @@
-import { ArrowBack as ArrowBackIcon } from '@mui/icons-material';
+import {
+  ArrowBack as ArrowBackIcon,
+  ExpandLess as ExpandLessIcon,
+  ExpandMore as ExpandMoreIcon,
+} from '@mui/icons-material';
 import { TabContext, TabList, TabPanel } from '@mui/lab';
 import {
   Alert,
@@ -37,7 +41,9 @@ import {
   ClaimDetailResponse,
   ClaimStatusFieldDef,
   ClaimStatusFieldKey,
+  ClaimStatusGroupDef,
   formatClaimStatusValue,
+  getActiveStatusGroup,
 } from 'utils';
 import { EditableSection } from '../components/claim/EditableSection';
 import { Field } from '../components/Field';
@@ -273,10 +279,12 @@ function ClaimStatusSection({
   claim: ClaimDetailResponse;
   updateStatus: (field: ClaimStatusFieldKey, value: string) => Promise<void>;
 }): ReactElement {
+  const [expanded, setExpanded] = useState(false);
+
   const renderField = (field: ClaimStatusFieldDef): ReactElement => {
     const value = claim.statuses[field.key] ?? '';
     return (
-      <Field key={field.key} label={field.label}>
+      <Field label={field.label}>
         <Select
           size="small"
           fullWidth
@@ -305,44 +313,74 @@ function ClaimStatusSection({
     );
   };
 
-  // AR Stage is the top-level field and stands on its own; the remaining fields are shown in their
-  // conceptual groups (Insurance / Patient / Non-insurance) side by side.
+  const fieldBox = (field: ClaimStatusFieldDef, width = 240): ReactElement => (
+    <Box key={field.key} sx={{ width: { xs: '100%', sm: width } }}>
+      {renderField(field)}
+    </Box>
+  );
+
+  // Inactive groups (revealed when expanded) get a labelled, de-emphasized panel.
+  const renderGroupPanel = (group: ClaimStatusGroupDef): ReactElement => (
+    <Box
+      key={group.key}
+      sx={{ border: '1px solid', borderColor: otherColors.lightDivider, borderRadius: 1, p: 2, pt: 1.5, mb: 1.5 }}
+    >
+      <Typography
+        variant="subtitle2"
+        sx={{
+          textTransform: 'uppercase',
+          letterSpacing: 0.5,
+          color: 'text.secondary',
+          fontSize: 12,
+          fontWeight: 700,
+          mb: 1.5,
+        }}
+      >
+        {group.label}
+      </Typography>
+      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
+        {CLAIM_STATUS_FIELDS.filter((f) => f.group === group.key).map((field) => fieldBox(field))}
+      </Box>
+    </Box>
+  );
+
+  // AR Stage is the top-level field and selects which group's statuses are "active". Those active
+  // statuses sit inline with the AR Stage picker; the other groups are revealed on expand.
   const arStageField = CLAIM_STATUS_FIELDS.find((f) => !f.group);
+  const activeGroup = getActiveStatusGroup(claim.statuses.arStage);
+  const activeFields = activeGroup ? CLAIM_STATUS_FIELDS.filter((f) => f.group === activeGroup.key) : [];
+  const otherGroups = CLAIM_STATUS_GROUPS.filter((g) => g.key !== activeGroup?.key);
 
   return (
     <Card variant="outlined" sx={{ mb: 2, ml: 5 }}>
       <CardContent>
-        <Typography variant="h6" color="primary.dark" fontWeight={600} fontSize={16} sx={{ mb: 2 }}>
-          Claim Status
-        </Typography>
-
-        {arStageField && <Box sx={{ maxWidth: 320, mb: 3 }}>{renderField(arStageField)}</Box>}
-
-        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(3, 1fr)' }, gap: 2 }}>
-          {CLAIM_STATUS_GROUPS.map((group) => (
-            <Box
-              key={group.key}
-              sx={{ border: `1px solid ${otherColors.lightDivider}`, borderRadius: 1, p: 2, pt: 1.5 }}
-            >
-              <Typography
-                variant="subtitle2"
-                sx={{
-                  textTransform: 'uppercase',
-                  letterSpacing: 0.5,
-                  color: 'text.secondary',
-                  fontSize: 12,
-                  fontWeight: 700,
-                  mb: 1.5,
-                }}
-              >
-                {group.label}
-              </Typography>
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                {CLAIM_STATUS_FIELDS.filter((f) => f.group === group.key).map(renderField)}
-              </Box>
-            </Box>
-          ))}
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+          <Typography variant="h6" color="primary.dark" fontWeight={600} fontSize={16}>
+            Claim Status
+          </Typography>
+          <Button
+            size="small"
+            onClick={() => setExpanded((prev) => !prev)}
+            endIcon={expanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+            sx={{ textTransform: 'none' }}
+          >
+            {expanded ? 'Show active only' : 'Show all statuses'}
+          </Button>
         </Box>
+
+        {/* AR Stage + the active group's statuses share one row to keep things compact. */}
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, alignItems: 'flex-start' }}>
+          {arStageField && fieldBox(arStageField, 260)}
+          {activeFields.map((field) => fieldBox(field))}
+        </Box>
+
+        {!activeGroup && (
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 1.5 }}>
+            Select an AR Stage above to see its related statuses{expanded ? '.' : ', or expand to set any status.'}
+          </Typography>
+        )}
+
+        {expanded && otherGroups.length > 0 && <Box sx={{ mt: 2.5 }}>{otherGroups.map(renderGroupPanel)}</Box>}
       </CardContent>
     </Card>
   );
