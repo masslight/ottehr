@@ -139,6 +139,19 @@ const CapacityCell: React.FC<CapacityCellProps> = ({
         }
         setDay({ ...day, hours: tempHours });
       }}
+      onBlur={() => {
+        // Locations persist an integer (prebookSlots). If the user typed a
+        // decimal like "1.2" the upstream value was already rounded to 1 in
+        // onChange — match the display on blur so the input doesn't keep
+        // showing a value that was never saved. Don't run during typing
+        // (would prevent entering multi-digit ints since "1" → "1" → "12"
+        // is fine but mid-decimal "1." would be eaten).
+        if (!isLocation) return;
+        const parsed = Number(rawValue);
+        if (!Number.isFinite(parsed)) return;
+        const rounded = Math.round(parsed);
+        if (String(rounded) !== rawValue) setRawValue(String(rounded));
+      }}
       sx={{ width: '120px' }}
       InputProps={{
         inputProps: {
