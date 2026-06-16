@@ -231,6 +231,9 @@ describe('saving card files from EHR', () => {
     expect(oystehr.fhir).toBeDefined();
     expect(oystehr.zambda).toBeDefined();
   });
+  // Cleanup runs an FHIR batch DELETE plus one Z3 delete per uploaded card.
+  // With several concurrent tests each pushing 2 Z3 objects, the default 30s
+  // hookTimeout can be exceeded on slow nights — give this hook 90s.
   afterAll(async () => {
     if (!oystehr || !processId) {
       throw new Error('oystehr or processId is null! could not clean up!');
@@ -247,7 +250,7 @@ describe('saving card files from EHR', () => {
         console.error('Error deleting z3 object:', error);
       }
     }
-  });
+  }, 90000);
 
   test.concurrent('can save and retrieve primary insurance front and back', async () => {
     if (!oystehr || !processId) {
