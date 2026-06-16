@@ -42,6 +42,15 @@ export const CLAIM_STATUS_TAG_SYSTEMS: Record<ClaimStatusFieldKey, string> = {
   nonInsurancePaidStatus: 'https://ottehr.com/billing/non-insurance-paid-status',
 };
 
+// AR Stage codes. These are both the `code` values of the arStage field's options and each group's
+// `arStageCode`; exported so non-UI callers (e.g. setting AR Stage when creating a claim from an
+// encounter) don't have to hardcode the strings.
+export const AR_STAGE = {
+  insurancePayer: 'insurance-payer-ar',
+  patient: 'patient-ar',
+  nonInsurancePayer: 'non-insurance-payer-ar',
+} as const;
+
 // Conceptual groupings of the status fields. AR Stage stands on its own as the top-level field, so
 // it has no group. The remaining fields cluster by which receivable they track.
 export type ClaimStatusGroupKey = 'insurance' | 'patient' | 'nonInsurance';
@@ -57,12 +66,12 @@ export interface ClaimStatusGroupDef {
 }
 
 export const CLAIM_STATUS_GROUPS: ClaimStatusGroupDef[] = [
-  { key: 'insurance', label: 'Insurance', arStageCode: 'insurance-payer-ar', primaryFieldKey: 'insuranceStatus' },
-  { key: 'patient', label: 'Patient', arStageCode: 'patient-ar', primaryFieldKey: 'patientArStatus' },
+  { key: 'insurance', label: 'Insurance', arStageCode: AR_STAGE.insurancePayer, primaryFieldKey: 'insuranceStatus' },
+  { key: 'patient', label: 'Patient', arStageCode: AR_STAGE.patient, primaryFieldKey: 'patientArStatus' },
   {
     key: 'nonInsurance',
     label: 'Non-insurance',
-    arStageCode: 'non-insurance-payer-ar',
+    arStageCode: AR_STAGE.nonInsurancePayer,
     primaryFieldKey: 'nonInsuranceArStatus',
   },
 ];
@@ -106,9 +115,9 @@ export const CLAIM_STATUS_FIELDS: ClaimStatusFieldDef[] = [
     system: CLAIM_STATUS_TAG_SYSTEMS.arStage,
     defaultCode: null,
     options: [
-      { code: 'insurance-payer-ar', label: 'Insurance Payer AR' },
-      { code: 'patient-ar', label: 'Patient AR' },
-      { code: 'non-insurance-payer-ar', label: 'Non-insurance Payer AR' },
+      { code: AR_STAGE.insurancePayer, label: 'Insurance Payer AR' },
+      { code: AR_STAGE.patient, label: 'Patient AR' },
+      { code: AR_STAGE.nonInsurancePayer, label: 'Non-insurance Payer AR' },
     ],
   },
   {

@@ -1,3 +1,5 @@
+import { AR_STAGE } from 'utils';
+
 export const CLAIM_STATUS_COLORS: Record<string, 'warning' | 'info' | 'error' | 'success' | 'primary' | 'default'> = {
   open: 'warning',
   sent: 'info',
@@ -35,9 +37,9 @@ const CLAIM_STATUS_VALUE_COLORS: Record<string, ClaimStatusChipColor> = {
   denied: 'error',
   rejected: 'error',
   // AR stage
-  'insurance-payer-ar': 'info',
-  'patient-ar': 'primary',
-  'non-insurance-payer-ar': 'warning',
+  [AR_STAGE.insurancePayer]: 'info',
+  [AR_STAGE.patient]: 'primary',
+  [AR_STAGE.nonInsurancePayer]: 'warning',
   // neutral defaults
   unpaid: 'default',
   'not-invoiced': 'default',

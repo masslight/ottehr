@@ -32,6 +32,8 @@ import {
 import { DateTime } from 'luxon';
 import {
   ACCOUNT_TYPE_CODE_SYSTEM,
+  AR_STAGE,
+  claimStatusValuesToTags,
   CODE_SYSTEM_CMS_PLACE_OF_SERVICE,
   CODE_SYSTEM_CPT_MODIFIER,
   CODE_SYSTEM_OYSTEHR_CLAIM_PROCEDURE_MODIFIER,
@@ -45,6 +47,7 @@ import {
   getCoding,
   getNPIIdentifier,
   getPayerId,
+  getPaymentVariantFromEncounter,
   getSecret,
   getTimezone,
   InternalError,
@@ -54,10 +57,12 @@ import {
   isValidUUID,
   MISSING_REQUEST_SECRETS,
   PARTICIPATION_CODE_SYSTEM,
+  PaymentVariant,
   Secrets,
   SecretsKeys,
   SERVICE_CATEGORY_SYSTEM,
   TIMEZONES,
+  withArStageInitialization,
 } from 'utils';
 import { INVALID_INPUT_ERROR, MISSING_REQUEST_BODY } from 'utils';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
@@ -932,8 +937,23 @@ async function findExistingBillingResources(
   };
 }
 
+// Initial AR Stage for a claim built from an encounter. Precedence (first match wins): the visit's
+// payment selection (employer / insurance / self), then an occupational-medicine visit, then whether
+// any coverage is present. Workers'-comp carries a WC coverage, so it falls out as Insurance Payer AR.
+function determineArStage(resources: ClaimResources): string {
+  const paymentVariant = getPaymentVariantFromEncounter(resources.encounter);
+  if (paymentVariant === PaymentVariant.employer) return AR_STAGE.nonInsurancePayer;
+  if (paymentVariant === PaymentVariant.insurance) return AR_STAGE.insurancePayer;
+  if (paymentVariant === PaymentVariant.selfPay) return AR_STAGE.patient;
+  if (isAppointmentOccupationalMedicine(resources.appointment)) return AR_STAGE.nonInsurancePayer;
+  return resources.coverageRefs.length > 0 ? AR_STAGE.insurancePayer : AR_STAGE.patient;
+}
+
 function buildClaim(resources: ClaimResources): Claim {
   const now = new Date().toISOString().slice(0, 10);
+
+  // AR Stage tag + the stage's auto-initialized progress status (e.g. Insurance Status -> "Created").
+  const claimStatusTags = claimStatusValuesToTags(withArStageInitialization({ arStage: determineArStage(resources) }));
 
   const claim: Claim = {
     resourceType: 'Claim',
@@ -944,6 +964,7 @@ function buildClaim(resources: ClaimResources): Claim {
         getAppointmentTypeCoding(resources.appointment),
         getClaimTypeCoding(),
         ...(resources.billingTags ?? []).map((t) => ({ system: CLAIM_TAG_SYSTEM, code: t })),
+        ...claimStatusTags,
       ],
     },
     type: { coding: [getClaimTypeCoding()] },
