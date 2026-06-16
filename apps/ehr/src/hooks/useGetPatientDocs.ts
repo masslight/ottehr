@@ -9,19 +9,19 @@ import {
   chooseJson,
   CUSTOM_FOLDERS_CATALOG_IDENTIFIER,
   CustomFolderDefinition,
+  getFileNameFromUrl,
   getMimeType,
   getPresignedURL,
   isCustomFolderList,
   isSyntheticFolderId,
   makeSyntheticFolderId,
   parseCustomFoldersCatalogIncludingDeleted,
+  PATIENT_FOLDERS_CODE,
 } from 'utils';
 import { useSuccessQuery } from 'utils/lib/frontend';
 import { safelyCaptureMessage } from 'utils/lib/frontend/sentry';
 import { parseFileExtension } from '../helpers/files.helper';
 import { useApiClients } from './useAppClients';
-
-const PATIENT_FOLDERS_CODE = 'patient-docs-folder';
 
 const CREATE_PATIENT_UPLOAD_DOCUMENT_URL_ZAMBDA_ID = 'create-upload-document-url';
 
@@ -548,11 +548,6 @@ const useSearchPatientDocuments = (
 };
 
 const extractDocumentAttachments = (docRef: DocumentReference): PatientDocumentAttachment[] => {
-  const getFileNameFromUrl = (url: string | undefined): string | undefined => {
-    if (!url) return;
-    const parsedUrl = new URL(url);
-    return parsedUrl.pathname.split('/').pop() || '';
-  };
   return docRef.content
     ?.map((docRefContent) => docRefContent?.attachment)
     ?.map((docRefAttachment) => {

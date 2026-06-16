@@ -14,6 +14,7 @@ import {
   OTTEHR_MODULE,
   parseSyntheticFolderId,
   replaceOperation,
+  sanitizeFileNameForZ3,
   Secrets,
 } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
@@ -350,8 +351,4 @@ function createDocumentReferenceRequest(input: CreateDocRefInput): BatchInputPos
 const resolveDocumentReferenceType = ({ folder }: { folder: List }): CodeableConcept | undefined => {
   console.log(folder);
   return;
-};
-
-const sanitizeFileNameForZ3 = (fileName: string): string => {
-  return fileName.replace(/[^a-zA-Z0-9+!\-_'()\\.@$]/g, '_');
 };

@@ -16,6 +16,7 @@ import {
   DISCHARGE_SUMMARY_CODE,
   EXPORTED_QUESTIONNAIRE_CODE,
   INSURANCE_CARD_CODE,
+  MEDICAL_RECORD_EXPORT_CODE,
   PATIENT_EDUCATION_DOC_TYPE_CODE,
   PATIENT_PHOTO_CODE,
   PHOTO_ID_CARD_CODE,
@@ -549,6 +550,7 @@ export const BUCKET_NAMES = {
   PATIENT_EDUCATION_ADMIN: 'patient-education-admin',
   REPORTS: 'invoiceable-patients-reports',
   CUSTOM_FOLDERS: 'patient-docs-custom-folders',
+  MEDICAL_RECORD_EXPORTS: 'medical-record-exports',
 } as const;
 
 export type BucketName = (typeof BUCKET_NAMES)[keyof typeof BUCKET_NAMES];
@@ -633,6 +635,11 @@ export const FOLDERS_CONFIG: ListConfig[] = [
     title: BUCKET_NAMES.PATIENT_EDUCATION,
     display: 'Patient Education',
     documentTypeCode: PATIENT_EDUCATION_DOC_TYPE_CODE,
+  },
+  {
+    title: BUCKET_NAMES.MEDICAL_RECORD_EXPORTS,
+    display: 'Medical Records',
+    documentTypeCode: MEDICAL_RECORD_EXPORT_CODE,
   },
 ];
 

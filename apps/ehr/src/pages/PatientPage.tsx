@@ -15,6 +15,7 @@ import { FullNameDisplay } from 'src/features/visits/shared/components/patient/i
 import { IdentifiersRow } from 'src/features/visits/shared/components/patient/info/IdentifiersRow';
 import Summary from 'src/features/visits/shared/components/patient/info/Summary';
 import { PatientFollowupEncountersGrid } from 'src/features/visits/shared/components/patient/PatientFollowupEncountersGrid';
+import { useDownloadMedicalRecord } from 'src/hooks/useDownloadMedicalRecord';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import { useGetActiveMergeTask } from 'src/hooks/useGetPatient';
 import { getFirstName, getLastName, RoleType } from 'utils';
@@ -46,6 +47,8 @@ export default function PatientPage(): JSX.Element {
   const isAdmin = currentUser?.hasRole([RoleType.Administrator]) ?? false;
 
   const { loading, patient, duplicatePatients } = useGetPatient(id);
+
+  const { downloadMedicalRecord, isDownloading: isDownloadingMedicalRecord } = useDownloadMedicalRecord(id);
 
   const queryClient = useQueryClient();
   const { data: mergeTaskData, refetch: refetchMergeTask } = useGetActiveMergeTask(id);
@@ -186,6 +189,13 @@ export default function PatientPage(): JSX.Element {
                 <>
                   <RoundedButton sx={{ width: '100%' }} to={`/patient/${id}/docs`}>
                     Review Docs
+                  </RoundedButton>
+                  <RoundedButton
+                    sx={{ width: '100%' }}
+                    loading={isDownloadingMedicalRecord}
+                    onClick={downloadMedicalRecord}
+                  >
+                    Medical Record
                   </RoundedButton>
                   <RoundedButton sx={{ width: '100%' }} onClick={() => setShowAccountSettingsDialog(true)}>
                     Account Settings

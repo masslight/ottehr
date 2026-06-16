@@ -24,6 +24,7 @@ import {
   flattenQuestionnaireAnswers,
   getCoding,
   PARTICIPATION_CODE_SYSTEM,
+  PATIENT_FOLDERS_CODE,
   PATIENT_RECORD_QUESTIONNAIRE,
   PRIVATE_EXTENSION_BASE_URL,
   Secrets,
@@ -449,7 +450,7 @@ export async function performMerge(input: PerformMergeInput, oystehr: Oystehr, m
         resourceType: 'List',
         params: [
           { name: 'subject', value: oldPatientRef },
-          { name: 'code', value: 'patient-docs-folder' },
+          { name: 'code', value: PATIENT_FOLDERS_CODE },
           { name: '_count', value: '100' },
         ],
       })
@@ -459,7 +460,7 @@ export async function performMerge(input: PerformMergeInput, oystehr: Oystehr, m
         resourceType: 'List',
         params: [
           { name: 'subject', value: newPatientRef },
-          { name: 'code', value: 'patient-docs-folder' },
+          { name: 'code', value: PATIENT_FOLDERS_CODE },
           { name: '_count', value: '100' },
         ],
       })
