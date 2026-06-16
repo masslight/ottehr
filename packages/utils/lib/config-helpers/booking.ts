@@ -46,17 +46,22 @@ export const serviceCategorySupportsContext = (
   const isBookingConfig = sc.source === 'booking-config';
   const modes = sc.serviceModes ?? [];
   const types = sc.visitTypes ?? [];
-  // Pass undefined to skip a dimension — e.g., the picker page knows
-  // visit type from the URL but not mode (mode is implied by the slot
-  // owner, resolved downstream). Skipping isn't the same as "no filter"
-  // for that dimension on the source: an untagged BOOKING_CONFIG entry
-  // still passes via the empty-arrays-mean-all rule, an empty-arrays
-  // FHIR entry is still excluded as misconfigured.
-  const modesOk =
-    serviceMode === undefined || modes.includes(serviceMode as any) || (isBookingConfig && modes.length === 0);
-  const typesOk =
-    visitType === undefined || types.includes(visitType as any) || (isBookingConfig && types.length === 0);
-  return modesOk && typesOk;
+  // Per-dimension rule. Pass `undefined` to skip filtering on that
+  // dimension — e.g. the picker knows visit type from the URL but not
+  // mode (mode is resolved downstream by the slot owner). Skipping is
+  // NOT the same as "ignore the entry's tagging for this dimension":
+  //   - Untagged BOOKING_CONFIG entries still pass via the empty-arrays-
+  //     mean-supports-all rule (legacy contract pre-dating tagging).
+  //   - Empty-arrays FHIR entries are excluded as misconfigured even on
+  //     a skipped dimension — including them anyway would let the picker
+  //     show a category the patient could pick but never actually book
+  //     (the downstream booking flow needs at least one valid mode).
+  const supportsDimension = (dimension: string | undefined, tags: string[]): boolean => {
+    if (isBookingConfig && tags.length === 0) return true;
+    if (tags.length === 0) return false;
+    return dimension === undefined || tags.includes(dimension as any);
+  };
+  return supportsDimension(serviceMode, modes) && supportsDimension(visitType, types);
 };
 
 /**
