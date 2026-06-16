@@ -33,7 +33,9 @@ import {
   chooseJson,
   CLAIM_STATUS_FIELDS,
   CLAIM_STATUS_FIELDS_BY_KEY,
+  CLAIM_STATUS_GROUPS,
   ClaimDetailResponse,
+  ClaimStatusFieldDef,
   ClaimStatusFieldKey,
   formatClaimStatusValue,
 } from 'utils';
@@ -192,6 +194,8 @@ export default function ClaimDetail(): ReactElement {
         <TagAdder claimId={claim.id} oystehrZambda={oystehrZambda} onAdded={fetchDetail} existingTags={claim.tags} />
       </Box>
 
+      <ClaimStatusSection claim={claim} updateStatus={updateStatus} />
+
       <Card variant="outlined" sx={{ mb: 2, ml: 5 }}>
         <CardContent sx={{ py: 1.5, '&:last-child': { pb: 1.5 } }}>
           <Box sx={{ display: 'flex', gap: 4, flexWrap: 'wrap', alignItems: 'flex-end' }}>
@@ -227,7 +231,6 @@ export default function ClaimDetail(): ReactElement {
           </TabList>
 
           <TabPanel value="1" sx={{ px: 0, pt: 2 }}>
-            <ClaimStatusSection claim={claim} updateStatus={updateStatus} />
             <PatientSection claim={claim} updateResource={updateResource} />
             <InsuranceSection claim={claim} updateResource={updateResource} />
             {claim.secondaryPayerName && (
@@ -270,44 +273,75 @@ function ClaimStatusSection({
   claim: ClaimDetailResponse;
   updateStatus: (field: ClaimStatusFieldKey, value: string) => Promise<void>;
 }): ReactElement {
+  const renderField = (field: ClaimStatusFieldDef): ReactElement => {
+    const value = claim.statuses[field.key] ?? '';
+    return (
+      <Field key={field.key} label={field.label}>
+        <Select
+          size="small"
+          fullWidth
+          displayEmpty
+          value={value}
+          onChange={(e) => void updateStatus(field.key, e.target.value)}
+          renderValue={
+            value
+              ? () => formatClaimStatusValue(field, value)
+              : () => (
+                  <Box component="span" sx={{ color: 'text.disabled' }}>
+                    None
+                  </Box>
+                )
+          }
+        >
+          {/* Nullable fields can be cleared back to their null/default state. */}
+          {field.defaultCode === null && <MenuItem value="">None</MenuItem>}
+          {field.options.map((o) => (
+            <MenuItem key={o.code} value={o.code}>
+              {o.label}
+            </MenuItem>
+          ))}
+        </Select>
+      </Field>
+    );
+  };
+
+  // AR Stage is the top-level field and stands on its own; the remaining fields are shown in their
+  // conceptual groups (Insurance / Patient / Non-insurance) side by side.
+  const arStageField = CLAIM_STATUS_FIELDS.find((f) => !f.group);
+
   return (
-    <Card variant="outlined" sx={{ mb: 2 }}>
+    <Card variant="outlined" sx={{ mb: 2, ml: 5 }}>
       <CardContent>
-        <Typography variant="h6" color="primary.dark" fontWeight={600} fontSize={16} sx={{ mb: 1.5 }}>
+        <Typography variant="h6" color="primary.dark" fontWeight={600} fontSize={16} sx={{ mb: 2 }}>
           Claim Status
         </Typography>
-        <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2.25, maxWidth: 680 }}>
-          {CLAIM_STATUS_FIELDS.map((field) => {
-            const value = claim.statuses[field.key] ?? '';
-            return (
-              <Field key={field.key} label={field.label}>
-                <Select
-                  size="small"
-                  fullWidth
-                  displayEmpty
-                  value={value}
-                  onChange={(e) => void updateStatus(field.key, e.target.value)}
-                  renderValue={
-                    value
-                      ? () => formatClaimStatusValue(field, value)
-                      : () => (
-                          <Box component="span" sx={{ color: 'text.disabled' }}>
-                            None
-                          </Box>
-                        )
-                  }
-                >
-                  {/* Nullable fields can be cleared back to their null/default state. */}
-                  {field.defaultCode === null && <MenuItem value="">None</MenuItem>}
-                  {field.options.map((o) => (
-                    <MenuItem key={o.code} value={o.code}>
-                      {o.label}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </Field>
-            );
-          })}
+
+        {arStageField && <Box sx={{ maxWidth: 320, mb: 3 }}>{renderField(arStageField)}</Box>}
+
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(3, 1fr)' }, gap: 2 }}>
+          {CLAIM_STATUS_GROUPS.map((group) => (
+            <Box
+              key={group.key}
+              sx={{ border: `1px solid ${otherColors.lightDivider}`, borderRadius: 1, p: 2, pt: 1.5 }}
+            >
+              <Typography
+                variant="subtitle2"
+                sx={{
+                  textTransform: 'uppercase',
+                  letterSpacing: 0.5,
+                  color: 'text.secondary',
+                  fontSize: 12,
+                  fontWeight: 700,
+                  mb: 1.5,
+                }}
+              >
+                {group.label}
+              </Typography>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                {CLAIM_STATUS_FIELDS.filter((f) => f.group === group.key).map(renderField)}
+              </Box>
+            </Box>
+          ))}
         </Box>
       </CardContent>
     </Card>

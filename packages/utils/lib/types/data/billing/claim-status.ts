@@ -42,6 +42,21 @@ export const CLAIM_STATUS_TAG_SYSTEMS: Record<ClaimStatusFieldKey, string> = {
   nonInsurancePaidStatus: 'https://ottehr.com/billing/non-insurance-paid-status',
 };
 
+// Conceptual groupings of the status fields. AR Stage stands on its own as the top-level field, so
+// it has no group. The remaining fields cluster by which receivable they track.
+export type ClaimStatusGroupKey = 'insurance' | 'patient' | 'nonInsurance';
+
+export interface ClaimStatusGroupDef {
+  key: ClaimStatusGroupKey;
+  label: string;
+}
+
+export const CLAIM_STATUS_GROUPS: ClaimStatusGroupDef[] = [
+  { key: 'insurance', label: 'Insurance' },
+  { key: 'patient', label: 'Patient' },
+  { key: 'nonInsurance', label: 'Non-insurance' },
+];
+
 export interface ClaimStatusOption {
   code: string;
   label: string;
@@ -57,6 +72,8 @@ export interface ClaimStatusFieldDef {
    * blank and exposes a "None" choice so users can clear it back to the null state.
    */
   defaultCode: string | null;
+  // Conceptual group this field belongs to, or undefined for the standalone AR Stage field.
+  group?: ClaimStatusGroupKey;
 }
 
 // Paid-status options are shared by the three "...Paid Status" fields.
@@ -82,6 +99,7 @@ export const CLAIM_STATUS_FIELDS: ClaimStatusFieldDef[] = [
     key: 'insuranceStatus',
     label: 'Insurance Status',
     system: CLAIM_STATUS_TAG_SYSTEMS.insuranceStatus,
+    group: 'insurance',
     defaultCode: null,
     options: [
       { code: 'created', label: 'Created' },
@@ -94,6 +112,7 @@ export const CLAIM_STATUS_FIELDS: ClaimStatusFieldDef[] = [
     key: 'insurancePaidStatus',
     label: 'Insurance Paid Status',
     system: CLAIM_STATUS_TAG_SYSTEMS.insurancePaidStatus,
+    group: 'insurance',
     defaultCode: 'unpaid',
     options: PAID_STATUS_OPTIONS,
   },
@@ -101,6 +120,7 @@ export const CLAIM_STATUS_FIELDS: ClaimStatusFieldDef[] = [
     key: 'adjudicationStatus',
     label: 'Adjudication Status',
     system: CLAIM_STATUS_TAG_SYSTEMS.adjudicationStatus,
+    group: 'insurance',
     defaultCode: null,
     options: [
       { code: 'approved', label: 'Approved' },
@@ -112,6 +132,7 @@ export const CLAIM_STATUS_FIELDS: ClaimStatusFieldDef[] = [
     key: 'patientArStatus',
     label: 'Patient AR Status',
     system: CLAIM_STATUS_TAG_SYSTEMS.patientArStatus,
+    group: 'patient',
     defaultCode: 'not-invoiced',
     options: [
       { code: 'not-invoiced', label: 'Not invoiced' },
@@ -124,6 +145,7 @@ export const CLAIM_STATUS_FIELDS: ClaimStatusFieldDef[] = [
     key: 'patientPaidStatus',
     label: 'Patient Paid Status',
     system: CLAIM_STATUS_TAG_SYSTEMS.patientPaidStatus,
+    group: 'patient',
     defaultCode: 'unpaid',
     options: PAID_STATUS_OPTIONS,
   },
@@ -131,6 +153,7 @@ export const CLAIM_STATUS_FIELDS: ClaimStatusFieldDef[] = [
     key: 'nonInsuranceArStatus',
     label: 'Non-insurance AR Status',
     system: CLAIM_STATUS_TAG_SYSTEMS.nonInsuranceArStatus,
+    group: 'nonInsurance',
     defaultCode: null,
     options: [
       { code: 'created', label: 'Created' },
@@ -142,6 +165,7 @@ export const CLAIM_STATUS_FIELDS: ClaimStatusFieldDef[] = [
     key: 'nonInsurancePaidStatus',
     label: 'Non-insurance Paid Status',
     system: CLAIM_STATUS_TAG_SYSTEMS.nonInsurancePaidStatus,
+    group: 'nonInsurance',
     defaultCode: 'unpaid',
     options: PAID_STATUS_OPTIONS,
   },
