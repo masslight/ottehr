@@ -4420,6 +4420,23 @@
             "extension": [
               {
                 "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-question",
+                "valueString": "responsible-party-relationship"
+              },
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-operator",
+                "valueString": "="
+              },
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-answer",
+                "valueString": "Self"
+              }
+            ]
+          },
+          {
+            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when",
+            "extension": [
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-question",
                 "valueString": "responsible-party-no-email"
               },
               {
