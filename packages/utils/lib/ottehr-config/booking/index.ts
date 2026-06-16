@@ -234,6 +234,12 @@ const getFormFields = (
               operator: '!=',
               answerBoolean: true,
             },
+            {
+              targetQuestionLinkId: 'patient-no-email',
+              effect: ['filter'],
+              operator: '=',
+              answerBoolean: true,
+            },
           ],
           disabledDisplay: 'hidden',
         },
