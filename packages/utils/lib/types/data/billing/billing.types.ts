@@ -249,3 +249,61 @@ export interface ClaimDetailResponse {
   }[];
   tags: string[];
 }
+
+interface Paginated {
+  total: number;
+  offset: number;
+  pageSize: number;
+}
+
+export interface SearchBillingPatientsResponse extends Paginated {
+  patients: BillingPatientOption[];
+}
+
+export interface SearchBillingClaimsResponse extends Paginated {
+  claims: BillingClaimItem[];
+}
+
+export interface SearchBillingProvidersResponse extends Paginated {
+  providers: BillingProviderOption[];
+}
+
+export interface SearchBillingErasResponse extends Paginated {
+  eras: EraListItem[];
+}
+
+export interface SearchBillingLocationsResponse {
+  locations: BillingLocationOption[];
+}
+
+export interface SearchBillingPayersResponse {
+  payers: BillingPayerOption[];
+}
+
+export interface SearchBillingTagsResponse {
+  tags: BillingTag[];
+}
+
+export interface GetPatientCoveragesResponse {
+  coverages: BillingCoverageOption[];
+}
+
+export interface CreatedResourceResponse {
+  id: string;
+}
+
+export interface SavedResourceResponse {
+  id: string | undefined;
+}
+
+export interface DeletedResponse {
+  deleted: true;
+}
+
+export interface TaggedClaimResponse {
+  ok: true;
+}
+
+export interface CreatedClaimResponse {
+  claimId: string;
+}
