@@ -56,10 +56,10 @@ export const serviceCategorySupportsContext = (
   //     a skipped dimension — including them anyway would let the picker
   //     show a category the patient could pick but never actually book
   //     (the downstream booking flow needs at least one valid mode).
-  const supportsDimension = (dimension: string | undefined, tags: string[]): boolean => {
+  const supportsDimension = (dimension: string | undefined, tags: readonly string[]): boolean => {
     if (isBookingConfig && tags.length === 0) return true;
     if (tags.length === 0) return false;
-    return dimension === undefined || tags.includes(dimension as any);
+    return dimension === undefined || tags.some((t) => t === dimension);
   };
   return supportsDimension(serviceMode, modes) && supportsDimension(visitType, types);
 };
