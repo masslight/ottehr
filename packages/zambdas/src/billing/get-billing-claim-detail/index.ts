@@ -121,8 +121,6 @@ async function performEffect(oystehr: Oystehr, params: GetClaimDetailParams): Pr
     status,
     statuses: getClaimStatusValues(claim),
     created: claim.created ?? '',
-    billingType: sortedInsurance.length ? 'Insurance Pay' : 'Self Pay',
-    billableStatus: claim.status === 'entered-in-error' ? 'Not Billable' : 'Billable',
     patientName: fhirName(patient),
     patientDob: patient?.birthDate ?? '',
     patientGender: patient?.gender ?? '',

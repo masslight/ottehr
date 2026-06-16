@@ -3,6 +3,8 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { randomUUID } from 'crypto';
 import { Claim, Coverage, Location, Organization, Patient, Person, Practitioner, Resource } from 'fhir/r4b';
 import {
+  ClaimStatusValues,
+  claimStatusValuesToTags,
   CODE_SYSTEM_CLAIM_TYPE,
   CODE_SYSTEM_CMS_PLACE_OF_SERVICE,
   CODE_SYSTEM_HCPCS,
@@ -13,6 +15,7 @@ import {
   FHIR_RESOURCE_NOT_FOUND,
   getResourcesFromBatchInlineRequests,
   InternalError,
+  withArStageInitialization,
 } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import {
@@ -205,10 +208,15 @@ function applyTinOverride(
 function buildClaim(copies: OriginalResources, params: CreateClaimParams): Claim {
   const now = new Date().toISOString().slice(0, 10);
 
+  // Status indicators chosen at creation, with the AR stage's progress status auto-initialized.
+  const statusTags = claimStatusValuesToTags(
+    withArStageInitialization((params.statuses ?? {}) as Partial<ClaimStatusValues>)
+  );
+
   const claim: Claim = {
     resourceType: 'Claim',
     status: 'draft',
-    meta: { tag: [{ system: CURRENT_STATUS_TAG_SYSTEM, code: 'open' }] },
+    meta: { tag: [{ system: CURRENT_STATUS_TAG_SYSTEM, code: 'open' }, ...statusTags] },
     type: { coding: [{ system: CODE_SYSTEM_CLAIM_TYPE, code: 'professional' }] },
     use: 'claim',
     created: now,

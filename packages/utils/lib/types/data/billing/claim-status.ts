@@ -223,3 +223,25 @@ export function isValidClaimStatusValue(field: ClaimStatusFieldDef, code: string
   if (code == null || code === '') return true;
   return field.options.some((o) => o.code === code);
 }
+
+// Apply the "entering an AR stage initializes that stage's progress status" rule to a set of status
+// values (used at claim creation and when picking an AR Stage). No-op if the progress status is set.
+export function withArStageInitialization(values: Partial<ClaimStatusValues>): Partial<ClaimStatusValues> {
+  const group = getActiveStatusGroup(values.arStage);
+  if (!group || values[group.primaryFieldKey]) return values;
+  const firstValue = CLAIM_STATUS_FIELDS_BY_KEY[group.primaryFieldKey].options[0]?.code;
+  if (!firstValue) return values;
+  return { ...values, [group.primaryFieldKey]: firstValue };
+}
+
+// Convert a set of status values into Claim meta.tag Codings, skipping None/empty and invalid values.
+export function claimStatusValuesToTags(values: Partial<ClaimStatusValues>): { system: string; code: string }[] {
+  const tags: { system: string; code: string }[] = [];
+  for (const field of CLAIM_STATUS_FIELDS) {
+    const code = values[field.key];
+    if (code && isValidClaimStatusValue(field, code)) {
+      tags.push({ system: field.system, code });
+    }
+  }
+  return tags;
+}

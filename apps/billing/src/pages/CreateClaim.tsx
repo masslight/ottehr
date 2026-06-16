@@ -19,7 +19,13 @@ import {
   BillingPatientOption,
   BillingProviderOption,
   chooseJson,
+  CLAIM_STATUS_FIELD_KEYS,
+  CLAIM_STATUS_FIELDS_BY_KEY,
+  ClaimStatusFieldKey,
+  ClaimStatusValues,
+  getActiveStatusGroup,
 } from 'utils';
+import { ClaimStatusFields } from '../components/claim/ClaimStatusFields';
 import { useApiClients } from '../hooks/useAppClients';
 
 interface ServiceLine {
@@ -69,6 +75,9 @@ export default function CreateClaim(): ReactElement {
   const [diagnoses, setDiagnoses] = useState<string[]>([]);
   const [dxInput, setDxInput] = useState('');
   const [serviceLines, setServiceLines] = useState<ServiceLine[]>([{ ...emptyLine }]);
+  const [statuses, setStatuses] = useState<ClaimStatusValues>(
+    () => Object.fromEntries(CLAIM_STATUS_FIELD_KEYS.map((k) => [k, ''])) as ClaimStatusValues
+  );
 
   // Override fields — populated from selection, editable by user
   const [patientFirstName, setPatientFirstName] = useState('');
@@ -193,10 +202,24 @@ export default function CreateClaim(): ReactElement {
     setServiceLines(updated);
   };
 
-  const canSave = selectedPatient && dateOfService;
+  const handleStatusChange = (field: ClaimStatusFieldKey, value: string): void => {
+    setStatuses((prev) => {
+      const next = { ...prev, [field]: value };
+      // Mirror the server rule: entering an AR Stage initializes that stage's progress status.
+      if (field === 'arStage' && value) {
+        const group = getActiveStatusGroup(value);
+        if (group && !next[group.primaryFieldKey]) {
+          next[group.primaryFieldKey] = CLAIM_STATUS_FIELDS_BY_KEY[group.primaryFieldKey].options[0]?.code ?? '';
+        }
+      }
+      return next;
+    });
+  };
+
+  const canSave = selectedPatient && dateOfService && statuses.arStage;
 
   const handleSave = async (): Promise<void> => {
-    if (!oystehrZambda || !selectedPatient || !dateOfService) return;
+    if (!oystehrZambda || !selectedPatient || !dateOfService || !statuses.arStage) return;
     setSaving(true);
     setError(null);
     try {
@@ -271,6 +294,9 @@ export default function CreateClaim(): ReactElement {
         }));
       }
 
+      const statusEntries = Object.entries(statuses).filter(([, v]) => v);
+      if (statusEntries.length) payload.statuses = Object.fromEntries(statusEntries);
+
       const res = await oystehrZambda.zambda.execute({ id: 'create-billing-claim', ...payload });
       const data = chooseJson(res);
       if (data?.claimId) navigate(`/claims/${data.claimId}`);
@@ -338,6 +364,12 @@ export default function CreateClaim(): ReactElement {
           />
         </Box>
       </FormSection>
+
+      <Divider />
+
+      <Box sx={{ py: 2.5 }}>
+        <ClaimStatusFields values={statuses} onChange={handleStatusChange} requireArStage title="Claim Status" />
+      </Box>
 
       <Divider />
 

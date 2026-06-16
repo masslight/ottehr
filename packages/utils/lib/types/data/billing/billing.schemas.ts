@@ -191,6 +191,9 @@ export const CreateBillingClaimInputSchema = z.object({
     .optional(),
   diagnoses: z.array(claimDiagnosisSchema).optional(),
   serviceLines: z.array(claimServiceLineSchema).optional(),
+  // Initial claim status indicators keyed by ClaimStatusFieldKey. Unknown keys / invalid values are
+  // ignored when written; AR Stage's progress status is auto-initialized server-side.
+  statuses: z.record(z.string()).optional(),
 });
 
 const billingProviderRole = z.enum(['billing', 'rendering']);

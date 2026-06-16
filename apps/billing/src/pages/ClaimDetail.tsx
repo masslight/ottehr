@@ -1,8 +1,4 @@
-import {
-  ArrowBack as ArrowBackIcon,
-  ExpandLess as ExpandLessIcon,
-  ExpandMore as ExpandMoreIcon,
-} from '@mui/icons-material';
+import { ArrowBack as ArrowBackIcon } from '@mui/icons-material';
 import { TabContext, TabList, TabPanel } from '@mui/lab';
 import {
   Alert,
@@ -35,16 +31,12 @@ import {
   BillingProviderOption,
   BillingTag,
   chooseJson,
-  CLAIM_STATUS_FIELDS,
   CLAIM_STATUS_FIELDS_BY_KEY,
-  CLAIM_STATUS_GROUPS,
   ClaimDetailResponse,
-  ClaimStatusFieldDef,
   ClaimStatusFieldKey,
-  ClaimStatusGroupDef,
   formatClaimStatusValue,
-  getActiveStatusGroup,
 } from 'utils';
+import { ClaimStatusFields } from '../components/claim/ClaimStatusFields';
 import { EditableSection } from '../components/claim/EditableSection';
 import { Field } from '../components/Field';
 import { claimStatusValueColor } from '../constants/claimStatus';
@@ -174,8 +166,6 @@ export default function ClaimDetail(): ReactElement {
             <Meta label="Date of Service" value={dos} />
             <Meta label="Claim ID" value={claim.id.slice(0, 8)} />
             <Meta label="Patient DOB" value={claim.patientDob} />
-            <Meta label="Billing Type" value={claim.billingType} />
-            <Meta label="Billable Status" value={claim.billableStatus} />
           </Box>
         </Box>
       </Box>
@@ -200,7 +190,11 @@ export default function ClaimDetail(): ReactElement {
         <TagAdder claimId={claim.id} oystehrZambda={oystehrZambda} onAdded={fetchDetail} existingTags={claim.tags} />
       </Box>
 
-      <ClaimStatusSection claim={claim} updateStatus={updateStatus} />
+      <Card variant="outlined" sx={{ mb: 2, ml: 5 }}>
+        <CardContent>
+          <ClaimStatusFields values={claim.statuses} onChange={updateStatus} title="Claim Status" />
+        </CardContent>
+      </Card>
 
       <Card variant="outlined" sx={{ mb: 2, ml: 5 }}>
         <CardContent sx={{ py: 1.5, '&:last-child': { pb: 1.5 } }}>
@@ -269,120 +263,6 @@ export default function ClaimDetail(): ReactElement {
         </TabContext>
       </Box>
     </Box>
-  );
-}
-
-function ClaimStatusSection({
-  claim,
-  updateStatus,
-}: {
-  claim: ClaimDetailResponse;
-  updateStatus: (field: ClaimStatusFieldKey, value: string) => Promise<void>;
-}): ReactElement {
-  const [expanded, setExpanded] = useState(false);
-
-  const renderField = (field: ClaimStatusFieldDef): ReactElement => {
-    const value = claim.statuses[field.key] ?? '';
-    return (
-      <Field label={field.label}>
-        <Select
-          size="small"
-          fullWidth
-          displayEmpty
-          value={value}
-          onChange={(e) => void updateStatus(field.key, e.target.value)}
-          renderValue={
-            value
-              ? () => formatClaimStatusValue(field, value)
-              : () => (
-                  <Box component="span" sx={{ color: 'text.disabled' }}>
-                    None
-                  </Box>
-                )
-          }
-        >
-          {/* Nullable fields can be cleared back to their null/default state. */}
-          {field.defaultCode === null && <MenuItem value="">None</MenuItem>}
-          {field.options.map((o) => (
-            <MenuItem key={o.code} value={o.code}>
-              {o.label}
-            </MenuItem>
-          ))}
-        </Select>
-      </Field>
-    );
-  };
-
-  const fieldBox = (field: ClaimStatusFieldDef, width = 240): ReactElement => (
-    <Box key={field.key} sx={{ width: { xs: '100%', sm: width } }}>
-      {renderField(field)}
-    </Box>
-  );
-
-  // Inactive groups (revealed when expanded) get a labelled, de-emphasized panel.
-  const renderGroupPanel = (group: ClaimStatusGroupDef): ReactElement => (
-    <Box
-      key={group.key}
-      sx={{ border: '1px solid', borderColor: otherColors.lightDivider, borderRadius: 1, p: 2, pt: 1.5, mb: 1.5 }}
-    >
-      <Typography
-        variant="subtitle2"
-        sx={{
-          textTransform: 'uppercase',
-          letterSpacing: 0.5,
-          color: 'text.secondary',
-          fontSize: 12,
-          fontWeight: 700,
-          mb: 1.5,
-        }}
-      >
-        {group.label}
-      </Typography>
-      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
-        {CLAIM_STATUS_FIELDS.filter((f) => f.group === group.key).map((field) => fieldBox(field))}
-      </Box>
-    </Box>
-  );
-
-  // AR Stage is the top-level field and selects which group's statuses are "active". Those active
-  // statuses sit inline with the AR Stage picker; the other groups are revealed on expand.
-  const arStageField = CLAIM_STATUS_FIELDS.find((f) => !f.group);
-  const activeGroup = getActiveStatusGroup(claim.statuses.arStage);
-  const activeFields = activeGroup ? CLAIM_STATUS_FIELDS.filter((f) => f.group === activeGroup.key) : [];
-  const otherGroups = CLAIM_STATUS_GROUPS.filter((g) => g.key !== activeGroup?.key);
-
-  return (
-    <Card variant="outlined" sx={{ mb: 2, ml: 5 }}>
-      <CardContent>
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-          <Typography variant="h6" color="primary.dark" fontWeight={600} fontSize={16}>
-            Claim Status
-          </Typography>
-          <Button
-            size="small"
-            onClick={() => setExpanded((prev) => !prev)}
-            endIcon={expanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
-            sx={{ textTransform: 'none' }}
-          >
-            {expanded ? 'Show active only' : 'Show all statuses'}
-          </Button>
-        </Box>
-
-        {/* AR Stage + the active group's statuses share one row to keep things compact. */}
-        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, alignItems: 'flex-start' }}>
-          {arStageField && fieldBox(arStageField, 260)}
-          {activeFields.map((field) => fieldBox(field))}
-        </Box>
-
-        {!activeGroup && (
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 1.5 }}>
-            Select an AR Stage above to see its related statuses{expanded ? '.' : ', or expand to set any status.'}
-          </Typography>
-        )}
-
-        {expanded && otherGroups.length > 0 && <Box sx={{ mt: 2.5 }}>{otherGroups.map(renderGroupPanel)}</Box>}
-      </CardContent>
-    </Card>
   );
 }
 

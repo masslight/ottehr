@@ -177,8 +177,6 @@ export interface ClaimDetailResponse {
   status: string;
   statuses: ClaimStatusValues;
   created: string;
-  billingType: string;
-  billableStatus: string;
   patientName: string;
   patientDob: string;
   patientGender: string;
