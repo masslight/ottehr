@@ -13,6 +13,17 @@ vi.mock('browser-image-compression', () => ({
   default: vi.fn(async (file: File) => file),
 }));
 
+// convertHeicToJpegIfNeeded does `await import('heic-to')` on every call; under heavy
+// suite load that dynamic import races past waitFor's default 1000ms timeout. Stub it
+// to a sync passthrough so the test only measures FileInput's compression behavior.
+vi.mock('ui-components', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('ui-components')>();
+  return {
+    ...actual,
+    convertHeicToJpegIfNeeded: vi.fn(async (file: File) => file),
+  };
+});
+
 vi.mock('../../src/hooks/useUCZambdaClient', () => ({
   useUCZambdaClient: () => null,
 }));
