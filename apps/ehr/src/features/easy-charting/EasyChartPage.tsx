@@ -2163,6 +2163,76 @@ function rankMedicationResults(
   return scored.map((s) => s.r);
 }
 
+// Salt/ester/hydrate words that appear in drug product names but are NOT the allergen itself.
+// A query like "sulfa" substring-matches the salt word "sulfate", so eRx surfaces unrelated drugs
+// (e.g. "Amikacin Sulfate Liposome" — an aminoglycoside, not a sulfonamide). We must never CREDIT a
+// match that lands only inside one of these words.
+const ALLERGEN_SALT_WORDS = new Set([
+  'sulfate',
+  'sulfite',
+  'phosphate',
+  'succinate',
+  'acetate',
+  'citrate',
+  'tartrate',
+  'bitartrate',
+  'nitrate',
+  'besylate',
+  'mesylate',
+  'tosylate',
+  'fumarate',
+  'maleate',
+  'malate',
+  'gluconate',
+  'carbonate',
+  'bicarbonate',
+  'hydrochloride',
+  'hydrobromide',
+  'bromide',
+  'chloride',
+  'sodium',
+  'potassium',
+  'calcium',
+  'hydrate',
+  'dihydrate',
+  'monohydrate',
+  'liposome',
+]);
+
+// Rank eRx allergen results so a class/ingredient match wins over an incidental salt-word collision.
+// eRx's allergen search is a plain substring match with no clinical ranking, and the client
+// auto-picks the top hit — so "sulfa" landing on "...Sulfate" charts a wrong (and unsafe) allergy.
+// Score each result by how its NAME tokens match the query terms, never crediting a salt word, and
+// prefer concise class allergens ("Sulfonamide Antibiotics") over long branded products. Returns a
+// new array; original eRx order is the tie-breaker, and nothing is dropped.
+function rankAllergenResults(
+  results: SearchResult[],
+  intent: Extract<EasyChartAgentIntent, { kind: 'add-allergy' }>
+): SearchResult[] {
+  const queries = [intent.display, ...(intent.searchTerms ?? [])].map((q) => q.toLowerCase().trim()).filter(Boolean);
+  if (queries.length === 0) return results;
+  const scored = results.map((r, idx) => {
+    const tokens = (r.name ?? '')
+      .toLowerCase()
+      .split(/[^a-z0-9]+/)
+      .filter(Boolean);
+    let score = 0;
+    for (const q of queries) {
+      for (const tok of tokens) {
+        if (ALLERGEN_SALT_WORDS.has(tok)) continue; // a salt word never counts as the allergen
+        if (tok === q) score += 12;
+        else if (tok.startsWith(q)) score += 8; // "sulfa" → "sulfamethoxazole" / "sulfonamide"
+        else if (tok.includes(q)) score += 3;
+      }
+    }
+    // Tie-break toward concise class/ingredient names over long multi-word product names.
+    score -= Math.min(tokens.length, 6) * 0.5;
+    return { r, score, idx };
+  });
+  scored.sort((a, b) => b.score - a.score || a.idx - b.idx);
+  return scored.map((s) => s.r);
+}
+
 async function runIntentSearch(
   intent: AddSearchIntent,
   oystehr: Oystehr | undefined,
@@ -2215,6 +2285,7 @@ async function runIntentSearch(
     }
   }
   if (intent.kind === 'add-medication') return rankMedicationResults(all, intent);
+  if (intent.kind === 'add-allergy') return rankAllergenResults(all, intent);
   return all;
 }
 
