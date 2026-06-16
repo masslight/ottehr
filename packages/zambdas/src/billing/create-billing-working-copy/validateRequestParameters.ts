@@ -1,10 +1,10 @@
 import {
   CreateBillingWorkingCopyInput,
   CreateBillingWorkingCopyInputSchema,
-  INVALID_INPUT_ERROR,
   MISSING_REQUEST_BODY,
+  MISSING_REQUEST_SECRETS,
 } from 'utils';
-import { formatZodError, ZambdaInput } from '../../shared';
+import { safeValidate, ZambdaInput } from '../../shared';
 import { sanitizeOverrides } from '../shared';
 
 export interface CreateWorkingCopyParams extends CreateBillingWorkingCopyInput {
@@ -13,20 +13,13 @@ export interface CreateWorkingCopyParams extends CreateBillingWorkingCopyInput {
 
 export function validateRequestParameters(input: ZambdaInput): CreateWorkingCopyParams {
   if (!input.body) throw MISSING_REQUEST_BODY;
+  if (!input.secrets) throw MISSING_REQUEST_SECRETS;
 
-  let raw: unknown;
-  try {
-    raw = JSON.parse(input.body);
-  } catch {
-    throw INVALID_INPUT_ERROR('Request body is not valid JSON');
-  }
-
-  const result = CreateBillingWorkingCopyInputSchema.safeParse(raw);
-  if (!result.success) throw INVALID_INPUT_ERROR(formatZodError(result.error));
+  const data = safeValidate(CreateBillingWorkingCopyInputSchema, JSON.parse(input.body));
 
   return {
-    ...result.data,
-    overrides: sanitizeOverrides(result.data.overrides),
+    ...data,
+    overrides: sanitizeOverrides(data.overrides),
     secrets: input.secrets,
   };
 }

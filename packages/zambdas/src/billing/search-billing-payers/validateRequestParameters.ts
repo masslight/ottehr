@@ -1,22 +1,18 @@
-import { INVALID_INPUT_ERROR, SearchBillingPayersInput, SearchBillingPayersInputSchema } from 'utils';
-import { formatZodError, ZambdaInput } from '../../shared';
+import { MISSING_REQUEST_SECRETS, SearchBillingPayersInput, SearchBillingPayersInputSchema } from 'utils';
+import { safeValidate, ZambdaInput } from '../../shared';
 
 export interface SearchBillingPayersParams extends SearchBillingPayersInput {
   secrets: ZambdaInput['secrets'];
 }
 
 export function validateRequestParameters(input: ZambdaInput): SearchBillingPayersParams {
+  if (!input.secrets) throw MISSING_REQUEST_SECRETS;
   if (!input.body) return { secrets: input.secrets };
 
-  let raw: unknown;
-  try {
-    raw = JSON.parse(input.body);
-  } catch {
-    throw INVALID_INPUT_ERROR('Request body is not valid JSON');
-  }
+  const data = safeValidate(SearchBillingPayersInputSchema, JSON.parse(input.body));
 
-  const result = SearchBillingPayersInputSchema.safeParse(raw);
-  if (!result.success) throw INVALID_INPUT_ERROR(formatZodError(result.error));
-
-  return { ...result.data, secrets: input.secrets };
+  return {
+    ...data,
+    secrets: input.secrets,
+  };
 }

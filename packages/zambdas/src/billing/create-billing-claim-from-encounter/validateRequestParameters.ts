@@ -1,0 +1,23 @@
+import {
+  CreateBillingClaimFromEncounterInput,
+  CreateBillingClaimFromEncounterInputSchema,
+  MISSING_REQUEST_BODY,
+  MISSING_REQUEST_SECRETS,
+} from 'utils';
+import { safeValidate, ZambdaInput } from '../../shared';
+
+export interface CreateClaimFromEncounterParams extends CreateBillingClaimFromEncounterInput {
+  secrets: NonNullable<ZambdaInput['secrets']>;
+}
+
+export function validateRequestParameters(input: ZambdaInput): CreateClaimFromEncounterParams {
+  if (!input.body) throw MISSING_REQUEST_BODY;
+  if (!input.secrets) throw MISSING_REQUEST_SECRETS;
+
+  const data = safeValidate(CreateBillingClaimFromEncounterInputSchema, JSON.parse(input.body));
+
+  return {
+    ...data,
+    secrets: input.secrets,
+  };
+}
