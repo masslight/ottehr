@@ -1313,6 +1313,13 @@ type ConvStep =
   | { kind: 'edited-note-text'; user: string; fieldLabel: string }
   | { kind: 'no-match-exam'; user: string; intent: AddExamFindingIntent }
   | { kind: 'choose-exam'; user: string; intent: AddExamFindingIntent; matches: ExamLeaf[] }
+  | {
+      kind: 'choose-ros';
+      user: string;
+      intent: AddRosFindingIntent;
+      finding: 'reports' | 'denies';
+      matches: RosLeaf[];
+    }
   | { kind: 'no-match-exam-remove'; user: string; intent: RemoveExamFindingIntent }
   | {
       kind: 'choose-exam-remove';
@@ -1321,9 +1328,10 @@ type ConvStep =
       matches: ExamRemoveItem[];
     }
   | { kind: 'error'; user: string; reply: string }
-  // Provider chose to skip the current picker without picking. Terminal — advances the plan
-  // cursor with status="skipped" so the running step list shows ⏭.
-  | { kind: 'skipped'; user: string }
+  // Provider chose to skip the current picker without picking, OR nothing matched. Terminal —
+  // advances the plan cursor with status="skipped" so the running step list shows ⏭. `reason`
+  // (optional) explains why when it was an automatic skip (e.g. no good catalog match).
+  | { kind: 'skipped'; user: string; reason?: string }
   // Plan preview: planner has returned a decomposed step list; provider sees it and clicks
   // Approve to kick off execution. Holds the narrative + steps so we can pass them on to
   // setPlan when approved. Not a terminal state in the plan-progression sense — there's no
@@ -1692,7 +1700,10 @@ const EXAM_QUERY_NEGATORS = new Set([
   'abnormalities',
 ]);
 
-function findExamLeafMatches(intent: AddExamFindingIntent, leaves: ExamLeaf[]): ExamLeaf[] {
+function findExamLeafMatchesScored(
+  intent: AddExamFindingIntent,
+  leaves: ExamLeaf[]
+): { leaf: ExamLeaf; score: number }[] {
   // Use only the provider's display phrase — LLM-expanded searchTerms produced too many ties.
   const queryTokens = tokenize(intent.display).filter((tok) => tok.length >= 2 && !EXAM_QUERY_STOPWORDS.has(tok));
   if (queryTokens.length === 0) return [];
@@ -1813,36 +1824,62 @@ function findExamLeafMatches(intent: AddExamFindingIntent, leaves: ExamLeaf[]): 
     .map((leaf) => ({ leaf, score: scoreLeaf(leaf) }))
     .filter((s) => s.score > 0)
     .sort((a, b) => b.score - a.score);
-  return scored.slice(0, 12).map((s) => s.leaf);
+  return scored.slice(0, 12);
+}
+
+function findExamLeafMatches(intent: AddExamFindingIntent, leaves: ExamLeaf[]): ExamLeaf[] {
+  return findExamLeafMatchesScored(intent, leaves).map((s) => s.leaf);
 }
 
 // Match a ROS finding intent (e.g. "Fever") to ROS catalog items by token overlap on the item
 // label (and a weaker signal from the system name). The denies/reports state is on the intent, not
 // matched here.
-function findRosLeafMatches(intent: AddRosFindingIntent, leaves: RosLeaf[]): RosLeaf[] {
+function findRosLeafMatchesScored(intent: AddRosFindingIntent, leaves: RosLeaf[]): { leaf: RosLeaf; score: number }[] {
   const queryStrings = [intent.display, ...(intent.searchTerms ?? [])];
   const queryTokens = new Set(
     queryStrings.flatMap((s) => tokenize(s)).filter((tok) => tok.length >= 3 && !ROS_QUERY_STOPWORDS.has(tok))
   );
   if (queryTokens.size === 0) return [];
-  const scored = leaves
-    .map((leaf) => {
-      // Strip the same modifier stopwords from the label so a match must land on the key symptom
-      // noun, not a generic word like "loss"/"poor"/"changes".
-      const labelTokens = tokenize(leaf.label).filter((t) => !ROS_QUERY_STOPWORDS.has(t));
-      const systemTokens = tokenize(leaf.system);
-      let score = 0;
-      for (const qt of queryTokens) {
-        if (labelTokens.includes(qt)) score += 4;
-        else if (labelTokens.some((lt) => lt.length >= 4 && (lt.startsWith(qt) || qt.startsWith(lt)))) score += 2;
-        if (systemTokens.includes(qt)) score += 1;
-      }
-      return { leaf, score };
-    })
-    // Require a real symptom-token match (>=4) — a lone system-name overlap (score 1) isn't enough.
-    .filter((s) => s.score >= 4)
-    .sort((a, b) => b.score - a.score);
-  return scored.slice(0, 12).map((s) => s.leaf);
+  return (
+    leaves
+      .map((leaf) => {
+        // Strip the same modifier stopwords from the label so a match must land on the key symptom
+        // noun, not a generic word like "loss"/"poor"/"changes".
+        const labelTokens = tokenize(leaf.label).filter((t) => !ROS_QUERY_STOPWORDS.has(t));
+        const systemTokens = tokenize(leaf.system);
+        let score = 0;
+        for (const qt of queryTokens) {
+          if (labelTokens.includes(qt)) score += 4;
+          else if (labelTokens.some((lt) => lt.length >= 4 && (lt.startsWith(qt) || qt.startsWith(lt)))) score += 2;
+          if (systemTokens.includes(qt)) score += 1;
+        }
+        return { leaf, score };
+      })
+      // Require a real symptom-token match (>=4) — a lone system-name overlap (score 1) isn't enough.
+      .filter((s) => s.score >= 4)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 12)
+  );
+}
+
+function findRosLeafMatches(intent: AddRosFindingIntent, leaves: RosLeaf[]): RosLeaf[] {
+  return findRosLeafMatchesScored(intent, leaves).map((s) => s.leaf);
+}
+
+// Decide whether a ranked candidate list is too close to call. Returns the cluster of near-top
+// candidates (>= 2) to offer in a picker, or null when there's an obvious winner (the runner-up
+// scores below AMBIGUITY_RATIO of the top) so the caller should just auto-pick. Used ONLY for
+// interactive follow-up commands.
+const AMBIGUITY_RATIO = 0.75;
+function ambiguousCluster<T>(scored: { leaf: T; score: number }[]): T[] | null {
+  if (scored.length < 2) return null;
+  const top = scored[0].score;
+  if (top <= 0) return null;
+  if (scored[1].score / top < AMBIGUITY_RATIO) return null; // clear best match — auto-pick
+  return scored
+    .filter((s) => s.score / top >= AMBIGUITY_RATIO)
+    .slice(0, 6)
+    .map((s) => s.leaf);
 }
 
 // Build the list of removable exam items from the chart. Plain checkbox observations get one
@@ -3260,7 +3297,11 @@ export default function EasyChartPage(): JSX.Element {
   // Take a classified intent and run the appropriate per-intent path. Used by both the
   // single-shot agent flow and the plan executor — they only differ in how `intent` is
   // produced. `message` is the user-facing label rendered in the conversation header.
-  const dispatchIntent = async (intent: EasyChartAgentIntent, message: string): Promise<void> => {
+  // `interactive` is true only for one-off follow-up commands the provider types after the plan
+  // (handleSend), NOT for plan steps or replayed suggestions. When true, a genuinely ambiguous
+  // structured-finding match (several near-equal candidates) opens a picker instead of auto-picking;
+  // an obvious best match still applies instantly.
+  const dispatchIntent = async (intent: EasyChartAgentIntent, message: string, interactive = false): Promise<void> => {
     if (!oystehrZambda || !encounterId) return;
     if (intent.kind === 'unknown') {
       setConv({ kind: 'unknown', user: message, reply: intent.message });
@@ -3409,7 +3450,8 @@ export default function EasyChartPage(): JSX.Element {
         return;
       }
       if (intent.kind === 'add-exam-finding') {
-        const allMatches = findExamLeafMatches(intent, EXAM_LEAVES);
+        const scoredMatches = findExamLeafMatchesScored(intent, EXAM_LEAVES);
+        const allMatches = scoredMatches.map((s) => s.leaf);
         // Filter out leaves already on the chart — e.g. the AOM Right template already checked
         // "TM bulging, erythematous" on the right side, so re-adding it creates a duplicate.
         // For plain checkbox leaves: skip if any observation with field=leaf.field has value=true.
@@ -3424,12 +3466,13 @@ export default function EasyChartPage(): JSX.Element {
           }
           return existingObs.some((o) => o.field === leaf.field && o.value === true);
         };
-        const remaining = allMatches.filter((m) => !isAlreadyChecked(m));
+        const remainingScored = scoredMatches.filter((s) => !isAlreadyChecked(s.leaf));
+        const remaining = remainingScored.map((s) => s.leaf);
         if (allMatches.length === 0) {
           setConv({ kind: 'no-match-exam', user: message, intent });
         } else if (remaining.length === 0) {
           // Every match is already on the chart — most commonly because a template added it.
-          setConv({ kind: 'skipped', user: message });
+          setConv({ kind: 'skipped', user: message, reason: `“${intent.display}” is already on the exam.` });
         } else if (allMatches[0] && isAlreadyChecked(allMatches[0])) {
           // The TOP-scored match was already on the chart, even if lower-ranked variants
           // weren't. The provider's intent is essentially satisfied — making them pick from
@@ -3437,11 +3480,22 @@ export default function EasyChartPage(): JSX.Element {
           // bulging with loss of light reflex" and the catalog's best match for that, which
           // is on the chart, was removed by dedup; the picker would otherwise fall back to
           // unrelated Left ear options).
-          setConv({ kind: 'skipped', user: message });
+          setConv({
+            kind: 'skipped',
+            user: message,
+            reason: `The closest exam match for “${intent.display}” is already charted.`,
+          });
         } else {
-          // No stopping: auto-pick the top exam-finding match, then flag it for review.
-          const ids = await handleExamPick(remaining[0], message);
-          flagAiObsIds(ids, 'examObservations', remaining[0].label);
+          // Interactive follow-up + genuinely ambiguous (several near-equal matches) → let the
+          // provider pick. Otherwise auto-pick the top match and flag it for review.
+          const cluster = interactive ? ambiguousCluster(remainingScored) : null;
+          if (cluster && cluster.length > 1) {
+            setExamPickSelected(new Set()); // fresh multi-select state for this picker
+            setConv({ kind: 'choose-exam', user: message, intent, matches: cluster });
+          } else {
+            const ids = await handleExamPick(remaining[0], message);
+            flagAiObsIds(ids, 'examObservations', remaining[0].label);
+          }
         }
         return;
       }
@@ -3469,20 +3523,37 @@ export default function EasyChartPage(): JSX.Element {
           : 'reports';
         const symptom = intent.display.replace(/^(denies|reports)\b[:\s-]*/i, '').trim();
         const matchIntent: AddRosFindingIntent = { ...intent, display: symptom || intent.display };
-        const matches = findRosLeafMatches(matchIntent, ROS_LEAVES);
+        const scoredMatches = findRosLeafMatchesScored(matchIntent, ROS_LEAVES);
         // Skip if this exact finding (same item + same denies/reports state) is already charted.
         const obs = chartDataRef.current?.rosObservations ?? [];
         const isCharted = (leaf: RosLeaf): boolean => {
           const fk = rosField(leaf.baseKey, finding === 'denies' ? RosFindingState.Denies : RosFindingState.Reports);
           return obs.some((o) => o.field === fk && o.value === true);
         };
-        const remaining = matches.filter((m) => !isCharted(m));
-        if (matches.length === 0 || remaining.length === 0) {
-          setConv({ kind: 'skipped', user: message });
+        const remainingScored = scoredMatches.filter((s) => !isCharted(s.leaf));
+        const symptomLabel = symptom || intent.display;
+        if (scoredMatches.length === 0) {
+          setConv({
+            kind: 'skipped',
+            user: message,
+            reason: `I couldn't find a Review of Systems option that matches “${symptomLabel}”.`,
+          });
+        } else if (remainingScored.length === 0) {
+          setConv({
+            kind: 'skipped',
+            user: message,
+            reason: `“${symptomLabel}” is already on the Review of Systems.`,
+          });
         } else {
-          // No stopping: auto-pick the top ROS item match, then flag it for review.
-          const ids = await handleRosPick(remaining[0], finding, message);
-          flagAiObsIds(ids, 'rosObservations', remaining[0].label);
+          // Interactive follow-up + genuinely ambiguous (several near-equal matches) → let the
+          // provider pick. Otherwise auto-pick the top match and flag it for review.
+          const cluster = interactive ? ambiguousCluster(remainingScored) : null;
+          if (cluster && cluster.length > 1) {
+            setConv({ kind: 'choose-ros', user: message, intent: matchIntent, finding, matches: cluster });
+          } else {
+            const ids = await handleRosPick(remainingScored[0].leaf, finding, message);
+            flagAiObsIds(ids, 'rosObservations', remainingScored[0].leaf.label);
+          }
         }
         return;
       }
@@ -3570,7 +3641,9 @@ export default function EasyChartPage(): JSX.Element {
       searchTerms: [text],
     } as EasyChartAgentIntent;
     setPickerRefineText('');
-    void dispatchIntent(augmented, userMsg);
+    // Refining happens inside an already-interactive picker, so keep interactive mode: a still-
+    // ambiguous refined query re-prompts rather than silently auto-picking.
+    void dispatchIntent(augmented, userMsg, true);
   };
 
   const handleSend = async (): Promise<void> => {
@@ -3597,7 +3670,7 @@ export default function EasyChartPage(): JSX.Element {
         return;
       }
       const { intent } = await easyChartAgent(oystehrZambda, { message, noteContext });
-      await dispatchIntent(intent, message);
+      await dispatchIntent(intent, message, true);
     } catch (e) {
       console.error('Send failed:', e);
       setConv({ kind: 'error', user: message, reply: 'Something went wrong. Please try again.' });
@@ -4854,8 +4927,33 @@ export default function EasyChartPage(): JSX.Element {
       )}
       {conv.kind === 'skipped' && (
         <Typography variant="body2" sx={{ mt: 0.5, color: 'text.secondary' }}>
-          Skipped.
+          {conv.reason ? `Skipped — ${conv.reason}` : 'Skipped.'}
         </Typography>
+      )}
+      {conv.kind === 'choose-ros' && (
+        <>
+          <Typography variant="body2" sx={{ mt: 0.5 }}>
+            A few Review of Systems options match &ldquo;{conv.intent.display}&rdquo;. Which did you mean?
+          </Typography>
+          {renderPickerActions(conv.intent)}
+          <List dense sx={{ mt: 0.5 }}>
+            {conv.matches.map((m, i) => (
+              <ListItemButton
+                key={`${m.baseKey}-${i}`}
+                onClick={() => {
+                  void handleRosPick(m, conv.finding, conv.user);
+                }}
+              >
+                <ListItemText
+                  primary={`${conv.finding === 'denies' ? 'Denies' : 'Reports'} ${m.label}`}
+                  secondary={m.system}
+                  primaryTypographyProps={{ variant: 'body2' }}
+                  secondaryTypographyProps={{ variant: 'caption' }}
+                />
+              </ListItemButton>
+            ))}
+          </List>
+        </>
       )}
       {conv.kind === 'error' && (
         <Typography variant="body2" color="error" sx={{ mt: 0.5 }}>
