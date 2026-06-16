@@ -96,6 +96,7 @@ const KIND_VALUES = [
   'edit-note-text',
   'add-exam-finding',
   'remove-exam-finding',
+  'add-ros-finding',
 ] as const;
 
 const NOTE_TEXT_FIELDS = [
@@ -122,6 +123,7 @@ const RESPONSE_SCHEMA = {
         code: { type: 'string' },
         message: { type: 'string' },
         procedureMatch: { type: 'string' },
+        finding: { type: 'string', enum: ['reports', 'denies'] },
         updates: {
           type: 'array',
           items: {
@@ -253,6 +255,22 @@ EXAM FINDING (check a specific structured exam item):
   TM bulging finding". Required fields: kind, display, searchTerms. The client matches
   against the items actually present on this encounter's exam (NOT the full catalog).
 
+REVIEW OF SYSTEMS FINDING (check a structured ROS symptom — NOT free text):
+- "add-ros-finding": add a structured Review-of-Systems finding. ROS is a set of structured
+  checkboxes (like exam findings), NOT prose — so ANY request to add a symptom the patient
+  reports or denies to the ROS uses THIS action, never edit-note-text. Triggered by phrases like
+  "add denies chills to the ROS", "ROS: reports headache", "patient denies fever and cough",
+  "add chest pain to review of systems". Required fields: kind, display, searchTerms, finding.
+    * display MUST begin with "Denies" or "Reports" followed by the symptom, e.g. "Denies chills",
+      "Reports headache". A symptom the patient DENIES → "Denies ..."; one the patient REPORTS/has
+      → "Reports ...".
+    * finding: "denies" or "reports" — match the verb in display.
+    * searchTerms: 1-3 synonyms for the symptom WITHOUT the Denies/Reports verb (e.g. ["chills",
+      "rigors"], ["headache","cephalgia"]). The client fuzzy-matches the symptom against the ROS
+      checkbox catalog.
+  If the request names several ROS symptoms at once, pick the single most salient one (the agent
+  emits ONE action); the provider can add the rest with follow-up commands.
+
 NOTE-TEXT EDIT (edit the free-text content of a section of the note):
 - "edit-note-text": edit the prose in Chief Complaint, HPI, MOI, ROS, or MDM. Triggered by
   phrases like "adjust HPI area affected to show left arm", "edit MOI to mention the patient
@@ -261,6 +279,9 @@ NOTE-TEXT EDIT (edit the free-text content of a section of the note):
   "mechanismOfInjury", "ros", "medicalDecision"), newText (the FULL new content for that
   field reflecting the provider's edit — if the provider asked to fill in a placeholder or
   append a clause, return the entire updated paragraph, not just the change).
+  IMPORTANT: do NOT use field "ros" to ADD a symptom the patient reports or denies — that is a
+  structured finding and MUST use "add-ros-finding" above. Only use field "ros" to edit existing
+  free-text ROS prose, which is rare.
   Use the current free-text fields shown above as the starting point. If the current field
   is empty and the instruction implies adding new prose, just set newText to the new content.
   VOICE for newText — write as a treating clinician would document, NOT as a layperson summary:
@@ -417,6 +438,11 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       // mentioned for a different drug in the same message doesn't contaminate this one.
       const doseForm = llmDoseForm ?? sniffDoseFormScoped(message, display, searchTerms);
       intent = { kind: 'add-medication', display, searchTerms, strength, doseForm };
+    } else if (i.kind === 'add-ros-finding') {
+      // ROS state is taken from the leading Denies/Reports word in display (the client also
+      // derives it that way); fall back to the explicit `finding` field if present.
+      const finding: 'reports' | 'denies' = /^denies\b/i.test(display) || i.finding === 'denies' ? 'denies' : 'reports';
+      intent = { kind: 'add-ros-finding', display, searchTerms, finding };
     } else {
       // Add / remove kinds without extras
       intent = { kind: i.kind, display, searchTerms } as EasyChartAgentIntent;
