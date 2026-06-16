@@ -365,10 +365,18 @@ doesn't mention):
           allergy list, MUST become an add-allergy on the structured allergy list. This is REQUIRED
           and is SEPARATE from any "allergic reaction" diagnosis: a new drug reaction this visit
           produces BOTH an add-diagnosis for the reaction AND an add-allergy for the culprit drug.
-          "Allergic reaction to the sulfa antibiotic … add sulfa to her allergy list" →
-          add-diagnosis "Allergic reaction" AND add-allergy {display:"Sulfa", searchTerms:["sulfa",
-          "sulfonamide"]}. Do NOT bury a stated allergy only in the MDM/HPI text. (The
-          NEGATIVE-CONFIRMATION rule still applies: "NKDA"/"no known allergies" → emit NOTHING.)
+          BE SPECIFIC about the allergen — the allergy database is matched by name, and a vague root
+          word resolves to the WRONG entry. Name the specific drug if stated; if only a drug CLASS is
+          stated, use the PRECISE class allergen, not an ambiguous stem. In particular "sulfa"/
+          "sulfonamide" alone collides with sulfonamide DIURETICS (e.g. "Loop Diuretics
+          (Sulfonamide)") and with the salt word "sulfate" — so for a sulfa ANTIBIOTIC reaction emit
+          the antibiotic class explicitly. "Allergic reaction to the sulfa antibiotic … add sulfa to
+          her allergy list" → add-diagnosis "Allergic reaction" AND add-allergy {display:"Sulfonamide
+          Antibiotics", searchTerms:["sulfonamide antibiotic","sulfamethoxazole","sulfa antibiotic"]}
+          — NOT display "Sulfa"/searchTerms ["sulfa"]. Likewise prefer the specific agent or class for
+          other drug allergies ("penicillin" → Penicillins; "codeine" → Codeine). Do NOT bury a
+          stated allergy only in the MDM/HPI text. (The NEGATIVE-CONFIRMATION rule still applies:
+          "NKDA"/"no known allergies" → emit NOTHING.)
        b. PAST MEDICAL HISTORY — a chronic or pre-existing condition the patient is stated to carry
           ("known history of asthma", "h/o COPD", "PMH includes diabetes/hypertension") MUST become
           an add-condition with that condition's code, SEPARATE from today's visit diagnosis. E.g.
