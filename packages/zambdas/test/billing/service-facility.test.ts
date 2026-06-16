@@ -95,6 +95,17 @@ describe('save-billing-service-facility validateRequestParameters', () => {
     ).toThrow(/ZIP/);
   });
 
+  it('rejects an unknown state code', () => {
+    expect(() =>
+      validateRequestParameters(
+        makeInput({
+          ...validPayload,
+          state: 'California',
+        })
+      )
+    ).toThrow(/state/i);
+  });
+
   it('rejects a missing name', () => {
     const { name: _name, ...rest } = validPayload;
     expect(() => validateRequestParameters(makeInput(rest))).toThrow();

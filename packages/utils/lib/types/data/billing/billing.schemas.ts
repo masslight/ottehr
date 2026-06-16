@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { isCLIAValid, isNPIValidWithChecksum } from '../../../helpers/helpers';
 import { CMS_PLACE_OF_SERVICE_CODE_SET, CODE_SYSTEM_CLAIM_TYPE_CODE_NAMES } from '../../../helpers/rcm/constants';
 import { npiRegex, taxIdRegex, zipRegex } from '../../../validation';
+import { STATE_CODES } from '../../common';
 
 const nonEmptyString = z.string().trim().min(1);
 const nonNegativeInt = z.number().int().nonnegative();
@@ -138,7 +139,7 @@ export const SaveServiceFacilityInputSchema = z.object({
   addressLine1: nonEmptyString,
   addressLine2: z.string().trim().optional(),
   city: nonEmptyString,
-  state: nonEmptyString,
+  state: nonEmptyString.refine((code) => STATE_CODES.has(code), 'Unknown state code'),
   zip: z.string().regex(/^\d{5}$/, 'ZIP must be 5 digits'),
   zipPlus4: z
     .string()
