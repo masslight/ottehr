@@ -101,6 +101,7 @@ export function useServiceCategories(context: ServiceCategoryContext = {}): {
   // (homepage, etc.) keep the BOOKING_CONFIG fallback so the page never
   // appears empty during loading.
   const isScoped = Boolean(scheduleType && bookingOn);
+  console.log('useServiceCategories - isScoped', isScoped);
   return {
     serviceCategories: isScoped ? [] : tagBookingConfig(BOOKING_CONFIG.serviceCategories),
     isLoading,
