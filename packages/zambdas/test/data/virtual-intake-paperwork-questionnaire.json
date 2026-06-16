@@ -297,6 +297,23 @@
                 "valueBoolean": true
               }
             ]
+          },
+          {
+            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when",
+            "extension": [
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-question",
+                "valueString": "patient-no-email"
+              },
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-operator",
+                "valueString": "="
+              },
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-answer",
+                "valueBoolean": true
+              }
+            ]
           }
         ]
       },
@@ -4394,6 +4411,23 @@
               },
               {
                 "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-answer",
+                "valueBoolean": true
+              }
+            ]
+          },
+          {
+            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when",
+            "extension": [
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-question",
+                "valueString": "responsible-party-no-email"
+              },
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-operator",
+                "valueString": "="
+              },
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-answer",
                 "valueBoolean": true
               }
             ]

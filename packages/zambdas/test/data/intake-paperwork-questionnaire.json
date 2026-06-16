@@ -1,7 +1,7 @@
 {
   "resourceType": "Questionnaire",
   "url": "https://ottehr.com/FHIR/Questionnaire/intake-paperwork-inperson",
-  "version": "1.2.1",
+  "version": "1.2.3",
   "name": "in-person_pre-visit_paperwork",
   "title": "in-person pre-visit paperwork",
   "status": "active",
@@ -301,6 +301,23 @@
                 },
                 {
                   "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-answer",
+                  "valueBoolean": true
+                }
+              ]
+            },
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when",
+              "extension": [
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-question",
+                  "valueString": "patient-no-email"
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-operator",
+                  "valueString": "="
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-answer",
                   "valueBoolean": true
                 }
               ]
@@ -3452,6 +3469,23 @@
                 },
                 {
                   "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-answer",
+                  "valueBoolean": true
+                }
+              ]
+            },
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when",
+              "extension": [
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-question",
+                  "valueString": "responsible-party-no-email"
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-operator",
+                  "valueString": "="
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-answer",
                   "valueBoolean": true
                 }
               ]
