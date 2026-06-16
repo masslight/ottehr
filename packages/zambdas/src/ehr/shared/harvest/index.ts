@@ -1050,12 +1050,8 @@ export function createMasterRecordPatchOperations(
   // patient-email in that case, so no telecom patch op is generated. Explicitly handle it here.
   const emailHandledInLoop = flattenedPaperwork.some((item) => item.linkId === 'patient-email');
   if (noEmail && !emailHandledInLoop) {
-    const op = createPatchOperationForTelecom(
-      contactTelecomConfigs['patient-email'],
-      patient,
-      patientFieldPaths.email,
-      undefined
-    );
+    const { path: emailPath } = extractResourceTypeAndPath(patientFieldPaths.email);
+    const op = createPatchOperationForTelecom(contactTelecomConfigs['patient-email'], patient, emailPath, undefined);
     if (op) tempOperations.push(op);
   }
 
