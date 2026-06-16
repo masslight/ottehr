@@ -3,14 +3,38 @@ import AssignmentLateIcon from '@mui/icons-material/AssignmentLate';
 import AssignmentTurnedInIcon from '@mui/icons-material/AssignmentTurnedIn';
 import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
+import EditIcon from '@mui/icons-material/Edit';
 import InsightsIcon from '@mui/icons-material/Insights';
 import MailOutlineIcon from '@mui/icons-material/MailOutline';
 import PeopleIcon from '@mui/icons-material/People';
 import PsychologyIcon from '@mui/icons-material/Psychology';
-import { Box, Card, CardActionArea, CardContent, Grid, Typography, useTheme } from '@mui/material';
-import React from 'react';
+import SavedSearchIcon from '@mui/icons-material/SavedSearch';
+import {
+  Box,
+  Button,
+  Card,
+  CardActionArea,
+  CardContent,
+  CircularProgress,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
+  Grid,
+  IconButton,
+  TextField,
+  Tooltip,
+  Typography,
+  useTheme,
+} from '@mui/material';
+import { useSnackbar } from 'notistack';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { RoleType } from 'utils';
+import { RoleType, SavedAdHocReport } from 'utils';
+import { deleteAdHocReport, listAdHocReports, saveAdHocReport } from '../api/api';
+import { useApiClients } from '../hooks/useAppClients';
 import useEvolveUser from '../hooks/useEvolveUser';
 import PageContainer from '../layout/PageContainer';
 
@@ -80,6 +104,102 @@ function ReportTile({ title, description, icon, onClick }: ReportTileProps): Rea
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.4 }}>
             {description}
+          </Typography>
+        </CardContent>
+      </CardActionArea>
+    </Card>
+  );
+}
+
+function SavedReportTile({
+  report,
+  onOpen,
+  onRename,
+  onDelete,
+}: {
+  report: SavedAdHocReport;
+  onOpen: () => void;
+  onRename: () => void;
+  onDelete: () => void;
+}): React.ReactElement {
+  const theme = useTheme();
+  return (
+    <Card
+      sx={{
+        height: 200,
+        position: 'relative',
+        display: 'flex',
+        flexDirection: 'column',
+        transition: 'all 0.3s ease-in-out',
+        '&:hover': { transform: 'translateY(-4px)', boxShadow: theme.shadows[8] },
+        cursor: 'pointer',
+      }}
+    >
+      <Box sx={{ position: 'absolute', top: 4, right: 4, zIndex: 2, display: 'flex' }}>
+        <Tooltip title="Rename">
+          <IconButton
+            size="small"
+            onClick={(e) => {
+              e.stopPropagation();
+              onRename();
+            }}
+          >
+            <EditIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
+        <Tooltip title="Delete">
+          <IconButton
+            size="small"
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete();
+            }}
+          >
+            <DeleteOutlineIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
+      </Box>
+      <CardActionArea
+        onClick={onOpen}
+        sx={{
+          height: '100%',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          p: 3,
+        }}
+      >
+        <CardContent
+          sx={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            textAlign: 'center',
+            gap: 2,
+            flex: 1,
+            justifyContent: 'center',
+          }}
+        >
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: 64,
+              height: 64,
+              borderRadius: '50%',
+              backgroundColor: theme.palette.secondary.main,
+              color: 'white',
+            }}
+          >
+            <SavedSearchIcon sx={{ fontSize: 32 }} />
+          </Box>
+          <Typography variant="h6" component="h2" fontWeight={600} color="primary.dark">
+            {report.name}
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.4 }}>
+            {(report.title ?? report.datasetId) + ' · ' + report.criteria.dateRange}
           </Typography>
         </CardContent>
       </CardActionArea>
@@ -160,37 +280,185 @@ export default function Reports(): React.ReactElement {
   const navigate = useNavigate();
   const user = useEvolveUser();
   const isAdmin = user?.hasRole([RoleType.Administrator]) ?? false;
+  const { oystehrZambda } = useApiClients();
+  const { enqueueSnackbar } = useSnackbar();
+
+  // Saved ad-hoc reports — same access gate as the Ad-Hoc Report tile (admin only).
+  const [savedReports, setSavedReports] = useState<SavedAdHocReport[]>([]);
+  const [loadingSaved, setLoadingSaved] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<SavedAdHocReport | null>(null);
+  const [renameTarget, setRenameTarget] = useState<SavedAdHocReport | null>(null);
+  const [renameValue, setRenameValue] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  const refreshSaved = useCallback(async (): Promise<void> => {
+    if (!oystehrZambda || !isAdmin) return;
+    setLoadingSaved(true);
+    try {
+      const { reports } = await listAdHocReports(oystehrZambda);
+      setSavedReports(reports);
+    } catch (e) {
+      console.error('Failed to load saved reports', e);
+    } finally {
+      setLoadingSaved(false);
+    }
+  }, [oystehrZambda, isAdmin]);
+
+  useEffect(() => {
+    void refreshSaved();
+  }, [refreshSaved]);
 
   const handleTileClick = (path: string): void => {
     navigate(path);
   };
 
+  const handleDelete = useCallback(async (): Promise<void> => {
+    if (!oystehrZambda || !deleteTarget) return;
+    setBusy(true);
+    try {
+      await deleteAdHocReport(oystehrZambda, { reportId: deleteTarget.id });
+      setSavedReports((prev) => prev.filter((r) => r.id !== deleteTarget.id));
+      enqueueSnackbar(`Deleted “${deleteTarget.name}”.`, { variant: 'success' });
+      setDeleteTarget(null);
+    } catch (e) {
+      enqueueSnackbar(e instanceof Error ? e.message : 'Could not delete the report.', { variant: 'error' });
+    } finally {
+      setBusy(false);
+    }
+  }, [oystehrZambda, deleteTarget, enqueueSnackbar]);
+
+  const handleRename = useCallback(async (): Promise<void> => {
+    if (!oystehrZambda || !renameTarget || !renameValue.trim()) return;
+    setBusy(true);
+    try {
+      // Re-save the same definition with the new name (id present → update in place).
+      const { id, updatedAt: _updatedAt, ...definition } = renameTarget;
+      await saveAdHocReport(oystehrZambda, { reportId: id, definition: { ...definition, name: renameValue.trim() } });
+      enqueueSnackbar('Report renamed.', { variant: 'success' });
+      setRenameTarget(null);
+      void refreshSaved();
+    } catch (e) {
+      enqueueSnackbar(e instanceof Error ? e.message : 'Could not rename the report.', { variant: 'error' });
+    } finally {
+      setBusy(false);
+    }
+  }, [oystehrZambda, renameTarget, renameValue, enqueueSnackbar, refreshSaved]);
+
   return (
     <PageContainer>
-      <Box>
-        <Box sx={{ mb: 4 }}>
-          <Typography variant="h4" component="h1" gutterBottom color="primary.dark" fontWeight={600}>
-            Reports
-          </Typography>
-          <Typography variant="body1" color="text.secondary">
-            Select a report to view detailed information and analytics
-          </Typography>
+      <>
+        <Box>
+          <Box sx={{ mb: 4 }}>
+            <Typography variant="h4" component="h1" gutterBottom color="primary.dark" fontWeight={600}>
+              Reports
+            </Typography>
+            <Typography variant="body1" color="text.secondary">
+              Select a report to view detailed information and analytics
+            </Typography>
+          </Box>
+
+          <Grid container spacing={3}>
+            {REPORT_TILES.filter((tile) => isAdmin || !tile.adminOnly).map((tile) => (
+              <Grid item xs={12} sm={6} md={4} lg={3} key={tile.path}>
+                <ReportTile
+                  title={tile.title}
+                  description={tile.description}
+                  icon={tile.icon}
+                  path={tile.path}
+                  onClick={() => handleTileClick(tile.path)}
+                />
+              </Grid>
+            ))}
+          </Grid>
+
+          {/* Saved ad-hoc reports — practice-wide, admin-gated like the Ad-Hoc Report tile. */}
+          {isAdmin && (loadingSaved || savedReports.length > 0) && (
+            <Box sx={{ mt: 5 }}>
+              <Typography variant="h5" component="h2" gutterBottom color="primary.dark" fontWeight={600}>
+                Saved reports
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                Saved ad-hoc reports re-fetch fresh data for their criteria each time you open them.
+              </Typography>
+              {loadingSaved && savedReports.length === 0 ? (
+                <CircularProgress size={24} />
+              ) : (
+                <Grid container spacing={3}>
+                  {savedReports.map((report) => (
+                    <Grid item xs={12} sm={6} md={4} lg={3} key={report.id}>
+                      <SavedReportTile
+                        report={report}
+                        onOpen={() => navigate(`/reports/ad-hoc?saved=${encodeURIComponent(report.id)}`)}
+                        onRename={() => {
+                          setRenameValue(report.name);
+                          setRenameTarget(report);
+                        }}
+                        onDelete={() => setDeleteTarget(report)}
+                      />
+                    </Grid>
+                  ))}
+                </Grid>
+              )}
+            </Box>
+          )}
         </Box>
 
-        <Grid container spacing={3}>
-          {REPORT_TILES.filter((tile) => isAdmin || !tile.adminOnly).map((tile) => (
-            <Grid item xs={12} sm={6} md={4} lg={3} key={tile.path}>
-              <ReportTile
-                title={tile.title}
-                description={tile.description}
-                icon={tile.icon}
-                path={tile.path}
-                onClick={() => handleTileClick(tile.path)}
-              />
-            </Grid>
-          ))}
-        </Grid>
-      </Box>
+        <Dialog
+          open={!!deleteTarget}
+          onClose={() => (busy ? undefined : setDeleteTarget(null))}
+          maxWidth="xs"
+          fullWidth
+        >
+          <DialogTitle>Delete saved report</DialogTitle>
+          <DialogContent>
+            <DialogContentText>
+              Delete “{deleteTarget?.name}”? This removes the tile for everyone. The underlying data is unaffected.
+            </DialogContentText>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setDeleteTarget(null)} disabled={busy}>
+              Cancel
+            </Button>
+            <Button color="error" variant="contained" onClick={() => void handleDelete()} disabled={busy}>
+              {busy ? <CircularProgress size={18} /> : 'Delete'}
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        <Dialog
+          open={!!renameTarget}
+          onClose={() => (busy ? undefined : setRenameTarget(null))}
+          maxWidth="xs"
+          fullWidth
+        >
+          <DialogTitle>Rename report</DialogTitle>
+          <DialogContent>
+            <TextField
+              autoFocus
+              fullWidth
+              size="small"
+              label="Report name"
+              value={renameValue}
+              onChange={(e) => setRenameValue(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && renameValue.trim() && !busy) {
+                  e.preventDefault();
+                  void handleRename();
+                }
+              }}
+              sx={{ mt: 1 }}
+            />
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setRenameTarget(null)} disabled={busy}>
+              Cancel
+            </Button>
+            <Button variant="contained" onClick={() => void handleRename()} disabled={busy || !renameValue.trim()}>
+              {busy ? <CircularProgress size={18} /> : 'Rename'}
+            </Button>
+          </DialogActions>
+        </Dialog>
+      </>
     </PageContainer>
   );
 }
