@@ -246,8 +246,6 @@ export default function VisitDetailsPage(): ReactElement {
   const [consentAttested, setConsentAttested] = useState<boolean | null>(null);
 
   const [editDialogConfig, setEditDialogConfig] = useState<EditDialogConfig>(CLOSED_EDIT_DIALOG);
-  // Inline validation for the scheduled-follow-up "Other" reason free text.
-  const [otherReasonError, setOtherReasonError] = useState(false);
 
   // File variables
 
@@ -610,17 +608,12 @@ export default function VisitDetailsPage(): ReactElement {
         serviceCategory: editDialogConfig.values.serviceCategory,
       };
     } else {
-      // type === reason-for-visit; "Other" persists the free text as the reason.
+      // type === reason-for-visit; "Other" persists the free text as the reason. The Update button is
+      // disabled while that text is blank/whitespace (see submitDisabled), so it's non-empty here.
       const { reasonForVisit: selectedReason, otherReason, additionalDetails: details } = editDialogConfig.values;
       const isOther = selectedReason === SCHEDULED_FOLLOWUP_OTHER_REASON;
-      const trimmedOther = (otherReason ?? '').trim();
-      // The browser `required` check passes on whitespace; reject it so we never save a blank reason.
-      if (isOther && !trimmedOther) {
-        setOtherReasonError(true);
-        return;
-      }
       bookingDetails = {
-        reasonForVisit: isOther ? trimmedOther : selectedReason,
+        reasonForVisit: isOther ? (otherReason ?? '').trim() : selectedReason,
         additionalDetails: details,
       };
     }
@@ -1502,7 +1495,6 @@ export default function VisitDetailsPage(): ReactElement {
           modalOpen={editDialogConfig.type !== 'closed'}
           onClose={() => {
             setEditDialogConfig(CLOSED_EDIT_DIALOG);
-            setOtherReasonError(false);
           }}
           input={
             <>
@@ -1567,11 +1559,8 @@ export default function VisitDetailsPage(): ReactElement {
                       fullWidth
                       required
                       value={value}
-                      error={otherReasonError}
-                      helperText={otherReasonError ? 'Please enter the "Other" reason for visit' : undefined}
                       sx={{ mt: 2 }}
-                      onChange={(e) => {
-                        if (otherReasonError) setOtherReasonError(false);
+                      onChange={(e) =>
                         setEditDialogConfig(
                           (prev) =>
                             ({
@@ -1581,8 +1570,8 @@ export default function VisitDetailsPage(): ReactElement {
                                 [key]: e.target.value,
                               },
                             }) as EditDialogConfig
-                        );
-                      }}
+                        )
+                      }
                     />
                   );
                 } else if (editDialogConfig.type === 'service-category' && key === 'serviceCategory') {
@@ -1664,6 +1653,11 @@ export default function VisitDetailsPage(): ReactElement {
             await handleUpdateBookingDetails();
           }}
           submitButtonName="Update"
+          submitDisabled={
+            editDialogConfig.type === 'reason-for-visit' &&
+            editDialogConfig.values.reasonForVisit === SCHEDULED_FOLLOWUP_OTHER_REASON &&
+            !(editDialogConfig.values.otherReason ?? '').trim()
+          }
           error={bookingDetailsMutation.isError}
           errorMessage={bookingDetailsMutation.error?.message}
           loading={bookingDetailsMutation.isPending || visitDetailsAreRefreshing}
