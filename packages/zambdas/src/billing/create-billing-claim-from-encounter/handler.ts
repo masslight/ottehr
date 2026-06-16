@@ -32,6 +32,8 @@ import {
 import { DateTime } from 'luxon';
 import {
   ACCOUNT_TYPE_CODE_SYSTEM,
+  CODE_SYSTEM_APPOINTMENT_TYPE_CODES,
+  CODE_SYSTEM_APPOINTMENT_TYPE_TAG_SYSTEM,
   CODE_SYSTEM_CMS_PLACE_OF_SERVICE,
   CODE_SYSTEM_CPT_MODIFIER,
   CODE_SYSTEM_OYSTEHR_CLAIM_PROCEDURE_MODIFIER,
@@ -49,6 +51,7 @@ import {
   getTimezone,
   InternalError,
   isAppointmentOccupationalMedicine,
+  isAppointmentPreOp,
   isAppointmentUrgentCare,
   isAppointmentWorkersComp,
   isValidUUID,
@@ -70,7 +73,6 @@ import {
   ZambdaInput,
 } from '../../shared';
 import {
-  APPOINTMENT_TYPE_TAG_SYSTEM,
   AUTO_ACCIDENT_TAG_DESCRIPTION,
   AUTO_ACCIDENT_TAG_NAME,
   BILLING_RESOURCE_TAG,
@@ -96,7 +98,7 @@ export interface CreateClaimFromEncounterParams extends CreateBillingClaimFromEn
 export type ComplexValidationOutput = { clinicalResources: ClinicalResources; billingResources: BillingResources };
 
 type CoverageRefs = { coverageRef: Reference; payorRef: Reference }[];
-type AppointmentType = 'uc' | 'wc' | 'occmed';
+type AppointmentType = 'uc' | 'wc' | 'occmed' | 'preop';
 
 interface ClinicalResources {
   encounter: Encounter;
@@ -450,6 +452,9 @@ function getAppointmentType(appointment: Appointment): AppointmentType {
   if (isAppointmentOccupationalMedicine(appointment)) {
     return 'occmed';
   }
+  if (isAppointmentPreOp(appointment)) {
+    return 'preop';
+  }
   throw new Error(`Unknown appointment type: ${getCoding(appointment.serviceCategory, SERVICE_CATEGORY_SYSTEM)?.code}`);
 }
 
@@ -514,6 +519,11 @@ export function getClaimCoveragesForEncounter(
       ];
     }
     case 'occmed': {
+      // No insurance
+      // TODO: Support non-insurance payers
+      return [];
+    }
+    case 'preop': {
       // No insurance
       // TODO: Support non-insurance payers
       return [];
@@ -1041,11 +1051,22 @@ function getAppointmentTypeCoding(appointment: Appointment): Coding {
   const type = getAppointmentType(appointment);
   switch (type) {
     case 'uc':
-      return { system: APPOINTMENT_TYPE_TAG_SYSTEM, code: 'urgent-care' };
+      return {
+        system: CODE_SYSTEM_APPOINTMENT_TYPE_TAG_SYSTEM,
+        code: CODE_SYSTEM_APPOINTMENT_TYPE_CODES['urgent-care'],
+      };
     case 'occmed':
-      return { system: APPOINTMENT_TYPE_TAG_SYSTEM, code: 'occupational-medicine' };
+      return {
+        system: CODE_SYSTEM_APPOINTMENT_TYPE_TAG_SYSTEM,
+        code: CODE_SYSTEM_APPOINTMENT_TYPE_CODES['occupational-medicine'],
+      };
     case 'wc':
-      return { system: APPOINTMENT_TYPE_TAG_SYSTEM, code: 'workers-comp' };
+      return {
+        system: CODE_SYSTEM_APPOINTMENT_TYPE_TAG_SYSTEM,
+        code: CODE_SYSTEM_APPOINTMENT_TYPE_CODES['workers-comp'],
+      };
+    case 'preop':
+      return { system: CODE_SYSTEM_APPOINTMENT_TYPE_TAG_SYSTEM, code: CODE_SYSTEM_APPOINTMENT_TYPE_CODES['pre-op'] };
   }
 }
 
