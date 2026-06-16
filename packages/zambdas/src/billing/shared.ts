@@ -18,6 +18,8 @@ import {
   Resource,
 } from 'fhir/r4b';
 import {
+  CODE_SYSTEM_APPOINTMENT_TYPE_CODES,
+  CODE_SYSTEM_APPOINTMENT_TYPE_TAG_SYSTEM,
   CODE_SYSTEM_CLAIM_TYPE,
   CODE_SYSTEM_CLAIM_TYPE_CODES,
   convertFhirNameToDisplayName,
@@ -375,4 +377,15 @@ export function getClaimType(claim: Claim): keyof typeof CODE_SYSTEM_CLAIM_TYPE_
 export function getClaimTypeCoding(type?: keyof typeof CODE_SYSTEM_CLAIM_TYPE_CODES): Coding {
   // Currently all claims start as professional claims
   return { system: CODE_SYSTEM_CLAIM_TYPE, code: type ?? CODE_SYSTEM_CLAIM_TYPE_CODES.professional };
+}
+
+export function getClaimAppointmentType(claim: Claim): keyof typeof CODE_SYSTEM_APPOINTMENT_TYPE_CODES | undefined {
+  const code = claim.meta?.tag?.find((c) => c.system === CODE_SYSTEM_APPOINTMENT_TYPE_TAG_SYSTEM)?.code;
+  if (!code) {
+    return undefined;
+  }
+  if (!Object.hasOwn(CODE_SYSTEM_APPOINTMENT_TYPE_CODES, code)) {
+    return undefined;
+  }
+  return code as keyof typeof CODE_SYSTEM_APPOINTMENT_TYPE_CODES;
 }

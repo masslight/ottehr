@@ -1,5 +1,8 @@
 import { z } from 'zod';
-import { CODE_SYSTEM_CLAIM_TYPE_CODE_NAMES } from '../../../helpers/rcm/constants';
+import {
+  CODE_SYSTEM_APPOINTMENT_TYPE_CODE_NAMES,
+  CODE_SYSTEM_CLAIM_TYPE_CODE_NAMES,
+} from '../../../helpers/rcm/constants';
 import { npiRegex, taxIdRegex, zipRegex } from '../../../validation';
 
 const nonEmptyString = z.string().trim().min(1);
@@ -75,6 +78,7 @@ export const SearchBillingClaimsInputSchema = z.object({
   createdTo: nonEmptyString.optional(),
   payerName: nonEmptyString.optional(),
   payerId: nonEmptyString.optional(),
+  appointmentType: z.enum(CODE_SYSTEM_APPOINTMENT_TYPE_CODE_NAMES).optional(),
   patientId: nonEmptyString.optional(),
   offset: nonNegativeInt.optional(),
   pageSize: nonNegativeInt.optional(),

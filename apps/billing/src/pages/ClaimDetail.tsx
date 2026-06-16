@@ -35,7 +35,7 @@ import {
 } from 'utils';
 import { EditableSection } from '../components/claim/EditableSection';
 import { Field } from '../components/Field';
-import { CLAIM_STATUS_COLORS, formatClaimStatus } from '../constants/claimStatus';
+import { CLAIM_STATUS_COLORS, formatAntCaseString } from '../constants/claimStatus';
 import { useApiClients } from '../hooks/useAppClients';
 import { otherColors } from '../themes/ottehr/colors';
 import { buildAddressInput, formatCurrency, splitDisplayName } from '../utils/format';
@@ -125,7 +125,7 @@ export default function ClaimDetail(): ReactElement {
   }
 
   const statusColor = CLAIM_STATUS_COLORS[claim.status] ?? 'default';
-  const statusLabel = formatClaimStatus(claim.status);
+  const statusLabel = formatAntCaseString(claim.status);
   const dos = claim.serviceLines[0]?.serviceDate ?? claim.created;
 
   return (
@@ -141,7 +141,8 @@ export default function ClaimDetail(): ReactElement {
           <Box sx={{ display: 'flex', gap: 3, mt: 0.5, flexWrap: 'wrap' }}>
             <Meta label="Date of Service" value={dos} />
             <Meta label="Claim ID" value={claim.id.slice(0, 8)} />
-            <Meta label="Claim Type" value={claim.type.charAt(0).toUpperCase() + claim.type.slice(1)} />
+            <Meta label="Claim Type" value={formatAntCaseString(claim.type)} />
+            <Meta label="Appointment Type" value={formatAntCaseString(claim.appointmentType)} />
             <Meta label="Patient DOB" value={claim.patientDob} />
             <Meta label="Billing Type" value={claim.billingType} />
             <Meta label="Billable Status" value={claim.billableStatus} />
@@ -1307,7 +1308,7 @@ function OtherClaimsSection({
                 <TableCell>{oc.payerName}</TableCell>
                 <TableCell>
                   <Chip
-                    label={formatClaimStatus(oc.status)}
+                    label={formatAntCaseString(oc.status)}
                     color={CLAIM_STATUS_COLORS[oc.status] ?? 'default'}
                     variant="outlined"
                     size="small"
