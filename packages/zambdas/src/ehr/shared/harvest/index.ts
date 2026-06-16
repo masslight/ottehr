@@ -1265,21 +1265,15 @@ export const createUpdatePharmacyPatchOps = (
   const placesPharmacyAddressAnswer = getAnswer(PHARMACY_COLLECTION_LINK_IDS.placesAddress, flattenedItems);
   const exrPharmacyIdAnswer = getAnswer(PHARMACY_COLLECTION_LINK_IDS.erxPharmacyId, flattenedItems);
 
-  // Check if pharmacy fields are present in the questionnaire response
-  const hasManualPharmacyFields = pharmacyNameAnswer !== undefined || pharmacyAddressAnswer !== undefined;
-  const hasPlacesPharmacyFields =
-    placesPharmacyIdAnswer !== undefined ||
-    placesPharmacyNameAnswer !== undefined ||
-    placesPharmacyAddressAnswer !== undefined;
-  const hasPharmacyFields = hasManualPharmacyFields || hasPlacesPharmacyFields || exrPharmacyIdAnswer !== undefined;
+  // Skip if the pharmacy section wasn't part of this submission, otherwise a
+  // section-scoped save of another section (e.g. Responsible Party) would fall
+  // through and wipe existing pharmacy data. Presence is by linkId, not value, so
+  // an intentional clear (empty answers, items still present) is preserved.
+  // Derived from the link-id constant so new pharmacy fields are covered automatically.
+  const PHARMACY_LINK_IDS = new Set<string>(Object.values(PHARMACY_COLLECTION_LINK_IDS));
+  const pharmacySectionSubmitted = flattenedItems.some((item) => PHARMACY_LINK_IDS.has(item.linkId));
 
-  // Check if patient currently has pharmacy data
-  const hasExistingPharmacy =
-    patient.contained?.some((resource) => resource.id === PATIENT_CONTAINED_PHARMACY_ID) ||
-    patient.extension?.some((extension) => extension.url === PREFERRED_PHARMACY_EXTENSION_URL);
-
-  // If no pharmacy fields in questionnaire and no existing pharmacy, no action needed
-  if (!hasPharmacyFields && !hasExistingPharmacy) {
+  if (!pharmacySectionSubmitted) {
     return [];
   }
 
