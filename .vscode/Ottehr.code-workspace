@@ -9,6 +9,10 @@
       "path": "../apps/ehr"
     },
     {
+      "name": "Billing UI",
+      "path": "../apps/billing"
+    },
+    {
       "name": "Patient Portal UI",
       "path": "../apps/intake"
     },
