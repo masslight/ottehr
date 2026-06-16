@@ -349,7 +349,13 @@ export const MedicationCardField: React.FC<MedicationCardFieldProps> = ({
       InputLabelProps={type === 'datetime' || isInstruction ? { shrink: true } : undefined}
       required={required}
       error={showError && required && !value}
-      helperText={showError && required && !value ? REQUIRED_FIELD_ERROR_MESSAGE : ''}
+      helperText={
+        showError && required && !value
+          ? type === 'number' && value === 0
+            ? 'Must be greater than 0'
+            : REQUIRED_FIELD_ERROR_MESSAGE
+          : ''
+      }
       // https://github.com/mui/material-ui/issues/7960#issuecomment-1858083123
       {...(type === 'number'
         ? { onFocus: (e) => e.target.addEventListener('wheel', (e) => e.preventDefault(), { passive: false }) }
