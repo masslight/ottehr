@@ -16,7 +16,14 @@ import {
 import { DataGridPro, GridColDef, GridPaginationModel } from '@mui/x-data-grid-pro';
 import { ReactElement, useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { BillingClaimItem, BillingPatientOption, BillingPayerOption, chooseJson, ClaimsQueueItemStatuses } from 'utils';
+import {
+  BillingClaimItem,
+  BillingPatientOption,
+  BillingPayerOption,
+  chooseJson,
+  ClaimsQueueItemStatuses,
+  CODE_SYSTEM_CLAIM_TYPE_CODES,
+} from 'utils';
 import { dataGridSlots, dataGridSx } from '../components/BillingDataGrid';
 import { CLAIM_STATUS_COLORS, formatClaimStatus } from '../constants/claimStatus';
 import { useApiClients } from '../hooks/useAppClients';
@@ -30,6 +37,7 @@ interface Filters {
   createdTo?: string;
   payerId?: string;
   patientId?: string;
+  type?: string;
 }
 
 const currencyCol = (field: string, headerName: string, width: number): GridColDef => ({
@@ -57,6 +65,12 @@ const columns: GridColDef[] = [
         <Chip label={label} color={color} variant="outlined" size="small" sx={{ borderRadius: '4px', fontSize: 12 }} />
       );
     },
+  },
+  {
+    field: 'type',
+    headerName: 'Claim Type',
+    minWidth: 130,
+    valueFormatter: (params: { value: string }) => params.value.charAt(0).toUpperCase() + params.value.slice(1),
   },
   currencyCol('billed', 'Billed', 100),
   currencyCol('allowed', 'Allowed', 100),
@@ -90,6 +104,7 @@ export default function ClaimsList(): ReactElement {
   const [createdTo, setDosTo] = useState('');
   const [selectedPayer, setSelectedPayer] = useState<BillingPayerOption | null>(null);
   const [selectedPatient, setSelectedPatient] = useState<BillingPatientOption | null>(null);
+  const [typeFilter, setTypeFilter] = useState<keyof typeof CODE_SYSTEM_CLAIM_TYPE_CODES | ''>('');
 
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const payerDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -120,6 +135,7 @@ export default function ClaimsList(): ReactElement {
         if (filters.createdTo) body.createdTo = filters.createdTo;
         if (filters.payerId) body.payerId = filters.payerId;
         if (filters.patientId) body.patientId = filters.patientId;
+        if (filters.type) body.type = filters.type;
 
         const response = await oystehrZambda.zambda.execute({ id: 'search-billing-claims', ...body });
         const data = chooseJson(response);
@@ -192,13 +208,15 @@ export default function ClaimsList(): ReactElement {
       createdTo: overrides?.createdTo ?? createdTo,
       payerId: overrides?.payerId ?? selectedPayer?.payerId,
       patientId: overrides?.patientId ?? selectedPatient?.id,
+      type: overrides?.type ?? typeFilter,
     }),
-    [searchText, statusFilter, tagFilter, createdFrom, createdTo, selectedPayer, selectedPatient]
+    [searchText, statusFilter, tagFilter, createdFrom, createdTo, selectedPayer, selectedPatient, typeFilter]
   );
 
   const applyFilters = useCallback(
     (overrides?: Filters): void => {
       setPaginationModel((prev) => ({ ...prev, page: 0 }));
+      console.log('colin2', JSON.stringify(currentFilters(overrides)));
       void fetchClaims(currentFilters(overrides), { ...paginationModel, page: 0 });
     },
     [fetchClaims, currentFilters, paginationModel]
@@ -223,13 +241,21 @@ export default function ClaimsList(): ReactElement {
     setDosTo('');
     setSelectedPayer(null);
     setSelectedPatient(null);
+    setTypeFilter('');
     const resetPage = { ...paginationModel, page: 0 };
     setPaginationModel(resetPage);
     void fetchClaims({}, resetPage);
   };
 
   const hasFilters =
-    searchText || statusFilter || tagFilter || createdFrom || createdTo || selectedPayer || selectedPatient;
+    searchText ||
+    statusFilter ||
+    tagFilter ||
+    createdFrom ||
+    createdTo ||
+    selectedPayer ||
+    selectedPatient ||
+    typeFilter;
 
   return (
     <Box sx={{ p: 0 }}>
@@ -275,6 +301,26 @@ export default function ClaimsList(): ReactElement {
                 {formatClaimStatus(s)}
               </MenuItem>
             ))}
+          </Select>
+        </FormControl>
+
+        <FormControl size="small" sx={{ minWidth: 160 }}>
+          <InputLabel>Claim Type</InputLabel>
+          <Select
+            value={typeFilter}
+            label="Claim Type"
+            onChange={(e) => {
+              setTypeFilter(e.target.value as '' | keyof typeof CODE_SYSTEM_CLAIM_TYPE_CODES);
+              applyFilters({ type: e.target.value });
+            }}
+          >
+            <MenuItem value="">All</MenuItem>
+            <MenuItem key={'professional'} value={'professional'}>
+              Professional
+            </MenuItem>
+            <MenuItem key={'institutional'} value={'institutional'}>
+              Institutional
+            </MenuItem>
           </Select>
         </FormControl>
 

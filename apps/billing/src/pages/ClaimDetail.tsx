@@ -141,6 +141,7 @@ export default function ClaimDetail(): ReactElement {
           <Box sx={{ display: 'flex', gap: 3, mt: 0.5, flexWrap: 'wrap' }}>
             <Meta label="Date of Service" value={dos} />
             <Meta label="Claim ID" value={claim.id.slice(0, 8)} />
+            <Meta label="Claim Type" value={claim.type.charAt(0).toUpperCase() + claim.type.slice(1)} />
             <Meta label="Patient DOB" value={claim.patientDob} />
             <Meta label="Billing Type" value={claim.billingType} />
             <Meta label="Billable Status" value={claim.billableStatus} />
