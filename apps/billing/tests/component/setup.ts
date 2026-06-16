@@ -6,6 +6,27 @@ import { afterEach, expect } from 'vitest';
 
 expect.extend(matchers);
 
+// jsdom doesn't implement APIs that MUI and the MUI X DataGrid rely on at render time.
+class ResizeObserverStub {
+  observe(): void {}
+  unobserve(): void {}
+  disconnect(): void {}
+}
+globalThis.ResizeObserver = globalThis.ResizeObserver ?? (ResizeObserverStub as unknown as typeof ResizeObserver);
+
+if (!globalThis.matchMedia) {
+  globalThis.matchMedia = ((query: string) => ({
+    matches: false,
+    media: query,
+    onchange: null,
+    addEventListener: () => {},
+    removeEventListener: () => {},
+    addListener: () => {},
+    removeListener: () => {},
+    dispatchEvent: () => false,
+  })) as unknown as typeof globalThis.matchMedia;
+}
+
 afterEach(() => {
   cleanup();
 });
