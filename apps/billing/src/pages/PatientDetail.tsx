@@ -24,7 +24,7 @@ import { dataGridSlots, dataGridSx } from '../components/BillingDataGrid';
 import { EditableSection } from '../components/claim/EditableSection';
 import { DetailRow } from '../components/DetailRow';
 import { Field } from '../components/Field';
-import { CLAIM_STATUS_COLORS, formatClaimStatus } from '../constants/claimStatus';
+import { CLAIM_STATUS_COLORS, formatAntCaseString } from '../constants/claimStatus';
 import { useApiClients } from '../hooks/useAppClients';
 import { otherColors } from '../themes/ottehr/colors';
 import { buildAddressInput, formatCurrency } from '../utils/format';
@@ -39,7 +39,7 @@ const claimColumns: GridColDef[] = [
       const color = CLAIM_STATUS_COLORS[value as string] ?? 'default';
       return (
         <Chip
-          label={formatClaimStatus(value as string)}
+          label={formatAntCaseString(value as string)}
           color={color}
           variant="outlined"
           size="small"

@@ -84,6 +84,7 @@ import {
   INVALID_INPUT_ERROR,
   isAppointmentAutoAccident,
   isAppointmentOccupationalMedicine,
+  isAppointmentPreOp,
   isAppointmentWorkersComp,
   isTelemedAppointment,
   MedicationUnitOptions,
@@ -119,6 +120,7 @@ export const CANDID_NON_INSURANCE_PAYER_ID_IDENTIFIER_SYSTEM =
 const CANDID_TAG_WORKERS_COMP = 'workers-comp';
 const CANDID_TAG_OCCUPATIONAL_MEDICINE = 'occupational-medicine';
 const CANDID_TAG_AUTO_ACCIDENT = 'auto-accident';
+const CANDID_TAG_PRE_OP = 'pre-op';
 
 interface BillingProviderData {
   organizationName?: string;
@@ -1292,6 +1294,8 @@ async function candidCreateEncounterFromAppointmentRequest(
     tags.push(TagId(CANDID_TAG_OCCUPATIONAL_MEDICINE));
   } else if (isAppointmentAutoAccident(appointment)) {
     tags.push(TagId(CANDID_TAG_AUTO_ACCIDENT));
+  } else if (isAppointmentPreOp(appointment)) {
+    tags.push(TagId(CANDID_TAG_PRE_OP));
   }
 
   const accidentTypes =
