@@ -10,6 +10,7 @@ import {
   Collapse,
   Container,
   Divider,
+  FormControlLabel,
   IconButton,
   keyframes,
   List,
@@ -23,13 +24,15 @@ import {
 } from '@mui/material';
 import Oystehr from '@oystehr/sdk';
 import type { ExamItemConfig } from 'config-types';
-import type { Encounter } from 'fhir/r4b';
+import type { Appointment, Encounter, Patient } from 'fhir/r4b';
+import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { useCommandPaletteSource } from 'src/hooks/useCommandPaletteSource';
 import { useMergedProcedureQuickPicks } from 'src/hooks/useMergedQuickPicks';
+import { getPatientName } from 'src/shared/utils';
 import { CommandPaletteItem } from 'src/state/command-palette.store';
 import {
   AllergyDTO,
@@ -37,10 +40,12 @@ import {
   BODY_SITES_VALUE_SET_URL,
   COMPLICATIONS_VALUE_SET_URL,
   CPTCodeDTO,
+  DiagnosisDTO,
   EasyChartAgentIntent,
   EasyChartSuggestion,
   examConfig,
   type ExamObservationDTO,
+  formatWeightKg,
   GetChartDataResponse,
   HospitalizationDTO,
   InPersonRosConfig,
@@ -412,6 +417,9 @@ interface NoteSectionsProps {
   editable?: boolean;
   onSaveField?: (key: ChartNoteKey, text: string) => void;
   onRemoveItem?: (field: string, dto: { resourceId?: string }) => void;
+  // Promote a diagnosis to primary (and demote the previous primary). Shown inline next to each
+  // non-primary diagnosis when editable.
+  onMakePrimary?: (dto: DiagnosisDTO) => void;
   // AI-charted items needing review (keyed by resourceId), plus the correction callbacks. When a
   // row's resourceId is in this map it renders as a clickable <AiChartedItem> instead of a row.
   aiCharted?: Map<string, AiChartedMeta>;
@@ -532,6 +540,7 @@ function NoteSections({
   editable = false,
   onSaveField,
   onRemoveItem,
+  onMakePrimary,
   aiCharted,
   onAiSearch,
   onAiReplace,
@@ -1109,10 +1118,22 @@ function NoteSections({
                     flashSx={itemSx(d.resourceId)}
                     onDelete={removeHandler('diagnosis', d)}
                   >
-                    <Typography variant="body2">
-                      <strong>{d.code}</strong> — {d.display}
-                      {d.isPrimary && ' (primary)'}
-                    </Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Typography variant="body2">
+                        <strong>{d.code}</strong> — {d.display}
+                        {d.isPrimary && ' (primary)'}
+                      </Typography>
+                      {editable && onMakePrimary && !d.isPrimary && d.resourceId && (
+                        <Button
+                          size="small"
+                          variant="text"
+                          sx={{ minWidth: 0, p: 0, textTransform: 'none', fontSize: 12 }}
+                          onClick={() => onMakePrimary(d)}
+                        >
+                          Make primary
+                        </Button>
+                      )}
+                    </Box>
                   </DeletableRow>
                 )
               )}
@@ -1227,7 +1248,12 @@ async function fetchEasyChartData(
   // The note-style fields (CC/HPI/MOI/ROS/MDM) are only returned with explicit requestedFields,
   // while diagnosis/exam/ros observations only return from a full unscoped call. Fetch both.
   const [noteFields, fullChart] = await Promise.all([
-    apiClient.getChartData({ encounterId, requestedFields: progressNoteChartDataRequestedFields }),
+    // vitalsObservations is gated (not returned by an unscoped call), so request it explicitly —
+    // the header shows the latest weight (relevant to the mg/kg dosing Easy Chart does).
+    apiClient.getChartData({
+      encounterId,
+      requestedFields: { ...progressNoteChartDataRequestedFields, vitalsObservations: {} },
+    }),
     apiClient.getChartData({ encounterId }),
   ]);
   return { ...fullChart, ...noteFields };
@@ -2271,6 +2297,8 @@ export default function EasyChartPage(): JSX.Element {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [appointmentId, setAppointmentId] = useState<string | null>(null);
+  const [patient, setPatient] = useState<Patient | null>(null);
+  const [reasonForVisit, setReasonForVisit] = useState<string | null>(null);
   const [refineText, setRefineText] = useState('');
   const refineInputRef = useRef<HTMLTextAreaElement | null>(null);
   // Narrative-plan execution state. `currentIdx` points at the step currently being run
@@ -2468,6 +2496,72 @@ export default function EasyChartPage(): JSX.Element {
     const response = await apiClient.saveChartData(payload);
     return mergeSaveResponse(response);
   };
+
+  // "Verify name & DOB" attestation — a sign-blocking requirement the provider must confirm. Saved on
+  // Easy Chart's own chart-data path (mergeSaveResponse doesn't track this scalar, so we set it
+  // directly). Optimistic, with rollback on failure.
+  const handleConfirmPatientInfo = async (value: boolean): Promise<void> => {
+    if (!apiClient || !encounterId) return;
+    const prevConfirmed = chartDataRef.current?.patientInfoConfirmed;
+    setChartData((prev) => (prev ? { ...prev, patientInfoConfirmed: { ...prev.patientInfoConfirmed, value } } : prev));
+    try {
+      const response = await apiClient.saveChartData({ encounterId, patientInfoConfirmed: { value } });
+      const confirmed = response.chartData?.patientInfoConfirmed;
+      if (confirmed) setChartData((prev) => (prev ? { ...prev, patientInfoConfirmed: confirmed } : prev));
+    } catch (e) {
+      console.error('Failed to save patient confirmation:', e);
+      enqueueSnackbar('Could not save patient confirmation. Please try again.', { variant: 'error' });
+      setChartData((prev) => (prev ? { ...prev, patientInfoConfirmed: prevConfirmed } : prev));
+    }
+  };
+
+  // Promote a diagnosis to primary (demoting any prior primary). A signable note needs exactly one
+  // primary; this is also what the auto-mark effect calls. Mirrors the regular Assessment tab's
+  // save semantics: persist the changed diagnoses (by resourceId) and update local state.
+  const handleMakePrimary = async (dto: DiagnosisDTO): Promise<void> => {
+    if (!apiClient || !encounterId || !dto.resourceId) return;
+    const diagnoses = chartDataRef.current?.diagnosis ?? [];
+    if (dto.isPrimary) return;
+    const oldPrimary = diagnoses.find((d) => d.isPrimary && d.resourceId !== dto.resourceId);
+    const updates: DiagnosisDTO[] = [
+      { ...dto, isPrimary: true },
+      ...(oldPrimary ? [{ ...oldPrimary, isPrimary: false }] : []),
+    ];
+    setChartData((prev) =>
+      prev
+        ? {
+            ...prev,
+            diagnosis: (prev.diagnosis ?? []).map((d) => ({ ...d, isPrimary: d.resourceId === dto.resourceId })),
+          }
+        : prev
+    );
+    try {
+      await apiClient.saveChartData({ encounterId, diagnosis: updates });
+    } catch (e) {
+      console.error('Failed to set primary diagnosis:', e);
+      enqueueSnackbar('Could not set primary diagnosis. Please try again.', { variant: 'error' });
+      setChartData((prev) => (prev ? { ...prev, diagnosis: diagnoses } : prev));
+    }
+  };
+
+  // Auto-mark a primary: a signable note needs one, and templates / manual adds can leave a chart
+  // with diagnoses but none flagged. When that happens, promote the first (the planner's convention
+  // for "the primary problem") so the note isn't silently unsignable. Guarded so it fires once per
+  // no-primary state, never looping.
+  const autoPrimaryAttemptedRef = useRef(false);
+  useEffect(() => {
+    const diagnoses = chartData?.diagnosis ?? [];
+    if (diagnoses.length === 0 || diagnoses.some((d) => d.isPrimary)) {
+      autoPrimaryAttemptedRef.current = false;
+      return;
+    }
+    if (autoPrimaryAttemptedRef.current) return;
+    const first = diagnoses.find((d) => d.resourceId);
+    if (!first) return;
+    autoPrimaryAttemptedRef.current = true;
+    void handleMakePrimary(first);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chartData?.diagnosis]);
 
   // Delete a charted allergy/diagnosis by its dto (flash + local removal), and drop it from the
   // needs-review set. Shared by Remove and the replace flow.
@@ -2857,7 +2951,8 @@ export default function EasyChartPage(): JSX.Element {
     };
   }, [oystehr]);
 
-  // Look up the encounter's appointmentId so the "Open in regular chart" button can link out.
+  // Look up the encounter's appointmentId (for the "Open in regular chart" link) and its patient
+  // (so the header can show name + DOB instead of the raw encounter id).
   useEffect(() => {
     let cancelled = false;
     if (!oystehr || !encounterId) return;
@@ -2870,8 +2965,18 @@ export default function EasyChartPage(): JSX.Element {
         const ref = encounter.appointment?.[0]?.reference;
         const id = ref?.startsWith('Appointment/') ? ref.slice('Appointment/'.length) : null;
         if (!cancelled && id) setAppointmentId(id);
+        if (id) {
+          const appointment = await oystehr.fhir.get<Appointment>({ resourceType: 'Appointment', id });
+          if (!cancelled) setReasonForVisit(appointment.description ?? null);
+        }
+        const patientRef = encounter.subject?.reference;
+        const patientId = patientRef?.startsWith('Patient/') ? patientRef.slice('Patient/'.length) : null;
+        if (patientId) {
+          const p = await oystehr.fhir.get<Patient>({ resourceType: 'Patient', id: patientId });
+          if (!cancelled) setPatient(p);
+        }
       } catch (e) {
-        console.error('Failed to fetch encounter for appointment lookup:', e);
+        console.error('Failed to fetch encounter for appointment/patient lookup:', e);
       }
     })();
     return () => {
@@ -4237,6 +4342,29 @@ export default function EasyChartPage(): JSX.Element {
     );
   };
 
+  // Short, concrete description of what accepting a suggestion will do — so a card like "Add the
+  // pertinent negatives you noted?" lists exactly which items it will add.
+  const describeReviewAction = (intent: EasyChartAgentIntent): string => {
+    switch (intent.kind) {
+      case 'add-ros-finding':
+      case 'add-exam-finding':
+      case 'add-diagnosis':
+      case 'add-condition':
+      case 'add-medication':
+        return intent.display;
+      case 'remove-diagnosis':
+        return `Remove "${intent.display}"`;
+      case 'set-em-code':
+        return `Set E&M ${intent.code}${intent.display ? ` (${intent.display})` : ''}`;
+      case 'add-cpt':
+        return `Add CPT ${intent.code}`;
+      case 'edit-note-text':
+        return `Update ${intent.field === 'medicalDecision' ? 'MDM' : intent.field} text`;
+      default:
+        return (intent as { display?: string }).display ?? intent.kind;
+    }
+  };
+
   const visibleSuggestions = reviewSuggestions.filter((s) => !dismissedIds.has(s.id));
   const reviewPane = (
     <Paper variant="outlined" sx={{ p: 2 }}>
@@ -4301,6 +4429,15 @@ export default function EasyChartPage(): JSX.Element {
                 <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
                   {s.rationale}
                 </Typography>
+              )}
+              {s.actions.length > 0 && (
+                <Box component="ul" sx={{ m: 0, mt: 0.5, pl: 2.5 }}>
+                  {s.actions.map((a, i) => (
+                    <Typography key={i} component="li" variant="caption" sx={{ color: '#212130' }}>
+                      {describeReviewAction(a)}
+                    </Typography>
+                  ))}
+                </Box>
               )}
               {s.partialNote && (
                 <Typography variant="caption" color="warning.main" sx={{ display: 'block', mt: 0.5 }}>
@@ -4713,6 +4850,30 @@ export default function EasyChartPage(): JSX.Element {
     </Paper>
   ) : chartData ? (
     <>
+      {/* Verify name & DOB — a sign-blocking attestation, surfaced here so the provider can confirm
+          it in-context (never auto-checked). */}
+      <Box
+        sx={{
+          mb: 1.5,
+          px: 1.5,
+          py: 0.5,
+          borderRadius: 1,
+          bgcolor: chartData.patientInfoConfirmed?.value ? 'rgba(46,125,50,0.08)' : 'rgba(237,108,2,0.08)',
+          border: '1px solid',
+          borderColor: chartData.patientInfoConfirmed?.value ? 'rgba(46,125,50,0.3)' : 'rgba(237,108,2,0.3)',
+        }}
+      >
+        <FormControlLabel
+          control={
+            <Checkbox
+              size="small"
+              checked={chartData.patientInfoConfirmed?.value ?? false}
+              onChange={(e) => void handleConfirmPatientInfo(e.target.checked)}
+            />
+          }
+          label={<Typography variant="body2">I verified patient&apos;s name and date of birth.</Typography>}
+        />
+      </Box>
       {aiCharted.size > 0 && (
         <Box
           sx={{
@@ -4742,6 +4903,7 @@ export default function EasyChartPage(): JSX.Element {
         editable
         onSaveField={saveNoteField}
         onRemoveItem={handleInlineRemove}
+        onMakePrimary={handleMakePrimary}
         aiCharted={aiCharted}
         onAiSearch={aiSearch}
         onAiReplace={aiReplace}
@@ -4753,16 +4915,73 @@ export default function EasyChartPage(): JSX.Element {
     </>
   ) : null;
 
+  // Read-only clinical-context strip (visit management stays in the regular chart). Name · DOB (age)
+  // · sex on one line; weight, reason for visit, and allergies (emphasized when present) below.
+  const headerName = patient ? getPatientName(patient.name).firstLastName ?? 'Unknown patient' : undefined;
+  const headerDob = patient?.birthDate
+    ? DateTime.fromFormat(patient.birthDate, 'yyyy-MM-dd').toFormat('MM/dd/yyyy')
+    : undefined;
+  const headerAge = patient?.birthDate
+    ? (() => {
+        const months = Math.floor(
+          DateTime.now().diff(DateTime.fromFormat(patient.birthDate, 'yyyy-MM-dd'), 'months').months
+        );
+        return months >= 24 ? `${Math.floor(months / 12)}y` : `${months}mo`;
+      })()
+    : undefined;
+  const headerSex = patient?.gender ? patient.gender.charAt(0).toUpperCase() + patient.gender.slice(1) : undefined;
+  const currentAllergies = (chartData?.allergies ?? [])
+    .filter((a) => a.current === true)
+    .map((a) => a.name)
+    .filter((n): n is string => !!n);
+  const headerWeightObs = (chartData?.vitalsObservations ?? []).find(
+    (o) => o.field === 'vital-weight' && typeof (o as { value?: number }).value === 'number'
+  ) as { value: number } | undefined;
+  const headerWeight = headerWeightObs ? `${formatWeightKg(headerWeightObs.value)} kg` : undefined;
+  const headerLine1 = [
+    headerName,
+    headerDob ? `DOB ${headerDob}${headerAge ? ` (${headerAge})` : ''}` : undefined,
+    headerSex,
+  ]
+    .filter(Boolean)
+    .join('  ·  ');
+
   return (
     <Container maxWidth={false} sx={{ py: 2 }}>
       <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 2 }}>
         <Box>
-          <Typography variant="h5" fontWeight={600}>
-            Easy Chart
-          </Typography>
-          <Typography variant="caption" color="text.secondary">
-            Encounter {encounterId}
-          </Typography>
+          {patient ? (
+            <>
+              <Typography variant="h6" fontWeight={600}>
+                {headerLine1}
+              </Typography>
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5, alignItems: 'baseline' }}>
+                {headerWeight && (
+                  <Typography variant="caption" color="text.secondary">
+                    {headerWeight}
+                  </Typography>
+                )}
+                {reasonForVisit && (
+                  <Typography variant="caption" color="text.secondary">
+                    Reason: {reasonForVisit}
+                  </Typography>
+                )}
+                <Typography
+                  variant="caption"
+                  sx={{
+                    color: currentAllergies.length ? 'error.main' : 'text.secondary',
+                    fontWeight: currentAllergies.length ? 700 : 400,
+                  }}
+                >
+                  Allergies: {currentAllergies.length ? currentAllergies.join(', ') : 'none'}
+                </Typography>
+              </Box>
+            </>
+          ) : (
+            <Typography variant="caption" color="text.secondary">
+              Encounter {encounterId}
+            </Typography>
+          )}
         </Box>
         {appointmentId && (
           <Button

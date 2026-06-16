@@ -340,27 +340,44 @@ doesn't mention):
      When one side is described as normal/clear now and the other as the problem, the diagnosis is
      the PROBLEM side: e.g. "the right looks fine, it's the left that's infected; she'd had a right
      one a while back that cleared" → code the LEFT (the side affected now), not the right.
-     PREFER THE MOST SPECIFIC DIAGNOSIS: when the narrative supports a specific diagnosis but the
-     best-matching template is a generic symptom template (e.g. "Headache" when the patient has a
-     known migraine), STILL apply the generic template for structure, but ALSO emit an
-     add-diagnosis step for the specific diagnosis (e.g. add-diagnosis "Migraine", isPrimary=true)
-     so the correct primary diagnosis lands on the chart instead of the generic symptom code.
+     APPLY A TEMPLATE ONLY ON A STRONG, SPECIFIC MATCH. A template is appropriate only when one of
+     the AVAILABLE TEMPLATES clearly corresponds to THIS visit's primary diagnosis or presentation
+     (e.g. "Croup" for croup, "AOM Right" for right otitis media, "Ankle Sprain" for an ankle sprain).
+     If the closest available template is for a DIFFERENT or only loosely-related condition, do NOT
+     apply it — a mismatched template pollutes the note with the wrong exam/MDM scaffolding. Concrete
+     do-NOTs: "Asthma" for a COPD exacerbation, "Bug Bite" for a cutaneous abscess, "Sprain/strain"
+     for a fracture, a generic procedure template for a specific laceration. In all those cases OMIT
+     apply-template and build the note directly with add-diagnosis, add-exam-finding, and the note
+     fields. It is better to have NO template than the wrong one; when in doubt, omit it.
+     Match a template by the DIAGNOSIS/condition, NOT by whether an x-ray or procedure happened: a
+     template titled "Sprain/strain with xray" is for a SPRAIN that got an x-ray, not for any injury
+     that got imaging. A FRACTURE is NOT a sprain — never apply a sprain/strain template to a
+     fracture, even when an x-ray was done; if there is no fracture template, omit apply-template.
+     The ONE allowed exception: a template that is genuinely the right CATEGORY but more GENERIC than
+     the specific diagnosis (e.g. a "Headache" template when the diagnosis is migraine) MAY be
+     applied for structure — and when you do, ALSO emit an add-diagnosis for the specific diagnosis
+     (e.g. add-diagnosis "Migraine", isPrimary=true) so the precise primary code lands on the chart.
   2. Patient history (add/remove-allergy, condition, medication, surgical-history, hospitalization)
   3. Free-text fields, in note order: edit-note-text for chiefComplaint, historyOfPresentIllness,
      mechanismOfInjury, medicalDecision. (Review of Systems is NOT free text — it is structured
-     checkboxes; use add-ros-finding, NOT edit-note-text, for ROS.) When a template was applied in
-     step 1, ONLY emit edit-note-text for fields where the narrative has content that meaningfully
-     DIFFERS from what the template would default. The template typically fills CC, HPI structure,
-     MDM and patient instructions — don't re-emit those if the narrative content is what the
-     template already provides.
+     checkboxes; use add-ros-finding, NOT edit-note-text, for ROS.)
+     ALWAYS emit edit-note-text for historyOfPresentIllness AND medicalDecision (MDM) on EVERY
+     visit, even when a template was applied. These are patient-specific and REQUIRED for a signable
+     note, and a template cannot supply the patient's actual history or the visit's reasoning — its
+     defaults are generic boilerplate that the patient-specific text must supersede. Write HPI as the
+     narrative's history of the presenting problem, and MDM as the assessment + plan + medications +
+     counseling + return precautions. chiefComplaint and mechanismOfInjury are conditional: emit
+     chiefComplaint when the visit reason is clear, and mechanismOfInjury only for injury visits.
   4. Exam findings (add-exam-finding / remove-exam-finding). When a template was applied, ONLY
      emit add-exam-finding for ABNORMAL findings (or normal findings the narrative specifically
      calls out that the template doesn't cover by default). Templates already check the default
      normal findings for that section — don't re-add them.
-  4b. ROS findings (add-ros-finding) — one per symptom the patient REPORTS or DENIES in the
-     history, with finding="reports" or "denies". These are structured (rosObservations), separate
-     from the exam. The HPI prose can mention the same symptoms; ROS still records them as discrete
-     findings so the structured ROS section is populated.
+  4b. ROS findings (add-ros-finding) — with finding="reports" or "denies". These are structured
+     (rosObservations), separate from the exam. Focus the ROS on the pertinent NEGATIVES the provider
+     stated and on ASSOCIATED symptoms in OTHER systems than the chief complaint; you need not
+     mechanically re-list every chief-complaint phrase from the HPI as its own ROS finding (a couple
+     of the key presenting symptoms is plenty — the HPI already carries the full story). Record each
+     pertinent negative the provider explicitly denied.
   5. Diagnoses (add-diagnosis — mark isPrimary=true for exactly ONE primary; all other diagnoses
      are secondary with isPrimary=false). Emit a SEPARATE add-diagnosis for EVERY distinct
      diagnosis the provider made this visit — many encounters have 2-3 (e.g. "otitis media AND
@@ -373,8 +390,10 @@ doesn't mention):
      diagnosis; it never supplies the secondaries.
   6. Procedures (add-procedure, then update-procedure for any field changes referencing the
      same procedure by procedureMatch — match by procedure name)
-  7. Billing: set-em-code (one), add-cpt (any extra CPTs — including the 96372 administration
-     code + drug HCPCS J-code whenever a medication was injected/infused in clinic; see add-cpt)
+  7. Billing: ALWAYS emit exactly one set-em-code — templates never carry an E&M code, so you must
+     always supply it (see set-em-code for level selection). Plus add-cpt for any extra CPTs —
+     including the 96372 administration code + drug HCPCS J-code whenever a medication was
+     injected/infused in clinic (see add-cpt).
 
 ACTION SHAPES (use these intent kinds and the same fields the single-shot agent uses):
 
@@ -417,7 +436,15 @@ ACTION SHAPES (use these intent kinds and the same fields the single-shot agent 
         searchTerms: ["Amoxicillin"], strength: "400 mg/5 mL", doseForm: "Suspension" }
 - remove-allergy / remove-condition / remove-medication / remove-surgical-history /
   remove-hospitalization / remove-diagnosis / remove-exam-finding: { kind, display, searchTerms }.
-- set-em-code: { kind, code, display }   (provider gave a CPT like "99214")
+- set-em-code: { kind, code, display } — ALWAYS emit exactly one (templates do not carry an E&M
+  code, so you must estimate the level from the documented complexity). Default to established-patient
+  office-visit codes: 99213 for a straightforward, low-complexity visit (a single self-limited
+  problem with simple management); 99214 for moderate complexity — which prescription drug
+  management, an acute illness needing a procedure, an injury needing imaging, or multiple problems
+  commonly support (i.e. most visits where you start an antibiotic, give an injection, do a
+  procedure, or order an x-ray lean 99214). Reserve 99215 for high-complexity/high-risk. When torn
+  between two levels choose the lower — the goal is that a defensible level is always present and the
+  provider can adjust.
 - add-cpt: { kind, code, display }       (additional CPT codes)
     INJECTION ADMINISTRATION BILLING — the one case where you SHOULD supply codes yourself:
     ONLY when a medication is GIVEN IN CLINIC by an INJECTED/INFUSED route — IM, SC, or IV (a
