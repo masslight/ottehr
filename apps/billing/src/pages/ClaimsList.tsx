@@ -16,7 +16,15 @@ import {
 import { DataGridPro, GridColDef, GridPaginationModel } from '@mui/x-data-grid-pro';
 import { ReactElement, useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { BillingClaimItem, BillingPatientOption, BillingPayerOption, chooseJson, ClaimsQueueItemStatuses } from 'utils';
+import {
+  BillingClaimItem,
+  BillingPatientOption,
+  BillingPayerOption,
+  ClaimsQueueItemStatuses,
+  getApiError,
+  SearchBillingClaimsInput,
+} from 'utils';
+import { searchBillingClaims, searchBillingPatients, searchBillingPayers, searchBillingTags } from '../api/api';
 import { dataGridSlots, dataGridSx } from '../components/BillingDataGrid';
 import { CLAIM_STATUS_COLORS, formatClaimStatus } from '../constants/claimStatus';
 import { useApiClients } from '../hooks/useAppClients';
@@ -109,24 +117,23 @@ export default function ClaimsList(): ReactElement {
       setLoading(true);
       setError(null);
       try {
-        const body: Record<string, unknown> = {
+        const params: SearchBillingClaimsInput = {
           pageSize: pagination.pageSize,
           offset: pagination.page * pagination.pageSize,
         };
-        if (filters.searchText) body.searchText = filters.searchText;
-        if (filters.status) body.status = filters.status;
-        if (filters.tag) body.tag = filters.tag;
-        if (filters.createdFrom) body.createdFrom = filters.createdFrom;
-        if (filters.createdTo) body.createdTo = filters.createdTo;
-        if (filters.payerId) body.payerId = filters.payerId;
-        if (filters.patientId) body.patientId = filters.patientId;
+        if (filters.searchText) params.searchText = filters.searchText;
+        if (filters.status) params.status = filters.status;
+        if (filters.tag) params.tag = filters.tag;
+        if (filters.createdFrom) params.createdFrom = filters.createdFrom;
+        if (filters.createdTo) params.createdTo = filters.createdTo;
+        if (filters.payerId) params.payerId = filters.payerId;
+        if (filters.patientId) params.patientId = filters.patientId;
 
-        const response = await oystehrZambda.zambda.execute({ id: 'search-billing-claims', ...body });
-        const data = chooseJson(response);
+        const data = await searchBillingClaims(oystehrZambda, params);
         setClaims(data.claims ?? []);
         setTotalRows(data.total ?? 0);
       } catch (err) {
-        setError(err instanceof Error ? err.message : String(err));
+        setError(getApiError({ error: err, defaultError: 'Failed to load claims' }));
         setClaims([]);
         setTotalRows(0);
       } finally {
@@ -141,11 +148,8 @@ export default function ClaimsList(): ReactElement {
       if (!oystehrZambda) return;
       if (payerDebounce.current) clearTimeout(payerDebounce.current);
       payerDebounce.current = setTimeout(async () => {
-        const res = await oystehrZambda.zambda.execute({
-          id: 'search-billing-payers',
-          ...(query ? { name: query } : {}),
-        });
-        setPayerOptions(chooseJson(res).payers ?? []);
+        const res = await searchBillingPayers(oystehrZambda, query ? { name: query } : {});
+        setPayerOptions(res.payers ?? []);
       }, 300);
     },
     [oystehrZambda]
@@ -156,11 +160,8 @@ export default function ClaimsList(): ReactElement {
       if (!oystehrZambda) return;
       if (patientDebounce.current) clearTimeout(patientDebounce.current);
       patientDebounce.current = setTimeout(async () => {
-        const res = await oystehrZambda.zambda.execute({
-          id: 'search-billing-patients',
-          ...(query ? { name: query } : {}),
-        });
-        setPatientOptions(chooseJson(res).patients ?? []);
+        const res = await searchBillingPatients(oystehrZambda, query ? { name: query } : {});
+        setPatientOptions(res.patients ?? []);
       }, 300);
     },
     [oystehrZambda]
@@ -173,8 +174,8 @@ export default function ClaimsList(): ReactElement {
     void fetchClaims({}, paginationModel);
     const loadTags = async (): Promise<void> => {
       try {
-        const res = await oystehrZambda.zambda.execute({ id: 'search-billing-tags' });
-        setTagOptions(chooseJson(res).tags ?? []);
+        const res = await searchBillingTags(oystehrZambda);
+        setTagOptions(res.tags ?? []);
       } catch (err) {
         console.error('Failed to load tags:', err);
         setTagOptions([]);

@@ -16,7 +16,15 @@ import {
 import { DataGridPro, GridColDef, GridPaginationModel } from '@mui/x-data-grid-pro';
 import { ReactElement, useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { BillingPatientOption, BillingPayerOption, chooseJson, ClaimsQueueItemStatuses, EraListItem } from 'utils';
+import {
+  BillingPatientOption,
+  BillingPayerOption,
+  ClaimsQueueItemStatuses,
+  EraListItem,
+  getApiError,
+  SearchErasInput,
+} from 'utils';
+import { searchBillingEras, searchBillingPatients, searchBillingPayers } from '../api/api';
 import { dataGridSlots, dataGridSx } from '../components/BillingDataGrid';
 import { formatClaimStatus } from '../constants/claimStatus';
 import { useApiClients } from '../hooks/useAppClients';
@@ -106,27 +114,26 @@ export default function ERAList(): ReactElement {
       setLoading(true);
       setError(null);
       try {
-        const body: Record<string, unknown> = {
+        const params: SearchErasInput = {
           pageSize: pagination.pageSize,
           offset: pagination.page * pagination.pageSize,
         };
-        if (filters.checkNumber) body.checkNumber = filters.checkNumber;
-        if (filters.eraId) body.eraId = filters.eraId;
-        if (filters.eraDateFrom) body.eraDateFrom = filters.eraDateFrom;
-        if (filters.eraDateTo) body.eraDateTo = filters.eraDateTo;
-        if (filters.eraStatus) body.eraStatus = filters.eraStatus;
-        if (filters.payerId) body.payerId = filters.payerId;
-        if (filters.searchText) body.searchText = filters.searchText;
-        if (filters.claimStatus) body.claimStatus = filters.claimStatus;
-        if (filters.dosFrom) body.dosFrom = filters.dosFrom;
-        if (filters.dosTo) body.dosTo = filters.dosTo;
-        if (filters.patientId) body.patientId = filters.patientId;
-        const response = await oystehrZambda.zambda.execute({ id: 'search-billing-eras', ...body });
-        const data = chooseJson(response);
+        if (filters.checkNumber) params.checkNumber = filters.checkNumber;
+        if (filters.eraId) params.eraId = filters.eraId;
+        if (filters.eraDateFrom) params.eraDateFrom = filters.eraDateFrom;
+        if (filters.eraDateTo) params.eraDateTo = filters.eraDateTo;
+        if (filters.eraStatus) params.eraStatus = filters.eraStatus;
+        if (filters.payerId) params.payerId = filters.payerId;
+        if (filters.searchText) params.searchText = filters.searchText;
+        if (filters.claimStatus) params.claimStatus = filters.claimStatus;
+        if (filters.dosFrom) params.dosFrom = filters.dosFrom;
+        if (filters.dosTo) params.dosTo = filters.dosTo;
+        if (filters.patientId) params.patientId = filters.patientId;
+        const data = await searchBillingEras(oystehrZambda, params);
         setEras(data.eras ?? []);
         setTotalRows(data.total ?? 0);
       } catch (err) {
-        setError(err instanceof Error ? err.message : String(err));
+        setError(getApiError({ error: err, defaultError: 'Failed to load ERAs' }));
       } finally {
         setLoading(false);
       }
@@ -139,11 +146,8 @@ export default function ERAList(): ReactElement {
       if (!oystehrZambda) return;
       debounce(async () => {
         try {
-          const res = await oystehrZambda.zambda.execute({
-            id: 'search-billing-payers',
-            ...(query ? { name: query } : {}),
-          });
-          setPayerOptions(chooseJson(res).payers ?? []);
+          const res = await searchBillingPayers(oystehrZambda, query ? { name: query } : {});
+          setPayerOptions(res.payers ?? []);
         } catch {
           setPayerOptions([]);
         }
@@ -157,11 +161,11 @@ export default function ERAList(): ReactElement {
       if (!oystehrZambda) return;
       debounce(async () => {
         try {
-          const res = await oystehrZambda.zambda.execute({
-            id: 'search-billing-patients',
-            ...(query ? { name: query, includeWorkingCopies: true } : {}),
-          });
-          setPatientOptions(chooseJson(res).patients ?? []);
+          const res = await searchBillingPatients(
+            oystehrZambda,
+            query ? { name: query, includeWorkingCopies: true } : {}
+          );
+          setPatientOptions(res.patients ?? []);
         } catch {
           setPatientOptions([]);
         }

@@ -3,7 +3,8 @@ import { Alert, Box, Button, InputAdornment, TextField, Typography } from '@mui/
 import { DataGridPro, GridColDef } from '@mui/x-data-grid-pro';
 import { ReactElement, useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { chooseJson } from 'utils';
+import { getApiError, SearchBillingPatientsInput } from 'utils';
+import { searchBillingPatients } from '../api/api';
 import { AddPatientDialog } from '../components/AddPatientDialog';
 import { dataGridSlots, dataGridSx } from '../components/BillingDataGrid';
 import { useApiClients } from '../hooks/useAppClients';
@@ -59,20 +60,20 @@ export default function PatientsList(): ReactElement {
       setError(null);
       try {
         const hasSearch = filters.name || filters.dob || filters.identifier || filters.uuid;
-        const body: Record<string, unknown> = {
+        const params: SearchBillingPatientsInput = {
           offset: page * pageSize,
           pageSize,
         };
-        if (hasSearch) body.includeWorkingCopies = true;
-        if (filters.name) body.name = filters.name;
-        if (filters.dob) body.dob = filters.dob;
-        if (filters.identifier) body.identifier = filters.identifier;
-        if (filters.uuid) body.uuid = filters.uuid;
-        const data = chooseJson(await oystehrZambda.zambda.execute({ id: 'search-billing-patients', ...body }));
-        setPatients(data?.patients ?? []);
-        setTotal(data?.total ?? 0);
+        if (hasSearch) params.includeWorkingCopies = true;
+        if (filters.name) params.name = filters.name;
+        if (filters.dob) params.dob = filters.dob;
+        if (filters.identifier) params.identifier = filters.identifier;
+        if (filters.uuid) params.uuid = filters.uuid;
+        const data = await searchBillingPatients(oystehrZambda, params);
+        setPatients((data.patients ?? []) as PatientRow[]);
+        setTotal(data.total ?? 0);
       } catch (err) {
-        setError(err instanceof Error ? err.message : String(err));
+        setError(getApiError({ error: err, defaultError: 'Failed to load patients' }));
         setPatients([]);
       } finally {
         setLoading(false);

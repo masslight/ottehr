@@ -30,9 +30,20 @@ import {
   BillingPayerOption,
   BillingProviderOption,
   BillingTag,
-  chooseJson,
   ClaimDetailResponse,
+  getApiError,
+  UpdateBillingResourceInput,
 } from 'utils';
+import {
+  getBillingClaimDetail,
+  getPatientCoverages,
+  searchBillingLocations,
+  searchBillingPayers,
+  searchBillingProviders,
+  searchBillingTags,
+  tagBillingClaim,
+  updateBillingResource,
+} from '../api/api';
 import { EditableSection } from '../components/claim/EditableSection';
 import { Field } from '../components/Field';
 import { CLAIM_STATUS_COLORS, formatClaimStatus } from '../constants/claimStatus';
@@ -59,10 +70,10 @@ export default function ClaimDetail(): ReactElement {
     setLoading(true);
     setError(null);
     try {
-      const response = await oystehrZambda.zambda.execute({ id: 'get-billing-claim-detail', claimId: id });
-      setClaim(chooseJson(response));
+      const data = await getBillingClaimDetail(oystehrZambda, { claimId: id });
+      setClaim(data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(getApiError({ error: err, defaultError: 'Failed to load claim' }));
     } finally {
       setLoading(false);
     }
@@ -76,14 +87,9 @@ export default function ClaimDetail(): ReactElement {
     async (resourceType: string, resourceId: string, fields: Record<string, unknown>): Promise<string | null> => {
       if (!oystehrZambda) return 'Client not ready';
       try {
-        await oystehrZambda.zambda.execute({
-          id: 'update-billing-claim',
-          resourceId,
-          resourceType,
-          fields,
-        });
+        await updateBillingResource(oystehrZambda, { resourceType, resourceId, fields } as UpdateBillingResourceInput);
       } catch (err) {
-        return err instanceof Error ? err.message : 'Failed to save changes';
+        return getApiError({ error: err, defaultError: 'Failed to save changes' });
       }
       await fetchDetail();
       return null;
@@ -95,9 +101,9 @@ export default function ClaimDetail(): ReactElement {
     async (action: 'add' | 'remove', tagName: string): Promise<void> => {
       if (!oystehrZambda || !id) return;
       try {
-        await oystehrZambda.zambda.execute({ id: 'tag-billing-claim', claimId: id, action, tagName });
+        await tagBillingClaim(oystehrZambda, { claimId: id, action, tagName });
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to update tag');
+        setError(getApiError({ error: err, defaultError: 'Failed to update tag' }));
         return;
       }
       await fetchDetail();
@@ -387,11 +393,8 @@ function InsuranceSection({
       if (!oystehrZambda) return;
       if (searchTimer.current) clearTimeout(searchTimer.current);
       searchTimer.current = setTimeout(async () => {
-        const res = await oystehrZambda.zambda.execute({
-          id: 'search-billing-payers',
-          ...(query ? { name: query } : {}),
-        });
-        setPayerOptions(chooseJson(res).payers ?? []);
+        const res = await searchBillingPayers(oystehrZambda, query ? { name: query } : {});
+        setPayerOptions(res.payers ?? []);
       }, 300);
     },
     [oystehrZambda]
@@ -400,11 +403,8 @@ function InsuranceSection({
   const loadCoverages = useCallback((): void => {
     if (!oystehrZambda || !claim.patientOriginalId) return;
     void (async () => {
-      const res = await oystehrZambda.zambda.execute({
-        id: 'get-patient-coverages',
-        patientId: claim.patientOriginalId,
-      });
-      setCoverageOptions(chooseJson(res).coverages ?? []);
+      const res = await getPatientCoverages(oystehrZambda, { patientId: claim.patientOriginalId });
+      setCoverageOptions(res.coverages ?? []);
     })();
   }, [oystehrZambda, claim.patientOriginalId]);
 
@@ -547,12 +547,11 @@ function RenderingProviderSection({
       if (!oystehrZambda) return;
       if (searchTimer.current) clearTimeout(searchTimer.current);
       searchTimer.current = setTimeout(async () => {
-        const res = await oystehrZambda.zambda.execute({
-          id: 'search-billing-providers',
+        const res = await searchBillingProviders(oystehrZambda, {
           providerType: 'rendering',
           ...(query ? { name: query } : {}),
         });
-        setOptions(chooseJson(res).providers ?? []);
+        setOptions(res.providers ?? []);
       }, 300);
     },
     [oystehrZambda]
@@ -698,11 +697,8 @@ function FacilitySection({
       if (!oystehrZambda) return;
       if (searchTimer.current) clearTimeout(searchTimer.current);
       searchTimer.current = setTimeout(async () => {
-        const res = await oystehrZambda.zambda.execute({
-          id: 'search-billing-locations',
-          ...(query ? { name: query } : {}),
-        });
-        setOptions(chooseJson(res).locations ?? []);
+        const res = await searchBillingLocations(oystehrZambda, query ? { name: query } : {});
+        setOptions(res.locations ?? []);
       }, 300);
     },
     [oystehrZambda]
@@ -843,12 +839,11 @@ function BillingProviderSection({
       if (!oystehrZambda) return;
       if (searchTimer.current) clearTimeout(searchTimer.current);
       searchTimer.current = setTimeout(async () => {
-        const res = await oystehrZambda.zambda.execute({
-          id: 'search-billing-providers',
+        const res = await searchBillingProviders(oystehrZambda, {
           providerType: 'billing',
           ...(query ? { name: query } : {}),
         });
-        setOptions(chooseJson(res).providers ?? []);
+        setOptions(res.providers ?? []);
       }, 300);
     },
     [oystehrZambda]
@@ -1406,11 +1401,11 @@ function TagAdder({
     if (!oystehrZambda) return;
     setAddError(null);
     try {
-      const res = await oystehrZambda.zambda.execute({ id: 'search-billing-tags' });
-      setAllTags(chooseJson(res).tags ?? []);
+      const res = await searchBillingTags(oystehrZambda);
+      setAllTags(res.tags ?? []);
     } catch (err) {
       setAllTags([]);
-      setAddError(err instanceof Error ? err.message : 'Failed to load tags');
+      setAddError(getApiError({ error: err, defaultError: 'Failed to load tags' }));
     }
   }, [oystehrZambda]);
 
@@ -1419,9 +1414,9 @@ function TagAdder({
       if (!oystehrZambda) return;
       setAddError(null);
       try {
-        await oystehrZambda.zambda.execute({ id: 'tag-billing-claim', claimId, action: 'add', tagName });
+        await tagBillingClaim(oystehrZambda, { claimId, action: 'add', tagName });
       } catch (err) {
-        setAddError(err instanceof Error ? err.message : 'Failed to add tag');
+        setAddError(getApiError({ error: err, defaultError: 'Failed to add tag' }));
         return;
       }
       setOpen(false);
