@@ -49,3 +49,22 @@ export interface AdHocDataset {
   /** Derive the schema descriptor (column metadata + value domains) from the fetched rows. */
   buildSchema: (rows: AdHocRow[]) => DatasetSchema;
 }
+
+/** One serialized cell of a table the report rendered, lifted out of the sandboxed iframe. `href` is
+ *  set when the cell was a single app-internal link (so the grid can re-link it). */
+export interface ExtractedCell {
+  text: string;
+  href?: string;
+}
+
+/** A table the generated report rendered, extracted from the iframe so the parent can re-render it as
+ *  a full DataGrid (sortable / filterable / exportable). Cell values are display strings; the parent
+ *  infers column types for sorting. */
+export interface ExtractedTable {
+  /** Stable id (render order) so React keys and updates are stable across drill-down additions. */
+  id: string;
+  /** Heading/caption that preceded the table, used as the grid title. */
+  label: string;
+  columns: string[];
+  rows: ExtractedCell[][];
+}

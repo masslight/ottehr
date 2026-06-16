@@ -2,9 +2,11 @@
 // gives us the file contents as a string; it never touches the network at runtime.
 // Relative file path (not the bare "chart.js/…" specifier) so the package `exports` map — which
 // doesn't expose dist/* — can't block it. chart.js is hoisted to the workspace root node_modules.
+import { Box } from '@mui/material';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import chartJsSource from '../../../../../../node_modules/chart.js/dist/chart.umd.js?raw';
-import { AdHocRow, DatasetSchema } from './types';
+import { AdHocTableGrid } from './AdHocTableGrid';
+import { AdHocRow, DatasetSchema, ExtractedTable } from './types';
 
 // The generated report code runs inside a SANDBOXED iframe:
 //   - sandbox="allow-scripts" WITHOUT allow-same-origin → opaque origin, no access to the app's
@@ -13,6 +15,11 @@ import { AdHocRow, DatasetSchema } from './types';
 //     so we can run the model's code via `new Function`.
 // Data is handed in via postMessage; the code renders into the iframe's own document.body. A hang or
 // crash is contained to the frame (the parent's timeout recovers), and nothing can phone home.
+//
+// TABLES are an exception to "render in the frame": the trusted bootstrap extracts every <table> the
+// report draws, HIDES it in the frame, and posts its data to the parent, which re-renders it as a
+// full DataGrid (sortable / filterable / exportable — the same grid the rest of the reports area
+// uses). So the frame shows only chart/KPI/other content; tables become real grids below it.
 const CSP = [
   "default-src 'none'",
   "script-src 'unsafe-inline' 'unsafe-eval'",
@@ -41,78 +48,88 @@ const BOOTSTRAP = `
     function send(m) { try { parent.postMessage(m, '*'); } catch (e) {} }
     function measure() { return Math.max(document.body.scrollHeight, document.documentElement.scrollHeight); }
 
-    // --- Per-table CSV export -------------------------------------------------------------------
-    // The host wrapper (trusted code, NOT the generated report) decorates every <table> the report
-    // renders with a small "Export CSV" icon, so tabular reports get the same export affordance as
-    // the rest of the reports area. Chart/KPI-only reports render no <table> and get no icon. The
-    // sandbox can't trigger a download itself, so the click serializes that one table and posts it to
-    // the parent, which does the file download.
-    function cellText(c) { return ((c && c.textContent) || '').trim().replace(/\\s+/g, ' '); }
+    // --- Lift tables out to the parent ----------------------------------------------------------
+    // Tables the report renders are serialized, HIDDEN in the frame (along with their heading), and
+    // posted to the parent, which re-renders them as full DataGrids. Re-runs on drill-down (a detail
+    // table appended when a chart bar is clicked). 'extracted' accumulates in render order.
+    var extracted = [];
+    var tableSeq = 0;
+    function cellOf(td) {
+      var cell = { text: ((td && td.textContent) || '').trim().replace(/\\s+/g, ' ') };
+      var a = td.querySelector ? td.querySelector('a') : null;
+      if (a) {
+        var href = a.getAttribute('href') || '';
+        // Only app-internal single-slash links survive (same rule the egress guard enforces).
+        if (href.charAt(0) === '/' && href.charAt(1) !== '/') cell.href = href;
+      }
+      return cell;
+    }
+    function rowCells(tr) { return [].map.call(tr.querySelectorAll('th,td'), cellOf); }
     function serializeTable(table) {
-      var headers = [];
-      var bodyRows = [];
+      var columns = [];
+      var rows = [];
       var headRow = table.querySelector('thead tr');
-      var rowsSource;
+      var bodySource;
       if (headRow) {
-        headers = [].map.call(headRow.querySelectorAll('th,td'), cellText);
-        rowsSource = table.querySelectorAll('tbody tr');
+        columns = rowCells(headRow).map(function (c) { return c.text; });
+        bodySource = table.querySelectorAll('tbody tr');
       } else {
         var trs = table.querySelectorAll('tr');
-        if (trs.length) { headers = [].map.call(trs[0].querySelectorAll('th,td'), cellText); rowsSource = [].slice.call(trs, 1); }
-        else { rowsSource = []; }
+        if (trs.length) {
+          columns = rowCells(trs[0]).map(function (c) { return c.text; });
+          bodySource = [].slice.call(trs, 1);
+        } else { bodySource = []; }
       }
-      [].forEach.call(rowsSource, function (tr) { bodyRows.push([].map.call(tr.querySelectorAll('th,td'), cellText)); });
-      return { headers: headers, rows: bodyRows };
+      [].forEach.call(bodySource, function (tr) { rows.push(rowCells(tr)); });
+      return { columns: columns, rows: rows };
     }
-    function tableLabel(table) {
-      var cap = table.querySelector('caption');
-      if (cap && cap.textContent.trim()) return cap.textContent.trim();
+    function precedingHeading(table) {
       var prev = table.previousElementSibling;
-      // Skip our own export bar when looking back for a heading.
-      if (prev && prev.getAttribute && prev.getAttribute('data-export-bar')) prev = prev.previousElementSibling;
-      if (prev && /^H[1-4]$/.test(prev.tagName)) return prev.textContent.trim();
-      return '';
+      if (prev && /^H[1-4]$/.test(prev.tagName)) return prev;
+      return table.querySelector('caption');
     }
-    function decorateTables() {
-      var tables = document.querySelectorAll('table');
-      [].forEach.call(tables, function (table) {
-        if (table.getAttribute('data-export-decorated')) return;
-        // A table needs at least one data cell to be worth exporting.
-        if (!table.querySelector('td')) return;
-        table.setAttribute('data-export-decorated', '1');
-        var label = tableLabel(table);
-        var bar = document.createElement('div');
-        bar.setAttribute('data-export-bar', '1');
-        bar.style.cssText = 'display:flex;justify-content:flex-end;margin:8px 0 -2px;';
-        var btn = document.createElement('button');
-        btn.type = 'button';
-        btn.title = 'Export this table to CSV';
-        btn.style.cssText = 'display:inline-flex;align-items:center;gap:4px;font:600 12px Roboto,system-ui,sans-serif;' +
-          'color:#1565c0;background:#fff;border:1px solid #c5d6ea;border-radius:4px;padding:3px 8px;cursor:pointer;';
-        btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">' +
-          '<path d="M5 20h14v-2H5v2zM19 9h-4V3H9v6H5l7 7 7-7z"/></svg>Export CSV';
-        btn.addEventListener('click', function () {
-          var t = serializeTable(table);
-          send({ type: 'export-table', label: label, headers: t.headers, rows: t.rows });
-        });
-        bar.appendChild(btn);
-        table.parentNode.insertBefore(bar, table);
+    function hasNonTableContent() {
+      if (document.querySelector('canvas')) return true;
+      // innerText excludes display:none elements, so hidden tables/headings don't count.
+      return document.body.innerText.trim().length > 0;
+    }
+    function publishTables() {
+      send({ type: 'tables', tables: extracted, hasNonTableContent: hasNonTableContent() });
+    }
+    function extractTables() {
+      var added = false;
+      [].forEach.call(document.querySelectorAll('table'), function (table) {
+        if (table.getAttribute('data-extracted')) return;
+        if (!table.querySelector('td')) return; // header-only / empty — not worth a grid
+        table.setAttribute('data-extracted', '1');
+        var label = '';
+        var heading = precedingHeading(table);
+        if (heading) { label = (heading.textContent || '').trim(); heading.style.display = 'none'; }
+        var s = serializeTable(table);
+        table.style.display = 'none';
+        extracted.push({ id: 't' + (tableSeq++), label: label, columns: s.columns, rows: s.rows });
+        added = true;
       });
+      return added;
     }
 
-    // Report height on EVERY content change, not just the initial render. Interactive reports
-    // (e.g. a detail table appended when a chart bar is clicked) grow the document after render;
-    // without this the iframe stays its original height and the new content renders below the
-    // visible area. A ResizeObserver on <body> fires on those mutations; we de-dupe by last height.
+    // Report height on EVERY content change. Interactive reports grow the document after render
+    // (e.g. a chart-click reveals more); a ResizeObserver on <body> keeps the iframe sized to its
+    // VISIBLE content (extracted tables are hidden, so they don't count). De-duped by last height.
     var lastH = 0;
     function reportResize() {
       var h = measure();
       if (h !== lastH) { lastH = h; send({ type: 'resize', height: h }); }
     }
     try { new ResizeObserver(reportResize).observe(document.body); } catch (e) {}
-    // Decorate tables on any DOM change too — drill-down detail tables are appended after render.
-    // decorateTables() is idempotent (marks each table), so inserting our own bars can't loop.
-    try { new MutationObserver(decorateTables).observe(document.body, { childList: true, subtree: true }); } catch (e) {}
+    // Pull out tables on any DOM change too — drill-down detail tables are appended after render.
+    // extractTables() marks each table, so hiding them can't loop.
+    try {
+      new MutationObserver(function () { if (extractTables()) publishTables(); }).observe(
+        document.body, { childList: true, subtree: true }
+      );
+    } catch (e) {}
+
     // Egress guard: only app-internal links may navigate. Anchors must use a single-slash relative
     // href (resolved against the <base> to the EHR origin); anything else — absolute URLs,
     // protocol-relative, javascript:, etc. — is cancelled. This closes the "render an external
@@ -126,14 +143,18 @@ const BOOTSTRAP = `
         ev.stopPropagation();
       }
     }, true);
+
     window.addEventListener('message', function (ev) {
       var msg = ev && ev.data;
       if (!msg || msg.type !== 'render') return;
       try {
         document.body.innerHTML = '';
+        extracted = [];
+        tableSeq = 0;
         var fn = new Function('data', 'schema', 'Chart', msg.code);
         fn(msg.data, msg.schema, window.Chart);
-        decorateTables();
+        extractTables();
+        publishTables(); // always — an empty list clears stale grids from the previous report
         var h = measure();
         lastH = h;
         send({ type: 'rendered', height: h });
@@ -148,8 +169,7 @@ const BOOTSTRAP = `
 // Built once. The generated code is NOT embedded here — it arrives via postMessage — so there is no
 // HTML-injection surface in the document itself.
 // The <base> tag makes relative hrefs in generated reports resolve against the EHR origin (srcdoc
-// documents otherwise resolve against about:srcdoc) and opens them in a new tab — so a report can
-// link a row to its chart with a plain <a href="/in-person/{id}/...">.
+// documents otherwise resolve against about:srcdoc) and opens them in a new tab.
 const SRC_DOC = [
   '<!DOCTYPE html><html><head><meta charset="utf-8">',
   `<meta http-equiv="Content-Security-Policy" content="${CSP}">`,
@@ -164,47 +184,12 @@ const SRC_DOC = [
 
 const TIMEOUT_MS = 8000;
 
-// CSV cell escaping per RFC 4180; a leading BOM makes Excel read UTF-8 correctly.
-function buildCsv(headers: string[], rows: string[][]): string {
-  const esc = (v: string): string => (/[",\n\r]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v);
-  const lines: string[] = [];
-  if (headers.length) lines.push(headers.map(esc).join(','));
-  for (const r of rows) lines.push(r.map(esc).join(','));
-  return '﻿' + lines.join('\r\n');
-}
-
-function slugify(s: string): string {
-  return (
-    s
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '')
-      .slice(0, 60) || 'ad-hoc-report'
-  );
-}
-
-// The download itself runs in the parent (same-origin) — the sandboxed frame can't trigger one.
-function downloadTableCsv(reportTitle: string | undefined, label: string, headers: string[], rows: string[][]): void {
-  const csv = buildCsv(headers, rows);
-  const namePart = slugify(reportTitle || 'ad-hoc-report');
-  const labelPart = label ? '-' + slugify(label) : '';
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `${namePart}${labelPart}.csv`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-}
-
 interface ReportFrameProps {
   code: string;
   data: AdHocRow[];
   schema: DatasetSchema;
   onError: (message: string) => void;
-  /** Used to name the exported CSV file (the report's title). */
+  /** Report title — used to name the per-table CSV export. */
   reportTitle?: string;
 }
 
@@ -215,21 +200,20 @@ export function ReportFrame({ code, data, schema, onError, reportTitle }: Report
   const loadCountRef = useRef(0);
   const tornDownRef = useRef(false);
   const [height, setHeight] = useState(400);
+  // Tables lifted out of the frame, re-rendered as DataGrids below. `hasNonTableContent` is false for
+  // a pure-table report (no chart/KPI) — then the frame is collapsed and only the grids show.
+  const [tables, setTables] = useState<ExtractedTable[]>([]);
+  const [hasNonTableContent, setHasNonTableContent] = useState(true);
 
   // Egress backstop: legitimate report links open in a NEW tab (target=_blank), so they never
   // reload THIS frame. The srcdoc therefore loads exactly once. Any subsequent load event means the
-  // frame navigated its own document — the one exfiltration channel CSP/sandbox can't block
-  // (self-navigation to an external URL). We can't un-send that first request, but we blank the
-  // frame to stop any repeat/streamed leak and surface the event loudly. (Full prevention requires
-  // a frame-src allowlist on the app's CSP — tracked separately.)
+  // frame navigated its own document — the one exfiltration channel CSP/sandbox can't block.
   const handleLoad = useCallback((): void => {
     loadCountRef.current += 1;
-    // Fire once: blanking the frame re-triggers `load`, so guard against re-entry.
     if (loadCountRef.current > 1 && !tornDownRef.current) {
       tornDownRef.current = true;
       const frame = ref.current;
       if (frame) frame.srcdoc = '<!DOCTYPE html><html><body></body></html>';
-
       console.error('[AdHocReport] report frame attempted to navigate away — blanked for safety');
       onError('The report was stopped because it attempted to navigate away from the page.');
     }
@@ -253,9 +237,8 @@ export function ReportFrame({ code, data, schema, onError, reportTitle }: Report
         type?: string;
         height?: number;
         message?: string;
-        label?: string;
-        headers?: string[];
-        rows?: string[][];
+        tables?: ExtractedTable[];
+        hasNonTableContent?: boolean;
       };
       if (msg?.type === 'ready') {
         readyRef.current = true;
@@ -264,12 +247,11 @@ export function ReportFrame({ code, data, schema, onError, reportTitle }: Report
         if (timerRef.current) clearTimeout(timerRef.current);
         if (typeof msg.height === 'number') setHeight(Math.min(Math.max(msg.height + 32, 160), 2400));
       } else if (msg?.type === 'resize') {
-        // Post-render content change (e.g. a detail table appended on chart click). Grow the iframe
-        // so it stays visible; don't touch the render timeout — that's already cleared by 'rendered'.
         if (typeof msg.height === 'number') setHeight(Math.min(Math.max(msg.height + 32, 160), 2400));
-      } else if (msg?.type === 'export-table') {
-        // A per-table "Export CSV" icon was clicked inside the frame; do the download here.
-        downloadTableCsv(reportTitle, msg.label ?? '', msg.headers ?? [], msg.rows ?? []);
+      } else if (msg?.type === 'tables') {
+        // The frame extracted (and hid) the report's tables; render them as DataGrids below.
+        setTables(Array.isArray(msg.tables) ? msg.tables : []);
+        setHasNonTableContent(msg.hasNonTableContent !== false);
       } else if (msg?.type === 'error') {
         if (timerRef.current) clearTimeout(timerRef.current);
         onError(msg.message || 'The report code threw an error.');
@@ -280,7 +262,7 @@ export function ReportFrame({ code, data, schema, onError, reportTitle }: Report
       window.removeEventListener('message', handler);
       if (timerRef.current) clearTimeout(timerRef.current);
     };
-  }, [postRender, onError, reportTitle]);
+  }, [postRender, onError]);
 
   // (Re)render whenever the code or data changes and the frame is ready.
   useEffect(() => {
@@ -288,18 +270,23 @@ export function ReportFrame({ code, data, schema, onError, reportTitle }: Report
   }, [postRender]);
 
   return (
-    // allow-popups (+ escape-sandbox so the opened tab is a NORMAL tab, not a sandboxed one) lets
-    // report links open app pages in a new tab via native anchor clicks — which carry the user
-    // gesture, so they aren't popup-blocked. Still no allow-same-origin: the report document stays
-    // an opaque origin with no access to the app's DOM/storage, and CSP still blocks all
-    // network egress from within the frame.
-    <iframe
-      ref={ref}
-      title="Ad-hoc report"
-      sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox"
-      srcDoc={SRC_DOC}
-      onLoad={handleLoad}
-      style={{ width: '100%', height, border: '1px solid #e0e0e0', borderRadius: 4, background: '#fff' }}
-    />
+    <Box>
+      {/* The frame stays mounted (it computes the tables), but collapses when there's nothing but
+          tables to show. allow-popups (+ escape-sandbox) lets report links open app pages in a new
+          tab via native anchor clicks; still no allow-same-origin. */}
+      <Box sx={{ display: hasNonTableContent ? 'block' : 'none' }}>
+        <iframe
+          ref={ref}
+          title="Ad-hoc report"
+          sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox"
+          srcDoc={SRC_DOC}
+          onLoad={handleLoad}
+          style={{ width: '100%', height, border: '1px solid #e0e0e0', borderRadius: 4, background: '#fff' }}
+        />
+      </Box>
+      {tables.map((t) => (
+        <AdHocTableGrid key={t.id} table={t} reportTitle={reportTitle} />
+      ))}
+    </Box>
   );
 }

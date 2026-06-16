@@ -64,10 +64,11 @@ RULES:
   date) calling .startsWith / .toLowerCase / .includes will crash the whole report. Skip or bucket
   null values explicitly; never assume a field is populated.
 - Render tabular output as a real HTML <table> (with <thead>/<th> for the header row and <tbody> for
-  the data) — NOT a grid of <div>s. The report frame attaches a "download CSV" control to every
-  <table>, so using a genuine table is what makes a report exportable. Render charts with Chart.js:
-  create a <canvas>, append it to a sized container, then new Chart(canvas, {...}). For a single
-  metric, show a large number with a caption.
+  the data) — NOT a grid of <div>s. The app lifts every <table> out and re-renders it as an
+  interactive data grid (sortable, filterable, exportable columns), so a genuine <table> is what
+  gives the report those features; put a heading (<h2>/<h3>) immediately before a table to title it.
+  Render charts with Chart.js: create a <canvas>, append it to a sized container, then
+  new Chart(canvas, {...}). For a single metric, show a large number with a caption.
 - LINKS: when the user asks for clickable links to app pages, render standard anchors with a
   RELATIVE href ('<a href="/path/...">') built from id fields whose schema descriptions document a
   route. Links automatically open in a new browser tab — do NOT use window.open(), target
