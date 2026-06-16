@@ -85,7 +85,6 @@ import {
   isAppointmentAutoAccident,
   isAppointmentOccupationalMedicine,
   isAppointmentWorkersComp,
-  isEncounterSelfPay,
   isTelemedAppointment,
   MedicationUnitOptions,
   MISSING_PATIENT_COVERAGE_INFO_ERROR,
@@ -124,6 +123,17 @@ const CANDID_TAG_AUTO_ACCIDENT = 'auto-accident';
 // Sent as both the payer name and payer id (with a space, as required by Candid) for employer-paid
 // (occupational medicine) visits so an insurance payer is never billed.
 const CANDID_CASH_PAY_PAYER = 'Cash Pay';
+
+/**
+ * Whether the claim should bill a single "Cash Pay" payer instead of insurance. This is true for
+ * employer-paid and self-pay visits, determined by the encounter's payment variant (the authoritative
+ * billing signal chosen during paperwork). Note an occupational-medicine *service category* visit can
+ * still be insurance-pay, so the service category must not be used to make this decision.
+ */
+const shouldUseCashPayCoverage = (encounter: Encounter): boolean => {
+  const paymentVariant = getPaymentVariantFromEncounter(encounter);
+  return paymentVariant === PaymentVariant.employer || paymentVariant === PaymentVariant.selfPay;
+};
 
 interface BillingProviderData {
   organizationName?: string;
@@ -683,7 +693,7 @@ export const performCandidPreEncounterSync = async (input: PerformCandidPreEncou
     coverages,
     insuranceOrgs,
     candidApiClient,
-    isEncounterSelfPay(ourEncounter)
+    shouldUseCashPayCoverage(ourEncounter)
   );
 
   // Update patient with the coverages
@@ -838,7 +848,7 @@ const createCandidCoverages = async (
   coverages: OrderedCoveragesWithSubscribers,
   insuranceOrgs: Organization[],
   candidApiClient: CandidApiClient,
-  isSelfPay: boolean
+  useCashPayCoverage: boolean
 ): Promise<CandidPreEncounterCoverage[]> => {
   if (!patient.id) {
     throw new Error(`Patient ID is not defined for patient ${JSON.stringify(patient)}`);
@@ -846,11 +856,11 @@ const createCandidCoverages = async (
 
   const candidCoverages: CandidPreEncounterCoverage[] = [];
 
-  // For employer-paid (occupational medicine) and self-pay visits, do not send any insurance coverage.
-  // Instead send a single "Cash Pay" coverage so an insurance payer that may have been selected by
-  // accident is never billed. (For occupational medicine, the employer is additionally sent as a
+  // For employer-paid and self-pay visits, do not send any insurance coverage. Instead send a single
+  // "Cash Pay" coverage so an insurance payer that may have been selected by accident is never billed.
+  // (For employer-paid occupational medicine visits, the employer is additionally sent as a
   // non-insurance payer elsewhere in the sync.)
-  if (isAppointmentOccupationalMedicine(appointment) || isSelfPay) {
+  if (useCashPayCoverage) {
     const candidCoverage = buildCashPayCoverageCreateInput(patient, candidPatient);
     const response = await candidApiClient.preEncounter.coverages.v1.create(candidCoverage);
     if (!response.ok) {
@@ -1197,13 +1207,9 @@ export async function createEncounterFromAppointment(
 
   // The Cash Pay override is applied during pre-encounter sync. If that sync was skipped (because a
   // Candid pre-encounter appointment already existed, e.g. payment was collected at check-in), force
-  // the Cash Pay filing order here so employer-paid (occupational medicine) and self-pay claims never
-  // bill an insurance payer that may have been selected.
-  if (
-    !didPreEncounterSync &&
-    (isAppointmentOccupationalMedicine(createEncounterInput.appointment) ||
-      isEncounterSelfPay(visitResources.encounter))
-  ) {
+  // the Cash Pay filing order here so employer-paid and self-pay claims never bill an insurance payer
+  // that may have been selected.
+  if (!didPreEncounterSync && shouldUseCashPayCoverage(visitResources.encounter)) {
     console.log('[CLAIM SUBMISSION] Enforcing Cash Pay coverage for employer-paid/self-pay claim');
     await enforceCashPayCoverageForCandidPatient(createEncounterInput.patient, candidApiClient);
   }
