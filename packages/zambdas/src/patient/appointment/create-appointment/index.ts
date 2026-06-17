@@ -16,6 +16,7 @@ import {
   QuestionnaireResponse,
   QuestionnaireResponseItem,
   Reference,
+  RelatedPerson,
   Resource,
   Slot,
   Task,
@@ -24,6 +25,7 @@ import { DateTime } from 'luxon';
 import { uuid } from 'short-uuid';
 import {
   ACCIDENT_TYPE_SYSTEM,
+  APIErrorCode,
   CanonicalUrl,
   CreateAppointmentResponse,
   CREATED_BY_SYSTEM,
@@ -47,6 +49,7 @@ import {
   getGroupAssignmentMode,
   getSlotBookedViaGroupId,
   getTaskResource,
+  isApiError,
   isValidUUID,
   makePrepopulatedItemsForPatient,
   OTTEHR_MODULE,
@@ -100,6 +103,77 @@ interface CreateAppointmentInput {
   attendingPractitioner?: ResolvedAttendingPractitioner;
 }
 
+// Reassemble the create-appointment response for an Appointment that already
+// exists on the given Slot, so a retried request returns the booking it already
+// created instead of failing with APPOINTMENT_ALREADY_EXISTS.
+//
+// Why this is needed: create-appointment is invoked through @oystehr/sdk, which
+// retries POSTs on transient 5xx/timeout (default 3 attempts). The Appointment
+// FHIR transaction commits before the non-transactional post-processing
+// (RelatedPerson/Person/friendly-id — see the `todo` in performTransactional...
+// caller), so a first attempt can persist the Appointment yet still return a
+// retryable error; the retry would then hit the APPOINTMENT_ALREADY_EXISTS
+// guard even though the booking succeeded. A Slot is single-use per booking
+// flow, so any Appointment attached to it belongs to this booking — returning
+// it makes the retry an idempotent success. Returns undefined if the full
+// resource graph can't be reassembled, so the caller falls back to the
+// original error rather than fabricating a partial response.
+async function buildIdempotentResponseForExistingSlotAppointment(
+  slotId: string,
+  oystehr: Oystehr
+): Promise<CreateAppointmentResponse | undefined> {
+  // Any failure here must not replace the caller's APPOINTMENT_ALREADY_EXISTS
+  // with a 500 — fall back to undefined so the original error is preserved.
+  try {
+    const resources = (
+      await oystehr.fhir.search<Appointment | Encounter | Patient>({
+        resourceType: 'Appointment',
+        params: [
+          { name: 'slot', value: `Slot/${slotId}` },
+          { name: '_include', value: 'Appointment:patient' },
+          { name: '_revinclude', value: 'Encounter:appointment' },
+        ],
+      })
+    ).unbundle();
+    const appointment = resources.find((r) => r.resourceType === 'Appointment') as Appointment | undefined;
+    const encounter = resources.find((r) => r.resourceType === 'Encounter') as Encounter | undefined;
+    const patient = resources.find((r) => r.resourceType === 'Patient') as Patient | undefined;
+    if (!appointment?.id || !encounter?.id || !patient?.id) {
+      return undefined;
+    }
+
+    const questionnaireResponse = (
+      await oystehr.fhir.search<QuestionnaireResponse>({
+        resourceType: 'QuestionnaireResponse',
+        params: [{ name: 'encounter', value: `Encounter/${encounter.id}` }],
+      })
+    ).unbundle()[0];
+    if (!questionnaireResponse?.id) {
+      return undefined;
+    }
+
+    const relatedPerson = (
+      await oystehr.fhir.search<RelatedPerson>({
+        resourceType: 'RelatedPerson',
+        params: [{ name: 'patient', value: `Patient/${patient.id}` }],
+      })
+    ).unbundle()[0];
+
+    return {
+      message: 'Appointment already created for this slot; returning the existing booking (idempotent retry).',
+      appointmentId: appointment.id,
+      fhirPatientId: patient.id,
+      questionnaireResponseId: questionnaireResponse.id,
+      encounterId: encounter.id,
+      relatedPersonId: relatedPerson?.id ?? '',
+      resources: { appointment, encounter, questionnaire: questionnaireResponse, patient },
+    };
+  } catch (error) {
+    console.error('create-appointment: failed to reassemble existing appointment for idempotent retry', error);
+    return undefined;
+  }
+}
+
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let oystehrToken: string;
 export const index = wrapHandler('create-appointment', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
@@ -124,7 +198,24 @@ export const index = wrapHandler('create-appointment', async (input: ZambdaInput
   const oystehr = createOystehrClient(oystehrToken, input.secrets);
 
   console.time('performing-complex-validation');
-  const effectInput = await createAppointmentComplexValidation(validatedParameters, oystehr);
+  let effectInput;
+  try {
+    effectInput = await createAppointmentComplexValidation(validatedParameters, oystehr);
+  } catch (error) {
+    // Idempotency guard: when the SDK retries this POST after a first attempt
+    // already committed the Appointment, complex validation throws
+    // APPOINTMENT_ALREADY_EXISTS. Return the committed booking instead of a
+    // spurious failure. Any other error propagates unchanged.
+    if (isApiError(error) && (error as { code?: number }).code === APIErrorCode.APPOINTMENT_ALREADY_EXISTS) {
+      const existing = await buildIdempotentResponseForExistingSlotAppointment(validatedParameters.slotId, oystehr);
+      if (existing) {
+        console.log('create-appointment: idempotent retry — returning existing appointment', existing.appointmentId);
+        console.timeEnd('performing-complex-validation');
+        return { statusCode: 200, body: JSON.stringify(existing) };
+      }
+    }
+    throw error;
+  }
   const {
     slot,
     scheduleOwner,

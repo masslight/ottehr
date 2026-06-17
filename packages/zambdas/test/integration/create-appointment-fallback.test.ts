@@ -672,4 +672,39 @@ describe('create-appointment group-member fallback (D-6 phase 2)', () => {
       }
     }
   });
+
+  // Idempotency: create-appointment is invoked via @oystehr/sdk, which retries
+  // POSTs on transient 5xx (default 3 attempts). A first attempt can commit the
+  // Appointment yet still return a retryable error — the post-transaction
+  // RelatedPerson/Person/friendly-id work isn't part of the FHIR transaction —
+  // so the retry must return the booking that was already created, not
+  // APPOINTMENT_ALREADY_EXISTS (4341). Nightly runs surfaced this intermittently
+  // as a 4341 on whichever create-appointment call happened to be slow under
+  // load. A second call on the same single-use Slot simulates that retry.
+  test('(idempotency) re-booking the same slot returns the existing appointment, not 4341', async () => {
+    const fixture = await buildGroupFixture({ assignmentMode: 'anonymous' });
+    const hour = 12;
+    const patientSlot = await createPatientSlot({
+      schedule: fixture.schedule1,
+      bookedViaGroupId: fixture.groupHs.id!,
+      hourOfDay: hour,
+    });
+    try {
+      const first = await callCreateAppointment(patientSlot.id!);
+      if (!first.ok) {
+        throw new Error(`first booking failed unexpectedly: ${first.message}`);
+      }
+      const firstApptId = (first.output as CreateAppointmentResponse).resources.appointment.id;
+      expect(firstApptId).toBeTruthy();
+
+      const retry = await callCreateAppointment(patientSlot.id!);
+      if (!retry.ok) {
+        throw new Error(`idempotent retry should succeed but failed: ${retry.message}`);
+      }
+      const retryApptId = (retry.output as CreateAppointmentResponse).resources.appointment.id;
+      expect(retryApptId).toBe(firstApptId);
+    } finally {
+      await cleanupFixture(fixture.explicitCleanup, [patientSlot.id!]);
+    }
+  });
 });
