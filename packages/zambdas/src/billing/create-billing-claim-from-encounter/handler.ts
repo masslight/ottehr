@@ -44,7 +44,6 @@ import {
   EXTENSION_URL_CPT_MODIFIER,
   FHIR_IDENTIFIER_NPI,
   FHIR_RESOURCE_NOT_FOUND,
-  getCoding,
   getNPIIdentifier,
   getPayerId,
   getPaymentVariantFromEncounter,
@@ -61,7 +60,6 @@ import {
   PaymentVariant,
   Secrets,
   SecretsKeys,
-  SERVICE_CATEGORY_SYSTEM,
   TIMEZONES,
   withArStageInitialization,
 } from 'utils';
@@ -434,7 +432,7 @@ function uuidOrUrnReferenceString(resourceType: BillingFhirResource['resourceTyp
   return `${resourceType}/${uuidOrUrn}`;
 }
 
-function getAppointmentType(appointment: Appointment): AppointmentType {
+function getAppointmentType(appointment: Appointment): AppointmentType | undefined {
   if (isAppointmentUrgentCare(appointment)) {
     return 'uc';
   }
@@ -447,11 +445,11 @@ function getAppointmentType(appointment: Appointment): AppointmentType {
   if (isAppointmentPreOp(appointment)) {
     return 'preop';
   }
-  throw new Error(`Unknown appointment type: ${getCoding(appointment.serviceCategory, SERVICE_CATEGORY_SYSTEM)?.code}`);
+  return undefined;
 }
 
 export function getClaimCoveragesForEncounter(
-  appointmentType: AppointmentType,
+  appointmentType: AppointmentType | undefined,
   mainPatientAccounts: Account[],
   claimCoverages: Coverage[]
 ): CoverageRefs {
@@ -518,6 +516,10 @@ export function getClaimCoveragesForEncounter(
     case 'preop': {
       // No insurance
       // TODO: Support non-insurance payers
+      return [];
+    }
+    default: {
+      // Unknown appointment type
       return [];
     }
   }
@@ -948,6 +950,7 @@ export function determineArStage(resources: ClaimResources): string {
 
 function buildClaim(resources: ClaimResources): Claim {
   const now = new Date().toISOString().slice(0, 10);
+  const appointmentTypeCoding = getAppointmentTypeCoding(resources.appointment);
 
   // AR Stage tag + the stage's auto-initialized progress status (e.g. Insurance AR Status -> "Created").
   const claimStatusTags = claimStatusValuesToTags(withArStageInitialization({ arStage: determineArStage(resources) }));
@@ -958,8 +961,8 @@ function buildClaim(resources: ClaimResources): Claim {
     meta: {
       tag: [
         { system: CURRENT_STATUS_TAG_SYSTEM, code: 'open' },
-        getAppointmentTypeCoding(resources.appointment),
         getClaimTypeCoding(),
+        ...(appointmentTypeCoding ? [appointmentTypeCoding] : []),
         ...(resources.billingTags ?? []).map((t) => ({ system: CLAIM_TAG_SYSTEM, code: t })),
         ...claimStatusTags,
       ],
@@ -1055,7 +1058,7 @@ function getLocalDateOfService(appointmentStart: string, location: Location | un
   return DateTime.fromISO(appointmentStart).setZone(timezone).toISODate()!;
 }
 
-function getAppointmentTypeCoding(appointment: Appointment): Coding {
+function getAppointmentTypeCoding(appointment: Appointment): Coding | undefined {
   const type = getAppointmentType(appointment);
   switch (type) {
     case 'uc':
@@ -1075,6 +1078,8 @@ function getAppointmentTypeCoding(appointment: Appointment): Coding {
       };
     case 'preop':
       return { system: CODE_SYSTEM_APPOINTMENT_TYPE_TAG_SYSTEM, code: CODE_SYSTEM_APPOINTMENT_TYPE_CODES['pre-op'] };
+    default:
+      return undefined;
   }
 }
 
