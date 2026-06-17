@@ -1,3 +1,4 @@
+import { convert } from 'html-to-text';
 import { createConfiguredSection, DataComposer } from '../../pdf-common';
 import { PdfSection, RadiologyData } from '../../types';
 import { AllChartData } from '../../visit-details-pdf/types';
@@ -11,7 +12,7 @@ export const composeRadiology: DataComposer<{ allChartData: AllChartData }, Radi
     if (!finalReport) return result;
 
     try {
-      result = atob(finalReport);
+      result = convert(atob(finalReport));
     } catch {
       result = finalReport;
     }

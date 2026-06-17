@@ -330,6 +330,10 @@ function App(): JSX.Element {
                   element={intakeFlowPageRoute.SelectServiceCategoryWalkin.getPage()}
                 />
                 <Route
+                  path={intakeFlowPageRoute.SelectServiceCategoryWalkinBySchedule.path}
+                  element={intakeFlowPageRoute.SelectServiceCategoryWalkinBySchedule.getPage()}
+                />
+                <Route
                   path={intakeFlowPageRoute.StartVirtualVisit.path}
                   element={intakeFlowPageRoute.StartVirtualVisit.getPage()}
                 />
