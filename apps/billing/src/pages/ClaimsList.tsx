@@ -53,8 +53,6 @@ const currencyCol = (field: string, headerName: string, width: number): GridColD
   valueFormatter: (params: { value: number }) => formatCurrency(params.value),
 });
 
-// One column per claim-status indicator, generated from the shared registry. AR Stage replaces the
-// former single "Status" column; the remaining indicators follow it.
 const statusColumns: GridColDef[] = CLAIM_STATUS_FIELDS.map((field) => ({
   field: field.key,
   headerName: field.label,

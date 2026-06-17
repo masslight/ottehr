@@ -4,23 +4,14 @@ import { Claim } from 'fhir/r4b';
  * Billing claim status indicators.
  *
  * Each status field is stored as a single `meta.tag` on the FHIR Claim resource under its own
- * `system`; the tag's `code` holds the current value. Absence of the tag means the field is at its
- * default value (see `defaultCode`) — so the "default" / "null state" options described by the
- * product spec are represented by the tag simply not being present.
- *
- * A single registry (`CLAIM_STATUS_FIELDS`) drives the list grid columns, the claim-detail
- * dropdowns, the status chips, and the backend read/write paths, so the set of fields and their
- * allowed values is defined in exactly one place.
- *
- * NOTE: this is distinct from the legacy `current-status` tag (see CURRENT_STATUS_TAG_SYSTEM in the
- * billing zambdas), which is still used by the EHR RCM claims queue and is intentionally left alone.
+ * `system`; the tag's `code` holds the current value.
  */
 
 // Ordered list of field keys. Doubles as the source of truth for value-bearing types and the
 // setter zambda's `field` enum.
 export const CLAIM_STATUS_FIELD_KEYS = [
   'arStage',
-  'insuranceStatus',
+  'insuranceArStatus',
   'insurancePaidStatus',
   'adjudicationStatus',
   'patientArStatus',
@@ -31,25 +22,26 @@ export const CLAIM_STATUS_FIELD_KEYS = [
 
 export type ClaimStatusFieldKey = (typeof CLAIM_STATUS_FIELD_KEYS)[number];
 
+const CLAIM_STATUS_CODE_SYSTEM_BASE = 'https://fhir.ottehr.com/billing/CodeSystem';
+
 export const CLAIM_STATUS_TAG_SYSTEMS: Record<ClaimStatusFieldKey, string> = {
-  arStage: 'https://ottehr.com/billing/ar-stage',
-  insuranceStatus: 'https://ottehr.com/billing/insurance-status',
-  insurancePaidStatus: 'https://ottehr.com/billing/insurance-paid-status',
-  adjudicationStatus: 'https://ottehr.com/billing/adjudication-status',
-  patientArStatus: 'https://ottehr.com/billing/patient-ar-status',
-  patientPaidStatus: 'https://ottehr.com/billing/patient-paid-status',
-  nonInsuranceArStatus: 'https://ottehr.com/billing/non-insurance-ar-status',
-  nonInsurancePaidStatus: 'https://ottehr.com/billing/non-insurance-paid-status',
+  arStage: `${CLAIM_STATUS_CODE_SYSTEM_BASE}/ar-stage`,
+  insuranceArStatus: `${CLAIM_STATUS_CODE_SYSTEM_BASE}/insurance-ar-status`,
+  insurancePaidStatus: `${CLAIM_STATUS_CODE_SYSTEM_BASE}/insurance-paid-status`,
+  adjudicationStatus: `${CLAIM_STATUS_CODE_SYSTEM_BASE}/adjudication-status`,
+  patientArStatus: `${CLAIM_STATUS_CODE_SYSTEM_BASE}/patient-ar-status`,
+  patientPaidStatus: `${CLAIM_STATUS_CODE_SYSTEM_BASE}/patient-paid-status`,
+  nonInsuranceArStatus: `${CLAIM_STATUS_CODE_SYSTEM_BASE}/non-insurance-ar-status`,
+  nonInsurancePaidStatus: `${CLAIM_STATUS_CODE_SYSTEM_BASE}/non-insurance-paid-status`,
 };
 
-// AR Stage codes. These are both the `code` values of the arStage field's options and each group's
-// `arStageCode`; exported so non-UI callers (e.g. setting AR Stage when creating a claim from an
-// encounter) don't have to hardcode the strings.
 export const AR_STAGE = {
   insurancePayer: 'insurance-payer-ar',
   patient: 'patient-ar',
   nonInsurancePayer: 'non-insurance-payer-ar',
 } as const;
+
+export type ArStageCode = (typeof AR_STAGE)[keyof typeof AR_STAGE];
 
 // Conceptual groupings of the status fields. AR Stage stands on its own as the top-level field, so
 // it has no group. The remaining fields cluster by which receivable they track.
@@ -59,14 +51,13 @@ export interface ClaimStatusGroupDef {
   key: ClaimStatusGroupKey;
   label: string;
   // The AR Stage value that makes this group the "active" one (its statuses are the ones in play).
-  arStageCode: string;
-  // The field tracking progress through this AR stage. Initialized to its first value when the claim
-  // first enters the stage (so it doesn't sit at "None").
+  arStageCode: ArStageCode;
+  // The field tracking progress through this AR stage.
   primaryFieldKey: ClaimStatusFieldKey;
 }
 
 export const CLAIM_STATUS_GROUPS: ClaimStatusGroupDef[] = [
-  { key: 'insurance', label: 'Insurance', arStageCode: AR_STAGE.insurancePayer, primaryFieldKey: 'insuranceStatus' },
+  { key: 'insurance', label: 'Insurance', arStageCode: AR_STAGE.insurancePayer, primaryFieldKey: 'insuranceArStatus' },
   { key: 'patient', label: 'Patient', arStageCode: AR_STAGE.patient, primaryFieldKey: 'patientArStatus' },
   {
     key: 'nonInsurance',
@@ -121,9 +112,9 @@ export const CLAIM_STATUS_FIELDS: ClaimStatusFieldDef[] = [
     ],
   },
   {
-    key: 'insuranceStatus',
-    label: 'Insurance Status',
-    system: CLAIM_STATUS_TAG_SYSTEMS.insuranceStatus,
+    key: 'insuranceArStatus',
+    label: 'Insurance AR Status',
+    system: CLAIM_STATUS_TAG_SYSTEMS.insuranceArStatus,
     group: 'insurance',
     defaultCode: null,
     options: [
@@ -207,7 +198,9 @@ export const CLAIM_STATUS_FIELDS_BY_KEY: Record<ClaimStatusFieldKey, ClaimStatus
 // Flat map of every status field's resolved code for a claim.
 export type ClaimStatusValues = Record<ClaimStatusFieldKey, string>;
 
-// Resolve one field's current code from a claim's meta tags, falling back to the field default.
+// Resolve one field's current code from a claim's meta tags. An absent tag is the valid "None" state
+// for the field (most claims won't carry every tag), so it resolves to the field default — or '' when
+// there is none — rather than being treated as an error.
 export function getClaimStatusFieldValue(claim: Pick<Claim, 'meta'> | undefined, field: ClaimStatusFieldDef): string {
   const code = claim?.meta?.tag?.find((t) => t.system === field.system)?.code;
   return code ?? field.defaultCode ?? '';
@@ -217,6 +210,14 @@ export function getClaimStatusFieldValue(claim: Pick<Claim, 'meta'> | undefined,
 export function getClaimStatusValues(claim: Pick<Claim, 'meta'> | undefined): ClaimStatusValues {
   return CLAIM_STATUS_FIELDS.reduce((acc, field) => {
     acc[field.key] = getClaimStatusFieldValue(claim, field);
+    return acc;
+  }, {} as ClaimStatusValues);
+}
+
+// A fully-keyed status map with every field at None (''), e.g. the initial state for a create form.
+export function emptyClaimStatusValues(): ClaimStatusValues {
+  return CLAIM_STATUS_FIELD_KEYS.reduce((acc, key) => {
+    acc[key] = '';
     return acc;
   }, {} as ClaimStatusValues);
 }

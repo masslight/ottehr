@@ -18,7 +18,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   return { statusCode: 200, body: JSON.stringify(response) };
 });
 
-async function performEffect(oystehr: Oystehr, params: SetClaimStatusParams): Promise<{ ok: true }> {
+export async function performEffect(oystehr: Oystehr, params: SetClaimStatusParams): Promise<{ ok: true }> {
   const field = CLAIM_STATUS_FIELDS_BY_KEY[params.field];
   // Empty/null clears the tag back to the field default.
   const value = params.value ?? '';
@@ -32,7 +32,7 @@ async function performEffect(oystehr: Oystehr, params: SetClaimStatusParams): Pr
   const updatedTags = (claim.meta?.tag ?? []).filter((t) => t.system !== field.system);
   if (value) updatedTags.push({ system: field.system, code: value });
 
-  // Entering an AR Stage initializes that stage's progress status (e.g. Insurance Status -> "Created")
+  // Entering an AR Stage initializes that stage's progress status (e.g. Insurance AR Status -> "Created")
   // to its first value when it hasn't been set yet, so a freshly-entered stage doesn't sit at "None".
   if (params.field === 'arStage' && value) {
     const group = getActiveStatusGroup(value);

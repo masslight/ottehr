@@ -4,7 +4,12 @@ import {
   CODE_SYSTEM_CLAIM_TYPE_CODE_NAMES,
 } from '../../../helpers/rcm/constants';
 import { npiRegex, taxIdRegex, zipRegex } from '../../../validation';
-import { CLAIM_STATUS_FIELD_KEYS } from './claim-status';
+import {
+  CLAIM_STATUS_FIELD_KEYS,
+  CLAIM_STATUS_FIELDS_BY_KEY,
+  ClaimStatusFieldKey,
+  isValidClaimStatusValue,
+} from './claim-status';
 
 const nonEmptyString = z.string().trim().min(1);
 const nonNegativeInt = z.number().int().nonnegative();
@@ -62,13 +67,39 @@ export const TagBillingClaimInputSchema = z.object({
   tagName: nonEmptyString,
 });
 
-// Set (or clear, when value is null/empty) one claim-status meta.tag. The value is validated against
-// the selected field's allowed options inside the zambda handler.
-export const SetClaimStatusInputSchema = z.object({
-  claimId: nonEmptyString,
-  field: z.enum(CLAIM_STATUS_FIELD_KEYS),
-  value: z.string().nullable().optional(),
-});
+// Set (or clear, when value is null/empty) one claim-status meta.tag.
+export const SetClaimStatusInputSchema = z
+  .object({
+    claimId: nonEmptyString,
+    field: z.enum(CLAIM_STATUS_FIELD_KEYS),
+    value: z.string().nullable().optional(),
+  })
+  .superRefine((data, ctx) => {
+    // A provided value must be one of the field's allowed options (empty/null clears it).
+    if (!isValidClaimStatusValue(CLAIM_STATUS_FIELDS_BY_KEY[data.field], data.value)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['value'],
+        message: `Invalid value "${data.value}" for claim status field "${data.field}"`,
+      });
+    }
+  });
+
+// Status indicators keyed by ClaimStatusFieldKey; unknown keys are rejected and each provided value
+// must be a valid option for its field.
+export const claimStatusesSchema = z
+  .record(z.enum(CLAIM_STATUS_FIELD_KEYS), z.string())
+  .superRefine((statuses, ctx) => {
+    for (const [key, value] of Object.entries(statuses)) {
+      if (!isValidClaimStatusValue(CLAIM_STATUS_FIELDS_BY_KEY[key as ClaimStatusFieldKey], value)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: [key],
+          message: `Invalid value "${value}" for claim status field "${key}"`,
+        });
+      }
+    }
+  });
 
 export const GetPatientDetailInputSchema = z.object({
   patientId: nonEmptyString,
@@ -195,9 +226,8 @@ export const CreateBillingClaimInputSchema = z.object({
     .optional(),
   diagnoses: z.array(claimDiagnosisSchema).optional(),
   serviceLines: z.array(claimServiceLineSchema).optional(),
-  // Initial claim status indicators keyed by ClaimStatusFieldKey. Unknown keys / invalid values are
-  // ignored when written; AR Stage's progress status is auto-initialized server-side.
-  statuses: z.record(z.string()).optional(),
+  // Initial claim status indicators; AR Stage's progress status is auto-initialized server-side.
+  statuses: claimStatusesSchema.optional(),
 });
 
 const billingProviderRole = z.enum(['billing', 'rendering']);

@@ -19,11 +19,10 @@ import {
   BillingPatientOption,
   BillingProviderOption,
   chooseJson,
-  CLAIM_STATUS_FIELD_KEYS,
-  CLAIM_STATUS_FIELDS_BY_KEY,
   ClaimStatusFieldKey,
   ClaimStatusValues,
-  getActiveStatusGroup,
+  emptyClaimStatusValues,
+  withArStageInitialization,
 } from 'utils';
 import { ClaimStatusFields } from '../components/claim/ClaimStatusFields';
 import { useApiClients } from '../hooks/useAppClients';
@@ -75,9 +74,7 @@ export default function CreateClaim(): ReactElement {
   const [diagnoses, setDiagnoses] = useState<string[]>([]);
   const [dxInput, setDxInput] = useState('');
   const [serviceLines, setServiceLines] = useState<ServiceLine[]>([{ ...emptyLine }]);
-  const [statuses, setStatuses] = useState<ClaimStatusValues>(
-    () => Object.fromEntries(CLAIM_STATUS_FIELD_KEYS.map((k) => [k, ''])) as ClaimStatusValues
-  );
+  const [statuses, setStatuses] = useState<ClaimStatusValues>(emptyClaimStatusValues);
 
   // Override fields — populated from selection, editable by user
   const [patientFirstName, setPatientFirstName] = useState('');
@@ -205,14 +202,8 @@ export default function CreateClaim(): ReactElement {
   const handleStatusChange = (field: ClaimStatusFieldKey, value: string): void => {
     setStatuses((prev) => {
       const next = { ...prev, [field]: value };
-      // Mirror the server rule: entering an AR Stage initializes that stage's progress status.
-      if (field === 'arStage' && value) {
-        const group = getActiveStatusGroup(value);
-        if (group && !next[group.primaryFieldKey]) {
-          next[group.primaryFieldKey] = CLAIM_STATUS_FIELDS_BY_KEY[group.primaryFieldKey].options[0]?.code ?? '';
-        }
-      }
-      return next;
+      // Entering an AR Stage initializes that stage's progress status (mirrors the server rule).
+      return field === 'arStage' ? { ...next, ...withArStageInitialization(next) } : next;
     });
   };
 

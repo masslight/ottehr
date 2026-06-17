@@ -950,7 +950,7 @@ async function findExistingBillingResources(
 // Initial AR Stage for a claim built from an encounter. Precedence (first match wins): the visit's
 // payment selection (employer / insurance / self), then an occupational-medicine visit, then whether
 // any coverage is present. Workers'-comp carries a WC coverage, so it falls out as Insurance Payer AR.
-function determineArStage(resources: ClaimResources): string {
+export function determineArStage(resources: ClaimResources): string {
   const paymentVariant = getPaymentVariantFromEncounter(resources.encounter);
   if (paymentVariant === PaymentVariant.employer) return AR_STAGE.nonInsurancePayer;
   if (paymentVariant === PaymentVariant.insurance) return AR_STAGE.insurancePayer;
@@ -962,7 +962,7 @@ function determineArStage(resources: ClaimResources): string {
 function buildClaim(resources: ClaimResources): Claim {
   const now = new Date().toISOString().slice(0, 10);
 
-  // AR Stage tag + the stage's auto-initialized progress status (e.g. Insurance Status -> "Created").
+  // AR Stage tag + the stage's auto-initialized progress status (e.g. Insurance AR Status -> "Created").
   const claimStatusTags = claimStatusValuesToTags(withArStageInitialization({ arStage: determineArStage(resources) }));
 
   const claim: Claim = {
