@@ -1,6 +1,12 @@
 import { Autocomplete, Box, FormControlLabel, Switch, TextField } from '@mui/material';
 import { ReactElement, useCallback, useEffect, useState } from 'react';
-import { BillingProviderOption, PractitionerQualificationCodesDisplay } from 'utils';
+import {
+  BillingProviderOption,
+  getApiError,
+  PractitionerQualificationCodesDisplay,
+  UpdateBillingProviderInput,
+} from 'utils';
+import { updateBillingProvider } from '../api/api';
 import { useApiClients } from '../hooks/useAppClients';
 import { buildAddressInput } from '../utils/format';
 import { validateProviderFields } from '../utils/validation';
@@ -82,9 +88,9 @@ export function ProviderDetailSection({
     };
 
     try {
-      await oystehrZambda.zambda.execute({ id: 'update-billing-provider', ...payload });
+      await updateBillingProvider(oystehrZambda, payload as UpdateBillingProviderInput);
     } catch (err) {
-      return err instanceof Error ? err.message : 'Failed to save changes';
+      return getApiError({ error: err, defaultError: 'Failed to save changes' });
     }
     await onSaved();
     return null;
