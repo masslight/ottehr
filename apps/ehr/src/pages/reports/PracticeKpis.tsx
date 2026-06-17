@@ -589,7 +589,7 @@ export default function PracticeKpis(): React.ReactElement {
                 onClick={() => void handleOpenAsAdHoc()}
                 disabled={loading || seeding || !reportData}
               >
-                {seeding ? 'Loading visits…' : 'Explore visits as ad-hoc report'}
+                {seeding ? 'Loading…' : 'Customize'}
               </Button>
 
               <Typography variant="body2" color="text.secondary" sx={{ ml: 'auto' }}>

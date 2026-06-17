@@ -1,4 +1,5 @@
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import PeopleIcon from '@mui/icons-material/People';
 import {
   Alert,
@@ -24,8 +25,37 @@ import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import type { RecentPatientsReportZambdaOutput } from 'utils';
 import { DEFAULT_BATCH_DAYS, splitDateRangeIntoBatches } from 'utils';
 import { getRecentPatientsReport } from '../../api/api';
+import { buildSchema, FieldDef } from '../../features/reports/adHoc/schema';
+import { setAdHocSeed } from '../../features/reports/adHoc/seed';
+import { AdHocRow } from '../../features/reports/adHoc/types';
 import { useApiClients } from '../../hooks/useAppClients';
 import PageContainer from '../../layout/PageContainer';
+
+// Columns the ad-hoc report exposes when you "Customize" this report — one row per recent patient,
+// described for the report generator. Matches what the grid above shows.
+const RECENT_PATIENT_FIELDS: FieldDef[] = [
+  {
+    name: 'patientId',
+    type: 'string',
+    description: 'Unique patient id. Link to the profile with href="/patient/" + patientId.',
+  },
+  { name: 'firstName', type: 'string', description: 'Patient first name.' },
+  { name: 'lastName', type: 'string', description: 'Patient last name.' },
+  { name: 'phoneNumber', type: 'string', description: 'Patient phone number.' },
+  { name: 'email', type: 'string', description: 'Patient email address.' },
+  { name: 'visitMode', type: 'string', description: 'Whether the most recent visit was In-person or Telemed.' },
+  {
+    name: 'patientStatus',
+    type: 'string',
+    description: 'Whether the patient is "new" or "existing" (existing = had a visit before this date range).',
+  },
+  {
+    name: 'source',
+    type: 'string',
+    description: 'How the patient heard about the practice (point of discovery / marketing source).',
+  },
+  { name: 'mostRecentVisitDate', type: 'date', description: "Date of the patient's most recent visit (yyyy-MM-dd)." },
+];
 
 // Custom toolbar for DataGrid with export functionality
 function CustomToolbar(): React.ReactElement {
@@ -48,6 +78,7 @@ export default function RecentPatients(): React.ReactElement {
   const [locationFilter, setLocationFilter] = useState<string>('all');
   const [locations, setLocations] = useState<Location[]>([]);
   const [loadingLocations, setLoadingLocations] = useState<boolean>(true);
+  const [seeding, setSeeding] = useState<boolean>(false);
 
   // Fetch locations on component mount
   useEffect(() => {
@@ -381,6 +412,45 @@ export default function RecentPatients(): React.ReactElement {
     });
   }, [reportData]);
 
+  // "Customize" → seed the currently-loaded patients into the ad-hoc report so they can be reshaped
+  // (different columns, grouping, charts) over the same data. Mirrors Practice KPIs' Customize button.
+  const handleCustomize = useCallback((): void => {
+    if (!reportData) return;
+    setSeeding(true);
+    try {
+      const rows: AdHocRow[] = reportData.patients.map((p) => {
+        let visitMode = p.mostRecentVisit?.serviceCategory || '';
+        if (visitMode === 'in-person-service-mode') visitMode = 'In-person';
+        else if (visitMode === 'virtual-service-mode') visitMode = 'Telemed';
+        return {
+          patientId: p.patientId,
+          firstName: p.firstName,
+          lastName: p.lastName,
+          phoneNumber: p.phoneNumber,
+          email: p.email,
+          visitMode,
+          patientStatus: p.patientStatus,
+          source: p.pointOfDiscovery ?? '',
+          mostRecentVisitDate: p.mostRecentVisit?.date ? p.mostRecentVisit.date.slice(0, 10) : null,
+        };
+      });
+      const schema = buildSchema(
+        rows,
+        {
+          datasetId: 'recent-patients',
+          label: 'Recent Patients',
+          description: 'One row per patient with their most recent visit, from the Recent Patients report.',
+        },
+        RECENT_PATIENT_FIELDS
+      );
+      const rangeLabel = getDateRangeLabel(dateFilter);
+      setAdHocSeed({ rows, schema, sourceLabel: `Recent Patients${rangeLabel ? ` · ${rangeLabel}` : ''}` });
+      navigate('/reports/ad-hoc');
+    } finally {
+      setSeeding(false);
+    }
+  }, [reportData, dateFilter, getDateRangeLabel, navigate]);
+
   return (
     <PageContainer>
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, p: 3 }}>
@@ -458,6 +528,16 @@ export default function RecentPatients(): React.ReactElement {
 
           <Button variant="outlined" onClick={() => void fetchReport(dateFilter)} disabled={loading}>
             Refresh
+          </Button>
+
+          <Button
+            variant="outlined"
+            color="primary"
+            startIcon={seeding ? <CircularProgress size={16} /> : <AutoAwesomeIcon />}
+            onClick={() => handleCustomize()}
+            disabled={loading || seeding || !reportData}
+          >
+            {seeding ? 'Loading…' : 'Customize'}
           </Button>
         </Box>
 
