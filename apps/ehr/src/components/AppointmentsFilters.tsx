@@ -47,18 +47,9 @@ export const LOCAL_STORAGE_FILTERS_KEY = 'appointments.filters';
 // The tracking-board date range is kept in sessionStorage (not localStorage) so it survives
 // in-app navigation but resets to today on a new browser session.
 export const SESSION_STORAGE_DATE_RANGE_KEY = 'appointments.dateRange';
-export const SESSION_STORAGE_DATE_KEY = 'appointments.date';
 
 // Filter params owned by this component; any other param (e.g. `tab`) is preserved.
-const FILTER_PARAM_KEYS = [
-  'location',
-  'visitType',
-  'serviceCategory',
-  'dateFrom',
-  'dateTo',
-  'date',
-  'provider',
-] as const;
+const FILTER_PARAM_KEYS = ['location', 'visitType', 'serviceCategory', 'dateFrom', 'dateTo', 'provider'] as const;
 const DATE_RANGE_ERROR_MESSAGE = 'Date From must be on or before Date To.';
 const DATE_FROM_REQUIRED_MESSAGE = 'Date From is required.';
 const DATE_TO_REQUIRED_MESSAGE = 'Date To is required.';
@@ -96,9 +87,8 @@ const isValidIsoDate = (date: string | null | undefined): date is string => {
 const getDateRangeFromSearchParams = (
   searchParams: URLSearchParams
 ): Pick<AppointmentsFilterValues, 'dateFrom' | 'dateTo'> => {
-  const legacyDate = searchParams.get('date');
-  const dateFrom = searchParams.get('dateFrom') ?? legacyDate;
-  const dateTo = searchParams.get('dateTo') ?? legacyDate;
+  const dateFrom = searchParams.get('dateFrom');
+  const dateTo = searchParams.get('dateTo');
 
   return {
     dateFrom: isValidIsoDate(dateFrom) ? dateFrom : null,
@@ -123,11 +113,6 @@ const getPersistedDateRange = (): Pick<AppointmentsFilterValues, 'dateFrom' | 'd
     } catch {
       sessionStorage.removeItem(SESSION_STORAGE_DATE_RANGE_KEY);
     }
-  }
-
-  const legacyDate = sessionStorage.getItem(SESSION_STORAGE_DATE_KEY);
-  if (isValidIsoDate(legacyDate)) {
-    return { dateFrom: legacyDate, dateTo: legacyDate };
   }
 
   return defaultDateRange;
@@ -166,29 +151,7 @@ export default function AppointmentsFilters(): ReactElement {
           .map((id) => ({ id })) ?? [],
     };
     methods.reset({ ...defaultFilterValues, ...values });
-
-    // Rewrite a legacy `?date=` link into the `dateFrom`/`dateTo` range params it maps to.
-    if (
-      searchParams.has('date') &&
-      !searchParams.has('dateFrom') &&
-      !searchParams.has('dateTo') &&
-      dateRange.dateFrom &&
-      dateRange.dateTo
-    ) {
-      const { dateFrom, dateTo } = dateRange;
-
-      setSearchParams(
-        (prev) => {
-          const next = new URLSearchParams(prev);
-          next.delete('date');
-          next.set('dateFrom', dateFrom);
-          next.set('dateTo', dateTo);
-          return next;
-        },
-        { replace: true }
-      );
-    }
-  }, [hasTrackingBoardFilterParams, searchParams, methods, setSearchParams]);
+  }, [hasTrackingBoardFilterParams, searchParams, methods]);
 
   useEffect(() => {
     void methods.trigger(['dateFrom', 'dateTo']);
@@ -223,15 +186,12 @@ export default function AppointmentsFilters(): ReactElement {
             // Persist only a complete range; a half-cleared range is invalid for the board, so it is
             // dropped here (and on restore) rather than stored and silently completed with today.
             sessionStorage.setItem(SESSION_STORAGE_DATE_RANGE_KEY, JSON.stringify({ dateFrom, dateTo }));
-            sessionStorage.removeItem(SESSION_STORAGE_DATE_KEY);
           } else {
             sessionStorage.removeItem(SESSION_STORAGE_DATE_RANGE_KEY);
-            sessionStorage.removeItem(SESSION_STORAGE_DATE_KEY);
           }
         } else {
           localStorage.removeItem(LOCAL_STORAGE_FILTERS_KEY);
           sessionStorage.removeItem(SESSION_STORAGE_DATE_RANGE_KEY);
-          sessionStorage.removeItem(SESSION_STORAGE_DATE_KEY);
         }
       },
     });

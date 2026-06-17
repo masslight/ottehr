@@ -40,14 +40,13 @@ export default function Appointments(): ReactElement {
   const locationParam = searchParams.get('location');
   const visitTypeParam = searchParams.get('visitType');
   const serviceCategoryParam = searchParams.get('serviceCategory');
-  const legacyDateParam = searchParams.get('date');
-  const dateFromParam = searchParams.get('dateFrom') ?? legacyDateParam;
-  const dateToParam = searchParams.get('dateTo') ?? legacyDateParam;
+  const dateFromParam = searchParams.get('dateFrom');
+  const dateToParam = searchParams.get('dateTo');
   const providerParam = searchParams.get('provider');
   const queryId = [locationParam, visitTypeParam, serviceCategoryParam, dateFromParam, dateToParam, providerParam].join(
     ':'
   );
-  // Validate as real ISO dates (not just truthy + string ordering) so a malformed legacy `?date=`
+  // Validate as real ISO dates (not just truthy + string ordering) so a malformed `dateFrom`/`dateTo`
   // link can't trigger a get-appointments request that only fails server-side. ISO dates also sort
   // correctly lexicographically, so the string comparison is safe once both are confirmed valid.
   const hasValidDateRange = Boolean(

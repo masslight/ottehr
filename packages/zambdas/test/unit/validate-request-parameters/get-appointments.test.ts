@@ -24,19 +24,6 @@ describe('get-appointments - validateRequestParameters', () => {
     expect(result.secrets).toBeNull();
   });
 
-  test('should accept legacy searchDate and normalize it to a single-day range', () => {
-    const input = createMockZambdaInput({
-      searchDate: '2024-01-15',
-      timezone: 'America/New_York',
-      locationIds: ['550e8400-e29b-41d4-a716-446655440000'],
-      visitType: ['in-person-walk-in'],
-    });
-    const result = validateRequestParameters(input);
-
-    expect(result.searchDateFrom).toBe('2024-01-15');
-    expect(result.searchDateTo).toBe('2024-01-15');
-  });
-
   test('should accept providerIds instead of locationIds', () => {
     const input = createMockZambdaInput({
       searchDateFrom: '2024-01-15',

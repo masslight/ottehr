@@ -14,9 +14,8 @@ const MAX_DATE_RANGE_DAYS = 90;
 
 const GetAppointmentsBodySchema = z
   .object({
-    searchDate: z.string().date().optional(),
-    searchDateFrom: z.string().date().optional(),
-    searchDateTo: z.string().date().optional(),
+    searchDateFrom: z.string().date(),
+    searchDateTo: z.string().date(),
     timezone: z.string(),
     locationIds: z.array(z.string().uuid()).optional(),
     providerIds: z.array(z.string().uuid()).optional(),
@@ -25,29 +24,7 @@ const GetAppointmentsBodySchema = z
     supervisorApprovalEnabled: z.boolean().default(false),
   })
   .superRefine((data, ctx) => {
-    const hasLegacyDate = Boolean(data.searchDate);
-    const hasDateFrom = Boolean(data.searchDateFrom);
-    const hasDateTo = Boolean(data.searchDateTo);
-
-    if (!hasLegacyDate && !hasDateFrom && !hasDateTo) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ['searchDateFrom'],
-        message: 'Either "searchDate" or both "searchDateFrom" and "searchDateTo" are required',
-      });
-      return;
-    }
-
-    if ((hasDateFrom && !hasDateTo) || (!hasDateFrom && hasDateTo)) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: hasDateFrom ? ['searchDateTo'] : ['searchDateFrom'],
-        message: 'Both "searchDateFrom" and "searchDateTo" are required together',
-      });
-      return;
-    }
-
-    if (hasDateFrom && hasDateTo && data.searchDateFrom! > data.searchDateTo!) {
+    if (data.searchDateFrom > data.searchDateTo) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ['searchDateTo'],
@@ -56,28 +33,19 @@ const GetAppointmentsBodySchema = z
       return;
     }
 
-    const effectiveFrom = data.searchDateFrom ?? data.searchDate;
-    const effectiveTo = data.searchDateTo ?? data.searchDate;
-    if (effectiveFrom && effectiveTo) {
-      const rangeInDays = DateTime.fromISO(effectiveTo).diff(DateTime.fromISO(effectiveFrom), 'days').days;
-      if (rangeInDays > MAX_DATE_RANGE_DAYS) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ['searchDateTo'],
-          message: `The date range must not exceed ${MAX_DATE_RANGE_DAYS} days`,
-        });
-      }
+    // Parse in a fixed zone so every day is exactly 24h; otherwise DST transitions in the process
+    // local zone produce fractional-day diffs that make the limit nondeterministic at the boundary.
+    const rangeInDays = DateTime.fromISO(data.searchDateTo, { zone: 'utc' }).diff(
+      DateTime.fromISO(data.searchDateFrom, { zone: 'utc' }),
+      'days'
+    ).days;
+    if (rangeInDays > MAX_DATE_RANGE_DAYS) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['searchDateTo'],
+        message: `The date range must not exceed ${MAX_DATE_RANGE_DAYS} days`,
+      });
     }
-  })
-  .transform((data) => {
-    const searchDateFrom = data.searchDateFrom ?? data.searchDate!;
-    const searchDateTo = data.searchDateTo ?? data.searchDate!;
-
-    return {
-      ...data,
-      searchDateFrom,
-      searchDateTo,
-    };
   })
   .refine((data) => data.locationIds || data.providerIds || data.serviceCategories, {
     message: 'Either "locationIds" or "providerIds" or "serviceCategories" is required',
@@ -100,8 +68,8 @@ export function validateRequestParameters(input: ZambdaInput): GetAppointmentsZa
   } = safeValidate(GetAppointmentsBodySchema, JSON.parse(input.body));
 
   return {
-    searchDateFrom: searchDateFrom!,
-    searchDateTo: searchDateTo!,
+    searchDateFrom,
+    searchDateTo,
     timezone,
     locationIds,
     providerIds,

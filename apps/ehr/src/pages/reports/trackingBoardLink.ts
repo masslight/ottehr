@@ -30,9 +30,8 @@ export const buildTrackingBoardPath = ({
   locationId: string;
   visitStatus?: VisitStatusLabel;
 }): string => {
-  const searchDate = appointmentStart
-    ? DateTime.fromISO(appointmentStart).toFormat('yyyy-MM-dd')
-    : DateTime.now().toFormat('yyyy-MM-dd');
+  const parsedStart = appointmentStart ? DateTime.fromISO(appointmentStart) : undefined;
+  const searchDate = (parsedStart?.isValid ? parsedStart : DateTime.now()).toFormat('yyyy-MM-dd');
 
   const searchParams = new URLSearchParams({
     location: locationId,

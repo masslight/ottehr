@@ -98,18 +98,6 @@ describe('AppointmentsFilters persistence', () => {
     });
   });
 
-  it('normalizes a legacy date param into dateFrom/dateTo', async () => {
-    renderFilters('/visits?date=2026-01-01&tab=in-office');
-
-    await waitFor(() => {
-      const params = new URLSearchParams(getSearch());
-      expect(params.get('tab')).toBe('in-office');
-      expect(params.get('date')).toBeNull();
-      expect(params.get('dateFrom')).toBe('2026-01-01');
-      expect(params.get('dateTo')).toBe('2026-01-01');
-    });
-  });
-
   it('does not overwrite filters already present in the URL', async () => {
     localStorage.setItem(LOCAL_STORAGE_FILTERS_KEY, JSON.stringify({ location: [{ id: 'FROM-STORAGE' }] }));
 
