@@ -19,6 +19,7 @@ import {
   CONFIG_INJECTION_KEYS,
   CreateAppointmentResponse,
   INTAKE_PAPERWORK_CONFIG,
+  serviceCategorySupportsContext,
   VIRTUAL_INTAKE_PAPERWORK_CONFIG,
 } from 'utils';
 import { injectTestConfig } from '../config/injectTestConfig';
@@ -134,9 +135,13 @@ export async function generateBookingTestScenarios(): Promise<BookingTestScenari
       continue;
     }
 
-    // Filter categories available for this flow's mode and visit type
-    const availableCategories = serviceCategories.filter(
-      (sc) => sc.serviceModes.includes(serviceMode) && sc.visitTypes.includes(visitType)
+    // Filter categories available for this flow's mode and visit type.
+    // Entries here come from BOOKING_CONFIG (no FHIR catalog in test fixtures);
+    // tag them so the shared helper applies the "untagged BOOKING_CONFIG = supports all"
+    // rule that the production code uses — otherwise fixtures with empty
+    // serviceModes/visitTypes silently produce zero scenarios.
+    const availableCategories = serviceCategories.filter((sc) =>
+      serviceCategorySupportsContext({ ...sc, source: 'booking-config' }, serviceMode, visitType)
     );
 
     // Determine which categories to generate scenarios for

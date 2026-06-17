@@ -8,7 +8,12 @@ import { Box, Button, Skeleton, Typography } from '@mui/material';
 import { HomepageOptions } from 'config-types';
 import { useEffect, useMemo, useState } from 'react';
 import { generatePath, useNavigate } from 'react-router-dom';
-import { BOOKING_CONFIG, ServiceMode, shouldShowServiceCategorySelectionPage } from 'utils';
+import {
+  BOOKING_CONFIG,
+  serviceCategorySupportsContext,
+  ServiceMode,
+  shouldShowServiceCategorySelectionPage,
+} from 'utils';
 import { BOOKING_SERVICE_MODE_PARAM, intakeFlowPageRoute } from '../App';
 import { getWelcomeTitle } from '../branding/welcomeTitle';
 import HomepageOption from '../components/HomepageOption';
@@ -53,11 +58,13 @@ const Homepage = (): JSX.Element => {
 
   // When exactly one service category matches the given mode+visitType, return
   // its code so we can inject it as ?serviceCategory=<code> when skipping the
-  // picker. Otherwise return undefined.
+  // picker. Otherwise return undefined. Uses the shared support-context check
+  // so this stays in sync with shouldShowServiceCategorySelectionPage — they
+  // must agree about what counts as a "match" or the picker decision and the
+  // single-match URL stamp will silently disagree (e.g., one says "two
+  // matches, show picker" while the other says "no single match, no stamp").
   const singleCategoryCodeFor = (serviceMode: string, visitType: string): string | undefined => {
-    const matches = serviceCategories.filter(
-      (sc) => sc.serviceModes.includes(serviceMode as any) && sc.visitTypes.includes(visitType as any)
-    );
+    const matches = serviceCategories.filter((sc) => serviceCategorySupportsContext(sc, serviceMode, visitType));
     return matches.length === 1 ? matches[0].category.code ?? undefined : undefined;
   };
 

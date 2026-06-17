@@ -139,7 +139,7 @@ const VitalsTemperaturesCard: React.FC<VitalsTemperatureCardProps> = ({
                       onKeyDown={handleKeyDown}
                       data-testid={dataTestIds.vitalsPage.temperatureInput}
                     />
-                    <Typography fontSize={25}>=</Typography>
+                    <Typography fontSize={25}>≈</Typography>
                     <VitalsTextInputFiled
                       label="Temp (F)"
                       value={localState.valueFahrenheit}

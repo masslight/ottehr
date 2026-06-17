@@ -23,9 +23,13 @@ export const OccupationalMedicineEmployerInformationContainer: FC<
     formSection: occupationalMedicineEmployerInformation,
   });
 
+  // Pre-op visits show "Employer - Pre-Op"; other visit types keep the section's config title.
+  const title = useUpdateVisitDetailsForEmployer ? 'Employer - Pre-Op' : undefined;
+
   return (
     <PatientRecordFormSection
       formSection={occupationalMedicineEmployerInformation}
+      title={title}
       titleWidget={
         <SectionSaveButton
           fieldKeys={FIELD_KEYS}
