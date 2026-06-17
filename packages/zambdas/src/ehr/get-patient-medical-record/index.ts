@@ -7,6 +7,7 @@ import { DateTime } from 'luxon';
 import {
   BUCKET_NAMES,
   createFilesDocumentReferences,
+  getAllFhirSearchPages,
   getFileNameFromUrl,
   GetPatientMedicalRecordOutput,
   getSecret,
@@ -31,15 +32,16 @@ import { validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'get-patient-medical-record';
 
-type MedicalRecordFile = {
-  name: string;
-  bytes: Uint8Array;
-};
+// OOM guard: the whole compressed archive is buffered for the Z3 upload (presigned PUT needs a
+// Content-Length), and assembly briefly holds ~2 copies. Cap the payload at half the function's
+// memory after headroom, so we fail with a clear error instead of crashing. (1 GB fallback locally.)
+const FUNCTION_MEMORY_MB = Number(process.env.AWS_LAMBDA_FUNCTION_MEMORY_SIZE) || 1024;
+const MEMORY_HEADROOM_MB = 256;
+const MAX_MEDICAL_RECORD_BYTES = Math.max(64, Math.floor((FUNCTION_MEMORY_MB - MEMORY_HEADROOM_MB) / 2)) * 1024 * 1024;
 
-type DownloadedFile = {
-  baseName: string;
-  date?: string;
-  bytes: Uint8Array;
+type NamedAttachment = {
+  url: string;
+  name: string;
 };
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
@@ -83,26 +85,26 @@ export const performEffect = async (
 
   const [patient, documentReferences, folderLists] = await Promise.all([
     oystehr.fhir.get<Patient>({ resourceType: 'Patient', id: patientId }).catch(() => undefined),
-    oystehr.fhir
-      .search<DocumentReference>({
+    // Page through all results: a "complete" record must not be truncated by a single page.
+    // No status filter: include every document the patient/staff sees in the Docs UI
+    // (e.g. superseded discharge summaries), matching "all patient documents".
+    getAllFhirSearchPages<DocumentReference>(
+      {
         resourceType: 'DocumentReference',
-        // No status filter: include every document the patient/staff sees in the Docs UI
-        // (e.g. superseded discharge summaries), matching "all patient documents".
-        params: [
-          { name: 'subject', value: `Patient/${patientId}` },
-          { name: '_count', value: '1000' },
-        ],
-      })
-      .then((bundle) => bundle.unbundle()),
-    oystehr.fhir
-      .search<List>({
+        params: [{ name: 'subject', value: `Patient/${patientId}` }],
+      },
+      oystehr
+    ),
+    getAllFhirSearchPages<List>(
+      {
         resourceType: 'List',
         params: [
           { name: 'subject', value: `Patient/${patientId}` },
           { name: 'code', value: PATIENT_FOLDERS_CODE },
         ],
-      })
-      .then((bundle) => bundle.unbundle()),
+      },
+      oystehr
+    ),
   ]);
 
   // Exclude previously generated medical-record archives so they are never bundled into a new one.
@@ -126,39 +128,24 @@ export const performEffect = async (
       `(of ${documentReferences.length} total) with ${attachments.length} attachments`
   );
 
-  const downloaded: DownloadedFile[] = [];
-  for (const attachment of attachments) {
-    try {
-      const downloadUrl = await createPresignedUrl(m2mToken, attachment.url, 'download');
-      const response = await fetch(downloadUrl, { headers: { 'Cache-Control': 'no-cache' } });
-      if (!response.ok) {
-        console.error(`Skipping attachment, download failed [${response.status}] for ${attachment.url}`);
-        continue;
-      }
-      const bytes = new Uint8Array(await response.arrayBuffer());
-      const baseName = deriveFileName(attachment.url, attachment.title, attachment.contentType);
-      downloaded.push({ baseName, date: attachment.date, bytes });
-    } catch (error) {
-      console.error(`Skipping attachment, error downloading ${attachment.url}: ${String(error)}`);
-    }
-  }
-
-  // Assign archive file names. A name that is unique across the archive stays clean;
-  // when a name is shared by several documents, every copy in that group is disambiguated
-  // by its creation timestamp (so no single copy is arbitrarily left without one).
+  // Resolve archive entry names up front from metadata alone, so no bytes are held while naming.
+  const baseNames = attachments.map((a) => deriveFileName(a.url, a.title, a.contentType));
   const nameCounts = new Map<string, number>();
-  for (const file of downloaded) {
-    nameCounts.set(file.baseName, (nameCounts.get(file.baseName) ?? 0) + 1);
+  for (const baseName of baseNames) {
+    nameCounts.set(baseName, (nameCounts.get(baseName) ?? 0) + 1);
   }
   const usedNames = new Set<string>();
-  const files: MedicalRecordFile[] = downloaded.map((file) => ({
-    name: resolveFileName(file.baseName, file.date, (nameCounts.get(file.baseName) ?? 0) > 1, usedNames),
-    bytes: file.bytes,
+  const namedAttachments: NamedAttachment[] = attachments.map((attachment, i) => ({
+    url: attachment.url,
+    name: resolveFileName(baseNames[i], attachment.date, (nameCounts.get(baseNames[i]) ?? 0) > 1, usedNames),
   }));
 
   const archiveFileName = makeArchiveFileName(patient);
 
-  if (files.length === 0) {
+  console.log(`Zipping up to ${namedAttachments.length} files into ${archiveFileName}`);
+  const { zipBytes, archivedCount } = await buildMedicalRecordZip(namedAttachments);
+
+  if (archivedCount === 0) {
     console.log('No downloadable documents found for patient');
     return {
       downloadUrl: '',
@@ -166,9 +153,6 @@ export const performEffect = async (
       documentCount: 0,
     };
   }
-
-  console.log(`Zipping ${files.length} files into ${archiveFileName}`);
-  const zipBytes = await createZipArchive(files);
 
   const zipZ3Url = makeZ3Url({
     secrets,
@@ -209,11 +193,11 @@ export const performEffect = async (
 
   const downloadUrl = await createPresignedUrl(m2mToken, zipZ3Url, 'download');
 
-  console.log(`Done. ${files.length} files archived.`);
+  console.log(`Done. ${archivedCount} files archived.`);
   return {
     downloadUrl,
     fileName: archiveFileName,
-    documentCount: files.length,
+    documentCount: archivedCount,
   };
 };
 
@@ -222,7 +206,28 @@ export const performEffect = async (
 const isMedicalRecordExport = (docRef: DocumentReference): boolean =>
   (docRef.type?.coding ?? []).some((coding) => coding.code === MEDICAL_RECORD_EXPORT_CODE);
 
-const createZipArchive = async (files: MedicalRecordFile[]): Promise<Uint8Array> => {
+// Returns the attachment's bytes, or undefined if it can't be fetched — one bad file is skipped
+// rather than failing the whole export.
+const downloadAttachment = async (url: string): Promise<Buffer | undefined> => {
+  try {
+    const downloadUrl = await createPresignedUrl(m2mToken, url, 'download');
+    const response = await fetch(downloadUrl, { headers: { 'Cache-Control': 'no-cache' } });
+    if (!response.ok) {
+      console.error(`Skipping attachment, download failed [${response.status}] for ${url}`);
+      return undefined;
+    }
+    return Buffer.from(await response.arrayBuffer());
+  } catch (error) {
+    console.error(`Skipping attachment, error downloading ${url}: ${String(error)}`);
+    return undefined;
+  }
+};
+
+// Downloads and appends one document at a time so only a single document is held in memory at once,
+// not the whole chart. The compressed output is still buffered in full (the Z3 upload needs its length).
+const buildMedicalRecordZip = async (
+  namedAttachments: NamedAttachment[]
+): Promise<{ zipBytes: Uint8Array; archivedCount: number }> => {
   const archive = archiver('zip', { zlib: { level: 9 } });
   const chunks: Buffer[] = [];
   archive.on('data', (chunk: Buffer) => chunks.push(chunk));
@@ -233,8 +238,25 @@ const createZipArchive = async (files: MedicalRecordFile[]): Promise<Uint8Array>
     archive.on('error', (err) => reject(err));
   });
 
-  for (const file of files) {
-    archive.append(Buffer.from(file.bytes), { name: file.name });
+  let archivedCount = 0;
+  let totalBytes = 0;
+  for (const { url, name } of namedAttachments) {
+    const buffer = await downloadAttachment(url);
+    if (!buffer) continue;
+
+    totalBytes += buffer.length;
+    if (totalBytes > MAX_MEDICAL_RECORD_BYTES) {
+      archive.abort();
+      throw new Error(`Medical record exceeds the maximum supported size of ${MAX_MEDICAL_RECORD_BYTES} bytes`);
+    }
+
+    archive.append(buffer, { name });
+    archivedCount++;
+  }
+
+  if (archivedCount === 0) {
+    archive.abort();
+    return { zipBytes: new Uint8Array(0), archivedCount: 0 };
   }
 
   await archive.finalize();
@@ -247,7 +269,7 @@ const createZipArchive = async (files: MedicalRecordFile[]): Promise<Uint8Array>
     result.set(chunk, offset);
     offset += chunk.length;
   }
-  return result;
+  return { zipBytes: result, archivedCount };
 };
 
 const deriveFileName = (url: string, title: string | undefined, contentType: string | undefined): string => {

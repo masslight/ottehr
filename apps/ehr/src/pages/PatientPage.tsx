@@ -186,11 +186,12 @@ export default function PatientPage(): JSX.Element {
                   onClick={() =>
                     window.open(
                       `/in-person/${latestAppointment.appointmentId}/${ROUTER_PATH.REVIEW_AND_SIGN}`,
-                      '_blank'
+                      '_blank',
+                      'noopener,noreferrer'
                     )
                   }
                 >
-                  <img src={progressNoteIcon} />
+                  <img src={progressNoteIcon} alt="" />
                 </GoToButton>
               )}
               {!isMergedPatient && (
