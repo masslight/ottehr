@@ -39,8 +39,6 @@ import {
   CODE_SYSTEM_OYSTEHR_CLAIM_PROCEDURE_MODIFIER,
   CODE_SYSTEM_OYSTEHR_RCM_CMS1500_REFERRING_PROVIDER_TYPE,
   CODE_SYSTEM_PROCESS_PRIORITY,
-  CreateBillingClaimFromEncounterInput,
-  CreateBillingClaimFromEncounterInputSchema,
   EXTENSION_URL_CPT_MODIFIER,
   FHIR_IDENTIFIER_NPI,
   FHIR_RESOURCE_NOT_FOUND,
@@ -50,28 +48,20 @@ import {
   getSecret,
   getTimezone,
   InternalError,
+  INVALID_INPUT_ERROR,
   isAppointmentOccupationalMedicine,
   isAppointmentPreOp,
   isAppointmentUrgentCare,
   isAppointmentWorkersComp,
   isValidUUID,
-  MISSING_REQUEST_SECRETS,
   PARTICIPATION_CODE_SYSTEM,
   Secrets,
   SecretsKeys,
   SERVICE_CATEGORY_SYSTEM,
   TIMEZONES,
 } from 'utils';
-import { INVALID_INPUT_ERROR, MISSING_REQUEST_BODY } from 'utils';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
-import {
-  assertDefined,
-  checkOrCreateM2MClientToken,
-  createOystehrClient,
-  formatZodError,
-  sendErrors,
-  ZambdaInput,
-} from '../../shared';
+import { assertDefined, checkOrCreateM2MClientToken, createOystehrClient, sendErrors, ZambdaInput } from '../../shared';
 import {
   AUTO_ACCIDENT_TAG_DESCRIPTION,
   AUTO_ACCIDENT_TAG_NAME,
@@ -90,10 +80,7 @@ import {
   TAG_DESCRIPTION_URL,
   TAG_IS_SYSTEM_TAG_URL,
 } from '../shared';
-
-export interface CreateClaimFromEncounterParams extends CreateBillingClaimFromEncounterInput {
-  secrets: NonNullable<ZambdaInput['secrets']>;
-}
+import { CreateClaimFromEncounterParams, validateRequestParameters } from './validateRequestParameters';
 
 export type ComplexValidationOutput = { clinicalResources: ClinicalResources; billingResources: BillingResources };
 
@@ -1089,21 +1076,4 @@ export async function complexValidation(
   console.log('getting billing resources');
   const billingResources = await findExistingBillingResources(billingOystehr, clinicalResources, params.secrets);
   return { clinicalResources, billingResources };
-}
-
-export function validateRequestParameters(input: ZambdaInput): CreateClaimFromEncounterParams {
-  if (!input.body) throw MISSING_REQUEST_BODY;
-  if (!input.secrets) throw MISSING_REQUEST_SECRETS;
-
-  let raw: unknown;
-  try {
-    raw = JSON.parse(input.body);
-  } catch {
-    throw INVALID_INPUT_ERROR('Request body is not valid JSON');
-  }
-
-  const result = CreateBillingClaimFromEncounterInputSchema.safeParse(raw);
-  if (!result.success) throw INVALID_INPUT_ERROR(formatZodError(result.error));
-
-  return { ...result.data, secrets: input.secrets };
 }
