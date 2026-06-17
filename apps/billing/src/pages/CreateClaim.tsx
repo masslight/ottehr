@@ -4,7 +4,6 @@ import {
   Autocomplete,
   Box,
   Button,
-  Chip,
   CircularProgress,
   Divider,
   FormHelperText,
@@ -13,7 +12,7 @@ import {
   Typography,
 } from '@mui/material';
 import { ReactElement, useCallback, useEffect, useRef, useState } from 'react';
-import { Controller, FormProvider, useFieldArray, useForm } from 'react-hook-form';
+import { Controller, FormProvider, useForm } from 'react-hook-form';
 import { useNavigate } from 'react-router-dom';
 import {
   BillingCoverageOption,
@@ -36,19 +35,12 @@ import {
   searchBillingProviders as searchBillingProvidersApi,
 } from '../api/api';
 import { ClaimStatusFields } from '../components/claim/ClaimStatusFields';
+import { DiagnosesEditor, DiagnosisRow } from '../components/claim/DiagnosesEditor';
+import { emptyServiceLineRow, ServiceLineRow, ServiceLinesEditor } from '../components/claim/ServiceLinesEditor';
 import { TextInput } from '../components/input/TextInput';
 import { useApiClients } from '../hooks/useAppClients';
 
-interface ServiceLine {
-  cpt: string;
-  modifiers: string;
-  units: number;
-  charges: number;
-}
-
 interface CreateClaimForm {
-  dateOfService: string;
-  pos: { value: string; label: string } | null;
   patient: BillingPatientOption | null;
   patientFirstName: string;
   patientLastName: string;
@@ -67,24 +59,13 @@ interface CreateClaimForm {
   billingName: string;
   billingNpi: string;
   billingTin: string;
-  diagnoses: string[];
-  serviceLines: ServiceLine[];
+  // Diagnoses and service lines reuse the same editors as the claim-detail edit experience;
+  // each service line points at diagnoses by their 1-based position in this list.
+  diagnoses: DiagnosisRow[];
+  serviceLines: ServiceLineRow[];
 }
 
-const POS_OPTIONS = [
-  { value: '11', label: '11 - Office' },
-  { value: '20', label: '20 - Urgent Care' },
-  { value: '21', label: '21 - Inpatient Hospital' },
-  { value: '22', label: '22 - Outpatient Hospital' },
-  { value: '23', label: '23 - Emergency Room' },
-  { value: '02', label: '02 - Telehealth' },
-];
-
-const emptyLine: ServiceLine = { cpt: '', modifiers: '', units: 1, charges: 0 };
-
 const defaultValues: CreateClaimForm = {
-  dateOfService: '',
-  pos: null,
   patient: null,
   patientFirstName: '',
   patientLastName: '',
@@ -104,7 +85,7 @@ const defaultValues: CreateClaimForm = {
   billingNpi: '',
   billingTin: '',
   diagnoses: [],
-  serviceLines: [{ ...emptyLine }],
+  serviceLines: [emptyServiceLineRow()],
 };
 
 export default function CreateClaim(): ReactElement {
@@ -137,20 +118,6 @@ export default function CreateClaim(): ReactElement {
   const [renderingProviders, setRenderingProviders] = useState<BillingProviderOption[]>([]);
   const [locations, setLocations] = useState<BillingLocationOption[]>([]);
   const [billingProviders, setBillingProviders] = useState<BillingProviderOption[]>([]);
-  const [dxInput, setDxInput] = useState('');
-
-  const {
-    fields: serviceLineFields,
-    append,
-    remove,
-  } = useFieldArray({
-    control,
-    name: 'serviceLines',
-    // A claim needs at least one billable line; empty-CPT lines are dropped before submit, so require a real CPT.
-    rules: {
-      validate: (lines) => lines.some((l) => l.cpt.trim()) || 'At least one service line with a CPT code is required',
-    },
-  });
 
   // Watched values used to drive conditional sections / disabled states.
   const selectedPatient = watch('patient');
@@ -158,6 +125,9 @@ export default function CreateClaim(): ReactElement {
   const selectedRenderingProvider = watch('renderingProvider');
   const selectedFacility = watch('facility');
   const selectedBillingProvider = watch('billingProvider');
+  // Diagnoses drive the service-line Dx pointer dropdown — pointers are the 1-based position here.
+  const diagnoses = watch('diagnoses');
+  const diagnosisOptions = diagnoses.map((dx, i) => ({ sequence: i + 1, code: dx.code }));
 
   useEffect(() => {
     return (): void => {
@@ -170,7 +140,7 @@ export default function CreateClaim(): ReactElement {
 
   // After a failed submit, smoothly scroll the first invalid field into view
   // (matches the clinical side, e.g. apps/ehr/src/components/EmployeeInformation/index.tsx).
-  // Covers both RHF fields (Patient, Date of Service) and AR Stage, which render `.Mui-error`.
+  // Covers RHF fields (Patient, providers, diagnoses, service lines) and AR Stage, which render `.Mui-error`.
   useEffect(() => {
     if (Object.keys(errors).length > 0 || arStageError) {
       document.querySelector('.Mui-error')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -312,24 +282,34 @@ export default function CreateClaim(): ReactElement {
         };
       }
 
-      if (data.diagnoses.length) payload.diagnoses = data.diagnoses.map((code) => ({ code }));
-
-      const pos = data.pos?.value;
-      const validLines = data.serviceLines.filter((l) => l.cpt.trim());
-      if (validLines.length) {
-        payload.serviceLines = validLines.map((l) => ({
-          cptCode: l.cpt,
-          units: l.units,
-          charges: l.charges,
-          serviceDate: data.dateOfService,
-          placeOfService: pos || undefined,
-          modifiers: l.modifiers
-            ? l.modifiers
-                .split(',')
-                .map((m) => m.trim())
-                .filter(Boolean)
-            : undefined,
+      // Validation guarantees every diagnosis row has a code, so positions here line up with the
+      // diagnosisPointers below (the backend assigns diagnosisSequence by array order).
+      const diagnoses = data.diagnoses.filter((dx) => dx.code.trim());
+      if (diagnoses.length) {
+        payload.diagnoses = diagnoses.map((dx) => ({
+          code: dx.code.trim(),
+          ...(dx.display.trim() ? { display: dx.display.trim() } : {}),
         }));
+      }
+
+      const validLines = data.serviceLines.filter((l) => l.cptCode.trim());
+      if (validLines.length) {
+        payload.serviceLines = validLines.map((l) => {
+          const modifiers = l.modifiers
+            .split(/[,\s]+/)
+            .map((m) => m.trim())
+            .filter(Boolean);
+          const pointers = l.diagnosisPointers.filter((p) => p >= 1 && p <= diagnoses.length);
+          return {
+            cptCode: l.cptCode.trim(),
+            units: Number(l.units),
+            charges: Number(l.charges),
+            serviceDate: l.serviceDate,
+            ...(l.placeOfService.trim() ? { placeOfService: l.placeOfService.trim() } : {}),
+            ...(modifiers.length ? { modifiers } : {}),
+            ...(pointers.length ? { diagnosisPointers: pointers } : {}),
+          };
+        });
       }
 
       const statusEntries = Object.entries(statuses).filter(([, v]) => v);
@@ -342,7 +322,7 @@ export default function CreateClaim(): ReactElement {
     }
   };
 
-  // Always-enabled Create: RHF validates Patient + Date of Service; AR Stage is checked here since
+  // Always-enabled Create: RHF validates the required fields; AR Stage is checked here since
   // it lives outside the form. On any failure the offending fields turn red and we scroll to the first.
   const handleCreate = handleSubmit(
     async (data) => {
@@ -392,37 +372,6 @@ export default function CreateClaim(): ReactElement {
             {error}
           </Alert>
         )}
-
-        <FormSection label="Claim Information">
-          <Box sx={{ display: 'flex', gap: 2 }}>
-            <TextInput
-              name="dateOfService"
-              type="date"
-              label="Date of Service"
-              required
-              InputLabelProps={{ shrink: true }}
-              sx={{ width: 200 }}
-            />
-            <Controller
-              name="pos"
-              control={control}
-              render={({ field }) => (
-                <Autocomplete
-                  size="small"
-                  options={POS_OPTIONS}
-                  getOptionLabel={(o) => o.label}
-                  value={field.value}
-                  onChange={(_, v) => field.onChange(v)}
-                  renderInput={(params) => <TextField {...params} label="Place of Service" />}
-                  isOptionEqualToValue={(o, v) => o.value === v.value}
-                  sx={{ width: 260 }}
-                />
-              )}
-            />
-          </Box>
-        </FormSection>
-
-        <Divider />
 
         <Box sx={{ py: 2.5 }}>
           <ClaimStatusFields
@@ -719,111 +668,46 @@ export default function CreateClaim(): ReactElement {
           <Controller
             name="diagnoses"
             control={control}
-            rules={{ validate: (v) => (v && v.length > 0) || 'At least one diagnosis is required' }}
-            render={({ field, fieldState: { error: fieldError } }) => {
-              const addDiagnosis = (): void => {
-                const code = dxInput.trim().toUpperCase();
-                if (code && !field.value.includes(code)) {
-                  field.onChange([...field.value, code]);
-                  setDxInput('');
-                }
-              };
-              return (
-                <>
-                  <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 1 }}>
-                    {field.value.map((dx, i) => (
-                      <Chip
-                        key={i}
-                        label={dx}
-                        size="small"
-                        onDelete={() => field.onChange(field.value.filter((_, j) => j !== i))}
-                      />
-                    ))}
-                  </Box>
-                  <Box sx={{ display: 'flex', gap: 1 }}>
-                    <TextField
-                      size="small"
-                      placeholder="ICD-10 (e.g. J06.9)"
-                      value={dxInput}
-                      onChange={(e) => setDxInput(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          e.preventDefault();
-                          addDiagnosis();
-                        }
-                      }}
-                      error={!!fieldError}
-                      helperText={fieldError?.message}
-                      sx={{ width: 200 }}
-                    />
-                    <Button size="small" onClick={addDiagnosis}>
-                      + Add
-                    </Button>
-                  </Box>
-                </>
-              );
+            rules={{
+              validate: (rows) => {
+                if (!rows.length) return 'At least one diagnosis is required';
+                if (rows.some((dx) => !dx.code.trim())) return 'Each diagnosis needs an ICD-10 code';
+                return true;
+              },
             }}
+            render={({ field, fieldState: { error: fieldError } }) => (
+              <>
+                <DiagnosesEditor value={field.value} onChange={field.onChange} />
+                {fieldError && <FormHelperText error>{fieldError.message}</FormHelperText>}
+              </>
+            )}
           />
         </FormSection>
 
         <Divider />
 
         <FormSection label="Service Lines">
-          {serviceLineFields.map((lineField, i) => (
-            <Box key={lineField.id} sx={{ mb: 2 }}>
-              {i > 0 && <Divider sx={{ mb: 2 }} />}
-              <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-                <Controller
-                  name={`serviceLines.${i}.cpt`}
-                  control={control}
-                  render={({ field }) => <TextField {...field} size="small" label="CPT" sx={{ width: 100 }} />}
-                />
-                <Controller
-                  name={`serviceLines.${i}.modifiers`}
-                  control={control}
-                  render={({ field }) => <TextField {...field} size="small" label="Mod" sx={{ width: 80 }} />}
-                />
-                <Controller
-                  name={`serviceLines.${i}.units`}
-                  control={control}
-                  render={({ field }) => (
-                    <TextField
-                      {...field}
-                      size="small"
-                      label="Units"
-                      type="number"
-                      onChange={(e) => field.onChange(Number(e.target.value))}
-                      sx={{ width: 70 }}
-                    />
-                  )}
-                />
-                <Controller
-                  name={`serviceLines.${i}.charges`}
-                  control={control}
-                  render={({ field }) => (
-                    <TextField
-                      {...field}
-                      size="small"
-                      label="Charges"
-                      type="number"
-                      value={field.value || ''}
-                      onChange={(e) => field.onChange(Number(e.target.value))}
-                      sx={{ width: 100 }}
-                    />
-                  )}
-                />
-                {serviceLineFields.length > 1 && (
-                  <Button size="small" color="error" onClick={() => remove(i)}>
-                    Remove
-                  </Button>
-                )}
-              </Box>
-            </Box>
-          ))}
-          <Button size="small" onClick={() => append({ ...emptyLine })}>
-            + Add service line
-          </Button>
-          {errors.serviceLines?.root && <FormHelperText error>{errors.serviceLines.root.message}</FormHelperText>}
+          <Controller
+            name="serviceLines"
+            control={control}
+            rules={{
+              validate: (rows) => {
+                const withCpt = rows.filter((l) => l.cptCode.trim());
+                if (!withCpt.length) return 'At least one service line with a CPT code is required';
+                if (withCpt.some((l) => !l.serviceDate)) return 'Each service line needs a date of service';
+                if (withCpt.some((l) => !(Number(l.units) > 0))) return 'Units must be a positive number';
+                if (withCpt.some((l) => l.charges.trim() === '' || !Number.isFinite(Number(l.charges))))
+                  return 'Charges must be a number';
+                return true;
+              },
+            }}
+            render={({ field, fieldState: { error: fieldError } }) => (
+              <>
+                <ServiceLinesEditor value={field.value} onChange={field.onChange} diagnoses={diagnosisOptions} />
+                {fieldError && <FormHelperText error>{fieldError.message}</FormHelperText>}
+              </>
+            )}
+          />
         </FormSection>
       </Box>
     </FormProvider>

@@ -45,10 +45,10 @@ describe('CreateClaim — required-field validation', () => {
 
     fireEvent.click(createButton);
 
-    // Patient, Date of Service, Rendering Provider, Service Facility, and Billing Provider are all
-    // required RHF fields → shared "This field is required" message (≥5).
+    // Patient, Rendering Provider, Service Facility, and Billing Provider are all required RHF
+    // fields → shared "This field is required" message (≥4). Date of service is now per service line.
     const requiredMessages = await screen.findAllByText('This field is required');
-    expect(requiredMessages.length).toBeGreaterThanOrEqual(5);
+    expect(requiredMessages.length).toBeGreaterThanOrEqual(4);
 
     // Diagnoses and Service Lines have their own validation messages.
     expect(screen.getByText('At least one diagnosis is required')).toBeInTheDocument();
@@ -59,5 +59,22 @@ describe('CreateClaim — required-field validation', () => {
 
     // Nothing should have been submitted.
     expect(createBillingClaimMock).not.toHaveBeenCalled();
+  });
+
+  it('exposes diagnoses added in the shared editor as Dx pointers on a service line', async () => {
+    renderCreateClaim();
+
+    // Both shared editors (same components as the claim-detail edit experience) render.
+    expect(screen.getByRole('button', { name: '+ Add service line' })).toBeInTheDocument();
+
+    // Add a diagnosis and give it an ICD-10 code via the shared DiagnosesEditor.
+    fireEvent.click(screen.getByRole('button', { name: '+ Add diagnosis' }));
+    fireEvent.change(screen.getByLabelText('ICD-10'), { target: { value: 'J06.9' } });
+
+    // The default service line's Dx dropdown now offers that diagnosis at sequence 1.
+    const dxSelect = screen.getAllByRole('combobox').find((el) => el.textContent === 'Dx');
+    expect(dxSelect).toBeDefined();
+    fireEvent.mouseDown(dxSelect!);
+    expect(await screen.findByRole('option', { name: '1: J06.9' })).toBeInTheDocument();
   });
 });
