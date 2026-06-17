@@ -77,5 +77,13 @@ describe('deriveServiceModeFromPath', () => {
       // `/prebook/{mode}/select-service-category` shape should resolve.
       expect(deriveServiceModeFromPath('/prebook/virtual')).toBeUndefined();
     });
+
+    it('returns undefined when the picker suffix has extra characters appended', () => {
+      // Tightens the regex's right edge — the router never serves
+      // `/prebook/virtual/select-service-category-extra`, but the helper's
+      // contract reads "this exact route shape," so make it true.
+      expect(deriveServiceModeFromPath('/prebook/virtual/select-service-category-extra')).toBeUndefined();
+      expect(deriveServiceModeFromPath('/prebook/virtual/select-service-category-foo/bar')).toBeUndefined();
+    });
   });
 });
