@@ -13,6 +13,10 @@ vi.mock('browser-image-compression', () => ({
   default: vi.fn(async (file: File) => file),
 }));
 
+vi.mock('ui-components', () => ({
+  convertHeicToJpegIfNeeded: vi.fn(async (file: File) => file),
+}));
+
 vi.mock('../../src/hooks/useUCZambdaClient', () => ({
   useUCZambdaClient: () => null,
 }));
