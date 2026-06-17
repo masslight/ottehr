@@ -42,7 +42,6 @@ import {
   EXTENSION_URL_CPT_MODIFIER,
   FHIR_IDENTIFIER_NPI,
   FHIR_RESOURCE_NOT_FOUND,
-  getCoding,
   getNPIIdentifier,
   getPayerId,
   getSecret,
@@ -57,7 +56,6 @@ import {
   PARTICIPATION_CODE_SYSTEM,
   Secrets,
   SecretsKeys,
-  SERVICE_CATEGORY_SYSTEM,
   TIMEZONES,
 } from 'utils';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
@@ -429,7 +427,7 @@ function uuidOrUrnReferenceString(resourceType: BillingFhirResource['resourceTyp
   return `${resourceType}/${uuidOrUrn}`;
 }
 
-function getAppointmentType(appointment: Appointment): AppointmentType {
+function getAppointmentType(appointment: Appointment): AppointmentType | undefined {
   if (isAppointmentUrgentCare(appointment)) {
     return 'uc';
   }
@@ -442,11 +440,11 @@ function getAppointmentType(appointment: Appointment): AppointmentType {
   if (isAppointmentPreOp(appointment)) {
     return 'preop';
   }
-  throw new Error(`Unknown appointment type: ${getCoding(appointment.serviceCategory, SERVICE_CATEGORY_SYSTEM)?.code}`);
+  return undefined;
 }
 
 export function getClaimCoveragesForEncounter(
-  appointmentType: AppointmentType,
+  appointmentType: AppointmentType | undefined,
   mainPatientAccounts: Account[],
   claimCoverages: Coverage[]
 ): CoverageRefs {
@@ -513,6 +511,10 @@ export function getClaimCoveragesForEncounter(
     case 'preop': {
       // No insurance
       // TODO: Support non-insurance payers
+      return [];
+    }
+    default: {
+      // Unknown appointment type
       return [];
     }
   }
@@ -931,6 +933,7 @@ async function findExistingBillingResources(
 
 function buildClaim(resources: ClaimResources): Claim {
   const now = new Date().toISOString().slice(0, 10);
+  const appointmentTypeCoding = getAppointmentTypeCoding(resources.appointment);
 
   const claim: Claim = {
     resourceType: 'Claim',
@@ -938,8 +941,8 @@ function buildClaim(resources: ClaimResources): Claim {
     meta: {
       tag: [
         { system: CURRENT_STATUS_TAG_SYSTEM, code: 'open' },
-        getAppointmentTypeCoding(resources.appointment),
         getClaimTypeCoding(),
+        ...(appointmentTypeCoding ? [appointmentTypeCoding] : []),
         ...(resources.billingTags ?? []).map((t) => ({ system: CLAIM_TAG_SYSTEM, code: t })),
       ],
     },
@@ -1034,7 +1037,7 @@ function getLocalDateOfService(appointmentStart: string, location: Location | un
   return DateTime.fromISO(appointmentStart).setZone(timezone).toISODate()!;
 }
 
-function getAppointmentTypeCoding(appointment: Appointment): Coding {
+function getAppointmentTypeCoding(appointment: Appointment): Coding | undefined {
   const type = getAppointmentType(appointment);
   switch (type) {
     case 'uc':
@@ -1054,6 +1057,8 @@ function getAppointmentTypeCoding(appointment: Appointment): Coding {
       };
     case 'preop':
       return { system: CODE_SYSTEM_APPOINTMENT_TYPE_TAG_SYSTEM, code: CODE_SYSTEM_APPOINTMENT_TYPE_CODES['pre-op'] };
+    default:
+      return undefined;
   }
 }
 
