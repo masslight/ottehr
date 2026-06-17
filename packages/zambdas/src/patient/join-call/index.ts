@@ -10,6 +10,7 @@ import {
   createOystehrClient,
   FHIR_EXTENSION,
   getAppointmentResourceById,
+  getParticipantIdFromAppointment,
   getRelatedPersonsForPatient,
   getSecret,
   getVirtualServiceResourceExtension,
@@ -82,7 +83,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       });
 
       if (!claims.sub) {
-        throw new Error('clams.sub is expected!');
+        throw new Error('claims.sub is expected!');
       }
     } else {
       console.log('getting user');
@@ -118,10 +119,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     return lambdaResponse(404, { message: 'Appointment is not found' });
   }
 
-  const patientRef = appointment.participant.find((p) => p.actor?.reference?.match(/^Patient/) !== null)?.actor
-    ?.reference;
-
-  const patientId = patientRef?.replace(/^Patient\//, '');
+  const patientId = getParticipantIdFromAppointment(appointment, 'Patient');
 
   console.log('Patient ID from appointment:', patientId);
 
