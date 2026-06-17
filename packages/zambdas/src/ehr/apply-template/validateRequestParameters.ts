@@ -58,9 +58,16 @@ const sectionActionsSchema = z
   });
 
 const externalLabSchema = z
-  .object({
-    paymentMethod: CreateLabPaymentMethodSchema,
-  })
+  .object(
+    {
+      paymentMethod: z.enum(CreateLabPaymentMethodSchema.options, {
+        message: `Invalid externalLabs.paymentMethod. Must be one of: ${CreateLabPaymentMethodSchema.options.join(
+          ', '
+        )}`,
+      }),
+    },
+    { invalid_type_error: 'externalLabs must be an object' }
+  )
   .optional();
 
 const ApplyTemplateSchema = z.object({

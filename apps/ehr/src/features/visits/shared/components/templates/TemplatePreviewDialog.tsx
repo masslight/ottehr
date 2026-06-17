@@ -33,6 +33,7 @@ import {
   isTemplateCptCodeInfo,
   LAB_PAYMENT_METHOD_DISPLAY,
   LabPaymentMethod,
+  nameLabTest,
   RosFindingState,
   RosFindingStateLabel,
   TEMPLATE_SECTION_DEFAULT_ACTIONS,
@@ -42,6 +43,7 @@ import {
   TemplateCptCodeInfo,
   TemplateExternalLabPlanDetail,
   TemplateInHouseLabPlanDetail,
+  TemplatePreviewApplyOptions,
   TemplateProcedurePlan,
   TemplateSectionAction,
   TemplateSectionActions,
@@ -50,14 +52,6 @@ import {
 } from 'utils';
 import { useGetCreateExternalLabResources } from '../../stores/appointment/appointment.queries';
 import { useAppointmentData } from '../../stores/appointment/appointment.store';
-
-// Extra inputs collected by the preview dialog beyond the per-section actions.
-// External lab orders require a payment method at create time, so when the
-// External Lab Orders section is appended the user's confirmed selection rides
-// along with the apply call.
-export interface TemplatePreviewApplyOptions {
-  externalLabs?: { paymentMethod: CreateLabPaymentMethod };
-}
 
 interface TemplatePreviewDialogProps {
   open: boolean;
@@ -159,7 +153,7 @@ const getSectionSummary = (sections: AdminGetTemplateDetailOutput['sections'], k
     case 'externalLabs': {
       const names = sections.externalLabs
         .slice(0, NUM_ITEMS_IN_SECTION_TO_SHOW)
-        .map((p) => p.testName)
+        .map((p) => nameLabTest(p.testName, p.testCode, p.labName, false))
         .join(', ');
       const extra = sections.externalLabs.length - NUM_ITEMS_IN_SECTION_TO_SHOW;
       const summary = extra > 0 ? `${names} +${extra} more` : names;
@@ -423,12 +417,7 @@ const ExternalLabPlansList: React.FC<{ plans: TemplateExternalLabPlanDetail[] }>
     {plans.map((plan) => (
       <Box key={plan.planId} sx={{ opacity: plan.missing ? 0.55 : 1 }}>
         <Typography variant="body2" sx={{ color: 'text.primary', fontWeight: 500 }}>
-          {plan.testName}
-          {plan.labName ? (
-            <Typography component="span" variant="body2" sx={{ color: 'text.secondary' }}>
-              {` / ${plan.labName}`}
-            </Typography>
-          ) : null}
+          {nameLabTest(plan.testName, plan.testCode, plan.labName, false)}
           {plan.missing ? (
             <Typography component="span" variant="caption" sx={{ ml: 1, color: 'warning.main', fontStyle: 'italic' }}>
               unavailable in this environment — will be skipped
@@ -524,20 +513,20 @@ const SectionCard: React.FC<{
   action: TemplateSectionAction;
   onActionChange: (action: TemplateSectionAction) => void;
   disabled: boolean;
-  // Extra text appended to the header summary (separator included by the
+  // Extra text prepended to the header summary (separator included by the
   // caller) - e.g. the external labs card shows the payment method that will
   // be used so the user gets a reminder without expanding the card.
-  summarySuffix?: string;
+  summaryPrefix?: string;
   // Apply inputs rendered at the top of the expanded body, above the preview -
   // e.g. the external labs ordering office + payment method selector. Most
   // users never need to change these, so they live behind the expand toggle.
   expandedContent?: React.ReactNode;
-}> = ({ descriptor, sections, action, onActionChange, disabled, summarySuffix, expandedContent }) => {
+}> = ({ descriptor, sections, action, onActionChange, disabled, summaryPrefix, expandedContent }) => {
   const theme = useTheme();
   const [expanded, setExpanded] = useState(false);
   const noAppend = TEMPLATE_SECTIONS_NO_APPEND.has(descriptor.key);
   const noOverwrite = TEMPLATE_SECTIONS_NO_OVERWRITE.has(descriptor.key);
-  const summary = `${getSectionSummary(sections, descriptor.key)}${summarySuffix ?? ''}`;
+  const summary = `${summaryPrefix ?? ''}${getSectionSummary(sections, descriptor.key)}`;
 
   const previewSx = {
     opacity: action === 'skip' ? 0.5 : 1,
@@ -891,12 +880,16 @@ export const TemplatePreviewDialog: React.FC<TemplatePreviewDialogProps> = ({
   // Echo the payment selection in the card's header summary so the user gets
   // a reminder of what the orders will use without expanding the card (the
   // selector itself lives in the expanded body - it rarely needs changing).
-  const externalLabsSummarySuffix = ((): string | undefined => {
-    if (!hasExternalLabs) return undefined;
-    if (externalLabResourcesQuery.isError) return ' · payment options unavailable';
-    if (externalLabPaymentMethod) return ` · Payment: ${LAB_PAYMENT_METHOD_DISPLAY[externalLabPaymentMethod]}`;
-    if (!externalLabResourcesQuery.isLoading && orderingOfficeName) return ' · payment method needed';
-    return undefined;
+  const externalLabsSummaryPrefix = ((): string | undefined => {
+    const separator = ' · ';
+    let prefixString: string | undefined = undefined;
+    if (!hasExternalLabs) return prefixString;
+    else if (externalLabResourcesQuery.isError) prefixString = 'Payment options unavailable';
+    else if (externalLabPaymentMethod)
+      prefixString = `Payment: ${LAB_PAYMENT_METHOD_DISPLAY[externalLabPaymentMethod]}`;
+    else if (!externalLabResourcesQuery.isLoading && orderingOfficeName) prefixString = 'payment method needed';
+    else return undefined;
+    return prefixString + separator;
   })();
 
   return (
@@ -939,7 +932,7 @@ export const TemplatePreviewDialog: React.FC<TemplatePreviewDialogProps> = ({
                 action={actions[section.key]}
                 onActionChange={(action) => handleActionChange(section.key, action)}
                 disabled={isApplying}
-                summarySuffix={section.key === 'externalLabs' ? externalLabsSummarySuffix : undefined}
+                summaryPrefix={section.key === 'externalLabs' ? externalLabsSummaryPrefix : undefined}
                 expandedContent={
                   section.key === 'externalLabs' ? (
                     <ExternalLabsApplyControls

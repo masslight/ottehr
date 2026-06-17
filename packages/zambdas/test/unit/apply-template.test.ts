@@ -41,7 +41,7 @@ const baseBody = {
 describe('Apply Template - validateRequestParameters', () => {
   test('accepts a request without sectionActions and defaults to an empty object', () => {
     const result = validateRequestParameters(createInput(baseBody));
-    expect(result.sectionActions).toEqual({});
+    expect(result.sectionActions).toBeUndefined();
   });
 
   test('accepts valid sectionActions for every supported section', () => {

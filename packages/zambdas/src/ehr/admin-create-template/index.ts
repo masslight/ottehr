@@ -161,7 +161,7 @@ const performEffect = async (
   // chart-data tag and no encounter reference), so it has to be collected
   // before the tag filter strips those resources out.
   const externalLabOrders = encounterBundle.filter((resource): resource is ServiceRequest =>
-    isValidExternalLabServiceRequest(resource)
+    isValidExternalLabServiceRequestForTemplate(resource)
   );
   const clinicalInfoNoteBySrId = new Map<string, string>();
   for (const resource of encounterBundle) {
@@ -541,7 +541,7 @@ export const isValidInHouseLabServiceRequest = (resource: TemplateEncounterResou
 // basedOn and are excluded - templates only capture orders a provider placed.
 // The includable-status set keeps cancelled (revoked / entered-in-error)
 // orders out of saved templates, mirroring the in-house lab capture.
-export const isValidExternalLabServiceRequest = (resource: TemplateEncounterResource): boolean => {
+export const isValidExternalLabServiceRequestForTemplate = (resource: TemplateEncounterResource): boolean => {
   if (resource.resourceType !== 'ServiceRequest') return false;
   const sr = resource as ServiceRequest;
   return (

@@ -27,7 +27,6 @@ import {
   getTag,
   ICD_10_CODE_SYSTEM,
   IN_HOUSE_TEST_CODE_SYSTEM,
-  OrderableItemSearchResult,
   PERFORMER_TYPE_SYSTEM,
   PROCEDURE_TYPE_SYSTEM,
   resourceHasTagSystem,
@@ -44,6 +43,7 @@ import {
 import { checkOrCreateM2MClientToken, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
 import {
+  fetchPlanItemsByLabGuid,
   findExternalLabPlans,
   labelForExternalLabPlan,
   matchOrderableItemForPlan,
@@ -54,7 +54,6 @@ import {
   urlFromInstantiatesCanonical,
 } from '../apply-template/apply-in-house-labs';
 import { findProcedurePlans } from '../apply-template/apply-procedures';
-import { getOrderableItems } from '../lab/shared/orderable-items';
 import { analyzeTemplateVersionData, isDiagnosisCondition, verifyIsTemplate } from '../shared/template-helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -393,24 +392,9 @@ const performEffect = async (
   const externalLabPlans = findExternalLabPlans(templateList);
   const externalParsedPlans = externalLabPlans.map((plan) => ({ plan, parsed: parseExternalLabPlan(plan) }));
 
-  const externalItemsByLabGuid = new Map<string, OrderableItemSearchResult[] | 'fetch-failed'>();
-  const externalLabGuids = Array.from(
-    new Set(externalParsedPlans.flatMap(({ parsed }) => (parsed ? [parsed.labGuid] : [])))
-  );
-  await Promise.all(
-    externalLabGuids.map(async (labGuid) => {
-      const itemCodes = Array.from(
-        new Set(
-          externalParsedPlans.flatMap(({ parsed }) => (parsed && parsed.labGuid === labGuid ? [parsed.itemCode] : []))
-        )
-      );
-      try {
-        externalItemsByLabGuid.set(labGuid, await getOrderableItems([labGuid], { itemCodes }, m2mToken));
-      } catch (err) {
-        console.warn(`Could not verify orderable items for lab ${labGuid}:`, err);
-        externalItemsByLabGuid.set(labGuid, 'fetch-failed');
-      }
-    })
+  const externalOrderableItemsByLabGuid = await fetchPlanItemsByLabGuid(
+    externalParsedPlans.map((p) => p.parsed).filter((p) => p !== null),
+    m2mToken
   );
 
   const externalLabs: TemplateExternalLabPlanDetail[] = externalParsedPlans.map(({ plan, parsed }) => {
@@ -430,7 +414,7 @@ const performEffect = async (
         missing: true,
       };
     }
-    const items = externalItemsByLabGuid.get(parsed.labGuid);
+    const items = externalOrderableItemsByLabGuid.get(parsed.labGuid);
     // When the availability check itself failed, don't report a false
     // "missing" - apply-template re-checks and warns at apply time.
     const missing = items === undefined || items === 'fetch-failed' ? false : !matchOrderableItemForPlan(parsed, items);

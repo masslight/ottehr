@@ -3,6 +3,7 @@ import {
   chartDataTagSystem,
   FHIR_IDC10_VALUESET_SYSTEM,
   LAB_ACCOUNT_NUMBER_SYSTEM,
+  locationIsEnabledForLabs,
   OrderableItemSearchResult,
   OYSTEHR_LAB_GUID_SYSTEM,
   OYSTEHR_LAB_OI_CODE_SYSTEM,
@@ -14,7 +15,6 @@ import {
   findExternalLabPlans,
   getOrderingLocationFromEncounter,
   isExternalLabPlanServiceRequest,
-  locationIsEnabledForLabs,
   matchOrderableItemForPlan,
   parseExternalLabPlan,
 } from '../../src/ehr/apply-template/apply-external-labs';

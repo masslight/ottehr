@@ -1,4 +1,4 @@
-import Oystehr from '@oystehr/sdk';
+import Oystehr, { BatchInputRequest } from '@oystehr/sdk';
 import { Encounter, FhirResource, List, Location, Practitioner, ServiceRequest } from 'fhir/r4b';
 import {
   ApplyTemplateWarning,
@@ -10,7 +10,7 @@ import {
   getSecret,
   ICD_10_CODE_SYSTEM,
   isPSCOrder,
-  LAB_ACCOUNT_NUMBER_SYSTEM,
+  locationIsEnabledForLabs,
   OrderableItemSearchResult,
   OYSTEHR_LAB_GUID_SYSTEM,
   OYSTEHR_LAB_OI_CODE_SYSTEM,
@@ -25,7 +25,7 @@ import { buildExternalLabOrderRequests } from '../lab/external/create-lab-order/
 import { getOrderableItems } from '../lab/shared/orderable-items';
 import { TemplateEncounterResource } from '../shared/template-helpers';
 
-export const EXTERNAL_LAB_PLAN_TAG_SYSTEM = chartDataTagSystem('external-lab-template-plan');
+const EXTERNAL_LAB_PLAN_TAG_SYSTEM = chartDataTagSystem('external-lab-template-plan');
 
 export const isExternalLabPlanServiceRequest = (maybePlan: FhirResource): maybePlan is ServiceRequest => {
   if (maybePlan.resourceType !== 'ServiceRequest') return false;
@@ -148,17 +148,6 @@ export const getOrderingLocationFromEncounter = (
   return locations.find((loc) => loc.id && encounterLocationIds.includes(loc.id)) ?? locations[0];
 };
 
-// A location can place external lab orders when it carries at least one lab
-// account number identifier assigned by a lab Organization. The create flow
-// re-validates the specific location ↔ lab pairing per order; this check just
-// lets us warn up-front with a clearer message when the office isn't
-// configured for external labs at all.
-export const locationIsEnabledForLabs = (location: Location): boolean => {
-  return !!location.identifier?.some(
-    (id) => id.system === LAB_ACCOUNT_NUMBER_SYSTEM && id.value && id.assigner?.reference
-  );
-};
-
 interface ApplyExternalLabPlansInput {
   templateList: List;
   encounter: Encounter;
@@ -193,6 +182,7 @@ interface ApplyExternalLabPlansResult {
  */
 export async function applyExternalLabPlans(input: ApplyExternalLabPlansInput): Promise<ApplyExternalLabPlansResult> {
   const warnings: ApplyTemplateWarning[] = [];
+  const externalLabsSectionName = 'externalLabs';
   try {
     const {
       templateList,
@@ -214,7 +204,7 @@ export async function applyExternalLabPlans(input: ApplyExternalLabPlansInput): 
     // is appended; without one we can't create orders at all.
     if (!selectedPaymentMethod) {
       warnings.push({
-        section: 'externalLabs',
+        section: externalLabsSectionName,
         message: 'Skipped external lab orders — no payment method was provided.',
       });
       return { warnings };
@@ -225,7 +215,7 @@ export async function applyExternalLabPlans(input: ApplyExternalLabPlansInput): 
       const parsed = parseExternalLabPlan(plan);
       if (!parsed) {
         warnings.push({
-          section: 'externalLabs',
+          section: externalLabsSectionName,
           message: `Skipped "${labelForExternalLabPlan(
             plan
           )}" — the template entry is missing its lab or test identity.`,
@@ -241,14 +231,14 @@ export async function applyExternalLabPlans(input: ApplyExternalLabPlansInput): 
     const orderingLocation = getOrderingLocationFromEncounter(encounter, encounterResources);
     if (!orderingLocation?.id) {
       warnings.push({
-        section: 'externalLabs',
+        section: externalLabsSectionName,
         message: 'Skipped external lab orders — this visit has no office location to use as the ordering office.',
       });
       return { warnings };
     }
     if (!locationIsEnabledForLabs(orderingLocation)) {
       warnings.push({
-        section: 'externalLabs',
+        section: externalLabsSectionName,
         message: `Skipped external lab orders — the '${
           orderingLocation.name ?? orderingLocation.id
         }' office is not configured for external lab ordering.`,
@@ -259,7 +249,7 @@ export async function applyExternalLabPlans(input: ApplyExternalLabPlansInput): 
     const attendingPractitionerId = getAttendingPractitionerId(encounter);
     if (!attendingPractitionerId) {
       warnings.push({
-        section: 'externalLabs',
+        section: externalLabsSectionName,
         message: 'Skipped external lab orders — this encounter has no attending practitioner linked.',
       });
       return { warnings };
@@ -270,7 +260,7 @@ export async function applyExternalLabPlans(input: ApplyExternalLabPlansInput): 
       currentUserPractitionerId = await getMyPractitionerId(userToken, secrets);
     } catch {
       warnings.push({
-        section: 'externalLabs',
+        section: externalLabsSectionName,
         message:
           'Skipped external lab orders — the user applying this template must have a Practitioner resource linked.',
       });
@@ -285,19 +275,7 @@ export async function applyExternalLabPlans(input: ApplyExternalLabPlansInput): 
 
     // Re-resolve each plan's lab + test combo against the lab's current
     // compendium, one search per lab.
-    const itemsByLabGuid = new Map<string, OrderableItemSearchResult[]>();
-    const uniqueLabGuids = Array.from(new Set(parsedPlans.map((p) => p.labGuid)));
-    await Promise.all(
-      uniqueLabGuids.map(async (labGuid) => {
-        const itemCodes = Array.from(new Set(parsedPlans.filter((p) => p.labGuid === labGuid).map((p) => p.itemCode)));
-        try {
-          itemsByLabGuid.set(labGuid, await getOrderableItems([labGuid], { itemCodes }, m2mToken));
-        } catch (err) {
-          // Leave the entry unset - the per-plan matching below reports the skip.
-          console.error(`Orderable item search failed for lab ${labGuid}`, err);
-        }
-      })
-    );
+    const itemsByLabGuid = await fetchPlanItemsByLabGuid(parsedPlans, m2mToken);
 
     // enabledLabs isn't needed by the create flow - it re-validates the
     // location ↔ lab-org pairing against the live Location identifiers and
@@ -308,56 +286,121 @@ export async function applyExternalLabPlans(input: ApplyExternalLabPlansInput): 
       enabledLabs: [],
     };
 
-    for (const parsed of parsedPlans) {
-      const items = itemsByLabGuid.get(parsed.labGuid);
-      const orderableItem = items ? matchOrderableItemForPlan(parsed, items) : undefined;
-      if (!orderableItem) {
-        warnings.push({
-          section: 'externalLabs',
-          message: `Skipped "${parsed.testName}" — the test wasn't found in the ${parsed.labName || 'lab'} compendium.`,
-        });
-        continue;
-      }
+    const labOrderRequestOutcomes = await Promise.all(
+      parsedPlans.map(async (parsed) => {
+        const parsedWarnings: ApplyTemplateWarning[] = [];
+        const items = itemsByLabGuid.get(parsed.labGuid);
+        if (items === 'fetch-failed') {
+          parsedWarnings.push({
+            section: externalLabsSectionName,
+            message: `Skipped "${parsed.testName}" — no items could be fetched from the ${
+              parsed.labName || 'lab'
+            } compendium.`,
+          });
+          return parsedWarnings;
+        }
 
-      try {
-        // Sequential on purpose: each build re-queries the encounter's draft
-        // orders, so a plan for the same lab/psc/payment bundles under the
-        // requisition the previous plan just created - matching what happens
-        // when a provider places the orders one at a time in the chart UI.
-        const requests = await buildExternalLabOrderRequests({
-          oystehr,
-          dx: parsed.dx,
-          encounter,
-          orderableItems: [orderableItem],
-          psc: parsed.psc,
-          orderingLocation: modifiedOrderingLocation,
-          selectedPaymentMethod,
-          clinicalInfoNoteByUser: parsed.note,
-          currentUserPractitioner,
-          attendingPractitionerId,
-          clientOrgId,
-        });
-        await oystehr.fhir.transaction({ requests });
-      } catch (err) {
-        console.error(`Error applying external lab plan ${parsed.planId}`, err);
-        const message =
-          err && typeof err === 'object' && 'message' in err && typeof err.message === 'string'
-            ? err.message
-            : undefined;
-        warnings.push({
-          section: 'externalLabs',
-          message: `Skipped "${parsed.testName}"${
-            message ? ` — ${message}` : ' — something went wrong creating the order.'
-          }`,
-        });
+        const orderableItem = items ? matchOrderableItemForPlan(parsed, items) : undefined;
+        if (!orderableItem) {
+          parsedWarnings.push({
+            section: externalLabsSectionName,
+            message: `Skipped "${parsed.testName}" — the test wasn't found in the ${
+              parsed.labName || 'lab'
+            } compendium.`,
+          });
+          return parsedWarnings;
+        }
+
+        try {
+          // Sequential on purpose: each build re-queries the encounter's draft
+          // orders, so a plan for the same lab/psc/payment bundles under the
+          // requisition the previous plan just created - matching what happens
+          // when a provider places the orders one at a time in the chart UI.
+          // Note: this helper can actually take the full list of orderable items
+          // and make all teh requests in one go, but splitting it up lets us display
+          // helpful error messages
+          const requests = await buildExternalLabOrderRequests({
+            oystehr,
+            dx: parsed.dx,
+            encounter,
+            orderableItems: [orderableItem],
+            psc: parsed.psc,
+            orderingLocation: modifiedOrderingLocation,
+            selectedPaymentMethod,
+            clinicalInfoNoteByUser: parsed.note,
+            currentUserPractitioner,
+            attendingPractitionerId,
+            clientOrgId,
+          });
+          return requests;
+        } catch (err) {
+          console.error(`Error applying external lab plan ${parsed.planId}`, err);
+          const message =
+            err && typeof err === 'object' && 'message' in err && typeof err.message === 'string'
+              ? err.message
+              : undefined;
+          parsedWarnings.push({
+            section: externalLabsSectionName,
+            message: `Skipped "${parsed.testName}"${
+              message ? ` — ${message}` : ' — something went wrong creating the order.'
+            }`,
+          });
+          return parsedWarnings;
+        }
+      })
+    );
+
+    const requests: BatchInputRequest<FhirResource>[] = [];
+    labOrderRequestOutcomes.forEach((outcome) => {
+      if (outcomeIsWarning(outcome)) {
+        warnings.push(...outcome);
+      } else {
+        requests.push(...outcome);
       }
-    }
+    });
+
+    await oystehr.fhir.transaction({ requests });
   } catch (err) {
     console.error('Encountered error in applyExternalLabPlans', err);
     warnings.push({
-      section: 'externalLabs',
+      section: externalLabsSectionName,
       message: 'Something went wrong applying external lab orders. Skipped.',
     });
   }
   return { warnings };
 }
+
+export const fetchPlanItemsByLabGuid = async (
+  parsedPlans: ParsedExternalLabPlan[],
+  m2mToken: string
+): Promise<Map<string, OrderableItemSearchResult[] | 'fetch-failed'>> => {
+  const externalItemCodesByLabGuid = new Map<string, string[]>();
+  parsedPlans.forEach((wholePlan) => {
+    const labGuid = wholePlan.labGuid;
+    const itemCode = wholePlan.itemCode;
+    if (!labGuid || !itemCode) return;
+    const currentItemCodes = externalItemCodesByLabGuid.get(labGuid) ?? [];
+    externalItemCodesByLabGuid.set(labGuid, [...currentItemCodes, itemCode]);
+  });
+
+  const externalOrderableItemsByLabGuid = new Map<string, OrderableItemSearchResult[] | 'fetch-failed'>();
+
+  await Promise.all(
+    [...externalItemCodesByLabGuid.entries()].map(async ([labGuid, itemCodes]) => {
+      try {
+        externalOrderableItemsByLabGuid.set(labGuid, await getOrderableItems([labGuid], { itemCodes }, m2mToken));
+      } catch (err) {
+        console.warn(`Could not verify orderable items for lab ${labGuid}:`, err);
+        externalOrderableItemsByLabGuid.set(labGuid, 'fetch-failed');
+      }
+    })
+  );
+
+  return externalOrderableItemsByLabGuid;
+};
+
+const outcomeIsWarning = (
+  outcome: ApplyTemplateWarning[] | BatchInputRequest<FhirResource>[]
+): outcome is ApplyTemplateWarning[] => {
+  return outcome.every((out) => 'section' in out);
+};

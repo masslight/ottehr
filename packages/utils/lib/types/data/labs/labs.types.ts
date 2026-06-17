@@ -326,10 +326,12 @@ export enum LabPaymentMethod {
   WorkersComp = 'workersComp',
 }
 
-export const CreateLabPaymentMethodSchema = z.enum(
-  [LabPaymentMethod.Insurance, LabPaymentMethod.SelfPay, LabPaymentMethod.ClientBill, LabPaymentMethod.WorkersComp],
-  { message: `Invalid paymentMethod. Must be one of: ${Object.values(LabPaymentMethod).join(', ')}` }
-);
+export const CreateLabPaymentMethodSchema = z.enum([
+  LabPaymentMethod.Insurance,
+  LabPaymentMethod.SelfPay,
+  LabPaymentMethod.ClientBill,
+  LabPaymentMethod.WorkersComp,
+]);
 
 export type CreateLabPaymentMethod = z.infer<typeof CreateLabPaymentMethodSchema>;
 

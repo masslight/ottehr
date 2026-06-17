@@ -29,6 +29,7 @@ import PageContainer from 'src/layout/PageContainer';
 import {
   AdminGetTemplateDetailOutput,
   groupExamFindingsBySection,
+  nameLabTest,
   RosFindingState,
   RosFindingStateLabel,
   TemplateExamFinding,
@@ -468,7 +469,7 @@ export default function GlobalTemplateDetailPage(): ReactElement {
                   <Box key={plan.planId} sx={{ opacity: plan.missing ? 0.6 : 1 }}>
                     <Stack direction="row" alignItems="baseline" spacing={1}>
                       <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
-                        {plan.labName ? `${plan.testName} / ${plan.labName}` : plan.testName}
+                        {nameLabTest(plan.testName, plan.testCode, plan.labName, false)}
                       </Typography>
                       {plan.missing ? (
                         <Typography variant="caption" color="warning.main" fontStyle="italic">

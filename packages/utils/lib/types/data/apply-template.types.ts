@@ -69,6 +69,18 @@ export const TEMPLATE_SECTIONS_NO_OVERWRITE: ReadonlySet<TemplateSectionKey> = n
   'procedures',
 ]);
 
+// Extra inputs collected by the preview dialog beyond the per-section actions.
+// External lab orders require a payment method at create time, so when the
+// External Lab Orders section is appended the user's confirmed selection rides
+// along with the apply call.
+interface ExternalLabsInTemplate {
+  paymentMethod: CreateLabPaymentMethod;
+}
+
+export interface TemplatePreviewApplyOptions {
+  externalLabs?: ExternalLabsInTemplate;
+}
+
 export interface ApplyTemplateZambdaInput {
   encounterId: string;
   templateName: string;
@@ -79,7 +91,7 @@ export interface ApplyTemplateZambdaInput {
   // confirm it before appending the External Lab Orders section; it's passed
   // here and used for every external lab plan on the template. When omitted,
   // the section is skipped with a warning.
-  externalLabs?: { paymentMethod: CreateLabPaymentMethod };
+  externalLabs?: ExternalLabsInTemplate;
 }
 
 export interface ApplyTemplateWarning {
