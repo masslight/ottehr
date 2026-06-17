@@ -1,4 +1,4 @@
-import { CODE_SYSTEM_CLAIM_TYPE_CODES } from '../../../helpers';
+import { CODE_SYSTEM_APPOINTMENT_TYPE_CODES, CODE_SYSTEM_CLAIM_TYPE_CODES } from '../../../helpers';
 
 export interface BillingTag {
   id: string;
@@ -139,6 +139,7 @@ export interface BillingClaimItem {
   payerName: string;
   payerId: string;
   memberId: string;
+  appointmentType: keyof typeof CODE_SYSTEM_APPOINTMENT_TYPE_CODES | undefined;
   serviceDate: string;
   facility: string;
   renderingProvider: string;
@@ -197,6 +198,7 @@ export interface ClaimDetailResponse {
   created: string;
   billingType: string;
   billableStatus: string;
+  appointmentType?: string;
   patientName: string;
   patientDob: string;
   patientGender: string;
@@ -272,4 +274,62 @@ export interface ClaimDetailResponse {
     cptCodes: string[];
   }[];
   tags: string[];
+}
+
+interface Paginated {
+  total: number;
+  offset: number;
+  pageSize: number;
+}
+
+export interface SearchBillingPatientsResponse extends Paginated {
+  patients: BillingPatientOption[];
+}
+
+export interface SearchBillingClaimsResponse extends Paginated {
+  claims: BillingClaimItem[];
+}
+
+export interface SearchBillingProvidersResponse extends Paginated {
+  providers: BillingProviderOption[];
+}
+
+export interface SearchBillingErasResponse extends Paginated {
+  eras: EraListItem[];
+}
+
+export interface SearchBillingLocationsResponse {
+  locations: BillingLocationOption[];
+}
+
+export interface SearchBillingPayersResponse {
+  payers: BillingPayerOption[];
+}
+
+export interface SearchBillingTagsResponse {
+  tags: BillingTag[];
+}
+
+export interface GetPatientCoveragesResponse {
+  coverages: BillingCoverageOption[];
+}
+
+export interface CreatedResourceResponse {
+  id: string;
+}
+
+export interface SavedResourceResponse {
+  id: string | undefined;
+}
+
+export interface DeletedResponse {
+  deleted: true;
+}
+
+export interface TaggedClaimResponse {
+  ok: true;
+}
+
+export interface CreatedClaimResponse {
+  claimId: string;
 }

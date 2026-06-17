@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { isCLIAValid, isNPIValidWithChecksum } from '../../../helpers/helpers';
+import { CODE_SYSTEM_APPOINTMENT_TYPE_CODE_NAMES, isCLIAValid, isNPIValidWithChecksum } from '../../../helpers/helpers';
 import { CMS_PLACE_OF_SERVICE_CODE_SET, CODE_SYSTEM_CLAIM_TYPE_CODE_NAMES } from '../../../helpers/rcm/constants';
 import { npiRegex, taxIdRegex, zipRegex } from '../../../validation';
 import { STATE_CODES } from '../../common';
@@ -78,6 +78,7 @@ export const SearchBillingClaimsInputSchema = z.object({
   createdTo: nonEmptyString.optional(),
   payerName: nonEmptyString.optional(),
   payerId: nonEmptyString.optional(),
+  appointmentType: z.enum(CODE_SYSTEM_APPOINTMENT_TYPE_CODE_NAMES).optional(),
   patientId: nonEmptyString.optional(),
   offset: nonNegativeInt.optional(),
   pageSize: nonNegativeInt.optional(),

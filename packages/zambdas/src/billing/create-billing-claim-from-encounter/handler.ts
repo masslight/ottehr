@@ -32,13 +32,13 @@ import {
 import { DateTime } from 'luxon';
 import {
   ACCOUNT_TYPE_CODE_SYSTEM,
+  CODE_SYSTEM_APPOINTMENT_TYPE_CODES,
+  CODE_SYSTEM_APPOINTMENT_TYPE_TAG_SYSTEM,
   CODE_SYSTEM_CMS_PLACE_OF_SERVICE,
   CODE_SYSTEM_CPT_MODIFIER,
   CODE_SYSTEM_OYSTEHR_CLAIM_PROCEDURE_MODIFIER,
   CODE_SYSTEM_OYSTEHR_RCM_CMS1500_REFERRING_PROVIDER_TYPE,
   CODE_SYSTEM_PROCESS_PRIORITY,
-  CreateBillingClaimFromEncounterInput,
-  CreateBillingClaimFromEncounterInputSchema,
   EXTENSION_URL_CPT_MODIFIER,
   FHIR_IDENTIFIER_NPI,
   FHIR_RESOURCE_NOT_FOUND,
@@ -50,11 +50,10 @@ import {
   InternalError,
   INVALID_INPUT_ERROR,
   isAppointmentOccupationalMedicine,
+  isAppointmentPreOp,
   isAppointmentUrgentCare,
   isAppointmentWorkersComp,
   isValidUUID,
-  MISSING_REQUEST_BODY,
-  MISSING_REQUEST_SECRETS,
   PARTICIPATION_CODE_SYSTEM,
   Secrets,
   SecretsKeys,
@@ -62,16 +61,8 @@ import {
   TIMEZONES,
 } from 'utils';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
+import { assertDefined, checkOrCreateM2MClientToken, createOystehrClient, sendErrors, ZambdaInput } from '../../shared';
 import {
-  assertDefined,
-  checkOrCreateM2MClientToken,
-  createOystehrClient,
-  formatZodError,
-  sendErrors,
-  ZambdaInput,
-} from '../../shared';
-import {
-  APPOINTMENT_TYPE_TAG_SYSTEM,
   AUTO_ACCIDENT_TAG_DESCRIPTION,
   AUTO_ACCIDENT_TAG_NAME,
   BILLING_RESOURCE_TAG,
@@ -89,15 +80,12 @@ import {
   TAG_DESCRIPTION_URL,
   TAG_IS_SYSTEM_TAG_URL,
 } from '../shared';
-
-export interface CreateClaimFromEncounterParams extends CreateBillingClaimFromEncounterInput {
-  secrets: NonNullable<ZambdaInput['secrets']>;
-}
+import { CreateClaimFromEncounterParams, validateRequestParameters } from './validateRequestParameters';
 
 export type ComplexValidationOutput = { clinicalResources: ClinicalResources; billingResources: BillingResources };
 
 type CoverageRefs = { coverageRef: Reference; payorRef: Reference }[];
-type AppointmentType = 'uc' | 'wc' | 'occmed';
+type AppointmentType = 'uc' | 'wc' | 'occmed' | 'preop';
 
 interface ClinicalResources {
   encounter: Encounter;
@@ -451,6 +439,9 @@ function getAppointmentType(appointment: Appointment): AppointmentType {
   if (isAppointmentOccupationalMedicine(appointment)) {
     return 'occmed';
   }
+  if (isAppointmentPreOp(appointment)) {
+    return 'preop';
+  }
   throw new Error(`Unknown appointment type: ${getCoding(appointment.serviceCategory, SERVICE_CATEGORY_SYSTEM)?.code}`);
 }
 
@@ -515,6 +506,11 @@ export function getClaimCoveragesForEncounter(
       ];
     }
     case 'occmed': {
+      // No insurance
+      // TODO: Support non-insurance payers
+      return [];
+    }
+    case 'preop': {
       // No insurance
       // TODO: Support non-insurance payers
       return [];
@@ -1046,11 +1042,22 @@ function getAppointmentTypeCoding(appointment: Appointment): Coding {
   const type = getAppointmentType(appointment);
   switch (type) {
     case 'uc':
-      return { system: APPOINTMENT_TYPE_TAG_SYSTEM, code: 'urgent-care' };
+      return {
+        system: CODE_SYSTEM_APPOINTMENT_TYPE_TAG_SYSTEM,
+        code: CODE_SYSTEM_APPOINTMENT_TYPE_CODES['urgent-care'],
+      };
     case 'occmed':
-      return { system: APPOINTMENT_TYPE_TAG_SYSTEM, code: 'occupational-medicine' };
+      return {
+        system: CODE_SYSTEM_APPOINTMENT_TYPE_TAG_SYSTEM,
+        code: CODE_SYSTEM_APPOINTMENT_TYPE_CODES['occupational-medicine'],
+      };
     case 'wc':
-      return { system: APPOINTMENT_TYPE_TAG_SYSTEM, code: 'workers-comp' };
+      return {
+        system: CODE_SYSTEM_APPOINTMENT_TYPE_TAG_SYSTEM,
+        code: CODE_SYSTEM_APPOINTMENT_TYPE_CODES['workers-comp'],
+      };
+    case 'preop':
+      return { system: CODE_SYSTEM_APPOINTMENT_TYPE_TAG_SYSTEM, code: CODE_SYSTEM_APPOINTMENT_TYPE_CODES['pre-op'] };
   }
 }
 
@@ -1073,21 +1080,4 @@ export async function complexValidation(
   console.log('getting billing resources');
   const billingResources = await findExistingBillingResources(billingOystehr, clinicalResources, params.secrets);
   return { clinicalResources, billingResources };
-}
-
-export function validateRequestParameters(input: ZambdaInput): CreateClaimFromEncounterParams {
-  if (!input.body) throw MISSING_REQUEST_BODY;
-  if (!input.secrets) throw MISSING_REQUEST_SECRETS;
-
-  let raw: unknown;
-  try {
-    raw = JSON.parse(input.body);
-  } catch {
-    throw INVALID_INPUT_ERROR('Request body is not valid JSON');
-  }
-
-  const result = CreateBillingClaimFromEncounterInputSchema.safeParse(raw);
-  if (!result.success) throw INVALID_INPUT_ERROR(formatZodError(result.error));
-
-  return { ...result.data, secrets: input.secrets };
 }
