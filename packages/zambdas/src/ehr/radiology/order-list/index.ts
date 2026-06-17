@@ -36,7 +36,7 @@ export interface ValidatedInput {
   callerAccessToken: string;
 }
 
-export const DEFAULT_RADIOLOGY_ITEMS_PER_PAGE = 10;
+export const DEFAULT_RADIOLOGY_ITEMS_PER_PAGE = 20;
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let m2mToken: string;
