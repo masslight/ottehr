@@ -325,6 +325,33 @@ export function standardizePhoneNumber(phoneNumber: string | undefined): string 
   return `(${phoneNumberDigits.slice(0, 3)}) ${phoneNumberDigits.slice(3, 6)}-${phoneNumberDigits.slice(6)}`;
 }
 
+/**
+ * Validates a phone number against NANP rules: a 10-digit number whose area code and exchange both
+ * begin with a digit 2-9.
+ */
+export function isValidNANPNumber(phoneNumber: string | undefined): boolean {
+  const standardized = standardizePhoneNumber(phoneNumber);
+  if (!standardized) {
+    return false;
+  }
+
+  const digits = standardized.replace(/\D/g, '');
+  const areaCodeFirstDigit = digits[0];
+  const exchangeFirstDigit = digits[3];
+
+  return (
+    areaCodeFirstDigit >= '2' && areaCodeFirstDigit <= '9' && exchangeFirstDigit >= '2' && exchangeFirstDigit <= '9'
+  );
+}
+
+/**
+ * The phone rule the current eRx provider (DoseSpot) enforces; rejects what it would refuse with
+ * "Primary Phone is not valid." Single seam — swap this body if the provider or its rules change.
+ */
+export function isValidErxPhoneNumber(phoneNumber: string | undefined): boolean {
+  return isValidNANPNumber(phoneNumber);
+}
+
 export function resourceHasMetaTag(resource: Resource, metaTag: OTTEHR_MODULE): boolean {
   return Boolean(resource.meta?.tag?.find((coding) => coding.code === metaTag));
 }
