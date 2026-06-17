@@ -14,7 +14,7 @@
  * `document` at module load and would force a jsdom-only test).
  */
 export const deriveServiceModeFromPath = (pathname: string): string | undefined => {
-  const prebookMatch = pathname.match(/^\/prebook\/([^/]+)\/select-service-category/);
+  const prebookMatch = pathname.match(/^\/prebook\/([^/]+)\/select-service-category\/?(?:$|[?#])/);
   if (prebookMatch) return prebookMatch[1];
   if (pathname.startsWith('/start-virtual/')) return 'virtual';
   if (pathname.startsWith('/walkin/location/')) return 'in-person';
