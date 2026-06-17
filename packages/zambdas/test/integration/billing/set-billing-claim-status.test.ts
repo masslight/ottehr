@@ -40,7 +40,8 @@ describe('set-billing-claim-status', () => {
       created: '2026-01-01',
       provider: { display: 'Unknown' },
       priority: { coding: [{ system: 'http://terminology.hl7.org/CodeSystem/processpriority', code: 'normal' }] },
-      insurance: [],
+      // Claim.insurance is 1..* in FHIR R4; one display-only entry satisfies the cardinality.
+      insurance: [{ sequence: 1, focal: true, coverage: { display: 'Self-pay' } }],
       meta: { tag: [BILLING_RESOURCE_TAG] },
     });
     createdClaimIds.push(claim.id!);
