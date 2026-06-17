@@ -169,53 +169,23 @@ const claimServiceLineSchema = z.object({
   diagnosisPointers: z.array(z.number().int().positive()).optional(),
 });
 
+// Create assembles a claim from existing resources by reference only. Tweaking a referenced
+// resource's details (names, NPIs, addresses, etc.) is done afterward via the claim editing UI,
+// so this input carries no override fields.
 export const CreateBillingClaimInputSchema = z.object({
   patientId: nonEmptyString,
-  patientOverrides: z
-    .object({
-      firstName: nonEmptyString.optional(),
-      lastName: nonEmptyString.optional(),
-      dob: nonEmptyString.optional(),
-      gender: nonEmptyString.optional(),
-    })
-    .strict()
-    .optional(),
   coverageId: nonEmptyString.optional(),
   renderingProvider: z
     .object({
       id: nonEmptyString,
       type: z.enum(['Practitioner', 'Organization']),
-      overrides: z
-        .object({
-          firstName: nonEmptyString.optional(),
-          lastName: nonEmptyString.optional(),
-          npi: nonEmptyString.optional(),
-        })
-        .strict()
-        .optional(),
     })
     .optional(),
   facilityId: nonEmptyString.optional(),
-  facilityOverrides: z
-    .object({
-      name: nonEmptyString.optional(),
-      npi: nonEmptyString.optional(),
-      address: nonEmptyString.optional(),
-    })
-    .strict()
-    .optional(),
   billingProvider: z
     .object({
       id: nonEmptyString,
       type: z.enum(['Practitioner', 'Organization']),
-      overrides: z
-        .object({
-          name: nonEmptyString.optional(),
-          npi: nonEmptyString.optional(),
-          tin: nonEmptyString.optional(),
-        })
-        .strict()
-        .optional(),
     })
     .optional(),
   diagnoses: z.array(claimDiagnosisSchema).optional(),
