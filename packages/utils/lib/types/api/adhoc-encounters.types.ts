@@ -41,8 +41,13 @@ export interface AdHocEncounterRow {
   // --- Location / Provider ---
   location: string;
   locationId?: string;
+  region: string; // clinic region (proxied by the location's state)
+  clinicOpenHours: number | null; // hours the clinic is open on this visit's weekday
   attendingProvider: string;
   attendingProviderId?: string;
+  // --- Registration ---
+  registrationChannel: string; // "Staff" | "Self-scheduled" | "Walk-in" | "Unknown"
+  registeredBy: string; // staff email for staff-created visits, "Patient" otherwise
   // --- Codes (includeCodes) ---
   icdCodes?: string[];
   primaryIcd?: string;

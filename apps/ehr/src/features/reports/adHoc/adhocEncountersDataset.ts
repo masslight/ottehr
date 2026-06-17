@@ -71,7 +71,29 @@ const BASE_FIELDS: FieldDef[] = [
     description: 'How the patient heard about the practice (point of discovery / marketing).',
   },
   { name: 'location', type: 'string', description: 'Clinic / location name.' },
+  {
+    name: 'region',
+    type: 'string',
+    description: "Clinic region — proxied by the location's state (use for regional / YTD-by-region rollups).",
+  },
+  {
+    name: 'clinicOpenHours',
+    type: 'number',
+    description:
+      "Hours the clinic is open on this visit's weekday (from the location's hours of operation). Use as the " +
+      'denominator for patients-per-hour / throughput. Null when the location has no hours configured.',
+  },
   { name: 'attendingProvider', type: 'string', description: 'Attending provider name.' },
+  {
+    name: 'registrationChannel',
+    type: 'string',
+    description: 'How the visit was registered: "Staff", "Self-scheduled", "Walk-in", or "Unknown".',
+  },
+  {
+    name: 'registeredBy',
+    type: 'string',
+    description: 'Staff email that registered the visit, or "Patient" for patient-initiated registrations.',
+  },
 ];
 
 const CODE_FIELDS: FieldDef[] = [

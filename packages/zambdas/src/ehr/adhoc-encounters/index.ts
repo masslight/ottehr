@@ -15,6 +15,7 @@ import {
   AdHocEncounterRow,
   AdHocEncountersOutput,
   appointmentTypeForAppointment,
+  CREATED_BY_SYSTEM,
   DOCUMENT_REFERENCE_SUMMARY_FROM_AUDIO,
   DOCUMENT_REFERENCE_SUMMARY_FROM_CHAT,
   getAddressForIndividual,
@@ -211,6 +212,30 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const address = patient ? getAddressForIndividual(patient) : undefined;
     const start = (isFollowUpRow ? encounter.period?.start : appointment.start) || '';
 
+    // Hours the clinic is open on this visit's weekday (Location.hoursOfOperation).
+    let clinicOpenHours: number | null = null;
+    const weekday = start ? DateTime.fromISO(start).toFormat('ccc').toLowerCase() : '';
+    for (const h of location?.hoursOfOperation ?? []) {
+      if (!weekday || !h.daysOfWeek?.includes(weekday as never) || !h.openingTime || !h.closingTime) continue;
+      const hrs = DateTime.fromFormat(h.closingTime, 'HH:mm:ss').diff(
+        DateTime.fromFormat(h.openingTime, 'HH:mm:ss'),
+        'hours'
+      ).hours;
+      // Skip malformed/overnight spans (close before open) so they don't corrupt the sum.
+      if (Number.isFinite(hrs) && hrs > 0) clinicOpenHours = (clinicOpenHours ?? 0) + hrs;
+    }
+
+    // Registration channel + registrar from the appointment's created-by tag.
+    const createdBy = appointment.meta?.tag?.find((t) => t.system === CREATED_BY_SYSTEM)?.display ?? '';
+    const registrationChannel = createdBy.startsWith('Staff')
+      ? 'Staff'
+      : createdBy.startsWith('QR - Patient')
+      ? 'Walk-in'
+      : createdBy.startsWith('Patient')
+      ? 'Self-scheduled'
+      : 'Unknown';
+    const registeredBy = createdBy.startsWith('Staff') ? createdBy.replace(/^Staff\s*/, '').trim() : 'Patient';
+
     const row: AdHocEncounterRow = {
       appointmentId: appointment.id || '',
       encounterId: encounter.id,
@@ -236,8 +261,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       source: patient?.extension?.find((e) => e.url === PATIENT_POINT_OF_DISCOVERY_URL)?.valueString || '',
       location: location?.name || 'Unknown',
       locationId: locationRef ? locationRef.replace('Location/', '') : undefined,
+      region: location?.address?.state || '',
+      clinicOpenHours,
       attendingProvider,
       attendingProviderId: attendingId,
+      registrationChannel,
+      registeredBy,
     };
 
     if (includeCodes) {
