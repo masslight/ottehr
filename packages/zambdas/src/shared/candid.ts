@@ -120,8 +120,8 @@ const CANDID_TAG_WORKERS_COMP = 'workers-comp';
 const CANDID_TAG_OCCUPATIONAL_MEDICINE = 'occupational-medicine';
 const CANDID_TAG_AUTO_ACCIDENT = 'auto-accident';
 
-// Sent as both the payer name and payer id (with a space, as required by Candid) for employer-paid
-// (occupational medicine) visits so an insurance payer is never billed.
+// Sent as both the payer name and payer id (with a space, as required by Candid) whenever billing
+// should bypass insurance and use a single Cash Pay coverage (employer-paid and self-pay visits).
 const CANDID_CASH_PAY_PAYER = 'Cash Pay';
 
 /**
