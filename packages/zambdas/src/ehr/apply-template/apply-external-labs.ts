@@ -1,4 +1,4 @@
-import Oystehr, { BatchInputRequest } from '@oystehr/sdk';
+import Oystehr from '@oystehr/sdk';
 import { Encounter, FhirResource, List, Location, Practitioner, ServiceRequest } from 'fhir/r4b';
 import {
   ApplyTemplateWarning,
@@ -286,80 +286,66 @@ export async function applyExternalLabPlans(input: ApplyExternalLabPlansInput): 
       enabledLabs: [],
     };
 
-    const labOrderRequestOutcomes = await Promise.all(
-      parsedPlans.map(async (parsed) => {
-        const parsedWarnings: ApplyTemplateWarning[] = [];
-        const items = itemsByLabGuid.get(parsed.labGuid);
-        if (items === 'fetch-failed') {
-          parsedWarnings.push({
-            section: externalLabsSectionName,
-            message: `Skipped "${parsed.testName}" — no items could be fetched from the ${
-              parsed.labName || 'lab'
-            } compendium.`,
-          });
-          return parsedWarnings;
-        }
-
-        const orderableItem = items ? matchOrderableItemForPlan(parsed, items) : undefined;
-        if (!orderableItem) {
-          parsedWarnings.push({
-            section: externalLabsSectionName,
-            message: `Skipped "${parsed.testName}" — the test wasn't found in the ${
-              parsed.labName || 'lab'
-            } compendium.`,
-          });
-          return parsedWarnings;
-        }
-
-        try {
-          // Sequential on purpose: each build re-queries the encounter's draft
-          // orders, so a plan for the same lab/psc/payment bundles under the
-          // requisition the previous plan just created - matching what happens
-          // when a provider places the orders one at a time in the chart UI.
-          // Note: this helper can actually take the full list of orderable items
-          // and make all teh requests in one go, but splitting it up lets us display
-          // helpful error messages
-          const requests = await buildExternalLabOrderRequests({
-            oystehr,
-            dx: parsed.dx,
-            encounter,
-            orderableItems: [orderableItem],
-            psc: parsed.psc,
-            orderingLocation: modifiedOrderingLocation,
-            selectedPaymentMethod,
-            clinicalInfoNoteByUser: parsed.note,
-            currentUserPractitioner,
-            attendingPractitionerId,
-            clientOrgId,
-          });
-          return requests;
-        } catch (err) {
-          console.error(`Error applying external lab plan ${parsed.planId}`, err);
-          const message =
-            err && typeof err === 'object' && 'message' in err && typeof err.message === 'string'
-              ? err.message
-              : undefined;
-          parsedWarnings.push({
-            section: externalLabsSectionName,
-            message: `Skipped "${parsed.testName}"${
-              message ? ` — ${message}` : ' — something went wrong creating the order.'
-            }`,
-          });
-          return parsedWarnings;
-        }
-      })
-    );
-
-    const requests: BatchInputRequest<FhirResource>[] = [];
-    labOrderRequestOutcomes.forEach((outcome) => {
-      if (outcomeIsWarning(outcome)) {
-        warnings.push(...outcome);
-      } else {
-        requests.push(...outcome);
+    for (const parsed of parsedPlans) {
+      const items = itemsByLabGuid.get(parsed.labGuid);
+      if (items === 'fetch-failed') {
+        warnings.push({
+          section: externalLabsSectionName,
+          message: `Skipped "${parsed.testName}" — no items could be fetched from the ${
+            parsed.labName || 'lab'
+          } compendium.`,
+        });
+        continue;
       }
-    });
 
-    await oystehr.fhir.transaction({ requests });
+      const orderableItem = items ? matchOrderableItemForPlan(parsed, items) : undefined;
+      if (!orderableItem) {
+        warnings.push({
+          section: externalLabsSectionName,
+          message: `Skipped "${parsed.testName}" — the test wasn't found in the ${parsed.labName || 'lab'} compendium.`,
+        });
+        continue;
+      }
+
+      try {
+        // Sequential on purpose: each build re-queries the encounter's draft
+        // orders, so a plan for the same lab/psc/payment bundles under the
+        // requisition the previous plan just created - matching what happens
+        // when a provider places the orders one at a time in the chart UI.
+        // Note: this helper can actually take the full list of orderable items
+        // and make all the requests in one go, but splitting it up lets us display
+        // helpful error messages and accoutn for different dx per order
+        const requests = await buildExternalLabOrderRequests({
+          oystehr,
+          dx: parsed.dx,
+          encounter,
+          orderableItems: [orderableItem],
+          psc: parsed.psc,
+          orderingLocation: modifiedOrderingLocation,
+          selectedPaymentMethod,
+          clinicalInfoNoteByUser: parsed.note,
+          currentUserPractitioner,
+          attendingPractitionerId,
+          clientOrgId,
+        });
+
+        if (requests.length) await oystehr.fhir.transaction({ requests });
+        else console.warn('There were no external lab requests made, none applied to template');
+      } catch (err) {
+        console.error(`Error applying external lab plan ${parsed.planId}`, err);
+        const message =
+          err && typeof err === 'object' && 'message' in err && typeof err.message === 'string'
+            ? err.message
+            : undefined;
+        warnings.push({
+          section: externalLabsSectionName,
+          message: `Skipped "${parsed.testName}"${
+            message ? ` — ${message}` : ' — something went wrong creating the order.'
+          }`,
+        });
+        continue;
+      }
+    }
   } catch (err) {
     console.error('Encountered error in applyExternalLabPlans', err);
     warnings.push({
@@ -397,10 +383,4 @@ export const fetchPlanItemsByLabGuid = async (
   );
 
   return externalOrderableItemsByLabGuid;
-};
-
-const outcomeIsWarning = (
-  outcome: ApplyTemplateWarning[] | BatchInputRequest<FhirResource>[]
-): outcome is ApplyTemplateWarning[] => {
-  return outcome.every((out) => 'section' in out);
 };
