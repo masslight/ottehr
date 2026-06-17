@@ -6,7 +6,7 @@ import {
   UnlockAppointmentZambdaInputValidated,
 } from 'utils';
 import { z } from 'zod';
-import { safeValidate, ZambdaInput } from '../../shared';
+import { safeJsonParse, safeValidate, ZambdaInput } from '../../shared';
 
 const UnlockAppointmentBodySchema = z.object({
   appointmentId: z.string().uuid(),
@@ -21,7 +21,7 @@ export function validateRequestParameters(input: ZambdaInput): UnlockAppointment
     throw MISSING_REQUEST_SECRETS;
   }
 
-  const { appointmentId } = safeValidate(UnlockAppointmentBodySchema, JSON.parse(input.body));
+  const { appointmentId } = safeValidate(UnlockAppointmentBodySchema, safeJsonParse(input.body));
 
   getSecret(SecretsKeys.PROJECT_API, input.secrets);
   getSecret(SecretsKeys.ORGANIZATION_ID, input.secrets);

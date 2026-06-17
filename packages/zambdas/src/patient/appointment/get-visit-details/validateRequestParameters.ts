@@ -1,6 +1,6 @@
 import { GetVisitDetailsRequest, MISSING_REQUEST_BODY } from 'utils';
 import { z } from 'zod';
-import { safeValidate, ZambdaInput } from '../../../shared';
+import { safeJsonParse, safeValidate, ZambdaInput } from '../../../shared';
 
 const GetVisitDetailsBodySchema = z.object({
   appointmentId: z.string().uuid(),
@@ -11,7 +11,7 @@ export function validateRequestParameters(input: ZambdaInput): GetVisitDetailsRe
     throw MISSING_REQUEST_BODY;
   }
 
-  const { appointmentId } = safeValidate(GetVisitDetailsBodySchema, JSON.parse(input.body));
+  const { appointmentId } = safeValidate(GetVisitDetailsBodySchema, safeJsonParse(input.body));
 
   return {
     appointmentId,

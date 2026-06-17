@@ -1,6 +1,6 @@
 import { INVALID_INPUT_ERROR, MISSING_REQUEST_BODY, ServiceMode, VALUE_SETS } from 'utils';
 import { z } from 'zod';
-import { safeValidate, ZambdaInput } from '../../../shared';
+import { safeJsonParse, safeValidate, ZambdaInput } from '../../../shared';
 import { CancelAppointmentZambdaInputValidated } from '.';
 
 const CancelAppointmentBodySchema = z.object({
@@ -18,7 +18,7 @@ export function validateRequestParameters(input: ZambdaInput): CancelAppointment
 
   const { appointmentID, cancellationReason, silent, language, cancellationReasonAdditional } = safeValidate(
     CancelAppointmentBodySchema,
-    JSON.parse(input.body)
+    safeJsonParse(input.body)
   );
 
   console.groupEnd();

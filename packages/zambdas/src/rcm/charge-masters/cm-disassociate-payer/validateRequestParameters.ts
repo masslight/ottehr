@@ -1,6 +1,6 @@
 import { INVALID_INPUT_ERROR, MISSING_REQUEST_BODY } from 'utils';
 import { z } from 'zod';
-import { safeValidate, ZambdaInput } from '../../../shared';
+import { safeJsonParse, safeValidate, ZambdaInput } from '../../../shared';
 
 export interface CmDisassociatePayerParams {
   chargeMasterId: string;
@@ -22,7 +22,7 @@ export function validateRequestParameters(input: ZambdaInput): CmDisassociatePay
 
   const { chargeMasterId, organizationId, locationId } = safeValidate(
     CmDisassociatePayerBodySchema,
-    JSON.parse(input.body)
+    safeJsonParse(input.body)
   );
 
   if (!organizationId && !locationId) {

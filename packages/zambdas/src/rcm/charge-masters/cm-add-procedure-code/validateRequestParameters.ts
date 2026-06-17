@@ -1,6 +1,6 @@
 import { MISSING_REQUEST_BODY } from 'utils';
 import { z } from 'zod';
-import { safeValidate, ZambdaInput } from '../../../shared';
+import { safeJsonParse, safeValidate, ZambdaInput } from '../../../shared';
 
 export interface CmAddProcedureCodeParams {
   chargeMasterId: string;
@@ -26,7 +26,7 @@ export function validateRequestParameters(input: ZambdaInput): CmAddProcedureCod
 
   const { chargeMasterId, code, description, modifier, amount } = safeValidate(
     CmAddProcedureCodeBodySchema,
-    JSON.parse(input.body)
+    safeJsonParse(input.body)
   );
 
   return {

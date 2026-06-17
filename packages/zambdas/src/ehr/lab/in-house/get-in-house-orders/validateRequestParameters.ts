@@ -1,5 +1,5 @@
 import { DEFAULT_IN_HOUSE_LABS_ITEMS_PER_PAGE, GetInHouseOrdersParameters } from 'utils';
-import { ZambdaInput } from '../../../../shared';
+import { safeJsonParse, ZambdaInput } from '../../../../shared';
 
 export type GetZambdaInHouseOrdersParams = GetInHouseOrdersParameters & {
   secrets: any;
@@ -14,7 +14,7 @@ export function validateRequestParameters(input: ZambdaInput): GetZambdaInHouseO
   let params: GetInHouseOrdersParameters;
 
   try {
-    params = JSON.parse(input.body) as GetInHouseOrdersParameters;
+    params = safeJsonParse(input.body) as GetInHouseOrdersParameters;
   } catch {
     throw new Error('Invalid JSON in request body');
   }

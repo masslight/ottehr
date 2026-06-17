@@ -12,7 +12,13 @@ import {
   Secrets,
   TIMEZONE_EXTENSION_URL,
 } from 'utils';
-import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
+import {
+  checkOrCreateM2MClientToken,
+  createOystehrClient,
+  safeJsonParse,
+  wrapHandler,
+  ZambdaInput,
+} from '../../../shared';
 import { validateUpdateScheduleParameters } from '../shared';
 
 let m2mToken: string;
@@ -52,7 +58,7 @@ const validateRequestParameters = (input: ZambdaInput): BasicInput => {
     throw MISSING_REQUEST_BODY;
   }
 
-  const { ownerId, ownerType } = JSON.parse(input.body);
+  const { ownerId, ownerType } = safeJsonParse(input.body);
 
   if (!ownerId) {
     throw MISSING_REQUIRED_PARAMETERS(['ownerId']);

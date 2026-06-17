@@ -1,6 +1,6 @@
 import { CancelInviteParticipantRequestInput, emailRegex, INVALID_INPUT_ERROR, phoneRegex } from 'utils';
 import { z } from 'zod';
-import { safeValidate, ZambdaInput } from '../../../shared';
+import { safeJsonParse, safeValidate, ZambdaInput } from '../../../shared';
 
 const CancelInviteBodySchema = z
   .object({
@@ -37,7 +37,7 @@ export function validateRequestParameters(input: ZambdaInput): CancelInviteParti
     throw INVALID_INPUT_ERROR('No request body provided');
   }
 
-  const { appointmentId, emailAddress, phoneNumber } = safeValidate(CancelInviteBodySchema, JSON.parse(input.body));
+  const { appointmentId, emailAddress, phoneNumber } = safeValidate(CancelInviteBodySchema, safeJsonParse(input.body));
 
   return {
     appointmentId,

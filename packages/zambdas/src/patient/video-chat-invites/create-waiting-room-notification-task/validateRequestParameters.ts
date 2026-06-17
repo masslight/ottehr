@@ -1,6 +1,6 @@
 import { Secrets, VideoChatNotificationInput } from 'utils';
 import { z } from 'zod';
-import { safeValidate, ZambdaInput } from '../../../shared';
+import { safeJsonParse, safeValidate, ZambdaInput } from '../../../shared';
 
 export interface ValidatedInput {
   body: VideoChatNotificationInput;
@@ -19,7 +19,7 @@ export const validateInput = async (input: ZambdaInput): Promise<ValidatedInput>
 };
 
 const validateBody = (input: ZambdaInput): VideoChatNotificationInput => {
-  const { appointmentId } = safeValidate(VideoChatNotificationBodySchema, input.body ? JSON.parse(input.body) : {});
+  const { appointmentId } = safeValidate(VideoChatNotificationBodySchema, input.body ? safeJsonParse(input.body) : {});
 
   return {
     appointmentId,

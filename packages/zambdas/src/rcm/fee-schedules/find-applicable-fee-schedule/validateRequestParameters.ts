@@ -1,6 +1,6 @@
 import { MISSING_REQUEST_BODY } from 'utils';
 import { z } from 'zod';
-import { safeValidate, ZambdaInput } from '../../../shared';
+import { safeJsonParse, safeValidate, ZambdaInput } from '../../../shared';
 
 export interface FindApplicableFeeScheduleParams {
   payerOrganizationId?: string;
@@ -28,7 +28,7 @@ export function validateRequestParameters(input: ZambdaInput): FindApplicableFee
 
   const { payerOrganizationId, dateOfService, locationId, employerOrganizationId } = safeValidate(
     FindApplicableFeeScheduleBodySchema,
-    JSON.parse(input.body)
+    safeJsonParse(input.body)
   );
 
   return {

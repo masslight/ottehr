@@ -4,7 +4,7 @@ import {
   UpdateBillingResourceInput,
   UpdateBillingResourceInputSchema,
 } from 'utils';
-import { formatZodError, ZambdaInput } from '../../shared';
+import { formatZodError, safeJsonParse, ZambdaInput } from '../../shared';
 
 export type UpdateBillingClaimParams = UpdateBillingResourceInput & {
   secrets: ZambdaInput['secrets'];
@@ -15,7 +15,7 @@ export function validateRequestParameters(input: ZambdaInput): UpdateBillingClai
 
   let raw: unknown;
   try {
-    raw = JSON.parse(input.body);
+    raw = safeJsonParse(input.body);
   } catch {
     throw INVALID_INPUT_ERROR('Request body is not valid JSON');
   }

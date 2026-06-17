@@ -10,7 +10,13 @@ import {
   MISSING_REQUIRED_PARAMETERS,
   TaskIndicator,
 } from 'utils';
-import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
+import {
+  checkOrCreateM2MClientToken,
+  createOystehrClient,
+  safeJsonParse,
+  wrapHandler,
+  ZambdaInput,
+} from '../../../shared';
 
 const ZAMBDA_NAME = 'create-generate-statement-task';
 
@@ -24,7 +30,7 @@ function validateRequestParameters(input: ZambdaInput): CreateGenerateStatementT
   if (!input.body) throw MISSING_REQUEST_BODY;
   if (!input.secrets) throw MISSING_REQUEST_SECRETS;
 
-  const body = JSON.parse(input.body) as Record<string, unknown>;
+  const body = safeJsonParse(input.body) as Record<string, unknown>;
   const encounterId = body.encounterId;
   if (typeof encounterId !== 'string' || encounterId.trim().length === 0) {
     throw MISSING_REQUIRED_PARAMETERS(['encounterId']);

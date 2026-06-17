@@ -1,6 +1,6 @@
 import { MISSING_REQUEST_BODY } from 'utils';
 import { z } from 'zod';
-import { safeValidate, ZambdaInput } from '../../../shared';
+import { safeJsonParse, safeValidate, ZambdaInput } from '../../../shared';
 
 const CreateFeeScheduleBodySchema = z.object({
   name: z.string().min(1),
@@ -20,7 +20,7 @@ export function validateRequestParameters(input: ZambdaInput): CreateFeeSchedule
     throw MISSING_REQUEST_BODY;
   }
 
-  const { name, effectiveDate, description } = safeValidate(CreateFeeScheduleBodySchema, JSON.parse(input.body));
+  const { name, effectiveDate, description } = safeValidate(CreateFeeScheduleBodySchema, safeJsonParse(input.body));
 
   return {
     name,

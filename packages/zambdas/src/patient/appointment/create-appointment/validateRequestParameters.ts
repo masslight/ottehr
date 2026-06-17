@@ -37,6 +37,7 @@ import {
   isTestUser,
   phoneRegex,
   resolveBookingLocationId,
+  safeJsonParse,
   safeValidate,
   userHasAccessToPatient,
   ZambdaInput,
@@ -69,7 +70,7 @@ export function validateCreateAppointmentParams(input: ZambdaInput, user: User):
 
   const { slotId, language, patient, locationState, appointmentMetadata, followUpOptions } = safeValidate(
     CreateAppointmentBodySchema,
-    JSON.parse(input.body)
+    safeJsonParse(input.body)
   );
   console.log('patient:', patient, 'slotId:', slotId);
 

@@ -1,6 +1,6 @@
 import { MISSING_REQUEST_BODY } from 'utils';
 import { z } from 'zod';
-import { safeValidate, ZambdaInput } from '../../../shared';
+import { safeJsonParse, safeValidate, ZambdaInput } from '../../../shared';
 
 export interface FindApplicableChargeMasterParams {
   payerOrganizationId?: string;
@@ -24,7 +24,7 @@ export function validateRequestParameters(input: ZambdaInput): FindApplicableCha
 
   const { payerOrganizationId, dateOfService, locationId, employerOrganizationId } = safeValidate(
     FindApplicableChargeMasterBodySchema,
-    JSON.parse(input.body)
+    safeJsonParse(input.body)
   );
 
   return {

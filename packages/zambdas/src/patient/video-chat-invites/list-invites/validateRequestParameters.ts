@@ -1,6 +1,6 @@
 import { INVALID_INPUT_ERROR, ListInvitedParticipantsInput } from 'utils';
 import { z } from 'zod';
-import { safeValidate, ZambdaInput } from '../../../shared';
+import { safeJsonParse, safeValidate, ZambdaInput } from '../../../shared';
 
 const ListInvitesBodySchema = z.object({
   appointmentId: z.string().min(1),
@@ -11,7 +11,7 @@ export function validateRequestParameters(input: ZambdaInput): ListInvitedPartic
     throw INVALID_INPUT_ERROR('No request body provided');
   }
 
-  const { appointmentId } = safeValidate(ListInvitesBodySchema, JSON.parse(input.body));
+  const { appointmentId } = safeValidate(ListInvitesBodySchema, safeJsonParse(input.body));
 
   return {
     appointmentId,

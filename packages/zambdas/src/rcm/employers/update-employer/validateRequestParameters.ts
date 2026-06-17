@@ -1,6 +1,6 @@
 import { MISSING_REQUEST_BODY } from 'utils';
 import { z } from 'zod';
-import { safeValidate, ZambdaInput } from '../../../shared';
+import { safeJsonParse, safeValidate, ZambdaInput } from '../../../shared';
 import { EmployerAddressInput, EmployerContactInput, EmployerIdentifierInput } from '../helpers';
 
 export interface UpdateEmployerParams {
@@ -54,7 +54,7 @@ export function validateRequestParameters(input: ZambdaInput): UpdateEmployerPar
 
   const { employerId, name, active, category, identifier, address, contact } = safeValidate(
     UpdateEmployerBodySchema,
-    JSON.parse(input.body)
+    safeJsonParse(input.body)
   );
 
   return {

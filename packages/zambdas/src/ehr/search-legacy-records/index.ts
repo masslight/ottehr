@@ -11,7 +11,13 @@ import {
   Secrets,
   SecretsKeys,
 } from 'utils';
-import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
+import {
+  checkOrCreateM2MClientToken,
+  createOystehrClient,
+  safeJsonParse,
+  wrapHandler,
+  ZambdaInput,
+} from '../../shared';
 
 const ZAMBDA_NAME = 'ehr-search-legacy-records';
 const LEGACY_DATA_BUCKET_SUFFIX = 'legacy-data';
@@ -168,7 +174,7 @@ function validateRequestParameters(input: ZambdaInput): ValidatedParameters {
 
   let body: SearchLegacyRecordsInput;
   try {
-    body = typeof input.body === 'string' ? JSON.parse(input.body) : input.body;
+    body = typeof input.body === 'string' ? safeJsonParse(input.body) : input.body;
   } catch {
     throw new Error('Invalid JSON body');
   }

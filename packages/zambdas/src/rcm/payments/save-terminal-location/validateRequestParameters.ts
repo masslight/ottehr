@@ -1,6 +1,6 @@
 import { MISSING_REQUEST_BODY, Secrets } from 'utils';
 import { z } from 'zod';
-import { safeValidate, ZambdaInput } from '../../../shared';
+import { safeJsonParse, safeValidate, ZambdaInput } from '../../../shared';
 
 export interface SaveTerminalLocationInput {
   locationId: string;
@@ -18,7 +18,7 @@ export function validateRequestParameters(input: ZambdaInput): SaveTerminalLocat
     throw MISSING_REQUEST_BODY;
   }
 
-  const { locationId, terminalLocationId } = safeValidate(SaveTerminalLocationBodySchema, JSON.parse(input.body));
+  const { locationId, terminalLocationId } = safeValidate(SaveTerminalLocationBodySchema, safeJsonParse(input.body));
 
   return {
     locationId,

@@ -1,6 +1,6 @@
 import { MISSING_REQUEST_BODY } from 'utils';
 import { z } from 'zod';
-import { safeValidate, ZambdaInput } from '../../../shared';
+import { safeJsonParse, safeValidate, ZambdaInput } from '../../../shared';
 
 export interface CmDeleteProcedureCodeParams {
   chargeMasterId: string;
@@ -18,7 +18,7 @@ export function validateRequestParameters(input: ZambdaInput): CmDeleteProcedure
     throw MISSING_REQUEST_BODY;
   }
 
-  const { chargeMasterId, index } = safeValidate(CmDeleteProcedureCodeBodySchema, JSON.parse(input.body));
+  const { chargeMasterId, index } = safeValidate(CmDeleteProcedureCodeBodySchema, safeJsonParse(input.body));
 
   return {
     chargeMasterId,

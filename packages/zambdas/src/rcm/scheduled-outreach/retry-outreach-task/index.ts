@@ -6,7 +6,13 @@ import {
   MISSING_REQUIRED_PARAMETERS,
   PRIVATE_EXTENSION_BASE_URL,
 } from 'utils';
-import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
+import {
+  checkOrCreateM2MClientToken,
+  createOystehrClient,
+  safeJsonParse,
+  wrapHandler,
+  ZambdaInput,
+} from '../../../shared';
 
 let m2mToken: string;
 
@@ -14,7 +20,8 @@ const OUTREACH_TASK_TAG_SYSTEM = `${PRIVATE_EXTENSION_BASE_URL}/outreach-task`;
 const RETRYABLE_STATUSES = ['failed'];
 
 export const index = wrapHandler('retry-outreach-task', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  const body = typeof input.body === 'string' ? (JSON.parse(input.body) as Record<string, unknown>) : input.body ?? {};
+  const body =
+    typeof input.body === 'string' ? (safeJsonParse(input.body) as Record<string, unknown>) : input.body ?? {};
   const secrets = input.secrets;
   if (!secrets) throw MISSING_REQUEST_SECRETS;
   if (!body) throw MISSING_REQUEST_BODY;

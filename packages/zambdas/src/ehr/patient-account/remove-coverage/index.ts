@@ -17,7 +17,13 @@ import {
   Secrets,
   userMe,
 } from 'utils';
-import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
+import {
+  checkOrCreateM2MClientToken,
+  createOystehrClient,
+  safeJsonParse,
+  wrapHandler,
+  ZambdaInput,
+} from '../../../shared';
 import { getAccountAndCoverageResourcesForPatient } from '../../shared/harvest';
 
 const ZAMBDA_NAME = 'remove-coverage';
@@ -122,7 +128,7 @@ const validateRequestParameters = (input: ZambdaInput): Input => {
   }
 
   const { secrets } = input;
-  const { patientId, coverageId } = JSON.parse(input.body);
+  const { patientId, coverageId } = safeJsonParse(input.body);
 
   if (!patientId) {
     throw MISSING_REQUIRED_PARAMETERS(['patientId']);

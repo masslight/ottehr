@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { safeValidate, ZambdaInput } from '../../../shared';
+import { safeJsonParse, safeValidate, ZambdaInput } from '../../../shared';
 import { GetPatientsInput } from '.';
 
 const PrebookGetAppointmentsBodySchema = z.object({
@@ -17,7 +17,7 @@ export function validateRequestParameters(input: ZambdaInput): GetPatientsInput 
     return { secrets: input.secrets };
   }
 
-  const { patientID, dateRange } = safeValidate(PrebookGetAppointmentsBodySchema, JSON.parse(input.body));
+  const { patientID, dateRange } = safeValidate(PrebookGetAppointmentsBodySchema, safeJsonParse(input.body));
 
   return {
     patientID,

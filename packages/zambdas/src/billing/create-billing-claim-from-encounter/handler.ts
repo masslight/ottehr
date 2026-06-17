@@ -66,6 +66,7 @@ import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
   formatZodError,
+  safeJsonParse,
   sendErrors,
   ZambdaInput,
 } from '../../shared';
@@ -997,7 +998,7 @@ export function validateRequestParameters(input: ZambdaInput): CreateClaimFromEn
 
   let raw: unknown;
   try {
-    raw = JSON.parse(input.body);
+    raw = safeJsonParse(input.body);
   } catch {
     throw INVALID_INPUT_ERROR('Request body is not valid JSON');
   }

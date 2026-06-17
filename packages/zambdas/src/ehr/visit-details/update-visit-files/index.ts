@@ -18,7 +18,13 @@ import {
   UpdateVisitFilesInput,
   ValidEHRUploadTypes,
 } from 'utils';
-import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
+import {
+  checkOrCreateM2MClientToken,
+  createOystehrClient,
+  safeJsonParse,
+  wrapHandler,
+  ZambdaInput,
+} from '../../../shared';
 
 const ZAMBDA_NAME = 'update-visit-files';
 
@@ -179,7 +185,7 @@ const validateRequestParameters = (input: ZambdaInput): Input => {
     attachment: maybeAttachment,
     patientId: maybePatientId,
     appointmentId: maybeAppointmentId,
-  } = JSON.parse(input.body);
+  } = safeJsonParse(input.body);
 
   const missingParams: string[] = [];
 

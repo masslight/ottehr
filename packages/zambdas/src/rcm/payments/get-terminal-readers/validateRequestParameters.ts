@@ -1,6 +1,6 @@
 import { MISSING_REQUEST_BODY, Secrets } from 'utils';
 import { z } from 'zod';
-import { safeValidate, ZambdaInput } from '../../../shared';
+import { safeJsonParse, safeValidate, ZambdaInput } from '../../../shared';
 
 export interface GetTerminalReadersInput {
   stripeAccountId: string;
@@ -18,7 +18,7 @@ export function validateRequestParameters(input: ZambdaInput): GetTerminalReader
     throw MISSING_REQUEST_BODY;
   }
 
-  const { stripeAccountId, terminalLocationId } = safeValidate(GetTerminalReadersBodySchema, JSON.parse(input.body));
+  const { stripeAccountId, terminalLocationId } = safeValidate(GetTerminalReadersBodySchema, safeJsonParse(input.body));
 
   return {
     stripeAccountId,

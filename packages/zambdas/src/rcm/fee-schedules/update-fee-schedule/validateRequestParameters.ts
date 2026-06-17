@@ -1,6 +1,6 @@
 import { MISSING_REQUEST_BODY } from 'utils';
 import { z } from 'zod';
-import { safeValidate, ZambdaInput } from '../../../shared';
+import { safeJsonParse, safeValidate, ZambdaInput } from '../../../shared';
 
 export interface UpdateFeeScheduleParams {
   id: string;
@@ -31,7 +31,7 @@ export function validateRequestParameters(input: ZambdaInput): UpdateFeeSchedule
   }
 
   const { feeScheduleId, name, effectiveDate, description, status, designation, caseRateAmount, caseRateComment } =
-    safeValidate(UpdateFeeScheduleBodySchema, JSON.parse(input.body));
+    safeValidate(UpdateFeeScheduleBodySchema, safeJsonParse(input.body));
 
   return {
     id: feeScheduleId,

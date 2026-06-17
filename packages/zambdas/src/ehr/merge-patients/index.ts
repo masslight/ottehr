@@ -20,6 +20,7 @@ import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
   getUser,
+  safeJsonParse,
   topLevelCatch,
   wrapHandler,
   ZambdaInput,
@@ -129,7 +130,7 @@ const validateRequestParameters = (input: ZambdaInput): ValidatedInput => {
     throw NOT_AUTHORIZED;
   }
   const { secrets } = input;
-  const body = JSON.parse(input.body);
+  const body = safeJsonParse(input.body);
 
   // Status mode: caller passes only patientId (no questionnaireResponse).
   if (body.mode === 'status' || (body.patientId && !body.mainPatientId)) {

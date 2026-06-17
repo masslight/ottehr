@@ -1,6 +1,6 @@
 import { MISSING_REQUEST_BODY, NOT_AUTHORIZED, PaymentMethodSetupParameters, Secrets } from 'utils';
 import { z } from 'zod';
-import { safeValidate, ZambdaInput } from '../../../shared';
+import { safeJsonParse, safeValidate, ZambdaInput } from '../../../shared';
 
 const PaymentMethodSetupBodySchema = z.object({
   beneficiaryPatientId: z.string().uuid(),
@@ -19,7 +19,7 @@ export function validateRequestParameters(
     throw MISSING_REQUEST_BODY;
   }
 
-  const { beneficiaryPatientId, appointmentId } = safeValidate(PaymentMethodSetupBodySchema, JSON.parse(input.body));
+  const { beneficiaryPatientId, appointmentId } = safeValidate(PaymentMethodSetupBodySchema, safeJsonParse(input.body));
 
   return {
     beneficiaryPatientId,

@@ -1,6 +1,6 @@
 import { emailRegex, INVALID_INPUT_ERROR, VideoChatCreateInviteInput } from 'utils';
 import { z } from 'zod';
-import { safeValidate, ZambdaInput } from '../../../shared';
+import { safeJsonParse, safeValidate, ZambdaInput } from '../../../shared';
 
 const CreateInviteBodySchema = z
   .object({
@@ -35,7 +35,7 @@ export function validateRequestParameters(input: ZambdaInput): VideoChatCreateIn
 
   const { appointmentId, firstName, lastName, phoneNumber, emailAddress } = safeValidate(
     CreateInviteBodySchema,
-    JSON.parse(input.body)
+    safeJsonParse(input.body)
   );
 
   return {

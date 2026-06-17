@@ -1,6 +1,6 @@
 import { MISSING_REQUEST_BODY } from 'utils';
 import { z } from 'zod';
-import { safeValidate, ZambdaInput } from '../../../shared';
+import { safeJsonParse, safeValidate, ZambdaInput } from '../../../shared';
 
 const DeleteProcedureCodeBodySchema = z.object({
   feeScheduleId: z.string().uuid(),
@@ -18,7 +18,7 @@ export function validateRequestParameters(input: ZambdaInput): DeleteProcedureCo
     throw MISSING_REQUEST_BODY;
   }
 
-  const { feeScheduleId, index } = safeValidate(DeleteProcedureCodeBodySchema, JSON.parse(input.body));
+  const { feeScheduleId, index } = safeValidate(DeleteProcedureCodeBodySchema, safeJsonParse(input.body));
 
   return {
     feeScheduleId,

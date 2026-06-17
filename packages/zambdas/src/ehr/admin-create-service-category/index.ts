@@ -1,7 +1,7 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { HealthcareService } from 'fhir/r4b';
 import { BOOKING_CONFIG, INVALID_INPUT_ERROR, MISSING_REQUEST_BODY, MISSING_REQUIRED_PARAMETERS } from 'utils';
-import { wrapHandler, ZambdaInput } from '../../shared';
+import { safeJsonParse, wrapHandler, ZambdaInput } from '../../shared';
 import { getClient, ServiceCategory, toFhirResource, toRecord } from '../admin-service-categories/helpers';
 
 interface AdminCreateServiceCategoryInput {
@@ -12,7 +12,7 @@ const validateRequestParameters = (input: ZambdaInput): AdminCreateServiceCatego
   if (!input.body) throw MISSING_REQUEST_BODY;
   let parsed: any;
   try {
-    parsed = JSON.parse(input.body);
+    parsed = safeJsonParse(input.body);
   } catch {
     throw INVALID_INPUT_ERROR('Request body must be valid JSON');
   }

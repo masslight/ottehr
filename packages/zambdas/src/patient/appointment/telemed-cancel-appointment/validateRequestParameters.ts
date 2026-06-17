@@ -1,6 +1,6 @@
 import { INVALID_INPUT_ERROR, VALUE_SETS } from 'utils';
 import { z } from 'zod';
-import { safeValidate, ZambdaInput } from '../../../shared';
+import { safeJsonParse, safeValidate, ZambdaInput } from '../../../shared';
 import { CancelTelemedAppointmentInputValidated } from '.';
 
 const patientReasons = VALUE_SETS.cancelReasonOptionsVirtualPatient.map((o) => o.value) as [string, ...string[]];
@@ -22,7 +22,7 @@ export function validateRequestParameters(input: ZambdaInput): CancelTelemedAppo
 
   const { appointmentID, cancellationReason, cancellationReasonAdditional } = safeValidate(
     TelemedCancelAppointmentBodySchema,
-    JSON.parse(input.body)
+    safeJsonParse(input.body)
   );
 
   console.groupEnd();

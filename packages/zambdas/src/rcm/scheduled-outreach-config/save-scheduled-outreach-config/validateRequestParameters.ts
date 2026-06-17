@@ -1,6 +1,6 @@
 import { INVALID_INPUT_ERROR, MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS, MISSING_REQUIRED_PARAMETERS } from 'utils';
 import { z } from 'zod';
-import { safeValidate, ZambdaInput } from '../../../shared';
+import { safeJsonParse, safeValidate, ZambdaInput } from '../../../shared';
 import {
   ActionType,
   NotificationMedium,
@@ -181,7 +181,7 @@ export function validateRequestParameters(input: ZambdaInput): SaveOutreachConfi
 
   const { actions: rawActions, notificationsTimeRestriction } = safeValidate(
     SaveOutreachConfigBodySchema,
-    JSON.parse(input.body)
+    safeJsonParse(input.body)
   );
 
   const validatedActions = rawActions.map((action: unknown, index: number) => validateAction(action, index));

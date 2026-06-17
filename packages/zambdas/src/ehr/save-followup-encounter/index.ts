@@ -1,7 +1,7 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Encounter } from 'fhir/r4b';
 import { FOLLOWUP_TYPES, SaveFollowupEncounterZambdaInput, SaveFollowupEncounterZambdaOutput, Secrets } from 'utils';
-import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
+import { checkOrCreateM2MClientToken, safeJsonParse, wrapHandler, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
 import { createEncounterResource, updateEncounterResource } from './helpers';
 
@@ -14,7 +14,7 @@ export function validateRequestParameters(input: ZambdaInput): SaveFollowupEncou
   if (!input.body) {
     throw new Error('No request body provided');
   }
-  const { encounterDetails } = JSON.parse(input.body);
+  const { encounterDetails } = safeJsonParse(input.body);
   if (!encounterDetails.patientId || !encounterDetails.followupType) {
     throw new Error(
       `Missing required input param(s): ${!encounterDetails.patientId ? 'patientId' : ''} ${

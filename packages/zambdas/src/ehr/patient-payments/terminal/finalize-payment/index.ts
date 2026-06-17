@@ -31,6 +31,7 @@ import {
   getUser,
   lambdaResponse,
   makeBusinessIdentifierForStripePayment,
+  safeJsonParse,
   STRIPE_PAYMENT_ID_SYSTEM,
   wrapHandler,
   ZambdaInput,
@@ -119,7 +120,7 @@ const validateRequestParameters = (input: ZambdaInput): FinalizePatientPaymentTe
     throw MISSING_REQUEST_BODY;
   }
 
-  const { patientId, encounterId, paymentIntentId } = JSON.parse(input.body);
+  const { patientId, encounterId, paymentIntentId } = safeJsonParse(input.body);
 
   const missingParams: string[] = [];
   if (!patientId) {

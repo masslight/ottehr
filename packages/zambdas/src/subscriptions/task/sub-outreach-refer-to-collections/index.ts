@@ -2,7 +2,13 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
+import {
+  checkOrCreateM2MClientToken,
+  createOystehrClient,
+  safeJsonParse,
+  wrapHandler,
+  ZambdaInput,
+} from '../../../shared';
 
 let m2mToken: string;
 
@@ -12,7 +18,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   if (!input.body) throw new Error('No request body provided');
   if (!input.secrets) throw new Error('Secrets are not defined');
 
-  const task: Task = JSON.parse(input.body);
+  const task: Task = safeJsonParse(input.body);
 
   if (task.resourceType !== 'Task') {
     throw new Error(`Expected Task resource but got ${task.resourceType}`);

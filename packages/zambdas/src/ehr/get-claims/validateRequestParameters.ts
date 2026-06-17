@@ -1,6 +1,6 @@
 import { ClaimsQueueGetRequest, ClaimsQueueItemStatuses, getSecret, SecretsKeys } from 'utils';
 import { z } from 'zod';
-import { safeValidate, ZambdaInput } from '../../shared';
+import { safeJsonParse, safeValidate, ZambdaInput } from '../../shared';
 
 const GetClaimsBodySchema = z.object({
   patient: z.string().optional(),
@@ -25,7 +25,7 @@ export function validateRequestParameters(input: ZambdaInput): ClaimsQueueGetReq
   getSecret(SecretsKeys.PROJECT_API, input.secrets);
 
   if (input.body) {
-    const parsedJSON = JSON.parse(input.body) as unknown;
+    const parsedJSON = safeJsonParse(input.body) as unknown;
     const data = safeValidate(GetClaimsBodySchema, parsedJSON);
     return {
       secrets: input.secrets,

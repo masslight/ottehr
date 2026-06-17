@@ -11,6 +11,7 @@ vi.mock('../../src/shared', () => ({
   wrapHandler: (_name: string, handler: any) => handler,
   ZambdaInput: {},
   safeValidate: (schema: any, input: unknown) => schema.parse(input),
+  safeJsonParse: (body: string) => JSON.parse(body),
 }));
 
 import { getPayerUrl } from 'utils';

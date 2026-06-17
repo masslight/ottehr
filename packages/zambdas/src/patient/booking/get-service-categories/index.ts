@@ -1,7 +1,13 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { HealthcareService } from 'fhir/r4b';
 import { INVALID_INPUT_ERROR, Secrets, SERVICE_CATEGORY_TAG, SLUG_SYSTEM } from 'utils';
-import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
+import {
+  checkOrCreateM2MClientToken,
+  createOystehrClient,
+  safeJsonParse,
+  wrapHandler,
+  ZambdaInput,
+} from '../../../shared';
 import { buildCatalog, filterByOfferedCodes, getGroupOfferedCodes } from './helpers';
 
 interface GetServiceCategoriesInput {
@@ -21,7 +27,7 @@ const validateRequestParameters = (input: ZambdaInput): GetServiceCategoriesInpu
   if (input.body) {
     let parsed: { scheduleType?: unknown; bookingOn?: unknown };
     try {
-      parsed = JSON.parse(input.body);
+      parsed = safeJsonParse(input.body);
     } catch {
       throw INVALID_INPUT_ERROR('Request body must be valid JSON if provided');
     }

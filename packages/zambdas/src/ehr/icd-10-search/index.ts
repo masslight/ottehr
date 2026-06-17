@@ -1,6 +1,6 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { INVALID_INPUT_ERROR, MISSING_REQUEST_BODY } from 'utils';
-import { wrapHandler, ZambdaInput } from '../../shared';
+import { safeJsonParse, wrapHandler, ZambdaInput } from '../../shared';
 import { searchIcd10Codes } from '../../shared/icd-10-search';
 
 interface Icd10SearchResponse {
@@ -19,7 +19,7 @@ function validateRequestParameters(input: ZambdaInput): Icd10SearchRequestParams
     throw MISSING_REQUEST_BODY;
   }
 
-  const { search } = JSON.parse(input.body);
+  const { search } = safeJsonParse(input.body);
 
   if (!search || typeof search !== 'string') {
     throw INVALID_INPUT_ERROR('search parameter is required and must be a string');

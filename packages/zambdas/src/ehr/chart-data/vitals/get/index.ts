@@ -34,7 +34,13 @@ import {
   VitalsWeightOption,
 } from 'utils';
 import * as z from 'zod';
-import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../../../shared';
+import {
+  checkOrCreateM2MClientToken,
+  createOystehrClient,
+  safeJsonParse,
+  wrapHandler,
+  ZambdaInput,
+} from '../../../../shared';
 
 let m2mToken: string;
 const ZAMBDA_NAME = 'get-vitals';
@@ -369,7 +375,7 @@ const validateRequestParameters = (input: ZambdaInput): InputParameters => {
   // The wire field is `currentOrHistorical` (not `mode`): the Oystehr SDK reserves a `mode` key on
   // zambda.execute payloads as a request-context option, so a `mode` field would be stripped from
   // the payload. Internally we keep calling the value `mode` for readability.
-  const { encounterId, currentOrHistorical: mode } = JSON.parse(input.body);
+  const { encounterId, currentOrHistorical: mode } = safeJsonParse(input.body);
   const secrets = input.secrets;
 
   const missingParams: string[] = [];

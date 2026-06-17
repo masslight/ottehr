@@ -1,6 +1,6 @@
 import { MISSING_REQUEST_BODY, Secrets } from 'utils';
 import { z } from 'zod';
-import { safeValidate, ZambdaInput } from '../../../shared';
+import { safeJsonParse, safeValidate, ZambdaInput } from '../../../shared';
 
 export interface GetStripeAccountInfoInput {
   stripeAccountId: string;
@@ -16,7 +16,7 @@ export function validateRequestParameters(input: ZambdaInput): GetStripeAccountI
     throw MISSING_REQUEST_BODY;
   }
 
-  const { stripeAccountId } = safeValidate(GetStripeAccountInfoBodySchema, JSON.parse(input.body));
+  const { stripeAccountId } = safeValidate(GetStripeAccountInfoBodySchema, safeJsonParse(input.body));
 
   return {
     stripeAccountId,

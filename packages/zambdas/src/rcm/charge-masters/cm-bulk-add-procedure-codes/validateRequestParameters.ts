@@ -1,6 +1,6 @@
 import { MISSING_REQUEST_BODY } from 'utils';
 import { z } from 'zod';
-import { safeValidate, ZambdaInput } from '../../../shared';
+import { safeJsonParse, safeValidate, ZambdaInput } from '../../../shared';
 
 export interface CmBulkProcedureCode {
   code: string;
@@ -32,7 +32,10 @@ export function validateRequestParameters(input: ZambdaInput): CmBulkAddProcedur
     throw MISSING_REQUEST_BODY;
   }
 
-  const { chargeMasterId, codes, replaceAll } = safeValidate(CmBulkAddProcedureCodesBodySchema, JSON.parse(input.body));
+  const { chargeMasterId, codes, replaceAll } = safeValidate(
+    CmBulkAddProcedureCodesBodySchema,
+    safeJsonParse(input.body)
+  );
 
   return {
     chargeMasterId,

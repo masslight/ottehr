@@ -1,7 +1,13 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Schedule } from 'fhir/r4b';
 import { INVALID_INPUT_ERROR, MISSING_REQUEST_BODY, MISSING_REQUIRED_PARAMETERS, Secrets } from 'utils';
-import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
+import {
+  checkOrCreateM2MClientToken,
+  createOystehrClient,
+  safeJsonParse,
+  wrapHandler,
+  ZambdaInput,
+} from '../../shared';
 
 interface AdminDeletePractitionerRoleInput {
   secrets: Secrets | null;
@@ -15,7 +21,7 @@ const validateRequestParameters = (input: ZambdaInput): AdminDeletePractitionerR
   if (!input.body) throw MISSING_REQUEST_BODY;
   let parsed: { roleId?: unknown };
   try {
-    parsed = JSON.parse(input.body);
+    parsed = safeJsonParse(input.body);
   } catch {
     throw INVALID_INPUT_ERROR('Request body must be valid JSON');
   }

@@ -29,6 +29,7 @@ import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
   getStripeClient,
+  safeJsonParse,
   sendErrors,
   wrapHandler,
   ZambdaInput,
@@ -323,7 +324,7 @@ const validateRequestParameters = (input: ZambdaInput): BasicInput => {
   }
 
   const { secrets } = input;
-  const { questionnaireResponse } = JSON.parse(input.body);
+  const { questionnaireResponse } = safeJsonParse(input.body);
   if (questionnaireResponse === undefined) {
     throw MISSING_REQUIRED_PARAMETERS(['questionnaireResponse']);
   }

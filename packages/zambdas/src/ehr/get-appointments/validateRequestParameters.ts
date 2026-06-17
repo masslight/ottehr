@@ -1,6 +1,6 @@
 import { AppointmentTypeOptions, MISSING_REQUEST_BODY, ServiceMode } from 'utils';
 import { z } from 'zod';
-import { safeValidate, ZambdaInput } from '../../shared';
+import { safeJsonParse, safeValidate, ZambdaInput } from '../../shared';
 import { GetAppointmentsZambdaInputValidated } from '.';
 
 const visitTypeOptions = Object.values(ServiceMode).flatMap((mode) =>
@@ -27,7 +27,7 @@ export function validateRequestParameters(input: ZambdaInput): GetAppointmentsZa
   }
 
   const { searchDate, timezone, locationIds, providerIds, serviceCategories, visitType, supervisorApprovalEnabled } =
-    safeValidate(GetAppointmentsBodySchema, JSON.parse(input.body));
+    safeValidate(GetAppointmentsBodySchema, safeJsonParse(input.body));
 
   return {
     searchDate,

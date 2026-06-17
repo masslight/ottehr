@@ -31,7 +31,7 @@ import {
   ServiceCategoryCode,
   ServiceMode,
 } from 'utils';
-import { createOystehrClient, getAuth0Token, wrapHandler, ZambdaInput } from '../../../shared';
+import { createOystehrClient, getAuth0Token, safeJsonParse, wrapHandler, ZambdaInput } from '../../../shared';
 import { getUser, userHasAccessToPatient } from '../../../shared/auth';
 
 const ZAMBDA_NAME = 'get-booking-questionnaire';
@@ -241,7 +241,7 @@ const validateRequestParameters = (input: ZambdaInput): ValidatedInput => {
 
   let parsed: GetBookingQuestionnaireParams;
   try {
-    parsed = GetBookingQuestionnaireParamsSchema.parse(JSON.parse(input.body));
+    parsed = GetBookingQuestionnaireParamsSchema.parse(safeJsonParse(input.body));
   } catch (e: any) {
     throw INVALID_INPUT_ERROR(e.message);
   }

@@ -1,6 +1,6 @@
 import { GetTelemedAppointmentsRequest } from 'utils';
 import { z } from 'zod';
-import { safeValidate, ZambdaInput } from '../../../shared';
+import { safeJsonParse, safeValidate, ZambdaInput } from '../../../shared';
 
 const TelemedGetAppointmentsBodySchema = z.object({
   patientId: z.string().uuid().optional(),
@@ -9,7 +9,7 @@ const TelemedGetAppointmentsBodySchema = z.object({
 export function validateRequestParameters(
   input: ZambdaInput
 ): GetTelemedAppointmentsRequest & Pick<ZambdaInput, 'secrets'> {
-  const rawBody = input.body ? JSON.parse(input.body) : {};
+  const rawBody = input.body ? safeJsonParse(input.body) : {};
   const { patientId } = safeValidate(TelemedGetAppointmentsBodySchema, rawBody);
 
   return {

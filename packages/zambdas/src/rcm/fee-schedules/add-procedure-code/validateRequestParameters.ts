@@ -1,6 +1,6 @@
 import { MISSING_REQUEST_BODY } from 'utils';
 import { z } from 'zod';
-import { safeValidate, ZambdaInput } from '../../../shared';
+import { safeJsonParse, safeValidate, ZambdaInput } from '../../../shared';
 
 const AddProcedureCodeBodySchema = z.object({
   feeScheduleId: z.string().uuid(),
@@ -26,7 +26,7 @@ export function validateRequestParameters(input: ZambdaInput): AddProcedureCodeP
 
   const { feeScheduleId, code, description, modifier, amount } = safeValidate(
     AddProcedureCodeBodySchema,
-    JSON.parse(input.body)
+    safeJsonParse(input.body)
   );
 
   return {

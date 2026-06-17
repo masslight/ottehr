@@ -14,6 +14,7 @@ import {
 import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
+  safeJsonParse,
   StatementType,
   wrapHandler,
   ZambdaInput,
@@ -36,7 +37,7 @@ function validateRequestParameters(input: ZambdaInput): CreateMailStatementTaskI
   if (!input.body) throw MISSING_REQUEST_BODY;
   if (!input.secrets) throw MISSING_REQUEST_SECRETS;
 
-  const body = JSON.parse(input.body) as Record<string, unknown>;
+  const body = safeJsonParse(input.body) as Record<string, unknown>;
 
   const encounterId = body.encounterId;
   if (typeof encounterId !== 'string' || encounterId.trim().length === 0) {

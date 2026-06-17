@@ -1,13 +1,13 @@
 import { GetAppointmentsRequest } from 'utils';
 import { z } from 'zod';
-import { safeValidate, ZambdaInput } from '../../../shared';
+import { safeJsonParse, safeValidate, ZambdaInput } from '../../../shared';
 
 const GetPastVisitsBodySchema = z.object({
   patientId: z.string().uuid().optional(),
 });
 
 export function validateRequestParameters(input: ZambdaInput): GetAppointmentsRequest & Pick<ZambdaInput, 'secrets'> {
-  const body = input.body ? safeValidate(GetPastVisitsBodySchema, JSON.parse(input.body)) : {};
+  const body = input.body ? safeValidate(GetPastVisitsBodySchema, safeJsonParse(input.body)) : {};
 
   return {
     patientId: body.patientId,

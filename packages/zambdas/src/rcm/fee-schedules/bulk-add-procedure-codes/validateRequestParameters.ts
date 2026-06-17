@@ -1,6 +1,6 @@
 import { MISSING_REQUEST_BODY } from 'utils';
 import { z } from 'zod';
-import { safeValidate, ZambdaInput } from '../../../shared';
+import { safeJsonParse, safeValidate, ZambdaInput } from '../../../shared';
 
 const BulkProcedureCodeSchema = z.object({
   code: z.string().min(1),
@@ -32,7 +32,7 @@ export function validateRequestParameters(input: ZambdaInput): BulkAddProcedureC
     throw MISSING_REQUEST_BODY;
   }
 
-  const { feeScheduleId, codes, replaceAll } = safeValidate(BulkAddProcedureCodesBodySchema, JSON.parse(input.body));
+  const { feeScheduleId, codes, replaceAll } = safeValidate(BulkAddProcedureCodesBodySchema, safeJsonParse(input.body));
 
   return {
     feeScheduleId,

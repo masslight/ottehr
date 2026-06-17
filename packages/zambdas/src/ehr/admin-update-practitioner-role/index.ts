@@ -9,7 +9,13 @@ import {
   SCHEDULE_DISPLAY_NAME_EXTENSION_URL,
   Secrets,
 } from 'utils';
-import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
+import {
+  checkOrCreateM2MClientToken,
+  createOystehrClient,
+  safeJsonParse,
+  wrapHandler,
+  ZambdaInput,
+} from '../../shared';
 import { checkPractitionerRoleConflict } from '../admin-practitioner-role-shared/check-conflict';
 
 interface AdminUpdatePractitionerRoleInput {
@@ -47,7 +53,7 @@ const validateRequestParameters = (input: ZambdaInput): AdminUpdatePractitionerR
     allCategories?: unknown;
   };
   try {
-    parsed = JSON.parse(input.body);
+    parsed = safeJsonParse(input.body);
   } catch {
     throw INVALID_INPUT_ERROR('Request body must be valid JSON');
   }

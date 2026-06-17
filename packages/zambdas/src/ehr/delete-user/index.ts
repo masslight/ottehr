@@ -10,7 +10,7 @@ import {
   Secrets,
   userMe,
 } from 'utils';
-import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
+import { checkOrCreateM2MClientToken, safeJsonParse, wrapHandler, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
 
 const ALLOWED_CALLER_ROLES: string[] = [RoleType.Administrator, RoleType.CustomerSupport];
@@ -61,7 +61,7 @@ function validateRequestParameters(
     throw new Error('Authorization header is required');
   }
 
-  const { userId } = DeleteUserZambdaInputSchema.parse(JSON.parse(input.body));
+  const { userId } = DeleteUserZambdaInputSchema.parse(safeJsonParse(input.body));
 
   return {
     userId,

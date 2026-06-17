@@ -1,7 +1,7 @@
 import { DateTime } from 'luxon';
 import { MISSING_REQUEST_BODY } from 'utils';
 import { z } from 'zod';
-import { safeValidate, ZambdaInput } from '../../../shared';
+import { safeJsonParse, safeValidate, ZambdaInput } from '../../../shared';
 
 interface UpdatePaperworkInProgressParams {
   appointmentID: string;
@@ -18,7 +18,7 @@ export function validateUpdatePaperworkParams(input: ZambdaInput): UpdatePaperwo
     throw MISSING_REQUEST_BODY;
   }
 
-  const inputJSON = JSON.parse(input.body);
+  const inputJSON = safeJsonParse(input.body);
   console.log('inputJSON', JSON.stringify(inputJSON));
   const { appointmentID, inProgress } = safeValidate(UpdatePaperworkInProgressBodySchema, inputJSON);
 

@@ -19,6 +19,7 @@ import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
   formatZodError,
+  safeJsonParse,
   wrapHandler,
   ZambdaInput,
 } from '../../../shared';
@@ -106,7 +107,7 @@ function validateRequestParameters(input: ZambdaInput): GetVisitFaxHistoryInputV
 
   let parsed: unknown;
   try {
-    parsed = JSON.parse(input.body);
+    parsed = safeJsonParse(input.body);
   } catch {
     throw INVALID_INPUT_ERROR('Invalid JSON in request body.');
   }

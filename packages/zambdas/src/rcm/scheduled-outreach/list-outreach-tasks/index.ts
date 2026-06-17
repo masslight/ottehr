@@ -6,7 +6,13 @@ import {
   MISSING_REQUEST_SECRETS,
   PRIVATE_EXTENSION_BASE_URL,
 } from 'utils';
-import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
+import {
+  checkOrCreateM2MClientToken,
+  createOystehrClient,
+  safeJsonParse,
+  wrapHandler,
+  ZambdaInput,
+} from '../../../shared';
 
 const OUTREACH_TASK_TAG_SYSTEM = `${PRIVATE_EXTENSION_BASE_URL}/outreach-task`;
 const OUTREACH_ACTION_TYPE_SYSTEM = 'https://ottehr.com/CodeSystem/outreach-action-type';
@@ -45,7 +51,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, input.secrets);
   const oystehr = createOystehrClient(m2mToken, input.secrets);
 
-  const params = input.body ? JSON.parse(input.body) : {};
+  const params = input.body ? safeJsonParse(input.body) : {};
   const statusFilter = params.status || 'draft,requested,in-progress,completed,on-hold,cancelled';
   const pageSize = Math.min(Math.max(Number(params.pageSize) || 25, 1), 100);
   const offset = Math.max(Number(params.offset) || 0, 0);

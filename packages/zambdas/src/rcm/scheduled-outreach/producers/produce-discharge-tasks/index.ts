@@ -1,6 +1,12 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { INVALID_INPUT_ERROR, MISSING_REQUIRED_PARAMETERS } from 'utils';
-import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../../../shared';
+import {
+  checkOrCreateM2MClientToken,
+  createOystehrClient,
+  safeJsonParse,
+  wrapHandler,
+  ZambdaInput,
+} from '../../../../shared';
 import { produceDischargeOutreach } from '../shared';
 
 let m2mToken: string;
@@ -16,7 +22,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   if (!input.body) throw MISSING_REQUIRED_PARAMETERS(['body']);
   if (!input.secrets) throw new Error('Secrets are not defined');
 
-  const body = JSON.parse(input.body);
+  const body = safeJsonParse(input.body);
 
   const encounterId = body.encounterId;
   if (!encounterId || typeof encounterId !== 'string') {

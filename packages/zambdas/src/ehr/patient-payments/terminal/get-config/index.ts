@@ -17,6 +17,7 @@ import {
   getAuth0Token,
   getStripeClient,
   lambdaResponse,
+  safeJsonParse,
   wrapHandler,
   ZambdaInput,
 } from '../../../../shared';
@@ -89,7 +90,7 @@ const validateRequestParameters = (input: ZambdaInput): GetPatientPaymentTermina
     throw MISSING_REQUEST_BODY;
   }
 
-  const { encounterId } = JSON.parse(input.body);
+  const { encounterId } = safeJsonParse(input.body);
 
   const missingParams: string[] = [];
   if (!encounterId) {

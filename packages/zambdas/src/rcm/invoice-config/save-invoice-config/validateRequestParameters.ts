@@ -1,6 +1,6 @@
 import { MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS } from 'utils';
 import { z } from 'zod';
-import { safeValidate, ZambdaInput } from '../../../shared';
+import { safeJsonParse, safeValidate, ZambdaInput } from '../../../shared';
 
 export interface SaveInvoiceConfigInput {
   dueDaysFromGeneration: number;
@@ -31,7 +31,7 @@ export function validateRequestParameters(input: ZambdaInput): SaveInvoiceConfig
 
   const { dueDaysFromGeneration, defaultSmsTemplate, defaultInvoiceMemo } = safeValidate(
     SaveInvoiceConfigBodySchema,
-    JSON.parse(input.body)
+    safeJsonParse(input.body)
   );
 
   return {

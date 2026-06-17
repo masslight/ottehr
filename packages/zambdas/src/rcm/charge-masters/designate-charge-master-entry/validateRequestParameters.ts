@@ -1,6 +1,6 @@
 import { ChargeMasterDesignation, MISSING_REQUEST_BODY } from 'utils';
 import { z } from 'zod';
-import { safeValidate, ZambdaInput } from '../../../shared';
+import { safeJsonParse, safeValidate, ZambdaInput } from '../../../shared';
 
 export interface DesignateChargeMasterEntryParams {
   chargeMasterId: string;
@@ -18,7 +18,7 @@ export function validateRequestParameters(input: ZambdaInput): DesignateChargeMa
     throw MISSING_REQUEST_BODY;
   }
 
-  const { chargeMasterId, designation } = safeValidate(DesignateChargeMasterEntryBodySchema, JSON.parse(input.body));
+  const { chargeMasterId, designation } = safeValidate(DesignateChargeMasterEntryBodySchema, safeJsonParse(input.body));
 
   return {
     chargeMasterId,

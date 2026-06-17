@@ -37,7 +37,13 @@ import {
   Timezone,
   TIMEZONES,
 } from 'utils';
-import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
+import {
+  checkOrCreateM2MClientToken,
+  createOystehrClient,
+  safeJsonParse,
+  wrapHandler,
+  ZambdaInput,
+} from '../../../shared';
 import { getAccountAndCoverageResourcesForPatient } from '../../shared/harvest';
 
 const ZAMBDA_NAME = 'get-visit-details';
@@ -277,7 +283,7 @@ const validateRequestParameters = (input: ZambdaInput): Input => {
 
   console.log('input', JSON.stringify(input, null, 2));
   const { secrets } = input;
-  const { appointmentId } = JSON.parse(input.body);
+  const { appointmentId } = safeJsonParse(input.body);
 
   if (!appointmentId) {
     throw MISSING_REQUIRED_PARAMETERS(['appointmentId']);

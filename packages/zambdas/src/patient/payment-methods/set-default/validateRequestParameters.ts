@@ -1,7 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { MISSING_REQUEST_BODY, NOT_AUTHORIZED, PaymentMethodSetDefaultParameters, Secrets } from 'utils';
 import { z } from 'zod';
-import { safeValidate, ZambdaInput } from '../../../shared';
+import { safeJsonParse, safeValidate, ZambdaInput } from '../../../shared';
 import { getStripeCustomerId } from '../helpers';
 
 const PaymentMethodSetDefaultBodySchema = z.object({
@@ -24,7 +24,7 @@ export function validateRequestParameters(
 
   const { beneficiaryPatientId, paymentMethodId, appointmentId } = safeValidate(
     PaymentMethodSetDefaultBodySchema,
-    JSON.parse(input.body)
+    safeJsonParse(input.body)
   );
 
   return {

@@ -10,7 +10,7 @@ import {
 } from 'utils';
 import { ValidationError } from 'yup';
 import { z } from 'zod';
-import { safeValidate, ZambdaInput } from '../../shared';
+import { safeJsonParse, safeValidate, ZambdaInput } from '../../shared';
 
 interface BasicInput extends PatchPaperworkParameters {
   appointmentId?: string;
@@ -49,7 +49,7 @@ const basicValidation = (input: ZambdaInput): BasicInput => {
   if (!input.body) {
     throw new Error('No request body provided');
   }
-  const inputJSON = JSON.parse(input.body);
+  const inputJSON = safeJsonParse(input.body);
   const { answers, questionnaireResponseId, appointmentId } = safeValidate(PaperworkBodySchema, inputJSON);
 
   if (!answers) {

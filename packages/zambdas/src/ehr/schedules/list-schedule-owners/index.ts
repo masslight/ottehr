@@ -25,7 +25,13 @@ import {
   Secrets,
   TIMEZONES,
 } from 'utils';
-import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
+import {
+  checkOrCreateM2MClientToken,
+  createOystehrClient,
+  safeJsonParse,
+  wrapHandler,
+  ZambdaInput,
+} from '../../../shared';
 import { addressStringFromAddress, getNameForOwner } from '../shared';
 
 let m2mToken: string;
@@ -109,7 +115,7 @@ const validateRequestParameters = (input: ZambdaInput): BasicInput => {
 
   console.log('input', JSON.stringify(input, null, 2));
   const { secrets } = input;
-  const { ownerType } = JSON.parse(input.body);
+  const { ownerType } = safeJsonParse(input.body);
 
   if (!ownerType) {
     throw MISSING_REQUIRED_PARAMETERS(['ownerType']);

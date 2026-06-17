@@ -28,7 +28,13 @@ import {
   userMe,
   WORKERS_COMP_ACCOUNT_TYPE,
 } from 'utils';
-import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
+import {
+  checkOrCreateM2MClientToken,
+  createOystehrClient,
+  safeJsonParse,
+  wrapHandler,
+  ZambdaInput,
+} from '../../../shared';
 import { accountMatchesType } from '../../shared/harvest';
 
 const ZAMBDA_NAME = 'update-visit-details';
@@ -482,7 +488,7 @@ const validateRequestParameters = (input: ZambdaInput): Input => {
 
   console.log('input', JSON.stringify(input, null, 2));
   const { secrets } = input;
-  const { appointmentId, bookingDetails } = JSON.parse(input.body);
+  const { appointmentId, bookingDetails } = safeJsonParse(input.body);
 
   if (!appointmentId) {
     throw MISSING_REQUIRED_PARAMETERS(['appointmentId']);

@@ -11,7 +11,7 @@ import {
   TemplateSectionKey,
 } from 'utils';
 import { z } from 'zod';
-import { safeValidate, ZambdaInput } from '../../shared';
+import { safeJsonParse, safeValidate, ZambdaInput } from '../../shared';
 
 const VALID_ACTIONS: readonly TemplateSectionAction[] = ['skip', 'overwrite', 'append'];
 
@@ -79,7 +79,7 @@ export function validateRequestParameters(
   }
   const userToken = authHeader.replace('Bearer ', '');
 
-  const parsed = JSON.parse(input.body) as unknown;
+  const parsed = safeJsonParse(input.body) as unknown;
   const { templateName, encounterId, sectionActions } = safeValidate(ApplyTemplateSchema, parsed);
 
   const validatedSectionActions: TemplateSectionActions = (sectionActions as TemplateSectionActions) ?? {};

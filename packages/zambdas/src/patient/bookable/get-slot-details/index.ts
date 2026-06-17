@@ -24,6 +24,7 @@ import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
   resolveBookingLocationId,
+  safeJsonParse,
   wrapHandler,
   ZambdaInput,
 } from '../../../shared';
@@ -97,7 +98,7 @@ const validateRequestParameters = (input: ZambdaInput): BasicInput => {
     throw MISSING_REQUEST_BODY;
   }
 
-  const { slotId } = JSON.parse(input.body);
+  const { slotId } = safeJsonParse(input.body);
 
   if (!slotId) {
     throw MISSING_REQUIRED_PARAMETERS(['slotId']);

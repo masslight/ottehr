@@ -27,7 +27,13 @@ import {
   SLOT_WALKIN_APPOINTMENT_TYPE_CODING,
   SlotServiceCategory,
 } from 'utils';
-import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
+import {
+  checkOrCreateM2MClientToken,
+  createOystehrClient,
+  safeJsonParse,
+  wrapHandler,
+  ZambdaInput,
+} from '../../../shared';
 
 const ZAMBDA_NAME = 'create-slot';
 
@@ -87,7 +93,7 @@ const validateRequestParameters = (input: ZambdaInput): BasicInput => {
     questionnaireCanonical,
     atLocationId,
     bookedViaGroupId,
-  } = JSON.parse(input.body);
+  } = safeJsonParse(input.body);
 
   // required param checks
   if (!scheduleId) {

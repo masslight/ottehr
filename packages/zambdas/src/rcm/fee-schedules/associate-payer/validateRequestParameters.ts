@@ -1,6 +1,6 @@
 import { MISSING_REQUEST_BODY, MISSING_REQUIRED_PARAMETERS } from 'utils';
 import { z } from 'zod';
-import { safeValidate, ZambdaInput } from '../../../shared';
+import { safeJsonParse, safeValidate, ZambdaInput } from '../../../shared';
 
 const AssociatePayerBodySchema = z.object({
   feeScheduleId: z.string().uuid(),
@@ -20,7 +20,10 @@ export function validateRequestParameters(input: ZambdaInput): AssociatePayerPar
     throw MISSING_REQUEST_BODY;
   }
 
-  const { feeScheduleId, organizationId, locationId } = safeValidate(AssociatePayerBodySchema, JSON.parse(input.body));
+  const { feeScheduleId, organizationId, locationId } = safeValidate(
+    AssociatePayerBodySchema,
+    safeJsonParse(input.body)
+  );
 
   if (!organizationId && !locationId) {
     throw MISSING_REQUIRED_PARAMETERS(['organizationId or locationId']);

@@ -1,5 +1,5 @@
 import { INVALID_INPUT_ERROR, MISSING_REQUEST_BODY, TagBillingClaimInput, TagBillingClaimInputSchema } from 'utils';
-import { formatZodError, ZambdaInput } from '../../shared';
+import { formatZodError, safeJsonParse, ZambdaInput } from '../../shared';
 
 export interface TagBillingClaimParams extends TagBillingClaimInput {
   secrets: ZambdaInput['secrets'];
@@ -10,7 +10,7 @@ export function validateRequestParameters(input: ZambdaInput): TagBillingClaimPa
 
   let raw: unknown;
   try {
-    raw = JSON.parse(input.body);
+    raw = safeJsonParse(input.body);
   } catch {
     throw INVALID_INPUT_ERROR('Request body is not valid JSON');
   }

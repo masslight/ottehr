@@ -1,7 +1,7 @@
 import { DateTime } from 'luxon';
 import { PersonSex, RequiredProps, Secrets, UpdateAppointmentRequestParams } from 'utils';
 import { z } from 'zod';
-import { phoneRegex, safeValidate, ZambdaInput } from '../../../shared';
+import { phoneRegex, safeJsonParse, safeValidate, ZambdaInput } from '../../../shared';
 
 const PatientSchema = z.object({
   firstName: z.string().min(1),
@@ -45,7 +45,7 @@ export function validateUpdateAppointmentParams(
 
   const { appointmentId, patient, locationState } = safeValidate(
     TelemedUpdateAppointmentBodySchema,
-    JSON.parse(input.body)
+    safeJsonParse(input.body)
   );
 
   const isInvalidPatientDate = !DateTime.fromISO(patient.dateOfBirth).isValid;

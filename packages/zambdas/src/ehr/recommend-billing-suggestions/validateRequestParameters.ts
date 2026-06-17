@@ -1,5 +1,5 @@
 import { BillingSuggestionInput } from 'utils';
-import { ZambdaInput } from '../../shared';
+import { safeJsonParse, ZambdaInput } from '../../shared';
 
 export function validateRequestParameters(input: ZambdaInput): BillingSuggestionInput & Pick<ZambdaInput, 'secrets'> {
   if (!input.body) {
@@ -20,7 +20,7 @@ export function validateRequestParameters(input: ZambdaInput): BillingSuggestion
     rosFindings,
     diagnoses,
     billing,
-  } = JSON.parse(input.body);
+  } = safeJsonParse(input.body);
 
   return {
     newPatient,

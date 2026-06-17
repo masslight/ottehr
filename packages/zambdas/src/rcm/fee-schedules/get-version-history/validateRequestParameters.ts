@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { safeValidate, ZambdaInput } from '../../../shared';
+import { safeJsonParse, safeValidate, ZambdaInput } from '../../../shared';
 
 export interface GetVersionHistoryParams {
   secrets: ZambdaInput['secrets'];
@@ -11,7 +11,7 @@ const GetVersionHistoryBodySchema = z.object({
 });
 
 export function validateRequestParameters(input: ZambdaInput): GetVersionHistoryParams {
-  const raw = input.body ? JSON.parse(input.body) : input;
+  const raw = input.body ? safeJsonParse(input.body) : input;
 
   const { resourceId } = safeValidate(GetVersionHistoryBodySchema, raw);
 

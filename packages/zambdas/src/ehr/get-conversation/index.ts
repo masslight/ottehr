@@ -13,7 +13,7 @@ import {
   getMessageHasBeenRead,
   Secrets,
 } from 'utils';
-import { getAuth0Token, wrapHandler, ZambdaInput } from '../../shared';
+import { getAuth0Token, safeJsonParse, wrapHandler, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
 
 export interface GetConversationInputValidated extends GetConversationInput {
@@ -172,7 +172,7 @@ function validateRequestParameters(input: ZambdaInput): GetConversationInputVali
     throw new Error('No request body provided');
   }
 
-  const { patientId, timezone } = JSON.parse(input.body);
+  const { patientId, timezone } = safeJsonParse(input.body);
 
   if (!patientId) {
     throw new Error('Field "patientId" is required');

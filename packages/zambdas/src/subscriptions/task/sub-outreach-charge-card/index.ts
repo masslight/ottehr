@@ -32,6 +32,7 @@ import {
   getEmailClient,
   getStripeClient,
   resolveTemplatePlaceholders,
+  safeJsonParse,
   sendSmsForPatient,
   StatementType,
   wrapHandler,
@@ -47,7 +48,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   if (!input.body) throw new Error('No request body provided');
   if (!input.secrets) throw new Error('Secrets are not defined');
 
-  const task: Task = JSON.parse(input.body);
+  const task: Task = safeJsonParse(input.body);
 
   if (task.resourceType !== 'Task') {
     throw new Error(`Expected Task resource but got ${task.resourceType}`);
