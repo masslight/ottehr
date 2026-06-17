@@ -38,5 +38,9 @@ terraform.json
 .test-appointment-id
 .playwright-mcp
 
-.claude
+# Ignore personal Claude Code config, but track the shared agent hooks/settings.
+.claude/*
+!.claude/settings.json
+!.claude/hooks/
+.claude/settings.local.json
 scripts/setup/project/setup-progress.json
