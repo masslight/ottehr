@@ -45,9 +45,14 @@ describe('CreateClaim — required-field validation', () => {
 
     fireEvent.click(createButton);
 
-    // Patient + Date of Service are required RHF fields → shared "This field is required" message.
+    // Patient, Date of Service, Rendering Provider, Service Facility, and Billing Provider are all
+    // required RHF fields → shared "This field is required" message (≥5).
     const requiredMessages = await screen.findAllByText('This field is required');
-    expect(requiredMessages.length).toBeGreaterThanOrEqual(2);
+    expect(requiredMessages.length).toBeGreaterThanOrEqual(5);
+
+    // Diagnoses and Service Lines have their own validation messages.
+    expect(screen.getByText('At least one diagnosis is required')).toBeInTheDocument();
+    expect(screen.getByText('At least one service line with a CPT code is required')).toBeInTheDocument();
 
     // AR Stage (outside RHF) turns red with its own "Required" placeholder only after the click.
     expect(screen.getByText('Required')).toBeInTheDocument();

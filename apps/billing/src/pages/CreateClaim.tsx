@@ -7,6 +7,7 @@ import {
   Chip,
   CircularProgress,
   Divider,
+  FormHelperText,
   IconButton,
   TextField,
   Typography,
@@ -138,7 +139,18 @@ export default function CreateClaim(): ReactElement {
   const [billingProviders, setBillingProviders] = useState<BillingProviderOption[]>([]);
   const [dxInput, setDxInput] = useState('');
 
-  const { fields: serviceLineFields, append, remove } = useFieldArray({ control, name: 'serviceLines' });
+  const {
+    fields: serviceLineFields,
+    append,
+    remove,
+  } = useFieldArray({
+    control,
+    name: 'serviceLines',
+    // A claim needs at least one billable line; empty-CPT lines are dropped before submit, so require a real CPT.
+    rules: {
+      validate: (lines) => lines.some((l) => l.cpt.trim()) || 'At least one service line with a CPT code is required',
+    },
+  });
 
   // Watched values used to drive conditional sections / disabled states.
   const selectedPatient = watch('patient');
@@ -146,7 +158,6 @@ export default function CreateClaim(): ReactElement {
   const selectedRenderingProvider = watch('renderingProvider');
   const selectedFacility = watch('facility');
   const selectedBillingProvider = watch('billingProvider');
-  const diagnoses = watch('diagnoses');
 
   useEffect(() => {
     return (): void => {
@@ -229,14 +240,6 @@ export default function CreateClaim(): ReactElement {
   const handlePatientSearch = (query: string): void => {
     if (searchTimer.current) clearTimeout(searchTimer.current);
     searchTimer.current = setTimeout(() => void searchPatients(query || undefined), 300);
-  };
-
-  const addDiagnosis = (): void => {
-    const code = dxInput.trim().toUpperCase();
-    if (code && !diagnoses.includes(code)) {
-      setValue('diagnoses', [...diagnoses, code]);
-      setDxInput('');
-    }
   };
 
   const handleStatusChange = (field: ClaimStatusFieldKey, value: string): void => {
@@ -542,7 +545,8 @@ export default function CreateClaim(): ReactElement {
           <Controller
             name="renderingProvider"
             control={control}
-            render={({ field }) => (
+            rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
+            render={({ field, fieldState: { error: fieldError } }) => (
               <Autocomplete
                 options={renderingProviders}
                 value={field.value}
@@ -570,7 +574,15 @@ export default function CreateClaim(): ReactElement {
                     </Box>
                   </Box>
                 )}
-                renderInput={(p) => <TextField {...p} size="small" label="Choose Rendering Provider" />}
+                renderInput={(p) => (
+                  <TextField
+                    {...p}
+                    size="small"
+                    label="Choose Rendering Provider"
+                    error={!!fieldError}
+                    helperText={fieldError?.message}
+                  />
+                )}
                 isOptionEqualToValue={(o, v) => o.id === v.id}
                 sx={{ mb: field.value ? 2 : 0 }}
               />
@@ -591,7 +603,8 @@ export default function CreateClaim(): ReactElement {
           <Controller
             name="facility"
             control={control}
-            render={({ field }) => (
+            rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
+            render={({ field, fieldState: { error: fieldError } }) => (
               <Autocomplete
                 options={locations}
                 value={field.value}
@@ -619,7 +632,15 @@ export default function CreateClaim(): ReactElement {
                     </Box>
                   </Box>
                 )}
-                renderInput={(p) => <TextField {...p} size="small" label="Choose Service Facility" />}
+                renderInput={(p) => (
+                  <TextField
+                    {...p}
+                    size="small"
+                    label="Choose Service Facility"
+                    error={!!fieldError}
+                    helperText={fieldError?.message}
+                  />
+                )}
                 isOptionEqualToValue={(o, v) => o.id === v.id}
                 sx={{ mb: field.value ? 2 : 0 }}
               />
@@ -640,7 +661,8 @@ export default function CreateClaim(): ReactElement {
           <Controller
             name="billingProvider"
             control={control}
-            render={({ field }) => (
+            rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
+            render={({ field, fieldState: { error: fieldError } }) => (
               <Autocomplete
                 options={billingProviders}
                 value={field.value}
@@ -668,7 +690,15 @@ export default function CreateClaim(): ReactElement {
                     </Box>
                   </Box>
                 )}
-                renderInput={(p) => <TextField {...p} size="small" label="Choose Billing Provider" />}
+                renderInput={(p) => (
+                  <TextField
+                    {...p}
+                    size="small"
+                    label="Choose Billing Provider"
+                    error={!!fieldError}
+                    helperText={fieldError?.message}
+                  />
+                )}
                 isOptionEqualToValue={(o, v) => o.id === v.id}
                 sx={{ mb: field.value ? 2 : 0 }}
               />
@@ -686,39 +716,54 @@ export default function CreateClaim(): ReactElement {
         <Divider />
 
         <FormSection label="Diagnoses">
-          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 1 }}>
-            {diagnoses.map((dx, i) => (
-              <Chip
-                key={i}
-                label={dx}
-                size="small"
-                onDelete={() =>
-                  setValue(
-                    'diagnoses',
-                    diagnoses.filter((_, j) => j !== i)
-                  )
+          <Controller
+            name="diagnoses"
+            control={control}
+            rules={{ validate: (v) => (v && v.length > 0) || 'At least one diagnosis is required' }}
+            render={({ field, fieldState: { error: fieldError } }) => {
+              const addDiagnosis = (): void => {
+                const code = dxInput.trim().toUpperCase();
+                if (code && !field.value.includes(code)) {
+                  field.onChange([...field.value, code]);
+                  setDxInput('');
                 }
-              />
-            ))}
-          </Box>
-          <Box sx={{ display: 'flex', gap: 1 }}>
-            <TextField
-              size="small"
-              placeholder="ICD-10 (e.g. J06.9)"
-              value={dxInput}
-              onChange={(e) => setDxInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  addDiagnosis();
-                }
-              }}
-              sx={{ width: 200 }}
-            />
-            <Button size="small" onClick={addDiagnosis}>
-              + Add
-            </Button>
-          </Box>
+              };
+              return (
+                <>
+                  <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 1 }}>
+                    {field.value.map((dx, i) => (
+                      <Chip
+                        key={i}
+                        label={dx}
+                        size="small"
+                        onDelete={() => field.onChange(field.value.filter((_, j) => j !== i))}
+                      />
+                    ))}
+                  </Box>
+                  <Box sx={{ display: 'flex', gap: 1 }}>
+                    <TextField
+                      size="small"
+                      placeholder="ICD-10 (e.g. J06.9)"
+                      value={dxInput}
+                      onChange={(e) => setDxInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          addDiagnosis();
+                        }
+                      }}
+                      error={!!fieldError}
+                      helperText={fieldError?.message}
+                      sx={{ width: 200 }}
+                    />
+                    <Button size="small" onClick={addDiagnosis}>
+                      + Add
+                    </Button>
+                  </Box>
+                </>
+              );
+            }}
+          />
         </FormSection>
 
         <Divider />
@@ -778,6 +823,7 @@ export default function CreateClaim(): ReactElement {
           <Button size="small" onClick={() => append({ ...emptyLine })}>
             + Add service line
           </Button>
+          {errors.serviceLines?.root && <FormHelperText error>{errors.serviceLines.root.message}</FormHelperText>}
         </FormSection>
       </Box>
     </FormProvider>
