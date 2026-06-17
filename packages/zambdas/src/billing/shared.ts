@@ -316,7 +316,7 @@ type CRT<T extends CopyableBillingResource> = Extract<CopyableBillingResource, {
  * List of copyable properties for each resource type
  */
 const CopyableProperties: ResourceProperties<CopyableBillingResource> = {
-  Account: ['resourceType', 'status', 'type', 'subject', 'guarantor', 'coverage'],
+  Account: ['resourceType', 'status', 'type', 'subject', 'guarantor', 'coverage', 'contained'],
   Coverage: ['resourceType', 'status', 'subscriber', 'beneficiary', 'payor', 'subscriberId', 'relationship', 'class'],
   Location: ['resourceType', 'address', 'description', 'name', 'telecom', 'type'],
   Organization: ['resourceType', 'active', 'address', 'contact', 'name', 'telecom', 'type'],
