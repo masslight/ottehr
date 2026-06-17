@@ -4,7 +4,7 @@ import {
   MISSING_REQUEST_BODY,
   MISSING_REQUEST_SECRETS,
 } from 'utils';
-import { safeValidate, ZambdaInput } from '../../shared';
+import { safeValidate, validateJsonBody, ZambdaInput } from '../../shared';
 
 export interface GetPatientCoveragesParams extends GetPatientCoveragesInput {
   secrets: ZambdaInput['secrets'];
@@ -14,7 +14,7 @@ export function validateRequestParameters(input: ZambdaInput): GetPatientCoverag
   if (!input.body) throw MISSING_REQUEST_BODY;
   if (!input.secrets) throw MISSING_REQUEST_SECRETS;
 
-  const data = safeValidate(GetPatientCoveragesInputSchema, JSON.parse(input.body));
+  const data = safeValidate(GetPatientCoveragesInputSchema, validateJsonBody(input));
 
   return {
     ...data,

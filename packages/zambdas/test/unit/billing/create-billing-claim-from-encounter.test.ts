@@ -297,7 +297,9 @@ describe('create-billing-claim-from-encounter', () => {
       );
     });
     it('throws validation error on non-json body', async () => {
-      expect(() => validateRequestParameters({ headers: null, body: 'some text', secrets: {} })).toThrow(SyntaxError);
+      expect(() => validateRequestParameters({ headers: null, body: 'some text', secrets: {} })).toThrow(
+        expect.objectContaining(INVALID_INPUT_ERROR('Invalid JSON in request body'))
+      );
     });
     it('throws validation error on missing encounter id', async () => {
       expect(() => validateRequestParameters({ headers: null, body: '{}', secrets: {} })).toThrow(
