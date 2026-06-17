@@ -15,7 +15,8 @@ import {
   Typography,
 } from '@mui/material';
 import { ReactElement, useEffect, useState } from 'react';
-import { chooseJson } from 'utils';
+import { CreateBillingPatientInput, getApiError } from 'utils';
+import { createBillingPatient } from '../api/api';
 import { useApiClients } from '../hooks/useAppClients';
 import { buildAddressInput } from '../utils/format';
 import { Field } from './Field';
@@ -66,21 +67,20 @@ export function AddPatientDialog({ open, onClose, onCreated }: AddPatientDialogP
     setError(null);
     try {
       const address = buildAddressInput(line1, line2, city, state, zip);
-      const payload = {
+      const payload: CreateBillingPatientInput = {
         firstName: firstName.trim(),
         lastName: lastName.trim(),
         ...(dob ? { dob } : {}),
-        ...(gender ? { gender } : {}),
+        ...(gender ? { gender: gender as CreateBillingPatientInput['gender'] } : {}),
         ...(phone.trim() ? { phone: phone.trim() } : {}),
         ...(address ? { address } : {}),
       };
-      const res = await oystehrZambda.zambda.execute({ id: 'create-billing-patient', ...payload });
-      const data = chooseJson(res);
-      if (!data?.id) throw new Error('Patient was not created');
+      const data = await createBillingPatient(oystehrZambda, payload);
+      if (!data.id) throw new Error('Patient was not created');
       onCreated();
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(getApiError({ error: err, defaultError: 'Failed to create patient' }));
     } finally {
       setSaving(false);
     }

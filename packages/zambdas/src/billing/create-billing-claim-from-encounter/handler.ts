@@ -10,6 +10,7 @@ import {
   Account,
   AccountCoverage,
   Appointment,
+  Basic,
   Claim,
   ClaimDiagnosis,
   ClaimItem,
@@ -31,6 +32,8 @@ import {
 import { DateTime } from 'luxon';
 import {
   ACCOUNT_TYPE_CODE_SYSTEM,
+  CODE_SYSTEM_APPOINTMENT_TYPE_CODES,
+  CODE_SYSTEM_APPOINTMENT_TYPE_TAG_SYSTEM,
   CODE_SYSTEM_CMS_PLACE_OF_SERVICE,
   CODE_SYSTEM_CPT_MODIFIER,
   CODE_SYSTEM_OYSTEHR_CLAIM_PROCEDURE_MODIFIER,
@@ -48,6 +51,7 @@ import {
   getTimezone,
   InternalError,
   isAppointmentOccupationalMedicine,
+  isAppointmentPreOp,
   isAppointmentUrgentCare,
   isAppointmentWorkersComp,
   isValidUUID,
@@ -69,10 +73,12 @@ import {
   ZambdaInput,
 } from '../../shared';
 import {
-  APPOINTMENT_TYPE_TAG_SYSTEM,
+  AUTO_ACCIDENT_TAG_DESCRIPTION,
+  AUTO_ACCIDENT_TAG_NAME,
   BILLING_RESOURCE_TAG,
   BILLING_WORKING_COPY_TAG,
   BillingFhirResource,
+  CLAIM_TAG_SYSTEM,
   createBillingClient,
   CURRENT_STATUS_TAG_SYSTEM,
   findRef,
@@ -80,6 +86,9 @@ import {
   prepareCopy,
   prepareWorkingCopy,
   SOURCE_IDENTIFIER_SYSTEM,
+  TAG_CODE_SYSTEM,
+  TAG_DESCRIPTION_URL,
+  TAG_IS_SYSTEM_TAG_URL,
 } from '../shared';
 
 export interface CreateClaimFromEncounterParams extends CreateBillingClaimFromEncounterInput {
@@ -89,7 +98,7 @@ export interface CreateClaimFromEncounterParams extends CreateBillingClaimFromEn
 export type ComplexValidationOutput = { clinicalResources: ClinicalResources; billingResources: BillingResources };
 
 type CoverageRefs = { coverageRef: Reference; payorRef: Reference }[];
-type AppointmentType = 'uc' | 'wc' | 'occmed';
+type AppointmentType = 'uc' | 'wc' | 'occmed' | 'preop';
 
 interface ClinicalResources {
   encounter: Encounter;
@@ -115,6 +124,7 @@ interface BillingResources {
   renderingProvider?: Practitioner;
   serviceFacility?: Location;
   billingProvider?: Organization;
+  autoAccidentTag?: Basic;
 }
 
 interface ClaimResources {
@@ -130,6 +140,7 @@ interface ClaimResources {
   billingProvider?: Organization;
   diagnoses?: Array<Condition>;
   procedures?: Array<Procedure>;
+  billingTags?: Array<string>;
 }
 
 type CreateClaimFromEncounterRequests = Array<
@@ -328,6 +339,26 @@ export async function performEffect(
   }
   order.push('person');
 
+  const billingTags = [];
+  if (clinicalResources.appointment.description?.toLowerCase() === 'auto accident') {
+    billingTags.push('auto-accident');
+    if (!billingResources.autoAccidentTag) {
+      requests.push({
+        method: 'POST',
+        url: '/Basic',
+        resource: {
+          resourceType: 'Basic',
+          code: { text: AUTO_ACCIDENT_TAG_NAME, coding: [{ system: TAG_CODE_SYSTEM, code: 'tag' }] },
+          extension: [
+            { url: TAG_DESCRIPTION_URL, valueString: AUTO_ACCIDENT_TAG_DESCRIPTION },
+            { url: TAG_IS_SYSTEM_TAG_URL, valueBoolean: true },
+          ],
+        },
+      });
+      order.push('auto-accident-tag');
+    }
+  }
+
   const claim = buildClaim({
     patientId: claimPatient.id,
     encounter: clinicalResources.encounter,
@@ -342,6 +373,7 @@ export async function performEffect(
     renderingProvider: billingResources.renderingProvider,
     serviceFacility: billingResources.serviceFacility,
     billingProvider: billingResources.billingProvider,
+    billingTags,
   });
   requests.push({ method: 'POST', url: '/Claim', resource: claim });
   order.push('claim');
@@ -420,6 +452,9 @@ function getAppointmentType(appointment: Appointment): AppointmentType {
   if (isAppointmentOccupationalMedicine(appointment)) {
     return 'occmed';
   }
+  if (isAppointmentPreOp(appointment)) {
+    return 'preop';
+  }
   throw new Error(`Unknown appointment type: ${getCoding(appointment.serviceCategory, SERVICE_CATEGORY_SYSTEM)?.code}`);
 }
 
@@ -484,6 +519,11 @@ export function getClaimCoveragesForEncounter(
       ];
     }
     case 'occmed': {
+      // No insurance
+      // TODO: Support non-insurance payers
+      return [];
+    }
+    case 'preop': {
       // No insurance
       // TODO: Support non-insurance payers
       return [];
@@ -880,6 +920,14 @@ async function findExistingBillingResources(
   ).unbundle();
   const matchingBillingProvider = billingProviderSearch.length > 0 ? billingProviderSearch[0] : undefined;
 
+  const tagSearch = (
+    await billingOystehr.fhir.search<Basic>({
+      resourceType: 'Basic',
+      params: [{ name: 'code', value: `${TAG_CODE_SYSTEM}|tag` }],
+    })
+  ).unbundle();
+  const autoAccidentTag = tagSearch.find((tag) => tag.code.text === AUTO_ACCIDENT_TAG_NAME);
+
   return {
     person: existingPerson,
     mainPatient: existingMainPatient,
@@ -890,6 +938,7 @@ async function findExistingBillingResources(
     renderingProvider: renderingProvider,
     serviceFacility: matchingServiceFacility,
     billingProvider: matchingBillingProvider,
+    autoAccidentTag,
   };
 }
 
@@ -904,6 +953,7 @@ function buildClaim(resources: ClaimResources): Claim {
         { system: CURRENT_STATUS_TAG_SYSTEM, code: 'open' },
         getAppointmentTypeCoding(resources.appointment),
         getClaimTypeCoding(),
+        ...(resources.billingTags ?? []).map((t) => ({ system: CLAIM_TAG_SYSTEM, code: t })),
       ],
     },
     type: { coding: [getClaimTypeCoding()] },
@@ -1001,11 +1051,22 @@ function getAppointmentTypeCoding(appointment: Appointment): Coding {
   const type = getAppointmentType(appointment);
   switch (type) {
     case 'uc':
-      return { system: APPOINTMENT_TYPE_TAG_SYSTEM, code: 'urgent-care' };
+      return {
+        system: CODE_SYSTEM_APPOINTMENT_TYPE_TAG_SYSTEM,
+        code: CODE_SYSTEM_APPOINTMENT_TYPE_CODES['urgent-care'],
+      };
     case 'occmed':
-      return { system: APPOINTMENT_TYPE_TAG_SYSTEM, code: 'occupational-medicine' };
+      return {
+        system: CODE_SYSTEM_APPOINTMENT_TYPE_TAG_SYSTEM,
+        code: CODE_SYSTEM_APPOINTMENT_TYPE_CODES['occupational-medicine'],
+      };
     case 'wc':
-      return { system: APPOINTMENT_TYPE_TAG_SYSTEM, code: 'workers-comp' };
+      return {
+        system: CODE_SYSTEM_APPOINTMENT_TYPE_TAG_SYSTEM,
+        code: CODE_SYSTEM_APPOINTMENT_TYPE_CODES['workers-comp'],
+      };
+    case 'preop':
+      return { system: CODE_SYSTEM_APPOINTMENT_TYPE_TAG_SYSTEM, code: CODE_SYSTEM_APPOINTMENT_TYPE_CODES['pre-op'] };
   }
 }
 

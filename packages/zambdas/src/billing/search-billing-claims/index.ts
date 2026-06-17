@@ -1,13 +1,20 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim, Coverage, Location, Organization, Patient, Practitioner, Resource } from 'fhir/r4b';
-import { BillingClaimItem, CODE_SYSTEM_CLAIM_TYPE, getPayerId, getPayerUrl } from 'utils';
+import {
+  BillingClaimItem,
+  CODE_SYSTEM_APPOINTMENT_TYPE_TAG_SYSTEM,
+  CODE_SYSTEM_CLAIM_TYPE,
+  getPayerId,
+  getPayerUrl,
+} from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import {
   CLAIM_TAG_SYSTEM,
   createBillingClient,
   fhirName,
   findRef,
+  getClaimAppointmentType,
   getClaimStatus,
   getClaimType,
   resolvePayersByRef,
@@ -51,6 +58,7 @@ async function performEffect(
     { name: '_sort', value: '-_lastUpdated' },
     { name: '_count', value: String(pageSize) },
     { name: '_offset', value: String(offset) },
+    { name: '_total', value: 'exact' },
   ];
 
   if (params.type) searchParams.push({ name: '_tag', value: `${CODE_SYSTEM_CLAIM_TYPE}|${params.type}` });
@@ -58,6 +66,8 @@ async function performEffect(
   if (params.createdFrom) searchParams.push({ name: 'created', value: `ge${params.createdFrom}` });
   if (params.createdTo) searchParams.push({ name: 'created', value: `le${params.createdTo}` });
   if (params.patientId) searchParams.push({ name: 'patient', value: `Patient/${params.patientId}` });
+  if (params.appointmentType)
+    searchParams.push({ name: '_tag', value: `${CODE_SYSTEM_APPOINTMENT_TYPE_TAG_SYSTEM}|${params.appointmentType}` });
   if (params.searchText) searchParams.push({ name: 'patient.name', value: params.searchText });
   if (insurerFilter) searchParams.push({ name: 'insurer', value: insurerFilter });
   if (params.tag) searchParams.push({ name: '_tag', value: `${CLAIM_TAG_SYSTEM}|${params.tag}` });
@@ -130,6 +140,7 @@ function mapClaimToItem(claim: Claim, lookups: ClaimLookups): BillingClaimItem {
     payerName: insurer?.name ?? '',
     payerId: getPayerId(insurer) ?? '',
     memberId: coverage?.subscriberId ?? '',
+    appointmentType: getClaimAppointmentType(claim),
     serviceDate,
     facility: facility?.name ?? '',
     renderingProvider: practName,

@@ -15,7 +15,8 @@ import {
   Typography,
 } from '@mui/material';
 import { ReactElement, useEffect, useState } from 'react';
-import { chooseJson, PractitionerQualificationCodesDisplay } from 'utils';
+import { CreateBillingProviderInput, getApiError, PractitionerQualificationCodesDisplay } from 'utils';
+import { createBillingProvider } from '../api/api';
 import { useApiClients } from '../hooks/useAppClients';
 import { buildAddressInput } from '../utils/format';
 import { validateProviderFields } from '../utils/validation';
@@ -105,13 +106,12 @@ export function AddProviderDialog({ open, defaultRole, onClose, onCreated }: Add
             }
           : { kind, name: orgName.trim(), ...common };
 
-      const res = await oystehrZambda.zambda.execute({ id: 'create-billing-provider', ...payload });
-      const data = chooseJson(res);
-      if (!data?.id) throw new Error('Provider was not created');
+      const data = await createBillingProvider(oystehrZambda, payload as CreateBillingProviderInput);
+      if (!data.id) throw new Error('Provider was not created');
       onCreated();
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(getApiError({ error: err, defaultError: 'Failed to create provider' }));
     } finally {
       setSaving(false);
     }
