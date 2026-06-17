@@ -28,6 +28,7 @@ import {
   searchBillingPatients,
   searchBillingProviders as searchBillingProvidersApi,
 } from '../api/api';
+import { ProcedureCodeAutocomplete } from '../components/ProcedureCodeAutocomplete';
 import { useApiClients } from '../hooks/useAppClients';
 
 interface ServiceLine {
@@ -658,12 +659,10 @@ export default function CreateClaim(): ReactElement {
           <Box key={i} sx={{ mb: 2 }}>
             {i > 0 && <Divider sx={{ mb: 2 }} />}
             <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-              <TextField
-                size="small"
-                label="CPT"
+              <ProcedureCodeAutocomplete
                 value={line.cpt}
-                onChange={(e) => updateLine(i, 'cpt', e.target.value)}
-                sx={{ width: 100 }}
+                onChange={(code) => updateLine(i, 'cpt', code)}
+                width={150}
               />
               <TextField
                 size="small"
@@ -686,7 +685,7 @@ export default function CreateClaim(): ReactElement {
                 type="number"
                 value={line.charges || ''}
                 onChange={(e) => updateLine(i, 'charges', Number(e.target.value))}
-                sx={{ width: 100 }}
+                sx={{ width: 150 }}
               />
               {serviceLines.length > 1 && (
                 <Button

@@ -46,6 +46,7 @@ import {
 } from '../api/api';
 import { EditableSection } from '../components/claim/EditableSection';
 import { Field } from '../components/Field';
+import { ProcedureCodeAutocomplete } from '../components/ProcedureCodeAutocomplete';
 import { CLAIM_STATUS_COLORS, formatAntCaseString } from '../constants/claimStatus';
 import { useApiClients } from '../hooks/useAppClients';
 import { otherColors } from '../themes/ottehr/colors';
@@ -1137,12 +1138,10 @@ function ServiceLinesSection({
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
           {rows.map((row, i) => (
             <Box key={i} sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
-              <TextField
-                size="small"
-                label="CPT"
+              <ProcedureCodeAutocomplete
                 value={row.cptCode}
-                onChange={(e) => setRow(i, 'cptCode', e.target.value)}
-                sx={{ width: 100 }}
+                onChange={(code) => setRow(i, 'cptCode', code)}
+                width={150}
               />
               <TextField
                 size="small"
