@@ -53,6 +53,7 @@ export function makeMedicationStatementFromErxMedicationRequest(
   const medData = medicationRequest.medicationCodeableConcept?.coding?.find(
     (coding) => coding.system === MEDISPAN_DISPENSABLE_DRUG_ID_CODE_SYSTEM
   );
+  const quantity = medicationRequest.dispenseRequest?.quantity;
 
   return makeMedicationResource(
     encounterId,
@@ -63,11 +64,7 @@ export function makeMedicationStatementFromErxMedicationRequest(
       name: medData?.display || '',
       id: medData?.code,
       intakeInfo: {
-        dose: medicationRequest.dispenseRequest?.quantity?.value
-          ? `${medicationRequest.dispenseRequest?.quantity?.value}${
-              ' ' + medicationRequest.dispenseRequest?.quantity?.unit || ''
-            }`
-          : undefined,
+        dose: quantity?.value != null ? `${quantity.value}${quantity.unit ? ` ${quantity.unit}` : ''}` : undefined,
       },
       type: 'scheduled',
       isRenewal: getBooleanExtensionValue(medicationRequest, FHIR_EXTENSION.MedicationRequest.isRenewal.url),
