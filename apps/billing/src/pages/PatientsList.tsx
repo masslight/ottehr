@@ -70,7 +70,7 @@ export default function PatientsList(): ReactElement {
         if (filters.identifier) params.identifier = filters.identifier;
         if (filters.uuid) params.uuid = filters.uuid;
         const data = await searchBillingPatients(oystehrZambda, params);
-        setPatients((data.patients ?? []) as PatientRow[]);
+        setPatients((data.patients ?? []).filter((p): p is typeof p & { id: string } => Boolean(p.id)));
         setTotal(data.total ?? 0);
       } catch (err) {
         setError(getApiError({ error: err, defaultError: 'Failed to load patients' }));
