@@ -106,7 +106,6 @@ async function createWorkingCopies(
 
   if (originals.coverage) {
     const copy = prepareWorkingCopy<Coverage>(originals.coverage, originals.coverage.id!);
-    if (params.coverageOverrides?.subscriberId) copy.subscriberId = params.coverageOverrides.subscriberId;
     copy.beneficiary = { reference: patientUrn };
     copy.subscriber = { reference: patientUrn };
     // payor is an Oystehr payer list URL kept from the original coverage

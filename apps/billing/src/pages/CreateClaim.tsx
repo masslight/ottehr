@@ -54,7 +54,6 @@ interface CreateClaimForm {
   patientDob: string;
   patientGender: string;
   coverage: BillingCoverageOption | null;
-  subscriberId: string;
   renderingProvider: BillingProviderOption | null;
   practFirstName: string;
   practLastName: string;
@@ -91,7 +90,6 @@ const defaultValues: CreateClaimForm = {
   patientDob: '',
   patientGender: '',
   coverage: null,
-  subscriberId: '',
   renderingProvider: null,
   practFirstName: '',
   practLastName: '',
@@ -144,6 +142,7 @@ export default function CreateClaim(): ReactElement {
 
   // Watched values used to drive conditional sections / disabled states.
   const selectedPatient = watch('patient');
+  const selectedCoverage = watch('coverage');
   const selectedRenderingProvider = watch('renderingProvider');
   const selectedFacility = watch('facility');
   const selectedBillingProvider = watch('billingProvider');
@@ -272,9 +271,6 @@ export default function CreateClaim(): ReactElement {
 
       if (data.coverage) {
         payload.coverageId = data.coverage.id;
-        if (data.subscriberId && data.subscriberId !== data.coverage.subscriberId) {
-          payload.coverageOverrides = { subscriberId: data.subscriberId };
-        }
       }
 
       if (data.renderingProvider) {
@@ -449,7 +445,6 @@ export default function CreateClaim(): ReactElement {
                   field.onChange(value);
                   setValue('coverage', null);
                   setCoverages([]);
-                  setValue('subscriberId', '');
                   setValue('patientFirstName', value?.firstName ?? '');
                   setValue('patientLastName', value?.lastName ?? '');
                   setValue('patientDob', value?.dob ?? '');
@@ -514,10 +509,7 @@ export default function CreateClaim(): ReactElement {
               <Autocomplete
                 options={coverages}
                 value={field.value}
-                onChange={(_, v) => {
-                  field.onChange(v);
-                  if (v) setValue('subscriberId', v.subscriberId);
-                }}
+                onChange={(_, v) => field.onChange(v)}
                 getOptionLabel={(o) => `${o.payorName} — ${o.subscriberId}`}
                 renderInput={(params) => (
                   <TextField
@@ -533,7 +525,15 @@ export default function CreateClaim(): ReactElement {
               />
             )}
           />
-          <TextInput name="subscriberId" label="Member / Subscriber ID" fullWidth />
+          {selectedCoverage && (
+            <TextField
+              label="Member / Subscriber ID"
+              value={selectedCoverage.subscriberId}
+              size="small"
+              fullWidth
+              InputProps={{ readOnly: true }}
+            />
+          )}
         </FormSection>
 
         <Divider />
