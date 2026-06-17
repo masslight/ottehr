@@ -20,7 +20,6 @@ import {
   BillingClaimItem,
   BillingPatientOption,
   BillingPayerOption,
-  chooseJson,
   ClaimsQueueItemStatuses,
   CODE_SYSTEM_APPOINTMENT_TYPE_CODES,
   CODE_SYSTEM_CLAIM_TYPE_CODES,
@@ -41,8 +40,8 @@ interface Filters {
   createdTo?: string;
   payerId?: string;
   patientId?: string;
-  type?: string;
-  appointmentType?: string;
+  type?: keyof typeof CODE_SYSTEM_CLAIM_TYPE_CODES | '';
+  appointmentType?: keyof typeof CODE_SYSTEM_APPOINTMENT_TYPE_CODES | '';
 }
 
 const currencyCol = (field: string, headerName: string, width: number): GridColDef => ({
@@ -330,8 +329,9 @@ export default function ClaimsList(): ReactElement {
             value={typeFilter}
             label="Claim Type"
             onChange={(e) => {
-              setTypeFilter(e.target.value as '' | keyof typeof CODE_SYSTEM_CLAIM_TYPE_CODES);
-              applyFilters({ type: e.target.value });
+              const value = e.target.value as '' | keyof typeof CODE_SYSTEM_CLAIM_TYPE_CODES;
+              setTypeFilter(value);
+              applyFilters({ type: value });
             }}
           >
             <MenuItem value="">All</MenuItem>
@@ -350,8 +350,9 @@ export default function ClaimsList(): ReactElement {
             value={appointmentTypeFilter}
             label="Appointment Type"
             onChange={(e) => {
-              setAppointmentTypeFilter(e.target.value as '' | keyof typeof CODE_SYSTEM_APPOINTMENT_TYPE_CODES);
-              applyFilters({ appointmentType: e.target.value });
+              const value = e.target.value as '' | keyof typeof CODE_SYSTEM_APPOINTMENT_TYPE_CODES;
+              setAppointmentTypeFilter(value);
+              applyFilters({ appointmentType: value });
             }}
           >
             <MenuItem value="">All</MenuItem>
