@@ -234,7 +234,7 @@ const buildMedicalRecordZip = async (
 
   const finished = new Promise<void>((resolve, reject) => {
     archive.on('end', () => resolve());
-    archive.on('warning', (err) => reject(err));
+    archive.on('warning', (err) => console.warn(`Archive warning while building medical record: ${String(err)}`));
     archive.on('error', (err) => reject(err));
   });
 
