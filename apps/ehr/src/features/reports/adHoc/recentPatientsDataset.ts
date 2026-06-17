@@ -18,6 +18,8 @@ const FIELDS: FieldDef[] = [
   { name: 'phoneNumber', type: 'string', description: 'Patient phone number.' },
   { name: 'email', type: 'string', description: 'Patient email address.' },
   { name: 'visitMode', type: 'string', description: 'Whether the most recent visit was In-person or Telemed.' },
+  { name: 'location', type: 'string', description: 'Clinic / location name of the most recent visit.' },
+  { name: 'provider', type: 'string', description: 'Attending provider on the most recent visit.' },
   {
     name: 'patientStatus',
     type: 'string',
@@ -42,6 +44,8 @@ function toRow(p: RecentPatientRecord): AdHocRow {
     phoneNumber: p.phoneNumber,
     email: p.email,
     visitMode,
+    location: p.mostRecentVisit?.location ?? '',
+    provider: p.mostRecentVisit?.attendingProvider ?? '',
     patientStatus: p.patientStatus,
     source: p.pointOfDiscovery ?? '',
     mostRecentVisitDate: p.mostRecentVisit?.date ? p.mostRecentVisit.date.slice(0, 10) : null,
