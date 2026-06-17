@@ -1201,6 +1201,13 @@
       "src": "src/ehr/generate-adhoc-report/index",
       "zip": ".dist/zips/generate-adhoc-report.zip"
     },
+    "ADHOC-ENCOUNTERS": {
+      "name": "adhoc-encounters",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/adhoc-encounters/index",
+      "zip": ".dist/zips/adhoc-encounters.zip"
+    },
     "SAVE-ADHOC-REPORT": {
       "name": "save-adhoc-report",
       "type": "http_auth",

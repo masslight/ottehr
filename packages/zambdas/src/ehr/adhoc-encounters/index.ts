@@ -1,0 +1,314 @@
+import { APIGatewayProxyResult } from 'aws-lambda';
+import {
+  Appointment,
+  Condition,
+  DocumentReference,
+  Encounter,
+  Location,
+  Patient,
+  Practitioner,
+  Procedure,
+  Resource,
+} from 'fhir/r4b';
+import { DateTime } from 'luxon';
+import {
+  AdHocEncounterRow,
+  AdHocEncountersOutput,
+  appointmentTypeForAppointment,
+  DOCUMENT_REFERENCE_SUMMARY_FROM_AUDIO,
+  DOCUMENT_REFERENCE_SUMMARY_FROM_CHAT,
+  getAddressForIndividual,
+  getAttendingPractitionerId,
+  getEmailForIndividual,
+  getEncounterVisitType,
+  getInPersonVisitStatus,
+  getPatientFirstName,
+  getPatientLastName,
+  getPhoneNumberForIndividual,
+  getVisitStatusHistory,
+  isInPersonAppointment,
+  isTelemedAppointment,
+  mapGenderToLabel,
+  OTTEHR_MODULE,
+  PATIENT_POINT_OF_DISCOVERY_URL,
+  SERVICE_CATEGORY_SYSTEM,
+} from 'utils';
+import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
+import { validateRequestParameters } from './validateRequestParameters';
+
+let m2mToken: string;
+
+const ZAMBDA_NAME = 'adhoc-encounters';
+
+const minutesBetween = (start?: string, end?: string): number | null => {
+  if (!start || !end) return null;
+  const m = Math.round(DateTime.fromISO(end).diff(DateTime.fromISO(start), 'minutes').minutes);
+  return Number.isFinite(m) ? m : null;
+};
+
+export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+  const { dateRange, includeCodes, includeTiming, includeAi, secrets } = validateRequestParameters(input);
+
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+  const oystehr = createOystehrClient(m2mToken, secrets);
+
+  type ReportResource =
+    | Appointment
+    | Encounter
+    | Patient
+    | Location
+    | Practitioner
+    | Condition
+    | Procedure
+    | DocumentReference;
+  let allResources: ReportResource[] = [];
+  let offset = 0;
+  const pageSize = 1000;
+
+  const baseSearchParams = [
+    { name: 'date', value: `ge${dateRange.start}` },
+    { name: 'date', value: `le${dateRange.end}` },
+    // Full set (incl. cancelled / no-show) so a report can include or exclude them explicitly.
+    { name: 'status', value: 'proposed,pending,booked,arrived,fulfilled,checked-in,waitlist,cancelled,noshow' },
+    { name: '_tag', value: `${OTTEHR_MODULE.TM},${OTTEHR_MODULE.IP}` },
+    { name: '_include', value: 'Appointment:patient' },
+    { name: '_include', value: 'Appointment:location' },
+    { name: '_revinclude', value: 'Encounter:appointment' },
+    { name: '_include:iterate', value: 'Encounter:participant:Practitioner' },
+    { name: '_revinclude:iterate', value: 'Encounter:part-of' },
+    { name: '_sort', value: 'date' },
+    { name: '_count', value: pageSize.toString() },
+  ];
+
+  if (includeCodes) {
+    baseSearchParams.push(
+      { name: '_include:iterate', value: 'Encounter:diagnosis' },
+      { name: '_revinclude:iterate', value: 'Procedure:encounter' }
+    );
+  }
+  if (includeAi) {
+    baseSearchParams.push({ name: '_revinclude:iterate', value: 'DocumentReference:encounter' });
+  }
+
+  let searchBundle = await oystehr.fhir.search<ReportResource>({
+    resourceType: 'Appointment',
+    params: [...baseSearchParams, { name: '_offset', value: offset.toString() }],
+  });
+  allResources = allResources.concat(searchBundle.unbundle());
+
+  let pageCount = 1;
+  while (searchBundle.link?.find((link) => link.relation === 'next')) {
+    offset += pageSize;
+    pageCount++;
+    if (pageCount > 100) {
+      console.warn('Reached maximum pagination limit (100 pages). Stopping search.');
+      break;
+    }
+    searchBundle = await oystehr.fhir.search<ReportResource>({
+      resourceType: 'Appointment',
+      params: [...baseSearchParams, { name: '_offset', value: offset.toString() }],
+    });
+    allResources = allResources.concat(searchBundle.unbundle());
+  }
+
+  const encounters = allResources.filter((r): r is Encounter => r.resourceType === 'Encounter');
+  const appointmentMap = new Map<string, Appointment>();
+  const patientMap = new Map<string, Patient>();
+  const locationMap = new Map<string, Location>();
+  const practitionerMap = new Map<string, Practitioner>();
+  const conditionById = new Map<string, Condition>();
+  const proceduresByEncounterId = new Map<string, Procedure[]>();
+  const docRefsByEncounterId = new Map<string, DocumentReference[]>();
+  const encounterById = new Map<string, Encounter>();
+
+  for (const r of allResources) {
+    switch (r.resourceType) {
+      case 'Appointment':
+        if (r.id) appointmentMap.set(`Appointment/${r.id}`, r);
+        break;
+      case 'Patient':
+        if (r.id) patientMap.set(`Patient/${r.id}`, r);
+        break;
+      case 'Location':
+        if (r.id) locationMap.set(`Location/${r.id}`, r);
+        break;
+      case 'Practitioner':
+        if (r.id) practitionerMap.set(r.id, r);
+        break;
+      case 'Encounter':
+        if (r.id) encounterById.set(r.id, r);
+        break;
+      case 'Condition':
+        if (includeCodes && r.id) conditionById.set(r.id, r);
+        break;
+      case 'Procedure': {
+        if (!includeCodes) break;
+        const encId = r.encounter?.reference?.replace('Encounter/', '');
+        if (encId) proceduresByEncounterId.set(encId, [...(proceduresByEncounterId.get(encId) ?? []), r]);
+        break;
+      }
+      case 'DocumentReference': {
+        if (!includeAi) break;
+        const encId = r.context?.encounter?.[0]?.reference?.replace('Encounter/', '');
+        if (encId) docRefsByEncounterId.set(encId, [...(docRefsByEncounterId.get(encId) ?? []), r]);
+        break;
+      }
+    }
+  }
+
+  const hasChartTag = (resource: Resource, code: string): boolean =>
+    Boolean(resource.meta?.tag?.some((tag) => tag.code === code));
+
+  const resolveAppointment = (encounter: Encounter): Appointment | undefined => {
+    const ownRef = encounter.appointment?.[0]?.reference;
+    const own = ownRef ? appointmentMap.get(ownRef) : undefined;
+    if (own) return own;
+    const parentId = encounter.partOf?.reference?.replace('Encounter/', '');
+    const parentRef = parentId ? encounterById.get(parentId)?.appointment?.[0]?.reference : undefined;
+    return parentRef ? appointmentMap.get(parentRef) : undefined;
+  };
+
+  const rows: AdHocEncounterRow[] = [];
+  for (const encounter of encounters) {
+    const appointment = resolveAppointment(encounter);
+    if (!appointment) continue;
+
+    const encounterType = getEncounterVisitType(encounter) ?? 'main';
+    const isFollowUpRow = encounterType === 'follow-up' || encounterType === 'scheduled-follow-up';
+    const parentEncounter = encounter.partOf?.reference
+      ? encounterById.get(encounter.partOf.reference.replace('Encounter/', ''))
+      : undefined;
+    const patientRef = encounter.subject?.reference ?? parentEncounter?.subject?.reference;
+    const patient = patientRef ? patientMap.get(patientRef) : undefined;
+
+    const locationRef = appointment.participant?.find((p) => p.actor?.reference?.startsWith('Location/'))?.actor
+      ?.reference;
+    const location = locationRef ? locationMap.get(locationRef) : undefined;
+
+    const attendingId = getAttendingPractitionerId(encounter);
+    const attendingPractitioner = attendingId ? practitionerMap.get(attendingId) : undefined;
+    const attendingProvider = attendingPractitioner
+      ? `${attendingPractitioner.name?.[0]?.given?.[0] || ''} ${attendingPractitioner.name?.[0]?.family || ''}`.trim()
+      : 'Unknown';
+
+    const visitType = isTelemedAppointment(appointment)
+      ? 'Telemed'
+      : isInPersonAppointment(appointment)
+      ? 'In-Person'
+      : 'Unknown';
+
+    const visitStatus = isFollowUpRow
+      ? encounter.status === 'finished'
+        ? 'completed'
+        : encounter.status
+      : getInPersonVisitStatus(appointment, encounter, true);
+
+    const svcCoding = (appointment.serviceCategory ?? [])
+      .flatMap((sc) => sc.coding ?? [])
+      .find((c) => c.system === SERVICE_CATEGORY_SYSTEM);
+    const serviceCategory = svcCoding?.display || svcCoding?.code || '';
+
+    const address = patient ? getAddressForIndividual(patient) : undefined;
+    const start = (isFollowUpRow ? encounter.period?.start : appointment.start) || '';
+
+    const row: AdHocEncounterRow = {
+      appointmentId: appointment.id || '',
+      encounterId: encounter.id,
+      date: start ? DateTime.fromISO(start).toFormat('yyyy-MM-dd') : '',
+      visitType,
+      appointmentType: appointmentTypeForAppointment(appointment),
+      serviceCategory,
+      visitStatus,
+      encounterType,
+      reason: encounter.reasonCode?.[0]?.text || appointment.appointmentType?.text || '',
+      scheduledSlotMinutes: minutesBetween(appointment.start, appointment.end),
+      patientId: patient?.id || '',
+      firstName: patient ? getPatientFirstName(patient) || '' : '',
+      lastName: patient ? getPatientLastName(patient) || '' : '',
+      patientName: patient ? `${getPatientFirstName(patient)} ${getPatientLastName(patient)}`.trim() : '',
+      dateOfBirth: patient?.birthDate || null,
+      sex: patient?.gender ? mapGenderToLabel[patient.gender] ?? '' : '',
+      city: address?.city || '',
+      state: address?.state || '',
+      zip: address?.postalCode || '',
+      phone: (patient ? getPhoneNumberForIndividual(patient) : '') || '',
+      email: (patient ? getEmailForIndividual(patient) : '') || '',
+      source: patient?.extension?.find((e) => e.url === PATIENT_POINT_OF_DISCOVERY_URL)?.valueString || '',
+      location: location?.name || 'Unknown',
+      locationId: locationRef ? locationRef.replace('Location/', '') : undefined,
+      attendingProvider,
+      attendingProviderId: attendingId,
+    };
+
+    if (includeCodes) {
+      const icdCodes: string[] = [];
+      const dxEntries = [...(encounter.diagnosis ?? [])].sort((a, b) => (a.rank ?? 99) - (b.rank ?? 99));
+      for (const dx of dxEntries) {
+        const conditionId = dx.condition?.reference?.replace('Condition/', '');
+        const condition = conditionId ? conditionById.get(conditionId) : undefined;
+        const codings = condition?.code?.coding ?? [];
+        const code = codings.find((c) => c.system?.toLowerCase().includes('icd-10'))?.code ?? codings[0]?.code;
+        if (code && !icdCodes.includes(code)) icdCodes.push(code);
+      }
+      const cptCodes: string[] = [];
+      let emCode: string | undefined;
+      for (const procedure of encounter.id ? proceduresByEncounterId.get(encounter.id) ?? [] : []) {
+        const code = procedure.code?.coding?.[0]?.code;
+        if (!code) continue;
+        if (hasChartTag(procedure, 'em-code')) emCode = emCode ?? code;
+        else if (hasChartTag(procedure, 'cpt-code') && !cptCodes.includes(code)) cptCodes.push(code);
+      }
+      row.icdCodes = icdCodes;
+      row.primaryIcd = icdCodes[0];
+      row.cptCodes = cptCodes;
+      row.emCode = emCode;
+    }
+
+    if (includeTiming) {
+      const history = getVisitStatusHistory(encounter);
+      const firstStart = (status: string): string | undefined =>
+        history.find((e) => e.status === status)?.period?.start;
+      const arrived = firstStart('arrived') ?? firstStart('ready');
+      const intake = firstStart('intake');
+      const provider = firstStart('provider');
+      const discharged = firstStart('discharged') ?? firstStart('completed') ?? encounter.period?.end;
+
+      let timeWithProviderMinutes: number | null = null;
+      for (const entry of history) {
+        if (entry.status !== 'provider' || !entry.period.start || !entry.period.end) continue;
+        const mins = minutesBetween(entry.period.start, entry.period.end);
+        if (mins != null && mins >= 0) timeWithProviderMinutes = (timeWithProviderMinutes ?? 0) + mins;
+      }
+      row.timeWithProviderMinutes = timeWithProviderMinutes;
+      row.arrivedToProviderMinutes = minutesBetween(arrived, provider);
+      row.arrivedToIntakeMinutes = minutesBetween(arrived, intake);
+      row.intakeToProviderMinutes = minutesBetween(intake, provider);
+      row.providerToDischargedMinutes = minutesBetween(provider, discharged);
+      row.totalCycleMinutes = minutesBetween(arrived, discharged);
+      // On-time only meaningful for pre-booked visits: arrived at/ before the scheduled start.
+      row.onTime =
+        appointmentTypeForAppointment(appointment) === 'pre-booked' && arrived && appointment.start
+          ? DateTime.fromISO(arrived) <= DateTime.fromISO(appointment.start)
+          : null;
+    }
+
+    if (includeAi) {
+      const descriptions = (encounter.id ? docRefsByEncounterId.get(encounter.id) ?? [] : []).map((d) => d.description);
+      const hasAudio = descriptions.includes(DOCUMENT_REFERENCE_SUMMARY_FROM_AUDIO);
+      const hasChat = descriptions.includes(DOCUMENT_REFERENCE_SUMMARY_FROM_CHAT);
+      row.aiType =
+        hasAudio && hasChat
+          ? 'ambient scribe & patient HPI chatbot'
+          : hasAudio
+          ? 'ambient scribe'
+          : hasChat
+          ? 'patient HPI chatbot'
+          : '';
+    }
+
+    rows.push(row);
+  }
+
+  const output: AdHocEncountersOutput = { encounters: rows };
+  return { statusCode: 200, body: JSON.stringify(output) };
+});

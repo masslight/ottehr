@@ -34,20 +34,34 @@ export interface DatasetSchema {
 export interface FetchContext {
   oystehrZambda: Oystehr;
   dateRange: { start: string; end: string };
+  /** Selected opt-in layers, keyed by AdHocDatasetOption.id. Empty/absent for datasets without options. */
+  options?: Record<string, boolean>;
+}
+
+/** An opt-in data layer a dataset can fetch (rendered as a checkbox on the ad-hoc page). Lets a
+ *  report be lighter or heavier — e.g. include clinical codes / KPI timing only when needed. */
+export interface AdHocDatasetOption {
+  id: string;
+  label: string;
+  description?: string;
+  default?: boolean;
 }
 
 /**
- * A selectable ad-hoc data source. v1 ships one (Encounters); future sources just register another
- * entry with their own fetch + schema, and the rest of the pipeline (LLM + iframe) is unchanged.
+ * A selectable ad-hoc data source. Future sources just register another entry with their own fetch +
+ * schema, and the rest of the pipeline (LLM + iframe) is unchanged.
  */
 export interface AdHocDataset {
   id: string;
   label: string;
   description: string;
+  /** Optional opt-in layers shown as checkboxes; the selected set is passed to fetch + buildSchema. */
+  options?: AdHocDatasetOption[];
   /** Fetch the raw rows for the date range (rows stay client-side; never sent to the LLM). */
   fetch: (ctx: FetchContext) => Promise<AdHocRow[]>;
-  /** Derive the schema descriptor (column metadata + value domains) from the fetched rows. */
-  buildSchema: (rows: AdHocRow[]) => DatasetSchema;
+  /** Derive the schema descriptor (column metadata + value domains) from the fetched rows. The active
+   *  options control which fields are described. */
+  buildSchema: (rows: AdHocRow[], options?: Record<string, boolean>) => DatasetSchema;
 }
 
 /** One serialized cell of a table the report rendered, lifted out of the sandboxed iframe. `href` is

@@ -4,6 +4,7 @@ import SaveIcon from '@mui/icons-material/Save';
 import {
   Box,
   Button,
+  Checkbox,
   CircularProgress,
   Collapse,
   Dialog,
@@ -11,6 +12,8 @@ import {
   DialogContent,
   DialogTitle,
   FormControl,
+  FormControlLabel,
+  FormGroup,
   IconButton,
   InputLabel,
   MenuItem,
@@ -78,6 +81,15 @@ function rangeFromControls(
   }
 }
 
+// The checkbox state a dataset starts with — each option's `default`, keyed by option id.
+function defaultOptionsFor(datasetId: string): Record<string, boolean> {
+  const out: Record<string, boolean> = {};
+  (getDataset(datasetId)?.options ?? []).forEach((opt) => {
+    out[opt.id] = !!opt.default;
+  });
+  return out;
+}
+
 export default function AdHocReport(): React.ReactElement {
   const navigate = useNavigate();
   const { oystehrZambda } = useApiClients();
@@ -99,6 +111,12 @@ export default function AdHocReport(): React.ReactElement {
   );
   const [customEndDate, setCustomEndDate] = useState<string>(
     criteria?.customEndDate ?? DateTime.now().toFormat('yyyy-MM-dd')
+  );
+
+  // Dataset opt-in layers (checkboxes). Seeded from the criteria's saved options, else the dataset's
+  // defaults. Reset whenever the dataset changes.
+  const [datasetOptions, setDatasetOptions] = useState<Record<string, boolean>>(
+    () => criteria?.options ?? defaultOptionsFor(criteria?.datasetId ?? AD_HOC_DATASETS[0]?.id ?? 'encounters')
   );
 
   const [rows, setRows] = useState<AdHocRow[] | null>(null);
@@ -146,15 +164,15 @@ export default function AdHocReport(): React.ReactElement {
     setSchema(null);
     try {
       const range = getDateRangeIso(dateRange);
-      const fetched = await dataset.fetch({ oystehrZambda, dateRange: range });
+      const fetched = await dataset.fetch({ oystehrZambda, dateRange: range, options: datasetOptions });
       setRows(fetched);
-      setSchema(dataset.buildSchema(fetched));
+      setSchema(dataset.buildSchema(fetched, datasetOptions));
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to fetch data');
     } finally {
       setLoading(false);
     }
-  }, [oystehrZambda, datasetId, dateRange, getDateRangeIso]);
+  }, [oystehrZambda, datasetId, dateRange, getDateRangeIso, datasetOptions]);
 
   // "Customize" hand-off: dataset + range are pre-set from the criteria, so fetch immediately. The
   // controls stay visible, so the user can change the range and re-fetch. Skipped when opening a
@@ -266,6 +284,8 @@ export default function AdHocReport(): React.ReactElement {
         setRequest(saved.request);
         setLoadedSavedId(saved.id);
         setSavedName(saved.name);
+        const savedOptions = saved.criteria.options ?? defaultOptionsFor(saved.datasetId);
+        setDatasetOptions(savedOptions);
 
         const dataset = getDataset(saved.datasetId);
         if (!dataset) {
@@ -278,9 +298,9 @@ export default function AdHocReport(): React.ReactElement {
           saved.criteria.customStartDate ?? customStartDate,
           saved.criteria.customEndDate ?? customEndDate
         );
-        const fetched = await dataset.fetch({ oystehrZambda, dateRange: range });
+        const fetched = await dataset.fetch({ oystehrZambda, dateRange: range, options: savedOptions });
         setRows(fetched);
-        setSchema(dataset.buildSchema(fetched));
+        setSchema(dataset.buildSchema(fetched, savedOptions));
         setGeneratedCode(saved.code);
         setGeneratedTitle(saved.title);
         const conv: AdHocReportTurn[] = [
@@ -303,12 +323,22 @@ export default function AdHocReport(): React.ReactElement {
     (name: string): SavedAdHocReportDefinition => ({
       name: name.trim(),
       datasetId,
-      criteria: { dateRange, customDate, customStartDate, customEndDate },
+      criteria: { dateRange, customDate, customStartDate, customEndDate, options: datasetOptions },
       request,
       code: generatedCode ?? '',
       title: generatedTitle,
     }),
-    [datasetId, dateRange, customDate, customStartDate, customEndDate, request, generatedCode, generatedTitle]
+    [
+      datasetId,
+      dateRange,
+      customDate,
+      customStartDate,
+      customEndDate,
+      datasetOptions,
+      request,
+      generatedCode,
+      generatedTitle,
+    ]
   );
 
   // mode 'update' overwrites the saved report this screen was opened from; 'new' always creates one.
@@ -375,7 +405,10 @@ export default function AdHocReport(): React.ReactElement {
               <Select
                 value={datasetId}
                 label="Dataset"
-                onChange={(e: SelectChangeEvent) => setDatasetId(e.target.value)}
+                onChange={(e: SelectChangeEvent) => {
+                  setDatasetId(e.target.value);
+                  setDatasetOptions(defaultOptionsFor(e.target.value));
+                }}
               >
                 {AD_HOC_DATASETS.map((d) => (
                   <MenuItem key={d.id} value={d.id}>
@@ -438,6 +471,34 @@ export default function AdHocReport(): React.ReactElement {
               {loading ? <CircularProgress size={20} /> : 'Fetch data'}
             </Button>
           </Box>
+
+          {/* Opt-in data layers for datasets that declare them — fewer = lighter/faster fetch. */}
+          {(getDataset(datasetId)?.options?.length ?? 0) > 0 && (
+            <Box sx={{ mb: 3 }}>
+              <Typography variant="caption" color="text.secondary">
+                Include extra data (heavier fetch):
+              </Typography>
+              <FormGroup row>
+                {getDataset(datasetId)?.options?.map((opt) => (
+                  <FormControlLabel
+                    key={opt.id}
+                    control={
+                      <Checkbox
+                        size="small"
+                        checked={!!datasetOptions[opt.id]}
+                        onChange={(e) => setDatasetOptions((prev) => ({ ...prev, [opt.id]: e.target.checked }))}
+                      />
+                    }
+                    label={
+                      <Typography variant="body2" title={opt.description}>
+                        {opt.label}
+                      </Typography>
+                    }
+                  />
+                ))}
+              </FormGroup>
+            </Box>
+          )}
 
           {error && (
             <Box sx={{ mb: 2, p: 2, bgcolor: 'error.light', borderRadius: 1 }}>

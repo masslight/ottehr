@@ -17,6 +17,8 @@ export interface AdHocCriteria {
   customDate?: string;
   customStartDate?: string;
   customEndDate?: string;
+  /** Selected dataset opt-in layers (checkbox state), keyed by option id. */
+  options?: Record<string, boolean>;
   /** Short provenance for the banner, e.g. "Recent Patients · Last 7 days". */
   sourceLabel?: string;
 }

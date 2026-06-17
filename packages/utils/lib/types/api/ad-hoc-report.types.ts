@@ -39,6 +39,8 @@ export interface SavedAdHocReportCriteria {
   customDate?: string;
   customStartDate?: string;
   customEndDate?: string;
+  /** Selected dataset opt-in layers (checkbox state), keyed by option id. */
+  options?: Record<string, boolean>;
 }
 
 /** Everything needed to reconstruct a rendered ad-hoc report — no data. */

@@ -1,6 +1,8 @@
 import Oystehr, { User } from '@oystehr/sdk';
 import { Medication, PractitionerRole, Schedule, Slot } from 'fhir/r4b';
 import {
+  AdHocEncountersInput,
+  AdHocEncountersOutput,
   AdminAddInHouseLabInput,
   AdminAddInHouseLabOutput,
   AdminAddLabSetInput,
@@ -254,6 +256,7 @@ const SUBMIT_LAB_ORDER_ZAMBDA_ID = 'submit-lab-order';
 const GET_APPOINTMENTS_ZAMBDA_ID = 'get-appointments';
 const ENCOUNTERS_REPORT_ZAMBDA_ID = 'incomplete-encounters-report';
 const GENERATE_ADHOC_REPORT_ZAMBDA_ID = 'generate-adhoc-report';
+const ADHOC_ENCOUNTERS_ZAMBDA_ID = 'adhoc-encounters';
 const SAVE_ADHOC_REPORT_ZAMBDA_ID = 'save-adhoc-report';
 const LIST_ADHOC_REPORTS_ZAMBDA_ID = 'list-adhoc-reports';
 const DELETE_ADHOC_REPORT_ZAMBDA_ID = 'delete-adhoc-report';
@@ -465,6 +468,22 @@ export const generateAdHocReport = async (
   try {
     const response = await oystehr.zambda.execute({
       id: GENERATE_ADHOC_REPORT_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const getAdHocEncounters = async (
+  oystehr: Oystehr,
+  parameters: AdHocEncountersInput
+): Promise<AdHocEncountersOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: ADHOC_ENCOUNTERS_ZAMBDA_ID,
       ...parameters,
     });
     return chooseJson(response);
