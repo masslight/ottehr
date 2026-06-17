@@ -13,6 +13,13 @@ vi.mock('browser-image-compression', () => ({
   default: vi.fn(async (file: File) => file),
 }));
 
+// heic-to lazily loads libheif and parses the file buffer to detect HEIC.
+// Bypass it in tests so waitFor isn't racing the dynamic import under CI load.
+vi.mock('heic-to', () => ({
+  isHeic: vi.fn(async () => false),
+  heicTo: vi.fn(),
+}));
+
 vi.mock('../../src/hooks/useUCZambdaClient', () => ({
   useUCZambdaClient: () => null,
 }));
