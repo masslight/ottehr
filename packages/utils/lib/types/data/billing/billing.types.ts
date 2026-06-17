@@ -49,6 +49,7 @@ export interface ServiceFacilityItem {
   npi: string;
   clia: string;
   posCode: string;
+  timezone: string;
   status: 'active' | 'inactive';
 }
 

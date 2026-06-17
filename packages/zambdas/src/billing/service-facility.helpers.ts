@@ -6,6 +6,7 @@ import {
   getNPI,
   SaveServiceFacilityInput,
   ServiceFacilityItem,
+  TIMEZONE_EXTENSION_URL,
 } from 'utils';
 
 export function getCLIA(location: Location): string | undefined {
@@ -14,6 +15,10 @@ export function getCLIA(location: Location): string | undefined {
 
 export function getPlaceOfServiceCode(location: Location): string | undefined {
   return location.extension?.find((ext) => ext.url === CODE_SYSTEM_CMS_PLACE_OF_SERVICE)?.valueString;
+}
+
+export function getServiceFacilityTimezone(location: Location): string | undefined {
+  return location.extension?.find((ext) => ext.url === TIMEZONE_EXTENSION_URL)?.valueString;
 }
 
 // FHIR Location -> the flat shape the billing UI consumes.
@@ -32,6 +37,7 @@ export function mapServiceFacility(location: Location): ServiceFacilityItem {
     npi: getNPI(location) ?? '',
     clia: getCLIA(location) ?? '',
     posCode: getPlaceOfServiceCode(location) ?? '',
+    timezone: getServiceFacilityTimezone(location) ?? '',
     status: location.status === 'inactive' ? 'inactive' : 'active',
   };
 }
@@ -67,6 +73,9 @@ export function applyServiceFacilityInput(params: SaveServiceFacilityInput, exis
   }
   if (params.posCode !== undefined) {
     location.extension = setExtension(location.extension, CODE_SYSTEM_CMS_PLACE_OF_SERVICE, params.posCode);
+  }
+  if (params.timezone !== undefined) {
+    location.extension = setExtension(location.extension, TIMEZONE_EXTENSION_URL, params.timezone);
   }
 
   return location;

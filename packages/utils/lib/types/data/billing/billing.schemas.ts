@@ -3,6 +3,7 @@ import { isCLIAValid, isNPIValidWithChecksum } from '../../../helpers/helpers';
 import { CMS_PLACE_OF_SERVICE_CODE_SET, CODE_SYSTEM_CLAIM_TYPE_CODE_NAMES } from '../../../helpers/rcm/constants';
 import { npiRegex, taxIdRegex, zipRegex } from '../../../validation';
 import { STATE_CODES } from '../../common';
+import { TIMEZONES } from '../../constants';
 
 const nonEmptyString = z.string().trim().min(1);
 const nonNegativeInt = z.number().int().nonnegative();
@@ -154,6 +155,11 @@ export const SaveServiceFacilityInputSchema = z.object({
   posCode: z
     .string()
     .refine((code) => CMS_PLACE_OF_SERVICE_CODE_SET.has(code), 'Unknown place of service code')
+    .nullable()
+    .optional(),
+  timezone: z
+    .string()
+    .refine((tz) => TIMEZONES.includes(tz), 'Unknown timezone')
     .nullable()
     .optional(),
 });

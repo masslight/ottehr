@@ -254,6 +254,7 @@ export function ServiceFacilityDetail(): ReactElement {
         <DetailRow label="NPI" value={facility.npi} />
         <DetailRow label="CLIA Number" value={facility.clia} />
         <DetailRow label="Place of Service" value={placeOfServiceLabel(facility.posCode)} />
+        <DetailRow label="Time Zone" value={facility.timezone} />
         <DetailRow label="Address" value={formatFacilityAddress(facility)} />
       </Box>
     </Box>

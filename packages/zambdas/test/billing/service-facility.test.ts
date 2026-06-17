@@ -4,6 +4,7 @@ import {
   FHIR_IDENTIFIER_CLIA,
   FHIR_IDENTIFIER_NPI,
   SaveServiceFacilityInput,
+  TIMEZONE_EXTENSION_URL,
 } from 'utils';
 import { describe, expect, it } from 'vitest';
 import { validateRequestParameters } from '../../src/billing/save-billing-service-facility/validateRequestParameters';
@@ -29,6 +30,7 @@ const validPayload: SaveServiceFacilityInput = {
   npi: '1234567893',
   clia: '05D1234567',
   posCode: '11',
+  timezone: 'America/New_York',
 };
 
 describe('save-billing-service-facility validateRequestParameters', () => {
@@ -106,6 +108,17 @@ describe('save-billing-service-facility validateRequestParameters', () => {
     ).toThrow(/state/i);
   });
 
+  it('rejects an unknown timezone', () => {
+    expect(() =>
+      validateRequestParameters(
+        makeInput({
+          ...validPayload,
+          timezone: 'Mars/Olympus_Mons',
+        })
+      )
+    ).toThrow(/timezone/i);
+  });
+
   it('rejects a missing name', () => {
     const { name: _name, ...rest } = validPayload;
     expect(() => validateRequestParameters(makeInput(rest))).toThrow();
@@ -141,6 +154,10 @@ describe('applyServiceFacilityInput', () => {
     expect(location.extension).toContainEqual({
       url: CODE_SYSTEM_CMS_PLACE_OF_SERVICE,
       valueString: '11',
+    });
+    expect(location.extension).toContainEqual({
+      url: TIMEZONE_EXTENSION_URL,
+      valueString: 'America/New_York',
     });
   });
 
@@ -232,6 +249,7 @@ describe('applyServiceFacilityInput', () => {
         npi: null,
         clia: null,
         posCode: null,
+        timezone: null,
       },
       existing
     );
@@ -351,6 +369,10 @@ describe('mapServiceFacility', () => {
           url: CODE_SYSTEM_CMS_PLACE_OF_SERVICE,
           valueString: '11',
         },
+        {
+          url: TIMEZONE_EXTENSION_URL,
+          valueString: 'America/New_York',
+        },
       ],
     };
     expect(mapServiceFacility(location)).toEqual({
@@ -365,6 +387,7 @@ describe('mapServiceFacility', () => {
       npi: '1234567893',
       clia: '05D1234567',
       posCode: '11',
+      timezone: 'America/New_York',
       status: 'active',
     });
   });
