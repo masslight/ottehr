@@ -18,12 +18,20 @@ import {
   BillingLocationOption,
   BillingPatientOption,
   BillingProviderOption,
-  chooseJson,
   ClaimStatusFieldKey,
   ClaimStatusValues,
+  CreateBillingClaimInput,
   emptyClaimStatusValues,
+  getApiError,
   withArStageInitialization,
 } from 'utils';
+import {
+  createBillingClaim,
+  getPatientCoverages,
+  searchBillingLocations,
+  searchBillingPatients,
+  searchBillingProviders as searchBillingProvidersApi,
+} from '../api/api';
 import { ClaimStatusFields } from '../components/claim/ClaimStatusFields';
 import { useApiClients } from '../hooks/useAppClients';
 
@@ -103,11 +111,8 @@ export default function CreateClaim(): ReactElement {
   const searchPatients = useCallback(
     async (query?: string): Promise<void> => {
       if (!oystehrZambda) return;
-      const res = await oystehrZambda.zambda.execute({
-        id: 'search-billing-patients',
-        ...(query ? { name: query } : {}),
-      });
-      setPatients(chooseJson(res).patients ?? []);
+      const res = await searchBillingPatients(oystehrZambda, query ? { name: query } : {});
+      setPatients(res.patients ?? []);
     },
     [oystehrZambda]
   );
@@ -115,8 +120,8 @@ export default function CreateClaim(): ReactElement {
   const fetchCoverages = useCallback(
     async (patientId: string): Promise<void> => {
       if (!oystehrZambda) return;
-      const res = await oystehrZambda.zambda.execute({ id: 'get-patient-coverages', patientId });
-      setCoverages(chooseJson(res).coverages ?? []);
+      const res = await getPatientCoverages(oystehrZambda, { patientId });
+      setCoverages(res.coverages ?? []);
     },
     [oystehrZambda]
   );
@@ -126,12 +131,11 @@ export default function CreateClaim(): ReactElement {
       if (!oystehrZambda) return;
       if (renderingTimer.current) clearTimeout(renderingTimer.current);
       renderingTimer.current = setTimeout(async () => {
-        const res = await oystehrZambda.zambda.execute({
-          id: 'search-billing-providers',
+        const res = await searchBillingProvidersApi(oystehrZambda, {
           providerType: 'rendering',
           ...(query ? { name: query } : {}),
         });
-        setRenderingProviders(chooseJson(res).providers ?? []);
+        setRenderingProviders(res.providers ?? []);
       }, 300);
     },
     [oystehrZambda]
@@ -142,11 +146,8 @@ export default function CreateClaim(): ReactElement {
       if (!oystehrZambda) return;
       if (locTimer.current) clearTimeout(locTimer.current);
       locTimer.current = setTimeout(async () => {
-        const res = await oystehrZambda.zambda.execute({
-          id: 'search-billing-locations',
-          ...(query ? { name: query } : {}),
-        });
-        setLocations(chooseJson(res).locations ?? []);
+        const res = await searchBillingLocations(oystehrZambda, query ? { name: query } : {});
+        setLocations(res.locations ?? []);
       }, 300);
     },
     [oystehrZambda]
@@ -157,12 +158,11 @@ export default function CreateClaim(): ReactElement {
       if (!oystehrZambda) return;
       if (billingTimer.current) clearTimeout(billingTimer.current);
       billingTimer.current = setTimeout(async () => {
-        const res = await oystehrZambda.zambda.execute({
-          id: 'search-billing-providers',
+        const res = await searchBillingProvidersApi(oystehrZambda, {
           providerType: 'billing',
           ...(query ? { name: query } : {}),
         });
-        setBillingProviders(chooseJson(res).providers ?? []);
+        setBillingProviders(res.providers ?? []);
       }, 300);
     },
     [oystehrZambda]
@@ -211,6 +211,10 @@ export default function CreateClaim(): ReactElement {
 
   const handleSave = async (): Promise<void> => {
     if (!oystehrZambda || !selectedPatient || !dateOfService || !statuses.arStage) return;
+    if (!selectedPatient.id) {
+      setError('Selected patient is missing an id');
+      return;
+    }
     setSaving(true);
     setError(null);
     try {
@@ -288,11 +292,10 @@ export default function CreateClaim(): ReactElement {
       const statusEntries = Object.entries(statuses).filter(([, v]) => v);
       if (statusEntries.length) payload.statuses = Object.fromEntries(statusEntries);
 
-      const res = await oystehrZambda.zambda.execute({ id: 'create-billing-claim', ...payload });
-      const data = chooseJson(res);
-      if (data?.claimId) navigate(`/claims/${data.claimId}`);
+      const data = await createBillingClaim(oystehrZambda, payload as CreateBillingClaimInput);
+      if (data.claimId) navigate(`/claims/${data.claimId}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(getApiError({ error: err, defaultError: 'Failed to create claim' }));
     } finally {
       setSaving(false);
     }

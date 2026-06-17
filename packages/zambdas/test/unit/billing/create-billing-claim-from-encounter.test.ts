@@ -44,8 +44,8 @@ import {
   copyCoverageAndSubscriberForAccount,
   getClaimCoveragesForEncounter,
   performEffect,
-  validateRequestParameters,
 } from '../../../src/billing/create-billing-claim-from-encounter/handler';
+import { validateRequestParameters } from '../../../src/billing/create-billing-claim-from-encounter/validateRequestParameters';
 import {
   AUTO_ACCIDENT_TAG_DESCRIPTION,
   AUTO_ACCIDENT_TAG_NAME,
@@ -300,12 +300,12 @@ describe('create-billing-claim-from-encounter', () => {
     });
     it('throws validation error on non-json body', async () => {
       expect(() => validateRequestParameters({ headers: null, body: 'some text', secrets: {} })).toThrow(
-        expect.objectContaining(INVALID_INPUT_ERROR('Request body is not valid JSON'))
+        expect.objectContaining(INVALID_INPUT_ERROR('Invalid JSON in request body'))
       );
     });
     it('throws validation error on missing encounter id', async () => {
       expect(() => validateRequestParameters({ headers: null, body: '{}', secrets: {} })).toThrow(
-        expect.objectContaining(INVALID_INPUT_ERROR('encounterId: Required'))
+        expect.objectContaining(INVALID_INPUT_ERROR('Validation error: Required at "encounterId"'))
       );
     });
     it('succeeds', async () => {

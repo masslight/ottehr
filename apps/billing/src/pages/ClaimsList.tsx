@@ -20,13 +20,15 @@ import {
   BillingClaimItem,
   BillingPatientOption,
   BillingPayerOption,
-  chooseJson,
   CLAIM_STATUS_FIELDS,
   CLAIM_STATUS_FIELDS_BY_KEY,
   CODE_SYSTEM_APPOINTMENT_TYPE_CODES,
   CODE_SYSTEM_CLAIM_TYPE_CODES,
   formatClaimStatusValue,
+  getApiError,
+  SearchBillingClaimsInput,
 } from 'utils';
+import { searchBillingClaims, searchBillingPatients, searchBillingPayers, searchBillingTags } from '../api/api';
 import { dataGridSlots, dataGridSx } from '../components/BillingDataGrid';
 import { claimStatusValueColor, formatAntCaseString } from '../constants/claimStatus';
 import { useApiClients } from '../hooks/useAppClients';
@@ -40,8 +42,8 @@ interface Filters {
   createdTo?: string;
   payerId?: string;
   patientId?: string;
-  type?: string;
-  appointmentType?: string;
+  type?: keyof typeof CODE_SYSTEM_CLAIM_TYPE_CODES | '';
+  appointmentType?: keyof typeof CODE_SYSTEM_APPOINTMENT_TYPE_CODES | '';
 }
 
 const currencyCol = (field: string, headerName: string, width: number): GridColDef => ({
@@ -147,26 +149,25 @@ export default function ClaimsList(): ReactElement {
       setLoading(true);
       setError(null);
       try {
-        const body: Record<string, unknown> = {
+        const params: SearchBillingClaimsInput = {
           pageSize: pagination.pageSize,
           offset: pagination.page * pagination.pageSize,
         };
-        if (filters.searchText) body.searchText = filters.searchText;
-        if (filters.arStage) body.arStage = filters.arStage;
-        if (filters.tag) body.tag = filters.tag;
-        if (filters.createdFrom) body.createdFrom = filters.createdFrom;
-        if (filters.createdTo) body.createdTo = filters.createdTo;
-        if (filters.payerId) body.payerId = filters.payerId;
-        if (filters.patientId) body.patientId = filters.patientId;
-        if (filters.type) body.type = filters.type;
-        if (filters.appointmentType) body.appointmentType = filters.appointmentType;
+        if (filters.searchText) params.searchText = filters.searchText;
+        if (filters.arStage) params.arStage = filters.arStage;
+        if (filters.tag) params.tag = filters.tag;
+        if (filters.createdFrom) params.createdFrom = filters.createdFrom;
+        if (filters.createdTo) params.createdTo = filters.createdTo;
+        if (filters.payerId) params.payerId = filters.payerId;
+        if (filters.patientId) params.patientId = filters.patientId;
+        if (filters.type) params.type = filters.type;
+        if (filters.appointmentType) params.appointmentType = filters.appointmentType;
 
-        const response = await oystehrZambda.zambda.execute({ id: 'search-billing-claims', ...body });
-        const data = chooseJson(response);
+        const data = await searchBillingClaims(oystehrZambda, params);
         setClaims(data.claims ?? []);
         setTotalRows(data.total ?? 0);
       } catch (err) {
-        setError(err instanceof Error ? err.message : String(err));
+        setError(getApiError({ error: err, defaultError: 'Failed to load claims' }));
         setClaims([]);
         setTotalRows(0);
       } finally {
@@ -181,11 +182,8 @@ export default function ClaimsList(): ReactElement {
       if (!oystehrZambda) return;
       if (payerDebounce.current) clearTimeout(payerDebounce.current);
       payerDebounce.current = setTimeout(async () => {
-        const res = await oystehrZambda.zambda.execute({
-          id: 'search-billing-payers',
-          ...(query ? { name: query } : {}),
-        });
-        setPayerOptions(chooseJson(res).payers ?? []);
+        const res = await searchBillingPayers(oystehrZambda, query ? { name: query } : {});
+        setPayerOptions(res.payers ?? []);
       }, 300);
     },
     [oystehrZambda]
@@ -196,11 +194,8 @@ export default function ClaimsList(): ReactElement {
       if (!oystehrZambda) return;
       if (patientDebounce.current) clearTimeout(patientDebounce.current);
       patientDebounce.current = setTimeout(async () => {
-        const res = await oystehrZambda.zambda.execute({
-          id: 'search-billing-patients',
-          ...(query ? { name: query } : {}),
-        });
-        setPatientOptions(chooseJson(res).patients ?? []);
+        const res = await searchBillingPatients(oystehrZambda, query ? { name: query } : {});
+        setPatientOptions(res.patients ?? []);
       }, 300);
     },
     [oystehrZambda]
@@ -213,8 +208,8 @@ export default function ClaimsList(): ReactElement {
     void fetchClaims({}, paginationModel);
     const loadTags = async (): Promise<void> => {
       try {
-        const res = await oystehrZambda.zambda.execute({ id: 'search-billing-tags' });
-        setTagOptions(chooseJson(res).tags ?? []);
+        const res = await searchBillingTags(oystehrZambda);
+        setTagOptions(res.tags ?? []);
       } catch (err) {
         console.error('Failed to load tags:', err);
         setTagOptions([]);
@@ -346,8 +341,9 @@ export default function ClaimsList(): ReactElement {
             value={typeFilter}
             label="Claim Type"
             onChange={(e) => {
-              setTypeFilter(e.target.value as '' | keyof typeof CODE_SYSTEM_CLAIM_TYPE_CODES);
-              applyFilters({ type: e.target.value });
+              const value = e.target.value as '' | keyof typeof CODE_SYSTEM_CLAIM_TYPE_CODES;
+              setTypeFilter(value);
+              applyFilters({ type: value });
             }}
           >
             <MenuItem value="">All</MenuItem>
@@ -366,8 +362,9 @@ export default function ClaimsList(): ReactElement {
             value={appointmentTypeFilter}
             label="Appointment Type"
             onChange={(e) => {
-              setAppointmentTypeFilter(e.target.value as '' | keyof typeof CODE_SYSTEM_APPOINTMENT_TYPE_CODES);
-              applyFilters({ appointmentType: e.target.value });
+              const value = e.target.value as '' | keyof typeof CODE_SYSTEM_APPOINTMENT_TYPE_CODES;
+              setAppointmentTypeFilter(value);
+              applyFilters({ appointmentType: value });
             }}
           >
             <MenuItem value="">All</MenuItem>
