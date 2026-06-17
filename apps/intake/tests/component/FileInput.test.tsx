@@ -13,6 +13,12 @@ vi.mock('browser-image-compression', () => ({
   default: vi.fn(async (file: File) => file),
 }));
 
+// Stub the HEIC helper so the test doesn't race against its dynamic import('heic-to'),
+// which intermittently times out under happy-dom and made the threshold test flaky.
+vi.mock('ui-components', () => ({
+  convertHeicToJpegIfNeeded: vi.fn(async (file: File) => file),
+}));
+
 vi.mock('../../src/hooks/useUCZambdaClient', () => ({
   useUCZambdaClient: () => null,
 }));
