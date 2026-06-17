@@ -1,5 +1,5 @@
 import { MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS, TagBillingClaimInput, TagBillingClaimInputSchema } from 'utils';
-import { safeValidate, ZambdaInput } from '../../shared';
+import { safeValidate, validateJsonBody, ZambdaInput } from '../../shared';
 
 export interface TagBillingClaimParams extends TagBillingClaimInput {
   secrets: ZambdaInput['secrets'];
@@ -9,7 +9,7 @@ export function validateRequestParameters(input: ZambdaInput): TagBillingClaimPa
   if (!input.body) throw MISSING_REQUEST_BODY;
   if (!input.secrets) throw MISSING_REQUEST_SECRETS;
 
-  const data = safeValidate(TagBillingClaimInputSchema, JSON.parse(input.body));
+  const data = safeValidate(TagBillingClaimInputSchema, validateJsonBody(input));
 
   return {
     ...data,

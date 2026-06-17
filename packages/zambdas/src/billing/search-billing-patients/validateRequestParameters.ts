@@ -1,5 +1,5 @@
 import { MISSING_REQUEST_SECRETS, SearchBillingPatientsInput, SearchBillingPatientsInputSchema } from 'utils';
-import { safeValidate, ZambdaInput } from '../../shared';
+import { safeValidate, validateJsonBody, ZambdaInput } from '../../shared';
 
 export interface SearchBillingPatientsParams extends SearchBillingPatientsInput {
   secrets: ZambdaInput['secrets'];
@@ -9,7 +9,7 @@ export function validateRequestParameters(input: ZambdaInput): SearchBillingPati
   if (!input.secrets) throw MISSING_REQUEST_SECRETS;
   if (!input.body) return { secrets: input.secrets };
 
-  const data = safeValidate(SearchBillingPatientsInputSchema, JSON.parse(input.body));
+  const data = safeValidate(SearchBillingPatientsInputSchema, validateJsonBody(input));
 
   return {
     ...data,

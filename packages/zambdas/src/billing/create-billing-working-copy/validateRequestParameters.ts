@@ -4,7 +4,7 @@ import {
   MISSING_REQUEST_BODY,
   MISSING_REQUEST_SECRETS,
 } from 'utils';
-import { safeValidate, ZambdaInput } from '../../shared';
+import { safeValidate, validateJsonBody, ZambdaInput } from '../../shared';
 import { sanitizeOverrides } from '../shared';
 
 export interface CreateWorkingCopyParams extends CreateBillingWorkingCopyInput {
@@ -15,7 +15,7 @@ export function validateRequestParameters(input: ZambdaInput): CreateWorkingCopy
   if (!input.body) throw MISSING_REQUEST_BODY;
   if (!input.secrets) throw MISSING_REQUEST_SECRETS;
 
-  const data = safeValidate(CreateBillingWorkingCopyInputSchema, JSON.parse(input.body));
+  const data = safeValidate(CreateBillingWorkingCopyInputSchema, validateJsonBody(input));
 
   return {
     ...data,

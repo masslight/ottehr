@@ -297,7 +297,9 @@ describe('create-billing-claim-from-encounter', () => {
       );
     });
     it('throws validation error on non-json body', async () => {
-      expect(() => validateRequestParameters({ headers: null, body: 'some text', secrets: {} })).toThrow(SyntaxError);
+      expect(() => validateRequestParameters({ headers: null, body: 'some text', secrets: {} })).toThrow(
+        expect.objectContaining(INVALID_INPUT_ERROR('Invalid JSON in request body'))
+      );
     });
     it('throws validation error on missing encounter id', async () => {
       expect(() => validateRequestParameters({ headers: null, body: '{}', secrets: {} })).toThrow(
@@ -1104,7 +1106,7 @@ describe('create-billing-claim-from-encounter', () => {
               meta: {
                 tag: [
                   { system: 'current-status', code: 'open' },
-                  { system: 'appointment-type', code: 'urgent-care' },
+                  { system: 'https://fhir.ottehr.com/CodeSystem/appointment-type', code: 'urgent-care' },
                   { system: CODE_SYSTEM_CLAIM_TYPE, code: CODE_SYSTEM_CLAIM_TYPE_CODES.professional },
                 ],
               },
@@ -1212,7 +1214,7 @@ describe('create-billing-claim-from-encounter', () => {
               meta: {
                 tag: [
                   { system: 'current-status', code: 'open' },
-                  { system: 'appointment-type', code: 'urgent-care' },
+                  { system: 'https://fhir.ottehr.com/CodeSystem/appointment-type', code: 'urgent-care' },
                   { system: CODE_SYSTEM_CLAIM_TYPE, code: CODE_SYSTEM_CLAIM_TYPE_CODES.professional },
                 ],
               },
@@ -1346,7 +1348,7 @@ describe('create-billing-claim-from-encounter', () => {
               meta: {
                 tag: [
                   { system: 'current-status', code: 'open' },
-                  { system: 'appointment-type', code: 'urgent-care' },
+                  { system: 'https://fhir.ottehr.com/CodeSystem/appointment-type', code: 'urgent-care' },
                   { system: CODE_SYSTEM_CLAIM_TYPE, code: CODE_SYSTEM_CLAIM_TYPE_CODES.professional },
                 ],
               },
@@ -1414,7 +1416,7 @@ describe('create-billing-claim-from-encounter', () => {
               meta: {
                 tag: [
                   { system: 'current-status', code: 'open' },
-                  { system: 'appointment-type', code: 'workers-comp' },
+                  { system: 'https://fhir.ottehr.com/CodeSystem/appointment-type', code: 'workers-comp' },
                   { system: CODE_SYSTEM_CLAIM_TYPE, code: CODE_SYSTEM_CLAIM_TYPE_CODES.professional },
                 ],
               },
@@ -1482,7 +1484,7 @@ describe('create-billing-claim-from-encounter', () => {
               meta: {
                 tag: [
                   { system: 'current-status', code: 'open' },
-                  { system: 'appointment-type', code: 'occupational-medicine' },
+                  { system: 'https://fhir.ottehr.com/CodeSystem/appointment-type', code: 'occupational-medicine' },
                   { system: CODE_SYSTEM_CLAIM_TYPE, code: CODE_SYSTEM_CLAIM_TYPE_CODES.professional },
                 ],
               },
@@ -1591,7 +1593,7 @@ describe('create-billing-claim-from-encounter', () => {
               meta: {
                 tag: [
                   { system: 'current-status', code: 'open' },
-                  { system: 'appointment-type', code: 'urgent-care' },
+                  { system: 'https://fhir.ottehr.com/CodeSystem/appointment-type', code: 'urgent-care' },
                   { system: CODE_SYSTEM_CLAIM_TYPE, code: CODE_SYSTEM_CLAIM_TYPE_CODES.professional },
                   { system: CLAIM_TAG_SYSTEM, code: AUTO_ACCIDENT_TAG_NAME },
                 ],

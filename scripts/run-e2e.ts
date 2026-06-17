@@ -8,8 +8,10 @@ const SMOKE_TEST = process.env.SMOKE_TEST || 'false';
 const isUI = process.argv.includes('--ui');
 const isLoginOnly = process.argv.includes('--login-only');
 const isSpecsOnly = process.argv.includes('--specs-only');
-const isEnvWithZambdaLocalServer = ENV === 'local' || ENV === 'e2e' || ENV === 'e2e2' || ENV === 'e2e3';
-const isEnvWithFrontendLocalServer = ENV === 'local' || ENV === 'e2e' || ENV === 'e2e2' || ENV === 'e2e3' || isCI;
+const isEnvWithZambdaLocalServer =
+  ENV === 'local' || ENV === 'e2e' || ENV === 'e2e2' || ENV === 'e2e3' || ENV === 'e2e4' || ENV === 'e2e5';
+const isEnvWithFrontendLocalServer =
+  ENV === 'local' || ENV === 'e2e' || ENV === 'e2e2' || ENV === 'e2e3' || ENV === 'e2e4' || ENV === 'e2e5' || isCI;
 const testFileArg = process.argv.find((arg) => arg.startsWith('--test-file='));
 const testFile = testFileArg ? testFileArg.split('=')[1] : undefined;
 const repeatEachArg = process.argv.find((arg) => arg.startsWith('--repeat-each='));
@@ -34,6 +36,8 @@ const envMapping = {
     e2e: 'e2e',
     e2e2: 'e2e2',
     e2e3: 'e2e3',
+    e2e4: 'e2e4',
+    e2e5: 'e2e5',
   },
   intake: {
     local: 'default',
@@ -44,6 +48,8 @@ const envMapping = {
     e2e: 'e2e',
     e2e2: 'e2e2',
     e2e3: 'e2e3',
+    e2e4: 'e2e4',
+    e2e5: 'e2e5',
   },
 } as const;
 
