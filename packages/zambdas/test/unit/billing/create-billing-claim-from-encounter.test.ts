@@ -19,6 +19,7 @@ import {
   APIError,
   AR_STAGE,
   CLAIM_STATUS_TAG_SYSTEMS,
+  CODE_SYSTEM_APPOINTMENT_TYPE_TAG_SYSTEM,
   CODE_SYSTEM_CLAIM_TYPE,
   CODE_SYSTEM_CLAIM_TYPE_CODES,
   CODE_SYSTEM_CMS_PLACE_OF_SERVICE,
@@ -51,6 +52,7 @@ import {
   AUTO_ACCIDENT_TAG_NAME,
   BILLING_RESOURCE_TAG,
   CLAIM_TAG_SYSTEM,
+  CURRENT_STATUS_TAG_SYSTEM,
   TAG_CODE_SYSTEM,
   TAG_DESCRIPTION_URL,
   TAG_IS_SYSTEM_TAG_URL,
@@ -213,7 +215,7 @@ const billingResources: {
     resourceType: 'Patient',
     id: 'billing-patient-123',
     extension: [
-      { url: 'https://ottehr.com/billing/source-resource', valueReference: { reference: 'Patient/patient-123' } },
+      { url: 'https://fhir.ottehr.com/billing/source-resource', valueReference: { reference: 'Patient/patient-123' } },
     ],
     meta: {
       tag: [BILLING_RESOURCE_TAG],
@@ -234,7 +236,7 @@ const billingResources: {
     coverage: [{ coverage: { reference: 'Coverage/billing-coverage-123' }, priority: 1 }],
     subject: [{ reference: 'Patient/billing-patient-123' }],
     extension: [
-      { url: 'https://ottehr.com/billing/source-resource', valueReference: { reference: 'Account/account-123' } },
+      { url: 'https://fhir.ottehr.com/billing/source-resource', valueReference: { reference: 'Account/account-123' } },
     ],
   },
   coverage: {
@@ -245,7 +247,10 @@ const billingResources: {
     beneficiary: { reference: 'Patient/billing-patient-123' },
     subscriber: { reference: 'RelatedPerson/billing-related-person-123' },
     extension: [
-      { url: 'https://ottehr.com/billing/source-resource', valueReference: { reference: 'Coverage/coverage-123' } },
+      {
+        url: 'https://fhir.ottehr.com/billing/source-resource',
+        valueReference: { reference: 'Coverage/coverage-123' },
+      },
     ],
   },
   relatedPerson: {
@@ -810,7 +815,7 @@ describe('create-billing-claim-from-encounter', () => {
               },
               "extension": [
                 {
-                  "url": "https://ottehr.com/billing/source-resource",
+                  "url": "https://fhir.ottehr.com/billing/source-resource",
                   "valueReference": {
                     "reference": "Coverage/coverage-123",
                   },
@@ -850,7 +855,7 @@ describe('create-billing-claim-from-encounter', () => {
             "resource": {
               "extension": [
                 {
-                  "url": "https://ottehr.com/billing/source-resource",
+                  "url": "https://fhir.ottehr.com/billing/source-resource",
                   "valueReference": {
                     "reference": "urn:uuid:billing-coverage-rp-coverage-123",
                   },
@@ -861,7 +866,7 @@ describe('create-billing-claim-from-encounter', () => {
                 "tag": [
                   {
                     "code": "billing-working-copy",
-                    "system": "https://ottehr.com/billing/resource-type",
+                    "system": "https://fhir.ottehr.com/billing/resource-type",
                   },
                 ],
               },
@@ -881,7 +886,7 @@ describe('create-billing-claim-from-encounter', () => {
               },
               "extension": [
                 {
-                  "url": "https://ottehr.com/billing/source-resource",
+                  "url": "https://fhir.ottehr.com/billing/source-resource",
                   "valueReference": {
                     "reference": "urn:uuid:billing-coverage-coverage-123",
                   },
@@ -892,7 +897,7 @@ describe('create-billing-claim-from-encounter', () => {
                 "tag": [
                   {
                     "code": "billing-working-copy",
-                    "system": "https://ottehr.com/billing/resource-type",
+                    "system": "https://fhir.ottehr.com/billing/resource-type",
                   },
                 ],
               },
@@ -932,7 +937,7 @@ describe('create-billing-claim-from-encounter', () => {
             "resource": {
               "extension": [
                 {
-                  "url": "https://ottehr.com/billing/source-resource",
+                  "url": "https://fhir.ottehr.com/billing/source-resource",
                   "valueReference": {
                     "reference": "RelatedPerson/billing-related-person-123",
                   },
@@ -943,7 +948,7 @@ describe('create-billing-claim-from-encounter', () => {
                 "tag": [
                   {
                     "code": "billing-working-copy",
-                    "system": "https://ottehr.com/billing/resource-type",
+                    "system": "https://fhir.ottehr.com/billing/resource-type",
                   },
                 ],
               },
@@ -963,7 +968,7 @@ describe('create-billing-claim-from-encounter', () => {
               },
               "extension": [
                 {
-                  "url": "https://ottehr.com/billing/source-resource",
+                  "url": "https://fhir.ottehr.com/billing/source-resource",
                   "valueReference": {
                     "reference": "Coverage/billing-coverage-123",
                   },
@@ -974,7 +979,7 @@ describe('create-billing-claim-from-encounter', () => {
                 "tag": [
                   {
                     "code": "billing-working-copy",
-                    "system": "https://ottehr.com/billing/resource-type",
+                    "system": "https://fhir.ottehr.com/billing/resource-type",
                   },
                 ],
               },
@@ -1107,9 +1112,9 @@ describe('create-billing-claim-from-encounter', () => {
               status: 'draft',
               meta: {
                 tag: [
-                  { system: 'current-status', code: 'open' },
+                  { system: CURRENT_STATUS_TAG_SYSTEM, code: 'open' },
                   { system: CODE_SYSTEM_CLAIM_TYPE, code: CODE_SYSTEM_CLAIM_TYPE_CODES.professional },
-                  { system: 'https://fhir.ottehr.com/CodeSystem/appointment-type', code: 'urgent-care' },
+                  { system: CODE_SYSTEM_APPOINTMENT_TYPE_TAG_SYSTEM, code: 'urgent-care' },
                   { system: CLAIM_STATUS_TAG_SYSTEMS.arStage, code: AR_STAGE.insurancePayer },
                   { system: CLAIM_STATUS_TAG_SYSTEMS.insuranceArStatus, code: 'created' },
                 ],
@@ -1217,9 +1222,9 @@ describe('create-billing-claim-from-encounter', () => {
               status: 'draft',
               meta: {
                 tag: [
-                  { system: 'current-status', code: 'open' },
+                  { system: CURRENT_STATUS_TAG_SYSTEM, code: 'open' },
                   { system: CODE_SYSTEM_CLAIM_TYPE, code: CODE_SYSTEM_CLAIM_TYPE_CODES.professional },
-                  { system: 'https://fhir.ottehr.com/CodeSystem/appointment-type', code: 'urgent-care' },
+                  { system: CODE_SYSTEM_APPOINTMENT_TYPE_TAG_SYSTEM, code: 'urgent-care' },
                   { system: CLAIM_STATUS_TAG_SYSTEMS.arStage, code: AR_STAGE.insurancePayer },
                   { system: CLAIM_STATUS_TAG_SYSTEMS.insuranceArStatus, code: 'created' },
                 ],
@@ -1353,9 +1358,9 @@ describe('create-billing-claim-from-encounter', () => {
               status: 'draft',
               meta: {
                 tag: [
-                  { system: 'current-status', code: 'open' },
+                  { system: CURRENT_STATUS_TAG_SYSTEM, code: 'open' },
                   { system: CODE_SYSTEM_CLAIM_TYPE, code: CODE_SYSTEM_CLAIM_TYPE_CODES.professional },
-                  { system: 'https://fhir.ottehr.com/CodeSystem/appointment-type', code: 'urgent-care' },
+                  { system: CODE_SYSTEM_APPOINTMENT_TYPE_TAG_SYSTEM, code: 'urgent-care' },
                   { system: CLAIM_STATUS_TAG_SYSTEMS.arStage, code: AR_STAGE.insurancePayer },
                   { system: CLAIM_STATUS_TAG_SYSTEMS.insuranceArStatus, code: 'created' },
                 ],
@@ -1423,9 +1428,9 @@ describe('create-billing-claim-from-encounter', () => {
               status: 'draft',
               meta: {
                 tag: [
-                  { system: 'current-status', code: 'open' },
+                  { system: CURRENT_STATUS_TAG_SYSTEM, code: 'open' },
                   { system: CODE_SYSTEM_CLAIM_TYPE, code: CODE_SYSTEM_CLAIM_TYPE_CODES.professional },
-                  { system: 'https://fhir.ottehr.com/CodeSystem/appointment-type', code: 'workers-comp' },
+                  { system: CODE_SYSTEM_APPOINTMENT_TYPE_TAG_SYSTEM, code: 'workers-comp' },
                   { system: CLAIM_STATUS_TAG_SYSTEMS.arStage, code: AR_STAGE.insurancePayer },
                   { system: CLAIM_STATUS_TAG_SYSTEMS.insuranceArStatus, code: 'created' },
                 ],
@@ -1493,9 +1498,9 @@ describe('create-billing-claim-from-encounter', () => {
               status: 'draft',
               meta: {
                 tag: [
-                  { system: 'current-status', code: 'open' },
+                  { system: CURRENT_STATUS_TAG_SYSTEM, code: 'open' },
                   { system: CODE_SYSTEM_CLAIM_TYPE, code: CODE_SYSTEM_CLAIM_TYPE_CODES.professional },
-                  { system: 'https://fhir.ottehr.com/CodeSystem/appointment-type', code: 'occupational-medicine' },
+                  { system: CODE_SYSTEM_APPOINTMENT_TYPE_TAG_SYSTEM, code: 'occupational-medicine' },
                 ],
               },
               type: { coding: [{ system: CODE_SYSTEM_CLAIM_TYPE, code: CODE_SYSTEM_CLAIM_TYPE_CODES.professional }] },
@@ -1601,7 +1606,7 @@ describe('create-billing-claim-from-encounter', () => {
               status: 'draft',
               meta: {
                 tag: [
-                  { system: 'current-status', code: 'open' },
+                  { system: CURRENT_STATUS_TAG_SYSTEM, code: 'open' },
                   // { system: 'https://fhir.ottehr.com/CodeSystem/appointment-type', code: 'urgent-care' },
                   { system: CODE_SYSTEM_CLAIM_TYPE, code: CODE_SYSTEM_CLAIM_TYPE_CODES.professional },
                   { system: CLAIM_STATUS_TAG_SYSTEMS.arStage, code: AR_STAGE.nonInsurancePayer },
@@ -1712,9 +1717,9 @@ describe('create-billing-claim-from-encounter', () => {
               status: 'draft',
               meta: {
                 tag: [
-                  { system: 'current-status', code: 'open' },
+                  { system: CURRENT_STATUS_TAG_SYSTEM, code: 'open' },
                   { system: CODE_SYSTEM_CLAIM_TYPE, code: CODE_SYSTEM_CLAIM_TYPE_CODES.professional },
-                  { system: 'https://fhir.ottehr.com/CodeSystem/appointment-type', code: 'urgent-care' },
+                  { system: CODE_SYSTEM_APPOINTMENT_TYPE_TAG_SYSTEM, code: 'urgent-care' },
                   { system: CLAIM_TAG_SYSTEM, code: AUTO_ACCIDENT_TAG_NAME },
                   { system: CLAIM_STATUS_TAG_SYSTEMS.arStage, code: AR_STAGE.patient },
                   { system: CLAIM_STATUS_TAG_SYSTEMS.patientArStatus, code: 'not-invoiced' },
