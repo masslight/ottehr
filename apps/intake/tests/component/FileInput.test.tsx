@@ -17,6 +17,19 @@ vi.mock('../../src/hooks/useUCZambdaClient', () => ({
   useUCZambdaClient: () => null,
 }));
 
+// `convertHeicToJpegIfNeeded` lazy-imports `heic-to` and inspects the file
+// contents to detect HEIC. On the first call that pipeline can take close to
+// a second, which is enough to blow past waitFor's default 1000ms timeout for
+// the threshold-sized file test. The real conversion logic is covered
+// elsewhere; here we just need a passthrough.
+vi.mock('ui-components', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('ui-components')>();
+  return {
+    ...actual,
+    convertHeicToJpegIfNeeded: vi.fn(async (file: File) => file),
+  };
+});
+
 if (typeof URL.createObjectURL !== 'function') {
   URL.createObjectURL = vi.fn(() => 'blob:mock');
 }
