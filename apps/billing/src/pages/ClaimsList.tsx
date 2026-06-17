@@ -18,13 +18,15 @@ import { ReactElement, useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   BillingClaimItem,
-  BillingOrganizationOption,
   BillingPatientOption,
+  BillingPayerOption,
   chooseJson,
   ClaimsQueueItemStatuses,
+  CODE_SYSTEM_APPOINTMENT_TYPE_CODES,
+  CODE_SYSTEM_CLAIM_TYPE_CODES,
 } from 'utils';
 import { dataGridSlots, dataGridSx } from '../components/BillingDataGrid';
-import { CLAIM_STATUS_COLORS, formatClaimStatus } from '../constants/claimStatus';
+import { CLAIM_STATUS_COLORS, formatAntCaseString } from '../constants/claimStatus';
 import { useApiClients } from '../hooks/useAppClients';
 import { formatCurrency } from '../utils/format';
 
@@ -36,6 +38,8 @@ interface Filters {
   createdTo?: string;
   payerId?: string;
   patientId?: string;
+  type?: string;
+  appointmentType?: string;
 }
 
 const currencyCol = (field: string, headerName: string, width: number): GridColDef => ({
@@ -58,11 +62,23 @@ const columns: GridColDef[] = [
     width: 130,
     renderCell: ({ value }) => {
       const color = CLAIM_STATUS_COLORS[value as string] ?? 'default';
-      const label = formatClaimStatus(value as string);
+      const label = formatAntCaseString(value as string);
       return (
         <Chip label={label} color={color} variant="outlined" size="small" sx={{ borderRadius: '4px', fontSize: 12 }} />
       );
     },
+  },
+  {
+    field: 'type',
+    headerName: 'Claim Type',
+    minWidth: 130,
+    valueFormatter: (params: { value: string }) => formatAntCaseString(params.value),
+  },
+  {
+    field: 'appointmentType',
+    headerName: 'Appointment Type',
+    minWidth: 130,
+    valueFormatter: (params: { value: string }) => formatAntCaseString(params.value),
   },
   currencyCol('billed', 'Billed', 100),
   currencyCol('allowed', 'Allowed', 100),
@@ -85,7 +101,7 @@ export default function ClaimsList(): ReactElement {
   const [error, setError] = useState<string | null>(null);
   const [paginationModel, setPaginationModel] = useState<GridPaginationModel>({ page: 0, pageSize: 25 });
 
-  const [payerOptions, setPayerOptions] = useState<BillingOrganizationOption[]>([]);
+  const [payerOptions, setPayerOptions] = useState<BillingPayerOption[]>([]);
   const [patientOptions, setPatientOptions] = useState<BillingPatientOption[]>([]);
 
   const [searchText, setSearchText] = useState('');
@@ -94,8 +110,12 @@ export default function ClaimsList(): ReactElement {
   const [tagOptions, setTagOptions] = useState<{ id: string; name: string }[]>([]);
   const [createdFrom, setDosFrom] = useState('');
   const [createdTo, setDosTo] = useState('');
-  const [selectedPayer, setSelectedPayer] = useState<BillingOrganizationOption | null>(null);
+  const [selectedPayer, setSelectedPayer] = useState<BillingPayerOption | null>(null);
   const [selectedPatient, setSelectedPatient] = useState<BillingPatientOption | null>(null);
+  const [typeFilter, setTypeFilter] = useState<keyof typeof CODE_SYSTEM_CLAIM_TYPE_CODES | ''>('');
+  const [appointmentTypeFilter, setAppointmentTypeFilter] = useState<
+    keyof typeof CODE_SYSTEM_APPOINTMENT_TYPE_CODES | ''
+  >('');
 
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const payerDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -126,6 +146,8 @@ export default function ClaimsList(): ReactElement {
         if (filters.createdTo) body.createdTo = filters.createdTo;
         if (filters.payerId) body.payerId = filters.payerId;
         if (filters.patientId) body.patientId = filters.patientId;
+        if (filters.type) body.type = filters.type;
+        if (filters.appointmentType) body.appointmentType = filters.appointmentType;
 
         const response = await oystehrZambda.zambda.execute({ id: 'search-billing-claims', ...body });
         const data = chooseJson(response);
@@ -148,11 +170,10 @@ export default function ClaimsList(): ReactElement {
       if (payerDebounce.current) clearTimeout(payerDebounce.current);
       payerDebounce.current = setTimeout(async () => {
         const res = await oystehrZambda.zambda.execute({
-          id: 'search-billing-organizations',
-          type: 'pay',
+          id: 'search-billing-payers',
           ...(query ? { name: query } : {}),
         });
-        setPayerOptions(chooseJson(res).organizations ?? []);
+        setPayerOptions(chooseJson(res).payers ?? []);
       }, 300);
     },
     [oystehrZambda]
@@ -199,8 +220,20 @@ export default function ClaimsList(): ReactElement {
       createdTo: overrides?.createdTo ?? createdTo,
       payerId: overrides?.payerId ?? selectedPayer?.payerId,
       patientId: overrides?.patientId ?? selectedPatient?.id,
+      type: overrides?.type ?? typeFilter,
+      appointmentType: overrides?.appointmentType ?? appointmentTypeFilter,
     }),
-    [searchText, statusFilter, tagFilter, createdFrom, createdTo, selectedPayer, selectedPatient]
+    [
+      searchText,
+      statusFilter,
+      tagFilter,
+      createdFrom,
+      createdTo,
+      selectedPayer,
+      selectedPatient,
+      typeFilter,
+      appointmentTypeFilter,
+    ]
   );
 
   const applyFilters = useCallback(
@@ -230,13 +263,23 @@ export default function ClaimsList(): ReactElement {
     setDosTo('');
     setSelectedPayer(null);
     setSelectedPatient(null);
+    setTypeFilter('');
+    setAppointmentTypeFilter('');
     const resetPage = { ...paginationModel, page: 0 };
     setPaginationModel(resetPage);
     void fetchClaims({}, resetPage);
   };
 
   const hasFilters =
-    searchText || statusFilter || tagFilter || createdFrom || createdTo || selectedPayer || selectedPatient;
+    searchText ||
+    statusFilter ||
+    tagFilter ||
+    createdFrom ||
+    createdTo ||
+    selectedPayer ||
+    selectedPatient ||
+    typeFilter ||
+    appointmentTypeFilter;
 
   return (
     <Box sx={{ p: 0 }}>
@@ -279,9 +322,55 @@ export default function ClaimsList(): ReactElement {
             <MenuItem value="">All</MenuItem>
             {ClaimsQueueItemStatuses.map((s) => (
               <MenuItem key={s} value={s}>
-                {formatClaimStatus(s)}
+                {formatAntCaseString(s)}
               </MenuItem>
             ))}
+          </Select>
+        </FormControl>
+
+        <FormControl size="small" sx={{ minWidth: 160 }}>
+          <InputLabel>Claim Type</InputLabel>
+          <Select
+            value={typeFilter}
+            label="Claim Type"
+            onChange={(e) => {
+              setTypeFilter(e.target.value as '' | keyof typeof CODE_SYSTEM_CLAIM_TYPE_CODES);
+              applyFilters({ type: e.target.value });
+            }}
+          >
+            <MenuItem value="">All</MenuItem>
+            <MenuItem key={'professional'} value={'professional'}>
+              Professional
+            </MenuItem>
+            <MenuItem key={'institutional'} value={'institutional'}>
+              Institutional
+            </MenuItem>
+          </Select>
+        </FormControl>
+
+        <FormControl size="small" sx={{ minWidth: 160 }}>
+          <InputLabel>Appointment Type</InputLabel>
+          <Select
+            value={appointmentTypeFilter}
+            label="Appointment Type"
+            onChange={(e) => {
+              setAppointmentTypeFilter(e.target.value as '' | keyof typeof CODE_SYSTEM_APPOINTMENT_TYPE_CODES);
+              applyFilters({ appointmentType: e.target.value });
+            }}
+          >
+            <MenuItem value="">All</MenuItem>
+            <MenuItem key={'urgent-care'} value={'urgent-care'}>
+              Urgent Care
+            </MenuItem>
+            <MenuItem key={'occupational-medicine'} value={'occupational-medicine'}>
+              Occupational Medicine
+            </MenuItem>
+            <MenuItem key={'pre-op'} value={'pre-op'}>
+              Pre Op
+            </MenuItem>
+            <MenuItem key={'workers-comp'} value={'workers-comp'}>
+              Workers Comp
+            </MenuItem>
           </Select>
         </FormControl>
 
@@ -319,7 +408,7 @@ export default function ClaimsList(): ReactElement {
             applyFilters({ payerId: v?.payerId ?? '' });
           }}
           renderInput={(params) => <TextField {...params} label="Payer" />}
-          isOptionEqualToValue={(o, v) => o.id === v.id}
+          isOptionEqualToValue={(o, v) => o.payerId === v.payerId}
           sx={{ minWidth: 200 }}
         />
 

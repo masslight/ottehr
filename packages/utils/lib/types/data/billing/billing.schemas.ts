@@ -1,4 +1,9 @@
 import { z } from 'zod';
+import {
+  CODE_SYSTEM_APPOINTMENT_TYPE_CODE_NAMES,
+  CODE_SYSTEM_CLAIM_TYPE_CODE_NAMES,
+} from '../../../helpers/rcm/constants';
+import { npiRegex, taxIdRegex, zipRegex } from '../../../validation';
 
 const nonEmptyString = z.string().trim().min(1);
 const nonNegativeInt = z.number().int().nonnegative();
@@ -66,12 +71,14 @@ export const GetPatientCoveragesInputSchema = z.object({
 
 export const SearchBillingClaimsInputSchema = z.object({
   searchText: nonEmptyString.optional(),
+  type: z.enum(CODE_SYSTEM_CLAIM_TYPE_CODE_NAMES).optional(),
   status: nonEmptyString.optional(),
   tag: nonEmptyString.optional(),
   createdFrom: nonEmptyString.optional(),
   createdTo: nonEmptyString.optional(),
   payerName: nonEmptyString.optional(),
   payerId: nonEmptyString.optional(),
+  appointmentType: z.enum(CODE_SYSTEM_APPOINTMENT_TYPE_CODE_NAMES).optional(),
   patientId: nonEmptyString.optional(),
   offset: nonNegativeInt.optional(),
   pageSize: nonNegativeInt.optional(),
@@ -96,20 +103,29 @@ export const SearchBillingPatientsInputSchema = z.object({
   pageSize: nonNegativeInt.optional(),
 });
 
-export const SearchBillingPractitionersInputSchema = z.object({
-  name: nonEmptyString.optional(),
-  includeWorkingCopies: z.boolean().optional(),
-});
-
 export const SearchBillingLocationsInputSchema = z.object({
   name: nonEmptyString.optional(),
   includeWorkingCopies: z.boolean().optional(),
 });
 
-export const SearchBillingOrganizationsInputSchema = z.object({
+export const SearchBillingPayersInputSchema = z.object({
   name: nonEmptyString.optional(),
-  type: nonEmptyString.optional(),
-  includeWorkingCopies: z.boolean().optional(),
+});
+
+const claimDiagnosisSchema = z.object({
+  code: nonEmptyString,
+  display: z.string().optional(),
+});
+
+const claimServiceLineSchema = z.object({
+  cptCode: nonEmptyString,
+  units: z.number().positive(),
+  charges: z.number(),
+  serviceDate: nonEmptyString,
+  placeOfService: z.string().optional(),
+  modifiers: z.array(z.string()).optional(),
+  // 1-based references into the claim's diagnosis list (FHIR item.diagnosisSequence)
+  diagnosisPointers: z.array(z.number().int().positive()).optional(),
 });
 
 export const CreateBillingClaimInputSchema = z.object({
@@ -130,14 +146,19 @@ export const CreateBillingClaimInputSchema = z.object({
     })
     .strict()
     .optional(),
-  practitionerId: nonEmptyString.optional(),
-  practitionerOverrides: z
+  renderingProvider: z
     .object({
-      firstName: nonEmptyString.optional(),
-      lastName: nonEmptyString.optional(),
-      npi: nonEmptyString.optional(),
+      id: nonEmptyString,
+      type: z.enum(['Practitioner', 'Organization']),
+      overrides: z
+        .object({
+          firstName: nonEmptyString.optional(),
+          lastName: nonEmptyString.optional(),
+          npi: nonEmptyString.optional(),
+        })
+        .strict()
+        .optional(),
     })
-    .strict()
     .optional(),
   facilityId: nonEmptyString.optional(),
   facilityOverrides: z
@@ -148,35 +169,118 @@ export const CreateBillingClaimInputSchema = z.object({
     })
     .strict()
     .optional(),
-  billingProviderId: nonEmptyString.optional(),
-  billingProviderOverrides: z
+  billingProvider: z
     .object({
-      name: nonEmptyString.optional(),
-      npi: nonEmptyString.optional(),
-      tin: nonEmptyString.optional(),
+      id: nonEmptyString,
+      type: z.enum(['Practitioner', 'Organization']),
+      overrides: z
+        .object({
+          name: nonEmptyString.optional(),
+          npi: nonEmptyString.optional(),
+          tin: nonEmptyString.optional(),
+        })
+        .strict()
+        .optional(),
     })
-    .strict()
     .optional(),
-  diagnoses: z
-    .array(
-      z.object({
-        code: nonEmptyString,
-        display: z.string().optional(),
-      })
-    )
+  diagnoses: z.array(claimDiagnosisSchema).optional(),
+  serviceLines: z.array(claimServiceLineSchema).optional(),
+});
+
+const billingProviderRole = z.enum(['billing', 'rendering']);
+
+const billingAddressSchema = z
+  .object({
+    line1: nonEmptyString.optional(),
+    line2: nonEmptyString.optional(),
+    city: nonEmptyString.optional(),
+    state: nonEmptyString.optional(),
+    postalCode: nonEmptyString.optional(),
+  })
+  .strict();
+
+const billingNpiSchema = nonEmptyString.regex(npiRegex, 'NPI must be exactly 10 digits');
+const billingTaxIdSchema = nonEmptyString.regex(taxIdRegex, 'Tax ID / EIN must be exactly 9 digits');
+const billingTaxonomyCodeSchema = z.string().trim().length(10, 'Taxonomy code must be exactly 10 characters');
+// Providers require a validated ZIP (5-digit or ZIP+4); the base address schema stays loose
+// because patient working copies carry addresses cloned from clinical data.
+const billingProviderAddressSchema = billingAddressSchema.extend({
+  postalCode: nonEmptyString
+    .regex(zipRegex, 'ZIP code must be 5 digits, optionally with a 4-digit extension')
     .optional(),
-  serviceLines: z
-    .array(
-      z.object({
-        cptCode: nonEmptyString,
-        units: z.number().positive(),
-        charges: z.number(),
-        serviceDate: nonEmptyString,
-        placeOfService: z.string().optional(),
-        modifiers: z.array(z.string()).optional(),
-      })
-    )
-    .optional(),
+});
+
+export const CreateBillingProviderInputSchema = z.discriminatedUnion('kind', [
+  z.object({
+    kind: z.literal('individual'),
+    firstName: nonEmptyString,
+    lastName: nonEmptyString,
+    roles: z.array(billingProviderRole).min(1),
+    npi: billingNpiSchema.optional(),
+    taxonomyCode: billingTaxonomyCodeSchema.optional(),
+    licenseType: nonEmptyString.optional(),
+    taxId: billingTaxIdSchema.optional(),
+    address: billingProviderAddressSchema.optional(),
+  }),
+  z.object({
+    kind: z.literal('organization'),
+    name: nonEmptyString,
+    roles: z.array(billingProviderRole).min(1),
+    npi: billingNpiSchema.optional(),
+    taxonomyCode: billingTaxonomyCodeSchema.optional(),
+    taxId: billingTaxIdSchema.optional(),
+    address: billingProviderAddressSchema.optional(),
+  }),
+]);
+
+export const CreateBillingPatientInputSchema = z.object({
+  firstName: nonEmptyString,
+  lastName: nonEmptyString,
+  dob: nonEmptyString.optional(),
+  gender: z.enum(['male', 'female', 'other', 'unknown']).optional(),
+  phone: nonEmptyString.optional(),
+  address: billingAddressSchema.optional(),
+});
+
+export const UpdateBillingProviderInputSchema = z.discriminatedUnion('kind', [
+  z.object({
+    kind: z.literal('individual'),
+    providerId: nonEmptyString,
+    firstName: nonEmptyString,
+    lastName: nonEmptyString,
+    roles: z.array(billingProviderRole).min(1),
+    npi: billingNpiSchema.optional(),
+    taxonomyCode: billingTaxonomyCodeSchema.optional(),
+    licenseType: nonEmptyString.optional(),
+    taxId: billingTaxIdSchema.optional(),
+    address: billingProviderAddressSchema.optional(),
+  }),
+  z.object({
+    kind: z.literal('organization'),
+    providerId: nonEmptyString,
+    name: nonEmptyString,
+    roles: z.array(billingProviderRole).min(1),
+    npi: billingNpiSchema.optional(),
+    taxonomyCode: billingTaxonomyCodeSchema.optional(),
+    taxId: billingTaxIdSchema.optional(),
+    address: billingProviderAddressSchema.optional(),
+  }),
+]);
+
+export const DeleteBillingProviderInputSchema = z.object({
+  providerId: nonEmptyString,
+  kind: z.enum(['individual', 'organization']),
+});
+
+export const UpdateBillingPatientInputSchema = z.object({
+  patientId: nonEmptyString,
+  firstName: nonEmptyString,
+  lastName: nonEmptyString,
+  dob: nonEmptyString.optional(),
+  gender: z.enum(['male', 'female', 'other', 'unknown']).optional(),
+  phone: nonEmptyString.optional(),
+  email: nonEmptyString.optional(),
+  address: billingAddressSchema.optional(),
 });
 
 export const CreateBillingWorkingCopyInputSchema = z.object({
@@ -189,6 +293,21 @@ export const CreateBillingClaimFromEncounterInputSchema = z.object({
   encounterId: z.string().uuid(),
 });
 
+const updatableAddressSchema = z
+  .object({
+    line1: z.string().optional(),
+    line2: z.string().optional(),
+    city: z.string().optional(),
+    state: z.string().optional(),
+    postalCode: z.string().optional(),
+  })
+  .optional();
+
+const claimProviderRefSchema = z.object({
+  id: nonEmptyString,
+  type: z.enum(['Practitioner', 'Organization']),
+});
+
 export const UpdateBillingResourceInputSchema = z.discriminatedUnion('resourceType', [
   z.object({
     resourceType: z.literal('Patient'),
@@ -198,6 +317,7 @@ export const UpdateBillingResourceInputSchema = z.discriminatedUnion('resourceTy
       lastName: z.string().optional(),
       dob: z.string().optional(),
       gender: z.string().optional(),
+      address: updatableAddressSchema,
     }),
   }),
   z.object({
@@ -206,6 +326,8 @@ export const UpdateBillingResourceInputSchema = z.discriminatedUnion('resourceTy
     fields: z.object({
       firstName: z.string().optional(),
       lastName: z.string().optional(),
+      npi: z.string().optional(),
+      taxId: z.string().optional(),
     }),
   }),
   z.object({
@@ -213,6 +335,7 @@ export const UpdateBillingResourceInputSchema = z.discriminatedUnion('resourceTy
     resourceId: nonEmptyString,
     fields: z.object({
       subscriberId: z.string().optional(),
+      status: z.enum(['active', 'cancelled', 'draft', 'entered-in-error']).optional(),
     }),
   }),
   z.object({
@@ -220,6 +343,8 @@ export const UpdateBillingResourceInputSchema = z.discriminatedUnion('resourceTy
     resourceId: nonEmptyString,
     fields: z.object({
       name: z.string().optional(),
+      npi: z.string().optional(),
+      address: updatableAddressSchema,
     }),
   }),
   z.object({
@@ -227,6 +352,24 @@ export const UpdateBillingResourceInputSchema = z.discriminatedUnion('resourceTy
     resourceId: nonEmptyString,
     fields: z.object({
       name: z.string().optional(),
+      npi: z.string().optional(),
+      taxId: z.string().optional(),
+    }),
+  }),
+  // Attach working copies for resources the claim was created without, re-point the payer (RCM payer id),
+  // or replace the diagnosis / service line sets.
+  z.object({
+    resourceType: z.literal('Claim'),
+    resourceId: nonEmptyString,
+    fields: z.object({
+      type: z.enum(CODE_SYSTEM_CLAIM_TYPE_CODE_NAMES).optional(),
+      billingProvider: claimProviderRefSchema.optional(),
+      renderingProvider: claimProviderRefSchema.optional(),
+      facilityId: nonEmptyString.optional(),
+      coverageId: nonEmptyString.optional(),
+      payerId: nonEmptyString.optional(),
+      diagnoses: z.array(claimDiagnosisSchema).optional(),
+      serviceLines: z.array(claimServiceLineSchema).optional(),
     }),
   }),
 ]);
@@ -242,10 +385,14 @@ export type GetPatientCoveragesInput = z.infer<typeof GetPatientCoveragesInputSc
 export type SearchBillingClaimsInput = z.infer<typeof SearchBillingClaimsInputSchema>;
 export type SearchBillingProvidersInput = z.infer<typeof SearchBillingProvidersInputSchema>;
 export type SearchBillingPatientsInput = z.infer<typeof SearchBillingPatientsInputSchema>;
-export type SearchBillingPractitionersInput = z.infer<typeof SearchBillingPractitionersInputSchema>;
 export type SearchBillingLocationsInput = z.infer<typeof SearchBillingLocationsInputSchema>;
-export type SearchBillingOrganizationsInput = z.infer<typeof SearchBillingOrganizationsInputSchema>;
+export type SearchBillingPayersInput = z.infer<typeof SearchBillingPayersInputSchema>;
 export type CreateBillingClaimInput = z.infer<typeof CreateBillingClaimInputSchema>;
+export type CreateBillingProviderInput = z.infer<typeof CreateBillingProviderInputSchema>;
+export type DeleteBillingProviderInput = z.infer<typeof DeleteBillingProviderInputSchema>;
+export type CreateBillingPatientInput = z.infer<typeof CreateBillingPatientInputSchema>;
+export type UpdateBillingPatientInput = z.infer<typeof UpdateBillingPatientInputSchema>;
+export type UpdateBillingProviderInput = z.infer<typeof UpdateBillingProviderInputSchema>;
 export type CreateBillingWorkingCopyInput = z.infer<typeof CreateBillingWorkingCopyInputSchema>;
 export type CreateBillingClaimFromEncounterInput = z.input<typeof CreateBillingClaimFromEncounterInputSchema>;
 export type UpdateBillingResourceInput = z.infer<typeof UpdateBillingResourceInputSchema>;

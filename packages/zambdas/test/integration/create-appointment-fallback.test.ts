@@ -365,6 +365,51 @@ describe('create-appointment group-member fallback (D-6 phase 2)', () => {
     return `${name} status=${status} code=${code} message="${msg}" body=${body}`;
   };
 
+  // Investigative diagnostic for the recurring "positive control failed" with
+  // code 4341 (APPOINTMENT_ALREADY_EXISTS). On the second call within a test
+  // we should never see an Appointment attached to a freshly-created slot
+  // unless (a) the first call wrote one despite throwing, (b) a parallel test
+  // raced this id, or (c) the FHIR _revinclude returned stale data. Fetch the
+  // conflicting Appointment(s) via the same query the validator uses and
+  // dump enough metadata (id, tags, lastUpdated, participants) to tell those
+  // apart. Wrapped so a failed lookup never replaces the real error.
+  const diagnoseSlotAppointmentConflict = async (slotId: string): Promise<string> => {
+    try {
+      const bundle = await oystehr.fhir.search<Slot | FhirResource>({
+        resourceType: 'Slot',
+        params: [
+          { name: '_id', value: slotId },
+          { name: '_revinclude', value: 'Appointment:slot' },
+        ],
+      });
+      const resources = bundle.unbundle();
+      const slot = resources.find((r) => r.resourceType === 'Slot') as Slot | undefined;
+      const appointments = resources.filter((r) => r.resourceType === 'Appointment');
+      const slotInfo = slot
+        ? {
+            id: slot.id,
+            status: slot.status,
+            scheduleRef: slot.schedule?.reference,
+            lastUpdated: slot.meta?.lastUpdated,
+          }
+        : 'not-found';
+      const apptInfos = appointments.map((a) => ({
+        id: a.id,
+
+        status: (a as any).status,
+
+        slotRefs: ((a as any).slot ?? []).map((s: { reference?: string }) => s.reference),
+        tags: a.meta?.tag,
+        lastUpdated: a.meta?.lastUpdated,
+
+        participants: ((a as any).participant ?? []).map((p: { actor?: { reference?: string } }) => p.actor?.reference),
+      }));
+      return `slot=${JSON.stringify(slotInfo)} appointments=${JSON.stringify(apptInfos)}`;
+    } catch (e) {
+      return `[diagnostic lookup failed: ${e instanceof Error ? e.message : String(e)}]`;
+    }
+  };
+
   // The capacity guard's specific rejection code. Asserting this catches
   // false positives where create-appointment threw for some unrelated reason
   // (schedule misconfiguration, slot not found, service mode resolution
@@ -428,7 +473,10 @@ describe('create-appointment group-member fallback (D-6 phase 2)', () => {
       await oystehr.fhir.delete({ resourceType: 'Slot', id: busy.id! });
       const recovery = await callCreateAppointment(patientSlot.id!);
       if (!recovery.ok) {
-        throw new Error(`positive control failed (fixture not bookable absent saturation): ${recovery.message}`);
+        const diag = await diagnoseSlotAppointmentConflict(patientSlot.id!);
+        throw new Error(
+          `positive control failed (fixture not bookable absent saturation): ${recovery.message}\nDiagnostic: ${diag}`
+        );
       }
     } finally {
       await cleanupFixture(fixture.explicitCleanup, [patientSlot.id!, busy.id!]);
@@ -459,7 +507,10 @@ describe('create-appointment group-member fallback (D-6 phase 2)', () => {
       await oystehr.fhir.delete({ resourceType: 'Slot', id: busy.id! });
       const recovery = await callCreateAppointment(patientSlot.id!);
       if (!recovery.ok) {
-        throw new Error(`positive control failed (fixture not bookable absent saturation): ${recovery.message}`);
+        const diag = await diagnoseSlotAppointmentConflict(patientSlot.id!);
+        throw new Error(
+          `positive control failed (fixture not bookable absent saturation): ${recovery.message}\nDiagnostic: ${diag}`
+        );
       }
       const fetchedAfterRecovery = await oystehr.fhir.get<Slot>({ resourceType: 'Slot', id: patientSlot.id! });
       // Provider mode → no swap should have happened on recovery either.
@@ -538,8 +589,9 @@ describe('create-appointment group-member fallback (D-6 phase 2)', () => {
       await oystehr.fhir.delete({ resourceType: 'Slot', id: busy2.id! });
       const recovery = await callCreateAppointment(patientSlot.id!);
       if (!recovery.ok) {
+        const diag = await diagnoseSlotAppointmentConflict(patientSlot.id!);
         throw new Error(
-          `positive control failed (fixture not bookable absent Schedule-2 saturation): ${recovery.message}`
+          `positive control failed (fixture not bookable absent Schedule-2 saturation): ${recovery.message}\nDiagnostic: ${diag}`
         );
       }
       const fetchedAfterRecovery = await oystehr.fhir.get<Slot>({ resourceType: 'Slot', id: patientSlot.id! });

@@ -249,6 +249,19 @@ describe('convertCapacityListToBucketedTimeSlots — decimal and >1 providers (c
       const result = convertCapacityListToBucketedTimeSlots([cap(9, 0.5)], START_DATE, 60);
       expect(capacityAtUtc(result, 9, 0)).toBe(0);
     });
+
+    // Regression — explicit cadence equal to slot length used to route through the
+    // session path and zero out fractional-providers hours (floor(0.5) = 0). Now
+    // resolves to the same output as leaving cadence unset.
+    it('15-min slot + explicit 15-min cadence: same output as default cadence (2 bookings/hour)', () => {
+      const withExplicit = convertCapacityListToBucketedTimeSlots([cap(9, 0.5)], START_DATE, 15, 15);
+      const withDefault = convertCapacityListToBucketedTimeSlots([cap(9, 0.5)], START_DATE, 15);
+      expect(slotMinutesFromMidnight(withExplicit)).toEqual(slotMinutesFromMidnight(withDefault));
+      expect(capacityAtUtc(withExplicit, 9, 0)).toBe(1);
+      expect(capacityAtUtc(withExplicit, 9, 15)).toBe(0);
+      expect(capacityAtUtc(withExplicit, 9, 30)).toBe(1);
+      expect(capacityAtUtc(withExplicit, 9, 45)).toBe(0);
+    });
   });
 
   describe('providers = 1.5 (one full + one half-time)', () => {

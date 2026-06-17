@@ -1,3 +1,5 @@
+import { CODE_SYSTEM_APPOINTMENT_TYPE_CODES, CODE_SYSTEM_CLAIM_TYPE_CODES } from '../../../helpers';
+
 export interface BillingTag {
   id: string;
   name: string;
@@ -18,15 +20,6 @@ export interface BillingPatientOption {
   friendlyId: string;
 }
 
-export interface BillingOrganizationOption {
-  id: string | undefined;
-  name: string;
-  npi: string;
-  tin: string;
-  payerId: string;
-  isPayer: boolean | undefined;
-}
-
 export interface BillingCoverageOption {
   id: string | undefined;
   status: string;
@@ -36,20 +29,43 @@ export interface BillingCoverageOption {
   payorFhirId: string;
 }
 
-export interface BillingPractitionerOption {
-  id: string | undefined;
-  name: string;
-  firstName: string;
-  lastName: string;
-  npi: string;
-  taxonomy: string;
-}
-
 export interface BillingLocationOption {
   id: string | undefined;
   name: string;
   npi: string;
   address: string;
+}
+
+// Unified provider option (Practitioner or Organization)
+export interface BillingProviderOption {
+  id: string;
+  kind: 'individual' | 'organization';
+  name: string;
+  firstName?: string;
+  lastName?: string;
+  npi: string;
+  taxonomyCode?: string;
+  licenseType?: string;
+  taxId?: string;
+  address?: string;
+  addressParts?: {
+    line1: string;
+    line2: string;
+    city: string;
+    state: string;
+    postalCode: string;
+  };
+  renders: boolean;
+  bills: boolean;
+  isWorkingCopy: boolean;
+}
+
+// Payer option from the Oystehr RCM service. id is the RCM payer id (used in payer URLs);
+// payerId is the clearinghouse payer id shown to users.
+export interface BillingPayerOption {
+  id: string;
+  name: string;
+  payerId: string;
 }
 
 export interface EraListItem {
@@ -92,12 +108,14 @@ export interface EraDetailResponse {
 
 export interface BillingClaimItem {
   id: string;
+  type: keyof typeof CODE_SYSTEM_CLAIM_TYPE_CODES;
   status: string;
   patientName: string;
   patientDob: string;
   payerName: string;
   payerId: string;
   memberId: string;
+  appointmentType: keyof typeof CODE_SYSTEM_APPOINTMENT_TYPE_CODES | undefined;
   serviceDate: string;
   facility: string;
   renderingProvider: string;
@@ -120,6 +138,13 @@ export interface PatientDetailResponse {
   phone: string;
   email: string;
   address: string;
+  addressParts: {
+    line1: string;
+    line2: string;
+    city: string;
+    state: string;
+    postalCode: string;
+  };
   friendlyId: string;
   active: boolean;
   // TODO: wire real balance from ClaimResponse/PaymentReconciliation
@@ -144,15 +169,26 @@ export interface PatientDetailResponse {
 
 export interface ClaimDetailResponse {
   id: string;
+  type: keyof typeof CODE_SYSTEM_CLAIM_TYPE_CODES;
   status: string;
   created: string;
   billingType: string;
   billableStatus: string;
+  appointmentType?: string;
   patientName: string;
   patientDob: string;
   patientGender: string;
   patientId: string;
+  // Clinical Patient behind the claim's working copy (from its source identifier) — used to list coverages.
+  patientOriginalId: string;
   patientAddress: string;
+  patientAddressParts: {
+    line1: string;
+    line2: string;
+    city: string;
+    state: string;
+    postalCode: string;
+  };
   coverageFhirId: string;
   payorFhirId: string;
   payerName: string;
@@ -168,15 +204,24 @@ export interface ClaimDetailResponse {
   nonInsurancePayerFhirId: string;
   nonInsurancePayerName: string;
   renderingProviderId: string;
+  renderingProviderType: string;
   renderingProvider: string;
   renderingNpi: string;
   billingProviderFhirId: string;
+  billingProviderType: string;
   billingProvider: string;
   billingNpi: string;
   billingTin: string;
   facilityFhirId: string;
   serviceFacility: string;
   serviceFacilityAddress: string;
+  serviceFacilityAddressParts: {
+    line1: string;
+    line2: string;
+    city: string;
+    state: string;
+    postalCode: string;
+  };
   serviceFacilityNpi: string;
   diagnoses: { sequence: number; code: string; display: string }[];
   serviceLines: {

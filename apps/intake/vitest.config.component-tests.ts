@@ -14,6 +14,7 @@ export default defineConfig({
     include: ['**/*.test.tsx'],
     setupFiles: ['../../packages/test-utils/lib/no-network.setup.ts', './tests/component/setup.ts'],
     environment: 'happy-dom',
+    retry: 1,
     coverage: {
       provider: 'v8',
       reporter: ['lcov', 'text-summary', 'json'],

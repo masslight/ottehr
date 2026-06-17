@@ -193,7 +193,7 @@ async function performEffect(props: PerformEffectInput): Promise<APIGatewayProxy
       };
       await emailClient.sendVirtualCancelationEmail(email, templateData);
     } else {
-      throw Error('no email found');
+      console.log('No email found. Skipping cancellation email.');
     }
   } catch (error: any) {
     console.error('error sending cancellation email', error);

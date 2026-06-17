@@ -82,6 +82,13 @@ export const ContactContainer: FC<ContactContainerProps> = ({ isLoading, patient
         isLoading={isLoading}
       />
       <PatientRecordFormField
+        item={contact.noEmail}
+        hiddenFormFields={hiddenFormFields}
+        requiredFormFields={requiredFormFields}
+        isLoading={isLoading}
+        omitRowWrapper
+      />
+      <PatientRecordFormField
         item={contact.phone}
         hiddenFormFields={hiddenFormFields}
         requiredFormFields={requiredFormFields}

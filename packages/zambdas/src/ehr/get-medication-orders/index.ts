@@ -11,6 +11,7 @@ import {
 } from 'fhir/r4b';
 import {
   ExtendedMedicationDataForResponse,
+  getCptCodesFromMA,
   getCurrentOrderedByProviderId,
   getDosageUnitsAndRouteOfMedication,
   getFullestAvailableName,
@@ -122,20 +123,8 @@ function mapMedicalAdministrationToDTO(orderPackage: OrderPackage): ExtendedMedi
 
     interactions: getMedicationInteractions(medicationRequest),
 
-    // CPT/HCPCS codes stored on the MedicationAdministration
-    cptCodes: (() => {
-      const ext = medicationAdministration.extension?.find(
-        (e) => e.url === 'https://fhir.ottehr.com/Extension/medication-cpt-codes'
-      );
-      if (ext?.valueString) {
-        try {
-          return JSON.parse(ext.valueString) as { code: string; display: string }[];
-        } catch {
-          return undefined;
-        }
-      }
-      return undefined;
-    })(),
+    // CPT/HCPCS codes (with optional billing unit data) stored on the MedicationAdministration
+    cptCodes: getCptCodesFromMA(medicationAdministration),
 
     /**
      * @deprecated Use effectiveDateTime instead. This field is kept for backward compatibility.
