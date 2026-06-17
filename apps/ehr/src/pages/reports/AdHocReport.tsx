@@ -33,7 +33,7 @@ import { AdHocReportTurn, SavedAdHocReportDefinition } from 'utils';
 import { generateAdHocReport, listAdHocReports, saveAdHocReport } from '../../api/api';
 import { AD_HOC_DATASETS, getDataset } from '../../features/reports/adHoc/datasets';
 import { ReportFrame } from '../../features/reports/adHoc/ReportFrame';
-import { clearAdHocSeed, peekAdHocSeed } from '../../features/reports/adHoc/seed';
+import { clearAdHocCriteria, peekAdHocCriteria } from '../../features/reports/adHoc/seed';
 import { AdHocRow, DatasetSchema } from '../../features/reports/adHoc/types';
 import { useApiClients } from '../../hooks/useAppClients';
 import PageContainer from '../../layout/PageContainer';
@@ -82,23 +82,27 @@ export default function AdHocReport(): React.ReactElement {
   const navigate = useNavigate();
   const { oystehrZambda } = useApiClients();
 
-  // Seeded mode: another report (e.g. Practice KPIs) handed us its already-fetched rows + schema.
-  // peek (not consume) so StrictMode's double render is harmless; we clear it in an effect below.
-  const [seed] = useState(() => peekAdHocSeed());
+  // "Customize" hand-off: a report stashed its dataset + date-range CRITERIA (not data). Capture it
+  // once (peek is pure, StrictMode-safe), then clear it in an effect so a later plain visit is blank.
+  const [criteria] = useState(() => peekAdHocCriteria());
   useEffect(() => {
-    clearAdHocSeed();
+    clearAdHocCriteria();
   }, []);
 
-  const [datasetId, setDatasetId] = useState<string>(AD_HOC_DATASETS[0]?.id ?? 'encounters');
-  const [dateRange, setDateRange] = useState<DateRangeFilter>('last-30-days');
-  const [customDate, setCustomDate] = useState<string>(DateTime.now().toFormat('yyyy-MM-dd'));
-  const [customStartDate, setCustomStartDate] = useState<string>(
-    DateTime.now().minus({ days: 30 }).toFormat('yyyy-MM-dd')
+  const [datasetId, setDatasetId] = useState<string>(criteria?.datasetId ?? AD_HOC_DATASETS[0]?.id ?? 'encounters');
+  const [dateRange, setDateRange] = useState<DateRangeFilter>(
+    (criteria?.dateRange as DateRangeFilter) ?? 'last-30-days'
   );
-  const [customEndDate, setCustomEndDate] = useState<string>(DateTime.now().toFormat('yyyy-MM-dd'));
+  const [customDate, setCustomDate] = useState<string>(criteria?.customDate ?? DateTime.now().toFormat('yyyy-MM-dd'));
+  const [customStartDate, setCustomStartDate] = useState<string>(
+    criteria?.customStartDate ?? DateTime.now().minus({ days: 30 }).toFormat('yyyy-MM-dd')
+  );
+  const [customEndDate, setCustomEndDate] = useState<string>(
+    criteria?.customEndDate ?? DateTime.now().toFormat('yyyy-MM-dd')
+  );
 
-  const [rows, setRows] = useState<AdHocRow[] | null>(seed ? seed.rows : null);
-  const [schema, setSchema] = useState<DatasetSchema | null>(seed ? seed.schema : null);
+  const [rows, setRows] = useState<AdHocRow[] | null>(null);
+  const [schema, setSchema] = useState<DatasetSchema | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -151,6 +155,17 @@ export default function AdHocReport(): React.ReactElement {
       setLoading(false);
     }
   }, [oystehrZambda, datasetId, dateRange, getDateRangeIso]);
+
+  // "Customize" hand-off: dataset + range are pre-set from the criteria, so fetch immediately. The
+  // controls stay visible, so the user can change the range and re-fetch. Skipped when opening a
+  // saved report (?saved=), which has its own load path below.
+  const criteriaFetchedRef = useRef(false);
+  useEffect(() => {
+    if (!criteria || criteriaFetchedRef.current || !oystehrZambda || searchParams.get('saved')) return;
+    criteriaFetchedRef.current = true;
+    void handleFetch();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [oystehrZambda]);
 
   // Send schema + request (no rows) to the generate zambda; get back the JS the model wrote and
   // run it in the sandboxed iframe. `conversation` carries prior request/code turns so follow-ups
@@ -230,7 +245,7 @@ export default function AdHocReport(): React.ReactElement {
   // path — saved reports always re-fetch, so relative ranges (e.g. "last 30 days") stay live.
   useEffect(() => {
     const savedId = searchParams.get('saved');
-    if (!savedId || !oystehrZambda || seed || loadAttemptedRef.current) return;
+    if (!savedId || !oystehrZambda || criteria || loadAttemptedRef.current) return;
     loadAttemptedRef.current = true;
     void (async () => {
       setLoading(true);
@@ -333,9 +348,9 @@ export default function AdHocReport(): React.ReactElement {
             </Typography>
           </Box>
 
-          {/* Seeded mode: the dataset arrived from another report — show its provenance instead of the
-            dataset/date/fetch controls. Everything below this is identical to the normal flow. */}
-          {seed && (
+          {/* "Customize" provenance — informational only; the dataset/date controls below stay visible
+              and adjustable, so the range can be changed and re-fetched. */}
+          {criteria?.sourceLabel && (
             <Box
               sx={{
                 mb: 3,
@@ -347,93 +362,82 @@ export default function AdHocReport(): React.ReactElement {
               }}
             >
               <Typography variant="body2">
-                Exploring <strong>{seed.sourceLabel}</strong> — {seed.rows.length.toLocaleString()} rows handed off from
-                another report. Describe the report you want below, or{' '}
-                <Button
-                  size="small"
-                  variant="text"
-                  sx={{ p: 0, minWidth: 0, verticalAlign: 'baseline' }}
-                  onClick={() => navigate(-1)}
-                >
-                  go back
-                </Button>
-                .
+                Customized from <strong>{criteria.sourceLabel}</strong>. Adjust the dataset or date range below and
+                re-fetch, or describe the report you want.
               </Typography>
             </Box>
           )}
 
-          {/* Dataset + date range + fetch (hidden in seeded mode) */}
-          {!seed && (
-            <Box sx={{ mb: 3, display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
-              <FormControl size="small" sx={{ minWidth: 180 }}>
-                <InputLabel>Dataset</InputLabel>
-                <Select
-                  value={datasetId}
-                  label="Dataset"
-                  onChange={(e: SelectChangeEvent) => setDatasetId(e.target.value)}
-                >
-                  {AD_HOC_DATASETS.map((d) => (
-                    <MenuItem key={d.id} value={d.id}>
-                      {d.label}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
+          {/* Dataset + date range + fetch */}
+          <Box sx={{ mb: 3, display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
+            <FormControl size="small" sx={{ minWidth: 180 }}>
+              <InputLabel>Dataset</InputLabel>
+              <Select
+                value={datasetId}
+                label="Dataset"
+                onChange={(e: SelectChangeEvent) => setDatasetId(e.target.value)}
+              >
+                {AD_HOC_DATASETS.map((d) => (
+                  <MenuItem key={d.id} value={d.id}>
+                    {d.label}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
 
-              <FormControl size="small" sx={{ minWidth: 200 }}>
-                <InputLabel>Date Range</InputLabel>
-                <Select
-                  value={dateRange}
-                  label="Date Range"
-                  onChange={(e: SelectChangeEvent<DateRangeFilter>) => setDateRange(e.target.value as DateRangeFilter)}
-                >
-                  <MenuItem value="today">Today</MenuItem>
-                  <MenuItem value="yesterday">Yesterday</MenuItem>
-                  <MenuItem value="last-7-days">Last 7 Days</MenuItem>
-                  <MenuItem value="last-30-days">Last 30 Days</MenuItem>
-                  <MenuItem value="custom">Custom Date</MenuItem>
-                  <MenuItem value="customRange">Custom Date Range</MenuItem>
-                </Select>
-              </FormControl>
+            <FormControl size="small" sx={{ minWidth: 200 }}>
+              <InputLabel>Date Range</InputLabel>
+              <Select
+                value={dateRange}
+                label="Date Range"
+                onChange={(e: SelectChangeEvent<DateRangeFilter>) => setDateRange(e.target.value as DateRangeFilter)}
+              >
+                <MenuItem value="today">Today</MenuItem>
+                <MenuItem value="yesterday">Yesterday</MenuItem>
+                <MenuItem value="last-7-days">Last 7 Days</MenuItem>
+                <MenuItem value="last-30-days">Last 30 Days</MenuItem>
+                <MenuItem value="custom">Custom Date</MenuItem>
+                <MenuItem value="customRange">Custom Date Range</MenuItem>
+              </Select>
+            </FormControl>
 
-              {dateRange === 'custom' && (
+            {dateRange === 'custom' && (
+              <TextField
+                type="date"
+                size="small"
+                value={customDate}
+                onChange={(e) => setCustomDate(e.target.value)}
+                sx={{ minWidth: 160 }}
+                InputLabelProps={{ shrink: true }}
+              />
+            )}
+            {dateRange === 'customRange' && (
+              <>
                 <TextField
                   type="date"
                   size="small"
-                  value={customDate}
-                  onChange={(e) => setCustomDate(e.target.value)}
+                  label="Start"
+                  value={customStartDate}
+                  onChange={(e) => setCustomStartDate(e.target.value)}
                   sx={{ minWidth: 160 }}
                   InputLabelProps={{ shrink: true }}
                 />
-              )}
-              {dateRange === 'customRange' && (
-                <>
-                  <TextField
-                    type="date"
-                    size="small"
-                    label="Start"
-                    value={customStartDate}
-                    onChange={(e) => setCustomStartDate(e.target.value)}
-                    sx={{ minWidth: 160 }}
-                    InputLabelProps={{ shrink: true }}
-                  />
-                  <TextField
-                    type="date"
-                    size="small"
-                    label="End"
-                    value={customEndDate}
-                    onChange={(e) => setCustomEndDate(e.target.value)}
-                    sx={{ minWidth: 160 }}
-                    InputLabelProps={{ shrink: true }}
-                  />
-                </>
-              )}
+                <TextField
+                  type="date"
+                  size="small"
+                  label="End"
+                  value={customEndDate}
+                  onChange={(e) => setCustomEndDate(e.target.value)}
+                  sx={{ minWidth: 160 }}
+                  InputLabelProps={{ shrink: true }}
+                />
+              </>
+            )}
 
-              <Button variant="contained" onClick={() => void handleFetch()} disabled={loading || !oystehrZambda}>
-                {loading ? <CircularProgress size={20} /> : 'Fetch data'}
-              </Button>
-            </Box>
-          )}
+            <Button variant="contained" onClick={() => void handleFetch()} disabled={loading || !oystehrZambda}>
+              {loading ? <CircularProgress size={20} /> : 'Fetch data'}
+            </Button>
+          </Box>
 
           {error && (
             <Box sx={{ mb: 2, p: 2, bgcolor: 'error.light', borderRadius: 1 }}>

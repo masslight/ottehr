@@ -23,8 +23,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { PracticeKpisReportZambdaOutput } from 'utils';
 import { getPracticeKpisReport } from '../../api/api';
-import { encountersDataset } from '../../features/reports/adHoc/encountersDataset';
-import { setAdHocSeed } from '../../features/reports/adHoc/seed';
+import { setAdHocCriteria } from '../../features/reports/adHoc/seed';
 import { useApiClients } from '../../hooks/useAppClients';
 import PageContainer from '../../layout/PageContainer';
 
@@ -35,11 +34,20 @@ const DATE_FILTER_LABELS: Record<string, string> = {
   last30days: 'Last 30 days',
 };
 
+// Map this report's date-filter slugs to the ad-hoc page's DateRangeFilter slugs.
+const AD_HOC_RANGE_SLUG: Record<string, string> = {
+  today: 'today',
+  yesterday: 'yesterday',
+  last7days: 'last-7-days',
+  last30days: 'last-30-days',
+  custom: 'custom',
+  customRange: 'customRange',
+};
+
 export default function PracticeKpis(): React.ReactElement {
   const navigate = useNavigate();
   const { oystehrZambda } = useApiClients();
   const [loading, setLoading] = useState<boolean>(false);
-  const [seeding, setSeeding] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [reportData, setReportData] = useState<PracticeKpisReportZambdaOutput | null>(null);
   const [dateFilter, setDateFilter] = useState<string>('last7days');
@@ -462,33 +470,21 @@ export default function PracticeKpis(): React.ReactElement {
     }));
   }, [reportData]);
 
-  // Open the data BEHIND these KPIs in the ad-hoc report. The KPI zambda only returns per-location
-  // aggregates, so for real exploration/drill-down we fetch the underlying per-visit ENCOUNTERS for
-  // the same date range (the Encounters ad-hoc dataset already exposes the arrival/intake/provider
-  // time buckets the KPIs are computed from), then seed those. The ad-hoc page picks up the seed and
-  // skips its own fetch.
-  const handleOpenAsAdHoc = useCallback(async (): Promise<void> => {
-    if (!oystehrZambda) return;
-    setSeeding(true);
-    setError(null);
-    try {
-      const { start, end } = getDateRange(dateFilter, customDate);
-      const encounterRows = await encountersDataset.fetch({ oystehrZambda, dateRange: { start, end } });
-      const schema = encountersDataset.buildSchema(encounterRows);
-      const rangeLabel = DATE_FILTER_LABELS[dateFilter] ?? `${start.slice(0, 10)}…${end.slice(0, 10)}`;
-      setAdHocSeed({
-        rows: encounterRows,
-        schema,
-        sourceLabel: `Encounters behind Practice KPIs${rangeLabel ? ` · ${rangeLabel}` : ''}`,
-      });
-      navigate('/reports/ad-hoc');
-    } catch (e) {
-      console.error('Failed to load encounters for ad-hoc exploration:', e);
-      setError('Failed to load the underlying visit data for ad-hoc exploration. Please try again.');
-    } finally {
-      setSeeding(false);
-    }
-  }, [oystehrZambda, dateFilter, customDate, getDateRange, navigate]);
+  // Open the visit data behind these KPIs in the ad-hoc report. We hand off the CRITERIA (the
+  // Encounters dataset + the current date range), not data — the ad-hoc page fetches live and leaves
+  // its dataset/date controls visible so the range can be adjusted and re-fetched.
+  const handleOpenAsAdHoc = useCallback((): void => {
+    const rangeLabel = DATE_FILTER_LABELS[dateFilter] ?? '';
+    setAdHocCriteria({
+      datasetId: 'encounters',
+      dateRange: AD_HOC_RANGE_SLUG[dateFilter] ?? 'last-30-days',
+      customDate,
+      customStartDate,
+      customEndDate,
+      sourceLabel: `Practice KPIs${rangeLabel ? ` · ${rangeLabel}` : ''}`,
+    });
+    navigate('/reports/ad-hoc');
+  }, [dateFilter, customDate, customStartDate, customEndDate, navigate]);
 
   // Custom toolbar with CSV export only
   const CustomToolbar = (): React.ReactElement => {
@@ -585,11 +581,11 @@ export default function PracticeKpis(): React.ReactElement {
               <Button
                 variant="outlined"
                 color="primary"
-                startIcon={seeding ? <CircularProgress size={16} /> : <AutoAwesomeIcon />}
-                onClick={() => void handleOpenAsAdHoc()}
-                disabled={loading || seeding || !reportData}
+                startIcon={<AutoAwesomeIcon />}
+                onClick={() => handleOpenAsAdHoc()}
+                disabled={loading || !reportData}
               >
-                {seeding ? 'Loading…' : 'Customize'}
+                Customize
               </Button>
 
               <Typography variant="body2" color="text.secondary" sx={{ ml: 'auto' }}>

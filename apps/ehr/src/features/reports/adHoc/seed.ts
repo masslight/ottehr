@@ -1,37 +1,41 @@
-import { AdHocRow, DatasetSchema } from './types';
-
 /**
- * Transient handoff from an existing report into the Ad-Hoc Report page. A report packages its
- * already-fetched rows + a derived schema, stashes them here, and navigates to /reports/ad-hoc;
- * the ad-hoc page consumes the seed on mount and skips its own dataset/date/fetch step.
+ * Transient hand-off from an existing report into the Ad-Hoc Report page ("Customize"). A report
+ * stashes its SEARCH CRITERIA (which dataset + which date range) here and navigates to
+ * /reports/ad-hoc; the ad-hoc page consumes the criteria on mount, sets its dataset + date controls
+ * to match, and fetches LIVE. The controls stay visible and adjustable, so the user can change the
+ * range and re-fetch — i.e. it's the same dataset/date the report used, not a frozen snapshot.
  *
- * Module-level (not a store/context) on purpose: it's a one-shot baton handed across a single
- * navigation, read exactly once. consume() clears it so a later plain visit to /reports/ad-hoc
- * starts fresh, and a refresh (which loses module state) correctly falls back to the normal flow.
- * Rows stay client-side throughout — the privacy model (only schema reaches the LLM) is unchanged.
+ * Module-level (not a store/context) on purpose: a one-shot baton handed across a single navigation,
+ * read once. clear() resets it so a later plain visit to /reports/ad-hoc starts blank, and a refresh
+ * (which loses module state) correctly falls back to the normal flow.
  */
-export interface AdHocSeed {
-  rows: AdHocRow[];
-  schema: DatasetSchema;
-  /** Short provenance shown in the seeded banner, e.g. "Practice KPIs · Last 7 days". */
-  sourceLabel: string;
+export interface AdHocCriteria {
+  /** Dataset id to pre-select (must be a registered AD_HOC_DATASETS id). */
+  datasetId: string;
+  /** Date-range selector value (the ad-hoc page's DateRangeFilter), e.g. "today", "last-30-days". */
+  dateRange: string;
+  customDate?: string;
+  customStartDate?: string;
+  customEndDate?: string;
+  /** Short provenance for the banner, e.g. "Recent Patients · Last 7 days". */
+  sourceLabel?: string;
 }
 
-let pending: AdHocSeed | null = null;
+let pending: AdHocCriteria | null = null;
 
-export function setAdHocSeed(seed: AdHocSeed): void {
-  pending = seed;
+export function setAdHocCriteria(criteria: AdHocCriteria): void {
+  pending = criteria;
 }
 
 /**
- * Read the pending seed WITHOUT clearing it. Pure, so it's safe to call from a render / useState
- * initializer (which React StrictMode double-invokes in dev) — capture it into state, then call
- * clearAdHocSeed() from an effect so a later plain visit starts fresh.
+ * Read the pending criteria WITHOUT clearing it. Pure, so it's safe to call from a render / useState
+ * initializer (StrictMode double-invokes in dev); capture it, then call clearAdHocCriteria() from an
+ * effect so a later plain visit starts fresh.
  */
-export function peekAdHocSeed(): AdHocSeed | null {
+export function peekAdHocCriteria(): AdHocCriteria | null {
   return pending;
 }
 
-export function clearAdHocSeed(): void {
+export function clearAdHocCriteria(): void {
   pending = null;
 }
