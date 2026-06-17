@@ -197,6 +197,10 @@ export default function CreateClaim(): ReactElement {
 
   const handleSave = async (): Promise<void> => {
     if (!oystehrZambda || !selectedPatient || !dateOfService) return;
+    if (!selectedPatient.id) {
+      setError('Selected patient is missing an id');
+      return;
+    }
     setSaving(true);
     setError(null);
     try {
