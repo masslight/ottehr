@@ -855,7 +855,7 @@ async function findExistingBillingResources(
       params: [
         {
           name: 'identifier',
-          value: `${FHIR_IDENTIFIER_NPI}|${getNPIIdentifier(originals.location)}`,
+          value: `${FHIR_IDENTIFIER_NPI}|${getNPIIdentifier(originals.location)?.value}`,
         },
       ],
     })
@@ -871,7 +871,7 @@ async function findExistingBillingResources(
             params: [
               {
                 name: 'identifier',
-                value: `${FHIR_IDENTIFIER_NPI}|${getNPIIdentifier(p)}`,
+                value: `${FHIR_IDENTIFIER_NPI}|${getNPIIdentifier(p)?.value}`,
               },
             ],
           })
@@ -900,7 +900,7 @@ async function findExistingBillingResources(
       params: [
         {
           name: 'identifier',
-          value: `${FHIR_IDENTIFIER_NPI}|${getNPIIdentifier(originals.billingProvider)}`,
+          value: `${FHIR_IDENTIFIER_NPI}|${getNPIIdentifier(originals.billingProvider)?.value}`,
         },
       ],
     })
