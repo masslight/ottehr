@@ -37,6 +37,7 @@ interface ServiceLine {
   charges: number;
 }
 
+// TODO(OTR-2731): partial list, swap in the full CMS Place of Service code set when "Implement Service Facilities List" lands.
 const POS_OPTIONS = [
   { value: '11', label: '11 - Office' },
   { value: '20', label: '20 - Urgent Care' },

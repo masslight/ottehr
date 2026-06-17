@@ -68,6 +68,12 @@ export interface BillingPayerOption {
   payerId: string;
 }
 
+// A diagnosis (ICD-10) or procedure (CPT/HCPCS) code option from terminology search.
+export interface BillingCodeOption {
+  code: string;
+  display: string;
+}
+
 export interface EraListItem {
   id: string;
   eraId: string;
@@ -280,6 +286,10 @@ export interface SearchBillingLocationsResponse {
 
 export interface SearchBillingPayersResponse {
   payers: BillingPayerOption[];
+}
+
+export interface SearchBillingProcedureCodesResponse {
+  codes: BillingCodeOption[];
 }
 
 export interface SearchBillingTagsResponse {

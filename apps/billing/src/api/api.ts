@@ -29,6 +29,8 @@ import {
   SearchBillingPatientsResponse,
   SearchBillingPayersInput,
   SearchBillingPayersResponse,
+  SearchBillingProcedureCodesInput,
+  SearchBillingProcedureCodesResponse,
   SearchBillingProvidersInput,
   SearchBillingProvidersResponse,
   SearchBillingTagsResponse,
@@ -137,6 +139,18 @@ export const getPatientCoverages = (
   oystehr: Oystehr,
   parameters: GetPatientCoveragesInput
 ): Promise<GetPatientCoveragesResponse> => executeBillingZambda(oystehr, 'get-patient-coverages', parameters);
+
+// --- Terminology ---
+
+export const searchBillingProcedureCodes = (
+  oystehr: Oystehr,
+  parameters: SearchBillingProcedureCodesInput
+): Promise<SearchBillingProcedureCodesResponse> =>
+  executeBillingZambda(oystehr, 'search-billing-procedure-codes', parameters);
+
+// TODO(oystehr): no ICD-10 (diagnosis) terminology search yet — the SDK only exposes searchCpt/searchHcpcs.
+// When Oystehr adds ICD-10, add `searchBillingDiagnosisCodes` here + a `search-billing-diagnosis-codes`
+// zambda (createBillingClient) and make the diagnosis fields autocompletes. Until then diagnoses stay free-text.
 
 // --- Tags ---
 

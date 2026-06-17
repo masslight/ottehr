@@ -112,6 +112,10 @@ export const SearchBillingPayersInputSchema = z.object({
   name: nonEmptyString.optional(),
 });
 
+export const SearchBillingProcedureCodesInputSchema = z.object({
+  query: nonEmptyString,
+});
+
 const claimDiagnosisSchema = z.object({
   code: nonEmptyString,
   display: z.string().optional(),
@@ -387,6 +391,7 @@ export type SearchBillingProvidersInput = z.infer<typeof SearchBillingProvidersI
 export type SearchBillingPatientsInput = z.infer<typeof SearchBillingPatientsInputSchema>;
 export type SearchBillingLocationsInput = z.infer<typeof SearchBillingLocationsInputSchema>;
 export type SearchBillingPayersInput = z.infer<typeof SearchBillingPayersInputSchema>;
+export type SearchBillingProcedureCodesInput = z.infer<typeof SearchBillingProcedureCodesInputSchema>;
 export type CreateBillingClaimInput = z.infer<typeof CreateBillingClaimInputSchema>;
 export type CreateBillingProviderInput = z.infer<typeof CreateBillingProviderInputSchema>;
 export type DeleteBillingProviderInput = z.infer<typeof DeleteBillingProviderInputSchema>;
