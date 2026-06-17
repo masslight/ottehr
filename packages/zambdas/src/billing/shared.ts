@@ -48,16 +48,16 @@ export type BillingFhirResource =
   | Basic;
 
 export const BILLING_RESOURCE_TAG = {
-  system: 'https://ottehr.com/billing/resource-type',
+  system: 'https://fhir.ottehr.com/billing/resource-type',
   code: 'billing-resource',
 };
 
 export const BILLING_WORKING_COPY_TAG = {
-  system: 'https://ottehr.com/billing/resource-type',
+  system: 'https://fhir.ottehr.com/billing/resource-type',
   code: 'billing-working-copy',
 };
 
-export const CURRENT_STATUS_TAG_SYSTEM = 'current-status';
+export const CURRENT_STATUS_TAG_SYSTEM = 'https://fhir.ottehr.com/billing/current-status';
 
 // TODO: this function has fallback chain so it is hard to return enum and we don't have standardized status codes yet
 export function getClaimStatus(claim: Claim): string {
@@ -94,14 +94,14 @@ export const PROVIDER_ROLE_BILLING = 'billing';
 export const PROVIDER_ROLE_RENDERING = 'rendering';
 export const LICENSE_TAG = 'https://fhir.ottehr.com/billing/license-type';
 
-export const SOURCE_IDENTIFIER_SYSTEM = 'https://ottehr.com/billing/source-resource';
+export const SOURCE_IDENTIFIER_SYSTEM = 'https://fhir.ottehr.com/billing/source-resource';
 export const ERA_ID_SYSTEM = 'https://identifiers.fhir.oystehr.com/era-id';
 export const ERA_CHECK_SYSTEM = 'https://identifiers.fhir.oystehr.com/era-check-number';
 
-export const TAG_CODE_SYSTEM = 'https://ottehr.com/billing/tag';
-export const CLAIM_TAG_SYSTEM = 'https://ottehr.com/billing/claim-tag';
-export const TAG_DESCRIPTION_URL = 'https://ottehr.com/billing/tag-description';
-export const TAG_IS_SYSTEM_TAG_URL = 'https://ottehr.com/billing/is-system-tag';
+export const TAG_CODE_SYSTEM = 'https://fhir.ottehr.com/billing/tag';
+export const CLAIM_TAG_SYSTEM = 'https://fhir.ottehr.com/billing/claim-tag';
+export const TAG_DESCRIPTION_URL = 'https://fhir.ottehr.com/billing/tag-description';
+export const TAG_IS_SYSTEM_TAG_URL = 'https://fhir.ottehr.com/billing/is-system-tag';
 
 export function isSystemTag(tag: Basic): boolean {
   return tag.extension?.some((ext) => ext.url === TAG_IS_SYSTEM_TAG_URL && ext.valueBoolean === true) ?? false;

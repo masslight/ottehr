@@ -12,6 +12,7 @@ import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../sha
 import {
   CLAIM_TAG_SYSTEM,
   createBillingClient,
+  CURRENT_STATUS_TAG_SYSTEM,
   fhirName,
   findRef,
   getClaimAppointmentType,
@@ -62,7 +63,7 @@ async function performEffect(
   ];
 
   if (params.type) searchParams.push({ name: '_tag', value: `${CODE_SYSTEM_CLAIM_TYPE}|${params.type}` });
-  if (params.status) searchParams.push({ name: '_tag', value: `current-status|${params.status}` });
+  if (params.status) searchParams.push({ name: '_tag', value: `${CURRENT_STATUS_TAG_SYSTEM}|${params.status}` });
   if (params.createdFrom) searchParams.push({ name: 'created', value: `ge${params.createdFrom}` });
   if (params.createdTo) searchParams.push({ name: 'created', value: `le${params.createdTo}` });
   if (params.patientId) searchParams.push({ name: 'patient', value: `Patient/${params.patientId}` });
