@@ -1,4 +1,4 @@
-import { CODE_SYSTEM_CLAIM_TYPE_CODES } from '../../../helpers';
+import { CODE_SYSTEM_APPOINTMENT_TYPE_CODES, CODE_SYSTEM_CLAIM_TYPE_CODES } from '../../../helpers';
 import { ClaimStatusValues } from './claim-status';
 
 export interface BillingTag {
@@ -119,6 +119,7 @@ export interface BillingClaimItem {
   payerName: string;
   payerId: string;
   memberId: string;
+  appointmentType: keyof typeof CODE_SYSTEM_APPOINTMENT_TYPE_CODES | undefined;
   serviceDate: string;
   facility: string;
   renderingProvider: string;
@@ -177,6 +178,9 @@ export interface ClaimDetailResponse {
   status: string;
   statuses: ClaimStatusValues;
   created: string;
+  billingType: string;
+  billableStatus: string;
+  appointmentType?: string;
   patientName: string;
   patientDob: string;
   patientGender: string;

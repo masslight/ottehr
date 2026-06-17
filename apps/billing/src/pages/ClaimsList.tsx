@@ -23,10 +23,12 @@ import {
   chooseJson,
   CLAIM_STATUS_FIELDS,
   CLAIM_STATUS_FIELDS_BY_KEY,
+  CODE_SYSTEM_APPOINTMENT_TYPE_CODES,
+  CODE_SYSTEM_CLAIM_TYPE_CODES,
   formatClaimStatusValue,
 } from 'utils';
 import { dataGridSlots, dataGridSx } from '../components/BillingDataGrid';
-import { claimStatusValueColor } from '../constants/claimStatus';
+import { claimStatusValueColor, formatAntCaseString } from '../constants/claimStatus';
 import { useApiClients } from '../hooks/useAppClients';
 import { formatCurrency } from '../utils/format';
 
@@ -38,6 +40,8 @@ interface Filters {
   createdTo?: string;
   payerId?: string;
   patientId?: string;
+  type?: string;
+  appointmentType?: string;
 }
 
 const currencyCol = (field: string, headerName: string, width: number): GridColDef => ({
@@ -78,6 +82,18 @@ const columns: GridColDef[] = [
   { field: 'payerName', headerName: 'Payer Name', flex: 1, minWidth: 160 },
   { field: 'payerId', headerName: 'Payer ID', width: 100 },
   ...statusColumns,
+  {
+    field: 'type',
+    headerName: 'Claim Type',
+    minWidth: 130,
+    valueFormatter: (params: { value: string }) => formatAntCaseString(params.value),
+  },
+  {
+    field: 'appointmentType',
+    headerName: 'Appointment Type',
+    minWidth: 130,
+    valueFormatter: (params: { value: string }) => formatAntCaseString(params.value),
+  },
   currencyCol('billed', 'Billed', 100),
   currencyCol('allowed', 'Allowed', 100),
   currencyCol('insurancePaid', 'Insurance Paid', 120),
@@ -110,6 +126,10 @@ export default function ClaimsList(): ReactElement {
   const [createdTo, setDosTo] = useState('');
   const [selectedPayer, setSelectedPayer] = useState<BillingPayerOption | null>(null);
   const [selectedPatient, setSelectedPatient] = useState<BillingPatientOption | null>(null);
+  const [typeFilter, setTypeFilter] = useState<keyof typeof CODE_SYSTEM_CLAIM_TYPE_CODES | ''>('');
+  const [appointmentTypeFilter, setAppointmentTypeFilter] = useState<
+    keyof typeof CODE_SYSTEM_APPOINTMENT_TYPE_CODES | ''
+  >('');
 
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const payerDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -140,6 +160,8 @@ export default function ClaimsList(): ReactElement {
         if (filters.createdTo) body.createdTo = filters.createdTo;
         if (filters.payerId) body.payerId = filters.payerId;
         if (filters.patientId) body.patientId = filters.patientId;
+        if (filters.type) body.type = filters.type;
+        if (filters.appointmentType) body.appointmentType = filters.appointmentType;
 
         const response = await oystehrZambda.zambda.execute({ id: 'search-billing-claims', ...body });
         const data = chooseJson(response);
@@ -212,8 +234,20 @@ export default function ClaimsList(): ReactElement {
       createdTo: overrides?.createdTo ?? createdTo,
       payerId: overrides?.payerId ?? selectedPayer?.payerId,
       patientId: overrides?.patientId ?? selectedPatient?.id,
+      type: overrides?.type ?? typeFilter,
+      appointmentType: overrides?.appointmentType ?? appointmentTypeFilter,
     }),
-    [searchText, arStageFilter, tagFilter, createdFrom, createdTo, selectedPayer, selectedPatient]
+    [
+      searchText,
+      arStageFilter,
+      tagFilter,
+      createdFrom,
+      createdTo,
+      selectedPayer,
+      selectedPatient,
+      typeFilter,
+      appointmentTypeFilter,
+    ]
   );
 
   const applyFilters = useCallback(
@@ -243,13 +277,23 @@ export default function ClaimsList(): ReactElement {
     setDosTo('');
     setSelectedPayer(null);
     setSelectedPatient(null);
+    setTypeFilter('');
+    setAppointmentTypeFilter('');
     const resetPage = { ...paginationModel, page: 0 };
     setPaginationModel(resetPage);
     void fetchClaims({}, resetPage);
   };
 
   const hasFilters =
-    searchText || arStageFilter || tagFilter || createdFrom || createdTo || selectedPayer || selectedPatient;
+    searchText ||
+    arStageFilter ||
+    tagFilter ||
+    createdFrom ||
+    createdTo ||
+    selectedPayer ||
+    selectedPatient ||
+    typeFilter ||
+    appointmentTypeFilter;
 
   return (
     <Box sx={{ p: 0 }}>
@@ -295,6 +339,52 @@ export default function ClaimsList(): ReactElement {
                 {o.label}
               </MenuItem>
             ))}
+          </Select>
+        </FormControl>
+
+        <FormControl size="small" sx={{ minWidth: 160 }}>
+          <InputLabel>Claim Type</InputLabel>
+          <Select
+            value={typeFilter}
+            label="Claim Type"
+            onChange={(e) => {
+              setTypeFilter(e.target.value as '' | keyof typeof CODE_SYSTEM_CLAIM_TYPE_CODES);
+              applyFilters({ type: e.target.value });
+            }}
+          >
+            <MenuItem value="">All</MenuItem>
+            <MenuItem key={'professional'} value={'professional'}>
+              Professional
+            </MenuItem>
+            <MenuItem key={'institutional'} value={'institutional'}>
+              Institutional
+            </MenuItem>
+          </Select>
+        </FormControl>
+
+        <FormControl size="small" sx={{ minWidth: 160 }}>
+          <InputLabel>Appointment Type</InputLabel>
+          <Select
+            value={appointmentTypeFilter}
+            label="Appointment Type"
+            onChange={(e) => {
+              setAppointmentTypeFilter(e.target.value as '' | keyof typeof CODE_SYSTEM_APPOINTMENT_TYPE_CODES);
+              applyFilters({ appointmentType: e.target.value });
+            }}
+          >
+            <MenuItem value="">All</MenuItem>
+            <MenuItem key={'urgent-care'} value={'urgent-care'}>
+              Urgent Care
+            </MenuItem>
+            <MenuItem key={'occupational-medicine'} value={'occupational-medicine'}>
+              Occupational Medicine
+            </MenuItem>
+            <MenuItem key={'pre-op'} value={'pre-op'}>
+              Pre Op
+            </MenuItem>
+            <MenuItem key={'workers-comp'} value={'workers-comp'}>
+              Workers Comp
+            </MenuItem>
           </Select>
         </FormControl>
 

@@ -18,7 +18,7 @@ import { ReactElement, useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BillingPatientOption, BillingPayerOption, chooseJson, ClaimsQueueItemStatuses, EraListItem } from 'utils';
 import { dataGridSlots, dataGridSx } from '../components/BillingDataGrid';
-import { formatClaimStatus } from '../constants/claimStatus';
+import { formatAntCaseString } from '../constants/claimStatus';
 import { useApiClients } from '../hooks/useAppClients';
 import { useDebounce } from '../hooks/useDebounce';
 import { formatCurrency } from '../utils/format';
@@ -376,7 +376,7 @@ export default function ERAList(): ReactElement {
             <MenuItem value="">All</MenuItem>
             {ClaimsQueueItemStatuses.map((s) => (
               <MenuItem key={s} value={s}>
-                {formatClaimStatus(s)}
+                {formatAntCaseString(s)}
               </MenuItem>
             ))}
           </Select>

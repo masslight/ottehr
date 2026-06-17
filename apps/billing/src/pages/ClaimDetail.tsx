@@ -39,7 +39,7 @@ import {
 import { ClaimStatusFields } from '../components/claim/ClaimStatusFields';
 import { EditableSection } from '../components/claim/EditableSection';
 import { Field } from '../components/Field';
-import { claimStatusValueColor } from '../constants/claimStatus';
+import { claimStatusValueColor, formatAntCaseString } from '../constants/claimStatus';
 import { useApiClients } from '../hooks/useAppClients';
 import { otherColors } from '../themes/ottehr/colors';
 import { buildAddressInput, formatCurrency, splitDisplayName } from '../utils/format';
@@ -165,6 +165,8 @@ export default function ClaimDetail(): ReactElement {
           <Box sx={{ display: 'flex', gap: 3, mt: 0.5, flexWrap: 'wrap' }}>
             <Meta label="Date of Service" value={dos} />
             <Meta label="Claim ID" value={claim.id.slice(0, 8)} />
+            <Meta label="Claim Type" value={formatAntCaseString(claim.type)} />
+            <Meta label="Appointment Type" value={formatAntCaseString(claim.appointmentType)} />
             <Meta label="Patient DOB" value={claim.patientDob} />
           </Box>
         </Box>
