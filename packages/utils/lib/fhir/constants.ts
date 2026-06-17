@@ -118,6 +118,11 @@ export const FHIR_EXTENSION = {
       url: 'https://extensions.fhir.oystehr.com/contact-point/telecom-phone-erx',
     },
   },
+  MedicationRequest: {
+    isRenewal: {
+      url: 'https://extensions.fhir.oystehr.com/medication-request/is-renewal',
+    },
+  },
   InsurancePlan: {
     insuranceRequirements: {
       url: `${PUBLIC_EXTENSION_BASE_URL}/insurance-requirements`,
