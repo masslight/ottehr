@@ -1,7 +1,16 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim } from 'fhir/r4b';
-import { CLAIM_STATUS_FIELDS_BY_KEY, getActiveStatusGroup, INVALID_INPUT_ERROR, isValidClaimStatusValue } from 'utils';
+import {
+  CLAIM_STATUS_FIELDS,
+  CLAIM_STATUS_FIELDS_BY_KEY,
+  ClaimStatusValues,
+  claimStatusValuesToTags,
+  getClaimStatusValues,
+  INVALID_INPUT_ERROR,
+  isValidClaimStatusValue,
+  withArStageInitialization,
+} from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import { createBillingClient, fetchById } from '../shared';
 import { SetClaimStatusParams, validateRequestParameters } from './validateRequestParameters';
@@ -28,20 +37,17 @@ export async function performEffect(oystehr: Oystehr, params: SetClaimStatusPara
 
   const claim = await fetchById<Claim>(oystehr, 'Claim', params.claimId);
 
-  // Replace this field's tag while preserving every other tag (other status fields, claim tags, etc.).
-  const updatedTags = (claim.meta?.tag ?? []).filter((t) => t.system !== field.system);
-  if (value) updatedTags.push({ system: field.system, code: value });
+  // Apply the change to the claim's current status values, then — when setting AR Stage — run the same
+  // stage-initialization rule used at claim creation so a freshly-entered stage doesn't sit at "None".
+  const values: ClaimStatusValues = { ...getClaimStatusValues(claim), [params.field]: value };
+  const updatedValues = params.field === 'arStage' ? withArStageInitialization(values) : values;
 
-  // Entering an AR Stage initializes that stage's progress status (e.g. Insurance AR Status -> "Created")
-  // to its first value when it hasn't been set yet, so a freshly-entered stage doesn't sit at "None".
-  if (params.field === 'arStage' && value) {
-    const group = getActiveStatusGroup(value);
-    const primaryField = group ? CLAIM_STATUS_FIELDS_BY_KEY[group.primaryFieldKey] : undefined;
-    const firstValue = primaryField?.options[0]?.code;
-    if (primaryField && firstValue && !updatedTags.some((t) => t.system === primaryField.system)) {
-      updatedTags.push({ system: primaryField.system, code: firstValue });
-    }
-  }
+  // Rebuild this claim's status tags from the values while preserving every non-status tag.
+  const statusSystems = new Set(CLAIM_STATUS_FIELDS.map((f) => f.system));
+  const updatedTags = [
+    ...(claim.meta?.tag ?? []).filter((t) => !t.system || !statusSystems.has(t.system)),
+    ...claimStatusValuesToTags(updatedValues),
+  ];
 
   const versionId = claim.meta?.versionId;
   await oystehr.fhir.patch(
