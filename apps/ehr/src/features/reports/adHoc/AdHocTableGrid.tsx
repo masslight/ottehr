@@ -10,7 +10,6 @@ import {
   GridToolbarFilterButton,
 } from '@mui/x-data-grid-pro';
 import React, { useMemo } from 'react';
-import { Link as RouterLink } from 'react-router-dom';
 import { ExtractedTable } from './types';
 
 function slug(s: string): string {
@@ -73,8 +72,12 @@ function buildGrid(table: ExtractedTable): { columns: GridColDef[]; rows: GridRo
         const display = params.row[`${field}__text`] as string;
         const href = params.row[`${field}__href`] as string | undefined;
         if (href) {
+          // Open in a NEW browser tab (matching the documented contract and the in-iframe link
+          // behavior) rather than a same-window SPA navigation, so opening a report row's link never
+          // navigates away from the report the user is looking at. `href` is always a relative
+          // app-internal route (the iframe extractor only keeps single-slash relative hrefs).
           return (
-            <MuiLink component={RouterLink} to={href} sx={{ textDecoration: 'none' }}>
+            <MuiLink href={href} target="_blank" rel="noopener noreferrer" sx={{ textDecoration: 'none' }}>
               {display}
             </MuiLink>
           );
