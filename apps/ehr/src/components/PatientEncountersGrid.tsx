@@ -149,7 +149,7 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
   const [sortField, setSortField] = useState<SortField>('dateTime');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(5);
+  const [rowsPerPage, setRowsPerPage] = useState(20);
 
   const { oystehrZambda } = useApiClients();
   const navigate = useNavigate();
@@ -551,7 +551,7 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
       </TableContainer>
 
       <TablePagination
-        rowsPerPageOptions={[5]}
+        rowsPerPageOptions={[20]}
         component="div"
         count={filtered.length}
         rowsPerPage={rowsPerPage}

@@ -19,7 +19,8 @@ import {
 import { DataGridPro, GridColDef } from '@mui/x-data-grid-pro';
 import { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { chooseJson, EraDetailResponse } from 'utils';
+import { EraDetailResponse, getApiError } from 'utils';
+import { getBillingEraDetail } from '../api/api';
 import { dataGridSlots, dataGridSx } from '../components/BillingDataGrid';
 import { DetailRow } from '../components/DetailRow';
 import { useApiClients } from '../hooks/useAppClients';
@@ -91,10 +92,10 @@ export default function ERADetail(): ReactElement {
     setLoading(true);
     setError(null);
     try {
-      const response = await oystehrZambda.zambda.execute({ id: 'get-billing-era-detail', eraId: id });
-      setEra(chooseJson(response));
+      const data = await getBillingEraDetail(oystehrZambda, { eraId: id });
+      setEra(data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(getApiError({ error: err, defaultError: 'Failed to load ERA' }));
     } finally {
       setLoading(false);
     }

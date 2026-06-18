@@ -49,6 +49,7 @@ export const FHIR_IDENTIFIER_NPI = 'http://hl7.org/fhir/sid/us-npi';
 export const FHIR_IDENTIFIER_SYSTEM = 'http://terminology.hl7.org/CodeSystem/v2-0203';
 export const FHIR_IDENTIFIER_CODE_TAX_EMPLOYER = 'NE';
 export const FHIR_IDENTIFIER_CODE_TAX_SS = 'SS';
+export const FHIR_IDENTIFIER_CODE_TAXONOMY = 'ZZ';
 export const FRIENDLY_PATIENT_ID_SYSTEM_BASE = 'https://identifiers.fhir.oystehr.com/friendly-patient-id';
 export const FHIR_AI_CHAT_CONSENT_CATEGORY_CODE = 'ai-chat';
 export const FHIR_HL7_ORG_VALUE_SET_BASE_URL = 'http://hl7.org/fhir/ValueSet';
@@ -248,6 +249,14 @@ export const PRACTITIONER_QUALIFICATION_CODE_SYSTEM = 'http://terminology.hl7.or
 export const PRACTITIONER_QUALIFICATION_STATE_SYSTEM = 'http://hl7.org/fhir/us/core/ValueSet/us-core-usps-state';
 
 export const SLUG_SYSTEM = `${FHIR_BASE_URL}/r4/slug`;
+
+// Slug values are interpolated raw into FHIR `identifier` search params as
+// `${SLUG_SYSTEM}|${slug}` and into patient-facing booking URLs. Restrict to a
+// URL-safe shape (letters/digits/hyphens) so a value saved in the admin UI
+// can't fail validation when the patient side later searches by it.
+export const SLUG_REGEX = /^[a-zA-Z0-9-]+$/;
+export const SLUG_VALIDATION_MESSAGE = 'must be a URL-safe slug (letters, digits, hyphens)';
+export const isValidSlug = (slug: string): boolean => SLUG_REGEX.test(slug);
 
 /**
  * Optional admin-editable display name for a PractitionerRole-actored schedule.

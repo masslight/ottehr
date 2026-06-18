@@ -1,9 +1,8 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { FhirResource } from 'fhir/r4b';
-import { FHIR_RESOURCE_NOT_FOUND } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
-import { CopyableBillingResource, createBillingClient, prepareWorkingCopy } from '../shared';
+import { CopyableBillingResource, createBillingClient, fetchById, prepareWorkingCopy } from '../shared';
 import { CreateWorkingCopyParams, validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -22,12 +21,7 @@ async function performEffect(
   oystehr: Oystehr,
   params: CreateWorkingCopyParams
 ): Promise<{ id: string | undefined; resourceType: string }> {
-  const searchResult = await oystehr.fhir.search<CopyableBillingResource>({
-    resourceType: params.resourceType,
-    params: [{ name: '_id', value: params.resourceId }],
-  });
-  const original = searchResult.unbundle()[0];
-  if (!original) throw FHIR_RESOURCE_NOT_FOUND(params.resourceType);
+  const original = await fetchById<CopyableBillingResource>(oystehr, params.resourceType, params.resourceId);
 
   // Clone the original and apply field overrides
   const copy = prepareWorkingCopy(original, params.resourceId);
