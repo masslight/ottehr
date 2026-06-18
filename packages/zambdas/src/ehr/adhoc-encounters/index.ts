@@ -1,3 +1,4 @@
+import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import {
   Appointment,
@@ -50,8 +51,53 @@ import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaIn
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
+// Registrar full names, keyed by lowercase staff login email. Built once per warm container from the
+// IAM user list (email -> Practitioner profile -> name) — the same mapping the admin Employees page
+// uses. Cached because it's stable and the lookup (user.list + Practitioner names) is not free.
+let staffNameByEmail: Map<string, string> | undefined;
 
 const ZAMBDA_NAME = 'adhoc-encounters';
+
+async function getStaffNameByEmail(oystehr: Oystehr): Promise<Map<string, string>> {
+  if (staffNameByEmail) return staffNameByEmail;
+  const map = new Map<string, string>();
+  try {
+    const users = await oystehr.user.list();
+    const pidByEmail = new Map<string, string>();
+    const ids: string[] = [];
+    for (const u of users) {
+      const email = (u.email || '').toLowerCase().trim();
+      const pid = u.profile?.startsWith('Practitioner/') ? u.profile.split('/')[1] : undefined;
+      if (email && pid) {
+        pidByEmail.set(email, pid);
+        ids.push(pid);
+      }
+    }
+    const nameById = new Map<string, string>();
+    for (let i = 0; i < ids.length; i += 80) {
+      const bundle = await oystehr.fhir.search<Practitioner>({
+        resourceType: 'Practitioner',
+        params: [
+          { name: '_id', value: ids.slice(i, i + 80).join(',') },
+          { name: '_elements', value: 'id,name' },
+          { name: '_count', value: '1000' },
+        ],
+      });
+      for (const p of bundle.unbundle()) {
+        const nm = `${p.name?.[0]?.given?.[0] || ''} ${p.name?.[0]?.family || ''}`.trim();
+        if (p.id && nm) nameById.set(p.id, nm);
+      }
+    }
+    for (const [email, pid] of pidByEmail) {
+      const nm = nameById.get(pid);
+      if (nm) map.set(email, nm);
+    }
+  } catch (e) {
+    console.warn('adhoc-encounters: registrar name resolution failed, falling back to email', e);
+  }
+  staffNameByEmail = map;
+  return map;
+}
 
 const minutesBetween = (start?: string, end?: string): number | null => {
   if (!start || !end) return null;
@@ -348,6 +394,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     return parentRef ? appointmentMap.get(parentRef) : undefined;
   };
 
+  const staffNames = await getStaffNameByEmail(oystehr);
   const rows: AdHocEncounterRow[] = [];
   for (const encounter of encounters) {
     const appointment = resolveAppointment(encounter);
@@ -414,6 +461,13 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       ? 'Self-scheduled'
       : 'Unknown';
     const registeredBy = createdBy.startsWith('Staff') ? createdBy.replace(/^Staff\s*/, '').trim() : 'Patient';
+    const regEmail = registeredBy.includes('@')
+      ? registeredBy
+          .replace(/ via QRS$/, '')
+          .trim()
+          .toLowerCase()
+      : '';
+    const registeredByName = (regEmail && staffNames.get(regEmail)) || registeredBy;
 
     const row: AdHocEncounterRow = {
       appointmentId: appointment.id || '',
@@ -446,6 +500,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       attendingProviderId: attendingId,
       registrationChannel,
       registeredBy,
+      registeredByName,
     };
 
     if (includeCodes) {

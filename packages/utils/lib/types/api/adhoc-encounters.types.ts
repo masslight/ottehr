@@ -70,6 +70,7 @@ export interface AdHocEncounterRow {
   // --- Registration ---
   registrationChannel: string; // "Staff" | "Self-scheduled" | "Walk-in" | "Unknown"
   registeredBy: string; // staff email for staff-created visits, "Patient" otherwise
+  registeredByName: string; // registrar's full name (resolved from the staff email), or registeredBy when unresolved
   // --- Codes (includeCodes) ---
   icdCodes?: string[];
   primaryIcd?: string;

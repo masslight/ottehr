@@ -158,7 +158,14 @@ const BASE_FIELDS: FieldDef[] = [
   {
     name: 'registeredBy',
     type: 'string',
-    description: 'Staff email that registered the visit, or "Patient" for patient-initiated registrations.',
+    description: 'Staff login EMAIL that registered the visit, or "Patient" for patient-initiated registrations.',
+  },
+  {
+    name: 'registeredByName',
+    type: 'string',
+    description:
+      "Registrar's FULL NAME (resolved from the staff login email via the employee directory). Use this " +
+      'to show "who registered" by name; falls back to the email/"Patient" when no name is on file.',
   },
 ];
 
