@@ -203,7 +203,7 @@ function applyTinOverride(
 }
 
 function buildClaim(copies: OriginalResources, params: CreateClaimParams): Claim {
-  const now = new Date().toISOString().slice(0, 10);
+  const serviceDate = params.serviceLines?.[0]?.serviceDate ?? new Date().toISOString().slice(0, 10);
 
   const claim: Claim = {
     resourceType: 'Claim',
@@ -211,7 +211,7 @@ function buildClaim(copies: OriginalResources, params: CreateClaimParams): Claim
     meta: { tag: [{ system: CURRENT_STATUS_TAG_SYSTEM, code: 'open' }] },
     type: { coding: [{ system: CODE_SYSTEM_CLAIM_TYPE, code: 'professional' }] },
     use: 'claim',
-    created: now,
+    created: serviceDate,
     patient: { reference: `Patient/${copies.patient.id}` },
     provider: copies.billingProvider?.id
       ? { reference: `${copies.billingProvider.resourceType}/${copies.billingProvider.id}` }
