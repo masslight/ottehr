@@ -1,6 +1,6 @@
 {
   "name": "ottehr",
-  "version": "1.36.22",
+  "version": "1.36.34",
   "private": true,
   "packageManager": "npm@10.9.3",
   "engines": {
@@ -183,6 +183,7 @@
     "dymojs": "^1.2.0",
     "fast-json-patch": "^3.1.1",
     "fhirpath": "^4.8.2",
+    "html-to-text": "^10.0.0",
     "i18next": "^23.10.1",
     "i18next-browser-languagedetector": "^7.0.1",
     "jose": "^5.2.2",
@@ -224,6 +225,7 @@
     "@testing-library/user-event": "^14.6.1",
     "@types/aws-lambda": "^8.10.109",
     "@types/fhir": "^0.0.41",
+    "@types/html-to-text": "^9.0.4",
     "@types/jest": "^27.5.2",
     "@types/luxon": "^3.1.0",
     "@types/node": "^18.11.18",

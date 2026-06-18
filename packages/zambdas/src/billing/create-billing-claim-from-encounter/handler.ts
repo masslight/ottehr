@@ -32,6 +32,8 @@ import {
 import { DateTime } from 'luxon';
 import {
   ACCOUNT_TYPE_CODE_SYSTEM,
+  AR_STAGE,
+  claimStatusValuesToTags,
   CODE_SYSTEM_APPOINTMENT_TYPE_CODES,
   CODE_SYSTEM_APPOINTMENT_TYPE_TAG_SYSTEM,
   CODE_SYSTEM_CMS_PLACE_OF_SERVICE,
@@ -39,39 +41,30 @@ import {
   CODE_SYSTEM_OYSTEHR_CLAIM_PROCEDURE_MODIFIER,
   CODE_SYSTEM_OYSTEHR_RCM_CMS1500_REFERRING_PROVIDER_TYPE,
   CODE_SYSTEM_PROCESS_PRIORITY,
-  CreateBillingClaimFromEncounterInput,
-  CreateBillingClaimFromEncounterInputSchema,
   EXTENSION_URL_CPT_MODIFIER,
   FHIR_IDENTIFIER_NPI,
   FHIR_RESOURCE_NOT_FOUND,
-  getCoding,
   getNPIIdentifier,
   getPayerId,
+  getPaymentVariantFromEncounter,
   getSecret,
   getTimezone,
   InternalError,
+  INVALID_INPUT_ERROR,
   isAppointmentOccupationalMedicine,
   isAppointmentPreOp,
   isAppointmentUrgentCare,
   isAppointmentWorkersComp,
   isValidUUID,
-  MISSING_REQUEST_SECRETS,
   PARTICIPATION_CODE_SYSTEM,
+  PaymentVariant,
   Secrets,
   SecretsKeys,
-  SERVICE_CATEGORY_SYSTEM,
   TIMEZONES,
+  withArStageInitialization,
 } from 'utils';
-import { INVALID_INPUT_ERROR, MISSING_REQUEST_BODY } from 'utils';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
-import {
-  assertDefined,
-  checkOrCreateM2MClientToken,
-  createOystehrClient,
-  formatZodError,
-  sendErrors,
-  ZambdaInput,
-} from '../../shared';
+import { assertDefined, checkOrCreateM2MClientToken, createOystehrClient, sendErrors, ZambdaInput } from '../../shared';
 import {
   AUTO_ACCIDENT_TAG_DESCRIPTION,
   AUTO_ACCIDENT_TAG_NAME,
@@ -90,10 +83,7 @@ import {
   TAG_DESCRIPTION_URL,
   TAG_IS_SYSTEM_TAG_URL,
 } from '../shared';
-
-export interface CreateClaimFromEncounterParams extends CreateBillingClaimFromEncounterInput {
-  secrets: NonNullable<ZambdaInput['secrets']>;
-}
+import { CreateClaimFromEncounterParams, validateRequestParameters } from './validateRequestParameters';
 
 export type ComplexValidationOutput = { clinicalResources: ClinicalResources; billingResources: BillingResources };
 
@@ -442,7 +432,7 @@ function uuidOrUrnReferenceString(resourceType: BillingFhirResource['resourceTyp
   return `${resourceType}/${uuidOrUrn}`;
 }
 
-function getAppointmentType(appointment: Appointment): AppointmentType {
+function getAppointmentType(appointment: Appointment): AppointmentType | undefined {
   if (isAppointmentUrgentCare(appointment)) {
     return 'uc';
   }
@@ -455,11 +445,11 @@ function getAppointmentType(appointment: Appointment): AppointmentType {
   if (isAppointmentPreOp(appointment)) {
     return 'preop';
   }
-  throw new Error(`Unknown appointment type: ${getCoding(appointment.serviceCategory, SERVICE_CATEGORY_SYSTEM)?.code}`);
+  return undefined;
 }
 
 export function getClaimCoveragesForEncounter(
-  appointmentType: AppointmentType,
+  appointmentType: AppointmentType | undefined,
   mainPatientAccounts: Account[],
   claimCoverages: Coverage[]
 ): CoverageRefs {
@@ -526,6 +516,10 @@ export function getClaimCoveragesForEncounter(
     case 'preop': {
       // No insurance
       // TODO: Support non-insurance payers
+      return [];
+    }
+    default: {
+      // Unknown appointment type
       return [];
     }
   }
@@ -868,7 +862,7 @@ async function findExistingBillingResources(
       params: [
         {
           name: 'identifier',
-          value: `${FHIR_IDENTIFIER_NPI}|${getNPIIdentifier(originals.location)}`,
+          value: `${FHIR_IDENTIFIER_NPI}|${getNPIIdentifier(originals.location)?.value}`,
         },
       ],
     })
@@ -884,7 +878,7 @@ async function findExistingBillingResources(
             params: [
               {
                 name: 'identifier',
-                value: `${FHIR_IDENTIFIER_NPI}|${getNPIIdentifier(p)}`,
+                value: `${FHIR_IDENTIFIER_NPI}|${getNPIIdentifier(p)?.value}`,
               },
             ],
           })
@@ -913,7 +907,7 @@ async function findExistingBillingResources(
       params: [
         {
           name: 'identifier',
-          value: `${FHIR_IDENTIFIER_NPI}|${getNPIIdentifier(originals.billingProvider)}`,
+          value: `${FHIR_IDENTIFIER_NPI}|${getNPIIdentifier(originals.billingProvider)?.value}`,
         },
       ],
     })
@@ -942,8 +936,24 @@ async function findExistingBillingResources(
   };
 }
 
+// Initial AR Stage for a claim built from an encounter. Precedence (first match wins): the visit's
+// payment selection (employer / insurance / self), then an occupational-medicine visit, then whether
+// any coverage is present. Workers'-comp carries a WC coverage, so it falls out as Insurance Payer AR.
+export function determineArStage(resources: ClaimResources): string {
+  const paymentVariant = getPaymentVariantFromEncounter(resources.encounter);
+  if (paymentVariant === PaymentVariant.employer) return AR_STAGE.nonInsurancePayer;
+  if (paymentVariant === PaymentVariant.insurance) return AR_STAGE.insurancePayer;
+  if (paymentVariant === PaymentVariant.selfPay) return AR_STAGE.patient;
+  if (isAppointmentOccupationalMedicine(resources.appointment)) return AR_STAGE.nonInsurancePayer;
+  return resources.coverageRefs.length > 0 ? AR_STAGE.insurancePayer : AR_STAGE.patient;
+}
+
 function buildClaim(resources: ClaimResources): Claim {
   const now = new Date().toISOString().slice(0, 10);
+  const appointmentTypeCoding = getAppointmentTypeCoding(resources.appointment);
+
+  // AR Stage tag + the stage's auto-initialized progress status (e.g. Insurance AR Status -> "Created").
+  const claimStatusTags = claimStatusValuesToTags(withArStageInitialization({ arStage: determineArStage(resources) }));
 
   const claim: Claim = {
     resourceType: 'Claim',
@@ -951,9 +961,10 @@ function buildClaim(resources: ClaimResources): Claim {
     meta: {
       tag: [
         { system: CURRENT_STATUS_TAG_SYSTEM, code: 'open' },
-        getAppointmentTypeCoding(resources.appointment),
         getClaimTypeCoding(),
+        ...(appointmentTypeCoding ? [appointmentTypeCoding] : []),
         ...(resources.billingTags ?? []).map((t) => ({ system: CLAIM_TAG_SYSTEM, code: t })),
+        ...claimStatusTags,
       ],
     },
     type: { coding: [getClaimTypeCoding()] },
@@ -1047,7 +1058,7 @@ function getLocalDateOfService(appointmentStart: string, location: Location | un
   return DateTime.fromISO(appointmentStart).setZone(timezone).toISODate()!;
 }
 
-function getAppointmentTypeCoding(appointment: Appointment): Coding {
+function getAppointmentTypeCoding(appointment: Appointment): Coding | undefined {
   const type = getAppointmentType(appointment);
   switch (type) {
     case 'uc':
@@ -1067,6 +1078,8 @@ function getAppointmentTypeCoding(appointment: Appointment): Coding {
       };
     case 'preop':
       return { system: CODE_SYSTEM_APPOINTMENT_TYPE_TAG_SYSTEM, code: CODE_SYSTEM_APPOINTMENT_TYPE_CODES['pre-op'] };
+    default:
+      return undefined;
   }
 }
 
@@ -1089,21 +1102,4 @@ export async function complexValidation(
   console.log('getting billing resources');
   const billingResources = await findExistingBillingResources(billingOystehr, clinicalResources, params.secrets);
   return { clinicalResources, billingResources };
-}
-
-export function validateRequestParameters(input: ZambdaInput): CreateClaimFromEncounterParams {
-  if (!input.body) throw MISSING_REQUEST_BODY;
-  if (!input.secrets) throw MISSING_REQUEST_SECRETS;
-
-  let raw: unknown;
-  try {
-    raw = JSON.parse(input.body);
-  } catch {
-    throw INVALID_INPUT_ERROR('Request body is not valid JSON');
-  }
-
-  const result = CreateBillingClaimFromEncounterInputSchema.safeParse(raw);
-  if (!result.success) throw INVALID_INPUT_ERROR(formatZodError(result.error));
-
-  return { ...result.data, secrets: input.secrets };
 }
