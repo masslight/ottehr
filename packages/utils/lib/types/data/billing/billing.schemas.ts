@@ -199,7 +199,7 @@ export const SaveServiceFacilityInputSchema = z.object({
     .refine(isNPIValidWithChecksum, 'NPI must be 10 digits with a valid check digit')
     .nullable()
     .optional(),
-  clia: z.string().refine(isCLIAValid, 'CLIA must match the format NNDNNNNNNN, e.g. 05D1234567').nullable().optional(),
+  clia: z.string().trim().refine(isCLIAValid, 'CLIA must match the format NNDNNNNNNN, e.g. 05D1234567').nullable().optional(),
   posCode: z
     .string()
     .refine((code) => CMS_PLACE_OF_SERVICE_CODE_SET.has(code), 'Unknown place of service code')
