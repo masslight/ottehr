@@ -159,29 +159,6 @@ export const formatFhirEncounterToPatientFollowupDetails = (
   return formatted;
 };
 
-export const getEncounterForAppointment = async (appointmentID: string, oystehr: Oystehr): Promise<Encounter> => {
-  const encounterTemp = (
-    await oystehr.fhir.search<Encounter>({
-      resourceType: 'Encounter',
-      params: [
-        {
-          name: 'appointment',
-          value: `Appointment/${appointmentID}`,
-        },
-      ],
-    })
-  ).unbundle();
-  // Scheduled follow-up encounter will be searched by its own appointment, while searching
-  // for main encounter by appointment may cause multiple encounters to be returned.
-  // So we need to find the main encounter by checking if the encounter has no partOf.
-  // If no main encounter is found, we return the first encounter (scheduled follow-up case).
-  const encounter = encounterTemp.find((e) => !e.partOf) ?? encounterTemp[0];
-  if (encounterTemp.length === 0 || !encounter?.id) {
-    throw new Error('Error getting appointment encounter');
-  }
-  return encounter;
-};
-
 export const getSpentTime = (history?: EncounterStatusHistory[]): string | undefined => {
   const value = history?.find((item) => item.status === 'in-progress');
   if (!value || !value.period.start) {
