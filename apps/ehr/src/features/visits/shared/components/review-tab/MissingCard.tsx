@@ -46,7 +46,8 @@ export const MissingCard: FC = () => {
   const patientInfoConfirmed = chartFields?.patientInfoConfirmed?.value;
   const isPatientVerificationMissing = !patientInfoConfirmed;
   const isAutoAccident = chartFields?.accident?.type?.includes('AA') ?? false;
-  const accidentMissingDate = isAutoAccident && !chartFields?.accident?.date;
+  const hasAccidentType = (chartFields?.accident?.type?.length ?? 0) > 0;
+  const accidentMissingDate = hasAccidentType && !chartFields?.accident?.date;
   const accidentMissingState = isAutoAccident && !chartFields?.accident?.state;
   const [suggestionNote, setSuggestionNote] = useState<string | undefined>(undefined);
 

@@ -16,20 +16,34 @@ import {
 import { DataGridPro, GridColDef, GridPaginationModel } from '@mui/x-data-grid-pro';
 import { ReactElement, useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { BillingClaimItem, BillingPatientOption, BillingPayerOption, chooseJson, ClaimsQueueItemStatuses } from 'utils';
+import {
+  BillingClaimItem,
+  BillingPatientOption,
+  BillingPayerOption,
+  CLAIM_STATUS_FIELDS,
+  CLAIM_STATUS_FIELDS_BY_KEY,
+  CODE_SYSTEM_APPOINTMENT_TYPE_CODES,
+  CODE_SYSTEM_CLAIM_TYPE_CODES,
+  formatClaimStatusValue,
+  getApiError,
+  SearchBillingClaimsInput,
+} from 'utils';
+import { searchBillingClaims, searchBillingPatients, searchBillingPayers, searchBillingTags } from '../api/api';
 import { dataGridSlots, dataGridSx } from '../components/BillingDataGrid';
-import { CLAIM_STATUS_COLORS, formatClaimStatus } from '../constants/claimStatus';
+import { claimStatusValueColor, formatAntCaseString } from '../constants/claimStatus';
 import { useApiClients } from '../hooks/useAppClients';
 import { formatCurrency } from '../utils/format';
 
 interface Filters {
   searchText?: string;
-  status?: string;
+  arStage?: string;
   tag?: string;
   createdFrom?: string;
   createdTo?: string;
   payerId?: string;
   patientId?: string;
+  type?: keyof typeof CODE_SYSTEM_CLAIM_TYPE_CODES | '';
+  appointmentType?: keyof typeof CODE_SYSTEM_APPOINTMENT_TYPE_CODES | '';
 }
 
 const currencyCol = (field: string, headerName: string, width: number): GridColDef => ({
@@ -41,22 +55,44 @@ const currencyCol = (field: string, headerName: string, width: number): GridColD
   valueFormatter: (params: { value: number }) => formatCurrency(params.value),
 });
 
+const statusColumns: GridColDef[] = CLAIM_STATUS_FIELDS.map((field) => ({
+  field: field.key,
+  headerName: field.label,
+  width: field.key === 'arStage' ? 170 : 160,
+  sortable: false,
+  valueGetter: (params) => (params.row as BillingClaimItem).statuses?.[field.key] ?? '',
+  renderCell: ({ value }) => {
+    const code = value as string;
+    if (!code) return null;
+    return (
+      <Chip
+        label={formatClaimStatusValue(field, code)}
+        color={claimStatusValueColor(code)}
+        variant="outlined"
+        size="small"
+        sx={{ borderRadius: '4px', fontSize: 12 }}
+      />
+    );
+  },
+}));
+
 const columns: GridColDef[] = [
   { field: 'patientName', headerName: 'Patient Name', flex: 1, minWidth: 150 },
   { field: 'serviceDate', headerName: 'Service Date', width: 120 },
   { field: 'payerName', headerName: 'Payer Name', flex: 1, minWidth: 160 },
   { field: 'payerId', headerName: 'Payer ID', width: 100 },
+  ...statusColumns,
   {
-    field: 'status',
-    headerName: 'Status',
-    width: 130,
-    renderCell: ({ value }) => {
-      const color = CLAIM_STATUS_COLORS[value as string] ?? 'default';
-      const label = formatClaimStatus(value as string);
-      return (
-        <Chip label={label} color={color} variant="outlined" size="small" sx={{ borderRadius: '4px', fontSize: 12 }} />
-      );
-    },
+    field: 'type',
+    headerName: 'Claim Type',
+    minWidth: 130,
+    valueFormatter: (params: { value: string }) => formatAntCaseString(params.value),
+  },
+  {
+    field: 'appointmentType',
+    headerName: 'Appointment Type',
+    minWidth: 130,
+    valueFormatter: (params: { value: string }) => formatAntCaseString(params.value),
   },
   currencyCol('billed', 'Billed', 100),
   currencyCol('allowed', 'Allowed', 100),
@@ -83,13 +119,17 @@ export default function ClaimsList(): ReactElement {
   const [patientOptions, setPatientOptions] = useState<BillingPatientOption[]>([]);
 
   const [searchText, setSearchText] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
+  const [arStageFilter, setArStageFilter] = useState('');
   const [tagFilter, setTagFilter] = useState('');
   const [tagOptions, setTagOptions] = useState<{ id: string; name: string }[]>([]);
   const [createdFrom, setDosFrom] = useState('');
   const [createdTo, setDosTo] = useState('');
   const [selectedPayer, setSelectedPayer] = useState<BillingPayerOption | null>(null);
   const [selectedPatient, setSelectedPatient] = useState<BillingPatientOption | null>(null);
+  const [typeFilter, setTypeFilter] = useState<keyof typeof CODE_SYSTEM_CLAIM_TYPE_CODES | ''>('');
+  const [appointmentTypeFilter, setAppointmentTypeFilter] = useState<
+    keyof typeof CODE_SYSTEM_APPOINTMENT_TYPE_CODES | ''
+  >('');
 
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const payerDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -109,24 +149,25 @@ export default function ClaimsList(): ReactElement {
       setLoading(true);
       setError(null);
       try {
-        const body: Record<string, unknown> = {
+        const params: SearchBillingClaimsInput = {
           pageSize: pagination.pageSize,
           offset: pagination.page * pagination.pageSize,
         };
-        if (filters.searchText) body.searchText = filters.searchText;
-        if (filters.status) body.status = filters.status;
-        if (filters.tag) body.tag = filters.tag;
-        if (filters.createdFrom) body.createdFrom = filters.createdFrom;
-        if (filters.createdTo) body.createdTo = filters.createdTo;
-        if (filters.payerId) body.payerId = filters.payerId;
-        if (filters.patientId) body.patientId = filters.patientId;
+        if (filters.searchText) params.searchText = filters.searchText;
+        if (filters.arStage) params.arStage = filters.arStage;
+        if (filters.tag) params.tag = filters.tag;
+        if (filters.createdFrom) params.createdFrom = filters.createdFrom;
+        if (filters.createdTo) params.createdTo = filters.createdTo;
+        if (filters.payerId) params.payerId = filters.payerId;
+        if (filters.patientId) params.patientId = filters.patientId;
+        if (filters.type) params.type = filters.type;
+        if (filters.appointmentType) params.appointmentType = filters.appointmentType;
 
-        const response = await oystehrZambda.zambda.execute({ id: 'search-billing-claims', ...body });
-        const data = chooseJson(response);
+        const data = await searchBillingClaims(oystehrZambda, params);
         setClaims(data.claims ?? []);
         setTotalRows(data.total ?? 0);
       } catch (err) {
-        setError(err instanceof Error ? err.message : String(err));
+        setError(getApiError({ error: err, defaultError: 'Failed to load claims' }));
         setClaims([]);
         setTotalRows(0);
       } finally {
@@ -141,11 +182,8 @@ export default function ClaimsList(): ReactElement {
       if (!oystehrZambda) return;
       if (payerDebounce.current) clearTimeout(payerDebounce.current);
       payerDebounce.current = setTimeout(async () => {
-        const res = await oystehrZambda.zambda.execute({
-          id: 'search-billing-payers',
-          ...(query ? { name: query } : {}),
-        });
-        setPayerOptions(chooseJson(res).payers ?? []);
+        const res = await searchBillingPayers(oystehrZambda, query ? { name: query } : {});
+        setPayerOptions(res.payers ?? []);
       }, 300);
     },
     [oystehrZambda]
@@ -156,11 +194,8 @@ export default function ClaimsList(): ReactElement {
       if (!oystehrZambda) return;
       if (patientDebounce.current) clearTimeout(patientDebounce.current);
       patientDebounce.current = setTimeout(async () => {
-        const res = await oystehrZambda.zambda.execute({
-          id: 'search-billing-patients',
-          ...(query ? { name: query } : {}),
-        });
-        setPatientOptions(chooseJson(res).patients ?? []);
+        const res = await searchBillingPatients(oystehrZambda, query ? { name: query } : {});
+        setPatientOptions(res.patients ?? []);
       }, 300);
     },
     [oystehrZambda]
@@ -173,8 +208,8 @@ export default function ClaimsList(): ReactElement {
     void fetchClaims({}, paginationModel);
     const loadTags = async (): Promise<void> => {
       try {
-        const res = await oystehrZambda.zambda.execute({ id: 'search-billing-tags' });
-        setTagOptions(chooseJson(res).tags ?? []);
+        const res = await searchBillingTags(oystehrZambda);
+        setTagOptions(res.tags ?? []);
       } catch (err) {
         console.error('Failed to load tags:', err);
         setTagOptions([]);
@@ -186,14 +221,26 @@ export default function ClaimsList(): ReactElement {
   const currentFilters = useCallback(
     (overrides?: Filters): Filters => ({
       searchText: overrides?.searchText ?? searchText,
-      status: overrides?.status ?? statusFilter,
+      arStage: overrides?.arStage ?? arStageFilter,
       tag: overrides?.tag ?? tagFilter,
       createdFrom: overrides?.createdFrom ?? createdFrom,
       createdTo: overrides?.createdTo ?? createdTo,
       payerId: overrides?.payerId ?? selectedPayer?.payerId,
       patientId: overrides?.patientId ?? selectedPatient?.id,
+      type: overrides?.type ?? typeFilter,
+      appointmentType: overrides?.appointmentType ?? appointmentTypeFilter,
     }),
-    [searchText, statusFilter, tagFilter, createdFrom, createdTo, selectedPayer, selectedPatient]
+    [
+      searchText,
+      arStageFilter,
+      tagFilter,
+      createdFrom,
+      createdTo,
+      selectedPayer,
+      selectedPatient,
+      typeFilter,
+      appointmentTypeFilter,
+    ]
   );
 
   const applyFilters = useCallback(
@@ -217,19 +264,29 @@ export default function ClaimsList(): ReactElement {
 
   const clearFilters = (): void => {
     setSearchText('');
-    setStatusFilter('');
+    setArStageFilter('');
     setTagFilter('');
     setDosFrom('');
     setDosTo('');
     setSelectedPayer(null);
     setSelectedPatient(null);
+    setTypeFilter('');
+    setAppointmentTypeFilter('');
     const resetPage = { ...paginationModel, page: 0 };
     setPaginationModel(resetPage);
     void fetchClaims({}, resetPage);
   };
 
   const hasFilters =
-    searchText || statusFilter || tagFilter || createdFrom || createdTo || selectedPayer || selectedPatient;
+    searchText ||
+    arStageFilter ||
+    tagFilter ||
+    createdFrom ||
+    createdTo ||
+    selectedPayer ||
+    selectedPatient ||
+    typeFilter ||
+    appointmentTypeFilter;
 
   return (
     <Box sx={{ p: 0 }}>
@@ -259,22 +316,70 @@ export default function ClaimsList(): ReactElement {
       />
 
       <Box sx={{ display: 'flex', gap: 2, mb: 2, flexWrap: 'wrap', alignItems: 'center' }}>
-        <FormControl size="small" sx={{ minWidth: 160 }}>
-          <InputLabel>Claim Status</InputLabel>
+        <FormControl size="small" sx={{ minWidth: 180 }}>
+          <InputLabel>AR Stage</InputLabel>
           <Select
-            value={statusFilter}
-            label="Claim Status"
+            value={arStageFilter}
+            label="AR Stage"
             onChange={(e) => {
-              setStatusFilter(e.target.value);
-              applyFilters({ status: e.target.value });
+              setArStageFilter(e.target.value);
+              applyFilters({ arStage: e.target.value });
             }}
           >
             <MenuItem value="">All</MenuItem>
-            {ClaimsQueueItemStatuses.map((s) => (
-              <MenuItem key={s} value={s}>
-                {formatClaimStatus(s)}
+            {CLAIM_STATUS_FIELDS_BY_KEY.arStage.options.map((o) => (
+              <MenuItem key={o.code} value={o.code}>
+                {o.label}
               </MenuItem>
             ))}
+          </Select>
+        </FormControl>
+
+        <FormControl size="small" sx={{ minWidth: 160 }}>
+          <InputLabel>Claim Type</InputLabel>
+          <Select
+            value={typeFilter}
+            label="Claim Type"
+            onChange={(e) => {
+              const value = e.target.value as '' | keyof typeof CODE_SYSTEM_CLAIM_TYPE_CODES;
+              setTypeFilter(value);
+              applyFilters({ type: value });
+            }}
+          >
+            <MenuItem value="">All</MenuItem>
+            <MenuItem key={'professional'} value={'professional'}>
+              Professional
+            </MenuItem>
+            <MenuItem key={'institutional'} value={'institutional'}>
+              Institutional
+            </MenuItem>
+          </Select>
+        </FormControl>
+
+        <FormControl size="small" sx={{ minWidth: 160 }}>
+          <InputLabel>Appointment Type</InputLabel>
+          <Select
+            value={appointmentTypeFilter}
+            label="Appointment Type"
+            onChange={(e) => {
+              const value = e.target.value as '' | keyof typeof CODE_SYSTEM_APPOINTMENT_TYPE_CODES;
+              setAppointmentTypeFilter(value);
+              applyFilters({ appointmentType: value });
+            }}
+          >
+            <MenuItem value="">All</MenuItem>
+            <MenuItem key={'urgent-care'} value={'urgent-care'}>
+              Urgent Care
+            </MenuItem>
+            <MenuItem key={'occupational-medicine'} value={'occupational-medicine'}>
+              Occupational Medicine
+            </MenuItem>
+            <MenuItem key={'pre-op'} value={'pre-op'}>
+              Pre Op
+            </MenuItem>
+            <MenuItem key={'workers-comp'} value={'workers-comp'}>
+              Workers Comp
+            </MenuItem>
           </Select>
         </FormControl>
 

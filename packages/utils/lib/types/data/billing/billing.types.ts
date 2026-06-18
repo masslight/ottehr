@@ -1,4 +1,5 @@
-import { CODE_SYSTEM_CLAIM_TYPE_CODES } from '../../../helpers';
+import { CODE_SYSTEM_APPOINTMENT_TYPE_CODES, CODE_SYSTEM_CLAIM_TYPE_CODES } from '../../../helpers';
+import { ClaimStatusValues } from './claim-status';
 
 export interface BillingTag {
   id: string;
@@ -109,12 +110,16 @@ export interface EraDetailResponse {
 export interface BillingClaimItem {
   id: string;
   type: keyof typeof CODE_SYSTEM_CLAIM_TYPE_CODES;
+  // Legacy `current-status` value, retained for the patient-detail screen. The billing claims
+  // list/detail now surface the `statuses` indicators below instead.
   status: string;
+  statuses: ClaimStatusValues;
   patientName: string;
   patientDob: string;
   payerName: string;
   payerId: string;
   memberId: string;
+  appointmentType: keyof typeof CODE_SYSTEM_APPOINTMENT_TYPE_CODES | undefined;
   serviceDate: string;
   facility: string;
   renderingProvider: string;
@@ -169,10 +174,13 @@ export interface PatientDetailResponse {
 export interface ClaimDetailResponse {
   id: string;
   type: keyof typeof CODE_SYSTEM_CLAIM_TYPE_CODES;
+  // Legacy `current-status` value (kept for compatibility); `statuses` carries the indicators shown in the UI.
   status: string;
+  statuses: ClaimStatusValues;
   created: string;
   billingType: string;
   billableStatus: string;
+  appointmentType?: string;
   patientName: string;
   patientDob: string;
   patientGender: string;
@@ -242,10 +250,69 @@ export interface ClaimDetailResponse {
   otherClaims: {
     id: string;
     status: string;
+    arStage: string;
     serviceDate: string;
     payerName: string;
     billed: number;
     cptCodes: string[];
   }[];
   tags: string[];
+}
+
+interface Paginated {
+  total: number;
+  offset: number;
+  pageSize: number;
+}
+
+export interface SearchBillingPatientsResponse extends Paginated {
+  patients: BillingPatientOption[];
+}
+
+export interface SearchBillingClaimsResponse extends Paginated {
+  claims: BillingClaimItem[];
+}
+
+export interface SearchBillingProvidersResponse extends Paginated {
+  providers: BillingProviderOption[];
+}
+
+export interface SearchBillingErasResponse extends Paginated {
+  eras: EraListItem[];
+}
+
+export interface SearchBillingLocationsResponse {
+  locations: BillingLocationOption[];
+}
+
+export interface SearchBillingPayersResponse {
+  payers: BillingPayerOption[];
+}
+
+export interface SearchBillingTagsResponse {
+  tags: BillingTag[];
+}
+
+export interface GetPatientCoveragesResponse {
+  coverages: BillingCoverageOption[];
+}
+
+export interface CreatedResourceResponse {
+  id: string;
+}
+
+export interface SavedResourceResponse {
+  id: string | undefined;
+}
+
+export interface DeletedResponse {
+  deleted: true;
+}
+
+export interface TaggedClaimResponse {
+  ok: true;
+}
+
+export interface CreatedClaimResponse {
+  claimId: string;
 }

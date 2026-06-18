@@ -18,12 +18,13 @@ import {
 import { DataGridPro, GridColDef } from '@mui/x-data-grid-pro';
 import { ReactElement, useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { chooseJson, PatientDetailResponse } from 'utils';
+import { getApiError, PatientDetailResponse, UpdateBillingPatientInput } from 'utils';
+import { getBillingPatientDetail, updateBillingPatient } from '../api/api';
 import { dataGridSlots, dataGridSx } from '../components/BillingDataGrid';
 import { EditableSection } from '../components/claim/EditableSection';
 import { DetailRow } from '../components/DetailRow';
 import { Field } from '../components/Field';
-import { CLAIM_STATUS_COLORS, formatClaimStatus } from '../constants/claimStatus';
+import { CLAIM_STATUS_COLORS, formatAntCaseString } from '../constants/claimStatus';
 import { useApiClients } from '../hooks/useAppClients';
 import { otherColors } from '../themes/ottehr/colors';
 import { buildAddressInput, formatCurrency } from '../utils/format';
@@ -38,7 +39,7 @@ const claimColumns: GridColDef[] = [
       const color = CLAIM_STATUS_COLORS[value as string] ?? 'default';
       return (
         <Chip
-          label={formatClaimStatus(value as string)}
+          label={formatAntCaseString(value as string)}
           color={color}
           variant="outlined"
           size="small"
@@ -98,10 +99,10 @@ export default function PatientDetail(): ReactElement {
     setLoading(true);
     setError(null);
     try {
-      const response = await oystehrZambda.zambda.execute({ id: 'get-billing-patient-detail', patientId: id });
-      setPatient(chooseJson(response));
+      const data = await getBillingPatientDetail(oystehrZambda, { patientId: id });
+      setPatient(data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(getApiError({ error: err, defaultError: 'Failed to load patient' }));
     } finally {
       setLoading(false);
     }
@@ -115,9 +116,9 @@ export default function PatientDetail(): ReactElement {
     async (payload: Record<string, unknown>): Promise<string | null> => {
       if (!oystehrZambda || !id) return 'Client not ready';
       try {
-        await oystehrZambda.zambda.execute({ id: 'update-billing-patient', patientId: id, ...payload });
+        await updateBillingPatient(oystehrZambda, { patientId: id, ...payload } as UpdateBillingPatientInput);
       } catch (err) {
-        return err instanceof Error ? err.message : 'Failed to save changes';
+        return getApiError({ error: err, defaultError: 'Failed to save changes' });
       }
       await fetchDetail();
       return null;

@@ -1,4 +1,14 @@
-import { Coverage, DomainResource, Extension, Location, Organization, Patient, Practitioner, Resource } from 'fhir/r4b';
+import {
+  Account,
+  Coverage,
+  DomainResource,
+  Extension,
+  Location,
+  Organization,
+  Patient,
+  Practitioner,
+  Resource,
+} from 'fhir/r4b';
 import { describe, expect, it } from 'vitest';
 import {
   BILLING_WORKING_COPY_TAG,
@@ -54,6 +64,78 @@ const cases: { resourceType: string; resource: CopyableBillingResource }[] = [
   {
     resourceType: 'Organization',
     resource: { resourceType: 'Organization', id: ORIGINAL_ID, name: 'Acme Labs' } as Organization,
+  },
+  {
+    resourceType: 'Account',
+    resource: {
+      resourceType: 'Account',
+      id: ORIGINAL_ID,
+      subject: [{ reference: 'Patient/p1' }],
+      type: {
+        coding: [
+          {
+            system: 'http://terminology.hl7.org/CodeSystem/account-type',
+            code: 'PBILLACCT',
+            display: 'patient billing account',
+          },
+        ],
+      },
+      coverage: [{ coverage: { reference: 'Coverage/c1' }, priority: 1 }],
+      guarantor: [
+        {
+          party: {
+            reference: '#accountGuarantorId',
+            type: 'RelatedPerson',
+          },
+        },
+      ],
+      contained: [
+        {
+          resourceType: 'RelatedPerson',
+          id: 'accountGuarantorId',
+          name: [
+            {
+              given: ['abc'],
+              family: 'def',
+            },
+          ],
+          birthDate: '1988-10-17',
+          gender: 'male',
+          telecom: [
+            {
+              value: '+11231231234',
+              system: 'phone',
+            },
+            {
+              value: 'aaa@bb.com',
+              system: 'email',
+            },
+          ],
+          patient: {
+            reference: 'Patient/p1',
+          },
+          address: [
+            {
+              city: 'abc',
+              line: ['123 fff'],
+              state: 'CT',
+              postalCode: '12345',
+            },
+          ],
+          relationship: [
+            {
+              coding: [
+                {
+                  system: 'http://hl7.org/fhir/ValueSet/relatedperson-relationshiptype',
+                  code: 'spouse',
+                  display: 'Spouse',
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    } as Account,
   },
 ];
 

@@ -112,10 +112,10 @@ jobs:
             echo "[OK] masslight/ottehr detected - will use load balancing"
           fi
 
-          # Safety check: only allow local, e2e, e2e2, and e2e3 environments
+          # Safety check: only allow local, e2e, e2e2, e2e3, e2e4, and e2e5 environments
           if [ -n "$ENV" ]; then
-            if [[ "$ENV" != "local" && "$ENV" != "e2e" && "$ENV" != "e2e2" && "$ENV" != "e2e3" ]]; then
-              echo "[ERROR] Environment must be 'local', 'e2e', 'e2e2', or 'e2e3' for this workflow. Got: $ENV"
+            if [[ "$ENV" != "local" && "$ENV" != "e2e" && "$ENV" != "e2e2" && "$ENV" != "e2e3" && "$ENV" != "e2e4" && "$ENV" != "e2e5" ]]; then
+              echo "[ERROR] Environment must be 'local', 'e2e', 'e2e2', 'e2e3', 'e2e4', or 'e2e5' for this workflow. Got: $ENV"
               exit 1
             fi
             echo "[OK] Environment validation passed: $ENV"
@@ -148,24 +148,30 @@ jobs:
 
           echo "Active runs (excluding current): $ACTIVE_COUNT"
 
-          # Simple: count % 3 for 3 environments
-          # 0 runs -> 0 % 3 = 0 -> e2e
-          # 1 run  -> 1 % 3 = 1 -> e2e2
-          # 2 runs -> 2 % 3 = 2 -> e2e3
-          # 3 runs -> 3 % 3 = 0 -> e2e
-          # 4 runs -> 4 % 3 = 1 -> e2e2
-          # 5 runs -> 5 % 3 = 2 -> e2e3
-          REMAINDER=$((ACTIVE_COUNT % 3))
+          # Simple: count % 5 for 5 environments
+          # 0 runs -> 0 % 5 = 0 -> e2e
+          # 1 run  -> 1 % 5 = 1 -> e2e2
+          # 2 runs -> 2 % 5 = 2 -> e2e3
+          # 3 runs -> 3 % 5 = 3 -> e2e4
+          # 4 runs -> 4 % 5 = 4 -> e2e5
+          # 5 runs -> 5 % 5 = 0 -> e2e
+          REMAINDER=$((ACTIVE_COUNT % 5))
 
           if [ $REMAINDER -eq 0 ]; then
             ENV="e2e"
-            echo "Decision: $ACTIVE_COUNT runs (mod 3 = 0) -> e2e"
+            echo "Decision: $ACTIVE_COUNT runs (mod 5 = 0) -> e2e"
           elif [ $REMAINDER -eq 1 ]; then
             ENV="e2e2"
-            echo "Decision: $ACTIVE_COUNT runs (mod 3 = 1) -> e2e2"
-          else
+            echo "Decision: $ACTIVE_COUNT runs (mod 5 = 1) -> e2e2"
+          elif [ $REMAINDER -eq 2 ]; then
             ENV="e2e3"
-            echo "Decision: $ACTIVE_COUNT runs (mod 3 = 2) -> e2e3"
+            echo "Decision: $ACTIVE_COUNT runs (mod 5 = 2) -> e2e3"
+          elif [ $REMAINDER -eq 3 ]; then
+            ENV="e2e4"
+            echo "Decision: $ACTIVE_COUNT runs (mod 5 = 3) -> e2e4"
+          else
+            ENV="e2e5"
+            echo "Decision: $ACTIVE_COUNT runs (mod 5 = 4) -> e2e5"
           fi
 
           echo ""
