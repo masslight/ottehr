@@ -11,3 +11,9 @@ export const AD_HOC_DATASETS: AdHocDataset[] = [adhocEncountersDataset, encounte
 export function getDataset(id: string): AdHocDataset | undefined {
   return AD_HOC_DATASETS.find((d) => d.id === id);
 }
+
+// The OTHER registered datasets (label + description), so a report can point the user to a different
+// dataset when the active one can't carry a requested concept. Used to enrich the schema descriptor.
+export function otherDatasetsFor(id: string): { label: string; description: string }[] {
+  return AD_HOC_DATASETS.filter((d) => d.id !== id).map((d) => ({ label: d.label, description: d.description }));
+}

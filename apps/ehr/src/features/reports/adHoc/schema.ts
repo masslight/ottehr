@@ -24,7 +24,13 @@ export interface FieldDef {
  */
 export function buildSchema(
   rows: AdHocRow[],
-  meta: { datasetId: string; label: string; description: string },
+  meta: {
+    datasetId: string;
+    label: string;
+    description: string;
+    availableLayers?: { label: string; description: string }[];
+    otherDatasets?: { label: string; description: string }[];
+  },
   fieldDefs: FieldDef[]
 ): DatasetSchema {
   const fields: FieldSchema[] = fieldDefs.map((def) => {
@@ -66,5 +72,7 @@ export function buildSchema(
     description: meta.description,
     rowCount: rows.length,
     fields,
+    ...(meta.availableLayers?.length ? { availableLayers: meta.availableLayers } : {}),
+    ...(meta.otherDatasets?.length ? { otherDatasets: meta.otherDatasets } : {}),
   };
 }

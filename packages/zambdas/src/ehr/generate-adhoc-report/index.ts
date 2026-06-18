@@ -108,6 +108,16 @@ RULES:
   one visit" as "patients with follow-up encounters"). Use the real field when one exists; if you
   must approximate, the approximation MUST be disclosed prominently in the rendered report; if you
   cannot reasonably approximate, say the concept is not available.
+- POINT TO THE RIGHT DATA SOURCE when a concept is missing. The schema may include "availableLayers"
+  (opt-in data layers that EXIST for this dataset but are NOT currently loaded) and "otherDatasets"
+  (other datasets the user could pick). When the requested concept is not in "fields" but clearly
+  matches one of these by name/description (e.g. the user asks for prescribed drugs and a
+  "Medications (prescribed)" layer is listed in availableLayers, or asks about allergies and a
+  patient-focused dataset is listed in otherDatasets), do NOT approximate. Render the
+  "<concept> is not available in this dataset" note from the rule above AND tell the user the exact,
+  actionable next step — e.g. "Enable the 'Medications (prescribed)' checkbox and regenerate" or
+  "Switch to the '<dataset label>' dataset" — quoting the layer/dataset label verbatim from the
+  schema. Never invent a layer or dataset name that isn't listed.
 - DON'T RECALL CODE SETS FROM MEMORY. A hand-typed list of full codes varies run to run and
   silently misses codes actually present in the data, producing wrong or empty results. Instead:
   - ICD-10 is HIERARCHICAL — select a diagnosis FAMILY by category PREFIX

@@ -34,7 +34,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { AdHocReportTurn, SavedAdHocReportDefinition } from 'utils';
 import { generateAdHocReport, listAdHocReports, saveAdHocReport } from '../../api/api';
-import { AD_HOC_DATASETS, getDataset } from '../../features/reports/adHoc/datasets';
+import { AD_HOC_DATASETS, getDataset, otherDatasetsFor } from '../../features/reports/adHoc/datasets';
 import { ReportFrame } from '../../features/reports/adHoc/ReportFrame';
 import { clearAdHocCriteria, peekAdHocCriteria } from '../../features/reports/adHoc/seed';
 import { AdHocRow, DatasetSchema } from '../../features/reports/adHoc/types';
@@ -166,7 +166,7 @@ export default function AdHocReport(): React.ReactElement {
       const range = getDateRangeIso(dateRange);
       const fetched = await dataset.fetch({ oystehrZambda, dateRange: range, options: datasetOptions });
       setRows(fetched);
-      setSchema(dataset.buildSchema(fetched, datasetOptions));
+      setSchema({ ...dataset.buildSchema(fetched, datasetOptions), otherDatasets: otherDatasetsFor(datasetId) });
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to fetch data');
     } finally {
@@ -300,7 +300,7 @@ export default function AdHocReport(): React.ReactElement {
         );
         const fetched = await dataset.fetch({ oystehrZambda, dateRange: range, options: savedOptions });
         setRows(fetched);
-        setSchema(dataset.buildSchema(fetched, savedOptions));
+        setSchema({ ...dataset.buildSchema(fetched, savedOptions), otherDatasets: otherDatasetsFor(saved.datasetId) });
         setGeneratedCode(saved.code);
         setGeneratedTitle(saved.title);
         const conv: AdHocReportTurn[] = [

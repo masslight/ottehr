@@ -29,6 +29,12 @@ export interface DatasetSchema {
   description: string;
   rowCount: number;
   fields: FieldSchema[];
+  /** Opt-in layers that EXIST for this dataset but are NOT currently loaded. Lets a report tell the
+   *  user which checkbox to enable when they ask for a concept this fetch doesn't carry, instead of
+   *  silently approximating. */
+  availableLayers?: { label: string; description: string }[];
+  /** Other datasets the user could switch to (label + what they cover), for the same purpose. */
+  otherDatasets?: { label: string; description: string }[];
 }
 
 export interface FetchContext {

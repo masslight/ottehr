@@ -220,14 +220,23 @@ export const adhocEncountersDataset: AdHocDataset = {
     'clinical codes, KPI timing, and AI-assistance layers.',
   options: ADHOC_ENCOUNTERS_OPTIONS,
   fetch: fetchAdHocEncounters,
-  buildSchema: (rows, options) =>
-    buildSchema(
+  buildSchema: (rows, options) => {
+    const opts = options ?? {};
+    // Layers that exist but aren't loaded → the report can name the exact checkbox to enable
+    // instead of approximating a concept this fetch doesn't carry.
+    const availableLayers = ADHOC_ENCOUNTERS_OPTIONS.filter((o) => !opts[o.id]).map((o) => ({
+      label: o.label,
+      description: o.description ?? '',
+    }));
+    return buildSchema(
       rows,
       {
         datasetId: 'encounters-comprehensive',
         label: 'Encounters (comprehensive)',
         description: 'One row per encounter — visit, patient, contact, location/provider, and any enabled layers.',
+        availableLayers,
       },
-      fieldsFor(options ?? {})
-    ),
+      fieldsFor(opts)
+    );
+  },
 };
