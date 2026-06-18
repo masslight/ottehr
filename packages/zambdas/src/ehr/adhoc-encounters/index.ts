@@ -5,6 +5,7 @@ import {
   DocumentReference,
   Encounter,
   Location,
+  MedicationAdministration,
   MedicationRequest,
   Observation,
   Patient,
@@ -26,6 +27,8 @@ import {
   getEmailForIndividual,
   getEncounterVisitType,
   getInPersonVisitStatus,
+  getMedicationFromMA,
+  getMedicationName,
   getPatientFirstName,
   getPatientLastName,
   getPhoneNumberForIndividual,
@@ -103,6 +106,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     | Procedure
     | DocumentReference
     | MedicationRequest
+    | MedicationAdministration
     | Observation
     | ServiceRequest;
   let allResources: ReportResource[] = [];
@@ -134,7 +138,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     baseSearchParams.push({ name: '_revinclude:iterate', value: 'DocumentReference:encounter' });
   }
   if (includeMedications) {
-    baseSearchParams.push({ name: '_revinclude:iterate', value: 'MedicationRequest:encounter' });
+    // eRx prescriptions link via MedicationRequest.encounter; in-house administered meds (MAR) link
+    // via MedicationAdministration.context (and carry the drug on a contained Medication).
+    baseSearchParams.push(
+      { name: '_revinclude:iterate', value: 'MedicationRequest:encounter' },
+      { name: '_revinclude:iterate', value: 'MedicationAdministration:context' }
+    );
   }
   if (includeVitals) {
     // Pulls all encounter Observations; we filter to the vitals ones (vital-* tag) when mapping.
@@ -175,6 +184,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const proceduresByEncounterId = new Map<string, Procedure[]>();
   const docRefsByEncounterId = new Map<string, DocumentReference[]>();
   const medRequestsByEncounterId = new Map<string, MedicationRequest[]>();
+  const medAdminsByEncounterId = new Map<string, MedicationAdministration[]>();
   const vitalsByEncounterId = new Map<string, Observation[]>();
   const serviceRequestsByEncounterId = new Map<string, ServiceRequest[]>();
   const encounterById = new Map<string, Encounter>();
@@ -215,6 +225,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         if (!includeMedications) break;
         const encId = r.encounter?.reference?.replace('Encounter/', '');
         if (encId) medRequestsByEncounterId.set(encId, [...(medRequestsByEncounterId.get(encId) ?? []), r]);
+        break;
+      }
+      case 'MedicationAdministration': {
+        if (!includeMedications) break;
+        const encId = r.context?.reference?.replace('Encounter/', '');
+        if (encId) medAdminsByEncounterId.set(encId, [...(medAdminsByEncounterId.get(encId) ?? []), r]);
         break;
       }
       case 'Observation': {
@@ -414,22 +430,37 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     if (includeMedications) {
       const medications: string[] = [];
       const medicationIngredients: string[] = [];
+      const medicationSources: string[] = [];
       const medicationCodes: string[] = [];
-      const reqs = encounter.id ? medRequestsByEncounterId.get(encounter.id) ?? [] : [];
-      for (const req of reqs) {
-        // Count prescriptions that were actually written — drop cancelled/draft/error.
-        if (req.status === 'cancelled' || req.status === 'entered-in-error' || req.status === 'draft') continue;
+      const addMed = (display: string, source: string, code?: string): void => {
+        if (!display) return;
+        medications.push(display);
+        medicationIngredients.push(normalizeDrugName(display));
+        medicationSources.push(source);
+        if (code) medicationCodes.push(code);
+      };
+      // eRx prescriptions (MedicationRequest, drug on medicationCodeableConcept). All statuses except
+      // entered-in-error (FHIR's "this record was a mistake" tombstone).
+      for (const req of encounter.id ? medRequestsByEncounterId.get(encounter.id) ?? [] : []) {
+        if (req.status === 'entered-in-error') continue;
         const coding = (req.medicationCodeableConcept?.coding ?? []).find(
           (c) => c.system === MEDICATION_DISPENSABLE_DRUG_ID
         );
-        const display = coding?.display || req.medicationCodeableConcept?.text || '';
-        if (!display) continue;
-        medications.push(display);
-        medicationIngredients.push(normalizeDrugName(display));
-        if (coding?.code) medicationCodes.push(coding.code);
+        addMed(coding?.display || req.medicationCodeableConcept?.text || '', 'eRx', coding?.code);
+      }
+      // In-house administered meds (MedicationAdministration / MAR; drug on a contained Medication).
+      for (const ma of encounter.id ? medAdminsByEncounterId.get(encounter.id) ?? [] : []) {
+        if (ma.status === 'entered-in-error') continue;
+        const name =
+          getMedicationName(getMedicationFromMA(ma)) ||
+          ma.medicationCodeableConcept?.coding?.[0]?.display ||
+          ma.medicationCodeableConcept?.text ||
+          '';
+        addMed(name, 'in-house');
       }
       row.medications = medications;
       row.medicationIngredients = medicationIngredients;
+      row.medicationSources = medicationSources;
       row.medicationCodes = medicationCodes;
       row.medicationCount = medications.length;
     }

@@ -71,11 +71,12 @@ export interface AdHocEncounterRow {
   onTime?: boolean | null;
   // --- AI (includeAi) ---
   aiType?: string; // "" | "ambient scribe" | "patient HPI chatbot" | "ambient scribe & patient HPI chatbot"
-  // --- Medications (includeMedications) — prescribed (eRx) on the visit ---
-  medications?: string[]; // full drug display names as prescribed (e.g. "Amoxicillin 500 mg tablet")
+  // --- Medications (includeMedications) — eRx prescribed + in-house administered, all statuses ---
+  medications?: string[]; // full drug display names (e.g. "Amoxicillin 500 mg tablet"); eRx + in-house combined
   medicationIngredients?: string[]; // drug name with dose/strength removed (e.g. "Ibuprofen Oral Tablet") — count by this
-  medicationCodes?: string[]; // Medispan dispensable-drug-id codes
-  medicationCount?: number; // number of prescriptions written on the visit
+  medicationSources?: string[]; // parallel to medications: "eRx" or "in-house" for each entry
+  medicationCodes?: string[]; // Medispan dispensable-drug-id codes (eRx only; in-house may be blank)
+  medicationCount?: number; // total medications on the visit (eRx + in-house)
   // --- Vitals (includeVitals) — most recent charted value per vital on the visit ---
   temperatureF?: number | null; // body temperature, normalized to Fahrenheit
   heartRate?: number | null; // beats/min

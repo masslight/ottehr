@@ -27,8 +27,8 @@ export const ADHOC_ENCOUNTERS_OPTIONS: AdHocDatasetOption[] = [
   },
   {
     id: 'medications',
-    label: 'Medications (prescribed)',
-    description: 'Drugs prescribed (eRx) on the visit — counts and drug names/ingredients.',
+    label: 'Medications',
+    description: 'Drugs on the visit — eRx prescribed and in-house administered (all statuses).',
     default: false,
   },
   {
@@ -174,28 +174,35 @@ const MEDICATION_FIELDS: FieldDef[] = [
     name: 'medicationIngredients',
     type: 'string[]',
     description:
-      'Prescribed (eRx) drugs on the visit, normalized by removing the dose/strength tail ' +
-      '(e.g. "Ibuprofen Oral Tablet 200 MG" -> "Ibuprofen Oral Tablet"). COUNT "how many times each drug ' +
-      'was prescribed" by tallying this array across rows — it groups all strengths of the same product ' +
-      'together. Excludes cancelled/draft scripts.',
+      'All drugs on the visit — eRx prescribed AND in-house administered — normalized by removing the ' +
+      'dose/strength tail (e.g. "Ibuprofen Oral Tablet 200 MG" -> "Ibuprofen Oral Tablet"). To COUNT ' +
+      '"how many times each drug" tally ONLY this array across rows (it groups all strengths of one ' +
+      'product). Do NOT also tally the medications array — that double-counts the same drug. Includes ' +
+      'all statuses except entered-in-error.',
   },
   {
     name: 'medications',
     type: 'string[]',
     description:
-      'Prescribed (eRx) drugs on the visit as full display names WITH strength/form ' +
-      '(e.g. "Amoxicillin 500 mg tablet"). Use when the report needs the exact prescribed product; ' +
-      'use medicationIngredients to count by drug.',
+      'All drugs on the visit (eRx + in-house) as full display names WITH strength/form ' +
+      '(e.g. "Amoxicillin 500 mg tablet"). Use ONLY when the report needs the exact product; to count ' +
+      'by drug use medicationIngredients instead (counting both arrays double-counts).',
+  },
+  {
+    name: 'medicationSources',
+    type: 'string[]',
+    description:
+      'Parallel to medications/medicationIngredients: "eRx" or "in-house" for each entry. Filter/split by this.',
   },
   {
     name: 'medicationCodes',
     type: 'string[]',
-    description: 'Medispan dispensable-drug-id codes for the prescribed drugs (parallel to medications).',
+    description: 'Medispan dispensable-drug-id codes for eRx drugs (in-house entries have no Medispan code).',
   },
   {
     name: 'medicationCount',
     type: 'number',
-    description: 'Number of prescriptions (eRx) written on the visit. 0 when none. Sum for total prescribing volume.',
+    description: 'Total medications on the visit (eRx + in-house). 0 when none. Sum for total medication volume.',
   },
 ];
 
