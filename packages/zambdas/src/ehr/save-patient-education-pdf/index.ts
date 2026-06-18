@@ -50,7 +50,7 @@ const performEffect = async (
   oystehr: Oystehr,
   token: string
 ): Promise<SavePatientEducationPdfOutput> => {
-  const { encounterId, patientId, title, language, relatedDocumentReferenceId, secrets } = validatedInput;
+  const { encounterId, patientId, title, language, secrets } = validatedInput;
   console.log('Saving patient education PDF', {
     encounterId,
     patientId,
@@ -103,20 +103,11 @@ const performEffect = async (
             url: z3Url,
             contentType: 'application/pdf',
             title,
-            // Tag the PDF's language so EN/ES versions can be told apart and paired in the UI.
+            // Tag the PDF's language so EN/ES versions can be told apart.
             ...(language ? { language } : {}),
           },
         },
       ],
-      // Link this document to its sibling-language version (the translation it pairs with), so the
-      // two language versions can be grouped/shown together.
-      ...(relatedDocumentReferenceId
-        ? {
-            relatesTo: [
-              { code: 'transforms', target: { reference: `DocumentReference/${relatedDocumentReferenceId}` } },
-            ],
-          }
-        : {}),
     },
   };
 

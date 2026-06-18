@@ -8,11 +8,8 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
-  Divider,
   FormControlLabel,
   Link,
-  Radio,
-  RadioGroup,
   Tooltip,
   Typography,
 } from '@mui/material';
@@ -33,6 +30,7 @@ import {
   usePatientEducation,
 } from '../../hooks/usePatientEducation';
 import { useChartData, useDeleteChartData } from '../../stores/appointment/appointment.store';
+import { PatientEducationLanguageSelector } from '../PatientEducationLanguageSelector';
 import { PatientEducationSectionsEditor } from '../PatientEducationSectionsEditor';
 
 export const PatientEducationCard: FC = () => {
@@ -235,36 +233,16 @@ export const PatientEducationCard: FC = () => {
         <DialogContent>
           {allDiagnoses.length > 0 && (
             <Box sx={{ mb: 2 }}>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
-                Language
-                {defaultLanguage === 'es' && (
-                  <Typography component="span" variant="caption" color="primary" sx={{ ml: 1 }}>
-                    (patient's preferred language is Spanish)
-                  </Typography>
-                )}
-              </Typography>
-              <RadioGroup
-                row
+              <PatientEducationLanguageSelector
                 value={language}
-                onChange={(e) => {
-                  const next = e.target.value as PatientEducationLanguage;
+                onChange={(next) => {
                   setLanguage(next);
                   // Warm the cache for the newly-selected language so Generate is fast.
                   prefetchAllDiagnoses(next);
                 }}
-              >
-                <FormControlLabel
-                  value="en"
-                  control={<Radio size="small" disabled={isEducationLoading} />}
-                  label="English"
-                />
-                <FormControlLabel
-                  value="es"
-                  control={<Radio size="small" disabled={isEducationLoading} />}
-                  label="Español"
-                />
-              </RadioGroup>
-              <Divider sx={{ mt: 1 }} />
+                disabled={isEducationLoading}
+                showPreferredSpanishHint={defaultLanguage === 'es'}
+              />
             </Box>
           )}
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>

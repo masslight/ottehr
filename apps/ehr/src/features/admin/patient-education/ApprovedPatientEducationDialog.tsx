@@ -7,10 +7,6 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
-  Divider,
-  FormControlLabel,
-  Radio,
-  RadioGroup,
   Stack,
   Typography,
 } from '@mui/material';
@@ -18,6 +14,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { enqueueSnackbar } from 'notistack';
 import { FC, useState } from 'react';
 import { RoundedButton } from 'src/components/RoundedButton';
+import { PatientEducationLanguageSelector } from 'src/features/visits/shared/components/PatientEducationLanguageSelector';
 import { PatientEducationSectionsEditor } from 'src/features/visits/shared/components/PatientEducationSectionsEditor';
 import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
 import { EducationSection, generateCombinedPdf } from 'src/features/visits/shared/hooks/usePatientEducation';
@@ -120,20 +117,7 @@ export const ApprovedPatientEducationDialog: FC<DialogProps> = ({ open, onClose 
       <DialogContent>
         {!showReview && (
           <Stack spacing={2} sx={{ mt: 1 }}>
-            <Box>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
-                Language
-              </Typography>
-              <RadioGroup
-                row
-                value={language}
-                onChange={(e) => setLanguage(e.target.value as PatientEducationLanguage)}
-              >
-                <FormControlLabel value="en" control={<Radio size="small" disabled={isBusy} />} label="English" />
-                <FormControlLabel value="es" control={<Radio size="small" disabled={isBusy} />} label="Español" />
-              </RadioGroup>
-              <Divider sx={{ mt: 1 }} />
-            </Box>
+            <PatientEducationLanguageSelector value={language} onChange={setLanguage} disabled={isBusy} />
             <Typography variant="body2" color="text.secondary">
               Pick the diagnosis the AI should use to generate the PDF. Add alternative ICD-10 codes if the same PDF
               should also apply to other diagnoses. A code can have separate English and Spanish approved PDFs.

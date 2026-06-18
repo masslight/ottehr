@@ -24,7 +24,7 @@ import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useState } from 'react';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
-import { ApprovedPatientEducationItem } from 'utils';
+import { ApprovedPatientEducationItem, PATIENT_EDUCATION_LANGUAGE_LABELS } from 'utils';
 import { ApprovedPatientEducationDialog } from './ApprovedPatientEducationDialog';
 import { EditApprovedPatientEducationCodesDialog } from './EditApprovedPatientEducationCodesDialog';
 
@@ -123,7 +123,7 @@ export const PatientEducationAdminPage = (): ReactElement => {
                       <Chip
                         size="small"
                         color={item.language === 'es' ? 'info' : 'default'}
-                        label={item.language === 'es' ? 'Español' : 'English'}
+                        label={PATIENT_EDUCATION_LANGUAGE_LABELS[item.language]}
                       />
                     </TableCell>
                     <TableCell>

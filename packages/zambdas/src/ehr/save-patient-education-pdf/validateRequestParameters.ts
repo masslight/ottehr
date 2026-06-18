@@ -1,4 +1,9 @@
-import { MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS, SavePatientEducationPdfInput } from 'utils';
+import {
+  MISSING_REQUEST_BODY,
+  MISSING_REQUEST_SECRETS,
+  PATIENT_EDUCATION_LANGUAGES,
+  SavePatientEducationPdfInput,
+} from 'utils';
 import { z } from 'zod';
 import { safeValidate, ZambdaInput } from '../../shared';
 
@@ -29,8 +34,7 @@ const baseFields = {
   encounterId: z.string().min(1, 'encounterId is required'),
   patientId: z.string().min(1, 'patientId is required'),
   title: z.string().min(1, 'title is required'),
-  language: z.enum(['en', 'es']).optional(),
-  relatedDocumentReferenceId: z.string().optional(),
+  language: z.enum(PATIENT_EDUCATION_LANGUAGES).optional(),
 };
 
 const savePatientEducationPdfInputSchema: z.ZodType<SavePatientEducationPdfInput> = z.union([

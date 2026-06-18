@@ -1,8 +1,12 @@
 // Patient education can be produced in the patient's language. We support English and Spanish;
 // the value maps directly to MedlinePlus Connect's `informationRecipient.languageCode.c` param and
 // to FHIR `DocumentReference.content.attachment.language`.
-export type PatientEducationLanguage = 'en' | 'es';
-export const PATIENT_EDUCATION_LANGUAGES: PatientEducationLanguage[] = ['en', 'es'];
+export const PATIENT_EDUCATION_LANGUAGES = ['en', 'es'] as const;
+export type PatientEducationLanguage = (typeof PATIENT_EDUCATION_LANGUAGES)[number];
+export const PATIENT_EDUCATION_LANGUAGE_LABELS: Record<PatientEducationLanguage, string> = {
+  en: 'English',
+  es: 'Español',
+};
 
 export interface PatientEducationSection {
   content: string;
@@ -32,10 +36,8 @@ interface SavePatientEducationPdfBase {
   encounterId: string;
   patientId: string;
   title: string;
-  // Language of this PDF; stored on the DocumentReference attachment and used to pair EN/ES siblings.
+  // Language of this PDF; stored on the DocumentReference attachment.
   language?: PatientEducationLanguage;
-  // The sibling-language document this is the translation of, so the two versions can be grouped.
-  relatedDocumentReferenceId?: string;
 }
 
 export type SavePatientEducationPdfInput =
