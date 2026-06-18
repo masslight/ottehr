@@ -17,6 +17,7 @@ import {
 } from '@mui/material';
 import { ReactElement, useCallback, useEffect, useRef, useState } from 'react';
 import {
+  BILLING_INSURANCE_TYPE_OPTIONS,
   BillingCoverageOption,
   BillingInsuranceType,
   BillingPayerOption,
@@ -32,14 +33,8 @@ import { Field } from './Field';
 
 type BirthSex = 'Male' | 'Female' | 'Intersex';
 
-const INSURANCE_TYPE_OPTIONS: { value: BillingInsuranceType; label: string }[] = [
-  { value: 'primary', label: 'Primary' },
-  { value: 'secondary', label: 'Secondary' },
-  { value: 'workersComp', label: "Worker's Comp" },
-];
-
 function insuranceTypeLabel(type: BillingInsuranceType): string {
-  return INSURANCE_TYPE_OPTIONS.find((o) => o.value === type)?.label ?? type;
+  return BILLING_INSURANCE_TYPE_OPTIONS.find((o) => o.value === type)?.label ?? type;
 }
 
 export interface CoverageFormState {
@@ -236,7 +231,7 @@ export function CoverageFormFields({
             value={value.insuranceType}
             onChange={(e) => set('insuranceType', e.target.value as BillingInsuranceType)}
           >
-            {INSURANCE_TYPE_OPTIONS.map((o) => (
+            {BILLING_INSURANCE_TYPE_OPTIONS.map((o) => (
               <MenuItem key={o.value} value={o.value} disabled={unavailableTypes.includes(o.value)}>
                 {o.label}
                 {unavailableTypes.includes(o.value) ? ' (already on file)' : ''}

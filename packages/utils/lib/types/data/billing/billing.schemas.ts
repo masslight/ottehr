@@ -1,4 +1,6 @@
 import { z } from 'zod';
+import { SUBSCRIBER_RELATIONSHIPS } from '../../../fhir/constants';
+import { BIRTH_SEXES } from '../../../fhir/helpers';
 import {
   CODE_SYSTEM_APPOINTMENT_TYPE_CODE_NAMES,
   CODE_SYSTEM_CLAIM_TYPE_CODE_NAMES,
@@ -292,34 +294,22 @@ export const UpdateBillingPatientInputSchema = z.object({
 
 // --- Coverage (insurance) CRUD ---
 
-const subscriberRelationshipSchema = z.enum([
-  'Self',
-  'Child',
-  'Parent',
-  'Spouse',
-  'Common Law Spouse',
-  'Injured Party',
-  'Other',
-]);
+const subscriberRelationshipSchema = z.enum(SUBSCRIBER_RELATIONSHIPS);
 
-// Insurance type. primary/secondary live in the patient billing account (priority 1/2);
-// workersComp lives in a separate workers-comp account.
 const insuranceTypeSchema = z.enum(['primary', 'secondary', 'workersComp']);
 
-// Policy holder (subscriber) details, required only when the relationship to insured is not "Self".
 const billingPolicyHolderSchema = z.object({
   firstName: nonEmptyString,
   middleName: z.string().optional(),
   lastName: nonEmptyString,
   dob: nonEmptyString,
-  birthSex: z.enum(['Male', 'Female', 'Intersex']),
+  birthSex: z.enum(BIRTH_SEXES),
   address: billingAddressSchema.optional(),
 });
 
 export const CreateBillingCoverageInputSchema = z
   .object({
     patientId: nonEmptyString,
-    // Oystehr RCM payer id (BillingPayerOption.id) used to build the payer reference.
     payerId: nonEmptyString,
     memberId: nonEmptyString,
     insuranceType: insuranceTypeSchema,

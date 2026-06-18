@@ -1,20 +1,22 @@
-import Oystehr from '@oystehr/sdk';
+import Oystehr, { BatchInputRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Coverage, RelatedPerson } from 'fhir/r4b';
+import { randomUUID } from 'crypto';
+import { Coverage } from 'fhir/r4b';
 import { APIErrorCode, FHIR_RESOURCE_NOT_FOUND } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import {
   applyInsuranceTypeToCoverage,
+  BillingFhirResource,
   buildSubscriberRelatedPerson,
   coverageInsuranceTypeLabel,
   createBillingClient,
   fetchById,
   findCoverageOfType,
+  getPatientAccounts,
   getPayerOrgById,
-  linkCoverageToAccount,
+  reconcileAccountsForCoverage,
   setCoveragePayer,
   setCoverageRelationship,
-  unlinkCoverageFromAccount,
 } from '../shared';
 import { UpdateBillingCoverageParams, validateRequestParameters } from './validateRequestParameters';
 
@@ -51,11 +53,12 @@ async function performEffect(
     }
   }
 
+  const accounts = params.insuranceType !== undefined ? await getPatientAccounts(oystehr, patientId) : [];
+
   // Coverage status is not part of the billing product model; keep every coverage active.
   coverage.status = 'active';
 
   const effectiveMemberId = params.memberId ?? coverage.subscriberId ?? '';
-
   if (params.payerId) {
     // Re-pointing the payer rebuilds payor reference, coverage class, and the member-id identifier.
     const payerOrg = await getPayerOrgById(oystehr, params.payerId);
@@ -66,38 +69,56 @@ async function performEffect(
     if (coverage.identifier?.[0]) coverage.identifier[0].value = params.memberId;
   }
 
+  // RelatedPerson create/update happens before the Coverage PUT; a delete happens after (so the
+  // coverage no longer references it). All of it goes in one transaction.
+  const preCoverageRequests: BatchInputRequest<BillingFhirResource>[] = [];
+  const postCoverageRequests: BatchInputRequest<BillingFhirResource>[] = [];
+
   if (params.relationship) {
     setCoverageRelationship(coverage, params.relationship);
-    // The subscriber is a standalone RelatedPerson (non-self) or the patient (self). Reconcile it
-    // against whatever the coverage currently points at.
     const currentRef = coverage.subscriber?.reference;
     const currentSubscriberId = currentRef?.startsWith('RelatedPerson/') ? currentRef.split('/')[1] : undefined;
 
     if (params.relationship === 'Self' || !params.policyHolder) {
       coverage.subscriber = { reference: `Patient/${patientId}` };
-      if (currentSubscriberId) await oystehr.fhir.delete({ resourceType: 'RelatedPerson', id: currentSubscriberId });
+      if (currentSubscriberId) {
+        postCoverageRequests.push({ method: 'DELETE', url: `RelatedPerson/${currentSubscriberId}` });
+      }
     } else {
       const subscriber = buildSubscriberRelatedPerson(patientId, params.relationship, params.policyHolder);
       if (currentSubscriberId) {
         subscriber.id = currentSubscriberId;
-        const saved = await oystehr.fhir.update<RelatedPerson>(subscriber);
-        coverage.subscriber = { reference: `RelatedPerson/${saved.id}` };
+        preCoverageRequests.push({
+          method: 'PUT',
+          url: `RelatedPerson/${currentSubscriberId}`,
+          resource: subscriber,
+        });
+        coverage.subscriber = { reference: `RelatedPerson/${currentSubscriberId}` };
       } else {
-        const created = await oystehr.fhir.create<RelatedPerson>(subscriber);
-        coverage.subscriber = { reference: `RelatedPerson/${created.id}` };
+        const subscriberUrn = `urn:uuid:${randomUUID()}`;
+        preCoverageRequests.push({
+          method: 'POST',
+          url: '/RelatedPerson',
+          resource: subscriber,
+          fullUrl: subscriberUrn,
+        });
+        coverage.subscriber = { reference: subscriberUrn };
       }
     }
   }
 
   if (params.insuranceType !== undefined) applyInsuranceTypeToCoverage(coverage, params.insuranceType);
 
-  const updated = await oystehr.fhir.update<Coverage>(coverage);
+  const requests: BatchInputRequest<BillingFhirResource>[] = [
+    ...preCoverageRequests,
+    { method: 'PUT', url: `Coverage/${params.coverageId}`, resource: coverage },
+    // Moving insurance type re-homes the coverage to the right account (PBILLACCT vs WCOMPACCT).
+    ...(params.insuranceType !== undefined
+      ? reconcileAccountsForCoverage(accounts, patientId, `Coverage/${params.coverageId}`, params.insuranceType)
+      : []),
+    ...postCoverageRequests,
+  ];
 
-  // Moving insurance type re-homes the coverage to the right account (PBILLACCT vs WCOMPACCT).
-  if (params.insuranceType !== undefined) {
-    await unlinkCoverageFromAccount(oystehr, patientId, params.coverageId);
-    await linkCoverageToAccount(oystehr, patientId, params.coverageId, params.insuranceType);
-  }
-
-  return { id: updated.id };
+  await oystehr.fhir.transaction<BillingFhirResource>({ requests });
+  return { id: params.coverageId };
 }

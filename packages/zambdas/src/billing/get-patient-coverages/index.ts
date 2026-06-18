@@ -4,7 +4,6 @@ import { Coverage, RelatedPerson } from 'fhir/r4b';
 import { BillingCoverageOption, genderMap, getMemberIdFromCoverage, getPayerId } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import {
-  COVERAGE_SUBSCRIBER_CONTAINED_ID,
   createBillingClient,
   EXCLUDE_WORKING_COPIES_PARAMS,
   getCoverageInsuranceType,
@@ -26,19 +25,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const response = await performEffect(oystehr, params);
   return { statusCode: 200, body: JSON.stringify(response) };
 });
-
-// Resolve the coverage's subscriber: a standalone RelatedPerson (referenced) or, for legacy
-// coverages, a contained one. Returns null when the subscriber is the patient (self).
-function resolveSubscriber(
-  coverage: Coverage,
-  relatedPersonsById: Map<string, RelatedPerson>
-): RelatedPerson | undefined {
-  const ref = coverage.subscriber?.reference;
-  if (ref?.startsWith('RelatedPerson/')) return relatedPersonsById.get(ref.split('/')[1]);
-  return coverage.contained?.find(
-    (r): r is RelatedPerson => r.resourceType === 'RelatedPerson' && r.id === COVERAGE_SUBSCRIBER_CONTAINED_ID
-  );
-}
 
 function extractPolicyHolder(subscriber: RelatedPerson | undefined): BillingCoverageOption['policyHolder'] {
   if (!subscriber) return null;
@@ -77,9 +63,13 @@ async function performEffect(
     coverages.map((cov) => cov.payor?.[0]?.reference)
   );
 
-  const result = coverages.map((cov) => {
+  const result = coverages.map((cov): BillingCoverageOption => {
     const payorRef = cov.payor?.[0]?.reference;
     const payorOrg = payorRef ? payersByRef.get(payorRef) : undefined;
+    const subscriberRef = cov.subscriber?.reference;
+    const subscriber = subscriberRef?.startsWith('RelatedPerson/')
+      ? relatedPersonsById.get(subscriberRef.split('/')[1])
+      : undefined;
 
     return {
       id: cov.id,
@@ -89,9 +79,9 @@ async function performEffect(
       payorId: getPayerId(payorOrg) ?? '',
       payorFhirId: payorOrg?.id ?? '',
       insuranceType: getCoverageInsuranceType(cov, pbillAccount, wcompAccount),
-      relationship: cov.relationship?.coding?.[0]?.display ?? '',
+      relationship: cov.relationship?.coding?.[0]?.display as BillingCoverageOption['relationship'],
       memberId: cov.subscriberId ?? getMemberIdFromCoverage(cov) ?? '',
-      policyHolder: extractPolicyHolder(resolveSubscriber(cov, relatedPersonsById)),
+      policyHolder: extractPolicyHolder(subscriber),
     };
   });
 

@@ -1,6 +1,28 @@
+import { SubscriberRelationship } from '../../../fhir/constants';
 import { CODE_SYSTEM_APPOINTMENT_TYPE_CODES, CODE_SYSTEM_CLAIM_TYPE_CODES } from '../../../helpers';
 import type { BillingInsuranceType } from './billing.schemas';
 import { ClaimStatusValues } from './claim-status';
+
+// Insurance types in display order, with the labels shown across the billing app.
+export const BILLING_INSURANCE_TYPE_OPTIONS: { value: BillingInsuranceType; label: string }[] = [
+  { value: 'primary', label: 'Primary' },
+  { value: 'secondary', label: 'Secondary' },
+  { value: 'workersComp', label: 'Workers Comp' },
+];
+
+// Section/card headings.
+export const BILLING_INSURANCE_TYPE_TITLES: Record<BillingInsuranceType, string> = {
+  primary: 'Primary Insurance',
+  secondary: 'Secondary Insurance',
+  workersComp: 'Workers Comp',
+};
+
+// Lowercase labels for inline messages (e.g. "patient already has a primary coverage").
+export const BILLING_INSURANCE_TYPE_LABELS: Record<BillingInsuranceType, string> = {
+  primary: 'primary',
+  secondary: 'secondary',
+  workersComp: 'workers comp',
+};
 
 export interface BillingTag {
   id: string;
@@ -44,13 +66,9 @@ export interface BillingCoverageOption {
   payorName: string;
   payorId: string;
   payorFhirId: string;
-  // primary / secondary (patient billing account priority 1/2) or workersComp (separate account).
   insuranceType?: BillingInsuranceType;
-  // Display value of the subscriber relationship (Self, Child, Spouse, ...).
-  relationship?: string;
-  // Member / subscriber ID for this coverage (mirrors subscriberId).
+  relationship?: SubscriberRelationship;
   memberId?: string;
-  // Policy holder (subscriber) details, present when the relationship is not "Self".
   policyHolder?: BillingPolicyHolderSummary | null;
 }
 

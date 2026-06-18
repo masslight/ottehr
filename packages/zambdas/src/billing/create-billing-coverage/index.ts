@@ -1,16 +1,19 @@
-import Oystehr from '@oystehr/sdk';
+import Oystehr, { BatchInputRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Coverage, RelatedPerson } from 'fhir/r4b';
+import { randomUUID } from 'crypto';
+import { Coverage } from 'fhir/r4b';
 import { APIErrorCode } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import {
+  BillingFhirResource,
   buildBillingCoverage,
   buildSubscriberRelatedPerson,
   coverageInsuranceTypeLabel,
   createBillingClient,
   findCoverageOfType,
+  getPatientAccounts,
   getPayerOrgById,
-  linkCoverageToAccount,
+  reconcileAccountsForCoverage,
 } from '../shared';
 import { CreateBillingCoverageParams, validateRequestParameters } from './validateRequestParameters';
 
@@ -38,18 +41,28 @@ async function performEffect(oystehr: Oystehr, params: CreateBillingCoveragePara
     };
   }
 
-  const payerOrg = await getPayerOrgById(oystehr, params.payerId);
+  const [payerOrg, accounts] = await Promise.all([
+    getPayerOrgById(oystehr, params.payerId),
+    getPatientAccounts(oystehr, params.patientId),
+  ]);
 
-  // Non-self subscribers are standalone RelatedPerson resources (matching
-  // create-billing-claim-from-encounter), referenced by the Coverage.
+  // Coverage, its standalone policy-holder subscriber, and the account link are written in one
+  // transaction so they all succeed or fail together.
+  const requests: BatchInputRequest<BillingFhirResource>[] = [];
+
   let subscriberReference = `Patient/${params.patientId}`;
   if (params.relationship !== 'Self' && params.policyHolder) {
-    const subscriber = await oystehr.fhir.create<RelatedPerson>(
-      buildSubscriberRelatedPerson(params.patientId, params.relationship, params.policyHolder)
-    );
-    subscriberReference = `RelatedPerson/${subscriber.id}`;
+    const subscriberUrn = `urn:uuid:${randomUUID()}`;
+    requests.push({
+      method: 'POST',
+      url: '/RelatedPerson',
+      resource: buildSubscriberRelatedPerson(params.patientId, params.relationship, params.policyHolder),
+      fullUrl: subscriberUrn,
+    });
+    subscriberReference = subscriberUrn;
   }
 
+  const coverageUrn = `urn:uuid:${randomUUID()}`;
   const coverage = buildBillingCoverage({
     patientId: params.patientId,
     payerOrg,
@@ -60,8 +73,11 @@ async function performEffect(oystehr: Oystehr, params: CreateBillingCoveragePara
     relationship: params.relationship,
     subscriberReference,
   });
+  requests.push({ method: 'POST', url: '/Coverage', resource: coverage, fullUrl: coverageUrn });
+  requests.push(...reconcileAccountsForCoverage(accounts, params.patientId, coverageUrn, params.insuranceType));
 
-  const created = await oystehr.fhir.create<Coverage>(coverage);
-  await linkCoverageToAccount(oystehr, params.patientId, created.id!, params.insuranceType);
-  return { id: created.id! };
+  const result = await oystehr.fhir.transaction<BillingFhirResource>({ requests });
+  const createdId = result.entry?.map((e) => e.resource).find((r): r is Coverage => r?.resourceType === 'Coverage')?.id;
+  if (!createdId) throw new Error('Coverage was not created');
+  return { id: createdId };
 }

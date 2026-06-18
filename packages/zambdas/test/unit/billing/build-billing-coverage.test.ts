@@ -35,7 +35,8 @@ describe('buildBillingCoverage', () => {
 
     expect(coverage.resourceType).toBe('Coverage');
     expect(coverage.status).toBe('active');
-    expect(coverage.order).toBe(1);
+    // Ordering is carried by the account's coverage priority, not Coverage.order.
+    expect(coverage.order).toBeUndefined();
     expect(coverage.beneficiary?.reference).toBe(`Patient/${PATIENT_ID}`);
     expect(coverage.subscriber?.reference).toBe(`Patient/${PATIENT_ID}`);
     expect(coverage.subscriberId).toBe('M1');
@@ -64,7 +65,7 @@ describe('buildBillingCoverage', () => {
       subscriberReference: 'RelatedPerson/rp-1',
     });
 
-    expect(coverage.order).toBe(2);
+    expect(coverage.order).toBeUndefined();
     expect(coverage.subscriber?.reference).toBe('RelatedPerson/rp-1');
     expect(coverage.contained).toBeUndefined();
     expect(coverage.relationship?.coding?.[0]?.code).toBe('spouse');

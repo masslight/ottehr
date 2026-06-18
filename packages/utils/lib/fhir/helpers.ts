@@ -90,11 +90,14 @@ import {
   PRACTITIONER_QUALIFICATION_EXTENSION_URL,
   PRACTITIONER_QUALIFICATION_STATE_SYSTEM,
   PUBLIC_EXTENSION_BASE_URL,
+  RELATED_PERSON_RELATIONSHIP_SYSTEM,
   SCHEDULE_STRATEGY_SYSTEM,
   ScheduleStrategy,
   SERVICE_MODE_SYSTEM,
   ServiceModeCoding,
   SLUG_SYSTEM,
+  SUBSCRIBER_RELATIONSHIP_CODE_MAP,
+  SUBSCRIBER_RELATIONSHIP_SYSTEM,
 } from './constants';
 
 export function isFHIRError(error: any): boolean {
@@ -1040,6 +1043,58 @@ export const genderMap = {
 } as const;
 
 export type Gender = (typeof genderMap)[keyof typeof genderMap];
+
+export const BIRTH_SEXES = ['Male', 'Female', 'Intersex'] as const;
+export type BirthSex = (typeof BIRTH_SEXES)[number];
+
+// Minimal subscriber/policy-holder shape shared by the clinical EHR and billing app for building a
+// coverage subscriber RelatedPerson.
+export interface CoverageSubscriberInput {
+  firstName?: string;
+  middleName?: string;
+  lastName?: string;
+  dob?: string;
+  birthSex?: BirthSex;
+  address?: Address;
+}
+
+// CodeableConcept for Coverage.relationship.
+export const getSubscriberRelationshipCodeableConcept = (relationship: string): CodeableConcept => ({
+  coding: [
+    {
+      system: SUBSCRIBER_RELATIONSHIP_SYSTEM,
+      code: SUBSCRIBER_RELATIONSHIP_CODE_MAP[relationship] || 'other',
+      display: relationship,
+    },
+  ],
+});
+
+// Build the RelatedPerson that represents a coverage's subscriber / policy holder. The clinical EHR
+// contains this on the Coverage; the billing app persists it standalone so it can be searched. The
+// resource shape is identical either way.
+export const buildCoverageSubscriberRelatedPerson = (
+  patientId: string,
+  subscriber: CoverageSubscriberInput,
+  relationship: string
+): RelatedPerson => ({
+  resourceType: 'RelatedPerson',
+  name: createFhirHumanName(subscriber.firstName, subscriber.middleName, subscriber.lastName),
+  birthDate: subscriber.dob,
+  gender: mapBirthSexToGender(subscriber.birthSex),
+  patient: { reference: `Patient/${patientId}` },
+  address: subscriber.address ? [subscriber.address] : undefined,
+  relationship: [
+    {
+      coding: [
+        {
+          system: RELATED_PERSON_RELATIONSHIP_SYSTEM,
+          code: SUBSCRIBER_RELATIONSHIP_CODE_MAP[relationship] || 'other',
+          display: relationship,
+        },
+      ],
+    },
+  ],
+});
 
 export const getMemberIdFromCoverage = (coverage: Coverage): string | undefined => {
   return coverage.identifier?.find((ident) => {

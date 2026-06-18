@@ -19,6 +19,8 @@ import { DataGridPro, GridColDef } from '@mui/x-data-grid-pro';
 import { ReactElement, useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
+  BILLING_INSURANCE_TYPE_OPTIONS,
+  BILLING_INSURANCE_TYPE_TITLES,
   BillingCoverageOption,
   BillingInsuranceType,
   getApiError,
@@ -49,13 +51,7 @@ import { useApiClients } from '../hooks/useAppClients';
 import { otherColors } from '../themes/ottehr/colors';
 import { buildAddressInput, formatCurrency } from '../utils/format';
 
-// Display order and titles for insurance types in the Insurance tab.
-const INSURANCE_TYPE_ORDER: BillingInsuranceType[] = ['primary', 'secondary', 'workersComp'];
-const INSURANCE_TYPE_TITLES: Record<BillingInsuranceType, string> = {
-  primary: 'Primary Insurance',
-  secondary: 'Secondary Insurance',
-  workersComp: "Worker's Comp",
-};
+const INSURANCE_TYPE_ORDER: BillingInsuranceType[] = BILLING_INSURANCE_TYPE_OPTIONS.map((o) => o.value);
 const insuranceTypeRank = (type: BillingInsuranceType | undefined): number => {
   const idx = type ? INSURANCE_TYPE_ORDER.indexOf(type) : -1;
   return idx === -1 ? INSURANCE_TYPE_ORDER.length : idx;
@@ -521,7 +517,7 @@ function CoverageCard({
     await onChanged();
   };
 
-  const title = INSURANCE_TYPE_TITLES[coverage.insuranceType ?? 'primary'];
+  const title = BILLING_INSURANCE_TYPE_TITLES[coverage.insuranceType ?? 'primary'];
   const policyHolderName = coverage.policyHolder
     ? `${coverage.policyHolder.firstName} ${coverage.policyHolder.lastName}`.trim()
     : '';

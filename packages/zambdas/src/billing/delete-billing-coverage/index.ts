@@ -1,8 +1,14 @@
-import Oystehr from '@oystehr/sdk';
+import Oystehr, { BatchInputRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Coverage } from 'fhir/r4b';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
-import { createBillingClient, fetchById, unlinkCoverageFromAccount } from '../shared';
+import {
+  accountUnlinkRequests,
+  BillingFhirResource,
+  createBillingClient,
+  fetchById,
+  getPatientAccounts,
+} from '../shared';
 import { DeleteBillingCoverageParams, validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -17,21 +23,25 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   return { statusCode: 200, body: JSON.stringify({ deleted: true }) };
 });
 
-// Hard delete: remove the Coverage resource and unlink it from the patient's billing Account so it
-// disappears from the patient details view entirely.
+// Hard delete: unlink the coverage from the patient's account(s) and delete the Coverage and its
+// standalone RelatedPerson subscriber — all in one transaction so they succeed or fail together.
 async function performEffect(oystehr: Oystehr, params: DeleteBillingCoverageParams): Promise<void> {
   const coverage = await fetchById<Coverage>(oystehr, 'Coverage', params.coverageId);
   const patientId = coverage.beneficiary?.reference?.split('/')[1];
+  const coverageRef = `Coverage/${params.coverageId}`;
 
-  if (patientId) {
-    await unlinkCoverageFromAccount(oystehr, patientId, params.coverageId);
-  }
+  const accounts = patientId ? await getPatientAccounts(oystehr, patientId) : [];
 
-  await oystehr.fhir.delete({ resourceType: 'Coverage', id: params.coverageId });
+  const requests: BatchInputRequest<BillingFhirResource>[] = [
+    // Unlink first so the Coverage isn't referenced when it's deleted.
+    ...accountUnlinkRequests(accounts, coverageRef),
+    { method: 'DELETE', url: coverageRef },
+  ];
 
-  // Clean up the standalone RelatedPerson subscriber (non-self policy holders).
   const subscriberRef = coverage.subscriber?.reference;
   if (subscriberRef?.startsWith('RelatedPerson/')) {
-    await oystehr.fhir.delete({ resourceType: 'RelatedPerson', id: subscriberRef.split('/')[1] });
+    requests.push({ method: 'DELETE', url: subscriberRef });
   }
+
+  await oystehr.fhir.transaction<BillingFhirResource>({ requests });
 }
