@@ -1,10 +1,10 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Location } from 'fhir/r4b';
-import { FHIR_IDENTIFIER_NPI, FHIR_RESOURCE_NOT_FOUND, INVALID_INPUT_ERROR } from 'utils';
+import { FHIR_IDENTIFIER_NPI, INVALID_INPUT_ERROR } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import { applyServiceFacilityInput } from '../service-facility.helpers';
-import { createBillingClient, EXCLUDE_WORKING_COPIES_PARAMS } from '../shared';
+import { createBillingClient, EXCLUDE_WORKING_COPIES_PARAMS, fetchById } from '../shared';
 import { SaveServiceFacilityParams, validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -39,20 +39,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 async function complexValidation(oystehr: Oystehr, params: SaveServiceFacilityParams): Promise<Location | undefined> {
   const { facilityId, npi } = params;
 
-  let existing: Location | undefined;
-  if (facilityId) {
-    const bundle = await oystehr.fhir.search<Location>({
-      resourceType: 'Location',
-      params: [
-        {
-          name: '_id',
-          value: facilityId,
-        },
-      ],
-    });
-    existing = bundle.unbundle()[0];
-    if (!existing) throw FHIR_RESOURCE_NOT_FOUND('Location');
-  }
+  const existing = facilityId ? await fetchById<Location>(oystehr, 'Location', facilityId) : undefined;
 
   if (npi) {
     const bundle = await oystehr.fhir.search<Location>({

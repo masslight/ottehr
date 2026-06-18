@@ -1,9 +1,9 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Location } from 'fhir/r4b';
-import { DeletedResponse, FHIR_RESOURCE_NOT_FOUND } from 'utils';
+import { DeletedResponse } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
-import { createBillingClient } from '../shared';
+import { createBillingClient, fetchById } from '../shared';
 import { DeleteServiceFacilityParams, validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -36,18 +36,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 });
 
 async function complexValidation(oystehr: Oystehr, params: DeleteServiceFacilityParams): Promise<void> {
-  const { facilityId } = params;
-
-  const bundle = await oystehr.fhir.search<Location>({
-    resourceType: 'Location',
-    params: [
-      {
-        name: '_id',
-        value: facilityId,
-      },
-    ],
-  });
-  if (!bundle.unbundle()[0]) throw FHIR_RESOURCE_NOT_FOUND('Location');
+  await fetchById<Location>(oystehr, 'Location', params.facilityId);
 }
 
 async function performEffect(oystehr: Oystehr, params: DeleteServiceFacilityParams): Promise<DeletedResponse> {
