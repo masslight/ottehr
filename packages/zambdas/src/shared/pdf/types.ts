@@ -31,6 +31,7 @@ import {
   VitalsVisitNoteData,
 } from 'utils';
 import { testDataForOrderForm } from '../../ehr/lab/external/submit-lab-order/helpers';
+import { UpcomingFollowUp } from './get-upcoming-follow-ups';
 import { Column, PdfInfo } from './pdf-utils';
 import { AllChartData, FullAppointmentResourcePackage } from './visit-details-pdf/types';
 
@@ -393,6 +394,7 @@ export interface PatientInfo extends PdfData {
 export interface PatientInfoForProgressNote extends PdfData {
   patientName: string;
   patientDOB: string;
+  patientId: string;
   personAccompanying: string;
   patientPhone: string;
 }
@@ -905,6 +907,11 @@ export interface PhysicianData extends PdfData {
   dischargeDateTime?: string;
 }
 
+export interface UpcomingVisitsData extends PdfData {
+  /** Pre-formatted display rows, e.g. "06/07/2026 11:30 AM  EDT, New York Urgent Care Clinic - Suture / Staple Removal". */
+  rows: string[];
+}
+
 export interface WorkSchoolExcuseData extends PdfData {
   workSchoolExcuse?: { note: string }[];
   attachmentDocRefs?: string[];
@@ -950,6 +957,7 @@ export interface DischargeSummaryData extends PdfData {
   disposition: DispositionData;
   physician: PhysicianData;
   workSchoolExcuse?: WorkSchoolExcuseData;
+  upcomingVisits: UpcomingVisitsData;
   documentsAttached?: boolean;
 }
 
@@ -989,6 +997,7 @@ export interface ProgressNoteInput {
   allChartData: AllChartData;
   appointmentPackage: FullAppointmentResourcePackage;
   questionnaireResponse?: QuestionnaireResponse;
+  upcomingFollowUps: UpcomingFollowUp[];
 }
 
 export interface ProgressNoteData extends PdfData {
@@ -1021,11 +1030,13 @@ export interface ProgressNoteData extends PdfData {
   prescriptions: Prescriptions;
   plan: PlanData;
   followupCompleted: FollowupCompleted;
+  upcomingVisits: UpcomingVisitsData;
 }
 
 export interface DischargeSummaryInput {
   allChartData: AllChartData;
   appointmentPackage: FullAppointmentResourcePackage;
+  upcomingFollowUps: UpcomingFollowUp[];
 }
 
 export interface DischargeSummaryData extends PdfData {
@@ -1045,6 +1056,7 @@ export interface DischargeSummaryData extends PdfData {
   disposition: DispositionData;
   physician: PhysicianData;
   workSchoolExcuse?: WorkSchoolExcuseData;
+  upcomingVisits: UpcomingVisitsData;
   documentsAttached?: boolean;
 }
 export interface MedicationHistoryInput extends PdfData {

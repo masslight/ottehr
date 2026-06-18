@@ -283,7 +283,8 @@ export const createSampleAppointments = async ({
             },
             selectedLocationId,
             locationState,
-            serviceCategory
+            serviceCategory,
+            i
           );
 
           if (appointmentMetadata) {
@@ -317,8 +318,20 @@ export const createSampleAppointments = async ({
             } catch {
               responseBody = text;
             }
+            // On-failure diagnostic for the recurring 4019 flake. slotId +
+            // worker + timestamp is enough to fetch the slot manually
+            // later, correlate against parallel runs, and check whether it
+            // elapsed between create-slot and create-appointment.
+            const diagnostic = JSON.stringify({
+              slotId: randomPatientInfo.slotId,
+              worker: process.env.TEST_PARALLEL_INDEX ?? 'n/a',
+              appointmentIndex: i,
+              serviceMode: serviceModeToUse,
+              timestamp: DateTime.now().toISO(),
+            });
             throw new Error(
-              `Failed to create appointment. Status: ${createAppointmentResponse.status}\nResponse body: ${responseBody}`
+              `Failed to create appointment. Diagnostic: ${diagnostic}\n` +
+                `Status: ${createAppointmentResponse.status}\nResponse body: ${responseBody}`
             );
           }
 
@@ -482,7 +495,10 @@ const generateRandomPatientInfo = async (
   demoData?: AppointmentData,
   selectedLocationId?: string,
   locationState?: string,
-  serviceCategory?: ServiceCategoryCode
+  serviceCategory?: ServiceCategoryCode,
+  // Stagger key: parallel callers without this all race for the same capacity
+  // bucket and 9 of 10 fail with SLOT_UNAVAILABLE.
+  appointmentIndex = 0
 ): Promise<SampleAppointmentInputParams> => {
   const {
     firstNames = DEFAULT_FIRST_NAMES,
@@ -573,10 +589,10 @@ const generateRandomPatientInfo = async (
     throw new Error(`No matching schedule found for location ID: ${locationId}`);
   }
   const now = DateTime.now();
-  // Round to the next 15-minute interval (0, 15, 30, 45)
+  // Round to the next 15-min boundary, then stagger by index — see appointmentIndex.
   const currentMinutes = now.minute;
   const minutesToAdd = (15 - (currentMinutes % 15)) % 15 || 15;
-  const nextInPersonSlot = now.plus({ minutes: minutesToAdd }).startOf('minute');
+  const nextInPersonSlot = now.plus({ minutes: minutesToAdd + 15 * appointmentIndex }).startOf('minute');
   const createSlotInput: CreateSlotParams = {
     scheduleId: matchingSchedule.id,
     startISO: serviceMode === ServiceMode['in-person'] ? nextInPersonSlot.toISO() : now.toISO(),

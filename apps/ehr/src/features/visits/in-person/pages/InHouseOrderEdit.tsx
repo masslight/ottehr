@@ -1,6 +1,7 @@
 import { Box } from '@mui/material';
 import React, { useLayoutEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
+import { Loader } from '../../shared/components/Loader';
 import { InHouseOrderEditBreadcrumbs } from '../components/breadcrumbs/InHouseOrderEditBreadcrumbs';
 import { MedicationWarnings } from '../components/medication-administration/medication-details/MedicationWarnings';
 import { EditableMedicationCard } from '../components/medication-administration/medication-editable-card/EditableMedicationCard';
@@ -12,11 +13,16 @@ import { useMedicationManagement } from '../hooks/useMedicationManagement';
 
 export const InHouseOrderEdit: React.FC = () => {
   const { orderId } = useParams();
-  const { medications } = useMedicationManagement();
+  const { medications, isLoading } = useMedicationManagement();
   const scrollToRef = useRef<HTMLHeadingElement>(null);
   useLayoutEffect(() => {
     scrollToRef.current?.scrollIntoView({ behavior: 'auto', block: 'start' });
   }, []);
+
+  // Wait for medications to load before rendering the form — otherwise EditableMedicationCard
+  // mounts with `medication=undefined` and `type='order-edit'`, which gets latched into useRef /
+  // useState and never refreshes when the data arrives, leaving the form in a broken state.
+  if (isLoading) return <Loader />;
 
   const order = medications.find((medication) => medication.id === orderId);
   const isCompleted =

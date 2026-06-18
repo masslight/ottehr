@@ -113,7 +113,7 @@ export const ApplyTemplate: React.FC = () => {
     if (oystehrZambda && encounter.id) {
       setIsApplyingTemplate(true);
       try {
-        await applyTemplate(oystehrZambda, {
+        const result = await applyTemplate(oystehrZambda, {
           encounterId: encounter.id,
           templateName: pendingTemplate.value,
           sectionActions,
@@ -132,6 +132,12 @@ export const ApplyTemplate: React.FC = () => {
         ]);
 
         enqueueSnackbar('Template applied successfully!', { variant: 'success' });
+        // Surface any soft warnings the apply zambda returned (e.g. an in-house
+        // lab plan whose ActivityDefinition is missing in this environment).
+        // One snackbar per warning so they don't get truncated.
+        for (const warning of result?.warnings ?? []) {
+          enqueueSnackbar(warning.message, { variant: 'warning' });
+        }
       } catch (error) {
         console.log('error', JSON.stringify(error));
         const errorMessage = error instanceof Error ? error.message : 'An error occurred while applying the template';

@@ -1,27 +1,19 @@
-import Oystehr, { BatchInputPostRequest } from '@oystehr/sdk';
+import Oystehr from '@oystehr/sdk';
 import { Page } from '@playwright/test';
 import {
   Address,
   Appointment,
-  ClinicalImpression,
-  Consent,
   ContactPoint,
+  Coverage,
   DocumentReference,
   Encounter,
   FhirResource,
-  List,
   Location,
   Patient,
-  Person,
   Practitioner,
   QuestionnaireResponse,
-  RelatedPerson,
-  Schedule,
-  ServiceRequest,
-  Slot,
 } from 'fhir/r4b';
 import { readFileSync } from 'fs';
-import { DateTime } from 'luxon';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import {
@@ -35,8 +27,6 @@ import {
   formatPhoneNumber,
   genderMap,
   GetPaperworkAnswers,
-  getTimezone,
-  IN_PERSON_INTAKE_PAPERWORK_CANONICAL,
   RelationshipOption,
   SampleAppointmentResponse,
   ServiceMode,
@@ -51,7 +41,6 @@ import {
   TEST_EMPLOYEE_2,
   TestEmployee,
 } from './resource/employees';
-import fastSeedData from './seed-data';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -328,94 +317,6 @@ export class ResourceHandler {
     };
   }
 
-  public async setResourcesFast(_params?: CreateTestAppointmentInput): Promise<void> {
-    if (process.env.LOCATION_ID == null) {
-      throw new Error('LOCATION_ID is not set');
-    }
-
-    const apiClient = await this.apiClient;
-
-    const schedule = (
-      await apiClient.fhir.search<Schedule>({
-        resourceType: 'Schedule',
-        params: [
-          {
-            name: 'actor',
-            value: `Location/${process.env.LOCATION_ID}`,
-          },
-        ],
-      })
-    ).unbundle()[0] as Schedule;
-
-    // Seed data only needs the canonical URL+version pair, not a full Q body.
-    const { url, version } = IN_PERSON_INTAKE_PAPERWORK_CANONICAL;
-
-    // Use the location's timezone (not UTC) so the seeded appointment lands on the same
-    // calendar day the tracking board searches — it filters in the location's timezone,
-    // so a UTC-keyed date is wrong in the evenings local time (e.g. 8pm-midnight ET).
-    const locationTimezone = getTimezone(schedule);
-    let seedDataString = JSON.stringify(fastSeedData);
-    seedDataString = seedDataString.replace(/\{\{locationId\}\}/g, process.env.LOCATION_ID);
-    seedDataString = seedDataString.replace(/\{\{scheduleId\}\}/g, schedule.id!);
-    seedDataString = seedDataString.replace(/\{\{questionnaireUrl\}\}/g, `${url}|${version}`);
-    seedDataString = seedDataString.replace(
-      /\{\{date\}\}/g,
-      DateTime.now().setZone(locationTimezone).toFormat('yyyy-MM-dd')
-    );
-
-    // TODO do something about the DocumentReference attachments? For the moment all of these tests point to the exact same files. Maybe that's great. Or maybe we should upload images each time?
-
-    const hydratedFastSeedJSON = JSON.parse(seedDataString);
-
-    const createdResources =
-      (
-        await apiClient.fhir.transaction<
-          | Patient
-          | RelatedPerson
-          | Person
-          | Appointment
-          | Encounter
-          | Slot
-          | List
-          | Consent
-          | DocumentReference
-          | QuestionnaireResponse
-          | ServiceRequest
-          | ClinicalImpression
-        >({
-          requests: hydratedFastSeedJSON.entry.map((entry: any): BatchInputPostRequest<FhirResource> => {
-            if (entry.request.method !== 'POST') {
-              throw new Error('Only POST method is supported in fast mode');
-            }
-            let resource: FhirResource = entry.resource;
-            if (resource.resourceType === 'Appointment') {
-              resource = addProcessIdMetaTagToResource(resource, this.#processId!);
-            }
-            return {
-              method: entry.request.method,
-              url: entry.request.url,
-              fullUrl: entry.fullUrl,
-              resource: entry.resource,
-            };
-          }),
-        })
-      ).entry
-        ?.map((entry) => entry.resource)
-        .filter((entry) => entry !== undefined) ?? [];
-    this.#resources = {
-      patient: createdResources.find((resource) => resource!.resourceType === 'Patient') as Patient,
-      relatedPerson: {
-        id: (createdResources.find((resource) => resource!.resourceType === 'RelatedPerson') as RelatedPerson).id!,
-        resourceType: 'RelatedPerson',
-      },
-      appointment: createdResources.find((resource) => resource!.resourceType === 'Appointment') as Appointment,
-      encounter: createdResources.find((resource) => resource!.resourceType === 'Encounter') as Encounter,
-      questionnaire: createdResources.find(
-        (resource) => resource!.resourceType === 'QuestionnaireResponse'
-      ) as QuestionnaireResponse,
-    };
-  }
-
   public async cleanupResources(page?: Page): Promise<void> {
     if (process.env.SMOKE_TEST === 'true') {
       console.log('Smoke test mode detected, canceling visits through UI');
@@ -443,6 +344,7 @@ export class ResourceHandler {
     const apiClient = await this.apiClient;
     const maxAttempts = 30; // Increased from 20 to 30 (150 seconds total)
     const delayMs = 5_000;
+    const startTime = Date.now();
 
     try {
       for (let i = 0; i < maxAttempts; i++) {
@@ -467,7 +369,9 @@ export class ResourceHandler {
         const tags = appointment?.meta?.tag || [];
         const isProcessed = tags.some((tag) => tag?.code === FHIR_APPOINTMENT_PREPROCESSED_TAG.code);
         if (isProcessed) {
-          console.log(`Appointment ${id} preprocessed after ${i + 1} attempts (${((i + 1) * delayMs) / 1000}s)`);
+          console.log(
+            `Appointment ${id} preprocessed after ${i + 1} attempts (${((Date.now() - startTime) / 1000).toFixed(1)}s)`
+          );
           return;
         }
 
@@ -491,6 +395,7 @@ export class ResourceHandler {
     const apiClient = await this.apiClient;
     const maxAttempts = 30; // Increased from 20 to 30 (150 seconds total)
     const delayMs = 5_000;
+    const startTime = Date.now();
 
     try {
       let isHarvestingDone = false;
@@ -516,7 +421,10 @@ export class ResourceHandler {
         const tags = appointment?.meta?.tag || [];
         if (tags.some((tag) => tag?.code === FHIR_APPOINTMENT_INTAKE_HARVESTING_COMPLETED_TAG.code)) {
           console.log(
-            `Appointment ${appointmentId} harvesting done after ${i + 1} attempts (${((i + 1) * delayMs) / 1000}s)`
+            `Appointment ${appointmentId} harvesting done after ${i + 1} attempts (${(
+              (Date.now() - startTime) /
+              1000
+            ).toFixed(1)}s)`
           );
           isHarvestingDone = true;
           break;
@@ -566,6 +474,42 @@ export class ResourceHandler {
       console.error('Error during waitTillHarvestingDone', e);
       throw e;
     }
+  }
+
+  // The harvesting-completed tag can be set before the incremental sub-harvest-paperwork page
+  // Tasks finish writing the Coverage resources, so waitTillHarvestingDone returning does not
+  // guarantee the patient's Coverages are queryable. Poll for them directly. Throws on timeout so a
+  // genuinely dropped/never-created Coverage surfaces as an explicit "only had X/Y" failure (a
+  // harvest bug) rather than an opaque downstream UI timeout.
+  async waitTillCoveragesExist(patientId: string, expectedCount: number): Promise<void> {
+    const apiClient = await this.apiClient;
+    const maxAttempts = 15;
+    const delayMs = 2_000;
+    const startTime = Date.now();
+    let count = 0;
+    for (let i = 0; i < maxAttempts; i++) {
+      count = (
+        await apiClient.fhir.search<Coverage>({
+          resourceType: 'Coverage',
+          params: [
+            { name: 'patient', value: `Patient/${patientId}` },
+            { name: 'status', value: 'active' },
+          ],
+        })
+      ).unbundle().length;
+      if (count >= expectedCount) {
+        console.log(
+          `Patient ${patientId} has ${count} coverage(s) after ${((Date.now() - startTime) / 1000).toFixed(1)}s`
+        );
+        return;
+      }
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+    }
+    throw new Error(
+      `Patient ${patientId} only had ${count}/${expectedCount} active coverages after ${
+        (maxAttempts * delayMs) / 1000
+      }s — harvest did not create the expected Coverage resources`
+    );
   }
 
   async waitTillVisitNotePdfCreated(): Promise<DocumentReference> {

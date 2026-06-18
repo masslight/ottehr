@@ -11,31 +11,40 @@ const createMockZambdaInput = (body: any): ZambdaInput => ({
 
 describe('update-user - validateRequestParameters', () => {
   test('accepts a single valid role', () => {
-    const result = validateRequestParameters(createMockZambdaInput({ userId: 'u1', selectedRoles: [RoleType.Staff] }));
+    const result = validateRequestParameters(
+      createMockZambdaInput({ userId: '550e8400-e29b-41d4-a716-446655440000', selectedRoles: [RoleType.Staff] })
+    );
     expect(result.selectedRoles).toEqual([RoleType.Staff]);
   });
 
   test('accepts multiple valid roles', () => {
     const result = validateRequestParameters(
-      createMockZambdaInput({ userId: 'u1', selectedRoles: [RoleType.Staff, RoleType.Manager] })
+      createMockZambdaInput({
+        userId: '550e8400-e29b-41d4-a716-446655440000',
+        selectedRoles: [RoleType.Staff, RoleType.Manager],
+      })
     );
     expect(result.selectedRoles).toEqual([RoleType.Staff, RoleType.Manager]);
   });
 
   test('throws when selectedRoles is an empty array', () => {
-    expect(() => validateRequestParameters(createMockZambdaInput({ userId: 'u1', selectedRoles: [] }))).toThrow(
-      'At least one role must be selected.'
-    );
+    expect(() =>
+      validateRequestParameters(
+        createMockZambdaInput({ userId: '550e8400-e29b-41d4-a716-446655440000', selectedRoles: [] })
+      )
+    ).toThrow('At least one role must be selected.');
   });
 
   test('throws when selectedRoles contains an unknown role', () => {
     expect(() =>
-      validateRequestParameters(createMockZambdaInput({ userId: 'u1', selectedRoles: ['NotARole'] }))
-    ).toThrow(/Invalid roles selected/);
+      validateRequestParameters(
+        createMockZambdaInput({ userId: '550e8400-e29b-41d4-a716-446655440000', selectedRoles: ['NotARole'] })
+      )
+    ).toThrow(/Invalid enum value/);
   });
 
   test('omitting selectedRoles is allowed (other update flows)', () => {
-    const result = validateRequestParameters(createMockZambdaInput({ userId: 'u1' }));
+    const result = validateRequestParameters(createMockZambdaInput({ userId: '550e8400-e29b-41d4-a716-446655440000' }));
     expect(result.selectedRoles).toBeUndefined();
   });
 

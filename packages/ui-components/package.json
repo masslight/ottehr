@@ -1,7 +1,7 @@
 {
   "name": "ui-components",
   "private": true,
-  "version": "1.35.32",
+  "version": "1.36.34",
   "main": "lib/main.ts",
   "types": "lib/main.ts",
   "engines": {
@@ -18,7 +18,7 @@
   "dependencies": {
     "@stripe/react-stripe-js": "^3.0.0",
     "@stripe/stripe-js": "^3.5.0",
-    "heic2any": "^0.0.4",
+    "heic-to": "^1.5.2",
     "tsconfig": "*",
     "utils": "*"
   }
