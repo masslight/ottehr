@@ -1,4 +1,4 @@
-import { INVALID_INPUT_ERROR, MISSING_REQUEST_BODY, SetClaimStatusInput, SetClaimStatusInputSchema } from 'utils';
+import { INVALID_INPUT_ERROR, MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS, SetClaimStatusInput, SetClaimStatusInputSchema } from 'utils';
 import { formatZodError, ZambdaInput } from '../../shared';
 
 export interface SetClaimStatusParams extends SetClaimStatusInput {
@@ -7,6 +7,7 @@ export interface SetClaimStatusParams extends SetClaimStatusInput {
 
 export function validateRequestParameters(input: ZambdaInput): SetClaimStatusParams {
   if (!input.body) throw MISSING_REQUEST_BODY;
+  if (!input.secrets) throw MISSING_REQUEST_SECRETS;
 
   let raw: unknown;
   try {
