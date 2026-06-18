@@ -48,7 +48,9 @@ import {
   updateBillingResource,
 } from '../api/api';
 import { ClaimStatusFields } from '../components/claim/ClaimStatusFields';
+import { DiagnosesEditor } from '../components/claim/DiagnosesEditor';
 import { EditableSection } from '../components/claim/EditableSection';
+import { ServiceLineRow, ServiceLinesEditor } from '../components/claim/ServiceLinesEditor';
 import { Field } from '../components/Field';
 import { claimStatusValueColor, formatAntCaseString } from '../constants/claimStatus';
 import { useApiClients } from '../hooks/useAppClients';
@@ -1007,9 +1009,6 @@ function DiagnosesSection({
     resetFields();
   }, [resetFields]);
 
-  const setRow = (index: number, field: 'code' | 'display', value: string): void =>
-    setRows((prev) => prev.map((row, i) => (i === index ? { ...row, [field]: value } : row)));
-
   const handleSave = async (): Promise<string | null> => {
     if (rows.some((row) => !row.code.trim())) return 'Each diagnosis needs an ICD-10 code';
     return updateResource('Claim', claim.id, {
@@ -1025,39 +1024,7 @@ function DiagnosesSection({
       title="Diagnoses"
       onSave={handleSave}
       onCancel={resetFields}
-      editForm={
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, maxWidth: 680 }}>
-          {rows.map((row, i) => (
-            <Box key={i} sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-              <Typography variant="body2" color="text.secondary" sx={{ width: 16 }}>
-                {i + 1}
-              </Typography>
-              <TextField
-                size="small"
-                label="ICD-10"
-                value={row.code}
-                onChange={(e) => setRow(i, 'code', e.target.value)}
-                sx={{ width: 140 }}
-              />
-              <TextField
-                size="small"
-                label="Description"
-                fullWidth
-                value={row.display}
-                onChange={(e) => setRow(i, 'display', e.target.value)}
-              />
-              <Button size="small" color="error" onClick={() => setRows((prev) => prev.filter((_, j) => j !== i))}>
-                Remove
-              </Button>
-            </Box>
-          ))}
-          <Box>
-            <Button size="small" onClick={() => setRows((prev) => [...prev, { code: '', display: '' }])}>
-              + Add diagnosis
-            </Button>
-          </Box>
-        </Box>
-      }
+      editForm={<DiagnosesEditor value={rows} onChange={setRows} />}
     >
       {claim.diagnoses.length > 0 ? (
         <>
@@ -1076,16 +1043,6 @@ function DiagnosesSection({
       )}
     </EditableSection>
   );
-}
-
-interface ServiceLineRow {
-  cptCode: string;
-  modifiers: string;
-  units: string;
-  charges: string;
-  serviceDate: string;
-  placeOfService: string;
-  diagnosisPointers: number[];
 }
 
 function ServiceLinesSection({
@@ -1115,23 +1072,6 @@ function ServiceLinesSection({
   useEffect(() => {
     resetFields();
   }, [resetFields]);
-
-  const setRow = <K extends keyof ServiceLineRow>(index: number, field: K, value: ServiceLineRow[K]): void =>
-    setRows((prev) => prev.map((row, i) => (i === index ? { ...row, [field]: value } : row)));
-
-  const addRow = (): void =>
-    setRows((prev) => [
-      ...prev,
-      {
-        cptCode: '',
-        modifiers: '',
-        units: '1',
-        charges: '',
-        serviceDate: claim.serviceLines[0]?.serviceDate ?? claim.created,
-        placeOfService: claim.serviceLines[0]?.placeOfService ?? '',
-        diagnosisPointers: claim.diagnoses.length ? [claim.diagnoses[0].sequence] : [],
-      },
-    ]);
 
   const dxCode = (sequence: number): string =>
     claim.diagnoses.find((dx) => dx.sequence === sequence)?.code ?? String(sequence);
@@ -1168,89 +1108,12 @@ function ServiceLinesSection({
       onSave={handleSave}
       onCancel={resetFields}
       editForm={
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-          {rows.map((row, i) => (
-            <Box key={i} sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
-              <TextField
-                size="small"
-                label="CPT"
-                value={row.cptCode}
-                onChange={(e) => setRow(i, 'cptCode', e.target.value)}
-                sx={{ width: 100 }}
-              />
-              <TextField
-                size="small"
-                label="Mod"
-                value={row.modifiers}
-                onChange={(e) => setRow(i, 'modifiers', e.target.value)}
-                sx={{ width: 90 }}
-              />
-              <TextField
-                size="small"
-                label="Units"
-                type="number"
-                value={row.units}
-                onChange={(e) => setRow(i, 'units', e.target.value)}
-                sx={{ width: 80 }}
-              />
-              <TextField
-                size="small"
-                label="Charges"
-                type="number"
-                value={row.charges}
-                onChange={(e) => setRow(i, 'charges', e.target.value)}
-                sx={{ width: 110 }}
-              />
-              <TextField
-                size="small"
-                label="Date"
-                type="date"
-                value={row.serviceDate}
-                onChange={(e) => setRow(i, 'serviceDate', e.target.value)}
-                sx={{ width: 160 }}
-                InputLabelProps={{ shrink: true }}
-              />
-              <TextField
-                size="small"
-                label="POS"
-                value={row.placeOfService}
-                onChange={(e) => setRow(i, 'placeOfService', e.target.value)}
-                sx={{ width: 80 }}
-              />
-              <Select
-                multiple
-                size="small"
-                displayEmpty
-                value={row.diagnosisPointers}
-                onChange={(e) => setRow(i, 'diagnosisPointers', e.target.value as number[])}
-                renderValue={(selected) =>
-                  selected.length ? (
-                    selected.map(dxCode).join(', ')
-                  ) : (
-                    <Box component="span" sx={{ color: 'text.disabled' }}>
-                      Dx
-                    </Box>
-                  )
-                }
-                sx={{ width: 160 }}
-              >
-                {claim.diagnoses.map((dx) => (
-                  <MenuItem key={dx.sequence} value={dx.sequence}>
-                    {dx.sequence}: {dx.code}
-                  </MenuItem>
-                ))}
-              </Select>
-              <Button size="small" color="error" onClick={() => setRows((prev) => prev.filter((_, j) => j !== i))}>
-                Remove
-              </Button>
-            </Box>
-          ))}
-          <Box>
-            <Button size="small" onClick={addRow}>
-              + Add service line
-            </Button>
-          </Box>
-        </Box>
+        <ServiceLinesEditor
+          value={rows}
+          onChange={setRows}
+          diagnoses={claim.diagnoses}
+          defaultServiceDate={claim.created}
+        />
       }
     >
       {claim.serviceLines.length > 0 ? (

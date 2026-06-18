@@ -181,12 +181,6 @@ export const CreateBillingClaimInputSchema = z.object({
     .strict()
     .optional(),
   coverageId: nonEmptyString.optional(),
-  coverageOverrides: z
-    .object({
-      subscriberId: nonEmptyString.optional(),
-    })
-    .strict()
-    .optional(),
   renderingProvider: z
     .object({
       id: nonEmptyString,
