@@ -15,6 +15,8 @@ export function validateRequestParameters(input: ZambdaInput): AdHocEncountersIn
     includeVitals,
     includeLabs,
     includeImaging,
+    includeImmunizations,
+    includeDisposition,
   } = JSON.parse(input.body);
 
   if (!dateRange || typeof dateRange.start !== 'string' || typeof dateRange.end !== 'string') {
@@ -34,6 +36,8 @@ export function validateRequestParameters(input: ZambdaInput): AdHocEncountersIn
     includeVitals: includeVitals === true,
     includeLabs: includeLabs === true,
     includeImaging: includeImaging === true,
+    includeImmunizations: includeImmunizations === true,
+    includeDisposition: includeDisposition === true,
     secrets: input.secrets,
   };
 }

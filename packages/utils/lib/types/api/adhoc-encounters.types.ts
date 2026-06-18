@@ -19,6 +19,10 @@ export interface AdHocEncountersInput {
   includeLabs?: boolean;
   /** Imaging/radiology orders placed on the visit (adds radiology ServiceRequests to the search). */
   includeImaging?: boolean;
+  /** Immunizations/vaccines given on the visit (adds immunization Medication resources to the search). */
+  includeImmunizations?: boolean;
+  /** Disposition / follow-up plan charted on the visit (adds disposition ServiceRequests to the search). */
+  includeDisposition?: boolean;
 }
 
 export interface AdHocEncounterRow {
@@ -93,6 +97,13 @@ export interface AdHocEncounterRow {
   // --- Imaging orders (includeImaging) — radiology placed on the visit, excludes revoked ---
   imagingOrders?: string[]; // imaging study names ordered on the visit
   imagingOrderCount?: number;
+  // --- Immunizations (includeImmunizations) — vaccines given on the visit ---
+  immunizations?: string[]; // vaccine names administered/recorded on the visit
+  immunizationCount?: number;
+  // --- Disposition (includeDisposition) — discharge/follow-up plan ---
+  followUpTypes?: string[]; // charted follow-up plan types (e.g. "Follow-up visit", "ED", "PCP")
+  followUpCount?: number;
+  dischargeDisposition?: string; // discharge disposition from the encounter, when recorded
 }
 
 export interface AdHocEncountersOutput {

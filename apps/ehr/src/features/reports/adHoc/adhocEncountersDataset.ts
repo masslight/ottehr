@@ -49,6 +49,18 @@ export const ADHOC_ENCOUNTERS_OPTIONS: AdHocDatasetOption[] = [
     description: 'Radiology / imaging studies ordered on the visit (names + counts).',
     default: false,
   },
+  {
+    id: 'immunizations',
+    label: 'Immunizations',
+    description: 'Vaccines given/recorded on the visit (names + counts).',
+    default: false,
+  },
+  {
+    id: 'disposition',
+    label: 'Disposition / follow-up',
+    description: 'Discharge disposition and charted follow-up plan.',
+    default: false,
+  },
 ];
 
 // Always-present columns.
@@ -276,6 +288,32 @@ const IMAGING_FIELDS: FieldDef[] = [
   },
 ];
 
+const IMMUNIZATION_FIELDS: FieldDef[] = [
+  {
+    name: 'immunizations',
+    type: 'string[]',
+    description:
+      'Vaccines given/recorded on the visit (e.g. "Tdap (Tetanus, Diphtheria, Pertussis)"). Tally across ' +
+      'rows for most-administered vaccines / immunization volume. Separate from medications.',
+  },
+  { name: 'immunizationCount', type: 'number', description: 'Number of vaccines on the visit. 0 when none.' },
+];
+
+const DISPOSITION_FIELDS: FieldDef[] = [
+  {
+    name: 'dischargeDisposition',
+    type: 'string',
+    description: 'Discharge disposition recorded on the encounter (e.g. home, transferred). "" when not recorded.',
+  },
+  {
+    name: 'followUpTypes',
+    type: 'string[]',
+    description:
+      'Charted follow-up plan types on the visit (e.g. "Follow-up visit", PCP, ED). Tally for follow-up mix.',
+  },
+  { name: 'followUpCount', type: 'number', description: 'Number of follow-up plan items charted on the visit.' },
+];
+
 function fieldsFor(options: Record<string, boolean>): FieldDef[] {
   return [
     ...BASE_FIELDS,
@@ -286,6 +324,8 @@ function fieldsFor(options: Record<string, boolean>): FieldDef[] {
     ...(options.vitals ? VITALS_FIELDS : []),
     ...(options.labs ? LAB_FIELDS : []),
     ...(options.imaging ? IMAGING_FIELDS : []),
+    ...(options.immunizations ? IMMUNIZATION_FIELDS : []),
+    ...(options.disposition ? DISPOSITION_FIELDS : []),
   ];
 }
 
@@ -299,6 +339,8 @@ async function fetchAdHocEncounters({ oystehrZambda, dateRange, options }: Fetch
     includeVitals: !!opts.vitals,
     includeLabs: !!opts.labs,
     includeImaging: !!opts.imaging,
+    includeImmunizations: !!opts.immunizations,
+    includeDisposition: !!opts.disposition,
   };
   const { start, end } = dateRange;
   const days = (new Date(end).getTime() - new Date(start).getTime()) / 86400000;

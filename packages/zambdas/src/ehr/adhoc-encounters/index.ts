@@ -5,8 +5,10 @@ import {
   DocumentReference,
   Encounter,
   Location,
+  Medication,
   MedicationAdministration,
   MedicationRequest,
+  MedicationStatement,
   Observation,
   Patient,
   Practitioner,
@@ -36,6 +38,7 @@ import {
   isInPersonAppointment,
   isTelemedAppointment,
   mapGenderToLabel,
+  MEDICATION_ADMINISTRATION_IN_PERSON_RESOURCE_CODE,
   MEDICATION_DISPENSABLE_DRUG_ID,
   OTTEHR_MODULE,
   PATIENT_POINT_OF_DISCOVERY_URL,
@@ -90,6 +93,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     includeVitals,
     includeLabs,
     includeImaging,
+    includeImmunizations,
+    includeDisposition,
     secrets,
   } = validateRequestParameters(input);
 
@@ -107,6 +112,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     | DocumentReference
     | MedicationRequest
     | MedicationAdministration
+    | MedicationStatement
     | Observation
     | ServiceRequest;
   let allResources: ReportResource[] = [];
@@ -138,19 +144,24 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     baseSearchParams.push({ name: '_revinclude:iterate', value: 'DocumentReference:encounter' });
   }
   if (includeMedications) {
-    // eRx prescriptions link via MedicationRequest.encounter; in-house administered meds (MAR) link
-    // via MedicationAdministration.context (and carry the drug on a contained Medication).
-    baseSearchParams.push(
-      { name: '_revinclude:iterate', value: 'MedicationRequest:encounter' },
-      { name: '_revinclude:iterate', value: 'MedicationAdministration:context' }
-    );
+    // eRx prescriptions link via MedicationRequest.encounter.
+    baseSearchParams.push({ name: '_revinclude:iterate', value: 'MedicationRequest:encounter' });
+  }
+  if (includeMedications || includeImmunizations) {
+    // In-house administered meds AND immunizations are MedicationAdministrations linked via .context
+    // (drug/vaccine name on a contained Medication); distinguished by meta tag when mapping.
+    baseSearchParams.push({ name: '_revinclude:iterate', value: 'MedicationAdministration:context' });
+  }
+  if (includeImmunizations) {
+    // Immunization history can also be charted as MedicationStatement (immunization tag) via .context.
+    baseSearchParams.push({ name: '_revinclude:iterate', value: 'MedicationStatement:context' });
   }
   if (includeVitals) {
     // Pulls all encounter Observations; we filter to the vitals ones (vital-* tag) when mapping.
     baseSearchParams.push({ name: '_revinclude:iterate', value: 'Observation:encounter' });
   }
-  if (includeLabs || includeImaging) {
-    // One revinclude covers both — labs and radiology are both ServiceRequests, classified by tag/code.
+  if (includeLabs || includeImaging || includeDisposition) {
+    // One revinclude covers labs, radiology, and disposition — all ServiceRequests, classified by tag/code.
     baseSearchParams.push({ name: '_revinclude:iterate', value: 'ServiceRequest:encounter' });
   }
 
@@ -185,6 +196,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const docRefsByEncounterId = new Map<string, DocumentReference[]>();
   const medRequestsByEncounterId = new Map<string, MedicationRequest[]>();
   const medAdminsByEncounterId = new Map<string, MedicationAdministration[]>();
+  const medStatementsByEncounterId = new Map<string, MedicationStatement[]>();
   const vitalsByEncounterId = new Map<string, Observation[]>();
   const serviceRequestsByEncounterId = new Map<string, ServiceRequest[]>();
   const encounterById = new Map<string, Encounter>();
@@ -228,9 +240,15 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         break;
       }
       case 'MedicationAdministration': {
-        if (!includeMedications) break;
+        if (!includeMedications && !includeImmunizations) break;
         const encId = r.context?.reference?.replace('Encounter/', '');
         if (encId) medAdminsByEncounterId.set(encId, [...(medAdminsByEncounterId.get(encId) ?? []), r]);
+        break;
+      }
+      case 'MedicationStatement': {
+        if (!includeImmunizations) break;
+        const encId = r.context?.reference?.replace('Encounter/', '');
+        if (encId) medStatementsByEncounterId.set(encId, [...(medStatementsByEncounterId.get(encId) ?? []), r]);
         break;
       }
       case 'Observation': {
@@ -241,7 +259,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         break;
       }
       case 'ServiceRequest': {
-        if (!includeLabs && !includeImaging) break;
+        if (!includeLabs && !includeImaging && !includeDisposition) break;
         const encId = r.encounter?.reference?.replace('Encounter/', '');
         if (encId) serviceRequestsByEncounterId.set(encId, [...(serviceRequestsByEncounterId.get(encId) ?? []), r]);
         break;
@@ -449,8 +467,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         addMed(coding?.display || req.medicationCodeableConcept?.text || '', 'eRx', coding?.code);
       }
       // In-house administered meds (MedicationAdministration / MAR; drug on a contained Medication).
+      // Only the in-house-medication tag — vaccines (immunization tag) belong to the immunizations layer.
       for (const ma of encounter.id ? medAdminsByEncounterId.get(encounter.id) ?? [] : []) {
         if (ma.status === 'entered-in-error') continue;
+        if (!hasChartTag(ma, MEDICATION_ADMINISTRATION_IN_PERSON_RESOURCE_CODE)) continue;
         const name =
           getMedicationName(getMedicationFromMA(ma)) ||
           ma.medicationCodeableConcept?.coding?.[0]?.display ||
@@ -507,7 +527,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         row.weightKg && row.heightCm && row.heightCm > 0 ? round1(row.weightKg / (row.heightCm / 100) ** 2) : null;
     }
 
-    if (includeLabs || includeImaging) {
+    if (includeLabs || includeImaging || includeDisposition) {
       const srs = (encounter.id ? serviceRequestsByEncounterId.get(encounter.id) ?? [] : []).filter(isActiveOrder);
       if (includeLabs) {
         const labOrders = srs.filter(isLabOrder).map(orderDisplay).filter(Boolean);
@@ -519,6 +539,43 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         row.imagingOrders = imagingOrders;
         row.imagingOrderCount = imagingOrders.length;
       }
+      if (includeDisposition) {
+        const followUpTypes = srs
+          .filter((sr) => hasChartTag(sr, 'disposition-follow-up'))
+          .map(orderDisplay)
+          .filter(Boolean);
+        row.followUpTypes = followUpTypes;
+        row.followUpCount = followUpTypes.length;
+        row.dischargeDisposition =
+          encounter.hospitalization?.dischargeDisposition?.coding?.[0]?.display ||
+          encounter.hospitalization?.dischargeDisposition?.text ||
+          '';
+      }
+    }
+
+    if (includeImmunizations) {
+      const immunizations: string[] = [];
+      for (const ma of encounter.id ? medAdminsByEncounterId.get(encounter.id) ?? [] : []) {
+        if (ma.status === 'entered-in-error' || !hasChartTag(ma, 'immunization')) continue;
+        const name =
+          getMedicationName(getMedicationFromMA(ma)) ||
+          ma.medicationCodeableConcept?.coding?.[0]?.display ||
+          ma.medicationCodeableConcept?.text ||
+          '';
+        if (name) immunizations.push(name);
+      }
+      for (const ms of encounter.id ? medStatementsByEncounterId.get(encounter.id) ?? [] : []) {
+        if (ms.status === 'entered-in-error' || !hasChartTag(ms, 'immunization')) continue;
+        const containedMed = ms.contained?.find((c): c is Medication => c.resourceType === 'Medication');
+        const name =
+          ms.medicationCodeableConcept?.coding?.[0]?.display ||
+          ms.medicationCodeableConcept?.text ||
+          getMedicationName(containedMed) ||
+          '';
+        if (name) immunizations.push(name);
+      }
+      row.immunizations = immunizations;
+      row.immunizationCount = immunizations.length;
     }
 
     rows.push(row);
