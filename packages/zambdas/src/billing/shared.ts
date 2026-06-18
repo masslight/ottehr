@@ -7,7 +7,6 @@ import {
   Coding,
   Coverage,
   FhirResource,
-  HumanName,
   Identifier,
   Location,
   Organization,
@@ -48,16 +47,16 @@ export type BillingFhirResource =
   | Basic;
 
 export const BILLING_RESOURCE_TAG = {
-  system: 'https://ottehr.com/billing/resource-type',
+  system: 'https://fhir.ottehr.com/billing/resource-type',
   code: 'billing-resource',
 };
 
 export const BILLING_WORKING_COPY_TAG = {
-  system: 'https://ottehr.com/billing/resource-type',
+  system: 'https://fhir.ottehr.com/billing/resource-type',
   code: 'billing-working-copy',
 };
 
-export const CURRENT_STATUS_TAG_SYSTEM = 'current-status';
+export const CURRENT_STATUS_TAG_SYSTEM = 'https://fhir.ottehr.com/billing/current-status';
 
 // TODO: this function has fallback chain so it is hard to return enum and we don't have standardized status codes yet
 export function getClaimStatus(claim: Claim): string {
@@ -94,14 +93,14 @@ export const PROVIDER_ROLE_BILLING = 'billing';
 export const PROVIDER_ROLE_RENDERING = 'rendering';
 export const LICENSE_TAG = 'https://fhir.ottehr.com/billing/license-type';
 
-export const SOURCE_IDENTIFIER_SYSTEM = 'https://ottehr.com/billing/source-resource';
+export const SOURCE_IDENTIFIER_SYSTEM = 'https://fhir.ottehr.com/billing/source-resource';
 export const ERA_ID_SYSTEM = 'https://identifiers.fhir.oystehr.com/era-id';
 export const ERA_CHECK_SYSTEM = 'https://identifiers.fhir.oystehr.com/era-check-number';
 
-export const TAG_CODE_SYSTEM = 'https://ottehr.com/billing/tag';
-export const CLAIM_TAG_SYSTEM = 'https://ottehr.com/billing/claim-tag';
-export const TAG_DESCRIPTION_URL = 'https://ottehr.com/billing/tag-description';
-export const TAG_IS_SYSTEM_TAG_URL = 'https://ottehr.com/billing/is-system-tag';
+export const TAG_CODE_SYSTEM = 'https://fhir.ottehr.com/billing/tag';
+export const CLAIM_TAG_SYSTEM = 'https://fhir.ottehr.com/billing/claim-tag';
+export const TAG_DESCRIPTION_URL = 'https://fhir.ottehr.com/billing/tag-description';
+export const TAG_IS_SYSTEM_TAG_URL = 'https://fhir.ottehr.com/billing/is-system-tag';
 
 export function isSystemTag(tag: Basic): boolean {
   return tag.extension?.some((ext) => ext.url === TAG_IS_SYSTEM_TAG_URL && ext.valueBoolean === true) ?? false;
@@ -316,7 +315,7 @@ type CRT<T extends CopyableBillingResource> = Extract<CopyableBillingResource, {
  * List of copyable properties for each resource type
  */
 const CopyableProperties: ResourceProperties<CopyableBillingResource> = {
-  Account: ['resourceType', 'status', 'type', 'subject', 'guarantor', 'coverage'],
+  Account: ['resourceType', 'status', 'type', 'subject', 'guarantor', 'coverage', 'contained'],
   Coverage: ['resourceType', 'status', 'subscriber', 'beneficiary', 'payor', 'subscriberId', 'relationship', 'class'],
   Location: ['resourceType', 'address', 'description', 'name', 'telecom', 'type'],
   Organization: ['resourceType', 'active', 'address', 'contact', 'name', 'telecom', 'type'],
@@ -343,19 +342,6 @@ export function findRef<T extends Resource>(resources: Resource[], reference?: s
   if (!reference) return undefined;
   const id = reference.includes('/') ? reference.split('/')[1] : reference;
   return resources.find((r) => r.id === id) as T | undefined;
-}
-
-// Apply first/last name overrides to a Patient or Practitioner.
-export function applyNameOverrides<T extends { name?: HumanName[] }>(
-  resource: T,
-  overrides?: { firstName?: string; lastName?: string }
-): T {
-  if (!overrides) return resource;
-  const copy = structuredClone(resource);
-  if (!copy.name) copy.name = [{}];
-  if (overrides.firstName !== undefined) copy.name[0].given = [overrides.firstName];
-  if (overrides.lastName !== undefined) copy.name[0].family = overrides.lastName;
-  return copy;
 }
 
 export function getClaimType(claim: Claim): keyof typeof CODE_SYSTEM_CLAIM_TYPE_CODES {

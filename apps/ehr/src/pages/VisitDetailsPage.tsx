@@ -71,12 +71,15 @@ import {
   getVisitOccupationalMedicineEmployerFromEncounter,
   isApiError,
   isInPersonAppointment,
+  isScheduledFollowupEncounter,
   isTelemedAppointment,
   makeAbbreviation,
   OrderedCoveragesWithSubscribers,
   PATIENT_INFO_META_DATA_RETURNING_PATIENT_CODE,
   PATIENT_INFO_META_DATA_SYSTEM,
   PatientAccountResponse,
+  SCHEDULED_FOLLOWUP_OTHER_REASON,
+  SCHEDULED_FOLLOWUP_REASONS,
   SERVICE_CATEGORY_SYSTEM,
   ServiceCategoryCode,
   ServiceMode,
@@ -128,6 +131,7 @@ interface EditDOBParams {
 
 interface EditReasonForVisitParams {
   reasonForVisit?: string;
+  otherReason?: string;
   additionalDetails?: string;
 }
 
@@ -604,9 +608,13 @@ export default function VisitDetailsPage(): ReactElement {
         serviceCategory: editDialogConfig.values.serviceCategory,
       };
     } else {
-      // type === reason-for-visit
+      // type === reason-for-visit; "Other" persists the free text as the reason. The Update button is
+      // disabled while that text is blank/whitespace (see submitDisabled), so it's non-empty here.
+      const { reasonForVisit: selectedReason, otherReason, additionalDetails: details } = editDialogConfig.values;
+      const isOther = selectedReason === SCHEDULED_FOLLOWUP_OTHER_REASON;
       bookingDetails = {
-        ...editDialogConfig.values,
+        reasonForVisit: isOther ? (otherReason ?? '').trim() : selectedReason,
+        additionalDetails: details,
       };
     }
     await bookingDetailsMutation.mutateAsync({
@@ -716,11 +724,15 @@ export default function VisitDetailsPage(): ReactElement {
   // every render (the dependency reference would change each time), and the
   // identity-stable contract on the edit dropdown's options would break.
   const reasonsForVisitForCurrentCategory = useMemo<{ value: string; label: string }[]>(() => {
+    // Scheduled follow-ups use the fixed reason list, not the service-category reasons.
+    if (encounter && isScheduledFollowupEncounter(encounter)) {
+      return SCHEDULED_FOLLOWUP_REASONS.map((reason) => ({ value: reason, label: reason }));
+    }
     if (!serviceCategory) return [];
     const bookingOpts = getReasonForVisitOptionsForServiceCategory(serviceCategory);
     if (bookingOpts.length > 0) return bookingOpts;
     return fhirBackedCats.find((sc) => sc.code === serviceCategory)?.config?.reasonsForVisit ?? [];
-  }, [serviceCategory, fhirBackedCats]);
+  }, [encounter, serviceCategory, fhirBackedCats]);
   const nameLastModifiedOld = formatLastModifiedTag('name', patient, locationTimeZone);
   const dobLastModifiedOld = formatLastModifiedTag('dob', patient, locationTimeZone);
 
@@ -860,13 +872,20 @@ export default function VisitDetailsPage(): ReactElement {
 
   const { reasonForVisit: maybeReasonForVisit, additionalDetails } =
     getReasonForVisitAndAdditionalDetailsFromAppointment(appointment);
+  // For scheduled follow-ups, a saved reason outside the fixed list is a free-text "Other".
+  const isScheduledFollowUp = !!encounter && isScheduledFollowupEncounter(encounter);
+  const isOtherFollowUpReason =
+    isScheduledFollowUp && !!maybeReasonForVisit && !SCHEDULED_FOLLOWUP_REASONS.includes(maybeReasonForVisit as never);
   const reasonForVisit = useMemo(() => {
     if (!maybeReasonForVisit) {
       return maybeReasonForVisit;
     }
+    if (isOtherFollowUpReason) {
+      return maybeReasonForVisit;
+    }
     const match = reasonsForVisitForCurrentCategory.some((option) => option.value === maybeReasonForVisit);
     return match ? maybeReasonForVisit : undefined;
-  }, [maybeReasonForVisit, reasonsForVisitForCurrentCategory]);
+  }, [maybeReasonForVisit, isOtherFollowUpReason, reasonsForVisitForCurrentCategory]);
 
   const authorizedGuardians =
     patient?.extension?.find((e) => e.url === FHIR_EXTENSION.Patient.authorizedNonLegalGuardians.url)?.valueString ??
@@ -1277,7 +1296,13 @@ export default function VisitDetailsPage(): ReactElement {
                               onClick={() =>
                                 setEditDialogConfig({
                                   type: 'reason-for-visit',
-                                  values: { reasonForVisit, additionalDetails },
+                                  values: {
+                                    reasonForVisit: isOtherFollowUpReason
+                                      ? SCHEDULED_FOLLOWUP_OTHER_REASON
+                                      : reasonForVisit,
+                                    otherReason: isOtherFollowUpReason ? maybeReasonForVisit : '',
+                                    additionalDetails,
+                                  },
                                   keyTitleMap: {
                                     reasonForVisit: 'Reason for Visit',
                                     additionalDetails: 'Additional Details',
@@ -1522,6 +1547,33 @@ export default function VisitDetailsPage(): ReactElement {
                       </Select>
                     </>
                   );
+                } else if (editDialogConfig.type === 'reason-for-visit' && key === 'otherReason') {
+                  // Free-text reason, shown only when "Other" is the selected follow-up reason.
+                  if (editDialogConfig.values.reasonForVisit !== SCHEDULED_FOLLOWUP_OTHER_REASON) {
+                    return null;
+                  }
+                  return (
+                    <TextField
+                      key={key}
+                      label="Other reason"
+                      fullWidth
+                      required
+                      value={value}
+                      sx={{ mt: 2 }}
+                      onChange={(e) =>
+                        setEditDialogConfig(
+                          (prev) =>
+                            ({
+                              ...prev,
+                              values: {
+                                ...prev.values,
+                                [key]: e.target.value,
+                              },
+                            }) as EditDialogConfig
+                        )
+                      }
+                    />
+                  );
                 } else if (editDialogConfig.type === 'service-category' && key === 'serviceCategory') {
                   return (
                     <>
@@ -1558,11 +1610,13 @@ export default function VisitDetailsPage(): ReactElement {
                           const fhirEntries = fhirBackedCats
                             .filter((sc) => sc.active && sc.code && !bookingCodes.has(sc.code))
                             .map((sc) => ({ code: sc.code, label: sc.name }));
-                          return [...bookingEntries, ...fhirEntries].map((entry) => (
-                            <MenuItem key={entry.code} value={entry.code}>
-                              {entry.label}
-                            </MenuItem>
-                          ));
+                          return [...bookingEntries, ...fhirEntries]
+                            .sort((a, b) => a.label.localeCompare(b.label))
+                            .map((entry) => (
+                              <MenuItem key={entry.code} value={entry.code}>
+                                {entry.label}
+                              </MenuItem>
+                            ));
                         })()}
                       </Select>
                     </>
@@ -1601,6 +1655,11 @@ export default function VisitDetailsPage(): ReactElement {
             await handleUpdateBookingDetails();
           }}
           submitButtonName="Update"
+          submitDisabled={
+            editDialogConfig.type === 'reason-for-visit' &&
+            editDialogConfig.values.reasonForVisit === SCHEDULED_FOLLOWUP_OTHER_REASON &&
+            !(editDialogConfig.values.otherReason ?? '').trim()
+          }
           error={bookingDetailsMutation.isError}
           errorMessage={bookingDetailsMutation.error?.message}
           loading={bookingDetailsMutation.isPending || visitDetailsAreRefreshing}

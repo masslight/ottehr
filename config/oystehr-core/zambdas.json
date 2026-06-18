@@ -473,6 +473,13 @@
       "src": "src/billing/tag-billing-claim/index",
       "zip": ".dist/zips/tag-billing-claim.zip"
     },
+    "SET-BILLING-CLAIM-STATUS": {
+      "name": "set-billing-claim-status",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/set-billing-claim-status/index",
+      "zip": ".dist/zips/set-billing-claim-status.zip"
+    },
     "UPDATE-BILLING-CLAIM": {
       "name": "update-billing-claim",
       "type": "http_auth",

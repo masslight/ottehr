@@ -150,8 +150,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       captureException(error);
     }
   } else {
-    taskStatusToUpdate = 'completed';
-    statusReasonToUpdate = 'patient has no email address; cancellation email skipped';
+    taskStatusToUpdate = 'failed';
+    statusReasonToUpdate = 'could not find email for patient';
     console.log('No email found. Skipping sending email.');
   }
 
