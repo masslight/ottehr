@@ -314,8 +314,6 @@ const billingPolicyHolderSchema = z.object({
   dob: nonEmptyString,
   birthSex: z.enum(['Male', 'Female', 'Intersex']),
   address: billingAddressSchema.optional(),
-  // When true the policy holder shares the patient's address (resolved server-side).
-  sameAsPatientAddress: z.boolean().optional(),
 });
 
 export const CreateBillingCoverageInputSchema = z

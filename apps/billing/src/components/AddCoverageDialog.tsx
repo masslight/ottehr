@@ -4,13 +4,11 @@ import {
   Autocomplete,
   Box,
   Button,
-  Checkbox,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
   Divider,
-  FormControlLabel,
   IconButton,
   MenuItem,
   Select,
@@ -54,7 +52,6 @@ export interface CoverageFormState {
   lastName: string;
   dob: string;
   birthSex: BirthSex | '';
-  sameAsPatientAddress: boolean;
   line1: string;
   line2: string;
   city: string;
@@ -73,7 +70,6 @@ export function emptyCoverageForm(insuranceType: BillingInsuranceType = 'primary
     lastName: '',
     dob: '',
     birthSex: '',
-    sameAsPatientAddress: false,
     line1: '',
     line2: '',
     city: '',
@@ -97,7 +93,6 @@ export function coverageFormFromOption(option: BillingCoverageOption): CoverageF
     lastName: ph?.lastName ?? '',
     dob: ph?.dob ?? '',
     birthSex: (ph?.birthSex as BirthSex) || '',
-    sameAsPatientAddress: false,
     line1: addr?.line1 ?? '',
     line2: addr?.line2 ?? '',
     city: addr?.city ?? '',
@@ -120,7 +115,7 @@ export function validateCoverageForm(
     if (!state.firstName.trim() || !state.lastName.trim()) return "Policy holder's first and last name are required";
     if (!state.dob) return "Policy holder's date of birth is required";
     if (!state.birthSex) return "Policy holder's birth sex is required";
-    if (!state.sameAsPatientAddress && !buildAddressInput(state.line1, state.line2, state.city, state.state, state.zip))
+    if (!buildAddressInput(state.line1, state.line2, state.city, state.state, state.zip))
       return "Policy holder's address is required";
   }
   return null;
@@ -128,9 +123,7 @@ export function validateCoverageForm(
 
 function policyHolderPayload(state: CoverageFormState): CreateBillingCoverageInput['policyHolder'] | undefined {
   if (state.relationship === 'Self') return undefined;
-  const address = state.sameAsPatientAddress
-    ? undefined
-    : buildAddressInput(state.line1, state.line2, state.city, state.state, state.zip);
+  const address = buildAddressInput(state.line1, state.line2, state.city, state.state, state.zip);
   return {
     firstName: state.firstName.trim(),
     ...(state.middleName.trim() ? { middleName: state.middleName.trim() } : {}),
@@ -138,7 +131,6 @@ function policyHolderPayload(state: CoverageFormState): CreateBillingCoverageInp
     dob: state.dob,
     birthSex: state.birthSex as BirthSex,
     ...(address ? { address } : {}),
-    ...(state.sameAsPatientAddress ? { sameAsPatientAddress: true } : {}),
   };
 }
 
@@ -338,44 +330,31 @@ export function CoverageFormFields({
             </Field>
           </Box>
 
-          <FormControlLabel
-            control={
-              <Checkbox
-                size="small"
-                checked={value.sameAsPatientAddress}
-                onChange={(e) => set('sameAsPatientAddress', e.target.checked)}
-              />
-            }
-            label={<Typography variant="body2">Policy holder address is the same as the patient's address</Typography>}
-          />
-
-          {!value.sameAsPatientAddress && (
-            <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2.25 }}>
-              <Field label="Address line 1">
-                <TextField size="small" fullWidth value={value.line1} onChange={(e) => set('line1', e.target.value)} />
+          <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2.25 }}>
+            <Field label="Address line 1">
+              <TextField size="small" fullWidth value={value.line1} onChange={(e) => set('line1', e.target.value)} />
+            </Field>
+            <Field label="Address line 2" optional>
+              <TextField size="small" fullWidth value={value.line2} onChange={(e) => set('line2', e.target.value)} />
+            </Field>
+            <Field label="City">
+              <TextField size="small" fullWidth value={value.city} onChange={(e) => set('city', e.target.value)} />
+            </Field>
+            <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
+              <Field label="State">
+                <TextField
+                  size="small"
+                  fullWidth
+                  value={value.state}
+                  onChange={(e) => set('state', e.target.value)}
+                  inputProps={{ maxLength: 2, style: { textTransform: 'uppercase' } }}
+                />
               </Field>
-              <Field label="Address line 2" optional>
-                <TextField size="small" fullWidth value={value.line2} onChange={(e) => set('line2', e.target.value)} />
+              <Field label="ZIP">
+                <TextField size="small" fullWidth value={value.zip} onChange={(e) => set('zip', e.target.value)} />
               </Field>
-              <Field label="City">
-                <TextField size="small" fullWidth value={value.city} onChange={(e) => set('city', e.target.value)} />
-              </Field>
-              <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
-                <Field label="State">
-                  <TextField
-                    size="small"
-                    fullWidth
-                    value={value.state}
-                    onChange={(e) => set('state', e.target.value)}
-                    inputProps={{ maxLength: 2, style: { textTransform: 'uppercase' } }}
-                  />
-                </Field>
-                <Field label="ZIP">
-                  <TextField size="small" fullWidth value={value.zip} onChange={(e) => set('zip', e.target.value)} />
-                </Field>
-              </Box>
             </Box>
-          )}
+          </Box>
         </>
       )}
     </Box>

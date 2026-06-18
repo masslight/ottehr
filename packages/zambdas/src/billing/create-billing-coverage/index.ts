@@ -1,17 +1,15 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Coverage, Patient } from 'fhir/r4b';
+import { Coverage } from 'fhir/r4b';
 import { APIErrorCode } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import {
   buildBillingCoverage,
   coverageInsuranceTypeLabel,
   createBillingClient,
-  fetchById,
   findCoverageOfType,
   getPayerOrgById,
   linkCoverageToAccount,
-  toAddressParts,
 } from '../shared';
 import { CreateBillingCoverageParams, validateRequestParameters } from './validateRequestParameters';
 
@@ -41,13 +39,6 @@ async function performEffect(oystehr: Oystehr, params: CreateBillingCoveragePara
 
   const payerOrg = await getPayerOrgById(oystehr, params.payerId);
 
-  const policyHolder = params.policyHolder ? { ...params.policyHolder } : undefined;
-  // When the policy holder shares the patient's address, copy it from the patient record.
-  if (policyHolder?.sameAsPatientAddress) {
-    const patient = await fetchById<Patient>(oystehr, 'Patient', params.patientId);
-    policyHolder.address = toAddressParts(patient.address?.[0]);
-  }
-
   const coverage = buildBillingCoverage({
     patientId: params.patientId,
     payerOrg,
@@ -56,7 +47,7 @@ async function performEffect(oystehr: Oystehr, params: CreateBillingCoveragePara
     status: 'active',
     insuranceType: params.insuranceType,
     relationship: params.relationship,
-    policyHolder,
+    policyHolder: params.policyHolder,
   });
 
   const created = await oystehr.fhir.create<Coverage>(coverage);

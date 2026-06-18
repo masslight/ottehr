@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Coverage, Patient } from 'fhir/r4b';
+import { Coverage } from 'fhir/r4b';
 import { APIErrorCode, FHIR_RESOURCE_NOT_FOUND } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import {
@@ -13,7 +13,6 @@ import {
   linkCoverageToAccount,
   setCoveragePayer,
   setCoverageSubscriber,
-  toAddressParts,
   unlinkCoverageFromAccount,
 } from '../shared';
 import { UpdateBillingCoverageParams, validateRequestParameters } from './validateRequestParameters';
@@ -67,12 +66,7 @@ async function performEffect(
   }
 
   if (params.relationship) {
-    let policyHolder = params.policyHolder ? { ...params.policyHolder } : undefined;
-    if (policyHolder?.sameAsPatientAddress) {
-      const patient = await fetchById<Patient>(oystehr, 'Patient', patientId);
-      policyHolder = { ...policyHolder, address: toAddressParts(patient.address?.[0]) };
-    }
-    setCoverageSubscriber(coverage, patientId, params.relationship, policyHolder);
+    setCoverageSubscriber(coverage, patientId, params.relationship, params.policyHolder);
   }
 
   if (params.insuranceType !== undefined) applyInsuranceTypeToCoverage(coverage, params.insuranceType);
