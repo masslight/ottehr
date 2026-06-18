@@ -261,8 +261,8 @@ const billingAddressSchema = z
   })
   .strict();
 
-const billingNpiSchema = nonEmptyString.regex(
-  npiRegex,
+const billingNpiSchema = nonEmptyString.refine(
+  isNPIValidWithChecksum,
   'NPI must be a valid 10-digit number with a correct check digit'
 );
 const billingTaxIdSchema = nonEmptyString.regex(taxIdRegex, 'Tax ID / EIN must be exactly 9 digits');
