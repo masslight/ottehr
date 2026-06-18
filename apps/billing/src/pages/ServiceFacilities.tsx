@@ -100,17 +100,14 @@ export function ServiceFacilitiesList(): ReactElement {
   const handleSearchChange = (value: string): void => {
     setSearchName(value);
     debounce(() => {
-      setPaginationModel((prev) => ({
-        ...prev,
-        page: 0,
-      }));
-      void fetchFacilities(
-        {
-          ...paginationModel,
+      setPaginationModel((prev) => {
+        const next = {
+          ...prev,
           page: 0,
-        },
-        value || undefined
-      );
+        };
+        void fetchFacilities(next, value || undefined);
+        return next;
+      });
     }, 'search');
   };
 
