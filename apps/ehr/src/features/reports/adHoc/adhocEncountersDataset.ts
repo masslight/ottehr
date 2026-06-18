@@ -37,6 +37,18 @@ export const ADHOC_ENCOUNTERS_OPTIONS: AdHocDatasetOption[] = [
     description: 'Temperature, heart rate, blood pressure, SpO₂, respiration, weight, height, and BMI.',
     default: false,
   },
+  {
+    id: 'labs',
+    label: 'Lab orders',
+    description: 'Lab tests ordered on the visit (names + counts).',
+    default: false,
+  },
+  {
+    id: 'imaging',
+    label: 'Imaging orders',
+    description: 'Radiology / imaging studies ordered on the visit (names + counts).',
+    default: false,
+  },
 ];
 
 // Always-present columns.
@@ -231,6 +243,32 @@ const VITALS_FIELDS: FieldDef[] = [
   },
 ];
 
+const LAB_FIELDS: FieldDef[] = [
+  {
+    name: 'labOrders',
+    type: 'string[]',
+    description:
+      'Lab tests ordered on the visit (display names; excludes cancelled orders). Tally across rows for ' +
+      'most-ordered labs. Order-level only — result values/abnormal flags are not included.',
+  },
+  { name: 'labOrderCount', type: 'number', description: 'Number of lab tests ordered on the visit. 0 when none.' },
+];
+
+const IMAGING_FIELDS: FieldDef[] = [
+  {
+    name: 'imagingOrders',
+    type: 'string[]',
+    description:
+      'Imaging/radiology studies ordered on the visit (e.g. "X-ray of knee, 3 views"; excludes cancelled). ' +
+      'Tally for imaging volume by study type. Order-level only — reports/reads are not included.',
+  },
+  {
+    name: 'imagingOrderCount',
+    type: 'number',
+    description: 'Number of imaging studies ordered on the visit. 0 when none.',
+  },
+];
+
 function fieldsFor(options: Record<string, boolean>): FieldDef[] {
   return [
     ...BASE_FIELDS,
@@ -239,6 +277,8 @@ function fieldsFor(options: Record<string, boolean>): FieldDef[] {
     ...(options.ai ? AI_FIELDS : []),
     ...(options.medications ? MEDICATION_FIELDS : []),
     ...(options.vitals ? VITALS_FIELDS : []),
+    ...(options.labs ? LAB_FIELDS : []),
+    ...(options.imaging ? IMAGING_FIELDS : []),
   ];
 }
 
@@ -250,6 +290,8 @@ async function fetchAdHocEncounters({ oystehrZambda, dateRange, options }: Fetch
     includeAi: !!opts.ai,
     includeMedications: !!opts.medications,
     includeVitals: !!opts.vitals,
+    includeLabs: !!opts.labs,
+    includeImaging: !!opts.imaging,
   };
   const { start, end } = dateRange;
   const days = (new Date(end).getTime() - new Date(start).getTime()) / 86400000;

@@ -6,9 +6,16 @@ export function validateRequestParameters(input: ZambdaInput): AdHocEncountersIn
     throw new Error('Missing request body');
   }
 
-  const { dateRange, includeCodes, includeTiming, includeAi, includeMedications, includeVitals } = JSON.parse(
-    input.body
-  );
+  const {
+    dateRange,
+    includeCodes,
+    includeTiming,
+    includeAi,
+    includeMedications,
+    includeVitals,
+    includeLabs,
+    includeImaging,
+  } = JSON.parse(input.body);
 
   if (!dateRange || typeof dateRange.start !== 'string' || typeof dateRange.end !== 'string') {
     throw new Error('dateRange { start, end } is required');
@@ -25,6 +32,8 @@ export function validateRequestParameters(input: ZambdaInput): AdHocEncountersIn
     includeAi: includeAi === true,
     includeMedications: includeMedications === true,
     includeVitals: includeVitals === true,
+    includeLabs: includeLabs === true,
+    includeImaging: includeImaging === true,
     secrets: input.secrets,
   };
 }

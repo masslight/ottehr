@@ -15,6 +15,10 @@ export interface AdHocEncountersInput {
   includeMedications?: boolean;
   /** Vital signs charted on the visit (adds vitals Observations to the search). */
   includeVitals?: boolean;
+  /** Lab orders placed on the visit (adds lab ServiceRequests to the search). */
+  includeLabs?: boolean;
+  /** Imaging/radiology orders placed on the visit (adds radiology ServiceRequests to the search). */
+  includeImaging?: boolean;
 }
 
 export interface AdHocEncounterRow {
@@ -82,6 +86,12 @@ export interface AdHocEncounterRow {
   weightKg?: number | null; // weight normalized to kilograms
   heightCm?: number | null; // height normalized to centimeters
   bmi?: number | null; // body mass index, computed from weightKg/heightCm when both present
+  // --- Lab orders (includeLabs) — placed on the visit, excludes revoked ---
+  labOrders?: string[]; // lab test names ordered on the visit
+  labOrderCount?: number;
+  // --- Imaging orders (includeImaging) — radiology placed on the visit, excludes revoked ---
+  imagingOrders?: string[]; // imaging study names ordered on the visit
+  imagingOrderCount?: number;
 }
 
 export interface AdHocEncountersOutput {

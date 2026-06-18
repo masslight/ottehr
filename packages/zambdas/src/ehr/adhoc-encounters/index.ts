@@ -11,6 +11,7 @@ import {
   Practitioner,
   Procedure,
   Resource,
+  ServiceRequest,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
@@ -66,9 +67,28 @@ const round1 = (n: number): number => Math.round(n * 10) / 10;
 const SYSTOLIC_CODES = ['271649006', '8480-6'];
 const DIASTOLIC_CODES = ['271650006', '8462-4'];
 
+const isActiveOrder = (sr: ServiceRequest): boolean => sr.status !== 'revoked' && sr.status !== 'entered-in-error';
+// A lab order: carries an Oystehr lab local code, or a lab order-type tag.
+const isLabOrder = (sr: ServiceRequest): boolean =>
+  Boolean(sr.code?.coding?.some((c) => c.system?.includes('oystehr-lab-local-codes'))) ||
+  Boolean(sr.meta?.tag?.some((t) => t.code === 'generic-lab-order' || t.code === 'in-house-lab' || t.code === 'lab'));
+// A radiology/imaging order: tagged radiology.
+const isImagingOrder = (sr: ServiceRequest): boolean => Boolean(sr.meta?.tag?.some((t) => t.code === 'radiology'));
+const orderDisplay = (sr: ServiceRequest): string =>
+  sr.code?.text || sr.code?.coding?.find((c) => c.display)?.display || sr.code?.coding?.[0]?.code || '';
+
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  const { dateRange, includeCodes, includeTiming, includeAi, includeMedications, includeVitals, secrets } =
-    validateRequestParameters(input);
+  const {
+    dateRange,
+    includeCodes,
+    includeTiming,
+    includeAi,
+    includeMedications,
+    includeVitals,
+    includeLabs,
+    includeImaging,
+    secrets,
+  } = validateRequestParameters(input);
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createOystehrClient(m2mToken, secrets);
@@ -83,7 +103,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     | Procedure
     | DocumentReference
     | MedicationRequest
-    | Observation;
+    | Observation
+    | ServiceRequest;
   let allResources: ReportResource[] = [];
   let offset = 0;
   const pageSize = 1000;
@@ -119,6 +140,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     // Pulls all encounter Observations; we filter to the vitals ones (vital-* tag) when mapping.
     baseSearchParams.push({ name: '_revinclude:iterate', value: 'Observation:encounter' });
   }
+  if (includeLabs || includeImaging) {
+    // One revinclude covers both — labs and radiology are both ServiceRequests, classified by tag/code.
+    baseSearchParams.push({ name: '_revinclude:iterate', value: 'ServiceRequest:encounter' });
+  }
 
   let searchBundle = await oystehr.fhir.search<ReportResource>({
     resourceType: 'Appointment',
@@ -151,6 +176,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const docRefsByEncounterId = new Map<string, DocumentReference[]>();
   const medRequestsByEncounterId = new Map<string, MedicationRequest[]>();
   const vitalsByEncounterId = new Map<string, Observation[]>();
+  const serviceRequestsByEncounterId = new Map<string, ServiceRequest[]>();
   const encounterById = new Map<string, Encounter>();
 
   for (const r of allResources) {
@@ -196,6 +222,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         if (!includeVitals || !r.meta?.tag?.some((t) => t.code?.startsWith('vital-'))) break;
         const encId = r.encounter?.reference?.replace('Encounter/', '');
         if (encId) vitalsByEncounterId.set(encId, [...(vitalsByEncounterId.get(encId) ?? []), r]);
+        break;
+      }
+      case 'ServiceRequest': {
+        if (!includeLabs && !includeImaging) break;
+        const encId = r.encounter?.reference?.replace('Encounter/', '');
+        if (encId) serviceRequestsByEncounterId.set(encId, [...(serviceRequestsByEncounterId.get(encId) ?? []), r]);
         break;
       }
     }
@@ -442,6 +474,20 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
       row.bmi =
         row.weightKg && row.heightCm && row.heightCm > 0 ? round1(row.weightKg / (row.heightCm / 100) ** 2) : null;
+    }
+
+    if (includeLabs || includeImaging) {
+      const srs = (encounter.id ? serviceRequestsByEncounterId.get(encounter.id) ?? [] : []).filter(isActiveOrder);
+      if (includeLabs) {
+        const labOrders = srs.filter(isLabOrder).map(orderDisplay).filter(Boolean);
+        row.labOrders = labOrders;
+        row.labOrderCount = labOrders.length;
+      }
+      if (includeImaging) {
+        const imagingOrders = srs.filter(isImagingOrder).map(orderDisplay).filter(Boolean);
+        row.imagingOrders = imagingOrders;
+        row.imagingOrderCount = imagingOrders.length;
+      }
     }
 
     rows.push(row);
