@@ -27,7 +27,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 });
 
 async function performEffect(oystehr: Oystehr, params: CreateBillingCoverageParams): Promise<{ id: string }> {
-  // Only one coverage may hold each insurance type (primary / secondary / workers' comp) per patient.
+  // Only one coverage may hold each insurance type per patient.
   const occupying = await findCoverageOfType(oystehr, params.patientId, params.insuranceType);
   if (occupying) {
     throw {
