@@ -187,9 +187,10 @@ export const SaveServiceFacilityInputSchema = z.object({
   addressLine2: z.string().trim().optional(),
   city: nonEmptyString,
   state: nonEmptyString.refine((code) => STATE_CODES.has(code), 'Unknown state code'),
-  zip: z.string().regex(/^\d{5}$/, 'ZIP must be 5 digits'),
+  zip: z.string().trim().regex(/^\d{5}$/, 'ZIP must be 5 digits'),
   zipPlus4: z
     .string()
+    .trim()
     .regex(/^\d{4}$/, 'ZIP+4 must be 4 digits')
     .optional(),
   npi: z
