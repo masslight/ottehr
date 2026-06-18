@@ -393,7 +393,7 @@ const performEffect = async (
   const externalParsedPlans = externalLabPlans.map((plan) => ({ plan, parsed: parseExternalLabPlan(plan) }));
 
   const externalOrderableItemsByLabGuid = await fetchPlanItemsByLabGuid(
-    externalParsedPlans.map((p) => p.parsed).filter((p) => p !== null),
+    externalParsedPlans.map((p) => p.parsed).filter((p): p is NonNullable<typeof p> => p !== null),
     m2mToken
   );
 

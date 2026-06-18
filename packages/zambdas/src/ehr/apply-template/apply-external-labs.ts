@@ -5,10 +5,8 @@ import {
   chartDataTagSystem,
   CreateLabPaymentMethod,
   DiagnosisDTO,
-  FHIR_IDC10_VALUESET_SYSTEM,
   getAttendingPractitionerId,
   getSecret,
-  ICD_10_CODE_SYSTEM,
   isPSCOrder,
   locationIsEnabledForLabs,
   OrderableItemSearchResult,
@@ -24,6 +22,7 @@ import { getMyPractitionerId } from '../../shared';
 import { buildExternalLabOrderRequests } from '../lab/external/create-lab-order/build-order';
 import { getOrderableItems } from '../lab/shared/orderable-items';
 import { TemplateEncounterResource } from '../shared/template-helpers';
+import { diagnosesFromReasonCode, noteFromPlan } from './helpers';
 
 const EXTERNAL_LAB_PLAN_TAG_SYSTEM = chartDataTagSystem('external-lab-template-plan');
 
@@ -62,32 +61,6 @@ export const labelForExternalLabPlan = (plan: ServiceRequest): string => {
   return (
     plan.code?.text ?? plan.code?.coding?.[0]?.display ?? plan.code?.coding?.[0]?.code ?? 'Unknown external lab test'
   );
-};
-
-// Reverse the conversion the create flow does when it writes reasonCode from
-// DiagnosisDTOs. We lose `isPrimary` here, which is fine - the saved order
-// doesn't carry that flag.
-const diagnosesFromReasonCode = (plan: ServiceRequest): DiagnosisDTO[] => {
-  return (plan.reasonCode ?? [])
-    .map((rc) => {
-      const icd =
-        rc.coding?.find((c) => c.system === FHIR_IDC10_VALUESET_SYSTEM || c.system === ICD_10_CODE_SYSTEM) ??
-        rc.coding?.[0];
-      return {
-        code: icd?.code ?? '',
-        display: icd?.display ?? rc.text ?? '',
-        isPrimary: false,
-      };
-    })
-    .filter((d) => d.code || d.display);
-};
-
-const noteFromPlan = (plan: ServiceRequest): string | undefined => {
-  const joined = (plan.note ?? [])
-    .map((n) => n.text ?? '')
-    .filter((t) => t.length > 0)
-    .join('\n\n');
-  return joined.length > 0 ? joined : undefined;
 };
 
 /**

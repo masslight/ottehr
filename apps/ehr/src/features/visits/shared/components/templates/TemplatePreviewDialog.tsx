@@ -769,7 +769,7 @@ export const TemplatePreviewDialog: React.FC<TemplatePreviewDialogProps> = ({
   onApply,
 }) => {
   const { oystehrZambda } = useApiClients();
-  const { patient, location: apptLocation } = useAppointmentData();
+  const { patient, location: apptLocation, encounter } = useAppointmentData();
   const [actions, setActions] = useState<Record<TemplateSectionKey, TemplateSectionAction>>({
     ...TEMPLATE_SECTION_DEFAULT_ACTIONS,
   });
@@ -804,6 +804,7 @@ export const TemplatePreviewDialog: React.FC<TemplatePreviewDialogProps> = ({
   const hasExternalLabs = (externalLabPlans?.length ?? 0) > 0;
   const externalLabResourcesQuery = useGetCreateExternalLabResources({
     patientId: open && hasExternalLabs ? patient?.id : undefined,
+    encounterId: encounter.id,
   });
   const externalLabResources = externalLabResourcesQuery.data;
   const coverageInfo = externalLabResources?.coverages;
