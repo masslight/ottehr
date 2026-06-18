@@ -1,4 +1,10 @@
-import { INVALID_INPUT_ERROR, MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS, SetClaimStatusInput, SetClaimStatusInputSchema } from 'utils';
+import {
+  INVALID_INPUT_ERROR,
+  MISSING_REQUEST_BODY,
+  MISSING_REQUEST_SECRETS,
+  SetClaimStatusInput,
+  SetClaimStatusInputSchema,
+} from 'utils';
 import { formatZodError, ZambdaInput } from '../../shared';
 
 export interface SetClaimStatusParams extends SetClaimStatusInput {
