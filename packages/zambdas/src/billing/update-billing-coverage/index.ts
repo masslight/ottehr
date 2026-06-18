@@ -49,7 +49,8 @@ async function performEffect(
     }
   }
 
-  if (params.status) coverage.status = params.status;
+  // Coverage status is not part of the billing product model; keep every coverage active.
+  coverage.status = 'active';
 
   const effectiveMemberId = params.memberId ?? coverage.subscriberId ?? '';
 

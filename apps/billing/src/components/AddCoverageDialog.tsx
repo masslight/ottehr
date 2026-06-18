@@ -31,21 +31,12 @@ import { useApiClients } from '../hooks/useAppClients';
 import { buildAddressInput } from '../utils/format';
 import { Field } from './Field';
 
-const COVERAGE_STATUSES: { value: CoverageStatus; label: string }[] = [
-  { value: 'active', label: 'Active' },
-  { value: 'cancelled', label: 'Cancelled' },
-  { value: 'draft', label: 'Draft' },
-  { value: 'entered-in-error', label: 'Entered in error' },
-];
-
-type CoverageStatus = 'active' | 'cancelled' | 'draft' | 'entered-in-error';
 type BirthSex = 'Male' | 'Female' | 'Intersex';
 
 export interface CoverageFormState {
   payer: BillingPayerOption | null;
   memberId: string;
   order: 1 | 2;
-  status: CoverageStatus;
   relationship: string;
   firstName: string;
   middleName: string;
@@ -65,7 +56,6 @@ export function emptyCoverageForm(order: 1 | 2 = 1): CoverageFormState {
     payer: null,
     memberId: '',
     order,
-    status: 'active',
     relationship: 'Self',
     firstName: '',
     middleName: '',
@@ -90,7 +80,6 @@ export function coverageFormFromOption(option: BillingCoverageOption): CoverageF
     payer: null,
     memberId: option.memberId ?? option.subscriberId ?? '',
     order: option.order === 2 ? 2 : 1,
-    status: (option.status as CoverageStatus) || 'active',
     relationship: option.relationship || 'Self',
     firstName: ph?.firstName ?? '',
     middleName: ph?.middleName ?? '',
@@ -148,7 +137,6 @@ export function coverageToCreateInput(state: CoverageFormState, patientId: strin
     payerId: state.payer!.id,
     memberId: state.memberId.trim(),
     order: state.order,
-    status: state.status,
     relationship: state.relationship as CreateBillingCoverageInput['relationship'],
     ...(policyHolderPayload(state) ? { policyHolder: policyHolderPayload(state) } : {}),
   };
@@ -161,7 +149,6 @@ export function coverageToUpdateInput(state: CoverageFormState, coverageId: stri
     ...(state.payer ? { payerId: state.payer.id } : {}),
     memberId: state.memberId.trim(),
     order: state.order,
-    status: state.status,
     relationship: state.relationship as UpdateBillingCoverageInput['relationship'],
     ...(policyHolderPayload(state) ? { policyHolder: policyHolderPayload(state) } : {}),
   };
@@ -252,20 +239,6 @@ export function CoverageFormFields({
             <MenuItem value={2} disabled={unavailableOrders.includes(2)}>
               Secondary{unavailableOrders.includes(2) ? ' (already on file)' : ''}
             </MenuItem>
-          </Select>
-        </Field>
-        <Field label="Coverage status">
-          <Select
-            size="small"
-            fullWidth
-            value={value.status}
-            onChange={(e) => set('status', e.target.value as CoverageStatus)}
-          >
-            {COVERAGE_STATUSES.map((s) => (
-              <MenuItem key={s.value} value={s.value}>
-                {s.label}
-              </MenuItem>
-            ))}
           </Select>
         </Field>
       </Box>

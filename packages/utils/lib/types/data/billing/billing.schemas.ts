@@ -302,8 +302,6 @@ const subscriberRelationshipSchema = z.enum([
   'Other',
 ]);
 
-const coverageStatusSchema = z.enum(['active', 'cancelled', 'draft', 'entered-in-error']);
-
 // Account.coverage priority: 1 = primary, 2 = secondary.
 const coverageOrderSchema = z.union([z.literal(1), z.literal(2)]);
 
@@ -326,7 +324,6 @@ export const CreateBillingCoverageInputSchema = z
     payerId: nonEmptyString,
     memberId: nonEmptyString,
     order: coverageOrderSchema,
-    status: coverageStatusSchema.default('active'),
     relationship: subscriberRelationshipSchema,
     policyHolder: billingPolicyHolderSchema.optional(),
   })
@@ -346,7 +343,6 @@ export const UpdateBillingCoverageInputSchema = z
     payerId: nonEmptyString.optional(),
     memberId: z.string().optional(),
     order: coverageOrderSchema.optional(),
-    status: coverageStatusSchema.optional(),
     relationship: subscriberRelationshipSchema.optional(),
     policyHolder: billingPolicyHolderSchema.optional(),
   })

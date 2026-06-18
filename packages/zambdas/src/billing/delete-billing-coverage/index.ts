@@ -17,16 +17,15 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   return { statusCode: 200, body: JSON.stringify({ deleted: true }) };
 });
 
-// Soft delete: cancel the Coverage and unlink it from the patient's billing Account, mirroring the
-// clinical EHR's remove-coverage flow rather than hard-deleting (claims may still reference it).
+// Hard delete: remove the Coverage resource and unlink it from the patient's billing Account so it
+// disappears from the patient details view entirely.
 async function performEffect(oystehr: Oystehr, params: DeleteBillingCoverageParams): Promise<void> {
   const coverage = await fetchById<Coverage>(oystehr, 'Coverage', params.coverageId);
   const patientId = coverage.beneficiary?.reference?.split('/')[1];
 
-  coverage.status = 'cancelled';
-  await oystehr.fhir.update<Coverage>(coverage);
-
   if (patientId) {
     await unlinkCoverageFromAccount(oystehr, patientId, params.coverageId);
   }
+
+  await oystehr.fhir.delete({ resourceType: 'Coverage', id: params.coverageId });
 }

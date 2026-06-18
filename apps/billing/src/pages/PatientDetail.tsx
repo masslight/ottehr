@@ -527,7 +527,6 @@ function CoverageCard({
       <DetailRow label="Member ID" value={coverage.memberId ?? coverage.subscriberId} labelWidth={170} />
       <DetailRow label="Relationship to insured" value={coverage.relationship ?? ''} labelWidth={170} />
       {policyHolderName && <DetailRow label="Policy holder" value={policyHolderName} labelWidth={170} />}
-      <DetailRow label="Status" value={coverage.status} labelWidth={170} />
       <Box sx={{ mt: 1.5 }}>
         {deleteError && (
           <Alert severity="error" sx={{ mb: 1 }}>
@@ -537,7 +536,7 @@ function CoverageCard({
         {confirming ? (
           <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
             <Typography variant="body2" color="text.secondary">
-              Remove this coverage? It will be cancelled and unlinked from the patient account.
+              Permanently delete this coverage? This cannot be undone.
             </Typography>
             <Button size="small" onClick={() => setConfirming(false)} disabled={deleting}>
               Cancel
