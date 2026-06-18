@@ -1,7 +1,7 @@
 import { FormControl, TextField, Typography, useTheme } from '@mui/material';
 import { Controller } from 'react-hook-form';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { isNPIValid, RoleType } from 'utils';
+import { isNPIValidWithChecksum, RoleType } from 'utils';
 import { ProviderTypeField } from './ProviderType';
 import { ProviderDetailsProps } from './types';
 
@@ -22,7 +22,7 @@ export function ProviderDetails({ control, setValue, photoSrc, roles }: Provider
         rules={{
           validate: (value) => {
             if (value) {
-              return isNPIValid(value) ? true : 'NPI must be 10 digits';
+              return isNPIValidWithChecksum(value) ? true : 'NPI must be 10 digits';
             }
             return true;
           },

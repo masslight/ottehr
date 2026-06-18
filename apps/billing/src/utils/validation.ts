@@ -1,4 +1,4 @@
-import { isCLIAValid, isNPIValid, isNPIValidWithChecksum, isPostalCodeValid, taxIdRegex } from 'utils';
+import { isCLIAValid, isNPIValidWithChecksum, isPostalCodeValid, taxIdRegex } from 'utils';
 
 export function validateProviderFields(fields: {
   npi: string;
@@ -7,7 +7,7 @@ export function validateProviderFields(fields: {
   zip: string;
 }): string | null {
   const npi = fields.npi.trim();
-  if (npi && !isNPIValid(npi)) return 'NPI must be exactly 10 digits';
+  if (npi && !isNPIValidWithChecksum(npi)) return 'NPI must be exactly 10 digits';
   const taxId = fields.taxId.trim();
   if (taxId && !taxIdRegex.test(taxId)) return 'Tax ID / EIN must be exactly 9 digits';
   const taxonomyCode = fields.taxonomyCode.trim();

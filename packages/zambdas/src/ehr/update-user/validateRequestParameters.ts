@@ -1,5 +1,5 @@
 import {
-  isNPIValid,
+  isNPIValidWithChecksum,
   isPhoneNumberValid,
   isProviderTypeCode,
   MISSING_REQUEST_BODY,
@@ -43,7 +43,7 @@ const UpdateUserSchema = z
   )
   .refine(
     (data) => {
-      if (data.selectedRoles?.includes(RoleType.Provider) && data.npi && !isNPIValid(data.npi)) {
+      if (data.selectedRoles?.includes(RoleType.Provider) && data.npi && !isNPIValidWithChecksum(data.npi)) {
         return false;
       }
       return true;
