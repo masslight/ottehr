@@ -4,6 +4,12 @@ import {
   CODE_SYSTEM_CLAIM_TYPE_CODE_NAMES,
 } from '../../../helpers/rcm/constants';
 import { npiRegex, taxIdRegex, zipRegex } from '../../../validation';
+import {
+  CLAIM_STATUS_FIELD_KEYS,
+  CLAIM_STATUS_FIELDS_BY_KEY,
+  ClaimStatusFieldKey,
+  isValidClaimStatusValue,
+} from './claim-status';
 
 const nonEmptyString = z.string().trim().min(1);
 const nonNegativeInt = z.number().int().nonnegative();
@@ -61,6 +67,40 @@ export const TagBillingClaimInputSchema = z.object({
   tagName: nonEmptyString,
 });
 
+// Set (or clear, when value is null/empty) one claim-status meta.tag.
+export const SetClaimStatusInputSchema = z
+  .object({
+    claimId: nonEmptyString,
+    field: z.enum(CLAIM_STATUS_FIELD_KEYS),
+    value: z.string().nullable().optional(),
+  })
+  .superRefine((data, ctx) => {
+    // A provided value must be one of the field's allowed options (empty/null clears it).
+    if (!isValidClaimStatusValue(CLAIM_STATUS_FIELDS_BY_KEY[data.field], data.value)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['value'],
+        message: `Invalid value "${data.value}" for claim status field "${data.field}"`,
+      });
+    }
+  });
+
+// Status indicators keyed by ClaimStatusFieldKey; unknown keys are rejected and each provided value
+// must be a valid option for its field.
+export const claimStatusesSchema = z
+  .record(z.enum(CLAIM_STATUS_FIELD_KEYS), z.string())
+  .superRefine((statuses, ctx) => {
+    for (const [key, value] of Object.entries(statuses)) {
+      if (!isValidClaimStatusValue(CLAIM_STATUS_FIELDS_BY_KEY[key as ClaimStatusFieldKey], value)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: [key],
+          message: `Invalid value "${value}" for claim status field "${key}"`,
+        });
+      }
+    }
+  });
+
 export const GetPatientDetailInputSchema = z.object({
   patientId: nonEmptyString,
 });
@@ -73,6 +113,7 @@ export const SearchBillingClaimsInputSchema = z.object({
   searchText: nonEmptyString.optional(),
   type: z.enum(CODE_SYSTEM_CLAIM_TYPE_CODE_NAMES).optional(),
   status: nonEmptyString.optional(),
+  arStage: nonEmptyString.optional(),
   tag: nonEmptyString.optional(),
   createdFrom: nonEmptyString.optional(),
   createdTo: nonEmptyString.optional(),
@@ -132,63 +173,29 @@ const claimServiceLineSchema = z.object({
   diagnosisPointers: z.array(z.number().int().positive()).optional(),
 });
 
+// Create assembles a claim from existing resources by reference only. Tweaking a referenced
+// resource's details (names, NPIs, addresses, etc.) is done afterward via the claim editing UI,
+// so this input carries no override fields.
 export const CreateBillingClaimInputSchema = z.object({
   patientId: nonEmptyString,
-  patientOverrides: z
-    .object({
-      firstName: nonEmptyString.optional(),
-      lastName: nonEmptyString.optional(),
-      dob: nonEmptyString.optional(),
-      gender: nonEmptyString.optional(),
-    })
-    .strict()
-    .optional(),
   coverageId: nonEmptyString.optional(),
-  coverageOverrides: z
-    .object({
-      subscriberId: nonEmptyString.optional(),
-    })
-    .strict()
-    .optional(),
   renderingProvider: z
     .object({
       id: nonEmptyString,
       type: z.enum(['Practitioner', 'Organization']),
-      overrides: z
-        .object({
-          firstName: nonEmptyString.optional(),
-          lastName: nonEmptyString.optional(),
-          npi: nonEmptyString.optional(),
-        })
-        .strict()
-        .optional(),
     })
     .optional(),
   facilityId: nonEmptyString.optional(),
-  facilityOverrides: z
-    .object({
-      name: nonEmptyString.optional(),
-      npi: nonEmptyString.optional(),
-      address: nonEmptyString.optional(),
-    })
-    .strict()
-    .optional(),
   billingProvider: z
     .object({
       id: nonEmptyString,
       type: z.enum(['Practitioner', 'Organization']),
-      overrides: z
-        .object({
-          name: nonEmptyString.optional(),
-          npi: nonEmptyString.optional(),
-          tin: nonEmptyString.optional(),
-        })
-        .strict()
-        .optional(),
     })
     .optional(),
   diagnoses: z.array(claimDiagnosisSchema).optional(),
   serviceLines: z.array(claimServiceLineSchema).optional(),
+  // Initial claim status indicators; AR Stage's progress status is auto-initialized server-side.
+  statuses: claimStatusesSchema.optional(),
 });
 
 const billingProviderRole = z.enum(['billing', 'rendering']);
@@ -384,6 +391,7 @@ export type SearchErasInput = z.infer<typeof SearchErasInputSchema>;
 export type SaveBillingTagInput = z.infer<typeof SaveBillingTagInputSchema>;
 export type DeleteBillingTagInput = z.infer<typeof DeleteBillingTagInputSchema>;
 export type TagBillingClaimInput = z.infer<typeof TagBillingClaimInputSchema>;
+export type SetClaimStatusInput = z.infer<typeof SetClaimStatusInputSchema>;
 export type GetPatientDetailInput = z.infer<typeof GetPatientDetailInputSchema>;
 export type GetPatientCoveragesInput = z.infer<typeof GetPatientCoveragesInputSchema>;
 export type SearchBillingClaimsInput = z.infer<typeof SearchBillingClaimsInputSchema>;

@@ -384,7 +384,7 @@ export const ServiceCategoriesAdminPage: FC = () => {
         },
         systemManaged: true,
       }));
-    return [...fhirRows, ...systemRows];
+    return [...fhirRows, ...systemRows].sort((a, b) => a.name.localeCompare(b.name));
   }, [data?.serviceCategories]);
 
   return (

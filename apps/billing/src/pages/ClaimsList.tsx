@@ -20,21 +20,23 @@ import {
   BillingClaimItem,
   BillingPatientOption,
   BillingPayerOption,
-  ClaimsQueueItemStatuses,
+  CLAIM_STATUS_FIELDS,
+  CLAIM_STATUS_FIELDS_BY_KEY,
   CODE_SYSTEM_APPOINTMENT_TYPE_CODES,
   CODE_SYSTEM_CLAIM_TYPE_CODES,
+  formatClaimStatusValue,
   getApiError,
   SearchBillingClaimsInput,
 } from 'utils';
 import { searchBillingClaims, searchBillingPatients, searchBillingPayers, searchBillingTags } from '../api/api';
 import { dataGridSlots, dataGridSx } from '../components/BillingDataGrid';
-import { CLAIM_STATUS_COLORS, formatAntCaseString } from '../constants/claimStatus';
+import { claimStatusValueColor, formatAntCaseString } from '../constants/claimStatus';
 import { useApiClients } from '../hooks/useAppClients';
 import { formatCurrency } from '../utils/format';
 
 interface Filters {
   searchText?: string;
-  status?: string;
+  arStage?: string;
   tag?: string;
   createdFrom?: string;
   createdTo?: string;
@@ -53,23 +55,33 @@ const currencyCol = (field: string, headerName: string, width: number): GridColD
   valueFormatter: (params: { value: number }) => formatCurrency(params.value),
 });
 
+const statusColumns: GridColDef[] = CLAIM_STATUS_FIELDS.map((field) => ({
+  field: field.key,
+  headerName: field.label,
+  width: field.key === 'arStage' ? 170 : 160,
+  sortable: false,
+  valueGetter: (params) => (params.row as BillingClaimItem).statuses?.[field.key] ?? '',
+  renderCell: ({ value }) => {
+    const code = value as string;
+    if (!code) return null;
+    return (
+      <Chip
+        label={formatClaimStatusValue(field, code)}
+        color={claimStatusValueColor(code)}
+        variant="outlined"
+        size="small"
+        sx={{ borderRadius: '4px', fontSize: 12 }}
+      />
+    );
+  },
+}));
+
 const columns: GridColDef[] = [
   { field: 'patientName', headerName: 'Patient Name', flex: 1, minWidth: 150 },
   { field: 'serviceDate', headerName: 'Service Date', width: 120 },
   { field: 'payerName', headerName: 'Payer Name', flex: 1, minWidth: 160 },
   { field: 'payerId', headerName: 'Payer ID', width: 100 },
-  {
-    field: 'status',
-    headerName: 'Status',
-    width: 130,
-    renderCell: ({ value }) => {
-      const color = CLAIM_STATUS_COLORS[value as string] ?? 'default';
-      const label = formatAntCaseString(value as string);
-      return (
-        <Chip label={label} color={color} variant="outlined" size="small" sx={{ borderRadius: '4px', fontSize: 12 }} />
-      );
-    },
-  },
+  ...statusColumns,
   {
     field: 'type',
     headerName: 'Claim Type',
@@ -107,7 +119,7 @@ export default function ClaimsList(): ReactElement {
   const [patientOptions, setPatientOptions] = useState<BillingPatientOption[]>([]);
 
   const [searchText, setSearchText] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
+  const [arStageFilter, setArStageFilter] = useState('');
   const [tagFilter, setTagFilter] = useState('');
   const [tagOptions, setTagOptions] = useState<{ id: string; name: string }[]>([]);
   const [createdFrom, setDosFrom] = useState('');
@@ -142,7 +154,7 @@ export default function ClaimsList(): ReactElement {
           offset: pagination.page * pagination.pageSize,
         };
         if (filters.searchText) params.searchText = filters.searchText;
-        if (filters.status) params.status = filters.status;
+        if (filters.arStage) params.arStage = filters.arStage;
         if (filters.tag) params.tag = filters.tag;
         if (filters.createdFrom) params.createdFrom = filters.createdFrom;
         if (filters.createdTo) params.createdTo = filters.createdTo;
@@ -209,7 +221,7 @@ export default function ClaimsList(): ReactElement {
   const currentFilters = useCallback(
     (overrides?: Filters): Filters => ({
       searchText: overrides?.searchText ?? searchText,
-      status: overrides?.status ?? statusFilter,
+      arStage: overrides?.arStage ?? arStageFilter,
       tag: overrides?.tag ?? tagFilter,
       createdFrom: overrides?.createdFrom ?? createdFrom,
       createdTo: overrides?.createdTo ?? createdTo,
@@ -220,7 +232,7 @@ export default function ClaimsList(): ReactElement {
     }),
     [
       searchText,
-      statusFilter,
+      arStageFilter,
       tagFilter,
       createdFrom,
       createdTo,
@@ -252,7 +264,7 @@ export default function ClaimsList(): ReactElement {
 
   const clearFilters = (): void => {
     setSearchText('');
-    setStatusFilter('');
+    setArStageFilter('');
     setTagFilter('');
     setDosFrom('');
     setDosTo('');
@@ -267,7 +279,7 @@ export default function ClaimsList(): ReactElement {
 
   const hasFilters =
     searchText ||
-    statusFilter ||
+    arStageFilter ||
     tagFilter ||
     createdFrom ||
     createdTo ||
@@ -304,20 +316,20 @@ export default function ClaimsList(): ReactElement {
       />
 
       <Box sx={{ display: 'flex', gap: 2, mb: 2, flexWrap: 'wrap', alignItems: 'center' }}>
-        <FormControl size="small" sx={{ minWidth: 160 }}>
-          <InputLabel>Claim Status</InputLabel>
+        <FormControl size="small" sx={{ minWidth: 180 }}>
+          <InputLabel>AR Stage</InputLabel>
           <Select
-            value={statusFilter}
-            label="Claim Status"
+            value={arStageFilter}
+            label="AR Stage"
             onChange={(e) => {
-              setStatusFilter(e.target.value);
-              applyFilters({ status: e.target.value });
+              setArStageFilter(e.target.value);
+              applyFilters({ arStage: e.target.value });
             }}
           >
             <MenuItem value="">All</MenuItem>
-            {ClaimsQueueItemStatuses.map((s) => (
-              <MenuItem key={s} value={s}>
-                {formatAntCaseString(s)}
+            {CLAIM_STATUS_FIELDS_BY_KEY.arStage.options.map((o) => (
+              <MenuItem key={o.code} value={o.code}>
+                {o.label}
               </MenuItem>
             ))}
           </Select>

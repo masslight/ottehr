@@ -7,7 +7,6 @@ import {
   Coding,
   Coverage,
   FhirResource,
-  HumanName,
   Identifier,
   Location,
   Organization,
@@ -316,7 +315,7 @@ type CRT<T extends CopyableBillingResource> = Extract<CopyableBillingResource, {
  * List of copyable properties for each resource type
  */
 const CopyableProperties: ResourceProperties<CopyableBillingResource> = {
-  Account: ['resourceType', 'status', 'type', 'subject', 'guarantor', 'coverage'],
+  Account: ['resourceType', 'status', 'type', 'subject', 'guarantor', 'coverage', 'contained'],
   Coverage: ['resourceType', 'status', 'subscriber', 'beneficiary', 'payor', 'subscriberId', 'relationship', 'class'],
   Location: ['resourceType', 'address', 'description', 'name', 'telecom', 'type'],
   Organization: ['resourceType', 'active', 'address', 'contact', 'name', 'telecom', 'type'],
@@ -343,19 +342,6 @@ export function findRef<T extends Resource>(resources: Resource[], reference?: s
   if (!reference) return undefined;
   const id = reference.includes('/') ? reference.split('/')[1] : reference;
   return resources.find((r) => r.id === id) as T | undefined;
-}
-
-// Apply first/last name overrides to a Patient or Practitioner.
-export function applyNameOverrides<T extends { name?: HumanName[] }>(
-  resource: T,
-  overrides?: { firstName?: string; lastName?: string }
-): T {
-  if (!overrides) return resource;
-  const copy = structuredClone(resource);
-  if (!copy.name) copy.name = [{}];
-  if (overrides.firstName !== undefined) copy.name[0].given = [overrides.firstName];
-  if (overrides.lastName !== undefined) copy.name[0].family = overrides.lastName;
-  return copy;
 }
 
 export function getClaimType(claim: Claim): keyof typeof CODE_SYSTEM_CLAIM_TYPE_CODES {

@@ -23,22 +23,65 @@ export const getServiceCategoryCodings = (): StrongCoding[] => {
 };
 
 /**
+ * Whether a service category supports a given (mode, visit type) context.
+ *
+ * For BOOKING_CONFIG-sourced entries, an empty `serviceModes`/`visitTypes`
+ * array is treated as "supports all" — the legacy contract pre-dating the
+ * multi-mode/visit-type tagging is that BOOKING_CONFIG entries were
+ * universally available. For FHIR-sourced entries an empty array means
+ * "explicitly supports nothing" (admin misconfiguration); we exclude them
+ * so the picker doesn't silently surface an entry that can't actually be
+ * booked into the requested context.
+ *
+ * Centralized so the picker-decision (`shouldShowServiceCategorySelectionPage`)
+ * and any call site that picks the single-match category code stay in
+ * agreement — if one said "two matches, show picker" while the other said
+ * "no single match, no stamp," the two disagreed silently in production.
+ */
+export const serviceCategorySupportsContext = (
+  sc: ServiceCategoryConfig & { source?: 'booking-config' | 'fhir' },
+  serviceMode?: string,
+  visitType?: string
+): boolean => {
+  const isBookingConfig = sc.source === 'booking-config';
+  const modes = sc.serviceModes ?? [];
+  const types = sc.visitTypes ?? [];
+  // Per-dimension rule. Pass `undefined` to skip filtering on that
+  // dimension — e.g. the picker knows visit type from the URL but not
+  // mode (mode is resolved downstream by the slot owner). Skipping is
+  // NOT the same as "ignore the entry's tagging for this dimension":
+  //   - Untagged BOOKING_CONFIG entries still pass via the empty-arrays-
+  //     mean-supports-all rule (legacy contract pre-dating tagging).
+  //   - Empty-arrays FHIR entries are excluded as misconfigured even on
+  //     a skipped dimension — including them anyway would let the picker
+  //     show a category the patient could pick but never actually book
+  //     (the downstream booking flow needs at least one valid mode).
+  const supportsDimension = (dimension: string | undefined, tags: readonly string[]): boolean => {
+    if (isBookingConfig && tags.length === 0) return true;
+    if (tags.length === 0) return false;
+    return dimension === undefined || tags.some((t) => t === dimension);
+  };
+  return supportsDimension(serviceMode, modes) && supportsDimension(visitType, types);
+};
+
+/**
  * Get service categories available for a given service mode and visit type.
  * Returns the StrongCoding for each matching category.
  *
  * Optionally accepts an explicit list of service categories (e.g., from the
  * FHIR-backed registry). Falls back to BOOKING_CONFIG when not provided, so
- * existing call sites keep working.
+ * existing call sites keep working. The BOOKING_CONFIG fallback is tagged
+ * with `source: 'booking-config'` so the empty-arrays-mean-everything rule
+ * in `serviceCategorySupportsContext` applies to it.
  */
 export const getServiceCategoriesForContext = (
   serviceMode: string,
   visitType: string,
-  serviceCategories?: ServiceCategoryConfig[]
+  serviceCategories?: Array<ServiceCategoryConfig & { source?: 'booking-config' | 'fhir' }>
 ): StrongCoding[] => {
-  const source = serviceCategories ?? BOOKING_CONFIG.serviceCategories;
-  return source
-    .filter((sc) => sc.serviceModes.includes(serviceMode as any) && sc.visitTypes.includes(visitType as any))
-    .map((sc) => sc.category);
+  const source: Array<ServiceCategoryConfig & { source?: 'booking-config' | 'fhir' }> =
+    serviceCategories ?? BOOKING_CONFIG.serviceCategories.map((sc) => ({ ...sc, source: 'booking-config' as const }));
+  return source.filter((sc) => serviceCategorySupportsContext(sc, serviceMode, visitType)).map((sc) => sc.category);
 };
 
 /**
@@ -48,7 +91,7 @@ export const getServiceCategoriesForContext = (
 export const shouldShowServiceCategorySelectionPage = (params: {
   serviceMode: string;
   visitType: string;
-  serviceCategories?: ServiceCategoryConfig[];
+  serviceCategories?: Array<ServiceCategoryConfig & { source?: 'booking-config' | 'fhir' }>;
 }): boolean => {
   return getServiceCategoriesForContext(params.serviceMode, params.visitType, params.serviceCategories).length > 1;
 };
