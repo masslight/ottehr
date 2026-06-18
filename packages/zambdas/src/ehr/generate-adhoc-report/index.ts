@@ -129,6 +129,19 @@ RULES:
   - When the user names specific codes, match them exactly.
   Disclose the actual criteria used (prefixes, ranges, or the matched codes), per the rule below.
 - DISCLOSE SELECTION CRITERIA: when a report includes/excludes or groups rows by a criterion the
+- INTERACTIVE TABLES (drill-down): a TABLE can also be made clickable. Tables you render are lifted
+  out of the frame and shown as interactive grids in the parent; a row click is posted back to your
+  code. To use it, assign a handler: window.reportRowClick = function(row, tableLabel) { ... }.
+  "row" is an object keyed by that table's column header text → the clicked cell's text (e.g.
+  row["Medication"]); "tableLabel" is the table's heading (use it to ignore clicks from other tables
+  if you render several). In the handler, compute the detail from the SAME "data" rows (your handler
+  closes over data) and render a detail <table> into the document — give it an <h3> heading, and
+  REPLACE the previous detail on each click (keep a single container, e.g.
+  document.getElementById("drill") || a div you append once, and overwrite its innerHTML) so detail
+  tables don't stack. The detail table is lifted to its own grid automatically. Define
+  window.reportRowClick during your initial render (not inside a chart callback). Use this when the
+  user asks to click a table row/name to reveal related detail rows.
+- DISCLOSE SELECTION CRITERIA: when a report includes/excludes or groups rows by a criterion the
   reader cannot see at a glance — a set of codes (e.g. the specific ICD-10 codes you treat as
   "otitis media"), a value list, a numeric threshold, or a category you defined — state the ACTUAL
   criteria in the report header or a subtitle (list the matched codes/values, not just a vague label

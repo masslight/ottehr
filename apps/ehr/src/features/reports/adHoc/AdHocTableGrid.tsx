@@ -104,11 +104,13 @@ function buildGrid(table: ExtractedTable): { columns: GridColDef[]; rows: GridRo
 interface AdHocTableGridProps {
   table: ExtractedTable;
   reportTitle?: string;
+  /** Called with the clicked row as a { columnHeader: cellText } object — used for drill-down. */
+  onRowClick?: (row: Record<string, string>, table: ExtractedTable) => void;
 }
 
 // Renders a table the report produced as a DataGridPro — the same grid the rest of the reports area
 // uses — so each column is sortable and filterable and the whole thing is exportable.
-export function AdHocTableGrid({ table, reportTitle }: AdHocTableGridProps): React.ReactElement {
+export function AdHocTableGrid({ table, reportTitle, onRowClick }: AdHocTableGridProps): React.ReactElement {
   const { columns, rows } = useMemo(() => buildGrid(table), [table]);
   const fileName = slug([reportTitle, table.label].filter(Boolean).join('-'));
   // Don't repeat the report's own title: a single-table report typically gives the table a heading
@@ -147,7 +149,22 @@ export function AdHocTableGrid({ table, reportTitle }: AdHocTableGridProps): Rea
           pageSizeOptions={[10, 25, 50, 100]}
           slots={{ toolbar: Toolbar }}
           disableRowSelectionOnClick
-          sx={{ '& .MuiDataGrid-columnHeaderTitle': { fontWeight: 600 } }}
+          onRowClick={
+            onRowClick
+              ? (params): void => {
+                  // Re-key the clicked row by its column headers (the cell text), for the report's handler.
+                  const obj: Record<string, string> = {};
+                  table.columns.forEach((header, i) => {
+                    obj[header] = String(params.row[`c${i}__text`] ?? '');
+                  });
+                  onRowClick(obj, table);
+                }
+              : undefined
+          }
+          sx={{
+            '& .MuiDataGrid-columnHeaderTitle': { fontWeight: 600 },
+            ...(onRowClick ? { '& .MuiDataGrid-row': { cursor: 'pointer' } } : {}),
+          }}
         />
       </Paper>
     </Box>

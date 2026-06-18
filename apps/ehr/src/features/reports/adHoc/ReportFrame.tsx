@@ -50,10 +50,12 @@ const BOOTSTRAP = `
 
     // --- Lift tables out to the parent ----------------------------------------------------------
     // Tables the report renders are serialized, HIDDEN in the frame (along with their heading), and
-    // posted to the parent, which re-renders them as full DataGrids. Re-runs on drill-down (a detail
-    // table appended when a chart bar is clicked). 'extracted' accumulates in render order.
+    // posted to the parent, which re-renders them as full DataGrids. The list is rebuilt from the
+    // LIVE DOM on every change (chart-click or table-click drill-down appends/replaces a detail
+    // table): each table keeps a stable id so its parent grid doesn't remount, removed tables drop
+    // out, and a replaced detail table leaves no stale grid behind.
     var extracted = [];
-    var tableSeq = 0;
+    var idSeq = 0;
     function cellOf(td) {
       var cell = { text: ((td && td.textContent) || '').trim().replace(/\\s+/g, ' ') };
       var a = td.querySelector ? td.querySelector('a') : null;
@@ -93,24 +95,28 @@ const BOOTSTRAP = `
       // innerText excludes display:none elements, so hidden tables/headings don't count.
       return document.body.innerText.trim().length > 0;
     }
-    function publishTables() {
-      send({ type: 'tables', tables: extracted, hasNonTableContent: hasNonTableContent() });
-    }
-    function extractTables() {
-      var added = false;
+    // Rebuild the lifted-table list from the CURRENT DOM and publish it. A table seen for the first
+    // time gets a stable id + its heading hidden + itself hidden; on later rebuilds we just re-read
+    // it. Removed tables (e.g. a previous drill-down detail replaced on a new click) simply aren't in
+    // the DOM, so they drop out of the list.
+    function extractAndPublish() {
+      var list = [];
       [].forEach.call(document.querySelectorAll('table'), function (table) {
-        if (table.getAttribute('data-extracted')) return;
         if (!table.querySelector('td')) return; // header-only / empty — not worth a grid
-        table.setAttribute('data-extracted', '1');
-        var label = '';
-        var heading = precedingHeading(table);
-        if (heading) { label = (heading.textContent || '').trim(); heading.style.display = 'none'; }
+        var id = table.getAttribute('data-adhoc-id');
+        if (!id) {
+          id = 't' + (idSeq++);
+          table.setAttribute('data-adhoc-id', id);
+          var heading = precedingHeading(table);
+          table.setAttribute('data-adhoc-label', heading ? (heading.textContent || '').trim() : '');
+          if (heading) heading.style.display = 'none';
+          table.style.display = 'none';
+        }
         var s = serializeTable(table);
-        table.style.display = 'none';
-        extracted.push({ id: 't' + (tableSeq++), label: label, columns: s.columns, rows: s.rows });
-        added = true;
+        list.push({ id: id, label: table.getAttribute('data-adhoc-label') || '', columns: s.columns, rows: s.rows });
       });
-      return added;
+      extracted = list;
+      send({ type: 'tables', tables: extracted, hasNonTableContent: hasNonTableContent() });
     }
 
     // Report height on EVERY content change. Interactive reports grow the document after render
@@ -122,10 +128,10 @@ const BOOTSTRAP = `
       if (h !== lastH) { lastH = h; send({ type: 'resize', height: h }); }
     }
     try { new ResizeObserver(reportResize).observe(document.body); } catch (e) {}
-    // Pull out tables on any DOM change too — drill-down detail tables are appended after render.
-    // extractTables() marks each table, so hiding them can't loop.
+    // Re-publish tables on any DOM change — drill-down detail tables are appended/replaced after
+    // render. Only childList/subtree is observed (not attributes), so hiding a table doesn't re-loop.
     try {
-      new MutationObserver(function () { if (extractTables()) publishTables(); }).observe(
+      new MutationObserver(function () { extractAndPublish(); }).observe(
         document.body, { childList: true, subtree: true }
       );
     } catch (e) {}
@@ -146,15 +152,29 @@ const BOOTSTRAP = `
 
     window.addEventListener('message', function (ev) {
       var msg = ev && ev.data;
-      if (!msg || msg.type !== 'render') return;
+      if (!msg) return;
+      // Table-row drill-down: the parent grid posts the clicked row back; if the report registered a
+      // window.reportRowClick handler, run it (it appends/replaces a detail table, which the
+      // MutationObserver then lifts to the parent like any other table).
+      if (msg.type === 'rowClick') {
+        try {
+          if (typeof window.reportRowClick === 'function') window.reportRowClick(msg.row, msg.tableLabel);
+        } catch (e) {
+          send({ type: 'error', message: (e && e.message) ? String(e.message) : String(e) });
+        }
+        extractAndPublish();
+        reportResize();
+        return;
+      }
+      if (msg.type !== 'render') return;
       try {
         document.body.innerHTML = '';
         extracted = [];
-        tableSeq = 0;
+        idSeq = 0;
+        window.reportRowClick = null; // drop any handler from a previous report
         var fn = new Function('data', 'schema', 'Chart', msg.code);
         fn(msg.data, msg.schema, window.Chart);
-        extractTables();
-        publishTables(); // always — an empty list clears stale grids from the previous report
+        extractAndPublish(); // always — an empty list clears stale grids from the previous report
         var h = measure();
         lastH = h;
         send({ type: 'rendered', height: h });
@@ -269,6 +289,12 @@ export function ReportFrame({ code, data, schema, onError, reportTitle }: Report
     postRender();
   }, [postRender]);
 
+  // A row click in a lifted grid is posted back into the frame, where the report's optional
+  // window.reportRowClick handler can render a detail (drill-down) table.
+  const handleRowClick = useCallback((row: Record<string, string>, table: ExtractedTable): void => {
+    ref.current?.contentWindow?.postMessage({ type: 'rowClick', tableLabel: table.label, row }, '*');
+  }, []);
+
   return (
     <Box>
       {/* The frame stays mounted (it computes the tables), but collapses when there's nothing but
@@ -285,7 +311,7 @@ export function ReportFrame({ code, data, schema, onError, reportTitle }: Report
         />
       </Box>
       {tables.map((t) => (
-        <AdHocTableGrid key={t.id} table={t} reportTitle={reportTitle} />
+        <AdHocTableGrid key={t.id} table={t} reportTitle={reportTitle} onRowClick={handleRowClick} />
       ))}
     </Box>
   );
