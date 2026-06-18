@@ -22,6 +22,7 @@ const RESPONSE_SCHEMA = {
   properties: {
     title: { type: 'string' },
     code: { type: 'string' },
+    needsLayers: { type: 'array', items: { type: 'string' } },
   },
   required: ['code'],
 };
@@ -108,16 +109,21 @@ RULES:
   one visit" as "patients with follow-up encounters"). Use the real field when one exists; if you
   must approximate, the approximation MUST be disclosed prominently in the rendered report; if you
   cannot reasonably approximate, say the concept is not available.
-- POINT TO THE RIGHT DATA SOURCE when a concept is missing. The schema may include "availableLayers"
-  (opt-in data layers that EXIST for this dataset but are NOT currently loaded) and "otherDatasets"
-  (other datasets the user could pick). When the requested concept is not in "fields" but clearly
-  matches one of these by name/description (e.g. the user asks for prescribed drugs and a
-  "Medications (prescribed)" layer is listed in availableLayers, or asks about allergies and a
-  patient-focused dataset is listed in otherDatasets), do NOT approximate. Render the
-  "<concept> is not available in this dataset" note from the rule above AND tell the user the exact,
-  actionable next step — e.g. "Enable the 'Medications (prescribed)' checkbox and regenerate" or
-  "Switch to the '<dataset label>' dataset" — quoting the layer/dataset label verbatim from the
-  schema. Never invent a layer or dataset name that isn't listed.
+- AUTO-LOAD MISSING LAYERS — DON'T tell the user to enable anything. The schema may include
+  "availableLayers" (opt-in data layers that EXIST for this dataset but are NOT currently loaded; each
+  has an "id", "label", "description") and "otherDatasets" (other datasets the user could pick). When
+  the requested concept is not in "fields" but clearly matches an availableLayer by name/description
+  (e.g. the user asks for prescribed drugs and a "Medications" layer is listed, or asks about vitals
+  and a "Vital signs" layer is listed), put that layer's "id" into the response's "needsLayers" array.
+  The app will automatically fetch that layer and re-run you with the fuller schema — there are NO
+  checkboxes for the user to tick, so NEVER instruct them to "enable" a layer. For THIS render (before
+  the data arrives), render whatever parts of the request ARE computable and, for the missing part,
+  show a brief note like "Loading <concept> data…" instead of a hard "not available" message. Only
+  when the concept matches NO availableLayer but DOES match an "otherDatasets" entry, render the
+  "<concept> is not available in this dataset" note and tell the user to switch to that dataset
+  (quoting its label) — switching datasets is a real user choice. Use ONLY ids/labels that appear in
+  the schema; never invent one. If the requested concept matches neither, treat it as unavailable per
+  the no-fabrication rule.
 - DON'T RECALL CODE SETS FROM MEMORY. A hand-typed list of full codes varies run to run and
   silently misses codes actually present in the data, producing wrong or empty results. Instead:
   - ICD-10 is HIERARCHICAL — select a diagnosis FAMILY by category PREFIX
@@ -210,9 +216,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     const raw = await invokeChatbotVertexAI([{ text: prompt }], secrets, RESPONSE_SCHEMA, REPORT_MODEL);
 
-    let parsed: { code?: unknown; title?: unknown };
+    let parsed: { code?: unknown; title?: unknown; needsLayers?: unknown };
     try {
-      parsed = fixAndParseJsonObjectFromString(raw) as { code?: unknown; title?: unknown };
+      parsed = fixAndParseJsonObjectFromString(raw) as { code?: unknown; title?: unknown; needsLayers?: unknown };
     } catch {
       lastError = 'response was not valid JSON';
       continue;
@@ -237,9 +243,13 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       continue;
     }
 
+    const needsLayers = Array.isArray(parsed.needsLayers)
+      ? parsed.needsLayers.filter((id): id is string => typeof id === 'string')
+      : undefined;
     const output: GenerateAdHocReportOutput = {
       code: parsed.code,
       title: typeof parsed.title === 'string' ? parsed.title : undefined,
+      ...(needsLayers && needsLayers.length ? { needsLayers } : {}),
     };
     return { statusCode: 200, body: JSON.stringify(output) };
   }

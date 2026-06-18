@@ -1201,6 +1201,13 @@
       "src": "src/ehr/generate-adhoc-report/index",
       "zip": ".dist/zips/generate-adhoc-report.zip"
     },
+    "INFER-ADHOC-REPORT-LAYERS": {
+      "name": "infer-adhoc-report-layers",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/infer-adhoc-report-layers/index",
+      "zip": ".dist/zips/infer-adhoc-report-layers.zip"
+    },
     "ADHOC-ENCOUNTERS": {
       "name": "adhoc-encounters",
       "type": "http_auth",

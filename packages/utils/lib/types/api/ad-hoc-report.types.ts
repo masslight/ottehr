@@ -22,6 +22,32 @@ export interface GenerateAdHocReportOutput {
   code: string;
   /** Short human-readable title for the generated report. */
   title?: string;
+  /** Ids of opt-in layers the report needed but that were NOT loaded in the current fetch (drawn from
+   *  the schema's `availableLayers`). The client auto-fetches these and regenerates, so the user never
+   *  has to know a layer exists. Empty/absent when the loaded fetch already covered the request. */
+  needsLayers?: string[];
+}
+
+// ---------------------------------------------------------------------------
+// Layer inference. Before fetching, the client asks this endpoint which opt-in
+// data layers a plain-language request needs, so it can fetch exactly those
+// (instead of asking the user to tick checkboxes, or over-fetching everything).
+// ---------------------------------------------------------------------------
+
+export interface InferAdHocLayersInput {
+  /** The active dataset id (for context only). */
+  datasetId: string;
+  /** The dataset's opt-in layers to choose from (id + human description). */
+  layers: { id: string; label: string; description?: string }[];
+  /** The user's natural-language report request. */
+  request: string;
+  /** Prior turns, so a refinement that introduces a new concept can pull its layer too. */
+  conversation?: AdHocReportTurn[];
+}
+
+export interface InferAdHocLayersOutput {
+  /** Subset of the input layer ids whose data the request needs. May be empty. */
+  layerIds: string[];
 }
 
 // ---------------------------------------------------------------------------

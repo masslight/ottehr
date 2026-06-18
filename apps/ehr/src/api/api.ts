@@ -161,6 +161,8 @@ import {
   ImmunizationQuickPickData,
   IncompleteEncountersReportZambdaInput,
   IncompleteEncountersReportZambdaOutput,
+  InferAdHocLayersInput,
+  InferAdHocLayersOutput,
   InHouseGetOrdersResponseDTO,
   InHouseMedicationQuickPickData,
   InsuranceQuickPickData,
@@ -258,6 +260,7 @@ const SUBMIT_LAB_ORDER_ZAMBDA_ID = 'submit-lab-order';
 const GET_APPOINTMENTS_ZAMBDA_ID = 'get-appointments';
 const ENCOUNTERS_REPORT_ZAMBDA_ID = 'incomplete-encounters-report';
 const GENERATE_ADHOC_REPORT_ZAMBDA_ID = 'generate-adhoc-report';
+const INFER_ADHOC_REPORT_LAYERS_ZAMBDA_ID = 'infer-adhoc-report-layers';
 const ADHOC_ENCOUNTERS_ZAMBDA_ID = 'adhoc-encounters';
 const SAVE_ADHOC_REPORT_ZAMBDA_ID = 'save-adhoc-report';
 const LIST_ADHOC_REPORTS_ZAMBDA_ID = 'list-adhoc-reports';
@@ -470,6 +473,22 @@ export const generateAdHocReport = async (
   try {
     const response = await oystehr.zambda.execute({
       id: GENERATE_ADHOC_REPORT_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const inferAdHocReportLayers = async (
+  oystehr: Oystehr,
+  parameters: InferAdHocLayersInput
+): Promise<InferAdHocLayersOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: INFER_ADHOC_REPORT_LAYERS_ZAMBDA_ID,
       ...parameters,
     });
     return chooseJson(response);

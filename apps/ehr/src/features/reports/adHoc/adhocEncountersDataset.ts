@@ -480,9 +480,10 @@ export const adhocEncountersDataset: AdHocDataset = {
   fetch: fetchAdHocEncounters,
   buildSchema: (rows, options) => {
     const opts = options ?? {};
-    // Layers that exist but aren't loaded → the report can name the exact checkbox to enable
-    // instead of approximating a concept this fetch doesn't carry.
+    // Layers that exist but aren't loaded → the generator names the `id`s it needs in `needsLayers`
+    // and the client auto-fetches them, instead of approximating a concept this fetch doesn't carry.
     const availableLayers = ADHOC_ENCOUNTERS_OPTIONS.filter((o) => !opts[o.id]).map((o) => ({
+      id: o.id,
       label: o.label,
       description: o.description ?? '',
     }));

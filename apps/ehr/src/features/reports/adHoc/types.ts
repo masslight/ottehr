@@ -29,10 +29,10 @@ export interface DatasetSchema {
   description: string;
   rowCount: number;
   fields: FieldSchema[];
-  /** Opt-in layers that EXIST for this dataset but are NOT currently loaded. Lets a report tell the
-   *  user which checkbox to enable when they ask for a concept this fetch doesn't carry, instead of
-   *  silently approximating. */
-  availableLayers?: { label: string; description: string }[];
+  /** Opt-in layers that EXIST for this dataset but are NOT currently loaded. The generator returns the
+   *  `id`s it needs in `needsLayers`, and the client auto-fetches them and regenerates — so a report
+   *  never has to approximate a concept whose data simply wasn't loaded yet. */
+  availableLayers?: { id: string; label: string; description: string }[];
   /** Other datasets the user could switch to (label + what they cover), for the same purpose. */
   otherDatasets?: { label: string; description: string }[];
 }

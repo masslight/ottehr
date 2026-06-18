@@ -4,7 +4,6 @@ import SaveIcon from '@mui/icons-material/Save';
 import {
   Box,
   Button,
-  Checkbox,
   CircularProgress,
   Collapse,
   Dialog,
@@ -12,8 +11,6 @@ import {
   DialogContent,
   DialogTitle,
   FormControl,
-  FormControlLabel,
-  FormGroup,
   IconButton,
   InputLabel,
   MenuItem,
@@ -33,7 +30,7 @@ import { useSnackbar } from 'notistack';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { AdHocReportTurn, SavedAdHocReportDefinition } from 'utils';
-import { generateAdHocReport, listAdHocReports, saveAdHocReport } from '../../api/api';
+import { generateAdHocReport, inferAdHocReportLayers, listAdHocReports, saveAdHocReport } from '../../api/api';
 import { AD_HOC_DATASETS, getDataset, otherDatasetsFor } from '../../features/reports/adHoc/datasets';
 import { ReportFrame } from '../../features/reports/adHoc/ReportFrame';
 import { clearAdHocCriteria, peekAdHocCriteria } from '../../features/reports/adHoc/seed';
@@ -154,25 +151,42 @@ export default function AdHocReport(): React.ReactElement {
   const [saving, setSaving] = useState(false);
   const loadAttemptedRef = useRef(false);
 
-  const handleFetch = useCallback(async (): Promise<void> => {
-    if (!oystehrZambda) return;
-    const dataset = getDataset(datasetId);
-    if (!dataset) return;
-    setLoading(true);
-    setError(null);
-    setRows(null);
-    setSchema(null);
-    try {
-      const range = getDateRangeIso(dateRange);
-      const fetched = await dataset.fetch({ oystehrZambda, dateRange: range, options: datasetOptions });
-      setRows(fetched);
-      setSchema({ ...dataset.buildSchema(fetched, datasetOptions), otherDatasets: otherDatasetsFor(datasetId) });
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to fetch data');
-    } finally {
-      setLoading(false);
-    }
-  }, [oystehrZambda, datasetId, dateRange, getDateRangeIso, datasetOptions]);
+  // Fetch the dataset for `opts` (the layers to load), build the schema, and return both so a caller
+  // can use them immediately without waiting for setState. Also records the loaded layer set in
+  // `datasetOptions` so it's what gets persisted when the report is saved.
+  const fetchWithOptions = useCallback(
+    async (opts: Record<string, boolean>): Promise<{ rows: AdHocRow[]; schema: DatasetSchema } | null> => {
+      if (!oystehrZambda) return null;
+      const dataset = getDataset(datasetId);
+      if (!dataset) return null;
+      setLoading(true);
+      setError(null);
+      try {
+        const range = getDateRangeIso(dateRange);
+        const fetched = await dataset.fetch({ oystehrZambda, dateRange: range, options: opts });
+        const builtSchema: DatasetSchema = {
+          ...dataset.buildSchema(fetched, opts),
+          otherDatasets: otherDatasetsFor(datasetId),
+        };
+        setRows(fetched);
+        setSchema(builtSchema);
+        setDatasetOptions(opts);
+        return { rows: fetched, schema: builtSchema };
+      } catch (e) {
+        setError(e instanceof Error ? e.message : 'Failed to fetch data');
+        return null;
+      } finally {
+        setLoading(false);
+      }
+    },
+    [oystehrZambda, datasetId, dateRange, getDateRangeIso]
+  );
+
+  // Manual "Fetch data" button: load just the base dataset (current layer selection) so the user can
+  // preview the schema / row count. Generating a report does its own layer-aware fetch below.
+  const handleFetch = useCallback((): void => {
+    void fetchWithOptions(datasetOptions);
+  }, [fetchWithOptions, datasetOptions]);
 
   // "Customize" hand-off: dataset + range are pre-set from the criteria, so fetch immediately. The
   // controls stay visible, so the user can change the range and re-fetch. Skipped when opening a
@@ -181,63 +195,129 @@ export default function AdHocReport(): React.ReactElement {
   useEffect(() => {
     if (!criteria || criteriaFetchedRef.current || !oystehrZambda || searchParams.get('saved')) return;
     criteriaFetchedRef.current = true;
-    void handleFetch();
+    void fetchWithOptions(criteria?.options ?? defaultOptionsFor(datasetId));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [oystehrZambda]);
 
-  // Send schema + request (no rows) to the generate zambda; get back the JS the model wrote and
-  // run it in the sandboxed iframe. `conversation` carries prior request/code turns so follow-ups
-  // ("now group by month") modify the previous report instead of starting over.
-  const runGenerate = useCallback(
-    async (message: string, priorConversation: AdHocReportTurn[]): Promise<void> => {
-      if (!oystehrZambda || !schema) return;
+  // Ask the inference zambda which opt-in layers this request needs, and return the option map to
+  // fetch. Falls back to the dataset defaults on any failure — the generate step's `needsLayers` is
+  // the safety net that backfills anything the classifier misses.
+  const inferOptions = useCallback(
+    async (message: string): Promise<Record<string, boolean>> => {
+      const dataset = getDataset(datasetId);
+      const layers = dataset?.options ?? [];
+      const base = defaultOptionsFor(datasetId);
+      if (!oystehrZambda || layers.length === 0) return base;
+      try {
+        const { layerIds } = await inferAdHocReportLayers(oystehrZambda, {
+          datasetId,
+          layers: layers.map((l) => ({ id: l.id, label: l.label, description: l.description })),
+          request: message,
+        });
+        const out = { ...base };
+        layerIds.forEach((id) => {
+          if (id in out) out[id] = true;
+        });
+        return out;
+      } catch {
+        return base;
+      }
+    },
+    [oystehrZambda, datasetId]
+  );
+
+  // Send schema + request (no rows) to the generate zambda, run the returned JS in the sandboxed
+  // iframe, and record the turn. Returns the raw result so the orchestrator can react to needsLayers.
+  const callGenerate = useCallback(
+    async (
+      message: string,
+      priorConversation: AdHocReportTurn[],
+      useSchema: DatasetSchema
+    ): Promise<{ needsLayers?: string[] } | null> => {
+      if (!oystehrZambda) return null;
+      const result = await generateAdHocReport(oystehrZambda, {
+        schema: useSchema,
+        request: message,
+        conversation: priorConversation.length ? priorConversation : undefined,
+      });
+      setGeneratedCode(result.code);
+      setGeneratedTitle(result.title);
+      // Keep only the most recent exchanges so refine prompts stay bounded.
+      const next = [
+        ...priorConversation,
+        { role: 'user' as const, content: message },
+        { role: 'assistant' as const, content: result.code },
+      ].slice(-6);
+      conversationRef.current = next;
+      setConversation(next);
+      setRefineText('');
+      return result;
+    },
+    [oystehrZambda]
+  );
+
+  // The generate pipeline: (optionally) infer the needed layers, fetch them, generate the report, and
+  // if the report reports it still needs an un-loaded layer (`needsLayers`), fetch that and regenerate
+  // once. `infer` is true for a fresh request and false for a refinement (which reuses the loaded
+  // data, but still auto-fetches if the refinement introduces a new concept).
+  const orchestrate = useCallback(
+    async (message: string, priorConversation: AdHocReportTurn[], infer: boolean): Promise<void> => {
+      if (!oystehrZambda) return;
       setGenerating(true);
       setGenerateError(null);
       setRenderError(null);
       try {
-        const result = await generateAdHocReport(oystehrZambda, {
-          schema,
-          request: message,
-          conversation: priorConversation.length ? priorConversation : undefined,
-        });
-        setGeneratedCode(result.code);
-        setGeneratedTitle(result.title);
-        // Keep only the most recent exchanges so refine prompts stay bounded.
-        const next = [
-          ...priorConversation,
-          { role: 'user' as const, content: message },
-          { role: 'assistant' as const, content: result.code },
-        ].slice(-6);
-        conversationRef.current = next;
-        setConversation(next);
-        setRefineText('');
+        let activeOpts = datasetOptions;
+        let activeSchema = schema;
+        if (infer) {
+          activeOpts = await inferOptions(message);
+          const fetched = await fetchWithOptions(activeOpts);
+          if (!fetched) return;
+          activeSchema = fetched.schema;
+        } else if (!activeSchema) {
+          const fetched = await fetchWithOptions(activeOpts);
+          if (!fetched) return;
+          activeSchema = fetched.schema;
+        }
+
+        const result = await callGenerate(message, priorConversation, activeSchema);
+
+        // Safety net: the report named layers it needs that weren't loaded — fetch them and regenerate.
+        const wanted = (result?.needsLayers ?? []).filter((id) => id in activeOpts && !activeOpts[id]);
+        if (wanted.length) {
+          const merged = { ...activeOpts };
+          wanted.forEach((id) => (merged[id] = true));
+          const refetched = await fetchWithOptions(merged);
+          if (refetched) await callGenerate(message, priorConversation, refetched.schema);
+        }
       } catch (e) {
         setGenerateError(e instanceof Error ? e.message : 'Failed to generate report');
       } finally {
         setGenerating(false);
       }
     },
-    [oystehrZambda, schema]
+    [oystehrZambda, datasetOptions, schema, inferOptions, fetchWithOptions, callGenerate]
   );
 
-  // Fresh report: start a new conversation. Each user-initiated request gets a fresh auto-fix budget.
+  // Fresh report: start a new conversation, infer the layers. Each user-initiated request gets a
+  // fresh auto-fix budget.
   const handleGenerate = useCallback((): void => {
     if (!request.trim()) return;
     autoRetryRef.current = 0;
     setGeneratedCode(null);
-    void runGenerate(request, []);
-  }, [request, runGenerate]);
+    void orchestrate(request, [], true);
+  }, [request, orchestrate]);
 
-  // Refinement: continue the conversation. If the last attempt threw at runtime, feed the error to
-  // the model so it can self-correct even when the user just says "try again".
+  // Refinement: continue the conversation over the already-loaded data. If the last attempt threw at
+  // runtime, feed the error to the model so it can self-correct even when the user just says "try again".
   const handleRefine = useCallback((): void => {
     if (!refineText.trim()) return;
     autoRetryRef.current = 0;
     const message = renderError
       ? `The previous code failed at runtime with this error: "${renderError}". ${refineText}`
       : refineText;
-    void runGenerate(message, conversation);
-  }, [refineText, renderError, conversation, runGenerate]);
+    void orchestrate(message, conversation, false);
+  }, [refineText, renderError, conversation, orchestrate]);
 
   // When the generated code throws at runtime, transparently feed the error back and regenerate once
   // (e.g. a missing null-guard). This self-corrects the common runtime bugs instead of dead-ending on
@@ -250,12 +330,12 @@ export default function AdHocReport(): React.ReactElement {
           `The previous code threw at runtime: "${message}". Return corrected code that fixes this — ` +
           `guard against null/undefined values (some fields are null for some rows) — and otherwise ` +
           `fulfils the same request.`;
-        void runGenerate(fix, conversationRef.current);
+        void orchestrate(fix, conversationRef.current, false);
         return;
       }
       setRenderError(message);
     },
-    [runGenerate]
+    [orchestrate]
   );
 
   // Open from a saved tile (?saved=<id>): load the definition, set the controls from its criteria,
@@ -472,37 +552,39 @@ export default function AdHocReport(): React.ReactElement {
             </Button>
           </Box>
 
-          {/* Opt-in data layers for datasets that declare them — fewer = lighter/faster fetch. */}
-          {(getDataset(datasetId)?.options?.length ?? 0) > 0 && (
-            <Box sx={{ mb: 3 }}>
-              <Typography variant="caption" color="text.secondary">
-                Include extra data (heavier fetch):
-              </Typography>
-              <FormGroup row>
-                {getDataset(datasetId)?.options?.map((opt) => (
-                  <FormControlLabel
-                    key={opt.id}
-                    control={
-                      <Checkbox
-                        size="small"
-                        checked={!!datasetOptions[opt.id]}
-                        onChange={(e) => setDatasetOptions((prev) => ({ ...prev, [opt.id]: e.target.checked }))}
-                      />
-                    }
-                    label={
-                      <Typography variant="body2" title={opt.description}>
-                        {opt.label}
-                      </Typography>
-                    }
-                  />
-                ))}
-              </FormGroup>
-            </Box>
-          )}
-
           {error && (
             <Box sx={{ mb: 2, p: 2, bgcolor: 'error.light', borderRadius: 1 }}>
               <Typography color="error">{error}</Typography>
+            </Box>
+          )}
+
+          {/* Describe → generate. The right data layers are inferred from the request and fetched
+              automatically — there are no data-layer checkboxes to manage. The model only ever sees
+              the schema (column metadata), never the rows. */}
+          <Typography variant="subtitle1" sx={{ mb: 1 }}>
+            Describe the report you want
+          </Typography>
+          <TextField
+            multiline
+            minRows={2}
+            fullWidth
+            placeholder="e.g. Bar chart of visits per provider; or average time from check-in to exam room by location"
+            value={request}
+            onChange={(e) => setRequest(e.target.value)}
+            sx={{ mb: 1 }}
+          />
+          <Button
+            variant="contained"
+            onClick={handleGenerate}
+            disabled={generating || loading || !request.trim() || !oystehrZambda}
+            sx={{ mb: 2 }}
+          >
+            {generating || loading ? <CircularProgress size={20} /> : 'Generate report'}
+          </Button>
+
+          {generateError && (
+            <Box sx={{ mb: 2, p: 2, bgcolor: 'error.light', borderRadius: 1 }}>
+              <Typography color="error">{generateError}</Typography>
             </Box>
           )}
 
@@ -550,35 +632,6 @@ export default function AdHocReport(): React.ReactElement {
                   </Table>
                 </Paper>
               </Collapse>
-
-              {/* Report request → generate. The model gets schema + request only (no rows). Phase 3 will
-                execute the returned code on the fetched rows inside a sandboxed iframe. */}
-              <Typography variant="subtitle1" sx={{ mb: 1 }}>
-                Describe the report you want
-              </Typography>
-              <TextField
-                multiline
-                minRows={2}
-                fullWidth
-                placeholder="e.g. Bar chart of visits per provider; or a table of visit counts by location and month"
-                value={request}
-                onChange={(e) => setRequest(e.target.value)}
-                sx={{ mb: 1 }}
-              />
-              <Button
-                variant="contained"
-                onClick={handleGenerate}
-                disabled={generating || !request.trim()}
-                sx={{ mb: 2 }}
-              >
-                {generating ? <CircularProgress size={20} /> : 'Generate report'}
-              </Button>
-
-              {generateError && (
-                <Box sx={{ mb: 2, p: 2, bgcolor: 'error.light', borderRadius: 1 }}>
-                  <Typography color="error">{generateError}</Typography>
-                </Box>
-              )}
 
               {generatedCode && schema && (
                 <>

@@ -28,7 +28,7 @@ export function buildSchema(
     datasetId: string;
     label: string;
     description: string;
-    availableLayers?: { label: string; description: string }[];
+    availableLayers?: { id: string; label: string; description: string }[];
     otherDatasets?: { label: string; description: string }[];
   },
   fieldDefs: FieldDef[]

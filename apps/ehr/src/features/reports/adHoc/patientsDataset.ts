@@ -230,6 +230,7 @@ export const patientsDataset: AdHocDataset = {
   buildSchema: (rows, options) => {
     const opts = options ?? {};
     const availableLayers = ADHOC_PATIENTS_OPTIONS.filter((o) => !opts[o.id]).map((o) => ({
+      id: o.id,
       label: o.label,
       description: o.description ?? '',
     }));
