@@ -213,19 +213,75 @@ export const parseCoverageEligibilityResponse = (
             details['plans'] = plans;
           }
 
+          const additionalPayers = (Array.isArray(benefitList) ? benefitList : [])
+            .filter((benefit: any) => benefit?.['benefit_coverage_code'] === 'R')
+            .map((benefit: any) => {
+              const firstEntity = Array.isArray(benefit?.['entity']) ? benefit['entity'][0] : undefined;
+              return {
+                benefitRange: benefit?.['benefit'],
+                planSponsor: benefit?.['mco_name'],
+                planNetworkId: benefit?.['mco_number'],
+                payerName: firstEntity?.['entity_name'] || benefit?.['entity_name']?.[0],
+                payerID: firstEntity?.['entity_id'] || benefit?.['entity_id']?.[0],
+                payerRole: firstEntity?.['entity_description'] || benefit?.['entity_description']?.[0],
+                insuranceCode: benefit?.['insurance_type_code'],
+                insuranceDescription: benefit?.['insurance_type_description'],
+                notes: benefit?.['benefit_notes'],
+              };
+            })
+            .filter(
+              (payer) =>
+                payer.planSponsor ||
+                payer.planNetworkId ||
+                payer.payerName ||
+                payer.payerID ||
+                payer.benefitRange ||
+                payer.insuranceCode ||
+                payer.insuranceDescription ||
+                payer.notes
+            );
+
+          if (additionalPayers.length > 0) {
+            details['additionalPayers'] = additionalPayers;
+          }
+
           copay = benefitsTemp.filter((benefit) => benefit.coverageCode === 'A' || benefit.coverageCode === 'B');
           deductible = benefitsTemp.filter((benefit) => benefit.coverageCode === 'C');
 
-          const individualDeductible = deductible.filter((benefit) => benefit.levelCode === 'IND');
-          const familyDeductible = deductible.filter((benefit) => benefit.levelCode === 'FAM');
-          const outOfPocketMax = benefitsTemp.filter(
-            (benefit) => benefit.coverageCode === 'G' && benefit.levelCode === 'IND'
+          // The financial-details panel is labeled "(In-network)". Payers return separate lines for the
+          // same coverage level + period that differ only by network (e.g. an out-of-network 'N' Total and an
+          // in-network 'Y' Total). Excluding explicit out-of-network ('N') lines keeps the panel consistent;
+          // 'Y' (in-network), 'W' (not applicable) and undefined are retained so values aren't mixed across networks.
+          const isInNetwork = (benefit: PatientPaymentBenefit): boolean => benefit.inPlanNetworkCode !== 'N';
+
+          const individualDeductible = deductible.filter(
+            (benefit) => benefit.levelCode === 'IND' && isInNetwork(benefit)
           );
+          const familyDeductible = deductible.filter((benefit) => benefit.levelCode === 'FAM' && isInNetwork(benefit));
+          const outOfPocketMax = benefitsTemp.filter(
+            (benefit) => benefit.coverageCode === 'G' && benefit.levelCode === 'IND' && isInNetwork(benefit)
+          );
+
+          // Some payers (e.g. Medicaid FFS) report deductibles per service with no coverage-level
+          // (IND/FAM) or time-period (23/24/29) qualifiers. When no qualified individual-deductible
+          // line is present but every reported deductible line is $0, surface $0 ("no deductible
+          // applies") instead of leaving the amounts undefined (which renders as "Unknown").
+          const allDeductiblesAreZero =
+            deductible.length > 0 && deductible.every((benefit) => benefit.amountInUSD === 0);
+          const individualDeductibleFallback =
+            individualDeductible.length === 0 && allDeductiblesAreZero ? 0 : undefined;
+
           financialDetails.push({
             name: 'Individual Deductible',
-            paid: individualDeductible.find((benefit) => benefit.periodCode === '24')?.amountInUSD,
-            total: individualDeductible.find((benefit) => benefit.periodCode === '23')?.amountInUSD,
-            remaining: individualDeductible.find((benefit) => benefit.periodCode === '29')?.amountInUSD,
+            paid:
+              individualDeductible.find((benefit) => benefit.periodCode === '24')?.amountInUSD ??
+              individualDeductibleFallback,
+            total:
+              individualDeductible.find((benefit) => benefit.periodCode === '23')?.amountInUSD ??
+              individualDeductibleFallback,
+            remaining:
+              individualDeductible.find((benefit) => benefit.periodCode === '29')?.amountInUSD ??
+              individualDeductibleFallback,
           });
           financialDetails.push({
             name: 'Family Deductible',
@@ -291,6 +347,8 @@ export const parseObjectsToCopayBenefits = (input: any[]): PatientPaymentBenefit
         description: item['benefit_description'] ?? CoverageCodeToDescriptionMap[benefitCoverageCode] ?? '',
         // cSpell:disable-next in plan network
         inNetwork: item['inplan_network'] === 'Y',
+        // cSpell:disable-next in plan network
+        inPlanNetworkCode: item['inplan_network'],
         coverageDescription: item['benefit_coverage_description'] ?? '',
         coverageCode: benefitCoverageCode,
         periodDescription: item['benefit_period_description'] ?? '',
@@ -300,6 +358,7 @@ export const parseObjectsToCopayBenefits = (input: any[]): PatientPaymentBenefit
         policyNumber: item['policy_number'] ?? '',
         insuranceCode: item['insurance_type_code'] ?? '',
         insuranceDescription: item['insurance_type_description'] ?? '',
+        benefitNotes: item['benefit_notes'] ?? '',
         insurancePlan: item['insurance_plan'],
         payerName: item['entity_name']?.[0],
         payerID: item['entity_id']?.[0],

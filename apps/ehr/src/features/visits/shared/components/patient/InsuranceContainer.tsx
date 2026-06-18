@@ -8,6 +8,7 @@ import {
   Grid,
   IconButton,
   LinearProgress,
+  Paper,
   Typography,
   useTheme,
 } from '@mui/material';
@@ -285,7 +286,15 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
       if (dateISO) {
         try {
           const dt = new Date(dateISO);
-          return `Last checked: ${dt.toLocaleDateString()}`;
+          const formattedTime = dt
+            .toLocaleTimeString([], {
+              hour: '2-digit',
+              minute: '2-digit',
+              second: '2-digit',
+              hour12: true,
+            })
+            .toLowerCase();
+          return `Last checked: ${dt.toLocaleDateString()} ${formattedTime}`;
         } catch {
           return '';
         }
@@ -410,6 +419,20 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
   }
 
   const BenefitProgressDetails = ({ detail }: { detail: FinancialDetails }): ReactElement => {
+    // When this category has no meaningful breakdown (every value is unknown or $0), show a single
+    // summary line ("Name: $0" or "Name: Unspecified") instead of the progress bar and paid/total/
+    // remaining rows. "$0" when any value is a known zero, "Unspecified" when nothing was reported.
+    const values = [detail.paid, detail.total, detail.remaining];
+    const hasPositiveValue = values.some((value) => typeof value === 'number' && value > 0);
+    if (!hasPositiveValue) {
+      const summaryLabel = values.some((value) => value === 0) ? '$0' : 'Unspecified';
+      return (
+        <Typography variant="body1" color={theme.palette.primary.dark}>
+          {detail.name}: <strong>{summaryLabel}</strong>
+        </Typography>
+      );
+    }
+
     return (
       <>
         <Typography variant="body1" color={theme.palette.primary.dark}>
@@ -462,6 +485,49 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
             marginTop: 2,
           }}
         >
+          {(() => {
+            const eligibilityErrorDetails = getErrorDetailsFromCoverageResponse(getCurrentEligibilityData());
+            if (!eligibilityErrorDetails || eligibilityErrorDetails.length === 0) {
+              return null;
+            }
+            return (
+              <Paper
+                elevation={0}
+                sx={{
+                  mb: 4,
+                  ml: -2,
+                  width: 'calc(100% + 16px)',
+                  p: 2,
+                  backgroundColor: '#fef2f2',
+                  border: '1px solid #fecaca',
+                  borderRadius: 1,
+                }}
+              >
+                <Typography
+                  variant="h5"
+                  color={theme.palette.error.dark}
+                  fontWeight={theme.typography.fontWeightBold}
+                  sx={{ mb: 1 }}
+                >
+                  Eligibility not confirmed
+                </Typography>
+                {eligibilityErrorDetails.map((error, index) => (
+                  <Box key={index} sx={{ mb: index < eligibilityErrorDetails.length - 1 ? 1 : 0 }}>
+                    {error.code && (
+                      <Typography variant="body2" color={theme.palette.error.dark}>
+                        Error Code: {error.code}
+                      </Typography>
+                    )}
+                    {error.text && (
+                      <Typography variant="body2" color={theme.palette.error.dark} sx={{ mt: 0.5 }}>
+                        Error Message: {error.text}
+                      </Typography>
+                    )}
+                  </Box>
+                ))}
+              </Paper>
+            );
+          })()}
           <CopayWidget copay={copayBenefits} />
           <Grid
             sx={{

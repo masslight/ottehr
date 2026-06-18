@@ -20,6 +20,7 @@
     "report-provider-visists": "tsx src/scripts/report-provider-visists.ts",
     "get-coverage-eligibility-responses": "tsx src/scripts/get-coverage-eligibility-responses.ts",
     "export-coverage-eligibility-responses": "tsx src/scripts/export-coverage-eligibility-responses.ts",
+    "merge-coverage-eligibility-benefits": "tsx src/scripts/merge-coverage-eligibility-benefits.ts",
     "export-rendering-providers": "tsx src/scripts/export-rendering-providers.ts",
     "download-eras": "tsx src/scripts/download-eras.ts",
     "get-rcm-tasks": "tsx src/scripts/get-rcm-tasks.ts",

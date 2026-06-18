@@ -186,6 +186,7 @@ export interface CoverageBenefitInfo {
   policyNumber?: string;
   insuranceCode?: string;
   insuranceDescription?: string;
+  benefitNotes?: string;
   insurancePlan?: string;
   payerName?: string;
   payerID?: string;
@@ -199,6 +200,8 @@ export interface CoverageBenefitInfo {
   levelCode: string;
 
   inNetwork: boolean;
+  // Raw X12 in-plan-network indicator (EB12): 'Y' in-network, 'N' out-of-network, 'W' not applicable, 'U' unknown.
+  inPlanNetworkCode?: string;
 }
 
 export interface CoverageBenefit extends CoverageBenefitInfo {
@@ -264,6 +267,19 @@ export interface InsuranceDetails {
     payerID?: string | undefined;
     insuranceCode?: string | undefined;
     insuranceDescription?: string | undefined;
+  }>;
+  // Entries derived from benefit lines marked as "Other or Additional Payor"
+  // (coverage code R), including sponsor/network identifiers when present.
+  additionalPayers?: Array<{
+    benefitRange?: string | undefined;
+    planSponsor?: string | undefined;
+    planNetworkId?: string | undefined;
+    payerName?: string | undefined;
+    payerID?: string | undefined;
+    payerRole?: string | undefined;
+    insuranceCode?: string | undefined;
+    insuranceDescription?: string | undefined;
+    notes?: string | undefined;
   }>;
 }
 
