@@ -1,124 +1,79 @@
 import { ChangeEvent, useCallback, useState } from 'react';
-import { cmToInches, heightCmToFeetInches, VitalFieldNames, VitalsHeightObservationDTO } from 'utils';
+import { HEIGHT_CM_DISPLAY_PRECISION, HeightMeasurement, VitalFieldNames, VitalsHeightObservationDTO } from 'utils';
 import { HeightLocalState } from '../types';
-import {
-  textToHeightNumber,
-  textToHeightNumberFromFeetAndInchRemainder,
-  textToHeightNumberFromInches,
-} from './helpers';
+
+type HeightField = 'cm' | 'inches' | 'feet' | 'inchRemainder';
+
+const asText = (value: number | undefined): string => (value === undefined ? '' : `${value}`);
 
 export function useHeightLocalState(): HeightLocalState {
-  const [heightValueTextCm, setHeightValueTextCm] = useState('');
-  const [heightValueTextInches, setHeightValueTextInches] = useState('');
-  const [heightValueTextFeet, setHeightValueTextFeet] = useState('');
-  const [heightValueTextInchRemainder, setHeightValueTextInchRemainder] = useState('');
+  const [measurement, setMeasurement] = useState<HeightMeasurement | undefined>(undefined);
+  // The field being typed in + its raw text. Every other field is derived from
+  // `measurement`, so the inputs can never drift apart. We only keep raw text
+  // for the active field so in-progress values like "169." aren't reparsed away.
+  const [editing, setEditing] = useState<{ field: HeightField; text: string } | undefined>(undefined);
   const [isValidationError, setValidationError] = useState<boolean>(false);
 
   const handleCmChange = useCallback((e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>): void => {
-    const cmAsText = e.target.value;
+    const text = e.target.value;
     setValidationError(false);
-    setHeightValueTextCm(cmAsText);
-    const heightCm = textToHeightNumber(cmAsText);
-    if (heightCm) {
-      const { totalInches, feet, inchRemainder } = heightCmToFeetInches(heightCm);
-      setHeightValueTextInches(`${totalInches}`);
-      setHeightValueTextFeet(`${feet}`);
-      setHeightValueTextInchRemainder(`${inchRemainder}`);
-    } else {
-      setHeightValueTextInches('');
-      setHeightValueTextFeet('');
-      setHeightValueTextInchRemainder('');
-    }
+    setEditing({ field: 'cm', text });
+    setMeasurement(HeightMeasurement.fromCmText(text));
   }, []);
 
   const handleInchesChange = useCallback((e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>): void => {
-    const inchesAsText = e.target.value;
+    const text = e.target.value;
     setValidationError(false);
-    setHeightValueTextInches(inchesAsText);
-    const heightCm = textToHeightNumberFromInches(inchesAsText);
-    if (heightCm) {
-      setHeightValueTextCm(heightCm.toString());
-      const { feet, inchRemainder } = heightCmToFeetInches(heightCm);
-      setHeightValueTextFeet(`${feet}`);
-      setHeightValueTextInchRemainder(`${inchRemainder}`);
-    } else {
-      setHeightValueTextCm('');
-      setHeightValueTextFeet('');
-      setHeightValueTextInchRemainder('');
-    }
-  }, []);
-
-  const applyFeetAndInchRemainderToCm = useCallback((feetAsText: string, inchRemainderAsText: string): void => {
-    const heightCm = textToHeightNumberFromFeetAndInchRemainder(feetAsText, inchRemainderAsText);
-    if (heightCm) {
-      setHeightValueTextCm(heightCm.toString());
-      setHeightValueTextInches(`${cmToInches(heightCm)}`);
-    } else {
-      setHeightValueTextCm('');
-      setHeightValueTextInches('');
-    }
+    setEditing({ field: 'inches', text });
+    setMeasurement(HeightMeasurement.fromInchesText(text));
   }, []);
 
   const handleFeetChange = useCallback(
     (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>): void => {
-      const feetAsText = e.target.value;
+      const text = e.target.value;
+      const inchRemainder = editing?.field === 'inchRemainder' ? editing.text : asText(measurement?.getInchRemainder());
       setValidationError(false);
-      setHeightValueTextFeet(feetAsText);
-      applyFeetAndInchRemainderToCm(feetAsText, heightValueTextInchRemainder);
+      setEditing({ field: 'feet', text });
+      setMeasurement(HeightMeasurement.fromFeetInchesText(text, inchRemainder));
     },
-    [applyFeetAndInchRemainderToCm, heightValueTextInchRemainder]
+    [editing, measurement]
   );
 
   const handleInchRemainderChange = useCallback(
     (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>): void => {
-      const inchRemainderAsText = e.target.value;
+      const text = e.target.value;
+      const feet = editing?.field === 'feet' ? editing.text : asText(measurement?.getFeet());
       setValidationError(false);
-      setHeightValueTextInchRemainder(inchRemainderAsText);
-      applyFeetAndInchRemainderToCm(heightValueTextFeet, inchRemainderAsText);
+      setEditing({ field: 'inchRemainder', text });
+      setMeasurement(HeightMeasurement.fromFeetInchesText(feet, text));
     },
-    [applyFeetAndInchRemainderToCm, heightValueTextFeet]
+    [editing, measurement]
   );
 
   const clearForm = useCallback(() => {
-    setHeightValueTextCm('');
-    setHeightValueTextInches('');
-    setHeightValueTextFeet('');
-    setHeightValueTextInchRemainder('');
+    setMeasurement(undefined);
+    setEditing(undefined);
     setValidationError(false);
   }, []);
 
   const getDTO = useCallback((): VitalsHeightObservationDTO | null => {
-    let heightValueNumber: number | undefined;
-    if (heightValueTextCm) {
-      heightValueNumber = textToHeightNumber(heightValueTextCm);
-    } else if (heightValueTextInches) {
-      heightValueNumber = textToHeightNumberFromInches(heightValueTextInches);
-    } else if (heightValueTextFeet || heightValueTextInchRemainder) {
-      heightValueNumber = textToHeightNumberFromFeetAndInchRemainder(heightValueTextFeet, heightValueTextInchRemainder);
-    }
-    if (!heightValueNumber) return null;
-    return {
-      field: VitalFieldNames.VitalHeight,
-      value: heightValueNumber,
-    };
-  }, [heightValueTextCm, heightValueTextInches, heightValueTextFeet, heightValueTextInchRemainder]);
+    if (!measurement) return null;
+    return { field: VitalFieldNames.VitalHeight, value: measurement.getCm() };
+  }, [measurement]);
 
-  const hasData =
-    heightValueTextCm.length > 0 ||
-    heightValueTextInches.length > 0 ||
-    heightValueTextFeet.length > 0 ||
-    heightValueTextInchRemainder.length > 0;
-  const isValid = getDTO() !== null;
-  const isDisabled =
-    !heightValueTextCm && !heightValueTextInches && !heightValueTextFeet && !heightValueTextInchRemainder;
+  const valueFor = (field: HeightField, derived: number | undefined): string =>
+    editing?.field === field ? editing.text : asText(derived);
+
+  const isValid = measurement !== undefined;
+  const hasData = isValid || (editing?.text.length ?? 0) > 0;
 
   return {
-    valueCm: heightValueTextCm,
-    valueInches: heightValueTextInches,
-    valueFeet: heightValueTextFeet,
-    valueInchRemainder: heightValueTextInchRemainder,
+    valueCm: valueFor('cm', measurement?.getCm(HEIGHT_CM_DISPLAY_PRECISION)),
+    valueInches: valueFor('inches', measurement?.getInches()),
+    valueFeet: valueFor('feet', measurement?.getFeet()),
+    valueInchRemainder: valueFor('inchRemainder', measurement?.getInchRemainder()),
     validationError: isValidationError,
-    isDisabled,
+    isDisabled: !hasData,
     hasData,
     isValid,
     handleCmChange,
