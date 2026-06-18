@@ -381,6 +381,50 @@ export const UpdateBillingResourceInputSchema = z.discriminatedUnion('resourceTy
   }),
 ]);
 
+export const SearchChargeItemDefinitionsInputSchema = z.object({
+  type: z.enum(['charge-master', 'fee-schedule']),
+  name: nonEmptyString.optional(),
+  offset: nonNegativeInt.optional().default(0),
+  pageSize: nonNegativeInt.optional().default(25),
+});
+
+export const CreateChargeItemDefinitionInputSchema = z.object({
+  type: z.enum(['charge-master', 'fee-schedule']),
+  name: nonEmptyString,
+  effectiveDate: nonEmptyString.optional(),
+  description: nonEmptyString.optional(),
+  default: z.enum(['insurance', 'self-pay']).optional(),
+});
+
+export const GetChargeItemDefinitionInputSchema = z.object({
+  type: z.enum(['charge-master', 'fee-schedule']),
+  id: nonEmptyString.uuid(),
+});
+
+export const UpdateChargeItemDefinitionInputSchema = z.object({
+  type: z.enum(['charge-master', 'fee-schedule']),
+  id: nonEmptyString.uuid(),
+  name: nonEmptyString.optional(),
+  status: z.enum(['active', 'retired']).optional(),
+  effectiveDate: nonEmptyString.nullable().optional(),
+  description: nonEmptyString.nullable().optional(),
+  default: z.enum(['insurance', 'self-pay']).nullable().optional(),
+  procedureCodes: z
+    .array(
+      z.object({
+        code: nonEmptyString,
+        modifier: nonEmptyString.optional(),
+        amount: z.number().nonnegative(),
+      })
+    )
+    .optional(),
+});
+
+export const DeleteChargeItemDefinitionInputSchema = z.object({
+  type: z.enum(['charge-master', 'fee-schedule']),
+  id: nonEmptyString.uuid(),
+});
+
 export type GetClaimDetailInput = z.infer<typeof GetClaimDetailInputSchema>;
 export type GetEraDetailInput = z.infer<typeof GetEraDetailInputSchema>;
 export type SearchErasInput = z.infer<typeof SearchErasInputSchema>;
@@ -405,3 +449,8 @@ export type CreateBillingWorkingCopyInput = z.infer<typeof CreateBillingWorkingC
 export type CreateBillingClaimFromEncounterInput = z.input<typeof CreateBillingClaimFromEncounterInputSchema>;
 export type UpdateBillingResourceInput = z.infer<typeof UpdateBillingResourceInputSchema>;
 export type BillingResourceType = (typeof ALLOWED_BILLING_RESOURCE_TYPES)[number];
+export type SearchChargeItemDefinitionsInput = z.infer<typeof SearchChargeItemDefinitionsInputSchema>;
+export type CreateChargeItemDefinitionInput = z.infer<typeof CreateChargeItemDefinitionInputSchema>;
+export type GetChargeItemDefinitionInput = z.infer<typeof GetChargeItemDefinitionInputSchema>;
+export type UpdateChargeItemDefinitionInput = z.infer<typeof UpdateChargeItemDefinitionInputSchema>;
+export type DeleteChargeItemDefinitionInput = z.infer<typeof DeleteChargeItemDefinitionInputSchema>;
