@@ -398,8 +398,12 @@ function InsuranceTab({ patientId }: { patientId: string }): ReactElement {
     void fetchCoverages();
   }, [fetchCoverages]);
 
+  // Priorities (1/2) already held by active coverages — one coverage per priority.
+  const activeOrders = coverages
+    .filter((c) => c.status !== 'cancelled' && c.order !== undefined)
+    .map((c) => c.order as number);
   // Default a new coverage to primary unless one already exists, then secondary.
-  const defaultOrder: 1 | 2 = coverages.some((c) => c.order === 1) ? 2 : 1;
+  const defaultOrder: 1 | 2 = activeOrders.includes(1) ? 2 : 1;
 
   if (loading && coverages.length === 0) {
     return (
@@ -426,12 +430,20 @@ function InsuranceTab({ patientId }: { patientId: string }): ReactElement {
           No insurance coverages on file.
         </Typography>
       ) : (
-        coverages.map((coverage) => <CoverageCard key={coverage.id} coverage={coverage} onChanged={fetchCoverages} />)
+        coverages.map((coverage) => (
+          <CoverageCard
+            key={coverage.id}
+            coverage={coverage}
+            unavailableOrders={activeOrders.filter((o) => o !== coverage.order)}
+            onChanged={fetchCoverages}
+          />
+        ))
       )}
       <AddCoverageDialog
         open={addOpen}
         patientId={patientId}
         defaultOrder={defaultOrder}
+        unavailableOrders={activeOrders}
         onClose={() => setAddOpen(false)}
         onCreated={() => void fetchCoverages()}
       />
@@ -441,9 +453,11 @@ function InsuranceTab({ patientId }: { patientId: string }): ReactElement {
 
 function CoverageCard({
   coverage,
+  unavailableOrders,
   onChanged,
 }: {
   coverage: BillingCoverageOption;
+  unavailableOrders: number[];
   onChanged: () => Promise<void>;
 }): ReactElement {
   const { oystehrZambda } = useApiClients();
@@ -464,7 +478,7 @@ function CoverageCard({
 
   const handleSave = async (): Promise<string | null> => {
     if (!oystehrZambda || !coverage.id) return 'Client not ready';
-    const validationError = validateCoverageForm(form, false);
+    const validationError = validateCoverageForm(form, false, unavailableOrders);
     if (validationError) return validationError;
     try {
       await updateBillingCoverage(oystehrZambda, coverageToUpdateInput(form, coverage.id));
@@ -499,7 +513,14 @@ function CoverageCard({
       title={title}
       onSave={handleSave}
       onCancel={resetForm}
-      editForm={<CoverageFormFields value={form} onChange={setForm} payerPlaceholder={coverage.payorName} />}
+      editForm={
+        <CoverageFormFields
+          value={form}
+          onChange={setForm}
+          payerPlaceholder={coverage.payorName}
+          unavailableOrders={unavailableOrders}
+        />
+      }
     >
       <DetailRow label="Payer" value={coverage.payorName} labelWidth={170} />
       <DetailRow label="Payer ID" value={coverage.payorId} labelWidth={170} />

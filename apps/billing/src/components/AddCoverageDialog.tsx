@@ -106,9 +106,15 @@ export function coverageFormFromOption(option: BillingCoverageOption): CoverageF
   };
 }
 
-export function validateCoverageForm(state: CoverageFormState, payerRequired: boolean): string | null {
+export function validateCoverageForm(
+  state: CoverageFormState,
+  payerRequired: boolean,
+  unavailableOrders: number[] = []
+): string | null {
   if (payerRequired && !state.payer) return 'Choose a payer';
   if (!state.memberId.trim()) return 'Member / Subscriber ID is required';
+  if (unavailableOrders.includes(state.order))
+    return `This patient already has a ${state.order === 2 ? 'secondary' : 'primary'} coverage.`;
   if (!state.relationship) return 'Choose the relationship to insured';
   if (state.relationship !== 'Self') {
     if (!state.firstName.trim() || !state.lastName.trim()) return "Policy holder's first and last name are required";
@@ -166,9 +172,16 @@ interface CoverageFormFieldsProps {
   onChange: (next: CoverageFormState) => void;
   // Placeholder for the payer autocomplete (e.g. the current payer when editing).
   payerPlaceholder?: string;
+  // Priorities already held by other active coverages (disabled in the Priority dropdown).
+  unavailableOrders?: number[];
 }
 
-export function CoverageFormFields({ value, onChange, payerPlaceholder }: CoverageFormFieldsProps): ReactElement {
+export function CoverageFormFields({
+  value,
+  onChange,
+  payerPlaceholder,
+  unavailableOrders = [],
+}: CoverageFormFieldsProps): ReactElement {
   const { oystehrZambda } = useApiClients();
   const [payerOptions, setPayerOptions] = useState<BillingPayerOption[]>([]);
   const searchTimer = useRef<ReturnType<typeof setTimeout>>();
@@ -233,8 +246,12 @@ export function CoverageFormFields({ value, onChange, payerPlaceholder }: Covera
             value={value.order}
             onChange={(e) => set('order', Number(e.target.value) === 2 ? 2 : 1)}
           >
-            <MenuItem value={1}>Primary</MenuItem>
-            <MenuItem value={2}>Secondary</MenuItem>
+            <MenuItem value={1} disabled={unavailableOrders.includes(1)}>
+              Primary{unavailableOrders.includes(1) ? ' (already on file)' : ''}
+            </MenuItem>
+            <MenuItem value={2} disabled={unavailableOrders.includes(2)}>
+              Secondary{unavailableOrders.includes(2) ? ' (already on file)' : ''}
+            </MenuItem>
           </Select>
         </Field>
         <Field label="Coverage status">
@@ -385,6 +402,8 @@ interface AddCoverageDialogProps {
   open: boolean;
   patientId: string;
   defaultOrder: 1 | 2;
+  // Priorities already held by active coverages (disabled / blocked in the form).
+  unavailableOrders?: number[];
   onClose: () => void;
   onCreated: () => void;
 }
@@ -393,6 +412,7 @@ export function AddCoverageDialog({
   open,
   patientId,
   defaultOrder,
+  unavailableOrders = [],
   onClose,
   onCreated,
 }: AddCoverageDialogProps): ReactElement {
@@ -410,7 +430,7 @@ export function AddCoverageDialog({
 
   const handleSave = async (): Promise<void> => {
     if (!oystehrZambda) return;
-    const validationError = validateCoverageForm(form, true);
+    const validationError = validateCoverageForm(form, true, unavailableOrders);
     if (validationError) {
       setError(validationError);
       return;
@@ -444,7 +464,7 @@ export function AddCoverageDialog({
           </Alert>
         )}
         <Box sx={{ mt: 0.5 }}>
-          <CoverageFormFields value={form} onChange={setForm} />
+          <CoverageFormFields value={form} onChange={setForm} unavailableOrders={unavailableOrders} />
         </Box>
       </DialogContent>
       <DialogActions sx={{ px: 3, py: 2.5 }}>

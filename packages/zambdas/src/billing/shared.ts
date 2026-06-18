@@ -538,3 +538,37 @@ export async function unlinkCoverageFromAccount(
   account.coverage = remaining;
   await oystehr.fhir.update<Account>(account);
 }
+
+export function coverageOrderLabel(order: number): string {
+  return order === 2 ? 'secondary' : 'primary';
+}
+
+// Find an active (non-cancelled) coverage already occupying the given priority for the patient.
+// Effective order is the Account.coverage priority, falling back to Coverage.order.
+export async function findCoverageOccupyingOrder(
+  oystehr: Oystehr,
+  patientId: string,
+  order: number,
+  excludeCoverageId?: string
+): Promise<Coverage | undefined> {
+  const [response, account] = await Promise.all([
+    oystehr.fhir.search<Coverage>({
+      resourceType: 'Coverage',
+      params: [{ name: 'beneficiary', value: `Patient/${patientId}` }, ...EXCLUDE_WORKING_COPIES_PARAMS],
+    }),
+    getPatientBillingAccount(oystehr, patientId),
+  ]);
+
+  const priorityByRef = new Map<string, number>();
+  account?.coverage?.forEach((entry) => {
+    if (entry.coverage?.reference && entry.priority !== undefined) {
+      priorityByRef.set(entry.coverage.reference, entry.priority);
+    }
+  });
+
+  return response.unbundle().find((cov) => {
+    if (cov.id === excludeCoverageId || cov.status === 'cancelled') return false;
+    const effectiveOrder = priorityByRef.get(`Coverage/${cov.id}`) ?? cov.order;
+    return effectiveOrder === order;
+  });
+}

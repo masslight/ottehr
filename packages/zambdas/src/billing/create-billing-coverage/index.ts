@@ -1,11 +1,14 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Coverage, Patient } from 'fhir/r4b';
+import { APIErrorCode } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import {
   buildBillingCoverage,
+  coverageOrderLabel,
   createBillingClient,
   fetchById,
+  findCoverageOccupyingOrder,
   getPayerOrgById,
   linkCoverageToAccount,
   toAddressParts,
@@ -25,6 +28,17 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 });
 
 async function performEffect(oystehr: Oystehr, params: CreateBillingCoverageParams): Promise<{ id: string }> {
+  // Only one coverage may hold each priority (primary / secondary) per patient.
+  const occupying = await findCoverageOccupyingOrder(oystehr, params.patientId, params.order);
+  if (occupying) {
+    throw {
+      code: APIErrorCode.ALREADY_EXISTS,
+      message: `This patient already has a ${coverageOrderLabel(
+        params.order
+      )} coverage. Remove or change it before adding another.`,
+    };
+  }
+
   const payerOrg = await getPayerOrgById(oystehr, params.payerId);
 
   const policyHolder = params.policyHolder ? { ...params.policyHolder } : undefined;

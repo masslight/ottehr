@@ -1,11 +1,13 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Coverage, Patient } from 'fhir/r4b';
-import { FHIR_RESOURCE_NOT_FOUND } from 'utils';
+import { APIErrorCode, FHIR_RESOURCE_NOT_FOUND } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import {
+  coverageOrderLabel,
   createBillingClient,
   fetchById,
+  findCoverageOccupyingOrder,
   getPayerOrgById,
   linkCoverageToAccount,
   setCoveragePayer,
@@ -33,6 +35,19 @@ async function performEffect(
   const coverage = await fetchById<Coverage>(oystehr, 'Coverage', params.coverageId);
   const patientId = coverage.beneficiary?.reference?.split('/')[1];
   if (!patientId) throw FHIR_RESOURCE_NOT_FOUND('Patient');
+
+  // Don't let this coverage take a priority another active coverage already holds.
+  if (params.order !== undefined) {
+    const occupying = await findCoverageOccupyingOrder(oystehr, patientId, params.order, params.coverageId);
+    if (occupying) {
+      throw {
+        code: APIErrorCode.ALREADY_EXISTS,
+        message: `This patient already has a ${coverageOrderLabel(
+          params.order
+        )} coverage. Remove or change it before assigning another.`,
+      };
+    }
+  }
 
   if (params.status) coverage.status = params.status;
 
