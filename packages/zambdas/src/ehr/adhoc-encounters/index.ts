@@ -5,6 +5,7 @@ import {
   DiagnosticReport,
   DocumentReference,
   Encounter,
+  FhirResource,
   Location,
   Medication,
   MedicationAdministration,
@@ -107,42 +108,17 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createOystehrClient(m2mToken, secrets);
 
-  type ReportResource =
-    | Appointment
-    | Encounter
-    | Patient
-    | Location
-    | Practitioner
-    | Condition
-    | Procedure
-    | DocumentReference
-    | MedicationRequest
-    | MedicationAdministration
-    | MedicationStatement
-    | Observation
-    | ServiceRequest
-    | DiagnosticReport;
+  // The main search returns only this bounded set; opt-in layer resources come from fetchScoped below.
+  type ReportResource = Appointment | Encounter | Patient | Location | Practitioner;
   let allResources: ReportResource[] = [];
   let offset = 0;
-  // Adaptive page size: each opt-in layer adds included resources per appointment, and the FHIR
-  // server caps response size (~6MB). The Observation include is the heaviest (every exam/ROS/vitals
-  // observation), so shrink the page hardest for it; other includes shrink it moderately. Pagination
-  // (and the client-side date batching for long ranges) makes up the difference.
-  const obsHeavy = includeVitals || includeExamRos || includeIntake;
-  const anyHeavy =
-    obsHeavy ||
-    includeCodes ||
-    includeAi ||
-    includeMedications ||
-    includeLabs ||
-    includeImaging ||
-    includeImmunizations ||
-    includeDisposition ||
-    includeResults ||
-    includeNursing ||
-    includeDocuments;
-  const pageSize = obsHeavy ? 150 : anyHeavy ? 500 : 1000;
+  const pageSize = 1000;
 
+  // The main search stays LIGHT — only the bounded per-appointment resources (patient, location,
+  // encounter, practitioner) ride along, so a 1000-row page never approaches the FHIR response-size
+  // cap (~6MB). Every opt-in layer's heavier resources (Observations above all) are pulled afterward
+  // in separate, chunked queries keyed by encounter id (fetchScoped below) — the same approach the
+  // codebase uses elsewhere for large Observation pulls.
   const baseSearchParams = [
     { name: 'date', value: `ge${dateRange.start}` },
     { name: 'date', value: `le${dateRange.end}` },
@@ -158,47 +134,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     { name: '_count', value: pageSize.toString() },
   ];
 
-  if (includeCodes) {
-    baseSearchParams.push(
-      { name: '_include:iterate', value: 'Encounter:diagnosis' },
-      { name: '_revinclude:iterate', value: 'Procedure:encounter' }
-    );
-  }
-  if (includeAi || includeDocuments) {
-    // AI summaries and work/school notes are both encounter DocumentReferences (classified by tag).
-    baseSearchParams.push({ name: '_revinclude:iterate', value: 'DocumentReference:encounter' });
-  }
-  if (includeMedications) {
-    // eRx prescriptions link via MedicationRequest.encounter.
-    baseSearchParams.push({ name: '_revinclude:iterate', value: 'MedicationRequest:encounter' });
-  }
-  if (includeMedications || includeImmunizations) {
-    // In-house administered meds AND immunizations are MedicationAdministrations linked via .context
-    // (drug/vaccine name on a contained Medication); distinguished by meta tag when mapping.
-    baseSearchParams.push({ name: '_revinclude:iterate', value: 'MedicationAdministration:context' });
-  }
-  if (includeImmunizations) {
-    // Immunization history can also be charted as MedicationStatement (immunization tag) via .context.
-    baseSearchParams.push({ name: '_revinclude:iterate', value: 'MedicationStatement:context' });
-  }
-  if (includeVitals || includeExamRos || includeIntake) {
-    // Encounter Observations cover vitals, ROS/exam findings, and ASQ/birth-history; classified by tag.
-    baseSearchParams.push({ name: '_revinclude:iterate', value: 'Observation:encounter' });
-  }
-  if (includeLabs || includeImaging || includeDisposition || includeNursing) {
-    // Covers labs, radiology, disposition, and nursing — all ServiceRequests, classified by tag/code.
-    baseSearchParams.push({ name: '_revinclude:iterate', value: 'ServiceRequest:encounter' });
-  }
-  if (includeResults) {
-    // Lab/imaging results that carry an encounter reference (covers labs well; imaging reads linked only
-    // through the order may be partial).
-    baseSearchParams.push({ name: '_revinclude:iterate', value: 'DiagnosticReport:encounter' });
-  }
-  if (includeIntake) {
-    // Accident is an encounter Condition (not in Encounter.diagnosis).
-    baseSearchParams.push({ name: '_revinclude:iterate', value: 'Condition:encounter' });
-  }
-
   let searchBundle = await oystehr.fhir.search<ReportResource>({
     resourceType: 'Appointment',
     params: [...baseSearchParams, { name: '_offset', value: offset.toString() }],
@@ -209,8 +144,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   while (searchBundle.link?.find((link) => link.relation === 'next')) {
     offset += pageSize;
     pageCount++;
-    if (pageCount > 400) {
-      console.warn('Reached maximum pagination limit (400 pages). Stopping search.');
+    if (pageCount > 100) {
+      console.warn('Reached maximum pagination limit (100 pages). Stopping search.');
       break;
     }
     searchBundle = await oystehr.fhir.search<ReportResource>({
@@ -254,63 +189,150 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       case 'Encounter':
         if (r.id) encounterById.set(r.id, r);
         break;
-      case 'Condition': {
-        if (includeCodes && r.id) conditionById.set(r.id, r);
-        if (includeIntake) {
-          const encId = r.encounter?.reference?.replace('Encounter/', '');
-          if (encId)
-            encounterConditionsByEncounterId.set(encId, [...(encounterConditionsByEncounterId.get(encId) ?? []), r]);
-        }
-        break;
-      }
-      case 'Procedure': {
-        if (!includeCodes) break;
-        const encId = r.encounter?.reference?.replace('Encounter/', '');
-        if (encId) proceduresByEncounterId.set(encId, [...(proceduresByEncounterId.get(encId) ?? []), r]);
-        break;
-      }
-      case 'DocumentReference': {
-        if (!includeAi && !includeDocuments) break;
-        const encId = r.context?.encounter?.[0]?.reference?.replace('Encounter/', '');
-        if (encId) docRefsByEncounterId.set(encId, [...(docRefsByEncounterId.get(encId) ?? []), r]);
-        break;
-      }
-      case 'MedicationRequest': {
-        if (!includeMedications) break;
-        const encId = r.encounter?.reference?.replace('Encounter/', '');
-        if (encId) medRequestsByEncounterId.set(encId, [...(medRequestsByEncounterId.get(encId) ?? []), r]);
-        break;
-      }
-      case 'MedicationAdministration': {
-        if (!includeMedications && !includeImmunizations) break;
-        const encId = r.context?.reference?.replace('Encounter/', '');
-        if (encId) medAdminsByEncounterId.set(encId, [...(medAdminsByEncounterId.get(encId) ?? []), r]);
-        break;
-      }
-      case 'MedicationStatement': {
-        if (!includeImmunizations) break;
-        const encId = r.context?.reference?.replace('Encounter/', '');
-        if (encId) medStatementsByEncounterId.set(encId, [...(medStatementsByEncounterId.get(encId) ?? []), r]);
-        break;
-      }
-      case 'Observation': {
-        if (!includeVitals && !includeExamRos && !includeIntake) break;
-        const encId = r.encounter?.reference?.replace('Encounter/', '');
-        if (encId) observationsByEncounterId.set(encId, [...(observationsByEncounterId.get(encId) ?? []), r]);
-        break;
-      }
-      case 'ServiceRequest': {
-        if (!includeLabs && !includeImaging && !includeDisposition && !includeNursing) break;
-        const encId = r.encounter?.reference?.replace('Encounter/', '');
-        if (encId) serviceRequestsByEncounterId.set(encId, [...(serviceRequestsByEncounterId.get(encId) ?? []), r]);
-        break;
-      }
-      case 'DiagnosticReport': {
-        if (!includeResults) break;
-        const encId = r.encounter?.reference?.replace('Encounter/', '');
-        if (encId) resultsByEncounterId.set(encId, [...(resultsByEncounterId.get(encId) ?? []), r]);
-        break;
-      }
+    }
+  }
+
+  // ---- Secondary, chunked fetches for the opt-in layers --------------------------------------
+  // Each enabled layer's resources are pulled here (NOT as includes on the main search), scoped to
+  // the encounter ids from the main pass and chunked so no single response approaches the size cap.
+  const encIds = Array.from(encounterById.keys());
+  const encRefs = encIds.map((id) => `Encounter/${id}`);
+  // Small OR-lists keep each search well under the per-request timeout (a large encounter OR-list over
+  // a big table like Observation is slow); chunks run concurrently to keep total wall-clock down.
+  const ENC_CHUNK = 25;
+  const CONCURRENCY = 6;
+
+  async function searchChunk<T extends FhirResource>(
+    resourceType: T['resourceType'],
+    paramName: string,
+    valueList: string,
+    extraParams: { name: string; value: string }[]
+  ): Promise<T[]> {
+    const acc: T[] = [];
+    let pageOffset = 0;
+    for (;;) {
+      const bundle = await oystehr.fhir.search<T>({
+        resourceType,
+        params: [
+          { name: paramName, value: valueList },
+          { name: '_count', value: '1000' },
+          { name: '_offset', value: pageOffset.toString() },
+          ...extraParams,
+        ],
+      });
+      acc.push(...(bundle.unbundle() as T[]));
+      if (!bundle.link?.find((l) => l.relation === 'next')) break;
+      pageOffset += 1000;
+    }
+    return acc;
+  }
+
+  // Search over chunks of values (FHIR OR-list), paginating each chunk, with bounded concurrency.
+  async function fetchScoped<T extends FhirResource>(
+    resourceType: T['resourceType'],
+    paramName: string,
+    values: string[],
+    extraParams: { name: string; value: string }[] = []
+  ): Promise<T[]> {
+    const chunks: string[] = [];
+    for (let i = 0; i < values.length; i += ENC_CHUNK) chunks.push(values.slice(i, i + ENC_CHUNK).join(','));
+    const out: T[] = [];
+    for (let i = 0; i < chunks.length; i += CONCURRENCY) {
+      const wave = await Promise.all(
+        chunks
+          .slice(i, i + CONCURRENCY)
+          .map((valueList) => searchChunk<T>(resourceType, paramName, valueList, extraParams))
+      );
+      for (const part of wave) out.push(...part);
+    }
+    return out;
+  }
+
+  const indexByEncounter = <T>(items: T[], encOf: (item: T) => string | undefined, map: Map<string, T[]>): void => {
+    for (const item of items) {
+      const encId = encOf(item);
+      if (encId) map.set(encId, [...(map.get(encId) ?? []), item]);
+    }
+  };
+  const stripEnc = (ref?: string): string | undefined => ref?.replace('Encounter/', '');
+
+  if (encRefs.length) {
+    if (includeCodes) {
+      const dxIds = Array.from(
+        new Set(
+          encounters.flatMap((e) =>
+            (e.diagnosis ?? []).map((d) => d.condition?.reference?.replace('Condition/', '')).filter(Boolean)
+          )
+        )
+      ) as string[];
+      const dxConditions = dxIds.length ? await fetchScoped<Condition>('Condition', '_id', dxIds) : [];
+      for (const c of dxConditions) if (c.id) conditionById.set(c.id, c);
+      indexByEncounter(
+        await fetchScoped<Procedure>('Procedure', 'encounter', encRefs),
+        (p) => stripEnc(p.encounter?.reference),
+        proceduresByEncounterId
+      );
+    }
+    if (includeAi || includeDocuments) {
+      // Trim the attachment payload — we only need type/description/tag/context, never the file bytes.
+      indexByEncounter(
+        await fetchScoped<DocumentReference>('DocumentReference', 'encounter', encRefs, [
+          { name: '_elements', value: 'type,description,meta,context' },
+        ]),
+        (d) => stripEnc(d.context?.encounter?.[0]?.reference),
+        docRefsByEncounterId
+      );
+    }
+    if (includeMedications) {
+      indexByEncounter(
+        await fetchScoped<MedicationRequest>('MedicationRequest', 'encounter', encRefs),
+        (m) => stripEnc(m.encounter?.reference),
+        medRequestsByEncounterId
+      );
+    }
+    if (includeMedications || includeImmunizations) {
+      indexByEncounter(
+        await fetchScoped<MedicationAdministration>('MedicationAdministration', 'context', encRefs),
+        (m) => stripEnc(m.context?.reference),
+        medAdminsByEncounterId
+      );
+    }
+    if (includeImmunizations) {
+      indexByEncounter(
+        await fetchScoped<MedicationStatement>('MedicationStatement', 'context', encRefs),
+        (m) => stripEnc(m.context?.reference),
+        medStatementsByEncounterId
+      );
+    }
+    if (includeVitals || includeExamRos || includeIntake) {
+      indexByEncounter(
+        await fetchScoped<Observation>('Observation', 'encounter', encRefs),
+        (o) => stripEnc(o.encounter?.reference),
+        observationsByEncounterId
+      );
+    }
+    if (includeLabs || includeImaging || includeDisposition || includeNursing) {
+      indexByEncounter(
+        await fetchScoped<ServiceRequest>('ServiceRequest', 'encounter', encRefs),
+        (s) => stripEnc(s.encounter?.reference),
+        serviceRequestsByEncounterId
+      );
+    }
+    if (includeResults) {
+      indexByEncounter(
+        await fetchScoped<DiagnosticReport>('DiagnosticReport', 'encounter', encRefs, [
+          { name: '_elements', value: 'code,status,meta,encounter' },
+        ]),
+        (d) => stripEnc(d.encounter?.reference),
+        resultsByEncounterId
+      );
+    }
+    if (includeIntake) {
+      indexByEncounter(
+        await fetchScoped<Condition>('Condition', 'encounter', encRefs),
+        (c) => stripEnc(c.encounter?.reference),
+        encounterConditionsByEncounterId
+      );
     }
   }
 
