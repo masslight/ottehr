@@ -1,5 +1,6 @@
 export * from './ad-hoc-report.types';
 export * from './adhoc-encounters.types';
+export * from './adhoc-patients.types';
 export * from './ai-assisted-encounters-report.types';
 export * from './ai-interview.types';
 export * from './ai-suggestions-notes';

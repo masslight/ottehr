@@ -3,6 +3,8 @@ import { Medication, PractitionerRole, Schedule, Slot } from 'fhir/r4b';
 import {
   AdHocEncountersInput,
   AdHocEncountersOutput,
+  AdHocPatientsInput,
+  AdHocPatientsOutput,
   AdminAddInHouseLabInput,
   AdminAddInHouseLabOutput,
   AdminAddLabSetInput,
@@ -484,6 +486,23 @@ export const getAdHocEncounters = async (
   try {
     const response = await oystehr.zambda.execute({
       id: ADHOC_ENCOUNTERS_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+const ADHOC_PATIENTS_ZAMBDA_ID = 'adhoc-patients';
+export const getAdHocPatients = async (
+  oystehr: Oystehr,
+  parameters: AdHocPatientsInput
+): Promise<AdHocPatientsOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: ADHOC_PATIENTS_ZAMBDA_ID,
       ...parameters,
     });
     return chooseJson(response);
