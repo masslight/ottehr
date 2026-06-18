@@ -1,26 +1,16 @@
-import { ArrowBack as ArrowBackIcon, Search as SearchIcon } from '@mui/icons-material';
+import { Add as AddIcon, ArrowBack as ArrowBackIcon, Search as SearchIcon } from '@mui/icons-material';
 import { Alert, Box, Button, CircularProgress, IconButton, InputAdornment, TextField, Typography } from '@mui/material';
 import { DataGridPro, GridColDef, GridPaginationModel } from '@mui/x-data-grid-pro';
 import { ReactElement, useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { chooseJson, CMS_PLACE_OF_SERVICE_CODES, ServiceFacilityItem } from 'utils';
+import { getApiError, ServiceFacilityItem } from 'utils';
+import { deleteBillingServiceFacility, searchBillingServiceFacilities } from '../api/api';
+import { AddServiceFacilityDialog } from '../components/AddServiceFacilityDialog';
 import { dataGridSlots, dataGridSx } from '../components/BillingDataGrid';
-import { DetailRow } from '../components/DetailRow';
+import { ServiceFacilityDetailSection } from '../components/ServiceFacilityDetailSection';
 import { useApiClients } from '../hooks/useAppClients';
 import { useDebounce } from '../hooks/useDebounce';
-
-const POS_LABEL_BY_CODE = new Map(CMS_PLACE_OF_SERVICE_CODES.map((pos) => [pos.code, pos.display]));
-
-function placeOfServiceLabel(code: string): string {
-  if (!code) return '';
-  const display = POS_LABEL_BY_CODE.get(code);
-  return display ? `${code} - ${display}` : code;
-}
-
-function formatFacilityAddress(facility: ServiceFacilityItem): string {
-  const zip = facility.zipPlus4 ? `${facility.zip}-${facility.zipPlus4}` : facility.zip;
-  return [facility.addressLine1, facility.addressLine2, facility.city, facility.state, zip].filter(Boolean).join(', ');
-}
+import { formatFacilityAddress, placeOfServiceLabel } from '../utils/format';
 
 interface FacilityRow extends ServiceFacilityItem {
   posDisplay: string;
@@ -75,6 +65,7 @@ export function ServiceFacilitiesList(): ReactElement {
   const [error, setError] = useState<string | null>(null);
   const [paginationModel, setPaginationModel] = useState<GridPaginationModel>({ page: 0, pageSize: 25 });
   const [searchName, setSearchName] = useState('');
+  const [addOpen, setAddOpen] = useState(false);
   const { debounce } = useDebounce();
 
   const fetchFacilities = useCallback(
@@ -83,18 +74,15 @@ export function ServiceFacilitiesList(): ReactElement {
       setLoading(true);
       setError(null);
       try {
-        // todo replace with billing api layer when merged into develop
-        const response = await oystehrZambda.zambda.execute({
-          id: 'search-billing-service-facilities',
+        const data = await searchBillingServiceFacilities(oystehrZambda, {
           pageSize: pagination.pageSize,
           offset: pagination.page * pagination.pageSize,
           ...(name ? { name } : {}),
         });
-        const data = chooseJson(response);
         setFacilities((data.facilities ?? []).map(toRow));
         setTotalRows(data.total ?? 0);
       } catch (err) {
-        setError(err instanceof Error ? err.message : String(err));
+        setError(getApiError({ error: err, defaultError: 'Failed to load service facilities' }));
       } finally {
         setLoading(false);
       }
@@ -133,9 +121,15 @@ export function ServiceFacilitiesList(): ReactElement {
 
   return (
     <Box sx={{ p: 0 }}>
-      <Typography variant="h4" color="primary.dark" fontWeight={600} sx={{ mb: 3 }}>
-        Service Facilities
-      </Typography>
+      <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
+        <Typography variant="h4" color="primary.dark" fontWeight={600}>
+          Service Facilities
+        </Typography>
+        <Box sx={{ flexGrow: 1 }} />
+        <Button variant="contained" startIcon={<AddIcon />} onClick={() => setAddOpen(true)}>
+          Add Service Facility
+        </Button>
+      </Box>
 
       <TextField
         fullWidth
@@ -177,6 +171,12 @@ export function ServiceFacilitiesList(): ReactElement {
           height: 'calc(100vh - 310px)',
         }}
       />
+
+      <AddServiceFacilityDialog
+        open={addOpen}
+        onClose={() => setAddOpen(false)}
+        onCreated={() => void fetchFacilities(paginationModel, searchName || undefined)}
+      />
     </Box>
   );
 }
@@ -195,15 +195,10 @@ export function ServiceFacilityDetail(): ReactElement {
     setLoading(true);
     setError(null);
     try {
-      // todo replace with billing api layer when merged into develop
-      const response = await oystehrZambda.zambda.execute({
-        id: 'search-billing-service-facilities',
-        facilityId: id,
-      });
-      const data = chooseJson(response);
+      const data = await searchBillingServiceFacilities(oystehrZambda, { facilityId: id });
       setFacility((data.facilities ?? [])[0] ?? null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(getApiError({ error: err, defaultError: 'Failed to load service facility' }));
     } finally {
       setLoading(false);
     }
@@ -213,7 +208,18 @@ export function ServiceFacilityDetail(): ReactElement {
     void fetchDetail();
   }, [fetchDetail]);
 
-  if (loading) {
+  const handleDelete = async (): Promise<void> => {
+    if (!oystehrZambda || !facility) return;
+    if (!window.confirm(`Delete service facility "${facility.name}"? It will no longer match new claims.`)) return;
+    try {
+      await deleteBillingServiceFacility(oystehrZambda, { facilityId: facility.id });
+      navigate('/service-facilities');
+    } catch (err) {
+      setError(getApiError({ error: err, defaultError: 'Failed to delete service facility' }));
+    }
+  };
+
+  if (loading && !facility) {
     return (
       <Box
         sx={{
@@ -248,15 +254,12 @@ export function ServiceFacilityDetail(): ReactElement {
         <Typography variant="h5" color="primary.dark" fontWeight={600}>
           {facility.name}
         </Typography>
+        <Box sx={{ flexGrow: 1 }} />
+        <Button color="error" onClick={() => void handleDelete()}>
+          Delete
+        </Button>
       </Box>
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-        <DetailRow label="Name" value={facility.name} />
-        <DetailRow label="NPI" value={facility.npi} />
-        <DetailRow label="CLIA Number" value={facility.clia} />
-        <DetailRow label="Place of Service" value={placeOfServiceLabel(facility.posCode)} />
-        <DetailRow label="Time Zone" value={facility.timezone} />
-        <DetailRow label="Address" value={formatFacilityAddress(facility)} />
-      </Box>
+      <ServiceFacilityDetailSection facility={facility} onSaved={fetchDetail} />
     </Box>
   );
 }
