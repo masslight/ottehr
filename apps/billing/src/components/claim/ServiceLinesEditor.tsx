@@ -1,5 +1,6 @@
 import { Box, Button, MenuItem, Select, TextField } from '@mui/material';
 import { ReactElement } from 'react';
+import { ProcedureCodeAutocomplete } from '../ProcedureCodeAutocomplete';
 
 export interface ServiceLineRow {
   cptCode: string;
@@ -67,13 +68,7 @@ export function ServiceLinesEditor({
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
       {value.map((row, i) => (
         <Box key={i} sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
-          <TextField
-            size="small"
-            label="CPT"
-            value={row.cptCode}
-            onChange={(e) => setRow(i, 'cptCode', e.target.value)}
-            sx={{ width: 100 }}
-          />
+          <ProcedureCodeAutocomplete value={row.cptCode} onChange={(code) => setRow(i, 'cptCode', code)} width={150} />
           <TextField
             size="small"
             label="Mod"
@@ -95,7 +90,7 @@ export function ServiceLinesEditor({
             type="number"
             value={row.charges}
             onChange={(e) => setRow(i, 'charges', e.target.value)}
-            sx={{ width: 110 }}
+            sx={{ width: 150 }}
           />
           <TextField
             size="small"
@@ -106,6 +101,7 @@ export function ServiceLinesEditor({
             sx={{ width: 160 }}
             InputLabelProps={{ shrink: true }}
           />
+          {/* TODO(OTR-2731): replace free-text POS with the full CMS Place of Service picker when "Implement Service Facilities List" lands. */}
           <TextField
             size="small"
             label="POS"

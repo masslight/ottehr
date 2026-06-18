@@ -37,7 +37,6 @@ import {
 import { ClaimStatusFields } from '../components/claim/ClaimStatusFields';
 import { DiagnosesEditor, DiagnosisRow } from '../components/claim/DiagnosesEditor';
 import { emptyServiceLineRow, ServiceLineRow, ServiceLinesEditor } from '../components/claim/ServiceLinesEditor';
-import { ProcedureCodeAutocomplete } from '../components/ProcedureCodeAutocomplete';
 import { useApiClients } from '../hooks/useAppClients';
 
 // The create screen only picks references — patient, coverage, and providers are chosen as-is.
