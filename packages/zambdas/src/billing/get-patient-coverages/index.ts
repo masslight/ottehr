@@ -7,7 +7,9 @@ import {
   COVERAGE_SUBSCRIBER_CONTAINED_ID,
   createBillingClient,
   EXCLUDE_WORKING_COPIES_PARAMS,
+  getCoverageInsuranceType,
   getPatientBillingAccount,
+  getPatientWorkersCompAccount,
   resolvePayersByRef,
   toAddressParts,
 } from '../shared';
@@ -45,12 +47,13 @@ async function performEffect(
   oystehr: Oystehr,
   params: GetPatientCoveragesParams
 ): Promise<{ coverages: BillingCoverageOption[] }> {
-  const [response, account] = await Promise.all([
+  const [response, pbillAccount, wcompAccount] = await Promise.all([
     oystehr.fhir.search<Coverage>({
       resourceType: 'Coverage',
       params: [{ name: 'beneficiary', value: `Patient/${params.patientId}` }, ...EXCLUDE_WORKING_COPIES_PARAMS],
     }),
     getPatientBillingAccount(oystehr, params.patientId),
+    getPatientWorkersCompAccount(oystehr, params.patientId),
   ]);
 
   const coverages = response.unbundle();
@@ -59,18 +62,9 @@ async function performEffect(
     coverages.map((cov) => cov.payor?.[0]?.reference)
   );
 
-  // Account.coverage priority is the source of truth for primary/secondary ordering.
-  const priorityByRef = new Map<string, number>();
-  account?.coverage?.forEach((entry) => {
-    if (entry.coverage?.reference && entry.priority !== undefined) {
-      priorityByRef.set(entry.coverage.reference, entry.priority);
-    }
-  });
-
   const result = coverages.map((cov) => {
     const payorRef = cov.payor?.[0]?.reference;
     const payorOrg = payorRef ? payersByRef.get(payorRef) : undefined;
-    const order = priorityByRef.get(`Coverage/${cov.id}`) ?? cov.order;
 
     return {
       id: cov.id,
@@ -79,7 +73,7 @@ async function performEffect(
       payorName: payorOrg?.name ?? '',
       payorId: getPayerId(payorOrg) ?? '',
       payorFhirId: payorOrg?.id ?? '',
-      order,
+      insuranceType: getCoverageInsuranceType(cov, pbillAccount, wcompAccount),
       relationship: cov.relationship?.coding?.[0]?.display ?? '',
       memberId: cov.subscriberId ?? getMemberIdFromCoverage(cov) ?? '',
       policyHolder: extractPolicyHolder(cov),

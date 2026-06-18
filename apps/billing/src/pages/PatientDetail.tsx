@@ -18,7 +18,13 @@ import {
 import { DataGridPro, GridColDef } from '@mui/x-data-grid-pro';
 import { ReactElement, useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { BillingCoverageOption, getApiError, PatientDetailResponse, UpdateBillingPatientInput } from 'utils';
+import {
+  BillingCoverageOption,
+  BillingInsuranceType,
+  getApiError,
+  PatientDetailResponse,
+  UpdateBillingPatientInput,
+} from 'utils';
 import {
   deleteBillingCoverage,
   getBillingPatientDetail,
@@ -42,6 +48,18 @@ import { CLAIM_STATUS_COLORS, formatAntCaseString } from '../constants/claimStat
 import { useApiClients } from '../hooks/useAppClients';
 import { otherColors } from '../themes/ottehr/colors';
 import { buildAddressInput, formatCurrency } from '../utils/format';
+
+// Display order and titles for insurance types in the Insurance tab.
+const INSURANCE_TYPE_ORDER: BillingInsuranceType[] = ['primary', 'secondary', 'workersComp'];
+const INSURANCE_TYPE_TITLES: Record<BillingInsuranceType, string> = {
+  primary: 'Primary Insurance',
+  secondary: 'Secondary Insurance',
+  workersComp: "Worker's Comp",
+};
+const insuranceTypeRank = (type: BillingInsuranceType | undefined): number => {
+  const idx = type ? INSURANCE_TYPE_ORDER.indexOf(type) : -1;
+  return idx === -1 ? INSURANCE_TYPE_ORDER.length : idx;
+};
 
 const claimColumns: GridColDef[] = [
   { field: 'serviceDate', headerName: 'Date of Service', width: 130 },
@@ -384,8 +402,10 @@ function InsuranceTab({ patientId }: { patientId: string }): ReactElement {
     setError(null);
     try {
       const res = await getPatientCoverages(oystehrZambda, { patientId });
-      // Order primary (1) before secondary (2); coverages without a priority sort last.
-      const sorted = [...res.coverages].sort((a, b) => (a.order ?? 99) - (b.order ?? 99));
+      // Order primary, then secondary, then workers' comp; unknown types sort last.
+      const sorted = [...res.coverages].sort(
+        (a, b) => insuranceTypeRank(a.insuranceType) - insuranceTypeRank(b.insuranceType)
+      );
       setCoverages(sorted);
     } catch (err) {
       setError(getApiError({ error: err, defaultError: 'Failed to load coverages' }));
@@ -398,12 +418,10 @@ function InsuranceTab({ patientId }: { patientId: string }): ReactElement {
     void fetchCoverages();
   }, [fetchCoverages]);
 
-  // Priorities (1/2) already held by active coverages — one coverage per priority.
-  const activeOrders = coverages
-    .filter((c) => c.status !== 'cancelled' && c.order !== undefined)
-    .map((c) => c.order as number);
-  // Default a new coverage to primary unless one already exists, then secondary.
-  const defaultOrder: 1 | 2 = activeOrders.includes(1) ? 2 : 1;
+  // Insurance types already held by active coverages — one coverage per type.
+  const takenTypes = coverages.map((c) => c.insuranceType).filter((t): t is BillingInsuranceType => t !== undefined);
+  // Default a new coverage to the first type that isn't taken yet.
+  const defaultType: BillingInsuranceType = INSURANCE_TYPE_ORDER.find((t) => !takenTypes.includes(t)) ?? 'primary';
 
   if (loading && coverages.length === 0) {
     return (
@@ -434,7 +452,7 @@ function InsuranceTab({ patientId }: { patientId: string }): ReactElement {
           <CoverageCard
             key={coverage.id}
             coverage={coverage}
-            unavailableOrders={activeOrders.filter((o) => o !== coverage.order)}
+            unavailableTypes={takenTypes.filter((t) => t !== coverage.insuranceType)}
             onChanged={fetchCoverages}
           />
         ))
@@ -442,8 +460,8 @@ function InsuranceTab({ patientId }: { patientId: string }): ReactElement {
       <AddCoverageDialog
         open={addOpen}
         patientId={patientId}
-        defaultOrder={defaultOrder}
-        unavailableOrders={activeOrders}
+        defaultType={defaultType}
+        unavailableTypes={takenTypes}
         onClose={() => setAddOpen(false)}
         onCreated={() => void fetchCoverages()}
       />
@@ -453,11 +471,11 @@ function InsuranceTab({ patientId }: { patientId: string }): ReactElement {
 
 function CoverageCard({
   coverage,
-  unavailableOrders,
+  unavailableTypes,
   onChanged,
 }: {
   coverage: BillingCoverageOption;
-  unavailableOrders: number[];
+  unavailableTypes: BillingInsuranceType[];
   onChanged: () => Promise<void>;
 }): ReactElement {
   const { oystehrZambda } = useApiClients();
@@ -478,7 +496,7 @@ function CoverageCard({
 
   const handleSave = async (): Promise<string | null> => {
     if (!oystehrZambda || !coverage.id) return 'Client not ready';
-    const validationError = validateCoverageForm(form, false, unavailableOrders);
+    const validationError = validateCoverageForm(form, false, unavailableTypes);
     if (validationError) return validationError;
     try {
       await updateBillingCoverage(oystehrZambda, coverageToUpdateInput(form, coverage.id));
@@ -503,7 +521,7 @@ function CoverageCard({
     await onChanged();
   };
 
-  const title = coverage.order === 2 ? 'Secondary Insurance' : coverage.order === 1 ? 'Primary Insurance' : 'Insurance';
+  const title = INSURANCE_TYPE_TITLES[coverage.insuranceType ?? 'primary'];
   const policyHolderName = coverage.policyHolder
     ? `${coverage.policyHolder.firstName} ${coverage.policyHolder.lastName}`.trim()
     : '';
@@ -518,7 +536,7 @@ function CoverageCard({
           value={form}
           onChange={setForm}
           payerPlaceholder={coverage.payorName}
-          unavailableOrders={unavailableOrders}
+          unavailableTypes={unavailableTypes}
         />
       }
     >

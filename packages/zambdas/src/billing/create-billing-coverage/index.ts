@@ -5,10 +5,10 @@ import { APIErrorCode } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import {
   buildBillingCoverage,
-  coverageOrderLabel,
+  coverageInsuranceTypeLabel,
   createBillingClient,
   fetchById,
-  findCoverageOccupyingOrder,
+  findCoverageOfType,
   getPayerOrgById,
   linkCoverageToAccount,
   toAddressParts,
@@ -28,13 +28,13 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 });
 
 async function performEffect(oystehr: Oystehr, params: CreateBillingCoverageParams): Promise<{ id: string }> {
-  // Only one coverage may hold each priority (primary / secondary) per patient.
-  const occupying = await findCoverageOccupyingOrder(oystehr, params.patientId, params.order);
+  // Only one coverage may hold each insurance type (primary / secondary / workers' comp) per patient.
+  const occupying = await findCoverageOfType(oystehr, params.patientId, params.insuranceType);
   if (occupying) {
     throw {
       code: APIErrorCode.ALREADY_EXISTS,
-      message: `This patient already has a ${coverageOrderLabel(
-        params.order
+      message: `This patient already has a ${coverageInsuranceTypeLabel(
+        params.insuranceType
       )} coverage. Remove or change it before adding another.`,
     };
   }
@@ -54,12 +54,12 @@ async function performEffect(oystehr: Oystehr, params: CreateBillingCoveragePara
     memberId: params.memberId,
     // Coverage status is not part of the billing product model; every coverage is active.
     status: 'active',
-    order: params.order,
+    insuranceType: params.insuranceType,
     relationship: params.relationship,
     policyHolder,
   });
 
   const created = await oystehr.fhir.create<Coverage>(coverage);
-  await linkCoverageToAccount(oystehr, params.patientId, created.id!, params.order);
+  await linkCoverageToAccount(oystehr, params.patientId, created.id!, params.insuranceType);
   return { id: created.id! };
 }

@@ -32,7 +32,7 @@ describe('buildBillingCoverage', () => {
       payerOrg,
       memberId: 'M1',
       status: 'active',
-      order: 1,
+      insuranceType: 'primary',
       relationship: 'Self',
     });
 
@@ -61,10 +61,12 @@ describe('buildBillingCoverage', () => {
       payerOrg,
       memberId: 'M2',
       status: 'active',
-      order: 2,
+      insuranceType: 'secondary',
       relationship: 'Spouse',
       policyHolder: spousePolicyHolder,
     });
+
+    expect(coverage.order).toBe(2);
 
     expect(coverage.subscriber?.reference).toBe(`#${COVERAGE_SUBSCRIBER_CONTAINED_ID}`);
     expect(coverage.relationship?.coding?.[0]?.code).toBe('spouse');
@@ -83,6 +85,23 @@ describe('buildBillingCoverage', () => {
       code: 'spouse',
     });
   });
+
+  it('marks a workers comp coverage with the WC plan-type coding and no order', () => {
+    const coverage = buildBillingCoverage({
+      patientId: PATIENT_ID,
+      payerOrg,
+      memberId: 'WC1',
+      status: 'active',
+      insuranceType: 'workersComp',
+      relationship: 'Self',
+    });
+
+    expect(coverage.order).toBeUndefined();
+    expect(coverage.type?.coding).toContainEqual({
+      system: 'https://fhir.ottehr.com/CodeSystem/candid-plan-type',
+      code: 'WC',
+    });
+  });
 });
 
 describe('setCoverageSubscriber', () => {
@@ -92,6 +111,7 @@ describe('setCoverageSubscriber', () => {
       payerOrg,
       memberId: 'M3',
       status: 'active',
+      insuranceType: 'primary',
       relationship: 'Child',
       policyHolder: { ...spousePolicyHolder, firstName: 'Kid' },
     });

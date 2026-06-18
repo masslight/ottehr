@@ -1,4 +1,5 @@
 import { CODE_SYSTEM_APPOINTMENT_TYPE_CODES, CODE_SYSTEM_CLAIM_TYPE_CODES } from '../../../helpers';
+import type { BillingInsuranceType } from './billing.schemas';
 import { ClaimStatusValues } from './claim-status';
 
 export interface BillingTag {
@@ -43,8 +44,8 @@ export interface BillingCoverageOption {
   payorName: string;
   payorId: string;
   payorFhirId: string;
-  // Account.coverage priority (1 = primary, 2 = secondary); falls back to Coverage.order.
-  order?: number;
+  // primary / secondary (patient billing account priority 1/2) or workersComp (separate account).
+  insuranceType?: BillingInsuranceType;
   // Display value of the subscriber relationship (Self, Child, Spouse, ...).
   relationship?: string;
   // Member / subscriber ID for this coverage (mirrors subscriberId).

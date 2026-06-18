@@ -302,8 +302,9 @@ const subscriberRelationshipSchema = z.enum([
   'Other',
 ]);
 
-// Account.coverage priority: 1 = primary, 2 = secondary.
-const coverageOrderSchema = z.union([z.literal(1), z.literal(2)]);
+// Insurance type. primary/secondary live in the patient billing account (priority 1/2);
+// workersComp lives in a separate workers-comp account.
+const insuranceTypeSchema = z.enum(['primary', 'secondary', 'workersComp']);
 
 // Policy holder (subscriber) details, required only when the relationship to insured is not "Self".
 const billingPolicyHolderSchema = z.object({
@@ -323,7 +324,7 @@ export const CreateBillingCoverageInputSchema = z
     // Oystehr RCM payer id (BillingPayerOption.id) used to build the payer reference.
     payerId: nonEmptyString,
     memberId: nonEmptyString,
-    order: coverageOrderSchema,
+    insuranceType: insuranceTypeSchema,
     relationship: subscriberRelationshipSchema,
     policyHolder: billingPolicyHolderSchema.optional(),
   })
@@ -342,7 +343,7 @@ export const UpdateBillingCoverageInputSchema = z
     coverageId: nonEmptyString,
     payerId: nonEmptyString.optional(),
     memberId: z.string().optional(),
-    order: coverageOrderSchema.optional(),
+    insuranceType: insuranceTypeSchema.optional(),
     relationship: subscriberRelationshipSchema.optional(),
     policyHolder: billingPolicyHolderSchema.optional(),
   })
@@ -474,6 +475,7 @@ export type CreateBillingCoverageInput = z.input<typeof CreateBillingCoverageInp
 export type UpdateBillingCoverageInput = z.infer<typeof UpdateBillingCoverageInputSchema>;
 export type DeleteBillingCoverageInput = z.infer<typeof DeleteBillingCoverageInputSchema>;
 export type BillingSubscriberRelationship = z.infer<typeof subscriberRelationshipSchema>;
+export type BillingInsuranceType = z.infer<typeof insuranceTypeSchema>;
 export type BillingPolicyHolderInput = z.infer<typeof billingPolicyHolderSchema>;
 export type UpdateBillingProviderInput = z.infer<typeof UpdateBillingProviderInputSchema>;
 export type CreateBillingWorkingCopyInput = z.infer<typeof CreateBillingWorkingCopyInputSchema>;

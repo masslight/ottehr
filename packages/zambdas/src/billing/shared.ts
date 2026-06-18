@@ -18,8 +18,10 @@ import {
 } from 'fhir/r4b';
 import {
   ACCOUNT_TYPE_CODE_SYSTEM,
+  BillingInsuranceType,
   BillingPolicyHolderInput,
   BillingSubscriberRelationship,
+  CANDID_PLAN_TYPE_SYSTEM,
   CODE_SYSTEM_APPOINTMENT_TYPE_CODES,
   CODE_SYSTEM_APPOINTMENT_TYPE_TAG_SYSTEM,
   CODE_SYSTEM_CLAIM_TYPE,
@@ -41,6 +43,7 @@ import {
   PATIENT_BILLING_ACCOUNT_TYPE,
   Secrets,
   SUBSCRIBER_RELATIONSHIP_CODE_MAP,
+  WORKERS_COMP_ACCOUNT_TYPE,
 } from 'utils';
 import { createOystehrClient } from '../shared/helpers';
 
@@ -460,12 +463,38 @@ export function setCoveragePayer(coverage: Coverage, payerOrg: Organization, mem
   coverage.identifier = [createCoverageMemberIdentifier(memberId, payerOrg)];
 }
 
+// Coverage.type plan-type code that marks a coverage as workers' comp (matches the clinical EHR).
+export const WORKERS_COMP_COVERAGE_TYPE_CODE = 'WC';
+
+// Apply insurance-type markers on the Coverage itself: order for primary/secondary, and the WC
+// plan-type coding for workers comp (cleared otherwise). The authoritative placement is still the
+// Account the coverage is linked to; these markers are a fallback for unlinked coverages.
+export function applyInsuranceTypeToCoverage(coverage: Coverage, insuranceType: BillingInsuranceType): void {
+  if (coverage.type?.coding) {
+    coverage.type.coding = coverage.type.coding.filter(
+      (c) => !(c.system === CANDID_PLAN_TYPE_SYSTEM && c.code === WORKERS_COMP_COVERAGE_TYPE_CODE)
+    );
+    if (coverage.type.coding.length === 0) delete coverage.type;
+  }
+  if (insuranceType === 'workersComp') {
+    delete coverage.order;
+    coverage.type = {
+      coding: [
+        ...(coverage.type?.coding ?? []),
+        { system: CANDID_PLAN_TYPE_SYSTEM, code: WORKERS_COMP_COVERAGE_TYPE_CODE },
+      ],
+    };
+  } else {
+    coverage.order = insuranceType === 'secondary' ? 2 : 1;
+  }
+}
+
 export function buildBillingCoverage(params: {
   patientId: string;
   payerOrg: Organization;
   memberId: string;
   status: Coverage['status'];
-  order?: number;
+  insuranceType: BillingInsuranceType;
   relationship: BillingSubscriberRelationship;
   policyHolder?: BillingPolicyHolderInput;
 }): Coverage {
@@ -476,7 +505,7 @@ export function buildBillingCoverage(params: {
     subscriberId: params.memberId,
     payor: [],
   };
-  if (params.order !== undefined) coverage.order = params.order;
+  applyInsuranceTypeToCoverage(coverage, params.insuranceType);
   setCoveragePayer(coverage, params.payerOrg, params.memberId);
   setCoverageSubscriber(coverage, params.patientId, params.relationship, params.policyHolder);
   return coverage;
@@ -487,88 +516,134 @@ export async function getPayerOrgById(oystehr: Oystehr, payerId: string): Promis
   return oystehr.rcm.getPayerByUrl({ url: getPayerUrl(payerId) });
 }
 
-// The patient's billing Account (type PBILLACCT), if one exists.
-export async function getPatientBillingAccount(oystehr: Oystehr, patientId: string): Promise<Account | undefined> {
+// Account type + priority an insurance type maps to. primary/secondary share the patient billing
+// account (PBILLACCT, priority 1/2); workersComp lives in its own account (WCOMPACCT, priority 1).
+const ACCOUNT_PLACEMENT: Record<BillingInsuranceType, { type: Account['type']; code: string; priority: number }> = {
+  primary: { type: PATIENT_BILLING_ACCOUNT_TYPE, code: 'PBILLACCT', priority: 1 },
+  secondary: { type: PATIENT_BILLING_ACCOUNT_TYPE, code: 'PBILLACCT', priority: 2 },
+  workersComp: { type: WORKERS_COMP_ACCOUNT_TYPE, code: 'WCOMPACCT', priority: 1 },
+};
+
+function accountMatchesCode(account: Account, code: string): boolean {
+  return account.type?.coding?.some((c) => c.system === ACCOUNT_TYPE_CODE_SYSTEM && c.code === code) ?? false;
+}
+
+async function getPatientAccounts(oystehr: Oystehr, patientId: string): Promise<Account[]> {
   const result = await oystehr.fhir.search<Account>({
     resourceType: 'Account',
     params: [{ name: 'subject', value: `Patient/${patientId}` }, ...EXCLUDE_WORKING_COPIES_PARAMS],
   });
-  return result
-    .unbundle()
-    .find((acc) => acc.type?.coding?.some((c) => c.system === ACCOUNT_TYPE_CODE_SYSTEM && c.code === 'PBILLACCT'));
+  return result.unbundle();
 }
 
-// Upsert the patient's billing Account so that `coverageId` occupies the given priority (1/2).
+// The patient's billing Account (type PBILLACCT), if one exists.
+export async function getPatientBillingAccount(oystehr: Oystehr, patientId: string): Promise<Account | undefined> {
+  return (await getPatientAccounts(oystehr, patientId)).find((acc) => accountMatchesCode(acc, 'PBILLACCT'));
+}
+
+// The patient's workers-comp Account (type WCOMPACCT), if one exists.
+export async function getPatientWorkersCompAccount(oystehr: Oystehr, patientId: string): Promise<Account | undefined> {
+  return (await getPatientAccounts(oystehr, patientId)).find((acc) => accountMatchesCode(acc, 'WCOMPACCT'));
+}
+
+// Determine a coverage's insurance type from the patient's accounts, falling back to Coverage markers.
+export function getCoverageInsuranceType(
+  coverage: Coverage,
+  pbillAccount?: Account,
+  wcompAccount?: Account
+): BillingInsuranceType | undefined {
+  const ref = `Coverage/${coverage.id}`;
+  if (wcompAccount?.coverage?.some((c) => c.coverage?.reference === ref)) return 'workersComp';
+  const pbillEntry = pbillAccount?.coverage?.find((c) => c.coverage?.reference === ref);
+  if (pbillEntry?.priority === 1) return 'primary';
+  if (pbillEntry?.priority === 2) return 'secondary';
+  if (
+    coverage.type?.coding?.some(
+      (c) => c.system === CANDID_PLAN_TYPE_SYSTEM && c.code === WORKERS_COMP_COVERAGE_TYPE_CODE
+    )
+  )
+    return 'workersComp';
+  if (coverage.order === 2) return 'secondary';
+  if (coverage.order === 1) return 'primary';
+  return undefined;
+}
+
+// Link a coverage to the account for its insurance type (creating the account if needed).
 export async function linkCoverageToAccount(
   oystehr: Oystehr,
   patientId: string,
   coverageId: string,
-  priority: number
+  insuranceType: BillingInsuranceType
 ): Promise<void> {
-  const account = await getPatientBillingAccount(oystehr, patientId);
+  const placement = ACCOUNT_PLACEMENT[insuranceType];
+  const account = (await getPatientAccounts(oystehr, patientId)).find((acc) => accountMatchesCode(acc, placement.code));
   const ref = `Coverage/${coverageId}`;
   if (!account) {
     await oystehr.fhir.create<Account>({
       resourceType: 'Account',
       status: 'active',
-      type: { ...PATIENT_BILLING_ACCOUNT_TYPE },
+      type: { ...placement.type },
       subject: [{ reference: `Patient/${patientId}` }],
-      coverage: [{ coverage: { reference: ref }, priority }],
+      coverage: [{ coverage: { reference: ref }, priority: placement.priority }],
     });
     return;
   }
   // Replace whatever held this priority (and any stale reference to this coverage) with the new link.
-  const coverage = (account.coverage ?? []).filter((c) => c.priority !== priority && c.coverage?.reference !== ref);
-  coverage.push({ coverage: { reference: ref }, priority });
+  const coverage = (account.coverage ?? []).filter(
+    (c) => c.priority !== placement.priority && c.coverage?.reference !== ref
+  );
+  coverage.push({ coverage: { reference: ref }, priority: placement.priority });
   account.coverage = coverage.sort((a, b) => (a.priority ?? 0) - (b.priority ?? 0));
   await oystehr.fhir.update<Account>(account);
 }
 
-// Remove a coverage's link from the patient's billing Account.
+// Remove a coverage's link from any of the patient's accounts.
 export async function unlinkCoverageFromAccount(
   oystehr: Oystehr,
   patientId: string,
   coverageId: string
 ): Promise<void> {
-  const account = await getPatientBillingAccount(oystehr, patientId);
-  if (!account?.coverage?.length) return;
+  const accounts = await getPatientAccounts(oystehr, patientId);
   const ref = `Coverage/${coverageId}`;
-  const remaining = account.coverage.filter((c) => c.coverage?.reference !== ref);
-  if (remaining.length === account.coverage.length) return;
-  account.coverage = remaining;
-  await oystehr.fhir.update<Account>(account);
+  await Promise.all(
+    accounts.map(async (account) => {
+      if (!account.coverage?.length) return;
+      const remaining = account.coverage.filter((c) => c.coverage?.reference !== ref);
+      if (remaining.length === account.coverage.length) return;
+      account.coverage = remaining;
+      await oystehr.fhir.update<Account>(account);
+    })
+  );
 }
 
-export function coverageOrderLabel(order: number): string {
-  return order === 2 ? 'secondary' : 'primary';
+const INSURANCE_TYPE_LABELS: Record<BillingInsuranceType, string> = {
+  primary: 'primary',
+  secondary: 'secondary',
+  workersComp: "workers' comp",
+};
+
+export function coverageInsuranceTypeLabel(insuranceType: BillingInsuranceType): string {
+  return INSURANCE_TYPE_LABELS[insuranceType];
 }
 
-// Find an active (non-cancelled) coverage already occupying the given priority for the patient.
-// Effective order is the Account.coverage priority, falling back to Coverage.order.
-export async function findCoverageOccupyingOrder(
+// Find an active (non-cancelled) coverage already assigned to the given insurance type for the patient.
+export async function findCoverageOfType(
   oystehr: Oystehr,
   patientId: string,
-  order: number,
+  insuranceType: BillingInsuranceType,
   excludeCoverageId?: string
 ): Promise<Coverage | undefined> {
-  const [response, account] = await Promise.all([
+  const [response, pbillAccount, wcompAccount] = await Promise.all([
     oystehr.fhir.search<Coverage>({
       resourceType: 'Coverage',
       params: [{ name: 'beneficiary', value: `Patient/${patientId}` }, ...EXCLUDE_WORKING_COPIES_PARAMS],
     }),
     getPatientBillingAccount(oystehr, patientId),
+    getPatientWorkersCompAccount(oystehr, patientId),
   ]);
-
-  const priorityByRef = new Map<string, number>();
-  account?.coverage?.forEach((entry) => {
-    if (entry.coverage?.reference && entry.priority !== undefined) {
-      priorityByRef.set(entry.coverage.reference, entry.priority);
-    }
-  });
 
   return response.unbundle().find((cov) => {
     if (cov.id === excludeCoverageId || cov.status === 'cancelled') return false;
-    const effectiveOrder = priorityByRef.get(`Coverage/${cov.id}`) ?? cov.order;
-    return effectiveOrder === order;
+    return getCoverageInsuranceType(cov, pbillAccount, wcompAccount) === insuranceType;
   });
 }

@@ -20,6 +20,7 @@ import {
 import { ReactElement, useCallback, useEffect, useRef, useState } from 'react';
 import {
   BillingCoverageOption,
+  BillingInsuranceType,
   BillingPayerOption,
   CreateBillingCoverageInput,
   getApiError,
@@ -33,10 +34,20 @@ import { Field } from './Field';
 
 type BirthSex = 'Male' | 'Female' | 'Intersex';
 
+const INSURANCE_TYPE_OPTIONS: { value: BillingInsuranceType; label: string }[] = [
+  { value: 'primary', label: 'Primary' },
+  { value: 'secondary', label: 'Secondary' },
+  { value: 'workersComp', label: "Worker's Comp" },
+];
+
+function insuranceTypeLabel(type: BillingInsuranceType): string {
+  return INSURANCE_TYPE_OPTIONS.find((o) => o.value === type)?.label ?? type;
+}
+
 export interface CoverageFormState {
   payer: BillingPayerOption | null;
   memberId: string;
-  order: 1 | 2;
+  insuranceType: BillingInsuranceType;
   relationship: string;
   firstName: string;
   middleName: string;
@@ -51,11 +62,11 @@ export interface CoverageFormState {
   zip: string;
 }
 
-export function emptyCoverageForm(order: 1 | 2 = 1): CoverageFormState {
+export function emptyCoverageForm(insuranceType: BillingInsuranceType = 'primary'): CoverageFormState {
   return {
     payer: null,
     memberId: '',
-    order,
+    insuranceType,
     relationship: 'Self',
     firstName: '',
     middleName: '',
@@ -79,7 +90,7 @@ export function coverageFormFromOption(option: BillingCoverageOption): CoverageF
   return {
     payer: null,
     memberId: option.memberId ?? option.subscriberId ?? '',
-    order: option.order === 2 ? 2 : 1,
+    insuranceType: option.insuranceType ?? 'primary',
     relationship: option.relationship || 'Self',
     firstName: ph?.firstName ?? '',
     middleName: ph?.middleName ?? '',
@@ -98,12 +109,12 @@ export function coverageFormFromOption(option: BillingCoverageOption): CoverageF
 export function validateCoverageForm(
   state: CoverageFormState,
   payerRequired: boolean,
-  unavailableOrders: number[] = []
+  unavailableTypes: BillingInsuranceType[] = []
 ): string | null {
   if (payerRequired && !state.payer) return 'Choose a payer';
   if (!state.memberId.trim()) return 'Member / Subscriber ID is required';
-  if (unavailableOrders.includes(state.order))
-    return `This patient already has a ${state.order === 2 ? 'secondary' : 'primary'} coverage.`;
+  if (unavailableTypes.includes(state.insuranceType))
+    return `This patient already has a ${insuranceTypeLabel(state.insuranceType)} coverage.`;
   if (!state.relationship) return 'Choose the relationship to insured';
   if (state.relationship !== 'Self') {
     if (!state.firstName.trim() || !state.lastName.trim()) return "Policy holder's first and last name are required";
@@ -136,7 +147,7 @@ export function coverageToCreateInput(state: CoverageFormState, patientId: strin
     patientId,
     payerId: state.payer!.id,
     memberId: state.memberId.trim(),
-    order: state.order,
+    insuranceType: state.insuranceType,
     relationship: state.relationship as CreateBillingCoverageInput['relationship'],
     ...(policyHolderPayload(state) ? { policyHolder: policyHolderPayload(state) } : {}),
   };
@@ -148,7 +159,7 @@ export function coverageToUpdateInput(state: CoverageFormState, coverageId: stri
     // Only re-point the payer when the user picked a new one.
     ...(state.payer ? { payerId: state.payer.id } : {}),
     memberId: state.memberId.trim(),
-    order: state.order,
+    insuranceType: state.insuranceType,
     relationship: state.relationship as UpdateBillingCoverageInput['relationship'],
     ...(policyHolderPayload(state) ? { policyHolder: policyHolderPayload(state) } : {}),
   };
@@ -159,15 +170,15 @@ interface CoverageFormFieldsProps {
   onChange: (next: CoverageFormState) => void;
   // Placeholder for the payer autocomplete (e.g. the current payer when editing).
   payerPlaceholder?: string;
-  // Priorities already held by other active coverages (disabled in the Priority dropdown).
-  unavailableOrders?: number[];
+  // Insurance types already held by other active coverages (disabled in the Insurance Type dropdown).
+  unavailableTypes?: BillingInsuranceType[];
 }
 
 export function CoverageFormFields({
   value,
   onChange,
   payerPlaceholder,
-  unavailableOrders = [],
+  unavailableTypes = [],
 }: CoverageFormFieldsProps): ReactElement {
   const { oystehrZambda } = useApiClients();
   const [payerOptions, setPayerOptions] = useState<BillingPayerOption[]>([]);
@@ -226,19 +237,19 @@ export function CoverageFormFields({
         <Field label="Member / Subscriber ID">
           <TextField size="small" fullWidth value={value.memberId} onChange={(e) => set('memberId', e.target.value)} />
         </Field>
-        <Field label="Priority">
+        <Field label="Insurance Type">
           <Select
             size="small"
             fullWidth
-            value={value.order}
-            onChange={(e) => set('order', Number(e.target.value) === 2 ? 2 : 1)}
+            value={value.insuranceType}
+            onChange={(e) => set('insuranceType', e.target.value as BillingInsuranceType)}
           >
-            <MenuItem value={1} disabled={unavailableOrders.includes(1)}>
-              Primary{unavailableOrders.includes(1) ? ' (already on file)' : ''}
-            </MenuItem>
-            <MenuItem value={2} disabled={unavailableOrders.includes(2)}>
-              Secondary{unavailableOrders.includes(2) ? ' (already on file)' : ''}
-            </MenuItem>
+            {INSURANCE_TYPE_OPTIONS.map((o) => (
+              <MenuItem key={o.value} value={o.value} disabled={unavailableTypes.includes(o.value)}>
+                {o.label}
+                {unavailableTypes.includes(o.value) ? ' (already on file)' : ''}
+              </MenuItem>
+            ))}
           </Select>
         </Field>
       </Box>
@@ -374,9 +385,9 @@ export function CoverageFormFields({
 interface AddCoverageDialogProps {
   open: boolean;
   patientId: string;
-  defaultOrder: 1 | 2;
-  // Priorities already held by active coverages (disabled / blocked in the form).
-  unavailableOrders?: number[];
+  defaultType: BillingInsuranceType;
+  // Insurance types already held by active coverages (disabled / blocked in the form).
+  unavailableTypes?: BillingInsuranceType[];
   onClose: () => void;
   onCreated: () => void;
 }
@@ -384,26 +395,26 @@ interface AddCoverageDialogProps {
 export function AddCoverageDialog({
   open,
   patientId,
-  defaultOrder,
-  unavailableOrders = [],
+  defaultType,
+  unavailableTypes = [],
   onClose,
   onCreated,
 }: AddCoverageDialogProps): ReactElement {
   const { oystehrZambda } = useApiClients();
-  const [form, setForm] = useState<CoverageFormState>(emptyCoverageForm(defaultOrder));
+  const [form, setForm] = useState<CoverageFormState>(emptyCoverageForm(defaultType));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open) return;
-    setForm(emptyCoverageForm(defaultOrder));
+    setForm(emptyCoverageForm(defaultType));
     setSaving(false);
     setError(null);
-  }, [open, defaultOrder]);
+  }, [open, defaultType]);
 
   const handleSave = async (): Promise<void> => {
     if (!oystehrZambda) return;
-    const validationError = validateCoverageForm(form, true, unavailableOrders);
+    const validationError = validateCoverageForm(form, true, unavailableTypes);
     if (validationError) {
       setError(validationError);
       return;
@@ -437,7 +448,7 @@ export function AddCoverageDialog({
           </Alert>
         )}
         <Box sx={{ mt: 0.5 }}>
-          <CoverageFormFields value={form} onChange={setForm} unavailableOrders={unavailableOrders} />
+          <CoverageFormFields value={form} onChange={setForm} unavailableTypes={unavailableTypes} />
         </Box>
       </DialogContent>
       <DialogActions sx={{ px: 3, py: 2.5 }}>

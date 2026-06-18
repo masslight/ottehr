@@ -4,15 +4,17 @@ import { Coverage, Patient } from 'fhir/r4b';
 import { APIErrorCode, FHIR_RESOURCE_NOT_FOUND } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import {
-  coverageOrderLabel,
+  applyInsuranceTypeToCoverage,
+  coverageInsuranceTypeLabel,
   createBillingClient,
   fetchById,
-  findCoverageOccupyingOrder,
+  findCoverageOfType,
   getPayerOrgById,
   linkCoverageToAccount,
   setCoveragePayer,
   setCoverageSubscriber,
   toAddressParts,
+  unlinkCoverageFromAccount,
 } from '../shared';
 import { UpdateBillingCoverageParams, validateRequestParameters } from './validateRequestParameters';
 
@@ -36,14 +38,14 @@ async function performEffect(
   const patientId = coverage.beneficiary?.reference?.split('/')[1];
   if (!patientId) throw FHIR_RESOURCE_NOT_FOUND('Patient');
 
-  // Don't let this coverage take a priority another active coverage already holds.
-  if (params.order !== undefined) {
-    const occupying = await findCoverageOccupyingOrder(oystehr, patientId, params.order, params.coverageId);
+  // Don't let this coverage take an insurance type another active coverage already holds.
+  if (params.insuranceType !== undefined) {
+    const occupying = await findCoverageOfType(oystehr, patientId, params.insuranceType, params.coverageId);
     if (occupying) {
       throw {
         code: APIErrorCode.ALREADY_EXISTS,
-        message: `This patient already has a ${coverageOrderLabel(
-          params.order
+        message: `This patient already has a ${coverageInsuranceTypeLabel(
+          params.insuranceType
         )} coverage. Remove or change it before assigning another.`,
       };
     }
@@ -73,12 +75,14 @@ async function performEffect(
     setCoverageSubscriber(coverage, patientId, params.relationship, policyHolder);
   }
 
-  if (params.order !== undefined) coverage.order = params.order;
+  if (params.insuranceType !== undefined) applyInsuranceTypeToCoverage(coverage, params.insuranceType);
 
   const updated = await oystehr.fhir.update<Coverage>(coverage);
 
-  if (params.order !== undefined) {
-    await linkCoverageToAccount(oystehr, patientId, params.coverageId, params.order);
+  // Moving insurance type re-homes the coverage to the right account (PBILLACCT vs WCOMPACCT).
+  if (params.insuranceType !== undefined) {
+    await unlinkCoverageFromAccount(oystehr, patientId, params.coverageId);
+    await linkCoverageToAccount(oystehr, patientId, params.coverageId, params.insuranceType);
   }
 
   return { id: updated.id };
