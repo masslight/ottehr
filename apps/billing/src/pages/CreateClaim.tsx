@@ -59,8 +59,6 @@ interface CreateClaimForm {
   billingName: string;
   billingNpi: string;
   billingTin: string;
-  // Diagnoses and service lines reuse the same editors as the claim-detail edit experience;
-  // each service line points at diagnoses by their 1-based position in this list.
   diagnoses: DiagnosisRow[];
   serviceLines: ServiceLineRow[];
 }
@@ -138,9 +136,7 @@ export default function CreateClaim(): ReactElement {
     };
   }, []);
 
-  // After a failed submit, smoothly scroll the first invalid field into view
-  // (matches the clinical side, e.g. apps/ehr/src/components/EmployeeInformation/index.tsx).
-  // Covers RHF fields (Patient, providers, diagnoses, service lines) and AR Stage, which render `.Mui-error`.
+  // After a failed submit, smoothly scroll the first invalid field into view.
   useEffect(() => {
     if (Object.keys(errors).length > 0 || arStageError) {
       document.querySelector('.Mui-error')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -295,6 +291,8 @@ export default function CreateClaim(): ReactElement {
       const validLines = data.serviceLines.filter((l) => l.cptCode.trim());
       if (validLines.length) {
         payload.serviceLines = validLines.map((l) => {
+          // Split the free-text modifiers field on any run of commas and/or whitespace
+          // so "25, 59" and "25 59" both yield ["25", "59"].
           const modifiers = l.modifiers
             .split(/[,\s]+/)
             .map((m) => m.trim())
@@ -322,8 +320,6 @@ export default function CreateClaim(): ReactElement {
     }
   };
 
-  // Always-enabled Create: RHF validates the required fields; AR Stage is checked here since
-  // it lives outside the form. On any failure the offending fields turn red and we scroll to the first.
   const handleCreate = handleSubmit(
     async (data) => {
       if (!statuses.arStage) {

@@ -14,12 +14,6 @@ interface TextInputProps {
   InputLabelProps?: TextFieldProps['InputLabelProps'];
 }
 
-/**
- * react-hook-form-bound text field, mirroring the clinical side's
- * apps/ehr/src/components/input/TextInput.tsx: it registers a `required` rule using the
- * shared REQUIRED_FIELD_ERROR_MESSAGE and renders the error state inline (red + helper text).
- * The `sx`/width is applied to the field itself so it drops into the existing flex layouts.
- */
 export function TextInput({
   name,
   label,
