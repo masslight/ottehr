@@ -850,7 +850,7 @@ describe('ApplyTemplate', () => {
     expect(screen.getByRole('button', { name: 'Apply Template' })).toBeDisabled();
     // The header summary flags the problem; expanding shows the explanation.
     expect(within(labCard).getByTestId('template-section-externalLabs-header')).toHaveTextContent(
-      /payment options unavailable/
+      /payment options unavailable/i
     );
     await user.click(within(labCard).getByTestId('template-section-externalLabs-header'));
     expect(await within(labCard).findByTestId('template-external-labs-resources-error')).toBeInTheDocument();
