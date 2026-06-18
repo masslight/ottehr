@@ -222,11 +222,13 @@ export interface ClaimDetailResponse {
   renderingProviderType: string;
   renderingProvider: string;
   renderingNpi: string;
+  renderingTaxonomy: string;
   billingProviderFhirId: string;
   billingProviderType: string;
   billingProvider: string;
   billingNpi: string;
   billingTin: string;
+  billingTaxonomy: string;
   facilityFhirId: string;
   serviceFacility: string;
   serviceFacilityAddress: string;

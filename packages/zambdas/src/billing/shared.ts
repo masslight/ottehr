@@ -162,6 +162,14 @@ export function hasTag(resource: Resource, system: string, code: string): boolea
   return resource.meta?.tag?.some((t) => t.system === system && t.code === code) ?? false;
 }
 
+// Taxonomy is stored as a ZZ-typed identifier
+export function getTaxonomy(resource: Practitioner | Organization): string {
+  return (
+    resource.identifier?.find((id) => id.type?.coding?.some((c) => c.code === FHIR_IDENTIFIER_CODE_TAXONOMY))?.value ??
+    ''
+  );
+}
+
 export function formatAddress(addr?: { line?: string[]; city?: string; state?: string; postalCode?: string }): string {
   if (!addr) return '';
   return [...(addr.line ?? []), addr.city, addr.state, addr.postalCode].filter(Boolean).join(', ');

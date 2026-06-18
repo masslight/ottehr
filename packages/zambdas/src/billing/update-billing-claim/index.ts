@@ -22,6 +22,7 @@ import {
   setCoveragePlanType,
   setNpi,
   setTaxId,
+  setTaxonomy,
   sortClaimInsurance,
 } from '../shared';
 import { UpdateBillingClaimParams, validateRequestParameters } from './validateRequestParameters';
@@ -58,6 +59,7 @@ async function performEffect(oystehr: Oystehr, params: UpdateBillingClaimParams)
       applyName(practitioner, fields.firstName, fields.lastName);
       if (fields.npi !== undefined) setNpi(practitioner, fields.npi);
       if (fields.taxId !== undefined) setTaxId(practitioner, fields.taxId);
+      if (fields.taxonomyCode !== undefined) setTaxonomy(practitioner, fields.taxonomyCode);
       return save(oystehr, practitioner);
     }
     case 'Coverage': {
@@ -84,6 +86,7 @@ async function performEffect(oystehr: Oystehr, params: UpdateBillingClaimParams)
       if (fields.name !== undefined) organization.name = fields.name;
       if (fields.npi !== undefined) setNpi(organization, fields.npi);
       if (fields.taxId !== undefined) setTaxId(organization, fields.taxId);
+      if (fields.taxonomyCode !== undefined) setTaxonomy(organization, fields.taxonomyCode);
       return save(oystehr, organization);
     }
   }

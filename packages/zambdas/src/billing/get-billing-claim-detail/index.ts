@@ -22,6 +22,7 @@ import {
   getClaimType,
   getCoverageClass,
   getCoveragePlanType,
+  getTaxonomy,
   resolvePayersByRef,
   sortClaimInsurance,
   SOURCE_IDENTIFIER_SYSTEM,
@@ -162,6 +163,7 @@ async function performEffect(oystehr: Oystehr, params: GetClaimDetailParams): Pr
         : renderingProvider.name ?? ''
       : '',
     renderingNpi: renderingProvider ? getNPI(renderingProvider) ?? '' : '',
+    renderingTaxonomy: renderingProvider ? getTaxonomy(renderingProvider) : '',
     billingProviderFhirId: provider?.id ?? '',
     billingProviderType: provider?.resourceType ?? '',
     billingProvider: provider
@@ -171,6 +173,7 @@ async function performEffect(oystehr: Oystehr, params: GetClaimDetailParams): Pr
       : '',
     billingNpi: provider ? getNPI(provider) ?? '' : '',
     billingTin: provider ? getTaxID(provider) ?? '' : '',
+    billingTaxonomy: provider ? getTaxonomy(provider) : '',
     facilityFhirId: facility?.id ?? '',
     serviceFacility: facility?.name ?? '',
     serviceFacilityAddress: formatAddress(facility?.address),

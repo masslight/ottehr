@@ -606,6 +606,7 @@ function RenderingProviderSection({
   const [firstName, setFirstName] = useState(initialName.firstName);
   const [lastName, setLastName] = useState(initialName.lastName);
   const [npi, setNpi] = useState(claim.renderingNpi);
+  const [taxonomy, setTaxonomy] = useState(claim.renderingTaxonomy);
 
   const [options, setOptions] = useState<BillingProviderOption[]>([]);
   const [selected, setSelected] = useState<BillingProviderOption | null>(null);
@@ -617,6 +618,7 @@ function RenderingProviderSection({
     setFirstName(parsed.firstName);
     setLastName(parsed.lastName);
     setNpi(claim.renderingNpi);
+    setTaxonomy(claim.renderingTaxonomy);
     setSelected(null);
   }, [claim]);
 
@@ -650,13 +652,18 @@ function RenderingProviderSection({
     }
     if (!hasProvider) return 'Choose a rendering provider';
     if (isOrganization) {
-      return updateResource('Organization', claim.renderingProviderId, { name, npi: npi.trim() });
+      return updateResource('Organization', claim.renderingProviderId, {
+        name,
+        npi: npi.trim(),
+        taxonomyCode: taxonomy.trim(),
+      });
     }
     if (!firstName.trim() || !lastName.trim()) return 'First and last name are required';
     return updateResource('Practitioner', claim.renderingProviderId, {
       firstName: firstName.trim(),
       lastName: lastName.trim(),
       npi: npi.trim(),
+      taxonomyCode: taxonomy.trim(),
     });
   };
 
@@ -726,6 +733,9 @@ function RenderingProviderSection({
               <Field label="NPI">
                 <TextField size="small" fullWidth value={npi} onChange={(e) => setNpi(e.target.value)} />
               </Field>
+              <Field label="Taxonomy Code">
+                <TextField size="small" fullWidth value={taxonomy} onChange={(e) => setTaxonomy(e.target.value)} />
+              </Field>
             </Box>
           )}
         </Box>
@@ -733,6 +743,7 @@ function RenderingProviderSection({
     >
       <Row label="Provider" value={claim.renderingProvider} />
       <Row label="NPI" value={claim.renderingNpi} />
+      <Row label="Taxonomy Code" value={claim.renderingTaxonomy} />
     </EditableSection>
   );
 }
@@ -897,6 +908,7 @@ function BillingProviderSection({
   const [lastName, setLastName] = useState(initialName.lastName);
   const [npi, setNpi] = useState(claim.billingNpi);
   const [tin, setTin] = useState(claim.billingTin);
+  const [taxonomy, setTaxonomy] = useState(claim.billingTaxonomy);
 
   const [options, setOptions] = useState<BillingProviderOption[]>([]);
   const [selected, setSelected] = useState<BillingProviderOption | null>(null);
@@ -909,6 +921,7 @@ function BillingProviderSection({
     setLastName(parsed.lastName);
     setNpi(claim.billingNpi);
     setTin(claim.billingTin);
+    setTaxonomy(claim.billingTaxonomy);
     setSelected(null);
   }, [claim]);
 
@@ -948,12 +961,14 @@ function BillingProviderSection({
         lastName: lastName.trim(),
         npi: npi.trim(),
         taxId: tin.trim(),
+        taxonomyCode: taxonomy.trim(),
       });
     }
     return updateResource('Organization', claim.billingProviderFhirId, {
       name,
       npi: npi.trim(),
       taxId: tin.trim(),
+      taxonomyCode: taxonomy.trim(),
     });
   };
 
@@ -1022,6 +1037,9 @@ function BillingProviderSection({
               <Field label="Tax ID">
                 <TextField size="small" fullWidth value={tin} onChange={(e) => setTin(e.target.value)} />
               </Field>
+              <Field label="Taxonomy Code">
+                <TextField size="small" fullWidth value={taxonomy} onChange={(e) => setTaxonomy(e.target.value)} />
+              </Field>
             </Box>
           )}
         </Box>
@@ -1030,6 +1048,7 @@ function BillingProviderSection({
       <Row label="Provider" value={claim.billingProvider} />
       <Row label="NPI" value={claim.billingNpi} />
       <Row label="Tax ID" value={claim.billingTin} />
+      <Row label="Taxonomy Code" value={claim.billingTaxonomy} />
     </EditableSection>
   );
 }

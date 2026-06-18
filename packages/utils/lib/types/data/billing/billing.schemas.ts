@@ -339,6 +339,7 @@ export const UpdateBillingResourceInputSchema = z.discriminatedUnion('resourceTy
       lastName: z.string().optional(),
       npi: z.string().optional(),
       taxId: z.string().optional(),
+      taxonomyCode: z.string().optional(),
     }),
   }),
   z.object({
@@ -369,6 +370,7 @@ export const UpdateBillingResourceInputSchema = z.discriminatedUnion('resourceTy
       name: z.string().optional(),
       npi: z.string().optional(),
       taxId: z.string().optional(),
+      taxonomyCode: z.string().optional(),
     }),
   }),
   // Attach working copies for resources the claim was created without, re-point the payer (RCM payer id),
