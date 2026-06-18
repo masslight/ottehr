@@ -3,7 +3,14 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Basic, Claim } from 'fhir/r4b';
 import { getPatchBinary, INVALID_INPUT_ERROR } from 'utils';
 import { checkOrCreateM2MClientToken, fetchAllPages, wrapHandler, ZambdaInput } from '../../shared';
-import { CLAIM_TAG_SYSTEM, createBillingClient, fetchById, TAG_CODE_SYSTEM, TAG_DESCRIPTION_URL } from '../shared';
+import {
+  CLAIM_TAG_SYSTEM,
+  createBillingClient,
+  fetchById,
+  isSystemTag,
+  TAG_CODE_SYSTEM,
+  TAG_DESCRIPTION_URL,
+} from '../shared';
 import { SaveBillingTagParams, validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -22,7 +29,11 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 // When updating, load the tag being edited and confirm it exists. No-op for create.
 async function complexValidation(oystehr: Oystehr, params: SaveBillingTagParams): Promise<Basic | undefined> {
   if (!params.tagId) return undefined;
-  return fetchById<Basic>(oystehr, 'Basic', params.tagId);
+  const tag = await fetchById<Basic>(oystehr, 'Basic', params.tagId);
+  if (isSystemTag(tag)) {
+    throw INVALID_INPUT_ERROR('Cannot edit system-level tags');
+  }
+  return tag;
 }
 
 async function performEffect(

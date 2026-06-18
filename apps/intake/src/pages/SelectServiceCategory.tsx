@@ -4,7 +4,7 @@ import HealthMetricIcon from '@theme/icons/health-metric.svg?react';
 import PersonalInjuryIcon from '@theme/icons/personal-injury.svg?react';
 import { ReactNode, useMemo } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
-import { BOOKING_CONFIG } from 'utils';
+import { BOOKING_CONFIG, serviceCategorySupportsContext } from 'utils';
 import { getWelcomeTitle } from '../branding/welcomeTitle';
 import ServiceCategoryPicker, { ServiceCategoryOption } from '../components/ServiceCategoryPicker';
 import { useServiceCategories } from '../hooks/useServiceCategories';
@@ -32,8 +32,13 @@ const SelectServiceCategoryPage = (): JSX.Element => {
 
   const options: ServiceCategoryOption[] = useMemo(() => {
     const serviceCategoryIcons = BOOKING_CONFIG.serviceCategoryIcons ?? {};
+    // Visit-type-only filter (mode is implied by the slot owner downstream).
+    // Shared with homepage / get-context resolver via serviceCategorySupportsContext
+    // so untagged BOOKING_CONFIG entries are admitted via the same rule
+    // everywhere — without this, the picker silently hid them while the
+    // upstream filter showed them, producing a "no options" page.
     return (serviceCategories ?? [])
-      .filter((sc) => (sc.visitTypes ?? ['prebook']).includes(requiredVisitType))
+      .filter((sc) => serviceCategorySupportsContext(sc, undefined, requiredVisitType))
       .map((sc) => ({
         code: sc.category.code,
         display: sc.category.display ?? sc.category.code,

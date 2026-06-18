@@ -30,12 +30,29 @@ import {
   BillingPayerOption,
   BillingProviderOption,
   BillingTag,
-  chooseJson,
+  CLAIM_STATUS_FIELDS_BY_KEY,
   ClaimDetailResponse,
+  ClaimStatusFieldKey,
+  formatClaimStatusValue,
+  getApiError,
+  UpdateBillingResourceInput,
 } from 'utils';
+import {
+  getBillingClaimDetail,
+  getPatientCoverages,
+  searchBillingLocations,
+  searchBillingPayers,
+  searchBillingProviders,
+  searchBillingTags,
+  tagBillingClaim,
+  updateBillingResource,
+} from '../api/api';
+import { ClaimStatusFields } from '../components/claim/ClaimStatusFields';
+import { DiagnosesEditor } from '../components/claim/DiagnosesEditor';
 import { EditableSection } from '../components/claim/EditableSection';
+import { ServiceLineRow, ServiceLinesEditor } from '../components/claim/ServiceLinesEditor';
 import { Field } from '../components/Field';
-import { CLAIM_STATUS_COLORS, formatClaimStatus } from '../constants/claimStatus';
+import { claimStatusValueColor, formatAntCaseString } from '../constants/claimStatus';
 import { useApiClients } from '../hooks/useAppClients';
 import { otherColors } from '../themes/ottehr/colors';
 import { buildAddressInput, formatCurrency, splitDisplayName } from '../utils/format';
@@ -59,10 +76,10 @@ export default function ClaimDetail(): ReactElement {
     setLoading(true);
     setError(null);
     try {
-      const response = await oystehrZambda.zambda.execute({ id: 'get-billing-claim-detail', claimId: id });
-      setClaim(chooseJson(response));
+      const data = await getBillingClaimDetail(oystehrZambda, { claimId: id });
+      setClaim(data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(getApiError({ error: err, defaultError: 'Failed to load claim' }));
     } finally {
       setLoading(false);
     }
@@ -76,14 +93,9 @@ export default function ClaimDetail(): ReactElement {
     async (resourceType: string, resourceId: string, fields: Record<string, unknown>): Promise<string | null> => {
       if (!oystehrZambda) return 'Client not ready';
       try {
-        await oystehrZambda.zambda.execute({
-          id: 'update-billing-claim',
-          resourceId,
-          resourceType,
-          fields,
-        });
+        await updateBillingResource(oystehrZambda, { resourceType, resourceId, fields } as UpdateBillingResourceInput);
       } catch (err) {
-        return err instanceof Error ? err.message : 'Failed to save changes';
+        return getApiError({ error: err, defaultError: 'Failed to save changes' });
       }
       await fetchDetail();
       return null;
@@ -95,9 +107,29 @@ export default function ClaimDetail(): ReactElement {
     async (action: 'add' | 'remove', tagName: string): Promise<void> => {
       if (!oystehrZambda || !id) return;
       try {
-        await oystehrZambda.zambda.execute({ id: 'tag-billing-claim', claimId: id, action, tagName });
+        await tagBillingClaim(oystehrZambda, { claimId: id, action, tagName });
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to update tag');
+        setError(getApiError({ error: err, defaultError: 'Failed to update tag' }));
+        return;
+      }
+      await fetchDetail();
+    },
+    [oystehrZambda, id, fetchDetail]
+  );
+
+  const updateStatus = useCallback(
+    async (field: ClaimStatusFieldKey, value: string): Promise<void> => {
+      if (!oystehrZambda || !id) return;
+      try {
+        // An empty selection clears the tag back to the field's default.
+        await oystehrZambda.zambda.execute({
+          id: 'set-billing-claim-status',
+          claimId: id,
+          field,
+          value: value || null,
+        });
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to update status');
         return;
       }
       await fetchDetail();
@@ -124,8 +156,8 @@ export default function ClaimDetail(): ReactElement {
     );
   }
 
-  const statusColor = CLAIM_STATUS_COLORS[claim.status] ?? 'default';
-  const statusLabel = formatClaimStatus(claim.status);
+  const arStageCode = claim.statuses.arStage;
+  const arStageLabel = formatClaimStatusValue(CLAIM_STATUS_FIELDS_BY_KEY.arStage, arStageCode);
   const dos = claim.serviceLines[0]?.serviceDate ?? claim.created;
 
   return (
@@ -141,15 +173,21 @@ export default function ClaimDetail(): ReactElement {
           <Box sx={{ display: 'flex', gap: 3, mt: 0.5, flexWrap: 'wrap' }}>
             <Meta label="Date of Service" value={dos} />
             <Meta label="Claim ID" value={claim.id.slice(0, 8)} />
+            <Meta label="Claim Type" value={formatAntCaseString(claim.type)} />
+            <Meta label="Appointment Type" value={formatAntCaseString(claim.appointmentType)} />
             <Meta label="Patient DOB" value={claim.patientDob} />
-            <Meta label="Billing Type" value={claim.billingType} />
-            <Meta label="Billable Status" value={claim.billableStatus} />
           </Box>
         </Box>
       </Box>
 
       <Box sx={{ ml: 5, mb: 2, display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
-        <Chip label={statusLabel} color={statusColor} variant="outlined" size="small" sx={{ borderRadius: '4px' }} />
+        <Chip
+          label={arStageLabel || 'No AR Stage'}
+          color={arStageCode ? claimStatusValueColor(arStageCode) : 'default'}
+          variant="outlined"
+          size="small"
+          sx={{ borderRadius: '4px' }}
+        />
         {claim.tags.map((tag) => (
           <Chip
             key={tag}
@@ -161,6 +199,12 @@ export default function ClaimDetail(): ReactElement {
         ))}
         <TagAdder claimId={claim.id} oystehrZambda={oystehrZambda} onAdded={fetchDetail} existingTags={claim.tags} />
       </Box>
+
+      <Card variant="outlined" sx={{ mb: 2, ml: 5 }}>
+        <CardContent>
+          <ClaimStatusFields values={claim.statuses} onChange={updateStatus} title="Claim Status" />
+        </CardContent>
+      </Card>
 
       <Card variant="outlined" sx={{ mb: 2, ml: 5 }}>
         <CardContent sx={{ py: 1.5, '&:last-child': { pb: 1.5 } }}>
@@ -387,11 +431,8 @@ function InsuranceSection({
       if (!oystehrZambda) return;
       if (searchTimer.current) clearTimeout(searchTimer.current);
       searchTimer.current = setTimeout(async () => {
-        const res = await oystehrZambda.zambda.execute({
-          id: 'search-billing-payers',
-          ...(query ? { name: query } : {}),
-        });
-        setPayerOptions(chooseJson(res).payers ?? []);
+        const res = await searchBillingPayers(oystehrZambda, query ? { name: query } : {});
+        setPayerOptions(res.payers ?? []);
       }, 300);
     },
     [oystehrZambda]
@@ -400,11 +441,8 @@ function InsuranceSection({
   const loadCoverages = useCallback((): void => {
     if (!oystehrZambda || !claim.patientOriginalId) return;
     void (async () => {
-      const res = await oystehrZambda.zambda.execute({
-        id: 'get-patient-coverages',
-        patientId: claim.patientOriginalId,
-      });
-      setCoverageOptions(chooseJson(res).coverages ?? []);
+      const res = await getPatientCoverages(oystehrZambda, { patientId: claim.patientOriginalId });
+      setCoverageOptions(res.coverages ?? []);
     })();
   }, [oystehrZambda, claim.patientOriginalId]);
 
@@ -547,12 +585,11 @@ function RenderingProviderSection({
       if (!oystehrZambda) return;
       if (searchTimer.current) clearTimeout(searchTimer.current);
       searchTimer.current = setTimeout(async () => {
-        const res = await oystehrZambda.zambda.execute({
-          id: 'search-billing-providers',
+        const res = await searchBillingProviders(oystehrZambda, {
           providerType: 'rendering',
           ...(query ? { name: query } : {}),
         });
-        setOptions(chooseJson(res).providers ?? []);
+        setOptions(res.providers ?? []);
       }, 300);
     },
     [oystehrZambda]
@@ -698,11 +735,8 @@ function FacilitySection({
       if (!oystehrZambda) return;
       if (searchTimer.current) clearTimeout(searchTimer.current);
       searchTimer.current = setTimeout(async () => {
-        const res = await oystehrZambda.zambda.execute({
-          id: 'search-billing-locations',
-          ...(query ? { name: query } : {}),
-        });
-        setOptions(chooseJson(res).locations ?? []);
+        const res = await searchBillingLocations(oystehrZambda, query ? { name: query } : {});
+        setOptions(res.locations ?? []);
       }, 300);
     },
     [oystehrZambda]
@@ -843,12 +877,11 @@ function BillingProviderSection({
       if (!oystehrZambda) return;
       if (searchTimer.current) clearTimeout(searchTimer.current);
       searchTimer.current = setTimeout(async () => {
-        const res = await oystehrZambda.zambda.execute({
-          id: 'search-billing-providers',
+        const res = await searchBillingProviders(oystehrZambda, {
           providerType: 'billing',
           ...(query ? { name: query } : {}),
         });
-        setOptions(chooseJson(res).providers ?? []);
+        setOptions(res.providers ?? []);
       }, 300);
     },
     [oystehrZambda]
@@ -976,9 +1009,6 @@ function DiagnosesSection({
     resetFields();
   }, [resetFields]);
 
-  const setRow = (index: number, field: 'code' | 'display', value: string): void =>
-    setRows((prev) => prev.map((row, i) => (i === index ? { ...row, [field]: value } : row)));
-
   const handleSave = async (): Promise<string | null> => {
     if (rows.some((row) => !row.code.trim())) return 'Each diagnosis needs an ICD-10 code';
     return updateResource('Claim', claim.id, {
@@ -994,39 +1024,7 @@ function DiagnosesSection({
       title="Diagnoses"
       onSave={handleSave}
       onCancel={resetFields}
-      editForm={
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, maxWidth: 680 }}>
-          {rows.map((row, i) => (
-            <Box key={i} sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-              <Typography variant="body2" color="text.secondary" sx={{ width: 16 }}>
-                {i + 1}
-              </Typography>
-              <TextField
-                size="small"
-                label="ICD-10"
-                value={row.code}
-                onChange={(e) => setRow(i, 'code', e.target.value)}
-                sx={{ width: 140 }}
-              />
-              <TextField
-                size="small"
-                label="Description"
-                fullWidth
-                value={row.display}
-                onChange={(e) => setRow(i, 'display', e.target.value)}
-              />
-              <Button size="small" color="error" onClick={() => setRows((prev) => prev.filter((_, j) => j !== i))}>
-                Remove
-              </Button>
-            </Box>
-          ))}
-          <Box>
-            <Button size="small" onClick={() => setRows((prev) => [...prev, { code: '', display: '' }])}>
-              + Add diagnosis
-            </Button>
-          </Box>
-        </Box>
-      }
+      editForm={<DiagnosesEditor value={rows} onChange={setRows} />}
     >
       {claim.diagnoses.length > 0 ? (
         <>
@@ -1045,16 +1043,6 @@ function DiagnosesSection({
       )}
     </EditableSection>
   );
-}
-
-interface ServiceLineRow {
-  cptCode: string;
-  modifiers: string;
-  units: string;
-  charges: string;
-  serviceDate: string;
-  placeOfService: string;
-  diagnosisPointers: number[];
 }
 
 function ServiceLinesSection({
@@ -1084,23 +1072,6 @@ function ServiceLinesSection({
   useEffect(() => {
     resetFields();
   }, [resetFields]);
-
-  const setRow = <K extends keyof ServiceLineRow>(index: number, field: K, value: ServiceLineRow[K]): void =>
-    setRows((prev) => prev.map((row, i) => (i === index ? { ...row, [field]: value } : row)));
-
-  const addRow = (): void =>
-    setRows((prev) => [
-      ...prev,
-      {
-        cptCode: '',
-        modifiers: '',
-        units: '1',
-        charges: '',
-        serviceDate: claim.serviceLines[0]?.serviceDate ?? claim.created,
-        placeOfService: claim.serviceLines[0]?.placeOfService ?? '',
-        diagnosisPointers: claim.diagnoses.length ? [claim.diagnoses[0].sequence] : [],
-      },
-    ]);
 
   const dxCode = (sequence: number): string =>
     claim.diagnoses.find((dx) => dx.sequence === sequence)?.code ?? String(sequence);
@@ -1137,89 +1108,12 @@ function ServiceLinesSection({
       onSave={handleSave}
       onCancel={resetFields}
       editForm={
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-          {rows.map((row, i) => (
-            <Box key={i} sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
-              <TextField
-                size="small"
-                label="CPT"
-                value={row.cptCode}
-                onChange={(e) => setRow(i, 'cptCode', e.target.value)}
-                sx={{ width: 100 }}
-              />
-              <TextField
-                size="small"
-                label="Mod"
-                value={row.modifiers}
-                onChange={(e) => setRow(i, 'modifiers', e.target.value)}
-                sx={{ width: 90 }}
-              />
-              <TextField
-                size="small"
-                label="Units"
-                type="number"
-                value={row.units}
-                onChange={(e) => setRow(i, 'units', e.target.value)}
-                sx={{ width: 80 }}
-              />
-              <TextField
-                size="small"
-                label="Charges"
-                type="number"
-                value={row.charges}
-                onChange={(e) => setRow(i, 'charges', e.target.value)}
-                sx={{ width: 110 }}
-              />
-              <TextField
-                size="small"
-                label="Date"
-                type="date"
-                value={row.serviceDate}
-                onChange={(e) => setRow(i, 'serviceDate', e.target.value)}
-                sx={{ width: 160 }}
-                InputLabelProps={{ shrink: true }}
-              />
-              <TextField
-                size="small"
-                label="POS"
-                value={row.placeOfService}
-                onChange={(e) => setRow(i, 'placeOfService', e.target.value)}
-                sx={{ width: 80 }}
-              />
-              <Select
-                multiple
-                size="small"
-                displayEmpty
-                value={row.diagnosisPointers}
-                onChange={(e) => setRow(i, 'diagnosisPointers', e.target.value as number[])}
-                renderValue={(selected) =>
-                  selected.length ? (
-                    selected.map(dxCode).join(', ')
-                  ) : (
-                    <Box component="span" sx={{ color: 'text.disabled' }}>
-                      Dx
-                    </Box>
-                  )
-                }
-                sx={{ width: 160 }}
-              >
-                {claim.diagnoses.map((dx) => (
-                  <MenuItem key={dx.sequence} value={dx.sequence}>
-                    {dx.sequence}: {dx.code}
-                  </MenuItem>
-                ))}
-              </Select>
-              <Button size="small" color="error" onClick={() => setRows((prev) => prev.filter((_, j) => j !== i))}>
-                Remove
-              </Button>
-            </Box>
-          ))}
-          <Box>
-            <Button size="small" onClick={addRow}>
-              + Add service line
-            </Button>
-          </Box>
-        </Box>
+        <ServiceLinesEditor
+          value={rows}
+          onChange={setRows}
+          diagnoses={claim.diagnoses}
+          defaultServiceDate={claim.created}
+        />
       }
     >
       {claim.serviceLines.length > 0 ? (
@@ -1287,7 +1181,7 @@ function OtherClaimsSection({
               <TableCell sx={thSx}>Claim ID</TableCell>
               <TableCell sx={thSx}>Service Date</TableCell>
               <TableCell sx={thSx}>Payer</TableCell>
-              <TableCell sx={thSx}>Status</TableCell>
+              <TableCell sx={thSx}>AR Stage</TableCell>
               <TableCell sx={thSx} align="right">
                 Billed
               </TableCell>
@@ -1305,13 +1199,17 @@ function OtherClaimsSection({
                 <TableCell>{oc.serviceDate}</TableCell>
                 <TableCell>{oc.payerName}</TableCell>
                 <TableCell>
-                  <Chip
-                    label={formatClaimStatus(oc.status)}
-                    color={CLAIM_STATUS_COLORS[oc.status] ?? 'default'}
-                    variant="outlined"
-                    size="small"
-                    sx={{ borderRadius: '4px' }}
-                  />
+                  {oc.arStage ? (
+                    <Chip
+                      label={formatClaimStatusValue(CLAIM_STATUS_FIELDS_BY_KEY.arStage, oc.arStage)}
+                      color={claimStatusValueColor(oc.arStage)}
+                      variant="outlined"
+                      size="small"
+                      sx={{ borderRadius: '4px' }}
+                    />
+                  ) : (
+                    '—'
+                  )}
                 </TableCell>
                 <TableCell align="right">{formatCurrency(oc.billed)}</TableCell>
                 <TableCell>{oc.cptCodes.join(', ')}</TableCell>
@@ -1406,11 +1304,11 @@ function TagAdder({
     if (!oystehrZambda) return;
     setAddError(null);
     try {
-      const res = await oystehrZambda.zambda.execute({ id: 'search-billing-tags' });
-      setAllTags(chooseJson(res).tags ?? []);
+      const res = await searchBillingTags(oystehrZambda);
+      setAllTags(res.tags ?? []);
     } catch (err) {
       setAllTags([]);
-      setAddError(err instanceof Error ? err.message : 'Failed to load tags');
+      setAddError(getApiError({ error: err, defaultError: 'Failed to load tags' }));
     }
   }, [oystehrZambda]);
 
@@ -1419,9 +1317,9 @@ function TagAdder({
       if (!oystehrZambda) return;
       setAddError(null);
       try {
-        await oystehrZambda.zambda.execute({ id: 'tag-billing-claim', claimId, action: 'add', tagName });
+        await tagBillingClaim(oystehrZambda, { claimId, action: 'add', tagName });
       } catch (err) {
-        setAddError(err instanceof Error ? err.message : 'Failed to add tag');
+        setAddError(getApiError({ error: err, defaultError: 'Failed to add tag' }));
         return;
       }
       setOpen(false);
