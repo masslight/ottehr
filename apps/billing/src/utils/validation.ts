@@ -7,7 +7,7 @@ export function validateProviderFields(fields: {
   zip: string;
 }): string | null {
   const npi = fields.npi.trim();
-  if (npi && !isNPIValidWithChecksum(npi)) return 'NPI must be exactly 10 digits';
+  if (npi && !isNPIValidWithChecksum(npi)) return 'NPI must be a valid 10-digit number with a correct check digit';
   const taxId = fields.taxId.trim();
   if (taxId && !taxIdRegex.test(taxId)) return 'Tax ID / EIN must be exactly 9 digits';
   const taxonomyCode = fields.taxonomyCode.trim();

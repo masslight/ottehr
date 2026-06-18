@@ -22,7 +22,9 @@ export function ProviderDetails({ control, setValue, photoSrc, roles }: Provider
         rules={{
           validate: (value) => {
             if (value) {
-              return isNPIValidWithChecksum(value) ? true : 'NPI must be 10 digits';
+              return isNPIValidWithChecksum(value)
+                ? true
+                : 'NPI must be a valid 10-digit number with a correct check digit';
             }
             return true;
           },

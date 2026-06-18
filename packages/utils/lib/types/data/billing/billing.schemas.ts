@@ -187,7 +187,10 @@ export const SaveServiceFacilityInputSchema = z.object({
   addressLine2: z.string().trim().optional(),
   city: nonEmptyString,
   state: nonEmptyString.refine((code) => STATE_CODES.has(code), 'Unknown state code'),
-  zip: z.string().trim().regex(/^\d{5}$/, 'ZIP must be 5 digits'),
+  zip: z
+    .string()
+    .trim()
+    .regex(/^\d{5}$/, 'ZIP must be 5 digits'),
   zipPlus4: z
     .string()
     .trim()
@@ -199,7 +202,12 @@ export const SaveServiceFacilityInputSchema = z.object({
     .refine(isNPIValidWithChecksum, 'NPI must be 10 digits with a valid check digit')
     .nullable()
     .optional(),
-  clia: z.string().trim().refine(isCLIAValid, 'CLIA must match the format NNDNNNNNNN, e.g. 05D1234567').nullable().optional(),
+  clia: z
+    .string()
+    .trim()
+    .refine(isCLIAValid, 'CLIA must match the format NNDNNNNNNN, e.g. 05D1234567')
+    .nullable()
+    .optional(),
   posCode: z
     .string()
     .refine((code) => CMS_PLACE_OF_SERVICE_CODE_SET.has(code), 'Unknown place of service code')
@@ -253,7 +261,10 @@ const billingAddressSchema = z
   })
   .strict();
 
-const billingNpiSchema = nonEmptyString.regex(npiRegex, 'NPI must be exactly 10 digits');
+const billingNpiSchema = nonEmptyString.regex(
+  npiRegex,
+  'NPI must be a valid 10-digit number with a correct check digit'
+);
 const billingTaxIdSchema = nonEmptyString.regex(taxIdRegex, 'Tax ID / EIN must be exactly 9 digits');
 const billingTaxonomyCodeSchema = z.string().trim().length(10, 'Taxonomy code must be exactly 10 characters');
 // Providers require a validated ZIP (5-digit or ZIP+4); the base address schema stays loose
