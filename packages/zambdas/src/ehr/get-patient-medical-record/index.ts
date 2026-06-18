@@ -10,22 +10,14 @@ import {
   getAllFhirSearchPages,
   getFileNameFromUrl,
   GetPatientMedicalRecordOutput,
-  getSecret,
   MEDICAL_RECORD_EXPORT_CODE,
   MIME_TYPES,
   OTTEHR_CODE_SYSTEM_BASE_URL,
   PATIENT_FOLDERS_CODE,
   sanitizeFileNameForZ3,
   Secrets,
-  SecretsKeys,
 } from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createOystehrClient,
-  topLevelCatch,
-  wrapHandler,
-  ZambdaInput,
-} from '../../shared';
+import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
 import { makeZ3Url } from '../../shared/presigned-file-urls';
 import { createPresignedUrl, uploadObjectToZ3 } from '../../shared/z3Utils';
 import { validateRequestParameters } from './validateRequestParameters';
@@ -48,32 +40,17 @@ type NamedAttachment = {
 let m2mToken: string;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  try {
-    let validatedParameters: ReturnType<typeof validateRequestParameters>;
-    try {
-      validatedParameters = validateRequestParameters(input);
-    } catch (error: any) {
-      return {
-        statusCode: 400,
-        body: JSON.stringify({ message: `Invalid request parameters. ${error.message || error}` }),
-      };
-    }
+  const { patientId, secrets } = validateRequestParameters(input);
 
-    const { patientId, secrets } = validatedParameters;
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+  const oystehr = createOystehrClient(m2mToken, secrets);
 
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
+  const response = await performEffect(oystehr, patientId, secrets);
 
-    const response = await performEffect(oystehr, patientId, secrets);
-
-    return {
-      statusCode: 200,
-      body: JSON.stringify(response),
-    };
-  } catch (error: unknown) {
-    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    return topLevelCatch(ZAMBDA_NAME, error, ENVIRONMENT);
-  }
+  return {
+    statusCode: 200,
+    body: JSON.stringify(response),
+  };
 });
 
 export const performEffect = async (
