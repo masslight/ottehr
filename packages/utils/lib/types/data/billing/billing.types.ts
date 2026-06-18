@@ -208,6 +208,9 @@ export interface ClaimDetailResponse {
   memberId: string;
   subscriberId: string;
   coverageStatus: string;
+  groupNumber: string;
+  planName: string;
+  planType: string;
   responsibleParty: string;
   secondaryCoverageFhirId: string;
   secondaryPayerName: string;

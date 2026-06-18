@@ -347,6 +347,10 @@ export const UpdateBillingResourceInputSchema = z.discriminatedUnion('resourceTy
     fields: z.object({
       subscriberId: z.string().optional(),
       status: z.enum(['active', 'cancelled', 'draft', 'entered-in-error']).optional(),
+      groupNumber: z.string().optional(),
+      planName: z.string().optional(),
+      // plan-type code from insuranceTypeOptionsData; '' clears it.
+      planType: z.string().optional(),
     }),
   }),
   z.object({

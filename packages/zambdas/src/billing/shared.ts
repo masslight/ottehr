@@ -17,10 +17,12 @@ import {
   Resource,
 } from 'fhir/r4b';
 import {
+  CANDID_PLAN_TYPE_SYSTEM,
   CODE_SYSTEM_APPOINTMENT_TYPE_CODES,
   CODE_SYSTEM_APPOINTMENT_TYPE_TAG_SYSTEM,
   CODE_SYSTEM_CLAIM_TYPE,
   CODE_SYSTEM_CLAIM_TYPE_CODES,
+  CODE_SYSTEM_COVERAGE_CLASS,
   convertFhirNameToDisplayName,
   FHIR_IDENTIFIER_CODE_TAX_EMPLOYER,
   FHIR_IDENTIFIER_CODE_TAX_SS,
@@ -28,6 +30,7 @@ import {
   FHIR_IDENTIFIER_NPI,
   FHIR_IDENTIFIER_SYSTEM,
   FHIR_RESOURCE_NOT_FOUND,
+  getCandidPlanTypeCodeFromCoverage,
   isPayerUrl,
   Secrets,
 } from 'utils';
@@ -250,6 +253,34 @@ export function setTaxonomy(resource: Practitioner | Organization, taxonomyCode:
   }
 }
 
+export function getCoverageClass(coverage: Coverage, classCode: string): string {
+  return coverage.class?.find((c) => c.type?.coding?.some((cc) => cc.code === classCode))?.value ?? '';
+}
+
+export function setCoverageClass(coverage: Coverage, classCode: string, value: string): void {
+  const others = (coverage.class ?? []).filter((c) => !c.type?.coding?.some((cc) => cc.code === classCode));
+  if (value) {
+    coverage.class = [
+      ...others,
+      { type: { coding: [{ system: CODE_SYSTEM_COVERAGE_CLASS, code: classCode }] }, value },
+    ];
+  } else if (others.length) {
+    coverage.class = others;
+  } else {
+    delete coverage.class;
+  }
+}
+
+// Plan Type lives on Coverage.type under CANDID_PLAN_TYPE_SYSTEM
+export function getCoveragePlanType(coverage: Coverage): string {
+  return getCandidPlanTypeCodeFromCoverage(coverage) ?? '';
+}
+
+export function setCoveragePlanType(coverage: Coverage, candidCode: string): void {
+  if (candidCode) coverage.type = { coding: [{ system: CANDID_PLAN_TYPE_SYSTEM, code: candidCode }] };
+  else delete coverage.type;
+}
+
 export function fhirName(resource?: Patient | Practitioner): string {
   const name = resource?.name?.[0];
   return name ? convertFhirNameToDisplayName(name) : '';
@@ -316,7 +347,17 @@ type CRT<T extends CopyableBillingResource> = Extract<CopyableBillingResource, {
  */
 const CopyableProperties: ResourceProperties<CopyableBillingResource> = {
   Account: ['resourceType', 'status', 'type', 'subject', 'guarantor', 'coverage', 'contained'],
-  Coverage: ['resourceType', 'status', 'subscriber', 'beneficiary', 'payor', 'subscriberId', 'relationship', 'class'],
+  Coverage: [
+    'resourceType',
+    'status',
+    'subscriber',
+    'beneficiary',
+    'payor',
+    'subscriberId',
+    'relationship',
+    'class',
+    'type',
+  ],
   Location: ['resourceType', 'address', 'description', 'name', 'telecom', 'type'],
   Organization: ['resourceType', 'active', 'address', 'contact', 'name', 'telecom', 'type'],
   Patient: ['resourceType', 'name', 'active', 'gender', 'address', 'telecom', 'birthDate'],
