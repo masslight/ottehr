@@ -1,10 +1,6 @@
-import { Organization, RelatedPerson } from 'fhir/r4b';
+import { Organization } from 'fhir/r4b';
 import { describe, expect, it } from 'vitest';
-import {
-  buildBillingCoverage,
-  COVERAGE_SUBSCRIBER_CONTAINED_ID,
-  setCoverageSubscriber,
-} from '../../../src/billing/shared';
+import { buildBillingCoverage, buildSubscriberRelatedPerson } from '../../../src/billing/shared';
 
 const PATIENT_ID = 'patient-123';
 
@@ -26,7 +22,7 @@ const spousePolicyHolder = {
 };
 
 describe('buildBillingCoverage', () => {
-  it('builds a self coverage pointing the subscriber at the patient with no contained policy holder', () => {
+  it('builds a self coverage pointing the subscriber at the patient', () => {
     const coverage = buildBillingCoverage({
       patientId: PATIENT_ID,
       payerOrg,
@@ -34,6 +30,7 @@ describe('buildBillingCoverage', () => {
       status: 'active',
       insuranceType: 'primary',
       relationship: 'Self',
+      subscriberReference: `Patient/${PATIENT_ID}`,
     });
 
     expect(coverage.resourceType).toBe('Coverage');
@@ -42,6 +39,7 @@ describe('buildBillingCoverage', () => {
     expect(coverage.beneficiary?.reference).toBe(`Patient/${PATIENT_ID}`);
     expect(coverage.subscriber?.reference).toBe(`Patient/${PATIENT_ID}`);
     expect(coverage.subscriberId).toBe('M1');
+    // No contained subscriber — non-self subscribers are standalone RelatedPerson resources.
     expect(coverage.contained).toBeUndefined();
     expect(coverage.relationship?.coding?.[0]).toMatchObject({
       system: 'http://terminology.hl7.org/CodeSystem/subscriber-relationship',
@@ -55,7 +53,7 @@ describe('buildBillingCoverage', () => {
     expect(coverage.identifier?.[0]?.value).toBe('M1');
   });
 
-  it('builds a non-self coverage with a contained RelatedPerson policy holder', () => {
+  it('references a standalone RelatedPerson subscriber for a non-self coverage', () => {
     const coverage = buildBillingCoverage({
       patientId: PATIENT_ID,
       payerOrg,
@@ -63,27 +61,13 @@ describe('buildBillingCoverage', () => {
       status: 'active',
       insuranceType: 'secondary',
       relationship: 'Spouse',
-      policyHolder: spousePolicyHolder,
+      subscriberReference: 'RelatedPerson/rp-1',
     });
 
     expect(coverage.order).toBe(2);
-
-    expect(coverage.subscriber?.reference).toBe(`#${COVERAGE_SUBSCRIBER_CONTAINED_ID}`);
+    expect(coverage.subscriber?.reference).toBe('RelatedPerson/rp-1');
+    expect(coverage.contained).toBeUndefined();
     expect(coverage.relationship?.coding?.[0]?.code).toBe('spouse');
-
-    const contained = coverage.contained?.[0] as RelatedPerson;
-    expect(contained?.resourceType).toBe('RelatedPerson');
-    expect(contained?.id).toBe(COVERAGE_SUBSCRIBER_CONTAINED_ID);
-    expect(contained?.name?.[0]?.given).toEqual(['Jane', 'Q']);
-    expect(contained?.name?.[0]?.family).toBe('Doe');
-    expect(contained?.gender).toBe('female');
-    expect(contained?.birthDate).toBe('1980-05-01');
-    expect(contained?.patient?.reference).toBe(`Patient/${PATIENT_ID}`);
-    expect(contained?.address?.[0]?.line).toEqual(['10 Main St']);
-    expect(contained?.relationship?.[0]?.coding?.[0]).toMatchObject({
-      system: 'http://hl7.org/fhir/ValueSet/relatedperson-relationshiptype',
-      code: 'spouse',
-    });
   });
 
   it('marks a workers comp coverage with the WC plan-type coding and no order', () => {
@@ -94,6 +78,7 @@ describe('buildBillingCoverage', () => {
       status: 'active',
       insuranceType: 'workersComp',
       relationship: 'Self',
+      subscriberReference: `Patient/${PATIENT_ID}`,
     });
 
     expect(coverage.order).toBeUndefined();
@@ -104,23 +89,22 @@ describe('buildBillingCoverage', () => {
   });
 });
 
-describe('setCoverageSubscriber', () => {
-  it('drops the contained policy holder when switching a coverage back to Self', () => {
-    const coverage = buildBillingCoverage({
-      patientId: PATIENT_ID,
-      payerOrg,
-      memberId: 'M3',
-      status: 'active',
-      insuranceType: 'primary',
-      relationship: 'Child',
-      policyHolder: { ...spousePolicyHolder, firstName: 'Kid' },
+describe('buildSubscriberRelatedPerson', () => {
+  it('builds a standalone RelatedPerson from policy holder details', () => {
+    const subscriber = buildSubscriberRelatedPerson(PATIENT_ID, 'Spouse', spousePolicyHolder);
+
+    expect(subscriber.resourceType).toBe('RelatedPerson');
+    // No id / no contained marker — it is persisted as its own resource and referenced by the coverage.
+    expect(subscriber.id).toBeUndefined();
+    expect(subscriber.name?.[0]?.given).toEqual(['Jane', 'Q']);
+    expect(subscriber.name?.[0]?.family).toBe('Doe');
+    expect(subscriber.gender).toBe('female');
+    expect(subscriber.birthDate).toBe('1980-05-01');
+    expect(subscriber.patient?.reference).toBe(`Patient/${PATIENT_ID}`);
+    expect(subscriber.address?.[0]?.line).toEqual(['10 Main St']);
+    expect(subscriber.relationship?.[0]?.coding?.[0]).toMatchObject({
+      system: 'http://hl7.org/fhir/ValueSet/relatedperson-relationshiptype',
+      code: 'spouse',
     });
-    expect(coverage.contained).toHaveLength(1);
-
-    setCoverageSubscriber(coverage, PATIENT_ID, 'Self');
-
-    expect(coverage.subscriber?.reference).toBe(`Patient/${PATIENT_ID}`);
-    expect(coverage.contained).toBeUndefined();
-    expect(coverage.relationship?.coding?.[0]?.code).toBe('self');
   });
 });

@@ -28,4 +28,10 @@ async function performEffect(oystehr: Oystehr, params: DeleteBillingCoveragePara
   }
 
   await oystehr.fhir.delete({ resourceType: 'Coverage', id: params.coverageId });
+
+  // Clean up the standalone RelatedPerson subscriber (non-self policy holders).
+  const subscriberRef = coverage.subscriber?.reference;
+  if (subscriberRef?.startsWith('RelatedPerson/')) {
+    await oystehr.fhir.delete({ resourceType: 'RelatedPerson', id: subscriberRef.split('/')[1] });
+  }
 }

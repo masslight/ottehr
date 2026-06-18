@@ -1,10 +1,11 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Coverage } from 'fhir/r4b';
+import { Coverage, RelatedPerson } from 'fhir/r4b';
 import { APIErrorCode, FHIR_RESOURCE_NOT_FOUND } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import {
   applyInsuranceTypeToCoverage,
+  buildSubscriberRelatedPerson,
   coverageInsuranceTypeLabel,
   createBillingClient,
   fetchById,
@@ -12,7 +13,7 @@ import {
   getPayerOrgById,
   linkCoverageToAccount,
   setCoveragePayer,
-  setCoverageSubscriber,
+  setCoverageRelationship,
   unlinkCoverageFromAccount,
 } from '../shared';
 import { UpdateBillingCoverageParams, validateRequestParameters } from './validateRequestParameters';
@@ -66,7 +67,26 @@ async function performEffect(
   }
 
   if (params.relationship) {
-    setCoverageSubscriber(coverage, patientId, params.relationship, params.policyHolder);
+    setCoverageRelationship(coverage, params.relationship);
+    // The subscriber is a standalone RelatedPerson (non-self) or the patient (self). Reconcile it
+    // against whatever the coverage currently points at.
+    const currentRef = coverage.subscriber?.reference;
+    const currentSubscriberId = currentRef?.startsWith('RelatedPerson/') ? currentRef.split('/')[1] : undefined;
+
+    if (params.relationship === 'Self' || !params.policyHolder) {
+      coverage.subscriber = { reference: `Patient/${patientId}` };
+      if (currentSubscriberId) await oystehr.fhir.delete({ resourceType: 'RelatedPerson', id: currentSubscriberId });
+    } else {
+      const subscriber = buildSubscriberRelatedPerson(patientId, params.relationship, params.policyHolder);
+      if (currentSubscriberId) {
+        subscriber.id = currentSubscriberId;
+        const saved = await oystehr.fhir.update<RelatedPerson>(subscriber);
+        coverage.subscriber = { reference: `RelatedPerson/${saved.id}` };
+      } else {
+        const created = await oystehr.fhir.create<RelatedPerson>(subscriber);
+        coverage.subscriber = { reference: `RelatedPerson/${created.id}` };
+      }
+    }
   }
 
   if (params.insuranceType !== undefined) applyInsuranceTypeToCoverage(coverage, params.insuranceType);

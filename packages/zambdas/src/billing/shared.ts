@@ -395,11 +395,12 @@ export function getClaimAppointmentType(claim: Claim): keyof typeof CODE_SYSTEM_
 // Billing-local copy of the clinical EHR's Coverage construction (see
 // packages/zambdas/src/ehr/shared/harvest/index.ts createCoverageResource). Kept separate on
 // purpose so edits to the billing CRUD flow don't reach into the clinical intake path; the
-// emitted FHIR shape (relationship coding, contained RelatedPerson subscriber, payor reference)
+// emitted FHIR shape (relationship coding, standalone RelatedPerson subscriber, payor reference)
 // is intentionally identical so coverages created here behave like clinically-created ones.
 
 export const SUBSCRIBER_RELATIONSHIP_SYSTEM = 'http://terminology.hl7.org/CodeSystem/subscriber-relationship';
 export const RELATED_PERSON_RELATIONSHIP_SYSTEM = 'http://hl7.org/fhir/ValueSet/relatedperson-relationshiptype';
+// Legacy: coverages created before subscribers were standalone embedded the RelatedPerson here.
 export const COVERAGE_SUBSCRIBER_CONTAINED_ID = 'coverageSubscriber';
 
 function relationshipCodeFor(relationship: BillingSubscriberRelationship): string {
@@ -413,29 +414,26 @@ function buildPayorReference(payerOrg: Organization): string {
   return getPayerUrl(payerId);
 }
 
-// Point a Coverage's subscriber at the patient (Self) or a contained RelatedPerson policy holder.
-export function setCoverageSubscriber(
-  coverage: Coverage,
+// Set the Coverage.relationship CodeableConcept (subscriber-relationship system).
+export function setCoverageRelationship(coverage: Coverage, relationship: BillingSubscriberRelationship): void {
+  coverage.relationship = {
+    coding: [
+      { system: SUBSCRIBER_RELATIONSHIP_SYSTEM, code: relationshipCodeFor(relationship), display: relationship },
+    ],
+  };
+}
+
+// Build a standalone RelatedPerson policy holder (the coverage subscriber for non-self relationships).
+// Matches create-billing-claim-from-encounter, which uses a referenced RelatedPerson rather than a
+// contained one.
+export function buildSubscriberRelatedPerson(
   patientId: string,
   relationship: BillingSubscriberRelationship,
-  policyHolder?: BillingPolicyHolderInput
-): void {
+  policyHolder: BillingPolicyHolderInput
+): RelatedPerson {
   const relationshipCode = relationshipCodeFor(relationship);
-  coverage.relationship = {
-    coding: [{ system: SUBSCRIBER_RELATIONSHIP_SYSTEM, code: relationshipCode, display: relationship }],
-  };
-  // Drop any previous contained subscriber before re-deriving it.
-  coverage.contained = (coverage.contained ?? []).filter((r) => r.id !== COVERAGE_SUBSCRIBER_CONTAINED_ID);
-
-  if (relationshipCode === 'self' || !policyHolder) {
-    coverage.subscriber = { reference: `Patient/${patientId}` };
-    if (coverage.contained.length === 0) delete coverage.contained;
-    return;
-  }
-
-  const containedSubscriber: RelatedPerson = {
+  return {
     resourceType: 'RelatedPerson',
-    id: COVERAGE_SUBSCRIBER_CONTAINED_ID,
     name: createFhirHumanName(policyHolder.firstName, policyHolder.middleName, policyHolder.lastName),
     birthDate: policyHolder.dob,
     gender: mapBirthSexToGender(policyHolder.birthSex),
@@ -445,8 +443,6 @@ export function setCoverageSubscriber(
       { coding: [{ system: RELATED_PERSON_RELATIONSHIP_SYSTEM, code: relationshipCode, display: relationship }] },
     ],
   };
-  coverage.contained = [...coverage.contained, containedSubscriber];
-  coverage.subscriber = { reference: `#${COVERAGE_SUBSCRIBER_CONTAINED_ID}` };
 }
 
 // Set payor reference + coverage class + member-id identifier from a payer Organization.
@@ -496,18 +492,20 @@ export function buildBillingCoverage(params: {
   status: Coverage['status'];
   insuranceType: BillingInsuranceType;
   relationship: BillingSubscriberRelationship;
-  policyHolder?: BillingPolicyHolderInput;
+  // 'Patient/{id}' for self, or 'RelatedPerson/{id}' for a standalone policy-holder subscriber.
+  subscriberReference: string;
 }): Coverage {
   const coverage: Coverage = {
     resourceType: 'Coverage',
     status: params.status,
     beneficiary: { type: 'Patient', reference: `Patient/${params.patientId}` },
+    subscriber: { reference: params.subscriberReference },
     subscriberId: params.memberId,
     payor: [],
   };
   applyInsuranceTypeToCoverage(coverage, params.insuranceType);
   setCoveragePayer(coverage, params.payerOrg, params.memberId);
-  setCoverageSubscriber(coverage, params.patientId, params.relationship, params.policyHolder);
+  setCoverageRelationship(coverage, params.relationship);
   return coverage;
 }
 

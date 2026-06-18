@@ -27,10 +27,20 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   return { statusCode: 200, body: JSON.stringify(response) };
 });
 
-function extractPolicyHolder(coverage: Coverage): BillingCoverageOption['policyHolder'] {
-  const subscriber = coverage.contained?.find(
+// Resolve the coverage's subscriber: a standalone RelatedPerson (referenced) or, for legacy
+// coverages, a contained one. Returns null when the subscriber is the patient (self).
+function resolveSubscriber(
+  coverage: Coverage,
+  relatedPersonsById: Map<string, RelatedPerson>
+): RelatedPerson | undefined {
+  const ref = coverage.subscriber?.reference;
+  if (ref?.startsWith('RelatedPerson/')) return relatedPersonsById.get(ref.split('/')[1]);
+  return coverage.contained?.find(
     (r): r is RelatedPerson => r.resourceType === 'RelatedPerson' && r.id === COVERAGE_SUBSCRIBER_CONTAINED_ID
   );
+}
+
+function extractPolicyHolder(subscriber: RelatedPerson | undefined): BillingCoverageOption['policyHolder'] {
   if (!subscriber) return null;
   const name = subscriber.name?.[0];
   return {
@@ -47,16 +57,21 @@ async function performEffect(
   oystehr: Oystehr,
   params: GetPatientCoveragesParams
 ): Promise<{ coverages: BillingCoverageOption[] }> {
-  const [response, pbillAccount, wcompAccount] = await Promise.all([
+  const [response, relatedPersonResponse, pbillAccount, wcompAccount] = await Promise.all([
     oystehr.fhir.search<Coverage>({
       resourceType: 'Coverage',
       params: [{ name: 'beneficiary', value: `Patient/${params.patientId}` }, ...EXCLUDE_WORKING_COPIES_PARAMS],
+    }),
+    oystehr.fhir.search<RelatedPerson>({
+      resourceType: 'RelatedPerson',
+      params: [{ name: 'patient', value: `Patient/${params.patientId}` }, ...EXCLUDE_WORKING_COPIES_PARAMS],
     }),
     getPatientBillingAccount(oystehr, params.patientId),
     getPatientWorkersCompAccount(oystehr, params.patientId),
   ]);
 
   const coverages = response.unbundle();
+  const relatedPersonsById = new Map(relatedPersonResponse.unbundle().map((rp) => [rp.id ?? '', rp]));
   const payersByRef = await resolvePayersByRef(
     oystehr,
     coverages.map((cov) => cov.payor?.[0]?.reference)
@@ -76,7 +91,7 @@ async function performEffect(
       insuranceType: getCoverageInsuranceType(cov, pbillAccount, wcompAccount),
       relationship: cov.relationship?.coding?.[0]?.display ?? '',
       memberId: cov.subscriberId ?? getMemberIdFromCoverage(cov) ?? '',
-      policyHolder: extractPolicyHolder(cov),
+      policyHolder: extractPolicyHolder(resolveSubscriber(cov, relatedPersonsById)),
     };
   });
 

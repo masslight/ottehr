@@ -1,10 +1,11 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Coverage } from 'fhir/r4b';
+import { Coverage, RelatedPerson } from 'fhir/r4b';
 import { APIErrorCode } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import {
   buildBillingCoverage,
+  buildSubscriberRelatedPerson,
   coverageInsuranceTypeLabel,
   createBillingClient,
   findCoverageOfType,
@@ -39,6 +40,16 @@ async function performEffect(oystehr: Oystehr, params: CreateBillingCoveragePara
 
   const payerOrg = await getPayerOrgById(oystehr, params.payerId);
 
+  // Non-self subscribers are standalone RelatedPerson resources (matching
+  // create-billing-claim-from-encounter), referenced by the Coverage.
+  let subscriberReference = `Patient/${params.patientId}`;
+  if (params.relationship !== 'Self' && params.policyHolder) {
+    const subscriber = await oystehr.fhir.create<RelatedPerson>(
+      buildSubscriberRelatedPerson(params.patientId, params.relationship, params.policyHolder)
+    );
+    subscriberReference = `RelatedPerson/${subscriber.id}`;
+  }
+
   const coverage = buildBillingCoverage({
     patientId: params.patientId,
     payerOrg,
@@ -47,7 +58,7 @@ async function performEffect(oystehr: Oystehr, params: CreateBillingCoveragePara
     status: 'active',
     insuranceType: params.insuranceType,
     relationship: params.relationship,
-    policyHolder: params.policyHolder,
+    subscriberReference,
   });
 
   const created = await oystehr.fhir.create<Coverage>(coverage);
