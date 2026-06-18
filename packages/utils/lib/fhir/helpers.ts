@@ -79,6 +79,7 @@ import {
   ACCOUNT_PAYMENT_PROVIDER_ID_SYSTEM_STRIPE_ACCOUNT,
   APPOINTMENT_LOCKED_META_TAG,
   APPOINTMENT_LOCKED_META_TAG_SYSTEM,
+  BirthSex,
   COVERAGE_MEMBER_IDENTIFIER_BASE,
   FHIR_EXTENSION,
   FHIR_IDENTIFIER_CODE_TAX_EMPLOYER,
@@ -1043,9 +1044,6 @@ export const genderMap = {
 } as const;
 
 export type Gender = (typeof genderMap)[keyof typeof genderMap];
-
-export const BIRTH_SEXES = ['Male', 'Female', 'Intersex'] as const;
-export type BirthSex = (typeof BIRTH_SEXES)[number];
 
 // Minimal subscriber/policy-holder shape shared by the clinical EHR and billing app for building a
 // coverage subscriber RelatedPerson.

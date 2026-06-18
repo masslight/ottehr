@@ -1,6 +1,5 @@
 import { z } from 'zod';
-import { SUBSCRIBER_RELATIONSHIPS } from '../../../fhir/constants';
-import { BIRTH_SEXES } from '../../../fhir/helpers';
+import { BIRTH_SEXES, SUBSCRIBER_RELATIONSHIPS } from '../../../fhir/constants';
 import {
   CODE_SYSTEM_APPOINTMENT_TYPE_CODE_NAMES,
   CODE_SYSTEM_CLAIM_TYPE_CODE_NAMES,

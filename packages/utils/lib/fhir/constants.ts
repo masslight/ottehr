@@ -672,6 +672,9 @@ export const SUBSCRIBER_RELATIONSHIP_SYSTEM = 'http://terminology.hl7.org/CodeSy
 // System used on RelatedPerson.relationship coding for coverage subscribers / policy holders.
 export const RELATED_PERSON_RELATIONSHIP_SYSTEM = 'http://hl7.org/fhir/ValueSet/relatedperson-relationshiptype';
 
+export const BIRTH_SEXES = ['Male', 'Female', 'Intersex'] as const;
+export type BirthSex = (typeof BIRTH_SEXES)[number];
+
 // this is required by US Core
 // https://build.fhir.org/ig/HL7/US-Core/StructureDefinition-us-core-coverage-definitions.html#key_Coverage.identifier:memberid.type
 export const COVERAGE_MEMBER_IDENTIFIER_BASE: Partial<Identifier> = {
