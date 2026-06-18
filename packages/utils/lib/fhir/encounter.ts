@@ -171,8 +171,12 @@ export const getEncounterForAppointment = async (appointmentID: string, oystehr:
       ],
     })
   ).unbundle();
-  const encounter = encounterTemp[0];
-  if (encounterTemp.length === 0 || !encounter.id) {
+  // Scheduled follow-up encounter will be searched by its own appointment, while searching
+  // for main encounter by appointment may cause multiple encounters to be returned.
+  // So we need to find the main encounter by checking if the encounter has no partOf.
+  // If no main encounter is found, we return the first encounter (scheduled follow-up case).
+  const encounter = encounterTemp.find((e) => !e.partOf) ?? encounterTemp[0];
+  if (encounterTemp.length === 0 || !encounter?.id) {
     throw new Error('Error getting appointment encounter');
   }
   return encounter;
