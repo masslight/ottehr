@@ -13,6 +13,8 @@ export interface AdHocEncountersInput {
   includeAi?: boolean;
   /** Prescribed (eRx) medications charted on the visit (adds MedicationRequest to the search). */
   includeMedications?: boolean;
+  /** Vital signs charted on the visit (adds vitals Observations to the search). */
+  includeVitals?: boolean;
 }
 
 export interface AdHocEncounterRow {
@@ -70,6 +72,16 @@ export interface AdHocEncounterRow {
   medicationIngredients?: string[]; // drug name with dose/strength removed (e.g. "Ibuprofen Oral Tablet") — count by this
   medicationCodes?: string[]; // Medispan dispensable-drug-id codes
   medicationCount?: number; // number of prescriptions written on the visit
+  // --- Vitals (includeVitals) — most recent charted value per vital on the visit ---
+  temperatureF?: number | null; // body temperature, normalized to Fahrenheit
+  heartRate?: number | null; // beats/min
+  respirationRate?: number | null; // breaths/min
+  oxygenSaturation?: number | null; // %
+  systolicBP?: number | null; // mmHg
+  diastolicBP?: number | null; // mmHg
+  weightKg?: number | null; // weight normalized to kilograms
+  heightCm?: number | null; // height normalized to centimeters
+  bmi?: number | null; // body mass index, computed from weightKg/heightCm when both present
 }
 
 export interface AdHocEncountersOutput {

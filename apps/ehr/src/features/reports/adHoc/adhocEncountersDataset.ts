@@ -31,6 +31,12 @@ export const ADHOC_ENCOUNTERS_OPTIONS: AdHocDatasetOption[] = [
     description: 'Drugs prescribed (eRx) on the visit — counts and drug names/ingredients.',
     default: false,
   },
+  {
+    id: 'vitals',
+    label: 'Vital signs',
+    description: 'Temperature, heart rate, blood pressure, SpO₂, respiration, weight, height, and BMI.',
+    default: false,
+  },
 ];
 
 // Always-present columns.
@@ -181,6 +187,50 @@ const MEDICATION_FIELDS: FieldDef[] = [
   },
 ];
 
+const VITALS_FIELDS: FieldDef[] = [
+  {
+    name: 'temperatureF',
+    type: 'number',
+    description: 'Body temperature in °F (most recent on the visit). Null if not taken.',
+  },
+  { name: 'heartRate', type: 'number', description: 'Heart rate in beats/min (most recent). Null if not taken.' },
+  {
+    name: 'respirationRate',
+    type: 'number',
+    description: 'Respiration rate in breaths/min (most recent). Null if not taken.',
+  },
+  {
+    name: 'oxygenSaturation',
+    type: 'number',
+    description: 'Oxygen saturation (SpO₂) in % (most recent). Null if not taken.',
+  },
+  {
+    name: 'systolicBP',
+    type: 'number',
+    description: 'Systolic blood pressure in mmHg (most recent). Null if not taken.',
+  },
+  {
+    name: 'diastolicBP',
+    type: 'number',
+    description: 'Diastolic blood pressure in mmHg (most recent). Null if not taken.',
+  },
+  {
+    name: 'weightKg',
+    type: 'number',
+    description: 'Weight in kilograms (most recent, unit-normalized). Null if not taken.',
+  },
+  {
+    name: 'heightCm',
+    type: 'number',
+    description: 'Height in centimeters (most recent, unit-normalized). Null if not taken.',
+  },
+  {
+    name: 'bmi',
+    type: 'number',
+    description: 'Body mass index, computed from weightKg/heightCm when both present. Null otherwise.',
+  },
+];
+
 function fieldsFor(options: Record<string, boolean>): FieldDef[] {
   return [
     ...BASE_FIELDS,
@@ -188,6 +238,7 @@ function fieldsFor(options: Record<string, boolean>): FieldDef[] {
     ...(options.timing ? TIMING_FIELDS : []),
     ...(options.ai ? AI_FIELDS : []),
     ...(options.medications ? MEDICATION_FIELDS : []),
+    ...(options.vitals ? VITALS_FIELDS : []),
   ];
 }
 
@@ -198,6 +249,7 @@ async function fetchAdHocEncounters({ oystehrZambda, dateRange, options }: Fetch
     includeTiming: !!opts.timing,
     includeAi: !!opts.ai,
     includeMedications: !!opts.medications,
+    includeVitals: !!opts.vitals,
   };
   const { start, end } = dateRange;
   const days = (new Date(end).getTime() - new Date(start).getTime()) / 86400000;

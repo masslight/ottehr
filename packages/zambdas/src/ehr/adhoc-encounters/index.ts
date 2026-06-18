@@ -6,6 +6,7 @@ import {
   Encounter,
   Location,
   MedicationRequest,
+  Observation,
   Patient,
   Practitioner,
   Procedure,
@@ -60,8 +61,13 @@ const normalizeDrugName = (display: string): string => {
   return base || display.trim();
 };
 
+const round1 = (n: number): number => Math.round(n * 10) / 10;
+// Component codes used for blood-pressure (SNOMED + LOINC variants).
+const SYSTOLIC_CODES = ['271649006', '8480-6'];
+const DIASTOLIC_CODES = ['271650006', '8462-4'];
+
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  const { dateRange, includeCodes, includeTiming, includeAi, includeMedications, secrets } =
+  const { dateRange, includeCodes, includeTiming, includeAi, includeMedications, includeVitals, secrets } =
     validateRequestParameters(input);
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
@@ -76,7 +82,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     | Condition
     | Procedure
     | DocumentReference
-    | MedicationRequest;
+    | MedicationRequest
+    | Observation;
   let allResources: ReportResource[] = [];
   let offset = 0;
   const pageSize = 1000;
@@ -107,6 +114,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   }
   if (includeMedications) {
     baseSearchParams.push({ name: '_revinclude:iterate', value: 'MedicationRequest:encounter' });
+  }
+  if (includeVitals) {
+    // Pulls all encounter Observations; we filter to the vitals ones (vital-* tag) when mapping.
+    baseSearchParams.push({ name: '_revinclude:iterate', value: 'Observation:encounter' });
   }
 
   let searchBundle = await oystehr.fhir.search<ReportResource>({
@@ -139,6 +150,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const proceduresByEncounterId = new Map<string, Procedure[]>();
   const docRefsByEncounterId = new Map<string, DocumentReference[]>();
   const medRequestsByEncounterId = new Map<string, MedicationRequest[]>();
+  const vitalsByEncounterId = new Map<string, Observation[]>();
   const encounterById = new Map<string, Encounter>();
 
   for (const r of allResources) {
@@ -177,6 +189,13 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         if (!includeMedications) break;
         const encId = r.encounter?.reference?.replace('Encounter/', '');
         if (encId) medRequestsByEncounterId.set(encId, [...(medRequestsByEncounterId.get(encId) ?? []), r]);
+        break;
+      }
+      case 'Observation': {
+        // Keep only vitals Observations (vital-* meta tag); ros/exam/ai observations are ignored here.
+        if (!includeVitals || !r.meta?.tag?.some((t) => t.code?.startsWith('vital-'))) break;
+        const encId = r.encounter?.reference?.replace('Encounter/', '');
+        if (encId) vitalsByEncounterId.set(encId, [...(vitalsByEncounterId.get(encId) ?? []), r]);
         break;
       }
     }
@@ -381,6 +400,48 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       row.medicationIngredients = medicationIngredients;
       row.medicationCodes = medicationCodes;
       row.medicationCount = medications.length;
+    }
+
+    if (includeVitals) {
+      const obs = encounter.id ? vitalsByEncounterId.get(encounter.id) ?? [] : [];
+      // Last charted value wins per vital field.
+      const fieldCode = (o: Observation): string => o.meta?.tag?.find((t) => t.code?.startsWith('vital-'))?.code ?? '';
+      const latest = (field: string): Observation | undefined => obs.filter((o) => fieldCode(o) === field).at(-1);
+      const qty = (o?: Observation): number | null =>
+        typeof o?.valueQuantity?.value === 'number' ? o.valueQuantity.value : null;
+
+      const tempObs = latest('vital-temperature');
+      const tempVal = qty(tempObs);
+      const tempUnit = (tempObs?.valueQuantity?.unit || tempObs?.valueQuantity?.code || '').toUpperCase();
+      row.temperatureF =
+        tempVal == null ? null : tempUnit.startsWith('F') ? round1(tempVal) : round1((tempVal * 9) / 5 + 32);
+
+      row.heartRate = qty(latest('vital-heartbeat'));
+      row.respirationRate = qty(latest('vital-respiration-rate'));
+      row.oxygenSaturation = qty(latest('vital-oxygen-sat'));
+
+      const bp = latest('vital-blood-pressure');
+      const bpComp = (codes: string[]): number | null => {
+        const c = bp?.component?.find((cm) => cm.code?.coding?.some((cd) => cd.code && codes.includes(cd.code)));
+        return typeof c?.valueQuantity?.value === 'number' ? c.valueQuantity.value : null;
+      };
+      row.systolicBP = bpComp(SYSTOLIC_CODES);
+      row.diastolicBP = bpComp(DIASTOLIC_CODES);
+
+      const weightObs = latest('vital-weight');
+      const weightVal = qty(weightObs);
+      const weightUnit = (weightObs?.valueQuantity?.unit || '').toLowerCase();
+      row.weightKg =
+        weightVal == null ? null : weightUnit.startsWith('lb') ? round1(weightVal * 0.453592) : round1(weightVal);
+
+      const heightObs = latest('vital-height');
+      const heightVal = qty(heightObs);
+      const heightUnit = (heightObs?.valueQuantity?.unit || '').toLowerCase();
+      row.heightCm =
+        heightVal == null ? null : heightUnit.startsWith('in') ? round1(heightVal * 2.54) : round1(heightVal);
+
+      row.bmi =
+        row.weightKg && row.heightCm && row.heightCm > 0 ? round1(row.weightKg / (row.heightCm / 100) ** 2) : null;
     }
 
     rows.push(row);
