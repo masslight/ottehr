@@ -4,7 +4,7 @@ import {
   SaveServiceFacilityInput,
   SaveServiceFacilityInputSchema,
 } from 'utils';
-import { safeValidate, ZambdaInput } from '../../shared';
+import { safeValidate, validateJsonBody, ZambdaInput } from '../../shared';
 
 export interface SaveServiceFacilityParams extends SaveServiceFacilityInput {
   secrets: ZambdaInput['secrets'];
@@ -14,7 +14,7 @@ export function validateRequestParameters(input: ZambdaInput): SaveServiceFacili
   if (!input.body) throw MISSING_REQUEST_BODY;
   if (!input.secrets) throw MISSING_REQUEST_SECRETS;
 
-  const data = safeValidate(SaveServiceFacilityInputSchema, JSON.parse(input.body));
+  const data = safeValidate(SaveServiceFacilityInputSchema, validateJsonBody(input));
   return {
     ...data,
     secrets: input.secrets,
