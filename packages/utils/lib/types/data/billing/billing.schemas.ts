@@ -290,6 +290,80 @@ export const UpdateBillingPatientInputSchema = z.object({
   address: billingAddressSchema.optional(),
 });
 
+// --- Coverage (insurance) CRUD ---
+
+const subscriberRelationshipSchema = z.enum([
+  'Self',
+  'Child',
+  'Parent',
+  'Spouse',
+  'Common Law Spouse',
+  'Injured Party',
+  'Other',
+]);
+
+const coverageStatusSchema = z.enum(['active', 'cancelled', 'draft', 'entered-in-error']);
+
+// Account.coverage priority: 1 = primary, 2 = secondary.
+const coverageOrderSchema = z.union([z.literal(1), z.literal(2)]);
+
+// Policy holder (subscriber) details, required only when the relationship to insured is not "Self".
+const billingPolicyHolderSchema = z.object({
+  firstName: nonEmptyString,
+  middleName: z.string().optional(),
+  lastName: nonEmptyString,
+  dob: nonEmptyString,
+  birthSex: z.enum(['Male', 'Female', 'Intersex']),
+  address: billingAddressSchema.optional(),
+  // When true the policy holder shares the patient's address (resolved server-side).
+  sameAsPatientAddress: z.boolean().optional(),
+});
+
+export const CreateBillingCoverageInputSchema = z
+  .object({
+    patientId: nonEmptyString,
+    // Oystehr RCM payer id (BillingPayerOption.id) used to build the payer reference.
+    payerId: nonEmptyString,
+    memberId: nonEmptyString,
+    order: coverageOrderSchema,
+    status: coverageStatusSchema.default('active'),
+    relationship: subscriberRelationshipSchema,
+    policyHolder: billingPolicyHolderSchema.optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.relationship !== 'Self' && !data.policyHolder) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['policyHolder'],
+        message: 'Policy holder details are required when the relationship to insured is not "Self"',
+      });
+    }
+  });
+
+export const UpdateBillingCoverageInputSchema = z
+  .object({
+    coverageId: nonEmptyString,
+    payerId: nonEmptyString.optional(),
+    memberId: z.string().optional(),
+    order: coverageOrderSchema.optional(),
+    status: coverageStatusSchema.optional(),
+    relationship: subscriberRelationshipSchema.optional(),
+    policyHolder: billingPolicyHolderSchema.optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.relationship && data.relationship !== 'Self' && !data.policyHolder) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['policyHolder'],
+        message: 'Policy holder details are required when the relationship to insured is not "Self"',
+      });
+    }
+  });
+
+export const DeleteBillingCoverageInputSchema = z.object({
+  coverageId: nonEmptyString,
+});
+
 export const CreateBillingWorkingCopyInputSchema = z.object({
   resourceType: z.enum(ALLOWED_BILLING_RESOURCE_TYPES),
   resourceId: nonEmptyString,
@@ -400,6 +474,11 @@ export type CreateBillingProviderInput = z.infer<typeof CreateBillingProviderInp
 export type DeleteBillingProviderInput = z.infer<typeof DeleteBillingProviderInputSchema>;
 export type CreateBillingPatientInput = z.infer<typeof CreateBillingPatientInputSchema>;
 export type UpdateBillingPatientInput = z.infer<typeof UpdateBillingPatientInputSchema>;
+export type CreateBillingCoverageInput = z.input<typeof CreateBillingCoverageInputSchema>;
+export type UpdateBillingCoverageInput = z.infer<typeof UpdateBillingCoverageInputSchema>;
+export type DeleteBillingCoverageInput = z.infer<typeof DeleteBillingCoverageInputSchema>;
+export type BillingSubscriberRelationship = z.infer<typeof subscriberRelationshipSchema>;
+export type BillingPolicyHolderInput = z.infer<typeof billingPolicyHolderSchema>;
 export type UpdateBillingProviderInput = z.infer<typeof UpdateBillingProviderInputSchema>;
 export type CreateBillingWorkingCopyInput = z.infer<typeof CreateBillingWorkingCopyInputSchema>;
 export type CreateBillingClaimFromEncounterInput = z.input<typeof CreateBillingClaimFromEncounterInputSchema>;

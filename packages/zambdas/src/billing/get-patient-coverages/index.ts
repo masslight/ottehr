@@ -1,9 +1,16 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Coverage } from 'fhir/r4b';
-import { BillingCoverageOption, getPayerId } from 'utils';
+import { Coverage, RelatedPerson } from 'fhir/r4b';
+import { BillingCoverageOption, genderMap, getMemberIdFromCoverage, getPayerId } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
-import { createBillingClient, EXCLUDE_WORKING_COPIES_PARAMS, resolvePayersByRef } from '../shared';
+import {
+  COVERAGE_SUBSCRIBER_CONTAINED_ID,
+  createBillingClient,
+  EXCLUDE_WORKING_COPIES_PARAMS,
+  getPatientBillingAccount,
+  resolvePayersByRef,
+  toAddressParts,
+} from '../shared';
 import { GetPatientCoveragesParams, validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -18,14 +25,33 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   return { statusCode: 200, body: JSON.stringify(response) };
 });
 
+function extractPolicyHolder(coverage: Coverage): BillingCoverageOption['policyHolder'] {
+  const subscriber = coverage.contained?.find(
+    (r): r is RelatedPerson => r.resourceType === 'RelatedPerson' && r.id === COVERAGE_SUBSCRIBER_CONTAINED_ID
+  );
+  if (!subscriber) return null;
+  const name = subscriber.name?.[0];
+  return {
+    firstName: name?.given?.[0] ?? '',
+    middleName: name?.given?.[1] ?? '',
+    lastName: name?.family ?? '',
+    dob: subscriber.birthDate ?? '',
+    birthSex: subscriber.gender ? genderMap[subscriber.gender as keyof typeof genderMap] ?? '' : '',
+    addressParts: toAddressParts(subscriber.address?.[0]),
+  };
+}
+
 async function performEffect(
   oystehr: Oystehr,
   params: GetPatientCoveragesParams
 ): Promise<{ coverages: BillingCoverageOption[] }> {
-  const response = await oystehr.fhir.search<Coverage>({
-    resourceType: 'Coverage',
-    params: [{ name: 'beneficiary', value: `Patient/${params.patientId}` }, ...EXCLUDE_WORKING_COPIES_PARAMS],
-  });
+  const [response, account] = await Promise.all([
+    oystehr.fhir.search<Coverage>({
+      resourceType: 'Coverage',
+      params: [{ name: 'beneficiary', value: `Patient/${params.patientId}` }, ...EXCLUDE_WORKING_COPIES_PARAMS],
+    }),
+    getPatientBillingAccount(oystehr, params.patientId),
+  ]);
 
   const coverages = response.unbundle();
   const payersByRef = await resolvePayersByRef(
@@ -33,9 +59,18 @@ async function performEffect(
     coverages.map((cov) => cov.payor?.[0]?.reference)
   );
 
+  // Account.coverage priority is the source of truth for primary/secondary ordering.
+  const priorityByRef = new Map<string, number>();
+  account?.coverage?.forEach((entry) => {
+    if (entry.coverage?.reference && entry.priority !== undefined) {
+      priorityByRef.set(entry.coverage.reference, entry.priority);
+    }
+  });
+
   const result = coverages.map((cov) => {
     const payorRef = cov.payor?.[0]?.reference;
     const payorOrg = payorRef ? payersByRef.get(payorRef) : undefined;
+    const order = priorityByRef.get(`Coverage/${cov.id}`) ?? cov.order;
 
     return {
       id: cov.id,
@@ -44,6 +79,10 @@ async function performEffect(
       payorName: payorOrg?.name ?? '',
       payorId: getPayerId(payorOrg) ?? '',
       payorFhirId: payorOrg?.id ?? '',
+      order,
+      relationship: cov.relationship?.coding?.[0]?.display ?? '',
+      memberId: cov.subscriberId ?? getMemberIdFromCoverage(cov) ?? '',
+      policyHolder: extractPolicyHolder(cov),
     };
   });
 

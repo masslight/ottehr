@@ -17,19 +17,30 @@ import {
   Resource,
 } from 'fhir/r4b';
 import {
+  ACCOUNT_TYPE_CODE_SYSTEM,
+  BillingPolicyHolderInput,
+  BillingSubscriberRelationship,
   CODE_SYSTEM_APPOINTMENT_TYPE_CODES,
   CODE_SYSTEM_APPOINTMENT_TYPE_TAG_SYSTEM,
   CODE_SYSTEM_CLAIM_TYPE,
   CODE_SYSTEM_CLAIM_TYPE_CODES,
   convertFhirNameToDisplayName,
+  createCoverageMemberIdentifier,
+  createFhirHumanName,
   FHIR_IDENTIFIER_CODE_TAX_EMPLOYER,
   FHIR_IDENTIFIER_CODE_TAX_SS,
   FHIR_IDENTIFIER_CODE_TAXONOMY,
   FHIR_IDENTIFIER_NPI,
   FHIR_IDENTIFIER_SYSTEM,
   FHIR_RESOURCE_NOT_FOUND,
+  getPayerId,
+  getPayerUrl,
   isPayerUrl,
+  isValidUUID,
+  mapBirthSexToGender,
+  PATIENT_BILLING_ACCOUNT_TYPE,
   Secrets,
+  SUBSCRIBER_RELATIONSHIP_CODE_MAP,
 } from 'utils';
 import { createOystehrClient } from '../shared/helpers';
 
@@ -374,4 +385,156 @@ export function getClaimAppointmentType(claim: Claim): keyof typeof CODE_SYSTEM_
     return undefined;
   }
   return code as keyof typeof CODE_SYSTEM_APPOINTMENT_TYPE_CODES;
+}
+
+// --- Coverage / insurance helpers ---
+//
+// Billing-local copy of the clinical EHR's Coverage construction (see
+// packages/zambdas/src/ehr/shared/harvest/index.ts createCoverageResource). Kept separate on
+// purpose so edits to the billing CRUD flow don't reach into the clinical intake path; the
+// emitted FHIR shape (relationship coding, contained RelatedPerson subscriber, payor reference)
+// is intentionally identical so coverages created here behave like clinically-created ones.
+
+export const SUBSCRIBER_RELATIONSHIP_SYSTEM = 'http://terminology.hl7.org/CodeSystem/subscriber-relationship';
+export const RELATED_PERSON_RELATIONSHIP_SYSTEM = 'http://hl7.org/fhir/ValueSet/relatedperson-relationshiptype';
+export const COVERAGE_SUBSCRIBER_CONTAINED_ID = 'coverageSubscriber';
+
+function relationshipCodeFor(relationship: BillingSubscriberRelationship): string {
+  return SUBSCRIBER_RELATIONSHIP_CODE_MAP[relationship] || 'other';
+}
+
+function buildPayorReference(payerOrg: Organization): string {
+  const payerId = getPayerId(payerOrg);
+  if (isValidUUID(payerOrg.id ?? '')) return `Organization/${payerOrg.id}`;
+  if (!payerId) throw new Error('payerId unexpectedly missing from payer organization');
+  return getPayerUrl(payerId);
+}
+
+// Point a Coverage's subscriber at the patient (Self) or a contained RelatedPerson policy holder.
+export function setCoverageSubscriber(
+  coverage: Coverage,
+  patientId: string,
+  relationship: BillingSubscriberRelationship,
+  policyHolder?: BillingPolicyHolderInput
+): void {
+  const relationshipCode = relationshipCodeFor(relationship);
+  coverage.relationship = {
+    coding: [{ system: SUBSCRIBER_RELATIONSHIP_SYSTEM, code: relationshipCode, display: relationship }],
+  };
+  // Drop any previous contained subscriber before re-deriving it.
+  coverage.contained = (coverage.contained ?? []).filter((r) => r.id !== COVERAGE_SUBSCRIBER_CONTAINED_ID);
+
+  if (relationshipCode === 'self' || !policyHolder) {
+    coverage.subscriber = { reference: `Patient/${patientId}` };
+    if (coverage.contained.length === 0) delete coverage.contained;
+    return;
+  }
+
+  const containedSubscriber: RelatedPerson = {
+    resourceType: 'RelatedPerson',
+    id: COVERAGE_SUBSCRIBER_CONTAINED_ID,
+    name: createFhirHumanName(policyHolder.firstName, policyHolder.middleName, policyHolder.lastName),
+    birthDate: policyHolder.dob,
+    gender: mapBirthSexToGender(policyHolder.birthSex),
+    patient: { reference: `Patient/${patientId}` },
+    address: policyHolder.address ? [buildAddress(policyHolder.address)] : undefined,
+    relationship: [
+      { coding: [{ system: RELATED_PERSON_RELATIONSHIP_SYSTEM, code: relationshipCode, display: relationship }] },
+    ],
+  };
+  coverage.contained = [...coverage.contained, containedSubscriber];
+  coverage.subscriber = { reference: `#${COVERAGE_SUBSCRIBER_CONTAINED_ID}` };
+}
+
+// Set payor reference + coverage class + member-id identifier from a payer Organization.
+export function setCoveragePayer(coverage: Coverage, payerOrg: Organization, memberId: string): void {
+  const payerId = getPayerId(payerOrg);
+  coverage.payor = [{ reference: buildPayorReference(payerOrg) }];
+  coverage.class = [
+    {
+      type: { coding: [{ system: 'http://terminology.hl7.org/CodeSystem/coverage-class', code: 'plan' }] },
+      value: payerId ?? '',
+      name: payerOrg.name ?? '',
+    },
+  ];
+  coverage.identifier = [createCoverageMemberIdentifier(memberId, payerOrg)];
+}
+
+export function buildBillingCoverage(params: {
+  patientId: string;
+  payerOrg: Organization;
+  memberId: string;
+  status: Coverage['status'];
+  order?: number;
+  relationship: BillingSubscriberRelationship;
+  policyHolder?: BillingPolicyHolderInput;
+}): Coverage {
+  const coverage: Coverage = {
+    resourceType: 'Coverage',
+    status: params.status,
+    beneficiary: { type: 'Patient', reference: `Patient/${params.patientId}` },
+    subscriberId: params.memberId,
+    payor: [],
+  };
+  if (params.order !== undefined) coverage.order = params.order;
+  setCoveragePayer(coverage, params.payerOrg, params.memberId);
+  setCoverageSubscriber(coverage, params.patientId, params.relationship, params.policyHolder);
+  return coverage;
+}
+
+// Resolve a single payer Organization from an Oystehr RCM payer id.
+export async function getPayerOrgById(oystehr: Oystehr, payerId: string): Promise<Organization> {
+  return oystehr.rcm.getPayerByUrl({ url: getPayerUrl(payerId) });
+}
+
+// The patient's billing Account (type PBILLACCT), if one exists.
+export async function getPatientBillingAccount(oystehr: Oystehr, patientId: string): Promise<Account | undefined> {
+  const result = await oystehr.fhir.search<Account>({
+    resourceType: 'Account',
+    params: [{ name: 'subject', value: `Patient/${patientId}` }, ...EXCLUDE_WORKING_COPIES_PARAMS],
+  });
+  return result
+    .unbundle()
+    .find((acc) => acc.type?.coding?.some((c) => c.system === ACCOUNT_TYPE_CODE_SYSTEM && c.code === 'PBILLACCT'));
+}
+
+// Upsert the patient's billing Account so that `coverageId` occupies the given priority (1/2).
+export async function linkCoverageToAccount(
+  oystehr: Oystehr,
+  patientId: string,
+  coverageId: string,
+  priority: number
+): Promise<void> {
+  const account = await getPatientBillingAccount(oystehr, patientId);
+  const ref = `Coverage/${coverageId}`;
+  if (!account) {
+    await oystehr.fhir.create<Account>({
+      resourceType: 'Account',
+      status: 'active',
+      type: { ...PATIENT_BILLING_ACCOUNT_TYPE },
+      subject: [{ reference: `Patient/${patientId}` }],
+      coverage: [{ coverage: { reference: ref }, priority }],
+    });
+    return;
+  }
+  // Replace whatever held this priority (and any stale reference to this coverage) with the new link.
+  const coverage = (account.coverage ?? []).filter((c) => c.priority !== priority && c.coverage?.reference !== ref);
+  coverage.push({ coverage: { reference: ref }, priority });
+  account.coverage = coverage.sort((a, b) => (a.priority ?? 0) - (b.priority ?? 0));
+  await oystehr.fhir.update<Account>(account);
+}
+
+// Remove a coverage's link from the patient's billing Account.
+export async function unlinkCoverageFromAccount(
+  oystehr: Oystehr,
+  patientId: string,
+  coverageId: string
+): Promise<void> {
+  const account = await getPatientBillingAccount(oystehr, patientId);
+  if (!account?.coverage?.length) return;
+  const ref = `Coverage/${coverageId}`;
+  const remaining = account.coverage.filter((c) => c.coverage?.reference !== ref);
+  if (remaining.length === account.coverage.length) return;
+  account.coverage = remaining;
+  await oystehr.fhir.update<Account>(account);
 }

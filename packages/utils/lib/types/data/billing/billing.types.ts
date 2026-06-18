@@ -21,6 +21,21 @@ export interface BillingPatientOption {
   friendlyId: string;
 }
 
+export interface BillingPolicyHolderSummary {
+  firstName: string;
+  middleName: string;
+  lastName: string;
+  dob: string;
+  birthSex: 'Male' | 'Female' | 'Intersex' | '';
+  addressParts: {
+    line1: string;
+    line2: string;
+    city: string;
+    state: string;
+    postalCode: string;
+  };
+}
+
 export interface BillingCoverageOption {
   id: string | undefined;
   status: string;
@@ -28,6 +43,14 @@ export interface BillingCoverageOption {
   payorName: string;
   payorId: string;
   payorFhirId: string;
+  // Account.coverage priority (1 = primary, 2 = secondary); falls back to Coverage.order.
+  order?: number;
+  // Display value of the subscriber relationship (Self, Child, Spouse, ...).
+  relationship?: string;
+  // Member / subscriber ID for this coverage (mirrors subscriberId).
+  memberId?: string;
+  // Policy holder (subscriber) details, present when the relationship is not "Self".
+  policyHolder?: BillingPolicyHolderSummary | null;
 }
 
 export interface BillingLocationOption {

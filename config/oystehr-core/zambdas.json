@@ -396,6 +396,27 @@
       "src": "src/billing/create-billing-working-copy/index",
       "zip": ".dist/zips/create-billing-working-copy.zip"
     },
+    "CREATE-BILLING-COVERAGE": {
+      "name": "create-billing-coverage",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/create-billing-coverage/index",
+      "zip": ".dist/zips/create-billing-coverage.zip"
+    },
+    "UPDATE-BILLING-COVERAGE": {
+      "name": "update-billing-coverage",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/update-billing-coverage/index",
+      "zip": ".dist/zips/update-billing-coverage.zip"
+    },
+    "DELETE-BILLING-COVERAGE": {
+      "name": "delete-billing-coverage",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/delete-billing-coverage/index",
+      "zip": ".dist/zips/delete-billing-coverage.zip"
+    },
     "SEARCH-BILLING-CLAIMS": {
       "name": "search-billing-claims",
       "type": "http_auth",
