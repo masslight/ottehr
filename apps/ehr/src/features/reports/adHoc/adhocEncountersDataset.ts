@@ -25,6 +25,12 @@ export const ADHOC_ENCOUNTERS_OPTIONS: AdHocDatasetOption[] = [
     description: 'Whether the visit used ambient scribe and/or the patient HPI chatbot.',
     default: false,
   },
+  {
+    id: 'medications',
+    label: 'Medications (prescribed)',
+    description: 'Drugs prescribed (eRx) on the visit — counts and drug names/ingredients.',
+    default: false,
+  },
 ];
 
 // Always-present columns.
@@ -145,18 +151,54 @@ const AI_FIELDS: FieldDef[] = [
   },
 ];
 
+const MEDICATION_FIELDS: FieldDef[] = [
+  {
+    name: 'medicationIngredients',
+    type: 'string[]',
+    description:
+      'Prescribed (eRx) drugs on the visit, normalized by removing the dose/strength tail ' +
+      '(e.g. "Ibuprofen Oral Tablet 200 MG" -> "Ibuprofen Oral Tablet"). COUNT "how many times each drug ' +
+      'was prescribed" by tallying this array across rows — it groups all strengths of the same product ' +
+      'together. Excludes cancelled/draft scripts.',
+  },
+  {
+    name: 'medications',
+    type: 'string[]',
+    description:
+      'Prescribed (eRx) drugs on the visit as full display names WITH strength/form ' +
+      '(e.g. "Amoxicillin 500 mg tablet"). Use when the report needs the exact prescribed product; ' +
+      'use medicationIngredients to count by drug.',
+  },
+  {
+    name: 'medicationCodes',
+    type: 'string[]',
+    description: 'Medispan dispensable-drug-id codes for the prescribed drugs (parallel to medications).',
+  },
+  {
+    name: 'medicationCount',
+    type: 'number',
+    description: 'Number of prescriptions (eRx) written on the visit. 0 when none. Sum for total prescribing volume.',
+  },
+];
+
 function fieldsFor(options: Record<string, boolean>): FieldDef[] {
   return [
     ...BASE_FIELDS,
     ...(options.codes ? CODE_FIELDS : []),
     ...(options.timing ? TIMING_FIELDS : []),
     ...(options.ai ? AI_FIELDS : []),
+    ...(options.medications ? MEDICATION_FIELDS : []),
   ];
 }
 
 async function fetchAdHocEncounters({ oystehrZambda, dateRange, options }: FetchContext): Promise<AdHocRow[]> {
   const opts = options ?? {};
-  const flags = { includeCodes: !!opts.codes, includeTiming: !!opts.timing, includeAi: !!opts.ai };
+  const flags = {
+    includeCodes: !!opts.codes,
+    includeTiming: !!opts.timing,
+    includeAi: !!opts.ai,
+    includeMedications: !!opts.medications,
+  };
   const { start, end } = dateRange;
   const days = (new Date(end).getTime() - new Date(start).getTime()) / 86400000;
   // Batch long ranges in parallel and dedupe by encounterId, like the other datasets.

@@ -11,6 +11,8 @@ export interface AdHocEncountersInput {
   includeTiming?: boolean;
   /** AI-assistance flags (adds DocumentReference to the search). */
   includeAi?: boolean;
+  /** Prescribed (eRx) medications charted on the visit (adds MedicationRequest to the search). */
+  includeMedications?: boolean;
 }
 
 export interface AdHocEncounterRow {
@@ -63,6 +65,11 @@ export interface AdHocEncounterRow {
   onTime?: boolean | null;
   // --- AI (includeAi) ---
   aiType?: string; // "" | "ambient scribe" | "patient HPI chatbot" | "ambient scribe & patient HPI chatbot"
+  // --- Medications (includeMedications) — prescribed (eRx) on the visit ---
+  medications?: string[]; // full drug display names as prescribed (e.g. "Amoxicillin 500 mg tablet")
+  medicationIngredients?: string[]; // drug name with dose/strength removed (e.g. "Ibuprofen Oral Tablet") — count by this
+  medicationCodes?: string[]; // Medispan dispensable-drug-id codes
+  medicationCount?: number; // number of prescriptions written on the visit
 }
 
 export interface AdHocEncountersOutput {

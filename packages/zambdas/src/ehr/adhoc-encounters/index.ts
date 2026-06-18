@@ -5,6 +5,7 @@ import {
   DocumentReference,
   Encounter,
   Location,
+  MedicationRequest,
   Patient,
   Practitioner,
   Procedure,
@@ -30,6 +31,7 @@ import {
   isInPersonAppointment,
   isTelemedAppointment,
   mapGenderToLabel,
+  MEDICATION_DISPENSABLE_DRUG_ID,
   OTTEHR_MODULE,
   PATIENT_POINT_OF_DISCOVERY_URL,
   SERVICE_CATEGORY_SYSTEM,
@@ -47,8 +49,20 @@ const minutesBetween = (start?: string, end?: string): number | null => {
   return Number.isFinite(m) ? m : null;
 };
 
+// Normalize a prescribed-drug display to its base ingredient by dropping the strength/form tail
+// (everything from the first digit on): "Amoxicillin 500 mg tablet" -> "Amoxicillin". Lets a report
+// count "each drug" at ingredient grain instead of splitting one drug across strengths/forms.
+const normalizeDrugName = (display: string): string => {
+  const base = display
+    .split(/\s+\d/)[0]
+    .trim()
+    .replace(/[\s,-]+$/, '');
+  return base || display.trim();
+};
+
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  const { dateRange, includeCodes, includeTiming, includeAi, secrets } = validateRequestParameters(input);
+  const { dateRange, includeCodes, includeTiming, includeAi, includeMedications, secrets } =
+    validateRequestParameters(input);
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createOystehrClient(m2mToken, secrets);
@@ -61,7 +75,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     | Practitioner
     | Condition
     | Procedure
-    | DocumentReference;
+    | DocumentReference
+    | MedicationRequest;
   let allResources: ReportResource[] = [];
   let offset = 0;
   const pageSize = 1000;
@@ -89,6 +104,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   }
   if (includeAi) {
     baseSearchParams.push({ name: '_revinclude:iterate', value: 'DocumentReference:encounter' });
+  }
+  if (includeMedications) {
+    baseSearchParams.push({ name: '_revinclude:iterate', value: 'MedicationRequest:encounter' });
   }
 
   let searchBundle = await oystehr.fhir.search<ReportResource>({
@@ -120,6 +138,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const conditionById = new Map<string, Condition>();
   const proceduresByEncounterId = new Map<string, Procedure[]>();
   const docRefsByEncounterId = new Map<string, DocumentReference[]>();
+  const medRequestsByEncounterId = new Map<string, MedicationRequest[]>();
   const encounterById = new Map<string, Encounter>();
 
   for (const r of allResources) {
@@ -152,6 +171,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         if (!includeAi) break;
         const encId = r.context?.encounter?.[0]?.reference?.replace('Encounter/', '');
         if (encId) docRefsByEncounterId.set(encId, [...(docRefsByEncounterId.get(encId) ?? []), r]);
+        break;
+      }
+      case 'MedicationRequest': {
+        if (!includeMedications) break;
+        const encId = r.encounter?.reference?.replace('Encounter/', '');
+        if (encId) medRequestsByEncounterId.set(encId, [...(medRequestsByEncounterId.get(encId) ?? []), r]);
         break;
       }
     }
@@ -333,6 +358,29 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
           : hasChat
           ? 'patient HPI chatbot'
           : '';
+    }
+
+    if (includeMedications) {
+      const medications: string[] = [];
+      const medicationIngredients: string[] = [];
+      const medicationCodes: string[] = [];
+      const reqs = encounter.id ? medRequestsByEncounterId.get(encounter.id) ?? [] : [];
+      for (const req of reqs) {
+        // Count prescriptions that were actually written — drop cancelled/draft/error.
+        if (req.status === 'cancelled' || req.status === 'entered-in-error' || req.status === 'draft') continue;
+        const coding = (req.medicationCodeableConcept?.coding ?? []).find(
+          (c) => c.system === MEDICATION_DISPENSABLE_DRUG_ID
+        );
+        const display = coding?.display || req.medicationCodeableConcept?.text || '';
+        if (!display) continue;
+        medications.push(display);
+        medicationIngredients.push(normalizeDrugName(display));
+        if (coding?.code) medicationCodes.push(coding.code);
+      }
+      row.medications = medications;
+      row.medicationIngredients = medicationIngredients;
+      row.medicationCodes = medicationCodes;
+      row.medicationCount = medications.length;
     }
 
     rows.push(row);
