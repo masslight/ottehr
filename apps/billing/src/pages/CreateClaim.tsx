@@ -37,51 +37,29 @@ import {
 import { ClaimStatusFields } from '../components/claim/ClaimStatusFields';
 import { DiagnosesEditor, DiagnosisRow } from '../components/claim/DiagnosesEditor';
 import { emptyServiceLineRow, ServiceLineRow, ServiceLinesEditor } from '../components/claim/ServiceLinesEditor';
-import { TextInput } from '../components/input/TextInput';
 import { useApiClients } from '../hooks/useAppClients';
 
+// The create screen only picks references — patient, coverage, and providers are chosen as-is.
+// Tweaking their underlying details (names, NPIs, addresses, etc.) is done afterward in the claim
+// editing UI, which keeps this screen focused on assembling a claim from existing resources.
 interface CreateClaimForm {
   patient: BillingPatientOption | null;
-  patientFirstName: string;
-  patientLastName: string;
-  patientDob: string;
-  patientGender: string;
   coverage: BillingCoverageOption | null;
   renderingProvider: BillingProviderOption | null;
-  practFirstName: string;
-  practLastName: string;
-  practNpi: string;
   facility: BillingLocationOption | null;
-  facilityName: string;
-  facilityNpi: string;
-  facilityAddress: string;
   billingProvider: BillingProviderOption | null;
-  billingName: string;
-  billingNpi: string;
-  billingTin: string;
+  // Diagnoses and service lines reuse the same editors as the claim-detail edit experience;
+  // each service line points at diagnoses by their 1-based position in this list.
   diagnoses: DiagnosisRow[];
   serviceLines: ServiceLineRow[];
 }
 
 const defaultValues: CreateClaimForm = {
   patient: null,
-  patientFirstName: '',
-  patientLastName: '',
-  patientDob: '',
-  patientGender: '',
   coverage: null,
   renderingProvider: null,
-  practFirstName: '',
-  practLastName: '',
-  practNpi: '',
   facility: null,
-  facilityName: '',
-  facilityNpi: '',
-  facilityAddress: '',
   billingProvider: null,
-  billingName: '',
-  billingNpi: '',
-  billingTin: '',
   diagnoses: [],
   serviceLines: [emptyServiceLineRow()],
 };
@@ -120,9 +98,6 @@ export default function CreateClaim(): ReactElement {
   // Watched values used to drive conditional sections / disabled states.
   const selectedPatient = watch('patient');
   const selectedCoverage = watch('coverage');
-  const selectedRenderingProvider = watch('renderingProvider');
-  const selectedFacility = watch('facility');
-  const selectedBillingProvider = watch('billingProvider');
   // Diagnoses drive the service-line Dx pointer dropdown — pointers are the 1-based position here.
   const diagnoses = watch('diagnoses');
   const diagnosisOptions = diagnoses.map((dx, i) => ({ sequence: i + 1, code: dx.code }));
@@ -226,55 +201,29 @@ export default function CreateClaim(): ReactElement {
     }
     setError(null);
     try {
+      // Reference-only: the claim is assembled from existing resources as-is. Any tweaks to their
+      // details happen afterward in the claim editing UI, so no override fields are sent here.
       const payload: Record<string, unknown> = { patientId: data.patient.id };
-
-      // Patient overrides — only send fields that differ from original
-      const patOverrides: Record<string, string> = {};
-      if (data.patientFirstName && data.patientFirstName !== data.patient.firstName)
-        patOverrides.firstName = data.patientFirstName;
-      if (data.patientLastName && data.patientLastName !== data.patient.lastName)
-        patOverrides.lastName = data.patientLastName;
-      if (data.patientDob && data.patientDob !== data.patient.dob) patOverrides.dob = data.patientDob;
-      if (data.patientGender && data.patientGender !== data.patient.gender) patOverrides.gender = data.patientGender;
-      if (Object.keys(patOverrides).length) payload.patientOverrides = patOverrides;
 
       if (data.coverage) {
         payload.coverageId = data.coverage.id;
       }
 
       if (data.renderingProvider) {
-        const overrides: Record<string, string> = {};
-        if (data.practFirstName && data.practFirstName !== data.renderingProvider.firstName)
-          overrides.firstName = data.practFirstName;
-        if (data.practLastName && data.practLastName !== data.renderingProvider.lastName)
-          overrides.lastName = data.practLastName;
-        if (data.practNpi && data.practNpi !== data.renderingProvider.npi) overrides.npi = data.practNpi;
         payload.renderingProvider = {
           id: data.renderingProvider.id,
           type: data.renderingProvider.kind === 'organization' ? 'Organization' : 'Practitioner',
-          ...(Object.keys(overrides).length ? { overrides } : {}),
         };
       }
 
       if (data.facility) {
         payload.facilityId = data.facility.id;
-        const facOverrides: Record<string, string> = {};
-        if (data.facilityName && data.facilityName !== data.facility.name) facOverrides.name = data.facilityName;
-        if (data.facilityNpi && data.facilityNpi !== data.facility.npi) facOverrides.npi = data.facilityNpi;
-        if (data.facilityAddress && data.facilityAddress !== data.facility.address)
-          facOverrides.address = data.facilityAddress;
-        if (Object.keys(facOverrides).length) payload.facilityOverrides = facOverrides;
       }
 
       if (data.billingProvider) {
-        const overrides: Record<string, string> = {};
-        if (data.billingName && data.billingName !== data.billingProvider.name) overrides.name = data.billingName;
-        if (data.billingNpi && data.billingNpi !== data.billingProvider.npi) overrides.npi = data.billingNpi;
-        if (data.billingTin && data.billingTin !== data.billingProvider.taxId) overrides.tin = data.billingTin;
         payload.billingProvider = {
           id: data.billingProvider.id,
           type: data.billingProvider.kind === 'organization' ? 'Organization' : 'Practitioner',
-          ...(Object.keys(overrides).length ? { overrides } : {}),
         };
       }
 
@@ -391,12 +340,9 @@ export default function CreateClaim(): ReactElement {
                 value={field.value}
                 onChange={(_, value) => {
                   field.onChange(value);
+                  // Changing patient resets coverage, since coverages are patient-specific.
                   setValue('coverage', null);
                   setCoverages([]);
-                  setValue('patientFirstName', value?.firstName ?? '');
-                  setValue('patientLastName', value?.lastName ?? '');
-                  setValue('patientDob', value?.dob ?? '');
-                  setValue('patientGender', value?.gender ?? '');
                   if (value?.id) void fetchCoverages(value.id);
                 }}
                 onInputChange={(_, val, reason) => {
@@ -427,24 +373,9 @@ export default function CreateClaim(): ReactElement {
                   />
                 )}
                 isOptionEqualToValue={(o, v) => o.id === v.id}
-                sx={{ mb: field.value ? 2 : 0 }}
               />
             )}
           />
-          {selectedPatient && (
-            <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-              <TextInput name="patientFirstName" label="First Name" sx={{ flex: 1, minWidth: 160 }} />
-              <TextInput name="patientLastName" label="Last Name" sx={{ flex: 1, minWidth: 160 }} />
-              <TextInput
-                name="patientDob"
-                type="date"
-                label="Date of Birth"
-                InputLabelProps={{ shrink: true }}
-                sx={{ width: 160 }}
-              />
-              <TextInput name="patientGender" label="Gender" sx={{ width: 120 }} />
-            </Box>
-          )}
         </FormSection>
 
         <Divider />
@@ -495,12 +426,7 @@ export default function CreateClaim(): ReactElement {
               <Autocomplete
                 options={renderingProviders}
                 value={field.value}
-                onChange={(_, v) => {
-                  field.onChange(v);
-                  setValue('practFirstName', v?.firstName ?? '');
-                  setValue('practLastName', v?.lastName ?? '');
-                  setValue('practNpi', v?.npi ?? '');
-                }}
+                onChange={(_, v) => field.onChange(v)}
                 onInputChange={(_, val, reason) => {
                   if (reason === 'input') searchRenderingProviders(val || undefined);
                 }}
@@ -529,17 +455,9 @@ export default function CreateClaim(): ReactElement {
                   />
                 )}
                 isOptionEqualToValue={(o, v) => o.id === v.id}
-                sx={{ mb: field.value ? 2 : 0 }}
               />
             )}
           />
-          {selectedRenderingProvider && (
-            <Box sx={{ display: 'flex', gap: 2 }}>
-              <TextInput name="practFirstName" label="First Name" sx={{ flex: 1 }} />
-              <TextInput name="practLastName" label="Last Name" sx={{ flex: 1 }} />
-              <TextInput name="practNpi" label="NPI" sx={{ width: 160 }} />
-            </Box>
-          )}
         </FormSection>
 
         <Divider />
@@ -553,12 +471,7 @@ export default function CreateClaim(): ReactElement {
               <Autocomplete
                 options={locations}
                 value={field.value}
-                onChange={(_, v) => {
-                  field.onChange(v);
-                  setValue('facilityName', v?.name ?? '');
-                  setValue('facilityNpi', v?.npi ?? '');
-                  setValue('facilityAddress', v?.address ?? '');
-                }}
+                onChange={(_, v) => field.onChange(v)}
                 onInputChange={(_, val, reason) => {
                   if (reason === 'input') searchLocations(val || undefined);
                 }}
@@ -587,17 +500,9 @@ export default function CreateClaim(): ReactElement {
                   />
                 )}
                 isOptionEqualToValue={(o, v) => o.id === v.id}
-                sx={{ mb: field.value ? 2 : 0 }}
               />
             )}
           />
-          {selectedFacility && (
-            <Box sx={{ display: 'flex', gap: 2 }}>
-              <TextInput name="facilityName" label="Facility Name" sx={{ flex: 1 }} />
-              <TextInput name="facilityNpi" label="NPI" sx={{ width: 160 }} />
-              <TextInput name="facilityAddress" label="Address" sx={{ flex: 1 }} />
-            </Box>
-          )}
         </FormSection>
 
         <Divider />
@@ -611,12 +516,7 @@ export default function CreateClaim(): ReactElement {
               <Autocomplete
                 options={billingProviders}
                 value={field.value}
-                onChange={(_, v) => {
-                  field.onChange(v);
-                  setValue('billingName', v?.name ?? '');
-                  setValue('billingNpi', v?.npi ?? '');
-                  setValue('billingTin', v?.taxId ?? '');
-                }}
+                onChange={(_, v) => field.onChange(v)}
                 onInputChange={(_, val, reason) => {
                   if (reason === 'input') searchBillingProviders(val || undefined);
                 }}
@@ -645,17 +545,9 @@ export default function CreateClaim(): ReactElement {
                   />
                 )}
                 isOptionEqualToValue={(o, v) => o.id === v.id}
-                sx={{ mb: field.value ? 2 : 0 }}
               />
             )}
           />
-          {selectedBillingProvider && (
-            <Box sx={{ display: 'flex', gap: 2 }}>
-              <TextInput name="billingName" label="Name" sx={{ flex: 1 }} />
-              <TextInput name="billingNpi" label="NPI" sx={{ width: 160 }} />
-              <TextInput name="billingTin" label="TIN" sx={{ width: 160 }} />
-            </Box>
-          )}
         </FormSection>
 
         <Divider />

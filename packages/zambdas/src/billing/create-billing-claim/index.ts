@@ -19,7 +19,6 @@ import {
 } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import {
-  applyNameOverrides,
   buildDiagnosisSequence,
   createBillingClient,
   CURRENT_STATUS_TAG_SYSTEM,
@@ -56,7 +55,7 @@ interface OriginalResources {
 
 async function performEffect(oystehr: Oystehr, params: CreateClaimParams): Promise<{ claimId: string }> {
   const originals = await readOriginals(oystehr, params);
-  const copies = await createWorkingCopies(oystehr, originals, params);
+  const copies = await createWorkingCopies(oystehr, originals);
 
   if (copies.patient?.id) {
     await linkPatientCopyViaPerson(oystehr, params.patientId, copies.patient.id);
@@ -90,17 +89,12 @@ async function readOriginals(oystehr: Oystehr, params: CreateClaimParams): Promi
   return { patient, coverage, renderingProvider, facility, billingProvider };
 }
 
-async function createWorkingCopies(
-  oystehr: Oystehr,
-  originals: OriginalResources,
-  params: CreateClaimParams
-): Promise<OriginalResources> {
+async function createWorkingCopies(oystehr: Oystehr, originals: OriginalResources): Promise<OriginalResources> {
   const requests: BatchInputPostRequest<BillingFhirResource>[] = [];
   const order: string[] = [];
 
   const patientUrn = `urn:uuid:${randomUUID()}`;
-  let patientCopy = prepareWorkingCopy<Patient>(originals.patient, originals.patient.id!);
-  patientCopy = applyPatientOverrides(patientCopy, params.patientOverrides);
+  const patientCopy = prepareWorkingCopy<Patient>(originals.patient, originals.patient.id!);
   requests.push({ method: 'POST', url: '/Patient', resource: patientCopy, fullUrl: patientUrn });
   order.push('patient');
 
@@ -114,27 +108,15 @@ async function createWorkingCopies(
   }
 
   if (originals.renderingProvider) {
-    let copy = prepareWorkingCopy<Practitioner | Organization>(
+    const copy = prepareWorkingCopy<Practitioner | Organization>(
       originals.renderingProvider,
       originals.renderingProvider.id
     );
-    const overrides = params.renderingProvider?.overrides;
-    // TODO: an Organization rendering provider has no name override yet (schema offers firstName/lastName).
-    if (copy.resourceType === 'Practitioner') {
-      copy = applyPractitionerOverrides(copy, overrides);
-    } else if (overrides?.npi) {
-      applyNpiOverride(copy, overrides.npi);
-    }
     requests.push({ method: 'POST', url: `/${copy.resourceType}`, resource: copy });
     order.push('renderingProvider');
   }
   if (originals.facility) {
     const copy = prepareWorkingCopy<Location>(originals.facility, originals.facility.id!);
-    if (params.facilityOverrides?.name) copy.name = params.facilityOverrides.name;
-    if (params.facilityOverrides?.npi) applyNpiOverride(copy, params.facilityOverrides.npi);
-    if (params.facilityOverrides?.address) {
-      copy.address = { ...(copy.address ?? {}), line: [params.facilityOverrides.address] };
-    }
     requests.push({ method: 'POST', url: '/Location', resource: copy });
     order.push('facility');
   }
@@ -143,11 +125,6 @@ async function createWorkingCopies(
       originals.billingProvider,
       originals.billingProvider.id
     );
-    const overrides = params.billingProvider?.overrides;
-    // TODO: a Practitioner billing provider can't be renamed inline yet (needs firstName/lastName, not name).
-    if (overrides?.name && copy.resourceType === 'Organization') copy.name = overrides.name;
-    if (overrides?.npi) applyNpiOverride(copy, overrides.npi);
-    if (overrides?.tin) applyTinOverride(copy, overrides.tin);
     requests.push({ method: 'POST', url: `/${copy.resourceType}`, resource: copy });
     order.push('billingProvider');
   }
@@ -165,43 +142,6 @@ async function createWorkingCopies(
   }
 
   return { patient: originals.patient, ...copies } as OriginalResources;
-}
-
-function applyPatientOverrides(patient: Patient, overrides?: CreateClaimParams['patientOverrides']): Patient {
-  if (!overrides) return patient;
-  let p = applyNameOverrides(patient, overrides);
-  if (overrides.dob !== undefined) p = { ...p, birthDate: overrides.dob };
-  if (overrides.gender !== undefined) p = { ...p, gender: overrides.gender as Patient['gender'] };
-  return p;
-}
-
-function applyPractitionerOverrides(
-  pract: Practitioner,
-  overrides?: NonNullable<CreateClaimParams['renderingProvider']>['overrides']
-): Practitioner {
-  if (!overrides) return pract;
-  const p = applyNameOverrides(pract, overrides);
-  if (overrides.npi !== undefined) {
-    const npiIdent = p.identifier?.find((id) => id.type?.coding?.some((c) => c.code === 'NPI'));
-    if (npiIdent) npiIdent.value = overrides.npi;
-  }
-  return p;
-}
-
-function applyNpiOverride(
-  resource: { identifier?: { type?: { coding?: { code?: string }[] }; value?: string }[] },
-  npi: string
-): void {
-  const npiIdent = resource.identifier?.find((id) => id.type?.coding?.some((c) => c.code === 'NPI'));
-  if (npiIdent) npiIdent.value = npi;
-}
-
-function applyTinOverride(
-  resource: { identifier?: { type?: { coding?: { code?: string }[] }; value?: string }[] },
-  tin: string
-): void {
-  const taxIdent = resource.identifier?.find((id) => id.type?.coding?.some((c) => c.code === 'TAX'));
-  if (taxIdent) taxIdent.value = tin;
 }
 
 function buildClaim(copies: OriginalResources, params: CreateClaimParams): Claim {
