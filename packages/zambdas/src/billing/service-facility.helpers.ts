@@ -38,7 +38,7 @@ export function mapServiceFacility(location: Location): ServiceFacilityItem {
     clia: getCLIA(location) ?? '',
     posCode: getPlaceOfServiceCode(location) ?? '',
     timezone: getServiceFacilityTimezone(location) ?? '',
-    status: location.status === 'inactive' ? 'inactive' : 'active',
+    status: location.status === 'active' ? 'active' : 'inactive',
   };
 }
 
