@@ -1,5 +1,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { buildEducationPrompt } from '../../src/ehr/generate-patient-education/helpers';
+import { validateRequestParameters as validateGeneratePatientEducation } from '../../src/ehr/generate-patient-education/validateRequestParameters';
+import { validateRequestParameters as validateSaveApprovedPatientEducation } from '../../src/ehr/save-approved-patient-education/validateRequestParameters';
+import { validateRequestParameters as validateSavePatientEducationPdf } from '../../src/ehr/save-patient-education-pdf/validateRequestParameters';
+import type { ZambdaInput } from '../../src/shared';
 import { fetchMedlineLinks } from '../../src/shared/medlineplus';
 
 // These cover the two load-bearing, easy-to-get-wrong-silently bits of Spanish patient education
@@ -7,6 +11,12 @@ import { fetchMedlineLinks } from '../../src/shared/medlineplus';
 
 const medlineFeed = (titles: string[]): unknown => ({
   feed: { entry: titles.map((t) => ({ title: { _value: t }, link: [{ href: 'https://medlineplus.gov/x' }] })) },
+});
+
+const makeZambdaInput = (body: unknown): ZambdaInput => ({
+  headers: null,
+  body: JSON.stringify(body),
+  secrets: {} as NonNullable<ZambdaInput['secrets']>,
 });
 
 describe('fetchMedlineLinks — language param', () => {
@@ -33,6 +43,75 @@ describe('fetchMedlineLinks — language param', () => {
 
     const url = String(fetchSpy.mock.calls[0][0]);
     expect(url).toContain('informationRecipient.languageCode.c=es');
+  });
+});
+
+describe('patient education language validation', () => {
+  it('accepts supported languages for generation and rejects unsupported ones', () => {
+    expect(
+      validateGeneratePatientEducation(
+        makeZambdaInput({ icdCode: 'H66.001', icdDescription: 'Acute otitis media', language: 'es' })
+      ).language
+    ).toBe('es');
+
+    expect(() =>
+      validateGeneratePatientEducation(
+        makeZambdaInput({ icdCode: 'H66.001', icdDescription: 'Acute otitis media', language: 'fr' })
+      )
+    ).toThrow();
+  });
+
+  it('accepts supported languages for approved PDFs and rejects unsupported ones', () => {
+    const validBody = {
+      pdfBase64: 'abc',
+      title: 'Patient Education: Ear Infection',
+      icdCodes: [{ code: 'H66.001', display: 'Acute otitis media' }],
+      language: 'en',
+    };
+
+    expect(validateSaveApprovedPatientEducation(makeZambdaInput(validBody)).language).toBe('en');
+    expect(() => validateSaveApprovedPatientEducation(makeZambdaInput({ ...validBody, language: 'fr' }))).toThrow();
+  });
+
+  it('accepts supported languages for visit PDFs and strips the removed relatedDocumentReferenceId field', () => {
+    const result = validateSavePatientEducationPdf(
+      makeZambdaInput({
+        encounterId: 'encounter-1',
+        patientId: 'patient-1',
+        title: 'Patient Education: Ear Infection',
+        language: 'es',
+        relatedDocumentReferenceId: 'doc-ref-1',
+        sections: [
+          {
+            content: '## Overview\nCare instructions',
+            patientTitle: 'Ear Infection',
+            icdCode: 'H66.001',
+            icdDescription: 'Acute otitis media',
+          },
+        ],
+      })
+    );
+
+    expect(result.language).toBe('es');
+    expect(result).not.toHaveProperty('relatedDocumentReferenceId');
+    expect(() =>
+      validateSavePatientEducationPdf(
+        makeZambdaInput({
+          encounterId: 'encounter-1',
+          patientId: 'patient-1',
+          title: 'Patient Education: Ear Infection',
+          language: 'fr',
+          sections: [
+            {
+              content: '## Overview\nCare instructions',
+              patientTitle: 'Ear Infection',
+              icdCode: 'H66.001',
+              icdDescription: 'Acute otitis media',
+            },
+          ],
+        })
+      )
+    ).toThrow();
   });
 });
 
