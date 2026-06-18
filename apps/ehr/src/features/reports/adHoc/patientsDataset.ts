@@ -25,6 +25,18 @@ export const ADHOC_PATIENTS_OPTIONS: AdHocDatasetOption[] = [
     description: "The patient's current/home medication list.",
     default: false,
   },
+  {
+    id: 'surgicalHistory',
+    label: 'Surgical history',
+    description: "The patient's past surgical procedures.",
+    default: false,
+  },
+  {
+    id: 'hospitalizations',
+    label: 'Hospitalizations',
+    description: "The patient's prior hospitalizations.",
+    default: false,
+  },
 ];
 
 const BASE_FIELDS: FieldDef[] = [
@@ -111,12 +123,36 @@ const MEDICATION_FIELDS: FieldDef[] = [
   },
 ];
 
+const SURGICAL_FIELDS: FieldDef[] = [
+  {
+    name: 'surgicalHistory',
+    type: 'string[]',
+    description: "The patient's past surgical procedures (names). Tally for common prior surgeries.",
+  },
+  { name: 'surgicalHistoryCount', type: 'number', description: 'Number of past surgeries charted for the patient.' },
+];
+
+const HOSPITALIZATION_FIELDS: FieldDef[] = [
+  {
+    name: 'hospitalizations',
+    type: 'string[]',
+    description: "The patient's prior hospitalization reasons. Tally for common hospitalization causes.",
+  },
+  {
+    name: 'hospitalizationCount',
+    type: 'number',
+    description: 'Number of prior hospitalizations charted for the patient.',
+  },
+];
+
 function fieldsFor(options: Record<string, boolean>): FieldDef[] {
   return [
     ...BASE_FIELDS,
     ...(options.allergies ? ALLERGY_FIELDS : []),
     ...(options.problems ? PROBLEM_FIELDS : []),
     ...(options.medications ? MEDICATION_FIELDS : []),
+    ...(options.surgicalHistory ? SURGICAL_FIELDS : []),
+    ...(options.hospitalizations ? HOSPITALIZATION_FIELDS : []),
   ];
 }
 
@@ -152,6 +188,12 @@ function mergePatientRows(rows: AdHocPatientRow[]): AdHocPatientRow[] {
     if (row.currentMedicationCount != null) {
       existing.currentMedicationCount = existing.currentMedications?.length ?? row.currentMedicationCount;
     }
+    if (row.surgicalHistory) existing.surgicalHistory = uniq(existing.surgicalHistory, row.surgicalHistory);
+    if (row.surgicalHistoryCount != null)
+      existing.surgicalHistoryCount = existing.surgicalHistory?.length ?? row.surgicalHistoryCount;
+    if (row.hospitalizations) existing.hospitalizations = uniq(existing.hospitalizations, row.hospitalizations);
+    if (row.hospitalizationCount != null)
+      existing.hospitalizationCount = existing.hospitalizations?.length ?? row.hospitalizationCount;
   }
   return [...byId.values()];
 }
@@ -162,6 +204,8 @@ async function fetchAdHocPatients({ oystehrZambda, dateRange, options }: FetchCo
     includeAllergies: !!opts.allergies,
     includeProblems: !!opts.problems,
     includeMedications: !!opts.medications,
+    includeSurgicalHistory: !!opts.surgicalHistory,
+    includeHospitalizations: !!opts.hospitalizations,
   };
   const { start, end } = dateRange;
   const days = (new Date(end).getTime() - new Date(start).getTime()) / 86400000;

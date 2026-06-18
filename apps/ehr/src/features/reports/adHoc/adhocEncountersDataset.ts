@@ -61,6 +61,36 @@ export const ADHOC_ENCOUNTERS_OPTIONS: AdHocDatasetOption[] = [
     description: 'Discharge disposition and charted follow-up plan.',
     default: false,
   },
+  {
+    id: 'examRos',
+    label: 'Exam & ROS findings',
+    description: 'Structured review-of-systems (reports/denies) and physical-exam findings.',
+    default: false,
+  },
+  {
+    id: 'results',
+    label: 'Lab & imaging results',
+    description: 'Resulted lab/imaging studies and abnormal-result counts.',
+    default: false,
+  },
+  {
+    id: 'nursing',
+    label: 'Nursing orders',
+    description: 'Nursing orders placed on the visit.',
+    default: false,
+  },
+  {
+    id: 'intake',
+    label: 'Intake & screenings',
+    description: 'ASQ screen, accident type, and birth history.',
+    default: false,
+  },
+  {
+    id: 'documents',
+    label: 'Work / school notes',
+    description: 'Work and school excuse notes issued on the visit.',
+    default: false,
+  },
 ];
 
 // Always-present columns.
@@ -314,6 +344,74 @@ const DISPOSITION_FIELDS: FieldDef[] = [
   { name: 'followUpCount', type: 'number', description: 'Number of follow-up plan items charted on the visit.' },
 ];
 
+const EXAM_ROS_FIELDS: FieldDef[] = [
+  {
+    name: 'rosFindings',
+    type: 'string[]',
+    description:
+      'Structured review-of-systems findings with state, e.g. "Reports Chills", "Denies Fever". Tally for ' +
+      'most-charted symptoms; filter on "Reports "/"Denies " prefix for positives/negatives.',
+  },
+  {
+    name: 'examSystems',
+    type: 'string[]',
+    description:
+      'Charted physical-exam statements per system on the visit — both normal and abnormal summaries ' +
+      '(e.g. "Regular rate and rhythm with no murmur", "Alert", "Ankle"). Use examFindings for the ' +
+      'specific abnormal finding keys.',
+  },
+  {
+    name: 'examFindings',
+    type: 'string[]',
+    description:
+      'Specific physical-exam finding keys recorded (e.g. "ankle-right-tenderness-bony"). Tally for common findings.',
+  },
+];
+
+const RESULTS_FIELDS: FieldDef[] = [
+  {
+    name: 'resultNames',
+    type: 'string[]',
+    description:
+      'Names of resulted lab/imaging studies on the visit (DiagnosticReport). Tally for most-resulted tests. ' +
+      'Encounter-linked results only — imaging reads linked solely through the order may be omitted.',
+  },
+  { name: 'resultCount', type: 'number', description: 'Number of resulted studies on the visit.' },
+  {
+    name: 'abnormalResultCount',
+    type: 'number',
+    description: 'Number of results flagged abnormal or inconclusive on the visit.',
+  },
+];
+
+const NURSING_FIELDS: FieldDef[] = [
+  { name: 'nursingOrders', type: 'string[]', description: 'Nursing orders placed on the visit (names).' },
+  { name: 'nursingOrderCount', type: 'number', description: 'Number of nursing orders on the visit. 0 when none.' },
+];
+
+const INTAKE_FIELDS: FieldDef[] = [
+  {
+    name: 'asqScreen',
+    type: 'string',
+    description: 'ASQ screen result: "Negative", "Positive", "Declined", "NotOffered", or "" when not charted.',
+  },
+  {
+    name: 'accidentType',
+    type: 'string',
+    description: 'Accident type when the visit was accident-related (e.g. work, auto), else "".',
+  },
+  { name: 'birthHistory', type: 'string[]', description: 'Birth-history items charted (peds), when present.' },
+];
+
+const DOCUMENT_FIELDS: FieldDef[] = [
+  {
+    name: 'workSchoolNotes',
+    type: 'string[]',
+    description: 'Work/school excuse notes issued on the visit ("school" / "work" per note).',
+  },
+  { name: 'workSchoolNoteCount', type: 'number', description: 'Number of work/school notes issued on the visit.' },
+];
+
 function fieldsFor(options: Record<string, boolean>): FieldDef[] {
   return [
     ...BASE_FIELDS,
@@ -326,6 +424,11 @@ function fieldsFor(options: Record<string, boolean>): FieldDef[] {
     ...(options.imaging ? IMAGING_FIELDS : []),
     ...(options.immunizations ? IMMUNIZATION_FIELDS : []),
     ...(options.disposition ? DISPOSITION_FIELDS : []),
+    ...(options.examRos ? EXAM_ROS_FIELDS : []),
+    ...(options.results ? RESULTS_FIELDS : []),
+    ...(options.nursing ? NURSING_FIELDS : []),
+    ...(options.intake ? INTAKE_FIELDS : []),
+    ...(options.documents ? DOCUMENT_FIELDS : []),
   ];
 }
 
@@ -341,6 +444,11 @@ async function fetchAdHocEncounters({ oystehrZambda, dateRange, options }: Fetch
     includeImaging: !!opts.imaging,
     includeImmunizations: !!opts.immunizations,
     includeDisposition: !!opts.disposition,
+    includeExamRos: !!opts.examRos,
+    includeResults: !!opts.results,
+    includeNursing: !!opts.nursing,
+    includeIntake: !!opts.intake,
+    includeDocuments: !!opts.documents,
   };
   const { start, end } = dateRange;
   const days = (new Date(end).getTime() - new Date(start).getTime()) / 86400000;

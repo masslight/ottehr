@@ -4,10 +4,12 @@ import {
   Appointment,
   Condition,
   Encounter,
+  EpisodeOfCare,
   Location,
   MedicationStatement,
   Patient,
   Practitioner,
+  Procedure,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
@@ -50,8 +52,15 @@ interface PatientAgg {
 }
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  const { dateRange, includeAllergies, includeProblems, includeMedications, secrets } =
-    validateRequestParameters(input);
+  const {
+    dateRange,
+    includeAllergies,
+    includeProblems,
+    includeMedications,
+    includeSurgicalHistory,
+    includeHospitalizations,
+    secrets,
+  } = validateRequestParameters(input);
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createOystehrClient(m2mToken, secrets);
@@ -64,10 +73,16 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     | Practitioner
     | AllergyIntolerance
     | Condition
-    | MedicationStatement;
+    | MedicationStatement
+    | Procedure
+    | EpisodeOfCare;
   let allResources: ReportResource[] = [];
   let offset = 0;
-  const pageSize = 1000;
+  // Shrink the page when patient-bound clinical layers are on (each adds resources per patient and
+  // the FHIR server caps response size). Pagination + client-side date batching make up the rest.
+  const heavy =
+    includeAllergies || includeProblems || includeMedications || includeSurgicalHistory || includeHospitalizations;
+  const pageSize = heavy ? 400 : 1000;
 
   // Anchored on Appointment in the date range (like the Encounters dataset), but folded to one row
   // per patient. Patient-bound clinical layers ride along via patient-scoped revincludes.
@@ -91,6 +106,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   }
   if (includeMedications) {
     baseSearchParams.push({ name: '_revinclude:iterate', value: 'MedicationStatement:patient' });
+  }
+  if (includeSurgicalHistory) {
+    baseSearchParams.push({ name: '_revinclude:iterate', value: 'Procedure:patient' });
+  }
+  if (includeHospitalizations) {
+    baseSearchParams.push({ name: '_revinclude:iterate', value: 'EpisodeOfCare:patient' });
   }
 
   let searchBundle = await oystehr.fhir.search<ReportResource>({
@@ -121,6 +142,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const allergiesByPatient = new Map<string, AllergyIntolerance[]>();
   const conditionsByPatient = new Map<string, Condition[]>();
   const medsByPatient = new Map<string, MedicationStatement[]>();
+  const surgeriesByPatient = new Map<string, Procedure[]>();
+  const hospitalizationsByPatient = new Map<string, EpisodeOfCare[]>();
 
   const pushTo = <T>(map: Map<string, T[]>, key: string | undefined, value: T): void => {
     if (!key) return;
@@ -149,6 +172,13 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         break;
       case 'MedicationStatement':
         if (includeMedications && hasTag(r, 'current-medication')) pushTo(medsByPatient, r.subject?.reference, r);
+        break;
+      case 'Procedure':
+        if (includeSurgicalHistory && hasTag(r, 'surgical-history'))
+          pushTo(surgeriesByPatient, r.subject?.reference, r);
+        break;
+      case 'EpisodeOfCare':
+        if (includeHospitalizations) pushTo(hospitalizationsByPatient, r.patient?.reference, r);
         break;
     }
   }
@@ -288,6 +318,20 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         .filter(Boolean);
       row.currentMedications = uniq(meds);
       row.currentMedicationCount = row.currentMedications.length;
+    }
+    if (includeSurgicalHistory) {
+      const surgeries = (surgeriesByPatient.get(patientRef) ?? [])
+        .map((p) => p.code?.coding?.[0]?.display || p.code?.text || '')
+        .filter(Boolean);
+      row.surgicalHistory = uniq(surgeries);
+      row.surgicalHistoryCount = row.surgicalHistory.length;
+    }
+    if (includeHospitalizations) {
+      const hosps = (hospitalizationsByPatient.get(patientRef) ?? [])
+        .map((e) => e.type?.[0]?.text || e.type?.[0]?.coding?.[0]?.display || '')
+        .filter(Boolean);
+      row.hospitalizations = uniq(hosps);
+      row.hospitalizationCount = row.hospitalizations.length;
     }
 
     rows.push(row);

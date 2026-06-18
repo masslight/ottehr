@@ -23,6 +23,16 @@ export interface AdHocEncountersInput {
   includeImmunizations?: boolean;
   /** Disposition / follow-up plan charted on the visit (adds disposition ServiceRequests to the search). */
   includeDisposition?: boolean;
+  /** Structured ROS + physical-exam findings (adds ros/exam Observations to the search). */
+  includeExamRos?: boolean;
+  /** Lab/imaging RESULTS (adds DiagnosticReports to the search). */
+  includeResults?: boolean;
+  /** Nursing orders (adds nursing ServiceRequests to the search). */
+  includeNursing?: boolean;
+  /** Intake screenings — ASQ, accident, birth history (adds those Observations/Conditions). */
+  includeIntake?: boolean;
+  /** Work/school notes issued on the visit (adds school-work DocumentReferences). */
+  includeDocuments?: boolean;
 }
 
 export interface AdHocEncounterRow {
@@ -104,6 +114,24 @@ export interface AdHocEncounterRow {
   followUpTypes?: string[]; // charted follow-up plan types (e.g. "Follow-up visit", "ED", "PCP")
   followUpCount?: number;
   dischargeDisposition?: string; // discharge disposition from the encounter, when recorded
+  // --- Exam & ROS findings (includeExamRos) ---
+  rosFindings?: string[]; // ROS items with state, e.g. "Reports Chills", "Denies Fever"
+  examSystems?: string[]; // body systems/parts examined, e.g. "Ankle", "Alert"
+  examFindings?: string[]; // specific physical-exam finding keys (e.g. "ankle-right-tenderness-bony")
+  // --- Lab/imaging results (includeResults) ---
+  resultNames?: string[]; // names of resulted lab/imaging studies (DiagnosticReport)
+  resultCount?: number;
+  abnormalResultCount?: number; // results flagged abnormal/inconclusive
+  // --- Nursing orders (includeNursing) ---
+  nursingOrders?: string[];
+  nursingOrderCount?: number;
+  // --- Intake screenings (includeIntake) ---
+  asqScreen?: string; // ASQ screen result ("Negative" | "Positive" | "Declined" | "NotOffered" | "")
+  accidentType?: string; // accident type when the visit was accident-related, else ""
+  birthHistory?: string[]; // birth-history items (peds), when charted
+  // --- Documents (includeDocuments) ---
+  workSchoolNotes?: string[]; // "school" / "work" per note issued on the visit
+  workSchoolNoteCount?: number;
 }
 
 export interface AdHocEncountersOutput {

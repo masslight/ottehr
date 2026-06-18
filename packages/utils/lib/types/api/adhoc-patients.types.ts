@@ -11,6 +11,10 @@ export interface AdHocPatientsInput {
   includeProblems?: boolean;
   /** Current/home medications (adds MedicationStatement to the search). */
   includeMedications?: boolean;
+  /** Past surgical history (adds surgical-history Procedures to the search). */
+  includeSurgicalHistory?: boolean;
+  /** Prior hospitalizations (adds EpisodeOfCare to the search). */
+  includeHospitalizations?: boolean;
 }
 
 export interface AdHocPatientRow {
@@ -47,6 +51,12 @@ export interface AdHocPatientRow {
   // --- Current medications (includeMedications) ---
   currentMedications?: string[]; // home/current drug display names
   currentMedicationCount?: number;
+  // --- Surgical history (includeSurgicalHistory) ---
+  surgicalHistory?: string[]; // past surgery/procedure names
+  surgicalHistoryCount?: number;
+  // --- Hospitalizations (includeHospitalizations) ---
+  hospitalizations?: string[]; // prior hospitalization reasons
+  hospitalizationCount?: number;
 }
 
 export interface AdHocPatientsOutput {

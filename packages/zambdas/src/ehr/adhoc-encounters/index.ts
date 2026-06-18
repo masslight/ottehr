@@ -2,6 +2,7 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import {
   Appointment,
   Condition,
+  DiagnosticReport,
   DocumentReference,
   Encounter,
   Location,
@@ -95,6 +96,11 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     includeImaging,
     includeImmunizations,
     includeDisposition,
+    includeExamRos,
+    includeResults,
+    includeNursing,
+    includeIntake,
+    includeDocuments,
     secrets,
   } = validateRequestParameters(input);
 
@@ -114,10 +120,28 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     | MedicationAdministration
     | MedicationStatement
     | Observation
-    | ServiceRequest;
+    | ServiceRequest
+    | DiagnosticReport;
   let allResources: ReportResource[] = [];
   let offset = 0;
-  const pageSize = 1000;
+  // Adaptive page size: each opt-in layer adds included resources per appointment, and the FHIR
+  // server caps response size (~6MB). The Observation include is the heaviest (every exam/ROS/vitals
+  // observation), so shrink the page hardest for it; other includes shrink it moderately. Pagination
+  // (and the client-side date batching for long ranges) makes up the difference.
+  const obsHeavy = includeVitals || includeExamRos || includeIntake;
+  const anyHeavy =
+    obsHeavy ||
+    includeCodes ||
+    includeAi ||
+    includeMedications ||
+    includeLabs ||
+    includeImaging ||
+    includeImmunizations ||
+    includeDisposition ||
+    includeResults ||
+    includeNursing ||
+    includeDocuments;
+  const pageSize = obsHeavy ? 150 : anyHeavy ? 500 : 1000;
 
   const baseSearchParams = [
     { name: 'date', value: `ge${dateRange.start}` },
@@ -140,7 +164,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       { name: '_revinclude:iterate', value: 'Procedure:encounter' }
     );
   }
-  if (includeAi) {
+  if (includeAi || includeDocuments) {
+    // AI summaries and work/school notes are both encounter DocumentReferences (classified by tag).
     baseSearchParams.push({ name: '_revinclude:iterate', value: 'DocumentReference:encounter' });
   }
   if (includeMedications) {
@@ -156,13 +181,22 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     // Immunization history can also be charted as MedicationStatement (immunization tag) via .context.
     baseSearchParams.push({ name: '_revinclude:iterate', value: 'MedicationStatement:context' });
   }
-  if (includeVitals) {
-    // Pulls all encounter Observations; we filter to the vitals ones (vital-* tag) when mapping.
+  if (includeVitals || includeExamRos || includeIntake) {
+    // Encounter Observations cover vitals, ROS/exam findings, and ASQ/birth-history; classified by tag.
     baseSearchParams.push({ name: '_revinclude:iterate', value: 'Observation:encounter' });
   }
-  if (includeLabs || includeImaging || includeDisposition) {
-    // One revinclude covers labs, radiology, and disposition — all ServiceRequests, classified by tag/code.
+  if (includeLabs || includeImaging || includeDisposition || includeNursing) {
+    // Covers labs, radiology, disposition, and nursing — all ServiceRequests, classified by tag/code.
     baseSearchParams.push({ name: '_revinclude:iterate', value: 'ServiceRequest:encounter' });
+  }
+  if (includeResults) {
+    // Lab/imaging results that carry an encounter reference (covers labs well; imaging reads linked only
+    // through the order may be partial).
+    baseSearchParams.push({ name: '_revinclude:iterate', value: 'DiagnosticReport:encounter' });
+  }
+  if (includeIntake) {
+    // Accident is an encounter Condition (not in Encounter.diagnosis).
+    baseSearchParams.push({ name: '_revinclude:iterate', value: 'Condition:encounter' });
   }
 
   let searchBundle = await oystehr.fhir.search<ReportResource>({
@@ -175,8 +209,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   while (searchBundle.link?.find((link) => link.relation === 'next')) {
     offset += pageSize;
     pageCount++;
-    if (pageCount > 100) {
-      console.warn('Reached maximum pagination limit (100 pages). Stopping search.');
+    if (pageCount > 400) {
+      console.warn('Reached maximum pagination limit (400 pages). Stopping search.');
       break;
     }
     searchBundle = await oystehr.fhir.search<ReportResource>({
@@ -197,8 +231,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const medRequestsByEncounterId = new Map<string, MedicationRequest[]>();
   const medAdminsByEncounterId = new Map<string, MedicationAdministration[]>();
   const medStatementsByEncounterId = new Map<string, MedicationStatement[]>();
-  const vitalsByEncounterId = new Map<string, Observation[]>();
+  const observationsByEncounterId = new Map<string, Observation[]>();
   const serviceRequestsByEncounterId = new Map<string, ServiceRequest[]>();
+  const resultsByEncounterId = new Map<string, DiagnosticReport[]>();
+  const encounterConditionsByEncounterId = new Map<string, Condition[]>();
   const encounterById = new Map<string, Encounter>();
 
   for (const r of allResources) {
@@ -218,9 +254,15 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       case 'Encounter':
         if (r.id) encounterById.set(r.id, r);
         break;
-      case 'Condition':
+      case 'Condition': {
         if (includeCodes && r.id) conditionById.set(r.id, r);
+        if (includeIntake) {
+          const encId = r.encounter?.reference?.replace('Encounter/', '');
+          if (encId)
+            encounterConditionsByEncounterId.set(encId, [...(encounterConditionsByEncounterId.get(encId) ?? []), r]);
+        }
         break;
+      }
       case 'Procedure': {
         if (!includeCodes) break;
         const encId = r.encounter?.reference?.replace('Encounter/', '');
@@ -228,7 +270,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         break;
       }
       case 'DocumentReference': {
-        if (!includeAi) break;
+        if (!includeAi && !includeDocuments) break;
         const encId = r.context?.encounter?.[0]?.reference?.replace('Encounter/', '');
         if (encId) docRefsByEncounterId.set(encId, [...(docRefsByEncounterId.get(encId) ?? []), r]);
         break;
@@ -252,16 +294,21 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         break;
       }
       case 'Observation': {
-        // Keep only vitals Observations (vital-* meta tag); ros/exam/ai observations are ignored here.
-        if (!includeVitals || !r.meta?.tag?.some((t) => t.code?.startsWith('vital-'))) break;
+        if (!includeVitals && !includeExamRos && !includeIntake) break;
         const encId = r.encounter?.reference?.replace('Encounter/', '');
-        if (encId) vitalsByEncounterId.set(encId, [...(vitalsByEncounterId.get(encId) ?? []), r]);
+        if (encId) observationsByEncounterId.set(encId, [...(observationsByEncounterId.get(encId) ?? []), r]);
         break;
       }
       case 'ServiceRequest': {
-        if (!includeLabs && !includeImaging && !includeDisposition) break;
+        if (!includeLabs && !includeImaging && !includeDisposition && !includeNursing) break;
         const encId = r.encounter?.reference?.replace('Encounter/', '');
         if (encId) serviceRequestsByEncounterId.set(encId, [...(serviceRequestsByEncounterId.get(encId) ?? []), r]);
+        break;
+      }
+      case 'DiagnosticReport': {
+        if (!includeResults) break;
+        const encId = r.encounter?.reference?.replace('Encounter/', '');
+        if (encId) resultsByEncounterId.set(encId, [...(resultsByEncounterId.get(encId) ?? []), r]);
         break;
       }
     }
@@ -486,7 +533,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     }
 
     if (includeVitals) {
-      const obs = encounter.id ? vitalsByEncounterId.get(encounter.id) ?? [] : [];
+      const obs = encounter.id ? observationsByEncounterId.get(encounter.id) ?? [] : [];
       // Last charted value wins per vital field.
       const fieldCode = (o: Observation): string => o.meta?.tag?.find((t) => t.code?.startsWith('vital-'))?.code ?? '';
       const latest = (field: string): Observation | undefined => obs.filter((o) => fieldCode(o) === field).at(-1);
@@ -527,7 +574,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         row.weightKg && row.heightCm && row.heightCm > 0 ? round1(row.weightKg / (row.heightCm / 100) ** 2) : null;
     }
 
-    if (includeLabs || includeImaging || includeDisposition) {
+    if (includeLabs || includeImaging || includeDisposition || includeNursing) {
       const srs = (encounter.id ? serviceRequestsByEncounterId.get(encounter.id) ?? [] : []).filter(isActiveOrder);
       if (includeLabs) {
         const labOrders = srs.filter(isLabOrder).map(orderDisplay).filter(Boolean);
@@ -538,6 +585,14 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         const imagingOrders = srs.filter(isImagingOrder).map(orderDisplay).filter(Boolean);
         row.imagingOrders = imagingOrders;
         row.imagingOrderCount = imagingOrders.length;
+      }
+      if (includeNursing) {
+        const nursingOrders = srs
+          .filter((sr) => sr.meta?.tag?.some((t) => t.code?.includes('nursing')))
+          .map(orderDisplay)
+          .filter(Boolean);
+        row.nursingOrders = nursingOrders;
+        row.nursingOrderCount = nursingOrders.length;
       }
       if (includeDisposition) {
         const followUpTypes = srs
@@ -576,6 +631,86 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       }
       row.immunizations = immunizations;
       row.immunizationCount = immunizations.length;
+    }
+
+    if (includeExamRos) {
+      const obs = encounter.id ? observationsByEncounterId.get(encounter.id) ?? [] : [];
+      const tagOf = (o: Observation, sys: string): string | undefined =>
+        o.meta?.tag?.find((t) => t.system?.includes(sys))?.code;
+      const rosFindings: string[] = [];
+      const examSystems: string[] = [];
+      const examFindings: string[] = [];
+      for (const o of obs) {
+        const rosTag = tagOf(o, 'ros-observation-field');
+        if (rosTag && o.valueBoolean) {
+          const state = rosTag.endsWith('-denies') ? 'Denies' : rosTag.endsWith('-reports') ? 'Reports' : '';
+          const name = o.code?.text || o.code?.coding?.[0]?.display || rosTag;
+          rosFindings.push(`${state} ${name}`.trim());
+          continue;
+        }
+        if (tagOf(o, 'exam-observation-field')) {
+          if (o.code?.text) examSystems.push(o.code.text);
+          for (const c of o.component ?? []) {
+            const code = c.code?.coding?.[0]?.code || c.code?.text;
+            if (code) examFindings.push(code);
+          }
+        }
+      }
+      row.rosFindings = rosFindings;
+      row.examSystems = Array.from(new Set(examSystems));
+      row.examFindings = examFindings;
+    }
+
+    if (includeResults) {
+      const drs = encounter.id ? resultsByEncounterId.get(encounter.id) ?? [] : [];
+      const resultNames: string[] = [];
+      let abnormalResultCount = 0;
+      for (const dr of drs) {
+        if (dr.status === 'entered-in-error' || dr.status === 'cancelled') continue;
+        const name = dr.code?.coding?.find((c) => c.display)?.display || dr.code?.text || '';
+        if (name) resultNames.push(name);
+        if (dr.meta?.tag?.some((t) => t.code === 'abnormal' || t.code === 'inconclusive')) abnormalResultCount++;
+      }
+      row.resultNames = resultNames;
+      row.resultCount = resultNames.length;
+      row.abnormalResultCount = abnormalResultCount;
+    }
+
+    if (includeIntake) {
+      const obs = encounter.id ? observationsByEncounterId.get(encounter.id) ?? [] : [];
+      const asqObs = obs.find((o) => o.meta?.tag?.some((t) => t.code === 'asq'));
+      row.asqScreen = asqObs?.valueString || asqObs?.valueCodeableConcept?.coding?.[0]?.code || '';
+      const birthHistory: string[] = [];
+      for (const o of obs) {
+        if (!o.meta?.tag?.some((t) => t.code?.includes('birth'))) continue;
+        const label = o.code?.text || o.code?.coding?.[0]?.display;
+        if (label) birthHistory.push(label);
+      }
+      row.birthHistory = birthHistory;
+      const accidentCond = (encounter.id ? encounterConditionsByEncounterId.get(encounter.id) ?? [] : []).find(
+        (c) => c.meta?.tag?.some((t) => t.code === 'accident')
+      );
+      row.accidentType = accidentCond
+        ? accidentCond.code?.coding?.[0]?.display ||
+          accidentCond.code?.coding?.[0]?.code ||
+          accidentCond.code?.text ||
+          ''
+        : '';
+    }
+
+    if (includeDocuments) {
+      const docs = encounter.id ? docRefsByEncounterId.get(encounter.id) ?? [] : [];
+      const workSchoolNotes: string[] = [];
+      for (const d of docs) {
+        const isSchoolWork =
+          d.type?.coding?.some((c) => c.code === '47420-5') ||
+          d.meta?.tag?.some((t) => t.system?.includes('school-work-note'));
+        if (!isSchoolWork) continue;
+        const typeTag = d.meta?.tag?.find((t) => t.system?.includes('school-work-note'))?.code;
+        workSchoolNotes.push(typeTag || 'note');
+      }
+      row.workSchoolNotes = workSchoolNotes;
+      row.workSchoolNoteCount = workSchoolNotes.length;
     }
 
     rows.push(row);
