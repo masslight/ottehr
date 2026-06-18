@@ -195,6 +195,7 @@ export const SaveServiceFacilityInputSchema = z.object({
     .optional(),
   npi: z
     .string()
+    .trim()
     .refine(isNPIValidWithChecksum, 'NPI must be 10 digits with a valid check digit')
     .nullable()
     .optional(),
