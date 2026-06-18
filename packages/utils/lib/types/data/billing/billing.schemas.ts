@@ -5,7 +5,7 @@ import {
   CODE_SYSTEM_APPOINTMENT_TYPE_CODE_NAMES,
   CODE_SYSTEM_CLAIM_TYPE_CODE_NAMES,
 } from '../../../helpers/rcm/constants';
-import { npiRegex, taxIdRegex, zipRegex } from '../../../validation';
+import { taxIdRegex, zipRegex } from '../../../validation';
 import { STATE_CODES } from '../../common';
 import { TIMEZONES } from '../../constants';
 import {
