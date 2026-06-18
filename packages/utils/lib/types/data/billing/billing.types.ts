@@ -1,4 +1,5 @@
 import { CODE_SYSTEM_APPOINTMENT_TYPE_CODES, CODE_SYSTEM_CLAIM_TYPE_CODES } from '../../../helpers';
+import { ClaimStatusValues } from './claim-status';
 
 export interface BillingTag {
   id: string;
@@ -109,7 +110,10 @@ export interface EraDetailResponse {
 export interface BillingClaimItem {
   id: string;
   type: keyof typeof CODE_SYSTEM_CLAIM_TYPE_CODES;
+  // Legacy `current-status` value, retained for the patient-detail screen. The billing claims
+  // list/detail now surface the `statuses` indicators below instead.
   status: string;
+  statuses: ClaimStatusValues;
   patientName: string;
   patientDob: string;
   payerName: string;
@@ -170,7 +174,9 @@ export interface PatientDetailResponse {
 export interface ClaimDetailResponse {
   id: string;
   type: keyof typeof CODE_SYSTEM_CLAIM_TYPE_CODES;
+  // Legacy `current-status` value (kept for compatibility); `statuses` carries the indicators shown in the UI.
   status: string;
+  statuses: ClaimStatusValues;
   created: string;
   billingType: string;
   billableStatus: string;
@@ -244,6 +250,7 @@ export interface ClaimDetailResponse {
   otherClaims: {
     id: string;
     status: string;
+    arStage: string;
     serviceDate: string;
     payerName: string;
     billed: number;

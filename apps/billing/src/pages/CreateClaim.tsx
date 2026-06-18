@@ -18,8 +18,12 @@ import {
   BillingLocationOption,
   BillingPatientOption,
   BillingProviderOption,
+  ClaimStatusFieldKey,
+  ClaimStatusValues,
   CreateBillingClaimInput,
+  emptyClaimStatusValues,
   getApiError,
+  withArStageInitialization,
 } from 'utils';
 import {
   createBillingClaim,
@@ -28,6 +32,7 @@ import {
   searchBillingPatients,
   searchBillingProviders as searchBillingProvidersApi,
 } from '../api/api';
+import { ClaimStatusFields } from '../components/claim/ClaimStatusFields';
 import { useApiClients } from '../hooks/useAppClients';
 
 interface ServiceLine {
@@ -77,6 +82,7 @@ export default function CreateClaim(): ReactElement {
   const [diagnoses, setDiagnoses] = useState<string[]>([]);
   const [dxInput, setDxInput] = useState('');
   const [serviceLines, setServiceLines] = useState<ServiceLine[]>([{ ...emptyLine }]);
+  const [statuses, setStatuses] = useState<ClaimStatusValues>(emptyClaimStatusValues);
 
   // Override fields — populated from selection, editable by user
   const [patientFirstName, setPatientFirstName] = useState('');
@@ -193,10 +199,18 @@ export default function CreateClaim(): ReactElement {
     setServiceLines(updated);
   };
 
-  const canSave = selectedPatient && dateOfService;
+  const handleStatusChange = (field: ClaimStatusFieldKey, value: string): void => {
+    setStatuses((prev) => {
+      const next = { ...prev, [field]: value };
+      // Entering an AR Stage initializes that stage's progress status (mirrors the server rule).
+      return field === 'arStage' ? { ...next, ...withArStageInitialization(next) } : next;
+    });
+  };
+
+  const canSave = selectedPatient && dateOfService && statuses.arStage;
 
   const handleSave = async (): Promise<void> => {
-    if (!oystehrZambda || !selectedPatient || !dateOfService) return;
+    if (!oystehrZambda || !selectedPatient || !dateOfService || !statuses.arStage) return;
     if (!selectedPatient.id) {
       setError('Selected patient is missing an id');
       return;
@@ -275,6 +289,9 @@ export default function CreateClaim(): ReactElement {
         }));
       }
 
+      const statusEntries = Object.entries(statuses).filter(([, v]) => v);
+      if (statusEntries.length) payload.statuses = Object.fromEntries(statusEntries);
+
       const data = await createBillingClaim(oystehrZambda, payload as CreateBillingClaimInput);
       if (data.claimId) navigate(`/claims/${data.claimId}`);
     } catch (err) {
@@ -341,6 +358,12 @@ export default function CreateClaim(): ReactElement {
           />
         </Box>
       </FormSection>
+
+      <Divider />
+
+      <Box sx={{ py: 2.5 }}>
+        <ClaimStatusFields values={statuses} onChange={handleStatusChange} requireArStage title="Claim Status" />
+      </Box>
 
       <Divider />
 

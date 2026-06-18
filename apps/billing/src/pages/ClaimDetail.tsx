@@ -30,7 +30,10 @@ import {
   BillingPayerOption,
   BillingProviderOption,
   BillingTag,
+  CLAIM_STATUS_FIELDS_BY_KEY,
   ClaimDetailResponse,
+  ClaimStatusFieldKey,
+  formatClaimStatusValue,
   getApiError,
   UpdateBillingResourceInput,
 } from 'utils';
@@ -44,9 +47,10 @@ import {
   tagBillingClaim,
   updateBillingResource,
 } from '../api/api';
+import { ClaimStatusFields } from '../components/claim/ClaimStatusFields';
 import { EditableSection } from '../components/claim/EditableSection';
 import { Field } from '../components/Field';
-import { CLAIM_STATUS_COLORS, formatAntCaseString } from '../constants/claimStatus';
+import { claimStatusValueColor, formatAntCaseString } from '../constants/claimStatus';
 import { useApiClients } from '../hooks/useAppClients';
 import { otherColors } from '../themes/ottehr/colors';
 import { buildAddressInput, formatCurrency, splitDisplayName } from '../utils/format';
@@ -111,6 +115,26 @@ export default function ClaimDetail(): ReactElement {
     [oystehrZambda, id, fetchDetail]
   );
 
+  const updateStatus = useCallback(
+    async (field: ClaimStatusFieldKey, value: string): Promise<void> => {
+      if (!oystehrZambda || !id) return;
+      try {
+        // An empty selection clears the tag back to the field's default.
+        await oystehrZambda.zambda.execute({
+          id: 'set-billing-claim-status',
+          claimId: id,
+          field,
+          value: value || null,
+        });
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to update status');
+        return;
+      }
+      await fetchDetail();
+    },
+    [oystehrZambda, id, fetchDetail]
+  );
+
   if (loading && !claim) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50vh' }}>
@@ -130,8 +154,8 @@ export default function ClaimDetail(): ReactElement {
     );
   }
 
-  const statusColor = CLAIM_STATUS_COLORS[claim.status] ?? 'default';
-  const statusLabel = formatAntCaseString(claim.status);
+  const arStageCode = claim.statuses.arStage;
+  const arStageLabel = formatClaimStatusValue(CLAIM_STATUS_FIELDS_BY_KEY.arStage, arStageCode);
   const dos = claim.serviceLines[0]?.serviceDate ?? claim.created;
 
   return (
@@ -150,14 +174,18 @@ export default function ClaimDetail(): ReactElement {
             <Meta label="Claim Type" value={formatAntCaseString(claim.type)} />
             <Meta label="Appointment Type" value={formatAntCaseString(claim.appointmentType)} />
             <Meta label="Patient DOB" value={claim.patientDob} />
-            <Meta label="Billing Type" value={claim.billingType} />
-            <Meta label="Billable Status" value={claim.billableStatus} />
           </Box>
         </Box>
       </Box>
 
       <Box sx={{ ml: 5, mb: 2, display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
-        <Chip label={statusLabel} color={statusColor} variant="outlined" size="small" sx={{ borderRadius: '4px' }} />
+        <Chip
+          label={arStageLabel || 'No AR Stage'}
+          color={arStageCode ? claimStatusValueColor(arStageCode) : 'default'}
+          variant="outlined"
+          size="small"
+          sx={{ borderRadius: '4px' }}
+        />
         {claim.tags.map((tag) => (
           <Chip
             key={tag}
@@ -169,6 +197,12 @@ export default function ClaimDetail(): ReactElement {
         ))}
         <TagAdder claimId={claim.id} oystehrZambda={oystehrZambda} onAdded={fetchDetail} existingTags={claim.tags} />
       </Box>
+
+      <Card variant="outlined" sx={{ mb: 2, ml: 5 }}>
+        <CardContent>
+          <ClaimStatusFields values={claim.statuses} onChange={updateStatus} title="Claim Status" />
+        </CardContent>
+      </Card>
 
       <Card variant="outlined" sx={{ mb: 2, ml: 5 }}>
         <CardContent sx={{ py: 1.5, '&:last-child': { pb: 1.5 } }}>
@@ -1284,7 +1318,7 @@ function OtherClaimsSection({
               <TableCell sx={thSx}>Claim ID</TableCell>
               <TableCell sx={thSx}>Service Date</TableCell>
               <TableCell sx={thSx}>Payer</TableCell>
-              <TableCell sx={thSx}>Status</TableCell>
+              <TableCell sx={thSx}>AR Stage</TableCell>
               <TableCell sx={thSx} align="right">
                 Billed
               </TableCell>
@@ -1302,13 +1336,17 @@ function OtherClaimsSection({
                 <TableCell>{oc.serviceDate}</TableCell>
                 <TableCell>{oc.payerName}</TableCell>
                 <TableCell>
-                  <Chip
-                    label={formatAntCaseString(oc.status)}
-                    color={CLAIM_STATUS_COLORS[oc.status] ?? 'default'}
-                    variant="outlined"
-                    size="small"
-                    sx={{ borderRadius: '4px' }}
-                  />
+                  {oc.arStage ? (
+                    <Chip
+                      label={formatClaimStatusValue(CLAIM_STATUS_FIELDS_BY_KEY.arStage, oc.arStage)}
+                      color={claimStatusValueColor(oc.arStage)}
+                      variant="outlined"
+                      size="small"
+                      sx={{ borderRadius: '4px' }}
+                    />
+                  ) : (
+                    '—'
+                  )}
                 </TableCell>
                 <TableCell align="right">{formatCurrency(oc.billed)}</TableCell>
                 <TableCell>{oc.cptCodes.join(', ')}</TableCell>
