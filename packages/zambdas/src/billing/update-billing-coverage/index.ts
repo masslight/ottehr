@@ -12,7 +12,6 @@ import {
   fetchById,
   findCoverageOfType,
   getPatientAccounts,
-  getPayerOrgById,
   reconcileAccountsForCoverage,
   setCoveragePayer,
   setCoverageRelationship,
@@ -76,7 +75,7 @@ async function performEffect(
   const effectiveMemberId = params.memberId ?? coverage.subscriberId ?? '';
   if (params.payerId) {
     // Re-pointing the payer rebuilds payor reference, coverage class, and the member-id identifier.
-    const payerOrg = await getPayerOrgById(oystehr, params.payerId);
+    const payerOrg = await oystehr.rcm.getPayer({ id: params.payerId });
     setCoveragePayer(coverage, payerOrg, effectiveMemberId);
     coverage.subscriberId = effectiveMemberId;
   } else if (params.memberId !== undefined) {

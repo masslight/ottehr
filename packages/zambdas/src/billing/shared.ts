@@ -462,11 +462,6 @@ export function buildBillingCoverage(params: {
   return coverage;
 }
 
-// Resolve a single payer Organization from an Oystehr RCM payer id.
-export async function getPayerOrgById(oystehr: Oystehr, payerId: string): Promise<Organization> {
-  return oystehr.rcm.getPayerByUrl({ url: getPayerUrl(payerId) });
-}
-
 // Account type + priority an insurance type maps to. primary/secondary share the patient billing
 // account (PBILLACCT, priority 1/2); workersComp lives in its own account (WCOMPACCT, priority 1).
 const ACCOUNT_PLACEMENT: Record<BillingInsuranceType, { type: Account['type']; code: string; priority: number }> = {

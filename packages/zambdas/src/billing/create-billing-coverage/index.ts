@@ -12,7 +12,6 @@ import {
   createBillingClient,
   findCoverageOfType,
   getPatientAccounts,
-  getPayerOrgById,
   reconcileAccountsForCoverage,
 } from '../shared';
 import { CreateBillingCoverageParams, validateRequestParameters } from './validateRequestParameters';
@@ -46,7 +45,7 @@ async function complexValidation(params: CreateBillingCoverageParams, oystehr: O
 
 async function performEffect(oystehr: Oystehr, params: CreateBillingCoverageParams): Promise<{ id: string }> {
   const [payerOrg, accounts] = await Promise.all([
-    getPayerOrgById(oystehr, params.payerId),
+    oystehr.rcm.getPayer({ id: params.payerId }),
     getPatientAccounts(oystehr, params.patientId),
   ]);
 
