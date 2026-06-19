@@ -13,6 +13,7 @@ import {
   DeleteBillingProviderInput,
   DeleteBillingTagInput,
   DeletedResponse,
+  DeleteServiceFacilityInput,
   EraDetailResponse,
   GetClaimDetailInput,
   GetEraDetailInput,
@@ -22,6 +23,7 @@ import {
   PatientDetailResponse,
   SaveBillingTagInput,
   SavedResourceResponse,
+  SaveServiceFacilityInput,
   SearchBillingClaimsInput,
   SearchBillingClaimsResponse,
   SearchBillingErasResponse,
@@ -35,6 +37,8 @@ import {
   SearchBillingProvidersResponse,
   SearchBillingTagsResponse,
   SearchErasInput,
+  SearchServiceFacilitiesInput,
+  SearchServiceFacilitiesResponse,
   TagBillingClaimInput,
   TaggedClaimResponse,
   UpdateBillingCoverageInput,
@@ -155,6 +159,24 @@ export const deleteBillingCoverage = (
   oystehr: Oystehr,
   parameters: DeleteBillingCoverageInput
 ): Promise<DeletedResponse> => executeBillingZambda(oystehr, 'delete-billing-coverage', parameters);
+
+// --- Service Facilities ---
+
+export const searchBillingServiceFacilities = (
+  oystehr: Oystehr,
+  parameters: SearchServiceFacilitiesInput
+): Promise<SearchServiceFacilitiesResponse> =>
+  executeBillingZambda(oystehr, 'search-billing-service-facilities', parameters);
+
+export const saveBillingServiceFacility = (
+  oystehr: Oystehr,
+  parameters: SaveServiceFacilityInput
+): Promise<SavedResourceResponse> => executeBillingZambda(oystehr, 'save-billing-service-facility', parameters);
+
+export const deleteBillingServiceFacility = (
+  oystehr: Oystehr,
+  parameters: DeleteServiceFacilityInput
+): Promise<DeletedResponse> => executeBillingZambda(oystehr, 'delete-billing-service-facility', parameters);
 
 // --- Tags ---
 

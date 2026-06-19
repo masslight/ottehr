@@ -1,10 +1,14 @@
 import { z } from 'zod';
 import { BIRTH_SEXES, SUBSCRIBER_RELATIONSHIPS } from '../../../fhir/constants';
+import { isCLIAValid, isNPIValidWithChecksum } from '../../../helpers/helpers';
 import {
+  CMS_PLACE_OF_SERVICE_CODE_SET,
   CODE_SYSTEM_APPOINTMENT_TYPE_CODE_NAMES,
   CODE_SYSTEM_CLAIM_TYPE_CODE_NAMES,
 } from '../../../helpers/rcm/constants';
-import { npiRegex, taxIdRegex, zipRegex } from '../../../validation';
+import { taxIdRegex, zipRegex } from '../../../validation';
+import { STATE_CODES } from '../../common';
+import { TIMEZONES } from '../../constants';
 import {
   CLAIM_STATUS_FIELD_KEYS,
   CLAIM_STATUS_FIELDS_BY_KEY,
@@ -170,6 +174,57 @@ const claimServiceLineSchema = z.object({
   diagnosisPointers: z.array(z.number().int().positive()).optional(),
 });
 
+export const SearchServiceFacilitiesInputSchema = z.object({
+  facilityId: nonEmptyString.optional(),
+  name: nonEmptyString.optional(),
+  offset: nonNegativeInt.optional(),
+  pageSize: nonNegativeInt.optional(),
+});
+
+export const SaveServiceFacilityInputSchema = z.object({
+  facilityId: nonEmptyString.optional(),
+  name: nonEmptyString,
+  addressLine1: nonEmptyString,
+  addressLine2: z.string().trim().optional(),
+  city: nonEmptyString,
+  state: nonEmptyString.refine((code) => STATE_CODES.has(code), 'Unknown state code'),
+  zip: z
+    .string()
+    .trim()
+    .regex(/^\d{5}$/, 'ZIP must be 5 digits'),
+  zipPlus4: z
+    .string()
+    .trim()
+    .regex(/^\d{4}$/, 'ZIP+4 must be 4 digits')
+    .optional(),
+  npi: z
+    .string()
+    .trim()
+    .refine(isNPIValidWithChecksum, 'NPI must be 10 digits with a valid check digit')
+    .nullable()
+    .optional(),
+  clia: z
+    .string()
+    .trim()
+    .refine(isCLIAValid, 'CLIA must match the format NNDNNNNNNN, e.g. 05D1234567')
+    .nullable()
+    .optional(),
+  posCode: z
+    .string()
+    .refine((code) => CMS_PLACE_OF_SERVICE_CODE_SET.has(code), 'Unknown place of service code')
+    .nullable()
+    .optional(),
+  timezone: z
+    .string()
+    .refine((tz) => TIMEZONES.includes(tz), 'Unknown timezone')
+    .nullable()
+    .optional(),
+});
+
+export const DeleteServiceFacilityInputSchema = z.object({
+  facilityId: nonEmptyString,
+});
+
 // Create assembles a claim from existing resources by reference only. Tweaking a referenced
 // resource's details (names, NPIs, addresses, etc.) is done afterward via the claim editing UI,
 // so this input carries no override fields.
@@ -207,7 +262,10 @@ const billingAddressSchema = z
   })
   .strict();
 
-const billingNpiSchema = nonEmptyString.regex(npiRegex, 'NPI must be exactly 10 digits');
+const billingNpiSchema = nonEmptyString.refine(
+  isNPIValidWithChecksum,
+  'NPI must be a valid 10-digit number with a correct check digit'
+);
 const billingTaxIdSchema = nonEmptyString.regex(taxIdRegex, 'Tax ID / EIN must be exactly 9 digits');
 const billingTaxonomyCodeSchema = z.string().trim().length(10, 'Taxonomy code must be exactly 10 characters');
 // Providers require a validated ZIP (5-digit or ZIP+4); the base address schema stays loose
@@ -469,3 +527,6 @@ export type CreateBillingWorkingCopyInput = z.infer<typeof CreateBillingWorkingC
 export type CreateBillingClaimFromEncounterInput = z.input<typeof CreateBillingClaimFromEncounterInputSchema>;
 export type UpdateBillingResourceInput = z.infer<typeof UpdateBillingResourceInputSchema>;
 export type BillingResourceType = (typeof ALLOWED_BILLING_RESOURCE_TYPES)[number];
+export type SearchServiceFacilitiesInput = z.output<typeof SearchServiceFacilitiesInputSchema>;
+export type SaveServiceFacilityInput = z.output<typeof SaveServiceFacilityInputSchema>;
+export type DeleteServiceFacilityInput = z.output<typeof DeleteServiceFacilityInputSchema>;
