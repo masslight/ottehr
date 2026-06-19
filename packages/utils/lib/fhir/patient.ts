@@ -8,6 +8,7 @@ import {
   Encounter,
   HumanName,
   Identifier,
+  Location,
   Organization,
   Patient,
   Period,
@@ -17,7 +18,7 @@ import {
   RelatedPerson,
   Resource,
 } from 'fhir/r4b';
-import { formatZipcodeForDisplay, removePrefix, standardizePhoneNumber } from '../helpers';
+import { formatZipcodeForDisplay, isValidErxPhoneNumber, removePrefix } from '../helpers';
 import {
   ORG_TYPE_CODE_SYSTEM,
   PATIENT_INDIVIDUAL_PRONOUNS_URL,
@@ -509,7 +510,7 @@ export const getErxPatientDemographicErrors = (patient: Patient | undefined): st
   if (!hasNonEmptyName(patient)) errors.push('name');
   if (!hasNonEmptyBirthDate(patient)) errors.push('birthDate');
   if (!hasNonEmptyGender(patient)) errors.push('gender');
-  if (!standardizePhoneNumber(phone)) errors.push('phone');
+  if (!isValidErxPhoneNumber(phone)) errors.push('phone');
   if (!hasNonEmptyAddress(patient)) errors.push('address');
 
   return errors;
@@ -797,8 +798,8 @@ export const checkEncounterHasPractitioner = (encounter: Encounter, practitioner
   );
 };
 
-export const getPractitionerNPIIdentifier = (practitioner: Practitioner): Identifier | undefined => {
-  return practitioner.identifier?.find((existIdentifier) => existIdentifier.system === FHIR_IDENTIFIER_NPI);
+export const getNPIIdentifier = (resource: Practitioner | Location | Organization): Identifier | undefined => {
+  return resource.identifier?.find((existIdentifier) => existIdentifier.system === FHIR_IDENTIFIER_NPI);
 };
 
 export const getPatientFormUser = (patient: Patient | undefined): 'Parent' | 'Self' | undefined => {

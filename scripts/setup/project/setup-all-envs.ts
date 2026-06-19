@@ -324,7 +324,19 @@ NOTE: Make sure deploy/backend.config has the correct S3 bucket before continuin
     console.log('\nInitializing Terraform...');
     execSync('npm run terraform-init', { cwd: deployDir, stdio: 'inherit' });
 
-    const workspaces = ['e2e', 'e2e2', 'e2e3', 'local', 'development', 'testing', 'staging', 'demo', 'production'];
+    const workspaces = [
+      'e2e',
+      'e2e2',
+      'e2e3',
+      'e2e4',
+      'e2e5',
+      'local',
+      'development',
+      'testing',
+      'staging',
+      'demo',
+      'production',
+    ];
     for (const ws of workspaces) {
       try {
         execSync(`terraform workspace new ${ws}`, { cwd: deployDir, stdio: 'inherit' });

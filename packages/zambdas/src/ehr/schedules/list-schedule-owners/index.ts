@@ -1,21 +1,25 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Address, HealthcareService, Location, Practitioner, Schedule } from 'fhir/r4b';
+import { Address, HealthcareService, Location, Practitioner, PractitionerRole, Schedule } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   Closure,
   ClosureType,
   DOW,
   getAllFhirSearchPages,
+  getFullName,
+  getPractitionerRoleAllCategories,
   getScheduleExtension,
   getTimezone,
   INVALID_INPUT_ERROR,
+  isServiceCategoryHealthcareService,
   ListScheduleOwnersParams,
   ListScheduleOwnersResponse,
   LOCATION_SUPPORT_PHONE_EXTENSION_URL,
   MISSING_REQUEST_BODY,
   MISSING_REQUIRED_PARAMETERS,
   OVERRIDE_DATE_FORMAT,
+  RoleType,
   SCHEDULE_CHANGES_DATE_FORMAT,
   ScheduleListItem,
   ScheduleOwnerFhirResource,
@@ -28,6 +32,18 @@ import { addressStringFromAddress, getNameForOwner } from '../shared';
 let m2mToken: string;
 
 const ZAMBDA_NAME = 'list-schedule-owners';
+
+// Logs how long an async operation takes. Used to pinpoint which fetch
+// dominates the endpoint's latency in production (FHIR include search vs.
+// user pagination) so we can keep an eye on timeout regressions.
+const timed = async <T>(label: string, fn: () => Promise<T>): Promise<T> => {
+  const start = Date.now();
+  try {
+    return await fn();
+  } finally {
+    console.log(`${label} took ${Date.now() - start}ms`);
+  }
+};
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.group('validateRequestParameters');
@@ -45,7 +61,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   } else if (ownerType === 'Location') {
     effectInput = await complexValidation<Location>(validatedParameters, oystehr);
   } else {
-    effectInput = await complexValidation<Practitioner>(validatedParameters, oystehr);
+    // 'Practitioner' — one row per provider, summarizing across all of their PRs.
+    effectInput = await complexValidationForPractitioner(validatedParameters, oystehr);
   }
   const response = performEffect(effectInput);
 
@@ -58,7 +75,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 const performEffect = (input: EffectInput): ListScheduleOwnersResponse => {
   const list = input.list
     .map((item) => {
-      const { owner, schedules } = item;
+      const { owner, schedules, displayName, address: itemAddress, providerSchedulesSummary } = item;
       let address: Address | undefined;
       let supportPhoneNumber: string | undefined;
       if (owner.resourceType === 'Location') {
@@ -68,13 +85,14 @@ const performEffect = (input: EffectInput): ListScheduleOwnersResponse => {
       } else if (owner.resourceType === 'Practitioner') {
         address = (owner as Practitioner).address?.[0];
       }
-      const addressString = address ? addressStringFromAddress(address) : '';
+      const addressString = itemAddress ?? (address ? addressStringFromAddress(address) : '');
       return {
         owner: {
           resourceType: owner.resourceType,
           id: owner.id!,
-          name: getNameForOwner(owner),
+          name: displayName ?? getNameForOwner(owner),
           address: addressString ?? '',
+          providerSchedulesSummary,
           supportPhoneNumber,
         },
         schedules: schedules.map((schedule) => ({
@@ -121,7 +139,20 @@ const validateRequestParameters = (input: ZambdaInput): BasicInput => {
 };
 
 interface EffectInput {
-  list: { owner: ScheduleOwnerFhirResource; schedules: Schedule[] }[];
+  list: {
+    owner: ScheduleOwnerFhirResource;
+    schedules: Schedule[];
+    /** Override for getNameForOwner — for Practitioner rows, getFullName(). */
+    displayName?: string;
+    /** Override for the address column. */
+    address?: string;
+    /** Populated only for Practitioner rows on the provider-schedules tab. */
+    providerSchedulesSummary?: {
+      locationNames: string[];
+      categoryLabels: string[];
+      scheduleCount: number;
+    };
+  }[];
 }
 
 const complexValidation = async <T extends ScheduleOwnerFhirResource>(
@@ -132,6 +163,16 @@ const complexValidation = async <T extends ScheduleOwnerFhirResource>(
   // splitting these into separate requests lest the _include lead to too large a response due to potentially very large json extension on
   // schedule resources.
   // Paginated: >1000 schedules would otherwise silently drop owners whose schedule lands on a later page.
+  // Filter Location owners to status=active. Matches the canonical filter
+  // used at PR creation (apps/ehr/src/components/schedule/PractitionerRoleList
+  // uses `params: [{ name: 'status', value: 'active' }]`), so the admin
+  // surface here doesn't surface schedule owners the rest of the system
+  // treats as invisible. Practitioner/HealthcareService have different
+  // active-flag conventions; leave them alone for now to avoid scope creep.
+  const ownerParams: { name: string; value: string }[] = [];
+  if (ownerType === 'Location') {
+    ownerParams.push({ name: 'status', value: 'active' });
+  }
   const [schedules, owners] = await Promise.all([
     getAllFhirSearchPages<Schedule>(
       {
@@ -152,6 +193,7 @@ const complexValidation = async <T extends ScheduleOwnerFhirResource>(
     getAllFhirSearchPages<T>(
       {
         resourceType: ownerType,
+        params: ownerParams,
       },
       oystehr
     ),
@@ -168,13 +210,201 @@ const complexValidation = async <T extends ScheduleOwnerFhirResource>(
     return acc;
   }, new Map<string, Schedule[]>());
 
-  const list = owners.map((owner) => {
+  // HealthcareService search returns both groups AND service-category catalog
+  // entries (admin-registered via the Services admin UI) — both are HSes, but
+  // only groups belong in this list. Service-category HSes are discriminated
+  // by the SERVICE_CATEGORY_TAG meta tag, and they appear as ghost "groups"
+  // with the service's name otherwise. Filter them out here. Locations and
+  // Practitioners can't carry that tag, so the filter is a no-op for those.
+  const filteredOwners = owners.filter(
+    (o) => o.resourceType !== 'HealthcareService' || !isServiceCategoryHealthcareService(o as HealthcareService)
+  );
+  const list = filteredOwners.map((owner) => {
     const schedules = scheduleOwnerMap.get(owner.id!) ?? [];
     return {
       owner,
       schedules,
     };
   });
+  return { list };
+};
+
+// One row per active provider. Shows everyone, including providers who have
+// not yet had any schedule configured — their row reads as 0 schedules /
+// empty locations / empty categories, and the link still routes to the
+// employee detail page where setup happens.
+//
+// Row id is the Oystehr User.id (not Practitioner.id) so /admin/employee/:id
+// and getUserDetails resolve correctly.
+const complexValidationForPractitioner = async (_input: BasicInput, oystehr: Oystehr): Promise<EffectInput> => {
+  // PR-side bundle gives us PRs + their Practitioners + Locations + categories
+  // + Schedules. We then union these Practitioners with the full active
+  // Practitioner set so unconfigured providers also surface.
+  // Paginated: bigger orgs (many Locations × many Practitioners × multiple
+  // PRs each) can blow past a single-page _count cap, silently dropping rows
+  // from the admin list. Matches the pagination pattern used in the other
+  // function in this file. user.list() is deprecated by the SDK; listV2
+  // with cursor pagination is the supported path.
+  //
+  // Scope the user fetch to the Provider role rather than every User in the
+  // project. Users include patients (tens of thousands in production), and
+  // paging through all of them — at limit 100 per sequential round trip —
+  // is what timed this endpoint out. We only ever keep Practitioners that
+  // map to a User here, and only providers get a Practitioner profile + the
+  // Provider role, so role-scoping returns exactly the candidate set (a few
+  // hundred) without changing the output.
+  const fetchProviderUsers = async (): Promise<Awaited<ReturnType<typeof oystehr.user.listV2>>['data']> => {
+    const roles = await oystehr.role.list();
+    const providerRole = roles.find((r) => r.name === RoleType.Provider);
+    if (!providerRole) {
+      console.error(`No "${RoleType.Provider}" role found; no provider rows can be resolved.`);
+      return [];
+    }
+    const collected: Awaited<ReturnType<typeof oystehr.user.listV2>>['data'] = [];
+    // The SDK types nextCursor as `string | null`. Treat any non-string-non-empty
+    // value as "no more pages" so a stray `''` from the server can't trigger
+    // an infinite loop (`'' !== null` would otherwise re-enter the do/while
+    // with a falsy cursor and re-fetch page 1 forever).
+    let cursor: string | null = null;
+    do {
+      const response: Awaited<ReturnType<typeof oystehr.user.listV2>> = await oystehr.user.listV2({
+        ...(cursor ? { cursor } : {}),
+        limit: 1000,
+        roleId: providerRole.id,
+        sort: 'name',
+      });
+      collected.push(...response.data);
+      cursor = response.metadata.nextCursor;
+    } while (cursor);
+    return collected;
+  };
+  const overallStart = Date.now();
+  const [prResources, allPractitioners, allUsers] = await Promise.all([
+    timed('PractitionerRole search (with _include/_revinclude)', () =>
+      getAllFhirSearchPages<PractitionerRole | Practitioner | Location | Schedule | HealthcareService>(
+        {
+          resourceType: 'PractitionerRole',
+          params: [
+            { name: 'active', value: 'true' },
+            { name: '_include', value: 'PractitionerRole:practitioner' },
+            { name: '_include', value: 'PractitionerRole:location' },
+            { name: '_include', value: 'PractitionerRole:service' },
+            { name: '_revinclude', value: 'Schedule:actor:PractitionerRole' },
+          ],
+        },
+        oystehr
+      )
+    ),
+    timed('Practitioner search (active=true)', () =>
+      getAllFhirSearchPages<Practitioner>(
+        {
+          resourceType: 'Practitioner',
+          params: [{ name: 'active', value: 'true' }],
+        },
+        oystehr
+      )
+    ),
+    timed('fetchProviderUsers (Provider-role users)', () => fetchProviderUsers()),
+  ]);
+  console.log(
+    `[list-schedule-owners] all parallel fetches done in ${Date.now() - overallStart}ms ` +
+      `(prResources=${prResources.length}, activePractitioners=${allPractitioners.length}, providerUsers=${allUsers.length})`
+  );
+
+  const roles = prResources.filter((r): r is PractitionerRole => r.resourceType === 'PractitionerRole');
+  const includedPractitioners = prResources.filter((r): r is Practitioner => r.resourceType === 'Practitioner');
+  const locations = prResources.filter((r): r is Location => r.resourceType === 'Location');
+  const schedules = prResources.filter((r): r is Schedule => r.resourceType === 'Schedule');
+  const healthcareServices = prResources.filter((r): r is HealthcareService => r.resourceType === 'HealthcareService');
+
+  // Union of active practitioners (preserves identity by id).
+  const allPractitionersById = new Map<string, Practitioner>();
+  for (const p of allPractitioners) if (p.id) allPractitionersById.set(p.id, p);
+  for (const p of includedPractitioners) if (p.id) allPractitionersById.set(p.id, p);
+
+  // Map each Practitioner to its corresponding Oystehr User. Only providers
+  // with a User account (i.e., login-able) appear — otherwise editing them
+  // through /admin/employee/:id wouldn't work anyway.
+  const userIdByPractitionerId = new Map<string, string>();
+  for (const u of allUsers) {
+    const profileId = u.profile?.split('/')[1];
+    if (profileId) userIdByPractitionerId.set(profileId, u.id);
+  }
+
+  // Aggregate PRs per Practitioner so we can summarize across roles. Skip
+  // group-membership PRs (no Location) — they aren't schedules.
+  // A PR without a practitioner.reference is structurally broken. We log it
+  // (so the corruption is observable via Sentry / log search) and skip the
+  // bad row rather than throw — throwing here would 500 the admin list
+  // endpoint for every provider just because one malformed role exists,
+  // blocking the only surface where the rest of the catalog can be repaired.
+  const rolesByPractitionerId = new Map<string, PractitionerRole[]>();
+  for (const role of roles) {
+    const practitionerId = role.practitioner?.reference?.split('/')[1];
+    if (!practitionerId) {
+      console.error(`Skipping malformed PractitionerRole ${role.id}: no practitioner reference.`);
+      continue;
+    }
+    if (!role.location?.[0]?.reference) continue;
+    const arr = rolesByPractitionerId.get(practitionerId) ?? [];
+    arr.push(role);
+    rolesByPractitionerId.set(practitionerId, arr);
+  }
+
+  const list = [...allPractitionersById.values()]
+    .filter((p) => p.id && userIdByPractitionerId.has(p.id))
+    .map((practitioner) => {
+      const practitionerRoles = rolesByPractitionerId.get(practitioner.id!) ?? [];
+      const locationNames = new Set<string>();
+      const categoryLabels = new Set<string>();
+      const ownedSchedules: Schedule[] = [];
+      for (const role of practitionerRoles) {
+        const locationRef = role.location?.[0]?.reference;
+        const location = locations.find((l) => `Location/${l.id}` === locationRef);
+        if (location?.name) locationNames.add(location.name);
+        // A PR with the all-categories toggle on offers every service in the
+        // catalog; show that as a single "All services" badge rather than
+        // expanding the full list (which could be long and changes any time
+        // a category is added).
+        if (getPractitionerRoleAllCategories(role)) {
+          categoryLabels.add('All services');
+        } else {
+          // `healthcareService[]` carries both service-category refs AND
+          // group-membership refs. Without the category-tag filter, a PR that
+          // belongs to a group would have the group's name surface as a
+          // phantom service in the admin rollup.
+          for (const ref of role.healthcareService ?? []) {
+            const hsId = ref.reference?.split('/')[1];
+            const hs = healthcareServices.find((h) => h.id === hsId);
+            if (hs && isServiceCategoryHealthcareService(hs) && hs.name) categoryLabels.add(hs.name);
+          }
+        }
+        for (const s of schedules) {
+          if (s.actor?.some((a) => a.reference === `PractitionerRole/${role.id}`)) {
+            ownedSchedules.push(s);
+          }
+        }
+      }
+      // Emit at least one label so consumers can `.join()` unconditionally.
+      // Pre-toggle, callers fell back to "All services" on empty, which is now
+      // wrong (empty + toggle off = offers nothing — see PR-level
+      // all-categories work).
+      const categoryLabelsArray = categoryLabels.size > 0 ? [...categoryLabels] : ['No services'];
+      return {
+        owner: { ...practitioner, id: userIdByPractitionerId.get(practitioner.id!)! },
+        schedules: ownedSchedules,
+        displayName: getFullName(practitioner),
+        providerSchedulesSummary: {
+          locationNames: [...locationNames],
+          categoryLabels: categoryLabelsArray,
+          // Count owned Schedule resources, not PractitionerRoles. A PR may
+          // be missing its Schedule (in-flight setup, soft-deleted Schedule)
+          // or — less commonly — have more than one. The UI column labeled
+          // "Schedules" should reflect what was actually found.
+          scheduleCount: ownedSchedules.length,
+        },
+      };
+    });
   return { list };
 };
 

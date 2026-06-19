@@ -83,6 +83,9 @@ interface BookAppointmentContext
   scheduleOwnerName: string;
   scheduleOwnerType: string;
   scheduleOwnerId: string;
+  /** Resolved booking Location for display — see get-slot-details. */
+  bookingLocationName?: string;
+  bookingLocationId?: string;
   patients: PatientInfo[];
   timezone: Timezone;
   serviceMode: ServiceMode;
@@ -195,6 +198,8 @@ const BookingHome: FC = () => {
       ownerType,
       ownerId,
       originalBookingUrl,
+      bookingLocationId,
+      bookingLocationName,
     } = slotDetailsData;
     let scheduleOwnerType = 'Location';
     if (ownerType === 'Practitioner') {
@@ -218,6 +223,8 @@ const BookingHome: FC = () => {
       scheduleOwnerName: ownerName,
       scheduleOwnerType,
       scheduleOwnerId: ownerId,
+      bookingLocationId,
+      bookingLocationName,
       originalBookingUrl,
       setPatientInfo,
       completeBooking,

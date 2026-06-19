@@ -76,8 +76,10 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
   const hpi = chartFields?.chiefComplaint?.text;
   const emCode = chartData?.emCode;
   const patientInfoConfirmed = chartFields?.patientInfoConfirmed?.value;
-  const accidentHasType = (chartFields?.accident?.type?.length ?? 0) > 0;
-  const accidentMissingDate = accidentHasType && !chartFields?.accident?.date;
+  const hasAccidentType = (chartFields?.accident?.type?.length ?? 0) > 0;
+  const isAutoAccident = chartFields?.accident?.type?.includes('AA') ?? false;
+  const accidentMissingDate = hasAccidentType && !chartFields?.accident?.date;
+  const accidentMissingState = isAutoAccident && !chartFields?.accident?.state;
   const inHouseLabResultsPending = chartFields?.inHouseLabResults?.resultsPending;
   const inHouseLabReflexTestPending = chartFields?.inHouseLabResults?.reflexTestsPending;
 
@@ -112,7 +114,14 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
       }
     }
 
-    if (!primaryDiagnosis || (mdmRequired && !medicalDecision) || !emCode || !hpi || accidentMissingDate) {
+    if (
+      !primaryDiagnosis ||
+      (mdmRequired && !medicalDecision) ||
+      !emCode ||
+      !hpi ||
+      accidentMissingDate ||
+      accidentMissingState
+    ) {
       messages.push('You need to fill in the missing data');
     }
 
@@ -140,6 +149,7 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
     hpi,
     emCode,
     accidentMissingDate,
+    accidentMissingState,
     patientInfoConfirmed,
     inHouseLabResultsPending,
     isFollowup,
@@ -188,6 +198,9 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
 
   const shouldRequireSupervisorApproval =
     FEATURE_FLAGS.SUPERVISOR_APPROVAL_ENABLED && showSupervisorCheckbox && !isFollowup;
+  const confirmationDescription = mdmRequired
+    ? 'Are you sure you have reviewed the patient chart, performed the examination, defined the diagnoses, made a medical decision and chosen an E&M code and are ready to sign this patient?'
+    : 'Are you sure you have reviewed the patient chart, performed the examination, defined the diagnoses and chosen an E&M code and are ready to sign this patient?';
 
   return (
     <Box sx={{ display: 'flex', justifyContent: 'end' }}>
@@ -205,10 +218,7 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
             title={`Review and Sign ${patientName}`}
             description={
               <Stack spacing={2}>
-                <DialogContentText>
-                  Are you sure you have reviewed the patient chart, performed the examination, defined the diagnoses,
-                  made a medical decision and chosen an E&M code and are ready to sign this patient?
-                </DialogContentText>
+                <DialogContentText>{confirmationDescription}</DialogContentText>
 
                 {shouldRequireSupervisorApproval && (
                   <FormControlLabel

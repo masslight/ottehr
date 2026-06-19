@@ -85,6 +85,10 @@ export interface UseVitalsManagementReturn {
   abnormalVitalsValues: GetVitalsResponseData;
 }
 
+const getValidationErrorMessage = (state: VitalLocalState): string | undefined => {
+  return 'validationErrorMessage' in state ? state.validationErrorMessage : undefined;
+};
+
 export const useVitalsManagement = ({ encounterId }: UseVitalsManagementProps): UseVitalsManagementReturn => {
   const saveVitals = useSaveVitals({ encounterId });
   const batchSaveVitals = useBatchSaveVitals({ encounterId });
@@ -235,7 +239,10 @@ export const useVitalsManagement = ({ encounterId }: UseVitalsManagementProps): 
         block: 'center',
       });
       const vitalText = invalidFields.length === 1 ? 'vital' : 'vitals';
-      enqueueSnackbar(`Failed to save ${invalidFields.length} ${vitalText}`, {
+      const validationErrorMessage = invalidFields
+        .map((fieldName) => getValidationErrorMessage(fieldMap[fieldName].state))
+        .find((message): message is string => !!message);
+      enqueueSnackbar(validationErrorMessage ?? `Failed to save ${invalidFields.length} ${vitalText}`, {
         variant: 'error',
       });
     }
@@ -262,6 +269,10 @@ export const useVitalsManagement = ({ encounterId }: UseVitalsManagementProps): 
 
       if (!state.isValid) {
         state.setValidationError(true);
+        const validationErrorMessage = getValidationErrorMessage(state);
+        if (validationErrorMessage) {
+          enqueueSnackbar(validationErrorMessage, { variant: 'error' });
+        }
         return;
       }
 

@@ -6,17 +6,26 @@ import {
   ScheduleType,
   Secrets,
   ServiceCategoryCode,
+  SLUG_REGEX,
+  SLUG_VALIDATION_MESSAGE,
 } from 'utils';
 import { z } from 'zod';
 import { safeValidate, ZambdaInput } from '../../shared';
 
 export const SCHEDULE_TYPES = ['location', 'provider', 'group'] as const;
 
+// Slug fields are interpolated raw into FHIR `identifier` search params as
+// `${SLUG_SYSTEM}|${slug}`. Without a format guard, a caller can include `|`
+// (or other special chars) to break out of the value side and inject extra
+// search clauses. Restrict to URL-safe slug shape: letters/digits/hyphens.
+const SlugSchema = z.string().regex(SLUG_REGEX, SLUG_VALIDATION_MESSAGE);
+
 const GetScheduleBodySchema = z.object({
-  slug: z.string().min(1),
+  slug: SlugSchema.min(1),
   scheduleType: z.enum(SCHEDULE_TYPES),
   selectedDate: z.string().date().optional(),
   serviceCategoryCode: z.string().optional(),
+  atLocationSlug: SlugSchema.optional(),
 });
 
 export function validateRequestParameters(input: ZambdaInput): GetScheduleRequestParams & { secrets: Secrets | null } {
@@ -29,6 +38,7 @@ export function validateRequestParameters(input: ZambdaInput): GetScheduleReques
     scheduleType,
     selectedDate,
     serviceCategoryCode: maybeServiceCategoryCode,
+    atLocationSlug,
   } = safeValidate(GetScheduleBodySchema, JSON.parse(input.body));
 
   let serviceCategoryCode: ServiceCategoryCode | undefined;
@@ -37,7 +47,7 @@ export function validateRequestParameters(input: ZambdaInput): GetScheduleReques
     const categorySchema = getServiceCategoryCodeSchema();
     serviceCategoryCode = categorySchema.safeParse(maybeServiceCategoryCode).data;
     if (!serviceCategoryCode) {
-      throw INVALID_INPUT_ERROR(`"serviceCategoryCode" must be one of ${categorySchema.options.join(', ')}`);
+      throw INVALID_INPUT_ERROR('"serviceCategoryCode" must be a URL-safe slug (1-64 chars, letters/digits/hyphens)');
     }
   }
 
@@ -47,5 +57,6 @@ export function validateRequestParameters(input: ZambdaInput): GetScheduleReques
     secrets: input.secrets,
     selectedDate,
     serviceCategoryCode,
+    atLocationSlug,
   };
 }

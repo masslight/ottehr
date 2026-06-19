@@ -154,6 +154,7 @@ export interface MedicationDTO extends SaveableDTO {
   type: 'scheduled' | 'as-needed' | 'prescribed-medication';
   id?: string;
   practitioner?: Practitioner | Reference;
+  isRenewal?: boolean;
 }
 
 export interface MedicationIntakeInfo {
@@ -170,6 +171,7 @@ export interface PrescribedMedicationDTO extends SaveableDTO {
   added?: string;
   prescriptionId?: string;
   encounterId?: string;
+  isRenewal?: boolean;
 }
 
 export interface AllergyDTO extends SaveableDTO {
@@ -321,6 +323,9 @@ export interface CPTCodeDTO extends SaveableDTO {
   display: string;
   modifier?: { code: string; display: string }[];
   ndcCode?: string;
+  dose?: number;
+  doseUnits?: string;
+  billableUnits?: number;
 }
 
 export const clinicalImpressionDTOSchema = z.object({
@@ -453,7 +458,7 @@ const defaultNotes: Record<DispositionType, string> = {
   ed: 'Please go to the Emergency Department immediately.',
   'ip-oth': 'Please go to an In Person Office.',
   'pcp-no-type': 'Please see your Primary Care Physician as discussed.',
-  another: 'Please proceed to the ABC Office as advised.',
+  another: 'Please proceed to the ____ Office as advised.',
   specialty: '',
 };
 
@@ -497,6 +502,7 @@ export const followUpInOptions = [
 ];
 
 export interface BillingSuggestionInput {
+  patientId?: string;
   newPatient: boolean | undefined;
   patientAge?: string;
   patientSex?: string;
@@ -510,6 +516,7 @@ export interface BillingSuggestionInput {
   rosFindings?: string;
   diagnoses: DiagnosisDTO[] | undefined;
   billing: CPTCodeDTO[] | undefined;
+  prescribedMedications?: PrescribedMedicationDTO[];
 }
 
 export interface BillingSuggestionOutput {

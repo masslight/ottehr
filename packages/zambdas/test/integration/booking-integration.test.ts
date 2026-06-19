@@ -39,14 +39,11 @@ import { assert } from 'vitest';
 import { getCanonicalUrlForPrevisitQuestionnaire } from '../../src/patient/appointment/helpers';
 import { setupIntegrationTest } from '../helpers/integration-test-seed-data-setup';
 import {
-  adjustHoursOfOperation,
-  changeAllCapacities,
+  buildSimpleScheduleExt,
   cleanupTestScheduleResources,
-  DEFAULT_SCHEDULE_JSON,
   makeTestPatient,
   persistSchedule,
   persistTestPatient,
-  startOfDayWithTimezone,
   tagForProcessId,
 } from '../helpers/testScheduleUtils';
 
@@ -220,18 +217,10 @@ describe('prebook integration - from getting list of slots to booking with selec
     expect(oystehrAdmin).toBeDefined();
     expect(existingTestPatient).toBeDefined();
     assert(existingTestPatient);
-    const timeNow = startOfDayWithTimezone().plus({ hours: 8 });
-
-    let adjustedScheduleJSON = adjustHoursOfOperation(DEFAULT_SCHEDULE_JSON, [
-      {
-        dayOfWeek: timeNow.toLocaleString({ weekday: 'long' }).toLowerCase(),
-        open: 8,
-        close: 18,
-        workingDay: true,
-      },
-    ]);
-
-    adjustedScheduleJSON = changeAllCapacities(adjustedScheduleJSON, 1);
+    // 24/7 open with 4 bookings/hour (slot-length-invariant). Provides
+    // capacity at every cadence position so the test's randomly-picked
+    // slot is always bookable regardless of where it lands in the hour.
+    const adjustedScheduleJSON = buildSimpleScheduleExt({ prebookSlots: 4 });
 
     const ownerLocation: Location = {
       resourceType: 'Location',
@@ -296,18 +285,9 @@ describe('prebook integration - from getting list of slots to booking with selec
     expect(oystehrAdmin).toBeDefined();
     expect(existingTestPatient).toBeDefined();
     assert(existingTestPatient);
-    const timeNow = startOfDayWithTimezone().plus({ hours: 8 });
-
-    let adjustedScheduleJSON = adjustHoursOfOperation(DEFAULT_SCHEDULE_JSON, [
-      {
-        dayOfWeek: timeNow.toLocaleString({ weekday: 'long' }).toLowerCase(),
-        open: 8,
-        close: 18,
-        workingDay: true,
-      },
-    ]);
-
-    adjustedScheduleJSON = changeAllCapacities(adjustedScheduleJSON, 1);
+    // 24/7 open with 4 bookings/hour (slot-length-invariant). See the
+    // setUpInPersonResources comment above — same rationale.
+    const adjustedScheduleJSON = buildSimpleScheduleExt({ prebookSlots: 4 });
 
     const ownerLocation: Location = {
       resourceType: 'Location',
@@ -641,6 +621,7 @@ describe('prebook integration - from getting list of slots to booking with selec
       ).output as CreateAppointmentResponse;
     } catch (e) {
       console.error('Error executing create-appointment zambda', e);
+      throw e;
     }
     const validated = validateCreateAppointmentResponse({
       createAppointmentResponse,

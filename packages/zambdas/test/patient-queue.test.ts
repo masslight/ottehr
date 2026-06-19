@@ -7,6 +7,7 @@ import {
   FhirEncounterStatus,
   getInPersonVisitStatus,
   OTTEHR_MODULE,
+  PARTICIPATION_CODE_SYSTEM,
   visitStatusToFhirAppointmentStatusMap,
   visitStatusToFhirEncounterStatusMap,
   VisitStatusWithoutUnknown,
@@ -249,7 +250,7 @@ const addParticipant = (
       {
         coding: [
           {
-            system: 'http://terminology.hl7.org/CodeSystem/v3-ParticipationType',
+            system: PARTICIPATION_CODE_SYSTEM,
             code: participantCode,
             display: participantDisplay,
           },

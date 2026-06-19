@@ -902,6 +902,14 @@ export const extractExtensionValue = (extension: any): any => {
   return undefined;
 };
 
+export const getBooleanExtensionValue = (
+  resource: { extension?: Extension[] } | undefined,
+  url: string
+): boolean | undefined => {
+  const extension = resource?.extension?.find((extension) => extension.url === url);
+  return typeof extension?.valueBoolean === 'boolean' ? extension.valueBoolean : undefined;
+};
+
 export function getArrayInfo(path: string): { isArray: boolean; parentPath: string; index: number } {
   const parts = path.split('/').filter(Boolean);
   const lastPart = parts[parts.length - 1];
@@ -1371,6 +1379,20 @@ export const getAddressStringForScheduleResource = (
 
 export function getExtension(resource: DomainResource | Element, url: string): Extension | undefined {
   return resource.extension?.find((extension) => extension.url === url);
+}
+
+/**
+ * Returns the value of a typed key on the first extension matching `url`. Use this to read
+ * `valueString`/`valueBoolean`/etc. from a resource extension in a single call without manually
+ * narrowing through `.extension?.find(...)?.valueX`.
+ */
+export function getExtensionValue<K extends keyof Extension>(
+  resource: DomainResource | Element | undefined,
+  url: string,
+  key: K
+): Extension[K] | undefined {
+  if (!resource) return undefined;
+  return getExtension(resource, url)?.[key];
 }
 
 export const cleanUpStaffHistoryTag = (resource: Resource, field: string): Operation | undefined => {

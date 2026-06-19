@@ -45,8 +45,10 @@ export const MissingCard: FC = () => {
   const hpi = chartFields?.chiefComplaint?.text;
   const patientInfoConfirmed = chartFields?.patientInfoConfirmed?.value;
   const isPatientVerificationMissing = !patientInfoConfirmed;
-  const accidentHasType = (chartFields?.accident?.type?.length ?? 0) > 0;
-  const accidentMissingDate = accidentHasType && !chartFields?.accident?.date;
+  const isAutoAccident = chartFields?.accident?.type?.includes('AA') ?? false;
+  const hasAccidentType = (chartFields?.accident?.type?.length ?? 0) > 0;
+  const accidentMissingDate = hasAccidentType && !chartFields?.accident?.date;
+  const accidentMissingState = isAutoAccident && !chartFields?.accident?.state;
   const [suggestionNote, setSuggestionNote] = useState<string | undefined>(undefined);
 
   useEffect(() => {
@@ -71,7 +73,8 @@ export const MissingCard: FC = () => {
     hpi &&
     !suggestionNote &&
     !isPatientVerificationMissing &&
-    !accidentMissingDate
+    !accidentMissingDate &&
+    !accidentMissingState
   ) {
     return null;
   }
@@ -154,15 +157,36 @@ export const MissingCard: FC = () => {
             </Link>
           )}
           {accidentMissingDate && (
-            <Link
-              component="button"
-              sx={{ cursor: 'pointer' }}
-              color="error"
-              onClick={() => navigateTo('hpi')}
-              data-testid={dataTestIds.progressNotePage.accidentDateLink}
-            >
-              Date of accident
-            </Link>
+            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+              <Link
+                component="button"
+                sx={{ cursor: 'pointer' }}
+                color="error"
+                onClick={() => navigateTo('hpi')}
+                data-testid={dataTestIds.progressNotePage.accidentDateLink}
+              >
+                Date of Accident
+              </Link>
+              <Typography variant="body2" color="error">
+                The information is missing from the HPI/MOI & Templates screen. Click on the item to complete.
+              </Typography>
+            </Box>
+          )}
+          {accidentMissingState && (
+            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+              <Link
+                component="button"
+                sx={{ cursor: 'pointer' }}
+                color="error"
+                onClick={() => navigateTo('hpi')}
+                data-testid={dataTestIds.progressNotePage.accidentStateLink}
+              >
+                State
+              </Link>
+              <Typography variant="body2" color="error">
+                The information is missing from the HPI/MOI & Templates screen. Click on the item to complete.
+              </Typography>
+            </Box>
           )}
           {suggestionNote && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
