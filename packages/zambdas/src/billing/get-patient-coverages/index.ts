@@ -65,7 +65,14 @@ async function performEffect(
     coverages.map((cov) => cov.payor?.[0]?.reference)
   );
 
-  const result = coverages.map((cov): BillingCoverageOption => {
+  // Filter coverages to only those that are related to the patient's accounts (PBILLACCT or WCOMPACCT). This ensures that we only return coverages that are relevant to the patient and their insurance coverage.
+  const filteredCoverages = coverages.filter((cov) => {
+    if (pbillAccount && pbillAccount.coverage?.some((c) => c.coverage.reference === `Coverage/${cov.id}`)) return true;
+    if (wcompAccount && wcompAccount.coverage?.some((c) => c.coverage.reference === `Coverage/${cov.id}`)) return true;
+    return false;
+  });
+
+  const result = filteredCoverages.map((cov): BillingCoverageOption => {
     const payorRef = cov.payor?.[0]?.reference;
     const payorOrg = payorRef ? payersByRef.get(payorRef) : undefined;
     const subscriberRef = cov.subscriber?.reference;
