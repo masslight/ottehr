@@ -3,12 +3,11 @@ import { ChargeItemDefinition } from 'fhir/r4b';
 import {
   DeleteChargeItemDefinitionInput,
   DeleteChargeItemDefinitionInputSchema,
-  FHIR_RESOURCE_NOT_FOUND_CUSTOM,
   MISSING_REQUEST_BODY,
   MISSING_REQUEST_SECRETS,
 } from 'utils';
 import { safeValidate, validateJsonBody, ZambdaInput } from '../../shared';
-import { CHARGE_ITEM_DEFINITION_TYPE_SYSTEM } from '../shared';
+import { getChargeItemDefinition } from '../get-charge-item-definition';
 
 export interface DeleteChargeItemDefinitionParams extends DeleteChargeItemDefinitionInput {
   secrets: ZambdaInput['secrets'];
@@ -30,21 +29,10 @@ export async function complexValidation(
   oystehr: Oystehr,
   params: DeleteChargeItemDefinitionParams
 ): Promise<{ definition: ChargeItemDefinition }> {
-  const definitions = (
-    await oystehr.fhir.search<ChargeItemDefinition>({
-      resourceType: 'ChargeItemDefinition',
-      params: [
-        {
-          name: '_tag',
-          value: `${CHARGE_ITEM_DEFINITION_TYPE_SYSTEM}|${params.type}`,
-        },
-        {
-          name: '_id',
-          value: params.id,
-        },
-      ],
-    })
-  ).unbundle();
-  if (!definitions.length) throw FHIR_RESOURCE_NOT_FOUND_CUSTOM(`The requested ${params.type} could not be found`);
-  return { definition: definitions[0] };
+  const definition = await getChargeItemDefinition(oystehr, {
+    type: params.type,
+    id: params.id,
+    secrets: params.secrets,
+  });
+  return { definition };
 }

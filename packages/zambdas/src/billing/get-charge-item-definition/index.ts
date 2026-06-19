@@ -28,6 +28,13 @@ export async function performEffect(
   oystehr: Oystehr,
   params: GetChargeItemDefinitionParams
 ): Promise<ChargeItemDefinition> {
+  return getChargeItemDefinition(oystehr, params);
+}
+
+export async function getChargeItemDefinition(
+  oystehr: Oystehr,
+  params: GetChargeItemDefinitionParams
+): Promise<ChargeItemDefinition> {
   const definitions = (
     await oystehr.fhir.search<ChargeItemDefinition>({
       resourceType: 'ChargeItemDefinition',
