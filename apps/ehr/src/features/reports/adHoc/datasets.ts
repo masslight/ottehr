@@ -1,19 +1,12 @@
 import { adhocEncountersDataset } from './adhocEncountersDataset';
-import { encountersDataset } from './encountersDataset';
 import { patientsDataset } from './patientsDataset';
-import { recentPatientsDataset } from './recentPatientsDataset';
 import { AdHocDataset } from './types';
 
 // The selectable-dataset registry. Adding a source is just another entry here (with its own fetch +
-// schema) — the LLM + iframe pipeline is unchanged. The comprehensive encounters dataset is the
-// default; Patients is the patient-centric source; the original Encounters and Recent Patients
-// remain for lighter/back-compat use.
-export const AD_HOC_DATASETS: AdHocDataset[] = [
-  adhocEncountersDataset,
-  patientsDataset,
-  encountersDataset,
-  recentPatientsDataset,
-];
+// schema) — the LLM + iframe pipeline is unchanged. The comprehensive Encounters dataset is the
+// default (one row per encounter); Patients is the patient-centric source (one row per patient).
+// Both supersede the earlier lighter Encounters / Recent Patients datasets, which were removed.
+export const AD_HOC_DATASETS: AdHocDataset[] = [adhocEncountersDataset, patientsDataset];
 
 export function getDataset(id: string): AdHocDataset | undefined {
   return AD_HOC_DATASETS.find((d) => d.id === id);

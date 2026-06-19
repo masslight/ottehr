@@ -476,7 +476,7 @@ export default function PracticeKpis(): React.ReactElement {
   const handleOpenAsAdHoc = useCallback((): void => {
     const rangeLabel = DATE_FILTER_LABELS[dateFilter] ?? '';
     setAdHocCriteria({
-      datasetId: 'encounters',
+      datasetId: 'encounters-comprehensive',
       dateRange: AD_HOC_RANGE_SLUG[dateFilter] ?? 'last-30-days',
       customDate,
       customStartDate,

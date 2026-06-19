@@ -98,7 +98,9 @@ export default function AdHocReport(): React.ReactElement {
     clearAdHocCriteria();
   }, []);
 
-  const [datasetId, setDatasetId] = useState<string>(criteria?.datasetId ?? AD_HOC_DATASETS[0]?.id ?? 'encounters');
+  const [datasetId, setDatasetId] = useState<string>(
+    criteria?.datasetId ?? AD_HOC_DATASETS[0]?.id ?? 'encounters-comprehensive'
+  );
   const [dateRange, setDateRange] = useState<DateRangeFilter>(
     (criteria?.dateRange as DateRangeFilter) ?? 'last-30-days'
   );
@@ -113,7 +115,9 @@ export default function AdHocReport(): React.ReactElement {
   // Dataset opt-in layers (checkboxes). Seeded from the criteria's saved options, else the dataset's
   // defaults. Reset whenever the dataset changes.
   const [datasetOptions, setDatasetOptions] = useState<Record<string, boolean>>(
-    () => criteria?.options ?? defaultOptionsFor(criteria?.datasetId ?? AD_HOC_DATASETS[0]?.id ?? 'encounters')
+    () =>
+      criteria?.options ??
+      defaultOptionsFor(criteria?.datasetId ?? AD_HOC_DATASETS[0]?.id ?? 'encounters-comprehensive')
   );
 
   const [rows, setRows] = useState<AdHocRow[] | null>(null);

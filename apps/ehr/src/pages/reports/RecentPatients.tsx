@@ -398,7 +398,7 @@ export default function RecentPatients(): React.ReactElement {
   const handleCustomize = useCallback((): void => {
     const rangeLabel = getDateRangeLabel(dateFilter);
     setAdHocCriteria({
-      datasetId: 'recent-patients',
+      datasetId: 'patients',
       dateRange: AD_HOC_RANGE_SLUG[dateFilter] ?? 'last-30-days',
       customStartDate,
       customEndDate,
