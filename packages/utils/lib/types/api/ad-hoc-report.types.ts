@@ -73,6 +73,9 @@ export interface SavedAdHocReportCriteria {
 export interface SavedAdHocReportDefinition {
   /** Tile name the provider gives the saved report. */
   name: string;
+  /** Optional human-written description of what the report shows, set when saving/editing. Shown on
+   *  the report tile. Distinct from `title` (the model's generated heading). */
+  description?: string;
   /** Dataset id, e.g. "encounters". */
   datasetId: string;
   /** Fetch criteria (date range / filters). */

@@ -136,7 +136,7 @@ function SavedReportTile({
       }}
     >
       <Box sx={{ position: 'absolute', top: 4, right: 4, zIndex: 2, display: 'flex' }}>
-        <Tooltip title="Rename">
+        <Tooltip title="Edit">
           <IconButton
             size="small"
             onClick={(e) => {
@@ -198,9 +198,15 @@ function SavedReportTile({
           <Typography variant="h6" component="h2" fontWeight={600} color="primary.dark">
             {report.name}
           </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.4 }}>
-            {(report.title ?? report.datasetId) + ' · ' + report.criteria.dateRange}
-          </Typography>
+          {report.description ? (
+            <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.4 }}>
+              {report.description}
+            </Typography>
+          ) : (
+            <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.4, fontStyle: 'italic' }}>
+              {(report.title ?? report.datasetId) + ' · ' + report.criteria.dateRange}
+            </Typography>
+          )}
         </CardContent>
       </CardActionArea>
     </Card>
@@ -289,6 +295,7 @@ export default function Reports(): React.ReactElement {
   const [deleteTarget, setDeleteTarget] = useState<SavedAdHocReport | null>(null);
   const [renameTarget, setRenameTarget] = useState<SavedAdHocReport | null>(null);
   const [renameValue, setRenameValue] = useState('');
+  const [descriptionValue, setDescriptionValue] = useState('');
   const [busy, setBusy] = useState(false);
 
   const refreshSaved = useCallback(async (): Promise<void> => {
@@ -327,22 +334,25 @@ export default function Reports(): React.ReactElement {
     }
   }, [oystehrZambda, deleteTarget, enqueueSnackbar]);
 
-  const handleRename = useCallback(async (): Promise<void> => {
+  const handleSaveEdit = useCallback(async (): Promise<void> => {
     if (!oystehrZambda || !renameTarget || !renameValue.trim()) return;
     setBusy(true);
     try {
-      // Re-save the same definition with the new name (id present → update in place).
+      // Re-save the same definition with the new name + description (id present → update in place).
       const { id, updatedAt: _updatedAt, ...definition } = renameTarget;
-      await saveAdHocReport(oystehrZambda, { reportId: id, definition: { ...definition, name: renameValue.trim() } });
-      enqueueSnackbar('Report renamed.', { variant: 'success' });
+      await saveAdHocReport(oystehrZambda, {
+        reportId: id,
+        definition: { ...definition, name: renameValue.trim(), description: descriptionValue.trim() || undefined },
+      });
+      enqueueSnackbar('Report updated.', { variant: 'success' });
       setRenameTarget(null);
       void refreshSaved();
     } catch (e) {
-      enqueueSnackbar(e instanceof Error ? e.message : 'Could not rename the report.', { variant: 'error' });
+      enqueueSnackbar(e instanceof Error ? e.message : 'Could not update the report.', { variant: 'error' });
     } finally {
       setBusy(false);
     }
-  }, [oystehrZambda, renameTarget, renameValue, enqueueSnackbar, refreshSaved]);
+  }, [oystehrZambda, renameTarget, renameValue, descriptionValue, enqueueSnackbar, refreshSaved]);
 
   return (
     <PageContainer>
@@ -391,6 +401,7 @@ export default function Reports(): React.ReactElement {
                         onOpen={() => navigate(`/reports/ad-hoc?saved=${encodeURIComponent(report.id)}`)}
                         onRename={() => {
                           setRenameValue(report.name);
+                          setDescriptionValue(report.description ?? '');
                           setRenameTarget(report);
                         }}
                         onDelete={() => setDeleteTarget(report)}
@@ -431,7 +442,7 @@ export default function Reports(): React.ReactElement {
           maxWidth="xs"
           fullWidth
         >
-          <DialogTitle>Rename report</DialogTitle>
+          <DialogTitle>Edit report</DialogTitle>
           <DialogContent>
             <TextField
               autoFocus
@@ -443,18 +454,29 @@ export default function Reports(): React.ReactElement {
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && renameValue.trim() && !busy) {
                   e.preventDefault();
-                  void handleRename();
+                  void handleSaveEdit();
                 }
               }}
               sx={{ mt: 1 }}
+            />
+            <TextField
+              fullWidth
+              size="small"
+              multiline
+              minRows={2}
+              label="Description (optional)"
+              placeholder="A sentence or two describing what this report shows."
+              value={descriptionValue}
+              onChange={(e) => setDescriptionValue(e.target.value)}
+              sx={{ mt: 2 }}
             />
           </DialogContent>
           <DialogActions>
             <Button onClick={() => setRenameTarget(null)} disabled={busy}>
               Cancel
             </Button>
-            <Button variant="contained" onClick={() => void handleRename()} disabled={busy || !renameValue.trim()}>
-              {busy ? <CircularProgress size={18} /> : 'Rename'}
+            <Button variant="contained" onClick={() => void handleSaveEdit()} disabled={busy || !renameValue.trim()}>
+              {busy ? <CircularProgress size={18} /> : 'Save'}
             </Button>
           </DialogActions>
         </Dialog>

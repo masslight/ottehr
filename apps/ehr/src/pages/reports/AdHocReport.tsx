@@ -151,6 +151,7 @@ export default function AdHocReport(): React.ReactElement {
   const { enqueueSnackbar } = useSnackbar();
   const [loadedSavedId, setLoadedSavedId] = useState<string | null>(null);
   const [savedName, setSavedName] = useState<string>('');
+  const [savedDescription, setSavedDescription] = useState<string>('');
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const loadAttemptedRef = useRef(false);
@@ -366,6 +367,7 @@ export default function AdHocReport(): React.ReactElement {
         if (saved.criteria.customStartDate) setCustomStartDate(saved.criteria.customStartDate);
         if (saved.criteria.customEndDate) setCustomEndDate(saved.criteria.customEndDate);
         setRequest(saved.request);
+        setSavedDescription(saved.description ?? '');
         setLoadedSavedId(saved.id);
         setSavedName(saved.name);
         const savedOptions = saved.criteria.options ?? defaultOptionsFor(saved.datasetId);
@@ -406,6 +408,7 @@ export default function AdHocReport(): React.ReactElement {
   const buildDefinition = useCallback(
     (name: string): SavedAdHocReportDefinition => ({
       name: name.trim(),
+      description: savedDescription.trim() || undefined,
       datasetId,
       criteria: { dateRange, customDate, customStartDate, customEndDate, options: datasetOptions },
       request,
@@ -413,6 +416,7 @@ export default function AdHocReport(): React.ReactElement {
       title: generatedTitle,
     }),
     [
+      savedDescription,
       datasetId,
       dateRange,
       customDate,
@@ -742,6 +746,17 @@ export default function AdHocReport(): React.ReactElement {
                   void handleSave(loadedSavedId ? 'update' : 'new');
                 }
               }}
+            />
+            <TextField
+              fullWidth
+              size="small"
+              multiline
+              minRows={2}
+              label="Description (optional)"
+              placeholder="A sentence or two describing what this report shows."
+              value={savedDescription}
+              onChange={(e) => setSavedDescription(e.target.value)}
+              sx={{ mt: 2 }}
             />
           </DialogContent>
           <DialogActions>
