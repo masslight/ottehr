@@ -54,7 +54,7 @@ describe('assignNextFlagsByPartition', () => {
       makeAppointment('4', '2026-06-05T10:00:00.000-04:00', 'loc-b'),
     ];
 
-    const result = assignNextFlagsByPartition(appointments, 'arrived', 'America/New_York');
+    const result = assignNextFlagsByPartition(appointments, 'arrived');
 
     expect(result.map((appointment) => appointment.next)).toEqual([true, false, true, true]);
   });
@@ -66,21 +66,21 @@ describe('assignNextFlagsByPartition', () => {
       makeAppointment('3', '2026-06-06T14:00:00.000Z', 'loc-a'),
     ];
 
-    const result = assignNextFlagsByPartition(appointments, 'arrived', 'UTC');
+    const result = assignNextFlagsByPartition(appointments, 'arrived');
 
     expect(result.map((appointment) => appointment.next)).toEqual([true, true, false]);
   });
 
-  test('uses the offset embedded in start for locationless rows instead of the request timezone', () => {
+  test('uses the offset embedded in start for locationless rows', () => {
     // Both appointments fall on the same local day (2026-06-05) per their embedded -04:00 offset,
     // even though they straddle UTC midnight (one is 06-06 in UTC). With no location to supply a
-    // timezone, the request timezone fallback ('UTC') would wrongly split them across two days.
+    // timezone, the embedded offset (not UTC) must decide the partition day.
     const appointments = [
       makeLocationlessAppointment('1', '2026-06-05T23:00:00.000-04:00'),
       makeLocationlessAppointment('2', '2026-06-05T18:00:00.000-04:00'),
     ];
 
-    const result = assignNextFlagsByPartition(appointments, 'arrived', 'UTC');
+    const result = assignNextFlagsByPartition(appointments, 'arrived');
 
     expect(result.map((appointment) => appointment.next)).toEqual([true, false]);
   });

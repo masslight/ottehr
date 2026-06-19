@@ -10,7 +10,7 @@ const visitTypeOptions = Object.values(ServiceMode).flatMap((mode) =>
 
 // Cap the span so an over-broad range can't fan out into unbounded paginated FHIR traffic
 // (the handler pages through every result via searchAndGetAllPages).
-const MAX_DATE_RANGE_DAYS = 90;
+export const MAX_DATE_RANGE_DAYS = 90;
 
 const GetAppointmentsBodySchema = z
   .object({

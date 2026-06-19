@@ -76,24 +76,15 @@ export interface GetAppointmentsZambdaInputValidated extends GetAppointmentsZamb
   secrets: Secrets | null;
 }
 
-const getNextPartitionKey = (
-  appointment: InPersonAppointmentInformation,
-  bucket: string,
-  fallbackTimezone: string
-): string => {
+const getNextPartitionKey = (appointment: InPersonAppointmentInformation, bucket: string): string => {
   const locationTimezone = appointment.location?.extension?.find(
     (extension) => extension.url === TIMEZONE_EXTENSION_URL
   )?.valueString;
   // makeAppointmentInformation already zones appointment.start to the appointment's own timezone, so
   // preserving its embedded offset (setZone: true) keeps locationless provider/group rows on their
-  // real local day. An explicit location timezone takes precedence; the request timezone is only used
-  // as a last resort when the start has no usable embedded zone.
+  // real local day. An explicit location timezone, when present, takes precedence.
   const startDateTime = DateTime.fromISO(appointment.start, { setZone: true });
-  const zonedStart = locationTimezone
-    ? startDateTime.setZone(locationTimezone)
-    : startDateTime.isValid
-    ? startDateTime
-    : DateTime.fromISO(appointment.start).setZone(fallbackTimezone);
+  const zonedStart = locationTimezone ? startDateTime.setZone(locationTimezone) : startDateTime;
   const localDate = zonedStart.toISODate() ?? 'unknown-day';
   // `group` is a display name rather than an id, but it is only a fallback key when no location id
   // is present; a name collision here is harmless (it would only over-share the "next" flag).
@@ -106,13 +97,12 @@ const getNextPartitionKey = (
 // and not shared anywhere, so cloning each one would only add allocations.
 export const assignNextFlagsByPartition = (
   appointments: InPersonAppointmentInformation[],
-  bucket: string,
-  fallbackTimezone: string
+  bucket: string
 ): InPersonAppointmentInformation[] => {
   const seenPartitions = new Set<string>();
 
   return appointments.map((appointment) => {
-    const partitionKey = getNextPartitionKey(appointment, bucket, fallbackTimezone);
+    const partitionKey = getNextPartitionKey(appointment, bucket);
     appointment.next = !seenPartitions.has(partitionKey);
     seenPartitions.add(partitionKey);
 
@@ -604,17 +594,12 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput):
     preBooked = buildAppointments(appointmentQueues.prebooked);
 
     inOffice = [
-      ...assignNextFlagsByPartition(
-        buildAppointments(appointmentQueues.inOffice.waitingRoom.arrived),
-        'arrived',
-        timezone
-      ),
-      ...assignNextFlagsByPartition(buildAppointments(appointmentQueues.inOffice.waitingRoom.ready), 'ready', timezone),
+      ...assignNextFlagsByPartition(buildAppointments(appointmentQueues.inOffice.waitingRoom.arrived), 'arrived'),
+      ...assignNextFlagsByPartition(buildAppointments(appointmentQueues.inOffice.waitingRoom.ready), 'ready'),
       ...buildAppointments(appointmentQueues.inOffice.inExam.intake),
       ...assignNextFlagsByPartition(
         buildAppointments(appointmentQueues.inOffice.inExam['ready for provider']),
-        'ready-for-provider',
-        timezone
+        'ready-for-provider'
       ),
       ...buildAppointments(appointmentQueues.inOffice.inExam.provider),
     ];

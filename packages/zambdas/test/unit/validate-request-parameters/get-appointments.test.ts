@@ -1,5 +1,9 @@
+import { DateTime } from 'luxon';
 import { describe, expect, test } from 'vitest';
-import { validateRequestParameters } from '../../../src/ehr/get-appointments/validateRequestParameters';
+import {
+  MAX_DATE_RANGE_DAYS,
+  validateRequestParameters,
+} from '../../../src/ehr/get-appointments/validateRequestParameters';
 import { createMockZambdaInput } from './helpers';
 
 describe('get-appointments - validateRequestParameters', () => {
@@ -105,21 +109,32 @@ describe('get-appointments - validateRequestParameters', () => {
     expect(() => validateRequestParameters(input)).toThrow('searchDateFrom');
   });
 
+  test('should throw when searchDateTo is a number', () => {
+    const input = createMockZambdaInput({ ...validBody, searchDateTo: 12345 });
+    expect(() => validateRequestParameters(input)).toThrow('searchDateTo');
+  });
+
   test('should throw when searchDateFrom is after searchDateTo', () => {
     const input = createMockZambdaInput({ ...validBody, searchDateFrom: '2024-01-16', searchDateTo: '2024-01-15' });
     expect(() => validateRequestParameters(input)).toThrow('searchDateTo');
   });
 
   test('should throw when the date range exceeds the maximum allowed span', () => {
-    const input = createMockZambdaInput({ ...validBody, searchDateFrom: '2024-01-01', searchDateTo: '2024-06-01' });
-    expect(() => validateRequestParameters(input)).toThrow('90 days');
+    const searchDateFrom = '2024-01-01';
+    const overMax = DateTime.fromISO(searchDateFrom, { zone: 'utc' })
+      .plus({ days: MAX_DATE_RANGE_DAYS + 1 })
+      .toISODate()!;
+    const input = createMockZambdaInput({ ...validBody, searchDateFrom, searchDateTo: overMax });
+    expect(() => validateRequestParameters(input)).toThrow(`${MAX_DATE_RANGE_DAYS} days`);
   });
 
   test('should accept a date range at the maximum allowed span', () => {
-    const input = createMockZambdaInput({ ...validBody, searchDateFrom: '2024-01-01', searchDateTo: '2024-03-31' });
+    const searchDateFrom = '2024-01-01';
+    const atMax = DateTime.fromISO(searchDateFrom, { zone: 'utc' }).plus({ days: MAX_DATE_RANGE_DAYS }).toISODate()!;
+    const input = createMockZambdaInput({ ...validBody, searchDateFrom, searchDateTo: atMax });
     const result = validateRequestParameters(input);
-    expect(result.searchDateFrom).toBe('2024-01-01');
-    expect(result.searchDateTo).toBe('2024-03-31');
+    expect(result.searchDateFrom).toBe(searchDateFrom);
+    expect(result.searchDateTo).toBe(atMax);
   });
 
   test('should throw when timezone is missing', () => {
