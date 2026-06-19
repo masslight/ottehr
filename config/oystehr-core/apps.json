@@ -31,6 +31,17 @@
       "allowedCORSOriginsUrls": ["#{var/PROVIDER_ALLOWED_URL_1}"],
       "shouldSendInviteEmail": true,
       "logoUri": "#{var/PROVIDER_APP_LOGO_URI}"
+    },
+    "OTTEHR_BILLING": {
+      "name": "#{var/BILLING_APP_NAME}",
+      "description": "Billing application with email authentication",
+      "loginRedirectUri": "#{var/BILLING_LOGIN_REDIRECT_URL}",
+      "allowedCallbackUrls": ["#{var/BILLING_ALLOWED_URL_1}"],
+      "allowedLogoutUrls": ["#{var/BILLING_ALLOWED_URL_1}"],
+      "allowedWebOriginsUrls": ["#{var/BILLING_ALLOWED_URL_1}"],
+      "allowedCORSOriginsUrls": ["#{var/BILLING_ALLOWED_URL_1}"],
+      "shouldSendInviteEmail": true,
+      "logoUri": "#{var/BILLING_APP_LOGO_URI}"
     }
   }
 }

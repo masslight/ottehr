@@ -1,6 +1,6 @@
 {
   "name": "zambdas",
-  "version": "1.36.35",
+  "version": "1.37.0",
   "private": true,
   "sideEffects": false,
   "scripts": {
@@ -45,6 +45,7 @@
     "lint:fix": "eslint --ext .ts,.js --report-unused-disable-directives --max-warnings 0 --fix .",
     "clear-tasks": "tsx src/scripts/clear-tasks.ts production",
     "test": "ENV=${ENV:-local} vitest run",
+    "test:ci": "ENV=${ENV:-local} vitest run --coverage --passWithNoTests --reporter=dot --reporter=github-actions",
     "test:watch": "ENV=${ENV:-local} vitest watch",
     "test:coverage": "c8 npm run test",
     "mock-reflex-test": "tsx src/scripts/labs/reflex-test-helper.ts",

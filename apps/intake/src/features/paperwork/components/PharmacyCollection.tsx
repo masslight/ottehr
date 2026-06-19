@@ -31,7 +31,7 @@ export const PharmacyCollection: FC<PharmacyCollectionProps> = (props: PharmacyC
 
     const existing = pharmacyCollectionItemValues.reduce(
       (
-        acc: { name?: string; address?: string; placesId?: string; hasAnyData: boolean },
+        acc: { name?: string; address?: string; phone?: string; placesId?: string; hasAnyData: boolean },
         item: QuestionnaireResponseItem
       ) => {
         const answer = item.answer?.[0]?.valueString;
@@ -49,6 +49,9 @@ export const PharmacyCollection: FC<PharmacyCollectionProps> = (props: PharmacyC
           case PHARMACY_COLLECTION_LINK_IDS.placesAddress:
             acc.address = answer;
             break;
+          case PHARMACY_COLLECTION_LINK_IDS.placesPhone:
+            acc.phone = answer;
+            break;
         }
 
         return acc;
@@ -60,6 +63,7 @@ export const PharmacyCollection: FC<PharmacyCollectionProps> = (props: PharmacyC
       ? {
           name: existing.name ?? '',
           address: existing.address ?? '',
+          phone: existing.phone,
           placesId: existing.placesId ?? '',
         }
       : null;

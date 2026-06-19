@@ -10,7 +10,7 @@ import {
   INSURANCE_CARD_FRONT_ID,
   PHOTO_ID_BACK_ID,
   PHOTO_ID_FRONT_ID,
-} from '../data';
+} from '../data/paperwork/paperwork.constants';
 
 export interface BookingDetails {
   reasonForVisit?: string;

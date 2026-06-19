@@ -1258,11 +1258,13 @@ export const createUpdatePharmacyPatchOps = (
 ): Operation[] => {
   const pharmacyNameAnswer = getAnswer('pharmacy-name', flattenedItems);
   const pharmacyAddressAnswer = getAnswer('pharmacy-address', flattenedItems);
+  const pharmacyPhoneAnswer = getAnswer('pharmacy-phone', flattenedItems);
 
   const pharmacyWasManuallyEntered = getAnswer('pharmacy-page-manual-entry', flattenedItems);
   const placesPharmacyIdAnswer = getAnswer(PHARMACY_COLLECTION_LINK_IDS.placesId, flattenedItems);
   const placesPharmacyNameAnswer = getAnswer(PHARMACY_COLLECTION_LINK_IDS.placesName, flattenedItems);
   const placesPharmacyAddressAnswer = getAnswer(PHARMACY_COLLECTION_LINK_IDS.placesAddress, flattenedItems);
+  const placesPharmacyPhoneAnswer = getAnswer(PHARMACY_COLLECTION_LINK_IDS.placesPhone, flattenedItems);
   const exrPharmacyIdAnswer = getAnswer(PHARMACY_COLLECTION_LINK_IDS.erxPharmacyId, flattenedItems);
 
   // Skip if the pharmacy section wasn't part of this submission, otherwise a
@@ -1279,6 +1281,8 @@ export const createUpdatePharmacyPatchOps = (
 
   const inputPharmacyName = pharmacyNameAnswer?.valueString ?? placesPharmacyNameAnswer?.valueString;
   const inputPharmacyAddress = pharmacyAddressAnswer?.valueString ?? placesPharmacyAddressAnswer?.valueString;
+  const inputPharmacyPhone = pharmacyPhoneAnswer?.valueString ?? placesPharmacyPhoneAnswer?.valueString;
+  const hasPharmacyInput = Boolean(inputPharmacyName || inputPharmacyAddress || inputPharmacyPhone);
 
   const operations: Operation[] = [];
 
@@ -1286,7 +1290,7 @@ export const createUpdatePharmacyPatchOps = (
   const filteredContained = currentContained.filter((resource) => resource.id !== PATIENT_CONTAINED_PHARMACY_ID);
 
   // Add new pharmacy if provided
-  if (inputPharmacyName || inputPharmacyAddress) {
+  if (hasPharmacyInput) {
     const pharmacyOrg: Organization = {
       resourceType: 'Organization',
       id: PATIENT_CONTAINED_PHARMACY_ID,
@@ -1296,6 +1300,14 @@ export const createUpdatePharmacyPatchOps = (
         ? [
             {
               text: inputPharmacyAddress,
+            },
+          ]
+        : undefined,
+      telecom: inputPharmacyPhone
+        ? [
+            {
+              system: 'phone',
+              value: inputPharmacyPhone,
             },
           ]
         : undefined,
@@ -1344,7 +1356,7 @@ export const createUpdatePharmacyPatchOps = (
   );
 
   // Add pharmacy reference if we have pharmacy data
-  if (inputPharmacyName || inputPharmacyAddress) {
+  if (hasPharmacyInput) {
     filteredExtensions.push({
       url: PREFERRED_PHARMACY_EXTENSION_URL,
       valueReference: {
