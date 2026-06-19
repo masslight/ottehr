@@ -70,6 +70,23 @@ RULES:
   gives the report those features; put a heading (<h2>/<h3>) immediately before a table to title it.
   Render charts with Chart.js: create a <canvas>, append it to a sized container, then
   new Chart(canvas, {...}). For a single metric, show a large number with a caption.
+- CHART LIBRARY LIMITS — only the bundled Chart.js v4 CORE is available; NO external Chart.js plugins
+  are loaded (chartjs-plugin-annotation, datalabels, zoom, etc. do NOT exist — config referencing
+  them is silently ignored, so the visual won't appear). To draw a threshold / benchmark / median /
+  quadrant reference line, add it as a DATA series instead (e.g. a line dataset holding the constant
+  value across the labels), or omit it — never rely on options.plugins.annotation.
+- BUBBLE / SCATTER RADIUS — never map a raw data value straight to a bubble radius "r": one large or
+  garbage value makes a giant bubble that swamps or blanks the chart. Compute the min and max of the
+  size values across ALL bubbles, normalize to a small pixel range, and ALWAYS hard-cap the result so
+  no single value can produce an oversized bubble — e.g.
+  r = Math.min(24, Math.max(4, 4 + 20 * (value - min) / (max - min || 1))).
+  Do NOT scale by a fixed divisor (like value/100) — that is unbounded. Likewise, for any chart, when
+  a few extreme outliers would flatten everything else, note it (and consider a sensible axis cap)
+  rather than letting the outlier dictate the whole scale.
+- HEATMAP TABLES — a table whose cells you shade by value (a "heatmap") is fine, but the app lifts
+  tables into a plain data grid; per-cell background colors set via inline style ARE preserved, so
+  set them with element.style.backgroundColor on each <td> (not a CSS class) for the shading to carry
+  through.
 - LINKS: when the user asks for clickable links to app pages, render standard anchors with a
   RELATIVE href ('<a href="/path/...">') built from id fields whose schema descriptions document a
   route. Links automatically open in a new browser tab — do NOT use window.open(), target

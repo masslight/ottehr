@@ -1,4 +1,4 @@
-import { AdHocBillingRow, DEFAULT_BATCH_DAYS, splitDateRangeIntoBatches } from 'utils';
+import { ADHOC_BATCH_DAYS, AdHocBillingRow, splitDateRangeIntoBatches } from 'utils';
 import { getAdHocBilling } from '../../../api/api';
 import { buildSchema, FieldDef } from './schema';
 import { AdHocDataset, AdHocDatasetOption, AdHocRow, FetchContext } from './types';
@@ -185,11 +185,11 @@ async function fetchAdHocBilling({ oystehrZambda, dateRange, options }: FetchCon
   const { start, end } = dateRange;
   const days = (new Date(end).getTime() - new Date(start).getTime()) / 86400000;
   // Batch long ranges in parallel and dedupe by encounterId, like the other datasets.
-  if (days <= DEFAULT_BATCH_DAYS) {
+  if (days <= ADHOC_BATCH_DAYS) {
     const { rows } = await getAdHocBilling(oystehrZambda, { dateRange: { start, end }, ...flags });
     return rows as unknown as AdHocRow[];
   }
-  const batches = splitDateRangeIntoBatches(start, end, DEFAULT_BATCH_DAYS);
+  const batches = splitDateRangeIntoBatches(start, end, ADHOC_BATCH_DAYS);
   const results = await Promise.all(batches.map((b) => getAdHocBilling(oystehrZambda, { dateRange: b, ...flags })));
   const all: AdHocBillingRow[] = results.flatMap((r) => r.rows);
   return Array.from(new Map(all.map((e) => [e.encounterId ?? e.appointmentId, e])).values()) as unknown as AdHocRow[];

@@ -71,18 +71,39 @@ function buildGrid(table: ExtractedTable): { columns: GridColDef[]; rows: GridRo
       renderCell: (params: GridRenderCellParams) => {
         const display = params.row[`${field}__text`] as string;
         const href = params.row[`${field}__href`] as string | undefined;
-        if (href) {
+        const bg = params.row[`${field}__bg`] as string | undefined;
+        const inner = href ? (
           // Open in a NEW browser tab (matching the documented contract and the in-iframe link
           // behavior) rather than a same-window SPA navigation, so opening a report row's link never
           // navigates away from the report the user is looking at. `href` is always a relative
           // app-internal route (the iframe extractor only keeps single-slash relative hrefs).
+          <MuiLink href={href} target="_blank" rel="noopener noreferrer" sx={{ textDecoration: 'none' }}>
+            {display}
+          </MuiLink>
+        ) : (
+          <span>{display}</span>
+        );
+        // Re-apply an inline cell background (a heatmap shade) full-bleed across the grid cell so the
+        // shading the report painted on its <td>s survives the lift into the grid.
+        if (bg) {
           return (
-            <MuiLink href={href} target="_blank" rel="noopener noreferrer" sx={{ textDecoration: 'none' }}>
-              {display}
-            </MuiLink>
+            <Box
+              sx={{
+                mx: -1.25,
+                px: 1.25,
+                width: 'calc(100% + 20px)',
+                height: '100%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: isNum ? 'flex-end' : 'flex-start',
+                backgroundColor: bg,
+              }}
+            >
+              {inner}
+            </Box>
           );
         }
-        return <span>{display}</span>;
+        return inner;
       },
     };
   });
@@ -94,6 +115,7 @@ function buildGrid(table: ExtractedTable): { columns: GridColDef[]; rows: GridRo
       const field = `c${i}`;
       row[`${field}__text`] = cell.text; // what the cell shows
       if (cell.href) row[`${field}__href`] = cell.href;
+      if (cell.bg) row[`${field}__bg`] = cell.bg;
       // The cell VALUE (used for sort / filter / export) is the number for numeric columns, the text
       // otherwise.
       row[field] = numeric[i] ? toNumber(cell.text) : cell.text;

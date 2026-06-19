@@ -1,4 +1,4 @@
-import { DEFAULT_BATCH_DAYS, splitDateRangeIntoBatches } from 'utils';
+import { ADHOC_BATCH_DAYS, splitDateRangeIntoBatches } from 'utils';
 import { getAdHocEncounters } from '../../../api/api';
 import { buildSchema, FieldDef } from './schema';
 import { AdHocDataset, AdHocDatasetOption, AdHocRow, FetchContext } from './types';
@@ -472,11 +472,11 @@ async function fetchAdHocEncounters({ oystehrZambda, dateRange, options }: Fetch
   const { start, end } = dateRange;
   const days = (new Date(end).getTime() - new Date(start).getTime()) / 86400000;
   // Batch long ranges in parallel and dedupe by encounterId, like the other datasets.
-  if (days <= DEFAULT_BATCH_DAYS) {
+  if (days <= ADHOC_BATCH_DAYS) {
     const { encounters } = await getAdHocEncounters(oystehrZambda, { dateRange: { start, end }, ...flags });
     return encounters as unknown as AdHocRow[];
   }
-  const batches = splitDateRangeIntoBatches(start, end, DEFAULT_BATCH_DAYS);
+  const batches = splitDateRangeIntoBatches(start, end, ADHOC_BATCH_DAYS);
   const results = await Promise.all(batches.map((b) => getAdHocEncounters(oystehrZambda, { dateRange: b, ...flags })));
   const all = results.flatMap((r) => r.encounters);
   return Array.from(new Map(all.map((e) => [e.encounterId ?? e.appointmentId, e])).values()) as unknown as AdHocRow[];

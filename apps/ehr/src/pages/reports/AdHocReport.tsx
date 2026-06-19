@@ -138,6 +138,9 @@ export default function AdHocReport(): React.ReactElement {
   // Mirror of `conversation` for the stable render-error callback, and a per-request auto-fix budget.
   const conversationRef = useRef<AdHocReportTurn[]>([]);
   const autoRetryRef = useRef(0);
+  // True once the current code is an auto-repair of a crashed render — so a successful render can be
+  // persisted back to the saved report (otherwise it crash-then-retries on every open).
+  const autoFixedRef = useRef(false);
 
   const getDateRangeIso = useCallback(
     (filter: DateRangeFilter): { start: string; end: string } =>
@@ -331,6 +334,7 @@ export default function AdHocReport(): React.ReactElement {
     (message: string): void => {
       if (autoRetryRef.current < MAX_AUTO_RETRIES) {
         autoRetryRef.current += 1;
+        autoFixedRef.current = true;
         const fix =
           `The previous code threw at runtime: "${message}". Return corrected code that fixes this — ` +
           `guard against null/undefined values (some fields are null for some rows) — and otherwise ` +
@@ -451,6 +455,18 @@ export default function AdHocReport(): React.ReactElement {
     },
     [oystehrZambda, generatedCode, savedName, loadedSavedId, buildDefinition, enqueueSnackbar]
   );
+
+  // When an auto-repaired report renders cleanly, persist the fixed code back to the saved report so
+  // it doesn't crash-then-retry every time it's opened. Only fires for a report opened from a tile.
+  const handleRendered = useCallback((): void => {
+    if (!autoFixedRef.current) return;
+    autoFixedRef.current = false;
+    if (!oystehrZambda || !loadedSavedId || !generatedCode) return;
+    void saveAdHocReport(oystehrZambda, {
+      reportId: loadedSavedId,
+      definition: buildDefinition(savedName || generatedTitle || 'Report'),
+    }).catch((e) => console.warn('Could not persist auto-fixed report', e));
+  }, [oystehrZambda, loadedSavedId, generatedCode, buildDefinition, savedName, generatedTitle]);
 
   return (
     <PageContainer>
@@ -674,6 +690,7 @@ export default function AdHocReport(): React.ReactElement {
                     data={rows}
                     schema={schema}
                     onError={handleRenderError}
+                    onRendered={handleRendered}
                     reportTitle={generatedTitle}
                   />
 

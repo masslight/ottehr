@@ -64,6 +64,9 @@ const BOOTSTRAP = `
         // Only app-internal single-slash links survive (same rule the egress guard enforces).
         if (href.charAt(0) === '/' && href.charAt(1) !== '/') cell.href = href;
       }
+      // Carry an inline cell background (heatmap shading) so the lifted grid can re-apply it.
+      var bg = td && td.style ? td.style.backgroundColor : '';
+      if (bg) cell.bg = bg;
       return cell;
     }
     function rowCells(tr) { return [].map.call(tr.querySelectorAll('th,td'), cellOf); }
@@ -209,12 +212,24 @@ interface ReportFrameProps {
   data: AdHocRow[];
   schema: DatasetSchema;
   onError: (message: string) => void;
+  /** Fired when the generated code renders without throwing — lets the page persist an auto-repaired
+   *  report so it doesn't crash-then-retry on every open. */
+  onRendered?: () => void;
   /** Report title — used to name the per-table CSV export. */
   reportTitle?: string;
 }
 
-export function ReportFrame({ code, data, schema, onError, reportTitle }: ReportFrameProps): React.ReactElement {
+export function ReportFrame({
+  code,
+  data,
+  schema,
+  onError,
+  onRendered,
+  reportTitle,
+}: ReportFrameProps): React.ReactElement {
   const ref = useRef<HTMLIFrameElement>(null);
+  const onRenderedRef = useRef(onRendered);
+  onRenderedRef.current = onRendered;
   const readyRef = useRef(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const loadCountRef = useRef(0);
@@ -266,6 +281,7 @@ export function ReportFrame({ code, data, schema, onError, reportTitle }: Report
       } else if (msg?.type === 'rendered') {
         if (timerRef.current) clearTimeout(timerRef.current);
         if (typeof msg.height === 'number') setHeight(Math.min(Math.max(msg.height + 32, 160), 2400));
+        onRenderedRef.current?.();
       } else if (msg?.type === 'resize') {
         if (typeof msg.height === 'number') setHeight(Math.min(Math.max(msg.height + 32, 160), 2400));
       } else if (msg?.type === 'tables') {

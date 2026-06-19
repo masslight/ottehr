@@ -75,6 +75,8 @@ export interface AdHocDataset {
 export interface ExtractedCell {
   text: string;
   href?: string;
+  /** Inline cell background color (e.g. a heatmap shade), carried through so the grid can re-apply it. */
+  bg?: string;
 }
 
 /** A table the generated report rendered, extracted from the iframe so the parent can re-render it as

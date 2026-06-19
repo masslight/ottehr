@@ -1,4 +1,4 @@
-import { AdHocPatientRow, DEFAULT_BATCH_DAYS, splitDateRangeIntoBatches } from 'utils';
+import { ADHOC_BATCH_DAYS, AdHocPatientRow, splitDateRangeIntoBatches } from 'utils';
 import { getAdHocPatients } from '../../../api/api';
 import { buildSchema, FieldDef } from './schema';
 import { AdHocDataset, AdHocDatasetOption, AdHocRow, FetchContext } from './types';
@@ -209,12 +209,12 @@ async function fetchAdHocPatients({ oystehrZambda, dateRange, options }: FetchCo
   };
   const { start, end } = dateRange;
   const days = (new Date(end).getTime() - new Date(start).getTime()) / 86400000;
-  if (days <= DEFAULT_BATCH_DAYS) {
+  if (days <= ADHOC_BATCH_DAYS) {
     const { patients } = await getAdHocPatients(oystehrZambda, { dateRange: { start, end }, ...flags });
     return patients as unknown as AdHocRow[];
   }
   // Batch long ranges, then MERGE partial per-patient rows (a patient may appear in several batches).
-  const batches = splitDateRangeIntoBatches(start, end, DEFAULT_BATCH_DAYS);
+  const batches = splitDateRangeIntoBatches(start, end, ADHOC_BATCH_DAYS);
   const results = await Promise.all(batches.map((b) => getAdHocPatients(oystehrZambda, { dateRange: b, ...flags })));
   return mergePatientRows(results.flatMap((r) => r.patients)) as unknown as AdHocRow[];
 }
