@@ -906,6 +906,14 @@ export const extractExtensionValue = (extension: any): any => {
   return undefined;
 };
 
+export const getBooleanExtensionValue = (
+  resource: { extension?: Extension[] } | undefined,
+  url: string
+): boolean | undefined => {
+  const extension = resource?.extension?.find((extension) => extension.url === url);
+  return typeof extension?.valueBoolean === 'boolean' ? extension.valueBoolean : undefined;
+};
+
 export function getArrayInfo(path: string): { isArray: boolean; parentPath: string; index: number } {
   const parts = path.split('/').filter(Boolean);
   const lastPart = parts[parts.length - 1];

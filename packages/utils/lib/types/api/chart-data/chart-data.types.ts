@@ -154,6 +154,7 @@ export interface MedicationDTO extends SaveableDTO {
   type: 'scheduled' | 'as-needed' | 'prescribed-medication';
   id?: string;
   practitioner?: Practitioner | Reference;
+  isRenewal?: boolean;
 }
 
 export interface MedicationIntakeInfo {
@@ -170,6 +171,7 @@ export interface PrescribedMedicationDTO extends SaveableDTO {
   added?: string;
   prescriptionId?: string;
   encounterId?: string;
+  isRenewal?: boolean;
 }
 
 export interface AllergyDTO extends SaveableDTO {
@@ -500,6 +502,7 @@ export const followUpInOptions = [
 ];
 
 export interface BillingSuggestionInput {
+  patientId?: string;
   newPatient: boolean | undefined;
   patientAge?: string;
   patientSex?: string;
@@ -513,6 +516,7 @@ export interface BillingSuggestionInput {
   rosFindings?: string;
   diagnoses: DiagnosisDTO[] | undefined;
   billing: CPTCodeDTO[] | undefined;
+  prescribedMedications?: PrescribedMedicationDTO[];
 }
 
 export interface BillingSuggestionOutput {
