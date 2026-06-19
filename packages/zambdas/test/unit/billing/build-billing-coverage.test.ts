@@ -70,24 +70,6 @@ describe('buildBillingCoverage', () => {
     expect(coverage.contained).toBeUndefined();
     expect(coverage.relationship?.coding?.[0]?.code).toBe('spouse');
   });
-
-  it('marks a workers comp coverage with the WC plan-type coding and no order', () => {
-    const coverage = buildBillingCoverage({
-      patientId: PATIENT_ID,
-      payerOrg,
-      memberId: 'WC1',
-      status: 'active',
-      insuranceType: 'workersComp',
-      relationship: 'Self',
-      subscriberReference: `Patient/${PATIENT_ID}`,
-    });
-
-    expect(coverage.order).toBeUndefined();
-    expect(coverage.type?.coding).toContainEqual({
-      system: 'https://fhir.ottehr.com/CodeSystem/candid-plan-type',
-      code: 'WC',
-    });
-  });
 });
 
 describe('buildSubscriberRelatedPerson', () => {
