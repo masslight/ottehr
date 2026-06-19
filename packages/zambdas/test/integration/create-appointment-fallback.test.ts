@@ -574,6 +574,21 @@ describe('create-appointment group-member fallback (D-6 phase 2)', () => {
       const tags = fetched.meta?.tag ?? [];
       expect(tags.some((t) => t.system === SLOT_FALLBACK_REROUTED_TAG_SYSTEM)).toBe(false);
 
+      // If the first call's FHIR transaction committed before its error propagated (slot ends up
+      // 'busy' + appointment attached despite the rejection), purge the stale appointment so the
+      // positive-control booking below doesn't hit code 4341 (APPOINTMENT_ALREADY_EXISTS).
+      const danglingAppts = (
+        await oystehr.fhir.search<FhirResource>({
+          resourceType: 'Appointment',
+          params: [{ name: 'slot', value: `Slot/${patientSlot.id!}` }],
+        })
+      )
+        .unbundle()
+        .filter((r) => r.resourceType === 'Appointment');
+      for (const appt of danglingAppts) {
+        if (appt.id) await oystehr.fhir.delete({ resourceType: 'Appointment', id: appt.id });
+      }
+
       // Positive control: free up Schedule-2 (still leaving Schedule-1
       // saturated). The fallback should now find Schedule-2 — proving (1)
       // Schedule-3 wasn't being rejected just because all candidates were
