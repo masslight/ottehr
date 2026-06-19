@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { BIRTH_SEXES, SUBSCRIBER_RELATIONSHIPS } from '../../../fhir/constants';
 import { isCLIAValid, isNPIValidWithChecksum } from '../../../helpers/helpers';
 import {
   CMS_PLACE_OF_SERVICE_CODE_SET,
@@ -352,6 +353,63 @@ export const UpdateBillingPatientInputSchema = z.object({
   address: billingAddressSchema.optional(),
 });
 
+// --- Coverage (insurance) CRUD ---
+
+const subscriberRelationshipSchema = z.enum(SUBSCRIBER_RELATIONSHIPS);
+
+const insuranceTypeSchema = z.enum(['primary', 'secondary', 'workersComp']);
+
+const billingPolicyHolderSchema = z.object({
+  firstName: nonEmptyString,
+  middleName: z.string().optional(),
+  lastName: nonEmptyString,
+  dob: nonEmptyString,
+  birthSex: z.enum(BIRTH_SEXES),
+  address: billingAddressSchema.optional(),
+});
+
+export const CreateBillingCoverageInputSchema = z
+  .object({
+    patientId: nonEmptyString,
+    payerId: nonEmptyString,
+    memberId: nonEmptyString,
+    insuranceType: insuranceTypeSchema,
+    relationship: subscriberRelationshipSchema,
+    policyHolder: billingPolicyHolderSchema.optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.relationship !== 'Self' && !data.policyHolder) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['policyHolder'],
+        message: 'Policy holder details are required when the relationship to insured is not "Self"',
+      });
+    }
+  });
+
+export const UpdateBillingCoverageInputSchema = z
+  .object({
+    coverageId: nonEmptyString,
+    payerId: nonEmptyString.optional(),
+    memberId: nonEmptyString.optional(),
+    insuranceType: insuranceTypeSchema.optional(),
+    relationship: subscriberRelationshipSchema.optional(),
+    policyHolder: billingPolicyHolderSchema.optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.relationship && data.relationship !== 'Self' && !data.policyHolder) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['policyHolder'],
+        message: 'Policy holder details are required when the relationship to insured is not "Self"',
+      });
+    }
+  });
+
+export const DeleteBillingCoverageInputSchema = z.object({
+  coverageId: nonEmptyString,
+});
+
 export const CreateBillingWorkingCopyInputSchema = z.object({
   resourceType: z.enum(ALLOWED_BILLING_RESOURCE_TYPES),
   resourceId: nonEmptyString,
@@ -512,6 +570,12 @@ export type CreateBillingProviderInput = z.output<typeof CreateBillingProviderIn
 export type DeleteBillingProviderInput = z.output<typeof DeleteBillingProviderInputSchema>;
 export type CreateBillingPatientInput = z.output<typeof CreateBillingPatientInputSchema>;
 export type UpdateBillingPatientInput = z.output<typeof UpdateBillingPatientInputSchema>;
+export type CreateBillingCoverageInput = z.output<typeof CreateBillingCoverageInputSchema>;
+export type UpdateBillingCoverageInput = z.output<typeof UpdateBillingCoverageInputSchema>;
+export type DeleteBillingCoverageInput = z.output<typeof DeleteBillingCoverageInputSchema>;
+export type BillingSubscriberRelationship = z.output<typeof subscriberRelationshipSchema>;
+export type BillingInsuranceType = z.output<typeof insuranceTypeSchema>;
+export type BillingPolicyHolderInput = z.output<typeof billingPolicyHolderSchema>;
 export type UpdateBillingProviderInput = z.output<typeof UpdateBillingProviderInputSchema>;
 export type CreateBillingWorkingCopyInput = z.output<typeof CreateBillingWorkingCopyInputSchema>;
 export type CreateBillingClaimFromEncounterInput = z.output<typeof CreateBillingClaimFromEncounterInputSchema>;

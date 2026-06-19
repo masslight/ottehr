@@ -22,6 +22,7 @@ import {
   buildDiagnosisSequence,
   createBillingClient,
   CURRENT_STATUS_TAG_SYSTEM,
+  ensureClaimInsurance,
   findRef,
   prepareWorkingCopy,
 } from '../shared';
@@ -169,12 +170,15 @@ function buildClaim(copies: OriginalResources, params: CreateClaimParams): Claim
     item: [],
   };
 
+  // A purely self-pay claim has no coverage; ensureClaimInsurance inserts the no-coverage stub so the
+  // Claim stays valid (insurance is 1..*). Only set insurer when there's a real coverage to bill.
+  const realInsurance = copies.coverage?.id
+    ? [{ sequence: 1, focal: true, coverage: { reference: `Coverage/${copies.coverage.id}` } }]
+    : [];
+  claim.insurance = ensureClaimInsurance(realInsurance);
   const payerRef = copies.coverage?.payor?.[0]?.reference;
-  if (payerRef) claim.insurer = { reference: payerRef };
+  if (payerRef && copies.coverage?.id) claim.insurer = { reference: payerRef };
   if (copies.facility?.id) claim.facility = { reference: `Location/${copies.facility.id}` };
-  if (copies.coverage?.id) {
-    claim.insurance = [{ sequence: 1, focal: true, coverage: { reference: `Coverage/${copies.coverage.id}` } }];
-  }
 
   if (copies.renderingProvider?.id) {
     claim.careTeam = [

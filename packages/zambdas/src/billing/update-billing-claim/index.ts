@@ -14,7 +14,9 @@ import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../sha
 import {
   buildAddress,
   buildDiagnosisSequence,
+  claimHasRealCoverage,
   createBillingClient,
+  ensureClaimInsurance,
   fetchById,
   getClaimTypeCoding,
   prepareWorkingCopy,
@@ -144,17 +146,19 @@ async function attachClaimResources(
       copy.subscriber = { reference: claim.patient.reference };
     }
     const created = await oystehr.fhir.create(copy);
-    claim.insurance = [
+    // ensureClaimInsurance drops any no-coverage stub now that a real focal coverage is attached.
+    claim.insurance = ensureClaimInsurance([
       { sequence: 1, focal: true, coverage: { reference: `Coverage/${created.id}` } },
       ...(claim.insurance ?? []).filter((i) => i.sequence !== 1),
-    ];
+    ]);
     const payerRef = created.payor?.[0]?.reference;
     if (payerRef) claim.insurer = { reference: payerRef };
   }
 
   if (fields.payerId) {
     const payerUrl = getPayerUrl(fields.payerId);
-    claim.insurer = { reference: payerUrl };
+    // A payer is only meaningful with a real coverage; a stub-only claim stays uninsured.
+    if (claimHasRealCoverage(claim.insurance)) claim.insurer = { reference: payerUrl };
     const coverageRef = sortClaimInsurance(claim)[0]?.coverage?.reference;
     if (coverageRef?.startsWith('Coverage/')) {
       const coverage = await fetchById<Coverage>(oystehr, 'Coverage', coverageRef.replace('Coverage/', ''));
@@ -206,6 +210,10 @@ async function attachClaimResources(
       diagnosisSequence: buildDiagnosisSequence(item.diagnosisSequence, diagnosisCount),
     }));
   }
+
+  // Guarantee the Claim.insurance invariant regardless of which fields changed: keep the no-coverage
+  // stub when there's no real coverage, and re-add it if a coverage was ever removed.
+  claim.insurance = ensureClaimInsurance(claim.insurance);
 
   return save(oystehr, claim);
 }

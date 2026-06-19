@@ -668,6 +668,27 @@ export const SUBSCRIBER_RELATIONSHIP_CODE_MAP: Record<string, string> = {
   'Injured Party': 'injured',
 };
 
+// Canonical set of subscriber/policy-holder relationships to the patient, shared across the
+// clinical EHR and billing app so the values stay aligned.
+export const SUBSCRIBER_RELATIONSHIPS = [
+  'Self',
+  'Child',
+  'Parent',
+  'Spouse',
+  'Common Law Spouse',
+  'Injured Party',
+  'Other',
+] as const;
+export type SubscriberRelationship = (typeof SUBSCRIBER_RELATIONSHIPS)[number];
+
+// CodeSystem for Coverage.relationship (the subscriber's relationship to the beneficiary).
+export const SUBSCRIBER_RELATIONSHIP_SYSTEM = 'http://terminology.hl7.org/CodeSystem/subscriber-relationship';
+// System used on RelatedPerson.relationship coding for coverage subscribers / policy holders.
+export const RELATED_PERSON_RELATIONSHIP_SYSTEM = 'http://hl7.org/fhir/ValueSet/relatedperson-relationshiptype';
+
+export const BIRTH_SEXES = ['Male', 'Female', 'Intersex'] as const;
+export type BirthSex = (typeof BIRTH_SEXES)[number];
+
 // this is required by US Core
 // https://build.fhir.org/ig/HL7/US-Core/StructureDefinition-us-core-coverage-definitions.html#key_Coverage.identifier:memberid.type
 export const COVERAGE_MEMBER_IDENTIFIER_BASE: Partial<Identifier> = {
