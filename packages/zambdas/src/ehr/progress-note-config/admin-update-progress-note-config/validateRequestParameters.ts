@@ -20,5 +20,13 @@ export function validateRequestParameters(input: ZambdaInput): UpdateProgressNot
 
   const data = safeValidate(UpdateProgressNoteConfigInputSchema, JSON.parse(input.body));
 
-  return { ...data, secrets: input.secrets, userToken };
+  return {
+    ...data,
+    // `safeValidate`'s ZodSchema<T> collapses the schema's input/output types, which leaks the
+    // optionality of the `.default()`. The default is already applied at parse time, so this just
+    // satisfies the (required) output type.
+    vitalsUnitInputOrder: data.vitalsUnitInputOrder ?? 'metric-imperial',
+    secrets: input.secrets,
+    userToken,
+  };
 }

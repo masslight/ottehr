@@ -14,6 +14,7 @@ export const PROGRESS_NOTE_CONFIG_MEDICAL_DECISION_DEFAULT_TEXT_EXTENSION_URL = 
 export const PROGRESS_NOTE_CONFIG_PCP_NO_TYPE_DISPOSITION_DEFAULT_TEXT_EXTENSION_URL = `${PROGRESS_NOTE_CONFIG_EXTENSION_URL_PREFIX}-pcp-no-type-disposition-default-text`;
 export const PROGRESS_NOTE_CONFIG_ANOTHER_DISPOSITION_DEFAULT_TEXT_EXTENSION_URL = `${PROGRESS_NOTE_CONFIG_EXTENSION_URL_PREFIX}-another-disposition-default-text`;
 export const PROGRESS_NOTE_CONFIG_ED_DISPOSITION_DEFAULT_TEXT_EXTENSION_URL = `${PROGRESS_NOTE_CONFIG_EXTENSION_URL_PREFIX}-ed-disposition-default-text`;
+export const PROGRESS_NOTE_CONFIG_VITALS_UNIT_INPUT_ORDER_EXTENSION_URL = `${PROGRESS_NOTE_CONFIG_EXTENSION_URL_PREFIX}-vitals-unit-input-order`;
 
 export const DEFAULT_PROGRESS_NOTE_CONFIG: ProgressNoteConfig = {
   mdmRequired: true,
@@ -21,6 +22,7 @@ export const DEFAULT_PROGRESS_NOTE_CONFIG: ProgressNoteConfig = {
   pcpNoTypeDispositionDefaultText: getDefaultNote('pcp-no-type'),
   anotherDispositionDefaultText: getDefaultNote('another'),
   edDispositionDefaultText: getDefaultNote('ed'),
+  vitalsUnitInputOrder: 'metric-imperial',
 };
 
 export const getDispositionDefaultTextFromProgressNoteConfig = (
