@@ -67,6 +67,47 @@ export function sortClaimInsurance(claim: Pick<Claim, 'insurance'>): NonNullable
   return [...(claim.insurance ?? [])].sort((a, b) => a.sequence - b.sequence);
 }
 
+// FHIR Claim.insurance has cardinality 1..*, but purely self-pay claims (straight to Patient AR) have no
+// real Coverage. We satisfy the cardinality with a stub insurance entry whose coverage is a logical
+// reference (identifier only, no literal Coverage/<id> reference). Real coverages always carry
+// coverage.reference, so the identifier.system marker unambiguously distinguishes the stub. The read
+// endpoints key off coverage.reference, so the stub renders as blank in the UI.
+export const NO_COVERAGE_SYSTEM = 'https://fhir.ottehr.com/billing/no-coverage';
+export const NO_COVERAGE_DISPLAY = 'No insurance coverage';
+
+type ClaimInsurance = NonNullable<Claim['insurance']>[number];
+
+export function buildNoCoverageStub(): ClaimInsurance {
+  return {
+    sequence: 1,
+    focal: true,
+    coverage: {
+      identifier: { system: NO_COVERAGE_SYSTEM, value: 'no-coverage' },
+      display: NO_COVERAGE_DISPLAY,
+    },
+  };
+}
+
+export function isNoCoverageStub(entry: ClaimInsurance): boolean {
+  return entry.coverage?.identifier?.system === NO_COVERAGE_SYSTEM;
+}
+
+// True when the claim carries at least one real (non-stub) coverage.
+export function claimHasRealCoverage(insurance?: Claim['insurance']): boolean {
+  return (insurance ?? []).some((entry) => !isNoCoverageStub(entry));
+}
+
+// Enforce the Claim.insurance invariant: strip the stub whenever a real coverage is present, and
+// re-insert the stub when no real coverage remains. Real entries are re-sequenced 1..n with the
+// first marked focal. Call this from every site that mutates Claim.insurance.
+export function ensureClaimInsurance(insurance?: Claim['insurance']): NonNullable<Claim['insurance']> {
+  const real = (insurance ?? []).filter((entry) => !isNoCoverageStub(entry));
+  if (real.length === 0) return [buildNoCoverageStub()];
+  return [...real]
+    .sort((a, b) => a.sequence - b.sequence)
+    .map((entry, idx) => ({ ...entry, sequence: idx + 1, focal: idx === 0 }));
+}
+
 // Resolve Oystehr payer list URLs to payer Organizations via the RCM service
 export async function resolvePayersByRef(
   oystehr: Oystehr,

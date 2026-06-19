@@ -74,6 +74,7 @@ import {
   CLAIM_TAG_SYSTEM,
   createBillingClient,
   CURRENT_STATUS_TAG_SYSTEM,
+  ensureClaimInsurance,
   findRef,
   getClaimTypeCoding,
   prepareCopy,
@@ -984,11 +985,13 @@ function buildClaim(resources: ClaimResources): Claim {
         ? resources.coverageRefs[0].payorRef
         : undefined
       : undefined,
-    insurance: resources.coverageRefs.map((cov, i) => ({
-      sequence: i + 1,
-      focal: i === 0,
-      coverage: cov.coverageRef,
-    })),
+    insurance: ensureClaimInsurance(
+      resources.coverageRefs.map((cov, i) => ({
+        sequence: i + 1,
+        focal: i === 0,
+        coverage: cov.coverageRef,
+      }))
+    ),
     careTeam: resources.renderingProvider
       ? [
           {
