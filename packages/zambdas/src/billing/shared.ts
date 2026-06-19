@@ -93,6 +93,9 @@ export const PROVIDER_ROLE_BILLING = 'billing';
 export const PROVIDER_ROLE_RENDERING = 'rendering';
 export const LICENSE_TAG = 'https://fhir.ottehr.com/billing/license-type';
 
+export const CHARGE_ITEM_DEFINITION_TYPE_SYSTEM = 'https://fhir.ottehr.com/billing/charge-item-definition-type';
+export const CHARGE_ITEM_DEFINITION_DEFAULT_SYSTEM = 'https://fhir.ottehr.com/billing/charge-item-definition-default';
+
 export const SOURCE_IDENTIFIER_SYSTEM = 'https://fhir.ottehr.com/billing/source-resource';
 export const ERA_ID_SYSTEM = 'https://identifiers.fhir.oystehr.com/era-id';
 export const ERA_CHECK_SYSTEM = 'https://identifiers.fhir.oystehr.com/era-check-number';
@@ -374,4 +377,12 @@ export function getClaimAppointmentType(claim: Claim): keyof typeof CODE_SYSTEM_
     return undefined;
   }
   return code as keyof typeof CODE_SYSTEM_APPOINTMENT_TYPE_CODES;
+}
+
+export function chargeItemDefinitionNameToUrl(type: 'charge-master' | 'fee-schedule', name: string): string {
+  const slug = name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '');
+  return `urn:uuid:${type}:${slug}`;
 }

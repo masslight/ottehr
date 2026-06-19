@@ -2302,6 +2302,41 @@
       "runtime": "nodejs22.x",
       "src": "src/ehr/delete-custom-folder/index",
       "zip": ".dist/zips/delete-custom-folder.zip"
+    },
+    "SEARCH-CHARGE-ITEM-DEFINITIONS": {
+      "name": "search-charge-item-definitions",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/search-charge-item-definitions/index",
+      "zip": ".dist/zips/search-charge-item-definitions.zip"
+    },
+    "CREATE-CHARGE-ITEM-DEFINITION": {
+      "name": "create-charge-item-definition",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/create-charge-item-definition/index",
+      "zip": ".dist/zips/create-charge-item-definition.zip"
+    },
+    "GET-CHARGE-ITEM-DEFINITION": {
+      "name": "get-charge-item-definition",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/get-charge-item-definition/index",
+      "zip": ".dist/zips/get-charge-item-definition.zip"
+    },
+    "UPDATE-CHARGE-ITEM-DEFINITION": {
+      "name": "update-charge-item-definition",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/update-charge-item-definition/index",
+      "zip": ".dist/zips/update-charge-item-definition.zip"
+    },
+    "DELETE-CHARGE-ITEM-DEFINITION": {
+      "name": "delete-charge-item-definition",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/delete-charge-item-definition/index",
+      "zip": ".dist/zips/delete-charge-item-definition.zip"
     }
   },
   "fhirResources": {

@@ -439,30 +439,79 @@ export const UpdateBillingResourceInputSchema = z.discriminatedUnion('resourceTy
   }),
 ]);
 
-export type GetClaimDetailInput = z.infer<typeof GetClaimDetailInputSchema>;
-export type GetEraDetailInput = z.infer<typeof GetEraDetailInputSchema>;
-export type SearchErasInput = z.infer<typeof SearchErasInputSchema>;
-export type SaveBillingTagInput = z.infer<typeof SaveBillingTagInputSchema>;
-export type DeleteBillingTagInput = z.infer<typeof DeleteBillingTagInputSchema>;
-export type TagBillingClaimInput = z.infer<typeof TagBillingClaimInputSchema>;
-export type SetClaimStatusInput = z.infer<typeof SetClaimStatusInputSchema>;
-export type GetPatientDetailInput = z.infer<typeof GetPatientDetailInputSchema>;
-export type GetPatientCoveragesInput = z.infer<typeof GetPatientCoveragesInputSchema>;
-export type SearchBillingClaimsInput = z.infer<typeof SearchBillingClaimsInputSchema>;
-export type SearchBillingProvidersInput = z.infer<typeof SearchBillingProvidersInputSchema>;
-export type SearchBillingPatientsInput = z.infer<typeof SearchBillingPatientsInputSchema>;
-export type SearchBillingLocationsInput = z.infer<typeof SearchBillingLocationsInputSchema>;
-export type SearchBillingPayersInput = z.infer<typeof SearchBillingPayersInputSchema>;
-export type CreateBillingClaimInput = z.infer<typeof CreateBillingClaimInputSchema>;
-export type CreateBillingProviderInput = z.infer<typeof CreateBillingProviderInputSchema>;
-export type DeleteBillingProviderInput = z.infer<typeof DeleteBillingProviderInputSchema>;
-export type CreateBillingPatientInput = z.infer<typeof CreateBillingPatientInputSchema>;
-export type UpdateBillingPatientInput = z.infer<typeof UpdateBillingPatientInputSchema>;
-export type UpdateBillingProviderInput = z.infer<typeof UpdateBillingProviderInputSchema>;
-export type CreateBillingWorkingCopyInput = z.infer<typeof CreateBillingWorkingCopyInputSchema>;
-export type CreateBillingClaimFromEncounterInput = z.input<typeof CreateBillingClaimFromEncounterInputSchema>;
-export type UpdateBillingResourceInput = z.infer<typeof UpdateBillingResourceInputSchema>;
+export const SearchChargeItemDefinitionsInputSchema = z.object({
+  type: z.enum(['charge-master', 'fee-schedule']),
+  name: nonEmptyString.optional(),
+  offset: nonNegativeInt.default(0),
+  pageSize: nonNegativeInt.default(25),
+});
+
+export const CreateChargeItemDefinitionInputSchema = z.object({
+  type: z.enum(['charge-master', 'fee-schedule']),
+  name: nonEmptyString,
+  effectiveDate: nonEmptyString.optional(),
+  description: nonEmptyString.optional(),
+  default: z.enum(['insurance', 'self-pay']).optional(),
+});
+
+export const GetChargeItemDefinitionInputSchema = z.object({
+  type: z.enum(['charge-master', 'fee-schedule']),
+  id: nonEmptyString.uuid(),
+});
+
+export const UpdateChargeItemDefinitionInputSchema = z.object({
+  type: z.enum(['charge-master', 'fee-schedule']),
+  id: nonEmptyString.uuid(),
+  name: nonEmptyString.optional(),
+  status: z.enum(['active', 'retired']).optional(),
+  effectiveDate: nonEmptyString.nullable().optional(),
+  description: nonEmptyString.nullable().optional(),
+  default: z.enum(['insurance', 'self-pay']).nullable().optional(),
+  procedureCodes: z
+    .array(
+      z.object({
+        code: nonEmptyString,
+        modifier: nonEmptyString.optional(),
+        amount: z.number().nonnegative(),
+      })
+    )
+    .optional(),
+});
+
+export const DeleteChargeItemDefinitionInputSchema = z.object({
+  type: z.enum(['charge-master', 'fee-schedule']),
+  id: nonEmptyString.uuid(),
+});
+
+export type GetClaimDetailInput = z.output<typeof GetClaimDetailInputSchema>;
+export type GetEraDetailInput = z.output<typeof GetEraDetailInputSchema>;
+export type SearchErasInput = z.output<typeof SearchErasInputSchema>;
+export type SaveBillingTagInput = z.output<typeof SaveBillingTagInputSchema>;
+export type DeleteBillingTagInput = z.output<typeof DeleteBillingTagInputSchema>;
+export type TagBillingClaimInput = z.output<typeof TagBillingClaimInputSchema>;
+export type SetClaimStatusInput = z.output<typeof SetClaimStatusInputSchema>;
+export type GetPatientDetailInput = z.output<typeof GetPatientDetailInputSchema>;
+export type GetPatientCoveragesInput = z.output<typeof GetPatientCoveragesInputSchema>;
+export type SearchBillingClaimsInput = z.output<typeof SearchBillingClaimsInputSchema>;
+export type SearchBillingProvidersInput = z.output<typeof SearchBillingProvidersInputSchema>;
+export type SearchBillingPatientsInput = z.output<typeof SearchBillingPatientsInputSchema>;
+export type SearchBillingLocationsInput = z.output<typeof SearchBillingLocationsInputSchema>;
+export type SearchBillingPayersInput = z.output<typeof SearchBillingPayersInputSchema>;
+export type CreateBillingClaimInput = z.output<typeof CreateBillingClaimInputSchema>;
+export type CreateBillingProviderInput = z.output<typeof CreateBillingProviderInputSchema>;
+export type DeleteBillingProviderInput = z.output<typeof DeleteBillingProviderInputSchema>;
+export type CreateBillingPatientInput = z.output<typeof CreateBillingPatientInputSchema>;
+export type UpdateBillingPatientInput = z.output<typeof UpdateBillingPatientInputSchema>;
+export type UpdateBillingProviderInput = z.output<typeof UpdateBillingProviderInputSchema>;
+export type CreateBillingWorkingCopyInput = z.output<typeof CreateBillingWorkingCopyInputSchema>;
+export type CreateBillingClaimFromEncounterInput = z.output<typeof CreateBillingClaimFromEncounterInputSchema>;
+export type UpdateBillingResourceInput = z.output<typeof UpdateBillingResourceInputSchema>;
 export type BillingResourceType = (typeof ALLOWED_BILLING_RESOURCE_TYPES)[number];
+export type SearchChargeItemDefinitionsInput = z.output<typeof SearchChargeItemDefinitionsInputSchema>;
+export type CreateChargeItemDefinitionInput = z.output<typeof CreateChargeItemDefinitionInputSchema>;
+export type GetChargeItemDefinitionInput = z.output<typeof GetChargeItemDefinitionInputSchema>;
+export type UpdateChargeItemDefinitionInput = z.output<typeof UpdateChargeItemDefinitionInputSchema>;
+export type DeleteChargeItemDefinitionInput = z.output<typeof DeleteChargeItemDefinitionInputSchema>;
 export type SearchServiceFacilitiesInput = z.output<typeof SearchServiceFacilitiesInputSchema>;
 export type SaveServiceFacilityInput = z.output<typeof SaveServiceFacilityInputSchema>;
 export type DeleteServiceFacilityInput = z.output<typeof DeleteServiceFacilityInputSchema>;
