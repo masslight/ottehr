@@ -20,12 +20,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const oystehr = createBillingClient(m2mToken, secrets);
 
   console.group('complexValidation');
-  await complexValidation(oystehr, params);
+  const existing = await complexValidation(oystehr, params);
   console.groupEnd();
   console.debug('complexValidation success');
 
   console.group('performEffect');
-  const response = await performEffect(oystehr, params);
+  const response = await performEffect(oystehr, params, existing);
   console.groupEnd();
   console.debug('performEffect success', response);
 
@@ -35,24 +35,33 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   };
 });
 
-async function complexValidation(oystehr: Oystehr, params: DeleteServiceFacilityParams): Promise<void> {
-  await fetchById<Location>(oystehr, 'Location', params.facilityId);
+async function complexValidation(oystehr: Oystehr, params: DeleteServiceFacilityParams): Promise<Location> {
+  return fetchById<Location>(oystehr, 'Location', params.facilityId);
 }
 
-async function performEffect(oystehr: Oystehr, params: DeleteServiceFacilityParams): Promise<DeletedResponse> {
+async function performEffect(
+  oystehr: Oystehr,
+  params: DeleteServiceFacilityParams,
+  existing: Location
+): Promise<DeletedResponse> {
   const { facilityId } = params;
 
-  await oystehr.fhir.patch({
-    resourceType: 'Location',
-    id: facilityId,
-    operations: [
-      {
-        op: 'add',
-        path: '/status',
-        value: 'inactive',
-      },
-    ],
-  });
+  await oystehr.fhir.patch(
+    {
+      resourceType: 'Location',
+      id: facilityId,
+      operations: [
+        {
+          op: 'add',
+          path: '/status',
+          value: 'inactive',
+        },
+      ],
+    },
+    {
+      optimisticLockingVersionId: existing.meta?.versionId,
+    }
+  );
 
   return { deleted: true };
 }

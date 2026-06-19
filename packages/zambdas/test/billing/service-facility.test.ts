@@ -1,3 +1,4 @@
+import type { APIGatewayProxyResult } from 'aws-lambda';
 import { Location } from 'fhir/r4b';
 import {
   CODE_SYSTEM_CMS_PLACE_OF_SERVICE,
@@ -6,7 +7,7 @@ import {
   SaveServiceFacilityInput,
   TIMEZONE_EXTENSION_URL,
 } from 'utils';
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { validateRequestParameters } from '../../src/billing/save-billing-service-facility/validateRequestParameters';
 import { applyServiceFacilityInput, mapServiceFacility } from '../../src/billing/service-facility.helpers';
 import type { ZambdaInput } from '../../src/shared/types/common';
@@ -18,6 +19,32 @@ function makeInput(body: Record<string, unknown> | null): ZambdaInput {
     secrets: {} as ZambdaInput['secrets'],
   };
 }
+
+const mockOystehrClient = {
+  fhir: {
+    create: vi.fn(),
+    patch: vi.fn(),
+    search: vi.fn(),
+    update: vi.fn(),
+  },
+};
+
+vi.mock('../../src/shared', async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>();
+  return {
+    ...actual,
+    checkOrCreateM2MClientToken: vi.fn().mockResolvedValue('mock-token'),
+    wrapHandler: (_name: string, fn: (...args: unknown[]) => unknown) => fn,
+  };
+});
+
+vi.mock('../../src/billing/shared', async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>();
+  return {
+    ...actual,
+    createBillingClient: vi.fn(() => mockOystehrClient),
+  };
+});
 
 const validPayload: SaveServiceFacilityInput = {
   name: 'Main Street Clinic',
@@ -404,5 +431,104 @@ describe('mapServiceFacility', () => {
     expect(mapped.zip).toBe('');
     expect(mapped.npi).toBe('');
     expect(mapped.posCode).toBe('');
+  });
+});
+
+describe('save-billing-service-facility handler', () => {
+  type ZambdaHandler = (input: ZambdaInput) => Promise<APIGatewayProxyResult>;
+  let saveHandler!: ZambdaHandler;
+
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    vi.resetModules();
+    ({ index: saveHandler } = (await import('../../src/billing/save-billing-service-facility/index')) as {
+      index: ZambdaHandler;
+    });
+  });
+
+  it('updates an existing facility with the optimistic-lock version id', async () => {
+    const existing: Location = {
+      resourceType: 'Location',
+      id: 'loc-1',
+      status: 'active',
+      meta: {
+        versionId: '5',
+      },
+    };
+    mockOystehrClient.fhir.search.mockResolvedValue({
+      unbundle: () => [existing],
+    });
+    mockOystehrClient.fhir.update.mockImplementation(async (resource: Location) => resource);
+
+    const result = await saveHandler(
+      makeInput({
+        ...validPayload,
+        facilityId: 'loc-1',
+      })
+    );
+
+    expect(result.statusCode).toBe(200);
+    expect(mockOystehrClient.fhir.update).toHaveBeenCalledWith(expect.objectContaining({ id: 'loc-1' }), {
+      optimisticLockingVersionId: '5',
+    });
+    expect(mockOystehrClient.fhir.create).not.toHaveBeenCalled();
+  });
+
+  it('creates a new facility without an optimistic-lock version id', async () => {
+    mockOystehrClient.fhir.search.mockResolvedValue({
+      unbundle: () => [],
+    });
+    mockOystehrClient.fhir.create.mockImplementation(async (resource: Location) => ({
+      ...resource,
+      id: 'loc-new',
+    }));
+
+    const result = await saveHandler(makeInput({ ...validPayload }));
+
+    expect(result.statusCode).toBe(200);
+    expect(JSON.parse(result.body).id).toBe('loc-new');
+    expect(mockOystehrClient.fhir.update).not.toHaveBeenCalled();
+  });
+});
+
+describe('delete-billing-service-facility handler', () => {
+  type ZambdaHandler = (input: ZambdaInput) => Promise<APIGatewayProxyResult>;
+  let deleteHandler!: ZambdaHandler;
+
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    vi.resetModules();
+    ({ index: deleteHandler } = (await import('../../src/billing/delete-billing-service-facility/index')) as {
+      index: ZambdaHandler;
+    });
+  });
+
+  it('deactivates the facility with the optimistic-lock version id', async () => {
+    const existing: Location = {
+      resourceType: 'Location',
+      id: 'loc-1',
+      status: 'active',
+      meta: {
+        versionId: '5',
+      },
+    };
+    mockOystehrClient.fhir.search.mockResolvedValue({
+      unbundle: () => [existing],
+    });
+    mockOystehrClient.fhir.patch.mockResolvedValue(existing);
+
+    const result = await deleteHandler(makeInput({ facilityId: 'loc-1' }));
+
+    expect(result.statusCode).toBe(200);
+    expect(JSON.parse(result.body).deleted).toBe(true);
+    expect(mockOystehrClient.fhir.patch).toHaveBeenCalledWith(
+      expect.objectContaining({
+        resourceType: 'Location',
+        id: 'loc-1',
+      }),
+      {
+        optimisticLockingVersionId: '5',
+      }
+    );
   });
 });

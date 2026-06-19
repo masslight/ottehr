@@ -73,7 +73,9 @@ async function performEffect(
   const location = applyServiceFacilityInput(params, existing);
 
   if (existing) {
-    const updated = await oystehr.fhir.update<Location>(location);
+    const updated = await oystehr.fhir.update<Location>(location, {
+      optimisticLockingVersionId: existing.meta?.versionId,
+    });
     return { id: updated.id };
   }
 
