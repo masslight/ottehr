@@ -17,7 +17,7 @@ import Summary from 'src/features/visits/shared/components/patient/info/Summary'
 import { PatientFollowupEncountersGrid } from 'src/features/visits/shared/components/patient/PatientFollowupEncountersGrid';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import { useGetActiveMergeTask } from 'src/hooks/useGetPatient';
-import { getFirstName, getLastName, RoleType } from 'utils';
+import { getFirstName, getLastName, GetMergePatientsTaskResponse, MergePatientsResponse, RoleType } from 'utils';
 import CustomBreadcrumbs from '../components/CustomBreadcrumbs';
 import { PatientEncountersGrid } from '../components/PatientEncountersGrid';
 import { PatientLabsTab } from '../components/PatientLabsTab';
@@ -51,7 +51,11 @@ export default function PatientPage(): JSX.Element {
   const { data: mergeTaskData, refetch: refetchMergeTask } = useGetActiveMergeTask(id);
   const activeMergeTask = mergeTaskData?.task ?? null;
   const mergeFailed = activeMergeTask?.status === 'failed';
-  const mergeInProgress = !!activeMergeTask && !mergeFailed;
+  // This patient is a merged-away record (it was absorbed into another patient).
+  const isMergedPatient = patient?.active === false && patient?.link?.some((l) => l.type === 'replaced-by');
+  // Once this patient is a merged-away record the merge is done, so don't keep
+  // showing the in-progress banner even if the task poll lags behind.
+  const mergeInProgress = !!activeMergeTask && !mergeFailed && !isMergedPatient;
   const wasMergeInProgressRef = useRef(false);
 
   const { oystehr: oystehrAdmin } = useApiClients();
@@ -77,22 +81,65 @@ export default function PatientPage(): JSX.Element {
     }
   };
 
-  // When the merge task disappears (completed/failed), refresh patient/coverage
-  // queries so the UI picks up the merged state.
   useEffect(() => {
-    if (mergeTaskData && mergeTaskData.task === null) {
-      if (wasMergeInProgressRef.current) {
-        enqueueSnackbar('Patients merged successfully', { variant: 'success' });
-      }
-      void queryClient.refetchQueries({ queryKey: ['useGetPatientPatientResources'], type: 'all' });
-      void queryClient.refetchQueries({ queryKey: ['patient-account-get'], type: 'all' });
-      void queryClient.refetchQueries({ queryKey: ['patient-coverages'], type: 'all' });
-      void queryClient.refetchQueries({ queryKey: ['otherPatientsWithSameNameResources'], type: 'all' });
-    }
     if (mergeInProgress) {
       wasMergeInProgressRef.current = true;
     }
-  }, [mergeTaskData, mergeInProgress, queryClient]);
+  }, [mergeInProgress]);
+
+  // The merged-away patient won't necessarily see its merge task clear (the task
+  // targets the surviving patient), so while a merge is underway also refresh
+  // this patient's resource to pick up the merged state directly.
+  useEffect(() => {
+    if (!mergeInProgress) return;
+    const interval = setInterval(() => {
+      void queryClient.refetchQueries({ queryKey: ['useGetPatientPatientResources', id], type: 'all' });
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [mergeInProgress, id, queryClient]);
+
+  // Completion is observed two ways: the merge task clears (the surviving
+  // patient's view) or this patient becomes a merged-away record. Either way,
+  // refresh patient/account/coverage queries so the UI picks up the merged state.
+  const mergeResolved = (mergeTaskData != null && mergeTaskData.task === null) || !!isMergedPatient;
+  useEffect(() => {
+    if (!mergeResolved) return;
+    if (wasMergeInProgressRef.current) {
+      wasMergeInProgressRef.current = false;
+      enqueueSnackbar('Patients merged successfully', { variant: 'success' });
+    }
+    void queryClient.refetchQueries({ queryKey: ['useGetPatientPatientResources'], type: 'all' });
+    void queryClient.refetchQueries({ queryKey: ['patient-account-get'], type: 'all' });
+    void queryClient.refetchQueries({ queryKey: ['patient-coverages'], type: 'all' });
+    void queryClient.refetchQueries({ queryKey: ['otherPatientsWithSameNameResources'], type: 'all' });
+  }, [mergeResolved, queryClient]);
+
+  // Called once the merge has been kicked off. The merge runs asynchronously and
+  // frequently finishes before the first 3s poll, so we can't rely on polling to
+  // catch the task in an active state. Seed the cache from the authoritative
+  // kickoff result so the in-progress banner shows immediately, and mark that a
+  // merge is underway so the "merged successfully" snackbar fires once the task
+  // clears.
+  const handleMergeStarted = (
+    result: MergePatientsResponse & { mainPatientId: string; otherPatientId: string }
+  ): void => {
+    setMergePatientIds(null);
+    // This page polls the merge task for `id`. The current patient may be the
+    // surviving (main) patient or the one being merged away (the admin can swap
+    // which is main in the dialog) — either way the merge concerns this page.
+    if (result.mainPatientId !== id && result.otherPatientId !== id) return;
+    // Report the other party from this page's perspective.
+    const otherPatientId = result.mainPatientId === id ? result.otherPatientId : result.mainPatientId;
+    queryClient.setQueryData<GetMergePatientsTaskResponse>(['active-merge-task', { patientId: id }], {
+      task: { id: result.taskId, status: result.status, otherPatientId },
+    });
+    // Don't arm the success snackbar for a task that came back already failed —
+    // otherwise dismissing it would surface a misleading "merged successfully".
+    if (result.status !== 'failed') {
+      wasMergeInProgressRef.current = true;
+    }
+    void refetchMergeTask();
+  };
 
   const handleMergeClick = (): void => {
     if (mergeInProgress) {
@@ -103,8 +150,6 @@ export default function PatientPage(): JSX.Element {
       setMergePatientIds([id, duplicatePatients[0].id]);
     }
   };
-
-  const isMergedPatient = patient?.active === false && patient?.link?.some((l) => l.type === 'replaced-by');
 
   const { firstName, lastName } = useMemo(() => {
     if (!patient) return {};
@@ -255,7 +300,7 @@ export default function PatientPage(): JSX.Element {
                   open
                   close={() => setMergePatientIds(null)}
                   patientIds={mergePatientIds}
-                  onSuccess={() => setMergePatientIds(null)}
+                  onSuccess={handleMergeStarted}
                 />
               )}
 

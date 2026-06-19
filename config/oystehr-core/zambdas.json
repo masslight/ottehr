@@ -361,12 +361,26 @@
       "src": "src/billing/search-billing-providers/index",
       "zip": ".dist/zips/search-billing-providers.zip"
     },
-    "SEARCH-BILLING-SERVICE-LOCATIONS": {
-      "name": "search-billing-service-locations",
+    "SEARCH-BILLING-SERVICE-FACILITIES": {
+      "name": "search-billing-service-facilities",
       "type": "http_auth",
       "runtime": "nodejs22.x",
-      "src": "src/billing/search-billing-service-locations/index",
-      "zip": ".dist/zips/search-billing-service-locations.zip"
+      "src": "src/billing/search-billing-service-facilities/index",
+      "zip": ".dist/zips/search-billing-service-facilities.zip"
+    },
+    "SAVE-BILLING-SERVICE-FACILITY": {
+      "name": "save-billing-service-facility",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/save-billing-service-facility/index",
+      "zip": ".dist/zips/save-billing-service-facility.zip"
+    },
+    "DELETE-BILLING-SERVICE-FACILITY": {
+      "name": "delete-billing-service-facility",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/delete-billing-service-facility/index",
+      "zip": ".dist/zips/delete-billing-service-facility.zip"
     },
     "CREATE-BILLING-CLAIM": {
       "name": "create-billing-claim",
@@ -458,6 +472,13 @@
       "runtime": "nodejs22.x",
       "src": "src/billing/tag-billing-claim/index",
       "zip": ".dist/zips/tag-billing-claim.zip"
+    },
+    "SET-BILLING-CLAIM-STATUS": {
+      "name": "set-billing-claim-status",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/set-billing-claim-status/index",
+      "zip": ".dist/zips/set-billing-claim-status.zip"
     },
     "UPDATE-BILLING-CLAIM": {
       "name": "update-billing-claim",

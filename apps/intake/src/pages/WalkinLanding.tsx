@@ -12,6 +12,7 @@ import {
   CreateSlotParams,
   isApiError,
   PROJECT_WEBSITE,
+  serviceCategorySupportsContext,
   ServiceMode,
 } from 'utils';
 import { ottehrApi } from '../api';
@@ -49,7 +50,7 @@ export const WalkinLanding: FC = () => {
   // all of this and goes straight to the "closed" message.
   const { serviceCategories, isLoading: isCategoriesLoading } = useServiceCategories({});
   const walkinCapableCategories = useMemo(
-    () => (serviceCategories ?? []).filter((sc) => (sc.visitTypes ?? ['prebook']).includes('walk-in')),
+    () => (serviceCategories ?? []).filter((sc) => serviceCategorySupportsContext(sc, undefined, 'walk-in')),
     [serviceCategories]
   );
   const categoryDecisionNeeded = !serviceCategory;

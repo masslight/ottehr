@@ -2,6 +2,7 @@ import Oystehr from '@oystehr/sdk';
 import { randomUUID } from 'crypto';
 import { HealthcareService } from 'fhir/r4b';
 import {
+  FEATURE_FLAGS_CONFIG,
   INTEGRATION_TEST_TAG_SYSTEM,
   M2MClientMockType,
   SERVICE_CATEGORIES_AVAILABLE,
@@ -28,6 +29,14 @@ interface GetServiceCategoriesResponse {
 }
 
 const BOOKING_CONFIG_CODES = SERVICE_CATEGORIES_AVAILABLE.map((sc) => sc.category.code!).filter(Boolean);
+
+// Whether the deployed zambda will surface FHIR-backed categories. Customer
+// builds default to OFF (flag undefined → falsy); core builds to ON. The
+// behavior we assert below changes accordingly: when ON, a created FHIR
+// HealthcareService appears in the catalog; when OFF, the zambda skips the
+// FHIR search entirely and the same record is correctly suppressed. Each
+// branch gets its own assertion so this test passes against either build.
+const DYNAMIC_CATS_ON = FEATURE_FLAGS_CONFIG.dynamicServiceCategoriesEnabled === true;
 
 describe('get-service-categories integration', () => {
   let oystehrAdmin: Oystehr;
@@ -119,38 +128,81 @@ describe('get-service-categories integration', () => {
     }
   });
 
-  it('appends a non-colliding FHIR record alongside BOOKING_CONFIG, tagged source: fhir', async () => {
-    const fhirCode = uniq('appended');
-    await createServiceCategory(fhirCode, 'Appended Service');
+  it.skipIf(!DYNAMIC_CATS_ON)(
+    'appends a non-colliding FHIR record alongside BOOKING_CONFIG, tagged source: fhir (flag ON)',
+    async () => {
+      const fhirCode = uniq('appended');
+      await createServiceCategory(fhirCode, 'Appended Service');
+
+      const result = await callZambda();
+      const fhirEntry = result.serviceCategories.find((c) => c.code === fhirCode);
+      expect(fhirEntry).toBeDefined();
+      expect(fhirEntry?.source).toBe('fhir');
+
+      // BOOKING_CONFIG entries still present.
+      for (const code of BOOKING_CONFIG_CODES) {
+        expect(result.serviceCategories.find((c) => c.code === code)).toBeDefined();
+      }
+    }
+  );
+
+  it.skipIf(DYNAMIC_CATS_ON)('suppresses FHIR records while still returning BOOKING_CONFIG (flag OFF)', async () => {
+    const fhirCode = uniq('appended-off');
+    await createServiceCategory(fhirCode, 'Appended Service (off)');
 
     const result = await callZambda();
-    const fhirEntry = result.serviceCategories.find((c) => c.code === fhirCode);
-    expect(fhirEntry).toBeDefined();
-    expect(fhirEntry?.source).toBe('fhir');
+    // Flag OFF: the FHIR record we just created must NOT surface to
+    // patients. Operator added it in admin (admin UI uses a different
+    // zambda and would show it); patient flow stays clean.
+    expect(result.serviceCategories.find((c) => c.code === fhirCode)).toBeUndefined();
 
-    // BOOKING_CONFIG entries still present.
+    // BOOKING_CONFIG entries unaffected.
     for (const code of BOOKING_CONFIG_CODES) {
       expect(result.serviceCategories.find((c) => c.code === code)).toBeDefined();
     }
   });
 
-  it('group scope returns only the categories declared in the group type[]', async () => {
-    const extraCode = uniq('grouped');
-    await createServiceCategory(extraCode, 'Grouped Service');
+  it.skipIf(!DYNAMIC_CATS_ON)(
+    'group scope returns only the categories declared in the group type[] (flag ON)',
+    async () => {
+      const extraCode = uniq('grouped');
+      await createServiceCategory(extraCode, 'Grouped Service');
 
-    const includedBookingCode = BOOKING_CONFIG_CODES[0];
-    const slug = uniq('group-scoped');
-    await createGroup(slug, [includedBookingCode, extraCode]);
+      const includedBookingCode = BOOKING_CONFIG_CODES[0];
+      const slug = uniq('group-scoped');
+      await createGroup(slug, [includedBookingCode, extraCode]);
 
-    const result = await callZambda({ scheduleType: 'group', bookingOn: slug });
+      const result = await callZambda({ scheduleType: 'group', bookingOn: slug });
 
-    const returned = result.serviceCategories.map((c) => c.code).sort();
-    expect(returned).toEqual([includedBookingCode, extraCode].sort());
+      const returned = result.serviceCategories.map((c) => c.code).sort();
+      expect(returned).toEqual([includedBookingCode, extraCode].sort());
 
-    // Source tags survive scoping.
-    expect(result.serviceCategories.find((c) => c.code === includedBookingCode)?.source).toBe('booking-config');
-    expect(result.serviceCategories.find((c) => c.code === extraCode)?.source).toBe('fhir');
-  });
+      // Source tags survive scoping.
+      expect(result.serviceCategories.find((c) => c.code === includedBookingCode)?.source).toBe('booking-config');
+      expect(result.serviceCategories.find((c) => c.code === extraCode)?.source).toBe('fhir');
+    }
+  );
+
+  it.skipIf(DYNAMIC_CATS_ON)(
+    'group scope returns only the BOOKING_CONFIG codes the group declares; FHIR-declared codes are dropped (flag OFF)',
+    async () => {
+      const extraCode = uniq('grouped-off');
+      await createServiceCategory(extraCode, 'Grouped Service (off)');
+
+      const includedBookingCode = BOOKING_CONFIG_CODES[0];
+      const slug = uniq('group-scoped-off');
+      await createGroup(slug, [includedBookingCode, extraCode]);
+
+      const result = await callZambda({ scheduleType: 'group', bookingOn: slug });
+
+      // Flag OFF: the FHIR-declared code isn't in fullCatalog, so filtering
+      // by the group's offered codes can't surface it. The group's
+      // BOOKING_CONFIG declaration still resolves normally.
+      const returned = result.serviceCategories.map((c) => c.code).sort();
+      expect(returned).toEqual([includedBookingCode]);
+      expect(result.serviceCategories.find((c) => c.code === includedBookingCode)?.source).toBe('booking-config');
+    }
+  );
 
   it('group with empty type[] returns the full catalog (admin grace period)', async () => {
     const slug = uniq('group-empty');

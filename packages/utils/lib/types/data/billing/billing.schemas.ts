@@ -1,9 +1,19 @@
 import { z } from 'zod';
+import { isCLIAValid, isNPIValidWithChecksum } from '../../../helpers/helpers';
 import {
+  CMS_PLACE_OF_SERVICE_CODE_SET,
   CODE_SYSTEM_APPOINTMENT_TYPE_CODE_NAMES,
   CODE_SYSTEM_CLAIM_TYPE_CODE_NAMES,
 } from '../../../helpers/rcm/constants';
-import { npiRegex, taxIdRegex, zipRegex } from '../../../validation';
+import { taxIdRegex, zipRegex } from '../../../validation';
+import { STATE_CODES } from '../../common';
+import { TIMEZONES } from '../../constants';
+import {
+  CLAIM_STATUS_FIELD_KEYS,
+  CLAIM_STATUS_FIELDS_BY_KEY,
+  ClaimStatusFieldKey,
+  isValidClaimStatusValue,
+} from './claim-status';
 
 const nonEmptyString = z.string().trim().min(1);
 const nonNegativeInt = z.number().int().nonnegative();
@@ -61,6 +71,40 @@ export const TagBillingClaimInputSchema = z.object({
   tagName: nonEmptyString,
 });
 
+// Set (or clear, when value is null/empty) one claim-status meta.tag.
+export const SetClaimStatusInputSchema = z
+  .object({
+    claimId: nonEmptyString,
+    field: z.enum(CLAIM_STATUS_FIELD_KEYS),
+    value: z.string().nullable().optional(),
+  })
+  .superRefine((data, ctx) => {
+    // A provided value must be one of the field's allowed options (empty/null clears it).
+    if (!isValidClaimStatusValue(CLAIM_STATUS_FIELDS_BY_KEY[data.field], data.value)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['value'],
+        message: `Invalid value "${data.value}" for claim status field "${data.field}"`,
+      });
+    }
+  });
+
+// Status indicators keyed by ClaimStatusFieldKey; unknown keys are rejected and each provided value
+// must be a valid option for its field.
+export const claimStatusesSchema = z
+  .record(z.enum(CLAIM_STATUS_FIELD_KEYS), z.string())
+  .superRefine((statuses, ctx) => {
+    for (const [key, value] of Object.entries(statuses)) {
+      if (!isValidClaimStatusValue(CLAIM_STATUS_FIELDS_BY_KEY[key as ClaimStatusFieldKey], value)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: [key],
+          message: `Invalid value "${value}" for claim status field "${key}"`,
+        });
+      }
+    }
+  });
+
 export const GetPatientDetailInputSchema = z.object({
   patientId: nonEmptyString,
 });
@@ -73,6 +117,7 @@ export const SearchBillingClaimsInputSchema = z.object({
   searchText: nonEmptyString.optional(),
   type: z.enum(CODE_SYSTEM_CLAIM_TYPE_CODE_NAMES).optional(),
   status: nonEmptyString.optional(),
+  arStage: nonEmptyString.optional(),
   tag: nonEmptyString.optional(),
   createdFrom: nonEmptyString.optional(),
   createdTo: nonEmptyString.optional(),
@@ -128,63 +173,80 @@ const claimServiceLineSchema = z.object({
   diagnosisPointers: z.array(z.number().int().positive()).optional(),
 });
 
+export const SearchServiceFacilitiesInputSchema = z.object({
+  facilityId: nonEmptyString.optional(),
+  name: nonEmptyString.optional(),
+  offset: nonNegativeInt.optional(),
+  pageSize: nonNegativeInt.optional(),
+});
+
+export const SaveServiceFacilityInputSchema = z.object({
+  facilityId: nonEmptyString.optional(),
+  name: nonEmptyString,
+  addressLine1: nonEmptyString,
+  addressLine2: z.string().trim().optional(),
+  city: nonEmptyString,
+  state: nonEmptyString.refine((code) => STATE_CODES.has(code), 'Unknown state code'),
+  zip: z
+    .string()
+    .trim()
+    .regex(/^\d{5}$/, 'ZIP must be 5 digits'),
+  zipPlus4: z
+    .string()
+    .trim()
+    .regex(/^\d{4}$/, 'ZIP+4 must be 4 digits')
+    .optional(),
+  npi: z
+    .string()
+    .trim()
+    .refine(isNPIValidWithChecksum, 'NPI must be 10 digits with a valid check digit')
+    .nullable()
+    .optional(),
+  clia: z
+    .string()
+    .trim()
+    .refine(isCLIAValid, 'CLIA must match the format NNDNNNNNNN, e.g. 05D1234567')
+    .nullable()
+    .optional(),
+  posCode: z
+    .string()
+    .refine((code) => CMS_PLACE_OF_SERVICE_CODE_SET.has(code), 'Unknown place of service code')
+    .nullable()
+    .optional(),
+  timezone: z
+    .string()
+    .refine((tz) => TIMEZONES.includes(tz), 'Unknown timezone')
+    .nullable()
+    .optional(),
+});
+
+export const DeleteServiceFacilityInputSchema = z.object({
+  facilityId: nonEmptyString,
+});
+
+// Create assembles a claim from existing resources by reference only. Tweaking a referenced
+// resource's details (names, NPIs, addresses, etc.) is done afterward via the claim editing UI,
+// so this input carries no override fields.
 export const CreateBillingClaimInputSchema = z.object({
   patientId: nonEmptyString,
-  patientOverrides: z
-    .object({
-      firstName: nonEmptyString.optional(),
-      lastName: nonEmptyString.optional(),
-      dob: nonEmptyString.optional(),
-      gender: nonEmptyString.optional(),
-    })
-    .strict()
-    .optional(),
   coverageId: nonEmptyString.optional(),
-  coverageOverrides: z
-    .object({
-      subscriberId: nonEmptyString.optional(),
-    })
-    .strict()
-    .optional(),
   renderingProvider: z
     .object({
       id: nonEmptyString,
       type: z.enum(['Practitioner', 'Organization']),
-      overrides: z
-        .object({
-          firstName: nonEmptyString.optional(),
-          lastName: nonEmptyString.optional(),
-          npi: nonEmptyString.optional(),
-        })
-        .strict()
-        .optional(),
     })
     .optional(),
   facilityId: nonEmptyString.optional(),
-  facilityOverrides: z
-    .object({
-      name: nonEmptyString.optional(),
-      npi: nonEmptyString.optional(),
-      address: nonEmptyString.optional(),
-    })
-    .strict()
-    .optional(),
   billingProvider: z
     .object({
       id: nonEmptyString,
       type: z.enum(['Practitioner', 'Organization']),
-      overrides: z
-        .object({
-          name: nonEmptyString.optional(),
-          npi: nonEmptyString.optional(),
-          tin: nonEmptyString.optional(),
-        })
-        .strict()
-        .optional(),
     })
     .optional(),
   diagnoses: z.array(claimDiagnosisSchema).optional(),
   serviceLines: z.array(claimServiceLineSchema).optional(),
+  // Initial claim status indicators; AR Stage's progress status is auto-initialized server-side.
+  statuses: claimStatusesSchema.optional(),
 });
 
 const billingProviderRole = z.enum(['billing', 'rendering']);
@@ -199,7 +261,10 @@ const billingAddressSchema = z
   })
   .strict();
 
-const billingNpiSchema = nonEmptyString.regex(npiRegex, 'NPI must be exactly 10 digits');
+const billingNpiSchema = nonEmptyString.refine(
+  isNPIValidWithChecksum,
+  'NPI must be a valid 10-digit number with a correct check digit'
+);
 const billingTaxIdSchema = nonEmptyString.regex(taxIdRegex, 'Tax ID / EIN must be exactly 9 digits');
 const billingTaxonomyCodeSchema = z.string().trim().length(10, 'Taxonomy code must be exactly 10 characters');
 // Providers require a validated ZIP (5-digit or ZIP+4); the base address schema stays loose
@@ -380,6 +445,7 @@ export type SearchErasInput = z.infer<typeof SearchErasInputSchema>;
 export type SaveBillingTagInput = z.infer<typeof SaveBillingTagInputSchema>;
 export type DeleteBillingTagInput = z.infer<typeof DeleteBillingTagInputSchema>;
 export type TagBillingClaimInput = z.infer<typeof TagBillingClaimInputSchema>;
+export type SetClaimStatusInput = z.infer<typeof SetClaimStatusInputSchema>;
 export type GetPatientDetailInput = z.infer<typeof GetPatientDetailInputSchema>;
 export type GetPatientCoveragesInput = z.infer<typeof GetPatientCoveragesInputSchema>;
 export type SearchBillingClaimsInput = z.infer<typeof SearchBillingClaimsInputSchema>;
@@ -397,3 +463,6 @@ export type CreateBillingWorkingCopyInput = z.infer<typeof CreateBillingWorkingC
 export type CreateBillingClaimFromEncounterInput = z.input<typeof CreateBillingClaimFromEncounterInputSchema>;
 export type UpdateBillingResourceInput = z.infer<typeof UpdateBillingResourceInputSchema>;
 export type BillingResourceType = (typeof ALLOWED_BILLING_RESOURCE_TYPES)[number];
+export type SearchServiceFacilitiesInput = z.output<typeof SearchServiceFacilitiesInputSchema>;
+export type SaveServiceFacilityInput = z.output<typeof SaveServiceFacilityInputSchema>;
+export type DeleteServiceFacilityInput = z.output<typeof DeleteServiceFacilityInputSchema>;

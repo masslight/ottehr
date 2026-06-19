@@ -409,7 +409,12 @@ export const getOystehrTelemedAPI = (
   };
 
   const getMergePatientsTask = async (parameters: GetMergePatientsTaskInput): Promise<GetMergePatientsTaskResponse> => {
-    return await makeZapRequest('merge patients', { ...parameters, mode: 'status' });
+    // NB: the discriminator is intentionally `requestMode`, NOT `mode`. The Oystehr
+    // SDK treats a `mode` key on a zambda.execute payload as a reserved
+    // request-context option (FhirResponseMode), which makes it drop the real
+    // payload and send an empty path param ("Required path parameter is an empty
+    // string: id"). See get-vitals.types.ts for the same gotcha.
+    return await makeZapRequest('merge patients', { ...parameters, requestMode: 'status' });
   };
 
   const sendFax = async (parameters: SendFaxZambdaInput): Promise<void> => {
