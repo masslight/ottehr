@@ -110,9 +110,21 @@ const BASE_FIELDS: FieldDef[] = [
       'Visit status (completed, arrived, cancelled, no-show, …). Excludes nothing — filter cancelled/no-show out for "real" visits.',
   },
   {
+    name: 'appointmentId',
+    type: 'string',
+    description:
+      "Unique id of the visit. To link to the visit's progress note (review & sign page), render an " +
+      'anchor with href="/in-person/" + appointmentId + "/review-and-sign" — links open in a new tab ' +
+      'automatically. This is the right target for "the encounter", "the visit", "the note", or "the ' +
+      'chart"; only use patientId (the /patient/ route) when the user asks for the patient profile.',
+  },
+  {
     name: 'encounterType',
     type: 'string',
-    description: '"main" for a regular visit; "follow-up" / "scheduled-follow-up" for follow-up rows.',
+    description:
+      '"main" for a regular visit; "follow-up" / "scheduled-follow-up" for follow-up rows (separate ' +
+      "rows with their own date, sharing the parent visit's appointmentId). To link to a follow-up " +
+      'row\'s note, href="/in-person/" + appointmentId + "/follow-up-note" instead of the review-and-sign route.',
   },
   { name: 'reason', type: 'string', description: 'Reason for visit (free text).' },
   { name: 'scheduledSlotMinutes', type: 'number', description: 'Booked appointment slot length in minutes.' },
