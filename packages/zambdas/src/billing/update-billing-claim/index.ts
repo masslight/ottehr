@@ -214,6 +214,12 @@ async function attachClaimResources(
     if (payerRef) claim.insurer = { reference: payerRef };
   }
 
+  if (fields.removeCoverage) {
+    // Make the claim self-pay; ensureClaimInsurance restores the no-coverage stub below.
+    claim.insurance = [];
+    delete claim.insurer;
+  }
+
   if (fields.payerId) {
     const payerUrl = getPayerUrl(fields.payerId);
     // A payer is only meaningful with a real coverage; a stub-only claim stays uninsured.

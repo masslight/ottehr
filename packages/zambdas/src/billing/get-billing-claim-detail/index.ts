@@ -25,6 +25,7 @@ import {
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import {
   CLAIM_TAG_SYSTEM,
+  claimHasRealCoverage,
   createBillingClient,
   fhirName,
   findRef,
@@ -144,7 +145,7 @@ async function performEffect(oystehr: Oystehr, params: GetClaimDetailParams): Pr
     status,
     statuses: getClaimStatusValues(claim),
     created: claim.created ?? '',
-    billingType: sortedInsurance.length ? 'Insurance Pay' : 'Self Pay',
+    billingType: claimHasRealCoverage(claim.insurance) ? 'Insurance Pay' : 'Self Pay',
     billableStatus: claim.status === 'entered-in-error' ? 'Not Billable' : 'Billable',
     appointmentType: getClaimAppointmentType(claim),
     patientName: fhirName(patient),

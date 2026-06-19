@@ -1,4 +1,4 @@
-import { ArrowBack as ArrowBackIcon } from '@mui/icons-material';
+import { ArrowBack as ArrowBackIcon, DeleteOutline as DeleteOutlineIcon } from '@mui/icons-material';
 import { TabContext, TabList, TabPanel } from '@mui/lab';
 import {
   Alert,
@@ -424,6 +424,9 @@ function InsuranceSection({
   const [coverageOptions, setCoverageOptions] = useState<BillingCoverageOption[]>([]);
   const [selectedCoverage, setSelectedCoverage] = useState<BillingCoverageOption | null>(null);
   const searchTimer = useRef<ReturnType<typeof setTimeout>>();
+  const [confirmingRemove, setConfirmingRemove] = useState(false);
+  const [removing, setRemoving] = useState(false);
+  const [removeError, setRemoveError] = useState<string | null>(null);
 
   const resetFields = useCallback((): void => {
     setPayer(claim.payorFhirId ? { id: claim.payorFhirId, name: claim.payerName, payerId: claim.payerId } : null);
@@ -475,6 +478,15 @@ function InsuranceSection({
       relationship: policyHolder.relationship,
       ...(policyHolderInput ? { policyHolder: policyHolderInput } : {}),
     });
+  };
+
+  const handleRemove = async (): Promise<void> => {
+    setRemoving(true);
+    setRemoveError(null);
+    const err = await updateResource('Claim', claim.id, { removeCoverage: true });
+    setConfirmingRemove(false);
+    setRemoving(false);
+    if (err) setRemoveError(err);
   };
 
   return (
@@ -558,14 +570,59 @@ function InsuranceSection({
         </Box>
       }
     >
-      <Row label="Payer" value={claim.payerName} />
-      <Row label="Payer ID" value={claim.payerId} />
-      <Row label="Member ID" value={claim.memberId} />
-      <Row label="Relationship to insured" value={claim.relationship} />
-      {claim.policyHolder && (
-        <Row label="Policy holder" value={`${claim.policyHolder.firstName} ${claim.policyHolder.lastName}`.trim()} />
+      {hasCoverage ? (
+        <>
+          <Row label="Payer" value={claim.payerName} />
+          <Row label="Payer ID" value={claim.payerId} />
+          <Row label="Member ID" value={claim.memberId} />
+          <Row label="Relationship to insured" value={claim.relationship} />
+          {claim.policyHolder && (
+            <Row label="Policy holder" value={`${claim.policyHolder.firstName} ${claim.policyHolder.lastName}`.trim()} />
+          )}
+          <Row label="Coverage Status" value={claim.coverageStatus} />
+        </>
+      ) : (
+        <Typography variant="body2" color="text.secondary" sx={{ py: 0.5 }}>
+          No insurance — this claim is self-pay. Use Edit to add coverage.
+        </Typography>
       )}
-      <Row label="Coverage Status" value={claim.coverageStatus} />
+      {hasCoverage && (
+        <Box sx={{ mt: 1.5 }}>
+          {removeError && (
+            <Alert severity="error" sx={{ mb: 1 }}>
+              {removeError}
+            </Alert>
+          )}
+          {confirmingRemove ? (
+            <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+              <Typography variant="body2" color="text.secondary">
+                Remove insurance and make this claim self-pay?
+              </Typography>
+              <Button size="small" onClick={() => setConfirmingRemove(false)} disabled={removing}>
+                Cancel
+              </Button>
+              <Button
+                size="small"
+                color="error"
+                variant="contained"
+                onClick={() => void handleRemove()}
+                disabled={removing}
+              >
+                {removing ? 'Removing...' : 'Confirm'}
+              </Button>
+            </Box>
+          ) : (
+            <Button
+              size="small"
+              color="error"
+              startIcon={<DeleteOutlineIcon fontSize="small" />}
+              onClick={() => setConfirmingRemove(true)}
+            >
+              Remove coverage (self-pay)
+            </Button>
+          )}
+        </Box>
+      )}
     </EditableSection>
   );
 }

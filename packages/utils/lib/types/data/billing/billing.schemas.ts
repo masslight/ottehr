@@ -498,6 +498,7 @@ export const UpdateBillingResourceInputSchema = z.discriminatedUnion('resourceTy
       renderingProvider: claimProviderRefSchema.optional(),
       facilityId: nonEmptyString.optional(),
       coverageId: nonEmptyString.optional(),
+      removeCoverage: z.boolean().optional(),
       payerId: nonEmptyString.optional(),
       diagnoses: z.array(claimDiagnosisSchema).optional(),
       serviceLines: z.array(claimServiceLineSchema).optional(),
