@@ -864,6 +864,10 @@ async function findExistingBillingResources(
           name: 'identifier',
           value: `${FHIR_IDENTIFIER_NPI}|${getNPIIdentifier(originals.location)?.value}`,
         },
+        {
+          name: 'status',
+          value: 'active',
+        },
       ],
     })
   ).unbundle();
