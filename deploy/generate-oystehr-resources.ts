@@ -40,8 +40,10 @@ async function generate(input: GenerateResourcesArgs): Promise<void> {
   await generateOystehrResources({
     configDir: `${configDir}/oystehr`,
     coreConfigDir: `${configDir}/oystehr-core`,
+    billingCoreConfigDir: `${configDir}/billing-app-core`,
     varFile,
-    outputPath,
+    outputPath: `${outputPath}/oystehr`,
+    billingOutputPath: `${outputPath}/billing_app`,
     env,
   });
 }
@@ -83,12 +85,14 @@ async function generateSendgridResources(input: GenerateSendgridResources): Prom
 interface GenerateFhirResourcesArgs {
   configDir: string;
   coreConfigDir: string;
+  billingCoreConfigDir: string;
   varFile: string;
   outputPath: string;
+  billingOutputPath: string;
   env: string;
 }
 async function generateOystehrResources(input: GenerateFhirResourcesArgs): Promise<void> {
-  const { configDir, coreConfigDir, varFile, outputPath, env } = input;
+  const { configDir, coreConfigDir, billingCoreConfigDir, varFile, outputPath, billingOutputPath, env } = input;
 
   if (!configDir) {
     throw new Error('Config directory is required.');
@@ -102,9 +106,30 @@ async function generateOystehrResources(input: GenerateFhirResourcesArgs): Promi
     throw new Error('Output path is required.');
   }
 
-  // Ensure output directory exists
+  // Ensure output directories exist
   await fs.mkdir(outputPath, { recursive: true });
+  await fs.mkdir(billingOutputPath, { recursive: true });
 
+  const coreSpecs = await getCoreSpecs(configDir, coreConfigDir, env);
+  const billingSpecs = await getBillingSpecs(billingCoreConfigDir);
+
+  let vars: any;
+  try {
+    vars = JSON.parse(await fs.readFile(varFile, 'utf-8'));
+  } catch (err) {
+    throw new Error(`Error parsing variable file ${varFile}: ${err}`);
+  }
+  if (!isObject(vars)) {
+    throw new Error(`Variable file ${varFile} is not a valid JSON map.`);
+  }
+  const coreVars = { ...vars };
+  const billingVars = { ...BILLING_VAR_DEFAULTS, ...vars };
+
+  await validateAndGenerateSpecFiles(coreSpecs, coreVars, outputPath);
+  await validateAndGenerateSpecFiles(billingSpecs, billingVars, billingOutputPath);
+}
+
+async function getCoreSpecs(configDir: string, coreConfigDir: string, env: string): Promise<SpecFile[]> {
   // Read all spec files from the config directory
   const specFiles = await fs.readdir(configDir, { withFileTypes: true });
   const jsonSpecFiles = specFiles
@@ -157,6 +182,40 @@ async function generateOystehrResources(input: GenerateFhirResourcesArgs): Promi
     })
   );
 
+  return specs;
+}
+
+async function getBillingSpecs(billingCoreConfigDir: string): Promise<SpecFile[]> {
+  // Read core config spec files if the directory exists
+  const jsonSpecFiles: string[] = [];
+  try {
+    const coreSpecFiles = await fs.readdir(billingCoreConfigDir, { withFileTypes: true });
+    const coreJsonSpecFiles = coreSpecFiles
+      .filter((file) => file.isFile() && file.name.endsWith('.json'))
+      .map((file) => path.join(billingCoreConfigDir, file.name));
+    jsonSpecFiles.push(...coreJsonSpecFiles);
+  } catch (err: any) {
+    if (err.code !== 'ENOENT') {
+      throw err;
+    }
+    console.log(`No core config directory found at: ${billingCoreConfigDir}`);
+  }
+
+  const specs: SpecFile[] = await Promise.all(
+    jsonSpecFiles.map(async (file) => {
+      const content = await fs.readFile(file, 'utf-8');
+      try {
+        return { path: file, spec: JSON.parse(content) as { [key: string]: unknown } };
+      } catch (err) {
+        throw new Error(`Error parsing JSON file ${file}: ${err}`);
+      }
+    })
+  );
+
+  return specs;
+}
+
+async function validateAndGenerateSpecFiles(specs: SpecFile[], vars: any, outputPath: string): Promise<void> {
   if (!specs.every((spec) => isObject(spec) && isObject(spec.spec))) {
     throw new Error('One or more spec files are not valid JSON maps.');
   }
@@ -167,17 +226,6 @@ async function generateOystehrResources(input: GenerateFhirResourcesArgs): Promi
   if (!specs.every((spec) => isObject(spec.spec) && spec.spec['schema-version'] === schemaVersion)) {
     throw new Error('All spec files must have the same schema version.');
   }
-
-  let vars: any;
-  try {
-    vars = JSON.parse(await fs.readFile(varFile, 'utf-8'));
-  } catch (err) {
-    throw new Error(`Error parsing variable file ${varFile}: ${err}`);
-  }
-  if (!isObject(vars)) {
-    throw new Error(`Variable file ${varFile} is not a valid JSON map.`);
-  }
-  vars = { ...BILLING_VAR_DEFAULTS, ...vars };
 
   // Generate resources for specs
   if (schemaVersion === '2025-03-19') {

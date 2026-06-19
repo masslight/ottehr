@@ -358,10 +358,14 @@ export class Schema20250925 implements Schema<Spec20250925> {
     // There are 3 kinds of outputs: explicit outputs from spec files, implicit outputs from resource references,
     // and implicit outputs of all resource IDs.
     const outputsOutFile = path.join(this.outputPath, 'outputs.tf.json');
-    const outputDirectives: { output: { [key: string]: { value: any } } } = { output: {} };
+    const outputDirectives: { locals: { [key: string]: { value: any } }; output: { [key: string]: { value: any } } } = {
+      locals: {},
+      output: {},
+    };
     // Explicit outputs from spec files:
     for (const [outputName, output] of Object.entries(this.resources.outputs)) {
-      outputDirectives.output[outputName] = { value: this.getValue(output.value, this.resources) };
+      outputDirectives.locals[outputName] = { value: this.getValue(output.value, this.resources) };
+      outputDirectives.output[outputName] = { value: `local.${outputName}` };
     }
     // Implicit outputs from resource references:
     const refMatches = [...JSON.stringify(this.resources).matchAll(REF_REGEX)];
@@ -376,7 +380,8 @@ export class Schema20250925 implements Schema<Spec20250925> {
       if (tfRef) {
         console.log(`Reference ${fullMatch} resolved to ${tfRef}`);
         const tfOutputName = this.getTerraformResourceOutputName(fullMatch);
-        outputDirectives.output[tfOutputName] = { value: `\${${tfRef}}` };
+        outputDirectives.locals[tfOutputName] = { value: `\${${tfRef}}` };
+        outputDirectives.output[tfOutputName] = { value: `local.${tfOutputName}` };
       } else {
         console.log('Warning: could not resolve reference', fullMatch);
       }
@@ -393,7 +398,8 @@ export class Schema20250925 implements Schema<Spec20250925> {
           );
           if (tfRef) {
             const tfOutputName = this.getTerraformResourceOutputName(tfRef);
-            outputDirectives.output[tfOutputName] = { value: `\${${tfRef}}` };
+            outputDirectives.locals[tfOutputName] = { value: `\${${tfRef}}` };
+            outputDirectives.output[tfOutputName] = { value: `local.${tfOutputName}` };
           }
         }
       }
@@ -403,7 +409,8 @@ export class Schema20250925 implements Schema<Spec20250925> {
         .map((name) => `"${name}": oystehr_secret.${name}.value`)
         .join(', ');
       const zambdaSecretsExpr = `\${merge({for k, v in oystehr_secret.sendgrid_template_ids : k => v.value}, length(oystehr_secret.sendgrid_send_email_api_key) > 0 ? {"SENDGRID_SEND_EMAIL_API_KEY": one(oystehr_secret.sendgrid_send_email_api_key[*].value)} : {}, {${staticSecretRefs}})}`;
-      outputDirectives.output['zambda_secrets_for_local_server'] = { value: zambdaSecretsExpr };
+      outputDirectives.locals['zambda_secrets_for_local_server'] = { value: zambdaSecretsExpr };
+      outputDirectives.output['zambda_secrets_for_local_server'] = { value: 'local.zambda_secrets_for_local_server' };
     }
     // Write out outputs if we have any
     if (Object.keys(outputDirectives.output).length) {

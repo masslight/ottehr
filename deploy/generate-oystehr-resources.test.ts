@@ -60,8 +60,10 @@ const createEnoentError = (): NodeJS.ErrnoException => {
 const createTestArgs = (overrides: Partial<GenerateFhirResourcesArgs> = {}): GenerateFhirResourcesArgs => ({
   configDir: '/config/oystehr',
   coreConfigDir: '/config/oystehr-core',
+  billingCoreConfigDir: '/config/billing-app-core',
   varFile: '/config/.env/local.json',
   outputPath: '/output',
+  billingOutputPath: '/billing-output',
   env: 'local',
   ...overrides,
 });
