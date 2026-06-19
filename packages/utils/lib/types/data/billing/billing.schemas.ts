@@ -387,7 +387,7 @@ export const UpdateBillingCoverageInputSchema = z
   .object({
     coverageId: nonEmptyString,
     payerId: nonEmptyString.optional(),
-    memberId: z.string().optional(),
+    memberId: nonEmptyString.optional(),
     insuranceType: insuranceTypeSchema.optional(),
     relationship: subscriberRelationshipSchema.optional(),
     policyHolder: billingPolicyHolderSchema.optional(),

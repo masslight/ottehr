@@ -425,11 +425,12 @@ export function buildSubscriberRelatedPerson(
 // Set payor reference + coverage class + member-id identifier from a payer Organization.
 export function setCoveragePayer(coverage: Coverage, payerOrg: Organization, memberId: string): void {
   const payerId = getPayerId(payerOrg);
+  if (!payerId) throw new Error('payerId unexpectedly missing from payer organization');
   coverage.payor = [{ reference: buildPayorReference(payerOrg) }];
   coverage.class = [
     {
       type: { coding: [{ system: CODE_SYSTEM_COVERAGE_CLASS, code: 'plan' }] },
-      value: payerId ?? '',
+      value: payerId,
       name: payerOrg.name ?? '',
     },
   ];
@@ -607,14 +608,16 @@ export async function findCoverageOfType(
   insuranceType: BillingInsuranceType,
   excludeCoverageId?: string
 ): Promise<Coverage | undefined> {
-  const [response, pbillAccount, wcompAccount] = await Promise.all([
+  const [response, accounts] = await Promise.all([
     oystehr.fhir.search<Coverage>({
       resourceType: 'Coverage',
       params: [{ name: 'beneficiary', value: `Patient/${patientId}` }, ...EXCLUDE_WORKING_COPIES_PARAMS],
     }),
-    getPatientBillingAccount(oystehr, patientId),
-    getPatientWorkersCompAccount(oystehr, patientId),
+    getPatientAccounts(oystehr, patientId),
   ]);
+
+  const pbillAccount = accounts.find((acc) => accountMatchesCode(acc, 'PBILLACCT'));
+  const wcompAccount = accounts.find((acc) => accountMatchesCode(acc, 'WCOMPACCT'));
 
   return response.unbundle().find((cov) => {
     if (cov.id === excludeCoverageId || cov.status === 'cancelled') return false;
