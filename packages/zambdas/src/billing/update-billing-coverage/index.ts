@@ -23,19 +23,26 @@ import { UpdateBillingCoverageParams, validateRequestParameters } from './valida
 let m2mToken: string;
 const ZAMBDA_NAME = 'update-billing-coverage';
 
+interface ComplexValidationResult {
+  patientId: string;
+  coverage: Coverage;
+}
+
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   const params = validateRequestParameters(input);
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
   const oystehr = createBillingClient(m2mToken, params.secrets);
 
-  const response = await performEffect(oystehr, params);
+  const cvo = await complexValidation(params, oystehr);
+
+  const response = await performEffect(oystehr, params, cvo);
   return { statusCode: 200, body: JSON.stringify(response) };
 });
 
-async function performEffect(
-  oystehr: Oystehr,
-  params: UpdateBillingCoverageParams
-): Promise<{ id: string | undefined }> {
+async function complexValidation(
+  params: UpdateBillingCoverageParams,
+  oystehr: Oystehr
+): Promise<ComplexValidationResult> {
   const coverage = await fetchById<Coverage>(oystehr, 'Coverage', params.coverageId);
   const patientId = coverage.beneficiary?.reference?.split('/')[1];
   if (!patientId) throw FHIR_RESOURCE_NOT_FOUND('Patient');
@@ -53,6 +60,15 @@ async function performEffect(
     }
   }
 
+  return { patientId, coverage };
+}
+
+async function performEffect(
+  oystehr: Oystehr,
+  params: UpdateBillingCoverageParams,
+  cvo: ComplexValidationResult
+): Promise<{ id: string | undefined }> {
+  const { patientId, coverage } = cvo;
   const accounts = params.insuranceType !== undefined ? await getPatientAccounts(oystehr, patientId) : [];
 
   // Coverage status is not part of the billing product model; keep every coverage active.

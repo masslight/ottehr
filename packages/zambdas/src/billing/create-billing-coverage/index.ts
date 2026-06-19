@@ -25,11 +25,13 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
   const oystehr = createBillingClient(m2mToken, params.secrets);
 
+  await complexValidation(params, oystehr);
+
   const response = await performEffect(oystehr, params);
   return { statusCode: 200, body: JSON.stringify(response) };
 });
 
-async function performEffect(oystehr: Oystehr, params: CreateBillingCoverageParams): Promise<{ id: string }> {
+async function complexValidation(params: CreateBillingCoverageParams, oystehr: Oystehr): Promise<void> {
   // Only one coverage may hold each insurance type per patient.
   const occupying = await findCoverageOfType(oystehr, params.patientId, params.insuranceType);
   if (occupying) {
@@ -40,7 +42,9 @@ async function performEffect(oystehr: Oystehr, params: CreateBillingCoveragePara
       )} coverage. Remove or change it before adding another.`,
     };
   }
+}
 
+async function performEffect(oystehr: Oystehr, params: CreateBillingCoverageParams): Promise<{ id: string }> {
   const [payerOrg, accounts] = await Promise.all([
     getPayerOrgById(oystehr, params.payerId),
     getPatientAccounts(oystehr, params.patientId),
