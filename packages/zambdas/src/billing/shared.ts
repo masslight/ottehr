@@ -1,4 +1,4 @@
-import Oystehr from '@oystehr/sdk';
+import Oystehr, { BatchInputPostRequest, BatchInputPutRequest } from '@oystehr/sdk';
 import {
   Account,
   Address,
@@ -17,19 +17,33 @@ import {
   Resource,
 } from 'fhir/r4b';
 import {
+  ACCOUNT_TYPE_CODE_SYSTEM,
+  BILLING_INSURANCE_TYPE_LABELS,
+  BillingInsuranceType,
+  BillingPolicyHolderInput,
+  BillingSubscriberRelationship,
+  buildCoverageSubscriberRelatedPerson,
   CODE_SYSTEM_APPOINTMENT_TYPE_CODES,
   CODE_SYSTEM_APPOINTMENT_TYPE_TAG_SYSTEM,
   CODE_SYSTEM_CLAIM_TYPE,
   CODE_SYSTEM_CLAIM_TYPE_CODES,
+  CODE_SYSTEM_COVERAGE_CLASS,
   convertFhirNameToDisplayName,
+  createCoverageMemberIdentifier,
   FHIR_IDENTIFIER_CODE_TAX_EMPLOYER,
   FHIR_IDENTIFIER_CODE_TAX_SS,
   FHIR_IDENTIFIER_CODE_TAXONOMY,
   FHIR_IDENTIFIER_NPI,
   FHIR_IDENTIFIER_SYSTEM,
   FHIR_RESOURCE_NOT_FOUND,
+  getPayerId,
+  getPayerUrl,
+  getSubscriberRelationshipCodeableConcept,
   isPayerUrl,
+  isValidUUID,
+  PATIENT_BILLING_ACCOUNT_TYPE,
   Secrets,
+  WORKERS_COMP_ACCOUNT_TYPE,
 } from 'utils';
 import { createOystehrClient } from '../shared/helpers';
 
@@ -377,6 +391,210 @@ export function getClaimAppointmentType(claim: Claim): keyof typeof CODE_SYSTEM_
     return undefined;
   }
   return code as keyof typeof CODE_SYSTEM_APPOINTMENT_TYPE_CODES;
+}
+
+// --- Coverage / insurance helpers ---
+//
+// Coverage construction reuses the shared builders in `utils` (buildCoverageSubscriberRelatedPerson,
+// getSubscriberRelationshipCodeableConcept) so the billing app and the clinical EHR / harvest stay
+// aligned. The one intentional difference: the subscriber RelatedPerson is persisted standalone here
+// (so it can be searched), whereas harvest contains it on the Coverage.
+
+function buildPayorReference(payerOrg: Organization): string {
+  const payerId = getPayerId(payerOrg);
+  if (isValidUUID(payerOrg.id ?? '')) return `Organization/${payerOrg.id}`;
+  if (!payerId) throw new Error('payerId unexpectedly missing from payer organization');
+  return getPayerUrl(payerId);
+}
+
+export function setCoverageRelationship(coverage: Coverage, relationship: BillingSubscriberRelationship): void {
+  coverage.relationship = getSubscriberRelationshipCodeableConcept(relationship);
+}
+
+// Standalone RelatedPerson policy holder (the coverage subscriber for non-self relationships).
+export function buildSubscriberRelatedPerson(
+  patientId: string,
+  relationship: BillingSubscriberRelationship,
+  policyHolder: BillingPolicyHolderInput
+): RelatedPerson {
+  return buildCoverageSubscriberRelatedPerson(
+    patientId,
+    { ...policyHolder, address: policyHolder.address ? buildAddress(policyHolder.address) : undefined },
+    relationship
+  );
+}
+
+// Set payor reference + coverage class + member-id identifier from a payer Organization.
+export function setCoveragePayer(coverage: Coverage, payerOrg: Organization, memberId: string): void {
+  const payerId = getPayerId(payerOrg);
+  if (!payerId) throw new Error('payerId unexpectedly missing from payer organization');
+  coverage.payor = [{ reference: buildPayorReference(payerOrg) }];
+  coverage.class = [
+    {
+      type: { coding: [{ system: CODE_SYSTEM_COVERAGE_CLASS, code: 'plan' }] },
+      value: payerId,
+      name: payerOrg.name ?? '',
+    },
+  ];
+  coverage.identifier = [createCoverageMemberIdentifier(memberId, payerOrg)];
+}
+
+export function buildBillingCoverage(params: {
+  patientId: string;
+  payerOrg: Organization;
+  memberId: string;
+  status: Coverage['status'];
+  insuranceType: BillingInsuranceType;
+  relationship: BillingSubscriberRelationship;
+  // 'Patient/{id}' for self, or 'RelatedPerson/{id}' for a standalone policy-holder subscriber.
+  subscriberReference: string;
+}): Coverage {
+  const coverage: Coverage = {
+    resourceType: 'Coverage',
+    status: params.status,
+    beneficiary: { type: 'Patient', reference: `Patient/${params.patientId}` },
+    subscriber: { reference: params.subscriberReference },
+    subscriberId: params.memberId,
+    payor: [],
+  };
+  setCoveragePayer(coverage, params.payerOrg, params.memberId);
+  setCoverageRelationship(coverage, params.relationship);
+  return coverage;
+}
+
+// Account type + priority an insurance type maps to. primary/secondary share the patient billing
+// account (PBILLACCT, priority 1/2); workersComp lives in its own account (WCOMPACCT, priority 1).
+const ACCOUNT_PLACEMENT: Record<BillingInsuranceType, { type: Account['type']; code: string; priority: number }> = {
+  primary: { type: PATIENT_BILLING_ACCOUNT_TYPE, code: 'PBILLACCT', priority: 1 },
+  secondary: { type: PATIENT_BILLING_ACCOUNT_TYPE, code: 'PBILLACCT', priority: 2 },
+  workersComp: { type: WORKERS_COMP_ACCOUNT_TYPE, code: 'WCOMPACCT', priority: 1 },
+};
+
+function accountMatchesCode(account: Account, code: string): boolean {
+  return account.type?.coding?.some((c) => c.system === ACCOUNT_TYPE_CODE_SYSTEM && c.code === code) ?? false;
+}
+
+export async function getPatientAccounts(oystehr: Oystehr, patientId: string): Promise<Account[]> {
+  const result = await oystehr.fhir.search<Account>({
+    resourceType: 'Account',
+    params: [{ name: 'subject', value: `Patient/${patientId}` }, ...EXCLUDE_WORKING_COPIES_PARAMS],
+  });
+  return result.unbundle();
+}
+
+// Derive the billing / workers-comp Accounts from an already-fetched list (avoids extra searches).
+export function findPatientBillingAccount(accounts: Account[]): Account | undefined {
+  return accounts.find((acc) => accountMatchesCode(acc, 'PBILLACCT'));
+}
+
+export function findPatientWorkersCompAccount(accounts: Account[]): Account | undefined {
+  return accounts.find((acc) => accountMatchesCode(acc, 'WCOMPACCT'));
+}
+
+// A coverage's insurance type is determined by which account holds it (PBILLACCT priority 1/2 or the
+// workers-comp account) — the same signal create-billing-claim-from-encounter reads.
+export function getCoverageInsuranceType(
+  coverage: Coverage,
+  pbillAccount?: Account,
+  wcompAccount?: Account
+): BillingInsuranceType | undefined {
+  const ref = `Coverage/${coverage.id}`;
+  if (wcompAccount?.coverage?.some((c) => c.coverage?.reference === ref)) return 'workersComp';
+  const pbillEntry = pbillAccount?.coverage?.find((c) => c.coverage?.reference === ref);
+  if (pbillEntry?.priority === 1) return 'primary';
+  if (pbillEntry?.priority === 2) return 'secondary';
+  return undefined;
+}
+
+type AccountWriteRequest = BatchInputPostRequest<Account> | BatchInputPutRequest<Account>;
+
+// Transaction request(s) that place `coverageRef` as the given insurance type for the patient,
+// removing it from any other account it currently occupies. `coverageRef` may be a real
+// `Coverage/{id}` or a `urn:uuid:` placeholder resolved within the same transaction.
+export function reconcileAccountsForCoverage(
+  accounts: Account[],
+  patientId: string,
+  coverageRef: string,
+  insuranceType: BillingInsuranceType
+): AccountWriteRequest[] {
+  const placement = ACCOUNT_PLACEMENT[insuranceType];
+  const target = accounts.find((acc) => accountMatchesCode(acc, placement.code));
+  const requests: AccountWriteRequest[] = [];
+
+  // Drop this coverage from any other account it currently sits in.
+  for (const account of accounts) {
+    if (account === target) continue;
+    if (account.coverage?.some((c) => c.coverage?.reference === coverageRef)) {
+      requests.push({
+        method: 'PUT',
+        url: `Account/${account.id}`,
+        resource: { ...account, coverage: account.coverage.filter((c) => c.coverage?.reference !== coverageRef) },
+      });
+    }
+  }
+
+  if (!target) {
+    requests.push({
+      method: 'POST',
+      url: '/Account',
+      resource: {
+        resourceType: 'Account',
+        status: 'active',
+        type: { ...placement.type },
+        subject: [{ reference: `Patient/${patientId}` }],
+        coverage: [{ coverage: { reference: coverageRef }, priority: placement.priority }],
+      },
+    });
+  } else {
+    const coverage = (target.coverage ?? []).filter(
+      (c) => c.priority !== placement.priority && c.coverage?.reference !== coverageRef
+    );
+    coverage.push({ coverage: { reference: coverageRef }, priority: placement.priority });
+    requests.push({
+      method: 'PUT',
+      url: `Account/${target.id}`,
+      resource: { ...target, coverage: coverage.sort((a, b) => (a.priority ?? 0) - (b.priority ?? 0)) },
+    });
+  }
+  return requests;
+}
+
+// Transaction request(s) removing `coverageRef` from every account that references it.
+export function accountUnlinkRequests(accounts: Account[], coverageRef: string): BatchInputPutRequest<Account>[] {
+  return accounts
+    .filter((acc) => acc.coverage?.some((c) => c.coverage?.reference === coverageRef))
+    .map((acc) => ({
+      method: 'PUT',
+      url: `Account/${acc.id}`,
+      resource: { ...acc, coverage: (acc.coverage ?? []).filter((c) => c.coverage?.reference !== coverageRef) },
+    }));
+}
+
+export function coverageInsuranceTypeLabel(insuranceType: BillingInsuranceType): string {
+  return BILLING_INSURANCE_TYPE_LABELS[insuranceType];
+}
+
+// Find an active (non-cancelled) coverage already assigned to the given insurance type for the patient.
+export async function findCoverageOfType(
+  oystehr: Oystehr,
+  patientId: string,
+  insuranceType: BillingInsuranceType,
+  excludeCoverageId?: string
+): Promise<Coverage | undefined> {
+  const [response, accounts] = await Promise.all([
+    oystehr.fhir.search<Coverage>({
+      resourceType: 'Coverage',
+      params: [{ name: 'beneficiary', value: `Patient/${patientId}` }, ...EXCLUDE_WORKING_COPIES_PARAMS],
+    }),
+    getPatientAccounts(oystehr, patientId),
+  ]);
+  const pbillAccount = findPatientBillingAccount(accounts);
+  const wcompAccount = findPatientWorkersCompAccount(accounts);
+
+  return response.unbundle().find((cov) => {
+    if (cov.id === excludeCoverageId || cov.status === 'cancelled') return false;
+    return getCoverageInsuranceType(cov, pbillAccount, wcompAccount) === insuranceType;
+  });
 }
 
 export function chargeItemDefinitionNameToUrl(type: 'charge-master' | 'fee-schedule', name: string): string {

@@ -4,10 +4,12 @@ import {
   chooseJson,
   ClaimDetailResponse,
   CreateBillingClaimInput,
+  CreateBillingCoverageInput,
   CreateBillingPatientInput,
   CreateBillingProviderInput,
   CreatedClaimResponse,
   CreatedResourceResponse,
+  DeleteBillingCoverageInput,
   DeleteBillingProviderInput,
   DeleteBillingTagInput,
   DeletedResponse,
@@ -39,6 +41,7 @@ import {
   SearchServiceFacilitiesResponse,
   TagBillingClaimInput,
   TaggedClaimResponse,
+  UpdateBillingCoverageInput,
   UpdateBillingPatientInput,
   UpdateBillingProviderInput,
   UpdateBillingResourceInput,
@@ -141,6 +144,21 @@ export const getPatientCoverages = (
   oystehr: Oystehr,
   parameters: GetPatientCoveragesInput
 ): Promise<GetPatientCoveragesResponse> => executeBillingZambda(oystehr, 'get-patient-coverages', parameters);
+
+export const createBillingCoverage = (
+  oystehr: Oystehr,
+  parameters: CreateBillingCoverageInput
+): Promise<CreatedResourceResponse> => executeBillingZambda(oystehr, 'create-billing-coverage', parameters);
+
+export const updateBillingCoverage = (
+  oystehr: Oystehr,
+  parameters: UpdateBillingCoverageInput
+): Promise<SavedResourceResponse> => executeBillingZambda(oystehr, 'update-billing-coverage', parameters);
+
+export const deleteBillingCoverage = (
+  oystehr: Oystehr,
+  parameters: DeleteBillingCoverageInput
+): Promise<DeletedResponse> => executeBillingZambda(oystehr, 'delete-billing-coverage', parameters);
 
 // --- Service Facilities ---
 
