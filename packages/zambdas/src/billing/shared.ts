@@ -617,9 +617,6 @@ export async function findCoverageOfType(
   const pbillAccount = findPatientBillingAccount(accounts);
   const wcompAccount = findPatientWorkersCompAccount(accounts);
 
-  const pbillAccount = accounts.find((acc) => accountMatchesCode(acc, 'PBILLACCT'));
-  const wcompAccount = accounts.find((acc) => accountMatchesCode(acc, 'WCOMPACCT'));
-
   return response.unbundle().find((cov) => {
     if (cov.id === excludeCoverageId || cov.status === 'cancelled') return false;
     return getCoverageInsuranceType(cov, pbillAccount, wcompAccount) === insuranceType;
