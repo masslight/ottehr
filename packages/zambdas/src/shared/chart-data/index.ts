@@ -56,6 +56,7 @@ import {
   FHIR_EXTENSION,
   fillVitalObservationAttributes,
   FreeTextNoteDTO,
+  getBooleanExtensionValue,
   GetChartDataResponse,
   getVitalObservationFhirInterpretations,
   HospitalizationDTO,
@@ -290,6 +291,14 @@ export function makeMedicationResource(
         },
       ],
     },
+    ...(data.isRenewal !== undefined && {
+      extension: [
+        {
+          url: FHIR_EXTENSION.MedicationRequest.isRenewal.url,
+          valueBoolean: data.isRenewal,
+        },
+      ],
+    }),
   };
 }
 
@@ -313,6 +322,7 @@ export function makeMedicationDTO(medication: MedicationStatement): MedicationDT
       ? (medication.status as 'active' | 'completed')
       : 'completed',
     practitioner: medication.informationSource,
+    isRenewal: getBooleanExtensionValue(medication, FHIR_EXTENSION.MedicationRequest.isRenewal.url),
   };
 }
 
@@ -330,6 +340,7 @@ export function makePrescribedMedicationDTO(medRequest: MedicationRequest): Pres
       (identifier) => identifier.system === 'https://identifiers.fhir.oystehr.com/erx-prescription-id'
     )?.value,
     encounterId: medRequest.encounter?.reference?.split('/')?.[1],
+    isRenewal: getBooleanExtensionValue(medRequest, FHIR_EXTENSION.MedicationRequest.isRenewal.url),
   };
 }
 
