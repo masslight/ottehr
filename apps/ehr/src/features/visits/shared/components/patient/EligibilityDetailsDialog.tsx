@@ -1,3 +1,4 @@
+import { otherColors } from '@ehrTheme/colors';
 import { Close } from '@mui/icons-material';
 import { TabContext, TabList, TabPanel } from '@mui/lab';
 import {
@@ -117,6 +118,32 @@ const valueOrDash = (value?: string): string => {
   return value;
 };
 
+// Maps the raw `inplan_network` indicator to a human-readable network status.
+// 'Y' = in network, 'N' = out of network, 'W' = not applicable, anything else = unknown.
+const formatNetworkStatus = (inPlanNetworkCode?: string): string => {
+  switch (inPlanNetworkCode) {
+    case 'Y':
+      return 'In Network';
+    case 'N':
+      return 'Out of Network';
+    case 'W':
+      return 'Not Applicable';
+    default:
+      return 'Unknown';
+  }
+};
+
+const networkChipColors = (inPlanNetworkCode?: string): { backgroundColor: string; color: string } => {
+  switch (inPlanNetworkCode) {
+    case 'Y':
+      return { backgroundColor: otherColors.employeeActiveChip, color: otherColors.employeeActiveText };
+    case 'N':
+      return { backgroundColor: otherColors.employeeDeactivatedChip, color: otherColors.employeeDeactivatedText };
+    default:
+      return { backgroundColor: otherColors.outreachNeutralAvatar, color: otherColors.eligibilityNeutralChipText };
+  }
+};
+
 const formatInsuranceType = (insuranceCode?: string, insuranceDescription?: string): string => {
   const formatted = [insuranceCode, insuranceDescription].filter(Boolean).join(' - ');
   return valueOrDash(formatted);
@@ -147,10 +174,10 @@ const DetailSection: FC<{ title: string; context: string; items: DetailItem[] }>
   return (
     <Box
       sx={{
-        border: '1px solid #e2e8f0',
+        border: `1px solid ${otherColors.eligibilityPanelBorder}`,
         borderRadius: 2,
         p: 2,
-        backgroundColor: '#ffffff',
+        backgroundColor: 'background.paper',
       }}
     >
       <Typography variant="h6" sx={{ color: 'primary.dark', fontWeight: 600 }}>
@@ -421,7 +448,13 @@ export const EligibilityDetailsDialog: FC<EligibilityDetailsDialogProps> = ({
 
           {/* Error Details Section */}
           {(hasErrors || hasFailedStatus) && (
-            <Paper sx={{ p: 3, backgroundColor: '#fef2f2', border: '1px solid #fecaca' }}>
+            <Paper
+              sx={{
+                p: 3,
+                backgroundColor: otherColors.eligibilityErrorBg,
+                border: `1px solid ${otherColors.eligibilityErrorBorder}`,
+              }}
+            >
               <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
                 Error Details
               </Typography>
@@ -525,11 +558,10 @@ const BenefitsTable: FC<{ benefits: PatientPaymentBenefit[] }> = ({ benefits }):
             <TableCell>{benefit.description || 'N/A'}</TableCell>
             <TableCell>
               <Chip
-                label={benefit.inNetwork ? 'In Network' : 'Out of Network'}
+                label={formatNetworkStatus(benefit.inPlanNetworkCode)}
                 sx={{
-                  backgroundColor: benefit.inNetwork ? '#C8E6C9' : '#FECDD2',
+                  ...networkChipColors(benefit.inPlanNetworkCode),
                   textTransform: 'uppercase',
-                  color: benefit.inNetwork ? '#1B5E20' : '#B71C1C',
                   borderRadius: '4px',
                   padding: '0 9px',
                   height: '24px',
@@ -573,7 +605,7 @@ const BenefitContextTable: FC<{ benefits: PatientPaymentBenefit[] }> = ({ benefi
             <TableCell>{benefit.coverageDescription || '—'}</TableCell>
             <TableCell>{formatBenefitAmount(benefit)}</TableCell>
             <TableCell>{valueOrDash(benefit.periodDescription)}</TableCell>
-            <TableCell>{benefit.inNetwork ? 'In Network' : 'Out of Network'}</TableCell>
+            <TableCell>{formatNetworkStatus(benefit.inPlanNetworkCode)}</TableCell>
             <TableCell>{valueOrDash(benefit.benefitNotes)}</TableCell>
           </TableRow>
         ))}

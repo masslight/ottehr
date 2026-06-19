@@ -121,4 +121,12 @@ export const otherColors = {
   outreachActionLog: '#546E7A',
   outreachPaperMailButton: '#6D4C41',
   outreachPaperMailButtonHover: '#5D4037',
+
+  // Eligibility verification / copay UI.
+  // Supporting tints that the palette doesn't define; semantic status colors reuse
+  // palette (success/error) or the matching employee* chip tints above.
+  eligibilityPanelBorder: '#e2e8f0',
+  eligibilityErrorBg: '#fef2f2',
+  eligibilityErrorBorder: '#fecaca',
+  eligibilityNeutralChipText: '#424242',
 };

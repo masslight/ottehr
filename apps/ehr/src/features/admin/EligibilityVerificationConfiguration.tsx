@@ -1,3 +1,4 @@
+import { otherColors } from '@ehrTheme/colors';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import HowToRegIcon from '@mui/icons-material/HowToReg';
 import PersonRemoveIcon from '@mui/icons-material/PersonRemove';
@@ -26,17 +27,16 @@ import {
 } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import React, { ReactElement } from 'react';
+import { DEFAULT_ELIGIBILITY_SHORT_LIST_CODES, MAX_ELIGIBILITY_SHORT_LIST_CODES } from 'utils';
 import { BENEFIT_TYPE_CODES, BenefitTypeCode } from './eligibilityVerification.constants';
 import {
   useAdminUpdateEligibilityVerificationConfig,
   useEligibilityVerificationConfig,
 } from './eligibilityVerification.queries';
 
-// Maximum number of copay service types that may be surfaced on the eligibility "short list".
-const MAX_SHORT_LIST_CODES = 3;
-
-// Default short list mirrors the current hardcoded behavior (Urgent Care only).
-const DEFAULT_SHORT_LIST_CODES = ['UC'];
+// Source-of-truth constants (also enforced server-side by the zod schema) live in `utils`.
+const MAX_SHORT_LIST_CODES = MAX_ELIGIBILITY_SHORT_LIST_CODES;
+const DEFAULT_SHORT_LIST_CODES = DEFAULT_ELIGIBILITY_SHORT_LIST_CODES;
 
 // Sample values used purely to illustrate how copays render in the preview.
 const PREVIEW_CARRIER = 'Example Health Plan';
@@ -155,7 +155,13 @@ export default function EligibilityVerificationConfiguration(): ReactElement {
       </Grid>
       {selectedBenefits.length > 0 ? (
         selectedBenefits.map((benefit) => (
-          <Grid container sx={{ borderTop: '1px solid rgba(0, 0, 0, 0.12)' }} item key={benefit.code} direction="row">
+          <Grid
+            container
+            sx={{ borderTop: `1px solid ${otherColors.lightDivider}` }}
+            item
+            key={benefit.code}
+            direction="row"
+          >
             <Grid item xs={5}>
               <Typography variant="body1" color={theme.palette.primary.dark}>
                 {benefit.description}
@@ -321,7 +327,7 @@ export default function EligibilityVerificationConfiguration(): ReactElement {
             <Typography variant="subtitle2" color="text.secondary" sx={{ mt: 3, mb: 1 }}>
               Eligibility check preview
             </Typography>
-            <Grid sx={{ backgroundColor: 'rgba(244, 246, 248, 1)', padding: 1 }} container spacing={2}>
+            <Grid sx={{ backgroundColor: otherColors.apptHover, padding: 1 }} container spacing={2}>
               <Grid item>
                 <Typography
                   variant="h5"

@@ -14,10 +14,11 @@ export function validateRequestParameters(
   if (!input.body) {
     throw MISSING_REQUEST_BODY;
   }
-  if (input.headers.Authorization === undefined) {
+  const authorization = input.headers?.Authorization;
+  if (!authorization) {
     throw MISSING_AUTH_TOKEN;
   }
-  const userToken = input.headers.Authorization.replace('Bearer ', '');
+  const userToken = authorization.replace('Bearer ', '');
   const secrets = input.secrets;
 
   let params: unknown;

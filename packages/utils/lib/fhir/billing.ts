@@ -340,8 +340,9 @@ export const parseObjectsToCopayBenefits = (input: any[]): PatientPaymentBenefit
             item['entity_zip'] ?? ''
           }`.trim()
         : undefined;
+      const parsedAmount = Number(item['benefit_amount']);
       const CP: PatientPaymentBenefit = {
-        amountInUSD: Number(item['benefit_amount']) ?? 0,
+        amountInUSD: Number.isFinite(parsedAmount) ? parsedAmount : 0,
         percentage: item['benefit_percent'] ?? 0,
         code: item['benefit_code'] ?? '',
         description: item['benefit_description'] ?? CoverageCodeToDescriptionMap[benefitCoverageCode] ?? '',

@@ -43,7 +43,9 @@ export async function getEligibilityVerificationConfigPayload(
 
   try {
     const parsed = JSON.parse(storedJson) as Partial<EligibilityVerificationConfig>;
-    const shortListCodes = Array.isArray(parsed.shortListCodes) ? parsed.shortListCodes : [];
+    const shortListCodes = Array.isArray(parsed.shortListCodes)
+      ? parsed.shortListCodes.filter((code): code is string => typeof code === 'string' && code.length > 0)
+      : [];
     const primaryCode =
       typeof parsed.primaryCode === 'string' && shortListCodes.includes(parsed.primaryCode)
         ? parsed.primaryCode

@@ -1,3 +1,4 @@
+import { otherColors } from '@ehrTheme/colors';
 import HowToRegIcon from '@mui/icons-material/HowToReg';
 import PersonRemoveIcon from '@mui/icons-material/PersonRemove';
 import { Box, Grid, Typography, useTheme } from '@mui/material';
@@ -27,7 +28,7 @@ export const CopayWidget: FC<CopayWidgetProps> = ({ copay }) => {
   return (
     <Grid
       sx={{
-        backgroundColor: 'rgba(244, 246, 248, 1)',
+        backgroundColor: otherColors.apptHover,
         padding: 1,
       }}
       container
@@ -78,7 +79,7 @@ const BenefitSection: FC<BenefitSectionProps> = ({ title, titleIcon, emptyMessag
           <Grid
             container
             sx={{
-              borderTop: '1px solid  rgba(0, 0, 0, 0.12)',
+              borderTop: `1px solid ${otherColors.lightDivider}`,
             }}
             item
             key={`${JSON.stringify(benefit)}`}
