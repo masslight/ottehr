@@ -577,7 +577,10 @@ function InsuranceSection({
           <Row label="Member ID" value={claim.memberId} />
           <Row label="Relationship to insured" value={claim.relationship} />
           {claim.policyHolder && (
-            <Row label="Policy holder" value={`${claim.policyHolder.firstName} ${claim.policyHolder.lastName}`.trim()} />
+            <Row
+              label="Policy holder"
+              value={`${claim.policyHolder.firstName} ${claim.policyHolder.lastName}`.trim()}
+            />
           )}
           <Row label="Coverage Status" value={claim.coverageStatus} />
         </>

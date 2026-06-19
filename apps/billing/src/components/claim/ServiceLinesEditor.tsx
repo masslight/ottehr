@@ -1,5 +1,6 @@
-import { Box, Button, MenuItem, Select, TextField } from '@mui/material';
+import { Autocomplete, Box, Button, MenuItem, Select, TextField } from '@mui/material';
 import { ReactElement } from 'react';
+import { CMS_PLACE_OF_SERVICE_CODES } from 'utils';
 import { ProcedureCodeAutocomplete } from '../ProcedureCodeAutocomplete';
 
 export interface ServiceLineRow {
@@ -101,13 +102,20 @@ export function ServiceLinesEditor({
             sx={{ width: 160 }}
             InputLabelProps={{ shrink: true }}
           />
-          {/* TODO(OTR-2731): replace free-text POS with the full CMS Place of Service picker when "Implement Service Facilities List" lands. */}
-          <TextField
+          <Autocomplete
             size="small"
-            label="POS"
-            value={row.placeOfService}
-            onChange={(e) => setRow(i, 'placeOfService', e.target.value)}
-            sx={{ width: 80 }}
+            options={CMS_PLACE_OF_SERVICE_CODES}
+            value={CMS_PLACE_OF_SERVICE_CODES.find((o) => o.code === row.placeOfService) ?? null}
+            onChange={(_, v) => setRow(i, 'placeOfService', v?.code ?? '')}
+            getOptionLabel={(o) => o.code}
+            renderOption={(props, o) => (
+              <Box component="li" {...props} key={o.code}>
+                {o.code} - {o.display}
+              </Box>
+            )}
+            isOptionEqualToValue={(o, v) => o.code === v.code}
+            renderInput={(p) => <TextField {...p} label="Place of Service" />}
+            sx={{ width: 170 }}
           />
           <Select
             multiple

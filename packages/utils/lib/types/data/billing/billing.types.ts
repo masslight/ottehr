@@ -77,6 +77,7 @@ export interface BillingLocationOption {
   name: string;
   npi: string;
   address: string;
+  posCode: string;
 }
 
 // Service facility (FHIR Location) managed by the billing app's Service Facilities screens.

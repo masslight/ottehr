@@ -393,10 +393,20 @@ const CopyableProperties: ResourceProperties<CopyableBillingResource> = {
     'class',
     'type',
   ],
-  Location: ['resourceType', 'address', 'description', 'name', 'telecom', 'type'],
-  Organization: ['resourceType', 'active', 'address', 'contact', 'name', 'telecom', 'type'],
+  Location: ['resourceType', 'identifier', 'address', 'description', 'name', 'telecom', 'type'],
+  Organization: ['resourceType', 'identifier', 'active', 'address', 'contact', 'name', 'telecom', 'type'],
   Patient: ['resourceType', 'name', 'active', 'gender', 'address', 'telecom', 'birthDate'],
-  Practitioner: ['resourceType', 'active', 'address', 'birthDate', 'gender', 'name', 'qualification', 'telecom'],
+  Practitioner: [
+    'resourceType',
+    'identifier',
+    'active',
+    'address',
+    'birthDate',
+    'gender',
+    'name',
+    'qualification',
+    'telecom',
+  ],
   RelatedPerson: ['resourceType', 'name', 'birthDate', 'gender', 'patient', 'address', 'relationship'],
 } as const;
 /**
