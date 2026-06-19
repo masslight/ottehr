@@ -5,7 +5,6 @@ import { Coverage } from 'fhir/r4b';
 import { APIErrorCode, FHIR_RESOURCE_NOT_FOUND } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import {
-  applyInsuranceTypeToCoverage,
   BillingFhirResource,
   buildSubscriberRelatedPerson,
   coverageInsuranceTypeLabel,
@@ -122,8 +121,6 @@ async function performEffect(
       }
     }
   }
-
-  if (params.insuranceType !== undefined) applyInsuranceTypeToCoverage(coverage, params.insuranceType);
 
   const requests: BatchInputRequest<BillingFhirResource>[] = [
     ...preCoverageRequests,

@@ -23,7 +23,6 @@ import {
   BillingPolicyHolderInput,
   BillingSubscriberRelationship,
   buildCoverageSubscriberRelatedPerson,
-  CANDID_PLAN_TYPE_SYSTEM,
   CODE_SYSTEM_APPOINTMENT_TYPE_CODES,
   CODE_SYSTEM_APPOINTMENT_TYPE_TAG_SYSTEM,
   CODE_SYSTEM_CLAIM_TYPE,
@@ -440,28 +439,6 @@ export function setCoveragePayer(coverage: Coverage, payerOrg: Organization, mem
   coverage.identifier = [createCoverageMemberIdentifier(memberId, payerOrg)];
 }
 
-// Coverage.type plan-type code that marks a coverage as workers' comp (matches the clinical EHR).
-export const WORKERS_COMP_COVERAGE_TYPE_CODE = 'WC';
-
-// Mark (or clear) the workers'-comp plan-type coding on the Coverage. Primary/secondary ordering is
-// carried solely by the patient billing account's coverage priority — not Coverage.order.
-export function applyInsuranceTypeToCoverage(coverage: Coverage, insuranceType: BillingInsuranceType): void {
-  if (coverage.type?.coding) {
-    coverage.type.coding = coverage.type.coding.filter(
-      (c) => !(c.system === CANDID_PLAN_TYPE_SYSTEM && c.code === WORKERS_COMP_COVERAGE_TYPE_CODE)
-    );
-    if (coverage.type.coding.length === 0) delete coverage.type;
-  }
-  if (insuranceType === 'workersComp') {
-    coverage.type = {
-      coding: [
-        ...(coverage.type?.coding ?? []),
-        { system: CANDID_PLAN_TYPE_SYSTEM, code: WORKERS_COMP_COVERAGE_TYPE_CODE },
-      ],
-    };
-  }
-}
-
 export function buildBillingCoverage(params: {
   patientId: string;
   payerOrg: Organization;
@@ -480,7 +457,6 @@ export function buildBillingCoverage(params: {
     subscriberId: params.memberId,
     payor: [],
   };
-  applyInsuranceTypeToCoverage(coverage, params.insuranceType);
   setCoveragePayer(coverage, params.payerOrg, params.memberId);
   setCoverageRelationship(coverage, params.relationship);
   return coverage;
