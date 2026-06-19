@@ -12,6 +12,7 @@ import {
   BUCKET_NAMES,
   CODE_SYSTEM_ICD_10,
   getSecret,
+  normalizePatientEducationLanguage,
   PATIENT_EDUCATION_APPROVED_DOC_TYPE_CODE,
   PATIENT_EDUCATION_APPROVED_ICD_EXTENSION_URL,
   PATIENT_EDUCATION_APPROVED_LIST_IDENTIFIER,
@@ -94,7 +95,8 @@ const performEffect = async (
   //    set overlaps with the incoming one. Language-scoping lets EN and ES variants for a code coexist
   //    (saving a Spanish PDF for H66.01 does not supersede the English one).
   const incomingIcdSet = new Set(icdCodes.map((c) => c.code));
-  const docLanguage = (dr: DocumentReference): string => dr.content?.[0]?.attachment?.language ?? 'en';
+  const docLanguage = (dr: DocumentReference): string =>
+    normalizePatientEducationLanguage(dr.content?.[0]?.attachment?.language);
   const toReplace = existingDocRefs.filter(
     (dr) =>
       docLanguage(dr) === language && extractApprovedEducationIcdCodes(dr).some(({ code }) => incomingIcdSet.has(code))

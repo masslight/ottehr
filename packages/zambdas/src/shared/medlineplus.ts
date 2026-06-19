@@ -4,6 +4,8 @@
 // resources can import it; promote to packages/utils if the EHR/intake apps ever
 // need to call it directly.
 
+import { PatientEducationLanguage } from 'utils';
+
 const MEDLINE_BASE_URL = 'https://connect.medlineplus.gov/service';
 
 // MedlinePlus's required value-set OID for ICD-10-CM. Distinct from the FHIR URN
@@ -28,7 +30,10 @@ export interface MedlineLink {
   url: string;
 }
 
-export async function fetchMedlineLinks(icdCode: string, language: 'en' | 'es' = 'en'): Promise<MedlineLink[]> {
+export async function fetchMedlineLinks(
+  icdCode: string,
+  language: PatientEducationLanguage = 'en'
+): Promise<MedlineLink[]> {
   // `informationRecipient.languageCode.c` controls the language of the returned materials:
   // `en` (default) → English, `es` → Spanish. MedlinePlus returns Spanish-language resources for
   // the same ICD-10 code when es is requested.

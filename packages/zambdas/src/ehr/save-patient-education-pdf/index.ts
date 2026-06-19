@@ -6,6 +6,7 @@ import { DateTime } from 'luxon';
 import {
   BUCKET_NAMES,
   getSecret,
+  normalizePatientEducationLanguage,
   PATIENT_EDUCATION_DOC_TYPE_CODE,
   SavePatientEducationPdfInput,
   SavePatientEducationPdfOutput,
@@ -50,7 +51,10 @@ const performEffect = async (
   oystehr: Oystehr,
   token: string
 ): Promise<SavePatientEducationPdfOutput> => {
-  const { encounterId, patientId, title, language, secrets } = validatedInput;
+  const { encounterId, patientId, title, secrets } = validatedInput;
+  // Tag the attachment's language so EN/ES versions can be told apart; default to English (matches
+  // the approved-PDF endpoint and how legacy untagged docs are read back).
+  const language = normalizePatientEducationLanguage(validatedInput.language);
   console.log('Saving patient education PDF', {
     encounterId,
     patientId,
@@ -103,8 +107,7 @@ const performEffect = async (
             url: z3Url,
             contentType: 'application/pdf',
             title,
-            // Tag the PDF's language so EN/ES versions can be told apart.
-            ...(language ? { language } : {}),
+            language,
           },
         },
       ],

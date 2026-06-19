@@ -8,6 +8,11 @@ export const PATIENT_EDUCATION_LANGUAGE_LABELS: Record<PatientEducationLanguage,
   es: 'Español',
 };
 
+// Normalize a stored language tag (e.g. a FHIR `attachment.language`) to a supported language.
+// Legacy approved PDFs created before language support have no tag and are treated as English.
+export const normalizePatientEducationLanguage = (value: string | undefined): PatientEducationLanguage =>
+  value === 'es' ? 'es' : 'en';
+
 export interface PatientEducationSection {
   content: string;
   patientTitle: string;

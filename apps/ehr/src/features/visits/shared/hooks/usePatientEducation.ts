@@ -50,6 +50,10 @@ export interface EducationSection {
 
 export type GenerateOutcome = 'review' | 'completed';
 
+// Key for the per-(code, language) maps below: a code can have both an English and a Spanish
+// variant (approved PDF or prefetched content), so the language is part of the key.
+const educationKey = (code: string, language: PatientEducationLanguage): string => `${code}:${language}`;
+
 export interface UsePatientEducationResult {
   prefetchAllDiagnoses: (language: PatientEducationLanguage) => void;
   generateDiagnoses: (
@@ -107,11 +111,10 @@ export function usePatientEducation(): UsePatientEducationResult {
       .listApprovedPatientEducation()
       .then((res) => {
         if (cancelled) return;
-        // Keyed by `${code}:${language}` so a code can have both an English and a Spanish approved PDF.
         const map = new Map<string, ApprovedPatientEducationItem>();
         for (const item of res.items) {
           for (const icd of item.icdCodes) {
-            map.set(`${icd.code}:${item.language}`, item);
+            map.set(educationKey(icd.code, item.language), item);
           }
         }
         setApprovedByCode(map);
@@ -133,14 +136,12 @@ export function usePatientEducation(): UsePatientEducationResult {
   // and a Spanish variant; only the matching-language one is used (else we generate fresh).
   const approvedFor = useCallback(
     (code: string, lang: PatientEducationLanguage): ApprovedPatientEducationItem | undefined =>
-      approvedByCode.get(`${code}:${lang}`),
+      approvedByCode.get(educationKey(code, lang)),
     [approvedByCode]
   );
 
   // Prefetch cache: fires off requests for all non-approved diagnoses as soon as the modal opens.
-  // Keyed by `${code}:${language}` so switching language fetches the right-language content.
   const prefetchCacheRef = useRef<Map<string, Promise<EducationSection | null>>>(new Map());
-  const cacheKey = (code: string, language: PatientEducationLanguage): string => `${code}:${language}`;
 
   const prefetchAllDiagnoses = useCallback(
     (language: PatientEducationLanguage) => {
@@ -148,7 +149,7 @@ export function usePatientEducation(): UsePatientEducationResult {
       for (const diagnosis of allDiagnoses) {
         // Skip generating a code that already has an approved PDF in the chosen language.
         if (approvedFor(diagnosis.code, language)) continue;
-        const key = cacheKey(diagnosis.code, language);
+        const key = educationKey(diagnosis.code, language);
         if (prefetchCacheRef.current.has(key)) continue;
         const promise = apiClient
           .generatePatientEducation({
@@ -369,7 +370,7 @@ export function usePatientEducation(): UsePatientEducationResult {
           const diagnosis = toGenerate[i];
           setProgress(`Loading ${i + 1} of ${toGenerate.length}: ${diagnosis.display}...`);
 
-          let sectionPromise = prefetchCacheRef.current.get(cacheKey(diagnosis.code, language));
+          let sectionPromise = prefetchCacheRef.current.get(educationKey(diagnosis.code, language));
           if (!sectionPromise) {
             sectionPromise = apiClient
               .generatePatientEducation({
