@@ -1,4 +1,5 @@
 import Oystehr, { ErxSearchPharmaciesParams, ErxSearchPharmaciesResponse } from '@oystehr/sdk';
+import { standardizePhoneWithExtension } from 'utils';
 
 export const PLACES_API_BASE_URL = 'https://places.googleapis.com/v1/places';
 
@@ -117,11 +118,11 @@ export const getAddressParamsForErxPharmacySearch = (
   return params;
 };
 
-export const extractPharmacyIdFromSearchRes = (
+export const findMatchingErxPharmacy = (
   placesPharmacyName: string | undefined,
   placesPharmacyAddress: PlacesDetailAddress | undefined,
   erxSearchResults: ErxSearchPharmaciesResponse['data'] | undefined
-): string | undefined => {
+): ErxSearchPharmaciesResponse['data'][number] | undefined => {
   if (!placesPharmacyAddress || !placesPharmacyName) return;
   if (!erxSearchResults || !erxSearchResults.length) return;
 
@@ -132,9 +133,42 @@ export const extractPharmacyIdFromSearchRes = (
     return nameMatch && addressMatch;
   });
 
-  console.log('extractPharmacyIdFromSearchRes match: ', match);
+  console.log('findMatchingErxPharmacy match: ', match);
 
-  return match?.id.toString();
+  return match;
+};
+
+/**
+ * Reconciles the pharmacy phone reported by Google Places with the one on the matched erx record.
+ * If only one number standardizes, return it. When both standardize:
+ * - If they match, return the standardized phone.
+ * - If only one has an extension, return that one.
+ * - If the extensions differ, return only the base.
+ * - Otherwise if the base differs, prefer Places since its data is usually fresher.
+ */
+export const reconcilePharmacyPhone = (placesPhone?: string, erxPhone?: string): string | undefined => {
+  const placesStandardized = standardizePhoneWithExtension(placesPhone);
+  const erxStandardized = standardizePhoneWithExtension(erxPhone);
+
+  if (!placesStandardized || !erxStandardized) {
+    return placesStandardized ?? erxStandardized;
+  }
+
+  if (placesStandardized === erxStandardized) {
+    return placesStandardized;
+  }
+
+  const [placesBase, placesExtension] = placesStandardized.split(' x');
+  const [erxBase, erxExtension] = erxStandardized.split(' x');
+  if (placesBase === erxBase) {
+    if (!!placesExtension !== !!erxExtension) {
+      return placesExtension ? placesStandardized : erxStandardized;
+    }
+    // both have extensions but they differ; only the base is agreed on
+    return placesBase;
+  }
+
+  return placesStandardized;
 };
 
 const namePartialMatch = (name1: string, name2: string): boolean => {

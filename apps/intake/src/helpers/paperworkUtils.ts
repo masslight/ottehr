@@ -17,8 +17,7 @@ function isContactInformationComplete(completedPaperwork: CompletedPaperwork): b
     valueExists(completedPaperwork['patient-zip']);
   const patientFillingOutAs = valueExists(completedPaperwork['patient-filling-out-as']);
   const patientInfoExists =
-    (valueExists(completedPaperwork['patient-email']) || completedPaperwork['patient-no-email'] === true) &&
-    valueExists(completedPaperwork['patient-number']);
+    valueExists(completedPaperwork['patient-email']) && valueExists(completedPaperwork['patient-number']);
   const guardianInfoExists =
     valueExists(completedPaperwork['guardian-email']) && valueExists(completedPaperwork['guardian-number']);
 
@@ -52,9 +51,6 @@ function isPaymentOptionComplete(completedPaperwork: CompletedPaperwork, questio
 function isResponsiblePartyComplete(completedPaperwork: CompletedPaperwork, questions: Question[]): boolean {
   return questions
     .filter((question) => {
-      if (question.id === 'responsible-party-email') {
-        return completedPaperwork['responsible-party-no-email'] !== true && question.required;
-      }
       return question.required;
     })
     .every((question) => {

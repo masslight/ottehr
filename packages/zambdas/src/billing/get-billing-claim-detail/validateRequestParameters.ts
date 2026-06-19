@@ -1,5 +1,5 @@
-import { GetClaimDetailInput, GetClaimDetailInputSchema, INVALID_INPUT_ERROR, MISSING_REQUEST_BODY } from 'utils';
-import { formatZodError, ZambdaInput } from '../../shared';
+import { GetClaimDetailInput, GetClaimDetailInputSchema, MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS } from 'utils';
+import { safeValidate, validateJsonBody, ZambdaInput } from '../../shared';
 
 export interface GetClaimDetailParams extends GetClaimDetailInput {
   secrets: ZambdaInput['secrets'];
@@ -7,16 +7,12 @@ export interface GetClaimDetailParams extends GetClaimDetailInput {
 
 export function validateRequestParameters(input: ZambdaInput): GetClaimDetailParams {
   if (!input.body) throw MISSING_REQUEST_BODY;
+  if (!input.secrets) throw MISSING_REQUEST_SECRETS;
 
-  let raw: unknown;
-  try {
-    raw = JSON.parse(input.body);
-  } catch {
-    throw INVALID_INPUT_ERROR('Request body is not valid JSON');
-  }
+  const data = safeValidate(GetClaimDetailInputSchema, validateJsonBody(input));
 
-  const result = GetClaimDetailInputSchema.safeParse(raw);
-  if (!result.success) throw INVALID_INPUT_ERROR(formatZodError(result.error));
-
-  return { ...result.data, secrets: input.secrets };
+  return {
+    ...data,
+    secrets: input.secrets,
+  };
 }

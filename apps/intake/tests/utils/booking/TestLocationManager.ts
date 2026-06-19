@@ -1,8 +1,10 @@
 import { BatchInputDeleteRequest } from '@oystehr/sdk';
-import { HealthcareService, Location, Practitioner, PractitionerRole, Schedule } from 'fhir/r4b';
+import { HealthcareService, Location, Organization, Practitioner, PractitionerRole, Schedule } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM,
+  ORG_TYPE_CODE_SYSTEM,
+  ORG_TYPE_OCCUPATIONAL_MEDICINE_EMPLOYER_CODE,
   SCHEDULE_STRATEGY_SYSTEM,
   ScheduleStrategy,
   SERVICE_CATEGORY_SYSTEM,
@@ -69,6 +71,7 @@ export class TestLocationManager {
   private deeplinkOpenSchedule?: Schedule;
   private deeplinkClosedLocation?: Location;
   private deeplinkClosedSchedule?: Schedule;
+  private occMedEmployer?: Organization;
 
   /**
    * @param workerUniqueId - Unique identifier for this worker to isolate test resources
@@ -296,6 +299,60 @@ export class TestLocationManager {
     });
 
     return { location: this.walkinLocation, schedule: this.walkinSchedule };
+  }
+
+  async ensureOccMedEmployer(): Promise<Organization> {
+    const oystehr = this.resourceHandler.apiClient;
+    const processId = this.workerUniqueId;
+
+    const existingEmployers = await oystehr.fhir.search<Organization>({
+      resourceType: 'Organization',
+      params: [
+        {
+          name: '_tag',
+          value: `${E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM}|${processId}-test-occ-med-employer`,
+        },
+      ],
+    });
+
+    const existingEmployer = existingEmployers.unbundle()[0] as Organization | undefined;
+    if (existingEmployer?.id) {
+      this.occMedEmployer = existingEmployer;
+      return existingEmployer;
+    }
+
+    const organization: Organization = {
+      resourceType: 'Organization',
+      active: true,
+      name: `E2E-OccMedEmployer-${processId}`,
+      type: [
+        {
+          coding: [
+            {
+              system: ORG_TYPE_CODE_SYSTEM,
+              code: ORG_TYPE_OCCUPATIONAL_MEDICINE_EMPLOYER_CODE,
+              display: 'Occupational Medicine Employer',
+            },
+          ],
+        },
+      ],
+      meta: {
+        tag: [
+          {
+            system: E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM,
+            code: `${processId}-test-occ-med-employer`,
+            display: 'E2E Test Occupational Medicine Employer',
+          },
+        ],
+      },
+    };
+
+    this.occMedEmployer = await oystehr.fhir.create(organization);
+    if (!this.occMedEmployer.id) {
+      throw new Error('Failed to create occupational-medicine employer test organization');
+    }
+
+    return this.occMedEmployer;
   }
 
   /**
@@ -1262,6 +1319,14 @@ export class TestLocationManager {
         await oystehr.fhir.delete({ resourceType: 'Location', id: this.deeplinkClosedLocation.id });
       } catch (error) {
         console.warn('Failed to delete deeplink closed test location:', error);
+      }
+    }
+
+    if (this.occMedEmployer?.id) {
+      try {
+        await oystehr.fhir.delete({ resourceType: 'Organization', id: this.occMedEmployer.id });
+      } catch (error) {
+        console.warn('Failed to delete occupational-medicine employer test organization:', error);
       }
     }
   }

@@ -76,8 +76,10 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
   const hpi = chartFields?.chiefComplaint?.text;
   const emCode = chartData?.emCode;
   const patientInfoConfirmed = chartFields?.patientInfoConfirmed?.value;
-  const accidentHasType = (chartFields?.accident?.type?.length ?? 0) > 0;
-  const accidentMissingDate = accidentHasType && !chartFields?.accident?.date;
+  const hasAccidentType = (chartFields?.accident?.type?.length ?? 0) > 0;
+  const isAutoAccident = chartFields?.accident?.type?.includes('AA') ?? false;
+  const accidentMissingDate = hasAccidentType && !chartFields?.accident?.date;
+  const accidentMissingState = isAutoAccident && !chartFields?.accident?.state;
   const inHouseLabResultsPending = chartFields?.inHouseLabResults?.resultsPending;
   const inHouseLabReflexTestPending = chartFields?.inHouseLabResults?.reflexTestsPending;
 
@@ -112,7 +114,14 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
       }
     }
 
-    if (!primaryDiagnosis || (mdmRequired && !medicalDecision) || !emCode || !hpi || accidentMissingDate) {
+    if (
+      !primaryDiagnosis ||
+      (mdmRequired && !medicalDecision) ||
+      !emCode ||
+      !hpi ||
+      accidentMissingDate ||
+      accidentMissingState
+    ) {
       messages.push('You need to fill in the missing data');
     }
 
@@ -140,6 +149,7 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
     hpi,
     emCode,
     accidentMissingDate,
+    accidentMissingState,
     patientInfoConfirmed,
     inHouseLabResultsPending,
     isFollowup,
