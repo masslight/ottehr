@@ -407,6 +407,10 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
 
   const eligibilityCheck = getCurrentEligibilityData();
 
+  // Plan / MCO entities reported on the eligibility response (e.g. the managed care organization a
+  // Medicaid member is enrolled in). Only entries that carry a name are surfaced.
+  const mcoPlans = (eligibilityCheck?.coverageDetails?.plans ?? []).filter((plan) => plan.entityName || plan.planName);
+
   function formatMoney(value: number | undefined): string {
     if (value === undefined) {
       return 'Unknown';
@@ -529,6 +533,53 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
             );
           })()}
           <CopayWidget copay={copayBenefits} />
+          {mcoPlans.length > 0 && (
+            <Grid
+              sx={{
+                marginTop: 2,
+                backgroundColor: 'rgba(244, 246, 248, 1)',
+                padding: 1,
+              }}
+              container
+              spacing={2}
+            >
+              <Grid item xs={12}>
+                <Typography
+                  variant="h5"
+                  color={theme.palette.primary.dark}
+                  fontWeight={theme.typography.fontWeightBold}
+                >
+                  Plan / MCO
+                </Typography>
+              </Grid>
+              {mcoPlans.map((plan, index) => (
+                <Grid item xs={12} sm={6} key={`mco-plan-${index}`}>
+                  <Typography
+                    variant="body1"
+                    color={theme.palette.primary.dark}
+                    fontWeight={theme.typography.fontWeightMedium}
+                  >
+                    {[plan.entityName, plan.planName].filter(Boolean).join(' / ')}
+                  </Typography>
+                  {plan.entityType && (
+                    <Typography variant="body2" color={theme.palette.text.secondary}>
+                      {plan.entityType}
+                    </Typography>
+                  )}
+                  {plan.payerID && (
+                    <Typography variant="body2" color={theme.palette.text.secondary}>
+                      Payer ID: {plan.payerID}
+                    </Typography>
+                  )}
+                  {plan.phone && (
+                    <Typography variant="body2" color={theme.palette.text.secondary}>
+                      Phone: {plan.phone}
+                    </Typography>
+                  )}
+                </Grid>
+              ))}
+            </Grid>
+          )}
           <Grid
             sx={{
               marginTop: 2,

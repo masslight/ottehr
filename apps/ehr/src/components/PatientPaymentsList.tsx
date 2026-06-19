@@ -684,32 +684,6 @@ export default function PatientPaymentList({
   const formattedCopayAmount = formatUsd(copayAmount?.amountInUSD);
   const formattedRemainingDeductibleAmount = formatUsd(remainingDeductibleAmount?.amountInUSD);
 
-  // Medicaid (and similar) eligibility responses can report a managed care organization (MCO) or a
-  // specific plan the member is enrolled in, which may differ from the carrier on file. Claims must
-  // be routed to that MCO's payer, so when an MCO/plan distinct from the carrier is reported, surface
-  // it (with its payer ID when available) next to the carrier.
-  const mcoPlanDetail = (() => {
-    const plans = coverageCheck?.coverageDetails?.plans ?? [];
-    if (plans.length === 0) return undefined;
-    const carrier = insuranceName?.trim().toLowerCase();
-    const differsFromCarrier = (label?: string): boolean => {
-      const trimmed = label?.trim();
-      return !!trimmed && (!carrier || trimmed.toLowerCase() !== carrier);
-    };
-    // Prefer a managed care organization (entityName names the reporting org) distinct from the carrier,
-    // otherwise fall back to a named plan distinct from the carrier.
-    const plan =
-      plans.find((p) => p.entityName && differsFromCarrier(p.entityName)) ??
-      plans.find((p) => differsFromCarrier(p.planName));
-    if (!plan) return undefined;
-    const primaryLabel = plan.entityName || plan.planName;
-    return {
-      label: primaryLabel,
-      subLabel: plan.entityName && plan.planName && plan.planName !== primaryLabel ? plan.planName : undefined,
-      payerID: plan.payerID,
-    };
-  })();
-
   // Recommended collection amount based on copay, deductible, and services
   const recommendedCollection = useMemo(() => {
     const copay = copayAmount?.amountInUSD ?? 0;
@@ -1061,26 +1035,6 @@ export default function PatientPaymentList({
                             />
                           )}
                         </Box>
-                      </Box>
-                    )}
-                    {mcoPlanDetail && (
-                      <Box sx={{ minWidth: 120 }}>
-                        <Typography variant="caption" color="text.secondary">
-                          Plan / MCO
-                        </Typography>
-                        <Typography variant="body2" fontWeight={600}>
-                          {mcoPlanDetail.label}
-                        </Typography>
-                        {mcoPlanDetail.subLabel && (
-                          <Typography variant="caption" color="text.secondary" display="block">
-                            {mcoPlanDetail.subLabel}
-                          </Typography>
-                        )}
-                        {mcoPlanDetail.payerID && (
-                          <Typography variant="caption" color="text.secondary" display="block">
-                            Payer ID: {mcoPlanDetail.payerID}
-                          </Typography>
-                        )}
                       </Box>
                     )}
                     {formattedCopayAmount && copayAmount?.periodDescription && (
