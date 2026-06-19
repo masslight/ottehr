@@ -35,7 +35,6 @@ import {
   ClaimStatusFieldKey,
   formatClaimStatusValue,
   getApiError,
-  insuranceTypeOptionsData,
   UpdateBillingResourceInput,
 } from 'utils';
 import {
@@ -61,11 +60,6 @@ import { buildAddressInput, formatCurrency, splitDisplayName } from '../utils/fo
 type UpdateFn = (resourceType: string, resourceId: string, fields: Record<string, unknown>) => Promise<string | null>;
 
 const thSx = { color: 'primary.dark', fontWeight: 600, fontSize: 13 };
-
-const planTypeLabel = (code: string): string => {
-  const option = insuranceTypeOptionsData.find((o) => o.candidCode === code);
-  return option ? `${option.candidCode} - ${option.label}` : code;
-};
 
 export default function ClaimDetail(): ReactElement {
   const { id } = useParams();
@@ -415,9 +409,6 @@ function InsuranceSection({
   const [payer, setPayer] = useState<BillingPayerOption | null>(null);
   const [memberId, setMemberId] = useState(claim.memberId);
   const [status, setStatus] = useState(claim.coverageStatus);
-  const [groupNumber, setGroupNumber] = useState(claim.groupNumber);
-  const [planName, setPlanName] = useState(claim.planName);
-  const [planType, setPlanType] = useState(claim.planType);
 
   const [payerOptions, setPayerOptions] = useState<BillingPayerOption[]>([]);
   const [coverageOptions, setCoverageOptions] = useState<BillingCoverageOption[]>([]);
@@ -428,9 +419,6 @@ function InsuranceSection({
     setPayer(claim.payorFhirId ? { id: claim.payorFhirId, name: claim.payerName, payerId: claim.payerId } : null);
     setMemberId(claim.memberId);
     setStatus(claim.coverageStatus);
-    setGroupNumber(claim.groupNumber);
-    setPlanName(claim.planName);
-    setPlanType(claim.planType);
     setSelectedCoverage(null);
   }, [claim]);
 
@@ -470,9 +458,6 @@ function InsuranceSection({
     return updateResource('Coverage', claim.coverageFhirId, {
       subscriberId: memberId,
       status,
-      groupNumber,
-      planName,
-      planType,
     });
   };
 
@@ -551,29 +536,6 @@ function InsuranceSection({
                   <MenuItem value="entered-in-error">Entered in error</MenuItem>
                 </Select>
               </Field>
-              <Field label="Group Number">
-                <TextField
-                  size="small"
-                  fullWidth
-                  value={groupNumber}
-                  onChange={(e) => setGroupNumber(e.target.value)}
-                />
-              </Field>
-              <Field label="Plan Name">
-                <TextField size="small" fullWidth value={planName} onChange={(e) => setPlanName(e.target.value)} />
-              </Field>
-              <Field label="Plan Type">
-                <Autocomplete
-                  size="small"
-                  options={insuranceTypeOptionsData}
-                  value={insuranceTypeOptionsData.find((o) => o.candidCode === planType) ?? null}
-                  onChange={(_, v) => setPlanType(v?.candidCode ?? '')}
-                  getOptionLabel={(o) => `${o.candidCode} - ${o.label}`}
-                  isOptionEqualToValue={(o, v) => o.candidCode === v.candidCode}
-                  renderInput={(p) => <TextField {...p} placeholder="Select..." />}
-                />
-              </Field>
-              {/* TODO: Insurance Type dropdown — needs a value set (Candid InsuranceTypeCode: 01 Short Term, 12-16 Medicare Secondary, …) + a Coverage storage slot, since Coverage.type is taken by Plan Type. Deferred. */}
             </Box>
           )}
         </Box>
@@ -583,9 +545,6 @@ function InsuranceSection({
       <Row label="Payer ID" value={claim.payerId} />
       <Row label="Member ID" value={claim.memberId} />
       <Row label="Coverage Status" value={claim.coverageStatus} />
-      <Row label="Group Number" value={claim.groupNumber} />
-      <Row label="Plan Name" value={claim.planName} />
-      <Row label="Plan Type" value={planTypeLabel(claim.planType)} />
     </EditableSection>
   );
 }

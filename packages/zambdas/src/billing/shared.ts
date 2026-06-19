@@ -316,34 +316,6 @@ export function setTaxonomy(resource: Practitioner | Organization, taxonomyCode:
   }
 }
 
-export function getCoverageClass(coverage: Coverage, classCode: string): string {
-  return coverage.class?.find((c) => c.type?.coding?.some((cc) => cc.code === classCode))?.value ?? '';
-}
-
-export function setCoverageClass(coverage: Coverage, classCode: string, value: string): void {
-  const others = (coverage.class ?? []).filter((c) => !c.type?.coding?.some((cc) => cc.code === classCode));
-  if (value) {
-    coverage.class = [
-      ...others,
-      { type: { coding: [{ system: CODE_SYSTEM_COVERAGE_CLASS, code: classCode }] }, value },
-    ];
-  } else if (others.length) {
-    coverage.class = others;
-  } else {
-    delete coverage.class;
-  }
-}
-
-// Plan Type lives on Coverage.type under CANDID_PLAN_TYPE_SYSTEM
-export function getCoveragePlanType(coverage: Coverage): string {
-  return getCandidPlanTypeCodeFromCoverage(coverage) ?? '';
-}
-
-export function setCoveragePlanType(coverage: Coverage, candidCode: string): void {
-  if (candidCode) coverage.type = { coding: [{ system: CANDID_PLAN_TYPE_SYSTEM, code: candidCode }] };
-  else delete coverage.type;
-}
-
 export function fhirName(resource?: Patient | Practitioner): string {
   const name = resource?.name?.[0];
   return name ? convertFhirNameToDisplayName(name) : '';

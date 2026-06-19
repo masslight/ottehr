@@ -20,8 +20,6 @@ import {
   fetchById,
   getClaimTypeCoding,
   prepareWorkingCopy,
-  setCoverageClass,
-  setCoveragePlanType,
   setNpi,
   setTaxId,
   setTaxonomy,
@@ -69,9 +67,6 @@ async function performEffect(oystehr: Oystehr, params: UpdateBillingClaimParams)
       const { fields } = params;
       if (fields.subscriberId !== undefined) coverage.subscriberId = fields.subscriberId;
       if (fields.status !== undefined) coverage.status = fields.status;
-      if (fields.groupNumber !== undefined) setCoverageClass(coverage, 'group', fields.groupNumber);
-      if (fields.planName !== undefined) setCoverageClass(coverage, 'plan', fields.planName);
-      if (fields.planType !== undefined) setCoveragePlanType(coverage, fields.planType);
       return save(oystehr, coverage);
     }
     case 'Location': {
