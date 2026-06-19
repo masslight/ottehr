@@ -310,11 +310,25 @@ export function ScheduleOverridesComponent({
                               <ScheduleCapacity
                                 day={overrides[dateString]}
                                 setDay={(dayTemp: Day) => {
-                                  overrides[dateString] = {
-                                    ...dayTemp,
-                                    open: dayTemp.open as HourOfDay,
-                                    close: dayTemp.close as HourOfDay,
-                                  };
+                                  // Functional setState — otherwise per-hour
+                                  // edits race each other: every CapacityCell
+                                  // captures `day` from last render, and
+                                  // without an `overrides` reference change
+                                  // here there's no re-render to refresh that
+                                  // prop. Each subsequent edit then rebuilds
+                                  // hours from the stale day.hours, silently
+                                  // dropping prior edits. This used to be
+                                  // masked by ScheduleCapacity mutating
+                                  // day.hours in place; once that was made
+                                  // immutable, this regression surfaced.
+                                  setOverrides((prev) => ({
+                                    ...(prev ?? {}),
+                                    [dateString]: {
+                                      ...dayTemp,
+                                      open: dayTemp.open as HourOfDay,
+                                      close: dayTemp.close as HourOfDay,
+                                    },
+                                  }));
                                 }}
                                 openingHour={overrides[dateString].open}
                                 closingHour={overrides[dateString].close}

@@ -1,5 +1,5 @@
 import { INVALID_INPUT_ERROR } from 'utils';
-import { ZodError, ZodSchema } from 'zod';
+import { z, ZodError, ZodSchema } from 'zod';
 import { fromZodError } from 'zod-validation-error';
 
 // Phone number regex
@@ -7,7 +7,7 @@ import { fromZodError } from 'zod-validation-error';
 // \d{10}$ match exactly 10 digits at the end of the string
 export const phoneRegex = /^(\+1)?\d{10}$/;
 
-export function safeValidate<T>(schema: ZodSchema<T>, input: unknown): T {
+export function safeValidate<T extends ZodSchema<any>>(schema: T, input: unknown): z.output<T> {
   try {
     return schema.parse(input);
   } catch (error) {

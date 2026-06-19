@@ -23,7 +23,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Operation } from 'fast-json-patch';
 import { CodeableConcept, HealthcareService, Location, Practitioner, PractitionerRole, Schedule } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
-import { ReactElement, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { listServiceCategories } from 'src/api/api';
 import CustomBreadcrumbs from 'src/components/CustomBreadcrumbs';
@@ -37,13 +37,16 @@ import {
   getSlugForBookableResource,
   GROUP_OWNED_CHARACTERISTIC_SYSTEMS,
   groupCharacteristics,
+  isValidSlug,
   mergeOwnedCharacteristics,
   SCHEDULE_STRATEGY_SYSTEM,
   SERVICE_CATEGORY_SYSTEM,
   SLUG_SYSTEM,
+  SLUG_VALIDATION_MESSAGE,
 } from 'utils';
 import { useApiClients } from '../hooks/useAppClients';
 import PageContainer from '../layout/PageContainer';
+import { useHydratedSupportedCategoryHsIds } from './useHydratedSupportedCategoryHsIds';
 
 type AssignmentMode = 'anonymous' | 'provider';
 
@@ -84,8 +87,9 @@ function GroupPageContent(): ReactElement {
   const [assignmentMode, setAssignmentMode] = useState<AssignmentMode>('anonymous');
   // Categories the group supports. Authoritative — what the patient is allowed
   // to book through this group. Admin-curated; a Massage group containing a
-  // multi-skill member shouldn't expose that member's other categories.
-  const [supportedCategoryHsIds, setSupportedCategoryHsIds] = useState<string[]>([]);
+  // multi-skill member shouldn't expose that member's other categories. State
+  // + hydration live in the hook so the race-prone "wait for both queries"
+  // logic is covered by a focused unit test.
   const [name, setName] = useState<string>('');
   const [slug, setSlug] = useState<string>('');
   const [copiedLink, setCopiedLink] = useState<string | null>(null);
@@ -164,6 +168,16 @@ function GroupPageContent(): ReactElement {
     }
     return map;
   }, [categoryData]);
+
+  // Categories the group supports — see the comment near `group` state. Hook
+  // hydrates from group.type[] once both `group` and the FHIR catalog query
+  // have resolved; the `categoryData !== undefined` flag distinguishes
+  // "query done with empty catalog" from "still loading."
+  const [supportedCategoryHsIds, setSupportedCategoryHsIds] = useHydratedSupportedCategoryHsIds(
+    group,
+    categoryByHsId,
+    categoryData !== undefined
+  );
 
   // For each Location, count the distinct active providers that picking the
   // Location would pull into the group's pool. "Provider" = distinct
@@ -447,29 +461,6 @@ function GroupPageContent(): ReactElement {
     setAllLocations(getGroupAllLocations(groupTemp) ?? false);
   }, [oystehr, groupID]);
 
-  // Resolve the group's authoritative supported-categories list. group.type[]
-  // stores category codes; the multi-select keys on HS ids. We map via the
-  // catalog (categoryByHsId, populated by the service-categories query). A
-  // group with empty type[] (e.g., freshly created) hydrates to an empty
-  // allow-list — the admin must explicitly select services.
-  const supportedHydratedRef = useRef(false);
-  useEffect(() => {
-    if (supportedHydratedRef.current) return;
-    if (!group || !categoryByHsId.size) return;
-
-    const codes = (group.type || [])
-      .flatMap((t) => t.coding || [])
-      .map((c) => c.code)
-      .filter((c): c is string => !!c);
-
-    const allowed = new Set<string>();
-    for (const [id, info] of categoryByHsId.entries()) {
-      if (codes.includes(info.code)) allowed.add(id);
-    }
-    setSupportedCategoryHsIds([...allowed]);
-    supportedHydratedRef.current = true;
-  }, [group, categoryByHsId]);
-
   useEffect(() => {
     void getOptions();
   }, [getOptions]);
@@ -478,6 +469,10 @@ function GroupPageContent(): ReactElement {
     try {
       event.preventDefault();
       if (!oystehr) return;
+      if (slug && !isValidSlug(slug)) {
+        enqueueSnackbar(`Permalink ${SLUG_VALIDATION_MESSAGE}.`, { variant: 'error' });
+        return;
+      }
       setLoading(true);
 
       // Locations are admin-curated directly via selectedLocationIds (the
@@ -563,6 +558,11 @@ function GroupPageContent(): ReactElement {
     }
   }
 
+  // A non-empty permalink must match the URL-safe shape the patient side
+  // enforces, otherwise the save succeeds here but booking by slug later fails
+  // with a validation error.
+  const slugError = !!slug && !isValidSlug(slug);
+
   if (!group) {
     return (
       <div style={{ width: '100%', height: '250px' }}>
@@ -608,6 +608,8 @@ function GroupPageContent(): ReactElement {
                 onChange={(event) => {
                   setSlug(event.target.value);
                 }}
+                error={slugError}
+                helperText={slugError ? SLUG_VALIDATION_MESSAGE : undefined}
                 sx={{ width: '250px' }}
               />
               <Typography
@@ -690,6 +692,7 @@ function GroupPageContent(): ReactElement {
               </Typography>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, maxWidth: 640 }}>
                 {Array.from(categoryByHsId.entries())
+                  .filter(([, info]) => info.source !== 'booking-config') // Only show FHIR-backed categories for now
                   .sort(([, a], [, b]) => a.name.localeCompare(b.name))
                   .map(([hsId, info]) => {
                     const isInAllowList = supportedCategoryHsIds.includes(hsId);
@@ -886,7 +889,14 @@ function GroupPageContent(): ReactElement {
               )}
             </Box>
             <Box>
-              <LoadingButton loading={loading} type="submit" variant="contained" color="primary" size="medium">
+              <LoadingButton
+                loading={loading}
+                type="submit"
+                variant="contained"
+                color="primary"
+                size="medium"
+                disabled={slugError}
+              >
                 Save
               </LoadingButton>
             </Box>

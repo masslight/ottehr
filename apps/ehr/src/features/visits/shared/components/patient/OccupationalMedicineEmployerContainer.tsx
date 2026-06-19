@@ -12,24 +12,32 @@ interface OccupationalMedicineEmployerInformationContainerProps {
   isLoading: boolean;
   patientId?: string;
   encounterId?: string;
+  appointmentId?: string;
+  useUpdateVisitDetailsForEmployer?: boolean;
 }
 
 export const OccupationalMedicineEmployerInformationContainer: FC<
   OccupationalMedicineEmployerInformationContainerProps
-> = ({ isLoading, patientId, encounterId }) => {
+> = ({ isLoading, patientId, encounterId, appointmentId, useUpdateVisitDetailsForEmployer }) => {
   const { items, hiddenFields, requiredFields } = usePatientRecordFormSection({
     formSection: occupationalMedicineEmployerInformation,
   });
 
+  // Pre-op visits show "Employer - Pre-Op"; other visit types keep the section's config title.
+  const title = useUpdateVisitDetailsForEmployer ? 'Employer - Pre-Op' : undefined;
+
   return (
     <PatientRecordFormSection
       formSection={occupationalMedicineEmployerInformation}
+      title={title}
       titleWidget={
         <SectionSaveButton
           fieldKeys={FIELD_KEYS}
           requiredFieldKeys={REQUIRED_FIELD_KEYS}
           patientId={patientId}
           encounterId={encounterId}
+          appointmentId={appointmentId}
+          useUpdateVisitDetailsForEmployer={useUpdateVisitDetailsForEmployer}
         />
       }
     >

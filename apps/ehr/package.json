@@ -1,6 +1,6 @@
 {
   "name": "ehr-ui",
-  "version": "1.36.13",
+  "version": "1.37.2",
   "private": true,
   "type": "module",
   "engines": {
@@ -32,6 +32,8 @@
     "build:e2e": "ENV=e2e npm run build-skeleton",
     "build:e2e2": "ENV=e2e2 npm run build-skeleton",
     "build:e2e3": "ENV=e2e3 npm run build-skeleton",
+    "build:e2e5": "NODE_OPTIONS=${NODE_OPTIONS:---max-old-space-size=8192} ENV=e2e5 npm run build-skeleton",
+    "build:e2e4": "NODE_OPTIONS=${NODE_OPTIONS:---max-old-space-size=8192} ENV=e2e4 npm run build-skeleton",
     "build:development": "ENV=development npm run build-skeleton",
     "build:testing": "ENV=testing npm run build-skeleton",
     "build:staging": "ENV=staging npm run build-skeleton",
@@ -41,6 +43,8 @@
     "unit-tests": "vitest --config ./vitest.config.ts",
     "component-tests": "vitest --config ./vitest.config.component-tests.ts",
     "test": "npm run unit-tests -- --watch=false && npm run component-tests -- --watch=false",
+    "test:unit:ci": "vitest run --config ./vitest.config.ts --coverage --passWithNoTests --reporter=dot --reporter=github-actions",
+    "test:component:ci": "vitest run --config ./vitest.config.component-tests.ts --coverage --passWithNoTests --reporter=dot --reporter=github-actions",
     "e2e:login": "npm run e2e-skeleton ./tests/e2e/login",
     "e2e:specs": "npm run e2e-skeleton -- ./tests/e2e/specs $PLAYWRIGHT_EXTRA_ARGS",
     "e2e:specs:ui": "npm run e2e-skeleton -- ./tests/e2e/specs --ui $PLAYWRIGHT_EXTRA_ARGS",

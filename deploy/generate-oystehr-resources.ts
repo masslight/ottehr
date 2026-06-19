@@ -18,6 +18,17 @@ import { Schema20250925 } from '../packages/spec/src/schema-20250925';
 
 const validSchemas = ['2025-03-19', '2025-09-25'];
 
+// Environments that don't configure it fall back to these defaults so the
+// deploy still succeeds, without them the unresolved "#{var/...}" literal is rejected by Oystehr at app create time.
+const BILLING_VAR_DEFAULTS: { [key: string]: string } = {
+  BILLING_APP_NAME: 'Ottehr Billing',
+  BILLING_APP_LOGO_URI:
+    'https://assets-global.website-files.com/653fce065d76f84cf31488ae/65438838a5f9308ca9498887_otter%20logo%20dark.svg',
+  BILLING_LOGIN_REDIRECT_URL: 'https://billing-local.ottehr.com',
+  BILLING_ALLOWED_URL_1: 'https://billing-local.ottehr.com',
+  BILLING_INTEGRATION: '',
+};
+
 const zambdasDirPath = path.resolve(__dirname, '../packages/zambdas');
 
 // args
@@ -166,6 +177,7 @@ async function generateOystehrResources(input: GenerateFhirResourcesArgs): Promi
   if (!isObject(vars)) {
     throw new Error(`Variable file ${varFile} is not a valid JSON map.`);
   }
+  vars = { ...BILLING_VAR_DEFAULTS, ...vars };
 
   // Generate resources for specs
   if (schemaVersion === '2025-03-19') {

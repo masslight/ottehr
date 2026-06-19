@@ -81,6 +81,50 @@ describe('getErxPatientDemographicErrors', () => {
     expect(getErxPatientDemographicErrors(patient)).toContain('phone');
   });
 
+  it('flags a phone with an area code starting with 1 (eRx rejects non-NANP numbers)', () => {
+    const patient = validErxPatient();
+    patient.telecom = [
+      {
+        system: 'phone',
+        value: '(123) 456-7890',
+      },
+    ];
+    expect(getErxPatientDemographicErrors(patient)).toContain('phone');
+  });
+
+  it('flags a phone with an exchange code starting with 1', () => {
+    const patient = validErxPatient();
+    patient.telecom = [
+      {
+        system: 'phone',
+        value: '(555) 155-0100',
+      },
+    ];
+    expect(getErxPatientDemographicErrors(patient)).toContain('phone');
+  });
+
+  it('flags a phone with an exchange code starting with 0', () => {
+    const patient = validErxPatient();
+    patient.telecom = [
+      {
+        system: 'phone',
+        value: '(555) 055-0100',
+      },
+    ];
+    expect(getErxPatientDemographicErrors(patient)).toContain('phone');
+  });
+
+  it('accepts a number at the lower NANP boundary (area code and exchange start with 2)', () => {
+    const patient = validErxPatient();
+    patient.telecom = [
+      {
+        system: 'phone',
+        value: '(200) 200-0000',
+      },
+    ];
+    expect(getErxPatientDemographicErrors(patient)).toEqual([]);
+  });
+
   it('flags an email-only patient (eRx needs a phone)', () => {
     const patient = validErxPatient();
     patient.telecom = [
