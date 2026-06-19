@@ -10,7 +10,7 @@ import { FEATURE_FLAGS } from 'src/constants/feature-flags';
 import { useGetVitalsForEncounters } from 'src/features/visits/shared/components/vitals/hooks/useGetVitals';
 import { useGetOrdersForTrackingBoard } from 'src/hooks/useGetOrdersForTrackingBoard';
 import { useDebounce } from 'src/shared/hooks/useDebounce';
-import { InPersonAppointmentInformation } from 'utils';
+import { InPersonAppointmentInformation, MAX_APPOINTMENT_SEARCH_RANGE_DAYS } from 'utils';
 import { getAppointments } from '../api/api';
 import AppointmentTabs from '../components/AppointmentTabs';
 import CreateDemoVisits from '../components/CreateDemoVisits';
@@ -48,13 +48,17 @@ export default function Appointments(): ReactElement {
   );
   // Validate as real ISO dates (not just truthy + string ordering) so a malformed `dateFrom`/`dateTo`
   // link can't trigger a get-appointments request that only fails server-side. ISO dates also sort
-  // correctly lexicographically, so the string comparison is safe once both are confirmed valid.
+  // correctly lexicographically, so the string comparison is safe once both are confirmed valid. The
+  // span is also capped to match the zambda, so an over-large range is skipped instead of round-tripping
+  // to a guaranteed server-side rejection.
   const hasValidDateRange = Boolean(
     dateFromParam &&
       dateToParam &&
       DateTime.fromISO(dateFromParam).isValid &&
       DateTime.fromISO(dateToParam).isValid &&
-      dateFromParam <= dateToParam
+      dateFromParam <= dateToParam &&
+      DateTime.fromISO(dateToParam, { zone: 'utc' }).diff(DateTime.fromISO(dateFromParam, { zone: 'utc' }), 'days')
+        .days <= MAX_APPOINTMENT_SEARCH_RANGE_DAYS
   );
 
   const {

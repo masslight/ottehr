@@ -1,9 +1,7 @@
 import { DateTime } from 'luxon';
+import { MAX_APPOINTMENT_SEARCH_RANGE_DAYS } from 'utils';
 import { describe, expect, test } from 'vitest';
-import {
-  MAX_DATE_RANGE_DAYS,
-  validateRequestParameters,
-} from '../../../src/ehr/get-appointments/validateRequestParameters';
+import { validateRequestParameters } from '../../../src/ehr/get-appointments/validateRequestParameters';
 import { createMockZambdaInput } from './helpers';
 
 describe('get-appointments - validateRequestParameters', () => {
@@ -122,15 +120,17 @@ describe('get-appointments - validateRequestParameters', () => {
   test('should throw when the date range exceeds the maximum allowed span', () => {
     const searchDateFrom = '2024-01-01';
     const overMax = DateTime.fromISO(searchDateFrom, { zone: 'utc' })
-      .plus({ days: MAX_DATE_RANGE_DAYS + 1 })
+      .plus({ days: MAX_APPOINTMENT_SEARCH_RANGE_DAYS + 1 })
       .toISODate()!;
     const input = createMockZambdaInput({ ...validBody, searchDateFrom, searchDateTo: overMax });
-    expect(() => validateRequestParameters(input)).toThrow(`${MAX_DATE_RANGE_DAYS} days`);
+    expect(() => validateRequestParameters(input)).toThrow(`${MAX_APPOINTMENT_SEARCH_RANGE_DAYS} days`);
   });
 
   test('should accept a date range at the maximum allowed span', () => {
     const searchDateFrom = '2024-01-01';
-    const atMax = DateTime.fromISO(searchDateFrom, { zone: 'utc' }).plus({ days: MAX_DATE_RANGE_DAYS }).toISODate()!;
+    const atMax = DateTime.fromISO(searchDateFrom, { zone: 'utc' })
+      .plus({ days: MAX_APPOINTMENT_SEARCH_RANGE_DAYS })
+      .toISODate()!;
     const input = createMockZambdaInput({ ...validBody, searchDateFrom, searchDateTo: atMax });
     const result = validateRequestParameters(input);
     expect(result.searchDateFrom).toBe(searchDateFrom);

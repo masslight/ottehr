@@ -7,7 +7,7 @@ import { FormProvider, useForm } from 'react-hook-form';
 import { Link, useSearchParams } from 'react-router-dom';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { PROVIDERS_FILTER } from 'src/shared/utils';
-import { AppointmentType, BOOKING_CONFIG } from 'utils';
+import { AppointmentType, BOOKING_CONFIG, MAX_APPOINTMENT_SEARCH_RANGE_DAYS } from 'utils';
 import { DateInput } from './input/DateInput';
 import { EmployeeSelectInput } from './input/EmployeeSelectInput';
 import { LocationSelectInput } from './input/LocationSelectInput';
@@ -53,6 +53,13 @@ const FILTER_PARAM_KEYS = ['location', 'visitType', 'serviceCategory', 'dateFrom
 const DATE_RANGE_ERROR_MESSAGE = 'Date From must be on or before Date To.';
 const DATE_FROM_REQUIRED_MESSAGE = 'Date From is required.';
 const DATE_TO_REQUIRED_MESSAGE = 'Date To is required.';
+const DATE_RANGE_TOO_LARGE_MESSAGE = `Date range must not exceed ${MAX_APPOINTMENT_SEARCH_RANGE_DAYS} days.`;
+
+// Mirrors the get-appointments zambda's cap so an over-broad range is caught inline instead of
+// failing server-side. Both sides parse in UTC so the day count is deterministic (24h/day).
+const exceedsMaxRange = (dateFrom: string, dateTo: string): boolean =>
+  DateTime.fromISO(dateTo, { zone: 'utc' }).diff(DateTime.fromISO(dateFrom, { zone: 'utc' }), 'days').days >
+  MAX_APPOINTMENT_SEARCH_RANGE_DAYS;
 
 interface FilterEntity {
   id: string;
@@ -335,6 +342,9 @@ export default function AppointmentsFilters(): ReactElement {
                   }
                   if (value && currentDateFrom && currentDateFrom > value) {
                     return DATE_RANGE_ERROR_MESSAGE;
+                  }
+                  if (value && currentDateFrom && exceedsMaxRange(currentDateFrom, value)) {
+                    return DATE_RANGE_TOO_LARGE_MESSAGE;
                   }
 
                   return true;
