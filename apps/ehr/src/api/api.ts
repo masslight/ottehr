@@ -1,6 +1,8 @@
 import Oystehr, { User } from '@oystehr/sdk';
 import { Medication, PractitionerRole, Schedule, Slot } from 'fhir/r4b';
 import {
+  AdHocBillingInput,
+  AdHocBillingOutput,
   AdHocEncountersInput,
   AdHocEncountersOutput,
   AdHocPatientsInput,
@@ -522,6 +524,20 @@ export const getAdHocPatients = async (
   try {
     const response = await oystehr.zambda.execute({
       id: ADHOC_PATIENTS_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+const ADHOC_BILLING_ZAMBDA_ID = 'adhoc-billing';
+export const getAdHocBilling = async (oystehr: Oystehr, parameters: AdHocBillingInput): Promise<AdHocBillingOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: ADHOC_BILLING_ZAMBDA_ID,
       ...parameters,
     });
     return chooseJson(response);

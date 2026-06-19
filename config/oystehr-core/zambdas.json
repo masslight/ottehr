@@ -1222,6 +1222,13 @@
       "src": "src/ehr/adhoc-patients/index",
       "zip": ".dist/zips/adhoc-patients.zip"
     },
+    "ADHOC-BILLING": {
+      "name": "adhoc-billing",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/adhoc-billing/index",
+      "zip": ".dist/zips/adhoc-billing.zip"
+    },
     "SAVE-ADHOC-REPORT": {
       "name": "save-adhoc-report",
       "type": "http_auth",

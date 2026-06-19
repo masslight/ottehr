@@ -1,4 +1,5 @@
 export * from './ad-hoc-report.types';
+export * from './adhoc-billing.types';
 export * from './adhoc-encounters.types';
 export * from './adhoc-patients.types';
 export * from './ai-assisted-encounters-report.types';
