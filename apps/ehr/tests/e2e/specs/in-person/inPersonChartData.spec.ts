@@ -65,6 +65,9 @@ const HEARTBEAT_BPM = '75';
 const RESPIRATION_RATE = '16';
 const BLOOD_PRESSURE_SYSTOLIC = '120';
 const BLOOD_PRESSURE_DIASTOLIC = '80';
+const BLOOD_PRESSURE_SYSTOLIC_INVALID = '110';
+const BLOOD_PRESSURE_DIASTOLIC_INVALID = '115';
+const INVALID_BLOOD_PRESSURE_MESSAGE = /Diastolic value cannot be greater than or equal to Systolic value/;
 const OXYGEN_SAT = '98';
 const WEIGHT_KG = '70';
 const HEIGHT_CM = '175';
@@ -215,6 +218,11 @@ test.describe('In-Person Visit Chart Data', async () => {
           await vitalsPage.addRespirationRateObservation(RESPIRATION_RATE);
         });
         await test.step('VIT-1.4 Add blood pressure observation', async () => {
+          await vitalsPage.expectInvalidBloodPressureError(
+            BLOOD_PRESSURE_SYSTOLIC_INVALID,
+            BLOOD_PRESSURE_DIASTOLIC_INVALID,
+            INVALID_BLOOD_PRESSURE_MESSAGE
+          );
           await vitalsPage.addBloodPressureObservation(BLOOD_PRESSURE_SYSTOLIC, BLOOD_PRESSURE_DIASTOLIC);
         });
         await test.step('VIT-1.5 Add oxygen saturation observation', async () => {

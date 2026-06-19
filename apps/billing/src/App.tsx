@@ -16,6 +16,7 @@ import ERAList from './pages/ERAList';
 import PatientDetail from './pages/PatientDetail';
 import PatientsList from './pages/PatientsList';
 import { RenderingProviderDetail, RenderingProvidersList } from './pages/RenderingProviders';
+import { ServiceFacilitiesList, ServiceFacilityDetail } from './pages/ServiceFacilities';
 import Tags from './pages/Tags';
 import { theme } from './themes/ottehr';
 
@@ -51,6 +52,8 @@ export default function App(): ReactElement {
             <Route path="/billing-providers/:id" element={<BillingProviderDetail />} />
             <Route path="/rendering-providers" element={<RenderingProvidersList />} />
             <Route path="/rendering-providers/:id" element={<RenderingProviderDetail />} />
+            <Route path="/service-facilities" element={<ServiceFacilitiesList />} />
+            <Route path="/service-facilities/:id" element={<ServiceFacilityDetail />} />
             <Route path="/eras" element={<ERAList />} />
             <Route path="/eras/:id" element={<ERADetail />} />
             <Route path="/tags" element={<Tags />} />

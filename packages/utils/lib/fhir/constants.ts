@@ -16,6 +16,7 @@ import {
   DISCHARGE_SUMMARY_CODE,
   EXPORTED_QUESTIONNAIRE_CODE,
   INSURANCE_CARD_CODE,
+  MEDICAL_RECORD_EXPORT_CODE,
   PATIENT_EDUCATION_DOC_TYPE_CODE,
   PATIENT_PHOTO_CODE,
   PHOTO_ID_CARD_CODE,
@@ -46,6 +47,8 @@ export const FHIR_BASE_URL = 'https://fhir.ottehr.com';
 export const OTTEHR_CODE_SYSTEM_BASE_URL = 'https://fhir.ottehr.com/CodeSystem';
 
 export const FHIR_IDENTIFIER_NPI = 'http://hl7.org/fhir/sid/us-npi';
+// https://terminology.hl7.org/en/NamingSystem-CLIA.html
+export const FHIR_IDENTIFIER_CLIA = 'urn:oid:2.16.840.1.113883.4.7';
 export const FHIR_IDENTIFIER_SYSTEM = 'http://terminology.hl7.org/CodeSystem/v2-0203';
 export const FHIR_IDENTIFIER_CODE_TAX_EMPLOYER = 'NE';
 export const FHIR_IDENTIFIER_CODE_TAX_SS = 'SS';
@@ -116,6 +119,11 @@ export const FHIR_EXTENSION = {
   ContactPoint: {
     erxTelecom: {
       url: 'https://extensions.fhir.oystehr.com/contact-point/telecom-phone-erx',
+    },
+  },
+  MedicationRequest: {
+    isRenewal: {
+      url: 'https://extensions.fhir.oystehr.com/medication-request/is-renewal',
     },
   },
   InsurancePlan: {
@@ -557,6 +565,7 @@ export const BUCKET_NAMES = {
   PATIENT_EDUCATION_ADMIN: 'patient-education-admin',
   REPORTS: 'invoiceable-patients-reports',
   CUSTOM_FOLDERS: 'patient-docs-custom-folders',
+  MEDICAL_RECORD_EXPORTS: 'medical-record-exports',
 } as const;
 
 export type BucketName = (typeof BUCKET_NAMES)[keyof typeof BUCKET_NAMES];
@@ -641,6 +650,11 @@ export const FOLDERS_CONFIG: ListConfig[] = [
     title: BUCKET_NAMES.PATIENT_EDUCATION,
     display: 'Patient Education',
     documentTypeCode: PATIENT_EDUCATION_DOC_TYPE_CODE,
+  },
+  {
+    title: BUCKET_NAMES.MEDICAL_RECORD_EXPORTS,
+    display: 'Medical Records',
+    documentTypeCode: MEDICAL_RECORD_EXPORT_CODE,
   },
 ];
 
