@@ -23,7 +23,7 @@ export const index = wrapHandler(
 
     return {
       statusCode: 200,
-      body: JSON.stringify({ message: 'Fee schedule deleted successfully' }),
+      body: JSON.stringify({ message: 'Charge item definition deleted successfully' }),
     };
   }
 );

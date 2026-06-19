@@ -45,7 +45,6 @@ export async function complexValidation(
       ],
     })
   ).unbundle();
-  console.log('colin', definitions.length);
   if (!definitions.length) throw FHIR_RESOURCE_NOT_FOUND_CUSTOM(`The requested ${params.type} could not be found`);
   return { definition: definitions[0] };
 }
