@@ -52,6 +52,13 @@ import { DiagnosesEditor } from '../components/claim/DiagnosesEditor';
 import { EditableSection } from '../components/claim/EditableSection';
 import { ServiceLineRow, ServiceLinesEditor } from '../components/claim/ServiceLinesEditor';
 import { Field } from '../components/Field';
+import {
+  PolicyHolderFields,
+  policyHolderPayload,
+  PolicyHolderState,
+  policyHolderStateFromSummary,
+  validatePolicyHolder,
+} from '../components/PolicyHolderFields';
 import { claimStatusValueColor, formatAntCaseString } from '../constants/claimStatus';
 import { useApiClients } from '../hooks/useAppClients';
 import { otherColors } from '../themes/ottehr/colors';
@@ -409,6 +416,9 @@ function InsuranceSection({
   const [payer, setPayer] = useState<BillingPayerOption | null>(null);
   const [memberId, setMemberId] = useState(claim.memberId);
   const [status, setStatus] = useState(claim.coverageStatus);
+  const [policyHolder, setPolicyHolder] = useState<PolicyHolderState>(() =>
+    policyHolderStateFromSummary(claim.relationship, claim.policyHolder)
+  );
 
   const [payerOptions, setPayerOptions] = useState<BillingPayerOption[]>([]);
   const [coverageOptions, setCoverageOptions] = useState<BillingCoverageOption[]>([]);
@@ -419,6 +429,7 @@ function InsuranceSection({
     setPayer(claim.payorFhirId ? { id: claim.payorFhirId, name: claim.payerName, payerId: claim.payerId } : null);
     setMemberId(claim.memberId);
     setStatus(claim.coverageStatus);
+    setPolicyHolder(policyHolderStateFromSummary(claim.relationship, claim.policyHolder));
     setSelectedCoverage(null);
   }, [claim]);
 
@@ -451,13 +462,18 @@ function InsuranceSection({
       return updateResource('Claim', claim.id, { coverageId: selectedCoverage.id });
     }
     if (!hasCoverage) return 'Choose a coverage';
+    const policyHolderError = validatePolicyHolder(policyHolder);
+    if (policyHolderError) return policyHolderError;
     if (payer?.id && payer.id !== claim.payorFhirId) {
       const err = await updateResource('Claim', claim.id, { payerId: payer.id });
       if (err) return err;
     }
+    const policyHolderInput = policyHolderPayload(policyHolder);
     return updateResource('Coverage', claim.coverageFhirId, {
       subscriberId: memberId,
       status,
+      relationship: policyHolder.relationship,
+      ...(policyHolderInput ? { policyHolder: policyHolderInput } : {}),
     });
   };
 
@@ -538,6 +554,7 @@ function InsuranceSection({
               </Field>
             </Box>
           )}
+          {hasCoverage && !selectedCoverage && <PolicyHolderFields value={policyHolder} onChange={setPolicyHolder} />}
         </Box>
       }
     >
@@ -545,7 +562,9 @@ function InsuranceSection({
       <Row label="Payer ID" value={claim.payerId} />
       <Row label="Member ID" value={claim.memberId} />
       <Row label="Relationship to insured" value={claim.relationship} />
-      {claim.policyHolderName && <Row label="Policy holder" value={claim.policyHolderName} />}
+      {claim.policyHolder && (
+        <Row label="Policy holder" value={`${claim.policyHolder.firstName} ${claim.policyHolder.lastName}`.trim()} />
+      )}
       <Row label="Coverage Status" value={claim.coverageStatus} />
     </EditableSection>
   );

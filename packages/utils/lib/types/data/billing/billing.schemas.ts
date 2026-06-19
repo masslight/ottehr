@@ -464,6 +464,8 @@ export const UpdateBillingResourceInputSchema = z.discriminatedUnion('resourceTy
     fields: z.object({
       subscriberId: z.string().optional(),
       status: z.enum(['active', 'cancelled', 'draft', 'entered-in-error']).optional(),
+      relationship: subscriberRelationshipSchema.optional(),
+      policyHolder: billingPolicyHolderSchema.optional(),
     }),
   }),
   z.object({

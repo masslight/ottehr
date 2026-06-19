@@ -275,7 +275,7 @@ export interface ClaimDetailResponse {
   subscriberId: string;
   coverageStatus: string;
   relationship: string;
-  policyHolderName: string;
+  policyHolder: BillingPolicyHolderSummary | null;
   responsibleParty: string;
   secondaryCoverageFhirId: string;
   secondaryPayerName: string;

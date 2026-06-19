@@ -12,8 +12,10 @@ import {
   Resource,
 } from 'fhir/r4b';
 import {
+  BillingPolicyHolderSummary,
   ClaimDetailResponse,
   FHIR_RESOURCE_NOT_FOUND,
+  genderMap,
   getClaimStatusValues,
   getNPI,
   getPayerId,
@@ -99,12 +101,10 @@ async function performEffect(oystehr: Oystehr, params: GetClaimDetailParams): Pr
     : undefined;
 
   const subscriberRef = coverage?.subscriber?.reference;
-  const policyHolder = subscriberRef?.startsWith('RelatedPerson/')
+  const subscriber = subscriberRef?.startsWith('RelatedPerson/')
     ? findRef<RelatedPerson>(followUp, subscriberRef)
     : undefined;
-  const policyHolderName = [policyHolder?.name?.[0]?.given?.[0], policyHolder?.name?.[0]?.family]
-    .filter(Boolean)
-    .join(' ');
+  const policyHolder = extractPolicyHolder(subscriber);
 
   const renderingId = renderingRef?.split('/')[1];
   const renderingProvider = renderingId
@@ -165,7 +165,7 @@ async function performEffect(oystehr: Oystehr, params: GetClaimDetailParams): Pr
     subscriberId: coverage?.subscriberId ?? '',
     coverageStatus: coverage?.status ?? '',
     relationship: coverage?.relationship?.coding?.[0]?.display ?? '',
-    policyHolderName,
+    policyHolder,
     responsibleParty: 'Primary',
     secondaryCoverageFhirId: secondaryCoverage?.id ?? '',
     secondaryPayerName: secondaryInsurer?.name ?? '',
@@ -226,6 +226,20 @@ async function performEffect(oystehr: Oystehr, params: GetClaimDetailParams): Pr
       .filter((t) => t.system === CLAIM_TAG_SYSTEM)
       .map((t) => t.code ?? '')
       .filter(Boolean),
+  };
+}
+
+// Flatten the working-copy subscriber RelatedPerson into the policy-holder summary the UI prefills from.
+function extractPolicyHolder(subscriber: RelatedPerson | undefined): BillingPolicyHolderSummary | null {
+  if (!subscriber) return null;
+  const name = subscriber.name?.[0];
+  return {
+    firstName: name?.given?.[0] ?? '',
+    middleName: name?.given?.[1] ?? '',
+    lastName: name?.family ?? '',
+    dob: subscriber.birthDate ?? '',
+    birthSex: subscriber.gender ? genderMap[subscriber.gender as keyof typeof genderMap] ?? '' : '',
+    addressParts: toAddressParts(subscriber.address?.[0]),
   };
 }
 
