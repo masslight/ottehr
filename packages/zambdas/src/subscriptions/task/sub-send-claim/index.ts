@@ -1,14 +1,13 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { CandidApiClient } from 'candidhealth';
 import { Operation } from 'fast-json-patch';
-import { Task } from 'fhir/r4b';
-import { createCandidApiClient, getOptionalSecret, SecretsKeys } from 'utils';
+import { chooseJson, getOrCreateCandidApiClient, getSecret, MISSING_REQUEST_SECRETS, SecretsKeys } from 'utils';
 import {
   CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM,
   createEncounterFromAppointment,
   createOystehrClient,
   getAuth0Token,
+  sendErrors,
   shouldSendClaim,
   shouldUseCandid,
   shouldUseOttehrBilling,
@@ -16,25 +15,11 @@ import {
   ZambdaInput,
 } from '../../../shared';
 import { getAppointmentAndRelatedResources } from '../../../shared/pdf/visit-details-pdf/get-video-resources';
+import { patchTaskStatus } from '../../helpers';
 import { validateRequestParameters } from '../validateRequestParameters';
-
-type TaskStatus =
-  | 'draft'
-  | 'requested'
-  | 'received'
-  | 'accepted'
-  | 'rejected'
-  | 'ready'
-  | 'cancelled'
-  | 'in-progress'
-  | 'on-hold'
-  | 'failed'
-  | 'completed'
-  | 'entered-in-error';
 
 let oystehrToken: string;
 let oystehr: Oystehr;
-let candidApiClient: CandidApiClient | undefined;
 let taskId: string | undefined;
 
 const ZAMBDA_NAME = 'sub-send-claim';
@@ -81,14 +66,15 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       const { encounter } = visitResources;
 
       if (shouldSendClaim(secrets, encounter)) {
-        const candidClientId = getOptionalSecret(SecretsKeys.CANDID_CLIENT_ID, secrets);
-        if (shouldUseCandid(secrets) && (candidClientId == null || candidClientId.length === 0)) {
-          console.log('CANDID_CLIENT_ID is not set, skipping encounter submission to candid');
-        } else {
-          if (shouldUseCandid(secrets)) {
-            if (!candidApiClient) {
-              candidApiClient = createCandidApiClient(secrets);
-            }
+        if (shouldUseCandid(secrets)) {
+          let candidApiClient: Awaited<ReturnType<typeof getOrCreateCandidApiClient>> | undefined;
+          try {
+            candidApiClient = await getOrCreateCandidApiClient(oystehr, secrets);
+          } catch (error) {
+            if (error !== MISSING_REQUEST_SECRETS) throw error;
+            console.log('Candid not configured, skipping encounter submission to candid.');
+          }
+          if (candidApiClient) {
             console.log('[CLAIM SUBMISSION] Attempting to create encounter in candid...');
             const candidEncounterId = await createEncounterFromAppointment(visitResources, oystehr, candidApiClient);
             console.log(`[CLAIM SUBMISSION] Candid encounter created with ID ${candidEncounterId}`);
@@ -118,16 +104,36 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
               operations: encounterPatchOps,
             });
           }
-          // no else, these are not mutually exclusive
-          if (shouldUseOttehrBilling(secrets)) {
-            // currently a no op
+        }
+        // no else, these are not mutually exclusive
+        if (shouldUseOttehrBilling(secrets)) {
+          try {
+            const response = await oystehr.zambda.execute({
+              id: 'create-billing-claim-from-encounter',
+              encounterId: encounter.id,
+            });
+            const { claimId } = chooseJson<{ claimId: string }>(response);
+            console.log(`Claim ${claimId} created in Ottehr Billing`);
+          } catch (err) {
+            // for now, do not prevent task completion
+            console.error(err);
+            void sendErrors(err, getSecret(SecretsKeys.ENVIRONMENT, secrets));
           }
         }
       }
 
       // update task status and status reason
       console.log('making patch request to update task status');
-      const patchedTask = await patchTaskStatus(oystehr, task.id, 'completed', 'claim sent successfully');
+      const patchedTask = await patchTaskStatus(
+        {
+          task: {
+            id: task.id,
+          },
+          taskStatusToUpdate: 'completed',
+          statusReasonToUpdate: 'claim sent successfully',
+        },
+        oystehr
+      );
 
       const response = {
         taskStatus: patchedTask.status,
@@ -140,7 +146,17 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       };
     } catch (error: unknown) {
       try {
-        if (oystehr && taskId) await patchTaskStatus(oystehr, taskId, 'failed', JSON.stringify(error));
+        if (oystehr && taskId)
+          await patchTaskStatus(
+            {
+              task: {
+                id: taskId,
+              },
+              taskStatusToUpdate: 'failed',
+              statusReasonToUpdate: JSON.stringify(error),
+            },
+            oystehr
+          );
       } catch (patchError) {
         console.error('Error patching task status in top level catch:', patchError);
       }
@@ -148,44 +164,20 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     }
   } catch (error: unknown) {
     try {
-      if (oystehr && taskId) await patchTaskStatus(oystehr, taskId, 'failed', JSON.stringify(error));
+      if (oystehr && taskId)
+        await patchTaskStatus(
+          {
+            task: {
+              id: taskId,
+            },
+            taskStatusToUpdate: 'failed',
+            statusReasonToUpdate: JSON.stringify(error),
+          },
+          oystehr
+        );
     } catch (patchError) {
       console.error('Error patching task status in top level catch:', patchError);
     }
     throw error;
   }
 });
-
-const patchTaskStatus = async (
-  oystehr: Oystehr,
-  taskId: string,
-  status: TaskStatus,
-  reason?: string
-): Promise<Task> => {
-  const patchedTask = await oystehr.fhir.patch<Task>({
-    resourceType: 'Task',
-    id: taskId,
-    operations: [
-      {
-        op: 'replace',
-        path: '/status',
-        value: status,
-      },
-      {
-        op: 'add',
-        path: '/statusReason',
-        value: {
-          coding: [
-            {
-              system: 'status-reason',
-              code: reason || 'no reason given',
-            },
-          ],
-        },
-      },
-    ],
-  });
-  console.log('successfully patched task');
-  console.log(JSON.stringify(patchedTask));
-  return patchedTask;
-};

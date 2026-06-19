@@ -397,6 +397,8 @@ export const extractFirstValueFromAnswer = (
 export interface PrePopulationFromPatientRecordInput extends PatientAccountResponse {
   questionnaire: Questionnaire;
   overriddenItems?: QuestionnaireResponseItem[];
+  visitOccupationalMedicineEmployerReference?: Reference;
+  appointmentServiceCategory?: string;
 }
 
 export const makePrepopulatedItemsFromPatientRecord = (
@@ -482,9 +484,16 @@ export const makePrepopulatedItemsFromPatientRecord = (
         });
       }
       if (OCCUPATIONAL_MEDICINE_EMPLOYER_ITEMS.includes(item.linkId)) {
+        // Visit-level employer wins; for pre-op don't fall back to the Account employer.
+        const useAccountEmployer =
+          !input.visitOccupationalMedicineEmployerReference && input.appointmentServiceCategory !== 'pre-op';
+
         return mapOccupationalMedicineEmployerToQuestionnaireResponseItems({
           items: itemItems,
-          occupationalMedicineEmployerOrganization,
+          occupationalMedicineEmployerOrganization: useAccountEmployer
+            ? occupationalMedicineEmployerOrganization
+            : undefined,
+          occupationalMedicineEmployerReference: input.visitOccupationalMedicineEmployerReference,
         });
       }
       if (ATTORNEY_ITEMS.includes(item.linkId)) {
@@ -1165,14 +1174,21 @@ const mapEmployerToQuestionnaireResponseItems = (input: MapEmployerItemsInput): 
 interface MapOccupationalMedicineEmployerItemsInput {
   items: QuestionnaireItem[];
   occupationalMedicineEmployerOrganization?: Organization;
+  occupationalMedicineEmployerReference?: Reference;
 }
 
 const mapOccupationalMedicineEmployerToQuestionnaireResponseItems = (
   input: MapOccupationalMedicineEmployerItemsInput
 ): QuestionnaireResponseItem[] => {
-  const { occupationalMedicineEmployerOrganization, items } = input;
-  let occupationalMedicineEmployerReference: Reference | undefined;
-  if (occupationalMedicineEmployerOrganization) {
+  const {
+    occupationalMedicineEmployerOrganization,
+    occupationalMedicineEmployerReference: referenceOverride,
+    items,
+  } = input;
+
+  let occupationalMedicineEmployerReference: Reference | undefined = referenceOverride;
+
+  if (!occupationalMedicineEmployerReference && occupationalMedicineEmployerOrganization) {
     occupationalMedicineEmployerReference = {
       reference: `Organization/${occupationalMedicineEmployerOrganization.id}`,
       display: occupationalMedicineEmployerOrganization.name,
@@ -1475,6 +1491,7 @@ const mapPharmacyToQuestionnaireResponseItems = (input: MapPharmacyItemsInput): 
   const { pharmacyResource, patientResource, items } = input;
   const pharmacyName = pharmacyResource?.name;
   const pharmacyAddress = pharmacyResource?.address?.[0].text;
+  const pharmacyPhone = pharmacyResource?.telecom?.find((c) => c.system === 'phone')?.value;
   const pharmacyWasManuallyEntered = !!pharmacyResource?.extension?.find(
     (ext) => ext.url === PREFERRED_PHARMACY_MANUAL_ENTRY_URL
   )?.valueBoolean;
@@ -1493,6 +1510,9 @@ const mapPharmacyToQuestionnaireResponseItems = (input: MapPharmacyItemsInput): 
     if (linkId === 'pharmacy-address' && pharmacyAddress && pharmacyWasManuallyEntered) {
       answer = makeAnswer(pharmacyAddress);
     }
+    if (linkId === 'pharmacy-phone' && pharmacyPhone && pharmacyWasManuallyEntered) {
+      answer = makeAnswer(pharmacyPhone);
+    }
 
     if (linkId === 'pharmacy-page-manual-entry' && pharmacyWasManuallyEntered) {
       answer = makeAnswer(true, 'Boolean');
@@ -1504,6 +1524,9 @@ const mapPharmacyToQuestionnaireResponseItems = (input: MapPharmacyItemsInput): 
       }
       if (linkId === PHARMACY_COLLECTION_LINK_IDS.placesAddress) {
         answer = makeAnswer(pharmacyAddress);
+      }
+      if (linkId === PHARMACY_COLLECTION_LINK_IDS.placesPhone && pharmacyPhone) {
+        answer = makeAnswer(pharmacyPhone);
       }
       if (linkId === PHARMACY_COLLECTION_LINK_IDS.placesId) {
         answer = makeAnswer(pharmacyIdFromPlaces);

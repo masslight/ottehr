@@ -57,6 +57,7 @@ export enum APIErrorCode {
   MISSING_WC_INFO_FOR_LABS = 4403,
   ADMIN_IN_HOUSE_TEST_EXISTS = 4404,
   LABEL_PRINTING_GENERAL = 4405,
+  RADIOLOGY_GENERAL = 4406,
 
   // 45xx
   STRIPE_PAYMENT_ERROR_GENERIC = 4500,
@@ -111,9 +112,10 @@ export const isApiError = (errorObject: unknown | undefined): boolean => {
   return false;
 };
 
-export const NOT_AUTHORIZED = {
+export const NOT_AUTHORIZED: APIError = {
   code: APIErrorCode.NOT_AUTHORIZED,
   message: 'You are not authorized to access this data',
+  statusCode: 401,
 };
 
 export const CANT_UPDATE_CHECKED_IN_APT_ERROR = {
@@ -131,9 +133,10 @@ export const DOB_UNCONFIRMED_ERROR = {
   message: 'We could not verify the date of birth supplied for this patient',
 };
 
-export const NO_READ_ACCESS_TO_PATIENT_ERROR = {
+export const NO_READ_ACCESS_TO_PATIENT_ERROR: APIError = {
   code: APIErrorCode.NO_READ_ACCESS_TO_PATIENT,
   message: `You are not authorized to view this patient's data`,
+  statusCode: 403,
 };
 
 export const APPOINTMENT_NOT_FOUND_ERROR = {
@@ -473,3 +476,10 @@ export const PRECONDITION_FAILED = (message?: string): APIError => ({
   code: APIErrorCode.PRECONDITION_FAILED,
   message: message ?? 'Resource was edited during operation',
 });
+
+export const RADIOLOGY_ERROR = (message: string): APIError => {
+  return {
+    code: APIErrorCode.RADIOLOGY_GENERAL,
+    message,
+  };
+};

@@ -177,6 +177,7 @@ export const getSampleCollectionTimestampForLabelDisplay = (
 
 async function createExternalLabsLabelPDFHelper(
   input: ExternalLabsLabelConfig,
+  patientUuid: string,
   secrets: Secrets | null,
   token: string
 ): Promise<PdfInfo> {
@@ -196,7 +197,7 @@ async function createExternalLabsLabelPDFHelper(
     secrets,
     fileName,
     bucketName: BUCKET_NAMES.LABS,
-    patientID: input.content.patientId,
+    patientID: patientUuid,
   });
 
   console.log('Uploading file to bucket, ', BUCKET_NAMES.LABS);
@@ -216,24 +217,25 @@ async function createExternalLabsLabelPDFHelper(
 
 export async function createExternalLabsLabelPDF(
   labelConfig: ExternalLabsLabelConfig,
+  patientUuid: string,
   encounterId: string,
   serviceRequestID: string,
   secrets: Secrets | null,
   token: string,
   oystehr: Oystehr
 ): Promise<{ docRef: DocumentReference; presignedURL: string }> {
-  const pdfInfo = await createExternalLabsLabelPDFHelper(labelConfig, secrets, token);
+  const pdfInfo = await createExternalLabsLabelPDFHelper(labelConfig, patientUuid, secrets, token);
 
   console.log(`This is the made pdfInfo`, JSON.stringify(pdfInfo));
 
-  const labListResource = await getLabListResource(oystehr, labelConfig.content.patientId, secrets, pdfInfo.title);
+  const labListResource = await getLabListResource(oystehr, patientUuid, secrets, pdfInfo.title);
 
   const { docRefs } = await createFilesDocumentReferences({
     files: [{ url: pdfInfo.uploadURL, title: pdfInfo.title }],
     type: { coding: [EXTERNAL_LAB_LABEL_PDF_DOC_REF_DOCTYPE], text: 'External lab sample label' },
     references: {
       subject: {
-        reference: `Patient/${labelConfig.content.patientId}`,
+        reference: `Patient/${patientUuid}`,
       },
       context: {
         related: [

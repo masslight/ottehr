@@ -1,8 +1,9 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { HealthcareService, Location, Practitioner, PractitionerRole, Schedule } from 'fhir/r4b';
+import { HealthcareService, Location, PractitionerRole, Schedule } from 'fhir/r4b';
 import {
   BLANK_SCHEDULE_JSON_TEMPLATE,
+  getPractitionerRoleAllCategories,
   getScheduleExtension,
   getSlugForBookableResource,
   getTimezone,
@@ -10,24 +11,50 @@ import {
   INVALID_RESOURCE_ID_ERROR,
   isLocationVirtual,
   isValidUUID,
+  LOCATION_REVIEW_LINK_EXTENSION_URL,
   MISSING_REQUEST_BODY,
   MISSING_REQUIRED_PARAMETERS,
   MISSING_SCHEDULE_EXTENSION_ERROR,
+  RoleType,
+  ROOM_EXTENSION_URL,
+  SCHEDULE_DISPLAY_NAME_EXTENSION_URL,
   SCHEDULE_NOT_FOUND_ERROR,
+  SCHEDULE_OWNER_ADVAPACS_LOCATION_EXTENSION_URL,
   SCHEDULE_OWNER_NOT_FOUND_ERROR,
+  SCHEDULE_OWNER_STRIPE_ACCOUNT_EXTENSION_URL,
   ScheduleDTO,
   ScheduleDTOOwner,
   ScheduleExtension,
   ScheduleOwnerFhirResource,
   Secrets,
   TIMEZONES,
+  userMe,
 } from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
-import { addressStringFromAddress, getNameForOwner } from '../shared';
+import { addressStringFromAddress, getNameForOwner, getNameForPractitionerRole } from '../shared';
 
 let m2mToken: string;
 
 const ZAMBDA_NAME = 'get-schedule';
+
+const PAYMENT_FIELD_VIEWER_ROLES: ReadonlyArray<string> = [RoleType.Administrator, RoleType.CustomerSupport];
+
+const callerCanViewPaymentFields = async (
+  authorizationHeader: string | undefined,
+  secrets: ZambdaInput['secrets']
+): Promise<boolean> => {
+  if (!authorizationHeader) return false;
+  const token = authorizationHeader.replace(/^Bearer\s+/i, '');
+  if (!token) return false;
+  try {
+    const caller = await userMe(token, secrets);
+    const callerRoles = (caller.roles ?? []).map((role) => role.name);
+    return callerRoles.some((role) => PAYMENT_FIELD_VIEWER_ROLES.includes(role));
+  } catch (err) {
+    console.error('Failed to resolve caller from Authorization header:', err);
+    return false;
+  }
+};
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.group('validateRequestParameters');
@@ -37,9 +64,26 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const { secrets } = validatedParameters;
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createOystehrClient(m2mToken, secrets);
-  const effectInput = await complexValidation(validatedParameters, oystehr);
+  const [effectInput, includePaymentFields] = await Promise.all([
+    complexValidation(validatedParameters, oystehr),
+    callerCanViewPaymentFields(input.headers?.Authorization, secrets),
+  ]);
 
-  const scheduleDTO = performEffect(effectInput);
+  // For PR rows, the page title prefers an admin-set display name (stored as
+  // a PR.extension valueString) and falls back to the composed
+  // "<Practitioner> at <Location>" form. Only the composed form requires an
+  // extra FHIR fetch — the explicit name lives on the resource we already
+  // have in hand.
+  let displayNameOverride: string | undefined;
+  if (effectInput.owner.resourceType === 'PractitionerRole') {
+    const explicit = ((effectInput.owner as PractitionerRole).extension ?? [])
+      .find((ext) => ext.url === SCHEDULE_DISPLAY_NAME_EXTENSION_URL)
+      ?.valueString?.trim();
+    displayNameOverride = explicit
+      ? explicit
+      : await getNameForPractitionerRole(effectInput.owner as PractitionerRole, oystehr);
+  }
+  const scheduleDTO = performEffect(effectInput, { displayNameOverride, includePaymentFields });
 
   return {
     statusCode: 200,
@@ -47,39 +91,94 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   };
 });
 
-const performEffect = (input: EffectInput): ScheduleDTO => {
+const performEffect = (
+  input: EffectInput,
+  options: { displayNameOverride?: string; includePaymentFields: boolean }
+): ScheduleDTO => {
+  const { displayNameOverride } = options;
   const { scheduleExtension, scheduleId, timezone, owner: ownerResource, scheduleActive } = input;
 
   let active = false;
   if (ownerResource.resourceType === 'Location') {
     active = (ownerResource as Location).status === 'active';
   } else {
-    active = (ownerResource as Practitioner | HealthcareService).active ?? false;
+    active = (ownerResource as HealthcareService | PractitionerRole).active ?? false;
   }
 
   let detailText: string | undefined = undefined;
   let isVirtual: boolean | undefined = undefined;
+  let stripeAccountId: string | undefined = undefined;
+  let advapacsLocationId: string | undefined = undefined;
+  let rooms: string[] | undefined = undefined;
+  let description: string | undefined = undefined;
+  let address: Location['address'] | undefined = undefined;
+  let telecom: Location['telecom'] | undefined = undefined;
+  let reviewLink: string | undefined = undefined;
 
   if (ownerResource.resourceType === 'Location') {
     const loc = ownerResource as Location;
-    const address = loc.address;
+    address = loc.address;
     if (address) {
       detailText = addressStringFromAddress(address);
     }
+    description = loc.description;
+    telecom = loc.telecom;
     isVirtual = isLocationVirtual(loc);
+    reviewLink = loc.extension?.find((ext) => ext.url === LOCATION_REVIEW_LINK_EXTENSION_URL)?.valueUrl;
+    if (options.includePaymentFields) {
+      stripeAccountId = loc.extension?.find((ext) => ext.url === SCHEDULE_OWNER_STRIPE_ACCOUNT_EXTENSION_URL)
+        ?.valueString;
+      advapacsLocationId = loc.extension?.find((ext) => ext.url === SCHEDULE_OWNER_ADVAPACS_LOCATION_EXTENSION_URL)
+        ?.valueString;
+    }
+    rooms = loc.extension
+      ?.filter((ext) => ext.url === ROOM_EXTENSION_URL)
+      .map((ext) => ext.valueString)
+      .filter((value): value is string => typeof value === 'string');
   }
+
+  const healthcareServiceIds =
+    ownerResource.resourceType === 'PractitionerRole'
+      ? ((ownerResource as PractitionerRole).healthcareService ?? [])
+          .map((ref) => ref.reference?.split('/')[1])
+          .filter((id): id is string => !!id)
+      : undefined;
+  const locationId =
+    ownerResource.resourceType === 'PractitionerRole'
+      ? (ownerResource as PractitionerRole).location?.[0]?.reference?.split('/')[1]
+      : undefined;
+  const displayName =
+    ownerResource.resourceType === 'PractitionerRole'
+      ? ((ownerResource as PractitionerRole).extension ?? []).find(
+          (ext) => ext.url === SCHEDULE_DISPLAY_NAME_EXTENSION_URL
+        )?.valueString
+      : undefined;
+  const allCategories =
+    ownerResource.resourceType === 'PractitionerRole'
+      ? getPractitionerRoleAllCategories(ownerResource as PractitionerRole)
+      : undefined;
 
   const owner: ScheduleDTOOwner = {
     type: ownerResource.resourceType,
     id: ownerResource.id!,
-    name: getNameForOwner(ownerResource),
+    name: displayNameOverride ?? getNameForOwner(ownerResource),
     slug: getSlugForBookableResource(ownerResource) ?? '',
     timezone: getTimezone(ownerResource),
     active,
     detailText,
-    infoMessage: '',
     hoursOfOperation: (ownerResource as Location)?.hoursOfOperation,
     isVirtual,
+    healthcareServiceIds,
+    allCategories,
+    locationId,
+    displayName,
+    stripeAccountId,
+    advapacsLocationId,
+    rooms,
+    description,
+    address,
+    telecom,
+    reviewLink,
   };
 
   return {
@@ -136,9 +235,9 @@ const validateRequestParameters = (input: ZambdaInput): BasicInput => {
     console.log('ownerId', ownerId);
     throw INVALID_RESOURCE_ID_ERROR('ownerId');
   }
-  if (createMode && !['Location', 'Practitioner', 'HealthcareService'].includes(ownerType)) {
+  if (createMode && !['Location', 'HealthcareService', 'PractitionerRole'].includes(ownerType)) {
     throw INVALID_INPUT_ERROR(
-      '"ownerType" must be a string and one of: "Location", "Practitioner", "HealthcareService"'
+      '"ownerType" must be a string and one of: "Location", "HealthcareService", "PractitionerRole"'
     );
   }
 
@@ -193,11 +292,11 @@ const getEffectInputFromSchedule = async (scheduleId: string, oystehr: Oystehr):
         },
         {
           name: '_include',
-          value: 'Schedule:actor:Practitioner',
+          value: 'Schedule:actor:HealthcareService',
         },
         {
           name: '_include',
-          value: 'Schedule:actor:HealthcareService',
+          value: 'Schedule:actor:PractitionerRole',
         },
       ],
     })
@@ -215,12 +314,12 @@ const getEffectInputFromSchedule = async (scheduleId: string, oystehr: Oystehr):
 
   const scheduleOwnerRef = schedule.actor?.[0]?.reference ?? '';
   const [scheduleOwnerType, scheduleOwnerId] = scheduleOwnerRef.split('/');
-  let owner: Location | Practitioner | HealthcareService | PractitionerRole | undefined = undefined;
-  const permittedScheduleOwnerTypes = ['Location', 'Practitioner', 'HealthcareService'];
+  let owner: Location | HealthcareService | PractitionerRole | undefined = undefined;
+  const permittedScheduleOwnerTypes = ['Location', 'HealthcareService', 'PractitionerRole'];
   if (scheduleOwnerId !== undefined && permittedScheduleOwnerTypes.includes(scheduleOwnerType)) {
     owner = scheduleAndOwner.find((res) => {
       return `${res.resourceType}/${res.id}` === scheduleOwnerRef;
-    }) as ScheduleOwnerFhirResource;
+    }) as Location | HealthcareService | PractitionerRole | undefined;
   }
 
   if (!owner) {
@@ -270,7 +369,7 @@ const getEffectInputFromOwner = async (
   const scheduleOwnerRef = schedule?.actor?.[0]?.reference ?? '';
   const [scheduleOwnerType, scheduleOwnerId] = scheduleOwnerRef.split('/');
   let owner: ScheduleOwnerFhirResource | undefined = undefined;
-  const permittedScheduleOwnerTypes = ['Location', 'Practitioner', 'HealthcareService'];
+  const permittedScheduleOwnerTypes = ['Location', 'HealthcareService', 'PractitionerRole'];
   if (scheduleOwnerId !== undefined && permittedScheduleOwnerTypes.includes(scheduleOwnerType)) {
     owner = scheduleAndOwner.find((res) => {
       return `${res.resourceType}/${res.id}` === scheduleOwnerRef;

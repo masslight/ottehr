@@ -136,7 +136,12 @@ const VisitDetailsContent = ({
                 const dt = DateTime.fromISO(followUp.encounterTime);
                 return dt.toFormat('MMMM dd, yyyy');
               })();
-              const hasVisitNote = Boolean(followUp.documents[visitFileTypes.visitNote]?.presignedUrl);
+              const followUpFiles = adaptVisitFiles(followUp.documents);
+              const visitNoteUrl = followUpFiles?.[visitFileTypes.visitNote]?.presignedUrl;
+              const followUpExtraSections: { key: VisitFileType; label: string }[] = [
+                { key: visitFileTypes.school, label: 'School note' },
+                { key: visitFileTypes.work, label: 'Work note' },
+              ];
 
               return (
                 <Box key={index} sx={{ mb: 3 }}>
@@ -144,19 +149,35 @@ const VisitDetailsContent = ({
                     <Typography variant="body1" color="primary.dark">
                       {followUpDate}
                     </Typography>
-                    {hasVisitNote && (
+                    {visitNoteUrl && (
                       <Button
                         variant="text"
                         startIcon={<DownloadIcon />}
                         onClick={() => {
-                          openExternalLink(followUp.documents[visitFileTypes.visitNote].presignedUrl || '');
+                          openExternalLink(visitNoteUrl);
                         }}
-                        disabled={!followUp.documents[visitFileTypes.visitNote]?.presignedUrl}
                       >
                         View Follow-up Note
                       </Button>
                     )}
                   </Box>
+                  {followUpExtraSections.map(({ key, label }) => {
+                    const url = followUpFiles?.[key]?.presignedUrl;
+                    if (!url) return null;
+                    return (
+                      <Box
+                        key={key}
+                        sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 1 }}
+                      >
+                        <Typography variant="body2" color="primary.dark" textTransform={'capitalize'}>
+                          {label}
+                        </Typography>
+                        <Button variant="text" startIcon={<DownloadIcon />} onClick={() => openExternalLink(url)}>
+                          Download PDF
+                        </Button>
+                      </Box>
+                    );
+                  })}
                 </Box>
               );
             })}

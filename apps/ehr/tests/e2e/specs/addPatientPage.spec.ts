@@ -32,6 +32,11 @@ const VISIT_TYPES = {
   POST_TELEMED: 'Post Telemed lab Only',
 };
 
+// Which visit types the EHR "Add Visit" dropdown actually offers is per-instance config
+// (BOOKING_CONFIG.ehrBookingOptions). Some instances are walk-in only, so a test that selects a
+// visit type the instance doesn't offer can never pass. Skip such a test rather than fail it.
+const offeredVisitTypeLabels = new Set(BOOKING_CONFIG.ehrBookingOptions.map((option) => option.label));
+
 const PROCESS_ID = `addPatientPage.spec.ts-${DateTime.now().toMillis()}`;
 
 const resourceHandler = new ResourceHandler(PROCESS_ID);
@@ -65,6 +70,10 @@ test.describe('For new patient', () => {
       tag: '@skipOnIntegration',
     },
     async ({ page }) => {
+      test.skip(
+        !offeredVisitTypeLabels.has(VISIT_TYPES.WALK_IN),
+        'Walk-in in-person visits are not offered by this instance'
+      );
       const { appointmentId } = await createAppointment(page, VISIT_TYPES.WALK_IN, false, NEW_PATIENT_1_LAST_NAME);
 
       const visitsPage = await expectVisitsPage(page);
@@ -75,10 +84,23 @@ test.describe('For new patient', () => {
   );
 
   test('Add pre-book visit for new patient', async ({ page }) => {
-    const { appointmentId } = await createAppointment(page, VISIT_TYPES.PRE_BOOK, false, NEW_PATIENT_2_LAST_NAME);
+    test.skip(
+      !offeredVisitTypeLabels.has(VISIT_TYPES.PRE_BOOK),
+      'Pre-booked in-person visits are not offered by this instance'
+    );
+    const { appointmentId, slotDate } = await createAppointment(
+      page,
+      VISIT_TYPES.PRE_BOOK,
+      false,
+      NEW_PATIENT_2_LAST_NAME
+    );
 
     const visitsPage = await expectVisitsPage(page);
     await visitsPage.selectLocation(ENV_LOCATION_NAME!);
+    // The first available slot may roll to tomorrow when the day's schedule is past
+    // closing time. The tracking-board date filter defaults to today in the location's
+    // timezone, so without this it'd show zero rows even though the appointment exists.
+    if (slotDate) await visitsPage.selectDate(slotDate);
     await visitsPage.clickPrebookedTab();
     await visitsPage.verifyVisitPresent(appointmentId);
   });
@@ -147,7 +169,7 @@ async function createAppointment(
   visitType: (typeof VISIT_TYPES)[keyof typeof VISIT_TYPES],
   existingPatient = false,
   lastName?: string
-): Promise<{ appointmentId: string; slotTime: string | undefined }> {
+): Promise<{ appointmentId: string; slotTime: string | undefined; slotDate: string | undefined }> {
   const addPatientPage = await expectAddPatientPage(page);
   await addPatientPage.selectVisitType(visitType);
   await addPatientPage.selectServiceCategory(BOOKING_CONFIG.serviceCategories[0].category.display);
@@ -178,8 +200,11 @@ async function createAppointment(
   }
 
   let slotTime: string | undefined;
+  let slotDate: string | undefined;
   if (visitType !== VISIT_TYPES.WALK_IN) {
-    slotTime = await addPatientPage.selectFirstAvailableSlot();
+    const slot = await addPatientPage.selectFirstAvailableSlot();
+    slotTime = slot.time;
+    slotDate = slot.date || undefined;
   }
 
   const appointmentCreationResponse = waitForResponseWithData(page, /\/create-appointment\//);
@@ -190,5 +215,5 @@ async function createAppointment(
     throw new Error('Appointment ID should be present in the response');
   }
 
-  return { appointmentId: response.appointmentId, slotTime };
+  return { appointmentId: response.appointmentId, slotTime, slotDate };
 }

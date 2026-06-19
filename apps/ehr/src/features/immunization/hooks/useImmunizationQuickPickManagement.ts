@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { UseFormReturn } from 'react-hook-form';
 import { createImmunizationQuickPick, getImmunizationQuickPicks, updateImmunizationQuickPick } from 'src/api/api';
 import { useApiClients } from 'src/hooks/useAppClients';
-import { useMergedImmunizationQuickPicks } from 'src/hooks/useMergedQuickPicks';
+import { sortQuickPicks, useMergedImmunizationQuickPicks } from 'src/hooks/useMergedQuickPicks';
 import { ROUTE_OPTIONS } from 'src/shared/utils/options';
 import { ImmunizationQuickPickData } from 'utils';
 
@@ -15,6 +15,7 @@ interface UseImmunizationQuickPickManagementProps {
 
 interface UseImmunizationQuickPickManagementReturn {
   mergedQuickPicks: ImmunizationQuickPickData[];
+  mergedQuickPicksLoading: boolean;
   quickPickDialogOpen: boolean;
   setQuickPickDialogOpen: (open: boolean) => void;
   quickPickName: string;
@@ -33,7 +34,11 @@ export const useImmunizationQuickPickManagement = ({
   applyOrderDetails,
 }: UseImmunizationQuickPickManagementProps): UseImmunizationQuickPickManagementReturn => {
   const { oystehrZambda } = useApiClients();
-  const { quickPicks: mergedQuickPicks, refetch: refetchQuickPicks } = useMergedImmunizationQuickPicks();
+  const {
+    quickPicks: mergedQuickPicks,
+    loading: mergedQuickPicksLoading,
+    refetch: refetchQuickPicks,
+  } = useMergedImmunizationQuickPicks();
   const [quickPickDialogOpen, setQuickPickDialogOpen] = useState(false);
   const [quickPickName, setQuickPickName] = useState('');
   const [existingQuickPicks, setExistingQuickPicks] = useState<ImmunizationQuickPickData[]>([]);
@@ -72,7 +77,7 @@ export const useImmunizationQuickPickManagement = ({
     if (!oystehrZambda) return;
     try {
       const response = await getImmunizationQuickPicks(oystehrZambda);
-      setExistingQuickPicks(response.quickPicks);
+      setExistingQuickPicks([...response.quickPicks].sort(sortQuickPicks));
     } catch (error) {
       console.error('Failed to load existing quick picks:', error);
       setExistingQuickPicks(mergedQuickPicks);
@@ -140,6 +145,7 @@ export const useImmunizationQuickPickManagement = ({
 
   return {
     mergedQuickPicks,
+    mergedQuickPicksLoading,
     quickPickDialogOpen,
     setQuickPickDialogOpen,
     quickPickName,

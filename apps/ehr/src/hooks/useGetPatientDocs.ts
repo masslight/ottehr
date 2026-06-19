@@ -9,19 +9,20 @@ import {
   chooseJson,
   CUSTOM_FOLDERS_CATALOG_IDENTIFIER,
   CustomFolderDefinition,
+  FOLDERS_CONFIG,
+  getFileNameFromUrl,
   getMimeType,
   getPresignedURL,
   isCustomFolderList,
   isSyntheticFolderId,
   makeSyntheticFolderId,
   parseCustomFoldersCatalogIncludingDeleted,
+  PATIENT_FOLDERS_CODE,
 } from 'utils';
 import { useSuccessQuery } from 'utils/lib/frontend';
 import { safelyCaptureMessage } from 'utils/lib/frontend/sentry';
 import { parseFileExtension } from '../helpers/files.helper';
 import { useApiClients } from './useAppClients';
-
-const PATIENT_FOLDERS_CODE = 'patient-docs-folder';
 
 const CREATE_PATIENT_UPLOAD_DOCUMENT_URL_ZAMBDA_ID = 'create-upload-document-url';
 
@@ -106,7 +107,7 @@ export type UseGetPatientDocsReturn = {
   isLoadingFolders: boolean;
   documentsFolders: PatientDocumentsFolder[];
   searchDocuments: (filters: PatientDocumentsFilters) => void;
-  downloadDocument: (documentId: string) => Promise<void>;
+  downloadDocument: (documentId: string, options?: { skipRelated?: boolean }) => Promise<void>;
   renameDocument: (documentId: string, newName: string) => Promise<void>;
   documentActions: UsePatientDocsActionsReturn;
   folderActions: FolderActionsReturn;
@@ -157,7 +158,7 @@ export const useGetPatientDocs = (patientId: string, filters?: PatientDocumentsF
   );
 
   const downloadDocument = useCallback(
-    async (documentId: string): Promise<void> => {
+    async (documentId: string, options?: { skipRelated?: boolean }): Promise<void> => {
       const authToken = await getAccessTokenSilently();
 
       let patientDoc = getDocumentById(documentId);
@@ -237,6 +238,8 @@ export const useGetPatientDocs = (patientId: string, filters?: PatientDocumentsF
       } else {
         console.error(`No attachments found for a docId=[${documentId}]`);
       }
+
+      if (options?.skipRelated) return;
 
       const attachedDocumentIds =
         documentReferenceResource?.context?.related
@@ -428,19 +431,28 @@ const useGetPatientDocsFolders = (
       });
     }
 
-    // Synthesize folders for catalog entries that don't have a per-patient List yet.
-    // The List is created lazily on first upload. Soft-deleted entries are skipped:
-    // patients who never used the folder shouldn't see it appear after admin deletes it.
-    for (const def of catalogDefs) {
-      if (def.deleted) continue;
-      if (byInternalName.has(def.internalName)) continue;
-      byInternalName.set(def.internalName, {
-        id: makeSyntheticFolderId(def.internalName),
-        folderName: def.displayName,
-        internalName: def.internalName,
+    // Synthesize folders the patient has no per-patient List for yet, so they can be opened
+    // and uploaded to; the real List is created lazily on first upload (see the
+    // create-upload-document-url zambda). Two sources:
+    //  - System folders (FOLDERS_CONFIG): missing for patients created before the folder
+    //    existed or before seeding ran.
+    //  - Custom folders (catalog): soft-deleted entries are skipped so patients who never
+    //    used the folder don't see it reappear after an admin deletes it.
+    const synthCandidates = [
+      ...FOLDERS_CONFIG.map((c) => ({ internalName: c.title, displayName: c.display, isCustom: false })),
+      ...catalogDefs
+        .filter((def) => !def.deleted)
+        .map((def) => ({ internalName: def.internalName, displayName: def.displayName, isCustom: true })),
+    ];
+    for (const { internalName, displayName, isCustom } of synthCandidates) {
+      if (byInternalName.has(internalName)) continue;
+      byInternalName.set(internalName, {
+        id: makeSyntheticFolderId(internalName),
+        folderName: displayName,
+        internalName,
         documentsCount: 0,
         documentsRefs: [],
-        isCustom: true,
+        isCustom,
       });
     }
 
@@ -546,11 +558,6 @@ const useSearchPatientDocuments = (
 };
 
 const extractDocumentAttachments = (docRef: DocumentReference): PatientDocumentAttachment[] => {
-  const getFileNameFromUrl = (url: string | undefined): string | undefined => {
-    if (!url) return;
-    const parsedUrl = new URL(url);
-    return parsedUrl.pathname.split('/').pop() || '';
-  };
   return docRef.content
     ?.map((docRefContent) => docRefContent?.attachment)
     ?.map((docRefAttachment) => {

@@ -22,10 +22,33 @@ export const medicationOrderFieldsWithOptions: Partial<keyof ExtendedMedicationD
   'medicationId',
   'associatedDx',
   'route',
-  'location',
   'units',
   'providerId',
 ];
+
+// CPT/HCPCS code ranges that typically refer to medications (UI-only heuristic,
+// used to warn about medication designation in the billing section)
+const LIKELY_MEDICATION_CODE_RANGES: { prefix: string; from: number; to: number }[] = [
+  { prefix: 'J', from: 120, to: 8999 }, // J0120 – J8999
+  { prefix: 'J', from: 9000, to: 9999 }, // J9000 – J9999
+  { prefix: 'Q', from: 35, to: 9999 }, // Q0035 – Q9999
+  { prefix: 'C', from: 9000, to: 9901 }, // C9000 – C9901
+  { prefix: 'B', from: 4034, to: 9999 }, // B4034 – B9999
+  { prefix: 'A', from: 9500, to: 9699 }, // A9500 – A9699
+  { prefix: '', from: 90281, to: 90758 }, // 90281 – 90758
+];
+
+const LIKELY_MEDICATION_CODES = new Set(['J3490', 'J3590', 'J7999', 'J9999']);
+
+export const isLikelyMedicationCode = (code: string): boolean => {
+  const normalized = code.trim().toUpperCase();
+  if (LIKELY_MEDICATION_CODES.has(normalized)) return true;
+  const match = normalized.match(/^([A-Z]?)(\d{4,5})$/);
+  if (!match) return false;
+  const [, prefix, digits] = match;
+  const num = Number(digits);
+  return LIKELY_MEDICATION_CODE_RANGES.some((range) => range.prefix === prefix && num >= range.from && num <= range.to);
+};
 
 export type MedicationOrderFieldWithOptionsType = (typeof medicationOrderFieldsWithOptions)[number];
 

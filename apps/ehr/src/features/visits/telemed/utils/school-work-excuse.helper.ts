@@ -126,7 +126,7 @@ const mapCompositeExcuseFieldsToLabels: {
   workExcusedFromWorkOn: (values: ExcuseFormValues) =>
     `excused from work on ${values.workExcusedFromWorkOnDate!.toFormat('MM/dd/yyyy')}`,
   workMayReturnToWorkOn: (values: ExcuseFormValues) =>
-    `may return to work on ${values.workMayReturnToWorkOnDate!.toFormat('MM/dd/yyyy')}`,
+    `may return to work from ${values.workMayReturnToWorkOnDate!.toFormat('MM/dd/yyyy')}`,
   excusedFromSchoolFromTo: (values: ExcuseFormValues) =>
     `excused from school from ${values.excusedFromSchoolFromDate!.toFormat(
       'MM/dd/yyyy'
@@ -134,7 +134,7 @@ const mapCompositeExcuseFieldsToLabels: {
   excusedFromSchoolOn: (values: ExcuseFormValues) =>
     `excused from school on ${values.excusedFromSchoolOnDate!.toFormat('MM/dd/yyyy')}`,
   schoolMayReturnToSchoolOn: (values: ExcuseFormValues) =>
-    `may return to school on ${values.schoolMayReturnToSchoolOnDate!.toFormat('MM/dd/yyyy')}`,
+    `may return to school from ${values.schoolMayReturnToSchoolOnDate!.toFormat('MM/dd/yyyy')}`,
   excusedFromGymActivitiesFromTo: (values: ExcuseFormValues) =>
     `excused from gym/activities from ${values.excusedFromGymActivitiesFromDate!.toFormat(
       'MM/dd/yyyy'
@@ -171,7 +171,6 @@ export const getDefaultExcuseFormValues = (params: {
   isSchool: boolean;
   isTemplate: boolean;
   providerName?: string;
-  suffix?: string;
   phoneNumber?: string;
 }): ExcuseFormValues => {
   const defaultFormValues = {
@@ -209,9 +208,7 @@ export const getDefaultExcuseFormValues = (params: {
     if (params.phoneNumber) {
       defaultFormValues.footerNote = `For any questions, please do not hesitate to call ${params.phoneNumber}.\n`;
     }
-    defaultFormValues.footerNote += `Sincerely,\n${params.providerName || '{Provider name}'}, ${
-      params.suffix || 'Medical Doctor'
-    }`;
+    defaultFormValues.footerNote += `Sincerely,\n${params.providerName || '{Provider name}'}`;
   }
 
   return defaultFormValues;

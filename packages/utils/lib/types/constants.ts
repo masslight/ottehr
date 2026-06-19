@@ -9,6 +9,8 @@ export const TELEMED_VIDEO_ROOM_CODE = 'chime-video-meetings';
 
 export const INTERPRETER_PHONE_NUMBER = '(888) 555 0002';
 
+export const PHONE_NOT_ON_FILE = 'Phone number not on file';
+
 export const PATIENT_INDIVIDUAL_PRONOUNS_URL = 'http://hl7.org/fhir/StructureDefinition/individual-pronouns';
 export const PATIENT_INDIVIDUAL_PRONOUNS_CUSTOM_URL =
   'https://fhir.zapehr.com/r4/StructureDefinitions/individual-pronouns-custom';
@@ -69,6 +71,10 @@ export const RETURNING_PATIENT_META_TAG = (): Coding => ({
   system: PATIENT_INFO_META_DATA_SYSTEM,
   code: PATIENT_INFO_META_DATA_RETURNING_PATIENT_CODE,
 });
+
+// related helper for sanitizing these codes sanitizeStringForFhirCode
+// https://hl7.org/fhir/R4B/datatypes.html#code
+export const FHIR_CODE_REGEX = /^[^\s]+(\s[^\s]+)*$/;
 
 // ---------------------------------------------------------------------------
 // Invoice configuration defaults
