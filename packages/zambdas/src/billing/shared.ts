@@ -508,14 +508,13 @@ export async function getPatientAccounts(oystehr: Oystehr, patientId: string): P
   return result.unbundle();
 }
 
-// The patient's billing Account (type PBILLACCT), if one exists.
-export async function getPatientBillingAccount(oystehr: Oystehr, patientId: string): Promise<Account | undefined> {
-  return (await getPatientAccounts(oystehr, patientId)).find((acc) => accountMatchesCode(acc, 'PBILLACCT'));
+// Derive the billing / workers-comp Accounts from an already-fetched list (avoids extra searches).
+export function findPatientBillingAccount(accounts: Account[]): Account | undefined {
+  return accounts.find((acc) => accountMatchesCode(acc, 'PBILLACCT'));
 }
 
-// The patient's workers-comp Account (type WCOMPACCT), if one exists.
-export async function getPatientWorkersCompAccount(oystehr: Oystehr, patientId: string): Promise<Account | undefined> {
-  return (await getPatientAccounts(oystehr, patientId)).find((acc) => accountMatchesCode(acc, 'WCOMPACCT'));
+export function findPatientWorkersCompAccount(accounts: Account[]): Account | undefined {
+  return accounts.find((acc) => accountMatchesCode(acc, 'WCOMPACCT'));
 }
 
 // A coverage's insurance type is determined by which account holds it (PBILLACCT priority 1/2 or the
@@ -615,6 +614,8 @@ export async function findCoverageOfType(
     }),
     getPatientAccounts(oystehr, patientId),
   ]);
+  const pbillAccount = findPatientBillingAccount(accounts);
+  const wcompAccount = findPatientWorkersCompAccount(accounts);
 
   const pbillAccount = accounts.find((acc) => accountMatchesCode(acc, 'PBILLACCT'));
   const wcompAccount = accounts.find((acc) => accountMatchesCode(acc, 'WCOMPACCT'));

@@ -6,9 +6,10 @@ import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../sha
 import {
   createBillingClient,
   EXCLUDE_WORKING_COPIES_PARAMS,
+  findPatientBillingAccount,
+  findPatientWorkersCompAccount,
   getCoverageInsuranceType,
-  getPatientBillingAccount,
-  getPatientWorkersCompAccount,
+  getPatientAccounts,
   resolvePayersByRef,
   toAddressParts,
 } from '../shared';
@@ -43,7 +44,7 @@ async function performEffect(
   oystehr: Oystehr,
   params: GetPatientCoveragesParams
 ): Promise<{ coverages: BillingCoverageOption[] }> {
-  const [response, relatedPersonResponse, pbillAccount, wcompAccount] = await Promise.all([
+  const [response, relatedPersonResponse, accounts] = await Promise.all([
     oystehr.fhir.search<Coverage>({
       resourceType: 'Coverage',
       params: [{ name: 'beneficiary', value: `Patient/${params.patientId}` }, ...EXCLUDE_WORKING_COPIES_PARAMS],
@@ -52,9 +53,10 @@ async function performEffect(
       resourceType: 'RelatedPerson',
       params: [{ name: 'patient', value: `Patient/${params.patientId}` }, ...EXCLUDE_WORKING_COPIES_PARAMS],
     }),
-    getPatientBillingAccount(oystehr, params.patientId),
-    getPatientWorkersCompAccount(oystehr, params.patientId),
+    getPatientAccounts(oystehr, params.patientId),
   ]);
+  const pbillAccount = findPatientBillingAccount(accounts);
+  const wcompAccount = findPatientWorkersCompAccount(accounts);
 
   const coverages = response.unbundle();
   const relatedPersonsById = new Map(relatedPersonResponse.unbundle().map((rp) => [rp.id ?? '', rp]));
