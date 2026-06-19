@@ -1510,6 +1510,13 @@
       "src": "src/ehr/delete-patient-document/index",
       "zip": ".dist/zips/delete-patient-document.zip"
     },
+    "GET-PATIENT-MEDICAL-RECORD": {
+      "name": "get-patient-medical-record",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/get-patient-medical-record/index",
+      "zip": ".dist/zips/get-patient-medical-record.zip"
+    },
     "SEND_RECEIPT_BY_EMAIL": {
       "name": "send-receipt-by-email",
       "type": "http_auth",
