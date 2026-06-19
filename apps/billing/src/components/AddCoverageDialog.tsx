@@ -171,6 +171,12 @@ export function CoverageFormFields({
   const [payerOptions, setPayerOptions] = useState<BillingPayerOption[]>([]);
   const searchTimer = useRef<ReturnType<typeof setTimeout>>();
 
+  useEffect(() => {
+    return () => {
+      if (searchTimer.current) clearTimeout(searchTimer.current);
+    };
+  }, []);
+
   const set = useCallback(
     <K extends keyof CoverageFormState>(key: K, v: CoverageFormState[K]): void => onChange({ ...value, [key]: v }),
     [value, onChange]
