@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Claim, Coverage, FhirResource, Location, Organization, Patient, Practitioner } from 'fhir/r4b';
+import { Claim, Coverage, FhirResource, Location, Organization, Patient, Practitioner, RelatedPerson } from 'fhir/r4b';
 import {
   CODE_SYSTEM_CLAIM_TYPE,
   CODE_SYSTEM_CMS_PLACE_OF_SERVICE,
@@ -139,6 +139,19 @@ async function attachClaimResources(
     if (claim.patient?.reference) {
       copy.beneficiary = { reference: claim.patient.reference };
       copy.subscriber = { reference: claim.patient.reference };
+      // Mirror the encounter path: copy the subscriber RelatedPerson so the policy holder is preserved.
+      const subscriberRef = original.subscriber?.reference;
+      if (subscriberRef?.startsWith('RelatedPerson/')) {
+        const subscriber = await fetchById<RelatedPerson>(
+          oystehr,
+          'RelatedPerson',
+          subscriberRef.replace('RelatedPerson/', '')
+        );
+        const subscriberCopy = prepareWorkingCopy<RelatedPerson>(subscriber, subscriber.id!);
+        subscriberCopy.patient = { reference: claim.patient.reference };
+        const createdSubscriber = await oystehr.fhir.create(subscriberCopy);
+        copy.subscriber = { reference: `RelatedPerson/${createdSubscriber.id}` };
+      }
     }
     const created = await oystehr.fhir.create(copy);
     // ensureClaimInsurance drops any no-coverage stub now that a real focal coverage is attached.

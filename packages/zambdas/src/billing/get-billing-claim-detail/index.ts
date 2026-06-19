@@ -1,6 +1,16 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Claim, Coverage, Location, Organization, Patient, Person, Practitioner, Resource } from 'fhir/r4b';
+import {
+  Claim,
+  Coverage,
+  Location,
+  Organization,
+  Patient,
+  Person,
+  Practitioner,
+  RelatedPerson,
+  Resource,
+} from 'fhir/r4b';
 import {
   ClaimDetailResponse,
   FHIR_RESOURCE_NOT_FOUND,
@@ -66,7 +76,9 @@ async function performEffect(oystehr: Oystehr, params: GetClaimDetailParams): Pr
 
   const followUpQueries: string[] = [];
   const coverageRef = sortedInsurance[0]?.coverage?.reference;
-  if (coverageRef) followUpQueries.push(`/Coverage?_id=${coverageRef.replace('Coverage/', '')}`);
+  if (coverageRef) {
+    followUpQueries.push(`/Coverage?_id=${coverageRef.replace('Coverage/', '')}&_include=Coverage:subscriber`);
+  }
   const renderingRef = claim.careTeam?.[0]?.provider?.reference;
   if (renderingRef?.startsWith('Practitioner/') || renderingRef?.startsWith('Organization/')) {
     const [renderingType, renderingId] = renderingRef.split('/');
@@ -85,6 +97,15 @@ async function performEffect(oystehr: Oystehr, params: GetClaimDetailParams): Pr
         | Coverage
         | undefined)
     : undefined;
+
+  const subscriberRef = coverage?.subscriber?.reference;
+  const policyHolder = subscriberRef?.startsWith('RelatedPerson/')
+    ? findRef<RelatedPerson>(followUp, subscriberRef)
+    : undefined;
+  const policyHolderName = [policyHolder?.name?.[0]?.given?.[0], policyHolder?.name?.[0]?.family]
+    .filter(Boolean)
+    .join(' ');
+
   const renderingId = renderingRef?.split('/')[1];
   const renderingProvider = renderingId
     ? (followUp.find(
@@ -143,6 +164,8 @@ async function performEffect(oystehr: Oystehr, params: GetClaimDetailParams): Pr
     memberId: coverage?.subscriberId ?? '',
     subscriberId: coverage?.subscriberId ?? '',
     coverageStatus: coverage?.status ?? '',
+    relationship: coverage?.relationship?.coding?.[0]?.display ?? '',
+    policyHolderName,
     responsibleParty: 'Primary',
     secondaryCoverageFhirId: secondaryCoverage?.id ?? '',
     secondaryPayerName: secondaryInsurer?.name ?? '',

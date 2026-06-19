@@ -544,6 +544,8 @@ function InsuranceSection({
       <Row label="Payer" value={claim.payerName} />
       <Row label="Payer ID" value={claim.payerId} />
       <Row label="Member ID" value={claim.memberId} />
+      <Row label="Relationship to insured" value={claim.relationship} />
+      {claim.policyHolderName && <Row label="Policy holder" value={claim.policyHolderName} />}
       <Row label="Coverage Status" value={claim.coverageStatus} />
     </EditableSection>
   );
