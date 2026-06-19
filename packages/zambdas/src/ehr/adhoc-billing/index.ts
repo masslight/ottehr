@@ -3,6 +3,8 @@ import {
   Appointment,
   ChargeItem,
   ChargeItemDefinition,
+  Claim,
+  ClaimResponse,
   Condition,
   Coverage,
   Encounter,
@@ -31,6 +33,7 @@ import {
   PAYMENT_METHOD_EXTENSION_URL,
   SERVICE_CATEGORY_SYSTEM,
 } from 'utils';
+import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -39,10 +42,14 @@ let m2mToken: string;
 const ZAMBDA_NAME = 'adhoc-billing';
 
 const CPT_SYSTEM = 'http://www.ama-assn.org/go/cpt';
+// A Claim carries the source clinical encounter id as an identifier (set by Ottehr's own claim
+// creation, not Candid) — this is how a claim joins back to its encounter.
+const CLAIM_ENCOUNTER_ID_SYSTEM = ottehrIdentifierSystem('claim-encounter-id');
+const CLAIM_STATUS_TAG_SYSTEM = 'current-status'; // workflow status tag (e.g. "open"), distinct from FHIR Claim.status
 const round2 = (n: number): number => Math.round(n * 100) / 100;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  const { dateRange, includePayments, includeCoverage, includeCharges, includeCodes, secrets } =
+  const { dateRange, includePayments, includeCoverage, includeCharges, includeCodes, includeClaims, secrets } =
     validateRequestParameters(input);
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
@@ -202,6 +209,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const proceduresByEncId = new Map<string, Procedure[]>();
   const conditionById = new Map<string, Condition>();
   const cptPriceMap = new Map<string, number>(); // CPT code -> fee-schedule price (USD)
+  const claimsByEncId = new Map<string, Claim[]>();
+  const responsesByClaimId = new Map<string, ClaimResponse[]>();
 
   if (encRefs.length) {
     if (includePayments) {
@@ -244,6 +253,18 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       for (const c of dxConditions) if (c.id) conditionById.set(c.id, c);
       const procedures = await fetchScoped<Procedure>('Procedure', 'encounter', encRefs);
       for (const p of procedures) pushTo(proceduresByEncId, stripRef(p.encounter?.reference, 'Encounter'), p);
+    }
+    if (includeClaims) {
+      // Claims are few project-wide; fetch all and join to encounters by the claim-encounter-id
+      // identifier the practice's claim creation stamps on each Claim.
+      const claims = await fetchAll<Claim>('Claim');
+      const inScope = new Set(encIds);
+      for (const claim of claims) {
+        const encId = claim.identifier?.find((i) => i.system === CLAIM_ENCOUNTER_ID_SYSTEM)?.value;
+        if (encId && inScope.has(encId)) pushTo(claimsByEncId, encId, claim);
+      }
+      const responses = await fetchAll<ClaimResponse>('ClaimResponse');
+      for (const cr of responses) pushTo(responsesByClaimId, stripRef(cr.request?.reference, 'Claim'), cr);
     }
   }
 
@@ -416,6 +437,44 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       row.cptCodes = cptCodes;
       row.emCode = emCode;
       row.icdCodes = icdCodes;
+    }
+
+    if (includeClaims) {
+      const claims = [...(claimsByEncId.get(encId) ?? [])].sort((a, b) =>
+        (b.created ?? '').localeCompare(a.created ?? '')
+      );
+      const billed = claims.reduce((acc, c) => acc + (c.total?.value ?? 0), 0);
+      const hasBilled = claims.some((c) => typeof c.total?.value === 'number');
+      // ClaimResponse adjudication (forward-compatible — none exist until the billing tool posts them).
+      const PATIENT_OWED = new Set(['copay', 'deductible', 'coins', 'coinsurance', 'patientresp']);
+      let paid = 0;
+      let patientResp = 0;
+      let sawResponse = false;
+      for (const claim of claims) {
+        for (const cr of responsesByClaimId.get(claim.id ?? '') ?? []) {
+          sawResponse = true;
+          paid +=
+            cr.payment?.amount?.value ??
+            (cr.total ?? [])
+              .filter((t) => t.category?.coding?.some((c) => c.code === 'benefit'))
+              .reduce((a, t) => a + (t.amount?.value ?? 0), 0);
+          patientResp += (cr.total ?? [])
+            .filter((t) => t.category?.coding?.some((c) => c.code && PATIENT_OWED.has(c.code)))
+            .reduce((a, t) => a + (t.amount?.value ?? 0), 0);
+        }
+      }
+      const mostRecent = claims[0];
+      const claimStatus = mostRecent
+        ? mostRecent.meta?.tag?.find((t) => t.system === CLAIM_STATUS_TAG_SYSTEM)?.code ?? mostRecent.status ?? ''
+        : '';
+      const billedAmount = hasBilled ? round2(billed) : null;
+      const insurancePaid = sawResponse ? round2(paid) : null;
+      row.claimCount = claims.length;
+      row.claimStatus = claimStatus;
+      row.billedAmount = billedAmount;
+      row.insurancePaid = insurancePaid;
+      row.patientResponsibility = sawResponse ? round2(patientResp) : null;
+      row.claimBalance = billedAmount !== null && insurancePaid !== null ? round2(billedAmount - insurancePaid) : null;
     }
 
     rows.push(row);

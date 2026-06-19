@@ -15,6 +15,8 @@ export interface AdHocBillingInput {
   includeCharges?: boolean;
   /** Billing codes from the chart — CPT / E&M / ICD-10 (adds Procedure + Condition). */
   includeCodes?: boolean;
+  /** Insurance claims filed for the visit + their responses (adds Claim + ClaimResponse). */
+  includeClaims?: boolean;
 }
 
 export interface AdHocBillingRow {
@@ -61,6 +63,13 @@ export interface AdHocBillingRow {
   cptCodes?: string[]; // procedure CPT codes charted on the visit
   emCode?: string; // E&M level code (e.g. "99213")
   icdCodes?: string[]; // ICD-10 diagnosis codes
+  // --- Insurance claims (includeClaims) — claims this practice filed for the visit ---
+  claimCount?: number; // number of claims filed for the visit
+  claimStatus?: string; // workflow status of the most recent claim (e.g. "open", "submitted", "paid", "denied")
+  billedAmount?: number | null; // total billed to insurance across the visit's claims, USD
+  insurancePaid?: number | null; // amount insurance has paid (from ClaimResponse), USD
+  patientResponsibility?: number | null; // amount insurance assigned to the patient (from ClaimResponse), USD
+  claimBalance?: number | null; // billedAmount − insurancePaid, USD (when both are known)
 }
 
 export interface AdHocBillingOutput {

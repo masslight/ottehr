@@ -6,7 +6,9 @@ export function validateRequestParameters(input: ZambdaInput): AdHocBillingInput
     throw new Error('Missing request body');
   }
 
-  const { dateRange, includePayments, includeCoverage, includeCharges, includeCodes } = JSON.parse(input.body);
+  const { dateRange, includePayments, includeCoverage, includeCharges, includeCodes, includeClaims } = JSON.parse(
+    input.body
+  );
 
   if (!dateRange || typeof dateRange.start !== 'string' || typeof dateRange.end !== 'string') {
     throw new Error('dateRange { start, end } is required');
@@ -22,6 +24,7 @@ export function validateRequestParameters(input: ZambdaInput): AdHocBillingInput
     includeCoverage: includeCoverage === true,
     includeCharges: includeCharges === true,
     includeCodes: includeCodes === true,
+    includeClaims: includeClaims === true,
     secrets: input.secrets,
   };
 }

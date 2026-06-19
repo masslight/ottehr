@@ -32,6 +32,14 @@ export const ADHOC_BILLING_OPTIONS: AdHocDatasetOption[] = [
     description: 'Diagnosis and procedure codes from the chart used for billing.',
     default: false,
   },
+  {
+    id: 'claims',
+    label: 'Insurance claims',
+    description:
+      'Insurance claims filed for the visit and their responses — claim status, amount billed, ' +
+      'insurance paid, and patient responsibility.',
+    default: false,
+  },
 ];
 
 const BASE_FIELDS: FieldDef[] = [
@@ -136,6 +144,24 @@ const CODE_FIELDS: FieldDef[] = [
   },
 ];
 
+// --- Insurance claims (includeClaims) ---
+const CLAIM_FIELDS: FieldDef[] = [
+  { name: 'claimCount', type: 'number', description: 'Number of insurance claims filed for the visit.' },
+  {
+    name: 'claimStatus',
+    type: 'string',
+    description: 'Workflow status of the most recent claim (e.g. "open", "submitted", "paid", "denied").',
+  },
+  { name: 'billedAmount', type: 'number', description: "Total billed to insurance across the visit's claims, USD." },
+  { name: 'insurancePaid', type: 'number', description: 'Amount insurance has paid (from the claim response), USD.' },
+  {
+    name: 'patientResponsibility',
+    type: 'number',
+    description: 'Amount insurance assigned to the patient — copay/deductible/coinsurance — USD.',
+  },
+  { name: 'claimBalance', type: 'number', description: 'billedAmount − insurancePaid, USD (when both are known).' },
+];
+
 function fieldsFor(options: Record<string, boolean>): FieldDef[] {
   return [
     ...BASE_FIELDS,
@@ -143,6 +169,7 @@ function fieldsFor(options: Record<string, boolean>): FieldDef[] {
     ...(options.coverage ? COVERAGE_FIELDS : []),
     ...(options.charges ? CHARGE_FIELDS : []),
     ...(options.codes ? CODE_FIELDS : []),
+    ...(options.claims ? CLAIM_FIELDS : []),
   ];
 }
 
@@ -153,6 +180,7 @@ async function fetchAdHocBilling({ oystehrZambda, dateRange, options }: FetchCon
     includeCoverage: !!opts.coverage,
     includeCharges: !!opts.charges,
     includeCodes: !!opts.codes,
+    includeClaims: !!opts.claims,
   };
   const { start, end } = dateRange;
   const days = (new Date(end).getTime() - new Date(start).getTime()) / 86400000;
