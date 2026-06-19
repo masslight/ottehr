@@ -9,7 +9,6 @@ import InsightsIcon from '@mui/icons-material/Insights';
 import MailOutlineIcon from '@mui/icons-material/MailOutline';
 import PeopleIcon from '@mui/icons-material/People';
 import PsychologyIcon from '@mui/icons-material/Psychology';
-import SavedSearchIcon from '@mui/icons-material/SavedSearch';
 import {
   Box,
   Button,
@@ -165,45 +164,32 @@ function SavedReportTile({
           height: '100%',
           display: 'flex',
           flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          p: 3,
+          alignItems: 'stretch',
+          justifyContent: 'flex-start',
         }}
       >
         <CardContent
           sx={{
             display: 'flex',
             flexDirection: 'column',
-            alignItems: 'center',
-            textAlign: 'center',
-            gap: 2,
-            flex: 1,
-            justifyContent: 'center',
+            alignItems: 'flex-start',
+            textAlign: 'left',
+            gap: 1,
+            width: '100%',
+            overflow: 'hidden',
+            p: 3,
           }}
         >
-          <Box
-            sx={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              width: 64,
-              height: 64,
-              borderRadius: '50%',
-              backgroundColor: theme.palette.secondary.main,
-              color: 'white',
-            }}
-          >
-            <SavedSearchIcon sx={{ fontSize: 32 }} />
-          </Box>
-          <Typography variant="h6" component="h2" fontWeight={600} color="primary.dark">
+          {/* `pr` clears the edit/delete icon buttons pinned to the top-right corner. */}
+          <Typography variant="h6" component="h2" fontWeight={600} color="primary.dark" sx={{ pr: 6, lineHeight: 1.3 }}>
             {report.name}
           </Typography>
           {report.description ? (
-            <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.4 }}>
+            <Typography variant="body1" color="text.secondary" sx={{ lineHeight: 1.5 }}>
               {report.description}
             </Typography>
           ) : (
-            <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.4, fontStyle: 'italic' }}>
+            <Typography variant="body1" color="text.secondary" sx={{ lineHeight: 1.5, fontStyle: 'italic' }}>
               {(report.title ?? report.datasetId) + ' · ' + report.criteria.dateRange}
             </Typography>
           )}
