@@ -9,6 +9,7 @@ import {
   chooseJson,
   CUSTOM_FOLDERS_CATALOG_IDENTIFIER,
   CustomFolderDefinition,
+  FOLDERS_CONFIG,
   getFileNameFromUrl,
   getMimeType,
   getPresignedURL,
@@ -430,19 +431,28 @@ const useGetPatientDocsFolders = (
       });
     }
 
-    // Synthesize folders for catalog entries that don't have a per-patient List yet.
-    // The List is created lazily on first upload. Soft-deleted entries are skipped:
-    // patients who never used the folder shouldn't see it appear after admin deletes it.
-    for (const def of catalogDefs) {
-      if (def.deleted) continue;
-      if (byInternalName.has(def.internalName)) continue;
-      byInternalName.set(def.internalName, {
-        id: makeSyntheticFolderId(def.internalName),
-        folderName: def.displayName,
-        internalName: def.internalName,
+    // Synthesize folders the patient has no per-patient List for yet, so they can be opened
+    // and uploaded to; the real List is created lazily on first upload (see the
+    // create-upload-document-url zambda). Two sources:
+    //  - System folders (FOLDERS_CONFIG): missing for patients created before the folder
+    //    existed or before seeding ran.
+    //  - Custom folders (catalog): soft-deleted entries are skipped so patients who never
+    //    used the folder don't see it reappear after an admin deletes it.
+    const synthCandidates = [
+      ...FOLDERS_CONFIG.map((c) => ({ internalName: c.title, displayName: c.display, isCustom: false })),
+      ...catalogDefs
+        .filter((def) => !def.deleted)
+        .map((def) => ({ internalName: def.internalName, displayName: def.displayName, isCustom: true })),
+    ];
+    for (const { internalName, displayName, isCustom } of synthCandidates) {
+      if (byInternalName.has(internalName)) continue;
+      byInternalName.set(internalName, {
+        id: makeSyntheticFolderId(internalName),
+        folderName: displayName,
+        internalName,
         documentsCount: 0,
         documentsRefs: [],
-        isCustom: true,
+        isCustom,
       });
     }
 
