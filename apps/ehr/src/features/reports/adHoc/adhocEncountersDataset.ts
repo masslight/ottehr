@@ -484,7 +484,7 @@ async function fetchAdHocEncounters({ oystehrZambda, dateRange, options }: Fetch
 
 export const adhocEncountersDataset: AdHocDataset = {
   id: 'encounters-comprehensive',
-  label: 'Encounters (comprehensive)',
+  label: 'Encounters',
   description:
     'One row per encounter with visit, patient, contact, and location/provider detail; optional ' +
     'clinical codes, KPI timing, and AI-assistance layers.',
@@ -503,7 +503,7 @@ export const adhocEncountersDataset: AdHocDataset = {
       rows,
       {
         datasetId: 'encounters-comprehensive',
-        label: 'Encounters (comprehensive)',
+        label: 'Encounters',
         description: 'One row per encounter — visit, patient, contact, location/provider, and any enabled layers.',
         availableLayers,
       },
