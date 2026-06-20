@@ -6,10 +6,11 @@ import { Secrets } from 'utils';
 import { getStripeClient } from '../../../../shared';
 import {
   getOrCreateOutreachConfig,
+  OutreachAction,
   parseConfiguredAt,
   parsePlanDefinitionToActions,
 } from '../../../scheduled-outreach-config/helpers';
-import { OUTREACH_TASK_TAG_SYSTEM, produceOutreachTasks } from './produce-outreach-tasks';
+import { calculateDueDateTime, OUTREACH_TASK_TAG_SYSTEM, produceOutreachTasks } from './produce-outreach-tasks';
 
 export interface ProduceInvoiceDueOutreachResult {
   invoicesEvaluated: number;
@@ -49,6 +50,15 @@ export async function produceInvoiceDueOutreach(
 
   console.log(`produceInvoiceDueOutreach: Found ${pastDueInvoices.length} past-due Stripe invoices to evaluate`);
 
+  // Load the configured invoice-due actions once. The daily cron generates only the single
+  // most-recent already-elapsed milestone per action type (see selectApplicableInvoiceDueActionIds),
+  // rather than pre-materializing the whole escalation schedule. This prevents an invoice first seen
+  // already past several milestones (e.g. 8-day and 22-day) from firing all of them at once.
+  const planDefinition = await getOrCreateOutreachConfig(oystehr);
+  const invoiceDueActions = parsePlanDefinitionToActions(planDefinition).filter(
+    (a) => a.trigger.event === 'invoice-due' && a.enabled !== false
+  );
+
   // Collect encounter IDs that still have open invoices so we can cancel stale tasks
   const openEncounterIds = new Set<string>();
 
@@ -86,6 +96,11 @@ export async function produceInvoiceDueOutreach(
         console.warn(`Could not fetch Encounter ${encounterId} for appointment lookup:`, err);
       }
 
+      // Only generate the most-recent already-elapsed milestone(s) per action type for this
+      // invoice. Future milestones are skipped now and created on the day they become due by a
+      // later cron run; earlier elapsed milestones are superseded by the latest one.
+      const applicableActionIds = selectApplicableInvoiceDueActionIds(invoiceDueActions, dueDate);
+
       const result = await produceOutreachTasks({
         triggerEvent: 'invoice-due',
         patient: { reference: `Patient/${patientId}` },
@@ -93,6 +108,7 @@ export async function produceInvoiceDueOutreach(
         appointment: appointmentRef ? { reference: appointmentRef } : undefined,
         eventTimestamp: dueDate,
         oystehr,
+        actionFilter: (action) => applicableActionIds.has(action.id),
       });
 
       tasksCreated += result.created.length;
@@ -119,6 +135,44 @@ export async function produceInvoiceDueOutreach(
     tasksCancelled,
     errors,
   };
+}
+
+/**
+ * For a single invoice, choose only the most-recent already-elapsed milestone per action type.
+ *
+ * The invoice-due cron runs daily, so it does not need to pre-materialize the entire escalation
+ * schedule. For each action type (send-notification, charge-card, ...) we keep only the action
+ * whose computed due time has already passed and is the latest among the elapsed ones. Future
+ * milestones are intentionally excluded here — a later cron run creates them on the day they
+ * become due. This guarantees that an invoice first seen already past several milestones (e.g.
+ * 8-day and 22-day notifications) generates a task for the latest milestone only, instead of all
+ * of them firing at once. Suppression is scoped per action type so, for example, a later
+ * notification never suppresses a separately-configured charge-card action.
+ *
+ * Ties (multiple actions of the same type configured at the same offset) are all kept, since they
+ * represent distinct messages the operator intentionally configured.
+ */
+export function selectApplicableInvoiceDueActionIds(actions: OutreachAction[], eventTimestamp: string): Set<string> {
+  const nowMs = DateTime.now().toMillis();
+
+  const elapsedByType = new Map<string, { actionId: string; dueMs: number }[]>();
+  for (const action of actions) {
+    const dueMs = DateTime.fromISO(calculateDueDateTime(eventTimestamp, action)).toMillis();
+    if (dueMs <= nowMs) {
+      const group = elapsedByType.get(action.actionType) ?? [];
+      group.push({ actionId: action.id, dueMs });
+      elapsedByType.set(action.actionType, group);
+    }
+  }
+
+  const survivors = new Set<string>();
+  for (const group of elapsedByType.values()) {
+    const maxDueMs = Math.max(...group.map((g) => g.dueMs));
+    for (const g of group) {
+      if (g.dueMs === maxDueMs) survivors.add(g.actionId);
+    }
+  }
+  return survivors;
 }
 
 /**
