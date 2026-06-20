@@ -2191,20 +2191,6 @@
       "src": "src/ehr/progress-note-config/admin-update-progress-note-config/index",
       "zip": ".dist/zips/admin-update-progress-note-config.zip"
     },
-    "GET-ELIGIBILITY-VERIFICATION-CONFIG": {
-      "name": "get-eligibility-verification-config",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/ehr/eligibility-verification-config/get-eligibility-verification-config/index",
-      "zip": ".dist/zips/get-eligibility-verification-config.zip"
-    },
-    "ADMIN-UPDATE-ELIGIBILITY-VERIFICATION-CONFIG": {
-      "name": "admin-update-eligibility-verification-config",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/ehr/eligibility-verification-config/admin-update-eligibility-verification-config/index",
-      "zip": ".dist/zips/admin-update-eligibility-verification-config.zip"
-    },
     "ADMIN-UPDATE-LOCATION-SUPPORT-PHONES": {
       "name": "admin-update-location-support-phones",
       "type": "http_auth",

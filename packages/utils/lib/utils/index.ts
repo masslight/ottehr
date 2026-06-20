@@ -13,4 +13,3 @@ export * from './e2eTestConstants';
 export * from './printing';
 export * from './progress-note-config';
 export * from './support-dialog';
-export * from './eligibility-verification-config';

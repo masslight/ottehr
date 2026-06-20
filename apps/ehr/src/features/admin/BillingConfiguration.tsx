@@ -26,7 +26,6 @@ import FeeSchedule from '../visits/telemed/components/admin/ChargeItemList';
 import EMCodesAdminPage from '../visits/telemed/components/admin/EMCodesAdminPage';
 import EmployersTab from '../visits/telemed/components/admin/employers/EmployersTab';
 import InsuranceConfiguration from '../visits/telemed/components/admin/InsuranceConfiguration';
-import EligibilityVerificationConfiguration from './EligibilityVerificationConfiguration';
 
 type BillingSubTab =
   | 'insurance'
@@ -35,7 +34,6 @@ type BillingSubTab =
   | 'employers'
   | 'payment-locations'
   | 'invoicing'
-  | 'eligibility-verification'
   | 'em-codes';
 
 function PaymentLocationsList(): ReactElement {
@@ -174,11 +172,6 @@ export default function BillingConfiguration({
             <Tab label="Employers" value="employers" sx={{ textTransform: 'none', fontWeight: 500 }} />
             <Tab label="Payment Locations" value="payment-locations" sx={{ textTransform: 'none', fontWeight: 500 }} />
             <Tab label="Invoicing" value="invoicing" sx={{ textTransform: 'none', fontWeight: 500 }} />
-            <Tab
-              label="Eligibility Verification"
-              value="eligibility-verification"
-              sx={{ textTransform: 'none', fontWeight: 500 }}
-            />
           </TabList>
         </Box>
         <TabPanel value="em-codes" sx={{ padding: 0 }}>
@@ -201,9 +194,6 @@ export default function BillingConfiguration({
         </TabPanel>
         <TabPanel value="invoicing" sx={{ padding: 0 }}>
           <Invoicing />
-        </TabPanel>
-        <TabPanel value="eligibility-verification" sx={{ padding: 0 }}>
-          <EligibilityVerificationConfiguration />
         </TabPanel>
       </TabContext>
     </Box>

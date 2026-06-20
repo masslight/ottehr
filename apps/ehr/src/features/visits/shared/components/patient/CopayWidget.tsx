@@ -3,26 +3,24 @@ import HowToRegIcon from '@mui/icons-material/HowToReg';
 import PersonRemoveIcon from '@mui/icons-material/PersonRemove';
 import { Box, Grid, Typography, useTheme } from '@mui/material';
 import { FC, useMemo } from 'react';
-import { useEligibilityVerificationConfig } from 'src/features/admin/eligibilityVerification.queries';
-import { DEFAULT_ELIGIBILITY_SHORT_LIST_CODES, PatientPaymentBenefit } from 'utils';
+import { PatientPaymentBenefit } from 'utils';
 
 interface CopayWidgetProps {
   copay: PatientPaymentBenefit[];
 }
 
-export const CopayWidget: FC<CopayWidgetProps> = ({ copay }) => {
-  // The service-type codes surfaced here are driven by the Eligibility Verification admin config
-  // (Admin → Billing Configuration → Eligibility Verification). Fall back to the default short list
-  // while the config is loading.
-  const { data: config } = useEligibilityVerificationConfig();
+// This set contains the service codes that are supported by the CopayWidget.
+// Currently, it only includes 'UC' (Urgent Care), but can be overwritten to include any from
+// the enumeration defined as BenefitCoverageCodes in packages/utils/lib/types/data/telemed/eligibility.types.ts
+const supportedServiceCodes = new Set(['UC']);
 
+export const CopayWidget: FC<CopayWidgetProps> = ({ copay }) => {
   const { inNetworkList, outOfNetworkList } = useMemo(() => {
-    const supportedServiceCodes = new Set(config?.shortListCodes ?? DEFAULT_ELIGIBILITY_SHORT_LIST_CODES);
     const filteredByService = copay.filter((b) => supportedServiceCodes.has(b.code));
     const inNetworkList = filteredByService.filter((b) => b.inNetwork);
     const outOfNetworkList = filteredByService.filter((b) => !b.inNetwork);
     return { inNetworkList, outOfNetworkList };
-  }, [copay, config]);
+  }, [copay]);
   const theme = useTheme();
 
   return (

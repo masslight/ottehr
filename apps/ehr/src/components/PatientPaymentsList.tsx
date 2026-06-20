@@ -28,8 +28,6 @@ import { Appointment, ChargeItemDefinition, DocumentReference, Encounter, List, 
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { FC, Fragment, ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
-import { BENEFIT_TYPE_CODES } from 'src/features/admin/eligibilityVerification.constants';
-import { useEligibilityVerificationConfig } from 'src/features/admin/eligibilityVerification.queries';
 import { STATUS_TO_STYLE_MAP } from 'src/features/visits/shared/components/patient/InsuranceContainer';
 import { getEligibilityCheckDetailsForCoverage } from 'src/features/visits/shared/components/patient/InsuranceSection';
 import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
@@ -48,7 +46,6 @@ import {
   CoverageCheckWithDetails,
   CPT_CODE_SYSTEM,
   CPT_MODIFIER_EXTENSION_URL,
-  DEFAULT_ELIGIBILITY_PRIMARY_CODE,
   extractPayerIdFromUrl,
   findOrgMatchingReference,
   getCoding,
@@ -664,15 +661,9 @@ export default function PatientPaymentList({
     ? mapEligibilityCheckResultToSimpleStatus(coverageCheck).status
     : undefined;
 
-  // The copay surfaced on Payment Considerations is driven by the primary service-type code
-  // configured under Admin → Billing Configuration → Eligibility Verification.
-  const { data: eligibilityConfig } = useEligibilityVerificationConfig();
-  const primaryCopayCode = eligibilityConfig?.primaryCode ?? DEFAULT_ELIGIBILITY_PRIMARY_CODE;
-  const primaryCopayDescription = BENEFIT_TYPE_CODES.find((item) => item.code === primaryCopayCode)?.description;
-
   const copayAmount = getPaymentAmountFromPatientBenefit({
     coverage: coverageCheck?.copay?.filter((item) => item.inNetwork === true) || [],
-    code: primaryCopayCode,
+    code: 'UC',
     coverageCode: 'B',
     levelCode: 'IND',
     periodCode: undefined,
@@ -1054,11 +1045,6 @@ export default function PatientPaymentList({
                         <Typography variant="body2" fontWeight={600}>
                           {`${formattedCopayAmount} / ${copayAmount.periodDescription}`}
                         </Typography>
-                        {primaryCopayDescription && (
-                          <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                            {primaryCopayDescription}
-                          </Typography>
-                        )}
                       </Box>
                     )}
                     {formattedRemainingDeductibleAmount && (
