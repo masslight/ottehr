@@ -1,0 +1,37 @@
+import {
+  AdminUpdateEligibilityVerificationConfigInput,
+  AdminUpdateEligibilityVerificationConfigInputSchema,
+  INVALID_INPUT_ERROR,
+  MISSING_AUTH_TOKEN,
+  MISSING_REQUEST_BODY,
+  Secrets,
+} from 'utils';
+import { ZambdaInput } from '../../../shared';
+
+export function validateRequestParameters(
+  input: ZambdaInput
+): AdminUpdateEligibilityVerificationConfigInput & { secrets: Secrets | null; userToken: string } {
+  if (!input.body) {
+    throw MISSING_REQUEST_BODY;
+  }
+  const authorization = input.headers?.Authorization;
+  if (!authorization) {
+    throw MISSING_AUTH_TOKEN;
+  }
+  const userToken = authorization.replace('Bearer ', '');
+  const secrets = input.secrets;
+
+  let params: unknown;
+  try {
+    params = JSON.parse(input.body);
+  } catch {
+    throw INVALID_INPUT_ERROR('Unable to parse request body. Invalid JSON.');
+  }
+
+  const result = AdminUpdateEligibilityVerificationConfigInputSchema.safeParse(params);
+  if (!result.success) {
+    throw INVALID_INPUT_ERROR(`Validation failed: ${JSON.stringify(result.error.errors)}`);
+  }
+
+  return { ...result.data, secrets, userToken };
+}

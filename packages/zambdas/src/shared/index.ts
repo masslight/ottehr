@@ -17,6 +17,7 @@ export * from './insurances';
 export * from './invariants';
 export * from './lambda';
 export * from './patients';
+export * from './eligibility-verification-config';
 export * from './pdf';
 export * from './postgrid';
 export * from './practitioners';

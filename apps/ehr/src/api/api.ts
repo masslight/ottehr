@@ -19,6 +19,7 @@ import {
   AdminListInHouseLabsOutput,
   AdminRenameTemplateInput,
   AdminRenameTemplateOutput,
+  AdminUpdateEligibilityVerificationConfigInput,
   AdminUpdateInHouseLabInput,
   AdminUpdateLabSetInput,
   AdminUpdateLocationSupportPhonesInput,
@@ -110,6 +111,7 @@ import {
   GetAppointmentsZambdaOutput,
   GetConversationInput,
   GetConversationZambdaOutput,
+  GetEligibilityVerificationConfigOutput,
   GetEmployeesResponse,
   GetImmunizationQuickPicksResponse,
   GetInHouseMedicationQuickPicksResponse,
@@ -330,6 +332,8 @@ const GENERATE_LABEL_XML_ZAMBDA_ID = 'generate-label-xml';
 const GET_SUPPORT_DIALOG_ZAMBDA_ID = 'get-support-dialog';
 const GET_PUBLIC_LOCATION_SUPPORT_PHONES_ZAMBDA_ID = 'get-public-location-support-phones';
 const ADMIN_UPDATE_SUPPORT_DIALOG_ZAMBDA_ID = 'admin-update-support-dialog';
+const GET_ELIGIBILITY_VERIFICATION_CONFIG_ZAMBDA_ID = 'get-eligibility-verification-config';
+const ADMIN_UPDATE_ELIGIBILITY_VERIFICATION_CONFIG_ZAMBDA_ID = 'admin-update-eligibility-verification-config';
 const ADMIN_UPDATE_LOCATION_SUPPORT_PHONES_ZAMBDA_ID = 'admin-update-location-support-phones';
 const ADMIN_GET_LAB_SETS = 'admin-get-lab-sets';
 const ADMIN_ADD_LAB_SET = 'admin-add-lab-set';
@@ -2153,6 +2157,33 @@ export const adminUpdateLocationSupportPhones = async (
   try {
     await oystehr.zambda.execute({
       id: ADMIN_UPDATE_LOCATION_SUPPORT_PHONES_ZAMBDA_ID,
+      ...parameters,
+    });
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
+export const getEligibilityVerificationConfig = async (
+  oystehr: Oystehr
+): Promise<GetEligibilityVerificationConfigOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({ id: GET_ELIGIBILITY_VERIFICATION_CONFIG_ZAMBDA_ID });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
+export const adminUpdateEligibilityVerificationConfig = async (
+  oystehr: Oystehr,
+  parameters: AdminUpdateEligibilityVerificationConfigInput
+): Promise<void> => {
+  try {
+    await oystehr.zambda.execute({
+      id: ADMIN_UPDATE_ELIGIBILITY_VERIFICATION_CONFIG_ZAMBDA_ID,
       ...parameters,
     });
   } catch (error: unknown) {
