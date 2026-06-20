@@ -1,0 +1,3 @@
+# Daily-census runtime artifacts — regenerated each run
+.census-scenarios/
+.census-logs/
