@@ -431,7 +431,7 @@ const claimProviderRefSchema = z.object({
   type: z.enum(['Practitioner', 'Organization']),
 });
 
-export const UpdateBillingResourceInputSchema = z.discriminatedUnion('resourceType', [
+const updateBillingResourceUnion = z.discriminatedUnion('resourceType', [
   z.object({
     resourceType: z.literal('Patient'),
     resourceId: nonEmptyString,
@@ -501,6 +501,22 @@ export const UpdateBillingResourceInputSchema = z.discriminatedUnion('resourceTy
     }),
   }),
 ]);
+
+export const UpdateBillingResourceInputSchema = updateBillingResourceUnion.superRefine((data, ctx) => {
+  // Match update-billing-coverage: a non-self relationship requires policy-holder details.
+  if (
+    data.resourceType === 'Coverage' &&
+    data.fields.relationship &&
+    data.fields.relationship !== 'Self' &&
+    !data.fields.policyHolder
+  ) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['fields', 'policyHolder'],
+      message: 'Policy holder details are required when the relationship to insured is not "Self"',
+    });
+  }
+});
 
 export const SearchChargeItemDefinitionsInputSchema = z.object({
   type: z.enum(['charge-master', 'fee-schedule']),
