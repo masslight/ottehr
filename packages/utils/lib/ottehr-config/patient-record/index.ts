@@ -213,6 +213,7 @@ const FormFields: PatientRecordFormFields = {
       state: { key: 'patient-state', type: 'choice', label: 'State', options: formValueSets.stateOptions },
       zip: { key: 'patient-zip', type: 'string', label: 'ZIP', dataType: 'ZIP' },
       email: { key: 'patient-email', type: 'string', label: 'Patient email', dataType: 'Email' },
+      noEmail: { key: 'patient-no-email', type: 'boolean', label: "Don't have email" },
       phone: { key: 'patient-number', type: 'string', label: 'Patient mobile', dataType: 'Phone Number' },
       preferredCommunicationMethod: {
         key: 'patient-preferred-communication-method',
@@ -640,6 +641,13 @@ const FormFields: PatientRecordFormFields = {
         dataType: 'Email',
         triggers: [RPNotSelfTrigger],
         dynamicPopulation: { sourceLinkId: 'patient-email', triggerState: 'disabled' },
+        disabledDisplay: 'disabled',
+      },
+      noEmail: {
+        key: 'responsible-party-no-email',
+        type: 'boolean',
+        label: "Don't have email",
+        triggers: [RPNotSelfTrigger],
         disabledDisplay: 'disabled',
       },
       addressSameAsPatient: {

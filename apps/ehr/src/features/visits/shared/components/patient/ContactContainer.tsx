@@ -1,5 +1,6 @@
 import { Box } from '@mui/material';
-import { FC } from 'react';
+import { FC, useEffect, useMemo } from 'react';
+import { useFormContext, useWatch } from 'react-hook-form';
 import { Row } from 'src/components/layout';
 import { PATIENT_RECORD_CONFIG } from 'utils';
 import PatientRecordFormField from './PatientRecordFormField';
@@ -9,7 +10,7 @@ import { SectionSaveButton } from './SectionSaveButton';
 const contactSection = PATIENT_RECORD_CONFIG.FormFields.patientContactInformation;
 
 const FIELD_KEYS = Object.values(contactSection.items).map((item) => item.key);
-const REQUIRED_FIELD_KEYS = contactSection.requiredFields ?? [];
+const BASE_REQUIRED_FIELD_KEYS = contactSection.requiredFields ?? [];
 
 interface ContactContainerProps {
   isLoading: boolean;
@@ -26,13 +27,32 @@ export const ContactContainer: FC<ContactContainerProps> = ({ isLoading, patient
     formSection: contactSection,
   });
 
+  const { setValue } = useFormContext();
+  const noEmailChecked = useWatch({ name: 'patient-no-email' });
+
+  useEffect(() => {
+    if (noEmailChecked) {
+      setValue('patient-email', '', { shouldDirty: true });
+    }
+  }, [noEmailChecked, setValue]);
+
+  const effectiveRequiredFieldKeys = useMemo(
+    () => (noEmailChecked ? BASE_REQUIRED_FIELD_KEYS.filter((k) => k !== 'patient-email') : BASE_REQUIRED_FIELD_KEYS),
+    [noEmailChecked]
+  );
+
+  const effectiveRequiredFormFields = useMemo(
+    () => (noEmailChecked ? (requiredFormFields ?? []).filter((k) => k !== 'patient-email') : requiredFormFields),
+    [noEmailChecked, requiredFormFields]
+  );
+
   return (
     <PatientRecordFormSection
       formSection={contactSection}
       titleWidget={
         <SectionSaveButton
           fieldKeys={FIELD_KEYS}
-          requiredFieldKeys={REQUIRED_FIELD_KEYS}
+          requiredFieldKeys={effectiveRequiredFieldKeys}
           patientId={patientId}
           encounterId={encounterId}
         />
@@ -77,6 +97,12 @@ export const ContactContainer: FC<ContactContainerProps> = ({ isLoading, patient
       </Row>
       <PatientRecordFormField
         item={contact.email}
+        hiddenFormFields={hiddenFormFields}
+        requiredFormFields={effectiveRequiredFormFields}
+        isLoading={isLoading}
+      />
+      <PatientRecordFormField
+        item={contact.noEmail}
         hiddenFormFields={hiddenFormFields}
         requiredFormFields={requiredFormFields}
         isLoading={isLoading}

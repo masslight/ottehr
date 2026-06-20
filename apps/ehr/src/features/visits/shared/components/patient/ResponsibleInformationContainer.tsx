@@ -1,5 +1,6 @@
 import { Box } from '@mui/material';
-import { FC } from 'react';
+import { FC, useEffect, useMemo } from 'react';
+import { useFormContext, useWatch } from 'react-hook-form';
 import { Row } from 'src/components/layout';
 import { PATIENT_RECORD_CONFIG } from 'utils';
 import PatientRecordFormField from './PatientRecordFormField';
@@ -8,7 +9,7 @@ import { SectionSaveButton } from './SectionSaveButton';
 
 const { responsibleParty: responsiblePartySection } = PATIENT_RECORD_CONFIG.FormFields;
 const FIELD_KEYS = Object.values(responsiblePartySection.items).map((item) => item.key);
-const REQUIRED_FIELD_KEYS = responsiblePartySection.requiredFields ?? [];
+const BASE_REQUIRED_FIELD_KEYS = responsiblePartySection.requiredFields ?? [];
 
 interface ResponsibleInformationContainerProps {
   isLoading: boolean;
@@ -26,9 +27,31 @@ export const ResponsibleInformationContainer: FC<ResponsibleInformationContainer
     hiddenFields,
     requiredFields,
   } = usePatientRecordFormSection({ formSection: responsiblePartySection });
-  const nonCityStateZipFields = Object.values(responsibleParty).filter((v) => {
-    return ['responsible-party-zip', 'responsible-party-state', 'responsible-party-city'].includes(v.key) === false;
-  });
+
+  const { setValue } = useFormContext();
+  const noRPEmailChecked = useWatch({ name: 'responsible-party-no-email' });
+
+  useEffect(() => {
+    if (noRPEmailChecked) {
+      setValue('responsible-party-email', '', { shouldDirty: true });
+    }
+  }, [noRPEmailChecked, setValue]);
+
+  const effectiveRequiredFieldKeys = useMemo(
+    () =>
+      noRPEmailChecked
+        ? BASE_REQUIRED_FIELD_KEYS.filter((k) => k !== 'responsible-party-email')
+        : BASE_REQUIRED_FIELD_KEYS,
+    [noRPEmailChecked]
+  );
+
+  const effectiveRequiredFields = useMemo(
+    () => (noRPEmailChecked ? (requiredFields ?? []).filter((k) => k !== 'responsible-party-email') : requiredFields),
+    [noRPEmailChecked, requiredFields]
+  );
+
+  const cityStateZipKeys = new Set(['responsible-party-zip', 'responsible-party-state', 'responsible-party-city']);
+  const nonCityStateZipFields = Object.values(responsibleParty).filter((v) => !cityStateZipKeys.has(v.key));
 
   return (
     <PatientRecordFormSection
@@ -36,7 +59,7 @@ export const ResponsibleInformationContainer: FC<ResponsibleInformationContainer
       titleWidget={
         <SectionSaveButton
           fieldKeys={FIELD_KEYS}
-          requiredFieldKeys={REQUIRED_FIELD_KEYS}
+          requiredFieldKeys={effectiveRequiredFieldKeys}
           patientId={patientId}
           encounterId={encounterId}
         />
@@ -49,7 +72,7 @@ export const ResponsibleInformationContainer: FC<ResponsibleInformationContainer
             item={item}
             isLoading={isLoading}
             hiddenFormFields={hiddenFields}
-            requiredFormFields={requiredFields}
+            requiredFormFields={effectiveRequiredFields}
           />
         ))}
         <Row label="City, State, ZIP" required>

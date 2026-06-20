@@ -151,6 +151,26 @@ function buildFormFields(valueSets: ValueSetsConfig): PaperworkFormFields {
           type: 'string',
           dataType: 'Email',
           autocomplete: 'section-patient shipping email',
+          triggers: [
+            {
+              targetQuestionLinkId: 'patient-no-email',
+              effect: ['enable'],
+              operator: '!=',
+              answerBoolean: true,
+            },
+            {
+              targetQuestionLinkId: 'patient-no-email',
+              effect: ['filter'],
+              operator: '=',
+              answerBoolean: true,
+            },
+          ],
+          disabledDisplay: 'hidden',
+        },
+        noEmail: {
+          key: 'patient-no-email',
+          label: "Don't have email",
+          type: 'boolean',
         },
         phoneNumber: {
           key: 'patient-number',
@@ -1507,9 +1527,36 @@ function buildFormFields(valueSets: ValueSetsConfig): PaperworkFormFields {
               operator: '!=',
               answerString: 'Self',
             },
+            {
+              targetQuestionLinkId: 'responsible-party-no-email',
+              effect: ['enable'],
+              operator: '!=',
+              answerBoolean: true,
+            },
+            {
+              targetQuestionLinkId: 'responsible-party-no-email',
+              effect: ['filter'],
+              operator: '=',
+              answerBoolean: true,
+            },
           ],
+          enableBehavior: 'all',
           disabledDisplay: 'disabled',
           dynamicPopulation: { sourceLinkId: 'patient-email' },
+        },
+        noEmail: {
+          key: 'responsible-party-no-email',
+          label: "Don't have email",
+          type: 'boolean',
+          triggers: [
+            {
+              targetQuestionLinkId: 'responsible-party-relationship',
+              effect: ['enable'],
+              operator: '!=',
+              answerString: 'Self',
+            },
+          ],
+          disabledDisplay: 'disabled',
         },
       },
       hiddenFields: [],

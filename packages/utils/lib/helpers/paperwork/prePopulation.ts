@@ -12,7 +12,6 @@ import {
   Reference,
   RelatedPerson,
 } from 'fhir/r4b';
-import _ from 'lodash';
 import { capitalize } from 'lodash-es';
 import { DateTime } from 'luxon';
 import { getReasonForVisitOptionsForServiceCategory } from '../../config-helpers/booking';
@@ -31,10 +30,12 @@ import {
   getPronounsFromExtension,
   LANGUAGE_OPTIONS,
   LanguageOption,
+  PATIENT_NO_EMAIL_EXTENSION_URL,
   PREFERRED_PHARMACY_ERX_ID_FOR_SYNC_URL,
   PREFERRED_PHARMACY_MANUAL_ENTRY_URL,
   PREFERRED_PHARMACY_PLACES_ID_URL,
   PRIVATE_EXTENSION_BASE_URL,
+  RP_NO_EMAIL_EXTENSION_URL,
 } from '../../fhir';
 import {
   COVERAGE_ADDITIONAL_INFORMATION_URL,
@@ -536,6 +537,8 @@ const mapPatientItemsToQuestionnaireResponseItems = (input: MapPatientItemsInput
 
   const patientEmail = patient?.telecom?.find((c) => c.system === 'email' && c.period?.end === undefined)?.value;
   const patientPhone = patient?.telecom?.find((c) => c.system === 'phone' && c.period?.end === undefined)?.value;
+  const patientNoEmail =
+    patient.extension?.find((e) => e.url === PATIENT_NO_EMAIL_EXTENSION_URL)?.valueBoolean ?? false;
 
   const patientEthnicity = patient.extension?.find((e) => e.url === `${PRIVATE_EXTENSION_BASE_URL}/ethnicity`)
     ?.valueCodeableConcept?.coding?.[0]?.display;
@@ -633,6 +636,9 @@ const mapPatientItemsToQuestionnaireResponseItems = (input: MapPatientItemsInput
     }
     if (linkId === 'patient-email' && patientEmail) {
       answer = makeAnswer(patientEmail);
+    }
+    if (linkId === 'patient-no-email') {
+      answer = makeAnswer(patientNoEmail, 'Boolean');
     }
     if (linkId === 'patient-number' && patientPhone) {
       const formatted = formatPhoneNumberDisplay(patientPhone);
@@ -1293,6 +1299,8 @@ const mapGuarantorToQuestionnaireResponseItems = (input: MapGuarantorItemsInput)
   );
   const email =
     guarantorResource?.telecom?.find((c) => c.system === 'email' && c.period?.end === undefined)?.value ?? '';
+  const rpNoEmail =
+    guarantorResource?.extension?.find((e) => e.url === RP_NO_EMAIL_EXTENSION_URL)?.valueBoolean ?? false;
   let birthSex: string | undefined;
   if (guarantorResource?.gender) {
     const genderString = guarantorResource?.gender === 'other' ? 'Intersex' : guarantorResource?.gender;
@@ -1361,6 +1369,9 @@ const mapGuarantorToQuestionnaireResponseItems = (input: MapGuarantorItemsInput)
     }
     if (linkId === 'responsible-party-email' && email) {
       answer = makeAnswer(email);
+    }
+    if (linkId === 'responsible-party-no-email') {
+      answer = makeAnswer(rpNoEmail, 'Boolean');
     }
     if (linkId === 'responsible-party-address' && line) {
       answer = makeAnswer(line);

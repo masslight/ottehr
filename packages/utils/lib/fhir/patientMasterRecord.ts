@@ -21,6 +21,7 @@ import {
   PREFERRED_COMMUNICATION_METHOD_EXTENSION_URL,
   RELATED_PERSON_SAME_AS_PATIENT_ADDRESS_URL,
 } from '../types/constants';
+import { PATIENT_NO_EMAIL_EXTENSION_URL } from './constants';
 import { extractExtensionValue } from './helpers';
 
 export type PatientMasterRecordResource = Patient | RelatedPerson | Coverage;
@@ -89,6 +90,7 @@ export const patientFieldPaths = {
   deceasedDate: 'Patient/deceasedDateTime',
   deceasedNote: `Patient/extension/${PATIENT_DECEASED_NOTE_URL}`,
   preferredCommunicationMethod: `Patient/extension/${PREFERRED_COMMUNICATION_METHOD_EXTENSION_URL}`,
+  noEmail: `Patient/extension/${PATIENT_NO_EMAIL_EXTENSION_URL}`,
 };
 
 export const coverageFieldPaths = {
@@ -193,6 +195,10 @@ const EXTENSION_CONFIGS: Record<string, ExtensionConfig> = {
   preferredCommunicationMethod: {
     url: PREFERRED_COMMUNICATION_METHOD_EXTENSION_URL,
     valueType: 'valueString',
+  },
+  patientNoEmail: {
+    url: PATIENT_NO_EMAIL_EXTENSION_URL,
+    valueType: 'valueBoolean',
   },
 };
 

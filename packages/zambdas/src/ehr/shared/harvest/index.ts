@@ -124,6 +124,7 @@ import {
   PRIVATE_EXTENSION_BASE_URL,
   QuestionnaireResponseHarvestInput,
   relatedPersonFieldPaths,
+  RP_NO_EMAIL_EXTENSION_URL,
   SCHOOL_WORK_NOTE_SCHOOL_ID,
   SCHOOL_WORK_NOTE_TEMPLATE_CODE,
   SCHOOL_WORK_NOTE_WORK_ID,
@@ -185,6 +186,7 @@ interface ResponsiblePartyContact {
   address: Address;
   email: string;
   number?: string;
+  noEmail?: boolean;
 }
 
 interface EmergencyContact {
@@ -759,6 +761,7 @@ const paperworkToPatientFieldMap: Record<string, string> = {
   'common-well-consent': patientFieldPaths.commonWellConsent,
   'patient-ssn': patientFieldPaths.ssn,
   'patient-preferred-communication-method': patientFieldPaths.preferredCommunicationMethod,
+  'patient-no-email': patientFieldPaths.noEmail,
   'insurance-carrier': coverageFieldPaths.carrier,
   'insurance-member-id': coverageFieldPaths.memberId,
   'insurance-additional-information': coverageFieldPaths.additionalInformation,
@@ -832,6 +835,13 @@ export function createMasterRecordPatchOperations(
     if (PCP_FIELDS.includes(item.linkId)) {
       pcpItems.push(item);
       return;
+    }
+
+    // When patient has no email, also clear the email telecom entry
+    if (item.linkId === 'patient-no-email' && item.answer?.[0]?.valueBoolean === true) {
+      const { path: emailPath } = extractResourceTypeAndPath(patientFieldPaths.email);
+      const clearEmailOp = createPatchOperationForTelecom({ system: 'email' }, patient, emailPath, undefined);
+      if (clearEmailOp) tempOperations.push(clearEmailOp);
     }
 
     // Remove '-2' suffix for secondary fields
@@ -1890,6 +1900,7 @@ export function extractAccountGuarantor(
     address: guarantorAddress,
     email: findAnswer('responsible-party-email') ?? '',
     number: findAnswer('responsible-party-number'),
+    noEmail: findBooleanAnswer('responsible-party-no-email'),
   };
 
   if (contact.firstName && contact.lastName && contact.dob && contact.birthSex && contact.relationship) {
@@ -3697,6 +3708,9 @@ export const createContainedGuarantor = (guarantor: ResponsiblePartyContact, pat
       system: 'email',
     });
   }
+  const extension: Extension[] | undefined = guarantor.noEmail
+    ? [{ url: RP_NO_EMAIL_EXTENSION_URL, valueBoolean: true }]
+    : undefined;
   return {
     resourceType: 'RelatedPerson',
     id: guarantorId,
@@ -3706,6 +3720,7 @@ export const createContainedGuarantor = (guarantor: ResponsiblePartyContact, pat
     telecom,
     patient: { reference: `Patient/${patientId}` },
     address: [guarantor.address],
+    extension,
     relationship: [
       {
         coding: [
