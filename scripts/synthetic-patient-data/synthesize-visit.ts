@@ -157,11 +157,12 @@ function getFlagValue(name: string): string | undefined {
 }
 const practitionerOverride = getFlagValue('--practitioner') ?? process.env.SYNTH_PRACTITIONER_NAME;
 const locationOverride = getFlagValue('--location') ?? process.env.SYNTH_LOCATION_NAME;
+const intakeOverride = getFlagValue('--intake') ?? process.env.SYNTH_INTAKE_NAME;
 const positional = args.filter((a, i) => {
   if (a.startsWith('--')) return false;
-  // Skip values consumed by --practitioner / --location (the next arg after each flag).
+  // Skip values consumed by --practitioner / --location / --intake (next arg after each flag).
   const prev = i > 0 ? args[i - 1] : '';
-  return prev !== '--practitioner' && prev !== '--location';
+  return prev !== '--practitioner' && prev !== '--location' && prev !== '--intake';
 });
 if (positional.length !== 1) {
   console.error('Expected exactly one scenario file path.');
@@ -214,6 +215,11 @@ interface SynthesisContext {
   // the Phase 0 lookup. Useful when running a scenario against a project
   // where the scenario's preferred location doesn't exist.
   locationOverride?: string;
+  // CLI/env override for the intake-staff lookup (--intake <name> or
+  // SYNTH_INTAKE_NAME env var). When set, the intake performer (the MA who does
+  // vitals/screening in the Phase 13 status walk) is resolved by name instead
+  // of auto-picked. Falls back to auto-pick if the name isn't found.
+  intakeOverride?: string;
   // Resolved in Phase 0:
   locationId?: string;
   scheduleId?: string;
@@ -476,8 +482,28 @@ async function phase0_lookups(ctx: SynthesisContext): Promise<void> {
   // the small-clinic case and avoids EHR Select out-of-range warnings.
   logFhir('search', `Practitioner — intake staff`);
   if (ctx.mode === 'execute' && ctx.oystehr) {
+    // Named intake override (--intake <name>): resolve the MA by name so the
+    // intake performer is a real medical assistant, not an arbitrary employee.
+    if (ctx.intakeOverride) {
+      const parts = ctx.intakeOverride.split(/\s+/).filter(Boolean);
+      const family = parts.length > 1 ? parts[parts.length - 1] : parts[0];
+      const given = parts.length > 1 ? parts.slice(0, -1).join(' ') : undefined;
+      const params: Array<{ name: string; value: string }> = [{ name: 'family', value: family }];
+      if (given) params.push({ name: 'given', value: given });
+      const found = (
+        await ctx.oystehr.fhir.search<Practitioner>({ resourceType: 'Practitioner', params })
+      ).unbundle()[0];
+      if (found?.id) {
+        ctx.intakeStaffId = found.id;
+        logNote(`resolved intake staff "${ctx.intakeOverride}" → ${ctx.intakeStaffId}`);
+      } else {
+        console.warn(`  ⚠ intake "${ctx.intakeOverride}" not found — falling back to auto-pick`);
+      }
+    }
     const candidates = [...roleAssignedIds].filter((id) => id !== ctx.attendingPractitionerId);
-    if (candidates.length) {
+    if (ctx.intakeStaffId) {
+      // already resolved by name override
+    } else if (candidates.length) {
       ctx.intakeStaffId = candidates[0];
     } else if (ctx.attendingPractitionerId) {
       ctx.intakeStaffId = ctx.attendingPractitionerId;
@@ -608,7 +634,14 @@ function computeSlotStartISO(scenario: VisitScenario): string {
     const now = new Date();
     const minutes = now.getMinutes();
     const minutesToAdd = (15 - (minutes % 15)) % 15 || 15;
-    const s = new Date(now.getTime() + minutesToAdd * 60_000);
+    // Per-visit scaffold offset (minutes): when many backdated visits run
+    // concurrently they'd otherwise all pick the SAME next-15-min slot, and a
+    // schedule slot can only be booked once (create-appointment → 4019 "slot
+    // unavailable"). The orchestrator passes a unique offset per visit via
+    // SYNTH_SCAFFOLD_OFFSET_MIN so each gets a distinct future slot. The slot is
+    // backdated to the real date in Phase 15, so this future time is throwaway.
+    const offsetMin = parseInt(process.env.SYNTH_SCAFFOLD_OFFSET_MIN ?? '0', 10) || 0;
+    const s = new Date(now.getTime() + (minutesToAdd + offsetMin) * 60_000);
     s.setSeconds(0, 0);
     return s.toISOString();
   };
@@ -627,17 +660,46 @@ function computeSlotStartISO(scenario: VisitScenario): string {
   return candidateISO;
 }
 
+/**
+ * The historical date+time the scenario actually wants this visit dated to.
+ * Returns null when the scenario time is in the future (or absent) — in that
+ * case the slot the harness created IS the real time and no backdate is needed.
+ *
+ * create-slot / create-appointment reject past slots, so the pipeline always
+ * books at a near-future slot (computeSlotStartISO) and Phase 15 translates the
+ * finished visit back to this datetime. See phase15_backdateVisitToHistory.
+ */
+function intendedHistoricalStart(scenario: VisitScenario): DateTime | null {
+  if (!scenario.visit.time) return null;
+  const iso = `${scenario.visit.date}T${scenario.visit.time}`;
+  const dt = DateTime.fromISO(iso, { zone: 'utc' });
+  if (!dt.isValid) return null;
+  // Leave a small buffer so a "today, a few minutes ago" scenario isn't shifted.
+  return dt.toMillis() < Date.now() - 60_000 ? dt : null;
+}
+
 async function phase0_5_createSlot(ctx: SynthesisContext): Promise<void> {
   const s = ctx.scenario;
   startPhase('Create slot');
 
-  const startISO = computeSlotStartISO(s);
+  // Historical visits book a WALK-IN slot at the real past date+time. walkin:true
+  // (a) lets create-slot accept a past startISO (it otherwise requires future),
+  // and (b) marks the slot walk-in so create-appointment skips its schedule
+  // capacity/availability guard entirely (capacityGuardApplies → false). This is
+  // both robust (no schedule-hours/capacity/orphan-slot fragility) and more
+  // correct — urgent-care visits ARE walk-ins. Future/today visits keep the
+  // normal scheduled-slot path. The slot lands historically, so Phase 15 is a
+  // no-op for these.
+  const historical = intendedHistoricalStart(s);
+  const startISO = historical ? historical.toUTC().toISO()! : computeSlotStartISO(s);
+  const walkin = historical != null;
   const body = {
     scheduleId: ctx.scheduleId ?? '<resolved in Phase 0>',
     startISO,
     lengthInMinutes: 15,
     serviceModality: s.visit.type === 'in-person' ? 'in-person' : 'virtual',
     serviceCategoryCode: 'urgent-care',
+    walkin,
   };
   logCall('create-slot (execute-public)', body);
 
@@ -1850,6 +1912,83 @@ async function phase5_chartDataPass2(ctx: SynthesisContext): Promise<void> {
       throw new Error(`save-chart-data Pass 2 failed: ${res.status}\n${await res.text()}`);
     }
     logNote('procedures + disposition saved');
+  }
+}
+
+// ── Phase 5.5 — provider chart findings (template-less archetypes) ────────────
+//
+// Templates supply diagnoses / exam / ROS / MDM. Archetypes WITHOUT a template
+// carry them explicitly (scenario.diagnoses/exam/reviewOfSystems/medicalDecision)
+// so the note is still complete. Prescriptions are written as eRx-tagged
+// MedicationRequests directly (save-chart-data's prescribedMedications is
+// read-only — it reflects vendor orders, it does not create them).
+//
+// IMPORTANT: ROS is STRUCTURED checkbox findings (rosObservations), never free
+// text — a free-text `ros` renders nowhere in the EHR.
+async function phase5_5_providerChartFindings(ctx: SynthesisContext): Promise<void> {
+  const s = ctx.scenario;
+  const hasChart = !!(s.diagnoses?.length || s.exam?.length || s.reviewOfSystems?.length || s.medicalDecision);
+  if (!hasChart && !s.prescriptions?.length) return;
+
+  startPhase('Provider chart findings (diagnoses / exam / ROS / MDM / prescriptions)');
+
+  const body: Record<string, unknown> = { encounterId: ctx.encounterId ?? '<from Phase 1>' };
+  if (s.diagnoses?.length) {
+    body.diagnosis = s.diagnoses.map((d) => ({ code: d.code, display: d.display, isPrimary: d.isPrimary ?? false }));
+  }
+  if (s.exam?.length) {
+    body.examObservations = s.exam.map((e) => ({
+      field: e.field,
+      value: e.value ?? true,
+      ...(e.note ? { note: e.note } : {}),
+    }));
+  }
+  if (s.reviewOfSystems?.length) {
+    body.rosObservations = s.reviewOfSystems.map((r) => ({ field: r.field, value: true }));
+  }
+  if (s.medicalDecision) {
+    body.medicalDecision = { text: s.medicalDecision };
+  }
+  if (Object.keys(body).length > 1) {
+    logCall('save-chart-data (provider findings)', body);
+    if (ctx.mode === 'execute' && ctx.oystehr) {
+      const res = await fetch(`${ctx.zambdaApi}/zambda/save-chart-data/execute`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${ctx.accessToken}`,
+          'x-zapehr-project-id': ctx.projectId ?? '',
+        },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) throw new Error(`save-chart-data (provider findings) failed: ${res.status}\n${await res.text()}`);
+      logNote('diagnoses/exam/ROS/MDM saved');
+    }
+  }
+
+  // Prescriptions → eRx-tagged MedicationRequest (so they render in the note's
+  // Prescriptions section + the eRX tab; get-erx-orders searches _tag=erx-medication).
+  if (s.prescriptions?.length) {
+    const DRUG_SYS = 'https://terminology.fhir.oystehr.com/CodeSystem/medispan-dispensable-drug-id';
+    logCall('create eRx MedicationRequest(s)', { count: s.prescriptions.length });
+    if (ctx.mode === 'execute' && ctx.oystehr && ctx.encounterId) {
+      for (const rx of s.prescriptions) {
+        await ctx.oystehr.fhir.create({
+          resourceType: 'MedicationRequest',
+          status: 'active',
+          intent: 'order',
+          meta: { tag: [{ code: 'erx-medication' }] },
+          ...(ctx.patientId ? { subject: { reference: `Patient/${ctx.patientId}` } } : {}),
+          encounter: { reference: `Encounter/${ctx.encounterId}` },
+          ...(ctx.attendingPractitionerId
+            ? { requester: { reference: `Practitioner/${ctx.attendingPractitionerId}` } }
+            : {}),
+          medicationCodeableConcept: { coding: [{ system: DRUG_SYS, display: rx.name }], text: rx.name },
+          dosageInstruction: [{ text: rx.sig, patientInstruction: rx.sig }],
+        } as import('fhir/r4b').MedicationRequest);
+      }
+      logNote(`${s.prescriptions.length} prescription(s) created`);
+    }
   }
 }
 
@@ -3236,6 +3375,116 @@ async function phase14_signOff(ctx: SynthesisContext): Promise<void> {
   }
 }
 
+// ── Phase 15 — backdate the whole visit to its historical date ───────────────
+//
+// The pipeline always books at a near-future slot because create-slot /
+// create-appointment reject past times, and Phase 13.5 builds realistic LOS
+// spacing anchored to that (future) appointment.start. This phase translates
+// the ENTIRE finished visit back to scenario.visit.date+time by a single
+// constant delta, so every internal gap (statusHistory LOS, period span) is
+// preserved exactly — only the absolute position moves.
+//
+// Critical because the ad-hoc Encounters report (and the EHR generally) buckets
+// visits by Appointment.start (the FHIR `date` search param). Without this, a
+// visit authored "for 2025-09" would land on today's date and never show up in
+// a historical date-range report.
+//
+// Shifted: Appointment.start/.end, Slot.start/.end, Encounter.period.start/.end,
+// and every Encounter.statusHistory[].period.start/.end. Per-resource clinical
+// timestamps (Observation.effectiveDateTime, Condition.recordedDate, etc.) are
+// NOT shifted — the report keys off Appointment/Encounter dates, and those
+// in-visit details render against the encounter regardless of their own stamp.
+async function phase15_backdateVisitToHistory(ctx: SynthesisContext): Promise<void> {
+  const target = intendedHistoricalStart(ctx.scenario);
+  if (!target) return; // future/today visit — slot time is already correct
+  if (ctx.mode !== 'execute' || !ctx.oystehr) {
+    startPhase('Backdate visit to historical date');
+    logNote(`would shift Appointment/Slot/Encounter back to ${target.toISO()}`);
+    return;
+  }
+  if (!ctx.appointmentId || !ctx.encounterId) return;
+
+  startPhase('Backdate visit to historical date');
+
+  const [appointment, encounter] = await Promise.all([
+    ctx.oystehr.fhir.get<import('fhir/r4b').Appointment>({ resourceType: 'Appointment', id: ctx.appointmentId }),
+    ctx.oystehr.fhir.get<import('fhir/r4b').Encounter>({ resourceType: 'Encounter', id: ctx.encounterId }),
+  ]);
+
+  if (!appointment.start) {
+    logNote('appointment.start missing — cannot compute backdate delta; skipping');
+    return;
+  }
+  const currentStart = DateTime.fromISO(appointment.start);
+  const deltaMs = target.toMillis() - currentStart.toMillis();
+  if (deltaMs >= 0) {
+    logNote('current appointment.start is already at/after target — nothing to backdate');
+    return;
+  }
+  const shift = (iso?: string): string | undefined =>
+    iso ? DateTime.fromISO(iso).plus({ milliseconds: deltaMs }).toUTC().toISO()! : undefined;
+
+  // Appointment.start/.end
+  const apptOps: Array<{ op: 'replace'; path: string; value: string }> = [];
+  const newApptStart = shift(appointment.start);
+  if (newApptStart) apptOps.push({ op: 'replace', path: '/start', value: newApptStart });
+  const newApptEnd = shift(appointment.end);
+  if (newApptEnd) apptOps.push({ op: 'replace', path: '/end', value: newApptEnd });
+  if (apptOps.length) {
+    await ctx.oystehr.fhir.patch({ resourceType: 'Appointment', id: ctx.appointmentId, operations: apptOps });
+  }
+
+  // Slot.start/.end (appointment references it; keep them consistent)
+  if (ctx.slotId) {
+    try {
+      const slot = await ctx.oystehr.fhir.get<import('fhir/r4b').Slot>({ resourceType: 'Slot', id: ctx.slotId });
+      const slotOps: Array<{ op: 'replace'; path: string; value: string }> = [];
+      const ns = shift(slot.start);
+      const ne = shift(slot.end);
+      if (ns) slotOps.push({ op: 'replace', path: '/start', value: ns });
+      if (ne) slotOps.push({ op: 'replace', path: '/end', value: ne });
+      if (slotOps.length) {
+        await ctx.oystehr.fhir.patch({ resourceType: 'Slot', id: ctx.slotId, operations: slotOps });
+      }
+    } catch (err) {
+      logNote(`slot backdate skipped: ${err instanceof Error ? err.message : err}`);
+    }
+  }
+
+  // Encounter.period + every statusHistory entry's period, shifted by the same delta.
+  const encOps: Array<{ op: 'replace'; path: string; value: unknown }> = [];
+  if (encounter.period) {
+    encOps.push({
+      op: 'replace',
+      path: '/period',
+      value: {
+        ...encounter.period,
+        ...(encounter.period.start ? { start: shift(encounter.period.start) } : {}),
+        ...(encounter.period.end ? { end: shift(encounter.period.end) } : {}),
+      },
+    });
+  }
+  if (encounter.statusHistory?.length) {
+    const newHistory = encounter.statusHistory.map((entry) => ({
+      ...entry,
+      period: {
+        ...entry.period,
+        ...(entry.period?.start ? { start: shift(entry.period.start) } : {}),
+        ...(entry.period?.end ? { end: shift(entry.period.end) } : {}),
+      },
+    }));
+    encOps.push({ op: 'replace', path: '/statusHistory', value: newHistory });
+  }
+  if (encOps.length) {
+    await ctx.oystehr.fhir.patch({ resourceType: 'Encounter', id: ctx.encounterId, operations: encOps });
+  }
+
+  logNote(
+    `visit shifted by ${Math.round(deltaMs / 86_400_000)} days → ` +
+      `Appointment.start now ${newApptStart} (target ${target.toISODate()})`
+  );
+}
+
 // ── Failed-run cleanup ───────────────────────────────────────────────────────
 
 /**
@@ -3249,7 +3498,12 @@ async function phase14_signOff(ctx: SynthesisContext): Promise<void> {
  * original pipeline error remains the visible one.
  */
 async function cleanupFailedRun(ctx: SynthesisContext): Promise<void> {
-  if (!ctx.oystehr || !ctx.appointmentId) return;
+  // NOTE: do NOT bail when appointmentId is unset — the most common early
+  // failure is create-appointment itself (Phase 1), which leaves the Phase 0.5
+  // scaffold Slot orphaned. Orphan future slots pile up at the same scaffold
+  // time across retries and eventually make create-appointment reject new
+  // bookings, so we must clean the Slot even when no Appointment was created.
+  if (!ctx.oystehr) return;
 
   const tryDelete = async (resourceType: string, id: string): Promise<void> => {
     try {
@@ -3280,7 +3534,14 @@ async function cleanupFailedRun(ctx: SynthesisContext): Promise<void> {
   if (ctx.encounterId) {
     await tryDelete('Encounter', ctx.encounterId);
   }
-  await tryDelete('Appointment', ctx.appointmentId);
+  if (ctx.appointmentId) {
+    await tryDelete('Appointment', ctx.appointmentId);
+  }
+  // Always remove the scaffold Slot — it's orphaned whenever the run fails
+  // before Phase 15 backdates it (incl. the create-appointment failure case).
+  if (ctx.slotId) {
+    await tryDelete('Slot', ctx.slotId);
+  }
 }
 
 // ── Main ──────────────────────────────────────────────────────────────────────
@@ -3301,6 +3562,7 @@ async function main(): Promise<void> {
     scenarioPath,
     practitionerOverride,
     locationOverride,
+    intakeOverride,
   };
 
   if (isExecute) {
@@ -3332,6 +3594,7 @@ async function main(): Promise<void> {
     phase3_chartDataPass1,
     phase4_applyTemplate,
     phase5_chartDataPass2,
+    phase5_5_providerChartFindings,
     phase6_inHouseLabs,
     phase7_inHouseMedications,
     phase8_immunizations,
@@ -3342,6 +3605,7 @@ async function main(): Promise<void> {
     phase13_statusWalk,
     phase13_5_backdateStatusHistory,
     phase14_signOff,
+    phase15_backdateVisitToHistory,
   ];
 
   // Track whether the visit signed off cleanly. If not (uncaught error in

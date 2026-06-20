@@ -626,6 +626,44 @@ const SignOffSchema = z
   })
   .describe('How Stage 2 finishes the visit');
 
+// ── Provider chart findings (for template-less archetypes) ───────────────────
+// Templates supply diagnoses/exam/ROS/MDM; archetypes WITHOUT a template carry
+// these explicitly so the note is still complete. All written via save-chart-data
+// except prescriptions (a direct eRx-tagged MedicationRequest).
+const DiagnosisEntrySchema = z
+  .object({
+    code: z.string().describe('ICD-10 code, e.g. "S72.142A"'),
+    display: z.string().describe('Diagnosis display'),
+    isPrimary: z.boolean().optional().describe('Primary diagnosis (defaults false)'),
+  })
+  .describe('Maps to save-chart-data.diagnosis[] (creates Condition + Encounter.diagnosis link)');
+const ExamFindingSchema = z
+  .object({
+    field: z
+      .string()
+      .describe('Exam field code, e.g. "soft", "regular-rate-and-rhythm-with-no-murmur", "extremities-comment"'),
+    value: z.boolean().optional().describe('Defaults true'),
+    note: z.string().optional().describe('Free-text note (for *-comment fields)'),
+  })
+  .describe('Maps to save-chart-data.examObservations[]');
+const RosFindingSchema = z
+  .object({
+    field: z
+      .string()
+      .describe(
+        'ROS field code INCLUDING state suffix — ROS is structured checkboxes, NOT free text. ' +
+          'E.g. "ros-ent-sore-throat-reports" (positive) or "ros-respiratory-cough-denies" (pertinent negative). ' +
+          'Item keys: packages/utils/lib/ottehr-config/review-of-systems/in-person.config.ts'
+      ),
+  })
+  .describe('Maps to save-chart-data.rosObservations[]');
+const PrescriptionSchema = z
+  .object({
+    name: z.string().describe('Drug name + strength, e.g. "amoxicillin 500 mg capsule"'),
+    sig: z.string().describe('Patient instructions / SIG, e.g. "Take 1 capsule by mouth twice daily for 10 days"'),
+  })
+  .describe('Discharge prescription → eRx-tagged MedicationRequest');
+
 // ── Top-level scenario ───────────────────────────────────────────────────────
 
 export const VisitScenarioSchema = z
@@ -646,6 +684,16 @@ export const VisitScenarioSchema = z
       ),
     history: HistorySchema.optional(),
     vitals: VitalsSchema.optional(),
+    // Provider chart findings — used by template-less archetypes (a template
+    // otherwise supplies these). Written in Phase 5.5.
+    diagnoses: z.array(DiagnosisEntrySchema).optional().describe('Encounter diagnoses when no template supplies them'),
+    exam: z.array(ExamFindingSchema).optional().describe('Structured physical exam findings'),
+    reviewOfSystems: z
+      .array(RosFindingSchema)
+      .optional()
+      .describe('Structured ROS findings (checkbox items, NOT free text)'),
+    medicalDecision: z.string().optional().describe('Medical decision making narrative'),
+    prescriptions: z.array(PrescriptionSchema).optional().describe('Discharge prescriptions (eRx)'),
     modules: ModulesSchema.optional(),
     eligibility: EligibilitySchema.optional(),
     pricing: PricingSchema.optional(),

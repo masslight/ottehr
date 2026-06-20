@@ -1,0 +1,259 @@
+{
+  "schemaVersion": "1.0",
+  "label": "Impetigo (pediatric)",
+  "patient": {
+    "firstName": "Pat",
+    "lastName": "Sample",
+    "dateOfBirth": "1985-01-01",
+    "sex": "female",
+    "email": "pat.sample@example.com",
+    "phoneNumber": "+12015550100",
+    "address": {
+      "line1": "100 Main Street",
+      "city": "New Brunswick",
+      "state": "NJ",
+      "postalCode": "08901"
+    },
+    "race": "Other Race",
+    "ethnicity": "Not Hispanic or Latino",
+    "preferredLanguage": "English",
+    "preferredCommunication": "Cell Phone",
+    "mobileOptIn": true,
+    "responsibleParty": {
+      "relationship": "Self"
+    },
+    "consents": {
+      "hipaa": true,
+      "treat": true,
+      "signerRelationship": "Self"
+    },
+    "fixtures": {
+      "idCardFront": "../fixtures/driversLicenseFront.jpeg",
+      "idCardBack": "../fixtures/driversLicenseBackSample.jpeg",
+      "insuranceCardFront": "../fixtures/insuranceSampleFront.png",
+      "insuranceCardBack": "../fixtures/insuranceSampleBack.jpeg"
+    },
+    "insurance": {
+      "primary": {
+        "carrier": "Aetna",
+        "memberId": "AET100200300",
+        "groupNumber": "GRP-AET-100",
+        "planName": "Aetna Choice PPO",
+        "subscriberRelationship": "self"
+      }
+    }
+  },
+  "visit": {
+    "type": "in-person",
+    "date": "2026-04-25",
+    "reasonForVisit": "Rash or skin issue - crusty sores around the nose and mouth, spreading",
+    "locationName": "New York",
+    "language": "en",
+    "targetStatus": "completed"
+  },
+  "emCode": {
+    "code": "99213",
+    "display": "Office visit, established, low complexity"
+  },
+  "vitals": {
+    "temperature": {
+      "value": 37,
+      "unit": "C"
+    },
+    "heartRate": {
+      "value": 96
+    },
+    "bloodPressure": {
+      "systolic": 102,
+      "diastolic": 66
+    },
+    "respirationRate": {
+      "value": 20
+    },
+    "oxygenSaturation": {
+      "value": 99
+    },
+    "weight": {
+      "value": 28,
+      "unit": "kg"
+    },
+    "height": {
+      "value": 130,
+      "unit": "cm"
+    }
+  },
+  "diagnoses": [
+    {
+      "code": "L01.00",
+      "display": "Impetigo, unspecified",
+      "isPrimary": true
+    }
+  ],
+  "exam": [
+    {
+      "field": "alert",
+      "value": true
+    },
+    {
+      "field": "active",
+      "value": true
+    },
+    {
+      "field": "in-no-acute-distress",
+      "value": true
+    },
+    {
+      "field": "well-hydrated",
+      "value": true
+    },
+    {
+      "field": "normocephalic",
+      "value": true
+    },
+    {
+      "field": "atraumatic",
+      "value": true
+    },
+    {
+      "field": "right-eye-conjunctiva-non-injected-no-discharge",
+      "value": true
+    },
+    {
+      "field": "left-eye-conjunctiva-non-injected-no-discharge",
+      "value": true
+    },
+    {
+      "field": "lids-and-lashes-normal",
+      "value": true
+    },
+    {
+      "field": "right-tm-pearly-with-good-light-reflex-preserved-landmarks",
+      "value": true
+    },
+    {
+      "field": "left-tm-pearly-with-good-light-reflex-preserved-landmarks",
+      "value": true
+    },
+    {
+      "field": "no-effusion",
+      "value": true
+    },
+    {
+      "field": "normal-canals",
+      "value": true
+    },
+    {
+      "field": "normal-external-ear",
+      "value": true
+    },
+    {
+      "field": "moist-mucous-membranes",
+      "value": true
+    },
+    {
+      "field": "oropharynx-clear-with-no-erythema-lesions-or-exudate",
+      "value": true
+    },
+    {
+      "field": "uvula-midline",
+      "value": true
+    },
+    {
+      "field": "normal-appearance-of-neck",
+      "value": true
+    },
+    {
+      "field": "warm-and-dry",
+      "value": true
+    },
+    {
+      "field": "regular-rate-and-rhythm-with-no-murmur",
+      "value": true
+    },
+    {
+      "field": "extremities-are-warm-and-well-perfused",
+      "value": true
+    },
+    {
+      "field": "good-air-movement-throughout-lung-fields",
+      "value": true
+    },
+    {
+      "field": "no-signs-of-respiratory-distress",
+      "value": true
+    },
+    {
+      "field": "chest-is-clear-to-auscultation-bilaterally",
+      "value": true
+    },
+    {
+      "field": "soft",
+      "value": true
+    },
+    {
+      "field": "nondistended",
+      "value": true
+    },
+    {
+      "field": "nontender",
+      "value": true
+    },
+    {
+      "field": "moves-all-extremities-symmetrically",
+      "value": true
+    },
+    {
+      "field": "no-obvious-injury-or-swelling",
+      "value": true
+    },
+    {
+      "field": "normal-mental-status",
+      "value": true
+    },
+    {
+      "field": "normal-tone",
+      "value": true
+    },
+    {
+      "field": "skin-comment",
+      "value": true,
+      "note": "Clusters of honey-crusted erosions around the nares and perioral region with surrounding erythema; no deep ulceration, no surrounding cellulitis or systemic signs."
+    }
+  ],
+  "reviewOfSystems": [
+    {
+      "field": "ros-skin-rash-reports"
+    },
+    {
+      "field": "ros-skin-wounds-reports"
+    },
+    {
+      "field": "ros-constitutional-fever-denies"
+    },
+    {
+      "field": "ros-skin-swelling-denies"
+    }
+  ],
+  "medicalDecision": "Localized non-bullous impetigo with classic honey-colored crusting and no surrounding cellulitis or systemic illness. Topical mupirocin prescribed with hygiene counseling (handwashing, no sharing towels, keep area clean); may return to school 24h after starting treatment; return precautions for spreading or fever.",
+  "prescriptions": [
+    {
+      "name": "mupirocin 2% ointment",
+      "sig": "Apply to the affected areas three times daily for 5 days after gently removing crusts"
+    }
+  ],
+  "disposition": {
+    "followUp": [],
+    "type": "pcp",
+    "text": "Discharge home with PCP follow-up",
+    "note": "Topical antibiotic for impetigo, good hand hygiene, avoid sharing towels. Return for spreading sores, swelling, or fever.",
+    "followUpIn": 5
+  },
+  "signOff": {
+    "practitionerName": "Demo Admin",
+    "userRole": "Provider",
+    "timezone": "America/New_York",
+    "supervisorApproval": false,
+    "patientInfoConfirmed": true,
+    "complete": true
+  }
+}
