@@ -189,7 +189,21 @@ const CODE_FIELDS: FieldDef[] = [
       'ICD-10 diagnosis codes charted on the visit (primary first). ICD-10 is HIERARCHICAL — match a ' +
       'diagnosis FAMILY by category PREFIX (code.startsWith("H66")), not a hand-typed full-code list.',
   },
+  {
+    name: 'icdDisplays',
+    type: 'string[]',
+    description:
+      'Human-readable diagnosis descriptions, parallel to icdCodes (same order). Use these for axis/bar/legend ' +
+      'LABELS instead of (or alongside) the raw code, e.g. `${primaryIcd} ${primaryIcdDisplay}`.',
+  },
   { name: 'primaryIcd', type: 'string', description: 'The primary (rank-1) ICD-10 diagnosis code, if one was marked.' },
+  {
+    name: 'primaryIcdDisplay',
+    type: 'string',
+    description:
+      'Human-readable description of the primary diagnosis (e.g. "Streptococcal pharyngitis"). Use this for the ' +
+      'label when a chart is grouped by primaryIcd — do NOT invent or append text like "primary dx".',
+  },
   {
     name: 'cptCodes',
     type: 'string[]',
@@ -197,7 +211,21 @@ const CODE_FIELDS: FieldDef[] = [
       'CPT/HCPCS procedure codes charted on the visit (excludes the E&M code). NOT hierarchical — ' +
       'do not prefix-match; filter against the actual codes present.',
   },
+  {
+    name: 'cptDisplays',
+    type: 'string[]',
+    description:
+      'Human-readable CPT/HCPCS procedure descriptions, parallel to cptCodes (same order). Use these for ' +
+      'LABELS instead of (or alongside) the raw code; do NOT invent or append text.',
+  },
   { name: 'emCode', type: 'string', description: 'The visit\'s E&M code, e.g. "99213". Null when not set.' },
+  {
+    name: 'emDisplay',
+    type: 'string',
+    description:
+      'Human-readable description of the E&M code (e.g. "Office visit, established, low complexity"). Use this ' +
+      'for the label when a chart is grouped by emCode.',
+  },
 ];
 
 const TIMING_FIELDS: FieldDef[] = [

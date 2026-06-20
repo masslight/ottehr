@@ -73,9 +73,13 @@ export interface AdHocEncounterRow {
   registeredByName: string; // registrar's full name (resolved from the staff email), or registeredBy when unresolved
   // --- Codes (includeCodes) ---
   icdCodes?: string[];
+  icdDisplays?: string[];
   primaryIcd?: string;
+  primaryIcdDisplay?: string;
   cptCodes?: string[];
+  cptDisplays?: string[];
   emCode?: string;
+  emDisplay?: string;
   // --- KPI timing (includeTiming) ---
   timeWithProviderMinutes?: number | null;
   arrivedToProviderMinutes?: number | null;

@@ -505,26 +505,46 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     if (includeCodes) {
       const icdCodes: string[] = [];
+      const icdDisplays: string[] = [];
       const dxEntries = [...(encounter.diagnosis ?? [])].sort((a, b) => (a.rank ?? 99) - (b.rank ?? 99));
       for (const dx of dxEntries) {
         const conditionId = dx.condition?.reference?.replace('Condition/', '');
         const condition = conditionId ? conditionById.get(conditionId) : undefined;
         const codings = condition?.code?.coding ?? [];
-        const code = codings.find((c) => c.system?.toLowerCase().includes('icd-10'))?.code ?? codings[0]?.code;
-        if (code && !icdCodes.includes(code)) icdCodes.push(code);
+        const icdCoding = codings.find((c) => c.system?.toLowerCase().includes('icd-10')) ?? codings[0];
+        const code = icdCoding?.code;
+        if (code && !icdCodes.includes(code)) {
+          icdCodes.push(code);
+          icdDisplays.push(icdCoding?.display ?? condition?.code?.text ?? code);
+        }
       }
       const cptCodes: string[] = [];
+      const cptDisplays: string[] = [];
       let emCode: string | undefined;
+      let emDisplay: string | undefined;
       for (const procedure of encounter.id ? proceduresByEncounterId.get(encounter.id) ?? [] : []) {
-        const code = procedure.code?.coding?.[0]?.code;
+        const coding = procedure.code?.coding?.[0];
+        const code = coding?.code;
         if (!code) continue;
-        if (hasChartTag(procedure, 'em-code')) emCode = emCode ?? code;
-        else if (hasChartTag(procedure, 'cpt-code') && !cptCodes.includes(code)) cptCodes.push(code);
+        const display = coding?.display ?? procedure.code?.text ?? code;
+        if (hasChartTag(procedure, 'em-code')) {
+          if (!emCode) {
+            emCode = code;
+            emDisplay = display;
+          }
+        } else if (hasChartTag(procedure, 'cpt-code') && !cptCodes.includes(code)) {
+          cptCodes.push(code);
+          cptDisplays.push(display);
+        }
       }
       row.icdCodes = icdCodes;
+      row.icdDisplays = icdDisplays;
       row.primaryIcd = icdCodes[0];
+      row.primaryIcdDisplay = icdDisplays[0];
       row.cptCodes = cptCodes;
+      row.cptDisplays = cptDisplays;
       row.emCode = emCode;
+      row.emDisplay = emDisplay;
     }
 
     if (includeTiming) {

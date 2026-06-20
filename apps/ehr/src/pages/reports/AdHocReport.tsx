@@ -141,6 +141,10 @@ export default function AdHocReport(): React.ReactElement {
   // True once the current code is an auto-repair of a crashed render — so a successful render can be
   // persisted back to the saved report (otherwise it crash-then-retries on every open).
   const autoFixedRef = useRef(false);
+  // Set when a report is opened from a saved tile so the view starts at the top:
+  // the table grid mounts below the chart after the iframe renders and otherwise
+  // pulls the page down to itself. Cleared after we scroll back up once.
+  const scrollTopOnRenderRef = useRef(false);
 
   const getDateRangeIso = useCallback(
     (filter: DateRangeFilter): { start: string; end: string } =>
@@ -393,6 +397,7 @@ export default function AdHocReport(): React.ReactElement {
         setSchema({ ...dataset.buildSchema(fetched, savedOptions), otherDatasets: otherDatasetsFor(saved.datasetId) });
         setGeneratedCode(saved.code);
         setGeneratedTitle(saved.title);
+        scrollTopOnRenderRef.current = true; // start at the top once this report renders
         const conv: AdHocReportTurn[] = [
           { role: 'user', content: saved.request },
           { role: 'assistant', content: saved.code },
@@ -459,6 +464,15 @@ export default function AdHocReport(): React.ReactElement {
   // When an auto-repaired report renders cleanly, persist the fixed code back to the saved report so
   // it doesn't crash-then-retry every time it's opened. Only fires for a report opened from a tile.
   const handleRendered = useCallback((): void => {
+    // Opening a saved report should start at the top. The chart renders first,
+    // then the table grid mounts below it and scrolls the page down to itself;
+    // re-assert top once now and again after the grid mounts (one-shot).
+    if (scrollTopOnRenderRef.current) {
+      scrollTopOnRenderRef.current = false;
+      window.scrollTo({ top: 0 });
+      requestAnimationFrame(() => window.scrollTo({ top: 0 }));
+      setTimeout(() => window.scrollTo({ top: 0 }), 250);
+    }
     if (!autoFixedRef.current) return;
     autoFixedRef.current = false;
     if (!oystehrZambda || !loadedSavedId || !generatedCode) return;
