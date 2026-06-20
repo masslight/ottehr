@@ -158,12 +158,6 @@ export const SearchBillingPayersInputSchema = z.object({
   name: nonEmptyString.optional(),
 });
 
-export const SearchBillingProcedureCodesInputSchema = z.object({
-  query: nonEmptyString,
-});
-
-export type SearchBillingProcedureCodesInput = z.output<typeof SearchBillingProcedureCodesInputSchema>;
-
 const claimDiagnosisSchema = z.object({
   code: nonEmptyString,
   display: z.string().optional(),

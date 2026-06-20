@@ -1,6 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import {
   apiErrorToThrow,
+  BillingCodeOption,
   chooseJson,
   ClaimDetailResponse,
   CreateBillingClaimInput,
@@ -33,7 +34,6 @@ import {
   SearchBillingPatientsResponse,
   SearchBillingPayersInput,
   SearchBillingPayersResponse,
-  SearchBillingProcedureCodesInput,
   SearchBillingProcedureCodesResponse,
   SearchBillingProvidersInput,
   SearchBillingProvidersResponse,
@@ -182,15 +182,29 @@ export const deleteBillingServiceFacility = (
 
 // --- Terminology ---
 
-export const searchBillingProcedureCodes = (
+// CPT and HCPCS share the service-line code field, so search both and merge. Called straight from the
+export const searchBillingProcedureCodes = async (
   oystehr: Oystehr,
-  parameters: SearchBillingProcedureCodesInput
-): Promise<SearchBillingProcedureCodesResponse> =>
-  executeBillingZambda(oystehr, 'search-billing-procedure-codes', parameters);
+  parameters: { query: string }
+): Promise<SearchBillingProcedureCodesResponse> => {
+  const [cpt, hcpcs] = await Promise.all([
+    oystehr.terminology.searchCpt({ query: parameters.query, searchType: 'all', limit: 50 }),
+    oystehr.terminology.searchHcpcs({ query: parameters.query, searchType: 'all', limit: 50 }),
+  ]);
+  const seen = new Set<string>();
+  const codes: BillingCodeOption[] = [];
+  for (const c of [...cpt.codes, ...hcpcs.codes]) {
+    if (seen.has(c.code)) continue;
+    seen.add(c.code);
+    codes.push({ code: c.code, display: c.display });
+  }
+  codes.sort((a, b) => a.code.localeCompare(b.code));
+  return { codes };
+};
 
 // TODO(oystehr): no ICD-10 (diagnosis) terminology search yet — the SDK only exposes searchCpt/searchHcpcs.
-// When Oystehr adds ICD-10, add `searchBillingDiagnosisCodes` here + a `search-billing-diagnosis-codes`
-// zambda (createBillingClient) and make the diagnosis fields autocompletes. Until then diagnoses stay free-text.
+// When Oystehr adds ICD-10, add `searchBillingDiagnosisCodes` here (direct terminology call) and make the
+// diagnosis fields autocompletes. Until then diagnoses stay free-text.
 
 // --- Tags ---
 

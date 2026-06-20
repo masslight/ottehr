@@ -347,13 +347,6 @@
       "src": "src/billing/search-billing-payers/index",
       "zip": ".dist/zips/search-billing-payers.zip"
     },
-    "SEARCH-BILLING-PROCEDURE-CODES": {
-      "name": "search-billing-procedure-codes",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/billing/search-billing-procedure-codes/index",
-      "zip": ".dist/zips/search-billing-procedure-codes.zip"
-    },
     "GET-PATIENT-COVERAGES": {
       "name": "get-patient-coverages",
       "type": "http_auth",
