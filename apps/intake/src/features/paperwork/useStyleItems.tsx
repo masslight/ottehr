@@ -17,7 +17,7 @@ import { getItemDisplayStrategy } from './useSelectItems';
 
 export interface StyledQuestionnaireItem extends IntakeQuestionnaireItem {
   hideControlLabel: boolean;
-  displayStrategy: 'enabled' | 'hidden' | 'protected' | 'disabled';
+  displayStrategy: 'enabled' | 'hidden' | 'protected';
   isRequired: boolean;
   placeholder?: string;
   mask?: string;

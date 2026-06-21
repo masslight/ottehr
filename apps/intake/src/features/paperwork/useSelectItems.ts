@@ -9,7 +9,7 @@ export interface StyledQuestionnaireItem extends QuestionnaireItem {
   isFullWidth?: boolean;
 }
 
-type DisplayStrategy = 'enabled' | 'hidden' | 'protected' | 'disabled';
+type DisplayStrategy = 'enabled' | 'hidden' | 'protected';
 // this is called without all items in one place
 export const getItemDisplayStrategy = (
   item: IntakeQuestionnaireItem,

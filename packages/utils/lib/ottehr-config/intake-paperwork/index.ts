@@ -1562,7 +1562,7 @@ function buildFormFields(valueSets: ValueSetsConfig): PaperworkFormFields {
               answerString: 'Self',
             },
           ],
-          disabledDisplay: 'disabled',
+          disabledDisplay: 'protected',
           dynamicPopulation: { sourceLinkId: 'patient-no-email' },
         },
       },

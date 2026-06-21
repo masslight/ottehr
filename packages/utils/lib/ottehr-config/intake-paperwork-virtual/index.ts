@@ -1804,7 +1804,7 @@ function buildFormFields(
               answerString: 'Self',
             },
           ],
-          disabledDisplay: 'disabled',
+          disabledDisplay: 'protected',
           dynamicPopulation: { sourceLinkId: 'patient-no-email' },
         },
       },
