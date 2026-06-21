@@ -33,7 +33,14 @@ const OTT_EXT_URL = 'https://extensions.fhir.zapehr.com/visit-status';
 // Results only "come back" once the visit is far enough along; in-progress
 // visits keep pending orders (realistic). --all overrides for backfills.
 const FINALIZED_STATUSES = new Set(['discharged', 'completed']);
-const norm = (s: string): string => (s ?? '').toLowerCase().replace(/[^a-z0-9]/g, '');
+// Strip parentheticals before alphanumerics so a scenario test name ("Urinalysis")
+// matches the catalog/order name ("Urinalysis (UA)") — mirrors the harness's fuzzy
+// catalog match. Harmless for analyte names (which carry no parentheticals).
+const norm = (s: string): string =>
+  (s ?? '')
+    .toLowerCase()
+    .replace(/\(.*?\)/g, '')
+    .replace(/[^a-z0-9]/g, '');
 const latestVisitStatus = (enc: any): string =>
   (enc.statusHistory ?? [])
     .map((h: any) => h.extension?.find((x: any) => x.url === OTT_EXT_URL)?.valueCode)

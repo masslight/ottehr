@@ -1995,6 +1995,35 @@ async function phase5_5_providerChartFindings(ctx: SynthesisContext): Promise<vo
 
 // ── Phase 6 — in-house lab orders (plan-only) ────────────────────────────────
 
+// Catalog test names vary across envs ("Urinalysis (UA)" vs "Urinalysis",
+// "COVID-19 Antigen" vs "SARS-CoV-2 Antigen", "Monospot test" vs "Mono Spot"),
+// and the harness used to require an EXACT match — so most lab orders silently
+// skipped. Normalize (drop parentheticals + non-alphanumerics) and apply a small
+// alias map, then prefer an exact normalized hit before a catalog-contains
+// fallback (so "Rapid Strep A" never collides with a bare "Strep" entry).
+const normLab = (s: string): string =>
+  (s ?? '')
+    .toLowerCase()
+    .replace(/\(.*?\)/g, '')
+    .replace(/[^a-z0-9]/g, '');
+const LAB_NAME_ALIASES: Record<string, string> = {
+  sarscov2antigen: 'covid19antigen',
+  sarscov2: 'covid19antigen',
+  covid19: 'covid19antigen',
+  monospot: 'monospottest',
+  rapidcovid19antigen: 'covid19antigen',
+  rapidinfluenzaab: 'rapidinfluenzaa', // combined "A/B" archetype → the Flu A catalog test
+};
+function matchCatalogTest<T extends { name: string }>(labs: T[], testName: string): T | undefined {
+  const want = normLab(testName);
+  const aliased = LAB_NAME_ALIASES[want] ?? want;
+  return (
+    labs.find((t) => normLab(t.name) === want) ??
+    labs.find((t) => normLab(t.name) === aliased) ??
+    labs.find((t) => normLab(t.name).includes(aliased))
+  );
+}
+
 async function phase6_inHouseLabs(ctx: SynthesisContext): Promise<void> {
   const s = ctx.scenario;
   if (!s.modules?.inHouseLabs?.length) return;
@@ -2031,7 +2060,7 @@ async function phase6_inHouseLabs(ctx: SynthesisContext): Promise<void> {
       labs?: Array<{ name: string }>;
     };
     const labs = catalog.output?.labs ?? catalog.labs ?? [];
-    const testItem = labs.find((t) => t.name === lab.testName);
+    const testItem = matchCatalogTest(labs, lab.testName);
     if (!testItem) {
       console.warn(
         `  ⚠ test "${lab.testName}" not found in encounter catalog (${labs.length} options) — skipping this lab order`
