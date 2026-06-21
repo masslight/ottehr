@@ -4355,8 +4355,14 @@
             "question": "responsible-party-relationship",
             "operator": "!=",
             "answerString": "Self"
+          },
+          {
+            "question": "responsible-party-no-email",
+            "operator": "!=",
+            "answerBoolean": true
           }
         ],
+        "enableBehavior": "all",
         "extension": [
           {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
@@ -4369,6 +4375,59 @@
           {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/fill-from-when-disabled",
             "valueString": "patient-email"
+          },
+          {
+            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when",
+            "extension": [
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-question",
+                "valueString": "responsible-party-relationship"
+              },
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-operator",
+                "valueString": "="
+              },
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-answer",
+                "valueString": "Self"
+              }
+            ]
+          },
+          {
+            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when",
+            "extension": [
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-question",
+                "valueString": "responsible-party-no-email"
+              },
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-operator",
+                "valueString": "="
+              },
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-answer",
+                "valueBoolean": true
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "linkId": "responsible-party-no-email",
+        "type": "boolean",
+        "text": "Don't have email",
+        "required": false,
+        "enableWhen": [
+          {
+            "question": "responsible-party-relationship",
+            "operator": "!=",
+            "answerString": "Self"
+          }
+        ],
+        "extension": [
+          {
+            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
+            "valueString": "protected"
           }
         ]
       }
