@@ -57,13 +57,17 @@ const RUN_DATE_SYSTEM = 'https://fhir.ottehr.com/sid/synth-cron-run-date';
 const TZ = 'America/New_York';
 
 // In-progress status mix for the day's N visits (proportions, normalized to COUNT).
+// Spread across every board bucket so the in-office board looks like a real day:
+// pre-booked (not arrived) → waiting room → exam rooms → discharged → a few done.
 const STATUS_MIX: Array<{ status: string; weight: number }> = [
-  { status: 'arrived', weight: 6 },
-  { status: 'intake', weight: 8 },
-  { status: 'ready for provider', weight: 8 },
-  { status: 'provider', weight: 8 },
-  { status: 'discharged', weight: 6 }, // ready-for-review (unsigned)
-  { status: 'completed', weight: 4 }, // finished + signed
+  { status: 'pending', weight: 6 }, // pre-booked — booked, not yet arrived
+  { status: 'arrived', weight: 6 }, // waiting room — arrived
+  { status: 'ready', weight: 4 }, // waiting room — ready for intake
+  { status: 'intake', weight: 6 }, // in room with MA
+  { status: 'ready for provider', weight: 6 },
+  { status: 'provider', weight: 6 }, // with provider (exam)
+  { status: 'discharged', weight: 4 }, // ready-for-review (unsigned)
+  { status: 'completed', weight: 2 }, // finished + signed (off the board)
 ];
 
 const VISIT_STATUS_ORDER = [
@@ -322,6 +326,47 @@ function dobForAge(age: number, rng: () => number): string {
   return d.toFormat('yyyy-MM-dd');
 }
 
+// Status-aware appointment timing, anchored to NOW (not a fixed 07:30–17:00
+// stagger). In-progress visits get realistic PAST arrival times so the board is
+// coherent whenever the census runs; pre-booked ('pending') gets a near-FUTURE
+// slot so the harness creates a scheduled (status=booked) appointment that the
+// board shows as pre-booked. That future path only yields a valid scheduled slot
+// during clinic hours — so on an after-hours manual run the future time clamps
+// to the close and lands in the past, degrading gracefully to a walk-in arrived
+// (pre-booked then simply appears at the real 7:15am cron run instead).
+const CLINIC_CLOSE_HOUR = 18;
+const PAST_MINUTES_AGO: Record<string, [number, number]> = {
+  arrived: [5, 45],
+  ready: [5, 45],
+  intake: [30, 120],
+  'ready for provider': [30, 120],
+  provider: [30, 120],
+  discharged: [90, 180],
+  completed: [120, 300],
+};
+function appointmentTimeForStatus(status: string, now: DateTime, rng: () => number): { date: string; time: string } {
+  let dt: DateTime;
+  if (status === 'pending') {
+    const close = now.set({ hour: CLINIC_CLOSE_HOUR, minute: 0, second: 0, millisecond: 0 });
+    dt = now.plus({ minutes: 15 + Math.floor(rng() * 255) }); // +15..+270 min ahead
+    // After close (e.g. a late manual run) there's no valid future scheduled slot
+    // today, so spread these just before close — they land in the past and the
+    // harness degrades them to walk-in arrived. At the real morning cron they
+    // stay in the future → scheduled → pre-booked.
+    if (dt > close) dt = close.minus({ minutes: Math.floor(rng() * 90) });
+  } else {
+    const [lo, hi] = PAST_MINUTES_AGO[status] ?? [10, 60];
+    dt = now.minus({ minutes: lo + Math.floor(rng() * (hi - lo)) });
+  }
+  // The harness parses scenario.visit.{date,time} as UTC (computeSlotStartISO:
+  // `${date}T${time}:00.000Z`; intendedHistoricalStart: zone 'utc'). Emit the
+  // UTC components of our target instant so the appointment lands at exactly the
+  // intended moment (and the past/future split that drives walk-in vs scheduled
+  // stays correct regardless of the machine/clinic timezone).
+  const u = dt.toUTC();
+  return { date: u.toFormat('yyyy-MM-dd'), time: u.toFormat('HH:mm') };
+}
+
 async function generate(at: string, o: Oystehr, staff: { providers: string[]; mas: string[] }): Promise<void> {
   const today = DateTime.now().setZone(TZ).toFormat('yyyy-MM-dd');
   // Idempotency: already ran today?
@@ -343,9 +388,7 @@ async function generate(at: string, o: Oystehr, staff: { providers: string[]; ma
     [...`census-${today}`].reduce((h, c) => Math.imul(h ^ c.charCodeAt(0), 16777619) >>> 0, 2166136261)
   );
   const statuses = statusSequence(rng);
-  // Stagger arrival times across business hours 07:30–17:00.
-  const startMin = 7 * 60 + 30;
-  const span = 9.5 * 60;
+  const now = DateTime.now().setZone(TZ);
   if (!existsSync(SCEN_DIR)) mkdirSync(SCEN_DIR, { recursive: true });
 
   const usedNames = new Set<string>();
@@ -373,8 +416,7 @@ async function generate(at: string, o: Oystehr, staff: { providers: string[]; ma
     } while (usedNames.has(key));
     usedNames.add(key);
     const location = IN_PERSON_LOCATIONS[i % IN_PERSON_LOCATIONS.length];
-    const minute = Math.round(startMin + (i / COUNT) * span);
-    const time = `${String(Math.floor(minute / 60)).padStart(2, '0')}:${String(minute % 60).padStart(2, '0')}`;
+    const { date: apptDate, time } = appointmentTimeForStatus(statuses[i], now, rng);
 
     const base = JSON.parse(readFileSync(resolve(EXAMPLES, arch.file), 'utf-8'));
     base.label = `${first} ${last} — ${arch.label} (census ${today})`;
@@ -386,8 +428,13 @@ async function generate(at: string, o: Oystehr, staff: { providers: string[]; ma
       sex,
       email: `${slug(first)}.${slug(last)}.${today}.${i}@example.com`,
     };
-    base.visit = { ...base.visit, date: today, time, locationName: location, targetStatus: statuses[i] };
-    base.signOff = { ...(base.signOff ?? {}), complete: statuses[i] === 'completed' };
+    base.visit = { ...base.visit, date: apptDate, time, locationName: location, targetStatus: statuses[i] };
+    // complete:true so the harness ALWAYS runs the status walk (phase 13) up to
+    // targetStatus. Do NOT tie this to status — the harness early-returns the
+    // entire walk when signOff.complete===false, which would strand every
+    // non-completed visit in the waiting room. Final signing is gated separately
+    // by targetStatus!=='completed' in phase 14, so only 'completed' visits sign.
+    base.signOff = { ...(base.signOff ?? {}), complete: true };
     const scenarioFile = resolve(SCEN_DIR, `census-${today}-${String(i).padStart(3, '0')}.json`);
     writeFileSync(scenarioFile, JSON.stringify(base, null, 2));
     visits.push({
