@@ -73047,6 +73047,10 @@
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
                     "valueString": "protected"
+                  },
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/fill-from-when-disabled",
+                    "valueString": "patient-no-email"
                   }
                 ]
               }
