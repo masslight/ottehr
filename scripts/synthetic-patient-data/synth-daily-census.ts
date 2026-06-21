@@ -579,6 +579,11 @@ async function generate(at: string, o: Oystehr, staff: { providers: string[]; ma
                     r.status = 'booked';
                     r.start = v.prebookStartISO;
                     r.end = DateTime.fromISO(v.prebookStartISO).plus({ minutes: 15 }).toUTC().toISO();
+                    // Created as a walk-in (the only path that books); re-label the
+                    // FHIR appointmentType as prebook so the board shows
+                    // "Scheduled" + the scheduled time, not "On Demand". The
+                    // board/parser read appointmentType.text.
+                    r.appointmentType = { ...(r.appointmentType || {}), text: 'prebook' };
                   } else {
                     r.status = 'planned';
                     delete r.statusHistory;
