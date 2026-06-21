@@ -223,14 +223,18 @@ async function resolveStaff(at: string, projectId: string): Promise<{ providers:
 // ── CATCH-UP ──────────────────────────────────────────────────────────────────
 async function catchUp(at: string, o: Oystehr, projectId: string): Promise<void> {
   const todayStart = DateTime.now().setZone(TZ).startOf('day').toUTC().toISO()!;
-  // synth-cron visits dated before today, not yet fulfilled.
+  // Prior-day synth-cron visits that still need signing. NOTE: an in-progress
+  // visit at 'ready for provider' or beyond already carries Appointment.status
+  // 'fulfilled' (Ottehr flips it once the patient reaches the exam stage) — so we
+  // MUST include 'fulfilled' here or those visits are never caught up. The loop
+  // skips any whose visit-status is already 'completed' (truly signed/done).
   const appts = (
     await o.fhir.search({
       resourceType: 'Appointment',
       params: [
         { name: '_tag', value: `${CRON_SYSTEM}|synth-cron` },
         { name: 'date', value: `lt${todayStart}` },
-        { name: 'status', value: 'proposed,pending,booked,arrived,checked-in,waitlist' },
+        { name: 'status', value: 'proposed,pending,booked,arrived,checked-in,waitlist,fulfilled' },
         { name: '_count', value: '300' },
       ],
     })
@@ -254,16 +258,20 @@ async function catchUp(at: string, o: Oystehr, projectId: string): Promise<void>
       ).unbundle() as any[];
       const enc = encs.find((e: any) => e.resourceType === 'Encounter');
       if (!enc?.id) continue;
-      if (DRY) {
-        signed++;
-        continue;
-      }
-      // Walk remaining statuses to completed.
       const curOtt =
         (enc.statusHistory ?? [])
           .map((e: any) => e.extension?.find((x: any) => x.url === OTT_EXT_URL)?.valueCode)
           .filter(Boolean)
           .slice(-1)[0] ?? 'pending';
+      // 'fulfilled' appointments are in the query (in-progress exam-stage visits
+      // carry that status) — but one already at visit-status 'completed' is signed
+      // and done; skip so we don't re-process visits from a prior catch-up.
+      if (curOtt === 'completed') continue;
+      if (DRY) {
+        signed++;
+        continue;
+      }
+      // Walk remaining statuses to completed.
       const fromIdx = Math.max(VISIT_STATUS_ORDER.indexOf(curOtt as any), 0);
       for (let i = fromIdx + 1; i < VISIT_STATUS_ORDER.length; i++) {
         const res = await fetch(`${ZAMBDA_API}/zambda/change-in-person-visit-status/execute`, {
