@@ -171,6 +171,194 @@ export async function finalizeInHouseLabs(
   return { finalized, skipped };
 }
 
+// ── Radiology ────────────────────────────────────────────────────────────────
+// The harness saves only a PRELIMINARY radiology report (radiology-order-list
+// reports the order as status='preliminary'). A finalized visit should also have
+// a FINAL report. radiology-save-final-report patches the existing preliminary
+// DiagnosticReport → status='final' and creates a completed review Task, so the
+// order moves preliminary → final → reviewed. We mirror the preliminary report's
+// text into the final report (the synth narrative is already complete); if no
+// preliminary text is recoverable we fall back to a generic normal impression.
+//
+// The precondition for save-final-report is simply that a preliminary
+// DiagnosticReport exists for the SR (it patches that DR → final). We key off
+// the order-list's `preliminaryReport` field rather than the coarse status enum:
+// in synth data the ServiceRequest stays `active` (no PACS webhook fires to flip
+// it to performed/completed), so the enum reports 'pending' even once a prelim
+// report is attached. An order with a prelim report and no final report yet is
+// finalizable; one that already has a final report is skipped.
+const DEFAULT_FINAL_RADIOLOGY_REPORT = 'IMPRESSION: No acute abnormality identified. Findings reviewed and finalized.';
+
+// Decode the base64 text/html report blob radiology-order-list returns back to
+// plain text so we can re-submit it as the final report's body (save-final-report
+// re-encodes it). The <br> the prelim save inserted for newlines is reversed.
+function decodeRadiologyReport(b64: string | undefined): string | undefined {
+  if (!b64) return undefined;
+  try {
+    return Buffer.from(b64, 'base64')
+      .toString('utf-8')
+      .replace(/<br\s*\/?>/gi, '\n');
+  } catch {
+    return undefined;
+  }
+}
+
+// Finalize every preliminary radiology order on an encounter by saving a final
+// report. Returns counts. Mirrors finalizeInHouseLabs' shape/usage.
+export async function finalizeRadiology(
+  ctx: FinalizeCtx,
+  encounterId: string,
+  execute: boolean
+): Promise<{ finalized: number; skipped: number }> {
+  const list = out(await zfetch(ctx, 'radiology-order-list', { encounterIds: [encounterId] }));
+  const orders: any[] = list?.orders ?? (Array.isArray(list) ? list : []);
+  let finalized = 0;
+  let skipped = 0;
+  for (const o of orders) {
+    // Finalizable iff a preliminary report is attached and no final report yet.
+    // (See note above on why we don't gate on the coarse status enum.)
+    if (!o.preliminaryReport || o.finalReport) {
+      skipped++;
+      continue;
+    }
+    const report = decodeRadiologyReport(o.preliminaryReport) ?? DEFAULT_FINAL_RADIOLOGY_REPORT;
+    if (!execute) {
+      console.log(`    [dry] would finalize radiology ${o.serviceRequestId} (${o.studyType ?? ''})`);
+      finalized++;
+      continue;
+    }
+    await zfetch(ctx, 'radiology-save-final-report', { serviceRequestId: o.serviceRequestId, report });
+    console.log(`    ✓ radiology ${o.studyType ?? o.serviceRequestId} → FINAL`);
+    finalized++;
+  }
+  return { finalized, skipped };
+}
+
+// ── Medications & immunizations ──────────────────────────────────────────────
+// The harness creates in-house medication + immunization orders and, for
+// finalized visits, administers them at creation. For in-progress visits the
+// orders are left PENDING (un-administered) — realistic — and the daily-census
+// catch-up administers them when it later signs the visit. This finalizer
+// discovers an encounter's pending orders and administers them, mirroring the
+// harness's administer path so the two stay in sync.
+//
+// Discovery paths:
+//   • medications  → get-medication-orders { searchBy:{field:'encounterId'} }
+//                    (MedicationAdministration tagged in-person); pending orders
+//                    have status 'pending'. Administer via
+//                    create-update-medication-order { orderId, newStatus:'administered', orderData }.
+//   • immunizations → get-immunization-orders { encounterIds:[...] }; pending
+//                    orders have status 'pending'. Administer via
+//                    administer-immunization-order (needs type + details +
+//                    administrationDetails — synthesized from the order itself).
+
+// Build the administrationDetails the administer-immunization-order zambda
+// requires. The synth harness has no real lot/expiry/VIS/coding data, so we
+// supply deterministic synthetic values (the EHR only requires them to be
+// present + well-formed). cvx/mvx/ndc are placeholder codes; a real vaccine
+// formulary would carry these on the Medication.
+function syntheticImmunizationAdministrationDetails(): Record<string, unknown> {
+  const now = new Date();
+  const exp = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000);
+  const dateOnly = (d: Date): string => d.toISOString().slice(0, 10);
+  return {
+    administeredDateTime: now.toISOString(),
+    lot: 'SYNTH-LOT',
+    expDate: dateOnly(exp),
+    mvx: 'PMC', // generic manufacturer code (Sanofi Pasteur) — placeholder
+    cvx: '998', // "no vaccine administered"/unspecified placeholder CVX
+    ndc: '00000-0000-00',
+    visGivenDate: dateOnly(now),
+  };
+}
+
+// Administer every pending med + immunization order on an encounter. Returns
+// counts split by kind so callers can log both.
+export async function finalizeMedicationsAndImmunizations(
+  ctx: FinalizeCtx,
+  encounterId: string,
+  execute: boolean
+): Promise<{ medications: number; immunizations: number; skipped: number }> {
+  let medications = 0;
+  let immunizations = 0;
+  let skipped = 0;
+
+  // ── Medications ──
+  const medList = out(
+    await zfetch(ctx, 'get-medication-orders', { searchBy: { field: 'encounterId', value: encounterId } })
+  );
+  const medOrders: any[] = medList?.orders ?? [];
+  for (const m of medOrders) {
+    if (m.status !== 'pending') {
+      skipped++;
+      continue;
+    }
+    if (!execute) {
+      console.log(`    [dry] would administer medication ${m.medicationName ?? m.id}`);
+      medications++;
+      continue;
+    }
+    // Administer transition: the zambda requires orderData with effectiveDateTime
+    // for newStatus='administered'. On an UPDATE (orderId present) it does NOT
+    // re-require the per-field create payload — it reuses the existing
+    // MedicationAdministration's medication/route — so we send a minimal
+    // orderData carrying only the encounter + administration time. Malformed
+    // synth orders (placeholder medicationId / empty route) make the zambda's
+    // medication-copy step throw; we catch per-order so one bad order doesn't
+    // abort the rest of the encounter's finalization.
+    try {
+      await zfetch(ctx, 'create-update-medication-order', {
+        orderId: m.id,
+        newStatus: 'administered',
+        orderData: {
+          encounter: encounterId,
+          encounterId,
+          effectiveDateTime: m.effectiveDateTime || new Date().toISOString(),
+        },
+      });
+      console.log(`    ✓ medication ${m.medicationName ?? m.id} → administered`);
+      medications++;
+    } catch (e: any) {
+      console.log(`    ⚠ medication ${m.medicationName ?? m.id}: ${e?.message ?? e}`);
+      skipped++;
+    }
+  }
+
+  // ── Immunizations ──
+  const immList = out(await zfetch(ctx, 'get-immunization-orders', { encounterIds: [encounterId] }));
+  const immOrders: any[] = immList?.orders ?? [];
+  for (const im of immOrders) {
+    if (im.status !== 'pending') {
+      skipped++;
+      continue;
+    }
+    if (!execute) {
+      console.log(`    [dry] would administer immunization ${im.details?.medication?.name ?? im.id}`);
+      immunizations++;
+      continue;
+    }
+    // administer-immunization-order re-runs updateOrderDetails, so it needs the
+    // full order `details` back (the get-orders DTO carries them) plus the
+    // synthetic administrationDetails the validator demands. Catch per-order so
+    // a single malformed order doesn't abort the rest.
+    try {
+      await zfetch(ctx, 'administer-immunization-order', {
+        orderId: im.id,
+        type: 'administered',
+        details: im.details,
+        administrationDetails: syntheticImmunizationAdministrationDetails(),
+      });
+      console.log(`    ✓ immunization ${im.details?.medication?.name ?? im.id} → administered`);
+      immunizations++;
+    } catch (e: any) {
+      console.log(`    ⚠ immunization ${im.details?.medication?.name ?? im.id}: ${e?.message ?? e}`);
+      skipped++;
+    }
+  }
+
+  return { medications, immunizations, skipped };
+}
+
 // ── Scenario-file sourcing (approach A) ──────────────────────────────────────
 // Read a census day's persisted scenario files and index authored lab results
 // by patient name, so the catch-up can recover diagnosis-coherent values.

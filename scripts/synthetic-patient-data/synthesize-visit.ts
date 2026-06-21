@@ -125,7 +125,7 @@ import { readFileSync } from 'fs';
 import { DateTime } from 'luxon';
 import * as path from 'path';
 import { resolve } from 'path';
-import { finalizeInHouseLabs } from './finalize-visit-orders';
+import { finalizeInHouseLabs, finalizeRadiology } from './finalize-visit-orders';
 import { type History as ScenarioHistory, type VisitScenario, VisitScenarioSchema } from './schema';
 
 // ── Argument parsing ──────────────────────────────────────────────────────────
@@ -2280,7 +2280,13 @@ async function phase7_inHouseMedications(ctx: SynthesisContext): Promise<void> {
       const orderId = created.id ?? created.output?.id;
       logNote(`order created for ${med.medicationName} → ${orderId}`);
 
-      if (med.administered && orderId) {
+      // Administration is status-aware: only finalized visits (discharged/
+      // completed) administer at creation. In-progress visits leave the order
+      // PENDING (realistic) — the daily-census catch-up administers it when it
+      // later signs the visit (finalizeMedicationsAndImmunizations).
+      const target = s.visit.targetStatus ?? 'completed';
+      const administerNow = med.administered && ['discharged', 'completed'].includes(target);
+      if (administerNow && orderId) {
         const adminBody = { orderId, newStatus: 'administered', orderData };
         logCall('create-update-medication-order (administer)', adminBody);
         const adminRes = await callZambda(adminBody);
@@ -2344,7 +2350,12 @@ async function phase8_immunizations(ctx: SynthesisContext): Promise<void> {
       const orderId = orderJson.output?.id ?? orderJson.id;
       logNote(`order created for ${imm.vaccineName} → ${orderId}`);
 
-      if (imm.administered && orderId) {
+      // Status-aware administration (see Phase 7 note): only finalized visits
+      // administer at creation; in-progress visits leave the immunization order
+      // pending for the daily-census catch-up to administer when it signs.
+      const target = s.visit.targetStatus ?? 'completed';
+      const administerNow = imm.administered && ['discharged', 'completed'].includes(target);
+      if (administerNow && orderId) {
         const adminBody = {
           orderId,
           administrationDetails: { dose: { value: parseFloat(imm.dose), unit: imm.units } },
@@ -2443,6 +2454,26 @@ async function phase9_radiology(ctx: SynthesisContext): Promise<void> {
         serviceRequestId: '<from prior>',
         conclusion: rad.preliminaryReport,
       });
+    }
+  }
+
+  // Final-report finalization: only visits that will end discharged/completed
+  // get their radiology orders finalized (preliminary → final). In-progress
+  // visits keep just the preliminary report — realistic — and the daily-census
+  // catch-up finalizes them when it signs the visit tomorrow. Mirrors the
+  // in-house lab finalization in Phase 6.
+  const target = s.visit.targetStatus ?? 'completed';
+  if (ctx.mode === 'execute' && ctx.oystehr && ctx.encounterId && ['discharged', 'completed'].includes(target)) {
+    try {
+      const headers = {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${ctx.accessToken}`,
+        'x-zapehr-project-id': ctx.projectId ?? '',
+      };
+      const fz = await finalizeRadiology({ zambdaApi: ctx.zambdaApi, headers }, ctx.encounterId, true);
+      if (fz.finalized) logNote(`finalized ${fz.finalized} radiology report(s)`);
+    } catch (err) {
+      console.warn(`  ⚠ radiology final-report finalization failed: ${err instanceof Error ? err.message : err}`);
     }
   }
 }

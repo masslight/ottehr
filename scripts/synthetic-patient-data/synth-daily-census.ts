@@ -23,7 +23,13 @@ import { spawn } from 'child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { DateTime } from 'luxon';
 import { resolve } from 'path';
-import { AuthoredResultsByTest, finalizeInHouseLabs, loadAuthoredResultsByPatient } from './finalize-visit-orders';
+import {
+  AuthoredResultsByTest,
+  finalizeInHouseLabs,
+  finalizeMedicationsAndImmunizations,
+  finalizeRadiology,
+  loadAuthoredResultsByPatient,
+} from './finalize-visit-orders';
 import {
   Archetype,
   ARCHETYPES,
@@ -234,6 +240,7 @@ async function catchUp(at: string, o: Oystehr, projectId: string): Promise<void>
   console.log(`[catch-up] ${appts.length} prior-day synth-cron visits to sign${DRY ? '  [DRY]' : ''}`);
   let signed = 0;
   let resulted = 0;
+  let administered = 0;
   // Cache each prior day's scenario-authored lab results (approach A), keyed by date.
   const authoredCache = new Map<string, Map<string, AuthoredResultsByTest>>();
   const nameKey = (s: string): string => (s ?? '').toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -303,6 +310,26 @@ async function catchUp(at: string, o: Oystehr, projectId: string): Promise<void>
       } catch (e: any) {
         console.log(`  ⚠ ${appt.id}: lab finalize: ${e?.message ?? e}`);
       }
+      // Finalize radiology orders (preliminary → final) the same way — the visit
+      // just reached 'completed', so the final read is now "back".
+      try {
+        const fz = await finalizeRadiology({ zambdaApi: ZAMBDA_API, headers: hdr(at, projectId) }, enc.id, true);
+        resulted += fz.finalized;
+      } catch (e: any) {
+        console.log(`  ⚠ ${appt.id}: radiology finalize: ${e?.message ?? e}`);
+      }
+      // Administer any pending in-house medication + immunization orders left
+      // un-administered while the visit was in progress.
+      try {
+        const fz = await finalizeMedicationsAndImmunizations(
+          { zambdaApi: ZAMBDA_API, headers: hdr(at, projectId) },
+          enc.id,
+          true
+        );
+        administered += fz.medications + fz.immunizations;
+      } catch (e: any) {
+        console.log(`  ⚠ ${appt.id}: med/imm finalize: ${e?.message ?? e}`);
+      }
       // Sign.
       const sres = await fetch(`${ZAMBDA_API}/zambda/sign-appointment/execute`, {
         method: 'POST',
@@ -320,7 +347,11 @@ async function catchUp(at: string, o: Oystehr, projectId: string): Promise<void>
       console.log(`  ✗ ${appt.id}: ${e?.message ?? e}`);
     }
   }
-  console.log(`[catch-up] signed ${signed}${resulted ? `, finalized ${resulted} lab order(s)` : ''}.`);
+  console.log(
+    `[catch-up] signed ${signed}` +
+      `${resulted ? `, finalized ${resulted} lab/radiology order(s)` : ''}` +
+      `${administered ? `, administered ${administered} med/immunization order(s)` : ''}.`
+  );
 }
 
 // ── GENERATE ──────────────────────────────────────────────────────────────────
