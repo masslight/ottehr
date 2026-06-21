@@ -212,7 +212,27 @@ const FormFields: PatientRecordFormFields = {
       city: { key: 'patient-city', type: 'string', label: 'City' },
       state: { key: 'patient-state', type: 'choice', label: 'State', options: formValueSets.stateOptions },
       zip: { key: 'patient-zip', type: 'string', label: 'ZIP', dataType: 'ZIP' },
-      email: { key: 'patient-email', type: 'string', label: 'Patient email', dataType: 'Email' },
+      email: {
+        key: 'patient-email',
+        type: 'string',
+        label: 'Patient email',
+        dataType: 'Email',
+        triggers: [
+          {
+            targetQuestionLinkId: 'patient-no-email',
+            effect: ['enable'],
+            operator: '!=',
+            answerBoolean: true,
+          },
+          {
+            targetQuestionLinkId: 'patient-no-email',
+            effect: ['filter'],
+            operator: '=',
+            answerBoolean: true,
+          },
+        ],
+        disabledDisplay: 'hidden',
+      },
       noEmail: { key: 'patient-no-email', type: 'boolean', label: "Don't have email" },
       phone: { key: 'patient-number', type: 'string', label: 'Patient mobile', dataType: 'Phone Number' },
       preferredCommunicationMethod: {
@@ -639,9 +659,24 @@ const FormFields: PatientRecordFormFields = {
         type: 'string',
         label: 'Email',
         dataType: 'Email',
-        triggers: [RPNotSelfTrigger],
+        triggers: [
+          RPNotSelfTrigger,
+          {
+            targetQuestionLinkId: 'responsible-party-no-email',
+            effect: ['enable'],
+            operator: '!=',
+            answerBoolean: true,
+          },
+          {
+            targetQuestionLinkId: 'responsible-party-no-email',
+            effect: ['filter'],
+            operator: '=',
+            answerBoolean: true,
+          },
+        ],
+        enableBehavior: 'all',
         dynamicPopulation: { sourceLinkId: 'patient-email', triggerState: 'disabled' },
-        disabledDisplay: 'disabled',
+        disabledDisplay: 'hidden',
       },
       noEmail: {
         key: 'responsible-party-no-email',

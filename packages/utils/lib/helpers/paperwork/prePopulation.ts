@@ -99,6 +99,7 @@ export const makePrepopulatedItemsForPatient = (input: PrePopulationInput): Ques
   const patientPostalCode = patientAddress?.postalCode;
 
   const patientEmail = contactInfo?.email;
+  const patientNoEmail = patient.extension?.find((e) => e.url === PATIENT_NO_EMAIL_URL)?.valueBoolean ?? false;
   const patientSendMarketing = patient.extension?.find((e) => e.url === `${PRIVATE_EXTENSION_BASE_URL}/send-marketing`)
     ?.valueBoolean;
   const patientCommonWellConsent = patient.extension?.find(
@@ -215,6 +216,9 @@ export const makePrepopulatedItemsForPatient = (input: PrePopulationInput): Ques
           }
           if (linkId === 'patient-email' && patientEmail) {
             answer = makeAnswer(patientEmail);
+          }
+          if (linkId === 'patient-no-email') {
+            answer = makeAnswer(patientNoEmail, 'Boolean');
           }
           if (linkId === 'patient-preferred-communication-method' && patientPreferredCommunicationMethod) {
             answer = makeAnswer(patientPreferredCommunicationMethod);

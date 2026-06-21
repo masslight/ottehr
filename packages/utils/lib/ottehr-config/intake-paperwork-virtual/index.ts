@@ -1805,6 +1805,7 @@ function buildFormFields(
             },
           ],
           disabledDisplay: 'disabled',
+          dynamicPopulation: { sourceLinkId: 'patient-no-email' },
         },
       },
       hiddenFields: [],

@@ -1563,6 +1563,7 @@ function buildFormFields(valueSets: ValueSetsConfig): PaperworkFormFields {
             },
           ],
           disabledDisplay: 'disabled',
+          dynamicPopulation: { sourceLinkId: 'patient-no-email' },
         },
       },
       hiddenFields: [],

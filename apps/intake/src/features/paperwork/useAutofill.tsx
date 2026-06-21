@@ -73,7 +73,7 @@ export const useAutoFillValues = (input: AutofillInputs): void => {
       }
       // console.log('allFields use items to auto fill', allFields);
       const displayStrategy = getItemDisplayStrategy(qi, questionnaireItems, allFields, questionnaireResponse);
-      if (displayStrategy === 'hidden' || displayStrategy === 'protected') {
+      if (displayStrategy === 'hidden' || displayStrategy === 'protected' || displayStrategy === 'disabled') {
         return qi.autofillFromWhenDisabled !== undefined;
       }
       return false;
