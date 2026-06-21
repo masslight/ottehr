@@ -125,6 +125,7 @@ import { readFileSync } from 'fs';
 import { DateTime } from 'luxon';
 import * as path from 'path';
 import { resolve } from 'path';
+import { finalizeInHouseLabs } from './finalize-visit-orders';
 import { type History as ScenarioHistory, type VisitScenario, VisitScenarioSchema } from './schema';
 
 // ── Argument parsing ──────────────────────────────────────────────────────────
@@ -2110,7 +2111,29 @@ async function phase6_inHouseLabs(ctx: SynthesisContext): Promise<void> {
       } else {
         logNote('specimen collected');
       }
-      logNote('(handle-in-house-lab-results not yet implemented — finalize via EHR UI for now)');
+    }
+  }
+
+  // Result-finalization: only visits that will end discharged/completed get
+  // their labs resulted (in-progress visits keep pending orders — realistic).
+  // For visits left in-progress today, the daily-census catch-up finalizes them
+  // when it signs them tomorrow. Submits the scenario-authored result values via
+  // handle-in-house-lab-results (the finalizer derives normal/abnormal flags).
+  const target = s.visit.targetStatus ?? 'completed';
+  if (ctx.mode === 'execute' && ctx.oystehr && ctx.encounterId && ['discharged', 'completed'].includes(target)) {
+    const nrm = (x: string): string => (x ?? '').toLowerCase().replace(/[^a-z0-9]/g, '');
+    const resultsByTest: Record<string, any> = {};
+    for (const lab of s.modules.inHouseLabs) if (lab.results) resultsByTest[nrm(lab.testName)] = lab.results;
+    try {
+      const headers = {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${ctx.accessToken}`,
+        'x-zapehr-project-id': ctx.projectId ?? '',
+      };
+      const fz = await finalizeInHouseLabs({ zambdaApi: ctx.zambdaApi, headers }, ctx.encounterId, resultsByTest, true);
+      if (fz.finalized) logNote(`finalized ${fz.finalized} in-house lab result(s)`);
+    } catch (err) {
+      console.warn(`  ⚠ in-house lab result finalization failed: ${err instanceof Error ? err.message : err}`);
     }
   }
 }

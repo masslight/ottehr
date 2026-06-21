@@ -80,7 +80,12 @@ if lsof -ti ":$PORT" >/dev/null 2>&1; then
 fi
 
 log "starting ephemeral zambda server (ENV=${ENVNAME}) on :$PORT …"
-( cd "$REPO/packages/zambdas" && PORT="$PORT" ENV="$ENVNAME" npx tsx src/local-server/index.ts -- "secrets=.env/zambda-secrets-${ENVNAME}.json" ) > "$SERVERLOG" 2>&1 &
+# The local server logs each request's full secrets object. Stream its output
+# through a redaction filter so no plaintext secret value (any *_SECRET / *_KEY /
+# *_CLIENT / *_TOKEN / *_PASSWORD field) is ever written to disk. The server log
+# is also deleted on success below (kept only on failure, redacted, for debugging).
+REDACT='s/("[A-Z0-9_]*(SECRET|KEY|CLIENT|TOKEN|PASSWORD)[A-Z0-9_]*" *: *")[^"]*/\1<redacted>/g'
+( cd "$REPO/packages/zambdas" && PORT="$PORT" ENV="$ENVNAME" npx tsx src/local-server/index.ts -- "secrets=.env/zambda-secrets-${ENVNAME}.json" ) > >(sed -E "$REDACT" > "$SERVERLOG") 2>&1 &
 SERVER_PID=$!
 
 cleanup() {
@@ -105,4 +110,17 @@ log "running census …"
 ( cd "$REPO" && npx env-cmd -f "$CREDS" npx tsx "$CENSUS" --env "$ENVNAME" --zambda-api "http://localhost:$PORT/local" ${EXTRA_ARGS[@]+"${EXTRA_ARGS[@]}"} ) 2>&1 | tee -a "$LOG"
 RC="${PIPESTATUS[0]}"
 log "census exit code: $RC  (log: $LOG)"
+
+# ── Log hygiene ───────────────────────────────────────────────────────────────
+# Drop the (redacted) server log on success — it's large and only useful for
+# debugging a failure. Then prune anything older than 7 days so the dir doesn't
+# grow unbounded under the daily cron.
+sync 2>/dev/null
+if [[ "$RC" -eq 0 ]]; then
+  rm -f "$SERVERLOG"
+else
+  log "server log kept for debugging (secrets redacted): $SERVERLOG"
+fi
+find "$LOG_DIR" -type f -name '*.log' -mtime +7 -delete 2>/dev/null
+
 exit "$RC"

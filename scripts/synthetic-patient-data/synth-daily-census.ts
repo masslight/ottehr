@@ -23,6 +23,7 @@ import { spawn } from 'child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { DateTime } from 'luxon';
 import { resolve } from 'path';
+import { AuthoredResultsByTest, finalizeInHouseLabs, loadAuthoredResultsByPatient } from './finalize-visit-orders';
 import {
   Archetype,
   ARCHETYPES,
@@ -232,6 +233,10 @@ async function catchUp(at: string, o: Oystehr, projectId: string): Promise<void>
     .filter((r: any) => r.resourceType === 'Appointment') as any[];
   console.log(`[catch-up] ${appts.length} prior-day synth-cron visits to sign${DRY ? '  [DRY]' : ''}`);
   let signed = 0;
+  let resulted = 0;
+  // Cache each prior day's scenario-authored lab results (approach A), keyed by date.
+  const authoredCache = new Map<string, Map<string, AuthoredResultsByTest>>();
+  const nameKey = (s: string): string => (s ?? '').toLowerCase().replace(/[^a-z0-9]/g, '');
   for (const appt of appts) {
     try {
       const encs = (
@@ -275,6 +280,29 @@ async function catchUp(at: string, o: Oystehr, projectId: string): Promise<void>
           operations: [{ op: 'replace', path: '/statusHistory', value: newHistory }],
         });
       }
+      // Finalize this visit's pending in-house lab orders BEFORE signing (the
+      // visit just reached 'completed', so results are now "back"). Values come
+      // from that day's persisted scenario files (approach A); the finalizer
+      // falls back to normal in-range values when a scenario file is missing.
+      try {
+        const runDate = (appt.meta?.tag ?? []).find((t: any) => t.system === RUN_DATE_SYSTEM)?.code;
+        if (runDate) {
+          if (!authoredCache.has(runDate)) authoredCache.set(runDate, loadAuthoredResultsByPatient(runDate));
+          const pid = (fresh.subject?.reference ?? enc.subject?.reference)?.split('/')[1];
+          const patient: any = pid ? await o.fhir.get({ resourceType: 'Patient', id: pid }) : undefined;
+          const key = patient ? `${nameKey(patient.name?.[0]?.given?.[0])} ${nameKey(patient.name?.[0]?.family)}` : '';
+          const authored = authoredCache.get(runDate)!.get(key) ?? {};
+          const fz = await finalizeInHouseLabs(
+            { zambdaApi: ZAMBDA_API, headers: hdr(at, projectId) },
+            enc.id,
+            authored,
+            true
+          );
+          resulted += fz.finalized;
+        }
+      } catch (e: any) {
+        console.log(`  ⚠ ${appt.id}: lab finalize: ${e?.message ?? e}`);
+      }
       // Sign.
       const sres = await fetch(`${ZAMBDA_API}/zambda/sign-appointment/execute`, {
         method: 'POST',
@@ -292,7 +320,7 @@ async function catchUp(at: string, o: Oystehr, projectId: string): Promise<void>
       console.log(`  ✗ ${appt.id}: ${e?.message ?? e}`);
     }
   }
-  console.log(`[catch-up] signed ${signed}.`);
+  console.log(`[catch-up] signed ${signed}${resulted ? `, finalized ${resulted} lab order(s)` : ''}.`);
 }
 
 // ── GENERATE ──────────────────────────────────────────────────────────────────
@@ -327,15 +355,15 @@ function dobForAge(age: number, rng: () => number): string {
 }
 
 // Status-aware appointment timing, anchored to NOW (not a fixed 07:30–17:00
-// stagger). In-progress visits get realistic PAST arrival times so the board is
-// coherent whenever the census runs; pre-booked ('pending') gets a near-FUTURE
-// slot so the harness creates a scheduled (status=booked) appointment that the
-// board shows as pre-booked. That future path only yields a valid scheduled slot
-// during clinic hours — so on an after-hours manual run the future time clamps
-// to the close and lands in the past, degrading gracefully to a walk-in arrived
-// (pre-booked then simply appears at the real 7:15am cron run instead).
-const CLINIC_CLOSE_HOUR = 18;
+// stagger). EVERY visit — including pre-booked ('pending') — is created as a
+// recent walk-in so the harness's create-appointment always succeeds (a future
+// scheduled slot is rejected by create-appointment's cadence/capacity guard with
+// 4019 "slot unavailable" unless it exactly matches an available grid slot). The
+// 'pending' visit is then PATCHED to status=booked with a future start (see the
+// worker), giving a real pre-booked visit with a full chart underneath — so when
+// the next-day catch-up advances it to signed, it's a complete visit, not empty.
 const PAST_MINUTES_AGO: Record<string, [number, number]> = {
+  pending: [5, 30], // created as a recent walk-in, then patched to booked + future
   arrived: [5, 45],
   ready: [5, 45],
   intake: [30, 120],
@@ -345,26 +373,23 @@ const PAST_MINUTES_AGO: Record<string, [number, number]> = {
   completed: [120, 300],
 };
 function appointmentTimeForStatus(status: string, now: DateTime, rng: () => number): { date: string; time: string } {
-  let dt: DateTime;
-  if (status === 'pending') {
-    const close = now.set({ hour: CLINIC_CLOSE_HOUR, minute: 0, second: 0, millisecond: 0 });
-    dt = now.plus({ minutes: 15 + Math.floor(rng() * 255) }); // +15..+270 min ahead
-    // After close (e.g. a late manual run) there's no valid future scheduled slot
-    // today, so spread these just before close — they land in the past and the
-    // harness degrades them to walk-in arrived. At the real morning cron they
-    // stay in the future → scheduled → pre-booked.
-    if (dt > close) dt = close.minus({ minutes: Math.floor(rng() * 90) });
-  } else {
-    const [lo, hi] = PAST_MINUTES_AGO[status] ?? [10, 60];
-    dt = now.minus({ minutes: lo + Math.floor(rng() * (hi - lo)) });
-  }
+  const [lo, hi] = PAST_MINUTES_AGO[status] ?? [10, 60];
   // The harness parses scenario.visit.{date,time} as UTC (computeSlotStartISO:
-  // `${date}T${time}:00.000Z`; intendedHistoricalStart: zone 'utc'). Emit the
-  // UTC components of our target instant so the appointment lands at exactly the
-  // intended moment (and the past/future split that drives walk-in vs scheduled
-  // stays correct regardless of the machine/clinic timezone).
-  const u = dt.toUTC();
+  // `${date}T${time}:00.000Z`; intendedHistoricalStart: zone 'utc'). Emit the UTC
+  // components of our target instant so the appointment lands at exactly the
+  // intended moment regardless of the machine/clinic timezone.
+  const u = now.minus({ minutes: lo + Math.floor(rng() * (hi - lo)) }).toUTC();
   return { date: u.toFormat('yyyy-MM-dd'), time: u.toFormat('HH:mm') };
+}
+
+// Future start for a pre-booked (pending) appointment — later today so it stays
+// on today's board. We PATCH the appointment to this instead of booking through
+// create-appointment (which rejects off-grid/unavailable future slots).
+function prebookFutureStart(now: DateTime, rng: () => number): DateTime {
+  const cap = now.set({ hour: 20, minute: 0, second: 0, millisecond: 0 });
+  const ahead = now.plus({ minutes: 60 + Math.floor(rng() * 360) }); // +1..7h
+  // Late run with no daytime left → just a bit ahead of now (still today).
+  return ahead > cap ? now.plus({ minutes: 15 + Math.floor(rng() * 45) }) : ahead;
 }
 
 async function generate(at: string, o: Oystehr, staff: { providers: string[]; mas: string[] }): Promise<void> {
@@ -399,6 +424,7 @@ async function generate(at: string, o: Oystehr, staff: { providers: string[]; ma
     intakeMA: string;
     location: string;
     label: string;
+    prebookStartISO?: string; // set for 'pending' → patch appt to booked + this start
   }
   const visits: Visit[] = [];
   for (let i = 0; i < COUNT; i++) {
@@ -445,6 +471,7 @@ async function generate(at: string, o: Oystehr, staff: { providers: string[]; ma
       intakeMA: staff.mas[i % staff.mas.length],
       location,
       label: base.label,
+      prebookStartISO: statuses[i] === 'pending' ? prebookFutureStart(now, rng).toUTC().toISO()! : undefined,
     });
   }
 
@@ -503,6 +530,21 @@ async function generate(at: string, o: Oystehr, staff: { providers: string[]; ma
                     { system: RUN_DATE_SYSTEM, code: today },
                   ],
                 };
+                // Pre-booked: the harness created this as a recent walk-in
+                // (arrived). Flip it to a real pre-booked visit — Appointment
+                // booked at a future start, Encounter back to planned with no
+                // arrival history — leaving the full chart intact for the
+                // next-day catch-up to sign into a complete visit.
+                if (v.prebookStartISO) {
+                  if (rt === 'Appointment') {
+                    r.status = 'booked';
+                    r.start = v.prebookStartISO;
+                    r.end = DateTime.fromISO(v.prebookStartISO).plus({ minutes: 15 }).toUTC().toISO();
+                  } else {
+                    r.status = 'planned';
+                    delete r.statusHistory;
+                  }
+                }
                 await o.fhir.update(r);
               } catch {
                 /* non-fatal */
