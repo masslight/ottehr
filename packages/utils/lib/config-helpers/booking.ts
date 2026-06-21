@@ -197,6 +197,9 @@ export const mapBookingQRItemToPatientInfo = (qrItem: QuestionnaireResponseItem[
       case 'patient-email':
         patientInfo.email = pickFirstValueFromAnswerItem(item, 'string');
         break;
+      case 'patient-no-email':
+        patientInfo.noEmail = pickFirstValueFromAnswerItem(item, 'boolean') ?? false;
+        break;
       case 'patient-phone-number':
         patientInfo.phoneNumber = pickFirstValueFromAnswerItem(item, 'string');
         break;

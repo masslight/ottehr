@@ -1931,9 +1931,9 @@ describe('Conditional logic', () => {
         expect(conditionalBoolTrueItem).toBeDefined();
         assert(conditionalBoolTrueItem != undefined);
         expect(conditionalBoolTrueItem.filterWhen).toBeDefined();
-        expect(conditionalBoolTrueItem.filterWhen?.answerBoolean).toBeDefined();
-        expect(conditionalBoolTrueItem.filterWhen?.operator).toBe('=');
-        expect(conditionalBoolTrueItem.filterWhen?.question).toBe(KEYS.triggers.boolean.primary);
+        expect(conditionalBoolTrueItem.filterWhen?.[0]?.answerBoolean).toBeDefined();
+        expect(conditionalBoolTrueItem.filterWhen?.[0]?.operator).toBe('=');
+        expect(conditionalBoolTrueItem.filterWhen?.[0]?.question).toBe(KEYS.triggers.boolean.primary);
         formValues[KEYS.dependents.bool.primaryTrue] = {
           linkId: KEYS.dependents.bool.primaryTrue,
           answer: [{ valueString: 'I better get filtered!' }],
@@ -1974,9 +1974,9 @@ describe('Conditional logic', () => {
         expect(conditionalStringItem).toBeDefined();
         assert(conditionalStringItem != undefined);
         expect(conditionalStringItem.filterWhen).toBeDefined();
-        expect(conditionalStringItem.filterWhen?.answerString).toBeDefined();
-        expect(conditionalStringItem.filterWhen?.operator).toBe('=');
-        expect(conditionalStringItem.filterWhen?.question).toBe(KEYS.triggers.string.primary);
+        expect(conditionalStringItem.filterWhen?.[0]?.answerString).toBeDefined();
+        expect(conditionalStringItem.filterWhen?.[0]?.operator).toBe('=');
+        expect(conditionalStringItem.filterWhen?.[0]?.question).toBe(KEYS.triggers.string.primary);
         formValues[KEYS.dependents.string] = {
           linkId: KEYS.dependents.string,
           answer: [{ valueString: 'I better get filtered!' }],
@@ -2017,9 +2017,9 @@ describe('Conditional logic', () => {
         expect(conditionalDateItem).toBeDefined();
         assert(conditionalDateItem != undefined);
         expect(conditionalDateItem.filterWhen).toBeDefined();
-        expect(conditionalDateItem.filterWhen?.answerInteger).toBeDefined();
-        expect(conditionalDateItem.filterWhen?.operator).toBe('>=');
-        expect(conditionalDateItem.filterWhen?.question).toBe(KEYS.triggers.date.primary);
+        expect(conditionalDateItem.filterWhen?.[0]?.answerInteger).toBeDefined();
+        expect(conditionalDateItem.filterWhen?.[0]?.operator).toBe('>=');
+        expect(conditionalDateItem.filterWhen?.[0]?.question).toBe(KEYS.triggers.date.primary);
         formValues[KEYS.dependents.date.over] = {
           linkId: KEYS.dependents.string,
           answer: [{ valueString: '1991-08-06' }],
@@ -2061,9 +2061,9 @@ describe('Conditional logic', () => {
       expect(conditionalStringItem).toBeDefined();
       assert(conditionalStringItem != undefined);
       expect(conditionalStringItem.filterWhen).toBeDefined();
-      expect(conditionalStringItem.filterWhen?.answerString).toBeDefined();
-      expect(conditionalStringItem.filterWhen?.operator).toBe('=');
-      expect(conditionalStringItem.filterWhen?.question).toBe(KEYS.triggers.string.primary);
+      expect(conditionalStringItem.filterWhen?.[0]?.answerString).toBeDefined();
+      expect(conditionalStringItem.filterWhen?.[0]?.operator).toBe('=');
+      expect(conditionalStringItem.filterWhen?.[0]?.question).toBe(KEYS.triggers.string.primary);
       formValues[KEYS.dependents.string] = {
         linkId: KEYS.dependents.string,
         answer: [{ valueString: 'I better NOT get filtered!' }],

@@ -30,23 +30,23 @@ import {
   getPronounsFromExtension,
   LANGUAGE_OPTIONS,
   LanguageOption,
-  PATIENT_NO_EMAIL_EXTENSION_URL,
   PREFERRED_PHARMACY_ERX_ID_FOR_SYNC_URL,
   PREFERRED_PHARMACY_MANUAL_ENTRY_URL,
   PREFERRED_PHARMACY_PLACES_ID_URL,
   PRIVATE_EXTENSION_BASE_URL,
-  RP_NO_EMAIL_EXTENSION_URL,
 } from '../../fhir';
 import {
   COVERAGE_ADDITIONAL_INFORMATION_URL,
   PATIENT_GENDER_IDENTITY_URL,
   PATIENT_INDIVIDUAL_PRONOUNS_URL,
+  PATIENT_NO_EMAIL_URL,
   PATIENT_SEXUAL_ORIENTATION_URL,
   PatientAccountResponse,
   PHARMACY_COLLECTION_LINK_IDS,
   PRACTICE_NAME_URL,
   PREFERRED_COMMUNICATION_METHOD_EXTENSION_URL,
   REASON_FOR_VISIT_SEPARATOR,
+  RESPONSIBLE_PARTY_NO_EMAIL_URL,
 } from '../../types';
 import { isValidUUID } from '../../validation';
 import { formatPhoneNumberDisplay, getCandidPlanTypeCodeFromCoverage, getPayerId, getPayerUrl } from '../helpers';
@@ -537,8 +537,7 @@ const mapPatientItemsToQuestionnaireResponseItems = (input: MapPatientItemsInput
 
   const patientEmail = patient?.telecom?.find((c) => c.system === 'email' && c.period?.end === undefined)?.value;
   const patientPhone = patient?.telecom?.find((c) => c.system === 'phone' && c.period?.end === undefined)?.value;
-  const patientNoEmail =
-    patient.extension?.find((e) => e.url === PATIENT_NO_EMAIL_EXTENSION_URL)?.valueBoolean ?? false;
+  const patientNoEmail = patient.extension?.find((e) => e.url === PATIENT_NO_EMAIL_URL)?.valueBoolean ?? false;
 
   const patientEthnicity = patient.extension?.find((e) => e.url === `${PRIVATE_EXTENSION_BASE_URL}/ethnicity`)
     ?.valueCodeableConcept?.coding?.[0]?.display;
@@ -1300,7 +1299,12 @@ const mapGuarantorToQuestionnaireResponseItems = (input: MapGuarantorItemsInput)
   const email =
     guarantorResource?.telecom?.find((c) => c.system === 'email' && c.period?.end === undefined)?.value ?? '';
   const rpNoEmail =
-    guarantorResource?.extension?.find((e) => e.url === RP_NO_EMAIL_EXTENSION_URL)?.valueBoolean ?? false;
+    guarantorResource?.resourceType === 'RelatedPerson'
+      ? (guarantorResource as RelatedPerson).extension?.find((e) => e.url === RESPONSIBLE_PARTY_NO_EMAIL_URL)
+          ?.valueBoolean ?? false
+      : guarantorResource?.resourceType === 'Patient'
+      ? (guarantorResource as Patient).extension?.find((e) => e.url === PATIENT_NO_EMAIL_URL)?.valueBoolean ?? false
+      : false;
   let birthSex: string | undefined;
   if (guarantorResource?.gender) {
     const genderString = guarantorResource?.gender === 'other' ? 'Intersex' : guarantorResource?.gender;

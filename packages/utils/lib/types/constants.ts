@@ -31,6 +31,9 @@ export const PATIENT_RELEASE_OF_INFO_URL = 'https://fhir.zapehr.com/r4/Structure
 export const PATIENT_RX_HISTORY_CONSENT_STATUS_URL =
   'https://fhir.zapehr.com/r4/StructureDefinitions/rx-history-consent-status';
 export const PATIENT_DECEASED_NOTE_URL = 'https://fhir.zapehr.com/r4/StructureDefinitions/deceased-note';
+export const PATIENT_NO_EMAIL_URL = 'https://fhir.zapehr.com/r4/StructureDefinitions/patient-no-email';
+export const RESPONSIBLE_PARTY_NO_EMAIL_URL =
+  'https://fhir.zapehr.com/r4/StructureDefinitions/responsible-party-no-email';
 export const PREFERRED_COMMUNICATION_METHOD_EXTENSION_URL = ottehrExtensionUrl('preferred-communication-method');
 export const COVERAGE_ADDITIONAL_INFORMATION_URL =
   'https://fhir.zapehr.com/r4/StructureDefinitions/additional-information';

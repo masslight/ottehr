@@ -1528,6 +1528,12 @@ function buildFormFields(valueSets: ValueSetsConfig): PaperworkFormFields {
               answerString: 'Self',
             },
             {
+              targetQuestionLinkId: 'responsible-party-relationship',
+              effect: ['filter'],
+              operator: '=',
+              answerString: 'Self',
+            },
+            {
               targetQuestionLinkId: 'responsible-party-no-email',
               effect: ['enable'],
               operator: '!=',

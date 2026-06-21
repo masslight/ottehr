@@ -124,7 +124,7 @@ import {
   PRIVATE_EXTENSION_BASE_URL,
   QuestionnaireResponseHarvestInput,
   relatedPersonFieldPaths,
-  RP_NO_EMAIL_EXTENSION_URL,
+  RESPONSIBLE_PARTY_NO_EMAIL_URL,
   SCHOOL_WORK_NOTE_SCHOOL_ID,
   SCHOOL_WORK_NOTE_TEMPLATE_CODE,
   SCHOOL_WORK_NOTE_WORK_ID,
@@ -3709,7 +3709,7 @@ export const createContainedGuarantor = (guarantor: ResponsiblePartyContact, pat
     });
   }
   const extension: Extension[] | undefined = guarantor.noEmail
-    ? [{ url: RP_NO_EMAIL_EXTENSION_URL, valueBoolean: true }]
+    ? [{ url: RESPONSIBLE_PARTY_NO_EMAIL_URL, valueBoolean: true }]
     : undefined;
   return {
     resourceType: 'RelatedPerson',

@@ -962,8 +962,6 @@ export const PREFERRED_PHARMACY_EXTENSION_URL = ottehrExtensionUrl('preferred-ph
 export const PREFERRED_PHARMACY_MANUAL_ENTRY_URL = ottehrExtensionUrl('pharmacy-manual-entry'); // added when the pharmacy was added manually via text fields
 export const PREFERRED_PHARMACY_PLACES_ID_URL = ottehrExtensionUrl('pharmacy-places-id'); // added when the pharmacy was selected with places search
 
-export const PATIENT_NO_EMAIL_EXTENSION_URL = ottehrExtensionUrl('patient-no-email');
-export const RP_NO_EMAIL_EXTENSION_URL = ottehrExtensionUrl('responsible-party-no-email');
 // docs.oystehr.com/oystehr/services/erx/patient-sync/#preferred-pharmacy
 export const PREFERRED_PHARMACY_ERX_ID_FOR_SYNC_URL =
   'https://extensions.fhir.oystehr.com/patient/erx-preferred-pharmacy-id';
