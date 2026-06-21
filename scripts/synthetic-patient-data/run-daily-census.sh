@@ -102,7 +102,7 @@ log "server ready."
 
 # ── Run the census ────────────────────────────────────────────────────────────
 log "running census …"
-( cd "$REPO" && npx env-cmd -f "$CREDS" npx tsx "$CENSUS" --env "$ENVNAME" --zambda-api "http://localhost:$PORT/local" "${EXTRA_ARGS[@]}" ) 2>&1 | tee -a "$LOG"
+( cd "$REPO" && npx env-cmd -f "$CREDS" npx tsx "$CENSUS" --env "$ENVNAME" --zambda-api "http://localhost:$PORT/local" ${EXTRA_ARGS[@]+"${EXTRA_ARGS[@]}"} ) 2>&1 | tee -a "$LOG"
 RC="${PIPESTATUS[0]}"
 log "census exit code: $RC  (log: $LOG)"
 exit "$RC"

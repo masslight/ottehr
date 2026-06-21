@@ -120,20 +120,31 @@ function practitionerResource(s: StaffDef): Practitioner {
 }
 
 async function main(): Promise<void> {
-  const t = await (
-    await fetch(need('AUTH0_ENDPOINT'), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        client_id: process.env.AUTH0_CLIENT,
-        client_secret: process.env.AUTH0_SECRET,
-        audience: process.env.AUTH0_AUDIENCE,
-        grant_type: 'client_credentials',
-      }),
-    })
-  ).json();
+  // Auth: prefer an explicit OYSTEHR_ACCESS_TOKEN (e.g. a logged-in admin USER's
+  // browser bearer token) — needed when the project's M2M client lacks IAM
+  // permissions (can't application.list / user.invite). Otherwise mint an M2M
+  // token from the env's AUTH0_* creds. Never inline the token — pass it via the
+  // env var at call time.
+  let accessToken = process.env.OYSTEHR_ACCESS_TOKEN;
+  if (accessToken) {
+    console.log('Using OYSTEHR_ACCESS_TOKEN (user/admin token).');
+  } else {
+    const t = await (
+      await fetch(need('AUTH0_ENDPOINT'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          client_id: process.env.AUTH0_CLIENT,
+          client_secret: process.env.AUTH0_SECRET,
+          audience: process.env.AUTH0_AUDIENCE,
+          grant_type: 'client_credentials',
+        }),
+      })
+    ).json();
+    accessToken = (t as any).access_token;
+  }
   const oystehr = new Oystehr({
-    accessToken: (t as any).access_token,
+    accessToken,
     projectId: need('PROJECT_ID'),
     services: { projectApiUrl: need('PROJECT_API') },
   });

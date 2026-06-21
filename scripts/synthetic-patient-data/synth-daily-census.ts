@@ -30,8 +30,6 @@ import {
   FIRST_NAMES_M,
   IN_PERSON_LOCATIONS,
   LAST_NAMES,
-  MAS_BY_LOCATION,
-  PROVIDERS_BY_LOCATION,
 } from './population/archetypes';
 
 const need = (n: string): string => {
@@ -172,6 +170,45 @@ function rebuildStatusHistory(
   });
 }
 
+// Resolve attending providers + intake staff from the TARGET ENV's actual
+// employees (get-employees) — portable across projects, no hardcoded names. The
+// harness --practitioner/--intake look these names up, so they must exist.
+async function resolveStaff(at: string, projectId: string): Promise<{ providers: string[]; mas: string[] }> {
+  const res = await fetch(`${ZAMBDA_API}/zambda/get-employees/execute`, {
+    method: 'POST',
+    headers: hdr(at, projectId),
+    body: JSON.stringify({}),
+  });
+  if (!res.ok) throw new Error(`get-employees failed: ${res.status}`);
+  const j: any = await res.json();
+  // Keep only cleanly-splittable names: the harness --practitioner search splits
+  // on whitespace (last token = family, rest = given), so a compound first or
+  // last name (e.g. "De la Cruz") would search wrong. Require single-token first
+  // AND last, and build the name from the employee's real firstName/lastName.
+  const simple = (e: any): boolean =>
+    /^\S+$/.test((e.firstName ?? '').trim()) && /^\S+$/.test((e.lastName ?? '').trim());
+  const employees: any[] = (j.output?.employees ?? j.employees ?? []).filter(
+    (e: any) => e.status === 'Active' && (e.profile || '').startsWith('Practitioner/') && simple(e)
+  );
+  const nameOf = (e: any): string => `${e.firstName} ${e.lastName}`.trim();
+  const providers = employees
+    .filter((e) => e.isProvider)
+    .map(nameOf)
+    .filter(Boolean);
+  let mas = employees
+    .filter((e) => !e.isProvider && !e.isCustomerSupport)
+    .map(nameOf)
+    .filter(Boolean);
+  if (!mas.length) mas = providers; // small clinic: providers double as intake
+  if (!providers.length) {
+    throw new Error(
+      `Environment '${ENV}' has no active provider employees. The census needs at least one. ` +
+        `Run link-synth-staff-users.ts against ${ENV} (creates the synth staff) or add a provider in Admin → Employees.`
+    );
+  }
+  return { providers, mas };
+}
+
 // ── CATCH-UP ──────────────────────────────────────────────────────────────────
 async function catchUp(at: string, o: Oystehr, projectId: string): Promise<void> {
   const todayStart = DateTime.now().setZone(TZ).startOf('day').toUTC().toISO()!;
@@ -285,7 +322,7 @@ function dobForAge(age: number, rng: () => number): string {
   return d.toFormat('yyyy-MM-dd');
 }
 
-async function generate(at: string, o: Oystehr): Promise<void> {
+async function generate(at: string, o: Oystehr, staff: { providers: string[]; mas: string[] }): Promise<void> {
   const today = DateTime.now().setZone(TZ).toFormat('yyyy-MM-dd');
   // Idempotency: already ran today?
   const existing = (await o.fhir.search({
@@ -356,8 +393,9 @@ async function generate(at: string, o: Oystehr): Promise<void> {
     visits.push({
       scenarioFile,
       targetStatus: statuses[i],
-      provider: pick(PROVIDERS_BY_LOCATION[location], rng),
-      intakeMA: pick(MAS_BY_LOCATION[location], rng),
+      // Rotate among the env's actual provider/intake employees for even spread.
+      provider: staff.providers[i % staff.providers.length],
+      intakeMA: staff.mas[i % staff.mas.length],
       location,
       label: base.label,
     });
@@ -449,36 +487,68 @@ async function main(): Promise<void> {
   if ((process.env.ENVIRONMENT || '').toLowerCase() === 'production')
     throw new Error('Refusing to run against production.');
 
-  // Demo-readiness: the harness needs the in-person locations + provider/MA staff.
+  // ── Env readiness (runs every time, so the script adapts to any project) ──
+  // FATAL: in-person Locations + their Schedules, and ≥1 provider — without these
+  // no visit can be booked. NON-FATAL (warn): progress-note templates — missing
+  // ones make those archetypes' notes thin (the harness skips meds/labs/payers it
+  // can't resolve, so those are degrade-not-fail).
   const locs = (
     await o.fhir.search({ resourceType: 'Location', params: [{ name: '_count', value: '100' }] })
   ).unbundle() as any[];
-  const locNames = new Set(locs.map((l: any) => l.name));
-  const missingLocs = IN_PERSON_LOCATIONS.filter((n) => !locNames.has(n));
+  const locByName = new Map(locs.map((l: any) => [l.name, l]));
+  const missingLocs = IN_PERSON_LOCATIONS.filter((n) => !locByName.has(n));
   if (missingLocs.length) {
-    throw new Error(
-      `Environment '${ENV}' is missing required in-person location(s): ${missingLocs.join(', ')}. ` +
-        `The census needs these Locations (with Schedules) to book visits.`
-    );
+    throw new Error(`Environment '${ENV}' is missing required in-person location(s): ${missingLocs.join(', ')}.`);
   }
-  const wantStaff = [...Object.values(PROVIDERS_BY_LOCATION).flat(), ...Object.values(MAS_BY_LOCATION).flat()];
-  const presentStaff = new Set(
-    (
-      (
-        await o.fhir.search({ resourceType: 'Practitioner', params: [{ name: '_count', value: '300' }] })
-      ).unbundle() as any[]
-    ).map((p: any) => `${p.name?.[0]?.given?.join(' ')} ${p.name?.[0]?.family}`.trim())
+  for (const ln of IN_PERSON_LOCATIONS) {
+    const loc = locByName.get(ln);
+    const sched = (
+      await o.fhir.search({
+        resourceType: 'Schedule',
+        params: [
+          { name: 'actor', value: `Location/${loc.id}` },
+          { name: '_count', value: '1' },
+        ],
+      })
+    ).unbundle();
+    if (!sched.length)
+      throw new Error(`Environment '${ENV}': Location "${ln}" has no Schedule — slot booking would fail.`);
+  }
+  // Resolve attending/intake staff from THIS env's actual employees (portable).
+  const staff = await resolveStaff(at, projectId);
+  console.log(
+    `[ready] env '${ENV}': locations + schedules OK, ${staff.providers.length} provider(s), ${staff.mas.length} intake employee(s).`
   );
-  const missingStaff = wantStaff.filter((n) => !presentStaff.has(n));
-  if (missingStaff.length > wantStaff.length / 2) {
-    console.warn(
-      `⚠ Environment '${ENV}' is missing most synth staff (e.g. ${missingStaff.slice(0, 3).join(', ')}). ` +
-        `Run link-synth-staff-users.ts against ${ENV} to create them, or visits fall back to whatever ` +
-        `role-assigned provider exists. Continuing.`
-    );
+  // Templates warning (non-fatal). Paginate Lists filtering by the global-template code system.
+  const TEMPLATE_SYS = [
+    'https://fhir.ottehr.com/CodeSystem/global-template-in-person',
+    'https://fhir.ottehr.com/CodeSystem/global-template-telemed',
+  ];
+  let tmplCount = 0;
+  for (let off = 0; ; off += 500) {
+    const ls = (
+      await o.fhir.search({
+        resourceType: 'List',
+        params: [
+          { name: '_count', value: '500' },
+          { name: '_offset', value: String(off) },
+        ],
+      })
+    ).unbundle() as any[];
+    if (!ls.length) break;
+    tmplCount += ls.filter((l: any) => (l.code?.coding ?? []).some((c: any) => TEMPLATE_SYS.includes(c.system))).length;
+    if (ls.length < 500) break;
   }
+  if (tmplCount === 0) {
+    console.warn(
+      `⚠ env '${ENV}' has no progress-note templates — templated archetypes will produce thin notes. Seed with copy-templates.ts.`
+    );
+  } else {
+    console.log(`[ready] ${tmplCount} progress-note template(s) present.`);
+  }
+
   if (PHASE === 'both' || PHASE === 'catchup') await catchUp(at, o, projectId);
-  if (PHASE === 'both' || PHASE === 'generate') await generate(at, o);
+  if (PHASE === 'both' || PHASE === 'generate') await generate(at, o, staff);
   console.log('Done.');
 }
 
