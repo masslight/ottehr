@@ -50,7 +50,7 @@ export const validateSecrets = (secrets: Secrets | null): Secrets => {
     throw new Error('Secrets are required');
   }
 
-  const { AUTH0_ENDPOINT, AUTH0_CLIENT, AUTH0_SECRET, AUTH0_AUDIENCE, FHIR_API, PROJECT_API } = secrets;
+  const { AUTH0_ENDPOINT, AUTH0_CLIENT, AUTH0_SECRET, AUTH0_AUDIENCE, FHIR_API, PROJECT_API, ENVIRONMENT } = secrets;
   if (!AUTH0_ENDPOINT || !AUTH0_CLIENT || !AUTH0_SECRET || !AUTH0_AUDIENCE || !FHIR_API || !PROJECT_API) {
     throw new Error('Missing required secrets');
   }
@@ -61,5 +61,9 @@ export const validateSecrets = (secrets: Secrets | null): Secrets => {
     AUTH0_AUDIENCE,
     FHIR_API,
     PROJECT_API,
+    // userMe() (called by the handler to resolve the caller's Practitioner)
+    // reads ENVIRONMENT to take the M2M-client branch; the previously-stripped
+    // secrets object made getSecret(ENVIRONMENT) throw for M2M callers.
+    ...(ENVIRONMENT ? { ENVIRONMENT } : {}),
   };
 };
