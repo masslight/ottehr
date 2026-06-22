@@ -1,27 +1,34 @@
-import { GenerateAdHocReportInput, Secrets } from 'utils';
+import {
+  GenerateAdHocReportInput,
+  INVALID_INPUT_ERROR,
+  MISSING_REQUEST_BODY,
+  MISSING_REQUEST_SECRETS,
+  MISSING_REQUIRED_PARAMETERS,
+  Secrets,
+} from 'utils';
 import { ZambdaInput } from '../../shared';
 
 export function validateRequestParameters(input: ZambdaInput): GenerateAdHocReportInput & { secrets: Secrets } {
   if (!input.body) {
-    throw new Error('Missing request body');
+    throw MISSING_REQUEST_BODY;
   }
 
   const { schema, request, conversation } = JSON.parse(input.body);
 
   if (!schema || typeof schema !== 'object') {
-    throw new Error('Missing or invalid schema');
+    throw MISSING_REQUIRED_PARAMETERS(['schema']);
   }
 
   if (!request || typeof request !== 'string' || request.trim().length === 0) {
-    throw new Error('Missing request');
+    throw MISSING_REQUIRED_PARAMETERS(['request']);
   }
 
   if (conversation !== undefined && !Array.isArray(conversation)) {
-    throw new Error('conversation must be an array');
+    throw INVALID_INPUT_ERROR('conversation must be an array');
   }
 
   if (!input.secrets) {
-    throw new Error('Input did not have any secrets');
+    throw MISSING_REQUEST_SECRETS;
   }
 
   return { schema, request, conversation, secrets: input.secrets };

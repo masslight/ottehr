@@ -1,9 +1,15 @@
-import { AdHocBillingInput, Secrets } from 'utils';
+import {
+  AdHocBillingInput,
+  MISSING_REQUEST_BODY,
+  MISSING_REQUEST_SECRETS,
+  MISSING_REQUIRED_PARAMETERS,
+  Secrets,
+} from 'utils';
 import { ZambdaInput } from '../../shared';
 
 export function validateRequestParameters(input: ZambdaInput): AdHocBillingInput & { secrets: Secrets } {
   if (!input.body) {
-    throw new Error('Missing request body');
+    throw MISSING_REQUEST_BODY;
   }
 
   const { dateRange, includePayments, includeCoverage, includeCharges, includeCodes, includeClaims } = JSON.parse(
@@ -11,11 +17,11 @@ export function validateRequestParameters(input: ZambdaInput): AdHocBillingInput
   );
 
   if (!dateRange || typeof dateRange.start !== 'string' || typeof dateRange.end !== 'string') {
-    throw new Error('dateRange { start, end } is required');
+    throw MISSING_REQUIRED_PARAMETERS(['dateRange']);
   }
 
   if (!input.secrets) {
-    throw new Error('Input did not have any secrets');
+    throw MISSING_REQUEST_SECRETS;
   }
 
   return {

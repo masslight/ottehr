@@ -1,30 +1,37 @@
-import { IncompleteEncountersReportZambdaInput, Secrets } from 'utils';
+import {
+  IncompleteEncountersReportZambdaInput,
+  INVALID_INPUT_ERROR,
+  MISSING_REQUEST_BODY,
+  MISSING_REQUEST_SECRETS,
+  MISSING_REQUIRED_PARAMETERS,
+  Secrets,
+} from 'utils';
 import { ZambdaInput } from '../../shared';
 
 export function validateRequestParameters(
   input: ZambdaInput
 ): IncompleteEncountersReportZambdaInput & { secrets: Secrets } {
   if (!input.body) {
-    throw new Error('Missing request body');
+    throw MISSING_REQUEST_BODY;
   }
 
   const { dateRange, encounterStatus, includeCodes } = JSON.parse(input.body);
 
   if (!dateRange) {
-    throw new Error('Missing dateRange parameter');
+    throw MISSING_REQUIRED_PARAMETERS(['dateRange']);
   }
 
   if (!dateRange.start || !dateRange.end) {
-    throw new Error('dateRange must include both start and end dates');
+    throw INVALID_INPUT_ERROR('dateRange must include both start and end dates');
   }
 
   // Validate that start and end are valid ISO date strings
   if (isNaN(Date.parse(dateRange.start))) {
-    throw new Error('dateRange.start must be a valid ISO date string');
+    throw INVALID_INPUT_ERROR('dateRange.start must be a valid ISO date string');
   }
 
   if (isNaN(Date.parse(dateRange.end))) {
-    throw new Error('dateRange.end must be a valid ISO date string');
+    throw INVALID_INPUT_ERROR('dateRange.end must be a valid ISO date string');
   }
 
   if (
@@ -33,11 +40,11 @@ export function validateRequestParameters(
     encounterStatus !== 'complete' &&
     encounterStatus !== 'all'
   ) {
-    throw new Error("encounterStatus must be 'incomplete', 'complete', or 'all'");
+    throw INVALID_INPUT_ERROR("encounterStatus must be 'incomplete', 'complete', or 'all'");
   }
 
   if (!input.secrets) {
-    throw new Error('Input did not have any secrets');
+    throw MISSING_REQUEST_SECRETS;
   }
 
   return {
