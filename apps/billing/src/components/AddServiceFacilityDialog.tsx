@@ -7,13 +7,11 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
-  MenuItem,
-  Select,
   TextField,
   Typography,
 } from '@mui/material';
 import { ReactElement, useEffect, useState } from 'react';
-import { AllStates, CMS_PLACE_OF_SERVICE_CODES, getApiError, SaveServiceFacilityInput, TIMEZONES } from 'utils';
+import { AllStates, CMS_PLACE_OF_SERVICE_CODES, getApiError, SaveServiceFacilityInput } from 'utils';
 import { saveBillingServiceFacility } from '../api/api';
 import { useApiClients } from '../hooks/useAppClients';
 import { validateServiceFacilityFields } from '../utils/validation';
@@ -38,7 +36,6 @@ export function AddServiceFacilityDialog({ open, onClose, onCreated }: AddServic
   const [npi, setNpi] = useState('');
   const [clia, setClia] = useState('');
   const [posCode, setPosCode] = useState('');
-  const [timezone, setTimezone] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -54,7 +51,6 @@ export function AddServiceFacilityDialog({ open, onClose, onCreated }: AddServic
     setNpi('');
     setClia('');
     setPosCode('');
-    setTimezone('');
     setSaving(false);
     setError(null);
   }, [open]);
@@ -82,7 +78,6 @@ export function AddServiceFacilityDialog({ open, onClose, onCreated }: AddServic
         ...(npi.trim() ? { npi: npi.trim() } : {}),
         ...(clia.trim() ? { clia: clia.trim() } : {}),
         ...(posCode ? { posCode } : {}),
-        ...(timezone ? { timezone } : {}),
       };
       const data = await saveBillingServiceFacility(oystehrZambda, payload);
       if (!data.id) throw new Error('Service facility was not created');
@@ -128,24 +123,6 @@ export function AddServiceFacilityDialog({ open, onClose, onCreated }: AddServic
                 isOptionEqualToValue={(o, v) => o.code === v.code}
                 renderInput={(params) => <TextField {...params} placeholder="Select..." />}
               />
-            </Field>
-            <Field label="Time Zone" optional>
-              <Select
-                size="small"
-                fullWidth
-                displayEmpty
-                value={timezone}
-                onChange={(e) => setTimezone(e.target.value)}
-              >
-                <MenuItem value="">
-                  <em>None</em>
-                </MenuItem>
-                {TIMEZONES.map((tz) => (
-                  <MenuItem key={tz} value={tz}>
-                    {tz}
-                  </MenuItem>
-                ))}
-              </Select>
             </Field>
           </Box>
 
