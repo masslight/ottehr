@@ -13,7 +13,8 @@ import {
 import { DataGridPro, GridColDef, GridPaginationModel } from '@mui/x-data-grid-pro';
 import { ReactElement, useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { BillingProviderOption, chooseJson } from 'utils';
+import { BillingProviderOption, getApiError } from 'utils';
+import { deleteBillingProvider, searchBillingProviders } from '../api/api';
 import { AddProviderDialog } from '../components/AddProviderDialog';
 import { dataGridSlots, dataGridSx } from '../components/BillingDataGrid';
 import { ProviderDetailSection } from '../components/ProviderDetailSection';
@@ -68,18 +69,16 @@ export function BillingProvidersList(): ReactElement {
       setLoading(true);
       setError(null);
       try {
-        const response = await oystehrZambda.zambda.execute({
-          id: 'search-billing-providers',
+        const data = await searchBillingProviders(oystehrZambda, {
           providerType: 'billing',
           pageSize: pagination.pageSize,
           offset: pagination.page * pagination.pageSize,
           ...(name ? { name, includeWorkingCopies: true } : {}),
         });
-        const data = chooseJson(response);
         setProviders(data.providers ?? []);
         setTotalRows(data.total ?? 0);
       } catch (err) {
-        setError(err instanceof Error ? err.message : String(err));
+        setError(getApiError({ error: err, defaultError: 'Failed to load providers' }));
       } finally {
         setLoading(false);
       }
@@ -180,16 +179,14 @@ export function BillingProviderDetail(): ReactElement {
     setLoading(true);
     setError(null);
     try {
-      const response = await oystehrZambda.zambda.execute({
-        id: 'search-billing-providers',
+      const data = await searchBillingProviders(oystehrZambda, {
         providerType: 'billing',
         providerId: id,
         includeWorkingCopies: true,
       });
-      const data = chooseJson(response);
       setProvider((data.providers ?? [])[0] ?? null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(getApiError({ error: err, defaultError: 'Failed to load provider' }));
     } finally {
       setLoading(false);
     }
@@ -199,14 +196,10 @@ export function BillingProviderDetail(): ReactElement {
     if (!oystehrZambda || !provider) return;
     if (!window.confirm(`Delete provider "${provider.name}"? This cannot be undone.`)) return;
     try {
-      await oystehrZambda.zambda.execute({
-        id: 'delete-billing-provider',
-        providerId: provider.id,
-        kind: provider.kind,
-      });
+      await deleteBillingProvider(oystehrZambda, { providerId: provider.id, kind: provider.kind });
       navigate('/billing-providers');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to delete provider');
+      setError(getApiError({ error: err, defaultError: 'Failed to delete provider' }));
     }
   };
 

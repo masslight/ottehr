@@ -138,6 +138,8 @@ import {
   GetPatientInstructionQuickPicksResponse,
   GetPatientLoginPhoneNumbersInput,
   GetPatientLoginPhoneNumbersOutput,
+  GetPatientMedicalRecordInput,
+  GetPatientMedicalRecordOutput,
   GetPresignedFileURLInput,
   GetProcedureQuickPicksResponse,
   GetProgressNoteConfigInput,
@@ -1742,6 +1744,22 @@ export const deletePatientDocument = async (
   try {
     const response = await oystehr.zambda.execute({
       id: 'delete-patient-document',
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const getPatientMedicalRecordZip = async (
+  oystehr: Oystehr,
+  parameters: GetPatientMedicalRecordInput
+): Promise<GetPatientMedicalRecordOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: 'get-patient-medical-record',
       ...parameters,
     });
     return chooseJson(response);

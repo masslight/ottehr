@@ -106,6 +106,30 @@ export interface TemplateInHouseLabPlanDetail {
   missing: boolean;
 }
 
+// Each external lab plan saved on a template carries the inputs the external
+// create-lab-order flow needs at apply time: the lab + test combo (lab GUID,
+// lab name, and the orderable item code), the Dx reason codes, the optional
+// clinical info note, and the PSC flag. The ordering office and payment
+// method are NOT stored - both are visit-specific: the office is derived from
+// the encounter the template is applied to, and the payment method defaults
+// from that visit's payment details in the preview dialog.
+//
+// `missing: true` indicates the test could not be found in the lab's current
+// compendium via the orderable item search - the admin UI surfaces this so a
+// human can fix the template; apply-template skips the plan with a warning.
+export interface TemplateExternalLabPlanDetail {
+  // ServiceRequest.id of the plan inside the template's contained resources.
+  planId: string;
+  labGuid: string;
+  labName: string;
+  testName: string;
+  testCode: string;
+  diagnoses: TemplateCodeInfo[];
+  note: string | null;
+  psc: boolean;
+  missing: boolean;
+}
+
 // Each in-office procedure plan saved on a template captures everything the
 // chart UI's procedure form exposes - the procedure type, body site/side,
 // performer, technique, and the rest of the form's checkbox/dropdown answers -
@@ -159,6 +183,7 @@ export interface AdminGetTemplateDetailOutput {
     emCode: TemplateCodeInfo | null;
     accident: TemplateAccidentInfo | null;
     inHouseLabs: TemplateInHouseLabPlanDetail[];
+    externalLabs: TemplateExternalLabPlanDetail[];
     procedures: TemplateProcedurePlan[];
   };
 }

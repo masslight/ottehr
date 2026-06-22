@@ -18,7 +18,7 @@ import {
   RelatedPerson,
   Resource,
 } from 'fhir/r4b';
-import { formatZipcodeForDisplay, removePrefix, standardizePhoneNumber } from '../helpers';
+import { formatZipcodeForDisplay, isValidErxPhoneNumber, removePrefix } from '../helpers';
 import {
   ORG_TYPE_CODE_SYSTEM,
   PATIENT_INDIVIDUAL_PRONOUNS_URL,
@@ -510,7 +510,7 @@ export const getErxPatientDemographicErrors = (patient: Patient | undefined): st
   if (!hasNonEmptyName(patient)) errors.push('name');
   if (!hasNonEmptyBirthDate(patient)) errors.push('birthDate');
   if (!hasNonEmptyGender(patient)) errors.push('gender');
-  if (!standardizePhoneNumber(phone)) errors.push('phone');
+  if (!isValidErxPhoneNumber(phone)) errors.push('phone');
   if (!hasNonEmptyAddress(patient)) errors.push('address');
 
   return errors;

@@ -3,6 +3,7 @@ import {
   Coverage,
   DiagnosticReport,
   DocumentReference,
+  Identifier,
   List,
   Location,
   Organization,
@@ -94,10 +95,18 @@ export function getOrderNumberFromDr(dr: DiagnosticReport): string | undefined {
   return dr.identifier?.find((id) => id.system === OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM)?.value;
 }
 
+const locationIdentifierIsLabsEnabled = (id: Identifier): boolean => {
+  return id.system === LAB_ACCOUNT_NUMBER_SYSTEM && !!id.value && !!id.assigner?.reference;
+};
+
+export const locationIsEnabledForLabs = (location: Location): boolean => {
+  return !!location.identifier?.some((id) => locationIdentifierIsLabsEnabled(id));
+};
+
 export function getAccountNumberFromLocationAndOrganization(location: Location, org: Organization): string | undefined {
   console.log(`Getting account number from location and org. Location/${location.id} and Organization/${org.id}`);
   const accountNumberFromLocation = location.identifier?.find(
-    (id) => id.system === LAB_ACCOUNT_NUMBER_SYSTEM && id.assigner?.reference === `Organization/${org.id}` && id.value
+    (id) => locationIdentifierIsLabsEnabled(id) && id.assigner?.reference === `Organization/${org.id}`
   )?.value;
   if (accountNumberFromLocation) {
     console.log(`Found account number from location. Account number is ${accountNumberFromLocation}`);

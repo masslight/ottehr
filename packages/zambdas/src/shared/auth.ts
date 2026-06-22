@@ -20,6 +20,11 @@ export async function getUser(token: string, secrets: Secrets | null): Promise<U
     user = await userMe(token, secrets);
   } catch (error: any) {
     console.log('error getting user from token', error?.message || error);
+    // 401/403 from user.me() is a client auth problem (revoked session / policy deny),
+    // not an internal error — surface as a handled APIError instead of a 500.
+    if (error instanceof Oystehr.OystehrSdkError && (error.code === 401 || error.code === 403)) {
+      throw NOT_AUTHORIZED;
+    }
     throw error;
   }
 

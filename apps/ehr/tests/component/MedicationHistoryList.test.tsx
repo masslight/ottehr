@@ -124,6 +124,31 @@ describe('MedicationHistoryList - Display Tests', () => {
     expect(screen.getByText('Acetaminophen (500mg)')).toBeInTheDocument();
   });
 
+  it('displays a refill badge for renewal prescribed medications', () => {
+    mockUseMedicationHistory.mockReturnValue({
+      isLoading: false,
+      medicationHistory: [
+        {
+          resourceId: 'med-rx-1',
+          name: 'Lisinopril',
+          status: 'active',
+          type: 'prescribed-medication',
+          isRenewal: true,
+          intakeInfo: {
+            date: '2024-12-20T10:00:00Z',
+          },
+          chartDataField: 'medications',
+        },
+      ],
+      refetchHistory: mockRefetchHistory,
+    } as any);
+
+    renderComponent();
+
+    expect(screen.getByText('Lisinopril')).toBeInTheDocument();
+    expect(screen.getByText('Refill')).toBeInTheDocument();
+  });
+
   it('displays medication history when chart is read-only', () => {
     mockUseGetAppointmentAccessibility.mockReturnValue({
       isAppointmentReadOnly: true,
