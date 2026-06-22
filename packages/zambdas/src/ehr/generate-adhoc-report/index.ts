@@ -1,3 +1,4 @@
+import vm from 'node:vm';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import {
   AdHocReportTurn,
@@ -213,6 +214,151 @@ const jsSyntaxError = (code: string): string | null => {
   }
 };
 
+// Build a handful of type-plausible synthetic rows from the schema so generated code can be EXECUTED
+// (not just compiled) during validation. Values only need to be varied enough to exercise
+// grouping/charting; correctness vs the real data is not the goal. A few patientIds repeat across
+// near dates so visit-pairing reports (e.g. 72-hour returns) have something to find.
+export const synthSampleRows = (schema: {
+  fields?: Array<{ name?: string; type?: string; values?: unknown[]; min?: number }>;
+}): unknown[] => {
+  const fields = Array.isArray(schema?.fields) ? schema.fields : [];
+  const rows: Record<string, unknown>[] = [];
+  for (let i = 0; i < 12; i++) {
+    const row: Record<string, unknown> = {};
+    for (const f of fields) {
+      const name = f?.name;
+      if (!name) continue;
+      const vals = Array.isArray(f?.values) ? f!.values : [];
+      if (name === 'date' || f?.type === 'date')
+        row[name] = `2026-0${1 + (i % 6)}-${String(10 + (i % 18)).padStart(2, '0')}`;
+      else if (f?.type === 'number') row[name] = (typeof f?.min === 'number' ? f.min : 0) + (i % 5) + 1;
+      else if (f?.type === 'string[]') row[name] = [vals.length ? vals[i % vals.length] : `${name}-${i % 3}`];
+      else row[name] = vals.length ? vals[i % vals.length] : `${name}-${i % 4}`;
+    }
+    if (fields.some((f) => f?.name === 'patientId')) row.patientId = `p${i % 4}`;
+    rows.push(row);
+  }
+  return rows;
+};
+
+// EXECUTE the generated code headlessly (vm + a permissive DOM/Chart stub), exactly as the iframe
+// runner does — including the renderReport()-declaration fallback. Compile-checking alone misses
+// runtime faults (e.g. a ReferenceError from a loop var used out of scope) and no-op output (e.g. a
+// `function renderReport(){}` that's never called). Returns the error string, or null if it ran and
+// rendered something. Kept permissive (unknown DOM calls no-op) to avoid rejecting valid reports.
+export const runtimeError = (code: string, schema: object): string | null => {
+  const makeNode = (): unknown => {
+    const real: Record<string, unknown> = {
+      style: {},
+      children: [] as unknown[],
+      _attrs: {} as Record<string, unknown>,
+      previousElementSibling: null,
+      appendChild(c: unknown) {
+        (real.children as unknown[]).push(c);
+        return c;
+      },
+      insertBefore(c: unknown) {
+        (real.children as unknown[]).push(c);
+        return c;
+      },
+      removeChild(c: unknown) {
+        const a = real.children as unknown[];
+        const idx = a.indexOf(c);
+        if (idx >= 0) a.splice(idx, 1);
+      },
+      remove() {},
+      setAttribute(k: string, v: unknown) {
+        (real._attrs as Record<string, unknown>)[k] = v;
+      },
+      getAttribute(k: string) {
+        return (real._attrs as Record<string, unknown>)[k] ?? null;
+      },
+      addEventListener() {},
+      querySelector() {
+        return null;
+      },
+      querySelectorAll() {
+        return [] as unknown[];
+      },
+      getContext() {
+        return { save() {}, restore() {}, clearRect() {}, canvas: {} };
+      },
+      get firstChild() {
+        return (real.children as unknown[])[0] ?? null;
+      },
+      set innerHTML(v: string) {
+        real._html = v;
+        if (v) (real.children as unknown[]).push(makeNode());
+      },
+      get innerHTML() {
+        return (real._html as string) ?? '';
+      },
+      set textContent(v: string) {
+        real._text = v;
+      },
+      get textContent() {
+        return (real._text as string) ?? '';
+      },
+    };
+    return new Proxy(real, {
+      get(t, p: string) {
+        return p in t ? (t as Record<string, unknown>)[p] : (): unknown => makeNode();
+      },
+      set(t, p: string, v) {
+        (t as Record<string, unknown>)[p] = v;
+        return true;
+      },
+    });
+  };
+  const body = makeNode() as { children: unknown[]; innerHTML: string };
+  const documentStub = {
+    body,
+    createElement: () => makeNode(),
+    createElementNS: () => makeNode(),
+    getElementById: () => null,
+    querySelector: () => null,
+    querySelectorAll: () => [] as unknown[],
+    addEventListener() {},
+  };
+  function ChartStub(): void {
+    /* headless no-op chart */
+  }
+  const sandbox: Record<string, unknown> = {
+    data: synthSampleRows(schema as { fields?: [] }),
+    schema,
+    Chart: ChartStub,
+    document: documentStub,
+    Math,
+    JSON,
+    Date,
+    Object,
+    Array,
+    String,
+    Number,
+    Boolean,
+    parseInt,
+    parseFloat,
+    isNaN,
+    isFinite,
+    console: { log() {}, warn() {}, error() {} },
+  };
+  sandbox.window = sandbox; // window.X resolves to the sandbox global, as in the iframe
+  try {
+    vm.createContext(sandbox);
+    vm.runInContext(
+      code +
+        '\n;if (typeof renderReport === "function" && !document.body.firstChild) { renderReport(data, schema, Chart); }',
+      sandbox,
+      { timeout: 4000 }
+    );
+  } catch (e) {
+    return e instanceof Error ? e.message : String(e);
+  }
+  return body.children.length > 0 || (body.innerHTML && body.innerHTML.length > 0)
+    ? null
+    : 'the code ran without error but rendered nothing into document.body';
+};
+
 const MAX_ATTEMPTS = 3;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
@@ -228,8 +374,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       attempt === 0
         ? basePrompt
         : `${basePrompt}\n\nIMPORTANT: your previous attempt produced output that was not usable ` +
-          `(${lastError}). Return ONLY a valid JSON object whose "code" field is syntactically valid ` +
-          `JavaScript for the function body — no markdown fences, no commentary, complete and unterminated.`;
+          `(${lastError}). Return ONLY a valid JSON object whose "code" field is the function BODY — ` +
+          `no markdown fences, no commentary, no \`function renderReport(){…}\` wrapper. The code must ` +
+          `RUN without throwing (watch for variables used outside their scope) and must render into ` +
+          `document.body.`;
 
     const raw = await invokeChatbotVertexAI([{ text: prompt }], secrets, RESPONSE_SCHEMA, REPORT_MODEL);
 
@@ -257,6 +405,15 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const syntaxError = jsSyntaxError(parsed.code);
     if (syntaxError) {
       lastError = `the code did not parse (${syntaxError})`;
+      continue;
+    }
+
+    // Execute-validate: compile-checking misses runtime faults (ReferenceErrors, calling undefined,
+    // a renderReport declaration that never runs). Run it headless over synthetic rows and reject if
+    // it throws or renders nothing, so the retry loop regenerates instead of saving broken code.
+    const runError = runtimeError(parsed.code, schema);
+    if (runError) {
+      lastError = `the code failed at runtime (${runError})`;
       continue;
     }
 
