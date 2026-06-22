@@ -26,7 +26,10 @@ vi.mock('utils', () => {
   return {
     getOptionalSecret: vi.fn().mockReturnValue('configured'),
     getSecret: vi.fn().mockReturnValue('test-value'),
-    MISSING_REQUEST_SECRETS: new Error('Missing request secrets'),
+    MISSING_REQUEST_SECRETS: {
+      code: 4204,
+      message: 'The request was missing secrets required to process it',
+    },
     SecretsKeys: {
       CANDID_CLIENT_ID: 'CANDID_CLIENT_ID',
       CANDID_CLIENT_SECRET: 'CANDID_CLIENT_SECRET',
