@@ -197,6 +197,11 @@ export const getTemplateEncounterBundle = async (
         // Pulled in so in-house lab orders on this encounter can be saved as
         // template plans when creating templates.
         { name: '_revinclude:iterate', value: 'ServiceRequest:encounter' },
+        // External lab orders keep their clinical info note on a Communication
+        // that references the order ServiceRequest via basedOn (it carries no
+        // encounter reference), so it needs its own revinclude to be captured
+        // into template plans.
+        { name: '_revinclude:iterate', value: 'Communication:based-on' },
 
         // all of these resources are for creating in house labs
         { name: '_include', value: 'Encounter:location' },

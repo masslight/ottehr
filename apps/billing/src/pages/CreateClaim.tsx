@@ -75,6 +75,7 @@ export default function CreateClaim(): ReactElement {
   const methods = useForm<CreateClaimForm>({ defaultValues });
   const {
     control,
+    getValues,
     handleSubmit,
     setValue,
     watch,
@@ -471,7 +472,17 @@ export default function CreateClaim(): ReactElement {
               <Autocomplete
                 options={locations}
                 value={field.value}
-                onChange={(_, v) => field.onChange(v)}
+                onChange={(_, v) => {
+                  field.onChange(v);
+                  // Default each service line's POS to the chosen facility's place of service (overridable).
+                  const pos = v?.posCode;
+                  if (pos) {
+                    setValue(
+                      'serviceLines',
+                      getValues('serviceLines').map((l) => ({ ...l, placeOfService: pos }))
+                    );
+                  }
+                }}
                 onInputChange={(_, val, reason) => {
                   if (reason === 'input') searchLocations(val || undefined);
                 }}
