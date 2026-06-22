@@ -39,10 +39,31 @@ describe('generate-adhoc-report runtime validation', () => {
     expect(runtimeError(code, SCHEMA)).toBeNull();
   });
 
+  it('passes code with a top-level return guard (legal in the runner function body, not as a script)', () => {
+    // The iframe runs code via new Function('data','schema','Chart', code), so a top-level `return`
+    // is a normal early-exit — extremely common (empty-data guards). The validator must not reject it.
+    const code = `
+      if (!data.length) { document.body.innerHTML = '<p>No data</p>'; return; }
+      document.body.innerHTML = '<h2>' + data.length + ' visits</h2>';
+    `;
+    expect(runtimeError(code, SCHEMA)).toBeNull();
+  });
+
   it('passes a renderReport() declaration that renders (runner invokes it as a fallback)', () => {
     const code = `function renderReport(data, schema, Chart) {
       document.body.innerHTML = '<h2>' + data.length + ' visits</h2>';
     }`;
+    expect(runtimeError(code, SCHEMA)).toBeNull();
+  });
+
+  it('passes the innerHTML-then-getElementById(canvas).getContext chart pattern', () => {
+    // The canonical Chart.js wiring: write a canvas with an id into body, look it up, draw on it.
+    // A null-returning getElementById stub would reject this valid, browser-working code.
+    const code = `
+      document.body.innerHTML = '<h2>Volume</h2><canvas id="vol"></canvas>';
+      const ctx = document.getElementById('vol').getContext('2d');
+      new Chart(ctx, { type: 'bar', data: { labels: ['a'], datasets: [{ data: [1] }] } });
+    `;
     expect(runtimeError(code, SCHEMA)).toBeNull();
   });
 

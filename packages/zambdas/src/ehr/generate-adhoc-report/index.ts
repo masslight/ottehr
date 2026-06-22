@@ -315,8 +315,12 @@ export const runtimeError = (code: string, schema: object): string | null => {
     body,
     createElement: () => makeNode(),
     createElementNS: () => makeNode(),
-    getElementById: () => null,
-    querySelector: () => null,
+    // Return a live node, not null: reports routinely set body.innerHTML with an `id="chart"` canvas
+    // and then `document.getElementById('chart').getContext(...)` — which the browser resolves but a
+    // null-returning stub turns into a spurious "Cannot read properties of null" reject. The stub node
+    // answers getContext/appendChild, so the chain runs as it would in the iframe.
+    getElementById: () => makeNode(),
+    querySelector: () => makeNode(),
     querySelectorAll: () => [] as unknown[],
     addEventListener() {},
   };
@@ -343,14 +347,19 @@ export const runtimeError = (code: string, schema: object): string | null => {
     console: { log() {}, warn() {}, error() {} },
   };
   sandbox.window = sandbox; // window.X resolves to the sandbox global, as in the iframe
+  // Wrap in a function exactly as the iframe runner does (new Function('data','schema','Chart', code)),
+  // so a top-level `return` in the report body is legal — it's a function body, not a script. Running
+  // the raw code as a vm SCRIPT instead rejects valid reports (a `if (!data.length) return;` guard is
+  // common) with "SyntaxError: Illegal return statement". The IIFE's free `document`/`Chart`/`window`
+  // resolve to the sandbox globals, and the renderReport()-declaration fallback runs in the same scope.
+  const wrapped =
+    '(function (data, schema, Chart) {\n' +
+    code +
+    '\n;if (typeof renderReport === "function" && !document.body.firstChild) { renderReport(data, schema, Chart); }\n' +
+    '})(data, schema, Chart);';
   try {
     vm.createContext(sandbox);
-    vm.runInContext(
-      code +
-        '\n;if (typeof renderReport === "function" && !document.body.firstChild) { renderReport(data, schema, Chart); }',
-      sandbox,
-      { timeout: 4000 }
-    );
+    vm.runInContext(wrapped, sandbox, { timeout: 4000 });
   } catch (e) {
     return e instanceof Error ? e.message : String(e);
   }
