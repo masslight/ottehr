@@ -41,6 +41,7 @@ import { DateTime } from 'luxon';
 import Stripe from 'stripe';
 import {
   ATTORNEY_FIRM_EXTENSION_URL,
+  buildCoverageSubscriberRelatedPerson,
   buildExtensionObject,
   CANDID_PLAN_TYPE_SYSTEM,
   codeableConcept,
@@ -83,6 +84,7 @@ import {
   getPayerUrl,
   getPhoneNumberForIndividual,
   getSecret,
+  getSubscriberRelationshipCodeableConcept,
   getTaxID,
   INSURANCE_CANDID_PLAN_TYPE_CODES,
   INSURANCE_CARD_BACK_2_ID,
@@ -1258,33 +1260,31 @@ export const createUpdatePharmacyPatchOps = (
 ): Operation[] => {
   const pharmacyNameAnswer = getAnswer('pharmacy-name', flattenedItems);
   const pharmacyAddressAnswer = getAnswer('pharmacy-address', flattenedItems);
+  const pharmacyPhoneAnswer = getAnswer('pharmacy-phone', flattenedItems);
 
   const pharmacyWasManuallyEntered = getAnswer('pharmacy-page-manual-entry', flattenedItems);
   const placesPharmacyIdAnswer = getAnswer(PHARMACY_COLLECTION_LINK_IDS.placesId, flattenedItems);
   const placesPharmacyNameAnswer = getAnswer(PHARMACY_COLLECTION_LINK_IDS.placesName, flattenedItems);
   const placesPharmacyAddressAnswer = getAnswer(PHARMACY_COLLECTION_LINK_IDS.placesAddress, flattenedItems);
+  const placesPharmacyPhoneAnswer = getAnswer(PHARMACY_COLLECTION_LINK_IDS.placesPhone, flattenedItems);
   const exrPharmacyIdAnswer = getAnswer(PHARMACY_COLLECTION_LINK_IDS.erxPharmacyId, flattenedItems);
 
-  // Check if pharmacy fields are present in the questionnaire response
-  const hasManualPharmacyFields = pharmacyNameAnswer !== undefined || pharmacyAddressAnswer !== undefined;
-  const hasPlacesPharmacyFields =
-    placesPharmacyIdAnswer !== undefined ||
-    placesPharmacyNameAnswer !== undefined ||
-    placesPharmacyAddressAnswer !== undefined;
-  const hasPharmacyFields = hasManualPharmacyFields || hasPlacesPharmacyFields || exrPharmacyIdAnswer !== undefined;
+  // Skip if the pharmacy section wasn't part of this submission, otherwise a
+  // section-scoped save of another section (e.g. Responsible Party) would fall
+  // through and wipe existing pharmacy data. Presence is by linkId, not value, so
+  // an intentional clear (empty answers, items still present) is preserved.
+  // Derived from the link-id constant so new pharmacy fields are covered automatically.
+  const PHARMACY_LINK_IDS = new Set<string>(Object.values(PHARMACY_COLLECTION_LINK_IDS));
+  const pharmacySectionSubmitted = flattenedItems.some((item) => PHARMACY_LINK_IDS.has(item.linkId));
 
-  // Check if patient currently has pharmacy data
-  const hasExistingPharmacy =
-    patient.contained?.some((resource) => resource.id === PATIENT_CONTAINED_PHARMACY_ID) ||
-    patient.extension?.some((extension) => extension.url === PREFERRED_PHARMACY_EXTENSION_URL);
-
-  // If no pharmacy fields in questionnaire and no existing pharmacy, no action needed
-  if (!hasPharmacyFields && !hasExistingPharmacy) {
+  if (!pharmacySectionSubmitted) {
     return [];
   }
 
   const inputPharmacyName = pharmacyNameAnswer?.valueString ?? placesPharmacyNameAnswer?.valueString;
   const inputPharmacyAddress = pharmacyAddressAnswer?.valueString ?? placesPharmacyAddressAnswer?.valueString;
+  const inputPharmacyPhone = pharmacyPhoneAnswer?.valueString ?? placesPharmacyPhoneAnswer?.valueString;
+  const hasPharmacyInput = Boolean(inputPharmacyName || inputPharmacyAddress || inputPharmacyPhone);
 
   const operations: Operation[] = [];
 
@@ -1292,7 +1292,7 @@ export const createUpdatePharmacyPatchOps = (
   const filteredContained = currentContained.filter((resource) => resource.id !== PATIENT_CONTAINED_PHARMACY_ID);
 
   // Add new pharmacy if provided
-  if (inputPharmacyName || inputPharmacyAddress) {
+  if (hasPharmacyInput) {
     const pharmacyOrg: Organization = {
       resourceType: 'Organization',
       id: PATIENT_CONTAINED_PHARMACY_ID,
@@ -1302,6 +1302,14 @@ export const createUpdatePharmacyPatchOps = (
         ? [
             {
               text: inputPharmacyAddress,
+            },
+          ]
+        : undefined,
+      telecom: inputPharmacyPhone
+        ? [
+            {
+              system: 'phone',
+              value: inputPharmacyPhone,
             },
           ]
         : undefined,
@@ -1350,7 +1358,7 @@ export const createUpdatePharmacyPatchOps = (
   );
 
   // Add pharmacy reference if we have pharmacy data
-  if (inputPharmacyName || inputPharmacyAddress) {
+  if (hasPharmacyInput) {
     filteredExtensions.push({
       url: PREFERRED_PHARMACY_EXTENSION_URL,
       valueReference: {
@@ -2383,28 +2391,15 @@ const createCoverageResource = (input: CreateCoverageResourceInput): Coverage =>
   }
 
   const policyHolderId = 'coverageSubscriber';
-  const policyHolderName = createFhirHumanName(policyHolder.firstName, policyHolder.middleName, policyHolder.lastName);
   const relationshipCode = SUBSCRIBER_RELATIONSHIP_CODE_MAP[policyHolder.relationship] || 'other';
-  const containedPolicyHolder: RelatedPerson = {
-    resourceType: 'RelatedPerson',
-    id: policyHolderId,
-    name: policyHolderName ? policyHolderName : undefined,
-    birthDate: policyHolder.dob,
-    gender: mapBirthSexToGender(policyHolder.birthSex),
-    patient: { reference: `Patient/${patientId}` },
-    address: [policyHolder.address],
-    relationship: [
-      {
-        coding: [
-          {
-            system: 'http://hl7.org/fhir/ValueSet/relatedperson-relationshiptype',
-            code: relationshipCode,
-            display: policyHolder.relationship,
-          },
-        ],
-      },
-    ],
-  };
+  // Shared builder keeps the subscriber RelatedPerson aligned with the billing app; the clinical EHR
+  // contains it on the Coverage rather than persisting it standalone.
+  const containedPolicyHolder = buildCoverageSubscriberRelatedPerson(
+    patientId,
+    { ...policyHolder, address: policyHolder.address },
+    policyHolder.relationship
+  );
+  containedPolicyHolder.id = policyHolderId;
 
   let contained: Coverage['contained'];
   let subscriberReference = `#${policyHolderId}`;
@@ -2434,7 +2429,7 @@ const createCoverageResource = (input: CreateCoverageResourceInput): Coverage =>
       },
     ],
     subscriberId: policyHolder.memberId,
-    relationship: getPolicyHolderRelationshipCodeableConcept(policyHolder.relationship),
+    relationship: getSubscriberRelationshipCodeableConcept(policyHolder.relationship),
     class: [
       {
         type: {
@@ -3680,19 +3675,6 @@ const patchOpsForCoverage = (input: GetCoveragePatchOpsInput): Operation[] => {
   return ops;
 };
 
-const getPolicyHolderRelationshipCodeableConcept = (relationship: PolicyHolder['relationship']): CodeableConcept => {
-  const relationshipCode = SUBSCRIBER_RELATIONSHIP_CODE_MAP[relationship] || 'other';
-  return {
-    coding: [
-      {
-        system: 'http://terminology.hl7.org/CodeSystem/subscriber-relationship',
-        code: relationshipCode,
-        display: relationship,
-      },
-    ],
-  };
-};
-
 export const createContainedGuarantor = (guarantor: ResponsiblePartyContact, patientId: string): RelatedPerson => {
   const guarantorId = 'accountGuarantorId';
   const policyHolderName = createFhirHumanName(guarantor.firstName, undefined, guarantor.lastName);
@@ -4147,6 +4129,13 @@ export const updatePatientAccountFromQuestionnaire = async (
     // optimistically-locked PUT below, rather than creating a competing one.
     if (!existingAccount) {
       const billingType = PATIENT_BILLING_ACCOUNT_TYPE?.coding?.[0];
+      // `ifNoneExist` is a single query string (set verbatim as the
+      // If-None-Exist header). URLSearchParams encodes the `|` in `system|code`.
+      const ifNoneExist = new URLSearchParams({
+        patient: `Patient/${patientId}`,
+        type: `${billingType?.system}|${billingType?.code}`,
+        status: 'active',
+      }).toString();
       await oystehr.fhir.create(
         {
           resourceType: 'Account',
@@ -4155,13 +4144,7 @@ export const updatePatientAccountFromQuestionnaire = async (
           subject: [{ reference: `Patient/${patientId}` }],
           description: 'Patient account',
         },
-        {
-          ifNoneExist: [
-            { name: 'patient', value: `Patient/${patientId}` },
-            { name: 'type', value: `${billingType?.system}|${billingType?.code}` },
-            { name: 'status', value: 'active' },
-          ],
-        }
+        { ifNoneExist }
       );
       // Re-read so the now-existing Account is treated as existing (and merged via the
       // PUT path) instead of created again. Skips computing/committing this iteration.

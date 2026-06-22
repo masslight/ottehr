@@ -107,6 +107,31 @@ export class VitalsPage {
     await expect(header).toContainText(diastolic);
   }
 
+  async expectInvalidBloodPressureError(
+    systolic: string,
+    diastolic: string,
+    expectedError: string | RegExp
+  ): Promise<void> {
+    const systolicInput = this.#page.getByTestId(dataTestIds.vitalsPage.bloodPressureSystolicInput).locator('input');
+    await systolicInput.fill(systolic);
+
+    const diastolicInput = this.#page.getByTestId(dataTestIds.vitalsPage.bloodPressureDiastolicInput).locator('input');
+    await diastolicInput.fill(diastolic);
+
+    // Clicking Add should NOT trigger a save: the relationship validation surfaces an error snackbar instead.
+    await this.#page.getByTestId(dataTestIds.vitalsPage.bloodPressureAddButton).click();
+    await expect(this.#page.locator('.notistack-SnackbarContainer').getByText(expectedError)).toBeVisible();
+
+    // No history entry should be created for the rejected pair.
+    await expect(
+      this.#page.getByTestId(dataTestIds.vitalsPage.bloodPressureItem).filter({ hasText: `${systolic}/${diastolic}` })
+    ).toHaveCount(0);
+
+    // Reset the form so subsequent steps start clean.
+    await systolicInput.fill('');
+    await diastolicInput.fill('');
+  }
+
   async removeBloodPressureObservationFromHistory(systolic: string, diastolic: string): Promise<void> {
     await this.#page
       .getByTestId(dataTestIds.vitalsPage.bloodPressureItem)

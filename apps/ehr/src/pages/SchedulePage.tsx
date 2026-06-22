@@ -32,9 +32,11 @@ import {
   APIError,
   CreateScheduleParams,
   isApiError,
+  isValidSlug,
   isValidUUID,
   ScheduleDTO,
   scheduleTypeFromFHIRType,
+  SLUG_VALIDATION_MESSAGE,
   TIMEZONES,
   UpdateScheduleParams,
 } from 'utils';
@@ -338,6 +340,11 @@ export default function SchedulePage(): ReactElement {
 
   const isLocationOwner = item?.owner?.type === 'Location';
 
+  // The permalink is only editable for non-Location owners. A non-empty slug
+  // must match the URL-safe shape the patient side enforces, otherwise the
+  // save succeeds here but booking by slug fails later with a validation error.
+  const slugError = !isLocationOwner && !!slug && !isValidSlug(slug);
+
   async function onSaveSchedule(params: UpdateScheduleParams): Promise<void> {
     if (!oystehrZambda) {
       console.log('oystehr client is not defined');
@@ -403,6 +410,10 @@ export default function SchedulePage(): ReactElement {
   const saveGeneralFields = async (_event?: any): Promise<void> => {
     if (!oystehr || !item?.id) {
       enqueueSnackbar('Oops. Something went wrong. Please reload the page and try again.', { variant: 'error' });
+      return;
+    }
+    if (slugError) {
+      enqueueSnackbar(`Permalink ${SLUG_VALIDATION_MESSAGE}.`, { variant: 'error' });
       return;
     }
     // Schedule-level fields (slug, timezone) go through the schedule zambda.
@@ -639,7 +650,16 @@ export default function SchedulePage(): ReactElement {
                       <TextField
                         label="Permalink"
                         value={slug}
-                        onChange={(event) => setSlug(event.target.value)}
+                        // Location slugs are managed elsewhere and shown read-only here;
+                        // Provider (PractitionerRole) and Group (HealthcareService)
+                        // schedules can edit the permalink from this tab.
+                        {...(isLocationOwner
+                          ? { InputProps: { readOnly: true }, disabled: true }
+                          : {
+                              onChange: (event) => setSlug(event.target.value),
+                              error: slugError,
+                              helperText: slugError ? SLUG_VALIDATION_MESSAGE : undefined,
+                            })}
                         sx={{ width: '250px' }}
                       />
                       <br />
@@ -780,7 +800,7 @@ export default function SchedulePage(): ReactElement {
                         loading={somethingIsLoadingInSomeWay}
                         variant="contained"
                         sx={{ marginTop: 2 }}
-                        disabled={isPractitionerRoleOwner && !scheduleName.trim()}
+                        disabled={(isPractitionerRoleOwner && !scheduleName.trim()) || slugError}
                       >
                         Save
                       </LoadingButton>

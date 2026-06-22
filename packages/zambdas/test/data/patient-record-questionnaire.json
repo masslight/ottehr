@@ -2920,6 +2920,12 @@
             "required": false
           },
           {
+            "linkId": "pharmacy-places-phone",
+            "type": "string",
+            "text": "places phone",
+            "required": false
+          },
+          {
             "linkId": "pharmacy-places-saved",
             "type": "boolean",
             "text": "places saved",
@@ -3019,6 +3025,29 @@
           }
         ],
         "extension": [
+          {
+            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
+            "valueString": "hidden"
+          }
+        ]
+      },
+      {
+        "linkId": "pharmacy-phone",
+        "type": "string",
+        "text": "Pharmacy phone",
+        "required": false,
+        "enableWhen": [
+          {
+            "question": "pharmacy-page-manual-entry",
+            "operator": "=",
+            "answerBoolean": true
+          }
+        ],
+        "extension": [
+          {
+            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
+            "valueString": "Phone Number"
+          },
           {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
             "valueString": "hidden"

@@ -1,10 +1,18 @@
 import { Box, SxProps, Typography, useTheme } from '@mui/material';
 import { useQueryClient } from '@tanstack/react-query';
-import { Organization, Patient, Questionnaire, QuestionnaireItem, QuestionnaireResponseItem } from 'fhir/r4b';
+import {
+  Organization,
+  Patient,
+  Questionnaire,
+  QuestionnaireItem,
+  QuestionnaireResponseItem,
+  Reference,
+} from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
 import { FC, ReactElement, useEffect, useMemo, useRef, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { useNavigate, useParams } from 'react-router-dom';
+import { updatePatientVisitDetails } from 'src/api/api';
 import { PatientMergedBanner } from 'src/components/PatientMergedBanner';
 import { AboutPatientContainer } from 'src/features/visits/shared/components/patient/AboutPatientContainer';
 import { ActionBar } from 'src/features/visits/shared/components/patient/ActionBar';
@@ -28,6 +36,11 @@ import { ResponsibleInformationContainer } from 'src/features/visits/shared/comp
 import { scrollToFirstInvalidField } from 'src/features/visits/shared/components/patient/scrollToFirstInvalidField';
 import { WarningBanner } from 'src/features/visits/shared/components/patient/WarningBanner';
 import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
+import {
+  buildVisitEmployerUpdate,
+  OCCUPATIONAL_MEDICINE_EMPLOYER_FIELD_KEY,
+} from 'src/features/visits/shared/visitEmployer';
+import { useApiClients } from 'src/hooks/useAppClients';
 import {
   AppointmentContext,
   CoverageWithPriority,
@@ -410,6 +423,12 @@ export const PatientAccountComponent: FC<PatientAccountComponentProps> = ({
   );
 
   const { submitQR, removeCoverage, queryClient } = useMutations();
+  const { oystehrZambda } = useApiClients();
+
+  // Pre-op: the occupational-medicine employer is visit-level (stored on the Encounter via
+  // update-visit-details), not on the patient Account.
+  const saveEmployerViaVisitDetails =
+    Boolean(appointmentId) && appointmentContext?.appointmentServiceCategory === 'pre-op';
 
   const { otherPatientsWithSameName, setOtherPatientsWithSameName } = useGetPatient(id);
 
@@ -482,8 +501,36 @@ export const PatientAccountComponent: FC<PatientAccountComponentProps> = ({
       return;
     }
 
+    let qrValues = values;
+
+    // Pre-op: persist the employer on the Encounter via update-visit-details and exclude it
+    // from the patient-record QR so it is never written to the Account.
+    if (saveEmployerViaVisitDetails) {
+      const { [OCCUPATIONAL_MEDICINE_EMPLOYER_FIELD_KEY]: employerValue, ...rest } = values;
+      qrValues = rest;
+
+      if (appointmentId && dirtyFields[OCCUPATIONAL_MEDICINE_EMPLOYER_FIELD_KEY]) {
+        if (!oystehrZambda) {
+          enqueueSnackbar('Something went wrong. Please reload the page.', { variant: 'error' });
+          return;
+        }
+        try {
+          await updatePatientVisitDetails(
+            oystehrZambda,
+            buildVisitEmployerUpdate(appointmentId, employerValue as Reference | null | undefined)
+          );
+          await queryClient.invalidateQueries({ queryKey: ['get-visit-details'] });
+        } catch {
+          enqueueSnackbar('Save operation failed. The server encountered an error while processing your request.', {
+            variant: 'error',
+          });
+          return;
+        }
+      }
+    }
+
     // Pass dirtyFields to track explicitly cleared fields
-    const qr = pruneEmptySections(structureQuestionnaireResponse(questionnaire, values, patient.id, dirtyFields));
+    const qr = pruneEmptySections(structureQuestionnaireResponse(questionnaire, qrValues, patient.id, dirtyFields));
     if (appointmentContext?.encounterId) {
       qr.encounter = {
         reference: 'Encounter/' + appointmentContext.encounterId,

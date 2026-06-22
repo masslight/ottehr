@@ -16,9 +16,8 @@ import {
 } from 'utils';
 import { structureQuestionnaireResponse } from '../../../../../helpers/qr-structure';
 import { useUpdatePatientAccount } from '../../../../../hooks/useGetPatient';
+import { buildVisitEmployerUpdate, OCCUPATIONAL_MEDICINE_EMPLOYER_FIELD_KEY } from '../../visitEmployer';
 import { scrollToFirstInvalidField } from './scrollToFirstInvalidField';
-
-const OCCUPATIONAL_MEDICINE_EMPLOYER_FIELD_KEY = 'occupational-medicine-employer';
 
 const questionnaire = PATIENT_RECORD_QUESTIONNAIRE();
 const questionnaireItemsMap = createQuestionnaireItemsMap(questionnaire.item ?? []);
@@ -143,12 +142,7 @@ export const SectionSaveButton: FC<SectionSaveButtonProps> = ({
       if (saveEmployerViaVisitDetails && appointmentId) {
         // Pre-op: visit-level employer is saved on the Encounter, not the patient Account.
         const employerValue = allValues[OCCUPATIONAL_MEDICINE_EMPLOYER_FIELD_KEY] as Reference | null | undefined;
-        await visitDetailsEmployerMutation.mutateAsync({
-          appointmentId,
-          bookingDetails: {
-            visitOccupationalMedicineEmployer: employerValue ?? null,
-          },
-        });
+        await visitDetailsEmployerMutation.mutateAsync(buildVisitEmployerUpdate(appointmentId, employerValue));
 
         // Other dirty fields in this section still go through the usual QR path, employer excluded.
         const remainingFieldKeys = fieldKeys.filter((key) => key !== OCCUPATIONAL_MEDICINE_EMPLOYER_FIELD_KEY);

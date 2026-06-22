@@ -3,7 +3,13 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim, ClaimResponse, Organization, PaymentReconciliation } from 'fhir/r4b';
 import { EraListItem, getPayerId, getPayerUrl } from 'utils';
 import { checkOrCreateM2MClientToken, fetchAllPages, wrapHandler, ZambdaInput } from '../../shared';
-import { createBillingClient, ERA_CHECK_SYSTEM, ERA_ID_SYSTEM, resolvePayersByRef } from '../shared';
+import {
+  createBillingClient,
+  CURRENT_STATUS_TAG_SYSTEM,
+  ERA_CHECK_SYSTEM,
+  ERA_ID_SYSTEM,
+  resolvePayersByRef,
+} from '../shared';
 import { SearchErasParams, validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -104,7 +110,8 @@ async function findEraIdentifiersForClaims(oystehr: Oystehr, claimIds: Set<strin
 async function findMatchingClaimIds(oystehr: Oystehr, params: SearchErasParams): Promise<Set<string>> {
   const PAGE_SIZE = 200;
   const baseParams: { name: string; value: string }[] = [{ name: '_elements', value: 'id' }];
-  if (params.claimStatus) baseParams.push({ name: '_tag', value: `current-status|${params.claimStatus}` });
+  if (params.claimStatus)
+    baseParams.push({ name: '_tag', value: `${CURRENT_STATUS_TAG_SYSTEM}|${params.claimStatus}` });
   if (params.dosFrom) baseParams.push({ name: 'created', value: `ge${params.dosFrom}` });
   if (params.dosTo) baseParams.push({ name: 'created', value: `le${params.dosTo}` });
   if (params.patientId) baseParams.push({ name: 'patient', value: `Patient/${params.patientId}` });
