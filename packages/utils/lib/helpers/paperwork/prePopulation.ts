@@ -60,7 +60,7 @@ interface PrePopulationInput {
   isNewQrsPatient: boolean;
   verifiedPhoneNumber: string | undefined;
   questionnaire: Questionnaire;
-  contactInfo: { phone: string; email: string } | undefined;
+  contactInfo: { phone: string; email: string; noEmail?: boolean } | undefined;
   newPatientDob?: string;
   rp?: RelatedPerson;
   documents?: DocumentReference[];
@@ -99,7 +99,11 @@ export const makePrepopulatedItemsForPatient = (input: PrePopulationInput): Ques
   const patientPostalCode = patientAddress?.postalCode;
 
   const patientEmail = contactInfo?.email;
-  const patientNoEmail = patient.extension?.find((e) => e.url === PATIENT_NO_EMAIL_URL)?.valueBoolean ?? false;
+  // Prefer the value supplied from the booking form (contactInfo.noEmail) so that a
+  // patient who switched from no-email → has email during booking sees the correct
+  // state in paperwork immediately, without waiting for harvest to update the extension.
+  const patientNoEmail =
+    contactInfo?.noEmail ?? patient.extension?.find((e) => e.url === PATIENT_NO_EMAIL_URL)?.valueBoolean ?? false;
   const patientSendMarketing = patient.extension?.find((e) => e.url === `${PRIVATE_EXTENSION_BASE_URL}/send-marketing`)
     ?.valueBoolean;
   const patientCommonWellConsent = patient.extension?.find(

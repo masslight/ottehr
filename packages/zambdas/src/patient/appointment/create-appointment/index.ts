@@ -292,7 +292,11 @@ export async function createAppointment(
     visitType,
     secrets,
     verifiedPhoneNumber: verifiedFormattedPhoneNumber,
-    contactInfo: { phone: verifiedFormattedPhoneNumber ?? 'not provided', email: patient.email ?? 'not provided' },
+    contactInfo: {
+      phone: verifiedFormattedPhoneNumber ?? 'not provided',
+      email: patient.email ?? 'not provided',
+      noEmail: patient.noEmail ?? false,
+    },
     questionnaire: currentQuestionnaire,
     oystehr: oystehr,
     updatePatientRequest,
@@ -385,7 +389,7 @@ interface TransactionInput {
   secrets: Secrets | null;
   createdBy: string;
   verifiedPhoneNumber: string | undefined;
-  contactInfo: { phone: string; email: string };
+  contactInfo: { phone: string; email: string; noEmail?: boolean };
   additionalInfo?: string;
   patient?: Patient;
   newPatientDob?: string;
