@@ -50,6 +50,14 @@ export const ResponsibleInformationContainer: FC<ResponsibleInformationContainer
     [noRPEmailChecked, requiredFields]
   );
 
+  // When no-email is checked (whether Self or not), hide the email field at the
+  // container level. The config no longer has an enable-trigger for this so that
+  // the email field can remain visible-but-disabled when Self + no-email = false.
+  const effectiveHiddenFields = useMemo(
+    () => (noRPEmailChecked ? [...(hiddenFields ?? []), 'responsible-party-email'] : hiddenFields),
+    [noRPEmailChecked, hiddenFields]
+  );
+
   const cityStateZipKeys = new Set(['responsible-party-zip', 'responsible-party-state', 'responsible-party-city']);
   const nonCityStateZipFields = Object.values(responsibleParty).filter((v) => !cityStateZipKeys.has(v.key));
 
@@ -71,7 +79,7 @@ export const ResponsibleInformationContainer: FC<ResponsibleInformationContainer
             key={item.key}
             item={item}
             isLoading={isLoading}
-            hiddenFormFields={hiddenFields}
+            hiddenFormFields={effectiveHiddenFields}
             requiredFormFields={effectiveRequiredFields}
           />
         ))}

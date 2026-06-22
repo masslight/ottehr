@@ -661,12 +661,9 @@ const FormFields: PatientRecordFormFields = {
         dataType: 'Email',
         triggers: [
           RPNotSelfTrigger,
-          {
-            targetQuestionLinkId: 'responsible-party-no-email',
-            effect: ['enable'],
-            operator: '!=',
-            answerBoolean: true,
-          },
+          // filter trigger keeps the value out of submission when no-email is checked;
+          // the actual hide is handled in ResponsibleInformationContainer so that
+          // the field stays visible-but-disabled when Self (independent of no-email state).
           {
             targetQuestionLinkId: 'responsible-party-no-email',
             effect: ['filter'],
@@ -674,16 +671,15 @@ const FormFields: PatientRecordFormFields = {
             answerBoolean: true,
           },
         ],
-        enableBehavior: 'all',
         dynamicPopulation: { sourceLinkId: 'patient-email', triggerState: 'disabled' },
-        disabledDisplay: 'hidden',
+        disabledDisplay: 'disabled',
       },
       noEmail: {
         key: 'responsible-party-no-email',
         type: 'boolean',
         label: "Don't have email",
         triggers: [RPNotSelfTrigger],
-        disabledDisplay: 'hidden',
+        disabledDisplay: 'disabled',
         dynamicPopulation: { sourceLinkId: 'patient-no-email', triggerState: 'disabled' },
       },
       addressSameAsPatient: {
