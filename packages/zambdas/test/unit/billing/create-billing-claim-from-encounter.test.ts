@@ -1178,6 +1178,9 @@ describe('create-billing-claim-from-encounter', () => {
           { resource: { resourceType: 'RelatedPerson', id: 'claim-subscriber' } },
           { resource: { resourceType: 'Coverage', id: 'claim-coverage' } },
           { resource: { resourceType: 'Person', id: 'billing-person' } },
+          { resource: { resourceType: 'Practitioner', id: 'claim-rendering-provider' } },
+          { resource: { resourceType: 'Organization', id: 'claim-billing-provider' } },
+          { resource: { resourceType: 'Location', id: 'claim-service-facility' } },
           { resource: { resourceType: 'Claim', id: 'claim' } },
         ],
       });
