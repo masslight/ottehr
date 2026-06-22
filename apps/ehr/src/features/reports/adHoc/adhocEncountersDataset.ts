@@ -1,5 +1,5 @@
-import { ADHOC_BATCH_DAYS, splitDateRangeIntoBatches } from 'utils';
 import { getAdHocEncounters } from '../../../api/api';
+import { availableLayersFor, dedupeByEncounter, fetchBatchedRange } from './datasetHelpers';
 import { buildSchema, FieldDef } from './schema';
 import { AdHocDataset, AdHocDatasetOption, AdHocRow, FetchContext } from './types';
 
@@ -497,17 +497,13 @@ async function fetchAdHocEncounters({ oystehrZambda, dateRange, options }: Fetch
     includeIntake: !!opts.intake,
     includeDocuments: !!opts.documents,
   };
-  const { start, end } = dateRange;
-  const days = (new Date(end).getTime() - new Date(start).getTime()) / 86400000;
   // Batch long ranges in parallel and dedupe by encounterId, like the other datasets.
-  if (days <= ADHOC_BATCH_DAYS) {
-    const { encounters } = await getAdHocEncounters(oystehrZambda, { dateRange: { start, end }, ...flags });
-    return encounters as unknown as AdHocRow[];
-  }
-  const batches = splitDateRangeIntoBatches(start, end, ADHOC_BATCH_DAYS);
-  const results = await Promise.all(batches.map((b) => getAdHocEncounters(oystehrZambda, { dateRange: b, ...flags })));
-  const all = results.flatMap((r) => r.encounters);
-  return Array.from(new Map(all.map((e) => [e.encounterId ?? e.appointmentId, e])).values()) as unknown as AdHocRow[];
+  const rows = await fetchBatchedRange(
+    dateRange,
+    (range) => getAdHocEncounters(oystehrZambda, { dateRange: range, ...flags }).then((r) => r.encounters),
+    dedupeByEncounter
+  );
+  return rows as unknown as AdHocRow[];
 }
 
 export const adhocEncountersDataset: AdHocDataset = {
@@ -522,18 +518,13 @@ export const adhocEncountersDataset: AdHocDataset = {
     const opts = options ?? {};
     // Layers that exist but aren't loaded → the generator names the `id`s it needs in `needsLayers`
     // and the client auto-fetches them, instead of approximating a concept this fetch doesn't carry.
-    const availableLayers = ADHOC_ENCOUNTERS_OPTIONS.filter((o) => !opts[o.id]).map((o) => ({
-      id: o.id,
-      label: o.label,
-      description: o.description ?? '',
-    }));
     return buildSchema(
       rows,
       {
         datasetId: 'encounters-comprehensive',
         label: 'Encounters',
         description: 'One row per encounter — visit, patient, contact, location/provider, and any enabled layers.',
-        availableLayers,
+        availableLayers: availableLayersFor(ADHOC_ENCOUNTERS_OPTIONS, opts),
       },
       fieldsFor(opts)
     );

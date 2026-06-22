@@ -1,5 +1,5 @@
-import { ADHOC_BATCH_DAYS, AdHocBillingRow, splitDateRangeIntoBatches } from 'utils';
 import { getAdHocBilling } from '../../../api/api';
+import { availableLayersFor, dedupeByEncounter, fetchBatchedRange } from './datasetHelpers';
 import { buildSchema, FieldDef } from './schema';
 import { AdHocDataset, AdHocDatasetOption, AdHocRow, FetchContext } from './types';
 
@@ -182,17 +182,13 @@ async function fetchAdHocBilling({ oystehrZambda, dateRange, options }: FetchCon
     includeCodes: !!opts.codes,
     includeClaims: !!opts.claims,
   };
-  const { start, end } = dateRange;
-  const days = (new Date(end).getTime() - new Date(start).getTime()) / 86400000;
   // Batch long ranges in parallel and dedupe by encounterId, like the other datasets.
-  if (days <= ADHOC_BATCH_DAYS) {
-    const { rows } = await getAdHocBilling(oystehrZambda, { dateRange: { start, end }, ...flags });
-    return rows as unknown as AdHocRow[];
-  }
-  const batches = splitDateRangeIntoBatches(start, end, ADHOC_BATCH_DAYS);
-  const results = await Promise.all(batches.map((b) => getAdHocBilling(oystehrZambda, { dateRange: b, ...flags })));
-  const all: AdHocBillingRow[] = results.flatMap((r) => r.rows);
-  return Array.from(new Map(all.map((e) => [e.encounterId ?? e.appointmentId, e])).values()) as unknown as AdHocRow[];
+  const rows = await fetchBatchedRange(
+    dateRange,
+    (range) => getAdHocBilling(oystehrZambda, { dateRange: range, ...flags }).then((r) => r.rows),
+    dedupeByEncounter
+  );
+  return rows as unknown as AdHocRow[];
 }
 
 export const billingDataset: AdHocDataset = {
@@ -205,18 +201,13 @@ export const billingDataset: AdHocDataset = {
   fetch: fetchAdHocBilling,
   buildSchema: (rows, options) => {
     const opts = options ?? {};
-    const availableLayers = ADHOC_BILLING_OPTIONS.filter((o) => !opts[o.id]).map((o) => ({
-      id: o.id,
-      label: o.label,
-      description: o.description ?? '',
-    }));
     return buildSchema(
       rows,
       {
         datasetId: 'billing',
         label: 'Billing',
         description: 'One row per encounter — visit/patient identity plus any enabled billing layers.',
-        availableLayers,
+        availableLayers: availableLayersFor(ADHOC_BILLING_OPTIONS, opts),
       },
       fieldsFor(opts)
     );

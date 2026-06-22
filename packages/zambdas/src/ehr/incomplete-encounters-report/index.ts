@@ -17,6 +17,7 @@ import {
   Secrets,
 } from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
+import { resolveEncounterAppointment } from '../../shared/adhoc-report';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -227,16 +228,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     if (e.id) encounterById.set(e.id, e);
   });
 
-  // A follow-up encounter may have no appointment reference of its own — resolve through its
-  // partOf parent encounter in that case.
-  const resolveAppointment = (encounter: Encounter): Appointment | undefined => {
-    const ownRef = encounter.appointment?.[0]?.reference;
-    const own = ownRef ? appointmentMap.get(ownRef) : undefined;
-    if (own) return own;
-    const parentId = encounter.partOf?.reference?.replace('Encounter/', '');
-    const parentRef = parentId ? encounterById.get(parentId)?.appointment?.[0]?.reference : undefined;
-    return parentRef ? appointmentMap.get(parentRef) : undefined;
-  };
+  const resolveAppointment = (encounter: Encounter): Appointment | undefined =>
+    resolveEncounterAppointment(encounter, appointmentMap, encounterById);
 
   // Filter encounters based on encounterStatus parameter
   const filteredEncounters = encounters.filter((encounter) => {

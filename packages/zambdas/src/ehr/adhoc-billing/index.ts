@@ -35,6 +35,7 @@ import {
 } from 'utils';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
+import { fetchScopedResources, resolveEncounterAppointment } from '../../shared/adhoc-report';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -127,8 +128,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   // ---- Secondary fetches for the opt-in billing layers ---------------------------------------
   const encIds = Array.from(encounterById.keys());
   const encRefs = encIds.map((id) => `Encounter/${id}`);
-  const ENC_CHUNK = 25;
-  const CONCURRENCY = 6;
 
   // Paginate a whole (small, global) table — used for PaymentNotice / ChargeItem / ChargeItemDefinition,
   // which number in the hundreds project-wide, so fetching all and indexing locally is cheaper and more
@@ -151,51 +150,13 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     return out;
   }
 
-  async function searchChunk<T extends FhirResource>(
-    resourceType: T['resourceType'],
-    paramName: string,
-    valueList: string,
-    extraParams: { name: string; value: string }[]
-  ): Promise<T[]> {
-    const acc: T[] = [];
-    let pageOffset = 0;
-    for (;;) {
-      const bundle = await oystehr.fhir.search<T>({
-        resourceType,
-        params: [
-          { name: paramName, value: valueList },
-          { name: '_count', value: '1000' },
-          { name: '_offset', value: pageOffset.toString() },
-          ...extraParams,
-        ],
-      });
-      acc.push(...(bundle.unbundle() as T[]));
-      if (!bundle.link?.find((l) => l.relation === 'next')) break;
-      pageOffset += 1000;
-    }
-    return acc;
-  }
-
-  // Search over chunks of values (FHIR OR-list), paginating each chunk, with bounded concurrency.
-  async function fetchScoped<T extends FhirResource>(
+  // Per-encounter layer resources are fetched via the shared scoped/paginated/chunked helper.
+  const fetchScoped = <T extends FhirResource>(
     resourceType: T['resourceType'],
     paramName: string,
     values: string[],
     extraParams: { name: string; value: string }[] = []
-  ): Promise<T[]> {
-    const chunks: string[] = [];
-    for (let i = 0; i < values.length; i += ENC_CHUNK) chunks.push(values.slice(i, i + ENC_CHUNK).join(','));
-    const out: T[] = [];
-    for (let i = 0; i < chunks.length; i += CONCURRENCY) {
-      const wave = await Promise.all(
-        chunks
-          .slice(i, i + CONCURRENCY)
-          .map((valueList) => searchChunk<T>(resourceType, paramName, valueList, extraParams))
-      );
-      for (const part of wave) out.push(...part);
-    }
-    return out;
-  }
+  ): Promise<T[]> => fetchScopedResources<T>(oystehr, resourceType, paramName, values, extraParams);
 
   const pushTo = <T>(map: Map<string, T[]>, key: string | undefined, item: T): void => {
     if (key) map.set(key, [...(map.get(key) ?? []), item]);
@@ -271,14 +232,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const hasChartTag = (resource: Resource, code: string): boolean =>
     Boolean(resource.meta?.tag?.some((tag) => tag.code === code));
 
-  const resolveAppointment = (encounter: Encounter): Appointment | undefined => {
-    const ownRef = encounter.appointment?.[0]?.reference;
-    const own = ownRef ? appointmentMap.get(ownRef) : undefined;
-    if (own) return own;
-    const parentId = encounter.partOf?.reference?.replace('Encounter/', '');
-    const parentRef = parentId ? encounterById.get(parentId)?.appointment?.[0]?.reference : undefined;
-    return parentRef ? appointmentMap.get(parentRef) : undefined;
-  };
+  const resolveAppointment = (encounter: Encounter): Appointment | undefined =>
+    resolveEncounterAppointment(encounter, appointmentMap, encounterById);
 
   // Pick the primary (lowest .order, else first) and secondary coverage from a patient's coverages.
   const planName = (c?: Coverage): string =>

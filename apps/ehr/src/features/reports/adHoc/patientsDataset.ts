@@ -1,5 +1,6 @@
-import { ADHOC_BATCH_DAYS, AdHocPatientRow, splitDateRangeIntoBatches } from 'utils';
+import { AdHocPatientRow } from 'utils';
 import { getAdHocPatients } from '../../../api/api';
+import { availableLayersFor, fetchBatchedRange } from './datasetHelpers';
 import { buildSchema, FieldDef } from './schema';
 import { AdHocDataset, AdHocDatasetOption, AdHocRow, FetchContext } from './types';
 
@@ -207,16 +208,13 @@ async function fetchAdHocPatients({ oystehrZambda, dateRange, options }: FetchCo
     includeSurgicalHistory: !!opts.surgicalHistory,
     includeHospitalizations: !!opts.hospitalizations,
   };
-  const { start, end } = dateRange;
-  const days = (new Date(end).getTime() - new Date(start).getTime()) / 86400000;
-  if (days <= ADHOC_BATCH_DAYS) {
-    const { patients } = await getAdHocPatients(oystehrZambda, { dateRange: { start, end }, ...flags });
-    return patients as unknown as AdHocRow[];
-  }
   // Batch long ranges, then MERGE partial per-patient rows (a patient may appear in several batches).
-  const batches = splitDateRangeIntoBatches(start, end, ADHOC_BATCH_DAYS);
-  const results = await Promise.all(batches.map((b) => getAdHocPatients(oystehrZambda, { dateRange: b, ...flags })));
-  return mergePatientRows(results.flatMap((r) => r.patients)) as unknown as AdHocRow[];
+  const rows = await fetchBatchedRange(
+    dateRange,
+    (range) => getAdHocPatients(oystehrZambda, { dateRange: range, ...flags }).then((r) => r.patients),
+    mergePatientRows
+  );
+  return rows as unknown as AdHocRow[];
 }
 
 export const patientsDataset: AdHocDataset = {
@@ -229,18 +227,13 @@ export const patientsDataset: AdHocDataset = {
   fetch: fetchAdHocPatients,
   buildSchema: (rows, options) => {
     const opts = options ?? {};
-    const availableLayers = ADHOC_PATIENTS_OPTIONS.filter((o) => !opts[o.id]).map((o) => ({
-      id: o.id,
-      label: o.label,
-      description: o.description ?? '',
-    }));
     return buildSchema(
       rows,
       {
         datasetId: 'patients',
         label: 'Patients',
         description: 'One row per patient — demographics, visit summary, and any enabled clinical layers.',
-        availableLayers,
+        availableLayers: availableLayersFor(ADHOC_PATIENTS_OPTIONS, opts),
       },
       fieldsFor(opts)
     );
