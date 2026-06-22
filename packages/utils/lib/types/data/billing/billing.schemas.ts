@@ -8,7 +8,6 @@ import {
 } from '../../../helpers/rcm/constants';
 import { taxIdRegex, zipRegex } from '../../../validation';
 import { STATE_CODES } from '../../common';
-import { TIMEZONES } from '../../constants';
 import {
   CLAIM_STATUS_FIELD_KEYS,
   CLAIM_STATUS_FIELDS_BY_KEY,
@@ -212,11 +211,6 @@ export const SaveServiceFacilityInputSchema = z.object({
   posCode: z
     .string()
     .refine((code) => CMS_PLACE_OF_SERVICE_CODE_SET.has(code), 'Unknown place of service code')
-    .nullable()
-    .optional(),
-  timezone: z
-    .string()
-    .refine((tz) => TIMEZONES.includes(tz), 'Unknown timezone')
     .nullable()
     .optional(),
 });

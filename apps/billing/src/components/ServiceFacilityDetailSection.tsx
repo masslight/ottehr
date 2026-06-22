@@ -1,4 +1,4 @@
-import { Autocomplete, Box, MenuItem, Select, TextField } from '@mui/material';
+import { Autocomplete, Box, TextField } from '@mui/material';
 import { ReactElement, useCallback, useEffect, useState } from 'react';
 import {
   AllStates,
@@ -6,7 +6,6 @@ import {
   getApiError,
   SaveServiceFacilityInput,
   ServiceFacilityItem,
-  TIMEZONES,
 } from 'utils';
 import { saveBillingServiceFacility } from '../api/api';
 import { useApiClients } from '../hooks/useAppClients';
@@ -35,7 +34,6 @@ export function ServiceFacilityDetailSection({
   const [npi, setNpi] = useState(facility.npi);
   const [clia, setClia] = useState(facility.clia);
   const [posCode, setPosCode] = useState(facility.posCode);
-  const [timezone, setTimezone] = useState(facility.timezone);
 
   const resetFields = useCallback((): void => {
     setName(facility.name);
@@ -48,7 +46,6 @@ export function ServiceFacilityDetailSection({
     setNpi(facility.npi);
     setClia(facility.clia);
     setPosCode(facility.posCode);
-    setTimezone(facility.timezone);
   }, [facility]);
 
   useEffect(() => {
@@ -64,7 +61,7 @@ export function ServiceFacilityDetailSection({
     if (validationError) return validationError;
 
     // exists = set, clear:
-    //   npi/clia/posCode/timezone: null
+    //   npi/clia/posCode: null
     //   line2/zipPlus4: exclude
     //   others: empty string
     const payload: SaveServiceFacilityInput = {
@@ -79,7 +76,6 @@ export function ServiceFacilityDetailSection({
       npi: npi.trim() || null,
       clia: clia.trim() || null,
       posCode: posCode || null,
-      timezone: timezone || null,
     };
 
     try {
@@ -121,18 +117,6 @@ export function ServiceFacilityDetailSection({
               renderInput={(params) => <TextField {...params} placeholder="Select..." />}
             />
           </Field>
-          <Field label="Time Zone">
-            <Select size="small" fullWidth displayEmpty value={timezone} onChange={(e) => setTimezone(e.target.value)}>
-              <MenuItem value="">
-                <em>None</em>
-              </MenuItem>
-              {TIMEZONES.map((tz) => (
-                <MenuItem key={tz} value={tz}>
-                  {tz}
-                </MenuItem>
-              ))}
-            </Select>
-          </Field>
           <Field label="Address line 1">
             <TextField size="small" fullWidth value={line1} onChange={(e) => setLine1(e.target.value)} />
           </Field>
@@ -168,7 +152,6 @@ export function ServiceFacilityDetailSection({
       <DetailRow label="NPI" value={facility.npi} />
       <DetailRow label="CLIA Number" value={facility.clia} />
       <DetailRow label="Place of Service" value={placeOfServiceLabel(facility.posCode)} />
-      <DetailRow label="Time Zone" value={facility.timezone} />
       <DetailRow label="Address" value={formatFacilityAddress(facility)} />
     </EditableSection>
   );
