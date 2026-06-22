@@ -1,10 +1,15 @@
+import { progressNoteIcon } from '@ehrTheme/icons';
+import ContactPageOutlinedIcon from '@mui/icons-material/ContactPageOutlined';
+import DescriptionOutlinedIcon from '@mui/icons-material/DescriptionOutlined';
+import Inventory2OutlinedIcon from '@mui/icons-material/Inventory2Outlined';
 import MergeIcon from '@mui/icons-material/MergeType';
+import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
 import { TabContext, TabList, TabPanel } from '@mui/lab';
 import { Alert, Box, Button, CircularProgress, Paper, Skeleton, Stack, Tab, Tooltip, Typography } from '@mui/material';
 import { useQueryClient } from '@tanstack/react-query';
 import { enqueueSnackbar } from 'notistack';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useLocation, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { AccountSettingsDialog } from 'src/components/dialogs/AccountSettingsDialog';
 import { PatientInHouseLabsTab } from 'src/components/PatientInHouseLabsTab';
 import { PatientRadiologyTab } from 'src/components/PatientRadiologyTab';
@@ -15,15 +20,17 @@ import { FullNameDisplay } from 'src/features/visits/shared/components/patient/i
 import { IdentifiersRow } from 'src/features/visits/shared/components/patient/info/IdentifiersRow';
 import Summary from 'src/features/visits/shared/components/patient/info/Summary';
 import { PatientFollowupEncountersGrid } from 'src/features/visits/shared/components/patient/PatientFollowupEncountersGrid';
+import { useDownloadMedicalRecord } from 'src/hooks/useDownloadMedicalRecord';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import { useGetActiveMergeTask } from 'src/hooks/useGetPatient';
+import { otherColors } from 'src/themes/ottehr/colors';
 import { getFirstName, getLastName, GetMergePatientsTaskResponse, MergePatientsResponse, RoleType } from 'utils';
 import CustomBreadcrumbs from '../components/CustomBreadcrumbs';
+import GoToButton from '../components/GoToButton';
 import { PatientEncountersGrid } from '../components/PatientEncountersGrid';
 import { PatientLabsTab } from '../components/PatientLabsTab';
 import { PatientMergedBanner } from '../components/PatientMergedBanner';
 import { PatientsMergeDifference } from '../components/patients-merge/PatientsMergeDifference';
-import { RoundedButton } from '../components/RoundedButton';
 import { dataTestIds } from '../constants/data-test-ids';
 import { FEATURE_FLAGS } from '../constants/feature-flags';
 import { useApiClients } from '../hooks/useAppClients';
@@ -34,6 +41,7 @@ import PageContainer from '../layout/PageContainer';
 export default function PatientPage(): JSX.Element {
   const { id } = useParams();
   const location = useLocation();
+  const navigate = useNavigate();
   const defaultTab = location.state?.defaultTab;
   const isLegacyPatientFollowupsEnabled = FEATURE_FLAGS.LEGACY_PATIENT_FOLLOWUPS_ENABLED;
   const [tab, setTab] = useState(
@@ -46,6 +54,8 @@ export default function PatientPage(): JSX.Element {
   const isAdmin = currentUser?.hasRole([RoleType.Administrator]) ?? false;
 
   const { loading, patient, duplicatePatients } = useGetPatient(id);
+
+  const { downloadMedicalRecord, isDownloading: isDownloadingMedicalRecord } = useDownloadMedicalRecord(id);
 
   const queryClient = useQueryClient();
   const { data: mergeTaskData, refetch: refetchMergeTask } = useGetActiveMergeTask(id);
@@ -204,37 +214,63 @@ export default function PatientPage(): JSX.Element {
               <FullNameDisplay patient={patient} loading={loading} />
               <Summary patient={patient} loading={loading} />
               <Contacts patient={patient} loading={loading} />
-
-              {!isMergedPatient && (
-                <Box sx={{ display: 'flex', gap: 1 }}>
-                  <RoundedButton
-                    to={`/patient/${id}/info`}
-                    data-testid={dataTestIds.patientRecordPage.seeAllPatientInfoButton}
-                  >
-                    View Patient Profile
-                  </RoundedButton>
-                </Box>
-              )}
             </Box>
 
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+            <Box
+              sx={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(3, 1fr)',
+                gap: 1,
+                alignSelf: 'flex-start',
+              }}
+            >
               {latestAppointment && (
-                <RoundedButton
-                  target="_blank"
-                  sx={{ width: '100%' }}
-                  to={`/in-person/${latestAppointment.appointmentId}/${ROUTER_PATH.REVIEW_AND_SIGN}`}
+                <GoToButton
+                  text="Progress Note"
+                  backgroundColor={otherColors.lightBlue}
+                  onClick={() =>
+                    window.open(
+                      `/in-person/${latestAppointment.appointmentId}/${ROUTER_PATH.REVIEW_AND_SIGN}`,
+                      '_blank',
+                      'noopener,noreferrer'
+                    )
+                  }
                 >
-                  Recent Progress Note
-                </RoundedButton>
+                  <img src={progressNoteIcon} alt="" />
+                </GoToButton>
               )}
               {!isMergedPatient && (
                 <>
-                  <RoundedButton sx={{ width: '100%' }} to={`/patient/${id}/docs`}>
-                    Review Docs
-                  </RoundedButton>
-                  <RoundedButton sx={{ width: '100%' }} onClick={() => setShowAccountSettingsDialog(true)}>
-                    Account Settings
-                  </RoundedButton>
+                  <GoToButton
+                    text="Patient Profile"
+                    backgroundColor={otherColors.lightBlue}
+                    dataTestId={dataTestIds.patientRecordPage.seeAllPatientInfoButton}
+                    onClick={() => navigate(`/patient/${id}/info`)}
+                  >
+                    <ContactPageOutlinedIcon />
+                  </GoToButton>
+                  <GoToButton
+                    text="Account Settings"
+                    backgroundColor={otherColors.lightBlue}
+                    onClick={() => setShowAccountSettingsDialog(true)}
+                  >
+                    <SettingsOutlinedIcon />
+                  </GoToButton>
+                  <GoToButton
+                    text="Review Docs"
+                    backgroundColor={otherColors.lightBlue}
+                    onClick={() => navigate(`/patient/${id}/docs`)}
+                  >
+                    <DescriptionOutlinedIcon />
+                  </GoToButton>
+                  <GoToButton
+                    text="Medical Record"
+                    backgroundColor={otherColors.lightBlue}
+                    loading={isDownloadingMedicalRecord}
+                    onClick={downloadMedicalRecord}
+                  >
+                    <Inventory2OutlinedIcon />
+                  </GoToButton>
                 </>
               )}
             </Box>

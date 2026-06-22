@@ -3,8 +3,10 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim, Coverage, Location, Organization, Patient, Practitioner, Resource } from 'fhir/r4b';
 import {
   BillingClaimItem,
+  CLAIM_STATUS_TAG_SYSTEMS,
   CODE_SYSTEM_APPOINTMENT_TYPE_TAG_SYSTEM,
   CODE_SYSTEM_CLAIM_TYPE,
+  getClaimStatusValues,
   getPayerId,
   getPayerUrl,
 } from 'utils';
@@ -64,6 +66,8 @@ async function performEffect(
 
   if (params.type) searchParams.push({ name: '_tag', value: `${CODE_SYSTEM_CLAIM_TYPE}|${params.type}` });
   if (params.status) searchParams.push({ name: '_tag', value: `${CURRENT_STATUS_TAG_SYSTEM}|${params.status}` });
+  if (params.arStage)
+    searchParams.push({ name: '_tag', value: `${CLAIM_STATUS_TAG_SYSTEMS.arStage}|${params.arStage}` });
   if (params.createdFrom) searchParams.push({ name: 'created', value: `ge${params.createdFrom}` });
   if (params.createdTo) searchParams.push({ name: 'created', value: `le${params.createdTo}` });
   if (params.patientId) searchParams.push({ name: 'patient', value: `Patient/${params.patientId}` });
@@ -136,6 +140,7 @@ function mapClaimToItem(claim: Claim, lookups: ClaimLookups): BillingClaimItem {
     id: claim.id ?? '',
     type: getClaimType(claim),
     status: getClaimStatus(claim),
+    statuses: getClaimStatusValues(claim),
     patientName,
     patientDob: patient?.birthDate ?? '',
     payerName: insurer?.name ?? '',
