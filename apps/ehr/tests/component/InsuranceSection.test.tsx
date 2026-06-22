@@ -133,8 +133,8 @@ const makeFullPrimaryCoverages = (): OrderedCoveragesWithSubscribers => ({
 
 // Pre-fill the primary slot's form fields as if a saved primary coverage had
 // already been hydrated into the form (e.g. the patient is mid-flow adding a
-// secondary). Without this the SectionSaveButton gates on the primary
-// required fields and the secondary save button never enables.
+// secondary). The section save validates all rendered insurance fields on click,
+// so without this the primary's empty required fields would fail that validation.
 const seedPrimaryFromCoverage = (defaults: Record<string, unknown>): Record<string, unknown> => ({
   ...defaults,
   [PRIMARY.insurancePriority.key]: 'Primary',
@@ -337,7 +337,8 @@ describe('InsuranceSection — section save flow', () => {
     await user.click(await screen.findByRole('button', { name: /add insurance/i }));
     act(() => fillRequiredPrimaryFields(control.methods));
 
-    // Save becomes enabled once the required fields are populated.
+    // The Save button is enabled once the section is dirty; with required fields
+    // populated the click validates cleanly and submits.
     const saveButton = await screen.findByRole('button', { name: /^save$/i });
     await waitFor(() => expect(saveButton).not.toBeDisabled());
     await user.click(saveButton);

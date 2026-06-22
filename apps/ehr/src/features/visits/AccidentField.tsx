@@ -53,7 +53,8 @@ export const AccidentField: FC<Props> = ({ readOnly }) => {
       state: chartDataFields?.accident?.state,
     });
     const isAutoAccident = chartDataFields?.accident?.type?.includes('AA') ?? false;
-    if (isAutoAccident && !chartDataFields?.accident?.date) {
+    const hasAccidentType = (chartDataFields?.accident?.type?.length ?? 0) > 0;
+    if (hasAccidentType && !chartDataFields?.accident?.date) {
       methods.setError('date', { message: 'Date is required' });
     }
     if (isAutoAccident && !chartDataFields?.accident?.state) {
@@ -88,7 +89,7 @@ export const AccidentField: FC<Props> = ({ readOnly }) => {
 
         // Surface inline validation, but still persist the data below so that missing
         // required fields are detected and shown in the progress note's missing items.
-        if (values.autoAccident && !values.date) {
+        if (types.length > 0 && !values.date) {
           methods.setError('date', {
             message: 'Date is required',
           });

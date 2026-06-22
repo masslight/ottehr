@@ -112,9 +112,10 @@ export const isApiError = (errorObject: unknown | undefined): boolean => {
   return false;
 };
 
-export const NOT_AUTHORIZED = {
+export const NOT_AUTHORIZED: APIError = {
   code: APIErrorCode.NOT_AUTHORIZED,
   message: 'You are not authorized to access this data',
+  statusCode: 401,
 };
 
 export const CANT_UPDATE_CHECKED_IN_APT_ERROR = {
@@ -132,9 +133,10 @@ export const DOB_UNCONFIRMED_ERROR = {
   message: 'We could not verify the date of birth supplied for this patient',
 };
 
-export const NO_READ_ACCESS_TO_PATIENT_ERROR = {
+export const NO_READ_ACCESS_TO_PATIENT_ERROR: APIError = {
   code: APIErrorCode.NO_READ_ACCESS_TO_PATIENT,
   message: `You are not authorized to view this patient's data`,
+  statusCode: 403,
 };
 
 export const APPOINTMENT_NOT_FOUND_ERROR = {

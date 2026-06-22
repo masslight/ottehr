@@ -23,7 +23,7 @@ describe('create-billing-claim-from-encounter', () => {
   describe('validation', () => {
     it('throws validation error on no encounterId parameter', async () => {
       await expect(async () => oystehr.zambda.execute({ id: 'create-billing-claim-from-encounter' })).rejects.toThrow(
-        'encounterId: Required'
+        'Validation error: Required at "encounterId"'
       );
     });
   });

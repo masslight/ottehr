@@ -22,12 +22,19 @@ vi.mock('candidhealth', () => {
 
 // candidApi.ts imports getOptionalSecret/getSecret from the 'utils' package entrypoint, so the
 // mock target stays 'utils' even though this test now lives inside the utils package.
-vi.mock('utils', async (importOriginal) => {
-  const actual = await importOriginal<Record<string, unknown>>();
+vi.mock('utils', () => {
   return {
-    ...actual,
     getOptionalSecret: vi.fn().mockReturnValue('configured'),
     getSecret: vi.fn().mockReturnValue('test-value'),
+    MISSING_REQUEST_SECRETS: {
+      code: 4204,
+      message: 'The request was missing secrets required to process it',
+    },
+    SecretsKeys: {
+      CANDID_CLIENT_ID: 'CANDID_CLIENT_ID',
+      CANDID_CLIENT_SECRET: 'CANDID_CLIENT_SECRET',
+      CANDID_ENV: 'CANDID_ENV',
+    },
   };
 });
 

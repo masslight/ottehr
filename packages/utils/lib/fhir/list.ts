@@ -3,6 +3,7 @@ import { List } from 'fhir/r4b';
 import { CustomFolderDefinition } from '../types/data/custom-folder.types';
 import { FOLDERS_CONFIG, ListConfig } from './constants';
 
+export const PATIENT_FOLDERS_CODE = 'patient-docs-folder';
 export const CUSTOM_FOLDERS_CATALOG_IDENTIFIER = 'ottehr-custom-folders-catalog';
 export const CUSTOM_FOLDER_KIND_SYSTEM = 'https://fhir.ottehr.com/r4/CodeSystem/folder-kind';
 export const CUSTOM_FOLDER_INTERNAL_NAME_PREFIX = 'custom-folder-';
@@ -30,7 +31,7 @@ export const createPatientDocumentList = (patientReference: string, listConfig: 
     coding: [
       {
         system: 'https://fhir.zapehr.com/r4/StructureDefinitions',
-        code: 'patient-docs-folder',
+        code: PATIENT_FOLDERS_CODE,
         display: listConfig.display,
       },
     ],
@@ -67,7 +68,7 @@ export const createCustomPatientDocumentList = (patientReference: string, intern
     coding: [
       {
         system: 'https://fhir.zapehr.com/r4/StructureDefinitions',
-        code: 'patient-docs-folder',
+        code: PATIENT_FOLDERS_CODE,
       },
       {
         system: CUSTOM_FOLDER_KIND_SYSTEM,

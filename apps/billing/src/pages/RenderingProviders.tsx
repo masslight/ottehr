@@ -13,7 +13,8 @@ import {
 import { DataGridPro, GridColDef, GridPaginationModel } from '@mui/x-data-grid-pro';
 import { ReactElement, useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { BillingProviderOption, chooseJson } from 'utils';
+import { BillingProviderOption, getApiError } from 'utils';
+import { deleteBillingProvider, searchBillingProviders } from '../api/api';
 import { AddProviderDialog } from '../components/AddProviderDialog';
 import { dataGridSlots, dataGridSx } from '../components/BillingDataGrid';
 import { ProviderDetailSection } from '../components/ProviderDetailSection';
@@ -66,18 +67,16 @@ export function RenderingProvidersList(): ReactElement {
       setLoading(true);
       setError(null);
       try {
-        const response = await oystehrZambda.zambda.execute({
-          id: 'search-billing-providers',
+        const data = await searchBillingProviders(oystehrZambda, {
           providerType: 'rendering',
           pageSize: pagination.pageSize,
           offset: pagination.page * pagination.pageSize,
           ...(name ? { name, includeWorkingCopies: true } : {}),
         });
-        const data = chooseJson(response);
         setProviders(data.providers ?? []);
         setTotalRows(data.total ?? 0);
       } catch (err) {
-        setError(err instanceof Error ? err.message : String(err));
+        setError(getApiError({ error: err, defaultError: 'Failed to load providers' }));
       } finally {
         setLoading(false);
       }
@@ -178,20 +177,29 @@ export function RenderingProviderDetail(): ReactElement {
     setLoading(true);
     setError(null);
     try {
-      const response = await oystehrZambda.zambda.execute({
-        id: 'search-billing-providers',
+      const data = await searchBillingProviders(oystehrZambda, {
         providerType: 'rendering',
         providerId: id,
         includeWorkingCopies: true,
       });
-      const data = chooseJson(response);
       setProvider((data.providers ?? [])[0] ?? null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(getApiError({ error: err, defaultError: 'Failed to load provider' }));
     } finally {
       setLoading(false);
     }
   }, [oystehrZambda, id]);
+
+  const handleDelete = async (): Promise<void> => {
+    if (!oystehrZambda || !provider) return;
+    if (!window.confirm(`Delete provider "${provider.name}"? This cannot be undone.`)) return;
+    try {
+      await deleteBillingProvider(oystehrZambda, { providerId: provider.id, kind: provider.kind });
+      navigate('/rendering-providers');
+    } catch (err) {
+      setError(getApiError({ error: err, defaultError: 'Failed to delete provider' }));
+    }
+  };
 
   useEffect(() => {
     void fetchDetail();
@@ -227,6 +235,12 @@ export function RenderingProviderDetail(): ReactElement {
         </Typography>
         {provider.isWorkingCopy && (
           <Chip label="Working copy" variant="outlined" size="small" sx={{ borderRadius: '4px', fontSize: 12 }} />
+        )}
+        <Box sx={{ flexGrow: 1 }} />
+        {!provider.isWorkingCopy && (
+          <Button color="error" onClick={() => void handleDelete()}>
+            Delete
+          </Button>
         )}
       </Box>
       <ProviderDetailSection provider={provider} onSaved={fetchDetail} />
