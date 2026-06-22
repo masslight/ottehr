@@ -37,15 +37,10 @@ import {
   isDiagnosisCondition,
   TemplateEncounterResource,
 } from '../shared/template-helpers';
-import {
-  applyExternalLabPlans,
-  // collectIcd10CodesClaimedByExternalLabPlans,
-  isExternalLabPlanServiceRequest,
-} from './apply-external-labs';
+import { applyExternalLabPlans, isExternalLabPlanServiceRequest } from './apply-external-labs';
 import {
   applyInHouseLabPlans,
   canApplyActivityDefinition,
-  // collectIcd10CodesClaimedByInHouseLabPlans,
   getLatestInHouseLabActivityDefinitionsForTemplatePlan,
   isInHouseLabPlanServiceRequest,
 } from './apply-in-house-labs';
@@ -716,7 +711,6 @@ export const makeCreateRequests = (
 
   const encounterPatchOperations: Operation[] = [];
 
-  // Patch encounter.diagnosis only if the diagnoses section wasn't skipped.
   if (encounterDiagnoses !== null) {
     if (encounterDiagnoses.length > 0) {
       encounterPatchOperations.push({
