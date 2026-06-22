@@ -29,6 +29,7 @@ import PageContainer from 'src/layout/PageContainer';
 import {
   AdminGetTemplateDetailOutput,
   groupExamFindingsBySection,
+  nameLabTest,
   RosFindingState,
   RosFindingStateLabel,
   TemplateExamFinding,
@@ -450,6 +451,44 @@ export default function GlobalTemplateDetailPage(): ReactElement {
                     {plan.notes.length > 0 ? (
                       <Typography variant="body2" sx={{ mt: 0.5, whiteSpace: 'pre-wrap' }}>
                         <strong>Notes:</strong> {plan.notes.join('\n\n')}
+                      </Typography>
+                    ) : null}
+                  </Box>
+                ))}
+              </Stack>
+            ) : (
+              <NotIncluded />
+            )}
+          </SectionCard>
+
+          {/* External Lab Orders */}
+          <SectionCard title="External Lab Orders">
+            {sections.externalLabs.length > 0 ? (
+              <Stack spacing={2}>
+                {sections.externalLabs.map((plan) => (
+                  <Box key={plan.planId} sx={{ opacity: plan.missing ? 0.6 : 1 }}>
+                    <Stack direction="row" alignItems="baseline" spacing={1}>
+                      <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
+                        {nameLabTest(plan.testName, plan.testCode, plan.labName, false)}
+                      </Typography>
+                      {plan.missing ? (
+                        <Typography variant="caption" color="warning.main" fontStyle="italic">
+                          Test not found in the lab's compendium — applies will skip this order
+                        </Typography>
+                      ) : null}
+                    </Stack>
+                    {plan.diagnoses.length > 0 ? (
+                      <Typography variant="body2" sx={{ mt: 0.5 }}>
+                        <strong>Diagnoses:</strong>{' '}
+                        {plan.diagnoses.map((d) => (d.display ? `${d.code} — ${d.display}` : d.code)).join('; ')}
+                      </Typography>
+                    ) : null}
+                    <Typography variant="body2" sx={{ mt: 0.5 }}>
+                      <strong>PSC Hold:</strong> {plan.psc ? 'Yes' : 'No'}
+                    </Typography>
+                    {plan.note ? (
+                      <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
+                        <strong>Note:</strong> {plan.note}
                       </Typography>
                     ) : null}
                   </Box>
