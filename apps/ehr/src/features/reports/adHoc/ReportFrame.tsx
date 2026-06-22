@@ -2,7 +2,7 @@
 // gives us the file contents as a string; it never touches the network at runtime.
 // Relative file path (not the bare "chart.js/…" specifier) so the package `exports` map — which
 // doesn't expose dist/* — can't block it. chart.js is hoisted to the workspace root node_modules.
-import { Box } from '@mui/material';
+import { Box, Typography } from '@mui/material';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import chartJsSource from '../../../../../../node_modules/chart.js/dist/chart.umd.js?raw';
 import { AdHocTableGrid } from './AdHocTableGrid';
@@ -175,7 +175,18 @@ const BOOTSTRAP = `
         extracted = [];
         idSeq = 0;
         window.reportRowClick = null; // drop any handler from a previous report
-        var fn = new Function('data', 'schema', 'Chart', msg.code);
+        // Support both shapes of generated code: top-level statements that render
+        // directly, AND a renderReport(data, schema, Chart) function declaration
+        // (older reports) that must be invoked. Call renderReport only when it is
+        // defined AND nothing has rendered yet, so code that already calls it is
+        // not run twice.
+        var fn = new Function(
+          'data',
+          'schema',
+          'Chart',
+          msg.code +
+            '\\n;if (typeof renderReport === "function" && !document.body.firstChild) { renderReport(data, schema, Chart); }'
+        );
         fn(msg.data, msg.schema, window.Chart);
         extractAndPublish(); // always — an empty list clears stale grids from the previous report
         var h = measure();
@@ -329,6 +340,13 @@ export function ReportFrame({
       {tables.map((t) => (
         <AdHocTableGrid key={t.id} table={t} reportTitle={reportTitle} onRowClick={handleRowClick} />
       ))}
+      {/* The frame collapses when there's no non-table content; if there are also no lifted tables the
+          report rendered nothing — say so explicitly instead of leaving a silent blank. */}
+      {!hasNonTableContent && tables.length === 0 && (
+        <Typography variant="body2" color="text.secondary" sx={{ p: 2, fontStyle: 'italic' }}>
+          This report produced no output. Try refining your request or regenerating.
+        </Typography>
+      )}
     </Box>
   );
 }
