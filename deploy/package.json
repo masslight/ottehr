@@ -14,7 +14,7 @@
     "apply-e2e3": "./apply.sh e2e3",
     "apply-e2e5": "./apply.sh e2e5",
     "apply-e2e4": "./apply.sh e2e4",
-    "apply-development": "./apply.sh development",
+    "apply-development": "./apply.sh development apply module.billing_app",
     "apply-testing": "./apply.sh testing",
     "apply-staging": "./apply.sh staging",
     "apply-demo": "./apply.sh demo",
