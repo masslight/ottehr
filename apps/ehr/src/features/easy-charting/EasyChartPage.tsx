@@ -40,6 +40,7 @@ import {
   BODY_SITES_VALUE_SET_URL,
   COMPLICATIONS_VALUE_SET_URL,
   CPTCodeDTO,
+  CreateLabPaymentMethod,
   DataEntryTestItem,
   DiagnosisDTO,
   EasyChartAgentIntent,
@@ -51,6 +52,7 @@ import {
   GetChartDataResponse,
   HospitalizationDTO,
   InPersonRosConfig,
+  LabPaymentMethod,
   LBS_IN_KG,
   MedicalConditionDTO,
   MedicationDTO,
@@ -73,6 +75,7 @@ import {
 } from 'utils';
 import {
   applyTemplate,
+  createExternalLabOrder,
   createInHouseLabOrder,
   easyChartAgent,
   easyChartPlanner,
@@ -3513,15 +3516,86 @@ export default function EasyChartPage(): JSX.Element {
         }
         return;
       }
-      // Send-out (reference) lab: external-lab ordering from easy-chart is built separately
-      // (catalog search + ordering location + payment). Until that lands, surface the dictated
-      // test as a skip so the provider knows to place it from the Labs tab.
+      // Send-out (reference) lab: match the dictated test against the connected lab partners'
+      // catalog and order it through the same create-lab-order path the External Labs page uses.
+      // Ordering office is the encounter's lab-enabled location; the order is anchored on the
+      // charted diagnoses; payment auto-defaults workers'-comp → insurance (if covered) → self-pay
+      // and the provider can change it on the order later.
       if (intent.kind === 'add-external-lab') {
-        setConv({
-          kind: 'skipped',
-          user: message,
-          reason: `Send-out lab “${intent.display}” noted — place it from the Labs tab (automated send-out ordering is coming).`,
-        });
+        if (!apiClient || !oystehr) return;
+        setConv({ kind: 'saving', user: message, chosenName: intent.display });
+        try {
+          const dx = chartDataRef.current?.diagnosis ?? [];
+          if (dx.length === 0) {
+            setConv({
+              kind: 'skipped',
+              user: message,
+              reason: `Send-out lab “${intent.display}” needs at least one diagnosis — add the assessment first, then re-order.`,
+            });
+            return;
+          }
+          // The order zambda needs the full Encounter; we also read its location to pick the
+          // ordering office and its subject to fetch coverage/lab resources.
+          const encounterResource = (await oystehr.fhir.get({
+            resourceType: 'Encounter',
+            id: encounterId,
+          })) as Encounter;
+          const patientId = encounterResource.subject?.reference?.replace('Patient/', '');
+          const encounterLocationId = encounterResource.location
+            ?.find((l) => l.location?.reference?.startsWith('Location/'))
+            ?.location?.reference?.replace('Location/', '');
+
+          const resources = await apiClient.getCreateExternalLabResources({ patientId, encounterId });
+          const labEnabled = (resources.orderingLocations ?? []).filter((l) => l.enabledLabs.length > 0);
+          // Prefer the encounter's own location; fall back to the only lab-enabled office.
+          const office =
+            labEnabled.find((l) => l.id === encounterLocationId) ??
+            (labEnabled.length === 1 ? labEnabled[0] : undefined);
+          if (!office) {
+            setConv({
+              kind: 'skipped',
+              user: message,
+              reason: `No lab-enabled ordering office for this visit — place “${intent.display}” from the Labs tab.`,
+            });
+            return;
+          }
+          const labOrgIdsString = office.enabledLabs.map((e) => e.labOrgRef.replace('Organization/', '')).join(',');
+
+          const search = await apiClient.getCreateExternalLabResources({ search: intent.display, labOrgIdsString });
+          const matches = findLabCatalogMatches(
+            intent.display,
+            intent.searchTerms,
+            search.labs ?? [],
+            (r) => r.item.itemName
+          );
+          if (matches.length === 0) {
+            setConv({
+              kind: 'skipped',
+              user: message,
+              reason: `I couldn't find a send-out lab matching “${intent.display}” in the connected lab catalog.`,
+            });
+            return;
+          }
+          const chosen = matches[0];
+          const selectedPaymentMethod: CreateLabPaymentMethod = resources.appointmentIsWorkersComp
+            ? LabPaymentMethod.WorkersComp
+            : (resources.coverages?.length ?? 0) > 0
+            ? LabPaymentMethod.Insurance
+            : LabPaymentMethod.SelfPay;
+
+          await createExternalLabOrder(oystehrZambda, {
+            dx,
+            encounter: encounterResource,
+            orderableItems: [chosen],
+            psc: false,
+            orderingLocation: office,
+            selectedPaymentMethod,
+          });
+          setConv({ kind: 'done', user: message, chosenName: chosen.item.itemName });
+        } catch (e) {
+          console.error('External lab order failed:', e);
+          setConv({ kind: 'error', user: message, reply: `Could not order “${intent.display}”. Please try again.` });
+        }
         return;
       }
       // Code-based remove
