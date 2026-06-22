@@ -88,7 +88,14 @@ export type EasyChartAgentIntent =
       unit?: string;
       systolic?: number;
       diastolic?: number;
-    };
+    }
+  // Order a SEND-OUT (reference) lab — CBC, CMP, cultures, etc. The client matches `display`/
+  // `searchTerms` against the external lab catalog (getOrderableItems) and orders via create-lab-order,
+  // using the charted diagnosis, the encounter's location, and a defaulted payment method.
+  | { kind: 'add-external-lab'; display: string; searchTerms: string[] }
+  // Order an IN-OFFICE (in-house) test — rapid strep/flu/COVID/RSV, urinalysis, glucose, etc. The
+  // client matches against the in-house lab ActivityDefinitions and orders via create-in-house-lab-order.
+  | { kind: 'add-in-house-lab'; display: string; searchTerms: string[] };
 
 // Snapshot of the current free-text note fields, sent with each agent call so the LLM can
 // perform in-place edits (e.g. "change HPI to fill in the area affected as 'left arm'").

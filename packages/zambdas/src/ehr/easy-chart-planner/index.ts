@@ -207,6 +207,8 @@ const KIND_VALUES = [
   'remove-exam-finding',
   'add-ros-finding',
   'set-vital',
+  'add-external-lab',
+  'add-in-house-lab',
 ] as const;
 
 const NOTE_TEXT_FIELDS = [
@@ -435,6 +437,13 @@ doesn't mention):
      template already added it — but STILL emit add-diagnosis for every OTHER diagnosis the
      template does not cover (the secondary conditions). A template carries only its own
      diagnosis; it never supplies the secondaries.
+  5b. Labs ordered this visit:
+     • IN-OFFICE / point-of-care tests (rapid strep, rapid flu/COVID/RSV, urinalysis or urine dip,
+       mono spot, fingerstick glucose, urine hCG, wet prep) → add-in-house-lab.
+     • SEND-OUT / reference-lab tests (CBC, CMP/BMP, lipid panel, TSH, A1c, cultures, anything drawn
+       and sent to the lab) → add-external-lab.
+     Use the lab's common name as display (e.g. "CBC", "Rapid Strep A"). Do NOT also emit add-cpt for
+     a test you order with add-external-lab/add-in-house-lab — the lab order carries its own billing.
   6. Procedures (add-procedure, then update-procedure for any field changes referencing the
      same procedure by procedureMatch — match by procedure name)
   7. Billing: ALWAYS emit exactly one set-em-code — templates never carry an E&M code, so you must
@@ -443,6 +452,9 @@ doesn't mention):
      injected/infused in clinic (see add-cpt).
 
 ACTION SHAPES (use these intent kinds and the same fields the single-shot agent uses):
+
+- add-external-lab / add-in-house-lab: { kind, display, searchTerms[1-3] } — the test's common name,
+  e.g. {kind:"add-external-lab", display:"CBC", searchTerms:["complete blood count","CBC"]}.
 
 - set-vital: { kind, field, display }. field is one of vital-temperature, vital-heartbeat,
   vital-respiration-rate, vital-oxygen-sat, vital-blood-pressure, vital-weight, vital-height.

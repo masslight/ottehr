@@ -40,6 +40,7 @@ import {
   BODY_SITES_VALUE_SET_URL,
   COMPLICATIONS_VALUE_SET_URL,
   CPTCodeDTO,
+  DataEntryTestItem,
   DiagnosisDTO,
   EasyChartAgentIntent,
   EasyChartSuggestion,
@@ -72,6 +73,7 @@ import {
 } from 'utils';
 import {
   applyTemplate,
+  createInHouseLabOrder,
   easyChartAgent,
   easyChartPlanner,
   easyChartReview,
@@ -1962,6 +1964,78 @@ function findProcedureMatches(
   });
 }
 
+// Words a provider says when ordering a lab that aren't part of any catalog test name
+// ("send a CBC out to the reference lab", "run a urinalysis in-house"). Stripped from the query
+// so they don't pollute token matching against the catalog.
+const LAB_QUERY_STOPWORDS = new Set([
+  'order',
+  'send',
+  'run',
+  'a',
+  'an',
+  'the',
+  'out',
+  'in',
+  'house',
+  'office',
+  'lab',
+  'labs',
+  'test',
+  'tests',
+  'do',
+  'get',
+  'please',
+  'to',
+  'and',
+  'for',
+  'reference',
+  'panel',
+]);
+
+// Match a lab intent (display + searchTerms) against a catalog of named items — the in-house
+// ActivityDefinitions or the external orderable items. Prefix-token scoring like the template
+// matcher: +20 per exact token, +5 per prefix token, a big bonus when the name equals the
+// provider's phrase verbatim, and a length penalty so terse "CBC" outranks "CBC with
+// differential" when the provider just said "CBC". Returns items sorted best-first (empty when
+// nothing plausibly matches). Generic over item type so both lab dispatchers reuse it.
+function findLabCatalogMatches<T>(
+  display: string,
+  searchTerms: string[],
+  items: T[],
+  getName: (item: T) => string
+): T[] {
+  const queryTokens = Array.from(
+    new Set(
+      [display, ...(searchTerms ?? [])]
+        .flatMap((s) => tokenize(s))
+        .filter((tok) => tok.length >= 2)
+        .filter((tok) => !LAB_QUERY_STOPWORDS.has(tok))
+    )
+  );
+  if (queryTokens.length === 0) return [];
+  const queryDisplay = display.trim().toLowerCase();
+  const scored = items
+    .map((item) => {
+      const name = getName(item);
+      const nameTokens = tokenize(name);
+      const nameLower = name.trim().toLowerCase();
+      let score = 0;
+      for (const qt of queryTokens) {
+        const exact = nameTokens.includes(qt);
+        const prefix = !exact && nameTokens.some((nt) => nt.startsWith(qt));
+        if (exact) score += 20;
+        else if (prefix) score += 5;
+      }
+      if (nameLower === queryDisplay) score += 1000;
+      const extraTokens = Math.max(0, nameTokens.length - queryTokens.length);
+      score -= extraTokens * 2;
+      return { item, score };
+    })
+    .filter((s) => s.score > 0)
+    .sort((a, b) => b.score - a.score);
+  return scored.map((s) => s.item);
+}
+
 // Build a ProcedureDTO from a quick pick the same way the regular Procedures page would when
 // the provider picks a quick pick and clicks Save without editing: pre-fill from the quick
 // pick's QUICK_PICK_APPLY_KEYS, default procedureDateTime/documentedDateTime to now, join
@@ -3143,6 +3217,10 @@ export default function EasyChartPage(): JSX.Element {
         return `add ROS: ${intent.display}`;
       case 'set-vital':
         return `set vital: ${intent.display}`;
+      case 'add-in-house-lab':
+        return `order in-house lab: ${intent.display}`;
+      case 'add-external-lab':
+        return `order send-out lab: ${intent.display}`;
       case 'unknown':
         return 'unknown action';
     }
@@ -3400,6 +3478,50 @@ export default function EasyChartPage(): JSX.Element {
           console.error('Save vital failed:', e);
           setConv({ kind: 'error', user: message, reply: `Could not chart "${intent.display}". Please try again.` });
         }
+        return;
+      }
+      // In-house (in-office) lab: match the dictated test against this practice's in-house
+      // catalog (ActivityDefinitions) and order it through the same create-in-house-lab-order
+      // path the In-House Labs page uses. The charted diagnoses anchor the order; the planner
+      // emits add-diagnosis steps separately, so none are "new" here.
+      if (intent.kind === 'add-in-house-lab') {
+        if (!apiClient) return;
+        setConv({ kind: 'saving', user: message, chosenName: intent.display });
+        try {
+          const resources = await apiClient.getCreateInHouseLabOrderResources({ encounterId });
+          const availableTests: DataEntryTestItem[] = resources?.labs ?? [];
+          const matches = findLabCatalogMatches(intent.display, intent.searchTerms, availableTests, (t) => t.name);
+          if (matches.length === 0) {
+            setConv({
+              kind: 'skipped',
+              user: message,
+              reason: `I couldn't find an in-house lab matching “${intent.display}” in this practice's catalog.`,
+            });
+            return;
+          }
+          const test = matches[0];
+          await createInHouseLabOrder(oystehrZambda, {
+            encounterId,
+            testItems: [test],
+            diagnosesAll: chartDataRef.current?.diagnosis ?? [],
+            diagnosesNew: [],
+          });
+          setConv({ kind: 'done', user: message, chosenName: test.name });
+        } catch (e) {
+          console.error('In-house lab order failed:', e);
+          setConv({ kind: 'error', user: message, reply: `Could not order “${intent.display}”. Please try again.` });
+        }
+        return;
+      }
+      // Send-out (reference) lab: external-lab ordering from easy-chart is built separately
+      // (catalog search + ordering location + payment). Until that lands, surface the dictated
+      // test as a skip so the provider knows to place it from the Labs tab.
+      if (intent.kind === 'add-external-lab') {
+        setConv({
+          kind: 'skipped',
+          user: message,
+          reason: `Send-out lab “${intent.display}” noted — place it from the Labs tab (automated send-out ordering is coming).`,
+        });
         return;
       }
       // Code-based remove
