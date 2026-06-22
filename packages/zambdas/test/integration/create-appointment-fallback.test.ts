@@ -659,8 +659,9 @@ describe('create-appointment group-member fallback (D-6 phase 2)', () => {
     try {
       const result = await callCreateAppointment(patientSlot.id!);
       if (!result.ok) {
+        const diag = await diagnoseSlotAppointmentConflict(patientSlot.id!);
         throw new Error(
-          `Expected the :15 slot to be bookable once cadence is resolved from the service category, but got: ${result.message}`
+          `Expected the :15 slot to be bookable once cadence is resolved from the service category, but got: ${result.message}\nDiagnostic: ${diag}`
         );
       }
     } finally {
