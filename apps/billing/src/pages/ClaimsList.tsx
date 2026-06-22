@@ -443,7 +443,7 @@ export default function ClaimsList(): ReactElement {
         <TextField
           size="small"
           type="date"
-          label="Created From"
+          label="Service Date From"
           value={createdFrom}
           onChange={(e) => {
             setDosFrom(e.target.value);
@@ -456,7 +456,7 @@ export default function ClaimsList(): ReactElement {
         <TextField
           size="small"
           type="date"
-          label="Created To"
+          label="Service Date To"
           value={createdTo}
           onChange={(e) => {
             setDosTo(e.target.value);

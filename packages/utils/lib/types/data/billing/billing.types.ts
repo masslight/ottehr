@@ -77,6 +77,7 @@ export interface BillingLocationOption {
   name: string;
   npi: string;
   address: string;
+  posCode: string;
 }
 
 // Service facility (FHIR Location) managed by the billing app's Service Facilities screens.
@@ -92,7 +93,6 @@ export interface ServiceFacilityItem {
   npi: string;
   clia: string;
   posCode: string;
-  timezone: string;
   status: 'active' | 'inactive';
 }
 
@@ -133,6 +133,12 @@ export interface BillingPayerOption {
   id: string;
   name: string;
   payerId: string;
+}
+
+// A diagnosis (ICD-10) or procedure (CPT/HCPCS) code option from terminology search.
+export interface BillingCodeOption {
+  code: string;
+  display: string;
 }
 
 export interface EraListItem {
@@ -268,6 +274,8 @@ export interface ClaimDetailResponse {
   memberId: string;
   subscriberId: string;
   coverageStatus: string;
+  relationship: string;
+  policyHolder: BillingPolicyHolderSummary | null;
   responsibleParty: string;
   secondaryCoverageFhirId: string;
   secondaryPayerName: string;
@@ -279,11 +287,13 @@ export interface ClaimDetailResponse {
   renderingProviderType: string;
   renderingProvider: string;
   renderingNpi: string;
+  renderingTaxonomy: string;
   billingProviderFhirId: string;
   billingProviderType: string;
   billingProvider: string;
   billingNpi: string;
   billingTin: string;
+  billingTaxonomy: string;
   facilityFhirId: string;
   serviceFacility: string;
   serviceFacilityAddress: string;
@@ -353,6 +363,10 @@ export interface SearchBillingLocationsResponse {
 
 export interface SearchBillingPayersResponse {
   payers: BillingPayerOption[];
+}
+
+export interface SearchBillingProcedureCodesResponse {
+  codes: BillingCodeOption[];
 }
 
 export interface SearchBillingTagsResponse {
