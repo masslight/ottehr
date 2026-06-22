@@ -27,7 +27,7 @@ import type { ExamItemConfig } from 'config-types';
 import type { Appointment, Encounter, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { useCommandPaletteSource } from 'src/hooks/useCommandPaletteSource';
@@ -51,7 +51,9 @@ import {
   formatWeightKg,
   GetChartDataResponse,
   HospitalizationDTO,
+  InHouseOrderListPageItemDTO,
   InPersonRosConfig,
+  LabOrderListPageDTO,
   LabPaymentMethod,
   LBS_IN_KG,
   MedicalConditionDTO,
@@ -77,9 +79,13 @@ import {
   applyTemplate,
   createExternalLabOrder,
   createInHouseLabOrder,
+  deleteInHouseLabOrder,
+  deleteLabOrder,
   easyChartAgent,
   easyChartPlanner,
   easyChartReview,
+  getExternalLabOrders,
+  getInHouseOrders,
   icd10Search,
   listTemplates,
 } from '../../api/api';
@@ -417,10 +423,26 @@ export interface AiChartedMeta {
   lowConfidence: boolean;
 }
 
+// A lab order surfaced in the left pane. Lab orders are ServiceRequests fetched separately from
+// getChartData (in-house via get-in-house-orders, send-out via get-lab-orders), so they carry their
+// own view model rather than living on GetChartDataResponse. `serviceRequestId` doubles as the
+// flash/remove key (data-easy-chart-id), matching how charted items use their resourceId.
+interface EasyChartLabOrder {
+  serviceRequestId: string;
+  kind: 'in-house' | 'external';
+  testName: string;
+  labName?: string;
+  status?: string;
+}
+
 interface NoteSectionsProps {
   data: GetChartDataResponse;
   freshlyAdded: Set<string>;
   removingItems: Set<string>;
+  // Lab orders on this encounter + the cancel callback. Rendered as a "Labs ordered" section with
+  // the same remove affordance as other items; omitted/empty → no section.
+  labOrders?: EasyChartLabOrder[];
+  onRemoveLabOrder?: (order: EasyChartLabOrder) => void;
   // When true, the left pane is directly editable: free-text fields become text areas and
   // structured items get an inline remove control. Omitted/false → read-only (legacy behavior).
   editable?: boolean;
@@ -546,6 +568,8 @@ function NoteSections({
   data,
   freshlyAdded,
   removingItems,
+  labOrders,
+  onRemoveLabOrder,
   editable = false,
   onSaveField,
   onRemoveItem,
@@ -1227,6 +1251,31 @@ function NoteSections({
                   </DeletableRow>
                 )
               )}
+            </Stack>
+          </Section>
+        )}
+
+        {labOrders && labOrders.length > 0 && (
+          <Section title="Labs ordered">
+            <Stack spacing={0.25}>
+              {labOrders.map((o) => (
+                <DeletableRow
+                  key={o.serviceRequestId}
+                  editable={editable}
+                  resourceId={o.serviceRequestId}
+                  flashSx={itemSx(o.serviceRequestId)}
+                  onDelete={editable && onRemoveLabOrder ? () => onRemoveLabOrder(o) : undefined}
+                >
+                  <Typography variant="body2">
+                    • {o.testName}
+                    <Typography component="span" variant="caption" color="text.secondary">
+                      {' '}
+                      — {o.kind === 'in-house' ? 'in-house' : o.labName ?? 'send-out'}
+                      {o.status ? ` · ${o.status}` : ''}
+                    </Typography>
+                  </Typography>
+                </DeletableRow>
+              ))}
             </Stack>
           </Section>
         )}
@@ -2489,6 +2538,10 @@ export default function EasyChartPage(): JSX.Element {
   const noteSaveChainRef = useRef<Record<string, Promise<void>>>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Lab orders on this encounter (in-house + send-out), fetched separately from getChartData and
+  // surfaced read/removable in the left pane. Refreshed after the planner orders a lab and after a
+  // cancel.
+  const [labOrders, setLabOrders] = useState<EasyChartLabOrder[]>([]);
   const [appointmentId, setAppointmentId] = useState<string | null>(null);
   const [patient, setPatient] = useState<Patient | null>(null);
   const [reasonForVisit, setReasonForVisit] = useState<string | null>(null);
@@ -2584,6 +2637,69 @@ export default function EasyChartPage(): JSX.Element {
       });
     }, 1500);
   };
+
+  // Load the encounter's lab orders (in-house + send-out) into the left-pane view model. Each list
+  // call is independent and best-effort so one lab subsystem being unavailable doesn't hide the
+  // other. Called on load, after the planner orders a lab, and after a cancel.
+  const fetchLabOrders = useCallback(async (): Promise<void> => {
+    if (!oystehrZambda || !encounterId) return;
+    const search = { searchBy: { field: 'encounterId', value: encounterId } } as const;
+    const [inHouse, external] = await Promise.all([
+      getInHouseOrders(oystehrZambda, search).catch((e) => {
+        console.error('Failed to load in-house lab orders:', e);
+        return null;
+      }),
+      getExternalLabOrders(oystehrZambda, search).catch((e) => {
+        console.error('Failed to load send-out lab orders:', e);
+        return null;
+      }),
+    ]);
+    const orders: EasyChartLabOrder[] = [];
+    for (const o of (inHouse as { data?: InHouseOrderListPageItemDTO[] } | null)?.data ?? []) {
+      orders.push({
+        serviceRequestId: o.serviceRequestId,
+        kind: 'in-house',
+        testName: o.testItemName,
+        status: o.status,
+      });
+    }
+    for (const o of (external as { data?: LabOrderListPageDTO[] } | null)?.data ?? []) {
+      orders.push({
+        serviceRequestId: o.serviceRequestId,
+        kind: 'external',
+        testName: o.testItem,
+        labName: o.fillerLab,
+        status: o.orderStatus,
+      });
+    }
+    setLabOrders(orders);
+  }, [oystehrZambda, encounterId]);
+
+  // Cancel a lab order through the same delete zambda the lab pages use, with the optimistic
+  // red-flash removal the other items get. On failure, refetch to restore the true state.
+  const handleRemoveLabOrder = (order: EasyChartLabOrder): void => {
+    if (!oystehrZambda) return;
+    flashAndRemoveItem(order.serviceRequestId, () => {
+      setLabOrders((prev) => prev.filter((o) => o.serviceRequestId !== order.serviceRequestId));
+    });
+    void (async () => {
+      try {
+        if (order.kind === 'in-house') {
+          await deleteInHouseLabOrder(oystehrZambda, { serviceRequestId: order.serviceRequestId });
+        } else {
+          await deleteLabOrder(oystehrZambda, { serviceRequestId: order.serviceRequestId });
+        }
+      } catch (e) {
+        console.error('Failed to cancel lab order:', e);
+        void fetchLabOrders();
+      }
+    })();
+  };
+
+  // Load lab orders whenever the encounter changes.
+  useEffect(() => {
+    void fetchLabOrders();
+  }, [fetchLabOrders]);
 
   // Merge the saved-chart-data response into local state and flash the new items.
   // Avoids a full refetch for single-item adds.
@@ -3509,6 +3625,7 @@ export default function EasyChartPage(): JSX.Element {
             diagnosesAll: chartDataRef.current?.diagnosis ?? [],
             diagnosesNew: [],
           });
+          void fetchLabOrders();
           setConv({ kind: 'done', user: message, chosenName: test.name });
         } catch (e) {
           console.error('In-house lab order failed:', e);
@@ -3591,6 +3708,7 @@ export default function EasyChartPage(): JSX.Element {
             orderingLocation: office,
             selectedPaymentMethod,
           });
+          void fetchLabOrders();
           setConv({ kind: 'done', user: message, chosenName: chosen.item.itemName });
         } catch (e) {
           console.error('External lab order failed:', e);
@@ -4002,6 +4120,14 @@ export default function EasyChartPage(): JSX.Element {
     }
     if (data.medicalDecision?.text?.trim()) {
       lines.push(`MDM already present (length ${data.medicalDecision.text.trim().length} chars).`);
+    }
+    // Lab orders live outside chartData; include them so a re-plan doesn't re-order the same test.
+    if (labOrders.length) {
+      lines.push(
+        `Labs already ordered: ${labOrders
+          .map((o) => `${o.testName} (${o.kind === 'in-house' ? 'in-house' : o.labName ?? 'send-out'})`)
+          .join('; ')}`
+      );
     }
     return lines.join('\n');
   };
@@ -5323,6 +5449,8 @@ export default function EasyChartPage(): JSX.Element {
         data={chartData}
         freshlyAdded={freshlyAdded}
         removingItems={removingItems}
+        labOrders={labOrders}
+        onRemoveLabOrder={handleRemoveLabOrder}
         editable
         onSaveField={saveNoteField}
         onRemoveItem={handleInlineRemove}
