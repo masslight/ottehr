@@ -45,10 +45,12 @@ import {
   EasyChartSuggestion,
   examConfig,
   type ExamObservationDTO,
+  fahrenheitToCelsius,
   formatWeightKg,
   GetChartDataResponse,
   HospitalizationDTO,
   InPersonRosConfig,
+  LBS_IN_KG,
   MedicalConditionDTO,
   MedicationDTO,
   MEDICATIONS_USED_VALUE_SET_URL,
@@ -60,10 +62,12 @@ import {
   progressNoteChartDataRequestedFields,
   rosField,
   RosFindingState,
+  roundTemperatureForSave,
   SaveChartDataRequest,
   SUPPLIES_VALUE_SET_URL,
   TECHNIQUES_VALUE_SET_URL,
   TIME_SPENT_VALUE_SET_URL,
+  VitalFieldNames,
   VitalsObservationDTO,
 } from 'utils';
 import {
@@ -3137,6 +3141,8 @@ export default function EasyChartPage(): JSX.Element {
         return `add exam finding: ${intent.display}`;
       case 'add-ros-finding':
         return `add ROS: ${intent.display}`;
+      case 'set-vital':
+        return `set vital: ${intent.display}`;
       case 'unknown':
         return 'unknown action';
     }
@@ -3347,6 +3353,52 @@ export default function EasyChartPage(): JSX.Element {
         } catch (e) {
           console.error('Save failed:', e);
           setConv({ kind: 'error', user: message, reply: `Could not save "${label}". Please try again.` });
+        }
+        return;
+      }
+      // Value-based vital: build the typed DTO (converting to the stored unit — temp→°C, weight→kg,
+      // height→cm) and save through the same chart-data path the Vitals screen uses. No search needed.
+      if (intent.kind === 'set-vital') {
+        setConv({ kind: 'saving', user: message, chosenName: intent.display });
+        try {
+          const unit = (intent.unit ?? '').trim().toLowerCase();
+          let dto: VitalsObservationDTO | null = null;
+          if (intent.field === 'vital-blood-pressure') {
+            if (intent.systolic != null && intent.diastolic != null) {
+              dto = {
+                field: VitalFieldNames.VitalBloodPressure,
+                systolicPressure: intent.systolic,
+                diastolicPressure: intent.diastolic,
+              };
+            }
+          } else if (intent.value != null) {
+            if (intent.field === 'vital-temperature') {
+              const celsius = unit.startsWith('f') ? fahrenheitToCelsius(intent.value) : intent.value;
+              dto = { field: VitalFieldNames.VitalTemperature, value: roundTemperatureForSave(celsius) };
+            } else if (intent.field === 'vital-weight') {
+              dto = {
+                field: VitalFieldNames.VitalWeight,
+                value: unit.startsWith('l') ? intent.value / LBS_IN_KG : intent.value,
+              };
+            } else if (intent.field === 'vital-height') {
+              dto = {
+                field: VitalFieldNames.VitalHeight,
+                value: unit.startsWith('i') ? intent.value * 2.54 : intent.value,
+              };
+            } else {
+              // heartbeat | respiration-rate | oxygen-sat — unitless
+              dto = { field: intent.field as VitalFieldNames, value: intent.value } as VitalsObservationDTO;
+            }
+          }
+          if (!dto) {
+            setConv({ kind: 'error', user: message, reply: `Could not chart "${intent.display}" — missing a value.` });
+            return;
+          }
+          await saveAndMerge({ encounterId, vitalsObservations: [dto] });
+          setConv({ kind: 'done', user: message, chosenName: intent.display });
+        } catch (e) {
+          console.error('Save vital failed:', e);
+          setConv({ kind: 'error', user: message, reply: `Could not chart "${intent.display}". Please try again.` });
         }
         return;
       }

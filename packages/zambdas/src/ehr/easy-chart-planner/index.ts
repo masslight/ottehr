@@ -206,6 +206,7 @@ const KIND_VALUES = [
   'add-exam-finding',
   'remove-exam-finding',
   'add-ros-finding',
+  'set-vital',
 ] as const;
 
 const NOTE_TEXT_FIELDS = [
@@ -248,6 +249,11 @@ const RESPONSE_SCHEMA = {
           field: { type: 'string' },
           newText: { type: 'string' },
           finding: { type: 'string', enum: ['reports', 'denies'] },
+          // set-vital: numeric vitals use `value` (+ `unit` for temp/weight/height); BP uses systolic/diastolic.
+          value: { type: 'number' },
+          unit: { type: 'string' },
+          systolic: { type: 'number' },
+          diastolic: { type: 'number' },
         },
         required: ['kind'],
       },
@@ -405,6 +411,10 @@ doesn't mention):
      narrative's history of the presenting problem, and MDM as the assessment + plan + medications +
      counseling + return precautions. chiefComplaint and mechanismOfInjury are conditional: emit
      chiefComplaint when the visit reason is clear, and mechanismOfInjury only for injury visits.
+  3b. Vitals (set-vital) — emit ONE set-vital for EACH vital sign the narrative states (temperature,
+     heart rate, respiration rate, blood pressure, oxygen saturation, weight, height). Pass the value
+     and its unit exactly as stated (e.g. Temp "98.9" unit "F"); the client converts to the stored
+     unit. Do not invent vitals the narrative doesn't give.
   4. Exam findings (add-exam-finding / remove-exam-finding). When a template was applied, ONLY
      emit add-exam-finding for ABNORMAL findings (or normal findings the narrative specifically
      calls out that the template doesn't cover by default). Templates already check the default
@@ -433,6 +443,12 @@ doesn't mention):
      injected/infused in clinic (see add-cpt).
 
 ACTION SHAPES (use these intent kinds and the same fields the single-shot agent uses):
+
+- set-vital: { kind, field, display, ... }. field is one of vital-temperature, vital-heartbeat,
+  vital-respiration-rate, vital-oxygen-sat, vital-blood-pressure, vital-weight, vital-height.
+  Numeric vitals (heartbeat, respiration-rate, oxygen-sat) use "value". temperature/weight/height
+  use "value" + "unit" ("F"/"C", "lb"/"kg", "in"/"cm"). blood-pressure uses "systolic" + "diastolic".
+  Set "display" to a readable label, e.g. "Temp 98.9 °F", "HR 76", "BP 122/78", "SpO2 98%".
 
 - add-allergy / add-condition / add-medication / add-surgical-history / add-hospitalization /
   add-diagnosis: { kind, display, searchTerms[1-3] }; add-diagnosis also takes isPrimary.

@@ -68,7 +68,27 @@ export type EasyChartAgentIntent =
   // reliably; the optional `finding` enum is only a secondary signal). The client parses the state,
   // strips it, matches the symptom against the ROS catalog (InPersonRosConfig), and saves to
   // rosObservations with the -reports/-denies field suffix.
-  | { kind: 'add-ros-finding'; display: string; searchTerms: string[]; finding?: 'reports' | 'denies' };
+  | { kind: 'add-ros-finding'; display: string; searchTerms: string[]; finding?: 'reports' | 'denies' }
+  // Set a vital sign (the Vitals screen's standard fields). Numeric vitals (heartbeat, respiration
+  // rate, oxygen sat) carry `value`; temperature/weight/height carry `value` + `unit` and the client
+  // converts to the stored unit (temp→°C, weight→kg, height→cm); blood pressure carries `systolic` +
+  // `diastolic` (mmHg). `display` is a human label, e.g. "Temp 98.9 °F" or "BP 122/78".
+  | {
+      kind: 'set-vital';
+      field:
+        | 'vital-temperature'
+        | 'vital-heartbeat'
+        | 'vital-respiration-rate'
+        | 'vital-oxygen-sat'
+        | 'vital-blood-pressure'
+        | 'vital-weight'
+        | 'vital-height';
+      display: string;
+      value?: number;
+      unit?: string;
+      systolic?: number;
+      diastolic?: number;
+    };
 
 // Snapshot of the current free-text note fields, sent with each agent call so the LLM can
 // perform in-place edits (e.g. "change HPI to fill in the area affected as 'left arm'").
