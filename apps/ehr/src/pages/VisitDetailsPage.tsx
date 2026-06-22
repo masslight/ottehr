@@ -47,6 +47,7 @@ import ImageUploader from 'src/components/ImageUploader';
 import PatientBalances from 'src/components/PatientBalances';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { ScannerModal } from 'src/components/ScannerModal';
+import { IdentifiersRow } from 'src/features/visits/shared/components/patient/info/IdentifiersRow';
 import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
 import { useGetPatientAccount, useGetPatientCoverages } from 'src/hooks/useGetPatient';
 import { useGetPatientBalances } from 'src/hooks/useGetPatientBalances';
@@ -1139,11 +1140,14 @@ export default function VisitDetailsPage(): ReactElement {
               ) : null}
             </Grid>
 
-            {(nameLastModifiedOld || nameLastModified) && (
-              <Grid container direction="row">
-                <Typography sx={{ alignSelf: 'center', marginLeft: 4, fontSize: '14px' }}>
-                  Name Last Modified {nameLastModifiedOld || nameLastModified}
-                </Typography>
+            {(patient || nameLastModifiedOld || nameLastModified) && (
+              <Grid container direction="row" alignItems="center" gap={2} sx={{ marginLeft: 4 }}>
+                {patient && <IdentifiersRow patient={patient} />}
+                {(nameLastModifiedOld || nameLastModified) && (
+                  <Typography sx={{ alignSelf: 'center', fontSize: '14px' }}>
+                    Name Last Modified {nameLastModifiedOld || nameLastModified}
+                  </Typography>
+                )}
               </Grid>
             )}
 
