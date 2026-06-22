@@ -2967,7 +2967,7 @@ export const updatePractitionerRole = async (
 export const setPractitionerRoleActive = async (
   oystehr: Oystehr,
   input: { roleId: string; active: boolean }
-): Promise<{ updatedScheduleCount: number; active: boolean }> => {
+): Promise<{ active: boolean }> => {
   const response = await oystehr.zambda.execute({
     id: ADMIN_SET_PRACTITIONER_ROLE_ACTIVE_ZAMBDA_ID,
     ...input,
