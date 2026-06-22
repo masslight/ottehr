@@ -32,6 +32,8 @@ import {
 import { DateTime } from 'luxon';
 import {
   ACCOUNT_TYPE_CODE_SYSTEM,
+  AR_STAGE,
+  claimStatusValuesToTags,
   CODE_SYSTEM_APPOINTMENT_TYPE_CODES,
   CODE_SYSTEM_APPOINTMENT_TYPE_TAG_SYSTEM,
   CODE_SYSTEM_CMS_PLACE_OF_SERVICE,
@@ -44,6 +46,7 @@ import {
   FHIR_RESOURCE_NOT_FOUND,
   getNPIIdentifier,
   getPayerId,
+  getPaymentVariantFromEncounter,
   getSecret,
   getTimezone,
   InternalError,
@@ -54,9 +57,11 @@ import {
   isAppointmentWorkersComp,
   isValidUUID,
   PARTICIPATION_CODE_SYSTEM,
+  PaymentVariant,
   Secrets,
   SecretsKeys,
   TIMEZONES,
+  withArStageInitialization,
 } from 'utils';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { assertDefined, checkOrCreateM2MClientToken, createOystehrClient, sendErrors, ZambdaInput } from '../../shared';
@@ -69,6 +74,7 @@ import {
   CLAIM_TAG_SYSTEM,
   createBillingClient,
   CURRENT_STATUS_TAG_SYSTEM,
+  ensureClaimInsurance,
   findRef,
   getClaimTypeCoding,
   prepareCopy,
@@ -323,6 +329,54 @@ export async function performEffect(
     });
   }
   order.push('person');
+
+  // Create working copy from rendering provider
+  if (billingResources.renderingProvider) {
+    const claimRenderingProvider = prepareWorkingCopy(
+      billingResources.renderingProvider,
+      billingResources.renderingProvider.id!
+    );
+    claimRenderingProvider.id = 'urn:uuid:claim-rendering-provider';
+    requests.push({
+      method: 'POST',
+      url: '/Practitioner',
+      resource: claimRenderingProvider,
+      fullUrl: claimRenderingProvider.id,
+    });
+    order.push('rendering-provider');
+  }
+
+  // Create working copy from billing provider
+  if (billingResources.billingProvider) {
+    const claimBillingProvider = prepareWorkingCopy(
+      billingResources.billingProvider,
+      billingResources.billingProvider.id!
+    );
+    claimBillingProvider.id = 'urn:uuid:claim-billing-provider';
+    requests.push({
+      method: 'POST',
+      url: '/Organization',
+      resource: claimBillingProvider,
+      fullUrl: claimBillingProvider.id,
+    });
+    order.push('billing-provider');
+  }
+
+  // Create working copy from service facility
+  if (billingResources.serviceFacility) {
+    const claimServiceFacility = prepareWorkingCopy(
+      billingResources.serviceFacility,
+      billingResources.serviceFacility.id!
+    );
+    claimServiceFacility.id = 'urn:uuid:claim-service-facility';
+    requests.push({
+      method: 'POST',
+      url: '/Location',
+      resource: claimServiceFacility,
+      fullUrl: claimServiceFacility.id,
+    });
+    order.push('service-facility');
+  }
 
   const billingTags = [];
   if (clinicalResources.appointment.description?.toLowerCase() === 'auto accident') {
@@ -859,6 +913,10 @@ async function findExistingBillingResources(
           name: 'identifier',
           value: `${FHIR_IDENTIFIER_NPI}|${getNPIIdentifier(originals.location)?.value}`,
         },
+        {
+          name: 'status',
+          value: 'active',
+        },
       ],
     })
   ).unbundle();
@@ -931,9 +989,24 @@ async function findExistingBillingResources(
   };
 }
 
+// Initial AR Stage for a claim built from an encounter. Precedence (first match wins): the visit's
+// payment selection (employer / insurance / self), then an occupational-medicine visit, then whether
+// any coverage is present. Workers'-comp carries a WC coverage, so it falls out as Insurance Payer AR.
+export function determineArStage(resources: ClaimResources): string {
+  const paymentVariant = getPaymentVariantFromEncounter(resources.encounter);
+  if (paymentVariant === PaymentVariant.employer) return AR_STAGE.nonInsurancePayer;
+  if (paymentVariant === PaymentVariant.insurance) return AR_STAGE.insurancePayer;
+  if (paymentVariant === PaymentVariant.selfPay) return AR_STAGE.patient;
+  if (isAppointmentOccupationalMedicine(resources.appointment)) return AR_STAGE.nonInsurancePayer;
+  return resources.coverageRefs.length > 0 ? AR_STAGE.insurancePayer : AR_STAGE.patient;
+}
+
 function buildClaim(resources: ClaimResources): Claim {
   const now = new Date().toISOString().slice(0, 10);
   const appointmentTypeCoding = getAppointmentTypeCoding(resources.appointment);
+
+  // AR Stage tag + the stage's auto-initialized progress status (e.g. Insurance AR Status -> "Created").
+  const claimStatusTags = claimStatusValuesToTags(withArStageInitialization({ arStage: determineArStage(resources) }));
 
   const claim: Claim = {
     resourceType: 'Claim',
@@ -944,6 +1017,7 @@ function buildClaim(resources: ClaimResources): Claim {
         getClaimTypeCoding(),
         ...(appointmentTypeCoding ? [appointmentTypeCoding] : []),
         ...(resources.billingTags ?? []).map((t) => ({ system: CLAIM_TAG_SYSTEM, code: t })),
+        ...claimStatusTags,
       ],
     },
     type: { coding: [getClaimTypeCoding()] },
@@ -959,11 +1033,13 @@ function buildClaim(resources: ClaimResources): Claim {
         ? resources.coverageRefs[0].payorRef
         : undefined
       : undefined,
-    insurance: resources.coverageRefs.map((cov, i) => ({
-      sequence: i + 1,
-      focal: i === 0,
-      coverage: cov.coverageRef,
-    })),
+    insurance: ensureClaimInsurance(
+      resources.coverageRefs.map((cov, i) => ({
+        sequence: i + 1,
+        focal: i === 0,
+        coverage: cov.coverageRef,
+      }))
+    ),
     careTeam: resources.renderingProvider
       ? [
           {

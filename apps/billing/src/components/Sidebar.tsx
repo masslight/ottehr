@@ -1,4 +1,5 @@
 import {
+  Apartment as ApartmentIcon,
   Business as BusinessIcon,
   Description as DescriptionIcon,
   Home as HomeIcon,
@@ -20,6 +21,7 @@ const navItems = [
   { label: 'Patients', path: '/patients', icon: <PeopleIcon sx={{ fontSize: 18 }} /> },
   { label: 'Billing Providers', path: '/billing-providers', icon: <BusinessIcon sx={{ fontSize: 18 }} /> },
   { label: 'Rendering Providers', path: '/rendering-providers', icon: <MedicalServicesIcon sx={{ fontSize: 18 }} /> },
+  { label: 'Service Facilities', path: '/service-facilities', icon: <ApartmentIcon sx={{ fontSize: 18 }} /> },
   { label: 'ERAs', path: '/eras', icon: <ReceiptIcon sx={{ fontSize: 18 }} /> },
   { label: 'Tags', path: '/tags', icon: <LabelIcon sx={{ fontSize: 18 }} /> },
 ];

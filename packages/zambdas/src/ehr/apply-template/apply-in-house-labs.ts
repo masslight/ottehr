@@ -3,9 +3,7 @@ import { ActivityDefinition, FhirResource, List, ServiceRequest } from 'fhir/r4b
 import {
   ApplyTemplateWarning,
   chartDataTagSystem,
-  DiagnosisDTO,
   getTag,
-  ICD_10_CODE_SYSTEM,
   IN_HOUSE_LAB_LATEST_TAG_DEFINITION,
   IN_HOUSE_TAG_DEFINITION,
   IN_HOUSE_TEST_CODE_SYSTEM,
@@ -17,6 +15,7 @@ import {
 import { makeRequestsForCreateInHouseLabs } from '../../shared/in-house-lab/build-order';
 import { gatherInHouseLabOrderContext } from '../../shared/in-house-lab/gather-context';
 import { TemplateEncounterResource } from '../shared/template-helpers';
+import { diagnosesFromReasonCode, noteFromPlan } from './helpers';
 
 interface ApplyInHouseLabPlansInput {
   templateList: List;
@@ -35,31 +34,6 @@ interface ApplyInHouseLabPlansResult {
 
 const labelForPlan = (plan: ServiceRequest): string => {
   return plan.code?.text ?? plan.code?.coding?.[0]?.display ?? plan.code?.coding?.[0]?.code ?? 'Unknown in-house lab';
-};
-
-// Reverse the conversion that create-in-house-lab-order does when it writes
-// reasonCode from DiagnosisDTOs: each saved CodeableConcept becomes one DTO
-// using the first coding's code/display. We lose `isPrimary` here, which is
-// fine - the saved order doesn't carry that flag.
-const diagnosesFromReasonCode = (plan: ServiceRequest): DiagnosisDTO[] => {
-  return (plan.reasonCode ?? [])
-    .map((rc) => {
-      const icd = rc.coding?.find((c) => c.system === ICD_10_CODE_SYSTEM) ?? rc.coding?.[0];
-      return {
-        code: icd?.code ?? '',
-        display: icd?.display ?? rc.text ?? '',
-        isPrimary: false,
-      };
-    })
-    .filter((d) => d.code || d.display);
-};
-
-const notesFromPlan = (plan: ServiceRequest): string | undefined => {
-  const joined = (plan.note ?? [])
-    .map((n) => n.text ?? '')
-    .filter((t) => t.length > 0)
-    .join('\n\n');
-  return joined.length > 0 ? joined : undefined;
 };
 
 /**
@@ -140,7 +114,7 @@ export async function applyInHouseLabPlans(input: ApplyInHouseLabPlansInput): Pr
 
       const planRequests = makeRequestsForCreateInHouseLabs({
         diagnosesAll: diagnosesFromReasonCode(plan),
-        notes: notesFromPlan(plan),
+        notes: noteFromPlan(plan),
         testResources: [
           {
             activityDefinition: ad!, // the canApply checks make sure this isn't undefined, so this is safe
