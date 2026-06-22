@@ -6,7 +6,6 @@ import { SectionSaveButton } from './SectionSaveButton';
 
 const { occupationalMedicineEmployerInformation } = PATIENT_RECORD_CONFIG.FormFields;
 const FIELD_KEYS = Object.values(occupationalMedicineEmployerInformation.items).map((item) => item.key);
-const REQUIRED_FIELD_KEYS = occupationalMedicineEmployerInformation.requiredFields ?? [];
 
 interface OccupationalMedicineEmployerInformationContainerProps {
   isLoading: boolean;
@@ -33,7 +32,6 @@ export const OccupationalMedicineEmployerInformationContainer: FC<
       titleWidget={
         <SectionSaveButton
           fieldKeys={FIELD_KEYS}
-          requiredFieldKeys={REQUIRED_FIELD_KEYS}
           patientId={patientId}
           encounterId={encounterId}
           appointmentId={appointmentId}
