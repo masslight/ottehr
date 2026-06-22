@@ -97,6 +97,8 @@ const KIND_VALUES = [
   'add-exam-finding',
   'remove-exam-finding',
   'add-ros-finding',
+  'add-in-house-lab',
+  'add-external-lab',
 ] as const;
 
 const NOTE_TEXT_FIELDS = [
@@ -216,6 +218,20 @@ CODE-BASED actions (the provider gives the code directly — emit it as the "cod
   "Ketorolac IM", "ondansetron 4 mg IV given") is NOT a procedure — emit add-medication
   instead, with strength/doseForm. Reserve add-procedure for suturing, splinting, lavage,
   I&D, imaging, foreign body removal, and similar physical interventions.
+  A LAB TEST IS NOT A PROCEDURE — order it with add-in-house-lab / add-external-lab (below), never
+  add-procedure.
+
+LAB ORDERS (order a diagnostic test — emit the test's common name as display + searchTerms):
+- "add-in-house-lab": order an IN-OFFICE / point-of-care test run in the clinic. Triggered by phrases
+  like "add a flu test", "rapid strep", "order a urinalysis / urine dip", "rapid COVID", "rapid RSV",
+  "mono spot", "fingerstick glucose", "urine hCG", "wet prep". Required fields: kind, display (the
+  test's common name e.g. "Flu A", "Rapid Strep A", "Urinalysis"), searchTerms (1-3 alternate
+  phrasings — the client fuzzy-matches against the practice's in-house lab catalog).
+- "add-external-lab": order a SEND-OUT / reference-lab test that is drawn and sent out. Triggered by
+  phrases like "send a CBC", "order a CMP / BMP", "lipid panel", "TSH", "A1c", "blood culture",
+  "send out a ...". Required fields: kind, display (the test's common name e.g. "CBC", "CMP"),
+  searchTerms (1-3 alternate phrasings — the client fuzzy-matches against the connected lab catalog).
+  Do NOT also emit add-cpt for a test ordered this way — the lab order carries its own billing.
 - "update-procedure": update one or more fields on an EXISTING procedure already in the chart.
   Triggered by phrases like "adjust procedure site to arm right", "change procedure technique
   to sterile", "set procedure time spent to 30 minutes", "update the lac repair complications
