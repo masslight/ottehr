@@ -5,11 +5,17 @@ set -xeuo pipefail
 
 export ENV=${1:-local}
 action=${2:-apply}
+target=${3:-}
 
 # Enable auto-approve for CI deployments
 AUTO_APPROVE=""
 if [ "${CI:-false}" = "true" ]; then
   AUTO_APPROVE="--auto-approve"
+fi
+
+TARGET=""
+if [ "$target" != "" ]; then
+  TARGET="-target=$target"
 fi
 
 echo "Deploying environment: ${ENV}"
@@ -34,7 +40,7 @@ npm run terraform-init
 
 # To debug without applying, pass `plan` after the environment parameter
 if [ "${action}" = "apply" ]; then
-  terraform apply -no-color -parallelism=20 -var-file="${ENV}.tfvars" "${AUTO_APPROVE}"
+  terraform apply -no-color -parallelism=20 -var-file="${ENV}.tfvars" "${AUTO_APPROVE}" ${TARGET}
 else
-  terraform plan -no-color -parallelism=20 -var-file="${ENV}.tfvars"
+  terraform plan -no-color -parallelism=20 -var-file="${ENV}.tfvars" ${TARGET}
 fi
