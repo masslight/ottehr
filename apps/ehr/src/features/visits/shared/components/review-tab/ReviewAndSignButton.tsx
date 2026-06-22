@@ -95,9 +95,9 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
   const approvalStatus = getSupervisorApprovalStatus(appointment, encounter);
   const completed = useMemo(() => {
     return isFollowup
-      ? encounter.status !== 'in-progress'
+      ? appointmentAccessibility.isAppointmentLocked
       : appointmentAccessibility.isAppointmentLocked || approvalStatus === 'waiting-for-approval';
-  }, [appointmentAccessibility.isAppointmentLocked, isFollowup, encounter.status, approvalStatus]);
+  }, [appointmentAccessibility.isAppointmentLocked, isFollowup, approvalStatus]);
 
   const errorMessage = useMemo(() => {
     const messages: string[] = [];

@@ -5,6 +5,7 @@ import { PageTitle } from '../../shared/components/PageTitle';
 import { AddendumCard } from '../../shared/components/review-tab/AddendumCard';
 import { ReviewAndSignButton } from '../../shared/components/review-tab/ReviewAndSignButton';
 import { SendFaxButton } from '../../shared/components/review-tab/SendFaxButton';
+import { UnlockAppointmentButton } from '../../shared/components/review-tab/UnlockAppointmentButton';
 import { useAppointmentData, useChartData } from '../../shared/stores/appointment/appointment.store';
 import { FollowUpNoteDetails } from '../components/follow-up-note/FollowUpNoteDetails';
 import { FollowUpSummaryCard } from '../components/follow-up-note/FollowUpSummaryCard';
@@ -47,6 +48,7 @@ export const FollowUpNote: React.FC<FollowUpNoteProps> = () => {
         </Box>
         <Box sx={{ display: 'flex', gap: 1 }}>
           <ReviewAndSignButton onSigned={refetch} />
+          <UnlockAppointmentButton onUnlocked={refetch} />
         </Box>
       </Box>
     </Stack>
