@@ -41,6 +41,7 @@ import { DateTime } from 'luxon';
 import Stripe from 'stripe';
 import {
   ATTORNEY_FIRM_EXTENSION_URL,
+  buildCoverageSubscriberRelatedPerson,
   buildExtensionObject,
   CANDID_PLAN_TYPE_SYSTEM,
   codeableConcept,
@@ -83,6 +84,7 @@ import {
   getPayerUrl,
   getPhoneNumberForIndividual,
   getSecret,
+  getSubscriberRelationshipCodeableConcept,
   getTaxID,
   INSURANCE_CANDID_PLAN_TYPE_CODES,
   INSURANCE_CARD_BACK_2_ID,
@@ -2399,28 +2401,15 @@ const createCoverageResource = (input: CreateCoverageResourceInput): Coverage =>
   }
 
   const policyHolderId = 'coverageSubscriber';
-  const policyHolderName = createFhirHumanName(policyHolder.firstName, policyHolder.middleName, policyHolder.lastName);
   const relationshipCode = SUBSCRIBER_RELATIONSHIP_CODE_MAP[policyHolder.relationship] || 'other';
-  const containedPolicyHolder: RelatedPerson = {
-    resourceType: 'RelatedPerson',
-    id: policyHolderId,
-    name: policyHolderName ? policyHolderName : undefined,
-    birthDate: policyHolder.dob,
-    gender: mapBirthSexToGender(policyHolder.birthSex),
-    patient: { reference: `Patient/${patientId}` },
-    address: [policyHolder.address],
-    relationship: [
-      {
-        coding: [
-          {
-            system: 'http://hl7.org/fhir/ValueSet/relatedperson-relationshiptype',
-            code: relationshipCode,
-            display: policyHolder.relationship,
-          },
-        ],
-      },
-    ],
-  };
+  // Shared builder keeps the subscriber RelatedPerson aligned with the billing app; the clinical EHR
+  // contains it on the Coverage rather than persisting it standalone.
+  const containedPolicyHolder = buildCoverageSubscriberRelatedPerson(
+    patientId,
+    { ...policyHolder, address: policyHolder.address },
+    policyHolder.relationship
+  );
+  containedPolicyHolder.id = policyHolderId;
 
   let contained: Coverage['contained'];
   let subscriberReference = `#${policyHolderId}`;
@@ -2450,7 +2439,7 @@ const createCoverageResource = (input: CreateCoverageResourceInput): Coverage =>
       },
     ],
     subscriberId: policyHolder.memberId,
-    relationship: getPolicyHolderRelationshipCodeableConcept(policyHolder.relationship),
+    relationship: getSubscriberRelationshipCodeableConcept(policyHolder.relationship),
     class: [
       {
         type: {
@@ -3694,19 +3683,6 @@ const patchOpsForCoverage = (input: GetCoveragePatchOpsInput): Operation[] => {
   }
 
   return ops;
-};
-
-const getPolicyHolderRelationshipCodeableConcept = (relationship: PolicyHolder['relationship']): CodeableConcept => {
-  const relationshipCode = SUBSCRIBER_RELATIONSHIP_CODE_MAP[relationship] || 'other';
-  return {
-    coding: [
-      {
-        system: 'http://terminology.hl7.org/CodeSystem/subscriber-relationship',
-        code: relationshipCode,
-        display: relationship,
-      },
-    ],
-  };
 };
 
 export const createContainedGuarantor = (guarantor: ResponsiblePartyContact, patientId: string): RelatedPerson => {

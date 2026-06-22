@@ -74,6 +74,7 @@ import {
   CLAIM_TAG_SYSTEM,
   createBillingClient,
   CURRENT_STATUS_TAG_SYSTEM,
+  ensureClaimInsurance,
   findRef,
   getClaimTypeCoding,
   prepareCopy,
@@ -328,6 +329,54 @@ export async function performEffect(
     });
   }
   order.push('person');
+
+  // Create working copy from rendering provider
+  if (billingResources.renderingProvider) {
+    const claimRenderingProvider = prepareWorkingCopy(
+      billingResources.renderingProvider,
+      billingResources.renderingProvider.id!
+    );
+    claimRenderingProvider.id = 'urn:uuid:claim-rendering-provider';
+    requests.push({
+      method: 'POST',
+      url: '/Practitioner',
+      resource: claimRenderingProvider,
+      fullUrl: claimRenderingProvider.id,
+    });
+    order.push('rendering-provider');
+  }
+
+  // Create working copy from billing provider
+  if (billingResources.billingProvider) {
+    const claimBillingProvider = prepareWorkingCopy(
+      billingResources.billingProvider,
+      billingResources.billingProvider.id!
+    );
+    claimBillingProvider.id = 'urn:uuid:claim-billing-provider';
+    requests.push({
+      method: 'POST',
+      url: '/Organization',
+      resource: claimBillingProvider,
+      fullUrl: claimBillingProvider.id,
+    });
+    order.push('billing-provider');
+  }
+
+  // Create working copy from service facility
+  if (billingResources.serviceFacility) {
+    const claimServiceFacility = prepareWorkingCopy(
+      billingResources.serviceFacility,
+      billingResources.serviceFacility.id!
+    );
+    claimServiceFacility.id = 'urn:uuid:claim-service-facility';
+    requests.push({
+      method: 'POST',
+      url: '/Location',
+      resource: claimServiceFacility,
+      fullUrl: claimServiceFacility.id,
+    });
+    order.push('service-facility');
+  }
 
   const billingTags = [];
   if (clinicalResources.appointment.description?.toLowerCase() === 'auto accident') {
@@ -984,11 +1033,13 @@ function buildClaim(resources: ClaimResources): Claim {
         ? resources.coverageRefs[0].payorRef
         : undefined
       : undefined,
-    insurance: resources.coverageRefs.map((cov, i) => ({
-      sequence: i + 1,
-      focal: i === 0,
-      coverage: cov.coverageRef,
-    })),
+    insurance: ensureClaimInsurance(
+      resources.coverageRefs.map((cov, i) => ({
+        sequence: i + 1,
+        focal: i === 0,
+        coverage: cov.coverageRef,
+      }))
+    ),
     careTeam: resources.renderingProvider
       ? [
           {

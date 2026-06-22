@@ -1,6 +1,6 @@
 {
   "name": "zambdas",
-  "version": "1.37.2",
+  "version": "1.37.4",
   "private": true,
   "sideEffects": false,
   "scripts": {

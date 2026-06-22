@@ -24,7 +24,7 @@ import { useApiClients } from 'src/hooks/useAppClients';
 import { useCommandPaletteSource } from 'src/hooks/useCommandPaletteSource';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import { usePendingQuickPick } from 'src/hooks/usePendingQuickPick';
-import { RoleType, TEMPLATE_SECTIONS_IN_ORDER, TemplateSectionActions } from 'utils';
+import { RoleType, TEMPLATE_SECTIONS_IN_ORDER, TemplatePreviewApplyOptions, TemplateSectionActions } from 'utils';
 import { useGetAppointmentAccessibility } from '../../hooks/useGetAppointmentAccessibility';
 import { useAppointmentData } from '../../stores/appointment/appointment.store';
 import { resetExamObservationsStore } from '../../stores/appointment/reset-exam-observations';
@@ -108,7 +108,10 @@ export const ApplyTemplate: React.FC = () => {
     setDialogOpen(false);
   };
 
-  const handleApplyTemplate = async (sectionActions: TemplateSectionActions): Promise<void> => {
+  const handleApplyTemplate = async (
+    sectionActions: TemplateSectionActions,
+    options?: TemplatePreviewApplyOptions
+  ): Promise<void> => {
     if (!pendingTemplate) return;
     if (oystehrZambda && encounter.id) {
       setIsApplyingTemplate(true);
@@ -117,6 +120,7 @@ export const ApplyTemplate: React.FC = () => {
           encounterId: encounter.id,
           templateName: pendingTemplate.value,
           sectionActions,
+          ...(options?.externalLabs ? { externalLabs: options.externalLabs } : {}),
         });
 
         // Reset exam observations store to force reload from server

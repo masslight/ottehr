@@ -3,46 +3,50 @@ import {
   apiErrorToThrow,
   chooseJson,
   ClaimDetailResponse,
-  CreateBillingClaimInput,
-  CreateBillingPatientInput,
-  CreateBillingProviderInput,
+  CreateBillingClaimInputSchema,
+  CreateBillingCoverageInputSchema,
+  CreateBillingPatientInputSchema,
+  CreateBillingProviderInputSchema,
   CreatedClaimResponse,
   CreatedResourceResponse,
-  DeleteBillingProviderInput,
-  DeleteBillingTagInput,
+  DeleteBillingCoverageInputSchema,
+  DeleteBillingProviderInputSchema,
+  DeleteBillingTagInputSchema,
   DeletedResponse,
-  DeleteServiceFacilityInput,
+  DeleteServiceFacilityInputSchema,
   EraDetailResponse,
-  GetClaimDetailInput,
-  GetEraDetailInput,
-  GetPatientCoveragesInput,
+  GetClaimDetailInputSchema,
+  GetEraDetailInputSchema,
+  GetPatientCoveragesInputSchema,
   GetPatientCoveragesResponse,
-  GetPatientDetailInput,
+  GetPatientDetailInputSchema,
   PatientDetailResponse,
-  SaveBillingTagInput,
+  SaveBillingTagInputSchema,
   SavedResourceResponse,
-  SaveServiceFacilityInput,
-  SearchBillingClaimsInput,
+  SaveServiceFacilityInputSchema,
+  SearchBillingClaimsInputSchema,
   SearchBillingClaimsResponse,
   SearchBillingErasResponse,
-  SearchBillingLocationsInput,
+  SearchBillingLocationsInputSchema,
   SearchBillingLocationsResponse,
-  SearchBillingPatientsInput,
+  SearchBillingPatientsInputSchema,
   SearchBillingPatientsResponse,
-  SearchBillingPayersInput,
+  SearchBillingPayersInputSchema,
   SearchBillingPayersResponse,
-  SearchBillingProvidersInput,
+  SearchBillingProvidersInputSchema,
   SearchBillingProvidersResponse,
   SearchBillingTagsResponse,
-  SearchErasInput,
-  SearchServiceFacilitiesInput,
+  SearchErasInputSchema,
+  SearchServiceFacilitiesInputSchema,
   SearchServiceFacilitiesResponse,
-  TagBillingClaimInput,
+  TagBillingClaimInputSchema,
   TaggedClaimResponse,
-  UpdateBillingPatientInput,
-  UpdateBillingProviderInput,
-  UpdateBillingResourceInput,
+  UpdateBillingCoverageInputSchema,
+  UpdateBillingPatientInputSchema,
+  UpdateBillingProviderInputSchema,
+  UpdateBillingResourceInputSchema,
 } from 'utils';
+import z from 'zod';
 
 async function executeBillingZambda<T>(oystehr: Oystehr, id: string, parameters?: Record<string, unknown>): Promise<T> {
   try {
@@ -60,104 +64,121 @@ async function executeBillingZambda<T>(oystehr: Oystehr, id: string, parameters?
 
 export const createBillingPatient = (
   oystehr: Oystehr,
-  parameters: CreateBillingPatientInput
+  parameters: z.input<typeof CreateBillingPatientInputSchema>
 ): Promise<CreatedResourceResponse> => executeBillingZambda(oystehr, 'create-billing-patient', parameters);
 
 export const searchBillingPatients = (
   oystehr: Oystehr,
-  parameters: SearchBillingPatientsInput
+  parameters: z.input<typeof SearchBillingPatientsInputSchema>
 ): Promise<SearchBillingPatientsResponse> => executeBillingZambda(oystehr, 'search-billing-patients', parameters);
 
 export const getBillingPatientDetail = (
   oystehr: Oystehr,
-  parameters: GetPatientDetailInput
+  parameters: z.input<typeof GetPatientDetailInputSchema>
 ): Promise<PatientDetailResponse> => executeBillingZambda(oystehr, 'get-billing-patient-detail', parameters);
 
 export const updateBillingPatient = (
   oystehr: Oystehr,
-  parameters: UpdateBillingPatientInput
+  parameters: z.input<typeof UpdateBillingPatientInputSchema>
 ): Promise<CreatedResourceResponse> => executeBillingZambda(oystehr, 'update-billing-patient', parameters);
 
 // --- Claims ---
 
 export const createBillingClaim = (
   oystehr: Oystehr,
-  parameters: CreateBillingClaimInput
+  parameters: z.input<typeof CreateBillingClaimInputSchema>
 ): Promise<CreatedClaimResponse> => executeBillingZambda(oystehr, 'create-billing-claim', parameters);
 
 export const searchBillingClaims = (
   oystehr: Oystehr,
-  parameters: SearchBillingClaimsInput
+  parameters: z.input<typeof SearchBillingClaimsInputSchema>
 ): Promise<SearchBillingClaimsResponse> => executeBillingZambda(oystehr, 'search-billing-claims', parameters);
 
 export const getBillingClaimDetail = (
   oystehr: Oystehr,
-  parameters: GetClaimDetailInput
+  parameters: z.input<typeof GetClaimDetailInputSchema>
 ): Promise<ClaimDetailResponse> => executeBillingZambda(oystehr, 'get-billing-claim-detail', parameters);
 
 export const updateBillingResource = (
   oystehr: Oystehr,
-  parameters: UpdateBillingResourceInput
+  parameters: z.input<typeof UpdateBillingResourceInputSchema>
 ): Promise<SavedResourceResponse> => executeBillingZambda(oystehr, 'update-billing-claim', parameters);
 
-export const tagBillingClaim = (oystehr: Oystehr, parameters: TagBillingClaimInput): Promise<TaggedClaimResponse> =>
-  executeBillingZambda(oystehr, 'tag-billing-claim', parameters);
+export const tagBillingClaim = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof TagBillingClaimInputSchema>
+): Promise<TaggedClaimResponse> => executeBillingZambda(oystehr, 'tag-billing-claim', parameters);
 
 // --- Providers ---
 
 export const createBillingProvider = (
   oystehr: Oystehr,
-  parameters: CreateBillingProviderInput
+  parameters: z.input<typeof CreateBillingProviderInputSchema>
 ): Promise<CreatedResourceResponse> => executeBillingZambda(oystehr, 'create-billing-provider', parameters);
 
 export const searchBillingProviders = (
   oystehr: Oystehr,
-  parameters: SearchBillingProvidersInput
+  parameters: z.input<typeof SearchBillingProvidersInputSchema>
 ): Promise<SearchBillingProvidersResponse> => executeBillingZambda(oystehr, 'search-billing-providers', parameters);
 
 export const updateBillingProvider = (
   oystehr: Oystehr,
-  parameters: UpdateBillingProviderInput
+  parameters: z.input<typeof UpdateBillingProviderInputSchema>
 ): Promise<CreatedResourceResponse> => executeBillingZambda(oystehr, 'update-billing-provider', parameters);
 
 export const deleteBillingProvider = (
   oystehr: Oystehr,
-  parameters: DeleteBillingProviderInput
+  parameters: z.input<typeof DeleteBillingProviderInputSchema>
 ): Promise<DeletedResponse> => executeBillingZambda(oystehr, 'delete-billing-provider', parameters);
 
 // --- Lookups (payers, locations, coverages) ---
 
 export const searchBillingPayers = (
   oystehr: Oystehr,
-  parameters: SearchBillingPayersInput
+  parameters: z.input<typeof SearchBillingPayersInputSchema>
 ): Promise<SearchBillingPayersResponse> => executeBillingZambda(oystehr, 'search-billing-payers', parameters);
 
 export const searchBillingLocations = (
   oystehr: Oystehr,
-  parameters: SearchBillingLocationsInput
+  parameters: z.input<typeof SearchBillingLocationsInputSchema>
 ): Promise<SearchBillingLocationsResponse> => executeBillingZambda(oystehr, 'search-billing-locations', parameters);
 
 export const getPatientCoverages = (
   oystehr: Oystehr,
-  parameters: GetPatientCoveragesInput
+  parameters: z.input<typeof GetPatientCoveragesInputSchema>
 ): Promise<GetPatientCoveragesResponse> => executeBillingZambda(oystehr, 'get-patient-coverages', parameters);
+
+export const createBillingCoverage = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof CreateBillingCoverageInputSchema>
+): Promise<CreatedResourceResponse> => executeBillingZambda(oystehr, 'create-billing-coverage', parameters);
+
+export const updateBillingCoverage = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof UpdateBillingCoverageInputSchema>
+): Promise<SavedResourceResponse> => executeBillingZambda(oystehr, 'update-billing-coverage', parameters);
+
+export const deleteBillingCoverage = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof DeleteBillingCoverageInputSchema>
+): Promise<DeletedResponse> => executeBillingZambda(oystehr, 'delete-billing-coverage', parameters);
 
 // --- Service Facilities ---
 
 export const searchBillingServiceFacilities = (
   oystehr: Oystehr,
-  parameters: SearchServiceFacilitiesInput
+  parameters: z.input<typeof SearchServiceFacilitiesInputSchema>
 ): Promise<SearchServiceFacilitiesResponse> =>
   executeBillingZambda(oystehr, 'search-billing-service-facilities', parameters);
 
 export const saveBillingServiceFacility = (
   oystehr: Oystehr,
-  parameters: SaveServiceFacilityInput
+  parameters: z.input<typeof SaveServiceFacilityInputSchema>
 ): Promise<SavedResourceResponse> => executeBillingZambda(oystehr, 'save-billing-service-facility', parameters);
 
 export const deleteBillingServiceFacility = (
   oystehr: Oystehr,
-  parameters: DeleteServiceFacilityInput
+  parameters: z.input<typeof DeleteServiceFacilityInputSchema>
 ): Promise<DeletedResponse> => executeBillingZambda(oystehr, 'delete-billing-service-facility', parameters);
 
 // --- Tags ---
@@ -165,16 +186,24 @@ export const deleteBillingServiceFacility = (
 export const searchBillingTags = (oystehr: Oystehr): Promise<SearchBillingTagsResponse> =>
   executeBillingZambda(oystehr, 'search-billing-tags');
 
-export const saveBillingTag = (oystehr: Oystehr, parameters: SaveBillingTagInput): Promise<SavedResourceResponse> =>
-  executeBillingZambda(oystehr, 'save-billing-tag', parameters);
+export const saveBillingTag = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof SaveBillingTagInputSchema>
+): Promise<SavedResourceResponse> => executeBillingZambda(oystehr, 'save-billing-tag', parameters);
 
-export const deleteBillingTag = (oystehr: Oystehr, parameters: DeleteBillingTagInput): Promise<DeletedResponse> =>
-  executeBillingZambda(oystehr, 'delete-billing-tag', parameters);
+export const deleteBillingTag = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof DeleteBillingTagInputSchema>
+): Promise<DeletedResponse> => executeBillingZambda(oystehr, 'delete-billing-tag', parameters);
 
 // --- ERAs ---
 
-export const searchBillingEras = (oystehr: Oystehr, parameters: SearchErasInput): Promise<SearchBillingErasResponse> =>
-  executeBillingZambda(oystehr, 'search-billing-eras', parameters);
+export const searchBillingEras = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof SearchErasInputSchema>
+): Promise<SearchBillingErasResponse> => executeBillingZambda(oystehr, 'search-billing-eras', parameters);
 
-export const getBillingEraDetail = (oystehr: Oystehr, parameters: GetEraDetailInput): Promise<EraDetailResponse> =>
-  executeBillingZambda(oystehr, 'get-billing-era-detail', parameters);
+export const getBillingEraDetail = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof GetEraDetailInputSchema>
+): Promise<EraDetailResponse> => executeBillingZambda(oystehr, 'get-billing-era-detail', parameters);
