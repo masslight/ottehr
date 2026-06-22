@@ -50,10 +50,9 @@ export async function produceInvoiceDueOutreach(
 
   console.log(`produceInvoiceDueOutreach: Found ${pastDueInvoices.length} past-due Stripe invoices to evaluate`);
 
-  // Load the configured invoice-due actions once. The daily cron generates only the single
-  // most-recent already-elapsed milestone per action type (see selectApplicableInvoiceDueActionIds),
-  // rather than pre-materializing the whole escalation schedule. This prevents an invoice first seen
-  // already past several milestones (e.g. 8-day and 22-day) from firing all of them at once.
+  // Load the configured invoice-due actions once. send-notification actions are edge-triggered
+  // (fire only on the exact milestone day); other types (e.g. charge-card) keep the single
+  // most-recent already-elapsed milestone per type. See selectApplicableInvoiceDueActionIds.
   const planDefinition = await getOrCreateOutreachConfig(oystehr);
   const invoiceDueActions = parsePlanDefinitionToActions(planDefinition).filter(
     (a) => a.trigger.event === 'invoice-due' && a.enabled !== false
@@ -96,9 +95,8 @@ export async function produceInvoiceDueOutreach(
         console.warn(`Could not fetch Encounter ${encounterId} for appointment lookup:`, err);
       }
 
-      // Only generate the most-recent already-elapsed milestone(s) per action type for this
-      // invoice. Future milestones are skipped now and created on the day they become due by a
-      // later cron run; earlier elapsed milestones are superseded by the latest one.
+      // Choose which actions fire today: send-notification only on its exact milestone day,
+      // other types on their most-recent already-elapsed milestone. See the selection helper.
       const applicableActionIds = selectApplicableInvoiceDueActionIds(invoiceDueActions, dueDate);
 
       const result = await produceOutreachTasks({
@@ -138,26 +136,42 @@ export async function produceInvoiceDueOutreach(
 }
 
 /**
- * For a single invoice, choose only the most-recent already-elapsed milestone per action type.
+ * For a single invoice, choose which actions fire today. Selection differs by action type:
  *
- * The invoice-due cron runs daily, so it does not need to pre-materialize the entire escalation
- * schedule. For each action type (send-notification, charge-card, ...) we keep only the action
- * whose computed due time has already passed and is the latest among the elapsed ones. Future
- * milestones are intentionally excluded here — a later cron run creates them on the day they
- * become due. This guarantees that an invoice first seen already past several milestones (e.g.
- * 8-day and 22-day notifications) generates a task for the latest milestone only, instead of all
- * of them firing at once. Suppression is scoped per action type so, for example, a later
- * notification never suppresses a separately-configured charge-card action.
+ * - `send-notification` actions are EDGE-triggered: an action fires only on the exact calendar day
+ *   its milestone falls (today === dueDate + offset). This makes notifications naturally idempotent
+ *   — a cancelled or completed message is never regenerated on a later day because the trigger is
+ *   true for one day only. The deliberate tradeoff is no catch-up: if the cron misses its run on the
+ *   milestone day, that notification is permanently skipped (accepted per product decision).
  *
- * Ties (multiple actions of the same type configured at the same offset) are all kept, since they
- * represent distinct messages the operator intentionally configured.
+ * - All other action types (e.g. `charge-card`) remain LEVEL-triggered: the most-recent
+ *   already-elapsed milestone per type is kept, so a past-due invoice first seen after a milestone
+ *   still gets actioned (self-healing catch-up). Future milestones are excluded; a later cron run
+ *   creates them when they become due. Ties (same-type actions at the same offset) are all kept.
+ *
+ * Selection is scoped per action type, so a notification never suppresses a charge-card and vice versa.
  */
 export function selectApplicableInvoiceDueActionIds(actions: OutreachAction[], eventTimestamp: string): Set<string> {
-  const nowMs = DateTime.now().toMillis();
+  const now = DateTime.now();
+  const nowMs = now.toMillis();
+  const today = now.startOf('day');
 
+  const survivors = new Set<string>();
   const elapsedByType = new Map<string, { actionId: string; dueMs: number }[]>();
+
   for (const action of actions) {
-    const dueMs = DateTime.fromISO(calculateDueDateTime(eventTimestamp, action)).toMillis();
+    const dueIso = calculateDueDateTime(eventTimestamp, action);
+
+    if (action.actionType === 'send-notification') {
+      // Edge-triggered: fire only on the exact day the milestone lands.
+      if (DateTime.fromISO(dueIso).startOf('day').equals(today)) {
+        survivors.add(action.id);
+      }
+      continue;
+    }
+
+    // Level-triggered: collect elapsed milestones; the latest per type is kept below.
+    const dueMs = DateTime.fromISO(dueIso).toMillis();
     if (dueMs <= nowMs) {
       const group = elapsedByType.get(action.actionType) ?? [];
       group.push({ actionId: action.id, dueMs });
@@ -165,7 +179,6 @@ export function selectApplicableInvoiceDueActionIds(actions: OutreachAction[], e
     }
   }
 
-  const survivors = new Set<string>();
   for (const group of elapsedByType.values()) {
     const maxDueMs = Math.max(...group.map((g) => g.dueMs));
     for (const g of group) {

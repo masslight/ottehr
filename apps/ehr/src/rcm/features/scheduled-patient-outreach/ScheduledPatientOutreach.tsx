@@ -1447,7 +1447,7 @@ export default function ScheduledPatientOutreach({ outreachTab }: { outreachTab?
                         <Accordion
                           key={action.id}
                           defaultExpanded={false}
-                          sx={{ mb: 1, opacity: action.enabled ? 1 : 0.5 }}
+                          sx={{ mb: 1, opacity: action.enabled !== false ? 1 : 0.5 }}
                         >
                           <AccordionSummary expandIcon={<ExpandMoreIcon />}>
                             <Stack
