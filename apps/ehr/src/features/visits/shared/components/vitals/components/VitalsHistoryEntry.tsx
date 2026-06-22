@@ -6,9 +6,8 @@ import { DateTime } from 'luxon';
 import React, { JSX, useState } from 'react';
 import {
   celsiusToFahrenheit,
-  cmToFeet,
-  cmToInches,
   formatDateTimeToLocalTimezone,
+  formatHeightObservationValue,
   formatWeightKg,
   formatWeightLbs,
   getVisionExtraOptionsFormattedString,
@@ -128,7 +127,7 @@ export const getObservationValueElements = (
     case 'vital-temperature':
       return [
         `${roundTemperatureValue(historyEntry.value)} C`,
-        ` = ${celsiusToFahrenheit(historyEntry.value).toFixed(1)} F`,
+        ` ≈ ${celsiusToFahrenheit(historyEntry.value).toFixed(1)} F`,
       ];
     case 'vital-oxygen-sat':
       return [`${historyEntry.value}%`];
@@ -146,19 +145,15 @@ export const getObservationValueElements = (
         const kgStr = formatWeightKg(historyEntry.value) + ' kg';
         const lbsStr = formatWeightLbs(historyEntry.value) + ' lbs';
         if (vitalsConfig['vital-weight'].unit == 'kg') {
-          return [kgStr, ` = ${lbsStr}`];
+          return [kgStr, ` ≈ ${lbsStr}`];
         } else {
-          return [lbsStr, ` = ${kgStr}`];
+          return [lbsStr, ` ≈ ${kgStr}`];
         }
       }
       return [];
     }
     case 'vital-height':
-      return [
-        `${historyEntry.value} cm`,
-        ` = ${cmToInches(historyEntry.value).toFixed(1)} in`,
-        ` = ${cmToFeet(historyEntry.value).toFixed(1)} ft`,
-      ];
+      return [formatHeightObservationValue(historyEntry.value)];
     case 'vital-vision':
       return [
         <>

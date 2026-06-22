@@ -14,11 +14,8 @@ import {
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
-  chooseJson,
   createCancellationTagOperations,
   FHIR_RESOURCE_NOT_FOUND_CUSTOM,
-  GetChartDataRequest,
-  GetChartDataResponse,
   getMedicationFromMA,
   getMedicationName,
   getMedicationTypeCode,
@@ -34,18 +31,19 @@ import {
   MedicationOrderStatusesType,
   OrderPackage,
   replaceOperation,
-  SaveChartDataRequest,
   searchMedicationLocation,
   searchRouteByCode,
   UpdateMedicationOrderInput,
 } from 'utils';
 import {
+  assertDefined,
   checkOrCreateM2MClientToken,
   createOystehrClient,
   getMyPractitionerId,
   wrapHandler,
   ZambdaInput,
 } from '../../shared';
+import { makeProcedureResource } from '../../shared/chart-data';
 import {
   createMedicationAdministrationResource,
   createMedicationRequest,
@@ -74,7 +72,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const practitionerId = await getMyPractitionerId(userToken, validatedParameters.secrets);
   console.log('Created zapToken, fhir and clients.');
 
-  const response = await performEffect(oystehr, validatedParameters, practitionerId, userToken);
+  const response = await performEffect(oystehr, validatedParameters, practitionerId);
   return {
     statusCode: 200,
     body: JSON.stringify(response),
@@ -84,8 +82,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 async function performEffect(
   oystehr: Oystehr,
   params: UpdateMedicationOrderInput,
-  practitionerIdCalledZambda: string,
-  userToken: string
+  practitionerIdCalledZambda: string
 ): Promise<any> {
   const { orderId, newStatus, orderData } = params;
   if (orderId && orderData) {
@@ -99,7 +96,6 @@ async function performEffect(
         encounterIdFromMA,
         newStatus,
         orderResources.medicationAdministration,
-        userToken,
         orderData.cptCodes
       );
     } else console.log('Manage additional CPT codes for order was skipped because no encounterId was found in MA');
@@ -118,8 +114,7 @@ async function performEffect(
         oystehr,
         encounterIdFromMA,
         newStatus,
-        orderResources.medicationAdministration,
-        userToken
+        orderResources.medicationAdministration
       );
     } else console.log('Manage additional CPT codes for order was skipped because no encounterId was found in MA');
 
@@ -303,9 +298,13 @@ async function createOrder(
 
   const routeCoding = searchRouteByCode(orderData.route);
   if (!routeCoding) throw INVALID_INPUT_ERROR(`No medication appliance route was found for code: ${orderData.route}`);
-  const locationCoding = orderData.location ? searchMedicationLocation(orderData.location) : undefined;
+  const locationCoding = orderData.location
+    ? searchMedicationLocation(orderData.location.code, orderData.location.name)
+    : undefined;
   if (orderData.location && !locationCoding)
-    throw INVALID_INPUT_ERROR(`No location found with code provided: ${orderData.location}`);
+    throw INVALID_INPUT_ERROR(
+      `No location found with code/name provided: ${orderData.location.code} / ${orderData.location.name}`
+    );
 
   const medicationRequestToCreate = createMedicationRequest(orderData, interactions, medicationCopy);
   const medicationRequestFullUrl = 'urn:uuid:' + randomUUID();
@@ -452,59 +451,52 @@ async function manageAdditionalCptCodesForOrder(
   encounterId: string,
   medicationStatus: MedicationOrderStatusesType,
   medicationAdministration: MedicationAdministration,
-  userToken: string,
   cptCodes?: { code: string; display: string }[]
 ): Promise<void> {
   try {
     console.log(`Managing additional CPT codes for order with status: ${medicationStatus}`);
 
-    if (statusesToCreateAdditionalCptCodes.includes(medicationStatus)) {
-      let orderCptCodes: { code: string; display: string }[] = cptCodes ?? [];
-      if (!cptCodes) {
-        // Read CPT codes from the MedicationAdministration extension — this is the
-        // single source of truth for the order's CPT codes. It includes auto-populated
-        // codes from the Medication resource (inventory defaults) plus any user edits.
-        const cptExt = medicationAdministration.extension?.find(
-          (ext) => ext.url === 'https://fhir.ottehr.com/Extension/medication-cpt-codes'
-        );
-        if (cptExt?.valueString) {
-          try {
-            orderCptCodes = JSON.parse(cptExt.valueString) as { code: string; display: string }[];
-          } catch (e) {
-            console.log('Failed to parse CPT codes extension', e, JSON.stringify(e));
-            captureException(e);
-          }
+    if (!statusesToCreateAdditionalCptCodes.includes(medicationStatus)) return;
+
+    let orderCptCodes: { code: string; display: string }[] = cptCodes ?? [];
+    if (!cptCodes) {
+      // Read CPT codes from the MedicationAdministration extension — this is the
+      // single source of truth for the order's CPT codes. It includes auto-populated
+      // codes from the Medication resource (inventory defaults) plus any user edits.
+      const cptExt = medicationAdministration.extension?.find(
+        (ext) => ext.url === 'https://fhir.ottehr.com/Extension/medication-cpt-codes'
+      );
+      if (cptExt?.valueString) {
+        try {
+          orderCptCodes = JSON.parse(cptExt.valueString) as { code: string; display: string }[];
+        } catch (e) {
+          console.log('Failed to parse CPT codes extension', e, JSON.stringify(e));
+          captureException(e);
         }
       }
-
-      if (orderCptCodes.length === 0) {
-        console.log('No CPT codes on this order, skipping chart data update');
-        return;
-      }
-
-      console.log('Adding CPT codes to chart data from order');
-      const chartDataResponse = await oystehr.zambda.execute(
-        { id: 'get-chart-data', encounterId } as GetChartDataRequest & { id: string },
-        { accessToken: userToken }
-      );
-      const chartData = chooseJson(chartDataResponse) as GetChartDataResponse;
-      const chartDataCptCodes = chartData.cptCodes?.map((code) => code.code) ?? [];
-
-      const codesToAddToChartData = orderCptCodes.filter((oc) => !chartDataCptCodes.includes(oc.code));
-
-      console.log(
-        'Codes to add to chart data: ',
-        JSON.stringify(codesToAddToChartData.map((coding) => coding.code).join(', '))
-      );
-
-      if (codesToAddToChartData.length === 0) return;
-      const saveChartDataInput: SaveChartDataRequest = {
-        encounterId,
-        cptCodes: codesToAddToChartData,
-      };
-      await oystehr.zambda.execute({ id: 'save-chart-data', ...saveChartDataInput }, { accessToken: userToken });
-      console.log('Additional CPT codes added to chart data');
     }
+
+    if (orderCptCodes.length === 0) {
+      console.log('No CPT codes on this order, skipping Procedure creation');
+      return;
+    }
+
+    console.log('Adding CPT codes to chart data from order');
+    const patientId = assertDefined(
+      medicationAdministration.subject.reference?.replace('Patient/', ''),
+      'MedicationAdministration.subject.reference'
+    );
+    const partOfRef = `MedicationAdministration/${medicationAdministration.id}`;
+
+    console.log('CPT codes to create as Procedures: ', orderCptCodes.map((c) => c.code).join(', '));
+    const requests: BatchInputRequest<FhirResource>[] = orderCptCodes.map((cptCode) => ({
+      method: 'POST',
+      url: '/Procedure',
+      resource: makeProcedureResource(encounterId, patientId, cptCode, 'cpt-code', partOfRef),
+    }));
+
+    await oystehr.fhir.transaction({ requests });
+    console.log(`Created ${requests.length} Procedure resources for medication administration`);
   } catch (e) {
     console.log('Error in manageAdditionalCptCodesForOrder: ', e, JSON.stringify(e));
     captureException(e);

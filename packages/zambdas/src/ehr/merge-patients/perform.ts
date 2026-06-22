@@ -21,8 +21,11 @@ import {
   AUDIT_EVENT_OUTCOME_CODE,
   ChartDataRequestedFields,
   createUserResourcesForPatient,
+  flattenBundleResources,
   flattenQuestionnaireAnswers,
   getCoding,
+  PARTICIPATION_CODE_SYSTEM,
+  PATIENT_FOLDERS_CODE,
   PATIENT_RECORD_QUESTIONNAIRE,
   PRIVATE_EXTENSION_BASE_URL,
   Secrets,
@@ -31,6 +34,7 @@ import { getStripeClient } from '../../shared';
 import { getChartData } from '../get-chart-data';
 import {
   accountMatchesType,
+  coveragesAreSame,
   createMasterRecordPatchOperations,
   createUpdatePharmacyPatchOps,
   getAccountAndCoverageResourcesForPatient,
@@ -205,6 +209,7 @@ export async function performMerge(input: PerformMergeInput, oystehr: Oystehr, m
   // ════════════════════════════════════════════════════════════════════════
   console.log('Step 1: Applying merged patient record fields');
 
+  let mainPatientCoverages: Coverage[] | undefined;
   const items = questionnaireResponse.item ?? [];
   if (items.length > 0) {
     const questionnaire = PATIENT_RECORD_QUESTIONNAIRE();
@@ -267,7 +272,7 @@ export async function performMerge(input: PerformMergeInput, oystehr: Oystehr, m
     }
 
     try {
-      await updatePatientAccountFromQuestionnaire(
+      const resultBundle = await updatePatientAccountFromQuestionnaire(
         {
           questionnaireResponseItem: items,
           patientId: mainPatientId,
@@ -277,6 +282,8 @@ export async function performMerge(input: PerformMergeInput, oystehr: Oystehr, m
         },
         oystehr
       );
+      const resources = flattenBundleResources<FhirResource>(resultBundle);
+      mainPatientCoverages = resources.filter((r) => r.resourceType === 'Coverage');
     } catch (error: any) {
       console.error(
         `Error: Step 1 updatePatientAccountFromQuestionnaire failed for Patient/${mainPatientId}.`,
@@ -448,7 +455,7 @@ export async function performMerge(input: PerformMergeInput, oystehr: Oystehr, m
         resourceType: 'List',
         params: [
           { name: 'subject', value: oldPatientRef },
-          { name: 'code', value: 'patient-docs-folder' },
+          { name: 'code', value: PATIENT_FOLDERS_CODE },
           { name: '_count', value: '100' },
         ],
       })
@@ -458,7 +465,7 @@ export async function performMerge(input: PerformMergeInput, oystehr: Oystehr, m
         resourceType: 'List',
         params: [
           { name: 'subject', value: newPatientRef },
-          { name: 'code', value: 'patient-docs-folder' },
+          { name: 'code', value: PATIENT_FOLDERS_CODE },
           { name: '_count', value: '100' },
         ],
       })
@@ -708,6 +715,8 @@ export async function performMerge(input: PerformMergeInput, oystehr: Oystehr, m
     requests.push({ method: 'PUT', url: `/Account/${id}`, resource: acct as FhirResource });
   }
 
+  console.log('mainPatientCoverages', mainPatientCoverages?.map((c) => `Coverage/${c.id}`));
+
   const coverages = (
     await oystehr.fhir.search<Coverage>({
       resourceType: 'Coverage',
@@ -717,6 +726,7 @@ export async function performMerge(input: PerformMergeInput, oystehr: Oystehr, m
       ],
     })
   ).unbundle();
+
   for (const coverage of coverages) {
     if (!coverage.id || processedIds.has(`Coverage/${coverage.id}`)) continue;
     processedIds.add(`Coverage/${coverage.id}`);
@@ -729,7 +739,27 @@ export async function performMerge(input: PerformMergeInput, oystehr: Oystehr, m
       coverage.subscriber!.reference = newPatientRef;
       changed = true;
     }
+
+    if (mainPatientCoverages && mainPatientCoverages.length > 0) {
+      // check to see if a coverage for the main already exists
+      const coverageIsDuplicated = mainPatientCoverages.some((coverageForMainPatient) => {
+        const duplicated = coveragesAreSame(coverageForMainPatient, coverage);
+        if (duplicated) {
+          console.log('these coverages are flagged as duplicates: ', coverageForMainPatient.id, coverage.id);
+        }
+        return duplicated;
+      });
+
+      if (coverageIsDuplicated) {
+        // if duplicated, we should still move the coverage under the new main patient
+        // but mark it cancelled
+        coverage.status = 'cancelled';
+        changed = true;
+      }
+    }
+
     if (!changed) continue;
+
     requests.push({ method: 'PUT', url: `/Coverage/${coverage.id}`, resource: coverage as FhirResource });
   }
 
@@ -841,7 +871,7 @@ export async function performMerge(input: PerformMergeInput, oystehr: Oystehr, m
         type: {
           coding: [
             {
-              system: 'http://terminology.hl7.org/CodeSystem/v3-ParticipationType',
+              system: PARTICIPATION_CODE_SYSTEM,
               code: 'AUT',
               display: 'author (originator)',
             },

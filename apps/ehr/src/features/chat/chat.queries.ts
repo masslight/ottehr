@@ -95,6 +95,7 @@ export interface QuickTextsContext {
   patientLastName?: string;
   visitId?: string;
   locationName?: string;
+  locationReviewLink?: string;
   bookingTime?: string;
   officePhone?: string;
   supportPhone?: string;
@@ -113,6 +114,7 @@ export const QUICK_TEXT_TOKEN_IDS = [
   'ai-interview-url',
   'practice-name',
   'location-name',
+  'location-review-link',
   'booking-time',
   'office-phone',
   'support-phone',
@@ -126,6 +128,7 @@ export const buildQuickTextVariables = (ctx: QuickTextsContext): Record<string, 
     ctx.patientAppUrl && ctx.visitId ? `${ctx.patientAppUrl}/visit/${ctx.visitId}/ai-interview-start` : '',
   'practice-name': BRANDING_CONFIG.projectName,
   'location-name': ctx.locationName ?? '',
+  'location-review-link': ctx.locationReviewLink ?? '',
   'booking-time': ctx.bookingTime ?? '',
   'office-phone': ctx.officePhone ?? '',
   'support-phone': ctx.supportPhone ?? '',

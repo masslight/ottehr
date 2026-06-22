@@ -6,7 +6,7 @@ import { useChartFields } from './shared/hooks/useChartFields';
 import { useDebounceNotesField } from './shared/hooks/useDebounceNotesField';
 
 export const ChiefComplaintField: FC = () => {
-  const { data: chartDataFields } = useChartFields({
+  const { data: chartDataFields, isFetched: isChartDataFetched } = useChartFields({
     requestedFields: {
       historyOfPresentIllness: {
         _tag: 'history-of-present-illness',
@@ -21,10 +21,10 @@ export const ChiefComplaintField: FC = () => {
   });
 
   useEffect(() => {
-    if (chartDataFields?.historyOfPresentIllness?.text !== undefined) {
-      methods.setValue('chiefComplaint', chartDataFields.historyOfPresentIllness.text);
+    if (isChartDataFetched) {
+      methods.setValue('chiefComplaint', chartDataFields?.historyOfPresentIllness?.text ?? '');
     }
-  }, [chartDataFields?.historyOfPresentIllness?.text, methods]);
+  }, [chartDataFields?.historyOfPresentIllness?.text, isChartDataFetched, methods]);
 
   const { control } = methods;
 

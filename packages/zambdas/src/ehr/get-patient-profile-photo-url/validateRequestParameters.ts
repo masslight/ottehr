@@ -1,11 +1,15 @@
-import { GetOrUploadPatientProfilePhotoInputSchema, GetOrUploadPatientProfilePhotoInputValidated } from 'utils';
+import {
+  GetOrUploadPatientProfilePhotoInputSchema,
+  GetOrUploadPatientProfilePhotoInputValidated,
+  MISSING_REQUEST_BODY,
+} from 'utils';
 import { safeValidate, ZambdaInput } from '../../shared';
 
 export function validateRequestParameters(input: ZambdaInput): GetOrUploadPatientProfilePhotoInputValidated {
   console.group('validateRequestParameters');
 
   if (!input.body) {
-    throw new Error('No request body provided');
+    throw MISSING_REQUEST_BODY;
   }
 
   const parsed = JSON.parse(input.body) as unknown;

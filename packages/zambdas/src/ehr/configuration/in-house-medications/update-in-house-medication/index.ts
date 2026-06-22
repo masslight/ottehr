@@ -3,8 +3,6 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
 import { Medication } from 'fhir/r4b';
 import {
-  CODE_SYSTEM_CPT,
-  CODE_SYSTEM_HCPCS,
   CODE_SYSTEM_NDC,
   getMedicationName,
   MEDICATION_DISPENSABLE_DRUG_ID,
@@ -20,7 +18,7 @@ let m2mToken: string;
 export const index = wrapHandler(
   'admin-update-in-house-medication',
   async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-    const { medicationID, status, name, ndc, medispanID, medispanIDForInteractions, cptCodes, hcpcsCodes, secrets } =
+    const { medicationID, status, name, ndc, medispanID, medispanIDForInteractions, secrets } =
       validateRequestParameters(input);
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
 
@@ -33,8 +31,6 @@ export const index = wrapHandler(
       ndc,
       medispanID,
       medispanIDForInteractions,
-      cptCodes,
-      hcpcsCodes,
       status,
     });
     return {
@@ -48,7 +44,7 @@ export const performEffect = async (
   oystehr: Oystehr,
   updateDetail: UpdateInHouseMedicationInput
 ): Promise<Medication> => {
-  const { medicationID, name, ndc, medispanID, medispanIDForInteractions, cptCodes, hcpcsCodes, status } = updateDetail;
+  const { medicationID, name, ndc, medispanID, medispanIDForInteractions, status } = updateDetail;
   const medication = await oystehr.fhir.get<Medication>({
     resourceType: 'Medication',
     id: medicationID,
@@ -80,17 +76,15 @@ export const performEffect = async (
   const medispanChanged = medispanID !== undefined && medispanID !== existingMedispanID;
   const medispanForInteractionsChanged =
     medispanIDForInteractions !== undefined && medispanIDForInteractions !== existingMedispanIDForInteractions;
-  const codesChanged = cptCodes !== undefined || hcpcsCodes !== undefined;
 
   // Rebuild /code/coding as a single op so we don't rely on /code or /code/coding
   // already existing on the resource (append-style ops fail otherwise).
-  if (ndcChanged || medispanChanged || medispanForInteractionsChanged || codesChanged) {
+  if (ndcChanged || medispanChanged || medispanForInteractionsChanged) {
     const otherCodings = existingCodings.filter(
       (c) =>
         c.system !== CODE_SYSTEM_NDC &&
         c.system !== MEDICATION_DISPENSABLE_DRUG_ID &&
-        c.system !== CODE_SYSTEM_CPT &&
-        c.system !== CODE_SYSTEM_HCPCS
+        c.system !== MEDICATION_DISPENSABLE_DRUG_ID_FOR_INTERACTIONS
     );
     const hadNdc = existingCodings.some((c) => c.system === CODE_SYSTEM_NDC);
     const hadMedispan = existingCodings.some((c) => c.system === MEDICATION_DISPENSABLE_DRUG_ID);
@@ -112,25 +106,11 @@ export const performEffect = async (
             },
           ]
         : [];
-    const resolvedCptCodings = (
-      cptCodes ??
-      existingCodings
-        .filter((c) => c.system === CODE_SYSTEM_CPT)
-        .map((c) => ({ code: c.code!, display: c.display ?? '' }))
-    ).map(({ code, display }) => ({ system: CODE_SYSTEM_CPT, code, display }));
-    const resolvedHcpcsCodings = (
-      hcpcsCodes ??
-      existingCodings
-        .filter((c) => c.system === CODE_SYSTEM_HCPCS)
-        .map((c) => ({ code: c.code!, display: c.display ?? '' }))
-    ).map(({ code, display }) => ({ system: CODE_SYSTEM_HCPCS, code, display }));
     const newCoding = [
       ...otherCodings,
       ...resolvedNdcCoding,
       ...resolvedMedispanCoding,
       ...resolvedMedispanForInteractionsCoding,
-      ...resolvedCptCodings,
-      ...resolvedHcpcsCodings,
     ];
     if (medication.code === undefined) {
       patchOperations.push({ op: 'add', path: '/code', value: { coding: newCoding } });

@@ -6,6 +6,11 @@ export interface CommandPaletteItem {
   category: string;
   onSelect: () => void;
   keywords?: string[];
+  /** When set, marks this item as a child of another item with the matching id.
+   *  The renderer indents children below their parent within the same group
+   *  to communicate hierarchy (e.g. "Tracking Board" parent with sub-tab
+   *  children). Children remain independently selectable. */
+  parentId?: string;
 }
 
 interface CommandPaletteSource {

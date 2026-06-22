@@ -5,7 +5,7 @@ import { ContactPoint, Identifier, Practitioner } from 'fhir/r4b';
 import {
   allLicensesForPractitioner,
   FHIR_IDENTIFIER_NPI,
-  getPractitionerNPIIdentifier,
+  getNPIIdentifier,
   makeQualificationForPractitioner,
   PractitionerLicense,
   Secrets,
@@ -268,7 +268,7 @@ function updatePractitionerNPI(localClinician: Practitioner, remoteClinician: Re
   };
 
   if (localClinician.identifier) {
-    const foundIdentifier = getPractitionerNPIIdentifier(localClinician);
+    const foundIdentifier = getNPIIdentifier(localClinician);
     if (foundIdentifier && foundIdentifier.value !== identifier.value) {
       foundIdentifier.value = identifier.value;
     } else if (!foundIdentifier) localClinician.identifier.push(identifier);

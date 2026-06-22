@@ -4,7 +4,7 @@ import {
   UpdateInvoiceTaskZambdaInput,
   UpdateInvoiceTaskZambdaInputSchema,
 } from 'utils';
-import { ZambdaInput } from '../../shared';
+import { safeValidate, ZambdaInput } from '../../shared';
 
 export function validateRequestParameters(
   input: ZambdaInput
@@ -13,7 +13,7 @@ export function validateRequestParameters(
   if (input.secrets == null) throw MISSING_REQUEST_SECRETS;
 
   const parsedJSON = JSON.parse(input.body);
-  const { taskId, status, invoiceTaskInput } = UpdateInvoiceTaskZambdaInputSchema.parse(parsedJSON);
+  const { taskId, status, invoiceTaskInput } = safeValidate(UpdateInvoiceTaskZambdaInputSchema, parsedJSON);
 
   return {
     taskId,

@@ -139,7 +139,7 @@ export const getTimezone = async ({
         console.error(`timezone not set for ${resourceId}`);
       }
     } catch (e: any) {
-      if (e?.code === 404) {
+      if (e?.code === 404 || e?.code === 410) {
         console.log(`resource "${resourceType}/${resourceId}" not found`, e);
         return undefined;
       }

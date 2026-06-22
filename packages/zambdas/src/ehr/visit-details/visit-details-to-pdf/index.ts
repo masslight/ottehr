@@ -3,9 +3,12 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Organization, Practitioner } from 'fhir/r4b';
 import {
   checkForStripeCustomerDeletedError,
+  getCoding,
   getConsentAndRelatedDocRefsForAppointment,
+  getVisitOccupationalMedicineEmployerFromEncounter,
   PatientPaymentDTO,
   Secrets,
+  SERVICE_CATEGORY_SYSTEM,
   VisitDetailsResponse,
 } from 'utils';
 import {
@@ -119,13 +122,35 @@ export const performEffect = async (
   const pharmacy = accountResources.patient?.contained?.find(
     (resource) => resource.resourceType === 'Organization' && resource.id === PATIENT_CONTAINED_PHARMACY_ID
   ) as Organization;
+
+  const appointmentServiceCategory = getCoding(appointment?.serviceCategory, SERVICE_CATEGORY_SYSTEM)?.code;
+
+  let occupationalMedicineEmployerForPdf = occupationalMedicineEmployerOrganization;
+
+  if (appointmentServiceCategory === 'pre-op') {
+    const visitEmployerRef = getVisitOccupationalMedicineEmployerFromEncounter(encounter);
+
+    if (visitEmployerRef?.reference) {
+      const organizationId = visitEmployerRef.reference.split('/')[1];
+
+      if (organizationId) {
+        occupationalMedicineEmployerForPdf = await oystehr.fhir.get<Organization>({
+          resourceType: 'Organization',
+          id: organizationId,
+        });
+      }
+    } else {
+      occupationalMedicineEmployerForPdf = undefined;
+    }
+  }
+
   const { pdfInfo, attached } = await createVisitDetailsPdf(
     {
       patient,
       emergencyContactResource,
       attorneyRelatedPerson,
       employerOrganization,
-      occupationalMedicineEmployerOrganization,
+      occupationalMedicineEmployerOrganization: occupationalMedicineEmployerForPdf,
       appointment,
       encounter,
       location,

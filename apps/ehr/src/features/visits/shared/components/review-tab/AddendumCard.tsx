@@ -1,74 +1,63 @@
-import { Alert, Box, CircularProgress, TextField, useTheme } from '@mui/material';
-import { FC, useEffect } from 'react';
-import { Controller, useForm } from 'react-hook-form';
+import { Box, Typography } from '@mui/material';
+import { FC } from 'react';
 import { AccordionCard } from 'src/components/AccordionCard';
+import { IN_PERSON_NOTE_ID, NOTE_TYPE, PRIVATE_EXTENSION_BASE_URL } from 'utils';
 import { useChartFields } from '../../hooks/useChartFields';
-import { useDebounceNotesField } from '../../hooks/useDebounceNotesField';
-import { useGetAppointmentAccessibility } from '../../hooks/useGetAppointmentAccessibility';
+import { BoxStyled } from '../generic-notes-list/components/ui/BoxStyled';
+import { defaultNoteLocales } from '../generic-notes-list/default-note-locales.helper';
+import { GenericNoteList } from '../generic-notes-list/GenericNoteList';
+import { GenericNotesConfig } from '../generic-notes-list/types';
+
+const addendumNotesConfig: GenericNotesConfig = {
+  apiConfig: {
+    fieldName: 'notes',
+    type: NOTE_TYPE.ADDENDUM,
+    searchParams: {
+      _search_by: 'encounter',
+      _sort: '-_lastUpdated',
+      _count: 1000,
+      _tag: `${PRIVATE_EXTENSION_BASE_URL}/${NOTE_TYPE.ADDENDUM}|${IN_PERSON_NOTE_ID}`,
+    },
+  },
+  locales: {
+    ...defaultNoteLocales,
+    entityLabel: 'addendum',
+    editModalTitle: 'Edit Addendum',
+    editModalPlaceholder: 'Addendum',
+    getAddButtonText: (isSaving: boolean) => (isSaving ? 'Adding...' : 'Add'),
+  },
+};
 
 export const AddendumCard: FC = () => {
-  const { data: chartFields, isFetching } = useChartFields({
-    requestedFields: {
-      addendumNote: {},
-    },
+  // Surface the legacy single-string addendumNote (Encounter extension) so any pre-existing
+  // content still appears after the migration to per-author NoteDTO entries.
+  const { data: legacyFields } = useChartFields({
+    requestedFields: { addendumNote: {} },
   });
-  const appointmentAccessibility = useGetAppointmentAccessibility();
-  const addendumNote = chartFields?.addendumNote?.text;
-
-  const theme = useTheme();
-
-  const methods = useForm({
-    defaultValues: {
-      addendumNote: addendumNote || '',
-    },
-  });
-
-  useEffect(() => {
-    if (!methods.getValues('addendumNote') && addendumNote) {
-      methods.setValue('addendumNote', addendumNote);
-    }
-  }, [addendumNote, methods]);
-
-  const { control } = methods;
-
-  const { onValueChange, isLoading } = useDebounceNotesField('addendumNote');
+  const legacyAddendumText = legacyFields?.addendumNote?.text;
 
   return (
     <AccordionCard label="Addendum">
-      <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 2, alignItems: 'start' }}>
-        <Alert severity="info" sx={{ bgcolor: theme.palette.info.light, color: theme.palette.info.dark }}>
-          When adding an addendum to this Progress note, please enter your name and date/time
-        </Alert>
+      <GenericNoteList
+        apiConfig={addendumNotesConfig.apiConfig}
+        locales={addendumNotesConfig.locales}
+        separateEncounterNotes={false}
+        alwaysEditable
+        showEditedMarker
+        softDeleteWithTombstone
+        containerSx={{ mt: 0 }}
+      />
 
-        <Controller
-          name="addendumNote"
-          control={control}
-          render={({ field: { value, onChange } }) => (
-            <TextField
-              value={value}
-              onChange={(e) => {
-                onChange(e);
-                onValueChange(e.target.value);
-              }}
-              size="small"
-              label="Notes"
-              disabled={
-                (appointmentAccessibility.isAppointmentReadOnly && !appointmentAccessibility.isAppointmentLocked) ||
-                isFetching
-              }
-              fullWidth
-              multiline
-              InputProps={{
-                endAdornment: isLoading && (
-                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <CircularProgress size="20px" />
-                  </Box>
-                ),
-              }}
-            />
-          )}
-        />
-      </Box>
+      {legacyAddendumText && (
+        <BoxStyled>
+          <Box sx={{ py: 1, pr: 4 }}>
+            <Typography variant="body1">{legacyAddendumText}</Typography>
+            <Typography variant="caption" color="textSecondary" sx={{ display: 'block' }}>
+              Legacy addendum (read-only)
+            </Typography>
+          </Box>
+        </BoxStyled>
+      )}
     </AccordionCard>
   );
 };

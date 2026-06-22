@@ -32,6 +32,7 @@ import { dataTestIds } from '../../../src/helpers/data-test-ids';
 import { PagedQuestionnaireFlowHelper } from '../paperwork/PagedQuestionnaireFlowHelper';
 import { BookingFlowHelpers } from './BookingFlowHelpers';
 import { BookingTestScenario } from './BookingTestFactory';
+import { TEST_FIXTURE_TIMEZONES } from './TestLocationManager';
 
 /**
  * Execute a returning patient flow after an initial booking
@@ -141,10 +142,15 @@ export async function executeModificationFlow(
 
   // Use shared utility to find and click a suitable time slot
   // Skip the first 2 slots to avoid selecting the current appointment's slot
-  // (which may be in the past or very soon) or slots affected by timezone mismatches
-  const { timeText: newTimeText } = await BookingFlowHelpers.findAndClickSuitableTimeSlot(page, 30, {
-    skipFirstN: 2,
-  });
+  // (which may be in the past or very soon).
+  // Modification only runs on the prebook-in-person scenario (see
+  // shouldExtendWithModification) → fixture TZ is always inPerson.
+  const { timeText: newTimeText } = await BookingFlowHelpers.findAndClickSuitableTimeSlot(
+    page,
+    TEST_FIXTURE_TIMEZONES.inPerson,
+    30,
+    { skipFirstN: 2 }
+  );
 
   // Click the "Modify to [date/time]" button to confirm the new time
   const submitButton = page.getByRole('button', { name: /^Modify to /i });

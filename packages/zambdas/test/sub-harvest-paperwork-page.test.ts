@@ -20,6 +20,7 @@ vi.mock('../src/ehr/shared/harvest', () => ({
   createConsentResources: vi.fn(async () => {}),
   createErxContactOperation: vi.fn(() => null),
   mergeEncounterAccounts: vi.fn(() => ({ accounts: undefined, changed: false })),
+  makeEncounterAccountPatchOp: vi.fn(() => []),
 }));
 
 vi.mock('utils', async (importOriginal) => {

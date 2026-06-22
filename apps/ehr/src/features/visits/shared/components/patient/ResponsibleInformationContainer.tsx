@@ -8,7 +8,6 @@ import { SectionSaveButton } from './SectionSaveButton';
 
 const { responsibleParty: responsiblePartySection } = PATIENT_RECORD_CONFIG.FormFields;
 const FIELD_KEYS = Object.values(responsiblePartySection.items).map((item) => item.key);
-const REQUIRED_FIELD_KEYS = responsiblePartySection.requiredFields ?? [];
 
 interface ResponsibleInformationContainerProps {
   isLoading: boolean;
@@ -33,14 +32,7 @@ export const ResponsibleInformationContainer: FC<ResponsibleInformationContainer
   return (
     <PatientRecordFormSection
       formSection={responsiblePartySection}
-      titleWidget={
-        <SectionSaveButton
-          fieldKeys={FIELD_KEYS}
-          requiredFieldKeys={REQUIRED_FIELD_KEYS}
-          patientId={patientId}
-          encounterId={encounterId}
-        />
-      }
+      titleWidget={<SectionSaveButton fieldKeys={FIELD_KEYS} patientId={patientId} encounterId={encounterId} />}
     >
       <>
         {nonCityStateZipFields.map((item) => (

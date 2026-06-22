@@ -2,6 +2,7 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import {
   ExternalLabsLabelConfig,
   ExternalLabsLabelContent,
+  isValidUUID,
   LabelPrintingConfig,
   MANUFACTURER_TO_LABEL_MAPPING,
   SupportedPrinterManufacturer,
@@ -11,8 +12,14 @@ import { VisitLabelConfig, VisitLabelContent } from '../../shared/pdf/visit-labe
 import { getPrintingConfigAndDevice } from '../label-printing-config/get-label-printing-config';
 import { getExternalLabLabelConfig, getVisitLabelConfig } from '../shared/label-printing';
 import { validateRequestParameters } from './validateRequestParameters';
-import { createXmlExternalLabLabel_30334 } from './xml-templates/external-lab-label-templates';
-import { createXmlVisitLabel_30334 } from './xml-templates/visit-label-templates';
+import {
+  createXmlExternalLabLabel_30334_LongId,
+  createXmlExternalLabLabel_30334_ShortId,
+} from './xml-templates/external-lab-label-templates';
+import {
+  createXmlVisitLabel_30334_LongId,
+  createXmlVisitLabel_30334_ShortId,
+} from './xml-templates/visit-label-templates';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let m2mToken: string;
@@ -57,11 +64,17 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     JSON.stringify(printingConfig)
   );
 
+  // for the moment we will dictate length based on whether it is a uuid or not. But note that if friendly ids become too long, this
+  // will also be a problem and these labels will truncate the id. Less a problem for in house/visit labels but an issue for external
+  const patientIdForLabel = labelConfig.content.patientId;
+  const idLengthType: PatientIdLengthType = isValidUUID(patientIdForLabel) ? 'longId' : 'shortId';
+  console.log(`patient id length type for label xml is: `, JSON.stringify(idLengthType));
+
   // grab the function to spit out the xml taking care to discriminate,
   const labelXmlStringOriginalOrientation =
     labelConfig.type === 'visit'
-      ? getContentToXmlFunction('visit', printingConfig)(labelConfig.content)
-      : getContentToXmlFunction('external-lab', printingConfig)(labelConfig.content);
+      ? getContentToXmlFunction('visit', printingConfig)[idLengthType](labelConfig.content)
+      : getContentToXmlFunction('external-lab', printingConfig)[idLengthType](labelConfig.content);
 
   // and update the orientation according to the config. This may update it to something other than the default from the template
   const labelXmlString = updateLabelOrientation(
@@ -72,32 +85,43 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   return { statusCode: 200, body: JSON.stringify({ printingConfig, labelXmlString }) };
 });
 
+// the XML functions differ based on the length of the id -- short ids appear on the same line. long ids are on the next line
+type PatientIdLengthType = 'shortId' | 'longId';
+type LabelFunctionByPatientIdLengthType<TContent> = {
+  [LEN in PatientIdLengthType]: (content: TContent) => string;
+};
+
 // if we are ever adding new label types or manufacturers, need to update SupportedPrinterManufacturer
 type LabelFunctionMap<TContent> = {
   [M in SupportedPrinterManufacturer]: {
-    [L in keyof (typeof MANUFACTURER_TO_LABEL_MAPPING)[M]['labelTypes']]: (content: TContent) => string;
+    [L in keyof (typeof MANUFACTURER_TO_LABEL_MAPPING)[M]['labelTypes']]: LabelFunctionByPatientIdLengthType<TContent>;
   };
 };
 
 const VISIT_LABEL_FUNCTION_MAP: LabelFunctionMap<VisitLabelContent> = {
-  DYMO: { '30334': createXmlVisitLabel_30334 },
+  DYMO: { '30334': { longId: createXmlVisitLabel_30334_LongId, shortId: createXmlVisitLabel_30334_ShortId } },
 };
 
 const EXTERNAL_LAB_LABEL_FUNCTION_MAP: LabelFunctionMap<ExternalLabsLabelContent> = {
-  DYMO: { '30334': createXmlExternalLabLabel_30334 },
+  DYMO: {
+    '30334': { longId: createXmlExternalLabLabel_30334_LongId, shortId: createXmlExternalLabLabel_30334_ShortId },
+  },
 };
 
 type LabelUse = 'visit' | 'external-lab';
 function getContentToXmlFunction(
   labelUse: 'visit',
   printingConfig: LabelPrintingConfig
-): (content: VisitLabelContent) => string;
+): LabelFunctionByPatientIdLengthType<VisitLabelContent>;
 function getContentToXmlFunction(
   labelUse: 'external-lab',
   printingConfig: LabelPrintingConfig
-): (content: ExternalLabsLabelContent) => string;
-function getContentToXmlFunction(labelUse: LabelUse, printingConfig: LabelPrintingConfig): (content: any) => string {
-  if (printingConfig.mode === 'manual') return () => '';
+): LabelFunctionByPatientIdLengthType<ExternalLabsLabelContent>;
+function getContentToXmlFunction(
+  labelUse: LabelUse,
+  printingConfig: LabelPrintingConfig
+): LabelFunctionByPatientIdLengthType<any> {
+  if (printingConfig.mode === 'manual') return { longId: () => '', shortId: () => '' };
   const { printerManufacturer: manufacturer, labelType } = printingConfig.printerAndLabelConfig;
   if (labelUse === 'visit') {
     return VISIT_LABEL_FUNCTION_MAP[manufacturer][labelType];

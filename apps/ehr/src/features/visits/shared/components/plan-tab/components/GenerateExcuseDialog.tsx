@@ -59,7 +59,6 @@ export const GenerateExcuseDialog: FC<GenerateExcuseDialogExtendedProps> = (prop
       patientName,
       parentName: fullParentName,
       providerName: user?.userName,
-      suffix: user?.profileResource?.name?.[0]?.suffix?.join(' '),
       phoneNumber: supportPhoneNumber,
       patientOrRelatedPerson: 'patient',
     }),

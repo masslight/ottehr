@@ -45,6 +45,18 @@ export const baseScreeningQuestionsConfig: ScreeningQuestionsConfig = {
       ],
     },
     {
+      id: 'seen_in_last_3_years',
+      type: 'radio',
+      question: 'Have you been seen by us in the last 3 years?',
+      fhirField: 'seen-in-last-3-years',
+      existsInQuestionnaire: true,
+      hideInVirtualPaperwork: true,
+      options: [
+        { value: 'yes', label: 'Yes', fhirValue: 'Yes' },
+        { value: 'no', label: 'No', fhirValue: 'No' },
+      ],
+    },
+    {
       id: 'office_visit',
       type: 'radio',
       question: 'Has the patient been seen in one of our offices / telemed in last 3 years?',

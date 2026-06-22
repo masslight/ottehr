@@ -56,15 +56,16 @@ export const Medications: React.FC<MedicationsProps> = () => {
       const strength = selection.medication.strength;
       const nameAlreadyHasStrength = strength && medName.toLowerCase().includes(strength.toLowerCase());
       const displayName = nameAlreadyHasStrength || !strength ? medName : `${medName} (${strength})`;
+      const trimmedDose = selection.dose?.trim() || undefined;
       const doseIsRedundantWithStrength =
-        selection.dose && strength && strength.toLowerCase() === selection.dose.toLowerCase();
+        trimmedDose && strength && strength.toLowerCase() === trimmedDose.toLowerCase();
       try {
         const success = await onSubmit({
           name: displayName,
           id: selection.medication.id?.toString(),
           type: selection.type ?? 'scheduled',
           intakeInfo: {
-            dose: doseIsRedundantWithStrength ? undefined : selection.dose ?? undefined,
+            dose: doseIsRedundantWithStrength ? undefined : trimmedDose,
             date: selection.date,
             patientCouldNotConfirmDosage: selection.patientCouldNotConfirmDosage || undefined,
           },

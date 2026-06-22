@@ -1,7 +1,16 @@
 import Oystehr, { User } from '@oystehr/sdk';
 import { Patient, RelatedPerson } from 'fhir/r4b';
 import { decodeJwt } from 'jose';
-import { getPatientsForUser, getSecret, Secrets, SecretsKeys, TEST_USER_ID, userMe } from 'utils';
+import {
+  getPatientsForUser,
+  getSecret,
+  NOT_AUTHORIZED,
+  RoleType,
+  Secrets,
+  SecretsKeys,
+  TEST_USER_ID,
+  userMe,
+} from 'utils';
 import { getAuth0Token } from './getAuth0Token';
 
 export async function getUser(token: string, secrets: Secrets | null): Promise<User> {
@@ -11,11 +20,32 @@ export async function getUser(token: string, secrets: Secrets | null): Promise<U
     user = await userMe(token, secrets);
   } catch (error: any) {
     console.log('error getting user from token', error?.message || error);
+    // 401/403 from user.me() is a client auth problem (revoked session / policy deny),
+    // not an internal error — surface as a handled APIError instead of a 500.
+    if (error instanceof Oystehr.OystehrSdkError && (error.code === 401 || error.code === 403)) {
+      throw NOT_AUTHORIZED;
+    }
     throw error;
   }
 
   return user;
 }
+
+export const requireUserWithRole = async (
+  userToken: string,
+  secrets: Secrets | null,
+  allowedRoles: RoleType[]
+): Promise<void> => {
+  const user = await getUser(userToken, secrets);
+  if (!user) throw NOT_AUTHORIZED;
+  const roles = (user as any).roles as { name?: string }[] | undefined;
+  const hasAllowedRole = roles?.some((role) => allowedRoles.some((allowed) => role.name === allowed)) ?? false;
+  if (!hasAllowedRole) throw NOT_AUTHORIZED;
+};
+
+export const requireAdminUser = async (userToken: string, secrets: Secrets | null): Promise<void> => {
+  await requireUserWithRole(userToken, secrets, [RoleType.Administrator]);
+};
 
 export async function getPersonForPatient(patientID: string, oystehr: Oystehr): Promise<RelatedPerson | undefined> {
   const resources = (

@@ -3,6 +3,7 @@ import {
   cleanAppointmentGraph,
   cleanupE2ELocations,
   cleanupIntegrationTestAppointments,
+  cleanupIntegrationTestHealthcareServices,
   cleanupIntegrationTestLocations,
   cleanupIntegrationTestPatients,
   E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM,
@@ -27,6 +28,7 @@ export const index = wrapHandler('test-env-cleanup', async (input: ZambdaInput):
   await cleanupIntegrationTestAppointments(oystehr);
   await cleanupIntegrationTestPatients(oystehr);
   await cleanupIntegrationTestLocations(oystehr);
+  await cleanupIntegrationTestHealthcareServices(oystehr);
 
   return {
     statusCode: 200,

@@ -1,4 +1,4 @@
-import { TableCell, TableRow, Typography } from '@mui/material';
+import { Chip, Stack, TableCell, TableRow, Typography } from '@mui/material';
 import { Practitioner } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { dataTestIds } from 'src/constants/data-test-ids';
@@ -49,13 +49,16 @@ export const MedicationHistoryEntity: React.FC<MedicationHistoryEntityProps> = (
   return (
     <TableRow data-testid={dataTestIds.inHouseMedicationsPage.medicationHistoryTableRow}>
       <TableCell>
-        <Typography
-          variant="body2"
-          sx={{ fontWeight: 500 }}
-          data-testid={dataTestIds.inHouseMedicationsPage.medicationHistoryTableMedication}
-        >
-          {item.name} {additionalInfo ? `(${additionalInfo})` : ''}
-        </Typography>
+        <Stack direction="row" alignItems="center" gap={1} flexWrap="wrap">
+          <Typography
+            variant="body2"
+            sx={{ fontWeight: 500 }}
+            data-testid={dataTestIds.inHouseMedicationsPage.medicationHistoryTableMedication}
+          >
+            {item.name} {additionalInfo ? `(${additionalInfo})` : ''}
+          </Typography>
+          {item.isRenewal && <Chip label="Refill" size="small" color="primary" variant="outlined" />}
+        </Stack>
       </TableCell>
       <TableCell>
         <Typography variant="body2" data-testid={dataTestIds.inHouseMedicationsPage.medicationHistoryTableType}>

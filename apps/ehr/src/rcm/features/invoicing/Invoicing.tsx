@@ -22,7 +22,9 @@ import { enqueueSnackbar } from 'notistack';
 import React, { ReactElement, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { PlaceholderChips } from 'src/components/template-editor-field/PlaceholderChips';
+import { SmsCharacterCounter } from 'src/components/template-editor-field/SmsCharacterCounter';
 import {
+  AsciiOnlyExtension,
   INVOICE_TOKEN_IDS,
   makeSuggestion,
   textToTiptapContent,
@@ -33,6 +35,7 @@ import {
   useSaveInvoiceConfigMutation,
 } from 'src/rcm/state/invoice-config/invoice-config.queries';
 import {
+  buildInvoicePlaceholders,
   DEFAULT_INVOICE_DUE_DAYS,
   DEFAULT_INVOICE_MEMO_TEMPLATE,
   DEFAULT_INVOICE_SMS_TEMPLATE,
@@ -50,6 +53,13 @@ const SAMPLE_INPUT: InvoicePlaceholderInput = {
   amountCents: 12500,
   invoiceLink: 'https://payments.ottehr.com/inv/abc123',
   patientPortalLink: 'https://patient.ottehr.com/',
+};
+
+/** Sample values used for SMS character counting — uses a realistic-length Stripe invoice URL. */
+const SMS_SAMPLE_VALUES: Record<string, string> = {
+  ...buildInvoicePlaceholders(SAMPLE_INPUT),
+  'invoice-link':
+    'https://invoice.stripe.com/i/acct_1RMBK7QOl2MSLK9p/test_YWNjdF8xUk1CSzdRT2wyTVNMSzlwLF9VV014QzRwYnloekVGcVp4R0JZdE1Od1pZRnBua2N3LDE2OTUxNjgyOA0200OsKWP9C9?s=ap',
 };
 
 interface InvoicingFormValues {
@@ -72,16 +82,21 @@ function TemplateEditor({
   value,
   onChange,
   editorRef,
+  stripNonAscii,
 }: {
   value: string;
   onChange: (value: string) => void;
   editorRef: React.MutableRefObject<ReturnType<typeof useEditor> | null>;
+  stripNonAscii?: boolean;
 }): ReactElement {
   const theme = useTheme();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const initialContent = useMemo(() => textToTiptapContent(value), []);
+  // Refs hold the latest prop values so the useEditor closure (created once) always reads fresh values.
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
+  const stripNonAsciiRef = useRef(stripNonAscii);
+  stripNonAsciiRef.current = stripNonAscii;
 
   const editor = useEditor({
     extensions: [
@@ -108,6 +123,7 @@ function TemplateEditor({
         ],
         suggestion: makeSuggestion(),
       }),
+      AsciiOnlyExtension.configure({ isEnabled: () => !!stripNonAsciiRef.current }),
     ],
     content: initialContent,
     onUpdate: ({ editor: ed }) => {
@@ -178,11 +194,13 @@ function TemplateField({
   label,
   control,
   editorRef,
+  isSms,
 }: {
   name: 'smsTemplate' | 'memoTemplate';
   label: string;
   control: ReturnType<typeof useForm<InvoicingFormValues>>['control'];
   editorRef: React.MutableRefObject<ReturnType<typeof useEditor> | null>;
+  isSms?: boolean;
 }): ReactElement {
   const [tab, setTab] = useState<'write' | 'preview'>('write');
 
@@ -221,12 +239,24 @@ function TemplateField({
               control={control}
               rules={{ required: `${label} is required` }}
               render={({ field }) => (
-                <TemplateEditor value={field.value} onChange={field.onChange} editorRef={editorRef} />
+                <TemplateEditor
+                  value={field.value}
+                  onChange={field.onChange}
+                  editorRef={editorRef}
+                  stripNonAscii={isSms}
+                />
               )}
             />
             <Box sx={{ px: 1.5, pb: 1.5 }}>
               <FormHelperText sx={{ mt: 0 }}>Type {'{{'} to insert a placeholder, or click one below</FormHelperText>
               <PlaceholderChips tokens={INVOICE_TOKEN_IDS} onInsert={insertToken} />
+              {isSms && (
+                <Controller
+                  name={name}
+                  control={control}
+                  render={({ field }) => <SmsCharacterCounter value={field.value} sampleValues={SMS_SAMPLE_VALUES} />}
+                />
+              )}
             </Box>
           </TabPanel>
           <TabPanel value="preview" sx={{ p: 0 }}>
@@ -360,6 +390,7 @@ export default function Invoicing(): ReactElement {
           label="Default SMS Message Template"
           control={control}
           editorRef={smsEditorRef}
+          isSms
         />
 
         <TemplateField

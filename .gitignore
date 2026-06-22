@@ -39,3 +39,4 @@ terraform.json
 .playwright-mcp
 
 .claude
+scripts/setup/project/setup-progress.json

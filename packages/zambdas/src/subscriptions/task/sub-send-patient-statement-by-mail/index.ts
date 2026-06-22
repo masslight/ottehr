@@ -1,14 +1,15 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { CandidApiClient } from 'candidhealth';
 import { Operation } from 'fast-json-patch';
 import { Communication, Encounter, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
-  createCandidApiClient,
+  FEATURE_FLAGS_CONFIG,
   generateStatement,
+  getOrCreateCandidApiClient,
   getSecret,
   RCM_TASK_SYSTEM,
+  sanitizeStringForFhirCode,
   Secrets,
   SecretsKeys,
   TaskIndicator,
@@ -31,7 +32,6 @@ const MAIL_STATEMENT_TASK_INPUT_SYSTEM = 'https://fhir.ottehr.com/CodeSystem/pat
 const validStatementTypes = new Set<StatementType>(['standard', 'past-due', 'final-notice']);
 
 let m2mToken: string;
-let candidApiClient: CandidApiClient | undefined;
 
 interface ParsedTaskInput {
   encounterId: string;
@@ -52,9 +52,21 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
     oystehr = createOystehrClient(m2mToken, secrets);
-    if (!candidApiClient) {
-      candidApiClient = createCandidApiClient(secrets);
+
+    if (!FEATURE_FLAGS_CONFIG.mailingPaperStatementsEnabled) {
+      console.error(
+        `[${ZAMBDA_NAME}] Paper mail statements feature is disabled. Failing task ${task.id} for Encounter/${encounterId}.`
+      );
+      await patchTaskStatus(oystehr, task.id!, 'failed', 'Paper mail statements feature is disabled');
+      return {
+        statusCode: 200,
+        body: JSON.stringify({
+          error: 'Paper mail statements feature is disabled',
+        }),
+      };
     }
+
+    const candidApiClient = await getOrCreateCandidApiClient(oystehr, secrets);
 
     await patchTaskStatus(oystehr, task.id!, 'in-progress');
 
@@ -300,7 +312,7 @@ async function patchTaskStatus(
         coding: [
           {
             system: RCM_TASK_SYSTEM,
-            code: reason,
+            code: sanitizeStringForFhirCode(reason),
           },
         ],
       },

@@ -115,6 +115,7 @@ jobs:
           ./packages/ui-components/dist \
           ./apps/intake/build/assets \
           ./apps/ehr/build/assets \
+          ./apps/billing/build/assets \
           --github-actions \
           --only-verified \
           --fail

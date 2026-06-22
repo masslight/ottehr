@@ -5,11 +5,13 @@ import { LabResultsReviewContainer } from 'src/features/visits/in-person/compone
 import { AllergiesContainer } from 'src/features/visits/shared/components/review-tab/components/AllergiesContainer';
 import { MedicalConditionsContainer } from 'src/features/visits/shared/components/review-tab/components/MedicalConditionsContainer';
 import { MedicationsContainer } from 'src/features/visits/shared/components/review-tab/components/MedicationsContainer';
+import { PatientInstructionsContainer } from 'src/features/visits/shared/components/review-tab/components/PatientInstructionsContainer';
 import { PrescribedMedicationsContainer } from 'src/features/visits/shared/components/review-tab/components/PrescribedMedicationsContainer';
 import { ProceduresContainer } from 'src/features/visits/shared/components/review-tab/components/ProceduresContainer';
 import { SurgicalHistoryContainer } from 'src/features/visits/shared/components/review-tab/components/SurgicalHistoryContainer';
 import { SectionList } from 'src/features/visits/shared/components/SectionList';
 import { useChartFields } from 'src/features/visits/shared/hooks/useChartFields';
+import { usePatientInstructionsVisibility } from 'src/features/visits/shared/hooks/usePatientInstructionsVisibility';
 import { useAppointmentData, useChartData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import { LabType, NOTE_TYPE, progressNoteChartDataRequestedFields } from 'utils';
 import { dataTestIds } from '../../../../../constants/data-test-ids';
@@ -70,6 +72,8 @@ export const FollowUpNoteDetails: FC = () => {
   const showProceduresContainer = (chartData?.procedures?.length ?? 0) > 0;
   const showPrescribedMedications = !!(prescriptions && prescriptions.length > 0);
 
+  const { showPatientInstructions } = usePatientInstructionsVisibility();
+
   const sections = [
     <AllergiesContainer notes={allergyNotes} />,
     <MedicationsContainer notes={intakeMedicationNotes} />,
@@ -94,6 +98,7 @@ export const FollowUpNoteDetails: FC = () => {
       />
     ),
     showProceduresContainer && <ProceduresContainer />,
+    showPatientInstructions && <PatientInstructionsContainer />,
   ].filter(Boolean);
 
   return (

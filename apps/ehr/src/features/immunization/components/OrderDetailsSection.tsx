@@ -34,7 +34,7 @@ export const OrderDetailsSection: React.FC = () => {
       <Grid xs={6} item>
         <AutocompleteInput
           name="details.medication"
-          label="Vaccine"
+          label="Immunization"
           options={vaccines}
           loading={isLoading}
           getOptionLabel={(option) => option.name}

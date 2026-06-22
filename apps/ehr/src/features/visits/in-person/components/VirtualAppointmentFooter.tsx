@@ -17,8 +17,10 @@ import {
   getInPersonVisitStatus,
   getQuestionnaireResponseByLinkId,
   getSelectors,
+  getVirtualServiceResourceExtension,
   getVisitStatusHistory,
   INTERPRETER_PHONE_NUMBER,
+  TELEMED_VIDEO_ROOM_CODE,
   VisitStatusHistoryEntry,
 } from 'utils';
 import { useOystehrAPIClient } from '../../shared/hooks/useOystehrAPIClient';
@@ -86,7 +88,16 @@ export const VirtualAppointmentFooter: FC = () => {
   );
   const { oystehrZambda } = useApiClients();
   const onConnect = useCallback(async (): Promise<void> => {
-    if (appointmentStatus === 'provider') {
+    // Self-heal: status can advance to 'provider' without a provisioned Chime room
+    // (e.g., when set via ChangeStatusDropdown). If addressString is missing we
+    // can't just refetch the meeting token — Oystehr will 400 with code 4006.
+    // Fall through to initTelemedSession so the room is provisioned on demand.
+    const vsExt = encounter ? getVirtualServiceResourceExtension(encounter, TELEMED_VIDEO_ROOM_CODE) : null;
+    const hasRoom = (vsExt?.extension ?? []).some(
+      (ext) => ext.url === 'addressString' && typeof ext.valueString === 'string' && ext.valueString.length > 0
+    );
+
+    if (appointmentStatus === 'provider' && hasRoom) {
       const meetingDataResponse = await getMeetingData.refetch({ throwOnError: true });
       useVideoCallStore.setState({
         meetingData: meetingDataResponse.data,
@@ -96,6 +107,7 @@ export const VirtualAppointmentFooter: FC = () => {
         throw new Error('apiClient or user or appointment.id or encounter.id is undefined');
       }
       const encounterId = encounter.id;
+      const statusAlreadyProvider = appointmentStatus === 'provider';
       initTelemedSession.mutate(
         { apiClient, appointmentId: appointment.id, userId: user?.id },
         {
@@ -103,13 +115,15 @@ export const VirtualAppointmentFooter: FC = () => {
             useVideoCallStore.setState({
               meetingData: response.meetingData,
             });
-            await handleChangeInPersonVisitStatus(
-              {
-                encounterId: encounterId,
-                updatedStatus: 'provider',
-              },
-              oystehrZambda
-            );
+            if (!statusAlreadyProvider) {
+              await handleChangeInPersonVisitStatus(
+                {
+                  encounterId: encounterId,
+                  updatedStatus: 'provider',
+                },
+                oystehrZambda
+              );
+            }
             await appointmentRefetch();
           },
           onError: () => {
@@ -125,7 +139,7 @@ export const VirtualAppointmentFooter: FC = () => {
     appointment?.id,
     appointmentRefetch,
     appointmentStatus,
-    encounter.id,
+    encounter,
     getMeetingData,
     initTelemedSession,
     oystehrZambda,

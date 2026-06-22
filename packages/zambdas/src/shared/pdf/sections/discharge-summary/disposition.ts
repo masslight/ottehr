@@ -1,6 +1,7 @@
 import {
   followUpInOptions,
   getDefaultNote,
+  getSpecialtyTransferDisplay,
   mapDispositionTypeToLabel,
   NOTHING_TO_EAT_OR_DRINK_FIELD,
   NOTHING_TO_EAT_OR_DRINK_LABEL,
@@ -23,7 +24,7 @@ export const composeDisposition: DataComposer<{ allChartData: AllChartData }, Di
     label = mapDispositionTypeToLabel[disposition.type];
     instruction = disposition.note || getDefaultNote(disposition.type);
     reason = disposition.reason;
-    specialty = disposition.specialty;
+    specialty = getSpecialtyTransferDisplay(disposition.specialty, disposition.specialtyOther);
 
     followUpIn = followUpInOptions.find((opt) => opt.value === disposition.followUpIn)?.label;
   }

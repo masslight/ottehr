@@ -5,7 +5,7 @@ export type UserActivationMode = z.infer<typeof UserActivationModeSchema>;
 
 export const UserActivationZambdaInputSchema = z.object({
   userId: z.string().uuid(),
-  mode: UserActivationModeSchema,
+  userActivationMode: UserActivationModeSchema,
 });
 export type UserActivationZambdaInput = z.infer<typeof UserActivationZambdaInputSchema>;
 

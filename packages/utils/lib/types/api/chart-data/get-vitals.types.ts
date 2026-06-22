@@ -25,7 +25,10 @@ export type GetVitalsResponseData = {
 
 export type GetVitalsRequestPayload = {
   encounterId: string;
-  mode: 'current' | 'historical';
+  // NB: this field is intentionally named `currentOrHistorical` rather than `mode`. The Oystehr
+  // SDK treats a `mode` key on a zambda.execute payload as a reserved request-context option
+  // (FhirResponseMode), which causes it to drop the real payload and send an empty path param.
+  currentOrHistorical: 'current' | 'historical';
 };
 
 export type GetVitalsForListOfEncountersRequestPayload = {

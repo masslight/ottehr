@@ -63,10 +63,8 @@ const validateRequestParameters = (input: ZambdaInput): BasicInput => {
   if (typeof ownerId !== 'string') {
     throw INVALID_INPUT_ERROR('"ownerId" must be a string');
   }
-  if (typeof ownerType !== 'string' || !['Location', 'Practitioner', 'HealthcareService'].includes(ownerType)) {
-    throw INVALID_INPUT_ERROR(
-      '"ownerType" must be a string and one of: "Location", "Practitioner", "HealthcareService"'
-    );
+  if (typeof ownerType !== 'string' || !['Location', 'HealthcareService'].includes(ownerType)) {
+    throw INVALID_INPUT_ERROR('"ownerType" must be a string and one of: "Location", "HealthcareService"');
   }
   const { secrets, scheduleId, timezone, schedule, scheduleOverrides, closures } =
     validateUpdateScheduleParameters(input);
@@ -83,7 +81,7 @@ const validateRequestParameters = (input: ZambdaInput): BasicInput => {
     scheduleOverrides,
     closures,
     ownerId,
-    ownerType: ownerType as 'Location' | 'Practitioner' | 'HealthcareService',
+    ownerType: ownerType as 'Location' | 'HealthcareService',
   };
 };
 

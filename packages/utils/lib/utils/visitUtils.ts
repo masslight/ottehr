@@ -88,7 +88,7 @@ export const getInPersonVisitStatus = (
       return 'discharged';
     } else if (attenderParticipant?.period?.start) {
       return 'provider';
-    } else if (admitterParticipant?.period?.end) {
+    } else if (!admitterParticipant || admitterParticipant?.period?.end) {
       return 'ready for provider';
     } else {
       return 'intake';

@@ -97,6 +97,7 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
 
   const {
     mergedQuickPicks,
+    mergedQuickPicksLoading,
     quickPickDialogOpen,
     setQuickPickDialogOpen,
     quickPickName,
@@ -178,6 +179,7 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
                   {!isReadOnly && (
                     <QuickPicksButton
                       quickPicks={mergedQuickPicks}
+                      loading={mergedQuickPicksLoading}
                       getLabel={(qp) => qp.name}
                       onSelect={onQuickPickSelect}
                       showAddOption

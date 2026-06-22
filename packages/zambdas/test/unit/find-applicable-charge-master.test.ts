@@ -341,4 +341,35 @@ describe('find-applicable-charge-master', () => {
       expect(body.source).toBeNull();
     });
   });
+
+  // -----------------------------------------------------------------------
+  // Non-UUID payer IDs (Oystehr RCM API payer IDs)
+  // -----------------------------------------------------------------------
+  describe('non-UUID payer ID support', () => {
+    it('accepts a non-UUID alphanumeric payer ID and matches via payer URL', async () => {
+      const payerId = '60054';
+      const cm = cmWithOrg('cm-rcm-payer', getPayerUrl(payerId), '2025-01-01');
+      stubSearch([cm]);
+
+      const result = await handler(makeInput({ payerOrganizationId: payerId, dateOfService: '2025-06-01' }));
+
+      const body = parseBody(result);
+      expect(result.statusCode).toBe(200);
+      expect(body.source).toBe('payer-specific');
+      expect(body.chargeMaster.id).toBe('cm-rcm-payer');
+    });
+
+    it('accepts an alphanumeric payer ID with letters', async () => {
+      const payerId = 'J1859';
+      const cm = cmWithOrg('cm-alpha-payer', getPayerUrl(payerId), '2025-01-01');
+      stubSearch([cm]);
+
+      const result = await handler(makeInput({ payerOrganizationId: payerId, dateOfService: '2025-06-01' }));
+
+      const body = parseBody(result);
+      expect(result.statusCode).toBe(200);
+      expect(body.source).toBe('payer-specific');
+      expect(body.chargeMaster.id).toBe('cm-alpha-payer');
+    });
+  });
 });

@@ -18,7 +18,7 @@ import {
   getPatientContactEmail,
   getRelatedPersonsForPatient,
   getSecret,
-  getSupportPhoneFor,
+  LOCATION_SUPPORT_PHONE_EXTENSION_URL,
   Secrets,
   SecretsKeys,
   TelemedCancelationTemplateData,
@@ -184,7 +184,7 @@ async function performEffect(props: PerformEffectInput): Promise<APIGatewayProxy
   try {
     const email = getPatientContactEmail(patient);
     if (email) {
-      const emailClient = getEmailClient(secrets);
+      const emailClient = getEmailClient(secrets, oystehr);
       const WEBSITE_URL = getSecret(SecretsKeys.WEBSITE_URL, secrets);
 
       const templateData: TelemedCancelationTemplateData = {
@@ -208,7 +208,13 @@ async function performEffect(props: PerformEffectInput): Promise<APIGatewayProxy
     console.log(`No user-relatedperson found for patient ${patient.id}; not sending cancellation text`);
     reportMissingUserRelatedPerson('telemed-cancel-appointment', patient.id);
   } else {
-    const message = `Sorry to see you go. Questions? Call ${getSupportPhoneFor(locationName)} `;
+    const supportPhone = location?.extension?.find((e) => e.url === LOCATION_SUPPORT_PHONE_EXTENSION_URL)?.valueString;
+    if (!supportPhone) {
+      console.warn(
+        `No support phone number configured for location "${locationName}" — omitting from cancellation SMS`
+      );
+    }
+    const message = supportPhone ? `Sorry to see you go. Questions? Call ${supportPhone}` : 'Sorry to see you go.';
     await sendSmsToRelatedPersons({
       relatedPersons,
       message,

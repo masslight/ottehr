@@ -8,12 +8,11 @@ export class FeeSchedulePage {
 
   async goto(feeScheduleId: string): Promise<void> {
     await this.page.goto(`/admin/fee-schedule/${feeScheduleId}`);
-    await this.page.waitForLoadState('networkidle');
+    await this.waitForProcedureCodesLoaded();
   }
 
   async gotoChargeMaster(chargeMasterId: string): Promise<void> {
     await this.page.goto(`/admin/charge-masters/${chargeMasterId}`);
-    await this.page.waitForLoadState('networkidle');
   }
 
   async waitForProcedureCodesLoaded(): Promise<void> {

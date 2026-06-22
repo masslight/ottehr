@@ -62,7 +62,7 @@ import {
   DailyPayments,
   DataExports,
   IncompleteEncounters,
-  InvoiceablePatients,
+  InvoiceablePatientsReportPage,
   MailedStatements,
   PracticeKpis,
   RecentPatients,
@@ -71,7 +71,6 @@ import {
 import SchedulePage from './pages/SchedulePage';
 import TaskAdmin from './pages/TaskAdmin';
 import VisitDetailsPage from './pages/VisitDetailsPage';
-import { Claim, Claims } from './rcm';
 import { useNavStore } from './state/nav.store';
 
 const { VITE_APP_SENTRY_DSN, VITE_APP_SENTRY_ENV, VITE_APP_SENTRY_TAGS } = import.meta.env;
@@ -91,6 +90,7 @@ export const VIRTUAL_LOCATIONS_URL = '/admin/virtual-locations';
 export const BILLING_URL = '/admin/billing';
 export const BILLING_INSURANCE_URL = '/admin/billing/insurance';
 export const PAYMENT_LOCATIONS_URL = '/admin/billing/payments/locations';
+export const OUTREACH_URL = '/admin/outreach';
 export const GLOBAL_TEMPLATES_URL = '/admin/global-templates';
 
 const MUI_X_LICENSE_KEY = import.meta.env.VITE_APP_MUI_X_LICENSE_KEY;
@@ -198,19 +198,31 @@ function App(): ReactElement {
                 <Route path="*" element={<LoadingScreen />} />
               </>
             )}
-            {currentUser?.hasRole([RoleType.Administrator, RoleType.CustomerSupport]) && (
+            {currentUser?.hasRole([
+              RoleType.Administrator,
+              RoleType.Manager,
+              RoleType.Staff,
+              RoleType.Provider,
+              RoleType.CustomerSupport,
+            ]) && (
               <>
-                <Route path="/tasks-observability" element={<TaskAdmin />} />
                 <Route path="/reports" element={<Reports />} />
                 <Route path="/reports/incomplete-encounters" element={<IncompleteEncounters />} />
                 <Route path="/reports/complete-encounters" element={<CompleteEncounters />} />
-                <Route path="/reports/ai-assisted-encounters" element={<AiAssistedEncounters />} />
                 <Route path="/reports/daily-payments" element={<DailyPayments />} />
-                <Route path="/reports/practice-kpis" element={<PracticeKpis />} />
-                <Route path="/reports/data-exports" element={<DataExports />} />
                 <Route path="/reports/visits-overview" element={<VisitsOverview />} />
                 <Route path="/reports/recent-patients" element={<RecentPatients />} />
-                <Route path="/reports/invoiceable-patients" element={<InvoiceablePatients />} />
+              </>
+            )}
+            {currentUser?.hasRole([RoleType.Administrator, RoleType.CustomerSupport]) && (
+              <Route path="/tasks-observability" element={<TaskAdmin />} />
+            )}
+            {currentUser?.hasRole([RoleType.Administrator]) && (
+              <>
+                <Route path="/reports/ai-assisted-encounters" element={<AiAssistedEncounters />} />
+                <Route path="/reports/practice-kpis" element={<PracticeKpis />} />
+                <Route path="/reports/data-exports" element={<DataExports />} />
+                <Route path="/reports/invoiceable-patients" element={<InvoiceablePatientsReportPage />} />
                 <Route path="/reports/mailed-statements" element={<MailedStatements />} />
               </>
             )}
@@ -234,6 +246,8 @@ function App(): ReactElement {
                 <Route path="/admin" element={<AdminPage />} />
                 <Route path={`${BILLING_URL}/:billingTab`} element={<AdminPage />} />
                 <Route path={`${BILLING_URL}/:billingTab/:insuranceTab`} element={<AdminPage />} />
+                <Route path={`${OUTREACH_URL}/:outreachSubTab`} element={<AdminPage />} />
+                <Route path={`${OUTREACH_URL}/:outreachSubTab/:outreachDetailTab`} element={<AdminPage />} />
                 <Route path="/admin/:adminTab" element={<AdminPage />} />
                 <Route path="/admin/:adminTab/:subTab" element={<AdminPage />} />
                 <Route path="/admin/quick-picks/procedure/:quickPickId" element={<ProcedureQuickPickDetailPage />} />
@@ -292,8 +306,6 @@ function App(): ReactElement {
                 <Route path="/unsolicited-results/:diagnosticReportId/match" element={<UnsolicitedResultsMatch />} />
                 <Route path="/unsolicited-results/:diagnosticReportId/review" element={<UnsolicitedResultsReview />} />
 
-                <Route path="/rcm/claims" element={<Claims />} />
-                <Route path="/rcm/claims/:id" element={<Claim />} />
                 {FEATURE_FLAGS.LEGACY_DATA_ENABLED && <Route path="/legacy-data" element={<LegacyDataPage />} />}
                 <Route path="/tasks" element={<Tasks />} />
                 <Route path="*" element={<Navigate to={'/'} />} />

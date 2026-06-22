@@ -273,19 +273,32 @@ test('Deactivating employee success', async ({ page }) => {
     await goToTestEmployeePage(page, resourceHandler.testEmployee2);
     const deactivateButton = page.getByTestId(dataTestIds.employeesPage.deactivateUserButton);
     await expect(deactivateButton).toBeVisible(DEFAULT_TIMEOUT);
+    await expect(deactivateButton).toHaveText('Deactivate', DEFAULT_TIMEOUT);
     await deactivateButton.click(DEFAULT_TIMEOUT);
     await waitForSnackbar(page);
+    // Confirm the deactivation actually took effect rather than just that some snackbar appeared:
+    // the action refetches the user and flips the button to "Activate". This is the immediate,
+    // authoritative signal (the employees list derives status from eventually-consistent role
+    // membership, which can lag well behind the request).
+    await expect(deactivateButton).toHaveText('Activate', { timeout: 15000 });
   });
 
   await test.step('Checking provider deactivated successfully', async () => {
-    await page.goto('admin/employees');
-    await waitUntilEmployeeProviderTableLoaded(page);
-    await page
-      .getByTestId(dataTestIds.employeesPage.searchByName)
-      .getByRole('textbox')
-      .fill(resourceHandler.testEmployee2.familyName);
-    const table = page.getByTestId(dataTestIds.employeesPage.table);
-    const targetRow = table.locator(`tr:has-text("${resourceHandler.testEmployee2.email}")`);
-    await expect(targetRow.getByTestId(dataTestIds.employeesPage.statusChip)).toHaveText('DEACTIVATED');
+    // Status in the list is computed server-side from Inactive-role membership, which propagates
+    // asynchronously after deactivation. Reload + re-search on each attempt instead of polling a
+    // single stale page render.
+    await expect(async () => {
+      await page.goto('admin/employees');
+      await waitUntilEmployeeProviderTableLoaded(page);
+      await page
+        .getByTestId(dataTestIds.employeesPage.searchByName)
+        .getByRole('textbox')
+        .fill(resourceHandler.testEmployee2.familyName);
+      const table = page.getByTestId(dataTestIds.employeesPage.table);
+      const targetRow = table.locator(`tr:has-text("${resourceHandler.testEmployee2.email}")`);
+      await expect(targetRow.getByTestId(dataTestIds.employeesPage.statusChip)).toHaveText('DEACTIVATED', {
+        timeout: 10000,
+      });
+    }).toPass({ timeout: 120000, intervals: [3000, 5000, 10000, 15000] });
   });
 });

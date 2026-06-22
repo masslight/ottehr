@@ -7,15 +7,24 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { buildPatientFolder, type CsvRow, parseFolderName } from './legacy-data-utils.js';
+import {
+  buildPatientFolder,
+  type CsvRow,
+  mapRowDescriptionToDocumentFolder,
+  parseFolderName,
+} from './legacy-data-utils.js';
 
 function makeRow(overrides: Partial<CsvRow> = {}): CsvRow {
   return {
     lastName: 'Smith',
     firstName: 'Jane',
-    dob: '1990-05-15',
-    patientId: '1234567',
     path: '',
+    dob: '1990-05-15',
+    sex: 'F',
+    patientId: '1234567',
+    clinic: 'test clinic',
+    dateOfVisit: '2023-01-25',
+    visitType: 'fake',
     documentType: '',
     description: '',
     file: 'test.csv',
@@ -52,6 +61,29 @@ describe('parseFolderName (v1 data)', () => {
   });
 });
 
+describe('mapRowDescriptionToDocumentFolder', () => {
+  it("maps 'Composite' to ProgressNotes folder", () => {
+    expect(mapRowDescriptionToDocumentFolder('Composite')).toBe('ProgressNotes');
+  });
+
+  it("maps 'Patient Documentation' to ProgressNotes folder", () => {
+    expect(mapRowDescriptionToDocumentFolder('Patient Documentation')).toBe('ProgressNotes');
+  });
+
+  it('maps an unrecognized description to Other folder', () => {
+    expect(mapRowDescriptionToDocumentFolder('Unknown')).toBe('Other');
+  });
+
+  it('maps an empty string to Other folder', () => {
+    expect(mapRowDescriptionToDocumentFolder('')).toBe('Other');
+  });
+
+  it('is case-insensitive for exact-match descriptions', () => {
+    expect(mapRowDescriptionToDocumentFolder('composite')).toBe('ProgressNotes');
+    expect(mapRowDescriptionToDocumentFolder('patient documentation')).toBe('ProgressNotes');
+  });
+});
+
 describe('buildPatientFolder (v2 data)', () => {
   it('formats a basic row correctly', () => {
     expect(buildPatientFolder(makeRow())).toBe('smith_jane_05-15-1990/1234567');
@@ -72,7 +104,9 @@ describe('buildPatientFolder (v2 data)', () => {
   });
 
   it('strips special characters from names', () => {
-    expect(buildPatientFolder(makeRow({ lastName: "O'Brien", firstName: 'Ján' }))).toBe('obrien_jn_05-15-1990/1234567');
+    expect(buildPatientFolder(makeRow({ lastName: "O'Brien", firstName: 'Ján' }))).toBe(
+      "o'brien_jn_05-15-1990/1234567"
+    );
   });
 
   it('preserves hyphens in names', () => {

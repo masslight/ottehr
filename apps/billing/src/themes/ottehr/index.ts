@@ -19,7 +19,24 @@ const typography: TypographyOptions = {
   body2: { fontSize: 14, fontWeight: 400, fontFamily, lineHeight: '140%' },
   caption: { fontSize: 12, fontWeight: 400, fontFamily, lineHeight: '140%' },
   overline: { fontSize: 12, fontWeight: 400, fontFamily, lineHeight: '140%' },
-  button: { fontSize: 14, fontWeight: 500, fontFamily, lineHeight: '140%' },
+  button: { fontSize: 14, fontWeight: 500, fontFamily, lineHeight: '140%', textTransform: 'none' },
 };
 
-export const theme = createTheme({ palette, typography });
+export const theme = createTheme({
+  palette,
+  typography,
+  shape: { borderRadius: 8 },
+  components: {
+    MuiButton: { defaultProps: { disableElevation: true } },
+    MuiDialog: { styleOverrides: { paper: { borderRadius: 12 } } },
+    MuiOutlinedInput: {
+      styleOverrides: {
+        root: {
+          backgroundColor: '#FFFFFF',
+          '& .MuiOutlinedInput-notchedOutline': { borderColor: '#D8DCE3' },
+          '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#B6BDC9' },
+        },
+      },
+    },
+  },
+});

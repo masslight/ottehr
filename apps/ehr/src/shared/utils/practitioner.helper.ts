@@ -1,5 +1,5 @@
 import { Practitioner } from 'fhir/r4b';
-import { getPractitionerNPIIdentifier } from 'utils';
+import { getNPIIdentifier } from 'utils';
 
 export const getPractitionerMissingFields = (practitioner: Practitioner): string[] => {
   const missingFields: string[] = [];
@@ -25,7 +25,7 @@ export const getPractitionerMissingFields = (practitioner: Practitioner): string
   if (!practitioner?.address?.find((address) => address.postalCode)) {
     missingFields.push('Zip code');
   }
-  if (!getPractitionerNPIIdentifier(practitioner)) {
+  if (!getNPIIdentifier(practitioner)) {
     missingFields.push('NPI');
   }
   return missingFields;

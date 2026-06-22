@@ -3,7 +3,7 @@ import { createConfiguredSection, DataComposer } from '../../pdf-common';
 import { DischargeSummaryInput, InHouseMedicationsDataForDischargeSummary, PdfSection } from '../../types';
 
 export const composeInHouseMedicationsForDischargeSummary: DataComposer<
-  DischargeSummaryInput,
+  Pick<DischargeSummaryInput, 'allChartData' | 'appointmentPackage'>,
   InHouseMedicationsDataForDischargeSummary
 > = ({ allChartData, appointmentPackage }) => {
   const { medicationOrders } = allChartData;
@@ -25,7 +25,7 @@ export const createInHouseMedicationsSectionForDischargeSummary = <
         client.drawText(
           `${medication.name}${medication.dose ? ' - ' + medication.dose : ''}${
             medication.route ? ' / ' + medication.route : ''
-          }`,
+          }${medication.location ? ' / ' + medication.location : ''}`,
           styles.textStyles.bold
         );
         if (medication.date) client.drawText(medication.date, styles.textStyles.regular);

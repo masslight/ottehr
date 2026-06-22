@@ -263,4 +263,33 @@ describe('find-applicable-fee-schedule', () => {
       expect(body.feeSchedule).toBeNull();
     });
   });
+
+  // -----------------------------------------------------------------------
+  // Non-UUID payer IDs (Oystehr RCM API payer IDs)
+  // -----------------------------------------------------------------------
+  describe('non-UUID payer ID support', () => {
+    it('accepts a non-UUID alphanumeric payer ID and matches via payer URL', async () => {
+      const payerId = '60054';
+      const fs = fsWithOrg('fs-rcm-payer', getPayerUrl(payerId), '2025-01-01');
+      stubSearch([fs]);
+
+      const result = await handler(makeInput({ payerOrganizationId: payerId, dateOfService: '2025-06-01' }));
+
+      const body = parseBody(result);
+      expect(result.statusCode).toBe(200);
+      expect(body.feeSchedule.id).toBe('fs-rcm-payer');
+    });
+
+    it('accepts an alphanumeric payer ID with letters', async () => {
+      const payerId = 'J1859';
+      const fs = fsWithOrg('fs-alpha-payer', getPayerUrl(payerId), '2025-01-01');
+      stubSearch([fs]);
+
+      const result = await handler(makeInput({ payerOrganizationId: payerId, dateOfService: '2025-06-01' }));
+
+      const body = parseBody(result);
+      expect(result.statusCode).toBe(200);
+      expect(body.feeSchedule.id).toBe('fs-alpha-payer');
+    });
+  });
 });

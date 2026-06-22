@@ -1,4 +1,10 @@
-import { INVALID_INPUT_ERROR, isValidUUID, MISSING_REQUEST_BODY, MISSING_REQUIRED_PARAMETERS } from 'utils';
+import {
+  INVALID_INPUT_ERROR,
+  isAlphaNumericID,
+  isValidUUID,
+  MISSING_REQUEST_BODY,
+  MISSING_REQUIRED_PARAMETERS,
+} from 'utils';
 import { ZambdaInput } from '../../../shared';
 
 export interface FindApplicableFeeScheduleParams {
@@ -24,8 +30,8 @@ export function validateRequestParameters(input: ZambdaInput): FindApplicableFee
     throw INVALID_INPUT_ERROR('"dateOfService" is required and must be a date string (YYYY-MM-DD)');
   }
 
-  if (payerOrganizationId && !isValidUUID(payerOrganizationId)) {
-    throw INVALID_INPUT_ERROR('"payerOrganizationId" must be a valid UUID');
+  if (payerOrganizationId && !isAlphaNumericID(payerOrganizationId)) {
+    throw INVALID_INPUT_ERROR('"payerOrganizationId" must be a valid ID (alphanumeric, hyphens, or underscores)');
   }
   if (locationId && !isValidUUID(locationId)) {
     throw INVALID_INPUT_ERROR('"locationId" must be a valid UUID');

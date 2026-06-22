@@ -2,10 +2,10 @@ import { mapErxMedicationsToDisplay } from 'utils';
 import { createConfiguredSection, DataComposer } from '../../pdf-common';
 import { DischargeSummaryInput, ErxMedicationsData, PdfSection } from '../../types';
 
-export const composeErxMedications: DataComposer<DischargeSummaryInput, ErxMedicationsData> = ({
-  allChartData,
-  appointmentPackage,
-}) => {
+export const composeErxMedications: DataComposer<
+  Pick<DischargeSummaryInput, 'allChartData' | 'appointmentPackage'>,
+  ErxMedicationsData
+> = ({ allChartData, appointmentPackage }) => {
   const { additionalChartData } = allChartData;
   const { timezone } = appointmentPackage;
   const medications = additionalChartData?.prescribedMedications

@@ -11,6 +11,7 @@ import {
   getSlotsInWindow,
   GetSlotsInWindowInput,
   getTimezone,
+  HourOfDay,
   SlotServiceCategory,
 } from 'utils';
 import { assert, vi } from 'vitest';
@@ -18,10 +19,8 @@ import { getAuth0Token } from '../../src/shared';
 import { DEFAULT_TEST_TIMEOUT } from '../appointment-validation.test';
 import { SECRETS } from '../data/secrets';
 import {
-  adjustHoursOfOperation,
-  changeAllCapacities,
+  buildSimpleScheduleExt,
   cleanupTestScheduleResources,
-  DEFAULT_SCHEDULE_JSON,
   persistSchedule,
   startOfDayWithTimezone,
 } from '../helpers/testScheduleUtils';
@@ -65,16 +64,7 @@ describe('busy slots tests', () => {
   it('when capacity is 1, no slot will be available for an hour that has a booked slot', async () => {
     const timeNow = startOfDayWithTimezone({ date: NON_DST_DATE }).plus({ hours: 8 });
 
-    let adjustedScheduleJSON = adjustHoursOfOperation(DEFAULT_SCHEDULE_JSON, [
-      {
-        dayOfWeek: timeNow.toLocaleString({ weekday: 'long' }).toLowerCase(),
-        open: 8,
-        close: 18,
-        workingDay: true,
-      },
-    ]);
-
-    adjustedScheduleJSON = changeAllCapacities(adjustedScheduleJSON, 1);
+    const adjustedScheduleJSON = buildSimpleScheduleExt({ prebookSlots: 1, open: 8 as HourOfDay, close: 18 });
 
     const { schedule } = await persistSchedule({ scheduleExtension: adjustedScheduleJSON, processId }, oystehr);
     expect(schedule.id).toBeDefined();
@@ -185,16 +175,7 @@ describe('busy slots tests', () => {
   it('removes busy slots from list returned by getAvailableSlotsForSchedules', async () => {
     const timeNow = startOfDayWithTimezone({ date: NON_DST_DATE }).plus({ hours: 8 });
 
-    let adjustedScheduleJSON = adjustHoursOfOperation(DEFAULT_SCHEDULE_JSON, [
-      {
-        dayOfWeek: timeNow.toLocaleString({ weekday: 'long' }).toLowerCase(),
-        open: 8,
-        close: 18,
-        workingDay: true,
-      },
-    ]);
-
-    adjustedScheduleJSON = changeAllCapacities(adjustedScheduleJSON, 1);
+    const adjustedScheduleJSON = buildSimpleScheduleExt({ prebookSlots: 1, open: 8 as HourOfDay, close: 18 });
 
     const ownerLocation: Location = {
       resourceType: 'Location',
@@ -341,16 +322,7 @@ describe('busy slots tests', () => {
   it('removes busy-tentative and busy-unavailable slots from list returned by getAvailableSlotsForSchedules', async () => {
     const timeNow = startOfDayWithTimezone({ date: NON_DST_DATE }).plus({ hours: 8 });
 
-    let adjustedScheduleJSON = adjustHoursOfOperation(DEFAULT_SCHEDULE_JSON, [
-      {
-        dayOfWeek: timeNow.toLocaleString({ weekday: 'long' }).toLowerCase(),
-        open: 8,
-        close: 18,
-        workingDay: true,
-      },
-    ]);
-
-    adjustedScheduleJSON = changeAllCapacities(adjustedScheduleJSON, 1);
+    const adjustedScheduleJSON = buildSimpleScheduleExt({ prebookSlots: 1, open: 8 as HourOfDay, close: 18 });
 
     const ownerLocation: Location = {
       resourceType: 'Location',
@@ -457,16 +429,7 @@ describe('busy slots tests', () => {
   it('makes busy-tentative slots available again after 10 minutes', async () => {
     const timeNow = startOfDayWithTimezone({ date: NON_DST_DATE }).plus({ hours: 8 });
 
-    let adjustedScheduleJSON = adjustHoursOfOperation(DEFAULT_SCHEDULE_JSON, [
-      {
-        dayOfWeek: timeNow.toLocaleString({ weekday: 'long' }).toLowerCase(),
-        open: 8,
-        close: 18,
-        workingDay: true,
-      },
-    ]);
-
-    adjustedScheduleJSON = changeAllCapacities(adjustedScheduleJSON, 1);
+    const adjustedScheduleJSON = buildSimpleScheduleExt({ prebookSlots: 1, open: 8 as HourOfDay, close: 18 });
 
     const ownerLocation: Location = {
       resourceType: 'Location',

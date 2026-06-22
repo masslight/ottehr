@@ -28,7 +28,6 @@ import {
   getAttestedConsentFromEncounter,
   getChatContainsUnreadMessages,
   getCoding,
-  getInPersonVisitStatus,
   getMiddleName,
   getPatientFirstName,
   getPatientLastName,
@@ -53,6 +52,7 @@ import {
 import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
+  getTrackingBoardVisitStatus,
   sortAppointments,
   wrapHandler,
   ZambdaInput,
@@ -744,7 +744,7 @@ const makeAppointmentInformation = (
   const idCard = docRefComplete('Photo ID cards', 'photo-id-front');
   const insuranceCard = docRefComplete('Insurance cards', 'insurance-card-front');
   const cancellationReason = appointment.cancelationReason?.coding?.[0].code;
-  const status = getInPersonVisitStatus(appointment, encounter, supervisorApprovalEnabled);
+  const status = getTrackingBoardVisitStatus(appointment, encounter, supervisorApprovalEnabled);
 
   const waitingMinutesString = appointment.meta?.tag?.find((tag) => tag.system === 'waiting-minutes-estimate')?.code;
   const waitingMinutes = waitingMinutesString ? parseInt(waitingMinutesString) : undefined;

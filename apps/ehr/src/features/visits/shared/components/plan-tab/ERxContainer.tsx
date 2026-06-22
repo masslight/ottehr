@@ -1,6 +1,7 @@
 import AddIcon from '@mui/icons-material/Add';
 import { LoadingButton } from '@mui/lab';
 import {
+  Chip,
   CircularProgress,
   Paper,
   Table,
@@ -275,7 +276,12 @@ export const ERxContainer: FC<ERxContainerProps> = ({ showHeader = true }) => {
                   const rowAdded = formatDateToMDYWithTime(row?.added, userTimezone);
                   return (
                     <TableRow key={row.resourceId}>
-                      <TableCell>{row.name}</TableCell>
+                      <TableCell>
+                        <Stack direction="row" alignItems="center" gap={1} flexWrap="wrap">
+                          <Typography variant="body2">{row.name}</Typography>
+                          {row.isRenewal && <Chip label="Refill" size="small" color="primary" variant="outlined" />}
+                        </Stack>
+                      </TableCell>
                       <TableCell>{row.instructions}</TableCell>
                       {/*<TableCell>Dx</TableCell>*/}
                       <TableCell>

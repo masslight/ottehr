@@ -1,5 +1,13 @@
-import { ZambdaInput } from '../../shared';
+import { z } from 'zod';
+import { safeValidate, ZambdaInput } from '../../shared';
 import { CreateUploadPatientDocumentInput } from '.';
+
+const CreateUploadDocumentBodySchema = z.object({
+  patientId: z.string(),
+  fileFolderId: z.string(),
+  fileName: z.string(),
+  internalName: z.string().optional(),
+});
 
 export function validateRequestParameters(input: ZambdaInput): CreateUploadPatientDocumentInput {
   if (!input.body) {
@@ -10,16 +18,18 @@ export function validateRequestParameters(input: ZambdaInput): CreateUploadPatie
     throw new Error('Authorization header is required');
   }
 
-  const { patientId, fileFolderId, fileName, internalName } = JSON.parse(input.body);
-
+  const { patientId, fileFolderId, fileName, internalName } = safeValidate(
+    CreateUploadDocumentBodySchema,
+    JSON.parse(input.body)
+  );
   const userToken = input.headers.Authorization.replace('Bearer ', '');
 
   return {
     secrets: input.secrets,
-    patientId: patientId,
-    fileFolderId: fileFolderId,
-    fileName: fileName,
-    userToken: userToken,
-    internalName: internalName,
+    patientId,
+    fileFolderId,
+    fileName,
+    userToken,
+    internalName,
   };
 }

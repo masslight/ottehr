@@ -9,7 +9,6 @@ import { SectionSaveButton } from './SectionSaveButton';
 const contactSection = PATIENT_RECORD_CONFIG.FormFields.patientContactInformation;
 
 const FIELD_KEYS = Object.values(contactSection.items).map((item) => item.key);
-const REQUIRED_FIELD_KEYS = contactSection.requiredFields ?? [];
 
 interface ContactContainerProps {
   isLoading: boolean;
@@ -29,14 +28,7 @@ export const ContactContainer: FC<ContactContainerProps> = ({ isLoading, patient
   return (
     <PatientRecordFormSection
       formSection={contactSection}
-      titleWidget={
-        <SectionSaveButton
-          fieldKeys={FIELD_KEYS}
-          requiredFieldKeys={REQUIRED_FIELD_KEYS}
-          patientId={patientId}
-          encounterId={encounterId}
-        />
-      }
+      titleWidget={<SectionSaveButton fieldKeys={FIELD_KEYS} patientId={patientId} encounterId={encounterId} />}
     >
       <PatientRecordFormField
         item={contact.streetAddress}

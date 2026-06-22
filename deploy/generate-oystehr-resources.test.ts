@@ -345,5 +345,70 @@ describe('generate-oystehr-resources', () => {
         await expect(generateOystehrResources(createTestArgs())).rejects.toThrow('is not a valid JSON map');
       });
     });
+
+    describe('billing var defaults', () => {
+      const billingSpec = {
+        'schema-version': '2025-09-25',
+        apps: {
+          OTTEHR_BILLING: {
+            name: '#{var/BILLING_APP_NAME}',
+            loginRedirectUri: '#{var/BILLING_LOGIN_REDIRECT_URL}',
+            allowedCallbackUrls: ['#{var/BILLING_ALLOWED_URL_1}'],
+            logoUri: '#{var/BILLING_APP_LOGO_URI}',
+          },
+        },
+        secrets: {
+          BILLING_INTEGRATION_FEATURE_FLAG: { name: 'BILLING_INTEGRATION', value: '#{var/BILLING_INTEGRATION}' },
+        },
+      };
+
+      const setupMocks = (vars: VarsFile): void => {
+        mockFsForSuccess();
+        vi.mocked(fs.readdir).mockImplementation(async (dirPath) => {
+          if (String(dirPath) === '/config/oystehr') {
+            return [createMockDirent('apps.json', true)] as never;
+          }
+          return [];
+        });
+        vi.mocked(fs.stat).mockRejectedValue(createEnoentError());
+        vi.mocked(fs.readFile).mockImplementation(async (filePath) => {
+          const pathStr = String(filePath);
+          if (pathStr.endsWith('apps.json')) return JSON.stringify(billingSpec);
+          if (pathStr.includes('.env/')) return JSON.stringify(vars);
+          throw new Error(`Unexpected file: ${pathStr}`);
+        });
+      };
+
+      const writtenJson = (fileName: string): any => {
+        const call = vi.mocked(fs.writeFile).mock.calls.find((args) => String(args[0]).endsWith(fileName));
+        expect(call).toBeDefined();
+        return JSON.parse(String(call![1]));
+      };
+
+      it('falls back to defaults for missing BILLING_* vars so unconfigured envs still deploy', async () => {
+        setupMocks({});
+
+        await generateOystehrResources(createTestArgs());
+
+        const billingApp = writtenJson('apps.tf.json').resource.oystehr_application.OTTEHR_BILLING;
+        expect(billingApp.login_redirect_uri).toBe('https://billing-local.ottehr.com');
+        expect(billingApp.allowed_callback_urls).toEqual(['https://billing-local.ottehr.com']);
+        expect(billingApp.name).toBe('Ottehr Billing');
+        const billingSecret = writtenJson('secrets.tf.json').resource.oystehr_secret.BILLING_INTEGRATION_FEATURE_FLAG;
+        expect(billingSecret.value).toBe('');
+      });
+
+      it('prefers configured BILLING_* vars over defaults', async () => {
+        setupMocks({ BILLING_LOGIN_REDIRECT_URL: 'https://billing.example.com/', BILLING_INTEGRATION: 'all' });
+
+        await generateOystehrResources(createTestArgs());
+
+        const billingApp = writtenJson('apps.tf.json').resource.oystehr_application.OTTEHR_BILLING;
+        expect(billingApp.login_redirect_uri).toBe('https://billing.example.com/');
+        expect(billingApp.name).toBe('Ottehr Billing');
+        const billingSecret = writtenJson('secrets.tf.json').resource.oystehr_secret.BILLING_INTEGRATION_FEATURE_FLAG;
+        expect(billingSecret.value).toBe('all');
+      });
+    });
   });
 });

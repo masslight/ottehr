@@ -22,7 +22,8 @@ export type SendgridTemplateIdSecretName =
   | 'SENDGRID_TELEMED_CONFIRMATION_TEMPLATE_ID'
   | 'SENDGRID_TELEMED_COMPLETION_TEMPLATE_ID'
   | 'SENDGRID_TELEMED_INVITATION_TEMPLATE_ID'
-  | 'SENDGRID_ORDER_RESULT_ALERT_TEMPLATE_ID';
+  | 'SENDGRID_ORDER_RESULT_ALERT_TEMPLATE_ID'
+  | 'SENDGRID_GENERIC_OUTREACH_TEMPLATE_ID';
 
 /**
  * Base email template configuration
@@ -60,6 +61,7 @@ export const EmailTemplateBaseSchema: z.ZodType<EmailTemplateBase, z.ZodTypeDef,
     'SENDGRID_TELEMED_COMPLETION_TEMPLATE_ID',
     'SENDGRID_TELEMED_INVITATION_TEMPLATE_ID',
     'SENDGRID_ORDER_RESULT_ALERT_TEMPLATE_ID',
+    'SENDGRID_GENERIC_OUTREACH_TEMPLATE_ID',
   ]),
   dynamicTemplateData: z.array(z.string()),
   supportsAttachments: z.boolean().optional(),
@@ -81,6 +83,7 @@ export interface SendgridTemplates {
   telemedCompletion: EmailTemplateBase;
   telemedInvitation: EmailTemplateBase;
   orderResultAlert: EmailTemplateBase;
+  genericOutreach: EmailTemplateBase;
 }
 
 /**
@@ -106,6 +109,7 @@ export const SendgridTemplatesSchema: z.ZodType<SendgridTemplates, z.ZodTypeDef,
   telemedCompletion: EmailTemplateBaseSchema,
   telemedInvitation: EmailTemplateBaseSchema,
   orderResultAlert: EmailTemplateBaseSchema,
+  genericOutreach: EmailTemplateBaseSchema,
 });
 
 /**

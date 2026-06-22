@@ -1,11 +1,11 @@
 import PrintOutlinedIcon from '@mui/icons-material/PrintOutlined';
 import { enqueueSnackbar } from 'notistack';
 import { FC, useState } from 'react';
-import { createDischargeSummary } from 'src/api/api';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { useGetPatientDocs } from 'src/hooks/useGetPatientDocs';
 import { RoundedButton } from '../../../../../components/RoundedButton';
+import { createAndOpenDischargeSummary } from './DischargeButton';
 
 interface DischargeSummaryButtonProps {
   appointmentId?: string;
@@ -28,23 +28,8 @@ export const DischargeSummaryButton: FC<DischargeSummaryButtonProps> = ({ appoin
     }
     setStatusLoading(true);
     try {
-      const response = await createDischargeSummary(oystehrZambda, {
-        appointmentId,
-      });
-      const documentId = response?.documentId;
-
-      if (documentId) {
-        await downloadDocument(documentId);
-      } else {
-        enqueueSnackbar(
-          'Discharge summary created, but document is not accessible right now. You can find it later in the Patient Record > Review Docs.',
-          { variant: 'info' }
-        );
-      }
+      await createAndOpenDischargeSummary(oystehrZambda, appointmentId, downloadDocument);
       enqueueSnackbar('Discharge Summary saved.', { variant: 'success' });
-    } catch (error: any) {
-      console.error('Error creating Discharge Summary:', error);
-      enqueueSnackbar('Error creating Discharge Summary.', { variant: 'error' });
     } finally {
       setStatusLoading(false);
     }

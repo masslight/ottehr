@@ -4,12 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { Medication } from 'fhir/r4b';
 import { ReactNode } from 'react';
 import { BrowserRouter } from 'react-router-dom';
-import {
-  CODE_SYSTEM_CPT,
-  CODE_SYSTEM_HCPCS,
-  MEDICATION_DISPENSABLE_DRUG_ID,
-  MEDICATION_IDENTIFIER_NAME_SYSTEM,
-} from 'utils';
+import { MEDICATION_DISPENSABLE_DRUG_ID, MEDICATION_IDENTIFIER_NAME_SYSTEM } from 'utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('react-router-dom', async () => {
@@ -31,13 +26,11 @@ vi.mock('src/hooks/useAppClients', () => ({
 vi.mock('src/features/visits/shared/stores/appointment/appointment.queries', () => ({
   useGetMedicationsSearch: vi.fn(),
   useGetMedicationDetails: vi.fn(),
-  useGetCPTHCPCSSearch: vi.fn(),
 }));
 
 import { useParams } from 'react-router-dom';
 import { getInHouseMedications, updateInHouseMedication } from 'src/api/api';
 import {
-  useGetCPTHCPCSSearch,
   useGetMedicationDetails,
   useGetMedicationsSearch,
 } from 'src/features/visits/shared/stores/appointment/appointment.queries';
@@ -61,11 +54,7 @@ const activeMedication: Medication = {
   status: 'active',
   identifier: [{ system: MEDICATION_IDENTIFIER_NAME_SYSTEM, value: 'Ibuprofen 200mg' }],
   code: {
-    coding: [
-      { system: CODE_SYSTEM_CPT, code: '99213' },
-      { system: CODE_SYSTEM_HCPCS, code: 'J0696' },
-      { system: MEDICATION_DISPENSABLE_DRUG_ID, code: '12345' },
-    ],
+    coding: [{ system: MEDICATION_DISPENSABLE_DRUG_ID, code: '12345' }],
   },
 };
 
@@ -81,7 +70,6 @@ describe('UpdateMedicationPage', () => {
       isFetching: false,
       data: [{ id: 12345, name: 'Ibuprofen', strength: '200mg', isObsolete: false }],
     } as any);
-    vi.mocked(useGetCPTHCPCSSearch).mockReturnValue({ isFetching: false, data: [] } as any);
     vi.mocked(getInHouseMedications).mockResolvedValue([activeMedication]);
     vi.mocked(updateInHouseMedication).mockResolvedValue(activeMedication);
   });
@@ -94,19 +82,15 @@ describe('UpdateMedicationPage', () => {
 
   it('renders medication name after data loads', async () => {
     render(<UpdateMedicationPage />, { wrapper: createWrapper() });
-    await waitFor(() =>
-      expect(screen.getByRole('combobox', { name: 'Medication Name' })).toHaveValue('Ibuprofen 200mg')
+    // The medication name is populated through: getInHouseMedications resolving →
+    // setMedication → render past <Loading> → MUI Autocomplete's post-mount inputValue
+    // sync from `value`. On a CPU-starved CI runner that chain can exceed waitFor's
+    // 1s default, so give it generous headroom (the assertion still returns as soon
+    // as the value appears).
+    await waitFor(
+      () => expect(screen.getByRole('combobox', { name: 'Medication Name' })).toHaveValue('Ibuprofen 200mg'),
+      { timeout: 10_000 }
     );
-  });
-
-  it('renders loaded CPT codes as chips', async () => {
-    render(<UpdateMedicationPage />, { wrapper: createWrapper() });
-    await waitFor(() => expect(screen.getByText('99213')).toBeInTheDocument());
-  });
-
-  it('renders loaded HCPCS codes as chips', async () => {
-    render(<UpdateMedicationPage />, { wrapper: createWrapper() });
-    await waitFor(() => expect(screen.getByText('J0696')).toBeInTheDocument());
   });
 
   it('shows Remove button for active medication', async () => {
@@ -126,8 +110,9 @@ describe('UpdateMedicationPage', () => {
     vi.mocked(useGetMedicationsSearch).mockReturnValue({ isFetching: false, data: [] } as any);
 
     render(<UpdateMedicationPage />, { wrapper: createWrapper() });
-    await waitFor(() =>
-      expect(screen.getByRole('combobox', { name: 'Medication Name' })).toHaveValue('Ibuprofen 200mg')
+    await waitFor(
+      () => expect(screen.getByRole('combobox', { name: 'Medication Name' })).toHaveValue('Ibuprofen 200mg'),
+      { timeout: 10_000 }
     );
 
     const nameInput = screen.getByRole('combobox', { name: 'Medication Name' });

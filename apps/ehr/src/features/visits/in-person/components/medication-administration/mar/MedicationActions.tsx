@@ -29,10 +29,15 @@ export const MedicationActions: React.FC<MedicationActionsProps> = ({ medication
     }
   }, [error]);
 
+  const isCompleted =
+    medication.status === 'administered' ||
+    medication.status === 'administered-partly' ||
+    medication.status === 'administered-not';
   const isEditable = canEditMedication(medication);
-  // Delete is available for all statuses except cancelled, edit only for pending
-  const showEdit = isEditable;
-  const showDelete = medication.status !== 'cancelled';
+  // Edit is available for pending (edit order) and completed (view/edit completed details)
+  const showEdit = isEditable || isCompleted;
+  // Delete is available only for pending medications
+  const showDelete = isEditable;
 
   if (!showEdit && !showDelete) {
     return null;

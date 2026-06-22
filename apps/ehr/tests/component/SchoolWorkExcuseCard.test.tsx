@@ -50,6 +50,12 @@ vi.mock('notistack', () => ({
   enqueueSnackbar: (...args: any[]) => mockEnqueueSnackbar(...args),
 }));
 
+// Avoid the real getPublicLocationSupportPhones network call this card fires on render.
+vi.mock('../../src/hooks/useLocationSupportPhones', () => ({
+  useSupportPhonesMap: () => ({ phonesByLocationName: {} }),
+  useLocationSupportPhones: () => ({ data: undefined }),
+}));
+
 import { SchoolWorkExcuseCard } from 'src/features/visits/shared/components/SchoolWorkExcuseCard';
 import { GetChartDataResponse, SchoolWorkNoteExcuseDocFileDTO } from 'utils';
 import {

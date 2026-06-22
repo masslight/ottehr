@@ -7,13 +7,14 @@ import { SectionList } from 'src/features/visits/shared/components/SectionList';
 import { useExcusePresignedFiles } from 'src/shared/hooks/useExcusePresignedFiles';
 import {
   dispositionCheckboxOptions,
+  followUpInOptions,
+  getSpecialtyTransferDisplay,
   mapDispositionTypeToLabel,
   NOTHING_TO_EAT_OR_DRINK_FIELD,
   NOTHING_TO_EAT_OR_DRINK_LABEL,
   REFUSAL_OF_EMS_TRANSPORT_FIELD,
   REFUSAL_OF_EMS_TRANSPORT_LABEL,
 } from 'utils';
-import { followUpInOptions } from 'utils';
 import { useChartFields } from '../../../hooks/useChartFields';
 import { usePatientInstructionsVisibility } from '../../../hooks/usePatientInstructionsVisibility';
 import { useChartData } from '../../../stores/appointment/appointment.store';
@@ -55,9 +56,9 @@ export const PatientInstructionsContainer: FC = () => {
         </AssessmentTitle>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
           {disposition?.specialty && disposition.specialty.length > 0 && (
-            <Typography>{disposition.specialty}</Typography>
+            <Typography>{getSpecialtyTransferDisplay(disposition.specialty, disposition.specialtyOther)}</Typography>
           )}
-          {disposition?.note && <Typography>{disposition?.note}</Typography>}
+          {disposition?.note && <Typography sx={{ whiteSpace: 'pre-wrap' }}>{disposition?.note}</Typography>}
           {disposition?.[NOTHING_TO_EAT_OR_DRINK_FIELD] && <Typography>{NOTHING_TO_EAT_OR_DRINK_LABEL}</Typography>}
           {disposition?.[REFUSAL_OF_EMS_TRANSPORT_FIELD] && <Typography>{REFUSAL_OF_EMS_TRANSPORT_LABEL}</Typography>}
           {disposition?.labService && disposition.labService.length > 0 && (

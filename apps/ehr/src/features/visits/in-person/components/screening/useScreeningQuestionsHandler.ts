@@ -117,18 +117,16 @@ export const useScreeningQuestionsHandler = (
       const parentFieldValue = deps.currentFormValues[parentField.id];
       const correctFhirValue = getFhirValueOrFallback(parentField, parentFieldValue as string);
 
-      const observation = noteField.conditionalValue
-        ? ({
-            ...currentObs,
-            field: noteField.fhirField,
-            value: correctFhirValue,
-            note: value,
-          } as ObservationPayload)
-        : ({
-            ...currentObs,
-            field: noteField.fhirField,
-            note: value,
-          } as ObservationPayload);
+      // Always include the parent's current value from form state, not just when
+      // noteField.conditionalValue is set. Otherwise, when the parent value's save is still
+      // in flight (debounce race), getUiData returns a stale observation without `value`,
+      // and the resulting `{ field, note }` DTO is rejected by the server.
+      const observation = {
+        ...currentObs,
+        field: noteField.fhirField,
+        value: correctFhirValue,
+        note: value,
+      } as ObservationPayload;
 
       await saveObservation(observation as ObservationDTO, noteField.id);
     },
@@ -139,9 +137,8 @@ export const useScreeningQuestionsHandler = (
     async (fieldId: string, value: FieldValue): Promise<void> => {
       const field = getFieldById(fieldId);
       const noteFieldInfo = getNoteFieldById(fieldId);
-      const mainFieldId = field?.id || noteFieldInfo?.field?.id; // used in debounce because base field and its note are connected and share debounce key
 
-      if (!mainFieldId) {
+      if (!field && !noteFieldInfo) {
         console.warn(`Field not found in config: ${fieldId}`);
         return;
       }
@@ -153,7 +150,11 @@ export const useScreeningQuestionsHandler = (
           const saveAction = (): Promise<void> => {
             return handleMainFieldChange(field, value);
           };
-          debounce(saveAction, mainFieldId);
+          // Debounce key must be unique to this field. A parent radio/select and its noteField
+          // serialize to the same FHIR observation but as independent saves (value vs note),
+          // so they need independent debounce timers — otherwise typing in the noteField
+          // within the debounce window cancels the pending parent-value save.
+          debounce(saveAction, field.id);
         } else {
           const executeMainFieldChange = async (): Promise<void> => {
             await handleMainFieldChange(field, value);
@@ -164,7 +165,7 @@ export const useScreeningQuestionsHandler = (
         const saveAction = (): Promise<void> => {
           return processNoteFieldChange(noteFieldInfo.field, noteFieldInfo.noteField, value as string);
         };
-        debounce(saveAction, mainFieldId);
+        debounce(saveAction, noteFieldInfo.noteField.id);
       }
     },
     [debounce, handleMainFieldChange, processNoteFieldChange]

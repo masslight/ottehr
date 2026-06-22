@@ -1,5 +1,5 @@
 import { ReactElement, useCallback } from 'react';
-import { createInsuranceQuickPick, getInsuranceQuickPicks, removeInsuranceQuickPick } from 'src/api/api';
+import { createInsuranceQuickPick, getInsuranceQuickPicks, removeQuickPick } from 'src/api/api';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { InsuranceQuickPickData } from 'utils';
 import { InsuranceSearchField } from './InsuranceSearchField';
@@ -26,7 +26,7 @@ export default function InsuranceQuickPickPage(): ReactElement {
   const removeInsurance = useCallback(
     async (id: string) => {
       if (!oystehrZambda) throw new Error('oystehrZambda was null');
-      await removeInsuranceQuickPick(oystehrZambda, id);
+      await removeQuickPick(oystehrZambda, id);
     },
     [oystehrZambda]
   );
@@ -35,7 +35,16 @@ export default function InsuranceQuickPickPage(): ReactElement {
     <QuickPickEditor<InsuranceQuickPickData>
       title="Insurance Quick Picks"
       description="Manage common insurance carriers that appear as quick picks when selecting a patient's insurance."
-      columns={[{ label: 'Insurance Name', getValue: (item) => item.name }]}
+      columns={[
+        {
+          label: 'Insurance Name',
+          getValue: (item) => item.name,
+          getSortValue: (item) => {
+            const prefix = `${item.payerId} - `;
+            return item.name.startsWith(prefix) ? item.name.slice(prefix.length) : item.name;
+          },
+        },
+      ]}
       fields={[
         {
           key: 'name',

@@ -83,7 +83,7 @@ export function AutocompleteInput<Value>({
                 ? {
                     onInputChange: (_e: any, newValue: string, reason: string) => {
                       if (reason === 'input') {
-                        field.onChange(newValue || null);
+                        field.onChange(newValue.trim() || null);
                       }
                     },
                   }

@@ -6,6 +6,7 @@ import {
   BillingSuggestionOutput,
   CPTCodeDTO,
   DiagnosisDTO,
+  ERX_MEDICATION_META_TAG_CODE,
   getRosFindingStateFromKey,
   InPersonRosConfig,
   rosField,
@@ -134,6 +135,7 @@ export function buildBillingSuggestionInput(params: {
   }
 
   return {
+    patientId: patient?.id,
     newPatient,
     patientAge,
     patientSex: patient?.gender,
@@ -151,6 +153,7 @@ export function buildBillingSuggestionInput(params: {
     radiologyReports: radiologyReportsString,
     procedures: proceduresParts.join('\n'),
     rosFindings: rosFindings || '',
+    prescribedMedications: chartDataFields?.prescribedMedications,
   };
 }
 
@@ -182,6 +185,9 @@ export const useBillingSuggestions = (): BillingSuggestionsResult => {
       },
       inHouseLabResults: {},
       externalLabResults: {},
+      prescribedMedications: {
+        _tag: ERX_MEDICATION_META_TAG_CODE,
+      },
     },
   });
 

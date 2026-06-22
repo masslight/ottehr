@@ -79,14 +79,14 @@ export interface AdminUpdatePrintingConfigInput {
 // --------- on demand label xml types --------
 export const OnDemandVisitLabelXmlRequestSchema = z.object({
   type: z.literal('visit'),
-  encounterId: z.string(),
+  encounterId: z.string().uuid(),
   // future todo: include deviceId or locationId to find printing configs specific to a location
 });
 export type OnDemandVisitLabelXmlRequestInput = z.infer<typeof OnDemandVisitLabelXmlRequestSchema>;
 
 export const OnDemandExternalLabLabelXmlRequestSchema = z.object({
   type: z.literal('external-lab'),
-  serviceRequestId: z.string(),
+  serviceRequestId: z.string().uuid(),
   userTimezone: z.string(),
   // future todo: include deviceId or locationId to find printing configs specific to a location
 });

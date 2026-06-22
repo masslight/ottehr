@@ -24,9 +24,6 @@ export class UploadDocs {
     const __filename = fileURLToPath(import.meta.url);
     const __dirname = dirname(__filename);
 
-    // Count existing Clear buttons before upload
-    const clearButtonsCountBefore = await this.page.getByTestId(dataTestIds.fileCardClearButton).count();
-
     const filePath = path.join(this.getPathToProjectRoot(__dirname), `/images-for-tests/${fileName}`);
 
     // Extract id value from selector (supports both #id and [id="value"] formats)
@@ -53,13 +50,8 @@ export class UploadDocs {
       await FileUploadHelpers.uploadFile(this.page, locator, filePath);
     }
 
-    // Wait for no "Uploading..." buttons to be visible (all uploads completed)
-    await expect(this.page.getByTestId(dataTestIds.fileCardUploadingButton)).toHaveCount(0, { timeout: 60000 });
-
-    // Wait for one more "Clear" button to appear (confirms this file is uploaded and saved)
-    await expect(this.page.getByTestId(dataTestIds.fileCardClearButton)).toHaveCount(clearButtonsCountBefore + 1, {
-      timeout: 60000,
-    });
+    await expect(fieldContainer.getByTestId(dataTestIds.fileCardUploadingButton)).toHaveCount(0, { timeout: 60000 });
+    await expect(fieldContainer.getByTestId(dataTestIds.fileCardClearButton)).toHaveCount(1, { timeout: 60000 });
 
     // Find the uploaded image within the field container
     // The image src will be a blob URL (created via URL.createObjectURL)

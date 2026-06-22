@@ -1,6 +1,15 @@
 import Oystehr, { BatchInputDeleteRequest, FhirSearchParams } from '@oystehr/sdk';
 import { Operation } from 'fast-json-patch';
-import { Appointment, Coding, FhirResource, Observation, Patient, Person, RelatedPerson } from 'fhir/r4b';
+import {
+  Appointment,
+  Coding,
+  FhirResource,
+  HealthcareService,
+  Observation,
+  Patient,
+  Person,
+  RelatedPerson,
+} from 'fhir/r4b';
 import { chunkThings } from '../fhir';
 import { getAllFhirSearchPages } from '../fhir/getAllFhirSearchPages';
 import { sleep } from '../helpers';
@@ -8,7 +17,7 @@ import { sleep } from '../helpers';
 export const cleanAppointmentGraph = async (tag: Coding, oystehr: Oystehr): Promise<boolean> => {
   const allResources = await getAppointmentGraphByTag(oystehr, tag);
 
-  const [deleteRequests, persons] = generateDeleteRequestsAndPerson(allResources);
+  const [deleteRequests, persons] = generateDeleteRequestsAndPerson(allResources, tag);
 
   await Promise.all(persons.map((person) => patchPerson(oystehr, person, allResources)));
 
@@ -44,7 +53,18 @@ export const NEVER_DELETE = [
   'HealthcareService',
 ];
 
-const generateDeleteRequestsAndPerson = (allResources: FhirResource[]): [BatchInputDeleteRequest[], Person[]] => {
+export const resourceBelongsToRunTag = (resource: FhirResource, runTag: Coding | undefined): boolean => {
+  if (!runTag?.code || !resource.meta?.tag) {
+    return false;
+  }
+
+  return resource.meta.tag.some((t) => t.system === runTag.system && t.code === runTag.code);
+};
+
+const generateDeleteRequestsAndPerson = (
+  allResources: FhirResource[],
+  runCleanupTag?: Coding
+): [BatchInputDeleteRequest[], Person[]] => {
   const deleteRequests: BatchInputDeleteRequest[] = [];
 
   const personsSoFar = new Set<string>();
@@ -58,16 +78,20 @@ const generateDeleteRequestsAndPerson = (allResources: FhirResource[]): [BatchIn
   const addedSoFar = new Set<string>();
   deleteRequests.push(
     ...allResources.flatMap((resourceTemp) => {
-      if (NEVER_DELETE.includes(resourceTemp.resourceType)) {
+      if (NEVER_DELETE.includes(resourceTemp.resourceType) && !resourceBelongsToRunTag(resourceTemp, runCleanupTag)) {
         return [] as BatchInputDeleteRequest[];
-      } else {
-        const url = `${resourceTemp.resourceType}/${resourceTemp.id}`;
-        if (addedSoFar.has(url)) {
-          return [] as BatchInputDeleteRequest[];
-        }
-        addedSoFar.add(url);
-        return [{ method: 'DELETE', url }] as BatchInputDeleteRequest[];
       }
+      const url = `${resourceTemp.resourceType}/${resourceTemp.id}`;
+      if (addedSoFar.has(url)) {
+        return [] as BatchInputDeleteRequest[];
+      }
+      addedSoFar.add(url);
+
+      if (NEVER_DELETE.includes(resourceTemp.resourceType)) {
+        console.log(`[cleanAppointmentGraph] deleting ${url}`);
+      }
+
+      return [{ method: 'DELETE', url }] as BatchInputDeleteRequest[];
     })
   );
 
@@ -581,5 +605,67 @@ export const cleanupIntegrationTestPatients = async (oystehr: Oystehr): Promise<
     }
   } catch (e) {
     console.log(`Error deleting integration test patients: ${e}`, JSON.stringify(e));
+  }
+};
+
+/**
+ * Clean up HealthcareServices tagged with OTTEHR_AUTOMATED_TEST that may have been orphaned.
+ * Created by integration tests that exercise the service-category catalog or group scoping
+ * (e.g. get-service-categories tests).
+ */
+export const cleanupIntegrationTestHealthcareServices = async (oystehr: Oystehr): Promise<void> => {
+  const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+
+  // Paginated: matches the pattern used for Appointments above so older
+  // orphans on later pages aren't left behind.
+  const servicesToDelete = await getAllFhirSearchPages<HealthcareService>(
+    {
+      resourceType: 'HealthcareService',
+      params: [
+        {
+          name: '_tag',
+          value: `${INTEGRATION_TEST_TAG_SYSTEM}|`,
+        },
+        {
+          name: '_lastUpdated',
+          value: `lt${oneHourAgo}`,
+        },
+      ],
+    },
+    oystehr
+  );
+
+  if (servicesToDelete.length === 0) {
+    console.log('No integration test HealthcareServices found to clean up');
+    return;
+  }
+
+  console.log(`Found ${servicesToDelete.length} integration test HealthcareService resources to clean up`);
+
+  const batchDeleteRequests: BatchInputDeleteRequest[] = servicesToDelete
+    .filter((res) => res.id)
+    .map((res) => ({
+      method: 'DELETE',
+      url: `HealthcareService/${res.id}`,
+    }));
+
+  try {
+    const chunkedRequests = chunkThings(batchDeleteRequests, 100);
+    for (let i = 0; i < chunkedRequests.length; i++) {
+      try {
+        await oystehr.fhir.batch({ requests: [...chunkedRequests[i]] });
+        console.log(
+          `Successfully deleted integration test HealthcareServices, chunk ${i + 1} of ${chunkedRequests.length}`
+        );
+      } catch (e) {
+        console.log(
+          `Error deleting integration test HealthcareServices, chunk ${i + 1} of ${chunkedRequests.length}: ${e}`,
+          JSON.stringify(e)
+        );
+      }
+      await sleep(250);
+    }
+  } catch (e) {
+    console.log(`Error deleting integration test HealthcareServices: ${e}`, JSON.stringify(e));
   }
 };

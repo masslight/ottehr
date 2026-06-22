@@ -21,6 +21,7 @@ import {
   IN_HOUSE_LAB_DISPLAY_TYPES,
   IN_HOUSE_LAB_OD_NULL_OPTION_SYSTEM,
   IN_HOUSE_OBS_DEF_ID_SYSTEM,
+  IN_HOUSE_TEST_CODE_SYSTEM,
   IN_HOUSE_UNIT_OF_MEASURE_SYSTEM,
   LabComponentValueSetConfig,
   OBSERVATION_INTERPRETATION_SYSTEM,
@@ -633,3 +634,6 @@ export const activityDefinitionIsReflexTest = (activityDefinition: ActivityDefin
 export const repeatTestErrorMessage = (testName: string): string => {
   return `You cannot run '${testName}' as repeat. No initial tests could be found for this encounter. Ask an admin if the version of the test you are trying to run has changed, or re-run the test not as repeat.`;
 };
+
+export const isInHouseLabServiceRequest = (resource: ServiceRequest): boolean =>
+  !!resource.code?.coding?.find((c) => c.system === IN_HOUSE_TEST_CODE_SYSTEM);

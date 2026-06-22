@@ -1,10 +1,9 @@
 import Oystehr from '@oystehr/sdk';
 import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { CandidApiClient } from 'candidhealth';
 import { Encounter, PaymentNotice } from 'fhir/r4b';
 import Stripe from 'stripe';
-import { createCandidApiClient, getStripeAccountForAppointmentOrEncounter } from 'utils';
+import { getOrCreateCandidApiClient, getStripeAccountForAppointmentOrEncounter } from 'utils';
 import {
   createOystehrClient,
   createPatientPaymentReceiptPdf,
@@ -22,7 +21,6 @@ import { validateRequestParameters } from '../validateRequestParameters';
 
 let oystehrToken: string;
 let oystehr: Oystehr;
-let candidApiClient: CandidApiClient | undefined;
 let taskId: string | undefined;
 
 const ZAMBDA_NAME = 'sub-patient-payment-candid-sync-and-receipt';
@@ -141,13 +139,11 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       const errors: string[] = [];
 
       // Perform Candid pre-encounter sync
-      // Skip recording payment in for Stripe payments — only cash/check payments should be recorded
+      // Skip recording payment in Candid for Stripe payments — only cash/check payments should be recorded
       const shouldRecordPaymentInBillingPlatform = !stripePaymentIntentId;
       if (shouldUseCandid(secrets)) {
         try {
-          if (!candidApiClient) {
-            candidApiClient = createCandidApiClient(secrets);
-          }
+          const candidApiClient = await getOrCreateCandidApiClient(oystehr, secrets);
           console.time('Candid pre-encounter sync');
           await performCandidPreEncounterSync({
             encounterId,
@@ -165,7 +161,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       }
       // no else, these are not mutually exclusive
       if (shouldUseOttehrBilling(secrets) && shouldRecordPaymentInBillingPlatform) {
-        // currently a no op
+        // TODO: currently a no op
       }
 
       // Create patient payment receipt PDF

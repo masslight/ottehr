@@ -9,7 +9,7 @@ import StarterKit from '@tiptap/starter-kit';
 import { SuggestionKeyDownProps, SuggestionOptions, SuggestionProps } from '@tiptap/suggestion';
 import React, { forwardRef, ReactElement, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { createRoot, Root } from 'react-dom/client';
-import { replaceTemplateVariablesHandlebars } from 'utils';
+import { convertMarkdownLinksToHtml, replaceTemplateVariablesHandlebars } from 'utils';
 
 // ---------------------------------------------------------------------------
 // Token IDs (bare, without braces) — used as Mention node attrs.id
@@ -93,6 +93,38 @@ const MaxLengthExtension = Extension.create<{ getMaxLength: () => number | undef
           if (limit === undefined || !transaction.docChanged) return true;
           const text = tiptapContentToText(transaction.doc.toJSON() as Record<string, unknown>);
           return text.length <= limit;
+        },
+      }),
+    ];
+  },
+});
+
+// ---------------------------------------------------------------------------
+// AsciiOnly enforcement — reject transactions that would introduce non-ASCII
+// characters (emoji, accented letters, etc.) in text nodes. Mention nodes
+// (template placeholders) are excluded from the check.
+// ---------------------------------------------------------------------------
+
+export const AsciiOnlyExtension = Extension.create<{ isEnabled: () => boolean }>({
+  name: 'templateEditorAsciiOnly',
+  addOptions() {
+    return { isEnabled: () => false };
+  },
+  addProseMirrorPlugins() {
+    const isEnabled = this.options.isEnabled;
+    return [
+      new Plugin({
+        filterTransaction: (transaction) => {
+          if (!isEnabled() || !transaction.docChanged) return true;
+          let hasNonAscii = false;
+          transaction.doc.descendants((node) => {
+            if (hasNonAscii) return false;
+            if (node.isText && node.text && /[^\x20-\x7E\n\r\t]/.test(node.text)) {
+              hasNonAscii = true;
+            }
+            return !hasNonAscii;
+          });
+          return !hasNonAscii;
         },
       }),
     ];
@@ -221,9 +253,13 @@ export interface TemplateEditorFieldProps {
   required?: boolean;
   error?: boolean;
   helperText?: string;
+  /** When true, render markdown links [text](url) as clickable <a> tags in preview. */
+  renderHtmlPreview?: boolean;
   tokens?: readonly string[];
   writeFooter?: React.ReactNode;
   maxLength?: number;
+  /** When true, reject any input containing non-ASCII characters (emoji, accented letters, etc.). */
+  stripNonAscii?: boolean;
 }
 
 export function TemplateEditorField({
@@ -236,9 +272,11 @@ export function TemplateEditorField({
   required,
   error,
   helperText,
+  renderHtmlPreview,
   tokens = INVOICE_TOKEN_IDS,
   writeFooter,
   maxLength,
+  stripNonAscii,
 }: TemplateEditorFieldProps): ReactElement {
   const theme = useTheme();
   const [tab, setTab] = useState<'write' | 'preview'>('write');
@@ -249,6 +287,8 @@ export function TemplateEditorField({
   onChangeRef.current = onChange;
   const maxLengthRef = useRef(maxLength);
   maxLengthRef.current = maxLength;
+  const stripNonAsciiRef = useRef(stripNonAscii);
+  stripNonAsciiRef.current = stripNonAscii;
 
   const editor = useEditor({
     editable: !disabled,
@@ -277,6 +317,7 @@ export function TemplateEditorField({
         suggestion: makeSuggestion(tokens),
       }),
       MaxLengthExtension.configure({ getMaxLength: () => maxLengthRef.current }),
+      AsciiOnlyExtension.configure({ isEnabled: () => !!stripNonAsciiRef.current }),
     ],
     content: initialContent,
     onUpdate: ({ editor: ed }) => {
@@ -363,9 +404,17 @@ export function TemplateEditorField({
                 borderColor: 'grey.200',
               }}
             >
-              <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
-                {resolvedPreview}
-              </Typography>
+              {renderHtmlPreview ? (
+                <Typography
+                  variant="body2"
+                  sx={{ whiteSpace: 'pre-wrap', '& a': { color: 'primary.main' } }}
+                  dangerouslySetInnerHTML={{ __html: convertMarkdownLinksToHtml(resolvedPreview) }}
+                />
+              ) : (
+                <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
+                  {resolvedPreview}
+                </Typography>
+              )}
             </Box>
           </TabPanel>
         </TabContext>

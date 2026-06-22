@@ -1,8 +1,8 @@
-import { SavePreliminaryReportZambdaInput, Secrets } from 'utils';
+import { INVALID_INPUT_ERROR, MISSING_REQUIRED_PARAMETERS, SaveRadiologyReportZambdaInput, Secrets } from 'utils';
 import { validateJsonBody, ZambdaInput } from '../../../shared';
 
 export interface ValidatedInput {
-  body: SavePreliminaryReportZambdaInput;
+  body: SaveRadiologyReportZambdaInput;
   callerAccessToken: string;
 }
 
@@ -20,28 +20,28 @@ export const validateInput = async (input: ZambdaInput): Promise<ValidatedInput>
   };
 };
 
-const validateBody = (input: ZambdaInput): SavePreliminaryReportZambdaInput => {
-  const { serviceRequestId, preliminaryReport } = validateJsonBody(input);
+const validateBody = (input: ZambdaInput): SaveRadiologyReportZambdaInput => {
+  const { serviceRequestId, report } = validateJsonBody(input);
 
   if (!serviceRequestId) {
-    throw new Error('serviceRequestId is required');
+    throw MISSING_REQUIRED_PARAMETERS(['serviceRequestId']);
   }
 
-  if (!preliminaryReport) {
-    throw new Error('preliminaryReport is required');
+  if (!report) {
+    throw MISSING_REQUIRED_PARAMETERS(['report']);
   }
 
   if (typeof serviceRequestId !== 'string') {
-    throw new Error('serviceRequestId must be a string');
+    throw INVALID_INPUT_ERROR('serviceRequestId must be a string');
   }
 
-  if (typeof preliminaryReport !== 'string') {
-    throw new Error('preliminaryReport must be a string');
+  if (typeof report !== 'string') {
+    throw INVALID_INPUT_ERROR('report must be a string');
   }
 
   return {
     serviceRequestId,
-    preliminaryReport,
+    report,
   };
 };
 

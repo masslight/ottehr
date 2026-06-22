@@ -1,7 +1,16 @@
 import { Encounter } from 'fhir/r4b';
-import { TASK_INPUT_TYPE_CODES, TASK_INPUT_TYPE_SYSTEM, TaskIndicator } from 'utils';
+import {
+  CODE_SYSTEM_ACT_CODE_V3,
+  NOTE_TYPE,
+  NoteDTO,
+  TASK_INPUT_TYPE_CODES,
+  TASK_INPUT_TYPE_SYSTEM,
+  TaskIndicator,
+} from 'utils';
 import { describe, expect, it } from 'vitest';
 import { getChartDataPostChangeTasks } from '../../src/shared/chart-data/post-change-tasks';
+
+type ChangedFields = Parameters<typeof getChartDataPostChangeTasks>[0];
 
 const APPOINTMENT_ID = 'appt-111';
 const ENCOUNTER_ID = 'enc-222';
@@ -10,7 +19,7 @@ const finishedEncounter: Encounter = {
   resourceType: 'Encounter',
   id: ENCOUNTER_ID,
   status: 'finished',
-  class: { system: 'http://terminology.hl7.org/CodeSystem/v3-ActCode', code: 'AMB' },
+  class: { system: CODE_SYSTEM_ACT_CODE_V3, code: 'AMB' },
 };
 
 const inProgressEncounter: Encounter = {
@@ -59,7 +68,11 @@ describe('getChartDataPostChangeTasks', () => {
     });
 
     it('returns no tasks when addendumNote is null (e.g. from unvalidated JSON body)', () => {
-      const tasks = getChartDataPostChangeTasks({ addendumNote: null as any }, finishedEncounter, APPOINTMENT_ID);
+      const tasks = getChartDataPostChangeTasks(
+        { addendumNote: null } as unknown as ChangedFields,
+        finishedEncounter,
+        APPOINTMENT_ID
+      );
       expect(tasks).toHaveLength(0);
     });
 
@@ -77,5 +90,32 @@ describe('getChartDataPostChangeTasks', () => {
   it('returns an empty array when no changed fields are set', () => {
     const tasks = getChartDataPostChangeTasks({}, finishedEncounter, APPOINTMENT_ID);
     expect(tasks).toHaveLength(0);
+  });
+
+  describe('addendum notes (NoteDTO[])', () => {
+    const addendumNoteEntry: NoteDTO = {
+      type: NOTE_TYPE.ADDENDUM,
+      text: 'Late-arriving lab review',
+      authorId: 'prac-1',
+      authorName: 'Dr. Smith',
+      patientId: 'pat-1',
+      encounterId: ENCOUNTER_ID,
+    };
+
+    it('returns a regenerate task when an addendum-type note is included', () => {
+      const tasks = getChartDataPostChangeTasks({ notes: [addendumNoteEntry] }, finishedEncounter, APPOINTMENT_ID);
+      expect(tasks).toHaveLength(1);
+    });
+
+    it('ignores non-addendum note types', () => {
+      const intakeNote: NoteDTO = { ...addendumNoteEntry, type: NOTE_TYPE.INTAKE };
+      const tasks = getChartDataPostChangeTasks({ notes: [intakeNote] }, finishedEncounter, APPOINTMENT_ID);
+      expect(tasks).toHaveLength(0);
+    });
+
+    it('still skips regeneration on in-progress encounters', () => {
+      const tasks = getChartDataPostChangeTasks({ notes: [addendumNoteEntry] }, inProgressEncounter, APPOINTMENT_ID);
+      expect(tasks).toHaveLength(0);
+    });
   });
 });

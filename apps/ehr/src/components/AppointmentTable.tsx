@@ -22,6 +22,7 @@ import {
   OrdersForTrackingBoardTable,
 } from 'utils';
 import { dataTestIds } from '../constants/data-test-ids';
+import { useGetEmployees } from '../features/visits/shared/hooks/useGetEmployees';
 import { AppointmentsStatusChipsCount } from './AppointmentStatusChipsCount';
 import AppointmentTableHeader from './AppointmentTableHeader';
 import AppointmentTableRow from './AppointmentTableRow';
@@ -49,6 +50,15 @@ export default function AppointmentTable({
   const theme = useTheme();
   const [collapseWaiting, setCollapseWaiting] = useState<boolean>(false);
   const [collapseExam, setCollapseExam] = useState<boolean>(false);
+
+  // Intake/provider assignment is only editable on the in-office tab, so only fetch the (rarely
+  // changing) employee lists there. Discharged/Cancelled render the names read-only from the
+  // appointment's participants, so they don't need this list.
+  const { data: employees, isLoading: employeesLoading } = useGetEmployees({
+    enabled: tab === ApptTab['in-office'],
+  });
+  const intakeOptions = employees?.nonProviders ?? [];
+  const providerOptions = employees?.providers ?? [];
 
   const {
     inHouseLabOrdersByAppointmentId,
@@ -145,6 +155,9 @@ export default function AppointmentTable({
                             tab={tab}
                             table={'waiting-room'}
                             orders={ordersForAppointment(appointment.id, appointment.encounterId)}
+                            intakeOptions={intakeOptions}
+                            providerOptions={providerOptions}
+                            employeesLoading={employeesLoading}
                           />
                         );
                       })}
@@ -161,6 +174,9 @@ export default function AppointmentTable({
                       tab={tab}
                       vitals={vitalsForAppointment(appointment)}
                       orders={ordersForAppointment(appointment.id, appointment.encounterId)}
+                      intakeOptions={intakeOptions}
+                      providerOptions={providerOptions}
+                      employeesLoading={employeesLoading}
                     />
                   );
                 })
@@ -216,6 +232,9 @@ export default function AppointmentTable({
                           tab={tab}
                           table="in-exam"
                           orders={ordersForAppointment(appointment.id, appointment.encounterId)}
+                          intakeOptions={intakeOptions}
+                          providerOptions={providerOptions}
+                          employeesLoading={employeesLoading}
                         />
                       );
                     })}

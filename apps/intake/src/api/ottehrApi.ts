@@ -19,6 +19,7 @@ import {
   GetScheduleResponse,
   GetSlotDetailsParams,
   GetSlotDetailsResponse,
+  GetSupportDialogOutput,
   HandleAnswerInput,
   isApiError,
   PatchPaperworkParameters,
@@ -68,6 +69,7 @@ const AI_INTERVIEW_PERSIST_CONSENT_ZAMBDA_ID = 'ai-interview-persist-consent';
 const GET_WALKIN_AVAILABILITY_ZAMBDA_ID = 'walkin-check-availability';
 const CREATE_SLOT_ZAMBDA_ID = 'create-slot';
 const GET_SLOT_DETAILS_ZAMBDA_ID = 'get-slot-details';
+const GET_PUBLIC_SUPPORT_DIALOG_ZAMBDA_ID = 'get-public-support-dialog';
 
 class API {
   async checkIn(
@@ -219,6 +221,15 @@ class API {
       const response = await zambdaClient.executePublic(GET_SCHEDULE_ZAMBDA_ID, parameters);
       const jsonToUse = chooseJson(response);
       return jsonToUse;
+    } catch (error: unknown) {
+      throw apiErrorToThrow(error, false);
+    }
+  }
+
+  async getPublicSupportDialog(zambdaClient: ZambdaClient): Promise<GetSupportDialogOutput> {
+    try {
+      const response = await zambdaClient.executePublic(GET_PUBLIC_SUPPORT_DIALOG_ZAMBDA_ID, {});
+      return chooseJson(response);
     } catch (error: unknown) {
       throw apiErrorToThrow(error, false);
     }

@@ -19,7 +19,7 @@ export const useGetVitals = (encounterId: string | undefined): UseQueryResult<Ge
         const result = await oystehrZambda.zambda.execute({
           id: 'get-vitals',
           encounterId,
-          mode: 'current',
+          currentOrHistorical: 'current',
         });
         // todo: make this strictly typed once there is a common api file defining endpoints available
         return result.output as GetVitalsResponseData;
@@ -43,7 +43,7 @@ export const useGetHistoricalVitals = (
         const result = await oystehrZambda.zambda.execute({
           id: 'get-vitals',
           encounterId,
-          mode: 'historical',
+          currentOrHistorical: 'historical',
         });
         // todo: make this strictly typed once there is a common api file defining endpoints available
         return result.output as GetVitalsResponseData;

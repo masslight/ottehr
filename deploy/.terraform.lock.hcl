@@ -117,6 +117,7 @@ provider "registry.terraform.io/masslight/oystehr" {
   version     = "0.0.21"
   constraints = "0.0.21"
   hashes = [
+    "h1:HLk2RE/q7znovnDkEVzpaINXbbvRFILp1wCjnZlc548=",
     "h1:RmBXa95pjv2kuT7yGQoTG6hM9/LmzLrEpRrF9kM/jdc=",
     "zh:0236aac8cb53d20332134495ff5d69a56b0fbb75458ff21ce5bb5eaccdd2afcd",
     "zh:03eae39113cdd84a108605503bdb84c5c6a1b611996fd7c061e8c67f00ca7509",

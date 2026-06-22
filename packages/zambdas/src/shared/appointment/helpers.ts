@@ -5,12 +5,14 @@ import { DateTime } from 'luxon';
 import { uuid } from 'short-uuid';
 import {
   AppointmentInsuranceRelatedResourcesExtension,
+  appointmentTypeForAppointment,
   createPatientDocumentLists,
   createUserResourcesForPatient,
   FHIR_EXTENSION,
   formatPhoneNumber,
   getPatchBinary,
   getPatientResourceWithVerifiedPhoneNumber,
+  isTelemedAppointment,
   makeSSNIdentifier,
   normalizePhoneNumber,
   PATIENT_NOT_FOUND_ERROR,
@@ -25,6 +27,11 @@ export function getPatientFromAppointment(appointment: Appointment): string | un
   return appointment.participant
     .find((participantTemp) => participantTemp.actor?.reference?.startsWith('Patient/'))
     ?.actor?.reference?.split('/')[1];
+}
+
+// on-demand virtual visits override so they're shown on the 'Active' tab
+export function isOnDemandVirtualAppointment(appointment: Appointment): boolean {
+  return isTelemedAppointment(appointment) && appointmentTypeForAppointment(appointment) === 'walk-in';
 }
 
 export async function patchAppointmentResource(

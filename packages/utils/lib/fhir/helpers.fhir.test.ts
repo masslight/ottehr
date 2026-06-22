@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { CPTCodeDTO } from '../types';
 import { convertFhirNameToDisplayName } from './convertFhirNameToDisplayName';
-import { makeCptCodeDisplay } from './helpers';
+import { makeCptCodeDisplay, sanitizeStringForFhirCode } from './helpers';
 
 describe('Display helper functions', () => {
   it('convertFhirNameToDisplayName should return full name string', () => {
@@ -39,5 +39,39 @@ describe('Display helper functions', () => {
     expect(formattedDisplay).toEqual(
       '82962-91-26-47 Glucose Finger/Heel Stick - Repeat Clinical Diagnostic Laboratory Test - Professional Component - Anesthesia by Surgeon'
     );
+  });
+});
+
+describe('sanitizeStringForFhirCode', () => {
+  it('returns a valid single-word code unchanged', () => {
+    expect(sanitizeStringForFhirCode('blood-pressure')).toBe('blood-pressure');
+  });
+
+  it('returns a valid multi-word code unchanged', () => {
+    expect(sanitizeStringForFhirCode('blood pressure')).toBe('blood pressure');
+  });
+
+  it('trims leading whitespace', () => {
+    expect(sanitizeStringForFhirCode('  blood-pressure')).toBe('blood-pressure');
+  });
+
+  it('trims trailing whitespace', () => {
+    expect(sanitizeStringForFhirCode('blood-pressure  ')).toBe('blood-pressure');
+  });
+
+  it('trims both leading and trailing whitespace', () => {
+    expect(sanitizeStringForFhirCode('  blood-pressure  ')).toBe('blood-pressure');
+  });
+
+  it('collapses multiple consecutive spaces into one', () => {
+    expect(sanitizeStringForFhirCode('blood  pressure')).toBe('blood pressure');
+  });
+
+  it('trims and collapses when both issues are present', () => {
+    expect(sanitizeStringForFhirCode('  blood   pressure  ')).toBe('blood pressure');
+  });
+
+  it('collapses tabs and newlines into single spaces', () => {
+    expect(sanitizeStringForFhirCode('blood\t\tpressure')).toBe('blood pressure');
   });
 });

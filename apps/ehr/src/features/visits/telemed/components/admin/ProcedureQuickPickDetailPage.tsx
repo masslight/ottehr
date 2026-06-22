@@ -60,12 +60,12 @@ export default function ProcedureQuickPickDetailPage(): ReactElement {
       : quickPick.complications;
 
   const postInstructionsDisplay = [
-    ...(quickPick.postInstructions ?? []),
+    ...(quickPick.postInstructions?.filter((item) => item && item !== 'Other') ?? []),
     ...(quickPick.otherPostInstructions ? [`Other: ${quickPick.otherPostInstructions}`] : []),
   ];
 
   const suppliesDisplay = [
-    ...(quickPick.suppliesUsed?.filter(Boolean) ?? []),
+    ...(quickPick.suppliesUsed?.filter((item) => item && item !== 'Other') ?? []),
     ...(quickPick.otherSuppliesUsed ? [`Other: ${quickPick.otherSuppliesUsed}`] : []),
   ] as string[];
 

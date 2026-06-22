@@ -158,7 +158,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       if (isTelemed) {
         if (patientEmail) {
           try {
-            const emailClient = getEmailClient(secrets);
+            const emailClient = getEmailClient(secrets, oystehr);
             if (!ownerName) {
               if (emailClient.getFeatureFlag()) {
                 throw new Error('Location is required to send reminder email');
@@ -211,7 +211,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
           try {
             console.log('in person confirmation email sent');
             emailOutcome = 'success';
-            const emailClient = getEmailClient(secrets);
+            const emailClient = getEmailClient(secrets, oystehr);
             const WEBSITE_URL = getSecret(SecretsKeys.WEBSITE_URL, secrets);
             // todo handle these when scheduleResource is a healthcare service or a practitioner
             let address = getAddressStringForScheduleResource(fhirSchedule);

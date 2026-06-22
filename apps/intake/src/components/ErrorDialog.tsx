@@ -21,6 +21,7 @@ export interface ErrorDialogConfig {
   description: string | ReactElement;
   closeButtonText?: string;
   id?: string;
+  destinationOnClose?: string;
 }
 
 const UnexpectedErrorDescriptionComponent: FC = () => {

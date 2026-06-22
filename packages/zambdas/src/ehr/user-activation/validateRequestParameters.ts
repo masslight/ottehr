@@ -1,23 +1,23 @@
+import { MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS } from 'utils';
 import { UserActivationZambdaInputSchema } from 'utils/lib/types/api/user-activation.types';
-import { ZambdaInput } from '../../shared';
+import { safeValidate, ZambdaInput } from '../../shared';
 import { UserActivationZambdaInputValidated } from './index';
 
 export function validateRequestParameters(input: ZambdaInput): UserActivationZambdaInputValidated {
-  if (!input.body) {
-    throw new Error('No request body provided');
+  if (!input.secrets) {
+    throw MISSING_REQUEST_SECRETS;
   }
-  if (input.secrets == null) {
-    throw new Error('No secrets provided');
+
+  if (!input.body) {
+    throw MISSING_REQUEST_BODY;
   }
 
   const parsedJSON = JSON.parse(input.body);
-  const { mode, userId } = UserActivationZambdaInputSchema.parse(parsedJSON);
-  console.log('parsed userId: ', JSON.stringify(userId));
-  console.log('parsed mode: ', JSON.stringify(mode));
+  const { userActivationMode, userId } = safeValidate(UserActivationZambdaInputSchema, parsedJSON);
 
   return {
     userId,
-    mode,
+    userActivationMode,
     secrets: input.secrets,
   };
 }

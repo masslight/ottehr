@@ -1,19 +1,9 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import {
-  Account,
-  ActivityDefinition,
-  Coverage,
-  Encounter,
-  Location,
-  Patient,
-  Practitioner,
-  ServiceRequest,
-} from 'fhir/r4b';
+import { ActivityDefinition, ServiceRequest } from 'fhir/r4b';
 import {
   APIError,
+  CreateInHouseLabEnconuterResource,
   CreateInHouseLabOrderParameters,
-  getAttendingPractitionerId,
-  getFullestAvailableName,
   IN_HOUSE_LAB_ERROR,
   IN_HOUSE_LAB_LATEST_TAG_DEFINITION,
   IN_HOUSE_TEST_CODE_SYSTEM,
@@ -27,18 +17,16 @@ import {
 import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
-  getMyPractitionerId,
   parseCreatedResourcesBundle,
   wrapHandler,
   ZambdaInput,
 } from '../../../../shared';
-import { accountIsPatientBill, getPrimaryInsurance } from '../../shared/labs';
 import {
-  CreateInHouseLabResources,
   makeRequestsForCreateInHouseLabs,
   TestItemRequestData,
   TestItemResources,
-} from './helpers';
+} from '../../../../shared/in-house-lab/build-order';
+import { gatherInHouseLabOrderContext } from '../../../../shared/in-house-lab/gather-context';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -69,35 +57,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     const { encounterId, testItems, diagnosesAll, diagnosesNew, notes } = validatedParameters;
     console.log('This is testItems in create-in-house-lab-order', JSON.stringify(testItems, undefined, 2));
-
-    const encounterResourcesRequest = async (): Promise<(Encounter | Patient | Location | Coverage | Account)[]> =>
-      (
-        await oystehr.fhir.search({
-          resourceType: 'Encounter',
-          params: [
-            {
-              name: '_id',
-              value: encounterId,
-            },
-            {
-              name: '_include',
-              value: 'Encounter:patient',
-            },
-            {
-              name: '_include',
-              value: 'Encounter:location',
-            },
-            {
-              name: '_revinclude:iterate',
-              value: 'Coverage:patient',
-            },
-            {
-              name: '_revinclude:iterate',
-              value: 'Account:patient',
-            },
-          ],
-        })
-      ).unbundle() as (Encounter | Patient | Location | Coverage | Account)[];
 
     const testItemRequests = (): Promise<TestItemRequestData[]> => {
       return Promise.all(
@@ -190,54 +149,32 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       );
     };
 
-    const userPractitionerIdRequest = async (): Promise<string> => {
-      try {
-        return await getMyPractitionerId(validatedParameters.userToken, validatedParameters.secrets);
-      } catch {
-        throw Error(
-          'Resource configuration error - user creating this in-house lab order must have a Practitioner resource linked'
-        );
-      }
+    const encounterResourcesPromise = async (): Promise<CreateInHouseLabEnconuterResource[]> => {
+      return (
+        await oystehr.fhir.search<CreateInHouseLabEnconuterResource>({
+          resourceType: 'Encounter',
+          params: [
+            { name: '_id', value: encounterId },
+            { name: '_include', value: 'Encounter:patient' },
+            { name: '_include', value: 'Encounter:location' },
+            { name: '_revinclude:iterate', value: 'Coverage:patient' },
+            { name: '_revinclude:iterate', value: 'Account:patient' },
+          ],
+        })
+      ).unbundle();
     };
 
-    const requests: any[] = [encounterResourcesRequest(), testItemRequests(), userPractitionerIdRequest()];
-
-    const results = await Promise.all(requests);
-    const [encounterResources, testItemResources, userPractitionerId] = results as [
-      (Encounter | Patient | Location | Coverage | Account)[],
-      TestItemRequestData[],
-      string,
-    ];
-
-    const {
-      encounterSearchResults,
-      coverageSearchResults,
-      accountSearchResults,
-      patientsSearchResults,
-      locationsSearchResults,
-    } = encounterResources.reduce(
-      (acc, resource) => {
-        if (resource.resourceType === 'Encounter') acc.encounterSearchResults.push(resource as Encounter);
-        if (resource.resourceType === 'Patient') acc.patientsSearchResults.push(resource as Patient);
-        if (resource.resourceType === 'Location') acc.locationsSearchResults.push(resource as Location);
-
-        if (resource.resourceType === 'Coverage' && resource.status === 'active')
-          acc.coverageSearchResults.push(resource as Coverage);
-
-        if (resource.resourceType === 'Account' && resource.status === 'active') {
-          if (accountIsPatientBill(resource)) acc.accountSearchResults.push(resource);
-        }
-
-        return acc;
-      },
-      {
-        encounterSearchResults: [] as Encounter[],
-        patientsSearchResults: [] as Patient[],
-        coverageSearchResults: [] as Coverage[],
-        accountSearchResults: [] as Account[],
-        locationsSearchResults: [] as Location[],
-      }
-    );
+    const [encounterResources, testItemResources] = await Promise.all([
+      encounterResourcesPromise(),
+      testItemRequests(),
+    ]);
+    const context = await gatherInHouseLabOrderContext({
+      oystehr,
+      encounterId,
+      encounterResources,
+      userToken: validatedParameters.userToken,
+      secrets: validatedParameters.secrets,
+    });
 
     const testResources: TestItemResources[] = testItemResources.map((data) => {
       const { activityDefinition, serviceRequests, orderMode, parentTestCanonicalUrl } = data;
@@ -299,64 +236,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       return testItemResources;
     });
 
-    const encounter = (() => {
-      const targetEncounter = encounterSearchResults.find((encounter) => encounter.id === encounterId);
-      if (!targetEncounter) throw Error('Encounter not found');
-      return targetEncounter;
-    })();
-
-    const patient = (() => {
-      if (patientsSearchResults.length !== 1) {
-        throw Error(`Patient not found, results contain ${patientsSearchResults.length} patients`);
-      }
-      return patientsSearchResults[0];
-    })();
-
-    const account = (() => {
-      if (accountSearchResults.length !== 1) {
-        throw Error(`Account not found, results contain ${accountSearchResults.length} accounts`);
-      }
-      return accountSearchResults[0];
-    })();
-
-    const attendingPractitionerId = getAttendingPractitionerId(encounter);
-    if (!attendingPractitionerId) throw Error('Attending practitioner not found');
-
-    const { currentUserPractitionerName, attendingPractitionerName } = await Promise.all([
-      oystehr.fhir.get<Practitioner>({
-        resourceType: 'Practitioner',
-        id: userPractitionerId,
-      }),
-      oystehr.fhir.get<Practitioner>({
-        resourceType: 'Practitioner',
-        id: attendingPractitionerId,
-      }),
-    ]).then(([currentUserPractitioner, attendingPractitioner]) => {
-      return {
-        currentUserPractitionerName: getFullestAvailableName(currentUserPractitioner),
-        attendingPractitionerName: getFullestAvailableName(attendingPractitioner),
-      };
-    });
-
-    const coverage = getPrimaryInsurance(account, coverageSearchResults);
-
-    const location: Location | undefined = locationsSearchResults[0];
-
-    const resourcesToCreateAllRequests: CreateInHouseLabResources = {
+    const resourcePostRequests = makeRequestsForCreateInHouseLabs({
       diagnosesAll,
       notes,
       testResources,
-      encounter,
-      patient,
-      coverage,
-      location,
-      currentUserPractitionerName,
-      currentUserPractitionerId: userPractitionerId,
-      attendingPractitionerName,
-      attendingPractitionerId,
-    };
-
-    const resourcePostRequests = makeRequestsForCreateInHouseLabs(resourcesToCreateAllRequests);
+      ...context,
+    });
 
     const transactionResponse = await oystehr.fhir.transaction({ requests: resourcePostRequests });
 

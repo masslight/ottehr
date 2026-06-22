@@ -1,7 +1,16 @@
 import Oystehr, { BatchInputDeleteRequest, FhirSearchParams } from '@oystehr/sdk';
-import { Appointment, DocumentReference, Encounter, FhirResource, Patient, Person, RelatedPerson } from 'fhir/r4b';
+import {
+  Appointment,
+  Coding,
+  DocumentReference,
+  Encounter,
+  FhirResource,
+  Patient,
+  Person,
+  RelatedPerson,
+} from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { chunkThings, NEVER_DELETE } from 'utils';
+import { chunkThings, NEVER_DELETE, resourceBelongsToRunTag } from 'utils';
 import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
 
 const CHUNK_SIZE = 50;
@@ -43,10 +52,13 @@ export const deletePatientData = async (
   };
 };
 
-const generateDeleteRequests = (allResources: FhirResource[]): BatchInputDeleteRequest[][] => {
+const generateDeleteRequests = (allResources: FhirResource[], runTag?: Coding): BatchInputDeleteRequest[][] => {
   const deleteRequests: BatchInputDeleteRequest[] = allResources
     .map((resource) => {
-      if (!resource.id || NEVER_DELETE_TYPES.includes(resource.resourceType)) {
+      if (
+        !resource.id ||
+        (NEVER_DELETE_TYPES.includes(resource.resourceType) && !resourceBelongsToRunTag(resource, runTag))
+      ) {
         console.log('excluding', `${resource.resourceType}/${resource.id}`);
         return;
       }

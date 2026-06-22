@@ -12,8 +12,9 @@ import {
   RelatedPerson,
 } from 'fhir/r4b';
 import { z } from 'zod';
+import { PARTICIPATION_CODE_SYSTEM } from '../../../fhir/constants';
 import { OTTEHR_MODULE } from '../../../fhir/moduleIdentification';
-import { FhirAppointmentType, ProviderTypeCode, Secrets } from '../../../main';
+import { Secrets } from '../../../secrets';
 import {
   AppointmentAttendanceType,
   AppointmentMessaging,
@@ -22,6 +23,8 @@ import {
   VisitStatusHistoryEntry,
   VisitStatusLabel,
 } from '../../api';
+import { ProviderTypeCode } from '../../api/practitioner.types';
+import { FhirAppointmentType } from '../../common';
 
 export interface GetPastVisitsResponse {
   appointments: AppointmentInformationIntake[];
@@ -162,14 +165,14 @@ export interface GetTelemedAppointmentsInput {
 export const PRACTITIONER_CODINGS = {
   Admitter: [
     {
-      system: 'http://terminology.hl7.org/CodeSystem/v3-ParticipationType',
+      system: PARTICIPATION_CODE_SYSTEM,
       code: 'ADM',
       display: 'admitter',
     },
   ] as Coding[],
   Attender: [
     {
-      system: 'http://terminology.hl7.org/CodeSystem/v3-ParticipationType',
+      system: PARTICIPATION_CODE_SYSTEM,
       code: 'ATND',
       display: 'attender',
     },

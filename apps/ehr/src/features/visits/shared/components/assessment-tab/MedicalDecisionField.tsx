@@ -2,6 +2,7 @@ import { TextField } from '@mui/material';
 import { FC, useEffect } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { dataTestIds } from 'src/constants/data-test-ids';
+import { useProgressNoteConfig } from 'src/hooks/useProgressNoteConfig';
 import { useChartFields } from '../../hooks/useChartFields';
 import { useDebounceNotesField } from '../../hooks/useDebounceNotesField';
 
@@ -36,6 +37,9 @@ export const MedicalDecisionField: FC<MedicalDecisionFieldProps> = ({ loading, s
 
   const { control } = methods;
 
+  const { data: progressNoteConfig } = useProgressNoteConfig();
+  const mdmRequired = progressNoteConfig?.mdmRequired ?? true;
+
   const { onValueChange, isLoading } = useDebounceNotesField('medicalDecision');
 
   useEffect(() => {
@@ -63,7 +67,7 @@ export const MedicalDecisionField: FC<MedicalDecisionFieldProps> = ({ loading, s
             });
           }}
           size="small"
-          label="Medical Decision Making *"
+          label={`Medical Decision Making${mdmRequired ? ' *' : ''}`}
           fullWidth
           multiline
           disabled={loading}

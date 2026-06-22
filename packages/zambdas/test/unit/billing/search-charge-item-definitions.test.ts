@@ -1,0 +1,153 @@
+import Oystehr from '@oystehr/sdk';
+import { ChargeItemDefinition } from 'fhir/r4b';
+import { INVALID_INPUT_ERROR, MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS } from 'utils';
+import { vi } from 'vitest';
+import { performEffect } from '../../../src/billing/search-charge-item-definitions/index';
+import {
+  SearchChargeItemDefinitionsParams,
+  validateRequestParameters,
+} from '../../../src/billing/search-charge-item-definitions/validateRequestParameters';
+import { CHARGE_ITEM_DEFINITION_TYPE_SYSTEM } from '../../../src/billing/shared';
+
+describe('search-charge-item-definition', () => {
+  describe('validation', () => {
+    it('throws validation error on empty secrets', async () => {
+      expect(() => validateRequestParameters({ headers: null, body: '{}', secrets: null })).toThrow(
+        expect.objectContaining(MISSING_REQUEST_SECRETS)
+      );
+    });
+    it('throws validation error on empty body', async () => {
+      expect(() => validateRequestParameters({ headers: null, body: null, secrets: {} })).toThrow(
+        expect.objectContaining(MISSING_REQUEST_BODY)
+      );
+    });
+    it('throws validation error on non-json body', async () => {
+      expect(() => validateRequestParameters({ headers: null, body: 'some text', secrets: {} })).toThrow(
+        expect.objectContaining(INVALID_INPUT_ERROR('Invalid JSON in request body'))
+      );
+    });
+    it('throws validation error on missing required fields', async () => {
+      expect(() => validateRequestParameters({ headers: null, body: '{}', secrets: {} })).toThrow(
+        expect.objectContaining(INVALID_INPUT_ERROR('Validation error: Required at "type"'))
+      );
+    });
+    it('throws validation error on invalid param types', async () => {
+      const body = {
+        type: 'purple-people-eater',
+      };
+      expect(() => validateRequestParameters({ headers: null, body: JSON.stringify(body), secrets: {} })).toThrow(
+        expect.objectContaining(
+          INVALID_INPUT_ERROR(
+            "Validation error: Invalid enum value. Expected 'charge-master' | 'fee-schedule', received 'purple-people-eater' at \"type\""
+          )
+        )
+      );
+    });
+    it('succeeds with minimal input', async () => {
+      const body = { type: 'charge-master' };
+      const input = validateRequestParameters({
+        headers: null,
+        body: JSON.stringify(body),
+        secrets: {},
+      });
+      expect(input).toStrictEqual({ type: 'charge-master', offset: 0, pageSize: 25, secrets: {} });
+    });
+    it('succeeds with maximal input', async () => {
+      const body = { type: 'charge-master', name: 'test', offset: 20, pageSize: 10 };
+      const input = validateRequestParameters({
+        headers: null,
+        body: JSON.stringify(body),
+        secrets: {},
+      });
+      expect(input).toStrictEqual({ type: 'charge-master', name: 'test', offset: 20, pageSize: 10, secrets: {} });
+    });
+  });
+  describe('performEffect', () => {
+    it('searches cids with minimal input', async () => {
+      const params: SearchChargeItemDefinitionsParams = {
+        type: 'charge-master',
+        offset: 0,
+        pageSize: 25,
+        secrets: {},
+      };
+      const completeResource: ChargeItemDefinition = {
+        resourceType: 'ChargeItemDefinition',
+        id: '0f8a9b3c-fd93-42a1-8560-6ca4bc9446c9',
+        title: 'test',
+        status: 'active',
+        url: 'urn:uuid:charge-master:test',
+        meta: {
+          tag: [
+            {
+              system: CHARGE_ITEM_DEFINITION_TYPE_SYSTEM,
+              code: 'charge-master',
+            },
+          ],
+        },
+      };
+      const oystehr = {
+        fhir: {
+          search: vi.fn().mockResolvedValueOnce({ unbundle: () => [completeResource] }),
+        },
+      } as unknown as Oystehr;
+      const result = await performEffect(oystehr, params);
+      expect(result).toEqual([completeResource]);
+      expect(oystehr.fhir.search).toHaveBeenCalledWith({
+        resourceType: 'ChargeItemDefinition',
+        params: [
+          {
+            name: '_tag',
+            value: `${CHARGE_ITEM_DEFINITION_TYPE_SYSTEM}|charge-master`,
+          },
+          { name: '_count', value: '25' },
+          { name: '_offset', value: '0' },
+          { name: '_sort', value: 'title' },
+        ],
+      });
+    });
+    it('searches cids with maximal input', async () => {
+      const params: SearchChargeItemDefinitionsParams = {
+        type: 'charge-master',
+        name: 'test',
+        offset: 20,
+        pageSize: 10,
+        secrets: {},
+      };
+      const completeResource: ChargeItemDefinition = {
+        resourceType: 'ChargeItemDefinition',
+        id: '0f8a9b3c-fd93-42a1-8560-6ca4bc9446c9',
+        title: 'test',
+        status: 'active',
+        url: 'urn:uuid:charge-master:test',
+        meta: {
+          tag: [
+            {
+              system: CHARGE_ITEM_DEFINITION_TYPE_SYSTEM,
+              code: 'charge-master',
+            },
+          ],
+        },
+      };
+      const oystehr = {
+        fhir: {
+          search: vi.fn().mockResolvedValueOnce({ unbundle: () => [completeResource] }),
+        },
+      } as unknown as Oystehr;
+      const result = await performEffect(oystehr, params);
+      expect(result).toEqual([completeResource]);
+      expect(oystehr.fhir.search).toHaveBeenCalledWith({
+        resourceType: 'ChargeItemDefinition',
+        params: [
+          {
+            name: '_tag',
+            value: `${CHARGE_ITEM_DEFINITION_TYPE_SYSTEM}|charge-master`,
+          },
+          { name: '_count', value: '10' },
+          { name: '_offset', value: '20' },
+          { name: '_sort', value: 'title' },
+          { name: 'title', value: 'test' },
+        ],
+      });
+    });
+  });
+});

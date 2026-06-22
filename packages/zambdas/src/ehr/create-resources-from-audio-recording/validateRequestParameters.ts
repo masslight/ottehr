@@ -1,26 +1,34 @@
-import { ZambdaInput } from '../../shared';
+import { MISSING_REQUEST_BODY, NOT_AUTHORIZED } from 'utils';
+import { z } from 'zod';
+import { safeValidate, ZambdaInput } from '../../shared';
 import { CreateResourcesFromAudioRecordingInputValidated } from '.';
 
+const Z3_URL_PREFIX = 'https://project-api.zapehr.com';
+
+const CreateResourcesFromAudioRecordingBodySchema = z.object({
+  z3URL: z
+    .string()
+    .min(1)
+    .startsWith(Z3_URL_PREFIX, {
+      message: `z3 url must start with ${Z3_URL_PREFIX}`,
+    }),
+  visitID: z.string().uuid(),
+  duration: z.number().optional(),
+});
+
 export function validateRequestParameters(input: ZambdaInput): CreateResourcesFromAudioRecordingInputValidated {
+  if (!input.headers?.Authorization) {
+    throw NOT_AUTHORIZED;
+  }
+
   if (!input.body) {
-    throw new Error('No request body provided');
+    throw MISSING_REQUEST_BODY;
   }
 
   const userToken = input.headers.Authorization.replace('Bearer ', '');
 
-  const { visitID, duration, z3URL } = JSON.parse(input.body);
-
-  if (!z3URL) {
-    throw new Error('z3URL is required');
-  }
-
-  if (!z3URL.startsWith('https://project-api.zapehr.com')) {
-    throw new Error('z3 url must start with https://project-api.zapehr.com');
-  }
-
-  if (!visitID) {
-    throw new Error('visitID is required');
-  }
+  const parsed = JSON.parse(input.body);
+  const { visitID, duration, z3URL } = safeValidate(CreateResourcesFromAudioRecordingBodySchema, parsed);
 
   return {
     userToken,

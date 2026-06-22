@@ -13,8 +13,7 @@ export type MedicationFieldType =
   | 'manufacturer'
   | 'route'
   | 'providerId'
-  // TODO: uncomment when the "anatomical locations" feature is completed
-  // | 'location'
+  | 'location'
   | 'effectiveDateTime'
   | 'instructions'
   | 'lotNumber'
@@ -31,7 +30,7 @@ export type MedicationFormType =
 export type XsVariants = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12;
 
 export const fieldsConfigForOrder: Record<
-  Exclude<MedicationFieldType, 'effectiveDateTime' | 'lotNumber' | 'expDate'>,
+  Exclude<MedicationFieldType, 'effectiveDateTime' | 'lotNumber' | 'expDate' | 'location'>,
   { xs: XsVariants; isRequired: boolean }
 > = {
   medicationId: { xs: 6, isRequired: true },
@@ -42,9 +41,6 @@ export const fieldsConfigForOrder: Record<
   manufacturer: { xs: 6, isRequired: false },
   route: { xs: 6, isRequired: true },
   providerId: { xs: 6, isRequired: true },
-
-  // TODO: uncomment when the "anatomical locations" feature is completed
-  // location: { xs: 6, isRequired: false },
   instructions: { xs: 12, isRequired: false },
 } as const;
 
@@ -59,9 +55,7 @@ export const fieldsConfigForDispense: Record<MedicationFieldType, { xs: XsVarian
   manufacturer: { xs: 6, isRequired: false },
   route: { xs: 6, isRequired: true },
   providerId: { xs: 6, isRequired: true },
-
-  // TODO: uncomment when the "anatomical locations" feature is completed
-  // location: { xs: 6, isRequired: false },
+  location: { xs: 6, isRequired: false },
   effectiveDateTime: { xs: 6, isRequired: true },
   instructions: { xs: 12, isRequired: false },
 } as const;
@@ -77,9 +71,7 @@ export const fieldsConfigForNotAdministered: Record<MedicationFieldType, { xs: X
   manufacturer: { xs: 6, isRequired: false },
   route: { xs: 6, isRequired: true },
   providerId: { xs: 6, isRequired: true },
-
-  // TODO: uncomment when the "anatomical locations" feature is completed
-  // location: { xs: 6, isRequired: false },
+  location: { xs: 6, isRequired: false },
   effectiveDateTime: { xs: 6, isRequired: true },
   instructions: { xs: 12, isRequired: false },
 } as const;
@@ -95,6 +87,7 @@ export const fieldsConfigForCompletedEdit: Record<MedicationFieldType, { xs: XsV
   manufacturer: { xs: 6, isRequired: false },
   route: { xs: 6, isRequired: true },
   providerId: { xs: 6, isRequired: true },
+  location: { xs: 6, isRequired: false },
   effectiveDateTime: { xs: 6, isRequired: false },
   instructions: { xs: 12, isRequired: false },
 } as const;
@@ -125,6 +118,7 @@ export const getFieldLabel = (
     manufacturer: { 'form-independent': 'Manufacturer' },
     route: { 'form-independent': 'Route' },
     providerId: { 'form-independent': 'Ordered by' },
+    location: { 'form-independent': 'Location' },
     effectiveDateTime: { 'form-independent': 'Date/Time Given' },
     instructions: { 'form-independent': 'Instructions', dispense: 'Comments', 'dispense-not-administered': 'Comments' },
     lotNumber: { 'form-independent': 'Lot Number' },

@@ -7,9 +7,9 @@ import { useCallback, useEffect, useMemo } from 'react';
 import {
   BRANDING_CONFIG,
   getFullestAvailableName,
+  getNPIIdentifier,
   getPatchOperationForNewMetaTag,
   getPatchOperationToUpdateExtension,
-  getPractitionerNPIIdentifier,
   initialsFromName,
   RoleType,
   SyncUserResponse,
@@ -49,7 +49,7 @@ export default function useEvolveUser(): EvolveUser | undefined {
   const isProviderHasEverythingToBeEnrolled = Boolean(
     profile?.id &&
       profile?.telecom?.find((phone) => phone.system === 'sms' || phone.system === 'phone')?.value &&
-      getPractitionerNPIIdentifier(profile)?.value &&
+      getNPIIdentifier(profile)?.value &&
       profile?.name?.[0]?.given?.[0] &&
       profile?.name?.[0]?.family
   );

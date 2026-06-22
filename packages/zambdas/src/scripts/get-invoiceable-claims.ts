@@ -1,8 +1,7 @@
 import Oystehr from '@oystehr/sdk';
-import { CandidApi, CandidApiClient } from 'candidhealth';
+import { CandidApi, CandidApiClient, CandidApiEnvironment } from 'candidhealth';
 import { Appointment, Patient } from 'fhir/r4b';
 import * as fs from 'fs';
-import { createCandidApiClient } from 'utils';
 import { getAuth0Token } from '../shared';
 import { fhirApiUrlFromAuth0Audience } from './helpers';
 
@@ -406,7 +405,11 @@ async function main(): Promise<void> {
     fhirApiUrl: fhirApiUrlFromAuth0Audience(secrets.AUTH0_AUDIENCE),
   });
 
-  const candid = createCandidApiClient(secrets);
+  const candid = new CandidApiClient({
+    clientId: secrets.CANDID_CLIENT_ID,
+    clientSecret: secrets.CANDID_CLIENT_SECRET,
+    environment: secrets.CANDID_ENV === 'PROD' ? CandidApiEnvironment.Production : CandidApiEnvironment.Staging,
+  });
 
   // Get invoiceable claims using the new function
   const invoiceableClaimsResponse = await getInvoiceableClaims(candid, 100);

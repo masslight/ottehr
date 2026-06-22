@@ -54,6 +54,14 @@ export interface ScreeningField {
   canDelete?: boolean;
   conditionalSave?: ScreeningConditionalSave;
   existsInQuestionnaire?: boolean;
+  /**
+   * the field is excluded from the auto-generated virtual intake paperwork "Additional questions" page, even when existsInQuestionnaire is true.
+   * Use it for fields that are already collected elsewhere in the booking flow (e.g.
+   * the "seen in the last 3 years" question, captured via `return-patient-check`) to
+   * avoid asking the patient twice. Defaults to false — omitting it preserves the
+   * previous behavior.
+   */
+  hideInVirtualPaperwork?: boolean;
 }
 
 /**

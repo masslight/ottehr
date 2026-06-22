@@ -7,8 +7,12 @@ export const GenericNoteList: React.FC<GenericNoteListProps> = ({
   apiConfig,
   locales,
   separateEncounterNotes = true,
+  alwaysEditable,
+  showEditedMarker,
+  softDeleteWithTombstone,
   addNoteButtonDataTestId,
   noteLoadingIndicatorDataTestId,
+  containerSx,
 }) => {
   const { resources } = useAppointmentData();
   const encounterId = resources.encounter?.id;
@@ -20,6 +24,9 @@ export const GenericNoteList: React.FC<GenericNoteListProps> = ({
   return (
     <EditableNotesList
       separateEncounterNotes={separateEncounterNotes}
+      alwaysEditable={alwaysEditable}
+      showEditedMarker={showEditedMarker}
+      softDeleteWithTombstone={softDeleteWithTombstone}
       encounterId={encounterId}
       appointmentId={appointmentId}
       patientId={patientId}
@@ -28,6 +35,7 @@ export const GenericNoteList: React.FC<GenericNoteListProps> = ({
       apiConfig={apiConfig}
       addNoteButtonDataTestId={addNoteButtonDataTestId}
       noteLoadingIndicatorDataTestId={noteLoadingIndicatorDataTestId}
+      containerSx={containerSx}
     />
   );
 };

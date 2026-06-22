@@ -14,7 +14,7 @@ import {
 import { Patient, Person, RelatedPerson } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
-import { FC, useCallback, useState } from 'react';
+import { FC, MouseEvent, useCallback, useState } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { AddVisitErrorState, AddVisitFormState, AddVisitPatientInfo } from 'src/pages/AddPatient';
@@ -205,6 +205,11 @@ export const AddVisitPatientInformationCard: FC<AddVisitPatientInformationCardPr
     setSearching(false);
   };
 
+  const handlePatientSearchClick = (event: MouseEvent<HTMLButtonElement>): void => {
+    event.preventDefault();
+    void handlePatientSearch();
+  };
+
   const handleManuallyEnterPatientDetails = (): void => {
     setPatientInfo({
       newPatient: true,
@@ -309,11 +314,12 @@ export const AddVisitPatientInformationCard: FC<AddVisitPatientInformationCardPr
                 <Grid item xs={12} display="flex" justifyContent="flex-end">
                   <LoadingButton
                     data-testid={dataTestIds.addPatientPage.searchForPatientsButton}
+                    type="submit"
                     loading={searching}
                     variant="outlined"
                     color="primary"
                     sx={{ borderRadius: 28, p: '8px 22px', textTransform: 'none' }}
-                    onClick={async () => await handlePatientSearch()}
+                    onClick={handlePatientSearchClick}
                   >
                     Search for Patients
                   </LoadingButton>

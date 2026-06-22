@@ -1,5 +1,7 @@
+import Oystehr from '@oystehr/sdk';
 import { Encounter } from 'fhir/r4b';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import { FHIR_ENCOUNTER_ERX_PATIENT_SYNC_TAG } from './constants';
 import {
   EncounterVisitType,
   FOLLOWUP_SUBTYPE_SYSTEM,
@@ -8,8 +10,10 @@ import {
   getEncounterVisitType,
   getFollowupSubtype,
   isAnnotationFollowupEncounter,
+  isEncounterErxSynced,
   isFollowupEncounter,
   isScheduledFollowupEncounter,
+  tagEncounterAsErxSynced,
 } from './encounter';
 
 const makeEncounter = (overrides: Partial<Encounter> = {}): Encounter => ({
@@ -178,6 +182,194 @@ describe('Encounter follow-up helpers', () => {
       expect(getEncounterVisitType(makeEncounter({ type: makeFollowupType() }))).toBe(
         'follow-up' as EncounterVisitType
       );
+    });
+  });
+});
+
+describe('eRx sync tag helpers', () => {
+  const syncedTag = {
+    system: FHIR_ENCOUNTER_ERX_PATIENT_SYNC_TAG.system,
+    code: FHIR_ENCOUNTER_ERX_PATIENT_SYNC_TAG.code,
+  };
+
+  describe('isEncounterErxSynced', () => {
+    it('returns false for an encounter with no tags', () => {
+      expect(isEncounterErxSynced(makeEncounter())).toBe(false);
+    });
+
+    it('returns false when the eRx sync tag is absent', () => {
+      const encounter = makeEncounter({
+        meta: {
+          tag: [
+            {
+              system: 'some-other-system',
+              code: 'SOMETHING_ELSE',
+            },
+          ],
+        },
+      });
+      expect(isEncounterErxSynced(encounter)).toBe(false);
+    });
+
+    it('returns true when the eRx sync tag is present', () => {
+      const encounter = makeEncounter({
+        meta: {
+          tag: [syncedTag],
+        },
+      });
+      expect(isEncounterErxSynced(encounter)).toBe(true);
+    });
+  });
+
+  describe('tagEncounterAsErxSynced', () => {
+    it('throws when the encounter has no id', async () => {
+      const oystehr = {
+        fhir: {
+          patch: vi.fn(),
+          get: vi.fn(),
+        },
+      } as unknown as Oystehr;
+      await expect(tagEncounterAsErxSynced(oystehr, makeEncounter())).rejects.toThrow();
+      expect(oystehr.fhir.patch).not.toHaveBeenCalled();
+    });
+
+    it('patches the encounter with the sync tag when not yet synced', async () => {
+      const patch = vi.fn().mockResolvedValue(undefined);
+      const get = vi.fn();
+      const oystehr = {
+        fhir: {
+          patch,
+          get,
+        },
+      } as unknown as Oystehr;
+
+      await tagEncounterAsErxSynced(
+        oystehr,
+        makeEncounter({
+          id: 'enc-1',
+          meta: {
+            versionId: 'v1',
+          },
+        })
+      );
+
+      expect(patch).toHaveBeenCalledTimes(1);
+      expect(patch).toHaveBeenCalledWith(
+        expect.objectContaining({
+          resourceType: 'Encounter',
+          id: 'enc-1',
+        }),
+        { optimisticLockingVersionId: 'v1' }
+      );
+      expect(get).not.toHaveBeenCalled();
+    });
+
+    it('does nothing when the encounter is already synced', async () => {
+      const patch = vi.fn();
+      const oystehr = {
+        fhir: {
+          patch,
+          get: vi.fn(),
+        },
+      } as unknown as Oystehr;
+
+      await tagEncounterAsErxSynced(
+        oystehr,
+        makeEncounter({
+          id: 'enc-1',
+          meta: {
+            tag: [syncedTag],
+          },
+        })
+      );
+
+      expect(patch).not.toHaveBeenCalled();
+    });
+
+    it('refreshes and retries on a version conflict, then succeeds', async () => {
+      const patch = vi.fn().mockRejectedValueOnce(new Error('version conflict')).mockResolvedValueOnce(undefined);
+      const get = vi.fn().mockResolvedValue(
+        makeEncounter({
+          id: 'enc-1',
+          meta: {
+            versionId: 'v2',
+          },
+        })
+      );
+      const oystehr = {
+        fhir: {
+          patch,
+          get,
+        },
+      } as unknown as Oystehr;
+
+      await tagEncounterAsErxSynced(
+        oystehr,
+        makeEncounter({
+          id: 'enc-1',
+          meta: {
+            versionId: 'v1',
+          },
+        })
+      );
+
+      expect(patch).toHaveBeenCalledTimes(2);
+      expect(get).toHaveBeenCalledTimes(1);
+    });
+
+    it('stops retrying once a refresh shows the encounter is already synced', async () => {
+      const patch = vi.fn().mockRejectedValue(new Error('version conflict'));
+      const get = vi.fn().mockResolvedValue(
+        makeEncounter({
+          id: 'enc-1',
+          meta: {
+            tag: [syncedTag],
+          },
+        })
+      );
+      const oystehr = {
+        fhir: {
+          patch,
+          get,
+        },
+      } as unknown as Oystehr;
+
+      await tagEncounterAsErxSynced(oystehr, makeEncounter({ id: 'enc-1', meta: { versionId: 'v1' } }));
+
+      expect(patch).toHaveBeenCalledTimes(1);
+      expect(get).toHaveBeenCalledTimes(1);
+    });
+
+    it('gives up after the retry limit without throwing', async () => {
+      const patch = vi.fn().mockRejectedValue(new Error('version conflict'));
+      const get = vi.fn().mockResolvedValue(
+        makeEncounter({
+          id: 'enc-1',
+          meta: {
+            versionId: 'v1',
+          },
+        })
+      );
+      const oystehr = {
+        fhir: {
+          patch,
+          get,
+        },
+      } as unknown as Oystehr;
+
+      await expect(
+        tagEncounterAsErxSynced(
+          oystehr,
+          makeEncounter({
+            id: 'enc-1',
+            meta: {
+              versionId: 'v1',
+            },
+          })
+        )
+      ).resolves.toBeUndefined();
+
+      expect(patch).toHaveBeenCalledTimes(5);
     });
   });
 });

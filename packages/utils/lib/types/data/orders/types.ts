@@ -26,7 +26,7 @@ export const CreateNursingOrderInputValidatedSchema = CreateNursingOrderInputSch
 export type CreateNursingOrderInputValidated = z.infer<typeof CreateNursingOrderInputValidatedSchema>;
 
 export const UpdateNursingOrderInputSchema = z.object({
-  serviceRequestId: z.string(),
+  serviceRequestId: z.string().uuid(),
   action: z.enum(['CANCEL ORDER', 'COMPLETE ORDER']),
 });
 

@@ -42,6 +42,7 @@ export const TIME_WIDTH_MIN = '140px';
 export const PATIENT_AND_REASON_WIDTH_MIN = '300px';
 export const ROOM_WIDTH_MIN = '120px';
 export const PROVIDER_WIDTH_MIN = '140px';
+export const INTAKE_AND_PROVIDER_WIDTH_MIN = '200px';
 export const VISIT_ICONS_WIDTH_MIN = '160px';
 export const VITALS_ICON_WIDTH_MIN = '90px';
 export const NOTES_WIDTH_MIN = '220px';

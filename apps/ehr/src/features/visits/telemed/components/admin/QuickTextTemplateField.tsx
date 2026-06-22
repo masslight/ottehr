@@ -12,6 +12,7 @@ const SAMPLE_PREVIEW_VALUES: Record<string, string> = {
   'ai-interview-url': 'https://example.com/visit/.../ai-interview-start',
   'practice-name': 'Practice Name',
   'location-name': 'Location Name',
+  'location-review-link': 'https://g.page/r/your-google-review-link',
   'booking-time': '3:30 PM',
   'office-phone': '(555) 000-0000',
   'support-phone': '(555) 000-0001',

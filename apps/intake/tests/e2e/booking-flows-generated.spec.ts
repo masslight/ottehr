@@ -77,6 +77,10 @@ test.describe('Complete booking flows', () => {
     _walkinSchedule = walkinResult.schedule;
     console.log(`✓ Created walk-in location: ${walkinLocation.name}`);
 
+    // Seed an occupational-medicine employer
+    const occMedEmployer = await testLocationManager.ensureOccMedEmployer();
+    console.log(`✓ Created occupational-medicine employer: ${occMedEmployer.name}`);
+
     // Create prebook in-person test location (24/7, 8 slots per hour)
     const prebookInPersonResult = await testLocationManager.ensurePrebookInPersonLocationWithSlots();
     prebookInPersonLocation = prebookInPersonResult.location;

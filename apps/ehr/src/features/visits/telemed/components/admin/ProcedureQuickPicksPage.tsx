@@ -130,7 +130,7 @@ export default function ProcedureQuickPicksPage(): ReactElement {
                   <TableCell>{qp.name}</TableCell>
                   <TableCell>{qp.procedureType || '-'}</TableCell>
                   <TableCell>{qp.cptCodes?.map((c) => c.code).join(', ') || '-'}</TableCell>
-                  <TableCell>{qp.bodySite || '-'}</TableCell>
+                  <TableCell>{qp.bodySite === 'Other' ? qp.otherBodySite || '-' : qp.bodySite || '-'}</TableCell>
                   <TableCell onClick={(e) => e.stopPropagation()}>
                     <IconButton size="small" onClick={() => handleOpenRename(qp)} title="Rename">
                       <EditIcon fontSize="small" />

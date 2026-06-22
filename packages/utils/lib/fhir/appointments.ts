@@ -3,6 +3,7 @@ import { Appointment, CodeableConcept, Consent, DocumentReference, Encounter } f
 import {
   AppointmentAttendanceType,
   AppointmentType,
+  CODE_SYSTEM_APPOINTMENT_TYPE_CODES,
   EncounterVirtualServiceExtension,
   FHIR_APPOINTMENT_TYPE_MAP,
   FHIR_ZAPEHR_URL,
@@ -200,23 +201,28 @@ export const getReasonForVisitAndAdditionalDetailsFromAppointment = (
 
 export const isAppointmentWorkersComp = (appointment: Appointment): boolean => {
   const serviceCategory = getCoding(appointment?.serviceCategory, SERVICE_CATEGORY_SYSTEM)?.code;
-  return serviceCategory === 'workers-comp';
+  return serviceCategory === CODE_SYSTEM_APPOINTMENT_TYPE_CODES['workers-comp'];
 };
 
 export const isAppointmentOccupationalMedicine = (appointment: Appointment): boolean => {
   const serviceCategory = getCoding(appointment?.serviceCategory, SERVICE_CATEGORY_SYSTEM)?.code;
-  return serviceCategory === 'occupational-medicine';
+  return serviceCategory === CODE_SYSTEM_APPOINTMENT_TYPE_CODES['occupational-medicine'];
+};
+
+export const isAppointmentPreOp = (appointment: Appointment): boolean => {
+  const serviceCategory = getCoding(appointment?.serviceCategory, SERVICE_CATEGORY_SYSTEM)?.code;
+  return serviceCategory === CODE_SYSTEM_APPOINTMENT_TYPE_CODES['pre-op'];
 };
 
 export const isAppointmentUrgentCare = (appointment: Appointment): boolean => {
   const serviceCategory = getCoding(appointment?.serviceCategory, SERVICE_CATEGORY_SYSTEM)?.code;
-  return serviceCategory === 'urgent-care';
+  return serviceCategory === CODE_SYSTEM_APPOINTMENT_TYPE_CODES['urgent-care'];
 };
 
 export const isAppointmentAutoAccident = (appointment: Appointment): boolean => {
   const serviceCategory = getCoding(appointment?.serviceCategory, SERVICE_CATEGORY_SYSTEM)?.code;
   const { reasonForVisit } = getReasonForVisitAndAdditionalDetailsFromAppointment(appointment);
-  return serviceCategory === 'urgent-care' && reasonForVisit === 'Auto accident';
+  return serviceCategory === CODE_SYSTEM_APPOINTMENT_TYPE_CODES['urgent-care'] && reasonForVisit === 'Auto accident';
 };
 
 export const getCancellationReasonDisplay = (appointment?: Appointment): string | undefined => {

@@ -50,12 +50,6 @@ const ReviewPaperwork = (): JSX.Element => {
   const [validationErrors, setValidationErrors] = useState<FormValidationErrorObject | undefined>();
   const [errorDialogConfig, setErrorDialogConfig] = useState<ErrorDialogConfig | undefined>(undefined);
 
-  useEffect(() => {
-    if (appointmentID) {
-      useAppointmentStore.setState(() => ({ appointmentID }));
-    }
-  }, [appointmentID]);
-
   const {
     appointment: appointmentData,
     patient: patientInfo,
@@ -66,6 +60,13 @@ const ReviewPaperwork = (): JSX.Element => {
     questionnaireResponse,
   } = usePaperworkContext();
   const questionnaireResponseId = questionnaireResponse?.id;
+
+  useEffect(() => {
+    // Guard to prevent in-person ID from leaking into the telemed store;
+    if (appointmentID && appointmentData?.serviceMode === ServiceMode.virtual) {
+      useAppointmentStore.setState(() => ({ appointmentID }));
+    }
+  }, [appointmentID, appointmentData?.serviceMode]);
 
   const selectedLocation = useMemo(() => {
     return appointmentData?.location;

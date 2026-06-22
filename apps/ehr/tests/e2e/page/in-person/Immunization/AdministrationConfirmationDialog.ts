@@ -20,7 +20,7 @@ export class AdministeredDialogue {
 
   async verifyVaccine(vaccineInfo: { vaccine: string; dose: string; units: string; route: string }): Promise<void> {
     await expect(this.#page.getByTestId(dataTestIds.administrationConfirmationDialog.vaccine)).toHaveText(
-      'Vaccine: ' + vaccineInfo.vaccine + ' / ' + vaccineInfo.dose + vaccineInfo.units + ' / ' + vaccineInfo.route
+      'Immunization: ' + vaccineInfo.vaccine + ' / ' + vaccineInfo.dose + vaccineInfo.units + ' / ' + vaccineInfo.route
     );
   }
 

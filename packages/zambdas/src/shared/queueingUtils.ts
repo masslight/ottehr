@@ -1,7 +1,21 @@
 import { Appointment, Encounter } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { appointmentTypeForAppointment, getInPersonVisitStatus } from 'utils';
+import { appointmentTypeForAppointment, getInPersonVisitStatus, VisitStatusLabel } from 'utils';
+import { isOnDemandVirtualAppointment } from './appointment';
 import { getTimeSpentInCurrentStatus, getWaitingTimeForAppointment } from './waitTimeUtils';
+
+export const getTrackingBoardVisitStatus = (
+  appointment: Appointment,
+  encounter: Encounter,
+  supervisorApprovalEnabled = false
+): VisitStatusLabel => {
+  const status = getInPersonVisitStatus(appointment, encounter, supervisorApprovalEnabled);
+  // pending for "Virtual visit with X at Y" notifications, arrived for tracking board
+  if (status === 'pending' && isOnDemandVirtualAppointment(appointment)) {
+    return 'arrived';
+  }
+  return status;
+};
 
 const ARRIVED_PREBOOKED_EARLY_ARRIVAL_LIMIT = 15;
 const READY_PREBOOKED_EARLY_ARRIVAL_LIMIT = 10;
@@ -331,7 +345,7 @@ class QueueBuilder {
     appointments.forEach((appointment) => {
       const encounter = apptRefToEncounterMap[`Appointment/${appointment.id}`];
       if (encounter && appointment) {
-        const status = getInPersonVisitStatus(appointment, encounter);
+        const status = getTrackingBoardVisitStatus(appointment, encounter);
 
         if (status === 'pending') {
           this.insertNew(appointment, encounter, this.queues.prebooked);

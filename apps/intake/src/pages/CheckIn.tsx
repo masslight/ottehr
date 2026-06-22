@@ -6,7 +6,14 @@ import { t } from 'i18next';
 import { DateTime } from 'luxon';
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { APIError, APPOINTMENT_NOT_FOUND_ERROR, CheckInZambdaOutput, DATETIME_FULL_NO_YEAR, VisitType } from 'utils';
+import {
+  APIError,
+  APPOINTMENT_NOT_FOUND_ERROR,
+  CheckInZambdaOutput,
+  DATETIME_FULL_NO_YEAR,
+  FEATURE_FLAGS_CONFIG,
+  VisitType,
+} from 'utils';
 import ottehrApi from '../api/ottehrApi';
 import { PageContainer } from '../components';
 import useAppointmentNotFoundInformation from '../helpers/information';
@@ -42,7 +49,10 @@ const CheckIn = (): JSX.Element => {
     });
   }, [zambdaClient, checkIn, appointmentID]);
 
-  const showRegisterAnotherPatient = checkIn?.visitType && checkIn?.visitType !== VisitType.PostTelemed;
+  const showRegisterAnotherPatient =
+    !FEATURE_FLAGS_CONFIG.hideRegisterAnotherPatient &&
+    checkIn?.visitType &&
+    checkIn?.visitType !== VisitType.PostTelemed;
 
   const greenCheckIcon = (
     <Chip

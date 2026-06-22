@@ -21,15 +21,17 @@ const createMockZambdaInputWithSecrets = (body: Record<string, unknown>): Zambda
 });
 
 describe('Admin Create Template - validateRequestParameters', () => {
+  const UUID_1 = '550e8400-e29b-41d4-a716-446655440000';
+
   test('should accept valid input with encounterId, templateName', () => {
     const input = createMockZambdaInputWithSecrets({
-      encounterId: 'encounter-123',
+      encounterId: UUID_1,
       templateName: 'My Template',
     });
 
     const result = validateCreateParams(input);
 
-    expect(result.encounterId).toBe('encounter-123');
+    expect(result.encounterId).toBe(UUID_1);
     expect(result.templateName).toBe('My Template');
   });
 
@@ -43,7 +45,7 @@ describe('Admin Create Template - validateRequestParameters', () => {
 
   test('should throw when templateName is missing', () => {
     const input = createMockZambdaInputWithSecrets({
-      encounterId: 'encounter-123',
+      encounterId: UUID_1,
     });
 
     expect(() => validateCreateParams(input)).toThrow('templateName');
@@ -51,33 +53,44 @@ describe('Admin Create Template - validateRequestParameters', () => {
 
   test('should throw when templateName is empty string', () => {
     const input = createMockZambdaInputWithSecrets({
-      encounterId: 'encounter-123',
+      encounterId: UUID_1,
       templateName: '',
     });
 
     expect(() => validateCreateParams(input)).toThrow('templateName');
   });
 
-  test('should throw when no secrets are provided', () => {
-    const input = createMockZambdaInput({
+  test('should throw when encounterId is not a valid UUID', () => {
+    const input = createMockZambdaInputWithSecrets({
       encounterId: 'encounter-123',
       templateName: 'My Template',
     });
 
-    expect(() => validateCreateParams(input)).toThrow('No secrets provided');
+    expect(() => validateCreateParams(input)).toThrow();
+  });
+
+  test('should throw when no secrets are provided', () => {
+    const input = createMockZambdaInput({
+      encounterId: UUID_1,
+      templateName: 'My Template',
+    });
+
+    expect(() => validateCreateParams(input)).toThrow();
   });
 });
 
 describe('Admin Rename Template - validateRequestParameters', () => {
+  const UUID_2 = '6ba7b810-9dad-11d1-80b4-00c04fd430c8';
+
   test('should accept valid input with templateId and newName', () => {
     const input = createMockZambdaInputWithSecrets({
-      templateId: 'template-456',
+      templateId: UUID_2,
       newName: 'Renamed Template',
     });
 
     const result = validateRenameParams(input);
 
-    expect(result.templateId).toBe('template-456');
+    expect(result.templateId).toBe(UUID_2);
     expect(result.newName).toBe('Renamed Template');
   });
 
@@ -91,7 +104,7 @@ describe('Admin Rename Template - validateRequestParameters', () => {
 
   test('should throw when newName is missing', () => {
     const input = createMockZambdaInputWithSecrets({
-      templateId: 'template-456',
+      templateId: UUID_2,
     });
 
     expect(() => validateRenameParams(input)).toThrow('newName');
@@ -99,7 +112,7 @@ describe('Admin Rename Template - validateRequestParameters', () => {
 
   test('should throw when newName is empty string', () => {
     const input = createMockZambdaInputWithSecrets({
-      templateId: 'template-456',
+      templateId: UUID_2,
       newName: '',
     });
 
@@ -115,25 +128,36 @@ describe('Admin Rename Template - validateRequestParameters', () => {
     expect(() => validateRenameParams(input)).toThrow('templateId');
   });
 
-  test('should throw when no secrets are provided', () => {
-    const input = createMockZambdaInput({
+  test('should throw when templateId is not a valid UUID', () => {
+    const input = createMockZambdaInputWithSecrets({
       templateId: 'template-456',
       newName: 'Renamed Template',
     });
 
-    expect(() => validateRenameParams(input)).toThrow('No secrets provided');
+    expect(() => validateRenameParams(input)).toThrow();
+  });
+
+  test('should throw when no secrets are provided', () => {
+    const input = createMockZambdaInput({
+      templateId: UUID_2,
+      newName: 'Renamed Template',
+    });
+
+    expect(() => validateRenameParams(input)).toThrow();
   });
 });
 
 describe('Admin Delete Template - validateRequestParameters', () => {
+  const UUID_2 = '6ba7b810-9dad-11d1-80b4-00c04fd430c8';
+
   test('should accept valid input with templateId', () => {
     const input = createMockZambdaInputWithSecrets({
-      templateId: 'template-789',
+      templateId: UUID_2,
     });
 
     const result = validateDeleteParams(input);
 
-    expect(result.templateId).toBe('template-789');
+    expect(result.templateId).toBe(UUID_2);
   });
 
   test('should throw when templateId is missing', () => {
@@ -150,12 +174,20 @@ describe('Admin Delete Template - validateRequestParameters', () => {
     expect(() => validateDeleteParams(input)).toThrow('templateId');
   });
 
-  test('should throw when no secrets are provided', () => {
-    const input = createMockZambdaInput({
+  test('should throw when templateId is not a valid UUID', () => {
+    const input = createMockZambdaInputWithSecrets({
       templateId: 'template-789',
     });
 
-    expect(() => validateDeleteParams(input)).toThrow('No secrets provided');
+    expect(() => validateDeleteParams(input)).toThrow();
+  });
+
+  test('should throw when no secrets are provided', () => {
+    const input = createMockZambdaInput({
+      templateId: UUID_2,
+    });
+
+    expect(() => validateDeleteParams(input)).toThrow();
   });
 
   test('should throw when body is missing', () => {
@@ -167,6 +199,6 @@ describe('Admin Delete Template - validateRequestParameters', () => {
       secrets: { AUTH0_SECRET: 'test-secret' },
     };
 
-    expect(() => validateDeleteParams(input)).toThrow('No request body provided');
+    expect(() => validateDeleteParams(input)).toThrow();
   });
 });

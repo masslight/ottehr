@@ -239,20 +239,22 @@ test.describe('Immunization Page mutating tests', () => {
     const sideMenu = new SideMenu(page);
     const assessmentPage = await sideMenu.clickAssessment();
     await assessmentPage.expectDiagnosisDropdown();
-    await assessmentPage.selectDiagnosis({ diagnosisCode: DIAGNOSIS_CODE_ONE });
-    await waitForSaveChartDataResponse(
+    const firstDiagnosisSaved = waitForSaveChartDataResponse(
       page,
       (json) =>
         json.chartData.diagnosis?.some((dx) => dx.code.toLowerCase().includes(DIAGNOSIS_CODE_ONE.toLowerCase())) ??
         false
     );
-    await assessmentPage.selectDiagnosis({ diagnosisCode: DIAGNOSIS_CODE_TWO });
-    await waitForSaveChartDataResponse(
+    await assessmentPage.selectDiagnosis({ diagnosisCode: DIAGNOSIS_CODE_ONE });
+    await firstDiagnosisSaved;
+    const secondDiagnosisSaved = waitForSaveChartDataResponse(
       page,
       (json) =>
         json.chartData.diagnosis?.some((dx) => dx.code.toLowerCase().includes(DIAGNOSIS_CODE_TWO.toLowerCase())) ??
         false
     );
+    await assessmentPage.selectDiagnosis({ diagnosisCode: DIAGNOSIS_CODE_TWO });
+    await secondDiagnosisSaved;
   }
 
   async function enterVaccineInfo(vaccineInfo: VaccineInfo, orderDetailsSection: OrderDetailsSection): Promise<void> {

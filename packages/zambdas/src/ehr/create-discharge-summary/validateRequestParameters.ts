@@ -1,15 +1,20 @@
-import { CreateDischargeSummaryInputSchema, CreateDischargeSummaryInputValidated } from 'utils';
+import {
+  CreateDischargeSummaryInputSchema,
+  CreateDischargeSummaryInputValidated,
+  MISSING_REQUEST_BODY,
+  NOT_AUTHORIZED,
+} from 'utils';
 import { safeValidate, ZambdaInput } from '../../shared';
 
 export function validateRequestParameters(input: ZambdaInput): CreateDischargeSummaryInputValidated {
   console.group('validateRequestParameters');
 
-  if (!input.body) {
-    throw new Error('No request body provided');
+  if (!input.headers?.Authorization) {
+    throw NOT_AUTHORIZED;
   }
 
-  if (!input.headers?.Authorization) {
-    throw new Error('Authorization header is required');
+  if (!input.body) {
+    throw MISSING_REQUEST_BODY;
   }
 
   const userToken = input.headers.Authorization.replace('Bearer ', '');

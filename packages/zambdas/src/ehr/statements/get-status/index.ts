@@ -1,7 +1,13 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Communication, DocumentReference, Task } from 'fhir/r4b';
-import { MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS, Secrets, STATEMENT_CODE } from 'utils';
+import {
+  MISSING_REQUEST_BODY,
+  MISSING_REQUEST_SECRETS,
+  MISSING_REQUIRED_PARAMETERS,
+  Secrets,
+  STATEMENT_CODE,
+} from 'utils';
 import {
   createOystehrClient,
   getAuth0Token,
@@ -57,7 +63,7 @@ function validateRequestParameters(input: ZambdaInput): GetStatementStatusInput 
   const body = JSON.parse(input.body) as Record<string, unknown>;
   const encounterId = body.encounterId;
   if (typeof encounterId !== 'string' || encounterId.trim().length === 0) {
-    throw new Error('encounterId is required');
+    throw MISSING_REQUIRED_PARAMETERS(['encounterId']);
   }
 
   return {

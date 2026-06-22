@@ -16,8 +16,7 @@ import {
 import { formatDateTimeToZone } from '../../utils';
 import {
   celsiusToFahrenheit,
-  cmToFeet,
-  cmToInches,
+  formatHeightObservationValue,
   formatWeightKg,
   formatWeightLbs,
   getVisionExtraOptionsFormattedString,
@@ -38,7 +37,7 @@ export const mapVitalsToDisplay = (
     switch (field) {
       case VitalFieldNames.VitalTemperature:
         parsed = observation as VitalsTemperatureObservationDTO;
-        text = `${parsed.value} C = ${celsiusToFahrenheit(parsed.value).toFixed(1)} F ${
+        text = `${parsed.value} C ≈ ${celsiusToFahrenheit(parsed.value).toFixed(1)} F ${
           parsed.observationMethod ? ` (${parsed.observationMethod})` : ''
         }`;
         break;
@@ -70,16 +69,16 @@ export const mapVitalsToDisplay = (
           const kgStr = formatWeightKg(parsed.value) + ' kg';
           const lbsStr = formatWeightLbs(parsed.value) + ' lbs';
           if (vitalsConfig['vital-weight'].unit === 'kg') {
-            text = `${kgStr} = ${lbsStr}`;
+            text = `${kgStr} ≈ ${lbsStr}`;
           } else {
-            text = `${lbsStr} = ${kgStr}`;
+            text = `${lbsStr} ≈ ${kgStr}`;
           }
         }
         break;
       }
       case VitalFieldNames.VitalHeight:
         parsed = observation as VitalsHeightObservationDTO;
-        text = `${parsed.value} cm = ${cmToInches(parsed.value)} inch = ${cmToFeet(parsed.value)} ft`;
+        text = formatHeightObservationValue(parsed.value);
         break;
       case VitalFieldNames.VitalVision: {
         parsed = observation as VitalsVisionObservationDTO;

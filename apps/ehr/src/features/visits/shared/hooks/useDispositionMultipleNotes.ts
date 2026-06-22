@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { UseFormReturn, useWatch } from 'react-hook-form';
-import { DispositionDTO, DispositionType, getDefaultNote } from 'utils';
+import { useProgressNoteConfig } from 'src/hooks/useProgressNoteConfig';
+import { DispositionDTO, DispositionType, getDispositionDefaultTextFromProgressNoteConfig } from 'utils';
 import { DispositionFormValues, mapFormToDisposition } from '../../telemed/utils/disposition.helper';
 
 type SetNoteCache = (note: string) => void;
@@ -22,21 +23,45 @@ export const useDispositionMultipleNotes = ({
 } => {
   const notesCacheRef = useRef<Partial<Record<DispositionType, string>>>({});
   const selectedDispositionType: DispositionType = useWatch({ control: methods.control, name: 'type' });
+  const { data: progressNoteConfig, isPending: isProgressNoteConfigPending } = useProgressNoteConfig();
 
   const savedNoteForCurrentDispositionType =
     methods.getValues('type') === savedDisposition?.type ? savedDisposition?.note : '';
 
   useEffect(() => {
-    notesCacheRef.current[selectedDispositionType] =
-      notesCacheRef.current[selectedDispositionType] ||
+    const cachedNote = notesCacheRef.current[selectedDispositionType];
+    if (cachedNote !== undefined) {
+      methods.resetField('note', {
+        defaultValue: cachedNote,
+        keepTouched: true,
+      });
+      return;
+    }
+
+    // Wait for the query to settle, but don't gate on success — if the request errors,
+    // `progressNoteConfig` is undefined and `getDispositionDefaultTextFromProgressNoteConfig`
+    // falls back to the built-in defaults, preserving the pre-admin-config behavior.
+    if (isProgressNoteConfigPending) {
+      return;
+    }
+
+    const nextDefaultNote =
       savedNoteForCurrentDispositionType ||
-      getDefaultNote(selectedDispositionType);
+      getDispositionDefaultTextFromProgressNoteConfig(progressNoteConfig, selectedDispositionType);
+
+    notesCacheRef.current[selectedDispositionType] = nextDefaultNote;
 
     methods.resetField('note', {
-      defaultValue: notesCacheRef.current[selectedDispositionType],
+      defaultValue: nextDefaultNote,
       keepTouched: true,
     });
-  }, [methods, savedNoteForCurrentDispositionType, selectedDispositionType]);
+  }, [
+    isProgressNoteConfigPending,
+    methods,
+    progressNoteConfig,
+    savedNoteForCurrentDispositionType,
+    selectedDispositionType,
+  ]);
 
   const setNoteCache: SetNoteCache = useCallback(
     (note: string) => {

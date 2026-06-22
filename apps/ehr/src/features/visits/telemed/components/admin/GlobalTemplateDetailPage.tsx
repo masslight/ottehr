@@ -23,10 +23,13 @@ import { getTemplateDetail } from 'src/api/api';
 import { GLOBAL_TEMPLATES_URL } from 'src/App';
 import CustomBreadcrumbs from 'src/components/CustomBreadcrumbs';
 import { QUERY_STALE_TIME } from 'src/constants';
+import { formatCptCodeAndModifiersForDisplay, getProcedureDisplayFields } from 'src/helpers/templates';
 import { useApiClients } from 'src/hooks/useAppClients';
 import PageContainer from 'src/layout/PageContainer';
 import {
   AdminGetTemplateDetailOutput,
+  groupExamFindingsBySection,
+  nameLabTest,
   RosFindingState,
   RosFindingStateLabel,
   TemplateExamFinding,
@@ -112,11 +115,55 @@ function NotIncluded(): ReactElement {
   );
 }
 
-type FindingsTableProps =
-  | { type: 'ros'; findings: TemplateRosFinding[] }
-  | { type: 'exam'; findings: TemplateExamFinding[] };
+function ExamFindingsTable({ findings }: { findings: TemplateExamFinding[] }): ReactElement {
+  const groups = groupExamFindingsBySection(findings);
+  return (
+    <Stack spacing={2}>
+      {groups.map((group) => (
+        <Box key={group.sectionKey}>
+          <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
+            {group.sectionLabel}
+          </Typography>
+          <TableContainer>
+            <Table size="small" sx={{ tableLayout: 'fixed' }}>
+              <TableHead>
+                <TableRow>
+                  <TableCell sx={{ fontWeight: 'bold', width: '60%' }}>Field</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold', width: '10%' }}>Status</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold', width: '30%' }}>Notes</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {group.findings.map((finding, index) => (
+                  <TableRow key={`${finding.fieldName}-${index}`}>
+                    <TableCell>{finding.label}</TableCell>
+                    <TableCell>
+                      <Chip
+                        label={finding.isAbnormal ? 'Abnormal' : 'Normal'}
+                        size="small"
+                        color={finding.isAbnormal ? 'error' : 'success'}
+                        variant="outlined"
+                      />
+                    </TableCell>
+                    <TableCell sx={{ whiteSpace: 'pre-wrap' }}>
+                      {finding.note || (
+                        <Typography variant="body2" color="text.disabled">
+                          —
+                        </Typography>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </Box>
+      ))}
+    </Stack>
+  );
+}
 
-function FindingsTable({ type, findings }: FindingsTableProps): ReactElement {
+function RosFindingsTable({ findings }: { findings: TemplateRosFinding[] }): ReactElement {
   return (
     <TableContainer>
       <Table size="small" sx={{ tableLayout: 'fixed' }}>
@@ -124,60 +171,31 @@ function FindingsTable({ type, findings }: FindingsTableProps): ReactElement {
           <TableRow>
             <TableCell sx={{ fontWeight: 'bold', width: '60%' }}>Field</TableCell>
             <TableCell sx={{ fontWeight: 'bold', width: '10%' }}>Status</TableCell>
-            <TableCell sx={{ fontWeight: 'bold', width: '30%' }}>{type === 'exam' ? 'Notes' : ''}</TableCell>
+            <TableCell sx={{ fontWeight: 'bold', width: '30%' }} />
           </TableRow>
         </TableHead>
-
         <TableBody>
-          {findings.map((finding, index) => {
-            if (type === 'ros') {
-              const rosFinding = finding as TemplateRosFinding;
-              const { label, findingState, stale } = rosFinding;
-              const statusLabel = findingState ? RosFindingStateLabel[findingState] : 'unknown';
-
-              return (
-                <TableRow key={index}>
-                  <TableCell>{label}</TableCell>
-                  <TableCell sx={{ display: 'flex' }}>
-                    <Chip
-                      label={statusLabel}
-                      size="small"
-                      color={
-                        findingState === RosFindingState.Reports
-                          ? 'error'
-                          : findingState === RosFindingState.Denies
-                          ? 'success'
-                          : 'warning'
-                      }
-                      variant="outlined"
-                    />
-                    {stale ? <Chip label="Stale" size="small" color="warning" sx={{ ml: 1 }} /> : null}
-                  </TableCell>
-                  <TableCell />
-                </TableRow>
-              );
-            }
-
-            const examFinding = finding as TemplateExamFinding;
-
+          {findings.map(({ label, findingState, stale }, index) => {
+            const statusLabel = findingState ? RosFindingStateLabel[findingState] : 'unknown';
             return (
               <TableRow key={index}>
-                <TableCell>{examFinding.label}</TableCell>
-                <TableCell>
+                <TableCell>{label}</TableCell>
+                <TableCell sx={{ display: 'flex' }}>
                   <Chip
-                    label={examFinding.isAbnormal ? 'Abnormal' : 'Normal'}
+                    label={statusLabel}
                     size="small"
-                    color={examFinding.isAbnormal ? 'error' : 'success'}
+                    color={
+                      findingState === RosFindingState.Reports
+                        ? 'error'
+                        : findingState === RosFindingState.Denies
+                        ? 'success'
+                        : 'warning'
+                    }
                     variant="outlined"
                   />
+                  {stale ? <Chip label="Stale" size="small" color="warning" sx={{ ml: 1 }} /> : null}
                 </TableCell>
-                <TableCell sx={{ whiteSpace: 'pre-wrap' }}>
-                  {examFinding.note || (
-                    <Typography variant="body2" color="text.disabled">
-                      —
-                    </Typography>
-                  )}
-                </TableCell>
+                <TableCell />
               </TableRow>
             );
           })}
@@ -287,17 +305,13 @@ export default function GlobalTemplateDetailPage(): ReactElement {
 
           {/* Review of Systems */}
           <SectionCard title="Review of Systems (ROS)">
-            {sections.rosFindings.length ? (
-              <FindingsTable type="ros" findings={sections.rosFindings} />
-            ) : (
-              <NotIncluded />
-            )}
+            {sections.rosFindings.length ? <RosFindingsTable findings={sections.rosFindings} /> : <NotIncluded />}
           </SectionCard>
 
           {/* Exam Findings */}
           <SectionCard title="Exam Findings">
             {sections.examFindings.length > 0 ? (
-              <FindingsTable type="exam" findings={sections.examFindings} />
+              <ExamFindingsTable findings={sections.examFindings} />
             ) : (
               <NotIncluded />
             )}
@@ -354,7 +368,7 @@ export default function GlobalTemplateDetailPage(): ReactElement {
                   <TableBody>
                     {sections.cptCodes.map((cpt, index) => (
                       <TableRow key={index}>
-                        <TableCell>{cpt.code}</TableCell>
+                        <TableCell>{formatCptCodeAndModifiersForDisplay(cpt)}</TableCell>
                         <TableCell>{cpt.display || '—'}</TableCell>
                       </TableRow>
                     ))}
@@ -404,6 +418,122 @@ export default function GlobalTemplateDetailPage(): ReactElement {
                     <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
                       {instruction.text}
                     </Typography>
+                  </Box>
+                ))}
+              </Stack>
+            ) : (
+              <NotIncluded />
+            )}
+          </SectionCard>
+
+          {/* In-House Lab Orders */}
+          <SectionCard title="In-House Lab Orders">
+            {sections.inHouseLabs.length > 0 ? (
+              <Stack spacing={2}>
+                {sections.inHouseLabs.map((plan) => (
+                  <Box key={plan.planId} sx={{ opacity: plan.missing ? 0.6 : 1 }}>
+                    <Stack direction="row" alignItems="baseline" spacing={1}>
+                      <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
+                        {plan.testName}
+                      </Typography>
+                      {plan.missing ? (
+                        <Typography variant="caption" color="warning.main" fontStyle="italic">
+                          ActivityDefinition not found in this environment — applies will skip this lab
+                        </Typography>
+                      ) : null}
+                    </Stack>
+                    {plan.diagnoses.length > 0 ? (
+                      <Typography variant="body2" sx={{ mt: 0.5 }}>
+                        <strong>Diagnoses:</strong>{' '}
+                        {plan.diagnoses.map((d) => (d.display ? `${d.code} — ${d.display}` : d.code)).join('; ')}
+                      </Typography>
+                    ) : null}
+                    {plan.notes.length > 0 ? (
+                      <Typography variant="body2" sx={{ mt: 0.5, whiteSpace: 'pre-wrap' }}>
+                        <strong>Notes:</strong> {plan.notes.join('\n\n')}
+                      </Typography>
+                    ) : null}
+                  </Box>
+                ))}
+              </Stack>
+            ) : (
+              <NotIncluded />
+            )}
+          </SectionCard>
+
+          {/* External Lab Orders */}
+          <SectionCard title="External Lab Orders">
+            {sections.externalLabs.length > 0 ? (
+              <Stack spacing={2}>
+                {sections.externalLabs.map((plan) => (
+                  <Box key={plan.planId} sx={{ opacity: plan.missing ? 0.6 : 1 }}>
+                    <Stack direction="row" alignItems="baseline" spacing={1}>
+                      <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
+                        {nameLabTest(plan.testName, plan.testCode, plan.labName, false)}
+                      </Typography>
+                      {plan.missing ? (
+                        <Typography variant="caption" color="warning.main" fontStyle="italic">
+                          Test not found in the lab's compendium — applies will skip this order
+                        </Typography>
+                      ) : null}
+                    </Stack>
+                    {plan.diagnoses.length > 0 ? (
+                      <Typography variant="body2" sx={{ mt: 0.5 }}>
+                        <strong>Diagnoses:</strong>{' '}
+                        {plan.diagnoses.map((d) => (d.display ? `${d.code} — ${d.display}` : d.code)).join('; ')}
+                      </Typography>
+                    ) : null}
+                    <Typography variant="body2" sx={{ mt: 0.5 }}>
+                      <strong>PSC Hold:</strong> {plan.psc ? 'Yes' : 'No'}
+                    </Typography>
+                    {plan.note ? (
+                      <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
+                        <strong>Note:</strong> {plan.note}
+                      </Typography>
+                    ) : null}
+                  </Box>
+                ))}
+              </Stack>
+            ) : (
+              <NotIncluded />
+            )}
+          </SectionCard>
+
+          {/* Procedures */}
+          <SectionCard title="Procedures">
+            {sections.procedures.length > 0 ? (
+              <Stack spacing={2}>
+                {sections.procedures.map((plan) => (
+                  <Box key={plan.planId}>
+                    <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
+                      {plan.procedureType ?? plan.cptCodes[0]?.display ?? plan.cptCodes[0]?.code ?? 'Procedure'}
+                    </Typography>
+                    {plan.cptCodes.length > 0 ? (
+                      <Typography variant="body2" sx={{ mt: 0.5 }}>
+                        <strong>CPT codes:</strong>{' '}
+                        {plan.cptCodes
+                          .map((c) => {
+                            const label = formatCptCodeAndModifiersForDisplay(c);
+                            return c.display ? `${label} — ${c.display}` : label;
+                          })
+                          .join('; ')}
+                      </Typography>
+                    ) : null}
+                    {plan.diagnoses.length > 0 ? (
+                      <Typography variant="body2">
+                        <strong>Diagnoses:</strong>{' '}
+                        {plan.diagnoses.map((d) => (d.display ? `${d.code} — ${d.display}` : d.code)).join('; ')}
+                      </Typography>
+                    ) : null}
+                    {getProcedureDisplayFields(plan).map((f) => (
+                      <Typography
+                        key={f.label}
+                        variant="body2"
+                        sx={f.multiline ? { whiteSpace: 'pre-wrap' } : undefined}
+                      >
+                        <strong>{f.label}:</strong> {f.value}
+                      </Typography>
+                    ))}
                   </Box>
                 ))}
               </Stack>

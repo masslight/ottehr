@@ -82,7 +82,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 });
 
 const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<PatientVisitListResponse> => {
-  const { patientId, type, status, from, to, serviceMode, sortDirection } = input;
+  const { patientId, type, status, from, to, serviceMode, sortDirection, supervisorApprovalEnabled } = input;
 
   const params: SearchParam[] = [
     {
@@ -270,7 +270,7 @@ const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<Pati
     return {
       ...baseRow,
       serviceMode: serviceMode,
-      status: encounter && getInPersonVisitStatus(appointment, encounter),
+      status: encounter && getInPersonVisitStatus(appointment, encounter, supervisorApprovalEnabled),
     };
   });
 
@@ -313,6 +313,7 @@ const complexValidation = async (
 
 interface EffectInput extends GetPatientVisitListInput {
   sortDirection: 'asc' | 'desc';
+  supervisorApprovalEnabled: boolean;
 }
 
 const validateRequestParameters = (input: ZambdaInput): EffectInput & { secrets: Secrets | null } => {
@@ -324,7 +325,16 @@ const validateRequestParameters = (input: ZambdaInput): EffectInput & { secrets:
     throw MISSING_REQUEST_BODY;
   }
 
-  const { patientId, type, status, from, to, serviceMode, sortDirection: maybeSortDirection } = JSON.parse(input.body);
+  const {
+    patientId,
+    type,
+    status,
+    from,
+    to,
+    serviceMode,
+    sortDirection: maybeSortDirection,
+    supervisorApprovalEnabled: maybeSupervisorApprovalEnabled,
+  } = JSON.parse(input.body);
   if (!patientId) {
     throw MISSING_REQUIRED_PARAMETERS(['patientId']);
   }
@@ -388,6 +398,8 @@ const validateRequestParameters = (input: ZambdaInput): EffectInput & { secrets:
     status,
     sortDirection,
     serviceMode,
+    supervisorApprovalEnabled:
+      typeof maybeSupervisorApprovalEnabled === 'boolean' ? maybeSupervisorApprovalEnabled : false,
     secrets: input.secrets ?? null,
   };
 };

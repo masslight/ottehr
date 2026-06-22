@@ -10,7 +10,6 @@ import { SectionSaveButton } from './SectionSaveButton';
 
 const { emergencyContact } = PATIENT_RECORD_CONFIG.FormFields;
 const FIELD_KEYS = Object.values(emergencyContact.items).map((item) => item.key);
-const REQUIRED_FIELD_KEYS = emergencyContact.requiredFields ?? [];
 
 interface EmergencyContactContainerProps {
   isLoading: boolean;
@@ -64,14 +63,7 @@ export const EmergencyContactContainer: FC<EmergencyContactContainerProps> = ({
   return (
     <PatientRecordFormSection
       formSection={emergencyContact}
-      titleWidget={
-        <SectionSaveButton
-          fieldKeys={FIELD_KEYS}
-          requiredFieldKeys={REQUIRED_FIELD_KEYS}
-          patientId={patientId}
-          encounterId={encounterId}
-        />
-      }
+      titleWidget={<SectionSaveButton fieldKeys={FIELD_KEYS} patientId={patientId} encounterId={encounterId} />}
     >
       <PatientRecordFormField
         item={FormFields.relationship}

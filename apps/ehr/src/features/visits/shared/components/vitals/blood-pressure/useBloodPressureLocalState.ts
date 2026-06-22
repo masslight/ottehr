@@ -3,6 +3,9 @@ import { toVitalBloodPressureObservationMethod, VitalFieldNames, VitalsBloodPres
 import { BloodPressureLocalState } from '../types';
 import { textToBloodPressureNumber } from './helpers';
 
+export const INVALID_BLOOD_PRESSURE_MESSAGE =
+  'Invalid Blood Pressure : Diastolic value cannot be greater than or equal to Systolic value.';
+
 export function useBloodPressureLocalState(): BloodPressureLocalState {
   const [systolicValueText, setSystolicValueText] = useState('');
   const [diastolicValueText, setDiastolicValueText] = useState('');
@@ -33,17 +36,21 @@ export function useBloodPressureLocalState(): BloodPressureLocalState {
     setValidationError(false);
   }, []);
 
+  const systolicValueNum = textToBloodPressureNumber(systolicValueText);
+  const diastolicValueNum = textToBloodPressureNumber(diastolicValueText);
+  const hasParsedValues = systolicValueNum !== undefined && diastolicValueNum !== undefined;
+  const isRelationshipInvalid = hasParsedValues && diastolicValueNum >= systolicValueNum;
+  const validationErrorMessage = isRelationshipInvalid ? INVALID_BLOOD_PRESSURE_MESSAGE : undefined;
+
   const getDTO = useCallback((): VitalsBloodPressureObservationDTO | null => {
-    const systolicValueNum = textToBloodPressureNumber(systolicValueText);
-    const diastolicValueNum = textToBloodPressureNumber(diastolicValueText);
-    if (systolicValueNum === undefined || diastolicValueNum === undefined) return null;
+    if (!hasParsedValues || isRelationshipInvalid) return null;
     return {
       field: VitalFieldNames.VitalBloodPressure,
       systolicPressure: systolicValueNum,
       diastolicPressure: diastolicValueNum,
       observationMethod: toVitalBloodPressureObservationMethod(observationQualifier),
     };
-  }, [systolicValueText, diastolicValueText, observationQualifier]);
+  }, [systolicValueNum, diastolicValueNum, hasParsedValues, isRelationshipInvalid, observationQualifier]);
 
   const hasData = systolicValueText.length > 0 || diastolicValueText.length > 0 || observationQualifier.length > 0;
   const isValid = getDTO() !== null;
@@ -51,14 +58,14 @@ export function useBloodPressureLocalState(): BloodPressureLocalState {
 
   const isSystolicInvalid = ((): boolean => {
     if (systolicValueText.length > 0) {
-      return !textToBloodPressureNumber(systolicValueText);
+      return systolicValueNum === undefined;
     }
     return diastolicValueText.length > 0 || observationQualifier.length > 0;
   })();
 
   const isDiastolicInvalid = ((): boolean => {
     if (diastolicValueText.length > 0) {
-      return !textToBloodPressureNumber(diastolicValueText);
+      return diastolicValueNum === undefined || isRelationshipInvalid;
     }
     return systolicValueText.length > 0 || observationQualifier.length > 0;
   })();
@@ -68,6 +75,7 @@ export function useBloodPressureLocalState(): BloodPressureLocalState {
     diastolicValue: diastolicValueText,
     observationQualifier,
     validationError: isValidationError,
+    validationErrorMessage,
     isSystolicInvalid,
     isDiastolicInvalid,
     isDisabled,

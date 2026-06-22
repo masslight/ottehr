@@ -13,6 +13,10 @@
       "path": "../apps/intake"
     },
     {
+      "name": "Billing UI",
+      "path": "../apps/billing"
+    },
+    {
       "name": "Zambdas",
       "path": "../packages/zambdas"
     },

@@ -1,9 +1,12 @@
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import { Box, CircularProgress, IconButton, Stack, Typography, useTheme } from '@mui/material';
+import MedicationIcon from '@mui/icons-material/Medication';
+import { Box, CircularProgress, IconButton, Stack, Tooltip, Typography, useTheme } from '@mui/material';
+import { DateTime } from 'luxon';
 import React, { ReactElement } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Row } from 'src/components/layout/Row';
 import { Section } from 'src/components/layout/Section';
+import { searchRouteByCode } from 'utils';
 import { useInHouseMedicationQuickPicksQuery } from './admin.queries';
 
 function ValueDisplay({ value }: { value: string | number | undefined | null }): ReactElement {
@@ -61,7 +64,10 @@ export default function InHouseMedicationQuickPickDetailPage(): ReactElement {
             <ValueDisplay value={quickPick.units} />
           </Row>
           <Row label="Route">
-            <ValueDisplay value={quickPick.route} />
+            <ValueDisplay value={searchRouteByCode(quickPick.route)?.display ?? quickPick.route} />
+          </Row>
+          <Row label="Location">
+            <ValueDisplay value={quickPick.location?.name} />
           </Row>
           <Row label="Manufacturer">
             <ValueDisplay value={quickPick.manufacturer} />
@@ -72,6 +78,34 @@ export default function InHouseMedicationQuickPickDetailPage(): ReactElement {
           <Row label="NDC">
             <ValueDisplay value={quickPick.ndc} />
           </Row>
+          <Row label="CPT / HCPCS">
+            {quickPick.cptCodes && quickPick.cptCodes.length > 0 ? (
+              <Stack spacing={0.5}>
+                {quickPick.cptCodes.map((cptCode) => (
+                  <Box key={cptCode.code} sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    {cptCode.isMedication && (
+                      <Tooltip title="This code is the medication">
+                        <MedicationIcon fontSize="small" color="primary" />
+                      </Tooltip>
+                    )}
+                    <Typography variant="body2">
+                      {cptCode.code} {cptCode.display}
+                      {cptCode.billableUnitSize != null && (
+                        <Typography component="span" variant="body2" color="text.secondary">
+                          {' '}
+                          — Billable Unit Size: {cptCode.billableUnitSize}
+                          {quickPick.units ? ` ${quickPick.units}` : ''}
+                          {cptCode.billableUnits != null ? `, Billable Units: ${cptCode.billableUnits}` : ''}
+                        </Typography>
+                      )}
+                    </Typography>
+                  </Box>
+                ))}
+              </Stack>
+            ) : (
+              <ValueDisplay value={undefined} />
+            )}
+          </Row>
         </Section>
 
         <Section title="Administration Details">
@@ -79,7 +113,9 @@ export default function InHouseMedicationQuickPickDetailPage(): ReactElement {
             <ValueDisplay value={quickPick.lotNumber} />
           </Row>
           <Row label="Expiration Date">
-            <ValueDisplay value={quickPick.expDate} />
+            <ValueDisplay
+              value={quickPick.expDate ? DateTime.fromISO(quickPick.expDate).toFormat('yyyy-MM-dd') : undefined}
+            />
           </Row>
           <Row label="Instructions">
             <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>

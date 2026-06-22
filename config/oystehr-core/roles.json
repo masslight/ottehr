@@ -474,6 +474,7 @@
             "FHIR:Organization",
             "FHIR:Location",
             "FHIR:HealthcareService",
+            "FHIR:PractitionerRole",
             "FHIR:Questionnaire",
             "FHIR:QuestionnaireResponse",
             "FHIR:Person",

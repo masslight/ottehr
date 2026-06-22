@@ -14,11 +14,7 @@ import {
   getMedicationHistoryQuickPicks,
   getPatientInstructionQuickPicks,
   getQuickTextQuickPicks,
-  removeAllergyQuickPick,
-  removeMedicalConditionQuickPick,
-  removeMedicationHistoryQuickPick,
-  removePatientInstructionQuickPick,
-  removeQuickTextQuickPick,
+  removeQuickPick,
   updatePatientInstructionQuickPick,
   updateQuickTextQuickPick,
 } from 'src/api/api';
@@ -279,7 +275,7 @@ export default function QuickPicksAdminPage(): ReactElement {
   const removeAllergy = useCallback(
     async (id: string) => {
       if (!oystehrZambda) throw new Error('oystehrZambda was null');
-      await removeAllergyQuickPick(oystehrZambda, id);
+      await removeQuickPick(oystehrZambda, id);
     },
     [oystehrZambda]
   );
@@ -303,7 +299,7 @@ export default function QuickPicksAdminPage(): ReactElement {
   const removeCondition = useCallback(
     async (id: string) => {
       if (!oystehrZambda) throw new Error('oystehrZambda was null');
-      await removeMedicalConditionQuickPick(oystehrZambda, id);
+      await removeQuickPick(oystehrZambda, id);
     },
     [oystehrZambda]
   );
@@ -327,7 +323,7 @@ export default function QuickPicksAdminPage(): ReactElement {
   const removeMedication = useCallback(
     async (id: string) => {
       if (!oystehrZambda) throw new Error('oystehrZambda was null');
-      await removeMedicationHistoryQuickPick(oystehrZambda, id);
+      await removeQuickPick(oystehrZambda, id);
     },
     [oystehrZambda]
   );
@@ -360,7 +356,7 @@ export default function QuickPicksAdminPage(): ReactElement {
   const removePatientInstruction = useCallback(
     async (id: string) => {
       if (!oystehrZambda) throw new Error('oystehrZambda was null');
-      await removePatientInstructionQuickPick(oystehrZambda, id);
+      await removeQuickPick(oystehrZambda, id);
     },
     [oystehrZambda]
   );
@@ -393,7 +389,7 @@ export default function QuickPicksAdminPage(): ReactElement {
   const removeQuickText = useCallback(
     async (id: string) => {
       if (!oystehrZambda) throw new Error('oystehrZambda was null');
-      await removeQuickTextQuickPick(oystehrZambda, id);
+      await removeQuickPick(oystehrZambda, id);
     },
     [oystehrZambda]
   );

@@ -1,8 +1,8 @@
 import { DEVELOPERS as _developers, OYSTEHR_AUTH_TOKEN, PROJECT_ID } from './setup.config';
 import { Developer } from './types';
-import { buildConfig, sendDeveloperInvite } from './utils';
+import { buildConfig, resolveProjectId, sendDeveloperInvite } from './utils';
 
-const config = buildConfig(OYSTEHR_AUTH_TOKEN, PROJECT_ID);
+const config = buildConfig(OYSTEHR_AUTH_TOKEN, resolveProjectId(PROJECT_ID));
 const DEVELOPERS: Developer[] = _developers;
 
 async function main(): Promise<void> {

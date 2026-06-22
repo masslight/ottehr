@@ -13,6 +13,8 @@ export const mapDispositionTypeToLabel: Record<DispositionType, string> = {
   specialty: 'Specialty Transfer',
 };
 
+export const OTHER_SPECIALTY_TRANSFER_OPTION = 'Other';
+
 export const specialtyTransferOptions = [
   'Allergist',
   'Cardiologist',
@@ -27,7 +29,19 @@ export const specialtyTransferOptions = [
   'Orthopedics',
   'Pediatrics',
   'Physical Therapy',
+  OTHER_SPECIALTY_TRANSFER_OPTION,
 ];
+
+/**
+ * Builds the human-readable specialty-transfer string. When the selected specialty is "Other",
+ * the free-text the provider typed is shown (falling back to "Other" when no text was entered).
+ */
+export const getSpecialtyTransferDisplay = (specialty?: string, specialtyOther?: string): string | undefined => {
+  if (specialty === OTHER_SPECIALTY_TRANSFER_OPTION) {
+    return specialtyOther?.trim() || OTHER_SPECIALTY_TRANSFER_OPTION;
+  }
+  return specialty || undefined;
+};
 
 export const dispositionCheckboxOptions = [
   {

@@ -12,6 +12,11 @@ export default ({ mode }: { mode: string }): UserConfig => {
   const tlsCert = existsSync(path.join(process.cwd(), envDir, 'cert.pem'));
   const tlsKey = existsSync(path.join(process.cwd(), envDir, 'key.pem'));
 
+  // Only emit sourcemaps when they'd be uploaded to Sentry. Otherwise rollup's
+  // "rendering chunks" phase bloats memory and OOMs the build for no benefit.
+  const shouldUploadSentrySourceMaps =
+    Boolean(env.SENTRY_AUTH_TOKEN) && Boolean(env.SENTRY_ORG) && Boolean(env.SENTRY_PROJECT);
+
   return defineConfig({
     envDir,
     plugins: [react(), viteTsconfigPaths()],
@@ -24,7 +29,7 @@ export default ({ mode }: { mode: string }): UserConfig => {
     build: {
       outDir: './build',
       target: browserslistToEsbuild(),
-      sourcemap: true,
+      sourcemap: shouldUploadSentrySourceMaps,
     },
   });
 };

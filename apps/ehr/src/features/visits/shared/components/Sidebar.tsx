@@ -231,6 +231,7 @@ const StyledButton = styled(Button, {
   display: 'flex',
   width: '100%',
   height: '42px',
+  borderRadius: 0,
   borderBottom: '1px solid #e0e0e0',
   alignItems: 'center',
   textDecoration: 'none',

@@ -1,6 +1,6 @@
 import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
 import ArrowDropUpIcon from '@mui/icons-material/ArrowDropUp';
-import { CircularProgress, Grid, useTheme } from '@mui/material';
+import { Box, CircularProgress, useTheme } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import React, { useState } from 'react';
 import { RoundedButton } from 'src/components/RoundedButton';
@@ -22,8 +22,12 @@ export const EditableNotesList: React.FC<EditableNotesListProps> = ({
   appointmentId,
   patientId,
   separateEncounterNotes,
+  alwaysEditable,
+  showEditedMarker,
+  softDeleteWithTombstone,
   addNoteButtonDataTestId,
   noteLoadingIndicatorDataTestId,
+  containerSx,
 }) => {
   const { entities, isLoading, handleSave, handleEdit, handleDelete } = useNoteHandlers({
     appointmentId,
@@ -31,10 +35,13 @@ export const EditableNotesList: React.FC<EditableNotesListProps> = ({
     patientId,
     apiConfig: apiConfig,
     locales: locales,
+    softDeleteWithTombstone,
   });
 
   const theme = useTheme();
-  const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
+  const { isAppointmentReadOnly } = useGetAppointmentAccessibility();
+  // Addendum notes stay editable after the visit is locked; other note types respect the lock.
+  const isReadOnly = alwaysEditable ? false : isAppointmentReadOnly;
   const [isSaving, setIsSaving] = useState(false);
   const [isMoreEntitiesShown, setIsMoreEntitiesShown] = useState(false);
   const [savingEntityText, setSavingEntityText] = useState('');
@@ -63,10 +70,10 @@ export const EditableNotesList: React.FC<EditableNotesListProps> = ({
     return <Loader height="80px" marginTop="20px" backgroundColor={theme.palette.background.paper} />;
 
   return (
-    <PaperStyled>
+    <PaperStyled sx={containerSx}>
       {!isReadOnly && (
-        <Grid container spacing={1} alignItems="center" sx={{ p: 3 }}>
-          <Grid item xs>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, p: 3 }}>
+          <Box sx={{ flex: 1 }}>
             <TextFieldStyled
               data-testid={dataTestIds.screeningPage.screeningNoteField}
               onKeyDown={(event: React.KeyboardEvent) => {
@@ -81,29 +88,27 @@ export const EditableNotesList: React.FC<EditableNotesListProps> = ({
               disabled={isSaving}
               label={`Enter ${locales.entityLabel}...`}
             />
-          </Grid>
-          <Grid item>
-            <RoundedButton
-              data-testid={addNoteButtonDataTestId}
-              disabled={!savingEntityText || isSaving}
-              onClick={() => handleSaveEntity(savingEntityText)}
-              variant="contained"
-              color="primary"
-              sx={{
-                height: '46px',
-                minWidth: '80px',
-                px: 2,
-              }}
-              startIcon={
-                isSaving ? (
-                  <CircularProgress data-testid={noteLoadingIndicatorDataTestId} size={20} color="inherit" />
-                ) : null
-              }
-            >
-              {locales.getAddButtonText(isSaving)}
-            </RoundedButton>
-          </Grid>
-        </Grid>
+          </Box>
+          <RoundedButton
+            data-testid={addNoteButtonDataTestId}
+            disabled={!savingEntityText || isSaving}
+            onClick={() => handleSaveEntity(savingEntityText)}
+            variant="contained"
+            color="primary"
+            sx={{
+              height: '46px',
+              minWidth: '80px',
+              px: 2,
+            }}
+            startIcon={
+              isSaving ? (
+                <CircularProgress data-testid={noteLoadingIndicatorDataTestId} size={20} color="inherit" />
+              ) : null
+            }
+          >
+            {locales.getAddButtonText(isSaving)}
+          </RoundedButton>
+        </Box>
       )}
 
       {currentEncounterEntities.map((entity) => (
@@ -114,6 +119,8 @@ export const EditableNotesList: React.FC<EditableNotesListProps> = ({
           onDelete={handleDelete}
           locales={locales}
           isReadOnly={isReadOnly}
+          showEditedMarker={showEditedMarker}
+          softDeleteWithTombstone={softDeleteWithTombstone}
         />
       ))}
 

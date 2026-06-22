@@ -95,16 +95,16 @@ export default function ImmunizationQuickPicksPage(): ReactElement {
           Immunization Quick Picks
         </Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-          Quick picks are created from the Immunization Order or Vaccine Details page. Use this page to rename or remove
-          existing quick picks.
+          Quick picks are created from the Immunization Order or Immunization Details page. Use this page to rename or
+          remove existing quick picks.
         </Typography>
       </Box>
 
       {quickPicks.length === 0 ? (
         <Paper sx={{ p: 4, textAlign: 'center' }}>
           <Typography color="text.secondary">
-            No immunization quick picks configured. Quick picks can be created from the Immunization Order or Vaccine
-            Details page by clicking &quot;Add or Update Quick Pick&quot; in the Quick Picks menu.
+            No immunization quick picks configured. Quick picks can be created from the Immunization Order or
+            Immunization Details page by clicking &quot;Add or Update Quick Pick&quot; in the Quick Picks menu.
           </Typography>
         </Paper>
       ) : (
@@ -113,7 +113,7 @@ export default function ImmunizationQuickPicksPage(): ReactElement {
             <TableHead>
               <TableRow>
                 <TableCell sx={{ fontWeight: 600 }}>Name</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Vaccine</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>Immunization</TableCell>
                 <TableCell sx={{ fontWeight: 600 }}>Dose</TableCell>
                 <TableCell sx={{ fontWeight: 600 }}>CVX</TableCell>
                 <TableCell sx={{ fontWeight: 600, width: 100 }}>Actions</TableCell>

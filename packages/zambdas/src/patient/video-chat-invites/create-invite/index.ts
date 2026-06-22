@@ -9,6 +9,7 @@ import {
   formatPhoneNumber,
   getSecret,
   getVirtualServiceResourceExtension,
+  PARTICIPATION_CODE_SYSTEM,
   PROJECT_WEBSITE,
   replaceTemplateVariablesArrows,
   SecretsKeys,
@@ -125,7 +126,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   const locationName = location ? getNameForOwner(location) ?? '' : '';
   if (emailAddress) {
-    const emailClient = getEmailClient(secrets);
+    const emailClient = getEmailClient(secrets, oystehr);
     await emailClient.sendVideoChatInvitationEmail(emailAddress, {
       'join-visit-url': inviteUrl,
       'patient-name': patientChosenName,
@@ -199,7 +200,7 @@ async function createRelatedPerson(
         coding: [
           {
             code: 'WIT',
-            system: 'http://terminology.hl7.org/CodeSystem/v3-ParticipationType',
+            system: PARTICIPATION_CODE_SYSTEM,
           },
         ],
       },

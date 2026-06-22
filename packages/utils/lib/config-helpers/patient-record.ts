@@ -1,5 +1,11 @@
 import { FormFieldsDisplayItem, FormFieldsGroupItem, FormFieldsInputItem, FormFieldTrigger } from 'config-types';
-import { Questionnaire, QuestionnaireItem, QuestionnaireResponseItem, QuestionnaireResponseItemAnswer } from 'fhir/r4b';
+import {
+  Questionnaire,
+  QuestionnaireItem,
+  QuestionnaireResponseItem,
+  QuestionnaireResponseItemAnswer,
+  Reference,
+} from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { getTaxID } from '../fhir/helpers';
 import type { PrePopulationFromPatientRecordInput } from '../helpers';
@@ -12,6 +18,8 @@ export interface AppointmentContext {
   appointmentServiceMode?: ServiceMode;
   reasonForVisit?: string;
   encounterId?: string;
+  /** When set (e.g. from Encounter extension), overrides Account occ-med employer for prepopulation. */
+  visitOccupationalMedicineEmployerReference?: Reference;
 }
 
 interface Trigger extends Omit<FormFieldTrigger, 'effect'> {
@@ -264,6 +272,8 @@ export const prepopulatePatientRecordItems = (
   }
   const patientRecordItems = makePrepopulatedItemsFromPatientRecord({
     ...input,
+    visitOccupationalMedicineEmployerReference: appointmentContext?.visitOccupationalMedicineEmployerReference,
+    appointmentServiceCategory: appointmentContext?.appointmentServiceCategory,
     overriddenItems: prepopOverrides,
   });
 

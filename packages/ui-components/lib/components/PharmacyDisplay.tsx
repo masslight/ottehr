@@ -1,7 +1,7 @@
 import DeleteIcon from '@mui/icons-material/DeleteOutlined';
 import { Box, Button, Typography } from '@mui/material';
 import { FC } from 'react';
-import { PlacesResult } from 'utils';
+import { PHONE_NOT_ON_FILE, PlacesResult } from 'utils';
 
 export interface PharmacyDisplayProps {
   selectedPlace: PlacesResult;
@@ -22,6 +22,9 @@ export const PharmacyDisplay: FC<PharmacyDisplayProps> = (props: PharmacyDisplay
         <Typography>{selectedPlace.name}</Typography>
         <Typography variant="body2" color="text.secondary">
           {selectedPlace.address}
+        </Typography>
+        <Typography variant="body2" color="text.secondary">
+          {selectedPlace.phone || PHONE_NOT_ON_FILE}
         </Typography>
       </Box>
       <Box>

@@ -1,5 +1,6 @@
 import { User as OystehrUser } from '@oystehr/sdk';
 import { Coding, Practitioner } from 'fhir/r4b';
+import { PARTICIPATION_CODE_SYSTEM } from '../../fhir';
 
 export type User = OystehrUser & {
   profileResource?: Practitioner;
@@ -38,7 +39,7 @@ export interface AccessPolicy {
 
 export const UserRole = (code: string, display: string): Coding[] => [
   {
-    system: 'http://terminology.hl7.org/CodeSystem/v3-ParticipationType',
+    system: PARTICIPATION_CODE_SYSTEM,
     code,
     display,
   },

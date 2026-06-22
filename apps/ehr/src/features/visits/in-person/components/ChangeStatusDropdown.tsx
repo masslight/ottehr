@@ -111,6 +111,12 @@ export const ChangeStatusDropdown = ({
       alert('To mark a visit as completed, scroll to the bottom of the "Progress Note" and click "Review & Sign"');
       return;
     }
+    if (targetValue === 'awaiting supervisor approval') {
+      alert(
+        'To mark a visit as awaiting supervisor approval, scroll to the bottom of the "Progress Note" and click "Review & Sign"'
+      );
+      return;
+    }
     if (
       !assignedIntakePerformerId &&
       !assignedProviderId &&

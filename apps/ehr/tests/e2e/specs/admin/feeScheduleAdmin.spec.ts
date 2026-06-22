@@ -59,7 +59,6 @@ test.describe('Fee Schedule Admin - Procedure Codes', () => {
   test('prevents adding a duplicate procedure code', async ({ page }) => {
     const feeSchedulePage = new FeeSchedulePage(page);
     await feeSchedulePage.goto(feeScheduleId);
-    await feeSchedulePage.waitForProcedureCodesLoaded();
 
     // Try to add 99213 which already exists
     await feeSchedulePage.clickAddProcedureCode();
@@ -73,7 +72,6 @@ test.describe('Fee Schedule Admin - Procedure Codes', () => {
   test('prevents adding duplicate code+modifier', async ({ page }) => {
     const feeSchedulePage = new FeeSchedulePage(page);
     await feeSchedulePage.goto(feeScheduleId);
-    await feeSchedulePage.waitForProcedureCodesLoaded();
 
     // Try to add 99214 with modifier 25 which already exists
     await feeSchedulePage.clickAddProcedureCode();
@@ -86,7 +84,6 @@ test.describe('Fee Schedule Admin - Procedure Codes', () => {
   test('allows adding same code with different modifier', async ({ page }) => {
     const feeSchedulePage = new FeeSchedulePage(page);
     await feeSchedulePage.goto(feeScheduleId);
-    await feeSchedulePage.waitForProcedureCodesLoaded();
 
     // Add 99213 with modifier 26 (original has no modifier)
     await feeSchedulePage.clickAddProcedureCode();
@@ -99,7 +96,6 @@ test.describe('Fee Schedule Admin - Procedure Codes', () => {
   test('upload CSV shows preview with delta stats', async ({ page }) => {
     const feeSchedulePage = new FeeSchedulePage(page);
     await feeSchedulePage.goto(feeScheduleId);
-    await feeSchedulePage.waitForProcedureCodesLoaded();
 
     const csvContent = [
       'Procedure Code,Modifier,Amount',
@@ -117,7 +113,6 @@ test.describe('Fee Schedule Admin - Procedure Codes', () => {
   test('upload CSV deduplicates rows', async ({ page }) => {
     const feeSchedulePage = new FeeSchedulePage(page);
     await feeSchedulePage.goto(feeScheduleId);
-    await feeSchedulePage.waitForProcedureCodesLoaded();
 
     const csvContent = [
       'Procedure Code,Modifier,Amount',
@@ -139,7 +134,6 @@ test.describe('Fee Schedule Admin - Procedure Codes', () => {
   test('search filters procedure codes', async ({ page }) => {
     const feeSchedulePage = new FeeSchedulePage(page);
     await feeSchedulePage.goto(feeScheduleId);
-    await feeSchedulePage.waitForProcedureCodesLoaded();
 
     await feeSchedulePage.searchProcedureCodes('99213');
 

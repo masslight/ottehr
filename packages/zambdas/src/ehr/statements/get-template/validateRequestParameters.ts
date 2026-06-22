@@ -1,4 +1,10 @@
-import { MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS, Secrets } from 'utils';
+import {
+  INVALID_INPUT_ERROR,
+  MISSING_REQUEST_BODY,
+  MISSING_REQUEST_SECRETS,
+  MISSING_REQUIRED_PARAMETERS,
+  Secrets,
+} from 'utils';
 import { ZambdaInput } from '../../../shared';
 
 export interface GetStatementTemplateInput {
@@ -14,10 +20,10 @@ export function validateRequestParameters(input: ZambdaInput): GetStatementTempl
 
   const template = body.template;
   if (typeof template !== 'string' || template.length === 0) {
-    throw new Error('template is required');
+    throw MISSING_REQUIRED_PARAMETERS(['template']);
   }
   if (!/^[a-zA-Z0-9._-]+$/.test(template)) {
-    throw new Error('template must be a safe file name');
+    throw INVALID_INPUT_ERROR('template must be a safe file name');
   }
 
   return {

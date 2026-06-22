@@ -1,4 +1,5 @@
-import { ErxSearchPharmaciesParams, ErxSearchPharmaciesResponse } from '@oystehr/sdk';
+import Oystehr, { ErxSearchPharmaciesParams, ErxSearchPharmaciesResponse } from '@oystehr/sdk';
+import { standardizePhoneWithExtension } from 'utils';
 
 export const PLACES_API_BASE_URL = 'https://places.googleapis.com/v1/places';
 
@@ -86,44 +87,88 @@ export const addressComponentsFromPlacesDetailRes = (addressComponents: any): Pl
   return addressComponentsParsed;
 };
 
-export const getParamsForErxPharmacySearch = (
-  addressParsed: PlacesDetailAddress | undefined,
-  placesName: string
-): ErxSearchPharmaciesParams => {
-  const params: ErxSearchPharmaciesParams = {
-    name: placesName,
-  };
+/**
+ * Zip will be excluded from these params
+ */
+export const getAddressParamsForErxPharmacySearch = (
+  addressParsed: PlacesDetailAddress | undefined
+): ErxSearchPharmaciesParams[] => {
+  if (!addressParsed) return [];
 
-  if (!addressParsed) return params;
+  const { city, stateShort, streetNumber, streetLong, streetShort } = addressParsed;
 
-  if (addressParsed.streetNumber && addressParsed.streetLong) {
-    params.address = `${addressParsed.streetNumber} ${addressParsed.streetLong}`;
+  const baseParam: ErxSearchPharmaciesParams = {};
+  if (stateShort) baseParam.state = stateShort;
+  if (city) baseParam.city = city;
+
+  // long form combo
+  const longAddressParam: ErxSearchPharmaciesParams = { ...baseParam };
+  if (streetNumber && streetLong) {
+    longAddressParam.address = `${streetNumber} ${streetLong}`;
   }
-  if (addressParsed.stateShort) params.state = addressParsed.stateShort;
-  if (addressParsed.city) params.city = addressParsed.city;
-  if (addressParsed.zipCode) params.zipCode = addressParsed.zipCode;
+
+  // short form combo
+  const shortAddressParam: ErxSearchPharmaciesParams = { ...baseParam };
+  if (streetNumber && streetShort) {
+    shortAddressParam.address = `${streetNumber} ${streetShort}`;
+  }
+
+  const params: ErxSearchPharmaciesParams[] = [longAddressParam, shortAddressParam];
 
   return params;
 };
 
-export const extractPharmacyIdFromSearchRes = (
-  placesPharmacyName: string,
+export const findMatchingErxPharmacy = (
+  placesPharmacyName: string | undefined,
   placesPharmacyAddress: PlacesDetailAddress | undefined,
-  erxSearchResults: ErxSearchPharmaciesResponse
-): string | undefined => {
-  if (!placesPharmacyAddress) return;
-  if (!erxSearchResults.data.length) return;
+  erxSearchResults: ErxSearchPharmaciesResponse['data'] | undefined
+): ErxSearchPharmaciesResponse['data'][number] | undefined => {
+  if (!placesPharmacyAddress || !placesPharmacyName) return;
+  if (!erxSearchResults || !erxSearchResults.length) return;
 
-  const match = erxSearchResults.data.find((res) => {
+  const match = erxSearchResults.find((res) => {
     const nameMatch = namePartialMatch(res.name, placesPharmacyName);
     const addressMatch = addressExactMatch(res, placesPharmacyAddress);
 
     return nameMatch && addressMatch;
   });
 
-  console.log('extractPharmacyIdFromSearchRes match: ', match);
+  console.log('findMatchingErxPharmacy match: ', match);
 
-  return match?.id.toString();
+  return match;
+};
+
+/**
+ * Reconciles the pharmacy phone reported by Google Places with the one on the matched erx record.
+ * If only one number standardizes, return it. When both standardize:
+ * - If they match, return the standardized phone.
+ * - If only one has an extension, return that one.
+ * - If the extensions differ, return only the base.
+ * - Otherwise if the base differs, prefer Places since its data is usually fresher.
+ */
+export const reconcilePharmacyPhone = (placesPhone?: string, erxPhone?: string): string | undefined => {
+  const placesStandardized = standardizePhoneWithExtension(placesPhone);
+  const erxStandardized = standardizePhoneWithExtension(erxPhone);
+
+  if (!placesStandardized || !erxStandardized) {
+    return placesStandardized ?? erxStandardized;
+  }
+
+  if (placesStandardized === erxStandardized) {
+    return placesStandardized;
+  }
+
+  const [placesBase, placesExtension] = placesStandardized.split(' x');
+  const [erxBase, erxExtension] = erxStandardized.split(' x');
+  if (placesBase === erxBase) {
+    if (!!placesExtension !== !!erxExtension) {
+      return placesExtension ? placesStandardized : erxStandardized;
+    }
+    // both have extensions but they differ; only the base is agreed on
+    return placesBase;
+  }
+
+  return placesStandardized;
 };
 
 const namePartialMatch = (name1: string, name2: string): boolean => {
@@ -156,4 +201,22 @@ const addressExactMatch = (
   const zipFirstFiveMatches = erxResult.zipCode.slice(0, 5) === placesPharmacyAddress.zipCode?.slice(0, 5);
 
   return addressMatches && cityMatches && stateMatches && zipFirstFiveMatches;
+};
+
+export const searchErxPharmacy = async (
+  params: ErxSearchPharmaciesParams,
+  oystehr: Oystehr
+): Promise<ErxSearchPharmaciesResponse['data'] | undefined> => {
+  console.log('calling erx.searchPharmacies', JSON.stringify(params));
+  const oystehrPharmacySearchRes = await oystehr.erx.searchPharmacies(params);
+  console.log('oystehrPharmacySearchRes', oystehrPharmacySearchRes);
+
+  if (oystehrPharmacySearchRes.data.length === 0) return;
+
+  return oystehrPharmacySearchRes.data;
+};
+
+export const validateIsString = (input: unknown): string | undefined => {
+  if (typeof input === 'string') return input;
+  return;
 };

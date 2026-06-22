@@ -95,6 +95,7 @@ export const ImmunizationOrderCreateEdit: React.FC = () => {
 
   const {
     mergedQuickPicks,
+    mergedQuickPicksLoading,
     quickPickDialogOpen,
     setQuickPickDialogOpen,
     quickPickName,
@@ -177,6 +178,7 @@ export const ImmunizationOrderCreateEdit: React.FC = () => {
           {!orderId && (
             <QuickPicksButton
               quickPicks={mergedQuickPicks}
+              loading={mergedQuickPicksLoading}
               getLabel={(qp) => qp.name}
               onSelect={onQuickPickSelect}
               showAddOption

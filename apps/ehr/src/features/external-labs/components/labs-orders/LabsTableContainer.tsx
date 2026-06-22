@@ -135,9 +135,9 @@ export const LabsTableContainer = <SearchBy extends LabOrdersSearchBy>({
         <>
           <Typography color="error">Submits failed for the following:</Typography>
 
-          {Object.values(failedOrderNumbers ?? {}).map((reason, index) => (
+          {Object.entries(failedOrderNumbers ?? {}).map(([orderNumber, reason], index) => (
             <Typography key={index} color="error">
-              {reason}
+              {orderNumber}: {reason}
             </Typography>
           ))}
 

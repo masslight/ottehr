@@ -6,10 +6,11 @@ import InsightsIcon from '@mui/icons-material/Insights';
 import MailOutlineIcon from '@mui/icons-material/MailOutline';
 import PeopleIcon from '@mui/icons-material/People';
 import PsychologyIcon from '@mui/icons-material/Psychology';
-import SummarizeIcon from '@mui/icons-material/Summarize';
 import { Box, Card, CardActionArea, CardContent, Grid, Typography, useTheme } from '@mui/material';
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import { RoleType } from 'utils';
+import useEvolveUser from '../hooks/useEvolveUser';
 import PageContainer from '../layout/PageContainer';
 
 interface ReportTileProps {
@@ -85,65 +86,72 @@ function ReportTile({ title, description, icon, onClick }: ReportTileProps): Rea
   );
 }
 
+interface ReportTileConfig {
+  title: string;
+  description: string;
+  icon: React.ReactElement;
+  path: string;
+  adminOnly?: boolean;
+}
+
+const REPORT_TILES: ReportTileConfig[] = [
+  {
+    title: 'Incomplete Encounters',
+    description: 'View and manage encounters that are missing required information or documentation',
+    icon: <AssignmentLateIcon />,
+    path: '/reports/incomplete-encounters',
+  },
+  {
+    title: 'Complete Encounters',
+    description: 'View encounters that have been completed',
+    icon: <AssignmentTurnedInIcon />,
+    path: '/reports/complete-encounters',
+  },
+  {
+    title: 'AI-Assisted Encounters',
+    description: 'View encounters with AI-generated documentation and assistant interactions',
+    icon: <PsychologyIcon />,
+    path: '/reports/ai-assisted-encounters',
+    adminOnly: true,
+  },
+  {
+    title: 'Daily Payments',
+    description: 'Review daily payment reports and transaction summaries',
+    icon: <AttachMoneyIcon />,
+    path: '/reports/daily-payments',
+  },
+  {
+    title: 'Practice KPIs',
+    description: 'View location-level performance metrics for in-person visits',
+    icon: <InsightsIcon />,
+    path: '/reports/practice-kpis',
+    adminOnly: true,
+  },
+  {
+    title: 'Visits Overview',
+    description: 'View appointment statistics and charts showing visit types (in-person vs telemed)',
+    icon: <AssessmentIcon />,
+    path: '/reports/visits-overview',
+  },
+  {
+    title: 'Recent Patients',
+    description: 'View list of recent patients with contact information and visit details',
+    icon: <PeopleIcon />,
+    path: '/reports/recent-patients',
+  },
+  {
+    title: 'Mailed Statements',
+    description: 'View patient statements sent by mail',
+    icon: <MailOutlineIcon />,
+    path: '/reports/mailed-statements',
+    adminOnly: true,
+  },
+];
+
 export default function Reports(): React.ReactElement {
   const navigate = useNavigate();
-
-  const reportTiles = [
-    {
-      title: 'Incomplete Encounters',
-      description: 'View and manage encounters that are missing required information or documentation',
-      icon: <AssignmentLateIcon />,
-      path: '/reports/incomplete-encounters',
-    },
-    {
-      title: 'Complete Encounters',
-      description: 'View encounters that have been completed',
-      icon: <AssignmentTurnedInIcon />,
-      path: '/reports/complete-encounters',
-    },
-    {
-      title: 'AI-Assisted Encounters',
-      description: 'View encounters with AI-generated documentation and assistant interactions',
-      icon: <PsychologyIcon />,
-      path: '/reports/ai-assisted-encounters',
-    },
-    {
-      title: 'Daily Payments',
-      description: 'Review daily payment reports and transaction summaries',
-      icon: <AttachMoneyIcon />,
-      path: '/reports/daily-payments',
-    },
-    {
-      title: 'Practice KPIs',
-      description: 'View location-level performance metrics for in-person visits',
-      icon: <InsightsIcon />,
-      path: '/reports/practice-kpis',
-    },
-    {
-      title: 'Visits Overview',
-      description: 'View appointment statistics and charts showing visit types (in-person vs telemed)',
-      icon: <AssessmentIcon />,
-      path: '/reports/visits-overview',
-    },
-    {
-      title: 'Recent Patients',
-      description: 'View list of recent patients with contact information and visit details',
-      icon: <PeopleIcon />,
-      path: '/reports/recent-patients',
-    },
-    {
-      title: 'Invoiceable patients',
-      description: 'View invoiceable patients report',
-      icon: <SummarizeIcon />,
-      path: '/reports/invoiceable-patients',
-    },
-    {
-      title: 'Mailed Statements',
-      description: 'View patient statements sent by mail via PostGrid',
-      icon: <MailOutlineIcon />,
-      path: '/reports/mailed-statements',
-    },
-  ];
+  const user = useEvolveUser();
+  const isAdmin = user?.hasRole([RoleType.Administrator]) ?? false;
 
   const handleTileClick = (path: string): void => {
     navigate(path);
@@ -162,7 +170,7 @@ export default function Reports(): React.ReactElement {
         </Box>
 
         <Grid container spacing={3}>
-          {reportTiles.map((tile) => (
+          {REPORT_TILES.filter((tile) => isAdmin || !tile.adminOnly).map((tile) => (
             <Grid item xs={12} sm={6} md={4} lg={3} key={tile.path}>
               <ReportTile
                 title={tile.title}

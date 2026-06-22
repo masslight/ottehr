@@ -118,12 +118,19 @@ export function getReasonAndOtherReasonForNotAdministeredOrder(medicationAdminis
   };
 }
 
-export function getLocationCodeFromMedicationAdministration(
+export function getLocationFromMedicationAdministration(
   medicationAdministration: MedicationAdministration
-): string | undefined {
-  return medicationAdministration.dosage?.site?.coding?.find(
+): { code: string; name: string } | undefined {
+  const coding = medicationAdministration.dosage?.site?.coding?.find(
     (coding) => coding.system === MEDICATION_APPLIANCE_LOCATION_SYSTEM
-  )?.code;
+  );
+  if (!coding?.code) return undefined;
+  // Match (code, display) to keep left/right apart; fall back to code-only on display drift.
+  const match =
+    medicationApplianceLocations.find((l) => l.code === coding.code && l.display === coding.display) ??
+    medicationApplianceLocations.find((l) => l.code === coding.code);
+  if (!match?.name) return undefined;
+  return { code: match.code, name: match.name };
 }
 
 export function getProviderIdAndDateMedicationWasAdministered(medicationAdministration: MedicationAdministration):
@@ -223,6 +230,21 @@ export const medicationExtendedToMedicationData = (
     effectiveDateTime: medicationExtendedData.effectiveDateTime,
     cptCodes: medicationExtendedData.cptCodes,
   };
+};
+
+/** Billable units = ceil(dose / billable unit size), minimum 1. Defaults to 1 when either value is missing/invalid. */
+export const computeBillableUnits = (dose: number | undefined, billableUnitSize: number | undefined): number => {
+  const doseNum = Number(dose);
+  if (
+    billableUnitSize == null ||
+    !Number.isFinite(billableUnitSize) ||
+    billableUnitSize <= 0 ||
+    !Number.isFinite(doseNum) ||
+    doseNum <= 0
+  ) {
+    return 1;
+  }
+  return Math.max(1, Math.ceil(doseNum / billableUnitSize));
 };
 
 export const makeMedicationOrderUpdateRequestInput = ({
@@ -342,15 +364,39 @@ export const createMedicationString = (medication: ExtendedMedicationDataForResp
   const name = medication.medicationName;
   const dose = medication.dose && `${medication.dose} ${medication.units}`;
   const route = searchRouteByCode(medication.route)?.display;
+  const location = medication.location?.name;
   const givenBy = medication.administeredProvider && `given by ${medication.administeredProvider}`;
   const instructions = medication.instructions && `instructions: ${medication.instructions}`;
   const status = medicationStatusDisplayLabelMap[medication.status];
 
-  return [name, dose, route, givenBy, instructions, status].filter(Boolean).join(', ');
+  return [name, dose, route, location, givenBy, instructions, status].filter(Boolean).join(', ');
 };
 
 export function getMedicationFromMA(medicationAdministration: MedicationAdministration): Medication | undefined {
   return medicationAdministration.contained?.find((res) => res.resourceType === 'Medication') as Medication;
+}
+
+export const MEDICATION_CPT_CODES_EXTENSION_URL = 'https://fhir.ottehr.com/Extension/medication-cpt-codes';
+
+export interface MedicationCptCodeEntry {
+  code: string;
+  display: string;
+  isMedication?: boolean;
+  billableUnitSize?: number;
+  billableUnits?: number;
+}
+
+/** Parses the CPT/HCPCS codes (with optional billing unit data) stored on a MedicationAdministration extension. */
+export function getCptCodesFromMA(
+  medicationAdministration: MedicationAdministration
+): MedicationCptCodeEntry[] | undefined {
+  const ext = medicationAdministration.extension?.find((e) => e.url === MEDICATION_CPT_CODES_EXTENSION_URL);
+  if (!ext?.valueString) return undefined;
+  try {
+    return JSON.parse(ext.valueString) as MedicationCptCodeEntry[];
+  } catch {
+    return undefined;
+  }
 }
 
 export function getNdcCodeFromMedication(medication: Medication): string | undefined {

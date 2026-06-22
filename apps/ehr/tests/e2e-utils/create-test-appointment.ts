@@ -19,12 +19,8 @@ async function createTestAppointment(): Promise<string> {
   try {
     console.log('Creating test appointment...');
 
-    if (process.env.INTEGRATION_TEST === 'true') {
-      await resourceHandler.setResourcesFast();
-    } else {
-      await resourceHandler.setResources();
-      await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!);
-    }
+    await resourceHandler.setResources();
+    await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!);
 
     console.log('\n✅ Test appointment created successfully!');
     console.log(`Appointment Type: ${appointmentType}`);

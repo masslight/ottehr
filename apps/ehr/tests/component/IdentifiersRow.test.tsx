@@ -3,10 +3,10 @@ import userEvent from '@testing-library/user-event';
 import { Patient } from 'fhir/r4b';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const mockGetFriendlyPatientId = vi.fn();
+const mockGetPatientFriendlyId = vi.fn();
 
-vi.mock('../../src/features/visits/shared/utils/friendly-patient-id.helper', () => ({
-  getFriendlyPatientId: (...args: any[]) => mockGetFriendlyPatientId(...args),
+vi.mock('utils', () => ({
+  getPatientFriendlyId: (...args: any[]) => mockGetPatientFriendlyId(...args),
 }));
 
 import { IdentifiersRow } from '../../src/features/visits/shared/components/patient/info/IdentifiersRow';
@@ -25,7 +25,7 @@ describe('IdentifiersRow', () => {
     const patient = createPatient('abc-123-uuid');
 
     beforeEach(() => {
-      mockGetFriendlyPatientId.mockReturnValue('42');
+      mockGetPatientFriendlyId.mockReturnValue('42');
     });
 
     it('should display the friendly ID with PID prefix by default', () => {
@@ -93,7 +93,7 @@ describe('IdentifiersRow', () => {
     const patient = createPatient('abc-123-uuid');
 
     beforeEach(() => {
-      mockGetFriendlyPatientId.mockReturnValue('');
+      mockGetPatientFriendlyId.mockReturnValue('');
     });
 
     it('should display the patient UUID with PID prefix by default', () => {
@@ -133,7 +133,7 @@ describe('IdentifiersRow', () => {
 
   describe('when patient is undefined', () => {
     beforeEach(() => {
-      mockGetFriendlyPatientId.mockReturnValue('');
+      mockGetPatientFriendlyId.mockReturnValue('');
     });
 
     it('should display empty PID prefix when no patient and no friendly ID', () => {

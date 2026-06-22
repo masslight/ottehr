@@ -1,5 +1,10 @@
-import { Address, Coverage, CoverageEligibilityResponse, Location, Organization, Practitioner } from 'fhir/r4b';
-import { ELIGIBILITY_BENEFIT_CODES, INSURANCE_PLAN_ID_CODING } from '../main';
+import { Address, Coding, Coverage, CoverageEligibilityResponse, Location, Organization, Practitioner } from 'fhir/r4b';
+import {
+  CODE_SYSTEM_CPT_MODIFIER,
+  ELIGIBILITY_BENEFIT_CODES,
+  EXTENSION_URL_CPT_MODIFIER,
+  INSURANCE_PLAN_ID_CODING,
+} from '../main';
 import {
   APIErrorCode,
   BillingProviderData,
@@ -299,4 +304,15 @@ export const getPlanIdFromCoverage = (coverage: Coverage): string | undefined =>
     });
   });
   return planCoding?.value;
+};
+
+export const extractCptCodeModifiersFromCoding = (coding: Coding): { code: string; display: string }[] => {
+  if (!coding.extension) return [];
+  const modifierExtension = coding.extension.find((ext) => ext.url === EXTENSION_URL_CPT_MODIFIER);
+  if (!modifierExtension || !modifierExtension.valueCodeableConcept?.coding) return [];
+  const modifiers = modifierExtension.valueCodeableConcept.coding
+    .filter((extCoding) => extCoding.system === CODE_SYSTEM_CPT_MODIFIER)
+    .map((extCoding) => ({ code: extCoding.code ?? '', display: extCoding.display ?? '' }));
+  console.log(`Modifiers for the coding ${JSON.stringify(coding)}: `, JSON.stringify(modifiers));
+  return modifiers;
 };

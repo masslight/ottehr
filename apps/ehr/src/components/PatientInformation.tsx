@@ -118,7 +118,11 @@ export default function PatientInformation({
                             <Skeleton aria-busy="true" width={200} />
                           ) : (
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, wordBreak: 'break-word' }}>
-                              {editValue && patientDetails[patientDetailsKey] && editValue[patientDetailsKey]}
+                              {/* Render the edit affordance whenever the caller declares the
+                                  field editable — gating on a present value blocked the user
+                                  from setting a value after it became empty (e.g. RFV
+                                  cleared after a service-category switch). */}
+                              {editValue && editValue[patientDetailsKey]}
                               {patientDetails[patientDetailsKey] || '-'}
                               {typeof patientDetails[patientDetailsKey] === 'string' &&
                                 patientDetails[patientDetailsKey] &&

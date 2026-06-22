@@ -3,6 +3,7 @@ export const PHARMACY_COLLECTION_LINK_IDS = {
   placesId: 'pharmacy-places-id',
   placesName: 'pharmacy-places-name',
   placesAddress: 'pharmacy-places-address',
+  placesPhone: 'pharmacy-places-phone',
   placesDataSaved: 'pharmacy-places-saved',
   erxPharmacyId: 'erx-pharmacy-id',
   manualPharmacyName: 'pharmacy-name',
@@ -13,6 +14,7 @@ export type PlacesResult = {
   placesId: string;
   name: string;
   address: string;
+  phone?: string;
   erxPharmacyId?: string;
 };
 

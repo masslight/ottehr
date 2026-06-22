@@ -1,21 +1,23 @@
 import './ProfilePhotoImagePicker.css';
-import AddAPhotoOutlinedIcon from '@mui/icons-material/AddAPhotoOutlined';
 import CloseIcon from '@mui/icons-material/Close';
-import DeleteForeverOutlinedIcon from '@mui/icons-material/DeleteForeverOutlined';
+import PhotoLibraryOutlinedIcon from '@mui/icons-material/PhotoLibraryOutlined';
 import { LoadingButton } from '@mui/lab';
 import {
   Box,
   Button,
+  ButtonBase,
   CircularProgress,
   Dialog,
   DialogContent,
   DialogTitle,
   Grid,
   IconButton,
+  Stack,
   Typography,
 } from '@mui/material';
 import { styled } from '@mui/material';
 import { Attachment, Patient } from 'fhir/r4b';
+import { DateTime } from 'luxon';
 import React, { ChangeEvent, FC, ReactElement, useCallback, useState } from 'react';
 import Cropper from 'react-easy-crop';
 import { Area, Point } from 'react-easy-crop';
@@ -23,6 +25,7 @@ import { MIME_TYPES } from 'utils';
 import { uploadPatientProfilePhoto } from '../../../../api/api';
 import { getCroppedImg, ImageCropResult } from '../../../../helpers/canvasUtils';
 import { useApiClients } from '../../../../hooks/useAppClients';
+import { otherColors } from '../../../../themes/ottehr/colors';
 import {
   useEditPatientProfilePhotoMutation,
   useGetSignedPatientProfilePhotoUrlQuery,
@@ -60,6 +63,13 @@ const VisuallyHiddenInput = styled('input')({
   width: 1,
 });
 
+const pillButtonSx = {
+  borderRadius: '999px',
+  textTransform: 'none',
+  fontWeight: 'bold',
+  py: 1.25,
+} as const;
+
 const ProfilePhotoImagePicker: FC<ProfilePhotoImageProps> = ({ open, setOpen, patient, onUpdate }) => {
   const { oystehrZambda } = useApiClients();
   const { appointmentRefetch } = useAppointmentData();
@@ -78,6 +88,9 @@ const ProfilePhotoImagePicker: FC<ProfilePhotoImageProps> = ({ open, setOpen, pa
   const [isSavingError, setSavingError] = useState(false);
 
   const hasAttachedPhoto = !!currentProfileImage;
+  const photoLastObtained = patient?.photo?.[0]?.creation
+    ? DateTime.fromISO(patient.photo[0].creation).toFormat('M/d/yyyy')
+    : undefined;
 
   const patientPhotoUrlUnsigned = patient?.photo?.at(0)?.url;
 
@@ -111,6 +124,7 @@ const ProfilePhotoImagePicker: FC<ProfilePhotoImageProps> = ({ open, setOpen, pa
           ? [
               {
                 contentType: MIME_TYPES.JPEG,
+                creation: DateTime.now().toISO(),
                 url: profilePhotoUrl,
               },
             ]
@@ -235,36 +249,13 @@ const ProfilePhotoImagePicker: FC<ProfilePhotoImageProps> = ({ open, setOpen, pa
     }
   }, [currentProfileImage, croppedAreaPixels, updatePatientRecordWithPhotoUrl, patient, oystehrZambda]);
 
-  const onCropComplete = useCallback((croppedArea: any, croppedAreaPixels: Area) => {
-    setCroppedAreaPixels(croppedAreaPixels);
+  const onCropComplete = useCallback((_: Area, areaPixels: Area) => {
+    setCroppedAreaPixels(areaPixels);
   }, []);
 
-  // Dialog's control buttons bar
-  const renderControlButtons = (): ReactElement => {
+  const renderControlButtons = (): ReactElement | null => {
     if (!hasAttachedPhoto) {
-      return (
-        <Button
-          variant="outlined"
-          component="label"
-          disabled={false}
-          color="primary"
-          sx={{
-            borderRadius: '16px',
-            textTransform: 'none',
-            mt: 2,
-            fontWeight: 'bold',
-          }}
-          startIcon={<AddAPhotoOutlinedIcon fontSize="small" />}
-        >
-          Take photo
-          <VisuallyHiddenInput
-            onChange={(e) => handleInputChange(e)}
-            type="file"
-            capture="environment"
-            accept="image/*"
-          />
-        </Button>
-      );
+      return null;
     }
 
     if (
@@ -272,16 +263,7 @@ const ProfilePhotoImagePicker: FC<ProfilePhotoImageProps> = ({ open, setOpen, pa
       photoProcessingState === PhotoProcessingState.uploading
     ) {
       return (
-        <LoadingButton
-          loading={isSavingImage}
-          variant="contained"
-          onClick={() => handlePhotoSaveClicked()}
-          sx={{
-            fontWeight: 'bold',
-            borderRadius: '16px',
-            textTransform: 'none',
-          }}
-        >
+        <LoadingButton loading={isSavingImage} variant="contained" onClick={handlePhotoSaveClicked} sx={pillButtonSx}>
           Save
         </LoadingButton>
       );
@@ -289,70 +271,38 @@ const ProfilePhotoImagePicker: FC<ProfilePhotoImageProps> = ({ open, setOpen, pa
 
     return (
       <>
-        <Button
-          variant="outlined"
-          component="label"
-          disabled={false}
-          color="primary"
-          sx={{
-            borderRadius: '16px',
-            textTransform: 'none',
-            mt: 2,
-            fontWeight: 'bold',
-          }}
-          startIcon={<AddAPhotoOutlinedIcon fontSize="small" />}
-        >
-          Retake photo
-          <VisuallyHiddenInput
-            onChange={(e) => handleInputChange(e)}
-            type="file"
-            capture="environment"
-            accept="image/*"
-          />
+        <Button variant="outlined" component="label" color="primary" sx={pillButtonSx}>
+          Update Photo
+          <VisuallyHiddenInput onChange={handleInputChange} type="file" accept="image/*" />
         </Button>
 
-        <Button
-          onClick={handleRemovePhotoClick}
-          variant="outlined"
-          component="label"
-          disabled={false}
-          color="error"
-          sx={{
-            borderRadius: '16px',
-            textTransform: 'none',
-            mt: 2,
-            ml: 3,
-            fontWeight: 'bold',
-          }}
-          startIcon={<DeleteForeverOutlinedIcon fontSize="small" />}
-        >
+        <Button variant="outlined" color="error" onClick={handleRemovePhotoClick} sx={pillButtonSx}>
           Remove photo
         </Button>
       </>
     );
   };
 
+  const controlButtons = renderControlButtons();
+
+  const handleClose = (): void => setOpen(false);
+
   return (
     <Dialog
       open={open}
-      onClose={() => {
-        setOpen(false);
-      }}
+      onClose={handleClose}
       PaperProps={{
-        style: {
+        sx: {
           backgroundColor: 'white',
-          boxShadow: 'none',
-          maxWidth: '900px',
+          boxShadow: '0px 20px 60px rgba(0, 0, 0, 0.18)',
+          borderRadius: '8px',
+          width: 'min(calc(100vw - 4rem), 30rem)',
+          margin: 0,
         },
       }}
     >
-      <DialogTitle marginBottom={0}>
-        <Grid
-          container
-          alignItems="center"
-          justifyContent="space-between"
-          sx={{ width: '100%', border: 1, borderColor: 'white' }}
-        >
+      <DialogTitle sx={{ py: 1, pb: 0 }}>
+        <Grid container alignItems="center" justifyContent="space-between">
           <Grid item xs />
           <Grid item>
             {photoProcessingState === PhotoProcessingState.cropping && (
@@ -367,12 +317,8 @@ const ProfilePhotoImagePicker: FC<ProfilePhotoImageProps> = ({ open, setOpen, pa
             )}
           </Grid>
           <Grid item xs container justifyContent="flex-end">
-            <IconButton
-              onClick={() => {
-                setOpen(false);
-              }}
-            >
-              <CloseIcon sx={{ color: '#938B7D' }} />
+            <IconButton onClick={handleClose} aria-label="Close">
+              <CloseIcon sx={{ color: 'text.secondary' }} />
             </IconButton>
           </Grid>
         </Grid>
@@ -380,25 +326,23 @@ const ProfilePhotoImagePicker: FC<ProfilePhotoImageProps> = ({ open, setOpen, pa
 
       <Box
         sx={{
-          minWidth: '500px',
           width: '100%',
-          height: '50vh',
-          overflow: 'hidden',
-          position: 'relative',
           display: 'flex',
           justifyContent: 'center',
           alignItems: 'center',
-          '& img': {
-            paddingX: '32px',
-            width: '100%',
-            height: '100%',
-            objectFit: 'contain',
-          },
+          px: 3,
+          pb: hasAttachedPhoto ? 0 : 1,
         }}
       >
         {/* Show cropper to give ability to modify the image */}
         {currentProfileImage && photoProcessingState === PhotoProcessingState.cropping && (
-          <Box mt={2} textAlign="center">
+          <Box
+            sx={{
+              width: '100%',
+              height: 420,
+              position: 'relative',
+            }}
+          >
             <Cropper
               image={currentProfileImage?.url}
               crop={crop}
@@ -411,35 +355,68 @@ const ProfilePhotoImagePicker: FC<ProfilePhotoImageProps> = ({ open, setOpen, pa
           </Box>
         )}
 
-        {!hasAttachedPhoto && isPhotoLoading && (
-          <Box sx={{ justifyContent: 'center', display: 'flex' }}>
-            <CircularProgress />
-          </Box>
-        )}
+        {!hasAttachedPhoto && isPhotoLoading && <CircularProgress />}
 
         {!hasAttachedPhoto && !isPhotoLoading && (
-          <Typography
-            variant="h6"
-            color="primary.dark"
+          <ButtonBase
+            component="label"
+            aria-label="Upload patient photo"
             sx={{
+              width: '100%',
+              aspectRatio: '3 / 4',
+              border: '1px dashed',
+              borderColor: 'primary.main',
+              borderRadius: 2,
+              backgroundColor: otherColors.cardBackground,
               display: 'flex',
               alignItems: 'center',
-              gap: 1,
+              justifyContent: 'center',
+              gap: 1.5,
+              color: 'primary.main',
             }}
           >
-            Please take the photo
-          </Typography>
+            <VisuallyHiddenInput onChange={handleInputChange} type="file" accept="image/*" />
+            <PhotoLibraryOutlinedIcon />
+            <Typography variant="h6" sx={{ fontWeight: 600 }}>
+              Upload Patient Photo
+            </Typography>
+          </ButtonBase>
         )}
 
         {/* Preview for the cropped image */}
-        {croppedImageResult?.imageUrl && <img src={croppedImageResult.imageUrl} alt={currentProfileImage?.alt} />}
+        {croppedImageResult?.imageUrl && (
+          <Box sx={{ width: '100%' }}>
+            <Box
+              sx={{
+                aspectRatio: '3 / 4',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                '& img': {
+                  width: '100%',
+                  height: '100%',
+                  objectFit: 'contain',
+                },
+              }}
+            >
+              <img src={croppedImageResult.imageUrl} alt={currentProfileImage?.alt} />
+            </Box>
+            {photoProcessingState !== PhotoProcessingState.cropping && photoLastObtained && (
+              <Typography sx={{ mt: 2, color: 'text.secondary', fontSize: 16 }}>
+                Photo last obtained: {photoLastObtained}
+              </Typography>
+            )}
+          </Box>
+        )}
       </Box>
 
-      <DialogContent style={{ overflow: 'hidden' }}>
-        <Box alignItems="center" display="flex" sx={{ mb: 1 }}>
-          {renderControlButtons()}
-        </Box>
-      </DialogContent>
+      {controlButtons && (
+        <DialogContent sx={{ overflow: 'hidden', pt: 1.5, pb: 2 }}>
+          <Stack direction="row" spacing={2}>
+            {controlButtons}
+          </Stack>
+        </DialogContent>
+      )}
     </Dialog>
   );
 };

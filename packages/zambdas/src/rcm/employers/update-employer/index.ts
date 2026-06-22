@@ -1,5 +1,4 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { CandidApiClient } from 'candidhealth';
 import { Organization } from 'fhir/r4b';
 import { getSecret, SecretsKeys } from 'utils';
 import {
@@ -22,7 +21,6 @@ import {
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
-let candid: CandidApiClient | null | undefined;
 export const index = wrapHandler('update-employer', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     const { employerId, name, active, category, identifier, address, contact, secrets } =
@@ -69,9 +67,7 @@ export const index = wrapHandler('update-employer', async (input: ZambdaInput): 
     );
 
     // Sync to Candid if the organization has a Candid payer ID (best-effort)
-    if (candid === undefined) {
-      candid = createCandidClientIfConfigured(secrets);
-    }
+    const candid = await createCandidClientIfConfigured(oystehr, secrets);
     if (candid) {
       const candidPayerId = getCandidPayerIdFromOrganization(updated);
       if (candidPayerId) {

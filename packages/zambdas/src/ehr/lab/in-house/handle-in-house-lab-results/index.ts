@@ -365,6 +365,10 @@ const getInHouseLabResultResources = async (
   const location = locations.length ? locations[0] : undefined;
 
   const { url: adUrl, version } = getInHouseLabTestUrlAndVersionForADFromServiceRequest(serviceRequest);
+  console.log(
+    'these are the AD url, version and serviceRequest id',
+    JSON.stringify({ adUrl, version, serviceRequestId: serviceRequest.id })
+  );
 
   const [currentUserPractitioner, attendingPractitioner, activityDefinitionSearch] = await Promise.all([
     oystehr.fhir.get<Practitioner>({

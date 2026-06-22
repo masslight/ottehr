@@ -6,7 +6,7 @@ import {
   ErxSearchMedicationsResponse,
 } from '@oystehr/sdk';
 import { keepPreviousData, useMutation, UseMutationResult, useQuery, UseQueryResult } from '@tanstack/react-query';
-import { Bundle, Coding, FhirResource, InsurancePlan, Medication, Patient } from 'fhir/r4b';
+import { Bundle, Coding, Encounter, FhirResource, InsurancePlan, Medication, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { useEffect } from 'react';
@@ -700,12 +700,12 @@ export const useDeletePatientInstruction = (): UseMutationResult<void, Error, { 
 
 export const useSyncERXPatient = ({
   patient,
-  encounterId,
+  encounter,
   enabled,
   onError,
 }: {
   patient: Patient;
-  encounterId: string;
+  encounter: Encounter;
   enabled: boolean;
   onError: (err: any) => void;
   // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
@@ -719,13 +719,13 @@ export const useSyncERXPatient = ({
       if (oystehr) {
         console.log(`Start syncing patient with erx patient ${patient.id}`);
         try {
-          await oystehr.erx.syncPatient({ patientId: patient.id!, encounterId });
+          await oystehr.erx.syncPatient({ patientId: patient.id!, encounterId: encounter.id! });
           console.log('Successfully synced erx patient');
-          return true;
         } catch (err) {
           console.error('Error during syncing erx patient: ', err);
           throw err;
         }
+        return true;
       }
       throw new Error('oystehr client is not defined');
     },

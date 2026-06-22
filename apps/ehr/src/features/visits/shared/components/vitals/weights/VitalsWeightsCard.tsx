@@ -131,7 +131,7 @@ const VitalsWeightsCard: React.FC<VitalsWeightsCardProps> = ({ field }): JSX.Ele
                       onKeyDown={handleKeyDown}
                       data-testid={dataTestIds.vitalsPage.weightInput}
                     />
-                    <Typography fontSize={25}>=</Typography>
+                    <Typography fontSize={25}>≈</Typography>
                     <VitalsTextInputFiled
                       label="Weight (lbs)"
                       value={localState.weightKg ? formatWeightLbs(localState.weightKg) : ''}

@@ -163,7 +163,7 @@ async function main(): Promise<void> {
   const oystehr = await createOystehrClientFromConfig(secrets);
 
   // Init Candid client (may be null if secrets not configured)
-  const candid = createCandidClientIfConfigured(secrets);
+  const candid = await createCandidClientIfConfigured(oystehr, secrets);
   if (candid) {
     console.log('✅ Candid client initialized\n');
   } else {

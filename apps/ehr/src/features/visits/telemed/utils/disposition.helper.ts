@@ -6,6 +6,7 @@ import {
   DispositionType,
   followUpInOptions,
   NOTHING_TO_EAT_OR_DRINK_FIELD,
+  OTHER_SPECIALTY_TRANSFER_OPTION,
   REFUSAL_OF_EMS_TRANSPORT_FIELD,
 } from 'utils';
 
@@ -26,6 +27,7 @@ export const DEFAULT_DISPOSITION_VALUES: DispositionFormValues = {
   followUpIn: '',
   reason: '',
   specialty: '',
+  specialtyOther: '',
   labService: [],
   virusTest: [],
   dentistry: false,
@@ -51,6 +53,7 @@ export type DispositionFormValues = Pick<
   virusTest: string[];
   reason: string;
   specialty: string;
+  specialtyOther: string;
 };
 
 export const mapFormToDisposition = (values: DispositionFormValues): DispositionDTO => {
@@ -73,6 +76,10 @@ export const mapFormToDisposition = (values: DispositionFormValues): Disposition
 
   if (fields.includes('specialty')) {
     disposition.specialty = values.specialty === '' ? undefined : values.specialty;
+    disposition.specialtyOther =
+      values.specialty === OTHER_SPECIALTY_TRANSFER_OPTION && values.specialtyOther.trim() !== ''
+        ? values.specialtyOther.trim()
+        : undefined;
   }
 
   if (fields.includes('followUpType')) {
@@ -130,6 +137,7 @@ export const mapDispositionToForm = (disposition: DispositionDTO): DispositionFo
 
   if (fields.includes('specialty')) {
     values.specialty = disposition.specialty || '';
+    values.specialtyOther = disposition.specialtyOther || '';
   }
 
   if (fields.includes('followUpType')) {

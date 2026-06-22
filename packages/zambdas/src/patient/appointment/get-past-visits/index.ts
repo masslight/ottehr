@@ -10,6 +10,7 @@ import {
   getPatientsForUser,
   getSecret,
   getTimezone,
+  NO_READ_ACCESS_TO_PATIENT_ERROR,
   SecretsKeys,
   TIMEZONE_EXTENSION_URL,
   TIMEZONES,
@@ -46,7 +47,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   console.log(`patient IDs for user: [${patientIDs.join(', ')}]`);
 
   if (patientId && !patientIDs.includes(`Patient/${patientId}`)) {
-    throw new Error('Not authorized to get this patient');
+    // authenticated but requesting a patient they don't have access to
+    throw NO_READ_ACCESS_TO_PATIENT_ERROR;
   }
 
   if (!patientIDs.length && !patientId) {

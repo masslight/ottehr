@@ -14,8 +14,7 @@ import {
   addClosurePeriod,
   addOverrides,
   adjustHoursOfOperation,
-  changeAllCapacities,
-  DEFAULT_SCHEDULE_JSON,
+  buildSimpleScheduleExt,
   getScheduleDay,
   HoursOfOpConfig,
   makeSchedule,
@@ -30,9 +29,15 @@ describe('closure and override tests', () => {
   // January 6, 2025 is a Monday in America/New_York with no DST change.
   const NON_DST_DATE = DateTime.fromISO('2025-01-06T00:00:00', { zone: 'America/New_York' });
 
+  // Base schedule for closure/override tests: 24/7 open with 4 bookings/hour.
+  // Matches the effective behavior of the previous BASE_SCHEDULE
+  // (capacity=4 legacy = 1 provider = 4 bookings/hour at 15-min cadence —
+  // which is the slot length these tests use throughout).
+  const BASE_SCHEDULE = buildSimpleScheduleExt({ prebookSlots: 4 });
+
   it('one day closure today results in no slots for today but all slots for tomorrow', () => {
     const startDate = startOfDayWithTimezone({ date: NON_DST_DATE });
-    const scheduleExtension = addClosureDay(DEFAULT_SCHEDULE_JSON, startDate);
+    const scheduleExtension = addClosureDay(BASE_SCHEDULE, startDate);
     expect(scheduleExtension).toBeDefined();
     assert(scheduleExtension);
 
@@ -89,7 +94,7 @@ describe('closure and override tests', () => {
   it("closure starting tomorrow has no affect on today's slots, but does eliminate tomorrow's", () => {
     const startDate = startOfDayWithTimezone({ date: NON_DST_DATE });
     const closureDate = startDate.plus({ days: 1 });
-    let scheduleExtension = addClosurePeriod(DEFAULT_SCHEDULE_JSON, closureDate, 1);
+    let scheduleExtension = addClosurePeriod(BASE_SCHEDULE, closureDate, 1);
     scheduleExtension = addClosureDay(scheduleExtension, closureDate);
     expect(scheduleExtension).toBeDefined();
     assert(scheduleExtension);
@@ -147,7 +152,7 @@ describe('closure and override tests', () => {
   });
   it('period closure starting today results in no slots for either today or tomorrow (period.end is inclusive of the entire day)', () => {
     const startDate = startOfDayWithTimezone({ date: NON_DST_DATE });
-    const scheduleExtension = addClosurePeriod(DEFAULT_SCHEDULE_JSON, startDate, 1);
+    const scheduleExtension = addClosurePeriod(BASE_SCHEDULE, startDate, 1);
     expect(scheduleExtension).toBeDefined();
     assert(scheduleExtension);
 
@@ -194,7 +199,7 @@ describe('closure and override tests', () => {
   it("closure one week ago has no impact on today's slots", () => {
     const startDate = startOfDayWithTimezone({ date: NON_DST_DATE });
     const closureDate = startDate.minus({ weeks: 1 });
-    let scheduleExtension = addClosurePeriod(DEFAULT_SCHEDULE_JSON, closureDate, 1);
+    let scheduleExtension = addClosurePeriod(BASE_SCHEDULE, closureDate, 1);
     scheduleExtension = addClosureDay(scheduleExtension, closureDate);
     expect(scheduleExtension).toBeDefined();
     assert(scheduleExtension);
@@ -247,7 +252,7 @@ describe('closure and override tests', () => {
   it("closure one year ago has no impact on today's slots", () => {
     const startDate = startOfDayWithTimezone({ date: NON_DST_DATE });
     const closureDate = startDate.minus({ years: 1 });
-    let scheduleExtension = addClosurePeriod(DEFAULT_SCHEDULE_JSON, closureDate, 1);
+    let scheduleExtension = addClosurePeriod(BASE_SCHEDULE, closureDate, 1);
     scheduleExtension = addClosureDay(scheduleExtension, closureDate);
     expect(scheduleExtension).toBeDefined();
     assert(scheduleExtension);
@@ -302,7 +307,7 @@ describe('closure and override tests', () => {
     const todayDoW = startTime.weekdayLong?.toLocaleLowerCase();
     assert(todayDoW);
     const hoursInfo: HoursOfOpConfig[] = [{ dayOfWeek: todayDoW, open: 16, close: 22, workingDay: true }];
-    const scheduleExtension = adjustHoursOfOperation(DEFAULT_SCHEDULE_JSON, hoursInfo);
+    const scheduleExtension = adjustHoursOfOperation(BASE_SCHEDULE, hoursInfo);
     expect(scheduleExtension).toBeDefined();
     assert(scheduleExtension);
     console.log('scheduleExtension', JSON.stringify(scheduleExtension, null, 2));
@@ -383,7 +388,7 @@ describe('closure and override tests', () => {
     const startTime = startOfDayWithTimezone({ date: NON_DST_DATE });
     const todayDoW = startTime.weekdayLong?.toLocaleLowerCase();
     assert(todayDoW);
-    const schedule = makeSchedule({ scheduleObject: DEFAULT_SCHEDULE_JSON });
+    const schedule = makeSchedule({ scheduleObject: BASE_SCHEDULE });
     const timezone = getTimezone(schedule);
 
     let getSlotsInput: GetAvailableSlotsInput = {
@@ -406,7 +411,7 @@ describe('closure and override tests', () => {
       closingBuffer: 0,
       hourlyCapacity: 4,
     };
-    const newScheduleExtension = addOverrides(DEFAULT_SCHEDULE_JSON, [overrideInfo]);
+    const newScheduleExtension = addOverrides(BASE_SCHEDULE, [overrideInfo]);
     expect(newScheduleExtension).toBeDefined();
     assert(newScheduleExtension);
     const newSchedule = makeSchedule({ scheduleObject: newScheduleExtension });
@@ -455,7 +460,7 @@ describe('closure and override tests', () => {
     const startTime = startOfDayWithTimezone({ date: NON_DST_DATE });
     const todayDoW = startTime.weekdayLong?.toLocaleLowerCase();
     assert(todayDoW);
-    const schedule = makeSchedule({ scheduleObject: DEFAULT_SCHEDULE_JSON });
+    const schedule = makeSchedule({ scheduleObject: BASE_SCHEDULE });
     const timezone = getTimezone(schedule);
 
     let getSlotsInput: GetAvailableSlotsInput = {
@@ -470,7 +475,7 @@ describe('closure and override tests', () => {
     expect(availableSlots).toBeDefined();
     expect(availableSlots.length).toEqual(96);
 
-    const existingConfig = getScheduleDay(DEFAULT_SCHEDULE_JSON, startTime);
+    const existingConfig = getScheduleDay(BASE_SCHEDULE, startTime);
     assert(existingConfig);
 
     const overrideInfo: OverrideScheduleConfig = {
@@ -481,7 +486,7 @@ describe('closure and override tests', () => {
       closingBuffer: 60,
       hourlyCapacity: 4,
     };
-    const newScheduleExtension = addOverrides(DEFAULT_SCHEDULE_JSON, [overrideInfo]);
+    const newScheduleExtension = addOverrides(BASE_SCHEDULE, [overrideInfo]);
     expect(newScheduleExtension).toBeDefined();
     assert(newScheduleExtension);
     const newSchedule = makeSchedule({ scheduleObject: newScheduleExtension });
@@ -533,7 +538,7 @@ describe('closure and override tests', () => {
     const startTime = startOfDayWithTimezone({ date: NON_DST_DATE });
     const todayDoW = startTime.weekdayLong?.toLocaleLowerCase();
     assert(todayDoW);
-    const scheduleExtension = changeAllCapacities(DEFAULT_SCHEDULE_JSON, 1);
+    const scheduleExtension = buildSimpleScheduleExt({ prebookSlots: 1 });
     console.log('scheduleExtension', JSON.stringify(scheduleExtension, null, 2));
     const schedule = makeSchedule({ scheduleObject: scheduleExtension });
     const timezone = getTimezone(schedule);
@@ -552,7 +557,7 @@ describe('closure and override tests', () => {
     console.log('availableSlots last test', availableSlots);
     expect(availableSlots.length).toEqual(24);
 
-    const existingConfig = getScheduleDay(DEFAULT_SCHEDULE_JSON, startTime);
+    const existingConfig = getScheduleDay(BASE_SCHEDULE, startTime);
     assert(existingConfig);
 
     const granularHours: Capacity[] = [
@@ -591,7 +596,7 @@ describe('closure and override tests', () => {
       hourlyCapacity: 4,
       granularCapacityOverride: granularHours,
     };
-    const newScheduleExtension = addOverrides(DEFAULT_SCHEDULE_JSON, [overrideInfo]);
+    const newScheduleExtension = addOverrides(BASE_SCHEDULE, [overrideInfo]);
     expect(newScheduleExtension).toBeDefined();
     assert(newScheduleExtension);
     const newSchedule = makeSchedule({ scheduleObject: newScheduleExtension });

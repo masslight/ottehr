@@ -1,4 +1,5 @@
 import { CodeableConcept, Coding, Provenance } from 'fhir/r4b';
+import { PARTICIPATION_CODE_SYSTEM } from 'utils';
 
 export function createProvenanceForEncounter(
   encounterId: string,
@@ -7,7 +8,7 @@ export function createProvenanceForEncounter(
   recorded: string = new Date().toISOString()
 ): Provenance {
   const roleCoding: Coding = {
-    system: 'http://terminology.hl7.org/CodeSystem/v3-ParticipationType',
+    system: PARTICIPATION_CODE_SYSTEM,
     code: role,
     display: role === 'author' ? 'Author' : 'Verifier',
   };

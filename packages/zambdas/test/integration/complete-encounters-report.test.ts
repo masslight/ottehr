@@ -3,6 +3,7 @@ import { randomUUID } from 'crypto';
 import { Location, Patient, Slot } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
+  APIErrorCode,
   CreateAppointmentInputParams,
   CreateAppointmentResponse,
   getSlugForBookableResource,
@@ -19,14 +20,11 @@ import { getAuth0Token } from '../../src/shared';
 import { SECRETS } from '../data/secrets';
 import { ensureM2MPractitionerProfile } from '../helpers/configureTestM2MClient';
 import {
-  adjustHoursOfOperation,
-  changeAllCapacities,
+  buildSimpleScheduleExt,
   cleanupTestScheduleResources,
-  DEFAULT_SCHEDULE_JSON,
   makeTestPatient,
   persistSchedule,
   persistTestPatient,
-  startOfDayWithTimezone,
 } from '../helpers/testScheduleUtils';
 
 interface SetUpOutput {
@@ -53,18 +51,8 @@ describe('complete-encounters-report zambda', () => {
   });
 
   const setUpInPersonResources = async (): Promise<SetUpOutput> => {
-    const timeNow = startOfDayWithTimezone().plus({ hours: 8 });
-
-    let adjustedScheduleJSON = adjustHoursOfOperation(DEFAULT_SCHEDULE_JSON, [
-      {
-        dayOfWeek: timeNow.toLocaleString({ weekday: 'long' }).toLowerCase(),
-        open: 8,
-        close: 24,
-        workingDay: true,
-      },
-    ]);
-
-    adjustedScheduleJSON = changeAllCapacities(adjustedScheduleJSON, 5);
+    // 24/7 open with 5 bookings/hour (slot-length-invariant).
+    const adjustedScheduleJSON = buildSimpleScheduleExt({ prebookSlots: 5 });
 
     const ownerLocation: Location = {
       resourceType: 'Location',
@@ -151,15 +139,39 @@ describe('complete-encounters-report zambda', () => {
   /**
    * Advances a walk-in encounter through the required in-person status flow to reach 'completed'.
    * The status machine requires sequential transitions: arrived → intake → ready → provider → discharge → completed
+   *
+   * Each transition is retried on a transient CONCURRENT_UPDATE (4024) error. The
+   * change-in-person-visit-status zambda patches the Encounter with an optimistic lock (If-Match on
+   * the version id). When this test fires the transitions back-to-back, an asynchronous backend
+   * process (e.g. a subscription reacting to the previous status change) can bump the Encounter
+   * version between the zambda's read and its conditional write, producing a 412 that surfaces as
+   * CONCURRENT_UPDATE. The zambda re-reads the Encounter on every call, so re-issuing the transition
+   * after a short backoff picks up the settled version and succeeds.
    */
   const advanceToCompleted = async (encounterId: string): Promise<void> => {
     const statuses: VisitStatusWithoutUnknown[] = ['intake', 'ready', 'provider', 'discharged', 'completed'];
+    const MAX_ATTEMPTS = 5;
+    const RETRY_DELAY_MS = 1_000;
+
     for (const status of statuses) {
-      await oystehr.zambda.execute({
-        id: 'change-in-person-visit-status',
-        encounterId,
-        updatedStatus: status,
-      });
+      for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+        try {
+          await oystehr.zambda.execute({
+            id: 'change-in-person-visit-status',
+            encounterId,
+            updatedStatus: status,
+          });
+          break;
+        } catch (error: any) {
+          const isConcurrentUpdate =
+            error?.code === APIErrorCode.CONCURRENT_UPDATE || error?.message?.includes('modified during the operation');
+          if (isConcurrentUpdate && attempt < MAX_ATTEMPTS) {
+            await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY_MS));
+            continue;
+          }
+          throw error;
+        }
+      }
     }
   };
 

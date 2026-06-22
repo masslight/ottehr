@@ -8,7 +8,6 @@ import { SectionSaveButton } from './SectionSaveButton';
 
 const { employerInformation } = PATIENT_RECORD_CONFIG.FormFields;
 const FIELD_KEYS = Object.values(employerInformation.items).map((item) => item.key);
-const REQUIRED_FIELD_KEYS = employerInformation.requiredFields ?? [];
 
 interface EmployerInformationContainerProps {
   isLoading: boolean;
@@ -26,14 +25,7 @@ export const EmployerInformationContainer: FC<EmployerInformationContainerProps>
   return (
     <PatientRecordFormSection
       formSection={employerInformation}
-      titleWidget={
-        <SectionSaveButton
-          fieldKeys={FIELD_KEYS}
-          requiredFieldKeys={REQUIRED_FIELD_KEYS}
-          patientId={patientId}
-          encounterId={encounterId}
-        />
-      }
+      titleWidget={<SectionSaveButton fieldKeys={FIELD_KEYS} patientId={patientId} encounterId={encounterId} />}
     >
       <Typography sx={{ color: theme.palette.primary.dark, fontWeight: 600 }}>Insurance Information</Typography>
       <PatientRecordFormField

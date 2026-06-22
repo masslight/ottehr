@@ -44,6 +44,7 @@ export interface BloodPressureLocalState {
   diastolicValue: string;
   observationQualifier: string;
   validationError: boolean;
+  validationErrorMessage?: string;
   isSystolicInvalid: boolean;
   isDiastolicInvalid: boolean;
   isDisabled: boolean;
@@ -116,6 +117,7 @@ export interface HeightLocalState {
   valueCm: string;
   valueInches: string;
   valueFeet: string;
+  valueInchRemainder: string;
   validationError: boolean;
   isDisabled: boolean;
   hasData: boolean;
@@ -123,6 +125,7 @@ export interface HeightLocalState {
   handleCmChange: (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
   handleInchesChange: (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
   handleFeetChange: (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
+  handleInchRemainderChange: (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
   setValidationError: (error: boolean) => void;
   clearForm: () => void;
   getDTO: () => VitalsHeightObservationDTO | null;

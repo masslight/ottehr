@@ -1,4 +1,4 @@
-import Oystehr, { BatchInputPostRequest, SearchParam } from '@oystehr/sdk';
+import Oystehr, { BatchInputPostRequest, SearchParam, TransactionBundle } from '@oystehr/sdk';
 import { Operation } from 'fast-json-patch';
 import {
   Account,
@@ -65,6 +65,7 @@ import {
   BookableResource,
   CPTCodeDTO,
   EncounterVirtualServiceExtension,
+  FHIR_CODE_REGEX,
   HealthcareServiceWithLocationContext,
   PractitionerLicense,
   PractitionerQualificationCode,
@@ -78,6 +79,7 @@ import {
   ACCOUNT_PAYMENT_PROVIDER_ID_SYSTEM_STRIPE_ACCOUNT,
   APPOINTMENT_LOCKED_META_TAG,
   APPOINTMENT_LOCKED_META_TAG_SYSTEM,
+  BirthSex,
   COVERAGE_MEMBER_IDENTIFIER_BASE,
   FHIR_EXTENSION,
   FHIR_IDENTIFIER_CODE_TAX_EMPLOYER,
@@ -89,11 +91,14 @@ import {
   PRACTITIONER_QUALIFICATION_EXTENSION_URL,
   PRACTITIONER_QUALIFICATION_STATE_SYSTEM,
   PUBLIC_EXTENSION_BASE_URL,
+  RELATED_PERSON_RELATIONSHIP_SYSTEM,
   SCHEDULE_STRATEGY_SYSTEM,
   ScheduleStrategy,
   SERVICE_MODE_SYSTEM,
   ServiceModeCoding,
   SLUG_SYSTEM,
+  SUBSCRIBER_RELATIONSHIP_CODE_MAP,
+  SUBSCRIBER_RELATIONSHIP_SYSTEM,
 } from './constants';
 
 export function isFHIRError(error: any): boolean {
@@ -901,6 +906,14 @@ export const extractExtensionValue = (extension: any): any => {
   return undefined;
 };
 
+export const getBooleanExtensionValue = (
+  resource: { extension?: Extension[] } | undefined,
+  url: string
+): boolean | undefined => {
+  const extension = resource?.extension?.find((extension) => extension.url === url);
+  return typeof extension?.valueBoolean === 'boolean' ? extension.valueBoolean : undefined;
+};
+
 export function getArrayInfo(path: string): { isArray: boolean; parentPath: string; index: number } {
   const parts = path.split('/').filter(Boolean);
   const lastPart = parts[parts.length - 1];
@@ -1039,6 +1052,55 @@ export const genderMap = {
 } as const;
 
 export type Gender = (typeof genderMap)[keyof typeof genderMap];
+
+// Minimal subscriber/policy-holder shape shared by the clinical EHR and billing app for building a
+// coverage subscriber RelatedPerson.
+export interface CoverageSubscriberInput {
+  firstName?: string;
+  middleName?: string;
+  lastName?: string;
+  dob?: string;
+  birthSex?: BirthSex;
+  address?: Address;
+}
+
+// CodeableConcept for Coverage.relationship.
+export const getSubscriberRelationshipCodeableConcept = (relationship: string): CodeableConcept => ({
+  coding: [
+    {
+      system: SUBSCRIBER_RELATIONSHIP_SYSTEM,
+      code: SUBSCRIBER_RELATIONSHIP_CODE_MAP[relationship] || 'other',
+      display: relationship,
+    },
+  ],
+});
+
+// Build the RelatedPerson that represents a coverage's subscriber / policy holder. The clinical EHR
+// contains this on the Coverage; the billing app persists it standalone so it can be searched. The
+// resource shape is identical either way.
+export const buildCoverageSubscriberRelatedPerson = (
+  patientId: string,
+  subscriber: CoverageSubscriberInput,
+  relationship: string
+): RelatedPerson => ({
+  resourceType: 'RelatedPerson',
+  name: createFhirHumanName(subscriber.firstName, subscriber.middleName, subscriber.lastName),
+  birthDate: subscriber.dob,
+  gender: mapBirthSexToGender(subscriber.birthSex),
+  patient: { reference: `Patient/${patientId}` },
+  address: subscriber.address ? [subscriber.address] : undefined,
+  relationship: [
+    {
+      coding: [
+        {
+          system: RELATED_PERSON_RELATIONSHIP_SYSTEM,
+          code: SUBSCRIBER_RELATIONSHIP_CODE_MAP[relationship] || 'other',
+          display: relationship,
+        },
+      ],
+    },
+  ],
+});
 
 export const getMemberIdFromCoverage = (coverage: Coverage): string | undefined => {
   return coverage.identifier?.find((ident) => {
@@ -1372,6 +1434,20 @@ export function getExtension(resource: DomainResource | Element, url: string): E
   return resource.extension?.find((extension) => extension.url === url);
 }
 
+/**
+ * Returns the value of a typed key on the first extension matching `url`. Use this to read
+ * `valueString`/`valueBoolean`/etc. from a resource extension in a single call without manually
+ * narrowing through `.extension?.find(...)?.valueX`.
+ */
+export function getExtensionValue<K extends keyof Extension>(
+  resource: DomainResource | Element | undefined,
+  url: string,
+  key: K
+): Extension[K] | undefined {
+  if (!resource) return undefined;
+  return getExtension(resource, url)?.[key];
+}
+
 export const cleanUpStaffHistoryTag = (resource: Resource, field: string): Operation | undefined => {
   // going forward we will be using the history of the patient resource so this isn't needed
   // check if there is a tag to clean up
@@ -1545,4 +1621,25 @@ export function makeOptimisticLockIfMatchHeader(res: FhirResource | string): str
   }
 
   return versionId ? `W/"${versionId}"` : undefined;
+}
+
+export const resourceHasTagSystem = (resource: FhirResource, system: string): boolean =>
+  resource.meta?.tag?.some((t) => t.system === system) ?? false;
+
+export const getTag = (resource: Resource, tagSystem: string, tagCode?: string): Coding | undefined => {
+  if (tagCode) return resource.meta?.tag?.find((tag) => tag.system === tagSystem && tag.code === tagCode);
+  else return resource.meta?.tag?.find((tag) => tag.system === tagSystem);
+};
+
+// https://hl7.org/fhir/R4B/datatypes.html#code
+export function sanitizeStringForFhirCode(input: string): Coding['code'] {
+  if (!FHIR_CODE_REGEX.test(input)) {
+    return input.trim().replace(/\s+/g, ' ');
+  } else {
+    return input;
+  }
+}
+
+export function transactionWasSuccessful(transactionResponse: Pick<TransactionBundle<FhirResource>, 'entry'>): boolean {
+  return transactionResponse.entry?.every((entry) => entry.response?.status[0] === '2') ?? false;
 }

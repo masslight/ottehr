@@ -11,6 +11,7 @@ export default defineConfig({
     // Disable globals to avoid conflicts with Playwright's expect during test execution
     globals: false,
     exclude: ['**/*.spec.ts', '**/*.test.tsx'],
+    setupFiles: ['../../packages/test-utils/lib/no-network.setup.ts'],
     coverage: {
       provider: 'v8',
       reporter: ['lcov', 'text-summary', 'json'],

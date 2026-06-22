@@ -247,7 +247,7 @@ const AllergyListItem: FC<{ value: AllergyDTO; index: number; length: number }> 
 };
 
 const AddAllergyField: FC = () => {
-  const { quickPicks: allergyQuickPicks } = useMergedAllergyQuickPicks();
+  const { quickPicks: allergyQuickPicks, loading: allergyQuickPicksLoading } = useMergedAllergyQuickPicks();
   const { chartData, isChartDataLoading, setPartialChartData } = useChartData();
   const { onSubmit, isLoading } = useChartDataArrayValue('allergies');
 
@@ -373,6 +373,7 @@ const AddAllergyField: FC = () => {
       >
         <QuickPicksButton
           quickPicks={allergyQuickPicks}
+          loading={allergyQuickPicksLoading}
           getLabel={(quickPick) => quickPick.name}
           onSelect={handleQuickPickSelect}
           disabled={isChartDataLoading || isLoading}

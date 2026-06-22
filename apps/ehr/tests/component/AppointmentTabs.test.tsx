@@ -1,7 +1,7 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ReactNode } from 'react';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, useLocation } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // AppointmentTable pulls in heavy stores and FHIR helpers; we don't exercise
@@ -17,22 +17,30 @@ vi.mock('../../src/components/Loading', () => ({
 import AppointmentTabs, { ApptTab, SELECTED_TAB_STORAGE_KEY } from '../../src/components/AppointmentTabs';
 import { dataTestIds } from '../../src/constants/data-test-ids';
 
+const LocationProbe = (): ReactNode => {
+  const location = useLocation();
+  return <div data-testid="location-probe">{`${location.pathname}${location.search}`}</div>;
+};
+
 const renderTabs = (initialEntries: Parameters<typeof MemoryRouter>[0]['initialEntries'] = ['/visits']): void => {
   const wrapper = ({ children }: { children: ReactNode }): ReactNode => (
     <MemoryRouter initialEntries={initialEntries}>{children}</MemoryRouter>
   );
   render(
-    <AppointmentTabs
-      showSelectFiltersMessage={false}
-      preBookedAppointments={[]}
-      completedAppointments={[]}
-      cancelledAppointments={[]}
-      inOfficeAppointments={[]}
-      loading={false}
-      updateAppointments={vi.fn()}
-      setEditingComment={vi.fn()}
-      orders={{} as any}
-    />,
+    <>
+      <LocationProbe />
+      <AppointmentTabs
+        showSelectFiltersMessage={false}
+        preBookedAppointments={[]}
+        completedAppointments={[]}
+        cancelledAppointments={[]}
+        inOfficeAppointments={[]}
+        loading={false}
+        updateAppointments={vi.fn()}
+        setEditingComment={vi.fn()}
+        orders={{} as any}
+      />
+    </>,
     { wrapper }
   );
 };
@@ -47,6 +55,13 @@ describe('AppointmentTabs persistence', () => {
   it('defaults to in-office when nothing is stored', () => {
     renderTabs();
     expect(getTabSelected(dataTestIds.dashboard.inOfficeTab)).toBe('true');
+  });
+
+  it('writes the resolved tab to `?tab=` when the param is missing on mount', async () => {
+    renderTabs();
+    await waitFor(() => {
+      expect(screen.getByTestId('location-probe')).toHaveTextContent('/visits?tab=in-office');
+    });
   });
 
   it('persists the selected tab to localStorage on change', async () => {

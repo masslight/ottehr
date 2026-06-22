@@ -1,4 +1,4 @@
-import { Page, Response } from '@playwright/test';
+import { Locator, Page, Response } from '@playwright/test';
 import { Practitioner } from 'fhir/r4b';
 import { DeleteChartDataResponse, GetChartDataResponse, SaveChartDataResponse } from 'utils';
 
@@ -17,7 +17,6 @@ export async function waitForResponseWithData<T extends object = object>(
   urlPart: string | RegExp,
   predicate?: ResponsePredicate<T>,
   options: {
-    method?: string;
     status?: number;
     timeout?: number;
   } = {}
@@ -79,4 +78,57 @@ export async function waitForPractitionerResponse(
   predicate?: ResponsePredicate<Practitioner>
 ): Promise<Response> {
   return waitForResponseWithData(page, '/Practitioner/', predicate);
+}
+
+// page.waitForResponse only catches events emitted AFTER it subscribes, so calling it after
+// the action that triggers the request is a race: when the response lands faster than the
+// gap between `await click()` returning and the listener subscribing, the response is
+// missed and the helper hangs until its timeout. The wrappers below subscribe the listener
+// first, then dispatch the action, eliminating the race.
+//
+// They use Promise.all so the response waiter always has a handler attached: if the click
+// rejects, the waiter's eventual timeout rejection is still observed (instead of becoming
+// an unhandled rejection that fires after the test has already failed). Array entries are
+// evaluated left-to-right, so waitForResponseWithData() is still called — and its listener
+// subscribed — before locator.click().
+
+/**
+ * Click a locator and wait for a matching response. Subscribes the listener before
+ * dispatching the click to avoid a subscribe-after-the-action race.
+ */
+export async function clickAndWaitForResponse<T extends object = object>(
+  page: Page,
+  locator: Locator,
+  urlPart: string | RegExp,
+  predicate?: ResponsePredicate<T>,
+  options: {
+    status?: number;
+    timeout?: number;
+  } = {}
+): Promise<Response> {
+  const [response] = await Promise.all([
+    waitForResponseWithData<T>(page, urlPart, predicate, options),
+    locator.click(),
+  ]);
+  return response;
+}
+
+/**
+ * Click a locator and wait for a /save-chart-data response.
+ */
+export async function clickAndWaitForSaveChartData(
+  page: Page,
+  locator: Locator,
+  predicate?: ResponsePredicate<SaveChartDataResponse>
+): Promise<Response> {
+  const [response] = await Promise.all([waitForSaveChartDataResponse(page, predicate), locator.click()]);
+  return response;
+}
+
+/**
+ * Click a locator and wait for a /delete-chart-data response.
+ */
+export async function clickAndWaitForChartDataDeletion(page: Page, locator: Locator): Promise<Response> {
+  const [response] = await Promise.all([waitForChartDataDeletion(page), locator.click()]);
+  return response;
 }

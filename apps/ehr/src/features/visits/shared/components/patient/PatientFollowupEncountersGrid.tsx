@@ -221,7 +221,7 @@ export const PatientFollowupEncountersGrid: FC<PatientEncountersGridProps> = (pr
         initialState={{
           pagination: {
             paginationModel: {
-              pageSize: 5,
+              pageSize: 20,
             },
           },
           sorting: {
@@ -232,7 +232,7 @@ export const PatientFollowupEncountersGrid: FC<PatientEncountersGridProps> = (pr
         loading={loading}
         pagination
         disableColumnMenu
-        pageSizeOptions={[5]}
+        pageSizeOptions={[20]}
         disableRowSelectionOnClick
         sx={{
           border: 0,

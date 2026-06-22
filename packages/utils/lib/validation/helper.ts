@@ -31,12 +31,17 @@ export const getInputTypes = (name: string): string => {
   }
 };
 
-export function isOlderThan18Years(dateString: string): boolean {
-  const inputDate = DateTime.fromISO(dateString);
+export function getAgeInYears(dateString: string): number {
+  return Math.floor(DateTime.now().diff(DateTime.fromISO(dateString), 'years').years);
+}
 
-  const yearsDifference = DateTime.now().diff(inputDate, 'years').years;
-
-  return yearsDifference > 18;
+export function is18YearsOrYounger(dateString: string): boolean {
+  const isValidDate = DateTime.fromISO(dateString).isValid;
+  if (!isValidDate) {
+    // this function is only used in erx, so conservatively use stricter requirements if dob invalid
+    return true;
+  }
+  return getAgeInYears(dateString) <= 18;
 }
 
 export function isNullOrUndefined(value: any): boolean {
@@ -55,4 +60,15 @@ export const isPositiveNumberOrZero = (value: number): boolean => {
 const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-5][0-9a-f]{3}-[089ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 export const isValidUUID = (maybeUUID: string): boolean => {
   return uuidRegex.test(maybeUUID);
+};
+
+/**
+ * Validates a resource ID that may be either a UUID (old-style FHIR Organization ID)
+ * or a simple alphanumeric identifier (Oystehr RCM API payer ID).
+ * Allows alphanumeric characters, underscores, and hyphens, but requires at least
+ * one alphanumeric character and limits the total length to 64 characters.
+ */
+const resourceIdRegex = /^(?=.*[a-zA-Z0-9])[a-zA-Z0-9_-]{1,64}$/;
+export const isAlphaNumericID = (maybeId: string): boolean => {
+  return resourceIdRegex.test(maybeId);
 };

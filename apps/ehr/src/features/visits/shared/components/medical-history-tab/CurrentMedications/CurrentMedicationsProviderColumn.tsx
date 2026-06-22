@@ -117,7 +117,8 @@ export const CurrentMedicationsProviderColumn: FC<CurrentMedicationsProviderColu
     }
   };
 
-  const { quickPicks: medicationHistoryQuickPicks } = useMergedMedicationHistoryQuickPicks();
+  const { quickPicks: medicationHistoryQuickPicks, loading: medicationHistoryQuickPicksLoading } =
+    useMergedMedicationHistoryQuickPicks();
 
   const handleQuickPickSelect = useCallback(
     (quickPick: { name: string; strength?: string; medicationId?: number }): void => {
@@ -218,6 +219,7 @@ export const CurrentMedicationsProviderColumn: FC<CurrentMedicationsProviderColu
           >
             <QuickPicksButton
               quickPicks={medicationHistoryQuickPicks}
+              loading={medicationHistoryQuickPicksLoading}
               getLabel={(quickPick) => `${quickPick.name}${quickPick.strength ? ` (${quickPick.strength})` : ''}`}
               onSelect={handleQuickPickSelect}
               disabled={isLoading || isChartDataLoading}

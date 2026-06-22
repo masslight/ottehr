@@ -8,6 +8,7 @@ import {
   FHIR_RESOURCE_NOT_FOUND_CUSTOM,
   getFullestAvailableName,
   getSecret,
+  PARTICIPATION_CODE_SYSTEM,
   SecretsKeys,
   SendFaxZambdaInput,
   VISIT_NOTE_SUMMARY_CODE,
@@ -153,7 +154,7 @@ const performEffect = async (
           {
             coding: [
               {
-                system: 'http://terminology.hl7.org/CodeSystem/v3-ParticipationType',
+                system: PARTICIPATION_CODE_SYSTEM,
                 code: 'AUT',
                 display: 'author',
               },
@@ -177,7 +178,7 @@ const performEffect = async (
           {
             coding: [
               {
-                system: 'http://terminology.hl7.org/CodeSystem/v3-ParticipationType',
+                system: PARTICIPATION_CODE_SYSTEM,
                 code: 'SBJ',
                 display: 'subject',
               },
@@ -193,7 +194,7 @@ const performEffect = async (
           {
             coding: [
               {
-                system: 'http://terminology.hl7.org/CodeSystem/v3-ParticipationType',
+                system: PARTICIPATION_CODE_SYSTEM,
                 code: 'RCV',
                 display: 'receiver',
               },

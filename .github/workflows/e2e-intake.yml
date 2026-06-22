@@ -19,6 +19,8 @@ on:
           - e2e
           - e2e2
           - e2e3
+          - e2e4
+          - e2e5
           - local
           - testing
           - development

@@ -40,35 +40,44 @@ import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import Oystehr from '@oystehr/sdk';
 import { parse } from 'csv-parse';
 import { createReadStream, readdirSync, readFileSync, statSync } from 'fs';
+import pLimit from 'p-limit';
 import { basename, dirname, join } from 'path';
 import { fileURLToPath } from 'url';
-import { buildPatientFolder, type CsvRow, stripDateFromDescription } from './legacy-data-utils.js';
+import {
+  buildObjectPath,
+  type CsvRow,
+  MAPPING_HEADERS,
+  readCsvRow,
+  stripDateFromDescription,
+  writeCsvToLegacyDataOutput,
+} from './legacy-data-utils.js';
 
 // ── Types ──────────────────────────────────────────────────────────
 
 type Summary = {
   uploaded: number;
   errors: number;
-  uniquePatients: Set<string>; // based on {lastName}_{firstName}_{dob}/{patientId} (file key)
 };
 
-interface FileToUpload {
-  objectPath: string; // The Z3 key
-  fileName: string;
-  fileBlob: Blob;
-}
+type ErrorRow = { error: string; fileName: string; csvRow: Omit<CsvRow, 'file'> };
 
 // ── Consts ──────────────────────────────────────────────────────────
 const LEGACY_DATA_BUCKET_SUFFIX = 'legacy-data';
-const CONCURRENCY = 25;
+const CONCURRENCY = 5; // Number of requests processed at concurrently
+const BATCH_SIZE = 10; // Number of concurrent requests processed before moving onto the next batch
 
-const DOC_TYPES_TO_MIGRATE = ['Composite', 'Patient Documentation'];
+// Set to a number to cap how many rows are migrated (e.g. 5 for a smoke test). undefined = no limit.
+const MAX_ROWS: number | undefined = undefined;
+
+// If undefined, we'll process everything
+const DOCUMENT_DESCRIPTIONS_TO_SKIP: string[] | undefined = ['Composite', 'Patient Documentation'];
 
 const summary: Summary = {
   uploaded: 0,
   errors: 0,
-  uniquePatients: new Set(),
 };
+
+const errorRows: ErrorRow[] = [];
 
 // ── Argument parsing ──────────────────────────────────────────────────────────
 
@@ -154,28 +163,23 @@ function makeSourceS3Client(): S3Client {
   return sourceS3;
 }
 
-// ── File walking ──────────────────────────────────────────────────────────────
+// ── Helpers ──────────────────────────────────────────────────────────────
 
-/**
- * File these under ProgressNotes so that the front end shows them with the correct tag
- * @returns patientFolder/ProgressNotes/fileName
- */
-function buildObjectPath(patientFolder: string, fileName: string): string {
-  return `${patientFolder}/ProgressNotes/${fileName}`;
-}
+const limit = pLimit(CONCURRENCY);
 
 /**
  * Only should be called when using default data within the repo as it will try to read the file locally
- * Reads the file, converts to a blob and returns information to upload the file to z3
+ * Reads the file, manually assigned a mimeType, converts to a blob and when isDryRun false uploads the file to z3
  */
-function formatDefaultDataIntoFileUpload(row: CsvRow): FileToUpload {
-  const patientFolder = buildPatientFolder(row);
-  summary.uniquePatients.add(patientFolder);
-
+async function formatDefaultDataAndUploadToZ3(
+  isDryRun: boolean,
+  row: CsvRow,
+  bucketName: string,
+  oystehr: Oystehr
+): Promise<void> {
   const { path } = row;
 
   const fileName = basename(path);
-
   const fileBuffer = readFileSync(path);
 
   let mimeType = 'application/octet-stream';
@@ -191,35 +195,37 @@ function formatDefaultDataIntoFileUpload(row: CsvRow): FileToUpload {
     type: mimeType,
   });
 
-  const fileDetails: FileToUpload = {
-    objectPath: buildObjectPath(patientFolder, fileName),
-    fileName,
-    fileBlob,
-  };
+  const objectPath = buildObjectPath(row);
 
-  // console.log('fileDetails', JSON.stringify(fileDetails));
+  if (!isDryRun) {
+    await oystehr.z3.uploadFile({
+      bucketName,
+      'objectPath+': objectPath,
+      file: fileBlob,
+    });
 
-  return fileDetails;
+    summary.uploaded++;
+  }
 }
 
 /**
  * Retrieves the file from s3 based on the path stored in the row and the SOURCE_KEY_PREFIX saved in the your env file
  * file key will resolve to `${sourceKeyPrefix}/${path}` and will be grabbed from the bucket you've saved in your env: SOURCE_S3_BUCKET_NAME
+ * when isDryRun is false, file is uploaded to z3
  * @param row CsvRow
  * @param s3Client needs read access to the project where the data lives
- * @returns information to upload the file to z3
  */
-async function getS3FileAndFormatIntoFileUpload(row: CsvRow, s3Client: S3Client | undefined): Promise<FileToUpload> {
+async function getS3FileAndUploadToZ3(
+  isDryRun: boolean,
+  row: CsvRow,
+  bucketName: string,
+  oystehr: Oystehr,
+  s3Client: S3Client | undefined
+): Promise<void> {
   if (!s3Client) throw new Error(`s3Client is undefined for row: ${JSON.stringify(row)}`);
 
-  const patientFolder = buildPatientFolder(row);
-  summary.uniquePatients.add(patientFolder);
-
   const { path } = row;
-
-  const fileName = basename(path);
-
-  // console.log('getting the file via s3');
+  const objectPath = buildObjectPath(row);
 
   const sourceObject = await s3Client.send(
     new GetObjectCommand({
@@ -228,37 +234,74 @@ async function getS3FileAndFormatIntoFileUpload(row: CsvRow, s3Client: S3Client 
     })
   );
 
-  // console.log('Done.\n');
-
   if (!sourceObject.Body) {
     throw new Error(`no sourceObject.Body returned for row: ${JSON.stringify(row)}`);
+  }
+
+  if (!sourceObject.ContentType) {
+    throw new Error(`no sourceObject.ContentType returned for row: ${JSON.stringify(row)}`);
   }
 
   const bytes = await sourceObject.Body.transformToByteArray();
 
   const fileBlob = new Blob([bytes as Uint8Array<ArrayBuffer>], {
-    type: sourceObject.ContentType ?? 'application/octet-stream',
+    type: sourceObject.ContentType,
   });
 
-  const fileDetails: FileToUpload = {
-    objectPath: buildObjectPath(patientFolder, fileName),
-    fileName,
-    fileBlob,
-  };
-
-  // console.log('fileDetails', JSON.stringify(fileDetails));
-
-  return fileDetails;
+  if (!isDryRun) {
+    await oystehr.z3.uploadFile({
+      bucketName,
+      'objectPath+': objectPath,
+      file: fileBlob,
+    });
+    summary.uploaded++;
+  }
 }
 
 function logSummary(summaryData: Summary): void {
   console.log('');
   console.log('═'.repeat(60));
-  console.log(`Script complete. Summary of actions: `);
+  console.log(`Batch complete. Summary of actions: `);
   console.log(`  docs uploaded: ${summaryData.uploaded}`);
   console.log(`  docs with errors: ${summaryData.errors}`);
-  console.log(`  unique patients: ${summaryData.uniquePatients.size}`);
   console.log('═'.repeat(60));
+  console.log('');
+}
+
+async function processRow(
+  isDryRun: boolean,
+  useDefaultData: boolean,
+  row: CsvRow,
+  bucketName: string,
+  oystehr: Oystehr,
+  s3Client: S3Client | undefined
+): Promise<void> {
+  try {
+    if (useDefaultData) {
+      await formatDefaultDataAndUploadToZ3(isDryRun, row, bucketName, oystehr);
+    } else {
+      await getS3FileAndUploadToZ3(isDryRun, row, bucketName, oystehr, s3Client);
+    }
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error(`  ✗ Failed to process row: ${JSON.stringify(row)}`);
+    console.error(`    Error: ${message}\n`);
+
+    summary.errors++;
+    const { file, ...csvRow } = row;
+    errorRows.push({ error: message, fileName: file, csvRow });
+  }
+}
+
+function writeErrorCsv(rows: ErrorRow[]): void {
+  const errorFileName = `errors-${Date.now()}.csv`;
+  const mappingHeaderKeys = Object.keys(MAPPING_HEADERS) as (keyof typeof MAPPING_HEADERS)[];
+
+  const headers = ['Error', 'File', ...mappingHeaderKeys.map((key) => MAPPING_HEADERS[key])];
+
+  const rowsToWrite = rows.map((r) => [r.error, r.fileName, ...mappingHeaderKeys.map((key) => r.csvRow[key])]);
+
+  writeCsvToLegacyDataOutput(errorFileName, headers, rowsToWrite);
 }
 
 // ── Main ──────────────────────────────────────────────────────────────────────
@@ -287,12 +330,14 @@ async function main(): Promise<void> {
   console.log(`Target bucket: ${bucketName}`);
   console.log('');
 
-  // Collect all files to upload
-  const allFiles: FileToUpload[] = [];
   const rows: CsvRow[] = [];
   let totalRowsRead = 0;
 
-  console.log('reading the mapping files');
+  console.time('Reading Csvs');
+  console.log('Reading the csv mapping files');
+  if (DOCUMENT_DESCRIPTIONS_TO_SKIP) {
+    console.log(`Will not process documents with descriptions: ${DOCUMENT_DESCRIPTIONS_TO_SKIP.join(', ')}`);
+  }
   console.log('');
 
   for (const file of mappingCsvs) {
@@ -300,21 +345,12 @@ async function main(): Promise<void> {
       createReadStream(`${mappingDir}/${file}`)
         .pipe(parse({ columns: true }))
         .on('data', (data) => {
-          const description = data['Description'];
-          const sanitizedDescription = stripDateFromDescription(description);
           totalRowsRead++;
-
-          if (DOC_TYPES_TO_MIGRATE.includes(sanitizedDescription)) {
-            rows.push({
-              lastName: data['Last_Name'],
-              firstName: data['First_Name'],
-              path: data['Path'],
-              dob: data['BirthDate'],
-              patientId: data['Patient Number'],
-              documentType: data['Document Type'],
-              description: sanitizedDescription,
-              file,
-            });
+          const description = stripDateFromDescription(data['Description']);
+          if (DOCUMENT_DESCRIPTIONS_TO_SKIP === undefined) {
+            rows.push(readCsvRow(data, file));
+          } else if (!DOCUMENT_DESCRIPTIONS_TO_SKIP.includes(description)) {
+            rows.push(readCsvRow(data, file));
           }
         })
         .on('end', resolve)
@@ -323,80 +359,61 @@ async function main(): Promise<void> {
   }
 
   console.log(`Total rows read: ${totalRowsRead}\n`);
-  console.log(`Migrating the following doc types: ${DOC_TYPES_TO_MIGRATE}`);
-  console.log(`Total documents to be migrated: ${rows.length}\n`);
+  console.log(`Total rows to be processed: ${rows.length}\n`);
+
+  console.timeEnd('Reading Csvs');
+
+  if (MAX_ROWS !== undefined) {
+    rows.splice(MAX_ROWS);
+    console.log(`MAX_ROWS set — limiting migration to ${MAX_ROWS} rows.\n`);
+  }
+
+  if (rows.length === 0) {
+    console.log('No rows to upload. Exiting.');
+    return;
+  }
 
   let sourceS3Client: S3Client | undefined;
 
   if (!useDefaultData) {
-    console.log('Making source S3 client...');
+    console.log('\nMaking source S3 client...');
     sourceS3Client = await makeSourceS3Client();
     console.log('Done.');
-  }
-
-  for (let i = 0; i < rows.length; i += CONCURRENCY) {
-    const batch = rows.slice(i, i + CONCURRENCY);
-    const batchResults = await Promise.all(
-      batch.map(async (row) => {
-        try {
-          return useDefaultData
-            ? formatDefaultDataIntoFileUpload(row)
-            : await getS3FileAndFormatIntoFileUpload(row, sourceS3Client);
-        } catch (err) {
-          console.error(`  ✗ Failed to prepare file for row: ${JSON.stringify(row)}`);
-          console.error(`    Error: ${err instanceof Error ? err.message : String(err)}\n`);
-          summary.errors++;
-          return null;
-        }
-      })
-    );
-    allFiles.push(...batchResults.filter((f): f is FileToUpload => f !== null));
-  }
-
-  console.log('');
-  console.log(`Total files to upload: ${allFiles.length}`);
-
-  if (isDryRun) {
-    console.log('');
-    console.log('Dry run — no files uploaded.\n');
-    logSummary(summary);
-    return;
-  }
-
-  if (allFiles.length === 0) {
-    console.log('No files found to upload. Exiting.');
-    return;
   }
 
   // Create authenticated Oystehr client
   console.log('');
   console.log('Authenticating with Auth0...');
   const oystehr = await createOystehrClient();
-  console.log('Authenticated.');
+  console.log('Authenticated.\n');
 
-  for (let i = 0; i < allFiles.length; i += CONCURRENCY) {
-    const batch = allFiles.slice(i, i + CONCURRENCY);
+  console.time('Total Processing Time');
+
+  for (let i = 0; i < rows.length; i += BATCH_SIZE) {
+    console.time('Batch Runtime');
+    const batch = rows.slice(i, i + BATCH_SIZE);
     await Promise.all(
-      batch.map(async (file) => {
-        try {
-          await oystehr.z3.uploadFile({
-            bucketName,
-            'objectPath+': file.objectPath,
-            file: file.fileBlob,
-          });
-          summary.uploaded++;
-        } catch (err) {
-          console.error(`  ✗ Failed to upload:   ${file.objectPath}`);
-          console.error(`    Error: ${err instanceof Error ? err.message : String(err)}\n`);
-          summary.errors++;
-        }
-      })
+      batch.map((row, _batchIdx) =>
+        limit(async () => {
+          // const idx = i + batchIdx;
+          // console.log('processing row', idx);
+          await processRow(isDryRun, useDefaultData, row, bucketName, oystehr, sourceS3Client);
+          // console.log('done processing row', idx);
+        })
+      )
     );
+    console.log(`\nBatch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(rows.length / BATCH_SIZE)} complete`);
+    console.timeEnd('Batch Runtime');
+    console.log('');
   }
+
+  console.timeEnd('Total Processing Time');
 
   logSummary(summary);
 
   if (summary.errors > 0) {
+    writeErrorCsv(errorRows);
+    console.log('');
     process.exit(1);
   }
 }

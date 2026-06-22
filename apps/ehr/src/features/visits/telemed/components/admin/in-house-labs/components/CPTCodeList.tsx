@@ -50,7 +50,7 @@ type CPTCodeFormItemProps = FieldArrayListItemProps<'cptCode'>;
 
 function CPTCodeFormItem(props: CPTCodeFormItemProps): ReactElement {
   const { index: cptIndex, remove: removeCpt, theme, fieldData: cptCode } = props;
-  const { control, formState } = useFormContext<AdminInHouseLabItemDefinition>();
+  const { control, formState, setValue } = useFormContext<AdminInHouseLabItemDefinition>();
   const { errors } = formState;
 
   const defaultHeaderLabel = 'New CPT Code';
@@ -93,11 +93,14 @@ function CPTCodeFormItem(props: CPTCodeFormItemProps): ReactElement {
 
     if (matchedOption) {
       setSectionHeaderLabel(getSelectedOptionLabel(matchedOption));
+      if (!cptCode.display) {
+        setValue(`cptCode.${cptIndex}.display`, matchedOption.display);
+      }
     } else {
       // fallback to default if not found in options
       setSectionHeaderLabel(defaultHeaderLabel);
     }
-  }, [cptSearchOptions, cptCode.code]);
+  }, [cptSearchOptions, cptCode.code, cptCode.display, setValue, cptIndex]);
 
   return (
     <Box sx={{ marginBottom: 2 }}>
@@ -116,7 +119,7 @@ function CPTCodeFormItem(props: CPTCodeFormItemProps): ReactElement {
               <Grid container direction="row" rowSpacing={2}>
                 <Grid item width="100%">
                   <Controller
-                    name={`cptCode.${cptIndex}.code`}
+                    name={`cptCode.${cptIndex}`}
                     control={control}
                     render={({ field, fieldState }) => (
                       <Autocomplete
@@ -131,10 +134,14 @@ function CPTCodeFormItem(props: CPTCodeFormItemProps): ReactElement {
                         }
                         autoComplete
                         loading={isSearching}
-                        value={findFormValueInOptions(field.value)} // current form state
+                        value={findFormValueInOptions(field.value.code)}
                         onChange={(_, selectedOption) => {
-                          const newFormValue = selectedOption?.code ?? '';
-                          field.onChange(newFormValue); // updating form state
+                          console.log('This was the selectedOption on cpt change', selectedOption);
+                          field.onChange({
+                            ...field.value,
+                            code: selectedOption?.code ?? '',
+                            display: selectedOption?.display ?? '',
+                          });
                           setSectionHeaderLabel(
                             selectedOption ? getSelectedOptionLabel(selectedOption) : defaultHeaderLabel
                           );

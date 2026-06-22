@@ -1,7 +1,8 @@
+import Oystehr from '@oystehr/sdk';
 import { CandidApi, CandidApiClient } from 'candidhealth';
 import { NonInsurancePayerId } from 'candidhealth/api/resources/nonInsurancePayers/resources/v1';
 import { Address } from 'fhir/r4b';
-import { createCandidApiClient, getOptionalSecret, Secrets, SecretsKeys } from 'utils';
+import { getOrCreateCandidApiClient, MISSING_REQUEST_SECRETS, Secrets } from 'utils';
 import { CANDID_EMPLOYER_DESCRIPTION } from './helpers';
 
 const mapFhirAddressToCandidAddress = (addresses?: Address[]): CandidApi.StreetAddressShortZip | undefined => {
@@ -30,23 +31,21 @@ const mapFhirAddressToCandidAddress = (addresses?: Address[]): CandidApi.StreetA
 };
 
 /**
- * Returns a Candid API client if CANDID_CLIENT_ID is configured, otherwise returns null.
+ * Returns a Candid API client if Candid secrets are configured, otherwise returns null.
  * All employer zambdas call this before attempting any Candid sync so they gracefully
  * skip when running in environments that have no Candid credentials.
  */
-export function createCandidClientIfConfigured(secrets: Secrets | null): CandidApiClient | null {
-  const candidClientId = getOptionalSecret(SecretsKeys.CANDID_CLIENT_ID, secrets);
-  const candidClientSecret = getOptionalSecret(SecretsKeys.CANDID_CLIENT_SECRET, secrets);
-  const candidEnv = getOptionalSecret(SecretsKeys.CANDID_ENV, secrets);
-
-  if (!candidClientId?.length || !candidClientSecret?.length || !candidEnv?.length) {
-    console.log(
-      '[candid-sync] One or more Candid secrets (CLIENT_ID, CLIENT_SECRET, ENV) not set — skipping Candid sync'
-    );
+export async function createCandidClientIfConfigured(
+  oystehr: Oystehr,
+  secrets: Secrets | null
+): Promise<CandidApiClient | null> {
+  try {
+    return await getOrCreateCandidApiClient(oystehr, secrets);
+  } catch (error) {
+    if (error !== MISSING_REQUEST_SECRETS) throw error;
+    console.log('Candid not configured, skipping candid sync.');
     return null;
   }
-
-  return createCandidApiClient(secrets);
 }
 
 /**

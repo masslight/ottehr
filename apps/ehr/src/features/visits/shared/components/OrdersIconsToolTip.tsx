@@ -219,7 +219,7 @@ export const OrdersIconsToolTip: React.FC<OrdersIconsToolTipProps> = ({ appointm
   if (immunizationOrders?.length) {
     const config: OrderToolTipConfig = {
       icon: sidebarMenuIcons['Immunization'],
-      title: 'Immunization',
+      title: 'Immunizations',
       tableUrl: withEncounter(getImmunizationMARUrl(navAppointmentId)),
       orders: immunizationOrders
         .filter((order) => order.status !== 'cancelled')

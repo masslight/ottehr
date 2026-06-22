@@ -2,7 +2,7 @@ import { otherColors } from '@ehrTheme/colors';
 import StarIcon from '@mui/icons-material/Star';
 import { Box, Typography, useTheme } from '@mui/material';
 import React from 'react';
-import { PharmacyDTO } from 'utils';
+import { PharmacyDTO, PHONE_NOT_ON_FILE } from 'utils';
 
 interface PreferredPharmacyProps {
   data: PharmacyDTO[];
@@ -35,7 +35,9 @@ export const PreferredPharmacy: React.FC<PreferredPharmacyProps> = ({ data: phar
         Preferred pharmacy
       </Typography>
       {pharmacies.map((pharmacy, index) => {
-        const details = [pharmacy.name, pharmacy.address, pharmacy.phone].filter(Boolean).join(' / ');
+        const details = [pharmacy.name, pharmacy.address, pharmacy.phone || PHONE_NOT_ON_FILE]
+          .filter(Boolean)
+          .join(' / ');
         return (
           <Box
             key={index}

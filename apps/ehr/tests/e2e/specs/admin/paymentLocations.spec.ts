@@ -1,11 +1,32 @@
 import { BrowserContext, Page, test } from '@playwright/test';
-import { LOCATION_CONFIG } from 'utils';
+import { isLocationVirtual } from 'utils';
+import locationsSpec from '../../../../../../config/oystehr/locations-and-schedules.json' assert { type: 'json' };
 import {
   expectPaymentLocationDetailPage,
   expectPaymentLocationsPage,
   PaymentLocationDetailPage,
   PaymentLocationsPage,
 } from '../../page/PaymentLocationsPage';
+
+function findFirstLocationName(): string {
+  const entries = Object.values((locationsSpec as { fhirResources: Record<string, any> }).fhirResources);
+  let inPerson: string | undefined;
+  let telemed: string | undefined;
+  for (const entry of entries) {
+    const resource = entry.resource;
+    if (resource?.resourceType !== 'Location' || !resource.name) continue;
+    if (isLocationVirtual(resource)) {
+      telemed ??= resource.name;
+    } else {
+      inPerson ??= resource.name;
+    }
+  }
+  if (inPerson) return inPerson;
+  if (telemed) return telemed;
+  throw new Error(
+    'Expected locations-and-schedules.json to contain at least one named Location resource, but none were found.'
+  );
+}
 
 let page: Page;
 let context: BrowserContext;
@@ -22,7 +43,9 @@ test.afterAll(async () => {
 
 let paymentLocationsPage: PaymentLocationsPage;
 let detailPage: PaymentLocationDetailPage;
-const TARGET_LOCATION = LOCATION_CONFIG.inPersonLocations[0]?.name || LOCATION_CONFIG.telemedLocations[0]?.name;
+// Fallback derived from IaC config; overridden at runtime with a location that is actually
+// present in the deployed test data (the config and the deployed env can diverge).
+let TARGET_LOCATION = findFirstLocationName();
 
 test.describe.configure({ mode: 'serial' });
 
@@ -36,6 +59,10 @@ test.describe('Payment Locations Admin', () => {
   test('verify locations are listed and target location exists', async () => {
     const rowCount = await paymentLocationsPage.getLocationRows();
     test.skip(rowCount === 0, 'No payment locations available to test');
+
+    // Use a location name that's actually rendered in the table rather than one derived from
+    // the IaC config, which may not match what's seeded in the CI environment.
+    TARGET_LOCATION = await paymentLocationsPage.getFirstLocationName();
 
     await paymentLocationsPage.searchLocations(TARGET_LOCATION);
     await paymentLocationsPage.verifyLocationVisible(TARGET_LOCATION);

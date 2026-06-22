@@ -24,6 +24,7 @@ const administratorNavbarItems: NavbarItems = {
   'Tracking Board': { urls: ['/visits', '/visit'] },
   Patients: { urls: ['/patients', '/patient'] },
   Admin: { urls: ['/admin'] },
+  Reports: { urls: ['/reports'] },
 };
 
 const managerNavbarItems: NavbarItems = {
@@ -31,24 +32,28 @@ const managerNavbarItems: NavbarItems = {
   Patients: { urls: ['/patients', '/patient'] },
   Admin: { urls: ['/admin'] },
   Tasks: { urls: ['/tasks'] },
+  Reports: { urls: ['/reports'] },
 };
 
 const staffNavbarItems: NavbarItems = {
   'Tracking Board': { urls: ['/visits', '/visit'] },
   Patients: { urls: ['/patients', '/patient'] },
   Tasks: { urls: ['/tasks'] },
+  Reports: { urls: ['/reports'] },
 };
 
 const providerNavbarItems: NavbarItems = {
   'Tracking Board': { urls: ['/visits', '/visit'] },
   Patients: { urls: ['/patients', '/patient'] },
   Tasks: { urls: ['/tasks'] },
+  Reports: { urls: ['/reports'] },
 };
 
 const customerSupportNavbarItems: NavbarItems = {
   'Tracking Board': { urls: ['/visits', '/visit'] },
   Patients: { urls: ['/patients', '/patient'] },
   Admin: { urls: ['/admin'] },
+  Reports: { urls: ['/reports'] },
 };
 
 const hideNavbarPathPatterns = [/^\/telemed\/appointments\/(?!.*\/visit-details$)/, /^\/patient\/[^/]+\/info$/];

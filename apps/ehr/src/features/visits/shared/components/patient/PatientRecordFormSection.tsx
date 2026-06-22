@@ -7,6 +7,8 @@ import { evaluateFieldTriggers, PATIENT_RECORD_CONFIG } from 'utils';
 interface PatientRecordFormSectionInput {
   formSection: FormFieldSection;
   titleWidget?: ReactElement;
+  /** Resolved title; defaults to the section's config title. */
+  title?: string;
   children?: ReactElement | ReactElement[];
   ordinal?: number;
 }
@@ -14,14 +16,15 @@ const PatientRecordFormSection: FC<PatientRecordFormSectionInput> = ({
   formSection,
   children,
   titleWidget,
+  title,
   ordinal,
 }) => {
-  const { title, linkId, isHidden } = usePatientRecordFormSection({ formSection, index: ordinal });
+  const { title: configTitle, linkId, isHidden } = usePatientRecordFormSection({ formSection, index: ordinal });
   if (isHidden) {
     return null;
   }
   return (
-    <Section title={title} id={linkId} titleWidget={titleWidget}>
+    <Section title={title ?? configTitle} id={linkId} titleWidget={titleWidget}>
       {children}
     </Section>
   );

@@ -3,8 +3,6 @@ export interface CreateInHouseMedicationInput {
   ndc?: string;
   medispanID: string;
   medispanIDForInteractions?: string;
-  cptCodes?: { code: string; display: string }[];
-  hcpcsCodes?: { code: string; display: string }[];
 }
 
 export type UpdateInHouseMedicationInput = Partial<CreateInHouseMedicationInput> & {

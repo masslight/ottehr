@@ -1,8 +1,13 @@
 export const palette = {
   background: {
-    default: '#F9FAFB',
+    default: '#F6F7F9',
     paper: '#FFFFFF',
   },
+  text: {
+    primary: '#1C2536',
+    secondary: '#667085',
+  },
+  divider: '#E7E9EE',
   primary: {
     main: '#2169F5',
     light: '#2169F5',

@@ -259,6 +259,7 @@ syncytial
 tachypnea
 tamiflu
 tdap
+teleradiology
 transcervical
 transendocardial
 transmucosal

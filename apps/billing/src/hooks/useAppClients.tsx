@@ -17,6 +17,7 @@ export function useApiClients(): ApiClientsState {
   const { oystehrZambda } = getSelectors(useApiClientsStore, ['oystehrZambda']);
 
   useEffect(() => {
+    if (!token) return;
     if (!oystehrZambda || oystehrZambda.config.accessToken !== token) {
       const config: ConstructorParameters<typeof Oystehr>[0] = {
         accessToken: token,

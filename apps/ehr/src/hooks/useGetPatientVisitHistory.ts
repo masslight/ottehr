@@ -1,5 +1,6 @@
 import { useQuery, UseQueryResult } from '@tanstack/react-query';
 import { PatientVisitListResponse } from 'utils';
+import { FEATURE_FLAGS } from '../constants/feature-flags';
 import { useApiClients } from './useAppClients';
 
 export const useGetPatientVisitHistory = (
@@ -14,6 +15,7 @@ export const useGetPatientVisitHistory = (
         const result = await oystehrZambda.zambda.execute({
           id: 'get-patient-visit-history',
           patientId: patientId,
+          supervisorApprovalEnabled: FEATURE_FLAGS.SUPERVISOR_APPROVAL_ENABLED,
         });
         return result.output as PatientVisitListResponse;
       }

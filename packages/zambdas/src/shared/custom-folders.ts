@@ -1,26 +1,10 @@
 import Oystehr from '@oystehr/sdk';
 import { List } from 'fhir/r4b';
-import {
-  CUSTOM_FOLDER_KIND_SYSTEM,
-  CUSTOM_FOLDERS_CATALOG_IDENTIFIER,
-  FHIR_RESOURCE_NOT_FOUND_CUSTOM,
-  NOT_AUTHORIZED,
-  RoleType,
-  Secrets,
-} from 'utils';
-import { getUser } from './auth';
+import { CUSTOM_FOLDER_KIND_SYSTEM, CUSTOM_FOLDERS_CATALOG_IDENTIFIER, FHIR_RESOURCE_NOT_FOUND_CUSTOM } from 'utils';
 
 const CATALOG_CODE = 'custom-folders-catalog';
 const CATALOG_IDENTIFIER_SYSTEM = 'https://fhir.ottehr.com/r4/identifier';
 const MAX_CATALOG_WRITE_RETRIES = 3;
-
-export const requireAdminUser = async (userToken: string, secrets: Secrets | null): Promise<void> => {
-  const user = await getUser(userToken, secrets);
-  if (!user) throw NOT_AUTHORIZED;
-  const roles = (user as any).roles as { name?: string }[] | undefined;
-  const isAdmin = roles?.some((role) => role.name === RoleType.Administrator) ?? false;
-  if (!isAdmin) throw NOT_AUTHORIZED;
-};
 
 export async function loadCustomFoldersCatalog(oystehr: Oystehr, opts: { required: true }): Promise<List>;
 export async function loadCustomFoldersCatalog(

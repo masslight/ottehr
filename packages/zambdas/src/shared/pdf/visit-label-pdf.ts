@@ -175,6 +175,7 @@ export const getVisitDateForLabelDisplay = (
 
 async function createVisitLabelPDFHelper(
   input: VisitLabelConfig,
+  patientUuid: string,
   secrets: Secrets | null,
   token: string
 ): Promise<PdfInfo> {
@@ -196,7 +197,7 @@ async function createVisitLabelPDFHelper(
     secrets,
     fileName,
     bucketName: BUCKET_NAMES.VISIT_NOTES,
-    patientID: input.content.patientId,
+    patientID: patientUuid,
   });
 
   console.log('Uploading file to bucket, ', BUCKET_NAMES.VISIT_NOTES);
@@ -217,11 +218,12 @@ async function createVisitLabelPDFHelper(
 export async function createVisitLabelPDF(
   labelConfig: VisitLabelConfig,
   encounterId: string,
+  patientUuid: string,
   secrets: Secrets | null,
   token: string,
   oystehr: Oystehr
 ): Promise<{ documentReference: DocumentReference; presignedURL: string }> {
-  const pdfInfo = await createVisitLabelPDFHelper(labelConfig, secrets, token);
+  const pdfInfo = await createVisitLabelPDFHelper(labelConfig, patientUuid, secrets, token);
 
   console.log(`This is the made pdfInfo`, JSON.stringify(pdfInfo));
 
@@ -230,7 +232,7 @@ export async function createVisitLabelPDF(
     type: { coding: [VISIT_LABEL_PDF_DOC_REF_DOCTYPE], text: 'Visit label' },
     references: {
       subject: {
-        reference: `Patient/${labelConfig.content.patientId}`,
+        reference: `Patient/${patientUuid}`,
       },
       context: {
         encounter: [{ reference: `Encounter/${encounterId}` }],

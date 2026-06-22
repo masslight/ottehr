@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { makeExamObservationDTO } from '../../src/shared';
 import {
   migrateNormalExternalGenitalExam,
-  migrateV0ToV1,
+  migrateV0ToCurrent,
   MIGRATION_V1_FIELD_MAP,
   NORMAL_EXTERNAL_GENITAL_EXAM_FIELD,
 } from '../../src/shared/chart-data/migrations/index';
@@ -96,14 +96,14 @@ describe('Exam migration V0 to V1', () => {
     });
   });
 
-  describe('migrateV0ToV1 converts standalone observations to components', () => {
+  describe('migrateV0ToCurrent converts standalone observations to components', () => {
     it('should convert standalone observations with mapped field names into parent with components', () => {
       const observations: ExamObservationDTO[] = [
         { field: 'cw-viral-exam', value: true, resourceId: 'obs-1' },
         { field: 'cw-urticaria', value: true, resourceId: 'obs-2' },
       ];
 
-      const result = migrateV0ToV1(observations);
+      const result = migrateV0ToCurrent(observations);
 
       expect(result.migrated).toBe(true);
       expect(result.observations).toHaveLength(1);
@@ -126,7 +126,7 @@ describe('Exam migration V0 to V1', () => {
         { field: 'wheezing-left-upper', value: true },
       ];
 
-      const result = migrateV0ToV1(observations);
+      const result = migrateV0ToCurrent(observations);
 
       expect(result.migrated).toBe(true);
 
@@ -146,7 +146,7 @@ describe('Exam migration V0 to V1', () => {
         { field: 'intercostal', value: true },
       ];
 
-      const result = migrateV0ToV1(observations);
+      const result = migrateV0ToCurrent(observations);
 
       expect(result.migrated).toBe(true);
       const parent = result.observations.find((o) => o.field === 'retractions');
@@ -158,14 +158,14 @@ describe('Exam migration V0 to V1', () => {
     });
   });
 
-  describe('migrateV0ToV1 preserves unmatched fields', () => {
+  describe('migrateV0ToCurrent preserves unmatched fields', () => {
     it('should pass through observations with unknown field names unchanged', () => {
       const observations: ExamObservationDTO[] = [
         { field: 'some-unknown-field', value: true },
         { field: 'another-custom-field', value: false },
       ];
 
-      const result = migrateV0ToV1(observations);
+      const result = migrateV0ToCurrent(observations);
 
       expect(result.migrated).toBe(false);
       expect(result.observations).toEqual(observations);
@@ -177,7 +177,7 @@ describe('Exam migration V0 to V1', () => {
         { field: 'murmur-i', value: true },
       ];
 
-      const result = migrateV0ToV1(observations);
+      const result = migrateV0ToCurrent(observations);
 
       expect(result.migrated).toBe(true);
       expect(result.observations).toHaveLength(2);
@@ -193,14 +193,14 @@ describe('Exam migration V0 to V1', () => {
     it('should not migrate observations with value: false even if field name is in the map', () => {
       const observations: ExamObservationDTO[] = [{ field: 'cw-viral-exam', value: false }];
 
-      const result = migrateV0ToV1(observations);
+      const result = migrateV0ToCurrent(observations);
 
       expect(result.migrated).toBe(false);
       expect(result.observations).toEqual(observations);
     });
   });
 
-  describe('migrateV0ToV1 is idempotent', () => {
+  describe('migrateV0ToCurrent is idempotent', () => {
     it('should not modify already-migrated data (parent with components)', () => {
       const alreadyMigrated: ExamObservationDTO[] = [
         {
@@ -213,7 +213,7 @@ describe('Exam migration V0 to V1', () => {
         },
       ];
 
-      const result = migrateV0ToV1(alreadyMigrated);
+      const result = migrateV0ToCurrent(alreadyMigrated);
 
       expect(result.migrated).toBe(false);
       expect(result.observations).toEqual(alreadyMigrated);
@@ -229,7 +229,7 @@ describe('Exam migration V0 to V1', () => {
         { field: 'some-other-finding', value: true },
       ];
 
-      const result = migrateV0ToV1(alreadyMigrated);
+      const result = migrateV0ToCurrent(alreadyMigrated);
 
       expect(result.migrated).toBe(false);
       expect(result.observations).toEqual(alreadyMigrated);
@@ -246,7 +246,7 @@ describe('Exam migration V0 to V1', () => {
         { field: 'intercostal', value: true },
       ];
 
-      const result = migrateV0ToV1(observations);
+      const result = migrateV0ToCurrent(observations);
 
       expect(result.migrated).toBe(true);
       const parent = result.observations.find((o) => o.field === 'retractions');

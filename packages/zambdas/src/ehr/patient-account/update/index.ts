@@ -15,6 +15,7 @@ import {
   MISSING_REQUEST_BODY,
   MISSING_REQUIRED_PARAMETERS,
   NOT_AUTHORIZED,
+  PARTICIPATION_CODE_SYSTEM,
   PATIENT_RECORD_QUESTIONNAIRE,
   QUESTIONNAIRE_RESPONSE_INVALID_CUSTOM_ERROR,
   QUESTIONNAIRE_RESPONSE_INVALID_ERROR,
@@ -280,7 +281,7 @@ const writeAuditEvent = async (input: AuditEventInput, oystehr: Oystehr): Promis
         type: {
           coding: [
             {
-              system: 'http://terminology.hl7.org/CodeSystem/v3-ParticipationType',
+              system: PARTICIPATION_CODE_SYSTEM,
               code: 'AUT',
               display: 'author (originator)',
             },

@@ -33,6 +33,22 @@ vi.mock('src/hooks/useAppClients', () => ({
   useApiClients: () => ({ oystehr: undefined, oystehrZambda: { zambda: { execute: vi.fn() } } }),
 }));
 
+// InsuranceContainer renders <InsuranceCarrierQuickPicks>, which calls
+// useMergedInsuranceQuickPicks → useFhirQuickPicks. The default oystehrZambda
+// mock above is a partial stub (no .config), so let the hook never fire by
+// returning a stable fixture here. The section-save tests don't interact with
+// quick picks; this just keeps the component renderable.
+const insuranceQuickPicksFixture = [
+  { id: 'qp-1', name: '1st Auto & Casualty - MN Only', organizationReference: 'https://rcm-api.example/payer/J1585' },
+];
+vi.mock('src/hooks/useMergedQuickPicks', () => ({
+  useMergedInsuranceQuickPicks: () => ({
+    quickPicks: insuranceQuickPicksFixture,
+    loading: false,
+    refetch: vi.fn(),
+  }),
+}));
+
 // Short-circuit the carrier dropdown's network call. The DynamicReferenceField
 // uses useQuery to load payer options; return a stable fixture so the
 // Autocomplete renders a known option without hitting any backend.
@@ -117,8 +133,8 @@ const makeFullPrimaryCoverages = (): OrderedCoveragesWithSubscribers => ({
 
 // Pre-fill the primary slot's form fields as if a saved primary coverage had
 // already been hydrated into the form (e.g. the patient is mid-flow adding a
-// secondary). Without this the SectionSaveButton gates on the primary
-// required fields and the secondary save button never enables.
+// secondary). The section save validates all rendered insurance fields on click,
+// so without this the primary's empty required fields would fail that validation.
 const seedPrimaryFromCoverage = (defaults: Record<string, unknown>): Record<string, unknown> => ({
   ...defaults,
   [PRIMARY.insurancePriority.key]: 'Primary',
@@ -321,7 +337,8 @@ describe('InsuranceSection — section save flow', () => {
     await user.click(await screen.findByRole('button', { name: /add insurance/i }));
     act(() => fillRequiredPrimaryFields(control.methods));
 
-    // Save becomes enabled once the required fields are populated.
+    // The Save button is enabled once the section is dirty; with required fields
+    // populated the click validates cleanly and submits.
     const saveButton = await screen.findByRole('button', { name: /^save$/i });
     await waitFor(() => expect(saveButton).not.toBeDisabled());
     await user.click(saveButton);

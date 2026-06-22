@@ -1,5 +1,5 @@
 import { ContactPoint } from 'fhir/r4b';
-import { formatDOB, genderMap, standardizePhoneNumber } from 'utils';
+import { formatDOB, genderMap, getPatientFriendlyId, standardizePhoneNumber } from 'utils';
 import { getPatientLastFirstName } from '../../../patients';
 import { DataComposer } from '../../pdf-common';
 import { ICON_STYLE } from '../../pdf-consts';
@@ -16,7 +16,7 @@ export const composePatientInformationForDischargeSummary: DataComposer<
   const fullName = getPatientLastFirstName(patient) ?? '';
   const dob = formatDOB(patient?.birthDate) ?? '';
   const sex = genderMap[patient.gender as keyof typeof genderMap] ?? '';
-  const id = patient.id ?? '';
+  const id = getPatientFriendlyId(patient);
   const phone = standardizePhoneNumber(
     patient.telecom?.find((telecom: ContactPoint) => telecom.system === 'phone')?.value
   );

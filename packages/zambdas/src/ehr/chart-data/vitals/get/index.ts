@@ -366,7 +366,10 @@ const validateRequestParameters = (input: ZambdaInput): InputParameters => {
     throw new Error('Request body is required');
   }
 
-  const { encounterId, mode } = JSON.parse(input.body);
+  // The wire field is `currentOrHistorical` (not `mode`): the Oystehr SDK reserves a `mode` key on
+  // zambda.execute payloads as a request-context option, so a `mode` field would be stripped from
+  // the payload. Internally we keep calling the value `mode` for readability.
+  const { encounterId, currentOrHistorical: mode } = JSON.parse(input.body);
   const secrets = input.secrets;
 
   const missingParams: string[] = [];
@@ -376,7 +379,7 @@ const validateRequestParameters = (input: ZambdaInput): InputParameters => {
   }
 
   if (!mode) {
-    missingParams.push('mode');
+    missingParams.push('currentOrHistorical');
   }
 
   if (missingParams.length > 0) {
@@ -388,7 +391,7 @@ const validateRequestParameters = (input: ZambdaInput): InputParameters => {
   }
 
   if (typeof mode !== 'string' || (mode !== 'current' && mode !== 'historical')) {
-    throw INVALID_INPUT_ERROR(`Invalid mode, "${mode}", specified - must be "current" or "historical"`);
+    throw INVALID_INPUT_ERROR(`Invalid currentOrHistorical, "${mode}", specified - must be "current" or "historical"`);
   }
 
   return { encounterId, mode, secrets };

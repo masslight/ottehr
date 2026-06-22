@@ -5,11 +5,9 @@ import { Account, Appointment, Encounter, Location, Patient, Schedule, Task, Tas
 import { DateTime } from 'luxon';
 import Stripe from 'stripe';
 import {
-  BRANDING_CONFIG,
   FHIR_RESOURCE_NOT_FOUND,
   fillInvoiceTemplate,
   formatDateToMDYWithTime,
-  getFullName,
   getPatientReferenceFromAccount,
   getSecret,
   getStripeAccountForAppointmentOrEncounter,
@@ -23,11 +21,13 @@ import {
   SecretsKeys,
 } from 'utils';
 import { accountMatchesType } from '../../../ehr/shared/harvest';
+import { produceOutreachTasks } from '../../../rcm/scheduled-outreach/producers/shared';
 import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
   getCandidEncounterIdFromEncounter,
   getStripeClient,
+  resolveTemplatePlaceholders,
   resolveTimezone,
   sendSmsForPatient,
   wrapHandler,
@@ -64,18 +64,20 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     const timezone = resolveTimezone(schedule, location);
     const visitDate = formatDateToMDYWithTime(appointment.start, timezone)?.date;
-    const patientPortalUrl = getSecret(SecretsKeys.PATIENT_LOGIN_REDIRECT_URL, secrets);
     if (!visitDate) throw new Error('visit date is missing required field');
 
-    const basePlaceholderInput = {
-      patientFullName: getFullName(fhirResources.patient),
-      clinic: BRANDING_CONFIG.projectName,
-      location: location?.name,
-      visitDate: visitDate,
-      dueDate,
-      amountCents,
-      patientPortalLink: patientPortalUrl,
-    };
+    const basePlaceholderInput = await resolveTemplatePlaceholders({
+      patient,
+      encounterRef: `Encounter/${encounterId}`,
+      oystehr,
+      secrets,
+      overrides: {
+        location: location?.name,
+        visitDate,
+        dueDate,
+        amountCents,
+      },
+    });
 
     console.log('Creating invoice and invoice item');
     const patientId = removePrefix('Patient/', encounter.subject?.reference ?? '');
@@ -117,6 +119,20 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const taskCopy = addInvoiceIdToTaskOutput(task, invoiceResponse.id);
     await updateTaskStatusAndOutput(oystehr, task, mapDisplayToInvoiceTaskStatus('sent'), taskCopy.output);
     console.log('Task status and output updated');
+
+    // Produce outreach tasks triggered by invoice issuance
+    try {
+      await produceOutreachTasks({
+        triggerEvent: 'invoice-issued',
+        patient: { reference: `Patient/${patient.id}` },
+        focus: { reference: `Encounter/${encounterId}` },
+        appointment: appointment?.id ? { reference: `Appointment/${appointment.id}` } : undefined,
+        eventTimestamp: new Date().toISOString(),
+        oystehr,
+      });
+    } catch (err) {
+      console.error('Failed to produce invoice-issued outreach tasks:', err);
+    }
   } catch (error) {
     const oystehr = createOystehrClient(m2mToken, secrets);
     console.log('updating task status to failed and output');

@@ -3,6 +3,7 @@ import { DateTime } from 'luxon';
 import {
   PageSizes,
   PDFDocument,
+  PDFFont,
   popGraphicsState,
   pushGraphicsState,
   RotationTypes,
@@ -289,4 +290,101 @@ export async function uploadPDF(
     throw new Error(`Upload request was not OK: ${uploadRequest.statusText}`);
   }
   console.log('upload to z3 using presigned url succeeded');
+}
+
+export interface FitWrappedTextToBannerResult {
+  fontSize: number;
+  lines: string[];
+  lineHeight: number;
+  ascender: number;
+  blockHeight: number;
+}
+
+function wrapTextToFont(text: string, font: PDFFont, fontSize: number, maxWidth: number): string[] {
+  const words = text.split(/\s+/).filter(Boolean);
+  const lines: string[] = [];
+  let currentLine = '';
+
+  for (const word of words) {
+    const testLine = currentLine ? `${currentLine} ${word}` : word;
+    if (font.widthOfTextAtSize(testLine, fontSize) > maxWidth && currentLine) {
+      lines.push(currentLine);
+      currentLine = word;
+    } else {
+      currentLine = testLine;
+    }
+  }
+
+  if (currentLine) lines.push(currentLine);
+  return lines.length > 0 ? lines : [''];
+}
+
+function clampLinesWithEllipsis(
+  lines: string[],
+  font: PDFFont,
+  fontSize: number,
+  maxWidth: number,
+  maxLines: number
+): string[] {
+  if (lines.length <= maxLines) return lines;
+
+  const clamped = lines.slice(0, maxLines);
+  const ellipsis = '...';
+  let lastLine = clamped[maxLines - 1].trimEnd();
+
+  while (lastLine.length > 0 && font.widthOfTextAtSize(`${lastLine}${ellipsis}`, fontSize) > maxWidth) {
+    lastLine = lastLine.slice(0, -1).trimEnd();
+  }
+
+  clamped[maxLines - 1] = lastLine ? `${lastLine}${ellipsis}` : ellipsis;
+  return clamped;
+}
+
+export function fitWrappedTextToBanner({
+  text,
+  font,
+  maxWidth,
+  initialFontSize,
+  minFontSize,
+  lineHeightRatio,
+  bannerHeight,
+  verticalPadding,
+  maxLines,
+}: {
+  text: string;
+  font: PDFFont;
+  maxWidth: number;
+  initialFontSize: number;
+  minFontSize: number;
+  lineHeightRatio: number;
+  bannerHeight: number;
+  verticalPadding: number;
+  maxLines: number;
+}): FitWrappedTextToBannerResult {
+  for (let fontSize = initialFontSize; fontSize >= minFontSize; fontSize -= 1) {
+    const lines = wrapTextToFont(text, font, fontSize, maxWidth);
+    if (lines.length > maxLines) continue;
+
+    const lineHeight = fontSize * lineHeightRatio;
+    const ascender = font.heightAtSize(fontSize, { descender: false });
+    const blockHeight = ascender + (lines.length - 1) * lineHeight;
+
+    if (blockHeight <= bannerHeight - verticalPadding * 2) {
+      return { fontSize, lines, lineHeight, ascender, blockHeight };
+    }
+  }
+
+  const fontSize = minFontSize;
+  const lines = clampLinesWithEllipsis(
+    wrapTextToFont(text, font, fontSize, maxWidth),
+    font,
+    fontSize,
+    maxWidth,
+    maxLines
+  );
+  const lineHeight = fontSize * lineHeightRatio;
+  const ascender = font.heightAtSize(fontSize, { descender: false });
+  const blockHeight = ascender + (lines.length - 1) * lineHeight;
+
+  return { fontSize, lines, lineHeight, ascender, blockHeight };
 }
