@@ -217,6 +217,14 @@ export function hasTag(resource: Resource, system: string, code: string): boolea
   return resource.meta?.tag?.some((t) => t.system === system && t.code === code) ?? false;
 }
 
+// Taxonomy is stored as a ZZ-typed identifier
+export function getTaxonomy(resource: Practitioner | Organization): string {
+  return (
+    resource.identifier?.find((id) => id.type?.coding?.some((c) => c.code === FHIR_IDENTIFIER_CODE_TAXONOMY))?.value ??
+    ''
+  );
+}
+
 export function formatAddress(addr?: { line?: string[]; city?: string; state?: string; postalCode?: string }): string {
   if (!addr) return '';
   return [...(addr.line ?? []), addr.city, addr.state, addr.postalCode].filter(Boolean).join(', ');
@@ -374,11 +382,31 @@ type CRT<T extends CopyableBillingResource> = Extract<CopyableBillingResource, {
  */
 const CopyableProperties: ResourceProperties<CopyableBillingResource> = {
   Account: ['resourceType', 'status', 'type', 'subject', 'guarantor', 'coverage', 'contained'],
-  Coverage: ['resourceType', 'status', 'subscriber', 'beneficiary', 'payor', 'subscriberId', 'relationship', 'class'],
-  Location: ['resourceType', 'address', 'description', 'name', 'telecom', 'type'],
-  Organization: ['resourceType', 'active', 'address', 'contact', 'name', 'telecom', 'type'],
+  Coverage: [
+    'resourceType',
+    'status',
+    'subscriber',
+    'beneficiary',
+    'payor',
+    'subscriberId',
+    'relationship',
+    'class',
+    'type',
+  ],
+  Location: ['resourceType', 'identifier', 'address', 'description', 'name', 'telecom', 'type'],
+  Organization: ['resourceType', 'identifier', 'active', 'address', 'contact', 'name', 'telecom', 'type'],
   Patient: ['resourceType', 'name', 'active', 'gender', 'address', 'telecom', 'birthDate'],
-  Practitioner: ['resourceType', 'active', 'address', 'birthDate', 'gender', 'name', 'qualification', 'telecom'],
+  Practitioner: [
+    'resourceType',
+    'identifier',
+    'active',
+    'address',
+    'birthDate',
+    'gender',
+    'name',
+    'qualification',
+    'telecom',
+  ],
   RelatedPerson: ['resourceType', 'name', 'birthDate', 'gender', 'patient', 'address', 'relationship'],
 } as const;
 /**
