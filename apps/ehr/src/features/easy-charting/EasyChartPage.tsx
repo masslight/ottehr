@@ -3890,7 +3890,9 @@ export default function EasyChartPage(): JSX.Element {
     const step1 = await apiClient.saveChartData({
       encounterId,
       ...(qp.cptCodes?.length ? { cptCodes: qp.cptCodes } : {}),
-      ...(qp.diagnoses?.length ? { diagnosis: qp.diagnoses } : {}),
+      // DiagnosisDTO.isPrimary became required upstream; a procedure's linked diagnoses are
+      // supporting dx, not the encounter's primary, so default them to false.
+      ...(qp.diagnoses?.length ? { diagnosis: qp.diagnoses.map((d) => ({ ...d, isPrimary: false })) } : {}),
     });
     mergeSaveResponse(step1);
     const savedCptCodes = step1.chartData?.cptCodes ?? [];
