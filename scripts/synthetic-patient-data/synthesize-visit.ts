@@ -118,6 +118,7 @@ import type {
   Patient,
   Practitioner,
   Procedure,
+  RelatedPerson,
   Schedule,
 } from 'fhir/r4b';
 import * as fs from 'fs';
@@ -808,12 +809,14 @@ async function phase1_createAppointment(ctx: SynthesisContext): Promise<void> {
         appointmentId?: string;
         encounterId?: string;
         questionnaireResponseId?: string;
+        relatedPersonId?: string;
       };
       patientId?: string;
       fhirPatientId?: string;
       appointmentId?: string;
       encounterId?: string;
       questionnaireResponseId?: string;
+      relatedPersonId?: string;
     };
     const out = result.output ?? result;
     ctx.patientId = out.patientId ?? out.fhirPatientId;
@@ -847,6 +850,31 @@ async function phase1_createAppointment(ctx: SynthesisContext): Promise<void> {
         logNote(`tagged Patient with synth identifier "${synthId}"`);
       } catch (err) {
         console.warn(`  ⚠ failed to tag Patient with synth identifier: ${err instanceof Error ? err.message : err}`);
+      }
+
+      // Fix the messaging RelatedPerson's SMS number. create-appointment stamps it from the booking
+      // USER, which for the synth M2M client resolves to the non-production mock phone (+11231231234)
+      // — so the EHR chat shows that mock number for every synth patient instead of a believable one.
+      // Point it at the patient's own (NANPA-reserved 555) phone. The patient's Patient.telecom is
+      // already correct; this only repairs the conversation recipient the chat/SMS panel reads.
+      const relatedPersonId = out.relatedPersonId;
+      if (relatedPersonId && s.patient.phoneNumber) {
+        try {
+          const rp = await ctx.oystehr.fhir.get<RelatedPerson>({
+            resourceType: 'RelatedPerson',
+            id: relatedPersonId,
+          });
+          const telecom = (rp.telecom ?? []).map((t) =>
+            t.system === 'phone' ? { ...t, value: s.patient.phoneNumber! } : t
+          );
+          if (!telecom.some((t) => t.system === 'phone')) {
+            telecom.push({ system: 'phone', value: s.patient.phoneNumber, use: 'mobile' });
+          }
+          await ctx.oystehr.fhir.update<RelatedPerson>({ ...rp, telecom });
+          logNote(`set messaging RelatedPerson phone → ${s.patient.phoneNumber}`);
+        } catch (err) {
+          console.warn(`  ⚠ failed to fix RelatedPerson phone: ${err instanceof Error ? err.message : err}`);
+        }
       }
     }
   } else {
