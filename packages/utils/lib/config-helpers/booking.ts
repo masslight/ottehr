@@ -9,7 +9,7 @@ import {
 import { FHIR_EXTENSION, getFirstName, getLastName, getMiddleName } from '../fhir';
 import { makeAnswer, pickFirstValueFromAnswerItem } from '../helpers';
 import { BOOKING_CONFIG, type StrongCoding } from '../ottehr-config/booking';
-import { flattenQuestionnaireAnswers, PatientInfo, PersonSex } from '../types';
+import { flattenQuestionnaireAnswers, PATIENT_NO_EMAIL_URL, PatientInfo, PersonSex } from '../types';
 
 // Questionnaire fields that distinguish between "not provided" (undefined) vs "cleared" ('')
 // Cleared fields trigger FHIR resource removal in harvest/update-visit-details zambdas
@@ -272,6 +272,7 @@ export const prepopulateBookingForm = (input: BookingFormPrePopulationInput): Qu
   }
   const patientPreferredName = patient?.name?.find((name) => name.use === 'nickname')?.given?.[0];
   const patientEmail = patient?.telecom?.find((c) => c.system === 'email' && c.period?.end === undefined)?.value;
+  const patientNoEmail = patient?.extension?.find((e) => e.url === PATIENT_NO_EMAIL_URL)?.valueBoolean ?? !patientEmail;
 
   const authorizedNLG = patient?.extension?.find(
     (e) => e.url === FHIR_EXTENSION.Patient.authorizedNonLegalGuardians.url
@@ -330,6 +331,9 @@ export const prepopulateBookingForm = (input: BookingFormPrePopulationInput): Qu
           }
           if (linkId === 'patient-email' && patientEmail) {
             answer = makeAnswer(patientEmail);
+          }
+          if (linkId === 'patient-no-email' && patient) {
+            answer = makeAnswer(patientNoEmail, 'Boolean');
           }
           if (linkId === 'authorized-non-legal-guardian' && authorizedNLG) {
             answer = makeAnswer(authorizedNLG);
