@@ -444,11 +444,17 @@ doesn't mention):
 
 ACTION SHAPES (use these intent kinds and the same fields the single-shot agent uses):
 
-- set-vital: { kind, field, display, ... }. field is one of vital-temperature, vital-heartbeat,
+- set-vital: { kind, field, display }. field is one of vital-temperature, vital-heartbeat,
   vital-respiration-rate, vital-oxygen-sat, vital-blood-pressure, vital-weight, vital-height.
-  Numeric vitals (heartbeat, respiration-rate, oxygen-sat) use "value". temperature/weight/height
-  use "value" + "unit" ("F"/"C", "lb"/"kg", "in"/"cm"). blood-pressure uses "systolic" + "diastolic".
-  Set "display" to a readable label, e.g. "Temp 98.9 °F", "HR 76", "BP 122/78", "SpO2 98%".
+  ALWAYS include "display" with the FULL reading exactly as stated (the client parses the numbers and
+  units from "display"; never omit it). Examples — emit one step per vital:
+    {"kind":"set-vital","field":"vital-blood-pressure","display":"122/78"}
+    {"kind":"set-vital","field":"vital-temperature","display":"98.9 F"}
+    {"kind":"set-vital","field":"vital-heartbeat","display":"76"}
+    {"kind":"set-vital","field":"vital-respiration-rate","display":"16"}
+    {"kind":"set-vital","field":"vital-oxygen-sat","display":"98%"}
+  For blood pressure keep BOTH numbers in display as "systolic/diastolic" (e.g. "122/78"). For
+  temperature include the unit letter (F or C) in display.
 
 - add-allergy / add-condition / add-medication / add-surgical-history / add-hospitalization /
   add-diagnosis: { kind, display, searchTerms[1-3] }; add-diagnosis also takes isPrimary.
@@ -689,6 +695,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   // client-side per-intent handlers do the deep validation since they do it for the single-shot
   // path too.
   const records: Record<string, unknown>[] = [];
+  const seenVitalFields = new Set<string>(); // one set-vital per field (a visit has one BP, one HR, …)
   for (const item of parsed.steps) {
     if (!item || typeof item !== 'object') continue;
     const i = item as Record<string, unknown>;
@@ -703,6 +710,53 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         : [];
       const sniffed = sniffDoseFormScoped(narrative, display, searchTerms);
       if (sniffed) i.doseForm = sniffed;
+    }
+    if (i.kind === 'set-vital') {
+      // Dedupe: keep only the first set-vital per field (the model sometimes emits a vital twice).
+      if (typeof i.field === 'string') {
+        if (seenVitalFields.has(i.field)) (i as Record<string, unknown>).__drop = true;
+        else seenVitalFields.add(i.field);
+      }
+      // flash-lite is inconsistent on vitals (drops a BP number, omits the temp unit, omits display).
+      // The narrative is ground truth, so recover from display + narrative and synthesize a display.
+      const d0 = typeof i.display === 'string' ? i.display : '';
+      if (i.field === 'vital-blood-pressure') {
+        if (i.systolic == null || i.diastolic == null) {
+          const m = `${d0} ${narrative}`.match(/(\d{2,3})\s*(?:\/|over)\s*(\d{2,3})/i);
+          if (m) {
+            i.systolic = Number(m[1]);
+            i.diastolic = Number(m[2]);
+          }
+        }
+        delete i.value;
+        delete i.unit;
+        if (i.systolic != null && i.diastolic != null) i.display = `BP ${i.systolic}/${i.diastolic}`;
+      } else {
+        if (typeof i.value !== 'number' || Number.isNaN(i.value)) {
+          const m = d0.match(/-?\d+(?:\.\d+)?/);
+          if (m) i.value = Number(m[0]);
+        }
+        if (i.field === 'vital-temperature') {
+          // Resolve the unit: explicit Celsius wins; otherwise infer by magnitude (human temps are
+          // ~95–105 °F vs ~35–41 °C), defaulting to Fahrenheit.
+          if (/celsius|(?:°|\bdeg(?:rees)?\b)?\s*c\b/i.test(d0)) i.unit = 'C';
+          else if (typeof i.unit !== 'string' || !/^[cf]/i.test(i.unit.trim())) {
+            i.unit = typeof i.value === 'number' && i.value < 45 ? 'C' : 'F';
+          }
+        }
+        if ((typeof i.display !== 'string' || !i.display.trim()) && typeof i.value === 'number') {
+          const VLABEL: Record<string, string> = {
+            'vital-temperature': 'Temp',
+            'vital-heartbeat': 'HR',
+            'vital-respiration-rate': 'RR',
+            'vital-oxygen-sat': 'SpO2',
+            'vital-weight': 'Weight',
+            'vital-height': 'Height',
+          };
+          const suffix = i.field === 'vital-temperature' ? ` °${i.unit}` : i.field === 'vital-oxygen-sat' ? '%' : '';
+          i.display = `${VLABEL[i.field as string] ?? i.field} ${i.value}${suffix}`;
+        }
+      }
     }
     if (i.kind === 'add-diagnosis' || i.kind === 'add-condition') {
       // `strength` is a medication-only field; the model sometimes leaks it onto a diagnosis
