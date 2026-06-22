@@ -9,7 +9,6 @@ import { SectionSaveButton } from './SectionSaveButton';
 
 const { responsibleParty: responsiblePartySection } = PATIENT_RECORD_CONFIG.FormFields;
 const FIELD_KEYS = Object.values(responsiblePartySection.items).map((item) => item.key);
-const BASE_REQUIRED_FIELD_KEYS = responsiblePartySection.requiredFields ?? [];
 
 interface ResponsibleInformationContainerProps {
   isLoading: boolean;
@@ -37,14 +36,6 @@ export const ResponsibleInformationContainer: FC<ResponsibleInformationContainer
     }
   }, [noRPEmailChecked, setValue]);
 
-  const effectiveRequiredFieldKeys = useMemo(
-    () =>
-      noRPEmailChecked
-        ? BASE_REQUIRED_FIELD_KEYS.filter((k) => k !== 'responsible-party-email')
-        : BASE_REQUIRED_FIELD_KEYS,
-    [noRPEmailChecked]
-  );
-
   const effectiveRequiredFields = useMemo(
     () => (noRPEmailChecked ? (requiredFields ?? []).filter((k) => k !== 'responsible-party-email') : requiredFields),
     [noRPEmailChecked, requiredFields]
@@ -64,14 +55,7 @@ export const ResponsibleInformationContainer: FC<ResponsibleInformationContainer
   return (
     <PatientRecordFormSection
       formSection={responsiblePartySection}
-      titleWidget={
-        <SectionSaveButton
-          fieldKeys={FIELD_KEYS}
-          requiredFieldKeys={effectiveRequiredFieldKeys}
-          patientId={patientId}
-          encounterId={encounterId}
-        />
-      }
+      titleWidget={<SectionSaveButton fieldKeys={FIELD_KEYS} patientId={patientId} encounterId={encounterId} />}
     >
       <>
         {nonCityStateZipFields.map((item) => (

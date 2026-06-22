@@ -1,7 +1,17 @@
 import Oystehr, { BatchInputPostRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { randomUUID } from 'crypto';
-import { Claim, Coverage, Location, Organization, Patient, Person, Practitioner, Resource } from 'fhir/r4b';
+import {
+  Claim,
+  Coverage,
+  Location,
+  Organization,
+  Patient,
+  Person,
+  Practitioner,
+  RelatedPerson,
+  Resource,
+} from 'fhir/r4b';
 import {
   ClaimStatusValues,
   claimStatusValuesToTags,
@@ -28,7 +38,7 @@ import {
 } from '../shared';
 import { CreateClaimParams, validateRequestParameters } from './validateRequestParameters';
 
-type BillingFhirResource = Patient | Coverage | Practitioner | Organization | Location;
+type BillingFhirResource = Patient | Coverage | Practitioner | Organization | Location | RelatedPerson;
 
 // A claim's billing and rendering providers can each be a Practitioner or an Organization.
 type ClaimProvider = Practitioner | Organization;
@@ -49,6 +59,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 interface OriginalResources {
   patient: Patient;
   coverage?: Coverage;
+  coverageSubscriber?: RelatedPerson;
   renderingProvider?: ClaimProvider;
   facility?: Location;
   billingProvider?: ClaimProvider;
@@ -73,7 +84,7 @@ async function readOriginals(oystehr: Oystehr, params: CreateClaimParams): Promi
   const bp = params.billingProvider;
 
   const searches: string[] = [`/Patient?_id=${params.patientId}`];
-  if (params.coverageId) searches.push(`/Coverage?_id=${params.coverageId}`);
+  if (params.coverageId) searches.push(`/Coverage?_id=${params.coverageId}&_include=Coverage:subscriber`);
   if (rp) searches.push(`/${rp.type}?_id=${rp.id}`);
   if (params.facilityId) searches.push(`/Location?_id=${params.facilityId}`);
   if (bp) searches.push(`/${bp.type}?_id=${bp.id}`);
@@ -84,10 +95,14 @@ async function readOriginals(oystehr: Oystehr, params: CreateClaimParams): Promi
   if (!patient) throw FHIR_RESOURCE_NOT_FOUND('Patient');
 
   const coverage = findRef<Coverage>(resources, params.coverageId ? `Coverage/${params.coverageId}` : undefined);
+  const subscriberRef = coverage?.subscriber?.reference;
+  const coverageSubscriber = subscriberRef?.startsWith('RelatedPerson/')
+    ? findRef<RelatedPerson>(resources, subscriberRef)
+    : undefined;
   const renderingProvider = findRef<ClaimProvider>(resources, rp ? `${rp.type}/${rp.id}` : undefined);
   const facility = findRef<Location>(resources, params.facilityId ? `Location/${params.facilityId}` : undefined);
   const billingProvider = findRef<ClaimProvider>(resources, bp ? `${bp.type}/${bp.id}` : undefined);
-  return { patient, coverage, renderingProvider, facility, billingProvider };
+  return { patient, coverage, coverageSubscriber, renderingProvider, facility, billingProvider };
 }
 
 async function createWorkingCopies(oystehr: Oystehr, originals: OriginalResources): Promise<OriginalResources> {
@@ -102,7 +117,21 @@ async function createWorkingCopies(oystehr: Oystehr, originals: OriginalResource
   if (originals.coverage) {
     const copy = prepareWorkingCopy<Coverage>(originals.coverage, originals.coverage.id!);
     copy.beneficiary = { reference: patientUrn };
-    copy.subscriber = { reference: patientUrn };
+    // Mirror the encounter path: copy the subscriber RelatedPerson so the policy holder is preserved on
+    // the working copy. Self coverages have no separate subscriber and stay pointed at the patient.
+    if (originals.coverageSubscriber) {
+      const subscriberCopy = prepareWorkingCopy<RelatedPerson>(
+        originals.coverageSubscriber,
+        originals.coverageSubscriber.id!
+      );
+      const subscriberUrn = `urn:uuid:${randomUUID()}`;
+      subscriberCopy.patient = { reference: patientUrn };
+      requests.push({ method: 'POST', url: '/RelatedPerson', resource: subscriberCopy, fullUrl: subscriberUrn });
+      order.push('coverageSubscriber');
+      copy.subscriber = { reference: subscriberUrn };
+    } else {
+      copy.subscriber = { reference: patientUrn };
+    }
     // payor is an Oystehr payer list URL kept from the original coverage
     requests.push({ method: 'POST', url: '/Coverage', resource: copy });
     order.push('coverage');
@@ -146,7 +175,7 @@ async function createWorkingCopies(oystehr: Oystehr, originals: OriginalResource
 }
 
 function buildClaim(copies: OriginalResources, params: CreateClaimParams): Claim {
-  const now = new Date().toISOString().slice(0, 10);
+  const serviceDate = params.serviceLines?.[0]?.serviceDate ?? new Date().toISOString().slice(0, 10);
 
   // Status indicators chosen at creation, with the AR stage's progress status auto-initialized.
   const statusTags = claimStatusValuesToTags(
@@ -159,7 +188,7 @@ function buildClaim(copies: OriginalResources, params: CreateClaimParams): Claim
     meta: { tag: [{ system: CURRENT_STATUS_TAG_SYSTEM, code: 'open' }, ...statusTags] },
     type: { coding: [{ system: CODE_SYSTEM_CLAIM_TYPE, code: 'professional' }] },
     use: 'claim',
-    created: now,
+    created: serviceDate,
     patient: { reference: `Patient/${copies.patient.id}` },
     provider: copies.billingProvider?.id
       ? { reference: `${copies.billingProvider.resourceType}/${copies.billingProvider.id}` }

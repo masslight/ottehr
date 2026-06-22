@@ -15,6 +15,7 @@ export function validateRequestParameters(input: ZambdaInput): CreateClaimParams
   if (!input.secrets) throw MISSING_REQUEST_SECRETS;
 
   const data = safeValidate(CreateBillingClaimInputSchema, validateJsonBody(input));
+  // coverageId is optional — self-pay claims are represented with a no-coverage stub in Claim.insurance.
 
   return {
     ...data,
