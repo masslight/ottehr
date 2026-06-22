@@ -76,7 +76,10 @@ export default function PractitionerRoleList({
   const { data, isLoading } = useQuery({
     queryKey: listQueryKey,
     queryFn: async (): Promise<{ rows: ScheduleRow[]; activeLocations: Location[] }> => {
+      // Both guards are belt-and-suspenders given `enabled` below — keep them
+      // so the queryFn types narrow cleanly without non-null assertions.
       if (!oystehr) throw new Error('oystehr client not ready');
+      if (!oystehrZambda) throw new Error('zambda client not ready');
       const [roleBundle, locationBundle] = await Promise.all([
         oystehr.fhir.search<PractitionerRole | Location | Schedule>({
           resourceType: 'PractitionerRole',
@@ -105,9 +108,7 @@ export default function PractitionerRoleList({
       const schedules = resources.filter((r): r is Schedule => r.resourceType === 'Schedule');
 
       // Resolve category labels once.
-      const categoriesResp = oystehrZambda
-        ? await listServiceCategories(oystehrZambda).catch(() => ({ serviceCategories: [] }))
-        : { serviceCategories: [] };
+      const categoriesResp = await listServiceCategories(oystehrZambda).catch(() => ({ serviceCategories: [] }));
       const categoriesById = new Map<string, { code: string; name: string }>();
       for (const sc of categoriesResp.serviceCategories || []) {
         if ((sc as any).id) {
@@ -151,7 +152,9 @@ export default function PractitionerRoleList({
 
       return { rows, activeLocations: locationBundle.unbundle() };
     },
-    enabled: !!oystehr,
+    // Wait for both clients before running so category labels resolve on the
+    // first paint instead of rendering as empty until oystehrZambda catches up.
+    enabled: !!oystehr && !!oystehrZambda,
   });
 
   const createRole = useMutation({
@@ -223,9 +226,15 @@ export default function PractitionerRoleList({
       if (context?.snapshot) {
         queryClient.setQueryData(listQueryKey, context.snapshot);
       }
-      enqueueSnackbar(variables.active ? 'Failed to activate schedule.' : 'Failed to deactivate schedule.', {
-        variant: 'error',
-      });
+      // Surface the zambda's own message when present (e.g. the
+      // PRACTITIONER_SCHEDULE_CONFLICT_ERROR text the admin needs to see to
+      // reconcile against). Fall back to a generic message otherwise.
+      const fallback = variables.active ? 'Failed to activate schedule.' : 'Failed to deactivate schedule.';
+      const message =
+        err && typeof err === 'object' && 'message' in err && typeof (err as any).message === 'string'
+          ? (err as any).message
+          : fallback;
+      enqueueSnackbar(message, { variant: 'error' });
     },
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: listQueryKey });

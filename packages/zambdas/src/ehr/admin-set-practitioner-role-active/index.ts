@@ -1,13 +1,16 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Schedule } from 'fhir/r4b';
+import { HealthcareService, PractitionerRole, Schedule } from 'fhir/r4b';
 import {
   FHIR_RESOURCE_NOT_FOUND,
+  getPractitionerRoleAllCategories,
   INVALID_INPUT_ERROR,
   MISSING_REQUEST_BODY,
   MISSING_REQUIRED_PARAMETERS,
+  PRACTITIONER_SCHEDULE_CONFLICT_ERROR,
   Secrets,
 } from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
+import { checkPractitionerRoleConflict } from '../admin-practitioner-role-shared/check-conflict';
 
 interface AdminSetPractitionerRoleActiveInput {
   secrets: Secrets | null;
@@ -74,6 +77,53 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     );
   }
   const schedule = schedules[0];
+
+  // Activation can re-introduce the duplicate-coverage problem the
+  // create/update conflict guard exists to prevent: deactivate A, create an
+  // overlapping B (which passes its own check because A is inactive), then
+  // reactivate A and now both are active for the same
+  // (practitioner, location, category) tuple. Run the same guard before
+  // flipping active back to true. Deactivation can never create a new
+  // conflict, so we only need it on the activation path.
+  if (parsed.active) {
+    const role = await oystehr.fhir.get<PractitionerRole>({
+      resourceType: 'PractitionerRole',
+      id: parsed.roleId,
+    });
+    const practitionerRef = role.practitioner?.reference;
+    const locationRef = role.location?.[0]?.reference;
+    const categoryHsIds = (role.healthcareService ?? [])
+      .map((ref) => ref.reference?.split('/')[1])
+      .filter((id): id is string => !!id);
+    const allCategories = getPractitionerRoleAllCategories(role);
+
+    if (practitionerRef && locationRef && (categoryHsIds.length > 0 || allCategories)) {
+      const categoryNameById = new Map<string, string>();
+      if (categoryHsIds.length > 0) {
+        const hsBundle = await oystehr.fhir.search<HealthcareService>({
+          resourceType: 'HealthcareService',
+          params: [{ name: '_id', value: categoryHsIds.join(',') }],
+        });
+        for (const hs of hsBundle.unbundle()) {
+          if (hs.id) categoryNameById.set(hs.id, hs.name ?? hs.id);
+        }
+      }
+      const conflict = await checkPractitionerRoleConflict(
+        oystehr,
+        {
+          id: parsed.roleId,
+          practitionerRef,
+          locationRef,
+          categoryHsIds,
+          allCategories,
+        },
+        { categoryNameById }
+      );
+      if (conflict) {
+        throw PRACTITIONER_SCHEDULE_CONFLICT_ERROR(conflict.conflictingCategoryNames);
+      }
+    }
+  }
 
   await oystehr.fhir.patch({
     resourceType: 'Schedule',
