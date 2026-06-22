@@ -87,11 +87,23 @@ describe('search-charge-item-definition', () => {
       };
       const oystehr = {
         fhir: {
-          search: vi.fn().mockResolvedValueOnce({ unbundle: () => [completeResource] }),
+          search: vi.fn().mockResolvedValueOnce({ unbundle: () => [completeResource], total: 1 }),
         },
       } as unknown as Oystehr;
       const result = await performEffect(oystehr, params);
-      expect(result).toEqual([completeResource]);
+      expect(result).toEqual({
+        items: [
+          {
+            id: '0f8a9b3c-fd93-42a1-8560-6ca4bc9446c9',
+            name: 'test',
+            status: 'active',
+            type: 'charge-master',
+          },
+        ],
+        offset: 0,
+        pageSize: 25,
+        total: 1,
+      });
       expect(oystehr.fhir.search).toHaveBeenCalledWith({
         resourceType: 'ChargeItemDefinition',
         params: [
@@ -102,6 +114,7 @@ describe('search-charge-item-definition', () => {
           { name: '_count', value: '25' },
           { name: '_offset', value: '0' },
           { name: '_sort', value: 'title' },
+          { name: '_total', value: 'exact' },
         ],
       });
     });
@@ -130,11 +143,23 @@ describe('search-charge-item-definition', () => {
       };
       const oystehr = {
         fhir: {
-          search: vi.fn().mockResolvedValueOnce({ unbundle: () => [completeResource] }),
+          search: vi.fn().mockResolvedValueOnce({ unbundle: () => [completeResource], total: 1 }),
         },
       } as unknown as Oystehr;
       const result = await performEffect(oystehr, params);
-      expect(result).toEqual([completeResource]);
+      expect(result).toEqual({
+        items: [
+          {
+            id: '0f8a9b3c-fd93-42a1-8560-6ca4bc9446c9',
+            name: 'test',
+            status: 'active',
+            type: 'charge-master',
+          },
+        ],
+        offset: 20,
+        pageSize: 10,
+        total: 1,
+      });
       expect(oystehr.fhir.search).toHaveBeenCalledWith({
         resourceType: 'ChargeItemDefinition',
         params: [
@@ -145,6 +170,7 @@ describe('search-charge-item-definition', () => {
           { name: '_count', value: '10' },
           { name: '_offset', value: '20' },
           { name: '_sort', value: 'title' },
+          { name: '_total', value: 'exact' },
           { name: 'title', value: 'test' },
         ],
       });
