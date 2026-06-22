@@ -2296,14 +2296,8 @@
             "question": "responsible-party-relationship",
             "operator": "!=",
             "answerString": "Self"
-          },
-          {
-            "question": "responsible-party-no-email",
-            "operator": "!=",
-            "answerBoolean": true
           }
         ],
-        "enableBehavior": "all",
         "extension": [
           {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
@@ -2311,7 +2305,7 @@
           },
           {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-            "valueString": "hidden"
+            "valueString": "protected"
           },
           {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/fill-from-when-disabled",
@@ -2351,7 +2345,7 @@
         "extension": [
           {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-            "valueString": "hidden"
+            "valueString": "protected"
           },
           {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/fill-from-when-disabled",
