@@ -314,7 +314,7 @@ export async function createAppointment(
     verifiedPhoneNumber: verifiedFormattedPhoneNumber,
     contactInfo: {
       phone: verifiedFormattedPhoneNumber ?? 'not provided',
-      email: patient.email ?? 'not provided',
+      email: patient.noEmail ? '' : patient.email ?? '',
       noEmail: patient.noEmail ?? false,
     },
     questionnaire: currentQuestionnaire,
