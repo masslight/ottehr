@@ -1,13 +1,11 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { BundleLink, FhirResource, Organization, QuestionnaireItemAnswerOption } from 'fhir/r4b';
+import { BundleLink, FhirResource, QuestionnaireItemAnswerOption } from 'fhir/r4b';
 import {
   ANSWER_OPTION_FROM_RESOURCE_UNDEFINED,
   AnswerOptionSource,
   APIError,
   createOystehrClient,
-  extractPayerIdFromUrl,
-  getPayerId,
   getSecret,
   isApiError,
   MALFORMED_GET_ANSWER_OPTIONS_INPUT,
@@ -56,11 +54,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<QuestionnaireItemAnswerOption[]> => {
   const { type } = input;
   if (type === 'query' && input.answerSource.zambdaId === 'get-answer-options') {
-    // When the caller only wants the currently-selected (typically historical) reference resolved,
-    // skip the full options search and return just that single, formatted option.
-    if (input.resolveReferenceOnly) {
-      return resolveHistoricalSelectedOption(input.selectedReference, oystehr);
-    }
     const { resourceType, query, prependedIdentifier } = input.answerSource;
     const paramsObject = new URLSearchParams(query);
     let offset = 0;
@@ -134,48 +127,6 @@ const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<Ques
   }
 };
 
-/**
- * Resolves a single selected reference (typically an old organization-based reference that is no
- * longer returned by the active options query) into a formatted "(historical)" answer option.
- * The payer ID is read directly from a payer URL when present, or from the Organization resource
- * otherwise, so the EHR does not need to issue its own FHIR query for this.
- */
-const resolveHistoricalSelectedOption = async (
-  selected: SelectedReference | undefined,
-  oystehr: Oystehr
-): Promise<QuestionnaireItemAnswerOption[]> => {
-  const reference = selected?.reference;
-  if (!reference) {
-    return [];
-  }
-  let payerId = extractPayerIdFromUrl(reference);
-  if (!payerId && reference.startsWith('Organization/')) {
-    try {
-      const org = await oystehr.fhir.get<Organization>({
-        resourceType: 'Organization',
-        id: reference.replace('Organization/', ''),
-      });
-      payerId = getPayerId(org);
-    } catch (e) {
-      console.error('Failed to resolve historical organization payer id', e);
-    }
-  }
-  const baseDisplay = selected?.display || reference;
-  const displayWithPayer =
-    payerId && selected?.display && !selected.display.startsWith(`${payerId} - `)
-      ? `${payerId} - ${selected.display}`
-      : baseDisplay;
-  return [
-    {
-      valueReference: {
-        reference,
-        display: `${displayWithPayer} (historical)`,
-        ...(selected?.type ? { type: selected.type } : {}),
-      },
-    },
-  ];
-};
-
 const formatQueryResult = (
   result: any,
   resourceType: FhirResource['resourceType'],
@@ -205,13 +156,7 @@ const formatQueryResult = (
   throw ANSWER_OPTION_FROM_RESOURCE_UNDEFINED(resourceType);
 };
 
-type SelectedReference = { reference?: string; display?: string; type?: string };
-type QueryInput = {
-  answerSource: AnswerOptionSource;
-  type: 'query';
-  selectedReference?: SelectedReference;
-  resolveReferenceOnly?: boolean;
-};
+type QueryInput = { answerSource: AnswerOptionSource; type: 'query' };
 type CanonicalInput = { type: 'canonical'; url: string; version: string };
 type EffectInput = QueryInput | CanonicalInput;
 const validateInput = (input: ZambdaInput): EffectInput => {
@@ -219,7 +164,7 @@ const validateInput = (input: ZambdaInput): EffectInput => {
   if (!body) {
     throw MISSING_REQUEST_BODY;
   }
-  const { answerSource, valueSet, selectedReference, resolveReferenceOnly } = JSON.parse(body);
+  const { answerSource, valueSet } = JSON.parse(body);
   if (answerSource) {
     const { resourceType, query } = answerSource;
     if (!resourceType) {
@@ -233,7 +178,7 @@ const validateInput = (input: ZambdaInput): EffectInput => {
         '"answerSource.prependedIdentifier" property must be a string if provided'
       );
     }
-    return { type: 'query', answerSource, selectedReference, resolveReferenceOnly: !!resolveReferenceOnly };
+    return { type: 'query', answerSource };
   } else if (valueSet) {
     const [url, version] = valueSet.split('|');
     if (!url || !version) {
