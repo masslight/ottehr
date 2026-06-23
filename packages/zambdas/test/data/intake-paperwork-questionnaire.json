@@ -267,7 +267,14 @@
           "linkId": "patient-email",
           "type": "string",
           "text": "Email",
-          "required": true,
+          "required": false,
+          "enableWhen": [
+            {
+              "question": "patient-no-email",
+              "operator": "!=",
+              "answerBoolean": true
+            }
+          ],
           "enableWhen": [
             {
               "question": "patient-no-email",
@@ -3441,7 +3448,7 @@
           "linkId": "responsible-party-email",
           "type": "string",
           "text": "Email",
-          "required": true,
+          "required": false,
           "enableWhen": [
             {
               "question": "responsible-party-relationship",
@@ -3462,7 +3469,7 @@
             },
             {
               "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-              "valueString": "protected"
+              "valueString": "hidden"
             },
             {
               "url": "https://fhir.zapehr.com/r4/StructureDefinitions/fill-from-when-disabled",

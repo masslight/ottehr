@@ -11,6 +11,11 @@ export const INTERPRETER_PHONE_NUMBER = '(888) 555 0002';
 
 export const PHONE_NOT_ON_FILE = 'Phone number not on file';
 
+// Max span for a tracking-board appointment search. Bounds the paginated (all-pages) FHIR query so
+// an over-broad range can't fan out into unbounded traffic. Shared so the EHR and the get-appointments
+// zambda enforce the same limit.
+export const MAX_APPOINTMENT_SEARCH_RANGE_DAYS = 90;
+
 export const PATIENT_INDIVIDUAL_PRONOUNS_URL = 'http://hl7.org/fhir/StructureDefinition/individual-pronouns';
 export const PATIENT_INDIVIDUAL_PRONOUNS_CUSTOM_URL =
   'https://fhir.zapehr.com/r4/StructureDefinitions/individual-pronouns-custom';

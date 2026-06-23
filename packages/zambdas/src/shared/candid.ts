@@ -128,13 +128,20 @@ const CANDID_CASH_PAY_PAYER = 'Cash Pay';
 
 /**
  * Whether the claim should bill a single "Cash Pay" payer instead of insurance. This is true for
- * employer-paid and self-pay visits, determined by the encounter's payment variant (the authoritative
- * billing signal chosen during paperwork). Note an occupational-medicine *service category* visit can
- * still be insurance-pay, so the service category must not be used to make this decision.
+ * self-pay visits, and for employer-paid visits only when the visit is occupational medicine. The
+ * payment variant comes from the encounter (the authoritative billing signal chosen during paperwork).
+ * Note an occupational-medicine *service category* visit can still be insurance-pay, so the service
+ * category must not be used on its own to make this decision; it only gates the employer variant.
  */
-const shouldUseCashPayCoverage = (encounter: Encounter): boolean => {
+const shouldUseCashPayCoverage = (encounter: Encounter, appointment: Appointment): boolean => {
   const paymentVariant = getPaymentVariantFromEncounter(encounter);
-  return paymentVariant === PaymentVariant.employer || paymentVariant === PaymentVariant.selfPay;
+  if (paymentVariant === PaymentVariant.selfPay) {
+    return true;
+  }
+  if (paymentVariant === PaymentVariant.employer) {
+    return isAppointmentOccupationalMedicine(appointment);
+  }
+  return false;
 };
 
 interface BillingProviderData {
@@ -695,7 +702,7 @@ export const performCandidPreEncounterSync = async (input: PerformCandidPreEncou
     coverages,
     insuranceOrgs,
     candidApiClient,
-    shouldUseCashPayCoverage(ourEncounter)
+    shouldUseCashPayCoverage(ourEncounter, ourAppointment)
   );
 
   // Update patient with the coverages
@@ -1211,7 +1218,7 @@ export async function createEncounterFromAppointment(
   // Candid pre-encounter appointment already existed, e.g. payment was collected at check-in), force
   // the Cash Pay filing order here so employer-paid and self-pay claims never bill an insurance payer
   // that may have been selected.
-  if (!didPreEncounterSync && shouldUseCashPayCoverage(visitResources.encounter)) {
+  if (!didPreEncounterSync && shouldUseCashPayCoverage(visitResources.encounter, visitResources.appointment)) {
     console.log('[CLAIM SUBMISSION] Enforcing Cash Pay coverage for employer-paid/self-pay claim');
     await enforceCashPayCoverageForCandidPatient(createEncounterInput.patient, candidApiClient);
   }

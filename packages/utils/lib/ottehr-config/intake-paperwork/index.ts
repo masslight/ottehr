@@ -197,7 +197,6 @@ function buildFormFields(valueSets: ValueSetsConfig): PaperworkFormFields {
         'patient-city',
         'patient-state',
         'patient-zip',
-        'patient-email',
         'patient-number',
         'patient-preferred-communication-method',
       ],
@@ -1523,6 +1522,28 @@ function buildFormFields(valueSets: ValueSetsConfig): PaperworkFormFields {
           triggers: [
             {
               targetQuestionLinkId: 'responsible-party-relationship',
+              effect: ['enable', 'require'],
+              operator: '!=',
+              answerString: 'Self',
+            },
+            {
+              targetQuestionLinkId: 'responsible-party-no-email',
+              effect: ['enable', 'require'],
+              operator: '!=',
+              answerBoolean: true,
+            },
+          ],
+          enableBehavior: 'all',
+          disabledDisplay: 'hidden',
+          dynamicPopulation: { sourceLinkId: 'patient-email' },
+        },
+        noEmail: {
+          key: 'responsible-party-no-email',
+          label: "Don't have email",
+          type: 'boolean',
+          triggers: [
+            {
+              targetQuestionLinkId: 'responsible-party-relationship',
               effect: ['enable'],
               operator: '!=',
               answerString: 'Self',
@@ -1547,8 +1568,7 @@ function buildFormFields(valueSets: ValueSetsConfig): PaperworkFormFields {
             },
           ],
           enableBehavior: 'all',
-          disabledDisplay: 'disabled',
-          dynamicPopulation: { sourceLinkId: 'patient-email' },
+          disabledDisplay: 'hidden',
         },
         noEmail: {
           key: 'responsible-party-no-email',
@@ -1577,7 +1597,6 @@ function buildFormFields(valueSets: ValueSetsConfig): PaperworkFormFields {
         'responsible-party-city',
         'responsible-party-state',
         'responsible-party-zip',
-        'responsible-party-email',
       ],
     },
     employerInformation: {
