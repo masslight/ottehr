@@ -1783,9 +1783,14 @@ export function getAppointmentType(appointment: Appointment): { type: string } {
 }
 
 export function makeAbbreviation(str: string): string {
-  return str.split(/[\s-]+/).reduce((previousValue: string, currentValue: string) => {
-    return previousValue + currentValue.charAt(0).toUpperCase();
-  }, '');
+  // Split on any non-letter run (whitespace, hyphens, parentheses, digits …) so
+  // tokens like "(renamed)" or "(30" don't leak punctuation into the result.
+  return str
+    .split(/[^a-zA-Z]+/)
+    .filter(Boolean)
+    .reduce((previousValue: string, currentValue: string) => {
+      return previousValue + currentValue.charAt(0).toUpperCase();
+    }, '');
 }
 
 export function getServiceCategoryAbbreviation(serviceCategory?: string): 'UC' | 'OM' | 'WC' | 'PO' | undefined {

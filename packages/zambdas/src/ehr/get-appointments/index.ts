@@ -815,9 +815,15 @@ const makeAppointmentInformation = (
     next,
     visitStatusHistory: getVisitStatusHistory(encounter),
     waitingMinutes,
-    serviceCategory: appointment.serviceCategory
-      ?.flatMap((codeableConcept) => codeableConcept.coding ?? [])
-      ?.find((coding) => coding.system === SERVICE_CATEGORY_SYSTEM)?.display,
+    // Prefer the human-readable display, but fall back to the code: FHIR-backed
+    // (non-system) categories are stamped on the slot with only system+code and
+    // no display, so without this the abbreviation resolver gets nothing.
+    serviceCategory: (() => {
+      const coding = appointment.serviceCategory
+        ?.flatMap((codeableConcept) => codeableConcept.coding ?? [])
+        ?.find((c) => c.system === SERVICE_CATEGORY_SYSTEM);
+      return coding?.display ?? coding?.code;
+    })(),
     location: locationIdToResourceMap[encounter.location?.[0]?.location?.reference ?? ''],
     isFollowUp: !!encounter.partOf,
     parentEncounterId: encounter.partOf?.reference?.replace('Encounter/', ''),

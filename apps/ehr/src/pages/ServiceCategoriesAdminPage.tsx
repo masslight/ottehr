@@ -34,7 +34,7 @@ import {
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { enqueueSnackbar } from 'notistack';
 import { FC, useCallback, useEffect, useMemo, useState } from 'react';
-import { BOOKING_CONFIG, getDefaultCadenceMinutes, makeAbbreviation } from 'utils';
+import { BOOKING_CONFIG, getDefaultCadenceMinutes } from 'utils';
 import {
   createServiceCategory,
   deleteServiceCategory,
@@ -470,7 +470,7 @@ export const ServiceCategoriesAdminPage: FC = () => {
                   }}
                 >
                   <TableCell>{sc.name}</TableCell>
-                  <TableCell>{sc.abbreviation?.trim() || makeAbbreviation(sc.name)}</TableCell>
+                  <TableCell>{sc.abbreviation?.trim() || ''}</TableCell>
                   <TableCell sx={{ fontFamily: 'monospace' }}>{sc.code}</TableCell>
                   <TableCell align="center">{sc.systemManaged ? '—' : `${sc.config.durationMinutes} min`}</TableCell>
                   <TableCell align="center">
