@@ -328,6 +328,12 @@ export const APPOINTMENT_LOCKED_META_TAG = {
   code: 'APPOINTMENT_LOCKED',
 };
 
+export const ENCOUNTER_LOCKED_META_TAG_SYSTEM = 'encounter-locked-status';
+export const ENCOUNTER_LOCKED_META_TAG = {
+  system: ENCOUNTER_LOCKED_META_TAG_SYSTEM,
+  code: 'ENCOUNTER_LOCKED',
+};
+
 export const FHIR_ENCOUNTER_ERX_PATIENT_SYNC_SYSTEM = 'encounter-erx-sync-status';
 export const FHIR_ENCOUNTER_ERX_PATIENT_SYNC_CODE = 'ERX_PATIENT_SYNCED';
 export const FHIR_ENCOUNTER_ERX_PATIENT_SYNC_TAG = {
