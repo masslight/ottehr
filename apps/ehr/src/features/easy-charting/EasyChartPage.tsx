@@ -4341,6 +4341,13 @@ export default function EasyChartPage(): JSX.Element {
             .join('\n')
       );
     }
+    // ROS findings already charted (the pertinent positives/negatives). Without this, the review
+    // pass can't see charted ROS and re-suggests "add the pertinent negatives you noted" for
+    // negatives the planner already captured.
+    const checkedRos = (data.rosObservations ?? []).filter((o) => o.value === true);
+    if (checkedRos.length > 0) {
+      lines.push('ROS findings already charted: ' + checkedRos.map((o) => rosObsLabel(o)).join('; '));
+    }
     if (data.medicalDecision?.text?.trim()) {
       lines.push(`MDM already present (length ${data.medicalDecision.text.trim().length} chars).`);
     }
