@@ -122,11 +122,13 @@ async function generateOystehrResources(input: GenerateFhirResourcesArgs): Promi
   if (!isObject(vars)) {
     throw new Error(`Variable file ${varFile} is not a valid JSON map.`);
   }
-  const coreVars = { ...vars };
+  const coreVars = { ...BILLING_VAR_DEFAULTS, ...vars };
   const billingVars = { ...BILLING_VAR_DEFAULTS, ...vars };
 
   await validateAndGenerateSpecFiles(coreSpecs, coreVars, outputPath);
-  await validateAndGenerateSpecFiles(billingSpecs, billingVars, billingOutputPath);
+  if (billingSpecs.length > 0) {
+    await validateAndGenerateSpecFiles(billingSpecs, billingVars, billingOutputPath);
+  }
 }
 
 async function getCoreSpecs(configDir: string, coreConfigDir: string, env: string): Promise<SpecFile[]> {

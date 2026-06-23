@@ -359,15 +359,27 @@ describe('generate-oystehr-resources', () => {
             logoUri: '#{var/BILLING_APP_LOGO_URI}',
           },
         },
+      };
+      const coreSpec = {
+        'schema-version': '2025-09-25',
+        apps: {
+          OTTEHR_CORE: {
+            name: 'Core App',
+            loginRedirectUri: 'https://localhost:3000',
+            allowedCallbackUrls: ['https://localhost:3000'],
+          },
+        },
         secrets: {
           BILLING_INTEGRATION_FEATURE_FLAG: { name: 'BILLING_INTEGRATION', value: '#{var/BILLING_INTEGRATION}' },
         },
       };
-
       const setupMocks = (vars: VarsFile): void => {
         mockFsForSuccess();
         vi.mocked(fs.readdir).mockImplementation(async (dirPath) => {
           if (String(dirPath) === '/config/oystehr') {
+            return [createMockDirent('apps.json', true)] as never;
+          }
+          if (String(dirPath) === '/config/billing-app-core') {
             return [createMockDirent('apps.json', true)] as never;
           }
           return [];
@@ -375,7 +387,13 @@ describe('generate-oystehr-resources', () => {
         vi.mocked(fs.stat).mockRejectedValue(createEnoentError());
         vi.mocked(fs.readFile).mockImplementation(async (filePath) => {
           const pathStr = String(filePath);
-          if (pathStr.endsWith('apps.json')) return JSON.stringify(billingSpec);
+          if (pathStr.endsWith('apps.json')) {
+            if (pathStr.includes('billing-app-core')) {
+              return JSON.stringify(billingSpec);
+            } else {
+              return JSON.stringify(coreSpec);
+            }
+          }
           if (pathStr.includes('.env/')) return JSON.stringify(vars);
           throw new Error(`Unexpected file: ${pathStr}`);
         });
@@ -392,7 +410,7 @@ describe('generate-oystehr-resources', () => {
 
         await generateOystehrResources(createTestArgs());
 
-        const billingApp = writtenJson('apps.tf.json').resource.oystehr_application.OTTEHR_BILLING;
+        const billingApp = writtenJson('billing-output/apps.tf.json').resource.oystehr_application.OTTEHR_BILLING;
         expect(billingApp.login_redirect_uri).toBe('https://billing-local.ottehr.com');
         expect(billingApp.allowed_callback_urls).toEqual(['https://billing-local.ottehr.com']);
         expect(billingApp.name).toBe('Ottehr Billing');
@@ -405,7 +423,7 @@ describe('generate-oystehr-resources', () => {
 
         await generateOystehrResources(createTestArgs());
 
-        const billingApp = writtenJson('apps.tf.json').resource.oystehr_application.OTTEHR_BILLING;
+        const billingApp = writtenJson('billing-output/apps.tf.json').resource.oystehr_application.OTTEHR_BILLING;
         expect(billingApp.login_redirect_uri).toBe('https://billing.example.com/');
         expect(billingApp.name).toBe('Ottehr Billing');
         const billingSecret = writtenJson('secrets.tf.json').resource.oystehr_secret.BILLING_INTEGRATION_FEATURE_FLAG;
