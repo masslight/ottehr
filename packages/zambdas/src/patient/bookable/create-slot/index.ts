@@ -242,11 +242,29 @@ const complexValidation = async (input: BasicInput, oystehr: Oystehr): Promise<E
   // caller that goes straight to create-slot with a known PR scheduleId
   // (e.g. /walkin/schedule/:id, which takes the id from the URL) still hits
   // the invariant.
-  if (serviceCategoryCode && isBookingConfigServiceCategoryCode(serviceCategoryCode)) {
+  //
+  // Two ways a BOOKING_CONFIG code can land on a Slot here:
+  //   1. Caller passed `serviceCategoryCode` explicitly, and it matches one.
+  //   2. Caller omitted it, and the single-category-project default branch
+  //      below (line ~435: `else if (BOOKING_CONFIG.serviceCategories.length
+  //      === 1)`) would stamp the project's only BOOKING_CONFIG category.
+  // Both paths violate the invariant on a PR actor; computing the effective
+  // code up front lets the same throw guard cover both. Failing here rather
+  // than silently dropping the implicit category keeps the Slot from ending
+  // up in a half-defined state (no category coding) that downstream
+  // category-aware code (questionnaire resolution, billing, etc.) reads as
+  // ambiguous.
+  const effectiveBookingConfigCode =
+    serviceCategoryCode && isBookingConfigServiceCategoryCode(serviceCategoryCode)
+      ? serviceCategoryCode
+      : !serviceCategoryCode && BOOKING_CONFIG.serviceCategories.length === 1
+      ? BOOKING_CONFIG.serviceCategories[0].category.code
+      : undefined;
+  if (effectiveBookingConfigCode) {
     const actorRef = schedule.actor?.[0]?.reference;
     if (actorRef?.startsWith('PractitionerRole/')) {
       throw INVALID_INPUT_ERROR(
-        `Service category "${serviceCategoryCode}" is not bookable against a provider-owned schedule. Book through a location or group instead.`
+        `Service category "${effectiveBookingConfigCode}" is not bookable against a provider-owned schedule. Book through a location or group instead.`
       );
     }
   }
