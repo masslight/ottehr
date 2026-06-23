@@ -110,6 +110,7 @@ export async function createUserResourcesForPatient(
         params: [
           { name: 'patient', value: `Patient/${patientID}` },
           { name: 'telecom', value: phoneNumber },
+          { name: 'relationship', value: 'user-relatedperson' },
         ],
       })
     ).unbundle();
