@@ -130,16 +130,20 @@ Each suggestion is in exactly one of these categories, with the given action sha
    then { "kind":"add-diagnosis", "display": <more specific diagnosis>, "searchTerms":[...],
    "isPrimary": <same as the one removed>, "code": <best ICD-10> }.
 
-3) "pertinent-negative" — a pertinent negative the provider EXPLICITLY stated in the narrative is NOT
-   charted as a ROS/exam finding (e.g. "no tragus tenderness", "canals normal", "denies fever").
+3) "pertinent-negative" — a negative the provider EXPLICITLY voiced in THIS dictation is not charted.
+   It must be a near-verbatim quote from the narrative — e.g. the dictation literally says "denies
+   fever" or "no photophobia" but no matching finding is on the chart.
    ACTION: one or more { "kind":"add-ros-finding", "display":"Denies <symptom>" } (display MUST start
-   with "Denies" or "Reports"); use { "kind":"add-exam-finding", "display": <finding> } for exam
-   negatives. One card may carry several add actions.
-   HARD LIMITS: only suggest negatives the provider ACTUALLY said the patient denies — never invent a
-   "Denies X" the narrative doesn't state. ABOVE ALL, never suggest denying the chief complaint or a
-   symptom the patient is PRESENTING WITH: if the visit is for ear pain, "Denies ear pain" is wrong;
-   the patient HAS that symptom. Check the narrative's presenting complaint before proposing any
-   "Denies …".
+   with "Denies" or "Reports"); use { "kind":"add-exam-finding", "display": <finding> } for an exam
+   negative. One card may carry several add actions.
+   HARD LIMITS — this check fabricates findings if used loosely, so be strict:
+   - Quote, don't infer. Only propose a negative whose words appear in the narrative. Do NOT pull
+     "classic" negatives for the complaint from memory (e.g. do NOT suggest "no tragus tenderness",
+     "canals normal", "no neck stiffness" just because they're typical for the visit type — if the
+     provider didn't say it, don't add it).
+   - Never deny the chief complaint or a symptom the patient is PRESENTING WITH (a visit for ear
+     pain must never get "Denies ear pain" — the patient HAS it).
+   - For an EXAM negative, only when the provider clearly described examining that finding as normal.
 
 4) "em-level" — assess the charted E&M against the documented complexity. In particular, if a NEW
    prescription was given (prescription drug management = moderate risk) and the charted code is 99213,
