@@ -492,14 +492,16 @@ export default function MailedStatements(): React.ReactElement {
   const lastSyncRunAt = data?.lastSyncRunAt ?? null;
 
   // The status-sync cron runs daily at 06:00 UTC; derive the next run from that schedule.
-  const nextRun = useMemo(() => {
+  // Computed on each render (rather than memoized) so it doesn't go stale on a long-open page.
+  const computeNextRun = (): DateTime => {
     const now = DateTime.utc();
     let next = now.set({ hour: 6, minute: 0, second: 0, millisecond: 0 });
     if (next <= now) {
       next = next.plus({ days: 1 });
     }
     return next;
-  }, []);
+  };
+  const nextRun = computeNextRun();
 
   const formatRunTime = (dt: DateTime): string =>
     dt.setZone('America/New_York').toFormat("MMM d, yyyy 'at' h:mm a ZZZZ");

@@ -45,7 +45,9 @@ async function findSyncStateBasic(oystehr: Oystehr): Promise<Basic | undefined> 
     resourceType: 'Basic',
     params: [
       { name: 'code', value: `${MAILED_STATEMENT_SYNC_STATE_SYSTEM}|${MAILED_STATEMENT_SYNC_STATE_CODE}` },
-      { name: '_count', value: '1' },
+      // Request more than one so we can actually detect (and warn about) the
+      // "more than one exists" condition rather than silently masking it.
+      { name: '_count', value: '2' },
     ],
   });
   const results = bundle.unbundle();
@@ -83,12 +85,19 @@ export async function recordMailedStatementSyncRun(
   const existing = await findSyncStateBasic(oystehr);
 
   if (existing?.id) {
-    await oystehr.fhir.update<Basic>({
-      ...existing,
-      resourceType: 'Basic',
-      id: existing.id,
-      extension,
-    });
+    await oystehr.fhir.update<Basic>(
+      {
+        ...existing,
+        resourceType: 'Basic',
+        id: existing.id,
+        extension,
+      },
+      existing.meta?.versionId
+        ? {
+            optimisticLockingVersionId: existing.meta.versionId,
+          }
+        : undefined
+    );
     return;
   }
 
