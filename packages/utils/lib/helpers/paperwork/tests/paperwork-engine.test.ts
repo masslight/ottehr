@@ -2033,6 +2033,89 @@ describe('Conditional logic', () => {
         expect(filteredAnswer).toBeDefined();
         expect(filteredAnswer?.answer).toBeUndefined();
       });
+
+      it('filters when first of two conditions is true (OR semantics)', () => {
+        // condition1: string = 'foo' (will match), condition2: boolean = true (will not match)
+        const altered = resetFilterWhenConditions(
+          PAGE_ONE_ITEMS,
+          [KEYS.dependents.string],
+          [
+            {
+              operator: '=',
+              question: KEYS.triggers.string.primary,
+              answerString: 'foo',
+            },
+            {
+              operator: '=',
+              question: KEYS.triggers.boolean.primary,
+              answerBoolean: true,
+            },
+          ]
+        );
+        const structuredItems = mapQuestionnaireAndValueSetsToItemsList(altered, []);
+        const formValues = BASE_FORM_VALUES.reduce((accum, item) => {
+          accum[item.linkId] = { ...item };
+          return accum;
+        }, {} as any);
+        formValues[KEYS.triggers.string.primary] = {
+          linkId: KEYS.triggers.string.primary,
+          answer: [{ valueString: 'foo' }],
+        };
+        formValues[KEYS.triggers.boolean.primary] = {
+          linkId: KEYS.triggers.boolean.primary,
+          answer: [{ valueBoolean: false }],
+        };
+        formValues[KEYS.dependents.string] = {
+          linkId: KEYS.dependents.string,
+          answer: [{ valueString: 'I better get filtered!' }],
+        };
+        const newValues = recursiveGroupTransform(structuredItems, Object.values(formValues));
+        const filteredAnswer = newValues.find((obj: any) => obj.linkId === KEYS.dependents.string);
+        expect(filteredAnswer).toBeDefined();
+        expect(filteredAnswer?.answer).toBeUndefined();
+      });
+
+      it('does not filter when all conditions are false (OR semantics)', () => {
+        // condition1: string = 'foo' (will not match), condition2: boolean = true (will not match)
+        const altered = resetFilterWhenConditions(
+          PAGE_ONE_ITEMS,
+          [KEYS.dependents.string],
+          [
+            {
+              operator: '=',
+              question: KEYS.triggers.string.primary,
+              answerString: 'foo',
+            },
+            {
+              operator: '=',
+              question: KEYS.triggers.boolean.primary,
+              answerBoolean: true,
+            },
+          ]
+        );
+        const structuredItems = mapQuestionnaireAndValueSetsToItemsList(altered, []);
+        const formValues = BASE_FORM_VALUES.reduce((accum, item) => {
+          accum[item.linkId] = { ...item };
+          return accum;
+        }, {} as any);
+        formValues[KEYS.triggers.string.primary] = {
+          linkId: KEYS.triggers.string.primary,
+          answer: [{ valueString: 'bar' }],
+        };
+        formValues[KEYS.triggers.boolean.primary] = {
+          linkId: KEYS.triggers.boolean.primary,
+          answer: [{ valueBoolean: false }],
+        };
+        formValues[KEYS.dependents.string] = {
+          linkId: KEYS.dependents.string,
+          answer: [{ valueString: 'I better NOT get filtered!' }],
+        };
+        const newValues = recursiveGroupTransform(structuredItems, Object.values(formValues));
+        const unfilteredAnswer = newValues.find((obj: any) => obj.linkId === KEYS.dependents.string);
+        expect(unfilteredAnswer).toBeDefined();
+        expect(unfilteredAnswer?.answer).toBeDefined();
+        expect(unfilteredAnswer?.answer?.[0]?.valueString).toBe('I better NOT get filtered!');
+      });
     });
 
     it('filter when filterWhen condition is false = no filtering - string', () => {
