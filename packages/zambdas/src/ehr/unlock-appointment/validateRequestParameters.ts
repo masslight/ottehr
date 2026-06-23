@@ -13,8 +13,8 @@ const UnlockAppointmentBodySchema = z
     appointmentId: z.string().uuid().optional(),
     encounterId: z.string().uuid().optional(),
   })
-  .refine((data) => Boolean(data.appointmentId || data.encounterId), {
-    message: 'Either appointmentId or encounterId is required',
+  .refine((data) => Boolean(data.appointmentId) !== Boolean(data.encounterId), {
+    message: 'Provide exactly one of appointmentId or encounterId',
   });
 
 export function validateRequestParameters(input: ZambdaInput): UnlockAppointmentZambdaInputValidated {

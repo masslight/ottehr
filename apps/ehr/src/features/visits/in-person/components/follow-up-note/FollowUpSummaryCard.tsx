@@ -60,7 +60,12 @@ export const FollowUpSummaryCard: React.FC = () => {
     return Object.keys(newErrors).length === 0;
   };
 
-  const { debounce } = useDebounce(1000);
+  const { debounce, clear } = useDebounce(1000);
+
+  useEffect(() => {
+    if (isAppointmentReadOnly) clear();
+  }, [isAppointmentReadOnly, clear]);
+
   const debouncedSave = (data: FormData): void => {
     debounce(async () => {
       // Don't persist edits once the follow-up is locked (signed); it must be unlocked first.

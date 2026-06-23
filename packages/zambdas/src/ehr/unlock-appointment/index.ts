@@ -108,14 +108,23 @@ export const performEffect = async (
   };
 };
 
-// Mutates the /meta/tag replacement op in place to add/update a critical-update tag recording who
-// unlocked the chart. The unlock op is always a single replace of /meta/tag with the remaining tags.
+// Mutates the unlock operation in place to add/update a critical-update tag recording who unlocked the chart.
+// Depending on the resource's existing shape, the unlock op may replace /meta/tag, add /meta/tag, or add /meta.
 const applyCriticalUpdateTag = (unlockOp: Operation, updatedByText: string): void => {
-  if (!('value' in unlockOp) || !Array.isArray(unlockOp.value)) {
+  if (!('value' in unlockOp)) {
     throw new Error('Unexpected unlock operation structure');
   }
 
-  const tagsAfterUnlock = unlockOp.value as Coding[];
+  const value: any = unlockOp.value;
+  let tagsAfterUnlock: Coding[] | undefined;
+
+  if (Array.isArray(value)) {
+    tagsAfterUnlock = value as Coding[];
+  } else if (value && typeof value === 'object' && Array.isArray(value.tag)) {
+    tagsAfterUnlock = value.tag as Coding[];
+  } else {
+    throw new Error('Unexpected unlock operation structure');
+  }
 
   const criticalUpdateTag = createCriticalUpdateTag(updatedByText);
   const criticalTagIndex = tagsAfterUnlock.findIndex((tag) => tag.system === criticalUpdateTag.system);
