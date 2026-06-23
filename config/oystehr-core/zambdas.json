@@ -61,6 +61,7 @@
       "name": "sync-mailed-statement-statuses-cron",
       "type": "cron",
       "runtime": "nodejs22.x",
+      "timeout": "595",
       "src": "src/cron/sync-mailed-statement-statuses/index",
       "zip": ".dist/zips/sync-mailed-statement-statuses-cron.zip",
       "schedule": {

@@ -4,13 +4,10 @@ import CloseIcon from '@mui/icons-material/Close';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import MailOutlineIcon from '@mui/icons-material/MailOutline';
 import PreviewIcon from '@mui/icons-material/Preview';
-import SyncIcon from '@mui/icons-material/Sync';
 import {
-  Alert,
   Box,
   Button,
   Chip,
-  CircularProgress,
   Dialog,
   DialogContent,
   DialogTitle,
@@ -22,7 +19,6 @@ import {
   Popper,
   Select,
   SelectChangeEvent,
-  Snackbar,
   TextField,
   Tooltip,
   Typography,
@@ -37,12 +33,12 @@ import {
   GridToolbarContainer,
   GridToolbarExport,
 } from '@mui/x-data-grid-pro';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { DateTime } from 'luxon';
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { DEFAULT_BATCH_DAYS, MailedStatementItem, splitDateRangeIntoBatches } from 'utils';
-import { getMailedStatementsReport, syncMailedStatementStatuses } from '../../api/api';
+import { getMailedStatementsReport } from '../../api/api';
 import { useApiClients } from '../../hooks/useAppClients';
 import PageContainer from '../../layout/PageContainer';
 
@@ -354,16 +350,21 @@ function PreviewButton({ htmlContent, description }: { htmlContent: string; desc
   );
 }
 
+interface MailedStatementsData {
+  statements: MailedStatementItem[];
+  lastSyncRunAt: string | null;
+}
+
 const useMailedStatements = (
   dateRange: DateRangeFilter,
   start: string,
   end: string
-): ReturnType<typeof useQuery<MailedStatementItem[], Error>> => {
+): ReturnType<typeof useQuery<MailedStatementsData, Error>> => {
   const { oystehrZambda } = useApiClients();
 
   return useQuery({
     queryKey: ['mailed-statements', dateRange, start, end],
-    queryFn: async (): Promise<MailedStatementItem[]> => {
+    queryFn: async (): Promise<MailedStatementsData> => {
       if (!oystehrZambda) {
         throw new Error('Oystehr client not available');
       }
@@ -376,24 +377,30 @@ const useMailedStatements = (
         const response = await getMailedStatementsReport(oystehrZambda, {
           dateRange: { start, end },
         });
-        return response.statements.sort(
-          (a, b) => DateTime.fromISO(b.sentDate).toMillis() - DateTime.fromISO(a.sentDate).toMillis()
-        );
+        return {
+          statements: response.statements.sort(
+            (a, b) => DateTime.fromISO(b.sentDate).toMillis() - DateTime.fromISO(a.sentDate).toMillis()
+          ),
+          lastSyncRunAt: response.lastSyncRunAt ?? null,
+        };
       }
 
       const batches = splitDateRangeIntoBatches(start, end, DEFAULT_BATCH_DAYS);
       const batchResults = await Promise.all(
-        batches.map(async (batch) => {
-          const response = await getMailedStatementsReport(oystehrZambda, { dateRange: batch });
-          return response.statements;
-        })
+        batches.map((batch) => getMailedStatementsReport(oystehrZambda, { dateRange: batch }))
       );
 
-      const allStatements = batchResults.flat();
+      const allStatements = batchResults.flatMap((r) => r.statements);
       // Deduplicate by communicationId
       const unique = Array.from(new Map(allStatements.map((s) => [s.communicationId, s])).values());
+      const lastSyncRunAt = batchResults.map((r) => r.lastSyncRunAt).find((v) => Boolean(v)) ?? null;
 
-      return unique.sort((a, b) => DateTime.fromISO(b.sentDate).toMillis() - DateTime.fromISO(a.sentDate).toMillis());
+      return {
+        statements: unique.sort(
+          (a, b) => DateTime.fromISO(b.sentDate).toMillis() - DateTime.fromISO(a.sentDate).toMillis()
+        ),
+        lastSyncRunAt,
+      };
     },
     enabled: Boolean(oystehrZambda && start && end),
     refetchOnWindowFocus: false,
@@ -403,19 +410,10 @@ const useMailedStatements = (
 
 export default function MailedStatements(): React.ReactElement {
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
-  const { oystehrZambda } = useApiClients();
   const [dateRange, setDateRange] = useState<DateRangeFilter>('today');
   const [customDate, setCustomDate] = useState<string>(DateTime.now().toFormat('yyyy-MM-dd'));
   const [customStartDate, setCustomStartDate] = useState<string>(DateTime.now().toFormat('yyyy-MM-dd'));
   const [customEndDate, setCustomEndDate] = useState<string>(DateTime.now().toFormat('yyyy-MM-dd'));
-  const [isSyncing, setIsSyncing] = useState(false);
-  const [syncProgress, setSyncProgress] = useState<string>('');
-  const [syncSnackbar, setSyncSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({
-    open: false,
-    message: '',
-    severity: 'success',
-  });
 
   const getDateRange = useCallback(
     (filter: DateRangeFilter): { start: string; end: string } => {
@@ -489,7 +487,25 @@ export default function MailedStatements(): React.ReactElement {
   );
 
   const { start, end } = getDateRange(dateRange);
-  const { data: statements = [], isLoading, error } = useMailedStatements(dateRange, start, end);
+  const { data, isLoading, error } = useMailedStatements(dateRange, start, end);
+  const statements = data?.statements ?? [];
+  const lastSyncRunAt = data?.lastSyncRunAt ?? null;
+
+  // The status-sync cron runs daily at 06:00 UTC; derive the next run from that schedule.
+  const nextRun = useMemo(() => {
+    const now = DateTime.utc();
+    let next = now.set({ hour: 6, minute: 0, second: 0, millisecond: 0 });
+    if (next <= now) {
+      next = next.plus({ days: 1 });
+    }
+    return next;
+  }, []);
+
+  const formatRunTime = (dt: DateTime): string =>
+    dt.setZone('America/New_York').toFormat("MMM d, yyyy 'at' h:mm a ZZZZ");
+
+  const lastRunLabel = lastSyncRunAt ? formatRunTime(DateTime.fromISO(lastSyncRunAt)) : 'Never';
+  const nextRunLabel = formatRunTime(nextRun);
 
   const handleBack = (): void => {
     navigate('/reports');
@@ -509,48 +525,6 @@ export default function MailedStatements(): React.ReactElement {
 
   const handleCustomEndDateChange = (event: React.ChangeEvent<HTMLInputElement>): void => {
     setCustomEndDate(event.target.value);
-  };
-
-  const handleSyncStatuses = async (): Promise<void> => {
-    if (!oystehrZambda) return;
-    setIsSyncing(true);
-    setSyncProgress('Starting sync...');
-
-    const BATCH_SIZE = 10;
-    let totalUpdated = 0;
-    let totalAlreadyTerminal = 0;
-    let totalErrors: { communicationId: string; error: string }[] = [];
-
-    try {
-      let done = false;
-      while (!done) {
-        const result = await syncMailedStatementStatuses(oystehrZambda, BATCH_SIZE);
-        totalUpdated += result.updated;
-        totalAlreadyTerminal += result.alreadyTerminal;
-        totalErrors = totalErrors.concat(result.errors);
-        done = result.done ?? true; // fallback for older zambda versions without batch support
-
-        if (!done) {
-          setSyncProgress(`Syncing... ${result.remaining} remaining`);
-        }
-      }
-
-      await queryClient.invalidateQueries({ queryKey: ['mailed-statements'] });
-      setSyncSnackbar({
-        open: true,
-        message: `Sync complete: ${totalUpdated} updated, ${totalAlreadyTerminal} already terminal, ${totalErrors.length} errors`,
-        severity: totalErrors.length > 0 ? 'error' : 'success',
-      });
-    } catch (error: unknown) {
-      setSyncSnackbar({
-        open: true,
-        message: `Sync failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        severity: 'error',
-      });
-    } finally {
-      setIsSyncing(false);
-      setSyncProgress('');
-    }
   };
 
   const CustomToolbar = (): React.ReactElement => {
@@ -782,16 +756,6 @@ export default function MailedStatements(): React.ReactElement {
               />
             </>
           )}
-
-          <Button
-            variant="outlined"
-            startIcon={isSyncing ? <CircularProgress size={20} /> : <SyncIcon />}
-            onClick={handleSyncStatuses}
-            disabled={isSyncing}
-            sx={{ borderRadius: 20 }}
-          >
-            {isSyncing ? syncProgress || 'Syncing...' : 'Sync Statuses'}
-          </Button>
         </Box>
 
         <Paper
@@ -812,6 +776,15 @@ export default function MailedStatements(): React.ReactElement {
           </Typography>
           <Typography variant="h6">{statements.length === 1 ? 'statement' : 'statements'} sent</Typography>
         </Paper>
+
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 3, mb: 3, color: 'text.secondary' }}>
+          <Typography variant="body2">
+            Statuses last updated: <strong>{lastRunLabel}</strong>
+          </Typography>
+          <Typography variant="body2">
+            Next update: <strong>{nextRunLabel}</strong>
+          </Typography>
+        </Box>
 
         <Paper sx={{ height: 600, width: '100%' }}>
           <DataGridPro
@@ -862,21 +835,6 @@ export default function MailedStatements(): React.ReactElement {
             </Typography>
           </Box>
         )}
-
-        <Snackbar
-          open={syncSnackbar.open}
-          autoHideDuration={6000}
-          onClose={() => setSyncSnackbar((prev) => ({ ...prev, open: false }))}
-          anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-        >
-          <Alert
-            onClose={() => setSyncSnackbar((prev) => ({ ...prev, open: false }))}
-            severity={syncSnackbar.severity}
-            variant="filled"
-          >
-            {syncSnackbar.message}
-          </Alert>
-        </Snackbar>
       </Box>
     </PageContainer>
   );
