@@ -273,13 +273,21 @@ interface EligibilityErrorEntry {
 
 function getEligibilityErrors(rawResponse: Record<string, unknown>): EligibilityErrorEntry[] {
   const elig = isRecord(rawResponse.elig) ? rawResponse.elig : undefined;
-  const rawErrors = elig && Array.isArray(elig.error) ? elig.error : undefined;
 
-  if (!rawErrors || rawErrors.length === 0) {
+  // Errors can live either under `elig.error` (benefit-style payloads) or at the top level
+  // (`error`), and each location may hold a single object or an array of objects.
+  const errorCandidates = [elig?.error, rawResponse.error].flatMap((candidate) => {
+    if (Array.isArray(candidate)) {
+      return candidate;
+    }
+    return candidate !== undefined ? [candidate] : [];
+  });
+
+  if (errorCandidates.length === 0) {
     return [];
   }
 
-  return rawErrors
+  return errorCandidates
     .filter(isRecord)
     .map((entry) => ({
       code: typeof entry.error_code === 'string' ? entry.error_code : undefined,
@@ -448,7 +456,7 @@ async function main(): Promise<void> {
     throw new Error('CoverageEligibilityResponse was created without an ID.');
   }
 
-  const mergedBenefitCount = Array.isArray((mergedRaw.elig as Record<string, unknown>).benefit)
+  const mergedBenefitCount = Array.isArray(isRecord(mergedRaw.elig) ? mergedRaw.elig.benefit : undefined)
     ? ((mergedRaw.elig as Record<string, unknown>).benefit as unknown[]).length
     : 0;
 

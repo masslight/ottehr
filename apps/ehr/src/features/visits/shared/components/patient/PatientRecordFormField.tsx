@@ -1,6 +1,6 @@
 import { Autocomplete, Checkbox, FormControlLabel, Link, TextField, useTheme } from '@mui/material';
 import { useQuery } from '@tanstack/react-query';
-import { Organization, QuestionnaireItemAnswerOption, Reference } from 'fhir/r4b';
+import { QuestionnaireItemAnswerOption, Reference } from 'fhir/r4b';
 import { FC, useEffect, useMemo, useRef } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
 import { BasicDatePicker, FormGroupPharmacyCollection, FormSelect, FormTextField } from 'src/components/form';
@@ -11,11 +11,9 @@ import {
   AnswerOptionSource,
   dedupeObjectsByKey,
   evaluateFieldTriggers,
-  extractPayerIdFromUrl,
   FormFieldsDisplayItem,
   FormFieldsGroupItem,
   FormFieldsInputItem,
-  getPayerId,
   isRemovableField,
   QuestionnaireItemGroupType,
 } from 'utils';
@@ -338,28 +336,26 @@ interface DynamicReferenceFieldProps {
 /**
  * If the currently selected value is not in the active options list, include it with a
  * "(historical)" suffix so it remains visible. These are typically old organization-based
- * references that are no longer returned by the active options query. When a payer ID can be
- * resolved for the reference, prepend it to mirror the active option label format.
+ * references that are no longer returned by the active options query. The server-resolved
+ * historical option (with its payer-prefixed label) is preferred when available; otherwise the
+ * raw selected reference is shown with the suffix as a fallback.
  */
 function ensureSelectedOptionVisible(
   options: Reference[],
   selected: Reference | null | undefined,
-  payerId?: string
+  historicalOption?: Reference
 ): Reference[] {
   if (!selected?.reference) return options;
   const isInList = options.some((opt) => opt.reference === selected.reference);
   if (isInList) return options;
-  const baseDisplay = selected.display || selected.reference;
-  const displayWithPayer =
-    payerId && selected.display && !selected.display.startsWith(`${payerId} - `)
-      ? `${payerId} - ${selected.display}`
-      : baseDisplay;
-  const historicalLabel = `${displayWithPayer} (historical)`;
-  return [...options, { ...selected, display: historicalLabel }];
+  if (historicalOption?.reference === selected.reference) {
+    return [...options, historicalOption];
+  }
+  return [...options, { ...selected, display: `${selected.display || selected.reference} (historical)` }];
 }
 
 const DynamicReferenceField: FC<DynamicReferenceFieldProps> = ({ item, optionStrategy, id }) => {
-  const { oystehr, oystehrZambda } = useApiClients();
+  const { oystehrZambda } = useApiClients();
   const { control, setValue, watch } = useFormContext();
   const optionsInput = (() => {
     const base = { id: 'get-answer-options' };
@@ -406,9 +402,8 @@ const DynamicReferenceField: FC<DynamicReferenceFieldProps> = ({ item, optionStr
   // console.log('Insurance options from query:', insuranceOptions);
 
   // For a selected reference that is no longer in the active options list (an old
-  // organization-based reference), resolve its payer ID so it can be shown alongside the
-  // "(historical)" label. A payer-URL reference carries the ID directly; a local
-  // Organization/<id> reference requires fetching the org to read its identifier.
+  // organization-based reference), ask the get-answer-options zambda to resolve it into a
+  // formatted "(historical)" option. Resolving server-side keeps FHIR reads out of the EHR.
   const selectedReference = watch(item.key) as Reference | null | undefined;
   const selectedRef = selectedReference?.reference;
   const isSelectedInActiveOptions = useMemo(
@@ -416,22 +411,28 @@ const DynamicReferenceField: FC<DynamicReferenceFieldProps> = ({ item, optionStr
     [answerOptions, selectedRef]
   );
 
-  const { data: historicalPayerId } = useQuery({
-    queryKey: ['historical-payer-id', selectedRef],
+  const { data: historicalOption } = useQuery({
+    queryKey: ['historical-answer-option', JSON.stringify(optionsInput), selectedRef, selectedReference?.display],
     queryFn: async () => {
-      if (!selectedRef) return undefined;
-      const fromUrl = extractPayerIdFromUrl(selectedRef);
-      if (fromUrl) return fromUrl;
-      if (!selectedRef.startsWith('Organization/') || !oystehr) return undefined;
-      const orgId = selectedRef.replace('Organization/', '');
-      const org = await oystehr.fhir.get<Organization>({ resourceType: 'Organization', id: orgId });
-      return getPayerId(org);
+      if (!selectedRef || !oystehrZambda) return undefined;
+      const res = await oystehrZambda.zambda.execute({
+        ...optionsInput,
+        resolveReferenceOnly: true,
+        selectedReference: {
+          reference: selectedRef,
+          display: selectedReference?.display,
+          type: selectedReference?.type,
+        },
+      });
+      const output = res.output as Partial<QuestionnaireItemAnswerOption>[] | undefined;
+      return (output?.[0]?.valueReference as Reference | undefined) ?? undefined;
     },
     enabled:
+      optionStrategy.type === 'answerSource' &&
       !!selectedRef &&
       answerOptions !== undefined &&
       !isSelectedInActiveOptions &&
-      (!!oystehr || !!extractPayerIdFromUrl(selectedRef)),
+      !!oystehrZambda,
   });
 
   return (
@@ -439,7 +440,7 @@ const DynamicReferenceField: FC<DynamicReferenceFieldProps> = ({ item, optionStr
       name={item.key}
       control={control}
       render={({ field: { value }, fieldState: { error } }) => {
-        const options = ensureSelectedOptionVisible(answerOptions ?? [], value, historicalPayerId);
+        const options = ensureSelectedOptionVisible(answerOptions ?? [], value, historicalOption);
 
         const selectedOption = value?.reference
           ? options.find((option) => option.reference === value.reference)

@@ -248,11 +248,7 @@ export const parseCoverageEligibilityResponse = (
           copay = benefitsTemp.filter((benefit) => benefit.coverageCode === 'A' || benefit.coverageCode === 'B');
           deductible = benefitsTemp.filter((benefit) => benefit.coverageCode === 'C');
 
-          // The financial-details panel is labeled "(In-network)". Payers return separate lines for the
-          // same coverage level + period that differ only by network (e.g. an out-of-network 'N' Total and an
-          // in-network 'Y' Total). Excluding explicit out-of-network ('N') lines keeps the panel consistent;
-          // 'Y' (in-network), 'W' (not applicable), 'U' (unknown), and undefined are retained so values
-          // aren't mixed across networks.
+          // Exclude only explicit out-of-network ('N') lines so in-network panel values aren't mixed across networks.
           const isInNetwork = (benefit: PatientPaymentBenefit): boolean => benefit.inPlanNetworkCode !== 'N';
 
           const individualDeductible = deductible.filter(
@@ -422,4 +418,53 @@ export const extractCptCodeModifiersFromCoding = (coding: Coding): { code: strin
     .map((extCoding) => ({ code: extCoding.code ?? '', display: extCoding.display ?? '' }));
   console.log(`Modifiers for the coding ${JSON.stringify(coding)}: `, JSON.stringify(modifiers));
   return modifiers;
+};
+
+// Maps the claim.md insurance type code returned by the eligibility check (key)
+// to the candid/availity insurance plan type code used by the insurance form dropdown (value).
+export const INSURANCE_TYPE_CODE_TO_CANDID_CODE: Record<string, string> = {
+  '12': '16',
+  '13': '16',
+  '14': 'LM',
+  '15': 'WC',
+  '16': 'OF',
+  '41': '16',
+  '42': 'VA',
+  '43': '16',
+  '47': 'LM',
+  AP: 'AM',
+  C1: 'CI',
+  CO: '11',
+  CP: 'MA',
+  D: 'DS',
+  DB: 'DS',
+  EP: '12',
+  FF: '11',
+  GP: '12',
+  HM: 'HM',
+  HN: '16',
+  HS: '11',
+  IN: '15',
+  IP: 'CI',
+  LC: '11',
+  LD: '11',
+  LI: '11',
+  LT: 'LM',
+  MA: 'MA',
+  MB: 'MB',
+  MC: 'MC',
+  MH: '11',
+  MI: '11',
+  MP: 'MA',
+  OT: 'ZZ',
+};
+
+/**
+ * Maps a claim.md insurance type code (from an eligibility check) to the candid/availity
+ * insurance plan type code used by the insurance form dropdown. Returns undefined when the
+ * code is missing or has no mapping.
+ */
+export const mapInsuranceTypeCodeToCandidCode = (insuranceTypeCode: string | undefined): string | undefined => {
+  if (!insuranceTypeCode) return undefined;
+  return INSURANCE_TYPE_CODE_TO_CANDID_CODE[insuranceTypeCode];
 };

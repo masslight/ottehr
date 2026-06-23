@@ -27,6 +27,7 @@ import {
   FinancialDetails,
   InsuranceEligibilityCheckStatus,
   mapEligibilityCheckResultToSimpleStatus,
+  mapInsuranceTypeCodeToCandidCode,
   PATIENT_RECORD_CONFIG,
   PatientPaymentBenefit,
 } from 'utils';
@@ -116,45 +117,6 @@ interface SimpleStatusCheckWithDate {
 
 const insuranceSection = PATIENT_RECORD_CONFIG.FormFields.insurance;
 
-// Maps the claim.md insurance type code returned by the eligibility check (left)
-// to the candid/availity insurance plan type code used by the insurance form dropdown (right).
-const insuranceCodeToCandidCode: Record<string, string> = {
-  '12': '16',
-  '13': '16',
-  '14': 'LM',
-  '15': 'WC',
-  '16': 'OF',
-  '41': '16',
-  '42': 'VA',
-  '43': '16',
-  '47': 'LM',
-  AP: 'AM',
-  C1: 'CI',
-  CO: '11',
-  CP: 'MA',
-  D: 'DS',
-  DB: 'DS',
-  EP: '12',
-  FF: '11',
-  GP: '12',
-  HM: 'HM',
-  HN: '16',
-  HS: '11',
-  IN: '15',
-  IP: 'CI',
-  LC: '11',
-  LD: '11',
-  LI: '11',
-  LT: 'LM',
-  MA: 'MA',
-  MB: 'MB',
-  MC: 'MC',
-  MH: '11',
-  MI: '11',
-  MP: 'MA',
-  OT: 'ZZ',
-};
-
 export const InsuranceContainer: FC<InsuranceContainerProps> = ({
   ordinal,
   patientId,
@@ -194,7 +156,7 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
     if (currentInsurancePlanType) return;
     const eligibilityInsuranceCode = initialEligibilityCheck?.coverageDetails?.insurance?.insuranceCode;
     if (!eligibilityInsuranceCode) return;
-    const mappedCandidCode = insuranceCodeToCandidCode[eligibilityInsuranceCode];
+    const mappedCandidCode = mapInsuranceTypeCodeToCandidCode(eligibilityInsuranceCode);
     if (!mappedCandidCode) return;
     setValue(FormFields.insurancePlanType.key, mappedCandidCode, { shouldDirty: true });
   }, [currentInsurancePlanType, initialEligibilityCheck, FormFields.insurancePlanType.key, setValue]);
@@ -267,7 +229,7 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
         const insuranceCodeTemp = result?.coverageDetails?.insurance?.insuranceCode;
 
         if (insuranceCodeTemp) {
-          const newInsurance = insuranceCodeToCandidCode[insuranceCodeTemp];
+          const newInsurance = mapInsuranceTypeCodeToCandidCode(insuranceCodeTemp);
 
           if (newInsurance) {
             setValue(FormFields.insurancePlanType.key, newInsurance, { shouldDirty: true });

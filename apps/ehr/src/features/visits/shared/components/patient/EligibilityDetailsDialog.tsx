@@ -2,6 +2,7 @@ import { otherColors } from '@ehrTheme/colors';
 import { Close } from '@mui/icons-material';
 import { TabContext, TabList, TabPanel } from '@mui/lab';
 import {
+  alpha,
   Box,
   Chip,
   Dialog,
@@ -140,7 +141,7 @@ const networkChipColors = (inPlanNetworkCode?: string): { backgroundColor: strin
     case 'N':
       return { backgroundColor: otherColors.employeeDeactivatedChip, color: otherColors.employeeDeactivatedText };
     default:
-      return { backgroundColor: otherColors.outreachNeutralAvatar, color: otherColors.eligibilityNeutralChipText };
+      return { backgroundColor: otherColors.outreachNeutralAvatar, color: otherColors.outreachNeutralText };
   }
 };
 
@@ -150,6 +151,9 @@ const formatInsuranceType = (insuranceCode?: string, insuranceDescription?: stri
 };
 
 const formatBenefitRange = (range?: string): string => {
+  // A benefit range is a hyphen-separated pair of YYYYMMDD dates as returned by the payer,
+  // e.g. "20240101-20241231", which this formats to "01/01/2024 - 12/31/2024". Parts that
+  // aren't 8-digit dates are passed through unchanged, and a single date is returned on its own.
   if (!range) {
     return '—';
   }
@@ -174,7 +178,7 @@ const DetailSection: FC<{ title: string; context: string; items: DetailItem[] }>
   return (
     <Box
       sx={{
-        border: `1px solid ${otherColors.eligibilityPanelBorder}`,
+        border: `1px solid ${otherColors.solidLine}`,
         borderRadius: 2,
         p: 2,
         backgroundColor: 'background.paper',
@@ -451,8 +455,8 @@ export const EligibilityDetailsDialog: FC<EligibilityDetailsDialogProps> = ({
             <Paper
               sx={{
                 p: 3,
-                backgroundColor: otherColors.eligibilityErrorBg,
-                border: `1px solid ${otherColors.eligibilityErrorBorder}`,
+                backgroundColor: (theme) => alpha(theme.palette.error.light, 0.12),
+                border: (theme) => `1px solid ${alpha(theme.palette.error.light, 0.5)}`,
               }}
             >
               <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
