@@ -50,6 +50,7 @@ import {
   fahrenheitToCelsius,
   formatWeightKg,
   GetChartDataResponse,
+  getRosFindingStateFromKey,
   HospitalizationDTO,
   InHouseOrderListPageItemDTO,
   InPersonRosConfig,
@@ -1387,6 +1388,15 @@ type ConvStep =
       intent: RemoveExamFindingIntent;
       matches: ExamRemoveItem[];
     }
+  // Ambiguous ROS removal — the request matched several charted ROS symptoms near-equally, so ask
+  // which to remove rather than guessing (and deleting the wrong line). Each candidate is the
+  // charted ROS observation to delete.
+  | {
+      kind: 'choose-ros-remove';
+      user: string;
+      display: string;
+      matches: { label: string; obs: ExamObservationDTO }[];
+    }
   // Ambiguous lab order ("add a flu test" with Flu A / Flu B / Rapid Influenza in the catalog) — let
   // the provider pick the exact test. Each candidate carries what's needed to place the order:
   // in-house items carry the DataEntryTestItem; send-out items carry the OrderableItemSearchResult,
@@ -1993,10 +2003,13 @@ function buildExamRemoveItems(observations: ExamObservationDTO[] | undefined): E
   return out;
 }
 
-function findExamRemoveMatches(intent: RemoveExamFindingIntent, items: ExamRemoveItem[]): ExamRemoveItem[] {
+function findExamRemoveMatchesScored(
+  intent: RemoveExamFindingIntent,
+  items: ExamRemoveItem[]
+): { leaf: ExamRemoveItem; score: number }[] {
   const queryTokens = tokenize(intent.display).filter((tok) => tok.length >= 2 && !EXAM_QUERY_STOPWORDS.has(tok));
   if (queryTokens.length === 0) return [];
-  const scored = items
+  return items
     .map((item) => {
       const haystack = tokenize(item.displayName);
       let total = 0;
@@ -2014,11 +2027,61 @@ function findExamRemoveMatches(intent: RemoveExamFindingIntent, items: ExamRemov
         total += best;
       }
       if (allMatched && queryTokens.length > 1) total += 2;
-      return { item, score: total };
+      return { leaf: item, score: total };
+    })
+    .filter((s) => s.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 12);
+}
+
+// Match a "remove ROS finding" request against the CHECKED ROS observations on the chart (not the
+// catalog). Parses the leading "Denies"/"Reports" verb to prefer the matching polarity, then scores
+// each charted symptom by label-token overlap. Returns scored best-first so the caller can ask
+// (picker) when the top matches are near-equal and only auto-remove on a clear winner.
+function findRosRemoveMatchesScored(
+  display: string,
+  searchTerms: string[],
+  observations: ExamObservationDTO[] | undefined
+): { leaf: ExamObservationDTO; score: number }[] {
+  const checked = (observations ?? []).filter((o) => o.value === true && o.resourceId);
+  if (checked.length === 0) return [];
+  const verb = /^(denies|reports)\b[:\s-]*/i.exec(display.trim());
+  const wantState: RosFindingState | null = verb
+    ? verb[1].toLowerCase() === 'denies'
+      ? RosFindingState.Denies
+      : RosFindingState.Reports
+    : null;
+  const symptom = display.replace(/^(denies|reports)\b[:\s-]*/i, '').trim() || display;
+  const queryTokens = Array.from(
+    new Set(
+      [symptom, ...(searchTerms ?? [])]
+        .flatMap((s) => tokenize(s))
+        .filter((tok) => tok.length >= 3 && !ROS_QUERY_STOPWORDS.has(tok))
+    )
+  );
+  if (queryTokens.length === 0) return [];
+  return checked
+    .map((o) => {
+      const labelTokens = tokenize(o.label ?? o.field).filter((t) => !ROS_QUERY_STOPWORDS.has(t));
+      let score = 0;
+      for (const qt of queryTokens) {
+        if (labelTokens.includes(qt)) score += 4;
+        else if (labelTokens.some((lt) => lt.startsWith(qt))) score += 2;
+      }
+      // Prefer the polarity the provider named ("Denies …") when both states are charted.
+      if (wantState && getRosFindingStateFromKey(o.field) === wantState) score += 3;
+      return { leaf: o, score };
     })
     .filter((s) => s.score > 0)
     .sort((a, b) => b.score - a.score);
-  return scored.slice(0, 12).map((s) => s.item);
+}
+
+// Human label for a charted ROS observation, e.g. "Denies Eye pain" — its polarity (from the
+// field suffix) plus the symptom label.
+function rosObsLabel(o: ExamObservationDTO): string {
+  const state = getRosFindingStateFromKey(o.field);
+  const verb = state === RosFindingState.Denies ? 'Denies' : state === RosFindingState.Reports ? 'Reports' : '';
+  return `${verb}${verb ? ' ' : ''}${o.label ?? o.field}`;
 }
 
 function findProcedureMatches(
@@ -3398,6 +3461,7 @@ export default function EasyChartPage(): JSX.Element {
       case 'remove-hospitalization':
       case 'remove-diagnosis':
       case 'remove-exam-finding':
+      case 'remove-ros-finding':
         return `${intent.kind.replace(/-/g, ' ')}: ${intent.display}`;
       case 'set-em-code':
         return `set E&M code ${intent.code}`;
@@ -3962,12 +4026,46 @@ export default function EasyChartPage(): JSX.Element {
       }
       if (intent.kind === 'remove-exam-finding') {
         const items = buildExamRemoveItems(chartDataRef.current?.examObservations);
-        const matches = findExamRemoveMatches(intent, items);
-        if (matches.length === 0) {
+        const scored = findExamRemoveMatchesScored(intent, items);
+        if (scored.length === 0) {
           setConv({ kind: 'no-match-exam-remove', user: message, intent });
+          return;
+        }
+        // Removal is destructive — when several findings match near-equally, ASK instead of
+        // guessing (which previously deleted the wrong line). A clear single best match still
+        // removes instantly.
+        const cluster = interactive ? ambiguousCluster(scored) : null;
+        if (cluster && cluster.length > 1) {
+          setConv({ kind: 'choose-exam-remove', user: message, intent, matches: cluster });
         } else {
-          // No stopping: auto-pick the top exam-finding to remove.
-          await handleExamRemove(matches[0], message);
+          await handleExamRemove(scored[0].leaf, message);
+        }
+        return;
+      }
+      if (intent.kind === 'remove-ros-finding') {
+        const scored = findRosRemoveMatchesScored(
+          intent.display,
+          intent.searchTerms,
+          chartDataRef.current?.rosObservations
+        );
+        if (scored.length === 0) {
+          setConv({
+            kind: 'skipped',
+            user: message,
+            reason: `I couldn't find “${intent.display}” in the Review of Systems to remove.`,
+          });
+          return;
+        }
+        const cluster = interactive ? ambiguousCluster(scored) : null;
+        if (cluster && cluster.length > 1) {
+          setConv({
+            kind: 'choose-ros-remove',
+            user: message,
+            display: intent.display,
+            matches: cluster.map((o) => ({ label: rosObsLabel(o), obs: o })),
+          });
+        } else {
+          await handleRosRemove(scored[0].leaf, message);
         }
         return;
       }
@@ -4598,6 +4696,31 @@ export default function EasyChartPage(): JSX.Element {
     } catch (e) {
       console.error('Remove exam finding failed:', e);
       setConv({ kind: 'error', user, reply: `Could not remove "${item.displayName}". Please try again.` });
+    }
+  };
+
+  // Delete a charted ROS observation (plain observation — no components, mirrors the exam plain-
+  // observation delete path).
+  const handleRosRemove = async (obs: ExamObservationDTO, user: string): Promise<void> => {
+    if (!apiClient || !encounterId || !obs.resourceId) return;
+    const label = rosObsLabel(obs);
+    const resourceId = obs.resourceId;
+    setConv({ kind: 'removing', user, chosenName: label });
+    try {
+      flashAndRemoveItem(resourceId, () => {
+        setChartData((prev) =>
+          prev
+            ? { ...prev, rosObservations: (prev.rosObservations ?? []).filter((o) => o.resourceId !== resourceId) }
+            : prev
+        );
+      });
+      await apiClient.deleteChartData({ encounterId, rosObservations: [obs] } as Parameters<
+        typeof apiClient.deleteChartData
+      >[0]);
+      setConv({ kind: 'removed', user, chosenName: label });
+    } catch (e) {
+      console.error('Remove ROS finding failed:', e);
+      setConv({ kind: 'error', user, reply: `Could not remove "${label}". Please try again.` });
     }
   };
 
@@ -5406,6 +5529,21 @@ export default function EasyChartPage(): JSX.Element {
                   primaryTypographyProps={{ variant: 'body2' }}
                   secondaryTypographyProps={{ variant: 'caption' }}
                 />
+              </ListItemButton>
+            ))}
+          </List>
+        </>
+      )}
+      {conv.kind === 'choose-ros-remove' && (
+        <>
+          <Typography variant="body2" sx={{ mt: 0.5 }}>
+            I found {conv.matches.length} Review of Systems findings matching &ldquo;{conv.display}&rdquo;. Which one to
+            remove?
+          </Typography>
+          <List dense sx={{ mt: 0.5 }}>
+            {conv.matches.map((m, i) => (
+              <ListItemButton key={`${m.obs.resourceId}-${i}`} onClick={() => void handleRosRemove(m.obs, conv.user)}>
+                <ListItemText primary={m.label} primaryTypographyProps={{ variant: 'body2' }} />
               </ListItemButton>
             ))}
           </List>

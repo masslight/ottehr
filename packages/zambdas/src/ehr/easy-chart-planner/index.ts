@@ -206,6 +206,7 @@ const KIND_VALUES = [
   'add-exam-finding',
   'remove-exam-finding',
   'add-ros-finding',
+  'remove-ros-finding',
   'set-vital',
   'add-external-lab',
   'add-in-house-lab',
@@ -624,6 +625,10 @@ ACTION SHAPES (use these intent kinds and the same fields the single-shot agent 
     {"kind":"add-ros-finding","display":"Denies chest pain","searchTerms":["chest pain"]}
     {"kind":"add-ros-finding","display":"Denies shortness of breath","searchTerms":["shortness of breath","dyspnea"]}
     {"kind":"add-ros-finding","display":"Reports headache","searchTerms":["headache","cephalgia"]}
+- remove-ros-finding: { kind, display, searchTerms } — remove a ROS symptom already on the chart.
+  KEEP the leading "Denies"/"Reports" verb in display ("Denies eye pain") so the right polarity is
+  removed. Use this for ROS symptoms, never remove-exam-finding (that one is for physical-exam
+  findings only).
 - unknown: { kind, message } — use sparingly; prefer omitting an action you can't classify.
 
 RULES:

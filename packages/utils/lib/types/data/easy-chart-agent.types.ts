@@ -69,6 +69,12 @@ export type EasyChartAgentIntent =
   // strips it, matches the symptom against the ROS catalog (InPersonRosConfig), and saves to
   // rosObservations with the -reports/-denies field suffix.
   | { kind: 'add-ros-finding'; display: string; searchTerms: string[]; finding?: 'reports' | 'denies' }
+  // Remove a Review-of-Systems finding currently on the chart. The client matches display +
+  // searchTerms against the CHECKED rosObservations (not the catalog) — parsing the leading
+  // "Denies"/"Reports" word to prefer the right polarity — and deletes the matching observation.
+  // Distinct from remove-exam-finding: ROS symptoms (eye pain, chest pain, fatigue…) live in
+  // rosObservations, so routing them through the exam remover deletes the wrong line.
+  | { kind: 'remove-ros-finding'; display: string; searchTerms: string[] }
   // Set a vital sign (the Vitals screen's standard fields). Numeric vitals (heartbeat, respiration
   // rate, oxygen sat) carry `value`; temperature/weight/height carry `value` + `unit` and the client
   // converts to the stored unit (temp→°C, weight→kg, height→cm); blood pressure carries `systolic` +

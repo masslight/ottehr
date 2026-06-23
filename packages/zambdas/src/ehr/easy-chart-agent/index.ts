@@ -97,6 +97,7 @@ const KIND_VALUES = [
   'add-exam-finding',
   'remove-exam-finding',
   'add-ros-finding',
+  'remove-ros-finding',
   'add-in-house-lab',
   'add-external-lab',
 ] as const;
@@ -286,6 +287,15 @@ REVIEW OF SYSTEMS FINDING (check a structured ROS symptom — NOT free text):
       checkbox catalog.
   If the request names several ROS symptoms at once, pick the single most salient one (the agent
   emits ONE action); the provider can add the rest with follow-up commands.
+- "remove-ros-finding": remove a Review-of-Systems symptom currently on the chart. Use THIS (not
+  remove-exam-finding) whenever the thing to remove is a ROS symptom — fatigue, fever, cough,
+  chest pain, eye pain, sore throat, rhinorrhea, etc. — including when the phrase carries a
+  "Denies"/"Reports" verb. Triggered by "remove Denies Eye pain", "remove fatigue from the ROS",
+  "uncheck reports chest pain", "take denies hemoptysis off review of systems". Required fields:
+  kind, display, searchTerms. KEEP the leading "Denies"/"Reports" verb in display when present so
+  the client removes the right polarity; searchTerms are symptom synonyms without the verb.
+  (remove-exam-finding is ONLY for physical-exam findings like "TM bulging" or "scalp laceration",
+  never for ROS symptoms.)
 
 NOTE-TEXT EDIT (edit the free-text content of a section of the note):
 - "edit-note-text": edit the prose in Chief Complaint, HPI, MOI, ROS, or MDM. Triggered by
