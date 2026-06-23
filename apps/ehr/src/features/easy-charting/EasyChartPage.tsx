@@ -1918,6 +1918,22 @@ function findExamLeafMatches(intent: AddExamFindingIntent, leaves: ExamLeaf[]): 
   return findExamLeafMatchesScored(intent, leaves).map((s) => s.leaf);
 }
 
+// Choose which scored exam leaf to chart for an add-exam-finding. The planner's add-exam-finding is
+// (almost) always an ABNORMAL finding, but an abnormal query ("oropharynx mildly injected") can rank
+// a NORMAL leaf ("oropharynx clear … exudate") top on shared anatomy/negation words. So when the
+// best match is normal and a comparable (>= half-score) abnormal exists, prefer the abnormal. The
+// score gate keeps genuine normal-finding adds intact (a real "add normal canals" has no comparable
+// abnormal). Order-independent: works whether the template's normal is still charted or was already
+// removed by a preceding remove-exam-finding step.
+function preferredExamLeaf(scored: { leaf: ExamLeaf; score: number }[]): ExamLeaf {
+  const top = scored[0];
+  if (top.leaf.normalAbnormal === 'normal') {
+    const abnormal = scored.find((s) => s.leaf.normalAbnormal === 'abnormal' && s.score >= top.score * 0.5);
+    if (abnormal) return abnormal.leaf;
+  }
+  return top.leaf;
+}
+
 // Match a ROS finding intent (e.g. "Fever") to ROS catalog items by token overlap on the item
 // label (and a weaker signal from the system name). The denies/reports state is on the intent, not
 // matched here.
@@ -4023,14 +4039,17 @@ export default function EasyChartPage(): JSX.Element {
           }
         } else {
           // Interactive follow-up + genuinely ambiguous (several near-equal matches) → let the
-          // provider pick. Otherwise auto-pick the top match and flag it for review.
+          // provider pick. Otherwise auto-pick — preferring a comparable abnormal over a normal top
+          // match so an abnormal finding isn't lost to a same-anatomy normal (and the template's
+          // normal isn't re-added when a preceding step already removed it).
           const cluster = interactive ? ambiguousCluster(remainingScored) : null;
           if (cluster && cluster.length > 1) {
             setExamPickSelected(new Set()); // fresh multi-select state for this picker
             setConv({ kind: 'choose-exam', user: message, intent, matches: cluster });
           } else {
-            const ids = await handleExamPick(remaining[0], message);
-            flagAiObsIds(ids, 'examObservations', remaining[0].label);
+            const pick = preferredExamLeaf(remainingScored);
+            const ids = await handleExamPick(pick, message);
+            flagAiObsIds(ids, 'examObservations', pick.label);
           }
         }
         return;
