@@ -1,13 +1,13 @@
 {
   "name": "deploy",
-  "version": "1.36.34",
+  "version": "1.37.9",
   "description": "Scripts for generating HCL and interacting with Terraform",
   "scripts": {
     "build": "tsc --noEmit",
     "bundle-zambdas": "cd ../packages/zambdas && npm run bundle",
     "lint-terraform": "terraform fmt",
     "lint": "NODE_OPTIONS='--max-old-space-size=8192' eslint --ext .ts --report-unused-disable-directives --max-warnings 0 .",
-    "generate": "tsx generate-oystehr-resources.ts ../config ${ENV:-local} ./oystehr/",
+    "generate": "tsx generate-oystehr-resources.ts ../config ${ENV:-local} ./",
     "apply-local": "./apply.sh local",
     "apply-e2e": "./apply.sh e2e",
     "apply-e2e2": "./apply.sh e2e2",

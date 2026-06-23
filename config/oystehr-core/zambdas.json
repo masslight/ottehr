@@ -326,181 +326,6 @@
       "src": "src/ehr/get-patient-profile-photo-url/index",
       "zip": ".dist/zips/get-patient-profile-photo-url.zip"
     },
-    "SEARCH-BILLING-PATIENTS": {
-      "name": "search-billing-patients",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/billing/search-billing-patients/index",
-      "zip": ".dist/zips/search-billing-patients.zip"
-    },
-    "SEARCH-BILLING-LOCATIONS": {
-      "name": "search-billing-locations",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/billing/search-billing-locations/index",
-      "zip": ".dist/zips/search-billing-locations.zip"
-    },
-    "SEARCH-BILLING-PAYERS": {
-      "name": "search-billing-payers",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/billing/search-billing-payers/index",
-      "zip": ".dist/zips/search-billing-payers.zip"
-    },
-    "GET-PATIENT-COVERAGES": {
-      "name": "get-patient-coverages",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/billing/get-patient-coverages/index",
-      "zip": ".dist/zips/get-patient-coverages.zip"
-    },
-    "SEARCH-BILLING-PROVIDERS": {
-      "name": "search-billing-providers",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/billing/search-billing-providers/index",
-      "zip": ".dist/zips/search-billing-providers.zip"
-    },
-    "SEARCH-BILLING-SERVICE-LOCATIONS": {
-      "name": "search-billing-service-locations",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/billing/search-billing-service-locations/index",
-      "zip": ".dist/zips/search-billing-service-locations.zip"
-    },
-    "CREATE-BILLING-CLAIM": {
-      "name": "create-billing-claim",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/billing/create-billing-claim/index",
-      "zip": ".dist/zips/create-billing-claim.zip"
-    },
-    "CREATE-BILLING-PROVIDER": {
-      "name": "create-billing-provider",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/billing/create-billing-provider/index",
-      "zip": ".dist/zips/create-billing-provider.zip"
-    },
-    "CREATE-BILLING-PATIENT": {
-      "name": "create-billing-patient",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/billing/create-billing-patient/index",
-      "zip": ".dist/zips/create-billing-patient.zip"
-    },
-    "CREATE-BILLING-WORKING-COPY": {
-      "name": "create-billing-working-copy",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/billing/create-billing-working-copy/index",
-      "zip": ".dist/zips/create-billing-working-copy.zip"
-    },
-    "SEARCH-BILLING-CLAIMS": {
-      "name": "search-billing-claims",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/billing/search-billing-claims/index",
-      "zip": ".dist/zips/search-billing-claims.zip"
-    },
-    "GET-BILLING-CLAIM-DETAIL": {
-      "name": "get-billing-claim-detail",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/billing/get-billing-claim-detail/index",
-      "zip": ".dist/zips/get-billing-claim-detail.zip"
-    },
-    "GET-BILLING-PATIENT-DETAIL": {
-      "name": "get-billing-patient-detail",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/billing/get-billing-patient-detail/index",
-      "zip": ".dist/zips/get-billing-patient-detail.zip"
-    },
-    "SEARCH-BILLING-ERAS": {
-      "name": "search-billing-eras",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/billing/search-billing-eras/index",
-      "zip": ".dist/zips/search-billing-eras.zip"
-    },
-    "GET-BILLING-ERA-DETAIL": {
-      "name": "get-billing-era-detail",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/billing/get-billing-era-detail/index",
-      "zip": ".dist/zips/get-billing-era-detail.zip"
-    },
-    "SEARCH-BILLING-TAGS": {
-      "name": "search-billing-tags",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/billing/search-billing-tags/index",
-      "zip": ".dist/zips/search-billing-tags.zip"
-    },
-    "SAVE-BILLING-TAG": {
-      "name": "save-billing-tag",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/billing/save-billing-tag/index",
-      "zip": ".dist/zips/save-billing-tag.zip"
-    },
-    "DELETE-BILLING-TAG": {
-      "name": "delete-billing-tag",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/billing/delete-billing-tag/index",
-      "zip": ".dist/zips/delete-billing-tag.zip"
-    },
-    "TAG-BILLING-CLAIM": {
-      "name": "tag-billing-claim",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/billing/tag-billing-claim/index",
-      "zip": ".dist/zips/tag-billing-claim.zip"
-    },
-    "SET-BILLING-CLAIM-STATUS": {
-      "name": "set-billing-claim-status",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/billing/set-billing-claim-status/index",
-      "zip": ".dist/zips/set-billing-claim-status.zip"
-    },
-    "UPDATE-BILLING-CLAIM": {
-      "name": "update-billing-claim",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/billing/update-billing-claim/index",
-      "zip": ".dist/zips/update-billing-claim.zip"
-    },
-    "UPDATE-BILLING-PATIENT": {
-      "name": "update-billing-patient",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/billing/update-billing-patient/index",
-      "zip": ".dist/zips/update-billing-patient.zip"
-    },
-    "UPDATE-BILLING-PROVIDER": {
-      "name": "update-billing-provider",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/billing/update-billing-provider/index",
-      "zip": ".dist/zips/update-billing-provider.zip"
-    },
-    "DELETE-BILLING-PROVIDER": {
-      "name": "delete-billing-provider",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/billing/delete-billing-provider/index",
-      "zip": ".dist/zips/delete-billing-provider.zip"
-    },
-    "CREATE-BILLING-CLAIM-FROM-ENCOUNTER": {
-      "name": "create-billing-claim-from-encounter",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/billing/create-billing-claim-from-encounter/index",
-      "zip": ".dist/zips/create-billing-claim-from-encounter.zip"
-    },
     "CREATE-UPDATE-MEDICATION-ORDER": {
       "name": "create-update-medication-order",
       "type": "http_auth",
@@ -1496,6 +1321,13 @@
       "src": "src/ehr/delete-patient-document/index",
       "zip": ".dist/zips/delete-patient-document.zip"
     },
+    "GET-PATIENT-MEDICAL-RECORD": {
+      "name": "get-patient-medical-record",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/get-patient-medical-record/index",
+      "zip": ".dist/zips/get-patient-medical-record.zip"
+    },
     "SEND_RECEIPT_BY_EMAIL": {
       "name": "send-receipt-by-email",
       "type": "http_auth",
@@ -2103,12 +1935,12 @@
       "src": "src/ehr/admin-update-practitioner-role/index",
       "zip": ".dist/zips/admin-update-practitioner-role.zip"
     },
-    "ADMIN_DELETE_PRACTITIONER_ROLE": {
-      "name": "admin-delete-practitioner-role",
+    "ADMIN_SET_PRACTITIONER_ROLE_ACTIVE": {
+      "name": "admin-set-practitioner-role-active",
       "type": "http_auth",
       "runtime": "nodejs22.x",
-      "src": "src/ehr/admin-delete-practitioner-role/index",
-      "zip": ".dist/zips/admin-delete-practitioner-role.zip"
+      "src": "src/ehr/admin-set-practitioner-role-active/index",
+      "zip": ".dist/zips/admin-set-practitioner-role-active.zip"
     },
     "GET_SERVICE_CATEGORIES": {
       "name": "get-service-categories",

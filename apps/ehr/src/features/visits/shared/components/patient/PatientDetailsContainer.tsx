@@ -10,7 +10,6 @@ import ShowMoreButton from './ShowMoreButton';
 
 const patientDetailsSection = PATIENT_RECORD_CONFIG.FormFields.patientDetails;
 const FIELD_KEYS = Object.values(patientDetailsSection.items).map((item) => item.key);
-const REQUIRED_FIELD_KEYS = patientDetailsSection.requiredFields ?? [];
 
 interface PatientDetailsContainerProps {
   patient: Patient;
@@ -38,14 +37,7 @@ export const PatientDetailsContainer: FC<PatientDetailsContainerProps> = ({
   return (
     <Section
       title="Patient details"
-      titleWidget={
-        <SectionSaveButton
-          fieldKeys={FIELD_KEYS}
-          requiredFieldKeys={REQUIRED_FIELD_KEYS}
-          patientId={patientId}
-          encounterId={encounterId}
-        />
-      }
+      titleWidget={<SectionSaveButton fieldKeys={FIELD_KEYS} patientId={patientId} encounterId={encounterId} />}
     >
       <Row label="Previous name">
         {previousNames.length > 0 ? (

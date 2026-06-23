@@ -1,5 +1,28 @@
+import { SubscriberRelationship } from '../../../fhir/constants';
 import { CODE_SYSTEM_APPOINTMENT_TYPE_CODES, CODE_SYSTEM_CLAIM_TYPE_CODES } from '../../../helpers';
+import type { BillingInsuranceType } from './billing.schemas';
 import { ClaimStatusValues } from './claim-status';
+
+// Insurance types in display order, with the labels shown across the billing app.
+export const BILLING_INSURANCE_TYPE_OPTIONS: { value: BillingInsuranceType; label: string }[] = [
+  { value: 'primary', label: 'Primary' },
+  { value: 'secondary', label: 'Secondary' },
+  { value: 'workersComp', label: 'Workers Comp' },
+];
+
+// Section/card headings.
+export const BILLING_INSURANCE_TYPE_TITLES: Record<BillingInsuranceType, string> = {
+  primary: 'Primary Insurance',
+  secondary: 'Secondary Insurance',
+  workersComp: 'Workers Comp',
+};
+
+// Lowercase labels for inline messages (e.g. "patient already has a primary coverage").
+export const BILLING_INSURANCE_TYPE_LABELS: Record<BillingInsuranceType, string> = {
+  primary: 'primary',
+  secondary: 'secondary',
+  workersComp: 'workers comp',
+};
 
 export interface BillingTag {
   id: string;
@@ -21,6 +44,21 @@ export interface BillingPatientOption {
   friendlyId: string;
 }
 
+export interface BillingPolicyHolderSummary {
+  firstName: string;
+  middleName: string;
+  lastName: string;
+  dob: string;
+  birthSex: 'Male' | 'Female' | 'Intersex' | '';
+  addressParts: {
+    line1: string;
+    line2: string;
+    city: string;
+    state: string;
+    postalCode: string;
+  };
+}
+
 export interface BillingCoverageOption {
   id: string | undefined;
   status: string;
@@ -28,6 +66,10 @@ export interface BillingCoverageOption {
   payorName: string;
   payorId: string;
   payorFhirId: string;
+  insuranceType?: BillingInsuranceType;
+  relationship?: SubscriberRelationship;
+  memberId?: string;
+  policyHolder?: BillingPolicyHolderSummary | null;
 }
 
 export interface BillingLocationOption {
@@ -35,6 +77,30 @@ export interface BillingLocationOption {
   name: string;
   npi: string;
   address: string;
+  posCode: string;
+}
+
+// Service facility (FHIR Location) managed by the billing app's Service Facilities screens.
+export interface ServiceFacilityItem {
+  id: string;
+  name: string;
+  addressLine1: string;
+  addressLine2: string;
+  city: string;
+  state: string;
+  zip: string;
+  zipPlus4: string;
+  npi: string;
+  clia: string;
+  posCode: string;
+  status: 'active' | 'inactive';
+}
+
+export interface SearchServiceFacilitiesResponse {
+  facilities: ServiceFacilityItem[];
+  total: number;
+  offset: number;
+  pageSize: number;
 }
 
 // Unified provider option (Practitioner or Organization)
@@ -67,6 +133,12 @@ export interface BillingPayerOption {
   id: string;
   name: string;
   payerId: string;
+}
+
+// A diagnosis (ICD-10) or procedure (CPT/HCPCS) code option from terminology search.
+export interface BillingCodeOption {
+  code: string;
+  display: string;
 }
 
 export interface EraListItem {
@@ -202,6 +274,8 @@ export interface ClaimDetailResponse {
   memberId: string;
   subscriberId: string;
   coverageStatus: string;
+  relationship: string;
+  policyHolder: BillingPolicyHolderSummary | null;
   responsibleParty: string;
   secondaryCoverageFhirId: string;
   secondaryPayerName: string;
@@ -213,11 +287,13 @@ export interface ClaimDetailResponse {
   renderingProviderType: string;
   renderingProvider: string;
   renderingNpi: string;
+  renderingTaxonomy: string;
   billingProviderFhirId: string;
   billingProviderType: string;
   billingProvider: string;
   billingNpi: string;
   billingTin: string;
+  billingTaxonomy: string;
   facilityFhirId: string;
   serviceFacility: string;
   serviceFacilityAddress: string;
@@ -287,6 +363,10 @@ export interface SearchBillingLocationsResponse {
 
 export interface SearchBillingPayersResponse {
   payers: BillingPayerOption[];
+}
+
+export interface SearchBillingProcedureCodesResponse {
+  codes: BillingCodeOption[];
 }
 
 export interface SearchBillingTagsResponse {

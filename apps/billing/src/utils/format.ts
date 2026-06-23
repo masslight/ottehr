@@ -1,4 +1,19 @@
+import { CMS_PLACE_OF_SERVICE_CODES, ServiceFacilityItem } from 'utils';
+
 export const formatCurrency = (v: number): string => `$${v.toFixed(2)}`;
+
+const POS_LABEL_BY_CODE = new Map(CMS_PLACE_OF_SERVICE_CODES.map((pos) => [pos.code, pos.display]));
+
+export function placeOfServiceLabel(code: string): string {
+  if (!code) return '';
+  const display = POS_LABEL_BY_CODE.get(code);
+  return display ? `${code} - ${display}` : code;
+}
+
+export function formatFacilityAddress(facility: ServiceFacilityItem): string {
+  const zip = facility.zipPlus4 ? `${facility.zip}-${facility.zipPlus4}` : facility.zip;
+  return [facility.addressLine1, facility.addressLine2, facility.city, facility.state, zip].filter(Boolean).join(', ');
+}
 
 // Display names are "Last, First".
 export function splitDisplayName(name: string): { firstName: string; lastName: string } {

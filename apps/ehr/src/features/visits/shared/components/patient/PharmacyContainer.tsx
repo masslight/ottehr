@@ -14,7 +14,6 @@ const collectFieldKeys = (items: FormFieldItemRecord): string[] =>
   );
 
 const FIELD_KEYS = collectFieldKeys(preferredPharmacySection.items);
-const REQUIRED_FIELD_KEYS = preferredPharmacySection.requiredFields ?? [];
 
 interface PharmacyContainerProps {
   isLoading: boolean;
@@ -31,14 +30,7 @@ export const PharmacyContainer: FC<PharmacyContainerProps> = ({ isLoading, patie
   return (
     <PatientRecordFormSection
       formSection={preferredPharmacySection}
-      titleWidget={
-        <SectionSaveButton
-          fieldKeys={FIELD_KEYS}
-          requiredFieldKeys={REQUIRED_FIELD_KEYS}
-          patientId={patientId}
-          encounterId={encounterId}
-        />
-      }
+      titleWidget={<SectionSaveButton fieldKeys={FIELD_KEYS} patientId={patientId} encounterId={encounterId} />}
     >
       {Object.values(fields).map((item) => (
         <PatientRecordFormField

@@ -12,6 +12,7 @@ import {
   getSecret,
   LAB_DOC_REF_DETAIL_TAGS,
   LabType,
+  PATIENT_FOLDERS_CODE,
   sanitizeStringForFhirCode,
   Secrets,
   SecretsKeys,
@@ -306,7 +307,7 @@ export const getLabListResource = async (
           },
           {
             name: 'code',
-            value: 'patient-docs-folder',
+            value: PATIENT_FOLDERS_CODE,
           },
           {
             name: 'identifier',

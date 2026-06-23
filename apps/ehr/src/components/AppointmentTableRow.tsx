@@ -236,7 +236,9 @@ export default function AppointmentTableRow({
       })) ||
     'Unknown';
 
-  const start = appointment.start ? DateTime.fromISO(appointment.start).toFormat('h:mm a') : undefined;
+  const appointmentStart = appointment.start ? DateTime.fromISO(appointment.start) : undefined;
+  const start = appointmentStart?.isValid ? appointmentStart.toFormat('h:mm a') : undefined;
+  const appointmentDate = appointmentStart?.isValid ? appointmentStart.toFormat('MM/dd/yyyy') : undefined;
 
   const showChatIcon = appointment.smsModel !== undefined;
   // console.log('sms model', appointment.smsModel);
@@ -556,6 +558,7 @@ export default function AppointmentTableRow({
       <AppointmentTableRowMobile
         appointment={appointment}
         patientName={patientName}
+        appointmentDate={appointmentDate}
         start={start}
         tab={tab}
         formattedPriorityHighIcon={formattedPriorityHighIcon}
@@ -923,18 +926,23 @@ export default function AppointmentTableRow({
         </Box>
       </TableCell>
       <TableCell sx={{ verticalAlign: 'center' }}>
-        {capitalize?.(
-          appointment.appointmentType === 'pre-booked'
-            ? 'Scheduled'
-            : appointment.appointmentType === 'walk-in'
-            ? 'On Demand'
-            : appointment.appointmentType === 'post-telemed'
-            ? 'Post Telemed'
-            : ''
-        )}
         <Typography variant="body2">
-          <strong>{start}</strong>
+          {capitalize?.(
+            appointment.appointmentType === 'pre-booked'
+              ? 'Scheduled'
+              : appointment.appointmentType === 'walk-in'
+              ? 'On Demand'
+              : appointment.appointmentType === 'post-telemed'
+              ? 'Post Telemed'
+              : ''
+          )}
         </Typography>
+        {appointmentDate && <Typography variant="body2">{appointmentDate}</Typography>}
+        {start && (
+          <Typography variant="body2">
+            <strong>{start}</strong>
+          </Typography>
+        )}
         {showStatusTimer && (
           <Tooltip
             componentsProps={{
