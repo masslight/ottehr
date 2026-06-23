@@ -23,6 +23,7 @@ import {
   BillingPolicyHolderInput,
   BillingSubscriberRelationship,
   buildCoverageSubscriberRelatedPerson,
+  CLAIM_TAG_SYSTEM,
   CODE_SYSTEM_APPOINTMENT_TYPE_CODES,
   CODE_SYSTEM_APPOINTMENT_TYPE_TAG_SYSTEM,
   CODE_SYSTEM_CLAIM_TYPE,
@@ -156,7 +157,9 @@ export const ERA_ID_SYSTEM = 'https://identifiers.fhir.oystehr.com/era-id';
 export const ERA_CHECK_SYSTEM = 'https://identifiers.fhir.oystehr.com/era-check-number';
 
 export const TAG_CODE_SYSTEM = 'https://fhir.ottehr.com/billing/tag';
-export const CLAIM_TAG_SYSTEM = 'https://fhir.ottehr.com/billing/claim-tag';
+// CLAIM_TAG_SYSTEM now lives in utils (single source of truth, shared with the pre-submission rules
+// engine); re-exported here for the existing billing-zambda imports.
+export { CLAIM_TAG_SYSTEM };
 export const TAG_DESCRIPTION_URL = 'https://fhir.ottehr.com/billing/tag-description';
 export const TAG_IS_SYSTEM_TAG_URL = 'https://fhir.ottehr.com/billing/is-system-tag';
 
