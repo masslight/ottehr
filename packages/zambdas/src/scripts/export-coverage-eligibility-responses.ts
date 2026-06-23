@@ -8,50 +8,6 @@ import * as readline from 'readline';
 
 const RAW_RESPONSE_EXTENSION_URL = 'https://extensions.fhir.oystehr.com/raw-response';
 
-// Maps a token's Auth0 audience to the matching non-production Oystehr API URLs.
-// Production (and anything unrecognized) falls back to the SDK defaults.
-function apiUrlsFromAudience(audience: string | undefined): { fhirApiUrl?: string; projectApiUrl?: string } {
-  switch (audience) {
-    case 'https://dev.api.zapehr.com':
-      return { fhirApiUrl: 'https://dev.fhir-api.zapehr.com', projectApiUrl: 'https://dev.project-api.zapehr.com/v1' };
-    case 'https://dev2.api.zapehr.com':
-      return {
-        fhirApiUrl: 'https://dev2.fhir-api.zapehr.com',
-        projectApiUrl: 'https://dev2.project-api.zapehr.com/v1',
-      };
-    case 'https://testing.api.zapehr.com':
-      return {
-        fhirApiUrl: 'https://testing.fhir-api.zapehr.com',
-        projectApiUrl: 'https://testing.project-api.zapehr.com/v1',
-      };
-    case 'https://staging.api.zapehr.com':
-      return {
-        fhirApiUrl: 'https://staging.fhir-api.zapehr.com',
-        projectApiUrl: 'https://staging.project-api.zapehr.com/v1',
-      };
-    default:
-      // production or unknown -> use SDK defaults (https://fhir-api.zapehr.com)
-      return {};
-  }
-}
-
-// Best-effort decode of a JWT's `aud` claim so we can target the correct environment.
-function audienceFromToken(token: string): string | undefined {
-  try {
-    const payloadSegment = token.split('.')[1];
-    if (!payloadSegment) return undefined;
-    const json = Buffer.from(payloadSegment, 'base64url').toString('utf8');
-    const payload = JSON.parse(json) as { aud?: string | string[] };
-    const aud = payload.aud;
-    if (Array.isArray(aud)) {
-      return aud.find((a) => a.includes('api.zapehr.com')) ?? aud[0];
-    }
-    return aud;
-  } catch {
-    return undefined;
-  }
-}
-
 function prompt(question: string, { hideInput = false }: { hideInput?: boolean } = {}): Promise<string> {
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
 
@@ -134,12 +90,10 @@ async function main(): Promise<void> {
   const patientId = await prompt('Patient ID: ');
   if (!patientId) throw new Error('Patient ID is required.');
 
-  const apiUrls = apiUrlsFromAudience(audienceFromToken(token));
-
+  // This script always targets production Oystehr (the SDK's default API URLs).
   const oystehr = new Oystehr({
     accessToken: token,
     projectId,
-    ...apiUrls,
   });
 
   // Resolve the project name for the output directory.
