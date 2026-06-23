@@ -2,6 +2,7 @@ import Oystehr from '@oystehr/sdk';
 import {
   apiErrorToThrow,
   BillingCodeOption,
+  BillingRulesResponse,
   chooseJson,
   ClaimDetailResponse,
   CreateBillingClaimInputSchema,
@@ -22,6 +23,7 @@ import {
   GetPatientCoveragesResponse,
   GetPatientDetailInputSchema,
   PatientDetailResponse,
+  SaveBillingRulesInputSchema,
   SaveBillingTagInputSchema,
   SavedResourceResponse,
   SaveServiceFacilityInputSchema,
@@ -61,6 +63,16 @@ async function executeBillingZambda<T>(oystehr: Oystehr, id: string, parameters?
     throw apiErrorToThrow(error);
   }
 }
+
+// --- Pre-submission rules engine ---
+
+export const getBillingRules = (oystehr: Oystehr): Promise<BillingRulesResponse> =>
+  executeBillingZambda(oystehr, 'get-billing-rules');
+
+export const saveBillingRules = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof SaveBillingRulesInputSchema>
+): Promise<BillingRulesResponse> => executeBillingZambda(oystehr, 'save-billing-rules', parameters);
 
 // --- Patients ---
 

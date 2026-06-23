@@ -4,7 +4,7 @@ import { LicenseInfo } from '@mui/x-data-grid-pro';
 import { SnackbarProvider } from 'notistack';
 import { ReactElement } from 'react';
 import { BrowserRouter, Navigate, Outlet, Route, Routes } from 'react-router-dom';
-import { RoleType } from 'utils';
+import { FEATURE_FLAGS_CONFIG, RoleType } from 'utils';
 import { Layout } from './components/Layout';
 import { LoadingScreen } from './components/LoadingScreen';
 import { ProtectedRoute } from './components/ProtectedRoute';
@@ -21,6 +21,8 @@ import ERAList from './pages/ERAList';
 import PatientDetail from './pages/PatientDetail';
 import PatientsList from './pages/PatientsList';
 import { RenderingProviderDetail, RenderingProvidersList } from './pages/RenderingProviders';
+import RuleDetail from './pages/RuleDetail';
+import Rules from './pages/Rules';
 import { ServiceFacilitiesList, ServiceFacilityDetail } from './pages/ServiceFacilities';
 import Tags from './pages/Tags';
 import { theme } from './themes/ottehr';
@@ -78,6 +80,12 @@ export default function App(): ReactElement {
               <Route path="/eras" element={<ERAList />} />
               <Route path="/eras/:id" element={<ERADetail />} />
               <Route path="/tags" element={<Tags />} />
+              {FEATURE_FLAGS_CONFIG.presubmissionRulesEngineEnabled && (
+                <>
+                  <Route path="/rules" element={<Rules />} />
+                  <Route path="/rules/:id" element={<RuleDetail />} />
+                </>
+              )}
               <Route path="*" element={<Navigate to="/" />} />
             </Route>
           )}
