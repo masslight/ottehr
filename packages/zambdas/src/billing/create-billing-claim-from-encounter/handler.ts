@@ -28,11 +28,13 @@ import {
   Reference,
   RelatedPerson,
   Resource,
+  Task,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   ACCOUNT_TYPE_CODE_SYSTEM,
   AR_STAGE,
+  buildRulesEngineKickoffTask,
   claimStatusValuesToTags,
   CODE_SYSTEM_APPOINTMENT_TYPE_CODES,
   CODE_SYSTEM_APPOINTMENT_TYPE_TAG_SYSTEM,
@@ -42,6 +44,7 @@ import {
   CODE_SYSTEM_OYSTEHR_RCM_CMS1500_REFERRING_PROVIDER_TYPE,
   CODE_SYSTEM_PROCESS_PRIORITY,
   EXTENSION_URL_CPT_MODIFIER,
+  FEATURE_FLAGS_CONFIG,
   FHIR_IDENTIFIER_NPI,
   FHIR_RESOURCE_NOT_FOUND,
   getNPIIdentifier,
@@ -465,6 +468,11 @@ export async function performEffect(
   if (!createdClaim || !createdClaim.id) {
     console.log('Claim not created');
     throw InternalError;
+  }
+
+  if (FEATURE_FLAGS_CONFIG.presubmissionRulesEngineEnabled) {
+    // Kick off the pre-submission rules engine (a Subscription invokes sub-presubmission-rules-engine).
+    await billingOystehr.fhir.create<Task>(buildRulesEngineKickoffTask(createdClaim.id));
   }
 
   return { claimId: createdClaim.id };

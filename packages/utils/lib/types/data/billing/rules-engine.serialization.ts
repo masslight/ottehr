@@ -1,8 +1,10 @@
-import { Basic, Extension, List } from 'fhir/r4b';
+import { Basic, Extension, List, Task } from 'fhir/r4b';
 import {
   PRESUBMISSION_RULE_CODE,
   PRESUBMISSION_RULES_LIST_CODE,
   PRESUBMISSION_RULES_LIST_TITLE,
+  PRESUBMISSION_RULES_TASK_CODE,
+  PRESUBMISSION_RULES_TASK_SYSTEM,
   RULE_DEFINITION_EXTENSION_URL,
   RULE_DESCRIPTION_EXTENSION_URL,
   RULE_ENABLED_EXTENSION_URL,
@@ -83,4 +85,17 @@ export function isPresubmissionRulesList(list: Pick<List, 'meta'>): boolean {
   return (list.meta?.tag ?? []).some(
     (t) => t.system === RULES_ENGINE_TAG_SYSTEM && t.code === PRESUBMISSION_RULES_LIST_CODE
   );
+}
+
+// The Task whose creation kicks off the engine for a freshly created working-copy claim. A
+// Subscription matches `status=requested` + this code and invokes the sub-presubmission-rules-engine
+// zambda, which marks the Task completed/failed.
+export function buildRulesEngineKickoffTask(claimId: string): Task {
+  return {
+    resourceType: 'Task',
+    status: 'requested',
+    intent: 'order',
+    code: { coding: [{ system: PRESUBMISSION_RULES_TASK_SYSTEM, code: PRESUBMISSION_RULES_TASK_CODE }] },
+    focus: { reference: `Claim/${claimId}` },
+  };
 }

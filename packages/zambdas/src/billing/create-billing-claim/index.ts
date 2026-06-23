@@ -11,8 +11,10 @@ import {
   Practitioner,
   RelatedPerson,
   Resource,
+  Task,
 } from 'fhir/r4b';
 import {
+  buildRulesEngineKickoffTask,
   ClaimStatusValues,
   claimStatusValuesToTags,
   CODE_SYSTEM_CLAIM_TYPE,
@@ -22,6 +24,7 @@ import {
   CODE_SYSTEM_OYSTEHR_RCM_CMS1500_PROCEDURE_MODIFIER,
   CODE_SYSTEM_OYSTEHR_RCM_CMS1500_REFERRING_PROVIDER_TYPE,
   CODE_SYSTEM_PROCESS_PRIORITY,
+  FEATURE_FLAGS_CONFIG,
   FHIR_RESOURCE_NOT_FOUND,
   getResourcesFromBatchInlineRequests,
   InternalError,
@@ -76,7 +79,17 @@ async function performEffect(oystehr: Oystehr, params: CreateClaimParams): Promi
   const claim = buildClaim(copies, params);
   const created = await oystehr.fhir.create<Claim>(claim);
 
+  await kickoffRulesEngine(oystehr, created.id);
+
   return { claimId: created.id! };
+}
+
+// Enqueue the pre-submission rules engine for a newly created working-copy claim. A Subscription
+// picks up this Task and runs sub-presubmission-rules-engine. Gated by the feature flag so the
+// default (flag off) behavior — create the draft claim and stop — is unchanged.
+async function kickoffRulesEngine(oystehr: Oystehr, claimId: string | undefined): Promise<void> {
+  if (!FEATURE_FLAGS_CONFIG.presubmissionRulesEngineEnabled || !claimId) return;
+  await oystehr.fhir.create<Task>(buildRulesEngineKickoffTask(claimId));
 }
 
 async function readOriginals(oystehr: Oystehr, params: CreateClaimParams): Promise<OriginalResources> {
