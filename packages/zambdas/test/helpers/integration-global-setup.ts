@@ -252,15 +252,3 @@ export default async function setup(project: TestProject): Promise<() => Promise
     }
   };
 }
-
-// eslint-disable-next-line @typescript-eslint/no-namespace, @typescript-eslint/no-unused-vars
-declare namespace vitest {
-  export interface ProvidedContext {
-    EXECUTE_ZAMBDA_URL: string;
-    ADMIN_TOKEN: string;
-    M2M_PROVIDER_TOKEN: string;
-    M2M_PROVIDER_PROFILE: string;
-    M2M_PATIENT_TOKEN: string;
-    M2M_PATIENT_PROFILE: string;
-  }
-}
