@@ -429,17 +429,6 @@ export const ServiceCategoryCodeSchema = SERVICE_CATEGORY_CODE_SHAPE;
 
 export type ServiceCategoryCode = string;
 
-// True when `code` matches a compile-time BOOKING_CONFIG service category.
-// BOOKING_CONFIG categories are not backed by a FHIR HealthcareService — they
-// can't be referenced from PractitionerRole.healthcareService[] and they
-// can't be allow-listed by a HealthcareService group (groups reference
-// categories by FHIR id). The invariant this helper enforces at booking-flow
-// sites: PractitionerRole-owned Schedules never support BOOKING_CONFIG
-// categories. Slots stamped with one of these codes must live on a Location
-// or HealthcareService (group) actor's Schedule.
-export const isBookingConfigServiceCategoryCode = (code: string): boolean =>
-  BOOKING_CONFIG.serviceCategories.some((sc) => sc.category.code === code);
-
 export const getHomepageOptionSchema = (): z.ZodEnum<[string, ...string[]]> => {
   return z.enum(BOOKING_CONFIG.homepageOptions.map((opt) => opt.id) as [string, ...string[]]);
 };
