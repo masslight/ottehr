@@ -12,6 +12,7 @@ import {
   CreateSlotParams,
   isApiError,
   PROJECT_WEBSITE,
+  serviceCategorySupportsContext,
   ServiceMode,
 } from 'utils';
 import { ottehrApi } from '../api';
@@ -49,7 +50,13 @@ export const WalkinLanding: FC = () => {
   // all of this and goes straight to the "closed" message.
   const { serviceCategories, isLoading: isCategoriesLoading } = useServiceCategories({});
   const walkinCapableCategories = useMemo(
-    () => (serviceCategories ?? []).filter((sc) => (sc.visitTypes ?? ['prebook']).includes('walk-in')),
+    // Walk-in implies physical presence — both `/walkin/location/:name`
+    // (Location is in-person by convention) and `/walkin/schedule/:id` flow
+    // through here. Virtual flows live under `/start-virtual/...` and never
+    // hit this page, so filter on in-person to keep virtual-only categories
+    // (e.g. an aesthetics consult that's virtual-only) out of the picker.
+    () =>
+      (serviceCategories ?? []).filter((sc) => serviceCategorySupportsContext(sc, ServiceMode['in-person'], 'walk-in')),
     [serviceCategories]
   );
   const categoryDecisionNeeded = !serviceCategory;

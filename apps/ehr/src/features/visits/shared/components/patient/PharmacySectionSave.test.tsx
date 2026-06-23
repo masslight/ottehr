@@ -59,7 +59,7 @@ const TestHarness = ({ onFormReady }: TestHarnessProps): JSX.Element => {
     return (
       <FormProvider {...methods}>
         <FormGroupPharmacyCollection />
-        <SectionSaveButton fieldKeys={FIELD_KEYS} requiredFieldKeys={[]} patientId="patient-123" />
+        <SectionSaveButton fieldKeys={FIELD_KEYS} patientId="patient-123" />
       </FormProvider>
     );
   };

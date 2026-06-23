@@ -28,14 +28,3 @@ resource "terraform_data" "patient_portal_upload" {
     command = "gcloud storage rsync --recursive ${path.module}/../../../apps/intake/build gs://${var.patient_portal_bucket_id}/ --delete-unmatched-destination-objects"
   }
 }
-
-##### Billing #####
-
-resource "terraform_data" "billing_upload" {
-  triggers_replace = [
-    var.billing_hash,
-  ]
-  provisioner "local-exec" {
-    command = "gcloud storage rsync --recursive ${path.module}/../../../apps/billing/build gs://${var.billing_bucket_id}/ --delete-unmatched-destination-objects"
-  }
-}

@@ -13,6 +13,7 @@ type ChartDataTextValueType = Pick<
   | 'medicalDecision'
   | 'addendumNote'
   | 'historyOfPresentIllness'
+  | 'reasonForVisit'
 >;
 
 const nameToTypeEnum = {
@@ -23,6 +24,7 @@ const nameToTypeEnum = {
   medicalDecision: 'text',
   addendumNote: 'text',
   historyOfPresentIllness: 'text',
+  reasonForVisit: 'text',
 } as const;
 
 const mapValueToLabel: Record<keyof ChartDataTextValueType, string> = {
@@ -33,6 +35,7 @@ const mapValueToLabel: Record<keyof ChartDataTextValueType, string> = {
   medicalDecision: 'Medical Decision Making note',
   addendumNote: 'Addendum note',
   historyOfPresentIllness: 'HPI note',
+  reasonForVisit: 'Reason for visit',
 };
 
 const requestedFieldsOptions: Partial<Record<keyof ChartDataTextValueType, { _tag?: string }>> = {
@@ -43,6 +46,7 @@ const requestedFieldsOptions: Partial<Record<keyof ChartDataTextValueType, { _ta
   surgicalHistoryNote: { _tag: 'surgical-history-note' },
   medicalDecision: { _tag: 'medical-decision' },
   addendumNote: {},
+  reasonForVisit: {},
 };
 
 export const useDebounceNotesField = <T extends keyof ChartDataTextValueType>(

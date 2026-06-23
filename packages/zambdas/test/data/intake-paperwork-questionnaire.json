@@ -1,7 +1,7 @@
 {
   "resourceType": "Questionnaire",
   "url": "https://ottehr.com/FHIR/Questionnaire/intake-paperwork-inperson",
-  "version": "1.2.1",
+  "version": "1.2.3",
   "name": "in-person_pre-visit_paperwork",
   "title": "in-person pre-visit paperwork",
   "status": "active",
@@ -842,6 +842,12 @@
               "required": false
             },
             {
+              "linkId": "pharmacy-places-phone",
+              "type": "string",
+              "text": "places phone",
+              "required": false
+            },
+            {
               "linkId": "pharmacy-places-saved",
               "type": "boolean",
               "text": "places saved",
@@ -979,6 +985,46 @@
             }
           ],
           "extension": [
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
+              "valueString": "hidden"
+            },
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when",
+              "extension": [
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-question",
+                  "valueString": "pharmacy-page-manual-entry"
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-operator",
+                  "valueString": "!="
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-answer",
+                  "valueBoolean": true
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "linkId": "pharmacy-phone",
+          "type": "string",
+          "text": "Pharmacy phone",
+          "required": false,
+          "enableWhen": [
+            {
+              "question": "pharmacy-page-manual-entry",
+              "operator": "=",
+              "answerBoolean": true
+            }
+          ],
+          "extension": [
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
+              "valueString": "Phone Number"
+            },
             {
               "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
               "valueString": "hidden"

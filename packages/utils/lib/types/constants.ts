@@ -9,6 +9,13 @@ export const TELEMED_VIDEO_ROOM_CODE = 'chime-video-meetings';
 
 export const INTERPRETER_PHONE_NUMBER = '(888) 555 0002';
 
+export const PHONE_NOT_ON_FILE = 'Phone number not on file';
+
+// Max span for a tracking-board appointment search. Bounds the paginated (all-pages) FHIR query so
+// an over-broad range can't fan out into unbounded traffic. Shared so the EHR and the get-appointments
+// zambda enforce the same limit.
+export const MAX_APPOINTMENT_SEARCH_RANGE_DAYS = 90;
+
 export const PATIENT_INDIVIDUAL_PRONOUNS_URL = 'http://hl7.org/fhir/StructureDefinition/individual-pronouns';
 export const PATIENT_INDIVIDUAL_PRONOUNS_CUSTOM_URL =
   'https://fhir.zapehr.com/r4/StructureDefinitions/individual-pronouns-custom';
@@ -22,9 +29,6 @@ export const PATIENT_SEND_MARKETING_URL = 'https://fhir.zapehr.com/r4/StructureD
 export const PATIENT_HEARING_IMPAIRED_RELAY_SERVICE_URL =
   'https://fhir.zapehr.com/r4/StructureDefinitions/hearing-impaired-relay-service';
 export const PATIENT_COMMON_WELL_CONSENT_URL = 'https://fhir.zapehr.com/r4/StructureDefinitions/common-well-consent';
-export const PATIENT_NO_EMAIL_URL = 'https://fhir.zapehr.com/r4/StructureDefinitions/patient-no-email';
-export const RESPONSIBLE_PARTY_NO_EMAIL_URL =
-  'https://fhir.zapehr.com/r4/StructureDefinitions/responsible-party-no-email';
 export const PATIENT_GENDER_IDENTITY_URL = 'http://hl7.org/fhir/StructureDefinition/individual-genderIdentity';
 export const PATIENT_GENDER_IDENTITY_DETAILS_URL =
   'https://fhir.zapehr.com/r4/StructureDefinitions/individual-genderIdentity';

@@ -40,7 +40,7 @@ import {
   ProviderTypeCode,
   ScheduleOwnerFhirResource,
 } from '../types';
-import { emailRegex, phoneRegex, zipRegex } from '../validation';
+import { emailRegex, npiRegex, phoneRegex, zipRegex } from '../validation';
 
 export function createOystehrClient(token: string, fhirAPI: string, projectAPI: string): Oystehr {
   const FHIR_API = fhirAPI.replace(/\/r4/g, '');
@@ -181,8 +181,33 @@ export const isEmailValid = (email: string | undefined): boolean => {
 };
 
 export const isNPIValid = (npi: string): boolean => {
-  const npiRegex = /^\d{10}$/;
   return npiRegex.test(npi);
+};
+
+// https://www.cms.gov/Regulations-and-Guidance/Administrative-Simplification/NationalProvIdentStand/Downloads/NPIcheckdigit.pdf
+export const isNPIValidWithChecksum = (npi: string): boolean => {
+  if (!isNPIValid(npi)) {
+    return false;
+  }
+  const digits = `80840${npi}`.split('').map(Number);
+  let sum = 0;
+  let double = false;
+  for (let i = digits.length - 1; i >= 0; i--) {
+    let digit = digits[i];
+    if (double) {
+      digit *= 2;
+      if (digit > 9) digit -= 9;
+    }
+    sum += digit;
+    double = !double;
+  }
+  return sum % 10 === 0;
+};
+
+// CLIA numbers are 2-digit state code + "D" + 7-digit lab identifier, e.g. 05D1234567.
+export const isCLIAValid = (clia: string): boolean => {
+  const cliaRegex = /^\d{2}D\d{7}$/;
+  return cliaRegex.test(clia);
 };
 
 export function formatPhoneNumberDisplay(phoneNumber?: string): string {
@@ -326,8 +351,58 @@ export function standardizePhoneNumber(phoneNumber: string | undefined): string 
   return `(${phoneNumberDigits.slice(0, 3)}) ${phoneNumberDigits.slice(3, 6)}-${phoneNumberDigits.slice(6)}`;
 }
 
+/**
+ * Validates a phone number against NANP rules: a 10-digit number whose area code and exchange both
+ * begin with a digit 2-9.
+ */
+export function isValidNANPNumber(phoneNumber: string | undefined): boolean {
+  const standardized = standardizePhoneNumber(phoneNumber);
+  if (!standardized) {
+    return false;
+  }
+
+  const digits = standardized.replace(/\D/g, '');
+  const areaCodeFirstDigit = digits[0];
+  const exchangeFirstDigit = digits[3];
+
+  return (
+    areaCodeFirstDigit >= '2' && areaCodeFirstDigit <= '9' && exchangeFirstDigit >= '2' && exchangeFirstDigit <= '9'
+  );
+}
+
+/**
+ * The phone rule the current eRx provider (DoseSpot) enforces; rejects what it would refuse with
+ * "Primary Phone is not valid." Single seam — swap this body if the provider or its rules change.
+ */
+export function isValidErxPhoneNumber(phoneNumber: string | undefined): boolean {
+  return isValidNANPNumber(phoneNumber);
+}
+
 export function resourceHasMetaTag(resource: Resource, metaTag: OTTEHR_MODULE): boolean {
   return Boolean(resource.meta?.tag?.find((coding) => coding.code === metaTag));
+}
+
+/**
+ * Standardizes a phone number that may carry an extension (`x`/`ext.`/`extension`) to
+ * `(XXX) XXX-XXXX` or `(XXX) XXX-XXXX x{ext}`. Returns undefined when the base number can't be
+ * parsed to 10 digits.
+ */
+export function standardizePhoneWithExtension(phoneNumber?: string): string | undefined {
+  const trimmed = phoneNumber?.trim();
+  if (!trimmed) {
+    return undefined;
+  }
+
+  const extensionMatch = trimmed.match(/\s*(?:x|ext\.?|extension)\s*(\d+)$/i);
+  const extension = extensionMatch?.[1];
+  const base = extensionMatch ? trimmed.slice(0, extensionMatch.index).trim() : trimmed;
+
+  const standardizedBase = standardizePhoneNumber(base);
+  if (!standardizedBase) {
+    return undefined;
+  }
+
+  return extension ? `${standardizedBase} x${extension}` : standardizedBase;
 }
 
 export const formatPhoneNumberForQuestionnaire = (phone: string): string => {

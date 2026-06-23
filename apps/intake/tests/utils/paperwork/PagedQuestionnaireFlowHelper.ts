@@ -1079,8 +1079,16 @@ export class PagedQuestionnaireFlowHelper {
         // Fill the trigger field with valid value (should activate requireWhen)
         await this.fillFieldWithSpecialHandling(triggerLinkId, triggerValidValue);
 
-        // Clear the dependent fields to test they show required errors
-        // Fields may have been pre-filled in Phase 1; clear them so validation fires
+        // Clear the dependent fields so the required-error assertion is real.
+        // The general page-fill (before validation testing) populates every
+        // field from validData, including ones we want to test as
+        // conditionally required here. Without this clear, the form sees
+        // the field as filled and never produces a required-error — masking
+        // a real "is this field actually required?" test as a false pass.
+        // This was a no-op silently for most Phase 2 cases (insurance fields
+        // weren't pre-filled because their parents were disabled), but bit
+        // when responsible-party-email moved from unconditional-required to
+        // conditional after the no-email config landed.
         for (const fieldLinkId of fieldsNowRequired) {
           const item = this.findItem(fieldLinkId);
           await this.clearField(fieldLinkId, item?.type);
@@ -1107,10 +1115,16 @@ export class PagedQuestionnaireFlowHelper {
 
           // Fail if expected field errors were not found
           if (missingErrors.length > 0) {
+            // Dump the actual error map so the failure is debuggable from
+            // the test log alone — no need to dig through screenshots to
+            // see which field DID error and which expected field didn't.
+            const actualErrorsByField = Array.from(errorResult.fieldErrors.entries())
+              .map(([k, v]) => `${k}="${v}"`)
+              .join(', ');
             throw new Error(
               `[Phase 2] Expected validation errors for conditionally-required fields but none found: ${missingErrors.join(
                 ', '
-              )}`
+              )}.\nActual field errors observed: ${actualErrorsByField || '(none)'}`
             );
           }
 

@@ -82,8 +82,14 @@ describe('UpdateMedicationPage', () => {
 
   it('renders medication name after data loads', async () => {
     render(<UpdateMedicationPage />, { wrapper: createWrapper() });
-    await waitFor(() =>
-      expect(screen.getByRole('combobox', { name: 'Medication Name' })).toHaveValue('Ibuprofen 200mg')
+    // The medication name is populated through: getInHouseMedications resolving →
+    // setMedication → render past <Loading> → MUI Autocomplete's post-mount inputValue
+    // sync from `value`. On a CPU-starved CI runner that chain can exceed waitFor's
+    // 1s default, so give it generous headroom (the assertion still returns as soon
+    // as the value appears).
+    await waitFor(
+      () => expect(screen.getByRole('combobox', { name: 'Medication Name' })).toHaveValue('Ibuprofen 200mg'),
+      { timeout: 10_000 }
     );
   });
 
@@ -104,8 +110,9 @@ describe('UpdateMedicationPage', () => {
     vi.mocked(useGetMedicationsSearch).mockReturnValue({ isFetching: false, data: [] } as any);
 
     render(<UpdateMedicationPage />, { wrapper: createWrapper() });
-    await waitFor(() =>
-      expect(screen.getByRole('combobox', { name: 'Medication Name' })).toHaveValue('Ibuprofen 200mg')
+    await waitFor(
+      () => expect(screen.getByRole('combobox', { name: 'Medication Name' })).toHaveValue('Ibuprofen 200mg'),
+      { timeout: 10_000 }
     );
 
     const nameInput = screen.getByRole('combobox', { name: 'Medication Name' });

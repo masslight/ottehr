@@ -19,6 +19,7 @@ import {
   ApplyTemplateZambdaOutput,
   chartDataTagSystem,
   chunkThings,
+  DiagnosisDTO,
   GLOBAL_TEMPLATE_META_TAG_CODE_SYSTEM,
   ICD_10_CODE_SYSTEM,
   resourceHasTagSystem,
@@ -36,16 +37,19 @@ import {
   isDiagnosisCondition,
   TemplateEncounterResource,
 } from '../shared/template-helpers';
+import { applyExternalLabPlans, isExternalLabPlanServiceRequest } from './apply-external-labs';
 import {
   applyInHouseLabPlans,
   canApplyActivityDefinition,
   getLatestInHouseLabActivityDefinitionsForTemplatePlan,
+  isInHouseLabPlanServiceRequest,
 } from './apply-in-house-labs';
 import {
   buildLiveProcedureRequest,
   collectContainedIdsClaimedByProcedures,
   findProcedurePlans,
 } from './apply-procedures';
+import { collectDxClaimedByLabPlans } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
 interface ComplexValidationOutput {
@@ -215,6 +219,21 @@ const performEffect = async (
     encounterResources: encounterBundle,
   });
 
+  // External lab plans are likewise independent of the chart-data batches (the
+  // create flow writes its own SR/Task/Provenance graph), so they run in
+  // parallel too.
+  const externalLabsPromise = applyExternalLabPlans({
+    templateList,
+    encounter,
+    encounterResources: encounterBundle,
+    userToken: validatedInput.userToken,
+    secrets: validatedInput.secrets,
+    oystehr,
+    m2mToken,
+    action: actions.externalLabs,
+    selectedPaymentMethod: validatedInput.externalLabs?.paymentMethod,
+  });
+
   // Make 1 transaction to delete old resources that are being replaced and write the new ones
   const deleteRequests = makeDeleteRequests(encounterBundle, actions);
   const deleteBatches = chunkThings(deleteRequests, 5).map((chunk) =>
@@ -235,13 +254,23 @@ const performEffect = async (
   // standalone Dx / CPT Codes actions - mirroring how in-house labs apply
   // their own diagnoses and CPT codes regardless of those sections.
   const claimedByProcedures = collectContainedIdsClaimedByProcedures(templateList, actions.procedures);
+  // Collect Dx DTOs from both lab types, deduplicating by ICD-10 code across them.
+  const labDxByCode = new Map<string, DiagnosisDTO>();
+  for (const dto of [
+    ...collectDxClaimedByLabPlans(templateList, actions.externalLabs, isExternalLabPlanServiceRequest),
+    ...collectDxClaimedByLabPlans(templateList, actions.inHouseLabs, isInHouseLabPlanServiceRequest),
+  ]) {
+    if (dto.code && !labDxByCode.has(dto.code)) labDxByCode.set(dto.code, dto);
+  }
+  const diagnosesClaimedByLabs = [...labDxByCode.values()];
   const createRequests = makeCreateRequests(
     encounter,
     templateList,
     encounterBundle,
     actions,
     cptCodesFromLabsToSkip,
-    claimedByProcedures
+    claimedByProcedures,
+    diagnosesClaimedByLabs
   );
 
   // The live procedure ServiceRequests we build from the template's procedure
@@ -283,14 +312,15 @@ const performEffect = async (
     requests: miniTransactionRequests,
   });
 
-  const [bundles, inHouseLabsResult] = await Promise.all([
+  const [bundles, inHouseLabsResult, externalLabsResult] = await Promise.all([
     Promise.all([...deleteBatches, ...createObservationBatches, miniTransactionPromise]),
     inHouseLabsPromise,
+    externalLabsPromise,
   ]);
 
   console.log('Outcome bundles, ', JSON.stringify(bundles));
 
-  return { warnings: inHouseLabsResult.warnings };
+  return { warnings: [...inHouseLabsResult.warnings, ...externalLabsResult.warnings] };
 };
 
 // Decide whether an existing chart-data resource on the encounter should be deleted
@@ -349,11 +379,15 @@ export const makeCreateRequests = (
   encounterBundle: FhirResource[],
   actions: ResolvedSectionActions,
   cptCodesFromLabsToSkip: Set<string>,
-  claimedByProcedures: Set<string>
+  claimedByProcedures: Set<string>,
+  diagnosesClaimedByLabs: DiagnosisDTO[]
 ): Array<
   | BatchInputPostRequest<Observation | ClinicalImpression | Condition | Communication | Procedure | ServiceRequest>
   | BatchInputJSONPatchRequest
 > => {
+  // Derive a Set<string> of ICD-10 codes for O(1) lookup inside the template loop.
+  const icd10CodesClaimedByLabs = new Set(diagnosesClaimedByLabs.map((d) => d.code).filter((c): c is string => !!c));
+
   const createResourcesRequests: Array<
     | BatchInputPostRequest<Observation | ClinicalImpression | Condition | Communication | Procedure | ServiceRequest>
     | BatchInputJSONPatchRequest
@@ -364,6 +398,11 @@ export const makeCreateRequests = (
   // (reasonReference -> new Condition, supportingInfo -> new CPT Procedure) so
   // they point at the new resources within this transaction.
   const containedIdToNewFullUrl = new Map<string, string>();
+
+  // Tracks which lab-claimed ICD-10 codes were handled by the template-entry loop
+  // (either force-created or found as a duplicate on the encounter). Codes not in
+  // this set after the loop need to be synthesized from scratch below.
+  const labDxCodesHandledByLoop = new Set<string>();
 
   if (templateList.entry === undefined || templateList.entry.length === 0) {
     console.log('Template has no entries, it will not create anything.');
@@ -392,7 +431,7 @@ export const makeCreateRequests = (
   // - overwrite: start from empty
   let encounterDiagnoses: NonNullable<Encounter['diagnosis']> | null = null;
   let encounterDiagnosesConditions: Condition[] = [];
-  if (actions.diagnoses !== 'skip' || procedureClaimedDxConditionIds.size > 0) {
+  if (actions.diagnoses !== 'skip' || procedureClaimedDxConditionIds.size > 0 || icd10CodesClaimedByLabs.size > 0) {
     if (actions.diagnoses === 'overwrite') {
       encounterDiagnoses = [];
       encounterDiagnosesConditions = [];
@@ -465,8 +504,17 @@ export const makeCreateRequests = (
     // and the procedure's linked Dx and CPT codes land on the chart - matching
     // how in-house labs apply regardless of the standalone sections' actions.
     const isClaimedByProcedure = !!containedResource.id && claimedByProcedures.has(containedResource.id);
-    if (action === 'skip' && !isClaimedByProcedure) continue;
-    const effectiveAction: TemplateSectionAction = action === 'skip' && isClaimedByProcedure ? 'append' : action;
+    const labClaimedIcd10Code =
+      section === 'diagnoses' &&
+      containedResource.resourceType === 'Condition' &&
+      isDiagnosisCondition(containedResource as Condition)
+        ? (containedResource as Condition).code?.coding?.find((c) => c.system === ICD_10_CODE_SYSTEM)?.code
+        : undefined;
+    const isClaimedByLab = labClaimedIcd10Code !== undefined && icd10CodesClaimedByLabs.has(labClaimedIcd10Code);
+    if (isClaimedByLab && labClaimedIcd10Code) labDxCodesHandledByLoop.add(labClaimedIcd10Code);
+    if (action === 'skip' && !isClaimedByProcedure && !isClaimedByLab) continue;
+    const effectiveAction: TemplateSectionAction =
+      action === 'skip' && (isClaimedByProcedure || isClaimedByLab) ? 'append' : action;
 
     // CPT Codes section dedup: when an in-house lab is also being applied, the
     // lab's create flow will emit a Procedure for each of its CPT codings.
@@ -561,6 +609,9 @@ export const makeCreateRequests = (
           continue;
         }
       }
+      if (isDuplicate && isClaimedByLab) {
+        continue;
+      }
 
       // we should only add to encounter diagnoses after a dedupe when appending, to ensure the template doesn't add Dx already on the chart
       if ((!isDuplicate && effectiveAction === 'append') || effectiveAction === 'overwrite') {
@@ -615,6 +666,39 @@ export const makeCreateRequests = (
     }
   }
 
+  // For lab-claimed Dx codes that were never found as contained Conditions in the
+  // template (e.g. template was saved without a Diagnoses section), synthesize a
+  // minimal Condition from the DiagnosisDTO so the Dx still lands on the chart.
+  if (encounterDiagnoses !== null) {
+    const synthesizedCodes = new Set<string>();
+    for (const dx of diagnosesClaimedByLabs) {
+      if (!dx.code || labDxCodesHandledByLoop.has(dx.code) || synthesizedCodes.has(dx.code)) continue;
+      if (!encounter.subject) {
+        console.warn(`No subject found for Encounter/${encounter.id}. Skipping this Dx ${JSON.stringify(dx)}`);
+        continue;
+      }
+      synthesizedCodes.add(dx.code);
+      const alreadyOnEncounter = encounterDiagnosesConditions.some(
+        (c) => c.code?.coding?.some((coding) => coding.system === ICD_10_CODE_SYSTEM && coding.code === dx.code)
+      );
+      if (alreadyOnEncounter) continue;
+
+      const fullUrl = `urn:uuid:${uuidV4()}`;
+      const synthesizedCondition: Condition = {
+        resourceType: 'Condition',
+        meta: { tag: [{ system: chartDataTagSystem('diagnosis') }] },
+        subject: encounter.subject,
+        encounter: { reference: `Encounter/${encounter.id}` },
+        code: {
+          coding: [{ system: ICD_10_CODE_SYSTEM, code: dx.code, display: dx.display || undefined }],
+          text: dx.display || undefined,
+        },
+      };
+      encounterDiagnoses.push({ condition: { reference: fullUrl } });
+      createResourcesRequests.push({ method: 'POST', url: 'Condition', resource: synthesizedCondition, fullUrl });
+    }
+  }
+
   // Materialize procedure plans now that every other contained resource has
   // been turned into a request and assigned a fullUrl. Each plan becomes a
   // live ServiceRequest whose cross-refs are rewritten to point at the new
@@ -627,7 +711,6 @@ export const makeCreateRequests = (
 
   const encounterPatchOperations: Operation[] = [];
 
-  // Patch encounter.diagnosis only if the diagnoses section wasn't skipped.
   if (encounterDiagnoses !== null) {
     if (encounterDiagnoses.length > 0) {
       encounterPatchOperations.push({

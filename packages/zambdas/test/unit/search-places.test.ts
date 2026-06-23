@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
   addressComponentsFromPlacesDetailRes,
-  extractPharmacyIdFromSearchRes,
+  findMatchingErxPharmacy,
   getAddressParamsForErxPharmacySearch,
+  reconcilePharmacyPhone,
 } from '../../src/patient/search-places/helpers';
 
 const EXPECTED_ERX_ID = '12345';
@@ -245,80 +246,126 @@ describe('getAddressParamsForErxPharmacySearch', () => {
   });
 });
 
-// ── extractPharmacyIdFromSearchRes ────────────────────────────────────────────
+// ── findMatchingErxPharmacy ───────────────────────────────────────────────────
 
-describe('extractPharmacyIdFromSearchRes', () => {
-  it('returns the pharmacy id when name and address match', () => {
-    const result = extractPharmacyIdFromSearchRes(PLACES_NAME, PARSED_ADDRESS, ERX_RESULTS);
-    expect(result).toBe(EXPECTED_ERX_ID);
+describe('findMatchingErxPharmacy', () => {
+  it('returns the matching pharmacy record when name and address match', () => {
+    const result = findMatchingErxPharmacy(PLACES_NAME, PARSED_ADDRESS, ERX_RESULTS);
+    expect(result?.id).toBe(EXPECTED_ERX_ID);
   });
 
   it('matches case-insensitively on pharmacy name', () => {
-    expect(extractPharmacyIdFromSearchRes(PLACES_NAME.toUpperCase(), PARSED_ADDRESS, ERX_RESULTS)).toBe(
-      EXPECTED_ERX_ID
-    );
-    expect(extractPharmacyIdFromSearchRes('walgreens drug store #10728', PARSED_ADDRESS, ERX_RESULTS)).toBe(
+    expect(findMatchingErxPharmacy(PLACES_NAME.toUpperCase(), PARSED_ADDRESS, ERX_RESULTS)?.id).toBe(EXPECTED_ERX_ID);
+    expect(findMatchingErxPharmacy('walgreens drug store #10728', PARSED_ADDRESS, ERX_RESULTS)?.id).toBe(
       EXPECTED_ERX_ID
     );
   });
 
-  it('returns a string (not a number) for the id', () => {
-    const result = extractPharmacyIdFromSearchRes(PLACES_NAME, PARSED_ADDRESS, ERX_RESULTS);
-    expect(typeof result).toBe('string');
+  it('returns the full matched record, including phone', () => {
+    const result = findMatchingErxPharmacy(PLACES_NAME, PARSED_ADDRESS, ERX_RESULTS);
+    expect(result?.name).toBe('WALGREENS DRUG STORE #10728');
+    expect(result?.phone).toBe('5165947024');
   });
 
   it('matches when erx zipCode has a +4 extension and places zipCode does not', () => {
     // erx result zipCode is '11572-2225', places address zipCode is '11572' — first 5 must match
-    const result = extractPharmacyIdFromSearchRes(PLACES_NAME, PARSED_ADDRESS, ERX_RESULTS);
-    expect(result).toBe(EXPECTED_ERX_ID);
+    const result = findMatchingErxPharmacy(PLACES_NAME, PARSED_ADDRESS, ERX_RESULTS);
+    expect(result?.id).toBe(EXPECTED_ERX_ID);
   });
 
   it('returns undefined when the pharmacy name does not match any result', () => {
-    const result = extractPharmacyIdFromSearchRes('CVS Pharmacy', PARSED_ADDRESS, ERX_RESULTS);
+    const result = findMatchingErxPharmacy('CVS Pharmacy', PARSED_ADDRESS, ERX_RESULTS);
     expect(result).toBeUndefined();
   });
 
   it('returns undefined when the address does not match any result', () => {
     const differentAddress = { ...PARSED_ADDRESS, city: 'Brooklyn', stateShort: 'NY', zipCode: '11201' };
-    const result = extractPharmacyIdFromSearchRes(PLACES_NAME, differentAddress, ERX_RESULTS);
+    const result = findMatchingErxPharmacy(PLACES_NAME, differentAddress, ERX_RESULTS);
     expect(result).toBeUndefined();
   });
 
   it('returns undefined when placesPharmacyAddress is undefined', () => {
-    const result = extractPharmacyIdFromSearchRes(PLACES_NAME, undefined, ERX_RESULTS);
+    const result = findMatchingErxPharmacy(PLACES_NAME, undefined, ERX_RESULTS);
     expect(result).toBeUndefined();
   });
 
   it('returns undefined when erxSearchResults is undefined', () => {
-    const result = extractPharmacyIdFromSearchRes(PLACES_NAME, PARSED_ADDRESS, undefined);
+    const result = findMatchingErxPharmacy(PLACES_NAME, PARSED_ADDRESS, undefined);
     expect(result).toBeUndefined();
   });
 
   it('returns undefined when erxSearchResults is empty', () => {
-    const result = extractPharmacyIdFromSearchRes(PLACES_NAME, PARSED_ADDRESS, []);
+    const result = findMatchingErxPharmacy(PLACES_NAME, PARSED_ADDRESS, []);
     expect(result).toBeUndefined();
   });
 
   it('returns undefined when name matches but city does not', () => {
     const wrongCity = { ...PARSED_ADDRESS, city: 'Freeport' };
-    const result = extractPharmacyIdFromSearchRes(PLACES_NAME, wrongCity, ERX_RESULTS);
+    const result = findMatchingErxPharmacy(PLACES_NAME, wrongCity, ERX_RESULTS);
     expect(result).toBeUndefined();
   });
 
   it('returns undefined when name matches but state does not', () => {
     const wrongState = { ...PARSED_ADDRESS, stateShort: 'CA', stateLong: 'California' };
-    const result = extractPharmacyIdFromSearchRes(PLACES_NAME, wrongState, ERX_RESULTS);
+    const result = findMatchingErxPharmacy(PLACES_NAME, wrongState, ERX_RESULTS);
     expect(result).toBeUndefined();
   });
 
   it('returns undefined when name matches but zip does not', () => {
     const wrongZip = { ...PARSED_ADDRESS, zipCode: '90210' };
-    const result = extractPharmacyIdFromSearchRes(PLACES_NAME, wrongZip, ERX_RESULTS);
+    const result = findMatchingErxPharmacy(PLACES_NAME, wrongZip, ERX_RESULTS);
     expect(result).toBeUndefined();
   });
 
   it('returns undefined when name is undefined', () => {
-    const result = extractPharmacyIdFromSearchRes(undefined, PARSED_ADDRESS, ERX_RESULTS);
+    const result = findMatchingErxPharmacy(undefined, PARSED_ADDRESS, ERX_RESULTS);
     expect(result).toBeUndefined();
+  });
+});
+
+// ── reconcilePharmacyPhone ────────────────────────────────────────────────────
+
+describe('reconcilePharmacyPhone', () => {
+  it('returns the standardized phone when both sources match', () => {
+    expect(reconcilePharmacyPhone('(555) 867-5309', '5558675309')).toBe('(555) 867-5309');
+  });
+
+  it('returns the phone when both sources match across differing formats', () => {
+    expect(reconcilePharmacyPhone('555-867-5309', '+15558675309')).toBe('(555) 867-5309');
+  });
+
+  it('preserves a matching extension', () => {
+    expect(reconcilePharmacyPhone('5558675309 x55', '(555) 867-5309 ext. 55')).toBe('(555) 867-5309 x55');
+  });
+
+  it('uses the phone with the extension when bases match and only one side has one', () => {
+    expect(reconcilePharmacyPhone('5558675309 x55', '(555) 867-5309')).toBe('(555) 867-5309 x55');
+    expect(reconcilePharmacyPhone('5558675309', '(555) 867-5309 ext. 55')).toBe('(555) 867-5309 x55');
+  });
+
+  it('returns only the base when bases match but extensions conflict', () => {
+    expect(reconcilePharmacyPhone('5558675309 x55', '(555) 867-5309 x66')).toBe('(555) 867-5309');
+  });
+
+  it('returns undefined when neither can be standardized, even if equal', () => {
+    expect(reconcilePharmacyPhone('12345', '12345')).toBeUndefined();
+  });
+
+  it('returns the standardizable phone when the other cannot be standardized', () => {
+    expect(reconcilePharmacyPhone('not a phone', '5558675309')).toBe('(555) 867-5309');
+    expect(reconcilePharmacyPhone('5558675309', 'not a phone')).toBe('(555) 867-5309');
+  });
+
+  it('returns the standardized places phone when only places has one', () => {
+    expect(reconcilePharmacyPhone('(555) 867-5309', undefined)).toBe('(555) 867-5309');
+  });
+
+  it('returns the standardized erx phone when only erx has one', () => {
+    expect(reconcilePharmacyPhone(undefined, '5558675309')).toBe('(555) 867-5309');
+  });
+
+  it('returns undefined when neither source has a phone', () => {
+    expect(reconcilePharmacyPhone(undefined, undefined)).toBeUndefined();
+    expect(reconcilePharmacyPhone('', '')).toBeUndefined();
   });
 });
