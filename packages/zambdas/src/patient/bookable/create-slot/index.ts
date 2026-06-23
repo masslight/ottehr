@@ -11,6 +11,7 @@ import {
   getServiceCategoryCodeSchema,
   getTimezone,
   INVALID_INPUT_ERROR,
+  isBookingConfigServiceCategoryCode,
   isPractitionerRoleMemberOfGroup,
   isValidUUID,
   makeBookingOriginExtensionEntry,
@@ -232,6 +233,24 @@ const complexValidation = async (input: BasicInput, oystehr: Oystehr): Promise<E
   if (!schedule) {
     throw FHIR_RESOURCE_NOT_FOUND('Schedule');
   }
+
+  // PractitionerRole-owned Schedules never support BOOKING_CONFIG (compile-time)
+  // service categories. BOOKING_CONFIG categories aren't backed by a FHIR
+  // HealthcareService — a PR has no way to legitimately opt into one, and a
+  // Slot stamped with one must live on a Location or group-HealthcareService
+  // actor. Belt-and-suspenders with the same check in get-schedule, so a
+  // caller that goes straight to create-slot with a known PR scheduleId
+  // (e.g. /walkin/schedule/:id, which takes the id from the URL) still hits
+  // the invariant.
+  if (serviceCategoryCode && isBookingConfigServiceCategoryCode(serviceCategoryCode)) {
+    const actorRef = schedule.actor?.[0]?.reference;
+    if (actorRef?.startsWith('PractitionerRole/')) {
+      throw INVALID_INPUT_ERROR(
+        `Service category "${serviceCategoryCode}" is not bookable against a provider-owned schedule. Book through a location or group instead.`
+      );
+    }
+  }
+
   const timezone = getTimezone(schedule);
 
   // Decide whether to stamp the slot-at-location extension based on the
