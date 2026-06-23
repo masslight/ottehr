@@ -160,14 +160,14 @@ export const getAppointmentQueryInput = async (input: {
   oystehr: Oystehr;
   resourceId: string;
   resourceType: 'Location' | 'Practitioner' | 'HealthcareService';
-  searchDate: string;
+  searchDateFrom: string;
+  searchDateTo: string;
   timezone: string;
 }): Promise<AppointmentQueryInput> => {
-  const { searchDate, timezone } = input;
+  const { searchDateFrom, searchDateTo, timezone } = input;
 
-  const searchDateInTargetTimezone = DateTime.fromISO(searchDate, { zone: timezone });
-  const startDay = searchDateInTargetTimezone.startOf('day').toUTC().toISO();
-  const endDay = searchDateInTargetTimezone.endOf('day').toUTC().toISO();
+  const startDay = DateTime.fromISO(searchDateFrom, { zone: timezone }).startOf('day').toUTC().toISO();
+  const endDay = DateTime.fromISO(searchDateTo, { zone: timezone }).endOf('day').toUTC().toISO();
 
   const { actorParams, healthcareService } = await getActorParamsForAppointmentQueryInput(input);
 
