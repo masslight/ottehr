@@ -1935,12 +1935,12 @@
       "src": "src/ehr/admin-update-practitioner-role/index",
       "zip": ".dist/zips/admin-update-practitioner-role.zip"
     },
-    "ADMIN_DELETE_PRACTITIONER_ROLE": {
-      "name": "admin-delete-practitioner-role",
+    "ADMIN_SET_PRACTITIONER_ROLE_ACTIVE": {
+      "name": "admin-set-practitioner-role-active",
       "type": "http_auth",
       "runtime": "nodejs22.x",
-      "src": "src/ehr/admin-delete-practitioner-role/index",
-      "zip": ".dist/zips/admin-delete-practitioner-role.zip"
+      "src": "src/ehr/admin-set-practitioner-role-active/index",
+      "zip": ".dist/zips/admin-set-practitioner-role-active.zip"
     },
     "GET_SERVICE_CATEGORIES": {
       "name": "get-service-categories",
