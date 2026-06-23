@@ -22,6 +22,7 @@ interface BasicDatePickerProps {
   dataTestId?: string;
   component?: 'Picker' | 'Field';
   disablePast?: boolean;
+  minDate?: string;
 }
 
 export function BasicDatePicker({
@@ -38,6 +39,7 @@ export function BasicDatePicker({
   dataTestId,
   component = 'Picker',
   disablePast = false,
+  minDate,
 }: BasicDatePickerProps): JSX.Element {
   return (
     <LocalizationProvider dateAdapter={AdapterDayjs}>
@@ -86,6 +88,7 @@ export function BasicDatePicker({
                   }}
                   label={label}
                   disablePast={disablePast}
+                  minDate={minDate ? dayjs(minDate) : undefined}
                 />
               );
             } else {
