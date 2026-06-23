@@ -6,6 +6,7 @@ import {
   EncounterVisitType,
   getEncounterVisitType,
   isAppointmentLocked,
+  isEncounterLocked,
   PractitionerLicense,
   StateType,
 } from 'utils';
@@ -24,7 +25,6 @@ export type GetAppointmentAccessibilityDataResult = {
   isPractitionerLicensedInState: boolean;
   isEncounterAssignedToCurrentPractitioner: boolean;
   isAppointmentReadOnly: boolean;
-  isAppointmentLocked: boolean;
   visitType: EncounterVisitType;
 };
 
@@ -44,14 +44,14 @@ export const getAppointmentAccessibilityData = ({
   const isEncounterAssignedToCurrentPractitioner =
     !!user?.profileResource && !!encounter && checkEncounterHasPractitioner(encounter, user.profileResource);
 
-  // Check if appointment is locked via meta tag
-  const isAppointmentLockedByMetaTag = appointment ? isAppointmentLocked(appointment) : false;
+  // Check if the chart is locked via meta tag. Annotation follow-ups have no own Appointment, so their
+  // lock lives on the Encounter; everything else uses the Appointment lock.
   const visitType = getEncounterVisitType(encounter);
   const isFollowup = visitType === 'follow-up';
+  const isAppointmentLockedByMetaTag = appointment ? isAppointmentLocked(appointment) : false;
+  const isEncounterLockedByMetaTag = encounter ? isEncounterLocked(encounter) : false;
 
-  const isAppointmentReadOnly = (() => {
-    return isAppointmentLockedByMetaTag && !isFollowup;
-  })();
+  const isLocked = isFollowup ? isEncounterLockedByMetaTag : isAppointmentLockedByMetaTag;
 
   return {
     allLicenses,
@@ -59,8 +59,7 @@ export const getAppointmentAccessibilityData = ({
     state,
     isPractitionerLicensedInState,
     isEncounterAssignedToCurrentPractitioner,
-    isAppointmentReadOnly,
-    isAppointmentLocked: isAppointmentLockedByMetaTag,
+    isAppointmentReadOnly: isLocked,
     visitType,
   };
 };
