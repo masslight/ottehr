@@ -443,6 +443,12 @@ doesn't mention):
      murmur" even when the patient is tachycardic (tachycardia is a vital, not a murmur), and KEEP
      the ear / eye / abdomen / neuro normals when the narrative never describes an abnormality in
      that system. Do NOT remove a normal merely because its body system was examined or mentioned.
+     MATCH STRUCTURE TO STRUCTURE: a finding about ONE structure does not contradict a normal about a
+     DIFFERENT structure within the same system. An abnormal tympanic membrane ("TM bulging,
+     erythematous") does NOT contradict "Normal canals" or "Normal external ear" — those are
+     different ear structures the narrative said nothing abnormal about, so keep them. Only remove
+     "Normal canals" if the narrative actually describes the CANAL as abnormal (debris, swelling,
+     erythema of the canal).
   4b. ROS findings (add-ros-finding) — with finding="reports" or "denies". These are structured
      (rosObservations), separate from the exam. Focus the ROS on the pertinent NEGATIVES the provider
      stated and on ASSOCIATED symptoms in OTHER systems than the chief complaint; you need not
