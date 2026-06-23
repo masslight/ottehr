@@ -6,6 +6,7 @@
 
 # Generated files
 oystehr/*.tf.json
+billing_app/*.tf.json
 
 # Secret files populated from elsewhere
 backend.config
