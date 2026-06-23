@@ -4462,15 +4462,32 @@ export default function EasyChartPage(): JSX.Element {
           // is already on the chart; a second apply-template would either duplicate (if it
           // matches) or replace the wrong fields (if a different template name comes back).
           const refreshedFiltered = refreshed.filter((s) => s.kind !== 'apply-template');
-          // Splice: keep completed steps + their results; replace pending steps with refresh.
+          // The re-plan (flash-lite) intermittently DROPS exam-finding steps — including the
+          // reconciliation pair that removes a template normal and adds the dictated abnormal
+          // (e.g. remove "Oropharynx clear", add "Oropharynx mildly injected"). Those are reliably
+          // present in the user-approved first-pass plan, and the add-exam-finding dispatch already
+          // dedups anything the template charted, so preserve the first-pass exam steps the re-plan
+          // omitted rather than letting the reconciliation silently vanish.
+          const isExamStep = (s: EasyChartAgentIntent): boolean =>
+            s.kind === 'add-exam-finding' || s.kind === 'remove-exam-finding';
+          const examKey = (s: EasyChartAgentIntent): string =>
+            `${s.kind}|${('display' in s ? s.display : '')
+              .toLowerCase()
+              .replace(/[^a-z]/g, '')
+              .slice(0, 24)}`;
+          const refreshExamKeys = new Set(refreshedFiltered.filter(isExamStep).map(examKey));
+          const pendingOriginal = planSnapshot.steps.slice(planSnapshot.currentIdx + 1);
+          const missingExam = pendingOriginal.filter((s) => isExamStep(s) && !refreshExamKeys.has(examKey(s)));
+          const mergedSteps = [...refreshedFiltered, ...missingExam];
+          // Splice: keep completed steps + their results; replace pending steps with the merge.
           // The apply-template step itself hasn't terminally settled yet (we're still inside
-          // handleApplyTemplate), so it's still at currentIdx. Move forward into refreshed.
+          // handleApplyTemplate), so it's still at currentIdx. Move forward into the merged steps.
           setPlan((prev) => {
             if (!prev) return null;
             const doneSteps = prev.steps.slice(0, prev.currentIdx + 1); // include apply-template
             return {
               ...prev,
-              steps: [...doneSteps, ...refreshedFiltered],
+              steps: [...doneSteps, ...mergedSteps],
             };
           });
         } catch (e) {
