@@ -14,6 +14,7 @@ import {
   DOCUMENT_REFERENCE_SUMMARY_FROM_CHAT,
   fixAndParseJsonObjectFromString,
   getFormatDuration,
+  getOptionalSecret,
   getSecret,
   MIME_TYPES,
   PUBLIC_EXTENSION_BASE_URL,
@@ -120,10 +121,15 @@ const AI_RESPONSE_KEY_TO_FIELD = {
   procedures: AiObservationField.Procedures,
 };
 
+// Default model for the Vertex path. Callers (e.g. the easy-chart planner via
+// invokeChatbotStructured) may override it per-environment.
+export const DEFAULT_VERTEX_MODEL = 'gemini-3.1-flash-lite';
+
 export async function invokeChatbotVertexAI(
   input: MessageContentComplex[],
   secrets: Secrets | null,
-  responseSchema?: object
+  responseSchema?: object,
+  model: string = DEFAULT_VERTEX_MODEL
 ): Promise<string> {
   // call the vertex ai with fetch
   const GOOGLE_CLOUD_PROJECT_ID = getSecret(SecretsKeys.GOOGLE_CLOUD_PROJECT_ID, secrets);
@@ -152,7 +158,7 @@ export async function invokeChatbotVertexAI(
 
     try {
       const response = await fetch(
-        `https://aiplatform.googleapis.com/v1/projects/${GOOGLE_CLOUD_PROJECT_ID}/locations/global/publishers/google/models/gemini-3.1-flash-lite:generateContent?key=${GOOGLE_CLOUD_API_KEY}`,
+        `https://aiplatform.googleapis.com/v1/projects/${GOOGLE_CLOUD_PROJECT_ID}/locations/global/publishers/google/models/${model}:generateContent?key=${GOOGLE_CLOUD_API_KEY}`,
         {
           method: 'POST',
           headers: {
@@ -192,6 +198,75 @@ export async function invokeChatbotVertexAI(
 
   console.log(JSON.stringify(response));
   return response.candidates[0].content.parts[0].text;
+}
+
+// Structured-output via Anthropic. Mirrors invokeChatbotVertexAI's contract: same text input +
+// JSON Schema, same "return the JSON as a string" result. We force a single tool call whose
+// input_schema IS the response schema — Claude's equivalent of Vertex's responseSchema — so the
+// model can only reply with a schema-valid object, which we stringify back to the caller.
+export async function invokeClaudeStructured(
+  input: MessageContentComplex[],
+  secrets: Secrets | null,
+  responseSchema: object,
+  model = 'claude-haiku-4-5-20251001'
+): Promise<string> {
+  const ANTHROPIC_API_KEY = getSecret(SecretsKeys.ANTHROPIC_API_KEY, secrets);
+  // The planner passes [{ text }] (and optionally image parts). Map to Anthropic content blocks.
+  const content = input.map((part) =>
+    typeof part === 'object' && part && 'text' in part ? { type: 'text', text: (part as { text: string }).text } : part
+  );
+  const TOOL_NAME = 'emit_result';
+  const response = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': ANTHROPIC_API_KEY,
+      'anthropic-version': '2023-06-01',
+    },
+    body: JSON.stringify({
+      model,
+      max_tokens: 8192,
+      temperature: 0,
+      tools: [{ name: TOOL_NAME, description: 'Return the structured result.', input_schema: responseSchema }],
+      tool_choice: { type: 'tool', name: TOOL_NAME },
+      messages: [{ role: 'user', content }],
+    }),
+  });
+  if (!response.ok) {
+    const body = await response.text();
+    const err = new Error(`Anthropic error ${response.status}: ${body.slice(0, 200)}`);
+    captureException(err);
+    throw err;
+  }
+  const json = await response.json();
+  const toolUse = (json.content ?? []).find((b: { type?: string }) => b.type === 'tool_use');
+  if (!toolUse) throw new Error('Anthropic returned no tool_use block');
+  return JSON.stringify(toolUse.input);
+}
+
+// Backend-agnostic structured-output entry point used by the easy-chart planner. The backend is
+// chosen by the EASY_CHART_PLANNER_MODEL env/secret, formatted "<provider>:<model>" where provider
+// is `vertex` or `anthropic`. Defaults to the historical Vertex flash-lite so behavior is unchanged
+// unless configured. Examples:
+//   vertex:gemini-2.5-flash
+//   anthropic:claude-haiku-4-5-20251001
+export async function invokeChatbotStructured(
+  input: MessageContentComplex[],
+  secrets: Secrets | null,
+  responseSchema: object,
+  backendOverride?: string
+): Promise<string> {
+  const backend =
+    backendOverride ||
+    getOptionalSecret(SecretsKeys.EASY_CHART_PLANNER_MODEL, secrets) ||
+    `vertex:${DEFAULT_VERTEX_MODEL}`;
+  const sep = backend.indexOf(':');
+  const provider = sep >= 0 ? backend.slice(0, sep) : backend;
+  const model = sep >= 0 ? backend.slice(sep + 1) : '';
+  if (provider === 'anthropic') {
+    return invokeClaudeStructured(input, secrets, responseSchema, model || undefined);
+  }
+  return invokeChatbotVertexAI(input, secrets, responseSchema, model || undefined);
 }
 
 export async function invokeChatbot(input: BaseMessageLike[], secrets: Secrets | null): Promise<AIMessageChunk> {

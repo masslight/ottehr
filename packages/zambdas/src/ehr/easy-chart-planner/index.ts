@@ -9,7 +9,7 @@ import {
   INVALID_INPUT_ERROR,
 } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
-import { invokeChatbotVertexAI } from '../../shared/ai';
+import { invokeChatbotStructured } from '../../shared/ai';
 import { resolveCptHcpcs, resolveIcd, STRICT_ICD10 } from '../../shared/easy-chart/codes';
 import { createOystehrClient } from '../../shared/helpers';
 import { findHolderList } from '../shared/template-helpers';
@@ -221,7 +221,7 @@ const NOTE_TEXT_FIELDS = [
 ] as const;
 type NoteTextField = (typeof NOTE_TEXT_FIELDS)[number];
 
-const RESPONSE_SCHEMA = {
+export const RESPONSE_SCHEMA = {
   type: 'object',
   properties: {
     steps: {
@@ -265,7 +265,7 @@ const RESPONSE_SCHEMA = {
   required: ['steps'],
 };
 
-const buildPrompt = (
+export const buildPrompt = (
   narrative: string,
   noteContext?: Partial<Record<NoteTextField, string>>,
   templateTitles?: string[],
@@ -519,6 +519,16 @@ ACTION SHAPES (use these intent kinds and the same fields the single-shot agent 
   a site is mentioned, so leave the site OUT of the display unless the provider explicitly named a
   site-specific diagnosis. Adding a site to "gout" wrongly forces a site-specific M10.0x over the
   commonly-used M10.9 "gout, unspecified".
+  EMIT A BILLABLE, FULLY-SPECIFIED CODE — never a 3-character category that has children (e.g. use
+  M54.50/M54.51, NOT bare "M54.5"; use S06.0X0A, NOT "S06.0"). A non-billable parent is rejected and
+  falls back to a text search that often lands on the wrong code.
+  REGION CONSISTENCY (the code's body region MUST match your "display"): spinal / back muscle strains
+  are coded by SPINE level, never by limb — cervical/neck strain → S16.1XXA; thoracic/mid-back →
+  S29.012A; lumbar / low-back strain → S39.012A (or M54.50/M54.51 for low back pain). NEVER code a
+  back strain to a lower-extremity site (S76 is thigh/quadriceps) or to "other injury of unspecified
+  body region" (T14.8). If unsure of the exact code for the documented region, prefer a
+  region-correct less-specific code over a precise code for the WRONG region — a wrong-region code is
+  a billing/compliance error.
 - add-medication takes two extra fields beyond display/searchTerms:
     { kind: "add-medication", display, searchTerms, strength, doseForm }
     Keep searchTerms focused on the ingredient/brand name ("Amoxicillin") — DO NOT pack
@@ -720,7 +730,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     console.warn('Planner: template-list fetch failed, proceeding without:', e);
   }
 
-  const raw = await invokeChatbotVertexAI(
+  const raw = await invokeChatbotStructured(
     [{ text: buildPrompt(narrative, noteContext, templateTitles, chartState) }],
     secrets,
     RESPONSE_SCHEMA

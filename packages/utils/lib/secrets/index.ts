@@ -51,4 +51,7 @@ export enum SecretsKeys {
   PATIENT_LOGIN_REDIRECT_URL = 'PATIENT_LOGIN_REDIRECT_URL',
   POSTGRID_API_KEY = 'POSTGRID_API_KEY',
   POSTGRID_ENV = 'POSTGRID_ENV',
+  // Optional. Selects the easy-chart planner LLM backend as "<provider>:<model>"
+  // (provider = vertex | anthropic). Unset → defaults to vertex:gemini-3.1-flash-lite.
+  EASY_CHART_PLANNER_MODEL = 'EASY_CHART_PLANNER_MODEL',
 }

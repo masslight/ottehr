@@ -12,8 +12,17 @@ export type EasyChartAgentIntent =
   | { kind: 'add-condition'; display: string; searchTerms: string[]; code?: string }
   // strength/doseForm are extracted when present so the client can rank eRx search results
   // (e.g. narrative says "amoxicillin suspension 400 mg/5 mL" → strength="400 mg/5 mL",
-  // doseForm="Suspension"). Plain "amoxicillin" leaves them undefined.
-  | { kind: 'add-medication'; display: string; searchTerms: string[]; strength?: string; doseForm?: string }
+  // doseForm="Suspension"). Plain "amoxicillin" leaves them undefined. `unit` is an alias the
+  // model sometimes emits for the dosage form ("tablet") instead of doseForm — the client treats
+  // it as a doseForm fallback so form-ranking still fires.
+  | {
+      kind: 'add-medication';
+      display: string;
+      searchTerms: string[];
+      strength?: string;
+      doseForm?: string;
+      unit?: string;
+    }
   | { kind: 'add-surgical-history'; display: string; searchTerms: string[] }
   | { kind: 'add-hospitalization'; display: string; searchTerms: string[] }
   // Same `code` convention as add-condition — the provider may dictate "diagnosis: acute otitis

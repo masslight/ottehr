@@ -2404,7 +2404,10 @@ function rankMedicationResults(
   intent: Extract<EasyChartAgentIntent, { kind: 'add-medication' }>
 ): SearchResult[] {
   const wantStrength = intent.strength ? normForMatch(intent.strength) : '';
-  const wantForm = intent.doseForm ? intent.doseForm.toLowerCase().trim() : '';
+  // The model sometimes emits the dosage form under `unit` ("tablet") instead of `doseForm`;
+  // treat them interchangeably so combination kits / wrong forms still get out-ranked.
+  const formRaw = intent.doseForm ?? intent.unit;
+  const wantForm = formRaw ? formRaw.toLowerCase().trim() : '';
   // Single-ingredient request: provider typed "amoxicillin" (no hyphen, no &, no "/"). eRx
   // returns combination products (Amoxicillin-Pot Clavulanate, Amox & Vonoprazan) that
   // SHOULDN'T outrank the plain ingredient — penalize those when the request looks single-ing.
@@ -2717,6 +2720,22 @@ export default function EasyChartPage(): JSX.Element {
   const lastNarrativeRef = useRef<string>('');
   const pendingReviewRef = useRef<string | null>(null);
 
+  // The right column scrolls independently; its interactive bits (questions, the Approve and
+  // Run buttons, review cards) render at the bottom of the stack and are easy to miss below the
+  // fold. Auto-scroll the column to the bottom whenever that content changes so new prompts and
+  // buttons come into view (mirrors a chat panel following its latest message).
+  const rightColScrollRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const el = rightColScrollRef.current;
+    if (!el) return;
+    // Wait for the new content to lay out, then follow it to the bottom.
+    const id = requestAnimationFrame(() => {
+      el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
+    });
+    return () => cancelAnimationFrame(id);
+  }, [conv, plan, reviewSuggestions]);
+
   // For removes: scroll to the item, flash it red for 1.5s so the user sees what's being
   // deleted, then actually remove it from local state. Callers pass a `commitRemove` callback
   // that does the state mutation (typically a setChartData call) — it runs after the flash.
@@ -3019,14 +3038,50 @@ export default function EasyChartPage(): JSX.Element {
     }
   };
 
-  // Auto-mark a primary: a signable note needs one, and templates / manual adds can leave a chart
-  // with diagnoses but none flagged. When that happens, promote the first (the planner's convention
-  // for "the primary problem") so the note isn't silently unsignable. Guarded so it fires once per
-  // no-primary state, never looping.
+  // Demote a set of diagnoses to secondary in one save (used to clean up extra primaries).
+  const demoteDiagnoses = async (toDemote: DiagnosisDTO[]): Promise<void> => {
+    const updates = toDemote.filter((d) => d.resourceId).map((d) => ({ ...d, isPrimary: false }));
+    if (!apiClient || !encounterId || updates.length === 0) return;
+    const demoteIds = new Set(updates.map((d) => d.resourceId));
+    const prevDiagnoses = chartDataRef.current?.diagnosis ?? [];
+    setChartData((prev) =>
+      prev
+        ? {
+            ...prev,
+            diagnosis: (prev.diagnosis ?? []).map((d) =>
+              demoteIds.has(d.resourceId) ? { ...d, isPrimary: false } : d
+            ),
+          }
+        : prev
+    );
+    try {
+      await apiClient.saveChartData({ encounterId, diagnosis: updates });
+    } catch (e) {
+      console.error('Failed to demote extra primary diagnoses:', e);
+      setChartData((prev) => (prev ? { ...prev, diagnosis: prevDiagnoses } : prev));
+    }
+  };
+
+  // Enforce EXACTLY one primary diagnosis. A signable note needs one, and templates / manual adds
+  // can leave a chart with none flagged → promote the first. The planner's initial pass and its
+  // post-template re-plan can ALSO each chart their own isPrimary diagnosis (neither sees the
+  // other's save), leaving TWO primaries — keep the first, demote the rest. Guarded so each branch
+  // fires once per state, never looping.
   const autoPrimaryAttemptedRef = useRef(false);
+  const demoteExtrasAttemptedRef = useRef(false);
   useEffect(() => {
     const diagnoses = chartData?.diagnosis ?? [];
-    if (diagnoses.length === 0 || diagnoses.some((d) => d.isPrimary)) {
+    const primaries = diagnoses.filter((d) => d.isPrimary);
+    // More than one primary → keep the first, demote the rest.
+    if (primaries.length > 1) {
+      if (demoteExtrasAttemptedRef.current) return;
+      demoteExtrasAttemptedRef.current = true;
+      const [, ...extras] = primaries;
+      void demoteDiagnoses(extras);
+      return;
+    }
+    demoteExtrasAttemptedRef.current = false;
+    if (diagnoses.length === 0 || primaries.length === 1) {
       autoPrimaryAttemptedRef.current = false;
       return;
     }
@@ -4148,6 +4203,31 @@ export default function EasyChartPage(): JSX.Element {
       }
       // Add flow — no stopping: always auto-pick the top match.
       const results = await runIntentSearch(intent, oystehr, oystehrZambda);
+      if (intent.kind === 'add-medication' && results.length > 0) {
+        // Dose safety: the dictated strength is the one thing we must never silently change.
+        // runIntentSearch already strength-ranks, but ranking alone still auto-picks SOMETHING
+        // even when the dictated dose isn't in the catalog results — that's how "5 mg" became a
+        // charted "7.5 MG". So when a strength was dictated, only auto-pick a product whose
+        // strength actually matches it; if none of the results match, do NOT substitute a
+        // different dose — open the picker so the provider explicitly chooses (or corrects).
+        const wantStrength = intent.strength ? normForMatch(intent.strength) : '';
+        const strengthMatches = wantStrength
+          ? results.filter((r) => r.strength && normForMatch(r.strength) === wantStrength)
+          : results;
+        if (wantStrength && strengthMatches.length === 0) {
+          setConv({ kind: 'choose', user: message, intent, results });
+          return;
+        }
+        const pick = strengthMatches[0] ?? results[0];
+        const candidates = wantStrength ? strengthMatches : results;
+        await handlePick(intent, pick, message, {
+          field: KIND_TO_FIELD[intent.kind],
+          display: intent.display || pick.name,
+          searchTerms: intent.searchTerms,
+          lowConfidence: candidates.length > 1,
+        });
+        return;
+      }
       if (results.length === 0) {
         setConv({ kind: 'no-match', user: message, intent });
       } else if (AUTO_CHART_KINDS.has(intent.kind)) {
@@ -5865,7 +5945,7 @@ export default function EasyChartPage(): JSX.Element {
 
         {/* Right column: AI conversation */}
         <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-          <Box sx={{ overflowY: { md: 'auto' }, pr: { md: 1 } }}>
+          <Box ref={rightColScrollRef} sx={{ overflowY: { md: 'auto' }, pr: { md: 1 } }}>
             <Stack spacing={2}>
               {refineBar}
               {planProgress}
