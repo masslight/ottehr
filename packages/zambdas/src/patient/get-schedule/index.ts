@@ -186,19 +186,12 @@ export const index = wrapHandler('get-schedule', async (input: ZambdaInput): Pro
       scheduleList.length = 0;
       scheduleList.push(...filtered);
     } else {
+      // Reuse the FHIR category bundle fetched at the top of the handler
+      // (`fhirCategoryHits`) — same query, same snapshot. Re-running the
+      // search here would burn an extra round-trip and risk a snapshot-
+      // inconsistency window if a category were added/removed mid-handler.
       const categoryHealthcareServiceIds = new Set<string>();
-      // Resolve the category-tagged HealthcareService(s) to their ids so we can
-      // match against role.healthcareService[].reference.
-      const categoryHits = (
-        await oystehr.fhir.search<HealthcareService>({
-          resourceType: 'HealthcareService',
-          params: [
-            { name: '_tag', value: 'booking-service-category' },
-            { name: 'active', value: 'true' },
-          ],
-        })
-      ).unbundle();
-      for (const hs of categoryHits) {
+      for (const hs of fhirCategoryHits) {
         if (hs.type?.[0]?.coding?.some((c) => c.code === serviceCategoryCode) && hs.id) {
           categoryHealthcareServiceIds.add(hs.id);
         }

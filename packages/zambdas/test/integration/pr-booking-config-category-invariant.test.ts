@@ -65,9 +65,12 @@ describe.skipIf(BOOKING_CONFIG.serviceCategories.length === 0)(
     });
 
     afterAll(async () => {
-      if (!oystehr || !processId) {
-        throw new Error('oystehr or processId is null; cannot clean up fixtures');
-      }
+      // No-op when beforeAll didn't complete: if oystehr/processId never got
+      // initialized then no tagged fixtures could have been created, so there's
+      // nothing to clean up. Throwing here would replace the real beforeAll
+      // failure (e.g. auth or env-config issue) with a misleading "oystehr is
+      // null" cleanup error in the vitest output.
+      if (!oystehr || !processId) return;
       await cleanupTestScheduleResources(processId, oystehr);
       for (const { resourceType, id } of extraResourceCleanup) {
         try {
