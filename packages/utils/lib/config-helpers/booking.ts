@@ -23,6 +23,26 @@ export const getServiceCategoryCodings = (): StrongCoding[] => {
 };
 
 /**
+ * True when `code` matches a compile-time BOOKING_CONFIG service category.
+ *
+ * BOOKING_CONFIG categories aren't backed by a FHIR HealthcareService — they
+ * can't be referenced from `PractitionerRole.healthcareService[]` and they
+ * can't be allow-listed by a HealthcareService group (groups reference
+ * categories by FHIR id). Booking-flow sites use this helper to enforce the
+ * invariant "PractitionerRole-owned Schedules never support BOOKING_CONFIG
+ * categories" — a Slot stamped with one of these codes must live on a
+ * Location or HealthcareService (group) actor's Schedule.
+ *
+ * Lives here (config-helpers) rather than in `ottehr-config/booking` because
+ * it interprets the active BOOKING_CONFIG rather than defining it. Putting
+ * it next to the config would have forced downstream instances to redefine
+ * the helper alongside their config overrides; here it picks up whatever
+ * config the consuming process sees through the proxy.
+ */
+export const isBookingConfigServiceCategoryCode = (code: string): boolean =>
+  BOOKING_CONFIG.serviceCategories.some((sc) => sc.category.code === code);
+
+/**
  * Whether a service category supports a given (mode, visit type) context.
  *
  * For BOOKING_CONFIG-sourced entries, an empty `serviceModes`/`visitTypes`

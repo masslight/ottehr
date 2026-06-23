@@ -28,7 +28,9 @@ const SelectServiceCategoryPage = (): JSX.Element => {
 
   const location = useLocation();
   const currentPath = location.pathname;
-  const isWalkinFlow = currentPath.startsWith('/walkin/');
+  // `/start-virtual/` is a walk-in flow too, just virtual instead of in-person
+  // (StartVirtualVisit creates its Slot with walkin=true).
+  const isWalkinFlow = currentPath.startsWith('/walkin/') || currentPath.startsWith('/start-virtual/');
   const requiredVisitType = isWalkinFlow ? 'walk-in' : 'prebook';
 
   const requiredServiceMode = useMemo<string | undefined>(() => deriveServiceModeFromPath(currentPath), [currentPath]);
