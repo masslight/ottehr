@@ -130,11 +130,16 @@ Each suggestion is in exactly one of these categories, with the given action sha
    then { "kind":"add-diagnosis", "display": <more specific diagnosis>, "searchTerms":[...],
    "isPrimary": <same as the one removed>, "code": <best ICD-10> }.
 
-3) "pertinent-negative" — a pertinent negative the provider stated in the narrative is NOT charted as a
-   ROS/exam finding (e.g. "no tragus tenderness", "canals normal", "denies fever").
+3) "pertinent-negative" — a pertinent negative the provider EXPLICITLY stated in the narrative is NOT
+   charted as a ROS/exam finding (e.g. "no tragus tenderness", "canals normal", "denies fever").
    ACTION: one or more { "kind":"add-ros-finding", "display":"Denies <symptom>" } (display MUST start
    with "Denies" or "Reports"); use { "kind":"add-exam-finding", "display": <finding> } for exam
    negatives. One card may carry several add actions.
+   HARD LIMITS: only suggest negatives the provider ACTUALLY said the patient denies — never invent a
+   "Denies X" the narrative doesn't state. ABOVE ALL, never suggest denying the chief complaint or a
+   symptom the patient is PRESENTING WITH: if the visit is for ear pain, "Denies ear pain" is wrong;
+   the patient HAS that symptom. Check the narrative's presenting complaint before proposing any
+   "Denies …".
 
 4) "em-level" — assess the charted E&M against the documented complexity. In particular, if a NEW
    prescription was given (prescription drug management = moderate risk) and the charted code is 99213,
@@ -142,9 +147,15 @@ Each suggestion is in exactly one of these categories, with the given action sha
    { "kind":"set-em-code", "code": <99xxx>, "display": <short>}. REQUIRED: a one-line "rationale"
    explaining the level by MDM elements (problems / data / risk).
 
-5) "secondary-dx" — a diagnosis clearly supported by the narrative is not charted (e.g. a concurrent
-   URI alongside the primary problem). ACTION: one { "kind":"add-diagnosis", "display": <dx>,
-   "searchTerms":[...], "isPrimary": false, "code": <best ICD-10> }.
+5) "secondary-dx" — a DISTINCT, active problem the provider actually evaluated/treated this visit that
+   is not charted. ACTION: one { "kind":"add-diagnosis", "display": <dx>, "searchTerms":[...],
+   "isPrimary": false, "code": <best ICD-10> }.
+   BE CONSERVATIVE — do NOT invent a diagnosis the provider did not make. A single minor/incidental
+   EXAM finding is part of the exam, not a separate diagnosis (a mildly injected pharynx without
+   exudate alongside an ear infection is NOT a pharyngitis diagnosis). Antecedent HISTORY is not an
+   active diagnosis either ("following a cold" describes how it started, not a second problem to code).
+   Suggest a secondary dx ONLY when the narrative clearly frames it as its own problem the provider
+   worked up or addressed. When in doubt, omit.
 
 RULES:
 - NEVER suggest adding something that already appears in ALREADY ON THE CHART.
