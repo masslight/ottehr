@@ -44,6 +44,7 @@ import {
   getLatestInHouseLabActivityDefinitionsForTemplatePlan,
   isInHouseLabPlanServiceRequest,
 } from './apply-in-house-labs';
+import { applyInHouseMedicationPlans } from './apply-in-house-medications';
 import {
   buildLiveProcedureRequest,
   collectContainedIdsClaimedByProcedures,
@@ -185,6 +186,9 @@ const getSectionForResource = (resource: FhirResource): TemplateSectionKey | nul
   if (isDiagnosisCondition(resource)) {
     return 'diagnoses';
   }
+  if (resourceHasTagSystem(resource, chartDataTagSystem('in-house-medication-administration-template'))) {
+    return 'inHouseMedications';
+  }
   return null;
 };
 
@@ -217,6 +221,17 @@ const performEffect = async (
     action: actions.inHouseLabs,
     activityDefinitions: applicableInHouseLabAds,
     encounterResources: encounterBundle,
+  });
+
+  // In-house medication plans are likewise independent of chart-data batches
+  // (each creates its own MA + MR), so they run in parallel too.
+  const inHouseMedicationsPromise = applyInHouseMedicationPlans({
+    templateList,
+    encounter,
+    oystehr,
+    action: actions.inHouseMedications,
+    userToken: validatedInput.userToken,
+    secrets: validatedInput.secrets,
   });
 
   // External lab plans are likewise independent of the chart-data batches (the
@@ -312,15 +327,18 @@ const performEffect = async (
     requests: miniTransactionRequests,
   });
 
-  const [bundles, inHouseLabsResult, externalLabsResult] = await Promise.all([
+  const [bundles, inHouseLabsResult, externalLabsResult, inHouseMedicationsResult] = await Promise.all([
     Promise.all([...deleteBatches, ...createObservationBatches, miniTransactionPromise]),
     inHouseLabsPromise,
     externalLabsPromise,
+    inHouseMedicationsPromise,
   ]);
 
   console.log('Outcome bundles, ', JSON.stringify(bundles));
 
-  return { warnings: [...inHouseLabsResult.warnings, ...externalLabsResult.warnings] };
+  return {
+    warnings: [...inHouseLabsResult.warnings, ...externalLabsResult.warnings, ...inHouseMedicationsResult.warnings],
+  };
 };
 
 // Decide whether an existing chart-data resource on the encounter should be deleted

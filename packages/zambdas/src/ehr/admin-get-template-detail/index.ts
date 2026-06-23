@@ -6,6 +6,7 @@ import {
   Communication,
   Condition,
   List,
+  MedicationAdministration,
   Procedure,
   ServiceRequest,
 } from 'fhir/r4b';
@@ -22,6 +23,8 @@ import {
   examConfig,
   extractCptCodeModifiersFromCoding,
   FHIR_EXTENSION,
+  getCptCodesFromMA,
+  getDosageUnitsAndRouteOfMedication,
   getRosFindingStateFromKey,
   getSecret,
   getTag,
@@ -30,6 +33,7 @@ import {
   PERFORMER_TYPE_SYSTEM,
   PROCEDURE_TYPE_SYSTEM,
   resourceHasTagSystem,
+  searchRouteByCode,
   SecretsKeys,
   TemplateAccidentInfo,
   TemplateCodeInfo,
@@ -37,6 +41,7 @@ import {
   TemplateExamFinding,
   TemplateExternalLabPlanDetail,
   TemplateInHouseLabPlanDetail,
+  TemplateInHouseMedicationDetail,
   TemplateProcedurePlan,
   TemplateRosFinding,
 } from 'utils';
@@ -53,6 +58,11 @@ import {
   indexLatestActivityDefinitionsByUrl,
   urlFromInstantiatesCanonical,
 } from '../apply-template/apply-in-house-labs';
+import {
+  deriveMedicationName,
+  isInHouseMedicationTemplatePlan,
+  makeMedicationsByIdMap,
+} from '../apply-template/apply-in-house-medications';
 import { findProcedurePlans } from '../apply-template/apply-procedures';
 import { analyzeTemplateVersionData, isDiagnosisCondition, verifyIsTemplate } from '../shared/template-helpers';
 import { validateRequestParameters } from './validateRequestParameters';
@@ -518,6 +528,47 @@ const performEffect = async (
     };
   });
 
+  // Parse in-house medication template MAs. Each MedicationAdministration
+  // with the in-house-medication-administration-template tag, carries the drug identity as
+  // medicationCodeableConcept, dosage, CPT codes, reason notes, and ICD-10 diagnoses.
+  const inHouseMedicationTemplatePlans = contained.filter((r): r is MedicationAdministration =>
+    isInHouseMedicationTemplatePlan(r)
+  );
+  const inHouseMedicationReferencedMedicationsById = makeMedicationsByIdMap(contained);
+
+  const inHouseMedications: TemplateInHouseMedicationDetail[] = inHouseMedicationTemplatePlans.map((templateMA) => {
+    const cptEntries = getCptCodesFromMA(templateMA) ?? [];
+    const maCptCodes: TemplateCptCodeInfo[] = cptEntries.map((e) => ({
+      code: e.code,
+      display: e.display,
+      modifiers: [], // you can't currently add modifiers to in house med cpt codes, but this typing is useful downstream
+    }));
+
+    const maDiagnoses: TemplateCodeInfo[] = (templateMA.reasonCode ?? [])
+      .map((rc) => {
+        const icd = rc.coding?.find((c) => c.system === ICD_10_CODE_SYSTEM) ?? rc.coding?.[0];
+        return { code: icd?.code ?? '', display: icd?.display ?? rc.text ?? '' };
+      })
+      .filter((d) => d.code || d.display);
+
+    const containedMedicationId = templateMA.medicationReference?.reference?.replace('#', '');
+    const medicationName = deriveMedicationName(containedMedicationId, inHouseMedicationReferencedMedicationsById);
+
+    const { route, dose, units } = getDosageUnitsAndRouteOfMedication(templateMA);
+
+    // ATHENA TODO: do we need to handle "missing" meds, like if they no longer appear in a dosespot search or something?
+    return {
+      planId: templateMA.id ?? '',
+      medicationName,
+      dose,
+      units,
+      route: searchRouteByCode(route)?.display,
+      instructions: templateMA.dosage?.text,
+      cptCodes: maCptCodes,
+      diagnoses: maDiagnoses,
+    };
+  });
+
   return {
     templateName: templateList.title ?? '',
     templateId: templateList.id!,
@@ -538,6 +589,7 @@ const performEffect = async (
       inHouseLabs,
       externalLabs,
       procedures,
+      inHouseMedications,
     },
   };
 };

@@ -40,9 +40,11 @@ import {
   TEMPLATE_SECTIONS_IN_ORDER,
   TEMPLATE_SECTIONS_NO_APPEND,
   TEMPLATE_SECTIONS_NO_OVERWRITE,
+  TemplateCodeInfo,
   TemplateCptCodeInfo,
   TemplateExternalLabPlanDetail,
   TemplateInHouseLabPlanDetail,
+  TemplateInHouseMedicationDetail,
   TemplatePreviewApplyOptions,
   TemplateProcedurePlan,
   TemplateSectionAction,
@@ -98,6 +100,15 @@ const pluralize = (n: number, singular: string, plural = `${singular}s`): string
 
 // the slices are because we show the names of the first two items "+ n more"
 const NUM_ITEMS_IN_SECTION_TO_SHOW = 2;
+const getItemsToShowAndExtraCount = (items: any[], accessItem: (item: any) => any): string => {
+  const itemsToShow = items
+    .slice(0, NUM_ITEMS_IN_SECTION_TO_SHOW)
+    .map((elm: any) => accessItem(elm))
+    .join(', ');
+  const extraCount = items.length - NUM_ITEMS_IN_SECTION_TO_SHOW;
+  return extraCount > 0 ? `${itemsToShow} +${extraCount} more` : itemsToShow;
+};
+
 const getSectionSummary = (sections: AdminGetTemplateDetailOutput['sections'], key: TemplateSectionKey): string => {
   switch (key) {
     case 'hpi':
@@ -121,42 +132,27 @@ const getSectionSummary = (sections: AdminGetTemplateDetailOutput['sections'], k
     case 'mdm':
       return sections.mdm ? truncate(sections.mdm) : '';
     case 'diagnoses': {
-      const codes = sections.diagnoses
-        .slice(0, NUM_ITEMS_IN_SECTION_TO_SHOW)
-        .map((d) => d.code)
-        .join(', ');
-      const extra = sections.diagnoses.length - NUM_ITEMS_IN_SECTION_TO_SHOW;
-      return extra > 0 ? `${codes} +${extra} more` : codes;
+      return getItemsToShowAndExtraCount(sections.diagnoses, (item: TemplateCodeInfo) => item.code);
     }
     case 'patientInstructions':
       return pluralize(sections.patientInstructions.length, 'instruction');
     case 'cptCodes': {
-      const codes = sections.cptCodes
-        .slice(0, NUM_ITEMS_IN_SECTION_TO_SHOW)
-        .map((c) => c.code)
-        .join(', ');
-      const extra = sections.cptCodes.length - NUM_ITEMS_IN_SECTION_TO_SHOW;
-      return extra > 0 ? `${codes} +${extra} more` : codes;
+      return getItemsToShowAndExtraCount(sections.cptCodes, (item: TemplateCptCodeInfo) => item.code);
     }
     case 'emCode':
       return sections.emCode ? sections.emCode.code : '';
     case 'inHouseLabs': {
-      const names = sections.inHouseLabs
-        .slice(0, NUM_ITEMS_IN_SECTION_TO_SHOW)
-        .map((p) => p.testName)
-        .join(', ');
-      const extra = sections.inHouseLabs.length - NUM_ITEMS_IN_SECTION_TO_SHOW;
-      const summary = extra > 0 ? `${names} +${extra} more` : names;
+      const summary = getItemsToShowAndExtraCount(
+        sections.inHouseLabs,
+        (item: TemplateInHouseLabPlanDetail) => item.testName
+      );
       const missing = sections.inHouseLabs.filter((p) => p.missing).length;
       return missing > 0 ? `${summary} (${missing} unavailable)` : summary;
     }
     case 'externalLabs': {
-      const names = sections.externalLabs
-        .slice(0, NUM_ITEMS_IN_SECTION_TO_SHOW)
-        .map((p) => nameLabTest(p.testName, p.testCode, p.labName, false))
-        .join(', ');
-      const extra = sections.externalLabs.length - NUM_ITEMS_IN_SECTION_TO_SHOW;
-      const summary = extra > 0 ? `${names} +${extra} more` : names;
+      const summary = getItemsToShowAndExtraCount(sections.externalLabs, (item: TemplateExternalLabPlanDetail) =>
+        nameLabTest(item.testName, item.testCode, item.labName, false)
+      );
       const missing = sections.externalLabs.filter((p) => p.missing).length;
       return missing > 0 ? `${summary} (${missing} unavailable)` : summary;
     }
@@ -165,11 +161,16 @@ const getSectionSummary = (sections: AdminGetTemplateDetailOutput['sections'], k
       // it's there, otherwise fall back to the first CPT code so the summary
       // still says something concrete. "Unnamed procedure" is a last resort for
       // very sparse template entries.
-      const labels = sections.procedures
-        .slice(0, NUM_ITEMS_IN_SECTION_TO_SHOW)
-        .map((p) => p.procedureType ?? p.cptCodes[0]?.code ?? 'Unnamed procedure');
-      const extra = sections.procedures.length - NUM_ITEMS_IN_SECTION_TO_SHOW;
-      return extra > 0 ? `${labels.join(', ')} +${extra} more` : labels.join(', ');
+      return getItemsToShowAndExtraCount(
+        sections.procedures,
+        (p: TemplateProcedurePlan) => p.procedureType ?? p.cptCodes[0]?.code ?? 'Unnamed procedure'
+      );
+    }
+    case 'inHouseMedications': {
+      return getItemsToShowAndExtraCount(
+        sections.inHouseMedications,
+        (item: TemplateInHouseMedicationDetail) => item.medicationName
+      );
     }
     default:
       return '';
@@ -202,6 +203,8 @@ const sectionHasContent = (sections: AdminGetTemplateDetailOutput['sections'], k
       return sections.externalLabs.length > 0;
     case 'procedures':
       return sections.procedures.length > 0;
+    case 'inHouseMedications':
+      return sections.inHouseMedications.length > 0;
     default:
       return false;
   }
@@ -343,10 +346,49 @@ const SectionPreview: React.FC<{
       return <ExternalLabPlansList plans={sections.externalLabs} />;
     case 'procedures':
       return <ProcedurePlansList plans={sections.procedures} />;
+    case 'inHouseMedications':
+      return <InHouseMedicationList meds={sections.inHouseMedications} />;
     default:
       return null;
   }
 };
+
+const InHouseMedicationList: React.FC<{ meds: TemplateInHouseMedicationDetail[] }> = ({ meds }) => (
+  <Stack spacing={1.5}>
+    {meds.map((med) => (
+      <Box key={med.planId}>
+        <Typography variant="body2" sx={{ color: 'text.primary', fontWeight: 500 }}>
+          {med.medicationName}, {med.dose} {med.units}, {med.route}
+        </Typography>
+        {med.diagnoses.length > 0 ? (
+          <Stack direction="row" flexWrap="wrap" gap={0.5} sx={{ mt: 0.5 }}>
+            {med.diagnoses.map((d, idx) => (
+              <Chip
+                key={`${med.planId}-dx-${idx}`}
+                size="small"
+                variant="outlined"
+                label={d.display ? `${d.code} — ${d.display}` : d.code}
+              />
+            ))}
+          </Stack>
+        ) : null}
+        {med.cptCodes.length > 0 ? (
+          <Stack direction="row" flexWrap="wrap" gap={0.5} sx={{ mt: 0.5 }}>
+            {med.cptCodes.map((c, idx) => (
+              <Chip
+                key={`${med.planId}-cpt-${idx}`}
+                size="small"
+                variant="outlined"
+                color="primary"
+                label={`CPT ${formatCptCodeAndModifiersForDisplay(c)}${c.display ? ` — ${c.display}` : ''}`}
+              />
+            ))}
+          </Stack>
+        ) : null}
+      </Box>
+    ))}
+  </Stack>
+);
 
 // Each plan renders as a row with the test name and any reasonCode ICDs as
 // little chips below. Plans whose ActivityDefinition couldn't be resolved on
