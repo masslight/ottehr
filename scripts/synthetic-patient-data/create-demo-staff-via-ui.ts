@@ -124,6 +124,16 @@ async function createOne(page: Page, s: Staff): Promise<'created' | 'exists' | '
     try {
       await providerBox.first().waitFor({ timeout: 15000 });
       if (!(await providerBox.first().isChecked())) await providerBox.first().check();
+      // Oystehr is rolling out NPI checksum (Luhn) validation on the create/update-provider flow,
+      // so a blank or arbitrary NPI gets rejected on Save. 1234567893 is a known checksum-valid test
+      // NPI. The NPI field only renders once the Provider role is checked, so fill it here.
+      const npiField = page.getByLabel('NPI', { exact: true });
+      try {
+        await npiField.first().waitFor({ timeout: 5000 });
+        await npiField.first().fill('1234567893');
+      } catch {
+        /* NPI field absent (older build / not required yet) — proceed to Save without it */
+      }
       await page.getByRole('button', { name: /save/i }).first().click();
       await page.waitForTimeout(1500);
     } catch (e) {
