@@ -421,6 +421,27 @@ doesn't mention):
      emit add-exam-finding for ABNORMAL findings (or normal findings the narrative specifically
      calls out that the template doesn't cover by default). Templates already check the default
      normal findings for that section — don't re-add them.
+     RECONCILE CONTRADICTIONS: an applied template fills in a FULL normal physical exam. When the
+     narrative states an ABNORMAL finding, the template's matching NORMAL finding is now wrong and
+     must be removed so the note is not self-contradictory. For each normal finding in the
+     "Exam findings already checked" list that the narrative DIRECTLY contradicts, emit a
+     remove-exam-finding whose display is that charted finding's exact wording. Common cases:
+       • narrative describes ANY distress (e.g. "moderate respiratory distress", accessory muscle
+         use, intercostal retractions, speaking in short sentences) → remove "In no acute distress".
+       • narrative describes wheezing, rales/crackles, rhonchi, decreased/diminished air entry, a
+         prolonged expiratory phase, or respiratory distress → remove "No signs of respiratory
+         distress" AND "Good air movement throughout lung fields".
+       • narrative describes pharyngeal erythema/injection or tonsillar exudate → remove
+         "Oropharynx clear with no erythema, lesions, or exudate".
+       • narrative describes conjunctival injection or discharge → remove the matching
+         "conjunctiva non-injected, no discharge" finding.
+       • narrative describes abdominal tenderness, distension, or guarding → remove "Soft" /
+         "Nontender" / "Nondistended" as applicable.
+     STRICT LIMITS: only remove a normal the narrative DIRECTLY contradicts. KEEP every normal the
+     narrative is silent about or consistent with — e.g. keep "Regular rate and rhythm with no
+     murmur" even when the patient is tachycardic (tachycardia is a vital, not a murmur), and KEEP
+     the ear / eye / abdomen / neuro normals when the narrative never describes an abnormality in
+     that system. Do NOT remove a normal merely because its body system was examined or mentioned.
   4b. ROS findings (add-ros-finding) — with finding="reports" or "denies". These are structured
      (rosObservations), separate from the exam. Focus the ROS on the pertinent NEGATIVES the provider
      stated and on ASSOCIATED symptoms in OTHER systems than the chief complaint; you need not
