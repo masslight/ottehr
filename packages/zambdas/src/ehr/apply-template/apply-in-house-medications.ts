@@ -24,9 +24,7 @@ import {
   Secrets,
   TemplateSectionAction,
 } from 'utils';
-import { v4 as uuidV4 } from 'uuid';
 import { getMyPractitionerId } from '../../shared';
-import { makeProcedureResource } from '../../shared/chart-data';
 import {
   createMedicationAdministrationResource,
   createMedicationRequest,
@@ -141,7 +139,6 @@ export async function applyInHouseMedicationPlans(
       const orderData: MedicationData = {
         patient: patientId,
         encounterId,
-        // routeCoding.code was validated non-null above; route string is required by MedicationData
         route: routeAppliance.display,
         dose: dose,
         units,
@@ -211,26 +208,9 @@ export async function applyInHouseMedicationPlans(
         // ATHENA TODO: where am I supposed to get interactions from?
         const liveMR = createMedicationRequest(orderData, undefined, medicationForMa);
 
-        const maFullUrl = `urn:uuid:${uuidV4()}`;
-        requests.push({
-          method: 'POST',
-          url: '/MedicationAdministration',
-          resource: liveMA,
-          fullUrl: maFullUrl,
-        });
+        // Note: we do not make the cpt code Procedures at med order time -- those are created and added to the assessment at med administration time
+        requests.push({ method: 'POST', url: '/MedicationAdministration', resource: liveMA });
         requests.push({ method: 'POST', url: '/MedicationRequest', resource: liveMR });
-
-        // ATHENA TODO: make sure this tracks with how the other template sections think about adding cpt codes
-        const cptCodes = getCptCodesFromMA(liveMA);
-        if (cptCodes && cptCodes.length > 0) {
-          for (const cptCode of cptCodes) {
-            requests.push({
-              method: 'POST',
-              url: '/Procedure',
-              resource: makeProcedureResource(encounterId, patientId, cptCode, 'cpt-code', maFullUrl),
-            });
-          }
-        }
       } catch (err) {
         console.error(`Error building medication order for template MA ${templateMA.id}`, err);
         warnings.push({
