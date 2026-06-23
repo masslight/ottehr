@@ -823,6 +823,14 @@
       "src": "src/subscriptions/task/sub-send-claim/index",
       "zip": ".dist/zips/sub-send-claim.zip"
     },
+    "SUB-PRESUBMISSION-RULES-ENGINE": {
+      "name": "sub-presubmission-rules-engine",
+      "type": "subscription",
+      "timeout": "870",
+      "runtime": "nodejs22.x",
+      "src": "src/subscriptions/task/sub-presubmission-rules-engine/index",
+      "zip": ".dist/zips/sub-presubmission-rules-engine.zip"
+    },
     "SUB-VISIT-NOTE-PDF-AND-EMAIL": {
       "name": "sub-visit-note-pdf-and-email",
       "type": "subscription",
@@ -2210,6 +2218,24 @@
           "type": "rest-hook",
           "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-SEND-CLAIM/id}"
         }
+      }
+    },
+    "SUB_PRESUBMISSION_RULES_ENGINE_SUBSCRIPTION": {
+      "resource": {
+        "resourceType": "Subscription",
+        "status": "active",
+        "reason": "run billing pre-submission rules engine",
+        "criteria": "Task?code=https://fhir.ottehr.com/CodeSystem/billing-rules-engine|run-presubmission-rules&status=requested",
+        "channel": {
+          "type": "rest-hook",
+          "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-PRESUBMISSION-RULES-ENGINE/id}"
+        },
+        "extension": [
+          {
+            "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
+            "valueString": "create"
+          }
+        ]
       }
     },
     "SUB_VISIT_NOTE_PDF_AND_EMAIL_SUBSCRIPTION": {
