@@ -5,7 +5,3 @@ output "ehr_hash" {
 output "patient_portal_hash" {
   value = one(terraform_data.build_patient_portal[*].id)
 }
-
-output "billing_hash" {
-  value = one(terraform_data.build_billing[*].id)
-}
