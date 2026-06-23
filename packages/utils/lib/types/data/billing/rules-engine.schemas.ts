@@ -104,3 +104,35 @@ export const PreSubmissionRuleSchema = z.object({
   conditional: RuleConditionalSchema,
 });
 export type PreSubmissionRule = z.output<typeof PreSubmissionRuleSchema>;
+
+// --- CRUD API contract (save-billing-rules / get-billing-rules) ---
+
+// The whole ordered rule set is saved at once (the rules live in a single FHIR List), so create,
+// edit, reorder, and delete are all expressed as "save this full ordered array".
+export const SaveBillingRulesInputSchema = z
+  .object({
+    rules: z.array(PreSubmissionRuleSchema),
+    // Optimistic-locking guard: the List versionId the client last read. When provided, the save is
+    // rejected if the rules List changed in the meantime.
+    expectedVersionId: z.string().optional(),
+  })
+  .superRefine((data, ctx) => {
+    const seen = new Set<string>();
+    data.rules.forEach((rule, index) => {
+      if (seen.has(rule.id)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['rules', index, 'id'],
+          message: `Duplicate rule id "${rule.id}"`,
+        });
+      }
+      seen.add(rule.id);
+    });
+  });
+export type SaveBillingRulesInput = z.output<typeof SaveBillingRulesInputSchema>;
+
+export interface BillingRulesResponse {
+  rules: PreSubmissionRule[];
+  // List.meta.versionId, echoed so the client can pass it back as expectedVersionId on the next save.
+  versionId?: string;
+}

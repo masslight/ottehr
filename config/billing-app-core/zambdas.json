@@ -162,6 +162,20 @@
       "src": "src/billing/delete-billing-tag/index",
       "zip": ".dist/zips/delete-billing-tag.zip"
     },
+    "GET-BILLING-RULES": {
+      "name": "get-billing-rules",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/get-billing-rules/index",
+      "zip": ".dist/zips/get-billing-rules.zip"
+    },
+    "SAVE-BILLING-RULES": {
+      "name": "save-billing-rules",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/save-billing-rules/index",
+      "zip": ".dist/zips/save-billing-rules.zip"
+    },
     "TAG-BILLING-CLAIM": {
       "name": "tag-billing-claim",
       "type": "http_auth",
