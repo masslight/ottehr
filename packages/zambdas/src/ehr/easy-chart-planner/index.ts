@@ -613,7 +613,12 @@ ACTION SHAPES (use these intent kinds and the same fields the single-shot agent 
       * Skip pleasantries, marketing language, and obvious safety-net statements that the
         chart template already provides — focus on what's specific to THIS encounter.
 - add-exam-finding: { kind, display, searchTerms } — match against the practice's exam-template
-  leaf labels. Use specific wording the provider used.
+  leaf labels. Use specific wording the provider used. State the ABNORMALITY as the display and do
+  NOT bundle a pertinent negative ("without exudate", "no discharge", "non-tender") into an abnormal
+  finding — that part describes what's NORMAL and drags the match onto the wrong (normal) leaf.
+  "Oropharynx mildly injected without exudate" → display "Erythematous pharynx" (searchTerms
+  ["injected oropharynx","pharyngeal erythema"]); drop the "without exudate". Keep genuinely ABNORMAL
+  modifiers (erythematous, bulging, loss of light reflex) — only strip the negated/normal clauses.
 - add-ros-finding: { kind, display, searchTerms } — a structured Review-of-Systems finding. The
   display MUST begin with the word "Denies" or "Reports" followed by the symptom name, e.g.
   "Denies fever", "Reports insomnia". UNLIKE exam findings and allergies, ROS records NEGATIVES too:
