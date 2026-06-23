@@ -7,6 +7,7 @@ import {
   VitalHeartbeatObservationMethod,
   VitalsBaseObservationDTO,
   VitalsBloodPressureObservationDTO,
+  VitalsDotVisionScreening,
   VitalsHeartbeatObservationDTO,
   VitalsHeightObservationDTO,
   VitalsLastMenstrualPeriodObservationDTO,
@@ -56,6 +57,23 @@ export const VITAL_BOTH_EYES_SNOMED_CODE = '51440002';
 export const VITAL_VISION_CHILD_TOO_YOUNG_OPTION_SNOMED_CODE = '9876543';
 export const VITAL_VISION_WITH_GLASSES_OPTION_SNOMED_CODE = '1234567';
 export const VITAL_VISION_WITHOUT_GLASSES_OPTION_SNOMED_CODE = '7654321';
+
+// DOT (FMCSA form MCSA-5875) vision screening component codes.
+// Standard SNOMED CT codes are used where they exist; the horizontal field of vision uses the
+// "Visual field" observable qualified by SNOMED laterality. Color recognition and specialist
+// referral also map to standard SNOMED concepts. The remaining two items (monocular vision and
+// "received referral documentation") have no suitable standard code, so they use a project-local
+// code system to avoid masquerading as real SNOMED/LOINC codes.
+export const VITAL_VISION_DOT_VISUAL_FIELD_SNOMED_CODE = '73750009'; // Visual field (observable entity)
+export const SNOMED_LATERALITY_LEFT_CODE = '7771000'; // Left (qualifier value)
+export const SNOMED_LATERALITY_RIGHT_CODE = '24028007'; // Right (qualifier value)
+export const VITAL_VISION_DOT_COLOR_RECOGNITION_SNOMED_CODE = '363981009'; // Color vision, function (observable entity)
+export const VITAL_VISION_DOT_REFERRAL_SNOMED_CODE = '306253008'; // Referral to doctor (procedure)
+
+export const VITAL_VISION_DOT_LOCAL_SYSTEM = `${PRIVATE_EXTENSION_BASE_URL}/dot-vision-screening`;
+export const VITAL_VISION_DOT_MONOCULAR_CODE = 'monocular-vision';
+export const VITAL_VISION_DOT_RECEIVED_DOC_CODE = 'received-referral-documentation';
+export const VITAL_VISION_DOT_DOCUMENT_CODE = 'referral-documentation';
 
 export const VITAL_WEIGHT_PATIENT_REFUSED_OPTION_SNOMED_CODE = '8675309';
 
@@ -555,7 +573,147 @@ export const getVisionObservationComponents = (visionDTO: VitalsVisionObservatio
 
   result = [...result, ...extraVisionOptionsComponents];
 
+  result = [...result, ...getDotVisionScreeningComponents(visionDTO.dotVisionScreening)];
+
   return result;
+};
+
+const makeDotBooleanComponent = (
+  system: string,
+  code: string,
+  display: string,
+  value: boolean
+): ObservationComponent => ({
+  code: { coding: [{ system, code, display }] },
+  valueBoolean: value,
+});
+
+const makeDotHorizontalFieldComponent = (
+  lateralityCode: string,
+  lateralityDisplay: string,
+  value: number
+): ObservationComponent => ({
+  code: {
+    coding: [
+      { system: SNOMED_SYSTEM, code: VITAL_VISION_DOT_VISUAL_FIELD_SNOMED_CODE, display: 'Visual field' },
+      { system: SNOMED_SYSTEM, code: lateralityCode, display: lateralityDisplay },
+    ],
+  },
+  valueQuantity: { value, unit: 'degrees', system: 'http://unitsofmeasure.org', code: 'deg' },
+});
+
+export const getDotVisionScreeningComponents = (dot: VitalsDotVisionScreening | undefined): ObservationComponent[] => {
+  if (!dot) return [];
+  const components: ObservationComponent[] = [];
+
+  if (dot.horizontalFieldLeftDegrees != null) {
+    components.push(
+      makeDotHorizontalFieldComponent(SNOMED_LATERALITY_LEFT_CODE, 'Left', dot.horizontalFieldLeftDegrees)
+    );
+  }
+  if (dot.horizontalFieldRightDegrees != null) {
+    components.push(
+      makeDotHorizontalFieldComponent(SNOMED_LATERALITY_RIGHT_CODE, 'Right', dot.horizontalFieldRightDegrees)
+    );
+  }
+  if (dot.canRecognizeColors != null) {
+    components.push(
+      makeDotBooleanComponent(
+        SNOMED_SYSTEM,
+        VITAL_VISION_DOT_COLOR_RECOGNITION_SNOMED_CODE,
+        'Color vision',
+        dot.canRecognizeColors
+      )
+    );
+  }
+  if (dot.hasMonocularVision != null) {
+    components.push(
+      makeDotBooleanComponent(
+        VITAL_VISION_DOT_LOCAL_SYSTEM,
+        VITAL_VISION_DOT_MONOCULAR_CODE,
+        'Monocular vision',
+        dot.hasMonocularVision
+      )
+    );
+  }
+  if (dot.referredToSpecialist != null) {
+    components.push(
+      makeDotBooleanComponent(
+        SNOMED_SYSTEM,
+        VITAL_VISION_DOT_REFERRAL_SNOMED_CODE,
+        'Referral to ophthalmologist or optometrist',
+        dot.referredToSpecialist
+      )
+    );
+  }
+  if (dot.receivedDocumentation != null) {
+    components.push(
+      makeDotBooleanComponent(
+        VITAL_VISION_DOT_LOCAL_SYSTEM,
+        VITAL_VISION_DOT_RECEIVED_DOC_CODE,
+        'Received documentation from ophthalmologist or optometrist',
+        dot.receivedDocumentation
+      )
+    );
+  }
+  if (dot.document) {
+    components.push({
+      code: {
+        coding: [
+          {
+            system: VITAL_VISION_DOT_LOCAL_SYSTEM,
+            code: VITAL_VISION_DOT_DOCUMENT_CODE,
+            display: 'Referral documentation',
+          },
+        ],
+      },
+      valueString: JSON.stringify(dot.document),
+    });
+  }
+
+  return components;
+};
+
+export const extractDotVisionScreening = (components: ObservationComponent[]): VitalsDotVisionScreening | undefined => {
+  const findByCode = (code: string): ObservationComponent | undefined =>
+    components.find((cmp) => cmp.code?.coding?.some((coding) => coding?.code === code));
+
+  const hasCode = (cmp: ObservationComponent, code: string): boolean =>
+    !!cmp.code?.coding?.some((coding) => coding?.code === code);
+
+  const findHorizontalField = (lateralityCode: string): number | undefined =>
+    components.find((cmp) => hasCode(cmp, VITAL_VISION_DOT_VISUAL_FIELD_SNOMED_CODE) && hasCode(cmp, lateralityCode))
+      ?.valueQuantity?.value;
+
+  const leftField = findHorizontalField(SNOMED_LATERALITY_LEFT_CODE);
+  const rightField = findHorizontalField(SNOMED_LATERALITY_RIGHT_CODE);
+  const canRecognizeColors = findByCode(VITAL_VISION_DOT_COLOR_RECOGNITION_SNOMED_CODE)?.valueBoolean;
+  const hasMonocularVision = findByCode(VITAL_VISION_DOT_MONOCULAR_CODE)?.valueBoolean;
+  const referredToSpecialist = findByCode(VITAL_VISION_DOT_REFERRAL_SNOMED_CODE)?.valueBoolean;
+  const receivedDocumentation = findByCode(VITAL_VISION_DOT_RECEIVED_DOC_CODE)?.valueBoolean;
+  const documentString = findByCode(VITAL_VISION_DOT_DOCUMENT_CODE)?.valueString;
+
+  let document: VitalsDotVisionScreening['document'];
+  if (documentString) {
+    try {
+      document = JSON.parse(documentString) as VitalsDotVisionScreening['document'];
+    } catch {
+      document = undefined;
+    }
+  }
+
+  const dot: VitalsDotVisionScreening = {
+    horizontalFieldLeftDegrees: leftField,
+    horizontalFieldRightDegrees: rightField,
+    canRecognizeColors,
+    hasMonocularVision,
+    referredToSpecialist,
+    receivedDocumentation,
+    document,
+  };
+
+  const hasAnyValue = Object.values(dot).some((v) => v !== undefined);
+  return hasAnyValue ? dot : undefined;
 };
 
 export const extractVisionValues = (
@@ -939,6 +1097,7 @@ export function makeVitalsObservationDTO(observation: Observation): VitalsObserv
       rightEyeVisionText: visionValues.rightEyeVisText ?? '',
       bothEyesVisionText: visionValues.bothEyesVisText,
       extraVisionOptions: visionValues.visionOptions,
+      dotVisionScreening: extractDotVisionScreening(observation.component ?? []),
     };
     return result;
   }

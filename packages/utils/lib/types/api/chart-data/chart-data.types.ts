@@ -266,6 +266,28 @@ export interface VitalsBloodPressureObservationDTO extends VitalsBaseObservation
 
 export type VitalsVisionOption = 'child_too_young' | 'with_glasses' | 'without_glasses';
 
+/**
+ * DOT (FMCSA form MCSA-5875) vision screening fields captured for DOT physical exams.
+ * Stored on the same `vital-vision` Observation but in a separate history entry from the
+ * standard Snellen acuity reading.
+ */
+export interface VitalsDotVisionScreeningDocument {
+  /** DocumentReference id created when referral documentation is uploaded/scanned. */
+  documentReferenceId?: string;
+  url: string;
+  title: string;
+}
+
+export interface VitalsDotVisionScreening {
+  horizontalFieldLeftDegrees?: number;
+  horizontalFieldRightDegrees?: number;
+  canRecognizeColors?: boolean;
+  hasMonocularVision?: boolean;
+  referredToSpecialist?: boolean;
+  receivedDocumentation?: boolean;
+  document?: VitalsDotVisionScreeningDocument;
+}
+
 export interface VitalsVisionObservationDTO extends VitalsBaseObservationDTO {
   field: Extract<VitalFieldNames, 'vital-vision'>;
   value?: never;
@@ -273,6 +295,7 @@ export interface VitalsVisionObservationDTO extends VitalsBaseObservationDTO {
   rightEyeVisionText: string;
   bothEyesVisionText?: string;
   extraVisionOptions?: VitalsVisionOption[];
+  dotVisionScreening?: VitalsDotVisionScreening;
 }
 
 export interface VitalsOxygenSatObservationDTO extends VitalsNumericValueObservationDTO {

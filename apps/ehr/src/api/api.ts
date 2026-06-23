@@ -225,6 +225,8 @@ import {
   UpdateUserZambdaOutput,
   UpdateVisitDetailsInput,
   UpdateVisitFilesInput,
+  UploadDotVisionDocumentInput,
+  UploadDotVisionDocumentOutput,
   UploadPatientConditionPhotoInput,
   UploadPatientConditionPhotoOutput,
   UploadPatientProfilePhotoInput,
@@ -1616,6 +1618,22 @@ export const uploadPatientConditionPhoto = async (
   try {
     const response = await oystehr.zambda.execute({
       id: 'upload-patient-condition-photo',
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
+export const uploadDotVisionDocument = async (
+  oystehr: Oystehr,
+  parameters: UploadDotVisionDocumentInput
+): Promise<UploadDotVisionDocumentOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: 'upload-dot-vision-document',
       ...parameters,
     });
     return chooseJson(response);

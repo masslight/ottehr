@@ -25,6 +25,7 @@ export * from './delete-patient-document.types';
 export * from './printing';
 export * from './support-dialog';
 export * from './upload-patient-condition-photo.types';
+export * from './upload-dot-vision-document.types';
 export * from './custom-folder.types';
 export * from './patient-education.types';
 export * from './legacy-data';
