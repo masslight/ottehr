@@ -59,6 +59,8 @@ import {
   MedicalConditionDTO,
   MedicationDTO,
   MEDICATIONS_USED_VALUE_SET_URL,
+  ModifiedOrderingLocation,
+  OrderableItemSearchResult,
   PATIENT_RESPONSES_VALUE_SET_URL,
   POST_PROCEDURE_INSTRUCTIONS_VALUE_SET_URL,
   PROCEDURE_TYPES_VALUE_SET_URL,
@@ -1385,6 +1387,23 @@ type ConvStep =
       intent: RemoveExamFindingIntent;
       matches: ExamRemoveItem[];
     }
+  // Ambiguous lab order ("add a flu test" with Flu A / Flu B / Rapid Influenza in the catalog) — let
+  // the provider pick the exact test. Each candidate carries what's needed to place the order:
+  // in-house items carry the DataEntryTestItem; send-out items carry the OrderableItemSearchResult,
+  // and `externalContext` holds the order context (encounter/office/dx/payment) resolved at dispatch.
+  | {
+      kind: 'choose-lab';
+      user: string;
+      display: string;
+      labKind: 'in-house' | 'external';
+      candidates: { label: string; inHouseTest?: DataEntryTestItem; externalItem?: OrderableItemSearchResult }[];
+      externalContext?: {
+        encounter: Encounter;
+        office: ModifiedOrderingLocation;
+        dx: DiagnosisDTO[];
+        payment: CreateLabPaymentMethod;
+      };
+    }
   | { kind: 'error'; user: string; reply: string }
   // Provider chose to skip the current picker without picking, OR nothing matched. Terminal —
   // advances the plan cursor with status="skipped" so the running step list shows ⏭. `reason`
@@ -2042,20 +2061,25 @@ const LAB_QUERY_STOPWORDS = new Set([
   'for',
   'reference',
   'panel',
+  // "rapid" is a generic POC modifier shared by many in-house tests (Rapid Strep, Rapid RSV, Rapid
+  // Influenza…). Dropping it focuses scoring on the SPECIFIC analyte so the ambiguity check clusters
+  // by the real test (all flu variants tie) instead of letting "Rapid Influenza" outrank "Flu A".
+  'rapid',
 ]);
 
-// Match a lab intent (display + searchTerms) against a catalog of named items — the in-house
+// Score a lab intent (display + searchTerms) against a catalog of named items — the in-house
 // ActivityDefinitions or the external orderable items. Prefix-token scoring like the template
 // matcher: +20 per exact token, +5 per prefix token, a big bonus when the name equals the
 // provider's phrase verbatim, and a length penalty so terse "CBC" outranks "CBC with
-// differential" when the provider just said "CBC". Returns items sorted best-first (empty when
-// nothing plausibly matches). Generic over item type so both lab dispatchers reuse it.
-function findLabCatalogMatches<T>(
+// differential" when the provider just said "CBC". Returns scored matches best-first (empty when
+// nothing plausibly matches), in the { leaf, score } shape ambiguousCluster expects. Generic over
+// item type so both lab dispatchers reuse it.
+function findLabCatalogMatchesScored<T>(
   display: string,
   searchTerms: string[],
   items: T[],
   getName: (item: T) => string
-): T[] {
+): { leaf: T; score: number }[] {
   const queryTokens = Array.from(
     new Set(
       [display, ...(searchTerms ?? [])]
@@ -2066,7 +2090,7 @@ function findLabCatalogMatches<T>(
   );
   if (queryTokens.length === 0) return [];
   const queryDisplay = display.trim().toLowerCase();
-  const scored = items
+  return items
     .map((item) => {
       const name = getName(item);
       const nameTokens = tokenize(name);
@@ -2081,11 +2105,10 @@ function findLabCatalogMatches<T>(
       if (nameLower === queryDisplay) score += 1000;
       const extraTokens = Math.max(0, nameTokens.length - queryTokens.length);
       score -= extraTokens * 2;
-      return { item, score };
+      return { leaf: item, score };
     })
     .filter((s) => s.score > 0)
     .sort((a, b) => b.score - a.score);
-  return scored.map((s) => s.item);
 }
 
 // Build a ProcedureDTO from a quick pick the same way the regular Procedures page would when
@@ -2700,6 +2723,70 @@ export default function EasyChartPage(): JSX.Element {
   useEffect(() => {
     void fetchLabOrders();
   }, [fetchLabOrders]);
+
+  // Place an in-house lab order for a specific catalog test, then refresh the section. Shared by the
+  // auto-pick dispatch and the disambiguation picker so the create call lives in one place.
+  const createInHouseLabFromTest = async (test: DataEntryTestItem, message: string): Promise<void> => {
+    if (!oystehrZambda || !encounterId) return;
+    setConv({ kind: 'saving', user: message, chosenName: test.name });
+    try {
+      await createInHouseLabOrder(oystehrZambda, {
+        encounterId,
+        testItems: [test],
+        diagnosesAll: chartDataRef.current?.diagnosis ?? [],
+        diagnosesNew: [],
+      });
+      void fetchLabOrders();
+      setConv({ kind: 'done', user: message, chosenName: test.name });
+    } catch (e) {
+      console.error('In-house lab order failed:', e);
+      setConv({ kind: 'error', user: message, reply: `Could not order “${test.name}”. Please try again.` });
+    }
+  };
+
+  // Place a send-out lab order for a specific orderable item using the order context resolved at
+  // dispatch (encounter/office/dx/payment). Shared by the auto-pick dispatch and the picker.
+  const createExternalLabFromItem = async (
+    item: OrderableItemSearchResult,
+    ctx: {
+      encounter: Encounter;
+      office: ModifiedOrderingLocation;
+      dx: DiagnosisDTO[];
+      payment: CreateLabPaymentMethod;
+    },
+    message: string
+  ): Promise<void> => {
+    if (!oystehrZambda) return;
+    const name = item.item.itemName;
+    setConv({ kind: 'saving', user: message, chosenName: name });
+    try {
+      await createExternalLabOrder(oystehrZambda, {
+        dx: ctx.dx,
+        encounter: ctx.encounter,
+        orderableItems: [item],
+        psc: false,
+        orderingLocation: ctx.office,
+        selectedPaymentMethod: ctx.payment,
+      });
+      void fetchLabOrders();
+      setConv({ kind: 'done', user: message, chosenName: name });
+    } catch (e) {
+      console.error('External lab order failed:', e);
+      setConv({ kind: 'error', user: message, reply: `Could not order “${name}”. Please try again.` });
+    }
+  };
+
+  // The provider picked a specific test from the lab disambiguation picker — place that order.
+  const handleLabPick = (
+    convStep: Extract<ConvStep, { kind: 'choose-lab' }>,
+    candidate: { inHouseTest?: DataEntryTestItem; externalItem?: OrderableItemSearchResult }
+  ): void => {
+    if (convStep.labKind === 'in-house' && candidate.inHouseTest) {
+      void createInHouseLabFromTest(candidate.inHouseTest, convStep.user);
+    } else if (convStep.labKind === 'external' && candidate.externalItem && convStep.externalContext) {
+      void createExternalLabFromItem(candidate.externalItem, convStep.externalContext, convStep.user);
+    }
+  };
 
   // Merge the saved-chart-data response into local state and flash the new items.
   // Avoids a full refetch for single-item adds.
@@ -3609,8 +3696,8 @@ export default function EasyChartPage(): JSX.Element {
         try {
           const resources = await apiClient.getCreateInHouseLabOrderResources({ encounterId });
           const availableTests: DataEntryTestItem[] = resources?.labs ?? [];
-          const matches = findLabCatalogMatches(intent.display, intent.searchTerms, availableTests, (t) => t.name);
-          if (matches.length === 0) {
+          const scored = findLabCatalogMatchesScored(intent.display, intent.searchTerms, availableTests, (t) => t.name);
+          if (scored.length === 0) {
             setConv({
               kind: 'skipped',
               user: message,
@@ -3618,15 +3705,20 @@ export default function EasyChartPage(): JSX.Element {
             });
             return;
           }
-          const test = matches[0];
-          await createInHouseLabOrder(oystehrZambda, {
-            encounterId,
-            testItems: [test],
-            diagnosesAll: chartDataRef.current?.diagnosis ?? [],
-            diagnosesNew: [],
-          });
-          void fetchLabOrders();
-          setConv({ kind: 'done', user: message, chosenName: test.name });
+          // Interactive + several near-equal tests (e.g. "flu test" → Flu A / Flu B / Rapid Influenza)
+          // → let the provider pick. A clear single best match still orders instantly.
+          const cluster = interactive ? ambiguousCluster(scored) : null;
+          if (cluster && cluster.length > 1) {
+            setConv({
+              kind: 'choose-lab',
+              user: message,
+              display: intent.display,
+              labKind: 'in-house',
+              candidates: cluster.map((t) => ({ label: t.name, inHouseTest: t })),
+            });
+            return;
+          }
+          await createInHouseLabFromTest(scored[0].leaf, message);
         } catch (e) {
           console.error('In-house lab order failed:', e);
           setConv({ kind: 'error', user: message, reply: `Could not order “${intent.display}”. Please try again.` });
@@ -3679,13 +3771,13 @@ export default function EasyChartPage(): JSX.Element {
           const labOrgIdsString = office.enabledLabs.map((e) => e.labOrgRef.replace('Organization/', '')).join(',');
 
           const search = await apiClient.getCreateExternalLabResources({ search: intent.display, labOrgIdsString });
-          const matches = findLabCatalogMatches(
+          const scored = findLabCatalogMatchesScored(
             intent.display,
             intent.searchTerms,
             search.labs ?? [],
             (r) => r.item.itemName
           );
-          if (matches.length === 0) {
+          if (scored.length === 0) {
             setConv({
               kind: 'skipped',
               user: message,
@@ -3693,23 +3785,26 @@ export default function EasyChartPage(): JSX.Element {
             });
             return;
           }
-          const chosen = matches[0];
           const selectedPaymentMethod: CreateLabPaymentMethod = resources.appointmentIsWorkersComp
             ? LabPaymentMethod.WorkersComp
             : (resources.coverages?.length ?? 0) > 0
             ? LabPaymentMethod.Insurance
             : LabPaymentMethod.SelfPay;
-
-          await createExternalLabOrder(oystehrZambda, {
-            dx,
-            encounter: encounterResource,
-            orderableItems: [chosen],
-            psc: false,
-            orderingLocation: office,
-            selectedPaymentMethod,
-          });
-          void fetchLabOrders();
-          setConv({ kind: 'done', user: message, chosenName: chosen.item.itemName });
+          const ctx = { encounter: encounterResource, office, dx, payment: selectedPaymentMethod };
+          // Interactive + several near-equal tests → let the provider pick; otherwise order the best.
+          const cluster = interactive ? ambiguousCluster(scored) : null;
+          if (cluster && cluster.length > 1) {
+            setConv({
+              kind: 'choose-lab',
+              user: message,
+              display: intent.display,
+              labKind: 'external',
+              candidates: cluster.map((it) => ({ label: it.item.itemName, externalItem: it })),
+              externalContext: ctx,
+            });
+            return;
+          }
+          await createExternalLabFromItem(scored[0].leaf, ctx, message);
         } catch (e) {
           console.error('External lab order failed:', e);
           setConv({ kind: 'error', user: message, reply: `Could not order “${intent.display}”. Please try again.` });
@@ -5159,6 +5254,21 @@ export default function EasyChartPage(): JSX.Element {
             {conv.matches.map((m) => (
               <ListItemButton key={m.id ?? m.name} onClick={() => void handleProcedurePick(m, conv.user)}>
                 <ListItemText primary={m.name} primaryTypographyProps={{ variant: 'body2' }} />
+              </ListItemButton>
+            ))}
+          </List>
+        </>
+      )}
+      {conv.kind === 'choose-lab' && (
+        <>
+          <Typography variant="body2" sx={{ mt: 0.5 }}>
+            There are {conv.candidates.length} {conv.labKind === 'in-house' ? 'in-house' : 'send-out'} tests matching
+            &ldquo;{conv.display}&rdquo;. Which one to order?
+          </Typography>
+          <List dense sx={{ mt: 0.5 }}>
+            {conv.candidates.map((c, i) => (
+              <ListItemButton key={`${c.label}-${i}`} onClick={() => handleLabPick(conv, c)}>
+                <ListItemText primary={c.label} primaryTypographyProps={{ variant: 'body2' }} />
               </ListItemButton>
             ))}
           </List>
