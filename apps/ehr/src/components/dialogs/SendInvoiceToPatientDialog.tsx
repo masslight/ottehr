@@ -1,5 +1,6 @@
 import CloseIcon from '@mui/icons-material/Close';
 import {
+  Alert,
   Box,
   Dialog,
   DialogActions,
@@ -187,12 +188,24 @@ export default function SendInvoiceToPatientDialog({
                 </Typography>
                 <Typography sx={{ fontWeight: 600, mb: 0.5 }}>{responsibleParty?.fullName}</Typography>
                 <Box sx={{ flexDirection: 'row', display: 'flex' }}>
-                  <Typography variant="body2">{responsibleParty?.email}</Typography>
+                  {responsibleParty?.email ? (
+                    <Typography variant="body2">{responsibleParty.email}</Typography>
+                  ) : (
+                    <Typography variant="body2" color="text.disabled">
+                      Doesn&apos;t have email
+                    </Typography>
+                  )}
                   <Typography variant="body2" sx={{ pl: 2 }}>
                     {responsibleParty?.phoneNumber}
                   </Typography>
                 </Box>
               </Box>
+
+              {!responsibleParty?.email && (
+                <Alert severity="error" sx={{ mb: 2 }}>
+                  Invoice cannot be sent — the responsible party does not have an email address on file.
+                </Alert>
+              )}
             </Box>
           ) : (
             <Skeleton variant="rectangular" animation="wave" />
@@ -302,7 +315,7 @@ export default function SendInvoiceToPatientDialog({
               Cancel
             </RoundedButton>
             <RoundedButton
-              disabled={disableAllFields}
+              disabled={disableAllFields || !responsibleParty?.email}
               loading={isSubmitting}
               form="send-invoice-form"
               type="submit"
