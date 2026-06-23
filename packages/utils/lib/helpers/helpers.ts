@@ -1813,6 +1813,34 @@ export function getAppointmentServiceCategoryAbbreviation(
 }
 
 /**
+ * Resolve the short abbreviation shown for a service category on the Tracking
+ * Board, the patient's visit list, and the visit-details header.
+ *
+ * Prefers the admin-defined abbreviation stored on the FHIR-backed catalog
+ * entry (the "Abbreviation/Short Name" field on the Services admin page);
+ * otherwise derives one from the category's display name or code via
+ * makeAbbreviation. This replaces the legacy hard-coded UC/OM/WC/PO map so
+ * non-system categories (Massage, Wellness, …) get an abbreviation too.
+ *
+ * @param serviceCategoryCodeOrName the category's code or display name as
+ *   stored on the appointment/encounter — callers differ on which they hold,
+ *   so both are matched against the catalog.
+ * @param fhirCategories the FHIR-backed catalog (from listServiceCategories),
+ *   matched by code or name.
+ */
+export function resolveServiceCategoryAbbreviation(
+  serviceCategoryCodeOrName: string | undefined,
+  fhirCategories?: Array<{ code: string; name: string; abbreviation?: string }>
+): string | undefined {
+  const trimmed = serviceCategoryCodeOrName?.trim();
+  if (!trimmed) return undefined;
+  const match = fhirCategories?.find((c) => c.code === trimmed || c.name === trimmed);
+  const explicit = match?.abbreviation?.trim();
+  if (explicit) return explicit;
+  return makeAbbreviation(match?.name ?? trimmed) || undefined;
+}
+
+/**
  * Formats a nine digit zipcode with a dash. Can consume the zipcode or the fhirAddress.
  * Assumes zip is at the end of the string. Returns string unchanged if no nine digit zip match is found.
  * e.g. 191472314 -> 19147-2314

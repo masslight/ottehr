@@ -2883,6 +2883,8 @@ export interface ServiceCategory {
   id?: string;
   name: string;
   code: string;
+  /** Short abbreviation (2-3 chars) shown on the Tracking Board and patient visit lists — e.g. 'UC', 'WC'. */
+  abbreviation?: string;
   active: boolean;
   config: ServiceCategoryRuntimeConfig;
 }

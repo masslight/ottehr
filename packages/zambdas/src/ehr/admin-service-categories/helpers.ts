@@ -7,6 +7,7 @@ import {
   getServiceCategoryModes,
   getServiceCategoryVisitTypes,
   parseReasonsForVisit,
+  parseServiceCategoryAbbreviation,
   SERVICE_CATEGORY_CONFIG_EXTENSION_URL,
   SERVICE_CATEGORY_SYSTEM,
   SERVICE_CATEGORY_TAG,
@@ -46,6 +47,11 @@ export interface ServiceCategory {
   id?: string;
   name: string;
   code: string;
+  /**
+   * Short abbreviation (2-3 chars) shown on the Tracking Board and patient
+   * visit lists — e.g. 'UC', 'WC'. Stored in the JSON-blob config extension.
+   */
+  abbreviation?: string;
   active: boolean;
   config: ServiceCategoryRuntimeConfig;
   /**
@@ -90,6 +96,7 @@ export function toRecord(resource: HealthcareService): ServiceCategory {
     id: resource.id,
     name: resource.name,
     code,
+    abbreviation: parseServiceCategoryAbbreviation(resource),
     active: resource.active !== false,
     config: {
       durationMinutes: getServiceCategoryDurationMinutes(resource) ?? DEFAULT_SERVICE_CATEGORY_DURATION_MINUTES,
@@ -126,6 +133,12 @@ export function toFhirResource(record: ServiceCategory): HealthcareService {
   // to preserve foreign characteristics should use mergeOwnedCharacteristics
   // with SERVICE_CATEGORY_OWNED_CHARACTERISTIC_SYSTEMS before persisting.
   const reasons = record.config.reasonsForVisit ?? [];
+  const abbreviation = record.abbreviation?.trim();
+  // Free-form fields share a single JSON-blob extension. Only include keys
+  // that carry a value so the extension stays absent when nothing is set.
+  const configBlob: { reasonsForVisit?: typeof reasons; abbreviation?: string } = {};
+  if (reasons.length > 0) configBlob.reasonsForVisit = reasons;
+  if (abbreviation) configBlob.abbreviation = abbreviation;
   return {
     resourceType: 'HealthcareService',
     id: record.id,
@@ -134,13 +147,12 @@ export function toFhirResource(record: ServiceCategory): HealthcareService {
     name: record.name,
     type,
     characteristic: ownedCharacteristics,
-    // Free-form fields still live in the JSON-blob extension.
     extension:
-      reasons.length > 0
+      Object.keys(configBlob).length > 0
         ? [
             {
               url: SERVICE_CATEGORY_CONFIG_EXTENSION_URL,
-              valueString: JSON.stringify({ reasonsForVisit: reasons }),
+              valueString: JSON.stringify(configBlob),
             },
           ]
         : undefined,
