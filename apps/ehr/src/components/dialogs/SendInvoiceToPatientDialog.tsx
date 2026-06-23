@@ -200,12 +200,6 @@ export default function SendInvoiceToPatientDialog({
                   </Typography>
                 </Box>
               </Box>
-
-              {!responsibleParty?.email && (
-                <Alert severity="error" sx={{ mb: 2 }}>
-                  Invoice cannot be sent — the responsible party does not have an email address on file.
-                </Alert>
-              )}
             </Box>
           ) : (
             <Skeleton variant="rectangular" animation="wave" />
@@ -299,6 +293,12 @@ export default function SendInvoiceToPatientDialog({
             </Grid>
           </Grid>
         </DialogContent>
+
+        {!responsibleParty?.email && (
+          <Alert severity="error" sx={{ mx: 3, mb: 1 }}>
+            Invoice cannot be sent — the responsible party does not have an email address on file.
+          </Alert>
+        )}
 
         <DialogActions>
           <Box
