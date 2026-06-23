@@ -13,12 +13,12 @@ type UnlockAppointmentButtonProps = {
 
 export const UnlockAppointmentButton: FC<UnlockAppointmentButtonProps> = ({ onUnlocked }) => {
   const { appointment, encounter, appointmentRefetch } = useAppointmentData();
-  const { isAppointmentLocked, visitType } = useGetAppointmentAccessibility();
+  const { isAppointmentReadOnly, visitType } = useGetAppointmentAccessibility();
   const apiClient = useOystehrAPIClient();
   const [isLoading, setIsLoading] = useState(false);
   const isFollowup = visitType === 'follow-up';
 
-  if (!isAppointmentLocked) {
+  if (!isAppointmentReadOnly) {
     return null;
   }
 

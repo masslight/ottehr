@@ -25,7 +25,6 @@ export type GetAppointmentAccessibilityDataResult = {
   isPractitionerLicensedInState: boolean;
   isEncounterAssignedToCurrentPractitioner: boolean;
   isAppointmentReadOnly: boolean;
-  isAppointmentLocked: boolean;
   visitType: EncounterVisitType;
 };
 
@@ -61,7 +60,6 @@ export const getAppointmentAccessibilityData = ({
     isPractitionerLicensedInState,
     isEncounterAssignedToCurrentPractitioner,
     isAppointmentReadOnly: isLocked,
-    isAppointmentLocked: isLocked,
     visitType,
   };
 };
