@@ -251,7 +251,8 @@ export const parseCoverageEligibilityResponse = (
           // The financial-details panel is labeled "(In-network)". Payers return separate lines for the
           // same coverage level + period that differ only by network (e.g. an out-of-network 'N' Total and an
           // in-network 'Y' Total). Excluding explicit out-of-network ('N') lines keeps the panel consistent;
-          // 'Y' (in-network), 'W' (not applicable) and undefined are retained so values aren't mixed across networks.
+          // 'Y' (in-network), 'W' (not applicable), 'U' (unknown), and undefined are retained so values
+          // aren't mixed across networks.
           const isInNetwork = (benefit: PatientPaymentBenefit): boolean => benefit.inPlanNetworkCode !== 'N';
 
           const individualDeductible = deductible.filter(
@@ -328,7 +329,7 @@ export const parseCoverageEligibilityResponse = (
 export const parseObjectsToCopayBenefits = (input: any[]): PatientPaymentBenefit[] => {
   return input
     .map((item) => {
-      const benefitCoverageCode = item['benefit_coverage_code'] as '1' | 'A' | 'B' | 'C';
+      const benefitCoverageCode = item['benefit_coverage_code'] as '1' | 'A' | 'B' | 'C' | 'G';
       const payerAddressParts = [
         item['entity_addr_1']?.[0],
         item['entity_city'],

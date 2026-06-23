@@ -418,7 +418,11 @@ const DynamicReferenceField: FC<DynamicReferenceFieldProps> = ({ item, optionStr
       const org = await oystehr.fhir.get<Organization>({ resourceType: 'Organization', id: orgId });
       return getPayerId(org);
     },
-    enabled: !!selectedRef && answerOptions !== undefined && !isSelectedInActiveOptions,
+    enabled:
+      !!selectedRef &&
+      answerOptions !== undefined &&
+      !isSelectedInActiveOptions &&
+      (!!oystehr || !!extractPayerIdFromUrl(selectedRef)),
   });
 
   return (
