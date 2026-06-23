@@ -1,5 +1,5 @@
 import { DateTime } from 'luxon';
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { selectApplicableInvoiceDueActionIds } from '../../../src/rcm/scheduled-outreach/producers/shared/produce-invoice-due-outreach';
 import type { ActionType, OutreachAction } from '../../../src/rcm/scheduled-outreach-config/helpers';
 
@@ -17,6 +17,18 @@ function dueDateDaysAgo(days: number): string {
 }
 
 describe('selectApplicableInvoiceDueActionIds', () => {
+  // Freeze "now" so the day-boundary logic (DateTime.now() in both the helper below and the
+  // function under test) is deterministic and never flakes when the suite runs near midnight.
+  // A fixed local-midday instant keeps startOf('day') stable in any reasonable timezone.
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2025-06-15T12:00:00'));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it('keeps only the latest elapsed milestone when an invoice is first seen past several', () => {
     const actions = [makeAction('a8', 8), makeAction('a22', 22)];
     // Invoice is 22 days past due: the 22-day notification milestone lands exactly today.
