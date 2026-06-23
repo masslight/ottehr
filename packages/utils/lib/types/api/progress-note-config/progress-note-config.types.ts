@@ -6,6 +6,8 @@ const requiredDefaultTextMessage = (label: string): string => `${label} default 
 export const VITALS_UNIT_INPUT_ORDERS = ['metric-imperial', 'imperial-metric'] as const;
 export type VitalsUnitInputOrder = (typeof VITALS_UNIT_INPUT_ORDERS)[number];
 
+export const DEFAULT_VITALS_UNIT_INPUT_ORDER: VitalsUnitInputOrder = 'metric-imperial';
+
 export const VITALS_UNIT_INPUT_ORDER_LABELS: Record<VitalsUnitInputOrder, string> = {
   'metric-imperial': 'Metric / Imperial',
   'imperial-metric': 'Imperial / Metric',
@@ -31,7 +33,7 @@ export const UpdateProgressNoteConfigInputSchema = z.object({
   edDispositionDefaultText: z.string().trim().min(1, requiredDefaultTextMessage('ED Transfer')),
   // Optional with a default so older Admin clients/scripts that omit this field keep working;
   // the read path applies the same default for stored configs that predate this setting.
-  vitalsUnitInputOrder: z.enum(VITALS_UNIT_INPUT_ORDERS).default('metric-imperial'),
+  vitalsUnitInputOrder: z.enum(VITALS_UNIT_INPUT_ORDERS).default(DEFAULT_VITALS_UNIT_INPUT_ORDER),
 });
 export type UpdateProgressNoteConfigInput = z.infer<typeof UpdateProgressNoteConfigInputSchema>;
 

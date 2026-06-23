@@ -1,5 +1,8 @@
 import { DispositionType, getDefaultNote } from '../types/api/chart-data/chart-data.types';
-import { ProgressNoteConfig } from '../types/api/progress-note-config/progress-note-config.types';
+import {
+  DEFAULT_VITALS_UNIT_INPUT_ORDER,
+  ProgressNoteConfig,
+} from '../types/api/progress-note-config/progress-note-config.types';
 import { MDM_FIELD_DEFAULT_TEXT } from '../types/data/appointments/appointments.constants';
 
 export const PROGRESS_NOTE_CONFIG_BASIC_TAG = {
@@ -22,7 +25,7 @@ export const DEFAULT_PROGRESS_NOTE_CONFIG: ProgressNoteConfig = {
   pcpNoTypeDispositionDefaultText: getDefaultNote('pcp-no-type'),
   anotherDispositionDefaultText: getDefaultNote('another'),
   edDispositionDefaultText: getDefaultNote('ed'),
-  vitalsUnitInputOrder: 'metric-imperial',
+  vitalsUnitInputOrder: DEFAULT_VITALS_UNIT_INPUT_ORDER,
 };
 
 export const getDispositionDefaultTextFromProgressNoteConfig = (
