@@ -2506,6 +2506,16 @@ interface CreateSlotOptions {
 export const createSlotParamsFromSlotAndOptions = (slot: Slot, options: CreateSlotOptions): CreateSlotParams => {
   const { status, originalBookingUrl, postTelemedLabOnly, serviceModality } = options;
   const walkin = getSlotIsWalkin(slot);
+  // Pass through whatever serviceCategory the vended Slot was stamped with —
+  // get-schedule writes it when the booking URL is category-scoped, and
+  // leaves it absent otherwise. We do NOT default to any specific category
+  // here. The prior `?? 'urgent-care'` fallback silently stamped urgent-care
+  // on every default-flow booking (wrong for any non-urgent-care project,
+  // and now also incompatible with the PR-owned-schedule + BOOKING_CONFIG
+  // guard in create-slot). When undefined reaches create-slot, its own
+  // per-project default (single-category projects stamp their one category;
+  // otherwise just the service-mode coding) takes over.
+  const serviceCategoryCode = getServiceCategoryFromSlot(slot);
   return {
     scheduleId: slot.schedule.reference?.replace('Schedule/', '') ?? '',
     startISO: slot.start,
@@ -2515,7 +2525,7 @@ export const createSlotParamsFromSlotAndOptions = (slot: Slot, options: CreateSl
     walkin,
     originalBookingUrl,
     postTelemedLabOnly,
-    serviceCategoryCode: getServiceCategoryFromSlot(slot) ?? 'urgent-care',
+    ...(serviceCategoryCode && { serviceCategoryCode }),
     atLocationId: getSlotAtLocationId(slot),
     bookedViaGroupId: getSlotBookedViaGroupId(slot),
   };
