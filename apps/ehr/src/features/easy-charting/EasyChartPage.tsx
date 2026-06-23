@@ -3999,17 +3999,28 @@ export default function EasyChartPage(): JSX.Element {
           // Every match is already on the chart — most commonly because a template added it.
           setConv({ kind: 'skipped', user: message, reason: `“${intent.display}” is already on the exam.` });
         } else if (allMatches[0] && isAlreadyChecked(allMatches[0])) {
-          // The TOP-scored match was already on the chart, even if lower-ranked variants
-          // weren't. The provider's intent is essentially satisfied — making them pick from
-          // weaker matches would be confusing (e.g. they asked for "Right TM erythematous and
-          // bulging with loss of light reflex" and the catalog's best match for that, which
-          // is on the chart, was removed by dedup; the picker would otherwise fall back to
-          // unrelated Left ear options).
-          setConv({
-            kind: 'skipped',
-            user: message,
-            reason: `The closest exam match for “${intent.display}” is already charted.`,
-          });
+          // The TOP-scored match is already on the chart. Usually that means the provider's
+          // finding is already satisfied → skip (e.g. they asked for "Right TM erythematous and
+          // bulging" and the AOM template already checked it; falling back to weaker variants would
+          // surface unrelated options). BUT when the charted top match is a NORMAL finding and a
+          // comparable, not-yet-charted ABNORMAL match exists, the provider is describing an
+          // abnormality that lexically collided with a template-charted normal — e.g. "oropharynx
+          // mildly injected" matching the template's "oropharynx clear … exudate" on the shared
+          // anatomy/negation words. In that case chart the abnormal instead of dropping it.
+          const top = scoredMatches[0];
+          const abnormalAlt = remainingScored.find(
+            (s) => s.leaf.normalAbnormal === 'abnormal' && s.score >= top.score * 0.5
+          );
+          if (top.leaf.normalAbnormal === 'normal' && abnormalAlt) {
+            const ids = await handleExamPick(abnormalAlt.leaf, message);
+            flagAiObsIds(ids, 'examObservations', abnormalAlt.leaf.label);
+          } else {
+            setConv({
+              kind: 'skipped',
+              user: message,
+              reason: `The closest exam match for “${intent.display}” is already charted.`,
+            });
+          }
         } else {
           // Interactive follow-up + genuinely ambiguous (several near-equal matches) → let the
           // provider pick. Otherwise auto-pick the top match and flag it for review.
