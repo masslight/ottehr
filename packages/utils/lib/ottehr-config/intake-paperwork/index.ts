@@ -151,6 +151,20 @@ function buildFormFields(valueSets: ValueSetsConfig): PaperworkFormFields {
           type: 'string',
           dataType: 'Email',
           autocomplete: 'section-patient shipping email',
+          triggers: [
+            {
+              targetQuestionLinkId: 'patient-no-email',
+              effect: ['enable', 'require'],
+              operator: '!=',
+              answerBoolean: true,
+            },
+          ],
+          disabledDisplay: 'hidden',
+        },
+        noEmail: {
+          key: 'patient-no-email',
+          label: "Don't have email",
+          type: 'boolean',
         },
         phoneNumber: {
           key: 'patient-number',
@@ -177,7 +191,6 @@ function buildFormFields(valueSets: ValueSetsConfig): PaperworkFormFields {
         'patient-city',
         'patient-state',
         'patient-zip',
-        'patient-email',
         'patient-number',
         'patient-preferred-communication-method',
       ],
@@ -1503,13 +1516,34 @@ function buildFormFields(valueSets: ValueSetsConfig): PaperworkFormFields {
           triggers: [
             {
               targetQuestionLinkId: 'responsible-party-relationship',
+              effect: ['enable', 'require'],
+              operator: '!=',
+              answerString: 'Self',
+            },
+            {
+              targetQuestionLinkId: 'responsible-party-no-email',
+              effect: ['enable', 'require'],
+              operator: '!=',
+              answerBoolean: true,
+            },
+          ],
+          enableBehavior: 'all',
+          disabledDisplay: 'hidden',
+          dynamicPopulation: { sourceLinkId: 'patient-email' },
+        },
+        noEmail: {
+          key: 'responsible-party-no-email',
+          label: "Don't have email",
+          type: 'boolean',
+          triggers: [
+            {
+              targetQuestionLinkId: 'responsible-party-relationship',
               effect: ['enable'],
               operator: '!=',
               answerString: 'Self',
             },
           ],
-          disabledDisplay: 'disabled',
-          dynamicPopulation: { sourceLinkId: 'patient-email' },
+          disabledDisplay: 'hidden',
         },
       },
       hiddenFields: [],
@@ -1523,7 +1557,6 @@ function buildFormFields(valueSets: ValueSetsConfig): PaperworkFormFields {
         'responsible-party-city',
         'responsible-party-state',
         'responsible-party-zip',
-        'responsible-party-email',
       ],
     },
     employerInformation: {

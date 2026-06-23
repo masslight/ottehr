@@ -106,10 +106,14 @@ export class VisitsPage {
    * tomorrow because the day's schedule is past closing).
    */
   async selectDate(date: string): Promise<void> {
-    const dateInput = this.#page.getByTestId(dataTestIds.dashboard.dateFilter);
-    await dateInput.click();
-    await dateInput.fill(date);
-    await dateInput.blur();
+    const dateFromInput = this.#page.getByTestId(dataTestIds.dashboard.dateFromFilter);
+    const dateToInput = this.#page.getByTestId(dataTestIds.dashboard.dateToFilter);
+    await dateFromInput.click();
+    await dateFromInput.fill(date);
+    await dateFromInput.blur();
+    await dateToInput.click();
+    await dateToInput.fill(date);
+    await dateToInput.blur();
   }
 
   async selectGroup(groupName: string): Promise<void> {
@@ -128,7 +132,8 @@ async function waitForTrackingBoardReady(page: Page): Promise<void> {
       url.pathname === '/visits' &&
       url.searchParams.has('tab') &&
       url.searchParams.has('visitType') &&
-      url.searchParams.has('date'),
+      url.searchParams.has('dateFrom') &&
+      url.searchParams.has('dateTo'),
     { timeout: 30000 }
   );
 }
