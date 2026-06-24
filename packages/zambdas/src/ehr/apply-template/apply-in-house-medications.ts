@@ -15,6 +15,7 @@ import {
   getCptCodesFromMA,
   getDosageUnitsAndRouteOfMedication,
   getMedicationName,
+  getMediSpanIdForInteraction,
   MEDICATION_ADMINISTRATION_OTHER_REASON_CODE,
   MEDICATION_ADMINISTRATION_REASON_CODE,
   MedicationApplianceLocation,
@@ -56,7 +57,6 @@ export async function applyInHouseMedicationPlans(
 ): Promise<ApplyInHouseMedicationPlansResult> {
   const warnings: ApplyTemplateWarning[] = [];
   const sectionName = 'inHouseMedications' as const;
-  const medInteractionDetected = false;
 
   try {
     const { templateList, encounter, oystehr, secrets, userToken, action } = input;
@@ -90,6 +90,12 @@ export async function applyInHouseMedicationPlans(
     const requests: BatchInputPostRequest<MedicationAdministration | MedicationRequest | Procedure>[] = [];
 
     const medicationsByIdMap = makeMedicationsByIdMap(templateContained);
+    type erxInteractionPromiseResponse = { interactionDetectedOrFailed: boolean; warnings: ApplyTemplateWarning[] };
+    const requestsAndErxPromise: {
+      liveMA: MedicationAdministration;
+      liveMR: MedicationRequest;
+      erxInteractionPromise: () => Promise<erxInteractionPromiseResponse>;
+    }[] = [];
 
     for (const templateMA of templateMedAdministrations) {
       const containedMedId = templateMA.medicationReference?.reference?.replace('#', '');
@@ -148,7 +154,6 @@ export async function applyInHouseMedicationPlans(
         ...(cptCodes && cptCodes.length > 0 ? { cptCodes } : {}),
       };
 
-      // ATHENA TODO: do we need to check that these providers are allowed to order erx?
       // product said to use the person applying the template for the ordering provider
       const currentUserProviderId = await getMyPractitionerId(userToken, secrets);
 
@@ -174,52 +179,90 @@ export async function applyInHouseMedicationPlans(
         // medicationResource?: Medication;
       };
 
-      try {
-        // ATHENA TODO: come back and figure out interactions: if there is even a single interaction detected, then no
-        // in how meds should be applied at all. The section should effectively be skipped.
-        // ATHENA TODO: should we be using the drug id for interactions or
-        // export const MEDICATION_DISPENSABLE_DRUG_ID = 'https://terminology.fhir.oystehr.com/CodeSystem/medispan-dispensable-drug-id';
-        // const medispanIdForInteractions =
-        //   (medicationForMa.code?.coding ?? []).find((c) => c.system === MEDICATION_DISPENSABLE_DRUG_ID_FOR_INTERACTIONS)
-        //     ?.code ?? '';
+      const liveMA = createMedicationAdministrationResource(medicationAdministrationData);
+      // interactions are passed as empty -- we disallow creation of templates with meds that have interactions, and the
+      // erxInteractionPromise will be checked for every med on the template. If the promise does not detect interactions,
+      // then the live MR is added to the request and can be added interaction free
+      const liveMR = createMedicationRequest(
+        orderData,
+        { allergyInteractions: [], drugInteractions: [] },
+        medicationForMa
+      );
 
-        // const erxInteractionsResponse = await oystehr.erx.checkPrecheckInteractions({
-        //   patientId,
-        //   drugId: medispanIdForInteractions,
-        // });
+      const erxInteractionPromise = async (): Promise<erxInteractionPromiseResponse> => {
+        let interactionDetectedOrFailed = false;
 
-        // const interactions = medicationInteractionsFromErxResponse(erxInteractionsResponse);
-        // interactionsDetected = hasInteractions(interactions).
-        if (medInteractionDetected) {
+        const drugId = getMediSpanIdForInteraction(medicationForMa);
+        if (!drugId) {
           return {
+            interactionDetectedOrFailed: true,
             warnings: [
               {
                 section: sectionName,
-                message: `Medication interaction detected. All medications will be skipped. Please add medications manually`,
+                message: `Medication interaction could not be computed due to missing drug id. All medications will be skipped. Please add medications manually`,
               },
             ],
           };
         }
 
-        const liveMA = createMedicationAdministrationResource(medicationAdministrationData);
+        // need to wrap this in a try catch cause the oystehr call could fail
+        try {
+          const erxInteractionsResponse = await oystehr.erx.checkPrecheckInteractions({
+            patientId,
+            drugId,
+          });
 
-        // interactions = undefined triggers the INTERACTIONS_UNAVAILABLE sentinel —
-        // appropriate at template apply time since we have no patient-specific data yet.
-        // ATHENA TODO: where am I supposed to get interactions from?
-        const liveMR = createMedicationRequest(orderData, undefined, medicationForMa);
+          console.log(`this is erxInteractionResponse`, JSON.stringify(erxInteractionsResponse));
+          interactionDetectedOrFailed =
+            !!erxInteractionsResponse.allergies.length || !!erxInteractionsResponse.medications.length;
+          return {
+            interactionDetectedOrFailed,
+            warnings: interactionDetectedOrFailed
+              ? [
+                  {
+                    section: sectionName,
+                    message: `Interaction detected. All medications will be skipped. Please add medications manually.`,
+                  },
+                ]
+              : [],
+          };
+        } catch (e) {
+          console.error(
+            'Something went wrong checking erx interactions for MedicationAdministration',
+            e,
+            JSON.stringify(templateMA),
+            JSON.stringify(medicationForMa)
+          );
+          return {
+            interactionDetectedOrFailed: true,
+            warnings: [
+              {
+                section: sectionName,
+                message: `Unable to determine medication interaction. All medications will be skipped. Please add medications manually.`,
+              },
+            ],
+          };
+        }
+      };
 
-        // Note: we do not make the cpt code Procedures at med order time -- those are created and added to the assessment at med administration time
-        requests.push({ method: 'POST', url: '/MedicationAdministration', resource: liveMA });
-        requests.push({ method: 'POST', url: '/MedicationRequest', resource: liveMR });
-      } catch (err) {
-        console.error(`Error building medication order for template MA ${templateMA.id}`, err);
-        warnings.push({
-          section: sectionName,
-          message: `Skipped "${medName}" — something went wrong building the medication order.`,
-        });
-        return { warnings: [] };
-      }
+      requestsAndErxPromise.push({ liveMA, liveMR, erxInteractionPromise });
     }
+
+    // We will only apply templates for which there are no med interactions between the med on the template and the patient
+    // if there is even a single interaction detected, then the meds section should effectively be skipped.
+    const erxResponses = await Promise.all(requestsAndErxPromise.map((elm) => elm.erxInteractionPromise()));
+    const failedErxResponse = erxResponses.find((resp) => resp.interactionDetectedOrFailed);
+    if (failedErxResponse) {
+      console.warn('Found a failed erx response');
+      return { warnings: failedErxResponse.warnings };
+    }
+
+    requestsAndErxPromise.forEach((resp) => {
+      const { liveMA, liveMR } = resp;
+      // Note: we do not make the cpt code Procedures at med order time -- those are created and added to the assessment at med administration time
+      requests.push({ method: 'POST', url: '/MedicationAdministration', resource: liveMA });
+      requests.push({ method: 'POST', url: '/MedicationRequest', resource: liveMR });
+    });
 
     if (requests.length === 0) return { warnings };
 

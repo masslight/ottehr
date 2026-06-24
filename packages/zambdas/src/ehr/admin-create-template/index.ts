@@ -2,12 +2,14 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import {
   ActivityDefinition,
+  Annotation,
   Condition,
   Encounter,
   List,
   ListEntry,
   Medication,
   MedicationAdministration,
+  MedicationRequest,
   Patient,
   ServiceRequest,
 } from 'fhir/r4b';
@@ -26,6 +28,8 @@ import {
   isPSCOrder,
   makeOptimisticLockIfMatchHeader,
   MEDICATION_ADMINISTRATION_IN_PERSON_RESOURCE_SYSTEM,
+  MEDICATION_ADMINISTRATION_OTHER_REASON_CODE,
+  MEDICATION_ADMINISTRATION_REASON_CODE,
   OYSTEHR_LAB_GUID_SYSTEM,
   OYSTEHR_LAB_OI_CODE_SYSTEM,
   PSC_HOLD_CONFIG,
@@ -75,7 +79,6 @@ export const index = wrapHandler(
   }
 );
 
-// ATHENA TODO: need to be sure to display the toast when someone clicks save template to show the warnings
 const performEffect = async (
   validatedInput: AdminCreateTemplateInput & Pick<ZambdaInput, 'secrets'>,
   oystehr: Oystehr
@@ -191,6 +194,19 @@ const performEffect = async (
       if (srId) clinicalInfoNoteBySrId.set(srId, text);
     }
   }
+
+  // Capture in-house medication administrations before the tag filter runs.
+  // MAs carry no chart-data meta tag; they're identified by their own tag
+  // system, which the filter below doesn't include in its allow-list.
+  const medicationAdministrations = encounterBundle.filter((resource): resource is MedicationAdministration =>
+    isValidMedicationAdministrationForTemplate(resource)
+  );
+  console.log('These are the medicationAdministrations', JSON.stringify(medicationAdministrations));
+  const medicationRequestByIdMap = new Map<string, MedicationRequest>(
+    encounterBundle
+      .filter((res): res is MedicationRequest => res.resourceType === 'MedicationRequest')
+      .map((mr) => [mr.id!, mr])
+  );
 
   // Filter to only resources relevant to template sections
   const diagnosesRefFromEncounterSet = new Set(
@@ -394,12 +410,6 @@ const performEffect = async (
     });
   }
 
-  // Capture in-house medication administrations before the tag filter runs.
-  // MAs carry no chart-data meta tag; they're identified by their own tag
-  // system, which the filter below doesn't include in its allow-list.
-  const medicationAdministrations = encounterBundle.filter((resource): resource is MedicationAdministration =>
-    isValidMedicationAdministrationForTemplate(resource)
-  );
   // Build a map of Condition id → Condition (diagnosis conditions only) so we
   // can resolve a medication's reasonReference to ICD-10 codings when
   // materializing medication plans below.
@@ -410,30 +420,41 @@ const performEffect = async (
     }
   }
 
-  // Materialize each captured in-house medication administration as a "plan"
+  // Materialize each captured in-house medication administration as a
   // MedicationAdministration on the template. We store only the ordering inputs
-  // (drug identity as medicationCodeableConcept, dosage, CPT codes, reason notes,
+  // (drug identity as contained Medication, dosage, CPT codes, reason notes,
   // and ICD-10 diagnoses lifted from the Condition references) — patient-specific
   // fields (performer, effectiveDateTime, reasonReference, request) are stripped.
   // At apply time, apply-template re-runs the medication create flow using the
   // plan data, binding the fresh patient and encounter.
-  // ATHENA TODO: check this, what is this doing??
+  // Note: we effectively skip all medications if any medication has detected interactions
   const medicationPlanTagSystem = chartDataTagSystem('in-house-medication-administration-template');
-  const medicationInteractionDetected = false;
+  let medicationInteractionDetected = false;
   const medAdminsForContained: MedicationAdministration[] = [];
   const medicationEntries: ListEntry[] = [];
 
   for (const medAdmin of medicationAdministrations) {
-    if (medicationInteractionDetected) break;
-    const originalMedication = medAdmin.contained?.find((r) => r.resourceType === 'Medication');
-    if (!originalMedication) {
+    // the interactions are stored on the MR.detectedIssue. See createMedicationRequest
+    const mrForMedAmin = medicationRequestByIdMap.get(
+      medAdmin.request?.reference?.replace('MedicationRequest/', '') ?? ''
+    );
+    if (!mrForMedAmin) {
       console.warn(
-        `Skipping MedicationAdministration ${medAdmin.id} when saving template — no contained Medication found`
+        `Skipping MedicationAdministration/${medAdmin.id} when saving template — no MedicationRequest found`
       );
       continue;
     }
 
-    // ATHENA TODO: check drug interaction -- if anything has a drug interaction, we will not save medications on the template
+    medicationInteractionDetected = !!mrForMedAmin.detectedIssue && mrForMedAmin.detectedIssue.length > 0;
+    if (medicationInteractionDetected) break;
+
+    const originalMedication = medAdmin.contained?.find((r) => r.resourceType === 'Medication');
+    if (!originalMedication) {
+      console.warn(
+        `Skipping MedicationAdministration/${medAdmin.id} when saving template — no contained Medication found`
+      );
+      continue;
+    }
 
     // Lift ICD-10 codings from reasonReference Conditions into reasonCode so
     // the plan can carry Dx without referencing patient-specific Conditions.
@@ -458,6 +479,15 @@ const performEffect = async (
       listToCreate.contained!.push(templateMedication);
     }
 
+    // any issues encountered when administering a med are put in notes. We want to avoid putting that on the template
+    // we should consider if we want any notes at all -- could have patient specific info, maybe worth skipping entirely
+    const sanitizedNotes: Annotation[] = (medAdmin.note ?? []).filter(
+      (note) =>
+        ![MEDICATION_ADMINISTRATION_REASON_CODE, MEDICATION_ADMINISTRATION_OTHER_REASON_CODE].includes(
+          note.authorString ?? ''
+        )
+    );
+
     const medAdminId = uuidV4();
     const templateMedAdministration: MedicationAdministration = {
       resourceType: 'MedicationAdministration',
@@ -472,7 +502,7 @@ const performEffect = async (
       // NO request — MR is patient-specific (carries interaction data for that patient)
       ...(medAdmin.dosage ? { dosage: medAdmin.dosage } : {}),
       ...(medAdmin.extension && medAdmin.extension.length > 0 ? { extension: medAdmin.extension } : {}),
-      ...(medAdmin.note && medAdmin.note.length > 0 ? { note: medAdmin.note } : {}),
+      ...(sanitizedNotes.length > 0 ? { note: sanitizedNotes } : {}),
       ...(reasonCode.length > 0 ? { reasonCode } : {}),
       // details of the medication itself are contained on the medicationAdministration
       ...(medicationAdminMedication
@@ -488,8 +518,6 @@ const performEffect = async (
 
     medAdminsForContained.push(templateMedAdministration);
     medicationEntries.push({ item: { reference: `#${medAdminId}` } });
-    // listToCreate.contained!.push(templateMedAdministration);
-    // listToCreate.entry!.push({ item: { reference: `#${medAdminId}` } });
   }
 
   if (!medicationInteractionDetected) {

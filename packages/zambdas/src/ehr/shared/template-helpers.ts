@@ -10,6 +10,7 @@ import {
   List,
   Location,
   MedicationAdministration,
+  MedicationRequest,
   Observation,
   Patient,
   Procedure,
@@ -38,10 +39,11 @@ export const TEMPLATE_TAG_SYSTEMS: ReadonlySet<string> = new Set([
   chartDataTagSystem('cpt-code'),
   chartDataTagSystem('em-code'),
   chartDataTagSystem('diagnosis'),
-  // ATHENA TODO: shouldn't the in house lab template tag be here? Also shouldn't all these strings for the various things be a type/const?
-  // chartDataTagSystem('in-house-lab-template-plan')
 
-  // ATHENA TODO: does the medication system have to be here too?
+  // template TODO: we are missing some tags here, but adding them would require a larger refactor and testing to ensure correctness
+  // chartDataTagSystem('in-house-lab-template-plan')
+  // chartDataTagSystem('procedure-template-plan')
+  // chartDataTagSystem('in-house-medication-administration-template')
 ]);
 
 // Minimal shape for tag-based predicates so callers can pass resources from any FHIR version (R4B / R5) without
@@ -51,7 +53,7 @@ type TaggedResource = {
   meta?: { tag?: Array<{ system?: string; code?: string }> };
 };
 
-// ATHENA TODO: figure out if adding the in house lab template plan key would break this anywhere
+// template TODO: ensure that adding the missing template tags from above will not break this anywhere
 export function hasTemplateRelevantTag(resource: TaggedResource | undefined): boolean {
   return resource?.meta?.tag?.some((tag) => !!tag.system && TEMPLATE_TAG_SYSTEMS.has(tag.system)) ?? false;
 }
@@ -177,6 +179,7 @@ export type TemplateEncounterResource =
   | Procedure
   | ServiceRequest
   | MedicationAdministration
+  | MedicationRequest
   | Patient
   | Location
   | Coverage
@@ -202,8 +205,10 @@ export const getTemplateEncounterBundle = async (
         // template plans when creating templates.
         { name: '_revinclude:iterate', value: 'ServiceRequest:encounter' },
         // Pulled in so in-house medication administrations on this encounter can
-        // be saved as template plans when creating templates.
+        // be saved as template plans when creating templates. We need the MR
+        // to determine any drug interactions
         { name: '_revinclude:iterate', value: 'MedicationAdministration:context' },
+        { name: '_include:iterate', value: 'MedicationAdministration:request' },
         // External lab orders keep their clinical info note on a Communication
         // that references the order ServiceRequest via basedOn (it carries no
         // encounter reference), so it needs its own revinclude to be captured

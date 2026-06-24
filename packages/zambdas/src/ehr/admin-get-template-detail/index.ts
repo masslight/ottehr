@@ -556,7 +556,7 @@ const performEffect = async (
 
     const { route, dose, units } = getDosageUnitsAndRouteOfMedication(templateMA);
 
-    // ATHENA TODO: do we need to handle "missing" meds, like if they no longer appear in a dosespot search or something?
+    // question: do we need to handle "missing" meds, like if they no longer appear in a dosespot search or something?
     return {
       planId: templateMA.id ?? '',
       medicationName,

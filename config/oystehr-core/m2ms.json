@@ -97,6 +97,11 @@
           "resource": ["eRx:Patient"]
         },
         {
+          "action": ["eRx:Check"],
+          "effect": "Allow",
+          "resource": ["eRx:Interaction"]
+        },
+        {
           "action": ["Terminology:SearchCodes"],
           "effect": "Allow",
           "resource": ["Terminology:Code:*"]
