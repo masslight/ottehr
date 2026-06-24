@@ -23,6 +23,7 @@ import {
   RuleOutcome,
 } from 'utils';
 import { otherColors } from '../../themes/ottehr/colors';
+import { PayerSelect } from './PayerSelect';
 
 // ---------------------------------------------------------------------------
 // Recursive editor for a rule's if / else-if / else conditional tree. Each editor is fully
@@ -52,13 +53,11 @@ const operatorIsMultiValue = (op: RuleOperator): boolean => op === 'in' || op ==
 const valueToText = (value: string | string[] | undefined): string =>
   Array.isArray(value) ? value.join(', ') : value ?? '';
 
-const textToValue = (text: string, op: RuleOperator): string | string[] =>
-  operatorIsMultiValue(op)
-    ? text
-        .split(',')
-        .map((s) => s.trim())
-        .filter(Boolean)
-    : text;
+const textToList = (text: string): string[] =>
+  text
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
 
 const newFieldCondition = (): RuleCondition => ({ type: 'field', field: FIRST_FIELD_ID, operator: 'eq', value: '' });
 const newAction = (): RuleAction => ({ type: 'setField', field: FIRST_SETTABLE_ID, value: '' });
@@ -70,6 +69,37 @@ const newBranch = (): RuleConditional['branches'][number] => ({
 export const newRuleConditional = (): RuleConditional => ({ branches: [newBranch()] });
 
 const indentSx = { borderLeft: `2px solid ${otherColors.lightDivider}`, pl: 2, ml: 0.5 };
+
+// Field-aware value input: different fields get different UI for a good editing experience. Payer
+// fields use the searchable payer picker (valid payers only, from the Oystehr payer list); everything
+// else is free text (multi-value operators take a comma-separated list). Gender dropdowns, date
+// pickers, etc. slot in here the same way.
+function FieldValueInput({
+  fieldId,
+  multiple,
+  value,
+  onChange,
+  label,
+}: {
+  fieldId: string;
+  multiple: boolean;
+  value: string | string[] | null | undefined;
+  onChange: (value: string | string[]) => void;
+  label?: string;
+}): ReactElement {
+  if (fieldId === 'payerId') {
+    return <PayerSelect multiple={multiple} value={value} onChange={onChange} label={label} />;
+  }
+  return (
+    <TextField
+      size="small"
+      label={label ?? (multiple ? 'Values (comma-separated)' : 'Value')}
+      value={valueToText(value ?? '')}
+      onChange={(e) => onChange(multiple ? textToList(e.target.value) : e.target.value)}
+      sx={{ minWidth: 200 }}
+    />
+  );
+}
 
 // --- Condition ---
 
@@ -126,7 +156,8 @@ function FieldConditionEditor({
             const nextDef = getRuleFieldDef(field);
             const operator =
               nextDef && !nextDef.operators.includes(value.operator) ? nextDef.operators[0] : value.operator;
-            onChange({ ...value, field, operator });
+            // Reset the value: it's meaningless across a property change (e.g. payer id -> gender).
+            onChange({ ...value, field, operator, value: '' });
           }}
         >
           {RULE_FIELD_CATALOG.map((f) => (
@@ -151,12 +182,11 @@ function FieldConditionEditor({
         </Select>
       </FormControl>
       {operatorNeedsValue(value.operator) && (
-        <TextField
-          size="small"
-          label={operatorIsMultiValue(value.operator) ? 'Values (comma-separated)' : 'Value'}
-          value={valueToText(value.value)}
-          onChange={(e) => onChange({ ...value, value: textToValue(e.target.value, value.operator) })}
-          sx={{ minWidth: 200 }}
+        <FieldValueInput
+          fieldId={value.field}
+          multiple={operatorIsMultiValue(value.operator)}
+          value={value.value}
+          onChange={(v) => onChange({ ...value, value: v })}
         />
       )}
     </Box>
@@ -237,7 +267,7 @@ function ActionEditor({ value, onChange }: { value: RuleAction; onChange: (next:
             <Select
               label="Property"
               value={value.field}
-              onChange={(e) => onChange({ ...value, field: e.target.value })}
+              onChange={(e) => onChange({ ...value, field: e.target.value, value: '' })}
             >
               {SETTABLE_FIELDS.map((f) => (
                 <MenuItem key={f.id} value={f.id}>
@@ -246,12 +276,12 @@ function ActionEditor({ value, onChange }: { value: RuleAction; onChange: (next:
               ))}
             </Select>
           </FormControl>
-          <TextField
-            size="small"
+          <FieldValueInput
+            fieldId={value.field}
+            multiple={false}
+            value={value.value}
+            onChange={(v) => onChange({ ...value, value: typeof v === 'string' ? v : v[0] ?? '' })}
             label="New value"
-            value={value.value ?? ''}
-            onChange={(e) => onChange({ ...value, value: e.target.value })}
-            sx={{ minWidth: 200 }}
           />
         </>
       )}

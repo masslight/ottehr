@@ -14,6 +14,8 @@ const { getBillingRulesMock, saveBillingRulesMock } = vi.hoisted(() => ({
 vi.mock('../../src/api/api', () => ({
   getBillingRules: getBillingRulesMock,
   saveBillingRules: saveBillingRulesMock,
+  // PayerSelect (rendered for the payerId condition) searches payers on open/input, not on mount.
+  searchBillingPayers: () => Promise.resolve({ payers: [] }),
 }));
 
 vi.mock('../../src/hooks/useAppClients', () => ({
@@ -70,5 +72,11 @@ describe('ConditionalEditor', () => {
     render(<ConditionalEditor value={ruleA.conditional} onChange={() => undefined} />);
     expect(screen.getByText('IF')).toBeInTheDocument();
     expect(screen.getByText('THEN')).toBeInTheDocument();
+  });
+
+  it('uses the searchable payer picker (not a text field) for payerId in both the condition and the action', () => {
+    render(<ConditionalEditor value={ruleA.conditional} onChange={() => undefined} />);
+    // ruleA has a payerId condition and a setField-payerId action — both should be payer pickers.
+    expect(screen.getAllByPlaceholderText(/Search payers/)).toHaveLength(2);
   });
 });
