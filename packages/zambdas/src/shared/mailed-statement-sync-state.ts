@@ -1,5 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { Basic } from 'fhir/r4b';
+import { getExtensionValue } from 'utils';
 
 // Singleton Basic resource that records the state of the most recent mailed-statement
 // status-sync cron run. There is at most one of these per project; it is upserted by the
@@ -23,20 +24,12 @@ const EMPTY_STATE: MailedStatementSyncState = {
   errorCount: null,
 };
 
-function getExtensionDateTime(basic: Basic, url: string): string | null {
-  return basic.extension?.find((e) => e.url === url)?.valueDateTime ?? null;
-}
-
-function getExtensionInteger(basic: Basic, url: string): number | null {
-  return basic.extension?.find((e) => e.url === url)?.valueInteger ?? null;
-}
-
 function parseState(basic: Basic | undefined): MailedStatementSyncState {
   if (!basic) return EMPTY_STATE;
   return {
-    lastRunAt: getExtensionDateTime(basic, LAST_RUN_AT_URL),
-    updatedCount: getExtensionInteger(basic, LAST_RUN_UPDATED_URL),
-    errorCount: getExtensionInteger(basic, LAST_RUN_ERRORS_URL),
+    lastRunAt: getExtensionValue(basic, LAST_RUN_AT_URL, 'valueDateTime') ?? null,
+    updatedCount: getExtensionValue(basic, LAST_RUN_UPDATED_URL, 'valueInteger') ?? null,
+    errorCount: getExtensionValue(basic, LAST_RUN_ERRORS_URL, 'valueInteger') ?? null,
   };
 }
 
