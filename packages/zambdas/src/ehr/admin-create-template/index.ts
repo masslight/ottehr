@@ -461,11 +461,7 @@ const performEffect = async (
       continue;
     }
 
-    medicationInteractionDetected =
-      !!mrForMedAmin.detectedIssue &&
-      (mrForMedAmin.detectedIssue.length > 1 ||
-        (mrForMedAmin.detectedIssue.length === 1 &&
-          !mrForMedAmin.detectedIssue[0].reference?.includes(INTERACTIONS_UNAVAILABLE)));
+    medicationInteractionDetected = medicationRequestHasInteraction(mrForMedAmin);
     if (medicationInteractionDetected) break;
 
     const originalMedication = medAdmin.contained?.find((r) => r.resourceType === 'Medication');
@@ -762,4 +758,9 @@ export const isValidMedicationAdministrationForTemplate = (resource: TemplateEnc
     resourceHasTagSystem(ma, MEDICATION_ADMINISTRATION_IN_PERSON_RESOURCE_SYSTEM) &&
     TEMPLATE_INCLUDABLE_MA_STATUSES.has(ma.status)
   );
+};
+
+export const medicationRequestHasInteraction = (mr: MedicationRequest): boolean => {
+  if (!mr.detectedIssue?.length) return false;
+  return mr.detectedIssue.length > 1 || !mr.detectedIssue[0].reference?.includes(INTERACTIONS_UNAVAILABLE);
 };
