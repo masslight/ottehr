@@ -110,17 +110,13 @@ async function getToken(
 
   const tokenData = await tokenResponse.json();
 
-  const oystehr = createClinicalOystehrClient(
-    tokenData.access_token,
-    {},
-    {
-      projectId: ehrZambdaEnv.PROJECT_ID,
-      services: {
-        fhirApiUrl: ehrZambdaEnv.FHIR_API,
-        projectApiUrl: ehrZambdaEnv.PROJECT_API,
-      },
-    }
-  );
+  const oystehr = createClinicalOystehrClient(tokenData.access_token, ehrZambdaEnv, {
+    projectId: ehrZambdaEnv.PROJECT_ID,
+    services: {
+      fhirApiUrl: ehrZambdaEnv.FHIR_API,
+      projectApiUrl: ehrZambdaEnv.PROJECT_API,
+    },
+  });
   return oystehr;
 }
 

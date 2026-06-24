@@ -67,7 +67,7 @@ describe.skip('paperwork validation tests', () => {
     //   AUTH0_AUDIENCE: AUTH0_AUDIENCE,
     // });
     const { PROJECT_API } = SECRETS;
-    oystehr = createClinicalOystehrClient(undefined, {}, { services: { projectApiUrl: PROJECT_API } });
+    oystehr = createClinicalOystehrClient(undefined, SECRETS, { services: { projectApiUrl: PROJECT_API } });
   });
 
   function editPaperwork(body?: any): Promise<any> {

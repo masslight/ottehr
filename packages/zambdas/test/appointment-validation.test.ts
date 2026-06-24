@@ -58,7 +58,7 @@ describe.skip('appointments validation tests', () => {
     // });
 
     const { PROJECT_API } = SECRETS;
-    oystehr = createClinicalOystehrClient(undefined, {}, { services: { projectApiUrl: PROJECT_API } });
+    oystehr = createClinicalOystehrClient(undefined, SECRETS, { services: { projectApiUrl: PROJECT_API } });
   });
 
   function createAppointment(body?: any): Promise<any> {

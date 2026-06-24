@@ -63,11 +63,9 @@ describe.skip('paperwork tests', () => {
       AUTH0_AUDIENCE: AUTH0_AUDIENCE,
     });
 
-    oystehr = createClinicalOystehrClient(
-      token,
-      {},
-      { services: { fhirApiUrl: FHIR_API, projectApiUrl: PROJECT_API } }
-    );
+    oystehr = createClinicalOystehrClient(token, SECRETS, {
+      services: { fhirApiUrl: FHIR_API, projectApiUrl: PROJECT_API },
+    });
   });
 
   function updatePaperwork(body?: any): Promise<any> {
