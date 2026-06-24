@@ -44,10 +44,10 @@ export const RadiologyOrdersContainer: FC<RadiologyOrdersContainerProps> = (prop
     }
 
     return (
-      <Typography display="flex">
+      <Box display="flex">
         <span style={{ fontWeight: 'bold' }}>{reportType}:&nbsp;</span>
         <div dangerouslySetInnerHTML={{ __html: `${report}` }} />
-      </Typography>
+      </Box>
     );
   };
 
