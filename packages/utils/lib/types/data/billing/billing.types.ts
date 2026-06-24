@@ -393,6 +393,10 @@ export interface TaggedClaimResponse {
   ok: true;
 }
 
+export interface ExportClaimX12Response {
+  x12: string;
+}
+
 export interface CreatedClaimResponse {
   claimId: string;
 }
