@@ -10,7 +10,10 @@ import {
   PROGRESS_NOTE_CONFIG_MDM_REQUIRED_EXTENSION_URL,
   PROGRESS_NOTE_CONFIG_MEDICAL_DECISION_DEFAULT_TEXT_EXTENSION_URL,
   PROGRESS_NOTE_CONFIG_PCP_NO_TYPE_DISPOSITION_DEFAULT_TEXT_EXTENSION_URL,
+  PROGRESS_NOTE_CONFIG_VITALS_UNIT_INPUT_ORDER_EXTENSION_URL,
   ProgressNoteConfig,
+  VITALS_UNIT_INPUT_ORDERS,
+  VitalsUnitInputOrder,
 } from 'utils';
 
 async function findProgressNoteConfigBasic(oystehr: Oystehr): Promise<Basic | undefined> {
@@ -62,6 +65,14 @@ export async function getProgressNoteConfigPayload(oystehr: Oystehr): Promise<Ge
     PROGRESS_NOTE_CONFIG_ED_DISPOSITION_DEFAULT_TEXT_EXTENSION_URL,
     'valueString'
   );
+  const vitalsUnitInputOrderRaw = getExtensionValue(
+    basic,
+    PROGRESS_NOTE_CONFIG_VITALS_UNIT_INPUT_ORDER_EXTENSION_URL,
+    'valueString'
+  );
+  const vitalsUnitInputOrder = VITALS_UNIT_INPUT_ORDERS.includes(vitalsUnitInputOrderRaw as VitalsUnitInputOrder)
+    ? (vitalsUnitInputOrderRaw as VitalsUnitInputOrder)
+    : undefined;
 
   return {
     mdmRequired: mdmRequired ?? DEFAULT_PROGRESS_NOTE_CONFIG.mdmRequired,
@@ -71,6 +82,7 @@ export async function getProgressNoteConfigPayload(oystehr: Oystehr): Promise<Ge
     anotherDispositionDefaultText:
       anotherDispositionDefaultText ?? DEFAULT_PROGRESS_NOTE_CONFIG.anotherDispositionDefaultText,
     edDispositionDefaultText: edDispositionDefaultText ?? DEFAULT_PROGRESS_NOTE_CONFIG.edDispositionDefaultText,
+    vitalsUnitInputOrder: vitalsUnitInputOrder ?? DEFAULT_PROGRESS_NOTE_CONFIG.vitalsUnitInputOrder,
   };
 }
 
@@ -105,6 +117,10 @@ export async function saveProgressNoteConfig(oystehr: Oystehr, config: ProgressN
       {
         url: PROGRESS_NOTE_CONFIG_ED_DISPOSITION_DEFAULT_TEXT_EXTENSION_URL,
         valueString: config.edDispositionDefaultText,
+      },
+      {
+        url: PROGRESS_NOTE_CONFIG_VITALS_UNIT_INPUT_ORDER_EXTENSION_URL,
+        valueString: config.vitalsUnitInputOrder,
       },
     ],
   };

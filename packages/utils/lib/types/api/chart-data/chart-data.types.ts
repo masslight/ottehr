@@ -15,7 +15,7 @@ import {
   ServiceRequest,
   Task,
 } from 'fhir/r4b';
-import { ObservationDTO } from 'utils';
+import { ObservationDTO, RadiologyDTO } from 'utils';
 import z from 'zod';
 import { EncounterExternalLabResult, EncounterInHouseLabResult } from '../lab';
 import {
@@ -71,6 +71,7 @@ export interface AllChartValues {
   procedures?: ProcedureDTO[];
   reasonForVisit?: FreeTextNoteDTO;
   accident?: AccidentDTO;
+  radiologyOrders?: RadiologyDTO[];
 }
 
 export type RequestedFields =
@@ -98,7 +99,8 @@ export type RequestedFields =
   | 'preferredPharmacies'
   | 'reasonForVisit'
   | 'accident'
-  | 'patientHasPreviousVisits';
+  | 'patientHasPreviousVisits'
+  | 'radiologyOrders';
 
 export type AllChartValuesKeys = keyof AllChartValues;
 

@@ -3,6 +3,7 @@ import {
   Account,
   Address,
   Basic,
+  ChargeItemDefinition,
   Claim,
   Coding,
   Coverage,
@@ -23,6 +24,8 @@ import {
   BillingPolicyHolderInput,
   BillingSubscriberRelationship,
   buildCoverageSubscriberRelatedPerson,
+  ChargeItemDefinitionDefault,
+  ChargeItemDefinitionType,
   CODE_SYSTEM_APPOINTMENT_TYPE_CODES,
   CODE_SYSTEM_APPOINTMENT_TYPE_TAG_SYSTEM,
   CODE_SYSTEM_CLAIM_TYPE,
@@ -39,6 +42,7 @@ import {
   getPayerId,
   getPayerUrl,
   getSubscriberRelationshipCodeableConcept,
+  INVALID_INPUT_ERROR,
   isPayerUrl,
   isValidUUID,
   PATIENT_BILLING_ACCOUNT_TYPE,
@@ -217,6 +221,14 @@ export function hasTag(resource: Resource, system: string, code: string): boolea
   return resource.meta?.tag?.some((t) => t.system === system && t.code === code) ?? false;
 }
 
+// Taxonomy is stored as a ZZ-typed identifier
+export function getTaxonomy(resource: Practitioner | Organization): string {
+  return (
+    resource.identifier?.find((id) => id.type?.coding?.some((c) => c.code === FHIR_IDENTIFIER_CODE_TAXONOMY))?.value ??
+    ''
+  );
+}
+
 export function formatAddress(addr?: { line?: string[]; city?: string; state?: string; postalCode?: string }): string {
   if (!addr) return '';
   return [...(addr.line ?? []), addr.city, addr.state, addr.postalCode].filter(Boolean).join(', ');
@@ -374,11 +386,31 @@ type CRT<T extends CopyableBillingResource> = Extract<CopyableBillingResource, {
  */
 const CopyableProperties: ResourceProperties<CopyableBillingResource> = {
   Account: ['resourceType', 'status', 'type', 'subject', 'guarantor', 'coverage', 'contained'],
-  Coverage: ['resourceType', 'status', 'subscriber', 'beneficiary', 'payor', 'subscriberId', 'relationship', 'class'],
-  Location: ['resourceType', 'address', 'description', 'name', 'telecom', 'type'],
-  Organization: ['resourceType', 'active', 'address', 'contact', 'name', 'telecom', 'type'],
+  Coverage: [
+    'resourceType',
+    'status',
+    'subscriber',
+    'beneficiary',
+    'payor',
+    'subscriberId',
+    'relationship',
+    'class',
+    'type',
+  ],
+  Location: ['resourceType', 'identifier', 'address', 'description', 'name', 'telecom', 'type'],
+  Organization: ['resourceType', 'identifier', 'active', 'address', 'contact', 'name', 'telecom', 'type'],
   Patient: ['resourceType', 'name', 'active', 'gender', 'address', 'telecom', 'birthDate'],
-  Practitioner: ['resourceType', 'active', 'address', 'birthDate', 'gender', 'name', 'qualification', 'telecom'],
+  Practitioner: [
+    'resourceType',
+    'identifier',
+    'active',
+    'address',
+    'birthDate',
+    'gender',
+    'name',
+    'qualification',
+    'telecom',
+  ],
   RelatedPerson: ['resourceType', 'name', 'birthDate', 'gender', 'patient', 'address', 'relationship'],
 } as const;
 /**
@@ -644,4 +676,27 @@ export function chargeItemDefinitionNameToUrl(type: 'charge-master' | 'fee-sched
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-|-$/g, '');
   return `urn:uuid:${type}:${slug}`;
+}
+
+export function getTypeForChargeItemDefinition(cid: ChargeItemDefinition): ChargeItemDefinitionType {
+  const typeCode = cid.meta?.tag?.find((t) => t.system === CHARGE_ITEM_DEFINITION_TYPE_SYSTEM)?.code;
+  const typeValue: ChargeItemDefinitionType | undefined =
+    typeCode && ['charge-master', 'fee-schedule'].includes(typeCode)
+      ? (typeCode as ChargeItemDefinitionType)
+      : undefined;
+  if (!typeValue) {
+    throw INVALID_INPUT_ERROR(`ChargeItemDefinition ${cid.id} does not have a valid type`);
+  }
+  return typeValue;
+}
+
+export function getDefaultSettingForChargeItemDefinition(
+  cid: ChargeItemDefinition
+): ChargeItemDefinitionDefault | undefined {
+  const defaultCode = cid.meta?.tag?.find((t) => t.system === CHARGE_ITEM_DEFINITION_DEFAULT_SYSTEM)?.code;
+  const defaultValue: ChargeItemDefinitionDefault | undefined =
+    defaultCode && ['insurance', 'self-pay'].includes(defaultCode)
+      ? (defaultCode as 'insurance' | 'self-pay')
+      : undefined;
+  return defaultValue;
 }

@@ -17,6 +17,7 @@ import {
 import { structureQuestionnaireResponse } from '../../../../../helpers/qr-structure';
 import { useUpdatePatientAccount } from '../../../../../hooks/useGetPatient';
 import { buildVisitEmployerUpdate, OCCUPATIONAL_MEDICINE_EMPLOYER_FIELD_KEY } from '../../visitEmployer';
+import { scrollToFirstInvalidField } from './scrollToFirstInvalidField';
 
 const questionnaire = PATIENT_RECORD_QUESTIONNAIRE();
 const questionnaireItemsMap = createQuestionnaireItemsMap(questionnaire.item ?? []);
@@ -52,7 +53,6 @@ const collectLogicalControlFields = (fieldKeys: string[]): string[] => {
 
 interface SectionSaveButtonProps {
   fieldKeys: string[];
-  requiredFieldKeys: string[];
   patientId: string | undefined;
   encounterId?: string;
   appointmentId?: string;
@@ -63,7 +63,6 @@ interface SectionSaveButtonProps {
 
 export const SectionSaveButton: FC<SectionSaveButtonProps> = ({
   fieldKeys,
-  requiredFieldKeys,
   patientId,
   encounterId,
   appointmentId,
@@ -72,8 +71,8 @@ export const SectionSaveButton: FC<SectionSaveButtonProps> = ({
 }) => {
   const queryClient = useQueryClient();
   const { oystehrZambda } = useApiClients();
-  const { watch, formState, resetField, getValues, trigger } = useFormContext();
-  const { dirtyFields, errors } = formState;
+  const { watch, formState, resetField, getValues, trigger, getFieldState } = useFormContext();
+  const { dirtyFields } = formState;
 
   const employerFieldDirty = Boolean(dirtyFields[OCCUPATIONAL_MEDICINE_EMPLOYER_FIELD_KEY]);
   const saveEmployerViaVisitDetails = useUpdateVisitDetailsForEmployer && Boolean(appointmentId) && employerFieldDirty;
@@ -110,21 +109,16 @@ export const SectionSaveButton: FC<SectionSaveButtonProps> = ({
     [fieldKeys, dirtyFields, watchedValues]
   );
 
-  const hasRequiredFieldErrors = useMemo(
-    () => requiredFieldKeys.some((key) => !watch(key) || errors[key]),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [requiredFieldKeys, errors, watchedValues]
-  );
-
   const handleSave = useCallback(async () => {
     if (!patientId) return;
 
-    // Conditionally-required fields (e.g. PCP "Practice name") aren't in the static
-    // requiredFieldKeys, so the disabled-state guard misses them; validate here so their
-    // errors surface inline instead of failing at the server.
+    // The Save button is enabled as soon as the section is edited (not gated on
+    // required fields). Validate on click so any invalid/empty required fields
+    // surface inline as red highlights, then jump the user to the first one.
     const isValid = await trigger(fieldKeys);
     if (!isValid) {
       enqueueSnackbar('Please fix all field validation errors and try again', { variant: 'error' });
+      scrollToFirstInvalidField(fieldKeys, (key) => Boolean(getFieldState(key).error));
       return;
     }
 
@@ -209,6 +203,7 @@ export const SectionSaveButton: FC<SectionSaveButtonProps> = ({
     visitDetailsEmployerMutation,
     onSaveSuccess,
     trigger,
+    getFieldState,
   ]);
 
   if (!isDirty) return null;
@@ -218,7 +213,7 @@ export const SectionSaveButton: FC<SectionSaveButtonProps> = ({
       variant="outlined"
       size="small"
       startIcon={isSaving ? <CircularProgress size={14} /> : <Save fontSize="small" />}
-      disabled={hasRequiredFieldErrors || isSaving}
+      disabled={isSaving}
       onClick={handleSave}
       sx={{ textTransform: 'none', fontSize: '13px', py: 0.25, px: 1.5 }}
     >

@@ -148,6 +148,25 @@ describe('AddVisit', () => {
     expect(errorMessage).toBeVisible();
   });
 
+  it('Searches for patients when pressing Enter in the patient search fields', async () => {
+    const user = userEvent.setup();
+
+    render(
+      <TestProviders>
+        <AddPatient />
+      </TestProviders>
+    );
+
+    const phoneNumberInput = screen.getByTestId(dataTestIds.addPatientPage.mobilePhoneInput).querySelector('input');
+
+    await user.click(phoneNumberInput!);
+    await user.paste('1234567890');
+    await user.keyboard('{Enter}');
+
+    expect(await screen.findByTestId(dataTestIds.addPatientPage.patientNotFoundButton)).toBeVisible();
+    expect(screen.queryByText('Please search for patients before adding')).not.toBeInTheDocument();
+  });
+
   it('Shows validation error on mobile phone field when searching with an invalid phone number', async () => {
     const user = userEvent.setup();
 

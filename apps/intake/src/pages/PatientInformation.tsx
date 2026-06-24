@@ -244,8 +244,9 @@ const PatientInformation = (): JSX.Element => {
 
   const defaultValues = (() => {
     if (!pageId) return {};
+    const freshDefaults = paperworkInProgress[pageId] || {};
     const storedValueString = sessionStorage.getItem(PROGRESS_STORAGE_KEY);
-    let defaults = paperworkInProgress[pageId] || {};
+    let defaults = freshDefaults;
     if (storedValueString) {
       try {
         const storedValues = JSON.parse(storedValueString)[pageId];
@@ -253,6 +254,13 @@ const PatientInformation = (): JSX.Element => {
       } catch (error) {
         console.error('Error parsing stored patient information:', error);
       }
+    }
+    // patient-no-email is authoritative from the Patient resource.
+    // Always prefer the fresh server value over stale sessionStorage so the checkbox
+    // reflects the actual patient state when the user returns to this page.
+    const freshNoEmail = freshDefaults['patient-no-email'];
+    if (freshNoEmail !== undefined) {
+      defaults = { ...defaults, 'patient-no-email': freshNoEmail };
     }
     return defaults;
   })();
