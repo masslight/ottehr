@@ -4,12 +4,14 @@ import {
   formatDateTimeToZone,
   formatFhirEncounterToPatientFollowupDetails,
   getAdmitterPractitionerId,
-  getAppointmentServiceCategoryAbbreviation,
   getAttendingPractitionerId,
+  getCoding,
   getProviderNameWithProfession,
   getQuestionnaireResponseByLinkId,
   isAnnotationFollowupEncounter,
   isInPersonAppointment,
+  resolveServiceCategoryAbbreviation,
+  SERVICE_CATEGORY_SYSTEM,
   Timezone,
 } from 'utils';
 import { getPatientLastFirstName } from '../../../patients';
@@ -35,6 +37,7 @@ function getStatusRelatedDates(
 export const composeProgressNoteVisitDetails: DataComposer<ProgressNoteVisitDataInput, VisitDetailsForProgressNote> = ({
   allChartData,
   appointmentPackage,
+  serviceCategories,
 }) => {
   const { additionalChartData } = allChartData;
   const { patient, encounter, mainEncounter, appointment, location, questionnaireResponse, practitioners, timezone } =
@@ -67,7 +70,11 @@ export const composeProgressNoteVisitDetails: DataComposer<ProgressNoteVisitData
   } else {
     const { dateOfService, signedOnDate } = getStatusRelatedDates(mainEncounter ?? encounter, timezone);
     const type = getVisitTypeForPdf(appointment);
-    const serviceCategory = getAppointmentServiceCategoryAbbreviation(appointment);
+    const serviceCategoryCoding = getCoding(appointment?.serviceCategory, SERVICE_CATEGORY_SYSTEM);
+    const serviceCategory = resolveServiceCategoryAbbreviation(
+      serviceCategoryCoding?.code ?? serviceCategoryCoding?.display,
+      serviceCategories
+    );
     const bookingType = getBookingTypeForPdf(appointment);
     const reasonForVisit = appointment?.description ?? '';
     let providerName: string;

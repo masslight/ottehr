@@ -43,7 +43,6 @@ import {
   formatMinutes,
   getAnnotationFollowupStatusLabel,
   getFollowUpProgressNotePathSegment,
-  getServiceCategoryAbbreviation,
   PatientVisitListResponse,
   ServiceMode,
   visitStatusArray,
@@ -51,6 +50,7 @@ import {
 import { FEATURE_FLAGS } from '../constants/feature-flags';
 import { formatISOStringToDateAndTime } from '../helpers/formatDateTime';
 import { useApiClients } from '../hooks/useAppClients';
+import { useServiceCategoryAbbreviationResolver } from '../hooks/useServiceCategoryAbbreviation';
 import { RoundedButton } from './RoundedButton';
 
 type PatientEncountersGridProps = {
@@ -144,6 +144,7 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
   const [period, setPeriod] = useState(0);
   const [status, setStatus] = useState('all');
   const [serviceCategory, setServiceCategory] = useState('all');
+  const resolveServiceCategoryAbbr = useServiceCategoryAbbreviationResolver();
   const [hideCancelled, setHideCancelled] = useState(false);
   const [hideNoShow, setHideNoShow] = useState(false);
   const [sortField, setSortField] = useState<SortField>('dateTime');
@@ -242,7 +243,7 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
         return encounter.dateTime ? formatISOStringToDateAndTime(encounter.dateTime) : '-';
       case 'type': {
         const typeText = encounter.type ?? '-';
-        const serviceCategoryAbbr = getServiceCategoryAbbreviation(encounter.serviceCategory);
+        const serviceCategoryAbbr = resolveServiceCategoryAbbr(encounter.serviceCategory);
         return (
           <Stack component="span" direction="column" spacing={0}>
             <Typography variant="body2">{typeText}</Typography>
@@ -301,7 +302,7 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
         return row.status;
       case 'type': {
         const typeLabel = getVisitTypeLabelForTypeAndServiceMode({ type: row.type, serviceMode: row.serviceMode });
-        const serviceCategoryAbbr = getServiceCategoryAbbreviation(row.serviceCategory);
+        const serviceCategoryAbbr = resolveServiceCategoryAbbr(row.serviceCategory);
         return (
           <Stack component="span" direction="column" spacing={0}>
             <Typography variant="body2">{typeLabel}</Typography>

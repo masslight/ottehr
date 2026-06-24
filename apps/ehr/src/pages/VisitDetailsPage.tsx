@@ -74,11 +74,11 @@ import {
   isInPersonAppointment,
   isScheduledFollowupEncounter,
   isTelemedAppointment,
-  makeAbbreviation,
   OrderedCoveragesWithSubscribers,
   PATIENT_INFO_META_DATA_RETURNING_PATIENT_CODE,
   PATIENT_INFO_META_DATA_SYSTEM,
   PatientAccountResponse,
+  resolveServiceCategoryAbbreviation,
   SCHEDULED_FOLLOWUP_OTHER_REASON,
   SCHEDULED_FOLLOWUP_REASONS,
   SERVICE_CATEGORY_SYSTEM,
@@ -1043,7 +1043,7 @@ export default function VisitDetailsPage(): ReactElement {
                   <Typography variant="body1" sx={{ alignSelf: 'center', marginLeft: 4 }}>
                     {isInPerson ? 'In-Person' : 'Virtual'}
                     {' | '}
-                    {makeAbbreviation(serviceCategoryLabel)}
+                    {resolveServiceCategoryAbbreviation(serviceCategory, fhirBackedCats)}
                   </Typography>
                   <Typography variant="body1" sx={{ alignSelf: 'center', marginLeft: 1 }}>
                     {getAppointmentType(appointmentType)}

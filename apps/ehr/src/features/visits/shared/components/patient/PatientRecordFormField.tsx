@@ -360,15 +360,16 @@ interface DynamicReferenceFieldProps {
 }
 
 /**
- * If the currently selected value is not in the active options list,
- * include it with an "(inactive)" suffix so it remains visible.
+ * If the currently selected value is not in the active options list, include it with a
+ * "(historical)" suffix so it remains visible. These are typically old organization-based
+ * references that are no longer returned by the active options query; the display stored on the
+ * saved reference is used as-is.
  */
 function ensureSelectedOptionVisible(options: Reference[], selected: Reference | null | undefined): Reference[] {
   if (!selected?.reference) return options;
   const isInList = options.some((opt) => opt.reference === selected.reference);
   if (isInList) return options;
-  const inactiveLabel = selected.display ? `${selected.display} (inactive)` : selected.reference;
-  return [...options, { ...selected, display: inactiveLabel }];
+  return [...options, { ...selected, display: `${selected.display || selected.reference} (historical)` }];
 }
 
 const DynamicReferenceField: FC<DynamicReferenceFieldProps> = ({ item, optionStrategy, id }) => {
