@@ -195,8 +195,8 @@ export const structureExtension = (item: QuestionnaireItem): QuestionnaireItemEx
         })
       : undefined;
 
-  const filterWhen = getConditionalExtensions(extension, OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.filterWhen)[0]
-    ?.baseConditionDef;
+  const filterWhenConditions = getConditionalExtensions(extension, OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.filterWhen);
+  const filterWhen = filterWhenConditions.length > 0 ? filterWhenConditions.map((c) => c.baseConditionDef) : undefined;
 
   const attachmentText = extension.find((ext) => {
     return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.attachmentText;

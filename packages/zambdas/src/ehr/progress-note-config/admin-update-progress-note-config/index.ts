@@ -59,6 +59,7 @@ const performEffect = async (
     pcpNoTypeDispositionDefaultText,
     anotherDispositionDefaultText,
     edDispositionDefaultText,
+    vitalsUnitInputOrder,
   } = validatedInput;
   await saveProgressNoteConfig(oystehr, {
     mdmRequired,
@@ -66,5 +67,6 @@ const performEffect = async (
     pcpNoTypeDispositionDefaultText,
     anotherDispositionDefaultText,
     edDispositionDefaultText,
+    vitalsUnitInputOrder,
   });
 };

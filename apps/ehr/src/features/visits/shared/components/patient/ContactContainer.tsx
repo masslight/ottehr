@@ -1,5 +1,6 @@
 import { Box } from '@mui/material';
-import { FC } from 'react';
+import { FC, useEffect, useMemo } from 'react';
+import { useFormContext, useWatch } from 'react-hook-form';
 import { Row } from 'src/components/layout';
 import { PATIENT_RECORD_CONFIG } from 'utils';
 import PatientRecordFormField from './PatientRecordFormField';
@@ -24,6 +25,20 @@ export const ContactContainer: FC<ContactContainerProps> = ({ isLoading, patient
   } = usePatientRecordFormSection({
     formSection: contactSection,
   });
+
+  const { setValue } = useFormContext();
+  const noEmailChecked = useWatch({ name: 'patient-no-email' });
+
+  useEffect(() => {
+    if (noEmailChecked) {
+      setValue('patient-email', '', { shouldDirty: true });
+    }
+  }, [noEmailChecked, setValue]);
+
+  const effectiveRequiredFormFields = useMemo(
+    () => (noEmailChecked ? (requiredFormFields ?? []).filter((k) => k !== 'patient-email') : requiredFormFields),
+    [noEmailChecked, requiredFormFields]
+  );
 
   return (
     <PatientRecordFormSection
@@ -69,6 +84,12 @@ export const ContactContainer: FC<ContactContainerProps> = ({ isLoading, patient
       </Row>
       <PatientRecordFormField
         item={contact.email}
+        hiddenFormFields={hiddenFormFields}
+        requiredFormFields={effectiveRequiredFormFields}
+        isLoading={isLoading}
+      />
+      <PatientRecordFormField
+        item={contact.noEmail}
         hiddenFormFields={hiddenFormFields}
         requiredFormFields={requiredFormFields}
         isLoading={isLoading}

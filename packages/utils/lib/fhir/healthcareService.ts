@@ -112,6 +112,28 @@ export function parseReasonsForVisit(hs: HealthcareService): Array<{ label: stri
   );
 }
 
+/**
+ * Read the admin-defined short abbreviation from the JSON-blob extension at
+ * SERVICE_CATEGORY_CONFIG_EXTENSION_URL (stored alongside reasonsForVisit).
+ * Returns undefined when absent, empty, or unparseable.
+ */
+export function parseServiceCategoryAbbreviation(hs: HealthcareService): string | undefined {
+  const ext = hs.extension?.find((e) => e.url === SERVICE_CATEGORY_CONFIG_EXTENSION_URL);
+  const raw = ext?.valueString;
+  if (!raw) return undefined;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return undefined;
+  }
+  if (parsed === null || typeof parsed !== 'object') return undefined;
+  const abbreviation = (parsed as { abbreviation?: unknown }).abbreviation;
+  if (typeof abbreviation !== 'string') return undefined;
+  const trimmed = abbreviation.trim();
+  return trimmed || undefined;
+}
+
 // ── Group readers ───────────────────────────────────────────────────────────
 
 export function getGroupAssignmentMode(hs: HealthcareService): GroupAssignmentMode | undefined {

@@ -1,4 +1,5 @@
 import { BUCKET_NAMES, Secrets } from 'utils';
+import { createOystehrClient } from '../helpers';
 import { DataComposer, generatePdf, PdfRenderConfig, StyleFactory } from './pdf-common';
 import { rgbNormalized } from './pdf-utils';
 import {
@@ -38,12 +39,13 @@ import {
   createVitalsSectionForDischargeSummary,
   createWorkSchoolExcuseSection,
 } from './sections';
+import { fetchServiceCategoryCatalog } from './service-category-catalog';
 import { AssetPaths, DischargeSummaryData, DischargeSummaryInput, PdfResult } from './types';
 
 const composeDischargeSummaryData: DataComposer<DischargeSummaryInput, DischargeSummaryData> = (input) => {
   const { allChartData, appointmentPackage, upcomingFollowUps } = input;
   const { appointment, location, timezone } = appointmentPackage;
-  const visit = composeVisitData({ appointment, location, timezone });
+  const visit = composeVisitData({ appointment, location, timezone, serviceCategories: input.serviceCategories });
   const workSchoolExcuse = composeWorkSchoolExcuseSection({ allChartData });
   return {
     patient: composePatientInformationForDischargeSummary({ appointmentPackage }),
@@ -177,8 +179,9 @@ export const createDischargeSummaryPdf = async (
   secrets: Secrets | null,
   token: string
 ): Promise<PdfResult> => {
+  const serviceCategories = await fetchServiceCategoryCatalog(createOystehrClient(token, secrets));
   return generatePdf(
-    input,
+    { ...input, serviceCategories },
     composeDischargeSummaryData,
     dischargeSummaryRenderConfig,
     {
