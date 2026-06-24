@@ -661,8 +661,7 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
     serviceCategory: slot?.serviceCategory,
     // FHIR rejects an empty string for Appointment.description (e.g. EHR "Add
     // Visit", which has no reason-for-visit field), so omit it when blank.
-    description: reasonForVisit?.trim() ? reasonForVisit : undefined,
-    status: initialAppointmentStatus,
+    description: reasonForVisit?.trim() || undefined,
     created: now.toISO() ?? '',
     extension: apptExtensions,
   };
