@@ -199,11 +199,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const errorCode = error?.code ? `${error.code}` : '';
     const errorMessage: string = typeof error?.message === 'string' ? error.message : '';
 
-    // 404 (Chime meeting gone) and 4006/missing-addressString (room not provisioned) both mean the call can't be joined yet.
-    const isMeetingNotFound = errorCode === '404';
     const isMissingAddressString = errorCode === '4006' || errorMessage.includes('addressString');
 
-    if (isMeetingNotFound || isMissingAddressString) {
+    // TODO: after ticket "Oystehr Map chime errors to 4-digit codes in handleChimeSDKError" is implemented, it's better to check the code instead of the message
+    const isNotFoundOrExpired = errorMessage.includes('not found or expired');
+
+    if (isMissingAddressString || isNotFoundOrExpired) {
       return lambdaResponse(400, CANNOT_JOIN_CALL_NOT_STARTED_ERROR);
     }
 
