@@ -3,14 +3,16 @@ import { Box, IconButton, Link, Typography } from '@mui/material';
 import { Attachment } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
 import { FC, useState } from 'react';
-import { createZ3Object, uploadDotVisionDocument } from 'src/api/api';
+import { createZ3Object } from 'src/api/api';
 import ImageUploader from 'src/components/ImageUploader';
 import { ScannerModal } from 'src/components/ScannerModal';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { GetPresignedFileURLInput, VitalsDotVisionScreeningDocument } from 'utils';
 
-// Reuses the patient-photo presigned-URL flow purely for the Z3 byte upload; the
-// DocumentReference is created against the encounter by the upload-dot-vision-document zambda.
+// Reuses the patient-photo presigned-URL flow purely for the Z3 byte upload. The file bytes are
+// uploaded to Z3 here, but the DocumentReference is created lazily (only when the DOT screening
+// entry is saved) by the upload-dot-vision-document zambda, so a discarded attachment never leaves
+// an orphaned DocumentReference behind.
 const DOT_VISION_FILE_TYPE: GetPresignedFileURLInput['fileType'] = 'patient-photo-dot-vision';
 
 interface DotVisionDocumentUploaderProps {
@@ -32,28 +34,15 @@ export const DotVisionDocumentUploader: FC<DotVisionDocumentUploaderProps> = ({
   const [scannerOpen, setScannerOpen] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
 
-  const attachDocument = async (z3URL: string, title: string): Promise<void> => {
-    if (!oystehrZambda) return;
-    const result = await uploadDotVisionDocument(oystehrZambda, {
-      appointmentID: appointmentId,
-      z3URL,
-      title,
-    });
-    onUploaded({ documentReferenceId: result.documentRefId, url: result.url, title: result.title });
+  // No documentReferenceId yet: the file lives in Z3, but the DocumentReference is created on save.
+  const attachDocument = (z3URL: string, title: string): void => {
+    onUploaded({ url: z3URL, title });
   };
 
   const handleSubmitAttachment = async (attachment: Attachment): Promise<void> => {
     if (!attachment.url) return;
-    try {
-      setIsUploading(true);
-      await attachDocument(attachment.url, attachment.title ?? 'DOT vision document');
-      enqueueSnackbar('Documentation attached to encounter', { variant: 'success' });
-    } catch (error) {
-      console.error('Error attaching DOT vision document', error);
-      enqueueSnackbar('Error attaching documentation', { variant: 'error' });
-    } finally {
-      setIsUploading(false);
-    }
+    attachDocument(attachment.url, attachment.title ?? 'DOT vision document');
+    enqueueSnackbar('Documentation attached', { variant: 'success' });
   };
 
   const handleScanComplete = async (fileBlob: Blob | Blob[], fileName: string): Promise<void> => {
@@ -71,9 +60,9 @@ export const DotVisionDocumentUploader: FC<DotVisionDocumentUploaderProps> = ({
         },
         oystehrZambda
       );
-      await attachDocument(z3URL, pdfFileName);
+      attachDocument(z3URL, pdfFileName);
       setScannerOpen(false);
-      enqueueSnackbar('Scanned documentation attached to encounter', { variant: 'success' });
+      enqueueSnackbar('Scanned documentation attached', { variant: 'success' });
     } catch (error) {
       console.error('Error attaching scanned DOT vision document', error);
       enqueueSnackbar('Error attaching scanned documentation', { variant: 'error' });

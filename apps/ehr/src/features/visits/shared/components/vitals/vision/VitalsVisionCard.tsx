@@ -2,10 +2,12 @@ import { Box, Checkbox, FormControlLabel, Grid, lighten, Typography, useTheme } 
 import { enqueueSnackbar } from 'notistack';
 import React, { JSX, useCallback, useState } from 'react';
 import { useParams } from 'react-router-dom';
+import { uploadDotVisionDocument } from 'src/api/api';
 import { AccordionCard } from 'src/components/AccordionCard';
 import { DoubleColumnContainer } from 'src/components/DoubleColumnContainer';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { dataTestIds } from 'src/constants/data-test-ids';
+import { useApiClients } from 'src/hooks/useAppClients';
 import { getDotVisionScreeningLines, getVisionExtraOptionsFormattedString, VitalsVisionObservationDTO } from 'utils';
 import { useGetAppointmentAccessibility } from '../../../hooks/useGetAppointmentAccessibility';
 import VitalsHistoryContainer from '../components/VitalsHistoryContainer';
@@ -25,6 +27,7 @@ const VitalsVisionCard: React.FC<VitalsVisionCardProps> = ({ field, historyEleme
   const { isLargeScreen } = useScreenDimensions();
 
   const { id: appointmentId } = useParams();
+  const { oystehrZambda } = useApiClients();
 
   const [isCollapsed, setIsCollapsed] = useState<boolean>(false);
   const handleSectionCollapse = useCallback(() => {
@@ -45,6 +48,20 @@ const VitalsVisionCard: React.FC<VitalsVisionCardProps> = ({ field, historyEleme
     if (!dto || !field.saveWithDto) return;
     try {
       setIsSavingDot(true);
+      // Create the DocumentReference lazily, only now that the entry is being saved, so a file that
+      // was attached and then discarded never leaves an orphaned DocumentReference on the encounter.
+      const pendingDoc = dto.dotVisionScreening?.document;
+      if (pendingDoc && !pendingDoc.documentReferenceId && appointmentId && oystehrZambda) {
+        const result = await uploadDotVisionDocument(oystehrZambda, {
+          appointmentID: appointmentId,
+          z3URL: pendingDoc.url,
+          title: pendingDoc.title,
+        });
+        dto.dotVisionScreening = {
+          ...dto.dotVisionScreening,
+          document: { documentReferenceId: result.documentRefId, url: result.url, title: result.title },
+        };
+      }
       await field.saveWithDto(dto);
       dotState.clearForm();
     } catch {
@@ -52,7 +69,7 @@ const VitalsVisionCard: React.FC<VitalsVisionCardProps> = ({ field, historyEleme
     } finally {
       setIsSavingDot(false);
     }
-  }, [dotState, field]);
+  }, [dotState, field, appointmentId, oystehrZambda]);
 
   const { localState } = field;
   const isCheckboxesDisabled = field.isSaving;
