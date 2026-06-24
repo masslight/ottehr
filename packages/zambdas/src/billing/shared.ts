@@ -3,6 +3,7 @@ import {
   Account,
   Address,
   Basic,
+  ChargeItemDefinition,
   Claim,
   Coding,
   Coverage,
@@ -23,6 +24,8 @@ import {
   BillingPolicyHolderInput,
   BillingSubscriberRelationship,
   buildCoverageSubscriberRelatedPerson,
+  ChargeItemDefinitionDefault,
+  ChargeItemDefinitionType,
   CODE_SYSTEM_APPOINTMENT_TYPE_CODES,
   CODE_SYSTEM_APPOINTMENT_TYPE_TAG_SYSTEM,
   CODE_SYSTEM_CLAIM_TYPE,
@@ -39,6 +42,7 @@ import {
   getPayerId,
   getPayerUrl,
   getSubscriberRelationshipCodeableConcept,
+  INVALID_INPUT_ERROR,
   isPayerUrl,
   isValidUUID,
   PATIENT_BILLING_ACCOUNT_TYPE,
@@ -672,4 +676,27 @@ export function chargeItemDefinitionNameToUrl(type: 'charge-master' | 'fee-sched
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-|-$/g, '');
   return `urn:uuid:${type}:${slug}`;
+}
+
+export function getTypeForChargeItemDefinition(cid: ChargeItemDefinition): ChargeItemDefinitionType {
+  const typeCode = cid.meta?.tag?.find((t) => t.system === CHARGE_ITEM_DEFINITION_TYPE_SYSTEM)?.code;
+  const typeValue: ChargeItemDefinitionType | undefined =
+    typeCode && ['charge-master', 'fee-schedule'].includes(typeCode)
+      ? (typeCode as ChargeItemDefinitionType)
+      : undefined;
+  if (!typeValue) {
+    throw INVALID_INPUT_ERROR(`ChargeItemDefinition ${cid.id} does not have a valid type`);
+  }
+  return typeValue;
+}
+
+export function getDefaultSettingForChargeItemDefinition(
+  cid: ChargeItemDefinition
+): ChargeItemDefinitionDefault | undefined {
+  const defaultCode = cid.meta?.tag?.find((t) => t.system === CHARGE_ITEM_DEFINITION_DEFAULT_SYSTEM)?.code;
+  const defaultValue: ChargeItemDefinitionDefault | undefined =
+    defaultCode && ['insurance', 'self-pay'].includes(defaultCode)
+      ? (defaultCode as 'insurance' | 'self-pay')
+      : undefined;
+  return defaultValue;
 }

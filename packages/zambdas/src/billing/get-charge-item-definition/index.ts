@@ -1,9 +1,20 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { ChargeItemDefinition } from 'fhir/r4b';
-import { FHIR_RESOURCE_NOT_FOUND_CUSTOM } from 'utils';
+import {
+  BillingChargeItemDefinition,
+  BillingChargeItemDefinitionProcedureCode,
+  CPT_CODE_SYSTEM,
+  CPT_MODIFIER_EXTENSION_URL,
+  FHIR_RESOURCE_NOT_FOUND_CUSTOM,
+} from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
-import { CHARGE_ITEM_DEFINITION_TYPE_SYSTEM, createBillingClient } from '../shared';
+import {
+  CHARGE_ITEM_DEFINITION_TYPE_SYSTEM,
+  createBillingClient,
+  getDefaultSettingForChargeItemDefinition,
+  getTypeForChargeItemDefinition,
+} from '../shared';
 import { GetChargeItemDefinitionParams, validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -27,8 +38,9 @@ export const index = wrapHandler(
 export async function performEffect(
   oystehr: Oystehr,
   params: GetChargeItemDefinitionParams
-): Promise<ChargeItemDefinition> {
-  return getChargeItemDefinition(oystehr, params);
+): Promise<BillingChargeItemDefinition> {
+  const cid = await getChargeItemDefinition(oystehr, params);
+  return transformChargeItemDefinition(cid);
 }
 
 export async function getChargeItemDefinition(
@@ -45,11 +57,45 @@ export async function getChargeItemDefinition(
         },
         {
           name: '_id',
-          value: params.id,
+          value: params.chargeItemDefinitionId,
         },
       ],
     })
   ).unbundle();
   if (!definitions.length) throw FHIR_RESOURCE_NOT_FOUND_CUSTOM(`The requested ${params.type} could not be found`);
   return definitions[0];
+}
+
+export function transformChargeItemDefinition(cid: ChargeItemDefinition): BillingChargeItemDefinition {
+  return {
+    id: cid.id!,
+    type: getTypeForChargeItemDefinition(cid),
+    name: cid.title || 'unknown',
+    description: cid.description,
+    default: getDefaultSettingForChargeItemDefinition(cid),
+    status: cid.status === 'active' ? 'active' : 'retired',
+    effectiveDate: cid.date,
+    procedureCodes: (cid.propertyGroup ?? [])
+      .map<BillingChargeItemDefinitionProcedureCode | undefined>((pg) => {
+        const pc = pg.priceComponent?.[0];
+        if (!pc) {
+          return undefined;
+        }
+        if (!pc.amount || !pc.amount.value) {
+          return undefined;
+        }
+        const coding = pc.code?.coding?.find((c) => c.system === CPT_CODE_SYSTEM);
+        if (!coding || !coding.code) {
+          return undefined;
+        }
+        const modifier = pc.extension?.find((e) => e.url === CPT_MODIFIER_EXTENSION_URL);
+        return {
+          code: coding.code,
+          description: coding.display,
+          modifier: modifier ? modifier.valueCode : undefined,
+          amount: pc.amount.value,
+        };
+      })
+      .filter((pc): pc is BillingChargeItemDefinitionProcedureCode => !!pc),
+  };
 }

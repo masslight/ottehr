@@ -78,6 +78,7 @@ const makeMockOrder = (
 ): GetRadiologyOrderListZambdaOrder => ({
   serviceRequestId: SERVICE_REQUEST_ID,
   appointmentId: 'appt-001',
+  cptCodeDisplay: 'X-Ray Chest PA',
   studyType: 'X-Ray Chest PA',
   visitDateTime: '2024-12-20T09:00:00Z',
   orderAddedDateTime: '2024-12-20T10:00:00Z',

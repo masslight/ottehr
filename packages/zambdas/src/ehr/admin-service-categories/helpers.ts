@@ -64,6 +64,32 @@ export async function getClient(input: ZambdaInput): Promise<Oystehr> {
   return createOystehrClient(m2mToken, input.secrets);
 }
 
+/**
+ * Look up an existing service-category HealthcareService by its `code`. Used
+ * by the create/update validators to enforce code uniqueness — a duplicate
+ * code in the FHIR catalog would let two records claim the same service-
+ * routing key, with which one wins at lookup time being arbitrary.
+ *
+ * Mirrors the `_tag` filter used by `admin-list-service-categories` (cheap
+ * query, single-digit-count catalogs in practice) then filters in code. The
+ * `type[].coding[]` match is `system|code` so a non-SERVICE_CATEGORY_SYSTEM
+ * coding that happens to share the code string can't false-positive.
+ */
+export async function findServiceCategoryByCode(
+  oystehr: Oystehr,
+  code: string
+): Promise<HealthcareService | undefined> {
+  const results = (
+    await oystehr.fhir.search<HealthcareService>({
+      resourceType: 'HealthcareService',
+      params: [{ name: '_tag', value: SERVICE_CATEGORY_TAG.code }],
+    })
+  ).unbundle();
+  return results.find(
+    (hs) => hs.type?.[0]?.coding?.some((c) => c.system === SERVICE_CATEGORY_SYSTEM && c.code === code)
+  );
+}
+
 export function toRecord(resource: HealthcareService): ServiceCategory {
   // code is the discriminator for service-category HealthcareServices; the
   // admin UI keys off it and slot routing depends on it. A tagged-but-codeless

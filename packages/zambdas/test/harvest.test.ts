@@ -40,20 +40,6 @@ describe('Patient Master Record Tests', () => {
       },
       {
         op: 'add',
-        path: '/telecom',
-        value: [
-          {
-            system: 'email',
-            value: 'okovalenko+testnew@masslight.com',
-          },
-          {
-            system: 'phone',
-            value: '+12027139680',
-          },
-        ],
-      },
-      {
-        op: 'add',
         path: '/communication',
         value: [
           {
@@ -120,6 +106,20 @@ describe('Patient Master Record Tests', () => {
           },
         ],
       },
+      {
+        op: 'add',
+        path: '/telecom',
+        value: [
+          {
+            system: 'email',
+            value: 'okovalenko+testnew@masslight.com',
+          },
+          {
+            system: 'phone',
+            value: '+12027139680',
+          },
+        ],
+      },
     ];
 
     const result = createMasterRecordPatchOperations(
@@ -179,8 +179,11 @@ describe('Patient Master Record Tests', () => {
       },
       {
         op: 'replace',
-        path: '/telecom/1/value',
-        value: '+12027139681',
+        path: '/telecom',
+        value: [
+          { value: 'okovalenko+testnew@masslight.com', system: 'email' },
+          { value: '+12027139681', system: 'phone' },
+        ],
       },
     ];
 
