@@ -36,30 +36,36 @@ describe('update-charge-item-definition', () => {
     });
     it('throws validation error on missing required fields', async () => {
       expect(() => validateRequestParameters({ headers: null, body: '{}', secrets: {} })).toThrow(
-        expect.objectContaining(INVALID_INPUT_ERROR('Validation error: Required at "type"; Required at "id"'))
+        expect.objectContaining(
+          INVALID_INPUT_ERROR('Validation error: Required at "type"; Required at "chargeItemDefinitionId"')
+        )
       );
     });
     it('throws validation error on invalid param types', async () => {
       const body = {
         type: 'purple-people-eater',
-        id: 'some-not-uuid',
+        chargeItemDefinitionId: 'some-not-uuid',
       };
       expect(() => validateRequestParameters({ headers: null, body: JSON.stringify(body), secrets: {} })).toThrow(
         expect.objectContaining(
           INVALID_INPUT_ERROR(
-            "Validation error: Invalid enum value. Expected 'charge-master' | 'fee-schedule', received 'purple-people-eater' at \"type\"; Invalid uuid at \"id\""
+            "Validation error: Invalid enum value. Expected 'charge-master' | 'fee-schedule', received 'purple-people-eater' at \"type\"; Invalid uuid at \"chargeItemDefinitionId\""
           )
         )
       );
     });
     it('throws error with no updated params', async () => {
-      const body = { type: 'charge-master', id: '0f8a9b3c-fd93-42a1-8560-6ca4bc9446c9' };
+      const body = { type: 'charge-master', chargeItemDefinitionId: '0f8a9b3c-fd93-42a1-8560-6ca4bc9446c9' };
       expect(() => validateRequestParameters({ headers: null, body: JSON.stringify(body), secrets: {} })).toThrow(
         expect.objectContaining(INVALID_INPUT_ERROR('At least one field must be updated'))
       );
     });
     it('succeeds with minimal input', async () => {
-      const body = { type: 'charge-master', id: '0f8a9b3c-fd93-42a1-8560-6ca4bc9446c9', name: 'test' };
+      const body = {
+        type: 'charge-master',
+        chargeItemDefinitionId: '0f8a9b3c-fd93-42a1-8560-6ca4bc9446c9',
+        name: 'test',
+      };
       const input = validateRequestParameters({
         headers: null,
         body: JSON.stringify(body),
@@ -67,7 +73,7 @@ describe('update-charge-item-definition', () => {
       });
       expect(input).toStrictEqual({
         type: 'charge-master',
-        id: '0f8a9b3c-fd93-42a1-8560-6ca4bc9446c9',
+        chargeItemDefinitionId: '0f8a9b3c-fd93-42a1-8560-6ca4bc9446c9',
         name: 'test',
         secrets: {},
       });
@@ -76,7 +82,7 @@ describe('update-charge-item-definition', () => {
       // CW TODO
       const body: UpdateChargeItemDefinitionInput = {
         type: 'charge-master',
-        id: '0f8a9b3c-fd93-42a1-8560-6ca4bc9446c9',
+        chargeItemDefinitionId: '0f8a9b3c-fd93-42a1-8560-6ca4bc9446c9',
         name: 'test',
         effectiveDate: '2026-01-01',
         description: 'test description',
@@ -101,7 +107,7 @@ describe('update-charge-item-definition', () => {
       });
       expect(input).toStrictEqual({
         type: 'charge-master',
-        id: '0f8a9b3c-fd93-42a1-8560-6ca4bc9446c9',
+        chargeItemDefinitionId: '0f8a9b3c-fd93-42a1-8560-6ca4bc9446c9',
         name: 'test',
         effectiveDate: '2026-01-01',
         description: 'test description',
@@ -125,7 +131,7 @@ describe('update-charge-item-definition', () => {
       // CW TODO
       const body: UpdateChargeItemDefinitionInput = {
         type: 'charge-master',
-        id: '0f8a9b3c-fd93-42a1-8560-6ca4bc9446c9',
+        chargeItemDefinitionId: '0f8a9b3c-fd93-42a1-8560-6ca4bc9446c9',
         effectiveDate: null,
         description: null,
         default: null,
@@ -137,7 +143,7 @@ describe('update-charge-item-definition', () => {
       });
       expect(input).toStrictEqual({
         type: 'charge-master',
-        id: '0f8a9b3c-fd93-42a1-8560-6ca4bc9446c9',
+        chargeItemDefinitionId: '0f8a9b3c-fd93-42a1-8560-6ca4bc9446c9',
         effectiveDate: null,
         description: null,
         default: null,
@@ -149,7 +155,7 @@ describe('update-charge-item-definition', () => {
     it('throws validation error on mismatched type and id', async () => {
       const params: UpdateChargeItemDefinitionParams = {
         type: 'charge-master',
-        id: '0f8a9b3c-fd93-42a1-8560-6ca4bc9446c9',
+        chargeItemDefinitionId: '0f8a9b3c-fd93-42a1-8560-6ca4bc9446c9',
         secrets: {},
       };
       const oystehr = {
@@ -177,7 +183,7 @@ describe('update-charge-item-definition', () => {
     it('passes validation', async () => {
       const params: UpdateChargeItemDefinitionParams = {
         type: 'charge-master',
-        id: '0f8a9b3c-fd93-42a1-8560-6ca4bc9446c9',
+        chargeItemDefinitionId: '0f8a9b3c-fd93-42a1-8560-6ca4bc9446c9',
         secrets: {},
       };
       const completeResource: ChargeItemDefinition = {
@@ -218,7 +224,7 @@ describe('update-charge-item-definition', () => {
     it('updates CID with minimal input and name with special characters', async () => {
       const params: UpdateChargeItemDefinitionParams = {
         type: 'charge-master',
-        id: '565e1b1a-a48f-4c0b-9192-60f5b0cec59c',
+        chargeItemDefinitionId: '565e1b1a-a48f-4c0b-9192-60f5b0cec59c',
         name: 'Fun ny T3s! n4me __',
         secrets: {},
       };
@@ -276,13 +282,22 @@ describe('update-charge-item-definition', () => {
         },
       } as unknown as Oystehr;
       const result = await performEffect(oystehr, params, { definition: existingResource });
-      expect(result).toEqual(updatedResource);
+      expect(result).toEqual({
+        id: 'some-uuid',
+        type: 'charge-master',
+        name: 'Fun ny T3s! n4me __',
+        description: 'test description',
+        default: 'self-pay',
+        effectiveDate: '2026-01-01',
+        status: 'active',
+        procedureCodes: [{ code: '77777', amount: 10 }],
+      });
       expect(oystehr.fhir.update).toHaveBeenCalledWith(updatedResource, { optimisticLockingVersionId: 'some-version' });
     });
     it('updates CID with maximal input', async () => {
       const params: UpdateChargeItemDefinitionParams = {
         type: 'charge-master',
-        id: '565e1b1a-a48f-4c0b-9192-60f5b0cec59c',
+        chargeItemDefinitionId: '565e1b1a-a48f-4c0b-9192-60f5b0cec59c',
         name: 'Fun ny T3s! n4me __',
         description: 'fun D3scription',
         default: 'insurance',
@@ -410,13 +425,25 @@ describe('update-charge-item-definition', () => {
         },
       } as unknown as Oystehr;
       const result = await performEffect(oystehr, params, { definition: existingResource });
-      expect(result).toEqual(updatedResource);
+      expect(result).toEqual({
+        id: 'some-uuid',
+        type: 'charge-master',
+        name: 'Fun ny T3s! n4me __',
+        description: 'fun D3scription',
+        effectiveDate: '2027-01-01',
+        status: 'retired',
+        default: 'insurance',
+        procedureCodes: [
+          { code: '90101', amount: 25.15 },
+          { code: '10109', modifier: '22', amount: 5 },
+        ],
+      });
       expect(oystehr.fhir.update).toHaveBeenCalledWith(updatedResource, { optimisticLockingVersionId: 'some-version' });
     });
     it('updates CID with only removing optional fields input', async () => {
       const params: UpdateChargeItemDefinitionParams = {
         type: 'charge-master',
-        id: '565e1b1a-a48f-4c0b-9192-60f5b0cec59c',
+        chargeItemDefinitionId: '565e1b1a-a48f-4c0b-9192-60f5b0cec59c',
         description: null,
         default: null,
         effectiveDate: null,
@@ -481,7 +508,13 @@ describe('update-charge-item-definition', () => {
         },
       } as unknown as Oystehr;
       const result = await performEffect(oystehr, params, { definition: existingResource });
-      expect(result).toEqual(updatedResource);
+      expect(result).toEqual({
+        id: 'some-uuid',
+        type: 'charge-master',
+        name: 'test',
+        status: 'active',
+        procedureCodes: [{ code: '77777', amount: 10 }],
+      });
       expect(oystehr.fhir.update).toHaveBeenCalledWith(updatedResource, { optimisticLockingVersionId: 'some-version' });
     });
   });

@@ -117,6 +117,9 @@ function makeAppointment(id: string): Appointment {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // Default fallback so the trailing sync-state Basic search (getMailedStatementSyncState)
+  // and any otherwise-unmatched search resolve to an empty bundle.
+  mockOystehrClient.fhir.search.mockResolvedValue(makeSearchBundle([]));
 });
 
 // ---------------------------------------------------------------------------
@@ -135,6 +138,38 @@ describe('mailed-statements-report handler', () => {
     const body = JSON.parse(result.body);
     expect(body.statements).toHaveLength(0);
     expect(body.message).toContain('0');
+    expect(body.lastSyncRunAt).toBeNull();
+  });
+
+  it('returns the persisted lastSyncRunAt when a sync-state Basic exists', async () => {
+    // Communication search (empty)
+    mockOystehrClient.fhir.search.mockResolvedValueOnce(makeSearchBundle([]));
+    // Sync-state Basic search
+    mockOystehrClient.fhir.search.mockResolvedValueOnce({
+      resourceType: 'Bundle',
+      type: 'searchset',
+      link: [],
+      unbundle: () => [
+        {
+          resourceType: 'Basic',
+          id: 'sync-state-1',
+          extension: [
+            {
+              url: 'https://fhir.ottehr.com/mailed-statement-sync/last-run-at',
+              valueDateTime: '2026-06-22T06:00:00.000Z',
+            },
+          ],
+        },
+      ],
+    });
+
+    const result = await (index as (input: ZambdaInput) => Promise<{ statusCode: number; body: string }>)(
+      makeInput({ dateRange: { start: '2025-01-01', end: '2025-01-31' } })
+    );
+
+    expect(result.statusCode).toBe(200);
+    const body = JSON.parse(result.body);
+    expect(body.lastSyncRunAt).toBe('2026-06-22T06:00:00.000Z');
   });
 
   it('returns mapped statement data for a single Communication', async () => {
