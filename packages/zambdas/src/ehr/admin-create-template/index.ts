@@ -5,12 +5,14 @@ import {
   Annotation,
   Condition,
   Encounter,
+  FhirResource,
   List,
   ListEntry,
   Medication,
   MedicationAdministration,
   MedicationRequest,
   Patient,
+  Procedure,
   ServiceRequest,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
@@ -232,6 +234,19 @@ const performEffect = async (
     delete anonymizedResource.meta?.versionId;
     delete anonymizedResource.meta?.lastUpdated;
     delete anonymizedResource.encounter;
+    // we filter out any cpt code partOf that references a MedicationAdministration. We don't want these referencing real MAs,
+    // and we don't want to point at the contained MA because it is too error prone at apply time if the med fails interaction checks.
+    // The MA also contains all the info it needs to properly associate to a cpt code at med administer time.
+    if (
+      anonymizedResource.resourceType === 'Procedure' &&
+      resourceHasTagSystem(anonymizedResource as FhirResource, chartDataTagSystem('cpt-code')) &&
+      !!anonymizedResource.partOf
+    ) {
+      const proc = anonymizedResource as Procedure;
+      anonymizedResource.partOf = proc.partOf!.filter(
+        (part) => !part.reference?.startsWith('MedicationAdministration/')
+      );
+    }
 
     // The stub patient makes the resources that require a subject valid
     anonymizedResource.subject = {
@@ -494,6 +509,7 @@ const performEffect = async (
     );
 
     const medAdminId = uuidV4();
+    oldIdToNewIdMap.set(medAdmin.id!, medAdminId);
     const templateMedAdministration: MedicationAdministration = {
       resourceType: 'MedicationAdministration',
       id: medAdminId,
