@@ -1,12 +1,7 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { randomUUID } from 'crypto';
-import { Appointment, List } from 'fhir/r4b';
-import {
-  createFilesDocumentReferences,
-  getAppointmentResourceById,
-  getEncounterForAppointment,
-  OTTEHR_MODULE,
-} from 'utils';
+import { Appointment, Encounter, List } from 'fhir/r4b';
+import { createFilesDocumentReferences, getAppointmentResourceById, OTTEHR_MODULE } from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -35,7 +30,20 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   }
   const patientID = patientReference.replace('Patient/', '');
 
-  const encounter = await getEncounterForAppointment(appointmentID, oystehr);
+  const encounter = (
+    await oystehr.fhir.search<Encounter>({
+      resourceType: 'Encounter',
+      params: [{ name: 'appointment', value: `Appointment/${appointmentID}` }],
+    })
+  )
+    .unbundle()
+    .find((enc) => enc.id);
+  if (!encounter?.id) {
+    return {
+      statusCode: 404,
+      body: JSON.stringify({ message: `No encounter found for appointment ${appointmentID}` }),
+    };
+  }
   const encounterReference = `Encounter/${encounter.id}`;
 
   const lists = (
