@@ -1,8 +1,9 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { ChargeItemDefinition, ChargeItemDefinitionPropertyGroup, Coding } from 'fhir/r4b';
-import { CPT_CODE_SYSTEM, CPT_MODIFIER_EXTENSION_URL } from 'utils';
+import { BillingChargeItemDefinition, CPT_CODE_SYSTEM, CPT_MODIFIER_EXTENSION_URL } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
+import { transformChargeItemDefinition } from '../get-charge-item-definition';
 import { CHARGE_ITEM_DEFINITION_DEFAULT_SYSTEM, chargeItemDefinitionNameToUrl, createBillingClient } from '../shared';
 import {
   complexValidation,
@@ -34,7 +35,7 @@ export async function performEffect(
   oystehr: Oystehr,
   params: UpdateChargeItemDefinitionParams,
   cvo: { definition: ChargeItemDefinition }
-): Promise<ChargeItemDefinition> {
+): Promise<BillingChargeItemDefinition> {
   let tags: Coding[] = [...(cvo.definition.meta?.tag ?? [])];
   if (params.default === null) {
     // Remove 'default' tag
@@ -47,7 +48,7 @@ export async function performEffect(
 
   const url = params.name ? chargeItemDefinitionNameToUrl(params.type, params.name) : cvo.definition.url;
 
-  return await oystehr.fhir.update<ChargeItemDefinition>(
+  const cid = await oystehr.fhir.update<ChargeItemDefinition>(
     {
       ...cvo.definition,
       title: params.name ?? cvo.definition.title,
@@ -60,7 +61,11 @@ export async function performEffect(
             priceComponent: [
               {
                 type: 'base',
-                code: { coding: [{ system: CPT_CODE_SYSTEM, code: pc.code }] },
+                code: {
+                  coding: [
+                    { system: CPT_CODE_SYSTEM, code: pc.code, ...(pc.description ? { display: pc.description } : {}) },
+                  ],
+                },
                 amount: { value: pc.amount, currency: 'USD' },
                 ...(pc.modifier ? { extension: [{ url: CPT_MODIFIER_EXTENSION_URL, valueCode: pc.modifier }] } : {}),
               },
@@ -73,4 +78,5 @@ export async function performEffect(
     },
     { optimisticLockingVersionId: cvo.definition.meta?.versionId }
   );
+  return transformChargeItemDefinition(cid);
 }

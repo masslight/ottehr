@@ -1,8 +1,14 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { ChargeItemDefinition } from 'fhir/r4b';
+import { SearchChargeItemDefinitionItem, SearchChargeItemDefinitionsResponse } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
-import { CHARGE_ITEM_DEFINITION_TYPE_SYSTEM, createBillingClient } from '../shared';
+import {
+  CHARGE_ITEM_DEFINITION_TYPE_SYSTEM,
+  createBillingClient,
+  getDefaultSettingForChargeItemDefinition,
+  getTypeForChargeItemDefinition,
+} from '../shared';
 import { SearchChargeItemDefinitionsParams, validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -25,7 +31,7 @@ export const index = wrapHandler(
 export async function performEffect(
   oystehr: Oystehr,
   params: SearchChargeItemDefinitionsParams
-): Promise<ChargeItemDefinition[]> {
+): Promise<SearchChargeItemDefinitionsResponse> {
   const searchParams = [
     {
       name: '_tag',
@@ -34,6 +40,7 @@ export async function performEffect(
     { name: '_count', value: String(params.pageSize) },
     { name: '_offset', value: String(params.offset) },
     { name: '_sort', value: 'title' },
+    { name: '_total', value: 'exact' },
   ];
 
   if (params.name) {
@@ -44,5 +51,22 @@ export async function performEffect(
     params: searchParams,
   });
 
-  return results.unbundle();
+  return {
+    items: results.unbundle().map((cid) => toListItem(cid)),
+    total: results.total ?? 0,
+    offset: params.offset,
+    pageSize: params.pageSize,
+  };
+}
+
+function toListItem(cid: ChargeItemDefinition): SearchChargeItemDefinitionItem {
+  return {
+    id: cid.id!,
+    type: getTypeForChargeItemDefinition(cid),
+    name: cid.title || 'unknown',
+    description: cid.description,
+    default: getDefaultSettingForChargeItemDefinition(cid),
+    status: cid.status === 'active' ? 'active' : 'retired',
+    effectiveDate: cid.date,
+  };
 }
