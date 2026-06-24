@@ -14,7 +14,7 @@ import { DataGridPro, GridColDef, GridPaginationModel } from '@mui/x-data-grid-p
 import { ReactElement, useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { BillingProviderOption, getApiError } from 'utils';
-import { searchBillingProviders } from '../api/api';
+import { deleteBillingProvider, searchBillingProviders } from '../api/api';
 import { AddProviderDialog } from '../components/AddProviderDialog';
 import { dataGridSlots, dataGridSx } from '../components/BillingDataGrid';
 import { ProviderDetailSection } from '../components/ProviderDetailSection';
@@ -190,6 +190,17 @@ export function RenderingProviderDetail(): ReactElement {
     }
   }, [oystehrZambda, id]);
 
+  const handleDelete = async (): Promise<void> => {
+    if (!oystehrZambda || !provider) return;
+    if (!window.confirm(`Delete provider "${provider.name}"? This cannot be undone.`)) return;
+    try {
+      await deleteBillingProvider(oystehrZambda, { providerId: provider.id, kind: provider.kind });
+      navigate('/rendering-providers');
+    } catch (err) {
+      setError(getApiError({ error: err, defaultError: 'Failed to delete provider' }));
+    }
+  };
+
   useEffect(() => {
     void fetchDetail();
   }, [fetchDetail]);
@@ -224,6 +235,12 @@ export function RenderingProviderDetail(): ReactElement {
         </Typography>
         {provider.isWorkingCopy && (
           <Chip label="Working copy" variant="outlined" size="small" sx={{ borderRadius: '4px', fontSize: 12 }} />
+        )}
+        <Box sx={{ flexGrow: 1 }} />
+        {!provider.isWorkingCopy && (
+          <Button color="error" onClick={() => void handleDelete()}>
+            Delete
+          </Button>
         )}
       </Box>
       <ProviderDetailSection provider={provider} onSaved={fetchDetail} />

@@ -3,7 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QuestionnaireResponse } from 'fhir/r4b';
 import { FC, ReactNode, useEffect } from 'react';
-import { FormProvider, useForm } from 'react-hook-form';
+import { FieldErrors, FormProvider, Resolver, useForm } from 'react-hook-form';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // ============================================================================
@@ -70,24 +70,32 @@ const ssnFieldConfigured = questionnaireHasLinkId('patient-ssn');
 // HELPERS
 // ============================================================================
 
+// Mirrors the real form: validation is driven by a resolver (createDynamicValidationResolver
+// in production), not by the button. Tests that exercise invalid-field behavior pass a
+// resolver that reports errors for the given keys; the rest run without one (always valid).
+const makeRequiredResolver =
+  (requiredKeys: string[]): Resolver<Record<string, unknown>> =>
+  async (values) => {
+    const errors: FieldErrors<Record<string, unknown>> = {};
+    requiredKeys.forEach((key) => {
+      if (!values[key]) {
+        errors[key] = { type: 'required', message: 'This field is required' };
+      }
+    });
+    return Object.keys(errors).length > 0 ? { values: {}, errors } : { values, errors: {} };
+  };
+
 interface HarnessProps {
   defaultValues: Record<string, unknown>;
   dirtyKeys?: string[];
   fieldKeys: string[];
-  requiredFieldKeys: string[];
+  resolver?: Resolver<Record<string, unknown>>;
   patientId?: string;
   encounterId?: string;
 }
 
-const Harness: FC<HarnessProps> = ({
-  defaultValues,
-  dirtyKeys = [],
-  fieldKeys,
-  requiredFieldKeys,
-  patientId,
-  encounterId,
-}) => {
-  const methods = useForm<Record<string, unknown>>({ defaultValues, mode: 'onChange' });
+const Harness: FC<HarnessProps> = ({ defaultValues, dirtyKeys = [], fieldKeys, resolver, patientId, encounterId }) => {
+  const methods = useForm<Record<string, unknown>>({ defaultValues, mode: 'onChange', resolver });
   useEffect(() => {
     dirtyKeys.forEach((key) => {
       methods.setValue(key, `${defaultValues[key] ?? ''}-edited`, { shouldDirty: true });
@@ -95,12 +103,7 @@ const Harness: FC<HarnessProps> = ({
   }, [dirtyKeys, defaultValues, methods]);
   return (
     <FormProvider {...methods}>
-      <SectionSaveButton
-        fieldKeys={fieldKeys}
-        requiredFieldKeys={requiredFieldKeys}
-        patientId={patientId}
-        encounterId={encounterId}
-      />
+      <SectionSaveButton fieldKeys={fieldKeys} patientId={patientId} encounterId={encounterId} />
     </FormProvider>
   );
 };
@@ -133,7 +136,6 @@ describe('SectionSaveButton', () => {
     renderHarness({
       defaultValues: { 'patient-email': 'a@b.co' },
       fieldKeys: ['patient-email'],
-      requiredFieldKeys: ['patient-email'],
       patientId: 'p1',
     });
     await waitFor(() => expect(screen.queryByRole('button', { name: /save/i })).toBeNull());
@@ -144,25 +146,46 @@ describe('SectionSaveButton', () => {
       defaultValues: { 'patient-email': 'a@b.co' },
       dirtyKeys: ['patient-email'],
       fieldKeys: ['patient-email'],
-      requiredFieldKeys: ['patient-email'],
       patientId: 'p1',
     });
     await waitFor(() => expect(screen.getByRole('button', { name: /save/i })).toBeInTheDocument());
   });
 
-  it('disables the button when a required field is empty', async () => {
+  it('stays enabled even when a required field is empty (validation surfaces on click)', async () => {
     renderHarness({
       defaultValues: { 'patient-email': '' },
       dirtyKeys: ['patient-phone'],
       fieldKeys: ['patient-email', 'patient-phone'],
-      requiredFieldKeys: ['patient-email'],
+      resolver: makeRequiredResolver(['patient-email']),
       patientId: 'p1',
     });
-    // dirty via patient-phone → button appears, but patient-email is empty → disabled
+    // dirty via patient-phone → button appears; patient-email is empty but the
+    // button is no longer gated on required fields, so it stays clickable.
     await waitFor(() => {
       const btn = screen.getByRole('button', { name: /save/i });
-      expect(btn).toBeDisabled();
+      expect(btn).toBeEnabled();
     });
+  });
+
+  it('does not submit and shows an error snackbar when clicked with an invalid field', async () => {
+    const user = userEvent.setup();
+    renderHarness({
+      defaultValues: { 'patient-email': '' },
+      dirtyKeys: ['patient-phone'],
+      fieldKeys: ['patient-email', 'patient-phone'],
+      resolver: makeRequiredResolver(['patient-email']),
+      patientId: 'p1',
+    });
+
+    const btn = await screen.findByRole('button', { name: /save/i });
+    await user.click(btn);
+
+    await waitFor(() =>
+      expect(snackbarMock).toHaveBeenCalledWith('Please fix all field validation errors and try again', {
+        variant: 'error',
+      })
+    );
+    expect(mutateAsyncMock).not.toHaveBeenCalled();
   });
 
   it('submits a scoped QR containing only this section when clicked', async () => {
@@ -172,7 +195,6 @@ describe('SectionSaveButton', () => {
       defaultValues: { 'patient-email': 'a@b.co', 'other-section-field': 'untouched' },
       dirtyKeys: ['patient-email'],
       fieldKeys: ['patient-email'],
-      requiredFieldKeys: ['patient-email'],
       patientId: 'p1',
       encounterId: 'e1',
     });
@@ -201,7 +223,6 @@ describe('SectionSaveButton', () => {
         defaultValues: { 'patient-ssn': '123-45-6789', 'should-display-ssn-field': true },
         dirtyKeys: ['patient-ssn'],
         fieldKeys: ['patient-ssn'],
-        requiredFieldKeys: [],
         patientId: 'p1',
       });
 
@@ -227,7 +248,6 @@ describe('SectionSaveButton', () => {
       defaultValues: { 'patient-email': 'a@b.co' },
       dirtyKeys: ['patient-email'],
       fieldKeys: ['patient-email'],
-      requiredFieldKeys: ['patient-email'],
       patientId: 'p1',
     });
 

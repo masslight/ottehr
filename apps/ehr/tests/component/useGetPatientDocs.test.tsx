@@ -151,6 +151,35 @@ describe('useGetPatientDocs — folders merge', () => {
     expect(synth!.isCustom).toBe(true);
   });
 
+  it('synthesizes every system folder for a patient with no per-patient Lists', async () => {
+    // Models a patient created before system-folder seeding existed: no Lists at all.
+    // Every FOLDERS_CONFIG folder must still appear so the user can open and upload to it.
+    setupSearch([], []);
+    const folders = renderUseGetPatientDocs();
+    await waitFor(() => expect(folders.current().length).toBe(FOLDERS_CONFIG.length));
+    for (const config of FOLDERS_CONFIG) {
+      const synth = folders.current().find((f) => f.internalName === config.title);
+      expect(synth, `missing system folder ${config.title}`).toBeDefined();
+      expect(synth!.id.startsWith(SYNTHETIC_FOLDER_ID_PREFIX)).toBe(true);
+      expect(synth!.folderName).toBe(config.display);
+      expect(synth!.documentsCount).toBe(0);
+      expect(synth!.isCustom).toBe(false);
+    }
+  });
+
+  it('uses the real per-patient List for a system folder instead of synthesizing it', async () => {
+    setupSearch([protectedList('list-1', PROTECTED_FOLDER.title, PROTECTED_FOLDER.display, 2)], []);
+    const folders = renderUseGetPatientDocs();
+    await waitFor(() => expect(folders.current().some((f) => f.internalName === PROTECTED_FOLDER.title)).toBe(true));
+    const seeded = folders.current().filter((f) => f.internalName === PROTECTED_FOLDER.title);
+    expect(seeded).toHaveLength(1);
+    expect(seeded[0].id).toBe('list-1');
+    expect(seeded[0].documentsCount).toBe(2);
+    expect(seeded[0].id.startsWith(SYNTHETIC_FOLDER_ID_PREFIX)).toBe(false);
+    // The remaining system folders are still synthesized.
+    expect(folders.current().length).toBe(FOLDERS_CONFIG.length);
+  });
+
   it('drops a custom per-patient List with no matching catalog entry', async () => {
     // Anomalous state: per-patient List references an internalName the catalog knows
     // nothing about (not even as a tombstone). Skip rather than render an unnamed folder.

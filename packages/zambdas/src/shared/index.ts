@@ -29,6 +29,7 @@ export * from './sentry';
 export * from './statements';
 export * from './stripeIntegration';
 export * from './support-dialog';
+export * from './mailed-statement-sync-state';
 export * from './sync-mailed-statement-statuses';
 export * from './template-placeholders';
 export * from './types';

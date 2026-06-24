@@ -5,6 +5,7 @@ import * as esbuild from 'esbuild';
 import { type Options } from 'execa';
 import fs from 'fs';
 import path from 'path';
+import billingZambdasSpec from '../../config/billing-app-core/zambdas.json';
 import zambdasSpec from '../../config/oystehr-core/zambdas.json';
 
 dotenv.config({ path: path.join(process.cwd(), '.env.sentry-build-plugin') });
@@ -37,7 +38,9 @@ const loadEnvZambdas = (env: string): ZambdaSpec[] => {
 };
 
 const zambdasList = (): ZambdaSpec[] => {
-  const baseZambdas = Object.entries(zambdasSpec.zambdas).map(([_key, spec]) => spec);
+  const baseZambdas = Object.entries({ ...zambdasSpec.zambdas, ...billingZambdasSpec.zambdas }).map(
+    ([_key, spec]) => spec
+  );
   const env = process.env.ENV || '';
   if (env) {
     const envZambdas = loadEnvZambdas(env);
