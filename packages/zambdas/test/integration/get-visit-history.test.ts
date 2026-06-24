@@ -402,14 +402,10 @@ describe('tests for getting the visit history for a patient', () => {
       AUTH0_AUDIENCE: AUTH0_AUDIENCE,
     });
 
-    oystehr = createClinicalOystehrClient(
-      token,
-      {},
-      {
-        projectId: PROJECT_ID,
-        services: { fhirApiUrl: FHIR_API, projectApiUrl: EXECUTE_ZAMBDA_URL, zambdaApiUrl: EXECUTE_ZAMBDA_URL },
-      }
-    );
+    oystehr = createClinicalOystehrClient(token, SECRETS, {
+      projectId: PROJECT_ID,
+      services: { fhirApiUrl: FHIR_API, projectApiUrl: EXECUTE_ZAMBDA_URL, zambdaApiUrl: EXECUTE_ZAMBDA_URL },
+    });
     await ensureM2MPractitionerProfile(token);
     inPersonSchedule = await setUpInPersonResources();
     virtualSchedule = await setUpVirtualResources();

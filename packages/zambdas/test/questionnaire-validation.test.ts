@@ -395,7 +395,7 @@ describe('QR item type tests', () => {
   vi.setConfig({ testTimeout: 100_000 });
   beforeAll(async () => {
     const token = await getAuth0Token(SECRETS);
-    const oystehr = createOystehrClient(token, SECRETS);
+    const oystehr = createClinicalOystehrClient(token, SECRETS);
 
     // get paperwork questions and validation schema
     const [canonUrl, version] = getSecret(SecretsKeys.IN_PERSON_PREVISIT_QUESTIONNAIRE, SECRETS).split('|');

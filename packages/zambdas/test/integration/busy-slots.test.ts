@@ -45,13 +45,9 @@ describe('busy slots tests', () => {
       AUTH0_AUDIENCE: AUTH0_AUDIENCE,
     });
 
-    oystehr = createClinicalOystehrClient(
-      token,
-      {},
-      {
-        services: { fhirApiUrl: FHIR_API, projectApiUrl: PROJECT_API, zambdaApiUrl: PROJECT_API },
-      }
-    );
+    oystehr = createClinicalOystehrClient(token, SECRETS, {
+      services: { fhirApiUrl: FHIR_API, projectApiUrl: PROJECT_API, zambdaApiUrl: PROJECT_API },
+    });
   });
 
   afterAll(async () => {

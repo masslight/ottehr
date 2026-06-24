@@ -6,7 +6,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 // Note: vi.mock is hoisted, so we must inline the constant rather than referencing a variable.
 vi.mock('../../src/shared', () => ({
   checkOrCreateM2MClientToken: vi.fn().mockResolvedValue('mock-token'),
-  createOystehrClient: vi.fn(),
+  createClinicalOystehrClient: vi.fn(),
   RCM_TAG_SYSTEM: 'https://fhir.zapehr.com/r4/StructureDefinitions/rcm',
   wrapHandler: (_name: string, handler: any) => handler,
   ZambdaInput: {},

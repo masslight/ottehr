@@ -251,14 +251,10 @@ describe('get-patient-balances integration tests', () => {
       AUTH0_AUDIENCE: AUTH0_AUDIENCE,
     });
 
-    oystehr = createClinicalOystehrClient(
-      token,
-      {},
-      {
-        projectId: PROJECT_ID,
-        services: { fhirApiUrl: FHIR_API, projectApiUrl: EXECUTE_ZAMBDA_URL, zambdaApiUrl: EXECUTE_ZAMBDA_URL },
-      }
-    );
+    oystehr = createClinicalOystehrClient(token, SECRETS, {
+      projectId: PROJECT_ID,
+      services: { fhirApiUrl: FHIR_API, projectApiUrl: EXECUTE_ZAMBDA_URL, zambdaApiUrl: EXECUTE_ZAMBDA_URL },
+    });
 
     await ensureM2MPractitionerProfile(token);
 

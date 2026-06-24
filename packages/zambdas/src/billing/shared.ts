@@ -1,4 +1,4 @@
-import Oystehr, { BatchInputPostRequest, BatchInputPutRequest } from '@oystehr/sdk';
+import Oystehr, { BatchInputPostRequest, BatchInputPutRequest, OystehrConfig } from '@oystehr/sdk';
 import {
   Account,
   Address,
@@ -187,13 +187,18 @@ export const EXCLUDE_WORKING_COPIES_PARAMS = [
   { name: '_tag:not', value: `${BILLING_WORKING_COPY_TAG.system}|${BILLING_WORKING_COPY_TAG.code}` },
 ];
 
-export function createBillingClient(token: string, secrets: Secrets | null): Oystehr {
+export function createBillingClient(
+  token: string,
+  secrets: Secrets | null,
+  overrides?: Partial<OystehrConfig>
+): Oystehr {
   return new Oystehr({
     accessToken: token,
     services: {
       fhirApiUrl: getSecret(SecretsKeys.FHIR_API, secrets).replace(/\/r4/g, ''),
       projectApiUrl: getSecret(SecretsKeys.PROJECT_API, secrets),
     },
+    ...overrides,
     workspaceTag: BILLING_RESOURCE_TAG,
   });
 }

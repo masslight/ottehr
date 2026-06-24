@@ -64,18 +64,14 @@ describe('create-appointment group-member fallback (D-6 phase 2)', () => {
       AUTH0_SECRET: AUTH0_SECRET_TESTS,
       AUTH0_AUDIENCE,
     });
-    oystehr = createClinicalOystehrClient(
-      token,
-      {},
-      {
-        services: {
-          fhirApiUrl: FHIR_API,
-          projectApiUrl: EXECUTE_ZAMBDA_URL,
-          zambdaApiUrl: EXECUTE_ZAMBDA_URL,
-        },
-        projectId: PROJECT_ID,
-      }
-    );
+    oystehr = createClinicalOystehrClient(token, SECRETS, {
+      services: {
+        fhirApiUrl: FHIR_API,
+        projectApiUrl: EXECUTE_ZAMBDA_URL,
+        zambdaApiUrl: EXECUTE_ZAMBDA_URL,
+      },
+      projectId: PROJECT_ID,
+    });
     tag = {
       system: 'OTTEHR_AUTOMATED_TEST',
       code: tagForProcessId(processId),

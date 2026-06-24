@@ -17,6 +17,7 @@ import { DateTime } from 'luxon';
 import { M2MClientMockType, PATIENT_BILLING_ACCOUNT_TYPE, RoleType } from 'utils';
 import { cleanAppointmentGraph } from 'utils/lib/utils/e2eCleanup';
 import { inject } from 'vitest';
+import { createBillingClient } from '../../src/billing/shared';
 import { createClinicalOystehrClient, getAuth0Token } from '../../src/shared';
 import { SECRETS } from '../data/secrets';
 
@@ -41,6 +42,7 @@ export interface InsertFullAppointmentDataBaseResult {
  */
 export interface IntegrationTestSetupResult {
   oystehr: Oystehr;
+  oystehrBilling: Oystehr;
   oystehrTestUserM2M: Oystehr;
   testUserM2MToken: string;
   testUserM2MProfile: string;
@@ -317,11 +319,16 @@ export const setupIntegrationTest = async (
   }
 
   // Create Oystehr client for FHIR operations
-  const oystehrAdmin = createClinicalOystehrClient(
-    token,
-    {},
-    { projectId: PROJECT_ID, services: { fhirApiUrl: FHIR_API } }
-  );
+  const oystehrAdmin = createClinicalOystehrClient(token, SECRETS, {
+    projectId: PROJECT_ID,
+    services: { fhirApiUrl: FHIR_API },
+  });
+
+  // Create Oystehr client for billing operations
+  const oystehrBilling = createBillingClient(token, SECRETS, {
+    projectId: PROJECT_ID,
+    services: { fhirApiUrl: FHIR_API, projectApiUrl: EXECUTE_ZAMBDA_URL, zambdaApiUrl: EXECUTE_ZAMBDA_URL },
+  });
 
   // We need to find or create the M2M client who will pretend to be a real EHR user.
   const m2mListSearchResultData = (
@@ -391,14 +398,10 @@ export const setupIntegrationTest = async (
     AUTH0_AUDIENCE: AUTH0_AUDIENCE,
   });
 
-  const oystehrTestUserM2M = createClinicalOystehrClient(
-    testUserM2MToken,
-    {},
-    {
-      projectId: PROJECT_ID,
-      services: { fhirApiUrl: FHIR_API, projectApiUrl: EXECUTE_ZAMBDA_URL, zambdaApiUrl: EXECUTE_ZAMBDA_URL },
-    }
-  );
+  const oystehrTestUserM2M = createClinicalOystehrClient(testUserM2MToken, SECRETS, {
+    projectId: PROJECT_ID,
+    services: { fhirApiUrl: FHIR_API, projectApiUrl: EXECUTE_ZAMBDA_URL, zambdaApiUrl: EXECUTE_ZAMBDA_URL },
+  });
 
   // Create unique process ID for this test run
   const processId = createProcessId(testFileName);
@@ -413,6 +416,7 @@ export const setupIntegrationTest = async (
 
   return {
     oystehr: oystehrAdmin,
+    oystehrBilling,
     oystehrTestUserM2M: oystehrTestUserM2M,
     testUserM2MToken,
     testUserM2MProfile: testUserM2M.profile,

@@ -4,11 +4,10 @@ import { SECRETS } from '../data/secrets';
 
 export const ensureM2MPractitionerProfile = async (token: string): Promise<void> => {
   const { FHIR_API, PROJECT_ID, PROJECT_API } = SECRETS;
-  const projectApiClient = createClinicalOystehrClient(
-    token,
-    {},
-    { projectId: PROJECT_ID, services: { fhirApiUrl: FHIR_API, projectApiUrl: PROJECT_API } }
-  );
+  const projectApiClient = createClinicalOystehrClient(token, SECRETS, {
+    projectId: PROJECT_ID,
+    services: { fhirApiUrl: FHIR_API, projectApiUrl: PROJECT_API },
+  });
 
   const practitionerForM2M = await projectApiClient.fhir.create<Practitioner>({
     resourceType: 'Practitioner',
