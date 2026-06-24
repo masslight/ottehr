@@ -1018,6 +1018,7 @@ export interface ProgressNoteData extends PdfData {
   immunizationOrders: ImmunizationOrders;
   inHouseLabs?: InHouseLabs;
   externalLabs?: ExternalLabs;
+  radiology?: RadiologyData;
   screening: AdditionalQuestions;
   intakeNotes: IntakeNotes;
   vitals: Vitals;
