@@ -30,8 +30,7 @@ async function performEffect(params: ExportClaimX12Params, token: string): Promi
   });
 
   if (!response.ok) {
-    const body = await response.text();
-    throw new Error(`Failed to generate X12 for claim ${claimId}: ${response.status} ${response.statusText} ${body}`);
+    throw new Error(`Failed to generate X12 for claim ${claimId}: ${response.status} ${response.statusText}`);
   }
 
   const { x12 } = (await response.json()) as ExportClaimX12Response;
