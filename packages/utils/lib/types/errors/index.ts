@@ -50,6 +50,7 @@ export enum APIErrorCode {
   // 434x
   INVALID_INPUT = 4340,
   APPOINTMENT_ALREADY_EXISTS = 4341,
+  PRACTITIONER_SCHEDULE_CONFLICT = 4342,
   // 44xx
   EXTERNAL_LAB_GENERAL = 4400,
   MISSING_NLM_API_KEY_ERROR = 4401,
@@ -112,9 +113,10 @@ export const isApiError = (errorObject: unknown | undefined): boolean => {
   return false;
 };
 
-export const NOT_AUTHORIZED = {
+export const NOT_AUTHORIZED: APIError = {
   code: APIErrorCode.NOT_AUTHORIZED,
   message: 'You are not authorized to access this data',
+  statusCode: 401,
 };
 
 export const CANT_UPDATE_CHECKED_IN_APT_ERROR = {
@@ -132,9 +134,10 @@ export const DOB_UNCONFIRMED_ERROR = {
   message: 'We could not verify the date of birth supplied for this patient',
 };
 
-export const NO_READ_ACCESS_TO_PATIENT_ERROR = {
+export const NO_READ_ACCESS_TO_PATIENT_ERROR: APIError = {
   code: APIErrorCode.NO_READ_ACCESS_TO_PATIENT,
   message: `You are not authorized to view this patient's data`,
+  statusCode: 403,
 };
 
 export const APPOINTMENT_NOT_FOUND_ERROR = {
@@ -231,6 +234,17 @@ export const SCHEDULE_OWNER_NOT_FOUND_ERROR = {
 export const SCHEDULE_NOT_FOUND_CUSTOM_ERROR = (message: string): APIError => ({
   code: APIErrorCode.SCHEDULE_NOT_FOUND,
   message,
+});
+
+// Raised when a create/update/reactivate would leave more than one active
+// PractitionerRole covering the same (practitioner, location, category) tuple.
+// `categoryNames` is the list of overlapping category display names, used
+// verbatim in the message so the admin knows which schedule to reconcile.
+export const PRACTITIONER_SCHEDULE_CONFLICT_ERROR = (categoryNames: string[]): APIError => ({
+  code: APIErrorCode.PRACTITIONER_SCHEDULE_CONFLICT,
+  message: `This provider already has an active schedule at this location offering ${categoryNames.join(
+    ', '
+  )}. Remove ${categoryNames.length === 1 ? 'it' : 'them'} from that schedule first, or pick a different location.`,
 });
 
 export const APPOINTMENT_CANT_BE_IN_PAST_ERROR = {

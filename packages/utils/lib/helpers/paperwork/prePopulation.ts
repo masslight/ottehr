@@ -12,6 +12,7 @@ import {
   Reference,
   RelatedPerson,
 } from 'fhir/r4b';
+import _ from 'lodash';
 import { capitalize } from 'lodash-es';
 import { DateTime } from 'luxon';
 import { getReasonForVisitOptionsForServiceCategory } from '../../config-helpers/booking';
@@ -45,7 +46,6 @@ import {
   PRACTICE_NAME_URL,
   PREFERRED_COMMUNICATION_METHOD_EXTENSION_URL,
   REASON_FOR_VISIT_SEPARATOR,
-  RESPONSIBLE_PARTY_NO_EMAIL_URL,
 } from '../../types';
 import { isValidUUID } from '../../validation';
 import { formatPhoneNumberDisplay, getCandidPlanTypeCodeFromCoverage, getPayerId, getPayerUrl } from '../helpers';
@@ -98,8 +98,6 @@ export const makePrepopulatedItemsForPatient = (input: PrePopulationInput): Ques
   const patientPostalCode = patientAddress?.postalCode;
 
   const patientEmail = contactInfo?.email;
-  const patientNoEmail = patient.extension?.find((e) => e.url === `${PRIVATE_EXTENSION_BASE_URL}/patient-no-email`)
-    ?.valueBoolean;
   const patientSendMarketing = patient.extension?.find((e) => e.url === `${PRIVATE_EXTENSION_BASE_URL}/send-marketing`)
     ?.valueBoolean;
   const patientCommonWellConsent = patient.extension?.find(
@@ -225,9 +223,6 @@ export const makePrepopulatedItemsForPatient = (input: PrePopulationInput): Ques
           }
           if (linkId === 'common-well-consent' && patientCommonWellConsent !== undefined) {
             answer = makeAnswer(patientCommonWellConsent, 'Boolean');
-          }
-          if (linkId === 'patient-no-email' && patientNoEmail !== undefined) {
-            answer = makeAnswer(patientNoEmail, 'Boolean');
           }
           if (linkId === 'patient-number' && formattedVerifiedPhoneNumber) {
             answer = makeAnswer(formatPhoneNumberDisplay(formattedVerifiedPhoneNumber));
@@ -541,8 +536,6 @@ const mapPatientItemsToQuestionnaireResponseItems = (input: MapPatientItemsInput
 
   const patientEmail = patient?.telecom?.find((c) => c.system === 'email' && c.period?.end === undefined)?.value;
   const patientPhone = patient?.telecom?.find((c) => c.system === 'phone' && c.period?.end === undefined)?.value;
-  const patientNoEmail = patient.extension?.find((e) => e.url === `${PRIVATE_EXTENSION_BASE_URL}/patient-no-email`)
-    ?.valueBoolean;
 
   const patientEthnicity = patient.extension?.find((e) => e.url === `${PRIVATE_EXTENSION_BASE_URL}/ethnicity`)
     ?.valueCodeableConcept?.coding?.[0]?.display;
@@ -690,9 +683,6 @@ const mapPatientItemsToQuestionnaireResponseItems = (input: MapPatientItemsInput
       answer = makeAnswer(patientCommonWellConsent, 'Boolean');
     } else if (linkId === 'common-well-consent' && initialBooleanValue !== undefined) {
       answer = makeAnswer(initialBooleanValue, 'Boolean');
-    }
-    if (linkId === 'patient-no-email' && patientNoEmail !== undefined) {
-      answer = makeAnswer(patientNoEmail, 'Boolean');
     }
     return {
       linkId,
@@ -1298,17 +1288,11 @@ interface MapGuarantorItemsInput {
 const mapGuarantorToQuestionnaireResponseItems = (input: MapGuarantorItemsInput): QuestionnaireResponseItem[] => {
   const { guarantorResource, patient, items } = input;
 
-  const noEmail =
-    guarantorResource?.resourceType === 'RelatedPerson'
-      ? (guarantorResource as RelatedPerson).extension?.find((e) => e.url === RESPONSIBLE_PARTY_NO_EMAIL_URL)
-          ?.valueBoolean ?? false
-      : false;
   const phone = formatPhoneNumberDisplay(
     guarantorResource?.telecom?.find((c) => c.system === 'phone' && c.period?.end === undefined)?.value ?? ''
   );
-  const email = noEmail
-    ? ''
-    : guarantorResource?.telecom?.find((c) => c.system === 'email' && c.period?.end === undefined)?.value ?? '';
+  const email =
+    guarantorResource?.telecom?.find((c) => c.system === 'email' && c.period?.end === undefined)?.value ?? '';
   let birthSex: string | undefined;
   if (guarantorResource?.gender) {
     const genderString = guarantorResource?.gender === 'other' ? 'Intersex' : guarantorResource?.gender;
@@ -1374,9 +1358,6 @@ const mapGuarantorToQuestionnaireResponseItems = (input: MapGuarantorItemsInput)
     }
     if (linkId === 'responsible-party-number' && phone) {
       answer = makeAnswer(phone);
-    }
-    if (linkId === 'responsible-party-no-email') {
-      answer = makeAnswer(noEmail, 'Boolean');
     }
     if (linkId === 'responsible-party-email' && email) {
       answer = makeAnswer(email);

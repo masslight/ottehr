@@ -27,7 +27,7 @@ env:
 
 jobs:
   automated-tests:
-    runs-on: ubuntu-latest-4-cores
+    runs-on: ubuntu-latest-8-cores
     timeout-minutes: 40
     permissions:
       id-token: write # Required for OIDC
@@ -107,7 +107,6 @@ jobs:
           fi
 
       - name: Spec tests with coverage
-        if: ${{ !cancelled() }}
         run: npx turbo run test:ci test:unit:ci test:component:ci --concurrency=5 --output-logs=errors-only --continue=always
         env:
           ENV: ${{ steps.env.outputs.environment }}

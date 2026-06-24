@@ -6,10 +6,11 @@ import { Secrets } from 'utils';
 import { getStripeClient } from '../../../../shared';
 import {
   getOrCreateOutreachConfig,
+  OutreachAction,
   parseConfiguredAt,
   parsePlanDefinitionToActions,
 } from '../../../scheduled-outreach-config/helpers';
-import { OUTREACH_TASK_TAG_SYSTEM, produceOutreachTasks } from './produce-outreach-tasks';
+import { calculateDueDateTime, OUTREACH_TASK_TAG_SYSTEM, produceOutreachTasks } from './produce-outreach-tasks';
 
 export interface ProduceInvoiceDueOutreachResult {
   invoicesEvaluated: number;
@@ -49,6 +50,14 @@ export async function produceInvoiceDueOutreach(
 
   console.log(`produceInvoiceDueOutreach: Found ${pastDueInvoices.length} past-due Stripe invoices to evaluate`);
 
+  // Load the configured invoice-due actions once. send-notification actions are edge-triggered
+  // (fire only on the exact milestone day); other types (e.g. charge-card) keep the single
+  // most-recent already-elapsed milestone per type. See selectApplicableInvoiceDueActionIds.
+  const planDefinition = await getOrCreateOutreachConfig(oystehr);
+  const invoiceDueActions = parsePlanDefinitionToActions(planDefinition).filter(
+    (a) => a.trigger.event === 'invoice-due' && a.enabled !== false
+  );
+
   // Collect encounter IDs that still have open invoices so we can cancel stale tasks
   const openEncounterIds = new Set<string>();
 
@@ -86,6 +95,10 @@ export async function produceInvoiceDueOutreach(
         console.warn(`Could not fetch Encounter ${encounterId} for appointment lookup:`, err);
       }
 
+      // Choose which actions fire today: send-notification only on its exact milestone day,
+      // other types on their most-recent already-elapsed milestone. See the selection helper.
+      const applicableActionIds = selectApplicableInvoiceDueActionIds(invoiceDueActions, dueDate);
+
       const result = await produceOutreachTasks({
         triggerEvent: 'invoice-due',
         patient: { reference: `Patient/${patientId}` },
@@ -93,6 +106,7 @@ export async function produceInvoiceDueOutreach(
         appointment: appointmentRef ? { reference: appointmentRef } : undefined,
         eventTimestamp: dueDate,
         oystehr,
+        actionFilter: (action) => applicableActionIds.has(action.id),
       });
 
       tasksCreated += result.created.length;
@@ -119,6 +133,59 @@ export async function produceInvoiceDueOutreach(
     tasksCancelled,
     errors,
   };
+}
+
+/**
+ * For a single invoice, choose which actions fire today. Selection differs by action type:
+ *
+ * - `send-notification` actions are EDGE-triggered: an action fires only on the exact calendar day
+ *   its milestone falls (today === dueDate + offset). This makes notifications naturally idempotent
+ *   — a cancelled or completed message is never regenerated on a later day because the trigger is
+ *   true for one day only. The deliberate tradeoff is no catch-up: if the cron misses its run on the
+ *   milestone day, that notification is permanently skipped (accepted per product decision).
+ *
+ * - All other action types (e.g. `charge-card`) remain LEVEL-triggered: the most-recent
+ *   already-elapsed milestone per type is kept, so a past-due invoice first seen after a milestone
+ *   still gets actioned (self-healing catch-up). Future milestones are excluded; a later cron run
+ *   creates them when they become due. Ties (same-type actions at the same offset) are all kept.
+ *
+ * Selection is scoped per action type, so a notification never suppresses a charge-card and vice versa.
+ */
+export function selectApplicableInvoiceDueActionIds(actions: OutreachAction[], eventTimestamp: string): Set<string> {
+  const now = DateTime.now();
+  const nowMs = now.toMillis();
+  const today = now.startOf('day');
+
+  const survivors = new Set<string>();
+  const elapsedByType = new Map<string, { actionId: string; dueMs: number }[]>();
+
+  for (const action of actions) {
+    const dueIso = calculateDueDateTime(eventTimestamp, action);
+
+    if (action.actionType === 'send-notification') {
+      // Edge-triggered: fire only on the exact day the milestone lands.
+      if (DateTime.fromISO(dueIso).startOf('day').equals(today)) {
+        survivors.add(action.id);
+      }
+      continue;
+    }
+
+    // Level-triggered: collect elapsed milestones; the latest per type is kept below.
+    const dueMs = DateTime.fromISO(dueIso).toMillis();
+    if (dueMs <= nowMs) {
+      const group = elapsedByType.get(action.actionType) ?? [];
+      group.push({ actionId: action.id, dueMs });
+      elapsedByType.set(action.actionType, group);
+    }
+  }
+
+  for (const group of elapsedByType.values()) {
+    const maxDueMs = Math.max(...group.map((g) => g.dueMs));
+    for (const g of group) {
+      if (g.dueMs === maxDueMs) survivors.add(g.actionId);
+    }
+  }
+  return survivors;
 }
 
 /**

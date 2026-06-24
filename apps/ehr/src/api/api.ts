@@ -128,6 +128,8 @@ import {
   GetPatientInstructionQuickPicksResponse,
   GetPatientLoginPhoneNumbersInput,
   GetPatientLoginPhoneNumbersOutput,
+  GetPatientMedicalRecordInput,
+  GetPatientMedicalRecordOutput,
   GetPresignedFileURLInput,
   GetProcedureQuickPicksResponse,
   GetProgressNoteConfigInput,
@@ -323,7 +325,7 @@ const ADMIN_UPDATE_SERVICE_CATEGORY_ZAMBDA_ID = 'admin-update-service-category';
 const ADMIN_DELETE_SERVICE_CATEGORY_ZAMBDA_ID = 'admin-delete-service-category';
 const ADMIN_CREATE_PRACTITIONER_ROLE_ZAMBDA_ID = 'admin-create-practitioner-role';
 const ADMIN_UPDATE_PRACTITIONER_ROLE_ZAMBDA_ID = 'admin-update-practitioner-role';
-const ADMIN_DELETE_PRACTITIONER_ROLE_ZAMBDA_ID = 'admin-delete-practitioner-role';
+const ADMIN_SET_PRACTITIONER_ROLE_ACTIVE_ZAMBDA_ID = 'admin-set-practitioner-role-active';
 const GET_LABEL_PRINTING_CONFIG_ZAMBDA_ID = 'get-label-printing-config';
 const ADMIN_UPDATE_LABEL_PRINTING_CONFIG_ZAMBDA_ID = 'admin-update-label-printing-config';
 const GENERATE_LABEL_XML_ZAMBDA_ID = 'generate-label-xml';
@@ -1609,6 +1611,22 @@ export const deletePatientDocument = async (
   }
 };
 
+export const getPatientMedicalRecordZip = async (
+  oystehr: Oystehr,
+  parameters: GetPatientMedicalRecordInput
+): Promise<GetPatientMedicalRecordOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: 'get-patient-medical-record',
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
 export const uploadPatientConditionPhoto = async (
   oystehr: Oystehr,
   parameters: UploadPatientConditionPhotoInput
@@ -1643,7 +1661,7 @@ export const pendingSupervisorApproval = async (
 
 export const unlockAppointment = async (
   oystehr: Oystehr,
-  parameters: { appointmentId: string }
+  parameters: { appointmentId?: string; encounterId?: string }
 ): Promise<{ message: string }> => {
   try {
     if (UNLOCK_APPOINTMENT_ZAMBDA_ID == null) {
@@ -2946,12 +2964,12 @@ export const updatePractitionerRole = async (
   return chooseJson(response);
 };
 
-export const deletePractitionerRole = async (
+export const setPractitionerRoleActive = async (
   oystehr: Oystehr,
-  input: { roleId: string }
-): Promise<{ deactivatedScheduleCount: number }> => {
+  input: { roleId: string; active: boolean }
+): Promise<{ active: boolean }> => {
   const response = await oystehr.zambda.execute({
-    id: ADMIN_DELETE_PRACTITIONER_ROLE_ZAMBDA_ID,
+    id: ADMIN_SET_PRACTITIONER_ROLE_ACTIVE_ZAMBDA_ID,
     ...input,
   } as any);
   return chooseJson(response);

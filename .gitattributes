@@ -13,3 +13,4 @@ config/oystehr-core/project.json merge=union
 config/oystehr-core/roles.json merge=union
 config/oystehr-core/secrets.json merge=union
 config/oystehr-core/zambdas.json merge=union
+config/billing-app-core/zambdas.json merge=union

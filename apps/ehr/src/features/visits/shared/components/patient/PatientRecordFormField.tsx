@@ -19,7 +19,8 @@ import {
 } from 'utils';
 
 interface PatientRecordFormFieldProps {
-  item: FormFieldsInputItem | FormFieldsDisplayItem | FormFieldsGroupItem;
+  // undefined when a project's config omits a field a shared container references
+  item: FormFieldsInputItem | FormFieldsDisplayItem | FormFieldsGroupItem | undefined;
   isLoading: boolean;
   hiddenFormFields?: string[];
   requiredFormFields?: string[];
@@ -27,15 +28,23 @@ interface PatientRecordFormFieldProps {
   disabled?: boolean;
 }
 
+type PatientRecordFormFieldContentProps = Omit<PatientRecordFormFieldProps, 'item'> & {
+  item: NonNullable<PatientRecordFormFieldProps['item']>;
+};
+
 const PatientRecordFormField: FC<PatientRecordFormFieldProps> = (props) => {
+  // Guard against configs that omit a referenced field (e.g. `noEmail`).
+  if (!props.item) {
+    return null;
+  }
   const isHidden = props.hiddenFormFields?.includes(props.item.key);
   if (isHidden) {
     return null;
   }
-  return <PatientRecordFormFieldContent {...props} />;
+  return <PatientRecordFormFieldContent {...props} item={props.item} />;
 };
 
-const PatientRecordFormFieldContent: FC<PatientRecordFormFieldProps> = ({
+const PatientRecordFormFieldContent: FC<PatientRecordFormFieldContentProps> = ({
   item,
   requiredFormFields,
   isLoading,
