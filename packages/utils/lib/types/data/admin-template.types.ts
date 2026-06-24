@@ -1,4 +1,4 @@
-import { ApplyTemplateWarning, RosFindingState } from 'utils';
+import { RosFindingState, TemplateWarning } from 'utils';
 
 // ── admin-create-template ──
 
@@ -10,7 +10,7 @@ export interface AdminCreateTemplateInput {
 export interface AdminCreateTemplateOutput {
   templateName: string;
   templateId: string;
-  warnings: ApplyTemplateWarning[];
+  warnings: TemplateWarning[];
 }
 
 // ── admin-rename-template ──

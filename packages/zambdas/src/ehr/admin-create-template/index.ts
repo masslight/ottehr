@@ -17,7 +17,6 @@ import { DateTime } from 'luxon';
 import {
   AdminCreateTemplateInput,
   AdminCreateTemplateOutput,
-  ApplyTemplateWarning,
   chartDataTagSystem,
   examConfig,
   getSecret,
@@ -36,6 +35,7 @@ import {
   REPEAT_TEST_ORDER_DETAIL_TAG_CONFIG,
   resourceHasTagSystem,
   SecretsKeys,
+  TemplateWarning,
   transactionWasSuccessful,
 } from 'utils';
 import { v4 as uuidV4 } from 'uuid';
@@ -84,7 +84,7 @@ const performEffect = async (
   oystehr: Oystehr
 ): Promise<AdminCreateTemplateOutput> => {
   const { encounterId, templateName } = validatedInput;
-  const warnings: ApplyTemplateWarning[] = [];
+  const warnings: TemplateWarning[] = [];
 
   // Fetch encounter with all related clinical resources
   let encounterBundle = await getTemplateEncounterBundle(oystehr, encounterId);

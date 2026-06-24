@@ -98,7 +98,7 @@ export interface ApplyTemplateZambdaInput {
   externalLabs?: ExternalLabsInTemplate;
 }
 
-export interface ApplyTemplateWarning {
+export interface TemplateWarning {
   section: TemplateSectionKey;
   message: string;
 }
@@ -107,5 +107,5 @@ export interface ApplyTemplateWarning {
 // (e.g. an in-house lab plan whose ActivityDefinition no longer exists in this
 // environment was skipped) without blocking the rest of the template from applying.
 export interface ApplyTemplateZambdaOutput {
-  warnings?: ApplyTemplateWarning[];
+  warnings?: TemplateWarning[];
 }

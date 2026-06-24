@@ -1,7 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { ActivityDefinition, FhirResource, List, ServiceRequest } from 'fhir/r4b';
 import {
-  ApplyTemplateWarning,
   chartDataTagSystem,
   getTag,
   IN_HOUSE_LAB_LATEST_TAG_DEFINITION,
@@ -10,6 +9,7 @@ import {
   resourceHasTagSystem,
   Secrets,
   TemplateSectionAction,
+  TemplateWarning,
   transactionWasSuccessful,
 } from 'utils';
 import { makeRequestsForCreateInHouseLabs } from '../../shared/in-house-lab/build-order';
@@ -29,7 +29,7 @@ interface ApplyInHouseLabPlansInput {
 }
 
 interface ApplyInHouseLabPlansResult {
-  warnings: ApplyTemplateWarning[];
+  warnings: TemplateWarning[];
 }
 
 const labelForPlan = (plan: ServiceRequest): string => {
@@ -47,7 +47,7 @@ const labelForPlan = (plan: ServiceRequest): string => {
  * apply-template zambda can pass them back to the EHR for a snackbar.
  */
 export async function applyInHouseLabPlans(input: ApplyInHouseLabPlansInput): Promise<ApplyInHouseLabPlansResult> {
-  const warnings: ApplyTemplateWarning[] = [];
+  const warnings: TemplateWarning[] = [];
   try {
     const { templateList, encounterId, userToken, secrets, oystehr, action, activityDefinitions, encounterResources } =
       input;

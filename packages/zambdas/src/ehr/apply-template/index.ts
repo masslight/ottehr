@@ -14,7 +14,6 @@ import {
   ServiceRequest,
 } from 'fhir/r4b';
 import {
-  ApplyTemplateWarning,
   ApplyTemplateZambdaInput,
   ApplyTemplateZambdaOutput,
   chartDataTagSystem,
@@ -27,6 +26,7 @@ import {
   TemplateSectionAction,
   TemplateSectionActions,
   TemplateSectionKey,
+  TemplateWarning,
 } from 'utils';
 import { v4 as uuidV4 } from 'uuid';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
@@ -198,7 +198,7 @@ const performEffect = async (
   encounter: Encounter,
   encounterBundle: TemplateEncounterResource[],
   oystehr: Oystehr
-): Promise<{ warnings: ApplyTemplateWarning[] }> => {
+): Promise<{ warnings: TemplateWarning[] }> => {
   const { encounterId, sectionActions } = validatedInput;
   const actions = resolveSectionActions(sectionActions);
 

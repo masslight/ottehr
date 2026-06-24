@@ -10,7 +10,6 @@ import {
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
-  ApplyTemplateWarning,
   chartDataTagSystem,
   getCptCodesFromMA,
   getDosageUnitsAndRouteOfMedication,
@@ -24,6 +23,7 @@ import {
   searchRouteByCode,
   Secrets,
   TemplateSectionAction,
+  TemplateWarning,
 } from 'utils';
 import { getMyPractitionerId } from '../../shared';
 import {
@@ -49,13 +49,13 @@ interface ApplyInHouseMedicationPlansInput {
 }
 
 interface ApplyInHouseMedicationPlansResult {
-  warnings: ApplyTemplateWarning[];
+  warnings: TemplateWarning[];
 }
 
 export async function applyInHouseMedicationPlans(
   input: ApplyInHouseMedicationPlansInput
 ): Promise<ApplyInHouseMedicationPlansResult> {
-  const warnings: ApplyTemplateWarning[] = [];
+  const warnings: TemplateWarning[] = [];
   const sectionName = 'inHouseMedications' as const;
 
   try {
@@ -90,7 +90,7 @@ export async function applyInHouseMedicationPlans(
     const requests: BatchInputPostRequest<MedicationAdministration | MedicationRequest | Procedure>[] = [];
 
     const medicationsByIdMap = makeMedicationsByIdMap(templateContained);
-    type erxInteractionPromiseResponse = { interactionDetectedOrFailed: boolean; warnings: ApplyTemplateWarning[] };
+    type erxInteractionPromiseResponse = { interactionDetectedOrFailed: boolean; warnings: TemplateWarning[] };
     const requestsAndErxPromise: {
       liveMA: MedicationAdministration;
       liveMR: MedicationRequest;
