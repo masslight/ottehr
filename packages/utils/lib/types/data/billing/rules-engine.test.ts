@@ -3,11 +3,15 @@ import { describe, expect, it } from 'vitest';
 import { FHIR_IDENTIFIER_NPI } from '../../../fhir/constants';
 import { CODE_SYSTEM_COVERAGE_CLASS } from '../../../helpers/rcm/constants';
 import { CLAIM_TAG_SYSTEM } from './billing.constants';
-import { HOLD_TAG_NAME } from './rules-engine.constants';
+import {
+  HOLD_TAG_NAME,
+  PRESUBMISSION_RULES_TASK_CODE,
+  PRESUBMISSION_RULES_TASK_SYSTEM,
+} from './rules-engine.constants';
 import { evaluateCondition, evaluateOperator, executeRule } from './rules-engine.evaluator';
 import { readField, RulesEngineClaimModel } from './rules-engine.field-catalog';
-import { PreSubmissionRule } from './rules-engine.schemas';
-import { listToRules, rulesToList } from './rules-engine.serialization';
+import { PreSubmissionRule, SaveBillingRulesInputSchema } from './rules-engine.schemas';
+import { buildRulesEngineKickoffTask, listToRules, rulesToList } from './rules-engine.serialization';
 
 const makeModel = (): RulesEngineClaimModel => ({
   claim: {
@@ -245,5 +249,35 @@ describe('rules-engine serialization', () => {
     const reordered = [rules[1], rules[0]];
     const list = rulesToList(reordered);
     expect(listToRules(list).map((r) => r.id)).toEqual(['rule-b', 'rule-a']);
+  });
+});
+
+describe('rules-engine kickoff task', () => {
+  it('builds a requested Task focused on the claim with the engine code', () => {
+    const task = buildRulesEngineKickoffTask('claim-123');
+    expect(task.status).toBe('requested');
+    expect(task.focus?.reference).toBe('Claim/claim-123');
+    expect(task.code?.coding?.[0]).toEqual({
+      system: PRESUBMISSION_RULES_TASK_SYSTEM,
+      code: PRESUBMISSION_RULES_TASK_CODE,
+    });
+  });
+});
+
+describe('SaveBillingRulesInputSchema', () => {
+  const rule = (id: string): PreSubmissionRule => ({
+    id,
+    name: id,
+    description: '',
+    enabled: true,
+    conditional: { branches: [{ condition: { type: 'all' }, outcome: { type: 'noop' } }] },
+  });
+
+  it('accepts a valid ordered list', () => {
+    expect(SaveBillingRulesInputSchema.safeParse({ rules: [rule('a'), rule('b')] }).success).toBe(true);
+  });
+
+  it('rejects duplicate rule ids', () => {
+    expect(SaveBillingRulesInputSchema.safeParse({ rules: [rule('a'), rule('a')] }).success).toBe(false);
   });
 });

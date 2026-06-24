@@ -1,0 +1,74 @@
+import { render, screen } from '@testing-library/react';
+import { ReactElement } from 'react';
+import { MemoryRouter } from 'react-router-dom';
+import { PreSubmissionRule } from 'utils';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { ConditionalEditor } from '../../src/components/rules/RuleBuilder';
+import Rules from '../../src/pages/Rules';
+
+const { getBillingRulesMock, saveBillingRulesMock } = vi.hoisted(() => ({
+  getBillingRulesMock: vi.fn(),
+  saveBillingRulesMock: vi.fn(),
+}));
+
+vi.mock('../../src/api/api', () => ({
+  getBillingRules: getBillingRulesMock,
+  saveBillingRules: saveBillingRulesMock,
+}));
+
+vi.mock('../../src/hooks/useAppClients', () => ({
+  useApiClients: () => ({ oystehrZambda: {} }),
+}));
+
+const ruleA: PreSubmissionRule = {
+  id: 'rule-a',
+  name: 'Remap legacy payer',
+  description: 'If payer 123456 then set payer to 999999',
+  enabled: true,
+  conditional: {
+    branches: [
+      {
+        condition: { type: 'field', field: 'payerId', operator: 'eq', value: '123456' },
+        outcome: { type: 'actions', actions: [{ type: 'setField', field: 'payerId', value: '999999' }] },
+      },
+    ],
+  },
+};
+
+function renderRules(): ReactElement {
+  return render(
+    <MemoryRouter>
+      <Rules />
+    </MemoryRouter>
+  ) as unknown as ReactElement;
+}
+
+describe('Rules list', () => {
+  beforeEach(() => {
+    getBillingRulesMock.mockReset();
+    saveBillingRulesMock.mockReset();
+  });
+
+  it('renders the loaded rules and the terminal submission card', async () => {
+    getBillingRulesMock.mockResolvedValue({ rules: [ruleA], versionId: 'v1' });
+    renderRules();
+
+    expect(await screen.findByText('Remap legacy payer')).toBeInTheDocument();
+    expect(screen.getByText('When all rules pass, the claim is submitted.')).toBeInTheDocument();
+  });
+
+  it('shows the empty state when there are no rules', async () => {
+    getBillingRulesMock.mockResolvedValue({ rules: [] });
+    renderRules();
+
+    expect(await screen.findByText('No rules yet')).toBeInTheDocument();
+  });
+});
+
+describe('ConditionalEditor', () => {
+  it('renders IF / THEN for a single-branch conditional', () => {
+    render(<ConditionalEditor value={ruleA.conditional} onChange={() => undefined} />);
+    expect(screen.getByText('IF')).toBeInTheDocument();
+    expect(screen.getByText('THEN')).toBeInTheDocument();
+  });
+});
