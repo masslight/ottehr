@@ -1,13 +1,13 @@
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 import { Box, IconButton, TextField, Typography } from '@mui/material';
+import { QuestionnaireItemAnswerOption } from 'fhir/r4b';
 import { FC } from 'react';
-import { ItemAction } from './questionnaire.reducer';
-import { QuestionnaireAnswerOption } from './questionnaire.types';
+import { ItemAction } from '../questionnaire.reducer';
 
 interface AnswerOptionEditorProps {
   itemKey: string;
-  options: QuestionnaireAnswerOption[];
+  options: QuestionnaireItemAnswerOption[];
   dispatch: React.Dispatch<ItemAction>;
 }
 

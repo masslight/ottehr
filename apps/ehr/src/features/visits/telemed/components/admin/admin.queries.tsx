@@ -22,6 +22,9 @@ import {
   getProcedureQuickPicks,
   getRadiologyQuickPicks,
   getSupportDialog,
+  managedQuestionnaireCreate,
+  managedQuestionnaireList,
+  managedQuestionnaireUpdate,
   removeQuickPick,
   updateEmCode,
   updateImmunizationQuickPick,
@@ -51,6 +54,7 @@ import {
   CreateEmCodeInput,
   DeleteEmCodeInput,
   EmCodeOption,
+  getApiError,
   GetLabelPrintingConfigInput,
   GetLabelPrintingConfigOutput,
   GetSupportDialogOutput,
@@ -58,6 +62,12 @@ import {
   InHouseMedicationQuickPickData,
   isApiError,
   isLocationVirtual,
+  ManagedQuestionnaireCreateInput,
+  ManagedQuestionnaireCreateOutput,
+  ManagedQuestionnaireDetailInput,
+  ManagedQuestionnaireDetailOutput,
+  ManagedQuestionnaireListOutput,
+  ManagedQuestionnaireUpdateInput,
   ProcedureQuickPickData,
   RadiologyQuickPickData,
   UpdateEmCodeInput,
@@ -558,7 +568,7 @@ export const useAdminUpdateLabSet = (labSetId: string): UseMutationResult<void, 
   return useMutation({
     mutationKey: ['admin-update-lab-set', labSetId],
     mutationFn: async (input: AdminUpdateLabSetInput) => {
-      console.log('mutation for update in house lab called');
+      console.log('mutation for update lab set called');
       if (!oystehrZambda) {
         throw new Error('oystehr client is undefined');
       }
@@ -700,6 +710,100 @@ export const useAdminUpdateLocationSupportPhones = (): UseMutationResult<
       safelyCaptureException(error);
       let message = 'Failed to update support phone numbers.';
       if (isApiError(error)) message = (error as APIError).message;
+      enqueueSnackbar(message, { variant: 'error' });
+    },
+  });
+};
+
+export const useManagedQuestionnaireCreate = (): UseMutationResult<
+  ManagedQuestionnaireCreateOutput,
+  Error,
+  ManagedQuestionnaireCreateInput
+> => {
+  const { oystehrZambda } = useApiClients();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationKey: ['managed-questionnaire-create'],
+    mutationFn: async (input: ManagedQuestionnaireCreateInput) => {
+      if (!oystehrZambda) {
+        throw new Error('oystehr client is undefined');
+      }
+      return managedQuestionnaireCreate(oystehrZambda!, input);
+    },
+    onSuccess: async (_data, _variables) => {
+      await queryClient.invalidateQueries({
+        queryKey: ['managed-questionnaire-list'],
+      });
+    },
+    onError: (error: any) => {
+      // send to sentry
+      safelyCaptureException(error);
+      const message = getApiError({ error, defaultError: 'Failed to create this Questionnaire.' });
+      enqueueSnackbar(message, { variant: 'error' });
+    },
+  });
+};
+
+export const useGetManagedQuestionnaireDetail = (
+  input: ManagedQuestionnaireDetailInput
+): UseQueryResult<ManagedQuestionnaireDetailOutput, Error> => {
+  const { oystehrZambda } = useApiClients();
+
+  return useQuery({
+    queryKey: ['managed-questionnaire-detail', input.questionnaireId],
+    queryFn: async () => {
+      return managedQuestionnaireList(oystehrZambda!, input);
+    },
+    enabled: !!oystehrZambda,
+    staleTime: 30_000, // 30 sec
+  });
+};
+
+export const useManagedQuestionnaireList = (): UseQueryResult<ManagedQuestionnaireListOutput, Error> => {
+  const { oystehrZambda } = useApiClients();
+
+  return useQuery({
+    queryKey: ['managed-questionnaire-list'],
+    queryFn: async () => {
+      return managedQuestionnaireList(oystehrZambda!);
+    },
+    enabled: !!oystehrZambda,
+    staleTime: 30_000, // 30 sec
+  });
+};
+
+export const useManagedQuestionnaireUpdate = (
+  questionnaireId?: string
+): UseMutationResult<void, Error, ManagedQuestionnaireUpdateInput> => {
+  const { oystehrZambda } = useApiClients();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationKey: ['managed-questionnaire-update', questionnaireId],
+    mutationFn: async (input: ManagedQuestionnaireUpdateInput) => {
+      if (!oystehrZambda) {
+        throw new Error('oystehr client is undefined');
+      }
+      return managedQuestionnaireUpdate(oystehrZambda!, input);
+    },
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: ['managed-questionnaire-list'],
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ['managed-questionnaire-detail'],
+        }),
+      ]);
+    },
+    onError: (error: any) => {
+      // send to sentry
+      safelyCaptureException(error);
+      let message = 'Failed to update questionnaire.';
+      if (isApiError(error)) {
+        message = (error as APIError).message;
+      }
       enqueueSnackbar(message, { variant: 'error' });
     },
   });

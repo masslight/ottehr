@@ -1489,41 +1489,6 @@
       "src": "src/patient/paperwork/finalize-practice-managed-response/index",
       "zip": ".dist/zips/finalize-practice-managed-response.zip"
     },
-    "ADMIN-LIST-QUESTIONNAIRES": {
-      "name": "admin-list-questionnaires",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/ehr/admin-list-questionnaires/index",
-      "zip": ".dist/zips/admin-list-questionnaires.zip"
-    },
-    "ADMIN-GET-QUESTIONNAIRE": {
-      "name": "admin-get-questionnaire",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/ehr/admin-get-questionnaire/index",
-      "zip": ".dist/zips/admin-get-questionnaire.zip"
-    },
-    "ADMIN-CREATE-QUESTIONNAIRE": {
-      "name": "admin-create-questionnaire",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/ehr/admin-create-questionnaire/index",
-      "zip": ".dist/zips/admin-create-questionnaire.zip"
-    },
-    "ADMIN-UPDATE-QUESTIONNAIRE": {
-      "name": "admin-update-questionnaire",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/ehr/admin-update-questionnaire/index",
-      "zip": ".dist/zips/admin-update-questionnaire.zip"
-    },
-    "ADMIN-DELETE-QUESTIONNAIRE": {
-      "name": "admin-delete-questionnaire",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/ehr/admin-delete-questionnaire/index",
-      "zip": ".dist/zips/admin-delete-questionnaire.zip"
-    },
     "DELETE-PATIENT-DOCUMENT": {
       "name": "delete-patient-document",
       "type": "http_auth",
@@ -2344,6 +2309,27 @@
       "runtime": "nodejs22.x",
       "src": "src/ehr/delete-custom-folder/index",
       "zip": ".dist/zips/delete-custom-folder.zip"
+    },
+    "MANAGED_QUESTIONNAIRE_LIST": {
+      "name": "managed-questionnaire-list",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/managed-questionnaire/list/index",
+      "zip": ".dist/zips/managed-questionnaire-list.zip"
+    },
+    "MANAGED_QUESTIONNAIRE_UPDATE": {
+      "name": "managed-questionnaire-update",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/managed-questionnaire/update/index",
+      "zip": ".dist/zips/managed-questionnaire-update.zip"
+    },
+    "MANAGED_QUESTIONNAIRE_CREATE": {
+      "name": "managed-questionnaire-create",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/managed-questionnaire/create/index",
+      "zip": ".dist/zips/managed-questionnaire-create.zip"
     }
   },
   "fhirResources": {

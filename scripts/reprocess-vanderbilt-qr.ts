@@ -11,6 +11,8 @@
  * Optional overrides: AUTH0_ENDPOINT, AUTH0_AUDIENCE, FHIR_API.
  */
 
+// todo sarah do we even need this script? i think no
+
 function requireEnv(name: string): string {
   const v = process.env[name];
   if (!v) {

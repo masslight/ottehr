@@ -20,7 +20,7 @@ import {
 } from '@mui/material';
 import { FC, useEffect, useMemo, useRef, useState } from 'react';
 import { getDisplayOptionPrefix, getItemControl, getOptionDisplay, isScoreItem } from 'ui-components';
-import { FhirQuestionnaire, QuestionnaireItem } from './questionnaire.types';
+import { ManagedQuestionnaire, ManagedQuestionnaireItem } from 'utils';
 
 // Ottehr intake color palette
 const COLORS = {
@@ -38,7 +38,7 @@ const COLORS = {
 };
 
 interface QuestionnairePreviewProps {
-  questionnaire: FhirQuestionnaire;
+  questionnaire: ManagedQuestionnaire;
 }
 
 // Bold input label matching Ottehr's BoldPurpleInputLabel
@@ -115,7 +115,7 @@ const ottehrInputSx = {
   },
 };
 
-function getItemGridWidth(item: QuestionnaireItem): number {
+function getItemGridWidth(item: ManagedQuestionnaireItem): number {
   const widthMap: Record<string, number> = { s: 4, m: 6, l: 7 };
   // Check the builder's inputWidth field first
   if (item.inputWidth && widthMap[item.inputWidth]) return widthMap[item.inputWidth];
@@ -126,7 +126,7 @@ function getItemGridWidth(item: QuestionnaireItem): number {
   return 12;
 }
 
-const OpenChoiceSelectPreview: FC<{ item: QuestionnaireItem }> = ({ item }) => {
+const OpenChoiceSelectPreview: FC<{ item: ManagedQuestionnaireItem }> = ({ item }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [menuWidth, setMenuWidth] = useState<number | null>(null);
 
@@ -166,7 +166,7 @@ const OpenChoiceSelectPreview: FC<{ item: QuestionnaireItem }> = ({ item }) => {
   );
 };
 
-const ItemPreview: FC<{ item: QuestionnaireItem }> = ({ item }) => {
+const ItemPreview: FC<{ item: ManagedQuestionnaireItem }> = ({ item }) => {
   switch (item.type) {
     case 'group':
       return (
@@ -407,10 +407,12 @@ const ItemPreview: FC<{ item: QuestionnaireItem }> = ({ item }) => {
   }
 };
 
+// todo re-review after you're done with intake side of things
+
 export const QuestionnairePreview: FC<QuestionnairePreviewProps> = ({ questionnaire }) => {
   // Treat top-level group items as pages (Ottehr convention)
   const pages = useMemo(() => {
-    const items = questionnaire.item || [];
+    const items = (questionnaire.item || []) as ManagedQuestionnaireItem[];
     const topLevelGroups = items.filter((item) => item.type === 'group');
     // If there are top-level groups, treat them as pages; otherwise show all items as one page
     if (topLevelGroups.length > 0) return topLevelGroups;

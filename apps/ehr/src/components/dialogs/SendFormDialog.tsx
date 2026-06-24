@@ -16,7 +16,7 @@ import {
 } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import { FC, useCallback, useEffect, useMemo, useState } from 'react';
-import { listPracticeManagedQuestionnaires } from 'src/api/api';
+import { managedQuestionnaireList } from 'src/api/api';
 import { useApiClients } from 'src/hooks/useAppClients';
 
 interface SendFormDialogProps {
@@ -45,11 +45,11 @@ export const SendFormDialog: FC<SendFormDialogProps> = ({ open, onClose, appoint
     let cancelled = false;
     setLoading(true);
     setLoadError(false);
-    listPracticeManagedQuestionnaires(oystehrZambda)
+    managedQuestionnaireList(oystehrZambda)
       .then((result) => {
         if (cancelled) return;
         setQuestionnaires(
-          (result.questionnaires || [])
+          (result.managedQuestionnaires || [])
             .filter((q: any) => q.status === 'active')
             .map((q: any) => ({ id: q.id, title: q.title || q.name || 'Untitled' }))
             .sort((a: { title: string }, b: { title: string }) => a.title.localeCompare(b.title))

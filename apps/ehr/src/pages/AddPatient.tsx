@@ -548,6 +548,7 @@ export default function AddPatient(): JSX.Element {
                   {errors.serviceCategory && <FormHelperText>Service category is required</FormHelperText>}
                 </FormControl>
 
+                {/* todo sarah - this field needs to be removed */}
                 <FormControl fullWidth>
                   <InputLabel id="paperwork-subtype-label">Visit paperwork</InputLabel>
                   <Select

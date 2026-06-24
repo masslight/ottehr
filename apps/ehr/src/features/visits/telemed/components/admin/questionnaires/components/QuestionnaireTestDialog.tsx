@@ -1,43 +1,20 @@
 import CloseIcon from '@mui/icons-material/Close';
 import { Box, Dialog, DialogContent, DialogTitle, IconButton, Typography } from '@mui/material';
-import { QuestionnaireItem } from 'fhir/r4b';
+import { Questionnaire } from 'fhir/r4b';
 import { FC, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { buildQuestionnairePages, evaluateCalculatedExpressions, QuestionnaireFormPage } from 'ui-components';
-import { FhirQuestionnaire, QuestionnaireItem as BuilderItem } from './questionnaire.types';
-
-/** Convert builder items (with _key, extension as Record) to fhir/r4b QuestionnaireItem shape */
-function toFhirItems(items: BuilderItem[]): QuestionnaireItem[] {
-  return items.map((item) => {
-    const fhirItem: any = { ...item };
-    delete fhirItem._key;
-    delete fhirItem.dataType;
-    delete fhirItem.inputWidth;
-    // Ensure group items always have an item array (toFhirJson may strip empty arrays)
-    if (item.type === 'group') {
-      fhirItem.item = item.item ? toFhirItems(item.item) : [];
-    } else if (item.item) {
-      fhirItem.item = toFhirItems(item.item);
-    }
-    return fhirItem as QuestionnaireItem;
-  });
-}
 
 interface QuestionnaireTestDialogProps {
   open: boolean;
   onClose: () => void;
-  questionnaire: FhirQuestionnaire;
-  /** Raw builder items (before toFhirJson processing which may strip empty arrays) */
-  rawItems?: BuilderItem[];
+  questionnaire: Questionnaire;
 }
 
-export const QuestionnaireTestDialog: FC<QuestionnaireTestDialogProps> = ({
-  open,
-  onClose,
-  questionnaire,
-  rawItems,
-}) => {
-  const fhirItems = useMemo(() => toFhirItems(rawItems || questionnaire.item || []), [rawItems, questionnaire.item]);
+// todo re-review after you're done with intake side of things
+
+export const QuestionnaireTestDialog: FC<QuestionnaireTestDialogProps> = ({ open, onClose, questionnaire }) => {
+  const fhirItems = useMemo(() => questionnaire.item || [], [questionnaire.item]);
   const pages = useMemo(
     () => buildQuestionnairePages(fhirItems, questionnaire.title),
     [fhirItems, questionnaire.title]

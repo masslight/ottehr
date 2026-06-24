@@ -58,6 +58,7 @@ export enum APIErrorCode {
   ADMIN_IN_HOUSE_TEST_EXISTS = 4404,
   LABEL_PRINTING_GENERAL = 4405,
   RADIOLOGY_GENERAL = 4406,
+  MANAGED_QUESTIONNAIRE_GENERAL = 4407,
 
   // 45xx
   STRIPE_PAYMENT_ERROR_GENERIC = 4500,
@@ -478,6 +479,13 @@ export const PRECONDITION_FAILED = (message?: string): APIError => ({
 export const RADIOLOGY_ERROR = (message: string): APIError => {
   return {
     code: APIErrorCode.RADIOLOGY_GENERAL,
+    message,
+  };
+};
+
+export const MANAGED_QUESTIONNAIRE_ERROR = (message: string): APIError => {
+  return {
+    code: APIErrorCode.MANAGED_QUESTIONNAIRE_GENERAL,
     message,
   };
 };

@@ -3,6 +3,8 @@ import { checkOrCreateM2MClientToken, createOystehrClient, ZambdaInput } from '.
 
 let m2mToken: string;
 
+// todo sarah delete this
+
 export async function getClient(input: ZambdaInput): Promise<Oystehr> {
   if (!input.secrets) throw new Error('No secrets provided');
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, input.secrets);

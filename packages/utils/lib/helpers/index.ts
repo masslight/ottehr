@@ -22,3 +22,4 @@ export * from './tasks';
 export * from './visit-note';
 export * from './vitals';
 export * from './em-codes';
+export * from './managed-questionnaires';

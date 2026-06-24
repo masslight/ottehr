@@ -54,16 +54,16 @@ import {
   createPaperworkFlow,
   deletePaperworkFlow,
   listPaperworkFlows,
-  listPracticeManagedQuestionnaires,
   listServiceCategories,
   PaperworkFlowWithServices,
   updatePaperworkFlow,
 } from 'src/api/api';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { PaperworkFlow, PaperworkFlowBase, slugify } from 'utils';
+import { useManagedQuestionnaireList } from '../visits/telemed/components/admin/admin.queries';
 
 const FLOWS_QUERY_KEY = ['paperwork-flows'];
-const FORMS_QUERY_KEY = ['paperwork-flows', 'practice-forms'];
+// const FORMS_QUERY_KEY = ['paperwork-flows', 'practice-forms'];
 const SERVICES_QUERY_KEY = ['paperwork-flows', 'service-categories'];
 
 const BASE_OPTIONS: Array<{ value: PaperworkFlowBase; label: string; helper: string }> = [
@@ -449,14 +449,7 @@ const PaperworkPackagesAdminPage: FC = () => {
     enabled: !!oystehrZambda,
   });
 
-  const { data: formsData } = useQuery({
-    queryKey: FORMS_QUERY_KEY,
-    queryFn: async () => {
-      if (!oystehrZambda) return { questionnaires: [] as any[] };
-      return listPracticeManagedQuestionnaires(oystehrZambda);
-    },
-    enabled: !!oystehrZambda,
-  });
+  const { data: formsData } = useManagedQuestionnaireList();
 
   const { data: servicesData } = useQuery({
     queryKey: SERVICES_QUERY_KEY,
@@ -472,7 +465,7 @@ const PaperworkPackagesAdminPage: FC = () => {
 
   const formOptions: FormOption[] = useMemo(
     () =>
-      (formsData?.questionnaires ?? [])
+      (formsData?.managedQuestionnaires ?? [])
         .map((q: any) => ({ id: q.id as string, label: (q.title || q.name || q.id) as string }))
         .filter((o: FormOption) => !!o.id)
         .sort((a: FormOption, b: FormOption) => a.label.localeCompare(b.label)),

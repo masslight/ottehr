@@ -29,18 +29,17 @@ import {
   Typography,
 } from '@mui/material';
 import { FC, useState } from 'react';
-import { AnswerOptionEditor } from './AnswerOptionEditor';
-import { ItemAction } from './questionnaire.reducer';
 import {
   DATA_TYPES_BY_ITEM_TYPE,
+  ManagedQuestionnaireItem,
   OTTEHR_INPUT_WIDTHS,
-  OttehrDataType,
   QUESTIONNAIRE_ITEM_TYPES,
-  QuestionnaireItem,
-} from './questionnaire.types';
+} from 'utils';
+import { ItemAction } from '../questionnaire.reducer';
+import { AnswerOptionEditor } from './AnswerOptionEditor';
 
 interface QuestionnaireItemEditorProps {
-  item: QuestionnaireItem;
+  item: ManagedQuestionnaireItem;
   dispatch: React.Dispatch<ItemAction>;
   depth?: number;
 }
@@ -64,7 +63,10 @@ const TYPE_ICONS: Record<string, React.ReactNode> = {
   reference: <LinkIcon sx={iconSx} />,
 };
 
-const ItemActions: FC<{ item: QuestionnaireItem; dispatch: React.Dispatch<ItemAction> }> = ({ item, dispatch }) => (
+const ItemActions: FC<{ item: ManagedQuestionnaireItem; dispatch: React.Dispatch<ItemAction> }> = ({
+  item,
+  dispatch,
+}) => (
   <Box sx={{ display: 'flex', gap: 0.25 }}>
     <Tooltip title="Move up">
       <IconButton size="small" onClick={() => dispatch({ type: 'MOVE_ITEM_UP', key: item._key })}>
@@ -84,12 +86,15 @@ const ItemActions: FC<{ item: QuestionnaireItem; dispatch: React.Dispatch<ItemAc
   </Box>
 );
 
-const ItemFields: FC<{ item: QuestionnaireItem; dispatch: React.Dispatch<ItemAction> }> = ({ item, dispatch }) => {
+const ItemFields: FC<{ item: ManagedQuestionnaireItem; dispatch: React.Dispatch<ItemAction> }> = ({
+  item,
+  dispatch,
+}) => {
   const isChoice = item.type === 'choice' || item.type === 'open-choice';
   const isGroup = item.type === 'group';
   const showMaxLength = item.type === 'string' || item.type === 'text' || item.type === 'url';
   const isDisplay = item.type === 'display';
-  const availableDataTypes = (DATA_TYPES_BY_ITEM_TYPE[item.type] || []) as readonly OttehrDataType[];
+  const availableDataTypes = DATA_TYPES_BY_ITEM_TYPE[item.type] || [];
 
   return (
     <Grid container spacing={1.5}>
@@ -139,23 +144,6 @@ const ItemFields: FC<{ item: QuestionnaireItem; dispatch: React.Dispatch<ItemAct
                   />
                 }
                 label="Required"
-              />
-              <FormControlLabel
-                control={
-                  <Checkbox
-                    size="small"
-                    checked={item.repeats || false}
-                    onChange={(e) =>
-                      dispatch({
-                        type: 'UPDATE_ITEM',
-                        key: item._key,
-                        field: 'repeats',
-                        value: e.target.checked || undefined,
-                      })
-                    }
-                  />
-                }
-                label="Repeats"
               />
               <FormControlLabel
                 control={
@@ -307,7 +295,8 @@ export const QuestionnaireItemEditor: FC<QuestionnaireItemEditorProps> = ({ item
                 <Box sx={{ ml: 1, mt: 0.5 }}>
                   {item.item!.map((child, i) => (
                     <Typography
-                      key={child._key || i}
+                      // key={child._key || i}
+                      key={i}
                       variant="caption"
                       sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: 'text.secondary', lineHeight: 1.8 }}
                     >

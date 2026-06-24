@@ -164,6 +164,12 @@ import {
   ListTemplatesZambdaOutput,
   MailedStatementsReportZambdaInput,
   MailedStatementsReportZambdaOutput,
+  ManagedQuestionnaireCreateInput,
+  ManagedQuestionnaireCreateOutput,
+  ManagedQuestionnaireDetailInput,
+  ManagedQuestionnaireDetailOutput,
+  ManagedQuestionnaireListOutput,
+  ManagedQuestionnaireUpdateInput,
   MedicalConditionQuickPickData,
   MedicationHistoryQuickPickData,
   MigrateExamDataInput,
@@ -314,11 +320,6 @@ const ADMIN_CREATE_TEMPLATE_ZAMBDA_ID = 'admin-create-template';
 const ADMIN_RENAME_TEMPLATE_ZAMBDA_ID = 'admin-rename-template';
 const ADMIN_DELETE_TEMPLATE_ZAMBDA_ID = 'admin-delete-template';
 const ADMIN_GET_TEMPLATE_DETAIL_ZAMBDA_ID = 'admin-get-template-detail';
-const ADMIN_LIST_QUESTIONNAIRES_ZAMBDA_ID = 'admin-list-questionnaires';
-const ADMIN_GET_QUESTIONNAIRE_ZAMBDA_ID = 'admin-get-questionnaire';
-const ADMIN_CREATE_QUESTIONNAIRE_ZAMBDA_ID = 'admin-create-questionnaire';
-const ADMIN_UPDATE_QUESTIONNAIRE_ZAMBDA_ID = 'admin-update-questionnaire';
-const ADMIN_DELETE_QUESTIONNAIRE_ZAMBDA_ID = 'admin-delete-questionnaire';
 const ADMIN_LIST_IN_HOUSE_LABS_ZAMBDA_ID = 'admin-list-in-house-labs';
 const ADMIN_ADD_IN_HOUSE_LAB_ZAMBDA_ID = 'admin-add-in-house-lab';
 const ADMIN_GET_IN_HOUSE_LAB_CONFIG_ZAMBDA_ID = 'admin-get-in-house-lab-config';
@@ -347,6 +348,9 @@ const ADMIN_UPDATE_LAB_SET_ZAMBDA_ID = 'admin-update-lab-set';
 const CREATE_CUSTOM_FOLDER_ZAMBDA_ID = 'create-custom-folder';
 const RENAME_CUSTOM_FOLDER_ZAMBDA_ID = 'rename-custom-folder';
 const DELETE_CUSTOM_FOLDER_ZAMBDA_ID = 'delete-custom-folder';
+const MANAGED_QUESTIONNAIRE_LIST_ZAMBDA_ID = 'managed-questionnaire-list';
+const MANAGED_QUESTIONNAIRE_UPDATE_ZAMBDA_ID = 'managed-questionnaire-update';
+const MANAGED_QUESTIONNAIRE_CREATE_ZAMBDA_ID = 'managed-questionnaire-create';
 
 export const getUser = async (token: string): Promise<User> => {
   const oystehr = new Oystehr({
@@ -2854,28 +2858,60 @@ export const migrateExamData = async (
   }
 };
 
-// ── Practice-Managed Questionnaires ──
+// ── Managed Questionnaires ──
 
-export const listPracticeManagedQuestionnaires = async (
-  oystehr: Oystehr
-): Promise<{
-  questionnaires: any[];
-  systemQuestionnaires: { id: string; url: string; title: string }[];
-}> => {
-  const response = await oystehr.zambda.execute({ id: ADMIN_LIST_QUESTIONNAIRES_ZAMBDA_ID });
-  return chooseJson(response);
-};
+export function managedQuestionnaireList(oystehr: Oystehr): Promise<ManagedQuestionnaireListOutput>;
 
-export const getPracticeManagedQuestionnaire = async (
+export function managedQuestionnaireList(
   oystehr: Oystehr,
-  questionnaireId: string
-): Promise<{ questionnaire: any }> => {
-  const response = await oystehr.zambda.execute({
-    id: ADMIN_GET_QUESTIONNAIRE_ZAMBDA_ID,
-    questionnaireId,
-  });
-  return chooseJson(response);
+  parameters: ManagedQuestionnaireDetailInput
+): Promise<ManagedQuestionnaireDetailOutput>;
+
+export async function managedQuestionnaireList(
+  oystehr: Oystehr,
+  parameters?: ManagedQuestionnaireDetailInput
+): Promise<ManagedQuestionnaireDetailOutput | ManagedQuestionnaireListOutput> {
+  try {
+    const response = await oystehr.zambda.execute({ id: MANAGED_QUESTIONNAIRE_LIST_ZAMBDA_ID, ...(parameters ?? {}) });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+}
+
+export const managedQuestionnaireUpdate = async (
+  oystehr: Oystehr,
+  parameters: ManagedQuestionnaireUpdateInput
+): Promise<void> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: MANAGED_QUESTIONNAIRE_UPDATE_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
 };
+
+export const managedQuestionnaireCreate = async (
+  oystehr: Oystehr,
+  parameters: ManagedQuestionnaireCreateInput
+): Promise<ManagedQuestionnaireCreateOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: MANAGED_QUESTIONNAIRE_CREATE_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
 // ── Service Categories (FHIR-backed bookable appointment categories) ──
 
 export interface ServiceCategoryRuntimeConfig {
@@ -2954,32 +2990,6 @@ export const createServiceCategory = async (
   return chooseJson(response);
 };
 
-export const createPracticeManagedQuestionnaire = async (
-  oystehr: Oystehr,
-  questionnaire: Record<string, unknown>
-): Promise<{ questionnaire: any }> => {
-  const response = await oystehr.zambda.execute({ id: ADMIN_CREATE_QUESTIONNAIRE_ZAMBDA_ID, questionnaire });
-  return chooseJson(response);
-};
-
-export const updatePracticeManagedQuestionnaire = async (
-  oystehr: Oystehr,
-  questionnaire: Record<string, unknown>
-): Promise<{ questionnaire: any }> => {
-  const response = await oystehr.zambda.execute({ id: ADMIN_UPDATE_QUESTIONNAIRE_ZAMBDA_ID, questionnaire });
-  return chooseJson(response);
-};
-
-export const deletePracticeManagedQuestionnaire = async (
-  oystehr: Oystehr,
-  questionnaireId: string
-): Promise<{ message: string }> => {
-  const response = await oystehr.zambda.execute({
-    id: ADMIN_DELETE_QUESTIONNAIRE_ZAMBDA_ID,
-    questionnaireId,
-  });
-  return chooseJson(response);
-};
 export const updateServiceCategory = async (
   oystehr: Oystehr,
   serviceCategory: ServiceCategory

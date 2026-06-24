@@ -13,6 +13,8 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 
+// todo sarah do we even need this script? i think no
+
 function requireEnv(name: string): string {
   const v = process.env[name];
   if (!v) {

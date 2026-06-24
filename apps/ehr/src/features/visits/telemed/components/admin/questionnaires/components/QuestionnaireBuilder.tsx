@@ -2,76 +2,48 @@ import AddIcon from '@mui/icons-material/Add';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import { Box, Button, Grid, Paper, TextField, Typography } from '@mui/material';
+import { Questionnaire } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
 import { FC, useCallback, useMemo, useReducer, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { RoundedButton } from 'src/components/RoundedButton';
-import { slugify } from 'utils';
-import { itemsReducer } from './questionnaire.reducer';
-import { FhirQuestionnaire, QuestionnaireItem, QuestionnaireStatus } from './questionnaire.types';
+import { ManagedQuestionnaire, ManagedQuestionnaireItem, managedQuestionnaireToFhir, slugify } from 'utils';
+import { itemsReducer } from '../questionnaire.reducer';
 import { QuestionnaireItemEditor } from './QuestionnaireItemEditor';
 import { QuestionnairePreview } from './QuestionnairePreview';
 import { QuestionnaireTestDialog } from './QuestionnaireTestDialog';
 
 interface QuestionnaireBuilderProps {
-  initial?: FhirQuestionnaire;
-  onSave: (questionnaire: FhirQuestionnaire) => Promise<void>;
-  onCancel: () => void;
-}
-
-const EXTENSION_BASE = 'https://fhir.zapehr.com/r4/StructureDefinitions';
-
-// Internal fields that get stripped or converted to FHIR extensions
-const INTERNAL_FIELDS = new Set(['_key', 'dataType', 'inputWidth']);
-const OTTEHR_EXTENSION_URLS = new Set([`${EXTENSION_BASE}/data-type`, `${EXTENSION_BASE}/input-width`]);
-// Boolean flags where false is the FHIR default and can be omitted. Other false values are
-// meaningful data (e.g. enableWhen.answerBoolean: false) and must round-trip.
-const OMITTABLE_FALSE_FLAGS = new Set(['required', 'repeats', 'readOnly', 'initialSelected']);
-
-function toFhirJson(obj: unknown): unknown {
-  if (Array.isArray(obj)) return obj.map(toFhirJson);
-  if (obj && typeof obj === 'object') {
-    const record = obj as Record<string, unknown>;
-
-    // Build FHIR extension[] from Ottehr fields, merged with any existing extensions
-    const ottehrExtensions: { url: string; valueString: string }[] = [];
-    if (record.dataType && typeof record.dataType === 'string') {
-      ottehrExtensions.push({ url: `${EXTENSION_BASE}/data-type`, valueString: record.dataType });
-    }
-    if (record.inputWidth && typeof record.inputWidth === 'string') {
-      ottehrExtensions.push({ url: `${EXTENSION_BASE}/input-width`, valueString: record.inputWidth });
-    }
-
-    // Preserve non-Ottehr extensions from imported questionnaires
-    const existingExtensions = Array.isArray(record.extension)
-      ? (record.extension as { url: string }[]).filter((e) => !OTTEHR_EXTENSION_URLS.has(e.url))
-      : [];
-    const mergedExtensions = [...existingExtensions, ...ottehrExtensions];
-
-    const entries = Object.entries(record)
-      .filter(([k]) => !INTERNAL_FIELDS.has(k))
-      .filter(([k]) => k !== 'extension') // handled separately via merge
-      .filter(([, v]) => v !== undefined && v !== '')
-      .filter(([k, v]) => !(v === false && OMITTABLE_FALSE_FLAGS.has(k)))
-      .filter(([, v]) => !(Array.isArray(v) && v.length === 0))
-      .map(([k, v]) => [k, toFhirJson(v)]);
-
-    if (mergedExtensions.length > 0) {
-      entries.push(['extension', mergedExtensions]);
-    }
-
-    return Object.fromEntries(entries);
-  }
-  return obj;
+  initial?: ManagedQuestionnaire;
+  onSave: (questionnaire: ManagedQuestionnaire) => Promise<void>;
+  isSaving: boolean;
 }
 
 // All slug derivation (linkIds and the canonical url) caps at 60 chars.
 const toSlug = (text: string): string => slugify(text, { maxLength: 60 });
 
+// The canonical url/name are identity: existing QuestionnaireResponses reference the
+// questionnaire by canonical URL, so editing (even retitling) an existing resource must
+// preserve them. Only brand-new questionnaires derive a slug from the title.
+const makeCanonicalFields = (
+  input: { initial: ManagedQuestionnaire } | { title: string }
+): { name: string; url: string } => {
+  if ('initial' in input) {
+    const { initial } = input;
+    return { name: initial.name, url: initial.url };
+  } else {
+    const { title } = input;
+    const slug = toSlug(title);
+    return { url: `https://ottehr.com/FHIR/Questionnaire/${slug}`, name: slug };
+  }
+};
+
+// link ids are derived from the content of the of the item and must be unique amongst all items
 function ensureUniqueLinkIds(
-  items: QuestionnaireItem[],
+  items: ManagedQuestionnaireItem[],
   seen = new Set<string>(),
   pageSlug?: string
-): QuestionnaireItem[] {
+): ManagedQuestionnaireItem[] {
   return items.map((item) => {
     let base = item.linkId;
     if (!base && item.text) {
@@ -103,43 +75,37 @@ function ensureUniqueLinkIds(
   });
 }
 
-export const QuestionnaireBuilder: FC<QuestionnaireBuilderProps> = ({ initial, onSave, onCancel }) => {
+export const QuestionnaireBuilder: FC<QuestionnaireBuilderProps> = ({ initial, onSave, isSaving }) => {
   const [title, setTitle] = useState(initial?.title || '');
-  // No user-facing status concept: a questionnaire is either live (active) or deleted (retired,
-  // set via the Delete action). New questionnaires are created active; edits preserve the existing
-  // status so editing a live form never changes it.
-  const [status] = useState<QuestionnaireStatus>(initial?.status || 'active');
   const [description, setDescription] = useState(initial?.description || '');
   const [items, dispatch] = useReducer(itemsReducer, initial?.item || []);
   const [titleError, setTitleError] = useState(false);
-  const [saving, setSaving] = useState(false);
   const [testDialogOpen, setTestDialogOpen] = useState(false);
 
-  const questionnaire = useMemo<FhirQuestionnaire>(() => {
-    // The canonical url/name are identity: existing QuestionnaireResponses reference the
-    // questionnaire by canonical URL, so editing (even retitling) an existing resource must
-    // preserve them. Only brand-new questionnaires derive a slug from the title.
-    const canonicalFields = initial?.id
-      ? { ...(initial.url && { url: initial.url }), ...(initial.name && { name: initial.name }) }
-      : title
-      ? (() => {
-          const slug = toSlug(title);
-          return { url: `https://ottehr.com/FHIR/Questionnaire/${slug}`, name: slug };
-        })()
-      : {};
-    const q: FhirQuestionnaire = {
+  const navigate = useNavigate();
+
+  const questionnaire = useMemo<ManagedQuestionnaire>(() => {
+    const canonicalFields = makeCanonicalFields(initial ? { initial } : { title });
+    const status: Questionnaire['status'] = initial ? initial.status : 'active';
+
+    const questionnaire: ManagedQuestionnaire = {
       resourceType: 'Questionnaire',
+      status,
       ...(initial?.id && { id: initial.id }),
       ...canonicalFields,
-      title: title || undefined,
-      status,
+      title,
       ...(description && { description }),
       item: ensureUniqueLinkIds(items),
     };
-    return toFhirJson(q) as FhirQuestionnaire;
-  }, [initial?.id, initial?.url, initial?.name, title, status, description, items]);
+    return questionnaire;
+  }, [initial, title, description, items]);
 
-  const jsonPreview = useMemo(() => JSON.stringify(questionnaire, null, 2), [questionnaire]);
+  const { fhirQuestionnaire, jsonPreview } = useMemo(() => {
+    const fhirQuestionnaire = managedQuestionnaireToFhir(questionnaire);
+    const jsonPreview = JSON.stringify(fhirQuestionnaire, null, 2);
+
+    return { fhirQuestionnaire, jsonPreview };
+  }, [questionnaire]);
 
   const handleCopyJson = useCallback(() => {
     void navigator.clipboard.writeText(jsonPreview).then(() => {
@@ -147,26 +113,9 @@ export const QuestionnaireBuilder: FC<QuestionnaireBuilderProps> = ({ initial, o
     });
   }, [jsonPreview]);
 
-  const handleSave = useCallback(async () => {
-    if (!title.trim()) {
-      setTitleError(true);
-      return;
-    }
-    setSaving(true);
-    try {
-      await onSave({
-        ...questionnaire,
-        id: initial?.id,
-      });
-    } finally {
-      setSaving(false);
-    }
-  }, [title, questionnaire, initial?.id, onSave]);
-
   return (
     <Box>
       <Box sx={{ display: 'flex', gap: 3, height: 'calc(100vh - 160px)' }}>
-        {/* Left column: Form — scrollable */}
         <Box sx={{ flex: '1 1 50%', minWidth: 0, overflow: 'auto' }}>
           <Paper variant="outlined" sx={{ p: 3, mb: 2 }}>
             <Typography variant="h4" sx={{ mb: 1.5, color: '#0F347C' }}>
@@ -226,7 +175,7 @@ export const QuestionnaireBuilder: FC<QuestionnaireBuilderProps> = ({ initial, o
               </Typography>
             )}
 
-            {items.map((item: QuestionnaireItem) => (
+            {items.map((item: ManagedQuestionnaireItem) => (
               <QuestionnaireItemEditor key={item._key} item={item} dispatch={dispatch} />
             ))}
           </Paper>
@@ -262,8 +211,7 @@ export const QuestionnaireBuilder: FC<QuestionnaireBuilderProps> = ({ initial, o
           <QuestionnaireTestDialog
             open={testDialogOpen}
             onClose={() => setTestDialogOpen(false)}
-            questionnaire={questionnaire}
-            rawItems={items}
+            questionnaire={fhirQuestionnaire}
           />
 
           <Paper
@@ -322,10 +270,15 @@ export const QuestionnaireBuilder: FC<QuestionnaireBuilderProps> = ({ initial, o
           boxShadow: '0 -2px 8px rgba(0,0,0,0.1)',
         }}
       >
-        <RoundedButton variant="outlined" size="medium" onClick={onCancel} disabled={saving}>
+        <RoundedButton
+          variant="outlined"
+          size="medium"
+          onClick={() => navigate('/admin/questionnaires')}
+          disabled={isSaving}
+        >
           Cancel
         </RoundedButton>
-        <RoundedButton variant="contained" size="medium" loading={saving} onClick={handleSave}>
+        <RoundedButton variant="contained" size="medium" loading={isSaving} onClick={() => onSave(questionnaire)}>
           Save Questionnaire
         </RoundedButton>
       </Box>
