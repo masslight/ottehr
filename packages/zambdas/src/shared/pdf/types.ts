@@ -779,17 +779,31 @@ export interface VisitDetailsInput {
   consents: Consent[];
   questionnaireResponse?: QuestionnaireResponse;
   payments: PatientPaymentDTO[];
+  serviceCategories?: ServiceCategoryCatalogEntry[];
+}
+
+/**
+ * Minimal service-category shape consumed by resolveServiceCategoryAbbreviation
+ * (utils) — matched against the appointment's category code/name to produce the
+ * abbreviation shown in PDF visit headers.
+ */
+export interface ServiceCategoryCatalogEntry {
+  code: string;
+  name: string;
+  abbreviation?: string;
 }
 
 export interface VisitDataInput {
   appointment: Appointment;
   location?: Location;
   timezone: string;
+  serviceCategories?: ServiceCategoryCatalogEntry[];
 }
 
 export interface ProgressNoteVisitDataInput {
   allChartData: AllChartData;
   appointmentPackage: FullAppointmentResourcePackage;
+  serviceCategories?: ServiceCategoryCatalogEntry[];
 }
 
 export interface PatientDataInput {
@@ -999,6 +1013,7 @@ export interface ProgressNoteInput {
   appointmentPackage: FullAppointmentResourcePackage;
   questionnaireResponse?: QuestionnaireResponse;
   upcomingFollowUps: UpcomingFollowUp[];
+  serviceCategories?: ServiceCategoryCatalogEntry[];
 }
 
 export interface ProgressNoteData extends PdfData {
@@ -1038,6 +1053,7 @@ export interface DischargeSummaryInput {
   allChartData: AllChartData;
   appointmentPackage: FullAppointmentResourcePackage;
   upcomingFollowUps: UpcomingFollowUp[];
+  serviceCategories?: ServiceCategoryCatalogEntry[];
 }
 
 export interface DischargeSummaryData extends PdfData {

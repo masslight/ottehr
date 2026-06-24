@@ -30,6 +30,7 @@ import { Link as RouterLink, useNavigate, useParams } from 'react-router-dom';
 import { CommandPaletteSearchButton } from 'src/components/CommandPaletteSearchButton';
 import { CreateTaskDialog } from 'src/features/tasks/components/CreateTaskDialog';
 import { useGetPatientCoverages } from 'src/hooks/useGetPatient';
+import { useServiceCategoryAbbreviationResolver } from 'src/hooks/useServiceCategoryAbbreviation';
 import { formatLabelValue } from 'src/shared/utils';
 import {
   FhirAppointmentType,
@@ -37,8 +38,8 @@ import {
   formatWeightKg,
   getAdmitterPractitionerId,
   getAnnotationFollowupStatusLabel,
-  getAppointmentServiceCategoryAbbreviation,
   getAttendingPractitionerId,
+  getCoding,
   getEncounterLocationId,
   getFullestAvailableName,
   getInitialEncounterIdForFollowUp,
@@ -46,6 +47,7 @@ import {
   isInPersonAppointment,
   PaymentVariant,
   PRACTITIONER_CODINGS,
+  SERVICE_CATEGORY_SYSTEM,
   VisitStatusLabel,
   VitalFieldNames,
   type VitalsWeightObservationDTO,
@@ -255,7 +257,9 @@ export const Header = (): JSX.Element => {
   const userTimezone = DateTime.local().zoneName;
   const { date = '', time = '' } = formatDateToMDYWithTime(start, userTimezone) ?? {};
   const visitText = `Visit: ${date} ${time}${optionalVisitLabel ? ` | ${optionalVisitLabel}` : ''}`.trim();
-  const serviceCategory = getAppointmentServiceCategoryAbbreviation(appointment);
+  const resolveServiceCategoryAbbr = useServiceCategoryAbbreviationResolver();
+  const serviceCategoryCoding = getCoding(appointment?.serviceCategory, SERVICE_CATEGORY_SYSTEM);
+  const serviceCategory = resolveServiceCategoryAbbr(serviceCategoryCoding?.code ?? serviceCategoryCoding?.display);
   const visitBookingType = appointment
     ? appointment.appointmentType?.text === FhirAppointmentType.prebook
       ? 'Scheduled'
