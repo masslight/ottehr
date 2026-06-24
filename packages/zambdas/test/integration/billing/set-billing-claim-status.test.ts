@@ -1,8 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { Claim } from 'fhir/r4b';
-import { AR_STAGE, CLAIM_STATUS_TAG_SYSTEMS, M2MClientMockType } from 'utils';
+import { AR_STAGE, BILLING_RESOURCE_TAG, CLAIM_STATUS_TAG_SYSTEMS, M2MClientMockType } from 'utils';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { BILLING_RESOURCE_TAG } from '../../../src/billing/shared';
 import { setupIntegrationTest } from '../../helpers/integration-test-seed-data-setup';
 
 describe('set-billing-claim-status', () => {

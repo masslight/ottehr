@@ -1,6 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { Account, Coverage, Patient, RelatedPerson } from 'fhir/r4b';
 import {
+  BILLING_RESOURCE_TAG,
   BillingPayerOption,
   CreateBillingCoverageInput,
   CreatedResourceResponse,
@@ -12,7 +13,6 @@ import {
   UpdateBillingCoverageInput,
 } from 'utils';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { BILLING_RESOURCE_TAG } from '../../../src/billing/shared';
 import { addProcessIdMetaTagToResource, setupIntegrationTest } from '../../helpers/integration-test-seed-data-setup';
 
 // Happy-path coverage CRUD for the billing app's Patient details Insurance tab. Exercises each of the
