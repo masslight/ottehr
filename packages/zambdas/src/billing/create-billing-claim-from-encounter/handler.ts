@@ -25,6 +25,8 @@ import {
   Person,
   Practitioner,
   Procedure,
+  Provenance,
+  ProvenanceAgent,
   Reference,
   RelatedPerson,
   Resource,
@@ -65,6 +67,7 @@ import {
 } from 'utils';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { assertDefined, checkOrCreateM2MClientToken, createOystehrClient, sendErrors, ZambdaInput } from '../../shared';
+import { claimProvenanceRequest, resolveClaimActor } from '../provenance';
 import {
   AUTO_ACCIDENT_TAG_DESCRIPTION,
   AUTO_ACCIDENT_TAG_NAME,
@@ -135,7 +138,7 @@ interface ClaimResources {
 }
 
 type CreateClaimFromEncounterRequests = Array<
-  | BatchInputPostRequest<BillingFhirResource>
+  | BatchInputPostRequest<BillingFhirResource | Provenance>
   | BatchInputPatchRequest<BillingFhirResource>
   | BatchInputPutRequest<BillingFhirResource>
   | BatchInputDeleteRequest
@@ -152,14 +155,16 @@ export async function handler(input: ZambdaInput): Promise<APIGatewayProxyResult
   const clinicalOystehr = createOystehrClient(m2mToken, params.secrets, { ignoreTags: [BILLING_RESOURCE_TAG] });
 
   const cvo = await complexValidation(clinicalOystehr, billingOystehr, params);
+  const agent = await resolveClaimActor(billingOystehr, input.headers?.Authorization, params.secrets);
 
-  const response = await performEffect(billingOystehr, cvo);
+  const response = await performEffect(billingOystehr, cvo, agent);
   return { statusCode: 200, body: JSON.stringify(response) };
 }
 
 export async function performEffect(
   billingOystehr: Oystehr,
-  cvo: ComplexValidationOutput
+  cvo: ComplexValidationOutput,
+  agent: ProvenanceAgent
 ): Promise<{ claimId: string }> {
   const { clinicalResources, billingResources } = cvo;
 
@@ -414,8 +419,24 @@ export async function performEffect(
     billingProvider: billingResources.billingProvider,
     billingTags,
   });
-  requests.push({ method: 'POST', url: '/Claim', resource: claim });
+  const claimUrn = 'urn:uuid:claim';
+  requests.push({ method: 'POST', url: '/Claim', resource: claim, fullUrl: claimUrn });
   order.push('claim');
+
+  // Creation Provenance for the working claim, written in the same transaction. It targets the
+  // claim's urn:uuid, which the transaction resolves to the real Claim reference.
+  const creationProvenance = claimProvenanceRequest({
+    resourceType: 'Claim',
+    targetReference: claimUrn,
+    after: claim,
+    agent,
+    activity: 'create',
+    recorded: new Date().toISOString(),
+  });
+  if (creationProvenance) {
+    requests.push(creationProvenance);
+    order.push('provenance');
+  }
 
   // Remove urns from id before submitting transaction
   requests.forEach((r) => {
@@ -425,7 +446,7 @@ export async function performEffect(
   });
 
   console.log('all claim requests', JSON.stringify(requests, undefined, 2));
-  const txResult = await billingOystehr.fhir.transaction<BillingFhirResource>({ requests });
+  const txResult = await billingOystehr.fhir.transaction<BillingFhirResource | Provenance>({ requests });
   const entries = (txResult.entry ?? []).map((e) => e.resource).filter(Boolean) as Resource[];
 
   if (entries.length !== order.length) {

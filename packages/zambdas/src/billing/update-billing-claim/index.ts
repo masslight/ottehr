@@ -1,7 +1,17 @@
 import Oystehr, { BatchInputRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { randomUUID } from 'crypto';
-import { Claim, Coverage, FhirResource, Location, Organization, Patient, Practitioner, RelatedPerson } from 'fhir/r4b';
+import {
+  Claim,
+  Coverage,
+  FhirResource,
+  Location,
+  Organization,
+  Patient,
+  Practitioner,
+  ProvenanceAgent,
+  RelatedPerson,
+} from 'fhir/r4b';
 import {
   BillingPolicyHolderInput,
   BillingSubscriberRelationship,
@@ -15,8 +25,8 @@ import {
   getPayerUrl,
 } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
+import { claimProvenanceRequest, commitWithProvenance, resolveClaimActor, versionedReference } from '../provenance';
 import {
-  BillingFhirResource,
   buildAddress,
   buildDiagnosisSequence,
   buildSubscriberRelatedPerson,
@@ -41,58 +51,77 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const params = validateRequestParameters(input);
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
   const oystehr = createBillingClient(m2mToken, params.secrets);
+  const agent = await resolveClaimActor(oystehr, input.headers?.Authorization, params.secrets);
 
-  const response = await performEffect(oystehr, params);
+  const response = await performEffect(oystehr, params, agent);
   return { statusCode: 200, body: JSON.stringify(response) };
 });
 
-// Only fields present in the request are touched.
-async function performEffect(oystehr: Oystehr, params: UpdateBillingClaimParams): Promise<{ id: string | undefined }> {
+// Only fields present in the request are touched. Each branch snapshots the resource before mutating
+// so the change can be recorded as a Provenance written in the same transaction as the update.
+async function performEffect(
+  oystehr: Oystehr,
+  params: UpdateBillingClaimParams,
+  agent: ProvenanceAgent
+): Promise<{ id: string | undefined }> {
   switch (params.resourceType) {
     case 'Claim':
-      return attachClaimResources(oystehr, params);
+      return attachClaimResources(oystehr, params, agent);
     case 'Patient': {
       const patient = await fetchById<Patient>(oystehr, 'Patient', params.resourceId);
+      const before = structuredClone(patient);
       const { fields } = params;
       applyName(patient, fields.firstName, fields.lastName);
       if (fields.dob !== undefined) patient.birthDate = fields.dob;
       if (fields.gender !== undefined) patient.gender = fields.gender as Patient['gender'];
       if (fields.address !== undefined) patient.address = [buildAddress(fields.address)];
-      return save(oystehr, patient);
+      return save(oystehr, patient, before, agent);
     }
     case 'Practitioner': {
       const practitioner = await fetchById<Practitioner>(oystehr, 'Practitioner', params.resourceId);
+      const before = structuredClone(practitioner);
       const { fields } = params;
       applyName(practitioner, fields.firstName, fields.lastName);
       if (fields.npi !== undefined) setNpi(practitioner, fields.npi);
       if (fields.taxId !== undefined) setTaxId(practitioner, fields.taxId);
       if (fields.taxonomyCode !== undefined) setTaxonomy(practitioner, fields.taxonomyCode);
-      return save(oystehr, practitioner);
+      return save(oystehr, practitioner, before, agent);
     }
     case 'Coverage': {
       const coverage = await fetchById<Coverage>(oystehr, 'Coverage', params.resourceId);
+      const before = structuredClone(coverage);
       const { fields } = params;
       if (fields.subscriberId !== undefined) coverage.subscriberId = fields.subscriberId;
       if (fields.status !== undefined) coverage.status = fields.status;
-      if (fields.relationship === undefined) return save(oystehr, coverage);
-      return saveCoverageSubscriber(oystehr, coverage, params.resourceId, fields.relationship, fields.policyHolder);
+      if (fields.relationship === undefined) return save(oystehr, coverage, before, agent);
+      return saveCoverageSubscriber(
+        oystehr,
+        coverage,
+        params.resourceId,
+        fields.relationship,
+        before,
+        agent,
+        fields.policyHolder
+      );
     }
     case 'Location': {
       const location = await fetchById<Location>(oystehr, 'Location', params.resourceId);
+      const before = structuredClone(location);
       const { fields } = params;
       if (fields.name !== undefined) location.name = fields.name;
       if (fields.npi !== undefined) setNpi(location, fields.npi);
       if (fields.address !== undefined) location.address = buildAddress(fields.address);
-      return save(oystehr, location);
+      return save(oystehr, location, before, agent);
     }
     case 'Organization': {
       const organization = await fetchById<Organization>(oystehr, 'Organization', params.resourceId);
+      const before = structuredClone(organization);
       const { fields } = params;
       if (fields.name !== undefined) organization.name = fields.name;
       if (fields.npi !== undefined) setNpi(organization, fields.npi);
       if (fields.taxId !== undefined) setTaxId(organization, fields.taxId);
       if (fields.taxonomyCode !== undefined) setTaxonomy(organization, fields.taxonomyCode);
-      return save(oystehr, organization);
+      return save(oystehr, organization, before, agent);
     }
   }
 }
@@ -104,6 +133,8 @@ async function saveCoverageSubscriber(
   coverage: Coverage,
   coverageId: string,
   relationship: BillingSubscriberRelationship,
+  before: Coverage,
+  agent: ProvenanceAgent,
   policyHolder?: BillingPolicyHolderInput
 ): Promise<{ id: string | undefined }> {
   const patientId = coverage.beneficiary?.reference?.split('/')[1];
@@ -113,8 +144,8 @@ async function saveCoverageSubscriber(
   const currentRef = coverage.subscriber?.reference;
   const currentSubscriberId = currentRef?.startsWith('RelatedPerson/') ? currentRef.split('/')[1] : undefined;
 
-  const pre: BatchInputRequest<BillingFhirResource>[] = [];
-  const post: BatchInputRequest<BillingFhirResource>[] = [];
+  const pre: BatchInputRequest<FhirResource>[] = [];
+  const post: BatchInputRequest<FhirResource>[] = [];
   if (relationship === 'Self' || !policyHolder) {
     coverage.subscriber = { reference: `Patient/${patientId}` };
     if (currentSubscriberId) post.push({ method: 'DELETE', url: `RelatedPerson/${currentSubscriberId}` });
@@ -131,21 +162,35 @@ async function saveCoverageSubscriber(
     }
   }
 
-  const requests: BatchInputRequest<BillingFhirResource>[] = [
+  const provenance = claimProvenanceRequest({
+    resourceType: 'Coverage',
+    targetReference: `Coverage/${coverageId}`,
+    before,
+    after: coverage,
+    agent,
+    activity: 'update',
+    recorded: new Date().toISOString(),
+    priorVersionReference: versionedReference(before),
+  });
+
+  const requests: BatchInputRequest<FhirResource>[] = [
     ...pre,
     { method: 'PUT', url: `Coverage/${coverageId}`, resource: coverage },
     ...post,
+    ...(provenance ? [provenance as BatchInputRequest<FhirResource>] : []),
   ];
-  await oystehr.fhir.transaction<BillingFhirResource>({ requests });
+  await oystehr.fhir.transaction<FhirResource>({ requests });
   return { id: coverageId };
 }
 
 // Working copy of the chosen original + claim reference, same wiring as create-billing-claim.
 async function attachClaimResources(
   oystehr: Oystehr,
-  params: Extract<UpdateBillingClaimParams, { resourceType: 'Claim' }>
+  params: Extract<UpdateBillingClaimParams, { resourceType: 'Claim' }>,
+  agent: ProvenanceAgent
 ): Promise<{ id: string | undefined }> {
   const claim = await fetchById<Claim>(oystehr, 'Claim', params.resourceId);
+  const before = structuredClone(claim);
   const { fields } = params;
 
   if (fields.type) {
@@ -280,7 +325,7 @@ async function attachClaimResources(
   // stub when there's no real coverage, and re-add it if a coverage was ever removed.
   claim.insurance = ensureClaimInsurance(claim.insurance);
 
-  return save(oystehr, claim);
+  return save(oystehr, claim, before, agent);
 }
 
 async function createCopy(
@@ -292,9 +337,29 @@ async function createCopy(
   return oystehr.fhir.create(prepareWorkingCopy(original, resourceId));
 }
 
-async function save(oystehr: Oystehr, resource: FhirResource): Promise<{ id: string | undefined }> {
-  const updated = await oystehr.fhir.update(resource);
-  return { id: updated.id };
+async function save(
+  oystehr: Oystehr,
+  resource: FhirResource,
+  before: FhirResource,
+  agent: ProvenanceAgent
+): Promise<{ id: string | undefined }> {
+  const provenance = claimProvenanceRequest({
+    resourceType: resource.resourceType,
+    targetReference: `${resource.resourceType}/${resource.id}`,
+    before,
+    after: resource,
+    agent,
+    activity: 'update',
+    recorded: new Date().toISOString(),
+    priorVersionReference: versionedReference(before),
+  });
+  // The mutation and its Provenance (when there is a real change) commit atomically.
+  await commitWithProvenance(
+    oystehr,
+    { method: 'PUT', url: `${resource.resourceType}/${resource.id}`, resource },
+    provenance
+  );
+  return { id: resource.id };
 }
 
 function applyName(resource: Patient | Practitioner, firstName?: string, lastName?: string): void {

@@ -193,6 +193,7 @@
             "Zambda:Function:update-billing-patient",
             "Zambda:Function:save-billing-tag",
             "Zambda:Function:get-billing-claim-detail",
+            "Zambda:Function:get-billing-claim-history",
             "Zambda:Function:search-billing-service-facilities",
             "Zambda:Function:search-billing-tags",
             "Zambda:Function:search-billing-eras",

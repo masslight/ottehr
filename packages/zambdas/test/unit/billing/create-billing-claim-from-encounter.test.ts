@@ -1056,6 +1056,8 @@ describe('create-billing-claim-from-encounter', () => {
     });
   });
 
+  const TEST_PROVENANCE_AGENT = { who: { reference: 'Practitioner/test-user' } };
+
   describe('performEffect', () => {
     it('creates all billing resources and claim when none exist yet', async () => {
       const txFn = vi.fn().mockResolvedValueOnce({
@@ -1069,6 +1071,7 @@ describe('create-billing-claim-from-encounter', () => {
           { resource: { resourceType: 'Coverage', id: 'claim-coverage' } },
           { resource: { resourceType: 'Person', id: 'billing-person' } },
           { resource: { resourceType: 'Claim', id: 'claim' } },
+          { resource: { resourceType: 'Provenance', id: 'provenance' } },
         ],
       });
       const billingOystehr = {
@@ -1101,13 +1104,14 @@ describe('create-billing-claim-from-encounter', () => {
           subscribers: [],
         },
       };
-      const result = await performEffect(billingOystehr, cvo);
+      const result = await performEffect(billingOystehr, cvo, TEST_PROVENANCE_AGENT);
       expect(result.claimId).toEqual('claim');
       expect(txFn).toHaveBeenCalledWith({
         requests: expect.arrayContaining([
           {
             method: 'POST',
             url: '/Claim',
+            fullUrl: 'urn:uuid:claim',
             resource: {
               resourceType: 'Claim',
               status: 'draft',
@@ -1182,6 +1186,7 @@ describe('create-billing-claim-from-encounter', () => {
           { resource: { resourceType: 'Organization', id: 'claim-billing-provider' } },
           { resource: { resourceType: 'Location', id: 'claim-service-facility' } },
           { resource: { resourceType: 'Claim', id: 'claim' } },
+          { resource: { resourceType: 'Provenance', id: 'provenance' } },
         ],
       });
       const billingOystehr = {
@@ -1214,13 +1219,14 @@ describe('create-billing-claim-from-encounter', () => {
           subscribers: [billingResources.relatedPerson],
         },
       };
-      const result = await performEffect(billingOystehr, cvo);
+      const result = await performEffect(billingOystehr, cvo, TEST_PROVENANCE_AGENT);
       expect(result.claimId).toEqual('claim');
       expect(txFn).toHaveBeenCalledWith({
         requests: expect.arrayContaining([
           {
             method: 'POST',
             url: '/Claim',
+            fullUrl: 'urn:uuid:claim',
             resource: {
               resourceType: 'Claim',
               status: 'draft',
@@ -1315,6 +1321,7 @@ describe('create-billing-claim-from-encounter', () => {
           { resource: { resourceType: 'Coverage', id: 'claim-coverage' } },
           { resource: { resourceType: 'Person', id: 'billing-person' } },
           { resource: { resourceType: 'Claim', id: 'claim' } },
+          { resource: { resourceType: 'Provenance', id: 'provenance' } },
         ],
       });
       const billingOystehr = {
@@ -1350,13 +1357,14 @@ describe('create-billing-claim-from-encounter', () => {
           subscribers: [],
         },
       };
-      let result = await performEffect(billingOystehr, cvo);
+      let result = await performEffect(billingOystehr, cvo, TEST_PROVENANCE_AGENT);
       expect(result.claimId).toEqual('claim');
       expect(txFn).toHaveBeenCalledWith({
         requests: expect.arrayContaining([
           {
             method: 'POST',
             url: '/Claim',
+            fullUrl: 'urn:uuid:claim',
             resource: {
               resourceType: 'Claim',
               status: 'draft',
@@ -1421,12 +1429,13 @@ describe('create-billing-claim-from-encounter', () => {
 
       cvo.clinicalResources.appointment.serviceCategory![0].coding![0].code = 'workers-comp';
       cvo.clinicalResources.accounts[0].type!.coding![0].code = 'WCOMPACCT';
-      result = await performEffect(billingOystehr, cvo);
+      result = await performEffect(billingOystehr, cvo, TEST_PROVENANCE_AGENT);
       expect(txFn).toHaveBeenCalledWith({
         requests: expect.arrayContaining([
           {
             method: 'POST',
             url: '/Claim',
+            fullUrl: 'urn:uuid:claim',
             resource: {
               resourceType: 'Claim',
               status: 'draft',
@@ -1491,12 +1500,13 @@ describe('create-billing-claim-from-encounter', () => {
 
       cvo.clinicalResources.appointment.serviceCategory![0].coding![0].code = 'occupational-medicine';
       cvo.clinicalResources.accounts[0].type!.coding![0].code = 'OCCUPATIONALMEDICINEACCT';
-      result = await performEffect(billingOystehr, cvo);
+      result = await performEffect(billingOystehr, cvo, TEST_PROVENANCE_AGENT);
       expect(txFn).toHaveBeenCalledWith({
         requests: expect.arrayContaining([
           {
             method: 'POST',
             url: '/Claim',
+            fullUrl: 'urn:uuid:claim',
             resource: {
               resourceType: 'Claim',
               status: 'draft',
@@ -1565,6 +1575,7 @@ describe('create-billing-claim-from-encounter', () => {
           { resource: { resourceType: 'Coverage', id: 'claim-coverage' } },
           { resource: { resourceType: 'Person', id: 'billing-person' } },
           { resource: { resourceType: 'Claim', id: 'claim' } },
+          { resource: { resourceType: 'Provenance', id: 'provenance' } },
         ],
       });
       const billingOystehr = {
@@ -1600,13 +1611,14 @@ describe('create-billing-claim-from-encounter', () => {
           subscribers: [],
         },
       };
-      const result = await performEffect(billingOystehr, cvo);
+      const result = await performEffect(billingOystehr, cvo, TEST_PROVENANCE_AGENT);
       expect(result.claimId).toEqual('claim');
       expect(txFn).toHaveBeenCalledWith({
         requests: expect.arrayContaining([
           {
             method: 'POST',
             url: '/Claim',
+            fullUrl: 'urn:uuid:claim',
             resource: {
               resourceType: 'Claim',
               status: 'draft',
@@ -1676,6 +1688,7 @@ describe('create-billing-claim-from-encounter', () => {
           { resource: { resourceType: 'Person', id: 'billing-person' } },
           { resource: { resourceType: 'Basic', id: 'auto-accident-tag' } },
           { resource: { resourceType: 'Claim', id: 'claim' } },
+          { resource: { resourceType: 'Provenance', id: 'provenance' } },
         ],
       });
       const billingOystehr = {
@@ -1711,13 +1724,14 @@ describe('create-billing-claim-from-encounter', () => {
           subscribers: [],
         },
       };
-      const result = await performEffect(billingOystehr, cvo);
+      const result = await performEffect(billingOystehr, cvo, TEST_PROVENANCE_AGENT);
       expect(result.claimId).toEqual('claim');
       expect(txFn).toHaveBeenCalledWith({
         requests: expect.arrayContaining([
           {
             method: 'POST',
             url: '/Claim',
+            fullUrl: 'urn:uuid:claim',
             resource: {
               resourceType: 'Claim',
               status: 'draft',

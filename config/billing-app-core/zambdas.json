@@ -120,6 +120,13 @@
       "src": "src/billing/get-billing-claim-detail/index",
       "zip": ".dist/zips/get-billing-claim-detail.zip"
     },
+    "GET-BILLING-CLAIM-HISTORY": {
+      "name": "get-billing-claim-history",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/get-billing-claim-history/index",
+      "zip": ".dist/zips/get-billing-claim-history.zip"
+    },
     "GET-BILLING-PATIENT-DETAIL": {
       "name": "get-billing-patient-detail",
       "type": "http_auth",

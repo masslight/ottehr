@@ -1,14 +1,16 @@
-import Oystehr, { BatchInputPostRequest } from '@oystehr/sdk';
+import Oystehr, { BatchInputPostRequest, BatchInputRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { randomUUID } from 'crypto';
 import {
   Claim,
   Coverage,
+  FhirResource,
   Location,
   Organization,
   Patient,
   Person,
   Practitioner,
+  ProvenanceAgent,
   RelatedPerson,
   Resource,
 } from 'fhir/r4b';
@@ -28,6 +30,7 @@ import {
   withArStageInitialization,
 } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
+import { claimProvenanceRequest, resolveClaimActor } from '../provenance';
 import {
   buildDiagnosisSequence,
   createBillingClient,
@@ -51,8 +54,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
   const oystehr = createBillingClient(m2mToken, params.secrets);
+  const agent = await resolveClaimActor(oystehr, input.headers?.Authorization, params.secrets);
 
-  const response = await performEffect(oystehr, params);
+  const response = await performEffect(oystehr, params, agent);
   return { statusCode: 200, body: JSON.stringify(response) };
 });
 
@@ -65,7 +69,11 @@ interface OriginalResources {
   billingProvider?: ClaimProvider;
 }
 
-async function performEffect(oystehr: Oystehr, params: CreateClaimParams): Promise<{ claimId: string }> {
+async function performEffect(
+  oystehr: Oystehr,
+  params: CreateClaimParams,
+  agent: ProvenanceAgent
+): Promise<{ claimId: string }> {
   const originals = await readOriginals(oystehr, params);
   const copies = await createWorkingCopies(oystehr, originals);
 
@@ -74,9 +82,27 @@ async function performEffect(oystehr: Oystehr, params: CreateClaimParams): Promi
   }
 
   const claim = buildClaim(copies, params);
-  const created = await oystehr.fhir.create<Claim>(claim);
 
-  return { claimId: created.id! };
+  // Create the claim and its creation Provenance atomically; the Provenance targets the claim's
+  // urn:uuid, which the transaction resolves to the real Claim reference.
+  const claimUrn = `urn:uuid:${randomUUID()}`;
+  const provenance = claimProvenanceRequest({
+    resourceType: 'Claim',
+    targetReference: claimUrn,
+    after: claim,
+    agent,
+    activity: 'create',
+    recorded: new Date().toISOString(),
+  });
+  const requests: BatchInputRequest<FhirResource>[] = [
+    { method: 'POST', url: '/Claim', resource: claim, fullUrl: claimUrn },
+    ...(provenance ? [provenance as BatchInputRequest<FhirResource>] : []),
+  ];
+  const tx = await oystehr.fhir.transaction<FhirResource>({ requests });
+  const created = (tx.entry ?? []).map((e) => e.resource).find((r): r is Claim => r?.resourceType === 'Claim');
+  if (!created?.id) throw InternalError;
+
+  return { claimId: created.id };
 }
 
 async function readOriginals(oystehr: Oystehr, params: CreateClaimParams): Promise<OriginalResources> {

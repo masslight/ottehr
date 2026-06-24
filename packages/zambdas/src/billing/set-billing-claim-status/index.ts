@@ -1,17 +1,20 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim } from 'fhir/r4b';
+import { ProvenanceAgent } from 'fhir/r4b';
 import {
   CLAIM_STATUS_FIELDS,
   CLAIM_STATUS_FIELDS_BY_KEY,
   ClaimStatusValues,
   claimStatusValuesToTags,
   getClaimStatusValues,
+  getPatchBinary,
   INVALID_INPUT_ERROR,
   isValidClaimStatusValue,
   withArStageInitialization,
 } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
+import { claimProvenanceRequest, commitWithProvenance, resolveClaimActor, versionedReference } from '../provenance';
 import { createBillingClient, fetchById } from '../shared';
 import { SetClaimStatusParams, validateRequestParameters } from './validateRequestParameters';
 
@@ -22,12 +25,17 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const params = validateRequestParameters(input);
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
   const oystehr = createBillingClient(m2mToken, params.secrets);
+  const agent = await resolveClaimActor(oystehr, input.headers?.Authorization, params.secrets);
 
-  const response = await performEffect(oystehr, params);
+  const response = await performEffect(oystehr, params, agent);
   return { statusCode: 200, body: JSON.stringify(response) };
 });
 
-export async function performEffect(oystehr: Oystehr, params: SetClaimStatusParams): Promise<{ ok: true }> {
+export async function performEffect(
+  oystehr: Oystehr,
+  params: SetClaimStatusParams,
+  agent: ProvenanceAgent
+): Promise<{ ok: true }> {
   const field = CLAIM_STATUS_FIELDS_BY_KEY[params.field];
   // Empty/null clears the tag back to the field default.
   const value = params.value ?? '';
@@ -50,13 +58,29 @@ export async function performEffect(oystehr: Oystehr, params: SetClaimStatusPara
   ];
 
   const versionId = claim.meta?.versionId;
-  await oystehr.fhir.patch(
-    {
+  const afterClaim = { ...claim, meta: { ...claim.meta, tag: updatedTags } };
+
+  // Patch and Provenance commit atomically. The status change is read from the claim's meta tags, so
+  // the diff surfaces exactly which status field changed.
+  const provenance = claimProvenanceRequest({
+    resourceType: 'Claim',
+    targetReference: `Claim/${params.claimId}`,
+    before: claim,
+    after: afterClaim,
+    agent,
+    activity: 'statusChange',
+    recorded: new Date().toISOString(),
+    priorVersionReference: versionedReference(claim),
+  });
+  await commitWithProvenance(
+    oystehr,
+    getPatchBinary({
       resourceType: 'Claim',
-      id: params.claimId,
-      operations: [{ op: 'add', path: '/meta/tag', value: updatedTags }],
-    },
-    versionId ? { optimisticLockingVersionId: versionId } : undefined
+      resourceId: params.claimId,
+      patchOperations: [{ op: 'add', path: '/meta/tag', value: updatedTags }],
+      ifMatch: versionId ? `W/"${versionId}"` : undefined,
+    }),
+    provenance
   );
 
   return { ok: true };
