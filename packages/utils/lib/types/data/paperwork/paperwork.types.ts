@@ -92,7 +92,7 @@ export interface QuestionnaireItemExtension {
   categoryTag?: string;
   dataType?: QuestionnaireDataType;
   disabledDisplay?: 'hidden' | 'protected';
-  filterWhen?: QuestionnaireItemConditionDefinition;
+  filterWhen?: QuestionnaireItemConditionDefinition[];
   groupType?: QuestionnaireItemGroupType;
   infoText?: string;
   inputWidth?: InputWidthOption;

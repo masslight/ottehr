@@ -27,6 +27,7 @@ import {
   composePrescriptions,
   composeProcedures,
   composeProgressNoteVisitDetails,
+  composeRadiology,
   composeReviewOfSystems,
   composeRosObservations,
   composeSurgicalHistory,
@@ -56,6 +57,7 @@ import {
   createProceduresSection,
   createProgressNotePatientInfoSection,
   createProgressNoteVisitDetailsSection,
+  createRadiologySection,
   createReviewOfSystemsSection,
   createRosObservationsSection,
   createSurgicalHistorySection,
@@ -111,6 +113,9 @@ const composeProgressNoteData: DataComposer<ProgressNoteInput, ProgressNoteData>
       allChartData,
     }),
     externalLabs: composeExternalLabs({
+      allChartData,
+    }),
+    radiology: composeRadiology({
       allChartData,
     }),
     screening: composeAdditionalQuestions({
@@ -335,6 +340,7 @@ const progressNoteRenderConfig: PdfRenderConfig<ProgressNoteData> = {
     createImmunizationOrdersSection(),
     createInHouseLabsSection(),
     createExternalLabsSection(),
+    createRadiologySection(),
     createAdditionalQuestionsSection(),
     createIntakeNotesSection(),
     createVitalsSection(),
