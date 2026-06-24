@@ -148,6 +148,9 @@ export function ExportX12Dialog({ open, onClose, claimId, claimType }: ExportX12
         )}
         {x12 != null && (
           <TextField
+            label="Raw X12"
+            aria-label="Raw X12"
+            InputLabelProps={{ shrink: true }}
             multiline
             fullWidth
             minRows={12}
