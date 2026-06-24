@@ -529,12 +529,12 @@ export const CreateChargeItemDefinitionInputSchema = z.object({
 
 export const GetChargeItemDefinitionInputSchema = z.object({
   type: z.enum(['charge-master', 'fee-schedule']),
-  id: nonEmptyString.uuid(),
+  chargeItemDefinitionId: nonEmptyString.uuid(),
 });
 
 export const UpdateChargeItemDefinitionInputSchema = z.object({
   type: z.enum(['charge-master', 'fee-schedule']),
-  id: nonEmptyString.uuid(),
+  chargeItemDefinitionId: nonEmptyString.uuid(),
   name: nonEmptyString.optional(),
   status: z.enum(['active', 'retired']).optional(),
   effectiveDate: nonEmptyString.nullable().optional(),
@@ -544,6 +544,7 @@ export const UpdateChargeItemDefinitionInputSchema = z.object({
     .array(
       z.object({
         code: nonEmptyString,
+        description: nonEmptyString.optional(),
         modifier: nonEmptyString.optional(),
         amount: z.number().nonnegative(),
       })
@@ -553,7 +554,7 @@ export const UpdateChargeItemDefinitionInputSchema = z.object({
 
 export const DeleteChargeItemDefinitionInputSchema = z.object({
   type: z.enum(['charge-master', 'fee-schedule']),
-  id: nonEmptyString.uuid(),
+  chargeItemDefinitionId: nonEmptyString.uuid(),
 });
 
 export type GetClaimDetailInput = z.output<typeof GetClaimDetailInputSchema>;

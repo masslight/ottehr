@@ -31,7 +31,7 @@ export async function complexValidation(
 ): Promise<{ definition: ChargeItemDefinition }> {
   const definition = await getChargeItemDefinition(oystehr, {
     type: params.type,
-    id: params.id,
+    chargeItemDefinitionId: params.chargeItemDefinitionId,
     secrets: params.secrets,
   });
   return { definition };

@@ -186,17 +186,22 @@ export interface CoverageBenefitInfo {
   policyNumber?: string;
   insuranceCode?: string;
   insuranceDescription?: string;
+  benefitNotes?: string;
+  insurancePlan?: string;
   payerName?: string;
   payerID?: string;
   payerAddress?: string;
   payerWebsite?: string;
   payerPhone?: string;
   payerFax?: string;
+  entityType?: string;
 
   levelDescription: string;
   levelCode: string;
 
   inNetwork: boolean;
+  // Raw X12 in-plan-network indicator (EB12): 'Y' in-network, 'N' out-of-network, 'W' not applicable, 'U' unknown.
+  inPlanNetworkCode?: string;
 }
 
 export interface CoverageBenefit extends CoverageBenefitInfo {
@@ -251,6 +256,31 @@ export interface InsuranceDetails {
     phone?: string | undefined;
     fax?: string | undefined;
   };
+  // One entry per active-coverage line returned by the eligibility check. For Medicaid members this
+  // surfaces both the fee-for-service plan and any managed care organization (MCO) the member is
+  // enrolled in, along with the MCO entity (name/phone/id) reported on that line.
+  plans?: Array<{
+    planName?: string | undefined;
+    entityName?: string | undefined;
+    entityType?: string | undefined;
+    phone?: string | undefined;
+    payerID?: string | undefined;
+    insuranceCode?: string | undefined;
+    insuranceDescription?: string | undefined;
+  }>;
+  // Entries derived from benefit lines marked as "Other or Additional Payor"
+  // (coverage code R), including sponsor/network identifiers when present.
+  additionalPayers?: Array<{
+    benefitRange?: string | undefined;
+    planSponsor?: string | undefined;
+    planNetworkId?: string | undefined;
+    payerName?: string | undefined;
+    payerID?: string | undefined;
+    payerRole?: string | undefined;
+    insuranceCode?: string | undefined;
+    insuranceDescription?: string | undefined;
+    notes?: string | undefined;
+  }>;
 }
 
 export interface FinancialDetails {

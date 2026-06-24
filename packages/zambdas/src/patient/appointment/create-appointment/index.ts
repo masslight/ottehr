@@ -312,7 +312,11 @@ export async function createAppointment(
     visitType,
     secrets,
     verifiedPhoneNumber: verifiedFormattedPhoneNumber,
-    contactInfo: { phone: verifiedFormattedPhoneNumber ?? 'not provided', email: patient.email ?? 'not provided' },
+    contactInfo: {
+      phone: verifiedFormattedPhoneNumber ?? 'not provided',
+      email: patient.noEmail ? '' : patient.email ?? '',
+      noEmail: patient.noEmail ?? false,
+    },
     questionnaire: currentQuestionnaire,
     oystehr: oystehr,
     updatePatientRequest,
@@ -406,7 +410,7 @@ interface TransactionInput {
   secrets: Secrets | null;
   createdBy: string;
   verifiedPhoneNumber: string | undefined;
-  contactInfo: { phone: string; email: string };
+  contactInfo: { phone: string; email: string; noEmail?: boolean };
   additionalInfo?: string;
   patient?: Patient;
   newPatientDob?: string;
@@ -659,7 +663,9 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
       text: visitType,
     },
     serviceCategory: slot?.serviceCategory,
-    description: reasonForVisit,
+    // FHIR rejects an empty string for Appointment.description (e.g. EHR "Add
+    // Visit", which has no reason-for-visit field), so omit it when blank.
+    description: reasonForVisit?.trim() || undefined,
     status: initialAppointmentStatus,
     created: now.toISO() ?? '',
     extension: apptExtensions,

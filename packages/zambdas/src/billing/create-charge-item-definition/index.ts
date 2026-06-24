@@ -1,7 +1,9 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { ChargeItemDefinition } from 'fhir/r4b';
+import { BillingChargeItemDefinition } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
+import { transformChargeItemDefinition } from '../get-charge-item-definition';
 import {
   CHARGE_ITEM_DEFINITION_DEFAULT_SYSTEM,
   CHARGE_ITEM_DEFINITION_TYPE_SYSTEM,
@@ -31,9 +33,9 @@ export const index = wrapHandler(
 export async function performEffect(
   oystehr: Oystehr,
   params: CreateChargeItemDefinitionParams
-): Promise<ChargeItemDefinition> {
+): Promise<BillingChargeItemDefinition> {
   const url = chargeItemDefinitionNameToUrl(params.type, params.name);
-  return await oystehr.fhir.create<ChargeItemDefinition>({
+  const cid = await oystehr.fhir.create<ChargeItemDefinition>({
     resourceType: 'ChargeItemDefinition',
     url,
     status: 'active',
@@ -50,4 +52,5 @@ export async function performEffect(
       ],
     },
   });
+  return transformChargeItemDefinition(cid);
 }

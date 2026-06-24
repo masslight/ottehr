@@ -27,7 +27,7 @@ import {
 
 // Canonical identifiers — see intake-paperwork/index.ts for rationale.
 export const VIRTUAL_INTAKE_PAPERWORK_URL = 'https://ottehr.com/FHIR/Questionnaire/intake-paperwork-virtual';
-export const VIRTUAL_INTAKE_PAPERWORK_VERSION = '1.1.3';
+export const VIRTUAL_INTAKE_PAPERWORK_VERSION = '1.1.4';
 export const VIRTUAL_INTAKE_PAPERWORK_CANONICAL = {
   url: VIRTUAL_INTAKE_PAPERWORK_URL,
   version: VIRTUAL_INTAKE_PAPERWORK_VERSION,
@@ -146,6 +146,26 @@ function buildFormFields(
           type: 'string',
           dataType: 'Email',
           autocomplete: 'section-patient shipping email',
+          triggers: [
+            {
+              targetQuestionLinkId: 'patient-no-email',
+              effect: ['enable'],
+              operator: '!=',
+              answerBoolean: true,
+            },
+            {
+              targetQuestionLinkId: 'patient-no-email',
+              effect: ['filter'],
+              operator: '=',
+              answerBoolean: true,
+            },
+          ],
+          disabledDisplay: 'hidden',
+        },
+        noEmail: {
+          key: 'patient-no-email',
+          label: "Don't have email",
+          type: 'boolean',
         },
         phoneNumber: {
           key: 'patient-number',
@@ -1769,9 +1789,43 @@ function buildFormFields(
               operator: '!=',
               answerString: 'Self',
             },
+            {
+              targetQuestionLinkId: 'responsible-party-relationship',
+              effect: ['filter'],
+              operator: '=',
+              answerString: 'Self',
+            },
+            {
+              targetQuestionLinkId: 'responsible-party-no-email',
+              effect: ['enable'],
+              operator: '!=',
+              answerBoolean: true,
+            },
+            {
+              targetQuestionLinkId: 'responsible-party-no-email',
+              effect: ['filter'],
+              operator: '=',
+              answerBoolean: true,
+            },
           ],
+          enableBehavior: 'all',
           disabledDisplay: 'disabled',
           dynamicPopulation: { sourceLinkId: 'patient-email' },
+        },
+        noEmail: {
+          key: 'responsible-party-no-email',
+          label: "Don't have email",
+          type: 'boolean',
+          triggers: [
+            {
+              targetQuestionLinkId: 'responsible-party-relationship',
+              effect: ['enable'],
+              operator: '!=',
+              answerString: 'Self',
+            },
+          ],
+          disabledDisplay: 'protected',
+          dynamicPopulation: { sourceLinkId: 'patient-no-email' },
         },
       },
       hiddenFields: [],
