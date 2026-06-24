@@ -1,6 +1,6 @@
 import { Claim, Coverage, Identifier, Location, Organization, Patient, Practitioner } from 'fhir/r4b';
 import { FHIR_IDENTIFIER_NPI } from '../../../fhir/constants';
-import { CODE_SYSTEM_COVERAGE_CLASS } from '../../../helpers/rcm/constants';
+import { extractPayerIdFromUrl, getPayerUrl } from '../../../helpers/helpers';
 import { CLAIM_TAG_SYSTEM } from './billing.constants';
 import { RuleOperator } from './rules-engine.schemas';
 
@@ -146,7 +146,12 @@ const getClaimTagCodes = (claim: Claim): string[] =>
 type FieldReader = (m: RulesEngineClaimModel) => string | string[] | undefined;
 
 const READERS: Record<string, FieldReader> = {
-  payerId: (m) => getPlanClassValue(primaryCoverage(m)),
+  payerId: (m) => {
+    const coverage = primaryCoverage(m);
+    // The payer is the payor reference on the working-copy Coverage (a payer URL encoding the id).
+    // Fall back to the stored plan-class value for older claims whose payor isn't a payer URL.
+    return extractPayerIdFromUrl(coverage?.payor?.[0]?.reference) ?? getPlanClassValue(coverage);
+  },
   'patient.firstName': (m) => m.patient?.name?.[0]?.given?.[0],
   'patient.lastName': (m) => m.patient?.name?.[0]?.family,
   'patient.birthDate': (m) => m.patient?.birthDate,
@@ -185,20 +190,18 @@ const setNpiOn = (resource: { identifier?: Identifier[] } | undefined, value: st
   }
 };
 
-const setPayerId = (coverage: Coverage | undefined, value: string | null): void => {
+// Re-point the claim to a payer by its clearinghouse payer id. This edits the claim's own working-copy
+// Coverage (its payor) and the working-copy Claim's insurer — exactly the fields update-billing-claim
+// sets. No external/shared resource is mutated and no RCM lookup is needed: getPayerUrl builds the
+// payer reference directly from the id. A self-pay claim (no coverage) has no payer to set, and an
+// empty value is treated as a no-op.
+const setPayerId = (model: RulesEngineClaimModel, value: string | null): void => {
+  if (!value) return;
+  const coverage = primaryCoverage(model);
   if (!coverage) return;
-  // Updates the stored clearinghouse payer id on the coverage's `plan` class. Re-pointing the payer
-  // Organization reference (coverage.payor / Claim.insurer) so submission targets the new payer is
-  // resolved via the Oystehr RCM service at the submission step (submitClaim).
-  // TODO: wire that payer-organization resolution when the submission backend is implemented.
-  const classes = coverage.class ?? [];
-  const entry = classes.find((c) => c.type?.coding?.some((tc) => tc.code === 'plan'));
-  if (entry) {
-    entry.value = value ?? '';
-  } else if (value) {
-    classes.push({ type: { coding: [{ system: CODE_SYSTEM_COVERAGE_CLASS, code: 'plan' }] }, value });
-  }
-  coverage.class = classes;
+  const payerUrl = getPayerUrl(value);
+  coverage.payor = [{ reference: payerUrl }];
+  model.claim.insurer = { reference: payerUrl };
 };
 
 const setProviderFamily = (p: Practitioner | Organization | undefined, value: string | null): void => {
@@ -229,7 +232,7 @@ const setLocationState = (loc: Location | undefined, value: string | null): void
 type FieldWriter = (m: RulesEngineClaimModel, value: string | null) => void;
 
 const WRITERS: Record<string, FieldWriter> = {
-  payerId: (m, v) => setPayerId(primaryCoverage(m), v),
+  payerId: (m, v) => setPayerId(m, v),
   'patient.firstName': (m, v) => {
     const name = ensurePatientName(m.patient);
     if (name) name.given = v ? [v] : undefined;

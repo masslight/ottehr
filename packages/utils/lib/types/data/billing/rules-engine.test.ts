@@ -132,6 +132,9 @@ describe('rules-engine evaluator', () => {
     const result = executeRule(rule, m);
     expect(result.held).toBe(false);
     expect(readField(m, 'payerId')).toBe('999999');
+    // It re-points the claim's own working copies (Coverage.payor + Claim.insurer), not a display value.
+    expect(m.coverages[0].payor?.[0]?.reference).toContain('999999');
+    expect(m.claim.insurer?.reference).toContain('999999');
   });
 
   it('follows nested else-if branches', () => {

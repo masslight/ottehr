@@ -21,11 +21,12 @@ export interface SubmitClaimResult {
 //
 // This is deliberately a no-op that reports the claim as ready, so the engine runs end-to-end and the
 // Task completes. The rest of the engine does not depend on which backend is chosen; only this
-// function changes when the backend is implemented.
+// function changes when the backend is implemented. By the time it is called the claim's working-copy
+// resources are already fully prepared (including any payer re-pointing the rules applied to the
+// working-copy Coverage / Claim.insurer), so this just needs to submit the claim as-is.
 //
-// TODO: implement real submission. This includes resolving any payer re-pointing done by setField
-// actions (the engine updates the stored payer id on the coverage's plan class; the payer
-// Organization reference must be re-resolved via the Oystehr RCM service before submission).
+// TODO: implement real submission against the chosen backend (the Oystehr claim service or the
+// existing Candid clearinghouse path).
 // ---------------------------------------------------------------------------
 export function submitClaim(input: SubmitClaimInput): Promise<SubmitClaimResult> {
   const claimId = input.model.claim.id ?? 'unknown';
