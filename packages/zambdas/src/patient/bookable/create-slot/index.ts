@@ -456,6 +456,27 @@ const complexValidation = async (input: BasicInput, oystehr: Oystehr): Promise<E
       coding: [{ ...BOOKING_CONFIG.serviceCategories[0].category }],
     });
   }
+
+  // Invariant: every persisted Slot must carry a SERVICE_CATEGORY_SYSTEM coding
+  // so downstream Appointment derivation (and any other category-aware code)
+  // has a category to read. The service-mode coding alone (in-person / virtual)
+  // isn't enough — it's a modality, not a category. A SERVICE_CATEGORY_SYSTEM
+  // coding lands when either (a) the caller passed an explicit
+  // serviceCategoryCode or (b) the single-BOOKING_CONFIG default branch above
+  // fired. If neither happened we're on a multi-category project with a caller
+  // that skipped the picker — reject rather than persist a categoryless Slot
+  // that would propagate ambiguity through create-appointment and into the
+  // permanent Appointment record. create-appointment retains a separate back-
+  // compat default for legacy Slots already in FHIR that predate this guard.
+  const hasServiceCategoryCoding = serviceCategory.some((cc) =>
+    (cc.coding ?? []).some((c) => c.system === SERVICE_CATEGORY_SYSTEM)
+  );
+  if (!hasServiceCategoryCoding) {
+    throw INVALID_INPUT_ERROR(
+      'A service category is required to create a slot, but none was provided and the system has more than one category to choose from. Pick a service category before booking.'
+    );
+  }
+
   const extension: Slot['extension'] = [];
   if (originalBookingUrl) {
     extension.push(makeBookingOriginExtensionEntry(originalBookingUrl));
