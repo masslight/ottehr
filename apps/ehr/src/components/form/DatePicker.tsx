@@ -117,6 +117,7 @@ export function BasicDatePicker({
                     },
                   }}
                   disablePast={disablePast}
+                  minDate={minDate ? dayjs(minDate) : undefined}
                 />
               );
             }
