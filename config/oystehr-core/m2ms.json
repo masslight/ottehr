@@ -105,6 +105,11 @@
           "action": ["RCM:SearchPayer", "RCM:GetPayer"],
           "effect": "Allow",
           "resource": ["RCM:Payer"]
+        },
+        {
+          "action": ["RCM:ReadClaim"],
+          "effect": "Allow",
+          "resource": ["RCM:Claim"]
         }
       ]
     },
