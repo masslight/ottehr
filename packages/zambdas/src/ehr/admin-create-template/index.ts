@@ -23,6 +23,7 @@ import {
   GLOBAL_TEMPLATE_IN_PERSON_CODE_SYSTEM,
   ICD_10_CODE_SYSTEM,
   IN_HOUSE_TEST_CODE_SYSTEM,
+  INTERACTIONS_UNAVAILABLE,
   isExternalLabServiceRequest,
   isPSCOrder,
   makeOptimisticLockIfMatchHeader,
@@ -445,7 +446,11 @@ const performEffect = async (
       continue;
     }
 
-    medicationInteractionDetected = !!mrForMedAmin.detectedIssue && mrForMedAmin.detectedIssue.length > 0;
+    medicationInteractionDetected =
+      !!mrForMedAmin.detectedIssue &&
+      (mrForMedAmin.detectedIssue.length > 1 ||
+        (mrForMedAmin.detectedIssue.length === 1 &&
+          !mrForMedAmin.detectedIssue[0].reference?.includes(INTERACTIONS_UNAVAILABLE)));
     if (medicationInteractionDetected) break;
 
     const originalMedication = medAdmin.contained?.find((r) => r.resourceType === 'Medication');

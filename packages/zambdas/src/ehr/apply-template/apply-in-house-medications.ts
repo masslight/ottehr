@@ -1,12 +1,12 @@
 import Oystehr, { BatchInputPostRequest } from '@oystehr/sdk';
 import {
+  Condition,
   Encounter,
   FhirResource,
   List,
   Medication,
   MedicationAdministration,
   MedicationRequest,
-  Procedure,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
@@ -15,6 +15,7 @@ import {
   getDosageUnitsAndRouteOfMedication,
   getMedicationName,
   getMediSpanIdForInteraction,
+  ICD_10_CODE_SYSTEM,
   MEDICATION_ADMINISTRATION_OTHER_REASON_CODE,
   MEDICATION_ADMINISTRATION_REASON_CODE,
   MedicationApplianceLocation,
@@ -31,6 +32,8 @@ import {
   createMedicationRequest,
   MedicationAdministrationData,
 } from '../create-update-medication-order/fhir-resources-creation';
+import { isDiagnosisCondition } from '../shared/template-helpers';
+import { diagnosesFromReasonCode } from './helpers';
 
 const IN_HOUSE_MEDICATION_PLAN_TAG_SYSTEM = chartDataTagSystem('in-house-medication-administration-template');
 
@@ -46,10 +49,12 @@ interface ApplyInHouseMedicationPlansInput {
   userToken: string;
   secrets: Secrets | null;
   action: TemplateSectionAction;
+  conditionRequests: BatchInputPostRequest<Condition>[];
 }
 
 interface ApplyInHouseMedicationPlansResult {
   warnings: TemplateWarning[];
+  requests: BatchInputPostRequest<MedicationAdministration | MedicationRequest>[];
 }
 
 export async function applyInHouseMedicationPlans(
@@ -57,17 +62,18 @@ export async function applyInHouseMedicationPlans(
 ): Promise<ApplyInHouseMedicationPlansResult> {
   const warnings: TemplateWarning[] = [];
   const sectionName = 'inHouseMedications' as const;
+  const requests: BatchInputPostRequest<MedicationAdministration | MedicationRequest>[] = [];
 
   try {
-    const { templateList, encounter, oystehr, secrets, userToken, action } = input;
-    if (action === 'skip') return { warnings: [] };
+    const { templateList, encounter, oystehr, secrets, userToken, action, conditionRequests } = input;
+    if (action === 'skip') return { warnings: [], requests: [] };
 
     const templateContained = templateList.contained ?? [];
 
     const templateMedAdministrations = templateContained.filter((r): r is MedicationAdministration =>
       isInHouseMedicationTemplatePlan(r)
     );
-    if (templateMedAdministrations.length === 0) return { warnings: [] };
+    if (templateMedAdministrations.length === 0) return { warnings: [], requests: [] };
 
     const patientId = encounter.subject?.reference?.replace('Patient/', '');
     if (!patientId) {
@@ -75,7 +81,7 @@ export async function applyInHouseMedicationPlans(
         section: sectionName,
         message: 'Skipped in-house medication orders — encounter has no patient linked.',
       });
-      return { warnings };
+      return { warnings, requests: [] };
     }
 
     const encounterId = encounter.id;
@@ -84,12 +90,11 @@ export async function applyInHouseMedicationPlans(
         section: sectionName,
         message: 'Skipped in-house medication orders — encounter has no ID.',
       });
-      return { warnings };
+      return { warnings, requests: [] };
     }
 
-    const requests: BatchInputPostRequest<MedicationAdministration | MedicationRequest | Procedure>[] = [];
-
     const medicationsByIdMap = makeMedicationsByIdMap(templateContained);
+    const dxUrlByCodeMap = makeDxConditionFullUrlByCodeMap(conditionRequests);
     type erxInteractionPromiseResponse = { interactionDetectedOrFailed: boolean; warnings: TemplateWarning[] };
     const requestsAndErxPromise: {
       liveMA: MedicationAdministration;
@@ -141,6 +146,7 @@ export async function applyInHouseMedicationPlans(
       )?.text;
 
       const cptCodes = getCptCodesFromMA(templateMA);
+      const associatedDx = getAssociatedDxFromMaAndRequests(templateMA, dxUrlByCodeMap);
 
       const orderData: MedicationData = {
         patient: patientId,
@@ -152,6 +158,7 @@ export async function applyInHouseMedicationPlans(
         reason: reasonNote,
         otherReason: otherReasonNote,
         ...(cptCodes && cptCodes.length > 0 ? { cptCodes } : {}),
+        ...(associatedDx ? { associatedDx } : {}),
       };
 
       // product said to use the person applying the template for the ordering provider
@@ -166,17 +173,6 @@ export async function applyInHouseMedicationPlans(
         createdProviderId: currentUserProviderId,
         orderedByProviderId: currentUserProviderId,
         dateTimeCreated: DateTime.now().toISO(), // the dateTimeCreated on the templateMA is not valid and needs to be replaced
-
-        // orderData: MedicationData;
-        // status: MedicationAdministration['status'];
-        // route: MedicationApplianceRoute;
-        // location?: MedicationApplianceLocation;
-        // createdProviderId?: string;
-        // orderedByProviderId?: string; // NEW: provider to add to the "ordered by" history
-        // administeredProviderId?: string;
-        // existedMA?: MedicationAdministration;
-        // dateTimeCreated?: string;
-        // medicationResource?: Medication;
       };
 
       const liveMA = createMedicationAdministrationResource(medicationAdministrationData);
@@ -254,28 +250,24 @@ export async function applyInHouseMedicationPlans(
     const failedErxResponse = erxResponses.find((resp) => resp.interactionDetectedOrFailed);
     if (failedErxResponse) {
       console.warn('Found a failed erx response');
-      return { warnings: failedErxResponse.warnings };
+      return { warnings: failedErxResponse.warnings, requests: [] };
     }
 
     requestsAndErxPromise.forEach((resp) => {
       const { liveMA, liveMR } = resp;
-      // Note: we do not make the cpt code Procedures at med order time -- those are created and added to the assessment at med administration time
       requests.push({ method: 'POST', url: '/MedicationAdministration', resource: liveMA });
       requests.push({ method: 'POST', url: '/MedicationRequest', resource: liveMR });
     });
-
-    if (requests.length === 0) return { warnings };
-
-    await oystehr.fhir.transaction({ requests });
   } catch (err) {
     console.error('Encountered error in applyInHouseMedicationPlans', err);
     warnings.push({
       section: sectionName,
       message: 'Something went wrong applying in-house medication orders. Skipped.',
     });
+    requests.length = 0;
   }
 
-  return { warnings };
+  return { warnings, requests };
 }
 
 export const makeMedicationsByIdMap = (resources: FhirResource[]): Map<string, Medication> => {
@@ -288,4 +280,29 @@ export const deriveMedicationName = (medicationId: string | undefined, medByIdMa
   const unknownMedicationName = 'Unknown medication';
   if (!medicationId || !medByIdMap.has(medicationId)) return unknownMedicationName;
   return getMedicationName(medByIdMap.get(medicationId)) ?? unknownMedicationName;
+};
+
+const makeDxConditionFullUrlByCodeMap = (requests: BatchInputPostRequest<Condition>[]): Map<string, string> => {
+  const dxConditionRequests = requests.filter((r) => isDiagnosisCondition(r.resource));
+  const dxConditionFullUrlByCodeMap = new Map<string, string>();
+  for (const request of dxConditionRequests) {
+    const resource = request.resource;
+    const code = resource.code?.coding?.find((coding) => coding.system === ICD_10_CODE_SYSTEM)?.code;
+    if (!code) continue;
+    if (!request.fullUrl) {
+      console.warn(`Found a condition request with no fullUrl. Unexpected. Cannot associate Dx with code ${code}`);
+      continue;
+    }
+    dxConditionFullUrlByCodeMap.set(code, request.fullUrl);
+  }
+  return dxConditionFullUrlByCodeMap;
+};
+
+const getAssociatedDxFromMaAndRequests = (
+  templateMa: MedicationAdministration,
+  dxFullUrlByCodeMap: Map<string, string>
+): string | undefined => {
+  const dxDto = diagnosesFromReasonCode(templateMa)[0];
+  if (!dxDto) return undefined;
+  return dxFullUrlByCodeMap.get(dxDto.code);
 };

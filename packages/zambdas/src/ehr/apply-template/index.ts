@@ -223,17 +223,6 @@ const performEffect = async (
     encounterResources: encounterBundle,
   });
 
-  // In-house medication plans are likewise independent of chart-data batches
-  // (each creates its own MA + MR), so they run in parallel too.
-  const inHouseMedicationsPromise = applyInHouseMedicationPlans({
-    templateList,
-    encounter,
-    oystehr,
-    action: actions.inHouseMedications,
-    userToken: validatedInput.userToken,
-    secrets: validatedInput.secrets,
-  });
-
   // External lab plans are likewise independent of the chart-data batches (the
   // create flow writes its own SR/Task/Provenance graph), so they run in
   // parallel too.
@@ -288,6 +277,27 @@ const performEffect = async (
     diagnosesClaimedByLabs
   );
 
+  // Regarding Conditions: In house meds, unlike labs, cannot add their own Condition Dx to the chart
+  // and are instead fully dependent on the existing Conditions on the chart.
+  // This means that to properly associate in house meds to their Dx, we need to
+  // know which Conditions will be materialized by the createRequests call.
+  // Each should have a fullUrl for us to reference
+  // In-house medications must be awaited before the miniTransaction fires: the
+  // ERX interaction checks (async) determine whether any MAs get created, and
+  // the resulting MA/MR/CPT Procedure requests must land in the same transaction
+  // as the Conditions they reference via urn:uuid fullUrls.
+  const inHouseMedicationsResult = await applyInHouseMedicationPlans({
+    templateList,
+    encounter,
+    oystehr,
+    action: actions.inHouseMedications,
+    userToken: validatedInput.userToken,
+    secrets: validatedInput.secrets,
+    conditionRequests: createRequests.filter(
+      (r): r is BatchInputPostRequest<Condition> => r.method === 'POST' && r.url === 'Condition'
+    ),
+  });
+
   // The live procedure ServiceRequests we build from the template's procedure
   // plans (NOT the plan resources themselves - those live in the template's
   // contained array) need to live in the same FHIR transaction as the new
@@ -324,14 +334,13 @@ const performEffect = async (
   );
 
   const miniTransactionPromise = oystehr.fhir.transaction({
-    requests: miniTransactionRequests,
+    requests: [...miniTransactionRequests, ...inHouseMedicationsResult.requests],
   });
 
-  const [bundles, inHouseLabsResult, externalLabsResult, inHouseMedicationsResult] = await Promise.all([
+  const [bundles, inHouseLabsResult, externalLabsResult] = await Promise.all([
     Promise.all([...deleteBatches, ...createObservationBatches, miniTransactionPromise]),
     inHouseLabsPromise,
     externalLabsPromise,
-    inHouseMedicationsPromise,
   ]);
 
   console.log('Outcome bundles, ', JSON.stringify(bundles));
