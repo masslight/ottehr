@@ -1,5 +1,12 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { ExportClaimX12Response, getSecret, SecretsKeys } from 'utils';
+import {
+  APIError,
+  APIErrorCode,
+  CLAIM_NOT_READY_FOR_X12_EXPORT,
+  ExportClaimX12Response,
+  getSecret,
+  SecretsKeys,
+} from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import { ExportClaimX12Params, validateRequestParameters } from './validateRequestParameters';
 
@@ -30,9 +37,30 @@ async function performEffect(params: ExportClaimX12Params, token: string): Promi
   });
 
   if (!response.ok) {
-    throw new Error(`Failed to generate X12 for claim ${claimId}: ${response.status} ${response.statusText}`);
+    const message = await parseRcmErrorMessage(response);
+    console.error(`X12 generation failed for claim ${claimId}`, {
+      status: response.status,
+      statusText: response.statusText,
+      message,
+    });
+    const code = response.status >= 500 ? APIErrorCode.MISCONFIGURED_ENVIRONMENT : CLAIM_NOT_READY_FOR_X12_EXPORT.code;
+    throw {
+      code,
+      statusCode: response.status,
+      message: message || CLAIM_NOT_READY_FOR_X12_EXPORT.message,
+    } satisfies APIError;
   }
 
   const { x12 } = (await response.json()) as ExportClaimX12Response;
   return { x12 };
+}
+
+async function parseRcmErrorMessage(response: Response): Promise<string> {
+  const body = await response.text();
+  try {
+    const maybeParsedJson = JSON.parse(body) as { message?: string };
+    return maybeParsedJson.message ?? body;
+  } catch {
+    return body;
+  }
 }

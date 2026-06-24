@@ -63,10 +63,11 @@ describe('ExportX12Dialog', () => {
     expect(downloadTextFileMock).toHaveBeenCalledWith('claim-claim-1-837i.txt', X12);
   });
 
-  it('shows an error when the export fails', async () => {
-    exportClaimX12Mock.mockRejectedValue(new Error('boom'));
+  it('shows the error message returned by the export when generation fails', async () => {
+    exportClaimX12Mock.mockRejectedValue({ message: 'Claim.provider is missing a required identifier' });
     renderDialog();
 
     expect(await screen.findByRole('alert')).toBeInTheDocument();
+    expect(screen.getByText('Claim.provider is missing a required identifier')).toBeInTheDocument();
   });
 });
