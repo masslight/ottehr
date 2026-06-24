@@ -79,8 +79,17 @@ export function ExportX12Dialog({ open, onClose, claimId, claimType }: ExportX12
 
   const handleCopy = async (): Promise<void> => {
     if (!x12) return;
-    await navigator.clipboard.writeText(x12);
-    setCopied(true);
+    try {
+      await navigator.clipboard.writeText(x12);
+      setCopied(true);
+    } catch (err) {
+      setError(
+        getApiError({
+          error: err,
+          defaultError: 'Failed to copy X12',
+        })
+      );
+    }
   };
 
   const handleDownload = (): void => {
