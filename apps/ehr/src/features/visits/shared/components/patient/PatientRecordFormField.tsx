@@ -15,8 +15,20 @@ import {
   FormFieldsGroupItem,
   FormFieldsInputItem,
   isRemovableField,
+  PATIENT_RECORD_CONFIG,
   QuestionnaireItemGroupType,
 } from 'utils';
+
+// Flat map of linkId → field config, built once at module load for source-field lookup.
+const allFieldConfigs = new Map<string, FormFieldsInputItem>();
+for (const section of Object.values(PATIENT_RECORD_CONFIG.FormFields)) {
+  const items = (section as any).items;
+  if (!items) continue;
+  const itemValues = Array.isArray(items) ? items.flatMap((group: any) => Object.values(group)) : Object.values(items);
+  for (const field of itemValues as FormFieldsInputItem[]) {
+    if (field?.key) allFieldConfigs.set(field.key, field);
+  }
+}
 
 interface PatientRecordFormFieldProps {
   // undefined when a project's config omits a field a shared container references
@@ -79,10 +91,22 @@ const PatientRecordFormFieldContent: FC<PatientRecordFormFieldContentProps> = ({
   }
 
   // Dynamic population: when field is disabled, copy value from source field
-  const sourceFieldValue = dynamicPopulation?.sourceLinkId ? watch(dynamicPopulation.sourceLinkId) : undefined;
+  const rawSourceFieldValue = dynamicPopulation?.sourceLinkId ? watch(dynamicPopulation.sourceLinkId) : undefined;
   const stashedValueRef = useRef<any>(null);
 
   const triggerState = dynamicPopulation?.triggerState ?? 'disabled';
+
+  // Determine whether the source field is currently hidden (disabled + disabledDisplay:'hidden').
+  // When it is, treat its effective value as empty so downstream fields don't pick up stale data.
+  const sourceFieldConfig = dynamicPopulation?.sourceLinkId
+    ? allFieldConfigs.get(dynamicPopulation.sourceLinkId)
+    : undefined;
+  const sourceEffects = sourceFieldConfig
+    ? evaluateFieldTriggers(sourceFieldConfig, formValues, sourceFieldConfig.enableBehavior)
+    : null;
+  const sourceIsHidden = sourceEffects?.enabled === false && sourceFieldConfig?.disabledDisplay === 'hidden';
+  const sourceEmptyValue = sourceFieldConfig?.type === 'boolean' ? false : '';
+  const sourceFieldValue = sourceIsHidden ? sourceEmptyValue : rawSourceFieldValue;
 
   useEffect(() => {
     if (dynamicPopulation && triggerState === 'disabled' && isDisabled) {
@@ -90,7 +114,9 @@ const PatientRecordFormFieldContent: FC<PatientRecordFormFieldContentProps> = ({
 
       // Only update if the source value is different from current value
       if (sourceFieldValue !== undefined && sourceFieldValue !== currentValue) {
-        stashedValueRef.current = currentValue;
+        // When the source field is hidden/cleared, clear the stash too so re-enabling
+        // this field doesn't restore a stale value from before the source was cleared.
+        stashedValueRef.current = sourceIsHidden ? null : currentValue;
         // shouldDirty:false — this field mirrors the source as derived state; the
         // trigger field the user actually toggles carries the dirty signal.
         setValue(item.key, sourceFieldValue, { shouldDirty: false });
@@ -101,7 +127,7 @@ const PatientRecordFormFieldContent: FC<PatientRecordFormFieldContentProps> = ({
         stashedValueRef.current = null;
       }
     }
-  }, [sourceFieldValue, isDisabled, dynamicPopulation, triggerState, item.key, setValue, getValues]);
+  }, [sourceFieldValue, isDisabled, dynamicPopulation, triggerState, item.key, setValue, getValues, sourceIsHidden]);
 
   if (isDisabled && disabledDisplay === 'hidden') {
     return null;
