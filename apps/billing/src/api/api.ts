@@ -17,6 +17,8 @@ import {
   DeleteServiceFacilityInputSchema,
   EraDetailResponse,
   GetClaimDetailInputSchema,
+  GetClaimHistoryInputSchema,
+  GetClaimHistoryResponse,
   GetEraDetailInputSchema,
   GetPatientCoveragesInputSchema,
   GetPatientCoveragesResponse,
@@ -100,6 +102,11 @@ export const getBillingClaimDetail = (
   oystehr: Oystehr,
   parameters: z.input<typeof GetClaimDetailInputSchema>
 ): Promise<ClaimDetailResponse> => executeBillingZambda(oystehr, 'get-billing-claim-detail', parameters);
+
+export const getBillingClaimHistory = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof GetClaimHistoryInputSchema>
+): Promise<GetClaimHistoryResponse> => executeBillingZambda(oystehr, 'get-billing-claim-history', parameters);
 
 export const updateBillingResource = (
   oystehr: Oystehr,

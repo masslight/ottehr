@@ -47,6 +47,7 @@ import {
   tagBillingClaim,
   updateBillingResource,
 } from '../api/api';
+import { ClaimHistory } from '../components/claim/ClaimHistory';
 import { ClaimStatusFields } from '../components/claim/ClaimStatusFields';
 import { DiagnosesEditor } from '../components/claim/DiagnosesEditor';
 import { EditableSection } from '../components/claim/EditableSection';
@@ -245,6 +246,7 @@ export default function ClaimDetail(): ReactElement {
             <Tab label="Dx, Service Lines & Remits" value="2" />
             <Tab label="Write offs & Patient payments" value="3" />
             <Tab label="Other claims" value="4" />
+            <Tab label="History" value="5" />
           </TabList>
 
           <TabPanel value="1" sx={{ px: 0, pt: 2 }}>
@@ -276,6 +278,10 @@ export default function ClaimDetail(): ReactElement {
 
           <TabPanel value="4" sx={{ px: 0, pt: 2 }}>
             <OtherClaimsSection claims={claim.otherClaims} navigate={navigate} />
+          </TabPanel>
+
+          <TabPanel value="5" sx={{ px: 0, pt: 2 }}>
+            <ClaimHistory claimId={claim.id} />
           </TabPanel>
         </TabContext>
       </Box>
