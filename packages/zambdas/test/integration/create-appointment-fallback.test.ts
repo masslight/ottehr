@@ -327,7 +327,29 @@ describe('create-appointment group-member fallback (D-6 phase 2)', () => {
     explicitCleanup: BatchInputDeleteRequest[],
     extraSlotIds: string[] = []
   ): Promise<void> => {
+    // Also delete any Appointments that reference these slots. If the FHIR
+    // server reuses IDs from deleted resources, a surviving Appointment that
+    // references a just-deleted slot can attach itself to a future slot that
+    // receives the same ID — causing spurious APPOINTMENT_ALREADY_EXISTS (4341)
+    // errors in subsequent tests.
+    const appointmentDeletes: BatchInputDeleteRequest[] = [];
+    if (extraSlotIds.length > 0) {
+      try {
+        const apptBundle = await oystehr.fhir.search<FhirResource>({
+          resourceType: 'Appointment',
+          params: [{ name: 'slot', value: extraSlotIds.map((id) => `Slot/${id}`).join(',') }],
+        });
+        apptBundle.unbundle().forEach((r) => {
+          if (r.resourceType === 'Appointment' && r.id) {
+            appointmentDeletes.push({ method: 'DELETE' as const, url: `Appointment/${r.id}` });
+          }
+        });
+      } catch {
+        // best-effort; the cron sweep will catch any stragglers
+      }
+    }
     const requests: BatchInputDeleteRequest[] = [
+      ...appointmentDeletes,
       ...extraSlotIds.map((id) => ({ method: 'DELETE' as const, url: `Slot/${id}` })),
       ...explicitCleanup,
     ];

@@ -1408,6 +1408,10 @@ export const cleanupTestScheduleResources = async (processId: string, oystehr: O
           name: '_revinclude',
           value: 'Slot:schedule',
         },
+        {
+          name: '_revinclude:iterate',
+          value: 'Appointment:slot',
+        },
       ],
     })
   ).unbundle();
