@@ -73,7 +73,6 @@ export function createE2eTestOystehrClient(token: string, overrides?: Partial<Oy
       fhirApiUrl: process.env.FHIR_API,
       projectApiUrl: process.env.PROJECT_API_ZAMBDA_URL,
     },
-    projectId: import.meta.env.VITE_APP_PROJECT_ID,
     ...overrides,
     ignoreTags: [...(overrides?.ignoreTags ?? []), BILLING_RESOURCE_TAG],
   });

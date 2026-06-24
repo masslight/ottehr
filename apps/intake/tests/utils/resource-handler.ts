@@ -1,7 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { Patient } from 'fhir/r4b';
-import { createClinicalOystehrClient } from 'ui-components';
 import { getAuth0Token } from './auth/getAuth0Token';
+import { createClinicalOystehrClient } from './oystehr';
 
 export const PATIENT_REASON_FOR_VISIT = 'Fever';
 
