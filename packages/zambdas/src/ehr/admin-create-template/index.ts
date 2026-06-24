@@ -204,7 +204,6 @@ const performEffect = async (
   const medicationAdministrations = encounterBundle.filter((resource): resource is MedicationAdministration =>
     isValidMedicationAdministrationForTemplate(resource)
   );
-  console.log('These are the medicationAdministrations', JSON.stringify(medicationAdministrations));
   const medicationRequestByIdMap = new Map<string, MedicationRequest>(
     encounterBundle
       .filter((res): res is MedicationRequest => res.resourceType === 'MedicationRequest')
