@@ -9,7 +9,6 @@ import {
   getEmergencyContactStepAnswers,
   getEmployerInformationStepAnswers,
   getPatientDetailsStepAnswers,
-  getPayerId,
   getPaymentOptionInsuranceAnswers,
   getPrimaryCarePhysicianStepAnswers,
   getResponsiblePartyStepAnswers,
@@ -724,11 +723,9 @@ async function createResourceHandler(): Promise<[ResourceHandler, string, string
       display: ic2?.name,
     },
   };
-  // these are old Organization references so they show up as historical, prefixed with the payer ID when available
-  const ic1PayerId = getPayerId(ic1);
-  const ic2PayerId = getPayerId(ic2);
-  const insuranceCarrier1ForResult = `${ic1PayerId ? `${ic1PayerId} - ` : ''}${ic1?.name} (historical)`;
-  const insuranceCarrier2ForResult = `${ic2PayerId ? `${ic2PayerId} - ` : ''}${ic2?.name} (historical)`;
+  // these are old Organization references so they show up as historical
+  const insuranceCarrier1ForResult = `${ic1?.name} (historical)`;
+  const insuranceCarrier2ForResult = `${ic2?.name} (historical)`;
   console.log('carrier: ', JSON.stringify(insuranceCarrier1ForResult));
 
   await resourceHandler.setResources();
