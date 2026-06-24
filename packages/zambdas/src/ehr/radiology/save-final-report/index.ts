@@ -10,12 +10,8 @@ import {
   userMe,
 } from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
-import {
-  configReviewResultTask,
-  getMostRecentReport,
-  parseRadiologyResourcesForTask,
-  validateResourcesAgainstDR,
-} from '../shared';
+import { getMostRecentReport } from '../../../shared/radiology';
+import { configReviewResultTask, parseRadiologyResourcesForTask, validateResourcesAgainstDR } from '../shared';
 import { ValidatedInput, validateInput, validateSecrets } from './validation';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations

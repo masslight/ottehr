@@ -1,27 +1,35 @@
-import Oystehr from '@oystehr/sdk';
+import Oystehr, { BatchInputRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Claim, Coverage, FhirResource, Location, Organization, Patient, Practitioner } from 'fhir/r4b';
+import { randomUUID } from 'crypto';
+import { Claim, Coverage, FhirResource, Location, Organization, Patient, Practitioner, RelatedPerson } from 'fhir/r4b';
 import {
+  BillingPolicyHolderInput,
+  BillingSubscriberRelationship,
   CODE_SYSTEM_CLAIM_TYPE,
   CODE_SYSTEM_CMS_PLACE_OF_SERVICE,
   CODE_SYSTEM_HCPCS,
   CODE_SYSTEM_ICD_10,
   CODE_SYSTEM_OYSTEHR_RCM_CMS1500_PROCEDURE_MODIFIER,
   CODE_SYSTEM_OYSTEHR_RCM_CMS1500_REFERRING_PROVIDER_TYPE,
+  FHIR_RESOURCE_NOT_FOUND,
   getPayerUrl,
 } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import {
+  BillingFhirResource,
   buildAddress,
   buildDiagnosisSequence,
+  buildSubscriberRelatedPerson,
   claimHasRealCoverage,
   createBillingClient,
   ensureClaimInsurance,
   fetchById,
   getClaimTypeCoding,
   prepareWorkingCopy,
+  setCoverageRelationship,
   setNpi,
   setTaxId,
+  setTaxonomy,
   sortClaimInsurance,
 } from '../shared';
 import { UpdateBillingClaimParams, validateRequestParameters } from './validateRequestParameters';
@@ -58,13 +66,16 @@ async function performEffect(oystehr: Oystehr, params: UpdateBillingClaimParams)
       applyName(practitioner, fields.firstName, fields.lastName);
       if (fields.npi !== undefined) setNpi(practitioner, fields.npi);
       if (fields.taxId !== undefined) setTaxId(practitioner, fields.taxId);
+      if (fields.taxonomyCode !== undefined) setTaxonomy(practitioner, fields.taxonomyCode);
       return save(oystehr, practitioner);
     }
     case 'Coverage': {
       const coverage = await fetchById<Coverage>(oystehr, 'Coverage', params.resourceId);
-      if (params.fields.subscriberId !== undefined) coverage.subscriberId = params.fields.subscriberId;
-      if (params.fields.status !== undefined) coverage.status = params.fields.status;
-      return save(oystehr, coverage);
+      const { fields } = params;
+      if (fields.subscriberId !== undefined) coverage.subscriberId = fields.subscriberId;
+      if (fields.status !== undefined) coverage.status = fields.status;
+      if (fields.relationship === undefined) return save(oystehr, coverage);
+      return saveCoverageSubscriber(oystehr, coverage, params.resourceId, fields.relationship, fields.policyHolder);
     }
     case 'Location': {
       const location = await fetchById<Location>(oystehr, 'Location', params.resourceId);
@@ -80,9 +91,53 @@ async function performEffect(oystehr: Oystehr, params: UpdateBillingClaimParams)
       if (fields.name !== undefined) organization.name = fields.name;
       if (fields.npi !== undefined) setNpi(organization, fields.npi);
       if (fields.taxId !== undefined) setTaxId(organization, fields.taxId);
+      if (fields.taxonomyCode !== undefined) setTaxonomy(organization, fields.taxonomyCode);
       return save(oystehr, organization);
     }
   }
+}
+
+// Mirror update-billing-coverage: relationship/policy-holder edits also create/update/delete the
+// working-copy subscriber RelatedPerson, so the coverage and the person are written in one transaction.
+async function saveCoverageSubscriber(
+  oystehr: Oystehr,
+  coverage: Coverage,
+  coverageId: string,
+  relationship: BillingSubscriberRelationship,
+  policyHolder?: BillingPolicyHolderInput
+): Promise<{ id: string | undefined }> {
+  const patientId = coverage.beneficiary?.reference?.split('/')[1];
+  if (!patientId) throw FHIR_RESOURCE_NOT_FOUND('Patient');
+
+  setCoverageRelationship(coverage, relationship);
+  const currentRef = coverage.subscriber?.reference;
+  const currentSubscriberId = currentRef?.startsWith('RelatedPerson/') ? currentRef.split('/')[1] : undefined;
+
+  const pre: BatchInputRequest<BillingFhirResource>[] = [];
+  const post: BatchInputRequest<BillingFhirResource>[] = [];
+  if (relationship === 'Self' || !policyHolder) {
+    coverage.subscriber = { reference: `Patient/${patientId}` };
+    if (currentSubscriberId) post.push({ method: 'DELETE', url: `RelatedPerson/${currentSubscriberId}` });
+  } else {
+    const subscriber = buildSubscriberRelatedPerson(patientId, relationship, policyHolder);
+    if (currentSubscriberId) {
+      subscriber.id = currentSubscriberId;
+      pre.push({ method: 'PUT', url: `RelatedPerson/${currentSubscriberId}`, resource: subscriber });
+      coverage.subscriber = { reference: `RelatedPerson/${currentSubscriberId}` };
+    } else {
+      const urn = `urn:uuid:${randomUUID()}`;
+      pre.push({ method: 'POST', url: '/RelatedPerson', resource: subscriber, fullUrl: urn });
+      coverage.subscriber = { reference: urn };
+    }
+  }
+
+  const requests: BatchInputRequest<BillingFhirResource>[] = [
+    ...pre,
+    { method: 'PUT', url: `Coverage/${coverageId}`, resource: coverage },
+    ...post,
+  ];
+  await oystehr.fhir.transaction<BillingFhirResource>({ requests });
+  return { id: coverageId };
 }
 
 // Working copy of the chosen original + claim reference, same wiring as create-billing-claim.
@@ -135,6 +190,19 @@ async function attachClaimResources(
     if (claim.patient?.reference) {
       copy.beneficiary = { reference: claim.patient.reference };
       copy.subscriber = { reference: claim.patient.reference };
+      // Mirror the encounter path: copy the subscriber RelatedPerson so the policy holder is preserved.
+      const subscriberRef = original.subscriber?.reference;
+      if (subscriberRef?.startsWith('RelatedPerson/')) {
+        const subscriber = await fetchById<RelatedPerson>(
+          oystehr,
+          'RelatedPerson',
+          subscriberRef.replace('RelatedPerson/', '')
+        );
+        const subscriberCopy = prepareWorkingCopy<RelatedPerson>(subscriber, subscriber.id!);
+        subscriberCopy.patient = { reference: claim.patient.reference };
+        const createdSubscriber = await oystehr.fhir.create(subscriberCopy);
+        copy.subscriber = { reference: `RelatedPerson/${createdSubscriber.id}` };
+      }
     }
     const created = await oystehr.fhir.create(copy);
     // ensureClaimInsurance drops any no-coverage stub now that a real focal coverage is attached.
@@ -144,6 +212,12 @@ async function attachClaimResources(
     ]);
     const payerRef = created.payor?.[0]?.reference;
     if (payerRef) claim.insurer = { reference: payerRef };
+  }
+
+  if (fields.removeCoverage) {
+    // Make the claim self-pay; ensureClaimInsurance restores the no-coverage stub below.
+    claim.insurance = [];
+    delete claim.insurer;
   }
 
   if (fields.payerId) {

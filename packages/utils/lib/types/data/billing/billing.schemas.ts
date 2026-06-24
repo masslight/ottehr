@@ -8,7 +8,6 @@ import {
 } from '../../../helpers/rcm/constants';
 import { taxIdRegex, zipRegex } from '../../../validation';
 import { STATE_CODES } from '../../common';
-import { TIMEZONES } from '../../constants';
 import {
   CLAIM_STATUS_FIELD_KEYS,
   CLAIM_STATUS_FIELDS_BY_KEY,
@@ -212,11 +211,6 @@ export const SaveServiceFacilityInputSchema = z.object({
   posCode: z
     .string()
     .refine((code) => CMS_PLACE_OF_SERVICE_CODE_SET.has(code), 'Unknown place of service code')
-    .nullable()
-    .optional(),
-  timezone: z
-    .string()
-    .refine((tz) => TIMEZONES.includes(tz), 'Unknown timezone')
     .nullable()
     .optional(),
 });
@@ -431,7 +425,7 @@ const claimProviderRefSchema = z.object({
   type: z.enum(['Practitioner', 'Organization']),
 });
 
-export const UpdateBillingResourceInputSchema = z.discriminatedUnion('resourceType', [
+const updateBillingResourceUnion = z.discriminatedUnion('resourceType', [
   z.object({
     resourceType: z.literal('Patient'),
     resourceId: nonEmptyString,
@@ -451,6 +445,7 @@ export const UpdateBillingResourceInputSchema = z.discriminatedUnion('resourceTy
       lastName: z.string().optional(),
       npi: z.string().optional(),
       taxId: z.string().optional(),
+      taxonomyCode: z.string().optional(),
     }),
   }),
   z.object({
@@ -459,6 +454,8 @@ export const UpdateBillingResourceInputSchema = z.discriminatedUnion('resourceTy
     fields: z.object({
       subscriberId: z.string().optional(),
       status: z.enum(['active', 'cancelled', 'draft', 'entered-in-error']).optional(),
+      relationship: subscriberRelationshipSchema.optional(),
+      policyHolder: billingPolicyHolderSchema.optional(),
     }),
   }),
   z.object({
@@ -477,6 +474,7 @@ export const UpdateBillingResourceInputSchema = z.discriminatedUnion('resourceTy
       name: z.string().optional(),
       npi: z.string().optional(),
       taxId: z.string().optional(),
+      taxonomyCode: z.string().optional(),
     }),
   }),
   // Attach working copies for resources the claim was created without, re-point the payer (RCM payer id),
@@ -490,12 +488,29 @@ export const UpdateBillingResourceInputSchema = z.discriminatedUnion('resourceTy
       renderingProvider: claimProviderRefSchema.optional(),
       facilityId: nonEmptyString.optional(),
       coverageId: nonEmptyString.optional(),
+      removeCoverage: z.boolean().optional(),
       payerId: nonEmptyString.optional(),
       diagnoses: z.array(claimDiagnosisSchema).optional(),
       serviceLines: z.array(claimServiceLineSchema).optional(),
     }),
   }),
 ]);
+
+export const UpdateBillingResourceInputSchema = updateBillingResourceUnion.superRefine((data, ctx) => {
+  // Match update-billing-coverage: a non-self relationship requires policy-holder details.
+  if (
+    data.resourceType === 'Coverage' &&
+    data.fields.relationship &&
+    data.fields.relationship !== 'Self' &&
+    !data.fields.policyHolder
+  ) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['fields', 'policyHolder'],
+      message: 'Policy holder details are required when the relationship to insured is not "Self"',
+    });
+  }
+});
 
 export const SearchChargeItemDefinitionsInputSchema = z.object({
   type: z.enum(['charge-master', 'fee-schedule']),
@@ -514,12 +529,12 @@ export const CreateChargeItemDefinitionInputSchema = z.object({
 
 export const GetChargeItemDefinitionInputSchema = z.object({
   type: z.enum(['charge-master', 'fee-schedule']),
-  id: nonEmptyString.uuid(),
+  chargeItemDefinitionId: nonEmptyString.uuid(),
 });
 
 export const UpdateChargeItemDefinitionInputSchema = z.object({
   type: z.enum(['charge-master', 'fee-schedule']),
-  id: nonEmptyString.uuid(),
+  chargeItemDefinitionId: nonEmptyString.uuid(),
   name: nonEmptyString.optional(),
   status: z.enum(['active', 'retired']).optional(),
   effectiveDate: nonEmptyString.nullable().optional(),
@@ -529,6 +544,7 @@ export const UpdateChargeItemDefinitionInputSchema = z.object({
     .array(
       z.object({
         code: nonEmptyString,
+        description: nonEmptyString.optional(),
         modifier: nonEmptyString.optional(),
         amount: z.number().nonnegative(),
       })
@@ -538,7 +554,7 @@ export const UpdateChargeItemDefinitionInputSchema = z.object({
 
 export const DeleteChargeItemDefinitionInputSchema = z.object({
   type: z.enum(['charge-master', 'fee-schedule']),
-  id: nonEmptyString.uuid(),
+  chargeItemDefinitionId: nonEmptyString.uuid(),
 });
 
 export type GetClaimDetailInput = z.output<typeof GetClaimDetailInputSchema>;
