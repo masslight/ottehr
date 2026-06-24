@@ -21,7 +21,8 @@ import {
   RULES_ENGINE_TAG_SYSTEM,
   RulesEngineClaimModel,
 } from 'utils';
-import { findRef, sortClaimInsurance } from '../../../billing/shared';
+import { createBillingClient, findRef, sortClaimInsurance } from '../../../billing/shared';
+import { checkOrCreateM2MClientToken } from '../../../shared';
 import { wrapTaskHandler } from '../helpers';
 import { submitClaim } from './submit-claim';
 
@@ -35,42 +36,66 @@ import { submitClaim } from './submit-claim';
 // `completed`/`failed` from the returned taskStatus (and `failed` automatically on any thrown error).
 // ---------------------------------------------------------------------------
 
-export const index = wrapTaskHandler('sub-presubmission-rules-engine', async (input, oystehr) => {
-  const { task } = input;
-  const { secrets } = input;
+let m2mToken: string;
+
+export const index = wrapTaskHandler('sub-presubmission-rules-engine', async (input, _oystehr) => {
+  const { task, secrets } = input;
   const claimId = extractClaimId(task);
 
-  // Billing resources live in the same project; they are read by id/tag and written back with their
-  // existing tags, so the subscription's M2M client can operate on them directly.
-  const [rules, model] = await Promise.all([loadRules(oystehr), loadClaimModel(oystehr, claimId)]);
+  // Use the billing client (same as every other billing zambda) so reads/writes are scoped to the
+  // billing workspace where the claim, its working copies, and the rules List live.
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+  const oystehr = createBillingClient(m2mToken, secrets);
 
-  let heldBy: PreSubmissionRule | undefined;
-  for (const rule of rules) {
-    const { held } = executeRule(rule, model);
-    if (held) {
-      heldBy = rule;
-      break;
+  try {
+    console.log(`[rules-engine] starting for Claim/${claimId}`);
+    const [rules, model] = await Promise.all([loadRules(oystehr), loadClaimModel(oystehr, claimId)]);
+    console.log(
+      `[rules-engine] loaded ${rules.length} rule(s); patient=${model.patient?.id ?? 'none'}, ` +
+        `coverages=${model.coverages.length}, renderingProvider=${model.renderingProvider?.id ?? 'none'}, ` +
+        `serviceFacility=${model.serviceFacility?.id ?? 'none'}`
+    );
+
+    let heldBy: PreSubmissionRule | undefined;
+    for (const rule of rules) {
+      const { held, appliedActions } = executeRule(rule, model);
+      console.log(
+        `[rules-engine] rule "${rule.name}" (enabled=${rule.enabled}) applied ${appliedActions.length} action(s)` +
+          `${held ? ' — applied Hold, stopping' : ''}`
+      );
+      if (held) {
+        heldBy = rule;
+        break;
+      }
     }
-  }
 
-  // Persist whatever the rules changed — including the Hold tag — so the claim reflects the run.
-  await persistModel(oystehr, model);
+    // Persist whatever the rules changed — including the Hold tag — so the claim reflects the run.
+    console.log(`[rules-engine] persisting changes for Claim/${claimId}`);
+    await persistModel(oystehr, model);
 
-  if (heldBy) {
+    if (heldBy) {
+      console.log(`[rules-engine] Claim/${claimId} held by rule "${heldBy.name}"`);
+      return {
+        taskStatus: 'failed' as const,
+        statusReason: `Held by rule "${heldBy.name}": claim was not submitted and requires review.`,
+      };
+    }
+
+    const submission = await submitClaim({ oystehr, model, secrets });
+    console.log(`[rules-engine] completed for Claim/${claimId}: ${submission.statusReason}`);
     return {
-      taskStatus: 'failed' as const,
-      statusReason: `Held by rule "${heldBy.name}": claim was not submitted and requires review.`,
+      taskStatus: 'completed' as const,
+      statusReason:
+        rules.length === 0
+          ? 'No rules configured; claim ready to submit (submission backend not yet wired).'
+          : submission.statusReason,
     };
+  } catch (error) {
+    // wrapTaskHandler routes handler errors to Sentry + the Task statusReason but does NOT log them to
+    // CloudWatch — log here so failures are visible, then rethrow so the Task is still marked failed.
+    console.error(`[rules-engine] failed for Claim/${claimId}:`, error);
+    throw error;
   }
-
-  const submission = await submitClaim({ oystehr, model, secrets });
-  return {
-    taskStatus: 'completed' as const,
-    statusReason:
-      rules.length === 0
-        ? 'No rules configured; claim ready to submit (submission backend not yet wired).'
-        : submission.statusReason,
-  };
 });
 
 function extractClaimId(task: Task): string {
