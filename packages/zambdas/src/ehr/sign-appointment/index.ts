@@ -7,6 +7,7 @@ import {
   findExtensionIndex,
   getAppointmentLockMetaTagOperations,
   getAppointmentMetaTagOpForStatusUpdate,
+  getEncounterLockMetaTagOperations,
   getEncounterStatusHistoryUpdateOp,
   getFullestAvailableName,
   getInPersonVisitStatus,
@@ -184,6 +185,7 @@ const changeFollowupEncounterStatusToCompleted = async (
     'completed'
   );
   encounterPatchOps.push(encounterStatusHistoryUpdate);
+  encounterPatchOps.push(...getEncounterLockMetaTagOperations(resourcesToUpdate.encounter, true));
 
   let provenanceCreate: BatchInputRequest<Provenance> | undefined;
 

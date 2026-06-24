@@ -3,6 +3,7 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Location } from 'fhir/r4b';
 import { BillingLocationOption, getNPI } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
+import { getPlaceOfServiceCode } from '../service-facility.helpers';
 import { createBillingClient, EXCLUDE_WORKING_COPIES_PARAMS, formatAddress } from '../shared';
 import { SearchBillingLocationsParams, validateRequestParameters } from './validateRequestParameters';
 
@@ -37,6 +38,7 @@ async function performEffect(
     name: l.name ?? '',
     npi: getNPI(l) ?? '',
     address: formatAddress(l.address),
+    posCode: getPlaceOfServiceCode(l) ?? '',
   }));
 
   return { locations };

@@ -30,7 +30,7 @@ import {
 // bare-specifier subpaths, so the only reliably-importable surface is utils's
 // main barrel — which already loads this module.
 export const IN_PERSON_INTAKE_PAPERWORK_URL = 'https://ottehr.com/FHIR/Questionnaire/intake-paperwork-inperson';
-export const IN_PERSON_INTAKE_PAPERWORK_VERSION = '1.2.2';
+export const IN_PERSON_INTAKE_PAPERWORK_VERSION = '1.2.4';
 export const IN_PERSON_INTAKE_PAPERWORK_CANONICAL = {
   url: IN_PERSON_INTAKE_PAPERWORK_URL,
   version: IN_PERSON_INTAKE_PAPERWORK_VERSION,
@@ -154,8 +154,14 @@ function buildFormFields(valueSets: ValueSetsConfig): PaperworkFormFields {
           triggers: [
             {
               targetQuestionLinkId: 'patient-no-email',
-              effect: ['enable', 'require'],
+              effect: ['enable'],
               operator: '!=',
+              answerBoolean: true,
+            },
+            {
+              targetQuestionLinkId: 'patient-no-email',
+              effect: ['filter'],
+              operator: '=',
               answerBoolean: true,
             },
           ],
@@ -191,6 +197,7 @@ function buildFormFields(valueSets: ValueSetsConfig): PaperworkFormFields {
         'patient-city',
         'patient-state',
         'patient-zip',
+        'patient-email',
         'patient-number',
         'patient-preferred-communication-method',
       ],
@@ -1516,19 +1523,31 @@ function buildFormFields(valueSets: ValueSetsConfig): PaperworkFormFields {
           triggers: [
             {
               targetQuestionLinkId: 'responsible-party-relationship',
-              effect: ['enable', 'require'],
+              effect: ['enable'],
               operator: '!=',
               answerString: 'Self',
             },
             {
+              targetQuestionLinkId: 'responsible-party-relationship',
+              effect: ['filter'],
+              operator: '=',
+              answerString: 'Self',
+            },
+            {
               targetQuestionLinkId: 'responsible-party-no-email',
-              effect: ['enable', 'require'],
+              effect: ['enable'],
               operator: '!=',
+              answerBoolean: true,
+            },
+            {
+              targetQuestionLinkId: 'responsible-party-no-email',
+              effect: ['filter'],
+              operator: '=',
               answerBoolean: true,
             },
           ],
           enableBehavior: 'all',
-          disabledDisplay: 'hidden',
+          disabledDisplay: 'disabled',
           dynamicPopulation: { sourceLinkId: 'patient-email' },
         },
         noEmail: {
@@ -1543,7 +1562,8 @@ function buildFormFields(valueSets: ValueSetsConfig): PaperworkFormFields {
               answerString: 'Self',
             },
           ],
-          disabledDisplay: 'hidden',
+          disabledDisplay: 'protected',
+          dynamicPopulation: { sourceLinkId: 'patient-no-email' },
         },
       },
       hiddenFields: [],
@@ -1557,6 +1577,7 @@ function buildFormFields(valueSets: ValueSetsConfig): PaperworkFormFields {
         'responsible-party-city',
         'responsible-party-state',
         'responsible-party-zip',
+        'responsible-party-email',
       ],
     },
     employerInformation: {

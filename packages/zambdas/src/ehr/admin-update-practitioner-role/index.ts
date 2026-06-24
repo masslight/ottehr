@@ -6,6 +6,7 @@ import {
   MISSING_REQUEST_BODY,
   MISSING_REQUIRED_PARAMETERS,
   PRACTITIONER_ROLE_ALL_CATEGORIES_EXTENSION_URL,
+  PRACTITIONER_SCHEDULE_CONFLICT_ERROR,
   SCHEDULE_DISPLAY_NAME_EXTENSION_URL,
   Secrets,
 } from 'utils';
@@ -142,19 +143,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       { categoryNameById }
     );
     if (conflict) {
-      return {
-        statusCode: 400,
-        body: JSON.stringify({
-          code: 'PRACTITIONER_SCHEDULE_CONFLICT',
-          message: `This provider already has another active schedule at this location offering ${conflict.conflictingCategoryNames.join(
-            ', '
-          )}. Remove ${
-            conflict.conflictingCategoryNames.length === 1 ? 'it' : 'them'
-          } from that schedule first, or pick a different location.`,
-          conflictingPractitionerRoleId: conflict.conflictingPractitionerRoleId,
-          conflictingCategoryNames: conflict.conflictingCategoryNames,
-        }),
-      };
+      throw PRACTITIONER_SCHEDULE_CONFLICT_ERROR(conflict.conflictingCategoryNames);
     }
   }
 

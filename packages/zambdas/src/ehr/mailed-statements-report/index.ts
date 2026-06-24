@@ -4,6 +4,7 @@ import { getPatientFirstName, getPatientLastName, MailedStatementItem, Secrets }
 import {
   checkOrCreateM2MClientToken,
   createClinicalOystehrClient,
+  getMailedStatementSyncState,
   MAIL_VENDOR_EXTENSION_URL,
   wrapHandler,
   ZambdaInput,
@@ -200,11 +201,14 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     };
   });
 
+  const syncState = await getMailedStatementSyncState(oystehr);
+
   return {
     statusCode: 200,
     body: JSON.stringify({
       message: `Found ${statements.length} mailed statements`,
       statements,
+      lastSyncRunAt: syncState.lastRunAt,
     }),
   };
 });

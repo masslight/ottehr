@@ -242,6 +242,10 @@ export async function getChartData(
     chartDataRequests.push(...labRequests);
   }
 
+  if (requestedFields?.radiologyOrders) {
+    addRequestIfNeeded({ field: 'radiologyOrders', resourceType: 'ServiceRequest', defaultSearchBy: 'encounter' });
+  }
+
   // procedures can be requested with custom search params (e.g., multiple encounters)
   if ((!requestedFields || requestedFields.procedures) && encounter.id) {
     const proceduresSearchParams = requestedFields?.procedures;

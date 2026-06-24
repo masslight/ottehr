@@ -198,7 +198,7 @@ const EXTENSION_CONFIGS: Record<string, ExtensionConfig> = {
     url: PREFERRED_COMMUNICATION_METHOD_EXTENSION_URL,
     valueType: 'valueString',
   },
-  noEmail: {
+  patientNoEmail: {
     url: PATIENT_NO_EMAIL_URL,
     valueType: 'valueBoolean',
   },

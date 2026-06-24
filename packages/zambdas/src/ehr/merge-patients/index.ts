@@ -132,7 +132,11 @@ const validateRequestParameters = (input: ZambdaInput): ValidatedInput => {
   const body = JSON.parse(input.body);
 
   // Status mode: caller passes only patientId (no questionnaireResponse).
-  if (body.mode === 'status' || (body.patientId && !body.mainPatientId)) {
+  // NB: the wire discriminator is `requestMode`, not `mode` — the Oystehr SDK
+  // reserves `mode` on zambda.execute payloads and would strip it (see
+  // get-vitals.types.ts). The patientId-without-mainPatientId fallback keeps
+  // older callers working.
+  if (body.requestMode === 'status' || (body.patientId && !body.mainPatientId)) {
     if (!body.patientId) {
       throw MISSING_REQUIRED_PARAMETERS(['patientId']);
     }
@@ -177,27 +181,42 @@ const checkAdminAndGetProfile = async (input: KickoffInput): Promise<string> => 
   return user.profile;
 };
 
+const otherPatientIdOf = (task: Task): string =>
+  task.input?.find(
+    (i) =>
+      i.type?.coding?.some(
+        (c) => c.system === TASK_INPUT_TYPE_SYSTEM && c.code === TASK_INPUT_TYPE_CODES.OTHER_PATIENT_ID
+      )
+  )?.valueString ?? '';
+
 async function getActiveMergeTaskForPatient(
   patientId: string,
   oystehr: ReturnType<typeof createClinicalOystehrClient>
 ): Promise<GetMergePatientsTaskResponse> {
+  // Can't search by the merged-away patient directly — it lives in a Task.input
+  // valueString, not a search param. So pull recent active/attention merge tasks
+  // and match in JS against either role.
+  const statusFilter = [...ACTIVE_STATUSES, ...ATTENTION_STATUSES].join(',');
   const tasks = (
     await oystehr.fhir.search<Task>({
       resourceType: 'Task',
       params: [
-        { name: 'subject', value: `Patient/${patientId}` },
         {
           name: 'code',
           value: `${TaskIndicator.mergePatients.system}|${TaskIndicator.mergePatients.code}`,
         },
+        { name: 'status', value: statusFilter },
         { name: '_sort', value: '-_lastUpdated' },
-        { name: '_count', value: '1' },
+        { name: '_count', value: '100' },
       ],
     })
   ).unbundle();
 
-  const candidate = tasks.find((t) => t.for?.reference === `Patient/${patientId}`);
-  const task = candidate ?? tasks[0];
+  // The page polling for `patientId` may be the surviving (main) patient OR the
+  // patient being merged away (the "other" patient). Surface the merge to both
+  // so each page shows the in-progress banner and refreshes on completion.
+  const patientRef = `Patient/${patientId}`;
+  const task = tasks.find((t) => t.for?.reference === patientRef || otherPatientIdOf(t) === patientId);
   if (!task?.id) return { task: null };
 
   // Surface failed tasks (user must dismiss) and active tasks. A `requested`
@@ -210,13 +229,12 @@ async function getActiveMergeTaskForPatient(
   const needsAttention = ATTENTION_STATUSES.includes(task.status) || isStuck;
   if (!isActive && !needsAttention) return { task: null };
 
-  const otherPatientId =
-    task.input?.find(
-      (i) =>
-        i.type?.coding?.some(
-          (c) => c.system === TASK_INPUT_TYPE_SYSTEM && c.code === TASK_INPUT_TYPE_CODES.OTHER_PATIENT_ID
-        )
-    )?.valueString ?? '';
+  // Report the *other party* from the perspective of the queried patient: the
+  // surviving page sees the merged-away patient, and the merged-away page sees
+  // the survivor.
+  const mainPatientId = task.for?.reference?.replace('Patient/', '') ?? '';
+  const taskOtherPatientId = otherPatientIdOf(task);
+  const otherPatientId = patientId === mainPatientId ? taskOtherPatientId : mainPatientId;
 
   // Synthesize a stuck status so the UI can render an actionable banner
   // without needing to know about timestamps.

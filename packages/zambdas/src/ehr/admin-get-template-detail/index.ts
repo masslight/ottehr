@@ -35,12 +35,20 @@ import {
   TemplateCodeInfo,
   TemplateCptCodeInfo,
   TemplateExamFinding,
+  TemplateExternalLabPlanDetail,
   TemplateInHouseLabPlanDetail,
   TemplateProcedurePlan,
   TemplateRosFinding,
 } from 'utils';
 import { checkOrCreateM2MClientToken, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 import { createClinicalOystehrClient } from '../../shared/helpers';
+import {
+  fetchPlanItemsByLabGuid,
+  findExternalLabPlans,
+  labelForExternalLabPlan,
+  matchOrderableItemForPlan,
+  parseExternalLabPlan,
+} from '../apply-template/apply-external-labs';
 import {
   indexLatestActivityDefinitionsByUrl,
   urlFromInstantiatesCanonical,
@@ -62,7 +70,7 @@ export const index = wrapHandler(
       m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
       const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
-      const result = await performEffect(validatedInput, oystehr);
+      const result = await performEffect(validatedInput, oystehr, m2mToken);
 
       return {
         statusCode: 200,
@@ -145,7 +153,8 @@ function buildFieldLabels(config: Record<string, any>): Map<string, string> {
 
 const performEffect = async (
   validatedInput: AdminGetTemplateDetailInput & Pick<ZambdaInput, 'secrets'>,
-  oystehr: Oystehr
+  oystehr: Oystehr,
+  m2mToken: string
 ): Promise<AdminGetTemplateDetailOutput> => {
   const { templateId } = validatedInput;
 
@@ -375,6 +384,53 @@ const performEffect = async (
     };
   });
 
+  // Parse external lab plans. Each plan is a ServiceRequest with intent 'plan'
+  // and the external-lab-template-plan meta tag carrying the lab + test combo,
+  // Dx, note, and PSC flag. We verify each lab + test combo still resolves in
+  // the lab's current compendium so the admin UI can flag tests that would be
+  // skipped at apply time.
+  const externalLabPlans = findExternalLabPlans(templateList);
+  const externalParsedPlans = externalLabPlans.map((plan) => ({ plan, parsed: parseExternalLabPlan(plan) }));
+
+  const externalOrderableItemsByLabGuid = await fetchPlanItemsByLabGuid(
+    externalParsedPlans.map((p) => p.parsed).filter((p): p is NonNullable<typeof p> => p !== null),
+    m2mToken
+  );
+
+  const externalLabs: TemplateExternalLabPlanDetail[] = externalParsedPlans.map(({ plan, parsed }) => {
+    if (!parsed) {
+      // Malformed plan (missing lab guid or item code) - surface it as missing
+      // so an admin can rebuild the template; apply-template skips it with a
+      // warning.
+      return {
+        planId: plan.id ?? '',
+        labGuid: '',
+        labName: '',
+        testName: labelForExternalLabPlan(plan),
+        testCode: '',
+        diagnoses: [],
+        note: null,
+        psc: false,
+        missing: true,
+      };
+    }
+    const items = externalOrderableItemsByLabGuid.get(parsed.labGuid);
+    // When the availability check itself failed, don't report a false
+    // "missing" - apply-template re-checks and warns at apply time.
+    const missing = items === undefined || items === 'fetch-failed' ? false : !matchOrderableItemForPlan(parsed, items);
+    return {
+      planId: parsed.planId,
+      labGuid: parsed.labGuid,
+      labName: parsed.labName,
+      testName: parsed.testName,
+      testCode: parsed.itemCode,
+      diagnoses: parsed.dx.map((d) => ({ code: d.code, display: d.display })),
+      note: parsed.note ?? null,
+      psc: parsed.psc,
+      missing,
+    };
+  });
+
   // Parse in-office procedure plans. Each plan is a ServiceRequest with intent
   // 'plan' and the procedure-template-plan meta tag, carrying the procedure
   // form's data via category/performerType/bodySite plus a stable set of
@@ -480,6 +536,7 @@ const performEffect = async (
       emCode,
       accident,
       inHouseLabs,
+      externalLabs,
       procedures,
     },
   };

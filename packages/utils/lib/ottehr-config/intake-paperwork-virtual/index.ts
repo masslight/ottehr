@@ -27,7 +27,7 @@ import {
 
 // Canonical identifiers — see intake-paperwork/index.ts for rationale.
 export const VIRTUAL_INTAKE_PAPERWORK_URL = 'https://ottehr.com/FHIR/Questionnaire/intake-paperwork-virtual';
-export const VIRTUAL_INTAKE_PAPERWORK_VERSION = '1.1.2';
+export const VIRTUAL_INTAKE_PAPERWORK_VERSION = '1.1.4';
 export const VIRTUAL_INTAKE_PAPERWORK_CANONICAL = {
   url: VIRTUAL_INTAKE_PAPERWORK_URL,
   version: VIRTUAL_INTAKE_PAPERWORK_VERSION,
@@ -149,8 +149,14 @@ function buildFormFields(
           triggers: [
             {
               targetQuestionLinkId: 'patient-no-email',
-              effect: ['enable', 'require'],
+              effect: ['enable'],
               operator: '!=',
+              answerBoolean: true,
+            },
+            {
+              targetQuestionLinkId: 'patient-no-email',
+              effect: ['filter'],
+              operator: '=',
               answerBoolean: true,
             },
           ],
@@ -186,6 +192,7 @@ function buildFormFields(
         'patient-city',
         'patient-state',
         'patient-zip',
+        'patient-email',
         'patient-number',
         'patient-preferred-communication-method',
       ],
@@ -1778,19 +1785,31 @@ function buildFormFields(
           triggers: [
             {
               targetQuestionLinkId: 'responsible-party-relationship',
-              effect: ['enable', 'require'],
+              effect: ['enable'],
               operator: '!=',
               answerString: 'Self',
             },
             {
+              targetQuestionLinkId: 'responsible-party-relationship',
+              effect: ['filter'],
+              operator: '=',
+              answerString: 'Self',
+            },
+            {
               targetQuestionLinkId: 'responsible-party-no-email',
-              effect: ['enable', 'require'],
+              effect: ['enable'],
               operator: '!=',
+              answerBoolean: true,
+            },
+            {
+              targetQuestionLinkId: 'responsible-party-no-email',
+              effect: ['filter'],
+              operator: '=',
               answerBoolean: true,
             },
           ],
           enableBehavior: 'all',
-          disabledDisplay: 'hidden',
+          disabledDisplay: 'disabled',
           dynamicPopulation: { sourceLinkId: 'patient-email' },
         },
         noEmail: {
@@ -1805,7 +1824,8 @@ function buildFormFields(
               answerString: 'Self',
             },
           ],
-          disabledDisplay: 'hidden',
+          disabledDisplay: 'protected',
+          dynamicPopulation: { sourceLinkId: 'patient-no-email' },
         },
       },
       hiddenFields: [],
@@ -1819,6 +1839,7 @@ function buildFormFields(
         'responsible-party-city',
         'responsible-party-state',
         'responsible-party-zip',
+        'responsible-party-email',
       ],
     },
     employerInformation: {

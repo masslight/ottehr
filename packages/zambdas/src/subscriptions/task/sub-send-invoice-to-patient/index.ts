@@ -98,20 +98,14 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       throw new Error(`Failed to finalize invoice, response status: ${finalized.status}`);
     console.log('Invoice finalized: ', finalized.status);
 
-    let invoiceUrl: string;
-    if (finalized.customer_email) {
-      console.log(`Sending invoice to recipient email recorded in stripe: ${finalized.customer_email}`);
-      const sendInvoiceResponse = await stripe.invoices.sendInvoice(invoiceResponse.id, {
-        stripeAccount: stripeAccountId,
-      });
-      console.log('Invoice sent: ', sendInvoiceResponse.status);
-      invoiceUrl = sendInvoiceResponse.hosted_invoice_url ?? '??';
-    } else {
-      console.log('Skipping invoice email: no email address on Stripe customer');
-      invoiceUrl = finalized.hosted_invoice_url ?? '??';
-    }
+    console.log(`Sending invoice to recipient email recorded in stripe: ${finalized.customer_email}`);
+    const sendInvoiceResponse = await stripe.invoices.sendInvoice(invoiceResponse.id, {
+      stripeAccount: stripeAccountId,
+    });
+    console.log('Invoice sent: ', sendInvoiceResponse.status);
 
     console.log('Filling in invoice sms messages placeholders');
+    const invoiceUrl = sendInvoiceResponse.hosted_invoice_url ?? '??';
     const smsMessage = fillInvoiceTemplate(smsTextMessage, {
       ...basePlaceholderInput,
       invoiceLink: invoiceUrl,

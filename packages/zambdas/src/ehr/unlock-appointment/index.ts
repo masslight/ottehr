@@ -1,9 +1,11 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Appointment, Coding } from 'fhir/r4b';
+import { Operation } from 'fast-json-patch';
+import { Appointment, Coding, Encounter } from 'fhir/r4b';
 import {
   createCriticalUpdateTag,
   getAppointmentLockMetaTagOperations,
+  getEncounterLockMetaTagOperations,
   getPatchBinary,
   UnlockAppointmentZambdaInputValidated,
   UnlockAppointmentZambdaOutput,
@@ -36,7 +38,45 @@ export const performEffect = async (
   oystehr: Oystehr,
   params: UnlockAppointmentZambdaInputValidated
 ): Promise<UnlockAppointmentZambdaOutput> => {
-  const { appointmentId, userToken, secrets } = params;
+  const { appointmentId, encounterId, userToken, secrets } = params;
+
+  // Get the current user for tracking who unlocked the chart
+  const user = await userMe(userToken, secrets);
+  const unlockedByText = `Staff ${user?.email || `(${user?.id})`}`;
+
+  // Annotation follow-ups have no own Appointment, so their lock lives on the Encounter.
+  if (encounterId) {
+    const encounter = await oystehr.fhir.get<Encounter>({
+      resourceType: 'Encounter',
+      id: encounterId,
+    });
+
+    if (!encounter) {
+      throw new Error(`Encounter with ID ${encounterId} not found`);
+    }
+
+    // Generate unlock operation (removes ENCOUNTER_LOCKED tag and replaces /meta/tag array)
+    const [unlockOp] = getEncounterLockMetaTagOperations(encounter, false);
+    applyCriticalUpdateTag(unlockOp, unlockedByText);
+
+    const patchRequest = getPatchBinary({
+      resourceType: 'Encounter',
+      resourceId: encounterId,
+      patchOperations: [unlockOp],
+    });
+
+    await oystehr.fhir.batch({
+      requests: [patchRequest],
+    });
+
+    return {
+      message: 'Follow-up unlocked successfully.',
+    };
+  }
+
+  if (!appointmentId) {
+    throw new Error('Either appointmentId or encounterId is required');
+  }
 
   const appointment = await oystehr.fhir.get<Appointment>({
     resourceType: 'Appointment',
@@ -47,27 +87,9 @@ export const performEffect = async (
     throw new Error(`Appointment with ID ${appointmentId} not found`);
   }
 
-  // Get the current user for tracking who unlocked the appointment
-  const user = await userMe(userToken, secrets);
-
   // Generate unlock operation (removes APPOINTMENT_LOCKED tag and replaces /meta/tag array)
   const [unlockOp] = getAppointmentLockMetaTagOperations(appointment, false);
-
-  if (!('value' in unlockOp) || !Array.isArray(unlockOp.value)) {
-    throw new Error('Unexpected unlock operation structure');
-  }
-
-  const tagsAfterUnlock = unlockOp.value as Coding[];
-
-  // Create and add/update critical update tag
-  const criticalUpdateTag = createCriticalUpdateTag(`Staff ${user?.email || `(${user?.id})`}`);
-  const criticalTagIndex = tagsAfterUnlock.findIndex((tag) => tag.system === criticalUpdateTag.system);
-
-  if (criticalTagIndex >= 0) {
-    tagsAfterUnlock[criticalTagIndex] = criticalUpdateTag;
-  } else {
-    tagsAfterUnlock.push(criticalUpdateTag);
-  }
+  applyCriticalUpdateTag(unlockOp, unlockedByText);
 
   // Execute patch with single operation that unlocks and updates critical tag
   const patchRequest = getPatchBinary({
@@ -84,4 +106,32 @@ export const performEffect = async (
   return {
     message: 'Appointment unlocked successfully.',
   };
+};
+
+// Mutates the unlock operation in place to add/update a critical-update tag recording who unlocked the chart.
+// Depending on the resource's existing shape, the unlock op may replace /meta/tag, add /meta/tag, or add /meta.
+const applyCriticalUpdateTag = (unlockOp: Operation, updatedByText: string): void => {
+  if (!('value' in unlockOp)) {
+    throw new Error('Unexpected unlock operation structure');
+  }
+
+  const value: any = unlockOp.value;
+  let tagsAfterUnlock: Coding[] | undefined;
+
+  if (Array.isArray(value)) {
+    tagsAfterUnlock = value as Coding[];
+  } else if (value && typeof value === 'object' && Array.isArray(value.tag)) {
+    tagsAfterUnlock = value.tag as Coding[];
+  } else {
+    throw new Error('Unexpected unlock operation structure');
+  }
+
+  const criticalUpdateTag = createCriticalUpdateTag(updatedByText);
+  const criticalTagIndex = tagsAfterUnlock.findIndex((tag) => tag.system === criticalUpdateTag.system);
+
+  if (criticalTagIndex >= 0) {
+    tagsAfterUnlock[criticalTagIndex] = criticalUpdateTag;
+  } else {
+    tagsAfterUnlock.push(criticalUpdateTag);
+  }
 };

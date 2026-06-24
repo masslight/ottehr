@@ -220,8 +220,14 @@ const FormFields: PatientRecordFormFields = {
         triggers: [
           {
             targetQuestionLinkId: 'patient-no-email',
-            effect: ['enable', 'require'],
+            effect: ['enable'],
             operator: '!=',
+            answerBoolean: true,
+          },
+          {
+            targetQuestionLinkId: 'patient-no-email',
+            effect: ['filter'],
+            operator: '=',
             answerBoolean: true,
           },
         ],
@@ -242,6 +248,7 @@ const FormFields: PatientRecordFormFields = {
       'patient-city',
       'patient-zip',
       'patient-state',
+      'patient-email',
       'patient-number',
       'patient-preferred-communication-method',
     ],
@@ -654,23 +661,26 @@ const FormFields: PatientRecordFormFields = {
         dataType: 'Email',
         triggers: [
           RPNotSelfTrigger,
+          // filter trigger keeps the value out of submission when no-email is checked;
+          // the actual hide is handled in ResponsibleInformationContainer so that
+          // the field stays visible-but-disabled when Self (independent of no-email state).
           {
             targetQuestionLinkId: 'responsible-party-no-email',
-            effect: ['enable', 'require'],
-            operator: '!=',
+            effect: ['filter'],
+            operator: '=',
             answerBoolean: true,
           },
         ],
-        enableBehavior: 'all',
         dynamicPopulation: { sourceLinkId: 'patient-email', triggerState: 'disabled' },
-        disabledDisplay: 'hidden',
+        disabledDisplay: 'disabled',
       },
       noEmail: {
         key: 'responsible-party-no-email',
         type: 'boolean',
         label: "Don't have email",
         triggers: [RPNotSelfTrigger],
-        disabledDisplay: 'hidden',
+        disabledDisplay: 'disabled',
+        dynamicPopulation: { sourceLinkId: 'patient-no-email', triggerState: 'disabled' },
       },
       addressSameAsPatient: {
         key: 'responsible-party-address-as-patient',
@@ -738,6 +748,7 @@ const FormFields: PatientRecordFormFields = {
       'responsible-party-city',
       'responsible-party-state',
       'responsible-party-zip',
+      'responsible-party-email',
     ],
   },
   emergencyContact: {

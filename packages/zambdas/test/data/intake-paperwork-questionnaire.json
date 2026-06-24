@@ -1,7 +1,7 @@
 {
   "resourceType": "Questionnaire",
   "url": "https://ottehr.com/FHIR/Questionnaire/intake-paperwork-inperson",
-  "version": "1.2.2",
+  "version": "1.2.4",
   "name": "in-person_pre-visit_paperwork",
   "title": "in-person pre-visit paperwork",
   "status": "active",
@@ -267,7 +267,7 @@
           "linkId": "patient-email",
           "type": "string",
           "text": "Email",
-          "required": false,
+          "required": true,
           "enableWhen": [
             {
               "question": "patient-no-email",
@@ -289,18 +289,18 @@
               "valueString": "section-patient shipping email"
             },
             {
-              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when",
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when",
               "extension": [
                 {
-                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-question",
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-question",
                   "valueString": "patient-no-email"
                 },
                 {
-                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-operator",
-                  "valueString": "!="
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-operator",
+                  "valueString": "="
                 },
                 {
-                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-answer",
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-answer",
                   "valueBoolean": true
                 }
               ]
@@ -3441,7 +3441,7 @@
           "linkId": "responsible-party-email",
           "type": "string",
           "text": "Email",
-          "required": false,
+          "required": true,
           "enableWhen": [
             {
               "question": "responsible-party-relationship",
@@ -3462,42 +3462,42 @@
             },
             {
               "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-              "valueString": "hidden"
+              "valueString": "protected"
             },
             {
               "url": "https://fhir.zapehr.com/r4/StructureDefinitions/fill-from-when-disabled",
               "valueString": "patient-email"
             },
             {
-              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when",
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when",
               "extension": [
                 {
-                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-question",
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-question",
                   "valueString": "responsible-party-relationship"
                 },
                 {
-                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-operator",
-                  "valueString": "!="
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-operator",
+                  "valueString": "="
                 },
                 {
-                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-answer",
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-answer",
                   "valueString": "Self"
                 }
               ]
             },
             {
-              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when",
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when",
               "extension": [
                 {
-                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-question",
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-question",
                   "valueString": "responsible-party-no-email"
                 },
                 {
-                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-operator",
-                  "valueString": "!="
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-operator",
+                  "valueString": "="
                 },
                 {
-                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-answer",
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-answer",
                   "valueBoolean": true
                 }
               ]
@@ -3519,7 +3519,11 @@
           "extension": [
             {
               "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-              "valueString": "hidden"
+              "valueString": "protected"
+            },
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/fill-from-when-disabled",
+              "valueString": "patient-no-email"
             }
           ]
         }

@@ -35,7 +35,7 @@ import {
   createAuditEvent,
   createClinicalOystehrClient,
   getAuth0Token,
-  getEncounterDetails,
+  getMainEncounterDetails,
   getUser,
   reportMissingUserRelatedPerson,
   sendSmsToRelatedPersons,
@@ -162,9 +162,14 @@ export const index = wrapHandler('cancel-appointment', async (input: ZambdaInput
   ];
 
   console.log(`getting encounter details for appointment with id ${appointmentID}`);
-  const { encounter, curStatusHistoryIdx, canceledHistoryIdx } = await getEncounterDetails(appointmentID, oystehr);
+
+  // Use the main visit encounter (follow-up encounters have no statusHistory) to cancel the visit and close its status history.
+  const { encounter, curStatusHistoryIdx, canceledHistoryIdx } = await getMainEncounterDetails(appointmentID, oystehr);
+
   console.log(`successfully retrieved encounter details for id ${encounter.id}`);
+
   const now = DateTime.now().setZone('UTC').toISO() || '';
+
   const encounterPatchOperations: Operation[] = [
     {
       op: 'replace',
@@ -172,6 +177,7 @@ export const index = wrapHandler('cancel-appointment', async (input: ZambdaInput
       value: 'cancelled',
     },
   ];
+
   if (curStatusHistoryIdx >= 0) {
     encounterPatchOperations.push({
       op: 'add',
@@ -179,6 +185,7 @@ export const index = wrapHandler('cancel-appointment', async (input: ZambdaInput
       value: now,
     });
   }
+
   if (canceledHistoryIdx === -1) {
     encounterPatchOperations.push({
       op: 'add',
@@ -197,6 +204,7 @@ export const index = wrapHandler('cancel-appointment', async (input: ZambdaInput
     resourceId: appointmentID,
     patchOperations: appointmentPatchOperations,
   });
+
   const encounterPatchRequest = getPatchBinary({
     resourceType: 'Encounter',
     resourceId: encounter.id || 'Unknown',
@@ -205,6 +213,7 @@ export const index = wrapHandler('cancel-appointment', async (input: ZambdaInput
 
   const slotId = appointment.slot?.[0]?.reference?.split('/')[1];
   const deleteSlotRequests: BatchInputDeleteRequest[] = [];
+
   if (slotId) {
     deleteSlotRequests.push({
       url: `/Slot/${slotId}`,
@@ -216,13 +225,17 @@ export const index = wrapHandler('cancel-appointment', async (input: ZambdaInput
     url: `/Appointment?_id=${appointmentID}&_include=Appointment:patient&_include=Appointment:actor`,
     method: 'GET',
   };
+
   console.log('making transaction request for getAppointmentRequest, appointmentPatchRequest, encounterPatchRequest');
+
   const transactionBundle = await oystehr.fhir.transaction<
     Appointment | Encounter | Schedule | ScheduleOwnerFhirResource
   >({
     requests: [getAppointmentRequest, appointmentPatchRequest, encounterPatchRequest, ...deleteSlotRequests],
   });
+
   console.log('getting appointment from transaction bundle');
+
   const {
     appointment: appointmentUpdated,
     scheduleResource,
@@ -230,9 +243,9 @@ export const index = wrapHandler('cancel-appointment', async (input: ZambdaInput
   } = validateBundleAndExtractAppointment(transactionBundle);
 
   const { startTime, email } = await getCancellationDetails(appointmentUpdated, patient, scheduleResource);
+
   console.groupEnd();
   console.debug('gettingEmailProps success');
-
   console.log('building location information');
   //const locationInformation: AvailableLocationInformation = getLocationInformation(oystehr, scheduleResource);
 

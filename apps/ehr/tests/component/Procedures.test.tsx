@@ -122,7 +122,6 @@ describe('Procedures - Delete Procedure Tests', () => {
       isAppointmentReadOnly: false,
       isPractitionerLicensedInState: true,
       isEncounterAssignedToCurrentPractitioner: true,
-      isAppointmentLocked: false,
       visitType: 'main',
     });
 
@@ -172,7 +171,6 @@ describe('Procedures - Delete Procedure Tests', () => {
       isAppointmentReadOnly: true,
       isPractitionerLicensedInState: true,
       isEncounterAssignedToCurrentPractitioner: true,
-      isAppointmentLocked: false,
       visitType: 'main',
     });
 
@@ -386,7 +384,6 @@ describe('Procedures - Delete Procedure Tests', () => {
       isAppointmentReadOnly: true,
       isPractitionerLicensedInState: true,
       isEncounterAssignedToCurrentPractitioner: true,
-      isAppointmentLocked: false,
       visitType: 'main',
     });
 

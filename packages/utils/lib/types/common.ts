@@ -292,6 +292,8 @@ export const AllStates: ValuePair[] = [
 
 export type StateCode = (typeof AllStates)[number]['value'];
 
+export const STATE_CODES = new Set<string>(AllStates.map((state) => state.value));
+
 export const stateCodeToFullName: Readonly<Record<StateCode, string>> = {
   AL: 'Alabama',
   AK: 'Alaska',

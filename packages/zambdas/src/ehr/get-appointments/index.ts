@@ -47,6 +47,7 @@ import {
   SERVICE_CATEGORY_SYSTEM,
   SMSModel,
   SMSRecipient,
+  TIMEZONE_EXTENSION_URL,
   ZAP_SMS_MEDIUM_CODE,
 } from 'utils';
 import {
@@ -75,6 +76,40 @@ export interface GetAppointmentsZambdaInputValidated extends GetAppointmentsZamb
   secrets: Secrets | null;
 }
 
+const getNextPartitionKey = (appointment: InPersonAppointmentInformation, bucket: string): string => {
+  const locationTimezone = appointment.location?.extension?.find(
+    (extension) => extension.url === TIMEZONE_EXTENSION_URL
+  )?.valueString;
+  // makeAppointmentInformation already zones appointment.start to the appointment's own timezone, so
+  // preserving its embedded offset (setZone: true) keeps locationless provider/group rows on their
+  // real local day. An explicit location timezone, when present, takes precedence.
+  const startDateTime = DateTime.fromISO(appointment.start, { setZone: true });
+  const zonedStart = locationTimezone ? startDateTime.setZone(locationTimezone) : startDateTime;
+  const localDate = zonedStart.toISODate() ?? 'unknown-day';
+  // `group` is a display name rather than an id, but it is only a fallback key when no location id
+  // is present; a name collision here is harmless (it would only over-share the "next" flag).
+  const locationKey = appointment.location?.id ?? appointment.group ?? 'unknown-location';
+
+  return [bucket, locationKey, localDate].join(':');
+};
+
+// Mutates `next` in place: these appointment objects are freshly built by makeAppointmentInformation
+// and not shared anywhere, so cloning each one would only add allocations.
+export const assignNextFlagsByPartition = (
+  appointments: InPersonAppointmentInformation[],
+  bucket: string
+): InPersonAppointmentInformation[] => {
+  const seenPartitions = new Set<string>();
+
+  return appointments.map((appointment) => {
+    const partitionKey = getNextPartitionKey(appointment, bucket);
+    appointment.next = !seenPartitions.has(partitionKey);
+    seenPartitions.add(partitionKey);
+
+    return appointment;
+  });
+};
+
 const isUserRelatedPerson = (rp: RelatedPerson): boolean =>
   getCoding(rp.relationship, `${PRIVATE_EXTENSION_BASE_URL}/relationship`)?.code === 'user-relatedperson';
 
@@ -92,7 +127,8 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput):
   // The approach: use date with timezone from client and convert it to a range of date-time in Zulu (UTC)
   const {
     visitType,
-    searchDate,
+    searchDateFrom,
+    searchDateTo,
     timezone,
     locationIds,
     providerIds,
@@ -162,7 +198,8 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput):
           oystehr,
           resourceId: options.resourceId,
           resourceType: options.resourceType,
-          searchDate,
+          searchDateFrom,
+          searchDateTo,
           timezone,
         });
 
@@ -173,11 +210,12 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput):
 
         const { group } = appointmentRequestInput;
 
-        const appointmentResponse = await oystehr.fhir.search<AppointmentRelatedResources>(appointmentRequest);
+        const appointmentBundle =
+          await oystehr.fhir.searchAndGetAllPages<AppointmentRelatedResources>(appointmentRequest);
 
-        const appointments = appointmentResponse
-          .unbundle()
-          .filter((resource) => !isNonPaperworkQuestionnaireResponse(resource));
+        const appointments = (appointmentBundle.entry?.map((entry) => entry.resource).filter(isTruthy) ?? []).filter(
+          (resource) => !isNonPaperworkQuestionnaireResponse(resource)
+        );
 
         return { appointments, group };
       })
@@ -542,73 +580,32 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput):
       parentEncounterToApptIdMap,
     };
 
-    preBooked = appointmentQueues.prebooked
-      .map((appointment) => {
-        return makeAppointmentInformation(oystehr, {
-          appointment,
-          ...baseMapInput,
-          group: appointmentsToGroupMap.get(appointment.id ?? ''),
-        });
-      })
-      .filter(isTruthy);
+    const buildAppointments = (queue: Appointment[]): InPersonAppointmentInformation[] =>
+      queue
+        .map((appointment) =>
+          makeAppointmentInformation(oystehr, {
+            appointment,
+            ...baseMapInput,
+            group: appointmentsToGroupMap.get(appointment.id ?? ''),
+          })
+        )
+        .filter(isTruthy);
+
+    preBooked = buildAppointments(appointmentQueues.prebooked);
+
     inOffice = [
-      ...appointmentQueues.inOffice.waitingRoom.arrived.map((appointment, idx) => {
-        return makeAppointmentInformation(oystehr, {
-          appointment,
-          ...baseMapInput,
-          next: idx === 0,
-          group: appointmentsToGroupMap.get(appointment.id ?? ''),
-        });
-      }),
-      ...appointmentQueues.inOffice.waitingRoom.ready.map((appointment, idx) => {
-        return makeAppointmentInformation(oystehr, {
-          appointment,
-          ...baseMapInput,
-          next: idx === 0,
-          group: appointmentsToGroupMap.get(appointment.id ?? ''),
-        });
-      }),
-      ...appointmentQueues.inOffice.inExam.intake.map((appointment) => {
-        return makeAppointmentInformation(oystehr, {
-          appointment,
-          ...baseMapInput,
-          group: appointmentsToGroupMap.get(appointment.id ?? ''),
-        });
-      }),
-      ...appointmentQueues.inOffice.inExam['ready for provider'].map((appointment, idx) => {
-        return makeAppointmentInformation(oystehr, {
-          appointment,
-          ...baseMapInput,
-          next: idx === 0,
-          group: appointmentsToGroupMap.get(appointment.id ?? ''),
-        });
-      }),
-      ...appointmentQueues.inOffice.inExam.provider.map((appointment) => {
-        return makeAppointmentInformation(oystehr, {
-          appointment,
-          ...baseMapInput,
-          group: appointmentsToGroupMap.get(appointment.id ?? ''),
-        });
-      }),
-    ].filter(isTruthy);
-    completed = appointmentQueues.checkedOut
-      .map((appointment) => {
-        return makeAppointmentInformation(oystehr, {
-          appointment,
-          ...baseMapInput,
-          group: appointmentsToGroupMap.get(appointment.id ?? ''),
-        });
-      })
-      .filter(isTruthy);
-    cancelled = appointmentQueues.canceled
-      .map((appointment) => {
-        return makeAppointmentInformation(oystehr, {
-          appointment,
-          ...baseMapInput,
-          group: appointmentsToGroupMap.get(appointment.id ?? ''),
-        });
-      })
-      .filter(isTruthy);
+      ...assignNextFlagsByPartition(buildAppointments(appointmentQueues.inOffice.waitingRoom.arrived), 'arrived'),
+      ...assignNextFlagsByPartition(buildAppointments(appointmentQueues.inOffice.waitingRoom.ready), 'ready'),
+      ...buildAppointments(appointmentQueues.inOffice.inExam.intake),
+      ...assignNextFlagsByPartition(
+        buildAppointments(appointmentQueues.inOffice.inExam['ready for provider']),
+        'ready-for-provider'
+      ),
+      ...buildAppointments(appointmentQueues.inOffice.inExam.provider),
+    ];
+
+    completed = buildAppointments(appointmentQueues.checkedOut);
+    cancelled = buildAppointments(appointmentQueues.canceled);
   }
 
   const response = {
