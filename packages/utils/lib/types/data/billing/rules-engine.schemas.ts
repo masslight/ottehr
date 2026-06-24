@@ -136,3 +136,12 @@ export interface BillingRulesResponse {
   // List.meta.versionId, echoed so the client can pass it back as expectedVersionId on the next save.
   versionId?: string;
 }
+
+// run-billing-rules-engine: manually kick off the engine for an existing claim (testing / ops). It
+// just enqueues the engine Task; a Subscription runs sub-presubmission-rules-engine asynchronously.
+export const RunBillingRulesEngineInputSchema = z.object({ claimId: z.string().min(1) });
+export type RunBillingRulesEngineInput = z.output<typeof RunBillingRulesEngineInputSchema>;
+
+export interface RunBillingRulesEngineResponse {
+  taskId: string;
+}

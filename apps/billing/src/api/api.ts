@@ -23,6 +23,8 @@ import {
   GetPatientCoveragesResponse,
   GetPatientDetailInputSchema,
   PatientDetailResponse,
+  RunBillingRulesEngineInputSchema,
+  RunBillingRulesEngineResponse,
   SaveBillingRulesInputSchema,
   SaveBillingTagInputSchema,
   SavedResourceResponse,
@@ -73,6 +75,11 @@ export const saveBillingRules = (
   oystehr: Oystehr,
   parameters: z.input<typeof SaveBillingRulesInputSchema>
 ): Promise<BillingRulesResponse> => executeBillingZambda(oystehr, 'save-billing-rules', parameters);
+
+export const runBillingRulesEngine = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof RunBillingRulesEngineInputSchema>
+): Promise<RunBillingRulesEngineResponse> => executeBillingZambda(oystehr, 'run-billing-rules-engine', parameters);
 
 // --- Patients ---
 

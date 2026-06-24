@@ -194,6 +194,7 @@
             "Zambda:Function:save-billing-tag",
             "Zambda:Function:get-billing-rules",
             "Zambda:Function:save-billing-rules",
+            "Zambda:Function:run-billing-rules-engine",
             "Zambda:Function:get-billing-claim-detail",
             "Zambda:Function:search-billing-service-facilities",
             "Zambda:Function:search-billing-tags",

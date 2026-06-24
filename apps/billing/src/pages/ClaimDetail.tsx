@@ -1,4 +1,4 @@
-import { ArrowBack as ArrowBackIcon, DeleteOutline as DeleteOutlineIcon } from '@mui/icons-material';
+import { ArrowBack as ArrowBackIcon, DeleteOutline as DeleteOutlineIcon, Send as SendIcon } from '@mui/icons-material';
 import { TabContext, TabList, TabPanel } from '@mui/lab';
 import {
   Alert,
@@ -33,6 +33,7 @@ import {
   CLAIM_STATUS_FIELDS_BY_KEY,
   ClaimDetailResponse,
   ClaimStatusFieldKey,
+  FEATURE_FLAGS_CONFIG,
   formatClaimStatusValue,
   getApiError,
   UpdateBillingResourceInput,
@@ -40,6 +41,7 @@ import {
 import {
   getBillingClaimDetail,
   getPatientCoverages,
+  runBillingRulesEngine,
   searchBillingLocations,
   searchBillingPayers,
   searchBillingProviders,
@@ -77,6 +79,8 @@ export default function ClaimDetail(): ReactElement {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState('1');
+  const [submitting, setSubmitting] = useState(false);
+  const [submitResult, setSubmitResult] = useState<{ severity: 'success' | 'error'; text: string } | null>(null);
 
   const fetchDetail = useCallback(async () => {
     if (!oystehrZambda || !id) return;
@@ -95,6 +99,28 @@ export default function ClaimDetail(): ReactElement {
   useEffect(() => {
     void fetchDetail();
   }, [fetchDetail]);
+
+  // Kick off the pre-submission rules engine for this claim (testing affordance). It enqueues a Task
+  // that a Subscription processes asynchronously, so we report it as started and let the user refresh.
+  const handleRunRulesEngine = useCallback(async (): Promise<void> => {
+    if (!oystehrZambda || !id) return;
+    setSubmitting(true);
+    setSubmitResult(null);
+    try {
+      await runBillingRulesEngine(oystehrZambda, { claimId: id });
+      setSubmitResult({
+        severity: 'success',
+        text: 'Rules engine started. It runs in the background and may change fields, apply tags (e.g. Hold), or submit the claim. Refresh in a few seconds to see the result.',
+      });
+    } catch (err) {
+      setSubmitResult({
+        severity: 'error',
+        text: getApiError({ error: err, defaultError: 'Failed to start the rules engine' }),
+      });
+    } finally {
+      setSubmitting(false);
+    }
+  }, [oystehrZambda, id]);
 
   const updateResource = useCallback(
     async (resourceType: string, resourceId: string, fields: Record<string, unknown>): Promise<string | null> => {
@@ -185,7 +211,36 @@ export default function ClaimDetail(): ReactElement {
             <Meta label="Patient DOB" value={claim.patientDob} />
           </Box>
         </Box>
+        {FEATURE_FLAGS_CONFIG.presubmissionRulesEngineEnabled && (
+          <Button
+            variant="contained"
+            size="small"
+            startIcon={<SendIcon />}
+            onClick={() => void handleRunRulesEngine()}
+            disabled={submitting}
+            sx={{ mt: 0.5, flexShrink: 0 }}
+          >
+            {submitting ? 'Submitting…' : 'Submit claim'}
+          </Button>
+        )}
       </Box>
+
+      {submitResult && (
+        <Alert
+          severity={submitResult.severity}
+          sx={{ mb: 2, ml: 5 }}
+          onClose={() => setSubmitResult(null)}
+          action={
+            submitResult.severity === 'success' ? (
+              <Button color="inherit" size="small" onClick={() => void fetchDetail()}>
+                Refresh
+              </Button>
+            ) : undefined
+          }
+        >
+          {submitResult.text}
+        </Alert>
+      )}
 
       <Box sx={{ ml: 5, mb: 2, display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
         <Chip

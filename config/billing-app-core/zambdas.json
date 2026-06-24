@@ -176,6 +176,13 @@
       "src": "src/billing/save-billing-rules/index",
       "zip": ".dist/zips/save-billing-rules.zip"
     },
+    "RUN-BILLING-RULES-ENGINE": {
+      "name": "run-billing-rules-engine",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/run-billing-rules-engine/index",
+      "zip": ".dist/zips/run-billing-rules-engine.zip"
+    },
     "TAG-BILLING-CLAIM": {
       "name": "tag-billing-claim",
       "type": "http_auth",
