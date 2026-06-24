@@ -44,6 +44,7 @@ import { useSuccessQuery } from 'utils/lib/frontend';
 import { createSchedule, getSchedule, listServiceCategories, updatePractitionerRole, updateSchedule } from '../api/api';
 import CustomBreadcrumbs from '../components/CustomBreadcrumbs';
 import Loading from '../components/Loading';
+import { formatLocationLabel } from '../components/schedule/locationLabel';
 import ScheduleComponent from '../components/schedule/ScheduleComponent';
 import ScheduleGeneralTab from '../components/schedule/ScheduleGeneralTab';
 import { useApiClients } from '../hooks/useAppClients';
@@ -146,15 +147,19 @@ export default function SchedulePage(): ReactElement {
 
   const isPractitionerRoleOwner = item?.owner.type === 'PractitionerRole';
 
-  // For the PR Location picker — list of active Locations.
-  const { data: locationOptions } = useQuery({
-    queryKey: ['ehr-active-locations'],
+  // For the PR Location picker. Fetch ALL Locations rather than filtering to
+  // status='active' server-side: a schedule whose Location later became
+  // inactive still needs its name available to render the current selection
+  // (otherwise the chip falls back to the Location id — the UUID — instead
+  // of "<Name> (inactive)"). The dropdown options below filter back to
+  // active ones (plus the currently-selected Location, if any) so admins
+  // can't pick a new inactive Location but can still see + clear the stale
+  // assignment.
+  const { data: allLocations } = useQuery({
+    queryKey: ['ehr-locations'],
     queryFn: async (): Promise<Location[]> => {
       if (!oystehr) return [];
-      const bundle = await oystehr.fhir.search<Location>({
-        resourceType: 'Location',
-        params: [{ name: 'status', value: 'active' }],
-      });
+      const bundle = await oystehr.fhir.search<Location>({ resourceType: 'Location' });
       return bundle.unbundle();
     },
     enabled: !!oystehr && isPractitionerRoleOwner,
@@ -724,22 +729,24 @@ export default function SchedulePage(): ReactElement {
                       />
                       {isPractitionerRoleOwner && (
                         <Autocomplete
-                          options={(locationOptions ?? []).map((l) => l.id!).filter(Boolean)}
+                          // Active Locations are the picker's regular options;
+                          // also include the currently-saved Location even if
+                          // it's gone inactive, so MUI matches the value to an
+                          // option (avoids the "value not in options" warning)
+                          // and the admin can see the stale assignment to
+                          // clear it.
+                          options={(allLocations ?? [])
+                            .filter((l) => l.id && (l.status === 'active' || l.id === locationId))
+                            .map((l) => l.id!)}
                           value={locationId ?? null}
                           onChange={(_e, v) => setLocationId(v ?? undefined)}
-                          getOptionLabel={(id) => {
-                            const hit = (locationOptions ?? []).find((l) => l.id === id);
-                            return hit?.name || id;
-                          }}
+                          getOptionLabel={(id) => formatLocationLabel(allLocations ?? [], id)}
                           isOptionEqualToValue={(a, b) => a === b}
-                          renderOption={(props, id) => {
-                            const hit = (locationOptions ?? []).find((l) => l.id === id);
-                            return (
-                              <li {...props} key={id}>
-                                {hit?.name || id}
-                              </li>
-                            );
-                          }}
+                          renderOption={(props, id) => (
+                            <li {...props} key={id}>
+                              {formatLocationLabel(allLocations ?? [], id)}
+                            </li>
+                          )}
                           renderInput={(params) => <TextField {...params} label="Location" />}
                           sx={{ marginTop: 2, width: '500px' }}
                         />
