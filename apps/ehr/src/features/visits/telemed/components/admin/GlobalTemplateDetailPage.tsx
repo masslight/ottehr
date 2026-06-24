@@ -584,11 +584,6 @@ export default function GlobalTemplateDetailPage(): ReactElement {
                           .join('; ')}
                       </Typography>
                     ) : null}
-                    {med.instructions ? (
-                      <Typography variant="body2" sx={{ mt: 0.5 }}>
-                        <strong>Instructions:</strong> {med.instructions}
-                      </Typography>
-                    ) : null}
                   </Box>
                 ))}
               </Stack>

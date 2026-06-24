@@ -585,7 +585,6 @@ const performEffect = async (
 
   // Add the new template to the global templates holder list so it's discoverable and create the template itself. No orphaned templates
   console.log('Creating template with', listToCreate.contained!.length, 'contained resources');
-  console.log('This is the list to create', JSON.stringify(listToCreate));
   const listToCreateFullUrl = `urn:uuid:${uuidV4()}`;
   const holderList = await findHolderList(oystehr);
   if (!holderList) throw new Error('No global templates holder list found — cannot link template');

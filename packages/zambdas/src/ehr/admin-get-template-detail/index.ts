@@ -530,7 +530,7 @@ const performEffect = async (
 
   // Parse in-house medication template MAs. Each MedicationAdministration
   // with the in-house-medication-administration-template tag, carries the drug identity as
-  // medicationCodeableConcept, dosage, CPT codes, reason notes, and ICD-10 diagnoses.
+  // medicationReference (pointing to a contained Medication in the template List), dosage, CPT codes, reason notes, and ICD-10 diagnoses.
   const inHouseMedicationTemplatePlans = contained.filter((r): r is MedicationAdministration =>
     isInHouseMedicationTemplatePlan(r)
   );
@@ -556,7 +556,6 @@ const performEffect = async (
 
     const { route, dose, units } = getDosageUnitsAndRouteOfMedication(templateMA);
 
-    // question: do we need to handle "missing" meds, like if they no longer appear in a dosespot search or something?
     return {
       planId: templateMA.id ?? '',
       medicationName,

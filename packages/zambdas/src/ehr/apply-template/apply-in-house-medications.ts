@@ -102,6 +102,9 @@ export async function applyInHouseMedicationPlans(
       erxInteractionPromise: () => Promise<erxInteractionPromiseResponse>;
     }[] = [];
 
+    // product said to use the person applying the template for the ordering provider
+    const currentUserProviderId = await getMyPractitionerId(userToken, secrets);
+
     for (const templateMA of templateMedAdministrations) {
       const containedMedId = templateMA.medicationReference?.reference?.replace('#', '');
       const medicationForMa = medicationsByIdMap.get(containedMedId ?? '');
@@ -160,9 +163,6 @@ export async function applyInHouseMedicationPlans(
         ...(cptCodes && cptCodes.length > 0 ? { cptCodes } : {}),
         ...(associatedDx ? { associatedDx } : {}),
       };
-
-      // product said to use the person applying the template for the ordering provider
-      const currentUserProviderId = await getMyPractitionerId(userToken, secrets);
 
       const medicationAdministrationData: MedicationAdministrationData = {
         orderData,
@@ -223,12 +223,10 @@ export async function applyInHouseMedicationPlans(
               : [],
           };
         } catch (e) {
-          console.error(
-            'Something went wrong checking erx interactions for MedicationAdministration',
-            e,
-            JSON.stringify(templateMA),
-            JSON.stringify(medicationForMa)
-          );
+          console.error('Something went wrong checking erx interactions for MedicationAdministration', e, {
+            templateMaId: templateMA.id,
+            medicationId: medicationForMa.id,
+          });
           return {
             interactionDetectedOrFailed: true,
             warnings: [

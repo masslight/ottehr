@@ -358,7 +358,14 @@ const InHouseMedicationList: React.FC<{ meds: TemplateInHouseMedicationDetail[] 
     {meds.map((med) => (
       <Box key={med.planId}>
         <Typography variant="body2" sx={{ color: 'text.primary', fontWeight: 500 }}>
-          {med.medicationName}, {med.dose} {med.units}, {med.route}
+          {[
+            med.medicationName,
+            med.dose !== undefined ? String(med.dose) : null,
+            med.units,
+            med.route ? `via ${med.route}` : null,
+          ]
+            .filter(Boolean)
+            .join(' ')}
         </Typography>
         {med.diagnoses.length > 0 ? (
           <Stack direction="row" flexWrap="wrap" gap={0.5} sx={{ mt: 0.5 }}>
