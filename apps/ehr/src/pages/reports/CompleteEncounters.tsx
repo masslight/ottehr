@@ -34,6 +34,7 @@ import { DEFAULT_BATCH_DAYS, splitDateRangeIntoBatches, VisitStatusLabel } from 
 import { getEncountersReport } from '../../api/api';
 import { useApiClients } from '../../hooks/useAppClients';
 import PageContainer from '../../layout/PageContainer';
+import { buildTrackingBoardPath } from './trackingBoardLink';
 
 interface CompleteEncounterRow {
   id: string;
@@ -310,7 +311,7 @@ const useCompleteEncounters = (
         return DateTime.fromISO(aTime).toMillis() - DateTime.fromISO(bTime).toMillis();
       });
     },
-    enabled: Boolean(oystehrZambda),
+    enabled: Boolean(oystehrZambda && dateRange !== 'custom' && dateRange !== 'customRange'),
     refetchOnWindowFocus: false,
     staleTime: 1000 * 60 * 5, // 5 minutes
   });
@@ -430,13 +431,9 @@ export default function CompleteEncounters(): React.ReactElement {
         width: 320,
         sortable: true,
         renderCell: (params: GridRenderCellParams) => {
-          const visitType = params.row.visitType;
           const appointmentId = params.value;
 
-          const linkPath =
-            visitType === 'Telemed'
-              ? `/telemed/appointments/${appointmentId}?tab=sign`
-              : `/in-person/${appointmentId}/${ROUTER_PATH.REVIEW_AND_SIGN}`;
+          const linkPath = `/in-person/${appointmentId}/${ROUTER_PATH.REVIEW_AND_SIGN}`;
 
           return (
             <Link
@@ -480,17 +477,12 @@ export default function CompleteEncounters(): React.ReactElement {
           const appointmentTime = params.value
             ? DateTime.fromISO(params.value as string).toFormat('MM/dd/yyyy hh:mm a')
             : 'Unknown';
-
-          // Extract date from appointment start for the search date parameter
           const appointmentStart = params.value as string;
-          const searchDate = appointmentStart
-            ? DateTime.fromISO(appointmentStart).toFormat('yyyy-MM-dd')
-            : DateTime.now().toFormat('yyyy-MM-dd');
+          const visitStatus = params.row.visitStatus as VisitStatusLabel | undefined;
 
           // Handle different visit types
           if (visitType === 'In-Person' && locationId) {
-            // cSpell:disable-next %2C
-            const trackingBoardPath = `/visits?locationID=${locationId}&visitType=walk-in%2Cpre-booked%2Cpost-telemed&groups=&searchDate=${searchDate}`;
+            const trackingBoardPath = buildTrackingBoardPath({ appointmentStart, locationId, visitStatus });
 
             return (
               <Link
@@ -510,7 +502,7 @@ export default function CompleteEncounters(): React.ReactElement {
           if (visitType === 'Telemed') {
             return (
               <Link
-                to="/telemed/appointments"
+                to="/visits"
                 target="_blank"
                 rel="noopener noreferrer"
                 style={{

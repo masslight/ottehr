@@ -3,28 +3,29 @@ import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { CandidApi, CandidApiClient } from 'candidhealth';
 import { InventoryRecord, InvoiceItemizationResponse } from 'candidhealth/api/resources/patientAr/resources/v1';
-import { Encounter, Task } from 'fhir/r4b';
+import { Encounter, Resource, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
-  createCandidApiClient,
   createReference,
   getCandidInventoryPages,
+  getOrCreateCandidApiClient,
   getResourcesFromBatchInlineRequests,
-  getSecret,
   InvoiceTaskInput,
   mapDisplayToInvoiceTaskStatus,
   RcmTaskCodings,
-  SecretsKeys,
-  TEXTING_CONFIG,
   ZERO_BALANCE_BUSINESS_STATUS,
 } from 'utils';
 import { createInvoiceTaskInput } from 'utils/lib/helpers/tasks/invoices-tasks';
 import {
+  getOrCreateInvoicingConfig,
+  ParsedInvoicingConfig,
+  parseInvoicingConfig,
+} from '../../rcm/invoice-config/helpers';
+import {
   CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM,
   checkOrCreateM2MClientToken,
-  createOystehrClient,
+  createClinicalOystehrClient,
   getCandidEncounterIdFromEncounter,
-  topLevelCatch,
   wrapHandler,
   ZambdaInput,
 } from '../../shared';
@@ -33,6 +34,16 @@ let m2mToken: string;
 
 const ZAMBDA_NAME = 'create-invoices-tasks';
 const readyTaskStatus = mapDisplayToInvoiceTaskStatus('ready');
+const BATCH_CHUNK_SIZE = 25;
+
+async function getResourcesFromParallelBatches(oystehr: Oystehr, requests: string[]): Promise<Resource[]> {
+  const chunks: string[][] = [];
+  for (let i = 0; i < requests.length; i += BATCH_CHUNK_SIZE) {
+    chunks.push(requests.slice(i, i + BATCH_CHUNK_SIZE));
+  }
+  const results = await Promise.all(chunks.map((chunk) => getResourcesFromBatchInlineRequests(oystehr, chunk)));
+  return results.flat();
+}
 
 interface EncounterPackage {
   encounter: Encounter;
@@ -42,72 +53,74 @@ interface EncounterPackage {
 }
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  try {
-    const { secrets } = input;
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
-    const candid = createCandidApiClient(secrets);
+  const { secrets } = input;
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
+  const candid = await getOrCreateCandidApiClient(oystehr, secrets);
 
-    const twoDaysAgo = DateTime.now().minus({ days: 2 });
-    const candidClaims = await getAllCandidClaims(candid, twoDaysAgo);
-    console.log('getting candid claims for the past two days');
+  console.log('Fetching invoicing config from FHIR');
+  const { questionnaireResponse } = await getOrCreateInvoicingConfig(oystehr);
+  const invoicingConfig = parseInvoicingConfig(questionnaireResponse);
+  console.log('Invoicing config loaded, dueDays:', invoicingConfig.dueDaysFromGeneration);
 
-    console.log('getting pending and to create packages');
-    const packagesToCreate = await getEncountersWithoutTaskFhir(oystehr, candid, candidClaims);
+  const twoDaysAgo = DateTime.now().minus({ days: 2 });
+  console.log('Fetching invoiceable Candid claims since:', twoDaysAgo.toISO());
+  const candidClaims = await getAllCandidClaims(candid, twoDaysAgo);
 
-    console.log('encounters without a task: ', packagesToCreate.length);
+  const packagesToCreate = await getEncountersWithoutTaskFhir(oystehr, candid, candidClaims);
 
-    const promises: Promise<void>[] = [];
-    packagesToCreate.forEach((encounter) => {
-      promises.push(createTaskForEncounter(oystehr, encounter));
-    });
-    await Promise.all(promises);
+  console.log(
+    `Packages to create tasks for: ${packagesToCreate.length} ${JSON.stringify(
+      packagesToCreate.map((p) => ({
+        encounterId: p.encounter.id,
+        claimId: p.claim.claimId,
+        amountCents: p.amountCents,
+      }))
+    )}`
+  );
 
-    return {
-      statusCode: 200,
-      body: JSON.stringify({ message: 'Successfully created tasks for encounters' }),
-    };
-  } catch (error: unknown) {
-    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    console.log('Error occurred:', error);
-    return await topLevelCatch(ZAMBDA_NAME, error, ENVIRONMENT);
-  }
+  await Promise.all(packagesToCreate.map((pkg) => createTaskForEncounter(oystehr, pkg, invoicingConfig)));
+
+  return {
+    statusCode: 200,
+    body: JSON.stringify({ message: 'Successfully created tasks for encounters' }),
+  };
 });
 
-async function getInvoiceTaskInput(
+function getInvoiceTaskInput(
   claimId: string,
   finalizationDate: Date,
-  patientBalanceInCents: number
-): Promise<InvoiceTaskInput> {
-  try {
-    const smsMessageFromSecret = TEXTING_CONFIG.invoicing.smsMessage;
-    const memoFromSecret = TEXTING_CONFIG.invoicing.stripeMemoMessage;
-    const dueDateFromSecret = TEXTING_CONFIG.invoicing.dueDateInDays;
-    const dueDate = DateTime.now().plus({ days: dueDateFromSecret }).toISODate();
-    const finalizationDateIso = finalizationDate.toISOString();
+  patientBalanceInCents: number,
+  config: ParsedInvoicingConfig
+): InvoiceTaskInput {
+  const dueDate = DateTime.now().plus({ days: config.dueDaysFromGeneration }).toISODate();
+  const finalizationDateIso = finalizationDate.toISOString();
 
-    return {
-      smsTextMessage: smsMessageFromSecret,
-      memo: memoFromSecret,
-      dueDate,
-      amountCents: patientBalanceInCents,
-      claimId,
-      finalizationDate: finalizationDateIso,
-    };
-  } catch (error) {
-    console.error('Error fetching prefilled invoice info: ', error);
-    throw new Error('Error fetching prefilled invoice info: ' + error);
-  }
+  return {
+    smsTextMessage: config.defaultSmsTemplate,
+    memo: config.defaultInvoiceMemo,
+    dueDate,
+    amountCents: patientBalanceInCents,
+    claimId,
+    finalizationDate: finalizationDateIso,
+  };
 }
 
-export async function createTaskForEncounter(oystehr: Oystehr, encounterPkg: EncounterPackage): Promise<void> {
+export async function createTaskForEncounter(
+  oystehr: Oystehr,
+  encounterPkg: EncounterPackage,
+  config: ParsedInvoicingConfig
+): Promise<void> {
   try {
     const { encounter, claim, amountCents } = encounterPkg;
     const patientId = encounter.subject?.reference?.replace('Patient/', '');
+
     if (!patientId) throw new Error('Patient ID not found in encounter: ' + encounter.id);
-    const prefilledInvoiceInfo = await getInvoiceTaskInput(claim.claimId, claim.timestamp, amountCents);
+
+    const prefilledInvoiceInfo = getInvoiceTaskInput(claim.claimId, claim.timestamp, amountCents, config);
+
     console.log(
-      `Creating task. patient: ${claim.patientExternalId}, claim: ${claim.claimId}, oyst encounter: ${encounter.id} balance (cents): ${amountCents}`
+      `Creating task. patient: ${claim.patientExternalId}, claim: ${claim.claimId}, encounter: ${encounter.id}, balance (cents): ${amountCents}`
     );
 
     const task: Task = {
@@ -119,18 +132,30 @@ export async function createTaskForEncounter(oystehr: Oystehr, encounterPkg: Enc
       encounter: createReference(encounter),
       for: { reference: `Patient/${patientId}` },
       authoredOn: prefilledInvoiceInfo.finalizationDate ?? DateTime.now().toISO(),
-      executionPeriod: {
-        start: encounter.period?.start,
-        end: encounter.period?.start,
-      },
+      ...(encounter.period?.start
+        ? { executionPeriod: { start: encounter.period.start, end: encounter.period.start } }
+        : {}),
       ...(amountCents === 0 ? { businessStatus: ZERO_BALANCE_BUSINESS_STATUS } : {}),
       input: createInvoiceTaskInput(prefilledInvoiceInfo),
     };
 
+    console.log('Creating task:', JSON.stringify(task));
+
     const created = await oystehr.fhir.create(task);
-    console.log('Created task: ', created.id);
+
+    console.log(`Created task: ${created.id} (encounter: ${encounter.id}, claim: ${claim.claimId})`);
   } catch (error) {
-    captureException(error);
+    console.error(
+      `Failed to create task for encounter ${encounterPkg.encounter.id}, claim ${encounterPkg.claim.claimId}:`,
+      error
+    );
+
+    captureException(error, {
+      tags: {
+        claimId: encounterPkg.claim.claimId,
+        encounterId: encounterPkg.encounter.id,
+      },
+    });
   }
 }
 
@@ -139,15 +164,20 @@ export async function getEncountersWithoutTaskFhir(
   candid: CandidApiClient,
   claims: InventoryRecord[]
 ): Promise<EncounterPackage[]> {
-  console.log('Getting encounters with a task');
-  const fhirResources = await getResourcesFromBatchInlineRequests(
+  if (claims.length === 0) {
+    console.log('No claims to check for existing FHIR tasks');
+    return [];
+  }
+
+  console.log(`Checking ${claims.length} Candid claims for existing FHIR tasks`);
+
+  const fhirResources = await getResourcesFromParallelBatches(
     oystehr,
     claims.map(
       (claim) =>
         `Encounter?identifier=${CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM}|${claim.encounterId}&_has:Task:encounter:code=${RcmTaskCodings.sendInvoiceToPatient.coding?.[0].system}|${RcmTaskCodings.sendInvoiceToPatient.coding?.[0].code}`
     )
   );
-  console.log('Encounters with tasks: ', fhirResources.length);
   const allEncountersCandidIds = claims.map((claim) => claim.encounterId);
   const allEncountersCandidIdsWithTasks = fhirResources
     .filter((res) => res.resourceType === 'Encounter')
@@ -156,29 +186,50 @@ export async function getEncountersWithoutTaskFhir(
     (id) => !allEncountersCandidIdsWithTasks.includes(id)
   );
 
-  console.log('Searching for encounters without a task');
-  const encountersWithoutTasksResponse = await getResourcesFromBatchInlineRequests(
+  console.log(
+    `Candid encounters: ${claims.length} total, ${allEncountersCandidIdsWithTasks.length} already have a task, ${candidEncountersIdsWithoutTasks.length} need one`
+  );
+
+  if (candidEncountersIdsWithoutTasks.length === 0) {
+    console.log('No Candid encounters without tasks found');
+    return [];
+  }
+
+  const encountersWithoutTasksResponse = await getResourcesFromParallelBatches(
     oystehr,
     candidEncountersIdsWithoutTasks.map(
       (claimId) => `Encounter?identifier=${CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM}|${claimId}`
     )
   );
+
   const encountersWithoutTasks = encountersWithoutTasksResponse.filter(
     (res) => res.resourceType === 'Encounter'
   ) as Encounter[];
-  console.log('Encounters without a task found raw: ', encountersWithoutTasks.length);
+
+  console.log(
+    `FHIR encounters found for ${encountersWithoutTasks.length} of ${candidEncountersIdsWithoutTasks.length} Candid IDs without a task`
+  );
 
   const result: Omit<EncounterPackage, 'amountCents' | 'invoiceTask'>[] = [];
   encountersWithoutTasks.forEach((encounter) => {
-    const claim = claims.find((claim) => claim.encounterId === getCandidEncounterIdFromEncounter(encounter));
+    const candidId = getCandidEncounterIdFromEncounter(encounter);
+    const claim = claims.find((claim) => claim.encounterId === candidId);
+
     if (claim) {
-      result.push({
-        encounter,
-        claim,
-      });
+      result.push({ encounter, claim });
+    } else {
+      console.warn(`No Candid claim matched FHIR encounter ${encounter.id} (candidId: ${candidId})`);
     }
   });
-  console.log('Getting amounts for encounters and populating packages with patient balances:');
+
+  if (candidEncountersIdsWithoutTasks.length !== encountersWithoutTasks.length) {
+    const missingIds = candidEncountersIdsWithoutTasks.filter(
+      (id) => !encountersWithoutTasks.some((enc) => getCandidEncounterIdFromEncounter(enc) === id)
+    );
+
+    console.warn(`Candid encounter IDs with no matching FHIR encounter: ${JSON.stringify(missingIds)}`);
+  }
+
   return await populateAmountInPackages(candid, result);
 }
 
@@ -190,33 +241,67 @@ export async function populateAmountInPackages(
   const itemizationResponse = await Promise.all(itemizationPromises);
 
   const resultPackages: EncounterPackage[] = [];
-  itemizationResponse.forEach((res) => {
-    if (res && res.ok && res.body) {
-      const itemization = res.body as InvoiceItemizationResponse;
-      const incomingPkg = packages.find((pkg) => pkg.claim.claimId === itemization.claimId);
-      if (itemization.claimId && itemization.patientBalanceCents && incomingPkg) {
-        resultPackages.push({
-          ...incomingPkg,
-          amountCents: itemization.patientBalanceCents,
-        });
-      }
+  itemizationResponse.forEach((res, idx) => {
+    if (!res || !res.ok || !res.body) {
+      const pkg = packages[idx];
+      const claimId = pkg?.claim.claimId;
+      const error = new Error(`Candid itemization failed for claim ${claimId}`);
+
+      console.error(error.message, JSON.stringify(res, null, 2));
+
+      captureException(error, {
+        tags: {
+          claimId,
+          encounterId: pkg?.encounter.id,
+        },
+      });
+      return;
     }
+
+    const itemization = res.body as InvoiceItemizationResponse;
+
+    if (!itemization.claimId) {
+      console.warn(
+        `Itemization response is missing claimId, skipping (input claimId: ${packages[idx]?.claim?.claimId})`
+      );
+
+      return;
+    }
+
+    const incomingPkg = packages.find((pkg) => pkg.claim.claimId === itemization.claimId);
+
+    if (!incomingPkg) {
+      console.warn(`No matching package found for itemization claimId: ${itemization.claimId}`);
+      return;
+    }
+
+    if (!itemization.patientBalanceCents && itemization.patientBalanceCents !== 0) {
+      console.warn(`patientBalanceCents is missing for claim ${itemization.claimId}, skipping`);
+      return;
+    }
+
+    console.log(`Itemization for claim ${itemization.claimId}: patientBalanceCents=${itemization.patientBalanceCents}`);
+    resultPackages.push({
+      ...incomingPkg,
+      amountCents: itemization.patientBalanceCents,
+    });
   });
+
   return resultPackages;
 }
 
 async function getAllCandidClaims(candid: CandidApiClient, sinceDate: DateTime): Promise<InventoryRecord[]> {
   const inventoryPages = await getCandidInventoryPages({
     candid,
-    limitPerPage: 100,
     onlyInvoiceable: true,
     since: sinceDate,
   });
 
-  const claimsFetched = inventoryPages?.claims;
-  console.log('fetched claims: ', claimsFetched?.length);
-  if (claimsFetched?.length && claimsFetched.length > 0) {
-    return claimsFetched;
-  }
-  return [];
+  const claimsFetched = inventoryPages?.claims ?? [];
+
+  console.log(
+    `Candid inventory returned ${claimsFetched.length} invoiceable claims (pages: ${inventoryPages?.pageCount ?? 0})`
+  );
+
+  return claimsFetched;
 }

@@ -1,11 +1,11 @@
-import { type FormFieldTrigger, type PatientRecordConfig, type QuestionnaireBase } from 'config-types';
-import { Questionnaire, QuestionnaireResponseItem } from 'fhir/r4b';
 import {
-  type PatientRecordFormConfig,
-  prepopulatePatientRecordItems as _prepopulatePatientRecordItems,
-  type PrePopulationFromPatientRecordInputWithContext,
-} from '../../config-helpers/patient-record';
-import { createQuestionnaireFromConfig } from '../shared-questionnaire';
+  type FormFieldTrigger,
+  type PatientRecordConfig,
+  type PatientRecordFormFields,
+  type QuestionnaireBase,
+} from 'config-types';
+import { Questionnaire } from 'fhir/r4b';
+import { createQuestionnaireFromConfig } from '../../config-helpers/shared-questionnaire';
 import { VALUE_SETS as formValueSets } from '../value-sets';
 
 const insurancePlanTypeOptions = formValueSets.insuranceTypeOptions.map((option) => ({
@@ -55,7 +55,7 @@ const InsuredAddressNotSameAsPatientTrigger2: FormFieldTrigger = {
   answerBoolean: true,
 };
 
-const FormFields = {
+const FormFields: PatientRecordFormFields = {
   patientSummary: {
     linkId: 'patient-info-section',
     title: 'Patient summary',
@@ -212,7 +212,28 @@ const FormFields = {
       city: { key: 'patient-city', type: 'string', label: 'City' },
       state: { key: 'patient-state', type: 'choice', label: 'State', options: formValueSets.stateOptions },
       zip: { key: 'patient-zip', type: 'string', label: 'ZIP', dataType: 'ZIP' },
-      email: { key: 'patient-email', type: 'string', label: 'Patient email', dataType: 'Email' },
+      email: {
+        key: 'patient-email',
+        type: 'string',
+        label: 'Patient email',
+        dataType: 'Email',
+        triggers: [
+          {
+            targetQuestionLinkId: 'patient-no-email',
+            effect: ['enable'],
+            operator: '!=',
+            answerBoolean: true,
+          },
+          {
+            targetQuestionLinkId: 'patient-no-email',
+            effect: ['filter'],
+            operator: '=',
+            answerBoolean: true,
+          },
+        ],
+        disabledDisplay: 'hidden',
+      },
+      noEmail: { key: 'patient-no-email', type: 'boolean', label: "Don't have email" },
       phone: { key: 'patient-number', type: 'string', label: 'Patient mobile', dataType: 'Phone Number' },
       preferredCommunicationMethod: {
         key: 'patient-preferred-communication-method',
@@ -249,9 +270,8 @@ const FormFields = {
           label: 'Insurance carrier',
           dataSource: {
             answerSource: {
-              resourceType: 'Organization',
-              query: `type=http://terminology.hl7.org/CodeSystem/organization-type|pay`,
-              prependedIdentifier: 'http://terminology.hl7.org/CodeSystem/v2-0203',
+              zambdaId: 'get-all-insurance-payers',
+              prependIdentifier: true,
             },
           },
         },
@@ -267,7 +287,7 @@ const FormFields = {
           type: 'string',
           label: "Policy holder's first name",
           triggers: [InsuredPersonNotSelfTrigger],
-          dynamicPopulation: { sourceLinkId: 'patient-first-name' },
+          dynamicPopulation: { sourceLinkId: 'patient-first-name', triggerState: 'disabled' },
           disabledDisplay: 'disabled',
         },
         middleName: {
@@ -275,7 +295,7 @@ const FormFields = {
           type: 'string',
           label: "Policy holder's middle name",
           triggers: [InsuredPersonNotSelfTrigger],
-          dynamicPopulation: { sourceLinkId: 'patient-middle-name' },
+          dynamicPopulation: { sourceLinkId: 'patient-middle-name', triggerState: 'disabled' },
           disabledDisplay: 'disabled',
         },
         lastName: {
@@ -283,7 +303,7 @@ const FormFields = {
           type: 'string',
           label: "Policy holder's last name",
           triggers: [InsuredPersonNotSelfTrigger],
-          dynamicPopulation: { sourceLinkId: 'patient-last-name' },
+          dynamicPopulation: { sourceLinkId: 'patient-last-name', triggerState: 'disabled' },
           disabledDisplay: 'disabled',
         },
         birthDate: {
@@ -292,7 +312,7 @@ const FormFields = {
           label: "Policy holder's date of birth",
           dataType: 'DOB',
           triggers: [InsuredPersonNotSelfTrigger],
-          dynamicPopulation: { sourceLinkId: 'patient-birthdate' },
+          dynamicPopulation: { sourceLinkId: 'patient-birthdate', triggerState: 'disabled' },
           disabledDisplay: 'disabled',
         },
         birthSex: {
@@ -301,7 +321,7 @@ const FormFields = {
           label: "Policy holder's birth sex",
           options: formValueSets.birthSexOptions,
           triggers: [InsuredPersonNotSelfTrigger],
-          dynamicPopulation: { sourceLinkId: 'patient-birth-sex' },
+          dynamicPopulation: { sourceLinkId: 'patient-birth-sex', triggerState: 'disabled' },
           disabledDisplay: 'disabled',
         },
         policyHolderAddressAsPatient: {
@@ -316,7 +336,7 @@ const FormFields = {
           type: 'string',
           label: "Policy holder's address",
           triggers: [InsuredPersonNotSelfTrigger, InsuredAddressNotSameAsPatientTrigger],
-          dynamicPopulation: { sourceLinkId: 'patient-street-address' },
+          dynamicPopulation: { sourceLinkId: 'patient-street-address', triggerState: 'disabled' },
           enableBehavior: 'all',
           disabledDisplay: 'disabled',
         },
@@ -325,7 +345,7 @@ const FormFields = {
           type: 'string',
           label: "Policy holder's address line 2",
           triggers: [InsuredPersonNotSelfTrigger, InsuredAddressNotSameAsPatientTrigger],
-          dynamicPopulation: { sourceLinkId: 'patient-street-address-2' },
+          dynamicPopulation: { sourceLinkId: 'patient-street-address-2', triggerState: 'disabled' },
           enableBehavior: 'all',
           disabledDisplay: 'disabled',
         },
@@ -334,7 +354,7 @@ const FormFields = {
           type: 'string',
           label: 'City',
           triggers: [InsuredPersonNotSelfTrigger, InsuredAddressNotSameAsPatientTrigger],
-          dynamicPopulation: { sourceLinkId: 'patient-city' },
+          dynamicPopulation: { sourceLinkId: 'patient-city', triggerState: 'disabled' },
           enableBehavior: 'all',
           disabledDisplay: 'disabled',
         },
@@ -344,7 +364,7 @@ const FormFields = {
           label: 'State',
           options: formValueSets.stateOptions,
           triggers: [InsuredPersonNotSelfTrigger, InsuredAddressNotSameAsPatientTrigger],
-          dynamicPopulation: { sourceLinkId: 'patient-state' },
+          dynamicPopulation: { sourceLinkId: 'patient-state', triggerState: 'disabled' },
           enableBehavior: 'all',
           disabledDisplay: 'disabled',
         },
@@ -354,7 +374,7 @@ const FormFields = {
           label: 'ZIP',
           dataType: 'ZIP',
           triggers: [InsuredPersonNotSelfTrigger, InsuredAddressNotSameAsPatientTrigger],
-          dynamicPopulation: { sourceLinkId: 'patient-zip' },
+          dynamicPopulation: { sourceLinkId: 'patient-zip', triggerState: 'disabled' },
           enableBehavior: 'all',
           disabledDisplay: 'disabled',
         },
@@ -383,9 +403,8 @@ const FormFields = {
           label: 'Insurance carrier',
           dataSource: {
             answerSource: {
-              resourceType: 'Organization',
-              query: `type=http://terminology.hl7.org/CodeSystem/organization-type|pay`,
-              prependedIdentifier: 'http://terminology.hl7.org/CodeSystem/v2-0203',
+              zambdaId: 'get-all-insurance-payers',
+              prependIdentifier: true,
             },
           },
         },
@@ -401,7 +420,7 @@ const FormFields = {
           type: 'string',
           label: "Policy holder's first name",
           triggers: [InsuredPersonNotSelfTrigger2],
-          dynamicPopulation: { sourceLinkId: 'patient-first-name' },
+          dynamicPopulation: { sourceLinkId: 'patient-first-name', triggerState: 'disabled' },
           disabledDisplay: 'disabled',
         },
         middleName: {
@@ -409,7 +428,7 @@ const FormFields = {
           type: 'string',
           label: "Policy holder's middle name",
           triggers: [InsuredPersonNotSelfTrigger2],
-          dynamicPopulation: { sourceLinkId: 'patient-middle-name' },
+          dynamicPopulation: { sourceLinkId: 'patient-middle-name', triggerState: 'disabled' },
           disabledDisplay: 'disabled',
         },
         lastName: {
@@ -417,7 +436,7 @@ const FormFields = {
           type: 'string',
           label: "Policy holder's last name",
           triggers: [InsuredPersonNotSelfTrigger2],
-          dynamicPopulation: { sourceLinkId: 'patient-last-name' },
+          dynamicPopulation: { sourceLinkId: 'patient-last-name', triggerState: 'disabled' },
           disabledDisplay: 'disabled',
         },
         birthDate: {
@@ -426,7 +445,7 @@ const FormFields = {
           label: "Policy holder's date of birth",
           dataType: 'DOB',
           triggers: [InsuredPersonNotSelfTrigger2],
-          dynamicPopulation: { sourceLinkId: 'patient-birthdate' },
+          dynamicPopulation: { sourceLinkId: 'patient-birthdate', triggerState: 'disabled' },
           disabledDisplay: 'disabled',
         },
         birthSex: {
@@ -435,7 +454,7 @@ const FormFields = {
           label: "Policy holder's birth sex",
           options: formValueSets.birthSexOptions,
           triggers: [InsuredPersonNotSelfTrigger2],
-          dynamicPopulation: { sourceLinkId: 'patient-birth-sex' },
+          dynamicPopulation: { sourceLinkId: 'patient-birth-sex', triggerState: 'disabled' },
           disabledDisplay: 'disabled',
         },
         policyHolderAddressAsPatient: {
@@ -450,7 +469,7 @@ const FormFields = {
           type: 'string',
           label: "Policy holder's address",
           triggers: [InsuredPersonNotSelfTrigger2, InsuredAddressNotSameAsPatientTrigger2],
-          dynamicPopulation: { sourceLinkId: 'patient-street-address' },
+          dynamicPopulation: { sourceLinkId: 'patient-street-address', triggerState: 'disabled' },
           enableBehavior: 'all',
           disabledDisplay: 'disabled',
         },
@@ -459,7 +478,7 @@ const FormFields = {
           type: 'string',
           label: "Policy holder's address line 2",
           triggers: [InsuredPersonNotSelfTrigger2, InsuredAddressNotSameAsPatientTrigger2],
-          dynamicPopulation: { sourceLinkId: 'patient-street-address-2' },
+          dynamicPopulation: { sourceLinkId: 'patient-street-address-2', triggerState: 'disabled' },
           enableBehavior: 'all',
           disabledDisplay: 'disabled',
         },
@@ -468,7 +487,7 @@ const FormFields = {
           type: 'string',
           label: 'City',
           triggers: [InsuredPersonNotSelfTrigger2, InsuredAddressNotSameAsPatientTrigger2],
-          dynamicPopulation: { sourceLinkId: 'patient-city' },
+          dynamicPopulation: { sourceLinkId: 'patient-city', triggerState: 'disabled' },
           enableBehavior: 'all',
           disabledDisplay: 'disabled',
         },
@@ -478,7 +497,7 @@ const FormFields = {
           label: 'State',
           options: formValueSets.stateOptions,
           triggers: [InsuredPersonNotSelfTrigger2, InsuredAddressNotSameAsPatientTrigger2],
-          dynamicPopulation: { sourceLinkId: 'patient-state' },
+          dynamicPopulation: { sourceLinkId: 'patient-state', triggerState: 'disabled' },
           enableBehavior: 'all',
           disabledDisplay: 'disabled',
         },
@@ -488,7 +507,7 @@ const FormFields = {
           label: 'ZIP',
           dataType: 'ZIP',
           triggers: [InsuredPersonNotSelfTrigger2, InsuredAddressNotSameAsPatientTrigger2],
-          dynamicPopulation: { sourceLinkId: 'patient-zip' },
+          dynamicPopulation: { sourceLinkId: 'patient-zip', triggerState: 'disabled' },
           enableBehavior: 'all',
           disabledDisplay: 'disabled',
         },
@@ -597,7 +616,7 @@ const FormFields = {
         type: 'string',
         label: 'First name',
         triggers: [RPNotSelfTrigger],
-        dynamicPopulation: { sourceLinkId: 'patient-first-name' },
+        dynamicPopulation: { sourceLinkId: 'patient-first-name', triggerState: 'disabled' },
         disabledDisplay: 'disabled',
       },
       lastName: {
@@ -605,7 +624,7 @@ const FormFields = {
         type: 'string',
         label: 'Last name',
         triggers: [RPNotSelfTrigger],
-        dynamicPopulation: { sourceLinkId: 'patient-last-name' },
+        dynamicPopulation: { sourceLinkId: 'patient-last-name', triggerState: 'disabled' },
         disabledDisplay: 'disabled',
       },
       birthDate: {
@@ -614,7 +633,7 @@ const FormFields = {
         label: 'Date of birth',
         dataType: 'DOB',
         triggers: [RPNotSelfTrigger],
-        dynamicPopulation: { sourceLinkId: 'patient-birthdate' },
+        dynamicPopulation: { sourceLinkId: 'patient-birthdate', triggerState: 'disabled' },
         disabledDisplay: 'disabled',
       },
       birthSex: {
@@ -623,7 +642,7 @@ const FormFields = {
         label: 'Birth sex',
         options: formValueSets.birthSexOptions,
         triggers: [RPNotSelfTrigger],
-        dynamicPopulation: { sourceLinkId: 'patient-birth-sex' },
+        dynamicPopulation: { sourceLinkId: 'patient-birth-sex', triggerState: 'disabled' },
         disabledDisplay: 'disabled',
       },
       phone: {
@@ -632,7 +651,7 @@ const FormFields = {
         label: 'Phone',
         dataType: 'Phone Number',
         triggers: [RPNotSelfTrigger],
-        dynamicPopulation: { sourceLinkId: 'patient-number' },
+        dynamicPopulation: { sourceLinkId: 'patient-number', triggerState: 'disabled' },
         disabledDisplay: 'disabled',
       },
       email: {
@@ -640,9 +659,28 @@ const FormFields = {
         type: 'string',
         label: 'Email',
         dataType: 'Email',
-        triggers: [RPNotSelfTrigger],
-        dynamicPopulation: { sourceLinkId: 'patient-email' },
+        triggers: [
+          RPNotSelfTrigger,
+          // filter trigger keeps the value out of submission when no-email is checked;
+          // the actual hide is handled in ResponsibleInformationContainer so that
+          // the field stays visible-but-disabled when Self (independent of no-email state).
+          {
+            targetQuestionLinkId: 'responsible-party-no-email',
+            effect: ['filter'],
+            operator: '=',
+            answerBoolean: true,
+          },
+        ],
+        dynamicPopulation: { sourceLinkId: 'patient-email', triggerState: 'disabled' },
         disabledDisplay: 'disabled',
+      },
+      noEmail: {
+        key: 'responsible-party-no-email',
+        type: 'boolean',
+        label: "Don't have email",
+        triggers: [RPNotSelfTrigger],
+        disabledDisplay: 'disabled',
+        dynamicPopulation: { sourceLinkId: 'patient-no-email', triggerState: 'disabled' },
       },
       addressSameAsPatient: {
         key: 'responsible-party-address-as-patient',
@@ -657,7 +695,7 @@ const FormFields = {
         label: 'Street Address',
         triggers: [RPNotSelfTrigger, RPAddressAsPatientTrigger],
         enableBehavior: 'all',
-        dynamicPopulation: { sourceLinkId: 'patient-street-address' },
+        dynamicPopulation: { sourceLinkId: 'patient-street-address', triggerState: 'disabled' },
         disabledDisplay: 'disabled',
       },
       addressLine2: {
@@ -666,7 +704,7 @@ const FormFields = {
         label: 'Address line 2',
         triggers: [RPNotSelfTrigger, RPAddressAsPatientTrigger],
         enableBehavior: 'all',
-        dynamicPopulation: { sourceLinkId: 'patient-street-address-2' },
+        dynamicPopulation: { sourceLinkId: 'patient-street-address-2', triggerState: 'disabled' },
         disabledDisplay: 'disabled',
       },
       city: {
@@ -675,7 +713,7 @@ const FormFields = {
         label: 'City',
         triggers: [RPNotSelfTrigger, RPAddressAsPatientTrigger],
         enableBehavior: 'all',
-        dynamicPopulation: { sourceLinkId: 'patient-city' },
+        dynamicPopulation: { sourceLinkId: 'patient-city', triggerState: 'disabled' },
         disabledDisplay: 'disabled',
       },
       state: {
@@ -685,7 +723,7 @@ const FormFields = {
         options: formValueSets.stateOptions,
         triggers: [RPNotSelfTrigger, RPAddressAsPatientTrigger],
         enableBehavior: 'all',
-        dynamicPopulation: { sourceLinkId: 'patient-state' },
+        dynamicPopulation: { sourceLinkId: 'patient-state', triggerState: 'disabled' },
         disabledDisplay: 'disabled',
       },
       zip: {
@@ -695,7 +733,7 @@ const FormFields = {
         dataType: 'ZIP',
         triggers: [RPNotSelfTrigger, RPAddressAsPatientTrigger],
         enableBehavior: 'all',
-        dynamicPopulation: { sourceLinkId: 'patient-zip' },
+        dynamicPopulation: { sourceLinkId: 'patient-zip', triggerState: 'disabled' },
         disabledDisplay: 'disabled',
       },
     },
@@ -787,6 +825,11 @@ const FormFields = {
             label: 'places address',
             type: 'string',
           },
+          pharmacyPlacesPhone: {
+            key: 'pharmacy-places-phone',
+            label: 'places phone',
+            type: 'string',
+          },
           pharmacyPlacesSaved: {
             key: 'pharmacy-places-saved',
             label: 'places saved',
@@ -841,6 +884,7 @@ const FormFields = {
             answerBoolean: true,
           },
         ],
+        disabledDisplay: 'hidden',
       },
       address: {
         key: 'pharmacy-address',
@@ -854,6 +898,22 @@ const FormFields = {
             answerBoolean: true,
           },
         ],
+        disabledDisplay: 'hidden',
+      },
+      phone: {
+        key: 'pharmacy-phone',
+        label: 'Pharmacy phone',
+        type: 'string',
+        dataType: 'Phone Number',
+        triggers: [
+          {
+            targetQuestionLinkId: 'pharmacy-page-manual-entry',
+            effect: ['enable'],
+            operator: '=',
+            answerBoolean: true,
+          },
+        ],
+        disabledDisplay: 'hidden',
       },
     },
     hiddenFields: [],
@@ -884,9 +944,8 @@ const FormFields = {
         label: 'Insurance carrier',
         dataSource: {
           answerSource: {
-            resourceType: 'Organization',
-            query: `type=http://terminology.hl7.org/CodeSystem/organization-type|pay`,
-            prependedIdentifier: 'http://terminology.hl7.org/CodeSystem/v2-0203',
+            zambdaId: 'get-all-insurance-payers',
+            prependIdentifier: true,
           },
         },
         triggers: [
@@ -937,8 +996,9 @@ const FormFields = {
         label: 'Employer name',
         dataSource: {
           answerSource: {
+            zambdaId: 'get-answer-options',
             resourceType: 'Organization',
-            query: `type=http://terminology.hl7.org/CodeSystem/organization-type|occupational-medicine-employer`,
+            query: `active:not=false&type=http://terminology.hl7.org/CodeSystem/organization-type|occupational-medicine-employer`,
             prependedIdentifier: '1',
           },
         },
@@ -975,16 +1035,16 @@ const FormFields = {
     },
     triggers: [
       {
-        targetQuestionLinkId: 'reason-for-visit',
+        targetQuestionLinkId: 'appointment-service-category',
         effect: ['enable'],
-        operator: '=',
-        answerString: 'Auto accident',
+        operator: 'exists',
+        answerBoolean: false,
       },
       {
         targetQuestionLinkId: 'reason-for-visit',
         effect: ['enable'],
-        operator: 'exists',
-        answerBoolean: false,
+        operator: '=',
+        answerString: 'Auto accident',
       },
     ],
     enableBehavior: 'any',
@@ -998,36 +1058,19 @@ const hiddenFormSections: string[] = [];
 const questionnaireBaseDefaults = {
   resourceType: 'Questionnaire',
   url: 'http://example.org/fhir/Questionnaire/patient-record',
-  version: '1.0.0',
+  version: '1.1.1',
   name: 'PatientRecordQuestionnaire',
   title: 'Patient Record Questionnaire',
   status: 'active',
 } as const satisfies QuestionnaireBase;
 
-const PATIENT_RECORD_DEFAULTS = {
+const PATIENT_RECORD_DEFAULTS: PatientRecordConfig = {
   questionnaireBase: questionnaireBaseDefaults,
   hiddenFormSections,
   FormFields,
 };
 
-export const PATIENT_RECORD_CONFIG: PatientRecordConfig = Object.freeze(
-  PATIENT_RECORD_DEFAULTS as unknown as PatientRecordConfig
-);
-
-export type {
-  AppointmentContext,
-  PrePopulationFromPatientRecordInputWithContext,
-} from '../../config-helpers/patient-record';
-
-export const prepopulatePatientRecordItems = (
-  input: PrePopulationFromPatientRecordInputWithContext
-): QuestionnaireResponseItem[] => {
-  const formConfig: PatientRecordFormConfig = {
-    hiddenFields: PATIENT_RECORD_CONFIG.FormFields.patientSummary.hiddenFields,
-    requiredFields: PATIENT_RECORD_CONFIG.FormFields.patientSummary.requiredFields,
-  };
-  return _prepopulatePatientRecordItems(input, formConfig);
-};
+export const PATIENT_RECORD_CONFIG: PatientRecordConfig = Object.freeze(PATIENT_RECORD_DEFAULTS);
 
 export const PATIENT_RECORD_QUESTIONNAIRE = (): Questionnaire =>
   JSON.parse(JSON.stringify(createQuestionnaireFromConfig(PATIENT_RECORD_CONFIG)));

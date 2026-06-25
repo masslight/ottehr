@@ -23,7 +23,7 @@ export const createPatientInstructionsSection = <
     shouldRender: (sectionData) => !!sectionData.instructions?.length,
     render: (client, data, styles) => {
       data.instructions?.forEach((instruction) => {
-        client.drawText(`- ${instruction}`, styles.textStyles.regular);
+        client.drawText(instruction, styles.textStyles.regular);
       });
       client.drawSeparatedLine(styles.lineStyles.separator);
     },

@@ -25,10 +25,13 @@ export enum APIErrorCode {
   USER_ALREADY_EXISTS = 4020,
   PATIENT_PHONE_NOT_FOUND = 4021,
   RESOURCE_INCOMPLETE_FOR_OPERATION = 4022,
+  ALREADY_EXISTS = 4023,
+  CONCURRENT_UPDATE = 4024,
   // 41xx
   QUESTIONNAIRE_RESPONSE_INVALID = 4100,
   QUESTIONNAIRE_NOT_FOUND_FOR_QR = 4101,
   FHIR_RESOURCE_IS_GONE = 4102,
+  PRECONDITION_FAILED = 4120,
   // 42xx
   MISSING_REQUEST_BODY = 4200,
   MISSING_REQUIRED_PARAMETERS = 4201,
@@ -47,11 +50,15 @@ export enum APIErrorCode {
   // 434x
   INVALID_INPUT = 4340,
   APPOINTMENT_ALREADY_EXISTS = 4341,
+  PRACTITIONER_SCHEDULE_CONFLICT = 4342,
   // 44xx
   EXTERNAL_LAB_GENERAL = 4400,
   MISSING_NLM_API_KEY_ERROR = 4401,
   IN_HOUSE_LAB_GENERAL = 4402,
   MISSING_WC_INFO_FOR_LABS = 4403,
+  ADMIN_IN_HOUSE_TEST_EXISTS = 4404,
+  LABEL_PRINTING_GENERAL = 4405,
+  RADIOLOGY_GENERAL = 4406,
 
   // 45xx
   STRIPE_PAYMENT_ERROR_GENERIC = 4500,
@@ -106,9 +113,10 @@ export const isApiError = (errorObject: unknown | undefined): boolean => {
   return false;
 };
 
-export const NOT_AUTHORIZED = {
+export const NOT_AUTHORIZED: APIError = {
   code: APIErrorCode.NOT_AUTHORIZED,
   message: 'You are not authorized to access this data',
+  statusCode: 401,
 };
 
 export const CANT_UPDATE_CHECKED_IN_APT_ERROR = {
@@ -126,9 +134,10 @@ export const DOB_UNCONFIRMED_ERROR = {
   message: 'We could not verify the date of birth supplied for this patient',
 };
 
-export const NO_READ_ACCESS_TO_PATIENT_ERROR = {
+export const NO_READ_ACCESS_TO_PATIENT_ERROR: APIError = {
   code: APIErrorCode.NO_READ_ACCESS_TO_PATIENT,
   message: `You are not authorized to view this patient's data`,
+  statusCode: 403,
 };
 
 export const APPOINTMENT_NOT_FOUND_ERROR = {
@@ -227,6 +236,17 @@ export const SCHEDULE_NOT_FOUND_CUSTOM_ERROR = (message: string): APIError => ({
   message,
 });
 
+// Raised when a create/update/reactivate would leave more than one active
+// PractitionerRole covering the same (practitioner, location, category) tuple.
+// `categoryNames` is the list of overlapping category display names, used
+// verbatim in the message so the admin knows which schedule to reconcile.
+export const PRACTITIONER_SCHEDULE_CONFLICT_ERROR = (categoryNames: string[]): APIError => ({
+  code: APIErrorCode.PRACTITIONER_SCHEDULE_CONFLICT,
+  message: `This provider already has an active schedule at this location offering ${categoryNames.join(
+    ', '
+  )}. Remove ${categoryNames.length === 1 ? 'it' : 'them'} from that schedule first, or pick a different location.`,
+});
+
 export const APPOINTMENT_CANT_BE_IN_PAST_ERROR = {
   code: APIErrorCode.APPOINTMENT_CANT_BE_IN_PAST,
   message: "An appointment can't be scheduled for a date in the past",
@@ -239,7 +259,7 @@ export const PATIENT_NOT_FOUND_ERROR = {
 
 export const CANNOT_JOIN_CALL_NOT_STARTED_ERROR = {
   code: APIErrorCode.CANNOT_JOIN_CALL_NOT_IN_PROGRESS,
-  message: "This video call cannot be joined because it's either ended or not have been started",
+  message: 'This video call is not yet available or has already ended',
 };
 
 export const MISSING_REQUEST_BODY = {
@@ -386,6 +406,20 @@ export const RESOURCE_INCOMPLETE_FOR_OPERATION_ERROR = (message: string): APIErr
   };
 };
 
+export const ALREADY_EXISTS_WITH_MESSAGE = (message: string): APIError => {
+  return {
+    code: APIErrorCode.ALREADY_EXISTS,
+    message,
+  };
+};
+
+export const CONCURRENT_UPDATE_WITH_MESSAGE = (message: string): APIError => {
+  return {
+    code: APIErrorCode.CONCURRENT_UPDATE,
+    message,
+  };
+};
+
 export const GENERIC_STRIPE_PAYMENT_ERROR = {
   code: APIErrorCode.STRIPE_PAYMENT_ERROR_GENERIC,
   message: 'The card payment was not successful. Try a different card',
@@ -432,4 +466,32 @@ export const checkForStripeCustomerDeletedError = (stripeError: any): APIError |
     return STRIPE_CUSTOMER_ID_DOES_NOT_EXIST_ERROR;
   }
   return stripeError;
+};
+
+export const ADMIN_IN_HOUSE_LAB_TEST_EXISTS_ERROR = (testName?: string): APIError => {
+  return {
+    code: APIErrorCode.ADMIN_IN_HOUSE_TEST_EXISTS,
+    message: `A test matching that name${
+      testName ? ` "${testName}"` : ''
+    } already exists. Please change the name, or update the existing test`,
+  };
+};
+
+export const LABEL_PRINTING_ERROR = (message: string): APIError => {
+  return {
+    code: APIErrorCode.LABEL_PRINTING_GENERAL,
+    message,
+  };
+};
+
+export const PRECONDITION_FAILED = (message?: string): APIError => ({
+  code: APIErrorCode.PRECONDITION_FAILED,
+  message: message ?? 'Resource was edited during operation',
+});
+
+export const RADIOLOGY_ERROR = (message: string): APIError => {
+  return {
+    code: APIErrorCode.RADIOLOGY_GENERAL,
+    message,
+  };
 };

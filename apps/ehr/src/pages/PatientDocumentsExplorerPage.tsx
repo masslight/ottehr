@@ -16,7 +16,7 @@ import {
   PatientDocumentsExplorerTable,
 } from 'src/features/visits/shared/components/patient/docs/PatientDocumentsExplorerTable';
 import { Header } from 'src/features/visits/shared/components/patient/Header';
-import { getFullName } from 'utils';
+import { getFullName, isSyntheticFolderId } from 'utils';
 import CustomBreadcrumbs from '../components/CustomBreadcrumbs';
 import DateSearch, { CustomFormEventHandler } from '../components/DateSearch';
 import { LoadingScreen } from '../components/LoadingScreen';
@@ -68,6 +68,16 @@ const PatientDocumentsExplorerPage: FC = () => {
   const [searchDocAddedDate, setSearchDocAddedDate] = useState<DateTime | null>(null);
   const [selectedFolder, setSelectedFolder] = useState<PatientDocumentsFolder | undefined>(undefined);
   const [isScanModalOpen, setIsScanModalOpen] = useState<boolean>(false);
+  const [pendingSelectInternalName, setPendingSelectInternalName] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!pendingSelectInternalName) return;
+    const found = documentsFolders.find((f) => f.internalName === pendingSelectInternalName);
+    if (found) {
+      setSelectedFolder(found);
+      setPendingSelectInternalName(null);
+    }
+  }, [documentsFolders, pendingSelectInternalName]);
 
   const shouldShowClearFilters = searchDocNameFieldValue.trim().length > 0 || searchDocAddedDate || selectedFolder;
 
@@ -171,11 +181,19 @@ const PatientDocumentsExplorerPage: FC = () => {
         const finalFileName = fileName.endsWith('.pdf') ? fileName : `${fileName}.pdf`;
         const file = new File([fileBlob], finalFileName, { type: 'application/pdf' });
 
+        const wasSynthetic = isSyntheticFolderId(folderId);
         await documentActions.uploadDocumentAction({
           docFile: file,
           fileName: finalFileName,
           fileFolderId: folderId,
+          internalName: selectedFolder?.internalName,
         });
+        // First upload to a synthetic folder creates the real per-patient List; re-select
+        // by internalName so the doc search re-keys off the real id (the synthetic id
+        // short-circuits to an empty result set).
+        if (wasSynthetic && selectedFolder?.internalName) {
+          setPendingSelectInternalName(selectedFolder.internalName);
+        }
 
         enqueueSnackbar('Successfully uploaded scanned document', { variant: 'success' });
       } catch (error) {
@@ -183,7 +201,7 @@ const PatientDocumentsExplorerPage: FC = () => {
         enqueueSnackbar('Failed to upload scanned document', { variant: 'error' });
       }
     },
-    [documentActions, selectedFolder?.id]
+    [documentActions, selectedFolder?.id, selectedFolder?.internalName]
   );
 
   const handleDocumentUploadInputChange = useCallback(
@@ -218,15 +236,20 @@ const PatientDocumentsExplorerPage: FC = () => {
         return;
       }
 
+      const wasSynthetic = isSyntheticFolderId(folderId);
       await documentActions.uploadDocumentAction({
         docFile: selectedFile,
         fileName: fileName,
         fileFolderId: folderId,
+        internalName: selectedFolder?.internalName,
       });
+      if (wasSynthetic && selectedFolder?.internalName) {
+        setPendingSelectInternalName(selectedFolder.internalName);
+      }
 
       event.target.value = '';
     },
-    [documentActions, selectedFolder?.id]
+    [documentActions, selectedFolder?.id, selectedFolder?.internalName]
   );
 
   const documentTableActions: DocumentTableActions = useMemo(() => {
@@ -370,12 +393,20 @@ const PatientDocumentsExplorerPage: FC = () => {
                   )}
 
                   <RoundedButton
-                    disabled={!selectedFolder || documentActions.isUploading}
+                    disabled={documentActions.isUploading}
                     loading={documentActions.isUploading}
                     component="label"
                     target="_blank"
                     variant="outlined"
                     startIcon={<UploadFileIcon fontSize="small" />}
+                    onClick={(event) => {
+                      if (!selectedFolder) {
+                        event.preventDefault();
+                        enqueueSnackbar('Please select a folder where you want to upload the doc', {
+                          variant: 'warning',
+                        });
+                      }
+                    }}
                   >
                     Upload
                     <FileAttachmentHiddenInput

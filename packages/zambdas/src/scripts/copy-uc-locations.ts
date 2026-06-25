@@ -3,7 +3,7 @@ import { randomUUID } from 'crypto';
 import { Location, Practitioner, PractitionerRole } from 'fhir/r4b';
 import fs from 'fs';
 import { FHIR_BASE_URL } from 'utils';
-import { createOystehrClient, getAuth0Token } from '../shared';
+import { createClinicalOystehrClient, getAuth0Token } from '../shared';
 
 const directorsAreSame = (practitioner1: Practitioner, practitioner2: Practitioner | undefined): boolean => {
   if (!practitioner1 || !practitioner2) {
@@ -76,8 +76,8 @@ const copyLocations = async (fromConfig: any, toConfig: any, isDryRun = true): P
     throw new Error('Failed to fetch auth token.');
   }
 
-  const sourceEnvOystehrClient = createOystehrClient(fromEnvToken, fromConfig);
-  const destinationEnvOystehrClient = createOystehrClient(toEnvToken, toConfig);
+  const sourceEnvOystehrClient = createClinicalOystehrClient(fromEnvToken, fromConfig);
+  const destinationEnvOystehrClient = createClinicalOystehrClient(toEnvToken, toConfig);
   const locationsToCreate: BatchInputPostRequest<Location>[] = [];
   const locationsToUpdate: BatchInputPutRequest<Location>[] = [];
   const directorsToUpdate: BatchInputPutRequest<Practitioner>[] = [];
@@ -335,8 +335,8 @@ const main = async (): Promise<void> => {
   const toEnv = process.argv[3] ?? 'testing';
   const dryRun = process.argv[4] ?? 'false';
 
-  const fromSecrets = JSON.parse(fs.readFileSync(`.env/${fromEnv}.json`, 'utf8'));
-  const toSecrets = JSON.parse(fs.readFileSync(`.env/${toEnv}.json`, 'utf8'));
+  const fromSecrets = JSON.parse(fs.readFileSync(`../../config/.env/${fromEnv}.json`, 'utf8'));
+  const toSecrets = JSON.parse(fs.readFileSync(`../../config/.env/${toEnv}.json`, 'utf8'));
   const isDryRun = dryRun === 'dry';
   await copyLocations(fromSecrets, toSecrets, isDryRun);
 };

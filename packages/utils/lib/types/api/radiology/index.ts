@@ -7,6 +7,7 @@ export interface CreateRadiologyZambdaOrderInput {
   lateralityModifier: { display: string; code: string } | undefined;
   stat: boolean;
   clinicalHistory: string;
+  studyName?: string;
   consentObtained: boolean;
 }
 
@@ -45,19 +46,24 @@ export enum RadiologyOrderStatus {
   final = 'final',
   reviewed = 'reviewed',
 }
-export interface GetRadiologyOrderListZambdaOrder {
+
+export interface RadiologyDTO {
   serviceRequestId: string;
-  appointmentId: string;
+  cptCodeDisplay: string;
   studyType: string;
+  diagnosis: string;
+  clinicalHistory?: string;
+  preliminaryReport?: string;
+  finalReport?: string;
+  studyName?: string;
+}
+export interface GetRadiologyOrderListZambdaOrder extends RadiologyDTO {
+  appointmentId: string;
   visitDateTime: string;
   orderAddedDateTime: string;
   providerName: string;
-  diagnosis: string;
   status: RadiologyOrderStatus;
   isStat: boolean;
-  preliminaryReport?: string;
-  finalReport?: string;
-  clinicalHistory?: string;
   history?: RadiologyOrderHistoryRow[];
   task?: Task;
   consentObtained: boolean;
@@ -74,12 +80,12 @@ export interface GetRadiologyOrderListZambdaOutput {
   pagination: Pagination;
 }
 
-export interface SavePreliminaryReportZambdaInput {
+export interface SaveRadiologyReportZambdaInput {
   serviceRequestId: string;
-  preliminaryReport: string;
+  report: string;
 }
 
-export type SavePreliminaryReportZambdaOutput = Record<string, never>;
+export type SaveRadiologyReportZambdaOutput = Record<string, never>;
 
 export interface SendForFinalReadZambdaInput {
   serviceRequestId: string;

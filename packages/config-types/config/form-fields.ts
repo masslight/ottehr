@@ -17,14 +17,14 @@ export type { FormFieldTrigger } from './questionnaire';
 export const DynamicPopulationSchema = z.object({
   sourceLinkId: z.string(),
   // currently only supporting population when disabled
-  triggerState: z.literal('disabled').optional().default('disabled'),
+  triggerState: z.literal('disabled').optional(),
 });
 
 export type DynamicPopulation = z.infer<typeof DynamicPopulationSchema>;
 
 /**
  * ReferenceDataSource - Configuration for loading reference data
- * Either answerSource (FHIR query) or valueSet must be provided
+ * Either answerSource (dynamic Zambda call) or valueSet must be provided
  */
 export const ReferenceDataSourceSchema = z
   .object({
@@ -49,7 +49,7 @@ export type ReferenceDataSource = z.infer<typeof ReferenceDataSourceSchema>;
 export const FormFieldsLogicalFieldSchema = z.object({
   key: z.string(),
   type: z.enum(['string', 'date', 'boolean', 'choice', 'open-choice']),
-  required: z.boolean().optional().default(true),
+  required: z.boolean().optional(),
   dataType: QuestionnaireDataTypeSchema.optional(),
   initialValue: z.union([z.string(), z.boolean()]).optional(),
   options: z.array(FormFieldOptionSchema).optional(),
@@ -67,8 +67,8 @@ export const FormFieldsDisplayFieldSchema = z.object({
   element: z.enum(['h3', 'h4', 'p']).optional(),
   dataType: QuestionnaireDataTypeSchema.optional(),
   triggers: z.array(FormFieldTriggerSchema).optional(),
-  enableBehavior: z.enum(['all', 'any']).default('any').optional(),
-  disabledDisplay: z.literal('hidden').optional().default('hidden'),
+  enableBehavior: z.enum(['all', 'any']).optional(),
+  disabledDisplay: z.literal('hidden').optional(),
 });
 
 export type FormFieldsDisplayItem = z.infer<typeof FormFieldsDisplayFieldSchema>;
@@ -86,8 +86,8 @@ export const FormFieldsValueTypeBaseSchema = z.object({
   dataSource: ReferenceDataSourceSchema.optional(),
   triggers: z.array(FormFieldTriggerSchema).optional(),
   dynamicPopulation: DynamicPopulationSchema.optional(),
-  enableBehavior: z.enum(['all', 'any']).default('any').optional(),
-  disabledDisplay: z.enum(['hidden', 'disabled']).default('hidden'),
+  enableBehavior: z.enum(['all', 'any']).optional(),
+  disabledDisplay: z.enum(['hidden', 'disabled', 'protected']).optional(),
   initialValue: z.union([z.string(), z.boolean()]).optional(),
   inputWidth: z.enum(['s', 'm', 'l']).optional(),
   autocomplete: z.string().optional(),
@@ -99,6 +99,20 @@ export const FormFieldsValueTypeBaseSchema = z.object({
   customLinkId: z.string().optional(),
   categoryTag: z.string().optional(),
   alwaysFilter: z.boolean().optional(),
+  answerDisplayFilters: z
+    .array(
+      z.object({
+        conditions: z.array(
+          z.object({
+            question: z.string(),
+            operator: z.string(),
+            answer: z.string(),
+          })
+        ),
+        includeValues: z.array(z.string()),
+      })
+    )
+    .optional(),
 });
 
 /**
@@ -168,7 +182,6 @@ export type FormFieldsGroupItem = {
 /**
  * FormFieldsGroupField - Nested group of fields (recursive)
  * Uses z.lazy() to handle recursive structure
- * Input type is 'unknown' since .default() modifiers make input types differ from output
  */
 export const FormFieldsGroupFieldSchema: z.ZodType<FormFieldsGroupItem, z.ZodTypeDef, unknown> = z.lazy(() =>
   z.object({
@@ -186,13 +199,13 @@ export const FormFieldsGroupFieldSchema: z.ZodType<FormFieldsGroupItem, z.ZodTyp
     ),
     requiredFields: z.array(z.string()).optional(),
     triggers: z.array(FormFieldTriggerSchema).optional(),
-    enableBehavior: z.enum(['all', 'any']).default('any').optional(),
+    enableBehavior: z.enum(['all', 'any']).optional(),
     extension: z.array(z.any()).optional(),
     customLinkId: z.string().optional(),
     categoryTag: z.string().optional(),
     acceptsMultipleAnswers: z.boolean().optional(),
     groupType: z.enum(['list-with-form', 'pharmacy-collection']).optional(),
-    disabledDisplay: z.literal('hidden').optional().default('hidden'),
+    disabledDisplay: z.literal('hidden').optional(),
   })
 ) as z.ZodType<FormFieldsGroupItem, z.ZodTypeDef, unknown>;
 

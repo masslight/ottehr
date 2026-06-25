@@ -11,8 +11,8 @@ import {
 } from 'utils';
 import {
   checkOrCreateM2MClientToken,
-  createOystehrClient,
-  sendErrors,
+  createClinicalOystehrClient,
+  sendSmsToRelatedPersons,
   topLevelCatch,
   wrapHandler,
   ZambdaInput,
@@ -37,41 +37,56 @@ export const getDocReferenceIDFromFocus = (task: Task): string => {
 
 export const sendText = async (
   message: string,
-  fhirRelatedPerson: RelatedPerson,
+  fhirRelatedPersons: RelatedPerson[],
   oystehrToken: string,
   secrets: Secrets | null
 ): Promise<{ taskStatus: TaskStatus; statusReason: string | undefined }> => {
-  let taskStatus: TaskStatus, statusReason: string | undefined;
-  const smsNumber = getSMSNumberForIndividual(fhirRelatedPerson);
-  if (smsNumber) {
-    console.log('sending message to', smsNumber);
-    const messageRecipient = `RelatedPerson/${fhirRelatedPerson.id}`;
-    const oystehr = createOystehrClientUtils(
-      oystehrToken,
-      getSecret(SecretsKeys.FHIR_API, secrets),
-      getSecret(SecretsKeys.PROJECT_API, secrets)
-    );
-    try {
-      const result = await oystehr.transactionalSMS.send({
-        message,
-        resource: messageRecipient,
-      });
-      console.log('send SMS result', result);
-      taskStatus = 'completed';
-      statusReason = 'text sent successfully';
-    } catch (e) {
-      console.log('message send error: ', JSON.stringify(e));
-      const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, secrets);
-      void sendErrors(e, ENVIRONMENT);
-      taskStatus = 'failed';
-      statusReason = `failed to send text to ${smsNumber}`;
+  const reachable = fhirRelatedPersons.filter((rp) => {
+    const smsNumber = getSMSNumberForIndividual(rp);
+    if (!smsNumber) {
+      console.log(`Could not find sms number for RelatedPerson/${rp.id}; skipping`);
+      return false;
     }
-  } else {
-    taskStatus = 'failed';
-    statusReason = `could not retrieve sms number for related person ${fhirRelatedPerson.id}`;
-    console.log('Could not find sms number. Skipping sending text');
+    return true;
+  });
+
+  if (!reachable.length) {
+    return {
+      taskStatus: 'failed',
+      statusReason: 'no sms numbers resolved from user-relatedpersons',
+    };
   }
-  return { taskStatus, statusReason };
+
+  const oystehr = createOystehrClientUtils(
+    oystehrToken,
+    getSecret(SecretsKeys.FHIR_API, secrets),
+    getSecret(SecretsKeys.PROJECT_API, secrets)
+  );
+
+  try {
+    const { total, sent, failures } = await sendSmsToRelatedPersons({
+      relatedPersons: reachable,
+      message,
+      oystehr,
+      env: getSecret(SecretsKeys.ENVIRONMENT, secrets),
+    });
+    return {
+      taskStatus: 'completed',
+      statusReason:
+        failures.length === 0
+          ? `text sent to ${total} recipient(s)`
+          : `text sent to ${sent}/${total} recipient(s); failed: ${failures.map((f) => f.recipient).join(', ')}`,
+    };
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : JSON.stringify(error);
+    console.error('sendSmsToRelatedPersons threw:', error);
+    return {
+      taskStatus: 'failed',
+      statusReason: `failed to send text to any of ${reachable
+        .map((rp) => `RelatedPerson/${rp.id}`)
+        .join(', ')}: ${detail}`,
+    };
+  }
 };
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
@@ -99,7 +114,7 @@ export function wrapTaskHandler(
       taskId = taskIdParam;
       ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
       oystehrToken = await checkOrCreateM2MClientToken(oystehrToken, input.secrets);
-      oystehr = createOystehrClient(oystehrToken, input.secrets);
+      oystehr = createClinicalOystehrClient(oystehrToken, input.secrets);
     } catch (error) {
       console.log('Error validating request parameters:', error);
       return topLevelCatch(zambdaName, error, getSecret(SecretsKeys.ENVIRONMENT, input.secrets));
@@ -131,7 +146,8 @@ export function wrapTaskHandler(
       };
     } catch (error: any) {
       try {
-        await markTaskFailed(taskId, oystehr, JSON.stringify(error), options.retry);
+        const errorMessage = error instanceof Error ? error.message : JSON.stringify(error);
+        await markTaskFailed(taskId, oystehr, errorMessage, options.retry);
       } catch (patchError) {
         console.error('Error patching task status in top level catch:', patchError);
       }

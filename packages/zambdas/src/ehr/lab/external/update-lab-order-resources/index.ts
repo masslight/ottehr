@@ -20,17 +20,14 @@ import {
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
-  DYMO_30334_LABEL_CONFIG,
-  getAccountNumberFromLocationAndOrganization,
   getFullestAvailableName,
   getOrderNumber,
   getPatchBinary,
-  getPatientFirstName,
-  getPatientLastName,
   getSecret,
   getTestNameFromDr,
   isPSCOrder,
   LAB_ORDER_UPDATE_RESOURCES_EVENTS,
+  makeExternalLabLabelConfig,
   PROVENANCE_ACTIVITY_CODING_ENTITY,
   SaveOrderCollectionData,
   Secrets,
@@ -39,15 +36,14 @@ import {
 } from 'utils';
 import {
   checkOrCreateM2MClientToken,
-  createOystehrClient,
+  createClinicalOystehrClient,
   getMyPractitionerId,
   sendErrors,
   sendOrderResultEmailToPatient,
-  topLevelCatch,
   wrapHandler,
   ZambdaInput,
 } from '../../../../shared';
-import { createExternalLabsLabelPDF, ExternalLabsLabelConfig } from '../../../../shared/pdf/external-labs-label-pdf';
+import { createExternalLabsLabelPDF } from '../../../../shared/pdf/external-labs-label-pdf';
 import {
   createExternalLabResultPDF,
   createExternalLabResultPDFBasedOnDr,
@@ -88,142 +84,138 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     };
   }
 
-  try {
-    secrets = validatedParameters.secrets;
+  secrets = validatedParameters.secrets;
 
-    console.log('validateRequestParameters success');
+  console.log('validateRequestParameters success');
 
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
-    const oystehrCurrentUser = createOystehrClient(validatedParameters.userToken, validatedParameters.secrets);
-    const practitionerIdFromCurrentUser = await getMyPractitionerId(oystehrCurrentUser);
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
+  const practitionerIdFromCurrentUser = await getMyPractitionerId(
+    validatedParameters.userToken,
+    validatedParameters.secrets
+  );
 
-    switch (validatedParameters.event) {
-      case 'reviewed': {
-        const { taskId, serviceRequestId, diagnosticReportId } = validatedParameters;
+  switch (validatedParameters.event) {
+    case 'reviewed': {
+      const { taskId, serviceRequestId, diagnosticReportId } = validatedParameters;
 
-        const updateTransactionRequest = await handleReviewedEvent({
-          oystehr,
-          practitionerIdFromCurrentUser,
-          taskId,
-          serviceRequestId,
-          diagnosticReportId,
-          secrets,
-        });
+      const updateTransactionRequest = await handleReviewedEvent({
+        oystehr,
+        practitionerIdFromCurrentUser,
+        taskId,
+        serviceRequestId,
+        diagnosticReportId,
+        secrets,
+      });
 
-        return {
-          statusCode: 200,
-          body: JSON.stringify({
-            message: `Successfully updated Task/${taskId}. Status set to 'completed' and Practitioner set.`,
-            transaction: updateTransactionRequest,
-          }),
-        };
-      }
-      case 'specimenDateChanged': {
-        const { serviceRequestId, specimenId, date } = validatedParameters;
-
-        const updateTransactionRequest = await handleSpecimenDateChangedEvent({
-          oystehr,
-          serviceRequestId,
-          specimenId,
-          date,
-          practitionerIdFromCurrentUser,
-        });
-
-        return {
-          statusCode: 200,
-          body: JSON.stringify({
-            message: `Successfully updated Specimen/${specimenId}. Date set to '${date}'.`,
-            transaction: updateTransactionRequest,
-          }),
-        };
-      }
-      case 'saveOrderCollectionData': {
-        const { serviceRequestId, data, specimenCollectionDates, userTimezone } = validatedParameters;
-        const { presignedLabelURL } = await handleSaveCollectionData(
-          oystehr,
-          m2mToken,
-          secrets,
-          practitionerIdFromCurrentUser,
-          {
-            serviceRequestId,
-            data,
-            specimenCollectionDates,
-            userTimezone,
-          }
-        );
-
-        return {
-          statusCode: 200,
-          body: JSON.stringify({
-            message: `Successfully updated saved order collection data`,
-            presignedLabelURL,
-          }),
-        };
-      }
-      case LAB_ORDER_UPDATE_RESOURCES_EVENTS.cancelUnsolicitedResultTask: {
-        console.log('handling cancel task to match unsolicited result');
-        const { taskId } = validatedParameters;
-        await handleRejectedUnsolicitedResult({ oystehr, taskId });
-        return {
-          statusCode: 200,
-          body: JSON.stringify({
-            message: `Successfully cancelled match unsolicited result task with id ${taskId}`,
-          }),
-        };
-      }
-      case LAB_ORDER_UPDATE_RESOURCES_EVENTS.matchUnsolicitedResult: {
-        const { taskId, diagnosticReportId, srToMatchId, patientToMatchId } = validatedParameters;
-        console.log('handling match unsolicited result');
-        await handleMatchUnsolicitedRequest({
-          oystehr,
-          taskId,
-          diagnosticReportId,
-          srToMatchId,
-          patientToMatchId,
-          practitionerIdFromCurrentUser,
-        });
-        return {
-          statusCode: 200,
-          body: JSON.stringify({
-            message: `Successfully matched unsolicited result`,
-          }),
-        };
-      }
-      case LAB_ORDER_UPDATE_RESOURCES_EVENTS.rejectedAbn: {
-        const { serviceRequestId } = validatedParameters;
-        console.log('handling rejected abn');
-        await handleRejectedAbn({ oystehr, serviceRequestId, practitionerIdFromCurrentUser });
-        return {
-          statusCode: 200,
-          body: JSON.stringify({
-            message: `Successfully revoked sr for lab with rejected abn`,
-          }),
-        };
-      }
-      case LAB_ORDER_UPDATE_RESOURCES_EVENTS.addOrderLevelNote:
-      case LAB_ORDER_UPDATE_RESOURCES_EVENTS.updateOrderLevelNote: {
-        const { requisitionNumber, note, event } = validatedParameters;
-        const actionWord = event === LAB_ORDER_UPDATE_RESOURCES_EVENTS.addOrderLevelNote ? 'created' : 'updated';
-        if (event === LAB_ORDER_UPDATE_RESOURCES_EVENTS.addOrderLevelNote) {
-          console.log('handling add order level note');
-          await handleAddOrderLevelNote({ oystehr, requisitionNumber, note });
-        } else if (event === LAB_ORDER_UPDATE_RESOURCES_EVENTS.updateOrderLevelNote) {
-          console.log('handling update order level note');
-          await handleUpdateOrderLevelNote({ oystehr, requisitionNumber, note });
-        }
-        return {
-          statusCode: 200,
-          body: JSON.stringify({
-            message: `Successfully ${actionWord} order level note communication`,
-          }),
-        };
-      }
+      return {
+        statusCode: 200,
+        body: JSON.stringify({
+          message: `Successfully updated Task/${taskId}. Status set to 'completed' and Practitioner set.`,
+          transaction: updateTransactionRequest,
+        }),
+      };
     }
-  } catch (error: any) {
-    console.error('Error updating external lab order resource:', error);
-    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    return topLevelCatch('update-lab-order-resources', error, ENVIRONMENT);
+    case 'specimenDateChanged': {
+      const { serviceRequestId, specimenId, date } = validatedParameters;
+
+      const updateTransactionRequest = await handleSpecimenDateChangedEvent({
+        oystehr,
+        serviceRequestId,
+        specimenId,
+        date,
+        practitionerIdFromCurrentUser,
+      });
+
+      return {
+        statusCode: 200,
+        body: JSON.stringify({
+          message: `Successfully updated Specimen/${specimenId}. Date set to '${date}'.`,
+          transaction: updateTransactionRequest,
+        }),
+      };
+    }
+    case 'saveOrderCollectionData': {
+      const { serviceRequestId, data, specimenCollectionDates, userTimezone } = validatedParameters;
+      const { presignedLabelURL } = await handleSaveCollectionData(
+        oystehr,
+        m2mToken,
+        secrets,
+        practitionerIdFromCurrentUser,
+        {
+          serviceRequestId,
+          data,
+          specimenCollectionDates,
+          userTimezone,
+        }
+      );
+
+      return {
+        statusCode: 200,
+        body: JSON.stringify({
+          message: `Successfully updated saved order collection data`,
+          presignedLabelURL,
+        }),
+      };
+    }
+    case LAB_ORDER_UPDATE_RESOURCES_EVENTS.cancelUnsolicitedResultTask: {
+      console.log('handling cancel task to match unsolicited result');
+      const { taskId } = validatedParameters;
+      await handleRejectedUnsolicitedResult({ oystehr, taskId });
+      return {
+        statusCode: 200,
+        body: JSON.stringify({
+          message: `Successfully cancelled match unsolicited result task with id ${taskId}`,
+        }),
+      };
+    }
+    case LAB_ORDER_UPDATE_RESOURCES_EVENTS.matchUnsolicitedResult: {
+      const { taskId, diagnosticReportId, srToMatchId, patientToMatchId } = validatedParameters;
+      console.log('handling match unsolicited result');
+      await handleMatchUnsolicitedRequest({
+        oystehr,
+        taskId,
+        diagnosticReportId,
+        srToMatchId,
+        patientToMatchId,
+        practitionerIdFromCurrentUser,
+      });
+      return {
+        statusCode: 200,
+        body: JSON.stringify({
+          message: `Successfully matched unsolicited result`,
+        }),
+      };
+    }
+    case LAB_ORDER_UPDATE_RESOURCES_EVENTS.rejectedAbn: {
+      const { serviceRequestId } = validatedParameters;
+      console.log('handling rejected abn');
+      await handleRejectedAbn({ oystehr, serviceRequestId, practitionerIdFromCurrentUser });
+      return {
+        statusCode: 200,
+        body: JSON.stringify({
+          message: `Successfully revoked sr for lab with rejected abn`,
+        }),
+      };
+    }
+    case LAB_ORDER_UPDATE_RESOURCES_EVENTS.addOrderLevelNote:
+    case LAB_ORDER_UPDATE_RESOURCES_EVENTS.updateOrderLevelNote: {
+      const { requisitionNumber, note, event } = validatedParameters;
+      const actionWord = event === LAB_ORDER_UPDATE_RESOURCES_EVENTS.addOrderLevelNote ? 'created' : 'updated';
+      if (event === LAB_ORDER_UPDATE_RESOURCES_EVENTS.addOrderLevelNote) {
+        console.log('handling add order level note');
+        await handleAddOrderLevelNote({ oystehr, requisitionNumber, note });
+      } else if (event === LAB_ORDER_UPDATE_RESOURCES_EVENTS.updateOrderLevelNote) {
+        console.log('handling update order level note');
+        await handleUpdateOrderLevelNote({ oystehr, requisitionNumber, note });
+      }
+      return {
+        statusCode: 200,
+        body: JSON.stringify({
+          message: `Successfully ${actionWord} order level note communication`,
+        }),
+      };
+    }
   }
 });
 
@@ -312,12 +304,6 @@ const handleReviewedEvent = async ({
     throw new Error(`ServiceRequest/${serviceRequestId} not found for diagnostic report, ${diagnosticReportId}`);
   }
 
-  const observationId = diagnosticReport.result?.[0]?.reference?.split('/').pop();
-
-  if (!observationId) {
-    throw new Error(`Observation Id not found in DiagnosticReport/${diagnosticReportId}`);
-  }
-
   let location: Location | undefined;
   const locationReference = serviceRequest?.locationReference?.[0];
   if (locationReference) {
@@ -333,13 +319,25 @@ const handleReviewedEvent = async ({
 
   const tempProvenanceUuid = `urn:uuid:${crypto.randomUUID()}`;
 
-  const target: Reference[] = [
-    { reference: `DiagnosticReport/${diagnosticReport.id}` },
-    { reference: `Observation/${observationId}` },
-  ];
+  const observationId = diagnosticReport.result?.[0]?.reference?.split('/').pop();
+
+  if (!observationId) {
+    console.warn(
+      `Observation Id not found in DiagnosticReport/${diagnosticReportId}. Will not add to provenance target`
+    );
+    await sendErrors(
+      `Observation Id not found in DiagnosticReport/${diagnosticReportId}. Ensure HL7 corroborates that`,
+      getSecret(SecretsKeys.ENVIRONMENT, secrets)
+    );
+  }
+
+  const target: Reference[] = [{ reference: `DiagnosticReport/${diagnosticReport.id}` }];
+  if (observationId) target.push({ reference: `Observation/${observationId}` });
   if (serviceRequest) {
     target.push({ reference: `ServiceRequest/${serviceRequest.id}` });
   }
+
+  console.log('Provenance target is: ', JSON.stringify(target));
 
   const provenanceRequest: BatchInputPostRequest<Provenance> = {
     method: 'POST',
@@ -439,6 +437,7 @@ const handleReviewedEvent = async ({
         fhirPatient: patient,
         emailDetails: { orderType: 'lab', testName, visitDate, appointmentId: appointment?.id || '', locationName },
         secrets,
+        oystehr,
       });
     } catch (e) {
       const errorMessage = `Error sending the patient alert to review lab results, ${e}`;
@@ -558,7 +557,7 @@ const handleSaveCollectionData = async (
     requests.push(qrPatchRequest);
   }
 
-  let presignedLabelURL: string | undefined = undefined;
+  let presignedLabelPdfUrl: string | undefined = undefined;
   // update pst task to complete, add agent and relevant history (provenance created)
   // and create provenance with activity PROVENANCE_ACTIVITY_CODING_ENTITY.completePstTask
   const pstCompletedRequests = await makePstCompletePatchRequests(
@@ -572,33 +571,32 @@ const handleSaveCollectionData = async (
 
   // make specimen label
   if (!isPSCOrder(serviceRequest)) {
-    const labelConfig: ExternalLabsLabelConfig = {
-      labelConfig: DYMO_30334_LABEL_CONFIG,
-      content: {
-        patientId: patient.id!,
-        patientFirstName: getPatientFirstName(patient) ?? '',
-        patientLastName: getPatientLastName(patient) ?? '',
-        patientDateOfBirth: patient.birthDate ? DateTime.fromISO(patient.birthDate) : undefined,
-        sampleCollectionDateAndTimezone: mostRecentSampleCollectionDate
-          ? {
-              sampleCollectionDate: mostRecentSampleCollectionDate,
-              timezone: userTimezone,
-            }
-          : undefined,
-        orderNumber: orderNumber,
-        accountNumber:
-          (labOrganization && location && getAccountNumberFromLocationAndOrganization(location, labOrganization)) || '',
-      },
-    };
+    const labelConfig = makeExternalLabLabelConfig({
+      patient,
+      orderNumber,
+      location,
+      labOrganization,
+      specimenCollectionDateTime: mostRecentSampleCollectionDate,
+      userTimezone,
+      serviceRequest,
+    });
 
     console.log('creating labs order label and getting url');
-    presignedLabelURL = (
-      await createExternalLabsLabelPDF(labelConfig, encounter.id!, serviceRequest.id!, secrets, m2mToken, oystehr)
+    presignedLabelPdfUrl = (
+      await createExternalLabsLabelPDF(
+        labelConfig,
+        patient.id!,
+        encounter.id!,
+        serviceRequest.id!,
+        secrets,
+        m2mToken,
+        oystehr
+      )
     ).presignedURL;
   }
 
   console.log('making fhir requests');
   await oystehr.fhir.transaction({ requests });
 
-  return { presignedLabelURL };
+  return { presignedLabelURL: presignedLabelPdfUrl };
 };

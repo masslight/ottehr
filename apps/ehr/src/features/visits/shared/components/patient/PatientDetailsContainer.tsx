@@ -5,14 +5,24 @@ import { Row, Section } from 'src/components/layout';
 import { PATIENT_RECORD_CONFIG } from 'utils';
 import PatientRecordFormField from './PatientRecordFormField';
 import { usePatientRecordFormSection } from './PatientRecordFormSection';
+import { SectionSaveButton } from './SectionSaveButton';
 import ShowMoreButton from './ShowMoreButton';
 
 const patientDetailsSection = PATIENT_RECORD_CONFIG.FormFields.patientDetails;
+const FIELD_KEYS = Object.values(patientDetailsSection.items).map((item) => item.key);
+
 interface PatientDetailsContainerProps {
   patient: Patient;
   isLoading: boolean;
+  patientId?: string;
+  encounterId?: string;
 }
-export const PatientDetailsContainer: FC<PatientDetailsContainerProps> = ({ patient, isLoading }) => {
+export const PatientDetailsContainer: FC<PatientDetailsContainerProps> = ({
+  patient,
+  isLoading,
+  patientId,
+  encounterId,
+}) => {
   const {
     items: FormFields,
     hiddenFields,
@@ -25,7 +35,10 @@ export const PatientDetailsContainer: FC<PatientDetailsContainerProps> = ({ pati
 
   const previousNames = patient.name?.filter((name) => name.use === 'old').reverse() || [];
   return (
-    <Section title="Patient details">
+    <Section
+      title="Patient details"
+      titleWidget={<SectionSaveButton fieldKeys={FIELD_KEYS} patientId={patientId} encounterId={encounterId} />}
+    >
       <Row label="Previous name">
         {previousNames.length > 0 ? (
           <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 1, width: '100%' }}>

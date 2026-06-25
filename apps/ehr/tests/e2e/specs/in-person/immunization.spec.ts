@@ -1,5 +1,6 @@
 import { Page, test } from '@playwright/test';
 import { DateTime } from 'luxon';
+import { waitForSaveChartDataResponse } from 'test-utils';
 import {
   expectEditVaccineOrderPage,
   openCreateVaccineOrderPage,
@@ -22,6 +23,8 @@ interface VaccineInfo {
   route: string;
   location: string;
   instructions: string;
+  manufacturer: string;
+  associatedDx: string;
 }
 
 interface AdministrationDetails {
@@ -39,28 +42,33 @@ interface AdministrationDetails {
   mobile: string;
 }
 
-const firstAvailableVaccine =
-  vaccines.fhirResources[Object.keys(vaccines.fhirResources)[0] as keyof typeof vaccines.fhirResources];
+const vaccine =
+  vaccines.fhirResources[Object.keys(vaccines.fhirResources)[0] as keyof typeof vaccines.fhirResources]?.resource
+    .identifier[1].value;
 
-const secondAvailableVaccine =
-  vaccines.fhirResources[Object.keys(vaccines.fhirResources)[1] as keyof typeof vaccines.fhirResources];
+const DIAGNOSIS_CODE_ONE = 'J45.901';
+const DIAGNOSIS_CODE_TWO = 'J45.991';
 
-const VACCINE_A: VaccineInfo = {
-  vaccine: firstAvailableVaccine?.resource.identifier[1].value,
+const VACCINE: VaccineInfo = {
+  vaccine,
   dose: '0.5',
   units: 'mg',
   route: medicationApplianceRoutes.BODY_CAVITY.display!,
   location: medicationApplianceLocations[0].name!,
   instructions: 'test vaccine instructions',
+  manufacturer: 'example',
+  associatedDx: DIAGNOSIS_CODE_ONE,
 };
 
-const VACCINE_B: VaccineInfo = {
-  vaccine: secondAvailableVaccine?.resource.identifier[1].value,
+const EDITED_VACCINE: VaccineInfo = {
+  vaccine,
   dose: '1',
   units: 'mL',
   route: medicationApplianceRoutes.CAUDAL.display!,
   location: medicationApplianceLocations[1].name!,
   instructions: 'test vaccine instructions edited',
+  manufacturer: 'example edited',
+  associatedDx: DIAGNOSIS_CODE_TWO,
 };
 
 const ADMINISTRATION_DETAILS: AdministrationDetails = {
@@ -88,10 +96,13 @@ const PATIENT_REFUSED = 'Patient refused';
 const resourceHandler = new ResourceHandler(`immunization-mutating-${DateTime.now().toMillis()}`);
 
 test.describe('Immunization Page mutating tests', () => {
+  test.skip(!Object.keys(vaccines.fhirResources).length, 'Need vaccines to run immunization tests');
+
   test.beforeEach(async ({ page }) => {
     await resourceHandler.setResources();
     await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!);
     await setupPractitioners(page);
+    await setupDiagnosis(page);
   });
 
   test.afterEach(async () => {
@@ -101,43 +112,43 @@ test.describe('Immunization Page mutating tests', () => {
   test('Immunization create, edit and delete order happy path', async ({ page }) => {
     await test.step('Create a vaccine order and verify', async () => {
       const createOrderPage = await openCreateVaccineOrderPage(resourceHandler.appointment.id!, page);
-      await enterVaccineInfo(VACCINE_A, createOrderPage.orderDetailsSection);
+      await enterVaccineInfo(VACCINE, createOrderPage.orderDetailsSection);
       await createOrderPage.orderDetailsSection.verifyOrderedBy(await getCurrentPractitionerName());
       await createOrderPage.clickConfirmationButton();
       await openImmunizationPage(resourceHandler.appointment.id!, page);
       const marTab = await expectMarTab(page);
       await marTab.verifyVaccinePresent({
-        ...VACCINE_A,
+        ...VACCINE,
         orderedPerson: await getCurrentPractitionerName(),
         status: PENDING,
       });
-      const editOrderPage = await marTab.clickEditOrderButton(VACCINE_A.vaccine);
-      await verifyVaccineInfo(VACCINE_A, editOrderPage.orderDetailsSection);
+      const editOrderPage = await marTab.clickEditOrderButton(VACCINE.vaccine);
+      await verifyVaccineInfo(VACCINE, editOrderPage.orderDetailsSection);
     });
 
     await test.step('Edit vaccine order and verify', async () => {
       let editOrderPage = await expectEditVaccineOrderPage(page);
-      await enterVaccineInfo(VACCINE_B, editOrderPage.orderDetailsSection);
+      await enterVaccineInfo(EDITED_VACCINE, editOrderPage.orderDetailsSection);
       await editOrderPage.clickConfirmationButton();
       await openImmunizationPage(resourceHandler.appointment.id!, page);
       const marTab = await expectMarTab(page);
       await marTab.verifyVaccinePresent({
-        ...VACCINE_B,
+        ...EDITED_VACCINE,
         status: PENDING,
       });
-      editOrderPage = await marTab.clickEditOrderButton(VACCINE_B.vaccine);
-      await verifyVaccineInfo(VACCINE_B, editOrderPage.orderDetailsSection);
+      editOrderPage = await marTab.clickEditOrderButton(EDITED_VACCINE.vaccine);
+      await verifyVaccineInfo(EDITED_VACCINE, editOrderPage.orderDetailsSection);
     });
 
     await test.step('Delete the order and verify', async () => {
       await openImmunizationPage(resourceHandler.appointment.id!, page);
       const marTab = await expectMarTab(page);
-      const deleteDialog = await marTab.clickDeleteButton(VACCINE_B.vaccine);
-      await deleteDialog.verifyTitle('Delete vaccine order');
-      await deleteDialog.verifyMessage('Are you sure you want to delete the vaccine order?');
+      const deleteDialog = await marTab.clickDeleteButton(EDITED_VACCINE.vaccine);
+      await deleteDialog.verifyTitle('Delete immunization order');
+      await deleteDialog.verifyMessage('Are you sure you want to delete the immunization order?');
       await deleteDialog.clickProceedButton();
       await marTab.verifyVaccinePresent({
-        ...VACCINE_B,
+        ...EDITED_VACCINE,
         status: CANCELLED,
       });
     });
@@ -149,14 +160,14 @@ test.describe('Immunization Page mutating tests', () => {
       const administrationConfirmationDialog = await vaccineDetailsTab.clickAdministeredButton();
       await administrationConfirmationDialog.verifyTitle('Order Administered');
       await administrationConfirmationDialog.verifyPatientName(resourceHandler.patient);
-      await administrationConfirmationDialog.verifyVaccine(VACCINE_A);
+      await administrationConfirmationDialog.verifyVaccine(VACCINE);
       await administrationConfirmationDialog.verifyMessage(
         'Please confirm that you want to mark this immunization order as Administered.'
       );
       await administrationConfirmationDialog.clickMarkAsAdministeredButton();
       const marTab = await vaccineDetailsTab.clickMarTab();
       await marTab.verifyVaccinePresent({
-        ...VACCINE_A,
+        ...VACCINE,
         givenPerson: await getCurrentPractitionerName(),
         status: ADMINISTERED,
       });
@@ -164,7 +175,7 @@ test.describe('Immunization Page mutating tests', () => {
 
     await test.step('Verify immunization details on progress note', async () => {
       const progressNotePage = await openInPersonProgressNotePage(resourceHandler.appointment.id!, page);
-      await progressNotePage.verifyVaccine(VACCINE_A);
+      await progressNotePage.verifyVaccine(VACCINE);
     });
   });
 
@@ -174,7 +185,7 @@ test.describe('Immunization Page mutating tests', () => {
       const administrationConfirmationDialog = await vaccineDetailsTab.clickPartlyAdministeredButton();
       await administrationConfirmationDialog.verifyTitle('Order Partly Administered');
       await administrationConfirmationDialog.verifyPatientName(resourceHandler.patient);
-      await administrationConfirmationDialog.verifyVaccine(VACCINE_A);
+      await administrationConfirmationDialog.verifyVaccine(VACCINE);
       await administrationConfirmationDialog.verifyMessage(
         'Please confirm that you want to mark this immunization order as Partly Administered and select the reason.'
       );
@@ -182,7 +193,7 @@ test.describe('Immunization Page mutating tests', () => {
       await administrationConfirmationDialog.clickMarkAsAdministeredButton();
       const marTab = await vaccineDetailsTab.clickMarTab();
       await marTab.verifyVaccinePresent({
-        ...VACCINE_A,
+        ...VACCINE,
         givenPerson: await getCurrentPractitionerName(),
         status: PARTLY_ADMINISTERED,
         reason: PATIENT_REFUSED,
@@ -191,7 +202,7 @@ test.describe('Immunization Page mutating tests', () => {
 
     await test.step('Verify immunization details on progress note', async () => {
       const progressNotePage = await openInPersonProgressNotePage(resourceHandler.appointment.id!, page);
-      await progressNotePage.verifyVaccine(VACCINE_A);
+      await progressNotePage.verifyVaccine(VACCINE);
     });
   });
 
@@ -200,7 +211,7 @@ test.describe('Immunization Page mutating tests', () => {
     const administrationConfirmationDialog = await vaccineDetailsTab.clickNotAdministeredButton();
     await administrationConfirmationDialog.verifyTitle('Order Not Administered');
     await administrationConfirmationDialog.verifyPatientName(resourceHandler.patient);
-    await administrationConfirmationDialog.verifyVaccine(VACCINE_A);
+    await administrationConfirmationDialog.verifyVaccine(VACCINE);
     await administrationConfirmationDialog.verifyMessage(
       'Please confirm that you want to mark this immunization order as Not Administered and select the reason.'
     );
@@ -208,8 +219,7 @@ test.describe('Immunization Page mutating tests', () => {
     await administrationConfirmationDialog.clickMarkAsAdministeredButton();
     const marTab = await vaccineDetailsTab.clickMarTab();
     await marTab.verifyVaccinePresent({
-      ...VACCINE_A,
-      givenPerson: await getCurrentPractitionerName(),
+      ...VACCINE,
       status: NOT_ADMINISTERED,
       reason: PATIENT_REFUSED,
     });
@@ -225,6 +235,28 @@ test.describe('Immunization Page mutating tests', () => {
     await sideMenu.clickCcAndIntakeNotes();
   }
 
+  async function setupDiagnosis(page: Page): Promise<void> {
+    const sideMenu = new SideMenu(page);
+    const assessmentPage = await sideMenu.clickAssessment();
+    await assessmentPage.expectDiagnosisDropdown();
+    const firstDiagnosisSaved = waitForSaveChartDataResponse(
+      page,
+      (json) =>
+        json.chartData.diagnosis?.some((dx) => dx.code.toLowerCase().includes(DIAGNOSIS_CODE_ONE.toLowerCase())) ??
+        false
+    );
+    await assessmentPage.selectDiagnosis({ diagnosisCode: DIAGNOSIS_CODE_ONE });
+    await firstDiagnosisSaved;
+    const secondDiagnosisSaved = waitForSaveChartDataResponse(
+      page,
+      (json) =>
+        json.chartData.diagnosis?.some((dx) => dx.code.toLowerCase().includes(DIAGNOSIS_CODE_TWO.toLowerCase())) ??
+        false
+    );
+    await assessmentPage.selectDiagnosis({ diagnosisCode: DIAGNOSIS_CODE_TWO });
+    await secondDiagnosisSaved;
+  }
+
   async function enterVaccineInfo(vaccineInfo: VaccineInfo, orderDetailsSection: OrderDetailsSection): Promise<void> {
     await orderDetailsSection.selectVaccine(vaccineInfo.vaccine);
     await orderDetailsSection.enterDose(vaccineInfo.dose);
@@ -232,6 +264,8 @@ test.describe('Immunization Page mutating tests', () => {
     await orderDetailsSection.selectRoute(vaccineInfo.route);
     await orderDetailsSection.selectLocation(vaccineInfo.location);
     await orderDetailsSection.enterInstructions(vaccineInfo.instructions);
+    await orderDetailsSection.enterManufacturer(vaccineInfo.manufacturer);
+    await orderDetailsSection.selectAssociatedDx(vaccineInfo.associatedDx);
   }
 
   async function verifyVaccineInfo(vaccineInfo: VaccineInfo, orderDetailsSection: OrderDetailsSection): Promise<void> {
@@ -241,6 +275,8 @@ test.describe('Immunization Page mutating tests', () => {
     await orderDetailsSection.verifyRoute(vaccineInfo.route);
     await orderDetailsSection.verifyLocation(vaccineInfo.location);
     await orderDetailsSection.verifyInstructions(vaccineInfo.instructions);
+    await orderDetailsSection.verifyManufacturer(vaccineInfo.manufacturer);
+    await orderDetailsSection.verifyAssociatedDx(vaccineInfo.associatedDx);
   }
 
   async function enterAdministrationDetails(
@@ -269,11 +305,11 @@ test.describe('Immunization Page mutating tests', () => {
 
   async function createOrderForAdministration(page: Page): Promise<VaccineDetailsTab> {
     const createOrderPage = await openCreateVaccineOrderPage(resourceHandler.appointment.id!, page);
-    await enterVaccineInfo(VACCINE_A, createOrderPage.orderDetailsSection);
+    await enterVaccineInfo(VACCINE, createOrderPage.orderDetailsSection);
     await createOrderPage.clickConfirmationButton();
     const immunizationPage = await openImmunizationPage(resourceHandler.appointment.id!, page);
     const vaccineDetailsTab = await immunizationPage.clickVaccineDetailsTab();
-    await verifyVaccineInfo(VACCINE_A, vaccineDetailsTab.orderDetailsSection);
+    await verifyVaccineInfo(VACCINE, vaccineDetailsTab.orderDetailsSection);
     await enterAdministrationDetails(ADMINISTRATION_DETAILS, vaccineDetailsTab);
     return vaccineDetailsTab;
   }

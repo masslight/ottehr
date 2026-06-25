@@ -1,13 +1,17 @@
-import Oystehr, { TransactionalSMSSendParams } from '@oystehr/sdk';
+import Oystehr from '@oystehr/sdk';
 import sendgrid from '@sendgrid/mail';
-import { Appointment, Patient } from 'fhir/r4b';
+import { Communication, Location, Patient, RelatedPerson } from 'fhir/r4b';
 import {
   BRANDING_CONFIG,
+  buildLocationSupportPhonesMap,
   DynamicTemplateDataRecord,
   EmailTemplate,
   ErrorReportTemplateData,
+  FEATURE_FLAGS_CONFIG,
+  GenericOutreachTemplateData,
+  getAllFhirSearchPages,
   getPatientContactEmail,
-  getRelatedPersonForPatient,
+  getRelatedPersonsForPatient,
   getSecret,
   getSupportPhoneFor,
   InPersonCancelationTemplateData,
@@ -26,24 +30,7 @@ import {
   TelemedInvitationTemplateData,
 } from 'utils';
 import { sendErrors } from './errors';
-
-export async function getMessageRecipientForAppointment(
-  appointment: Appointment,
-  oystehr: Oystehr
-): Promise<Omit<TransactionalSMSSendParams, 'message'> | undefined> {
-  const patientId = appointment?.participant
-    .find((participantTemp) => participantTemp.actor?.reference?.startsWith('Patient/'))
-    ?.actor?.reference?.replace('Patient/', '');
-  const relatedPerson = await getRelatedPersonForPatient(patientId || '', oystehr);
-  if (relatedPerson) {
-    return {
-      resource: `RelatedPerson/${relatedPerson.id}`,
-    };
-  } else {
-    console.log(`No RelatedPerson found for patient ${patientId} not sending text message`);
-    return;
-  }
-}
+import { reportMissingUserRelatedPerson } from './invariants';
 
 export interface EmailAttachment {
   content: string; // Base64 encoded content
@@ -54,18 +41,29 @@ export interface EmailAttachment {
 }
 
 const defaultLowersFromEmail = 'ottehr-support@masslight.com'; // todo: change to support@ottehr.com when doing so does not land things in spam folder
+
+async function fetchLocationSupportPhonesMap(oystehr: Oystehr): Promise<Record<string, string>> {
+  const locations = await getAllFhirSearchPages<Location>({ resourceType: 'Location' }, oystehr);
+  return buildLocationSupportPhonesMap(locations);
+}
+
 class EmailClient {
   private config: SendgridConfig;
   private secrets: Secrets | null;
+  private featureFlag: boolean;
+  private oystehr?: Oystehr;
+  private supportPhonesMapPromise?: Promise<Record<string, string>>;
 
-  constructor(config: SendgridConfig, secrets: Secrets | null) {
+  constructor(config: SendgridConfig, featureFlag: boolean, secrets: Secrets | null, oystehr?: Oystehr) {
     this.config = config;
     this.secrets = secrets;
+    this.featureFlag = featureFlag;
+    this.oystehr = oystehr;
     let SENDGRID_SEND_EMAIL_API_KEY = '';
     try {
       SENDGRID_SEND_EMAIL_API_KEY = getSecret(SecretsKeys.SENDGRID_SEND_EMAIL_API_KEY, secrets);
     } catch {
-      if (!this.config.featureFlag) {
+      if (!this.featureFlag) {
         console.log(`${SENDGRID_SEND_EMAIL_API_KEY} not found but email sending is disabled, continuing`);
       } else {
         throw new Error('SendGrid Send Email API key is not set in secrets');
@@ -86,9 +84,9 @@ class EmailClient {
     const environmentSubjectPrepend = ENVIRONMENT === 'production' ? '' : `[${ENVIRONMENT}] `;
     let templateId = '';
     try {
-      templateId = getSecret(templateIdSecretName, this.secrets);
+      templateId = getSecret(templateIdSecretName, this.secrets).trim();
     } catch (error) {
-      if (!this.config.featureFlag || template.disabled) {
+      if (!this.featureFlag || template.disabled) {
         console.log(`${templateIdSecretName} not found but email sending is disabled, continuing`);
       } else {
         throw error;
@@ -103,7 +101,24 @@ class EmailClient {
     const projectDomain = getSecret(SecretsKeys.WEBSITE_URL, this.secrets);
 
     const { sender, replyTo: configReplyTo, ...emailRest } = baseEmail;
-    const supportPhoneNumber = getSupportPhoneFor((templateData as any).location);
+    const locationName = (templateData as any).location;
+    let supportPhoneNumber: string | undefined;
+    if (locationName) {
+      if (!this.oystehr) {
+        throw new Error(
+          `Email template ${templateIdSecretName} requires location support-phone resolution, but no Oystehr client was provided to EmailClient`
+        );
+      }
+      const oystehr = this.oystehr;
+      if (!this.supportPhonesMapPromise) {
+        this.supportPhonesMapPromise = fetchLocationSupportPhonesMap(oystehr).catch((err) => {
+          this.supportPhonesMapPromise = undefined;
+          throw err;
+        });
+      }
+      const supportPhonesMap = await this.supportPhonesMapPromise;
+      supportPhoneNumber = getSupportPhoneFor(locationName, supportPhonesMap);
+    }
 
     const fromEmail = ENVIRONMENT !== 'local' ? sender : defaultLowersFromEmail;
     const replyTo = ENVIRONMENT !== 'local' ? configReplyTo : defaultLowersFromEmail;
@@ -143,11 +158,9 @@ class EmailClient {
         }),
     };
 
-    const featureFlag = this.config.featureFlag;
-
-    if (!featureFlag || template.disabled) {
+    if (!this.featureFlag || template.disabled) {
       console.log('Email sending is disabled');
-      console.log(`featureFlag: ${featureFlag}, template.disabled: ${template.disabled}`);
+      console.log(`featureFlag: ${this.featureFlag}, template.disabled: ${template.disabled}`);
       console.log('Email input being swallowed: ', JSON.stringify(emailConfiguration, null, 2));
       return;
     } else {
@@ -162,14 +175,15 @@ class EmailClient {
         )}`
       );
     } catch (error) {
-      const errorMessage = `Error sending email ${templateIdSecretName} to ${to} (${projectName}})`;
+      const errorMessage = `Error sending email ${templateIdSecretName} to ${to} (${projectName})`;
       console.error(`${errorMessage}: ${error}`);
       void sendErrors(errorMessage, ENVIRONMENT);
+      throw error;
     }
   }
 
   getFeatureFlag(): boolean {
-    return this.config.featureFlag;
+    return this.featureFlag;
   }
 
   async sendErrorEmail(to: string | string[], templateData: ErrorReportTemplateData): Promise<void> {
@@ -242,10 +256,14 @@ class EmailClient {
   async sendOrderResultAlert(to: string | string[], templateData: OrderResultAlertTemplateData): Promise<void> {
     await this.sendEmail(to, this.config.templates.orderResultAlert, templateData);
   }
+
+  async sendGenericOutreachEmail(to: string | string[], templateData: GenericOutreachTemplateData): Promise<void> {
+    await this.sendEmail(to, this.config.templates.genericOutreach, templateData);
+  }
 }
 
-export const getEmailClient = (secrets: Secrets | null): EmailClient => {
-  return new EmailClient(SENDGRID_CONFIG, secrets);
+export const getEmailClient = (secrets: Secrets | null, oystehr?: Oystehr): EmailClient => {
+  return new EmailClient(SENDGRID_CONFIG, FEATURE_FLAGS_CONFIG.sendgridEnabled, secrets, oystehr);
 };
 
 export async function sendSms(
@@ -266,23 +284,112 @@ export async function sendSms(
   }
 }
 
+/**
+ * How `sendSmsToRelatedPersons` reacts to per-recipient send failures:
+ * - `'all'`          — throw if ANY recipient fails.
+ * - `'partial-ok'`   — (default) throw only if EVERY recipient fails; partial success is OK.
+ * - `'never-throw'`  — never throw. Failures are still routed to Sentry via `sendErrors`.
+ */
+export type SmsFanoutFailStrategy = 'all' | 'partial-ok' | 'never-throw';
+
+export interface SendSmsToRelatedPersonsInput {
+  relatedPersons: RelatedPerson[];
+  message: string;
+  oystehr: Oystehr;
+  env: string;
+  failStrategy?: SmsFanoutFailStrategy;
+}
+
+export interface SendSmsToRelatedPersonsResult {
+  total: number;
+  sent: number;
+  failures: { recipient: string; error: unknown }[];
+}
+
+/**
+ * Fan-out a single SMS to every RelatedPerson in the list. Centralises the
+ * `Promise.allSettled` + per-recipient logging + all-fail-vs-partial-success decision so that
+ * callers don't keep reimplementing it.
+ *
+ * Callers must have already resolved the RelatedPersons they want to reach — this helper does
+ * not look them up, and does not fire the "missing user-relatedperson" invariant signal.
+ */
+export async function sendSmsToRelatedPersons({
+  relatedPersons,
+  message,
+  oystehr,
+  env,
+  failStrategy = 'partial-ok',
+}: SendSmsToRelatedPersonsInput): Promise<SendSmsToRelatedPersonsResult> {
+  if (!relatedPersons.length) {
+    return { total: 0, sent: 0, failures: [] };
+  }
+
+  const withId: { id: string }[] = [];
+  const failures: { recipient: string; error: unknown }[] = [];
+  for (const rp of relatedPersons) {
+    if (rp.id) {
+      withId.push({ id: rp.id });
+    } else {
+      const error = new Error('RelatedPerson missing id');
+      console.log('sms send error: RelatedPerson/<missing-id>:', error.message);
+      failures.push({ recipient: 'RelatedPerson/<missing-id>', error });
+      void sendErrors(error, env);
+    }
+  }
+
+  const results = await Promise.allSettled(
+    withId.map((rp) => oystehr.transactionalSMS.send({ message, resource: `RelatedPerson/${rp.id}` }))
+  );
+
+  results.forEach((r, idx) => {
+    const recipient = `RelatedPerson/${withId[idx].id}`;
+    if (r.status === 'fulfilled') {
+      console.log(`sms send ok: ${recipient}`, r.value);
+    } else {
+      console.log(`sms send error: ${recipient}:`, JSON.stringify(r.reason));
+      failures.push({ recipient, error: r.reason });
+      void sendErrors(r.reason, env);
+    }
+  });
+
+  if (failStrategy === 'all' && failures.length > 0) {
+    throw failures[0].error;
+  }
+  if (failStrategy === 'partial-ok' && failures.length === relatedPersons.length) {
+    throw failures[0].error;
+  }
+
+  return {
+    total: relatedPersons.length,
+    sent: relatedPersons.length - failures.length,
+    failures,
+  };
+}
+
 export async function sendSmsForPatient(
   message: string,
   oystehr: Oystehr,
   patient: Patient | undefined,
   ENVIRONMENT: string
 ): Promise<void> {
-  if (!patient) {
+  if (!patient?.id) {
     console.error("Message didn't send because no patient was found for encounter");
     return;
   }
-  const relatedPerson = await getRelatedPersonForPatient(patient.id!, oystehr);
-  if (!relatedPerson) {
-    console.error("Message didn't send because no related person was found for this patient, patientId: " + patient.id);
+  const relatedPersons = await getRelatedPersonsForPatient(patient.id, oystehr);
+  if (!relatedPersons.length) {
+    console.error(`Message didn't send because no user-relatedperson was found for patient ${patient.id}`);
+    reportMissingUserRelatedPerson('sendSmsForPatient', patient.id);
     return;
   }
-  const recipient = `RelatedPerson/${relatedPerson.id}`;
-  await sendSms(message, recipient, oystehr, ENVIRONMENT);
+  await sendSmsToRelatedPersons({
+    relatedPersons,
+    message,
+    oystehr,
+    env: ENVIRONMENT,
+    failStrategy: 'never-throw',
+  });
 }
 
 /**
@@ -293,6 +400,7 @@ export const sendOrderResultEmailToPatient = async ({
   fhirPatient,
   emailDetails,
   secrets,
+  oystehr,
 }: {
   fhirPatient: Patient;
   emailDetails: {
@@ -303,9 +411,10 @@ export const sendOrderResultEmailToPatient = async ({
     locationName: string; // needs to match the branding config so the support phone can be pulled
   };
   secrets: Secrets | null;
+  oystehr: Oystehr;
 }): Promise<void> => {
   console.log('email details: ', JSON.stringify(emailDetails));
-  const emailClient = getEmailClient(secrets);
+  const emailClient = getEmailClient(secrets, oystehr);
   const patientEmail = getPatientContactEmail(fhirPatient);
 
   if (emailClient.getFeatureFlag()) {
@@ -368,3 +477,78 @@ export const makePastVisitDetailUrl = (patientId: string, visitId: string, secre
   const baseUrl = getSecret(SecretsKeys.WEBSITE_URL, secrets);
   return `${baseUrl}/my-patients/${patientId}/past-visits/${visitId}`;
 };
+
+/**
+ * Creates a FHIR Communication resource to record an outreach email sent to a patient.
+ * This mirrors the automatic Communication creation done by the SMS platform.
+ */
+export async function createOutreachEmailCommunication({
+  oystehr,
+  patientId,
+  encounterRef,
+  recipientEmail,
+  htmlContent,
+  resolvedMessage,
+}: {
+  oystehr: Oystehr;
+  patientId: string;
+  encounterRef: string | undefined;
+  recipientEmail: string;
+  htmlContent: string;
+  resolvedMessage: string;
+}): Promise<Communication> {
+  const communication: Omit<Communication, 'id'> = {
+    resourceType: 'Communication',
+    status: 'completed',
+    medium: [
+      {
+        coding: [
+          {
+            system: 'https://terminology.hl7.org/6.0.2/ValueSet-v3-ParticipationMode.html',
+            code: 'EMAILWRIT',
+            display: 'email',
+          },
+        ],
+        text: 'email',
+      },
+    ],
+    category: [
+      {
+        coding: [
+          {
+            system: 'https://ottehr.com/CodeSystem/communication-category',
+            code: 'outreach',
+            display: 'Patient Outreach',
+          },
+        ],
+      },
+    ],
+    subject: {
+      reference: `Patient/${patientId}`,
+    },
+    ...(encounterRef ? { encounter: { reference: encounterRef } } : {}),
+    recipient: [
+      {
+        reference: `Patient/${patientId}`,
+        display: recipientEmail,
+      },
+    ],
+    payload: [
+      {
+        contentString: resolvedMessage,
+      },
+      {
+        contentAttachment: {
+          contentType: 'text/html',
+          data: Buffer.from(htmlContent).toString('base64'),
+          title: 'Outreach Email Content',
+        },
+      },
+    ],
+    sent: new Date().toISOString(),
+  };
+
+  const created = await oystehr.fhir.create<Communication>(communication);
+  console.log(`Created Communication/${created.id} for outreach email to patient ${patientId}`);
+  return created;
+}

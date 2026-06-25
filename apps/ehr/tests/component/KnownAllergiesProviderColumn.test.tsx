@@ -30,6 +30,9 @@ vi.mock('../../src/features/visits/shared/stores/appointment/appointment.store',
   }),
   useSaveChartData: vi.fn(),
   useDeleteChartData: vi.fn(),
+  useAppointmentData: () => ({
+    appointment: {},
+  }),
 }));
 
 const mockAllergySearchData = [
@@ -70,6 +73,10 @@ vi.mock('../../src/features/visits/shared/hooks/useChartDataArrayValue', () => (
 const mockEnqueueSnackbar = vi.fn();
 vi.mock('notistack', () => ({
   enqueueSnackbar: (...args: any[]) => mockEnqueueSnackbar(...args),
+}));
+
+vi.mock('../../src/hooks/useMergedQuickPicks', () => ({
+  useMergedAllergyQuickPicks: () => ({ quickPicks: [], loading: false, refetch: vi.fn() }),
 }));
 
 import { dataTestIds } from 'src/constants/data-test-ids';

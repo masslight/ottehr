@@ -7,14 +7,17 @@ import {
   Identifier,
   Location,
   Practitioner,
+  PractitionerRole,
   Schedule,
 } from 'fhir/r4b';
+import type { AppointmentType, CanonicalUrl } from '../types';
+import { ServiceMode, ServiceVisitType } from '../types/common';
 import {
-  AppointmentType,
-  CanonicalUrl,
   DISCHARGE_SUMMARY_CODE,
   EXPORTED_QUESTIONNAIRE_CODE,
   INSURANCE_CARD_CODE,
+  MEDICAL_RECORD_EXPORT_CODE,
+  PATIENT_EDUCATION_DOC_TYPE_CODE,
   PATIENT_PHOTO_CODE,
   PHOTO_ID_CARD_CODE,
   PRIVACY_POLICY_CODE,
@@ -23,7 +26,7 @@ import {
   SCHOOL_WORK_NOTE_TEMPLATE_CODE,
   STATEMENT_CODE,
   VISIT_NOTE_SUMMARY_CODE,
-} from '../types';
+} from '../types/data/paperwork/paperwork.constants';
 import { ottehrCodeSystemUrl, ottehrExtensionUrl, ottehrIdentifierSystem } from './systemUrls';
 
 // nota bene: some legacy resources could be using 'http' instead of 'https' here, and there are still some string vals out there with http
@@ -33,6 +36,7 @@ export const FHIR_ZAPEHR_URL = 'https://fhir.zapehr.com';
 const TERMINOLOGY_BASE_URL = 'http://terminology.hl7.org/CodeSystem';
 
 export const SCHEDULE_EXTENSION_URL = 'https://fhir.zapehr.com/r4/StructureDefinitions/schedule';
+export const LOCATION_REVIEW_LINK_EXTENSION_URL = `${PRIVATE_EXTENSION_BASE_URL}/review-link`;
 export const PROVIDER_TYPE_EXTENSION_URL = 'https://fhir.zapehr.com/r4/StructureDefinitions/provider-type';
 const RCM_TERMINOLOGY_BASE_URL = 'https://terminology.zapehr.com/rcm/cms1500';
 
@@ -43,19 +47,23 @@ export const FHIR_BASE_URL = 'https://fhir.ottehr.com';
 export const OTTEHR_CODE_SYSTEM_BASE_URL = 'https://fhir.ottehr.com/CodeSystem';
 
 export const FHIR_IDENTIFIER_NPI = 'http://hl7.org/fhir/sid/us-npi';
+// https://terminology.hl7.org/en/NamingSystem-CLIA.html
+export const FHIR_IDENTIFIER_CLIA = 'urn:oid:2.16.840.1.113883.4.7';
 export const FHIR_IDENTIFIER_SYSTEM = 'http://terminology.hl7.org/CodeSystem/v2-0203';
 export const FHIR_IDENTIFIER_CODE_TAX_EMPLOYER = 'NE';
 export const FHIR_IDENTIFIER_CODE_TAX_SS = 'SS';
+export const FHIR_IDENTIFIER_CODE_TAXONOMY = 'ZZ';
+export const FRIENDLY_PATIENT_ID_SYSTEM_BASE = 'https://identifiers.fhir.oystehr.com/friendly-patient-id';
 export const FHIR_AI_CHAT_CONSENT_CATEGORY_CODE = 'ai-chat';
 export const FHIR_HL7_ORG_VALUE_SET_BASE_URL = 'http://hl7.org/fhir/ValueSet';
+
+export const PARTICIPATION_CODE_SYSTEM = 'http://terminology.hl7.org/CodeSystem/v3-ParticipationType';
+export const ACCOUNT_TYPE_CODE_SYSTEM = 'http://terminology.hl7.org/CodeSystem/account-type';
 
 export const FHIR_EXTENSION = {
   Appointment: {
     additionalInfo: {
       url: `${PRIVATE_EXTENSION_BASE_URL}/additional-information`,
-    },
-    unconfirmedDateOfBirth: {
-      url: `${PRIVATE_EXTENSION_BASE_URL}/date-of-birth-not-confirmed`,
     },
     bookedBy: {
       url: `${PRIVATE_EXTENSION_BASE_URL}/visit-booked-by`,
@@ -111,6 +119,11 @@ export const FHIR_EXTENSION = {
   ContactPoint: {
     erxTelecom: {
       url: 'https://extensions.fhir.oystehr.com/contact-point/telecom-phone-erx',
+    },
+  },
+  MedicationRequest: {
+    isRenewal: {
+      url: 'https://extensions.fhir.oystehr.com/medication-request/is-renewal',
     },
   },
   InsurancePlan: {
@@ -218,6 +231,20 @@ export const FHIR_EXTENSION = {
       url: `${FHIR_HL7_ORG_VALUE_SET_BASE_URL}/relatedperson-relationshiptype`,
     },
   },
+  Observation: {
+    examComponentLabel: {
+      url: `${PRIVATE_EXTENSION_BASE_URL}/exam-component-label`,
+    },
+    examComponentGroupLabel: {
+      url: `${PRIVATE_EXTENSION_BASE_URL}/exam-component-group-label`,
+    },
+    examComponentColumnLabel: {
+      url: `${PRIVATE_EXTENSION_BASE_URL}/exam-component-column-label`,
+    },
+    examComponentAbnormal: {
+      url: `${PRIVATE_EXTENSION_BASE_URL}/exam-component-abnormal`,
+    },
+  },
 } as const;
 
 export type FHIR_EXTENSION_TYPE = typeof FHIR_EXTENSION;
@@ -230,6 +257,37 @@ export const PRACTITIONER_QUALIFICATION_CODE_SYSTEM = 'http://terminology.hl7.or
 export const PRACTITIONER_QUALIFICATION_STATE_SYSTEM = 'http://hl7.org/fhir/us/core/ValueSet/us-core-usps-state';
 
 export const SLUG_SYSTEM = `${FHIR_BASE_URL}/r4/slug`;
+
+// Slug values are interpolated raw into FHIR `identifier` search params as
+// `${SLUG_SYSTEM}|${slug}` and into patient-facing booking URLs. Restrict to a
+// URL-safe shape (letters/digits/hyphens) so a value saved in the admin UI
+// can't fail validation when the patient side later searches by it.
+export const SLUG_REGEX = /^[a-zA-Z0-9-]+$/;
+export const SLUG_VALIDATION_MESSAGE = 'must be a URL-safe slug (letters, digits, hyphens)';
+export const isValidSlug = (slug: string): boolean => SLUG_REGEX.test(slug);
+
+/**
+ * Optional admin-editable display name for a PractitionerRole-actored schedule.
+ * Stored as a PR.extension valueString. When absent, callers compose a name
+ * from the role's referenced Practitioner + Location — see the GroupPage /
+ * PractitionerRoleList fallbacks. The field exists to disambiguate two PRs at
+ * the same (provider, location) — e.g., a provider's morning intake schedule
+ * vs afternoon surgery schedule.
+ */
+export const SCHEDULE_DISPLAY_NAME_EXTENSION_URL = `${FHIR_BASE_URL}/StructureDefinitions/schedule-display-name`;
+
+/**
+ * Per-PractitionerRole "offers every service category" toggle. When `true`,
+ * the PR is treated as qualified for every service the slot generator asks
+ * about — equivalent to the PR.healthcareService[] list containing every
+ * service-category HealthcareService in the system (plus, by definition,
+ * every BOOKING_CONFIG compiled-in category, which has no FHIR HS to
+ * reference and is otherwise un-opt-into-able). Stored as a boolean PR
+ * extension. Absent extension = false (admin opts in explicitly).
+ *
+ * The analogous group-side mechanism is `GROUP_ALL_LOCATIONS_SYSTEM`.
+ */
+export const PRACTITIONER_ROLE_ALL_CATEGORIES_EXTENSION_URL = `${FHIR_BASE_URL}/StructureDefinitions/practitioner-role-all-categories`;
 
 export const SERVICE_EXTENSION = 'http://extensions.ottehr.com';
 
@@ -268,6 +326,19 @@ export const APPOINTMENT_LOCKED_META_TAG_SYSTEM = 'appointment-locked-status';
 export const APPOINTMENT_LOCKED_META_TAG = {
   system: APPOINTMENT_LOCKED_META_TAG_SYSTEM,
   code: 'APPOINTMENT_LOCKED',
+};
+
+export const ENCOUNTER_LOCKED_META_TAG_SYSTEM = 'encounter-locked-status';
+export const ENCOUNTER_LOCKED_META_TAG = {
+  system: ENCOUNTER_LOCKED_META_TAG_SYSTEM,
+  code: 'ENCOUNTER_LOCKED',
+};
+
+export const FHIR_ENCOUNTER_ERX_PATIENT_SYNC_SYSTEM = 'encounter-erx-sync-status';
+export const FHIR_ENCOUNTER_ERX_PATIENT_SYNC_CODE = 'ERX_PATIENT_SYNCED';
+export const FHIR_ENCOUNTER_ERX_PATIENT_SYNC_TAG = {
+  system: FHIR_ENCOUNTER_ERX_PATIENT_SYNC_SYSTEM,
+  code: FHIR_ENCOUNTER_ERX_PATIENT_SYNC_CODE,
 };
 
 export const ERX_MEDICATION_META_TAG_CODE = 'erx-medication';
@@ -319,7 +390,7 @@ export enum ScheduleStrategy {
 
 export interface ScheduleAndOwner {
   schedule: Schedule;
-  owner: Location | Practitioner | HealthcareService;
+  owner: Location | Practitioner | PractitionerRole | HealthcareService;
 }
 
 interface BaseScheduleResponse {
@@ -360,6 +431,128 @@ export const ScheduleStrategyCoding = {
   },
 };
 
+// ── HealthcareService characterization (service categories + groups) ─────────
+//
+// Constants below characterize HealthcareService resources used in the
+// group-scheduling rework: service-category catalog entries (tagged with
+// SERVICE_CATEGORY_TAG.meta) and group resources. Each `*_SYSTEM` is the
+// code-system URL for one HealthcareService.characteristic dimension; the
+// adjacent `*Coding` object provides typed shapes with `fullParam` ready for
+// FHIR _filter queries.
+//
+// Note on parallel concepts: a separate ServiceModeCoding above uses the HL7
+// standard system for location/practitioner mode tracking. ServiceCategory-
+// ModeCoding here uses an ottehr-namespaced system derived from the product-
+// level ServiceMode enum.
+
+/** meta.tag identifying a HealthcareService as a service-category catalog entry. */
+export const SERVICE_CATEGORY_TAG = {
+  system: ottehrCodeSystemUrl('healthcare-service-type'),
+  code: 'booking-service-category',
+};
+
+/** Code system for service-category codes (e.g. 'urgent-care', 'botox'). Used in HealthcareService.type[] codings. */
+export const SERVICE_CATEGORY_SYSTEM = ottehrCodeSystemUrl('service-category');
+
+/** Extension URL for the JSON-blob runtime config on service-category resources. */
+export const SERVICE_CATEGORY_CONFIG_EXTENSION_URL = ottehrExtensionUrl('service-category-config');
+
+// ── Service-category characteristic systems (one per dimension) ─────────────
+
+/** Service-mode characteristic for a service-category HealthcareService. Codes match the ServiceMode enum. */
+export const SERVICE_CATEGORY_MODE_SYSTEM = ottehrCodeSystemUrl('service-category-mode');
+export const ServiceCategoryModeCoding = {
+  inPerson: {
+    system: SERVICE_CATEGORY_MODE_SYSTEM,
+    code: ServiceMode['in-person'],
+    display: 'In Person',
+    fullParam: `${SERVICE_CATEGORY_MODE_SYSTEM}|${ServiceMode['in-person']}`,
+  },
+  virtual: {
+    system: SERVICE_CATEGORY_MODE_SYSTEM,
+    code: ServiceMode.virtual,
+    display: 'Virtual',
+    fullParam: `${SERVICE_CATEGORY_MODE_SYSTEM}|${ServiceMode.virtual}`,
+  },
+};
+
+/** Visit-type-capability characteristic for a service-category HealthcareService. Codes match the ServiceVisitType enum. */
+export const SERVICE_CATEGORY_VISIT_TYPE_SYSTEM = ottehrCodeSystemUrl('service-category-visit-type');
+export const ServiceCategoryVisitTypeCoding = {
+  prebook: {
+    system: SERVICE_CATEGORY_VISIT_TYPE_SYSTEM,
+    code: ServiceVisitType.prebook,
+    display: 'Prebook',
+    fullParam: `${SERVICE_CATEGORY_VISIT_TYPE_SYSTEM}|${ServiceVisitType.prebook}`,
+  },
+  walkIn: {
+    system: SERVICE_CATEGORY_VISIT_TYPE_SYSTEM,
+    code: ServiceVisitType['walk-in'],
+    display: 'Walk-In',
+    fullParam: `${SERVICE_CATEGORY_VISIT_TYPE_SYSTEM}|${ServiceVisitType['walk-in']}`,
+  },
+};
+
+/**
+ * Duration-minutes characteristic system for a service-category HealthcareService.
+ * Values are runtime-configurable (admins set the minutes per service), so this
+ * is a system constant only — call sites build the coding inline with
+ * `{ system: SERVICE_CATEGORY_DURATION_MINUTES_SYSTEM, code: String(minutes), display: '<n> min' }`.
+ */
+export const SERVICE_CATEGORY_DURATION_MINUTES_SYSTEM = ottehrCodeSystemUrl('service-category-duration-minutes');
+
+/**
+ * Default slot duration in minutes when a service-category HealthcareService
+ * doesn't carry a SERVICE_CATEGORY_DURATION_MINUTES_SYSTEM characteristic.
+ * Used as a soft fallback for legacy / partially-configured records. New
+ * admin saves always set the field explicitly.
+ */
+export const DEFAULT_SERVICE_CATEGORY_DURATION_MINUTES = 15;
+
+/** Cadence-minutes characteristic system for a service-category HealthcareService. Same call-site shape as duration-minutes. */
+export const SERVICE_CATEGORY_CADENCE_MINUTES_SYSTEM = ottehrCodeSystemUrl('service-category-cadence-minutes');
+
+// ── Group characteristic systems ────────────────────────────────────────────
+
+/** Assignment-mode characteristic for a group HealthcareService: 'anonymous' (default) vs 'provider'. */
+export const GROUP_ASSIGNMENT_MODE_SYSTEM = ottehrCodeSystemUrl('group-assignment-mode');
+export const GroupAssignmentModeCoding = {
+  anonymous: {
+    system: GROUP_ASSIGNMENT_MODE_SYSTEM,
+    code: 'anonymous',
+    display: 'Anonymous',
+    fullParam: `${GROUP_ASSIGNMENT_MODE_SYSTEM}|anonymous`,
+  },
+  provider: {
+    system: GROUP_ASSIGNMENT_MODE_SYSTEM,
+    code: 'provider',
+    display: 'Provider',
+    fullParam: `${GROUP_ASSIGNMENT_MODE_SYSTEM}|provider`,
+  },
+};
+
+/**
+ * All-locations characteristic for a group HealthcareService: 'true' | 'false'.
+ * When 'true', the group pools from every active PractitionerRole in the
+ * system (not constrained to the group's `.location[]` entries). Set on the
+ * group admin form via a single toggle.
+ */
+export const GROUP_ALL_LOCATIONS_SYSTEM = ottehrCodeSystemUrl('group-all-locations');
+export const GroupAllLocationsCoding = {
+  true: {
+    system: GROUP_ALL_LOCATIONS_SYSTEM,
+    code: 'true',
+    display: 'All locations',
+    fullParam: `${GROUP_ALL_LOCATIONS_SYSTEM}|true`,
+  },
+  false: {
+    system: GROUP_ALL_LOCATIONS_SYSTEM,
+    code: 'false',
+    display: 'Specific locations',
+    fullParam: `${GROUP_ALL_LOCATIONS_SYSTEM}|false`,
+  },
+};
+
 export const BUCKET_NAMES = {
   VISIT_NOTES: 'visit-notes',
   CONSENT_FORMS: 'consent-forms',
@@ -374,6 +567,11 @@ export const BUCKET_NAMES = {
   PAPERWORK: 'exported-questionnaires',
   DISCHARGE_SUMMARIES: 'discharge-summaries',
   STATEMENTS: 'statements',
+  PATIENT_EDUCATION: 'patient-education',
+  PATIENT_EDUCATION_ADMIN: 'patient-education-admin',
+  REPORTS: 'invoiceable-patients-reports',
+  CUSTOM_FOLDERS: 'patient-docs-custom-folders',
+  MEDICAL_RECORD_EXPORTS: 'medical-record-exports',
 } as const;
 
 export type BucketName = (typeof BUCKET_NAMES)[keyof typeof BUCKET_NAMES];
@@ -454,6 +652,16 @@ export const FOLDERS_CONFIG: ListConfig[] = [
     display: 'Statements',
     documentTypeCode: STATEMENT_CODE,
   },
+  {
+    title: BUCKET_NAMES.PATIENT_EDUCATION,
+    display: 'Patient Education',
+    documentTypeCode: PATIENT_EDUCATION_DOC_TYPE_CODE,
+  },
+  {
+    title: BUCKET_NAMES.MEDICAL_RECORD_EXPORTS,
+    display: 'Medical Records',
+    documentTypeCode: MEDICAL_RECORD_EXPORT_CODE,
+  },
 ];
 
 export const SUBSCRIBER_RELATIONSHIP_CODE_MAP: Record<string, string> = {
@@ -465,6 +673,27 @@ export const SUBSCRIBER_RELATIONSHIP_CODE_MAP: Record<string, string> = {
   Self: 'self',
   'Injured Party': 'injured',
 };
+
+// Canonical set of subscriber/policy-holder relationships to the patient, shared across the
+// clinical EHR and billing app so the values stay aligned.
+export const SUBSCRIBER_RELATIONSHIPS = [
+  'Self',
+  'Child',
+  'Parent',
+  'Spouse',
+  'Common Law Spouse',
+  'Injured Party',
+  'Other',
+] as const;
+export type SubscriberRelationship = (typeof SUBSCRIBER_RELATIONSHIPS)[number];
+
+// CodeSystem for Coverage.relationship (the subscriber's relationship to the beneficiary).
+export const SUBSCRIBER_RELATIONSHIP_SYSTEM = 'http://terminology.hl7.org/CodeSystem/subscriber-relationship';
+// System used on RelatedPerson.relationship coding for coverage subscribers / policy holders.
+export const RELATED_PERSON_RELATIONSHIP_SYSTEM = 'http://hl7.org/fhir/ValueSet/relatedperson-relationshiptype';
+
+export const BIRTH_SEXES = ['Male', 'Female', 'Intersex'] as const;
+export type BirthSex = (typeof BIRTH_SEXES)[number];
 
 // this is required by US Core
 // https://build.fhir.org/ig/HL7/US-Core/StructureDefinition-us-core-coverage-definitions.html#key_Coverage.identifier:memberid.type
@@ -483,7 +712,7 @@ export const COVERAGE_MEMBER_IDENTIFIER_BASE: Partial<Identifier> = {
 export const PATIENT_BILLING_ACCOUNT_TYPE: Account['type'] = {
   coding: [
     {
-      system: 'http://terminology.hl7.org/CodeSystem/account-type',
+      system: ACCOUNT_TYPE_CODE_SYSTEM,
       code: 'PBILLACCT',
       display: 'patient billing account',
     },
@@ -493,7 +722,7 @@ export const PATIENT_BILLING_ACCOUNT_TYPE: Account['type'] = {
 export const WORKERS_COMP_ACCOUNT_TYPE: Account['type'] = {
   coding: [
     {
-      system: 'http://terminology.hl7.org/CodeSystem/account-type',
+      system: ACCOUNT_TYPE_CODE_SYSTEM,
       code: 'WCOMPACCT',
       display: 'worker compensation account',
     },
@@ -503,7 +732,7 @@ export const WORKERS_COMP_ACCOUNT_TYPE: Account['type'] = {
 export const OCCUPATIONAL_MEDICINE_ACCOUNT_TYPE: Account['type'] = {
   coding: [
     {
-      system: 'http://terminology.hl7.org/CodeSystem/account-type',
+      system: ACCOUNT_TYPE_CODE_SYSTEM,
       code: 'OCCUPATIONALMEDICINEACCT',
       display: 'occupational medicine account',
     },
@@ -531,6 +760,7 @@ export const OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS = {
     extension: `${PRIVATE_EXTENSION_BASE_URL}/answer-loading-options`,
     strategy: `${PRIVATE_EXTENSION_BASE_URL}/strategy`,
     source: `${PRIVATE_EXTENSION_BASE_URL}/source`,
+    expression: `${PRIVATE_EXTENSION_BASE_URL}/expression`,
   },
   complexValidation: {
     extension: `${PRIVATE_EXTENSION_BASE_URL}/complex-validation`,
@@ -561,6 +791,13 @@ export const OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS = {
     answer: `${PRIVATE_EXTENSION_BASE_URL}/text-when-answer`,
     substituteText: `${PRIVATE_EXTENSION_BASE_URL}/text-when-substitute-text`,
   },
+  answerDisplayFilter: {
+    extension: `${PRIVATE_EXTENSION_BASE_URL}/answer-display-filter`,
+    question: `${PRIVATE_EXTENSION_BASE_URL}/answer-display-filter-question`,
+    operator: `${PRIVATE_EXTENSION_BASE_URL}/answer-display-filter-operator`,
+    answer: `${PRIVATE_EXTENSION_BASE_URL}/answer-display-filter-answer`,
+    include: `${PRIVATE_EXTENSION_BASE_URL}/answer-display-filter-include`,
+  },
 };
 
 // https://hl7.org/fhir/R4B/valueset-audit-event-outcome.html
@@ -574,9 +811,13 @@ export const AUDIT_EVENT_OUTCOME_CODE = {
 export const ACCOUNT_PAYMENT_PROVIDER_ID_SYSTEM_STRIPE = 'https://api.stripe.com/v1/customers';
 export const ACCOUNT_PAYMENT_PROVIDER_ID_SYSTEM_STRIPE_ACCOUNT = 'https://api.stripe.com/v1/accounts';
 export const SCHEDULE_OWNER_STRIPE_ACCOUNT_EXTENSION_URL = 'https://fhir.ottehr.com/Extension/stripe-account-id';
-export const SCHEDULE_OWNER_STRIPE_TERMINAL_LOCATION_ID_EXTENSION_URL =
-  'https://fhir.ottehr.com/Extension/stripe-terminal-location-id';
+/** @deprecated Use Device resource with STRIPE_TERMINAL_LOCATION_DEVICE_TYPE_SYSTEM and STRIPE_TERMINAL_LOCATION_DEVICE_TYPE_CODE instead */
 export const SCHEDULE_OWNER_ADVAPACS_LOCATION_EXTENSION_URL = 'https://fhir.ottehr.com/Extension/advapacs-location-id';
+
+// Device-based terminal location storage
+export const STRIPE_TERMINAL_LOCATION_IDENTIFIER_SYSTEM = 'https://api.stripe.com/v1/terminal/locations';
+export const STRIPE_TERMINAL_LOCATION_DEVICE_TYPE_SYSTEM = 'https://fhir.ottehr.com/CodeSystem/device-type';
+export const STRIPE_TERMINAL_LOCATION_DEVICE_TYPE_CODE = 'stripe-terminal-config';
 
 export const WALKIN_APPOINTMENT_TYPE_CODE = 'WALKIN';
 export const SLOT_WALKIN_APPOINTMENT_TYPE_CODING: CodeableConcept = {
@@ -641,6 +882,53 @@ export const makeBookingOriginExtensionEntry = (url: string): { url: string; val
   };
 };
 
+// Extension recording the Location a Slot is being offered at. Stamped at
+// slot-vending time so the Slot is self-describing — create-appointment
+// reads this rather than re-resolving from the Schedule.actor graph (which
+// is ambiguous for multi-location PractitionerRoles).
+export const SLOT_AT_LOCATION_EXTENSION_URL = `${PRIVATE_EXTENSION_BASE_URL}/slot-at-location`;
+
+export const makeSlotAtLocationExtensionEntry = (
+  locationId: string
+): { url: string; valueReference: { reference: string } } => {
+  return {
+    url: SLOT_AT_LOCATION_EXTENSION_URL,
+    valueReference: { reference: `Location/${locationId}` },
+  };
+};
+
+// Extension recording the group HealthcareService a Slot was booked through.
+// Stamped at slot-vending time when the scheduleType is "group" — the
+// Slot's Schedule.actor under pools-providers is the member PR, so
+// without this extension a downstream consumer can't tell whether a
+// PR-actored Slot was booked directly against that PR or through a group
+// (which matters for assignment-mode interpretation, capacity-guard
+// fallback eligibility, audit trails, etc.). Skipped when the Schedule's
+// actor IS the group HS — the actor already records it; a redundant
+// extension can only conflict.
+export const SLOT_BOOKED_VIA_GROUP_EXTENSION_URL = `${PRIVATE_EXTENSION_BASE_URL}/slot-booked-via-group`;
+
+export const makeSlotBookedViaGroupExtensionEntry = (
+  groupHealthcareServiceId: string
+): { url: string; valueReference: { reference: string } } => {
+  return {
+    url: SLOT_BOOKED_VIA_GROUP_EXTENSION_URL,
+    valueReference: { reference: `HealthcareService/${groupHealthcareServiceId}` },
+  };
+};
+
+// Meta tag stamped on a Slot when the create-appointment capacity-guard
+// fallback rerouted it from its originally-targeted Schedule to a different
+// member Schedule of the same anonymous-mode group. Bare boolean tag — purely
+// a queryability handle ("how often does this happen, which Slots had it
+// happen to them"). The original Schedule reference is recoverable from the
+// Slot's FHIR _history if ever needed.
+export const SLOT_FALLBACK_REROUTED_TAG_SYSTEM = `${PRIVATE_EXTENSION_BASE_URL}/slot-fallback-rerouted`;
+export const SLOT_FALLBACK_REROUTED_TAG = {
+  system: SLOT_FALLBACK_REROUTED_TAG_SYSTEM,
+  code: 'true',
+};
+
 // Extension for specifying which questionnaire should be used for appointments booked on this slot
 export const SLOT_QUESTIONNAIRE_CANONICAL_EXTENSION_URL = `${PRIVATE_EXTENSION_BASE_URL}/slot-questionnaire-canonical`;
 
@@ -679,11 +967,17 @@ export const PAYMENT_METHOD_EXTENSION_URL = PUBLIC_EXTENSION_BASE_URL + '/paymen
 export const PREFERRED_PHARMACY_EXTENSION_URL = ottehrExtensionUrl('preferred-pharmacy');
 export const PREFERRED_PHARMACY_MANUAL_ENTRY_URL = ottehrExtensionUrl('pharmacy-manual-entry'); // added when the pharmacy was added manually via text fields
 export const PREFERRED_PHARMACY_PLACES_ID_URL = ottehrExtensionUrl('pharmacy-places-id'); // added when the pharmacy was selected with places search
+
 // docs.oystehr.com/oystehr/services/erx/patient-sync/#preferred-pharmacy
 export const PREFERRED_PHARMACY_ERX_ID_FOR_SYNC_URL =
   'https://extensions.fhir.oystehr.com/patient/erx-preferred-pharmacy-id';
 
 export const ENCOUNTER_PAYMENT_VARIANT_EXTENSION_URL = ottehrExtensionUrl('payment-variant');
+
+/** Employer Organization selected for this visit (staff / pre-op); not the patient Account occ-med employer. */
+export const ENCOUNTER_VISIT_OCCUPATIONAL_MEDICINE_EMPLOYER_EXTENSION_URL = ottehrExtensionUrl(
+  'visit-occupational-medicine-employer'
+);
 
 export const CONSENT_ATTESTATION_SIG_TYPE: Coding = Object.freeze({
   system: 'http://uri.etsi.org/01903/v1.2.2',
@@ -734,16 +1028,59 @@ export const DOCUMENT_REFERENCE_SUMMARY_FROM_CHAT = 'Summary of visit from chat'
 
 export const EMPLOYER_ORG_IDENTIFIER_SYSTEM = ottehrIdentifierSystem('organization-type');
 
-export const SERVICE_CATEGORY_SYSTEM = ottehrCodeSystemUrl('service-category');
-
 export const ATTORNEY_FIRM_EXTENSION_URL = `${PRIVATE_EXTENSION_BASE_URL}/attorney-firm`;
 
 export const GLOBAL_TEMPLATE_META_TAG_CODE_SYSTEM = `${PRIVATE_EXTENSION_BASE_URL}/global-template-list`;
 export const GLOBAL_TEMPLATE_IN_PERSON_CODE_SYSTEM = `${OTTEHR_CODE_SYSTEM_BASE_URL}/global-template-in-person`;
-export const GLOBAL_TEMPLATE_TELEMED_CODE_SYSTEM = `${OTTEHR_CODE_SYSTEM_BASE_URL}/global-template-telemed`;
+
+/** Builds the full meta.tag system URL from a chart data field name (e.g. 'chief-complaint' → full URL). */
+export const chartDataTagSystem = (fieldName: string): string => `${PRIVATE_EXTENSION_BASE_URL}/${fieldName}`;
+
+export const ICD_10_CODE_SYSTEM = 'http://hl7.org/fhir/sid/icd-10';
 
 export const VIDEO_CHAT_WAITING_ROOM_NOTIFICATION_TASK_TYPE = ottehrCodeSystemUrl('task-type');
 export const VIDEO_CHAT_WAITING_ROOM_NOTIFICATION_TASK_CODE = 'video-chat-waiting-room-notification';
 
 export const ACCIDENT_TYPE_SYSTEM = ottehrCodeSystemUrl('accident-type');
 export const ACCIDENT_STATE_EXTENSION = ottehrExtensionUrl('accident-state');
+
+export const PROVENANCE_FAX_SYSTEM = ottehrCodeSystemUrl('faxes');
+export const PROVENANCE_FAX_ACTIVITY_CODES = {
+  faxSent: 'fax-sent',
+} as const;
+export const PROVENANCE_FAX_ACTIVITY_DISPLAY = {
+  faxSent: 'Fax Sent',
+} as const;
+export const FAX_SENT_PROVENANCE_ACTIVITY_CODING: Coding = {
+  code: PROVENANCE_FAX_ACTIVITY_CODES.faxSent,
+  display: PROVENANCE_FAX_ACTIVITY_DISPLAY.faxSent,
+  system: PROVENANCE_FAX_SYSTEM,
+};
+
+export const EMPLOYEE_ID_SYSTEM = ottehrIdentifierSystem('employee-id');
+
+export const CHARGE_MASTER_DESIGNATION_EXTENSION_URL = ottehrExtensionUrl('charge-master-designation');
+export const RCM_TAG_SYSTEM = `${PRIVATE_EXTENSION_BASE_URL}/rcm`;
+export type ChargeMasterDesignation = 'default-insurance' | 'self-pay';
+export type FeeScheduleDesignation = 'case-rate';
+export const CASE_RATE_CODE = 'case-rate';
+
+export const CPT_MODIFIER_EXTENSION_URL = ottehrExtensionUrl('cpt-modifier');
+export const CPT_CODE_SYSTEM = 'http://www.ama-assn.org/go/cpt';
+
+export const EXAM_MIGRATION_VERSION_URL = `${PRIVATE_EXTENSION_BASE_URL}/exam-migration-version`;
+// Version 1 and 2 are essentially the same
+// The version was bumped to 2 to facilitate rendering a incompatibility message for old telemed charts
+// Version 1 was only stamped on encounters where users clicked "migrate exam" however in order to differentiate between virtual visits pre and post exam config consolidation
+// We need to record the current migration version on all encounters. There is an edge case were telemed exams were migrated and stamped with v1 before the 1.35 release
+// but would actually be incompatible with the exam config going out in 1.35 (aka v2)
+export const CURRENT_EXAM_MIGRATION_VERSION = 2;
+export const INCOMPATIBLE_EXAM_VERSION_MESSAGE =
+  "This chart's exam version is incompatible with the current exam configuration, please consult the visit PDF.";
+
+export const BILLING_RESOURCE_TAG = {
+  system: 'https://ottehr.com/billing/resource-type',
+  code: 'billing-resource',
+};
+
+export const CHARGE_ITEM_DEFINITION_DEFAULT_SYSTEM = 'https://fhir.ottehr.com/billing/charge-item-definition-default';

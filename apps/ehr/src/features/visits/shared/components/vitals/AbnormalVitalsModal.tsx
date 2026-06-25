@@ -23,13 +23,13 @@ export const AbnormalVitalsModal: React.FC<AbnormalVitalsModalProps> = ({ abnorm
 
   return (
     <ConfirmationModal
-      title="Abnormal Vital Value"
-      description="You have entered an abnormal value. Please verify:"
+      title="Critical & Abnormal Vital Values"
+      description="You have entered critical and/or abnormal value(s). Please verify:"
       ContentComponent={
         <Stack spacing={1}>
           {temperature && temperature.length > 0 && (
             <>
-              <AssessmentTitle>Temperature</AssessmentTitle>
+              <AssessmentTitle>Temp (C)</AssessmentTitle>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
                 {temperature?.map((item) => <VitalHistoryElement key={item.resourceId} historyEntry={{ ...item }} />)}
               </Box>
@@ -37,7 +37,7 @@ export const AbnormalVitalsModal: React.FC<AbnormalVitalsModalProps> = ({ abnorm
           )}
           {heartbeat && heartbeat.length > 0 && (
             <>
-              <AssessmentTitle>Heartbeat</AssessmentTitle>
+              <AssessmentTitle>HR (/min)</AssessmentTitle>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
                 {heartbeat?.map((item) => <VitalHistoryElement key={item.resourceId} historyEntry={{ ...item }} />)}
               </Box>
@@ -45,7 +45,7 @@ export const AbnormalVitalsModal: React.FC<AbnormalVitalsModalProps> = ({ abnorm
           )}
           {respirationRate && respirationRate.length > 0 && (
             <>
-              <AssessmentTitle>Respiration Rate</AssessmentTitle>
+              <AssessmentTitle>RR (/min)</AssessmentTitle>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
                 {respirationRate?.map((item) => (
                   <VitalHistoryElement key={item.resourceId} historyEntry={{ ...item }} />
@@ -55,7 +55,7 @@ export const AbnormalVitalsModal: React.FC<AbnormalVitalsModalProps> = ({ abnorm
           )}
           {bloodPressure && bloodPressure.length > 0 && (
             <>
-              <AssessmentTitle>Blood Pressure</AssessmentTitle>
+              <AssessmentTitle>BP (mm Hg)</AssessmentTitle>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
                 {bloodPressure?.map((item) => <VitalHistoryElement key={item.resourceId} historyEntry={{ ...item }} />)}
               </Box>
@@ -63,7 +63,7 @@ export const AbnormalVitalsModal: React.FC<AbnormalVitalsModalProps> = ({ abnorm
           )}
           {oxygenSaturation && oxygenSaturation.length > 0 && (
             <>
-              <AssessmentTitle>Oxygen Saturation</AssessmentTitle>
+              <AssessmentTitle>Oxygen sat (%)</AssessmentTitle>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
                 {oxygenSaturation?.map((item) => (
                   <VitalHistoryElement key={item.resourceId} historyEntry={{ ...item }} />

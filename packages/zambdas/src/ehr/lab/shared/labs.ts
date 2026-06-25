@@ -11,6 +11,7 @@ import {
   FhirResource,
   Location,
   Observation,
+  ObservationDefinition,
   Organization,
   Patient,
   Practitioner,
@@ -36,6 +37,7 @@ import {
   DynamicAOEInput,
   EncounterExternalLabResult,
   EncounterInHouseLabResult,
+  EXTERNAL_LAB_ERROR,
   ExternalLabDocuments,
   externalLabOrderIsManual,
   ExternalLabOrderResult,
@@ -43,15 +45,22 @@ import {
   getAdditionalPlacerId,
   getCoding,
   getOrderNumber,
+  getOrderNumberFromDr,
   getPresignedURL,
+  getTestDetailsFromActivityDefinition,
+  getTestItemCodeFromDr,
   getTestNameOrCodeFromDr,
   getTimezone,
   IN_HOUSE_DIAGNOSTIC_REPORT_CATEGORY_CONFIG,
+  IN_HOUSE_OBS_DEF_ID_SYSTEM,
   IN_HOUSE_TEST_CODE_SYSTEM,
   INCONCLUSIVE_RESULT_DR_TAG,
   InHouseLabResult,
+  isExternalLabServiceRequest,
+  isInHouseLabServiceRequest,
   isPSCOrder,
   LAB_DR_TYPE_TAG,
+  LAB_OBS_VALUE_WITH_PRECISION_EXT,
   LAB_ORDER_TASK,
   LAB_RESULT_DOC_REF_CODING_CODE,
   LabDocument,
@@ -70,6 +79,7 @@ import {
   OYSTEHR_LAB_DIAGNOSTIC_REPORT_CATEGORY,
   OYSTEHR_LAB_GUID_SYSTEM,
   OYSTEHR_LAB_OI_CODE_SYSTEM,
+  OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM,
   parseLabInfoFromServiceRequest,
   PATIENT_BILLING_ACCOUNT_TYPE,
   SERVICE_REQUEST_REFLEX_TRIGGERED_TAG_CODES,
@@ -78,6 +88,7 @@ import {
   WORKERS_COMP_ACCOUNT_TYPE,
 } from 'utils';
 import { parseLabOrderStatusWithSpecificTask } from '../external/get-lab-orders/helpers';
+import { getInHouseLabTestUrlAndVersionForADFromServiceRequest } from './in-house-labs';
 
 export type LabOrderResources = {
   serviceRequest: ServiceRequest;
@@ -101,6 +112,7 @@ type DrLabResultResources = {
   diagnosticReport: DiagnosticReport;
   observations: Observation[];
   schedule: Schedule | undefined;
+  serviceRequest?: ServiceRequest;
 };
 
 const makeSearchParamsBasedOnDiagnosticReport = (diagnosticReportID: string): SearchParam[] => {
@@ -133,17 +145,30 @@ const makeSearchParamsBasedOnDiagnosticReport = (diagnosticReportID: string): Se
       name: '_include:iterate',
       value: 'Slot:schedule',
     },
+    {
+      name: '_include',
+      value: 'DiagnosticReport:based-on:ServiceRequest', // any unsolicited DR that was matched to a patient might also have been matched to a specific service request
+    },
   ];
 };
 
 export async function getExternalLabOrderResourcesViaDiagnosticReport(
   oystehr: Oystehr,
-  diagnosticReportID: string
+  diagnosticReportID: string,
+  type: LabDrTypeTagCode
 ): Promise<DrLabResultResources> {
   const searchParams = makeSearchParamsBasedOnDiagnosticReport(diagnosticReportID);
   const resourceSearch = (
     await oystehr.fhir.search<
-      Patient | Organization | DiagnosticReport | Observation | Encounter | Appointment | Slot | Schedule
+      | Patient
+      | Organization
+      | DiagnosticReport
+      | Observation
+      | Encounter
+      | Appointment
+      | Slot
+      | Schedule
+      | ServiceRequest
     >({
       resourceType: 'DiagnosticReport',
       params: searchParams,
@@ -169,6 +194,8 @@ export async function getExternalLabOrderResourcesViaDiagnosticReport(
       if (isCorrectCategory) diagnosticReports.push(resource);
     }
     if (resource.resourceType === 'Schedule') schedules.push(resource);
+    if (resource.resourceType === 'ServiceRequest' && isExternalLabServiceRequest(resource))
+      serviceRequests.push(resource);
   });
 
   if (patients?.length !== 1) throw new Error('patient is not found');
@@ -181,12 +208,47 @@ export async function getExternalLabOrderResourcesViaDiagnosticReport(
   const diagnosticReport = diagnosticReports[0];
   const schedule = schedules.length ? schedules[0] : undefined;
 
+  const serviceRequests: ServiceRequest[] = [];
+  if (type === 'unsolicited') {
+    serviceRequests.push(
+      ...resourceSearch.filter(
+        (resource): resource is ServiceRequest =>
+          resource.resourceType === 'ServiceRequest' && isExternalLabServiceRequest(resource)
+      )
+    );
+
+    if (serviceRequests.length > 1)
+      throw EXTERNAL_LAB_ERROR('found more than one ServiceRequest for a matched unsolicited result. Expected 0 or 1');
+  } else if (type === 'reflex') {
+    // make another request to grab the serviceRequest based on the order number on the DR
+    const orderNumber = getOrderNumberFromDr(diagnosticReport);
+    if (!orderNumber) throw EXTERNAL_LAB_ERROR(`No order number found on DiagnosticReport/${diagnosticReport.id}`);
+
+    console.log('it was a reflex test dr, querying for a service request with this order number', orderNumber);
+    const servicesRequestSearchResults = (
+      await oystehr.fhir.search<ServiceRequest>({
+        resourceType: 'ServiceRequest',
+        params: [{ name: 'identifier', value: `${OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM}|${orderNumber}` }],
+      })
+    ).unbundle();
+
+    if (!servicesRequestSearchResults.length)
+      throw EXTERNAL_LAB_ERROR(`No ServiceRequests matching order number ${orderNumber}`);
+
+    // we just need the first SR to know if the order was submitted with the friendly result or not
+    console.log('got servicerequest results', JSON.stringify(servicesRequestSearchResults[0].id));
+    serviceRequests.push(servicesRequestSearchResults[0]);
+  }
+
+  const serviceRequest = serviceRequests[0];
+
   return {
     patient,
     labOrganization,
     diagnosticReport,
     observations,
     schedule,
+    serviceRequest,
   };
 }
 
@@ -444,10 +506,13 @@ export const sortCoveragesByPriority = (account: Account, coverages: Coverage[])
   const coverageMap: { [key: string]: Coverage } = {};
   coverages.forEach((c) => (coverageMap[`Coverage/${c.id}`] = c));
 
+  console.log(`Before filter AccountCoverages from Account/${account.id}`, JSON.stringify(account.coverage));
   const accountCoverages = account.coverage?.filter((c) => {
     const coverageRef = c.coverage.reference;
     return coverageRef && coverageMap[coverageRef];
   });
+  console.log(`Post filter AccountCoverages from Account/${account.id}`, JSON.stringify(accountCoverages));
+  console.log(`Comparing against these coverages: `, JSON.stringify(Object.keys(coverageMap)));
 
   if (accountCoverages?.length) {
     accountCoverages.sort((a, b) => {
@@ -487,9 +552,112 @@ export const getPrimaryInsurance = (account: Account, coverages: Coverage[]): Co
   }
 };
 
+const extractObservationValue = (observation: Observation): string | undefined => {
+  if (observation.valueQuantity) {
+    const valueWithPrecision = observation.valueQuantity.extension?.find(
+      (ext) => ext.url === LAB_OBS_VALUE_WITH_PRECISION_EXT
+    )?.valueString;
+    const numericValue = valueWithPrecision ?? observation.valueQuantity.value?.toString();
+    const unit = observation.valueQuantity.code || '';
+    return numericValue ? `${numericValue} ${unit}`.trim() : undefined;
+  }
+  if (observation.valueString) {
+    return observation.valueString;
+  }
+  if (observation.valueCodeableConcept) {
+    return (
+      observation.valueCodeableConcept.coding?.map((coding) => coding.display || coding.code).join(', ') || undefined
+    );
+  }
+  return undefined;
+};
+
+const getResultValuesFromObservations = (
+  diagnosticReport: DiagnosticReport,
+  allObservations: Observation[],
+  componentNameMap?: Map<string, string>
+): string[] => {
+  const obsRefs = new Set(diagnosticReport.result?.map((r) => r.reference) ?? []);
+  const values: string[] = [];
+  for (const obs of allObservations) {
+    if (!obsRefs.has(`Observation/${obs.id}`)) continue;
+    const value = extractObservationValue(obs);
+    if (value) {
+      // For in-house labs, component name comes from the ObservationDefinition via extension
+      const obsDefId = obs.extension
+        ?.find((ext) => ext.url === IN_HOUSE_OBS_DEF_ID_SYSTEM)
+        ?.valueString?.replace(/^#/, '');
+      const inHouseName = obsDefId ? componentNameMap?.get(obsDefId) : undefined;
+      // For external labs, component name comes from the observation's own code
+      const externalName = obs.code?.text || obs.code?.coding?.[0]?.display;
+      const componentName = inHouseName || externalName;
+      values.push(componentName ? `${componentName}: ${value}` : value);
+    }
+  }
+  return values;
+};
+
+const fetchActivityDefinitions = async (
+  serviceRequests: ServiceRequest[],
+  oystehr: Oystehr
+): Promise<Map<string, ActivityDefinition>> => {
+  const canonicalUrls = new Map<string, { url: string; version: string }>();
+  for (const sr of serviceRequests) {
+    if (!sr.instantiatesCanonical?.[0]) continue;
+    const canonical = sr.instantiatesCanonical[0];
+    if (!canonicalUrls.has(canonical)) {
+      try {
+        canonicalUrls.set(canonical, getInHouseLabTestUrlAndVersionForADFromServiceRequest(sr));
+      } catch {
+        // skip if parsing fails
+      }
+    }
+  }
+
+  if (canonicalUrls.size === 0) return new Map();
+
+  const adMap = new Map<string, ActivityDefinition>();
+  const searches = Array.from(canonicalUrls.entries()).map(async ([canonical, { url, version }]) => {
+    try {
+      const result = await oystehr.fhir.search<ActivityDefinition>({
+        resourceType: 'ActivityDefinition',
+        params: [
+          { name: 'url', value: url },
+          { name: 'version', value: version },
+        ],
+      });
+      const ads = result.unbundle();
+      if (ads.length === 1) {
+        adMap.set(canonical, ads[0]);
+      }
+    } catch (e) {
+      console.warn(`Failed to fetch ActivityDefinition for ${canonical}`, e);
+    }
+  });
+  await Promise.all(searches);
+  return adMap;
+};
+
+const buildComponentNameMap = (activityDefinition: ActivityDefinition): Map<string, string> => {
+  const nameMap = new Map<string, string>();
+  const contained = activityDefinition.contained;
+  if (!contained) return nameMap;
+  for (const resource of contained) {
+    if (resource.resourceType === 'ObservationDefinition' && resource.id) {
+      const obsDef = resource as ObservationDefinition;
+      const name = obsDef.code?.text || obsDef.code?.coding?.[0]?.display;
+      if (name) {
+        nameMap.set(resource.id, name);
+      }
+    }
+  }
+  return nameMap;
+};
+
 export const makeEncounterLabResults = async (
   resources: FhirResource[],
-  m2mToken: string
+  m2mToken: string,
+  oystehr?: Oystehr
 ): Promise<{
   externalLabResultConfig: EncounterExternalLabResult;
   inHouseLabResultConfig: EncounterInHouseLabResult;
@@ -500,27 +668,31 @@ export const makeEncounterLabResults = async (
   const reflexTestsPending: string[] = []; // array of test names pending;
   const serviceRequestMap: Record<string, { resource: ServiceRequest; type: LabType }> = {};
   const diagnosticReportMap: Record<string, DiagnosticReport> = {};
+  const allObservations: Observation[] = [];
 
   resources.forEach((resource) => {
     if (resource.resourceType === 'DocumentReference') {
       const isLabsDocRef = docRefIsOttehrGeneratedResultAndCurrent(resource);
       if (isLabsDocRef) documentReferences.push(resource as DocumentReference);
     }
+    if (resource.resourceType === 'Observation') {
+      allObservations.push(resource as Observation);
+    }
     if (resource.resourceType === 'ServiceRequest') {
-      const isExternalLabServiceRequest = !!resource.code?.coding?.find((c) => c.system === OYSTEHR_LAB_OI_CODE_SYSTEM);
-      const isInHouseLabServiceRequest = !!resource.code?.coding?.find((c) => c.system === IN_HOUSE_TEST_CODE_SYSTEM);
-      if (isExternalLabServiceRequest || isInHouseLabServiceRequest) {
+      const isExternalLabSR = isExternalLabServiceRequest(resource);
+      const isInHouseLabSR = isInHouseLabServiceRequest(resource);
+      if (isExternalLabSR || isInHouseLabSR) {
         serviceRequestMap[`ServiceRequest/${resource.id}`] = {
           resource: resource as ServiceRequest,
-          type: isExternalLabServiceRequest ? LabType.external : LabType.inHouse,
+          type: isExternalLabSR ? LabType.external : LabType.inHouse,
         };
         if (resource.status === 'active') {
-          if (isExternalLabServiceRequest) {
+          if (isExternalLabSR) {
             const isManual = externalLabOrderIsManual(resource);
             // theres no guarantee that will we get electronic results back for manual labs so we can't validate
             if (!isManual && resource.id) activeExternalLabServiceRequestIds.add(resource.id);
           }
-          if (isInHouseLabServiceRequest && resource.id) activeInHouseLabServiceRequestIds.add(resource.id);
+          if (isInHouseLabSR && resource.id) activeInHouseLabServiceRequestIds.add(resource.id);
         }
 
         const reflexTestTriggered = resource.meta?.tag?.find(
@@ -552,6 +724,15 @@ export const makeEncounterLabResults = async (
     }
   });
 
+  // Fetch ActivityDefinitions for in-house labs to get component names for observations
+  const inHouseServiceRequests = Object.values(serviceRequestMap)
+    .filter((detail) => detail.type === LabType.inHouse)
+    .map((detail) => detail.resource);
+  const activityDefinitionMap =
+    oystehr && inHouseServiceRequests.length > 0
+      ? await fetchActivityDefinitions(inHouseServiceRequests, oystehr)
+      : new Map<string, ActivityDefinition>();
+
   const externalLabOrderResults: ExternalLabOrderResult[] = [];
   const inHouseLabOrderResults: InHouseLabResult[] = [];
   const reflexOrderResults: ExternalLabOrderResultConfig[] = [];
@@ -572,20 +753,21 @@ export const makeEncounterLabResults = async (
           const isReflex = diagnosticReportIsReflex(relatedDR);
           const orderNumber = getOrderNumber(sr);
           const activityDef = sr.contained?.find(
-            (resource) => resource.resourceType === 'ActivityDefinition'
-          ) as ActivityDefinition;
-          const testName = activityDef?.code?.coding?.find((c) => c.system === OYSTEHR_LAB_OI_CODE_SYSTEM)?.display;
-          const labName = activityDef?.publisher;
-          let formattedName = nameLabTest(testName, labName, false);
+            (resource): resource is ActivityDefinition => resource.resourceType === 'ActivityDefinition'
+          );
+          const { testName, testItemCode, fillerLab: labName } = getTestDetailsFromActivityDefinition(activityDef);
+          let formattedName = nameLabTest(testName, testItemCode, labName, false);
           if (isReflex) {
             const reflexTestName = relatedDR?.code.coding?.[0].display || 'Name missing';
-            formattedName = nameLabTest(reflexTestName, labName, true);
+            formattedName = nameLabTest(reflexTestName, testItemCode, labName, true);
           }
 
+          const resultValues = getResultValuesFromObservations(relatedDR, allObservations);
           const { externalResultConfigs } = await getLabOrderResultPDFConfig(docRef, formattedName, m2mToken, {
             type: LabType.external,
             nonNormalResultContained: nonNonNormalTagsContained(relatedDR),
             orderNumber,
+            resultValues,
           });
           if (isReflex) {
             reflexOrderResults.push(...externalResultConfigs);
@@ -595,11 +777,15 @@ export const makeEncounterLabResults = async (
         } else if (relatedSRDetail.type === LabType.inHouse) {
           const sr = relatedSRDetail.resource;
           const testName = sr.code?.text;
+          const canonical = sr.instantiatesCanonical?.[0];
+          const ad = canonical ? activityDefinitionMap.get(canonical) : undefined;
+          const componentNameMap = ad ? buildComponentNameMap(ad) : undefined;
+          const resultValues = getResultValuesFromObservations(relatedDR, allObservations, componentNameMap);
           const { inHouseResultConfigs } = await getLabOrderResultPDFConfig(
             docRef,
             testName || 'missing test details',
             m2mToken,
-            { type: LabType.inHouse, nonNormalResultContained: nonNonNormalTagsContained(relatedDR) }
+            { type: LabType.inHouse, nonNormalResultContained: nonNonNormalTagsContained(relatedDR), resultValues }
           );
           inHouseLabOrderResults.push(...inHouseResultConfigs);
         }
@@ -633,8 +819,8 @@ export const makeEncounterLabResults = async (
   const externalResultsPending = Array.from(activeExternalLabServiceRequestIds).map((srId) => {
     const srRef = `ServiceRequest/${srId}`;
     const serviceRequest = serviceRequestMap[srRef].resource;
-    const { testItem: testName, fillerLab } = parseLabInfoFromServiceRequest(serviceRequest);
-    return `${testName} / ${fillerLab}`;
+    const { testName, testItemCode, fillerLab } = parseLabInfoFromServiceRequest(serviceRequest);
+    return `(${testItemCode}) ${testName} / ${fillerLab}`;
   });
 
   const inHouseResultsPending = Array.from(activeInHouseLabServiceRequestIds).map((srId) => {
@@ -684,11 +870,13 @@ const getLabOrderResultPDFConfig = async (
         type: LabType.external;
         nonNormalResultContained: NonNormalResult[] | undefined;
         orderNumber?: string;
+        resultValues?: string[];
       }
     | {
         type: LabType.inHouse;
         nonNormalResultContained: NonNormalResult[] | undefined;
-        simpleResultValue?: string; // todo not implemented, displaying this is a post mvp feature
+        simpleResultValue?: string;
+        resultValues?: string[];
       }
 ): Promise<{ externalResultConfigs: ExternalLabOrderResultConfig[]; inHouseResultConfigs: InHouseLabResult[] }> => {
   const externalResults: ExternalLabOrderResultConfig[] = [];
@@ -709,6 +897,7 @@ const getLabOrderResultPDFConfig = async (
           url,
           nonNormalResultContained: resultDetails.nonNormalResultContained,
           orderNumber: resultDetails?.orderNumber,
+          resultValues: resultDetails?.resultValues,
         };
         externalResults.push(labResult);
       } else if (resultDetails.type === LabType.inHouse) {
@@ -717,6 +906,7 @@ const getLabOrderResultPDFConfig = async (
           url,
           nonNormalResultContained: resultDetails.nonNormalResultContained,
           simpleResultValue: resultDetails?.simpleResultValue,
+          resultValues: resultDetails?.resultValues,
         };
         inHouseResults.push(labResult);
       }
@@ -731,7 +921,7 @@ export const configLabRequestsForGetChartData = (encounterId: string): BatchInpu
   // namely, if the test is reflex and also lets us grab the related service request which has info on the test & lab name, needed for results display
   const docRefSearch: BatchInputGetRequest = {
     method: 'GET',
-    url: `/DocumentReference?status=current&type=${LAB_RESULT_DOC_REF_CODING_CODE.code}&encounter=${encounterId}&_include:iterate=DocumentReference:related&_include:iterate=DiagnosticReport:based-on`,
+    url: `/DocumentReference?status=current&type=${LAB_RESULT_DOC_REF_CODING_CODE.code}&encounter=${encounterId}&_include:iterate=DocumentReference:related&_include:iterate=DiagnosticReport:based-on&_include:iterate=DiagnosticReport:result`,
   };
   // Grabbing active lab service requests separately since they might not have results
   // but we validate against actually signing the progress note if there are any pending
@@ -891,12 +1081,12 @@ export const fetchLabDocumentPresignedUrls = async (
     return;
   }
 
-  const pdfPromises: Promise<LabDocument | null>[] = [];
+  const filePromises: Promise<LabDocument | null>[] = [];
   for (const docRef of documentReferences) {
     for (const content of docRef.content) {
       const z3Url = content.attachment?.url;
       if (z3Url) {
-        pdfPromises.push(
+        filePromises.push(
           getPresignedURL(z3Url, m2mToken)
             .then((presignedURL) => configLabDocument(docRef, presignedURL))
             .catch((error) => {
@@ -909,7 +1099,7 @@ export const fetchLabDocumentPresignedUrls = async (
     }
   }
 
-  const pdfs = await Promise.allSettled(pdfPromises);
+  const pdfs = await Promise.allSettled(filePromises);
 
   const { resultPDFs, labelPDF, orderPDFs, abnPDFs, labGeneratedResults } = pdfs
     .filter(
@@ -1319,6 +1509,7 @@ export const formatResourcesIntoDiagnosticReportLabDTO = async (
   console.log('formatting dto');
   const dto: DiagnosticReportLabDetailPageDTO = {
     testItem: getTestNameOrCodeFromDr(diagnosticReport),
+    testItemCode: getTestItemCodeFromDr(diagnosticReport) ?? '',
     fillerLab: labOrg?.name || '',
     orderStatus: parseLabOrderStatusWithSpecificTask(diagnosticReport, task, undefined, null),
     isPSC: false,

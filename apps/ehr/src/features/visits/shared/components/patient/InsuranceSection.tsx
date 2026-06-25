@@ -1,9 +1,27 @@
 import { Button } from '@mui/material';
+import { FormFieldItemRecord } from 'config-types';
 import { Coverage, Patient } from 'fhir/r4b';
-import { FC } from 'react';
+import { FC, useMemo } from 'react';
+import { Section } from 'src/components/layout';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { checkCoverageMatchesDetails, CoverageCheckWithDetails, CoverageWithPriority } from 'utils';
+import {
+  checkCoverageMatchesDetails,
+  CoverageCheckWithDetails,
+  CoverageWithPriority,
+  PATIENT_RECORD_CONFIG,
+} from 'utils';
 import { InsuranceContainer } from './InsuranceContainer';
+import { SectionSaveButton } from './SectionSaveButton';
+
+const insuranceSection = PATIENT_RECORD_CONFIG.FormFields.insurance;
+
+const getInsuranceSectionDefinition = (index: number): { items: FormFieldItemRecord; requiredFields: string[] } => {
+  const items = Array.isArray(insuranceSection.items) ? insuranceSection.items[index] : insuranceSection.items;
+  return {
+    items: items ?? {},
+    requiredFields: insuranceSection.requiredFields ?? [],
+  };
+};
 
 export const getEligibilityCheckDetailsForCoverage = (
   coverage: Coverage,
@@ -18,39 +36,95 @@ export const InsuranceSection: FC<{
   accountData: any;
   removeCoverage: any;
   onRemoveCoverage: (coverageId: string) => void;
-  onAddInsurance: () => void;
-}> = ({ coverages, patient, accountData, removeCoverage, onRemoveCoverage, onAddInsurance }) => (
-  <>
-    {coverages.map((coverage) => (
-      <InsuranceContainer
-        key={coverage.resource.id}
-        patientId={patient.id ?? ''}
-        ordinal={coverage.startingPriority}
-        initialEligibilityCheck={getEligibilityCheckDetailsForCoverage(
-          coverage.resource,
-          accountData?.coverageChecks ?? []
-        )}
-        removeInProgress={removeCoverage.isLoading}
-        handleRemoveClick={
-          coverage.resource.id !== undefined ? () => onRemoveCoverage(coverage.resource.id!) : undefined
-        }
-      />
-    ))}
-    {coverages.length < 2 && (
-      <Button
-        data-testid={dataTestIds.patientInformationPage.addInsuranceButton}
-        variant="outlined"
-        color="primary"
-        onClick={onAddInsurance}
-        sx={{
-          borderRadius: 25,
-          textTransform: 'none',
-          fontWeight: 'bold',
-          width: 'fit-content',
-        }}
-      >
-        + Add Insurance
-      </Button>
-    )}
-  </>
-);
+  isAddingInsurance: boolean;
+  onStartAddInsurance: () => void;
+  onCancelAddInsurance: () => void;
+  onCloseAddInsurance: () => void;
+  newInsuranceOrdinal: number;
+  encounterId?: string;
+}> = ({
+  coverages,
+  patient,
+  accountData,
+  removeCoverage,
+  onRemoveCoverage,
+  isAddingInsurance,
+  onStartAddInsurance,
+  onCancelAddInsurance,
+  onCloseAddInsurance,
+  newInsuranceOrdinal,
+  encounterId,
+}) => {
+  const primary = getInsuranceSectionDefinition(0);
+  const secondary = getInsuranceSectionDefinition(1);
+
+  const fieldKeys = useMemo(() => {
+    const renderedOrdinals = new Set<number>();
+    coverages.forEach((c) => renderedOrdinals.add(c.startingPriority - 1));
+    if (isAddingInsurance) renderedOrdinals.add(newInsuranceOrdinal - 1);
+
+    const collected: string[] = [];
+    [primary, secondary].forEach((section, index) => {
+      if (!renderedOrdinals.has(index)) return;
+      const keys = Object.values(section.items).map((item) => item.key);
+      collected.push(...keys);
+    });
+    return collected;
+  }, [coverages, isAddingInsurance, newInsuranceOrdinal, primary, secondary]);
+
+  return (
+    <Section
+      title="Insurance information"
+      titleWidget={
+        <SectionSaveButton
+          fieldKeys={fieldKeys}
+          patientId={patient.id}
+          encounterId={encounterId}
+          onSaveSuccess={isAddingInsurance ? onCloseAddInsurance : undefined}
+        />
+      }
+    >
+      {coverages.map((coverage) => (
+        <InsuranceContainer
+          key={coverage.resource.id}
+          patientId={patient.id ?? ''}
+          ordinal={coverage.startingPriority}
+          initialEligibilityCheck={getEligibilityCheckDetailsForCoverage(
+            coverage.resource,
+            accountData?.coverageChecks ?? []
+          )}
+          removeInProgress={removeCoverage.isPending}
+          handleRemoveClick={
+            coverage.resource.id !== undefined ? () => onRemoveCoverage(coverage.resource.id!) : undefined
+          }
+          renderWithoutSection
+        />
+      ))}
+      {isAddingInsurance && (
+        <InsuranceContainer
+          patientId={patient.id ?? ''}
+          ordinal={newInsuranceOrdinal}
+          isNew
+          onCancelAdd={onCancelAddInsurance}
+          renderWithoutSection
+        />
+      )}
+      {coverages.length < 2 && !isAddingInsurance && (
+        <Button
+          data-testid={dataTestIds.patientInformationPage.addInsuranceButton}
+          variant="outlined"
+          color="primary"
+          onClick={onStartAddInsurance}
+          sx={{
+            borderRadius: 25,
+            textTransform: 'none',
+            fontWeight: 'bold',
+            width: 'fit-content',
+          }}
+        >
+          + Add Insurance
+        </Button>
+      )}
+    </Section>
+  );
+};

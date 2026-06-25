@@ -1,8 +1,8 @@
-import { progressNoteIcon, startIntakeIcon } from '@ehrTheme/icons';
+import { progressNoteIcon } from '@ehrTheme/icons';
+import CallSplitIcon from '@mui/icons-material/CallSplit';
 import ChatOutlineIcon from '@mui/icons-material/ChatOutlined';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
-import LogoutIcon from '@mui/icons-material/Logout';
 import MedicalInformationIcon from '@mui/icons-material/MedicalInformationOutlined';
 import PriorityHighRoundedIcon from '@mui/icons-material/PriorityHighRounded';
 import { LoadingButton } from '@mui/lab';
@@ -30,41 +30,54 @@ import { enqueueSnackbar } from 'notistack';
 import React, { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { FEATURE_FLAGS } from 'src/constants/feature-flags';
+import {
+  getInPersonUrlByAppointmentType,
+  getInPersonVisitDetailsUrl,
+} from 'src/features/visits/in-person/routing/helpers';
 import { ROUTER_PATH } from 'src/features/visits/in-person/routing/routesInPerson';
 import { VitalsIconTooltip } from 'src/features/visits/shared/components/VitalsIconTooltip';
-import { LocationWithWalkinSchedule } from 'src/pages/AddPatient';
 import { otherColors } from 'src/themes/ottehr/colors';
 import {
   formatMinutes,
   getAbnormalVitals,
+  getAdmitterPractitionerId,
+  getAttendingPractitionerId,
   getDurationOfStatus,
-  getInPersonQuickTexts,
   getPatchBinary,
+  getSupportPhoneFor,
   getVisitTotalTime,
   GetVitalsResponseData,
   InPersonAppointmentInformation,
+  LOCATION_REVIEW_LINK_EXTENSION_URL,
   mdyStringFromISOString,
   NON_LOS_STATUSES,
   OrdersForTrackingBoardRow,
+  PRACTITIONER_CODINGS,
+  ProviderDetails,
   ROOM_EXTENSION_URL,
   VisitStatusHistoryEntry,
+  VisitStatusWithoutUnknown,
 } from 'utils';
 import { dataTestIds } from '../constants/data-test-ids';
 import ChatModal from '../features/chat/ChatModal';
 import { InfoIconsToolTip } from '../features/visits/shared/components/InfoIconsToolTip';
 import { useOystehrAPIClient } from '../features/visits/shared/hooks/useOystehrAPIClient';
+import { usePractitionerActions } from '../features/visits/shared/hooks/usePractitioner';
 import { useSignAppointmentMutation } from '../features/visits/shared/stores/tracking-board/tracking-board.queries';
 import { checkInPatient, displayOrdersToolTip, hasAtLeastOneOrder, isEligibleSupervisor } from '../helpers';
-import { getTimezone } from '../helpers/formatDateTime';
+import { completeIntakeWorkflow } from '../helpers/completeIntakeWorkflow';
 import { formatPatientName } from '../helpers/formatPatientName';
 import { getOfficePhoneNumber } from '../helpers/getOfficePhoneNumber';
 import { handleChangeInPersonVisitStatus } from '../helpers/inPersonVisitStatusUtils';
+import { getTrackingBoardPrimaryAction } from '../helpers/trackingBoardPrimaryAction';
 import { useApiClients } from '../hooks/useAppClients';
 import useEvolveUser from '../hooks/useEvolveUser';
+import { useSupportPhonesMap } from '../hooks/useLocationSupportPhones';
+import { useServiceCategoryAbbreviationResolver } from '../hooks/useServiceCategoryAbbreviation';
 import AppointmentNote from './AppointmentNote';
+import AppointmentTablePractitionerSelect from './AppointmentTablePractitionerSelect';
 import AppointmentTableRowMobile from './AppointmentTableRowMobile';
 import { ApptTab } from './AppointmentTabs';
-import { GenericToolTip } from './GenericToolTip';
 import GoToButton from './GoToButton';
 import { IN_PERSON_CHIP_STATUS_MAP, InPersonAppointmentStatusChip } from './InPersonAppointmentStatusChip';
 import { PatientDateOfBirth } from './PatientDateOfBirth';
@@ -75,9 +88,6 @@ const VITE_APP_PATIENT_APP_URL = import.meta.env.VITE_APP_PATIENT_APP_URL;
 
 interface AppointmentTableRowProps {
   appointment: InPersonAppointmentInformation;
-  location?: LocationWithWalkinSchedule;
-  actionButtons: boolean;
-  showTime: boolean;
   now: DateTime;
   tab: ApptTab;
   updateAppointments: () => void;
@@ -85,6 +95,12 @@ interface AppointmentTableRowProps {
   orders: OrdersForTrackingBoardRow;
   vitals?: GetVitalsResponseData;
   table?: 'waiting-room' | 'in-exam';
+  /** Intake-staff options for the editable "Intake & Provider" column (in-office tab). */
+  intakeOptions?: ProviderDetails[];
+  /** Provider options for the editable "Intake & Provider" column (in-office tab). */
+  providerOptions?: ProviderDetails[];
+  /** Whether the intake/provider option lists are still loading. */
+  employeesLoading?: boolean;
 }
 
 const linkStyle = {
@@ -169,9 +185,6 @@ const getIsLongWaitTime = (
 
 export default function AppointmentTableRow({
   appointment,
-  location,
-  actionButtons,
-  showTime,
   now,
   tab,
   updateAppointments,
@@ -179,9 +192,14 @@ export default function AppointmentTableRow({
   orders,
   vitals,
   table,
+  intakeOptions,
+  providerOptions,
+  employeesLoading,
 }: AppointmentTableRowProps): ReactElement | null {
   const { oystehr, oystehrZambda } = useApiClients();
   const apiClient = useOystehrAPIClient();
+  const { phonesByLocationName } = useSupportPhonesMap();
+  const resolveServiceCategoryAbbr = useServiceCategoryAbbreviationResolver();
   const theme = useTheme();
   const navigate = useNavigate();
   const { encounter } = appointment;
@@ -193,18 +211,21 @@ export default function AppointmentTableRow({
   const [hasUnread, setHasUnread] = useState<boolean>(appointment.smsModel?.hasUnreadMessages || false);
   const user = useEvolveUser();
 
-  const [startIntakeButtonLoading, setStartIntakeButtonLoading] = useState(false);
+  const [primaryActionButtonLoading, setPrimaryActionButtonLoading] = useState(false);
   const [progressNoteButtonLoading, setProgressNoteButtonLoading] = useState(false);
-  const [dischargeButtonLoading, setDischargeButtonLoading] = useState(false);
   const [approveButtonLoading, setApproveButtonLoading] = useState(false);
+  const [reviewAndSignButtonLoading, setReviewAndSignButtonLoading] = useState(false);
 
   const { mutateAsync: signAppointment, isPending: isSignLoading } = useSignAppointmentMutation();
+  const { handleUpdatePractitioner } = usePractitionerActions(encounter, 'end', PRACTITIONER_CODINGS.Admitter);
 
   const rooms = useMemo(() => {
-    return location?.extension?.filter((ext) => ext.url === ROOM_EXTENSION_URL).map((ext) => ext.valueString);
-  }, [location]);
+    return appointment.location?.extension
+      ?.filter((ext) => ext.url === ROOM_EXTENSION_URL)
+      .map((ext) => ext.valueString);
+  }, [appointment]);
 
-  const officePhoneNumber = getOfficePhoneNumber(location);
+  const officePhoneNumber = getOfficePhoneNumber(appointment.location);
 
   const patientName =
     (appointment.patient.lastName &&
@@ -216,12 +237,9 @@ export default function AppointmentTableRow({
       })) ||
     'Unknown';
 
-  let start;
-  if (appointment.start) {
-    const locationTimeZone = getTimezone(location);
-    const dateTime = DateTime.fromISO(appointment.start).setZone(locationTimeZone);
-    start = dateTime.toFormat('h:mm a');
-  }
+  const appointmentStart = appointment.start ? DateTime.fromISO(appointment.start) : undefined;
+  const start = appointmentStart?.isValid ? appointmentStart.toFormat('h:mm a') : undefined;
+  const appointmentDate = appointmentStart?.isValid ? appointmentStart.toFormat('MM/dd/yyyy') : undefined;
 
   const showChatIcon = appointment.smsModel !== undefined;
   // console.log('sms model', appointment.smsModel);
@@ -315,6 +333,7 @@ export default function AppointmentTableRow({
   };
 
   const recentStatus = appointment?.visitStatusHistory[appointment.visitStatusHistory.length - 1];
+  const showStatusTimer = appointment.status !== 'pending';
 
   const { totalMinutes, waitingMinutesEstimate } = useMemo(() => {
     const totalMinutes = getVisitTotalTime(appointment, appointment.visitStatusHistory, now);
@@ -346,9 +365,7 @@ export default function AppointmentTableRow({
     }
   }
 
-  const patientDateOfBirth = appointment.needsDOBConfirmation
-    ? appointment.unconfirmedDOB
-    : appointment.patient?.dateOfBirth;
+  const patientDateOfBirth = appointment.patient?.dateOfBirth;
 
   const isLongWaitingTime = getIsLongWaitTime(appointment, recentStatus, now);
 
@@ -483,11 +500,10 @@ export default function AppointmentTableRow({
     </Box>
   );
 
-  const statusTimeEl = (
+  const statusTimeEl = showStatusTimer ? (
     <>
-      <Grid item>{isLongWaitingTime && <PriorityIconWithBorder fill={theme.palette.warning.main} />}</Grid>
       <Grid item sx={{ display: 'flex', alignItems: 'center' }}>
-        <Typography variant="body1" sx={{ display: 'inline' }}>
+        <Typography variant="body2" sx={{ display: 'inline' }}>
           {statusTime.includes('/') ? (
             <>
               <TimeBox time={statusTime.split('/')[0].trim()} isHighlighted={isLongWaitingTime} theme={theme} />
@@ -515,17 +531,20 @@ export default function AppointmentTableRow({
         )}
       </Grid>
     </>
-  );
+  ) : undefined;
 
-  const quickTexts = getInPersonQuickTexts({
+  const quickTextsContext = {
     patientAppUrl: VITE_APP_PATIENT_APP_URL,
-    patientName: appointment.patient.firstName,
+    patientFirstName: appointment.patient.firstName,
+    patientLastName: appointment.patient.lastName,
     visitId: appointment.id,
-    locationName: location?.name,
-    start,
-    appointmentType: appointment.appointmentType,
+    locationName: appointment.location?.name,
+    locationReviewLink: appointment.location?.extension?.find((ext) => ext.url === LOCATION_REVIEW_LINK_EXTENSION_URL)
+      ?.valueUrl,
+    bookingTime: start,
     officePhone: officePhoneNumber,
-  });
+    supportPhone: getSupportPhoneFor(appointment.location?.name, phonesByLocationName) || '',
+  };
 
   const onCloseChat = useCallback(() => {
     setChatModalOpen(false);
@@ -540,6 +559,7 @@ export default function AppointmentTableRow({
       <AppointmentTableRowMobile
         appointment={appointment}
         patientName={patientName}
+        appointmentDate={appointmentDate}
         start={start}
         tab={tab}
         formattedPriorityHighIcon={formattedPriorityHighIcon}
@@ -547,7 +567,7 @@ export default function AppointmentTableRow({
         statusChip={<InPersonAppointmentStatusChip status={appointment.status} />}
         isLongWaitingTime={isLongWaitingTime}
         patientDateOfBirth={patientDateOfBirth}
-        statusTimeEl={showTime ? statusTimeEl : undefined}
+        statusTimeEl={statusTimeEl}
         linkStyle={linkStyle}
         timeToolTip={timeToolTip}
       />
@@ -559,58 +579,167 @@ export default function AppointmentTableRow({
     return null;
   }
   const encounterId: string = encounter.id;
+  const primaryAction = getTrackingBoardPrimaryAction(appointment.status, { isVirtualVisit: isVirtual(appointment) });
+  const assignedIntakePerformerId = getAdmitterPractitionerId(encounter);
+  const assignedProviderId = getAttendingPractitionerId(encounter);
+  // Read-only display (Discharged/Cancelled tabs) uses the names resolved on the appointment's
+  // participants so we don't need to fetch the employee list on those tabs.
+  const assignedIntakeName = appointment.participants?.admitter
+    ? `${appointment.participants.admitter.firstName} ${appointment.participants.admitter.lastName}`.trim()
+    : '';
+  const assignedProviderName = appointment.participants?.attender
+    ? `${appointment.participants.attender.firstName} ${appointment.participants.attender.lastName}`.trim()
+    : '';
 
-  const handleStartIntakeButton = async (): Promise<void> => {
-    setStartIntakeButtonLoading(true);
+  const handleStatusAction = async (
+    updatedStatus: VisitStatusWithoutUnknown,
+    options?: {
+      navigateTo?: string;
+      successMessage?: string;
+      missingUserMessage?: string;
+    }
+  ): Promise<void> => {
+    setPrimaryActionButtonLoading(true);
+
     if (!user) {
-      enqueueSnackbar('User is not available. Cannot start intake.', { variant: 'error' });
+      enqueueSnackbar(options?.missingUserMessage || 'User is not available. Cannot update visit status.', {
+        variant: 'error',
+      });
+      setPrimaryActionButtonLoading(false);
       return;
     }
+
+    let shouldResetLoadingState = true;
+
     try {
       await handleChangeInPersonVisitStatus(
         {
-          encounterId: encounterId,
-          updatedStatus: 'intake',
+          encounterId,
+          updatedStatus,
         },
         oystehrZambda
       );
-      navigate(`/in-person/${appointment.id}/patient-info`);
+
+      if (options?.successMessage) {
+        enqueueSnackbar(options.successMessage, { variant: 'success' });
+      }
+
+      if (options?.navigateTo) {
+        shouldResetLoadingState = false;
+        navigate(options.navigateTo);
+        return;
+      }
+
+      await updateAppointments();
     } catch (error) {
       console.error(error);
       enqueueSnackbar('An error occurred. Please try again.', { variant: 'error' });
+    } finally {
+      if (shouldResetLoadingState) {
+        setPrimaryActionButtonLoading(false);
+      }
     }
-    setStartIntakeButtonLoading(false);
   };
 
-  const renderStartIntakeButton = (): ReactElement | undefined => {
-    if (appointment.status === 'arrived' || appointment.status === 'ready' || appointment.status === 'intake') {
-      return (
-        <GoToButton
-          text="Start Intake"
-          loading={startIntakeButtonLoading}
-          onClick={handleStartIntakeButton}
-          dataTestId={dataTestIds.dashboard.intakeButton}
-        >
-          <img src={startIntakeIcon} />
-        </GoToButton>
-      );
+  const renderActionButton = (
+    text: string,
+    onClick: () => Promise<void>,
+    dataTestId: string,
+    loading = primaryActionButtonLoading
+  ): ReactElement => {
+    return (
+      <LoadingButton
+        data-testid={dataTestId}
+        onClick={() => void onClick()}
+        loading={loading}
+        variant="contained"
+        sx={{
+          borderRadius: 8,
+          textTransform: 'none',
+          fontSize: '15px',
+          fontWeight: 500,
+          whiteSpace: 'nowrap',
+          px: 2.5,
+        }}
+      >
+        {text}
+      </LoadingButton>
+    );
+  };
+
+  const handlePrimaryActionButton = async (): Promise<void> => {
+    if (!primaryAction) {
+      return;
     }
-    return undefined;
+
+    if (appointment.status === 'intake') {
+      setPrimaryActionButtonLoading(true);
+
+      try {
+        const completedIntake = await completeIntakeWorkflow({
+          assignedIntakePerformerId,
+          encounterId,
+          endIntakePractitioner: handleUpdatePractitioner,
+          refetch: updateAppointments,
+          zambdaClient: oystehrZambda,
+        });
+
+        if (completedIntake) {
+          enqueueSnackbar('Intake completed', { variant: 'success' });
+        }
+      } finally {
+        setPrimaryActionButtonLoading(false);
+      }
+
+      return;
+    }
+
+    if (appointment.status === 'ready for provider' && !assignedProviderId) {
+      enqueueSnackbar('Please assign provider', { variant: 'error' });
+      return;
+    }
+
+    if (primaryAction.skipStatusUpdate && primaryAction.navigateToChart) {
+      navigate(getInPersonUrlByAppointmentType(appointment, 'patient-info'));
+      return;
+    }
+
+    await handleStatusAction(primaryAction.updatedStatus, {
+      missingUserMessage: primaryAction.missingUserMessage,
+      navigateTo: primaryAction.navigateToChart
+        ? getInPersonUrlByAppointmentType(appointment, 'patient-info')
+        : undefined,
+      successMessage: primaryAction.successMessage,
+    });
+  };
+
+  const renderPrimaryActionButton = (): ReactElement | undefined => {
+    if (!primaryAction) {
+      return undefined;
+    }
+
+    return renderActionButton(primaryAction.label, handlePrimaryActionButton, primaryAction.dataTestId);
+  };
+
+  const navigateToReviewAndSign = async (setLoading: (loading: boolean) => void): Promise<void> => {
+    setLoading(true);
+    try {
+      navigate(getInPersonUrlByAppointmentType(appointment, ROUTER_PATH.REVIEW_AND_SIGN));
+    } catch (error) {
+      console.error(error);
+      enqueueSnackbar('An error occurred. Please try again.', { variant: 'error' });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleProgressNoteButton = async (): Promise<void> => {
-    setProgressNoteButtonLoading(true);
-    try {
-      navigate(`/in-person/${appointment.id}/${ROUTER_PATH.REVIEW_AND_SIGN}`);
-    } catch (error) {
-      console.error(error);
-      enqueueSnackbar('An error occurred. Please try again.', { variant: 'error' });
-    }
-    setProgressNoteButtonLoading(false);
+    await navigateToReviewAndSign(setProgressNoteButtonLoading);
   };
 
   const renderProgressNoteButton = (): ReactElement | undefined => {
     if (
+      appointment.status === 'intake' ||
       appointment.status === 'ready for provider' ||
       appointment.status === 'provider' ||
       appointment.status === 'awaiting supervisor approval' ||
@@ -631,6 +760,23 @@ export default function AppointmentTableRow({
     return undefined;
   };
 
+  const handleReviewAndSignButton = async (): Promise<void> => {
+    await navigateToReviewAndSign(setReviewAndSignButtonLoading);
+  };
+
+  const renderReviewAndSignButton = (): ReactElement | undefined => {
+    if (appointment.status !== 'discharged') {
+      return undefined;
+    }
+
+    return renderActionButton(
+      'Review & Sign',
+      handleReviewAndSignButton,
+      dataTestIds.dashboard.reviewAndSignButton,
+      reviewAndSignButtonLoading
+    );
+  };
+
   const handleApprove = async (): Promise<void> => {
     setApproveButtonLoading(true);
     if (!apiClient || !appointment?.id) {
@@ -649,7 +795,7 @@ export default function AppointmentTableRow({
         encounterId: encounterId,
       });
       await updateAppointments();
-      navigate('/visits', { state: { tab: ApptTab.completed } });
+      navigate(`/visits?tab=${ApptTab.completed}`);
     } catch (error) {
       console.error(error);
       enqueueSnackbar('An error occurred while approving. Please try again.', { variant: 'error' });
@@ -691,40 +837,23 @@ export default function AppointmentTableRow({
     return undefined;
   };
 
-  const handleDischargeButton = async (): Promise<void> => {
-    setDischargeButtonLoading(true);
-    if (!user) {
-      enqueueSnackbar('User is not available. Cannot discharge patient.', { variant: 'error' });
-      return;
-    }
-    try {
-      await handleChangeInPersonVisitStatus(
-        {
-          encounterId: encounterId,
-          updatedStatus: 'discharged',
-        },
-        oystehrZambda
-      );
-      await updateAppointments();
-      enqueueSnackbar('Patient discharged successfully', { variant: 'success' });
-    } catch (error) {
-      console.error(error);
-      enqueueSnackbar('An error occurred. Please try again.', { variant: 'error' });
-    }
-    setDischargeButtonLoading(false);
-  };
-
-  const renderDischargeButton = (): ReactElement | undefined => {
-    if (appointment.status === 'provider') {
+  const renderArrivedButton = (): ReactElement | undefined => {
+    if (tab === 'prebooked' && !isVirtual(appointment)) {
       return (
-        <GoToButton
-          loading={dischargeButtonLoading}
-          text="Discharge"
-          onClick={handleDischargeButton}
-          dataTestId={dataTestIds.dashboard.dischargeButton}
+        <LoadingButton
+          data-testid={dataTestIds.dashboard.arrivedButton}
+          onClick={handleArrivedClick}
+          loading={arrivedStatusSaving}
+          variant="contained"
+          sx={{
+            borderRadius: 8,
+            textTransform: 'none',
+            fontSize: '15px',
+            fontWeight: 500,
+          }}
         >
-          <LogoutIcon />
-        </GoToButton>
+          Arrived
+        </LoadingButton>
       );
     }
     return undefined;
@@ -738,7 +867,8 @@ export default function AppointmentTableRow({
   // if visit components, there is always something in this cell, hence the default to true
   const showPointerForInfoIcons = displayOrdersToolTip(appointment, tab) ? hasAtLeastOneOrder(orders) : true;
 
-  const serviceCategory = appointment.serviceCategory ? ' | ' + makeAbbreviation(appointment.serviceCategory) : '';
+  const serviceCategoryAbbr = resolveServiceCategoryAbbr(appointment.serviceCategory);
+  const serviceCategory = serviceCategoryAbbr ? ' | ' + serviceCategoryAbbr : '';
 
   return (
     <TableRow
@@ -788,28 +918,34 @@ export default function AppointmentTableRow({
         )}
       </TableCell>
       <TableCell sx={{ verticalAlign: 'center' }} data-testid={dataTestIds.dashboard.tableRowStatus(appointment.id)}>
-        <Typography variant="body1">
-          {capitalize?.(
-            appointment.appointmentType === 'post-telemed'
-              ? 'Post Telemed'
-              : (appointment.appointmentType || '').toString()
-          )}
+        <Typography variant="body2">
+          {isVirtual(appointment) ? 'Virtual' : 'In Person'}
           {serviceCategory}
         </Typography>
-        <Typography variant="body1">
-          <strong>{start}</strong>
-        </Typography>
-        {tab !== ApptTab.prebooked && (
-          <Box mt={1}>
-            <InPersonAppointmentStatusChip status={appointment.status} />
-          </Box>
-        )}
+        <Typography variant="body2">{appointment.location?.name ?? ''}</Typography>
+        <Box mt={0.5}>
+          <InPersonAppointmentStatusChip status={appointment.status} />
+        </Box>
       </TableCell>
-      {/* placeholder until time stamps for waiting and in exam or something comparable are made */}
-      {/* <TableCell sx={{ verticalAlign: 'top' }}><Typography variant="body1" aria-owns={hoverElement ? 'status-popover' : undefined} aria-haspopup='true' sx={{ verticalAlign: 'top' }} onMouseOver={(event) => setHoverElement(event.currentTarget)} onMouseLeave={() => setHoverElement(undefined)}>{statusTime}</Typography></TableCell>
-          <Popover id='status-popover' open={hoverElement !== undefined} anchorEl={hoverElement} anchorOrigin={{ vertical: 'top', horizontal: 'center' }} transformOrigin={{ vertical: 'bottom', horizontal: 'right' }} onClose={() => setHoverElement(undefined)}><Typography>test</Typography></Popover> */}
-      {showTime && (
-        <TableCell sx={{ verticalAlign: 'center' }}>
+      <TableCell sx={{ verticalAlign: 'center' }}>
+        <Typography variant="body2">
+          {capitalize?.(
+            appointment.appointmentType === 'pre-booked'
+              ? 'Scheduled'
+              : appointment.appointmentType === 'walk-in'
+              ? 'On Demand'
+              : appointment.appointmentType === 'post-telemed'
+              ? 'Post Telemed'
+              : ''
+          )}
+        </Typography>
+        {appointmentDate && <Typography variant="body2">{appointmentDate}</Typography>}
+        {start && (
+          <Typography variant="body2">
+            <strong>{start}</strong>
+          </Typography>
+        )}
+        {showStatusTimer && (
           <Tooltip
             componentsProps={{
               tooltip: {
@@ -831,43 +967,36 @@ export default function AppointmentTableRow({
             arrow
             onOpen={scrollTooltipToBottom}
           >
-            <Grid sx={{ display: 'flex', alignItems: 'center', marginTop: '8px' }} gap={1}>
+            <Grid sx={{ display: 'flex', alignItems: 'center', marginTop: '4px' }} gap={1}>
               {statusTimeEl}
             </Grid>
           </Tooltip>
-        </TableCell>
-      )}
+        )}
+      </TableCell>
       <TableCell sx={{ verticalAlign: 'center', wordWrap: 'break-word' }}>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-          <Link
-            to={`/patient/${appointment.patient.id}`}
-            style={{ textDecoration: 'none' }}
-            data-testid={dataTestIds.dashboard.patientName}
-          >
-            <Typography variant="subtitle2" sx={{ fontSize: '16px', color: '#000' }}>
-              {patientName}
-            </Typography>
-          </Link>
-          {appointment.needsDOBConfirmation ? (
-            <GenericToolTip title="Date of birth for returning patient was not confirmed" customWidth="170px">
-              <Box sx={{ display: 'flex', gap: 0.75, alignItems: 'center', flexWrap: 'nowrap' }}>
-                <Typography variant="body2" sx={{ color: theme.palette.text.secondary, whiteSpace: 'nowrap' }}>{`${
-                  appointment.patient?.sex && capitalize(appointment.patient?.sex)
-                } | `}</Typography>
-                <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'nowrap' }}>
-                  <PatientDateOfBirth dateOfBirth={patientDateOfBirth} />
-                  {appointment.needsDOBConfirmation && <PriorityIconWithBorder fill={theme.palette.warning.main} />}
-                </Box>
-              </Box>
-            </GenericToolTip>
-          ) : (
-            <Box sx={{ display: 'flex', gap: 0.75, alignItems: 'center', flexWrap: 'nowrap' }}>
-              <Typography sx={{ color: theme.palette.text.secondary, whiteSpace: 'nowrap' }}>{`${
-                appointment.patient?.sex && capitalize(appointment.patient?.sex)
-              } |`}</Typography>
-              <PatientDateOfBirth dateOfBirth={patientDateOfBirth} />
-            </Box>
-          )}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            <Link
+              to={`/patient/${appointment.patient.id}`}
+              style={{ textDecoration: 'none' }}
+              data-testid={dataTestIds.dashboard.patientName}
+            >
+              <Typography variant="subtitle2" sx={{ fontSize: '16px', color: '#000' }}>
+                {patientName}
+              </Typography>
+            </Link>
+            {appointment.isFollowUp && (
+              <Tooltip title="Follow-up visit">
+                <CallSplitIcon sx={{ fontSize: 16, color: 'text.secondary', transform: 'rotate(180deg)' }} />
+              </Tooltip>
+            )}
+          </Box>
+          <Box sx={{ display: 'flex', gap: 0.75, alignItems: 'center', flexWrap: 'nowrap' }}>
+            <Typography sx={{ color: theme.palette.text.secondary, whiteSpace: 'nowrap' }}>{`${
+              appointment.patient?.sex && capitalize(appointment.patient?.sex)
+            } |`}</Typography>
+            <PatientDateOfBirth dateOfBirth={patientDateOfBirth} />
+          </Box>
           <ReasonsForVisit
             reasonsForVisit={appointment.reasonForVisit}
             tab={tab}
@@ -910,7 +1039,37 @@ export default function AppointmentTableRow({
         </TableCell>
       )}
       <TableCell sx={{ verticalAlign: 'center' }}>
-        <Typography sx={{ fontSize: 14, display: 'inline' }}>{appointment.provider}</Typography>
+        {tab === ApptTab.prebooked ? (
+          <Typography sx={{ fontSize: 14, display: 'inline' }}>{appointment.provider}</Typography>
+        ) : tab === ApptTab['in-office'] ? (
+          <Stack spacing={0.5} sx={{ minWidth: 150 }}>
+            <AppointmentTablePractitionerSelect
+              label="In:"
+              options={intakeOptions ?? []}
+              selectedPractitionerId={assignedIntakePerformerId}
+              encounter={encounter}
+              practitionerType={PRACTITIONER_CODINGS.Admitter}
+              isLoadingOptions={!!employeesLoading}
+              onAssigned={updateAppointments}
+              dataTestId={dataTestIds.dashboard.tableRowIntakeInput(appointment.id)}
+            />
+            <AppointmentTablePractitionerSelect
+              label="Pr:"
+              options={providerOptions ?? []}
+              selectedPractitionerId={assignedProviderId}
+              encounter={encounter}
+              practitionerType={PRACTITIONER_CODINGS.Attender}
+              isLoadingOptions={!!employeesLoading}
+              onAssigned={updateAppointments}
+              dataTestId={dataTestIds.dashboard.tableRowProviderInput(appointment.id)}
+            />
+          </Stack>
+        ) : (
+          <Stack spacing={0.5} sx={{ minWidth: 150 }}>
+            <Typography sx={{ fontSize: 14 }}>In: {assignedIntakeName || '—'}</Typography>
+            <Typography sx={{ fontSize: 14 }}>Pr: {assignedProviderName || '—'}</Typography>
+          </Stack>
+        )}
       </TableCell>
       {((tab === ApptTab['in-office'] && table === 'in-exam') || tab === ApptTab.completed) && (
         <TableCell sx={{ verticalAlign: 'center' }}>
@@ -993,53 +1152,38 @@ export default function AppointmentTableRow({
         )}
       </TableCell>
       <TableCell sx={{ verticalAlign: 'center' }}>
-        <Stack direction={'row'} spacing={1}>
+        <Stack direction={'row'} spacing={1} alignItems="center" justifyContent="center" sx={{ width: '100%' }}>
           <GoToButton
             text="Visit Details"
-            onClick={() => navigate(`/visit/${appointment.id}`)}
+            onClick={() => navigate(getInPersonVisitDetailsUrl(appointment.id))}
             dataTestId={dataTestIds.dashboard.visitDetailsButton}
           >
             <MedicalInformationIcon />
           </GoToButton>
-          {renderStartIntakeButton()}
           {renderProgressNoteButton()}
-          {renderDischargeButton()}
+        </Stack>
+      </TableCell>
+      <TableCell sx={{ verticalAlign: 'center' }}>
+        <Stack direction={'row'} spacing={1} alignItems="center" justifyContent="center" sx={{ width: '100%' }}>
+          {renderArrivedButton()}
+          {renderReviewAndSignButton()}
+          {renderPrimaryActionButton()}
           {FEATURE_FLAGS.SUPERVISOR_APPROVAL_ENABLED && renderSupervisorApproval()}
         </Stack>
       </TableCell>
-      {actionButtons && (
-        <TableCell sx={{ verticalAlign: 'center' }}>
-          <LoadingButton
-            data-testid={dataTestIds.dashboard.arrivedButton}
-            onClick={handleArrivedClick}
-            loading={arrivedStatusSaving}
-            variant="contained"
-            sx={{
-              borderRadius: 8,
-              textTransform: 'none',
-              fontSize: '15px',
-              fontWeight: 500,
-            }}
-          >
-            Arrived
-          </LoadingButton>
-        </TableCell>
-      )}
       {chatModalOpen && (
         <ChatModal
           appointment={appointment}
-          currentLocation={location}
+          currentLocation={appointment.location}
           onClose={onCloseChat}
           onMarkAllRead={onMarkAllRead}
-          quickTexts={quickTexts}
+          quickTextsContext={quickTextsContext}
         />
       )}
     </TableRow>
   );
 }
 
-function makeAbbreviation(str: string): string {
-  return str.split(' ').reduce((previousValue: string, currentValue: string) => {
-    return previousValue + currentValue.charAt(0).toUpperCase();
-  }, '');
+function isVirtual(appointment: InPersonAppointmentInformation): boolean {
+  return appointment.appointmentAttendanceType === 'virtual';
 }

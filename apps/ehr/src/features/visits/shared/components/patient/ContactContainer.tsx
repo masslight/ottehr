@@ -1,22 +1,23 @@
 import { Box } from '@mui/material';
-import { FC } from 'react';
+import { FC, useEffect, useMemo } from 'react';
+import { useFormContext, useWatch } from 'react-hook-form';
 import { Row } from 'src/components/layout';
 import { PATIENT_RECORD_CONFIG } from 'utils';
 import PatientRecordFormField from './PatientRecordFormField';
 import PatientRecordFormSection, { usePatientRecordFormSection } from './PatientRecordFormSection';
+import { SectionSaveButton } from './SectionSaveButton';
 
 const contactSection = PATIENT_RECORD_CONFIG.FormFields.patientContactInformation;
-export const ContactContainer: FC<{ isLoading: boolean }> = ({ isLoading }) => {
-  /*
-  // this is just something that is known about the implementation ahead of time, so we can code it
-  // into the config object rather than looking into the patient intake questionnaire
-  // leaving this commented in order to help figure out which projects do need to show this
-  const showPreferredCommunicationMethod =
-    Object.values(inPersonIntakeQuestionnaire.fhirResources)[0]
-      .resource.item.find((item) => item.linkId === 'contact-information-page')
-      ?.item.find((item) => item.linkId === 'patient-preferred-communication-method') != null;
-  */
 
+const FIELD_KEYS = Object.values(contactSection.items).map((item) => item.key);
+
+interface ContactContainerProps {
+  isLoading: boolean;
+  patientId?: string;
+  encounterId?: string;
+}
+
+export const ContactContainer: FC<ContactContainerProps> = ({ isLoading, patientId, encounterId }) => {
   const {
     items: contact,
     hiddenFields: hiddenFormFields,
@@ -25,8 +26,25 @@ export const ContactContainer: FC<{ isLoading: boolean }> = ({ isLoading }) => {
     formSection: contactSection,
   });
 
+  const { setValue } = useFormContext();
+  const noEmailChecked = useWatch({ name: 'patient-no-email' });
+
+  useEffect(() => {
+    if (noEmailChecked) {
+      setValue('patient-email', '', { shouldDirty: true });
+    }
+  }, [noEmailChecked, setValue]);
+
+  const effectiveRequiredFormFields = useMemo(
+    () => (noEmailChecked ? (requiredFormFields ?? []).filter((k) => k !== 'patient-email') : requiredFormFields),
+    [noEmailChecked, requiredFormFields]
+  );
+
   return (
-    <PatientRecordFormSection formSection={contactSection}>
+    <PatientRecordFormSection
+      formSection={contactSection}
+      titleWidget={<SectionSaveButton fieldKeys={FIELD_KEYS} patientId={patientId} encounterId={encounterId} />}
+    >
       <PatientRecordFormField
         item={contact.streetAddress}
         hiddenFormFields={hiddenFormFields}
@@ -66,6 +84,12 @@ export const ContactContainer: FC<{ isLoading: boolean }> = ({ isLoading }) => {
       </Row>
       <PatientRecordFormField
         item={contact.email}
+        hiddenFormFields={hiddenFormFields}
+        requiredFormFields={effectiveRequiredFormFields}
+        isLoading={isLoading}
+      />
+      <PatientRecordFormField
+        item={contact.noEmail}
         hiddenFormFields={hiddenFormFields}
         requiredFormFields={requiredFormFields}
         isLoading={isLoading}

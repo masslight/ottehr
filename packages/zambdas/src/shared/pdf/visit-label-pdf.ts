@@ -13,7 +13,7 @@ import { TextStyle } from './types';
 
 const VISIT_LABEL_PDF_BASE_NAME = 'VisitLabel';
 
-export const VISIT_LABEL_DOC_REF_DOCTYPE = {
+export const VISIT_LABEL_PDF_DOC_REF_DOCTYPE = {
   system: 'http://ottehr.org/fhir/StructureDefinition/visit-label',
   code: 'visit-label',
   display: 'Visit Label',
@@ -21,7 +21,7 @@ export const VISIT_LABEL_DOC_REF_DOCTYPE = {
 
 const DATE_FORMAT = 'MM/dd/yyyy';
 
-interface VisitLabelContent {
+export interface VisitLabelContent {
   patientLastName: string;
   patientFirstName: string;
   patientMiddleName?: string;
@@ -35,6 +35,7 @@ interface VisitLabelContent {
 export interface VisitLabelConfig {
   labelConfig: LabelConfig;
   content: VisitLabelContent;
+  type: 'visit';
 }
 
 const createVisitLabelPdfBytes = async (data: VisitLabelConfig): Promise<Uint8Array> => {
@@ -80,28 +81,6 @@ const createVisitLabelPdfBytes = async (data: VisitLabelConfig): Promise<Uint8Ar
     pdfClient.drawTextSequential(text, textStyles.fieldTextBold);
   };
 
-  const getAgeString = (dob: DateTime | undefined): string => {
-    if (!dob || dob.toUTC() > DateTime.utc()) return '';
-
-    // get the date diff between now and the dob
-    // const ageInMonths = Math.round(DateTime.utc().diff(dob.toUTC(), ['months', 'weeks', 'days']).as('months'));
-    const { months, weeks, days } = DateTime.utc().diff(dob.toUTC(), ['months', 'weeks', 'days']).toObject();
-    if (!months && !weeks && days !== undefined) {
-      return `${days} d`;
-    }
-
-    if (!months && weeks !== undefined) return `${weeks} wk`;
-
-    if (months !== undefined) {
-      if (months <= 24) return `${months} mo`;
-      else {
-        return `${Math.floor(months / 12)} yr`;
-      }
-    }
-
-    throw new Error(`Error processing age string for dob ${dob}`);
-  };
-
   /**
    * Label format looks like:
    *
@@ -135,28 +114,68 @@ const createVisitLabelPdfBytes = async (data: VisitLabelConfig): Promise<Uint8Ar
   drawHeaderAndInlineText('PID', patientId);
   pdfClient.newLine(NEWLINE_Y_DROP);
 
-  pdfClient.drawTextSequential(
-    `${patientLastName}, ${patientFirstName}${patientMiddleName ? `, ${patientMiddleName}` : ''}`,
-    { ...textStyles.fieldHeader, fontSize: textStyles.fieldHeader.fontSize + 2 }
-  );
+  pdfClient.drawTextSequential(getPatientNameForLabelDisplay(patientLastName, patientFirstName, patientMiddleName), {
+    ...textStyles.fieldHeader,
+    fontSize: textStyles.fieldHeader.fontSize + 2,
+  });
   pdfClient.newLine(NEWLINE_Y_DROP);
 
-  const patientDOBString = patientDateOfBirth ? patientDateOfBirth.toFormat(DATE_FORMAT) : '';
-  const ageString = getAgeString(patientDateOfBirth);
-  const renderAgeString = ageString ? `(${ageString})` : '';
-  drawHeaderAndInlineText('DOB', `${patientDOBString} ${renderAgeString}, ${patientGender}`);
+  drawHeaderAndInlineText('DOB', getPatientDOBAndSexForLabelDisplay(patientDateOfBirth, patientGender));
   pdfClient.newLine(NEWLINE_Y_DROP);
 
-  drawHeaderAndInlineText(
-    'Visit date',
-    visitDate ? visitDate.setZone(visitTimeZone ? visitTimeZone : 'UTC').toFormat(DATE_FORMAT) : ''
-  );
+  drawHeaderAndInlineText('Visit date', getVisitDateForLabelDisplay(visitDate, visitTimeZone));
 
   return await pdfClient.save();
 };
 
+export const getPatientNameForLabelDisplay = (
+  patientLast: string,
+  patientFirst: string,
+  patientMiddle?: string
+): string => {
+  return `${patientLast}, ${patientFirst}${patientMiddle ? `, ${patientMiddle}` : ''}`;
+};
+
+export const getPatientDOBAndSexForLabelDisplay = (dob: DateTime | undefined, sex: string): string => {
+  const patientDOBString = dob ? dob.toFormat(DATE_FORMAT) : '';
+
+  const getAgeString = (dob: DateTime | undefined): string => {
+    if (!dob || dob.toUTC() > DateTime.utc()) return '';
+
+    // get the date diff between now and the dob
+    // const ageInMonths = Math.round(DateTime.utc().diff(dob.toUTC(), ['months', 'weeks', 'days']).as('months'));
+    const { months, weeks, days } = DateTime.utc().diff(dob.toUTC(), ['months', 'weeks', 'days']).toObject();
+    if (!months && !weeks && days !== undefined) {
+      return `${days} d`;
+    }
+
+    if (!months && weeks !== undefined) return `${weeks} wk`;
+
+    if (months !== undefined) {
+      if (months <= 24) return `${months} mo`;
+      else {
+        return `${Math.floor(months / 12)} yr`;
+      }
+    }
+
+    throw new Error(`Error processing age string for dob ${dob}`);
+  };
+  const ageString = getAgeString(dob);
+  const renderAgeString = ageString ? `(${ageString})` : '';
+
+  return `${patientDOBString} ${renderAgeString}, ${sex}`;
+};
+
+export const getVisitDateForLabelDisplay = (
+  visitDate: DateTime | undefined,
+  visitTimeZone: string | undefined
+): string => {
+  return visitDate ? visitDate.setZone(visitTimeZone ? visitTimeZone : 'UTC').toFormat(DATE_FORMAT) : '';
+};
+
 async function createVisitLabelPDFHelper(
   input: VisitLabelConfig,
+  patientUuid: string,
   secrets: Secrets | null,
   token: string
 ): Promise<PdfInfo> {
@@ -178,7 +197,7 @@ async function createVisitLabelPDFHelper(
     secrets,
     fileName,
     bucketName: BUCKET_NAMES.VISIT_NOTES,
-    patientID: input.content.patientId,
+    patientID: patientUuid,
   });
 
   console.log('Uploading file to bucket, ', BUCKET_NAMES.VISIT_NOTES);
@@ -199,20 +218,21 @@ async function createVisitLabelPDFHelper(
 export async function createVisitLabelPDF(
   labelConfig: VisitLabelConfig,
   encounterId: string,
+  patientUuid: string,
   secrets: Secrets | null,
   token: string,
   oystehr: Oystehr
-): Promise<{ docRef: DocumentReference; presignedURL: string }> {
-  const pdfInfo = await createVisitLabelPDFHelper(labelConfig, secrets, token);
+): Promise<{ documentReference: DocumentReference; presignedURL: string }> {
+  const pdfInfo = await createVisitLabelPDFHelper(labelConfig, patientUuid, secrets, token);
 
   console.log(`This is the made pdfInfo`, JSON.stringify(pdfInfo));
 
   const { docRefs } = await createFilesDocumentReferences({
     files: [{ url: pdfInfo.uploadURL, title: pdfInfo.title }],
-    type: { coding: [VISIT_LABEL_DOC_REF_DOCTYPE], text: 'Visit label' },
+    type: { coding: [VISIT_LABEL_PDF_DOC_REF_DOCTYPE], text: 'Visit label' },
     references: {
       subject: {
-        reference: `Patient/${labelConfig.content.patientId}`,
+        reference: `Patient/${patientUuid}`,
       },
       context: {
         encounter: [{ reference: `Encounter/${encounterId}` }],
@@ -238,5 +258,5 @@ export async function createVisitLabelPDF(
     throw new Error('Failed to get presigned URL for visit label PDF');
   }
 
-  return { docRef: docRefs[0], presignedURL };
+  return { documentReference: docRefs[0], presignedURL };
 }

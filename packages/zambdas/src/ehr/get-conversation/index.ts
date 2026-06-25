@@ -11,12 +11,10 @@ import {
   getLastName,
   getMessageFromComm,
   getMessageHasBeenRead,
-  getSecret,
   Secrets,
-  SecretsKeys,
 } from 'utils';
-import { getAuth0Token, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
-import { createOystehrClient } from '../../shared/helpers';
+import { getAuth0Token, wrapHandler, ZambdaInput } from '../../shared';
+import { createClinicalOystehrClient } from '../../shared/helpers';
 
 export interface GetConversationInputValidated extends GetConversationInput {
   secrets: Secrets;
@@ -46,132 +44,127 @@ const CHUNK_SIZE = 100;
 const MAX_MESSAGE_COUNT = '1000';
 
 export const index = wrapHandler('get-conversation', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  try {
-    console.group('validateRequestParameters');
-    const validatedParameters = validateRequestParameters(input);
-    const { patientId, timezone, secrets } = validatedParameters;
-    console.groupEnd();
-    if (!oystehrToken) {
-      console.log('getting token');
-      oystehrToken = await getAuth0Token(secrets);
-    } else {
-      console.log('already have token');
-    }
+  console.group('validateRequestParameters');
+  const validatedParameters = validateRequestParameters(input);
+  const { patientId, timezone, secrets } = validatedParameters;
+  console.groupEnd();
+  if (!oystehrToken) {
+    console.log('getting token');
+    oystehrToken = await getAuth0Token(secrets);
+  } else {
+    console.log('already have token');
+  }
 
-    const oystehr = createOystehrClient(oystehrToken, secrets);
+  const oystehr = createClinicalOystehrClient(oystehrToken, secrets);
 
-    const relatedResults = (
-      await oystehr.fhir.search<RelatedPerson>({
-        resourceType: 'RelatedPerson',
-        params: [{ name: 'patient', value: `Patient/${patientId}` }],
-      })
-    ).unbundle();
+  const relatedResults = (
+    await oystehr.fhir.search<RelatedPerson>({
+      resourceType: 'RelatedPerson',
+      params: [{ name: 'patient', value: `Patient/${patientId}` }],
+    })
+  ).unbundle();
 
-    const relatedPersonRefs = relatedResults.filter((r) => r.id).map((r) => `RelatedPerson/${r.id}`);
+  const relatedPersonRefs = relatedResults.filter((r) => r.id).map((r) => `RelatedPerson/${r.id}`);
 
-    if (relatedPersonRefs.length === 0) {
-      return {
-        statusCode: 200,
-        body: JSON.stringify([]),
-      };
-    }
-
-    const [sentMessages, receivedMessages] = await Promise.all([
-      getSentMessages(relatedPersonRefs, oystehr),
-      getReceivedMessages(relatedPersonRefs, oystehr),
-    ]);
-
-    console.time('structure_conversation_data');
-    const rpMap: Record<string, RelatedPerson> = {};
-    const senderMap: Record<string, Device | Practitioner> = {};
-    const patientMap: Record<string, Patient> = {};
-    const sentCommunications: Communication[] = [];
-    const receivedCommunications: Communication[] = [];
-
-    sentMessages.forEach((resource) => {
-      if (resource.resourceType === 'Communication') {
-        sentCommunications.push(resource as Communication);
-      } else if (resource.resourceType === 'Device' && resource.id) {
-        senderMap[`Device/${resource.id}`] = resource as Device;
-      } else if (resource.resourceType === 'Practitioner' && resource.id) {
-        senderMap[`Practitioner/${resource.id}`] = resource as Practitioner;
-      }
-    });
-
-    receivedMessages.forEach((resource) => {
-      if (resource.resourceType === 'Communication') {
-        receivedCommunications.push(resource as Communication);
-      } else if (resource.resourceType === 'RelatedPerson' && resource.id) {
-        rpMap[`RelatedPerson/${resource.id}`] = resource as RelatedPerson;
-      } else if (resource.resourceType === 'Patient' && resource.id) {
-        patientMap[`Patient/${resource.id}`] = resource as Patient;
-      }
-    });
-
-    const dedupedSentMessages = dedupeCommunications(sentCommunications);
-
-    console.log('sent messages found: ', dedupedSentMessages.length);
-    console.log('received messages found: ', receivedCommunications.length);
-
-    const sentItems: ProtoConversationItem[] = dedupedSentMessages.map((comm) => ({
-      id: comm.id ?? '',
-      content: getMessageFromComm(comm),
-      isRead: true,
-      sentWhen: comm.sent ?? '',
-      sender: getSenderNameFromComm(comm, senderMap),
-      isFromPatient: false,
-    }));
-
-    const receivedItems: ProtoConversationItem[] = receivedCommunications.map((comm) => ({
-      id: comm.id ?? '',
-      content: getMessageFromComm(comm),
-      isRead: getMessageHasBeenRead(comm),
-      sentWhen: comm.sent ?? '',
-      sender: getPatientSenderNameFromComm(comm, rpMap, patientMap),
-      isFromPatient: true,
-    }));
-
-    const allMessages: ConversationItem[] = [...sentItems, ...receivedItems]
-      .sort((m1, m2) => {
-        const time1 = DateTime.fromISO(m1.sentWhen);
-        const time2 = DateTime.fromISO(m2.sentWhen);
-
-        if (time1.equals(time2)) {
-          return 0;
-        }
-        return time1 < time2 ? -1 : 1;
-      })
-      .map((message) => {
-        const { id, sentWhen, content, isRead, sender, isFromPatient } = message;
-        const dateTime = DateTime.fromISO(sentWhen).setZone(timezone);
-        const sentDay = dateTime.toLocaleString(
-          { day: 'numeric', month: 'numeric', year: '2-digit' },
-          { locale: 'en-us' }
-        );
-        const sentTime = dateTime.toLocaleString({ timeStyle: 'short' }, { locale: 'en-us' });
-
-        return {
-          id,
-          content,
-          isRead,
-          sender,
-          sentDay,
-          sentTime,
-          isFromPatient,
-        };
-      });
-    console.time('structure_conversation_data');
-
-    console.log('messages to return: ', allMessages.length);
-
+  if (relatedPersonRefs.length === 0) {
     return {
       statusCode: 200,
-      body: JSON.stringify(allMessages),
+      body: JSON.stringify([]),
     };
-  } catch (error: any) {
-    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    return topLevelCatch('get-conversation', error, ENVIRONMENT);
   }
+
+  const [sentMessages, receivedMessages] = await Promise.all([
+    getSentMessages(relatedPersonRefs, oystehr),
+    getReceivedMessages(relatedPersonRefs, oystehr),
+  ]);
+
+  console.time('structure_conversation_data');
+  const rpMap: Record<string, RelatedPerson> = {};
+  const senderMap: Record<string, Device | Practitioner> = {};
+  const patientMap: Record<string, Patient> = {};
+  const sentCommunications: Communication[] = [];
+  const receivedCommunications: Communication[] = [];
+
+  sentMessages.forEach((resource) => {
+    if (resource.resourceType === 'Communication') {
+      sentCommunications.push(resource as Communication);
+    } else if (resource.resourceType === 'Device' && resource.id) {
+      senderMap[`Device/${resource.id}`] = resource as Device;
+    } else if (resource.resourceType === 'Practitioner' && resource.id) {
+      senderMap[`Practitioner/${resource.id}`] = resource as Practitioner;
+    }
+  });
+
+  receivedMessages.forEach((resource) => {
+    if (resource.resourceType === 'Communication') {
+      receivedCommunications.push(resource as Communication);
+    } else if (resource.resourceType === 'RelatedPerson' && resource.id) {
+      rpMap[`RelatedPerson/${resource.id}`] = resource as RelatedPerson;
+    } else if (resource.resourceType === 'Patient' && resource.id) {
+      patientMap[`Patient/${resource.id}`] = resource as Patient;
+    }
+  });
+
+  const dedupedSentMessages = dedupeCommunications(sentCommunications);
+
+  console.log('sent messages found: ', dedupedSentMessages.length);
+  console.log('received messages found: ', receivedCommunications.length);
+
+  const sentItems: ProtoConversationItem[] = dedupedSentMessages.map((comm) => ({
+    id: comm.id ?? '',
+    content: getMessageFromComm(comm),
+    isRead: true,
+    sentWhen: comm.sent ?? '',
+    sender: getSenderNameFromComm(comm, senderMap),
+    isFromPatient: false,
+  }));
+
+  const receivedItems: ProtoConversationItem[] = receivedCommunications.map((comm) => ({
+    id: comm.id ?? '',
+    content: getMessageFromComm(comm),
+    isRead: getMessageHasBeenRead(comm),
+    sentWhen: comm.sent ?? '',
+    sender: getPatientSenderNameFromComm(comm, rpMap, patientMap),
+    isFromPatient: true,
+  }));
+
+  const allMessages: ConversationItem[] = [...sentItems, ...receivedItems]
+    .sort((m1, m2) => {
+      const time1 = DateTime.fromISO(m1.sentWhen);
+      const time2 = DateTime.fromISO(m2.sentWhen);
+
+      if (time1.equals(time2)) {
+        return 0;
+      }
+      return time1 < time2 ? -1 : 1;
+    })
+    .map((message) => {
+      const { id, sentWhen, content, isRead, sender, isFromPatient } = message;
+      const dateTime = DateTime.fromISO(sentWhen).setZone(timezone);
+      const sentDay = dateTime.toLocaleString(
+        { day: 'numeric', month: 'numeric', year: '2-digit' },
+        { locale: 'en-us' }
+      );
+      const sentTime = dateTime.toLocaleString({ timeStyle: 'short' }, { locale: 'en-us' });
+
+      return {
+        id,
+        content,
+        isRead,
+        sender,
+        sentDay,
+        sentTime,
+        isFromPatient,
+      };
+    });
+  console.time('structure_conversation_data');
+
+  console.log('messages to return: ', allMessages.length);
+
+  return {
+    statusCode: 200,
+    body: JSON.stringify(allMessages),
+  };
 });
 
 function validateRequestParameters(input: ZambdaInput): GetConversationInputValidated {

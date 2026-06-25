@@ -1,5 +1,7 @@
 import {
   type PaperworkConfig,
+  PaperworkConfigSchema,
+  PaperworkFormFields,
   type QuestionnaireBase,
   type QuestionnaireConfigType,
   type ResolvedConsentFormConfig,
@@ -7,29 +9,39 @@ import {
 } from 'config-types';
 import { Questionnaire } from 'fhir/r4b';
 import { mergeAndFreezeConfigObjects } from '../../config-helpers/helpers';
-import {
-  buildConsentFormCheckboxItems,
-  checkFieldHidden as _checkFieldHidden,
-} from '../../config-helpers/intake-paperwork';
+import { buildConsentFormCheckboxItems } from '../../config-helpers/intake-paperwork';
+import { createQuestionnaireFromConfig } from '../../config-helpers/shared-questionnaire';
 import { INSURANCE_CARD_CODE } from '../../types/data/paperwork/paperwork.constants';
 import { BRANDING_CONFIG } from '../branding';
 import { getConsentFormsForLocation } from '../consent-forms';
 import {
-  createQuestionnaireFromConfig,
   HAS_ATTORNEY_OPTION,
   INSURANCE_PAY_OPTION,
   OCC_MED_EMPLOYER_PAY_OPTION,
   OCC_MED_SELF_PAY_OPTION,
   SELF_PAY_OPTION,
-} from '../shared-questionnaire';
-import { VALUE_SETS } from '../value-sets';
+  VALUE_SETS,
+} from '../value-sets';
+
+// Canonical identifiers — exported so callers that only need the {url,
+// version} pair can avoid pulling them off the heavier INTAKE_PAPERWORK_CONFIG
+// object. Lives in this file (rather than a sibling module) because strict
+// ESM resolution into utils doesn't probe extensions or directory indexes for
+// bare-specifier subpaths, so the only reliably-importable surface is utils's
+// main barrel — which already loads this module.
+export const IN_PERSON_INTAKE_PAPERWORK_URL = 'https://ottehr.com/FHIR/Questionnaire/intake-paperwork-inperson';
+export const IN_PERSON_INTAKE_PAPERWORK_VERSION = '1.2.4';
+export const IN_PERSON_INTAKE_PAPERWORK_CANONICAL = {
+  url: IN_PERSON_INTAKE_PAPERWORK_URL,
+  version: IN_PERSON_INTAKE_PAPERWORK_VERSION,
+} as const;
 
 const hiddenFormSections: string[] = [];
 
 const questionnaireBaseDefaults = {
   resourceType: 'Questionnaire',
-  url: 'https://ottehr.com/FHIR/Questionnaire/intake-paperwork-inperson',
-  version: '1.1.6',
+  url: IN_PERSON_INTAKE_PAPERWORK_URL,
+  version: IN_PERSON_INTAKE_PAPERWORK_VERSION,
   name: 'in-person_pre-visit_paperwork',
   title: 'in-person pre-visit paperwork',
   status: 'active',
@@ -39,8 +51,8 @@ const questionnaireBaseDefaults = {
  * Build FormFields dynamically with the given value sets.
  * This allows test overrides to be picked up at config creation time.
  */
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-function buildFormFields(valueSets: ValueSetsConfig) {
+
+function buildFormFields(valueSets: ValueSetsConfig): PaperworkFormFields {
   return {
     contactInformation: {
       linkId: 'contact-information-page',
@@ -83,8 +95,7 @@ function buildFormFields(valueSets: ValueSetsConfig) {
         },
         reasonForVisit: {
           key: 'reason-for-visit',
-          type: 'choice',
-          options: valueSets.reasonForVisitOptions,
+          type: 'string',
         },
       },
       items: {
@@ -140,6 +151,26 @@ function buildFormFields(valueSets: ValueSetsConfig) {
           type: 'string',
           dataType: 'Email',
           autocomplete: 'section-patient shipping email',
+          triggers: [
+            {
+              targetQuestionLinkId: 'patient-no-email',
+              effect: ['enable'],
+              operator: '!=',
+              answerBoolean: true,
+            },
+            {
+              targetQuestionLinkId: 'patient-no-email',
+              effect: ['filter'],
+              operator: '=',
+              answerBoolean: true,
+            },
+          ],
+          disabledDisplay: 'hidden',
+        },
+        noEmail: {
+          key: 'patient-no-email',
+          label: "Don't have email",
+          type: 'boolean',
         },
         phoneNumber: {
           key: 'patient-number',
@@ -207,6 +238,7 @@ function buildFormFields(valueSets: ValueSetsConfig) {
               answerString: 'My pronouns are not listed',
             },
           ],
+          disabledDisplay: 'hidden',
         },
         additionalText: {
           key: 'patient-details-additional-text',
@@ -247,6 +279,7 @@ function buildFormFields(valueSets: ValueSetsConfig) {
               answerString: 'Other',
             },
           ],
+          disabledDisplay: 'hidden',
         },
       },
       hiddenFields: [],
@@ -326,6 +359,11 @@ function buildFormFields(valueSets: ValueSetsConfig) {
               label: 'places address',
               type: 'string',
             },
+            pharmacyPlacesPhone: {
+              key: 'pharmacy-places-phone',
+              label: 'places phone',
+              type: 'string',
+            },
             pharmacyPlacesSaved: {
               key: 'pharmacy-places-saved',
               label: 'places saved',
@@ -351,6 +389,7 @@ function buildFormFields(valueSets: ValueSetsConfig) {
               answerBoolean: true,
             },
           ],
+          disabledDisplay: 'hidden',
         },
         manualEntry: {
           key: 'pharmacy-page-manual-entry',
@@ -372,6 +411,7 @@ function buildFormFields(valueSets: ValueSetsConfig) {
               substituteText: 'Use search',
             },
           ],
+          disabledDisplay: 'hidden',
         },
         name: {
           key: 'pharmacy-name',
@@ -391,6 +431,7 @@ function buildFormFields(valueSets: ValueSetsConfig) {
               answerBoolean: true,
             },
           ],
+          disabledDisplay: 'hidden',
         },
         address: {
           key: 'pharmacy-address',
@@ -410,6 +451,28 @@ function buildFormFields(valueSets: ValueSetsConfig) {
               answerBoolean: true,
             },
           ],
+          disabledDisplay: 'hidden',
+        },
+        phone: {
+          key: 'pharmacy-phone',
+          label: 'Pharmacy phone',
+          type: 'string',
+          dataType: 'Phone Number',
+          triggers: [
+            {
+              targetQuestionLinkId: 'pharmacy-page-manual-entry',
+              effect: ['enable'],
+              operator: '=',
+              answerBoolean: true,
+            },
+            {
+              targetQuestionLinkId: 'pharmacy-page-manual-entry',
+              effect: ['filter'],
+              operator: '!=',
+              answerBoolean: true,
+            },
+          ],
+          disabledDisplay: 'hidden',
         },
       },
       hiddenFields: [],
@@ -456,6 +519,7 @@ function buildFormFields(valueSets: ValueSetsConfig) {
             },
           ],
           enableBehavior: 'all',
+          disabledDisplay: 'hidden',
         },
         workersCompAlert: {
           key: 'workers-comp-alert-text',
@@ -477,6 +541,7 @@ function buildFormFields(valueSets: ValueSetsConfig) {
             },
           ],
           enableBehavior: 'all',
+          disabledDisplay: 'hidden',
         },
         insuranceDetailsText: {
           key: 'insurance-details-text',
@@ -490,6 +555,7 @@ function buildFormFields(valueSets: ValueSetsConfig) {
               answerString: INSURANCE_PAY_OPTION,
             },
           ],
+          disabledDisplay: 'hidden',
         },
         insuranceDetailsCaption: {
           key: 'insurance-details-caption',
@@ -503,6 +569,7 @@ function buildFormFields(valueSets: ValueSetsConfig) {
               answerString: INSURANCE_PAY_OPTION,
             },
           ],
+          disabledDisplay: 'hidden',
         },
         insuranceCarrier: {
           key: 'insurance-carrier',
@@ -510,8 +577,7 @@ function buildFormFields(valueSets: ValueSetsConfig) {
           type: 'reference',
           dataSource: {
             answerSource: {
-              resourceType: 'Organization',
-              query: 'active:not=false&type=http://terminology.hl7.org/CodeSystem/organization-type|pay',
+              zambdaId: 'get-patient-insurance-payers',
             },
           },
           triggers: [
@@ -528,6 +594,7 @@ function buildFormFields(valueSets: ValueSetsConfig) {
               answerString: INSURANCE_PAY_OPTION,
             },
           ],
+          disabledDisplay: 'hidden',
         },
         insuranceMemberId: {
           key: 'insurance-member-id',
@@ -547,6 +614,7 @@ function buildFormFields(valueSets: ValueSetsConfig) {
               answerString: INSURANCE_PAY_OPTION,
             },
           ],
+          disabledDisplay: 'hidden',
         },
         policyHolderFirstName: {
           key: 'policy-holder-first-name',
@@ -586,6 +654,7 @@ function buildFormFields(valueSets: ValueSetsConfig) {
               answerString: INSURANCE_PAY_OPTION,
             },
           ],
+          disabledDisplay: 'hidden',
         },
         policyHolderLastName: {
           key: 'policy-holder-last-name',
@@ -856,10 +925,11 @@ function buildFormFields(valueSets: ValueSetsConfig) {
               answerString: INSURANCE_PAY_OPTION,
             },
           ],
+          disabledDisplay: 'hidden',
         },
         insuranceCardBack: {
           key: 'insurance-card-back',
-          label: 'Back side of the insurance card',
+          label: 'Back side of the insurance card (optional)',
           type: 'attachment',
           attachmentText: 'Take a picture of the **back side** of your card and upload it here',
           dataType: 'Image',
@@ -878,6 +948,7 @@ function buildFormFields(valueSets: ValueSetsConfig) {
               answerString: INSURANCE_PAY_OPTION,
             },
           ],
+          disabledDisplay: 'hidden',
         },
         displaySecondaryInsurance: {
           key: 'display-secondary-insurance',
@@ -905,6 +976,7 @@ function buildFormFields(valueSets: ValueSetsConfig) {
               substituteText: 'Remove Secondary Insurance',
             },
           ],
+          disabledDisplay: 'hidden',
         },
         secondaryInsurance: {
           key: 'secondary-insurance',
@@ -922,8 +994,7 @@ function buildFormFields(valueSets: ValueSetsConfig) {
               type: 'reference',
               dataSource: {
                 answerSource: {
-                  resourceType: 'Organization',
-                  query: 'active:not=false&type=http://terminology.hl7.org/CodeSystem/organization-type|pay',
+                  zambdaId: 'get-patient-insurance-payers',
                 },
               },
               triggers: [
@@ -1069,7 +1140,7 @@ function buildFormFields(valueSets: ValueSetsConfig) {
             },
             insuranceCardBack: {
               key: 'insurance-card-back-2',
-              label: 'Back side of the insurance card',
+              label: 'Back side of the insurance card (optional)',
               type: 'attachment',
               attachmentText: 'Take a picture of the **back side** of your card and upload it here',
               dataType: 'Image',
@@ -1097,6 +1168,7 @@ function buildFormFields(valueSets: ValueSetsConfig) {
             },
           ],
           enableBehavior: 'all',
+          disabledDisplay: 'hidden',
         },
       },
       hiddenFields: [],
@@ -1148,6 +1220,7 @@ function buildFormFields(valueSets: ValueSetsConfig) {
               answerString: OCC_MED_SELF_PAY_OPTION,
             },
           ],
+          disabledDisplay: 'hidden',
         },
       },
       hiddenFields: [],
@@ -1171,6 +1244,7 @@ function buildFormFields(valueSets: ValueSetsConfig) {
           type: 'reference',
           dataSource: {
             answerSource: {
+              zambdaId: 'get-answer-options',
               resourceType: 'Organization',
               query:
                 'active:not=false&type=http://terminology.hl7.org/CodeSystem/organization-type|occupational-medicine-employer',
@@ -1308,6 +1382,7 @@ function buildFormFields(valueSets: ValueSetsConfig) {
               answerString: 'Self',
             },
           ],
+          disabledDisplay: 'hidden',
         },
         streetAddress: {
           key: 'responsible-party-address',
@@ -1452,9 +1527,43 @@ function buildFormFields(valueSets: ValueSetsConfig) {
               operator: '!=',
               answerString: 'Self',
             },
+            {
+              targetQuestionLinkId: 'responsible-party-relationship',
+              effect: ['filter'],
+              operator: '=',
+              answerString: 'Self',
+            },
+            {
+              targetQuestionLinkId: 'responsible-party-no-email',
+              effect: ['enable'],
+              operator: '!=',
+              answerBoolean: true,
+            },
+            {
+              targetQuestionLinkId: 'responsible-party-no-email',
+              effect: ['filter'],
+              operator: '=',
+              answerBoolean: true,
+            },
           ],
+          enableBehavior: 'all',
           disabledDisplay: 'disabled',
           dynamicPopulation: { sourceLinkId: 'patient-email' },
+        },
+        noEmail: {
+          key: 'responsible-party-no-email',
+          label: "Don't have email",
+          type: 'boolean',
+          triggers: [
+            {
+              targetQuestionLinkId: 'responsible-party-relationship',
+              effect: ['enable'],
+              operator: '!=',
+              answerString: 'Self',
+            },
+          ],
+          disabledDisplay: 'protected',
+          dynamicPopulation: { sourceLinkId: 'patient-no-email' },
         },
       },
       hiddenFields: [],
@@ -1737,6 +1846,7 @@ function buildFormFields(valueSets: ValueSetsConfig) {
               answerString: HAS_ATTORNEY_OPTION,
             },
           ],
+          disabledDisplay: 'hidden',
         },
         firstName: {
           key: 'attorney-mva-first-name',
@@ -1750,6 +1860,7 @@ function buildFormFields(valueSets: ValueSetsConfig) {
               answerString: HAS_ATTORNEY_OPTION,
             },
           ],
+          disabledDisplay: 'hidden',
         },
         lastName: {
           key: 'attorney-mva-last-name',
@@ -1763,6 +1874,7 @@ function buildFormFields(valueSets: ValueSetsConfig) {
               answerString: HAS_ATTORNEY_OPTION,
             },
           ],
+          disabledDisplay: 'hidden',
         },
         email: {
           key: 'attorney-mva-email',
@@ -1777,6 +1889,7 @@ function buildFormFields(valueSets: ValueSetsConfig) {
               answerString: HAS_ATTORNEY_OPTION,
             },
           ],
+          disabledDisplay: 'hidden',
         },
         mobile: {
           key: 'attorney-mva-mobile',
@@ -1791,6 +1904,7 @@ function buildFormFields(valueSets: ValueSetsConfig) {
               answerString: HAS_ATTORNEY_OPTION,
             },
           ],
+          disabledDisplay: 'hidden',
         },
         fax: {
           key: 'attorney-mva-fax',
@@ -1805,6 +1919,7 @@ function buildFormFields(valueSets: ValueSetsConfig) {
               answerString: HAS_ATTORNEY_OPTION,
             },
           ],
+          disabledDisplay: 'hidden',
         },
       },
       hiddenFields: [],
@@ -1972,7 +2087,7 @@ export function getIntakePaperworkConfig(consentFormsConfig?: ResolvedConsentFor
   const FormFields = buildFormFields(valueSets);
 
   // Build defaults with the dynamic FormFields
-  const INTAKE_PAPERWORK_DEFAULTS = {
+  const INTAKE_PAPERWORK_DEFAULTS: PaperworkConfig = {
     questionnaireBase: questionnaireBaseDefaults,
     hiddenFormSections,
     FormFields,
@@ -1995,7 +2110,7 @@ export function getIntakePaperworkConfig(consentFormsConfig?: ResolvedConsentFor
   // Merge: defaults -> consent forms
   const mergedConfig = mergeAndFreezeConfigObjects(INTAKE_PAPERWORK_DEFAULTS, consentFormsOverride);
 
-  return mergedConfig as unknown as PaperworkConfig;
+  return PaperworkConfigSchema.parse(mergedConfig);
 }
 
 // Export the config directly (no proxy needed - questionnaire selection is via Slot extension)
@@ -2003,10 +2118,3 @@ export const INTAKE_PAPERWORK_CONFIG = getIntakePaperworkConfig();
 
 export const IN_PERSON_INTAKE_PAPERWORK_QUESTIONNAIRE = (): Questionnaire =>
   JSON.parse(JSON.stringify(createQuestionnaireFromConfig(INTAKE_PAPERWORK_CONFIG as QuestionnaireConfigType)));
-
-export const checkFieldHidden = (fieldKey: string): boolean => {
-  return _checkFieldHidden(INTAKE_PAPERWORK_CONFIG, fieldKey);
-};
-
-// Re-export helpers from config-helpers for backward compatibility
-export { getIntakeFormPageSubtitle, buildConsentFormCheckboxItems } from '../../config-helpers/intake-paperwork';

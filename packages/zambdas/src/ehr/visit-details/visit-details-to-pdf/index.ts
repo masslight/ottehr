@@ -3,18 +3,18 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Organization, Practitioner } from 'fhir/r4b';
 import {
   checkForStripeCustomerDeletedError,
+  getCoding,
   getConsentAndRelatedDocRefsForAppointment,
-  getSecret,
+  getVisitOccupationalMedicineEmployerFromEncounter,
   PatientPaymentDTO,
   Secrets,
-  SecretsKeys,
+  SERVICE_CATEGORY_SYSTEM,
   VisitDetailsResponse,
 } from 'utils';
 import {
   checkOrCreateM2MClientToken,
-  createOystehrClient,
+  createClinicalOystehrClient,
   getStripeClient,
-  topLevelCatch,
   wrapHandler,
   ZambdaInput,
 } from '../../../shared';
@@ -33,23 +33,18 @@ let m2mToken: string;
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.log(`${ZAMBDA_NAME} started, input: ${JSON.stringify(input)}`);
 
-  try {
-    const validatedParameters = validateRequestParameters(input);
-    const { appointmentId, timezone, secrets } = validatedParameters;
+  const validatedParameters = validateRequestParameters(input);
+  const { appointmentId, timezone, secrets } = validatedParameters;
 
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
-    console.log('Created Oystehr client');
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
+  console.log('Created Oystehr client');
 
-    const response = await performEffect(oystehr, appointmentId, secrets, timezone);
-    return {
-      statusCode: 200,
-      body: JSON.stringify(response),
-    };
-  } catch (error: any) {
-    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    return topLevelCatch('visit-details-to-pdf', error, ENVIRONMENT);
-  }
+  const response = await performEffect(oystehr, appointmentId, secrets, timezone);
+  return {
+    statusCode: 200,
+    body: JSON.stringify(response),
+  };
 });
 
 export const performEffect = async (
@@ -97,6 +92,7 @@ export const performEffect = async (
     emergencyContactResource,
     attorneyRelatedPerson,
     employerOrganization,
+    occupationalMedicineEmployerOrganization,
   } = accountResources;
   const primaryCarePhysician = accountResources.patient?.contained?.find(
     (resource) => resource.resourceType === 'Practitioner' && resource.active === true
@@ -126,12 +122,35 @@ export const performEffect = async (
   const pharmacy = accountResources.patient?.contained?.find(
     (resource) => resource.resourceType === 'Organization' && resource.id === PATIENT_CONTAINED_PHARMACY_ID
   ) as Organization;
+
+  const appointmentServiceCategory = getCoding(appointment?.serviceCategory, SERVICE_CATEGORY_SYSTEM)?.code;
+
+  let occupationalMedicineEmployerForPdf = occupationalMedicineEmployerOrganization;
+
+  if (appointmentServiceCategory === 'pre-op') {
+    const visitEmployerRef = getVisitOccupationalMedicineEmployerFromEncounter(encounter);
+
+    if (visitEmployerRef?.reference) {
+      const organizationId = visitEmployerRef.reference.split('/')[1];
+
+      if (organizationId) {
+        occupationalMedicineEmployerForPdf = await oystehr.fhir.get<Organization>({
+          resourceType: 'Organization',
+          id: organizationId,
+        });
+      }
+    } else {
+      occupationalMedicineEmployerForPdf = undefined;
+    }
+  }
+
   const { pdfInfo, attached } = await createVisitDetailsPdf(
     {
       patient,
       emergencyContactResource,
       attorneyRelatedPerson,
       employerOrganization,
+      occupationalMedicineEmployerOrganization: occupationalMedicineEmployerForPdf,
       appointment,
       encounter,
       location,

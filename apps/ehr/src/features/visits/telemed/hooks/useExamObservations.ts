@@ -8,8 +8,8 @@ import {
 } from '../../shared/stores/appointment/exam-observations.store';
 
 type ExamRecord = { [field: string]: ExamObservationDTO };
-type Update = (param?: ExamObservationDTO | ExamObservationDTO[] | ExamRecord, noFetch?: boolean) => void;
-type Delete = (param?: ExamObservationDTO | ExamObservationDTO[] | ExamRecord, noFetch?: boolean) => void;
+export type Update = (param?: ExamObservationDTO | ExamObservationDTO[] | ExamRecord, noFetch?: boolean) => void;
+export type Delete = (param?: ExamObservationDTO | ExamObservationDTO[] | ExamRecord, noFetch?: boolean) => void;
 
 const arrayToObject: (array: ExamObservationDTO[]) => ExamRecord = (array) =>
   array.reduce((prev, curr) => {

@@ -12,53 +12,48 @@ import {
   MISSING_REQUEST_BODY,
   SecretsKeys,
 } from 'utils';
-import { getAuth0Token, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
+import { getAuth0Token, wrapHandler, ZambdaInput } from '../../shared';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let oystehrToken: string;
 
 const ZAMBDA_NAME = 'get-answer-options';
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  try {
-    const { secrets } = input;
+  const { secrets } = input;
 
-    const getOptionsInput = validateInput(input);
-    console.log('get options input:', getOptionsInput);
+  const getOptionsInput = validateInput(input);
+  console.log('get options input:', getOptionsInput);
 
-    console.group('getAuth0Token');
-    if (!oystehrToken) {
-      console.log('getting token');
-      oystehrToken = await getAuth0Token(secrets);
-    } else {
-      console.log('already have token');
-    }
-    console.groupEnd();
-    console.debug('getAuth0Token success');
-
-    console.group('createOystehrClient');
-    const oystehr = createOystehrClient(
-      oystehrToken,
-      getSecret(SecretsKeys.FHIR_API, secrets),
-      getSecret(SecretsKeys.PROJECT_API, secrets)
-    );
-    console.groupEnd();
-    console.debug('createOystehrClient success');
-
-    const answerOptions: QuestionnaireItemAnswerOption[] = await performEffect(getOptionsInput, oystehr);
-
-    return {
-      statusCode: 200,
-      body: JSON.stringify(answerOptions),
-    };
-  } catch (error: any) {
-    console.log(error, error.issue);
-    return topLevelCatch(ZAMBDA_NAME, error, getSecret(SecretsKeys.ENVIRONMENT, input.secrets));
+  console.group('getAuth0Token');
+  if (!oystehrToken) {
+    console.log('getting token');
+    oystehrToken = await getAuth0Token(secrets);
+  } else {
+    console.log('already have token');
   }
+  console.groupEnd();
+  console.debug('getAuth0Token success');
+
+  console.group('createOystehrClient');
+  const oystehr = createOystehrClient(
+    oystehrToken,
+    getSecret(SecretsKeys.FHIR_API, secrets),
+    getSecret(SecretsKeys.PROJECT_API, secrets)
+  );
+  console.groupEnd();
+  console.debug('createOystehrClient success');
+
+  const answerOptions: QuestionnaireItemAnswerOption[] = await performEffect(getOptionsInput, oystehr);
+
+  return {
+    statusCode: 200,
+    body: JSON.stringify(answerOptions),
+  };
 });
 
 const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<QuestionnaireItemAnswerOption[]> => {
   const { type } = input;
-  if (type === 'query') {
+  if (type === 'query' && input.answerSource.zambdaId === 'get-answer-options') {
     const { resourceType, query, prependedIdentifier } = input.answerSource;
     const paramsObject = new URLSearchParams(query);
     let offset = 0;

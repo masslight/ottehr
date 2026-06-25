@@ -8,7 +8,6 @@ import {
   EXTERNAL_LAB_ERROR,
   ExternalLabOrderingLocations,
   flattenBundleResources,
-  getSecret,
   isAppointmentWorkersComp,
   LAB_ACCOUNT_NUMBER_SYSTEM,
   LAB_LIST_CODE_CODING,
@@ -17,90 +16,111 @@ import {
   ModifiedOrderingLocation,
   OrderableItemSearchResult,
   OYSTEHR_LAB_GUID_SYSTEM,
-  OYSTEHR_LAB_ORDERABLE_ITEM_SEARCH_API,
-  SecretsKeys,
+  STATIC_COMPENDIUM_LAB_GUID,
   VALUE_SETS,
 } from 'utils';
-import { checkOrCreateM2MClientToken, topLevelCatch, wrapHandler } from '../../../../shared';
-import { createOystehrClient } from '../../../../shared/helpers';
+import { checkOrCreateM2MClientToken, wrapHandler } from '../../../../shared';
+import { createClinicalOystehrClient } from '../../../../shared/helpers';
 import { ZambdaInput } from '../../../../shared/types';
 import { formatLabListDTOs } from '../../shared/helpers';
 import { accountIsPatientBill, accountIsWorkersComp, sortCoveragesByPriority } from '../../shared/labs';
+import { getOrderableItems } from '../../shared/orderable-items';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
 const ZAMBDA_NAME = 'get-create-lab-order-resources';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  try {
-    console.group('validateRequestParameters');
-    const validatedParameters = validateRequestParameters(input);
-    const {
-      patientId,
-      encounterId,
-      search: testItemSearch,
-      secrets,
-      labOrgIdsString,
-      selectedLabSet,
-    } = validatedParameters;
-    console.log('search passed', testItemSearch);
-    console.groupEnd();
-    console.debug('validateRequestParameters success');
+  console.group('validateRequestParameters');
+  const validatedParameters = validateRequestParameters(input);
+  const {
+    patientId,
+    encounterId,
+    search: testItemSearch,
+    secrets,
+    labOrgIdsString,
+    selectedLabSet,
+  } = validatedParameters;
+  console.log('search passed', testItemSearch);
+  console.groupEnd();
+  console.debug('validateRequestParameters success');
 
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
-    const { accounts, coverages, labOrgsGUIDs, orderingLocationDetails, appointmentIsWorkersComp, labLists } =
-      await getResources(oystehr, patientId, encounterId, testItemSearch, labOrgIdsString);
+  const { accounts, coverages, labGuids, orderingLocationDetails, appointmentIsWorkersComp, labLists } =
+    await getResources(oystehr, patientId, encounterId, testItemSearch, labOrgIdsString);
 
-    let coverageInfo: CreateLabCoverageInfo[] | undefined;
-    if (patientId) {
-      coverageInfo = getCoverageInfo(accounts, coverages);
-    }
+  console.log('labGuids and labOrgIdString', labGuids, labOrgIdsString);
 
-    let labs: OrderableItemSearchResult[] = [];
-    if (testItemSearch) {
-      labs = await getLabs(labOrgsGUIDs, { textSearch: testItemSearch }, m2mToken);
-    }
-
-    if (selectedLabSet) {
-      console.log('searching orderable items for the lab set', selectedLabSet.listName);
-      const labRequests = selectedLabSet.labs.map((lab) => {
-        return getLabs([lab.labGuid], { itemCodes: [lab.itemCode] }, m2mToken);
-      });
-      const allLabsResults = await Promise.all(labRequests);
-      labs = allLabsResults.flat();
-    }
-
-    let cptCodesToAddPerEncounter: CPTCodeOption[] | undefined = undefined;
-    const additionalCptCodes = VALUE_SETS.externalLabCptCodesToAddPerEncounter;
-    if (additionalCptCodes && additionalCptCodes.length > 0) {
-      cptCodesToAddPerEncounter = additionalCptCodes.map((coding) => {
-        const cpt: CPTCodeOption = {
-          code: coding.value,
-          display: coding.label,
-        };
-        return cpt;
-      });
-    }
-
-    const response: LabOrderResourcesRes = {
-      coverages: coverageInfo,
-      labs,
-      cptCodesToAddPerEncounter, // the front end will handle deciding if these should be added based on whats already added and if order is psc or not
-      appointmentIsWorkersComp,
-      ...orderingLocationDetails,
-      labSets: formatLabListDTOs(labLists),
-    };
-
-    return {
-      statusCode: 200,
-      body: JSON.stringify(response),
-    };
-  } catch (error: any) {
-    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    return topLevelCatch('admin-get-create-lab-order-resources', error, ENVIRONMENT);
+  let coverageInfo: CreateLabCoverageInfo[] | undefined;
+  if (patientId) {
+    coverageInfo = getCoverageInfo(accounts, coverages);
   }
+
+  let labs: OrderableItemSearchResult[] = [];
+  if (testItemSearch) {
+    labs = await getOrderableItems(labGuids, { textSearch: testItemSearch }, m2mToken);
+  }
+
+  if (selectedLabSet) {
+    console.log('searching orderable items for the lab set', selectedLabSet.listName);
+    const labRequests = selectedLabSet.labs.map(async (lab) => {
+      const labSearchRes = await getOrderableItems([lab.labGuid], { itemCodes: [lab.itemCode] }, m2mToken);
+
+      let staticLabName: string | undefined;
+      if (lab.labGuid === STATIC_COMPENDIUM_LAB_GUID) {
+        // lab.display is formatted as such: `(code) Test Name / Lab Name`
+        // we want "Lab Name" which will always be the last item in array split on '/'
+        staticLabName = lab.display?.split('/').pop()?.trim();
+      }
+
+      return { labSearchRes, staticLabName };
+    });
+
+    const allLabsResults = await Promise.all(labRequests);
+
+    labs = allLabsResults.flatMap((res) => {
+      const { labSearchRes, staticLabName } = res;
+      if (staticLabName) {
+        return labSearchRes.map((oi) => ({
+          item: oi.item,
+          lab: {
+            ...oi.lab,
+            labName: staticLabName,
+          },
+        }));
+      } else {
+        return labSearchRes;
+      }
+    });
+  }
+
+  let cptCodesToAddPerEncounter: CPTCodeOption[] | undefined = undefined;
+  const additionalCptCodes = VALUE_SETS.externalLabCptCodesToAddPerEncounter;
+  if (additionalCptCodes && additionalCptCodes.length > 0) {
+    cptCodesToAddPerEncounter = additionalCptCodes.map((coding) => {
+      const cpt: CPTCodeOption = {
+        code: coding.value,
+        display: coding.label,
+      };
+      return cpt;
+    });
+  }
+
+  const response: LabOrderResourcesRes = {
+    coverages: coverageInfo,
+    labs,
+    cptCodesToAddPerEncounter, // the front end will handle deciding if these should be added based on whats already added and if order is psc or not
+    appointmentIsWorkersComp,
+    ...orderingLocationDetails,
+    labSets: formatLabListDTOs(labLists),
+  };
+
+  return {
+    statusCode: 200,
+    body: JSON.stringify(response),
+  };
 });
 
 const getResources = async (
@@ -112,7 +132,7 @@ const getResources = async (
 ): Promise<{
   accounts: Account[];
   coverages: Coverage[];
-  labOrgsGUIDs: string[];
+  labGuids: string[];
   orderingLocationDetails: ExternalLabOrderingLocations;
   appointmentIsWorkersComp: boolean;
   labLists: List[];
@@ -171,7 +191,8 @@ const getResources = async (
   const coverages: Coverage[] = [];
   const accounts: Account[] = [];
   const organizations: Organization[] = [];
-  const labOrgsGUIDs: string[] = [];
+  const labGuids: string[] = [];
+  const labOrgRefToLabGuidAndNameMap = new Map<string, { labGuid: string; labName: string }>();
   const orderingLocations: ModifiedOrderingLocation[] = [];
   const orderingLocationIds: string[] = [];
   const encounters: Encounter[] = [];
@@ -179,13 +200,19 @@ const getResources = async (
   const labLists: List[] = [];
   const appointments: Appointment[] = [];
 
+  // grab the lab orgs first to make associating labGuids later more efficient
+  resources
+    .filter((res): res is Organization => res.resourceType === 'Organization')
+    .forEach((org) => {
+      organizations.push(org);
+      const labGuid = org.identifier?.find((id) => id.system === OYSTEHR_LAB_GUID_SYSTEM)?.value;
+      if (labGuid) {
+        labGuids.push(labGuid);
+        labOrgRefToLabGuidAndNameMap.set(`Organization/${org.id}`, { labGuid, labName: org.name || '' });
+      }
+    });
+
   resources.forEach((resource) => {
-    if (resource.resourceType === 'Organization') {
-      const fhirOrg = resource as Organization;
-      organizations.push(fhirOrg);
-      const labGuid = fhirOrg.identifier?.find((id) => id.system === OYSTEHR_LAB_GUID_SYSTEM)?.value;
-      if (labGuid) labOrgsGUIDs.push(labGuid);
-    }
     if (resource.resourceType === 'Coverage') coverages.push(resource as Coverage);
     if (resource.resourceType === 'Account' && resource.status === 'active') {
       if (accountIsPatientBill(resource)) {
@@ -215,6 +242,7 @@ const getResources = async (
               return {
                 accountNumber: id.value!,
                 labOrgRef: id.assigner!.reference!,
+                ...labOrgRefToLabGuidAndNameMap.get(id.assigner!.reference!),
               };
             }),
         });
@@ -247,66 +275,11 @@ const getResources = async (
   return {
     coverages,
     accounts,
-    labOrgsGUIDs,
+    labGuids,
     orderingLocationDetails: { orderingLocationIds, orderingLocations },
     appointmentIsWorkersComp,
     labLists,
   };
-};
-
-type LabSearch = { textSearch: string } | { itemCodes: string[] } | { textSearch: string; itemCodes: string[] };
-const getLabs = async (
-  labOrgsGUIDs: string[],
-  search: LabSearch,
-  m2mToken: string
-): Promise<OrderableItemSearchResult[]> => {
-  const labIds = labOrgsGUIDs.join(',');
-  let cursor = '';
-  let totalReturn = 0;
-  const items: OrderableItemSearchResult[] = [];
-
-  const searchParams = [`labIds=${labIds}`];
-
-  if ('textSearch' in search) searchParams.push(`itemNames=${search.textSearch}`);
-  if ('itemCodes' in search) searchParams.push(`itemCodes=${search.itemCodes.join(',')}`);
-
-  console.log('searchParams before join', searchParams);
-
-  do {
-    const url = `${OYSTEHR_LAB_ORDERABLE_ITEM_SEARCH_API}?${searchParams.join('&')}&limit=100&cursor=${cursor}`;
-    console.log('check me!', url);
-    const orderableItemsSearch = await fetch(url, {
-      method: 'GET',
-      headers: {
-        Authorization: `Bearer ${m2mToken}`,
-      },
-    });
-
-    if (!orderableItemsSearch.ok)
-      throw EXTERNAL_LAB_ERROR(`Failed to fetch orderable items: ${orderableItemsSearch.status}`);
-
-    console.log(`orderable item search for search term "${search}"`);
-    const response = await orderableItemsSearch.json();
-
-    let orderableItemRes = response.orderableItems;
-    if (!Array.isArray(orderableItemRes)) {
-      console.error(
-        `orderableItemRes was not an array. It was: ${JSON.stringify(orderableItemRes)}. Returning no orderable items`
-      );
-      orderableItemRes = [];
-    }
-    const itemsToBeReturned = orderableItemRes.length;
-    console.log('This is orderableItemRes len', itemsToBeReturned);
-
-    items.push(...(orderableItemRes as OrderableItemSearchResult[]));
-    cursor = response?.metadata?.nextCursor || '';
-    totalReturn += itemsToBeReturned;
-    console.log('totalReturn:', totalReturn);
-  } while (cursor && totalReturn <= 100); // capping at 100 so that the zambda doesn't fail. (no one is scrolling through that many anyway)
-  // if we hear no complaints about the 100 return (i highly doubt we will) we can simplify this logic by getting rid of the cursor logic
-  // and the do while - the first call will only ever return 100 and i suspect thats really all we need
-
-  return items;
 };
 
 const getCoverageInfo = (accounts: Account[], coverages: Coverage[]): CreateLabCoverageInfo[] => {

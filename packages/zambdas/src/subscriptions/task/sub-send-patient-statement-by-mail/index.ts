@@ -3,15 +3,25 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
 import { Communication, Encounter, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { generateStatement, getSecret, RCM_TASK_SYSTEM, Secrets, SecretsKeys, TaskIndicator } from 'utils';
+import {
+  FEATURE_FLAGS_CONFIG,
+  generateStatement,
+  getOrCreateCandidApiClient,
+  getSecret,
+  RCM_TASK_SYSTEM,
+  sanitizeStringForFhirCode,
+  Secrets,
+  SecretsKeys,
+  TaskIndicator,
+} from 'utils';
 import {
   checkOrCreateM2MClientToken,
-  createOystehrClient,
+  createClinicalOystehrClient,
   getHTMLStatementTemplate,
   getStatementDetails,
+  MAIL_VENDOR_EXTENSION_URL,
   sendPostGridLetter,
   StatementType,
-  topLevelCatch,
   wrapHandler,
   ZambdaInput,
 } from '../../../shared';
@@ -41,7 +51,22 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     task = validatedInput.task;
 
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    oystehr = createOystehrClient(m2mToken, secrets);
+    oystehr = createClinicalOystehrClient(m2mToken, secrets);
+
+    if (!FEATURE_FLAGS_CONFIG.mailingPaperStatementsEnabled) {
+      console.error(
+        `[${ZAMBDA_NAME}] Paper mail statements feature is disabled. Failing task ${task.id} for Encounter/${encounterId}.`
+      );
+      await patchTaskStatus(oystehr, task.id!, 'failed', 'Paper mail statements feature is disabled');
+      return {
+        statusCode: 200,
+        body: JSON.stringify({
+          error: 'Paper mail statements feature is disabled',
+        }),
+      };
+    }
+
+    const candidApiClient = await getOrCreateCandidApiClient(oystehr, secrets);
 
     await patchTaskStatus(oystehr, task.id!, 'in-progress');
 
@@ -51,6 +76,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       statementType,
       secrets,
       oystehr,
+      candidApiClient,
     });
     const encounter = await oystehr.fhir.get<Encounter>({
       resourceType: 'Encounter',
@@ -99,6 +125,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         },
         html,
         addressPlacement: 'top_first_page',
+        mailingClass: 'first_class',
         color,
         doubleSided: true,
         metadata: {
@@ -154,11 +181,17 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         {
           contentString: description,
         },
+        {
+          contentAttachment: {
+            contentType: 'text/html',
+            data: Buffer.from(html).toString('base64'),
+          },
+        },
       ],
       sent: DateTime.now().toUTC().toISO() ?? undefined,
       extension: [
         {
-          url: 'https://extensions.fhir.ottehr.com/mail-vendor',
+          url: MAIL_VENDOR_EXTENSION_URL,
           extension: [
             {
               url: 'vendor',
@@ -204,9 +237,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         console.error('Failed to patch task to failed status:', patchError);
       }
     }
-
-    const environment = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    return topLevelCatch(ZAMBDA_NAME, error, environment);
+    throw error;
   }
 });
 
@@ -281,7 +312,7 @@ async function patchTaskStatus(
         coding: [
           {
             system: RCM_TASK_SYSTEM,
-            code: reason,
+            code: sanitizeStringForFhirCode(reason),
           },
         ],
       },

@@ -8,13 +8,12 @@ import {
   chooseJson,
   DOB_DATE_FORMAT,
   EHRImageUploadType,
-  FHIR_EXTENSION,
   GetPresignedFileURLInput,
   UpdateVisitFilesInput,
   VisitDocuments,
 } from 'utils';
 import { assert, inject } from 'vitest';
-import { getAuth0Token } from '../../src/shared';
+import { createClinicalOystehrClient, getAuth0Token } from '../../src/shared';
 import QRInput from '../data/questionnaire-response-1.json';
 import { SECRETS } from '../data/secrets';
 import { ensureM2MPractitionerProfile } from '../helpers/configureTestM2MClient';
@@ -34,7 +33,6 @@ describe('saving card files from EHR', () => {
     existingPatientId?: string;
     patientAge?: { units: 'years' | 'months'; value: number };
     patientSex?: 'male' | 'female';
-    unconfirmedDob?: string;
   }
 
   const makeCardInZ3AndReturnAttachment = async (
@@ -84,7 +82,6 @@ describe('saving card files from EHR', () => {
     patientAge,
     existingPatientId,
     patientSex,
-    unconfirmedDob,
   }: MakeTestResourcesParams): Promise<{
     encounter: Encounter;
     appointment: Appointment;
@@ -123,14 +120,6 @@ describe('saving card files from EHR', () => {
           status: 'accepted',
         },
       ],
-      extension: unconfirmedDob
-        ? [
-            {
-              url: FHIR_EXTENSION.Appointment.unconfirmedDateOfBirth.url,
-              valueString: unconfirmedDob,
-            },
-          ]
-        : undefined,
     };
     const batchInputApp: BatchInputPostRequest<Appointment> = {
       method: 'POST',
@@ -226,14 +215,9 @@ describe('saving card files from EHR', () => {
       AUTH0_AUDIENCE: AUTH0_AUDIENCE,
     });
 
-    oystehr = new Oystehr({
-      accessToken: token,
-      fhirApiUrl: FHIR_API,
-      projectApiUrl: EXECUTE_ZAMBDA_URL,
-      services: {
-        zambdaApiUrl: EXECUTE_ZAMBDA_URL,
-      },
+    oystehr = createClinicalOystehrClient(token, SECRETS, {
       projectId: PROJECT_ID,
+      services: { fhirApiUrl: FHIR_API, projectApiUrl: EXECUTE_ZAMBDA_URL, zambdaApiUrl: EXECUTE_ZAMBDA_URL },
     });
 
     await ensureM2MPractitionerProfile(token);

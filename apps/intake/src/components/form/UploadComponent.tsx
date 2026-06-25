@@ -2,8 +2,19 @@ import { Box, Button, Container, Typography, useTheme } from '@mui/material';
 import React, { ChangeEvent, FC, useContext } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
 import Markdown from 'react-markdown';
+import { MIME_TYPES } from 'utils';
 import { IntakeThemeContext } from '../../contexts';
 import { DescriptionRenderer } from './DescriptionRenderer';
+
+const DEFAULT_IMAGE_ACCEPT = [
+  MIME_TYPES.PNG,
+  MIME_TYPES.JPEG,
+  MIME_TYPES.JPG,
+  MIME_TYPES.HEIC,
+  MIME_TYPES.HEIF,
+  '.heic',
+  '.heif',
+].join(', ');
 
 interface UploadComponentProps {
   name: string;
@@ -58,7 +69,7 @@ const UploadComponent: FC<UploadComponentProps> = ({
               ref={inputRef}
               value={value?.filename}
               type="file"
-              accept={fileUploadType ?? 'image/png, image/jpeg, image/jpg'}
+              accept={fileUploadType ?? DEFAULT_IMAGE_ACCEPT}
               hidden
               disabled={false}
               onChange={(e) => onChange(handleFileUpload(e))}
@@ -77,6 +88,7 @@ const UploadComponent: FC<UploadComponentProps> = ({
       aria-labelledby={`${name}-label`}
       aria-describedby={`${name}-description`}
       variant="contained"
+      color="secondary"
       sx={{ textTransform: 'none', mt: fileUploadType ? -1 : 2 }}
       onKeyDown={handleKeyDown}
       onClick={handleOnClick}

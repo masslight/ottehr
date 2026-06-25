@@ -37,7 +37,7 @@ import {
   QuestionnaireItemTextWhen,
   validateQuestionnaireDataType,
 } from '../../types';
-import { prepareQuestionnaireResponseForHarvest } from '../../types/data/paperwork';
+import { AnswerOptionSource, prepareQuestionnaireResponseForHarvest } from '../../types/data/paperwork';
 import { DOB_DATE_FORMAT } from '../../utils';
 
 export const PAPERWORK_PDF_ATTACHMENT_TITLE = 'Paperwork';
@@ -163,7 +163,7 @@ const getConditionalExtensions = (
     });
 };
 
-const structureExtension = (item: QuestionnaireItem): QuestionnaireItemExtension => {
+export const structureExtension = (item: QuestionnaireItem): QuestionnaireItemExtension => {
   const extension = item.extension ?? [];
   let disabledDisplay = extension.find((ext) => {
     return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.disabledDisplay;
@@ -195,8 +195,8 @@ const structureExtension = (item: QuestionnaireItem): QuestionnaireItemExtension
         })
       : undefined;
 
-  const filterWhen = getConditionalExtensions(extension, OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.filterWhen)[0]
-    ?.baseConditionDef;
+  const filterWhenConditions = getConditionalExtensions(extension, OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.filterWhen);
+  const filterWhen = filterWhenConditions.length > 0 ? filterWhenConditions.map((c) => c.baseConditionDef) : undefined;
 
   const attachmentText = extension.find((ext) => {
     return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.attachmentText;
@@ -257,9 +257,43 @@ const structureExtension = (item: QuestionnaireItem): QuestionnaireItemExtension
     return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.answerLoadingOptions.strategy;
   })?.valueString;
 
-  const source = answerLoadingExtensionRoot?.find((ext) => {
+  const sourceExtension = answerLoadingExtensionRoot?.find((ext) => {
     return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.answerLoadingOptions.source;
+  });
+
+  const sourceExpression = sourceExtension?.valueExpression;
+  const sourceString = sourceExtension?.valueString;
+
+  const expressionExtension = answerLoadingExtensionRoot?.find((ext) => {
+    return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.answerLoadingOptions.expression;
   })?.valueExpression;
+
+  let zambdaId: AnswerOptionSource['zambdaId'] | undefined;
+  let resourceType: FhirResource['resourceType'] | undefined;
+  let query: string | undefined;
+  if (sourceExpression) {
+    // This is an old-style source declaration that assumes the `get-answer-options` zambda
+    zambdaId = 'get-answer-options';
+    const { expression, language } = sourceExpression;
+    if (language === 'application/x-fhir-query' && expression) {
+      const [expResourceType, expQuery] = expression.split('?');
+      resourceType = expResourceType as FhirResource['resourceType'];
+      query = expQuery;
+    }
+  }
+
+  if (!zambdaId) {
+    zambdaId = sourceString as AnswerOptionSource['zambdaId'] | undefined;
+  }
+
+  if (expressionExtension) {
+    const { expression, language } = expressionExtension;
+    if (language === 'application/x-fhir-query' && expression) {
+      const [expResourceType, expQuery] = expression.split('?');
+      resourceType = expResourceType as FhirResource['resourceType'];
+      query = expQuery;
+    }
+  }
 
   let answerLoadingOptions: AnswerLoadingOptions | undefined;
 
@@ -267,16 +301,19 @@ const structureExtension = (item: QuestionnaireItem): QuestionnaireItemExtension
     const option: AnswerLoadingOptions = {
       strategy: answerLoadingStrategy,
     };
-    if (source) {
-      const { expression, language } = source;
-      if (language === 'application/x-fhir-query' && expression) {
-        const [resourceType, query] = expression.split('?');
+    if (zambdaId) {
+      if (zambdaId === 'get-answer-options') {
         if (resourceType && query) {
           option.answerSource = {
-            resourceType: resourceType as FhirResource['resourceType'],
+            zambdaId,
+            resourceType,
             query,
           };
         }
+      } else {
+        option.answerSource = {
+          zambdaId,
+        };
       }
     }
     if (option.answerSource || item.answerValueSet) {
@@ -322,6 +359,33 @@ const structureExtension = (item: QuestionnaireItem): QuestionnaireItemExtension
     return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.requiredBooleanValue;
   })?.valueBoolean;
 
+  const answerDisplayFilterExtensions = extension.filter(
+    (ext) => ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.answerDisplayFilter.extension
+  );
+  const answerDisplayFilters =
+    answerDisplayFilterExtensions.length > 0
+      ? answerDisplayFilterExtensions.map((filterExt) => {
+          const subs = filterExt.extension ?? [];
+          const extKeys = OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.answerDisplayFilter;
+          const questions: string[] = [];
+          const operators: string[] = [];
+          const answers: string[] = [];
+          const includeValues: string[] = [];
+          for (const sub of subs) {
+            if (sub.url === extKeys.question) questions.push(sub.valueString ?? '');
+            else if (sub.url === extKeys.operator) operators.push(sub.valueString ?? '');
+            else if (sub.url === extKeys.answer) answers.push(sub.valueString ?? '');
+            else if (sub.url === extKeys.include) includeValues.push(sub.valueString ?? '');
+          }
+          const conditions = questions.map((q, i) => ({
+            question: q,
+            operator: operators[i] ?? '=',
+            answer: answers[i] ?? '',
+          }));
+          return { conditions, includeValues };
+        })
+      : undefined;
+
   return {
     acceptsMultipleAnswers,
     alwaysFilter,
@@ -343,6 +407,7 @@ const structureExtension = (item: QuestionnaireItem): QuestionnaireItemExtension
     minRows,
     complexValidation,
     requiredBooleanValue,
+    answerDisplayFilters,
   };
 };
 

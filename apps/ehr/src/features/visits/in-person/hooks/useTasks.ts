@@ -72,13 +72,10 @@ export interface CompleteTaskRequest {
   taskId: string;
 }
 
-export const useGetTasks = ({
-  assignedTo,
-  category,
-  location,
-  status,
-  page,
-}: TasksSearchParams): UseQueryResult<{ tasks: Task[]; total: number }, Error> => {
+export const useGetTasks = (
+  { assignedTo, category, location, status, page }: TasksSearchParams,
+  options?: { refetchInterval?: number | false }
+): UseQueryResult<{ tasks: Task[]; total: number }, Error> => {
   const { oystehr } = useApiClients();
   return useQuery({
     queryKey: [GET_TASKS_KEY, assignedTo, category, location, status, page],
@@ -161,6 +158,7 @@ export const useGetTasks = ({
     enabled: oystehr != null,
     retry: 2,
     staleTime: 5 * 1000,
+    refetchInterval: options?.refetchInterval,
   });
 };
 

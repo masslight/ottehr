@@ -12,9 +12,14 @@ import {
   Reference,
   RelatedPerson,
 } from 'fhir/r4b';
-import _ from 'lodash';
 import { capitalize } from 'lodash-es';
 import { DateTime } from 'luxon';
+import { getReasonForVisitOptionsForServiceCategory } from '../../config-helpers/booking';
+import {
+  DOES_NOT_HAVE_ATTORNEY_OPTION,
+  HAS_ATTORNEY_OPTION,
+  INSURANCE_PAY_OPTION,
+} from '../../config-helpers/shared-questionnaire';
 import {
   ATTORNEY_FIRM_EXTENSION_URL,
   genderMap,
@@ -31,23 +36,20 @@ import {
   PRIVATE_EXTENSION_BASE_URL,
 } from '../../fhir';
 import {
-  DOES_NOT_HAVE_ATTORNEY_OPTION,
-  HAS_ATTORNEY_OPTION,
-  INSURANCE_PAY_OPTION,
-  VALUE_SETS,
-} from '../../ottehr-config';
-import {
   COVERAGE_ADDITIONAL_INFORMATION_URL,
   PATIENT_GENDER_IDENTITY_URL,
   PATIENT_INDIVIDUAL_PRONOUNS_URL,
+  PATIENT_NO_EMAIL_URL,
   PATIENT_SEXUAL_ORIENTATION_URL,
   PatientAccountResponse,
   PHARMACY_COLLECTION_LINK_IDS,
   PRACTICE_NAME_URL,
   PREFERRED_COMMUNICATION_METHOD_EXTENSION_URL,
   REASON_FOR_VISIT_SEPARATOR,
+  RESPONSIBLE_PARTY_NO_EMAIL_URL,
 } from '../../types';
-import { formatPhoneNumberDisplay, getCandidPlanTypeCodeFromCoverage, getPayerId } from '../helpers';
+import { isValidUUID } from '../../validation';
+import { formatPhoneNumberDisplay, getCandidPlanTypeCodeFromCoverage, getPayerId, getPayerUrl } from '../helpers';
 
 // used when patient books an appointment and some of the inputs come from the create-appointment params
 interface PrePopulationInput {
@@ -58,9 +60,8 @@ interface PrePopulationInput {
   isNewQrsPatient: boolean;
   verifiedPhoneNumber: string | undefined;
   questionnaire: Questionnaire;
-  contactInfo: { phone: string; email: string } | undefined;
+  contactInfo: { phone: string; email: string; noEmail?: boolean } | undefined;
   newPatientDob?: string;
-  unconfirmedDateOfBirth?: string;
   rp?: RelatedPerson;
   documents?: DocumentReference[];
   accountInfo?: PatientAccountResponse | undefined;
@@ -70,7 +71,6 @@ export const makePrepopulatedItemsForPatient = (input: PrePopulationInput): Ques
   const {
     patient,
     newPatientDob,
-    unconfirmedDateOfBirth,
     appointmentStartTime: startTime,
     appointmentServiceCategory,
     reasonForVisit,
@@ -99,6 +99,11 @@ export const makePrepopulatedItemsForPatient = (input: PrePopulationInput): Ques
   const patientPostalCode = patientAddress?.postalCode;
 
   const patientEmail = contactInfo?.email;
+  // Prefer the value supplied from the booking form (contactInfo.noEmail) so that a
+  // patient who switched from no-email → has email during booking sees the correct
+  // state in paperwork immediately, without waiting for harvest to update the extension.
+  const patientNoEmail =
+    contactInfo?.noEmail ?? patient.extension?.find((e) => e.url === PATIENT_NO_EMAIL_URL)?.valueBoolean ?? false;
   const patientSendMarketing = patient.extension?.find((e) => e.url === `${PRIVATE_EXTENSION_BASE_URL}/send-marketing`)
     ?.valueBoolean;
   const patientCommonWellConsent = patient.extension?.find(
@@ -165,22 +170,8 @@ export const makePrepopulatedItemsForPatient = (input: PrePopulationInput): Ques
   if (reasonForVisit) {
     const [reasonOption] = reasonForVisit.split(REASON_FOR_VISIT_SEPARATOR);
     if (reasonOption && reasonOption !== normalizedReasonForVisit) {
-      if (
-        appointmentServiceCategory === 'occupational-medicine' &&
-        VALUE_SETS.reasonForVisitOptionsOccMed.some((opt) => opt.value === reasonOption)
-      ) {
-        normalizedReasonForVisit = reasonOption;
-      } else if (
-        appointmentServiceCategory === 'workers-comp' &&
-        VALUE_SETS.reasonForVisitOptionsWorkersComp.some((opt) => opt.value === reasonOption)
-      ) {
-        normalizedReasonForVisit = reasonOption;
-      } else if (
-        appointmentServiceCategory === 'pre-op' &&
-        VALUE_SETS.reasonForVisitOptionsPreOp?.some((opt) => opt.value === reasonOption)
-      ) {
-        normalizedReasonForVisit = reasonOption;
-      } else if (VALUE_SETS.reasonForVisitOptions.some((opt) => opt.value === reasonOption)) {
+      const validOptions = getReasonForVisitOptionsForServiceCategory(appointmentServiceCategory ?? '');
+      if (validOptions.some((opt) => opt.value === reasonOption)) {
         normalizedReasonForVisit = reasonOption;
       }
     }
@@ -195,13 +186,10 @@ export const makePrepopulatedItemsForPatient = (input: PrePopulationInput): Ques
           let answer: QuestionnaireResponseItemAnswer[] | undefined;
           const { linkId } = item;
           if (linkId === 'patient-will-be-18') {
-            answer = makeAnswer(
-              checkPatientWillBe18(startTime ?? '', patient, newPatientDob, unconfirmedDateOfBirth),
-              'Boolean'
-            );
+            answer = makeAnswer(checkPatientWillBe18(startTime ?? '', patient, newPatientDob), 'Boolean');
           }
           if (linkId === 'patient-birthdate') {
-            const patientDOB = getPatientDOB(patient, newPatientDob, unconfirmedDateOfBirth);
+            const patientDOB = getPatientDOB(patient, newPatientDob);
             if (patientDOB) {
               answer = makeAnswer(patientDOB);
             }
@@ -232,6 +220,9 @@ export const makePrepopulatedItemsForPatient = (input: PrePopulationInput): Ques
           }
           if (linkId === 'patient-email' && patientEmail) {
             answer = makeAnswer(patientEmail);
+          }
+          if (linkId === 'patient-no-email') {
+            answer = makeAnswer(patientNoEmail, 'Boolean');
           }
           if (linkId === 'patient-preferred-communication-method' && patientPreferredCommunicationMethod) {
             answer = makeAnswer(patientPreferredCommunicationMethod);
@@ -376,12 +367,8 @@ export const makePrepopulatedItemsForPatient = (input: PrePopulationInput): Ques
   return item;
 };
 
-const getPatientDOB = (
-  patient?: Patient,
-  newPatientDob?: string,
-  unconfirmedDateOfBirth?: string
-): string | undefined => {
-  const dobStringToUse = unconfirmedDateOfBirth ?? patient?.birthDate ?? newPatientDob;
+const getPatientDOB = (patient?: Patient, newPatientDob?: string): string | undefined => {
+  const dobStringToUse = patient?.birthDate ?? newPatientDob;
   if (dobStringToUse === undefined) {
     return undefined;
   }
@@ -389,17 +376,10 @@ const getPatientDOB = (
   return patientDOB.isValid ? dobStringToUse : undefined;
 };
 
-const checkPatientWillBe18 = (
-  appointmentStart: string,
-  patient?: Patient,
-  newPatientDob?: string,
-  unconfirmedDateOfBirth?: string
-): boolean => {
+const checkPatientWillBe18 = (appointmentStart: string, patient?: Patient, newPatientDob?: string): boolean => {
   // intentionally not worrying about time zone here. the extra accuracy is not worth the query.
   const appointmentStartTime = DateTime.fromISO(appointmentStart);
-  const patientDOB = DateTime.fromISO(
-    getPatientDOB(patient, newPatientDob, unconfirmedDateOfBirth) ?? DateTime.now().toISO()
-  );
+  const patientDOB = DateTime.fromISO(getPatientDOB(patient, newPatientDob) ?? DateTime.now().toISO());
 
   if (!appointmentStartTime.isValid && patientDOB.isValid) {
     return false;
@@ -426,6 +406,8 @@ export const extractFirstValueFromAnswer = (
 export interface PrePopulationFromPatientRecordInput extends PatientAccountResponse {
   questionnaire: Questionnaire;
   overriddenItems?: QuestionnaireResponseItem[];
+  visitOccupationalMedicineEmployerReference?: Reference;
+  appointmentServiceCategory?: string;
 }
 
 export const makePrepopulatedItemsFromPatientRecord = (
@@ -511,9 +493,16 @@ export const makePrepopulatedItemsFromPatientRecord = (
         });
       }
       if (OCCUPATIONAL_MEDICINE_EMPLOYER_ITEMS.includes(item.linkId)) {
+        // Visit-level employer wins; for pre-op don't fall back to the Account employer.
+        const useAccountEmployer =
+          !input.visitOccupationalMedicineEmployerReference && input.appointmentServiceCategory !== 'pre-op';
+
         return mapOccupationalMedicineEmployerToQuestionnaireResponseItems({
           items: itemItems,
-          occupationalMedicineEmployerOrganization,
+          occupationalMedicineEmployerOrganization: useAccountEmployer
+            ? occupationalMedicineEmployerOrganization
+            : undefined,
+          occupationalMedicineEmployerReference: input.visitOccupationalMedicineEmployerReference,
         });
       }
       if (ATTORNEY_ITEMS.includes(item.linkId)) {
@@ -556,6 +545,7 @@ const mapPatientItemsToQuestionnaireResponseItems = (input: MapPatientItemsInput
 
   const patientEmail = patient?.telecom?.find((c) => c.system === 'email' && c.period?.end === undefined)?.value;
   const patientPhone = patient?.telecom?.find((c) => c.system === 'phone' && c.period?.end === undefined)?.value;
+  const patientNoEmail = patient.extension?.find((e) => e.url === PATIENT_NO_EMAIL_URL)?.valueBoolean ?? false;
 
   const patientEthnicity = patient.extension?.find((e) => e.url === `${PRIVATE_EXTENSION_BASE_URL}/ethnicity`)
     ?.valueCodeableConcept?.coding?.[0]?.display;
@@ -653,6 +643,9 @@ const mapPatientItemsToQuestionnaireResponseItems = (input: MapPatientItemsInput
     }
     if (linkId === 'patient-email' && patientEmail) {
       answer = makeAnswer(patientEmail);
+    }
+    if (linkId === 'patient-no-email') {
+      answer = makeAnswer(patientNoEmail, 'Boolean');
     }
     if (linkId === 'patient-number' && patientPhone) {
       const formatted = formatPhoneNumberDisplay(patientPhone);
@@ -844,7 +837,7 @@ const mapCoveragesToQuestionnaireResponseItems = (input: MapCoverageItemsInput):
     const org = insuranceOrgs.find((tempOrg) => getPayerId(tempOrg) === payerId);
     if (payerId && org) {
       primaryInsurancePlanReference = {
-        reference: `Organization/${org.id}`,
+        reference: isValidUUID(org.id ?? '') ? `Organization/${org.id!}` : getPayerUrl(org.id!),
         display: org.name,
       };
     }
@@ -855,12 +848,13 @@ const mapCoveragesToQuestionnaireResponseItems = (input: MapCoverageItemsInput):
     const org = insuranceOrgs.find((tempOrg) => getPayerId(tempOrg) === payerId);
     if (payerId && org) {
       secondaryInsurancePlanReference = {
-        reference: `Organization/${org.id}`,
+        reference: isValidUUID(org.id ?? '') ? `Organization/${org.id!}` : getPayerUrl(org.id!),
         display: org.name,
       };
     }
   }
 
+  // These checks are brittle if there is drift between payor and identifier
   if (primary) {
     primaryMemberId =
       primary.identifier?.find(
@@ -1117,11 +1111,13 @@ const mapEmployerToQuestionnaireResponseItems = (input: MapEmployerItemsInput): 
         if (coverage) {
           const payerId = coverage.class?.[0].value;
           const org = insuranceOrgs?.find((tempOrg) => getPayerId(tempOrg) === payerId);
-          const coverageReference: Reference = {
-            reference: `Organization/${org?.id}`,
-            display: org?.name,
-          };
-          answer = makeAnswer(coverageReference, 'Reference');
+          if (payerId && org) {
+            const coverageReference: Reference = {
+              reference: isValidUUID(org.id ?? '') ? `Organization/${org.id!}` : getPayerUrl(org.id!),
+              display: org?.name,
+            };
+            answer = makeAnswer(coverageReference, 'Reference');
+          }
         }
         break;
       case 'workers-comp-insurance-member-id':
@@ -1191,14 +1187,21 @@ const mapEmployerToQuestionnaireResponseItems = (input: MapEmployerItemsInput): 
 interface MapOccupationalMedicineEmployerItemsInput {
   items: QuestionnaireItem[];
   occupationalMedicineEmployerOrganization?: Organization;
+  occupationalMedicineEmployerReference?: Reference;
 }
 
 const mapOccupationalMedicineEmployerToQuestionnaireResponseItems = (
   input: MapOccupationalMedicineEmployerItemsInput
 ): QuestionnaireResponseItem[] => {
-  const { occupationalMedicineEmployerOrganization, items } = input;
-  let occupationalMedicineEmployerReference: Reference | undefined;
-  if (occupationalMedicineEmployerOrganization) {
+  const {
+    occupationalMedicineEmployerOrganization,
+    occupationalMedicineEmployerReference: referenceOverride,
+    items,
+  } = input;
+
+  let occupationalMedicineEmployerReference: Reference | undefined = referenceOverride;
+
+  if (!occupationalMedicineEmployerReference && occupationalMedicineEmployerOrganization) {
     occupationalMedicineEmployerReference = {
       reference: `Organization/${occupationalMedicineEmployerOrganization.id}`,
       display: occupationalMedicineEmployerOrganization.name,
@@ -1303,6 +1306,13 @@ const mapGuarantorToQuestionnaireResponseItems = (input: MapGuarantorItemsInput)
   );
   const email =
     guarantorResource?.telecom?.find((c) => c.system === 'email' && c.period?.end === undefined)?.value ?? '';
+  const rpNoEmail =
+    guarantorResource?.resourceType === 'RelatedPerson'
+      ? (guarantorResource as RelatedPerson).extension?.find((e) => e.url === RESPONSIBLE_PARTY_NO_EMAIL_URL)
+          ?.valueBoolean ?? false
+      : guarantorResource?.resourceType === 'Patient'
+      ? (guarantorResource as Patient).extension?.find((e) => e.url === PATIENT_NO_EMAIL_URL)?.valueBoolean ?? false
+      : false;
   let birthSex: string | undefined;
   if (guarantorResource?.gender) {
     const genderString = guarantorResource?.gender === 'other' ? 'Intersex' : guarantorResource?.gender;
@@ -1371,6 +1381,9 @@ const mapGuarantorToQuestionnaireResponseItems = (input: MapGuarantorItemsInput)
     }
     if (linkId === 'responsible-party-email' && email) {
       answer = makeAnswer(email);
+    }
+    if (linkId === 'responsible-party-no-email') {
+      answer = makeAnswer(rpNoEmail, 'Boolean');
     }
     if (linkId === 'responsible-party-address' && line) {
       answer = makeAnswer(line);
@@ -1501,6 +1514,7 @@ const mapPharmacyToQuestionnaireResponseItems = (input: MapPharmacyItemsInput): 
   const { pharmacyResource, patientResource, items } = input;
   const pharmacyName = pharmacyResource?.name;
   const pharmacyAddress = pharmacyResource?.address?.[0].text;
+  const pharmacyPhone = pharmacyResource?.telecom?.find((c) => c.system === 'phone')?.value;
   const pharmacyWasManuallyEntered = !!pharmacyResource?.extension?.find(
     (ext) => ext.url === PREFERRED_PHARMACY_MANUAL_ENTRY_URL
   )?.valueBoolean;
@@ -1519,6 +1533,9 @@ const mapPharmacyToQuestionnaireResponseItems = (input: MapPharmacyItemsInput): 
     if (linkId === 'pharmacy-address' && pharmacyAddress && pharmacyWasManuallyEntered) {
       answer = makeAnswer(pharmacyAddress);
     }
+    if (linkId === 'pharmacy-phone' && pharmacyPhone && pharmacyWasManuallyEntered) {
+      answer = makeAnswer(pharmacyPhone);
+    }
 
     if (linkId === 'pharmacy-page-manual-entry' && pharmacyWasManuallyEntered) {
       answer = makeAnswer(true, 'Boolean');
@@ -1530,6 +1547,9 @@ const mapPharmacyToQuestionnaireResponseItems = (input: MapPharmacyItemsInput): 
       }
       if (linkId === PHARMACY_COLLECTION_LINK_IDS.placesAddress) {
         answer = makeAnswer(pharmacyAddress);
+      }
+      if (linkId === PHARMACY_COLLECTION_LINK_IDS.placesPhone && pharmacyPhone) {
+        answer = makeAnswer(pharmacyPhone);
       }
       if (linkId === PHARMACY_COLLECTION_LINK_IDS.placesId) {
         answer = makeAnswer(pharmacyIdFromPlaces);

@@ -14,7 +14,6 @@ import {
 } from '@mui/material';
 import { DateTime } from 'luxon';
 import { ReactElement, useCallback, useState } from 'react';
-import { LocationWithWalkinSchedule } from 'src/pages/AddPatient';
 import {
   GetVitalsForListOfEncountersResponseData,
   GetVitalsResponseData,
@@ -23,6 +22,7 @@ import {
   OrdersForTrackingBoardTable,
 } from 'utils';
 import { dataTestIds } from '../constants/data-test-ids';
+import { useGetEmployees } from '../features/visits/shared/hooks/useGetEmployees';
 import { AppointmentsStatusChipsCount } from './AppointmentStatusChipsCount';
 import AppointmentTableHeader from './AppointmentTableHeader';
 import AppointmentTableRow from './AppointmentTableRow';
@@ -30,7 +30,6 @@ import { ApptTab } from './AppointmentTabs';
 
 interface AppointmentTableProps {
   appointments: InPersonAppointmentInformation[];
-  location: LocationWithWalkinSchedule | undefined;
   tab: ApptTab;
   now: DateTime;
   updateAppointments: () => void;
@@ -41,7 +40,6 @@ interface AppointmentTableProps {
 
 export default function AppointmentTable({
   appointments,
-  location,
   tab,
   now,
   updateAppointments,
@@ -50,10 +48,17 @@ export default function AppointmentTable({
   vitals,
 }: AppointmentTableProps): ReactElement {
   const theme = useTheme();
-  const actionButtons = tab === ApptTab.prebooked ? true : false;
-  const showTime = tab !== ApptTab.prebooked ? true : false;
   const [collapseWaiting, setCollapseWaiting] = useState<boolean>(false);
   const [collapseExam, setCollapseExam] = useState<boolean>(false);
+
+  // Intake/provider assignment is only editable on the in-office tab, so only fetch the (rarely
+  // changing) employee lists there. Discharged/Cancelled render the names read-only from the
+  // appointment's participants, so they don't need this list.
+  const { data: employees, isLoading: employeesLoading } = useGetEmployees({
+    enabled: tab === ApptTab['in-office'],
+  });
+  const intakeOptions = employees?.nonProviders ?? [];
+  const providerOptions = employees?.providers ?? [];
 
   const {
     inHouseLabOrdersByAppointmentId,
@@ -103,7 +108,7 @@ export default function AppointmentTable({
       <Paper>
         <TableContainer sx={{ overflow: 'auto' }} data-testid={dataTestIds.dashboard.appointmentsTable(tab)}>
           <Table style={{ tableLayout: 'auto', width: '100%', maxWidth: '100%' }}>
-            <AppointmentTableHeader tab={tab} showTime={showTime} table="waiting-room" />
+            <AppointmentTableHeader tab={tab} table="waiting-room" />
             <TableBody>
               {tab === ApptTab['in-office'] ? (
                 <>
@@ -144,16 +149,16 @@ export default function AppointmentTable({
                           <AppointmentTableRow
                             key={appointment.id}
                             appointment={appointment}
-                            location={location}
-                            actionButtons={actionButtons}
-                            showTime={showTime}
                             now={now}
                             updateAppointments={updateAppointments}
                             setEditingComment={setEditingComment}
                             tab={tab}
                             table={'waiting-room'}
                             orders={ordersForAppointment(appointment.id, appointment.encounterId)}
-                          ></AppointmentTableRow>
+                            intakeOptions={intakeOptions}
+                            providerOptions={providerOptions}
+                            employeesLoading={employeesLoading}
+                          />
                         );
                       })}
                 </>
@@ -163,16 +168,16 @@ export default function AppointmentTable({
                     <AppointmentTableRow
                       key={appointment.id}
                       appointment={appointment}
-                      location={location}
-                      actionButtons={actionButtons}
-                      showTime={showTime}
                       now={now}
                       updateAppointments={updateAppointments}
                       setEditingComment={setEditingComment}
                       tab={tab}
                       vitals={vitalsForAppointment(appointment)}
                       orders={ordersForAppointment(appointment.id, appointment.encounterId)}
-                    ></AppointmentTableRow>
+                      intakeOptions={intakeOptions}
+                      providerOptions={providerOptions}
+                      employeesLoading={employeesLoading}
+                    />
                   );
                 })
               )}
@@ -184,10 +189,10 @@ export default function AppointmentTable({
         <Paper sx={{ marginTop: '16px' }}>
           <TableContainer sx={{ overflow: 'auto' }}>
             <Table style={{ tableLayout: 'auto', width: '100%', maxWidth: '100%' }}>
-              <AppointmentTableHeader tab={tab} showTime={showTime} table="in-exam" />
+              <AppointmentTableHeader tab={tab} table="in-exam" />
               <TableBody>
                 <TableRow>
-                  <TableCell sx={{ backgroundColor: alpha(theme.palette.secondary.main, 0.08), px: 1.5 }} colSpan={11}>
+                  <TableCell sx={{ backgroundColor: alpha(theme.palette.secondary.main, 0.08), px: 1.5 }} colSpan={12}>
                     <Box sx={{ display: 'flex', alignItems: 'center' }}>
                       <IconButton onClick={() => setCollapseExam(!collapseExam)} sx={{ mr: 0.75, p: 0 }}>
                         <ArrowDropDownCircleOutlinedIcon
@@ -220,9 +225,6 @@ export default function AppointmentTable({
                         <AppointmentTableRow
                           key={appointment.id}
                           appointment={appointment}
-                          location={location}
-                          actionButtons={actionButtons}
-                          showTime={showTime}
                           now={now}
                           vitals={vitalsForAppointment(appointment)}
                           updateAppointments={updateAppointments}
@@ -230,7 +232,10 @@ export default function AppointmentTable({
                           tab={tab}
                           table="in-exam"
                           orders={ordersForAppointment(appointment.id, appointment.encounterId)}
-                        ></AppointmentTableRow>
+                          intakeOptions={intakeOptions}
+                          providerOptions={providerOptions}
+                          employeesLoading={employeesLoading}
+                        />
                       );
                     })}
               </TableBody>

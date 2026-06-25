@@ -42,7 +42,10 @@ export interface Order {
   label: string;
 }
 
-export function useInHouseLabOrdersOptions(encounterId: string): {
+export function useInHouseLabOrdersOptions(
+  encounterId: string,
+  refreshKey?: number
+): {
   inHouseLabOrdersLoading: boolean;
   inHouseLabOrdersOptions: Order[];
 } {
@@ -51,6 +54,7 @@ export function useInHouseLabOrdersOptions(encounterId: string): {
       field: 'encounterId',
       value: encounterId,
     },
+    refreshKey,
   });
   return {
     inHouseLabOrdersLoading: loading,
@@ -63,7 +67,10 @@ export function useInHouseLabOrdersOptions(encounterId: string): {
   };
 }
 
-export function useExternalLabOrdersOptions(encounterId: string): {
+export function useExternalLabOrdersOptions(
+  encounterId: string,
+  refreshKey?: number
+): {
   externalLabOrdersLoading: boolean;
   externalLabOrdersOptions: Order[];
 } {
@@ -72,6 +79,7 @@ export function useExternalLabOrdersOptions(encounterId: string): {
       field: 'encounterId',
       value: encounterId,
     },
+    refreshKey,
   });
   return {
     externalLabOrdersLoading: loading,
@@ -89,12 +97,16 @@ export function useExternalLabOrdersOptions(encounterId: string): {
   };
 }
 
-export function useNursingOrdersOptions(encounterId: string): {
+export function useNursingOrdersOptions(
+  encounterId: string,
+  refreshKey?: number
+): {
   nursingOrdersLoading: boolean;
   nursingOrdersOptions: Order[];
 } {
   const { nursingOrders, loading } = useGetNursingOrders({
     searchBy: { field: 'encounterId', value: encounterId },
+    refreshKey,
   });
   return {
     nursingOrdersLoading: loading,
@@ -107,12 +119,16 @@ export function useNursingOrdersOptions(encounterId: string): {
   };
 }
 
-export function useRadiologyOrdersOptions(encounterId: string): {
+export function useRadiologyOrdersOptions(
+  encounterId: string,
+  refreshKey?: number
+): {
   radiologyOrdersLoading: boolean;
   radiologyOrdersOptions: Order[];
 } {
   const { orders, loading } = usePatientRadiologyOrders({
     encounterIds: encounterId,
+    refreshKey,
   });
   return {
     radiologyOrdersLoading: loading,

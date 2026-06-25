@@ -32,7 +32,9 @@ const UploadComponent: FC<UploadComponentProps> = ({
 
   const fileTypesAccepted = (() => {
     if (attachmentType === 'image') {
-      return [MIME_TYPES.PNG, MIME_TYPES.JPEG, MIME_TYPES.JPG].join(', ');
+      return [MIME_TYPES.PNG, MIME_TYPES.JPEG, MIME_TYPES.JPG, MIME_TYPES.HEIC, MIME_TYPES.HEIF, '.heic', '.heif'].join(
+        ', '
+      );
     } else {
       return MIME_TYPES.PDF;
     }
@@ -95,6 +97,7 @@ const UploadComponent: FC<UploadComponentProps> = ({
             aria-labelledby={`${name}-label`}
             aria-describedby={`${name}-description`}
             variant="contained"
+            color="secondary"
             sx={{ textTransform: 'none' }}
             onKeyDown={(event) => {
               try {

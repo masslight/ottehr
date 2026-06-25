@@ -1,12 +1,18 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Communication, DocumentReference, Task } from 'fhir/r4b';
-import { getSecret, MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS, Secrets, SecretsKeys, STATEMENT_CODE } from 'utils';
 import {
-  createOystehrClient,
+  MISSING_REQUEST_BODY,
+  MISSING_REQUEST_SECRETS,
+  MISSING_REQUIRED_PARAMETERS,
+  Secrets,
+  STATEMENT_CODE,
+} from 'utils';
+import {
+  createClinicalOystehrClient,
   getAuth0Token,
   getPostGridLetter,
-  topLevelCatch,
+  MAIL_VENDOR_EXTENSION_URL,
   wrapHandler,
   ZambdaInput,
 } from '../../../shared';
@@ -57,7 +63,7 @@ function validateRequestParameters(input: ZambdaInput): GetStatementStatusInput 
   const body = JSON.parse(input.body) as Record<string, unknown>;
   const encounterId = body.encounterId;
   if (typeof encounterId !== 'string' || encounterId.trim().length === 0) {
-    throw new Error('encounterId is required');
+    throw MISSING_REQUIRED_PARAMETERS(['encounterId']);
   }
 
   return {
@@ -70,14 +76,13 @@ async function createOystehr(secrets: Secrets): Promise<Oystehr> {
   if (oystehrToken == null) {
     oystehrToken = await getAuth0Token(secrets);
   }
-  return createOystehrClient(oystehrToken, secrets);
+  return createClinicalOystehrClient(oystehrToken, secrets);
 }
 
 function isStatementCommunication(resource: Communication): boolean {
   const hasStatementPayload =
     resource.payload?.some((payload) => payload.contentString?.toLowerCase().includes('statement')) ?? false;
-  const hasMailVendorExtension =
-    resource.extension?.some((ext) => ext.url === 'https://extensions.fhir.ottehr.com/mail-vendor') ?? false;
+  const hasMailVendorExtension = resource.extension?.some((ext) => ext.url === MAIL_VENDOR_EXTENSION_URL) ?? false;
   const hasMailMedium =
     resource.medium?.some((medium) => medium.coding?.some((coding) => coding.code === 'MAILWRIT')) ?? false;
 
@@ -93,9 +98,7 @@ function sortByDateDesc<T>(items: T[], getDate: (item: T) => string | undefined)
 }
 
 function getPostGridLetterIdFromCommunication(resource: Communication | undefined): string | undefined {
-  const mailVendorExtension = resource?.extension?.find(
-    (ext) => ext.url === 'https://extensions.fhir.ottehr.com/mail-vendor'
-  );
+  const mailVendorExtension = resource?.extension?.find((ext) => ext.url === MAIL_VENDOR_EXTENSION_URL);
   return mailVendorExtension?.extension?.find((ext) => ext.url === 'vendor-letter-id')?.valueString;
 }
 
@@ -114,141 +117,136 @@ function getPostGridLetterIdFromTask(task: Task | undefined): string | undefined
 }
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  try {
-    const validatedInput = validateRequestParameters(input);
-    const { encounterId, secrets } = validatedInput;
-    const oystehr = await createOystehr(secrets);
+  const validatedInput = validateRequestParameters(input);
+  const { encounterId, secrets } = validatedInput;
+  const oystehr = await createOystehr(secrets);
 
-    const encounterReference = `Encounter/${encounterId}`;
+  const encounterReference = `Encounter/${encounterId}`;
 
-    const communications = (
-      await oystehr.fhir.search<Communication>({
-        resourceType: 'Communication',
-        params: [
-          {
-            name: 'encounter',
-            value: encounterReference,
-          },
-        ],
-      })
-    ).unbundle();
+  const communications = (
+    await oystehr.fhir.search<Communication>({
+      resourceType: 'Communication',
+      params: [
+        {
+          name: 'encounter',
+          value: encounterReference,
+        },
+      ],
+    })
+  ).unbundle();
 
-    const statementCommunications = sortByDateDesc(
-      communications.filter((resource) => isStatementCommunication(resource)),
-      (resource) => resource.sent ?? resource.meta?.lastUpdated
-    );
-    const latestCommunication = statementCommunications[0];
+  const statementCommunications = sortByDateDesc(
+    communications.filter((resource) => isStatementCommunication(resource)),
+    (resource) => resource.sent ?? resource.meta?.lastUpdated
+  );
+  const latestCommunication = statementCommunications[0];
 
-    const sendStatementByEmailTasks = (
-      await oystehr.fhir.search<Task>({
-        resourceType: 'Task',
-        params: [
-          {
-            name: 'encounter',
-            value: encounterReference,
-          },
-          {
-            name: 'code',
-            value: `|${SEND_STATEMENT_BY_EMAIL_TASK_CODE}`,
-          },
-        ],
-      })
-    ).unbundle();
+  const sendStatementByEmailTasks = (
+    await oystehr.fhir.search<Task>({
+      resourceType: 'Task',
+      params: [
+        {
+          name: 'encounter',
+          value: encounterReference,
+        },
+        {
+          name: 'code',
+          value: `|${SEND_STATEMENT_BY_EMAIL_TASK_CODE}`,
+        },
+      ],
+    })
+  ).unbundle();
 
-    const latestSendStatementByEmailTask = sortByDateDesc(
-      sendStatementByEmailTasks,
-      (resource) => resource.authoredOn ?? resource.meta?.lastUpdated
-    )[0];
+  const latestSendStatementByEmailTask = sortByDateDesc(
+    sendStatementByEmailTasks,
+    (resource) => resource.authoredOn ?? resource.meta?.lastUpdated
+  )[0];
 
-    const statementDocumentReferences = (
-      await oystehr.fhir.search<DocumentReference>({
-        resourceType: 'DocumentReference',
-        params: [
-          {
-            name: 'encounter',
-            value: encounterReference,
-          },
-          {
-            name: 'type',
-            value: STATEMENT_CODE,
-          },
-        ],
-      })
-    ).unbundle();
+  const statementDocumentReferences = (
+    await oystehr.fhir.search<DocumentReference>({
+      resourceType: 'DocumentReference',
+      params: [
+        {
+          name: 'encounter',
+          value: encounterReference,
+        },
+        {
+          name: 'type',
+          value: STATEMENT_CODE,
+        },
+      ],
+    })
+  ).unbundle();
 
-    const latestStatementDocumentReference = sortByDateDesc(
-      statementDocumentReferences,
-      (resource) => resource.date ?? resource.meta?.lastUpdated
-    )[0];
+  const latestStatementDocumentReference = sortByDateDesc(
+    statementDocumentReferences,
+    (resource) => resource.date ?? resource.meta?.lastUpdated
+  )[0];
 
-    const communicationLetterId = getPostGridLetterIdFromCommunication(latestCommunication);
-    const taskLetterId = getPostGridLetterIdFromTask(latestSendStatementByEmailTask);
-    const postGridLetterId = communicationLetterId ?? taskLetterId;
+  const communicationLetterId = getPostGridLetterIdFromCommunication(latestCommunication);
+  const taskLetterId = getPostGridLetterIdFromTask(latestSendStatementByEmailTask);
+  const postGridLetterId = communicationLetterId ?? taskLetterId;
 
-    let mailProcessor: StatementStatusResponse['mailProcessor'] = {
-      found: false,
-    };
+  let mailProcessor: StatementStatusResponse['mailProcessor'] = {
+    found: false,
+  };
 
-    if (postGridLetterId) {
-      try {
-        const postGridLetter = await getPostGridLetter(postGridLetterId, secrets);
-        mailProcessor = {
-          found: true,
-          letterId: postGridLetter.id,
-          source: communicationLetterId ? 'communication' : 'task',
-          status: postGridLetter.status,
-          sendDate: postGridLetter.sendDate,
-          url: postGridLetter.url,
-        };
-      } catch (error: unknown) {
-        mailProcessor = {
-          found: false,
-          letterId: postGridLetterId,
-          source: communicationLetterId ? 'communication' : 'task',
-          fetchError: error instanceof Error ? error.message : String(error),
-        };
-      }
+  if (postGridLetterId) {
+    try {
+      const postGridLetter = await getPostGridLetter(postGridLetterId, secrets);
+      mailProcessor = {
+        found: true,
+        letterId: postGridLetter.id,
+        source: communicationLetterId ? 'communication' : 'task',
+        status: postGridLetter.status,
+        sendDate: postGridLetter.sendDate,
+        url: postGridLetter.url,
+      };
+    } catch (error: unknown) {
+      mailProcessor = {
+        found: false,
+        letterId: postGridLetterId,
+        source: communicationLetterId ? 'communication' : 'task',
+        fetchError: error instanceof Error ? error.message : String(error),
+      };
     }
-
-    const response: StatementStatusResponse = {
-      encounterId,
-      generated: latestStatementDocumentReference
-        ? {
-            generated: true,
-            lastGenerated: latestStatementDocumentReference.date ?? latestStatementDocumentReference.meta?.lastUpdated,
-          }
-        : {
-            generated: false,
-          },
-      communication: latestCommunication
-        ? {
-            found: true,
-            id: latestCommunication.id,
-            status: latestCommunication.status,
-            sent: latestCommunication.sent,
-          }
-        : {
-            found: false,
-          },
-      sendStatementByEmailTask: latestSendStatementByEmailTask
-        ? {
-            found: true,
-            id: latestSendStatementByEmailTask.id,
-            status: latestSendStatementByEmailTask.status,
-            authoredOn: latestSendStatementByEmailTask.authoredOn,
-          }
-        : {
-            found: false,
-          },
-      mailProcessor,
-    };
-
-    return {
-      statusCode: 200,
-      body: JSON.stringify(response),
-    };
-  } catch (error: unknown) {
-    const environment = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    return topLevelCatch(ZAMBDA_NAME, error, environment);
   }
+
+  const response: StatementStatusResponse = {
+    encounterId,
+    generated: latestStatementDocumentReference
+      ? {
+          generated: true,
+          lastGenerated: latestStatementDocumentReference.date ?? latestStatementDocumentReference.meta?.lastUpdated,
+        }
+      : {
+          generated: false,
+        },
+    communication: latestCommunication
+      ? {
+          found: true,
+          id: latestCommunication.id,
+          status: latestCommunication.status,
+          sent: latestCommunication.sent,
+        }
+      : {
+          found: false,
+        },
+    sendStatementByEmailTask: latestSendStatementByEmailTask
+      ? {
+          found: true,
+          id: latestSendStatementByEmailTask.id,
+          status: latestSendStatementByEmailTask.status,
+          authoredOn: latestSendStatementByEmailTask.authoredOn,
+        }
+      : {
+          found: false,
+        },
+    mailProcessor,
+  };
+
+  return {
+    statusCode: 200,
+    body: JSON.stringify(response),
+  };
 });

@@ -8,17 +8,31 @@ import InputMask from 'src/components/InputMask';
 import { Row } from 'src/components/layout';
 import { useApiClients } from 'src/hooks/useAppClients';
 import {
+  AnswerOptionSource,
   dedupeObjectsByKey,
+  evaluateFieldTriggers,
   FormFieldsDisplayItem,
   FormFieldsGroupItem,
   FormFieldsInputItem,
   isRemovableField,
+  PATIENT_RECORD_CONFIG,
   QuestionnaireItemGroupType,
 } from 'utils';
-import { evaluateFieldTriggers } from './patientRecordValidation';
+
+// Flat map of linkId → field config, built once at module load for source-field lookup.
+const allFieldConfigs = new Map<string, FormFieldsInputItem>();
+for (const section of Object.values(PATIENT_RECORD_CONFIG.FormFields)) {
+  const items = (section as any).items;
+  if (!items) continue;
+  const itemValues = Array.isArray(items) ? items.flatMap((group: any) => Object.values(group)) : Object.values(items);
+  for (const field of itemValues as FormFieldsInputItem[]) {
+    if (field?.key) allFieldConfigs.set(field.key, field);
+  }
+}
 
 interface PatientRecordFormFieldProps {
-  item: FormFieldsInputItem | FormFieldsDisplayItem | FormFieldsGroupItem;
+  // undefined when a project's config omits a field a shared container references
+  item: FormFieldsInputItem | FormFieldsDisplayItem | FormFieldsGroupItem | undefined;
   isLoading: boolean;
   hiddenFormFields?: string[];
   requiredFormFields?: string[];
@@ -26,15 +40,23 @@ interface PatientRecordFormFieldProps {
   disabled?: boolean;
 }
 
+type PatientRecordFormFieldContentProps = Omit<PatientRecordFormFieldProps, 'item'> & {
+  item: NonNullable<PatientRecordFormFieldProps['item']>;
+};
+
 const PatientRecordFormField: FC<PatientRecordFormFieldProps> = (props) => {
+  // Guard against configs that omit a referenced field (e.g. `noEmail`).
+  if (!props.item) {
+    return null;
+  }
   const isHidden = props.hiddenFormFields?.includes(props.item.key);
   if (isHidden) {
     return null;
   }
-  return <PatientRecordFormFieldContent {...props} />;
+  return <PatientRecordFormFieldContent {...props} item={props.item} />;
 };
 
-const PatientRecordFormFieldContent: FC<PatientRecordFormFieldProps> = ({
+const PatientRecordFormFieldContent: FC<PatientRecordFormFieldContentProps> = ({
   item,
   requiredFormFields,
   isLoading,
@@ -69,25 +91,43 @@ const PatientRecordFormFieldContent: FC<PatientRecordFormFieldProps> = ({
   }
 
   // Dynamic population: when field is disabled, copy value from source field
-  const sourceFieldValue = dynamicPopulation?.sourceLinkId ? watch(dynamicPopulation.sourceLinkId) : undefined;
+  const rawSourceFieldValue = dynamicPopulation?.sourceLinkId ? watch(dynamicPopulation.sourceLinkId) : undefined;
   const stashedValueRef = useRef<any>(null);
 
+  const triggerState = dynamicPopulation?.triggerState ?? 'disabled';
+
+  // Determine whether the source field is currently hidden (disabled + disabledDisplay:'hidden').
+  // When it is, treat its effective value as empty so downstream fields don't pick up stale data.
+  const sourceFieldConfig = dynamicPopulation?.sourceLinkId
+    ? allFieldConfigs.get(dynamicPopulation.sourceLinkId)
+    : undefined;
+  const sourceEffects = sourceFieldConfig
+    ? evaluateFieldTriggers(sourceFieldConfig, formValues, sourceFieldConfig.enableBehavior)
+    : null;
+  const sourceIsHidden = sourceEffects?.enabled === false && sourceFieldConfig?.disabledDisplay === 'hidden';
+  const sourceEmptyValue = sourceFieldConfig?.type === 'boolean' ? false : '';
+  const sourceFieldValue = sourceIsHidden ? sourceEmptyValue : rawSourceFieldValue;
+
   useEffect(() => {
-    if (dynamicPopulation && dynamicPopulation.triggerState === 'disabled' && isDisabled) {
+    if (dynamicPopulation && triggerState === 'disabled' && isDisabled) {
       const currentValue = getValues(item.key);
 
       // Only update if the source value is different from current value
       if (sourceFieldValue !== undefined && sourceFieldValue !== currentValue) {
-        stashedValueRef.current = currentValue;
-        setValue(item.key, sourceFieldValue, { shouldDirty: true });
+        // When the source field is hidden/cleared, clear the stash too so re-enabling
+        // this field doesn't restore a stale value from before the source was cleared.
+        stashedValueRef.current = sourceIsHidden ? null : currentValue;
+        // shouldDirty:false — this field mirrors the source as derived state; the
+        // trigger field the user actually toggles carries the dirty signal.
+        setValue(item.key, sourceFieldValue, { shouldDirty: false });
       }
-    } else if (dynamicPopulation && dynamicPopulation.triggerState === 'disabled' && !isDisabled) {
+    } else if (dynamicPopulation && triggerState === 'disabled' && !isDisabled) {
       if (stashedValueRef.current !== null) {
-        setValue(item.key, stashedValueRef.current, { shouldDirty: true });
+        setValue(item.key, stashedValueRef.current, { shouldDirty: false });
         stashedValueRef.current = null;
       }
     }
-  }, [sourceFieldValue, isDisabled, dynamicPopulation, item.key, setValue, getValues]);
+  }, [sourceFieldValue, isDisabled, dynamicPopulation, triggerState, item.key, setValue, getValues, sourceIsHidden]);
 
   if (isDisabled && disabledDisplay === 'hidden') {
     return null;
@@ -95,6 +135,11 @@ const PatientRecordFormFieldContent: FC<PatientRecordFormFieldProps> = ({
 
   let placeholder: string | undefined;
   let mask: string | undefined;
+  // ZIP stores the unmasked digits (matching what the backend persists and
+  // returns), so IMaskInput's mount-time normalization round-trips cleanly
+  // and doesn't mark the field dirty against its loaded default. Phone and
+  // SSN store the masked, dashed form they always have.
+  let unmask: boolean | undefined;
   if (item.type !== 'display' && item.type !== 'group' && item.dataType === 'Phone Number') {
     placeholder = '(XXX) XXX-XXXX';
     mask = '(000) 000-0000';
@@ -106,6 +151,7 @@ const PatientRecordFormFieldContent: FC<PatientRecordFormFieldProps> = ({
   if (item.type !== 'display' && item.type !== 'group' && item.dataType === 'ZIP') {
     placeholder = 'XXXXX(-XXXX)';
     mask = '00000-0000'; // will still accept the 5 digit zip
+    unmask = true;
   }
 
   const InputElement = (() => {
@@ -116,7 +162,7 @@ const PatientRecordFormFieldContent: FC<PatientRecordFormFieldProps> = ({
         disabled={isDisabled || isLoading}
         id={omitRowWrapper ? item.key : undefined}
         key={item.key}
-        inputProps={{ mask, placeholder }}
+        inputProps={{ mask, placeholder, unmask }}
         InputProps={mask ? { inputComponent: InputMask as any } : undefined}
       />
     );
@@ -304,13 +350,26 @@ type ValueSetStrategy = {
 // todo: these types already exist somewhere
 type AnswerSourceStrategy = {
   type: 'answerSource';
-  answerSource: { resourceType: string; query: string; prependedIdentifier?: string };
+  answerSource: AnswerOptionSource;
 };
 
 interface DynamicReferenceFieldProps {
   item: Omit<FormFieldsInputItem | FormFieldsDisplayItem, 'options'>;
   optionStrategy: ValueSetStrategy | AnswerSourceStrategy;
   id?: string;
+}
+
+/**
+ * If the currently selected value is not in the active options list, include it with a
+ * "(historical)" suffix so it remains visible. These are typically old organization-based
+ * references that are no longer returned by the active options query; the display stored on the
+ * saved reference is used as-is.
+ */
+function ensureSelectedOptionVisible(options: Reference[], selected: Reference | null | undefined): Reference[] {
+  if (!selected?.reference) return options;
+  const isInList = options.some((opt) => opt.reference === selected.reference);
+  if (isInList) return options;
+  return [...options, { ...selected, display: `${selected.display || selected.reference} (historical)` }];
 }
 
 const DynamicReferenceField: FC<DynamicReferenceFieldProps> = ({ item, optionStrategy, id }) => {
@@ -326,6 +385,7 @@ const DynamicReferenceField: FC<DynamicReferenceFieldProps> = ({ item, optionStr
     }
     return {
       ...base,
+      id: optionStrategy.answerSource.zambdaId,
       answerSource: optionStrategy.answerSource,
     };
   })();
@@ -364,12 +424,14 @@ const DynamicReferenceField: FC<DynamicReferenceFieldProps> = ({ item, optionStr
       name={item.key}
       control={control}
       render={({ field: { value }, fieldState: { error } }) => {
+        const options = ensureSelectedOptionVisible(answerOptions ?? [], value);
+
         const selectedOption = value?.reference
-          ? answerOptions?.find((option) => option.reference === value.reference)
+          ? options.find((option) => option.reference === value.reference)
           : undefined;
         return (
           <Autocomplete
-            options={answerOptions ?? []}
+            options={options}
             loading={isLoading || isRefetching}
             id={id}
             loadingText={'Loading...'}

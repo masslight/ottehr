@@ -4,19 +4,6 @@ import fs from 'fs';
 import { DateTime } from 'luxon';
 import { getCandidInventoryPages } from 'utils';
 
-// async function createOyst(zambdaEnv: Record<string, string>, token: string): Promise<Oystehr> {
-//   const oystehr = new Oystehr({
-//     accessToken: token,
-//     projectId: zambdaEnv.PROJECT_ID,
-//     services: {
-//       fhirApiUrl: zambdaEnv.FHIR_API,
-//       projectApiUrl: zambdaEnv.PROJECT_API,
-//     },
-//   });
-//   console.log(`Created Oystehr client`);
-//   return oystehr;
-// }
-
 async function createCandid(
   zambdaEnv: Record<string, string>,
   candidEnv: CandidApiEnvironment
@@ -42,10 +29,8 @@ async function main(): Promise<void> {
   // const token = '<a-key-from-ottehr-console-here>';
   const maxCandidPages = 18;
 
-  console.log(`Reading environment variables from packages/zambdas/.env/${environment}.json.`);
-  const zambdaEnv: Record<string, string> = JSON.parse(
-    fs.readFileSync(`packages/zambdas/.env/${environment}.json`, 'utf8')
-  );
+  console.log(`Reading environment variables from config/.env/${environment}.json.`);
+  const zambdaEnv: Record<string, string> = JSON.parse(fs.readFileSync(`config/.env/${environment}.json`, 'utf8'));
   // const oystehr = await createOyst(zambdaEnv, token);
   const candid = await createCandid(zambdaEnv, candidEnv);
 

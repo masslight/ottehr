@@ -8,10 +8,12 @@ import { TermsAndConditions } from 'src/components/TermsAndConditions';
 import {
   APIError,
   APPOINTMENT_CANT_BE_IN_PAST_ERROR,
+  getReasonForVisitOptionsForServiceCategory,
   mapBookingQRItemToPatientInfo,
   normalizeFormDataToQRItems,
   PatientInfo,
   ServiceMode,
+  SLOT_UNAVAILABLE_ERROR,
   VisitType,
 } from 'utils';
 import { safelyCaptureException } from 'utils/lib/frontend/sentry';
@@ -50,11 +52,11 @@ const Review = (): JSX.Element => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const {
-    unconfirmedDateOfBirth,
     visitType,
     scheduleOwnerName,
     scheduleOwnerType,
     scheduleOwnerId,
+    bookingLocationName,
     timezone,
     startISO,
     serviceMode,
@@ -71,7 +73,24 @@ const Review = (): JSX.Element => {
     try {
       const parsedData = JSON.parse(storedData) as Record<string, Record<string, unknown>>;
       const storedItems = Object.values(parsedData).flatMap((pageData) => normalizeFormDataToQRItems(pageData));
-      return mapBookingQRItemToPatientInfo(storedItems);
+      const info = mapBookingQRItemToPatientInfo(storedItems);
+
+      // When reason-for-visit is hidden (single option per category+mode),
+      // the field isn't in the form, so we fill it in from config.
+      if (!info.reasonForVisit) {
+        const serviceCategoryCode = storedItems.find((i) => i.linkId === 'appointment-service-category')?.answer?.[0]
+          ?.valueString;
+        const serviceModeValue = storedItems.find((i) => i.linkId === 'appointment-service-mode')?.answer?.[0]
+          ?.valueString;
+        if (serviceCategoryCode) {
+          const options = getReasonForVisitOptionsForServiceCategory(serviceCategoryCode, serviceModeValue);
+          if (options.length === 1) {
+            info.reasonForVisit = options[0].value;
+          }
+        }
+      }
+
+      return info;
     } catch (error) {
       console.error('Error parsing stored patient information:', error);
     }
@@ -121,11 +140,12 @@ const Review = (): JSX.Element => {
         patientInfo.id = undefined;
       }
 
-      // Create the appointment
+      // Create the appointment. The slot already carries any location
+      // attribution (via the slot-at-location extension stamped at vending
+      // time), so we don't need to forward an atLocation param here.
       const res = await ottehrApi.createAppointment(zambdaClient, {
         slotId,
         patient: patientInfo,
-        unconfirmedDateOfBirth,
         language: 'en', // replace with i18n.language to enable
       });
       const fhirAppointmentId = res.appointmentId;
@@ -135,6 +155,14 @@ const Review = (): JSX.Element => {
     } catch (err) {
       if ((err as APIError)?.code === APPOINTMENT_CANT_BE_IN_PAST_ERROR.code) {
         setErrorConfig(PAST_APPT_ERROR(t));
+      } else if ((err as APIError)?.code === SLOT_UNAVAILABLE_ERROR.code) {
+        setErrorConfig({
+          title: 'Sorry, this time slot is no longer available',
+          description:
+            'It looks like someone else booked this time slot just before you. Please go back and select a different time.',
+          closeButtonText: 'Back to scheduling',
+          destinationOnClose: originalBookingUrl ?? intakeFlowPageRoute.PrebookVisit.path,
+        });
       } else {
         // Catch validation errors
         console.error(err);
@@ -152,9 +180,14 @@ const Review = (): JSX.Element => {
       testId: 'r&s_Patient',
       valueTestId: dataTestIds.patientNameReviewScreen,
     },
+    // Prefer the resolved booking Location when present — it's the
+    // human-readable Location name the patient picked (or the actor's
+    // own Location for Location-actored slots). scheduleOwnerName falls
+    // through only when no Location could be resolved (e.g., a
+    // Practitioner-actored slot without an extension).
     {
-      name: scheduleOwnerType,
-      valueString: scheduleOwnerName,
+      name: bookingLocationName ? 'Location' : scheduleOwnerType,
+      valueString: bookingLocationName ?? scheduleOwnerName,
       testId: 'r&s_ProviderType',
       valueTestId: dataTestIds.locationNameReviewScreen,
     },
@@ -224,7 +257,7 @@ const Review = (): JSX.Element => {
                 {item.path && (
                   <Tooltip title={t('reviewAndSubmit.edit')} placement="right" className="edit-slot">
                     <Link to={item.path} state={{ reschedule: true }} onClick={checkIfNew}>
-                      <IconButton aria-label="edit" color="primary">
+                      <IconButton aria-label="edit" color="secondary">
                         <EditOutlined />
                       </IconButton>
                     </Link>
@@ -253,7 +286,16 @@ const Review = (): JSX.Element => {
         description={errorConfig?.description ?? ''}
         closeButtonText={errorConfig?.closeButtonText ?? t('reviewAndSubmit.ok')}
         handleClose={() => {
-          setErrorConfig(undefined);
+          if (errorConfig?.destinationOnClose) {
+            // Server-persisted entry URL is the canonical "where the user
+            // came from"; falls back to the generic prebook page if the
+            // Slot resource somehow lost its originalBookingUrl. Uses
+            // `replace` so the forward button doesn't bounce the user
+            // back into the errored Review page.
+            navigate(errorConfig.destinationOnClose, { replace: true });
+          } else {
+            setErrorConfig(undefined);
+          }
         }}
       />
     </PageContainer>

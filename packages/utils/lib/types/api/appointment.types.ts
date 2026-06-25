@@ -1,39 +1,12 @@
 import { Appointment, Encounter, Period, Slot } from 'fhir/r4b';
 import { z } from 'zod';
-import { AvailableLocationInformation, ServiceMode, TelemedAppointmentStatusEnum } from '../../types';
+import { AvailableLocationInformation, ServiceMode } from '../../types';
 import { SlotListItem } from '../../utils';
 
 export const AppointmentTypeOptions = ['walk-in', 'pre-booked', 'post-telemed'] as const;
 export type AppointmentType = (typeof AppointmentTypeOptions)[number];
 export const AppointmentTypeSchema = z.array(z.enum(AppointmentTypeOptions));
-
-export type ReviewAndSignData = {
-  signedOnDate?: string;
-};
-
-export type RefreshableAppointmentData = {
-  patientConditionPhotoUrls: string[];
-};
-
-export const getTelemedVisitStatus = (
-  encounterStatus: string,
-  appointmentStatus: string | undefined
-): TelemedAppointmentStatusEnum | undefined => {
-  switch (encounterStatus) {
-    case 'planned':
-      return TelemedAppointmentStatusEnum.ready;
-    case 'arrived':
-      return TelemedAppointmentStatusEnum['pre-video'];
-    case 'in-progress':
-      return TelemedAppointmentStatusEnum['on-video'];
-    case 'finished':
-      if (appointmentStatus === 'fulfilled') return TelemedAppointmentStatusEnum.complete;
-      else return TelemedAppointmentStatusEnum.unsigned;
-    case 'cancelled':
-      return TelemedAppointmentStatusEnum.cancelled;
-  }
-  return undefined;
-};
+export type AppointmentAttendanceType = 'in-person' | 'virtual';
 
 export type FhirEncounterStatus = Encounter['status'];
 export type FhirAppointmentStatus = Appointment['status'];

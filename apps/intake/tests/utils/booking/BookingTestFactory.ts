@@ -11,6 +11,7 @@
  */
 
 import { Page } from '@playwright/test';
+import { isTelemedEnabled } from 'test-utils';
 import {
   BOOKING_CONFIG,
   BookingConfig,
@@ -18,12 +19,14 @@ import {
   CONFIG_INJECTION_KEYS,
   CreateAppointmentResponse,
   INTAKE_PAPERWORK_CONFIG,
+  serviceCategorySupportsContext,
   VIRTUAL_INTAKE_PAPERWORK_CONFIG,
 } from 'utils';
 import { injectTestConfig } from '../config/injectTestConfig';
 import { PagedQuestionnaireFlowHelper } from '../paperwork/PagedQuestionnaireFlowHelper';
 import { getTestDataForPage } from '../paperwork/paperworkDataTemplates';
 import { BookingFlowHelpers } from './BookingFlowHelpers';
+import { TEST_FIXTURE_TIMEZONES } from './TestLocationManager';
 
 /**
  * A test scenario representing one path through the booking system
@@ -115,30 +118,36 @@ export async function generateBookingTestScenarios(): Promise<BookingTestScenari
   // This ensures the app sees the same config as the test expectations
   const bookingOverridesToInject: Partial<BookingConfig> = {
     serviceCategories: resolvedConfig.serviceCategories,
-    serviceCategoriesEnabled: resolvedConfig.serviceCategoriesEnabled,
     homepageOptions: resolvedConfig.homepageOptions,
   };
 
   const homepageOptions = resolvedConfig.homepageOptions;
   const serviceCategories = resolvedConfig.serviceCategories;
-  const { serviceCategoriesEnabled } = resolvedConfig;
 
   for (const option of homepageOptions) {
     // Determine visit type and service mode from homepage option ID
     const visitType = (option.id.includes('start') ? 'walk-in' : 'prebook') as 'walk-in' | 'prebook';
     const serviceMode = (option.id.includes('virtual') ? 'virtual' : 'in-person') as 'in-person' | 'virtual';
 
-    // Check if service category selection is enabled for this flow type
-    const categorySelectionEnabled =
-      serviceCategoriesEnabled.serviceModes.includes(serviceMode) &&
-      serviceCategoriesEnabled.visitType.includes(visitType);
+    // Skip virtual scenarios if telemed is not configured
+    if (serviceMode === 'virtual' && !isTelemedEnabled) {
+      console.log(`Skipping virtual scenario '${option.label}' - telemed not configured (no virtual locations)`);
+      continue;
+    }
+
+    // Filter categories available for this flow's mode and visit type.
+    // Entries here come from BOOKING_CONFIG (no FHIR catalog in test fixtures);
+    // tag them so the shared helper applies the "untagged BOOKING_CONFIG = supports all"
+    // rule that the production code uses — otherwise fixtures with empty
+    // serviceModes/visitTypes silently produce zero scenarios.
+    const availableCategories = serviceCategories.filter((sc) =>
+      serviceCategorySupportsContext({ ...sc, source: 'booking-config' }, serviceMode, visitType)
+    );
 
     // Determine which categories to generate scenarios for
-    // If category selection is disabled for this flow, only use 'urgent-care' by convention
+    // If only one category available for this flow, use it directly (no selection page)
     const categoriesToTest =
-      categorySelectionEnabled && serviceCategories.length > 1
-        ? serviceCategories
-        : [serviceCategories.find((c) => c.code === 'urgent-care') || serviceCategories[0]];
+      availableCategories.length > 1 ? availableCategories : [availableCategories[0] || serviceCategories[0]];
 
     for (const category of categoriesToTest) {
       // Use the pre-resolved instance paperwork config (has downstream overrides baked in)
@@ -148,11 +157,11 @@ export async function generateBookingTestScenarios(): Promise<BookingTestScenari
         configName: 'instance',
         homepageOptionId: option.id,
         homepageOptionLabel: option.label,
-        serviceCategory: category.code,
+        serviceCategory: category.category.code,
         visitType,
         serviceMode,
-        description: `${option.label} → ${category.code}`,
-        fillingStrategy: getFillingStrategyForScenario(category.code, visitType, serviceMode),
+        description: `${option.label} → ${category.category.code}`,
+        fillingStrategy: getFillingStrategyForScenario(category.category.code, visitType, serviceMode),
         resolvedConfig,
         bookingOverrides: bookingOverridesToInject,
         resolvedPaperworkConfig,
@@ -412,7 +421,10 @@ export async function executeBookingScenario(
       // Standard Location booking: select from dropdown
       await BookingFlowHelpers.selectFirstAvailableLocation(page, testLocationName, scenario.serviceMode);
     }
-    await BookingFlowHelpers.selectFirstAvailableTimeSlot(page);
+    await BookingFlowHelpers.selectFirstAvailableTimeSlot(
+      page,
+      scenario.serviceMode === 'virtual' ? TEST_FIXTURE_TIMEZONES.virtual : TEST_FIXTURE_TIMEZONES.inPerson
+    );
     await BookingFlowHelpers.clickContinueButtonIfPresent(page, 'after time slot selection');
   } else if (scenario.visitType === 'walk-in' && scenario.serviceMode === 'virtual') {
     // Virtual walk-in (start virtual visit): select location before patient info

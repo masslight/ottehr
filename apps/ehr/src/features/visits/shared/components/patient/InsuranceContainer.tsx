@@ -8,12 +8,13 @@ import {
   Grid,
   IconButton,
   LinearProgress,
+  Paper,
   Typography,
   useTheme,
 } from '@mui/material';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { enqueueSnackbar } from 'notistack';
-import { FC, ReactElement, useState } from 'react';
+import { FC, ReactElement, useEffect, useState } from 'react';
 import { useFormContext } from 'react-hook-form';
 import { Row } from 'src/components/layout';
 import { StatusStyleObject } from 'src/components/RefreshableStatusWidget';
@@ -26,11 +27,13 @@ import {
   FinancialDetails,
   InsuranceEligibilityCheckStatus,
   mapEligibilityCheckResultToSimpleStatus,
+  mapInsuranceTypeCodeToCandidCode,
   PATIENT_RECORD_CONFIG,
   PatientPaymentBenefit,
 } from 'utils';
 import { CopayWidget } from './CopayWidget';
 import { EligibilityDetailsDialog } from './EligibilityDetailsDialog';
+import { InsuranceCarrierQuickPicks } from './InsuranceCarrierQuickPicks';
 import PatientRecordFormField from './PatientRecordFormField';
 import PatientRecordFormSection, { usePatientRecordFormSection } from './PatientRecordFormSection';
 
@@ -40,6 +43,9 @@ type InsuranceContainerProps = {
   initialEligibilityCheck?: CoverageCheckWithDetails;
   removeInProgress?: boolean;
   handleRemoveClick?: () => void;
+  isNew?: boolean;
+  onCancelAdd?: () => void;
+  renderWithoutSection?: boolean;
 };
 
 export const STATUS_TO_STYLE_MAP: Record<EligibilityCheckSimpleStatus, StatusStyleObject> = {
@@ -117,6 +123,9 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
   removeInProgress,
   initialEligibilityCheck,
   handleRemoveClick,
+  isNew,
+  onCancelAdd,
+  renderWithoutSection,
 }) => {
   const theme = useTheme();
   const { oystehrZambda } = useApiClients();
@@ -136,6 +145,21 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
   } = usePatientRecordFormSection({ formSection: insuranceSection, index: ordinal - 1 });
 
   const insurancePriority = watch(FormFields.insurancePriority.key);
+  const currentInsurancePlanType = watch(FormFields.insurancePlanType.key);
+
+  // Surface the insurance type determined by the eligibility check into the editable
+  // "Insurance plan type" dropdown when the field is empty. This intentionally re-applies whenever the
+  // field is empty (e.g. after the async coverage-load reset clears it) so the eligibility-derived type
+  // is not lost to that race. A value stored on the Coverage or chosen by the user takes precedence via
+  // the early return below, and setting a value makes the watched field truthy so this does not loop.
+  useEffect(() => {
+    if (currentInsurancePlanType) return;
+    const eligibilityInsuranceCode = initialEligibilityCheck?.coverageDetails?.insurance?.insuranceCode;
+    if (!eligibilityInsuranceCode) return;
+    const mappedCandidCode = mapInsuranceTypeCodeToCandidCode(eligibilityInsuranceCode);
+    if (!mappedCandidCode) return;
+    setValue(FormFields.insurancePlanType.key, mappedCandidCode, { shouldDirty: true });
+  }, [currentInsurancePlanType, initialEligibilityCheck, FormFields.insurancePlanType.key, setValue]);
 
   const handleRemoveInsurance = (): void => {
     handleRemoveClick?.();
@@ -170,42 +194,6 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
     },
   });
 
-  const insuranceCodeToCandidCode = {
-    '12': '16',
-    '13': '16',
-    '14': 'LM',
-    '15': 'WC',
-    '16': 'OF',
-    '41': '16',
-    '42': 'VA',
-    '43': '16',
-    '47': 'LM',
-    AP: 'AM',
-    C1: 'CI',
-    CO: '11',
-    CP: 'MA',
-    D: 'DS',
-    DB: 'DS',
-    EP: '12',
-    FF: '11',
-    GP: '12',
-    HM: 'HM',
-    HN: '16',
-    HS: '11',
-    IN: '15',
-    IP: 'CI',
-    LC: '11',
-    LD: '11',
-    LI: '11',
-    LT: 'LM',
-    MA: 'MA',
-    MB: 'MB',
-    MC: 'MC',
-    MH: '11',
-    MI: '11',
-    MP: 'MA',
-    OT: 'ZZ',
-  };
   const queryClient = useQueryClient();
 
   const handleRecheckEligibility = async (): Promise<void> => {
@@ -241,7 +229,7 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
         const insuranceCodeTemp = result?.coverageDetails?.insurance?.insuranceCode;
 
         if (insuranceCodeTemp) {
-          const newInsurance = (insuranceCodeToCandidCode as any)[insuranceCodeTemp];
+          const newInsurance = mapInsuranceTypeCodeToCandidCode(insuranceCodeTemp);
 
           if (newInsurance) {
             setValue(FormFields.insurancePlanType.key, newInsurance, { shouldDirty: true });
@@ -260,7 +248,15 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
       if (dateISO) {
         try {
           const dt = new Date(dateISO);
-          return `Last checked: ${dt.toLocaleDateString()}`;
+          const formattedTime = dt
+            .toLocaleTimeString([], {
+              hour: '2-digit',
+              minute: '2-digit',
+              second: '2-digit',
+              hour12: true,
+            })
+            .toLowerCase();
+          return `Last checked: ${dt.toLocaleDateString()} ${formattedTime}`;
         } catch {
           return '';
         }
@@ -373,6 +369,10 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
 
   const eligibilityCheck = getCurrentEligibilityData();
 
+  // Plan / MCO entities reported on the eligibility response (e.g. the managed care organization a
+  // Medicaid member is enrolled in). Only entries that carry a name are surfaced.
+  const mcoPlans = (eligibilityCheck?.coverageDetails?.plans ?? []).filter((plan) => plan.entityName || plan.planName);
+
   function formatMoney(value: number | undefined): string {
     if (value === undefined) {
       return 'Unknown';
@@ -385,6 +385,20 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
   }
 
   const BenefitProgressDetails = ({ detail }: { detail: FinancialDetails }): ReactElement => {
+    // When this category has no meaningful breakdown (every value is unknown or $0), show a single
+    // summary line ("Name: $0" or "Name: Unspecified") instead of the progress bar and paid/total/
+    // remaining rows. "$0" when any value is a known zero, "Unspecified" when nothing was reported.
+    const values = [detail.paid, detail.total, detail.remaining];
+    const hasPositiveValue = values.some((value) => typeof value === 'number' && value > 0);
+    if (!hasPositiveValue) {
+      const summaryLabel = values.some((value) => value === 0) ? '$0' : 'Unspecified';
+      return (
+        <Typography variant="body1" color={theme.palette.primary.dark}>
+          {detail.name}: <strong>{summaryLabel}</strong>
+        </Typography>
+      );
+    }
+
     return (
       <>
         <Typography variant="body1" color={theme.palette.primary.dark}>
@@ -411,43 +425,153 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
     );
   };
 
-  return (
-    <PatientRecordFormSection formSection={insuranceSection} ordinal={ordinal - 1} titleWidget={<TitleWidget />}>
-      <Box
-        sx={{
-          marginLeft: '12px',
-          marginTop: 2,
-        }}
-      >
-        <CopayWidget copay={copayBenefits} />
-        <Grid
+  const content = (
+    <>
+      {!isNew && renderWithoutSection && (
+        <Box
           sx={{
-            marginTop: 2,
-            backgroundColor: 'rgba(244, 246, 248, 1)',
-            padding: 1,
+            alignItems: 'center',
+            borderTop: ordinal > 1 ? `1px solid ${theme.palette.divider}` : undefined,
+            display: 'flex',
+            justifyContent: 'space-between',
+            mt: ordinal > 1 ? 2 : 0,
+            pt: ordinal > 1 ? 2 : 0,
           }}
-          container
-          spacing={2}
         >
-          <Grid item xs={12}>
-            <Typography variant="h5" color={theme.palette.primary.dark} fontWeight={theme.typography.fontWeightBold}>
-              Deductible & Out-of-Pocket (In-network)
-            </Typography>
-          </Grid>
-
-          {eligibilityCheck?.financialDetails?.map((detail) => (
-            <Grid item xs={4} key={detail.name}>
-              <BenefitProgressDetails detail={detail} />
+          <Typography variant="h5" color={theme.palette.primary.dark} fontWeight={theme.typography.fontWeightBold}>
+            {ordinal === 1 ? 'Primary insurance' : 'Secondary insurance'}
+          </Typography>
+          <TitleWidget />
+        </Box>
+      )}
+      {!isNew && (
+        <Box
+          sx={{
+            marginLeft: '12px',
+            marginTop: 2,
+          }}
+        >
+          {(() => {
+            const eligibilityErrorDetails = getErrorDetailsFromCoverageResponse(getCurrentEligibilityData());
+            if (!eligibilityErrorDetails || eligibilityErrorDetails.length === 0) {
+              return null;
+            }
+            return (
+              <Paper
+                elevation={0}
+                sx={{
+                  mb: 4,
+                  ml: -2,
+                  width: 'calc(100% + 16px)',
+                  p: 2,
+                  backgroundColor: '#fef2f2',
+                  border: '1px solid #fecaca',
+                  borderRadius: 1,
+                }}
+              >
+                <Typography
+                  variant="h5"
+                  color={theme.palette.error.dark}
+                  fontWeight={theme.typography.fontWeightBold}
+                  sx={{ mb: 1 }}
+                >
+                  Eligibility not confirmed
+                </Typography>
+                {eligibilityErrorDetails.map((error, index) => (
+                  <Box key={index} sx={{ mb: index < eligibilityErrorDetails.length - 1 ? 1 : 0 }}>
+                    {error.code && (
+                      <Typography variant="body2" color={theme.palette.error.dark}>
+                        Error Code: {error.code}
+                      </Typography>
+                    )}
+                    {error.text && (
+                      <Typography variant="body2" color={theme.palette.error.dark} sx={{ mt: 0.5 }}>
+                        Error Message: {error.text}
+                      </Typography>
+                    )}
+                  </Box>
+                ))}
+              </Paper>
+            );
+          })()}
+          <CopayWidget copay={copayBenefits} />
+          {mcoPlans.length > 0 && (
+            <Grid
+              sx={{
+                marginTop: 2,
+                backgroundColor: 'rgba(244, 246, 248, 1)',
+                padding: 1,
+              }}
+              container
+              spacing={2}
+            >
+              <Grid item xs={12}>
+                <Typography
+                  variant="h5"
+                  color={theme.palette.primary.dark}
+                  fontWeight={theme.typography.fontWeightBold}
+                >
+                  Plan / MCO
+                </Typography>
+              </Grid>
+              {mcoPlans.map((plan, index) => (
+                <Grid item xs={12} sm={6} key={`mco-plan-${index}`}>
+                  <Typography
+                    variant="body1"
+                    color={theme.palette.primary.dark}
+                    fontWeight={theme.typography.fontWeightMedium}
+                  >
+                    {[plan.entityName, plan.planName].filter(Boolean).join(' / ')}
+                  </Typography>
+                  {plan.entityType && (
+                    <Typography variant="body2" color={theme.palette.text.secondary}>
+                      {plan.entityType}
+                    </Typography>
+                  )}
+                  {plan.payerID && (
+                    <Typography variant="body2" color={theme.palette.text.secondary}>
+                      Payer ID: {plan.payerID}
+                    </Typography>
+                  )}
+                  {plan.phone && (
+                    <Typography variant="body2" color={theme.palette.text.secondary}>
+                      Phone: {plan.phone}
+                    </Typography>
+                  )}
+                </Grid>
+              ))}
             </Grid>
-          ))}
-        </Grid>
-      </Box>
+          )}
+          <Grid
+            sx={{
+              marginTop: 2,
+              backgroundColor: 'rgba(244, 246, 248, 1)',
+              padding: 1,
+            }}
+            container
+            spacing={2}
+          >
+            <Grid item xs={12}>
+              <Typography variant="h5" color={theme.palette.primary.dark} fontWeight={theme.typography.fontWeightBold}>
+                Deductible & Out-of-Pocket (In-network)
+              </Typography>
+            </Grid>
+
+            {eligibilityCheck?.financialDetails?.map((detail) => (
+              <Grid item xs={4} key={detail.name}>
+                <BenefitProgressDetails detail={detail} />
+              </Grid>
+            ))}
+          </Grid>
+        </Box>
+      )}
       <PatientRecordFormField
         item={FormFields.insurancePriority}
         isLoading={false}
         requiredFormFields={requiredFields}
         hiddenFormFields={hiddenFields}
       />
+      <InsuranceCarrierQuickPicks fieldKey={FormFields.insuranceCarrier.key} />
       <PatientRecordFormField
         item={FormFields.insuranceCarrier}
         isLoading={false}
@@ -462,6 +586,12 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
       />
       <PatientRecordFormField
         item={FormFields.memberId}
+        isLoading={false}
+        requiredFormFields={requiredFields}
+        hiddenFormFields={hiddenFields}
+      />
+      <PatientRecordFormField
+        item={FormFields.relationship}
         isLoading={false}
         requiredFormFields={requiredFields}
         hiddenFormFields={hiddenFields}
@@ -547,45 +677,72 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
           </Box>
         </Row>
         <PatientRecordFormField
-          item={FormFields.relationship}
-          isLoading={false}
-          requiredFormFields={requiredFields}
-          hiddenFormFields={hiddenFields}
-        />
-        <PatientRecordFormField
           item={FormFields.additionalInformation}
           isLoading={false}
           requiredFormFields={requiredFields}
           hiddenFormFields={hiddenFields}
         />
-        <LoadingButton
-          data-testid={dataTestIds.insuranceContainer.removeButton}
-          onClick={handleRemoveInsurance}
-          variant="text"
-          loading={removeInProgress}
-          sx={{
-            color: theme.palette.error.main,
-            textTransform: 'none',
-            fontSize: '13px',
-            fontWeight: 500,
-            display: handleRemoveClick !== undefined ? 'flex' : 'none',
-            alignItems: 'center',
-            justifyContent: 'flex-start',
-            padding: '0',
-            width: 'fit-content',
-          }}
-        >
-          Remove This Insurance
-        </LoadingButton>
+        {isNew ? (
+          <Button
+            onClick={onCancelAdd}
+            variant="text"
+            sx={{
+              color: theme.palette.error.main,
+              textTransform: 'none',
+              fontSize: '13px',
+              fontWeight: 500,
+              padding: '0',
+              width: 'fit-content',
+            }}
+          >
+            Cancel
+          </Button>
+        ) : (
+          <LoadingButton
+            data-testid={dataTestIds.insuranceContainer.removeButton}
+            onClick={handleRemoveInsurance}
+            variant="text"
+            loading={removeInProgress}
+            sx={{
+              color: theme.palette.error.main,
+              textTransform: 'none',
+              fontSize: '13px',
+              fontWeight: 500,
+              display: handleRemoveClick !== undefined ? 'flex' : 'none',
+              alignItems: 'center',
+              justifyContent: 'flex-start',
+              padding: '0',
+              width: 'fit-content',
+            }}
+          >
+            Remove This Insurance
+          </LoadingButton>
+        )}
       </Box>
 
-      <EligibilityDetailsDialog
-        open={showEligibilityDetails}
-        onClose={() => setShowEligibilityDetails(false)}
-        eligibilityCheck={getCurrentEligibilityData()}
-        simpleStatus={eligibilityStatus?.status}
-        errorDetails={getErrorDetailsFromCoverageResponse(getCurrentEligibilityData())}
-      />
+      {!isNew && (
+        <EligibilityDetailsDialog
+          open={showEligibilityDetails}
+          onClose={() => setShowEligibilityDetails(false)}
+          eligibilityCheck={getCurrentEligibilityData()}
+          simpleStatus={eligibilityStatus?.status}
+          errorDetails={getErrorDetailsFromCoverageResponse(getCurrentEligibilityData())}
+        />
+      )}
+    </>
+  );
+
+  if (renderWithoutSection) {
+    return content;
+  }
+
+  return (
+    <PatientRecordFormSection
+      formSection={insuranceSection}
+      ordinal={ordinal - 1}
+      titleWidget={isNew ? undefined : <TitleWidget />}
+    >
+      {content}
     </PatientRecordFormSection>
   );
 };

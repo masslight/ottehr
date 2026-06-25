@@ -1,3 +1,4 @@
+import { OystehrSdkError } from '@oystehr/sdk/dist/cjs/errors';
 import { DateTime } from 'luxon';
 import { ReactElement, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -39,7 +40,7 @@ interface UsePatientLabOrdersResult<SearchBy extends LabOrdersSearchBy> {
   visitDateFilter: DateTime | null;
   fetchLabOrders: (params: GetLabOrdersParameters) => Promise<void>;
   showPagination: boolean;
-  deleteLabOrder: (params: DeleteLabOrderZambdaInput) => Promise<boolean>;
+  deleteLabOrder: (params: DeleteLabOrderZambdaInput) => Promise<{ success: boolean; errorMsg?: string }>;
   showDeleteLabOrderDialog: ({
     serviceRequestId,
     testItemName,
@@ -202,20 +203,19 @@ export const usePatientLabOrders = <SearchBy extends LabOrdersSearchBy>(
   }, [fetchLabOrders, page, memoizedSearchBy, refreshKey]);
 
   const handleDeleteLabOrder = useCallback(
-    async ({ serviceRequestId }: DeleteLabOrderZambdaInput): Promise<boolean> => {
+    async ({ serviceRequestId }: DeleteLabOrderZambdaInput): Promise<{ success: boolean; errorMsg?: string }> => {
       if (!serviceRequestId) {
         console.error('Cannot delete lab order: Missing service request ID');
         setError(new Error('Missing service request ID'));
-        return false;
+        return { success: false };
       }
 
       if (!oystehrZambda) {
         console.error('Cannot delete lab order: API client is not available');
         setError(new Error('API client is not available'));
-        return false;
+        return { success: false };
       }
 
-      setLoading(true);
       setError(null);
 
       try {
@@ -227,16 +227,15 @@ export const usePatientLabOrders = <SearchBy extends LabOrdersSearchBy>(
 
         setSearchParams({ pageNumber: 1 });
 
-        return true;
+        return { success: true };
       } catch (err) {
-        const errorObj =
-          err instanceof Error ? err : new Error(typeof err === 'string' ? err : 'Failed to delete lab order');
+        console.log('error deleting inhouse lab: ', err);
+        const oystehrError = err as OystehrSdkError;
+        let errorMsg: string | undefined;
 
-        setError(errorObj);
+        if (oystehrError.code !== 500 && oystehrError.message) errorMsg = oystehrError.message;
 
-        return false;
-      } finally {
-        setLoading(false);
+        return { success: false, errorMsg };
       }
     },
     [oystehrZambda, setSearchParams]
@@ -340,6 +339,7 @@ const groupLabOrderListPageDTOs = (
     ExternalLabsStatus.prelim,
     ExternalLabsStatus.reviewed,
     ExternalLabsStatus.corrected,
+    ExternalLabsStatus['cancelled by lab'], // we want to treat these as though they already have results from a display perspective
   ]);
 
   const addToGroup = (item: LabOrderListPageDTO | ReflexLabDTO, orders: LabOrderListPageDTOGrouped): void => {

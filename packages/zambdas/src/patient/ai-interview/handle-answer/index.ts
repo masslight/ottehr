@@ -2,11 +2,17 @@ import { BaseMessageLike } from '@langchain/core/messages';
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Questionnaire, QuestionnaireResponse } from 'fhir/r4b';
-import { createOystehrClient, getSecret, HandleAnswerInput, Secrets, SecretsKeys } from 'utils';
+import {
+  createOystehrClient,
+  getSecret,
+  HandleAnswerInput,
+  QUESTIONNAIRE_RESPONSE_INVALID_CUSTOM_ERROR,
+  Secrets,
+  SecretsKeys,
+} from 'utils';
 import {
   assertDefined,
   getAuth0Token,
-  topLevelCatch,
   validateJsonBody,
   validateString,
   wrapHandler,
@@ -25,45 +31,41 @@ interface Input extends HandleAnswerInput {
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.log(`Input: ${JSON.stringify(input)}`);
-  try {
-    const { questionnaireResponseId, linkId, answer, secrets } = validateInput(input);
-    const oystehr = await createOystehr(secrets);
-    const questionnaireResponse = await oystehr.fhir.get<QuestionnaireResponse>({
-      resourceType: 'QuestionnaireResponse',
-      id: questionnaireResponseId,
-    });
-    if (questionnaireResponse.status === 'completed') {
-      throw new Error('QuestionnaireResponse is completed.');
-    }
-    questionnaireResponse.item?.push({
-      linkId,
-      answer: [
-        {
-          valueString: answer,
-        },
-      ],
-    });
-    const chatbotInput = createChatbotInput(questionnaireResponse);
-    if (chatbotInput == null || chatbotInput.length === 0) {
-      throw new Error(`Invalid chatbot input "${chatbotInput}"`);
-    }
-    console.log(`chatbotInput: ${JSON.stringify(chatbotInput)}`);
-    const chatbotResponse = (await invokeChatbot(chatbotInput, secrets)).content.toString();
-    (questionnaireResponse.contained?.[0] as Questionnaire).item?.push({
-      linkId: (parseInt(linkId) + 1).toString(),
-      text: chatbotResponse,
-      type: 'text',
-    });
-    if (chatbotResponse.includes(INTERVIEW_COMPLETED)) {
-      questionnaireResponse.status = 'completed';
-    }
-    return {
-      statusCode: 200,
-      body: JSON.stringify(await oystehr.fhir.update(questionnaireResponse)),
-    };
-  } catch (error: any) {
-    return topLevelCatch(ZAMBDA_NAME, error, getSecret(SecretsKeys.ENVIRONMENT, input.secrets));
+  const { questionnaireResponseId, linkId, answer, secrets } = validateInput(input);
+  const oystehr = await createOystehr(secrets);
+  const questionnaireResponse = await oystehr.fhir.get<QuestionnaireResponse>({
+    resourceType: 'QuestionnaireResponse',
+    id: questionnaireResponseId,
+  });
+  if (questionnaireResponse.status === 'completed') {
+    throw QUESTIONNAIRE_RESPONSE_INVALID_CUSTOM_ERROR('QuestionnaireResponse is already completed.');
   }
+  questionnaireResponse.item?.push({
+    linkId,
+    answer: [
+      {
+        valueString: answer,
+      },
+    ],
+  });
+  const chatbotInput = createChatbotInput(questionnaireResponse);
+  if (chatbotInput == null || chatbotInput.length === 0) {
+    throw new Error(`Invalid chatbot input "${chatbotInput}"`);
+  }
+  console.log(`chatbotInput: ${JSON.stringify(chatbotInput)}`);
+  const chatbotResponse = (await invokeChatbot(chatbotInput, secrets)).content.toString();
+  (questionnaireResponse.contained?.[0] as Questionnaire).item?.push({
+    linkId: (parseInt(linkId) + 1).toString(),
+    text: chatbotResponse,
+    type: 'text',
+  });
+  if (chatbotResponse.includes(INTERVIEW_COMPLETED)) {
+    questionnaireResponse.status = 'completed';
+  }
+  return {
+    statusCode: 200,
+    body: JSON.stringify(await oystehr.fhir.update(questionnaireResponse)),
+  };
 });
 
 function validateInput(input: ZambdaInput): Input {
@@ -92,10 +94,10 @@ function createChatbotInput(questionnaireResponse: QuestionnaireResponse): BaseM
   return questionnaire.item
     ?.sort((itemA, itemB) => parseInt(itemA.linkId) - parseInt(itemB.linkId))
     ?.flatMap<BaseMessageLike>((questionItem) => {
-      const answerItem = assertDefined(
-        questionnaireResponse.item?.find((answerItem) => answerItem.linkId === questionItem.linkId),
-        `Answer for question "${questionItem.linkId}"`
-      );
+      const answerItem = questionnaireResponse.item?.find((answerItem) => answerItem.linkId === questionItem.linkId);
+      if (answerItem == null) {
+        throw QUESTIONNAIRE_RESPONSE_INVALID_CUSTOM_ERROR(`Answer for question "${questionItem.linkId}" is undefined`);
+      }
       const questionText = assertDefined(questionItem.text, `Text of question "${questionItem.linkId}"`);
       const answerText = assertDefined(
         answerItem.answer?.[0]?.valueString,

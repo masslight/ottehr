@@ -2,6 +2,7 @@
   "schema-version": "2025-09-25",
   "fhirResources": {
     "LOCATION_TELEMED_NJ": {
+      "managedFields": ["identifier"],
       "resource": {
         "resourceType": "Location",
         "status": "active",
@@ -62,6 +63,7 @@
       }
     },
     "LOCATION_TELEMED_OH": {
+      "managedFields": ["identifier"],
       "resource": {
         "resourceType": "Location",
         "status": "active",
@@ -122,6 +124,7 @@
       }
     },
     "LOCATION_PHYSICAL_NY": {
+      "managedFields": ["identifier"],
       "resource": {
         "resourceType": "Location",
         "status": "active",
@@ -294,6 +297,7 @@
       }
     },
     "LOCATION_PHYSICAL_CA": {
+      "managedFields": ["identifier"],
       "resource": {
         "resourceType": "Location",
         "status": "active",
@@ -386,10 +390,6 @@
             "url": "https://fhir.ottehr.com/Extension/stripe-account-id",
             "valueString": "#{var/stripe-account-3}"
           },
-          {
-            "url": "https://fhir.ottehr.com/Extension/stripe-terminal-location-id",
-            "valueString": "#{var/stripe-terminal-location-1}"
-          },          
           {
             "url": "https://fhir.ottehr.com/Extension/advapacs-location-id",
             "valueString": "#{var/advapacs-location-1}"

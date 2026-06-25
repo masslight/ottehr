@@ -7,6 +7,7 @@ import {
   CodeableConcept,
   Communication,
   Condition,
+  DiagnosticReport,
   DocumentReference,
   DomainResource,
   Encounter,
@@ -56,15 +57,19 @@ import {
   FHIR_EXTENSION,
   fillVitalObservationAttributes,
   FreeTextNoteDTO,
+  getBooleanExtensionValue,
   GetChartDataResponse,
   getVitalObservationFhirInterpretations,
   HospitalizationDTO,
+  ICD_10_CODE_SYSTEM,
   IN_PERSON_NOTE_ID,
+  isNoteEdited,
   isVitalObservation,
   makeVitalsObservationDTO,
   MedicalConditionDTO,
   MEDICATION_DISPENSABLE_DRUG_ID,
   MedicationDTO,
+  NOTE_TYPE,
   NoteDTO,
   NOTHING_TO_EAT_OR_DRINK_FIELD,
   NOTHING_TO_EAT_OR_DRINK_ID,
@@ -73,6 +78,7 @@ import {
   ObservationDateRangeFieldDTO,
   ObservationDTO,
   ObservationTextFieldDTO,
+  OTHER_SPECIALTY_TRANSFER_OPTION,
   PATIENT_VITALS_META_SYSTEM,
   patientScreeningQuestionsConfig,
   PERFORMER_TYPE_SYSTEM,
@@ -81,7 +87,10 @@ import {
   PROCEDURE_TYPE_SYSTEM,
   ProcedureDTO,
   ProviderChartDataFieldsNames,
+  REFUSAL_OF_EMS_TRANSPORT_FIELD,
+  REFUSAL_OF_EMS_TRANSPORT_ID,
   removeOperation,
+  ROS_OBSERVATION_META_SYSTEM,
   SCHOOL_WORK_NOTE,
   SCHOOL_WORK_NOTE_CODE,
   SCHOOL_WORK_NOTE_TYPE_META_SYSTEM,
@@ -95,6 +104,7 @@ import { removePrefix } from '../appointment/helpers';
 import { getCptModifierCodeFromProcedure } from '../candid';
 import { fillMeta } from '../helpers';
 import { isDocumentPublished, PdfDocumentReferencePublishedStatuses, PdfInfo } from '../pdf/pdf-utils';
+import { makeRadiologyDTO, takeMostRecentPreliminaryReport, takeTheBestFinalDiagnosticReport } from '../radiology';
 import { saveOrUpdateResourceRequest } from '../resources.helpers';
 
 const hasValue = (data: unknown): boolean => {
@@ -137,7 +147,7 @@ export function makeConditionResource(
       ? {
           coding: [
             {
-              system: 'http://hl7.org/fhir/sid/icd-10',
+              system: ICD_10_CODE_SYSTEM,
               version: '2019',
               code: dto.code,
               display: dto.display,
@@ -258,6 +268,7 @@ export function makeMedicationResource(
   data: MedicationDTO,
   fieldName: ProviderChartDataFieldsNames
 ): MedicationStatement {
+  const dose = data.intakeInfo.dose?.trim();
   return {
     id: data.resourceId,
     identifier: [{ value: data.id }],
@@ -265,7 +276,8 @@ export function makeMedicationResource(
     subject: { reference: `Patient/${patientId}` },
     context: { reference: `Encounter/${encounterId}` },
     status: data.status,
-    dosage: [{ text: data.intakeInfo.dose, asNeededBoolean: data.type === 'as-needed' }],
+    // FHIR rejects empty strings for Dosage.text, so only set it when a dose was actually provided
+    dosage: [{ ...(dose ? { text: dose } : {}), asNeededBoolean: data.type === 'as-needed' }],
     effectiveDateTime: data.intakeInfo.date,
     informationSource: { reference: `Practitioner/${practitionerId}` },
     meta: getMetaWFieldName(fieldName),
@@ -281,6 +293,14 @@ export function makeMedicationResource(
         },
       ],
     },
+    ...(data.isRenewal !== undefined && {
+      extension: [
+        {
+          url: FHIR_EXTENSION.MedicationRequest.isRenewal.url,
+          valueBoolean: data.isRenewal,
+        },
+      ],
+    }),
   };
 }
 
@@ -304,6 +324,7 @@ export function makeMedicationDTO(medication: MedicationStatement): MedicationDT
       ? (medication.status as 'active' | 'completed')
       : 'completed',
     practitioner: medication.informationSource,
+    isRenewal: getBooleanExtensionValue(medication, FHIR_EXTENSION.MedicationRequest.isRenewal.url),
   };
 }
 
@@ -321,6 +342,7 @@ export function makePrescribedMedicationDTO(medRequest: MedicationRequest): Pres
       (identifier) => identifier.system === 'https://identifiers.fhir.oystehr.com/erx-prescription-id'
     )?.value,
     encounterId: medRequest.encounter?.reference?.split('/')?.[1],
+    isRenewal: getBooleanExtensionValue(medRequest, FHIR_EXTENSION.MedicationRequest.isRenewal.url),
   };
 }
 
@@ -328,7 +350,8 @@ export function makeProcedureResource(
   encounterId: string,
   patientId: string,
   data: FreeTextNoteDTO | CPTCodeDTO,
-  fieldName: ProviderChartDataFieldsNames
+  fieldName: ProviderChartDataFieldsNames,
+  partOf?: string
 ): Procedure {
   const nameOrText = (data as CPTCodeDTO).display || (data as FreeTextNoteDTO).text || '';
   const result: Procedure = {
@@ -347,6 +370,9 @@ export function makeProcedureResource(
     result.code = {
       coding: [{ code: data.code, display: data.display }],
     };
+  }
+  if (partOf) {
+    result.partOf = [{ reference: partOf }];
   }
   return result;
 }
@@ -429,16 +455,25 @@ export function makeObservationResource(
   // and date fields also have string values.
   const textData = data as ObservationTextFieldDTO;
   if (isObservationTextFieldDTO(data)) {
+    const component =
+      'items' in textData && Array.isArray(textData.items) && textData.items.length > 0
+        ? textData.items.map((item) => ({
+            code: { text: textData.field },
+            valueString: JSON.stringify(item),
+          }))
+        : undefined;
     if ('note' in textData && textData.note) {
       return {
         ...base,
         valueString: textData.value,
         note: [{ text: textData.note }],
+        ...(component ? { component } : {}),
       };
     } else {
       return {
         ...base,
         valueString: textData.value,
+        ...(component ? { component } : {}),
       };
     }
   }
@@ -539,7 +574,7 @@ export function makeExamObservationResource(
   snomedCodes?: SNOMEDCodeConceptInterface,
   label?: string
 ): Observation {
-  return {
+  const observation: Observation = {
     resourceType: 'Observation',
     id: data.resourceId,
     subject: { reference: `Patient/${patientId}` },
@@ -551,15 +586,76 @@ export function makeExamObservationResource(
     code: snomedCodes?.code || { text: label || 'unknown' },
     meta: fillMeta(data.field, EXAM_OBSERVATION_META_SYSTEM),
   };
+
+  if (data.components && data.components.length > 0) {
+    observation.component = data.components
+      .filter((c) => c.value)
+      .map((c) => ({
+        code: { text: c.code },
+        valueBoolean: c.value,
+        extension: [
+          { url: FHIR_EXTENSION.Observation.examComponentLabel.url, valueString: c.label },
+          { url: FHIR_EXTENSION.Observation.examComponentGroupLabel.url, valueString: c.groupLabel },
+          ...(c.columnLabel
+            ? [{ url: FHIR_EXTENSION.Observation.examComponentColumnLabel.url, valueString: c.columnLabel }]
+            : []),
+          ...(c.abnormal !== undefined
+            ? [{ url: FHIR_EXTENSION.Observation.examComponentAbnormal.url, valueBoolean: c.abnormal }]
+            : []),
+        ],
+      }));
+  }
+
+  return observation;
+}
+
+export function makeRosObservationResource(
+  encounterId: string,
+  patientId: string,
+  data: ExamObservationDTO
+): Observation {
+  return {
+    resourceType: 'Observation',
+    id: data.resourceId,
+    subject: { reference: `Patient/${patientId}` },
+    encounter: { reference: `Encounter/${encounterId}` },
+    status: 'final',
+    valueBoolean: typeof data.value === 'boolean' ? Boolean(data.value) : undefined,
+    code: { text: data.label || data.field },
+    meta: fillMeta(data.field, ROS_OBSERVATION_META_SYSTEM),
+  };
 }
 
 export function makeExamObservationDTO(observation: Observation): ExamObservationDTO {
-  return {
+  const dto: ExamObservationDTO = {
     resourceId: observation.id,
     field: observation.meta?.tag?.[0]?.code || 'unknown',
+    label: observation.code?.text,
     note: observation.note?.[0]?.text,
     value: observation.valueBoolean,
   };
+
+  if (observation.component && observation.component.length > 0) {
+    dto.components = observation.component.map((c) => {
+      const abnormalExt = c.extension?.find((e) => e.url === FHIR_EXTENSION.Observation.examComponentAbnormal.url);
+      return {
+        code: c.code?.text || 'unknown',
+        label:
+          c.extension?.find((e) => e.url === FHIR_EXTENSION.Observation.examComponentLabel.url)?.valueString ||
+          c.code?.text ||
+          'unknown',
+        groupLabel:
+          c.extension?.find((e) => e.url === FHIR_EXTENSION.Observation.examComponentGroupLabel.url)?.valueString ||
+          'unknown',
+        columnLabel: c.extension?.find((e) => e.url === FHIR_EXTENSION.Observation.examComponentColumnLabel.url)
+          ?.valueString,
+        value: c.valueBoolean ?? false,
+        abnormal: abnormalExt?.valueBoolean,
+      };
+    });
+  }
+
+  return dto;
 }
 
 export function makeClinicalImpressionResource(
@@ -592,7 +688,7 @@ export function makeCommunicationResource(
   data: CommunicationDTO,
   fieldName: ProviderChartDataFieldsNames
 ): Communication {
-  const { resourceId, text, title } = data;
+  const { resourceId, text, title, educationDocRefId } = data;
   return {
     resourceType: 'Communication',
     id: resourceId,
@@ -612,30 +708,44 @@ export function makeCommunicationResource(
         },
       ],
     }),
+    ...(educationDocRefId && {
+      about: [{ reference: `DocumentReference/${educationDocRefId}` }],
+    }),
     meta: getMetaWFieldName(fieldName),
   };
 }
 
 export function makeCommunicationDTO(resource: Communication): CommunicationDTO {
+  const educationDocRef = resource.about?.find((ref) => ref.reference?.startsWith('DocumentReference/'));
   return {
     resourceId: resource.id,
     text: resource.payload?.[0]?.contentString,
     title: resource.topic?.text,
+    educationDocRefId: educationDocRef?.reference?.replace('DocumentReference/', ''),
   };
 }
 
-export function makeNoteResource(encounterId: string, patientId: string | undefined, data: NoteDTO): Communication {
+export function makeNoteResource(
+  encounterId: string,
+  patientId: string | undefined,
+  data: NoteDTO,
+  existing?: Communication
+): Communication {
+  // Reuse the prior `sent` on edit so the server's `isNoteEdited(sent, lastUpdated)` check
+  // sees drift and flags the note as edited on subsequent reads.
+  const sent = existing?.sent ?? new Date().toISOString();
   const resource: Communication = {
     id: data.resourceId,
     resourceType: 'Communication',
     encounter: { reference: `Encounter/${encounterId}` },
-    status: 'completed',
+    status: data.deleted ? 'entered-in-error' : 'completed',
     meta: fillMeta(IN_PERSON_NOTE_ID, data.type),
     subject: { reference: `Patient/${patientId}` },
     sender: {
       reference: `Practitioner/${data.authorId}`,
       display: data.authorName,
     },
+    sent,
     payload: [
       {
         contentString: data.text,
@@ -644,6 +754,62 @@ export function makeNoteResource(encounterId: string, patientId: string | undefi
   };
 
   return resource;
+}
+
+async function fetchCommunicationsByIds(oystehr: Oystehr, ids: string[]): Promise<Map<string, Communication>> {
+  if (ids.length === 0) return new Map();
+  const existing = (
+    await oystehr.fhir.search<Communication>({
+      resourceType: 'Communication',
+      params: [{ name: '_id', value: ids.join(',') }],
+    })
+  ).unbundle();
+  const byId = new Map<string, Communication>();
+  existing.forEach((c) => {
+    if (c.id) byId.set(c.id, c);
+  });
+  return byId;
+}
+
+export async function prepareAddendumNotes(
+  oystehr: Oystehr,
+  notes: NoteDTO[],
+  callerPractitionerId: string,
+  callerPractitionerName: string
+): Promise<Map<string, Communication>> {
+  const addendumNotes = notes.filter((n) => n.type === NOTE_TYPE.ADDENDUM);
+  if (addendumNotes.length === 0) return new Map();
+
+  const editIds = addendumNotes.map((n) => n.resourceId).filter((id): id is string => !!id);
+  const existingById = await fetchCommunicationsByIds(oystehr, editIds);
+
+  for (const note of addendumNotes) {
+    if (note.resourceId) {
+      const existing = existingById.get(note.resourceId);
+      if (!existing) {
+        throw new Error(`Addendum ${note.resourceId} not found`);
+      }
+      const existingDto = makeNoteDTO(existing);
+      if (note.deleted) {
+        // Tombstone shows the deleter; keep the original text as the audit record.
+        note.text = existingDto.text;
+        note.authorId = callerPractitionerId;
+        note.authorName = callerPractitionerName;
+      } else {
+        // Edits keep the original author.
+        note.authorId = existingDto.authorId;
+        note.authorName = existingDto.authorName;
+      }
+    } else {
+      if (note.deleted) {
+        throw new Error('Cannot create an addendum in deleted state');
+      }
+      note.authorId = callerPractitionerId;
+      note.authorName = callerPractitionerName;
+    }
+  }
+
+  return existingById;
 }
 
 export function makeNoteDTO(resource: Communication): NoteDTO {
@@ -657,10 +823,12 @@ export function makeNoteDTO(resource: Communication): NoteDTO {
     resourceId: resource.id,
     text: resource.payload?.[0]?.contentString ?? '',
     lastUpdated: resource.meta?.lastUpdated ?? '',
+    edited: isNoteEdited(resource.sent, resource.meta?.lastUpdated),
     authorId: resource.sender?.reference?.split('/')[1] ?? '',
     authorName: resource.sender?.display ?? '',
     patientId: resource.subject?.reference?.split('/')[1] ?? '',
     encounterId: resource.encounter?.reference?.split('/')[1] ?? '',
+    deleted: resource.status === 'entered-in-error',
   };
 }
 
@@ -691,6 +859,7 @@ export function makeServiceRequestResource({
   performerType,
   note,
   nothingToEatOrDrink,
+  refusalOfEmsTransport,
 }: {
   resourceId: string | undefined;
   encounterId: string;
@@ -702,7 +871,23 @@ export function makeServiceRequestResource({
   performerType?: CodeableConcept;
   note?: string;
   [NOTHING_TO_EAT_OR_DRINK_FIELD]?: boolean;
+  [REFUSAL_OF_EMS_TRANSPORT_FIELD]?: boolean;
 }): ServiceRequest {
+  const extensions = [];
+
+  if (nothingToEatOrDrink === true) {
+    extensions.push({
+      url: NOTHING_TO_EAT_OR_DRINK_ID,
+      valueBoolean: true,
+    });
+  }
+
+  if (refusalOfEmsTransport === true) {
+    extensions.push({
+      url: REFUSAL_OF_EMS_TRANSPORT_ID,
+      valueBoolean: true,
+    });
+  }
   return {
     id: resourceId,
     resourceType: 'ServiceRequest',
@@ -729,10 +914,7 @@ export function makeServiceRequestResource({
       : undefined,
     code,
     meta: fillMeta(metaName, metaName),
-    extension:
-      nothingToEatOrDrink === true
-        ? [{ url: NOTHING_TO_EAT_OR_DRINK_ID, valueBoolean: nothingToEatOrDrink }]
-        : undefined,
+    extension: extensions.length > 0 ? extensions : undefined,
   };
 }
 
@@ -754,6 +936,11 @@ export function makeDispositionDTO(
   const labServices = filterCodeableConcepts(followUp.orderDetail, 'lab-service');
   const virusTests = filterCodeableConcepts(followUp.orderDetail, 'virus-test');
   const reasonForTransfer = filterCodeableConcepts(followUp.orderDetail, 'reason-for-transfer')[0];
+  const specialtyTransfer = filterCodeableConcepts(followUp.orderDetail, 'specialty-transfer')[0];
+  const specialtyTransferOther =
+    specialtyTransfer === OTHER_SPECIALTY_TRANSFER_OPTION
+      ? followUp.orderDetail?.find((detail) => detail.coding?.[0]?.system === 'specialty-transfer')?.text || undefined
+      : undefined;
 
   const followUpArr = subFollowUp?.map((element) => {
     const performerCode = element.performerType?.coding?.[0].code;
@@ -777,10 +964,15 @@ export function makeDispositionDTO(
     labService: labServices,
     virusTest: virusTests,
     reason: reasonForTransfer,
+    specialty: specialtyTransfer,
+    specialtyOther: specialtyTransferOther,
     followUp: followUpArr ?? undefined,
     followUpIn: typeof followUpTime === 'number' ? Math.floor(followUpTime / 1440) : undefined,
     [NOTHING_TO_EAT_OR_DRINK_FIELD]: followUp.extension?.some(
       (ext) => ext.url === NOTHING_TO_EAT_OR_DRINK_ID && ext.valueBoolean === true
+    ),
+    [REFUSAL_OF_EMS_TRANSPORT_FIELD]: followUp.extension?.some(
+      (ext) => ext.url === REFUSAL_OF_EMS_TRANSPORT_ID && ext.valueBoolean === true
     ),
   };
 }
@@ -944,7 +1136,7 @@ export function makeDiagnosisConditionResource(
     code: {
       coding: [
         {
-          system: 'http://hl7.org/fhir/sid/icd-10',
+          system: ICD_10_CODE_SYSTEM,
           code: data.code,
           display: data.display,
         },
@@ -1158,12 +1350,32 @@ export function makeObservationDTO(observation: Observation): null | Observation
       value: [observation.effectivePeriod.start, observation.effectivePeriod.end],
     } as ObservationDateRangeFieldDTO;
   } else if (typeof observation.valueString === 'string') {
+    const items = observation.component
+      ?.map((c) => {
+        if (typeof c.valueString !== 'string') return undefined;
+        try {
+          const parsed = JSON.parse(c.valueString);
+          if (parsed && typeof parsed === 'object' && typeof parsed.display === 'string') {
+            const searchTerms =
+              Array.isArray(parsed.searchTerms) && parsed.searchTerms.every((t: unknown) => typeof t === 'string')
+                ? parsed.searchTerms
+                : [];
+            return { display: parsed.display, searchTerms };
+          }
+        } catch {
+          // Legacy plain-string component — use as display, leave searchTerms empty
+          // (do not echo the display/prose into searchTerms).
+        }
+        return { display: c.valueString, searchTerms: [] };
+      })
+      .filter((v): v is { display: string; searchTerms: string[] } => v != null);
     return {
       resourceId: observation.id,
       field,
       value: observation.valueString,
       note: observation.note?.[0]?.text,
       derivedFrom: observation.derivedFrom?.[0].reference,
+      ...(items && items.length > 0 ? { items } : {}),
     } as ObservationTextFieldDTO;
   }
 
@@ -1175,8 +1387,10 @@ export async function saveOrUpdateResource<Savable extends FhirResource>(
   resource: Savable,
   oystehr: Oystehr
 ): Promise<Omit<Savable, 'id'> & { id: string }> {
-  if (resource.id === undefined) return oystehr.fhir.create<Savable>(resource);
-  return oystehr.fhir.update<Savable>(resource);
+  if (resource.id === undefined) {
+    return oystehr.fhir.create<Savable>(resource) as Promise<Omit<Savable, 'id'> & { id: string }>;
+  }
+  return oystehr.fhir.update<Savable>(resource) as Promise<Omit<Savable, 'id'> & { id: string }>;
 }
 
 export const chartDataResourceHasMetaTagByCode = (
@@ -1297,6 +1511,12 @@ const mapResourceToChartDataFields = (
     chartDataResourceHasMetaTagBySystem(resource, `${PRIVATE_EXTENSION_BASE_URL}/${EXAM_OBSERVATION_META_SYSTEM}`)
   ) {
     data.examObservations?.push(makeExamObservationDTO(resource));
+    resourceMapped = true;
+  } else if (
+    resource?.resourceType === 'Observation' &&
+    chartDataResourceHasMetaTagBySystem(resource, `${PRIVATE_EXTENSION_BASE_URL}/${ROS_OBSERVATION_META_SYSTEM}`)
+  ) {
+    data.rosObservations?.push(makeExamObservationDTO(resource));
     resourceMapped = true;
   } else if (
     resource?.resourceType === 'Observation' &&
@@ -1449,6 +1669,39 @@ export function handleCustomDTOExtractions(data: AllChartValues, resources: Fhir
   // 7. Accident
   data.accident = makeAccidentDTOFromFhirResources(resources);
 
+  // 8. Radiology orders
+  if (data.radiologyOrders) {
+    const diagnosticReportBySrId = resources.reduce((acc: Record<string, DiagnosticReport[]>, r) => {
+      if (r.resourceType === 'DiagnosticReport') {
+        const srId = r.basedOn
+          ?.find((basedOn) => basedOn.reference?.startsWith('ServiceRequest/'))
+          ?.reference?.replace('ServiceRequest/', '');
+        if (!srId) return acc;
+
+        if (acc[srId]) {
+          acc[srId].push(r);
+        } else {
+          acc[srId] = [r];
+        }
+      }
+      return acc;
+    }, {});
+
+    serviceRequests.forEach((sr) => {
+      if (!chartDataResourceHasMetaTagByCode(sr, 'radiology')) return;
+      if (sr.status === 'revoked') return; // don't pull in soft deletes
+
+      const { id } = sr;
+      if (!id) return;
+
+      const relatedDiagnosticReports = diagnosticReportBySrId[id] ?? [];
+      const preliminaryDiagnosticReport = takeMostRecentPreliminaryReport(relatedDiagnosticReports);
+      const bestFinalReport = takeTheBestFinalDiagnosticReport(relatedDiagnosticReports);
+      const radiologyDTO = makeRadiologyDTO(sr, preliminaryDiagnosticReport, bestFinalReport);
+      data.radiologyOrders?.push(radiologyDTO);
+    });
+  }
+
   return data;
 }
 
@@ -1521,6 +1774,22 @@ export const createDispositionServiceRequest = ({
     );
   }
 
+  if (disposition.type === 'specialty' && disposition.specialty) {
+    if (!orderDetail) orderDetail = [];
+    orderDetail.push(
+      createCodeableConcept(
+        [
+          {
+            code: disposition.specialty,
+            system: 'specialty-transfer', // TODO phony Coding system
+          },
+        ],
+        // persist the free-text "Other" specialty in the CodeableConcept text
+        disposition.specialty === OTHER_SPECIALTY_TRANSFER_OPTION ? disposition.specialtyOther : undefined
+      )
+    );
+  }
+
   const followUpDaysInMinutes = typeof disposition.followUpIn === 'number' ? disposition.followUpIn * 1440 : undefined;
 
   return saveOrUpdateResourceRequest(
@@ -1533,6 +1802,7 @@ export const createDispositionServiceRequest = ({
       followUpIn: followUpDaysInMinutes,
       orderDetail,
       [NOTHING_TO_EAT_OR_DRINK_FIELD]: disposition[NOTHING_TO_EAT_OR_DRINK_FIELD],
+      [REFUSAL_OF_EMS_TRANSPORT_FIELD]: disposition[REFUSAL_OF_EMS_TRANSPORT_FIELD],
     })
   );
 };
@@ -1604,7 +1874,6 @@ export function makeProceduresDTOFromFhirResources(
     return {
       resourceId: serviceRequests.id,
       encounterId: serviceRequests.encounter?.reference?.split('/')[1],
-      procedureType: getCode(serviceRequests.category, PROCEDURE_TYPE_SYSTEM),
       cptCodes: cptCodeProcedures
         .filter(
           (procedure) => serviceRequests.supportingInfo?.find((ref) => ref.reference === `Procedure/${procedure.id}`)
@@ -1623,27 +1892,67 @@ export function makeProceduresDTOFromFhirResources(
         .map((condition) => {
           return makeDiagnosisDTO(condition, false);
         }),
-      procedureDateTime: serviceRequests.occurrenceDateTime,
-      documentedDateTime: serviceRequests.authoredOn,
-      performerType: getCode(serviceRequests.performerType, PERFORMER_TYPE_SYSTEM),
-      medicationUsed: getExtension(serviceRequests, FHIR_EXTENSION.ServiceRequest.medicationUsed.url)?.valueString,
-      bodySite: getCode(serviceRequests.bodySite, BODY_SITE_SYSTEM),
-      bodySide: getExtension(serviceRequests, FHIR_EXTENSION.ServiceRequest.bodySide.url)?.valueString,
-      technique: getExtensions(serviceRequests, FHIR_EXTENSION.ServiceRequest.technique.url)
-        .map((extension) => extension.valueString)
-        .filter((value) => value != null),
-      suppliesUsed: getExtension(serviceRequests, FHIR_EXTENSION.ServiceRequest.suppliesUsed.url)?.valueString,
-      procedureDetails: getExtension(serviceRequests, FHIR_EXTENSION.ServiceRequest.procedureDetails.url)?.valueString,
-      specimenSent: getExtension(serviceRequests, FHIR_EXTENSION.ServiceRequest.specimenSent.url)?.valueBoolean,
-      complications: getExtension(serviceRequests, FHIR_EXTENSION.ServiceRequest.complications.url)?.valueString,
-      patientResponse: getExtension(serviceRequests, FHIR_EXTENSION.ServiceRequest.patientResponse.url)?.valueString,
-      postInstructions: getExtension(serviceRequests, FHIR_EXTENSION.ServiceRequest.postInstructions.url)?.valueString,
-      timeSpent: getExtension(serviceRequests, FHIR_EXTENSION.ServiceRequest.timeSpent.url)?.valueString,
-      documentedBy: getExtension(serviceRequests, FHIR_EXTENSION.ServiceRequest.documentedBy.url)?.valueString,
-      consentObtained: getExtension(serviceRequests, FHIR_EXTENSION.ServiceRequest.consentObtained.url)?.valueBoolean,
+      ...readProcedureFormFieldsFromServiceRequest(serviceRequests),
     };
   });
 }
+
+/**
+ * The subset of ProcedureDTO that's encoded directly on a procedure
+ * ServiceRequest (its category/performerType/bodySite/extensions), as opposed
+ * to the cross-resource fields (diagnoses, cptCodes) which require traversing
+ * other resources to resolve. Pulled out so the read path can be shared
+ * between the live-chart reader (`makeProceduresDTOFromFhirResources`) and
+ * apply-template's procedure plan flow.
+ */
+export type ProcedureFormFields = Pick<
+  ProcedureDTO,
+  | 'procedureType'
+  | 'procedureDateTime'
+  | 'documentedDateTime'
+  | 'performerType'
+  | 'medicationUsed'
+  | 'bodySite'
+  | 'bodySide'
+  | 'technique'
+  | 'suppliesUsed'
+  | 'procedureDetails'
+  | 'specimenSent'
+  | 'complications'
+  | 'patientResponse'
+  | 'postInstructions'
+  | 'timeSpent'
+  | 'documentedBy'
+  | 'consentObtained'
+>;
+
+/**
+ * Read the procedure-form payload off a procedure ServiceRequest into the DTO
+ * shape. The chart-data reader (above) and apply-template's procedure-plan
+ * apply flow both use this so changes to which fields a procedure carries land
+ * in one place.
+ */
+export const readProcedureFormFieldsFromServiceRequest = (sr: ServiceRequest): ProcedureFormFields => ({
+  procedureType: getCode(sr.category, PROCEDURE_TYPE_SYSTEM),
+  procedureDateTime: sr.occurrenceDateTime,
+  documentedDateTime: sr.authoredOn,
+  performerType: getCode(sr.performerType, PERFORMER_TYPE_SYSTEM),
+  medicationUsed: getExtension(sr, FHIR_EXTENSION.ServiceRequest.medicationUsed.url)?.valueString,
+  bodySite: getCode(sr.bodySite, BODY_SITE_SYSTEM),
+  bodySide: getExtension(sr, FHIR_EXTENSION.ServiceRequest.bodySide.url)?.valueString,
+  technique: getExtensions(sr, FHIR_EXTENSION.ServiceRequest.technique.url)
+    .map((extension) => extension.valueString)
+    .filter((value): value is string => value != null),
+  suppliesUsed: getExtension(sr, FHIR_EXTENSION.ServiceRequest.suppliesUsed.url)?.valueString,
+  procedureDetails: getExtension(sr, FHIR_EXTENSION.ServiceRequest.procedureDetails.url)?.valueString,
+  specimenSent: getExtension(sr, FHIR_EXTENSION.ServiceRequest.specimenSent.url)?.valueBoolean,
+  complications: getExtension(sr, FHIR_EXTENSION.ServiceRequest.complications.url)?.valueString,
+  patientResponse: getExtension(sr, FHIR_EXTENSION.ServiceRequest.patientResponse.url)?.valueString,
+  postInstructions: getExtension(sr, FHIR_EXTENSION.ServiceRequest.postInstructions.url)?.valueString,
+  timeSpent: getExtension(sr, FHIR_EXTENSION.ServiceRequest.timeSpent.url)?.valueString,
+  documentedBy: getExtension(sr, FHIR_EXTENSION.ServiceRequest.documentedBy.url)?.valueString,
+  consentObtained: getExtension(sr, FHIR_EXTENSION.ServiceRequest.consentObtained.url)?.valueBoolean,
+});
 
 export const createProcedureServiceRequest = (
   procedure: ProcedureDTO,
@@ -1702,16 +2011,19 @@ export const createProcedureServiceRequest = (
       valueBoolean: procedure.consentObtained,
     },
   ].filter((extension) => extension.valueString != null || extension.valueBoolean != null);
-  const diagnosesReferences = procedure.diagnoses?.map((diagnosis) => {
-    return {
-      reference: 'Condition/' + diagnosis.resourceId,
-    };
-  });
-  const cptCodesReferences = procedure.cptCodes?.map((cptCode) => {
-    return {
-      reference: 'Procedure/' + cptCode.resourceId,
-    };
-  });
+  // Linked Condition/Procedure references are usually plain ids that get the
+  // FHIR resource-type prefix. Callers building requests for a FHIR transaction
+  // can also pass a urn:uuid pre-formatted reference (e.g. the apply-template
+  // procedure-plan flow, which links the new procedure to other resources being
+  // created in the same transaction); those pass through verbatim.
+  const formatLinkedRef = (resourceId: string | undefined, resourceType: 'Condition' | 'Procedure'): string =>
+    resourceId?.startsWith('urn:uuid:') ? resourceId : `${resourceType}/${resourceId}`;
+  const diagnosesReferences = procedure.diagnoses?.map((diagnosis) => ({
+    reference: formatLinkedRef(diagnosis.resourceId, 'Condition'),
+  }));
+  const cptCodesReferences = procedure.cptCodes?.map((cptCode) => ({
+    reference: formatLinkedRef(cptCode.resourceId, 'Procedure'),
+  }));
 
   return saveOrUpdateResourceRequest<ServiceRequest>({
     resourceType: 'ServiceRequest',

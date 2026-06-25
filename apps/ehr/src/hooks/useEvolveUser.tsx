@@ -7,14 +7,16 @@ import { useCallback, useEffect, useMemo } from 'react';
 import {
   BRANDING_CONFIG,
   getFullestAvailableName,
+  getNPIIdentifier,
   getPatchOperationForNewMetaTag,
-  getPractitionerNPIIdentifier,
+  getPatchOperationToUpdateExtension,
   initialsFromName,
   RoleType,
   SyncUserResponse,
   User,
-  useSuccessQuery,
+  USER_TIMEZONE_EXTENSION_URL,
 } from 'utils';
+import { useSuccessQuery } from 'utils/lib/frontend';
 import { create } from 'zustand';
 import { getUser } from '../api/api';
 import { useApiClients } from './useAppClients';
@@ -47,7 +49,7 @@ export default function useEvolveUser(): EvolveUser | undefined {
   const isProviderHasEverythingToBeEnrolled = Boolean(
     profile?.id &&
       profile?.telecom?.find((phone) => phone.system === 'sms' || phone.system === 'phone')?.value &&
-      getPractitionerNPIIdentifier(profile)?.value &&
+      getNPIIdentifier(profile)?.value &&
       profile?.name?.[0]?.given?.[0] &&
       profile?.name?.[0]?.family
   );
@@ -84,12 +86,28 @@ export default function useEvolveUser(): EvolveUser | undefined {
   useEffect(() => {
     if (user && oystehr && profile && !isPractitionerLastLoginBeingUpdated && !_practitionerLoginUpdateStarted) {
       _practitionerLoginUpdateStarted = true;
-      void mutatePractitionerAsync([
+
+      const patchOps: Operation[] = [
         getPatchOperationForNewMetaTag(profile!, {
           system: 'last-login',
           code: DateTime.now().toISO() ?? 'Unknown',
         }),
-      ]).catch(console.error);
+      ];
+
+      // Save the browser timezone on the Practitioner resource so backend
+      // notifications (e.g. SMS) can format times in the provider's local timezone.
+      const browserTimezone = DateTime.local().zoneName;
+      if (browserTimezone) {
+        const timezonePatchOp = getPatchOperationToUpdateExtension(profile!, {
+          url: USER_TIMEZONE_EXTENSION_URL,
+          valueString: browserTimezone,
+        });
+        if (timezonePatchOp) {
+          patchOps.push(timezonePatchOp);
+        }
+      }
+
+      void mutatePractitionerAsync(patchOps).catch(console.error);
     }
   }, [oystehr, isPractitionerLastLoginBeingUpdated, mutatePractitionerAsync, profile, user]);
 

@@ -53,12 +53,12 @@ export const createAdditionalQuestions = (questionnaireResponse: QuestionnaireRe
     });
 };
 
-export function getAllExamFieldsMetadata(isInPersonAppointment?: boolean): (ExamObservationDTO & {
+export function getAllExamFieldsMetadata(): (ExamObservationDTO & {
   code?: CodeableConcept;
   bodySite?: CodeableConcept;
   label?: string;
 })[] {
-  const config = examConfig[isInPersonAppointment ? 'inPerson' : 'telemed'].default.components;
+  const config = examConfig.default.components;
 
   const observations: (ExamObservationDTO & {
     code?: CodeableConcept;
@@ -118,6 +118,14 @@ export function getAllExamFieldsMetadata(isInPersonAppointment?: boolean): (Exam
             bodySite: option.bodySite,
           });
         });
+      } else if (component.type === 'checkbox-with-modal') {
+        observations.push({
+          field: fieldName,
+          value: component.defaultValue || false,
+          label: component.label,
+          code: component.code,
+          bodySite: component.bodySite,
+        });
       }
     });
   };
@@ -130,12 +138,12 @@ export function getAllExamFieldsMetadata(isInPersonAppointment?: boolean): (Exam
   return observations;
 }
 
-export function createExamObservations(isInPersonAppointment?: boolean): (ExamObservationDTO & {
+export function createExamObservations(): (ExamObservationDTO & {
   code?: CodeableConcept;
   bodySite?: CodeableConcept;
   label?: string;
 })[] {
-  const config = examConfig[isInPersonAppointment ? 'inPerson' : 'telemed'].default.components;
+  const config = examConfig.default.components;
 
   const observations: (ExamObservationDTO & {
     code?: CodeableConcept;
@@ -217,10 +225,8 @@ export function createExamObservations(isInPersonAppointment?: boolean): (ExamOb
   return observations;
 }
 
-export const createExamObservationComments = (
-  isInPersonAppointment?: boolean
-): (ObservationDTO & { label: string })[] => {
-  const config = examConfig[isInPersonAppointment ? 'inPerson' : 'telemed'].default.components;
+export const createExamObservationComments = (): (ObservationDTO & { label: string })[] => {
+  const config = examConfig.default.components;
 
   const comments: (ObservationDTO & { label: string })[] = [];
 

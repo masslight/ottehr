@@ -2,7 +2,7 @@ import { Page, test } from '@playwright/test';
 import { Appointment } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { addProcessIdMetaTagToAppointment, waitForResponseWithData } from 'test-utils';
-import { BOOKING_CONFIG, chooseJson, unpackFhirResponse } from 'utils';
+import { BOOKING_CONFIG, chooseJson, getReasonForVisitOptionsForServiceCategory, unpackFhirResponse } from 'utils';
 import { CreateAppointmentResponse } from 'utils/lib/types/api/prebook-create-appointment';
 import { ENV_LOCATION_NAME } from '../../e2e-utils/resource/constants';
 import {
@@ -31,6 +31,11 @@ const VISIT_TYPES = {
   PRE_BOOK: 'Pre-booked In Person Visit',
   POST_TELEMED: 'Post Telemed lab Only',
 };
+
+// Which visit types the EHR "Add Visit" dropdown actually offers is per-instance config
+// (BOOKING_CONFIG.ehrBookingOptions). Some instances are walk-in only, so a test that selects a
+// visit type the instance doesn't offer can never pass. Skip such a test rather than fail it.
+const offeredVisitTypeLabels = new Set(BOOKING_CONFIG.ehrBookingOptions.map((option) => option.label));
 
 const PROCESS_ID = `addPatientPage.spec.ts-${DateTime.now().toMillis()}`;
 
@@ -65,6 +70,10 @@ test.describe('For new patient', () => {
       tag: '@skipOnIntegration',
     },
     async ({ page }) => {
+      test.skip(
+        !offeredVisitTypeLabels.has(VISIT_TYPES.WALK_IN),
+        'Walk-in in-person visits are not offered by this instance'
+      );
       const { appointmentId } = await createAppointment(page, VISIT_TYPES.WALK_IN, false, NEW_PATIENT_1_LAST_NAME);
 
       const visitsPage = await expectVisitsPage(page);
@@ -75,7 +84,11 @@ test.describe('For new patient', () => {
   );
 
   test('Add pre-book visit for new patient', async ({ page }) => {
-    const { appointmentId, slotTime } = await createAppointment(
+    test.skip(
+      !offeredVisitTypeLabels.has(VISIT_TYPES.PRE_BOOK),
+      'Pre-booked in-person visits are not offered by this instance'
+    );
+    const { appointmentId, slotDate } = await createAppointment(
       page,
       VISIT_TYPES.PRE_BOOK,
       false,
@@ -84,8 +97,12 @@ test.describe('For new patient', () => {
 
     const visitsPage = await expectVisitsPage(page);
     await visitsPage.selectLocation(ENV_LOCATION_NAME!);
+    // The first available slot may roll to tomorrow when the day's schedule is past
+    // closing time. The tracking-board date filter defaults to today in the location's
+    // timezone, so without this it'd show zero rows even though the appointment exists.
+    if (slotDate) await visitsPage.selectDate(slotDate);
     await visitsPage.clickPrebookedTab();
-    await visitsPage.verifyVisitPresent(appointmentId, slotTime);
+    await visitsPage.verifyVisitPresent(appointmentId);
   });
 
   test.skip('Add post-telemed visit for new patient', { tag: '@flaky' }, async ({ page }) => {
@@ -152,13 +169,17 @@ async function createAppointment(
   visitType: (typeof VISIT_TYPES)[keyof typeof VISIT_TYPES],
   existingPatient = false,
   lastName?: string
-): Promise<{ appointmentId: string; slotTime: string | undefined }> {
+): Promise<{ appointmentId: string; slotTime: string | undefined; slotDate: string | undefined }> {
   const addPatientPage = await expectAddPatientPage(page);
   await addPatientPage.selectVisitType(visitType);
-  await addPatientPage.selectServiceCategory(BOOKING_CONFIG.serviceCategories[0].display);
+  await addPatientPage.selectServiceCategory(BOOKING_CONFIG.serviceCategories[0].category.display);
+  const serviceCategoryCode = BOOKING_CONFIG.serviceCategories[0].category.code;
   await addPatientPage.selectOffice(ENV_LOCATION_NAME!);
   await addPatientPage.enterMobilePhone(PATIENT_PHONE_NUMBER);
   await addPatientPage.clickSearchForPatientsButton();
+
+  const reasonForVisitOptions = getReasonForVisitOptionsForServiceCategory(serviceCategoryCode);
+  const reasonForVisit = reasonForVisitOptions[0]?.label || PATIENT_REASON_FOR_VISIT;
 
   if (existingPatient) {
     await addPatientPage.selectExistingPatient(PATIENT_PREFILL_NAME);
@@ -168,19 +189,22 @@ async function createAppointment(
     await addPatientPage.verifyPrefilledPatientBirthday(PATIENT_BIRTH_DATE_LONG);
     await addPatientPage.verifyPrefilledPatientBirthSex(PATIENT_INPUT_GENDER);
     // await addPatientPage.verifyPrefilledPatientEmail(PATIENT_EMAIL); // this has been removed
-    await addPatientPage.selectReasonForVisit(PATIENT_REASON_FOR_VISIT);
+    await addPatientPage.selectReasonForVisit(reasonForVisit);
   } else {
     await addPatientPage.clickPatientNotFoundButton();
     await addPatientPage.enterFirstName(PATIENT_FIRST_NAME);
     await addPatientPage.enterLastName(lastName || '');
     await addPatientPage.enterDateOfBirth(PATIENT_BIRTH_DATE_SHORT);
     await addPatientPage.selectSexAtBirth(PATIENT_INPUT_GENDER);
-    await addPatientPage.selectReasonForVisit(PATIENT_REASON_FOR_VISIT);
+    await addPatientPage.selectReasonForVisit(reasonForVisit);
   }
 
   let slotTime: string | undefined;
+  let slotDate: string | undefined;
   if (visitType !== VISIT_TYPES.WALK_IN) {
-    slotTime = await addPatientPage.selectFirstAvailableSlot();
+    const slot = await addPatientPage.selectFirstAvailableSlot();
+    slotTime = slot.time;
+    slotDate = slot.date || undefined;
   }
 
   const appointmentCreationResponse = waitForResponseWithData(page, /\/create-appointment\//);
@@ -191,5 +215,5 @@ async function createAppointment(
     throw new Error('Appointment ID should be present in the response');
   }
 
-  return { appointmentId: response.appointmentId, slotTime };
+  return { appointmentId: response.appointmentId, slotTime, slotDate };
 }

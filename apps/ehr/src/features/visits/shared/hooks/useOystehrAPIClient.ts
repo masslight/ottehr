@@ -10,12 +10,10 @@ export const useOystehrAPIClient = (): ReturnType<typeof getOystehrTelemedAPI> |
       return getOystehrTelemedAPI(
         {
           syncUserZambdaID: 'sync-user',
-          getTelemedAppointmentsZambdaID: 'get-telemed-appointments',
           initTelemedSessionZambdaID: 'init-telemed-session',
           getChartDataZambdaID: 'get-chart-data',
           saveChartDataZambdaID: 'save-chart-data',
           deleteChartDataZambdaID: 'delete-chart-data',
-          changeTelemedAppointmentStatusZambdaID: 'change-telemed-appointment-status',
           changeInPersonVisitStatusZambdaID: 'change-in-person-visit-status',
           assignPractitionerZambdaID: 'assign-practitioner',
           unassignPractitionerZambdaID: 'unassign-practitioner',
@@ -34,6 +32,7 @@ export const useOystehrAPIClient = (): ReturnType<typeof getOystehrTelemedAPI> |
           getPatientAccountZambdaID: 'get-patient-account',
           updatePatientAccountZambdaID: 'update-patient-account',
           removePatientCoverageZambdaID: 'remove-patient-coverage',
+          mergePatientsZambdaID: 'merge-patients',
           sendFaxZambdaID: 'send-fax',
           externalLabResourceSearchID: 'get-create-lab-order-resources',
           getUnsolicitedResultsResourcesID: 'get-unsolicited-results-resources',
@@ -41,6 +40,12 @@ export const useOystehrAPIClient = (): ReturnType<typeof getOystehrTelemedAPI> |
           searchPlacesID: 'search-places',
           inhouseLabResourceSearchID: 'get-create-in-house-lab-order-resources',
           makeMedicationHistoryPdfID: 'make-medication-history-pdf',
+          generatePatientEducationZambdaID: 'generate-patient-education',
+          savePatientEducationPdfZambdaID: 'save-patient-education-pdf',
+          listApprovedPatientEducationZambdaID: 'list-approved-patient-education',
+          saveApprovedPatientEducationZambdaID: 'save-approved-patient-education',
+          deleteApprovedPatientEducationZambdaID: 'delete-approved-patient-education',
+          updateApprovedPatientEducationCodesZambdaID: 'update-approved-patient-education-codes',
         },
         oystehrZambda
       );

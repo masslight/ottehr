@@ -1,8 +1,14 @@
 import {
   AllergyQuickPickData,
+  ImmunizationQuickPickData,
+  InHouseMedicationQuickPickData,
+  InsuranceQuickPickData,
   MedicalConditionQuickPickData,
   MedicationHistoryQuickPickData,
+  PatientInstructionQuickPickData,
   ProcedureQuickPickData,
+  QuickTextQuickPickData,
+  RadiologyQuickPickData,
 } from 'utils';
 import { QuickPickCategory } from './quick-pick-helpers';
 
@@ -47,5 +53,71 @@ export const MEDICATION_HISTORY_QUICK_PICK_CATEGORY: QuickPickCategory<Medicatio
     id,
     name: title,
     ...(config as Omit<MedicationHistoryQuickPickData, 'id' | 'name'>),
+  }),
+};
+
+export const RADIOLOGY_QUICK_PICK_CATEGORY: QuickPickCategory<RadiologyQuickPickData> = {
+  tagCode: 'radiology-quick-pick',
+  displayNameKey: 'name',
+  getDisplayName: (data) => data.name,
+  fromParsed: (id, title, config) => ({
+    id,
+    name: title,
+    ...(config as Omit<RadiologyQuickPickData, 'id' | 'name'>),
+  }),
+};
+
+export const IMMUNIZATION_QUICK_PICK_CATEGORY: QuickPickCategory<ImmunizationQuickPickData> = {
+  tagCode: 'immunization-quick-pick',
+  displayNameKey: 'name',
+  getDisplayName: (data) => data.name,
+  fromParsed: (id, title, config) => ({
+    id,
+    name: title,
+    ...(config as Omit<ImmunizationQuickPickData, 'id' | 'name'>),
+  }),
+};
+
+export const IN_HOUSE_MEDICATION_QUICK_PICK_CATEGORY: QuickPickCategory<InHouseMedicationQuickPickData> = {
+  tagCode: 'in-house-medication-quick-pick',
+  displayNameKey: 'name',
+  getDisplayName: (data) => data.name,
+  fromParsed: (id, title, config) => ({
+    id,
+    name: title,
+    ...(config as Omit<InHouseMedicationQuickPickData, 'id' | 'name'>),
+  }),
+};
+
+export const PATIENT_INSTRUCTION_QUICK_PICK_CATEGORY: QuickPickCategory<PatientInstructionQuickPickData> = {
+  tagCode: 'patient-instruction-quick-pick',
+  displayNameKey: 'name',
+  getDisplayName: (data) => data.name,
+  fromParsed: (id, title, config) => ({
+    id,
+    name: title,
+    ...(config as Omit<PatientInstructionQuickPickData, 'id' | 'name'>),
+  }),
+};
+
+export const INSURANCE_QUICK_PICK_CATEGORY: QuickPickCategory<InsuranceQuickPickData> = {
+  tagCode: 'insurance-quick-pick',
+  displayNameKey: 'name',
+  getDisplayName: (data) => data.name,
+  fromParsed: (id, title, config) => ({
+    id,
+    name: title,
+    ...(config as Omit<InsuranceQuickPickData, 'id' | 'name'>),
+  }),
+};
+
+export const QUICK_TEXT_QUICK_PICK_CATEGORY: QuickPickCategory<QuickTextQuickPickData> = {
+  tagCode: 'quick-text-quick-pick',
+  displayNameKey: 'name',
+  getDisplayName: (data) => data.name,
+  fromParsed: (id, title, config) => ({
+    id,
+    name: title,
+    ...(config as Omit<QuickTextQuickPickData, 'id' | 'name'>),
   }),
 };

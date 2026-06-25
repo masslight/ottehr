@@ -1,5 +1,4 @@
 import fs from 'fs';
-import fetch from 'node-fetch';
 import { getAuth0Token } from '../shared';
 
 const updatePermissionsFromZambdaList = async (zambdaList: string[], config: any): Promise<void> => {
@@ -89,7 +88,7 @@ const main = async (): Promise<void> => {
   const env = process.argv[2];
 
   const envAuthZambdas: string[] = [];
-  const config = JSON.parse(fs.readFileSync(`.env/${env}.json`, 'utf8'));
+  const config = JSON.parse(fs.readFileSync(`../../config/.env/${env}.json`, 'utf8'));
 
   envAuthZambdas.push('create-appointment');
   envAuthZambdas.push('get-patients');

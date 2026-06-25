@@ -36,17 +36,20 @@ export abstract class BaseProgressNotePage {
     const matcher = expect(
       this.#page.getByTestId(dataTestIds.progressNotePage.procedureItem).filter({ hasText: procedureType })
     );
+    const cptPrefix = 'CPT:';
     for (const procedureDetail of procedureDetails) {
-      if (procedureDetail.startsWith('CPT:')) {
-        // sometimes it's not in order and that flakes the test
-        const [cptPrefix, cptCode1, cptCode2] = procedureDetail.split(':');
-        let regex: string;
-        if (cptCode2 != null) {
-          regex = `${cptPrefix}: (${cptCode1 + '; ' + cptCode2}|${cptCode2 + '; ' + cptCode1})`;
-        } else {
-          regex = `${cptPrefix}: ${cptCode1}`;
+      if (procedureDetail.startsWith(cptPrefix)) {
+        // CPT codes render in a '; '-joined list whose order depends on how the procedure was built
+        // (procedure-type CPT may be auto-added before or after user-selected codes, and may vary by config).
+        // Verify the CPT heading and each expected code independently to stay order-agnostic.
+        const cptCodes = procedureDetail
+          .slice(cptPrefix.length)
+          .split('; ')
+          .filter((code) => code.length > 0);
+        await matcher.toContainText(cptPrefix);
+        for (const cptCode of cptCodes) {
+          await matcher.toContainText(cptCode);
         }
-        await matcher.toContainText(new RegExp(regex));
       } else {
         await matcher.toContainText(procedureDetail);
       }
@@ -78,8 +81,12 @@ export abstract class BaseProgressNotePage {
 
   async verifyInHouseLabs(sectionTitle: string, testName: string): Promise<void> {
     await expect(this.#page.getByTestId(dataTestIds.progressNotePage.labsTitle(sectionTitle))).toBeVisible();
-    await expect(this.#page.getByTestId(dataTestIds.progressNotePage.labsTitle(sectionTitle))).toContainText(testName);
+    await expect(
+      this.#page.getByTestId(dataTestIds.progressNotePage.labsTitle(sectionTitle)),
+      `${testName} is listed`
+    ).toContainText(testName);
   }
+
   async verifyAddedAllergyIsShown(allergy: string): Promise<void> {
     await expect(this.#page.getByTestId(dataTestIds.progressNotePage.knownAllergiesContainer)).toBeVisible();
     await expect(this.#page.getByTestId(dataTestIds.progressNotePage.knownAllergiesContainer)).toContainText(allergy);
@@ -245,6 +252,14 @@ export abstract class BaseProgressNotePage {
         hasText: note,
       })
     ).not.toBeVisible();
+  }
+
+  async verifyGivenCptCodeIsShown(cptCodeDisplay: string): Promise<void> {
+    const container = this.#page.getByTestId(dataTestIds.progressNotePage.cptCodes);
+    await expect(
+      container.getByText(cptCodeDisplay, { exact: true }),
+      `checking ${cptCodeDisplay} is visible`
+    ).toBeVisible();
   }
 
   abstract expectLoaded(): Promise<void>;

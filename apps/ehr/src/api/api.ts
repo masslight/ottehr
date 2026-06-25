@@ -1,6 +1,30 @@
 import Oystehr, { User } from '@oystehr/sdk';
-import { Schedule, Slot } from 'fhir/r4b';
+import { Medication, PractitionerRole, Schedule, Slot } from 'fhir/r4b';
+import { createClinicalOystehrClient } from 'ui-components';
 import {
+  AdminAddInHouseLabInput,
+  AdminAddInHouseLabOutput,
+  AdminAddLabSetInput,
+  AdminAddLabSetOutput,
+  AdminCreateTemplateInput,
+  AdminCreateTemplateOutput,
+  AdminDeleteTemplateInput,
+  AdminDeleteTemplateOutput,
+  AdminGetInHouseLabConfigInput,
+  AdminGetLabSetDetailInput,
+  AdminGetLabSetDetailOutput,
+  AdminGetLabSetListOutput,
+  AdminGetTemplateDetailInput,
+  AdminGetTemplateDetailOutput,
+  AdminInHouseLabConfigOutput,
+  AdminListInHouseLabsOutput,
+  AdminRenameTemplateInput,
+  AdminRenameTemplateOutput,
+  AdminUpdateInHouseLabInput,
+  AdminUpdateLabSetInput,
+  AdminUpdateLocationSupportPhonesInput,
+  AdminUpdatePrintingConfigInput,
+  AdminUpdateSupportDialogInput,
   AiAssistedEncountersReportZambdaInput,
   AiAssistedEncountersReportZambdaOutput,
   AllergyQuickPickData,
@@ -26,10 +50,20 @@ import {
   CreateAllergyQuickPickResponse,
   CreateAppointmentInputParams,
   CreateAppointmentResponse,
+  CreateCustomFolderInput,
+  CreateCustomFolderOutput,
   CreateDischargeSummaryInput,
   CreateDischargeSummaryResponse,
+  CreateEmCodeInput,
+  CreateImmunizationQuickPickInput,
+  CreateImmunizationQuickPickResponse,
   CreateInHouseLabOrderParameters,
   CreateInHouseLabOrderResponse,
+  CreateInHouseMedicationInput,
+  CreateInHouseMedicationQuickPickInput,
+  CreateInHouseMedicationQuickPickResponse,
+  CreateInsuranceQuickPickInput,
+  CreateInsuranceQuickPickResponse,
   CreateLabOrderParameters,
   CreateLabOrderZambdaOutput,
   CreateMedicalConditionQuickPickInput,
@@ -37,8 +71,14 @@ import {
   CreateMedicationHistoryQuickPickInput,
   CreateMedicationHistoryQuickPickResponse,
   CreateNursingOrderInput,
+  CreatePatientInstructionQuickPickInput,
+  CreatePatientInstructionQuickPickResponse,
   CreateProcedureQuickPickInput,
   CreateProcedureQuickPickResponse,
+  CreateQuickTextQuickPickInput,
+  CreateQuickTextQuickPickResponse,
+  CreateRadiologyQuickPickInput,
+  CreateRadiologyQuickPickResponse,
   CreateRadiologyZambdaOrderInput,
   CreateRadiologyZambdaOrderOutput,
   CreateResourcesFromAudioRecordingInput,
@@ -51,99 +91,145 @@ import {
   CreateUserParams,
   DailyPaymentsReportZambdaInput,
   DailyPaymentsReportZambdaOutput,
+  DeleteCustomFolderInput,
+  DeleteCustomFolderOutput,
+  DeleteEmCodeInput,
   DeleteInHouseLabOrderParameters,
   DeleteInHouseLabOrderZambdaOutput,
   DeleteLabOrderZambdaInput,
   DeleteLabOrderZambdaOutput,
   DeletePatientDocumentInput,
   DeletePatientDocumentOutput,
+  DeleteUserZambdaInput,
+  DeleteUserZambdaOutput,
   DeleteVisitFilesInput,
   DownloadPatientProfilePhotoInput,
   EHRVisitDetails,
+  EmCodeOutput,
   GetAllergyQuickPicksResponse,
   GetAppointmentsZambdaInput,
   GetAppointmentsZambdaOutput,
   GetConversationInput,
   GetConversationZambdaOutput,
   GetEmployeesResponse,
+  GetImmunizationQuickPicksResponse,
+  GetInHouseMedicationQuickPicksResponse,
   GetInHouseOrdersParameters,
-  GetLabelPdfParameters,
+  GetInsuranceQuickPicksResponse,
+  GetLabelPrintingConfigInput,
+  GetLabelPrintingConfigOutput,
   GetLabOrdersParameters,
+  GetLocationSupportPhonesOutput,
   GetMedicalConditionQuickPicksResponse,
   GetMedicationHistoryQuickPicksResponse,
   GetNursingOrdersInput,
   GetOrUploadPatientProfilePhotoZambdaResponse,
   GetPatientBalancesZambdaInput,
   GetPatientBalancesZambdaOutput,
+  GetPatientInstructionQuickPicksResponse,
   GetPatientLoginPhoneNumbersInput,
   GetPatientLoginPhoneNumbersOutput,
+  GetPatientMedicalRecordInput,
+  GetPatientMedicalRecordOutput,
   GetPresignedFileURLInput,
   GetProcedureQuickPicksResponse,
+  GetProgressNoteConfigInput,
+  GetProgressNoteConfigOutput,
+  GetQuickTextQuickPicksResponse,
   GetRadiologyOrderListZambdaInput,
   GetRadiologyOrderListZambdaOutput,
+  GetRadiologyQuickPicksResponse,
   GetScheduleParams,
   GetScheduleRequestParams,
   GetScheduleResponse,
+  GetSupportDialogOutput,
   GetUserParams,
   GetUserResponse,
   GetVisitDetailsPDFInput,
+  GetVisitFaxHistoryInput,
+  GetVisitFaxHistoryOutput,
   GetVisitLabelInput,
   HandleInHouseLabResultsParameters,
   HandleInHouseLabResultsZambdaOutput,
   Icd10SearchRequestParams,
   Icd10SearchResponse,
+  ImmunizationQuickPickData,
   IncompleteEncountersReportZambdaInput,
   IncompleteEncountersReportZambdaOutput,
   InHouseGetOrdersResponseDTO,
+  InHouseMedicationQuickPickData,
+  InsuranceQuickPickData,
   InviteParticipantRequestParameters,
   LabelPdf,
   ListScheduleOwnersParams,
   ListScheduleOwnersResponse,
   ListTemplatesZambdaInput,
   ListTemplatesZambdaOutput,
+  MailedStatementsReportZambdaInput,
+  MailedStatementsReportZambdaOutput,
   MedicalConditionQuickPickData,
   MedicationHistoryQuickPickData,
+  MigrateExamDataInput,
+  MigrateExamDataOutput,
+  OnDemandLabelXmlRequestInput,
+  OnDemandLabelXmlRequestOutput,
   PaginatedResponse,
   PaperworkToPDFInput,
+  PatientInstructionQuickPickData,
   PendingSupervisorApprovalInput,
   PracticeKpisReportZambdaInput,
   PracticeKpisReportZambdaOutput,
   PresignUploadUrlResponse,
   ProcedureQuickPickData,
+  QuickPickRemoveResponse,
+  QuickTextQuickPickData,
   RadiologyLaunchViewerZambdaInput,
   RadiologyLaunchViewerZambdaOutput,
+  RadiologyQuickPickData,
   RecentPatientsReportZambdaInput,
   RecentPatientsReportZambdaOutput,
-  RemoveAllergyQuickPickResponse,
-  RemoveMedicalConditionQuickPickResponse,
-  RemoveMedicationHistoryQuickPickResponse,
-  RemoveProcedureQuickPickResponse,
+  RenameCustomFolderInput,
+  RenameCustomFolderOutput,
   SaveFollowupEncounterZambdaInput,
   SaveFollowupEncounterZambdaOutput,
-  SavePreliminaryReportZambdaInput,
-  SavePreliminaryReportZambdaOutput,
+  SaveRadiologyReportZambdaInput,
+  SaveRadiologyReportZambdaOutput,
   ScheduleDTO,
+  SearchLegacyRecordsInput,
+  SearchLegacyRecordsOutput,
   SendForFinalReadZambdaInput,
   SendForFinalReadZambdaOutput,
   SendReceiptByEmailZambdaInput,
   SendReceiptByEmailZambdaOutput,
   SubmitLabOrderInput,
   SubmitLabOrderOutput,
+  SyncMailedStatementStatusesOutput,
   UnassignPractitionerZambdaInput,
   UnassignPractitionerZambdaOutput,
   UpdateAllergyQuickPickResponse,
+  UpdateEmCodeInput,
+  UpdateImmunizationQuickPickResponse,
+  UpdateInHouseMedicationInput,
+  UpdateInHouseMedicationQuickPickResponse,
+  UpdateInsuranceQuickPickResponse,
   UpdateInvoiceTaskZambdaInput,
   UpdateLabOrderResourcesInput,
   UpdateMedicalConditionQuickPickResponse,
   UpdateMedicationHistoryQuickPickResponse,
   UpdateNursingOrderInput,
+  UpdatePatientInstructionQuickPickResponse,
   UpdatePatientLoginPhoneNumbersInput,
   UpdateProcedureQuickPickResponse,
+  UpdateProgressNoteConfigInput,
+  UpdateQuickTextQuickPickResponse,
+  UpdateRadiologyQuickPickResponse,
   UpdateScheduleParams,
   UpdateUserParams,
   UpdateUserZambdaOutput,
   UpdateVisitDetailsInput,
   UpdateVisitFilesInput,
+  UploadPatientConditionPhotoInput,
+  UploadPatientConditionPhotoOutput,
   UploadPatientProfilePhotoInput,
   UserActivationZambdaInput,
   UserActivationZambdaOutput,
@@ -163,6 +249,8 @@ const VITE_APP_IS_LOCAL = import.meta.env.VITE_APP_IS_LOCAL;
 const SUBMIT_LAB_ORDER_ZAMBDA_ID = 'submit-lab-order';
 const GET_APPOINTMENTS_ZAMBDA_ID = 'get-appointments';
 const ENCOUNTERS_REPORT_ZAMBDA_ID = 'incomplete-encounters-report';
+const MAILED_STATEMENTS_REPORT_ZAMBDA_ID = 'mailed-statements-report';
+const SYNC_MAILED_STATEMENT_STATUSES_ZAMBDA_ID = 'sync-mailed-statement-statuses';
 const AI_ASSISTED_ENCOUNTERS_REPORT_ZAMBDA_ID = 'ai-assisted-encounters-report';
 const DAILY_PAYMENTS_REPORT_ZAMBDA_ID = 'daily-payments-report';
 const PRACTICE_KPIS_REPORT_ZAMBDA_ID = 'practice-kpis-report';
@@ -172,6 +260,7 @@ const CREATE_APPOINTMENT_ZAMBDA_ID = 'create-appointment';
 const CANCEL_TELEMED_APPOINTMENT_ZAMBDA_ID = 'telemed-cancel-appointment';
 const INVITE_PARTICIPANT_ZAMBDA_ID = 'video-chat-invites-create';
 const CREATE_USER_ZAMBDA_ID = 'create-user';
+const DELETE_USER_ZAMBDA_ID = 'delete-user';
 const UPDATE_USER_ZAMBDA_ID = 'update-user';
 const ASSIGN_PRACTITIONER_ZAMBDA_ID = 'assign-practitioner';
 const UNASSIGN_PRACTITIONER_ZAMBDA_ID = 'unassign-practitioner';
@@ -198,11 +287,17 @@ const GET_IN_HOUSE_ORDERS_ZAMBDA_ID = 'get-in-house-orders';
 const COLLECT_IN_HOUSE_LAB_SPECIMEN = 'collect-in-house-lab-specimen';
 const HANDLE_IN_HOUSE_LAB_RESULTS = 'handle-in-house-lab-results';
 const DELETE_IN_HOUSE_LAB_ORDER = 'delete-in-house-lab-order';
+const CREATE_IN_HOUSE_MEDICATION = 'create-in-house-medication';
+const UPDATE_IN_HOUSE_MEDICATION = 'update-in-house-medication';
+const GET_IN_HOUSE_MEDICATIONS = 'get-in-house-medications';
+const GET_EM_CODES = 'get-em-codes';
+const CREATE_EM_CODE = 'create-em-code';
+const UPDATE_EM_CODE = 'update-em-code';
+const DELETE_EM_CODE = 'delete-em-code';
 const UNLOCK_APPOINTMENT_ZAMBDA_ID = 'unlock-appointment';
 const GET_NURSING_ORDERS_ZAMBDA_ID = 'get-nursing-orders';
 const CREATE_NURSING_ORDER_ZAMBDA_ID = 'create-nursing-order';
 const UPDATE_NURSING_ORDER = 'update-nursing-order';
-const GET_LABEL_PDF_ZAMBDA_ID = 'get-label-pdf';
 const UPLOAD_AUDIO_RECORDING_ZAMBDA_ID = 'upload-audio-recording';
 const CREATE_RESOURCES_FROM_AUDIO_RECORDING_ZAMBDA_ID = 'create-resources-from-audio-recording';
 const GET_OR_CREATE_VISIT_LABEL_PDF_ZAMBDA_ID = 'get-or-create-visit-label-pdf';
@@ -212,32 +307,44 @@ const VISIT_DETAILS_TO_PDF_ZAMBDA_ID = 'visit-details-to-pdf';
 const PENDING_SUPERVISOR_APPROVAL_ZAMBDA_ID = 'pending-supervisor-approval';
 const SEND_RECEIPT_BY_EMAIL_ZAMBDA_ID = 'send-receipt-by-email';
 const BULK_UPDATE_INSURANCE_STATUS_ZAMBDA_ID = 'bulk-update-insurance-status';
-const ADMIN_GET_PROCEDURE_QUICK_PICKS_ZAMBDA_ID = 'admin-get-procedure-quick-picks';
-const ADMIN_CREATE_PROCEDURE_QUICK_PICK_ZAMBDA_ID = 'admin-create-procedure-quick-pick';
-const ADMIN_UPDATE_PROCEDURE_QUICK_PICK_ZAMBDA_ID = 'admin-update-procedure-quick-pick';
-const ADMIN_REMOVE_PROCEDURE_QUICK_PICK_ZAMBDA_ID = 'admin-remove-procedure-quick-pick';
-const ADMIN_GET_ALLERGY_QUICK_PICKS_ZAMBDA_ID = 'admin-get-allergy-quick-picks';
-const ADMIN_CREATE_ALLERGY_QUICK_PICK_ZAMBDA_ID = 'admin-create-allergy-quick-pick';
-const ADMIN_UPDATE_ALLERGY_QUICK_PICK_ZAMBDA_ID = 'admin-update-allergy-quick-pick';
-const ADMIN_REMOVE_ALLERGY_QUICK_PICK_ZAMBDA_ID = 'admin-remove-allergy-quick-pick';
-const ADMIN_GET_MEDICAL_CONDITION_QUICK_PICKS_ZAMBDA_ID = 'admin-get-medical-condition-quick-picks';
-const ADMIN_CREATE_MEDICAL_CONDITION_QUICK_PICK_ZAMBDA_ID = 'admin-create-medical-condition-quick-pick';
-const ADMIN_UPDATE_MEDICAL_CONDITION_QUICK_PICK_ZAMBDA_ID = 'admin-update-medical-condition-quick-pick';
-const ADMIN_REMOVE_MEDICAL_CONDITION_QUICK_PICK_ZAMBDA_ID = 'admin-remove-medical-condition-quick-pick';
-const ADMIN_GET_MEDICATION_HISTORY_QUICK_PICKS_ZAMBDA_ID = 'admin-get-medication-history-quick-picks';
-const ADMIN_CREATE_MEDICATION_HISTORY_QUICK_PICK_ZAMBDA_ID = 'admin-create-medication-history-quick-pick';
-const ADMIN_UPDATE_MEDICATION_HISTORY_QUICK_PICK_ZAMBDA_ID = 'admin-update-medication-history-quick-pick';
-const ADMIN_REMOVE_MEDICATION_HISTORY_QUICK_PICK_ZAMBDA_ID = 'admin-remove-medication-history-quick-pick';
+const ADMIN_GET_QUICK_PICKS_ZAMBDA_ID = 'admin-get-quick-picks';
+const ADMIN_CREATE_QUICK_PICK_ZAMBDA_ID = 'admin-create-quick-pick';
+const ADMIN_UPDATE_QUICK_PICK_ZAMBDA_ID = 'admin-update-quick-pick';
 const UPDATE_INVOICE_TASK_ZAMBDA_ID = 'update-invoice-task';
 const GET_PATIENT_BALANCES_ZAMBDA_ID = 'get-patient-balances';
 const FILE_INBOUND_FAX_ZAMBDA_ID = 'file-inbound-fax';
 const DELETE_INBOUND_FAX_ZAMBDA_ID = 'delete-inbound-fax';
+const ADMIN_CREATE_TEMPLATE_ZAMBDA_ID = 'admin-create-template';
+const ADMIN_RENAME_TEMPLATE_ZAMBDA_ID = 'admin-rename-template';
+const ADMIN_DELETE_TEMPLATE_ZAMBDA_ID = 'admin-delete-template';
+const ADMIN_GET_TEMPLATE_DETAIL_ZAMBDA_ID = 'admin-get-template-detail';
+const ADMIN_LIST_IN_HOUSE_LABS_ZAMBDA_ID = 'admin-list-in-house-labs';
+const ADMIN_ADD_IN_HOUSE_LAB_ZAMBDA_ID = 'admin-add-in-house-lab';
+const ADMIN_GET_IN_HOUSE_LAB_CONFIG_ZAMBDA_ID = 'admin-get-in-house-lab-config';
+const ADMIN_UPDATE_IN_HOUSE_LAB_ZAMBDA_ID = 'admin-update-in-house-lab';
+const ADMIN_LIST_SERVICE_CATEGORIES_ZAMBDA_ID = 'admin-list-service-categories';
+const ADMIN_CREATE_SERVICE_CATEGORY_ZAMBDA_ID = 'admin-create-service-category';
+const ADMIN_UPDATE_SERVICE_CATEGORY_ZAMBDA_ID = 'admin-update-service-category';
+const ADMIN_DELETE_SERVICE_CATEGORY_ZAMBDA_ID = 'admin-delete-service-category';
+const ADMIN_CREATE_PRACTITIONER_ROLE_ZAMBDA_ID = 'admin-create-practitioner-role';
+const ADMIN_UPDATE_PRACTITIONER_ROLE_ZAMBDA_ID = 'admin-update-practitioner-role';
+const ADMIN_SET_PRACTITIONER_ROLE_ACTIVE_ZAMBDA_ID = 'admin-set-practitioner-role-active';
+const GET_LABEL_PRINTING_CONFIG_ZAMBDA_ID = 'get-label-printing-config';
+const ADMIN_UPDATE_LABEL_PRINTING_CONFIG_ZAMBDA_ID = 'admin-update-label-printing-config';
+const GENERATE_LABEL_XML_ZAMBDA_ID = 'generate-label-xml';
+const GET_SUPPORT_DIALOG_ZAMBDA_ID = 'get-support-dialog';
+const GET_PUBLIC_LOCATION_SUPPORT_PHONES_ZAMBDA_ID = 'get-public-location-support-phones';
+const ADMIN_UPDATE_SUPPORT_DIALOG_ZAMBDA_ID = 'admin-update-support-dialog';
+const ADMIN_UPDATE_LOCATION_SUPPORT_PHONES_ZAMBDA_ID = 'admin-update-location-support-phones';
+const ADMIN_GET_LAB_SETS = 'admin-get-lab-sets';
+const ADMIN_ADD_LAB_SET = 'admin-add-lab-set';
+const ADMIN_UPDATE_LAB_SET_ZAMBDA_ID = 'admin-update-lab-set';
+const CREATE_CUSTOM_FOLDER_ZAMBDA_ID = 'create-custom-folder';
+const RENAME_CUSTOM_FOLDER_ZAMBDA_ID = 'rename-custom-folder';
+const DELETE_CUSTOM_FOLDER_ZAMBDA_ID = 'delete-custom-folder';
 
 export const getUser = async (token: string): Promise<User> => {
-  const oystehr = new Oystehr({
-    accessToken: token,
-    projectApiUrl: import.meta.env.VITE_APP_PROJECT_API_URL,
-  });
+  const oystehr = createClinicalOystehrClient(token);
   return oystehr.user.me();
 };
 
@@ -261,23 +368,6 @@ export const submitLabOrder = async (
     return chooseJson(response);
   } catch (error: unknown) {
     console.log(error);
-    throw error;
-  }
-};
-
-export const getLabelPdf = async (oystehr: Oystehr, parameters: GetLabelPdfParameters): Promise<LabelPdf[]> => {
-  try {
-    if (GET_LABEL_PDF_ZAMBDA_ID == null) {
-      throw new Error('get-label-pdf environment variable could not be loaded');
-    }
-
-    const response = await oystehr.zambda.execute({
-      id: GET_LABEL_PDF_ZAMBDA_ID,
-      ...parameters,
-    });
-    return chooseJson(response);
-  } catch (error: unknown) {
-    console.error(error);
     throw error;
   }
 };
@@ -376,6 +466,44 @@ export const getEncountersReport = async (
   } catch (error: unknown) {
     console.log(error);
     throw error;
+  }
+};
+
+export const getMailedStatementsReport = async (
+  oystehr: Oystehr,
+  parameters: MailedStatementsReportZambdaInput
+): Promise<MailedStatementsReportZambdaOutput> => {
+  try {
+    if (MAILED_STATEMENTS_REPORT_ZAMBDA_ID == null) {
+      throw new Error('mailed statements report environment variable could not be loaded');
+    }
+
+    const response = await oystehr.zambda.execute({
+      id: MAILED_STATEMENTS_REPORT_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    throw apiErrorToThrow(error);
+  }
+};
+
+export const syncMailedStatementStatuses = async (
+  oystehr: Oystehr,
+  batchSize?: number
+): Promise<SyncMailedStatementStatusesOutput> => {
+  try {
+    if (SYNC_MAILED_STATEMENT_STATUSES_ZAMBDA_ID == null) {
+      throw new Error('sync mailed statement statuses environment variable could not be loaded');
+    }
+
+    const response = await oystehr.zambda.execute({
+      id: SYNC_MAILED_STATEMENT_STATUSES_ZAMBDA_ID,
+      ...(batchSize != null && { batchSize }),
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    throw apiErrorToThrow(error);
   }
 };
 
@@ -575,6 +703,25 @@ export const createUser = async (oystehr: Oystehr, parameters: CreateUserParams)
   }
 };
 
+export const deleteUser = async (
+  oystehr: Oystehr,
+  parameters: DeleteUserZambdaInput
+): Promise<DeleteUserZambdaOutput> => {
+  try {
+    if (DELETE_USER_ZAMBDA_ID == null) {
+      throw new Error('delete-user environment variable could not be loaded');
+    }
+
+    const response = await oystehr.zambda.execute({
+      id: DELETE_USER_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    throw apiErrorToThrow(error);
+  }
+};
+
 export const updateUser = async (oystehr: Oystehr, parameters: UpdateUserParams): Promise<UpdateUserZambdaOutput> => {
   try {
     if (UPDATE_USER_ZAMBDA_ID == null) {
@@ -742,7 +889,7 @@ export const cancelAppointment = async (
   }
 };
 
-export const getEmployees = async (oystehr: Oystehr): Promise<GetEmployeesResponse> => {
+export const getEmployees = async (oystehr: Oystehr, options?: { lite?: boolean }): Promise<GetEmployeesResponse> => {
   try {
     if (GET_EMPLOYEES_ZAMBDA_ID == null) {
       throw new Error('get employees environment variable could not be loaded');
@@ -750,6 +897,7 @@ export const getEmployees = async (oystehr: Oystehr): Promise<GetEmployeesRespon
 
     const response = await oystehr.zambda.execute({
       id: GET_EMPLOYEES_ZAMBDA_ID,
+      ...(options?.lite ? { lite: true } : {}),
     });
     return chooseJson(response);
   } catch (error: unknown) {
@@ -1026,11 +1174,27 @@ export const radiologyLaunchViewer = async (
 
 export const savePreliminaryReport = async (
   oystehr: Oystehr,
-  parameters: SavePreliminaryReportZambdaInput
-): Promise<SavePreliminaryReportZambdaOutput> => {
+  parameters: SaveRadiologyReportZambdaInput
+): Promise<SaveRadiologyReportZambdaOutput> => {
   try {
     const response = await oystehr.zambda.execute({
       id: 'radiology-save-preliminary-report',
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const saveFinalReport = async (
+  oystehr: Oystehr,
+  parameters: SaveRadiologyReportZambdaInput
+): Promise<SaveRadiologyReportZambdaOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: 'radiology-save-final-report',
       ...parameters,
     });
     return chooseJson(response);
@@ -1193,6 +1357,108 @@ export const deleteInHouseLabOrder = async (
   }
 };
 
+export const createInHouseMedication = async (
+  oystehr: Oystehr,
+  parameters: CreateInHouseMedicationInput
+): Promise<Medication> => {
+  try {
+    if (CREATE_IN_HOUSE_MEDICATION == null) {
+      throw new Error('create in house medication zambda environment variable could not be loaded');
+    }
+    const response = await oystehr.zambda.execute({
+      id: CREATE_IN_HOUSE_MEDICATION,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const updateInHouseMedication = async (
+  oystehr: Oystehr,
+  parameters: UpdateInHouseMedicationInput
+): Promise<Medication> => {
+  try {
+    if (UPDATE_IN_HOUSE_MEDICATION == null) {
+      throw new Error('update in house medication zambda environment variable could not be loaded');
+    }
+    const response = await oystehr.zambda.execute({
+      id: UPDATE_IN_HOUSE_MEDICATION,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const getInHouseMedications = async (oystehr: Oystehr): Promise<Medication[]> => {
+  try {
+    if (GET_IN_HOUSE_MEDICATIONS == null) {
+      throw new Error('get in house medications zambda environment variable could not be loaded');
+    }
+    const response = await oystehr.zambda.execute({
+      id: GET_IN_HOUSE_MEDICATIONS,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const getEmCodes = async (oystehr: Oystehr): Promise<EmCodeOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({ id: GET_EM_CODES });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const createEmCode = async (oystehr: Oystehr, parameters: CreateEmCodeInput): Promise<EmCodeOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: CREATE_EM_CODE,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const updateEmCode = async (oystehr: Oystehr, parameters: UpdateEmCodeInput): Promise<EmCodeOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: UPDATE_EM_CODE,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const deleteEmCode = async (oystehr: Oystehr, parameters: DeleteEmCodeInput): Promise<EmCodeOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: DELETE_EM_CODE,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
 export const getNursingOrders = async (oystehr: Oystehr, parameters: GetNursingOrdersInput): Promise<any> => {
   try {
     const response = await oystehr.zambda.execute({
@@ -1345,6 +1611,38 @@ export const deletePatientDocument = async (
   }
 };
 
+export const getPatientMedicalRecordZip = async (
+  oystehr: Oystehr,
+  parameters: GetPatientMedicalRecordInput
+): Promise<GetPatientMedicalRecordOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: 'get-patient-medical-record',
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const uploadPatientConditionPhoto = async (
+  oystehr: Oystehr,
+  parameters: UploadPatientConditionPhotoInput
+): Promise<UploadPatientConditionPhotoOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: 'upload-patient-condition-photo',
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
 export const pendingSupervisorApproval = async (
   oystehr: Oystehr,
   parameters: PendingSupervisorApprovalInput
@@ -1363,7 +1661,7 @@ export const pendingSupervisorApproval = async (
 
 export const unlockAppointment = async (
   oystehr: Oystehr,
-  parameters: { appointmentId: string }
+  parameters: { appointmentId?: string; encounterId?: string }
 ): Promise<{ message: string }> => {
   try {
     if (UNLOCK_APPOINTMENT_ZAMBDA_ID == null) {
@@ -1422,6 +1720,22 @@ export const getPatientVisitDetails = async (
   try {
     const response = await oystehr.zambda.execute({
       id: 'ehr-get-visit-details',
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const getVisitFaxHistory = async (
+  oystehr: Oystehr,
+  parameters: GetVisitFaxHistoryInput
+): Promise<GetVisitFaxHistoryOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: 'get-visit-fax-history',
       ...parameters,
     });
     return chooseJson(response);
@@ -1612,37 +1926,279 @@ export const updatePatientLoginPhoneNumbers = async (
   }
 };
 
+export const adminListInHouseLabs = async (oystehr: Oystehr): Promise<AdminListInHouseLabsOutput> => {
+  try {
+    if (ADMIN_LIST_IN_HOUSE_LABS_ZAMBDA_ID == null) {
+      throw new Error('admin list in house labs environment variable could not be loaded');
+    }
+
+    const response = await oystehr.zambda.execute({
+      id: ADMIN_LIST_IN_HOUSE_LABS_ZAMBDA_ID,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
+export const adminAddInHouseLab = async (
+  oystehr: Oystehr,
+  parameters: AdminAddInHouseLabInput
+): Promise<AdminAddInHouseLabOutput> => {
+  try {
+    if (ADMIN_ADD_IN_HOUSE_LAB_ZAMBDA_ID == null) {
+      throw new Error('admin add in house labs environment variable could not be loaded');
+    }
+    const response = await oystehr.zambda.execute({
+      id: ADMIN_ADD_IN_HOUSE_LAB_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
+export const adminGetInHouseLabConfig = async (
+  oystehr: Oystehr,
+  parameters: AdminGetInHouseLabConfigInput
+): Promise<AdminInHouseLabConfigOutput> => {
+  try {
+    if (ADMIN_GET_IN_HOUSE_LAB_CONFIG_ZAMBDA_ID == null) {
+      throw new Error('admin get in house lab config environment variable could not be loaded');
+    }
+    const response = await oystehr.zambda.execute({
+      id: ADMIN_GET_IN_HOUSE_LAB_CONFIG_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
+export const adminUpdateInHouseLab = async (
+  oystehr: Oystehr,
+  parameters: AdminUpdateInHouseLabInput
+): Promise<AdminInHouseLabConfigOutput> => {
+  try {
+    if (ADMIN_UPDATE_IN_HOUSE_LAB_ZAMBDA_ID == null) {
+      throw new Error('admin update in house labs environment variable could not be loaded');
+    }
+    const response = await oystehr.zambda.execute({
+      id: ADMIN_UPDATE_IN_HOUSE_LAB_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
+export function adminGetLabSets(oystehr: Oystehr): Promise<AdminGetLabSetListOutput>;
+
+export function adminGetLabSets(
+  oystehr: Oystehr,
+  parameters: AdminGetLabSetDetailInput
+): Promise<AdminGetLabSetDetailOutput>;
+
+export async function adminGetLabSets(
+  oystehr: Oystehr,
+  parameters?: AdminGetLabSetDetailInput
+): Promise<AdminGetLabSetListOutput | AdminGetLabSetDetailOutput> {
+  try {
+    if (ADMIN_GET_LAB_SETS == null) {
+      throw new Error('admin get lab sets environment variable could not be loaded');
+    }
+    const response = await oystehr.zambda.execute({
+      id: ADMIN_GET_LAB_SETS,
+      ...(parameters ?? {}),
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+}
+
+export const adminAddLabSet = async (
+  oystehr: Oystehr,
+  parameters: AdminAddLabSetInput
+): Promise<AdminAddLabSetOutput> => {
+  try {
+    if (ADMIN_ADD_LAB_SET == null) {
+      throw new Error('admin add lab set environment variable could not be loaded');
+    }
+    const response = await oystehr.zambda.execute({
+      id: ADMIN_ADD_LAB_SET,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
+export const adminUpdateLabSet = async (oystehr: Oystehr, parameters: AdminUpdateLabSetInput): Promise<void> => {
+  try {
+    if (ADMIN_UPDATE_LAB_SET_ZAMBDA_ID == null) {
+      throw new Error('admin update lab set environment variable could not be loaded');
+    }
+    const response = await oystehr.zambda.execute({
+      id: ADMIN_UPDATE_LAB_SET_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
+export const getLabelPrintingConfig = async (
+  oystehr: Oystehr,
+  parameters: GetLabelPrintingConfigInput
+): Promise<GetLabelPrintingConfigOutput> => {
+  try {
+    if (GET_LABEL_PRINTING_CONFIG_ZAMBDA_ID == null) {
+      throw new Error('get label printing config environment variable could not be loaded');
+    }
+    const response = await oystehr.zambda.execute({
+      id: GET_LABEL_PRINTING_CONFIG_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
+export const adminUpdateLabelPrintingConfig = async (
+  oystehr: Oystehr,
+  parameters: AdminUpdatePrintingConfigInput
+): Promise<void> => {
+  try {
+    if (ADMIN_UPDATE_LABEL_PRINTING_CONFIG_ZAMBDA_ID == null) {
+      throw new Error('admin update label printing config environment variable could not be loaded');
+    }
+    await oystehr.zambda.execute({
+      id: ADMIN_UPDATE_LABEL_PRINTING_CONFIG_ZAMBDA_ID,
+      ...parameters,
+    });
+    return;
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
+export const getSupportDialog = async (oystehr: Oystehr): Promise<GetSupportDialogOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({ id: GET_SUPPORT_DIALOG_ZAMBDA_ID });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
+export const getProgressNoteConfig = async (
+  oystehr: Oystehr,
+  parameters?: GetProgressNoteConfigInput
+): Promise<GetProgressNoteConfigOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: 'get-progress-note-config',
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
+export const adminUpdateProgressNoteConfig = async (
+  oystehr: Oystehr,
+  parameters: UpdateProgressNoteConfigInput
+): Promise<void> => {
+  try {
+    await oystehr.zambda.execute({
+      id: 'admin-update-progress-note-config',
+      ...parameters,
+    });
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
+export const getPublicLocationSupportPhones = async (oystehr: Oystehr): Promise<GetLocationSupportPhonesOutput> => {
+  try {
+    const response = await oystehr.zambda.executePublic({ id: GET_PUBLIC_LOCATION_SUPPORT_PHONES_ZAMBDA_ID });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
+export const adminUpdateSupportDialog = async (
+  oystehr: Oystehr,
+  parameters: AdminUpdateSupportDialogInput
+): Promise<void> => {
+  try {
+    await oystehr.zambda.execute({
+      id: ADMIN_UPDATE_SUPPORT_DIALOG_ZAMBDA_ID,
+      ...parameters,
+    });
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
+export const adminUpdateLocationSupportPhones = async (
+  oystehr: Oystehr,
+  parameters: AdminUpdateLocationSupportPhonesInput
+): Promise<void> => {
+  try {
+    await oystehr.zambda.execute({
+      id: ADMIN_UPDATE_LOCATION_SUPPORT_PHONES_ZAMBDA_ID,
+      ...parameters,
+    });
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
+export const generateLabelXml = async (
+  oystehr: Oystehr,
+  parameters: OnDemandLabelXmlRequestInput
+): Promise<OnDemandLabelXmlRequestOutput> => {
+  try {
+    if (GENERATE_LABEL_XML_ZAMBDA_ID == null) {
+      throw new Error('generate label xml environment variable could not be loaded');
+    }
+    const response = await oystehr.zambda.execute({
+      id: GENERATE_LABEL_XML_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
 // ── Legacy Records ─────────────────────────────────────────────────────────────
-
-export interface SearchLegacyRecordsInput {
-  lastName: string;
-  firstName?: string;
-  dateOfBirth?: string;
-  page?: number;
-  pageSize?: number;
-  maxFilesPerRecord?: number;
-}
-
-export interface LegacyFile {
-  key: string;
-  fileName: string;
-  fileType: 'medical-summary' | 'progress-note' | 'other';
-  presignedUrl: string;
-}
-
-export interface LegacyPatientRecord {
-  patientFolder: string;
-  patientId: string;
-  displayName: string;
-  files: LegacyFile[];
-}
-
-export interface SearchLegacyRecordsOutput {
-  results: LegacyPatientRecord[];
-  total: number;
-  page: number;
-  pageSize: number;
-}
 
 export const searchLegacyRecords = async (
   oystehr: Oystehr,
@@ -1660,10 +2216,27 @@ export const searchLegacyRecords = async (
   }
 };
 
+export const createTemplate = async (
+  oystehr: Oystehr,
+  parameters: AdminCreateTemplateInput
+): Promise<AdminCreateTemplateOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: ADMIN_CREATE_TEMPLATE_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response) as AdminCreateTemplateOutput;
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
 export const getProcedureQuickPicks = async (oystehr: Oystehr): Promise<GetProcedureQuickPicksResponse> => {
   try {
     const response = await oystehr.zambda.execute({
-      id: ADMIN_GET_PROCEDURE_QUICK_PICKS_ZAMBDA_ID,
+      id: ADMIN_GET_QUICK_PICKS_ZAMBDA_ID,
+      category: 'procedure-quick-pick',
     });
     return chooseJson(response);
   } catch (error: unknown) {
@@ -1678,7 +2251,8 @@ export const createProcedureQuickPick = async (
 ): Promise<CreateProcedureQuickPickResponse> => {
   try {
     const response = await oystehr.zambda.execute({
-      id: ADMIN_CREATE_PROCEDURE_QUICK_PICK_ZAMBDA_ID,
+      id: ADMIN_CREATE_QUICK_PICK_ZAMBDA_ID,
+      category: 'procedure-quick-pick',
       ...parameters,
     });
     return chooseJson(response);
@@ -1725,7 +2299,8 @@ export const updateProcedureQuickPick = async (
 ): Promise<UpdateProcedureQuickPickResponse> => {
   try {
     const response = await oystehr.zambda.execute({
-      id: ADMIN_UPDATE_PROCEDURE_QUICK_PICK_ZAMBDA_ID,
+      id: ADMIN_UPDATE_QUICK_PICK_ZAMBDA_ID,
+      category: 'procedure-quick-pick',
       quickPickId,
       quickPick,
     } as any);
@@ -1736,14 +2311,81 @@ export const updateProcedureQuickPick = async (
   }
 };
 
-export const removeProcedureQuickPick = async (
-  oystehr: Oystehr,
-  quickPickId: string
-): Promise<RemoveProcedureQuickPickResponse> => {
+// ── Radiology Quick Picks ──
+
+export const getRadiologyQuickPicks = async (oystehr: Oystehr): Promise<GetRadiologyQuickPicksResponse> => {
   try {
     const response = await oystehr.zambda.execute({
-      id: ADMIN_REMOVE_PROCEDURE_QUICK_PICK_ZAMBDA_ID,
+      id: ADMIN_GET_QUICK_PICKS_ZAMBDA_ID,
+      category: 'radiology-quick-pick',
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const renameTemplate = async (
+  oystehr: Oystehr,
+  parameters: AdminRenameTemplateInput
+): Promise<AdminRenameTemplateOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: ADMIN_RENAME_TEMPLATE_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response) as AdminRenameTemplateOutput;
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
+export const createRadiologyQuickPick = async (
+  oystehr: Oystehr,
+  parameters: CreateRadiologyQuickPickInput
+): Promise<CreateRadiologyQuickPickResponse> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: ADMIN_CREATE_QUICK_PICK_ZAMBDA_ID,
+      category: 'radiology-quick-pick',
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const deleteTemplate = async (
+  oystehr: Oystehr,
+  parameters: AdminDeleteTemplateInput
+): Promise<AdminDeleteTemplateOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: ADMIN_DELETE_TEMPLATE_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response) as AdminDeleteTemplateOutput;
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
+export const updateRadiologyQuickPick = async (
+  oystehr: Oystehr,
+  quickPickId: string,
+  quickPick: Omit<RadiologyQuickPickData, 'id'>
+): Promise<UpdateRadiologyQuickPickResponse> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: ADMIN_UPDATE_QUICK_PICK_ZAMBDA_ID,
+      category: 'radiology-quick-pick',
       quickPickId,
+      quickPick,
     } as any);
     return chooseJson(response);
   } catch (error: unknown) {
@@ -1752,11 +2394,30 @@ export const removeProcedureQuickPick = async (
   }
 };
 
+export const getTemplateDetail = async (
+  oystehr: Oystehr,
+  parameters: AdminGetTemplateDetailInput
+): Promise<AdminGetTemplateDetailOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: ADMIN_GET_TEMPLATE_DETAIL_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson<AdminGetTemplateDetailOutput>(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
 // ── Allergy Quick Picks ──
 
 export const getAllergyQuickPicks = async (oystehr: Oystehr): Promise<GetAllergyQuickPicksResponse> => {
   try {
-    const response = await oystehr.zambda.execute({ id: ADMIN_GET_ALLERGY_QUICK_PICKS_ZAMBDA_ID });
+    const response = await oystehr.zambda.execute({
+      id: ADMIN_GET_QUICK_PICKS_ZAMBDA_ID,
+      category: 'allergy-quick-pick',
+    });
     return chooseJson(response);
   } catch (error: unknown) {
     console.log(error);
@@ -1769,7 +2430,11 @@ export const createAllergyQuickPick = async (
   parameters: CreateAllergyQuickPickInput
 ): Promise<CreateAllergyQuickPickResponse> => {
   try {
-    const response = await oystehr.zambda.execute({ id: ADMIN_CREATE_ALLERGY_QUICK_PICK_ZAMBDA_ID, ...parameters });
+    const response = await oystehr.zambda.execute({
+      id: ADMIN_CREATE_QUICK_PICK_ZAMBDA_ID,
+      category: 'allergy-quick-pick',
+      ...parameters,
+    });
     return chooseJson(response);
   } catch (error: unknown) {
     console.log(error);
@@ -1784,25 +2449,10 @@ export const updateAllergyQuickPick = async (
 ): Promise<UpdateAllergyQuickPickResponse> => {
   try {
     const response = await oystehr.zambda.execute({
-      id: ADMIN_UPDATE_ALLERGY_QUICK_PICK_ZAMBDA_ID,
+      id: ADMIN_UPDATE_QUICK_PICK_ZAMBDA_ID,
+      category: 'allergy-quick-pick',
       quickPickId,
       quickPick,
-    } as any);
-    return chooseJson(response);
-  } catch (error: unknown) {
-    console.log(error);
-    throw error;
-  }
-};
-
-export const removeAllergyQuickPick = async (
-  oystehr: Oystehr,
-  quickPickId: string
-): Promise<RemoveAllergyQuickPickResponse> => {
-  try {
-    const response = await oystehr.zambda.execute({
-      id: ADMIN_REMOVE_ALLERGY_QUICK_PICK_ZAMBDA_ID,
-      quickPickId,
     } as any);
     return chooseJson(response);
   } catch (error: unknown) {
@@ -1817,7 +2467,10 @@ export const getMedicalConditionQuickPicks = async (
   oystehr: Oystehr
 ): Promise<GetMedicalConditionQuickPicksResponse> => {
   try {
-    const response = await oystehr.zambda.execute({ id: ADMIN_GET_MEDICAL_CONDITION_QUICK_PICKS_ZAMBDA_ID });
+    const response = await oystehr.zambda.execute({
+      id: ADMIN_GET_QUICK_PICKS_ZAMBDA_ID,
+      category: 'medical-condition-quick-pick',
+    });
     return chooseJson(response);
   } catch (error: unknown) {
     console.log(error);
@@ -1831,7 +2484,8 @@ export const createMedicalConditionQuickPick = async (
 ): Promise<CreateMedicalConditionQuickPickResponse> => {
   try {
     const response = await oystehr.zambda.execute({
-      id: ADMIN_CREATE_MEDICAL_CONDITION_QUICK_PICK_ZAMBDA_ID,
+      id: ADMIN_CREATE_QUICK_PICK_ZAMBDA_ID,
+      category: 'medical-condition-quick-pick',
       ...parameters,
     });
     return chooseJson(response);
@@ -1848,25 +2502,10 @@ export const updateMedicalConditionQuickPick = async (
 ): Promise<UpdateMedicalConditionQuickPickResponse> => {
   try {
     const response = await oystehr.zambda.execute({
-      id: ADMIN_UPDATE_MEDICAL_CONDITION_QUICK_PICK_ZAMBDA_ID,
+      id: ADMIN_UPDATE_QUICK_PICK_ZAMBDA_ID,
+      category: 'medical-condition-quick-pick',
       quickPickId,
       quickPick,
-    } as any);
-    return chooseJson(response);
-  } catch (error: unknown) {
-    console.log(error);
-    throw error;
-  }
-};
-
-export const removeMedicalConditionQuickPick = async (
-  oystehr: Oystehr,
-  quickPickId: string
-): Promise<RemoveMedicalConditionQuickPickResponse> => {
-  try {
-    const response = await oystehr.zambda.execute({
-      id: ADMIN_REMOVE_MEDICAL_CONDITION_QUICK_PICK_ZAMBDA_ID,
-      quickPickId,
     } as any);
     return chooseJson(response);
   } catch (error: unknown) {
@@ -1881,7 +2520,10 @@ export const getMedicationHistoryQuickPicks = async (
   oystehr: Oystehr
 ): Promise<GetMedicationHistoryQuickPicksResponse> => {
   try {
-    const response = await oystehr.zambda.execute({ id: ADMIN_GET_MEDICATION_HISTORY_QUICK_PICKS_ZAMBDA_ID });
+    const response = await oystehr.zambda.execute({
+      id: ADMIN_GET_QUICK_PICKS_ZAMBDA_ID,
+      category: 'medication-history-quick-pick',
+    });
     return chooseJson(response);
   } catch (error: unknown) {
     console.log(error);
@@ -1895,7 +2537,8 @@ export const createMedicationHistoryQuickPick = async (
 ): Promise<CreateMedicationHistoryQuickPickResponse> => {
   try {
     const response = await oystehr.zambda.execute({
-      id: ADMIN_CREATE_MEDICATION_HISTORY_QUICK_PICK_ZAMBDA_ID,
+      id: ADMIN_CREATE_QUICK_PICK_ZAMBDA_ID,
+      category: 'medication-history-quick-pick',
       ...parameters,
     });
     return chooseJson(response);
@@ -1912,7 +2555,8 @@ export const updateMedicationHistoryQuickPick = async (
 ): Promise<UpdateMedicationHistoryQuickPickResponse> => {
   try {
     const response = await oystehr.zambda.execute({
-      id: ADMIN_UPDATE_MEDICATION_HISTORY_QUICK_PICK_ZAMBDA_ID,
+      id: ADMIN_UPDATE_QUICK_PICK_ZAMBDA_ID,
+      category: 'medication-history-quick-pick',
       quickPickId,
       quickPick,
     } as any);
@@ -1923,13 +2567,450 @@ export const updateMedicationHistoryQuickPick = async (
   }
 };
 
-export const removeMedicationHistoryQuickPick = async (
-  oystehr: Oystehr,
-  quickPickId: string
-): Promise<RemoveMedicationHistoryQuickPickResponse> => {
+// ── Insurance Quick Picks ──
+
+export const getInsuranceQuickPicks = async (oystehr: Oystehr): Promise<GetInsuranceQuickPicksResponse> => {
   try {
     const response = await oystehr.zambda.execute({
-      id: ADMIN_REMOVE_MEDICATION_HISTORY_QUICK_PICK_ZAMBDA_ID,
+      id: ADMIN_GET_QUICK_PICKS_ZAMBDA_ID,
+      category: 'insurance-quick-pick',
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const createInsuranceQuickPick = async (
+  oystehr: Oystehr,
+  parameters: CreateInsuranceQuickPickInput
+): Promise<CreateInsuranceQuickPickResponse> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: ADMIN_CREATE_QUICK_PICK_ZAMBDA_ID,
+      category: 'insurance-quick-pick',
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const updateInsuranceQuickPick = async (
+  oystehr: Oystehr,
+  quickPickId: string,
+  quickPick: Omit<InsuranceQuickPickData, 'id'>
+): Promise<UpdateInsuranceQuickPickResponse> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: ADMIN_UPDATE_QUICK_PICK_ZAMBDA_ID,
+      category: 'insurance-quick-pick',
+      quickPickId,
+      quickPick,
+    } as any);
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+// ── Immunization Quick Picks ──
+
+export const getImmunizationQuickPicks = async (oystehr: Oystehr): Promise<GetImmunizationQuickPicksResponse> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: ADMIN_GET_QUICK_PICKS_ZAMBDA_ID,
+      category: 'immunization-quick-pick',
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const createImmunizationQuickPick = async (
+  oystehr: Oystehr,
+  parameters: CreateImmunizationQuickPickInput
+): Promise<CreateImmunizationQuickPickResponse> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: ADMIN_CREATE_QUICK_PICK_ZAMBDA_ID,
+      category: 'immunization-quick-pick',
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const updateImmunizationQuickPick = async (
+  oystehr: Oystehr,
+  quickPickId: string,
+  quickPick: Omit<ImmunizationQuickPickData, 'id'>
+): Promise<UpdateImmunizationQuickPickResponse> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: ADMIN_UPDATE_QUICK_PICK_ZAMBDA_ID,
+      category: 'immunization-quick-pick',
+      quickPickId,
+      quickPick,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+// ── In-House Medication Quick Picks ──
+
+export const getInHouseMedicationQuickPicks = async (
+  oystehr: Oystehr
+): Promise<GetInHouseMedicationQuickPicksResponse> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: ADMIN_GET_QUICK_PICKS_ZAMBDA_ID,
+      category: 'in-house-medication-quick-pick',
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const createInHouseMedicationQuickPick = async (
+  oystehr: Oystehr,
+  parameters: CreateInHouseMedicationQuickPickInput
+): Promise<CreateInHouseMedicationQuickPickResponse> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: ADMIN_CREATE_QUICK_PICK_ZAMBDA_ID,
+      category: 'in-house-medication-quick-pick',
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const updateInHouseMedicationQuickPick = async (
+  oystehr: Oystehr,
+  quickPickId: string,
+  quickPick: Omit<InHouseMedicationQuickPickData, 'id'>
+): Promise<UpdateInHouseMedicationQuickPickResponse> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: ADMIN_UPDATE_QUICK_PICK_ZAMBDA_ID,
+      category: 'in-house-medication-quick-pick',
+      quickPickId,
+      quickPick,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+// ── Patient Instruction Quick Picks (Practice Quick Picks) ──
+
+export const getPatientInstructionQuickPicks = async (
+  oystehr: Oystehr
+): Promise<GetPatientInstructionQuickPicksResponse> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: ADMIN_GET_QUICK_PICKS_ZAMBDA_ID,
+      category: 'patient-instruction-quick-pick',
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const createPatientInstructionQuickPick = async (
+  oystehr: Oystehr,
+  parameters: CreatePatientInstructionQuickPickInput
+): Promise<CreatePatientInstructionQuickPickResponse> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: ADMIN_CREATE_QUICK_PICK_ZAMBDA_ID,
+      category: 'patient-instruction-quick-pick',
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const updatePatientInstructionQuickPick = async (
+  oystehr: Oystehr,
+  quickPickId: string,
+  quickPick: Omit<PatientInstructionQuickPickData, 'id'>
+): Promise<UpdatePatientInstructionQuickPickResponse> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: ADMIN_UPDATE_QUICK_PICK_ZAMBDA_ID,
+      category: 'patient-instruction-quick-pick',
+      quickPickId,
+      quickPick,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const createCustomFolder = async (
+  oystehr: Oystehr,
+  parameters: CreateCustomFolderInput
+): Promise<CreateCustomFolderOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: CREATE_CUSTOM_FOLDER_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response) as CreateCustomFolderOutput;
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
+export const renameCustomFolder = async (
+  oystehr: Oystehr,
+  parameters: RenameCustomFolderInput
+): Promise<RenameCustomFolderOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: RENAME_CUSTOM_FOLDER_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response) as RenameCustomFolderOutput;
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
+export const deleteCustomFolder = async (
+  oystehr: Oystehr,
+  parameters: DeleteCustomFolderInput
+): Promise<DeleteCustomFolderOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: DELETE_CUSTOM_FOLDER_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response) as DeleteCustomFolderOutput;
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
+// ── Quick Text Quick Picks ──
+
+export const getQuickTextQuickPicks = async (oystehr: Oystehr): Promise<GetQuickTextQuickPicksResponse> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: ADMIN_GET_QUICK_PICKS_ZAMBDA_ID,
+      category: 'quick-text-quick-pick',
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const createQuickTextQuickPick = async (
+  oystehr: Oystehr,
+  parameters: CreateQuickTextQuickPickInput
+): Promise<CreateQuickTextQuickPickResponse> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: ADMIN_CREATE_QUICK_PICK_ZAMBDA_ID,
+      category: 'quick-text-quick-pick',
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const updateQuickTextQuickPick = async (
+  oystehr: Oystehr,
+  quickPickId: string,
+  quickPick: Omit<QuickTextQuickPickData, 'id'>
+): Promise<UpdateQuickTextQuickPickResponse> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: ADMIN_UPDATE_QUICK_PICK_ZAMBDA_ID,
+      category: 'quick-text-quick-pick',
+      quickPickId,
+      quickPick,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+const MIGRATE_EXAM_DATA_ZAMBDA_ID = 'migrate-exam-data';
+
+export const migrateExamData = async (
+  oystehr: Oystehr,
+  parameters: MigrateExamDataInput
+): Promise<MigrateExamDataOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: MIGRATE_EXAM_DATA_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
+// ── Service Categories (FHIR-backed bookable appointment categories) ──
+
+export interface ServiceCategoryRuntimeConfig {
+  durationMinutes: number;
+  /**
+   * Interval between offered slot start times, in minutes. Independent of
+   * durationMinutes — a 60-minute service may be offered every 30 min if
+   * cadenceMinutes is 30. When omitted, the slot generator falls back to a
+   * sensible default (typically 15).
+   */
+  cadenceMinutes?: number;
+  serviceModes: Array<'in-person' | 'virtual'>;
+  /** Booking flows for this category — 'prebook' vs 'walk-in'. */
+  visitTypes: Array<'prebook' | 'walk-in'>;
+  reasonsForVisit?: Array<{ label: string; value: string }>;
+}
+
+export interface ServiceCategory {
+  id?: string;
+  name: string;
+  code: string;
+  /** Short abbreviation (2-3 chars) shown on the Tracking Board and patient visit lists — e.g. 'UC', 'WC'. */
+  abbreviation?: string;
+  active: boolean;
+  config: ServiceCategoryRuntimeConfig;
+}
+
+export const listServiceCategories = async (oystehr: Oystehr): Promise<{ serviceCategories: ServiceCategory[] }> => {
+  const response = await oystehr.zambda.execute({ id: ADMIN_LIST_SERVICE_CATEGORIES_ZAMBDA_ID });
+  return chooseJson(response);
+};
+
+export const createServiceCategory = async (
+  oystehr: Oystehr,
+  serviceCategory: ServiceCategory
+): Promise<{ serviceCategory: ServiceCategory }> => {
+  const response = await oystehr.zambda.execute({
+    id: ADMIN_CREATE_SERVICE_CATEGORY_ZAMBDA_ID,
+    serviceCategory,
+  } as any);
+  return chooseJson(response);
+};
+
+export const updateServiceCategory = async (
+  oystehr: Oystehr,
+  serviceCategory: ServiceCategory
+): Promise<{ serviceCategory: ServiceCategory }> => {
+  const response = await oystehr.zambda.execute({
+    id: ADMIN_UPDATE_SERVICE_CATEGORY_ZAMBDA_ID,
+    serviceCategory,
+  } as any);
+  return chooseJson(response);
+};
+
+export const deleteServiceCategory = async (
+  oystehr: Oystehr,
+  serviceCategoryId: string
+): Promise<{ message: string }> => {
+  const response = await oystehr.zambda.execute({
+    id: ADMIN_DELETE_SERVICE_CATEGORY_ZAMBDA_ID,
+    serviceCategoryId,
+  } as any);
+  return chooseJson(response);
+};
+
+export const createPractitionerRole = async (
+  oystehr: Oystehr,
+  input: {
+    practitionerId: string;
+    locationId: string;
+    categoryHealthcareServiceIds: string[];
+    timezone: string;
+    /** Optional admin-set display name for the new schedule. */
+    displayName?: string;
+    /** Whether the role offers every service category in the system. Defaults to false. */
+    allCategories?: boolean;
+  }
+): Promise<{ role: PractitionerRole; schedule: Schedule }> => {
+  const response = await oystehr.zambda.execute({
+    id: ADMIN_CREATE_PRACTITIONER_ROLE_ZAMBDA_ID,
+    ...input,
+  } as any);
+  return chooseJson(response);
+};
+
+export const updatePractitionerRole = async (
+  oystehr: Oystehr,
+  input: {
+    roleId: string;
+    categoryHealthcareServiceIds?: string[];
+    locationId?: string;
+    /** Optional admin-set display name. Empty string clears the override. */
+    displayName?: string;
+    /** Whether the role offers every service category. Omit to leave untouched. */
+    allCategories?: boolean;
+  }
+): Promise<{ role: PractitionerRole }> => {
+  const response = await oystehr.zambda.execute({
+    id: ADMIN_UPDATE_PRACTITIONER_ROLE_ZAMBDA_ID,
+    ...input,
+  } as any);
+  return chooseJson(response);
+};
+
+export const setPractitionerRoleActive = async (
+  oystehr: Oystehr,
+  input: { roleId: string; active: boolean }
+): Promise<{ active: boolean }> => {
+  const response = await oystehr.zambda.execute({
+    id: ADMIN_SET_PRACTITIONER_ROLE_ACTIVE_ZAMBDA_ID,
+    ...input,
+  } as any);
+  return chooseJson(response);
+};
+
+export const removeQuickPick = async (oystehr: Oystehr, quickPickId: string): Promise<QuickPickRemoveResponse> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: 'admin-remove-quick-pick',
       quickPickId,
     } as any);
     return chooseJson(response);

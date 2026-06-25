@@ -1,10 +1,12 @@
 import { InPersonAppointmentInformation } from '..';
 
 export interface GetAppointmentsZambdaInput {
-  searchDate: string;
-  locationID?: string;
-  providerIDs?: string[];
-  groupIDs?: string[];
+  searchDateFrom: string;
+  searchDateTo: string;
+  timezone: string;
+  locationIds?: string[];
+  providerIds?: string[];
+  serviceCategories?: string[];
   visitType: string[];
   supervisorApprovalEnabled?: boolean;
 }

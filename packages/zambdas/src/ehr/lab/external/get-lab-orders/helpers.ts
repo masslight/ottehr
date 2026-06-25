@@ -39,6 +39,7 @@ import {
   ExternalLabDocuments,
   externalLabOrderIsManual,
   ExternalLabsStatus,
+  GENERIC_LAB_ORDER_TAG,
   getAccountNumberFromLocationAndOrganization,
   getAdditionalPlacerId,
   getFullestAvailableName,
@@ -225,7 +226,7 @@ export const parseOrderData = <SearchBy extends LabOrdersSearchBy>({
 
   const appointmentId = parseAppointmentIdForServiceRequest(serviceRequest, encounters) || '';
   const appointment = appointments.find((a) => a.id === appointmentId);
-  const { testItem, fillerLab } = parseLabInfoFromServiceRequest(serviceRequest);
+  const { testName, fillerLab, testItemCode } = parseLabInfoFromServiceRequest(serviceRequest);
   const orderStatus = parseLabOrderStatus(serviceRequest, tasks, results, cache);
   console.log('external lab orderStatus parsed', orderStatus);
 
@@ -246,7 +247,8 @@ export const parseOrderData = <SearchBy extends LabOrdersSearchBy>({
 
   const listPageDTO: LabOrderListPageDTO = {
     appointmentId,
-    testItem,
+    testItem: testName,
+    testItemCode,
     fillerLab,
     serviceRequestId: serviceRequest.id,
     accessionNumbers: parseAccessionNumbers(serviceRequest, results),
@@ -296,6 +298,7 @@ export const parseOrderData = <SearchBy extends LabOrdersSearchBy>({
       questionnaire: questionnaires,
       samples: parseSamples(serviceRequest, specimens),
       labelPdfUrl: labDocuments?.labelPDF?.presignedURL,
+      isGenericOrder: isGenericOrder(serviceRequest),
     };
 
     return detailedPageDTO as LabOrderDTO<SearchBy>;
@@ -1248,6 +1251,10 @@ export const fetchQuestionnaireForServiceRequests = async (
           Authorization: `Bearer ${m2mToken}`,
         },
       });
+
+      if (!questionnaireRequest.ok) {
+        throw new Error(`Failed to fetch Questionnaire at ${result.questionnaireUrl}: ${questionnaireRequest.status}`);
+      }
 
       const { questionnaireResponse, serviceRequestId } = result;
 
@@ -2665,4 +2672,13 @@ const getContentStringFromCommForSr = (
     .filter(Boolean);
   if (contentStrings.length === 0) return;
   return contentStrings.join('; ');
+};
+
+const isGenericOrder = (serviceRequest: ServiceRequest): boolean => {
+  const isGeneric =
+    serviceRequest.meta?.tag?.some(
+      (tag) => tag.system === GENERIC_LAB_ORDER_TAG.system && tag.code === GENERIC_LAB_ORDER_TAG.code
+    ) ?? false;
+  console.log(`ServiceRequest/${serviceRequest.id} isGeneric: ${isGeneric}`);
+  return isGeneric;
 };

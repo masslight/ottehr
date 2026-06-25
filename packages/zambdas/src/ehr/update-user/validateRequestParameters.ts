@@ -1,95 +1,107 @@
 import {
-  isNPIValid,
+  isNPIValidWithChecksum,
   isPhoneNumberValid,
   isProviderTypeCode,
+  MISSING_REQUEST_BODY,
+  MISSING_REQUEST_SECRETS,
   PROVIDER_TYPE_VALUES,
   RoleType,
   Secrets,
   UpdateUserParams,
 } from 'utils';
-import { ZambdaInput } from '../../shared';
+import { z } from 'zod';
+import { safeValidate, ZambdaInput } from '../../shared';
+
+const UpdateUserSchema = z
+  .object({
+    userId: z.string().uuid(),
+    firstName: z.string().optional(),
+    middleName: z.string().optional(),
+    lastName: z.string().optional(),
+    providerType: z.string().optional(),
+    providerTypeText: z.string().optional(),
+    selectedRoles: z.array(z.nativeEnum(RoleType)).min(1, 'At least one role must be selected.').optional(),
+    licenses: z.array(z.any()).optional(),
+    phoneNumber: z.string().optional(),
+    npi: z.string().optional(),
+    birthDate: z.string().optional(),
+    faxNumber: z.string().optional(),
+    addressLine1: z.string().optional(),
+    addressLine2: z.string().optional(),
+    addressCity: z.string().optional(),
+    addressState: z.string().optional(),
+    addressZip: z.string().optional(),
+  })
+  .refine(
+    (data) => {
+      if (data.phoneNumber && !isPhoneNumberValid(data.phoneNumber)) {
+        return false;
+      }
+      return true;
+    },
+    { message: 'Invalid phone number' }
+  )
+  .refine(
+    (data) => {
+      if (data.selectedRoles?.includes(RoleType.Provider) && data.npi && !isNPIValidWithChecksum(data.npi)) {
+        return false;
+      }
+      return true;
+    },
+    { message: 'Invalid NPI format' }
+  )
+  .refine(
+    (data) => {
+      if (data.providerType && !isProviderTypeCode(data.providerType)) {
+        return false;
+      }
+      return true;
+    },
+    {
+      message: `Invalid providerType. Must be one of "${PROVIDER_TYPE_VALUES.join('", "')}"`,
+    }
+  )
+  .refine(
+    (data) => {
+      if (data.providerType === 'other' && (!data.providerTypeText || !data.providerTypeText.trim())) {
+        return false;
+      }
+      return true;
+    },
+    { message: 'providerTypeText is required when providerType is "other"' }
+  );
 
 export function validateRequestParameters(input: ZambdaInput): UpdateUserParams & { secrets: Secrets } {
+  if (!input.secrets) {
+    throw MISSING_REQUEST_SECRETS;
+  }
+
   if (!input.body) {
-    throw new Error('No request body provided');
+    throw MISSING_REQUEST_BODY;
   }
 
-  const {
-    userId,
-    firstName,
-    middleName,
-    lastName,
-    providerType,
-    providerTypeText,
-    selectedRoles,
-    licenses,
-    phoneNumber,
-    npi,
-    birthDate,
-    faxNumber,
-    addressLine1,
-    addressLine2,
-    addressCity,
-    addressState,
-    addressZip,
-  } = JSON.parse(input.body) as UpdateUserParams;
+  const parsedJSON = JSON.parse(input.body);
 
-  if (
-    userId === undefined
-    // locations === undefined ||
-    // locations.length === 0
-  ) {
-    throw new Error('These fields are required: "userId"');
-  }
-
-  if (phoneNumber && !isPhoneNumberValid(phoneNumber)) {
-    throw new Error('Invalid phone number');
-  }
-
-  if (selectedRoles?.includes(RoleType.Provider) && npi && !isNPIValid(npi)) {
-    throw new Error('Invalid NPI format');
-  }
-
-  if (selectedRoles) {
-    for (const role of selectedRoles) {
-      if (!Object.values(RoleType).includes(role))
-        throw new Error(
-          `Invalid roles selected. Role must be one of "${Object.values(RoleType).join('", "')}". Received "${role}"`
-        );
-    }
-  }
-
-  if (providerType) {
-    if (!isProviderTypeCode(providerType)) {
-      throw new Error(
-        `Invalid providerType. Must be one of "${PROVIDER_TYPE_VALUES.join('", "')}". Received "${providerType}"`
-      );
-    }
-
-    if (providerType === 'other' && (!providerTypeText || !providerTypeText.trim())) {
-      throw new Error('providerTypeText is required when providerType is "other"');
-    }
-  }
+  const validated = safeValidate(UpdateUserSchema, parsedJSON);
 
   return {
-    userId,
-    firstName: firstName ? firstName.trim() : firstName,
-    middleName: middleName ? middleName.trim() : middleName,
-    lastName: lastName ? lastName.trim() : lastName,
-    providerType,
-    providerTypeText: providerTypeText ? providerTypeText.trim() : providerTypeText,
-    selectedRoles,
-    licenses,
-    // locations,
-    phoneNumber: phoneNumber ? phoneNumber.trim() : phoneNumber,
-    npi: npi ? npi.trim() : npi,
-    secrets: input.secrets!,
-    birthDate: birthDate ? birthDate.trim() : birthDate,
-    faxNumber: faxNumber ? faxNumber.trim() : faxNumber,
-    addressLine1: addressLine1 ? addressLine1.trim() : addressLine1,
-    addressLine2: addressLine2 ? addressLine2.trim() : addressLine2,
-    addressCity: addressCity ? addressCity.trim() : addressCity,
-    addressState: addressState ? addressState.trim() : addressState,
-    addressZip: addressZip ? addressZip.trim() : addressZip,
+    userId: validated.userId,
+    firstName: validated.firstName ? validated.firstName.trim() : validated.firstName,
+    middleName: validated.middleName ? validated.middleName.trim() : validated.middleName,
+    lastName: validated.lastName ? validated.lastName.trim() : validated.lastName,
+    providerType: validated.providerType as UpdateUserParams['providerType'],
+    providerTypeText: validated.providerTypeText ? validated.providerTypeText.trim() : validated.providerTypeText,
+    selectedRoles: validated.selectedRoles,
+    licenses: validated.licenses,
+    phoneNumber: validated.phoneNumber ? validated.phoneNumber.trim() : validated.phoneNumber,
+    npi: validated.npi ? validated.npi.trim() : validated.npi,
+    secrets: input.secrets,
+    birthDate: validated.birthDate ? validated.birthDate.trim() : validated.birthDate,
+    faxNumber: validated.faxNumber ? validated.faxNumber.trim() : validated.faxNumber,
+    addressLine1: validated.addressLine1 ? validated.addressLine1.trim() : validated.addressLine1,
+    addressLine2: validated.addressLine2 ? validated.addressLine2.trim() : validated.addressLine2,
+    addressCity: validated.addressCity ? validated.addressCity.trim() : validated.addressCity,
+    addressState: validated.addressState ? validated.addressState.trim() : validated.addressState,
+    addressZip: validated.addressZip ? validated.addressZip.trim() : validated.addressZip,
   };
 }

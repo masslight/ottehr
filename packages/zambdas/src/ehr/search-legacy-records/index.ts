@@ -1,173 +1,136 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { getSecret, MISSING_REQUIRED_PARAMETERS, Secrets, SecretsKeys } from 'utils';
 import {
-  checkOrCreateM2MClientToken,
-  createOystehrClient,
-  topLevelCatch,
-  wrapHandler,
-  ZambdaInput,
-} from '../../shared';
+  FileType,
+  FileTypeMap,
+  getSecret,
+  LegacyFile,
+  LegacyPatientRecord,
+  MISSING_REQUIRED_PARAMETERS,
+  SearchLegacyRecordsInput,
+  SearchLegacyRecordsOutput,
+  Secrets,
+  SecretsKeys,
+} from 'utils';
+import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
 
 const ZAMBDA_NAME = 'ehr-search-legacy-records';
 const LEGACY_DATA_BUCKET_SUFFIX = 'legacy-data';
 
 const PAGE_SIZE_DEFAULT = 20;
 const PAGE_SIZE_MAX = 50;
-const MAX_FILES_PER_RECORD_DEFAULT = 50;
-const MAX_FILES_PER_RECORD_MAX = 200;
+const MAX_FILES_PER_RECORD = 200;
 const PRESIGNED_URL_CONCURRENCY = 10;
 
 let m2mToken: string;
 
-export interface SearchLegacyRecordsInput {
-  lastName: string;
-  firstName?: string;
-  dateOfBirth?: string;
-  /** 1-based page index (default: 1) */
-  page?: number;
-  /** Patient folders per page (default: 20, max: 50) */
-  pageSize?: number;
-  /** Max files returned per patient record (default: 50, max: 200) */
-  maxFilesPerRecord?: number;
-}
-
-export interface LegacyFile {
-  key: string;
-  fileName: string;
-  fileType: 'medical-summary' | 'progress-note' | 'other';
-  presignedUrl: string;
-}
-
-export interface LegacyPatientRecord {
-  patientFolder: string;
-  patientId: string;
-  displayName: string;
-  files: LegacyFile[];
-}
-
-export interface SearchLegacyRecordsOutput {
-  results: LegacyPatientRecord[];
-  /** Total number of matching patient folders (for pagination) */
-  total: number;
-  page: number;
-  pageSize: number;
-}
-
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  try {
-    const { secrets, lastName, firstName, dateOfBirth, page, pageSize, maxFilesPerRecord } =
-      validateRequestParameters(input);
+  const { secrets, lastName, firstName, dateOfBirth, page, pageSize, maxFilesPerRecord } =
+    validateRequestParameters(input);
 
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
-    const projectId = getSecret(SecretsKeys.PROJECT_ID, secrets);
-    const bucketName = `${projectId}-${LEGACY_DATA_BUCKET_SUFFIX}`;
+  const projectId = getSecret(SecretsKeys.PROJECT_ID, secrets);
+  const bucketName = `${projectId}-${LEGACY_DATA_BUCKET_SUFFIX}`;
 
-    // Build prefix from search parameters (all lowercased)
-    const parts: string[] = [lastName.toLowerCase().trim()];
-    if (firstName?.trim()) {
-      parts.push(firstName.toLowerCase().trim());
-    }
-    if (dateOfBirth?.trim()) {
-      parts.push(dateOfBirth.trim());
-    }
-    const prefix = parts.join('_');
+  // Build prefix from search parameters (all lowercased)
+  const parts: string[] = [sanitizeForZ3Path(lastName.toLowerCase().trim())];
+  if (firstName?.trim()) {
+    parts.push(sanitizeForZ3Path(firstName.toLowerCase().trim()));
+  }
+  if (dateOfBirth?.trim()) {
+    parts.push(sanitizeForZ3Path(dateOfBirth.trim()));
+  }
+  const prefix = parts.join('_');
 
-    console.log(`Searching Z3 bucket '${bucketName}' with prefix '${prefix}'`);
+  console.log(`Searching Z3 bucket '${bucketName}' with prefix '${prefix}'`);
 
-    // List all objects under the prefix
-    const objects = await oystehr.z3.listObjects({
-      bucketName,
-      'objectPath+': prefix,
-    });
+  // List all objects under the prefix
+  const objects = await oystehr.z3.listObjects({
+    bucketName,
+    'objectPath+': prefix,
+  });
 
-    if (!objects || objects.length === 0) {
-      return {
-        statusCode: 200,
-        body: JSON.stringify({ results: [], total: 0, page, pageSize } satisfies SearchLegacyRecordsOutput),
-      };
-    }
-
-    // listObjects returns keys with the bucket name as the leading path segment.
-    // Strip it so objectPath values are relative to the bucket (as getPresignedUrl expects).
-    const bucketPrefix = `${bucketName}/`;
-    const stripBucketPrefix = (key: string): string =>
-      key.startsWith(bucketPrefix) ? key.slice(bucketPrefix.length) : key;
-
-    // Group by patient folder (first path segment after stripping bucket prefix).
-    // Supports two key structures:
-    //   - Flat (manually uploaded):  {patientFolder}/{filename}
-    //   - Nested (import script):    {patientFolder}/{patientId}/{subpath...}
-    const byFolder: Record<string, { patientId: string; keys: string[] }> = {};
-    for (const obj of objects) {
-      const objectPath = stripBucketPrefix(obj.key);
-      const segments = objectPath.split('/');
-      if (segments.length < 2) continue;
-      // Skip folder marker entries
-      if (segments[segments.length - 1] === '') continue;
-
-      const patientFolder = segments[0];
-      const isNested = segments.length > 2;
-      const patientId = isNested ? segments[1] : '';
-
-      if (!byFolder[patientFolder]) {
-        byFolder[patientFolder] = { patientId, keys: [] };
-      }
-      byFolder[patientFolder].keys.push(objectPath);
-    }
-
-    // Paginate patient folders
-    const allFolderEntries = Object.entries(byFolder);
-    const total = allFolderEntries.length;
-    const offset = (page - 1) * pageSize;
-    const pageFolderEntries = allFolderEntries.slice(offset, offset + pageSize);
-
-    // Build results for this page, generating presigned URLs in bounded batches
-    const results: LegacyPatientRecord[] = [];
-    for (const [patientFolder, { patientId, keys }] of pageFolderEntries) {
-      const folderParts = patientFolder.split('_');
-      const displayLastName = folderParts[0] ? capitalize(folderParts[0]) : '';
-      const displayFirstName = folderParts[1] ? capitalize(folderParts[1]) : '';
-      const displayDob = folderParts.slice(2).join('-');
-      const displayName = `${displayLastName}, ${displayFirstName}${displayDob ? ` (DOB: ${displayDob})` : ''}`;
-
-      const cappedKeys = keys.slice(0, maxFilesPerRecord);
-      const files: LegacyFile[] = [];
-      for (let i = 0; i < cappedKeys.length; i += PRESIGNED_URL_CONCURRENCY) {
-        const batch = cappedKeys.slice(i, i + PRESIGNED_URL_CONCURRENCY);
-        const batchResults = await Promise.all(
-          batch.map(async (key) => {
-            const fileName = key.split('/').pop() ?? key;
-            const lowerKey = key.toLowerCase();
-            const fileType: LegacyFile['fileType'] = lowerKey.includes('medical_summary')
-              ? 'medical-summary'
-              : lowerKey.includes('progressnotes') || lowerKey.includes('/enc/') || lowerKey.endsWith('/enc')
-              ? 'progress-note'
-              : 'other';
-            const presignedResponse = await oystehr.z3.getPresignedUrl({
-              action: 'download',
-              bucketName,
-              'objectPath+': key,
-            });
-            return { key, fileName, fileType, presignedUrl: presignedResponse.signedUrl };
-          })
-        );
-        files.push(...batchResults);
-      }
-
-      results.push({ patientFolder, patientId, displayName, files });
-    }
-
+  if (!objects || objects.length === 0) {
     return {
       statusCode: 200,
-      body: JSON.stringify({ results, total, page, pageSize } satisfies SearchLegacyRecordsOutput),
+      body: JSON.stringify({ results: [], total: 0, page, pageSize } satisfies SearchLegacyRecordsOutput),
     };
-  } catch (error: any) {
-    console.log('Error: ', JSON.stringify(error.message));
-    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    return topLevelCatch(ZAMBDA_NAME, error, ENVIRONMENT);
   }
+
+  // listObjects returns keys with the bucket name as the leading path segment.
+  // Strip it so objectPath values are relative to the bucket (as getPresignedUrl expects).
+  const bucketPrefix = `${bucketName}/`;
+  const stripBucketPrefix = (key: string): string =>
+    key.startsWith(bucketPrefix) ? key.slice(bucketPrefix.length) : key;
+
+  // Group by patient folder (first path segment after stripping bucket prefix).
+  // Supports two key structures:
+  //   - Flat (manually uploaded):  {patientFolder}/{filename}
+  //   - Nested (import script):    {patientFolder}/{patientId}/{subpath...}
+  const byFolder: Record<string, { patientId: string; keys: string[] }> = {};
+  for (const obj of objects) {
+    const objectPath = stripBucketPrefix(obj.key);
+    const segments = objectPath.split('/');
+    if (segments.length < 2) continue;
+    // Skip folder marker entries
+    if (segments[segments.length - 1] === '') continue;
+
+    const patientFolder = segments[0];
+    const isNested = segments.length > 2;
+    const patientId = isNested ? segments[1] : '';
+
+    if (!byFolder[patientFolder]) {
+      byFolder[patientFolder] = { patientId, keys: [] };
+    }
+    byFolder[patientFolder].keys.push(objectPath);
+  }
+
+  // Paginate patient folders
+  const allFolderEntries = Object.entries(byFolder);
+  const total = allFolderEntries.length;
+  const offset = (page - 1) * pageSize;
+  const pageFolderEntries = allFolderEntries.slice(offset, offset + pageSize);
+
+  // Build results for this page, generating presigned URLs in bounded batches
+  const results: LegacyPatientRecord[] = [];
+  for (const [patientFolder, { patientId, keys }] of pageFolderEntries) {
+    const folderParts = patientFolder.split('_');
+    const displayLastName = folderParts[0] ? capitalize(folderParts[0]) : '';
+    const firstNameParts = folderParts.slice(1, -1);
+    const displayFirstName = firstNameParts.map(capitalize).join(' ');
+    const displayDob = folderParts[folderParts.length - 1] || '';
+    const displayName = `${displayLastName}, ${displayFirstName}${displayDob ? ` (DOB: ${displayDob})` : ''}`;
+
+    const cappedKeys = keys.slice(0, maxFilesPerRecord);
+    const files: LegacyFile[] = [];
+    for (let i = 0; i < cappedKeys.length; i += PRESIGNED_URL_CONCURRENCY) {
+      const batch = cappedKeys.slice(i, i + PRESIGNED_URL_CONCURRENCY);
+      const batchResults = await Promise.all(
+        batch.map(async (key) => {
+          const fileName = key.split('/').pop() ?? key;
+          const lowerKey = key.toLowerCase();
+
+          const fileType = getFileTypeFromKey(lowerKey);
+
+          const presignedResponse = await oystehr.z3.getPresignedUrl({
+            action: 'download',
+            bucketName,
+            'objectPath+': key,
+          });
+          return { key, fileName, fileType, presignedUrl: presignedResponse.signedUrl };
+        })
+      );
+      files.push(...batchResults);
+    }
+
+    results.push({ patientFolder, patientId, displayName, files });
+  }
+
+  return {
+    statusCode: 200,
+    body: JSON.stringify({ results, total, page, pageSize } satisfies SearchLegacyRecordsOutput),
+  };
 });
 
 function capitalize(str: string): string {
@@ -175,6 +138,19 @@ function capitalize(str: string): string {
   return str.charAt(0).toUpperCase() + str.slice(1);
 }
 
+/**
+ * Removes leading/trailing spaces, replaces inner whitespace with "_",
+ * Strips any character that is not accepted in z3 object naming.
+ * Characters accepted: letters, numbers, plus (+), exclamation point (!), hyphen (-), underscore (_), single quote ('),
+ * open parenthesis ((), closed parenthesis ()), period (.), at sign (@), dollar sign ($)
+ */
+function sanitizeForZ3Path(value: string): string {
+  // this logic matches what was used to push data in the v2 migration
+  return value
+    .trim()
+    .replace(/\s+/g, '_')
+    .replace(/[^A-Za-z0-9+!_\-'.()@$]/g, '');
+}
 interface ValidatedParameters {
   secrets: Secrets | null;
   lastName: string;
@@ -219,9 +195,9 @@ function validateRequestParameters(input: ZambdaInput): ValidatedParameters {
     PAGE_SIZE_MAX,
     Math.max(1, typeof rawPageSize === 'number' ? Math.floor(rawPageSize) : PAGE_SIZE_DEFAULT)
   );
-  const maxFilesPerRecord = Math.min(
-    MAX_FILES_PER_RECORD_MAX,
-    Math.max(1, typeof rawMaxFiles === 'number' ? Math.floor(rawMaxFiles) : MAX_FILES_PER_RECORD_DEFAULT)
+  const maxFilesPerRecord = Math.max(
+    1,
+    typeof rawMaxFiles === 'number' ? Math.floor(rawMaxFiles) : MAX_FILES_PER_RECORD
   );
 
   return {
@@ -233,4 +209,23 @@ function validateRequestParameters(input: ZambdaInput): ValidatedParameters {
     pageSize,
     maxFilesPerRecord,
   };
+}
+
+function getFileTypeFromKey(key: string): FileType {
+  const lowerKey = key.toLowerCase();
+
+  for (const [fileType, { folder: folderName }] of Object.entries(FileTypeMap)) {
+    const folderNameLower = folderName.toLocaleLowerCase();
+
+    if (lowerKey.includes(folderNameLower)) return fileType as FileType;
+
+    // first iteration data migration pushed in progress notes under /enc
+    if (fileType === FileType.PROGRESS_NOTE) {
+      if (lowerKey.includes('/enc/') || lowerKey.endsWith('/enc')) {
+        return fileType as FileType;
+      }
+    }
+  }
+
+  return FileType.OTHER;
 }

@@ -1,10 +1,10 @@
 import { expect, Locator, Page } from '@playwright/test';
 import { formatPhoneNumberForQuestionnaire, PATIENT_RECORD_CONFIG } from 'utils';
 import { dataTestIds } from '../../../src/constants/data-test-ids';
-import { AddInsuranceDialog } from './patient-information/AddInsuranceDialog';
 import { PatientHeader } from './PatientHeader';
 
 const insuranceSection = PATIENT_RECORD_CONFIG.FormFields.insurance;
+const pharmacyFields = PATIENT_RECORD_CONFIG.FormFields.preferredPharmacy;
 
 export class PatientInformationPage {
   #page: Page;
@@ -12,9 +12,11 @@ export class PatientInformationPage {
 
   constructor(page: Page) {
     this.#page = page;
+    // Insurance containers now render without individual section wrappers,
+    // so we scope InsuranceCard to the page level (field names are unique per ordinal).
     this.#insuranceCards = [
-      new InsuranceCard(page.locator(`#${insuranceSection.linkId[0]}`), insuranceSection.items[0]),
-      new InsuranceCard(page.locator(`#${insuranceSection.linkId[1]}`), insuranceSection.items[1]),
+      new InsuranceCard(page.locator('body'), insuranceSection.items[0], 0),
+      new InsuranceCard(page.locator('body'), insuranceSection.items[1], 1),
     ];
   }
 
@@ -174,14 +176,27 @@ export class PatientInformationPage {
     await this.#page.getByTestId(dataTestIds.loadingScreen).waitFor({ state: 'detached' });
   }
 
-  async clickAddInsuranceButton(): Promise<AddInsuranceDialog> {
+  async clickAddInsuranceButton(): Promise<InsuranceCard> {
     await this.#page.getByTestId(dataTestIds.patientInformationPage.addInsuranceButton).click();
-    await this.#page.getByTestId(dataTestIds.addInsuranceDialog.id).isVisible();
-    return new AddInsuranceDialog(this.#page.getByTestId(dataTestIds.addInsuranceDialog.id));
+
+    // Wait for the inline "Cancel" button that only appears on the new insurance form.
+    await expect(this.#page.getByRole('button', { name: 'Cancel' })).toBeVisible();
+
+    // The new inline form's member ID field is empty (just created).
+    // An existing insurance's member ID will have a value.
+    // Check which member ID field is empty to determine which card was just created.
+    const primaryMemberIdValue = await this.#page
+      .locator(`input[name="${insuranceSection.items[0].memberId.key}"]`)
+      .inputValue()
+      .catch(() => 'not-found');
+    if (primaryMemberIdValue === '') {
+      return this.#insuranceCards[0];
+    }
+    return this.#insuranceCards[1];
   }
 
   async verifyAddInsuranceButtonIsHidden(): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.patientInformationPage.addInsuranceButton).isHidden();
+    await expect(this.#page.getByTestId(dataTestIds.patientInformationPage.addInsuranceButton)).toBeHidden();
   }
 
   async verifyCoverageAddedSuccessfullyMessageShown(): Promise<void> {
@@ -228,9 +243,22 @@ export class PatientInformationPage {
   }
 
   async verifyPharmacySearchIsPresent(): Promise<void> {
-    // if no pharmacy data is saved for the patient, the search should show
+    // If no pharmacy data is saved for the patient, the search should show
     const searchField = this.#page.getByTestId(dataTestIds.patientInformationPage.pharmacySearch);
-    await expect(searchField).toBeVisible();
+    await expect(searchField, 'Pharmacy search field is visible').toBeVisible();
+
+    // Manual entry fields should NOT be present when search is visible
+    const manualPharmacyName = this.#page.locator(`#${pharmacyFields.items.name.key}`);
+    await expect(
+      manualPharmacyName,
+      'Manual pharmacy name field should not be visible while the pharmacy search field is present'
+    ).toBeHidden();
+
+    const manualPharmacyAddress = this.#page.locator(`#${pharmacyFields.items.address.key}`);
+    await expect(
+      manualPharmacyAddress,
+      'Manual pharmacy address field should not be visible while the pharmacy search field is present'
+    ).toBeHidden();
   }
 
   async clickToAddPharmacyManually(fieldKey: string): Promise<void> {
@@ -242,10 +270,12 @@ export class PatientInformationPage {
 export class InsuranceCard {
   #container: Locator;
   #insuranceItems: (typeof insuranceSection.items)[0];
+  #ordinalIndex: number;
 
-  constructor(container: Locator, insuranceItems: (typeof insuranceSection.items)[0]) {
+  constructor(container: Locator, insuranceItems: (typeof insuranceSection.items)[0], ordinalIndex?: number) {
     this.#container = container;
     this.#insuranceItems = insuranceItems;
+    this.#ordinalIndex = ordinalIndex ?? 0;
   }
 
   inputByName(name: string): Locator {
@@ -329,7 +359,13 @@ export class InsuranceCard {
   }
 
   async clickRemoveInsuranceButton(): Promise<void> {
-    await this.#container.getByTestId(dataTestIds.insuranceContainer.removeButton).click();
+    await this.#container.getByTestId(dataTestIds.insuranceContainer.removeButton).nth(this.#ordinalIndex).click();
+  }
+
+  async verifyTypeField(value: string, enabled: boolean): Promise<void> {
+    const locator = this.inputByName(this.#insuranceItems.insurancePriority.key);
+    await expect(locator).toHaveValue(value);
+    await expect(locator).toBeEnabled({ enabled });
   }
 
   async verifyValidationErrorShown(fieldKey: string): Promise<void> {

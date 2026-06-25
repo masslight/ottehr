@@ -1,13 +1,10 @@
-import { useAuth0 } from '@auth0/auth0-react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import mixpanel from 'mixpanel-browser';
-import { useEffect } from 'react';
 import { Helmet, HelmetProvider } from 'react-helmet-async';
 import { BrowserRouter as Router, Navigate, Route, Routes } from 'react-router-dom';
-import { setupSentry } from 'utils';
+import { parseCommaSeparatedTags } from 'utils';
+import { setupSentry } from 'utils/lib/frontend';
 import { ScrollToTop } from './components/ScrollToTop';
 import { TestErrorPage } from './components/TestErrorPage';
-import { MixpanelContextProps, setupMixpanel } from './configurations';
 import { IntakeThemeProvider } from './IntakeThemeProvider';
 import { BookingHome, GetReadyForVisit, NewUser, Reschedule, Version } from './pages';
 import AIInterview from './pages/AIInterview';
@@ -17,7 +14,6 @@ import CancellationConfirmation from './pages/CancellationConfirmation';
 import CancellationReason from './pages/CancellationReason';
 import CheckIn from './pages/CheckIn';
 import WelcomeBack from './pages/ChoosePatient';
-import ConfirmDateOfBirth from './pages/ConfirmDateOfBirth';
 import Homepage from './pages/Homepage';
 import MyPatients from './pages/MyPatients';
 import { PaperworkHome, PaperworkPage } from './pages/PaperworkPage';
@@ -46,20 +42,13 @@ import { IOSVideoCallMenu } from './telemed/pages/IOS/IOSVideoCallMenu';
 import VideoChatPage from './telemed/pages/VideoChatPage';
 import WaitingRoom from './telemed/pages/WaitingRoom';
 import Welcome from './telemed/pages/Welcome';
-const { VITE_APP_MIXPANEL_TOKEN, VITE_APP_SENTRY_ENV, VITE_APP_SENTRY_DSN } = import.meta.env;
+const { VITE_APP_SENTRY_ENV, VITE_APP_SENTRY_DSN, VITE_APP_SENTRY_TAGS } = import.meta.env;
 
 setupSentry({
   dsn: VITE_APP_SENTRY_DSN,
   environment: VITE_APP_SENTRY_ENV,
+  tags: parseCommaSeparatedTags(VITE_APP_SENTRY_TAGS),
 });
-
-const MIXPANEL_SETTINGS: MixpanelContextProps = {
-  token: VITE_APP_MIXPANEL_TOKEN,
-  // cSpell:disable-next appname
-  registerProps: { appname: 'In Person' },
-};
-
-setupMixpanel(MIXPANEL_SETTINGS);
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -228,6 +217,10 @@ export const intakeFlowPageRoute = {
     path: '/walkin/location/:name/select-service-category',
     getPage: () => <SelectServiceCategoryPage />,
   },
+  SelectServiceCategoryWalkinBySchedule: {
+    path: '/walkin/schedule/:id/select-service-category',
+    getPage: () => <SelectServiceCategoryPage />,
+  },
   StartVirtualVisit: {
     path: '/start-virtual',
     getPage: () => <StartVirtualVisit />,
@@ -243,10 +236,6 @@ export const intakeFlowPageRoute = {
   GetReadyForVisit: {
     path: `${bookingBasePath}/get-ready`,
     getPage: () => <GetReadyForVisit />,
-  },
-  ConfirmDateOfBirth: {
-    path: `${bookingBasePath}/confirm-date-of-birth`,
-    getPage: () => <ConfirmDateOfBirth />,
   },
   PatientInfoCollection: {
     path: `${bookingBasePath}/patient-information`,
@@ -272,19 +261,6 @@ export const intakeFlowPageRoute = {
 
 function App(): JSX.Element {
   useIOSAppSync();
-
-  const { user } = useAuth0();
-  useEffect(() => {
-    mixpanel.identify();
-  }, []);
-  useEffect(() => {
-    // user.name = user's verified phone number
-    if (user?.name) {
-      mixpanel.people.set({
-        $phone: user.name,
-      });
-    }
-  }, [user?.name]);
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -354,6 +330,10 @@ function App(): JSX.Element {
                   element={intakeFlowPageRoute.SelectServiceCategoryWalkin.getPage()}
                 />
                 <Route
+                  path={intakeFlowPageRoute.SelectServiceCategoryWalkinBySchedule.path}
+                  element={intakeFlowPageRoute.SelectServiceCategoryWalkinBySchedule.getPage()}
+                />
+                <Route
                   path={intakeFlowPageRoute.StartVirtualVisit.path}
                   element={intakeFlowPageRoute.StartVirtualVisit.getPage()}
                 />
@@ -404,10 +384,6 @@ function App(): JSX.Element {
                         element={intakeFlowPageRoute.PatientInformation.getPage()}
                       />
                     </Route>
-                    <Route
-                      path={intakeFlowPageRoute.ConfirmDateOfBirth.path}
-                      element={intakeFlowPageRoute.ConfirmDateOfBirth.getPage()}
-                    />
                     <Route path={intakeFlowPageRoute.Review.path} element={intakeFlowPageRoute.Review.getPage()} />
                   </Route>
                   <Route

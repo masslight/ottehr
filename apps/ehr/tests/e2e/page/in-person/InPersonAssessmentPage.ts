@@ -1,6 +1,5 @@
 import { expect, Page } from '@playwright/test';
-import { waitForResponseWithData } from 'test-utils';
-import { DeleteChartDataResponse } from 'utils';
+import { clickAndWaitForChartDataDeletion } from 'test-utils';
 import { dataTestIds } from '../../../../src/constants/data-test-ids';
 import { BaseAssessmentPage } from '../abstract/BaseAssessmentPage';
 
@@ -35,8 +34,15 @@ export class InPersonAssessmentPage extends BaseAssessmentPage {
   }
 
   async verifyCptCode(code: string): Promise<void> {
-    const value = await this.#page.getByTestId(dataTestIds.billingContainer.cptCodeEntry(code)).textContent();
-    expect(value).toContain(code);
+    await expect(this.#page.getByTestId(dataTestIds.billingContainer.cptCodeEntry(code))).toContainText(code);
+  }
+
+  async verifyExactCptCodeDisplayIsShown(cptCodeDisplay: string): Promise<void> {
+    const container = this.#page.getByTestId(dataTestIds.billingContainer.cptCodeContainer);
+    await expect(
+      container.getByText(cptCodeDisplay, { exact: true }),
+      `checking ${cptCodeDisplay} is visible`
+    ).toBeVisible();
   }
 
   async verifyCptCodeAbsent(code: string): Promise<void> {
@@ -45,14 +51,65 @@ export class InPersonAssessmentPage extends BaseAssessmentPage {
   }
 
   async deleteCptCode(code: string): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.billingContainer.deleteCptCodeButton(code)).click();
-    await waitForResponseWithData<DeleteChartDataResponse>(this.#page, '/delete-chart-data', () => true);
+    await clickAndWaitForChartDataDeletion(
+      this.#page,
+      this.#page.getByTestId(dataTestIds.billingContainer.deleteCptCodeButton(code))
+    );
   }
 
   async expectBillingCodesElement(): Promise<void> {
     await this.#page.getByTestId(dataTestIds.billingContainer.container).waitFor({ state: 'visible' });
     const billingCodesContainer = this.#page.getByTestId(dataTestIds.billingContainer.container);
     await expect(billingCodesContainer).toBeVisible(DEFAULT_TIMEOUT);
+  }
+
+  /**
+   * will return the primary dx and code string IF its entered, if nothing has been entered it returns null
+   * it will NOT error if nothing is entered
+   * @returns string or null
+   */
+  async checkForPrimaryDx(): Promise<string | null> {
+    const primaryDx = this.#page.getByTestId(dataTestIds.diagnosisContainer.primaryDiagnosis);
+
+    // if theres no dx entered,
+    if ((await primaryDx.count()) === 0) {
+      return null;
+    }
+
+    return await primaryDx.innerText();
+  }
+
+  async checkForSecondaryDx(input: { secondaryDx: string; addedViaLabOrder: boolean }): Promise<void> {
+    const { secondaryDx, addedViaLabOrder } = input;
+
+    const secondaryDxContainer = this.#page.getByTestId(dataTestIds.diagnosisContainer.secondaryDiagnosisContainer);
+    const secondaryDxItems = secondaryDxContainer.getByTestId(dataTestIds.diagnosisContainer.secondaryDiagnosis);
+
+    const count = await secondaryDxItems.count();
+    let found = false;
+
+    for (let i = 0; i < count; i++) {
+      const item = secondaryDxItems.nth(i);
+      const text = (await item.textContent())?.trim() || '';
+
+      if (text.includes(secondaryDx)) {
+        // Confirm text exists
+        await expect(item, `Confirming secondary diagnosis "${secondaryDx}" appears`).toContainText(secondaryDx);
+
+        // If added via lab order, confirm the info icon exists
+        if (addedViaLabOrder) {
+          const infoIcon = item.locator('svg');
+          await expect(infoIcon, `Confirming info icon is present for "${secondaryDx}"`).toBeVisible();
+        }
+
+        found = true;
+        break;
+      }
+    }
+
+    if (!found) {
+      throw new Error(`Secondary diagnosis "${secondaryDx}" not found in the list`);
+    }
   }
 }
 

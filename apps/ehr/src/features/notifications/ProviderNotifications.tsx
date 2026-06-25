@@ -1,7 +1,7 @@
 import { NotificationsOutlined } from '@mui/icons-material';
 import { alpha, Badge, Box, Button, Menu, Typography, useTheme } from '@mui/material';
 import { DateTime } from 'luxon';
-import { EventHandler, FC, memo, MouseEvent, useEffect, useMemo, useState } from 'react';
+import { EventHandler, FC, memo, MouseEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { IconButtonContained } from 'src/features/visits/shared/components/IconButtonContained';
 import {
@@ -21,6 +21,7 @@ type ProviderNotificationDisplay = {
   isUnread: boolean;
   link?: string;
   sent: string;
+  timestamp?: string;
 };
 
 export const ProviderNotifications: FC = memo(() => {
@@ -30,7 +31,7 @@ export const ProviderNotifications: FC = memo(() => {
   const { data: notificationsData } = useGetProviderNotifications();
   const updateNotifications = useUpdateProviderNotificationsMutation();
   const [notificationsOpen, setNotificationsOpen] = useState<boolean>(false);
-  const [notificationsElement, setNotificationsElement] = useState<undefined | HTMLElement>(undefined);
+  const anchorRef = useRef<HTMLButtonElement>(null);
 
   const {
     method: notificationMethod,
@@ -58,10 +59,14 @@ export const ProviderNotifications: FC = memo(() => {
           sent: notification.communication.sent
             ? DateTime.fromISO(notification.communication.sent).toRelative()!
             : 'N/A',
-          link: notification.appointmentID ? `/telemed/appointments/${notification.appointmentID}` : undefined,
+          timestamp: notification.communication.sent,
+          link: notification.appointmentID ? `/visit/${notification.appointmentID}` : undefined,
         };
       }) || []
-    ).sort((a, b) => (a.sent && b.sent && DateTime.fromISO(a.sent) > DateTime.fromISO(b.sent) ? -1 : 0));
+    ).sort((a, b) => {
+      if (!a.timestamp || !b.timestamp) return 0;
+      return b.timestamp.localeCompare(a.timestamp);
+    });
   }, [notificationsData]);
 
   const hasUnread = notifications.some((notification) => notification.isUnread);
@@ -74,19 +79,19 @@ export const ProviderNotifications: FC = memo(() => {
     });
   }, [notificationMethod, taskNotificationsEnabled, telemedNotificationsEnabled]);
 
-  const handleIconButtonClick: EventHandler<MouseEvent<HTMLElement>> = (event) => {
+  const handleIconButtonClick: EventHandler<MouseEvent<HTMLElement>> = useCallback(() => {
     setNotificationsOpen(true);
-    setNotificationsElement(event.currentTarget);
     if (hasUnread) {
       void updateNotifications.mutateAsync({
         ids: notifications.filter((notification) => notification.isUnread).map((notification) => notification.id),
         status: 'completed',
       });
     }
-  };
+  }, [hasUnread, notifications, updateNotifications]);
 
   const IconButton = (
     <IconButtonContained
+      ref={anchorRef}
       id="notifications-button"
       sx={{ marginRight: { sm: 0, md: 2 } }}
       aria-controls="notifications-menu"
@@ -101,32 +106,28 @@ export const ProviderNotifications: FC = memo(() => {
 
   return (
     <>
-      {hasUnread ? (
-        <Badge
-          variant="dot"
-          color="warning"
-          sx={{
-            '& .MuiBadge-badge': {
-              width: '10px',
-              height: '10px',
-              borderRadius: '10px',
-              top: '6px',
-              right: '21px',
-            },
-          }}
-        >
-          {IconButton}
-        </Badge>
-      ) : (
-        IconButton
-      )}
+      <Badge
+        variant="dot"
+        color="warning"
+        invisible={!hasUnread}
+        sx={{
+          '& .MuiBadge-badge': {
+            width: '10px',
+            height: '10px',
+            borderRadius: '10px',
+            top: '6px',
+            right: '21px',
+          },
+        }}
+      >
+        {IconButton}
+      </Badge>
       <Menu
         id="notifications-menu"
-        anchorEl={notificationsElement}
+        anchorEl={anchorRef.current}
         open={notificationsOpen}
         onClose={() => {
           setNotificationsOpen(false);
-          setNotificationsElement(undefined);
         }}
         MenuListProps={{
           'aria-labelledby': 'notifications-button',

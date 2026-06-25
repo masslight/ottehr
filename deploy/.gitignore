@@ -6,10 +6,10 @@
 
 # Generated files
 oystehr/*.tf.json
+billing_app/*.tf.json
 
 # Secret files populated from elsewhere
 backend.config
-*_import.tf
 
 # Per-cloud overrides
 aws_override.tf

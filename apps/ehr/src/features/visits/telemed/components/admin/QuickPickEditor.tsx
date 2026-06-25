@@ -1,4 +1,5 @@
 import AddIcon from '@mui/icons-material/Add';
+import CloseIcon from '@mui/icons-material/Close';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import EditIcon from '@mui/icons-material/Edit';
 import {
@@ -28,6 +29,7 @@ import { RoundedButton } from 'src/components/RoundedButton';
 export interface QuickPickEditorColumn<T> {
   label: string;
   getValue: (item: T) => string;
+  getSortValue?: (item: T) => string;
   width?: number;
 }
 
@@ -36,6 +38,9 @@ export interface QuickPickEditorField {
   label: string;
   required?: boolean;
   placeholder?: string;
+  multiline?: boolean;
+  rows?: number;
+  maxLength?: number;
   renderField?: (
     value: string,
     onChange: (value: string) => void,
@@ -46,6 +51,7 @@ export interface QuickPickEditorField {
 interface QuickPickEditorProps<T extends { id?: string }> {
   title: string;
   description: string;
+  itemLabel?: string;
   columns: QuickPickEditorColumn<T>[];
   fields: QuickPickEditorField[];
   editable?: boolean;
@@ -60,6 +66,7 @@ interface QuickPickEditorProps<T extends { id?: string }> {
 export default function QuickPickEditor<T extends { id?: string }>({
   title,
   description,
+  itemLabel = 'Quick Pick',
   columns,
   fields,
   editable = true,
@@ -98,7 +105,10 @@ export default function QuickPickEditor<T extends { id?: string }>({
   const sortedItems = useMemo(() => {
     const firstCol = columns[0];
     if (!firstCol) return items;
-    return [...items].sort((a, b) => firstCol.getValue(a).localeCompare(firstCol.getValue(b)));
+    const getSortValue = firstCol.getSortValue ?? firstCol.getValue;
+    return [...items].sort((a, b) =>
+      getSortValue(a).localeCompare(getSortValue(b), undefined, { sensitivity: 'base' })
+    );
   }, [items, columns]);
 
   const openAddDialog = (): void => {
@@ -215,7 +225,11 @@ export default function QuickPickEditor<T extends { id?: string }>({
                     <IconButton
                       size="small"
                       onClick={() => {
-                        if (window.confirm('Remove this quick pick?')) {
+                        const displayName = columns[0]?.getValue(item) ?? '';
+                        const message = displayName
+                          ? `Remove ${itemLabel} "${displayName}"?`
+                          : `Remove this ${itemLabel.toLowerCase()}?`;
+                        if (window.confirm(message)) {
                           void handleDelete(item);
                         }
                       }}
@@ -232,9 +246,31 @@ export default function QuickPickEditor<T extends { id?: string }>({
         </TableContainer>
       )}
 
-      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>{editingItem ? 'Edit Quick Pick' : 'Add Quick Pick'}</DialogTitle>
-        <DialogContent>
+      <Dialog
+        open={dialogOpen}
+        onClose={() => setDialogOpen(false)}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{ sx: { borderRadius: 2 } }}
+      >
+        <DialogTitle
+          sx={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            px: 3,
+            pt: 3,
+            pb: 1,
+          }}
+        >
+          <Typography variant="h4" color="primary.dark" sx={{ fontWeight: 600 }}>
+            {editingItem ? `Edit ${itemLabel}` : `Add ${itemLabel}`}
+          </Typography>
+          <IconButton onClick={() => setDialogOpen(false)} size="small" disabled={saving}>
+            <CloseIcon />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent sx={{ px: 3, pt: 1, pb: 1 }}>
           {fields.map((field, index) =>
             field.renderField ? (
               <Box key={field.key} sx={{ mt: index === 0 ? 1 : 2 }}>
@@ -255,11 +291,17 @@ export default function QuickPickEditor<T extends { id?: string }>({
                 autoFocus={index === 0}
                 placeholder={field.placeholder}
                 required={field.required}
+                multiline={field.multiline}
+                rows={field.multiline ? field.rows ?? 4 : undefined}
+                inputProps={field.maxLength ? { maxLength: field.maxLength } : undefined}
+                helperText={
+                  field.maxLength ? `${(fieldValues[field.key] ?? '').length} / ${field.maxLength}` : undefined
+                }
               />
             )
           )}
         </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2 }}>
+        <DialogActions sx={{ px: 3, pb: 3, pt: 2 }}>
           <RoundedButton onClick={() => setDialogOpen(false)} disabled={saving}>
             Cancel
           </RoundedButton>

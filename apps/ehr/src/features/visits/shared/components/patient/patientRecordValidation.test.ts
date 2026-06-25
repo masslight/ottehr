@@ -2,12 +2,12 @@
  * @vitest-environment node
  */
 
+import { FormFieldsInputItem } from 'config-types';
 import { DateTime } from 'luxon';
-import { FormFieldsInputItem, PATIENT_RECORD_CONFIG } from 'utils';
+import { evaluateFieldTriggers, PATIENT_RECORD_CONFIG } from 'utils';
 import { describe, expect, it } from 'vitest';
 import {
   createDynamicValidationResolver,
-  evaluateFieldTriggers,
   generateFieldValidationRules,
   generateValidationRulesForSection,
 } from './patientRecordValidation';

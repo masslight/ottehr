@@ -17,11 +17,10 @@ import {
 } from '../../../ehr/shared/harvest';
 import { getStripeClient } from '../../../patient/payment-methods/helpers';
 import {
-  createOystehrClient,
+  createClinicalOystehrClient,
   getAuth0Token,
   makeObservationResource,
   saveResourceRequest,
-  topLevelCatch,
   triggerSlackAlarm,
   wrapHandler,
   ZambdaInput,
@@ -34,31 +33,26 @@ let oystehrToken: string;
 export const index = wrapHandler('sub-intake-harvest', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.log('Intake Harvest Hath Been Invoked');
   console.log(`Input: ${JSON.stringify(input)}`);
-  try {
-    console.group('validateRequestParameters');
-    const validatedParameters = validateRequestParameters(input);
-    const { qr, secrets } = validatedParameters;
-    console.log('questionnaire response id', qr.id);
-    console.groupEnd();
-    console.debug('validateRequestParameters success');
+  console.group('validateRequestParameters');
+  const validatedParameters = validateRequestParameters(input);
+  const { qr, secrets } = validatedParameters;
+  console.log('questionnaire response id', qr.id);
+  console.groupEnd();
+  console.debug('validateRequestParameters success');
 
-    if (!oystehrToken) {
-      console.log('getting token');
-      oystehrToken = await getAuth0Token(secrets);
-    } else {
-      console.log('already have token');
-    }
-
-    const oystehr = createOystehrClient(oystehrToken, secrets);
-    const response = await performEffect(validatedParameters, oystehr);
-    return {
-      statusCode: 200,
-      body: JSON.stringify(response),
-    };
-  } catch (error: any) {
-    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    return topLevelCatch('qr-subscription', error, ENVIRONMENT);
+  if (!oystehrToken) {
+    console.log('getting token');
+    oystehrToken = await getAuth0Token(secrets);
+  } else {
+    console.log('already have token');
   }
+
+  const oystehr = createClinicalOystehrClient(oystehrToken, secrets);
+  const response = await performEffect(validatedParameters, oystehr);
+  return {
+    statusCode: 200,
+    body: JSON.stringify(response),
+  };
 });
 
 // this is exported to facilitate integration testing
@@ -117,6 +111,18 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
 
   if (appointmentResource === undefined || appointmentResource.id === undefined) {
     throw new Error('Appointment resource not found');
+  }
+
+  // Idempotency guard: if the Appointment already carries the harvest-complete tag and the
+  // QR is firing as `completed` (initial completion semantics), this is a duplicate event —
+  // a subscription replay, or integration-test seed data that pre-sets the tag to opt out
+  // of harvest. Skip finalization. Amended QRs still flow through so flagPaperworkEdit
+  // fires below; status=amended is the contract for "paperwork edited after completion".
+  if (qr.status === 'completed' && hasHarvestCompleteTag(appointmentResource)) {
+    console.log(
+      `Skipping harvest for QR ${qr.id}: appointment ${appointmentResource.id} is already tagged ${FHIR_APPOINTMENT_INTAKE_HARVESTING_COMPLETED_TAG.code}`
+    );
+    return `skipped: appointment already harvested`;
   }
 
   // Wait for page-level harvest Tasks to finish before finalization
@@ -220,6 +226,18 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
   }
 
   return response;
+};
+
+// Exported for unit-testing. Returns true iff the Appointment carries the meta tag
+// (system + code) that this subscription sets at the end of a successful finalization.
+export const hasHarvestCompleteTag = (appointment: Appointment): boolean => {
+  return (
+    appointment.meta?.tag?.some(
+      (tag) =>
+        tag.system === FHIR_APPOINTMENT_INTAKE_HARVESTING_COMPLETED_TAG.system &&
+        tag.code === FHIR_APPOINTMENT_INTAKE_HARVESTING_COMPLETED_TAG.code
+    ) ?? false
+  );
 };
 
 async function waitForPageHarvestTasks(qrId: string, oystehr: Oystehr): Promise<void> {

@@ -2,7 +2,7 @@ import { Table, TableBody, TableCell, TableHead, TableRow } from '@mui/material'
 import { FC } from 'react';
 import { Link } from 'react-router-dom';
 import { getVisitTypeLabelForTypeAndServiceMode } from 'src/shared/utils';
-import { AppointmentHistoryRow, formatMinutes, ServiceMode } from 'utils';
+import { AppointmentHistoryRow, formatMinutes } from 'utils';
 import { formatISOStringToDateAndTime } from '../helpers/formatDateTime';
 
 type PastVisitsTableProps = {
@@ -41,14 +41,7 @@ export const PastVisitsTable: FC<PastVisitsTableProps> = (props) => {
               {appointment.dateTime ? appointment.dateTime && formatISOStringToDateAndTime(appointment.dateTime) : '-'}
             </TableCell>
             <TableCell>
-              <Link
-                to={
-                  appointment.serviceMode === ServiceMode.virtual
-                    ? `/telemed/appointments/${appointment.appointmentId}`
-                    : `/visit/${appointment.appointmentId}`
-                }
-                target="_blank"
-              >
+              <Link to={`/visit/${appointment.appointmentId}`} target="_blank">
                 {appointment.appointmentId || '-'}
               </Link>
             </TableCell>

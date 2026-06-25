@@ -1,26 +1,19 @@
-import Oystehr, { BatchInputPostRequest } from '@oystehr/sdk';
+import Oystehr from '@oystehr/sdk';
 import { Page } from '@playwright/test';
 import {
   Address,
   Appointment,
-  ClinicalImpression,
-  Consent,
   ContactPoint,
+  Coverage,
   DocumentReference,
   Encounter,
   FhirResource,
-  List,
+  Location,
   Patient,
-  Person,
   Practitioner,
   QuestionnaireResponse,
-  RelatedPerson,
-  Schedule,
-  ServiceRequest,
-  Slot,
 } from 'fhir/r4b';
 import { readFileSync } from 'fs';
-import { DateTime } from 'luxon';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import {
@@ -35,12 +28,13 @@ import {
   genderMap,
   GetPaperworkAnswers,
   RelationshipOption,
+  SampleAppointmentResponse,
   ServiceMode,
   VALUE_SETS,
 } from 'utils';
-import inPersonIntakeQuestionnaire from '../../../../config/oystehr/in-person-intake-questionnaire.json' assert { type: 'json' };
 import { VisitDetailsPage } from '../../tests/e2e/page/VisitDetailsPage';
 import { getAuth0Token } from './auth/getAuth0Token';
+import { createE2eTestOystehrClient } from './helpers/tests-utils';
 import {
   inviteTestEmployeeUser,
   removeUser,
@@ -48,7 +42,6 @@ import {
   TEST_EMPLOYEE_2,
   TestEmployee,
 } from './resource/employees';
-import fastSeedData from './seed-data';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -144,7 +137,10 @@ export type CreateTestAppointmentInput = {
 export class ResourceHandler {
   #apiClient!: Promise<Oystehr>;
   #authToken!: Promise<string>;
-  #resources!: CreateAppointmentResponse['resources'] & { relatedPerson: { id: string; resourceType: string } };
+  #resources!: CreateAppointmentResponse['resources'] & {
+    relatedPerson: { id: string; resourceType: string };
+    selectedLocation?: Location;
+  };
   #createAppointmentZambdaId: string;
   #flow: 'telemed' | 'in-person';
   #paperworkAnswers?: GetPaperworkAnswers;
@@ -155,11 +151,7 @@ export class ResourceHandler {
 
   public static async getOystehr(): Promise<Oystehr> {
     const authToken = await getAuth0Token();
-    const oystehr = new Oystehr({
-      accessToken: authToken,
-      fhirApiUrl: process.env.FHIR_API,
-      projectApiUrl: process.env.PROJECT_API_ZAMBDA_URL,
-    });
+    const oystehr = createE2eTestOystehrClient(authToken);
     return oystehr;
   }
 
@@ -171,11 +163,7 @@ export class ResourceHandler {
     this.#authToken = getAuth0Token();
 
     this.#apiClient = this.#authToken.then((authToken) => {
-      return new Oystehr({
-        accessToken: authToken,
-        fhirApiUrl: process.env.FHIR_API,
-        projectApiUrl: process.env.PROJECT_API_ZAMBDA_URL,
-      });
+      return createE2eTestOystehrClient(authToken);
     });
   }
 
@@ -198,7 +186,7 @@ export class ResourceHandler {
     return patient;
   }
 
-  public async createAppointment(inputParams?: CreateTestAppointmentInput): Promise<CreateAppointmentResponse> {
+  public async createAppointment(inputParams?: CreateTestAppointmentInput): Promise<SampleAppointmentResponse> {
     try {
       const address: Address = {
         city: inputParams?.city ?? PATIENT_CITY,
@@ -263,7 +251,7 @@ export class ResourceHandler {
         throw new Error('LOCATION_ID is not set');
       }
 
-      if (!process.env.STATE_ONE) {
+      if (this.#flow === 'telemed' && !process.env.STATE_ONE) {
         throw new Error('STATE_ONE is not set');
       }
 
@@ -282,7 +270,7 @@ export class ResourceHandler {
         zambdaUrl: process.env.PROJECT_API_ZAMBDA_URL,
         serviceMode: this.#flow === 'telemed' ? ServiceMode.virtual : ServiceMode['in-person'],
         selectedLocationId: inputParams?.selectedLocationId ?? process.env.LOCATION_ID,
-        locationState: inputParams?.telemedLocationState ?? process.env.STATE_ONE, // todo: check why state is used here
+        locationState: inputParams?.telemedLocationState ?? process.env.STATE_ONE, // only relevant for telemed flow; undefined falls back to a random virtual location
         demoData: patientData,
         projectId: process.env.PROJECT_ID!,
         paperworkAnswers: this.#paperworkAnswers,
@@ -302,7 +290,7 @@ export class ResourceHandler {
         console.log(`✅ created relatedPerson: ${appointmentData.relatedPersonId}`);
       }
 
-      return appointmentData as CreateAppointmentResponse;
+      return appointmentData as SampleAppointmentResponse;
     } catch (error) {
       console.error('❌ Failed to create resources:', error);
       throw error;
@@ -318,97 +306,7 @@ export class ResourceHandler {
         id: response.relatedPersonId,
         resourceType: 'RelatedPerson',
       },
-    };
-  }
-
-  public async setResourcesFast(_params?: CreateTestAppointmentInput): Promise<void> {
-    if (process.env.LOCATION_ID == null) {
-      throw new Error('LOCATION_ID is not set');
-    }
-
-    const apiClient = await this.apiClient;
-
-    const schedule = (
-      await apiClient.fhir.search<Schedule>({
-        resourceType: 'Schedule',
-        params: [
-          {
-            name: 'actor',
-            value: `Location/${process.env.LOCATION_ID}`,
-          },
-        ],
-      })
-    ).unbundle()[0] as Schedule;
-
-    const questionnaire = Object.values(inPersonIntakeQuestionnaire.fhirResources).find(
-      (q) =>
-        q.resource.resourceType === 'Questionnaire' &&
-        q.resource.status === 'active' &&
-        q.resource.url.includes('intake-paperwork-inperson')
-    );
-    if (!questionnaire) {
-      throw new Error('Questionnaire not found in local config');
-    }
-
-    let seedDataString = JSON.stringify(fastSeedData);
-    seedDataString = seedDataString.replace(/\{\{locationId\}\}/g, process.env.LOCATION_ID);
-    seedDataString = seedDataString.replace(/\{\{scheduleId\}\}/g, schedule.id!);
-    seedDataString = seedDataString.replace(
-      /\{\{questionnaireUrl\}\}/g,
-      `${questionnaire.resource.url}|${questionnaire.resource.version}`
-    );
-    seedDataString = seedDataString.replace(/\{\{date\}\}/g, DateTime.now().toUTC().toFormat('yyyy-MM-dd'));
-
-    // TODO do something about the DocumentReference attachments? For the moment all of these tests point to the exact same files. Maybe that's great. Or maybe we should upload images each time?
-
-    const hydratedFastSeedJSON = JSON.parse(seedDataString);
-
-    const createdResources =
-      (
-        await apiClient.fhir.transaction<
-          | Patient
-          | RelatedPerson
-          | Person
-          | Appointment
-          | Encounter
-          | Slot
-          | List
-          | Consent
-          | DocumentReference
-          | QuestionnaireResponse
-          | ServiceRequest
-          | ClinicalImpression
-        >({
-          requests: hydratedFastSeedJSON.entry.map((entry: any): BatchInputPostRequest<FhirResource> => {
-            if (entry.request.method !== 'POST') {
-              throw new Error('Only POST method is supported in fast mode');
-            }
-            let resource: FhirResource = entry.resource;
-            if (resource.resourceType === 'Appointment') {
-              resource = addProcessIdMetaTagToResource(resource, this.#processId!);
-            }
-            return {
-              method: entry.request.method,
-              url: entry.request.url,
-              fullUrl: entry.fullUrl,
-              resource: entry.resource,
-            };
-          }),
-        })
-      ).entry
-        ?.map((entry) => entry.resource)
-        .filter((entry) => entry !== undefined) ?? [];
-    this.#resources = {
-      patient: createdResources.find((resource) => resource!.resourceType === 'Patient') as Patient,
-      relatedPerson: {
-        id: (createdResources.find((resource) => resource!.resourceType === 'RelatedPerson') as RelatedPerson).id!,
-        resourceType: 'RelatedPerson',
-      },
-      appointment: createdResources.find((resource) => resource!.resourceType === 'Appointment') as Appointment,
-      encounter: createdResources.find((resource) => resource!.resourceType === 'Encounter') as Encounter,
-      questionnaire: createdResources.find(
-        (resource) => resource!.resourceType === 'QuestionnaireResponse'
-      ) as QuestionnaireResponse,
+      selectedLocation: response.selectedLocation,
     };
   }
 
@@ -439,6 +337,7 @@ export class ResourceHandler {
     const apiClient = await this.apiClient;
     const maxAttempts = 30; // Increased from 20 to 30 (150 seconds total)
     const delayMs = 5_000;
+    const startTime = Date.now();
 
     try {
       for (let i = 0; i < maxAttempts; i++) {
@@ -463,7 +362,9 @@ export class ResourceHandler {
         const tags = appointment?.meta?.tag || [];
         const isProcessed = tags.some((tag) => tag?.code === FHIR_APPOINTMENT_PREPROCESSED_TAG.code);
         if (isProcessed) {
-          console.log(`Appointment ${id} preprocessed after ${i + 1} attempts (${((i + 1) * delayMs) / 1000}s)`);
+          console.log(
+            `Appointment ${id} preprocessed after ${i + 1} attempts (${((Date.now() - startTime) / 1000).toFixed(1)}s)`
+          );
           return;
         }
 
@@ -487,8 +388,10 @@ export class ResourceHandler {
     const apiClient = await this.apiClient;
     const maxAttempts = 30; // Increased from 20 to 30 (150 seconds total)
     const delayMs = 5_000;
+    const startTime = Date.now();
 
     try {
+      let isHarvestingDone = false;
       for (let i = 0; i < maxAttempts; i++) {
         const appointment = (
           await apiClient.fhir.search({
@@ -509,14 +412,15 @@ export class ResourceHandler {
         }
 
         const tags = appointment?.meta?.tag || [];
-        const isHarvestingDone = tags.some(
-          (tag) => tag?.code === FHIR_APPOINTMENT_INTAKE_HARVESTING_COMPLETED_TAG.code
-        );
-        if (isHarvestingDone) {
+        if (tags.some((tag) => tag?.code === FHIR_APPOINTMENT_INTAKE_HARVESTING_COMPLETED_TAG.code)) {
           console.log(
-            `Appointment ${appointmentId} harvesting done after ${i + 1} attempts (${((i + 1) * delayMs) / 1000}s)`
+            `Appointment ${appointmentId} harvesting done after ${i + 1} attempts (${(
+              (Date.now() - startTime) /
+              1000
+            ).toFixed(1)}s)`
           );
-          return;
+          isHarvestingDone = true;
+          break;
         }
 
         if (i % 5 === 0 && i > 0) {
@@ -526,15 +430,79 @@ export class ResourceHandler {
         await new Promise((resolve) => setTimeout(resolve, delayMs));
       }
 
-      const errorMsg = `Appointment ${appointmentId} wasn't harvested by sub-intake-harvest module after ${
-        (maxAttempts * delayMs) / 1000
-      } seconds`;
-      console.error(errorMsg);
-      throw new Error(errorMsg);
+      if (!isHarvestingDone) {
+        const errorMsg = `Appointment ${appointmentId} wasn't harvested by sub-intake-harvest module after ${
+          (maxAttempts * delayMs) / 1000
+        } seconds`;
+        console.error(errorMsg);
+        throw new Error(errorMsg);
+      }
+
+      // The harvesting-completed tag does not reliably gate the async eRx Patient.contact patch:
+      // that patch is applied by a page-harvest Task whose completion the tag's finalizer can race
+      // ahead of. So once the tag appears, also wait for the patient to settle before returning —
+      // otherwise a snapshot taken here (e.g. seed generation) can miss `contact` and drift from the
+      // live e2e patient in the integration data-contract test. These two waits always belong
+      // together, so they live in one method. Not every flow produces a `contact` (e.g. no
+      // contact-information page or no verified phone), so on timeout we log and proceed rather than
+      // throw — those callers' live patients won't have a contact either.
+      const patientId = await this.patientIdByAppointmentId(appointmentId);
+      const contactMaxAttempts = 30; // 30 * 3s = 90s ceiling; the patch normally lands within seconds
+      const contactDelayMs = 3_000;
+      for (let i = 0; i < contactMaxAttempts; i++) {
+        const patient = await apiClient.fhir.get<Patient>({ resourceType: 'Patient', id: patientId });
+        if ((patient.contact?.length ?? 0) > 0) {
+          console.log(`Patient ${patientId} contact harvested after ${i + 1} attempts`);
+          return;
+        }
+        await new Promise((resolve) => setTimeout(resolve, contactDelayMs));
+      }
+
+      console.warn(
+        `Patient ${patientId} never gained a contact entry after ${
+          (contactMaxAttempts * contactDelayMs) / 1000
+        }s; proceeding (this flow may not produce a patient contact)`
+      );
     } catch (e) {
       console.error('Error during waitTillHarvestingDone', e);
       throw e;
     }
+  }
+
+  // The harvesting-completed tag can be set before the incremental sub-harvest-paperwork page
+  // Tasks finish writing the Coverage resources, so waitTillHarvestingDone returning does not
+  // guarantee the patient's Coverages are queryable. Poll for them directly. Throws on timeout so a
+  // genuinely dropped/never-created Coverage surfaces as an explicit "only had X/Y" failure (a
+  // harvest bug) rather than an opaque downstream UI timeout.
+  async waitTillCoveragesExist(patientId: string, expectedCount: number): Promise<void> {
+    const apiClient = await this.apiClient;
+    const maxAttempts = 15;
+    const delayMs = 2_000;
+    const startTime = Date.now();
+    let count = 0;
+    for (let i = 0; i < maxAttempts; i++) {
+      count = (
+        await apiClient.fhir.search<Coverage>({
+          resourceType: 'Coverage',
+          params: [
+            { name: 'patient', value: `Patient/${patientId}` },
+            { name: 'status', value: 'active' },
+          ],
+        })
+      ).unbundle().length;
+      if (count >= expectedCount) {
+        console.log(
+          `Patient ${patientId} has ${count} coverage(s) after ${((Date.now() - startTime) / 1000).toFixed(1)}s`
+        );
+        return;
+      }
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+    }
+    throw new Error(
+      `Patient ${patientId} only had ${count}/${expectedCount} active coverages after ${
+        (maxAttempts * delayMs) / 1000
+      }s — harvest did not create the expected Coverage resources`
+    );
   }
 
   async waitTillVisitNotePdfCreated(): Promise<DocumentReference> {
@@ -618,6 +586,10 @@ export class ResourceHandler {
 
   public get questionnaireResponse(): QuestionnaireResponse {
     return this.findResourceByType('QuestionnaireResponse');
+  }
+
+  public get appointmentLocation(): Location | undefined {
+    return this.#resources.selectedLocation;
   }
 
   private findResourceByType<T>(resourceType: string): T {

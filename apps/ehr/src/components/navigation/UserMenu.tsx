@@ -16,6 +16,7 @@ import {
 import { enqueueSnackbar } from 'notistack';
 import { FC, MouseEvent, useCallback, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { CommandPaletteSearchButton } from 'src/components/CommandPaletteSearchButton';
 import { ProviderNotifications } from 'src/features';
 import { UnsolicitedResultsIcon } from 'src/features/external-labs/components/unsolicited-results/UnsolicitedResultsIcon';
 import {
@@ -65,7 +66,7 @@ export const UserMenu: FC = () => {
 
       const { data } = await refetchPractitionerEnrollmentStatus();
 
-      if (data?.registered && !data?.confirmed && data?.identityVerified) {
+      if (data?.registered && !data?.confirmed) {
         setPendingReviewOpen(true);
 
         safelyCaptureMessage('DoseSpot enrollment pending review', {
@@ -101,6 +102,7 @@ export const UserMenu: FC = () => {
 
   return (
     <>
+      <CommandPaletteSearchButton sx={{ mr: 2 }} />
       <UnsolicitedResultsIcon />
       {userIsProvider && <ProviderNotifications />}
       <ListItem disablePadding sx={{ width: 'fit-content' }}>

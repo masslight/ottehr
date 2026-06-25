@@ -2,40 +2,24 @@ import Oystehr from '@oystehr/sdk';
 import { Appointment, Patient } from 'fhir/r4b';
 import * as fs from 'fs';
 import Stripe from 'stripe';
-import { getRelatedPersonForPatient } from 'utils';
-import { getAuth0Token } from '../shared';
-import { fhirApiUrlFromAuth0Audience } from './helpers';
+import { getRelatedPersonsForPatient } from 'utils';
+import { createClinicalOystehrClient, getAuth0Token, sendSmsToRelatedPersons } from '../shared';
 
-async function sendSMSMessage(oystehr: Oystehr, patientId: string, message: string): Promise<void> {
-  const relatedPerson = await getRelatedPersonForPatient(patientId || '', oystehr);
-  let resource: string;
-  if (relatedPerson) {
-    resource = `RelatedPerson/${relatedPerson.id}`;
-  } else {
-    console.log(`❌ Failed to send SMS to ${patientId}: No RelatedPerson found`);
+async function sendSMSMessage(oystehr: Oystehr, patientId: string, message: string, env: string): Promise<void> {
+  const relatedPersons = await getRelatedPersonsForPatient(patientId || '', oystehr);
+  if (!relatedPersons.length) {
+    console.log(`❌ Failed to send SMS to ${patientId}: No user-relatedperson found`);
     return;
   }
-
-  try {
-    const response = await oystehr.transactionalSMS.send({
-      resource: resource,
-      message: message,
-    });
-    console.log(
-      `✅ SMS details are in sent to ${patientId} (RelatedPerson/${relatedPerson.id}), response in `,
-      response
-    );
-  } catch (error) {
-    console.error(`❌ Failed to send SMS to ${patientId}:`, error);
-    throw error;
-  }
+  await sendSmsToRelatedPersons({ relatedPersons, message, oystehr, env });
 }
 
 async function sendPastDueInvoiceBySMS(
   oystehr: Oystehr,
   resourceId: string,
   balanceDue: number, // Changed to number (cents)
-  invoiceLink: string
+  invoiceLink: string,
+  env: string
 ): Promise<void> {
   // Convert cents to dollars and format as currency
   const balanceInDollars = (balanceDue / 100).toFixed(2);
@@ -45,31 +29,33 @@ async function sendPastDueInvoiceBySMS(
   const invoiceMessage = `Thank you for visiting UrgiKids. You have a past due balance of $${balanceInDollars}.
 💳 We were unable to process your card on file.  Please, pay your invoice:\n
 ${shortInvoiceLink}`;
-  await sendSMSMessage(oystehr, resourceId, invoiceMessage);
+  await sendSMSMessage(oystehr, resourceId, invoiceMessage, env);
   // console.log('💬 SMS Message:\n', invoiceMessage);
 }
 
 async function sendDelinquentPastDueInvoiceBySMS(
   oystehr: Oystehr,
   resourceId: string,
-  invoiceLink: string
+  invoiceLink: string,
+  env: string
 ): Promise<void> {
   const shortInvoiceLink = invoiceLink; //await shortenURL(invoiceLink);
   const invoiceMessage = `Friendly reminder: your UrgiKids balance is still outstanding. Please submit payment using the link below to keep your account in good standing:\n
 ${shortInvoiceLink}`;
-  await sendSMSMessage(oystehr, resourceId, invoiceMessage);
+  await sendSMSMessage(oystehr, resourceId, invoiceMessage, env);
   // console.log('💬 SMS Message:\n', invoiceMessage);
 }
 
 async function sendCollectionsPastDueInvoiceBySMS(
   oystehr: Oystehr,
   resourceId: string,
-  invoiceLink: string
+  invoiceLink: string,
+  env: string
 ): Promise<void> {
   const shortInvoiceLink = invoiceLink; //await shortenURL(invoiceLink);
   const invoiceMessage = `Your UrgiKids balance is now over 60 days past due. Please submit payment using the link below to avoid the balance being sent to collections:\n
 ${shortInvoiceLink}`;
-  await sendSMSMessage(oystehr, resourceId, invoiceMessage);
+  await sendSMSMessage(oystehr, resourceId, invoiceMessage, env);
   // console.log('💬 SMS Message:\n', invoiceMessage);
 }
 
@@ -422,7 +408,7 @@ async function main(): Promise<void> {
   console.log(`   3️⃣  ${collectionsWarningDays}-${writtenOffDays} days past due → Collections warning SMS`);
   console.log(`   4️⃣  ${writtenOffDays}+ days past due → Written off (report only)`);
 
-  const secrets = JSON.parse(fs.readFileSync(`.env/${env}.json`, 'utf8'));
+  const secrets = JSON.parse(fs.readFileSync(`../../config/.env/${env}.json`, 'utf8'));
 
   // Initialize Stripe
   const stripe = new Stripe(secrets.STRIPE_SECRET_KEY, {
@@ -436,10 +422,7 @@ async function main(): Promise<void> {
     throw new Error('❌ Failed to fetch auth token.');
   }
 
-  const oystehr = new Oystehr({
-    accessToken: token,
-    fhirApiUrl: fhirApiUrlFromAuth0Audience(secrets.AUTH0_AUDIENCE),
-  });
+  const oystehr = createClinicalOystehrClient(token, secrets);
 
   // Find all past due invoices before the newest date
   const allPastDueInvoices = await findOpenStripeInvoicesDueBeforeDate(stripe, newestBeforeDate);
@@ -543,7 +526,7 @@ async function main(): Promise<void> {
         console.log(`💳 Payment method on file: ${cardOnFile} (${pm.expMonth}/${pm.expYear})`);
       }
 
-      await sendPastDueInvoiceBySMS(oystehr, patientId, invoiceInfo.amountDue, invoiceInfo.invoiceLink);
+      await sendPastDueInvoiceBySMS(oystehr, patientId, invoiceInfo.amountDue, invoiceInfo.invoiceLink, env);
       await stripe.invoices.sendInvoice(invoiceInfo.invoiceId);
       console.log(`📧 Re-sent invoice email via Stripe`);
 
@@ -639,7 +622,7 @@ async function main(): Promise<void> {
         cardOnFile = `${pm.brand?.toUpperCase()} ****${pm.last4}`;
       }
 
-      await sendDelinquentPastDueInvoiceBySMS(oystehr, patientId, invoiceInfo.invoiceLink);
+      await sendDelinquentPastDueInvoiceBySMS(oystehr, patientId, invoiceInfo.invoiceLink, env);
       await stripe.invoices.sendInvoice(invoiceInfo.invoiceId);
       console.log(`📧 Re-sent invoice email via Stripe`);
 
@@ -739,7 +722,7 @@ async function main(): Promise<void> {
         cardOnFile = `${pm.brand?.toUpperCase()} ****${pm.last4}`;
       }
 
-      await sendCollectionsPastDueInvoiceBySMS(oystehr, patientId, invoiceInfo.invoiceLink);
+      await sendCollectionsPastDueInvoiceBySMS(oystehr, patientId, invoiceInfo.invoiceLink, env);
       await stripe.invoices.sendInvoice(invoiceInfo.invoiceId);
       console.log(`📧 Re-sent invoice email via Stripe`);
 

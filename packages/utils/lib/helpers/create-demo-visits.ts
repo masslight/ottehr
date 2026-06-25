@@ -214,6 +214,10 @@ export type GetPaperworkAnswers = ({
   appointmentId: string;
 }) => Promise<QuestionnaireResponseItem[]>;
 
+export type SampleAppointmentResponse = CreateAppointmentResponse & {
+  selectedLocation: Location;
+};
+
 export const createSampleAppointments = async ({
   oystehr,
   authToken,
@@ -244,7 +248,7 @@ export const createSampleAppointments = async ({
   serviceCategory?: ServiceCategoryCode;
   appointmentMetadata?: Appointment['meta'];
   skipPaperwork?: boolean;
-}): Promise<CreateAppointmentResponse> => {
+}): Promise<SampleAppointmentResponse> => {
   if (!projectId) {
     throw new Error('PROJECT_ID is not set');
   }
@@ -258,7 +262,7 @@ export const createSampleAppointments = async ({
     const numberOfAppointments = demoData?.numberOfAppointments || 10;
 
     // Run all appointment creations in parallel
-    const appointmentPromises: Promise<CreateAppointmentResponse | null>[] = Array.from(
+    const appointmentPromises: Promise<SampleAppointmentResponse | null>[] = Array.from(
       { length: numberOfAppointments },
       async (_, i) => {
         try {
@@ -279,7 +283,8 @@ export const createSampleAppointments = async ({
             },
             selectedLocationId,
             locationState,
-            serviceCategory
+            serviceCategory,
+            i
           );
 
           if (appointmentMetadata) {
@@ -306,7 +311,28 @@ export const createSampleAppointments = async ({
           });
 
           if (!createAppointmentResponse.ok) {
-            throw new Error(`Failed to create appointment. Status: ${createAppointmentResponse.status}`);
+            let responseBody: string;
+            const text = await createAppointmentResponse.text();
+            try {
+              responseBody = JSON.stringify(JSON.parse(text), null, 2);
+            } catch {
+              responseBody = text;
+            }
+            // On-failure diagnostic for the recurring 4019 flake. slotId +
+            // worker + timestamp is enough to fetch the slot manually
+            // later, correlate against parallel runs, and check whether it
+            // elapsed between create-slot and create-appointment.
+            const diagnostic = JSON.stringify({
+              slotId: randomPatientInfo.slotId,
+              worker: process.env.TEST_PARALLEL_INDEX ?? 'n/a',
+              appointmentIndex: i,
+              serviceMode: serviceModeToUse,
+              timestamp: DateTime.now().toISO(),
+            });
+            throw new Error(
+              `Failed to create appointment. Diagnostic: ${diagnostic}\n` +
+                `Status: ${createAppointmentResponse.status}\nResponse body: ${responseBody}`
+            );
           }
 
           console.log(`Appointment ${i + 1} created successfully.`);
@@ -352,7 +378,7 @@ export const createSampleAppointments = async ({
             });
           }
 
-          return typedAppointment;
+          return { ...typedAppointment, selectedLocation: randomPatientInfo.selectedLocation };
         } catch (error) {
           console.error(`Error processing appointment ${i + 1}:`, JSON.stringify(error));
           throw error;
@@ -367,7 +393,7 @@ export const createSampleAppointments = async ({
     const successfulAppointments = results.filter((data) => data != null);
 
     if (successfulAppointments.length > 0) {
-      return successfulAppointments[0] as CreateAppointmentResponse; // Return the first successful appointment
+      return successfulAppointments[0]; // Return the first successful appointment
     }
 
     throw new Error(`All appointment creation attempts failed.`);
@@ -457,6 +483,8 @@ const processPaperwork = async (
   }
 };
 
+type SampleAppointmentInputParams = CreateAppointmentInputParams & { selectedLocation: Location };
+
 const generateRandomPatientInfo = async (
   oystehr: Oystehr,
   zambdaUrl: string,
@@ -467,8 +495,11 @@ const generateRandomPatientInfo = async (
   demoData?: AppointmentData,
   selectedLocationId?: string,
   locationState?: string,
-  serviceCategory?: ServiceCategoryCode
-): Promise<CreateAppointmentInputParams> => {
+  serviceCategory?: ServiceCategoryCode,
+  // Stagger key: parallel callers without this all race for the same capacity
+  // bucket and 9 of 10 fail with SLOT_UNAVAILABLE.
+  appointmentIndex = 0
+): Promise<SampleAppointmentInputParams> => {
   const {
     firstNames = DEFAULT_FIRST_NAMES,
     lastNames = DEFAULT_LAST_NAMES,
@@ -558,10 +589,10 @@ const generateRandomPatientInfo = async (
     throw new Error(`No matching schedule found for location ID: ${locationId}`);
   }
   const now = DateTime.now();
-  // Round to the next 15-minute interval (0, 15, 30, 45)
+  // Round to the next 15-min boundary, then stagger by index — see appointmentIndex.
   const currentMinutes = now.minute;
   const minutesToAdd = (15 - (currentMinutes % 15)) % 15 || 15;
-  const nextInPersonSlot = now.plus({ minutes: minutesToAdd }).startOf('minute');
+  const nextInPersonSlot = now.plus({ minutes: minutesToAdd + 15 * appointmentIndex }).startOf('minute');
   const createSlotInput: CreateSlotParams = {
     scheduleId: matchingSchedule.id,
     startISO: serviceMode === ServiceMode['in-person'] ? nextInPersonSlot.toISO() : now.toISO(),
@@ -604,9 +635,9 @@ const generateRandomPatientInfo = async (
   if (serviceMode === 'virtual') {
     return {
       patient: patientData,
-      unconfirmedDateOfBirth: randomDateOfBirth,
       slotId: persistedSlot.id!,
       language: 'en',
+      selectedLocation: selectedLocation!,
       locationState,
     };
   }
@@ -614,6 +645,7 @@ const generateRandomPatientInfo = async (
   return {
     patient: patientData,
     slotId: persistedSlot.id!,
+    selectedLocation: selectedLocation!,
     language: 'en',
   };
 };

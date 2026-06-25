@@ -4,9 +4,7 @@ import { Operation } from 'fast-json-patch';
 import { Appointment, Bundle, Encounter, Patient, Resource } from 'fhir/r4b';
 import {
   createOystehrClient,
-  FHIR_EXTENSION,
   getPatchBinary,
-  getPatchOperationToUpdateExtension,
   getSecret,
   getTelemedLocation,
   RequiredProps,
@@ -19,7 +17,6 @@ import {
   createUpdateUserRelatedResources,
   creatingPatientUpdateRequest,
   getUser,
-  topLevelCatch,
   userHasAccessToPatient,
   wrapHandler,
   ZambdaInput,
@@ -33,18 +30,13 @@ let oystehrToken: string;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.log(`Input: ${JSON.stringify(input)}`);
-  try {
-    const validatedParameters = validateUpdateAppointmentParams(input);
+  const validatedParameters = validateUpdateAppointmentParams(input);
 
-    oystehrToken = await checkOrCreateM2MClientToken(oystehrToken, input.secrets);
+  oystehrToken = await checkOrCreateM2MClientToken(oystehrToken, input.secrets);
 
-    const response = await performEffect({ input, params: validatedParameters });
+  const response = await performEffect({ input, params: validatedParameters });
 
-    return response;
-  } catch (error: any) {
-    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    return topLevelCatch('update-appointment', error, ENVIRONMENT);
-  }
+  return response;
 });
 
 interface PerformEffectInputProps {
@@ -92,7 +84,7 @@ export async function updateAppointment(
   user: User
 ): Promise<UpdateAppointmentResponse> {
   let updatePatientRequest: BatchInputRequest<Patient> | undefined = undefined;
-  const { patient, unconfirmedDateOfBirth, locationState } = params;
+  const { patient, locationState } = params;
 
   // if it is a returning patient
   const resources = (
@@ -150,17 +142,6 @@ export async function updateAppointment(
   }
 
   const patchApptOps: Operation[] = [];
-
-  if (unconfirmedDateOfBirth) {
-    const op = getPatchOperationToUpdateExtension(fhirAppointment, {
-      url: FHIR_EXTENSION.Appointment.unconfirmedDateOfBirth.url,
-      valueDate: unconfirmedDateOfBirth,
-    });
-
-    if (op) {
-      patchApptOps.push(op);
-    }
-  }
 
   const transactionInput: BatchInput<Appointment | Patient> = {
     requests: [...patientRequests],

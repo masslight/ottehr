@@ -1,10 +1,22 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, waitForElementToBeRemoved } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { VisitType } from 'config-types';
+import { ReactNode } from 'react';
 import { BrowserRouter, useNavigate } from 'react-router-dom';
 import { BOOKING_CONFIG, getReasonForVisitOptionsForServiceCategory } from 'utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { dataTestIds } from '../../src/constants/data-test-ids';
 import AddPatient from '../../src/pages/AddPatient';
+
+const TestProviders = ({ children }: { children: ReactNode }): JSX.Element => {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return (
+    <QueryClientProvider client={queryClient}>
+      <BrowserRouter>{children}</BrowserRouter>
+    </QueryClientProvider>
+  );
+};
 
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual('react-router-dom');
@@ -14,18 +26,55 @@ vi.mock('react-router-dom', async () => {
   };
 });
 
-// Mock the API client hooks to avoid authentication errors
-vi.mock('../../src/hooks/useAppClients', () => ({
-  useApiClients: () => ({
-    oystehr: {
-      fhir: {
-        search: vi.fn().mockResolvedValue({
-          unbundle: () => [],
-        }),
-      },
+const mockLocation = {
+  resourceType: 'Location',
+  id: 'test-location-1',
+  name: 'Test Location',
+  identifier: [
+    {
+      system: 'https://fhir.ottehr.com/r4/slug',
+      value: 'test-location',
     },
-    oystehrZambda: null,
-  }),
+  ],
+};
+const mockSchedule = {
+  resourceType: 'Schedule',
+  id: 'test-schedule-1',
+  actor: [
+    {
+      reference: 'Location/test-location-1',
+    },
+  ],
+};
+
+// Mock the API client hooks to avoid authentication errors.
+// IMPORTANT: the mocked clients are hoisted to module scope so the factory
+// returns the same reference on every render. Returning a fresh object
+// literal per call makes `useApiClients()` produce a new `oystehr` ref each
+// render, which causes effects that depend on it (e.g. BookableSelect's
+// load-bookable-targets effect) to refire on every render → infinite loop.
+const mockOystehr = {
+  fhir: {
+    search: vi.fn().mockResolvedValue({
+      entry: [
+        {
+          resource: mockLocation,
+          search: {
+            mode: 'match',
+          },
+        },
+      ],
+      total: 1,
+      unbundle: () => [mockLocation, mockSchedule],
+    }),
+  },
+};
+const mockApiClients = {
+  oystehr: mockOystehr,
+  oystehrZambda: null,
+};
+vi.mock('../../src/hooks/useAppClients', () => ({
+  useApiClients: () => mockApiClients,
 }));
 
 describe('AddVisit', () => {
@@ -45,11 +94,11 @@ describe('AddVisit', () => {
     const serviceCategoryDropdown = screen.getByTestId(dataTestIds.addPatientPage.serviceCategoryDropdown);
     const serviceCategoryButton = serviceCategoryDropdown.querySelector('[role="combobox"]');
     await user.click(serviceCategoryButton!);
-    let serviceCategoryOption = BOOKING_CONFIG.serviceCategories[0].display;
+    let serviceCategoryOption = BOOKING_CONFIG.serviceCategories[0].category.display;
     if (category) {
-      const matchingOption = BOOKING_CONFIG.serviceCategories.find((sc) => sc.code === category);
+      const matchingOption = BOOKING_CONFIG.serviceCategories.find((sc) => sc.category.code === category);
       expect(matchingOption).toBeDefined();
-      serviceCategoryOption = matchingOption!.display;
+      serviceCategoryOption = matchingOption!.category.display;
     }
     const generalOption = await screen.findByText(serviceCategoryOption);
     await user.click(generalOption);
@@ -57,9 +106,9 @@ describe('AddVisit', () => {
 
   it('Renders with appropriate fields', () => {
     render(
-      <BrowserRouter>
+      <TestProviders>
         <AddPatient />
-      </BrowserRouter>
+      </TestProviders>
     );
 
     const pageTitle = screen.getByTestId(dataTestIds.addPatientPage.pageTitle);
@@ -72,9 +121,9 @@ describe('AddVisit', () => {
     vi.mocked(useNavigate).mockReturnValue(navigateMock);
 
     render(
-      <BrowserRouter>
+      <TestProviders>
         <AddPatient />
-      </BrowserRouter>
+      </TestProviders>
     );
 
     const cancelButton = screen.getByTestId(dataTestIds.addPatientPage.cancelButton);
@@ -88,9 +137,9 @@ describe('AddVisit', () => {
     const user = userEvent.setup();
 
     render(
-      <BrowserRouter>
+      <TestProviders>
         <AddPatient />
-      </BrowserRouter>
+      </TestProviders>
     );
 
     await user.click(screen.getByTestId(dataTestIds.addPatientPage.searchForPatientsButton));
@@ -99,13 +148,32 @@ describe('AddVisit', () => {
     expect(errorMessage).toBeVisible();
   });
 
+  it('Searches for patients when pressing Enter in the patient search fields', async () => {
+    const user = userEvent.setup();
+
+    render(
+      <TestProviders>
+        <AddPatient />
+      </TestProviders>
+    );
+
+    const phoneNumberInput = screen.getByTestId(dataTestIds.addPatientPage.mobilePhoneInput).querySelector('input');
+
+    await user.click(phoneNumberInput!);
+    await user.paste('1234567890');
+    await user.keyboard('{Enter}');
+
+    expect(await screen.findByTestId(dataTestIds.addPatientPage.patientNotFoundButton)).toBeVisible();
+    expect(screen.queryByText('Please search for patients before adding')).not.toBeInTheDocument();
+  });
+
   it('Shows validation error on mobile phone field when searching with an invalid phone number', async () => {
     const user = userEvent.setup();
 
     render(
-      <BrowserRouter>
+      <TestProviders>
         <AddPatient />
-      </BrowserRouter>
+      </TestProviders>
     );
 
     const phoneNumberInput = screen.getByTestId(dataTestIds.addPatientPage.mobilePhoneInput).querySelector('input');
@@ -123,9 +191,9 @@ describe('AddVisit', () => {
     const user = userEvent.setup();
 
     render(
-      <BrowserRouter>
+      <TestProviders>
         <AddPatient />
-      </BrowserRouter>
+      </TestProviders>
     );
 
     // First, complete the phone search flow to reveal the date of birth field
@@ -152,13 +220,16 @@ describe('AddVisit', () => {
   });
 
   describe('Required field validation', () => {
+    const prebookOption = BOOKING_CONFIG.ehrBookingOptions.find((opt) => opt.id === VisitType.InPersonPreBook);
+    const postTelemedOption = BOOKING_CONFIG.ehrBookingOptions.find((opt) => opt.id === VisitType.InPersonPostTelemed);
+
     it('Shows error when clicking Add button without selecting a location', async () => {
       const user = userEvent.setup();
 
       render(
-        <BrowserRouter>
+        <TestProviders>
           <AddPatient />
-        </BrowserRouter>
+        </TestProviders>
       );
 
       const addButton = screen.getByTestId(dataTestIds.addPatientPage.addButton);
@@ -168,7 +239,7 @@ describe('AddVisit', () => {
       expect(screen.getByTestId(dataTestIds.addPatientPage.pageTitle)).toBeInTheDocument();
 
       // Verify location input has required attribute
-      const locationInput = screen.getByTestId(dataTestIds.dashboard.locationSelect).querySelector('input');
+      const locationInput = screen.getByTestId(dataTestIds.addPatientPage.bookableSelect).querySelector('input');
       expect(locationInput).toHaveAttribute('required');
     });
 
@@ -176,9 +247,9 @@ describe('AddVisit', () => {
       const user = userEvent.setup();
 
       render(
-        <BrowserRouter>
+        <TestProviders>
           <AddPatient />
-        </BrowserRouter>
+        </TestProviders>
       );
 
       // Enter phone number but don't search
@@ -198,9 +269,9 @@ describe('AddVisit', () => {
       const user = userEvent.setup();
 
       render(
-        <BrowserRouter>
+        <TestProviders>
           <AddPatient />
-        </BrowserRouter>
+        </TestProviders>
       );
 
       // Complete phone search flow
@@ -237,15 +308,15 @@ describe('AddVisit', () => {
       expect(visitTypeInput).toHaveAttribute('required');
     });
 
-    it(
+    it.skipIf(!prebookOption)(
       'Shows dialog when clicking Add for prebook visit without selecting a time slot',
       async () => {
         const user = userEvent.setup();
 
         render(
-          <BrowserRouter>
+          <TestProviders>
             <AddPatient />
-          </BrowserRouter>
+          </TestProviders>
         );
 
         // Complete the form up to visit type selection
@@ -293,8 +364,15 @@ describe('AddVisit', () => {
         const visitTypeDropdown = screen.getByTestId(dataTestIds.addPatientPage.visitTypeDropdown);
         const visitTypeButton = visitTypeDropdown.querySelector('[role="combobox"]');
         await user.click(visitTypeButton!);
-        const prebookOption = await screen.findByText('Pre-booked In Person Visit');
-        await user.click(prebookOption);
+        const prebookMenuOption = await screen.findByText(prebookOption!.label);
+        await user.click(prebookMenuOption);
+
+        // Select location
+        const locationSelect = screen.getByTestId(dataTestIds.addPatientPage.bookableSelect);
+        const locationInput = locationSelect.querySelector('input')!;
+        await user.click(locationInput);
+        const locationOption = await screen.findByText('Test Location');
+        await user.click(locationOption);
 
         // Try to submit without selecting a slot
         const addButton = screen.getByTestId(dataTestIds.addPatientPage.addButton);
@@ -307,15 +385,15 @@ describe('AddVisit', () => {
       { timeout: 10000 }
     );
 
-    it(
+    it.skipIf(!postTelemedOption)(
       'Shows dialog when clicking Add for post-telemed visit without selecting a time slot',
       async () => {
         const user = userEvent.setup();
 
         render(
-          <BrowserRouter>
+          <TestProviders>
             <AddPatient />
-          </BrowserRouter>
+          </TestProviders>
         );
 
         // Complete the form up to visit type selection
@@ -362,8 +440,15 @@ describe('AddVisit', () => {
         const visitTypeDropdown = screen.getByTestId(dataTestIds.addPatientPage.visitTypeDropdown);
         const visitTypeButton = visitTypeDropdown.querySelector('[role="combobox"]');
         await user.click(visitTypeButton!);
-        const postTelemedOption = await screen.findByText('Post Telemed Lab Only');
-        await user.click(postTelemedOption);
+        const postTelemedMenuOption = await screen.findByText(postTelemedOption!.label);
+        await user.click(postTelemedMenuOption);
+
+        // Select location
+        const locationSelect = screen.getByTestId(dataTestIds.addPatientPage.bookableSelect);
+        const locationInput = locationSelect.querySelector('input')!;
+        await user.click(locationInput);
+        const locationOption = await screen.findByText('Test Location');
+        await user.click(locationOption);
 
         // Try to submit without selecting a slot
         const addButton = screen.getByTestId(dataTestIds.addPatientPage.addButton);
@@ -382,9 +467,9 @@ describe('AddVisit', () => {
       const user = userEvent.setup();
 
       render(
-        <BrowserRouter>
+        <TestProviders>
           <AddPatient />
-        </BrowserRouter>
+        </TestProviders>
       );
 
       // Complete phone search flow to reveal the form
@@ -398,9 +483,9 @@ describe('AddVisit', () => {
       await waitForElementToBeRemoved(notFoundButton);
 
       // Test each service category
-      for (const serviceCategory of BOOKING_CONFIG.serviceCategories) {
+      for (const serviceCategoryConfig of BOOKING_CONFIG.serviceCategories) {
         // Select the service category
-        await selectServiceCategory(user, screen, serviceCategory.code);
+        await selectServiceCategory(user, screen, serviceCategoryConfig.category.code);
 
         // Wait for reason for visit dropdown to appear
         const reasonDropdown = await screen.findByTestId(
@@ -414,7 +499,7 @@ describe('AddVisit', () => {
         await user.click(reasonButton!);
 
         // Get the expected options for this service category
-        const expectedOptions = getReasonForVisitOptionsForServiceCategory(serviceCategory.code);
+        const expectedOptions = getReasonForVisitOptionsForServiceCategory(serviceCategoryConfig.category.code);
         expect(expectedOptions.length).toBeGreaterThan(0);
 
         // Get all visible options in the dropdown
@@ -439,7 +524,7 @@ describe('AddVisit', () => {
         await user.keyboard('{Escape}');
 
         // Select a different service category for the next iteration (unless it's the last one)
-        if (serviceCategory !== BOOKING_CONFIG.serviceCategories[BOOKING_CONFIG.serviceCategories.length - 1]) {
+        if (serviceCategoryConfig !== BOOKING_CONFIG.serviceCategories[BOOKING_CONFIG.serviceCategories.length - 1]) {
           const serviceCategoryDropdown = screen.getByTestId(dataTestIds.addPatientPage.serviceCategoryDropdown);
           const serviceCategoryButton = serviceCategoryDropdown.querySelector('[role="combobox"]');
           await user.click(serviceCategoryButton!);

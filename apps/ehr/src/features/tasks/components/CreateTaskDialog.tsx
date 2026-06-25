@@ -1,5 +1,5 @@
 import { Stack } from '@mui/material';
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { useParams } from 'react-router-dom';
 import { EmployeeSelectInput } from 'src/components/input/EmployeeSelectInput';
@@ -34,10 +34,13 @@ export const CreateTaskDialog: React.FC<Props> = ({ open, handleClose }) => {
   const methods = useForm();
   const formValue = methods.watch();
 
+  const [refreshKey, setRefreshKey] = useState(0);
+
   useEffect(() => {
     if (!open) {
       methods.reset();
     }
+    setRefreshKey(Date.now());
   }, [open, methods]);
 
   const { mutateAsync: createManualTask } = useCreateManualTask();
@@ -73,10 +76,10 @@ export const CreateTaskDialog: React.FC<Props> = ({ open, handleClose }) => {
   );
   const encounterId = encounter?.id ?? '';
 
-  const { inHouseLabOrdersLoading, inHouseLabOrdersOptions } = useInHouseLabOrdersOptions(encounterId);
-  const { externalLabOrdersLoading, externalLabOrdersOptions } = useExternalLabOrdersOptions(encounterId);
-  const { nursingOrdersLoading, nursingOrdersOptions } = useNursingOrdersOptions(encounterId);
-  const { radiologyOrdersLoading, radiologyOrdersOptions } = useRadiologyOrdersOptions(encounterId);
+  const { inHouseLabOrdersLoading, inHouseLabOrdersOptions } = useInHouseLabOrdersOptions(encounterId, refreshKey);
+  const { externalLabOrdersLoading, externalLabOrdersOptions } = useExternalLabOrdersOptions(encounterId, refreshKey);
+  const { nursingOrdersLoading, nursingOrdersOptions } = useNursingOrdersOptions(encounterId, refreshKey);
+  const { radiologyOrdersLoading, radiologyOrdersOptions } = useRadiologyOrdersOptions(encounterId, refreshKey);
   const { proceduresLoading, proceduresOptions } = useProceduresOptions(encounterId);
   const { inHouseMedicationsLoading, inHouseMedicationsOptions } = useInHouseMedicationsOptions(encounterId);
 
@@ -203,7 +206,7 @@ export const CreateTaskDialog: React.FC<Props> = ({ open, handleClose }) => {
               name="order"
               label="Order"
               options={orderOptions.map((order) => order.id)}
-              getOptionLabel={(option) => orderOptions.find((opt) => opt.id === option)?.label ?? option}
+              getOptionLabel={(option) => orderOptions.find((opt) => opt.id === option)?.label ?? ''}
               loading={ordersLoading}
               disabled={!formValue.appointment || !formValue.category}
             />
@@ -211,7 +214,7 @@ export const CreateTaskDialog: React.FC<Props> = ({ open, handleClose }) => {
             <TextInput name="taskDetails" label="Task details" />
             <Stack direction="row" spacing={1}>
               <EmployeeSelectInput name="assignee" label="Assign task to" />
-              <LocationSelectInput name="location" label="Location" required />
+              <LocationSelectInput name="location" label="Location" type="in-person" required />
             </Stack>
           </Stack>
         </FormProvider>

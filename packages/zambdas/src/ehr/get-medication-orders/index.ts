@@ -11,56 +11,43 @@ import {
 } from 'fhir/r4b';
 import {
   ExtendedMedicationDataForResponse,
+  getCptCodesFromMA,
   getCurrentOrderedByProviderId,
   getDosageUnitsAndRouteOfMedication,
   getFullestAvailableName,
-  getLocationCodeFromMedicationAdministration,
+  getLocationFromMedicationAdministration,
   getMedicationFromMA,
   getMedicationInteractions,
   getMedicationName,
   GetMedicationOrdersInput,
   GetMedicationOrdersResponse,
+  getNdcCodeFromMedication,
   getPractitionerIdThatOrderedMedication,
   getProviderIdAndDateMedicationWasAdministered,
   getReasonAndOtherReasonForNotAdministeredOrder,
-  getSecret,
   isDeletedMedicationOrder,
   mapFhirToOrderStatus,
   MEDICATION_ADMINISTRATION_IN_PERSON_RESOURCE_CODE,
   OrderPackage,
-  SecretsKeys,
 } from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createOystehrClient,
-  topLevelCatch,
-  wrapHandler,
-  ZambdaInput,
-} from '../../shared';
+import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
 const ZAMBDA_NAME = 'get-medication-orders';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  try {
-    const validatedParameters = validateRequestParameters(input);
+  const validatedParameters = validateRequestParameters(input);
 
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedParameters.secrets);
-    const oystehr = createOystehrClient(m2mToken, validatedParameters.secrets);
-    console.log('Created zapToken, fhir and clients.');
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedParameters.secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, validatedParameters.secrets);
+  console.log('Created zapToken, fhir and clients.');
 
-    const response = await getMedicationOrders(oystehr, validatedParameters);
-    return {
-      statusCode: 200,
-      body: JSON.stringify(response),
-    };
-  } catch (error: any) {
-    console.log('Error: ', error);
-    console.log('Stringified error: ', JSON.stringify(error));
-    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    return topLevelCatch(ZAMBDA_NAME, error, ENVIRONMENT);
-  }
+  const response = await getMedicationOrders(oystehr, validatedParameters);
+  return {
+    statusCode: 200,
+    body: JSON.stringify(response),
+  };
 });
 
 export async function getMedicationOrders(
@@ -116,7 +103,7 @@ function mapMedicalAdministrationToDTO(orderPackage: OrderPackage): ExtendedMedi
       ?.find((res) => res.reference)
       ?.reference?.replace('Condition/', ''),
     manufacturer: medication?.manufacturer?.display,
-    location: getLocationCodeFromMedicationAdministration(medicationAdministration),
+    location: getLocationFromMedicationAdministration(medicationAdministration),
     dateTimeCreated: medicationAdministration.effectiveDateTime ?? '',
     providerCreatedTheOrderId: getPractitionerIdThatOrderedMedication(medicationAdministration) || '',
     providerCreatedTheOrder: providerCreatedOrderName ?? '',
@@ -126,6 +113,7 @@ function mapMedicalAdministrationToDTO(orderPackage: OrderPackage): ExtendedMedi
 
     // scanning part
     lotNumber: medication?.batch?.lotNumber,
+    ndc: medication ? getNdcCodeFromMedication(medication) : undefined,
     expDate: medication?.batch?.expirationDate,
 
     // administrating
@@ -134,6 +122,9 @@ function mapMedicalAdministrationToDTO(orderPackage: OrderPackage): ExtendedMedi
     administeredProvider: providerAdministeredOrderName,
 
     interactions: getMedicationInteractions(medicationRequest),
+
+    // CPT/HCPCS codes (with optional billing unit data) stored on the MedicationAdministration
+    cptCodes: getCptCodesFromMA(medicationAdministration),
 
     /**
      * @deprecated Use effectiveDateTime instead. This field is kept for backward compatibility.

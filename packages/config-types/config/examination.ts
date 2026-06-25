@@ -49,6 +49,8 @@ export interface ExamCardCheckboxComponent extends ExamComponentWithCode {
   label: string;
   defaultValue: boolean;
   type: 'checkbox';
+  /** When true, only display if the field already has saved data. Used for deprecated fields. */
+  legacy?: boolean;
 }
 
 /**
@@ -146,6 +148,40 @@ export interface ExamCardMultiSelectComponent extends ExamComponentWithCode {
 }
 
 /**
+ * Modal exam checkbox option within a group
+ */
+export interface ExamModalCheckboxOption extends ExamComponentWithCode {
+  label: string;
+  defaultValue: boolean;
+  description?: string;
+  abnormal?: boolean;
+}
+
+/**
+ * Group of checkbox options within a modal exam section
+ */
+export interface ExamModalOptionGroup {
+  label: string;
+  options: Record<string, ExamModalCheckboxOption>;
+}
+export interface ExamModalOptionColumn {
+  header?: string;
+  headerAbbreviation?: string;
+  groups: Record<string, ExamModalOptionGroup>;
+}
+export interface ExamModalWithColumnsSection {
+  label: string;
+  columns: Record<string, ExamModalOptionColumn>;
+}
+
+export interface ExamCardCheckboxWithModalComponent extends ExamComponentWithCode {
+  label: string;
+  defaultValue: boolean;
+  type: 'checkbox-with-modal';
+  modal: Record<string, ExamModalWithColumnsSection>;
+}
+
+/**
  * Union of all non-text exam card components
  */
 export type ExamCardNonTextComponent =
@@ -153,7 +189,8 @@ export type ExamCardNonTextComponent =
   | ExamCardDropdownComponent
   | ExamCardColumnComponent
   | ExamCardFormComponent
-  | ExamCardMultiSelectComponent;
+  | ExamCardMultiSelectComponent
+  | ExamCardCheckboxWithModalComponent;
 
 /**
  * Union of all exam card component types
@@ -183,20 +220,13 @@ export type ExamItemConfig = Record<string, ExamCard>;
 export interface ExamTypeInstance {
   version: string;
   components: ExamItemConfig;
+  constants?: Record<string, Set<string>>;
 }
 
 /**
  * Full examination configuration
  */
-export interface ExaminationConfig {
-  telemed: Record<string, ExamTypeInstance>;
-  inPerson: Record<string, ExamTypeInstance>;
-}
-
-/**
- * Exam type enum values
- */
-export type ExamTypeValue = 'telemed' | 'inPerson';
+export type ExaminationConfig = Record<string, ExamTypeInstance>;
 
 // ============================================================================
 // Zod Schemas
@@ -214,6 +244,7 @@ export const ExamCardCheckboxComponentSchema: z.ZodType<ExamCardCheckboxComponen
   label: z.string().min(1, 'Label is required'),
   defaultValue: z.boolean(),
   type: z.literal('checkbox'),
+  legacy: z.boolean().optional(),
   code: ExamCodeableConceptSchema.optional(),
   bodySite: ExamCodeableConceptSchema.optional(),
 });
@@ -326,6 +357,51 @@ export const ExamCardColumnComponentSchema: z.ZodType<ExamCardColumnComponent, z
 );
 
 /**
+ * Schema for exam modal checkbox option
+ */
+export const ExamModalCheckboxOptionSchema: z.ZodType<ExamModalCheckboxOption, z.ZodTypeDef, unknown> = z.object({
+  label: z.string().min(1, 'Label is required'),
+  defaultValue: z.boolean(),
+  description: z.string().optional(),
+  abnormal: z.boolean().optional(),
+  code: ExamCodeableConceptSchema.optional(),
+  bodySite: ExamCodeableConceptSchema.optional(),
+});
+
+/**
+ * Schema for exam modal option group
+ */
+export const ExamModalOptionGroupSchema: z.ZodType<ExamModalOptionGroup, z.ZodTypeDef, unknown> = z.object({
+  label: z.string().min(1, 'Label is required'),
+  options: z.record(z.string(), ExamModalCheckboxOptionSchema),
+});
+
+export const ExamModalOptionColumnSchema: z.ZodType<ExamModalOptionColumn, z.ZodTypeDef, unknown> = z.object({
+  header: z.string().optional(),
+  headerAbbreviation: z.string().optional(),
+  groups: z.record(z.string(), ExamModalOptionGroupSchema),
+});
+
+export const ExamModalWithColumnsSectionSchema: z.ZodType<ExamModalWithColumnsSection, z.ZodTypeDef, unknown> =
+  z.object({
+    label: z.string().min(1, 'Label is required'),
+    columns: z.record(z.string(), ExamModalOptionColumnSchema),
+  });
+
+export const ExamCardCheckboxWithModalComponentSchema: z.ZodType<
+  ExamCardCheckboxWithModalComponent,
+  z.ZodTypeDef,
+  unknown
+> = z.object({
+  label: z.string().min(1, 'Label is required'),
+  defaultValue: z.boolean(),
+  type: z.literal('checkbox-with-modal'),
+  modal: z.record(z.string(), ExamModalWithColumnsSectionSchema),
+  code: ExamCodeableConceptSchema.optional(),
+  bodySite: ExamCodeableConceptSchema.optional(),
+});
+
+/**
  * Union schema for non-text components
  */
 export const ExamCardNonTextComponentSchema: z.ZodType<ExamCardNonTextComponent, z.ZodTypeDef, unknown> = z.union([
@@ -334,6 +410,7 @@ export const ExamCardNonTextComponentSchema: z.ZodType<ExamCardNonTextComponent,
   ExamCardColumnComponentSchema,
   ExamCardFormComponentSchema,
   ExamCardMultiSelectComponentSchema,
+  ExamCardCheckboxWithModalComponentSchema,
 ]);
 
 /**
@@ -365,23 +442,16 @@ export const ExamItemConfigSchema: z.ZodType<ExamItemConfig, z.ZodTypeDef, unkno
 );
 
 /**
- * Schema for exam type instance
+ * Schema for full examination config
  */
-export const ExamTypeInstanceSchema: z.ZodType<Record<string, ExamTypeInstance>, z.ZodTypeDef, unknown> = z.record(
+export const ExaminationConfigSchema: z.ZodType<ExaminationConfig, z.ZodTypeDef, unknown> = z.record(
   z.string(),
   z.object({
     version: HexHashSchema,
     components: ExamItemConfigSchema,
+    constants: z.record(z.string(), z.set(z.string())).optional(),
   })
 );
-
-/**
- * Schema for full examination config
- */
-export const ExaminationConfigSchema: z.ZodType<ExaminationConfig, z.ZodTypeDef, unknown> = z.object({
-  telemed: ExamTypeInstanceSchema,
-  inPerson: ExamTypeInstanceSchema,
-});
 
 /**
  * Validation function for examination config

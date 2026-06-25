@@ -4,40 +4,31 @@ import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import { Box, Button, Chip, CircularProgress, Grid, Typography } from '@mui/material';
 import { t } from 'i18next';
 import { DateTime } from 'luxon';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { APIError, APPOINTMENT_NOT_FOUND_ERROR, CheckInZambdaOutput, DATETIME_FULL_NO_YEAR, VisitType } from 'utils';
+import {
+  APIError,
+  APPOINTMENT_NOT_FOUND_ERROR,
+  CheckInZambdaOutput,
+  DATETIME_FULL_NO_YEAR,
+  FEATURE_FLAGS_CONFIG,
+  VisitType,
+} from 'utils';
 import ottehrApi from '../api/ottehrApi';
 import { PageContainer } from '../components';
 import useAppointmentNotFoundInformation from '../helpers/information';
-import { useTrackMixpanelEvents } from '../hooks/useTrackMixpanelEvents';
 import { useUCZambdaClient } from '../hooks/useUCZambdaClient';
 import { otherColors, palette } from '../IntakeThemeProvider';
 import i18n from '../lib/i18n';
-import { useVisitContext } from './ThankYou';
 
 const CheckIn = (): JSX.Element => {
   const zambdaClient = useUCZambdaClient({ tokenless: true });
   const { id: appointmentID } = useParams();
   const [checkIn, setCheckIn] = useState<CheckInZambdaOutput | undefined>(undefined);
   const [notFound, setNotFound] = useState(false);
-  const [loading, setLoading] = useState<boolean>(false);
-  const { appointmentData } = useVisitContext();
-  const selectedLocation = useMemo(() => {
-    return appointmentData?.appointment?.location;
-  }, [appointmentData?.appointment?.location]);
-
-  useTrackMixpanelEvents({
-    eventName: 'Check In',
-    visitType: checkIn?.visitType,
-    loading: !checkIn?.visitType || loading,
-    bookingCity: selectedLocation?.address?.city,
-    bookingState: selectedLocation?.address?.state,
-  });
 
   useEffect(() => {
     async function updateAppointment(): Promise<void> {
-      setLoading(true);
       if (!zambdaClient) {
         throw new Error('zambda client is undefined');
       }
@@ -47,7 +38,6 @@ const CheckIn = (): JSX.Element => {
       if (!checkIn) {
         setCheckIn(await ottehrApi.checkIn(zambdaClient, { appointmentId: appointmentID }));
       }
-      setLoading(false);
     }
 
     updateAppointment().catch((error) => {
@@ -59,7 +49,10 @@ const CheckIn = (): JSX.Element => {
     });
   }, [zambdaClient, checkIn, appointmentID]);
 
-  const showRegisterAnotherPatient = checkIn?.visitType && checkIn?.visitType !== VisitType.PostTelemed;
+  const showRegisterAnotherPatient =
+    !FEATURE_FLAGS_CONFIG.hideRegisterAnotherPatient &&
+    checkIn?.visitType &&
+    checkIn?.visitType !== VisitType.PostTelemed;
 
   const greenCheckIcon = (
     <Chip
@@ -195,7 +188,9 @@ const CheckIn = (): JSX.Element => {
               {showRegisterAnotherPatient && (
                 <Grid item xs={12} md={6} textAlign={{ xs: 'center', md: 'start' }} justifyContent="start">
                   <Link to={'/home'} className="register-button">
-                    <Button variant="outlined">{t('appointments.registerAnother')}</Button>
+                    <Button variant="outlined" color="secondary">
+                      {t('appointments.registerAnother')}
+                    </Button>
                   </Link>
                 </Grid>
               )}

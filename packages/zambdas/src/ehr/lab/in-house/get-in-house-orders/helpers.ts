@@ -19,7 +19,7 @@ import {
 } from 'fhir/r4b';
 import {
   compareDates,
-  convertActivityDefinitionToTestItem,
+  convertActivityDefinitionToDataEntryTestItem,
   DEFAULT_IN_HOUSE_LABS_ITEMS_PER_PAGE,
   DiagnosisDTO,
   EMPTY_PAGINATION,
@@ -36,15 +36,15 @@ import {
   Pagination,
   TestStatus,
 } from 'utils';
-import { createOystehrClient, getMyPractitionerId, sendErrors } from '../../../../shared';
+import { getMyPractitionerId, sendErrors } from '../../../../shared';
 import { getObservationsForDiagnosticReportResults } from '../../shared/helpers';
 import {
   buildOrderHistory,
   determineOrderStatus,
   fetchResultResourcesForRelatedServiceRequest,
+  getInHouseLabTestUrlAndVersionForADFromServiceRequest,
   getRelatedServiceRequests,
   getSpecimenDetails,
-  getUrlAndVersionForADFromServiceRequest,
   taskIsBasedOnServiceRequest,
 } from '../../shared/in-house-labs';
 import { fetchLabDocumentPresignedUrls, parseTimezoneForAppointmentSchedule } from '../../shared/labs';
@@ -158,7 +158,7 @@ export const parseOrderData = <SearchBy extends InHouseOrdersSearchBy>({
     throw new Error(`ActivityDefinition not found for ServiceRequest ${serviceRequest.id}`);
   }
 
-  const testItem = convertActivityDefinitionToTestItem(
+  const testItem = convertActivityDefinitionToDataEntryTestItem(
     activityDefinition,
     observations,
     serviceRequest,
@@ -313,8 +313,7 @@ export const getInHouseResources = async (
       activityDefinitions.push(...additionalActivityDefinitions);
     }
 
-    const oystehrCurrentUser = createOystehrClient(userToken, params.secrets);
-    const myPractitionerId = await getMyPractitionerId(oystehrCurrentUser);
+    const myPractitionerId = await getMyPractitionerId(userToken, params.secrets);
 
     if (myPractitionerId) {
       currentPractitioner = await oystehr.fhir.get<Practitioner>({
@@ -631,7 +630,7 @@ export const findActivityDefinitionForServiceRequest = (
   serviceRequest: ServiceRequest,
   activityDefinitions: ActivityDefinition[]
 ): ActivityDefinition | undefined => {
-  const { url, version } = getUrlAndVersionForADFromServiceRequest(serviceRequest);
+  const { url, version } = getInHouseLabTestUrlAndVersionForADFromServiceRequest(serviceRequest);
 
   return activityDefinitions.find((ad) => {
     const versionMatch = ad.version === version;

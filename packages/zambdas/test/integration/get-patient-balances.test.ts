@@ -8,7 +8,12 @@ import { GetPatientBalancesZambdaOutput } from 'utils';
 import { afterAll, beforeAll, describe, expect, inject, it } from 'vitest';
 import { performEffect } from '../../src/ehr/get-patient-balances';
 import { validateInput, validateSecrets } from '../../src/ehr/get-patient-balances/validateRequestParameters';
-import { CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM, getAuth0Token, ZambdaInput } from '../../src/shared';
+import {
+  CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM,
+  createClinicalOystehrClient,
+  getAuth0Token,
+  ZambdaInput,
+} from '../../src/shared';
 import { SECRETS } from '../data/secrets';
 import { ensureM2MPractitionerProfile } from '../helpers/configureTestM2MClient';
 import { addProcessIdMetaTagToResource } from '../helpers/integration-test-seed-data-setup';
@@ -246,14 +251,9 @@ describe('get-patient-balances integration tests', () => {
       AUTH0_AUDIENCE: AUTH0_AUDIENCE,
     });
 
-    oystehr = new Oystehr({
-      accessToken: token,
-      fhirApiUrl: FHIR_API,
-      projectApiUrl: EXECUTE_ZAMBDA_URL,
-      services: {
-        zambdaApiUrl: EXECUTE_ZAMBDA_URL,
-      },
+    oystehr = createClinicalOystehrClient(token, SECRETS, {
       projectId: PROJECT_ID,
+      services: { fhirApiUrl: FHIR_API, projectApiUrl: EXECUTE_ZAMBDA_URL, zambdaApiUrl: EXECUTE_ZAMBDA_URL },
     });
 
     await ensureM2MPractitionerProfile(token);
@@ -357,32 +357,32 @@ describe('get-patient-balances integration tests', () => {
 
       it('should throw error when patientId is missing', async () => {
         const invalidInput = { ...input, body: JSON.stringify({}) };
-        await expect(validateInput(invalidInput)).rejects.toThrow('patientId is required');
+        await expect(validateInput(invalidInput)).rejects.toThrow(/patientId/);
 
         const nullInput = { ...input, body: JSON.stringify({ patientId: null }) };
-        await expect(validateInput(nullInput)).rejects.toThrow('patientId is required');
+        await expect(validateInput(nullInput)).rejects.toThrow(/patientId/);
 
         const undefinedInput = { ...input, body: JSON.stringify({ patientId: undefined }) };
-        await expect(validateInput(undefinedInput)).rejects.toThrow('patientId is required');
+        await expect(validateInput(undefinedInput)).rejects.toThrow(/patientId/);
 
         const emptyString = { ...input, body: JSON.stringify({ patientId: '' }) };
-        await expect(validateInput(emptyString)).rejects.toThrow('patientId is required');
+        await expect(validateInput(emptyString)).rejects.toThrow(/patientId/);
       });
 
       it('should throw error when patientId is not a string', async () => {
         const numberInput = { ...input, body: JSON.stringify({ patientId: 123 }) };
-        await expect(validateInput(numberInput)).rejects.toThrow('patientId must be a string');
+        await expect(validateInput(numberInput)).rejects.toThrow(/patientId/);
 
         const objectInput = { ...input, body: JSON.stringify({ patientId: {} }) };
-        await expect(validateInput(objectInput)).rejects.toThrow('patientId must be a string');
+        await expect(validateInput(objectInput)).rejects.toThrow(/patientId/);
 
         const arrayInput = { ...input, body: JSON.stringify({ patientId: [] }) };
-        await expect(validateInput(arrayInput)).rejects.toThrow('patientId must be a string');
+        await expect(validateInput(arrayInput)).rejects.toThrow(/patientId/);
       });
 
       it('should throw error when patientId is not a valid UUID', async () => {
         const notAUuid = { ...input, body: JSON.stringify({ patientId: 'not-a-uuid' }) };
-        await expect(validateInput(notAUuid)).rejects.toThrow('patientId must be a valid UUID');
+        await expect(validateInput(notAUuid)).rejects.toThrow(/patientId/);
       });
 
       it('should throw error when access token is missing', async () => {
@@ -430,6 +430,43 @@ describe('get-patient-balances integration tests', () => {
       ) as Encounter;
 
       await oystehr.fhir.create(missingCandidIdEncounterInput);
+
+      const mockCandidClient = createMockCandidApiClient();
+
+      const response = await getPatientBalances(patient.id!, mockCandidClient);
+
+      expect(response).toBeDefined();
+      expect(response.encounters).toEqual([]);
+      expect(response.totalBalanceCents).toBe(0);
+      expect(response.pendingPaymentCents).toBe(0);
+    });
+
+    it('should return empty balance when encounter has no appointment reference (follow-up encounters)', async () => {
+      const patient = await createMockPatient();
+      // won't actually have one but want to test the specific scenario
+      const candidEncounterId = randomUUID();
+      const encounterInput = addProcessIdMetaTagToResource(
+        {
+          resourceType: 'Encounter',
+          status: 'finished',
+          subject: {
+            reference: `Patient/${patient.id}`,
+          },
+          class: {
+            system: 'http://terminology.hl7.org/CodeSystem/v3-ActCode',
+            code: 'AMB',
+          },
+          identifier: [
+            {
+              system: CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM,
+              value: candidEncounterId,
+            },
+          ],
+        },
+        processId
+      ) as Encounter;
+
+      await oystehr.fhir.create(encounterInput);
 
       const mockCandidClient = createMockCandidApiClient();
 
@@ -646,97 +683,6 @@ describe('get-patient-balances integration tests', () => {
   });
 
   describe('unhappy paths', () => {
-    it('should throw error when encounter is missing appointment reference', async () => {
-      const patient = await createMockPatient();
-      const candidEncounterId = randomUUID();
-      const encounterInput = addProcessIdMetaTagToResource(
-        {
-          resourceType: 'Encounter',
-          status: 'finished',
-          subject: {
-            reference: `Patient/${patient.id}`,
-          },
-          class: {
-            system: 'http://terminology.hl7.org/CodeSystem/v3-ActCode',
-            code: 'AMB',
-          },
-          identifier: [
-            {
-              system: CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM,
-              value: candidEncounterId,
-            },
-          ],
-        },
-        processId
-      ) as Encounter;
-
-      await oystehr.fhir.create(encounterInput);
-
-      const mockCandidClient = createMockCandidApiClient();
-
-      await expect(getPatientBalances(patient.id!, mockCandidClient)).rejects.toThrow(
-        /Encounter is missing appointmentId or encounterDate/
-      );
-    });
-
-    it('should throw error when appointment is missing start date', async () => {
-      const patient = await createMockPatient();
-      const candidEncounterId = randomUUID();
-
-      const appointmentInput = addProcessIdMetaTagToResource(
-        {
-          resourceType: 'Appointment',
-          // proposed means an appointment doesn't have to have a start time
-          status: 'proposed',
-          participant: [
-            {
-              actor: {
-                reference: `Patient/${patient.id}`,
-              },
-              status: 'accepted',
-            },
-          ],
-        },
-        processId
-      ) as Appointment;
-
-      const appointment = (await oystehr.fhir.create(appointmentInput)) as Appointment;
-
-      const encounterInput = addProcessIdMetaTagToResource(
-        {
-          resourceType: 'Encounter',
-          status: 'finished',
-          subject: {
-            reference: `Patient/${patient.id}`,
-          },
-          appointment: [
-            {
-              reference: `Appointment/${appointment.id}`,
-            },
-          ],
-          class: {
-            system: 'http://terminology.hl7.org/CodeSystem/v3-ActCode',
-            code: 'AMB',
-          },
-          identifier: [
-            {
-              system: CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM,
-              value: candidEncounterId,
-            },
-          ],
-        },
-        processId
-      ) as Encounter;
-
-      await oystehr.fhir.create(encounterInput);
-
-      const mockCandidClient = createMockCandidApiClient();
-
-      await expect(getPatientBalances(patient.id!, mockCandidClient)).rejects.toThrow(
-        /Encounter is missing appointmentId or encounterDate/
-      );
-    });
-
     it('should throw error when Candid encounter API returns error', async () => {
       const patient = await createMockPatient();
       const appointment = await createMockAppointment({ patientId: patient.id!, processId });

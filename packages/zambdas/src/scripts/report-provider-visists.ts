@@ -2,8 +2,7 @@ import Oystehr from '@oystehr/sdk';
 import { Appointment, Encounter, Location, Practitioner } from 'fhir/r4b';
 import * as fs from 'fs';
 import { OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
-import { getAuth0Token } from '../shared';
-import { fhirApiUrlFromAuth0Audience } from './helpers';
+import { createClinicalOystehrClient, getAuth0Token } from '../shared';
 
 // Helper to get timezone abbreviation (e.g., "PST", "EST")
 function getTimezoneAbbreviation(): string {
@@ -386,7 +385,7 @@ async function main(): Promise<void> {
     `\n📅 Processing encounters for date range: ${startDateString} to ${endDateString} (${getTimezoneAbbreviation()})`
   );
 
-  const secrets = JSON.parse(fs.readFileSync(`.env/${env}.json`, 'utf8'));
+  const secrets = JSON.parse(fs.readFileSync(`../../config/.env/${env}.json`, 'utf8'));
 
   const token = await getAuth0Token(secrets);
 
@@ -394,10 +393,7 @@ async function main(): Promise<void> {
     throw new Error('❌ Failed to fetch auth token.');
   }
 
-  const oystehr = new Oystehr({
-    accessToken: token,
-    fhirApiUrl: fhirApiUrlFromAuth0Audience(secrets.AUTH0_AUDIENCE),
-  });
+  const oystehr = createClinicalOystehrClient(token, secrets);
 
   // Parse and validate date range
   const { start, end } = getUTCDateRange(startDateString, endDateString);

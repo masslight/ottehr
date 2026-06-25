@@ -1,12 +1,11 @@
-import RadioButtonCheckedIcon from '@mui/icons-material/RadioButtonChecked';
-import RadioButtonUncheckedIcon from '@mui/icons-material/RadioButtonUnchecked';
-import { Box, Checkbox, FormControlLabel, Grid, Radio, RadioGroup, SxProps, Theme, Typography } from '@mui/material';
+import { Box, FormControlLabel, Grid, Radio, RadioGroup, SxProps, Theme, Typography } from '@mui/material';
 import { Controller, useFormContext } from 'react-hook-form';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { CodeableConceptComponent } from 'utils';
+import { CodeableConceptDataEntryComponent } from 'utils';
+import { NullOptionCheckbox } from './NullOptionCheckbox';
 
 interface ResultEntryRadioButtonProps {
-  testItemComponent: CodeableConceptComponent;
+  testItemComponent: CodeableConceptDataEntryComponent;
   disabled?: boolean; // equates to the final view
 }
 
@@ -108,40 +107,6 @@ export const ResultEntryRadioButton: React.FC<ResultEntryRadioButtonProps> = ({ 
     }
   };
 
-  const finalViewNullOptionCheckboxStyling = (curValue: string): SxProps<Theme> => {
-    const isFinalView = !!disabled;
-    if (isFinalView) {
-      const isChecked = curValue === nullCode;
-      if (isChecked) {
-        return NEUTRAL_RADIO_STYLING;
-      } else {
-        return {};
-      }
-    }
-    return {};
-  };
-
-  const finalViewNullOptionCheckboxLabelStyling = (curValue: string): SxProps<Theme> => {
-    const isFinalView = !!disabled;
-    if (isFinalView) {
-      const isChecked = curValue === nullCode;
-      if (isChecked) {
-        return {
-          color: 'text.primary',
-          '& .MuiFormControlLabel-label': {
-            color: 'text.primary',
-          },
-          '&.Mui-disabled .MuiFormControlLabel-label': {
-            color: 'text.primary',
-          },
-        };
-      } else {
-        return {};
-      }
-    }
-    return {};
-  };
-
   return (
     <Controller
       name={testItemComponent.observationDefinitionId}
@@ -180,20 +145,12 @@ export const ResultEntryRadioButton: React.FC<ResultEntryRadioButtonProps> = ({ 
 
           {testItemComponent.nullOption && (
             <Box mt={2}>
-              <FormControlLabel
-                control={
-                  <Checkbox
-                    icon={<RadioButtonUncheckedIcon />}
-                    checkedIcon={<RadioButtonCheckedIcon />}
-                    disabled={!!disabled}
-                    checked={field.value === nullCode}
-                    onChange={() => field.onChange(field.value === nullCode ? '' : nullCode)}
-                    sx={disabled ? finalViewNullOptionCheckboxStyling(field.value) : {}}
-                  />
-                }
-                label={testItemComponent.nullOption.text}
-                sx={disabled ? finalViewNullOptionCheckboxLabelStyling(field.value) : {}}
-              />
+              <NullOptionCheckbox
+                disabled={!!disabled}
+                nullCode={nullCode}
+                field={field}
+                label={testItemComponent?.nullOption?.text}
+              ></NullOptionCheckbox>
             </Box>
           )}
         </>

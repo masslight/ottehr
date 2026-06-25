@@ -1,15 +1,5 @@
 import * as z from 'zod';
 
-// Re-export base types from config-types
-export {
-  EmailTemplateBaseSchema,
-  SendgridConfigSchema,
-  SendgridTemplatesSchema,
-  type EmailTemplateBase,
-  type SendgridTemplateIdSecretName,
-  type SendgridTemplates,
-} from 'config-types';
-
 // this is relative to the deploy folder where tf runs
 const PATH_PREFIX = '../packages/utils/lib';
 
@@ -142,6 +132,16 @@ const SENDGRID_DATA = {
       dynamicTemplateData: ['order-type', 'test-name', 'visit-date', 'result-url', 'location'],
       supportsAttachments: false,
     },
+    genericOutreach: {
+      templateName: 'Generic Outreach',
+      templateVersionName: '1.0.0',
+      active: true,
+      htmlFilePath: `${PATH_PREFIX}/ottehr-config/sendgrid/template_html/generic-outreach.html`,
+      subject: '{{env}}{{subject-text}}',
+      templateIdSecretName: 'SENDGRID_GENERIC_OUTREACH_TEMPLATE_ID',
+      dynamicTemplateData: ['content', 'subject-text'],
+      supportsAttachments: false,
+    },
   },
   featureFlag: false as boolean,
 } as const;
@@ -221,6 +221,11 @@ const OrderResultAlertSchema = TemplateVersionSchema.extend({
   disabled: z.boolean().default(false),
   dynamicTemplateData: z.array(z.enum(SENDGRID_DATA.templates.orderResultAlert.dynamicTemplateData)),
 });
+const GenericOutreachSchema = TemplateVersionSchema.extend({
+  templateIdSecretName: z.literal('SENDGRID_GENERIC_OUTREACH_TEMPLATE_ID'),
+  disabled: z.boolean().default(false),
+  dynamicTemplateData: z.array(z.enum(SENDGRID_DATA.templates.genericOutreach.dynamicTemplateData)),
+});
 
 const DefaultTemplates = z.object({
   errorReport: ErrorReportSchema,
@@ -234,11 +239,11 @@ const DefaultTemplates = z.object({
   telemedCompletion: TelemedCompletionSchema,
   telemedInvitation: TelemedInvitationSchema,
   orderResultAlert: OrderResultAlertSchema,
+  genericOutreach: GenericOutreachSchema,
 });
 
 const SENDGRID_CONFIG_SCHEMA = z.object({
   templates: DefaultTemplates,
-  featureFlag: z.boolean().default(false),
 });
 
 export const SENDGRID_CONFIG = Object.freeze(SENDGRID_CONFIG_SCHEMA.parse(SENDGRID_DATA));
@@ -269,3 +274,4 @@ export type TelemedConfirmationTemplateData = DynamicTemplateDataRecord<
 export type TelemedCompletionTemplateData = DynamicTemplateDataRecord<SendgridConfig['templates']['telemedCompletion']>;
 export type TelemedInvitationTemplateData = DynamicTemplateDataRecord<SendgridConfig['templates']['telemedInvitation']>;
 export type OrderResultAlertTemplateData = DynamicTemplateDataRecord<SendgridConfig['templates']['orderResultAlert']>;
+export type GenericOutreachTemplateData = DynamicTemplateDataRecord<SendgridConfig['templates']['genericOutreach']>;

@@ -5,6 +5,7 @@ import { useExcusePresignedFiles } from 'src/shared/hooks/useExcusePresignedFile
 import { getSupportPhoneFor, SCHOOL_WORK_NOTE } from 'utils';
 import { AccordionCard } from '../../../../components/AccordionCard';
 import { DoubleColumnContainer } from '../../../../components/DoubleColumnContainer';
+import { useSupportPhonesMap } from '../../../../hooks/useLocationSupportPhones';
 import { useGetAppointmentAccessibility } from '../hooks/useGetAppointmentAccessibility';
 import { usePatientProvidedExcusePresignedFiles } from '../hooks/usePatientProvidedExcusePresignedFiles';
 import {
@@ -44,7 +45,8 @@ export const SchoolWorkExcuseCard: FC<SchoolWorkExcuseCardProps> = ({ locationNa
   const workExcuse = presignedFiles.find((file) => file.type === 'work');
   const schoolExcuse = presignedFiles.find((file) => file.type === 'school');
 
-  const supportPhoneNumber = getSupportPhoneFor(locationName);
+  const { phonesByLocationName } = useSupportPhonesMap();
+  const supportPhoneNumber = getSupportPhoneFor(locationName, phonesByLocationName);
   const onDelete = (id: string): void => {
     const schoolWorkNotes = chartData?.schoolWorkNotes || [];
     const note = schoolWorkNotes.find((note) => note.id === id)!;
@@ -73,29 +75,6 @@ export const SchoolWorkExcuseCard: FC<SchoolWorkExcuseCardProps> = ({ locationNa
         },
         onSuccess: () => {
           // No need to update again, optimistic update already applied
-        },
-      }
-    );
-  };
-
-  const onPublish = (id: string): void => {
-    const schoolWorkNotes = chartData?.schoolWorkNotes || [];
-    const note = schoolWorkNotes.find((note) => note.id === id)!;
-
-    saveChartData(
-      {
-        schoolWorkNotes: [{ id: note.id, published: true }],
-      },
-      {
-        onSuccess: () => {
-          setPartialChartData({
-            schoolWorkNotes: schoolWorkNotes.map((note) => (note.id === id ? { ...note, published: true } : note)),
-          });
-        },
-        onError: () => {
-          enqueueSnackbar('An error has occurred while publishing excuse. Please try again.', {
-            variant: 'error',
-          });
         },
       }
     );
@@ -166,7 +145,6 @@ export const SchoolWorkExcuseCard: FC<SchoolWorkExcuseCardProps> = ({ locationNa
               type="school"
               excuse={schoolExcuse}
               onDelete={onDelete}
-              onPublish={onPublish}
               isLoading={isLoading || isReadOnly}
               generateTemplateOpen={setGenerateSchoolTemplateOpen}
               generateFreeOpen={setGenerateSchoolFreeOpen}
@@ -179,7 +157,6 @@ export const SchoolWorkExcuseCard: FC<SchoolWorkExcuseCardProps> = ({ locationNa
               type="work"
               excuse={workExcuse}
               onDelete={onDelete}
-              onPublish={onPublish}
               isLoading={isLoading}
               generateTemplateOpen={setGenerateWorkTemplateOpen}
               generateFreeOpen={setGenerateWorkFreeOpen}

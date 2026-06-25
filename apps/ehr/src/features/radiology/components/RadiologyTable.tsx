@@ -12,14 +12,18 @@ import {
   Typography,
 } from '@mui/material';
 import { ReactElement } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { GetRadiologyOrderListZambdaOrder } from 'utils';
-import { getRadiologyOrderEditUrl } from '../../visits/in-person/routing/helpers';
+import {
+  FollowUpAppointmentLookup,
+  getRadiologyOrderEditUrl,
+  resolveOrderRoutingFromFollowUpLookup,
+} from '../../visits/in-person/routing/helpers';
 import { RadiologyOrderLoading } from './RadiologyOrderLoading';
 import { RadiologyTableRow } from './RadiologyTableRow';
 import { usePatientRadiologyOrders } from './usePatientRadiologyOrders';
 
-export type RadiologyTableColumn = 'studyType' | 'dx' | 'ordered' | 'stat' | 'status' | 'actions';
+export type RadiologyTableColumn = 'studyType' | 'studyName' | 'dx' | 'ordered' | 'stat' | 'status' | 'actions';
 
 type RadiologyTableProps = {
   patientId?: string;
@@ -29,6 +33,7 @@ type RadiologyTableProps = {
   allowDelete?: boolean;
   titleText?: string;
   onCreateOrder?: () => void;
+  followUpAppointmentLookup?: FollowUpAppointmentLookup;
 };
 
 export const RadiologyTable = ({
@@ -38,8 +43,12 @@ export const RadiologyTable = ({
   allowDelete = false,
   titleText,
   onCreateOrder,
+  followUpAppointmentLookup,
 }: RadiologyTableProps): ReactElement => {
   const navigateTo = useNavigate();
+  const { id: appointmentIdFromUrl } = useParams();
+  const [searchParams] = useSearchParams();
+  const encounterIdParam = searchParams.get('encounterId');
 
   const {
     orders,
@@ -57,7 +66,18 @@ export const RadiologyTable = ({
   });
 
   const onRowClick = (order: GetRadiologyOrderListZambdaOrder): void => {
-    navigateTo(getRadiologyOrderEditUrl(order.appointmentId, order.serviceRequestId));
+    if (followUpAppointmentLookup) {
+      const { appointmentId, encounterIdQuery } = resolveOrderRoutingFromFollowUpLookup(
+        order.appointmentId,
+        followUpAppointmentLookup
+      );
+      const url = getRadiologyOrderEditUrl(appointmentId, order.serviceRequestId);
+      navigateTo(encounterIdQuery ? `${url}?encounterId=${encounterIdQuery}` : url);
+      return;
+    }
+    const appointmentId = appointmentIdFromUrl || order.appointmentId;
+    const url = getRadiologyOrderEditUrl(appointmentId, order.serviceRequestId);
+    navigateTo(encounterIdParam ? `${url}?encounterId=${encounterIdParam}` : url);
   };
 
   const handlePageChange = (event: React.ChangeEvent<unknown>, value: number): void => {
@@ -86,11 +106,13 @@ export const RadiologyTable = ({
   const getColumnWidth = (column: RadiologyTableColumn): string => {
     switch (column) {
       case 'studyType':
-        return '25%';
+        return '20%';
+      case 'studyName':
+        return '15%';
       case 'dx':
-        return '25%';
+        return '20%';
       case 'ordered':
-        return '25%';
+        return '20%';
       case 'stat':
         return '10%';
       case 'status':
@@ -106,6 +128,8 @@ export const RadiologyTable = ({
     switch (column) {
       case 'studyType':
         return 'Study type';
+      case 'studyName':
+        return 'Study name';
       case 'dx':
         return 'Dx';
       case 'ordered':

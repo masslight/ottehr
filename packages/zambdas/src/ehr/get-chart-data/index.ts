@@ -1,21 +1,9 @@
-import Oystehr, { BatchInputGetRequest, Bundle } from '@oystehr/sdk';
+import Oystehr, { BatchInputGetRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { FhirResource, Practitioner, Resource } from 'fhir/r4b';
-import {
-  ChartDataRequestedFields,
-  GetChartDataResponse,
-  getSecret,
-  PUBLIC_EXTENSION_BASE_URL,
-  SecretsKeys,
-} from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  getPatientEncounter,
-  topLevelCatch,
-  wrapHandler,
-  ZambdaInput,
-} from '../../shared';
-import { createOystehrClient } from '../../shared/helpers';
+import { ChartDataRequestedFields, GetChartDataResponse, PUBLIC_EXTENSION_BASE_URL } from 'utils';
+import { checkOrCreateM2MClientToken, getPatientEncounter, wrapHandler, ZambdaInput } from '../../shared';
+import { createClinicalOystehrClient } from '../../shared/helpers';
 import { configLabRequestsForGetChartData } from '../lab/shared/labs';
 import {
   configProceduresRequestsForGetChartData,
@@ -32,23 +20,18 @@ import { validateRequestParameters } from './validateRequestParameters';
 let m2mToken: string;
 const ZAMBDA_NAME = 'get-chart-data';
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  try {
-    console.log(`Input: ${JSON.stringify(input)}`);
-    console.log('Validating input');
-    const { encounterId, secrets, requestedFields } = validateRequestParameters(input);
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
+  console.log(`Input: ${JSON.stringify(input)}`);
+  console.log('Validating input');
+  const { encounterId, secrets, requestedFields } = validateRequestParameters(input);
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
-    const output = (await getChartData(oystehr, m2mToken, encounterId, requestedFields)).response;
+  const output = (await getChartData(oystehr, m2mToken, encounterId, requestedFields)).response;
 
-    return {
-      body: JSON.stringify(output),
-      statusCode: 200,
-    };
-  } catch (error) {
-    console.log(error);
-    return topLevelCatch(ZAMBDA_NAME, error, getSecret(SecretsKeys.ENVIRONMENT, input.secrets));
-  }
+  return {
+    body: JSON.stringify(output),
+    statusCode: 200,
+  };
 });
 
 export async function getChartData(
@@ -88,6 +71,7 @@ export async function getChartData(
     defaultSearchBy?: 'encounter' | 'patient';
   }): void {
     const fieldOptions = requestedFields?.[field as keyof ChartDataRequestedFields];
+
     const defaultSearchParams = defaultChartDataFieldsSearchParams[field];
 
     if (!requestedFields || fieldOptions) {
@@ -258,6 +242,10 @@ export async function getChartData(
     chartDataRequests.push(...labRequests);
   }
 
+  if (requestedFields?.radiologyOrders) {
+    addRequestIfNeeded({ field: 'radiologyOrders', resourceType: 'ServiceRequest', defaultSearchBy: 'encounter' });
+  }
+
   // procedures can be requested with custom search params (e.g., multiple encounters)
   if ((!requestedFields || requestedFields.procedures) && encounter.id) {
     const proceduresSearchParams = requestedFields?.procedures;
@@ -277,17 +265,39 @@ export async function getChartData(
     }
   }
 
+  // Determine if we need to check whether the patient is new
+  const shouldFetchPatientHasPreviousVisits = !requestedFields || 'patientHasPreviousVisits' in requestedFields;
+
   console.timeLog('check', 'before resources fetch');
   console.log('Starting a transaction to retrieve chart data...');
-  let result: Bundle<FhirResource> | undefined;
-  try {
-    result = await oystehr.fhir.batch<FhirResource>({
-      requests: chartDataRequests,
-    });
-  } catch (error) {
-    console.log('Error fetching chart data...', error, JSON.stringify(error));
-    throw new Error(`Unable to retrieve chart data for patient with ID ${patient.id}`);
-  }
+
+  // Run batch and patientHasPreviousVisits query in parallel
+  const [batchResult, appointmentCountResult] = await Promise.all([
+    oystehr.fhir
+      .batch<FhirResource>({
+        requests: chartDataRequests,
+      })
+      .catch((error) => {
+        console.log('Error fetching chart data...', error, JSON.stringify(error));
+        throw new Error(`Unable to retrieve chart data for patient with ID ${patient.id}`);
+      }),
+    shouldFetchPatientHasPreviousVisits
+      ? oystehr.fhir
+          .search<FhirResource>({
+            resourceType: 'Appointment',
+            params: [
+              { name: 'patient._id', value: patient.id! },
+              { name: '_summary', value: 'count' },
+            ],
+          })
+          .catch((error) => {
+            console.log('Error fetching appointment count for patient...', error);
+            return undefined;
+          })
+      : Promise.resolve(undefined),
+  ]);
+
+  const result = batchResult;
   console.log('Retrieved chart data...');
   // console.debug('result JSON\n\n==============\n\n', JSON.stringify(result));
 
@@ -298,9 +308,11 @@ export async function getChartData(
     patient.id!,
     encounterId,
     requestedFields ? (Object.keys(requestedFields) as (keyof ChartDataRequestedFields)[]) : undefined,
-    patient
+    patient,
+    oystehr
   );
   console.timeLog('check', 'after converting to response');
+
   if (chartDataResult.chartData.aiChat) {
     const practitionerIDs = chartDataResult.chartData.aiChat.documents
       .filter((document) => document.resourceType === 'DocumentReference')
@@ -327,6 +339,13 @@ export async function getChartData(
       chartDataResult.chartData.aiChat.providers = practitioners;
     }
   }
+  // Set patientHasPreviousVisits based on appointment count
+  if (appointmentCountResult !== undefined) {
+    const appointmentCount = appointmentCountResult.total ?? 0;
+    // More than 1 appointment means the patient has previous visits (current appointment is one of them)
+    chartDataResult.chartData.patientHasPreviousVisits = appointmentCount > 1;
+  }
+
   console.timeEnd('check');
 
   return {

@@ -1,4 +1,17 @@
-import { BUCKET_NAMES, Secrets } from 'utils';
+import {
+  AppointmentContext,
+  BUCKET_NAMES,
+  getCoding,
+  getReasonForVisitAndAdditionalDetailsFromAppointment,
+  getReasonForVisitOptionsForServiceCategory,
+  getVisitOccupationalMedicineEmployerFromEncounter,
+  isInPersonAppointment,
+  isTelemedAppointment,
+  Secrets,
+  SERVICE_CATEGORY_SYSTEM,
+  ServiceMode,
+} from 'utils';
+import { createClinicalOystehrClient } from '../helpers';
 import { DataComposer, generatePdf, PdfRenderConfig, StyleFactory } from './pdf-common';
 import { rgbNormalized } from './pdf-utils';
 import {
@@ -9,6 +22,7 @@ import {
   composeEmergencyContactData,
   composeEmployerData,
   composeInsuranceData,
+  composeOccupationalMedicineEmployerData,
   composePatientData,
   composePatientDetailsData,
   composePatientPaymentsData,
@@ -21,6 +35,7 @@ import {
   createDocumentsSection,
   createEmergencyContactInfoSection,
   createEmployerInfoSection,
+  createOccupationalMedicineEmployerSection,
   createPatientDetailsSection,
   createPatientHeader,
   createPatientInfoSection,
@@ -32,7 +47,37 @@ import {
   createVisitInfoSection,
 } from './sections';
 import { composePrimaryCarePhysicianData, createPrimaryCarePhysicianSection } from './sections/primaryCarePhysician';
+import { fetchServiceCategoryCatalog } from './service-category-catalog';
 import { AssetPaths, PdfResult, VisitDetailsData, VisitDetailsInput } from './types';
+
+// Build the same `AppointmentContext` the EHR's VisitDetailsPage feeds into
+// `usePatientRecordFormSection`, so PDF section triggers evaluate identically.
+// In particular, `reasonForVisit` is the first complaint (not the comma-
+// joined list) and only set when it matches an option for the service
+// category — mirroring VisitDetailsPage.tsx.
+const buildAppointmentContext = (input: VisitDetailsInput): AppointmentContext => {
+  const { appointment, encounter } = input;
+  const appointmentServiceCategory = getCoding(appointment?.serviceCategory, SERVICE_CATEGORY_SYSTEM)?.code;
+  let appointmentServiceMode: ServiceMode | undefined;
+  if (isInPersonAppointment(appointment)) appointmentServiceMode = ServiceMode['in-person'];
+  else if (isTelemedAppointment(appointment)) appointmentServiceMode = ServiceMode.virtual;
+
+  const { reasonForVisit: firstComplaint } = getReasonForVisitAndAdditionalDetailsFromAppointment(appointment);
+  const validReasons = firstComplaint
+    ? getReasonForVisitOptionsForServiceCategory(appointmentServiceCategory ?? '')
+    : [];
+  const reasonForVisit = validReasons.some((option) => option.value === firstComplaint) ? firstComplaint : undefined;
+
+  return {
+    appointmentServiceCategory,
+    appointmentServiceMode,
+    reasonForVisit,
+    encounterId: encounter?.id,
+    visitOccupationalMedicineEmployerReference: encounter
+      ? getVisitOccupationalMedicineEmployerFromEncounter(encounter)
+      : undefined,
+  };
+};
 
 const composeVisitDetailsData: DataComposer<VisitDetailsInput, VisitDetailsData> = (input) => {
   const {
@@ -40,6 +85,7 @@ const composeVisitDetailsData: DataComposer<VisitDetailsInput, VisitDetailsData>
     emergencyContactResource,
     attorneyRelatedPerson,
     employerOrganization,
+    occupationalMedicineEmployerOrganization,
     appointment,
     encounter,
     location,
@@ -56,8 +102,9 @@ const composeVisitDetailsData: DataComposer<VisitDetailsInput, VisitDetailsData>
   } = input;
 
   return {
+    appointmentContext: buildAppointmentContext(input),
     patient: composePatientData({ patient, appointment }),
-    visit: composeVisitData({ appointment, location, timezone }),
+    visit: composeVisitData({ appointment, location, timezone, serviceCategories: input.serviceCategories }),
     contact: composeContactData({ patient, appointment }),
     details: composePatientDetailsData({ patient }),
     pcp: composePrimaryCarePhysicianData({ physician }),
@@ -68,7 +115,12 @@ const composeVisitDetailsData: DataComposer<VisitDetailsInput, VisitDetailsData>
     documents: composeDocumentsData(documents),
     emergencyContact: composeEmergencyContactData({ emergencyContactResource }),
     attorney: composeAttorneyData({ attorneyRelatedPerson }),
-    employer: composeEmployerData({ employer: employerOrganization }),
+    employer: composeEmployerData({
+      employer: employerOrganization,
+      workersCompCoverage: coverages.workersComp,
+      insuranceOrgs,
+    }),
+    omEmployer: composeOccupationalMedicineEmployerData({ employer: occupationalMedicineEmployerOrganization }),
     paymentHistory: composePatientPaymentsData({ payments }),
   };
 };
@@ -136,6 +188,7 @@ const visitDetailsRenderConfig: PdfRenderConfig<VisitDetailsData> = {
     { ...createPrimaryCarePhysicianSection(), preferredWidth: 'column' },
     { ...createResponsiblePartySection(), preferredWidth: 'column' },
     { ...createEmployerInfoSection(), preferredWidth: 'column' },
+    { ...createOccupationalMedicineEmployerSection(), preferredWidth: 'column' },
     { ...createEmergencyContactInfoSection(), preferredWidth: 'column' },
     { ...createAttorneyInfoSection(), preferredWidth: 'column' },
     { ...createConsentFormsSection(), preferredWidth: 'column' },
@@ -149,8 +202,9 @@ export const createVisitDetailsPdf = async (
   secrets: Secrets | null,
   token: string
 ): Promise<PdfResult> => {
+  const serviceCategories = await fetchServiceCategoryCatalog(createClinicalOystehrClient(token, secrets));
   return generatePdf(
-    input,
+    { ...input, serviceCategories },
     composeVisitDetailsData,
     visitDetailsRenderConfig,
     {

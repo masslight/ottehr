@@ -16,8 +16,7 @@ import {
 import { formatDateTimeToZone } from '../../utils';
 import {
   celsiusToFahrenheit,
-  cmToFeet,
-  cmToInches,
+  formatHeightObservationValue,
   formatWeightKg,
   formatWeightLbs,
   getVisionExtraOptionsFormattedString,
@@ -38,7 +37,7 @@ export const mapVitalsToDisplay = (
     switch (field) {
       case VitalFieldNames.VitalTemperature:
         parsed = observation as VitalsTemperatureObservationDTO;
-        text = `${parsed.value} C = ${celsiusToFahrenheit(parsed.value).toFixed(1)} F ${
+        text = `${parsed.value} C ≈ ${celsiusToFahrenheit(parsed.value).toFixed(1)} F ${
           parsed.observationMethod ? ` (${parsed.observationMethod})` : ''
         }`;
         break;
@@ -70,31 +69,38 @@ export const mapVitalsToDisplay = (
           const kgStr = formatWeightKg(parsed.value) + ' kg';
           const lbsStr = formatWeightLbs(parsed.value) + ' lbs';
           if (vitalsConfig['vital-weight'].unit === 'kg') {
-            text = `${kgStr} = ${lbsStr}`;
+            text = `${kgStr} ≈ ${lbsStr}`;
           } else {
-            text = `${lbsStr} = ${kgStr}`;
+            text = `${lbsStr} ≈ ${kgStr}`;
           }
         }
         break;
       }
       case VitalFieldNames.VitalHeight:
         parsed = observation as VitalsHeightObservationDTO;
-        text = `${parsed.value} cm = ${cmToInches(parsed.value)} inch = ${cmToFeet(parsed.value)} ft`;
+        text = formatHeightObservationValue(parsed.value);
         break;
-      case VitalFieldNames.VitalVision:
+      case VitalFieldNames.VitalVision: {
         parsed = observation as VitalsVisionObservationDTO;
-        text = `Left eye: ${parsed.leftEyeVisionText}; Right eye: ${parsed.rightEyeVisionText};${
+        const visionParts: string[] = [];
+        if (parsed.leftEyeVisionText) visionParts.push(`Left eye: ${parsed.leftEyeVisionText}`);
+        if (parsed.rightEyeVisionText) visionParts.push(`Right eye: ${parsed.rightEyeVisionText}`);
+        if (parsed.bothEyesVisionText) visionParts.push(`Both eyes: ${parsed.bothEyesVisionText}`);
+        text = `${visionParts.join('; ')};${
           parsed.extraVisionOptions && parsed.extraVisionOptions.length > 0
             ? ` ${getVisionExtraOptionsFormattedString(parsed.extraVisionOptions)}`
             : ''
         }`;
         break;
+      }
       case VitalFieldNames.VitalLastMenstrualPeriod: {
         parsed = observation as VitalsLastMenstrualPeriodObservationDTO;
         if (parsed.value) {
           const date = DateTime.fromISO(parsed.value);
           const formattedDate = date.isValid ? date.toFormat('MM/dd/yyyy') : parsed.value;
           text = `${formattedDate}${parsed.isUnsure ? ' (unsure)' : ''}`;
+        } else if (parsed.isUnsure) {
+          text = 'unsure';
         }
         break;
       }

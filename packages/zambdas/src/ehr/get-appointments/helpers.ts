@@ -138,7 +138,11 @@ export const getTimezone = async ({
       } else {
         console.error(`timezone not set for ${resourceId}`);
       }
-    } catch (e) {
+    } catch (e: any) {
+      if (e?.code === 404 || e?.code === 410) {
+        console.log(`resource "${resourceType}/${resourceId}" not found`, e);
+        return undefined;
+      }
       console.log('error getting location', JSON.stringify(e));
       throw new Error('location is not found');
     }
@@ -156,18 +160,14 @@ export const getAppointmentQueryInput = async (input: {
   oystehr: Oystehr;
   resourceId: string;
   resourceType: 'Location' | 'Practitioner' | 'HealthcareService';
-  searchDate: string;
+  searchDateFrom: string;
+  searchDateTo: string;
+  timezone: string;
 }): Promise<AppointmentQueryInput> => {
-  const { oystehr, resourceId, resourceType, searchDate } = input;
-  const timezone = await getTimezone({
-    oystehr,
-    resourceType,
-    resourceId,
-  });
+  const { searchDateFrom, searchDateTo, timezone } = input;
 
-  const searchDateInTargetTimezone = DateTime.fromISO(searchDate, { zone: timezone });
-  const startDay = searchDateInTargetTimezone.startOf('day').toUTC().toISO();
-  const endDay = searchDateInTargetTimezone.endOf('day').toUTC().toISO();
+  const startDay = DateTime.fromISO(searchDateFrom, { zone: timezone }).startOf('day').toUTC().toISO();
+  const endDay = DateTime.fromISO(searchDateTo, { zone: timezone }).endOf('day').toUTC().toISO();
 
   const { actorParams, healthcareService } = await getActorParamsForAppointmentQueryInput(input);
 
@@ -351,7 +351,7 @@ export const makeEncounterBaseSearchParams = (): SearchParam[] => [
   { name: '_sort', value: '-date' },
   { name: '_include', value: 'Encounter:appointment' },
   { name: '_include', value: 'Encounter:participant' },
-  { name: 'appointment._tag', value: OTTEHR_MODULE.IP },
+  { name: 'appointment._tag', value: [OTTEHR_MODULE.IP, OTTEHR_MODULE.TM].join(',') },
   { name: 'status:not', value: 'planned' },
   { name: 'status:not', value: 'finished' },
   { name: 'status:not', value: 'cancelled' },
@@ -364,7 +364,7 @@ export const makeEncounterSearchParams = async ({
   oystehr,
 }: {
   resourceId: string;
-  resourceType: 'Location' | 'Practitioner' | 'HealthcareService';
+  resourceType: 'Location' | 'Practitioner';
   cacheKey: string;
   oystehr: Oystehr;
 }): Promise<SearchParam[] | null> => {
@@ -385,9 +385,6 @@ export const makeEncounterSearchParams = async ({
       ...(cachedEncounterIds ? [{ name: '_id', value: cachedEncounterIds }] : []),
       ...(resourceType === 'Location' ? [{ name: 'appointment.location', value: `Location/${resourceId}` }] : []),
       ...(resourceType === 'Practitioner' ? [{ name: 'appointment.actor', value: `Practitioner/${resourceId}` }] : []),
-      ...(resourceType === 'HealthcareService'
-        ? [{ name: 'appointment.actor', value: `HealthcareService/${resourceId}` }]
-        : []),
     ];
   }
 

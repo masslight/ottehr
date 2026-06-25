@@ -1,15 +1,16 @@
 import { Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from '@mui/material';
-import { TestItemComponent } from 'utils';
+import { DataEntryComponent } from 'utils';
 import { ResultEntryTableRow } from './ResultsEntryTableRow';
 
 interface ResultEntryTableProps {
-  testItemComponents: TestItemComponent[];
+  testItemComponents: DataEntryComponent[];
   disabled?: boolean; // equates to the final view
 }
 
 const HEADER_ROW_STYLING = { borderBottom: 'none', padding: '0 8px 6px 0' };
 
 export const ResultEntryTable: React.FC<ResultEntryTableProps> = ({ testItemComponents, disabled }) => {
+  console.log('testItemComponents', testItemComponents);
   return (
     <TableContainer>
       <Table
@@ -46,6 +47,7 @@ export const ResultEntryTable: React.FC<ResultEntryTableProps> = ({ testItemComp
               component={component}
               disabled={disabled}
               key={`row-${index}-${component.observationDefinitionId}`}
+              showTopDivider={index > 0}
               isLastRow={index === testItemComponents.length - 1}
             />
           ))}

@@ -9,6 +9,9 @@ export const MEDICATION_IDENTIFIER_NAME_SYSTEM = 'virtual-medication-identifier-
 
 export const MEDICATION_DISPENSABLE_DRUG_ID =
   'https://terminology.fhir.oystehr.com/CodeSystem/medispan-dispensable-drug-id';
+export const MEDICATION_DISPENSABLE_DRUG_ID_FOR_INTERACTIONS = ottehrCodeSystemUrl(
+  'medispan-dispensable-drug-id-for-interactions'
+);
 
 export const MEDICATION_ADMINISTRATION_PERFORMER_TYPE_SYSTEM = 'performer-type';
 export const PRACTITIONER_ORDERED_MEDICATION_CODE = 'practitioner-ordered-medication';

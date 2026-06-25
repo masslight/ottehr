@@ -1,11 +1,12 @@
 import { FormControl, MenuItem, Select, useTheme } from '@mui/material';
-import { Controller, useFormContext } from 'react-hook-form';
-import { LabComponentValueSetConfig, TestItemComponent } from 'utils';
+import { ControllerRenderProps, FieldValues } from 'react-hook-form';
+import { DataEntryComponent, LabComponentValueSetConfig } from 'utils';
 
 interface ResultEntrySelectProps {
-  testItemComponent: TestItemComponent;
+  testItemComponent: DataEntryComponent;
   isAbnormal: boolean;
   setIsAbnormal: (bool: boolean) => void;
+  field: ControllerRenderProps<FieldValues, string>;
   disabled?: boolean; // equates to the final view
 }
 
@@ -13,9 +14,9 @@ export const ResultEntrySelect: React.FC<ResultEntrySelectProps> = ({
   testItemComponent,
   isAbnormal,
   setIsAbnormal,
+  field,
   disabled,
 }) => {
-  const { control } = useFormContext();
   const theme = useTheme();
 
   const assessAbnormality = (entry: string): void => {
@@ -63,30 +64,22 @@ export const ResultEntrySelect: React.FC<ResultEntrySelectProps> = ({
       }}
       size="small"
     >
-      <Controller
-        name={testItemComponent.observationDefinitionId}
-        control={control}
-        rules={{ required: 'Please select a value' }}
-        defaultValue=""
-        render={({ field }) => (
-          <Select
-            disabled={!!disabled}
-            fullWidth
-            id="result-entry-select"
-            {...field}
-            onChange={(e) => {
-              field.onChange(e);
-              assessAbnormality(e.target.value);
-            }}
-          >
-            {values?.map((val, idx) => (
-              <MenuItem id={`${val}-${idx}-id`} key={`${val}-${idx}-key`} value={val.code}>
-                {val.display}
-              </MenuItem>
-            ))}
-          </Select>
-        )}
-      />
+      <Select
+        disabled={!!disabled}
+        fullWidth
+        id="result-entry-select"
+        {...field}
+        onChange={(e) => {
+          field.onChange(e);
+          assessAbnormality(e.target.value);
+        }}
+      >
+        {values?.map((val, idx) => (
+          <MenuItem id={`${val}-${idx}-id`} key={`${val}-${idx}-key`} value={val.code}>
+            {val.display}
+          </MenuItem>
+        ))}
+      </Select>
     </FormControl>
   );
 };

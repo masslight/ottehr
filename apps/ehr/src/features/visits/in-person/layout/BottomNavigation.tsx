@@ -6,12 +6,14 @@ import { enqueueSnackbar } from 'notistack';
 import React from 'react';
 import { usePractitionerActions } from 'src/features/visits/shared/hooks/usePractitioner';
 import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
-import { PRACTITIONER_CODINGS } from 'utils';
+import { getInPersonVisitStatus, PRACTITIONER_CODINGS } from 'utils';
 import { useInPersonNavigationContext } from '../context/InPersonNavigationContext';
+import { useCompleteIntake } from '../hooks/useCompleteIntake';
+import { ROUTER_PATH } from '../routing/routesInPerson';
 
 export const BottomNavigation = (): JSX.Element => {
-  const { visitState: appointmentData, appointmentRefetch } = useAppointmentData();
-  const { encounter } = appointmentData;
+  const { visitState: appointmentData } = useAppointmentData();
+  const { appointment, encounter } = appointmentData;
   const theme = useTheme();
 
   const {
@@ -23,19 +25,28 @@ export const BottomNavigation = (): JSX.Element => {
     interactionMode,
     isNavigationDisabled,
     nextButtonText,
+    currentRoute,
   } = useInPersonNavigationContext();
 
   const practitionerTypeFromMode =
     interactionMode === 'main' ? PRACTITIONER_CODINGS.Admitter : PRACTITIONER_CODINGS.Attender;
 
   const { isEncounterUpdatePending } = usePractitionerActions(encounter, 'end', practitionerTypeFromMode);
+  const { handleCompleteIntake } = useCompleteIntake();
   const [nextButtonLoading, setNextButtonLoading] = React.useState<boolean>(false);
+
+  const status = appointment && encounter ? getInPersonVisitStatus(appointment, encounter) : undefined;
+  const shouldCompleteIntake =
+    currentRoute === ROUTER_PATH.HOSPITALIZATION && interactionMode === 'main' && status === 'intake';
 
   const handleNextPage = async (): Promise<void> => {
     try {
       setNextButtonLoading(true);
+      if (shouldCompleteIntake) {
+        const ok = await handleCompleteIntake();
+        if (!ok) return;
+      }
       goToNext();
-      await appointmentRefetch();
     } catch (error: any) {
       console.log(error.message);
       enqueueSnackbar('An error occurred trying to complete intake. Please try again.', { variant: 'error' });

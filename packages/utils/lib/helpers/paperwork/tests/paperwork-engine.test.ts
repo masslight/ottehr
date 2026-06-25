@@ -10,7 +10,7 @@ import { assert, describe, expect, it } from 'vitest';
 import { OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS } from '../../../fhir';
 import { ConditionKeyObject, QuestionnaireItemConditionDefinition, QuestionnaireItemTextWhen } from '../../../types';
 import { DOB_DATE_FORMAT } from '../../../utils';
-import { mapQuestionnaireAndValueSetsToItemsList } from '../paperwork';
+import { mapQuestionnaireAndValueSetsToItemsList, structureExtension } from '../paperwork';
 import {
   evalComplexValidationTrigger,
   evalEnableWhen,
@@ -1931,9 +1931,9 @@ describe('Conditional logic', () => {
         expect(conditionalBoolTrueItem).toBeDefined();
         assert(conditionalBoolTrueItem != undefined);
         expect(conditionalBoolTrueItem.filterWhen).toBeDefined();
-        expect(conditionalBoolTrueItem.filterWhen?.answerBoolean).toBeDefined();
-        expect(conditionalBoolTrueItem.filterWhen?.operator).toBe('=');
-        expect(conditionalBoolTrueItem.filterWhen?.question).toBe(KEYS.triggers.boolean.primary);
+        expect(conditionalBoolTrueItem.filterWhen?.[0]?.answerBoolean).toBeDefined();
+        expect(conditionalBoolTrueItem.filterWhen?.[0]?.operator).toBe('=');
+        expect(conditionalBoolTrueItem.filterWhen?.[0]?.question).toBe(KEYS.triggers.boolean.primary);
         formValues[KEYS.dependents.bool.primaryTrue] = {
           linkId: KEYS.dependents.bool.primaryTrue,
           answer: [{ valueString: 'I better get filtered!' }],
@@ -1974,9 +1974,9 @@ describe('Conditional logic', () => {
         expect(conditionalStringItem).toBeDefined();
         assert(conditionalStringItem != undefined);
         expect(conditionalStringItem.filterWhen).toBeDefined();
-        expect(conditionalStringItem.filterWhen?.answerString).toBeDefined();
-        expect(conditionalStringItem.filterWhen?.operator).toBe('=');
-        expect(conditionalStringItem.filterWhen?.question).toBe(KEYS.triggers.string.primary);
+        expect(conditionalStringItem.filterWhen?.[0]?.answerString).toBeDefined();
+        expect(conditionalStringItem.filterWhen?.[0]?.operator).toBe('=');
+        expect(conditionalStringItem.filterWhen?.[0]?.question).toBe(KEYS.triggers.string.primary);
         formValues[KEYS.dependents.string] = {
           linkId: KEYS.dependents.string,
           answer: [{ valueString: 'I better get filtered!' }],
@@ -2017,9 +2017,9 @@ describe('Conditional logic', () => {
         expect(conditionalDateItem).toBeDefined();
         assert(conditionalDateItem != undefined);
         expect(conditionalDateItem.filterWhen).toBeDefined();
-        expect(conditionalDateItem.filterWhen?.answerInteger).toBeDefined();
-        expect(conditionalDateItem.filterWhen?.operator).toBe('>=');
-        expect(conditionalDateItem.filterWhen?.question).toBe(KEYS.triggers.date.primary);
+        expect(conditionalDateItem.filterWhen?.[0]?.answerInteger).toBeDefined();
+        expect(conditionalDateItem.filterWhen?.[0]?.operator).toBe('>=');
+        expect(conditionalDateItem.filterWhen?.[0]?.question).toBe(KEYS.triggers.date.primary);
         formValues[KEYS.dependents.date.over] = {
           linkId: KEYS.dependents.string,
           answer: [{ valueString: '1991-08-06' }],
@@ -2032,6 +2032,89 @@ describe('Conditional logic', () => {
         // when filtered, the answer property on the entry is set to undefined, but the object with its linkId remains
         expect(filteredAnswer).toBeDefined();
         expect(filteredAnswer?.answer).toBeUndefined();
+      });
+
+      it('filters when first of two conditions is true (OR semantics)', () => {
+        // condition1: string = 'foo' (will match), condition2: boolean = true (will not match)
+        const altered = resetFilterWhenConditions(
+          PAGE_ONE_ITEMS,
+          [KEYS.dependents.string],
+          [
+            {
+              operator: '=',
+              question: KEYS.triggers.string.primary,
+              answerString: 'foo',
+            },
+            {
+              operator: '=',
+              question: KEYS.triggers.boolean.primary,
+              answerBoolean: true,
+            },
+          ]
+        );
+        const structuredItems = mapQuestionnaireAndValueSetsToItemsList(altered, []);
+        const formValues = BASE_FORM_VALUES.reduce((accum, item) => {
+          accum[item.linkId] = { ...item };
+          return accum;
+        }, {} as any);
+        formValues[KEYS.triggers.string.primary] = {
+          linkId: KEYS.triggers.string.primary,
+          answer: [{ valueString: 'foo' }],
+        };
+        formValues[KEYS.triggers.boolean.primary] = {
+          linkId: KEYS.triggers.boolean.primary,
+          answer: [{ valueBoolean: false }],
+        };
+        formValues[KEYS.dependents.string] = {
+          linkId: KEYS.dependents.string,
+          answer: [{ valueString: 'I better get filtered!' }],
+        };
+        const newValues = recursiveGroupTransform(structuredItems, Object.values(formValues));
+        const filteredAnswer = newValues.find((obj: any) => obj.linkId === KEYS.dependents.string);
+        expect(filteredAnswer).toBeDefined();
+        expect(filteredAnswer?.answer).toBeUndefined();
+      });
+
+      it('does not filter when all conditions are false (OR semantics)', () => {
+        // condition1: string = 'foo' (will not match), condition2: boolean = true (will not match)
+        const altered = resetFilterWhenConditions(
+          PAGE_ONE_ITEMS,
+          [KEYS.dependents.string],
+          [
+            {
+              operator: '=',
+              question: KEYS.triggers.string.primary,
+              answerString: 'foo',
+            },
+            {
+              operator: '=',
+              question: KEYS.triggers.boolean.primary,
+              answerBoolean: true,
+            },
+          ]
+        );
+        const structuredItems = mapQuestionnaireAndValueSetsToItemsList(altered, []);
+        const formValues = BASE_FORM_VALUES.reduce((accum, item) => {
+          accum[item.linkId] = { ...item };
+          return accum;
+        }, {} as any);
+        formValues[KEYS.triggers.string.primary] = {
+          linkId: KEYS.triggers.string.primary,
+          answer: [{ valueString: 'bar' }],
+        };
+        formValues[KEYS.triggers.boolean.primary] = {
+          linkId: KEYS.triggers.boolean.primary,
+          answer: [{ valueBoolean: false }],
+        };
+        formValues[KEYS.dependents.string] = {
+          linkId: KEYS.dependents.string,
+          answer: [{ valueString: 'I better NOT get filtered!' }],
+        };
+        const newValues = recursiveGroupTransform(structuredItems, Object.values(formValues));
+        const unfilteredAnswer = newValues.find((obj: any) => obj.linkId === KEYS.dependents.string);
+        expect(unfilteredAnswer).toBeDefined();
+        expect(unfilteredAnswer?.answer).toBeDefined();
+        expect(unfilteredAnswer?.answer?.[0]?.valueString).toBe('I better NOT get filtered!');
       });
     });
 
@@ -2061,9 +2144,9 @@ describe('Conditional logic', () => {
       expect(conditionalStringItem).toBeDefined();
       assert(conditionalStringItem != undefined);
       expect(conditionalStringItem.filterWhen).toBeDefined();
-      expect(conditionalStringItem.filterWhen?.answerString).toBeDefined();
-      expect(conditionalStringItem.filterWhen?.operator).toBe('=');
-      expect(conditionalStringItem.filterWhen?.question).toBe(KEYS.triggers.string.primary);
+      expect(conditionalStringItem.filterWhen?.[0]?.answerString).toBeDefined();
+      expect(conditionalStringItem.filterWhen?.[0]?.operator).toBe('=');
+      expect(conditionalStringItem.filterWhen?.[0]?.question).toBe(KEYS.triggers.string.primary);
       formValues[KEYS.dependents.string] = {
         linkId: KEYS.dependents.string,
         answer: [{ valueString: 'I better NOT get filtered!' }],
@@ -2486,6 +2569,99 @@ describe('Conditional logic', () => {
       // there are no enableWhen conditions left, so page is considered enabled
       expect(result[0]).toEqual(responseItems[0]);
       expect(result[0].item).toBeDefined();
+    });
+  });
+
+  describe('structureExtension tests', () => {
+    describe('answer loading tests', () => {
+      it('Handles full get-answer-options configuration', () => {
+        const item: QuestionnaireItem = {
+          linkId: 'some-link-id',
+          type: 'reference',
+          extension: [
+            {
+              url: OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.answerLoadingOptions.extension,
+              extension: [
+                {
+                  url: OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.answerLoadingOptions.strategy,
+                  valueString: 'dynamic',
+                },
+                {
+                  url: OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.answerLoadingOptions.source,
+                  valueString: 'get-answer-options',
+                },
+                {
+                  url: OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.answerLoadingOptions.expression,
+                  valueExpression: {
+                    language: 'application/x-fhir-query',
+                    expression: 'Organization?status=active',
+                  },
+                },
+              ],
+            },
+          ],
+        };
+        const { answerLoadingOptions } = structureExtension(item);
+        expect(answerLoadingOptions).toMatchObject({
+          strategy: 'dynamic',
+          answerSource: {
+            zambdaId: 'get-answer-options',
+            resourceType: 'Organization',
+            query: 'status=active',
+          },
+        });
+      });
+      it('Ignores incomplete get-answer-options configuration', () => {
+        const item: QuestionnaireItem = {
+          linkId: 'some-link-id',
+          type: 'reference',
+          extension: [
+            {
+              url: OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.answerLoadingOptions.extension,
+              extension: [
+                {
+                  url: OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.answerLoadingOptions.strategy,
+                  valueString: 'dynamic',
+                },
+                {
+                  url: OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.answerLoadingOptions.source,
+                  valueString: 'get-answer-options',
+                },
+              ],
+            },
+          ],
+        };
+        const { answerLoadingOptions } = structureExtension(item);
+        expect(answerLoadingOptions).toBeUndefined();
+      });
+      it('Handles other zambda configuration', () => {
+        const item: QuestionnaireItem = {
+          linkId: 'some-link-id',
+          type: 'reference',
+          extension: [
+            {
+              url: OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.answerLoadingOptions.extension,
+              extension: [
+                {
+                  url: OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.answerLoadingOptions.strategy,
+                  valueString: 'dynamic',
+                },
+                {
+                  url: OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.answerLoadingOptions.source,
+                  valueString: 'get-all-insurance-payers',
+                },
+              ],
+            },
+          ],
+        };
+        const { answerLoadingOptions } = structureExtension(item);
+        expect(answerLoadingOptions).toMatchObject({
+          strategy: 'dynamic',
+          answerSource: {
+            zambdaId: 'get-all-insurance-payers',
+          },
+        });
+      });
     });
   });
 });

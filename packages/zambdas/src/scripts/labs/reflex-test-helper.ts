@@ -12,7 +12,7 @@ import {
 import fs from 'fs';
 import { DateTime } from 'luxon';
 import { LAB_DR_TYPE_TAG } from 'utils';
-import { createOystehrClient, getAuth0Token } from '../../shared';
+import { createClinicalOystehrClient, getAuth0Token } from '../../shared';
 import { DR_REFLEX_TAG } from './lab-script-consts';
 import { createResultAttachmentDocRef } from './lab-script-helpers';
 
@@ -42,7 +42,7 @@ const main = async (): Promise<void> => {
 
   let envConfig;
   try {
-    envConfig = JSON.parse(fs.readFileSync(`.env/${ENV}.json`, 'utf8'));
+    envConfig = JSON.parse(fs.readFileSync(`../../config/.env/${ENV}.json`, 'utf8'));
   } catch (error) {
     console.error(`Error parsing secrets for ENV '${ENV}'. Error: ${JSON.stringify(error)}`);
   }
@@ -51,7 +51,7 @@ const main = async (): Promise<void> => {
   if (!token) {
     throw new Error('Failed to fetch auth token.');
   }
-  const oystehr = createOystehrClient(token, envConfig);
+  const oystehr = createClinicalOystehrClient(token, envConfig);
 
   let serviceRequest: ServiceRequest | undefined;
   try {

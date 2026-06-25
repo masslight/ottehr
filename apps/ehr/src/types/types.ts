@@ -80,12 +80,6 @@ export const getFhirAppointmentTypeForVisitType = (
   }
 };
 
-export const fhirAppointmentTypeToVisitType: { [type in FhirAppointmentType]: VisitType } = {
-  prebook: VisitType.PreBook,
-  walkin: VisitType.WalkIn,
-  posttelemed: VisitType.PostTelemed,
-};
-
 export type DOW = 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday';
 export type HourOfDay =
   | 0
@@ -116,6 +110,10 @@ export type HourOfDay =
 export interface Capacity {
   hour: HourOfDay;
   capacity: number;
+  /** Concurrent providers on shift for this hour (used for Practitioner schedules). */
+  providers?: number;
+  /** Prebook slots offered this hour (used for Location schedules; demand cap). */
+  prebookSlots?: number;
 }
 
 export interface ScheduleDay {

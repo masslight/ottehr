@@ -25,28 +25,22 @@ import {
   getPatientReferenceFromAccount,
   getPhoneNumberForIndividual,
   getResponsiblePartyFromAccount,
-  getSecret,
   INVOICE_TASK_BUSINESS_STATUS_SYSTEM,
   INVOICEABLE_PATIENTS_PAGE_SIZE,
   InvoiceablePatientReport,
   InvoiceSortDirectionValues,
   InvoiceSortFieldValues,
+  LOCATION_REVIEW_LINK_EXTENSION_URL,
   mapGenderToLabel,
   parseInvoiceTaskInput,
   PATIENT_BILLING_ACCOUNT_TYPE,
   RCM_TASK_SYSTEM,
   RcmTaskCode,
-  SecretsKeys,
+  standardizePhoneNumber,
   TIMEZONES,
   ZERO_BALANCE_BUSINESS_STATUS_CODE,
 } from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createOystehrClient,
-  topLevelCatch,
-  wrapHandler,
-  ZambdaInput,
-} from '../../shared';
+import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
 import { accountMatchesType } from '../shared/harvest';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -67,33 +61,27 @@ interface TaskGroup {
 }
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  try {
-    const validatedParams = validateRequestParameters(input);
-    const { secrets } = validatedParams;
-    const start = performance.now();
+  const validatedParams = validateRequestParameters(input);
+  const { secrets } = validatedParams;
+  const start = performance.now();
 
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
-    const fhirSearchStart = performance.now();
-    const fhirResources = await getFhirResourcesGrouped(oystehr, validatedParams);
-    const fhirSearchEnd = performance.now();
-    const taskGroups = fhirResources.taskGroups;
+  const fhirSearchStart = performance.now();
+  const fhirResources = await getFhirResourcesGrouped(oystehr, validatedParams);
+  const fhirSearchEnd = performance.now();
+  const taskGroups = fhirResources.taskGroups;
 
-    const response = performEffect(taskGroups, fhirResources.bundleTotal);
-    const end = performance.now();
-    console.log('Whole zambda execution time:', Math.round((end - start) / 1000), 'seconds.');
-    console.log('FHIR search execution time: ', Math.round((fhirSearchEnd - fhirSearchStart) / 1000), 'seconds.');
-    // console.log('Candid search execution time: ', Math.round((candidSearchEnd - fhirSearchEnd) / 1000), 'seconds.');
-    return {
-      statusCode: 200,
-      body: JSON.stringify(response),
-    };
-  } catch (error: unknown) {
-    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    console.log('Error occurred:', error);
-    return await topLevelCatch(ZAMBDA_NAME, error, ENVIRONMENT);
-  }
+  const response = performEffect(taskGroups, fhirResources.bundleTotal);
+  const end = performance.now();
+  console.log('Whole zambda execution time:', Math.round((end - start) / 1000), 'seconds.');
+  console.log('FHIR search execution time: ', Math.round((fhirSearchEnd - fhirSearchStart) / 1000), 'seconds.');
+  // console.log('Candid search execution time: ', Math.round((candidSearchEnd - fhirSearchEnd) / 1000), 'seconds.');
+  return {
+    statusCode: 200,
+    body: JSON.stringify(response),
+  };
 });
 
 function performEffect(taskGroups: TaskGroup[], total: number): GetInvoicesTasksResponse {
@@ -127,12 +115,19 @@ function performEffect(taskGroups: TaskGroup[], total: number): GetInvoicesTasks
     const visitDate = formatDateConfigurable({ isoDate: appointment?.start, timezone });
     const patientPhoneNumber = group.relatedPerson && getPhoneNumberForIndividual(group.relatedPerson);
 
+    const officePhone = standardizePhoneNumber(group.location?.telecom?.find((t) => t.system === 'phone')?.value);
+    const locationReviewLink = group.location?.extension?.find((ext) => ext.url === LOCATION_REVIEW_LINK_EXTENSION_URL)
+      ?.valueUrl;
+
     reports.push({
       claimId: taskInput.claimId ?? '---',
       finalizationDateISO: taskInput.finalizationDate ?? '---',
       amountInvoiceable: taskInput.amountCents ?? 0,
       visitDate: visitDate ?? '---',
       location: group.location?.name ?? '---',
+      appointmentId: appointment?.id,
+      officePhone,
+      locationReviewLink,
       task: task,
       patient: {
         patientId: patient.id!,
@@ -257,7 +252,11 @@ async function getFhirResourcesGrouped(
   });
   const resources = bundle.unbundle() as Resource[];
   const tasks = resources.filter((r) => r.resourceType === 'Task') as FhirTask[];
-  console.log('Tasks found: ', tasks.length);
+
+  console.log(
+    `Tasks found: ${tasks.length} (page: ${page}, status: ${status}, patientId: ${patientId}, hideZeroBalance: ${hideZeroBalance})`
+  );
+
   const resultGroups: TaskGroup[] = [];
 
   tasks.forEach((task) => {
@@ -322,7 +321,14 @@ async function getFhirResourcesGrouped(
     });
   });
 
-  console.log('Tasks groups created: ', resultGroups.length);
+  console.log(
+    `Task groups built: ${resultGroups.length} of ${tasks.length} tasks on this page (bundle.total: ${bundle.total})`
+  );
+
+  if (resultGroups.length < tasks.length) {
+    console.warn(`${tasks.length - resultGroups.length} task(s) dropped due to missing encounter or patient in bundle`);
+  }
+
   return { taskGroups: resultGroups, bundleTotal: bundle.total ?? resultGroups.length };
 }
 

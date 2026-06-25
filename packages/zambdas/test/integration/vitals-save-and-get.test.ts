@@ -13,7 +13,7 @@ import {
   VitalsObservationDTO,
 } from 'utils';
 import { assert, inject, suite } from 'vitest';
-import { getAuth0Token } from '../../src/shared';
+import { createClinicalOystehrClient, getAuth0Token } from '../../src/shared';
 import { SECRETS } from '../data/secrets';
 import { ensureM2MPractitionerProfile } from '../helpers/configureTestM2MClient';
 import { cleanupTestScheduleResources, makeTestPatient, persistTestPatient } from '../helpers/testScheduleUtils';
@@ -145,7 +145,7 @@ describe('saving and getting vitals', () => {
       await oystehr.zambda.execute({
         id: 'get-vitals',
         encounterId,
-        mode: 'current',
+        currentOrHistorical: 'current',
       })
     ).output as Promise<GetVitalsResponseData>;
     return response;
@@ -156,7 +156,7 @@ describe('saving and getting vitals', () => {
       await oystehr.zambda.execute({
         id: 'get-vitals',
         encounterId,
-        mode: 'historical',
+        currentOrHistorical: 'historical',
       })
     ).output as Promise<GetVitalsResponseData>;
     return response;
@@ -174,14 +174,9 @@ describe('saving and getting vitals', () => {
       AUTH0_AUDIENCE: AUTH0_AUDIENCE,
     });
 
-    oystehr = new Oystehr({
-      accessToken: token,
-      fhirApiUrl: FHIR_API,
-      projectApiUrl: EXECUTE_ZAMBDA_URL,
-      services: {
-        zambdaApiUrl: EXECUTE_ZAMBDA_URL,
-      },
+    oystehr = createClinicalOystehrClient(token, SECRETS, {
       projectId: PROJECT_ID,
+      services: { fhirApiUrl: FHIR_API, projectApiUrl: EXECUTE_ZAMBDA_URL, zambdaApiUrl: EXECUTE_ZAMBDA_URL },
     });
 
     await ensureM2MPractitionerProfile(token);
@@ -436,14 +431,14 @@ describe('saving and getting vitals', () => {
             encounterId,
             patientId,
             field: VitalFieldNames.VitalHeartbeat,
-            value: 201,
+            value: 175,
           },
           // too low heart rate
           {
             encounterId,
             patientId,
             field: VitalFieldNames.VitalHeartbeat,
-            value: 99.5,
+            value: 110,
           },
           // too high temperature
           {
@@ -457,7 +452,7 @@ describe('saving and getting vitals', () => {
             encounterId,
             patientId,
             field: VitalFieldNames.VitalTemperature,
-            value: 36.4,
+            value: 35.5,
           },
           // too high respiration rate
           {
@@ -471,14 +466,14 @@ describe('saving and getting vitals', () => {
             encounterId,
             patientId,
             field: VitalFieldNames.VitalRespirationRate,
-            value: 24,
+            value: 26,
           },
           // too low oxygen saturation
           {
             encounterId,
             patientId,
             field: VitalFieldNames.VitalOxygenSaturation,
-            value: 93,
+            value: 90,
           },
           // too low systolic blood pressure
           {
@@ -597,14 +592,14 @@ describe('saving and getting vitals', () => {
             encounterId,
             patientId,
             field: VitalFieldNames.VitalHeartbeat,
-            value: 161,
+            value: 155,
           },
           // too low heart rate
           {
             encounterId,
             patientId,
             field: VitalFieldNames.VitalHeartbeat,
-            value: 79.5,
+            value: 95,
           },
           // too high temperature
           {
@@ -692,14 +687,14 @@ describe('saving and getting vitals', () => {
             encounterId,
             patientId,
             field: VitalFieldNames.VitalHeartbeat,
-            value: 150.5,
+            value: 140,
           },
           // too low heart rate
           {
             encounterId,
             patientId,
             field: VitalFieldNames.VitalHeartbeat,
-            value: 69,
+            value: 85,
           },
           /*
            { type: 'min', units: '', value: 20 },
@@ -710,14 +705,14 @@ describe('saving and getting vitals', () => {
             encounterId,
             patientId,
             field: VitalFieldNames.VitalRespirationRate,
-            value: 50.5,
+            value: 37,
           },
           // respiration rate is too low
           {
             encounterId,
             patientId,
             field: VitalFieldNames.VitalRespirationRate,
-            value: 17.9,
+            value: 19,
           },
         ];
         await saveVital(obs, encounterId);
@@ -773,21 +768,21 @@ describe('saving and getting vitals', () => {
             encounterId,
             patientId,
             field: VitalFieldNames.VitalHeartbeat,
-            value: 150.5,
+            value: 130,
           },
           // too low heart rate
           {
             encounterId,
             patientId,
             field: VitalFieldNames.VitalHeartbeat,
-            value: 50.9,
+            value: 70,
           },
           // respiration rate is too high
           {
             encounterId,
             patientId,
             field: VitalFieldNames.VitalRespirationRate,
-            value: 40.5,
+            value: 28.5,
           },
           // respiration rate is too low
           {
@@ -850,28 +845,28 @@ describe('saving and getting vitals', () => {
             encounterId,
             patientId,
             field: VitalFieldNames.VitalHeartbeat,
-            value: 140.5,
+            value: 110,
           },
           // too low heart rate
           {
             encounterId,
             patientId,
             field: VitalFieldNames.VitalHeartbeat,
-            value: 59.9,
+            value: 65,
           },
           // respiration rate is too high
           {
             encounterId,
             patientId,
             field: VitalFieldNames.VitalRespirationRate,
-            value: 40.1,
+            value: 24,
           },
           // respiration rate is too low
           {
             encounterId,
             patientId,
             field: VitalFieldNames.VitalRespirationRate,
-            value: 14.9,
+            value: 15,
           },
           {
             encounterId,
@@ -934,21 +929,21 @@ describe('saving and getting vitals', () => {
             encounterId,
             patientId,
             field: VitalFieldNames.VitalHeartbeat,
-            value: 130.5,
+            value: 110,
           },
           // too low heart rate
           {
             encounterId,
             patientId,
             field: VitalFieldNames.VitalHeartbeat,
-            value: 59.9,
+            value: 65,
           },
           // respiration rate is too high
           {
             encounterId,
             patientId,
             field: VitalFieldNames.VitalRespirationRate,
-            value: 30.1,
+            value: 24,
           },
 
           // respiration rate is too low
@@ -956,14 +951,14 @@ describe('saving and getting vitals', () => {
             encounterId,
             patientId,
             field: VitalFieldNames.VitalRespirationRate,
-            value: 14.9,
+            value: 15,
           },
 
           {
             encounterId,
             patientId,
             field: VitalFieldNames.VitalBloodPressure,
-            systolicPressure: 83.9,
+            systolicPressure: 87,
             diastolicPressure: 80,
           },
         ];
@@ -1020,7 +1015,7 @@ describe('saving and getting vitals', () => {
             encounterId,
             patientId,
             field: VitalFieldNames.VitalHeartbeat,
-            value: 130.5,
+            value: 103.5,
           },
           // too low heart rate
           {
@@ -1176,7 +1171,7 @@ describe('saving and getting vitals', () => {
             encounterId,
             patientId,
             field: VitalFieldNames.VitalWeight,
-            value: 3,
+            value: 44,
           },
           {
             encounterId,
@@ -1192,7 +1187,7 @@ describe('saving and getting vitals', () => {
         expect(heightVitals.length).toBe(1);
         heightVitals.forEach((vital) => {
           expect(vital.field).toBe(VitalFieldNames.VitalHeight);
-          expect(vital.alertCriticality).toBe('abnormal');
+          expect(vital.alertCriticality).toBe('critical');
         });
         const weightVitals = vitals[VitalFieldNames.VitalWeight];
         expect(weightVitals.length).toBeGreaterThanOrEqual(1);
@@ -1222,7 +1217,7 @@ describe('saving and getting vitals', () => {
             encounterId,
             patientId,
             field: VitalFieldNames.VitalWeight,
-            value: 3,
+            value: 44,
           },
           {
             encounterId,
@@ -1238,7 +1233,7 @@ describe('saving and getting vitals', () => {
         expect(heightVitals.length).toBeGreaterThanOrEqual(1);
         heightVitals.forEach((vital) => {
           expect(vital.field).toBe(VitalFieldNames.VitalHeight);
-          expect(vital.alertCriticality).toBe('abnormal');
+          expect(vital.alertCriticality).toBe('critical');
         });
         const weightVitals = vitals[VitalFieldNames.VitalWeight];
         expect(weightVitals.length).toBeGreaterThanOrEqual(1);
@@ -1452,7 +1447,7 @@ describe('saving and getting vitals', () => {
             encounterId,
             patientId,
             field: VitalFieldNames.VitalWeight,
-            value: 21,
+            value: 22,
           },
           {
             encounterId,
@@ -1498,7 +1493,7 @@ describe('saving and getting vitals', () => {
             encounterId,
             patientId,
             field: VitalFieldNames.VitalWeight,
-            value: 21,
+            value: 22,
           },
           {
             encounterId,

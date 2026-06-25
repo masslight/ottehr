@@ -4,7 +4,7 @@ import { Account, Appointment, Encounter, FhirResource, Patient, QuestionnaireRe
 import * as fs from 'fs';
 import { OTTEHR_MODULE, PATIENT_BILLING_ACCOUNT_TYPE, unbundleBatchPostOutput } from 'utils';
 import { afterAll, assert, beforeAll, describe, expect, it } from 'vitest';
-import { createOystehrClient, getAuth0Token } from '../../src/shared';
+import { createClinicalOystehrClient, getAuth0Token } from '../../src/shared';
 import { executePageHarvest, HarvestContext } from '../../src/subscriptions/task/sub-harvest-paperwork/page-handlers';
 import questionnaireResponse from '../data/base-qr.json';
 
@@ -12,7 +12,7 @@ const DEFAULT_TIMEOUT = 40000;
 
 describe('sub-harvest-paperwork-page integration', () => {
   const env = process.env.ENV || 'local';
-  const envConfig = JSON.parse(fs.readFileSync(`.env/${env}.json`, 'utf8'));
+  const envConfig = JSON.parse(fs.readFileSync(`../../config/.env/${env}.json`, 'utf8'));
   let oystehr: Oystehr;
   let token: string;
   let BASE_QR: QuestionnaireResponse;
@@ -22,7 +22,7 @@ describe('sub-harvest-paperwork-page integration', () => {
 
   beforeAll(async () => {
     token = await getAuth0Token(envConfig);
-    oystehr = createOystehrClient(token, envConfig);
+    oystehr = createClinicalOystehrClient(token, envConfig);
 
     BASE_QR = {
       ...questionnaireResponse,
@@ -42,10 +42,10 @@ describe('sub-harvest-paperwork-page integration', () => {
   }, DEFAULT_TIMEOUT);
 
   const createBaseResources = async (): Promise<{
-    patient: Patient;
-    appointment: Appointment;
-    encounter: Encounter;
-    relatedPerson: RelatedPerson;
+    patient: Patient & { id: string };
+    appointment: Appointment & { id: string };
+    encounter: Encounter & { id: string };
+    relatedPerson: RelatedPerson & { id: string };
   }> => {
     const patientFullUrl = `urn:uuid:${randomUUID()}`;
     const appointmentFullUrl = `urn:uuid:${randomUUID()}`;
@@ -128,18 +128,25 @@ describe('sub-harvest-paperwork-page integration', () => {
       { resourceType: 'Patient', id: patient.id }
     );
 
-    return { patient, appointment, encounter, relatedPerson };
+    return {
+      patient: patient as Patient & { id: string },
+      appointment: appointment as Appointment & { id: string },
+      encounter: encounter as Encounter & { id: string },
+      relatedPerson: relatedPerson as RelatedPerson & { id: string },
+    };
   };
 
   const buildContext = (
     qr: QuestionnaireResponse,
     pageLinkId: string,
-    patient: Patient,
-    encounter: Encounter,
-    appointment: Appointment
+    patient: Patient & { id: string },
+    encounter: Encounter & { id: string },
+    appointment: Appointment & { id: string }
   ): HarvestContext => ({
     qr,
     pageLinkId,
+    patchIndex: 0,
+    taskId: 'test-task-id',
     patient,
     encounter,
     appointment,
@@ -220,7 +227,8 @@ describe('sub-harvest-paperwork-page integration', () => {
       const ctx = buildContext(qr, 'payment-option-page', patient, encounter, appointment);
       const result = await executePageHarvest(ctx);
 
-      expect(result).toBe('account / coverage updated, documents created');
+      expect(result).toContain('account / coverage updated');
+      expect(result).toContain('documents created');
 
       // Verify that account resources were created for the patient
       const accounts = (

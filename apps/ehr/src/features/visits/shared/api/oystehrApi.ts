@@ -9,12 +9,14 @@ import {
   BillingSuggestionOutput,
   ChangeInPersonVisitStatusInput,
   ChangeInPersonVisitStatusResponse,
-  ChangeTelemedAppointmentStatusInput,
-  ChangeTelemedAppointmentStatusResponse,
   CommunicationDTO,
+  DeleteApprovedPatientEducationInput,
+  DeleteApprovedPatientEducationOutput,
   DeleteChartDataRequest,
   DeleteChartDataResponse,
   DeletePatientInstructionInput,
+  GeneratePatientEducationInput,
+  GeneratePatientEducationOutput,
   GetChartDataRequest,
   GetChartDataResponse,
   GetCreateInHouseLabOrderResourcesInput,
@@ -22,26 +24,33 @@ import {
   GetCreateLabOrderResources,
   GetMedicationOrdersInput,
   GetMedicationOrdersResponse,
+  GetMergePatientsTaskInput,
+  GetMergePatientsTaskResponse,
   getOystehrApiHelpers,
   GetPatientAccountZambdaInput,
   GetPatientInstructionsInput,
-  GetTelemedAppointmentsResponseEhr,
   GetUnsolicitedResultsResourcesInput,
   GetUnsolicitedResultsResourcesOutput,
   InitTelemedSessionRequestParams,
   InitTelemedSessionResponse,
   LabOrderResourcesRes,
+  ListApprovedPatientEducationOutput,
   MakeMedicationHistoryPdfZambdaInput,
   MakeMedicationHistoryPdfZambdaOutput,
-  NotFoundAppointmentErrorHandler,
+  MergePatientsInput,
+  MergePatientsResponse,
   OrderedCoveragesWithSubscribers,
   PatientAccountResponse,
   ProcedureDetail,
   ProcedureSuggestion,
   RemoveCoverageResponse,
   RemoveCoverageZambdaInput,
+  SaveApprovedPatientEducationInput,
+  SaveApprovedPatientEducationOutput,
   SaveChartDataRequest,
   SaveChartDataResponse,
+  SavePatientEducationPdfInput,
+  SavePatientEducationPdfOutput,
   SavePatientInstructionInput,
   SearchPlacesInput,
   SearchPlacesOutput,
@@ -53,21 +62,20 @@ import {
   UnassignPractitionerZambdaOutput,
   UnlockAppointmentZambdaInputValidated,
   UnlockAppointmentZambdaOutput,
+  UpdateApprovedPatientEducationCodesInput,
+  UpdateApprovedPatientEducationCodesOutput,
   UpdateLabOrderResourcesInput,
   UpdateMedicationOrderInput,
   UpdatePatientAccountInput,
   UpdatePatientAccountResponse,
 } from 'utils';
-import { GetAppointmentsRequestParams } from '../../telemed/utils/appointments';
 import { GetOystehrTelemedAPIParams } from './types';
 
 enum ZambdaNames {
-  'get telemed appointments' = 'get telemed appointments',
   'init telemed session' = 'init telemed session',
   'get chart data' = 'get chart data',
   'save chart data' = 'save chart data',
   'delete chart data' = 'delete chart data',
-  'change telemed appointment status' = 'change telemed appointment status',
   'change in person visit status' = 'change in person visit status',
   'assign practitioner' = 'assign practitioner',
   'unassign practitioner' = 'unassign practitioner',
@@ -87,6 +95,7 @@ enum ZambdaNames {
   'get patient account' = 'get patient account',
   'update patient account' = 'update patient account',
   'remove patient coverage' = 'remove patient coverage',
+  'merge patients' = 'merge patients',
   'send fax' = 'send fax',
   'external lab resource search' = 'external lab resource search',
   'get unsolicited results resources' = 'get unsolicited results resources',
@@ -94,15 +103,19 @@ enum ZambdaNames {
   'search places' = 'search places',
   'inhouse lab resource search' = 'inhouse lab resource search',
   'make medication history pdf' = 'make medication history pdf',
+  'generate patient education' = 'generate patient education',
+  'save patient education pdf' = 'save patient education pdf',
+  'list approved patient education' = 'list approved patient education',
+  'save approved patient education' = 'save approved patient education',
+  'delete approved patient education' = 'delete approved patient education',
+  'update approved patient education codes' = 'update approved patient education codes',
 }
 
 const zambdasPublicityMap: Record<keyof typeof ZambdaNames, boolean> = {
-  'get telemed appointments': false,
   'init telemed session': false,
   'get chart data': false,
   'save chart data': false,
   'delete chart data': false,
-  'change telemed appointment status': false,
   'change in person visit status': false,
   'assign practitioner': false,
   'unassign practitioner': false,
@@ -122,6 +135,7 @@ const zambdasPublicityMap: Record<keyof typeof ZambdaNames, boolean> = {
   'get patient account': false,
   'update patient account': false,
   'remove patient coverage': false,
+  'merge patients': false,
   'send fax': false,
   'external lab resource search': false,
   'get unsolicited results resources': false,
@@ -129,6 +143,12 @@ const zambdasPublicityMap: Record<keyof typeof ZambdaNames, boolean> = {
   'search places': false,
   'inhouse lab resource search': false,
   'make medication history pdf': false,
+  'generate patient education': false,
+  'save patient education pdf': false,
+  'list approved patient education': false,
+  'save approved patient education': false,
+  'delete approved patient education': false,
+  'update approved patient education codes': false,
 };
 
 export type OystehrTelemedAPIClient = ReturnType<typeof getOystehrTelemedAPI>;
@@ -137,12 +157,10 @@ export const getOystehrTelemedAPI = (
   params: GetOystehrTelemedAPIParams,
   oystehr: Oystehr
 ): {
-  getTelemedAppointments: typeof getTelemedAppointments;
   initTelemedSession: typeof initTelemedSession;
   getChartData: typeof getChartData;
   saveChartData: typeof saveChartData;
   deleteChartData: typeof deleteChartData;
-  changeTelemedAppointmentStatus: typeof changeTelemedAppointmentStatus;
   changeInPersonVisitStatus: typeof changeInPersonVisitStatus;
   assignPractitioner: typeof assignPractitioner;
   unassignPractitioner: typeof unassignPractitioner;
@@ -162,6 +180,8 @@ export const getOystehrTelemedAPI = (
   updatePatientAccount: typeof updatePatientAccount;
   getPatientCoverages: typeof getPatientCoverages;
   removePatientCoverage: typeof removePatientCoverage;
+  mergePatients: typeof mergePatients;
+  getMergePatientsTask: typeof getMergePatientsTask;
   sendFax: typeof sendFax;
   getCreateExternalLabResources: typeof getCreateExternalLabResources;
   getUnsolicitedResultsResources: typeof getUnsolicitedResultsResources;
@@ -169,14 +189,18 @@ export const getOystehrTelemedAPI = (
   searchPlaces: typeof searchPlaces;
   getCreateInHouseLabOrderResources: typeof getCreateInHouseLabOrderResources;
   makeMedicationHistoryPdf: typeof makeMedicationHistoryPdf;
+  generatePatientEducation: typeof generatePatientEducation;
+  savePatientEducationPdf: typeof savePatientEducationPdf;
+  listApprovedPatientEducation: typeof listApprovedPatientEducation;
+  saveApprovedPatientEducation: typeof saveApprovedPatientEducation;
+  deleteApprovedPatientEducation: typeof deleteApprovedPatientEducation;
+  updateApprovedPatientEducationCodes: typeof updateApprovedPatientEducationCodes;
 } => {
   const {
-    getTelemedAppointmentsZambdaID,
     initTelemedSessionZambdaID,
     getChartDataZambdaID,
     saveChartDataZambdaID,
     deleteChartDataZambdaID,
-    changeTelemedAppointmentStatusZambdaID,
     changeInPersonVisitStatusZambdaID,
     assignPractitionerZambdaID,
     unassignPractitionerZambdaID,
@@ -196,6 +220,7 @@ export const getOystehrTelemedAPI = (
     getPatientAccountZambdaID,
     updatePatientAccountZambdaID,
     removePatientCoverageZambdaID,
+    mergePatientsZambdaID,
     sendFaxZambdaID,
     externalLabResourceSearchID,
     getUnsolicitedResultsResourcesID,
@@ -203,15 +228,19 @@ export const getOystehrTelemedAPI = (
     searchPlacesID,
     inhouseLabResourceSearchID,
     makeMedicationHistoryPdfID,
+    generatePatientEducationZambdaID,
+    savePatientEducationPdfZambdaID,
+    listApprovedPatientEducationZambdaID,
+    saveApprovedPatientEducationZambdaID,
+    deleteApprovedPatientEducationZambdaID,
+    updateApprovedPatientEducationCodesZambdaID,
   } = params;
 
   const zambdasToIdsMap: Record<keyof typeof ZambdaNames, string | undefined> = {
-    'get telemed appointments': getTelemedAppointmentsZambdaID,
     'init telemed session': initTelemedSessionZambdaID,
     'get chart data': getChartDataZambdaID,
     'save chart data': saveChartDataZambdaID,
     'delete chart data': deleteChartDataZambdaID,
-    'change telemed appointment status': changeTelemedAppointmentStatusZambdaID,
     'change in person visit status': changeInPersonVisitStatusZambdaID,
     'assign practitioner': assignPractitionerZambdaID,
     'unassign practitioner': unassignPractitionerZambdaID,
@@ -231,6 +260,7 @@ export const getOystehrTelemedAPI = (
     'get patient account': getPatientAccountZambdaID,
     'update patient account': updatePatientAccountZambdaID,
     'remove patient coverage': removePatientCoverageZambdaID,
+    'merge patients': mergePatientsZambdaID,
     'send fax': sendFaxZambdaID,
     'external lab resource search': externalLabResourceSearchID,
     'get unsolicited results resources': getUnsolicitedResultsResourcesID,
@@ -238,6 +268,12 @@ export const getOystehrTelemedAPI = (
     'search places': searchPlacesID,
     'inhouse lab resource search': inhouseLabResourceSearchID,
     'make medication history pdf': makeMedicationHistoryPdfID,
+    'generate patient education': generatePatientEducationZambdaID,
+    'save patient education pdf': savePatientEducationPdfZambdaID,
+    'list approved patient education': listApprovedPatientEducationZambdaID,
+    'save approved patient education': saveApprovedPatientEducationZambdaID,
+    'delete approved patient education': deleteApprovedPatientEducationZambdaID,
+    'update approved patient education codes': updateApprovedPatientEducationCodesZambdaID,
   };
   const isAppLocalProvided = params.isAppLocal != null;
 
@@ -248,12 +284,6 @@ export const getOystehrTelemedAPI = (
     zambdasPublicityMap,
     isAppLocalProvided
   );
-
-  const getTelemedAppointments = async (
-    parameters: GetAppointmentsRequestParams
-  ): Promise<GetTelemedAppointmentsResponseEhr> => {
-    return await makeZapRequest('get telemed appointments', parameters, NotFoundAppointmentErrorHandler);
-  };
 
   const initTelemedSession = async (
     parameters: InitTelemedSessionRequestParams
@@ -271,12 +301,6 @@ export const getOystehrTelemedAPI = (
 
   const deleteChartData = async (parameters: DeleteChartDataRequest): Promise<DeleteChartDataResponse> => {
     return await makeZapRequest('delete chart data', parameters);
-  };
-
-  const changeTelemedAppointmentStatus = async (
-    parameters: Omit<ChangeTelemedAppointmentStatusInput, 'secrets'>
-  ): Promise<ChangeTelemedAppointmentStatusResponse> => {
-    return await makeZapRequest('change telemed appointment status', parameters);
   };
 
   const changeInPersonVisitStatus = async (
@@ -380,6 +404,19 @@ export const getOystehrTelemedAPI = (
     return await makeZapRequest('remove patient coverage', parameters);
   };
 
+  const mergePatients = async (parameters: MergePatientsInput): Promise<MergePatientsResponse> => {
+    return await makeZapRequest('merge patients', parameters);
+  };
+
+  const getMergePatientsTask = async (parameters: GetMergePatientsTaskInput): Promise<GetMergePatientsTaskResponse> => {
+    // NB: the discriminator is intentionally `requestMode`, NOT `mode`. The Oystehr
+    // SDK treats a `mode` key on a zambda.execute payload as a reserved
+    // request-context option (FhirResponseMode), which makes it drop the real
+    // payload and send an empty path param ("Required path parameter is an empty
+    // string: id"). See get-vitals.types.ts for the same gotcha.
+    return await makeZapRequest('merge patients', { ...parameters, requestMode: 'status' });
+  };
+
   const sendFax = async (parameters: SendFaxZambdaInput): Promise<void> => {
     return await makeZapRequest('send fax', parameters);
   };
@@ -416,13 +453,45 @@ export const getOystehrTelemedAPI = (
     return await makeZapRequest('make medication history pdf', parameters);
   };
 
+  const generatePatientEducation = async (
+    parameters: GeneratePatientEducationInput
+  ): Promise<GeneratePatientEducationOutput> => {
+    return await makeZapRequest('generate patient education', parameters);
+  };
+
+  const savePatientEducationPdf = async (
+    parameters: SavePatientEducationPdfInput
+  ): Promise<SavePatientEducationPdfOutput> => {
+    return await makeZapRequest('save patient education pdf', parameters);
+  };
+
+  const listApprovedPatientEducation = async (): Promise<ListApprovedPatientEducationOutput> => {
+    return await makeZapRequest('list approved patient education', {});
+  };
+
+  const saveApprovedPatientEducation = async (
+    parameters: SaveApprovedPatientEducationInput
+  ): Promise<SaveApprovedPatientEducationOutput> => {
+    return await makeZapRequest('save approved patient education', parameters);
+  };
+
+  const deleteApprovedPatientEducation = async (
+    parameters: DeleteApprovedPatientEducationInput
+  ): Promise<DeleteApprovedPatientEducationOutput> => {
+    return await makeZapRequest('delete approved patient education', parameters);
+  };
+
+  const updateApprovedPatientEducationCodes = async (
+    parameters: UpdateApprovedPatientEducationCodesInput
+  ): Promise<UpdateApprovedPatientEducationCodesOutput> => {
+    return await makeZapRequest('update approved patient education codes', parameters);
+  };
+
   return {
-    getTelemedAppointments,
     initTelemedSession,
     getChartData,
     saveChartData,
     deleteChartData,
-    changeTelemedAppointmentStatus,
     changeInPersonVisitStatus,
     assignPractitioner,
     unassignPractitioner,
@@ -442,6 +511,8 @@ export const getOystehrTelemedAPI = (
     updatePatientAccount,
     getPatientCoverages,
     removePatientCoverage,
+    mergePatients,
+    getMergePatientsTask,
     sendFax,
     getCreateExternalLabResources,
     getUnsolicitedResultsResources,
@@ -449,5 +520,11 @@ export const getOystehrTelemedAPI = (
     searchPlaces,
     getCreateInHouseLabOrderResources,
     makeMedicationHistoryPdf,
+    generatePatientEducation,
+    savePatientEducationPdf,
+    listApprovedPatientEducation,
+    saveApprovedPatientEducation,
+    deleteApprovedPatientEducation,
+    updateApprovedPatientEducationCodes,
   };
 };

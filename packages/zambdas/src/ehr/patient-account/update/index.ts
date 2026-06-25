@@ -15,28 +15,29 @@ import {
   MISSING_REQUEST_BODY,
   MISSING_REQUIRED_PARAMETERS,
   NOT_AUTHORIZED,
+  PARTICIPATION_CODE_SYSTEM,
   PATIENT_RECORD_QUESTIONNAIRE,
   QUESTIONNAIRE_RESPONSE_INVALID_CUSTOM_ERROR,
   QUESTIONNAIRE_RESPONSE_INVALID_ERROR,
   Secrets,
   SecretsKeys,
   UpdatePatientAccountResponse,
+  userMe,
 } from 'utils';
 import { ValidationError } from 'yup';
 import {
   checkOrCreateM2MClientToken,
-  createOystehrClient,
+  createClinicalOystehrClient,
   getStripeClient,
   sendErrors,
-  topLevelCatch,
   wrapHandler,
   ZambdaInput,
 } from '../../../shared';
-import { mergeEncounterAccounts } from '../../shared/harvest';
 import {
   createMasterRecordPatchOperations,
   createUpdatePharmacyPatchOps,
   getAccountAndCoverageResourcesForPatient,
+  mergeEncounterAccounts,
   updatePatientAccountFromQuestionnaire,
   updateStripeCustomer,
 } from '../../shared/harvest';
@@ -46,28 +47,22 @@ const ZAMBDA_NAME = 'update-patient-account';
 let m2mToken: string;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  try {
-    console.group('validateRequestParameters');
-    const validatedParameters = validateRequestParameters(input);
-    console.groupEnd();
-    console.debug('validateRequestParameters success');
-    const { secrets } = validatedParameters;
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
-    console.log('complexly validating request parameters');
-    const effectInput = await complexValidation(validatedParameters);
-    console.log('complex validation successful');
-    await performEffect(effectInput, oystehr);
-    const response: UpdatePatientAccountResponse = { result: 'success' };
-    return {
-      statusCode: 200,
-      body: JSON.stringify(response),
-    };
-  } catch (error: any) {
-    console.log('Error: ', JSON.stringify(error.message));
-    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    return topLevelCatch('update-patient-account-from-questionnaire', error, ENVIRONMENT);
-  }
+  console.group('validateRequestParameters');
+  const validatedParameters = validateRequestParameters(input);
+  console.groupEnd();
+  console.debug('validateRequestParameters success');
+  const { secrets } = validatedParameters;
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
+  console.log('complexly validating request parameters');
+  const effectInput = await complexValidation(validatedParameters);
+  console.log('complex validation successful');
+  await performEffect(effectInput, oystehr);
+  const response: UpdatePatientAccountResponse = { result: 'success' };
+  return {
+    statusCode: 200,
+    body: JSON.stringify(response),
+  };
 });
 
 const performEffect = async (input: FinishedInput, oystehr: Oystehr): Promise<void> => {
@@ -126,6 +121,9 @@ const performEffect = async (input: FinishedInput, oystehr: Oystehr): Promise<vo
       {
         questionnaireResponseItem: items,
         patientId,
+        // Pass the post-patch Patient so same-as-patient address resolution
+        // sees the address change applied above without re-fetching.
+        patient: patientResource,
         preserveOmittedCoverages,
         questionnaireForEnableWhenFiltering,
       },
@@ -283,7 +281,7 @@ const writeAuditEvent = async (input: AuditEventInput, oystehr: Oystehr): Promis
         type: {
           coding: [
             {
-              system: 'http://terminology.hl7.org/CodeSystem/v3-ParticipationType',
+              system: PARTICIPATION_CODE_SYSTEM,
               code: 'AUT',
               display: 'author (originator)',
             },
@@ -376,8 +374,7 @@ interface FinishedInput extends BasicInput {
 const complexValidation = async (input: BasicInput): Promise<FinishedInput> => {
   const { secrets, userToken, questionnaireResponse } = input;
   console.log('questionnaireResponse', JSON.stringify(questionnaireResponse));
-  const oystehr = createOystehrClient(userToken, secrets);
-  const user = await oystehr.user.me();
+  const user = await userMe(userToken, secrets);
   if (!user) {
     throw NOT_AUTHORIZED;
   }

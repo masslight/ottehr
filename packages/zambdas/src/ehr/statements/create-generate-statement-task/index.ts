@@ -3,20 +3,14 @@ import { Appointment, Encounter, Patient, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   getFullestAvailableName,
-  getSecret,
   getTaskResource,
+  INVALID_INPUT_ERROR,
   MISSING_REQUEST_BODY,
   MISSING_REQUEST_SECRETS,
-  SecretsKeys,
+  MISSING_REQUIRED_PARAMETERS,
   TaskIndicator,
 } from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createOystehrClient,
-  topLevelCatch,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../shared';
+import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
 
 const ZAMBDA_NAME = 'create-generate-statement-task';
 
@@ -33,7 +27,7 @@ function validateRequestParameters(input: ZambdaInput): CreateGenerateStatementT
   const body = JSON.parse(input.body) as Record<string, unknown>;
   const encounterId = body.encounterId;
   if (typeof encounterId !== 'string' || encounterId.trim().length === 0) {
-    throw new Error('encounterId is required');
+    throw MISSING_REQUIRED_PARAMETERS(['encounterId']);
   }
 
   return {
@@ -42,70 +36,65 @@ function validateRequestParameters(input: ZambdaInput): CreateGenerateStatementT
 }
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  try {
-    const validatedInput = validateRequestParameters(input);
+  const validatedInput = validateRequestParameters(input);
 
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, input.secrets);
-    const oystehr = createOystehrClient(m2mToken, input.secrets);
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, input.secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, input.secrets);
 
-    const encounter = await oystehr.fhir.get<Encounter>({
-      resourceType: 'Encounter',
-      id: validatedInput.encounterId,
-    });
+  const encounter = await oystehr.fhir.get<Encounter>({
+    resourceType: 'Encounter',
+    id: validatedInput.encounterId,
+  });
 
-    const patientReference = encounter.subject?.reference;
-    if (!patientReference) {
-      throw new Error(`Patient reference not found in Encounter/${validatedInput.encounterId}`);
-    }
-
-    const patientId = patientReference.split('/')[1];
-    if (!patientId) {
-      throw new Error(`Patient id not found in Encounter/${validatedInput.encounterId}`);
-    }
-
-    const appointmentReference = encounter.appointment?.[0]?.reference;
-    const appointmentId = appointmentReference?.split('/')[1];
-    if (!appointmentId) {
-      throw new Error(`Appointment reference not found in Encounter/${validatedInput.encounterId}`);
-    }
-
-    const patient = await oystehr.fhir.get<Patient>({
-      resourceType: 'Patient',
-      id: patientId,
-    });
-    const appointment = await oystehr.fhir.get<Appointment>({
-      resourceType: 'Appointment',
-      id: appointmentId,
-    });
-
-    const patientName = getFullestAvailableName(patient);
-    const appointmentDate = appointment.start
-      ? DateTime.fromISO(appointment.start, { setZone: true }).toFormat('yyyy-MM-dd')
-      : 'unknown-date';
-
-    const task: Task = {
-      ...getTaskResource(
-        TaskIndicator.generatePatientStatement,
-        `Generate statement for ${patientName} visit on ${appointmentDate}`,
-        appointmentId,
-        validatedInput.encounterId
-      ),
-      for: {
-        reference: patientReference,
-      },
-    };
-
-    const createdTask = await oystehr.fhir.create<Task>(task);
-
-    return {
-      statusCode: 200,
-      body: JSON.stringify({
-        taskId: createdTask.id,
-        taskReference: `Task/${createdTask.id}`,
-      }),
-    };
-  } catch (error: unknown) {
-    const environment = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    return topLevelCatch(ZAMBDA_NAME, error, environment);
+  const patientReference = encounter.subject?.reference;
+  if (!patientReference) {
+    throw INVALID_INPUT_ERROR(`Patient reference not found in Encounter/${validatedInput.encounterId}`);
   }
+
+  const patientId = patientReference.split('/')[1];
+  if (!patientId) {
+    throw INVALID_INPUT_ERROR(`Patient id not found in Encounter/${validatedInput.encounterId}`);
+  }
+
+  const appointmentReference = encounter.appointment?.[0]?.reference;
+  const appointmentId = appointmentReference?.split('/')[1];
+  if (!appointmentId) {
+    throw INVALID_INPUT_ERROR(`Appointment reference not found in Encounter/${validatedInput.encounterId}`);
+  }
+
+  const patient = await oystehr.fhir.get<Patient>({
+    resourceType: 'Patient',
+    id: patientId,
+  });
+  const appointment = await oystehr.fhir.get<Appointment>({
+    resourceType: 'Appointment',
+    id: appointmentId,
+  });
+
+  const patientName = getFullestAvailableName(patient);
+  const appointmentDate = appointment.start
+    ? DateTime.fromISO(appointment.start, { setZone: true }).toFormat('yyyy-MM-dd')
+    : 'unknown-date';
+
+  const task: Task = {
+    ...getTaskResource(
+      TaskIndicator.generatePatientStatement,
+      `Generate statement for ${patientName} visit on ${appointmentDate}`,
+      appointmentId,
+      validatedInput.encounterId
+    ),
+    for: {
+      reference: patientReference,
+    },
+  };
+
+  const createdTask = await oystehr.fhir.create<Task>(task);
+
+  return {
+    statusCode: 200,
+    body: JSON.stringify({
+      taskId: createdTask.id,
+      taskReference: `Task/${createdTask.id}`,
+    }),
+  };
 });

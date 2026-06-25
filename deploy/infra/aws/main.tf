@@ -119,6 +119,16 @@ resource "aws_cloudfront_distribution" "ehr_cf" {
     compress               = true
     cache_policy_id        = "658327ea-f89d-4fab-a63d-7e88639e58f6"
   }
+  custom_error_response {
+    error_code         = 404
+    response_code      = 200
+    response_page_path = "/index.html"
+  }
+  custom_error_response {
+    error_code         = 403
+    response_code      = 200
+    response_page_path = "/index.html"
+  }
   restrictions {
     geo_restriction {
       restriction_type = "none"
@@ -245,6 +255,16 @@ resource "aws_cloudfront_distribution" "patient_portal_cf" {
     viewer_protocol_policy = "allow-all"
     compress               = true
     cache_policy_id        = "658327ea-f89d-4fab-a63d-7e88639e58f6"
+  }
+  custom_error_response {
+    error_code         = 404
+    response_code      = 200
+    response_page_path = "/index.html"
+  }
+  custom_error_response {
+    error_code         = 403
+    response_code      = 200
+    response_page_path = "/index.html"
   }
   restrictions {
     geo_restriction {

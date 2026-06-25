@@ -4,7 +4,6 @@ import { Coverage, CoverageEligibilityResponse, Practitioner } from 'fhir/r4b';
 import {
   CoverageCheckWithDetails,
   getPreferredPharmacyFromPatient,
-  getSecret,
   INVALID_RESOURCE_ID_ERROR,
   isValidUUID,
   MISSING_REQUEST_BODY,
@@ -12,16 +11,9 @@ import {
   PatientAccountResponse,
   pullCoverageIdentifyingDetails,
   Secrets,
-  SecretsKeys,
 } from 'utils';
 import { parseCoverageEligibilityResponse } from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createOystehrClient,
-  topLevelCatch,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../shared';
+import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
 import { getAccountAndCoverageResourcesForPatient } from '../../shared/harvest';
 
 const ZAMBDA_NAME = 'get-patient-account';
@@ -29,25 +21,19 @@ const ZAMBDA_NAME = 'get-patient-account';
 let m2mToken: string;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  try {
-    console.group('validateRequestParameters');
-    const validatedParameters = validateRequestParameters(input);
-    console.groupEnd();
-    console.debug('validateRequestParameters success', JSON.stringify(validatedParameters));
-    const { secrets } = validatedParameters;
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
-    const resources = await performEffect(validatedParameters, oystehr);
+  console.group('validateRequestParameters');
+  const validatedParameters = validateRequestParameters(input);
+  console.groupEnd();
+  console.debug('validateRequestParameters success', JSON.stringify(validatedParameters));
+  const { secrets } = validatedParameters;
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
+  const resources = await performEffect(validatedParameters, oystehr);
 
-    return {
-      statusCode: 200,
-      body: JSON.stringify(resources),
-    };
-  } catch (error: any) {
-    console.log('Error: ', JSON.stringify(error.message));
-    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    return topLevelCatch(ZAMBDA_NAME, error, ENVIRONMENT);
-  }
+  return {
+    statusCode: 200,
+    body: JSON.stringify(resources),
+  };
 });
 
 const performEffect = async (input: Input, oystehr: Oystehr): Promise<PatientAccountResponse> => {

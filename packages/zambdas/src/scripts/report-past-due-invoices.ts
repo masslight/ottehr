@@ -4,8 +4,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import Stripe from 'stripe';
-import { getAuth0Token } from '../shared';
-import { fhirApiUrlFromAuth0Audience } from './helpers';
+import { createClinicalOystehrClient, getAuth0Token } from '../shared';
 
 interface StripeInvoice {
   invoiceId: string;
@@ -278,7 +277,7 @@ async function main(): Promise<void> {
   // Use provided filename or generate default
   const csvFilename = csvFilenameArg || getDefaultFilename(env);
 
-  const secrets = JSON.parse(fs.readFileSync(`.env/${env}.json`, 'utf8'));
+  const secrets = JSON.parse(fs.readFileSync(`../../config/.env/${env}.json`, 'utf8'));
 
   // Initialize Stripe
   const stripe = new Stripe(secrets.STRIPE_SECRET_KEY, {
@@ -292,10 +291,7 @@ async function main(): Promise<void> {
     throw new Error('❌ Failed to fetch auth token.');
   }
 
-  const oystehr = new Oystehr({
-    accessToken: token,
-    fhirApiUrl: fhirApiUrlFromAuth0Audience(secrets.AUTH0_AUDIENCE),
-  });
+  const oystehr = createClinicalOystehrClient(token, secrets);
 
   // Find all past due invoices (due before today)
   const today = new Date();

@@ -1,35 +1,35 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
-import { Account, Appointment, Encounter, Location, Patient, Task, TaskOutput } from 'fhir/r4b';
+import { Account, Appointment, Encounter, Location, Patient, Schedule, Task, TaskOutput } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import Stripe from 'stripe';
 import {
-  BRANDING_CONFIG,
   FHIR_RESOURCE_NOT_FOUND,
-  getFullName,
+  fillInvoiceTemplate,
+  formatDateToMDYWithTime,
   getPatientReferenceFromAccount,
   getSecret,
   getStripeAccountForAppointmentOrEncounter,
   getStripeCustomerIdFromAccount,
-  InvoiceMessagesPlaceholders,
   mapDisplayToInvoiceTaskStatus,
   PATIENT_BILLING_ACCOUNT_TYPE,
   RcmTaskCodings,
   removePrefix,
-  replaceTemplateVariablesArrows,
   RESOURCE_INCOMPLETE_FOR_OPERATION_ERROR,
   Secrets,
   SecretsKeys,
 } from 'utils';
 import { accountMatchesType } from '../../../ehr/shared/harvest';
+import { produceOutreachTasks } from '../../../rcm/scheduled-outreach/producers/shared';
 import {
   checkOrCreateM2MClientToken,
-  createOystehrClient,
+  createClinicalOystehrClient,
   getCandidEncounterIdFromEncounter,
   getStripeClient,
+  resolveTemplatePlaceholders,
+  resolveTimezone,
   sendSmsForPatient,
-  topLevelCatch,
   wrapHandler,
   ZambdaInput,
 } from '../../../shared';
@@ -40,106 +40,112 @@ let m2mToken: string;
 const ZAMBDA_NAME = 'sub-send-invoice-to-patient';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+  const validatedParams = validateRequestParameters(input);
+  const { secrets, encounterId, invoiceTaskInput, task } = validatedParams;
+  const { amountCents, dueDate, memo, smsTextMessage } = invoiceTaskInput;
+  console.log('Input task id: ', task.id);
+
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
+  const stripe = getStripeClient(secrets);
+
   try {
-    const validatedParams = validateRequestParameters(input);
-    const { secrets, encounterId, invoiceTaskInput, task } = validatedParams;
-    const { amountCents, dueDate, memo, smsTextMessage } = invoiceTaskInput;
-    console.log('Input task id: ', task.id);
+    console.log('Fetching fhir resources');
+    const fhirResources = await getFhirResources(oystehr, encounterId);
+    const { patient, encounter, account, appointment, location, schedule, stripeAccountId } = fhirResources;
+    console.log('Fhir resources fetched');
 
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
-    const stripe = getStripeClient(secrets);
+    console.log('Getting stripe and candid ids');
+    const stripeCustomerId = getStripeCustomerIdFromAccount(account, stripeAccountId);
+    if (!stripeCustomerId) throw new Error('StripeCustomerId is not found');
+    const candidEncounterId = getCandidEncounterIdFromEncounter(encounter);
+    if (!candidEncounterId) throw new Error('CandidEncounterId is not found');
+    console.log('Stripe and candid ids retrieved');
 
-    try {
-      console.log('Fetching fhir resources');
-      const fhirResources = await getFhirResources(oystehr, encounterId);
-      const { patient, encounter, account, appointment, location, stripeAccountId } = fhirResources;
-      console.log('Fhir resources fetched');
+    const timezone = resolveTimezone(schedule, location);
+    const visitDate = formatDateToMDYWithTime(appointment.start, timezone)?.date;
+    if (!visitDate) throw new Error('visit date is missing required field');
 
-      console.log('Getting stripe and candid ids');
-      const stripeCustomerId = getStripeCustomerIdFromAccount(account, stripeAccountId);
-      if (!stripeCustomerId) throw new Error('StripeCustomerId is not found');
-      const candidEncounterId = getCandidEncounterIdFromEncounter(encounter);
-      if (!candidEncounterId) throw new Error('CandidEncounterId is not found');
-      console.log('Stripe and candid ids retrieved');
-
-      const locationName = location?.name;
-      const visitDateObj = DateTime.fromISO(appointment.start ?? '');
-      const visitDate = visitDateObj.isValid ? visitDateObj.toFormat('MM/dd/yyyy') : undefined;
-      const patientPortalUrl = getSecret(SecretsKeys.PATIENT_LOGIN_REDIRECT_URL, secrets);
-      if (!visitDate) throw new Error('visit date is missing required field');
-
-      console.log('Creating invoice and invoice item');
-      const patientId = removePrefix('Patient/', encounter.subject?.reference ?? '');
-      if (!patientId) throw new Error("Encounter doesn't have patient reference");
-      const filledMemo = memo
-        ? fillMessagePlaceholders(memo, {
-            patientFullName: getFullName(fhirResources.patient),
-            location: locationName,
-            visitDate,
-            dueDate,
-            amount: `${amountCents / 100}`,
-            patientPortalUrl,
-          })
-        : undefined;
-      const invoiceResponse = await createInvoice(stripe, stripeCustomerId, stripeAccountId, {
-        oystehrEncounterId: encounterId,
-        oystehrPatientId: patientId,
-        dueDate,
-        filledMemo,
-      });
-      await createInvoiceItem(stripe, stripeCustomerId, stripeAccountId, invoiceResponse, amountCents, filledMemo);
-      console.log('Invoice and invoice item created');
-
-      console.log('Finalizing invoice');
-      const finalized = await stripe.invoices.finalizeInvoice(invoiceResponse.id, { stripeAccount: stripeAccountId });
-      if (!finalized || finalized.status !== 'open')
-        throw new Error(`Failed to finalize invoice, response status: ${finalized.status}`);
-      console.log('Invoice finalized: ', finalized.status);
-
-      console.log(`Sending invoice to recipient email recorded in stripe: ${finalized.customer_email}`);
-      const sendInvoiceResponse = await stripe.invoices.sendInvoice(invoiceResponse.id, {
-        stripeAccount: stripeAccountId,
-      });
-      console.log('Invoice sent: ', sendInvoiceResponse.status);
-
-      console.log('Filling in invoice sms messages placeholders');
-      const invoiceUrl = sendInvoiceResponse.hosted_invoice_url ?? '??';
-      const smsMessage = fillMessagePlaceholders(smsTextMessage, {
-        patientFullName: getFullName(fhirResources.patient),
-        location: locationName,
+    const basePlaceholderInput = await resolveTemplatePlaceholders({
+      patient,
+      encounterRef: `Encounter/${encounterId}`,
+      oystehr,
+      secrets,
+      overrides: {
+        location: location?.name,
         visitDate,
         dueDate,
-        amount: `${amountCents / 100}`,
-        invoiceLink: invoiceUrl,
-        patientPortalUrl,
+        amountCents,
+      },
+    });
+
+    console.log('Creating invoice and invoice item');
+    const patientId = removePrefix('Patient/', encounter.subject?.reference ?? '');
+    if (!patientId) throw new Error("Encounter doesn't have patient reference");
+    const filledMemo = memo ? fillInvoiceTemplate(memo, basePlaceholderInput) : undefined;
+    const invoiceResponse = await createInvoice(stripe, stripeCustomerId, stripeAccountId, {
+      oystehrEncounterId: encounterId,
+      oystehrPatientId: patientId,
+      dueDate,
+      timezone,
+      filledMemo,
+    });
+    await createInvoiceItem(stripe, stripeCustomerId, stripeAccountId, invoiceResponse, amountCents, filledMemo);
+    console.log('Invoice and invoice item created');
+
+    console.log('Finalizing invoice');
+    const finalized = await stripe.invoices.finalizeInvoice(invoiceResponse.id, { stripeAccount: stripeAccountId });
+    if (!finalized || finalized.status !== 'open')
+      throw new Error(`Failed to finalize invoice, response status: ${finalized.status}`);
+    console.log('Invoice finalized: ', finalized.status);
+
+    console.log(`Sending invoice to recipient email recorded in stripe: ${finalized.customer_email}`);
+    const sendInvoiceResponse = await stripe.invoices.sendInvoice(invoiceResponse.id, {
+      stripeAccount: stripeAccountId,
+    });
+    console.log('Invoice sent: ', sendInvoiceResponse.status);
+
+    console.log('Filling in invoice sms messages placeholders');
+    const invoiceUrl = sendInvoiceResponse.hosted_invoice_url ?? '??';
+    const smsMessage = fillInvoiceTemplate(smsTextMessage, {
+      ...basePlaceholderInput,
+      invoiceLink: invoiceUrl,
+    });
+
+    console.log('Sending sms to patient');
+    await sendInvoiceSmsToPatient(oystehr, smsMessage, patient, secrets);
+    console.log('Sms sent to patient');
+
+    console.log('Setting task status to completed');
+    const taskCopy = addInvoiceIdToTaskOutput(task, invoiceResponse.id);
+    await updateTaskStatusAndOutput(oystehr, task, mapDisplayToInvoiceTaskStatus('sent'), taskCopy.output);
+    console.log('Task status and output updated');
+
+    // Produce outreach tasks triggered by invoice issuance
+    try {
+      await produceOutreachTasks({
+        triggerEvent: 'invoice-issued',
+        patient: { reference: `Patient/${patient.id}` },
+        focus: { reference: `Encounter/${encounterId}` },
+        appointment: appointment?.id ? { reference: `Appointment/${appointment.id}` } : undefined,
+        eventTimestamp: new Date().toISOString(),
+        oystehr,
       });
-
-      console.log('Sending sms to patient');
-      await sendInvoiceSmsToPatient(oystehr, smsMessage, patient, secrets);
-      console.log('Sms sent to patient');
-
-      console.log('Setting task status to completed');
-      const taskCopy = addInvoiceIdToTaskOutput(task, invoiceResponse.id);
-      await updateTaskStatusAndOutput(oystehr, task, mapDisplayToInvoiceTaskStatus('sent'), taskCopy.output);
-      console.log('Task status and output updated');
-    } catch (error) {
-      const oystehr = createOystehrClient(m2mToken, secrets);
-      console.log('updating task status to failed and output');
-      const taskCopy = addErrorToTaskOutput(task, error instanceof Error ? error.message : 'Unknown error');
-      await updateTaskStatusAndOutput(oystehr, task, mapDisplayToInvoiceTaskStatus('error'), taskCopy.output);
-      throw error;
+    } catch (err) {
+      console.error('Failed to produce invoice-issued outreach tasks:', err);
     }
-
-    return {
-      statusCode: 200,
-      body: JSON.stringify({ message: 'Invoice created and sent successfully' }),
-    };
-  } catch (error: unknown) {
-    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    console.log('Error occurred:', error);
-    return await topLevelCatch(ZAMBDA_NAME, error, ENVIRONMENT);
+  } catch (error) {
+    const oystehr = createClinicalOystehrClient(m2mToken, secrets);
+    console.log('updating task status to failed and output');
+    const taskCopy = addErrorToTaskOutput(task, error instanceof Error ? error.message : 'Unknown error');
+    await updateTaskStatusAndOutput(oystehr, task, mapDisplayToInvoiceTaskStatus('error'), taskCopy.output);
+    throw error;
   }
+
+  return {
+    statusCode: 200,
+    body: JSON.stringify({ message: 'Invoice created and sent successfully' }),
+  };
 });
 
 async function createInvoiceItem(
@@ -177,10 +183,11 @@ async function createInvoice(
     oystehrPatientId: string;
     filledMemo?: string;
     dueDate: string;
+    timezone: string;
   }
 ): Promise<Stripe.Invoice> {
   try {
-    const { oystehrEncounterId, oystehrPatientId, filledMemo, dueDate } = params;
+    const { oystehrEncounterId, oystehrPatientId, filledMemo, dueDate, timezone } = params;
 
     const invoiceParams: Stripe.InvoiceCreateParams = {
       customer: stripeCustomerId,
@@ -191,7 +198,7 @@ async function createInvoice(
         oystehr_encounter_id: oystehrEncounterId,
       },
       currency: 'USD',
-      due_date: DateTime.fromISO(dueDate).toUnixInteger(),
+      due_date: DateTime.fromISO(dueDate, { zone: timezone }).toUnixInteger(),
       pending_invoice_items_behavior: 'exclude', // Start with a blank invoice
       auto_advance: false, // Ensure it stays a draft
     };
@@ -215,6 +222,7 @@ async function getFhirResources(
   appointment: Appointment;
   stripeAccountId?: string;
   location?: Location;
+  schedule?: Schedule;
 }> {
   const response = (
     await oystehr.fhir.search({
@@ -239,6 +247,10 @@ async function getFhirResources(
         {
           name: '_revinclude:iterate',
           value: 'Account:patient',
+        },
+        {
+          name: '_revinclude:iterate',
+          value: 'Schedule:actor:Location',
         },
       ],
     })
@@ -271,6 +283,11 @@ async function getFhirResources(
     location = response.find((res) => res.resourceType === 'Location' && res.id === locationId) as Location;
     if (!location) throw FHIR_RESOURCE_NOT_FOUND('Location');
   } else console.log("Appointment doesn't have location id");
+  const schedule = location?.id
+    ? (response.filter((res) => res.resourceType === 'Schedule') as Schedule[]).find(
+        (s) => s.actor?.some((a) => a.reference === `Location/${location.id}`)
+      )
+    : undefined;
   const stripeAccount = await getStripeAccountForAppointmentOrEncounter({ encounterId }, oystehr);
 
   console.log('Fhir encounter found: ', encounter.id);
@@ -286,6 +303,7 @@ async function getFhirResources(
     account,
     appointment,
     location,
+    schedule,
     stripeAccountId: stripeAccount,
   };
 }
@@ -356,29 +374,4 @@ async function sendInvoiceSmsToPatient(
   const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, secrets);
   console.log('Sending sms to patient: ', smsTextMessage);
   await sendSmsForPatient(smsTextMessage, oystehr, patient, ENVIRONMENT);
-}
-
-interface MessagePlaceholders {
-  patientFullName: string;
-  location?: string;
-  visitDate: string;
-  dueDate: string;
-  amount?: string;
-  patientPortalUrl?: string;
-  invoiceLink?: string;
-}
-
-function fillMessagePlaceholders(message: string, placeholders: MessagePlaceholders): string {
-  const { patientFullName, location, visitDate, dueDate, patientPortalUrl, invoiceLink } = placeholders;
-  const clinic = BRANDING_CONFIG.projectName;
-  const params: InvoiceMessagesPlaceholders = {
-    'patient-full-name': patientFullName,
-    location,
-    'visit-date': visitDate,
-    'url-to-patient-portal': patientPortalUrl,
-    clinic,
-    'due-date': dueDate,
-    'invoice-link': invoiceLink,
-  };
-  return replaceTemplateVariablesArrows(message, params);
 }

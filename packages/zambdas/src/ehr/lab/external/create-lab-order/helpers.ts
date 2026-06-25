@@ -18,9 +18,12 @@ import {
   CreateLabPaymentMethod,
   DiagnosisDTO,
   FHIR_IDC10_VALUESET_SYSTEM,
+  GENERIC_LAB_ORDER_TAG,
   getFullestAvailableName,
+  getPatientFriendlyId,
   LAB_ORDER_CLINICAL_INFO_COMM_CATEGORY,
   LAB_ORDER_TASK,
+  LAB_ORDER_WITH_FRIENDLY_PATIENT_ID_DETAIL,
   LabPaymentMethod,
   ModifiedOrderingLocation,
   OrderableItemSearchResult,
@@ -28,6 +31,7 @@ import {
   OYSTEHR_LAB_OI_CODE_SYSTEM,
   OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM,
   PSC_HOLD_CONFIG,
+  STATIC_COMPENDIUM_LAB_GUID,
 } from 'utils';
 import { createTask } from '../../../../shared/tasks';
 
@@ -37,10 +41,11 @@ export type CreateLabCoverageDetails =
   | { type: LabPaymentMethod.SelfPay }
   | { type: LabPaymentMethod.WorkersComp; workersCompInsurance: Coverage };
 
-type TestsByLabGuid = {
-  [labGuid: string]: {
+type TestsByGroupingKey = {
+  [groupingKey: string]: {
     tests: OrderableItemSearchResult[];
     labName: string;
+    labGuid: string;
   };
 };
 
@@ -75,19 +80,25 @@ export type ResourcesForRequestFormatting = Omit<GetCreateOrderResourcesReturn, 
   clinicalInfoNoteByUser: string | undefined;
 };
 
-export const groupTestsByLabGuid = (orderableItems: OrderableItemSearchResult[]): TestsByLabGuid => {
-  const testsGroupedByLabGuid: TestsByLabGuid = {};
+export const groupTestsByKey = (orderableItems: OrderableItemSearchResult[]): TestsByGroupingKey => {
+  const testsGroupedByLabGuid: TestsByGroupingKey = {};
   orderableItems.forEach((oi) => {
     const labGuid = oi.lab.labGuid;
+    const labName = oi.lab.labName;
 
-    if (testsGroupedByLabGuid[labGuid]) {
-      testsGroupedByLabGuid[labGuid].tests.push(oi);
+    // these need to group by lab name and lab guid for the generic compendium cases
+    // the labName is already unique coming from the UI since we expanded for generic
+    const groupingKey = labGuid === STATIC_COMPENDIUM_LAB_GUID ? `${labGuid}-${labName}` : labGuid;
+
+    if (testsGroupedByLabGuid[groupingKey]) {
+      testsGroupedByLabGuid[groupingKey].tests.push(oi);
     } else {
       const value = {
         tests: [oi],
         labName: oi.lab.labName,
+        labGuid,
       };
-      testsGroupedByLabGuid[labGuid] = value;
+      testsGroupedByLabGuid[groupingKey] = value;
     }
   });
 
@@ -212,6 +223,35 @@ export const formatServiceRequestConfig = (
         text: PSC_HOLD_CONFIG.display,
       },
     ];
+  }
+
+  if (getPatientFriendlyId(patient)) {
+    serviceRequestConfig.orderDetail = [
+      ...(serviceRequestConfig.orderDetail ?? []),
+      {
+        coding: [
+          {
+            system: LAB_ORDER_WITH_FRIENDLY_PATIENT_ID_DETAIL.system,
+            code: LAB_ORDER_WITH_FRIENDLY_PATIENT_ID_DETAIL.code,
+            display: LAB_ORDER_WITH_FRIENDLY_PATIENT_ID_DETAIL.display,
+          },
+        ],
+      },
+    ];
+  }
+
+  // add generic tag for generic orders
+  if (
+    labOrganization.identifier?.some(
+      (id) => id.system === OYSTEHR_LAB_GUID_SYSTEM && id.value === STATIC_COMPENDIUM_LAB_GUID
+    ) ||
+    false
+  ) {
+    console.log('Adding generic tag to ServiceRequest');
+    serviceRequestConfig.meta = {
+      ...(serviceRequestConfig.meta || {}),
+      tag: [...(serviceRequestConfig.meta?.tag || []), GENERIC_LAB_ORDER_TAG],
+    };
   }
 
   return serviceRequestConfig;

@@ -5,7 +5,6 @@ import {
   APPOINTMENT_NOT_FOUND_ERROR,
   BUCKET_NAMES,
   getAppointmentResourceById,
-  getSecret,
   INSURANCE_CARD_BACK_2_ID,
   INSURANCE_CARD_BACK_ID,
   INSURANCE_CARD_FRONT_2_ID,
@@ -17,29 +16,28 @@ import {
   SCHOOL_WORK_NOTE_SCHOOL_ID,
   SCHOOL_WORK_NOTE_WORK_ID,
   Secrets,
-  SecretsKeys,
 } from 'utils';
-import { createOystehrClient, getAuth0Token, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
+import { createClinicalOystehrClient, getAuth0Token, wrapHandler, ZambdaInput } from '../../shared';
 import { makeZ3Url } from '../../shared/presigned-file-urls';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let oystehrToken: string;
 const ZAMBDA_NAME = 'get-presigned-file-url';
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  try {
-    if (!oystehrToken) {
-      oystehrToken = await getAuth0Token(input.secrets);
-    }
-    const result = await makePresignedFileURL(input, createOystehrClient, getAppointmentResourceById, oystehrToken);
-
-    return {
-      statusCode: 200,
-      body: JSON.stringify(result),
-    };
-  } catch (error: any) {
-    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    return topLevelCatch('get-presigned-file-url', error, ENVIRONMENT);
+  if (!oystehrToken) {
+    oystehrToken = await getAuth0Token(input.secrets);
   }
+  const result = await makePresignedFileURL(
+    input,
+    createClinicalOystehrClient,
+    getAppointmentResourceById,
+    oystehrToken
+  );
+
+  return {
+    statusCode: 200,
+    body: JSON.stringify(result),
+  };
 });
 
 const makePresignedFileURL = async (

@@ -5,20 +5,17 @@ import {
   checkEncounterHasPractitioner,
   EncounterVisitType,
   getEncounterVisitType,
-  getTelemedVisitStatus,
   isAppointmentLocked,
+  isEncounterLocked,
   PractitionerLicense,
   StateType,
-  TelemedAppointmentStatusEnum,
 } from 'utils';
-import { AppFlags } from '../stores/contexts/useAppFlags';
 
 export type GetAppointmentAccessibilityDataProps = {
   locationVirtual?: Location;
   encounter: Encounter;
   appointment?: Appointment;
   user?: EvolveUser;
-  featureFlags: Partial<AppFlags>;
 };
 
 export type GetAppointmentAccessibilityDataResult = {
@@ -26,12 +23,8 @@ export type GetAppointmentAccessibilityDataResult = {
   licensedPractitionerStates?: string[];
   state?: StateType;
   isPractitionerLicensedInState: boolean;
-  status?: TelemedAppointmentStatusEnum;
   isEncounterAssignedToCurrentPractitioner: boolean;
-  isStatusEditable: boolean;
   isAppointmentReadOnly: boolean;
-  isCurrentUserHasAccessToAppointment: boolean;
-  isAppointmentLocked: boolean;
   visitType: EncounterVisitType;
 };
 
@@ -40,7 +33,6 @@ export const getAppointmentAccessibilityData = ({
   encounter,
   appointment,
   user,
-  featureFlags = {},
 }: GetAppointmentAccessibilityDataProps): GetAppointmentAccessibilityDataResult => {
   const allLicenses = user?.profileResource && allLicensesForPractitioner(user.profileResource);
   const licensedPractitionerStates = allLicenses?.map((item) => item.state);
@@ -49,49 +41,25 @@ export const getAppointmentAccessibilityData = ({
   const isPractitionerLicensedInState =
     !!state && !!licensedPractitionerStates && licensedPractitionerStates.includes(state as StateType);
 
-  const status = encounter ? getTelemedVisitStatus(encounter.status, appointment?.status) : undefined;
-
   const isEncounterAssignedToCurrentPractitioner =
     !!user?.profileResource && !!encounter && checkEncounterHasPractitioner(encounter, user.profileResource);
 
-  const isStatusEditable =
-    !!status && ![TelemedAppointmentStatusEnum.complete, TelemedAppointmentStatusEnum.ready].includes(status);
-
-  const isCurrentUserHasAccessToAppointment =
-    isPractitionerLicensedInState &&
-    (status === TelemedAppointmentStatusEnum.ready || isEncounterAssignedToCurrentPractitioner);
-
-  // Check if appointment is locked via meta tag
-  const isAppointmentLockedByMetaTag = appointment ? isAppointmentLocked(appointment) : false;
+  // Check if the chart is locked via meta tag. Annotation follow-ups have no own Appointment, so their
+  // lock lives on the Encounter; everything else uses the Appointment lock.
   const visitType = getEncounterVisitType(encounter);
   const isFollowup = visitType === 'follow-up';
+  const isAppointmentLockedByMetaTag = appointment ? isAppointmentLocked(appointment) : false;
+  const isEncounterLockedByMetaTag = encounter ? isEncounterLocked(encounter) : false;
 
-  const isAppointmentReadOnly = (() => {
-    if (featureFlags.isInPerson) {
-      return isAppointmentLockedByMetaTag && !isFollowup;
-    }
-
-    return (
-      !state ||
-      !isPractitionerLicensedInState ||
-      !status ||
-      !isStatusEditable ||
-      !isEncounterAssignedToCurrentPractitioner ||
-      isAppointmentLockedByMetaTag
-    );
-  })();
+  const isLocked = isFollowup ? isEncounterLockedByMetaTag : isAppointmentLockedByMetaTag;
 
   return {
     allLicenses,
     licensedPractitionerStates,
     state,
     isPractitionerLicensedInState,
-    status,
     isEncounterAssignedToCurrentPractitioner,
-    isStatusEditable,
-    isAppointmentReadOnly,
-    isCurrentUserHasAccessToAppointment,
-    isAppointmentLocked: isAppointmentLockedByMetaTag,
+    isAppointmentReadOnly: isLocked,
     visitType,
   };
 };

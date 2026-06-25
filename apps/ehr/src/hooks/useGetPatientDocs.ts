@@ -4,21 +4,41 @@ import { useQuery, useQueryClient, UseQueryResult } from '@tanstack/react-query'
 import { DocumentReference, FhirResource, List, QuestionnaireResponse, Reference } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { useCallback, useState } from 'react';
-import { deletePatientDocument } from 'src/api/api';
-import { getMimeType, useSuccessQuery } from 'utils';
-import { chooseJson, getPresignedURL } from 'utils';
+import { createCustomFolder, deletePatientDocument, renameCustomFolder } from 'src/api/api';
+import {
+  chooseJson,
+  CUSTOM_FOLDERS_CATALOG_IDENTIFIER,
+  CustomFolderDefinition,
+  FOLDERS_CONFIG,
+  getFileNameFromUrl,
+  getMimeType,
+  getPresignedURL,
+  isCustomFolderList,
+  isSyntheticFolderId,
+  makeSyntheticFolderId,
+  parseCustomFoldersCatalogIncludingDeleted,
+  PATIENT_FOLDERS_CODE,
+} from 'utils';
+import { useSuccessQuery } from 'utils/lib/frontend';
+import { safelyCaptureMessage } from 'utils/lib/frontend/sentry';
 import { parseFileExtension } from '../helpers/files.helper';
 import { useApiClients } from './useAppClients';
-
-const PATIENT_FOLDERS_CODE = 'patient-docs-folder';
 
 const CREATE_PATIENT_UPLOAD_DOCUMENT_URL_ZAMBDA_ID = 'create-upload-document-url';
 
 export type PatientDocumentsFolder = {
   id: string;
   folderName: string;
+  internalName?: string;
   documentsCount: number;
   documentsRefs?: DocRef[];
+  isCustom: boolean;
+};
+
+export type FolderActionsReturn = {
+  createFolder: (name: string) => Promise<CustomFolderDefinition>;
+  renameFolder: (internalName: string, newName: string) => Promise<void>;
+  isMutating: boolean;
 };
 
 export type DocRef = {
@@ -61,6 +81,9 @@ export type UploadDocumentActionResult = {
 };
 export type UploadDocumentActionParams = {
   fileFolderId: string;
+  // Sent so the upload zambda can lazily create the per-patient List when the folder
+  // is a synthetic catalog-only folder (fileFolderId starts with SYNTHETIC_FOLDER_ID_PREFIX).
+  internalName?: string;
   fileName: string;
   docFile: File;
 };
@@ -84,12 +107,13 @@ export type UseGetPatientDocsReturn = {
   isLoadingFolders: boolean;
   documentsFolders: PatientDocumentsFolder[];
   searchDocuments: (filters: PatientDocumentsFilters) => void;
-  downloadDocument: (documentId: string) => Promise<void>;
+  downloadDocument: (documentId: string, options?: { skipRelated?: boolean }) => Promise<void>;
   renameDocument: (documentId: string, newName: string) => Promise<void>;
   documentActions: UsePatientDocsActionsReturn;
+  folderActions: FolderActionsReturn;
 };
 
-const QUERY_KEYS = {
+export const QUERY_KEYS = {
   GET_PATIENT_DOCS_FOLDERS: 'get-patient-docs-folders',
   GET_SEARCH_PATIENT_DOCUMENTS: 'get-search-patient-documents',
 };
@@ -116,6 +140,7 @@ export const useGetPatientDocs = (patientId: string, filters?: PatientDocumentsF
   );
 
   const documentActions = usePatientDocsActions({ patientId });
+  const folderActions = useFolderActions({ patientId });
 
   const searchDocuments = useCallback((filters: PatientDocumentsFilters): void => {
     console.log(`[useGetPatientDocs] searchDocuments, filters => `);
@@ -133,7 +158,7 @@ export const useGetPatientDocs = (patientId: string, filters?: PatientDocumentsF
   );
 
   const downloadDocument = useCallback(
-    async (documentId: string): Promise<void> => {
+    async (documentId: string, options?: { skipRelated?: boolean }): Promise<void> => {
       const authToken = await getAccessTokenSilently();
 
       let patientDoc = getDocumentById(documentId);
@@ -213,6 +238,8 @@ export const useGetPatientDocs = (patientId: string, filters?: PatientDocumentsF
       } else {
         console.error(`No attachments found for a docId=[${documentId}]`);
       }
+
+      if (options?.skipRelated) return;
 
       const attachedDocumentIds =
         documentReferenceResource?.context?.related
@@ -299,7 +326,13 @@ export const useGetPatientDocs = (patientId: string, filters?: PatientDocumentsF
     downloadDocument: downloadDocument,
     renameDocument,
     documentActions: documentActions,
+    folderActions,
   };
+};
+
+type PatientDocsFoldersQueryData = {
+  lists: List[];
+  catalogDefs: CustomFolderDefinition[];
 };
 
 const useGetPatientDocsFolders = (
@@ -309,12 +342,12 @@ const useGetPatientDocsFolders = (
     patientId: string;
   },
   onSuccess: (data: PatientDocumentsFolder[]) => void
-): UseQueryResult<FhirResource[], Error> => {
+): UseQueryResult<PatientDocsFoldersQueryData, Error> => {
   const { oystehr } = useApiClients();
   const queryResult = useQuery({
     queryKey: [QUERY_KEYS.GET_PATIENT_DOCS_FOLDERS, { patientId }],
 
-    queryFn: async () => {
+    queryFn: async (): Promise<PatientDocsFoldersQueryData> => {
       if (!oystehr) {
         throw new Error('useGetDocsFolders() oystehr client not defined');
       }
@@ -324,15 +357,27 @@ const useGetPatientDocsFolders = (
 
       console.log(`useGetPatientDocsFolders() query triggered`);
 
-      return (
-        await oystehr.fhir.search<FhirResource>({
+      const [listsBundle, catalogBundle] = await Promise.all([
+        oystehr.fhir.search<List>({
           resourceType: 'List',
           params: [
             { name: 'subject', value: `Patient/${patientId}` },
             { name: 'code', value: PATIENT_FOLDERS_CODE },
           ],
-        })
-      ).unbundle();
+        }),
+        oystehr.fhir.search<List>({
+          resourceType: 'List',
+          params: [{ name: 'identifier', value: CUSTOM_FOLDERS_CATALOG_IDENTIFIER }],
+        }),
+      ]);
+
+      return {
+        // Include soft-deleted catalog entries: per-patient Lists that reference them
+        // are still shown to users and must resolve display names from the catalog.
+        // Synthetic folders for soft-deleted entries are filtered out below.
+        lists: listsBundle.unbundle() as List[],
+        catalogDefs: parseCustomFoldersCatalogIncludingDeleted(catalogBundle.unbundle()[0]),
+      };
     },
   });
 
@@ -340,35 +385,78 @@ const useGetPatientDocsFolders = (
     if (!data) {
       return;
     }
-    const searchResultsResources: FhirResource[] = data;
-    const listResources =
-      searchResultsResources
-        ?.filter((resource: FhirResource) => resource.resourceType === 'List' && resource.status === 'current')
-        ?.map((listResource: FhirResource) => listResource as List) ?? [];
+    const { lists, catalogDefs } = data;
 
-    const patientFoldersResources = listResources.filter((listResource: List) =>
-      Boolean(listResource.code?.coding?.find((folderCoding) => folderCoding.code === PATIENT_FOLDERS_CODE))
+    const patientFolderLists = lists.filter(
+      (list) => list.status === 'current' && list.code?.coding?.some((c) => c.code === PATIENT_FOLDERS_CODE)
     );
 
-    const docsFolders = patientFoldersResources.map((listRes) => {
-      const folderName = listRes.code?.coding?.find((folderCoding) => folderCoding.code === PATIENT_FOLDERS_CODE)
-        ?.display;
-      const docRefs: DocRef[] = (listRes.entry ?? []).map(
-        (entry) =>
-          ({
-            reference: entry.item,
-          }) as DocRef
-      );
+    const byInternalName = new Map<string, PatientDocumentsFolder>();
 
-      return {
-        id: listRes.id!,
-        folderName: folderName,
+    for (const list of patientFolderLists) {
+      const internalName = list.title;
+      if (!internalName) continue;
+      const isCustom = isCustomFolderList(list);
+      // Custom folder displayName is owned by the catalog (active or soft-deleted).
+      // A per-patient List with no matching catalog entry is unreachable through supported
+      // flows (deletes are soft); skip it and report the invariant so it can be remediated.
+      const catalogDef = isCustom ? catalogDefs.find((d) => d.internalName === internalName) : undefined;
+      if (isCustom && !catalogDef) {
+        safelyCaptureMessage('Custom-folder List has no matching catalog entry (invariant violation)', {
+          level: 'error',
+          tags: {
+            invariant: 'custom-folder-list:has-catalog-entry',
+            site: 'useGetPatientDocsFolders',
+            patientId,
+            listId: list.id ?? '',
+            internalName,
+          },
+        });
+        continue;
+      }
+
+      const docRefs: DocRef[] = (list.entry ?? []).map((entry) => ({ reference: entry.item }) as DocRef);
+
+      const folderName = isCustom
+        ? catalogDef!.displayName
+        : list.code?.coding?.find((c) => c.code === PATIENT_FOLDERS_CODE)?.display ?? '';
+
+      byInternalName.set(internalName, {
+        id: list.id!,
+        folderName,
+        internalName,
         documentsCount: docRefs.length,
         documentsRefs: docRefs,
-      } as PatientDocumentsFolder;
-    });
+        isCustom,
+      });
+    }
 
-    onSuccess?.(docsFolders);
+    // Synthesize folders the patient has no per-patient List for yet, so they can be opened
+    // and uploaded to; the real List is created lazily on first upload (see the
+    // create-upload-document-url zambda). Two sources:
+    //  - System folders (FOLDERS_CONFIG): missing for patients created before the folder
+    //    existed or before seeding ran.
+    //  - Custom folders (catalog): soft-deleted entries are skipped so patients who never
+    //    used the folder don't see it reappear after an admin deletes it.
+    const synthCandidates = [
+      ...FOLDERS_CONFIG.map((c) => ({ internalName: c.title, displayName: c.display, isCustom: false })),
+      ...catalogDefs
+        .filter((def) => !def.deleted)
+        .map((def) => ({ internalName: def.internalName, displayName: def.displayName, isCustom: true })),
+    ];
+    for (const { internalName, displayName, isCustom } of synthCandidates) {
+      if (byInternalName.has(internalName)) continue;
+      byInternalName.set(internalName, {
+        id: makeSyntheticFolderId(internalName),
+        folderName: displayName,
+        internalName,
+        documentsCount: 0,
+        documentsRefs: [],
+        isCustom,
+      });
+    }
+
+    onSuccess?.(Array.from(byInternalName.values()));
   });
 
   return queryResult;
@@ -406,8 +494,14 @@ const useSearchPatientDocuments = (
 
       console.log(`useSearchPatientDocuments() query triggered`);
 
-      const searchParams: SearchParam[] = [{ name: 'subject', value: `Patient/${patientId}` }];
       const docsFolder = filters?.documentsFolder;
+      // Synthetic folders (catalog entries without a per-patient List yet) have no documents
+      // by construction; no need to query the server.
+      if (isSyntheticFolderId(docsFolder?.id)) {
+        return [];
+      }
+
+      const searchParams: SearchParam[] = [{ name: 'subject', value: `Patient/${patientId}` }];
       if (docsFolder && docsFolder.id) {
         searchParams.push({ name: '_has:List:item:_id', value: docsFolder.id });
       }
@@ -464,11 +558,6 @@ const useSearchPatientDocuments = (
 };
 
 const extractDocumentAttachments = (docRef: DocumentReference): PatientDocumentAttachment[] => {
-  const getFileNameFromUrl = (url: string | undefined): string | undefined => {
-    if (!url) return;
-    const parsedUrl = new URL(url);
-    return parsedUrl.pathname.split('/').pop() || '';
-  };
   return docRef.content
     ?.map((docRefContent) => docRefContent?.attachment)
     ?.map((docRefAttachment) => {
@@ -608,6 +697,49 @@ const usePatientDocsActions = ({ patientId }: { patientId: string }): UsePatient
     isUploading,
     deleteDocumentAction,
   };
+};
+
+const useFolderActions = ({ patientId }: { patientId: string }): FolderActionsReturn => {
+  const { oystehrZambda } = useApiClients();
+  const queryClient = useQueryClient();
+  const [isMutating, setIsMutating] = useState(false);
+
+  const createFolder = useCallback(
+    async (name: string): Promise<CustomFolderDefinition> => {
+      if (!oystehrZambda) throw new Error('Could not initialize oystehrZambda client.');
+      setIsMutating(true);
+      try {
+        const result = await createCustomFolder(oystehrZambda, { folderName: name });
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: ['custom-folders-catalog'] }),
+          queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.GET_PATIENT_DOCS_FOLDERS, { patientId }] }),
+        ]);
+        return result;
+      } finally {
+        setIsMutating(false);
+      }
+    },
+    [oystehrZambda, patientId, queryClient]
+  );
+
+  const renameFolder = useCallback(
+    async (internalName: string, newName: string): Promise<void> => {
+      if (!oystehrZambda) throw new Error('Could not initialize oystehrZambda client.');
+      setIsMutating(true);
+      try {
+        await renameCustomFolder(oystehrZambda, { internalName, newName });
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: ['custom-folders-catalog'] }),
+          queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.GET_PATIENT_DOCS_FOLDERS, { patientId }] }),
+        ]);
+      } finally {
+        setIsMutating(false);
+      }
+    },
+    [oystehrZambda, patientId, queryClient]
+  );
+
+  return { createFolder, renameFolder, isMutating };
 };
 
 export interface UploadPatientDocumentParameters {

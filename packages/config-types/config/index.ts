@@ -14,8 +14,22 @@ export type { DisplayTextDef, LinkDef, TextWithLinkComposition } from './display
 export { HomepageOptions } from './homepage-options';
 
 // Booking config types
-export { StrongCodingSchema, BookingOptionSchema, VisitType, BookingConfigSchema } from './booking';
-export type { StrongCoding, BookingOption, CanonicalUrl, BookingConfig } from './booking';
+export {
+  StrongCodingSchema,
+  BookingOptionSchema,
+  VisitType,
+  BookingConfigSchema,
+  ReasonsForVisitByModeSchema,
+  ServiceCategoryConfigSchema,
+} from './booking';
+export type {
+  StrongCoding,
+  BookingOption,
+  CanonicalUrl,
+  BookingConfig,
+  ReasonsForVisitByMode,
+  ServiceCategoryConfig,
+} from './booking';
 
 // Questionnaire types
 export {
@@ -211,8 +225,9 @@ export {
   ExamCardComponentSchema,
   ExamCardSchema,
   ExamItemConfigSchema,
-  ExamTypeInstanceSchema,
   ExaminationConfigSchema,
+  ExamModalCheckboxOptionSchema,
+  ExamModalOptionGroupSchema,
   HexHashSchema,
   validateExaminationConfig,
 } from './examination';
@@ -230,13 +245,17 @@ export type {
   ExamCardFormComponent,
   ExamCardMultiSelectOption,
   ExamCardMultiSelectComponent,
+  ExamModalCheckboxOption,
+  ExamModalOptionGroup,
+  ExamModalOptionColumn,
+  ExamModalWithColumnsSection,
+  ExamCardCheckboxWithModalComponent,
   ExamCardNonTextComponent,
   ExamCardComponent,
   ExamCard,
   ExamItemConfig,
   ExamTypeInstance,
   ExaminationConfig,
-  ExamTypeValue,
 } from './examination';
 
 // Screening questions config types
@@ -270,15 +289,8 @@ export type {
 } from './medical-history';
 
 // Texting config types
-export { I18nQuickTextSchema, TextingConfigSchema } from './texting';
-export type {
-  QuickTextWhen,
-  I18nQuickText,
-  TextingInvoicingConfig,
-  TextingTelemedConfig,
-  TextingInPersonConfig,
-  TextingConfig,
-} from './texting';
+export { TextingConfigSchema } from './texting';
+export type { TextingInvoicingConfig, TextingTelemedConfig, TextingConfig } from './texting';
 
 // Forms config types
 export { FormItemSchema, FormsConfigSchema } from './forms';
@@ -296,5 +308,9 @@ export { PromptsConfigSchema } from './prompts';
 export type { PromptsConfig } from './prompts';
 
 // Provider config types
-export { ProviderConfigSchema, EmCodeOptionsSchema, EmCodeOptionSchema } from './provider';
+export { ProviderConfigSchema } from './provider';
 export type { ProviderConfig } from './provider';
+
+// Feature flags config types
+export { FeatureFlagsConfigSchema } from './feature-flags';
+export type { FeatureFlagsConfig } from './feature-flags';

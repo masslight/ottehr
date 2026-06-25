@@ -10,7 +10,6 @@ import { ReviewAndSignButton } from '../../shared/components/review-tab/ReviewAn
 import { SendFaxButton } from '../../shared/components/review-tab/SendFaxButton';
 import { UnlockAppointmentButton } from '../../shared/components/review-tab/UnlockAppointmentButton';
 import { useAppointmentData, useChartData } from '../../shared/stores/appointment/appointment.store';
-import { useAppFlags } from '../../shared/stores/contexts/useAppFlags';
 import { ProgressNoteDetails } from '../components/progress-note/ProgressNoteDetails';
 
 interface PatientInfoProps {
@@ -30,7 +29,6 @@ export const ProgressNote: React.FC<PatientInfoProps> = () => {
   const { isChartDataLoading, chartDataError } = useChartData();
   const isLoading = isAppointmentLoading || isChartDataLoading;
   const error = chartDataError || appointmentError;
-  const { isInPerson } = useAppFlags();
 
   if (isLoading || isChartDataLoading) return <Loader />;
   if (error) return <Typography>Error: {error.message}</Typography>;
@@ -47,7 +45,7 @@ export const ProgressNote: React.FC<PatientInfoProps> = () => {
 
       <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
         <Box sx={{ display: 'flex', gap: 1 }}>
-          <SendFaxButton appointment={appointmentResource} encounter={encounter} inPerson={isInPerson} />
+          <SendFaxButton appointment={appointmentResource} encounter={encounter} />
           <DischargeSummaryButton appointmentId={appointment?.id} patientId={patient?.id} />
         </Box>
         <Box sx={{ display: 'flex', gap: 1 }}>

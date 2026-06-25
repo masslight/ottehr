@@ -1,5 +1,5 @@
 import retry from 'retry';
-import { MIME_TYPES } from 'utils';
+import { MIME_TYPES, MimeType } from 'utils';
 
 export async function createPresignedUrl(
   token: string,
@@ -22,7 +22,11 @@ export async function createPresignedUrl(
   return presignedURLResponse.signedUrl;
 }
 
-export async function uploadObjectToZ3(fileBytes: Uint8Array, presignedUploadUrl: string): Promise<void> {
+export async function uploadObjectToZ3(
+  fileBytes: Uint8Array,
+  presignedUploadUrl: string,
+  mimeType: MimeType = MIME_TYPES.PDF
+): Promise<void> {
   const operation = retry.operation({
     retries: 3,
     factor: 2,
@@ -39,7 +43,7 @@ export async function uploadObjectToZ3(fileBytes: Uint8Array, presignedUploadUrl
         const uploadRequest = await fetch(presignedUploadUrl, {
           method: 'PUT',
           headers: {
-            'Content-Type': MIME_TYPES.PDF,
+            'Content-Type': mimeType,
           },
           body: fileBytes,
         });
@@ -68,6 +72,16 @@ export async function uploadObjectToZ3(fileBytes: Uint8Array, presignedUploadUrl
   });
 }
 
+export class Z3Error extends Error {
+  constructor(
+    message: string,
+    public readonly statusCode: number
+  ) {
+    super(message);
+    this.name = 'Z3Error';
+  }
+}
+
 export async function deleteZ3Object(baseFileUrl: string, token: string): Promise<void> {
   const deleteRequest = await fetch(baseFileUrl, {
     method: 'DELETE',
@@ -78,6 +92,9 @@ export async function deleteZ3Object(baseFileUrl: string, token: string): Promis
   });
 
   if (!deleteRequest.ok) {
-    throw new Error(`Delete request was not OK: ${deleteRequest.statusText}`);
+    throw new Z3Error(
+      `Delete request was not OK: ${deleteRequest.status} ${deleteRequest.statusText}`,
+      deleteRequest.status
+    );
   }
 }

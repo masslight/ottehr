@@ -1,10 +1,13 @@
-import Oystehr from '@oystehr/sdk';
+import Oystehr, { BatchInputRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Appointment, Encounter, Patient, Practitioner, Task } from 'fhir/r4b';
+import { Operation } from 'fast-json-patch';
+import { Appointment, Encounter, FhirResource, Patient, Practitioner, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   BRANDING_CONFIG,
+  getEncounterStatusHistoryUpdateOp,
   getFullestAvailableName,
+  getPatchBinary,
   getPatchOperationForNewMetaTag,
   OttehrTaskSystem,
   TASK_ASSIGNED_DATE_TIME_EXTENSION_URL,
@@ -15,7 +18,7 @@ import {
 import { ottehrCodeSystemUrl } from 'utils/lib/fhir/systemUrls';
 import {
   checkOrCreateM2MClientToken,
-  createOystehrClient,
+  createClinicalOystehrClient,
   lambdaResponse,
   wrapHandler,
   ZambdaInput,
@@ -34,7 +37,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (unsafeInput: ZambdaInput): 
     const validatedInput = await validateInput(unsafeInput);
 
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
+    const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
     const response = await performEffect(validatedInput, oystehr);
 
@@ -112,10 +115,40 @@ export async function performEffect(
     return failureResponse;
   }
 
-  await oystehr.fhir.patch({
-    resourceType: 'Appointment',
-    id: appointment.id,
-    operations: [getPatchOperationForNewMetaTag(appointment, notificationSentTag)],
+  const appointmentPatchOperations: Operation[] = [getPatchOperationForNewMetaTag(appointment, notificationSentTag)];
+  const encounterPatchOperations: Operation[] = [];
+
+  if (appointment.status === 'booked') {
+    const statusUpdateOperation: Operation = {
+      op: 'replace',
+      path: '/status',
+      value: 'arrived',
+    };
+    appointmentPatchOperations.push(statusUpdateOperation);
+    encounterPatchOperations.push(statusUpdateOperation);
+    encounterPatchOperations.push(getEncounterStatusHistoryUpdateOp(encounter, 'arrived', 'arrived'));
+  }
+
+  const requests: BatchInputRequest<FhirResource>[] = [
+    getPatchBinary({
+      resourceId: appointment.id,
+      resourceType: 'Appointment',
+      patchOperations: appointmentPatchOperations,
+    }),
+  ];
+
+  if (encounterPatchOperations.length > 0) {
+    requests.push(
+      getPatchBinary({
+        resourceId: encounter.id,
+        resourceType: 'Encounter',
+        patchOperations: encounterPatchOperations,
+      })
+    );
+  }
+
+  await oystehr.fhir.transaction({
+    requests,
   });
 
   return { taskCreated: true };

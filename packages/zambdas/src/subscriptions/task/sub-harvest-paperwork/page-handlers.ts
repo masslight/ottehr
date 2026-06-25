@@ -1,5 +1,4 @@
 import Oystehr from '@oystehr/sdk';
-import { Operation } from 'fast-json-patch';
 import {
   Appointment,
   DocumentReference,
@@ -16,12 +15,13 @@ import {
   getEncounterPaymentVariantExtension,
   getPaymentVariantFromEncounter,
   getPhoneNumberForIndividual,
-  getRelatedPersonForPatient,
+  getRelatedPersonsForPatient,
   type HarvestStrategy,
   INSURANCE_PAY_OPTION,
   OCC_MED_EMPLOYER_PAY_OPTION,
   OCC_MED_SELF_PAY_OPTION,
   pageHarvestStrategy,
+  patchWithOptimisticLock,
   PaymentVariant,
   Secrets,
   SELF_PAY_OPTION,
@@ -33,17 +33,21 @@ import {
   createMasterRecordPatchOperations,
   createUpdatePharmacyPatchOps,
   getAccountAndCoverageResourcesForPatient,
-  mergeEncounterAccounts,
+  makeEncounterAccountPatchOp,
   updatePatientAccountFromQuestionnaire,
 } from '../../../ehr/shared/harvest';
-import { getAuth0Token } from '../../../shared';
+import { getAuth0Token, reportMissingUserRelatedPerson } from '../../../shared';
+
+type WithId<T> = T & { id: string };
 
 export interface HarvestContext {
   qr: QuestionnaireResponse;
   pageLinkId: string;
-  patient: Patient;
-  encounter: Encounter;
-  appointment: Appointment;
+  patchIndex: number;
+  taskId: string;
+  patient: WithId<Patient>;
+  encounter: WithId<Encounter>;
+  appointment: WithId<Appointment>;
   location: Location | undefined;
   questionnaire: Questionnaire | undefined;
   oystehr: Oystehr;
@@ -56,45 +60,44 @@ type HarvestStrategyHandler = (ctx: HarvestContext) => Promise<string>;
 
 const masterRecordStrategy: HarvestStrategyHandler = async (ctx) => {
   const { qr, pageLinkId, patient, questionnaire, oystehr } = ctx;
-  const patientPatchOps = createMasterRecordPatchOperations(
-    {
-      questionnaireResponseItems: qr.item || [],
-      sourceQuestionnaire: questionnaire,
-      options: { filterByEnableWhen: true, includeSections: [pageLinkId] },
-    },
-    patient
-  );
 
-  if (patientPatchOps.patient.patchOpsForDirectUpdate.length > 0) {
-    await oystehr.fhir.patch({
-      resourceType: 'Patient',
-      id: patient.id!,
-      operations: patientPatchOps.patient.patchOpsForDirectUpdate,
-    });
-  }
+  await patchWithOptimisticLock(oystehr, patient, (currentPatient) => {
+    const patientPatchOps = createMasterRecordPatchOperations(
+      {
+        questionnaireResponseItems: qr.item || [],
+        sourceQuestionnaire: questionnaire,
+        options: { filterByEnableWhen: true, includeSections: [pageLinkId] },
+      },
+      currentPatient
+    );
+    return patientPatchOps.patient.patchOpsForDirectUpdate;
+  });
 
   return `master record updated for ${pageLinkId}`;
 };
 
 const pharmacyStrategy: HarvestStrategyHandler = async (ctx) => {
-  const { qr, patient, oystehr } = ctx;
-  const flattenedItems = flattenQuestionnaireAnswers(qr.item ?? []);
-  const pharmacyPatchOps = createUpdatePharmacyPatchOps(patient, flattenedItems);
+  const { qr, pageLinkId, patient, oystehr } = ctx;
 
-  if (pharmacyPatchOps.length > 0) {
-    await oystehr.fhir.patch({
-      resourceType: 'Patient',
-      id: patient.id!,
-      operations: pharmacyPatchOps,
-    });
-  }
+  const pageItems = (qr.item ?? []).filter((item) => item.linkId === pageLinkId);
+
+  await patchWithOptimisticLock(oystehr, patient, (currentPatient) => {
+    const flattenedItems = flattenQuestionnaireAnswers(pageItems);
+    return createUpdatePharmacyPatchOps(currentPatient, flattenedItems);
+  });
 
   return 'pharmacy updated';
 };
 
 const accountCoverageStrategy: HarvestStrategyHandler = async (ctx) => {
-  const { qr, patient, encounter, questionnaire, oystehr } = ctx;
+  const { qr, pageLinkId, patient, encounter, questionnaire, oystehr } = ctx;
 
+  // Only process QR items for the page being harvested, not the entire form.
+  // This prevents parallel invocations from different pages doing redundant work.
+  const pageItems = (qr.item ?? []).filter((item) => item.linkId === pageLinkId);
+
+  // Read payment option from the full QR (not filtered pageItems) so we can
+  // correctly determine self-pay status regardless of which page is being processed.
   const paymentOption = qr.item
     ?.find((item) => item.linkId === 'payment-option-page')
     ?.item?.find((subItem) => subItem.linkId === 'payment-option')?.answer?.[0]?.valueString;
@@ -103,95 +106,104 @@ const accountCoverageStrategy: HarvestStrategyHandler = async (ctx) => {
     ?.find((item) => item.linkId === 'payment-option-occ-med-page')
     ?.item?.find((subItem) => subItem.linkId === 'payment-option-occupational')?.answer?.[0]?.valueString;
 
-  const preserveOmittedCoverages = paymentOption === SELF_PAY_OPTION || occMedPaymentOption === OCC_MED_SELF_PAY_OPTION;
+  // When processing a non-payment page, we have no coverage data to update,
+  // so preserve existing coverages to avoid accidental deletion.
+  const isPaymentPage = ['payment-option-page', 'payment-option-occ-med-page'].includes(pageLinkId);
+  const isSelfPay = paymentOption === SELF_PAY_OPTION || occMedPaymentOption === OCC_MED_SELF_PAY_OPTION;
+  const preserveOmittedCoverages = !isPaymentPage || isSelfPay;
 
   await updatePatientAccountFromQuestionnaire(
     {
       patientId: patient.id!,
-      questionnaireResponseItem: qr.item ?? [],
+      questionnaireResponseItem: pageItems,
       preserveOmittedCoverages,
       questionnaireForEnableWhenFiltering: questionnaire,
     },
     oystehr
   );
 
-  // Update encounter payment variant only when a payment option answer is present
-  const selectedPaymentOption = paymentOption ?? occMedPaymentOption;
-  const encounterPatchOperations: Operation[] = [];
-
-  if (selectedPaymentOption) {
-    let paymentVariant: PaymentVariant = PaymentVariant.selfPay;
-    if (selectedPaymentOption === INSURANCE_PAY_OPTION) {
-      paymentVariant = PaymentVariant.insurance;
-    }
-    if (selectedPaymentOption === OCC_MED_EMPLOYER_PAY_OPTION) {
-      paymentVariant = PaymentVariant.employer;
-    }
-
-    const currentVariant = getPaymentVariantFromEncounter(encounter);
-    if (currentVariant !== paymentVariant) {
-      const extIndex = encounter.extension?.findIndex((ext) => ext.url === ENCOUNTER_PAYMENT_VARIANT_EXTENSION_URL);
-
-      if (extIndex !== undefined && extIndex >= 0) {
-        encounterPatchOperations.push({
-          op: 'replace',
-          path: `/extension/${extIndex}`,
-          value: getEncounterPaymentVariantExtension(paymentVariant),
-        });
-      } else if (encounter.extension) {
-        encounterPatchOperations.push({
-          op: 'add',
-          path: '/extension/-',
-          value: getEncounterPaymentVariantExtension(paymentVariant),
-        });
-      } else {
-        encounterPatchOperations.push({
-          op: 'add',
-          path: '/extension',
-          value: [getEncounterPaymentVariantExtension(paymentVariant)],
-        });
-      }
-    }
-  }
-
   // Update encounter account references
-  const { account: latestAccount, workersCompAccount } = await getAccountAndCoverageResourcesForPatient(
-    patient.id!,
-    oystehr
-  );
+  await patchWithOptimisticLock(oystehr, encounter, async (currentEncounter) => {
+    const { account: latestAccount, workersCompAccount } = await getAccountAndCoverageResourcesForPatient(
+      patient.id!,
+      oystehr
+    );
 
-  const patientAccountReference = latestAccount?.id ? `Account/${latestAccount.id}` : undefined;
-  const workersCompAccountReference = workersCompAccount?.id ? `Account/${workersCompAccount.id}` : undefined;
-  const { accounts: updatedEncounterAccounts, changed: accountsChanged } = mergeEncounterAccounts(encounter.account, [
-    patientAccountReference,
-    workersCompAccountReference,
-  ]);
+    return makeEncounterAccountPatchOp(currentEncounter, latestAccount, workersCompAccount);
+  });
 
-  if (accountsChanged && updatedEncounterAccounts) {
-    encounterPatchOperations.push({
-      op: encounter.account ? 'replace' : 'add',
-      path: '/account',
-      value: updatedEncounterAccounts,
-    });
-  }
-
-  if (encounterPatchOperations.length) {
-    await oystehr.fhir.patch<Encounter>({
-      id: encounter.id!,
-      resourceType: 'Encounter',
-      operations: encounterPatchOperations,
-    });
-  }
-
-  console.log(
-    `account and coverage resources ${accountsChanged ? 'updated' : 'unchanged'} for encounter ${encounter.id}`
-  );
+  console.log(`account and coverage resources updated for encounter ${encounter.id}`);
 
   return 'account / coverage updated';
 };
 
+const paymentVariantStrategy: HarvestStrategyHandler = async (ctx) => {
+  const { qr, pageLinkId, encounter, oystehr } = ctx;
+
+  // Each payment page is gated by its own enableWhen on the visit's service category,
+  // but pre-population can seed an answer on the disabled page anyway. Scope the read to
+  // the page whose task is firing so a stale prepop value from the hidden page can't win.
+  const questionLinkIdByPage: Record<string, string | undefined> = {
+    'payment-option-page': 'payment-option',
+    'payment-option-occ-med-page': 'payment-option-occupational',
+  };
+  const questionLinkId = questionLinkIdByPage[pageLinkId];
+  if (!questionLinkId) {
+    return `payment-variant skipped (unsupported page ${pageLinkId})`;
+  }
+
+  const selectedPaymentOption = qr.item
+    ?.find((item) => item.linkId === pageLinkId)
+    ?.item?.find((subItem) => subItem.linkId === questionLinkId)?.answer?.[0]?.valueString;
+
+  if (!selectedPaymentOption) {
+    return 'payment-variant skipped (no payment option selected)';
+  }
+
+  let paymentVariant = PaymentVariant.selfPay;
+  if (selectedPaymentOption === INSURANCE_PAY_OPTION) {
+    paymentVariant = PaymentVariant.insurance;
+  }
+  if (selectedPaymentOption === OCC_MED_EMPLOYER_PAY_OPTION) {
+    paymentVariant = PaymentVariant.employer;
+  }
+
+  await patchWithOptimisticLock(oystehr, encounter, (currentEncounter) => {
+    const currentVariant = getPaymentVariantFromEncounter(currentEncounter);
+    if (currentVariant === paymentVariant) {
+      return [];
+    }
+
+    const extIndex = currentEncounter.extension?.findIndex(
+      (ext) => ext.url === ENCOUNTER_PAYMENT_VARIANT_EXTENSION_URL
+    );
+
+    if (extIndex !== undefined && extIndex >= 0) {
+      return [
+        {
+          op: 'replace' as const,
+          path: `/extension/${extIndex}`,
+          value: getEncounterPaymentVariantExtension(paymentVariant),
+        },
+      ];
+    } else if (currentEncounter.extension) {
+      return [{ op: 'add' as const, path: '/extension/-', value: getEncounterPaymentVariantExtension(paymentVariant) }];
+    } else {
+      return [{ op: 'add' as const, path: '/extension', value: [getEncounterPaymentVariantExtension(paymentVariant)] }];
+    }
+  });
+
+  return `payment-variant set to ${paymentVariant}`;
+};
+
 const documentsStrategy: HarvestStrategyHandler = async (ctx) => {
-  const { qr, patient, appointment, oystehr } = ctx;
+  const { qr, pageLinkId, patient, appointment, oystehr } = ctx;
+
+  // Only process attachments from the page being harvested
+  const pageQr: QuestionnaireResponse = {
+    ...qr,
+    item: (qr.item ?? []).filter((item) => item.linkId === pageLinkId),
+  };
 
   // Fetch existing document references and lists for deduplication
   const docResources = (
@@ -216,13 +228,18 @@ const documentsStrategy: HarvestStrategyHandler = async (ctx) => {
     })
   ).unbundle() as List[];
 
-  await createDocumentResources(qr, patient.id!, appointment.id!, oystehr, listResources, documentReferenceResources);
+  await createDocumentResources(pageQr, patient.id, appointment.id, oystehr, listResources, documentReferenceResources);
 
   return 'documents created';
 };
 
 const consentStrategy: HarvestStrategyHandler = async (ctx) => {
-  const { qr, patient, location, appointment, oystehr, secrets } = ctx;
+  const { qr, pageLinkId, patient, location, appointment, oystehr, secrets } = ctx;
+
+  const pageQr: QuestionnaireResponse = {
+    ...qr,
+    item: (qr.item ?? []).filter((item) => item.linkId === pageLinkId),
+  };
 
   // Fetch lists for consent document tracking
   const listResources = (
@@ -235,7 +252,7 @@ const consentStrategy: HarvestStrategyHandler = async (ctx) => {
   const oystehrAccessToken = await getAuth0Token(secrets);
 
   await createConsentResources({
-    questionnaireResponse: qr,
+    questionnaireResponse: pageQr,
     patientResource: patient,
     locationResource: location,
     appointmentId: appointment.id!,
@@ -251,27 +268,29 @@ const consentStrategy: HarvestStrategyHandler = async (ctx) => {
 const erxContactStrategy: HarvestStrategyHandler = async (ctx) => {
   const { patient, oystehr } = ctx;
 
-  const relatedPerson = await getRelatedPersonForPatient(patient.id!, oystehr);
-  if (!relatedPerson || !relatedPerson.id) {
-    console.log(`No RelatedPerson found for patient ${patient.id}, skipping erx-contact harvest`);
-    return 'erx-contact skipped (no RelatedPerson)';
+  const relatedPersons = await getRelatedPersonsForPatient(patient.id!, oystehr);
+  if (!relatedPersons.length) {
+    console.log(`No user-relatedperson for patient ${patient.id}; skipping erx-contact harvest`);
+    reportMissingUserRelatedPerson('sub-harvest-paperwork:erx-contact', patient.id);
+    return 'erx-contact skipped (no user-relatedperson)';
+  }
+  if (relatedPersons.length > 1) {
+    console.log(
+      `Patient ${patient.id} has ${relatedPersons.length} user-relatedpersons; skipping erx-contact harvest (ambiguous login phone)`
+    );
+    return 'erx-contact skipped (ambiguous login phone)';
   }
 
+  const relatedPerson = relatedPersons[0];
   const verifiedPhone = getPhoneNumberForIndividual(relatedPerson);
   if (!verifiedPhone) {
     console.log(`No verified phone number for patient ${patient.id}, skipping erx-contact harvest`);
     return 'erx-contact skipped (no verified phone)';
   }
 
-  const erxContactOp = createErxContactOperation(relatedPerson, patient);
-  if (!erxContactOp) {
-    return 'erx-contact already up-to-date';
-  }
-
-  await oystehr.fhir.patch({
-    resourceType: 'Patient',
-    id: patient.id!,
-    operations: [erxContactOp],
+  await patchWithOptimisticLock(oystehr, patient, (currentPatient) => {
+    const erxContactOp = createErxContactOperation(relatedPerson, currentPatient);
+    return erxContactOp ? [erxContactOp] : [];
   });
 
   return 'erx-contact updated';
@@ -283,6 +302,7 @@ export const strategyHandlers: Record<HarvestStrategy, HarvestStrategyHandler> =
   'master-record': masterRecordStrategy,
   pharmacy: pharmacyStrategy,
   'account-coverage': accountCoverageStrategy,
+  'payment-variant': paymentVariantStrategy,
   documents: documentsStrategy,
   consent: consentStrategy,
   'erx-contact': erxContactStrategy,

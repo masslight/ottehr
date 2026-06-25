@@ -18,11 +18,11 @@ export const GetMedicationOrdersInputSchema = z.object({
   searchBy: z.union([
     z.object({
       field: z.literal('encounterId'),
-      value: z.string(),
+      value: z.string().uuid(),
     }),
     z.object({
       field: z.literal('encounterIds'),
-      value: z.array(z.string()),
+      value: z.array(z.string().uuid()),
     }),
   ]),
 });
@@ -76,11 +76,19 @@ export interface MedicationData {
   associatedDx?: string;
   units?: string;
   manufacturer?: string;
-  location?: string;
+  location?: { code: string; name: string };
   providerId?: string;
+  cptCodes?: {
+    code: string;
+    display: string;
+    isMedication?: boolean;
+    billableUnitSize?: number;
+    billableUnits?: number;
+  }[];
 
   // scanning part
   lotNumber?: string;
+  ndc?: string;
   expDate?: string;
 
   // administrating ISO date with timezone

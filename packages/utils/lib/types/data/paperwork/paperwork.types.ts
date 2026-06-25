@@ -92,7 +92,7 @@ export interface QuestionnaireItemExtension {
   categoryTag?: string;
   dataType?: QuestionnaireDataType;
   disabledDisplay?: 'hidden' | 'protected';
-  filterWhen?: QuestionnaireItemConditionDefinition;
+  filterWhen?: QuestionnaireItemConditionDefinition[];
   groupType?: QuestionnaireItemGroupType;
   infoText?: string;
   inputWidth?: InputWidthOption;
@@ -108,6 +108,10 @@ export interface QuestionnaireItemExtension {
   };
   requiredBooleanValue?: boolean; // if the item is of type boolean and required, this indicates whether it must be true or false
   // permittedStringValues?: string[]; // todo when needed
+  answerDisplayFilters?: {
+    conditions: { question: string; operator: string; answer: string }[];
+    includeValues: string[];
+  }[];
 }
 export interface AppointmentSummary {
   id: string;
@@ -117,7 +121,6 @@ export interface AppointmentSummary {
   serviceMode: string;
   status?: string;
   // otherOffices: { display: string; url: string }[];
-  unconfirmedDateOfBirth?: string;
 }
 
 // it's pretty tedious to have this one-property interface and have to drill down to get the bits you're really after

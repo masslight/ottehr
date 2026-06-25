@@ -2,8 +2,11 @@ import { ActivityDefinition } from 'fhir/r4b';
 import { describe, expect, test } from 'vitest';
 import {
   ALLERGY_QUICK_PICK_CATEGORY,
+  IMMUNIZATION_QUICK_PICK_CATEGORY,
+  INSURANCE_QUICK_PICK_CATEGORY,
   MEDICAL_CONDITION_QUICK_PICK_CATEGORY,
   MEDICATION_HISTORY_QUICK_PICK_CATEGORY,
+  PATIENT_INSTRUCTION_QUICK_PICK_CATEGORY,
   PROCEDURE_QUICK_PICK_CATEGORY,
 } from '../../src/ehr/shared/quick-pick-categories';
 import {
@@ -176,6 +179,128 @@ describe('activityDefinitionToQuickPick', () => {
       expect(result.name).toBe('Some Procedure');
     });
   });
+
+  describe('Immunization', () => {
+    test('should parse with all fields populated', () => {
+      const config = {
+        vaccine: { id: 'med-123', name: 'Influenza Vaccine' },
+        dose: '0.5',
+        units: 'ml',
+        route: '78421000',
+        location: { name: 'Left Deltoid', code: 'LD' },
+        associatedDx: 'Z23',
+        manufacturer: 'Pfizer',
+        instructions: 'Monitor 15 min',
+        cvx: '158',
+        mvx: 'PFR',
+        cpt: '90471',
+        ndc: '12345-678-90',
+        lot: 'ABC123',
+        expDate: '2027-06-30',
+      };
+      const ad = createMockActivityDefinition('immunization-quick-pick', 'Flu Shot - Adult', config);
+
+      const result = activityDefinitionToQuickPick(ad, IMMUNIZATION_QUICK_PICK_CATEGORY);
+
+      expect(result.id).toBe('test-id-123');
+      expect(result.name).toBe('Flu Shot - Adult');
+      expect(result.vaccine).toEqual({ id: 'med-123', name: 'Influenza Vaccine' });
+      expect(result.dose).toBe('0.5');
+      expect(result.units).toBe('ml');
+      expect(result.route).toBe('78421000');
+      expect(result.location).toEqual({ name: 'Left Deltoid', code: 'LD' });
+      expect(result.cvx).toBe('158');
+      expect(result.mvx).toBe('PFR');
+      expect(result.lot).toBe('ABC123');
+      expect(result.expDate).toBe('2027-06-30');
+    });
+
+    test('should parse with minimal fields (just name)', () => {
+      const ad = createMockActivityDefinition('immunization-quick-pick', 'Basic Vaccine', {});
+
+      const result = activityDefinitionToQuickPick(ad, IMMUNIZATION_QUICK_PICK_CATEGORY);
+
+      expect(result.id).toBe('test-id-123');
+      expect(result.name).toBe('Basic Vaccine');
+      expect(result.vaccine).toBeUndefined();
+      expect(result.dose).toBeUndefined();
+      expect(result.cvx).toBeUndefined();
+    });
+
+    test('should parse when config extension is missing', () => {
+      const ad: ActivityDefinition = {
+        resourceType: 'ActivityDefinition',
+        status: 'active',
+        title: 'Some Vaccine',
+        meta: {
+          tag: [{ system: QUICK_PICK_TAG_SYSTEM, code: 'immunization-quick-pick' }],
+        },
+      };
+
+      const result = activityDefinitionToQuickPick(ad, IMMUNIZATION_QUICK_PICK_CATEGORY);
+      expect(result.name).toBe('Some Vaccine');
+    });
+  });
+
+  describe('Insurance', () => {
+    test('should parse with name, payerId, and organizationReference', () => {
+      const ad = createMockActivityDefinition('insurance-quick-pick', 'Aetna', {
+        payerId: 'aetna-001',
+        organizationReference: 'Organization/aetna-org-1',
+      });
+
+      const result = activityDefinitionToQuickPick(ad, INSURANCE_QUICK_PICK_CATEGORY);
+
+      expect(result.id).toBe('test-id-123');
+      expect(result.name).toBe('Aetna');
+      expect(result.payerId).toBe('aetna-001');
+      expect(result.organizationReference).toBe('Organization/aetna-org-1');
+    });
+
+    test('should parse when config extension is missing', () => {
+      const ad: ActivityDefinition = {
+        resourceType: 'ActivityDefinition',
+        status: 'active',
+        title: 'Cigna',
+        meta: {
+          tag: [{ system: QUICK_PICK_TAG_SYSTEM, code: 'insurance-quick-pick' }],
+        },
+      };
+
+      const result = activityDefinitionToQuickPick(ad, INSURANCE_QUICK_PICK_CATEGORY);
+      expect(result.name).toBe('Cigna');
+      expect(result.payerId).toBeUndefined();
+      expect(result.organizationReference).toBeUndefined();
+    });
+  });
+
+  describe('Patient instructions', () => {
+    test('should parse a valid patient instruction ActivityDefinition with name and text', () => {
+      const title = 'inst-title';
+      const text = 'instr-text';
+      const ad = createMockActivityDefinition('patient-instruction-quick-pick', title, { text });
+
+      const result = activityDefinitionToQuickPick(ad, PATIENT_INSTRUCTION_QUICK_PICK_CATEGORY);
+
+      expect(result.id).toBe('test-id-123');
+      expect(result.name).toBe(title);
+      expect(result.text).toBe(text);
+    });
+
+    test('should parse when config extension is missing', () => {
+      const ad: ActivityDefinition = {
+        resourceType: 'ActivityDefinition',
+        status: 'active',
+        title: 'title',
+        meta: {
+          tag: [{ system: QUICK_PICK_TAG_SYSTEM, code: 'patient-instruction-quick-pick' }],
+        },
+        // no extension
+      };
+      const result = activityDefinitionToQuickPick(ad, PATIENT_INSTRUCTION_QUICK_PICK_CATEGORY);
+      expect(result.name).toBe(ad.title);
+    });
+  });
 });
 
 describe('quickPickToActivityDefinition', () => {
@@ -227,6 +352,61 @@ describe('quickPickToActivityDefinition', () => {
     const ad = quickPickToActivityDefinition(quickPick, PROCEDURE_QUICK_PICK_CATEGORY);
 
     expect(ad.meta?.tag).toEqual([{ system: QUICK_PICK_TAG_SYSTEM, code: 'procedure-quick-pick' }]);
+  });
+
+  test('should set correct meta tag system and code for immunization category', () => {
+    const quickPick = { name: 'Flu Shot' };
+
+    const ad = quickPickToActivityDefinition(quickPick, IMMUNIZATION_QUICK_PICK_CATEGORY);
+
+    expect(ad.meta?.tag).toEqual([{ system: QUICK_PICK_TAG_SYSTEM, code: 'immunization-quick-pick' }]);
+  });
+
+  test('should set correct meta tag system and code for insurance category', () => {
+    const quickPick = { name: 'Aetna', payerId: 'aetna-001', organizationReference: 'Organization/aetna-org-1' };
+
+    const ad = quickPickToActivityDefinition(quickPick, INSURANCE_QUICK_PICK_CATEGORY);
+
+    expect(ad.meta?.tag).toEqual([{ system: QUICK_PICK_TAG_SYSTEM, code: 'insurance-quick-pick' }]);
+  });
+
+  test('should serialize insurance config excluding name field', () => {
+    const quickPick = {
+      name: 'Aetna',
+      payerId: 'aetna-001',
+      organizationReference: 'Organization/aetna-org-1',
+    };
+
+    const ad = quickPickToActivityDefinition(quickPick, INSURANCE_QUICK_PICK_CATEGORY);
+
+    const configExt = ad.extension?.find((e) => e.url === QUICK_PICK_CONFIG_EXTENSION_URL);
+    expect(configExt).toBeDefined();
+    const parsed = JSON.parse(configExt!.valueString!);
+    expect(parsed.name).toBeUndefined();
+    expect(parsed.payerId).toBe('aetna-001');
+    expect(parsed.organizationReference).toBe('Organization/aetna-org-1');
+  });
+
+  test('should serialize immunization config excluding name field', () => {
+    const quickPick = {
+      name: 'Flu Shot',
+      vaccine: { id: 'med-123', name: 'Influenza' },
+      dose: '0.5',
+      units: 'ml',
+      cvx: '158',
+      lot: 'ABC123',
+    };
+
+    const ad = quickPickToActivityDefinition(quickPick, IMMUNIZATION_QUICK_PICK_CATEGORY);
+
+    const configExt = ad.extension?.find((e) => e.url === QUICK_PICK_CONFIG_EXTENSION_URL);
+    expect(configExt).toBeDefined();
+    const parsed = JSON.parse(configExt!.valueString!);
+    expect(parsed.name).toBeUndefined();
+    expect(parsed.vaccine).toEqual({ id: 'med-123', name: 'Influenza' });
+    expect(parsed.dose).toBe('0.5');
+    expect(parsed.cvx).toBe('158');
+    expect(parsed.lot).toBe('ABC123');
   });
 
   test('should serialize config data in extension excluding display name field', () => {
@@ -327,5 +507,80 @@ describe('round-trip conversion', () => {
     expect(restored.cptCodes).toEqual([{ code: '12001', display: 'Simple repair' }]);
     expect(restored.bodySite).toBe('Left arm');
     expect(restored.consentObtained).toBe(true);
+  });
+
+  test('should preserve immunization data through round-trip', () => {
+    const original = {
+      name: 'Flu Shot - Adult',
+      vaccine: { id: 'med-123', name: 'Influenza Vaccine' },
+      dose: '0.5',
+      units: 'ml',
+      route: '78421000',
+      location: { name: 'Left Deltoid', code: 'LD' },
+      manufacturer: 'Pfizer',
+      cvx: '158',
+      mvx: 'PFR',
+      cptCodes: [{ code: '90471', display: 'Immunization administration' }],
+      ndc: '12345-678-90',
+      lot: 'ABC123',
+      expDate: '2027-06-30',
+    };
+    const ad = quickPickToActivityDefinition(original, IMMUNIZATION_QUICK_PICK_CATEGORY, 'imm-id');
+    const restored = activityDefinitionToQuickPick(ad, IMMUNIZATION_QUICK_PICK_CATEGORY);
+
+    expect(restored.name).toBe('Flu Shot - Adult');
+    expect(restored.vaccine).toEqual({ id: 'med-123', name: 'Influenza Vaccine' });
+    expect(restored.dose).toBe('0.5');
+    expect(restored.units).toBe('ml');
+    expect(restored.route).toBe('78421000');
+    expect(restored.location).toEqual({ name: 'Left Deltoid', code: 'LD' });
+    expect(restored.manufacturer).toBe('Pfizer');
+    expect(restored.cvx).toBe('158');
+    expect(restored.mvx).toBe('PFR');
+    expect(restored.cptCodes).toEqual([{ code: '90471', display: 'Immunization administration' }]);
+    expect(restored.ndc).toBe('12345-678-90');
+    expect(restored.lot).toBe('ABC123');
+    expect(restored.expDate).toBe('2027-06-30');
+    expect(restored.id).toBe('imm-id');
+  });
+
+  test('should preserve immunization with minimal data through round-trip', () => {
+    const original = { name: 'Basic Vaccine', dose: '1', units: 'ml' };
+    const ad = quickPickToActivityDefinition(original, IMMUNIZATION_QUICK_PICK_CATEGORY, 'imm-min-id');
+    const restored = activityDefinitionToQuickPick(ad, IMMUNIZATION_QUICK_PICK_CATEGORY);
+
+    expect(restored.name).toBe('Basic Vaccine');
+    expect(restored.dose).toBe('1');
+    expect(restored.units).toBe('ml');
+    expect(restored.vaccine).toBeUndefined();
+    expect(restored.cvx).toBeUndefined();
+  });
+
+  test('should preserve insurance data through round-trip', () => {
+    const original = {
+      name: 'Blue Cross Blue Shield',
+      payerId: 'bcbs-042',
+      organizationReference: 'Organization/bcbs-org-42',
+    };
+    const ad = quickPickToActivityDefinition(original, INSURANCE_QUICK_PICK_CATEGORY, 'ins-id');
+    const restored = activityDefinitionToQuickPick(ad, INSURANCE_QUICK_PICK_CATEGORY);
+
+    expect(restored.name).toBe('Blue Cross Blue Shield');
+    expect(restored.payerId).toBe('bcbs-042');
+    expect(restored.organizationReference).toBe('Organization/bcbs-org-42');
+    expect(restored.id).toBe('ins-id');
+  });
+
+  test('should preserve patient instruction data through round-trip', () => {
+    const original = {
+      name: 'instruction name',
+      text: 'text of instruction',
+    };
+
+    const ad = quickPickToActivityDefinition(original, PATIENT_INSTRUCTION_QUICK_PICK_CATEGORY, 'p-i-id');
+    const restored = activityDefinitionToQuickPick(ad, PATIENT_INSTRUCTION_QUICK_PICK_CATEGORY);
+
+    expect(restored.name).toBe(original.name);
+    expect(restored.text).toBe(original.text);
   });
 });

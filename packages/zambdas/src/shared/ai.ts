@@ -9,6 +9,7 @@ import { uuid } from 'short-uuid';
 import {
   AI_OBSERVATION_META_SYSTEM,
   AiObservationField,
+  AiSuggestionItem,
   DOCUMENT_REFERENCE_SUMMARY_FROM_AUDIO,
   DOCUMENT_REFERENCE_SUMMARY_FROM_CHAT,
   fixAndParseJsonObjectFromString,
@@ -48,25 +49,58 @@ export class ClaudeClient {
 let chatbot: ChatAnthropic;
 // let chatbotVertexAI: ChatVertexAI;
 
-function getPrompt(patientInfoDetails: string, fields: string): string {
-  return `I'll give you a transcript of a chat between a healthcare provider and a patient. 
-Patient details: ${patientInfoDetails} 
-Please generate ${fields} based on the trancsript.
-Please present a response in JSON format. Don't add markdown. Use property names in camel case.
-Use a single string property in JSON for each section.
-Here is an example response:
+export function getPrompt(patientInfoDetails: string, fields: string): string {
+  return `I'll give you a transcript of a chat between a healthcare provider and a patient.
+Patient details: ${patientInfoDetails}
+Please generate ${fields} based on the transcript.
+Return JSON. No markdown. Use camelCase keys.
+
+FORMAT RULES:
+- "historyOfPresentIllness", "mechanismOfInjury", "socialHistory", and "familyHistory" should be a single descriptive prose string.
+- For the following sections, provide BOTH a prose summary string AND a companion array of individual items with the suffix "Items":
+  pastMedicalHistory / pastMedicalHistoryItems,
+  pastSurgicalHistory / pastSurgicalHistoryItems,
+  medicationsHistory / medicationsHistoryItems,
+  allergies / allergiesItems,
+  hospitalizationsHistory / hospitalizationsHistoryItems,
+  labs / labsItems,
+  erx / erxItems,
+  procedures / proceduresItems.
+- The prose string summarizes the information as a readable sentence.
+- Each item in the Items array must be an object with "display" and "searchTerms":
+  - "display": the term or phrase as it appears verbatim in the prose (used for highlighting).
+  - "searchTerms": an array of 1 to 3 terms to search a medical database.
+    For medications and allergies: always include the display term as the first entry (it may be a valid brand name). Add clinical synonyms when the display is colloquial (e.g. "Tylenol" -> ["Tylenol", "acetaminophen"]).
+    For conditions, surgical history, and hospitalizations: use ONLY clinical/standard terms suitable for ICD-10 or CPT search. Do NOT include the lay display term if it differs from the clinical term (e.g. "ear infections" -> ["otitis media"], NOT ["ear infections", "otitis media"]).
+- For medications: display is the medication name from the prose. searchTerms are standard drug names.
+- For allergies: display is the allergen name from the prose. searchTerms are standard allergen names. Do NOT include reactions.
+- For conditions: display is the condition as stated in the prose. searchTerms are ICD-10 compatible clinical terms.
+- For surgical history: display is the procedure as stated. searchTerms are standard procedure names.
+- For hospitalizations: display is the reason as stated. searchTerms are standard clinical terms.
+- Do NOT include items the patient denies or negates.
+- Omit sections with no relevant information entirely.
+
+Example response:
 {
-  "historyOfPresentIllness": "example",
-  "pastMedicalHistory": "example",
-  "pastSurgicalHistory": "example",
-  "medicationsHistory": "example",
-  "allergies": "example",
-  "socialHistory": "example",
-  "familyHistory": "example",
-  "hospitalizationsHistory": "example",
-  "labs": "example",
-  "erx": "example",
-  "procedures": "example"
+  "historyOfPresentIllness": "The patient presents with chest pain for 2 days, worsening with exertion.",
+  "pastMedicalHistory": "History of high blood pressure and sugar disease.",
+  "pastMedicalHistoryItems": [{"display": "high blood pressure", "searchTerms": ["hypertension"]}, {"display": "sugar disease", "searchTerms": ["diabetes mellitus"]}],
+  "pastSurgicalHistory": "Appendectomy in 2019.",
+  "pastSurgicalHistoryItems": [{"display": "appendectomy", "searchTerms": ["appendectomy"]}],
+  "medicationsHistory": "Currently taking a blood thinner and Metformin twice daily.",
+  "medicationsHistoryItems": [{"display": "blood thinner", "searchTerms": ["warfarin", "apixaban", "enoxaparin"]}, {"display": "Metformin", "searchTerms": ["Metformin"]}],
+  "allergies": "Allergic to penicillin, tree nuts, and sulfa drugs.",
+  "allergiesItems": [{"display": "penicillin", "searchTerms": ["penicillin"]}, {"display": "tree nuts", "searchTerms": ["tree nut"]}, {"display": "sulfa drugs", "searchTerms": ["sulfonamide"]}],
+  "socialHistory": "Non-smoker, occasional alcohol use.",
+  "familyHistory": "Father with coronary artery disease, mother with breast cancer.",
+  "hospitalizationsHistory": "Hospitalized for pneumonia in January 2023.",
+  "hospitalizationsHistoryItems": [{"display": "pneumonia", "searchTerms": ["pneumonia"]}],
+  "labs": "CBC and BMP ordered.",
+  "labsItems": [{"display": "CBC", "searchTerms": ["CBC"]}, {"display": "BMP", "searchTerms": ["BMP"]}],
+  "erx": "Amoxicillin 500mg prescribed.",
+  "erxItems": [{"display": "Amoxicillin", "searchTerms": ["Amoxicillin"]}],
+  "procedures": "Wound closure performed.",
+  "proceduresItems": [{"display": "wound closure", "searchTerms": ["wound closure"]}]
 }
 The transcript: `;
 }
@@ -86,7 +120,11 @@ const AI_RESPONSE_KEY_TO_FIELD = {
   procedures: AiObservationField.Procedures,
 };
 
-export async function invokeChatbotVertexAI(input: MessageContentComplex[], secrets: Secrets | null): Promise<string> {
+export async function invokeChatbotVertexAI(
+  input: MessageContentComplex[],
+  secrets: Secrets | null,
+  responseSchema?: object
+): Promise<string> {
   // call the vertex ai with fetch
   const GOOGLE_CLOUD_PROJECT_ID = getSecret(SecretsKeys.GOOGLE_CLOUD_PROJECT_ID, secrets);
   const GOOGLE_CLOUD_API_KEY = getSecret(SecretsKeys.GOOGLE_CLOUD_API_KEY, secrets);
@@ -114,13 +152,22 @@ export async function invokeChatbotVertexAI(input: MessageContentComplex[], secr
 
     try {
       const response = await fetch(
-        `https://aiplatform.googleapis.com/v1/projects/${GOOGLE_CLOUD_PROJECT_ID}/locations/global/publishers/google/models/gemini-2.5-flash-lite:generateContent?key=${GOOGLE_CLOUD_API_KEY}`,
+        `https://aiplatform.googleapis.com/v1/projects/${GOOGLE_CLOUD_PROJECT_ID}/locations/global/publishers/google/models/gemini-3.1-flash-lite:generateContent?key=${GOOGLE_CLOUD_API_KEY}`,
         {
           method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Vertex-AI-LLM-Request-Type': 'shared',
+            'X-Vertex-AI-LLM-Shared-Request-Type': 'priority',
+          },
           body: JSON.stringify({
             contents: [{ role: 'user', parts: [input] }],
             generationConfig: {
               temperature: 0,
+              ...(responseSchema && {
+                responseMimeType: 'application/json',
+                responseSchema,
+              }),
             },
           }),
         }
@@ -349,6 +396,17 @@ function createDocumentReference(
   return saveResourceRequest(documentReference, documentReferenceCreateUrl);
 }
 
+const FIELDS_WITH_ITEMS = new Set([
+  'pastMedicalHistory',
+  'pastSurgicalHistory',
+  'medicationsHistory',
+  'allergies',
+  'hospitalizationsHistory',
+  'labs',
+  'erx',
+  'procedures',
+]);
+
 function createObservations(
   aiResponse: any,
   documentReferenceCreateUrl: string,
@@ -357,6 +415,23 @@ function createObservations(
 ): BatchInputPostRequest<Observation>[] {
   return Object.entries(AI_RESPONSE_KEY_TO_FIELD).flatMap(([key, field]) => {
     if (aiResponse[key] != null) {
+      const rawItems = aiResponse[key + 'Items'];
+      const items: AiSuggestionItem[] | undefined =
+        FIELDS_WITH_ITEMS.has(key) && Array.isArray(rawItems)
+          ? rawItems
+              .map((item: any) => {
+                if (item && typeof item === 'object' && typeof item.display === 'string' && item.display.trim()) {
+                  const display = item.display;
+                  const searchTerms =
+                    Array.isArray(item.searchTerms) && item.searchTerms.every((t: unknown) => typeof t === 'string')
+                      ? item.searchTerms
+                      : [];
+                  return { display, searchTerms };
+                }
+                return undefined;
+              })
+              .filter((v: AiSuggestionItem | undefined): v is AiSuggestionItem => v != null)
+          : undefined;
       return [
         saveResourceRequest(
           makeObservationResource(
@@ -367,6 +442,7 @@ function createObservations(
             {
               field: field,
               value: aiResponse[key],
+              items,
             },
             AI_OBSERVATION_META_SYSTEM
           )

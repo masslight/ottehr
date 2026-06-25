@@ -25,27 +25,20 @@ import {
   ExamObservationDTO,
   FHIR_RESOURCE_IS_GONE,
   getPatchBinary,
-  getSecret,
   MedicalConditionDTO,
   MedicationDTO,
   ObservationDTO,
   ProcedureDTO,
-  SecretsKeys,
 } from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  parseCreatedResourcesBundle,
-  topLevelCatch,
-  wrapHandler,
-  ZambdaInput,
-} from '../../shared';
+import { checkOrCreateM2MClientToken, parseCreatedResourcesBundle, wrapHandler, ZambdaInput } from '../../shared';
 import {
   chartDataResourceHasMetaTagByCode,
   deleteEncounterAddendumNote,
   deleteEncounterDiagnosis,
   updateEncounterDischargeDisposition,
 } from '../../shared/chart-data';
-import { createOystehrClient } from '../../shared/helpers';
+import { runChartDataPostChangeTasks } from '../../shared/chart-data/post-change-tasks';
+import { createClinicalOystehrClient } from '../../shared/helpers';
 import { deleteZ3Object } from '../../shared/z3Utils';
 import { createFindResourceRequestByPatientField } from '../get-chart-data/helpers';
 import { deleteResourceRequest, getEncounterAndRelatedResources } from './helpers';
@@ -85,6 +78,7 @@ export const index = wrapHandler('delete-chart-data', async (input: ZambdaInput)
       episodeOfCare,
       secrets,
       examObservations,
+      rosObservations,
       medicalDecision,
       cptCodes,
       emCode,
@@ -101,7 +95,7 @@ export const index = wrapHandler('delete-chart-data', async (input: ZambdaInput)
 
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
 
-    const oystehr = createOystehrClient(m2mToken, secrets);
+    const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
     // 0. get encounter
     console.log(`Getting encounter ${encounterId}`);
@@ -121,6 +115,7 @@ export const index = wrapHandler('delete-chart-data', async (input: ZambdaInput)
       | BatchInputRequest<ChartData>
     )[] = [];
     const updateEncounterOperations: Operation[] = [];
+    const patientEducationDocumentReferenceIdsToDelete = new Set<string>();
 
     // 2. delete  Medical Condition associated with chief complaint
     if (chiefComplaint) {
@@ -165,6 +160,11 @@ export const index = wrapHandler('delete-chart-data', async (input: ZambdaInput)
       deleteOrUpdateRequests.push(deleteResourceRequest('Observation', element.resourceId!));
     });
 
+    // 8b. delete ROS Observations
+    rosObservations?.forEach((element: ExamObservationDTO) => {
+      deleteOrUpdateRequests.push(deleteResourceRequest('Observation', element.resourceId!));
+    });
+
     // 9. delete ClinicalImpression
     if (medicalDecision) {
       deleteOrUpdateRequests.push(deleteResourceRequest('ClinicalImpression', medicalDecision.resourceId!));
@@ -182,6 +182,10 @@ export const index = wrapHandler('delete-chart-data', async (input: ZambdaInput)
     // 11. delete Communications
     instructions?.forEach((element: CommunicationDTO) => {
       deleteOrUpdateRequests.push(deleteResourceRequest('Communication', element.resourceId!));
+      if (element.educationDocRefId) {
+        patientEducationDocumentReferenceIdsToDelete.add(element.educationDocRefId);
+        deleteOrUpdateRequests.push(deleteResourceRequest('DocumentReference', element.educationDocRefId));
+      }
     });
 
     // 12. delete disposition ServiceRequests and encounter properties
@@ -322,11 +326,14 @@ export const index = wrapHandler('delete-chart-data', async (input: ZambdaInput)
     console.log('Starting a transaction update of chart data...');
     await Promise.all([
       oystehr.fhir.transaction({
-        requests: deleteOrUpdateRequests,
+        requests: deleteOrUpdateRequests.filter((request) => !request.url.endsWith('undefined')),
       }),
       specialRulesDeletions,
     ]);
     console.log('Updated chart data as a transaction');
+
+    const appointment = allResources.find((res) => res.resourceType === 'Appointment');
+    await runChartDataPostChangeTasks(oystehr, addendumNote, notes, encounter, appointment?.id);
 
     // perform deleting z3 pdf objects after deleting all fhir resources
     if (schoolWorkNotes) {
@@ -337,6 +344,14 @@ export const index = wrapHandler('delete-chart-data', async (input: ZambdaInput)
         const fileUrl = documentReference?.content?.[0]?.attachment.url;
         if (fileUrl) await deleteZ3Object(fileUrl, m2mToken);
       }
+    }
+
+    for (const documentReferenceId of patientEducationDocumentReferenceIdsToDelete) {
+      const documentReference = allResources.find((resource) => resource.id === documentReferenceId) as
+        | DocumentReference
+        | undefined;
+      const fileUrl = documentReference?.content?.[0]?.attachment.url;
+      if (fileUrl) await deleteZ3Object(fileUrl, m2mToken);
     }
 
     return {
@@ -351,6 +366,6 @@ export const index = wrapHandler('delete-chart-data', async (input: ZambdaInput)
     if (error.name === 'OystehrFHIRError' && error.code === 410) {
       errorToUse = FHIR_RESOURCE_IS_GONE();
     }
-    return topLevelCatch('delete-chart-data', errorToUse, getSecret(SecretsKeys.ENVIRONMENT, input.secrets));
+    throw errorToUse;
   }
 });

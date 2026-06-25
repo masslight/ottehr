@@ -1,25 +1,39 @@
+import { Encounter } from 'fhir/r4b';
+import { DateTime } from 'luxon';
 import {
   dispositionCheckboxOptions,
   followUpInOptions,
   getDefaultNote,
+  getSpecialtyTransferDisplay,
   mapDispositionTypeToLabel,
+  NOTE_TYPE,
   NOTHING_TO_EAT_OR_DRINK_FIELD,
   NOTHING_TO_EAT_OR_DRINK_LABEL,
+  REFUSAL_OF_EMS_TRANSPORT_FIELD,
+  REFUSAL_OF_EMS_TRANSPORT_LABEL,
 } from 'utils';
 import { drawBlockHeader, drawRegularText } from '../../helpers/render';
 import { createConfiguredSection, DataComposer } from '../../pdf-common';
-import { PdfSection, PlanData } from '../../types';
-import { AllChartData } from '../../visit-details-pdf/types';
+import { AddendumEntry, PdfSection, PlanData } from '../../types';
+import { AllChartData, FullAppointmentResourcePackage } from '../../visit-details-pdf/types';
 
-export const composePlanData: DataComposer<{ allChartData: AllChartData }, PlanData> = ({ allChartData }) => {
+const formatAddendumTimestamp = (timestamp: string | undefined, timezone: string | undefined): string => {
+  if (!timestamp) return '';
+  const dt = DateTime.fromISO(timestamp);
+  if (!dt.isValid) return '';
+  return (timezone ? dt.setZone(timezone) : dt).toFormat('MM/dd/yyyy hh:mm a');
+};
+
+export const composePlanData: DataComposer<
+  { allChartData: AllChartData; encounter?: Encounter; appointmentPackage?: FullAppointmentResourcePackage },
+  PlanData
+> = ({ allChartData, encounter, appointmentPackage }) => {
+  const timezone = appointmentPackage?.timezone;
   const { chartData, additionalChartData } = allChartData;
-  const patientInstructions: { text?: string; title?: string }[] = [];
+  const patientInstructions: string[] = [];
   chartData?.instructions?.forEach((item) => {
-    if (item?.text || item?.title) {
-      patientInstructions.push({
-        ...(item.title ? { title: item.title } : {}),
-        ...(item.text ? { text: item.text } : {}),
-      });
+    if (item?.text) {
+      patientInstructions.push(item.text);
     }
   });
   const disposition = additionalChartData?.disposition;
@@ -33,6 +47,7 @@ export const composePlanData: DataComposer<{ allChartData: AllChartData }, PlanD
   const virusTest = disposition?.virusTest?.join(', ') ?? '';
   const followUpIn = typeof disposition?.followUpIn === 'number' ? disposition.followUpIn : undefined;
   const reason = disposition?.reason;
+  const specialty = getSpecialtyTransferDisplay(disposition?.specialty, disposition?.specialtyOther);
 
   const subSpecialtyFollowup =
     additionalChartData?.disposition?.followUp?.map((followUp) => {
@@ -49,20 +64,40 @@ export const composePlanData: DataComposer<{ allChartData: AllChartData }, PlanD
   });
 
   const addendumNote = chartData?.addendumNote?.text;
+  // Notes are searched by patient, so on a follow-up the response can include the parent encounter's
+  // addendum notes — scope to this encounter when we know it.
+  const currentEncounterId = encounter?.id;
+  const addendumNotes: AddendumEntry[] =
+    additionalChartData?.notes
+      ?.filter((note) => note.type === NOTE_TYPE.ADDENDUM)
+      ?.filter((note) => !currentEncounterId || note.encounterId === currentEncounterId)
+      ?.map((note) => {
+        const deleted = !!note.deleted;
+        return {
+          text: note.text,
+          authorName: note.authorName || note.authorId || 'Unknown',
+          timestamp: formatAddendumTimestamp(note.lastUpdated, timezone),
+          edited: !deleted && !!note.edited,
+          deleted,
+        };
+      }) ?? [];
   return {
     patientInstructions,
     disposition: {
       header,
       text,
       [NOTHING_TO_EAT_OR_DRINK_FIELD]: disposition?.[NOTHING_TO_EAT_OR_DRINK_FIELD],
+      [REFUSAL_OF_EMS_TRANSPORT_FIELD]: disposition?.[REFUSAL_OF_EMS_TRANSPORT_FIELD],
       labService,
       virusTest,
       followUpIn,
       reason,
+      specialty,
     },
     subSpecialtyFollowup,
     workSchoolExcuse,
     addendumNote,
+    addendumNotes,
   };
 };
 
@@ -70,21 +105,22 @@ const hasDisposition = (data: PlanData): boolean =>
   !!(
     data.disposition?.text ||
     data.disposition?.[NOTHING_TO_EAT_OR_DRINK_FIELD] ||
+    data.disposition?.[REFUSAL_OF_EMS_TRANSPORT_FIELD] ||
     data.disposition?.labService ||
     data.disposition?.virusTest ||
     typeof data.disposition?.followUpIn === 'number' ||
-    data.disposition?.reason
+    data.disposition?.reason ||
+    data.disposition?.specialty
   );
 
-const hasPatientInstructions = (data: PlanData): boolean =>
-  Boolean(data.patientInstructions?.some((item) => item?.text || item?.title));
+const hasPatientInstructions = (data: PlanData): boolean => Boolean(data.patientInstructions?.some((item) => item));
 
 const hasSubSpecialtyFollowUp = (data: PlanData): boolean =>
   Boolean(data.subSpecialtyFollowup && data.subSpecialtyFollowup.length);
 
 const hasWorkSchoolExcuse = (data: PlanData): boolean => Boolean(data.workSchoolExcuse && data.workSchoolExcuse.length);
 
-const hasAddendum = (data: PlanData): boolean => !!data.addendumNote;
+const hasAddendum = (data: PlanData): boolean => !!data.addendumNote || (data.addendumNotes?.length ?? 0) > 0;
 
 const hasAnyPlanBlock = (data?: PlanData): boolean =>
   !!data &&
@@ -103,8 +139,7 @@ export const createPlanSection = <TData extends { plan?: PlanData }>(): PdfSecti
       if (hasPatientInstructions(data)) {
         drawBlockHeader(client, styles, 'Patient instructions', styles.textStyles.blockSubHeader);
         data.patientInstructions?.forEach((instruction) => {
-          if (instruction.title) drawBlockHeader(client, styles, instruction.title, styles.textStyles.blockSubHeader);
-          if (instruction.text) drawRegularText(client, styles, instruction.text);
+          drawRegularText(client, styles, instruction);
         });
         client.drawSeparatedLine(styles.lineStyles.separator);
       }
@@ -112,11 +147,17 @@ export const createPlanSection = <TData extends { plan?: PlanData }>(): PdfSecti
       if (hasDisposition(data)) {
         drawBlockHeader(client, styles, data.disposition.header, styles.textStyles.blockSubHeader);
 
+        if (data.disposition.specialty) {
+          drawRegularText(client, styles, data.disposition.specialty);
+        }
         if (data.disposition.text) {
           drawRegularText(client, styles, data.disposition.text);
         }
         if (data.disposition[NOTHING_TO_EAT_OR_DRINK_FIELD]) {
           drawRegularText(client, styles, NOTHING_TO_EAT_OR_DRINK_LABEL);
+        }
+        if (data.disposition[REFUSAL_OF_EMS_TRANSPORT_FIELD]) {
+          drawRegularText(client, styles, REFUSAL_OF_EMS_TRANSPORT_LABEL);
         }
         if (data.disposition.labService) {
           drawRegularText(client, styles, `Lab Services: ${data.disposition.labService}`);
@@ -160,7 +201,24 @@ export const createPlanSection = <TData extends { plan?: PlanData }>(): PdfSecti
 
       if (hasAddendum(data)) {
         drawBlockHeader(client, styles, 'Addendum', styles.textStyles.blockSubHeader);
-        drawRegularText(client, styles, data.addendumNote);
+        if (data.addendumNote) {
+          drawRegularText(client, styles, data.addendumNote);
+        }
+        data.addendumNotes?.forEach((entry) => {
+          const timestamp = entry.timestamp ?? '';
+          if (entry.deleted) {
+            const tombstone = [timestamp, entry.authorName, 'deleted the note'].filter(Boolean).join(' ');
+            drawRegularText(client, styles, tombstone);
+            return;
+          }
+          drawRegularText(client, styles, entry.text);
+          const attribution = [timestamp, `by ${entry.authorName}`, entry.edited ? '(edited)' : '']
+            .filter(Boolean)
+            .join(' ');
+          if (attribution) {
+            drawRegularText(client, styles, attribution);
+          }
+        });
       }
     },
   }));

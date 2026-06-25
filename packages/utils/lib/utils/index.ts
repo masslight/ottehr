@@ -10,3 +10,6 @@ export * from './dateUtils';
 export * from './visitUtils';
 export * from './e2eCleanup';
 export * from './e2eTestConstants';
+export * from './printing';
+export * from './progress-note-config';
+export * from './support-dialog';

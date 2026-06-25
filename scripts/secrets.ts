@@ -27,7 +27,6 @@ interface ZambdasConfig extends PathConfig {
 
 interface TerraformConfig extends PathConfig {
   backend: PathConfig;
-  imports: PathConfig;
 }
 
 interface GetFilePathConfig {
@@ -44,8 +43,8 @@ function getFilePaths(environment: string, project?: string): GetFilePathConfig 
   console.log('Secrets path:', secretsPath);
   return {
     zambdas: {
-      source: path.join(secretsPath, 'zambdas', '.env', `${environment}.json`),
-      target: path.join(repoRoot, 'packages', 'zambdas', '.env', `${environment}.json`),
+      source: path.join(secretsPath, 'config', '.env', `${environment}.json`),
+      target: path.join(repoRoot, 'config', '.env', `${environment}.json`),
       sentry: {
         source: path.join(secretsPath, 'zambdas', '.env', '.env.sentry-build-plugin'),
         target: path.join(repoRoot, 'packages', 'zambdas', '.env.sentry-build-plugin'),
@@ -74,10 +73,6 @@ function getFilePaths(environment: string, project?: string): GetFilePathConfig 
         source: path.join(secretsPath, 'terraform', 'backend.config'),
         target: path.join(repoRoot, 'deploy', 'backend.config'),
       },
-      imports: {
-        source: path.join(secretsPath, 'terraform', `${environment}_import.tf`),
-        target: path.join(repoRoot, 'deploy', `${environment}_import.tf`),
-      },
     },
   };
 }
@@ -98,7 +93,7 @@ function populate(environment: string, project?: string): void {
     if (fs.existsSync(paths.zambdas.source)) {
       fs.mkdirSync(path.dirname(paths.zambdas.target), { recursive: true });
       fs.copyFileSync(paths.zambdas.source, paths.zambdas.target);
-      console.log(`Successfully copied ${environment}.json to packages/zambdas/.env`);
+      console.log(`Successfully copied ${environment}.json to config/.env`);
     }
     if (fs.existsSync(paths.zambdas.assets.source)) {
       fs.mkdirSync(paths.zambdas.assets.target, { recursive: true });
@@ -109,7 +104,7 @@ function populate(environment: string, project?: string): void {
       // No sentry config for local environment
       fs.mkdirSync(path.dirname(paths.zambdas.sentry.target), { recursive: true });
       fs.copyFileSync(paths.zambdas.sentry.source, paths.zambdas.sentry.target);
-      console.log(`Successfully copied .env.sentry-build-plugin to packages/zambdas/.env`);
+      console.log(`Successfully copied .env.sentry-build-plugin to packages/zambdas`);
     }
     if (fs.existsSync(paths.ehr.public.source)) {
       fs.mkdirSync(paths.ehr.public.target, { recursive: true });
@@ -130,11 +125,6 @@ function populate(environment: string, project?: string): void {
       fs.mkdirSync(path.dirname(paths.terraform.backend.target), { recursive: true });
       fs.copyFileSync(paths.terraform.backend.source, paths.terraform.backend.target);
       console.log(`Successfully copied backend.config to deploy`);
-    }
-    if (fs.existsSync(paths.terraform.imports.source)) {
-      fs.mkdirSync(path.dirname(paths.terraform.imports.target), { recursive: true });
-      fs.copyFileSync(paths.terraform.imports.source, paths.terraform.imports.target);
-      console.log(`Successfully copied ${environment}_import.tf to deploy`);
     }
   } catch (error) {
     console.error('Error copying files:', error);

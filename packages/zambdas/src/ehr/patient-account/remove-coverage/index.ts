@@ -6,24 +6,18 @@ import {
   AUDIT_EVENT_OUTCOME_CODE,
   checkBundleOutcomeOk,
   FHIR_RESOURCE_NOT_FOUND,
-  getSecret,
   getVersionedReferencesFromBundleResources,
   INVALID_RESOURCE_ID_ERROR,
   isValidUUID,
   MISSING_REQUEST_BODY,
   MISSING_REQUIRED_PARAMETERS,
   NOT_AUTHORIZED,
+  PARTICIPATION_CODE_SYSTEM,
   RemoveCoverageResponse,
   Secrets,
-  SecretsKeys,
+  userMe,
 } from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createOystehrClient,
-  topLevelCatch,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../shared';
+import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
 import { getAccountAndCoverageResourcesForPatient } from '../../shared/harvest';
 
 const ZAMBDA_NAME = 'remove-coverage';
@@ -31,28 +25,22 @@ const ZAMBDA_NAME = 'remove-coverage';
 let m2mToken: string;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  try {
-    console.group('validateRequestParameters');
-    const validatedParameters = validateRequestParameters(input);
-    console.groupEnd();
-    console.debug('validateRequestParameters success');
-    const { secrets } = validatedParameters;
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
+  console.group('validateRequestParameters');
+  const validatedParameters = validateRequestParameters(input);
+  console.groupEnd();
+  console.debug('validateRequestParameters success');
+  const { secrets } = validatedParameters;
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
-    const effectInput = await complexValidation(validatedParameters, oystehr);
+  const effectInput = await complexValidation(validatedParameters, oystehr);
 
-    await performEffect(effectInput, oystehr);
-    const response: RemoveCoverageResponse = { message: 'Successfully removed coverage' };
-    return {
-      statusCode: 200,
-      body: JSON.stringify(response),
-    };
-  } catch (error: any) {
-    console.log('Error: ', JSON.stringify(error.message));
-    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    return topLevelCatch('remove-coverage', error, ENVIRONMENT);
-  }
+  await performEffect(effectInput, oystehr);
+  const response: RemoveCoverageResponse = { message: 'Successfully removed coverage' };
+  return {
+    statusCode: 200,
+    body: JSON.stringify(response),
+  };
 });
 
 interface EffectInput {
@@ -161,8 +149,7 @@ const validateRequestParameters = (input: ZambdaInput): Input => {
 
 const complexValidation = async (input: Input, oystehr: Oystehr): Promise<EffectInput> => {
   const { patientId, coverageId, userToken, secrets } = input;
-  const userOystehr = createOystehrClient(userToken, secrets);
-  const user = await userOystehr.user.me();
+  const user = await userMe(userToken, secrets);
   if (!user) {
     throw NOT_AUTHORIZED;
   }
@@ -255,7 +242,7 @@ const writeAuditEvent = async (input: AuditEventInput, oystehr: Oystehr): Promis
         type: {
           coding: [
             {
-              system: 'http://terminology.hl7.org/CodeSystem/v3-ParticipationType',
+              system: PARTICIPATION_CODE_SYSTEM,
               code: 'AUT',
               display: 'author (originator)',
             },

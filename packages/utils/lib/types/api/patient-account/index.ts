@@ -35,3 +35,27 @@ export interface UpdatePatientAccountInput {
 export interface UpdatePatientAccountResponse {
   result: 'success';
 }
+
+export interface MergePatientsInput {
+  mainPatientId: string;
+  otherPatientId: string;
+  questionnaireResponse: QuestionnaireResponse;
+}
+
+export interface MergePatientsResponse {
+  taskId: string;
+  status: 'requested' | 'in-progress' | 'completed' | 'failed';
+}
+
+export interface GetMergePatientsTaskInput {
+  patientId: string;
+}
+
+export interface GetMergePatientsTaskResponse {
+  task: {
+    id: string;
+    status: 'requested' | 'in-progress' | 'completed' | 'failed' | 'rejected' | 'cancelled' | 'received' | 'ready';
+    otherPatientId: string;
+    statusReason?: string;
+  } | null;
+}

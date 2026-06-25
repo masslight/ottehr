@@ -1,3 +1,4 @@
+import Oystehr from '@oystehr/sdk';
 import { randomUUID } from 'crypto';
 import { Appointment, Location, Patient, Slot } from 'fhir/r4b';
 import fs from 'fs';
@@ -20,7 +21,7 @@ import {
   TelemedConfirmationTemplateData,
   TelemedInvitationTemplateData,
 } from 'utils';
-import { createOystehrClient, EmailAttachment, getAuth0Token, getEmailClient } from '../shared';
+import { createClinicalOystehrClient, EmailAttachment, getAuth0Token, getEmailClient } from '../shared';
 
 const randomVisitId = randomUUID();
 
@@ -114,9 +115,14 @@ interface AppointmentData {
   patientName?: string;
   startTime?: string;
 }
-const testEmails = async (envConfig: any, to: string, appointmentData: AppointmentData): Promise<void> => {
+const testEmails = async (
+  envConfig: any,
+  to: string,
+  appointmentData: AppointmentData,
+  oystehr: Oystehr
+): Promise<void> => {
   try {
-    const emailClient = getEmailClient(envConfig);
+    const emailClient = getEmailClient(envConfig, oystehr);
     if (appointmentData.serviceMode === 'in-person') {
       await emailClient.sendInPersonConfirmationEmail(to, inPersonConfirmationTestInput(envConfig, appointmentData));
       await emailClient.sendInPersonCancelationEmail(to, inPersonCancelationTestInput(envConfig, appointmentData));
@@ -143,10 +149,10 @@ const main = async (): Promise<void> => {
   const serviceModeArg = process.argv[4];
   const appointmentID = process.argv[5];
 
-  let envConfig = JSON.parse(fs.readFileSync(`.env/${env}.json`, 'utf8'));
+  let envConfig = JSON.parse(fs.readFileSync(`../../config/.env/${env}.json`, 'utf8'));
 
   try {
-    envConfig = JSON.parse(fs.readFileSync(`.env/${env}.json`, 'utf8'));
+    envConfig = JSON.parse(fs.readFileSync(`../../config/.env/${env}.json`, 'utf8'));
   } catch (error) {
     console.error(`Error parsing secrets for ENV '${env}'. Error: ${JSON.stringify(error)}`);
   }
@@ -157,12 +163,12 @@ const main = async (): Promise<void> => {
 
   let appointmentData: AppointmentData = { serviceMode, locationName, locationAddress };
   console.log(`env: ${env}, send to: ${to}, appointmentID: ${appointmentID}, serviceMode: ${serviceModeArg}`);
+  const token = await getAuth0Token(envConfig);
+  if (!token) {
+    throw new Error('Failed to fetch auth token.');
+  }
+  const oystehr = createClinicalOystehrClient(token, envConfig);
   if (appointmentID) {
-    const token = await getAuth0Token(envConfig);
-    if (!token) {
-      throw new Error('Failed to fetch auth token.');
-    }
-    const oystehr = createOystehrClient(token, envConfig);
     const appointmentBundle = (
       await oystehr.fhir.search<Appointment | Patient | Slot | Location>({
         resourceType: 'Appointment',
@@ -219,7 +225,7 @@ const main = async (): Promise<void> => {
   } else if (serviceModeArg == undefined) {
     throw new Error('Must provide either appointment ID or service mode as argument.');
   }
-  await testEmails(envConfig, to, appointmentData);
+  await testEmails(envConfig, to, appointmentData, oystehr);
 };
 
 main().catch((error) => {

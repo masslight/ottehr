@@ -10,7 +10,6 @@ import {
   extractVisionValues,
   FHIR_RESOURCE_NOT_FOUND,
   getFullName,
-  getSecret,
   getVitalDTOCriticalityFromObservation,
   GetVitalsForListOfEncountersRequestPayload,
   GetVitalsForListOfEncountersResponseData,
@@ -21,7 +20,6 @@ import {
   parseLastMenstrualPeriodObservation,
   PATIENT_VITALS_META_SYSTEM,
   PRIVATE_EXTENSION_BASE_URL,
-  SecretsKeys,
   VITAL_DIASTOLIC_BLOOD_PRESSURE_LOINC_CODE,
   VITAL_SYSTOLIC_BLOOD_PRESSURE_LOINC_CODE,
   VitalFieldNames,
@@ -33,36 +31,25 @@ import {
   VitalsVisionObservationDTO,
 } from 'utils';
 import * as z from 'zod';
-import {
-  checkOrCreateM2MClientToken,
-  createOystehrClient,
-  topLevelCatch,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../../shared';
+import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../../../shared';
 
 let m2mToken: string;
 const ZAMBDA_NAME = 'get-vitals-for-list-of-encounters';
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  try {
-    console.log(`Validating input: ${JSON.stringify(input.body)}`);
-    const { encounterIds, secrets } = validateRequestParameters(input);
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
+  console.log(`Validating input: ${JSON.stringify(input.body)}`);
+  const { encounterIds, secrets } = validateRequestParameters(input);
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
-    console.log(`Performing complex validation for encounterId: ${encounterIds}`);
-    const effectInput = await complexValidation({ encounterIds, secrets }, oystehr);
-    console.log(`Effect input: ${JSON.stringify(effectInput)}`);
-    const results = await performEffect(effectInput, oystehr);
+  console.log(`Performing complex validation for encounterId: ${encounterIds}`);
+  const effectInput = await complexValidation({ encounterIds, secrets }, oystehr);
+  console.log(`Effect input: ${JSON.stringify(effectInput)}`);
+  const results = await performEffect(effectInput, oystehr);
 
-    return {
-      body: JSON.stringify(results),
-      statusCode: 200,
-    };
-  } catch (error) {
-    console.log(error);
-    return topLevelCatch(ZAMBDA_NAME, error, getSecret(SecretsKeys.ENVIRONMENT, input.secrets));
-  }
+  return {
+    body: JSON.stringify(results),
+    statusCode: 200,
+  };
 });
 
 const performEffect = async (
@@ -205,16 +192,20 @@ const parseVisionObservation = (
   const {
     leftEyeVisText: leftEyeVisionText,
     rightEyeVisText: rightEyeVisionText,
+    bothEyesVisText: bothEyesVisionText,
     visionOptions,
   } = extractVisionValues(components);
 
-  if (leftEyeVisionText === undefined || rightEyeVisionText === undefined) return undefined;
+  if (leftEyeVisionText === undefined && rightEyeVisionText === undefined && bothEyesVisionText === undefined) {
+    return undefined;
+  }
 
   return {
     resourceId: observation.id,
     field: VitalFieldNames.VitalVision,
-    leftEyeVisionText,
-    rightEyeVisionText,
+    leftEyeVisionText: leftEyeVisionText ?? '',
+    rightEyeVisionText: rightEyeVisionText ?? '',
+    bothEyesVisionText,
     authorId: performer.id,
     authorName: getFullName(performer),
     lastUpdated: observation.effectiveDateTime || '',

@@ -2,8 +2,7 @@
 import Oystehr from '@oystehr/sdk';
 import { CoverageEligibilityResponse } from 'fhir/r4b';
 import * as fs from 'fs';
-import { getAuth0Token } from '../shared';
-import { fhirApiUrlFromAuth0Audience } from './helpers';
+import { createClinicalOystehrClient, getAuth0Token } from '../shared';
 
 async function getCoverageEligibilityResponsesByPatient(
   oystehr: Oystehr,
@@ -262,7 +261,7 @@ async function main(): Promise<void> {
     );
   }
 
-  const secrets = JSON.parse(fs.readFileSync(`.env/${env}.json`, 'utf8'));
+  const secrets = JSON.parse(fs.readFileSync(`../../config/.env/${env}.json`, 'utf8'));
 
   const token = await getAuth0Token(secrets);
 
@@ -270,10 +269,7 @@ async function main(): Promise<void> {
     throw new Error('❌ Failed to fetch auth token.');
   }
 
-  const oystehr = new Oystehr({
-    accessToken: token,
-    fhirApiUrl: fhirApiUrlFromAuth0Audience(secrets.AUTH0_AUDIENCE),
-  });
+  const oystehr = createClinicalOystehrClient(token, secrets);
 
   // Fetch all coverage eligibility responses with raw data for the patient
   const responsesWithRawData = await getCoverageEligibilityResponsesWithRawData(oystehr, patientId);

@@ -4,13 +4,29 @@ import { CanonicalUrl, ServiceMode, Timezone } from '../../common';
 import { PatientInfo } from '../../data';
 import { ScheduleOwnerFhirResource } from '../schedules';
 
+/** Fields the scheduled-follow-up flow can copy from the initial visit (OTR-2467). */
+export type CopyableFollowupField =
+  | 'chiefComplaint'
+  | 'historyOfPresentIllness'
+  | 'mechanismOfInjury'
+  | 'diagnosis'
+  | 'examObservations'
+  | 'rosObservations';
+
+/** Settings for the scheduled-follow-up creation flow. */
+export interface FollowUpOptions {
+  parentEncounterId: string;
+  /** Skips server-side diagnosis carry-over from the parent encounter. */
+  skipPatientDiagnosis?: boolean;
+}
+
 export interface CreateAppointmentInputParams {
   patient: PatientInfo;
   slotId: string;
   language?: string;
   locationState?: string;
-  unconfirmedDateOfBirth?: string | undefined;
   appointmentMetadata?: Appointment['meta'];
+  followUpOptions?: FollowUpOptions;
 }
 
 export interface CreateAppointmentResponse {
@@ -41,6 +57,25 @@ export interface CreateSlotParams {
   originalBookingUrl?: string;
   /** Optional questionnaire canonical URL to use for appointments booked on this slot */
   questionnaireCanonical?: CanonicalUrl;
+  /**
+   * Location the slot is being offered at. Persisted via the slot-at-
+   * location extension so create-appointment can read it directly. Omitted
+   * for direct-Location bookings (where the Schedule.actor IS the Location
+   * — recording it again would be pure duplication). Carried for groups
+   * and PR-direct bookings where Schedule.actor doesn't uniquely identify
+   * a Location.
+   */
+  atLocationId?: string;
+  /**
+   * Group HealthcareService id the slot is being booked through. Persisted
+   * via the slot-booked-via-group extension so create-appointment (and
+   * downstream capacity-guard / audit consumers) can identify the
+   * originating group without re-parsing booking URLs. Carried only for
+   * group bookings against non-HS-actored Schedules (the pools-providers
+   * case); omitted when the Schedule.actor IS the group itself —
+   * recording it again would be pure duplication.
+   */
+  bookedViaGroupId?: string;
 }
 
 export interface GetSlotDetailsParams {
@@ -62,4 +97,15 @@ export interface GetSlotDetailsResponse {
   comment?: string;
   timezoneForDisplay?: Timezone;
   originalBookingUrl?: string;
+  /**
+   * The Location this slot is being booked at. Resolved via the same
+   * precedence used by create-appointment (Location-actor → owner; single-
+   * location PR-actor → PR.location[0]; otherwise the Slot's slot-at-
+   * location extension). Populated whenever a Location can be resolved;
+   * absent for slots that can't be attributed to a Location (e.g.,
+   * Practitioner-actored without an extension). Distinct from
+   * ownerName/ownerId, which describe the Schedule's actor.
+   */
+  bookingLocationId?: string;
+  bookingLocationName?: string;
 }

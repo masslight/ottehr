@@ -1,4 +1,4 @@
-import Oystehr, { BatchInputRequest } from '@oystehr/sdk';
+import Oystehr, { BatchInputRequest, User } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
 import { FhirResource, Provenance, Task } from 'fhir/r4b';
@@ -7,24 +7,24 @@ import {
   findExtensionIndex,
   getAppointmentLockMetaTagOperations,
   getAppointmentMetaTagOpForStatusUpdate,
+  getEncounterLockMetaTagOperations,
   getEncounterStatusHistoryUpdateOp,
   getFullestAvailableName,
   getInPersonVisitStatus,
   getPatchBinary,
-  getSecret,
   getTaskResource,
-  isFollowupEncounter,
-  SecretsKeys,
+  isAnnotationFollowupEncounter,
   SignAppointmentInput,
   SignAppointmentResponse,
   TaskIndicator,
+  userMe,
   visitStatusToFhirAppointmentStatusMap,
   visitStatusToFhirEncounterStatusMap,
 } from 'utils';
-import { checkOrCreateM2MClientToken, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
+import { checkOrCreateM2MClientToken, getMyPractitionerId, wrapHandler, ZambdaInput } from '../../shared';
 import { createProvenanceForEncounter } from '../../shared/createProvenanceForEncounter';
 import { createPublishExcuseNotesOps } from '../../shared/createPublishExcuseNotesOps';
-import { createOystehrClient } from '../../shared/helpers';
+import { createClinicalOystehrClient } from '../../shared/helpers';
 import { getAppointmentAndRelatedResources } from '../../shared/pdf/visit-details-pdf/get-video-resources';
 import { FullAppointmentResourcePackage } from '../../shared/pdf/visit-details-pdf/types';
 import { validateRequestParameters } from './validateRequestParameters';
@@ -34,33 +34,27 @@ let m2mToken: string;
 
 const ZAMBDA_NAME = 'sign-appointment';
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  try {
-    const validatedParameters = validateRequestParameters(input);
+  const validatedParameters = validateRequestParameters(input);
 
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedParameters.secrets);
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedParameters.secrets);
 
-    const oystehr = createOystehrClient(m2mToken, validatedParameters.secrets);
-    const oystehrCurrentUser = createOystehrClient(validatedParameters.userToken, validatedParameters.secrets);
-    console.log('Created Oystehr client');
+  const oystehr = createClinicalOystehrClient(m2mToken, validatedParameters.secrets);
+  console.log('Created Oystehr client');
 
-    const response = await performEffect(oystehr, oystehrCurrentUser, validatedParameters);
-    return {
-      statusCode: 200,
-      body: JSON.stringify(response),
-    };
-  } catch (error: any) {
-    console.error('Stringified error: ' + JSON.stringify(error));
-    console.error('Error: ' + error);
-    return topLevelCatch(ZAMBDA_NAME, error, getSecret(SecretsKeys.ENVIRONMENT, input.secrets));
-  }
+  const response = await performEffect(oystehr, validatedParameters);
+  return {
+    statusCode: 200,
+    body: JSON.stringify(response),
+  };
 });
 
 export const performEffect = async (
   oystehr: Oystehr,
-  oystehrCurrentUser: Oystehr,
-  params: SignAppointmentInput
+  params: SignAppointmentInput & {
+    userToken: string;
+  }
 ): Promise<SignAppointmentResponse> => {
-  const { appointmentId, encounterId, timezone, supervisorApprovalEnabled } = params;
+  const { appointmentId, encounterId, timezone, supervisorApprovalEnabled, userToken, secrets } = params;
 
   const visitResources = await getAppointmentAndRelatedResources(oystehr, appointmentId, true, encounterId);
   if (!visitResources) {
@@ -74,7 +68,7 @@ export const performEffect = async (
     visitResources.timezone = timezone;
   }
   const { encounter, patient, appointment } = visitResources;
-  const isFollowup = isFollowupEncounter(encounter);
+  const isFollowup = isAnnotationFollowupEncounter(encounter);
 
   if (encounter?.subject?.reference === undefined) {
     throw new Error(`No subject reference defined for encounter ${encounter?.id}`);
@@ -89,12 +83,8 @@ export const performEffect = async (
   if (isFollowup) {
     // For follow-up encounters: only update encounter status and create PDF (no appointment updates, no email)
     if (currentStatus) {
-      await changeFollowupEncounterStatusToCompleted(
-        oystehr,
-        oystehrCurrentUser,
-        visitResources,
-        supervisorApprovalEnabled
-      );
+      const userId = await getMyPractitionerId(userToken, secrets);
+      await changeFollowupEncounterStatusToCompleted(oystehr, userId, visitResources, supervisorApprovalEnabled);
     }
     console.debug(`Follow-up encounter status has been changed.`);
 
@@ -116,7 +106,8 @@ export const performEffect = async (
   } else {
     // For regular encounters: keep existing behavior
     if (currentStatus) {
-      await changeStatusToCompleted(oystehr, oystehrCurrentUser, visitResources, supervisorApprovalEnabled);
+      const user = await userMe(userToken, secrets);
+      await changeStatusToCompleted(oystehr, user, visitResources, supervisorApprovalEnabled);
     }
     console.debug(`Status has been changed.`);
 
@@ -170,7 +161,7 @@ export const performEffect = async (
 
 const changeFollowupEncounterStatusToCompleted = async (
   oystehr: Oystehr,
-  oystehrCurrentUser: Oystehr,
+  userId: string,
   resourcesToUpdate: FullAppointmentResourcePackage,
   supervisorApprovalEnabled?: boolean
 ): Promise<void> => {
@@ -188,14 +179,13 @@ const changeFollowupEncounterStatusToCompleted = async (
     },
   ];
 
-  const user = await oystehrCurrentUser.user.me();
-
   const encounterStatusHistoryUpdate: Operation = getEncounterStatusHistoryUpdateOp(
     resourcesToUpdate.encounter,
     encounterStatus,
     'completed'
   );
   encounterPatchOps.push(encounterStatusHistoryUpdate);
+  encounterPatchOps.push(...getEncounterLockMetaTagOperations(resourcesToUpdate.encounter, true));
 
   let provenanceCreate: BatchInputRequest<Provenance> | undefined;
 
@@ -216,17 +206,16 @@ const changeFollowupEncounterStatusToCompleted = async (
         provenanceCreate = {
           method: 'POST',
           url: '/Provenance',
-          resource: createProvenanceForEncounter(
-            resourcesToUpdate.encounter.id,
-            user.profile.split('/')[1],
-            'verifier'
-          ),
+          resource: createProvenanceForEncounter(resourcesToUpdate.encounter.id, userId, 'verifier'),
         };
       }
     }
   }
 
-  const documentPatch = createPublishExcuseNotesOps(resourcesToUpdate?.documentReferences ?? []);
+  const documentPatch = createPublishExcuseNotesOps(
+    resourcesToUpdate?.documentReferences ?? [],
+    resourcesToUpdate.encounter.id
+  );
 
   const encounterPatch = getPatchBinary({
     resourceType: 'Encounter',
@@ -245,7 +234,7 @@ const changeFollowupEncounterStatusToCompleted = async (
 
 const changeStatusToCompleted = async (
   oystehr: Oystehr,
-  oystehrCurrentUser: Oystehr,
+  user: User,
   resourcesToUpdate: FullAppointmentResourcePackage,
   supervisorApprovalEnabled?: boolean
 ): Promise<void> => {
@@ -266,8 +255,6 @@ const changeStatusToCompleted = async (
       value: appointmentStatus,
     },
   ];
-
-  const user = await oystehrCurrentUser.user.me();
 
   patchOps.push(...getAppointmentMetaTagOpForStatusUpdate(resourcesToUpdate.appointment, 'completed', { user }));
 
@@ -319,7 +306,10 @@ const changeStatusToCompleted = async (
     }
   }
 
-  const documentPatch = createPublishExcuseNotesOps(resourcesToUpdate?.documentReferences ?? []);
+  const documentPatch = createPublishExcuseNotesOps(
+    resourcesToUpdate?.documentReferences ?? [],
+    resourcesToUpdate.encounter.id
+  );
 
   const appointmentPatch = getPatchBinary({
     resourceType: 'Appointment',

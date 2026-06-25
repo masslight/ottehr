@@ -1,10 +1,13 @@
 import { BatchInputPatchRequest } from '@oystehr/sdk';
 import {
   Communication,
+  Coverage,
   DiagnosticReport,
   DocumentReference,
   List,
+  ListEntry,
   Observation,
+  Organization,
   Patient,
   QuestionnaireResponse,
   Reference,
@@ -12,14 +15,20 @@ import {
   Specimen,
   Task,
 } from 'fhir/r4b';
+import { isEqual } from 'lodash';
+import { DateTime } from 'luxon';
 import {
+  COVERAGE_MEMBER_IDENTIFIER_BASE,
   DR_UNSOLICITED_PATIENT_REF,
+  getLabListStatus,
+  getLabListType,
   LAB_LIST_CODE_CODING,
-  LAB_LIST_CODING_SYSTEM,
+  LAB_LIST_IDENTIFIER_SYSTEM,
+  LAB_LIST_IN_HOUSE_ITEM_IDENTIFIER_SYSTEM,
   LAB_LIST_ITEM_SEARCH_FIELD_EXTENSION_URL,
   LAB_LIST_SEARCH_FIELD_NESTED_EXTENSION_URL,
-  LabListsDTO,
   LabListSearchFieldKey,
+  LabSetDTO,
   LabType,
 } from 'utils';
 
@@ -68,18 +77,27 @@ export const makeSoftDeleteStatusPatchRequest = (
   };
 };
 
-export const formatLabListDTOs = (labLists: List[]): LabListsDTO[] | undefined => {
+const getInHouseAdUrlFromListEntry = (listEntry: ListEntry): string | undefined => {
+  const identifier = listEntry.item.identifier;
+  if (identifier?.system !== LAB_LIST_IN_HOUSE_ITEM_IDENTIFIER_SYSTEM) return;
+
+  return identifier.value;
+};
+
+export const formatLabListDTOs = (labLists: List[]): LabSetDTO[] | undefined => {
   if (labLists.length === 0) return;
-  const formattedListDTOs: LabListsDTO[] = [];
+  const formattedListDTOs: LabSetDTO[] = [];
   labLists.forEach((list, idx) => {
     const listType = getLabListType(list);
+    const listStatus = getLabListStatus(list);
     if (!listType) return;
     const formattedBase = {
       listId: list.id ?? `missing-${idx}`,
       listName: list.title ?? 'Lab List (title missing)',
+      listStatus,
     };
     if (listType === LabType.external) {
-      const formatted: LabListsDTO = {
+      const formatted: LabSetDTO = {
         ...formattedBase,
         listType,
         labs:
@@ -94,15 +112,14 @@ export const formatLabListDTOs = (labLists: List[]): LabListsDTO[] | undefined =
       };
       formattedListDTOs.push(formatted);
     } else if (listType === LabType.inHouse) {
-      const formatted: LabListsDTO = {
+      const formatted: LabSetDTO = {
         ...formattedBase,
         listType,
         labs:
           list.entry?.map((lab, idx) => {
             const labForList = {
               display: lab.item.display ?? 'lab item display missing',
-              activityDefinitionId:
-                lab.item.reference?.replace('ActivityDefinition/', '') ?? `inhouse-lab-list-item-${idx}-${list.id}`,
+              adUrl: getInHouseAdUrlFromListEntry(lab) ?? `inhouse-lab-list-item-${idx}-${list.id}`,
             };
             return labForList;
           }) ?? [],
@@ -166,16 +183,104 @@ const getLabListEntryFieldFromExtension = (
   return fieldValue;
 };
 
-const getLabListType = (list: List): LabType.external | LabType.inHouse | undefined => {
-  const code = list.code?.coding?.find((c) => c.system === LAB_LIST_CODING_SYSTEM)?.code;
-  if (!code) return;
+export const configFhirListForLabSet = (labSet: LabSetDTO): List => {
+  const entry = formatListEntry(labSet);
 
-  switch (code) {
-    case LAB_LIST_CODE_CODING.external.code:
-      return LabType.external;
-    case LAB_LIST_CODE_CODING.inHouse.code:
-      return LabType.inHouse;
-    default:
-      return;
+  const labSetList: List = {
+    resourceType: 'List',
+    status: 'current',
+    mode: 'working',
+    title: labSet.listName,
+    code: {
+      coding: [labSet.listType === LabType.inHouse ? LAB_LIST_CODE_CODING.inHouse : LAB_LIST_CODE_CODING.external],
+    },
+    entry,
+  };
+
+  return labSetList;
+};
+
+export const formatListEntry = (labSet: LabSetDTO): ListEntry[] => {
+  const now = DateTime.now().toISO();
+  let entry: ListEntry[] | undefined;
+
+  if (labSet.listType === LabType.inHouse) {
+    entry = labSet.labs.map((lab) => {
+      const labEntry: ListEntry = {
+        date: now,
+        item: {
+          type: 'ActivityDefinition',
+          display: lab.display,
+          identifier: {
+            system: LAB_LIST_IN_HOUSE_ITEM_IDENTIFIER_SYSTEM,
+            value: lab.adUrl,
+          },
+        },
+      };
+      return labEntry;
+    });
+  } else if (labSet.listType === LabType.external) {
+    entry = labSet.labs.map((lab) => {
+      const labEntry: ListEntry = {
+        date: now,
+        item: {
+          identifier: {
+            system: LAB_LIST_IDENTIFIER_SYSTEM,
+            value: `${lab.labGuid}|${lab.itemCode}`,
+          },
+          display: lab.display,
+          extension: [
+            {
+              url: LAB_LIST_ITEM_SEARCH_FIELD_EXTENSION_URL,
+              extension: [
+                {
+                  url: LAB_LIST_SEARCH_FIELD_NESTED_EXTENSION_URL.labGuid,
+                  valueString: lab.labGuid,
+                },
+                {
+                  url: LAB_LIST_SEARCH_FIELD_NESTED_EXTENSION_URL.itemCode,
+                  valueString: lab.itemCode,
+                },
+              ],
+            },
+          ],
+        },
+      };
+      return labEntry;
+    });
+  }
+
+  if (!entry) {
+    throw Error(
+      `Issue configuring the entry for this lab set, most likely due to an issue with the type: ${labSet.listType}`
+    );
+  }
+
+  return entry;
+};
+
+export const isOtherInsurance = (resource: Coverage | Organization): boolean => {
+  const OTHER = 'other';
+  const RCM_OTHER_PAYER_REF = 'https://rcm-api.zapehr.com/v1/payer/00000';
+
+  if (resource.resourceType === 'Coverage') {
+    // to avoid another query, we'll check the assigner on the member number
+    const memberNumIdentifier = resource.identifier?.find(
+      (id) => id.type?.coding?.some((coding) => isEqual(COVERAGE_MEMBER_IDENTIFIER_BASE.type?.coding?.[0], coding))
+    );
+
+    if (!memberNumIdentifier) {
+      console.warn(`No member number identifier on Coverage/${resource.id}, cannot determine if is "Other" insurance`);
+      return false;
+    }
+
+    return (
+      memberNumIdentifier.assigner?.display?.toLowerCase() === OTHER ||
+      memberNumIdentifier.assigner?.reference === RCM_OTHER_PAYER_REF ||
+      false
+    );
+  } else {
+    // we're looking at the org itself
+    return resource.name?.toLowerCase() === OTHER || resource.id === '00000' || false;
   }
 };

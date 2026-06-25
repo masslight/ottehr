@@ -1,35 +1,22 @@
 import AddIcon from '@mui/icons-material/Add';
-import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
-import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
-import { Autocomplete, Box, Button, Grid, IconButton, Paper, TextField, Typography, useTheme } from '@mui/material';
+import { Box, Button, Typography } from '@mui/material';
 import Oystehr from '@oystehr/sdk';
-import { HealthcareService, Practitioner } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import React, { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
+import { ReactElement, useCallback, useEffect, useState } from 'react';
 import { usePageVisibility } from 'react-page-visibility';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
+import AppointmentsFilters from 'src/components/AppointmentsFilters';
 import { FEATURE_FLAGS } from 'src/constants/feature-flags';
 import { useGetVitalsForEncounters } from 'src/features/visits/shared/components/vitals/hooks/useGetVitals';
 import { useGetOrdersForTrackingBoard } from 'src/hooks/useGetOrdersForTrackingBoard';
 import { useDebounce } from 'src/shared/hooks/useDebounce';
-import {
-  GetVitalsForListOfEncountersResponseData,
-  InPersonAppointmentInformation,
-  OrdersForTrackingBoardTable,
-} from 'utils';
+import { InPersonAppointmentInformation, MAX_APPOINTMENT_SEARCH_RANGE_DAYS } from 'utils';
 import { getAppointments } from '../api/api';
 import AppointmentTabs from '../components/AppointmentTabs';
 import CreateDemoVisits from '../components/CreateDemoVisits';
-import DateSearch from '../components/DateSearch';
-import GroupSelect from '../components/GroupSelect';
-import LocationSelect from '../components/LocationSelect';
-import ProvidersSelect from '../components/ProvidersSelect';
-import { dataTestIds } from '../constants/data-test-ids';
 import { adjustTopForBannerHeight } from '../helpers/misc.helper';
 import { useApiClients } from '../hooks/useAppClients';
 import PageContainer from '../layout/PageContainer';
-import { VisitType, visitTypeToInPersonLabel } from '../types/types';
-import { LocationWithWalkinSchedule } from './AddPatient';
 
 type LoadingState = { status: 'loading' | 'initial'; id?: string | undefined } | { status: 'loaded'; id: string };
 
@@ -40,66 +27,39 @@ interface AppointmentSearchResultData {
   inOffice: InPersonAppointmentInformation[] | undefined;
 }
 
-type CustomFormEventHandler = (event: React.FormEvent<HTMLFormElement>, value: any, field: string) => void;
-
 export default function Appointments(): ReactElement {
   const { oystehrZambda } = useApiClients();
-  const [locationSelected, setLocationSelected] = useState<LocationWithWalkinSchedule | undefined>(undefined);
   const [loadingState, setLoadingState] = useState<LoadingState>({ status: 'initial' });
-  const [practitioners, setPractitioners] = useState<Practitioner[] | undefined>(undefined);
-  const [healthcareServices, setHealthcareServices] = useState<HealthcareService[] | undefined>(undefined);
-  const [appointmentDate, setAppointmentDate] = useState<DateTime | null>(DateTime.local());
   const [editingComment, setEditingComment] = useState<boolean>(false);
+  const [searchParams] = useSearchParams();
   const [searchResults, setSearchResults] = useState<AppointmentSearchResultData | null>(null);
   const [appointmentsVersion, setAppointmentsVersion] = useState(0);
-  const location = useLocation();
-  const navigate = useNavigate();
   const pageIsVisible = usePageVisibility(); // goes to false if tab loses focus and gives the fhir api a break
   const { debounce } = useDebounce(300);
 
-  const queryParams = useMemo(() => {
-    return new URLSearchParams(location.search);
-  }, [location.search]);
-
-  const handleSubmit: CustomFormEventHandler = useCallback(
-    (event: any, value: any, field: string): void => {
-      if (field === 'date') {
-        queryParams?.set('searchDate', value?.toISODate() ?? appointmentDate?.toISODate() ?? '');
-      } else if (field === 'location') {
-        queryParams?.set('locationID', value?.id ?? '');
-      } else if (field === 'visitTypes') {
-        const appointmentTypesString = value.join(',');
-        queryParams.set('visitType', appointmentTypesString);
-      } else if (field === 'providers') {
-        const providersString = value.join(',');
-        queryParams.set('providers', providersString);
-      } else if (field === 'groups') {
-        const groupsString = value.join(',');
-        queryParams.set('groups', groupsString);
-      }
-
-      setEditingComment(false);
-      navigate(`?${queryParams?.toString()}`);
-    },
-    [queryParams, appointmentDate, navigate]
+  const locationParam = searchParams.get('location');
+  const visitTypeParam = searchParams.get('visitType');
+  const serviceCategoryParam = searchParams.get('serviceCategory');
+  const dateFromParam = searchParams.get('dateFrom');
+  const dateToParam = searchParams.get('dateTo');
+  const providerParam = searchParams.get('provider');
+  const queryId = [locationParam, visitTypeParam, serviceCategoryParam, dateFromParam, dateToParam, providerParam].join(
+    ':'
   );
-
-  const { locationID, searchDate, visitType, providers, groups, queryId } = (() => {
-    const locationID = queryParams.get('locationID') || '';
-    const searchDate = queryParams.get('searchDate') || '';
-    const appointmentTypesString = queryParams.get('visitType') || '';
-    let providers = queryParams.get('providers')?.split(',') || [];
-    if (providers.length === 1 && providers[0] === '') {
-      providers = [];
-    }
-    let groups = queryParams.get('groups')?.split(',') || [];
-    if (groups.length === 1 && groups[0] === '') {
-      groups = [];
-    }
-    const queryId = `${locationID}:${locationSelected?.id}:${providers}:${groups}:${searchDate}:${appointmentTypesString}`;
-    const visitType = appointmentTypesString ? appointmentTypesString.split(',') : [];
-    return { locationID, searchDate, visitType, providers, groups, queryId };
-  })();
+  // Validate as real ISO dates (not just truthy + string ordering) so a malformed `dateFrom`/`dateTo`
+  // link can't trigger a get-appointments request that only fails server-side. ISO dates also sort
+  // correctly lexicographically, so the string comparison is safe once both are confirmed valid. The
+  // span is also capped to match the zambda, so an over-large range is skipped instead of round-tripping
+  // to a guaranteed server-side rejection.
+  const hasValidDateRange = Boolean(
+    dateFromParam &&
+      dateToParam &&
+      DateTime.fromISO(dateFromParam).isValid &&
+      DateTime.fromISO(dateToParam).isValid &&
+      dateFromParam <= dateToParam &&
+      DateTime.fromISO(dateToParam, { zone: 'utc' }).diff(DateTime.fromISO(dateFromParam, { zone: 'utc' }), 'days')
+        .days <= MAX_APPOINTMENT_SEARCH_RANGE_DAYS
+  );
 
   const {
     preBooked: preBookedAppointments = [],
@@ -122,104 +82,28 @@ export default function Appointments(): ReactElement {
   });
 
   useEffect(() => {
-    const selectedVisitTypes = localStorage.getItem('selectedVisitTypes');
-    if (selectedVisitTypes) {
-      queryParams?.set('visitType', JSON.parse(selectedVisitTypes) ?? '');
-      navigate(`?${queryParams?.toString()}`);
-    } else {
-      queryParams?.set('visitType', Object.keys(visitTypeToInPersonLabel).join(','));
-    }
-  }, [navigate, queryParams]);
+    const locations = locationParam?.split(',') ?? [];
+    const visitType = visitTypeParam?.split(',') ?? [];
+    const serviceCategories = serviceCategoryParam?.split(',') ?? [];
+    const providers = providerParam?.split(',') ?? [];
 
-  useEffect(() => {
-    if (localStorage.getItem('selectedProviders')) {
-      queryParams?.set('providers', JSON.parse(localStorage.getItem('selectedProviders') ?? '') ?? '');
-      navigate(`?${queryParams?.toString()}`);
-    }
-  }, [navigate, queryParams]);
-
-  useEffect(() => {
-    if (localStorage.getItem('selectedGroups')) {
-      queryParams?.set('groups', JSON.parse(localStorage.getItem('selectedGroups') ?? '') ?? '');
-      navigate(`?${queryParams?.toString()}`);
-    }
-  }, [navigate, queryParams]);
-
-  useEffect(() => {
-    const locationStore = localStorage?.getItem('selectedLocation');
-    if (locationStore && !locationSelected) {
-      setLocationSelected(JSON.parse(locationStore));
-    }
-    const dateStore = localStorage?.getItem('selectedDate');
-    if (dateStore && !appointmentDate) {
-      setAppointmentDate?.(JSON.parse(localStorage.getItem('selectedDate') ?? '') ?? null);
-    }
-  }, [appointmentDate, locationSelected, queryParams]);
-
-  useEffect(() => {
-    async function getPractitioners(oystehrClient: Oystehr): Promise<void> {
-      if (!oystehrClient) {
-        return;
-      }
-
-      try {
-        const practitionersTemp: Practitioner[] = (
-          await oystehrClient.fhir.search<Practitioner>({
-            resourceType: 'Practitioner',
-            params: [
-              { name: '_count', value: '1000' },
-              // { name: 'name:missing', value: 'false' },
-            ],
-          })
-        ).unbundle();
-        setPractitioners(practitionersTemp);
-      } catch (e) {
-        console.error('error loading practitioners', e);
-      }
-    }
-
-    async function getHealthcareServices(oystehrClient: Oystehr): Promise<void> {
-      if (!oystehrZambda) {
-        return;
-      }
-
-      try {
-        const healthcareServicesTemp: HealthcareService[] = (
-          await oystehrClient.fhir.search<HealthcareService>({
-            resourceType: 'HealthcareService',
-            params: [
-              { name: '_count', value: '1000' },
-              // { name: 'name:missing', value: 'false' },
-            ],
-          })
-        ).unbundle();
-        setHealthcareServices(healthcareServicesTemp);
-      } catch (e) {
-        console.error('error loading HealthcareServices', e);
-      }
-    }
-
-    if (oystehrZambda) {
-      void getPractitioners(oystehrZambda);
-      void getHealthcareServices(oystehrZambda);
-    }
-  }, [oystehrZambda]);
-
-  useEffect(() => {
-    const fetchStuff = async (client: Oystehr, searchDate: string | undefined): Promise<void> => {
+    const fetchStuff = async (client: Oystehr): Promise<void> => {
       setLoadingState({ status: 'loading' });
 
       if (
-        (locationID || locationSelected?.id || providers.length > 0 || groups.length > 0) &&
-        searchDate &&
-        Array.isArray(visitType)
+        (locations.length > 0 || providers.length > 0 || serviceCategories.length > 0) &&
+        dateFromParam &&
+        dateToParam &&
+        visitType
       ) {
         const searchResults = await getAppointments(client, {
-          locationID: locationID || locationSelected?.id || undefined,
-          searchDate,
-          visitType: visitType,
-          providerIDs: providers,
-          groupIDs: groups,
+          searchDateFrom: dateFromParam,
+          searchDateTo: dateToParam,
+          timezone: DateTime.now().zoneName,
+          locationIds: locations,
+          providerIds: providers,
+          serviceCategories,
+          visitType,
           supervisorApprovalEnabled: FEATURE_FLAGS.SUPERVISOR_APPROVAL_ENABLED,
         });
 
@@ -235,34 +119,31 @@ export default function Appointments(): ReactElement {
       }
     };
     if (
-      (locationSelected || providers.length > 0 || groups.length > 0) &&
+      (locations.length > 0 || providers.length > 0 || serviceCategories.length > 0) &&
+      hasValidDateRange &&
       oystehrZambda &&
       !editingComment &&
       loadingState.id !== queryId &&
       loadingState.status !== 'loading' &&
       pageIsVisible
     ) {
-      // send searchDate without timezone, in get-appointments zambda we apply appointment timezone to it to find appointments for that day
-      // looks like searchDate is always exists, and we can remove rest options
-      const searchDateToUse = searchDate || appointmentDate?.toISO?.() || '';
-      void fetchStuff(oystehrZambda, searchDateToUse);
+      void fetchStuff(oystehrZambda);
     }
   }, [
-    locationSelected,
     oystehrZambda,
     editingComment,
     loadingState,
     queryId,
-    locationID,
-    searchDate,
-    appointmentDate,
-    visitType,
-    providers,
-    groups,
-    queryParams,
     pageIsVisible,
     debounce,
     refetchOrders,
+    locationParam,
+    visitTypeParam,
+    serviceCategoryParam,
+    providerParam,
+    dateFromParam,
+    dateToParam,
+    hasValidDateRange,
   ]);
 
   useEffect(() => {
@@ -275,81 +156,6 @@ export default function Appointments(): ReactElement {
   const updateAppointments = useCallback(() => {
     setLoadingState({ status: 'initial' });
   }, []);
-
-  return (
-    <AppointmentsBody
-      loadingState={loadingState}
-      queryParams={queryParams}
-      handleSubmit={handleSubmit}
-      visitType={visitType}
-      providers={providers}
-      groups={groups}
-      preBookedAppointments={preBookedAppointments}
-      completedAppointments={completedAppointments}
-      cancelledAppointments={cancelledAppointments}
-      inOfficeAppointments={inOfficeAppointments}
-      orders={orders}
-      vitals={vitals}
-      locationSelected={locationSelected}
-      setLocationSelected={setLocationSelected}
-      practitioners={practitioners}
-      healthcareServices={healthcareServices}
-      appointmentDate={appointmentDate}
-      setAppointmentDate={setAppointmentDate}
-      updateAppointments={updateAppointments}
-      setEditingComment={setEditingComment}
-    />
-  );
-}
-
-interface AppointmentsBodyProps {
-  loadingState: LoadingState;
-  preBookedAppointments: InPersonAppointmentInformation[];
-  completedAppointments: InPersonAppointmentInformation[];
-  cancelledAppointments: InPersonAppointmentInformation[];
-  inOfficeAppointments: InPersonAppointmentInformation[];
-  appointmentDate: DateTime | null;
-  locationSelected: LocationWithWalkinSchedule | undefined;
-  handleSubmit: CustomFormEventHandler;
-  queryParams?: URLSearchParams;
-  visitType: string[];
-  providers: string[];
-  groups: string[];
-  setLocationSelected: (location: LocationWithWalkinSchedule | undefined) => void;
-  practitioners: Practitioner[] | undefined;
-  healthcareServices: HealthcareService[] | undefined;
-  setAppointmentDate: (date: DateTime | null) => void;
-  updateAppointments: () => void;
-  setEditingComment: (editingComment: boolean) => void;
-  orders: OrdersForTrackingBoardTable;
-  vitals?: GetVitalsForListOfEncountersResponseData;
-}
-function AppointmentsBody(props: AppointmentsBodyProps): ReactElement {
-  const {
-    loadingState,
-    preBookedAppointments,
-    completedAppointments,
-    cancelledAppointments,
-    inOfficeAppointments,
-    locationSelected,
-    setLocationSelected,
-    appointmentDate,
-    visitType,
-    providers,
-    groups,
-    practitioners,
-    healthcareServices,
-    setAppointmentDate,
-    queryParams,
-    handleSubmit,
-    updateAppointments,
-    setEditingComment,
-    orders,
-    vitals,
-  } = props;
-
-  const [displayFilters, setDisplayFilters] = useState<boolean>(true);
-  const theme = useTheme();
 
   return (
     <form>
@@ -365,123 +171,7 @@ function AppointmentsBody(props: AppointmentsBodyProps): ReactElement {
               width: '100%',
             }}
           >
-            <Paper sx={{ padding: 2 }}>
-              <Grid container sx={{ justifyContent: 'center' }} spacing={2}>
-                <Grid
-                  item
-                  alignItems="center"
-                  sx={{
-                    display: { xs: 'flex', sm: 'flex', md: 'none' },
-                    width: '100%',
-                    color: theme.palette.primary.main,
-                  }}
-                >
-                  <IconButton
-                    onClick={() => setDisplayFilters(!displayFilters)}
-                    sx={{ color: theme.palette.primary.main }}
-                  >
-                    {displayFilters ? (
-                      <KeyboardArrowUpIcon fontSize="small"></KeyboardArrowUpIcon>
-                    ) : (
-                      <KeyboardArrowDownIcon fontSize="small"></KeyboardArrowDownIcon>
-                    )}
-                  </IconButton>
-                  <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                    Filters
-                  </Typography>
-                </Grid>
-                {displayFilters && (
-                  <>
-                    <Grid item md={2.8} xs={12}>
-                      <LocationSelect
-                        queryParams={queryParams}
-                        handleSubmit={handleSubmit}
-                        location={locationSelected}
-                        updateURL={true}
-                        storeLocationInLocalStorage={true}
-                        setLocation={setLocationSelected}
-                      ></LocationSelect>
-                    </Grid>
-                    <Grid item md={4.7} xs={12}>
-                      <Autocomplete
-                        id="visitTypes"
-                        sx={{
-                          '.MuiButtonBase-root.MuiChip-root': {
-                            width: { xs: '100%', sm: '120px' },
-                            textAlign: 'start',
-                          },
-                        }}
-                        value={visitType}
-                        options={Object.keys(visitTypeToInPersonLabel)}
-                        getOptionLabel={(option) => {
-                          return visitTypeToInPersonLabel[option as VisitType];
-                        }}
-                        onChange={(event, value) => {
-                          if (value) {
-                            localStorage.setItem('selectedVisitTypes', JSON.stringify(value));
-                          } else {
-                            localStorage.removeItem('selectedVisitTypes');
-                          }
-
-                          if (handleSubmit) {
-                            handleSubmit(event as any, value, 'visitTypes');
-                          }
-                        }}
-                        multiple
-                        renderInput={(params) => (
-                          <TextField name="visitTypes" {...params} label="Visit type" required={false} />
-                        )}
-                      />
-                    </Grid>
-                    <Grid item md={2.8} xs={12}>
-                      <DateSearch
-                        label="Select Date"
-                        queryParams={queryParams}
-                        handleSubmit={handleSubmit}
-                        date={appointmentDate}
-                        setDate={setAppointmentDate}
-                        updateURL={true}
-                        storeDateInLocalStorage={true}
-                        defaultValue={DateTime.now()}
-                        closeOnSelect={true}
-                      ></DateSearch>
-                    </Grid>
-                    <Grid item md={2.8} xs={12}>
-                      <ProvidersSelect
-                        providers={providers}
-                        practitioners={practitioners}
-                        handleSubmit={handleSubmit}
-                      ></ProvidersSelect>
-                    </Grid>
-                    <Grid item xs={2}>
-                      <GroupSelect
-                        groups={groups}
-                        healthcareServices={healthcareServices}
-                        handleSubmit={handleSubmit}
-                      ></GroupSelect>
-                    </Grid>
-                    <Grid item md={1.4} sm={12} sx={{ alignSelf: 'center', display: { xs: 'none', sm: 'block' } }}>
-                      <Link to="/visits/add">
-                        <Button
-                          data-testid={dataTestIds.dashboard.addPatientButton}
-                          sx={{
-                            borderRadius: 100,
-                            textTransform: 'none',
-                            fontWeight: 600,
-                            marginBottom: '20px',
-                          }}
-                          color="primary"
-                          variant="contained"
-                        >
-                          <AddIcon />
-                          <Typography fontWeight="bold">Visit</Typography>
-                        </Button>
-                      </Link>
-                    </Grid>
-                  </>
-                )}
-              </Grid>
-            </Paper>
+            <AppointmentsFilters />
             {/* only displayed on mobile */}
             <Box sx={{ display: { xs: 'block', sm: 'none' }, mt: 2 }}>
               <Link to="/visits/add">
@@ -508,9 +198,7 @@ function AppointmentsBody(props: AppointmentsBodyProps): ReactElement {
             }}
           >
             <AppointmentTabs
-              location={locationSelected}
-              providers={providers}
-              groups={groups}
+              showSelectFiltersMessage={!locationParam && !providerParam && !serviceCategoryParam}
               preBookedAppointments={preBookedAppointments}
               cancelledAppointments={cancelledAppointments}
               completedAppointments={completedAppointments}

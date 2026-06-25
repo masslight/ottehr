@@ -50,6 +50,12 @@ vi.mock('notistack', () => ({
   enqueueSnackbar: (...args: any[]) => mockEnqueueSnackbar(...args),
 }));
 
+// Avoid the real getPublicLocationSupportPhones network call this card fires on render.
+vi.mock('../../src/hooks/useLocationSupportPhones', () => ({
+  useSupportPhonesMap: () => ({ phonesByLocationName: {} }),
+  useLocationSupportPhones: () => ({ data: undefined }),
+}));
+
 import { SchoolWorkExcuseCard } from 'src/features/visits/shared/components/SchoolWorkExcuseCard';
 import { GetChartDataResponse, SchoolWorkNoteExcuseDocFileDTO } from 'utils';
 import {
@@ -162,7 +168,7 @@ describe('SchoolWorkExcuseCard', () => {
       expect(() => screen.getByText('My work note')).toThrowError();
     });
 
-    it('unpublished notes should have publish/published button', () => {
+    it('should not render manual publish controls for existing notes', () => {
       const schoolWorkNotes: SchoolWorkNoteExcuseDocFileDTO[] = [
         { name: 'My school note', id: 'note-1', type: 'school', date: new Date().toISOString(), published: false },
         { name: 'My work note', id: 'note-2', type: 'work', date: new Date().toISOString(), published: true },
@@ -174,12 +180,10 @@ describe('SchoolWorkExcuseCard', () => {
 
       render(<SchoolWorkExcuseCard />, { wrapper: createWrapper() });
 
-      const publishSchoolButton = screen.getByTestId('publish-school-button');
-      expect(publishSchoolButton).toBeInTheDocument();
-      expect(publishSchoolButton).toHaveTextContent('Publish now');
-      const publishWorkButton = screen.getByTestId('publish-work-button');
-      expect(publishWorkButton).toBeInTheDocument();
-      expect(publishWorkButton).toHaveTextContent('Published');
+      expect(screen.queryByTestId('publish-school-button')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('publish-work-button')).not.toBeInTheDocument();
+      expect(screen.queryByText('Publish now')).not.toBeInTheDocument();
+      expect(screen.queryByText('Published')).not.toBeInTheDocument();
     });
   });
 

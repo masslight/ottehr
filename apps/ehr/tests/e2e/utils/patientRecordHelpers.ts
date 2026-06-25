@@ -1,5 +1,5 @@
-import { FormFieldsDisplayItem, FormFieldSection, FormFieldsInputItem, PATIENT_RECORD_CONFIG } from 'utils';
-import { evaluateFieldTriggers } from '../../../src/features/visits/shared/components/patient/patientRecordValidation';
+import { FormFieldsDisplayItem, FormFieldSection, FormFieldsInputItem } from 'config-types';
+import { evaluateFieldTriggers, PATIENT_RECORD_CONFIG } from 'utils';
 
 /**
  * Checks if a patient record field is hidden, either statically (in hiddenFields)

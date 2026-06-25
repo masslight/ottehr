@@ -1,474 +1,425 @@
 import CloseIcon from '@mui/icons-material/Close';
 import {
+  Alert,
+  Box,
+  CircularProgress,
   Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   FormControlLabel,
   IconButton,
   Radio,
   RadioGroup,
   Stack,
   Table,
+  TableBody,
   TableCell,
   TableContainer,
+  TableHead,
   TableRow,
   ToggleButtonGroup,
   Typography,
   useTheme,
 } from '@mui/material';
-import { Patient } from 'fhir/r4';
-import { FC, useState } from 'react';
+import { useMutation } from '@tanstack/react-query';
+import { Organization, Patient, Questionnaire, QuestionnaireItem, QuestionnaireResponseItem } from 'fhir/r4b';
+import { enqueueSnackbar } from 'notistack';
+import { FC, useMemo, useState } from 'react';
 import { Controller, FormProvider, useForm } from 'react-hook-form';
-import { ConfirmationDialog } from 'src/components/ConfirmationDialog';
 import { ContainedPrimaryToggleButton } from 'src/components/ContainedPrimaryToggleButton';
-import { BRANDING_CONFIG } from 'utils';
+import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
+import { structureQuestionnaireResponse } from 'src/helpers/qr-structure';
+import {
+  extractFirstValueFromAnswer,
+  flattenItems,
+  MergePatientsResponse,
+  OrderedCoveragesWithSubscribers,
+  PATIENT_RECORD_QUESTIONNAIRE,
+  prepopulatePatientRecordItems,
+  pruneEmptySections,
+} from 'utils';
+import { useGetPatientAccount, useGetPatientCoverages } from '../../hooks/useGetPatient';
 import { RoundedButton } from '../RoundedButton';
-import { useGetPatientsForMerge } from './queries';
 
-type PatientFormValues = {
-  birthGender?: 'male' | 'female' | 'other' | 'unknown';
-  streetLine2?: string;
-  lastName?: string;
-  streetLine1?: string;
-  deceased?: boolean;
-  ethnicity?: string;
-  city?: string;
-  sendMarketingMessages?: boolean;
-  responsiblePartyBirthSex?: 'male' | 'female' | 'other' | 'unknown';
-  responsiblePartyRelationship?: string;
-  language?: string;
-  genderIdentity?: string;
-  id?: string;
-  preferredName?: string;
-  state?: string;
-  pcp?: string;
-  email?: string;
-  parentGuardianPhone?: string;
-  zip?: string;
-  responsiblePartyFirstName?: string;
-  hearingImpairedRelayService?: boolean;
-  responsiblePartyLastName?: string;
-  race?: string;
-  parentGuardianRelationship?: string;
-  photo?: string;
-  active?: boolean;
-  fillingOutAs?: string;
-  responsiblePartyPhone?: string;
-  responsiblePartyEmail?: string;
-  commonWellConsent?: boolean;
-  pointOfDiscovery?: string;
-  sexualOrientation?: string;
-  firstName?: string;
-  sendStatements?: string;
-  excludeFromCollections?: boolean;
-  parentGuardianEmail?: string;
-  phone?: string;
-  dob?: string;
-  middleName?: string;
-  pronouns?: string;
-  responsiblePartyDob?: string;
-};
+// ─── Types ────────────────────────────────────────────────────────────────────
 
-type FormValues = Record<keyof PatientFormValues, string>;
+/**
+ * Each row in the diff table corresponds to a questionnaire item (linkId).
+ * Form value for each row is the patient ID whose value should be kept.
+ */
+type FormValues = Record<string, string>;
 
-const mapPatientResourceToFormValues = (patient: Patient): PatientFormValues => {
-  const officialName = patient.name?.find((name) => name.use !== 'nickname'); // name.use === 'official'
-  const preferredName = patient.name?.find((name) => name.use === 'nickname');
-  const address = patient.address?.[0];
-  const responsibleParty = patient.contact?.[0];
+interface DiffRow {
+  linkId: string;
+  label: string;
+  section: string;
+  isDifferent: boolean;
+  /** Display value per patient ID */
+  displayValues: Record<string, string>;
+}
 
-  return {
-    id: patient.id,
-    photo: patient.photo?.[0]?.url,
-    firstName: officialName?.given?.[0],
-    middleName: officialName?.given?.[1],
-    lastName: officialName?.family,
-    preferredName: preferredName?.given?.[0],
-    birthGender: patient.gender,
-    genderIdentity: patient.extension?.find(
-      (extension) => extension.url === 'http://hl7.org/fhir/StructureDefinition/individual-genderIdentity'
-    )?.valueString,
-    pronouns: patient.extension?.find(
-      (extension) => extension.url === 'http://hl7.org/fhir/StructureDefinition/individual-pronouns'
-    )?.valueString,
-    dob: patient.birthDate,
-    streetLine1: address?.line?.[0],
-    streetLine2: address?.line?.[1],
-    city: address?.city,
-    state: address?.state,
-    zip: address?.postalCode,
-    fillingOutAs: patient.extension?.find(
-      (extension) => extension.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/filling-out-as'
-    )?.valueString,
-    email: patient.telecom?.find((telecom) => telecom.system === 'email')?.value,
-    phone: patient.telecom?.find((telecom) => telecom.system === 'phone')?.value,
-    responsiblePartyFirstName: responsibleParty?.name?.given?.[0],
-    responsiblePartyLastName: responsibleParty?.name?.family,
-    responsiblePartyDob: responsibleParty?.extension?.find(
-      (extension) => extension.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/birth-date'
-    )?.valueString,
-    responsiblePartyBirthSex: responsibleParty?.gender,
-    responsiblePartyPhone: responsibleParty?.telecom?.find(
-      (telecom) => telecom.system === 'phone' && telecom.use === 'mobile'
-    )?.value,
-    responsiblePartyEmail: responsibleParty?.telecom?.find((telecom) => telecom.system === 'email')?.value,
-    responsiblePartyRelationship: responsibleParty?.relationship
-      ?.find(
-        (relationship) =>
-          relationship.coding?.find(
-            (coding) => coding.system === 'http://terminology.hl7.org/CodeSystem/v2-0131' && coding.code === 'BP'
-          )
-      )
-      ?.coding?.find(
-        (coding) => coding.system === 'http://terminology.hl7.org/CodeSystem/v2-0131' && coding.code === 'BP'
-      )?.display,
-    parentGuardianEmail: responsibleParty?.telecom?.find((telecom) => telecom.system === 'email')?.value,
-    parentGuardianPhone: responsibleParty?.telecom?.find((telecom) => telecom.system === 'phone')?.value,
-    parentGuardianRelationship: responsibleParty?.relationship
-      ?.find(
-        (relationship) =>
-          relationship.coding?.find(
-            (coding) =>
-              coding.system === 'https://fhir.zapehr.com/r4/StructureDefinitions/relationship' &&
-              coding.code === 'Parent/Guardian'
-          )
-      )
-      ?.coding?.find(
-        (coding) =>
-          coding.system === 'https://fhir.zapehr.com/r4/StructureDefinitions/relationship' &&
-          coding.code === 'Parent/Guardian'
-      )?.display,
-    ethnicity: patient.extension
-      ?.find((extension) => extension.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/ethnicity')
-      ?.valueCodeableConcept?.coding?.find((coding) => coding.system === 'http://hl7.org/fhir/v3/Ethnicity')?.display,
-    race: patient.extension
-      ?.find((extension) => extension.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/race')
-      ?.valueCodeableConcept?.coding?.find((coding) => coding.system === 'http://hl7.org/fhir/v3/Race')?.display,
-    sexualOrientation: patient.extension?.find(
-      (extension) => extension.url === 'http://hl7.org/fhir/us/cdmh/StructureDefinition/cdmh-patient-sexualOrientation'
-    )?.valueString,
-    pcp: patient.contained?.[0]?.id, // TODO: change to name
-    pointOfDiscovery: patient.extension?.find(
-      (extension) => extension.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/point-of-discovery'
-    )?.valueString,
-    sendMarketingMessages: patient.extension?.find(
-      (extension) => extension.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/send-marketing'
-    )?.valueBoolean,
-    hearingImpairedRelayService: patient.extension?.find(
-      (extension) => extension.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/hearing-impaired-relay-service'
-    )?.valueBoolean,
-    commonWellConsent: patient.extension?.find(
-      (extension) => extension.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/common-well-consent'
-    )?.valueBoolean,
-    language: patient.communication?.find((communication) => communication.preferred)?.language?.coding?.[0]?.display,
-    active: patient.active,
-    sendStatements: patient.extension?.find(
-      (extension) => extension.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/send-statements'
-    )?.valueString,
-    excludeFromCollections: patient.extension?.find(
-      (extension) => extension.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/exclude-from-collections'
-    )?.valueBoolean,
-    deceased: patient.deceasedBoolean,
-  };
-};
+// ─── Constants ────────────────────────────────────────────────────────────────
 
-type Row = {
-  title: string;
-  field: keyof PatientFormValues;
-  render: (patient: PatientFormValues) => string;
-};
-
-const rows: Row[] = [
-  {
-    title: 'Photo',
-    field: 'photo',
-    render: (patient) => patient.photo || '-',
-  },
-  {
-    title: 'Patient first name',
-    field: 'firstName',
-    render: (patient) => patient.firstName || '-',
-  },
-  {
-    title: 'Patient middle name',
-    field: 'middleName',
-    render: (patient) => patient.middleName || '-',
-  },
-  {
-    title: 'Patient last name',
-    field: 'lastName',
-    render: (patient) => patient.lastName || '-',
-  },
-  {
-    title: 'Patient preferred name',
-    field: 'preferredName',
-    render: (patient) => patient.preferredName || '-',
-  },
-  {
-    title: 'Birth gender',
-    field: 'birthGender',
-    render: (patient) => patient.birthGender || '-',
-  },
-  {
-    title: 'Gender identity',
-    field: 'genderIdentity',
-    render: (patient) => patient.genderIdentity || '-',
-  },
-  {
-    title: 'Pronouns',
-    field: 'pronouns',
-    render: (patient) => patient.pronouns || '-',
-  },
-  {
-    title: 'Date of Birth',
-    field: 'dob',
-    render: (patient) => patient.dob || '-',
-  },
-  {
-    title: 'Street Address',
-    field: 'streetLine1',
-    render: (patient) => patient.streetLine1 || '-',
-  },
-  {
-    title: 'Street Address line 2',
-    field: 'streetLine2',
-    render: (patient) => patient.streetLine2 || '-',
-  },
-  {
-    title: 'City',
-    field: 'city',
-    render: (patient) => patient.city || '-',
-  },
-  {
-    title: 'State',
-    field: 'state',
-    render: (patient) => patient.state || '-',
-  },
-  {
-    title: 'ZIP',
-    field: 'zip',
-    render: (patient) => patient.zip || '-',
-  },
-  {
-    title: 'Filling Out Information (Self/Guardian)',
-    field: 'fillingOutAs',
-    render: (patient) => patient.fillingOutAs || '-',
-  },
-  {
-    title: 'Patient Email',
-    field: 'email',
-    render: (patient) => patient.email || '-',
-  },
-  {
-    title: 'Patient Mobile',
-    field: 'phone',
-    render: (patient) => patient.phone || '-',
-  },
-  {
-    title: 'Responsible party first name',
-    field: 'responsiblePartyFirstName',
-    render: (patient) => patient.responsiblePartyFirstName || '-',
-  },
-  {
-    title: 'Responsible party last name',
-    field: 'responsiblePartyLastName',
-    render: (patient) => patient.responsiblePartyLastName || '-',
-  },
-  {
-    title: 'Responsible party Date of Birth',
-    field: 'responsiblePartyDob',
-    render: (patient) => patient.responsiblePartyDob || '-',
-  },
-  {
-    title: 'Responsible party Birth sex',
-    field: 'responsiblePartyBirthSex',
-    render: (patient) => patient.responsiblePartyBirthSex || '-',
-  },
-  {
-    title: 'Responsible party number',
-    field: 'responsiblePartyPhone',
-    render: (patient) => patient.responsiblePartyPhone || '-',
-  },
-  {
-    title: 'Responsible party email',
-    field: 'responsiblePartyEmail',
-    render: (patient) => patient.responsiblePartyEmail || '-',
-  },
-  {
-    title: 'Responsible party relationship',
-    field: 'responsiblePartyRelationship',
-    render: (patient) => patient.responsiblePartyRelationship || '-',
-  },
-  {
-    title: 'Parent/Guardian Email',
-    field: 'parentGuardianEmail',
-    render: (patient) => patient.parentGuardianEmail || '-',
-  },
-  {
-    title: 'Parent/Guardian Mobile',
-    field: 'parentGuardianPhone',
-    render: (patient) => patient.parentGuardianPhone || '-',
-  },
-  {
-    title: 'Parent/Guardian relationship',
-    field: 'parentGuardianRelationship',
-    render: (patient) => patient.parentGuardianRelationship || '-',
-  },
-  {
-    title: 'Ethnicity',
-    field: 'ethnicity',
-    render: (patient) => patient.ethnicity || '-',
-  },
-  {
-    title: 'Race',
-    field: 'race',
-    render: (patient) => patient.race || '-',
-  },
-  {
-    title: 'Sexual orientation',
-    field: 'sexualOrientation',
-    render: (patient) => patient.sexualOrientation || '-',
-  },
-  {
-    title: 'Primary Care Physician',
-    field: 'pcp',
-    render: (patient) => patient.pcp || '-',
-  },
-  {
-    title: `How did patient hear about ${BRANDING_CONFIG.projectName}`,
-    field: 'pointOfDiscovery',
-    render: (patient) => patient.pointOfDiscovery || '-',
-  },
-  {
-    title: 'Send marketing messages',
-    field: 'sendMarketingMessages',
-    render: (patient) =>
-      typeof patient.sendMarketingMessages === 'boolean' ? (patient.sendMarketingMessages ? 'Yes' : 'No') : '-',
-  },
-  {
-    title: 'Hearing impaired relay service',
-    field: 'hearingImpairedRelayService',
-    render: (patient) =>
-      typeof patient.hearingImpairedRelayService === 'boolean'
-        ? patient.hearingImpairedRelayService
-          ? 'Yes'
-          : 'No'
-        : '-',
-  },
-  {
-    title: 'CommonWell consent',
-    field: 'commonWellConsent',
-    render: (patient) =>
-      typeof patient.commonWellConsent === 'boolean' ? (patient.commonWellConsent ? 'Yes' : 'No') : '-',
-  },
-  {
-    title: 'Language',
-    field: 'language',
-    render: (patient) => patient.language || '-',
-  },
-  {
-    title: 'Active',
-    field: 'active',
-    render: (patient) => (typeof patient.active === 'boolean' ? (patient.active ? 'Yes' : 'No') : '-'),
-  },
-  {
-    title: 'Send statements',
-    field: 'sendStatements',
-    render: (patient) => patient.sendStatements || '-',
-  },
-  {
-    title: 'Exclude from collections',
-    field: 'excludeFromCollections',
-    render: (patient) =>
-      typeof patient.excludeFromCollections === 'boolean' ? (patient.excludeFromCollections ? 'Yes' : 'No') : '-',
-  },
-  {
-    title: 'Deceased',
-    field: 'deceased',
-    render: (patient) => (typeof patient.deceased === 'boolean' ? (patient.deceased ? 'Yes' : 'No') : '-'),
-  },
+const ANSWER_TYPES: ('String' | 'Boolean' | 'Reference' | 'Attachment')[] = [
+  'String',
+  'Boolean',
+  'Reference',
+  'Attachment',
 ];
+
+const COVERAGE_ITEMS = ['insurance-section', 'insurance-section-2'];
+
+const questionnaire = PATIENT_RECORD_QUESTIONNAIRE();
+
+// Items that are internal/logical and should not be shown in the diff
+const HIDDEN_LINK_IDS = new Set([
+  'should-display-ssn-field',
+  'ssn-field-required',
+  'appointment-service-category',
+  'appointment-service-mode',
+  'reason-for-visit',
+]);
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+const getAnyAnswer = (item: QuestionnaireResponseItem): any | undefined => {
+  for (let i = 0; i < ANSWER_TYPES.length; i++) {
+    const answer = extractFirstValueFromAnswer(item.answer ?? [], ANSWER_TYPES[i]);
+    if (answer !== undefined) return answer;
+  }
+  return undefined;
+};
+
+const makeFormDefaults = (currentItemValues: QuestionnaireResponseItem[]): Record<string, any> => {
+  const flattened = flattenItems(currentItemValues);
+  return flattened.reduce((acc: Record<string, any>, item: QuestionnaireResponseItem) => {
+    const value = getAnyAnswer(item);
+    acc[item.linkId] = value;
+    return acc;
+  }, {});
+};
+
+const makeCoveragesFormDefaults = ({
+  coverages,
+  patient,
+  insuranceOrgs,
+  employerOrganization,
+  q,
+}: {
+  coverages: OrderedCoveragesWithSubscribers;
+  patient: Patient;
+  insuranceOrgs: Organization[];
+  employerOrganization?: Organization;
+  q: Questionnaire;
+}): Record<string, any> => {
+  if (!q?.item) return {};
+  const filteredQ: Questionnaire = {
+    ...q,
+    item: q.item.filter((item) => COVERAGE_ITEMS.includes(item.linkId) || item.linkId === 'employer-information-page'),
+  };
+  const items = prepopulatePatientRecordItems({
+    coverages,
+    patient,
+    insuranceOrgs,
+    questionnaire: filteredQ,
+    coverageChecks: [],
+    employerOrganization,
+  });
+  return makeFormDefaults(items);
+};
+
+/**
+ * Display a form value as a human-readable string for the diff table.
+ */
+const formatDisplayValue = (value: any): string => {
+  if (value === undefined || value === null) return '-';
+  if (typeof value === 'boolean') return value ? 'Yes' : 'No';
+  if (typeof value === 'object') {
+    if (value.display) return value.display;
+    if (value.reference) return value.reference;
+    return JSON.stringify(value);
+  }
+  const str = String(value).trim();
+  return str.length > 0 ? str : '-';
+};
+
+/**
+ * Collect all leaf QuestionnaireItems (the actual fields) from a Questionnaire,
+ * preserving section context via their parent group's text.
+ */
+const collectQuestionnaireFields = (q: Questionnaire): { linkId: string; label: string; section: string }[] => {
+  const fields: { linkId: string; label: string; section: string }[] = [];
+
+  const walkItems = (items: QuestionnaireItem[], sectionLabel: string): void => {
+    for (const item of items) {
+      if (HIDDEN_LINK_IDS.has(item.linkId)) continue;
+
+      if (item.item && item.item.length > 0) {
+        walkItems(item.item, item.text || sectionLabel);
+      } else if (item.type !== 'display') {
+        fields.push({
+          linkId: item.linkId,
+          label: item.text || item.linkId,
+          section: sectionLabel,
+        });
+      }
+    }
+  };
+
+  walkItems(q.item || [], '');
+  return fields;
+};
+
+// ─── Component ────────────────────────────────────────────────────────────────
 
 type PatientMergeDifferenceProps = {
   open: boolean;
   close: () => void;
-  back: () => void;
-  patientIds?: string[];
+  patientIds: [string, string];
+  /** Called after a merge has been kicked off so the parent can track its progress. */
+  onSuccess?: (result: MergePatientsResponse & { mainPatientId: string; otherPatientId: string }) => void;
 };
 
 export const PatientsMergeDifference: FC<PatientMergeDifferenceProps> = (props) => {
-  const { open, close, back, patientIds } = props;
+  const { open, close, patientIds, onSuccess } = props;
 
-  const { isLoading } = useGetPatientsForMerge({ patientIds }, (data) => {
-    const patients = data as unknown as Patient[];
-    const parsedPatients = patients.map((patient) => mapPatientResourceToFormValues(patient));
-    const mainPatient = patients[0] as Patient;
-
-    setPatients(patients);
-    setParsedPatients(parsedPatients);
-    setParsedRows(
-      rows.map((row) => ({
-        ...row,
-        different: !parsedPatients.every((patient) => patient[row.field] === parsedPatients[0][row.field]),
-      }))
-    );
-    setMainPatient(mainPatient?.id);
-    reset(
-      rows.reduce((previousValue, currentValue) => {
-        previousValue[currentValue.field] = mainPatient?.id;
-        return previousValue;
-      }, {} as Partial<FormValues>)
-    );
-  });
-  const [patients, setPatients] = useState<Patient[]>([]);
-  const [parsedPatients, setParsedPatients] = useState<PatientFormValues[]>([]);
-  const [parsedRows, setParsedRows] = useState<(Row & { different: boolean })[]>([]);
-  const [mainPatient, setMainPatient] = useState<string | undefined>(undefined);
-  const [showVariant, setShowVariant] = useState<'different' | 'all'>('different');
   const theme = useTheme();
-  const methods = useForm<FormValues>();
-  const { control, handleSubmit, reset, getValues } = methods;
-
   const lightBackground = `${theme.palette.primary.main}0A`;
 
-  const onSave = (values: FormValues): void => {
-    console.log(values);
-    close();
-  };
+  // The first patient is the "main" (surviving) patient
+  const [mainPatientId, setMainPatientId] = useState<string>(patientIds[0]);
+  const otherPatientId = patientIds.find((id) => id !== mainPatientId)!;
 
-  const changeMainPatient = (id: string): void => {
-    setMainPatient(id);
-    reset(
-      rows.reduce((previousValue, currentValue) => {
-        previousValue[currentValue.field] = id;
-        return previousValue;
-      }, {} as Partial<FormValues>)
-    );
-  };
+  const [showVariant, setShowVariant] = useState<'different' | 'all'>('different');
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
-  const removePatient = (id: string): void => {
-    const newPatients = patients.filter((patient) => patient.id !== id);
-    const newParsedPatients = newPatients.map((patient) => mapPatientResourceToFormValues(patient));
-    const newMainPatient = (mainPatient === id ? newPatients[0].id : mainPatient) as string;
+  const apiClient = useOystehrAPIClient();
 
-    if (mainPatient === id) {
-      setMainPatient(newPatients[0].id);
+  // ── Fetch patient account data using the same hooks as PatientInformationPage ──
+
+  const { data: mainAccountData, isFetching: mainFetching } = useGetPatientAccount({
+    apiClient,
+    patientId: mainPatientId,
+  });
+
+  const { data: mainInsuranceData, isFetching: mainCoverageFetching } = useGetPatientCoverages({
+    apiClient,
+    patientId: mainPatientId,
+  });
+
+  const { data: otherAccountData, isFetching: otherFetching } = useGetPatientAccount({
+    apiClient,
+    patientId: otherPatientId,
+  });
+
+  const { data: otherInsuranceData, isFetching: otherCoverageFetching } = useGetPatientCoverages({
+    apiClient,
+    patientId: otherPatientId,
+  });
+
+  const isLoading = mainFetching || otherFetching || mainCoverageFetching || otherCoverageFetching;
+
+  // ── Build form defaults from prepopulated QR items (same as PatientInformationPage) ──
+
+  const mainFormVals = useMemo(() => {
+    if (!mainAccountData) return undefined;
+    const items = prepopulatePatientRecordItems({
+      ...mainAccountData,
+      coverages: {},
+      insuranceOrgs: [],
+      questionnaire,
+    });
+    const base = makeFormDefaults(items);
+
+    if (mainInsuranceData?.coverages && mainInsuranceData?.insuranceOrgs) {
+      const coverageVals = makeCoveragesFormDefaults({
+        coverages: mainInsuranceData.coverages,
+        patient: mainAccountData.patient,
+        insuranceOrgs: mainInsuranceData.insuranceOrgs,
+        employerOrganization: mainAccountData.employerOrganization,
+        q: questionnaire,
+      });
+      Object.assign(base, coverageVals);
     }
-    setPatients(newPatients);
-    setParsedPatients(newParsedPatients);
-    setParsedRows(
-      rows.map((row) => ({
-        ...row,
-        different: !newParsedPatients.every((patient) => patient[row.field] === newParsedPatients[0][row.field]),
-      }))
-    );
+    return base;
+  }, [mainAccountData, mainInsuranceData]);
+
+  const otherFormVals = useMemo(() => {
+    if (!otherAccountData) return undefined;
+    const items = prepopulatePatientRecordItems({
+      ...otherAccountData,
+      coverages: {},
+      insuranceOrgs: [],
+      questionnaire,
+    });
+    const base = makeFormDefaults(items);
+
+    if (otherInsuranceData?.coverages && otherInsuranceData?.insuranceOrgs) {
+      const coverageVals = makeCoveragesFormDefaults({
+        coverages: otherInsuranceData.coverages,
+        patient: otherAccountData.patient,
+        insuranceOrgs: otherInsuranceData.insuranceOrgs,
+        employerOrganization: otherAccountData.employerOrganization,
+        q: questionnaire,
+      });
+      Object.assign(base, coverageVals);
+    }
+    return base;
+  }, [otherAccountData, otherInsuranceData]);
+
+  // Map of patient ID → form values for quick lookup
+  const formValsByPatient = useMemo(() => {
+    const map: Record<string, Record<string, any>> = {};
+    if (mainFormVals) map[mainPatientId] = mainFormVals;
+    if (otherFormVals) map[otherPatientId] = otherFormVals;
+    return map;
+  }, [mainFormVals, otherFormVals, mainPatientId, otherPatientId]);
+
+  // ── Build diff rows from questionnaire items ──
+
+  const questionnaireFields = useMemo(() => collectQuestionnaireFields(questionnaire), []);
+
+  const diffRows = useMemo(() => {
+    if (!mainFormVals || !otherFormVals) return [];
+
+    return questionnaireFields.map(({ linkId, label, section }): DiffRow => {
+      const mainDisplay = formatDisplayValue(mainFormVals[linkId]);
+      const otherDisplay = formatDisplayValue(otherFormVals[linkId]);
+
+      return {
+        linkId,
+        label,
+        section,
+        isDifferent: mainDisplay !== otherDisplay,
+        displayValues: {
+          [mainPatientId]: mainDisplay,
+          [otherPatientId]: otherDisplay,
+        },
+      };
+    });
+  }, [mainFormVals, otherFormVals, mainPatientId, otherPatientId, questionnaireFields]);
+
+  const visibleRows = useMemo(
+    () => (showVariant === 'all' ? diffRows : diffRows.filter((r) => r.isDifferent)),
+    [diffRows, showVariant]
+  );
+
+  // ── Form: each field's value is the patient ID whose value to keep ──
+
+  const defaultFormValues = useMemo(() => {
+    const defaults: FormValues = {};
+    for (const field of questionnaireFields) {
+      defaults[field.linkId] = mainPatientId;
+    }
+    return defaults;
+  }, [questionnaireFields, mainPatientId]);
+
+  const methods = useForm<FormValues>({ defaultValues: defaultFormValues });
+  const { control, getValues, reset } = methods;
+
+  // ── Mutations ──
+
+  const mergeMutation = useMutation({
+    mutationKey: ['merge-patients'],
+    mutationFn: async (params: {
+      mainPatientId: string;
+      otherPatientId: string;
+      questionnaireResponse: ReturnType<typeof pruneEmptySections>;
+    }) => {
+      if (!apiClient) throw new Error('API client not initialized');
+      return apiClient.mergePatients({
+        mainPatientId: params.mainPatientId,
+        otherPatientId: params.otherPatientId,
+        questionnaireResponse: params.questionnaireResponse,
+      });
+    },
+    onSuccess: async (data, variables) => {
+      // Merge is now async — the merge actually runs in a subscription zambda.
+      // Hand the authoritative kickoff result to the parent so it can seed the
+      // active-merge-task cache and show the in-progress banner immediately.
+      // Polling can't be relied on for this: the background merge often finishes
+      // before the first 3s poll, so a poll-driven banner/snackbar would be
+      // missed entirely.
+      enqueueSnackbar('Patients merge started', { variant: 'success' });
+      onSuccess?.({ ...data, mainPatientId: variables.mainPatientId, otherPatientId: variables.otherPatientId });
+      close();
+    },
+    onError: (error) => {
+      const message = error instanceof Error && error.message ? error.message : 'Failed to start merge';
+      enqueueSnackbar(message, { variant: 'error' });
+    },
+  });
+
+  // ── Handlers ──
+
+  const changeMainPatient = (newMainId: string): void => {
+    setMainPatientId(newMainId);
+    // Reset all selections to the new main patient
+    const newValues: FormValues = {};
+    for (const field of questionnaireFields) {
+      newValues[field.linkId] = newMainId;
+    }
+    reset(newValues);
+  };
+
+  const onSave = (): void => {
+    if (!mainFormVals || !otherFormVals) return;
 
     const values = getValues();
-    rows.forEach((row) => {
-      if (values[row.field] === id) {
-        values[row.field] = newMainPatient;
+    const mainPid = mainPatientId;
+
+    const mergedFormValues: Record<string, any> = {};
+    for (const { linkId } of questionnaireFields) {
+      const selectedPatientId = values[linkId] || mainPid;
+      const patientVals = formValsByPatient[selectedPatientId];
+      if (patientVals) {
+        mergedFormValues[linkId] = patientVals[linkId];
       }
+    }
+
+    // Copy hidden logical fields (e.g. should-display-ssn-field) from main so the
+    // server-side enableWhen filter doesn't strip dependent answers like patient-ssn.
+    for (const linkId of HIDDEN_LINK_IDS) {
+      const value = mainFormVals[linkId] ?? otherFormVals[linkId];
+      if (value !== undefined) {
+        mergedFormValues[linkId] = value;
+      }
+    }
+
+    const dirtyFields: Record<string, boolean> = {};
+    for (const { linkId } of questionnaireFields) {
+      const selectedPatientId = values[linkId] || mainPid;
+      if (selectedPatientId !== mainPid) {
+        dirtyFields[linkId] = true;
+      }
+    }
+
+    const qr = pruneEmptySections(
+      structureQuestionnaireResponse(questionnaire, mergedFormValues, mainPid, dirtyFields)
+    );
+
+    setConfirmOpen(false);
+
+    mergeMutation.mutate({
+      mainPatientId: mainPid,
+      otherPatientId,
+      questionnaireResponse: qr,
     });
-    reset(values);
   };
+
+  // ── Render ──
+
+  // Group rows by section for visual clarity
+  const sections = useMemo(() => {
+    const sectionMap = new Map<string, DiffRow[]>();
+    for (const row of visibleRows) {
+      const key = row.section || 'Other';
+      if (!sectionMap.has(key)) sectionMap.set(key, []);
+      sectionMap.get(key)!.push(row);
+    }
+    return Array.from(sectionMap.entries());
+  }, [visibleRows]);
 
   return (
     <FormProvider {...methods}>
@@ -483,142 +434,166 @@ export const PatientsMergeDifference: FC<PatientMergeDifferenceProps> = (props) 
               Merge Patients
             </Typography>
             <Typography>
-              Please select which information should carry over to the Main Patient record after merge. All other
-              patient records will be removed.
+              Compare patient records and select which value to keep for each field. The selected values will be saved
+              to the Main Patient record.
             </Typography>
+            <Alert severity="info" sx={{ mt: 1 }}>
+              All visits, clinical data (allergies, medications, surgical history, hospitalizations, etc.), follow-up
+              encounters, labs and other order types, billing records will be automatically transferred to the main
+              patient.
+            </Alert>
           </Stack>
 
-          <ToggleButtonGroup
-            size="small"
-            exclusive
-            value={showVariant}
-            onChange={(_, newValue) => newValue && setShowVariant(newValue)}
-          >
-            <ContainedPrimaryToggleButton value="different">Only Different Info</ContainedPrimaryToggleButton>
-            <ContainedPrimaryToggleButton value="all">All Info</ContainedPrimaryToggleButton>
-          </ToggleButtonGroup>
+          {isLoading ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+              <CircularProgress />
+            </Box>
+          ) : (
+            <>
+              <ToggleButtonGroup
+                size="small"
+                exclusive
+                value={showVariant}
+                onChange={(_, newValue) => newValue && setShowVariant(newValue)}
+              >
+                <ContainedPrimaryToggleButton value="different">Only Different Info</ContainedPrimaryToggleButton>
+                <ContainedPrimaryToggleButton value="all">All Info</ContainedPrimaryToggleButton>
+              </ToggleButtonGroup>
 
-          <TableContainer sx={{ maxHeight: '60vh' }}>
-            <Table size="small">
-              <TableRow sx={{ '& .MuiTableCell-head': { fontWeight: 'bold' } }}>
-                <TableCell variant="head">Parameter</TableCell>
-                {parsedPatients.map((patient) => (
-                  <TableCell
-                    variant="head"
-                    key={patient.id}
-                    sx={{
-                      backgroundColor: patient.id === mainPatient ? lightBackground : undefined,
-                    }}
-                  >
-                    PID: {patient.id}
-                  </TableCell>
-                ))}
-              </TableRow>
-              <TableRow>
-                <TableCell>Main Patient Record</TableCell>
-                {parsedPatients.map((patient) => (
-                  <TableCell
-                    key={patient.id}
-                    sx={{
-                      backgroundColor: patient.id === mainPatient ? lightBackground : undefined,
-                    }}
-                  >
-                    <RadioGroup row value={mainPatient} onChange={(e) => changeMainPatient(e.target.value)}>
-                      <FormControlLabel value={patient.id} control={<Radio />} label="" />
-                    </RadioGroup>
-                  </TableCell>
-                ))}
-              </TableRow>
-              {parsedRows
-                .filter((row) => (showVariant === 'all' ? true : row.different))
-                .map((row) => (
-                  <TableRow key={row.title}>
-                    <TableCell>{row.title}</TableCell>
-                    {parsedPatients.map((patient) => (
-                      <TableCell
-                        key={patient.id}
-                        sx={{
-                          backgroundColor: patient.id === mainPatient ? lightBackground : undefined,
-                        }}
-                      >
-                        <Controller
-                          render={({ field: { onChange, value } }) => (
-                            <RadioGroup row value={value} onChange={onChange}>
-                              <FormControlLabel value={patient.id} control={<Radio />} label={row.render(patient)} />
-                            </RadioGroup>
+              <TableContainer sx={{ maxHeight: '60vh' }}>
+                <Table size="small" stickyHeader>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell sx={{ fontWeight: 'bold', minWidth: 200 }}>Parameter</TableCell>
+                      {patientIds.map((pid) => (
+                        <TableCell
+                          key={pid}
+                          sx={{
+                            fontWeight: 'bold',
+                            backgroundColor: pid === mainPatientId ? lightBackground : undefined,
+                          }}
+                        >
+                          PID: {pid}
+                          {pid === mainPatientId && (
+                            <Typography variant="caption" display="block" color="primary">
+                              Main Patient
+                            </Typography>
                           )}
-                          name={row.field}
-                          control={control}
-                        />
-                      </TableCell>
-                    ))}
-                  </TableRow>
-                ))}
-              <TableRow>
-                <TableCell>Remove from merge</TableCell>
-                {parsedPatients.map((patient) => (
-                  <TableCell
-                    key={patient.id}
-                    sx={{
-                      backgroundColor: patient.id === mainPatient ? lightBackground : undefined,
-                    }}
-                  >
-                    <RoundedButton
-                      disabled={patients.length < 3}
-                      variant="text"
-                      color="error"
-                      onClick={() => removePatient(patient.id!)}
-                    >
-                      Remove
-                    </RoundedButton>
-                  </TableCell>
-                ))}
-              </TableRow>
-            </Table>
-          </TableContainer>
-
-          <Stack direction="row" spacing={2} justifyContent="space-between">
-            <RoundedButton onClick={back}>Cancel</RoundedButton>
-            <ConfirmationDialog
-              title="Merge Patients"
-              description={
-                <Stack spacing={2}>
-                  <Typography>
-                    Are you sure you want to merge patient records? Merged records will be deactivated.
-                  </Typography>
-                  <Stack>
-                    <Typography fontWeight={600}>Merged patient record PIDs:</Typography>
-                    {patients
-                      .filter((patient) => patient.id !== mainPatient)
-                      .map((patient) => (
-                        <Typography key={patient.id}>{patient.id}</Typography>
+                        </TableCell>
                       ))}
-                  </Stack>
-                  <Stack>
-                    <Typography fontWeight={600}>Main patient record PID:</Typography>
-                    <Typography>{mainPatient}</Typography>
-                  </Stack>
-                </Stack>
-              }
-              response={handleSubmit(onSave)}
-              actionButtons={{
-                proceed: {
-                  text: 'Confirm Merge',
-                },
-                back: {
-                  text: 'Back',
-                },
-                reverse: true,
-              }}
-            >
-              {(showDialog) => (
-                <RoundedButton variant="contained" onClick={showDialog} disabled={isLoading}>
-                  Merge Patients
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {/* Main patient selection row */}
+                    <TableRow>
+                      <TableCell sx={{ fontWeight: 600 }}>Main Patient Record</TableCell>
+                      {patientIds.map((pid) => (
+                        <TableCell
+                          key={pid}
+                          sx={{
+                            backgroundColor: pid === mainPatientId ? lightBackground : undefined,
+                          }}
+                        >
+                          <RadioGroup row value={mainPatientId} onChange={(e) => changeMainPatient(e.target.value)}>
+                            <FormControlLabel value={pid} control={<Radio />} label="" />
+                          </RadioGroup>
+                        </TableCell>
+                      ))}
+                    </TableRow>
+
+                    {/* Data rows grouped by section */}
+                    {sections.map(([sectionTitle, rows]) => [
+                      <TableRow key={`section-${sectionTitle}`}>
+                        <TableCell
+                          colSpan={patientIds.length + 1}
+                          sx={{
+                            fontWeight: 700,
+                            backgroundColor: theme.palette.grey[100],
+                            py: 0.5,
+                          }}
+                        >
+                          {sectionTitle}
+                        </TableCell>
+                      </TableRow>,
+                      ...rows.map((row) => (
+                        <TableRow key={row.linkId}>
+                          <TableCell>{row.label}</TableCell>
+                          {patientIds.map((pid) => (
+                            <TableCell
+                              key={pid}
+                              sx={{
+                                backgroundColor: pid === mainPatientId ? lightBackground : undefined,
+                              }}
+                            >
+                              <Controller
+                                name={row.linkId}
+                                control={control}
+                                render={({ field: { onChange, value } }) => (
+                                  <RadioGroup row value={value} onChange={onChange}>
+                                    <FormControlLabel
+                                      value={pid}
+                                      control={<Radio size="small" />}
+                                      label={row.displayValues[pid] || '-'}
+                                    />
+                                  </RadioGroup>
+                                )}
+                              />
+                            </TableCell>
+                          ))}
+                        </TableRow>
+                      )),
+                    ])}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+
+              <Stack direction="row" spacing={2} justifyContent="space-between">
+                <RoundedButton onClick={close}>Cancel</RoundedButton>
+                <RoundedButton
+                  variant="contained"
+                  onClick={() => setConfirmOpen(true)}
+                  disabled={isLoading || mergeMutation.isPending}
+                >
+                  {mergeMutation.isPending ? 'Merging...' : 'Merge Patients'}
                 </RoundedButton>
-              )}
-            </ConfirmationDialog>
-          </Stack>
+              </Stack>
+            </>
+          )}
         </Stack>
+      </Dialog>
+
+      <Dialog open={confirmOpen} onClose={() => setConfirmOpen(false)} maxWidth="xs" fullWidth>
+        <IconButton
+          size="small"
+          onClick={() => setConfirmOpen(false)}
+          sx={{ position: 'absolute', right: 16, top: 16 }}
+        >
+          <CloseIcon fontSize="small" />
+        </IconButton>
+        <DialogTitle component={Typography} variant="h5" color="primary.dark" sx={{ pb: 1 }}>
+          Merge Patient
+        </DialogTitle>
+        <DialogContent sx={{ pb: 2 }}>
+          <Stack spacing={2}>
+            <Typography>Are you sure you want to merge patient records? Merged records will be deactivated.</Typography>
+            <Stack>
+              <Typography fontWeight={600}>Merged patient record PID:</Typography>
+              <Typography sx={{ wordBreak: 'break-all' }}>{otherPatientId}</Typography>
+            </Stack>
+            <Stack>
+              <Typography fontWeight={600}>Main patient record PID:</Typography>
+              <Typography sx={{ wordBreak: 'break-all' }}>{mainPatientId}</Typography>
+            </Stack>
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ p: 3 }}>
+          <Stack direction="row" spacing={2}>
+            <RoundedButton onClick={() => setConfirmOpen(false)}>Cancel</RoundedButton>
+            <RoundedButton variant="contained" onClick={onSave}>
+              Confirm merge
+            </RoundedButton>
+          </Stack>
+        </DialogActions>
       </Dialog>
     </FormProvider>
   );

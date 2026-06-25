@@ -4,11 +4,12 @@ import { LoadingButton } from '@mui/lab';
 import { Box, Dialog, DialogContent, DialogTitle, Divider, Grid, IconButton, Typography } from '@mui/material';
 import Oystehr from '@oystehr/sdk';
 import { FC, useState } from 'react';
-import { LabListsDTO } from 'utils';
+import { dataTestIds } from 'src/constants/data-test-ids';
+import { LabSetDTO, LabType } from 'utils';
 
 type LabSetsProps = {
-  labSets: LabListsDTO[];
-  setSelectedLabs: (labSet: LabListsDTO) => Promise<void>;
+  labSets: LabSetDTO[];
+  setSelectedLabs: (labSet: LabSetDTO) => Promise<void>;
 };
 
 export const LabSets: FC<LabSetsProps> = ({ labSets, setSelectedLabs }) => {
@@ -16,7 +17,7 @@ export const LabSets: FC<LabSetsProps> = ({ labSets, setSelectedLabs }) => {
   const [loadingId, setLoadingId] = useState<string | null>(null);
   const [error, setError] = useState<string[] | undefined>(undefined);
 
-  const handleSelectLabSet = async (labSet: LabListsDTO): Promise<void> => {
+  const handleSelectLabSet = async (labSet: LabSetDTO): Promise<void> => {
     setLoadingId(labSet.listId); // start loading for this button only
     try {
       await setSelectedLabs(labSet);
@@ -30,11 +31,18 @@ export const LabSets: FC<LabSetsProps> = ({ labSets, setSelectedLabs }) => {
     }
   };
 
+  // lab sets get their item code added in admin on create/edit. This just covers historical cases
+  const formatLabSetDisplay = (display: string, itemCode: string): string => {
+    if (display.startsWith(`(${itemCode})`)) return display;
+    return `(${itemCode}) ${display}`;
+  };
+
   if (labSets.length === 0) return <></>;
 
   return (
     <>
       <Box
+        data-testid={dataTestIds.commonLabOrder.labSets.launchModal}
         sx={{ display: 'flex', p: '16px 8px', cursor: 'pointer' }}
         gap={1}
         color="primary.main"
@@ -43,7 +51,13 @@ export const LabSets: FC<LabSetsProps> = ({ labSets, setSelectedLabs }) => {
         <FormatListBulletedIcon />
         <Typography fontWeight="500">Lab Sets</Typography>
       </Box>
-      <Dialog open={open} onClose={() => setOpen(false)} fullWidth maxWidth="md">
+      <Dialog
+        data-testid={dataTestIds.commonLabOrder.labSets.selectionModal}
+        open={open}
+        onClose={() => setOpen(false)}
+        fullWidth
+        maxWidth="md"
+      >
         <DialogTitle
           sx={{
             display: 'flex',
@@ -81,12 +95,19 @@ export const LabSets: FC<LabSetsProps> = ({ labSets, setSelectedLabs }) => {
                   <Typography variant="h6" fontWeight="700" color="primary.dark">
                     {set.listName}:
                   </Typography>
-                  {set.labs.map((lab, idx) => (
-                    <Typography key={`set-item-${set.listId}-${idx}`}>{lab.display}</Typography>
-                  ))}
+                  {set.listType === LabType.external
+                    ? set.labs.map((lab, idx) => (
+                        <Typography key={`set-item-${set.listId}-${idx}`}>
+                          {formatLabSetDisplay(lab.display, lab.itemCode)}
+                        </Typography>
+                      ))
+                    : set.labs.map((lab, idx) => (
+                        <Typography key={`set-item-${set.listId}-${idx}`}>{lab.display}</Typography>
+                      ))}
                 </Grid>
                 <Grid item xs={3} sx={{ textAlign: 'right' }}>
                   <LoadingButton
+                    data-testid={`${dataTestIds.commonLabOrder.labSets.selectionModal}-${set.listId}`}
                     loading={loadingId === set.listId}
                     variant="contained"
                     sx={{ borderRadius: '100px', p: '8px 22px', textTransform: 'none' }}

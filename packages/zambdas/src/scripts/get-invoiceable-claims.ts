@@ -1,10 +1,8 @@
 import Oystehr from '@oystehr/sdk';
-import { CandidApi, CandidApiClient } from 'candidhealth';
+import { CandidApi, CandidApiClient, CandidApiEnvironment } from 'candidhealth';
 import { Appointment, Patient } from 'fhir/r4b';
 import * as fs from 'fs';
-import { createCandidApiClient } from 'utils';
-import { getAuth0Token } from '../shared';
-import { fhirApiUrlFromAuth0Audience } from './helpers';
+import { createClinicalOystehrClient, getAuth0Token } from '../shared';
 
 interface PatientInfo {
   fullName: string;
@@ -393,7 +391,7 @@ async function main(): Promise<void> {
     throw new Error('❌ Environment is required. Usage: npm run get-invoiceable-claims <env> [csvFilename]');
   }
 
-  const secrets = JSON.parse(fs.readFileSync(`.env/${env}.json`, 'utf8'));
+  const secrets = JSON.parse(fs.readFileSync(`../../config/.env/${env}.json`, 'utf8'));
   // Initialize Oystehr
   const token = await getAuth0Token(secrets);
 
@@ -401,12 +399,13 @@ async function main(): Promise<void> {
     throw new Error('❌ Failed to fetch auth token.');
   }
 
-  const oystehr = new Oystehr({
-    accessToken: token,
-    fhirApiUrl: fhirApiUrlFromAuth0Audience(secrets.AUTH0_AUDIENCE),
-  });
+  const oystehr = createClinicalOystehrClient(token, secrets);
 
-  const candid = createCandidApiClient(secrets);
+  const candid = new CandidApiClient({
+    clientId: secrets.CANDID_CLIENT_ID,
+    clientSecret: secrets.CANDID_CLIENT_SECRET,
+    environment: secrets.CANDID_ENV === 'PROD' ? CandidApiEnvironment.Production : CandidApiEnvironment.Staging,
+  });
 
   // Get invoiceable claims using the new function
   const invoiceableClaimsResponse = await getInvoiceableClaims(candid, 100);

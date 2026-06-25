@@ -1,12 +1,15 @@
 import { expect, Page } from '@playwright/test';
+import { DateTime } from 'luxon';
 import { dataTestIds } from 'src/helpers/data-test-ids';
 import {
   BookingConfig,
   chooseJson,
   CreateAppointmentResponse,
   getReasonForVisitOptionsForServiceCategory,
+  getServiceCategoryCodings,
   prepopulateBookingForm,
   selectBookingQuestionnaire,
+  serviceCategorySupportsContext,
   VALUE_SETS,
 } from 'utils';
 import {
@@ -65,8 +68,8 @@ export class BookingFlowHelpers {
           const options = getReasonForVisitOptionsForServiceCategory(serviceCategory);
           return options[0]?.value;
         }
-        // Default to urgent-care if no category specified
-        return VALUE_SETS.reasonForVisitOptions[0].value; // 'Cough and/or congestion'
+        // Default to first available category if no category specified
+        return getReasonForVisitOptionsForServiceCategory(getServiceCategoryCodings()[0]?.code ?? '')[0]?.value;
       default:
         return undefined;
     }
@@ -153,6 +156,12 @@ export class BookingFlowHelpers {
             return targetValue === trigger.answerString;
           } else if (trigger.answerBoolean !== undefined) {
             return targetValue === trigger.answerBoolean;
+          }
+        } else if (trigger.operator === '!=') {
+          if (trigger.answerString !== undefined) {
+            return targetValue !== trigger.answerString;
+          } else if (trigger.answerBoolean !== undefined) {
+            return targetValue !== trigger.answerBoolean;
           }
         }
         return false;
@@ -245,37 +254,41 @@ export class BookingFlowHelpers {
     serviceMode?: 'in-person' | 'virtual'
   ): Promise<void> {
     const categories = config.serviceCategories;
-    const { serviceCategoriesEnabled } = config;
 
-    // Check if category selection is enabled for this specific flow type
-    const isEnabledForFlow =
-      serviceMode &&
-      serviceCategoriesEnabled.serviceModes.includes(serviceMode) &&
-      serviceCategoriesEnabled.visitType.includes(visitType);
+    // Filter categories to those available for this flow's mode and visit type.
+    // Preserve the prior "no filter when mode is unknown" branch — some callers
+    // intentionally skip the mode check. Tag entries with source so the shared
+    // helper treats untagged BOOKING_CONFIG fixtures as supports-all rather
+    // than silently filtering them out.
+    const availableCategories = serviceMode
+      ? categories.filter((sc) =>
+          serviceCategorySupportsContext({ ...sc, source: 'booking-config' }, serviceMode, visitType)
+        )
+      : categories;
 
-    // Skip if service categories are disabled for this flow or only one exists
-    if (!isEnabledForFlow || categories.length <= 1) {
+    // Skip if only one or no categories available for this flow
+    if (availableCategories.length <= 1) {
       console.log(
-        `Skipping category selection (enabledModes: ${serviceCategoriesEnabled.serviceModes}, ` +
-          `enabledTypes: ${serviceCategoriesEnabled.visitType}, current: ${serviceMode}/${visitType}, count: ${categories.length})`
+        `Skipping category selection (available: ${availableCategories.length}, ` +
+          `current: ${serviceMode}/${visitType}, total: ${categories.length})`
       );
       return;
     }
 
     // Find the category by code to get its display label
-    const category = categories.find((cat) => cat.code === preferredCategory);
+    const category = categories.find((sc) => sc.category.code === preferredCategory);
     if (!category) {
       throw new Error(`Service category '${preferredCategory}' not found in config`);
     }
 
     // Select by the user-visible label text
-    await page.getByRole('button', { name: category.display }).click();
+    await page.getByRole('button', { name: category.category.display }).click();
 
     // For in-person walk-in flows only, handle the Continue button on the walk-in landing page
     // Virtual walk-in flows proceed to location selection
     // Prebook flows load the time slot page immediately after category selection
     if (visitType === 'walk-in' && serviceMode === 'in-person') {
-      await this.clickContinueButtonIfPresent(page, 'on walk-in landing page');
+      await this.clickContinueButtonIfPresent(page, 'on walk-in landing page', 15000);
     }
   }
 
@@ -340,11 +353,16 @@ export class BookingFlowHelpers {
     // Look for "Different family member" button by its test ID
     const addNewPatientButton = page.getByTestId('Different family member');
     try {
-      await addNewPatientButton.click();
-      // Wait for the selection to be visually confirmed - the radio button should be checked
-      // The button contains a radio input that gets checked when selected
-      await expect(addNewPatientButton.locator('input[type="radio"]')).toBeChecked({ timeout: 20000 });
-      console.log('"Different family member" option selected and confirmed');
+      const radio = addNewPatientButton.locator('input[type="radio"]');
+      const alreadyChecked = await radio.isChecked().catch(() => false);
+
+      if (alreadyChecked) {
+        console.log('"Different family member" already selected, skipping click');
+      } else {
+        await addNewPatientButton.click();
+        await expect(radio).toBeChecked({ timeout: 20000 });
+        console.log('"Different family member" option selected and confirmed');
+      }
 
       // After selecting "Different family member", click the Continue button to proceed
       await this.clickContinueButtonIfPresent(page, 'after patient selection');
@@ -600,6 +618,7 @@ export class BookingFlowHelpers {
    */
   static async selectFirstAvailableTimeSlot(
     page: Page,
+    locationTimezone: string,
     minMinutesInFuture = 30,
     options: { skipFirstN?: number } = {}
   ): Promise<void> {
@@ -609,7 +628,9 @@ export class BookingFlowHelpers {
     await page.getByText('First available time').waitFor({ state: 'visible', timeout: 20000 });
 
     // Find and click a suitable time slot
-    const { timeText } = await this.findAndClickSuitableTimeSlot(page, minMinutesInFuture, { skipFirstN });
+    const { timeText } = await this.findAndClickSuitableTimeSlot(page, locationTimezone, minMinutesInFuture, {
+      skipFirstN,
+    });
     console.log(`Selected time slot: ${timeText}`);
 
     // After clicking a time, a "Select" button appears - click it to confirm
@@ -624,7 +645,14 @@ export class BookingFlowHelpers {
    * Find and click a time slot that is at least `minMinutesInFuture` minutes from now.
    * This is a shared utility used by both initial booking and modification flows.
    *
+   * `locationTimezone` is required — slot buttons render their text in the Location's
+   * timezone, so parsing them in the runner's system zone would silently misread the
+   * displayed clock (e.g., on a UTC CI runner, "7:45 PM" from an EDT Location would
+   * be parsed as 7:45 PM UTC = 3:45 PM EDT, off by 4 hours). Callers must pass the
+   * fixture's actual timezone — there is no safe default.
+   *
    * @param page - Playwright page
+   * @param locationTimezone - IANA TZ name of the fixture Location (e.g., 'America/New_York')
    * @param minMinutesInFuture - Minimum minutes in the future the slot should be (used for initial booking)
    * @param options - Additional options
    * @param options.skipFirstN - Number of initial slots to skip (useful for modification flows
@@ -633,6 +661,7 @@ export class BookingFlowHelpers {
    */
   static async findAndClickSuitableTimeSlot(
     page: Page,
+    locationTimezone: string,
     minMinutesInFuture = 30,
     options: { skipFirstN?: number } = {}
   ): Promise<{ timeText: string }> {
@@ -662,11 +691,14 @@ export class BookingFlowHelpers {
       console.log(`Skipping first ${skipFirstN} slots (starting from index ${startIndex})`);
     }
 
-    // Calculate the minimum acceptable time
-    const now = new Date();
-    const minAcceptableTime = new Date(now.getTime() + minMinutesInFuture * 60 * 1000);
+    // Anchor "now" and the minimum-acceptable threshold in the Location's TZ so
+    // the comparisons below match the wall-clock the buttons are rendering in.
+    const now = DateTime.now().setZone(locationTimezone);
+    const minAcceptableTime = now.plus({ minutes: minMinutesInFuture });
     console.log(
-      `Looking for time slot at least ${minMinutesInFuture} minutes from now (after ${minAcceptableTime.toLocaleTimeString()})`
+      `Looking for time slot at least ${minMinutesInFuture} minutes from now (after ${minAcceptableTime.toFormat(
+        'h:mm a'
+      )} in ${locationTimezone})`
     );
 
     // Find a slot that's sufficiently in the future
@@ -678,11 +710,7 @@ export class BookingFlowHelpers {
       const timeText = await button.textContent();
       if (!timeText) continue;
 
-      // Parse time from button text (e.g., "2:00 PM" or "10:30 AM")
-      // Note: Due to timezone differences between test server and location,
-      // this parsing may not be 100% accurate. Use skipFirstN to avoid
-      // selecting slots that may be in the past.
-      const slotTime = this.parseTimeSlotToDate(timeText.trim(), now);
+      const slotTime = this.parseTimeSlotToDate(timeText.trim(), now, locationTimezone);
       if (!slotTime) {
         console.log(`Could not parse time from button text: "${timeText}"`);
         continue;
@@ -691,25 +719,26 @@ export class BookingFlowHelpers {
       if (slotTime >= minAcceptableTime) {
         selectedButton = button;
         selectedTimeText = timeText;
-        console.log(`Found suitable slot at index ${i}: ${timeText} (parsed as ${slotTime.toLocaleTimeString()})`);
+        console.log(`Found suitable slot at index ${i}: ${timeText} (parsed as ${slotTime.toFormat('h:mm a')})`);
         break;
       } else {
         console.log(
-          `Skipping slot ${timeText} at index ${i} - parsed time ${slotTime.toLocaleTimeString()} is before ${minAcceptableTime.toLocaleTimeString()}`
+          `Skipping slot ${timeText} at index ${i} - parsed time ${slotTime.toFormat(
+            'h:mm a'
+          )} is before ${minAcceptableTime.toFormat('h:mm a')}`
         );
       }
     }
 
-    // Fallback: if no slot found via time parsing, select a slot from the middle/end
-    // This handles timezone mismatch scenarios where time parsing is inaccurate
+    // No silent fallback. If parsing produced no match, the helper itself is
+    // wrong (bad TZ, schema change in slot text) and the test should fail loud
+    // rather than mask the bug by clicking a positional guess.
     if (!selectedButton) {
-      // Select slot at 2/3 through the list (biased toward later times which are more likely to be in the future)
-      const fallbackIndex = Math.max(startIndex, Math.floor((buttonCount * 2) / 3));
-      console.log(
-        `No slot found via time parsing, using fallback slot at index ${fallbackIndex} (2/3 through the list)`
+      throw new Error(
+        `No time slot found at least ${minMinutesInFuture} minutes in the future (TZ=${locationTimezone}). ` +
+          `Available slots: [${allSlotTexts.join(', ')}]. Either no slot qualifies, the displayed time format ` +
+          `changed, or the locationTimezone passed in is wrong.`
       );
-      selectedButton = timeButtons.nth(fallbackIndex);
-      selectedTimeText = (await selectedButton.textContent()) || 'unknown';
     }
 
     console.log(`Clicking time slot: ${selectedTimeText}`);
@@ -719,12 +748,11 @@ export class BookingFlowHelpers {
   }
 
   /**
-   * Parse a time slot string (e.g., "2:00 PM") to a Date object for today.
-   * Returns null if parsing fails.
-   *
-   * Exported as public static for use by other helpers (e.g., ExtendedScenarioHelpers).
+   * Parse a slot button's displayed text (e.g., "2:00 PM") into a DateTime
+   * anchored to the Location's timezone, using `referenceDate` (also in the
+   * Location's zone) to decide whether the slot is "today" or "tomorrow."
    */
-  static parseTimeSlotToDate(timeText: string, referenceDate: Date): Date | null {
+  static parseTimeSlotToDate(timeText: string, referenceDate: DateTime, locationTimezone: string): DateTime | null {
     const match = timeText.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
     if (!match) return null;
 
@@ -732,23 +760,22 @@ export class BookingFlowHelpers {
     const minutes = parseInt(match[2], 10);
     const period = match[3].toUpperCase();
 
-    // Convert to 24-hour format
     if (period === 'PM' && hours !== 12) {
       hours += 12;
     } else if (period === 'AM' && hours === 12) {
       hours = 0;
     }
 
-    const slotDate = new Date(referenceDate);
-    slotDate.setHours(hours, minutes, 0, 0);
+    const ref = referenceDate.setZone(locationTimezone);
+    let slot = ref.set({ hour: hours, minute: minutes, second: 0, millisecond: 0 });
 
-    // If the parsed time is before the reference time, it might be for tomorrow
-    // (e.g., if it's 11 PM and we see a "1:00 AM" slot)
-    if (slotDate < referenceDate) {
-      slotDate.setDate(slotDate.getDate() + 1);
+    // If the parsed time is before the reference time, the button must be for
+    // tomorrow (e.g., it's 11 PM and we see a "1:00 AM" slot).
+    if (slot < ref) {
+      slot = slot.plus({ days: 1 });
     }
 
-    return slotDate;
+    return slot;
   }
 
   /**
@@ -801,6 +828,16 @@ export class BookingFlowHelpers {
       // Wait for and verify the confirmation page elements
       console.log('Waiting for confirmation page to load...');
 
+      // Wait for navigation to the visit/confirmation page first
+      await page.waitForURL(/\/visit\//, { timeout: 30000 });
+      console.log('Navigated to confirmation page URL:', page.url());
+
+      // Wait for the loading spinner to disappear before checking for the button.
+      // The ThankYou page makes a getPaperwork API call before rendering the button,
+      // which can be slow in CI environments with remote APIs and parallel workers.
+      const spinner = page.locator('role=progressbar');
+      await spinner.waitFor({ state: 'hidden', timeout: 60000 });
+
       // Check for either "You are checked in!" (walk-in) or thank you heading (prebook)
       // Both should have "Proceed to paperwork" button
       const proceedButton = page.getByRole('button', { name: 'Proceed to paperwork' });
@@ -843,6 +880,8 @@ export class BookingFlowHelpers {
     const month = String(Math.floor(Math.random() * 12) + 1).padStart(2, '0');
     const day = String(Math.floor(Math.random() * 28) + 1).padStart(2, '0'); // 1-28 to avoid invalid dates
     const birthdate = `${month}/${day}/${year}`;
+
+    console.log('Generating sample patient data with timestamp:', timestamp);
 
     return {
       valid: {

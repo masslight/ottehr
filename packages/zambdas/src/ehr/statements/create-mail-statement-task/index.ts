@@ -3,19 +3,18 @@ import { Appointment, Encounter, Patient, Task, TaskInput } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   getFullestAvailableName,
-  getSecret,
   getTaskResource,
+  INVALID_INPUT_ERROR,
   MISSING_REQUEST_BODY,
   MISSING_REQUEST_SECRETS,
+  MISSING_REQUIRED_PARAMETERS,
   Secrets,
-  SecretsKeys,
   TaskIndicator,
 } from 'utils';
 import {
   checkOrCreateM2MClientToken,
-  createOystehrClient,
+  createClinicalOystehrClient,
   StatementType,
-  topLevelCatch,
   wrapHandler,
   ZambdaInput,
 } from '../../../shared';
@@ -41,12 +40,12 @@ function validateRequestParameters(input: ZambdaInput): CreateMailStatementTaskI
 
   const encounterId = body.encounterId;
   if (typeof encounterId !== 'string' || encounterId.trim().length === 0) {
-    throw new Error('encounterId is required');
+    throw MISSING_REQUIRED_PARAMETERS(['encounterId']);
   }
 
   const color = body.color;
   if (typeof color !== 'boolean') {
-    throw new Error('color must be a boolean (true or false)');
+    throw INVALID_INPUT_ERROR('color must be a boolean (true or false)');
   }
 
   const statementType = body.statementType;
@@ -60,7 +59,7 @@ function validateRequestParameters(input: ZambdaInput): CreateMailStatementTaskI
   }
 
   if (typeof statementType !== 'string' || !validStatementTypes.has(statementType as StatementType)) {
-    throw new Error('statementType must be one of: standard, past-due, final-notice');
+    throw INVALID_INPUT_ERROR('statementType must be one of: standard, past-due, final-notice');
   }
 
   return {
@@ -99,71 +98,66 @@ function createTaskInput(statementType: StatementType, color: boolean): TaskInpu
 }
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  try {
-    const validatedInput = validateRequestParameters(input);
+  const validatedInput = validateRequestParameters(input);
 
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedInput.secrets);
-    const oystehr = createOystehrClient(m2mToken, validatedInput.secrets);
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedInput.secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, validatedInput.secrets);
 
-    const encounter = await oystehr.fhir.get<Encounter>({
-      resourceType: 'Encounter',
-      id: validatedInput.encounterId,
-    });
+  const encounter = await oystehr.fhir.get<Encounter>({
+    resourceType: 'Encounter',
+    id: validatedInput.encounterId,
+  });
 
-    const patientReference = encounter.subject?.reference;
-    if (!patientReference) {
-      throw new Error(`Patient reference not found in Encounter/${validatedInput.encounterId}`);
-    }
-
-    const patientId = patientReference.split('/')[1];
-    if (!patientId) {
-      throw new Error(`Patient id not found in Encounter/${validatedInput.encounterId}`);
-    }
-
-    const appointmentReference = encounter.appointment?.[0]?.reference;
-    const appointmentId = appointmentReference?.split('/')[1];
-    if (!appointmentId) {
-      throw new Error(`Appointment reference not found in Encounter/${validatedInput.encounterId}`);
-    }
-
-    const patient = await oystehr.fhir.get<Patient>({
-      resourceType: 'Patient',
-      id: patientId,
-    });
-    const appointment = await oystehr.fhir.get<Appointment>({
-      resourceType: 'Appointment',
-      id: appointmentId,
-    });
-
-    const patientName = getFullestAvailableName(patient);
-    const appointmentDate = appointment.start
-      ? DateTime.fromISO(appointment.start, { setZone: true }).toFormat('yyyy-MM-dd')
-      : 'unknown-date';
-
-    const task: Task = {
-      ...getTaskResource(
-        TaskIndicator.sendPatientStatementByMail,
-        `Send statement by mail for ${patientName} visit on ${appointmentDate}`,
-        appointmentId,
-        validatedInput.encounterId
-      ),
-      for: {
-        reference: patientReference,
-      },
-      input: createTaskInput(validatedInput.statementType, validatedInput.color),
-    };
-
-    const createdTask = await oystehr.fhir.create<Task>(task);
-
-    return {
-      statusCode: 200,
-      body: JSON.stringify({
-        taskId: createdTask.id,
-        taskReference: `Task/${createdTask.id}`,
-      }),
-    };
-  } catch (error: unknown) {
-    const environment = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    return topLevelCatch(ZAMBDA_NAME, error, environment);
+  const patientReference = encounter.subject?.reference;
+  if (!patientReference) {
+    throw new Error(`Patient reference not found in Encounter/${validatedInput.encounterId}`);
   }
+
+  const patientId = patientReference.split('/')[1];
+  if (!patientId) {
+    throw new Error(`Patient id not found in Encounter/${validatedInput.encounterId}`);
+  }
+
+  const appointmentReference = encounter.appointment?.[0]?.reference;
+  const appointmentId = appointmentReference?.split('/')[1];
+  if (!appointmentId) {
+    throw new Error(`Appointment reference not found in Encounter/${validatedInput.encounterId}`);
+  }
+
+  const patient = await oystehr.fhir.get<Patient>({
+    resourceType: 'Patient',
+    id: patientId,
+  });
+  const appointment = await oystehr.fhir.get<Appointment>({
+    resourceType: 'Appointment',
+    id: appointmentId,
+  });
+
+  const patientName = getFullestAvailableName(patient);
+  const appointmentDate = appointment.start
+    ? DateTime.fromISO(appointment.start, { setZone: true }).toFormat('yyyy-MM-dd')
+    : 'unknown-date';
+
+  const task: Task = {
+    ...getTaskResource(
+      TaskIndicator.sendPatientStatementByMail,
+      `Send statement by mail for ${patientName} visit on ${appointmentDate}`,
+      appointmentId,
+      validatedInput.encounterId
+    ),
+    for: {
+      reference: patientReference,
+    },
+    input: createTaskInput(validatedInput.statementType, validatedInput.color),
+  };
+
+  const createdTask = await oystehr.fhir.create<Task>(task);
+
+  return {
+    statusCode: 200,
+    body: JSON.stringify({
+      taskId: createdTask.id,
+      taskReference: `Task/${createdTask.id}`,
+    }),
+  };
 });

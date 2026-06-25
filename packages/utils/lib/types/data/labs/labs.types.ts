@@ -2,7 +2,6 @@
 import {
   Communication,
   Coverage,
-  DocumentReference,
   Encounter,
   Location,
   Organization,
@@ -11,7 +10,11 @@ import {
   QuestionnaireResponseItem,
   Reference,
 } from 'fhir/r4b';
-import { CPTCodeOption, DiagnosisDTO, LAB_DR_TYPE_TAG, Pagination } from '../..';
+import { DateTime } from 'luxon';
+import { z } from 'zod';
+import { CPTCodeOption, DiagnosisDTO, LAB_DR_TYPE_TAG, LabelConfig, Pagination } from '../..';
+import { LabelPdf } from '../printing';
+import { ExternalLabSetDTO, LabSetDTO } from './lab-set.schema';
 
 // todo labs team - we should do some assessing of all our type files, our types feel a bit unorganized and as a result i think we have some redundancy
 export interface OrderableItemSearchResult {
@@ -30,22 +33,6 @@ export interface InHouseLabListItem {
   activityDefinitionId: string;
 }
 
-export interface ExternalLabListDTO {
-  listId: string;
-  listName: string;
-  listType: LabType.external;
-  labs: ExternalLabListItem[];
-}
-
-export interface InHouseLabListDTO {
-  listId: string;
-  listName: string;
-  listType: LabType.inHouse;
-  labs: InHouseLabListItem[];
-}
-
-export type LabListsDTO = ExternalLabListDTO | InHouseLabListDTO;
-
 export interface sampleDTO {
   specimen: { id: string; collectionDate?: string }; // collectionDate exists after order is submitted
   definition: OrderableItemSpecimen;
@@ -53,11 +40,11 @@ export interface sampleDTO {
 
 // todo: maybe rename to OrderableItemSpecimenDefinition to fit the FHIR terms
 export interface OrderableItemSpecimen {
-  container: string;
-  volume: string;
-  minimumVolume: string;
-  storageRequirements: string;
-  collectionInstructions: string;
+  container: string | null;
+  volume: string | null;
+  minimumVolume: string | null;
+  storageRequirements: string | null;
+  collectionInstructions: string | null;
 }
 
 export interface OrderableItemComponent {
@@ -71,7 +58,7 @@ export interface OrderableItemComponent {
 
 export interface OrderableItemCptCode {
   cptCode: string;
-  serviceUnitsCount: number;
+  serviceUnitsCount: number | null;
 }
 
 export interface OrderableItem {
@@ -83,7 +70,7 @@ export interface OrderableItem {
   specimens: OrderableItemSpecimen[];
   components: OrderableItemComponent[];
   cptCodes: OrderableItemCptCode[];
-  aoe: Questionnaire;
+  aoe: Questionnaire | null;
 }
 
 export interface OrderableItemLab {
@@ -147,7 +134,8 @@ export type QuestionnaireData = {
 // todo maybe to improve - why do we have diagnosesDTO & diagnoses
 export type LabOrderListPageDTO = {
   serviceRequestId: string; // ServiceRequest.id
-  testItem: string; // ServiceRequest.contained[0](ActivityDefinition).title
+  testItem: string; // ServiceRequest.contained[0](ActivityDefinition).coding.display
+  testItemCode: string; // ServiceRequest.contained[0](ActivityDefinition).coding.code
   fillerLab: string; // ServiceRequest.contained[0](ActivityDefinition).publisher
   orderAddedDate: string; // Task PST authoredOn
   orderSubmittedDate: string | undefined; // Prov.recorded where activity.coding === PROVENANCE_ACTIVITY_CODING_ENTITY.submit
@@ -176,6 +164,7 @@ export type LabOrderDetailedPageDTO = LabOrderListPageDTO & {
   questionnaire: QuestionnaireData[];
   samples: sampleDTO[];
   labelPdfUrl?: string; // will exist after test is marked ready
+  isGenericOrder: boolean;
 };
 
 export type UnsolicitedLabListPageDTO = {
@@ -207,6 +196,7 @@ export type DiagnosticReportLabDetailPageDTO = Omit<
   | 'location'
   | 'orderLevelNoteByUser'
   | 'clinicalInfoNoteByUser'
+  | 'isGenericOrder'
 >;
 
 export type DiagnosticReportDrivenResultDTO = DiagnosticReportLabDetailPageDTO & {
@@ -276,6 +266,14 @@ export enum LabType {
   unsolicited = 'unsolicited', // external but has less fhir resources available since it did not originate from ottehr
   reflex = 'reflex', // external but has less fhir resources available since it did not originate from ottehr
 }
+
+export const LabTypeDisplay: Record<LabType, string> = {
+  [LabType.external]: 'External',
+  [LabType.inHouse]: 'In-House',
+  [LabType.unsolicited]: 'Unsolicited',
+  [LabType.reflex]: 'Reflex',
+};
+
 /**
  * 'unsolicited', 'reflex'
  */
@@ -294,7 +292,7 @@ export type SubmitLabOrderInput = {
 
 export type SubmitLabOrderOutput = {
   orderPdfUrls: string[]; // if any abn was generated its presigned url will also be included
-  failedOrdersByOrderNumber?: string[];
+  failedOrdersByOrderNumber?: { [orderNumber: string]: string };
 };
 
 export type CreateLabCoverageInfo = { coverageName: string; coverageId: string; isPrimary: boolean };
@@ -317,7 +315,7 @@ type SelfPayResource = {
 };
 type WorkersCompResource = {
   type: LabPaymentMethod.WorkersComp;
-  coverage: Coverage;
+  coverageAndOrgs: CoverageOrgRank[];
 };
 export type PaymentResources = InsurancePaymentResource | ClientBillResource | SelfPayResource | WorkersCompResource;
 
@@ -327,11 +325,15 @@ export enum LabPaymentMethod {
   ClientBill = 'clientBill',
   WorkersComp = 'workersComp',
 }
-export type CreateLabPaymentMethod =
-  | LabPaymentMethod.Insurance
-  | LabPaymentMethod.SelfPay
-  | LabPaymentMethod.ClientBill
-  | LabPaymentMethod.WorkersComp;
+
+export const CreateLabPaymentMethodSchema = z.enum([
+  LabPaymentMethod.Insurance,
+  LabPaymentMethod.SelfPay,
+  LabPaymentMethod.ClientBill,
+  LabPaymentMethod.WorkersComp,
+]);
+
+export type CreateLabPaymentMethod = z.infer<typeof CreateLabPaymentMethodSchema>;
 
 export type CreateLabOrderParameters = {
   dx: DiagnosisDTO[];
@@ -350,7 +352,7 @@ export type GetCreateLabOrderResources = {
   encounterId?: string;
   search?: string;
   labOrgIdsString?: string;
-  selectedLabSet?: ExternalLabListDTO;
+  selectedLabSet?: ExternalLabSetDTO;
 };
 
 export type ModifiedOrderingLocation = {
@@ -359,6 +361,8 @@ export type ModifiedOrderingLocation = {
   enabledLabs: {
     accountNumber: string;
     labOrgRef: string;
+    labGuid?: string;
+    labName?: string;
   }[];
 };
 
@@ -372,7 +376,7 @@ export type LabOrderResourcesRes = {
   labs: OrderableItemSearchResult[];
   appointmentIsWorkersComp: boolean;
   cptCodesToAddPerEncounter?: CPTCodeOption[]; // does not apply to psc orders and only once per encounter
-  labSets: LabListsDTO[] | undefined;
+  labSets: LabSetDTO[] | undefined;
 } & ExternalLabOrderingLocations;
 
 export type PatientLabItem = {
@@ -449,15 +453,7 @@ export type DeleteLabOrderZambdaInput = {
 };
 
 export type DeleteLabOrderZambdaOutput = Record<string, never>;
-export interface LabelConfig {
-  heightInches: number;
-  widthInches: number;
-  marginTopInches: number;
-  marginBottomInches: number;
-  marginLeftInches: number;
-  marginRightInches: number;
-  printerDPI: number;
-}
+
 export interface GetLabelPdfParameters {
   contextRelatedReference: Reference;
   searchParams: { name: string; value: string }[];
@@ -483,11 +479,6 @@ export interface LabDocumentRelatedToDiagnosticReport extends LabDocumentBase {
 export interface LabDocumentRelatedToServiceRequest extends LabDocumentBase {
   type: LabDocumentType.abn | LabDocumentType.orderPdf;
   serviceRequestIds: string[]; // one order pdf doc ref to many service requests
-}
-export interface LabelPdf {
-  type: LabDocumentType.label;
-  documentReference: DocumentReference;
-  presignedURL: string;
 }
 
 export type LabDocument = LabDocumentRelatedToDiagnosticReport | LabDocumentRelatedToServiceRequest | LabelPdf;
@@ -610,3 +601,53 @@ export type LabsTableColumn =
   | 'status'
   | 'detail'
   | 'actions';
+
+export interface ExternalLabsLabelContent {
+  patientLastName: string;
+  patientFirstName: string;
+  patientId: string;
+  patientDateOfBirth: DateTime | undefined;
+  sampleCollectionDateAndTimezone: { sampleCollectionDate: DateTime; timezone: string | undefined } | undefined;
+  accountNumber: string; // this is the lab provided account number. Same one used to submit the order
+  orderNumber: string; // number generated by oystehr submit labs on order submit
+}
+
+export interface ExternalLabsLabelConfig {
+  labelConfig: LabelConfig;
+  content: ExternalLabsLabelContent;
+  type: 'external-lab';
+}
+// ADMIN GET LAB SET API TYPES
+export type AdminGetLabSetListOutput = {
+  labSetDTO: LabSetDTO[];
+};
+
+export type AdminGetLabSetDetailInput = {
+  labSetId: string;
+};
+export type AdminGetLabSetDetailOutput = {
+  labSetDTO: LabSetDTO;
+};
+
+// ADMIN ADD LAB SET API TYPES
+export type AdminAddLabSetInput = {
+  labSetFormInput: LabSetDTO;
+};
+export type AdminAddLabSetOutput = {
+  labSetId: string;
+};
+
+// ADMIN UPDATE LAB SET API TYPES
+export type AdminUpdateLabSetStatus = {
+  updateType: 'toggle-status';
+  data: {
+    labSetId: string;
+  };
+};
+
+export type AdminEditLabSet = {
+  updateType: 'edit';
+  data: LabSetDTO;
+};
+
+export type AdminUpdateLabSetInput = AdminEditLabSet | AdminUpdateLabSetStatus;

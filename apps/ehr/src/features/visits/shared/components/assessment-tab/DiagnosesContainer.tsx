@@ -1,6 +1,7 @@
 import { otherColors } from '@ehrTheme/colors';
+import { AddCircleOutline, InfoOutlined } from '@mui/icons-material';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
-import { Box, Button, CircularProgress, Typography } from '@mui/material';
+import { Box, Button, CircularProgress, IconButton, Tooltip, Typography } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import { FC } from 'react';
 import { ActionsList } from 'src/components/ActionsList';
@@ -13,7 +14,7 @@ import { APIErrorCode, DIAGNOSIS_MAKE_PRIMARY_BUTTON, DiagnosisDTO, IcdSearchRes
 import { useGetAppointmentAccessibility } from '../../hooks/useGetAppointmentAccessibility';
 import { useICD10SearchNew } from '../../stores/appointment/appointment.queries';
 import { useChartData, useDeleteChartData, useSaveChartData } from '../../stores/appointment/appointment.store';
-import { useAppFlags } from '../../stores/contexts/useAppFlags';
+import { AiSectionContainer } from '../AiSection';
 import { DiagnosesField } from './DiagnosesField';
 
 const getUpdatedDiagnoses = (
@@ -34,6 +35,10 @@ export const useAddDiagnosis = (): { onAdd: (value: IcdSearchResponse['codes'][n
   const primaryDiagnosis = diagnoses.find((item) => item.isPrimary);
 
   const onAdd = (value: IcdSearchResponse['codes'][number]): void => {
+    if (diagnoses.some((d) => d.code === value.code)) {
+      enqueueSnackbar(`This diagnosis code "${value.display}" has already been added.`, { variant: 'warning' });
+      return;
+    }
     const preparedValue = { ...value, isPrimary: !primaryDiagnosis };
     const newDiagnoses = [...diagnoses, preparedValue];
     const previousDiagnoses = [...diagnoses];
@@ -65,7 +70,12 @@ export const useAddDiagnosis = (): { onAdd: (value: IcdSearchResponse['codes'][n
   return { onAdd };
 };
 
-export const DiagnosesContainer: FC = () => {
+interface DiagnosesContainerProps {
+  aiSuggestedDiagnoses?: { code: string; description: string; reason: string }[];
+  aiSuggestionsLoading?: boolean;
+}
+
+export const DiagnosesContainer: FC<DiagnosesContainerProps> = ({ aiSuggestedDiagnoses, aiSuggestionsLoading }) => {
   const { chartData, setPartialChartData } = useChartData();
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
   const { mutate: saveChartData, isPending: isSaveLoading } = useSaveChartData();
@@ -81,7 +91,6 @@ export const DiagnosesContainer: FC = () => {
   const otherDiagnoses = diagnoses.filter((item) => !item.isPrimary);
 
   const { onAdd } = useAddDiagnosis();
-  const { isInPerson } = useAppFlags();
 
   const onDelete = async (resourceId: string): Promise<void> => {
     const preparedValue = diagnoses.find((item) => item.resourceId === resourceId)!;
@@ -208,7 +217,7 @@ export const DiagnosesContainer: FC = () => {
       data-testid={dataTestIds.diagnosisContainer.allDiagnosesContainer}
     >
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-        <AssessmentTitle>{isInPerson ? 'Dx' : 'Diagnoses'}</AssessmentTitle>
+        <AssessmentTitle>Dx</AssessmentTitle>
         {!isReadOnly && <DiagnosesField onChange={onAdd} disabled={isLoading} disableForPrimary={!primaryDiagnosis} />}
       </Box>
 
@@ -242,7 +251,10 @@ export const DiagnosesContainer: FC = () => {
       )}
 
       {otherDiagnoses.length > 0 && (
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+        <Box
+          sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}
+          data-testid={dataTestIds.diagnosisContainer.secondaryDiagnosisContainer}
+        >
           <AssessmentTitle>Secondary (optional)</AssessmentTitle>
           <ActionsList
             data={otherDiagnoses}
@@ -280,6 +292,45 @@ export const DiagnosesContainer: FC = () => {
           />
         </Box>
       )}
+
+      <AiSectionContainer isLoading={aiSuggestionsLoading}>
+        {!aiSuggestionsLoading && aiSuggestedDiagnoses && aiSuggestedDiagnoses.length > 0 && (
+          <ActionsList
+            data={aiSuggestedDiagnoses}
+            getKey={(value) => value.code}
+            renderItem={(value) => (
+              <Typography>
+                {value.description} {value.code}
+              </Typography>
+            )}
+            renderActions={
+              isReadOnly
+                ? undefined
+                : (value) => (
+                    <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                      <Tooltip title={value.reason}>
+                        <IconButton size="small">
+                          <InfoOutlined sx={{ fontSize: '17px' }} />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="Add diagnosis">
+                        <IconButton
+                          size="small"
+                          onClick={() => onAdd({ code: value.code, display: value.description })}
+                        >
+                          <AddCircleOutline sx={{ fontSize: '17px' }} />
+                        </IconButton>
+                      </Tooltip>
+                    </Box>
+                  )
+            }
+            divider
+          />
+        )}
+        {!aiSuggestionsLoading && (!aiSuggestedDiagnoses || aiSuggestedDiagnoses.length === 0) && (
+          <Typography color="secondary.light">No suggestions</Typography>
+        )}
+      </AiSectionContainer>
     </Box>
   );
 };

@@ -12,6 +12,7 @@ import { useMedicationAPI } from './useMedicationOperations';
 
 export const useMedicationManagement = (): {
   medications: ExtendedMedicationDataForResponse[];
+  isLoading: boolean;
   getMedicationById: (id: string) => ExtendedMedicationDataForResponse | undefined;
   getAvailableStatuses: (currentStatus?: MedicationOrderStatusesType) => MedicationOrderStatusesType[];
   isValidStatusTransition: (
@@ -35,7 +36,7 @@ export const useMedicationManagement = (): {
   deleteMedication: (idToDelete: string) => Promise<void>;
   getIsMedicationEditable: (type: MedicationOrderType, medication?: ExtendedMedicationDataForResponse) => boolean;
 } => {
-  const { medications, loadMedications, updateMedication, deleteMedication } = useMedicationAPI();
+  const { medications, isLoading, loadMedications, updateMedication, deleteMedication } = useMedicationAPI();
   const getMedicationById = useCallback((id: string) => medications?.find((med) => med.id === id), [medications]);
 
   const getIsMedicationEditable = (
@@ -47,6 +48,7 @@ export const useMedicationManagement = (): {
       'order-edit': medication?.status === 'pending',
       dispense: medication?.status === 'pending',
       'dispense-not-administered': medication?.status === 'pending',
+      'completed-edit': true,
     }[type];
   };
 
@@ -108,6 +110,7 @@ export const useMedicationManagement = (): {
 
   return {
     medications,
+    isLoading,
     getMedicationById,
     updateMedication,
     deleteMedication,

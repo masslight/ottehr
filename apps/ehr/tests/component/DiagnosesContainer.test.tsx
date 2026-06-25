@@ -49,10 +49,6 @@ vi.mock('../../src/features/visits/shared/stores/appointment/appointment.queries
   })),
 }));
 
-vi.mock('../../src/features/visits/shared/stores/contexts/useAppFlags', () => ({
-  useAppFlags: vi.fn(() => ({ isInPerson: false })),
-}));
-
 const mockEnqueueSnackbar = vi.fn();
 vi.mock('notistack', () => ({
   enqueueSnackbar: (...args: any[]) => mockEnqueueSnackbar(...args),
@@ -169,13 +165,10 @@ describe('DiagnosesContainer', () => {
     it('should render diagnoses title', () => {
       render(<DiagnosesContainer />, { wrapper: createWrapper() });
 
-      expect(screen.getByText('Diagnoses')).toBeInTheDocument();
+      expect(screen.getByText('Dx')).toBeInTheDocument();
     });
 
     it('should show "Dx" title in person mode', async () => {
-      const { useAppFlags } = await import('../../src/features/visits/shared/stores/contexts/useAppFlags');
-      vi.mocked(useAppFlags).mockReturnValue({ isInPerson: true } as any);
-
       render(<DiagnosesContainer />, { wrapper: createWrapper() });
 
       expect(screen.getByText('Dx')).toBeInTheDocument();
@@ -236,7 +229,7 @@ describe('DiagnosesContainer', () => {
       render(<DiagnosesContainer />, { wrapper: createWrapper() });
 
       // Should have info icon for lab order
-      expect(screen.getByTestId('InfoOutlinedIcon')).toBeInTheDocument();
+      expect(screen.getByLabelText('Added during lab order')).toBeInTheDocument();
     });
   });
 

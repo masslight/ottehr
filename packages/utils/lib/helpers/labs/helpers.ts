@@ -3,21 +3,34 @@ import {
   Coverage,
   DiagnosticReport,
   DocumentReference,
+  Identifier,
+  List,
   Location,
   Organization,
+  Patient,
   ServiceRequest,
 } from 'fhir/r4b';
+import { DateTime } from 'luxon';
+import { getPatientFirstName, getPatientFriendlyId, getPatientLastName } from '../../fhir';
 import {
   CreateLabPaymentMethod,
   DEFAULT_OYSTEHR_LABS_HL7_SYSTEM,
-  EXTERNAL_LAB_LABEL_DOC_REF_DOCTYPE,
+  DYMO_30334_LABEL_CONFIG,
+  EXTERNAL_LAB_ERROR,
+  EXTERNAL_LAB_LABEL_PDF_DOC_REF_DOCTYPE,
+  ExternalLabsLabelConfig,
   LAB_ACCOUNT_NUMBER_SYSTEM,
   LAB_CLIENT_BILL_COVERAGE_TYPE_CODING,
   LAB_DOC_REF_TAG_hl7_TRANSMISSION,
+  LAB_LIST_CODE_CODING,
+  LAB_LIST_CODING_SYSTEM,
   LAB_ORDER_DOC_REF_CODING_CODE,
+  LAB_ORDER_WITH_FRIENDLY_PATIENT_ID_DETAIL,
   LAB_RESULT_DOC_REF_CODING_CODE,
   LabPaymentMethod,
+  LabSetStatus,
   LabsTableColumn,
+  LabType,
   MANUAL_EXTERNAL_LAB_ORDER_CATEGORY_CODING,
   ORDER_NUMBER_LEN,
   OYSTEHR_ABN_DOC_CATEGORY_CODING,
@@ -27,12 +40,18 @@ import {
   OYSTEHR_LABS_ADDITIONAL_PLACER_ID_SYSTEM,
   PSC_HOLD_CONFIG,
 } from '../../types';
+import { isInHouseLabServiceRequest } from '../in-house-labs';
 
-export const nameLabTest = (testName: string | undefined, labName: string | undefined, isReflex: boolean): string => {
+export const nameLabTest = (
+  testName: string | undefined,
+  itemCode: string | undefined,
+  labName: string | undefined,
+  isReflex: boolean
+): string => {
   if (isReflex) {
-    return `${testName} (reflex)`;
+    return `${itemCode ? `(${itemCode}) ` : ''}${testName} (reflex)`;
   } else {
-    return `${testName} / ${labName}`;
+    return `${itemCode ? `(${itemCode}) ` : ''}${testName} / ${labName}`;
   }
 };
 
@@ -76,10 +95,18 @@ export function getOrderNumberFromDr(dr: DiagnosticReport): string | undefined {
   return dr.identifier?.find((id) => id.system === OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM)?.value;
 }
 
+const locationIdentifierIsLabsEnabled = (id: Identifier): boolean => {
+  return id.system === LAB_ACCOUNT_NUMBER_SYSTEM && !!id.value && !!id.assigner?.reference;
+};
+
+export const locationIsEnabledForLabs = (location: Location): boolean => {
+  return !!location.identifier?.some((id) => locationIdentifierIsLabsEnabled(id));
+};
+
 export function getAccountNumberFromLocationAndOrganization(location: Location, org: Organization): string | undefined {
   console.log(`Getting account number from location and org. Location/${location.id} and Organization/${org.id}`);
   const accountNumberFromLocation = location.identifier?.find(
-    (id) => id.system === LAB_ACCOUNT_NUMBER_SYSTEM && id.assigner?.reference === `Organization/${org.id}` && id.value
+    (id) => locationIdentifierIsLabsEnabled(id) && id.assigner?.reference === `Organization/${org.id}`
   )?.value;
   if (accountNumberFromLocation) {
     console.log(`Found account number from location. Account number is ${accountNumberFromLocation}`);
@@ -173,24 +200,29 @@ export function createOrderNumber(length = ORDER_NUMBER_LEN): string {
   return result;
 }
 
-export const parseLabInfoFromServiceRequest = (
-  serviceRequest: ServiceRequest
-): { testItem: string; fillerLab: string } => {
-  const activityDefinition = serviceRequest.contained?.find(
-    (resource) => resource.resourceType === 'ActivityDefinition'
-  ) as ActivityDefinition | undefined;
-
-  if (!activityDefinition) {
-    return {
-      testItem: 'Unknown Test',
-      fillerLab: 'Unknown Lab',
-    };
-  }
+export const getTestDetailsFromActivityDefinition = (
+  activityDef: ActivityDefinition | undefined
+): { testName: string; testItemCode: string; fillerLab: string } => {
+  const testCoding = activityDef?.code?.coding?.find((c) => c.system === OYSTEHR_LAB_OI_CODE_SYSTEM);
+  const testName = testCoding?.display ?? 'Unknown Test';
+  const testItemCode = testCoding?.code ?? 'Unknown Code';
+  const fillerLab = activityDef?.publisher ?? 'Unknown Lab';
 
   return {
-    testItem: activityDefinition.title || 'Unknown Test',
-    fillerLab: activityDefinition.publisher || 'Unknown Lab',
+    testName,
+    testItemCode,
+    fillerLab,
   };
+};
+
+export const parseLabInfoFromServiceRequest = (
+  serviceRequest: ServiceRequest
+): { testName: string; fillerLab: string; testItemCode: string } => {
+  const activityDefinition = serviceRequest.contained?.find(
+    (resource): resource is ActivityDefinition => resource.resourceType === 'ActivityDefinition'
+  );
+
+  return getTestDetailsFromActivityDefinition(activityDefinition);
 };
 
 export const getTestNameFromDr = (dr: DiagnosticReport): string | undefined => {
@@ -294,7 +326,8 @@ export const docRefIsLabelPDFAndCurrent = (docRef: DocumentReference): boolean =
   const isCurrent = docRef.status === 'current';
   const isLabelPdf = !!docRef.type?.coding?.find(
     (code) =>
-      code.system === EXTERNAL_LAB_LABEL_DOC_REF_DOCTYPE.system && code.code === EXTERNAL_LAB_LABEL_DOC_REF_DOCTYPE.code
+      code.system === EXTERNAL_LAB_LABEL_PDF_DOC_REF_DOCTYPE.system &&
+      code.code === EXTERNAL_LAB_LABEL_PDF_DOC_REF_DOCTYPE.code
   );
   return isCurrent && isLabelPdf;
 };
@@ -317,4 +350,109 @@ export const docRefIsOttehrGeneratedResultAndCurrent = (docRef: DocumentReferenc
     (c) => c.system === LAB_RESULT_DOC_REF_CODING_CODE.system && c.code === LAB_RESULT_DOC_REF_CODING_CODE.code
   );
   return isCurrent && isResult;
+};
+
+export const getLabListType = (list: List): LabType.external | LabType.inHouse | undefined => {
+  const code = list.code?.coding?.find((c) => c.system === LAB_LIST_CODING_SYSTEM)?.code;
+  if (!code) return;
+
+  switch (code) {
+    case LAB_LIST_CODE_CODING.external.code:
+      return LabType.external;
+    case LAB_LIST_CODE_CODING.inHouse.code:
+      return LabType.inHouse;
+    default:
+      return;
+  }
+};
+
+export const getLabListStatus = (list: List): LabSetStatus => {
+  if (list.status === 'current') {
+    return LabSetStatus.active;
+  } else {
+    return LabSetStatus.inactive;
+  }
+};
+
+export const makeExternalLabLabelConfig = ({
+  patient,
+  orderNumber,
+  location,
+  labOrganization,
+  specimenCollectionDateTime,
+  userTimezone,
+  serviceRequest,
+}: {
+  patient: Patient;
+  orderNumber: string;
+  location: Location | undefined;
+  labOrganization: Organization;
+  specimenCollectionDateTime: DateTime | undefined;
+  userTimezone: string;
+  serviceRequest: ServiceRequest;
+}): ExternalLabsLabelConfig => {
+  const labelConfig: ExternalLabsLabelConfig = {
+    labelConfig: DYMO_30334_LABEL_CONFIG,
+    content: {
+      patientId: getPatientIdForLabOrder(serviceRequest, patient),
+      patientFirstName: getPatientFirstName(patient) ?? '',
+      patientLastName: getPatientLastName(patient) ?? '',
+      patientDateOfBirth: patient.birthDate ? DateTime.fromISO(patient.birthDate) : undefined,
+      sampleCollectionDateAndTimezone: specimenCollectionDateTime
+        ? {
+            sampleCollectionDate: specimenCollectionDateTime,
+            timezone: userTimezone,
+          }
+        : undefined,
+      orderNumber: orderNumber,
+      accountNumber:
+        (labOrganization && location && getAccountNumberFromLocationAndOrganization(location, labOrganization)) || '',
+    },
+    type: 'external-lab',
+  };
+
+  console.log('External labs label config is:', JSON.stringify(labelConfig));
+  return labelConfig;
+};
+
+export const isExternalLabServiceRequest = (resource: ServiceRequest): boolean => {
+  return !!resource.code?.coding?.find((c) => c.system === OYSTEHR_LAB_OI_CODE_SYSTEM);
+};
+
+export const externalLabOrderUsesFriendlyPatientId = (sr: ServiceRequest): boolean => {
+  return (
+    isExternalLabServiceRequest(sr) &&
+    (sr.orderDetail?.some(
+      (detail) =>
+        detail.coding?.some(
+          (coding) =>
+            coding.system === LAB_ORDER_WITH_FRIENDLY_PATIENT_ID_DETAIL.system &&
+            coding.code === LAB_ORDER_WITH_FRIENDLY_PATIENT_ID_DETAIL.code
+        )
+    ) ??
+      false)
+  );
+};
+
+/**
+ * This is not for unsolicited orders that do not have a matched ServiceRequest.
+ */
+export const getPatientIdForLabOrder = (serviceRequest: ServiceRequest, patient: Patient): string => {
+  if (!patient.id) throw EXTERNAL_LAB_ERROR('Cannot determine patient id from Patient resource');
+  const friendlyPatientId = getPatientFriendlyId(patient);
+
+  if (isExternalLabServiceRequest(serviceRequest)) {
+    const shouldUseFriendlyPatientId = externalLabOrderUsesFriendlyPatientId(serviceRequest);
+    if (shouldUseFriendlyPatientId && !friendlyPatientId) {
+      throw EXTERNAL_LAB_ERROR(
+        `ServiceRequest/${serviceRequest.id} order should use friendly patient id, but no friendly id found on patient`
+      );
+    }
+
+    return shouldUseFriendlyPatientId ? friendlyPatientId : patient.id;
+  } else if (isInHouseLabServiceRequest(serviceRequest)) {
+    return friendlyPatientId || patient.id;
+  } else {
+    return patient.id;
+  }
 };

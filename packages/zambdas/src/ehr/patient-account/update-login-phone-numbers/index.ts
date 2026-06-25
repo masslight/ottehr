@@ -4,19 +4,17 @@ import { Person, RelatedPerson } from 'fhir/r4b';
 import {
   createUserResourcesForPatient,
   getCoding,
-  getSecret,
   INVALID_INPUT_ERROR,
   INVALID_RESOURCE_ID_ERROR,
   isValidUUID,
   PRIVATE_EXTENSION_BASE_URL,
   Secrets,
-  SecretsKeys,
   UpdatePatientLoginPhoneNumbersInput,
 } from 'utils';
 import {
   checkOrCreateM2MClientToken,
-  createOystehrClient,
-  topLevelCatch,
+  createClinicalOystehrClient,
+  reportMissingUserRelatedPerson,
   validateJsonBody,
   wrapHandler,
   ZambdaInput,
@@ -32,20 +30,14 @@ interface Input extends UpdatePatientLoginPhoneNumbersInput {
 }
 
 export const index = wrapHandler(ZAMBDA_NAME, async (zambdaInput: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  try {
-    const input = validateRequestParameters(zambdaInput);
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, input.secrets);
-    const oystehr = createOystehrClient(m2mToken, input.secrets);
-    await updateLoginPhoneNumbers(input, oystehr);
-    return {
-      statusCode: 200,
-      body: JSON.stringify({ result: 'success' }),
-    };
-  } catch (error: any) {
-    console.log('Error: ', JSON.stringify(error.message));
-    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, zambdaInput.secrets);
-    return topLevelCatch(ZAMBDA_NAME, error, ENVIRONMENT);
-  }
+  const input = validateRequestParameters(zambdaInput);
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, input.secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, input.secrets);
+  await updateLoginPhoneNumbers(input, oystehr);
+  return {
+    statusCode: 200,
+    body: JSON.stringify({ result: 'success' }),
+  };
 });
 
 const updateLoginPhoneNumbers = async (input: Input, oystehr: Oystehr): Promise<void> => {
@@ -62,12 +54,15 @@ const updateLoginPhoneNumbers = async (input: Input, oystehr: Oystehr): Promise<
       (rp) => getCoding(rp.relationship, `${PRIVATE_EXTENSION_BASE_URL}/relationship`)?.code === 'user-relatedperson'
     );
 
-  const persons = (
-    await oystehr.fhir.search<Person>({
-      resourceType: 'Person',
-      params: [{ name: 'relatedperson', value: relatedPersons.map((r) => r.id!).join(',') }],
-    })
-  ).unbundle();
+  const relatedPersonIds = relatedPersons.map((r) => r.id).filter((id): id is string => !!id);
+  const persons = relatedPersonIds.length
+    ? (
+        await oystehr.fhir.search<Person>({
+          resourceType: 'Person',
+          params: [{ name: 'relatedperson', value: relatedPersonIds.join(',') }],
+        })
+      ).unbundle()
+    : [];
 
   const phoneMap = new Map<string, { person: Person; relatedPerson: RelatedPerson }>();
 
@@ -88,6 +83,19 @@ const updateLoginPhoneNumbers = async (input: Input, oystehr: Oystehr): Promise<
   const phonesToRemove = currentPhones.filter((p) => !desiredPhones.includes(p));
   const phonesToAdd = desiredPhones.filter((p) => !currentPhones.includes(p));
 
+  // Invariant: every Patient must keep at least one user-relatedperson. Refuse the operation if the
+  // caller's desired end-state would leave zero. `validateRequestParameters` already rejects an empty
+  // `phoneNumbers` input, so this is defense in depth against future callers.
+  const remainingAfterOps = currentPhones.length - phonesToRemove.length + phonesToAdd.length;
+  if (remainingAfterOps <= 0) {
+    throw INVALID_INPUT_ERROR('Patient must keep at least one login phone number');
+  }
+
+  // Do additions before removals so a mid-operation failure never leaves the patient with zero RPs.
+  for (const phone of phonesToAdd) {
+    await createUserResourcesForPatient(oystehr, input.patientId, phone);
+  }
+
   for (const phone of phonesToRemove) {
     const entry = phoneMap.get(phone);
     if (!entry) continue;
@@ -107,8 +115,21 @@ const updateLoginPhoneNumbers = async (input: Input, oystehr: Oystehr): Promise<
     });
   }
 
-  for (const phone of phonesToAdd) {
-    await createUserResourcesForPatient(oystehr, input.patientId, phone);
+  // Post-op verification: re-query to confirm the invariant held through the writes.
+  const finalRelatedPersons = (
+    await oystehr.fhir.search<RelatedPerson>({
+      resourceType: 'RelatedPerson',
+      params: [{ name: 'patient', value: patientRef }],
+    })
+  )
+    .unbundle()
+    .filter(
+      (rp) => getCoding(rp.relationship, `${PRIVATE_EXTENSION_BASE_URL}/relationship`)?.code === 'user-relatedperson'
+    );
+
+  if (!finalRelatedPersons.length) {
+    reportMissingUserRelatedPerson('update-login-phone-numbers:post-op', input.patientId);
+    throw new Error(`Invariant violation: patient ${input.patientId} has no user-relatedperson after update`);
   }
 
   console.log('[UpdateLoginPhones] Completed successfully');

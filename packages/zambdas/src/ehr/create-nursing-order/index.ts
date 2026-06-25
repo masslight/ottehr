@@ -17,17 +17,14 @@ import {
   CreateNursingOrderInputValidated,
   getAttendingPractitionerId,
   getFullestAvailableName,
-  getSecret,
   NURSING_ORDER_PROVENANCE_ACTIVITY_CODING_ENTITY,
   PATIENT_BILLING_ACCOUNT_TYPE,
-  SecretsKeys,
 } from 'utils';
 import {
   checkOrCreateM2MClientToken,
-  createOystehrClient,
+  createClinicalOystehrClient,
   fillMeta,
   getMyPractitionerId,
-  topLevelCatch,
   wrapHandler,
   ZambdaInput,
 } from '../../shared';
@@ -52,213 +49,207 @@ export const index = wrapHandler('create-nursing-order', async (input: ZambdaInp
     };
   }
 
-  try {
-    const { userToken, secrets, encounterId, notes } = validatedParameters;
+  const { userToken, secrets, encounterId, notes } = validatedParameters;
 
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
-    const encounterResourcesRequest = async (): Promise<(Encounter | Patient | Location | Coverage | Account)[]> =>
-      (
-        await oystehr.fhir.search({
-          resourceType: 'Encounter',
-          params: [
-            {
-              name: '_id',
-              value: encounterId,
-            },
-            {
-              name: '_include',
-              value: 'Encounter:patient',
-            },
-            {
-              name: '_include',
-              value: 'Encounter:location',
-            },
-            {
-              name: '_revinclude:iterate',
-              value: 'Coverage:patient',
-            },
-            {
-              name: '_revinclude:iterate',
-              value: 'Account:patient',
-            },
-          ],
-        })
-      ).unbundle() as (Encounter | Patient | Location | Coverage | Account)[];
-
-    const userPractitionerIdRequest = async (): Promise<string> => {
-      try {
-        const oystehrCurrentUser = createOystehrClient(userToken, secrets);
-        return await getMyPractitionerId(oystehrCurrentUser);
-      } catch {
-        throw Error('Resource configuration error - user creating this order must have a Practitioner resource linked');
-      }
-    };
-
-    const [encounterResources, userPractitionerId] = await Promise.all([
-      encounterResourcesRequest(),
-      userPractitionerIdRequest(),
-    ]);
-
-    const {
-      encounterSearchResults,
-      coverageSearchResults,
-      accountSearchResults,
-      patientsSearchResults,
-      locationsSearchResults,
-    } = encounterResources.reduce(
-      (acc, resource) => {
-        if (resource.resourceType === 'Encounter') acc.encounterSearchResults.push(resource as Encounter);
-        if (resource.resourceType === 'Patient') acc.patientsSearchResults.push(resource as Patient);
-        if (resource.resourceType === 'Location') acc.locationsSearchResults.push(resource as Location);
-
-        if (resource.resourceType === 'Coverage' && resource.status === 'active')
-          acc.coverageSearchResults.push(resource as Coverage);
-
-        if (
-          resource.resourceType === 'Account' &&
-          resource.status === 'active' &&
-          resource.type?.coding?.some(
-            (coding) =>
-              coding.code === PATIENT_BILLING_ACCOUNT_TYPE?.coding?.[0].code &&
-              coding.system === PATIENT_BILLING_ACCOUNT_TYPE?.coding?.[0].system
-          )
-        )
-          acc.accountSearchResults.push(resource as Account);
-
-        return acc;
-      },
-      {
-        encounterSearchResults: [] as Encounter[],
-        patientsSearchResults: [] as Patient[],
-        coverageSearchResults: [] as Coverage[],
-        accountSearchResults: [] as Account[],
-        locationsSearchResults: [] as Location[],
-      }
-    );
-
-    const encounter = (() => {
-      const targetEncounter = encounterSearchResults.find((encounter) => encounter.id === encounterId);
-      if (!targetEncounter) throw Error('Encounter not found');
-      return targetEncounter;
-    })();
-
-    const patient = (() => {
-      if (patientsSearchResults.length !== 1) {
-        throw Error(`Patient not found, results contain ${patientsSearchResults.length} patients`);
-      }
-      return patientsSearchResults[0];
-    })();
-
-    const account = (() => {
-      if (accountSearchResults.length !== 1) {
-        throw Error(`Account not found, results contain ${accountSearchResults.length} accounts`);
-      }
-      return accountSearchResults[0];
-    })();
-
-    const attendingPractitionerId = (() => {
-      const practitionerId = getAttendingPractitionerId(encounter);
-
-      if (!practitionerId) throw Error('Attending practitioner not found');
-      return practitionerId;
-    })();
-
-    const coverage = getPrimaryInsurance(account, coverageSearchResults);
-
-    const location: Location | undefined = locationsSearchResults[0];
-
-    const serviceRequestFullUrl = `urn:uuid:${randomUUID()}`;
-
-    const serviceRequestConfig: ServiceRequest = {
-      resourceType: 'ServiceRequest',
-      status: 'draft',
-      intent: 'order',
-      subject: {
-        reference: `Patient/${patient.id}`,
-      },
-      encounter: {
-        reference: `Encounter/${encounterId}`,
-      },
-      requester: {
-        reference: `Practitioner/${attendingPractitionerId}`,
-      },
-      authoredOn: DateTime.now().toISO() || undefined,
-      priority: 'stat',
-      ...(location && {
-        locationReference: [
+  const encounterResourcesRequest = async (): Promise<(Encounter | Patient | Location | Coverage | Account)[]> =>
+    (
+      await oystehr.fhir.search({
+        resourceType: 'Encounter',
+        params: [
           {
-            type: 'Location',
-            reference: `Location/${location.id}`,
+            name: '_id',
+            value: encounterId,
+          },
+          {
+            name: '_include',
+            value: 'Encounter:patient',
+          },
+          {
+            name: '_include',
+            value: 'Encounter:location',
+          },
+          {
+            name: '_revinclude:iterate',
+            value: 'Coverage:patient',
+          },
+          {
+            name: '_revinclude:iterate',
+            value: 'Account:patient',
           },
         ],
-      }),
-      meta: fillMeta('nursing order', 'order-type-tag'),
-      ...(notes && { note: [{ text: notes }] }),
-      ...(coverage && { insurance: [{ reference: `Coverage/${coverage.id}` }] }),
-    };
+      })
+    ).unbundle() as (Encounter | Patient | Location | Coverage | Account)[];
 
-    const taskConfig: Task = {
-      resourceType: 'Task',
-      status: 'requested',
-      description: `Create nursing order for ${getFullestAvailableName(patient)}`,
-      basedOn: [{ reference: serviceRequestFullUrl }],
-      encounter: { reference: `Encounter/${encounterId}` },
-      authoredOn: DateTime.now().toISO(),
-      intent: 'order',
-      ...(location && { location: { reference: `Location/${location.id}` } }),
-    };
+  const userPractitionerIdRequest = async (): Promise<string> => {
+    try {
+      return await getMyPractitionerId(userToken, secrets);
+    } catch {
+      throw Error('Resource configuration error - user creating this order must have a Practitioner resource linked');
+    }
+  };
 
-    const provenanceConfig: Provenance = {
-      resourceType: 'Provenance',
-      activity: {
-        coding: [NURSING_ORDER_PROVENANCE_ACTIVITY_CODING_ENTITY.createOrder],
-      },
-      target: [{ reference: serviceRequestFullUrl }],
-      ...(location && { location: { reference: `Location/${location.id}` } }),
-      recorded: DateTime.now().toISO(),
-      agent: [
+  const [encounterResources, userPractitionerId] = await Promise.all([
+    encounterResourcesRequest(),
+    userPractitionerIdRequest(),
+  ]);
+
+  const {
+    encounterSearchResults,
+    coverageSearchResults,
+    accountSearchResults,
+    patientsSearchResults,
+    locationsSearchResults,
+  } = encounterResources.reduce(
+    (acc, resource) => {
+      if (resource.resourceType === 'Encounter') acc.encounterSearchResults.push(resource as Encounter);
+      if (resource.resourceType === 'Patient') acc.patientsSearchResults.push(resource as Patient);
+      if (resource.resourceType === 'Location') acc.locationsSearchResults.push(resource as Location);
+
+      if (resource.resourceType === 'Coverage' && resource.status === 'active')
+        acc.coverageSearchResults.push(resource as Coverage);
+
+      if (
+        resource.resourceType === 'Account' &&
+        resource.status === 'active' &&
+        resource.type?.coding?.some(
+          (coding) =>
+            coding.code === PATIENT_BILLING_ACCOUNT_TYPE?.coding?.[0].code &&
+            coding.system === PATIENT_BILLING_ACCOUNT_TYPE?.coding?.[0].system
+        )
+      )
+        acc.accountSearchResults.push(resource as Account);
+
+      return acc;
+    },
+    {
+      encounterSearchResults: [] as Encounter[],
+      patientsSearchResults: [] as Patient[],
+      coverageSearchResults: [] as Coverage[],
+      accountSearchResults: [] as Account[],
+      locationsSearchResults: [] as Location[],
+    }
+  );
+
+  const encounter = (() => {
+    const targetEncounter = encounterSearchResults.find((encounter) => encounter.id === encounterId);
+    if (!targetEncounter) throw Error('Encounter not found');
+    return targetEncounter;
+  })();
+
+  const patient = (() => {
+    if (patientsSearchResults.length !== 1) {
+      throw Error(`Patient not found, results contain ${patientsSearchResults.length} patients`);
+    }
+    return patientsSearchResults[0];
+  })();
+
+  const account = (() => {
+    if (accountSearchResults.length !== 1) {
+      throw Error(`Account not found, results contain ${accountSearchResults.length} accounts`);
+    }
+    return accountSearchResults[0];
+  })();
+
+  const attendingPractitionerId = (() => {
+    const practitionerId = getAttendingPractitionerId(encounter);
+
+    if (!practitionerId) throw Error('Attending practitioner not found');
+    return practitionerId;
+  })();
+
+  const coverage = getPrimaryInsurance(account, coverageSearchResults);
+
+  const location: Location | undefined = locationsSearchResults[0];
+
+  const serviceRequestFullUrl = `urn:uuid:${randomUUID()}`;
+
+  const serviceRequestConfig: ServiceRequest = {
+    resourceType: 'ServiceRequest',
+    status: 'draft',
+    intent: 'order',
+    subject: {
+      reference: `Patient/${patient.id}`,
+    },
+    encounter: {
+      reference: `Encounter/${encounterId}`,
+    },
+    requester: {
+      reference: `Practitioner/${attendingPractitionerId}`,
+    },
+    authoredOn: DateTime.now().toISO() || undefined,
+    priority: 'stat',
+    ...(location && {
+      locationReference: [
         {
-          who: { reference: `Practitioner/${userPractitionerId}` },
-          onBehalfOf: { reference: `Practitioner/${attendingPractitionerId}` },
+          type: 'Location',
+          reference: `Location/${location.id}`,
         },
       ],
-    };
+    }),
+    meta: fillMeta('nursing order', 'order-type-tag'),
+    ...(notes && { note: [{ text: notes }] }),
+    ...(coverage && { insurance: [{ reference: `Coverage/${coverage.id}` }] }),
+  };
 
-    const transactionResponse = await oystehr.fhir.transaction({
-      requests: [
-        {
-          method: 'POST',
-          url: '/ServiceRequest',
-          resource: serviceRequestConfig,
-          fullUrl: serviceRequestFullUrl,
-        },
-        {
-          method: 'POST',
-          url: '/Task',
-          resource: taskConfig,
-        },
-        {
-          method: 'POST',
-          url: '/Provenance',
-          resource: provenanceConfig,
-        },
-      ] as BatchInputRequest<FhirResource>[],
-    });
+  const taskConfig: Task = {
+    resourceType: 'Task',
+    status: 'requested',
+    description: `Create nursing order for ${getFullestAvailableName(patient)}`,
+    basedOn: [{ reference: serviceRequestFullUrl }],
+    encounter: { reference: `Encounter/${encounterId}` },
+    authoredOn: DateTime.now().toISO(),
+    intent: 'order',
+    ...(location && { location: { reference: `Location/${location.id}` } }),
+  };
 
-    if (!transactionResponse.entry?.every((entry) => entry.response?.status[0] === '2')) {
-      throw Error('Error creating nursing order in transaction');
-    }
+  const provenanceConfig: Provenance = {
+    resourceType: 'Provenance',
+    activity: {
+      coding: [NURSING_ORDER_PROVENANCE_ACTIVITY_CODING_ENTITY.createOrder],
+    },
+    target: [{ reference: serviceRequestFullUrl }],
+    ...(location && { location: { reference: `Location/${location.id}` } }),
+    recorded: DateTime.now().toISO(),
+    agent: [
+      {
+        who: { reference: `Practitioner/${userPractitionerId}` },
+        onBehalfOf: { reference: `Practitioner/${attendingPractitionerId}` },
+      },
+    ],
+  };
 
-    return {
-      statusCode: 200,
-      body: JSON.stringify({
-        transactionResponse,
-      }),
-    };
-  } catch (error: any) {
-    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    return topLevelCatch('create-nursing-order', error, ENVIRONMENT);
+  const transactionResponse = await oystehr.fhir.transaction({
+    requests: [
+      {
+        method: 'POST',
+        url: '/ServiceRequest',
+        resource: serviceRequestConfig,
+        fullUrl: serviceRequestFullUrl,
+      },
+      {
+        method: 'POST',
+        url: '/Task',
+        resource: taskConfig,
+      },
+      {
+        method: 'POST',
+        url: '/Provenance',
+        resource: provenanceConfig,
+      },
+    ] as BatchInputRequest<FhirResource>[],
+  });
+
+  if (!transactionResponse.entry?.every((entry) => entry.response?.status[0] === '2')) {
+    throw Error('Error creating nursing order in transaction');
   }
+
+  return {
+    statusCode: 200,
+    body: JSON.stringify({
+      transactionResponse,
+    }),
+  };
 });

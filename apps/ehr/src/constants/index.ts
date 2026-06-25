@@ -8,10 +8,6 @@ export const MAXIMUM_CHARACTER_LIMIT = 155;
 
 export const HOP_QUEUE_URI = 'hop-queue';
 
-export const CHAT_REFETCH_INTERVAL = 15000;
-
-export const APPOINTMENT_REFRESH_INTERVAL = 15000;
-
 export enum LANGUAGES {
   spanish = 'spanish',
   english = 'english',
@@ -46,13 +42,12 @@ export const TIME_WIDTH_MIN = '140px';
 export const PATIENT_AND_REASON_WIDTH_MIN = '300px';
 export const ROOM_WIDTH_MIN = '120px';
 export const PROVIDER_WIDTH_MIN = '140px';
+export const INTAKE_AND_PROVIDER_WIDTH_MIN = '200px';
 export const VISIT_ICONS_WIDTH_MIN = '160px';
 export const VITALS_ICON_WIDTH_MIN = '90px';
 export const NOTES_WIDTH_MIN = '220px';
 export const CHAT_WIDTH_MIN = '80px';
-export const GO_TO_ONE_BUTTON_WIDTH_MIN = '160px';
-export const GO_TO_MANY_BUTTONS_WIDTH_MIN = '400px';
-export const ACTION_WIDTH_MIN = '130px';
+export const ACTION_WIDTH_MIN = '170px';
 
 // Constants for default page sizes. Could also consider adding constants for the page size options
 export const LOCATION_ROWS_PER_PAGE = 25;
@@ -96,11 +91,6 @@ export const PatientGuarantorFields = [
   FormFields.patientSummary.items.birthDate.key,
   FormFields.patientSummary.items.birthSex.key,
   FormFields.patientContactInformation.items.phone.key,
-];
-
-export const InsurancePriorityFields = [
-  FormFields.insurance.items[0].insurancePriority.key,
-  FormFields.insurance.items[1].insurancePriority.key,
 ];
 
 // Generate additional questions from configuration

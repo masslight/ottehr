@@ -4,8 +4,7 @@ import { Organization } from 'fhir/r4b';
 import * as fs from 'fs';
 import path from 'path';
 import { getPayerId, ORG_TYPE_CODE_SYSTEM, ORG_TYPE_PAYER_CODE, PRIVATE_EXTENSION_BASE_URL } from 'utils';
-import { getAuth0Token } from '../shared';
-import { fhirApiUrlFromAuth0Audience } from './helpers';
+import { createClinicalOystehrClient, getAuth0Token } from '../shared';
 
 enum PayersFileColumns {
   payerId = 'Payer ID',
@@ -186,7 +185,7 @@ async function processCsv(filePath: string, oystehr: Oystehr, organizations: Org
 
 async function main(): Promise<void> {
   const env = process.argv[2];
-  const secrets = JSON.parse(fs.readFileSync(`.env/${env}.json`, 'utf8'));
+  const secrets = JSON.parse(fs.readFileSync(`../../config/.env/${env}.json`, 'utf8'));
 
   const token = await getAuth0Token(secrets);
 
@@ -194,10 +193,7 @@ async function main(): Promise<void> {
     throw new Error('Failed to fetch auth token.');
   }
 
-  const oystehr = new Oystehr({
-    accessToken: token,
-    fhirApiUrl: fhirApiUrlFromAuth0Audience(secrets.AUTH0_AUDIENCE),
-  });
+  const oystehr = createClinicalOystehrClient(token, secrets);
 
   const organizations = await getPayerOrganizations(oystehr);
   await processCsv(CSV_FILE_PATH, oystehr, organizations);

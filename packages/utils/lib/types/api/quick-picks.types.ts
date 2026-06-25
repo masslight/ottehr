@@ -19,6 +19,10 @@ export interface QuickPickUpdateResponse<T> {
   quickPick: T;
 }
 
+export interface QuickPickListInput {
+  category: string;
+}
+
 export interface QuickPickListResponse<T> {
   message: string;
   quickPicks: T[];
@@ -70,8 +74,6 @@ export type CreateProcedureQuickPickResponse = QuickPickCreateResponse<Procedure
 export type UpdateProcedureQuickPickInput = QuickPickUpdateInput<ProcedureQuickPickData>;
 export type UpdateProcedureQuickPickResponse = QuickPickUpdateResponse<ProcedureQuickPickData>;
 export type GetProcedureQuickPicksResponse = QuickPickListResponse<ProcedureQuickPickData>;
-export type RemoveProcedureQuickPickInput = QuickPickRemoveInput;
-export type RemoveProcedureQuickPickResponse = QuickPickRemoveResponse;
 
 // ── Allergy Quick Picks ──
 
@@ -86,8 +88,6 @@ export type CreateAllergyQuickPickResponse = QuickPickCreateResponse<AllergyQuic
 export type UpdateAllergyQuickPickInput = QuickPickUpdateInput<AllergyQuickPickData>;
 export type UpdateAllergyQuickPickResponse = QuickPickUpdateResponse<AllergyQuickPickData>;
 export type GetAllergyQuickPicksResponse = QuickPickListResponse<AllergyQuickPickData>;
-export type RemoveAllergyQuickPickInput = QuickPickRemoveInput;
-export type RemoveAllergyQuickPickResponse = QuickPickRemoveResponse;
 
 // ── Medical Condition Quick Picks ──
 
@@ -102,8 +102,6 @@ export type CreateMedicalConditionQuickPickResponse = QuickPickCreateResponse<Me
 export type UpdateMedicalConditionQuickPickInput = QuickPickUpdateInput<MedicalConditionQuickPickData>;
 export type UpdateMedicalConditionQuickPickResponse = QuickPickUpdateResponse<MedicalConditionQuickPickData>;
 export type GetMedicalConditionQuickPicksResponse = QuickPickListResponse<MedicalConditionQuickPickData>;
-export type RemoveMedicalConditionQuickPickInput = QuickPickRemoveInput;
-export type RemoveMedicalConditionQuickPickResponse = QuickPickRemoveResponse;
 
 // ── Medication History Quick Picks ──
 
@@ -119,5 +117,126 @@ export type CreateMedicationHistoryQuickPickResponse = QuickPickCreateResponse<M
 export type UpdateMedicationHistoryQuickPickInput = QuickPickUpdateInput<MedicationHistoryQuickPickData>;
 export type UpdateMedicationHistoryQuickPickResponse = QuickPickUpdateResponse<MedicationHistoryQuickPickData>;
 export type GetMedicationHistoryQuickPicksResponse = QuickPickListResponse<MedicationHistoryQuickPickData>;
-export type RemoveMedicationHistoryQuickPickInput = QuickPickRemoveInput;
-export type RemoveMedicationHistoryQuickPickResponse = QuickPickRemoveResponse;
+
+// ── Radiology Quick Picks ──
+
+export interface RadiologyQuickPickData {
+  id?: string;
+  name: string;
+  cptCode?: string;
+  cptDisplay?: string;
+  studyName?: string;
+  laterality?: string;
+  clinicalHistory?: string;
+  stat?: boolean;
+  consentObtained?: boolean;
+}
+
+export type CreateRadiologyQuickPickInput = QuickPickCreateInput<RadiologyQuickPickData>;
+export type CreateRadiologyQuickPickResponse = QuickPickCreateResponse<RadiologyQuickPickData>;
+export type UpdateRadiologyQuickPickInput = QuickPickUpdateInput<RadiologyQuickPickData>;
+export type UpdateRadiologyQuickPickResponse = QuickPickUpdateResponse<RadiologyQuickPickData>;
+export type GetRadiologyQuickPicksResponse = QuickPickListResponse<RadiologyQuickPickData>;
+
+// ── Immunization Quick Picks ──
+
+export interface ImmunizationQuickPickData {
+  id?: string;
+  name: string;
+  vaccine?: { id: string; name: string };
+  dose?: string;
+  units?: string;
+  route?: string;
+  location?: { name: string; code: string };
+  associatedDx?: string;
+  manufacturer?: string;
+  instructions?: string;
+  cvx?: string;
+  mvx?: string;
+  cptCodes?: { code: string; display: string }[];
+  ndc?: string;
+  lot?: string;
+  expDate?: string;
+}
+
+export type CreateImmunizationQuickPickInput = QuickPickCreateInput<ImmunizationQuickPickData>;
+export type CreateImmunizationQuickPickResponse = QuickPickCreateResponse<ImmunizationQuickPickData>;
+export type UpdateImmunizationQuickPickInput = QuickPickUpdateInput<ImmunizationQuickPickData>;
+export type UpdateImmunizationQuickPickResponse = QuickPickUpdateResponse<ImmunizationQuickPickData>;
+export type GetImmunizationQuickPicksResponse = QuickPickListResponse<ImmunizationQuickPickData>;
+
+// ── In-House Medication Quick Picks ──
+
+export interface InHouseMedicationQuickPickData {
+  id?: string;
+  name: string;
+  medicationId?: string;
+  medicationName?: string;
+  dose?: number;
+  units?: string;
+  route?: string;
+  location?: { code: string; name: string };
+  manufacturer?: string;
+  associatedDx?: string;
+  instructions?: string;
+  lotNumber?: string;
+  ndc?: string;
+  expDate?: string;
+  cptCodes?: {
+    code: string;
+    display: string;
+    isMedication?: boolean;
+    billableUnitSize?: number;
+    billableUnits?: number;
+  }[];
+}
+
+export type CreateInHouseMedicationQuickPickInput = QuickPickCreateInput<InHouseMedicationQuickPickData>;
+export type CreateInHouseMedicationQuickPickResponse = QuickPickCreateResponse<InHouseMedicationQuickPickData>;
+export type UpdateInHouseMedicationQuickPickInput = QuickPickUpdateInput<InHouseMedicationQuickPickData>;
+export type UpdateInHouseMedicationQuickPickResponse = QuickPickUpdateResponse<InHouseMedicationQuickPickData>;
+export type GetInHouseMedicationQuickPicksResponse = QuickPickListResponse<InHouseMedicationQuickPickData>;
+
+// ── Patient Instruction Quick Picks (Practice Quick Picks) ──
+
+export interface PatientInstructionQuickPickData {
+  id?: string;
+  name: string;
+  text: string;
+}
+
+export type CreatePatientInstructionQuickPickInput = QuickPickCreateInput<PatientInstructionQuickPickData>;
+export type CreatePatientInstructionQuickPickResponse = QuickPickCreateResponse<PatientInstructionQuickPickData>;
+export type UpdatePatientInstructionQuickPickInput = QuickPickUpdateInput<PatientInstructionQuickPickData>;
+export type UpdatePatientInstructionQuickPickResponse = QuickPickUpdateResponse<PatientInstructionQuickPickData>;
+export type GetPatientInstructionQuickPicksResponse = QuickPickListResponse<PatientInstructionQuickPickData>;
+
+// ── Insurance Quick Picks ──
+
+export interface InsuranceQuickPickData {
+  id?: string;
+  name: string;
+  payerId: string;
+  organizationReference: string;
+}
+
+export type CreateInsuranceQuickPickInput = QuickPickCreateInput<InsuranceQuickPickData>;
+export type CreateInsuranceQuickPickResponse = QuickPickCreateResponse<InsuranceQuickPickData>;
+export type UpdateInsuranceQuickPickInput = QuickPickUpdateInput<InsuranceQuickPickData>;
+export type UpdateInsuranceQuickPickResponse = QuickPickUpdateResponse<InsuranceQuickPickData>;
+export type GetInsuranceQuickPicksResponse = QuickPickListResponse<InsuranceQuickPickData>;
+
+// ── Quick Text Quick Picks ──
+
+export interface QuickTextQuickPickData {
+  id?: string;
+  name: string;
+  english: string;
+  spanish?: string;
+}
+
+export type CreateQuickTextQuickPickInput = QuickPickCreateInput<QuickTextQuickPickData>;
+export type CreateQuickTextQuickPickResponse = QuickPickCreateResponse<QuickTextQuickPickData>;
+export type UpdateQuickTextQuickPickInput = QuickPickUpdateInput<QuickTextQuickPickData>;
+export type UpdateQuickTextQuickPickResponse = QuickPickUpdateResponse<QuickTextQuickPickData>;
+export type GetQuickTextQuickPicksResponse = QuickPickListResponse<QuickTextQuickPickData>;

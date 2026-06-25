@@ -14,7 +14,6 @@ import {
   FHIR_EXTENSION,
   FILLER_ORDER_NUMBER_CODE_SYSTEM,
   getAdvaPACSLocationForAppointmentOrEncounter,
-  getCallerUserWithAccessToken,
   getSecret,
   HL7_IDENTIFIER_TYPE_CODE_SYSTEM,
   HL7_IDENTIFIER_TYPE_CODE_SYSTEM_ACCESSION_NUMBER,
@@ -29,14 +28,14 @@ import {
   SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_VALUE_STRING_URL,
   SERVICE_REQUEST_ORDER_DETAIL_PRE_RELEASE_URL,
   SERVICE_REQUEST_REQUESTED_TIME_EXTENSION_URL,
+  userMe,
 } from 'utils';
 import {
   checkOrCreateM2MClientToken,
-  createOystehrClient,
+  createClinicalOystehrClient,
   fillMeta,
   makeCPTCodeDTO,
   makeCptModifierExtension,
-  topLevelCatch,
   wrapHandler,
   ZambdaInput,
 } from '../../../shared';
@@ -80,27 +79,23 @@ let m2mToken: string;
 const ZAMBDA_NAME = 'create-radiology-order';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (unsafeInput: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  try {
-    console.log('Input body and headers', unsafeInput.body, unsafeInput.headers);
+  console.log('Input body and headers', unsafeInput.body, unsafeInput.headers);
 
-    const secrets = validateSecrets(unsafeInput.secrets);
+  const secrets = validateSecrets(unsafeInput.secrets);
 
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
-    const validatedInput = await validateInput(unsafeInput, secrets, oystehr);
+  const validatedInput = await validateInput(unsafeInput, oystehr);
 
-    const callerUser = await getCallerUserWithAccessToken(validatedInput.callerAccessToken, secrets);
+  const callerUser = await userMe(validatedInput.callerAccessToken, secrets);
 
-    const output = await performEffect(validatedInput, callerUser.profile, secrets, oystehr);
+  const output = await performEffect(validatedInput, callerUser.profile, secrets, oystehr);
 
-    return {
-      statusCode: 200,
-      body: JSON.stringify(output),
-    };
-  } catch (error: any) {
-    return topLevelCatch(ZAMBDA_NAME, error, getSecret(SecretsKeys.ENVIRONMENT, unsafeInput.secrets));
-  }
+  return {
+    statusCode: 200,
+    body: JSON.stringify(output),
+  };
 });
 
 const performEffect = async (
@@ -152,7 +147,8 @@ const writeOurServiceRequest = (
   practitionerRelativeReference: string,
   oystehr: Oystehr
 ): Promise<ServiceRequest> => {
-  const { encounter, diagnosis, cpt, lateralityModifier, stat, clinicalHistory, consentObtained } = validatedBody;
+  const { encounter, diagnosis, cpt, lateralityModifier, stat, clinicalHistory, studyName, consentObtained } =
+    validatedBody;
   const now = DateTime.now();
 
   const srCodeCoding = lateralityModifier
@@ -312,6 +308,31 @@ const writeOurServiceRequest = (
         ],
       },
       {
+        url: SERVICE_REQUEST_ORDER_DETAIL_PRE_RELEASE_URL,
+        extension: [
+          {
+            url: SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_URL,
+            extension: [
+              {
+                url: SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_CODE_URL,
+                valueCodeableConcept: {
+                  coding: [
+                    {
+                      system: ADVAPACS_ORDER_DETAIL_MODALITY_CODE_SYSTEM_URL,
+                      code: 'requested-procedure-description',
+                    },
+                  ],
+                },
+              },
+              {
+                url: SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_VALUE_STRING_URL,
+                valueString: studyName ?? srCodeCoding.display,
+              },
+            ],
+          },
+        ],
+      },
+      {
         url: SERVICE_REQUEST_REQUESTED_TIME_EXTENSION_URL,
         valueDateTime: now.toISO(),
       },
@@ -364,6 +385,22 @@ const writeOurProcedure = async (
 
   return cptCodeDTO;
 };
+
+const getOrderDetailValue = (serviceRequest: ServiceRequest, code: string): string | undefined =>
+  serviceRequest.extension
+    ?.filter((ext) => ext.url === SERVICE_REQUEST_ORDER_DETAIL_PRE_RELEASE_URL)
+    ?.find((orderDetailExt) => {
+      const parameterExt = orderDetailExt.extension?.find(
+        (ext) => ext.url === SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_URL
+      );
+      const codeExt = parameterExt?.extension?.find(
+        (ext) => ext.url === SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_CODE_URL
+      );
+      return codeExt?.valueCodeableConcept?.coding?.[0]?.code === code;
+    })
+    ?.extension?.find((ext) => ext.url === SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_URL)
+    ?.extension?.find((ext) => ext.url === SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_VALUE_STRING_URL)
+    ?.valueString;
 
 const writeAdvaPacsTransaction = async (
   ourServiceRequest: ServiceRequest,
@@ -461,21 +498,7 @@ const writeAdvaPacsTransaction = async (
                     },
                   ],
                 },
-                valueString: ourServiceRequest.extension
-                  ?.filter((ext) => ext.url === SERVICE_REQUEST_ORDER_DETAIL_PRE_RELEASE_URL)
-                  ?.find((orderDetailExt) => {
-                    const parameterExt = orderDetailExt.extension?.find(
-                      (ext) => ext.url === SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_URL
-                    );
-                    const codeExt = parameterExt?.extension?.find(
-                      (ext) => ext.url === SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_CODE_URL
-                    );
-                    return codeExt?.valueCodeableConcept?.coding?.[0]?.code === 'modality';
-                  })
-                  ?.extension?.find((ext) => ext.url === SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_URL)
-                  ?.extension?.find(
-                    (ext) => ext.url === SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_VALUE_STRING_URL
-                  )?.valueString,
+                valueString: getOrderDetailValue(ourServiceRequest, 'modality'),
               },
               {
                 code: {
@@ -486,21 +509,18 @@ const writeAdvaPacsTransaction = async (
                     },
                   ],
                 },
-                valueString: ourServiceRequest.extension
-                  ?.filter((ext) => ext.url === SERVICE_REQUEST_ORDER_DETAIL_PRE_RELEASE_URL)
-                  ?.find((orderDetailExt) => {
-                    const parameterExt = orderDetailExt.extension?.find(
-                      (ext) => ext.url === SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_URL
-                    );
-                    const codeExt = parameterExt?.extension?.find(
-                      (ext) => ext.url === SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_CODE_URL
-                    );
-                    return codeExt?.valueCodeableConcept?.coding?.[0]?.code === 'clinical-history';
-                  })
-                  ?.extension?.find((ext) => ext.url === SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_URL)
-                  ?.extension?.find(
-                    (ext) => ext.url === SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_VALUE_STRING_URL
-                  )?.valueString,
+                valueString: getOrderDetailValue(ourServiceRequest, 'clinical-history'),
+              },
+              {
+                code: {
+                  coding: [
+                    {
+                      system: ADVAPACS_ORDER_DETAIL_MODALITY_CODE_SYSTEM_URL,
+                      code: 'requested-procedure-description',
+                    },
+                  ],
+                },
+                valueString: getOrderDetailValue(ourServiceRequest, 'requested-procedure-description'),
               },
             ],
           },

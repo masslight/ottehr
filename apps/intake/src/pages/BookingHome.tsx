@@ -24,19 +24,16 @@ import { useUCZambdaClient } from '../hooks/useUCZambdaClient';
 
 type BookingState = {
   patientInfo: PatientInfo | undefined;
-  unconfirmedDateOfBirth: string | undefined;
 };
 
 interface BookingStoreActions {
   setPatientInfo: (info: PatientInfo | undefined) => void;
-  setUnconfirmedDateOfBirth: (dob: string | undefined) => void;
   completeBooking: () => void;
   handleLogout: () => void;
 }
 
 const BOOKING_INITIAL: BookingState = {
   patientInfo: undefined,
-  unconfirmedDateOfBirth: undefined,
 };
 
 const useBookingStore = create<BookingState & BookingStoreActions>()(
@@ -50,14 +47,9 @@ const useBookingStore = create<BookingState & BookingStoreActions>()(
       },
       setPatientInfo: (info: PatientInfo | undefined) => {
         set((state) => {
-          let isNewPatientInfo = false;
-          if (state.patientInfo && state.patientInfo.id !== info?.id) {
-            isNewPatientInfo = true;
-          }
           return {
             ...state,
             patientInfo: info,
-            unconfirmedDateOfBirth: isNewPatientInfo ? undefined : state.unconfirmedDateOfBirth,
           };
         });
       },
@@ -67,17 +59,10 @@ const useBookingStore = create<BookingState & BookingStoreActions>()(
           patients,
         }));
       },
-      setUnconfirmedDateOfBirth: (unconfirmedDateOfBirth: string | undefined) => {
-        set((state) => ({
-          ...state,
-          unconfirmedDateOfBirth,
-        }));
-      },
       completeBooking: () => {
         set((state) => ({
           ...state,
           patientInfo: undefined,
-          unconfirmedDateOfBirth: undefined,
         }));
         sessionStorage.removeItem(PROGRESS_STORAGE_KEY);
       },
@@ -98,6 +83,9 @@ interface BookAppointmentContext
   scheduleOwnerName: string;
   scheduleOwnerType: string;
   scheduleOwnerId: string;
+  /** Resolved booking Location for display — see get-slot-details. */
+  bookingLocationName?: string;
+  bookingLocationId?: string;
   patients: PatientInfo[];
   timezone: Timezone;
   serviceMode: ServiceMode;
@@ -129,15 +117,12 @@ const isPostPatientSelectionPath = (basePath: string, pathToCheck: string): bool
 };
 
 const BookingHome: FC = () => {
-  const { patientInfo, unconfirmedDateOfBirth, setPatientInfo, setUnconfirmedDateOfBirth, completeBooking } =
-    getSelectors(useBookingStore, [
-      'patientInfo',
-      'unconfirmedDateOfBirth',
-      'setPatientInfo',
-      'setUnconfirmedDateOfBirth',
-      'completeBooking',
-      'handleLogout',
-    ]);
+  const { patientInfo, setPatientInfo, completeBooking } = getSelectors(useBookingStore, [
+    'patientInfo',
+    'setPatientInfo',
+    'completeBooking',
+    'handleLogout',
+  ]);
   const { [BOOKING_SLOT_ID_PARAM]: slotIdParam } = useParams();
 
   const { pathname } = useLocation();
@@ -213,6 +198,8 @@ const BookingHome: FC = () => {
       ownerType,
       ownerId,
       originalBookingUrl,
+      bookingLocationId,
+      bookingLocationName,
     } = slotDetailsData;
     let scheduleOwnerType = 'Location';
     if (ownerType === 'Practitioner') {
@@ -233,25 +220,16 @@ const BookingHome: FC = () => {
       serviceMode,
       timezone: timezone ?? TIMEZONES[0],
       patientsLoading: patientsLoadingInSomeWay,
-      unconfirmedDateOfBirth,
       scheduleOwnerName: ownerName,
       scheduleOwnerType,
       scheduleOwnerId: ownerId,
+      bookingLocationId,
+      bookingLocationName,
       originalBookingUrl,
       setPatientInfo,
-      setUnconfirmedDateOfBirth,
       completeBooking,
     };
-  }, [
-    patientsData?.patients,
-    slotDetailsData,
-    patientInfo,
-    patientsLoadingInSomeWay,
-    unconfirmedDateOfBirth,
-    setPatientInfo,
-    setUnconfirmedDateOfBirth,
-    completeBooking,
-  ]);
+  }, [patientsData?.patients, slotDetailsData, patientInfo, patientsLoadingInSomeWay, setPatientInfo, completeBooking]);
 
   // console.log('outlet context in root', outletContext);
 

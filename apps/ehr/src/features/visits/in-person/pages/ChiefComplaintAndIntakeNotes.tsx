@@ -1,16 +1,15 @@
 import { Stack } from '@mui/material';
 import React from 'react';
-import { AccordionCard } from 'src/components/AccordionCard';
 import { ChiefComplaintSection } from '../../shared/components/ChiefComplaintSection';
 import { PageTitle } from '../../shared/components/PageTitle';
 import GeneralInfoCard from '../../shared/components/patient-info/GeneralInfoCard';
 import { VerifiedPatientInfo } from '../../shared/components/patient-info/VerifiedPatientInfo';
-import { IntakeNotes } from '../hooks/useIntakeNotes';
+import { PatientConditionPhotosCard } from '../../shared/components/PatientConditionPhotosCard';
 
 export const ChiefComplaintAndIntakeNotes: React.FC = () => {
   return (
     <Stack spacing={1}>
-      <PageTitle label="Chief Complaint & Intake Notes" showIntakeNotesButton={false} />
+      <PageTitle label="Chief Complaint" showIntakeNotesButton={false} />
 
       <GeneralInfoCard />
 
@@ -18,9 +17,7 @@ export const ChiefComplaintAndIntakeNotes: React.FC = () => {
 
       <ChiefComplaintSection />
 
-      <AccordionCard label="Intake Notes">
-        <IntakeNotes />
-      </AccordionCard>
+      <PatientConditionPhotosCard />
     </Stack>
   );
 };

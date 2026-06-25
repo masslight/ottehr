@@ -3,7 +3,7 @@ import { Box } from '@mui/system';
 import { useQuery } from '@tanstack/react-query';
 import { t } from 'i18next';
 import { DateTime } from 'luxon';
-import { FC, useState } from 'react';
+import { FC, useEffect, useMemo, useState } from 'react';
 import { generatePath, Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
   APIError,
@@ -12,6 +12,7 @@ import {
   CreateSlotParams,
   isApiError,
   PROJECT_WEBSITE,
+  serviceCategorySupportsContext,
   ServiceMode,
 } from 'utils';
 import { ottehrApi } from '../api';
@@ -21,6 +22,7 @@ import { getWelcomeTitle } from '../branding/welcomeTitle';
 import { PageContainer } from '../components';
 import { ErrorDialog, ErrorDialogConfig } from '../components/ErrorDialog';
 import PageForm from '../components/PageForm';
+import { useServiceCategories } from '../hooks/useServiceCategories';
 import { useUCZambdaClient } from '../hooks/useUCZambdaClient';
 
 export const WalkinLanding: FC = () => {
@@ -42,7 +44,47 @@ export const WalkinLanding: FC = () => {
     enabled: Boolean(scheduleId || locationName) && Boolean(tokenlessZambdaClient),
   });
 
-  const somethingIsLoadingInSomeWay = isLoading || isFetching || isRefetching;
+  // Branches when serviceCategory isn't in the URL: 0 walk-in-capable cats →
+  // fall through (slot has no category; legacy zambda default kicks in);
+  // 1 → silent auto-select; 2+ → redirect to picker. Closed location skips
+  // all of this and goes straight to the "closed" message.
+  const { serviceCategories, isLoading: isCategoriesLoading } = useServiceCategories({});
+  const walkinCapableCategories = useMemo(
+    // Walk-in implies physical presence — both `/walkin/location/:name`
+    // (Location is in-person by convention) and `/walkin/schedule/:id` flow
+    // through here. Virtual flows live under `/start-virtual/...` and never
+    // hit this page, so filter on in-person to keep virtual-only categories
+    // (e.g. an aesthetics consult that's virtual-only) out of the picker.
+    () =>
+      (serviceCategories ?? []).filter((sc) => serviceCategorySupportsContext(sc, ServiceMode['in-person'], 'walk-in')),
+    [serviceCategories]
+  );
+  const categoryDecisionNeeded = !serviceCategory;
+  const walkinIsOpen = data?.walkinOpen === true;
+  const waitingForCategoryDecision = categoryDecisionNeeded && isCategoriesLoading && walkinIsOpen;
+  const resolvedServiceCategory =
+    serviceCategory ?? (walkinCapableCategories.length === 1 ? walkinCapableCategories[0].category.code : undefined);
+  const needsPickerRedirect =
+    categoryDecisionNeeded && !isCategoriesLoading && walkinCapableCategories.length >= 2 && walkinIsOpen;
+
+  useEffect(() => {
+    if (!needsPickerRedirect) return;
+    // Mirror the entry URL shape so the picker's strip-and-return lands back here.
+    const basePath = scheduleId
+      ? `/walkin/schedule/${scheduleId}/select-service-category`
+      : name
+      ? `/walkin/location/${name}/select-service-category`
+      : null;
+    if (!basePath) return;
+    const query = searchParams.toString();
+    navigate(`${basePath}${query ? `?${query}` : ''}`, { replace: true });
+  }, [needsPickerRedirect, scheduleId, name, searchParams, navigate]);
+
+  // `needsPickerRedirect` is in here so PageForm doesn't briefly mount
+  // before the useEffect navigation runs (race that would let a fast click
+  // create a slot without picking a category).
+  const somethingIsLoadingInSomeWay =
+    isLoading || isFetching || isRefetching || waitingForCategoryDecision || needsPickerRedirect;
 
   // todo: actually check error type
   const pageNotFound = error && isRefetching === false && !isLoading && !isFetching;
@@ -86,7 +128,7 @@ export const WalkinLanding: FC = () => {
                     lengthInMinutes: 15,
                     status: 'busy-tentative',
                     walkin: true,
-                    ...(serviceCategory ? { serviceCategoryCode: serviceCategory } : {}),
+                    ...(resolvedServiceCategory ? { serviceCategoryCode: resolvedServiceCategory } : {}),
                     ...(questionnaireCanonical && { questionnaireCanonical }),
                   };
                   try {
@@ -128,7 +170,7 @@ export const WalkinLanding: FC = () => {
             </Typography>
             <Box sx={{ display: 'flex', justifyContent: 'flex-end', marginTop: 2.5 }}>
               <Link to={PROJECT_WEBSITE} aria-label={`${BRANDING_CONFIG.projectName} website`} target="_blank">
-                <Button variant="contained" color="primary" data-testid="loading-button">
+                <Button variant="contained" color="secondary" data-testid="loading-button">
                   {t('welcome.goToWebsite', { PROJECT_NAME: BRANDING_CONFIG.projectName })}
                 </Button>
               </Link>

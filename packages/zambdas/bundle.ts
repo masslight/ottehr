@@ -1,10 +1,14 @@
 import { sentryEsbuildPlugin } from '@sentry/esbuild-plugin';
 import archiver from 'archiver';
+import dotenv from 'dotenv';
 import * as esbuild from 'esbuild';
 import { type Options } from 'execa';
 import fs from 'fs';
 import path from 'path';
+import billingZambdasSpec from '../../config/billing-app-core/zambdas.json';
 import zambdasSpec from '../../config/oystehr-core/zambdas.json';
+
+dotenv.config({ path: path.join(process.cwd(), '.env.sentry-build-plugin') });
 
 interface ZambdaSpec {
   name: string;
@@ -34,7 +38,9 @@ const loadEnvZambdas = (env: string): ZambdaSpec[] => {
 };
 
 const zambdasList = (): ZambdaSpec[] => {
-  const baseZambdas = Object.entries(zambdasSpec.zambdas).map(([_key, spec]) => spec);
+  const baseZambdas = Object.entries({ ...zambdasSpec.zambdas, ...billingZambdasSpec.zambdas }).map(
+    ([_key, spec]) => spec
+  );
   const env = process.env.ENV || '';
   if (env) {
     const envZambdas = loadEnvZambdas(env);
@@ -87,6 +93,7 @@ const buildZambdaChunk = async (zambdas: ZambdaSpec[], outdir: string, isSentryE
       platform: 'node',
       external: ['@aws-sdk/*'],
       treeShaking: true,
+      minify: true,
       plugins: getSentryPlugins(isSentryEnabled),
     });
   } catch (error) {
@@ -119,7 +126,21 @@ const copyAssets = async (from: string, to: string): Promise<void> => {
   }
 };
 
-const SENTRY_CHUNK_SIZE = 20;
+const runSentryCommandWithRetry = async (label: string, runCommand: () => Promise<unknown>): Promise<boolean> => {
+  try {
+    await runCommand();
+    return true;
+  } catch (error) {
+    console.warn(`Sentry CLI command failed (${label}), retrying once...`, error);
+  }
+  try {
+    await runCommand();
+    return true;
+  } catch (error) {
+    console.warn(`Sentry CLI command failed (${label}) after retry; skipping remaining Sentry steps:`, error);
+    return false;
+  }
+};
 
 const injectSourceMaps = async (zambdas: ZambdaSpec[]): Promise<void> => {
   if (!process.env.SENTRY_ORG || !process.env.SENTRY_PROJECT || !process.env.SENTRY_AUTH_TOKEN) {
@@ -140,30 +161,41 @@ const injectSourceMaps = async (zambdas: ZambdaSpec[]): Promise<void> => {
   };
   const revParse = await $`git rev-parse --verify HEAD`;
   const releaseName = revParse.stdout;
-  await $(shellConfig)`sentry-cli releases new ${releaseName}`;
+  if (
+    !(await runSentryCommandWithRetry(
+      `releases new ${releaseName}`,
+      () => $(shellConfig)`sentry-cli releases new ${releaseName}`
+    ))
+  ) {
+    return;
+  }
 
   const zambdaDirs = zambdas.map((z) => path.dirname(`.dist/${z.src.substring('src/'.length)}.js`));
-  const chunks = chunkArray(zambdaDirs, SENTRY_CHUNK_SIZE);
-  console.log(
-    `Injecting source maps for ${zambdas.length} zambdas in ${chunks.length} chunks of up to ${SENTRY_CHUNK_SIZE}...`
-  );
 
-  for (const chunk of chunks) {
-    await Promise.all(
-      chunk.map((dir) => $(shellConfig)`sentry-cli sourcemaps inject ${dir} --quiet --log-level error`)
-    );
+  console.log(`Injecting source maps for ${zambdas.length} zambdas...`);
+  if (
+    !(await runSentryCommandWithRetry(
+      'sourcemaps inject',
+      () => $(shellConfig)`sentry-cli sourcemaps inject ${zambdaDirs} --quiet --log-level error`
+    ))
+  ) {
+    return;
   }
 
-  console.log(
-    `Uploading source maps for ${zambdas.length} zambdas in ${chunks.length} chunks of up to ${SENTRY_CHUNK_SIZE}...`
-  );
-  for (const chunk of chunks) {
-    await Promise.all(
-      chunk.map((dir) => $(shellConfig)`sentry-cli sourcemaps upload --strict --release ${releaseName} ${dir}`)
-    );
+  console.log(`Uploading source maps for ${zambdas.length} zambdas...`);
+  if (
+    !(await runSentryCommandWithRetry(
+      'sourcemaps upload',
+      () => $(shellConfig)`sentry-cli sourcemaps upload --strict --release ${releaseName} ${zambdaDirs}`
+    ))
+  ) {
+    return;
   }
 
-  await $(shellConfig)`sentry-cli releases finalize ${releaseName}`;
+  await runSentryCommandWithRetry(
+    `releases finalize ${releaseName}`,
+    () => $(shellConfig)`sentry-cli releases finalize ${releaseName}`
+  );
 };
 
 const zipZambda = async (
@@ -218,7 +250,7 @@ const main = async (): Promise<void> => {
   const assetsDir = '.dist/assets';
 
   const isSentryEnabled =
-    !['local', 'e2e', 'e2e2', 'e2e3'].includes(process.env.ENV || '') &&
+    !['local', 'e2e', 'e2e2', 'e2e3', 'e2e4', 'e2e5'].includes(process.env.ENV || '') &&
     Boolean(process.env.SENTRY_AUTH_TOKEN && process.env.SENTRY_ORG && process.env.SENTRY_PROJECT);
 
   const icd10Zambdas = zambdas.filter((zambda) => zambdasWithIcd10Search.includes(zambda.name));

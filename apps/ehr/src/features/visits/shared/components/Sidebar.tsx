@@ -13,19 +13,16 @@ import {
   ListItemText,
   styled,
 } from '@mui/material';
-import { enqueueSnackbar } from 'notistack';
 import React, { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { handleChangeInPersonVisitStatus } from 'src/helpers/inPersonVisitStatusUtils';
-import { useApiClients } from 'src/hooks/useAppClients';
-import { getAdmitterPractitionerId, getInPersonVisitStatus, PRACTITIONER_CODINGS } from 'utils';
+import { getInPersonVisitStatus } from 'utils';
 import { dataTestIds } from '../../../../constants/data-test-ids';
 import { CompleteIntakeButton } from '../../in-person/components/CompleteIntakeButton';
 import { EncounterSwitcher } from '../../in-person/components/EncounterSwitcher';
 import { RouteInPerson, useInPersonNavigationContext } from '../../in-person/context/InPersonNavigationContext';
+import { useCompleteIntake } from '../../in-person/hooks/useCompleteIntake';
 import { ROUTER_PATH, routesInPerson } from '../../in-person/routing/routesInPerson';
 import { useGetAppointmentAccessibility } from '../hooks/useGetAppointmentAccessibility';
-import { usePractitionerActions } from '../hooks/usePractitioner';
 import { useAppointmentData, useChartData } from '../stores/appointment/appointment.store';
 
 const ArrowIcon = ({ direction }: { direction: 'left' | 'right' }): React.ReactElement => (
@@ -46,7 +43,7 @@ export const sidebarMenuIcons = {
       />
     </svg>
   ),
-  'CC & Intake Notes': (
+  'Chief Complaint': (
     <svg width="20" height="20" fill="none" xmlns="http://www.w3.org/2000/svg">
       <path
         d="M8.33301 4.00033C7.87467 4.00033 7.48231 3.83713 7.15592 3.51074C6.82954 3.18435 6.66634 2.79199 6.66634 2.33366C6.66634 1.87533 6.82954 1.48296 7.15592 1.15658C7.48231 0.830187 7.87467 0.666992 8.33301 0.666992C8.79134 0.666992 9.1837 0.830187 9.51009 1.15658C9.83648 1.48296 9.99967 1.87533 9.99967 2.33366C9.99967 2.79199 9.83648 3.18435 9.51009 3.51074C9.1837 3.83713 8.79134 4.00033 8.33301 4.00033ZM13.7497 14.0003C14.333 14.0003 14.8261 13.7989 15.2288 13.3962C15.6316 12.9934 15.833 12.5003 15.833 11.917C15.833 11.3337 15.6316 10.8406 15.2288 10.4378C14.8261 10.035 14.333 9.83366 13.7497 9.83366C13.1663 9.83366 12.6733 10.035 12.2705 10.4378C11.8677 10.8406 11.6663 11.3337 11.6663 11.917C11.6663 12.5003 11.8677 12.9934 12.2705 13.3962C12.6733 13.7989 13.1663 14.0003 13.7497 14.0003ZM17.9997 17.3337L15.7497 15.0837C15.4441 15.2781 15.1247 15.4239 14.7913 15.5212C14.458 15.6184 14.1108 15.667 13.7497 15.667C12.708 15.667 11.8226 15.3024 11.0934 14.5732C10.3643 13.8441 9.99967 12.9587 9.99967 11.917C9.99967 10.8753 10.3643 9.98991 11.0934 9.26074C11.8226 8.53158 12.708 8.16699 13.7497 8.16699C14.7913 8.16699 15.6768 8.53158 16.4059 9.26074C17.1351 9.98991 17.4997 10.8753 17.4997 11.917C17.4997 12.2781 17.4511 12.6253 17.3538 12.9587C17.2566 13.292 17.1108 13.6114 16.9163 13.917L19.1663 16.167L17.9997 17.3337ZM9.16634 17.3337V14.8128C9.37467 15.1462 9.6212 15.4517 9.90592 15.7295C10.1906 16.0073 10.4997 16.2573 10.833 16.4795V17.3337H9.16634ZM5.83301 17.3337V6.50033C4.98579 6.43088 4.14551 6.33019 3.31217 6.19824C2.47884 6.0663 1.65245 5.88921 0.833008 5.66699L1.24967 4.00033C2.41634 4.31977 3.58648 4.53852 4.76009 4.65658C5.9337 4.77463 7.12467 4.83366 8.33301 4.83366C9.54134 4.83366 10.7323 4.77463 11.9059 4.65658C13.0795 4.53852 14.2497 4.31977 15.4163 4.00033L15.833 5.66699C15.0136 5.88921 14.1872 6.0663 13.3538 6.19824C12.5205 6.33019 11.6802 6.43088 10.833 6.50033V7.35449C10.083 7.8406 9.47884 8.48296 9.02051 9.28158C8.56217 10.0802 8.33301 10.9587 8.33301 11.917V12.1253C8.33301 12.1948 8.33995 12.2642 8.35384 12.3337H7.49967V17.3337H5.83301Z"
@@ -159,6 +156,14 @@ export const sidebarMenuIcons = {
       />
     </svg>
   ),
+  Checklist: (
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path
+        d="M4 18C3.45 18 2.97917 17.8042 2.5875 17.4125C2.19583 17.0208 2 16.55 2 16V2C2 1.45 2.19583 0.979167 2.5875 0.5875C2.97917 0.195833 3.45 0 4 0H16C16.55 0 17.0208 0.195833 17.4125 0.5875C17.8042 0.979167 18 1.45 18 2V16C18 16.55 17.8042 17.0208 17.4125 17.4125C17.0208 17.8042 16.55 18 16 18H4ZM4 16H16V2H4V16ZM6 14H11V12H6V14ZM13.175 14L17 10.175L15.6 8.775L13.175 11.2L12.075 10.1L10.675 11.5L13.175 14ZM6 9H11V7H6V9ZM13.175 9L17 5.175L15.6 3.775L13.175 6.2L12.075 5.1L10.675 6.5L13.175 9Z"
+        fill="currentColor"
+      />
+    </svg>
+  ),
   Stethoscope: (
     <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
       <path
@@ -226,6 +231,7 @@ const StyledButton = styled(Button, {
   display: 'flex',
   width: '100%',
   height: '42px',
+  borderRadius: 0,
   borderBottom: '1px solid #e0e0e0',
   alignItems: 'center',
   textDecoration: 'none',
@@ -261,46 +267,16 @@ const StyledButton = styled(Button, {
 export const Sidebar = (): JSX.Element => {
   const navigate = useNavigate();
   const [open, setOpen] = useState(true);
-  const { oystehrZambda } = useApiClients();
   const { interactionMode } = useInPersonNavigationContext();
   const { id: appointmentID } = useParams();
-  const { visitState, appointmentRefetch } = useAppointmentData();
+  const { visitState } = useAppointmentData();
   const { chartData } = useChartData();
   const { appointment, encounter } = visitState;
   const status = appointment && encounter ? getInPersonVisitStatus(appointment, encounter) : undefined;
   const { visitType } = useGetAppointmentAccessibility();
   const isFollowup = visitType === 'follow-up';
 
-  const { isEncounterUpdatePending, handleUpdatePractitioner } = usePractitionerActions(
-    encounter,
-    'end',
-    PRACTITIONER_CODINGS.Admitter
-  );
-
-  const assignedIntakePerformerId = encounter ? getAdmitterPractitionerId(encounter) : undefined;
-
-  const handleCompleteIntake = async (): Promise<void> => {
-    try {
-      if (assignedIntakePerformerId) {
-        await handleUpdatePractitioner(assignedIntakePerformerId);
-
-        await handleChangeInPersonVisitStatus(
-          {
-            encounterId: encounter!.id!,
-            updatedStatus: 'ready for provider',
-          },
-          oystehrZambda
-        );
-
-        await appointmentRefetch();
-      } else {
-        enqueueSnackbar('Please select intake practitioner first', { variant: 'error' });
-      }
-    } catch (error: any) {
-      console.log(error.message);
-      enqueueSnackbar('An error occurred trying to complete intake. Please try again.', { variant: 'error' });
-    }
-  };
+  const { handleCompleteIntake, isEncounterUpdatePending } = useCompleteIntake();
 
   const handleDrawerToggle = (): void => {
     setOpen(!open);

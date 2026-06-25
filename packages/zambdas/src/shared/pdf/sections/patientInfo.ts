@@ -2,10 +2,14 @@ import {
   FHIR_EXTENSION,
   formatDateForDisplay,
   genderMap,
+  getCoding,
   getFormattedPatientFullName,
   getNameSuffix,
-  getUnconfirmedDOBForAppointment,
+  getPatientFriendlyId,
+  getReasonForVisitAndAdditionalDetailsFromAppointment,
+  getReasonForVisitOptionsForServiceCategory,
   PATIENT_INDIVIDUAL_PRONOUNS_URL,
+  SERVICE_CATEGORY_SYSTEM,
   standardizePhoneNumber,
 } from 'utils';
 import { createConfiguredSection, DataComposer } from '../pdf-common';
@@ -16,11 +20,18 @@ export const composePatientData: DataComposer<PatientDataInput, PatientInfo> = (
   const suffix = getNameSuffix(patient) ?? '';
   const preferredName = patient.name?.find((name) => name.use === 'nickname')?.given?.[0] ?? '';
   const dob = formatDateForDisplay(patient?.birthDate);
-  const unconfirmedDOB = formatDateForDisplay(getUnconfirmedDOBForAppointment(appointment));
   const sex = genderMap[patient.gender as keyof typeof genderMap] ?? '';
-  const id = patient.id ?? '';
+  const id = getPatientFriendlyId(patient);
   const phone = standardizePhoneNumber(patient.telecom?.find((telecom) => telecom.system === 'phone')?.value) ?? '';
-  const reasonForVisit = appointment.description ?? '';
+  const { reasonForVisit: firstComplaint, additionalDetails } =
+    getReasonForVisitAndAdditionalDetailsFromAppointment(appointment);
+  const serviceCategory = getCoding(appointment?.serviceCategory, SERVICE_CATEGORY_SYSTEM)?.code;
+  const isValidReasonForVisit =
+    !!firstComplaint &&
+    getReasonForVisitOptionsForServiceCategory(serviceCategory ?? '').some((option) => option.value === firstComplaint);
+  const reasonForVisit = isValidReasonForVisit
+    ? `${firstComplaint}${additionalDetails ? ` - ${additionalDetails}` : ''}`
+    : '';
   const authorizedNonlegalGuardians =
     patient?.extension?.find((e) => e.url === FHIR_EXTENSION.Patient.authorizedNonLegalGuardians.url)?.valueString ||
     'none';
@@ -45,7 +56,6 @@ export const composePatientData: DataComposer<PatientDataInput, PatientInfo> = (
     suffix,
     preferredName,
     dob,
-    unconfirmedDOB,
     sex,
     id,
     phone,
@@ -67,7 +77,8 @@ export const createPatientHeader = <TData extends { patient?: PatientInfo }>(): 
 
 export const createPatientInfoSection = <TData extends { patient?: PatientInfo }>(): PdfSection<TData, PatientInfo> => {
   return createConfiguredSection('patientSummary', (shouldShow) => ({
-    title: 'About the patient',
+    // Mirrors `PATIENT_RECORD_CONFIG.FormFields.patientSummary.title`.
+    title: 'Patient summary',
     dataSelector: (data) => data.patient,
     render: (client, patientInfo, styles) => {
       if (shouldShow('patient-name-suffix')) {
@@ -92,18 +103,6 @@ export const createPatientInfoSection = <TData extends { patient?: PatientInfo }
         client.drawLabelValueRow(
           'Date of birth (Original)',
           patientInfo.dob,
-          styles.textStyles.regular,
-          styles.textStyles.regular,
-          {
-            drawDivider: true,
-            dividerMargin: 8,
-          }
-        );
-      }
-      if (patientInfo.unconfirmedDOB) {
-        client.drawLabelValueRow(
-          'Date of birth (Unmatched)',
-          patientInfo.unconfirmedDOB,
           styles.textStyles.regular,
           styles.textStyles.regular,
           {

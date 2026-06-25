@@ -334,8 +334,6 @@ export const PaperworkPage: FC = () => {
   } = usePaperworkContext();
 
   const questionnaireResponseId = questionnaireResponse?.id;
-  // this is just for avoiding duplicates in the mixpanel tracking
-  const [lastLoggedPageName, setLastLoggedPageName] = useState<string>();
 
   const patientFullName = useGetFullName(paperworkPatient);
 
@@ -381,12 +379,6 @@ export const PaperworkPage: FC = () => {
     },
     [allItems, currentIndex, paperworkPages, questionnaireResponse]
   );
-
-  useEffect(() => {
-    if (pageName !== lastLoggedPageName) {
-      setLastLoggedPageName(pageName);
-    }
-  }, [lastLoggedPageName, pageName]);
 
   const [loading, setLoading] = useState<boolean>(false);
   // when the page changes, update continue label
@@ -649,6 +641,7 @@ const ComplexValidationRoadblock: FC<ValidationRoadblockProps> = ({
           key="validation-roadblock-retry-button"
           data-testid="validation-roadblock-retry-button"
           variant={onContinueClick ? 'outlined' : 'contained'}
+          color="secondary"
           onClick={onRetryClick}
           size={isMobile ? 'small' : 'large'}
           sx={{
@@ -665,6 +658,7 @@ const ComplexValidationRoadblock: FC<ValidationRoadblockProps> = ({
           key="validation-roadblock-continue-button'"
           data-testid="validation-roadblock-continue-button"
           variant="contained"
+          color="secondary"
           onClick={onContinueClick}
           size={isMobile ? 'small' : 'large'}
           sx={{

@@ -21,39 +21,39 @@ export type NavbarItems = {
 };
 
 const administratorNavbarItems: NavbarItems = {
-  'In Person': { urls: ['/visits', '/visit'] },
-  Virtual: { urls: ['/telemed/appointments', '/telemed', '/video-call'] },
+  'Tracking Board': { urls: ['/visits', '/visit'] },
   Patients: { urls: ['/patients', '/patient'] },
   Admin: { urls: ['/admin'] },
+  Reports: { urls: ['/reports'] },
 };
 
 const managerNavbarItems: NavbarItems = {
-  'In Person': { urls: ['/visits', '/visit'] },
-  Virtual: { urls: ['/telemed/appointments', '/telemed', '/video-call'] },
+  'Tracking Board': { urls: ['/visits', '/visit'] },
   Patients: { urls: ['/patients', '/patient'] },
   Admin: { urls: ['/admin'] },
   Tasks: { urls: ['/tasks'] },
+  Reports: { urls: ['/reports'] },
 };
 
 const staffNavbarItems: NavbarItems = {
-  'In Person': { urls: ['/visits', '/visit'] },
-  Virtual: { urls: ['/telemed/appointments'] },
+  'Tracking Board': { urls: ['/visits', '/visit'] },
   Patients: { urls: ['/patients', '/patient'] },
   Tasks: { urls: ['/tasks'] },
+  Reports: { urls: ['/reports'] },
 };
 
 const providerNavbarItems: NavbarItems = {
-  'In Person': { urls: ['/visits', '/visit'] },
-  Virtual: { urls: ['/telemed/appointments', '/telemed', '/video-call'] },
+  'Tracking Board': { urls: ['/visits', '/visit'] },
   Patients: { urls: ['/patients', '/patient'] },
   Tasks: { urls: ['/tasks'] },
+  Reports: { urls: ['/reports'] },
 };
 
 const customerSupportNavbarItems: NavbarItems = {
-  'In Person': { urls: ['/visits', '/visit'] },
-  Virtual: { urls: ['/telemed/appointments', '/telemed', '/video-call'] },
+  'Tracking Board': { urls: ['/visits', '/visit'] },
   Patients: { urls: ['/patients', '/patient'] },
   Admin: { urls: ['/admin'] },
+  Reports: { urls: ['/reports'] },
 };
 
 const hideNavbarPathPatterns = [/^\/telemed\/appointments\/(?!.*\/visit-details$)/, /^\/patient\/[^/]+\/info$/];
@@ -94,7 +94,7 @@ export default function Navbar(): ReactElement | null {
 
   useEffect(() => {
     if (!currentTab) {
-      useNavStore.setState({ currentTab: 'In Person' });
+      useNavStore.setState({ currentTab: 'Tracking Board' });
     }
 
     (Object.keys(navbarItems) as AppTab[]).forEach((navbarItem) => {

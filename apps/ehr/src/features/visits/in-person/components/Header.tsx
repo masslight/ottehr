@@ -6,6 +6,7 @@ import MoreVertIcon from '@mui/icons-material/MoreVert';
 import {
   Box,
   Chip,
+  FormControlLabel,
   Grid,
   IconButton,
   Link,
@@ -14,6 +15,7 @@ import {
   MenuItem,
   Skeleton,
   Stack,
+  Switch,
   TextField,
   Tooltip,
   Typography,
@@ -21,33 +23,43 @@ import {
 } from '@mui/material';
 import { TypographyOptions } from '@mui/material/styles/createTypography';
 import { styled } from '@mui/system';
-import { useQuery } from '@tanstack/react-query';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useEffect, useState } from 'react';
 import { Link as RouterLink, useNavigate, useParams } from 'react-router-dom';
+import { CommandPaletteSearchButton } from 'src/components/CommandPaletteSearchButton';
 import { CreateTaskDialog } from 'src/features/tasks/components/CreateTaskDialog';
 import { useGetPatientCoverages } from 'src/hooks/useGetPatient';
+import { useServiceCategoryAbbreviationResolver } from 'src/hooks/useServiceCategoryAbbreviation';
 import { formatLabelValue } from 'src/shared/utils';
 import {
   FhirAppointmentType,
   formatDateToMDYWithTime,
+  formatWeightKg,
   getAdmitterPractitionerId,
-  getAppointmentServiceCategoryAbbreviation,
+  getAnnotationFollowupStatusLabel,
   getAttendingPractitionerId,
+  getCoding,
+  getEncounterLocationId,
   getFullestAvailableName,
+  getInitialEncounterIdForFollowUp,
   getInsuranceNameFromCoverage,
+  isInPersonAppointment,
   PaymentVariant,
   PRACTITIONER_CODINGS,
-  ProviderDetails,
+  SERVICE_CATEGORY_SYSTEM,
   VisitStatusLabel,
+  VitalFieldNames,
+  type VitalsWeightObservationDTO,
 } from 'utils';
-import { getEmployees } from '../../../../api/api';
 import { dataTestIds } from '../../../../constants/data-test-ids';
 import { useApiClients } from '../../../../hooks/useAppClients';
 import { ProfileAvatar } from '../../shared/components/ProfileAvatar';
+import { useGetHistoricalVitals, useGetVitals } from '../../shared/components/vitals/hooks/useGetVitals';
 import { useChartFields } from '../../shared/hooks/useChartFields';
 import { useGetAppointmentAccessibility } from '../../shared/hooks/useGetAppointmentAccessibility';
+import { useGetEmployees } from '../../shared/hooks/useGetEmployees';
+import { useGroupMemberPractitionerIds } from '../../shared/hooks/useGroupMemberPractitionerIds';
 import { useOystehrAPIClient } from '../../shared/hooks/useOystehrAPIClient';
 import { usePractitionerActions } from '../../shared/hooks/usePractitioner';
 import { useAppointmentData, useChartData } from '../../shared/stores/appointment/appointment.store';
@@ -84,6 +96,42 @@ const PatientInfoWrapper = styled(Box)({
   alignItems: 'baseline',
   gap: '8px',
 });
+
+const getPatientWeightFallback = (weight: string | undefined): string | undefined => {
+  const normalizedWeight = weight?.replace(/\s/g, '');
+  return normalizedWeight?.match(/^\d+(?:\.\d+)?kg/)?.[0];
+};
+
+const getWeightRefusedLabel = (): string => 'Weight: Patient Refused';
+
+const isPatientRefusedWeightObservation = (observation: VitalsWeightObservationDTO): boolean =>
+  observation.extraWeightOptions?.includes('patient_refused') ?? false;
+
+const getDisplayWeight = (
+  currentObservations: VitalsWeightObservationDTO[],
+  historicalObservations: VitalsWeightObservationDTO[],
+  patientWeight: string | undefined
+): string | undefined => {
+  const latestDisplayableObservation = [...currentObservations, ...historicalObservations].find(
+    (observation) => isPatientRefusedWeightObservation(observation) || typeof observation.value === 'number'
+  );
+
+  if (latestDisplayableObservation) {
+    if (isPatientRefusedWeightObservation(latestDisplayableObservation)) {
+      return getWeightRefusedLabel();
+    }
+
+    if (typeof latestDisplayableObservation.value === 'number') {
+      return `${formatWeightKg(latestDisplayableObservation.value)}kg`;
+    }
+  }
+
+  if (currentObservations.length === 0 && historicalObservations.length === 0) {
+    return getPatientWeightFallback(patientWeight);
+  }
+
+  return undefined;
+};
 
 const getFollowupStatusChip = (status: 'OPEN' | 'RESOLVED'): ReactElement => {
   interface ColorScheme {
@@ -148,6 +196,7 @@ export const Header = (): JSX.Element => {
     location,
     locations,
     encounter,
+    followUpOriginEncounter,
     appointmentRefetch,
     selectedEncounterId,
   } = useAppointmentData();
@@ -165,17 +214,17 @@ export const Header = (): JSX.Element => {
   const { chartData } = useChartData();
 
   const effectiveEncounterId = selectedEncounterId ?? encounter?.id;
+  const { data: encounterVitals } = useGetVitals(effectiveEncounterId);
+  const { data: historicalVitals } = useGetHistoricalVitals(effectiveEncounterId);
 
   const start = encounter?.period?.start ?? appointmentValues?.start;
 
   let optionalVisitLabel = '';
 
   if (isFollowup) {
-    const locationRef = encounter?.location?.[0]?.location?.reference;
-    if (locationRef) {
-      const locationId = locationRef.split('/')[1];
+    const locationId = getEncounterLocationId(encounter);
+    if (locationId) {
       const matchedLocation = locations.find((location) => location?.id === locationId);
-
       optionalVisitLabel = matchedLocation?.name ?? '';
     }
   } else {
@@ -208,13 +257,17 @@ export const Header = (): JSX.Element => {
   const userTimezone = DateTime.local().zoneName;
   const { date = '', time = '' } = formatDateToMDYWithTime(start, userTimezone) ?? {};
   const visitText = `Visit: ${date} ${time}${optionalVisitLabel ? ` | ${optionalVisitLabel}` : ''}`.trim();
-  const serviceCategory = getAppointmentServiceCategoryAbbreviation(appointment);
+  const resolveServiceCategoryAbbr = useServiceCategoryAbbreviationResolver();
+  const serviceCategoryCoding = getCoding(appointment?.serviceCategory, SERVICE_CATEGORY_SYSTEM);
+  const serviceCategory = resolveServiceCategoryAbbr(serviceCategoryCoding?.code ?? serviceCategoryCoding?.display);
   const visitBookingType = appointment
     ? appointment.appointmentType?.text === FhirAppointmentType.prebook
       ? 'Scheduled'
       : 'On Demand'
     : undefined;
-  const visitTypeAndCategory = ['In Person', serviceCategory].filter(Boolean).join(' | ');
+  const visitTypeAndCategory = [isInPersonAppointment(appointment) ? 'In Person' : 'Virtual', serviceCategory]
+    .filter(Boolean)
+    .join(' | ');
 
   const assignedIntakePerformerId = encounter ? getAdmitterPractitionerId(encounter) : undefined;
   const assignedProviderId = encounter ? getAttendingPractitionerId(encounter) : undefined;
@@ -229,6 +282,11 @@ export const Header = (): JSX.Element => {
   const gender = formatLabelValue(mappedData?.gender, 'Gender');
   const language = formatLabelValue(mappedData?.preferredLanguage, 'Lang');
   const dob = formatLabelValue(mappedData?.DOB, 'DOB', true);
+  const weight = getDisplayWeight(
+    encounterVitals?.[VitalFieldNames.VitalWeight] ?? [],
+    historicalVitals?.[VitalFieldNames.VitalWeight] ?? [],
+    mappedData?.weight
+  );
 
   const allergies = formatLabelValue(
     chartData?.allergies
@@ -281,46 +339,21 @@ export const Header = (): JSX.Element => {
 
   const { oystehrZambda } = useApiClients();
 
-  const { data: employees, isFetching: employeesIsFetching } = useQuery({
-    queryKey: ['get-employees', { oystehrZambda }],
-    queryFn: async () => {
-      if (oystehrZambda) {
-        const getEmployeesRes = await getEmployees(oystehrZambda);
-        const providers = getEmployeesRes.employees.filter(
-          (employee) => employee.isProvider && !employee.isCustomerSupport
-        );
-        const formattedProviders: ProviderDetails[] = providers.map((prov) => {
-          const id = prov.profile.split('/')[1];
-          return {
-            practitionerId: id,
-            name: `${prov.firstName} ${prov.lastName}`,
-          };
-        });
+  const { data: employees, isLoading: employeesIsLoading } = useGetEmployees();
 
-        // TODO: remove this once we have nurses role
-        // const nonProviders = getEmployeesRes.employees.filter((employee) => !employee.isProvider);
-        const nonProviders = getEmployeesRes.employees.filter((employee) => !employee.isCustomerSupport);
-        const formattedNonProviders: ProviderDetails[] = nonProviders.map((prov) => {
-          const id = prov.profile.split('/')[1];
-          return {
-            practitionerId: id,
-            name: `${prov.firstName} ${prov.lastName}`,
-          };
-        });
-        return {
-          providers: formattedProviders,
-          nonProviders: formattedNonProviders,
-        };
-      }
-      return null;
-    },
-  });
+  // Group-membership filter for the Provider/ATND dropdown. Only renders when
+  // the appointment came through a group HS — confines the picker to the
+  // group's roster so the front desk doesn't unknowingly assign outside it.
+  // Toggle defaults on; user can flip it off when a deliberate cross-group
+  // assignment is needed.
+  const groupMemberPractitionerIds = useGroupMemberPractitionerIds(group);
+  const [restrictProvidersToGroup, setRestrictProvidersToGroup] = useState(true);
+  const filteredProviders =
+    group && restrictProvidersToGroup && groupMemberPractitionerIds
+      ? employees?.providers?.filter((p) => groupMemberPractitionerIds.includes(p.practitionerId))
+      : employees?.providers;
 
-  if (employeesIsFetching) {
-    return <HeaderSkeleton />;
-  }
-
-  if (!employees) {
+  if (!employeesIsLoading && oystehrZambda && !employees) {
     return <Box sx={{ padding: '16px' }}>There must be some employees registered to use charting.</Box>;
   }
 
@@ -362,12 +395,12 @@ export const Header = (): JSX.Element => {
         </Box>
         <Grid container spacing={2} sx={{ padding: '0 18px 0 4px' }}>
           <Grid item xs={12}>
-            <Grid container alignItems="center" justifyContent="space-between">
+            <Grid container alignItems="center" justifyContent="space-between" wrap="nowrap">
               <Grid item>
-                <Grid container alignItems="center" spacing={2}>
+                <Grid container alignItems="center" spacing={2} wrap="nowrap">
                   <Grid item>
                     {isFollowup ? (
-                      getFollowupStatusChip(encounter?.status === 'in-progress' ? 'OPEN' : 'RESOLVED')
+                      getFollowupStatusChip(getAnnotationFollowupStatusLabel(encounter?.status))
                     ) : (
                       <ChangeStatusDropdown
                         appointmentID={appointmentID}
@@ -417,55 +450,7 @@ export const Header = (): JSX.Element => {
                     {isFollowup ? (
                       <Stack direction="row" spacing={1} alignItems="center">
                         <PatientMetadata sx={{ whiteSpace: 'nowrap' }}>Follow-up provider: </PatientMetadata>
-                        <TextField
-                          select
-                          fullWidth
-                          data-testid={dataTestIds.inPersonHeader.providerPractitionerInput}
-                          sx={{ minWidth: 120 }}
-                          variant="standard"
-                          value={assignedProviderId ?? ''}
-                          disabled={isUpdatingPractitionerForProvider}
-                          onChange={(e) => {
-                            void handleUpdateProviderAssignment(e.target.value);
-                          }}
-                        >
-                          {employees.providers
-                            ?.sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()))
-                            ?.map((provider) => (
-                              <MenuItem key={provider.practitionerId} value={provider.practitionerId}>
-                                {provider.name}
-                              </MenuItem>
-                            ))}
-                        </TextField>
-                      </Stack>
-                    ) : (
-                      <Stack direction="row" spacing={2}>
-                        <Stack direction="row" spacing={1} alignItems="center">
-                          <PatientMetadata>Intake: </PatientMetadata>
-                          <TextField
-                            select
-                            fullWidth
-                            data-testid={dataTestIds.inPersonHeader.intakePractitionerInput}
-                            sx={{ minWidth: 120 }}
-                            variant="standard"
-                            value={assignedIntakePerformerId ?? ''}
-                            disabled={isUpdatingPractitionerForIntake}
-                            onChange={(e) => {
-                              void handleUpdateIntakeAssignment(e.target.value);
-                            }}
-                          >
-                            {employees.nonProviders
-                              ?.sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()))
-                              ?.map((nonProvider) => (
-                                <MenuItem key={nonProvider.practitionerId} value={nonProvider.practitionerId}>
-                                  {nonProvider.name}
-                                </MenuItem>
-                              ))}
-                          </TextField>
-                        </Stack>
-
-                        <Stack direction="row" spacing={1} alignItems="center">
-                          <PatientMetadata>Provider: </PatientMetadata>
+                        {employees ? (
                           <TextField
                             select
                             fullWidth
@@ -486,6 +471,126 @@ export const Header = (): JSX.Element => {
                                 </MenuItem>
                               ))}
                           </TextField>
+                        ) : (
+                          <Skeleton sx={{ width: 120, minWidth: 120 }} animation="wave" />
+                        )}
+                      </Stack>
+                    ) : (
+                      <Stack direction="row" spacing={2}>
+                        <Stack direction="row" spacing={1} alignItems="center">
+                          <PatientMetadata>Intake: </PatientMetadata>
+                          {employees ? (
+                            <TextField
+                              select
+                              fullWidth
+                              data-testid={dataTestIds.inPersonHeader.intakePractitionerInput}
+                              sx={{ minWidth: 120 }}
+                              variant="standard"
+                              value={assignedIntakePerformerId ?? ''}
+                              disabled={isUpdatingPractitionerForIntake}
+                              onChange={(e) => {
+                                void handleUpdateIntakeAssignment(e.target.value);
+                              }}
+                            >
+                              {employees.nonProviders
+                                ?.sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()))
+                                ?.map((nonProvider) => (
+                                  <MenuItem key={nonProvider.practitionerId} value={nonProvider.practitionerId}>
+                                    {nonProvider.name}
+                                  </MenuItem>
+                                ))}
+                            </TextField>
+                          ) : (
+                            <Skeleton sx={{ width: 120, minWidth: 120 }} animation="wave" />
+                          )}
+                        </Stack>
+
+                        <Stack direction="row" spacing={1} alignItems="center">
+                          <PatientMetadata>Provider: </PatientMetadata>
+                          {employees ? (
+                            <TextField
+                              select
+                              fullWidth
+                              data-testid={dataTestIds.inPersonHeader.providerPractitionerInput}
+                              sx={{ minWidth: 120 }}
+                              variant="standard"
+                              value={assignedProviderId ?? ''}
+                              disabled={isUpdatingPractitionerForProvider}
+                              onChange={(e) => {
+                                void handleUpdateProviderAssignment(e.target.value);
+                              }}
+                            >
+                              {group && (
+                                <MenuItem
+                                  // Embedding a non-option control inside a MUI Select
+                                  // menu requires defending against several behaviors that
+                                  // would otherwise close the dropdown on every toggle:
+                                  //   - `disabled` makes Select's selection logic skip
+                                  //     this child instead of treating clicks as option
+                                  //     picks. The sx overrides undo `disabled`'s visual
+                                  //     dimming and pointer-events blocking so the Switch
+                                  //     stays interactive.
+                                  //   - Stops on mousedown/click/keydown at the MenuItem
+                                  //     level catch Select's event delegation before it
+                                  //     can read the toggle interaction as an option pick.
+                                  //   - Stops on the Switch's own change/click prevent the
+                                  //     events from bubbling to any parent input listener.
+                                  //   - `inputProps.tabIndex: -1` keeps focus on the
+                                  //     MenuList — without it the hidden checkbox grabs
+                                  //     focus on click and the Menu closes thinking focus
+                                  //     left the option list.
+                                  // We don't know which single piece is sufficient (each
+                                  // trim attempt regressed). Treat this as a load-bearing
+                                  // bundle and edit only when MUI behavior changes.
+                                  disabled
+                                  disableRipple
+                                  sx={{
+                                    px: 2,
+                                    py: 1,
+                                    borderBottom: '1px solid',
+                                    borderColor: 'divider',
+                                    cursor: 'default',
+                                    '&.Mui-disabled': {
+                                      opacity: 1,
+                                      pointerEvents: 'auto',
+                                    },
+                                    '&:hover': { backgroundColor: 'transparent' },
+                                  }}
+                                  onMouseDown={(e) => e.stopPropagation()}
+                                  onClick={(e) => e.stopPropagation()}
+                                  onKeyDown={(e) => e.stopPropagation()}
+                                >
+                                  <FormControlLabel
+                                    onClick={(e) => e.stopPropagation()}
+                                    control={
+                                      <Switch
+                                        size="small"
+                                        checked={restrictProvidersToGroup}
+                                        onChange={(e) => {
+                                          e.stopPropagation();
+                                          setRestrictProvidersToGroup(e.target.checked);
+                                        }}
+                                        onClick={(e) => e.stopPropagation()}
+                                        inputProps={{ tabIndex: -1 }}
+                                      />
+                                    }
+                                    label={
+                                      <Typography variant="caption">Members of {group.name ?? 'group'} only</Typography>
+                                    }
+                                  />
+                                </MenuItem>
+                              )}
+                              {filteredProviders
+                                ?.sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()))
+                                ?.map((provider) => (
+                                  <MenuItem key={provider.practitionerId} value={provider.practitionerId}>
+                                    {provider.name}
+                                  </MenuItem>
+                                ))}
+                            </TextField>
+                          ) : (
+                            <Skeleton sx={{ width: 120, minWidth: 120 }} animation="wave" />
+                          )}
                         </Stack>
                       </Stack>
                     )}
@@ -493,9 +598,12 @@ export const Header = (): JSX.Element => {
                 </Grid>
               </Grid>
               <Grid item>
-                <IconButton onClick={() => navigate('/visits')}>
-                  <CloseIcon />
-                </IconButton>
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <CommandPaletteSearchButton />
+                  <IconButton onClick={() => navigate('/visits')}>
+                    <CloseIcon />
+                  </IconButton>
+                </Stack>
               </Grid>
             </Grid>
           </Grid>
@@ -519,6 +627,11 @@ export const Header = (): JSX.Element => {
                     </PatientInfoWrapper>
                     <PatientInfoWrapper>
                       <PatientMetadata>{pronouns}</PatientMetadata> | <PatientMetadata>{gender}</PatientMetadata> |
+                      {weight ? (
+                        <>
+                          <PatientMetadata data-testid={dataTestIds.inPersonHeader.weight}>{weight}</PatientMetadata> |
+                        </>
+                      ) : null}
                       <PatientMetadata>{language}</PatientMetadata> |<PatientMetadata>{reasonForVisit}</PatientMetadata>
                     </PatientInfoWrapper>
                   </Grid>
@@ -568,7 +681,10 @@ export const Header = (): JSX.Element => {
                     onClick={() => {
                       setHeaderMenuAnchorEl(null);
                       if (patient?.id) {
-                        navigate(`/patient/${patient.id}/followup/add`);
+                        const initialEncounterId = getInitialEncounterIdForFollowUp(encounter, followUpOriginEncounter);
+                        navigate(`/patient/${patient.id}/followup/add`, {
+                          state: { initialEncounterId },
+                        });
                       }
                     }}
                     disabled={!patient?.id}
@@ -593,79 +709,6 @@ export const Header = (): JSX.Element => {
                   </MenuItem>
                 </Menu>
                 <CreateTaskDialog open={showCreateTaskDialog} handleClose={() => setShowCreateTaskDialog(false)} />
-              </Grid>
-            </Grid>
-          </Grid>
-        </Grid>
-      </Stack>
-    </HeaderWrapper>
-  );
-};
-
-const HeaderSkeleton = (): JSX.Element => {
-  return (
-    <HeaderWrapper>
-      <Stack flexDirection="row">
-        <Box sx={{ width: 70 }} display="flex" alignItems="center" justifyContent="center">
-          <Skeleton sx={{ height: 40, width: 40 }} animation="wave" variant="circular" />
-        </Box>
-        <Grid container spacing={2} sx={{ padding: '0 18px 0 4px' }}>
-          <Grid item xs={12}>
-            <Grid container alignItems="center" justifyContent="space-between">
-              <Grid item>
-                <Grid container alignItems="center" spacing={2}>
-                  <Grid item>
-                    <Skeleton sx={{ width: 120, height: 40 }} animation="wave" />
-                  </Grid>
-                  <Grid item>
-                    <Skeleton sx={{ width: 200 }} animation="wave" variant="text" />
-                  </Grid>
-                  <Grid item>
-                    <Stack direction="row" spacing={2}>
-                      <Stack direction="row" spacing={1} alignItems="center">
-                        <Skeleton sx={{ width: 60 }} animation="wave" variant="text" />
-                        <Skeleton sx={{ width: 120 }} animation="wave" />
-                      </Stack>
-
-                      <Stack direction="row" spacing={1} alignItems="center">
-                        <Skeleton sx={{ width: 60 }} animation="wave" variant="text" />
-                        <Skeleton sx={{ width: 120 }} animation="wave" />
-                      </Stack>
-                    </Stack>
-                  </Grid>
-                </Grid>
-              </Grid>
-              <Grid item>
-                <Skeleton sx={{ height: 40, width: 40 }} animation="wave" variant="circular" />
-              </Grid>
-            </Grid>
-          </Grid>
-          <Grid item xs={12} sx={{ mt: -2 }}>
-            <Grid container alignItems="center" spacing={2}>
-              <Grid item>
-                <Skeleton sx={{ height: 50, width: 50 }} animation="wave" variant="circular" />
-              </Grid>
-              <Grid item xs>
-                <PatientInfoWrapper>
-                  <Skeleton sx={{ width: 160 }} animation="wave" variant="text" />
-                  <Skeleton sx={{ width: 120 }} animation="wave" variant="text" />
-                </PatientInfoWrapper>
-                <PatientInfoWrapper>
-                  <Skeleton sx={{ width: 120 }} animation="wave" variant="text" />
-                  <Skeleton sx={{ width: 140 }} animation="wave" variant="text" />
-                </PatientInfoWrapper>
-              </Grid>
-              <Grid
-                item
-                sx={{
-                  '@media (max-width: 1179px)': {
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: 0.5,
-                  },
-                }}
-              >
-                <Skeleton width={200} height={40} animation="wave" />
               </Grid>
             </Grid>
           </Grid>

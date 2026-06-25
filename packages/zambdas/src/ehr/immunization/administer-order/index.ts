@@ -5,10 +5,13 @@ import {
   Medication,
   MedicationAdministration,
   MedicationStatement,
+  Organization,
   Practitioner,
+  Procedure,
   Reference,
   RelatedPerson,
 } from 'fhir/r4b';
+import { DateTime } from 'luxon';
 import {
   AdministerImmunizationOrderRequest,
   CODE_SYSTEM_CPT,
@@ -20,8 +23,8 @@ import {
   EMERGENCY_CONTACT_RELATIONSHIPS,
   getFullName,
   getMedicationName,
-  getSecret,
   ImmunizationEmergencyContact,
+  INVALID_INPUT_ERROR,
   mapFhirToOrderStatus,
   mapOrderStatusToFhir,
   MEDICATION_ADMINISTRATION_PERFORMER_TYPE_SYSTEM,
@@ -29,22 +32,21 @@ import {
   MEDICATION_DISPENSABLE_DRUG_ID,
   MVX_CODE_SYSTEM_URL,
   PRACTITIONER_ADMINISTERED_MEDICATION_CODE,
-  SecretsKeys,
   VACCINE_ADMINISTRATION_CODES_EXTENSION_URL,
   VACCINE_ADMINISTRATION_VIS_DATE_EXTENSION_URL,
 } from 'utils';
 import {
   checkOrCreateM2MClientToken,
-  createOystehrClient,
+  createClinicalOystehrClient,
   fillMeta,
   getMyPractitionerId,
-  topLevelCatch,
   validateJsonBody,
   wrapHandler,
   ZambdaInput,
 } from '../../../shared';
 import {
   CONTAINED_EMERGENCY_CONTACT_ID,
+  CONTAINED_MANUFACTURER_ORG_ID,
   CONTAINED_MEDICATION_ID,
   getContainedMedication,
   updateOrderDetails,
@@ -56,26 +58,20 @@ let m2mToken: string;
 const ZAMBDA_NAME = 'administer-immunization-order';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  try {
-    const validatedParameters = validateRequestParameters(input);
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedParameters.secrets);
-    const oystehr = createOystehrClient(m2mToken, validatedParameters.secrets);
-    const userToken = input.headers.Authorization.replace('Bearer ', '');
-    const oystehrCurrentUser = createOystehrClient(userToken, validatedParameters.secrets);
-    const userPractitionerId = await getMyPractitionerId(oystehrCurrentUser);
-    const userPractitioner = await oystehr.fhir.get<Practitioner>({
-      resourceType: 'Practitioner',
-      id: userPractitionerId,
-    });
-    const response = await administerImmunizationOrder(oystehr, validatedParameters, userPractitioner);
-    return {
-      statusCode: 200,
-      body: JSON.stringify(response),
-    };
-  } catch (error: any) {
-    console.log('Error: ', JSON.stringify(error.message));
-    return topLevelCatch(ZAMBDA_NAME, error, getSecret(SecretsKeys.ENVIRONMENT, input.secrets));
-  }
+  const validatedParameters = validateRequestParameters(input);
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedParameters.secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, validatedParameters.secrets);
+  const userToken = input.headers.Authorization.replace('Bearer ', '');
+  const userPractitionerId = await getMyPractitionerId(userToken, validatedParameters.secrets);
+  const userPractitioner = await oystehr.fhir.get<Practitioner>({
+    resourceType: 'Practitioner',
+    id: userPractitionerId,
+  });
+  const response = await administerImmunizationOrder(oystehr, validatedParameters, userPractitioner);
+  return {
+    statusCode: 200,
+    body: JSON.stringify(response),
+  };
 });
 
 async function administerImmunizationOrder(
@@ -89,7 +85,8 @@ async function administerImmunizationOrder(
     id: orderId,
   });
 
-  if (medicationAdministration.status !== 'in-progress') {
+  const allowedStatuses = ['in-progress', 'completed', 'stopped', 'on-hold', 'not-done'];
+  if (!allowedStatuses.includes(medicationAdministration.status)) {
     const currentStatus = mapFhirToOrderStatus(medicationAdministration);
     throw new Error(`Can't administer order in "${currentStatus}" status`);
   }
@@ -145,7 +142,15 @@ async function administerImmunizationOrder(
       expirationDate: administrationDetails.expDate,
     };
   }
-  medication.extension?.push({
+
+  // Clear existing administration extensions before re-adding to support edits
+  medication.extension = (medication.extension ?? []).filter(
+    (ext) =>
+      ext.url !== VACCINE_ADMINISTRATION_CODES_EXTENSION_URL &&
+      ext.url !== VACCINE_ADMINISTRATION_VIS_DATE_EXTENSION_URL
+  );
+
+  medication.extension.push({
     url: VACCINE_ADMINISTRATION_CODES_EXTENSION_URL,
     valueCodeableConcept: codeableConcept(administrationDetails.mvx, MVX_CODE_SYSTEM_URL),
   });
@@ -157,11 +162,15 @@ async function administerImmunizationOrder(
     url: VACCINE_ADMINISTRATION_CODES_EXTENSION_URL,
     valueCodeableConcept: codeableConcept(administrationDetails.ndc, CODE_SYSTEM_NDC),
   });
-  if (administrationDetails.cpt) {
-    medication.extension?.push({
-      url: VACCINE_ADMINISTRATION_CODES_EXTENSION_URL,
-      valueCodeableConcept: codeableConcept(administrationDetails.cpt, CODE_SYSTEM_CPT),
-    });
+  if (administrationDetails.cptCodes && administrationDetails.cptCodes.length > 0) {
+    for (const cptCode of administrationDetails.cptCodes) {
+      medication.extension?.push({
+        url: VACCINE_ADMINISTRATION_CODES_EXTENSION_URL,
+        valueCodeableConcept: {
+          coding: [{ code: cptCode.code, system: CODE_SYSTEM_CPT, display: cptCode.display }],
+        },
+      });
+    }
   }
   if (administrationDetails.visGivenDate) {
     medication.extension?.push({
@@ -186,7 +195,10 @@ async function administerImmunizationOrder(
         medicationAdministration,
         medication,
         administrationDetails.administeredDateTime,
-        userPractitioner
+        userPractitioner,
+        medicationAdministration.contained?.find((r) => r.id === CONTAINED_MANUFACTURER_ORG_ID) as
+          | Organization
+          | undefined
       ),
     });
   }
@@ -194,6 +206,51 @@ async function administerImmunizationOrder(
   console.log('Transaction requests: ', JSON.stringify(transactionRequests));
   const transactionResult = await oystehr.fhir.transaction({ requests: transactionRequests });
   console.log('Transaction result: ', JSON.stringify(transactionResult));
+
+  // Add CPT codes to chart data (assessment) on administration
+  if (['administered', 'administered-partly'].includes(input.type)) {
+    const cptCodesToAdd = administrationDetails.cptCodes ?? [];
+    if (cptCodesToAdd.length > 0) {
+      const encounterId = medicationAdministration.context?.reference?.replace('Encounter/', '');
+      const patientId = medicationAdministration.subject?.reference?.replace('Patient/', '');
+      if (encounterId && patientId) {
+        try {
+          // Search for existing CPT code Procedures on this encounter
+          const existingProcedures = (
+            await oystehr.fhir.search<Procedure>({
+              resourceType: 'Procedure',
+              params: [
+                { name: 'encounter', value: `Encounter/${encounterId}` },
+                { name: '_tag', value: 'cpt-code' },
+              ],
+            })
+          ).unbundle();
+          const existingCodes = existingProcedures.map((p) => p.code?.coding?.[0]?.code).filter(Boolean);
+          const newCodes = cptCodesToAdd.filter((c) => !existingCodes.includes(c.code));
+
+          for (const cptCode of newCodes) {
+            await oystehr.fhir.create<Procedure>({
+              resourceType: 'Procedure',
+              subject: { reference: `Patient/${patientId}` },
+              encounter: { reference: `Encounter/${encounterId}` },
+              status: 'completed',
+              code: {
+                coding: [{ code: cptCode.code, display: cptCode.display, system: 'http://www.ama-assn.org/go/cpt' }],
+              },
+              meta: {
+                tag: [{ code: 'cpt-code', system: 'https://fhir.zapehr.com/r4/StructureDefinitions/cpt-code' }],
+              },
+            });
+          }
+          if (newCodes.length > 0) {
+            console.log('Added CPT codes to chart data:', newCodes.map((c) => c.code).join(', '));
+          }
+        } catch (e) {
+          console.error('Failed to add CPT codes to chart data:', e);
+        }
+      }
+    }
+  }
 
   return {
     orderId: medicationAdministration.id!,
@@ -224,18 +281,33 @@ export function validateRequestParameters(
     if (!administrationDetails?.visGivenDate) {
       missingFields.push('administrationDetails.visGivenDate');
     }
-    if (!administrationDetails?.emergencyContact?.relationship) {
-      missingFields.push('administrationDetails.emergencyContact.relationship');
-    }
-    if (!administrationDetails?.emergencyContact?.fullName) {
-      missingFields.push('administrationDetails.emergencyContact.fullName');
-    }
-    if (!administrationDetails?.emergencyContact?.mobile) {
-      missingFields.push('administrationDetails.emergencyContact.mobile');
-    }
   }
 
   if (missingFields.length > 0) throw new Error(`Missing required fields [${missingFields.join(', ')}]`);
+
+  function validateDate(value: string, input: string): void {
+    const dt = DateTime.fromISO(value);
+    if (!dt.isValid || dt.year < 1900) {
+      throw INVALID_INPUT_ERROR(`Invalid ${input}, "${value}" is not a valid date`);
+    }
+  }
+
+  if (administrationDetails?.expDate) {
+    validateDate(administrationDetails.expDate, 'expiration date');
+  }
+  if (administrationDetails?.administeredDateTime) {
+    validateDate(administrationDetails.administeredDateTime, 'administered date');
+  }
+  if (administrationDetails?.visGivenDate) {
+    validateDate(administrationDetails.visGivenDate, 'VIS given date');
+  }
+
+  if (administrationDetails) {
+    if (administrationDetails.mvx) administrationDetails.mvx = administrationDetails.mvx.trim();
+    if (administrationDetails.cvx) administrationDetails.cvx = administrationDetails.cvx.trim();
+    if (administrationDetails.ndc) administrationDetails.ndc = administrationDetails.ndc.trim();
+    if (administrationDetails.cpt) administrationDetails.cpt = administrationDetails.cpt.trim();
+  }
 
   return {
     orderId,
@@ -251,9 +323,11 @@ function createMedicationStatement(
   medicationAdministration: MedicationAdministration,
   medication: Medication,
   administeredDateTime: string,
-  userPractitioner: Practitioner
+  userPractitioner: Practitioner,
+  manufacturer?: Organization
 ): MedicationStatement {
   const drugIdCoding = medication.code?.coding?.find((code) => code.system === MEDICATION_DISPENSABLE_DRUG_ID);
+  const containedResources = drugIdCoding ? undefined : [...[medication], ...(manufacturer ? [manufacturer] : [])];
   return {
     resourceType: 'MedicationStatement',
     status: 'active',
@@ -283,7 +357,7 @@ function createMedicationStatement(
     },
     effectiveDateTime: administeredDateTime,
     meta: fillMeta('immunization', 'immunization'),
-    contained: drugIdCoding ? undefined : [medication],
+    contained: containedResources,
   };
 }
 

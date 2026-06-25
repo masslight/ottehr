@@ -6,4 +6,6 @@ export { default as IncompleteEncounters } from './IncompleteEncounters';
 export { default as PracticeKpis } from './PracticeKpis';
 export { default as VisitsOverview } from './VisitsOverview';
 export { default as InvoiceablePatients } from './InvoiceablePatients';
+export { default as InvoiceablePatientsReportPage } from './InvoiceablePatientsReportPage';
+export { default as MailedStatements } from './MailedStatements';
 export { default as RecentPatients } from './RecentPatients';

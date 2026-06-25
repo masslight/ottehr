@@ -4,6 +4,7 @@ import { createContext, FC, PropsWithChildren, useCallback, useContext, useEffec
 import { useSearchParams } from 'react-router-dom';
 import { checkTokenIsValid } from 'src/api/tokenUtils';
 import { useAwaitAuth0 } from 'src/hooks/useAwaitAuth0';
+import { createClinicalOystehrClient } from 'ui-components';
 
 export const useClient = ({ tokenless }: { tokenless: boolean }): Oystehr | null => {
   const context = useContext(IntakeClientsContext);
@@ -74,10 +75,13 @@ export const IntakeClientsProvider: FC<PropsWithChildren> = ({ children }) => {
   const updateClient = useCallback(async (): Promise<void> => {
     const token = await tryGetToken();
 
-    const clientWithToken = new Oystehr({
-      accessToken: token,
+    const clientWithToken = createClinicalOystehrClient(token, {
       projectApiUrl: import.meta.env.VITE_APP_PROJECT_API_URL,
       projectId: import.meta.env.VITE_APP_PROJECT_ID,
+      services: {
+        zambdaApiUrl:
+          import.meta.env.VITE_APP_IS_LOCAL === 'true' ? import.meta.env.VITE_APP_PROJECT_API_ZAMBDA_URL : undefined,
+      },
 
       // fetch interceptor responsible for:
       // - Checks token validity before each request and refreshes token if it is close to expiration (30s buffer)
@@ -122,10 +126,7 @@ export const IntakeClientsProvider: FC<PropsWithChildren> = ({ children }) => {
         return clientWithToken;
       }
 
-      return new Oystehr({
-        projectApiUrl: import.meta.env.VITE_APP_PROJECT_API_URL,
-        projectId: import.meta.env.VITE_APP_PROJECT_ID,
-      });
+      return createClinicalOystehrClient();
     });
   }, [tryGetToken, logout, auth0Loaded]);
 

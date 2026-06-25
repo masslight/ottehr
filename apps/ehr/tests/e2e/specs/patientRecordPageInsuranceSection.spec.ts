@@ -9,7 +9,6 @@ import {
   getEmergencyContactStepAnswers,
   getEmployerInformationStepAnswers,
   getPatientDetailsStepAnswers,
-  getPayerId,
   getPaymentOptionInsuranceAnswers,
   getPrimaryCarePhysicianStepAnswers,
   getResponsiblePartyStepAnswers,
@@ -111,6 +110,9 @@ test.describe('Insurance Information Section non-mutating tests', () => {
     async ({ page }) => {
       const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
       const primaryInsuranceCard = patientInformationPage.getInsuranceCard(0);
+      // verifyAllFieldsAreVisible() uses non-blocking isVisible() checks, so it does not actually
+      // wait for the card to load; gate on the carrier being rendered before reading field values.
+      await primaryInsuranceCard.waitUntilInsuranceCarrierIsRendered();
       await primaryInsuranceCard.verifyAllFieldsAreVisible();
       await primaryInsuranceCard.verifyInsuranceType('Primary');
       await primaryInsuranceCard.verifyInsuranceCarrier(primaryInsuranceCarrier);
@@ -267,7 +269,7 @@ test.describe('Insurance Information Section mutating tests', () => {
 
   test.beforeEach(async () => {
     await resourceHandler.setResources();
-    await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!);
+    await waitForAppointmentReady(resourceHandler);
   });
 
   test.afterEach(async () => {
@@ -277,6 +279,9 @@ test.describe('Insurance Information Section mutating tests', () => {
   test('Enter invalid zip on Insurance information block, validation error are shown', async ({ page }) => {
     const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
     const primaryInsuranceCard = patientInformationPage.getInsuranceCard(0);
+    // Gate the first interaction on the card being fully rendered; otherwise the immediate
+    // field interaction can race the insurance section's render under load and time out.
+    await primaryInsuranceCard.waitUntilInsuranceCarrierIsRendered();
     await primaryInsuranceCard.enterTextField(insuranceSection.items[0].zip.key, '11');
     await patientInformationPage.clickSaveChangesButton();
     await primaryInsuranceCard.verifyValidationErrorZipFieldFromInsurance();
@@ -294,8 +299,10 @@ test.describe('Insurance Information Section mutating tests', () => {
   });
 
   test('Updated values from Insurance information block are saved and displayed correctly', async ({ page }) => {
+    test.slow();
     const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
     const primaryInsuranceCard = patientInformationPage.getInsuranceCard(0);
+    await primaryInsuranceCard.waitUntilInsuranceCarrierIsRendered();
     await primaryInsuranceCard.selectInsuranceCarrier(NEW_PATIENT_INSURANCE_CARRIER);
     await primaryInsuranceCard.selectFieldOption(
       insuranceSection.items[0].insurancePlanType.key,
@@ -536,6 +543,8 @@ test.describe('Insurance Information Section mutating tests', () => {
 
     const primaryInsuranceCard = patientInformationPage.getInsuranceCard(0);
     const secondaryInsuranceCard = patientInformationPage.getInsuranceCard(1);
+    await primaryInsuranceCard.waitUntilInsuranceCarrierIsRendered();
+    await secondaryInsuranceCard.waitUntilInsuranceCarrierIsRendered();
     await primaryInsuranceCard.selectFieldOption(
       insuranceSection.items[0].insurancePlanType.key,
       PATIENT_INSURANCE_PLAN_TYPE
@@ -590,8 +599,8 @@ test.describe('Insurance Information Section mutating tests', () => {
     const primaryInsuranceCard = patientInformationPage.getInsuranceCard(0);
     await primaryInsuranceCard.clickRemoveInsuranceButton();
     await patientInformationPage.verifyCoverageRemovedMessageShown();
-    const addInsuranceDialog = await patientInformationPage.clickAddInsuranceButton();
-    await addInsuranceDialog.verifyTypeField('Primary', false);
+    const inlineInsuranceCard = await patientInformationPage.clickAddInsuranceButton();
+    await inlineInsuranceCard.verifyInsuranceType('Primary');
   });
 
   test('Check [Add insurance] button is present if Primary insurance is removed and "Type" on "Add insurance" screen is pre-filled with "Secondary"', async ({
@@ -599,12 +608,29 @@ test.describe('Insurance Information Section mutating tests', () => {
   }) => {
     const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
     const secondaryInsuranceCard = patientInformationPage.getInsuranceCard(1);
+    await secondaryInsuranceCard.waitUntilInsuranceCarrierIsRendered();
     await secondaryInsuranceCard.clickRemoveInsuranceButton();
     await patientInformationPage.verifyCoverageRemovedMessageShown();
-    const addInsuranceDialog = await patientInformationPage.clickAddInsuranceButton();
-    await addInsuranceDialog.verifyTypeField('Secondary', false);
+    const inlineInsuranceCard = await patientInformationPage.clickAddInsuranceButton();
+    await inlineInsuranceCard.verifyInsuranceType('Secondary');
   });
 });
+
+// This spec seeds a patient with a primary and secondary insurance.
+const EXPECTED_COVERAGE_COUNT = 2;
+
+// The harvesting-completed tag can be set before the incremental sub-harvest-paperwork page Tasks
+// finish writing the Coverage resources (waitForPageHarvestTasks can observe 0 active tasks before
+// they're created/indexed), so waitTillHarvestingDone returning does not guarantee the Coverages
+// are queryable. Poll for the Coverages directly in addition to preprocessing/harvesting; this
+// waits exactly as long as needed, and fails loudly if harvest never produces them.
+function waitForAppointmentReady(resourceHandler: ResourceHandler): Promise<unknown> {
+  return Promise.all([
+    resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!),
+    resourceHandler.waitTillHarvestingDone(resourceHandler.appointment.id!),
+    resourceHandler.waitTillCoveragesExist(resourceHandler.patient.id!, EXPECTED_COVERAGE_COUNT),
+  ]);
+}
 
 async function createResourceHandler(): Promise<[ResourceHandler, string, string]> {
   let insuranceCarrier1: QuestionnaireItemAnswerOption | undefined = undefined;
@@ -697,14 +723,12 @@ async function createResourceHandler(): Promise<[ResourceHandler, string, string
       display: ic2?.name,
     },
   };
-  const insuranceCarrier1ForResult = `${getPayerId(ic1)} - ${ic1?.name}`;
-  const insuranceCarrier2ForResult = `${getPayerId(ic2)} - ${ic2?.name}`;
+  // these are old Organization references so they show up as historical
+  const insuranceCarrier1ForResult = `${ic1?.name} (historical)`;
+  const insuranceCarrier2ForResult = `${ic2?.name} (historical)`;
   console.log('carrier: ', JSON.stringify(insuranceCarrier1ForResult));
 
   await resourceHandler.setResources();
-  await Promise.all([
-    resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!),
-    resourceHandler.waitTillHarvestingDone(resourceHandler.appointment.id!),
-  ]);
+  await waitForAppointmentReady(resourceHandler);
   return [resourceHandler, insuranceCarrier1ForResult ?? '', insuranceCarrier2ForResult ?? ''];
 }

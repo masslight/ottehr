@@ -30,9 +30,13 @@ packages/ui-components/dist/*
 .idea
 
 **/vite.config.ts.timestamp-*.mjs
+**/*.tsbuildinfo
 **/ottehr-secrets/
 config/sendgrid/*
 
 terraform.json
 .test-appointment-id
 .playwright-mcp
+
+.claude
+scripts/setup/project/setup-progress.json

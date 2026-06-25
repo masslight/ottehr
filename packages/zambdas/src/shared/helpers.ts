@@ -15,10 +15,12 @@ import {
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
+  BILLING_RESOURCE_TAG,
   EncounterVirtualServiceExtension,
   findQuestionnaireResponseItemLinkId,
   getSecret,
   getTimezone,
+  INVALID_INPUT_ERROR,
   pickFirstValueFromAnswerItem,
   PRIVATE_EXTENSION_BASE_URL,
   PUBLIC_EXTENSION_BASE_URL,
@@ -29,15 +31,55 @@ import {
 } from 'utils';
 import { ZambdaInput } from './types';
 
-export function createOystehrClient(token: string, secrets: Secrets | null): Oystehr {
-  const FHIR_API = getSecret(SecretsKeys.FHIR_API, secrets).replace(/\/r4/g, '');
-  const PROJECT_API = getSecret(SecretsKeys.PROJECT_API, secrets);
-  const CLIENT_CONFIG: OystehrConfig = {
+export const fhirApiUrlFromAuth0Audience = (auth0Audience: string): string => {
+  switch (auth0Audience) {
+    case 'https://dev.api.zapehr.com':
+      return 'https://dev.fhir-api.zapehr.com';
+    case 'https://dev2.api.zapehr.com':
+      return 'https://dev2.fhir-api.zapehr.com';
+    case 'https://testing.api.zapehr.com':
+      return 'https://testing.fhir-api.zapehr.com';
+    case 'https://staging.api.zapehr.com':
+      return 'https://staging.fhir-api.zapehr.com';
+    case 'https://api.zapehr.com':
+      return 'https://fhir-api.zapehr.com';
+    default:
+      throw `Unexpected auth0 audience value, could not map to a projectApiUrl. auth0Audience was: ${auth0Audience}`;
+  }
+};
+
+// todo remove code duplication with configure-secrets
+export const projectApiUrlFromAuth0Audience = (auth0Audience: string): string => {
+  switch (auth0Audience) {
+    case 'https://dev.api.zapehr.com':
+      return 'https://dev.project-api.zapehr.com/v1';
+    case 'https://dev2.api.zapehr.com':
+      return 'https://dev2.project-api.zapehr.com/v1';
+    case 'https://testing.api.zapehr.com':
+      return 'https://testing.project-api.zapehr.com/v1';
+    case 'https://staging.api.zapehr.com':
+      return 'https://staging.project-api.zapehr.com/v1';
+    case 'https://api.zapehr.com':
+      return 'https://project-api.zapehr.com/v1';
+    default:
+      throw `Unexpected auth0 audience value, could not map to a projectApiUrl. auth0Audience was: ${auth0Audience}`;
+  }
+};
+
+export function createClinicalOystehrClient(
+  token: string | undefined,
+  secrets: Secrets | null,
+  overrides?: Partial<OystehrConfig>
+): Oystehr {
+  return new Oystehr({
     accessToken: token,
-    fhirApiUrl: FHIR_API,
-    projectApiUrl: PROJECT_API,
-  };
-  return new Oystehr(CLIENT_CONFIG);
+    services: {
+      fhirApiUrl: fhirApiUrlFromAuth0Audience(getSecret(SecretsKeys.AUTH0_AUDIENCE, secrets)),
+      projectApiUrl: projectApiUrlFromAuth0Audience(getSecret(SecretsKeys.AUTH0_AUDIENCE, secrets)),
+    },
+    ...overrides,
+    ignoreTags: [...(overrides?.ignoreTags ?? []), BILLING_RESOURCE_TAG],
+  });
 }
 
 export interface SMSModel {
@@ -147,28 +189,39 @@ export const fillMeta = (code: string, system: string): Meta => ({
   ],
 });
 
+export const RCM_TAG_SYSTEM = `${PRIVATE_EXTENSION_BASE_URL}/rcm`;
+
+export const rcmMeta = (
+  type: 'fee-schedule' | 'charge-master' | 'invoice-config' | 'scheduled-outreach-config'
+): Meta => ({
+  tag: [
+    { system: RCM_TAG_SYSTEM, code: 'rcm' },
+    { system: RCM_TAG_SYSTEM, code: type },
+  ],
+});
+
 export function assertDefined<T>(value: T, name: string): NonNullable<T> {
   if (value == null) {
-    throw `"${name}" is undefined`;
+    throw new Error(`"${name}" is undefined`);
   }
   return value;
 }
 
 export const validateString = (value: any, propertyName: string): string => {
   if (typeof value !== 'string') {
-    throw new Error(`"${propertyName}" property must be a string`);
+    throw INVALID_INPUT_ERROR(`"${propertyName}" property must be a string`);
   }
   return value;
 };
 
 export function validateJsonBody(input: ZambdaInput): any {
   if (!input.body) {
-    throw new Error('No request body provided');
+    throw INVALID_INPUT_ERROR('Request body is required');
   }
   try {
     return JSON.parse(input.body);
   } catch {
-    throw new Error('Invalid JSON in request body');
+    throw INVALID_INPUT_ERROR('Invalid JSON in request body');
   }
 }
 

@@ -12,22 +12,19 @@ import {
   RelatedPerson,
 } from 'fhir/r4b';
 import { z } from 'zod';
+import { PARTICIPATION_CODE_SYSTEM } from '../../../fhir/constants';
 import { OTTEHR_MODULE } from '../../../fhir/moduleIdentification';
+import { Secrets } from '../../../secrets';
 import {
-  FhirAppointmentType,
-  ProviderTypeCode,
-  Secrets,
-  TelemedAppointmentStatusEnum,
-  TelemedCallStatuses,
-  TelemedStatusHistoryElement,
-} from '../../../main';
-import {
+  AppointmentAttendanceType,
   AppointmentMessaging,
   AppointmentType,
   FhirAppointmentStatus,
   VisitStatusHistoryEntry,
   VisitStatusLabel,
 } from '../../api';
+import { ProviderTypeCode } from '../../api/practitioner.types';
+import { FhirAppointmentType } from '../../common';
 
 export interface GetPastVisitsResponse {
   appointments: AppointmentInformationIntake[];
@@ -43,21 +40,16 @@ export interface AppointmentInformationIntake {
     dateOfBirth?: string;
   };
   appointmentStatus: string;
-  status: AppointmentStatus;
+  status: VisitStatusLabel;
   state?: { code?: string; id?: string };
   timezone?: string;
   type?: string;
 }
 
-export type AppointmentStatus = TelemedAppointmentStatusEnum | VisitStatusLabel;
-
-export type CallStatuses = `${AppointmentStatus}`;
-export const CallStatusesArr = ['ready', 'pre-video', 'on-video', 'unsigned', 'complete', 'cancelled'];
-
 export interface StatusHistoryElement {
   start?: string;
   end?: string;
-  status?: CallStatuses;
+  status?: VisitStatusLabel;
 }
 
 export interface AppointmentsResponse<T> {
@@ -86,13 +78,14 @@ export interface AppointmentInformation extends AppointmentMessaging {
   locationVirtual: AppointmentLocation;
   paperwork?: QuestionnaireResponse;
   encounter: Encounter;
-  status: CallStatuses;
+  status: VisitStatusLabel;
   statusHistory: StatusHistoryElement[];
   cancellationReason?: string;
   next: boolean;
   visitStatusHistory: VisitStatusHistoryEntry[];
   practitioner?: Practitioner;
   appointmentType?: AppointmentType;
+  appointmentAttendanceType?: AppointmentAttendanceType;
 }
 
 export interface ParticipantInfo {
@@ -109,7 +102,6 @@ export interface InPersonAppointmentInformation
   extends Omit<AppointmentInformation, 'paperwork' | 'locationVirtual' | 'location' | 'statusHistory'> {
   encounterId: string;
   start: string;
-  unconfirmedDOB: string;
   reasonForVisit: string;
   status: VisitStatusLabel;
   paperwork: {
@@ -125,14 +117,15 @@ export interface InPersonAppointmentInformation
   approvalDate?: string;
   group?: string;
   room?: string;
-  needsDOBConfirmation?: boolean;
   waitingMinutes?: number;
   serviceCategory?: string;
+  location?: Location;
+  isFollowUp?: boolean;
+  parentEncounterId?: string;
+  parentAppointmentId?: string;
 }
 
-export interface TelemedAppointmentInformation extends Omit<AppointmentInformation, 'status' | 'statusHistory'> {
-  telemedStatus: TelemedCallStatuses;
-  telemedStatusHistory: TelemedStatusHistoryElement[];
+export interface TelemedAppointmentInformation extends AppointmentInformation {
   provider?: string[];
   group?: string[];
   serviceCategory?: string;
@@ -164,7 +157,7 @@ export interface GetTelemedAppointmentsInput {
   providersFilter?: string[];
   groupsFilter?: string[];
   patientFilter: PatientFilterType;
-  statusesFilter: TelemedCallStatuses[];
+  statusesFilter: VisitStatusLabel[];
   visitTypesFilter?: string[];
   userToken: string;
 }
@@ -172,14 +165,14 @@ export interface GetTelemedAppointmentsInput {
 export const PRACTITIONER_CODINGS = {
   Admitter: [
     {
-      system: 'http://terminology.hl7.org/CodeSystem/v3-ParticipationType',
+      system: PARTICIPATION_CODE_SYSTEM,
       code: 'ADM',
       display: 'admitter',
     },
   ] as Coding[],
   Attender: [
     {
-      system: 'http://terminology.hl7.org/CodeSystem/v3-ParticipationType',
+      system: PARTICIPATION_CODE_SYSTEM,
       code: 'ATND',
       display: 'attender',
     },

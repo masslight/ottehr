@@ -4,7 +4,6 @@ import { Account } from 'fhir/r4b';
 import Stripe from 'stripe';
 import {
   FHIR_RESOURCE_NOT_FOUND,
-  getSecret,
   INVALID_INPUT_ERROR,
   isValidUUID,
   ListPatientPaymentInput,
@@ -13,14 +12,12 @@ import {
   MISSING_REQUIRED_PARAMETERS,
   NOT_AUTHORIZED,
   Secrets,
-  SecretsKeys,
 } from 'utils';
 import {
-  createOystehrClient,
+  createClinicalOystehrClient,
   getAuth0Token,
   getStripeClient,
   lambdaResponse,
-  topLevelCatch,
   wrapHandler,
   ZambdaInput,
 } from '../../../shared';
@@ -33,54 +30,48 @@ let oystehrM2MClientToken: string;
 const ZAMBDA_NAME = 'patient-payments-list';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+  console.group('validateRequestParameters');
+  let validatedParameters: ReturnType<typeof validateRequestParameters>;
   try {
-    console.group('validateRequestParameters');
-    let validatedParameters: ReturnType<typeof validateRequestParameters>;
-    try {
-      validatedParameters = validateRequestParameters(input);
-      console.log(JSON.stringify(validatedParameters, null, 4));
-    } catch (error: any) {
-      console.log(error);
-      return lambdaResponse(400, { message: error.message });
-    }
-
-    const secrets = input.secrets;
-    const { patientId } = validatedParameters;
-    console.groupEnd();
-    console.debug('validateRequestParameters success');
-
-    if (!oystehrM2MClientToken) {
-      console.log('getting m2m token for service calls');
-      oystehrM2MClientToken = await getAuth0Token(secrets); // keeping token externally for reuse
-    } else {
-      console.log('already have a token, no need to update');
-    }
-
-    const oystehrClient = createOystehrClient(oystehrM2MClientToken, secrets);
-
-    const accountResources = await getAccountAndCoverageResourcesForPatient(patientId, oystehrClient);
-    const account: Account | undefined = accountResources.account;
-
-    if (!account?.id) {
-      throw FHIR_RESOURCE_NOT_FOUND('Account');
-    }
-
-    const effectInput = await complexValidation(
-      {
-        ...validatedParameters,
-        secrets: input.secrets,
-      },
-      oystehrClient
-    );
-
-    const response = await performEffect(effectInput);
-
-    return lambdaResponse(200, response);
+    validatedParameters = validateRequestParameters(input);
+    console.log(JSON.stringify(validatedParameters, null, 4));
   } catch (error: any) {
-    console.error(error);
-    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    return topLevelCatch('patient-payments-list', error, ENVIRONMENT);
+    console.log(error);
+    return lambdaResponse(400, { message: error.message });
   }
+
+  const secrets = input.secrets;
+  const { patientId } = validatedParameters;
+  console.groupEnd();
+  console.debug('validateRequestParameters success');
+
+  if (!oystehrM2MClientToken) {
+    console.log('getting m2m token for service calls');
+    oystehrM2MClientToken = await getAuth0Token(secrets); // keeping token externally for reuse
+  } else {
+    console.log('already have a token, no need to update');
+  }
+
+  const oystehrClient = createClinicalOystehrClient(oystehrM2MClientToken, secrets);
+
+  const accountResources = await getAccountAndCoverageResourcesForPatient(patientId, oystehrClient);
+  const account: Account | undefined = accountResources.account;
+
+  if (!account?.id) {
+    throw FHIR_RESOURCE_NOT_FOUND('Account');
+  }
+
+  const effectInput = await complexValidation(
+    {
+      ...validatedParameters,
+      secrets: input.secrets,
+    },
+    oystehrClient
+  );
+
+  const response = await performEffect(effectInput);
+
+  return lambdaResponse(200, response);
 });
 interface EffectInput extends ListPatientPaymentInput {
   oystehrClient: Oystehr;

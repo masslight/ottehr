@@ -1,6 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { DocumentReference, MedicationRequest } from 'fhir/r4b';
 import {
+  FEATURE_FLAGS_CONFIG,
   FileURLInfo,
   FileURLs,
   getPresignedURL,
@@ -204,4 +205,16 @@ export async function getPresignedURLs(
   );
 
   return { presignedUrls: presignedUrlObj, reviewedLabResultsUrls };
+}
+
+export async function getPatientPortalPresignedURLs(
+  oystehr: Oystehr,
+  oystehrToken: string,
+  encounterId: string | undefined
+): Promise<{ presignedUrls: FileURLs; reviewedLabResultsUrls: FileURLInfo[] }> {
+  const result = await getPresignedURLs(oystehr, oystehrToken, encounterId);
+  if (FEATURE_FLAGS_CONFIG.skipSendingVisitNoteToPatientPortalEnabled) {
+    delete result.presignedUrls['visit-note'];
+  }
+  return result;
 }

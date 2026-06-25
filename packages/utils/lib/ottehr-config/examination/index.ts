@@ -1,35 +1,13 @@
 import { createSimpleHash, validateExamConfig } from '../../config-helpers/examination';
-import { InPersonExamConfig } from './in-person.config';
-import { TelemedExamConfig } from './telemed.config';
-
-// Re-export helpers for backward compatibility
-export {
-  createSimpleHash,
-  validateExamConfig,
-  isDropdownComponent,
-  isMultiSelectComponent,
-} from '../../config-helpers/examination';
-export type { ExamSchema } from '../../config-helpers/examination';
+import { DefaultExamComponentsConfig, NORMAL_LABELS } from './default-components.config';
 
 export const ExamConfig = {
-  telemed: {
-    default: {
-      version: createSimpleHash(JSON.stringify(TelemedExamConfig)),
-      components: TelemedExamConfig,
-    },
-  },
-  inPerson: {
-    default: {
-      version: createSimpleHash(JSON.stringify(InPersonExamConfig)),
-      components: InPersonExamConfig,
-    },
+  default: {
+    version: createSimpleHash(JSON.stringify(DefaultExamComponentsConfig)),
+    components: DefaultExamComponentsConfig,
+    constants: { normalLabels: NORMAL_LABELS },
   },
 };
-
-export enum ExamType {
-  TELEMED = 'telemed',
-  IN_PERSON = 'inPerson',
-}
 
 const DefaultExamConfig = Object.freeze(validateExamConfig(ExamConfig));
 

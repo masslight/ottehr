@@ -17,10 +17,11 @@ import {
 } from '@mui/material';
 import Oystehr from '@oystehr/sdk';
 import { DateTime } from 'luxon';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { getOrCreateVisitLabel } from 'src/api/api';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
+import { usePrintVisitLabel } from 'src/features/visits/shared/hooks/usePrintVisitLabel';
 import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import {
@@ -60,7 +61,9 @@ export const CollectSampleView: React.FC<CollectSampleViewProps> = ({
   const { encounter } = useAppointmentData();
   const currentUser = useEvolveUser();
   const [loading, setLoading] = useState(false);
+  const isSubmitting = useRef(false);
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
+  const { printVisitLabel } = usePrintVisitLabel();
 
   // set default collected by to current user if no choice made
   useEffect(() => {
@@ -83,11 +86,15 @@ export const CollectSampleView: React.FC<CollectSampleViewProps> = ({
   };
 
   const handleMarkAsCollected = async (): Promise<void> => {
+    if (isSubmitting.current) return;
+    isSubmitting.current = true;
     setLoading(true);
     setError('');
     const isoDate = date.toISO();
     if (!isoDate) {
       setError('Issue parsing date');
+      setLoading(false);
+      isSubmitting.current = false;
       return;
     }
     try {
@@ -104,6 +111,7 @@ export const CollectSampleView: React.FC<CollectSampleViewProps> = ({
       setError(sdkError.message);
     } finally {
       setLoading(false);
+      isSubmitting.current = false;
     }
   };
 
@@ -119,7 +127,8 @@ export const CollectSampleView: React.FC<CollectSampleViewProps> = ({
       }
 
       const labelPdf = labelPdfs[0];
-      window.open(labelPdf.presignedURL, '_blank');
+
+      await printVisitLabel({ pdfPresignedUrl: labelPdf?.presignedURL ?? '', encounterId: encounter.id });
       setLabelButtonLoading(false);
     }
   };
@@ -449,7 +458,7 @@ export const CollectSampleView: React.FC<CollectSampleViewProps> = ({
                 loading={loading}
                 variant="contained"
                 onClick={handleMarkAsCollected}
-                disabled={!sourceType || !collectedById || !date.isValid || isReadOnly}
+                disabled={!collectedById || !date.isValid || isReadOnly || loading}
                 sx={{
                   borderRadius: '20px',
                   px: 3,

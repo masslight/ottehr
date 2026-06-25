@@ -8,6 +8,7 @@ import {
   Encounter,
   HumanName,
   Identifier,
+  Location,
   Organization,
   Patient,
   Period,
@@ -17,7 +18,7 @@ import {
   RelatedPerson,
   Resource,
 } from 'fhir/r4b';
-import { formatZipcodeForDisplay, removePrefix } from '../helpers';
+import { formatZipcodeForDisplay, isValidErxPhoneNumber, removePrefix } from '../helpers';
 import {
   ORG_TYPE_CODE_SYSTEM,
   PATIENT_INDIVIDUAL_PRONOUNS_URL,
@@ -36,7 +37,9 @@ import {
   FHIR_IDENTIFIER_NPI,
   FHIR_IDENTIFIER_SYSTEM,
   filterResources,
+  FRIENDLY_PATIENT_ID_SYSTEM_BASE,
   getAllPractitionerCredentials,
+  getCoding,
   getCommunicationsAndSenders,
   getUniquePhonesNumbers,
   PRIVATE_EXTENSION_BASE_URL,
@@ -107,6 +110,7 @@ export async function createUserResourcesForPatient(
         params: [
           { name: 'patient', value: `Patient/${patientID}` },
           { name: 'telecom', value: phoneNumber },
+          { name: 'relationship', value: 'user-relatedperson' },
         ],
       })
     ).unbundle();
@@ -244,7 +248,6 @@ export async function getPatientResourceWithVerifiedPhoneNumber(
 ): Promise<{
   patient: Patient | undefined;
   verifiedPhoneNumber: string | undefined;
-  relatedPerson: RelatedPerson | undefined;
 }> {
   const response = (
     await oystehr.fhir.search<Patient | Person | RelatedPerson>({
@@ -266,28 +269,45 @@ export async function getPatientResourceWithVerifiedPhoneNumber(
     })
   ).unbundle();
 
-  const patient = response.find((res) => {
-    return res.resourceType === 'Patient';
-  }) as Patient;
+  const patient = response.find((res): res is Patient => res.resourceType === 'Patient');
 
-  const person = response.find((res) => {
-    return res.resourceType === 'Person';
-  }) as Person;
+  const loginRelatedPersons = response.filter(
+    (res): res is RelatedPerson =>
+      res.resourceType === 'RelatedPerson' &&
+      getCoding(res.relationship, `${PRIVATE_EXTENSION_BASE_URL}/relationship`)?.code === 'user-relatedperson'
+  );
 
-  const relatedPerson = response.find((res) => {
-    return res.resourceType === 'RelatedPerson';
-  }) as RelatedPerson;
+  if (!loginRelatedPersons.length) {
+    return { patient, verifiedPhoneNumber: undefined };
+  }
 
-  const contacts = person?.telecom ?? [];
+  const loginRpRefs = new Set(loginRelatedPersons.map((rp) => `RelatedPerson/${rp.id}`));
+  const loginPersons = response.filter(
+    (res): res is Person =>
+      res.resourceType === 'Person' && (res.link ?? []).some((link) => loginRpRefs.has(link.target?.reference ?? ''))
+  );
 
-  const verifiedPhoneNumber = contacts.find((contact) => {
-    if (contact.system === 'phone' && contact.value) {
-      return contact.period?.end == undefined;
-    }
-    return false;
-  })?.value;
+  const verifiedPhoneNumbers = Array.from(
+    new Set(
+      loginPersons.flatMap((person) =>
+        (person.telecom ?? [])
+          .filter((tc) => tc.system === 'phone' && tc.value && tc.period?.end == undefined)
+          .map((tc) => tc.value as string)
+      )
+    )
+  );
 
-  return { patient, verifiedPhoneNumber, relatedPerson };
+  if (verifiedPhoneNumbers.length === 1) {
+    return { patient, verifiedPhoneNumber: verifiedPhoneNumbers[0] };
+  }
+
+  if (verifiedPhoneNumbers.length > 1) {
+    console.log(
+      `getPatientResourceWithVerifiedPhoneNumber: patient ${patientID} has ${verifiedPhoneNumbers.length} verified login phones; returning undefined so the caller resolves deliberately`
+    );
+  }
+
+  return { patient, verifiedPhoneNumber: undefined };
 }
 
 export function getPatientFirstName(patient: Patient): string | undefined {
@@ -424,15 +444,6 @@ export const findPatientForEncounter = (encounter: Encounter, patients: Patient[
   return undefined;
 };
 
-export const findRelatedPersonForPatient = (
-  patient: Patient,
-  relatedPersons: RelatedPerson[]
-): RelatedPerson | undefined => {
-  return relatedPersons.find(
-    (relatedPerson) => removePrefix('Patient/', relatedPerson.patient.reference ?? '') === patient.id
-  );
-};
-
 export function getPatientContactEmail(patient: Patient): string | undefined {
   const formUser = patient.extension?.find((ext) => ext.url === `${PRIVATE_EXTENSION_BASE_URL}/form-user`)?.valueString;
   if (formUser === 'Parent/Guardian') {
@@ -451,6 +462,60 @@ export function getPatientContactEmail(patient: Patient): string | undefined {
     return patient.telecom?.find((telecomTemp) => telecomTemp.system === 'email')?.value;
   }
 }
+
+const hasNonEmptyName = (patient: Patient): boolean =>
+  !!patient.name?.some((name) => (name.given?.[0]?.trim().length ?? 0) > 0 && (name.family?.trim().length ?? 0) > 0);
+
+const hasNonEmptyBirthDate = (patient: Patient): boolean => !!patient.birthDate?.trim();
+
+const hasNonEmptyGender = (patient: Patient): boolean => !!patient.gender?.trim();
+
+const hasNonEmptyAddress = (patient: Patient): boolean =>
+  !!patient.address?.some(
+    (address) =>
+      (address.line?.[0]?.trim().length ?? 0) > 0 &&
+      (address.city?.trim().length ?? 0) > 0 &&
+      (address.state?.trim().length ?? 0) > 0 &&
+      (address.postalCode?.trim().length ?? 0) > 0
+  );
+
+const isReachableTelecom = (telecoms?: ContactPoint[]): boolean =>
+  !!telecoms?.some(
+    (telecom) => (telecom.system === 'phone' || telecom.system === 'email') && (telecom.value?.trim().length ?? 0) > 0
+  );
+
+const hasReachableGuardianContact = (patient: Patient): boolean =>
+  !!patient.contact?.some((contact) => isReachableTelecom(contact.telecom));
+
+const hasReachableContact = (patient: Patient): boolean =>
+  isReachableTelecom(patient.telecom) || hasReachableGuardianContact(patient);
+
+export const isPatientDemographicsComplete = (patient: Patient | undefined): boolean => {
+  if (!patient) return false;
+
+  return (
+    hasNonEmptyName(patient) &&
+    hasNonEmptyBirthDate(patient) &&
+    hasNonEmptyGender(patient) &&
+    hasReachableContact(patient) &&
+    hasNonEmptyAddress(patient)
+  );
+};
+
+export const getErxPatientDemographicErrors = (patient: Patient | undefined): string[] => {
+  if (!patient) return ['patient'];
+
+  const errors: string[] = [];
+  const phone = patient.telecom?.find((telecom) => telecom.system === 'phone')?.value;
+
+  if (!hasNonEmptyName(patient)) errors.push('name');
+  if (!hasNonEmptyBirthDate(patient)) errors.push('birthDate');
+  if (!hasNonEmptyGender(patient)) errors.push('gender');
+  if (!isValidErxPhoneNumber(phone)) errors.push('phone');
+  if (!hasNonEmptyAddress(patient)) errors.push('address');
+
+  return errors;
+};
 
 type MightHaveTelecom = RelatedPerson | Patient | Person | Practitioner;
 export const getSMSNumberForIndividual = (individual: MightHaveTelecom): string | undefined => {
@@ -729,18 +794,13 @@ export const getProviderNotificationSettingsForPractitioner = (
 };
 
 export const checkEncounterHasPractitioner = (encounter: Encounter, practitioner: Practitioner): boolean => {
-  const practitionerId = practitioner?.id;
-
-  const encounterPractitioner = encounter.participant?.find(
-    (item) => item.individual?.reference?.startsWith('Practitioner/')
-  )?.individual?.reference;
-  const encounterPractitionerId = encounterPractitioner && removePrefix('Practitioner/', encounterPractitioner);
-
-  return !!practitioner && !!encounterPractitioner && practitionerId === encounterPractitionerId;
+  return (
+    encounter.participant?.find((item) => item.individual?.reference === 'Practitioner/' + practitioner?.id) != null
+  );
 };
 
-export const getPractitionerNPIIdentifier = (practitioner: Practitioner): Identifier | undefined => {
-  return practitioner.identifier?.find((existIdentifier) => existIdentifier.system === FHIR_IDENTIFIER_NPI);
+export const getNPIIdentifier = (resource: Practitioner | Location | Organization): Identifier | undefined => {
+  return resource.identifier?.find((existIdentifier) => existIdentifier.system === FHIR_IDENTIFIER_NPI);
 };
 
 export const getPatientFormUser = (patient: Patient | undefined): 'Parent' | 'Self' | undefined => {
@@ -834,4 +894,8 @@ export const mapGenderToLabel: { [name in Exclude<Patient['gender'], undefined>]
   female: 'Female',
   other: 'Intersex',
   unknown: 'Unknown',
+};
+
+export const getPatientFriendlyId = (patient: Patient): string => {
+  return patient.identifier?.find((ident) => ident.system?.startsWith(FRIENDLY_PATIENT_ID_SYSTEM_BASE))?.value ?? '';
 };

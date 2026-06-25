@@ -15,6 +15,13 @@
       "src": "src/ehr/create-user/index",
       "zip": ".dist/zips/create-user.zip"
     },
+    "DELETE-USER": {
+      "name": "delete-user",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/delete-user/index",
+      "zip": ".dist/zips/delete-user.zip"
+    },
     "USER-ACTIVATION": {
       "name": "user-activation",
       "type": "http_auth",
@@ -35,6 +42,31 @@
       "runtime": "nodejs22.x",
       "src": "src/ehr/incomplete-encounters-report/index",
       "zip": ".dist/zips/incomplete-encounters-report.zip"
+    },
+    "MAILED-STATEMENTS-REPORT": {
+      "name": "mailed-statements-report",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/mailed-statements-report/index",
+      "zip": ".dist/zips/mailed-statements-report.zip"
+    },
+    "SYNC-MAILED-STATEMENT-STATUSES": {
+      "name": "sync-mailed-statement-statuses",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/sync-mailed-statement-statuses/index",
+      "zip": ".dist/zips/sync-mailed-statement-statuses.zip"
+    },
+    "SYNC-MAILED-STATEMENT-STATUSES-CRON": {
+      "name": "sync-mailed-statement-statuses-cron",
+      "type": "cron",
+      "runtime": "nodejs22.x",
+      "timeout": "595",
+      "src": "src/cron/sync-mailed-statement-statuses/index",
+      "zip": ".dist/zips/sync-mailed-statement-statuses-cron.zip",
+      "schedule": {
+        "expression": "cron(0 6 * * ? *)"
+      }
     },
     "AI-ASSISTED-ENCOUNTERS-REPORT": {
       "name": "ai-assisted-encounters-report",
@@ -70,20 +102,6 @@
       "runtime": "nodejs22.x",
       "src": "src/ehr/recent-patients-report/index",
       "zip": ".dist/zips/recent-patients-report.zip"
-    },
-    "GET-TELEMED-APPOINTMENTS": {
-      "name": "get-telemed-appointments",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/ehr/get-telemed-appointments/index",
-      "zip": ".dist/zips/get-telemed-appointments.zip"
-    },
-    "CHANGE-TELEMED-APPOINTMENT-STATUS": {
-      "name": "change-telemed-appointment-status",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/ehr/change-telemed-appointment-status/index",
-      "zip": ".dist/zips/change-telemed-appointment-status.zip"
     },
     "ASSIGN-PRACTITIONER": {
       "name": "assign-practitioner",
@@ -148,6 +166,20 @@
       "src": "src/ehr/delete-chart-data/index",
       "zip": ".dist/zips/delete-chart-data.zip"
     },
+    "UPLOAD-PATIENT-CONDITION-PHOTO": {
+      "name": "upload-patient-condition-photo",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/upload-patient-condition-photo/index",
+      "zip": ".dist/zips/upload-patient-condition-photo.zip"
+    },
+    "MIGRATE-EXAM-DATA": {
+      "name": "migrate-exam-data",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/migrate-exam-data/index",
+      "zip": ".dist/zips/migrate-exam-data.zip"
+    },
     "BULK-UPDATE-INSURANCE-STATUS": {
       "name": "bulk-update-insurance-status",
       "type": "http_auth",
@@ -155,117 +187,33 @@
       "src": "src/ehr/bulk-update-insurance-status/index",
       "zip": ".dist/zips/bulk-update-insurance-status.zip"
     },
-    "ADMIN-GET-PROCEDURE-QUICK-PICKS": {
-      "name": "admin-get-procedure-quick-picks",
+    "ADMIN-GET-QUICK-PICKS": {
+      "name": "admin-get-quick-picks",
       "type": "http_auth",
       "runtime": "nodejs22.x",
-      "src": "src/ehr/admin-get-procedure-quick-picks/index",
-      "zip": ".dist/zips/admin-get-procedure-quick-picks.zip"
+      "src": "src/ehr/admin-get-quick-picks/index",
+      "zip": ".dist/zips/admin-get-quick-picks.zip"
     },
-    "ADMIN-CREATE-PROCEDURE-QUICK-PICK": {
-      "name": "admin-create-procedure-quick-pick",
+    "ADMIN-CREATE-QUICK-PICK": {
+      "name": "admin-create-quick-pick",
       "type": "http_auth",
       "runtime": "nodejs22.x",
-      "src": "src/ehr/admin-create-procedure-quick-pick/index",
-      "zip": ".dist/zips/admin-create-procedure-quick-pick.zip"
+      "src": "src/ehr/admin-create-quick-pick/index",
+      "zip": ".dist/zips/admin-create-quick-pick.zip"
     },
-    "ADMIN-UPDATE-PROCEDURE-QUICK-PICK": {
-      "name": "admin-update-procedure-quick-pick",
+    "ADMIN-UPDATE-QUICK-PICK": {
+      "name": "admin-update-quick-pick",
       "type": "http_auth",
       "runtime": "nodejs22.x",
-      "src": "src/ehr/admin-update-procedure-quick-pick/index",
-      "zip": ".dist/zips/admin-update-procedure-quick-pick.zip"
+      "src": "src/ehr/admin-update-quick-pick/index",
+      "zip": ".dist/zips/admin-update-quick-pick.zip"
     },
-    "ADMIN-REMOVE-PROCEDURE-QUICK-PICK": {
-      "name": "admin-remove-procedure-quick-pick",
+    "ADMIN-REMOVE-QUICK-PICK": {
+      "name": "admin-remove-quick-pick",
       "type": "http_auth",
       "runtime": "nodejs22.x",
-      "src": "src/ehr/admin-remove-procedure-quick-pick/index",
-      "zip": ".dist/zips/admin-remove-procedure-quick-pick.zip"
-    },
-    "ADMIN-GET-ALLERGY-QUICK-PICKS": {
-      "name": "admin-get-allergy-quick-picks",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/ehr/admin-get-allergy-quick-picks/index",
-      "zip": ".dist/zips/admin-get-allergy-quick-picks.zip"
-    },
-    "ADMIN-CREATE-ALLERGY-QUICK-PICK": {
-      "name": "admin-create-allergy-quick-pick",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/ehr/admin-create-allergy-quick-pick/index",
-      "zip": ".dist/zips/admin-create-allergy-quick-pick.zip"
-    },
-    "ADMIN-UPDATE-ALLERGY-QUICK-PICK": {
-      "name": "admin-update-allergy-quick-pick",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/ehr/admin-update-allergy-quick-pick/index",
-      "zip": ".dist/zips/admin-update-allergy-quick-pick.zip"
-    },
-    "ADMIN-REMOVE-ALLERGY-QUICK-PICK": {
-      "name": "admin-remove-allergy-quick-pick",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/ehr/admin-remove-allergy-quick-pick/index",
-      "zip": ".dist/zips/admin-remove-allergy-quick-pick.zip"
-    },
-    "ADMIN-GET-MEDICAL-CONDITION-QUICK-PICKS": {
-      "name": "admin-get-medical-condition-quick-picks",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/ehr/admin-get-medical-condition-quick-picks/index",
-      "zip": ".dist/zips/admin-get-medical-condition-quick-picks.zip"
-    },
-    "ADMIN-CREATE-MEDICAL-CONDITION-QUICK-PICK": {
-      "name": "admin-create-medical-condition-quick-pick",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/ehr/admin-create-medical-condition-quick-pick/index",
-      "zip": ".dist/zips/admin-create-medical-condition-quick-pick.zip"
-    },
-    "ADMIN-UPDATE-MEDICAL-CONDITION-QUICK-PICK": {
-      "name": "admin-update-medical-condition-quick-pick",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/ehr/admin-update-medical-condition-quick-pick/index",
-      "zip": ".dist/zips/admin-update-medical-condition-quick-pick.zip"
-    },
-    "ADMIN-REMOVE-MEDICAL-CONDITION-QUICK-PICK": {
-      "name": "admin-remove-medical-condition-quick-pick",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/ehr/admin-remove-medical-condition-quick-pick/index",
-      "zip": ".dist/zips/admin-remove-medical-condition-quick-pick.zip"
-    },
-    "ADMIN-GET-MEDICATION-HISTORY-QUICK-PICKS": {
-      "name": "admin-get-medication-history-quick-picks",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/ehr/admin-get-medication-history-quick-picks/index",
-      "zip": ".dist/zips/admin-get-medication-history-quick-picks.zip"
-    },
-    "ADMIN-CREATE-MEDICATION-HISTORY-QUICK-PICK": {
-      "name": "admin-create-medication-history-quick-pick",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/ehr/admin-create-medication-history-quick-pick/index",
-      "zip": ".dist/zips/admin-create-medication-history-quick-pick.zip"
-    },
-    "ADMIN-UPDATE-MEDICATION-HISTORY-QUICK-PICK": {
-      "name": "admin-update-medication-history-quick-pick",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/ehr/admin-update-medication-history-quick-pick/index",
-      "zip": ".dist/zips/admin-update-medication-history-quick-pick.zip"
-    },
-    "ADMIN-REMOVE-MEDICATION-HISTORY-QUICK-PICK": {
-      "name": "admin-remove-medication-history-quick-pick",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/ehr/admin-remove-medication-history-quick-pick/index",
-      "zip": ".dist/zips/admin-remove-medication-history-quick-pick.zip"
+      "src": "src/ehr/admin-remove-quick-pick/index",
+      "zip": ".dist/zips/admin-remove-quick-pick.zip"
     },
     "UPDATE-USER": {
       "name": "update-user",
@@ -330,6 +278,34 @@
       "src": "src/ehr/get-employees/index",
       "zip": ".dist/zips/get-employees.zip"
     },
+    "GET-PAYMENT-LOCATIONS": {
+      "name": "get-payment-locations",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/payments/get-payment-locations/index",
+      "zip": ".dist/zips/get-payment-locations.zip"
+    },
+    "GET-STRIPE-ACCOUNT-INFO": {
+      "name": "get-stripe-account-info",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/payments/get-stripe-account-info/index",
+      "zip": ".dist/zips/get-stripe-account-info.zip"
+    },
+    "GET-TERMINAL-READERS": {
+      "name": "get-terminal-readers",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/payments/get-terminal-readers/index",
+      "zip": ".dist/zips/get-terminal-readers.zip"
+    },
+    "SAVE-TERMINAL-LOCATION": {
+      "name": "save-terminal-location",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/payments/save-terminal-location/index",
+      "zip": ".dist/zips/save-terminal-location.zip"
+    },
     "SYNC-USER": {
       "name": "sync-user",
       "type": "http_auth",
@@ -350,13 +326,6 @@
       "runtime": "nodejs22.x",
       "src": "src/ehr/get-patient-profile-photo-url/index",
       "zip": ".dist/zips/get-patient-profile-photo-url.zip"
-    },
-    "GET-CLAIMS": {
-      "name": "get-claims",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/ehr/get-claims/index",
-      "zip": ".dist/zips/get-claims.zip"
     },
     "CREATE-UPDATE-MEDICATION-ORDER": {
       "name": "create-update-medication-order",
@@ -431,7 +400,7 @@
     "VISIT-DETAILS-TO-PDF": {
       "name": "visit-details-to-pdf",
       "type": "http_auth",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/ehr/visit-details/visit-details-to-pdf/index",
       "zip": ".dist/zips/visit-details-to-pdf.zip"
     },
@@ -455,6 +424,13 @@
       "runtime": "nodejs22.x",
       "src": "src/ehr/patient-account/remove-coverage/index",
       "zip": ".dist/zips/remove-patient-coverage.zip"
+    },
+    "MERGE-PATIENTS": {
+      "name": "merge-patients",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/merge-patients/index",
+      "zip": ".dist/zips/merge-patients.zip"
     },
     "CANCEL-APPOINTMENT": {
       "name": "cancel-appointment",
@@ -525,6 +501,27 @@
       "runtime": "nodejs22.x",
       "src": "src/patient/paperwork/get-paperwork/index",
       "zip": ".dist/zips/get-paperwork.zip"
+    },
+    "CREATE-IN-HOUSE-MEDICATION": {
+      "name": "create-in-house-medication",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/configuration/in-house-medications/create-in-house-medication/index",
+      "zip": ".dist/zips/create-in-house-medication.zip"
+    },
+    "UPDATE-IN-HOUSE-MEDICATION": {
+      "name": "update-in-house-medication",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/configuration/in-house-medications/update-in-house-medication/index",
+      "zip": ".dist/zips/update-in-house-medication.zip"
+    },
+    "GET-IN-HOUSE-MEDICATIONS": {
+      "name": "get-in-house-medications",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/configuration/in-house-medications/get-in-house-medications/index",
+      "zip": ".dist/zips/get-in-house-medications.zip"
     },
     "UPDATE-APPOINTMENT": {
       "name": "update-appointment",
@@ -721,7 +718,17 @@
       "src": "src/cron/daily-radiology-report/index",
       "zip": ".dist/zips/daily-radiology-report.zip",
       "schedule": {
-        "expression": "cron(0 9 * * ? *)"
+        "expression": "cron(0 14 * * ? *)"
+      }
+    },
+    "CLEANUP-INVOICE-EXPORTS": {
+      "name": "cleanup-invoice-exports",
+      "type": "cron",
+      "runtime": "nodejs22.x",
+      "src": "src/cron/cleanup-invoice-exports/index",
+      "zip": ".dist/zips/cleanup-invoice-exports.zip",
+      "schedule": {
+        "expression": "cron(4,33 * * * ? *)"
       }
     },
     "HANDLE-INBOUND-FAX": {
@@ -756,6 +763,14 @@
       "runtime": "nodejs22.x",
       "src": "src/subscriptions/appointment/appointment-chart-data-prefilling/index",
       "zip": ".dist/zips/appointment-chart-data-prefilling.zip"
+    },
+    "SUB-ERX-PATIENT-SYNC": {
+      "name": "sub-erx-patient-sync",
+      "type": "subscription",
+      "runtime": "nodejs22.x",
+      "timeout": "300",
+      "src": "src/subscriptions/appointment/sub-erx-patient-sync/index",
+      "zip": ".dist/zips/sub-erx-patient-sync.zip"
     },
     "SUB-CANCELLATION-EMAIL": {
       "name": "sub-cancellation-email",
@@ -805,6 +820,14 @@
       "runtime": "nodejs22.x",
       "src": "src/subscriptions/task/sub-harvest-paperwork/index",
       "zip": ".dist/zips/sub-harvest-paperwork-page.zip"
+    },
+    "SUB-MERGE-PATIENTS": {
+      "name": "sub-merge-patients",
+      "type": "subscription",
+      "timeout": "300",
+      "runtime": "nodejs22.x",
+      "src": "src/subscriptions/task/sub-merge-patients/index",
+      "zip": ".dist/zips/sub-merge-patients.zip"
     },
     "SUB-SEND-CLAIM": {
       "name": "sub-send-claim",
@@ -890,6 +913,13 @@
       "src": "src/ehr/radiology/save-preliminary-report/index",
       "zip": ".dist/zips/radiology-save-preliminary-report.zip"
     },
+    "RADIOLOGY-SAVE-FINAL-REPORT": {
+      "name": "radiology-save-final-report",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/radiology/save-final-report/index",
+      "zip": ".dist/zips/radiology-save-final-report.zip"
+    },
     "RADIOLOGY-SEND-FOR-FINAL-READ": {
       "name": "radiology-send-for-final-read",
       "type": "http_auth",
@@ -924,13 +954,6 @@
       "runtime": "nodejs22.x",
       "src": "src/ehr/lab/external/update-lab-order-resources/index",
       "zip": ".dist/zips/update-lab-order-resources.zip"
-    },
-    "GET-LABEL-PDF": {
-      "name": "get-label-pdf",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/ehr/lab/external/get-label-pdf/index",
-      "zip": ".dist/zips/get-label-pdf.zip"
     },
     "GET-OR-CREATE-VISIT-LABEL-PDF": {
       "name": "get-or-create-visit-label-pdf",
@@ -974,10 +997,38 @@
       "src": "src/ehr/ai-suggestion-notes/index",
       "zip": ".dist/zips/ai-suggestion-notes.zip"
     },
+    "GET-EM-CODES": {
+      "name": "get-em-codes",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/em-codes/get/index",
+      "zip": ".dist/zips/get-em-codes.zip"
+    },
+    "CREATE-EM-CODE": {
+      "name": "create-em-code",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/em-codes/create/index",
+      "zip": ".dist/zips/create-em-code.zip"
+    },
+    "UPDATE-EM-CODE": {
+      "name": "update-em-code",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/em-codes/update/index",
+      "zip": ".dist/zips/update-em-code.zip"
+    },
+    "DELETE-EM-CODE": {
+      "name": "delete-em-code",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/em-codes/delete/index",
+      "zip": ".dist/zips/delete-em-code.zip"
+    },
     "RECOMMEND-BILLING-SUGGESTIONS": {
       "name": "recommend-billing-suggestions",
       "type": "http_auth",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/ehr/recommend-billing-suggestions/index",
       "zip": ".dist/zips/recommend-billing-suggestions.zip"
     },
@@ -987,6 +1038,48 @@
       "runtime": "nodejs22.x",
       "src": "src/ehr/recommend-billing-codes/index",
       "zip": ".dist/zips/recommend-billing-codes.zip"
+    },
+    "GENERATE-PATIENT-EDUCATION": {
+      "name": "generate-patient-education",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/generate-patient-education/index",
+      "zip": ".dist/zips/generate-patient-education.zip"
+    },
+    "SAVE-PATIENT-EDUCATION-PDF": {
+      "name": "save-patient-education-pdf",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/save-patient-education-pdf/index",
+      "zip": ".dist/zips/save-patient-education-pdf.zip"
+    },
+    "LIST-APPROVED-PATIENT-EDUCATION": {
+      "name": "list-approved-patient-education",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/list-approved-patient-education/index",
+      "zip": ".dist/zips/list-approved-patient-education.zip"
+    },
+    "SAVE-APPROVED-PATIENT-EDUCATION": {
+      "name": "save-approved-patient-education",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/save-approved-patient-education/index",
+      "zip": ".dist/zips/save-approved-patient-education.zip"
+    },
+    "DELETE-APPROVED-PATIENT-EDUCATION": {
+      "name": "delete-approved-patient-education",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/delete-approved-patient-education/index",
+      "zip": ".dist/zips/delete-approved-patient-education.zip"
+    },
+    "UPDATE-APPROVED-PATIENT-EDUCATION-CODES": {
+      "name": "update-approved-patient-education-codes",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/update-approved-patient-education-codes/index",
+      "zip": ".dist/zips/update-approved-patient-education-codes.zip"
     },
     "AI-INTERVIEW-SUMMARY": {
       "name": "ai-interview-summary",
@@ -1122,12 +1215,19 @@
       "src": "src/ehr/patient-payments/terminal/get-config/index",
       "zip": ".dist/zips/patient-payments-terminal-get-config.zip"
     },
-    "PATIENT-PAYMENTS-GET-CONNECTION-TOKEN": {
-      "name": "patient-payments-terminal-get-connection-token",
+    "PATIENT-PAYMENTS-CHECK-PAYMENT-STATUS": {
+      "name": "patient-payments-terminal-check-payment-status",
       "type": "http_auth",
       "runtime": "nodejs22.x",
-      "src": "src/ehr/patient-payments/terminal/get-connection-token/index",
-      "zip": ".dist/zips/patient-payments-terminal-get-connection-token.zip"
+      "src": "src/ehr/patient-payments/terminal/check-payment-status/index",
+      "zip": ".dist/zips/patient-payments-terminal-check-payment-status.zip"
+    },
+    "PATIENT-PAYMENTS-CANCEL-READER-ACTION": {
+      "name": "patient-payments-terminal-cancel-reader-action",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/patient-payments/terminal/cancel-reader-action/index",
+      "zip": ".dist/zips/patient-payments-terminal-cancel-reader-action.zip"
     },
     "PATIENT-PAYMENTS-INITIATE-PAYMENT": {
       "name": "patient-payments-terminal-initiate-payment",
@@ -1213,12 +1313,47 @@
       "src": "src/ehr/list-templates/index",
       "zip": ".dist/zips/list-templates.zip"
     },
+    "ADMIN-CREATE-TEMPLATE": {
+      "name": "admin-create-template",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/admin-create-template/index",
+      "zip": ".dist/zips/admin-create-template.zip"
+    },
+    "ADMIN-RENAME-TEMPLATE": {
+      "name": "admin-rename-template",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/admin-rename-template/index",
+      "zip": ".dist/zips/admin-rename-template.zip"
+    },
+    "ADMIN-DELETE-TEMPLATE": {
+      "name": "admin-delete-template",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/admin-delete-template/index",
+      "zip": ".dist/zips/admin-delete-template.zip"
+    },
+    "ADMIN-GET-TEMPLATE-DETAIL": {
+      "name": "admin-get-template-detail",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/admin-get-template-detail/index",
+      "zip": ".dist/zips/admin-get-template-detail.zip"
+    },
     "DELETE-PATIENT-DOCUMENT": {
       "name": "delete-patient-document",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/delete-patient-document/index",
       "zip": ".dist/zips/delete-patient-document.zip"
+    },
+    "GET-PATIENT-MEDICAL-RECORD": {
+      "name": "get-patient-medical-record",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/get-patient-medical-record/index",
+      "zip": ".dist/zips/get-patient-medical-record.zip"
     },
     "SEND_RECEIPT_BY_EMAIL": {
       "name": "send-receipt-by-email",
@@ -1287,6 +1422,7 @@
       "name": "create-invoices-tasks",
       "type": "cron",
       "runtime": "nodejs22.x",
+      "timeout": "300",
       "src": "src/cron/create-invoices-tasks/index",
       "zip": ".dist/zips/create-invoices-tasks.zip",
       "schedule": {
@@ -1334,6 +1470,20 @@
       "runtime": "nodejs22.x",
       "src": "src/ehr/get-invoices-tasks/index",
       "zip": ".dist/zips/get-invoices-tasks.zip"
+    },
+    "EXPORT-INVOICES": {
+      "name": "export-invoices",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/export-invoices/index",
+      "zip": ".dist/zips/export-invoices.zip"
+    },
+    "SUB-EXPORT-INVOICES-CSV": {
+      "name": "sub-export-invoices-csv",
+      "type": "subscription",
+      "runtime": "nodejs22.x",
+      "src": "src/subscriptions/sub-export-invoices-csv/index",
+      "zip": ".dist/zips/sub-export-invoices-csv.zip"
     },
     "GET-STATEMENT-TEMPLATE": {
       "name": "get-statement-template",
@@ -1416,6 +1566,580 @@
       "runtime": "nodejs22.x",
       "src": "src/ehr/print-chart-data/make-medication-history-pdf/index",
       "zip": ".dist/zips/make-medication-history-pdf.zip"
+    },
+    "GET_VISIT_FAX_HISTORY": {
+      "name": "get-visit-fax-history",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/visit-details/get-visit-fax-history/index",
+      "zip": ".dist/zips/get-visit-fax-history.zip"
+    },
+    "CREATE-FEE-SCHEDULE": {
+      "name": "create-fee-schedule",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/fee-schedules/create-fee-schedule/index",
+      "zip": ".dist/zips/create-fee-schedule.zip"
+    },
+    "UPDATE-FEE-SCHEDULE": {
+      "name": "update-fee-schedule",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/fee-schedules/update-fee-schedule/index",
+      "zip": ".dist/zips/update-fee-schedule.zip"
+    },
+    "DELETE-FEE-SCHEDULE": {
+      "name": "delete-fee-schedule",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/fee-schedules/delete-fee-schedule/index",
+      "zip": ".dist/zips/delete-fee-schedule.zip"
+    },
+    "LIST-FEE-SCHEDULES": {
+      "name": "list-fee-schedules",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/fee-schedules/list-fee-schedules/index",
+      "zip": ".dist/zips/list-fee-schedules.zip"
+    },
+    "GET-VERSION-HISTORY": {
+      "name": "get-version-history",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/fee-schedules/get-version-history/index",
+      "zip": ".dist/zips/get-version-history.zip"
+    },
+    "ASSOCIATE-PAYER": {
+      "name": "associate-payer",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/fee-schedules/associate-payer/index",
+      "zip": ".dist/zips/associate-payer.zip"
+    },
+    "DISASSOCIATE-PAYER": {
+      "name": "disassociate-payer",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/fee-schedules/disassociate-payer/index",
+      "zip": ".dist/zips/disassociate-payer.zip"
+    },
+    "ADD-PROCEDURE-CODE": {
+      "name": "add-procedure-code",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/fee-schedules/add-procedure-code/index",
+      "zip": ".dist/zips/add-procedure-code.zip"
+    },
+    "UPDATE-PROCEDURE-CODE": {
+      "name": "update-procedure-code",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/fee-schedules/update-procedure-code/index",
+      "zip": ".dist/zips/update-procedure-code.zip"
+    },
+    "DELETE-PROCEDURE-CODE": {
+      "name": "delete-procedure-code",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/fee-schedules/delete-procedure-code/index",
+      "zip": ".dist/zips/delete-procedure-code.zip"
+    },
+    "BULK-ADD-PROCEDURE-CODES": {
+      "name": "bulk-add-procedure-codes",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/fee-schedules/bulk-add-procedure-codes/index",
+      "zip": ".dist/zips/bulk-add-procedure-codes.zip"
+    },
+    "FIND-APPLICABLE-FEE-SCHEDULE": {
+      "name": "find-applicable-fee-schedule",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/fee-schedules/find-applicable-fee-schedule/index",
+      "zip": ".dist/zips/find-applicable-fee-schedule.zip"
+    },
+    "CREATE-CHARGE-MASTER": {
+      "name": "create-charge-master",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/charge-masters/create-charge-master/index",
+      "zip": ".dist/zips/create-charge-master.zip"
+    },
+    "UPDATE-CHARGE-MASTER": {
+      "name": "update-charge-master",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/charge-masters/update-charge-master/index",
+      "zip": ".dist/zips/update-charge-master.zip"
+    },
+    "DELETE-CHARGE-MASTER": {
+      "name": "delete-charge-master",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/charge-masters/delete-charge-master/index",
+      "zip": ".dist/zips/delete-charge-master.zip"
+    },
+    "LIST-CHARGE-MASTERS": {
+      "name": "list-charge-masters",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/charge-masters/list-charge-masters/index",
+      "zip": ".dist/zips/list-charge-masters.zip"
+    },
+    "CREATE-EMPLOYER": {
+      "name": "create-employer",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/employers/create-employer/index",
+      "zip": ".dist/zips/create-employer.zip"
+    },
+    "LIST-EMPLOYERS": {
+      "name": "list-employers",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/employers/list-employers/index",
+      "zip": ".dist/zips/list-employers.zip"
+    },
+    "UPDATE-EMPLOYER": {
+      "name": "update-employer",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/employers/update-employer/index",
+      "zip": ".dist/zips/update-employer.zip"
+    },
+    "DESIGNATE-CHARGE-MASTER-ENTRY": {
+      "name": "designate-charge-master-entry",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/charge-masters/designate-charge-master-entry/index",
+      "zip": ".dist/zips/designate-charge-master-entry.zip"
+    },
+    "GET-CHARGE-MASTER-ENTRY": {
+      "name": "get-charge-master-entry",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/charge-masters/get-charge-master-entry/index",
+      "zip": ".dist/zips/get-charge-master-entry.zip"
+    },
+    "FIND-APPLICABLE-CHARGE-MASTER": {
+      "name": "find-applicable-charge-master",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/charge-masters/find-applicable-charge-master/index",
+      "zip": ".dist/zips/find-applicable-charge-master.zip"
+    },
+    "CM-ASSOCIATE-PAYER": {
+      "name": "cm-associate-payer",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/charge-masters/cm-associate-payer/index",
+      "zip": ".dist/zips/cm-associate-payer.zip"
+    },
+    "CM-DISASSOCIATE-PAYER": {
+      "name": "cm-disassociate-payer",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/charge-masters/cm-disassociate-payer/index",
+      "zip": ".dist/zips/cm-disassociate-payer.zip"
+    },
+    "CM-ADD-PROCEDURE-CODE": {
+      "name": "cm-add-procedure-code",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/charge-masters/cm-add-procedure-code/index",
+      "zip": ".dist/zips/cm-add-procedure-code.zip"
+    },
+    "CM-UPDATE-PROCEDURE-CODE": {
+      "name": "cm-update-procedure-code",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/charge-masters/cm-update-procedure-code/index",
+      "zip": ".dist/zips/cm-update-procedure-code.zip"
+    },
+    "CM-DELETE-PROCEDURE-CODE": {
+      "name": "cm-delete-procedure-code",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/charge-masters/cm-delete-procedure-code/index",
+      "zip": ".dist/zips/cm-delete-procedure-code.zip"
+    },
+    "CM-BULK-ADD-PROCEDURE-CODES": {
+      "name": "cm-bulk-add-procedure-codes",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/charge-masters/cm-bulk-add-procedure-codes/index",
+      "zip": ".dist/zips/cm-bulk-add-procedure-codes.zip"
+    },
+    "GET-INVOICE-CONFIG": {
+      "name": "get-invoice-config",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/invoice-config/get-invoice-config/index",
+      "zip": ".dist/zips/get-invoice-config.zip"
+    },
+    "SAVE-INVOICE-CONFIG": {
+      "name": "save-invoice-config",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/invoice-config/save-invoice-config/index",
+      "zip": ".dist/zips/save-invoice-config.zip"
+    },
+    "GET-SCHEDULED-OUTREACH-CONFIG": {
+      "name": "get-scheduled-outreach-config",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/scheduled-outreach-config/get-scheduled-outreach-config/index",
+      "zip": ".dist/zips/get-scheduled-outreach-config.zip"
+    },
+    "SAVE-SCHEDULED-OUTREACH-CONFIG": {
+      "name": "save-scheduled-outreach-config",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/scheduled-outreach-config/save-scheduled-outreach-config/index",
+      "zip": ".dist/zips/save-scheduled-outreach-config.zip"
+    },
+    "LIST-OUTREACH-TASKS": {
+      "name": "list-outreach-tasks",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/scheduled-outreach/list-outreach-tasks/index",
+      "zip": ".dist/zips/list-outreach-tasks.zip"
+    },
+    "CANCEL-OUTREACH-TASK": {
+      "name": "cancel-outreach-task",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/scheduled-outreach/cancel-outreach-task/index",
+      "zip": ".dist/zips/cancel-outreach-task.zip"
+    },
+    "RETRY-OUTREACH-TASK": {
+      "name": "retry-outreach-task",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/scheduled-outreach/retry-outreach-task/index",
+      "zip": ".dist/zips/retry-outreach-task.zip"
+    },
+    "PRODUCE-OUTREACH-DISCHARGE-TASKS": {
+      "name": "produce-outreach-discharge-tasks",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/scheduled-outreach/producers/produce-discharge-tasks/index",
+      "zip": ".dist/zips/produce-outreach-discharge-tasks.zip"
+    },
+    "PRODUCE-OUTREACH-INVOICE-ISSUED-TASKS": {
+      "name": "produce-outreach-invoice-issued-tasks",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/scheduled-outreach/producers/produce-invoice-issued-tasks/index",
+      "zip": ".dist/zips/produce-outreach-invoice-issued-tasks.zip"
+    },
+    "CRON-OUTREACH-INVOICE-DUE": {
+      "name": "cron-outreach-invoice-due",
+      "type": "cron",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/scheduled-outreach/producers/cron-outreach-invoice-due/index",
+      "zip": ".dist/zips/cron-outreach-invoice-due.zip",
+      "schedule": {
+        "expression": "cron(0 6 * * ? *)"
+      }
+    },
+    "CRON-OUTREACH-BIRTHDAY": {
+      "name": "cron-outreach-birthday",
+      "type": "cron",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/scheduled-outreach/producers/cron-outreach-birthday/index",
+      "zip": ".dist/zips/cron-outreach-birthday.zip",
+      "schedule": {
+        "expression": "cron(0 6 * * ? *)"
+      }
+    },
+    "CRON-OUTREACH-TASK-PROMOTER": {
+      "name": "cron-outreach-task-promoter",
+      "type": "cron",
+      "runtime": "nodejs22.x",
+      "timeout": "595",
+      "src": "src/cron/rcm/outreach-task-promoter/index",
+      "zip": ".dist/zips/cron-outreach-task-promoter.zip",
+      "schedule": {
+        "expression": "cron(0,15,30,45 * * * ? *)"
+      }
+    },
+    "SUB-OUTREACH-SEND-NOTIFICATION": {
+      "name": "sub-outreach-send-notification",
+      "type": "subscription",
+      "runtime": "nodejs22.x",
+      "src": "src/subscriptions/task/sub-outreach-send-notification/index",
+      "zip": ".dist/zips/sub-outreach-send-notification.zip"
+    },
+    "SUB-OUTREACH-CHARGE-CARD": {
+      "name": "sub-outreach-charge-card",
+      "type": "subscription",
+      "runtime": "nodejs22.x",
+      "src": "src/subscriptions/task/sub-outreach-charge-card/index",
+      "zip": ".dist/zips/sub-outreach-charge-card.zip"
+    },
+    "SUB-OUTREACH-REFER-TO-COLLECTIONS": {
+      "name": "sub-outreach-refer-to-collections",
+      "type": "subscription",
+      "runtime": "nodejs22.x",
+      "src": "src/subscriptions/task/sub-outreach-refer-to-collections/index",
+      "zip": ".dist/zips/sub-outreach-refer-to-collections.zip"
+    },
+    "SUB-OUTREACH-LOG": {
+      "name": "sub-outreach-log",
+      "type": "subscription",
+      "runtime": "nodejs22.x",
+      "src": "src/subscriptions/task/sub-outreach-log/index",
+      "zip": ".dist/zips/sub-outreach-log.zip"
+    },
+    "ADMIN_LIST_IN_HOUSE_LABS": {
+      "name": "admin-list-in-house-labs",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/lab/in-house/admin-list-in-house-labs/index",
+      "zip": ".dist/zips/admin-list-in-house-labs.zip"
+    },
+    "ADMIN_ADD_IN_HOUSE_LAB": {
+      "name": "admin-add-in-house-lab",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/lab/in-house/admin-add-in-house-lab/index",
+      "zip": ".dist/zips/admin-add-in-house-lab.zip"
+    },
+    "ADMIN_GET_IN_HOUSE_LAB_CONFIG": {
+      "name": "admin-get-in-house-lab-config",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/lab/in-house/admin-get-in-house-lab-config/index",
+      "zip": ".dist/zips/admin-get-in-house-lab-config.zip"
+    },
+    "ADMIN_UPDATE_IN_HOUSE_LAB": {
+      "name": "admin-update-in-house-lab",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/lab/in-house/admin-update-in-house-lab/index",
+      "zip": ".dist/zips/admin-update-in-house-lab.zip"
+    },
+    "ADMIN_LIST_SERVICE_CATEGORIES": {
+      "name": "admin-list-service-categories",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/admin-list-service-categories/index",
+      "zip": ".dist/zips/admin-list-service-categories.zip"
+    },
+    "ADMIN_CREATE_SERVICE_CATEGORY": {
+      "name": "admin-create-service-category",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/admin-create-service-category/index",
+      "zip": ".dist/zips/admin-create-service-category.zip"
+    },
+    "ADMIN_UPDATE_SERVICE_CATEGORY": {
+      "name": "admin-update-service-category",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/admin-update-service-category/index",
+      "zip": ".dist/zips/admin-update-service-category.zip"
+    },
+    "ADMIN_DELETE_SERVICE_CATEGORY": {
+      "name": "admin-delete-service-category",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/admin-delete-service-category/index",
+      "zip": ".dist/zips/admin-delete-service-category.zip"
+    },
+    "ADMIN_CREATE_PRACTITIONER_ROLE": {
+      "name": "admin-create-practitioner-role",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/admin-create-practitioner-role/index",
+      "zip": ".dist/zips/admin-create-practitioner-role.zip"
+    },
+    "ADMIN_UPDATE_PRACTITIONER_ROLE": {
+      "name": "admin-update-practitioner-role",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/admin-update-practitioner-role/index",
+      "zip": ".dist/zips/admin-update-practitioner-role.zip"
+    },
+    "ADMIN_SET_PRACTITIONER_ROLE_ACTIVE": {
+      "name": "admin-set-practitioner-role-active",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/admin-set-practitioner-role-active/index",
+      "zip": ".dist/zips/admin-set-practitioner-role-active.zip"
+    },
+    "GET_SERVICE_CATEGORIES": {
+      "name": "get-service-categories",
+      "type": "http_open",
+      "runtime": "nodejs22.x",
+      "src": "src/patient/booking/get-service-categories/index",
+      "zip": ".dist/zips/get-service-categories.zip"
+    },
+    "ADMIN_GET_LAB_SETS": {
+      "name": "admin-get-lab-sets",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/lab/lab-sets/admin-get-lab-sets/index",
+      "zip": ".dist/zips/admin-get-lab-sets.zip"
+    },
+    "ADMIN_ADD_LAB_SET": {
+      "name": "admin-add-lab-set",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/lab/lab-sets/admin-add-lab-set/index",
+      "zip": ".dist/zips/admin-add-lab-set.zip"
+    },
+    "ADMIN_UPDATE_LAB_SET": {
+      "name": "admin-update-lab-set",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/lab/lab-sets/admin-update-lab-set/index",
+      "zip": ".dist/zips/admin-update-lab-set.zip"
+    },
+    "ERX_NOTIFICATION": {
+      "name": "erx-notification-subscription",
+      "type": "subscription",
+      "runtime": "nodejs22.x",
+      "src": "src/subscriptions/communication/erx-notification/index",
+      "zip": ".dist/zips/erx-notification.zip",
+      "subscription": {
+        "criteria": "Communication?category=https://terminology.fhir.oystehr.com/CodeSystem/notification|erx-notification",
+        "reason": "Create Task for eRX notification"
+      }
+    },
+    "GET-LABEL-PRINTING-CONFIG": {
+      "name": "get-label-printing-config",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/label-printing-config/get-label-printing-config/index",
+      "zip": ".dist/zips/get-label-printing-config.zip"
+    },
+    "ADMIN-UPDATE-LABEL-PRINTING-CONFIG": {
+      "name": "admin-update-label-printing-config",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/label-printing-config/admin-update-label-printing-config/index",
+      "zip": ".dist/zips/admin-update-label-printing-config.zip"
+    },
+    "GET-SUPPORT-DIALOG": {
+      "name": "get-support-dialog",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/support-dialog/get-support-dialog/index",
+      "zip": ".dist/zips/get-support-dialog.zip"
+    },
+    "ADMIN-UPDATE-SUPPORT-DIALOG": {
+      "name": "admin-update-support-dialog",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/support-dialog/admin-update-support-dialog/index",
+      "zip": ".dist/zips/admin-update-support-dialog.zip"
+    },
+    "GET-PROGRESS-NOTE-CONFIG": {
+      "name": "get-progress-note-config",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/progress-note-config/get-progress-note-config/index",
+      "zip": ".dist/zips/get-progress-note-config.zip"
+    },
+    "ADMIN-UPDATE-PROGRESS-NOTE-CONFIG": {
+      "name": "admin-update-progress-note-config",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/progress-note-config/admin-update-progress-note-config/index",
+      "zip": ".dist/zips/admin-update-progress-note-config.zip"
+    },
+    "ADMIN-UPDATE-LOCATION-SUPPORT-PHONES": {
+      "name": "admin-update-location-support-phones",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/support-dialog/admin-update-location-support-phones/index",
+      "zip": ".dist/zips/admin-update-location-support-phones.zip"
+    },
+    "GET-PUBLIC-SUPPORT-DIALOG": {
+      "name": "get-public-support-dialog",
+      "type": "http_open",
+      "runtime": "nodejs22.x",
+      "src": "src/patient/get-public-support-dialog/index",
+      "zip": ".dist/zips/get-public-support-dialog.zip"
+    },
+    "GET-PUBLIC-LOCATION-SUPPORT-PHONES": {
+      "name": "get-public-location-support-phones",
+      "type": "http_open",
+      "runtime": "nodejs22.x",
+      "src": "src/patient/get-public-location-support-phones/index",
+      "zip": ".dist/zips/get-public-location-support-phones.zip"
+    },
+    "GENERATE-LABEL-XML": {
+      "name": "generate-label-xml",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/generate-label-xml/index",
+      "zip": ".dist/zips/generate-label-xml.zip"
+    },
+    "GET_ALL_INSURANCE_PAYERS": {
+      "name": "get-all-insurance-payers",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/patient/get-all-insurance-payers/index",
+      "zip": ".dist/zips/get-all-insurance-payers.zip"
+    },
+    "GET_PATIENT_INSURANCE_PAYERS": {
+      "name": "get-patient-insurance-payers",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/patient/get-patient-insurance-payers/index",
+      "zip": ".dist/zips/get-patient-insurance-payers.zip"
+    },
+    "GET_INSURANCE_OVERRIDE_LIST": {
+      "name": "get-insurance-override-list",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/get-insurance-override-list/index",
+      "zip": ".dist/zips/get-insurance-override-list.zip"
+    },
+    "ADD_PAYER_TO_INSURANCE_OVERRIDE_LIST": {
+      "name": "add-payer-to-insurance-override-list",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/add-payer-to-insurance-override-list/index",
+      "zip": ".dist/zips/add-payer-to-insurance-override-list.zip"
+    },
+    "REMOVE_PAYER_FROM_INSURANCE_OVERRIDE_LIST": {
+      "name": "remove-payer-from-insurance-override-list",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/remove-payer-from-insurance-override-list/index",
+      "zip": ".dist/zips/remove-payer-from-insurance-override-list.zip"
+    },
+    "EDIT_PAYER_IN_INSURANCE_OVERRIDE_LIST": {
+      "name": "edit-payer-in-insurance-override-list",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/edit-payer-in-insurance-override-list/index",
+      "zip": ".dist/zips/edit-payer-in-insurance-override-list.zip"
+    },
+    "CREATE-CUSTOM-FOLDER": {
+      "name": "create-custom-folder",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/create-custom-folder/index",
+      "zip": ".dist/zips/create-custom-folder.zip"
+    },
+    "RENAME-CUSTOM-FOLDER": {
+      "name": "rename-custom-folder",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/rename-custom-folder/index",
+      "zip": ".dist/zips/rename-custom-folder.zip"
+    },
+    "DELETE-CUSTOM-FOLDER": {
+      "name": "delete-custom-folder",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/delete-custom-folder/index",
+      "zip": ".dist/zips/delete-custom-folder.zip"
     }
   },
   "fhirResources": {
@@ -1641,6 +2365,42 @@
         ]
       }
     },
+    "SUB_MERGE_PATIENTS_SUBSCRIPTION": {
+      "resource": {
+        "resourceType": "Subscription",
+        "status": "active",
+        "reason": "background merge patients",
+        "criteria": "Task?code=https://fhir.ottehr.com/CodeSystem/ottehr-system-task|merge-patients&status=requested",
+        "channel": {
+          "type": "rest-hook",
+          "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-MERGE-PATIENTS/id}"
+        },
+        "extension": [
+          {
+            "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
+            "valueString": "create"
+          }
+        ]
+      }
+    },
+    "SUB_EXPORT_INVOICES_CSV_SUBSCRIPTION": {
+      "resource": {
+        "resourceType": "Subscription",
+        "status": "active",
+        "reason": "Export invoiceable patients report as CSV",
+        "criteria": "Task?code=https://fhir.ottehr.com/CodeSystem/export-task|export-invoices-csv&status=requested",
+        "channel": {
+          "type": "rest-hook",
+          "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-EXPORT-INVOICES-CSV/id}"
+        },
+        "extension": [
+          {
+            "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
+            "valueString": "create"
+          }
+        ]
+      }
+    },
     "AI_INTERVIEW_SUMMARY_SUBSCRIPTION": {
       "resource": {
         "resourceType": "Subscription",
@@ -1724,7 +2484,7 @@
           }
         ]
       }
-    },    
+    },
     "SUB_SEND_PATIENT_STATEMENT_BY_MAIL_SUBSCRIPTION": {
       "resource": {
         "resourceType": "Subscription",
@@ -1774,6 +2534,140 @@
             "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
             "valueString": "create"
           },
+          {
+            "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
+            "valueString": "update"
+          }
+        ]
+      }
+    },
+    "SUB_ERX_PATIENT_SYNC_SUBSCRIPTION": {
+      "resource": {
+        "resourceType": "Subscription",
+        "status": "active",
+        "reason": "Sync patient with eRx service when height or weight vitals are recorded",
+        "criteria": "Observation?code=29463-7,8302-2",
+        "channel": {
+          "type": "rest-hook",
+          "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-ERX-PATIENT-SYNC/id}"
+        },
+        "extension": [
+          {
+            "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
+            "valueString": "create"
+          },
+          {
+            "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
+            "valueString": "update"
+          }
+        ]
+      }
+    },
+    "SUB_ERX_PATIENT_SYNC_ON_ENCOUNTER_SUBSCRIPTION": {
+      "resource": {
+        "resourceType": "Subscription",
+        "status": "active",
+        "reason": "Warm up eRx patient sync when a patient arrives for a visit",
+        "criteria": "Encounter?status=arrived",
+        "channel": {
+          "type": "rest-hook",
+          "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-ERX-PATIENT-SYNC/id}"
+        },
+        "extension": [
+          {
+            "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
+            "valueString": "create"
+          },
+          {
+            "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
+            "valueString": "update"
+          }
+        ]
+      }
+    },
+    "SUB_ERX_NOTIFICATION_SUBSCRIPTION": {
+      "resource": {
+        "resourceType": "Subscription",
+        "status": "active",
+        "reason": "eRX notification",
+        "criteria": "Communication?category=https://terminology.fhir.oystehr.com/CodeSystem/notification|erx-notification",
+        "channel": {
+          "type": "rest-hook",
+          "endpoint": "zapehr-lambda:#{ref/zambdas/ERX_NOTIFICATION/id}"
+        },
+        "extension": [
+          {
+            "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
+            "valueString": "create"
+          }
+        ]
+      }
+    },
+    "SUB_OUTREACH_SEND_NOTIFICATION_SUBSCRIPTION": {
+      "resource": {
+        "resourceType": "Subscription",
+        "status": "active",
+        "reason": "Outreach send notification",
+        "criteria": "Task?code=https://ottehr.com/CodeSystem/outreach-action-type|send-notification&status=requested",
+        "channel": {
+          "type": "rest-hook",
+          "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-OUTREACH-SEND-NOTIFICATION/id}"
+        },
+        "extension": [
+          {
+            "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
+            "valueString": "update"
+          }
+        ]
+      }
+    },
+    "SUB_OUTREACH_CHARGE_CARD_SUBSCRIPTION": {
+      "resource": {
+        "resourceType": "Subscription",
+        "status": "active",
+        "reason": "Outreach charge card on file",
+        "criteria": "Task?code=https://ottehr.com/CodeSystem/outreach-action-type|charge-card&status=requested",
+        "channel": {
+          "type": "rest-hook",
+          "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-OUTREACH-CHARGE-CARD/id}"
+        },
+        "extension": [
+          {
+            "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
+            "valueString": "update"
+          }
+        ]
+      }
+    },
+    "SUB_OUTREACH_REFER_TO_COLLECTIONS_SUBSCRIPTION": {
+      "resource": {
+        "resourceType": "Subscription",
+        "status": "active",
+        "reason": "Outreach refer to collections",
+        "criteria": "Task?code=https://ottehr.com/CodeSystem/outreach-action-type|refer-to-collections&status=requested",
+        "channel": {
+          "type": "rest-hook",
+          "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-OUTREACH-REFER-TO-COLLECTIONS/id}"
+        },
+        "extension": [
+          {
+            "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
+            "valueString": "update"
+          }
+        ]
+      }
+    },
+    "SUB_OUTREACH_LOG_SUBSCRIPTION": {
+      "resource": {
+        "resourceType": "Subscription",
+        "status": "active",
+        "reason": "Outreach log",
+        "criteria": "Task?code=https://ottehr.com/CodeSystem/outreach-action-type|log&status=requested",
+        "channel": {
+          "type": "rest-hook",
+          "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-OUTREACH-LOG/id}"
+        },
+        "extension": [
           {
             "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
             "valueString": "update"

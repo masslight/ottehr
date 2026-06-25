@@ -67,7 +67,7 @@ import RadioListInput from './components/RadioListInput';
 import { usePaperworkContext } from './context';
 import { useCreditCardSave } from './hooks/useCreditCardSave';
 import { useAutoFillValues } from './useAutofill';
-import { useFilterAnswersOptions } from './useFilterAnswersOptions';
+import { useDisplayFilteredOptions, useFilterAnswersOptions } from './useFilterAnswersOptions';
 import { getPaperworkFieldId, useFieldError, usePaperworkFormHelpers, useQRState } from './useFormHelpers';
 import { StyledQuestionnaireItem, useStyledItems } from './useStyleItems';
 import { getInputTypeForItem } from './utils';
@@ -307,19 +307,34 @@ const PaperworkFormRoot: FC<PaperworkRootInput> = ({
   const errorMessage = makeFormErrorMessage(items, errors);
   const { formValues } = useQRState();
 
+  // Only run credit-card auto-save when the current page actually contains a Credit Card input.
+  // The credit card store is module-scoped and survives across navigations, so without this guard
+  // a stale `isCreditCardRequired: true` from a previously-visited credit card page (where the
+  // user didn't fill the card) would silently block submit on unrelated pages like Patient
+  // Information.
+  const hasCreditCardField = useMemo(() => {
+    const containsCreditCardInput = (xs: IntakeQuestionnaireItem[]): boolean =>
+      xs.some((item) => getInputTypeForItem(item) === 'Credit Card' || containsCreditCardInput(item.item ?? []));
+    return containsCreditCardInput(items);
+  }, [items]);
+
   const submitHandler = useCallback(
     async ({ skipValidation = false }: { skipValidation?: boolean } = {}) => {
-      const { shouldContinue } = await handleCardSave({ skipValidation });
+      if (hasCreditCardField) {
+        console.log('the page has a credit card field');
+        const { shouldContinue } = await handleCardSave({ skipValidation });
 
-      if (!shouldContinue) {
-        return;
+        if (!shouldContinue) {
+          console.log(`cannot continue with card, skipping submit`);
+          return;
+        }
       }
 
       setIsSavingProgress(true);
       await handleSubmit(onSubmit)();
       setIsSavingProgress(false);
     },
-    [handleSubmit, onSubmit, handleCardSave]
+    [handleSubmit, onSubmit, handleCardSave, hasCreditCardField]
   );
 
   const { bottomComponent, hideControls, controlButtons } = options;
@@ -606,7 +621,8 @@ const FormInputField: FC<GetFormInputFieldProps> = ({
   } = usePaperworkFormHelpers({ item, renderValue: value, renderOnChange: onChange, fieldId });
 
   const error = useFieldError(fieldId);
-  const answerOptions = useFilterAnswersOptions(item.answerOption ?? []);
+  const displayFilteredOptions = useDisplayFilteredOptions(item.answerDisplayFilters, item.answerOption ?? []);
+  const answerOptions = useFilterAnswersOptions(displayFilteredOptions);
   const colorForButton = unwrappedValue ? theme.palette.destructive.main : theme.palette.primary.main;
   let attachmentType: AttachmentType = 'image';
   if (item.dataType === 'PDF') {
@@ -679,7 +695,7 @@ const FormInputField: FC<GetFormInputFieldProps> = ({
             freeSolo={item.type === 'open-choice'}
             defaultValue={(defaultValues && pickFirstValueFromAnswerItem(defaultValues[item.linkId])) ?? null}
             required={item.required}
-            options={item.answerOption ?? []}
+            options={answerOptions}
             dynamicAnswerOptions={answerLoadingOptions}
             answerValueSet={item.answerValueSet}
             inputRef={ref}
@@ -734,7 +750,6 @@ const FormInputField: FC<GetFormInputFieldProps> = ({
                   '&.Mui-checked': {
                     color: otherColors.purple,
                     borderRadius: '4px',
-                    outline: '1px solid #295F75',
                   },
                 }}
                 onChange={() => smartOnChange(!unwrappedValue)}

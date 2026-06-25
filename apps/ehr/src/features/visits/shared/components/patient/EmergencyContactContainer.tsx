@@ -6,10 +6,22 @@ import { PatientAddressFields } from 'src/constants';
 import { PATIENT_RECORD_CONFIG } from 'utils';
 import PatientRecordFormField from './PatientRecordFormField';
 import PatientRecordFormSection, { usePatientRecordFormSection } from './PatientRecordFormSection';
+import { SectionSaveButton } from './SectionSaveButton';
 
 const { emergencyContact } = PATIENT_RECORD_CONFIG.FormFields;
+const FIELD_KEYS = Object.values(emergencyContact.items).map((item) => item.key);
 
-export const EmergencyContactContainer: FC<{ isLoading: boolean }> = ({ isLoading }) => {
+interface EmergencyContactContainerProps {
+  isLoading: boolean;
+  patientId?: string;
+  encounterId?: string;
+}
+
+export const EmergencyContactContainer: FC<EmergencyContactContainerProps> = ({
+  isLoading,
+  patientId,
+  encounterId,
+}) => {
   const { watch, setValue } = useFormContext();
 
   const {
@@ -49,7 +61,10 @@ export const EmergencyContactContainer: FC<{ isLoading: boolean }> = ({ isLoadin
   }, [emergencyAddressData, emergencyAddressFields, patientAddressData, sameAsPatientAddress, setValue]);
 
   return (
-    <PatientRecordFormSection formSection={emergencyContact}>
+    <PatientRecordFormSection
+      formSection={emergencyContact}
+      titleWidget={<SectionSaveButton fieldKeys={FIELD_KEYS} patientId={patientId} encounterId={encounterId} />}
+    >
       <PatientRecordFormField
         item={FormFields.relationship}
         isLoading={isLoading}

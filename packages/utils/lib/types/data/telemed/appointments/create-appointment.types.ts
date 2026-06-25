@@ -5,7 +5,6 @@ export interface CreateAppointmentUCTelemedParams {
   patient?: PatientInfo;
   locationState?: string;
   timezone: string;
-  unconfirmedDateOfBirth?: string;
 }
 
 export interface CreateAppointmentUCTelemedResponse {
@@ -46,6 +45,7 @@ export type PatientInfo = PatientBaseInfo & {
     system: string;
     value: string;
   }[];
+  noEmail?: boolean;
   ssn?: string;
   address?: Address[];
   tags?: Meta['tag'];

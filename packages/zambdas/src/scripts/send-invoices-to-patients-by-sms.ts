@@ -1,30 +1,16 @@
 import Oystehr from '@oystehr/sdk';
 import * as fs from 'fs';
 import Stripe from 'stripe';
-import { getRelatedPersonForPatient } from 'utils';
-import { getAuth0Token } from '../shared';
-import { fhirApiUrlFromAuth0Audience } from './helpers';
+import { getRelatedPersonsForPatient } from 'utils';
+import { createClinicalOystehrClient, getAuth0Token, sendSmsToRelatedPersons } from '../shared';
 
-async function sendSMSMessage(oystehr: Oystehr, patientId: string, message: string): Promise<void> {
-  const relatedPerson = await getRelatedPersonForPatient(patientId || '', oystehr);
-  let resource: string;
-  if (relatedPerson) {
-    resource = `RelatedPerson/${relatedPerson.id}`;
-  } else {
-    console.log(`❌ Failed to send SMS to ${patientId}: No RelatedPerson found`);
+async function sendSMSMessage(oystehr: Oystehr, patientId: string, message: string, env: string): Promise<void> {
+  const relatedPersons = await getRelatedPersonsForPatient(patientId || '', oystehr);
+  if (!relatedPersons.length) {
+    console.log(`❌ Failed to send SMS to ${patientId}: No user-relatedperson found`);
     return;
   }
-
-  try {
-    const response = await oystehr.transactionalSMS.send({
-      resource: resource,
-      message: message,
-    });
-    console.log(`✅ SMS details are in `, response);
-  } catch (error) {
-    console.error(`❌ Failed to send SMS to ${patientId}:`, error);
-    throw error;
-  }
+  await sendSmsToRelatedPersons({ relatedPersons, message, oystehr, env });
 }
 
 async function sendInvoiceBySMS(
@@ -33,7 +19,8 @@ async function sendInvoiceBySMS(
   serviceDate: Date,
   balanceDue: number, // Changed to number (cents)
   dueDate: Date,
-  invoiceLink: string
+  invoiceLink: string,
+  env: string
 ): Promise<void> {
   // Format dates as "Sep 5, 2025"
   // const formattedServiceDate = serviceDate.toLocaleDateString('en-US', {
@@ -60,7 +47,7 @@ async function sendInvoiceBySMS(
  💳 If we have your card on file, it will be billed on ${formattedDueDate}.\n
 To use a different payment method, please pay the invoice before due date: \n
 ${shortInvoiceLink}`;
-  await sendSMSMessage(oystehr, resourceId, invoiceMessage);
+  await sendSMSMessage(oystehr, resourceId, invoiceMessage, env);
 }
 
 interface InvoiceInfo {
@@ -175,7 +162,7 @@ async function main(): Promise<void> {
     );
   }
 
-  const secrets = JSON.parse(fs.readFileSync(`.env/${env}.json`, 'utf8'));
+  const secrets = JSON.parse(fs.readFileSync(`../../config/.env/${env}.json`, 'utf8'));
 
   // Initialize Stripe
   const stripe = new Stripe(secrets.STRIPE_SECRET_KEY, {
@@ -189,10 +176,7 @@ async function main(): Promise<void> {
     throw new Error('❌ Failed to fetch auth token.');
   }
 
-  const oystehr = new Oystehr({
-    accessToken: token,
-    fhirApiUrl: fhirApiUrlFromAuth0Audience(secrets.AUTH0_AUDIENCE),
-  });
+  const oystehr = createClinicalOystehrClient(token, secrets);
 
   // Read patient IDs from CSV file
   const patientIds = await readPatientIdsFromCSV(csvFilePath);
@@ -236,7 +220,8 @@ async function main(): Promise<void> {
         invoiceInfo.generationDate, // TODO: Need to get the source of the visit date from FHIR or candid
         invoiceInfo.totalAmountDue,
         invoiceInfo.dueDate,
-        invoiceInfo.invoiceLink
+        invoiceInfo.invoiceLink,
+        env
       );
 
       successCount++;
