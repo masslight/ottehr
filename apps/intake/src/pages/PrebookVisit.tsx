@@ -190,11 +190,15 @@ const getLocationTitleText = ({
     return 'Book a visit';
   }
 
-  // For group bookings, slotData.location.name is already overridden
-  // server-side to be the resolved Location's name (the patient experiences
-  // the booking at the specific Location, not the abstract group). For
-  // location/provider owners it's already the correct name. selectedLocation
-  // / bookingOn are the Autocomplete / URL fallbacks when slotData hasn't
+  // For group bookings, the server overrides slotData.location.name to the
+  // resolved Location's name *when* the group flow has narrowed to a single
+  // concrete Location (explicit atLocationSlug, or the auto-pick for groups
+  // with exactly one qualifying Location). Multi-Location group flows that
+  // haven't resolved a Location yet return early server-side with
+  // pickableLocations and no slots — that case is handled by the location-
+  // picker effect below, not this title. For location/provider owners
+  // slotData.location.name is already the correct name. selectedLocation /
+  // bookingOn are the Autocomplete / URL fallbacks when slotData hasn't
   // resolved yet.
   const locationName = slotData?.location?.name || selectedLocation?.label || bookingOn;
   const isProviderSchedule = slotData?.location?.scheduleOwnerType === ScheduleType.provider;

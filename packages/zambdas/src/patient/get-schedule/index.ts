@@ -410,12 +410,28 @@ export const index = wrapHandler('get-schedule', async (input: ZambdaInput): Pro
   // Group bookings: getLocationInformation returns the group's name (e.g.
   // "MyGroup"), which is meaningless to a patient who is booking at a
   // specific physical Location. When the group flow has resolved to a
-  // concrete atLocation, override the friendly name so the booking page
-  // header reads "at Main Clinic" instead of "at MyGroup". The scheduleOwner
-  // type (HealthcareService) stays as-is so other consumers that branch on
-  // owner type still see the group identity.
-  if (scheduleOwner.resourceType === 'HealthcareService' && atLocation?.name) {
-    locationInformationWithClosures.name = atLocation.name;
+  // concrete Location — either via explicit atLocationSlug OR the single-
+  // qualifying-Location auto-pick at `effectiveAtLocationId` — override the
+  // friendly name so the booking page header reads "at Main Clinic" instead
+  // of "at MyGroup". The single-Location auto-pick case is load-bearing:
+  // groups with exactly one Location skip the picker entirely on the front
+  // end, so without this branch the header would degrade for the most
+  // common single-Location group setup. The scheduleOwner type
+  // (HealthcareService) stays as-is so other consumers that branch on owner
+  // type still see the group identity.
+  if (scheduleOwner.resourceType === 'HealthcareService') {
+    let resolvedAtLocation: Location | undefined = atLocation;
+    if (!resolvedAtLocation && effectiveAtLocationId) {
+      // Best-effort lookup for the auto-picked single Location. A failed
+      // fetch falls through to leave the group name in place — no worse
+      // than the pre-fix behavior.
+      resolvedAtLocation = await oystehr.fhir
+        .get<Location>({ resourceType: 'Location', id: effectiveAtLocationId })
+        .catch(() => undefined);
+    }
+    if (resolvedAtLocation?.name) {
+      locationInformationWithClosures.name = resolvedAtLocation.name;
+    }
   }
 
   // PR-actored schedules don't carry a friendly name — getLocationInformation
