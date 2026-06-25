@@ -168,6 +168,7 @@ const clinicalResources: {
     subscriber: {
       reference: '#subscriber',
     },
+    subscriberId: '123',
     contained: [
       {
         resourceType: 'RelatedPerson',
@@ -295,6 +296,7 @@ const billingResources: {
     status: 'active',
     beneficiary: { reference: 'Patient/billing-patient-123' },
     subscriber: { reference: 'RelatedPerson/billing-related-person-123' },
+    subscriberId: '123',
     extension: [
       {
         url: 'https://fhir.ottehr.com/billing/source-resource',
@@ -881,6 +883,7 @@ describe('create-billing-claim-from-encounter', () => {
               "subscriber": {
                 "reference": "urn:uuid:billing-coverage-rp-coverage-123",
               },
+              "subscriberId": "123",
             },
             "url": "/Coverage",
           },
@@ -960,6 +963,7 @@ describe('create-billing-claim-from-encounter', () => {
               "subscriber": {
                 "reference": "urn:uuid:claim-coverage-rp-billing-coverage-coverage-123",
               },
+              "subscriberId": "123",
             },
             "url": "/Coverage",
           },
@@ -1042,6 +1046,7 @@ describe('create-billing-claim-from-encounter', () => {
               "subscriber": {
                 "reference": "urn:uuid:claim-coverage-rp-billing-coverage-123",
               },
+              "subscriberId": "123",
             },
             "url": "/Coverage",
           },
@@ -1217,6 +1222,131 @@ describe('create-billing-claim-from-encounter', () => {
                 },
               ],
             },
+          },
+        ]),
+      });
+    });
+    it('creates multiple claim-level coverages when patient has multiple accounts', async () => {
+      const txFn = vi.fn().mockResolvedValueOnce({
+        entry: [
+          { resource: { resourceType: 'Patient', id: 'billing-patient' } },
+          { resource: { resourceType: 'Patient', id: 'claim-patient' } },
+          { resource: { resourceType: 'RelatedPerson', id: 'billing-subscriber' } },
+          { resource: { resourceType: 'Coverage', id: 'billing-coverage' } },
+          { resource: { resourceType: 'Account', id: 'billing-account' } },
+          { resource: { resourceType: 'RelatedPerson', id: 'other-billing-subscriber' } },
+          { resource: { resourceType: 'Coverage', id: 'other-billing-coverage' } },
+          { resource: { resourceType: 'Account', id: 'other-billing-account' } },
+          { resource: { resourceType: 'RelatedPerson', id: 'claim-subscriber' } },
+          { resource: { resourceType: 'Coverage', id: 'claim-coverage' } },
+          { resource: { resourceType: 'RelatedPerson', id: 'other-claim-subscriber' } },
+          { resource: { resourceType: 'Coverage', id: 'other-claim-coverage' } },
+          { resource: { resourceType: 'Person', id: 'billing-person' } },
+          { resource: { resourceType: 'Claim', id: 'claim' } },
+        ],
+      });
+      const billingOystehr = {
+        fhir: { transaction: txFn },
+        rcm: { constructPayerUrl: vi.fn().mockReturnValue('https://rcm-api.zapehr.com/v1/payer/payer-123') },
+      } as unknown as Oystehr;
+      const wcAcct = structuredClone({ ...clinicalResources.account });
+      wcAcct.type!.coding![0].code = 'WCOMPACCT';
+      const cvo: ComplexValidationOutput = {
+        clinicalResources: {
+          accounts: [clinicalResources.account, wcAcct],
+          appointment: clinicalResources.appointment,
+          billingProvider: clinicalResources.billingProvider,
+          coverages: [clinicalResources.coverage],
+          diagnoses: [...clinicalResources.conditions],
+          encounter: clinicalResources.encounter,
+          location: clinicalResources.location,
+          patient: clinicalResources.patient,
+          payors: [oystehrResources.payor],
+          practitioners: [clinicalResources.practitioner],
+          procedures: [clinicalResources.procedure],
+        },
+        billingResources: {
+          accounts: [],
+          billingProvider: undefined,
+          coverages: [],
+          mainPatient: undefined,
+          person: undefined,
+          practitioners: [],
+          renderingProvider: undefined,
+          serviceFacility: undefined,
+          subscribers: [],
+        },
+      };
+      const result = await performEffect(billingOystehr, cvo);
+      expect(result.claimId).toEqual('claim');
+      // Expect coverage pointed at by both accounts to be copied twice
+      expect(txFn).toHaveBeenCalledWith({
+        requests: expect.arrayContaining([
+          {
+            method: 'POST',
+            url: '/Coverage',
+            resource: {
+              resourceType: 'Coverage',
+              status: 'active',
+              subscriber: {
+                reference: 'urn:uuid:claim-coverage-rp-billing-coverage-coverage-123',
+              },
+              beneficiary: {
+                reference: 'urn:uuid:claim-patient',
+              },
+              payor: [{ reference: 'https://rcm-api.zapehr.com/v1/payer/payer-123' }],
+              subscriberId: '123',
+              extension: [
+                {
+                  url: 'https://fhir.ottehr.com/billing/source-resource',
+                  valueReference: {
+                    reference: 'urn:uuid:billing-coverage-coverage-123',
+                  },
+                },
+              ],
+              meta: {
+                tag: [
+                  {
+                    system: 'https://fhir.ottehr.com/billing/resource-type',
+                    code: 'billing-working-copy',
+                  },
+                ],
+              },
+            },
+            fullUrl: 'urn:uuid:claim-coverage-billing-coverage-coverage-123',
+          },
+          {
+            method: 'POST',
+            url: '/Coverage',
+            resource: {
+              resourceType: 'Coverage',
+              status: 'active',
+              subscriber: {
+                reference: 'urn:uuid:claim-coverage-rp-billing-coverage-coverage-123',
+              },
+              beneficiary: {
+                reference: 'urn:uuid:claim-patient',
+              },
+              payor: [{ reference: 'https://rcm-api.zapehr.com/v1/payer/payer-123' }],
+              subscriberId: '123',
+              extension: [
+                {
+                  url: 'https://fhir.ottehr.com/billing/source-resource',
+                  valueReference: {
+                    reference: 'urn:uuid:billing-coverage-coverage-123',
+                  },
+                },
+              ],
+              meta: {
+                tag: [
+                  {
+                    system: 'https://fhir.ottehr.com/billing/resource-type',
+                    code: 'billing-working-copy',
+                  },
+                ],
+              },
+            },
+            fullUrl: 'urn:uuid:claim-coverage-billing-coverage-coverage-123',
           },
         ]),
       });
