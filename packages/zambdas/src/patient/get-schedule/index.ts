@@ -220,7 +220,11 @@ export const index = wrapHandler('get-schedule', async (input: ZambdaInput): Pro
   // error out — the caller must disambiguate so vended slots carry a
   // definite Location attribution. The Location chosen here is the one
   // stamped on every vended Slot via the slot-at-location extension.
+  // `atLocation` is retained past this block so the response builder can
+  // surface its friendly name in `location` for group bookings — the patient
+  // experience is at the specific Location, not the abstract group.
   let atLocationId: string | undefined;
+  let atLocation: Location | undefined;
   if (atLocationSlug) {
     const candidates = (
       await oystehr.fhir.search<Location>({
@@ -239,6 +243,7 @@ export const index = wrapHandler('get-schedule', async (input: ZambdaInput): Pro
       };
     }
     atLocationId = candidate.id;
+    atLocation = candidate;
   }
 
   const qualifyingLocationIds = new Set<string>();
@@ -401,6 +406,17 @@ export const index = wrapHandler('get-schedule', async (input: ZambdaInput): Pro
     scheduleOwner,
     scheduleMatch
   );
+
+  // Group bookings: getLocationInformation returns the group's name (e.g.
+  // "MyGroup"), which is meaningless to a patient who is booking at a
+  // specific physical Location. When the group flow has resolved to a
+  // concrete atLocation, override the friendly name so the booking page
+  // header reads "at Main Clinic" instead of "at MyGroup". The scheduleOwner
+  // type (HealthcareService) stays as-is so other consumers that branch on
+  // owner type still see the group identity.
+  if (scheduleOwner.resourceType === 'HealthcareService' && atLocation?.name) {
+    locationInformationWithClosures.name = atLocation.name;
+  }
 
   // PR-actored schedules don't carry a friendly name — getLocationInformation
   // returns "Role <uuid>" as a placeholder. Compose "<practitioner-name> at
