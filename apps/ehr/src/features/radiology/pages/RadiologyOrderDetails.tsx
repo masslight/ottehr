@@ -1,9 +1,10 @@
 import { LoadingButton } from '@mui/lab';
-import { Button, Checkbox, Chip, TextField, Typography } from '@mui/material';
+import { Button, Checkbox, Chip, TextField, Tooltip, Typography } from '@mui/material';
 import { Box, Stack, useTheme } from '@mui/system';
 import React, { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { DetailTaskCard } from 'src/features/tasks/components/DetailTaskCard';
+import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
 import { PageTitleStyled } from '../../visits/shared/components/PageTitle';
 import { WithRadiologyBreadcrumbs } from '../components/RadiologyBreadcrumbs';
 import { RadiologyOrderHistoryCard } from '../components/RadiologyOrderHistoryCard';
@@ -24,6 +25,8 @@ export const RadiologyOrderDetailsPage: React.FC = () => {
   const [finalReport, setFinalReport] = useState<string | undefined>();
   const [missingFinalReport, setMissingFinalReport] = useState(false);
 
+  const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
+
   const {
     orders,
     loading,
@@ -43,6 +46,30 @@ export const RadiologyOrderDetailsPage: React.FC = () => {
   const consentExists = useRadiologyConsentExists();
 
   const order = orders.find((order) => order.serviceRequestId === serviceRequestId);
+
+  const saveReportButton = (label: string, loading?: boolean, btnOnClick?: () => void): JSX.Element => {
+    const btn = (
+      <LoadingButton
+        loading={loading}
+        variant="contained"
+        color="primary"
+        sx={{ borderRadius: 28, padding: '8px 22px', textTransform: 'none' }}
+        onClick={btnOnClick}
+        disabled={isReadOnly}
+      >
+        {label}
+      </LoadingButton>
+    );
+
+    if (isReadOnly) {
+      return (
+        <Tooltip placement="top" title={`Please unlock the progress note to ${label}`}>
+          <span>{btn}</span>
+        </Tooltip>
+      );
+    }
+    return btn;
+  };
 
   if (loading || !order) {
     return <RadiologyOrderLoading />;
@@ -149,6 +176,7 @@ export const RadiologyOrderDetailsPage: React.FC = () => {
                     size="small"
                     value={preliminaryReport}
                     onChange={(e) => setPreliminaryReport(e.target.value)}
+                    disabled={isReadOnly}
                   />
                 </Box>
               )}
@@ -237,6 +265,7 @@ export const RadiologyOrderDetailsPage: React.FC = () => {
                         }}
                         error={missingFinalReport}
                         helperText={missingFinalReport ? 'Final report is required' : ''}
+                        disabled={isReadOnly}
                       />
                     </Box>
                   )}
@@ -261,58 +290,24 @@ export const RadiologyOrderDetailsPage: React.FC = () => {
               Back
             </Button>
 
-            {order.status === 'performed' && !order.preliminaryReport && (
-              <LoadingButton
-                loading={isSavingReport}
-                variant="contained"
-                color="primary"
-                sx={{
-                  borderRadius: 28,
-                  padding: '8px 22px',
-                  textTransform: 'none',
-                }}
-                onClick={() => handleSaveReport(serviceRequestId, preliminaryReport || '', 'preliminary')}
-              >
-                Save Preliminary Report
-              </LoadingButton>
-            )}
+            {order.status === 'performed' &&
+              !order.preliminaryReport &&
+              saveReportButton('Save Preliminary Report', isSavingReport, () =>
+                handleSaveReport(serviceRequestId, preliminaryReport || '', 'preliminary')
+              )}
 
             {order.status === 'preliminary' &&
-              (finalReportByUser ? (
-                <LoadingButton
-                  loading={isSavingReport}
-                  variant="contained"
-                  color="primary"
-                  sx={{
-                    borderRadius: 28,
-                    padding: '8px 22px',
-                    textTransform: 'none',
-                  }}
-                  onClick={() => {
+              (finalReportByUser
+                ? saveReportButton('Save as Final', isSavingReport, () => {
                     if (!finalReport || !(finalReport.length > 0)) {
                       setMissingFinalReport(true);
                       return;
                     }
                     void handleSaveReport(serviceRequestId, finalReport || '', 'final');
-                  }}
-                >
-                  Save as Final
-                </LoadingButton>
-              ) : (
-                <LoadingButton
-                  loading={isSendingForFinalRead}
-                  variant="contained"
-                  color="primary"
-                  sx={{
-                    borderRadius: 28,
-                    padding: '8px 22px',
-                    textTransform: 'none',
-                  }}
-                  onClick={() => handleSendForFinalRead(serviceRequestId)}
-                >
-                  Send for Final Read
-                </LoadingButton>
-              ))}
+                  })
+                : saveReportButton('Send for Final Read', isSendingForFinalRead, () =>
+                    handleSendForFinalRead(serviceRequestId)
+                  ))}
           </Box>
         </Stack>
       </div>
