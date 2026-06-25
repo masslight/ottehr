@@ -772,8 +772,18 @@ async function getClinicalResources(
   const accounts = resources.filter((r): r is Account => r.resourceType === 'Account');
   if (!accounts.length) throw FHIR_RESOURCE_NOT_FOUND('Account');
 
-  const diagnoses = resources.filter((r): r is Condition => r.resourceType === 'Condition');
+  let diagnoses = resources.filter((r): r is Condition => r.resourceType === 'Condition');
   if (!diagnoses.length) throw FHIR_RESOURCE_NOT_FOUND('Condition');
+  const primaryDiagnosisId = encounter.diagnosis
+    ?.find((d) => d.rank === 1)
+    ?.condition.reference?.replace('Condition/', '');
+  if (primaryDiagnosisId) {
+    const primaryDiagnosis = diagnoses.find((d) => d.id === primaryDiagnosisId);
+    diagnoses = [
+      ...(primaryDiagnosis ? [primaryDiagnosis] : []),
+      ...diagnoses.filter((d) => d.id !== primaryDiagnosisId),
+    ];
+  }
 
   const procedures = resources.filter((r): r is Procedure => r.resourceType === 'Procedure');
   if (!procedures.length) throw FHIR_RESOURCE_NOT_FOUND('Procedure');
