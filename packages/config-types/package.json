@@ -2,7 +2,7 @@
   "name": "config-types",
   "private": true,
   "type": "module",
-  "version": "1.37.10",
+  "version": "1.37.13",
   "description": "Core type definitions for Ottehr configuration contracts",
   "main": "index.ts",
   "types": "index.ts",
