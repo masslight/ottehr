@@ -51,7 +51,7 @@ const VitalsVisionCard: React.FC<VitalsVisionCardProps> = ({ field, historyEleme
       // Create the DocumentReference lazily, only now that the entry is being saved, so a file that
       // was attached and then discarded never leaves an orphaned DocumentReference on the encounter.
       const pendingDoc = dto.dotVisionScreening?.document;
-      if (pendingDoc && !pendingDoc.documentReferenceId && appointmentId && oystehrZambda) {
+      if (pendingDoc?.url && !pendingDoc.documentReferenceId && appointmentId && oystehrZambda) {
         const result = await uploadDotVisionDocument(oystehrZambda, {
           appointmentID: appointmentId,
           z3URL: pendingDoc.url,

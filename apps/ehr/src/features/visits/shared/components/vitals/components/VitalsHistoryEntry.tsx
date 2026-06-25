@@ -188,9 +188,13 @@ export const getObservationValueElements = (
                 }}
               >
                 <InsertDriveFileOutlinedIcon fontSize="small" color="primary" />
-                <Link href={dotDocument.url} target="_blank" rel="noopener">
-                  {dotDocument.title}
-                </Link>
+                {dotDocument.url ? (
+                  <Link href={dotDocument.url} target="_blank" rel="noopener">
+                    {dotDocument.title}
+                  </Link>
+                ) : (
+                  <Typography component="span">{dotDocument.title}</Typography>
+                )}
               </Box>
             )}
           </Box>,

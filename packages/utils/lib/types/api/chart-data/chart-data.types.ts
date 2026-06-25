@@ -278,7 +278,12 @@ export type VitalsVisionOption = 'child_too_young' | 'with_glasses' | 'without_g
 export interface VitalsDotVisionScreeningDocument {
   /** DocumentReference id created when referral documentation is uploaded/scanned. */
   documentReferenceId?: string;
-  url: string;
+  /**
+   * Z3 URL of the uploaded file. Available in-session right after upload, but NOT persisted on the
+   * Observation (the canonical pointer is the DocumentReference via Observation.derivedFrom), so it
+   * is undefined when an entry is re-read from FHIR.
+   */
+  url?: string;
   title: string;
 }
 

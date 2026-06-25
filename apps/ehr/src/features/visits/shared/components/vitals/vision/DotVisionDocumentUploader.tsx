@@ -85,9 +85,13 @@ export const DotVisionDocumentUploader: FC<DotVisionDocumentUploaderProps> = ({
         }}
       >
         <FileIcon fontSize="small" color="primary" />
-        <Link href={document.url} target="_blank" rel="noopener" sx={{ flexGrow: 1, fontWeight: 500 }}>
-          {document.title}
-        </Link>
+        {document.url ? (
+          <Link href={document.url} target="_blank" rel="noopener" sx={{ flexGrow: 1, fontWeight: 500 }}>
+            {document.title}
+          </Link>
+        ) : (
+          <Typography sx={{ flexGrow: 1, fontWeight: 500 }}>{document.title}</Typography>
+        )}
         {!disabled && (
           <IconButton size="small" aria-label="remove document" onClick={onRemove}>
             <DeleteIcon fontSize="small" />

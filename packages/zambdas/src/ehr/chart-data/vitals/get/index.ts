@@ -295,7 +295,7 @@ const parseVisionObservation = (
     visionOptions,
   } = extractVisionValues(components);
 
-  const dotVisionScreening = extractDotVisionScreening(components);
+  const dotVisionScreening = extractDotVisionScreening(components, observation.derivedFrom);
 
   if (
     leftEyeVisionText === undefined &&
