@@ -1079,7 +1079,7 @@ export const INCOMPATIBLE_EXAM_VERSION_MESSAGE =
   "This chart's exam version is incompatible with the current exam configuration, please consult the visit PDF.";
 
 export const BILLING_RESOURCE_TAG = {
-  system: 'https://ottehr.com/billing/resource-type',
+  system: 'https://fhir.ottehr.com/billing/resource-type',
   code: 'billing-resource',
 };
 
