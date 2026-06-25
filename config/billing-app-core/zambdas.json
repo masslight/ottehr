@@ -141,6 +141,13 @@
       "src": "src/billing/get-billing-era-detail/index",
       "zip": ".dist/zips/get-billing-era-detail.zip"
     },
+    "IMPORT-ERA": {
+      "name": "import-era",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/import-era/index",
+      "zip": ".dist/zips/import-era.zip"
+    },
     "SEARCH-BILLING-TAGS": {
       "name": "search-billing-tags",
       "type": "http_auth",
