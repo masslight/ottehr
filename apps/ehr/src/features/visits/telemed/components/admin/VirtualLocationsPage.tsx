@@ -3,7 +3,6 @@ import SearchIcon from '@mui/icons-material/Search';
 import {
   Box,
   Grid,
-  Paper,
   Skeleton,
   Table,
   TableBody,
@@ -68,7 +67,7 @@ export default function VirtualLocationsPage(): ReactElement {
     setSearchText(event.target.value);
 
   return (
-    <Paper sx={{ padding: 2, marginTop: 2 }}>
+    <Box>
       <TableContainer>
         <Grid container spacing={2} paddingTop={1}>
           {/* Locations Search Box */}
@@ -159,6 +158,6 @@ export default function VirtualLocationsPage(): ReactElement {
           data-testid={dataTestIds.pagination.paginationContainer}
         />
       </TableContainer>
-    </Paper>
+    </Box>
   );
 }

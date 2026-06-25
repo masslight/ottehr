@@ -13,7 +13,6 @@ import {
   DialogContentText,
   DialogTitle,
   IconButton,
-  Paper,
   Table,
   TableBody,
   TableCell,
@@ -209,7 +208,7 @@ export default function GlobalTemplatesAdminPage(): ReactElement {
   };
 
   return (
-    <Paper sx={{ padding: 3 }}>
+    <Box>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
         Templates are created from the progress note. Use this page to manage existing templates.
       </Typography>
@@ -356,6 +355,6 @@ export default function GlobalTemplatesAdminPage(): ReactElement {
           </LoadingButton>
         </DialogActions>
       </Dialog>
-    </Paper>
+    </Box>
   );
 }

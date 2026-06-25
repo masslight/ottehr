@@ -45,7 +45,8 @@ export class EmployersPage {
   }
 
   async verifyEmployersTabSelected(): Promise<void> {
-    await expect(this.page.getByRole('tab', { name: 'Employers' })).toHaveAttribute('aria-selected', 'true');
+    // The admin nav is now a sidebar; the active item carries MUI's selected class.
+    await expect(this.page.locator('a[href="/admin/billing/employers"] .Mui-selected')).toBeVisible(DEFAULT_TIMEOUT);
   }
 
   async verifyNoEmployersFound(): Promise<void> {

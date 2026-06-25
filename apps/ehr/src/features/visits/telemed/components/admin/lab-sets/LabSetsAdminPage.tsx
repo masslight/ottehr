@@ -1,9 +1,8 @@
 import { Add } from '@mui/icons-material';
 import SearchIcon from '@mui/icons-material/Search';
 import {
+  Box,
   Button,
-  Grid,
-  Paper,
   Skeleton,
   Table,
   TableBody,
@@ -20,6 +19,7 @@ import { ReactElement, useCallback, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { BooleanStateChip } from 'src/components/BooleanStateChip';
 import { dataTestIds } from 'src/constants/data-test-ids';
+import { AdminHeaderActionSlot } from 'src/features/admin/AdminPageHeader';
 import { useAdminGetLabSetsList } from 'src/features/visits/telemed/components/admin/admin.queries';
 import { LabSetDTO, LabSetStatus, LabTypeDisplay } from 'utils';
 
@@ -83,35 +83,23 @@ export default function LabSetsAdminPage(): ReactElement {
   );
 
   return (
-    <Paper sx={{ padding: 2, marginTop: 2 }}>
+    <Box>
+      <AdminHeaderActionSlot>
+        <Button component={Link} to="/admin/lab-sets/add" color="primary" variant="contained" startIcon={<Add />}>
+          Add Lab Set
+        </Button>
+      </AdminHeaderActionSlot>
       <TableContainer sx={{ overflowX: 'auto' }}>
-        {/* Filter fields grid container */}
-        <Grid container spacing={2} display="flex" alignItems="center" justifyContent="space-between">
-          <Grid item xs={12} sm={10}>
-            <TextField
-              fullWidth
-              id="lab-set-search-field"
-              label="Lab Sets"
-              onChange={(e) => {
-                setLabSetFilter(e.target.value);
-              }}
-              InputProps={{ endAdornment: <SearchIcon /> }}
-              margin="dense"
-            ></TextField>
-          </Grid>
-          <Grid item xs={12} sm={2} display="flex">
-            <Button
-              component={Link}
-              to="/admin/lab-sets/add"
-              sx={{ marginLeft: 1 }}
-              color="primary"
-              variant="contained"
-              startIcon={<Add />}
-            >
-              Add Lab Set
-            </Button>
-          </Grid>
-        </Grid>
+        <TextField
+          fullWidth
+          id="lab-set-search-field"
+          label="Lab Sets"
+          onChange={(e) => {
+            setLabSetFilter(e.target.value);
+          }}
+          InputProps={{ endAdornment: <SearchIcon /> }}
+          margin="dense"
+        ></TextField>
 
         {isError ? (
           <>
@@ -153,6 +141,6 @@ export default function LabSetsAdminPage(): ReactElement {
           data-testid={dataTestIds.pagination.paginationContainer}
         />
       </TableContainer>
-    </Paper>
+    </Box>
   );
 }

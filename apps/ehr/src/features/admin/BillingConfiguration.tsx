@@ -1,11 +1,8 @@
 import SearchIcon from '@mui/icons-material/Search';
-import { TabContext, TabList, TabPanel } from '@mui/lab';
 import {
   Box,
   Chip,
   CircularProgress,
-  Paper,
-  Tab,
   Table,
   TableBody,
   TableCell,
@@ -18,25 +15,11 @@ import {
 } from '@mui/material';
 import React, { ReactElement } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { BILLING_URL, PAYMENT_LOCATIONS_URL } from 'src/App';
-import Invoicing from 'src/rcm/features/invoicing/Invoicing';
+import { PAYMENT_LOCATIONS_URL } from 'src/App';
 import { PaymentLocation } from 'src/rcm/state/payments/payments.api';
 import { usePaymentLocationsQuery } from 'src/rcm/state/payments/payments.queries';
-import FeeSchedule from '../visits/telemed/components/admin/ChargeItemList';
-import EMCodesAdminPage from '../visits/telemed/components/admin/EMCodesAdminPage';
-import EmployersTab from '../visits/telemed/components/admin/employers/EmployersTab';
-import InsuranceConfiguration from '../visits/telemed/components/admin/InsuranceConfiguration';
 
-type BillingSubTab =
-  | 'insurance'
-  | 'fee-schedules'
-  | 'charge-masters'
-  | 'employers'
-  | 'payment-locations'
-  | 'invoicing'
-  | 'em-codes';
-
-function PaymentLocationsList(): ReactElement {
+export function PaymentLocationsList(): ReactElement {
   const navigate = useNavigate();
   const [rowsPerPage, setRowsPerPage] = React.useState(10);
   const [pageNumber, setPageNumber] = React.useState(0);
@@ -72,7 +55,7 @@ function PaymentLocationsList(): ReactElement {
   }
 
   return (
-    <Paper sx={{ padding: 2, marginTop: 2 }}>
+    <Box>
       <TableContainer>
         <Box sx={{ pb: 1 }}>
           <TextField
@@ -142,60 +125,6 @@ function PaymentLocationsList(): ReactElement {
           }}
         />
       </TableContainer>
-    </Paper>
-  );
-}
-
-export default function BillingConfiguration({
-  billingTab,
-  insuranceTab,
-}: {
-  billingTab?: string;
-  insuranceTab?: string;
-}): ReactElement {
-  const navigate = useNavigate();
-  const subTab: BillingSubTab = (billingTab as BillingSubTab) || 'em-codes';
-
-  const handleSubTabChange = (_: unknown, newValue: BillingSubTab): void => {
-    navigate(`${BILLING_URL}/${newValue}`);
-  };
-
-  return (
-    <Box sx={{ marginTop: 2 }}>
-      <TabContext value={subTab}>
-        <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-          <TabList onChange={handleSubTabChange} aria-label="Billing configuration tabs">
-            <Tab label="E&M Codes" value="em-codes" sx={{ textTransform: 'none', fontWeight: 500 }} />
-            <Tab label="Insurance" value="insurance" sx={{ textTransform: 'none', fontWeight: 500 }} />
-            <Tab label="Fee Schedules" value="fee-schedules" sx={{ textTransform: 'none', fontWeight: 500 }} />
-            <Tab label="Charge Masters" value="charge-masters" sx={{ textTransform: 'none', fontWeight: 500 }} />
-            <Tab label="Employers" value="employers" sx={{ textTransform: 'none', fontWeight: 500 }} />
-            <Tab label="Payment Locations" value="payment-locations" sx={{ textTransform: 'none', fontWeight: 500 }} />
-            <Tab label="Invoicing" value="invoicing" sx={{ textTransform: 'none', fontWeight: 500 }} />
-          </TabList>
-        </Box>
-        <TabPanel value="em-codes" sx={{ padding: 0 }}>
-          <EMCodesAdminPage />
-        </TabPanel>
-        <TabPanel value="insurance" sx={{ padding: 0 }}>
-          <InsuranceConfiguration insuranceTab={insuranceTab} />
-        </TabPanel>
-        <TabPanel value="fee-schedules" sx={{ padding: 0 }}>
-          <FeeSchedule />
-        </TabPanel>
-        <TabPanel value="charge-masters" sx={{ padding: 0 }}>
-          <FeeSchedule mode="charge-master" />
-        </TabPanel>
-        <TabPanel value="employers" sx={{ padding: 0 }}>
-          <EmployersTab />
-        </TabPanel>
-        <TabPanel value="payment-locations" sx={{ padding: 0 }}>
-          <PaymentLocationsList />
-        </TabPanel>
-        <TabPanel value="invoicing" sx={{ padding: 0 }}>
-          <Invoicing />
-        </TabPanel>
-      </TabContext>
     </Box>
   );
 }
