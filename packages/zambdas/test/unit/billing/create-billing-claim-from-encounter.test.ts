@@ -176,20 +176,27 @@ const clinicalResources: {
     subject: {
       reference: 'Patient/patient-123',
     },
-    code: { coding: [{ system: CODE_SYSTEM_CPT, code: '12345' }] },
-    extension: [
-      {
-        url: EXTENSION_URL_CPT_MODIFIER,
-        valueCodeableConcept: {
-          coding: [
+    code: {
+      coding: [
+        {
+          system: CODE_SYSTEM_CPT,
+          code: '12345',
+          extension: [
             {
-              system: CODE_SYSTEM_CPT_MODIFIER,
-              code: '25',
+              url: EXTENSION_URL_CPT_MODIFIER,
+              valueCodeableConcept: {
+                coding: [
+                  {
+                    system: CODE_SYSTEM_CPT_MODIFIER,
+                    code: '25',
+                  },
+                ],
+              },
             },
           ],
         },
-      },
-    ],
+      ],
+    },
   },
   billingProvider: {
     resourceType: 'Organization',
