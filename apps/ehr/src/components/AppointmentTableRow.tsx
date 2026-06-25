@@ -49,7 +49,6 @@ import {
   GetVitalsResponseData,
   InPersonAppointmentInformation,
   LOCATION_REVIEW_LINK_EXTENSION_URL,
-  makeAbbreviation,
   mdyStringFromISOString,
   NON_LOS_STATUSES,
   OrdersForTrackingBoardRow,
@@ -74,6 +73,7 @@ import { getTrackingBoardPrimaryAction } from '../helpers/trackingBoardPrimaryAc
 import { useApiClients } from '../hooks/useAppClients';
 import useEvolveUser from '../hooks/useEvolveUser';
 import { useSupportPhonesMap } from '../hooks/useLocationSupportPhones';
+import { useServiceCategoryAbbreviationResolver } from '../hooks/useServiceCategoryAbbreviation';
 import AppointmentNote from './AppointmentNote';
 import AppointmentTablePractitionerSelect from './AppointmentTablePractitionerSelect';
 import AppointmentTableRowMobile from './AppointmentTableRowMobile';
@@ -199,6 +199,7 @@ export default function AppointmentTableRow({
   const { oystehr, oystehrZambda } = useApiClients();
   const apiClient = useOystehrAPIClient();
   const { phonesByLocationName } = useSupportPhonesMap();
+  const resolveServiceCategoryAbbr = useServiceCategoryAbbreviationResolver();
   const theme = useTheme();
   const navigate = useNavigate();
   const { encounter } = appointment;
@@ -866,7 +867,8 @@ export default function AppointmentTableRow({
   // if visit components, there is always something in this cell, hence the default to true
   const showPointerForInfoIcons = displayOrdersToolTip(appointment, tab) ? hasAtLeastOneOrder(orders) : true;
 
-  const serviceCategory = appointment.serviceCategory ? ' | ' + makeAbbreviation(appointment.serviceCategory) : '';
+  const serviceCategoryAbbr = resolveServiceCategoryAbbr(appointment.serviceCategory);
+  const serviceCategory = serviceCategoryAbbr ? ' | ' + serviceCategoryAbbr : '';
 
   return (
     <TableRow

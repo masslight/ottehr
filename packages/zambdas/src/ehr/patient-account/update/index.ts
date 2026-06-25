@@ -27,7 +27,7 @@ import {
 import { ValidationError } from 'yup';
 import {
   checkOrCreateM2MClientToken,
-  createOystehrClient,
+  createClinicalOystehrClient,
   getStripeClient,
   sendErrors,
   wrapHandler,
@@ -53,7 +53,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   console.debug('validateRequestParameters success');
   const { secrets } = validatedParameters;
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-  const oystehr = createOystehrClient(m2mToken, secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
   console.log('complexly validating request parameters');
   const effectInput = await complexValidation(validatedParameters);
   console.log('complex validation successful');

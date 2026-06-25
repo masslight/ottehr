@@ -1,7 +1,7 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { HealthcareService } from 'fhir/r4b';
 import { FEATURE_FLAGS_CONFIG, INVALID_INPUT_ERROR, Secrets, SERVICE_CATEGORY_TAG, SLUG_SYSTEM } from 'utils';
-import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
+import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
 import { buildCatalog, filterByOfferedCodes, getGroupOfferedCodes } from './helpers';
 
 interface GetServiceCategoriesInput {
@@ -48,7 +48,7 @@ export const index = wrapHandler(
   async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
     const { secrets, scheduleType, bookingOn } = validateRequestParameters(input);
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
+    const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
     // Feature flag: when off (default), patient-facing booking sees only
     // BOOKING_CONFIG categories. Admin-registered FHIR HealthcareService

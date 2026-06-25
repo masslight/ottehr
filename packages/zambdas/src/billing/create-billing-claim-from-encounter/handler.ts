@@ -33,6 +33,7 @@ import { DateTime } from 'luxon';
 import {
   ACCOUNT_TYPE_CODE_SYSTEM,
   AR_STAGE,
+  BILLING_RESOURCE_TAG,
   claimStatusValuesToTags,
   CODE_SYSTEM_APPOINTMENT_TYPE_CODES,
   CODE_SYSTEM_APPOINTMENT_TYPE_TAG_SYSTEM,
@@ -64,11 +65,16 @@ import {
   withArStageInitialization,
 } from 'utils';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
-import { assertDefined, checkOrCreateM2MClientToken, createOystehrClient, sendErrors, ZambdaInput } from '../../shared';
+import {
+  assertDefined,
+  checkOrCreateM2MClientToken,
+  createClinicalOystehrClient,
+  sendErrors,
+  ZambdaInput,
+} from '../../shared';
 import {
   AUTO_ACCIDENT_TAG_DESCRIPTION,
   AUTO_ACCIDENT_TAG_NAME,
-  BILLING_RESOURCE_TAG,
   BILLING_WORKING_COPY_TAG,
   BillingFhirResource,
   CLAIM_TAG_SYSTEM,
@@ -149,7 +155,7 @@ export async function handler(input: ZambdaInput): Promise<APIGatewayProxyResult
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
   const billingOystehr = createBillingClient(m2mToken, params.secrets);
   // CW TODO: expand to helper and use in all zambdas
-  const clinicalOystehr = createOystehrClient(m2mToken, params.secrets, { ignoreTags: [BILLING_RESOURCE_TAG] });
+  const clinicalOystehr = createClinicalOystehrClient(m2mToken, params.secrets);
 
   const cvo = await complexValidation(clinicalOystehr, billingOystehr, params);
 

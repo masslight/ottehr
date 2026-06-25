@@ -4,7 +4,7 @@ import { MedicationRequest } from 'fhir/r4b';
 import { ERX_MEDICATION_META_TAG_CODE, GetErxOrdersInput, GetErxOrdersInputSchema, GetErxOrdersResponse } from 'utils';
 import {
   checkOrCreateM2MClientToken,
-  createOystehrClient,
+  createClinicalOystehrClient,
   makePrescribedMedicationDTO,
   validateJsonBody,
   wrapHandler,
@@ -18,7 +18,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const validatedParameters = validateRequestParameters(input);
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedParameters.secrets);
-  const oystehr = createOystehrClient(m2mToken, validatedParameters.secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, validatedParameters.secrets);
 
   const response = await getErxOrders(oystehr, validatedParameters);
   return {
