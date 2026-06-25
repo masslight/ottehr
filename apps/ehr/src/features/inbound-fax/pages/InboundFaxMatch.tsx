@@ -151,6 +151,7 @@ export const InboundFaxMatch: React.FC = () => {
             id: list.id!,
             folderName: list.code?.coding?.find((c) => c.code === 'patient-docs-folder')?.display ?? 'Unknown folder',
             documentsCount: list.entry?.length ?? 0,
+            isCustom: false,
           }));
 
         setFolders(patientFolders);

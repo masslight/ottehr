@@ -4,13 +4,14 @@ import { Communication, Practitioner } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   AppointmentProviderNotificationTypes,
+  createOystehrClient,
   FAX_TASK,
   getProviderNotificationSettingsForPractitioner,
   getSecret,
   PROVIDER_NOTIFICATION_TYPE_SYSTEM,
   SecretsKeys,
 } from 'utils';
-import { createOystehrClient, getAuth0Token, topLevelCatch, wrapHandler, ZambdaInput } from '../../../shared';
+import { getAuth0Token, topLevelCatch, wrapHandler, ZambdaInput } from '../../../shared';
 import { createTask } from '../../../shared/tasks';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -59,7 +60,11 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       console.log('already have token');
     }
 
-    const oystehr = createOystehrClient(oystehrToken, secrets);
+    const oystehr = createOystehrClient(
+      oystehrToken,
+      getSecret(SecretsKeys.FHIR_API, secrets),
+      getSecret(SecretsKeys.PROJECT_API, secrets)
+    );
 
     const senderFaxNumber = getSenderFaxNumber(communication);
     const pageCount = getPageCount(communication);
