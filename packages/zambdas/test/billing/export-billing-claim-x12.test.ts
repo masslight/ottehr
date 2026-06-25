@@ -159,7 +159,7 @@ describe('export-billing-claim-x12 handler', () => {
     ).rejects.toMatchObject({ message: CLAIM_NOT_READY_FOR_X12_EXPORT.message });
   });
 
-  it('surfaces only the RCM message (not the full body) for unexpected non-400 failures', async () => {
+  it('surfaces only the RCM message (not the full body) for unexpected server failures', async () => {
     const mockFetch = vi.fn().mockResolvedValue({
       ok: false,
       status: 500,
@@ -182,5 +182,56 @@ describe('export-billing-claim-x12 handler', () => {
     expect(error.code).toBe(APIErrorCode.MISCONFIGURED_ENVIRONMENT);
     expect(error.message).toContain('missing critical information');
     expect(error.message).not.toContain('5000');
+  });
+
+  it('forwards an upstream 401 as a not-authorized error', async () => {
+    const mockFetch = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 401,
+      statusText: 'Unauthorized',
+      text: async () => JSON.stringify({ message: 'token rejected' }),
+    });
+    vi.stubGlobal('fetch', mockFetch);
+
+    await expect(
+      handler({
+        headers: null,
+        body: JSON.stringify({
+          claimId: 'claim-1',
+        }),
+        secrets: {
+          PROJECT_API,
+        },
+      })
+    ).rejects.toMatchObject({
+      code: APIErrorCode.NOT_AUTHORIZED,
+      statusCode: 401,
+      message: 'token rejected',
+    });
+  });
+
+  it('forwards an upstream 404 as a resource-not-found error', async () => {
+    const mockFetch = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 404,
+      statusText: 'Not Found',
+      text: async () => '',
+    });
+    vi.stubGlobal('fetch', mockFetch);
+
+    await expect(
+      handler({
+        headers: null,
+        body: JSON.stringify({
+          claimId: 'claim-1',
+        }),
+        secrets: {
+          PROJECT_API,
+        },
+      })
+    ).rejects.toMatchObject({
+      code: APIErrorCode.FHIR_RESOURCE_NOT_FOUND,
+      statusCode: 404,
+    });
   });
 });
