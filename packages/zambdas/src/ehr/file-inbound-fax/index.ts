@@ -2,9 +2,8 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
 import { DocumentReference, List, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { addOperation, FAX_TASK, getSecret, replaceOperation, SecretsKeys } from 'utils';
+import { addOperation, createOystehrClient, FAX_TASK, getSecret, replaceOperation, SecretsKeys } from 'utils';
 import { checkOrCreateM2MClientToken, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
-import { createOystehrClient } from '../../shared/helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'file-inbound-fax';
@@ -19,7 +18,11 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       validateRequestParameters(input);
 
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
+    const oystehr = createOystehrClient(
+      m2mToken,
+      getSecret(SecretsKeys.FHIR_API, secrets),
+      getSecret(SecretsKeys.PROJECT_API, secrets)
+    );
 
     // Verify the task exists and is an inbound-fax task
     let task: Task;

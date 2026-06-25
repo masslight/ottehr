@@ -32,6 +32,9 @@ interface UnsolicitedPatientSearchResultsProps {
   selectedPatient: SearchResultParsedPatient | undefined;
   setSelectedPatient: (selectedPatient: SearchResultParsedPatient) => void;
   handleConfirmPatientMatch: (confirmed: SearchResultParsedPatient | undefined) => void;
+  // True once the provider has run at least one search, so a zero-result run shows a "no matches"
+  // message instead of rendering nothing. Omitted → behaves as before (silent until results exist).
+  hasSearched?: boolean;
 }
 
 export const UnsolicitedPatientSearchResults: FC<UnsolicitedPatientSearchResultsProps> = ({
@@ -42,6 +45,7 @@ export const UnsolicitedPatientSearchResults: FC<UnsolicitedPatientSearchResults
   selectedPatient,
   setSelectedPatient,
   handleConfirmPatientMatch,
+  hasSearched,
 }) => {
   const page = Math.floor(searchOptions.pagination.offset / searchOptions.pagination.pageSize);
   const sort = (field: SortField) => () => {
@@ -57,6 +61,22 @@ export const UnsolicitedPatientSearchResults: FC<UnsolicitedPatientSearchResults
   const selectButtonText = selectedPatient ? `Select ${name}, ${birthDate}` : 'Select';
 
   if (!searchResult.patients.length) {
+    // Give the provider feedback instead of a blank area: a spinner while a search runs, and an
+    // explicit "no matches" message once a search has completed with no results.
+    if (arePatientsLoading) {
+      return (
+        <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+          Searching…
+        </Typography>
+      );
+    }
+    if (hasSearched) {
+      return (
+        <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+          No patients found matching your search. Try a different name or date of birth.
+        </Typography>
+      );
+    }
     return <></>;
   }
 
