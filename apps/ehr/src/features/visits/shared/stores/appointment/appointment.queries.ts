@@ -9,7 +9,7 @@ import { keepPreviousData, useMutation, UseMutationResult, useQuery, UseQueryRes
 import { Bundle, Coding, Encounter, FhirResource, InsurancePlan, Medication, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
-import { useEffect } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { getPatientInstructionQuickPicks, icd10Search } from 'src/api/api';
 import { QUERY_STALE_TIME } from 'src/constants';
 import { FEATURE_FLAGS } from 'src/constants/feature-flags';
@@ -55,6 +55,7 @@ import {
   UpdateMedicationOrderInput,
 } from 'utils';
 import { useErrorQuery, useSuccessQuery } from 'utils/lib/frontend';
+import { useGetErxConfigQuery } from '../../../telemed/hooks/useGetErxConfig';
 import { OystehrTelemedAPIClient } from '../../api/oystehrApi';
 import { useOystehrAPIClient } from '../../hooks/useOystehrAPIClient';
 import { useAppointmentData } from './appointment.store';
@@ -740,6 +741,68 @@ export const useSyncERXPatient = ({
   useErrorQuery(queryResult.error, onError);
 
   return queryResult;
+};
+
+/**
+ * Background, serialized eRx patient sync.
+ *
+ * `triggerSync` returns immediately (a single sync takes several seconds, so we never block the UI).
+ * Syncs never overlap: if one is requested while another is in flight, exactly one more run is queued
+ * to start once the current one finishes (multiple requests collapse into a single trailing sync).
+ */
+export const useErxPatientSyncQueue = ({
+  patient,
+  encounter,
+}: {
+  patient?: Patient;
+  encounter?: Encounter;
+}): { triggerSync: () => void; isSyncing: boolean } => {
+  const { oystehr } = useApiClients();
+  const { data: erxConfig } = useGetErxConfigQuery();
+  const [isSyncing, setIsSyncing] = useState(false);
+  const runningRef = useRef(false);
+  const pendingRef = useRef(false);
+
+  // Keep the latest ids/config available to the in-flight loop without re-creating triggerSync.
+  const idsRef = useRef<{ patientId?: string; encounterId?: string }>({});
+  idsRef.current = { patientId: patient?.id, encounterId: encounter?.id };
+  const isErxConfiguredRef = useRef(false);
+  isErxConfiguredRef.current = Boolean(erxConfig);
+
+  const triggerSync = useCallback(() => {
+    // Skip entirely when eRx isn't configured for the project — syncPatient would just fail.
+    if (!oystehr || !isErxConfiguredRef.current) return;
+
+    // A sync is already running — remember to run once more when it finishes.
+    if (runningRef.current) {
+      pendingRef.current = true;
+      return;
+    }
+
+    runningRef.current = true;
+    setIsSyncing(true);
+
+    void (async () => {
+      try {
+        do {
+          pendingRef.current = false;
+          const { patientId, encounterId } = idsRef.current;
+          if (!patientId || !encounterId) break;
+          try {
+            await oystehr.erx.syncPatient({ patientId, encounterId });
+          } catch (err) {
+            console.warn('Error syncing erx patient after allergy change: ', err);
+          }
+          // If another change came in while syncing, run one more time.
+        } while (pendingRef.current);
+      } finally {
+        runningRef.current = false;
+        setIsSyncing(false);
+      }
+    })();
+  }, [oystehr]);
+
+  return { triggerSync, isSyncing };
 };
 
 export const useConnectPractitionerToERX = ({
