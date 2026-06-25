@@ -2,7 +2,6 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import {
   ActivityDefinition,
-  Annotation,
   Condition,
   Encounter,
   FhirResource,
@@ -30,8 +29,6 @@ import {
   isPSCOrder,
   makeOptimisticLockIfMatchHeader,
   MEDICATION_ADMINISTRATION_IN_PERSON_RESOURCE_SYSTEM,
-  MEDICATION_ADMINISTRATION_OTHER_REASON_CODE,
-  MEDICATION_ADMINISTRATION_REASON_CODE,
   OYSTEHR_LAB_GUID_SYSTEM,
   OYSTEHR_LAB_OI_CODE_SYSTEM,
   PSC_HOLD_CONFIG,
@@ -228,6 +225,13 @@ const performEffect = async (
   for (const resource of encounterBundle) {
     // Skip the Encounter — we create a stub encounter separately
     if (resource.resourceType === 'Encounter') continue;
+    // we won't grab any cpt codes that were added to the assessment because of an administered in house med
+    if (
+      resource.resourceType === 'Procedure' &&
+      resourceHasTagSystem(resource, chartDataTagSystem('cpt-code')) &&
+      resource.partOf?.some((part) => part.reference?.startsWith('MedicationAdministration/'))
+    )
+      continue;
 
     const anonymizedResource: any = { ...resource };
     delete anonymizedResource.meta?.versionId;
@@ -494,15 +498,6 @@ const performEffect = async (
       listToCreate.contained!.push(templateMedication);
     }
 
-    // any issues encountered when administering a med are put in notes. We want to avoid putting that on the template
-    // we should consider if we want any notes at all -- could have patient specific info, maybe worth skipping entirely
-    const sanitizedNotes: Annotation[] = (medAdmin.note ?? []).filter(
-      (note) =>
-        ![MEDICATION_ADMINISTRATION_REASON_CODE, MEDICATION_ADMINISTRATION_OTHER_REASON_CODE].includes(
-          note.authorString ?? ''
-        )
-    );
-
     const medAdminId = uuidV4();
     oldIdToNewIdMap.set(medAdmin.id!, medAdminId);
     const templateMedAdministration: MedicationAdministration = {
@@ -516,9 +511,9 @@ const performEffect = async (
       // NO performer — patient-specific
       // NO reasonReference — Condition IDs are patient-specific; Dx lifted to reasonCode above
       // NO request — MR is patient-specific (carries interaction data for that patient)
+      // No notes - only used to capture reasons the med was not administered
       ...(medAdmin.dosage ? { dosage: medAdmin.dosage } : {}),
       ...(medAdmin.extension && medAdmin.extension.length > 0 ? { extension: medAdmin.extension } : {}),
-      ...(sanitizedNotes.length > 0 ? { note: sanitizedNotes } : {}),
       ...(reasonCode.length > 0 ? { reasonCode } : {}),
       // details of the medication itself are contained on the medicationAdministration
       ...(medicationAdminMedication

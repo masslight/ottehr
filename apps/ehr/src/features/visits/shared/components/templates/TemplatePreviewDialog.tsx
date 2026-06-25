@@ -392,6 +392,14 @@ const InHouseMedicationList: React.FC<{ meds: TemplateInHouseMedicationDetail[] 
             ))}
           </Stack>
         ) : null}
+        {med.instructions ? (
+          <Typography
+            variant="caption"
+            sx={{ display: 'block', mt: 0.5, color: 'text.secondary', whiteSpace: 'pre-wrap' }}
+          >
+            Instructions: {med.instructions}
+          </Typography>
+        ) : null}
       </Box>
     ))}
   </Stack>
