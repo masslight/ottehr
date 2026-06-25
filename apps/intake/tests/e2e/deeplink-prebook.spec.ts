@@ -77,11 +77,20 @@ test.describe('Prebook deeplink flows', () => {
 
     await page.goto(deeplinkUrl, { waitUntil: 'networkidle' });
 
-    // URL must acquire the picker suffix — preserving the original query
-    // string so the picker can return the patient here with serviceCategory
-    // appended.
+    // URL must acquire the picker suffix AND preserve the original query
+    // string. The query-string preservation is load-bearing: the picker's
+    // round-trip back here happens by stripping `/select-service-category`
+    // from the path and re-using the existing query string with
+    // `serviceCategory=<code>` appended. If the redirect dropped
+    // `bookingOn`/`scheduleType` we'd land on the unscoped booking flow
+    // after the patient picks, silently losing the original booking target
+    // — exactly the kind of silent regression a pathname-only assertion
+    // would miss.
     await expect(page).toHaveURL(/\/prebook\/in-person\/select-service-category/, { timeout: 20000 });
-    console.log('✓ Redirected to service-category picker');
+    const pickerUrl = new URL(page.url());
+    expect(pickerUrl.searchParams.get('bookingOn')).toBe(locationSlug);
+    expect(pickerUrl.searchParams.get('scheduleType')).toBe('location');
+    console.log('✓ Redirected to service-category picker with query string preserved');
 
     // Time-slot buttons (rendered by PrebookVisit when slots load) must be
     // absent — confirms the redirect intercepted before the booking page
@@ -108,12 +117,16 @@ test.describe('Prebook deeplink flows', () => {
 
     await page.goto(deeplinkUrl, { waitUntil: 'networkidle' });
 
-    // URL stays on the booking page — no `/select-service-category` suffix.
-    // `:has-text` over `toHaveURL` because the URL also carries the booking-
-    // page params we want to assert are intact.
-    expect(page.url()).not.toContain('/select-service-category');
-    expect(page.url()).toContain(`bookingOn=${locationSlug}`);
-    expect(page.url()).toContain('scheduleType=location');
+    // URL stays on the booking page — no `/select-service-category` suffix —
+    // and the original query params survive. Parsing via URL + searchParams
+    // rather than substring-matching avoids false positives if the suffix
+    // ever ends up inside a query value, and gives a per-param assertion
+    // failure rather than a single opaque "URL didn't match" if anything
+    // changes shape.
+    const landedUrl = new URL(page.url());
+    expect(landedUrl.pathname).toBe('/prebook/in-person');
+    expect(landedUrl.searchParams.get('bookingOn')).toBe(locationSlug);
+    expect(landedUrl.searchParams.get('scheduleType')).toBe('location');
     console.log('✓ URL did not redirect to picker');
 
     // The "First available time" text is the booking page's slot-list
