@@ -46,6 +46,9 @@ vi.mock('../../src/features/visits/shared/stores/appointment/appointment.queries
     isFetching: false,
     data: search && search.length > 0 ? mockAllergySearchData : [],
   }),
+  useErxPatientSyncQueue: () => ({
+    triggerSync: vi.fn(),
+  }),
 }));
 
 vi.mock('../../src/features/visits/shared/hooks/useGetAppointmentAccessibility', () => ({
