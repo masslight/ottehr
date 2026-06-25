@@ -4,6 +4,7 @@ import { DateTime } from 'luxon';
 import {
   AllStates,
   APPOINTMENT_ALREADY_EXISTS_ERROR,
+  BOOKING_CONFIG,
   CanonicalUrl,
   CHARACTER_LIMIT_EXCEEDED_ERROR,
   checkSlotAvailable,
@@ -312,6 +313,37 @@ export const createAppointmentComplexValidation = async (
   }
   if (appointment?.id) {
     throw APPOINTMENT_ALREADY_EXISTS_ERROR;
+  }
+
+  // Back-compat invariant enforcement on slot.serviceCategory. New Slots
+  // created via create-slot are guaranteed to carry a SERVICE_CATEGORY_SYSTEM
+  // coding (the create-slot invariant catches them at write time). But Slots
+  // persisted before that guard landed, or written directly via FHIR by
+  // admin/migration scripts, may still exist without one. The downstream
+  // Appointment.serviceCategory is derived from slot.serviceCategory, so a
+  // categoryless Slot would produce a categoryless Appointment — exactly the
+  // ambiguity downstream category-aware code (questionnaire resolution,
+  // billing, single-category-project assumptions) reads as broken.
+  //
+  // When the system supports urgent-care as a BOOKING_CONFIG category, treat
+  // it as a safe default — that matches the historical implicit behavior the
+  // codebase leaned on before the invariant was articulated. When it doesn't
+  // (genuinely category-less project — would be unusual but possible) we
+  // refuse rather than silently produce a malformed Appointment. The Slot
+  // itself isn't PATCHed — we mutate the in-memory representation so
+  // downstream code (Appointment build, capacity guard's category read) sees
+  // the resolved category without touching the persisted FHIR record.
+  const slotHasServiceCategoryCoding = (slot.serviceCategory ?? []).some((cc) =>
+    (cc.coding ?? []).some((c) => c.system === SERVICE_CATEGORY_SYSTEM)
+  );
+  if (!slotHasServiceCategoryCoding) {
+    const urgentCare = BOOKING_CONFIG.serviceCategories.find((sc) => sc.category.code === 'urgent-care');
+    if (!urgentCare) {
+      throw INVALID_INPUT_ERROR(
+        'Slot has no service category and the system does not support a default category. Cannot create an Appointment without a service category.'
+      );
+    }
+    slot.serviceCategory = [...(slot.serviceCategory ?? []), { coding: [{ ...urgentCare.category }] }];
   }
 
   // Capacity guard. Reject the booking before any FHIR writes if the
