@@ -9,8 +9,12 @@ import {
 import * as fs from 'fs';
 import * as path from 'path';
 import { Secrets } from 'utils';
-import { getAuth0Token } from '../shared';
-import { fhirApiUrlFromAuth0Audience, projectApiUrlFromAuth0Audience } from './helpers';
+import {
+  createClinicalOystehrClient,
+  fhirApiUrlFromAuth0Audience,
+  getAuth0Token,
+  projectApiUrlFromAuth0Audience,
+} from '../shared';
 
 const RAW_RESPONSE_EXTENSION_URL = 'https://extensions.fhir.oystehr.com/raw-response';
 const RAW_REQUEST_EXTENSION_URL = 'https://extensions.fhir.oystehr.com/raw-request';
@@ -369,10 +373,11 @@ async function main(): Promise<void> {
   const apiUrls = resolveApiUrls(envConfig);
   const projectId = envConfig.PROJECT_ID as string;
 
-  const oystehr = new Oystehr({
-    accessToken: token,
+  const oystehr = createClinicalOystehrClient(token, envConfig as Secrets, {
     projectId,
-    ...apiUrls,
+    services: {
+      ...apiUrls,
+    },
   });
 
   const latestResponse = await getLatestCoverageEligibilityResponse(oystehr, patientId);

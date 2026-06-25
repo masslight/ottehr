@@ -33,7 +33,7 @@ import {
   AuditableZambdaEndpoints,
   checkIsEHRUser,
   createAuditEvent,
-  createOystehrClient,
+  createClinicalOystehrClient,
   getAuth0Token,
   getMainEncounterDetails,
   getUser,
@@ -91,7 +91,7 @@ export const index = wrapHandler('cancel-appointment', async (input: ZambdaInput
     console.log('already have token');
   }
 
-  const oystehr = createOystehrClient(oystehrToken, secrets);
+  const oystehr = createClinicalOystehrClient(oystehrToken, secrets);
 
   const appointment: Appointment | undefined = await getAppointmentResourceById(appointmentID, oystehr);
   if (!appointment) {

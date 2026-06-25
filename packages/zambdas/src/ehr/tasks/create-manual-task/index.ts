@@ -4,7 +4,7 @@ import { DateTime } from 'luxon';
 import { CreateManualTaskRequest, getFullName, MANUAL_TASK, TASK_ASSIGNED_DATE_TIME_EXTENSION_URL } from 'utils';
 import {
   checkOrCreateM2MClientToken,
-  createOystehrClient,
+  createClinicalOystehrClient,
   getMyPractitionerId,
   validateJsonBody,
   wrapHandler,
@@ -19,7 +19,7 @@ const ZAMBDA_NAME = 'create-manual-task';
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   const params = validateRequestParameters(input);
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
-  const oystehr = createOystehrClient(m2mToken, params.secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, params.secrets);
   const userToken = input.headers.Authorization.replace('Bearer ', '');
   const userPractitionerId = await getMyPractitionerId(userToken, params.secrets);
   const currentUserPractitioner = await oystehr.fhir.get<Practitioner>({

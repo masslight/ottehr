@@ -17,7 +17,7 @@ import {
   standardizePhoneNumber,
 } from 'utils';
 import { getAuth0Token, getRoleMembers, lambdaResponse, wrapHandler, ZambdaInput } from '../../shared';
-import { createOystehrClient } from '../../shared/helpers';
+import { createClinicalOystehrClient } from '../../shared/helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
 // For local development it makes it easier to track performance
@@ -53,7 +53,7 @@ export const index = wrapHandler('get-employees', async (input: ZambdaInput): Pr
     console.log('already have token');
   }
 
-  const oystehr = createOystehrClient(oystehrToken, secrets);
+  const oystehr = createClinicalOystehrClient(oystehrToken, secrets);
 
   const promises: [Promise<UserListItem[]>, Promise<RoleListItem[]>] = [getEmployees(oystehr), getRoles(oystehr)];
   const [allEmployees, existingRoles] = await Promise.all(promises);
