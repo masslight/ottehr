@@ -88,6 +88,7 @@ export const RadiologyOrderDetailsPage: React.FC = () => {
                 gap: 1,
                 flexDirection: 'row',
                 fontWeight: 'bold',
+                mr: 1,
               }}
             >
               <Typography variant="body1" sx={{ fontWeight: 'medium' }}>
