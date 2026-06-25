@@ -113,7 +113,7 @@ export function ExportX12Dialog({ open, onClose, claimId, claimType }: ExportX12
         sx={{
           px: 3,
           pt: 3,
-          pb: 2,
+          pb: 1,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
@@ -150,6 +150,7 @@ export function ExportX12Dialog({ open, onClose, claimId, claimType }: ExportX12
           <TextField
             label="Raw X12"
             aria-label="Raw X12"
+            sx={{ mt: 1 }}
             InputLabelProps={{ shrink: true }}
             multiline
             fullWidth
