@@ -30,6 +30,7 @@ import {
   EXTENSION_URL_CPT_MODIFIER,
   FHIR_IDENTIFIER_NPI,
   FHIR_RESOURCE_NOT_FOUND,
+  ICD_10_CODE_SYSTEM,
   INVALID_INPUT_ERROR,
   MISSING_REQUEST_BODY,
   MISSING_REQUEST_SECRETS,
@@ -67,7 +68,7 @@ const clinicalResources: {
   practitioner: Practitioner;
   account: Account;
   coverage: Coverage;
-  condition: Condition;
+  conditions: Condition[];
   procedure: Procedure;
   billingProvider: Organization;
 } = {
@@ -106,6 +107,19 @@ const clinicalResources: {
             ],
           },
         ],
+      },
+    ],
+    diagnosis: [
+      {
+        condition: {
+          reference: 'Condition/condition-123',
+        },
+        rank: 1,
+      },
+      {
+        condition: {
+          reference: 'Condition/other-condition-456',
+        },
       },
     ],
   },
@@ -162,13 +176,40 @@ const clinicalResources: {
       },
     ],
   },
-  condition: {
-    resourceType: 'Condition',
-    id: 'condition-123',
-    subject: {
-      reference: 'Patient/patient-123',
+  conditions: [
+    {
+      resourceType: 'Condition',
+      id: 'other-condition-456',
+      subject: {
+        reference: 'Patient/patient-123',
+      },
+      code: {
+        coding: [
+          {
+            system: ICD_10_CODE_SYSTEM,
+            code: 'E08.10',
+            display: 'Diabetes mellitus due to underlying condition with ketoacidosis without coma',
+          },
+        ],
+      },
     },
-  },
+    {
+      resourceType: 'Condition',
+      id: 'condition-123',
+      subject: {
+        reference: 'Patient/patient-123',
+      },
+      code: {
+        coding: [
+          {
+            system: ICD_10_CODE_SYSTEM,
+            code: 'S06.1XAS',
+            display: 'Traumatic cerebral edema with loss of consciousness status unknown, sequela',
+          },
+        ],
+      },
+    },
+  ],
   procedure: {
     resourceType: 'Procedure',
     id: 'procedure-123',
@@ -500,7 +541,7 @@ describe('create-billing-claim-from-encounter', () => {
             clinicalResources.location,
             clinicalResources.practitioner,
             clinicalResources.account,
-            clinicalResources.condition,
+            ...clinicalResources.conditions,
           ],
         }),
         billingOystehrSearch: vi.fn().mockResolvedValueOnce({
@@ -520,7 +561,7 @@ describe('create-billing-claim-from-encounter', () => {
               clinicalResources.location,
               clinicalResources.practitioner,
               clinicalResources.account,
-              clinicalResources.condition,
+              ...clinicalResources.conditions,
               clinicalResources.procedure,
             ],
           })
@@ -542,7 +583,7 @@ describe('create-billing-claim-from-encounter', () => {
               clinicalResources.location,
               clinicalResources.practitioner,
               clinicalResources.account,
-              clinicalResources.condition,
+              ...clinicalResources.conditions,
               clinicalResources.procedure,
             ],
           })
@@ -571,7 +612,7 @@ describe('create-billing-claim-from-encounter', () => {
               clinicalResources.location,
               clinicalResources.practitioner,
               clinicalResources.account,
-              clinicalResources.condition,
+              ...clinicalResources.conditions,
               clinicalResources.procedure,
             ],
           })
@@ -596,7 +637,7 @@ describe('create-billing-claim-from-encounter', () => {
               clinicalResources.practitioner,
               clinicalResources.account,
               clinicalResources.coverage,
-              clinicalResources.condition,
+              ...clinicalResources.conditions,
               clinicalResources.procedure,
             ],
           })
@@ -625,7 +666,7 @@ describe('create-billing-claim-from-encounter', () => {
               clinicalResources.practitioner,
               clinicalResources.account,
               clinicalResources.coverage,
-              clinicalResources.condition,
+              ...clinicalResources.conditions,
               clinicalResources.procedure,
             ],
           })
@@ -663,7 +704,7 @@ describe('create-billing-claim-from-encounter', () => {
             appointment: clinicalResources.appointment,
             billingProvider: clinicalResources.billingProvider,
             coverages: [clinicalResources.coverage],
-            diagnoses: [clinicalResources.condition],
+            diagnoses: [clinicalResources.conditions[1], clinicalResources.conditions[0]],
             encounter: clinicalResources.encounter,
             location: clinicalResources.location,
             patient: clinicalResources.patient,
@@ -698,7 +739,7 @@ describe('create-billing-claim-from-encounter', () => {
               clinicalResources.practitioner,
               clinicalResources.account,
               clinicalResources.coverage,
-              clinicalResources.condition,
+              ...clinicalResources.conditions,
               clinicalResources.procedure,
             ],
           })
@@ -741,7 +782,7 @@ describe('create-billing-claim-from-encounter', () => {
             appointment: clinicalResources.appointment,
             billingProvider: clinicalResources.billingProvider,
             coverages: [clinicalResources.coverage],
-            diagnoses: [clinicalResources.condition],
+            diagnoses: [clinicalResources.conditions[1], clinicalResources.conditions[0]],
             encounter: clinicalResources.encounter,
             location: clinicalResources.location,
             patient: clinicalResources.patient,
@@ -1081,7 +1122,7 @@ describe('create-billing-claim-from-encounter', () => {
           appointment: clinicalResources.appointment,
           billingProvider: clinicalResources.billingProvider,
           coverages: [clinicalResources.coverage],
-          diagnoses: [clinicalResources.condition],
+          diagnoses: [...clinicalResources.conditions],
           encounter: clinicalResources.encounter,
           location: clinicalResources.location,
           patient: clinicalResources.patient,
@@ -1137,7 +1178,10 @@ describe('create-billing-claim-from-encounter', () => {
                 },
               ],
               careTeam: undefined,
-              diagnosis: [{ sequence: 1, diagnosisCodeableConcept: clinicalResources.condition.code }],
+              diagnosis: [
+                { sequence: 1, diagnosisCodeableConcept: clinicalResources.conditions[0].code },
+                { sequence: 2, diagnosisCodeableConcept: clinicalResources.conditions[1].code },
+              ],
               priority: { coding: [{ system: CODE_SYSTEM_PROCESS_PRIORITY, code: 'normal' }] },
               total: undefined,
               item: [
@@ -1194,7 +1238,7 @@ describe('create-billing-claim-from-encounter', () => {
           appointment: clinicalResources.appointment,
           billingProvider: clinicalResources.billingProvider,
           coverages: [clinicalResources.coverage],
-          diagnoses: [clinicalResources.condition],
+          diagnoses: [...clinicalResources.conditions],
           encounter: clinicalResources.encounter,
           location: clinicalResources.location,
           patient: clinicalResources.patient,
@@ -1262,7 +1306,10 @@ describe('create-billing-claim-from-encounter', () => {
                   sequence: 1,
                 },
               ],
-              diagnosis: [{ sequence: 1, diagnosisCodeableConcept: clinicalResources.condition.code }],
+              diagnosis: [
+                { sequence: 1, diagnosisCodeableConcept: clinicalResources.conditions[0].code },
+                { sequence: 2, diagnosisCodeableConcept: clinicalResources.conditions[1].code },
+              ],
               priority: { coding: [{ system: CODE_SYSTEM_PROCESS_PRIORITY, code: 'normal' }] },
               total: undefined,
               item: [
@@ -1330,7 +1377,7 @@ describe('create-billing-claim-from-encounter', () => {
           },
           billingProvider: clinicalResources.billingProvider,
           coverages: [clinicalResources.coverage],
-          diagnoses: [clinicalResources.condition],
+          diagnoses: [...clinicalResources.conditions],
           encounter: clinicalResources.encounter,
           location: clinicalResources.location,
           patient: clinicalResources.patient,
@@ -1386,7 +1433,10 @@ describe('create-billing-claim-from-encounter', () => {
                 },
               ],
               careTeam: undefined,
-              diagnosis: [{ sequence: 1, diagnosisCodeableConcept: clinicalResources.condition.code }],
+              diagnosis: [
+                { sequence: 1, diagnosisCodeableConcept: clinicalResources.conditions[0].code },
+                { sequence: 2, diagnosisCodeableConcept: clinicalResources.conditions[1].code },
+              ],
               priority: { coding: [{ system: CODE_SYSTEM_PROCESS_PRIORITY, code: 'normal' }] },
               total: undefined,
               item: [
@@ -1456,7 +1506,10 @@ describe('create-billing-claim-from-encounter', () => {
                 },
               ],
               careTeam: undefined,
-              diagnosis: [{ sequence: 1, diagnosisCodeableConcept: clinicalResources.condition.code }],
+              diagnosis: [
+                { sequence: 1, diagnosisCodeableConcept: clinicalResources.conditions[0].code },
+                { sequence: 2, diagnosisCodeableConcept: clinicalResources.conditions[1].code },
+              ],
               priority: { coding: [{ system: CODE_SYSTEM_PROCESS_PRIORITY, code: 'normal' }] },
               total: undefined,
               item: [
@@ -1520,7 +1573,10 @@ describe('create-billing-claim-from-encounter', () => {
               insurer: undefined,
               insurance: [buildNoCoverageStub()],
               careTeam: undefined,
-              diagnosis: [{ sequence: 1, diagnosisCodeableConcept: clinicalResources.condition.code }],
+              diagnosis: [
+                { sequence: 1, diagnosisCodeableConcept: clinicalResources.conditions[0].code },
+                { sequence: 2, diagnosisCodeableConcept: clinicalResources.conditions[1].code },
+              ],
               priority: { coding: [{ system: CODE_SYSTEM_PROCESS_PRIORITY, code: 'normal' }] },
               total: undefined,
               item: [
@@ -1580,7 +1636,7 @@ describe('create-billing-claim-from-encounter', () => {
           },
           billingProvider: clinicalResources.billingProvider,
           coverages: [clinicalResources.coverage],
-          diagnoses: [clinicalResources.condition],
+          diagnoses: [...clinicalResources.conditions],
           encounter: clinicalResources.encounter,
           location: clinicalResources.location,
           patient: clinicalResources.patient,
@@ -1630,7 +1686,10 @@ describe('create-billing-claim-from-encounter', () => {
               insurer: undefined,
               insurance: [buildNoCoverageStub()],
               careTeam: undefined,
-              diagnosis: [{ sequence: 1, diagnosisCodeableConcept: clinicalResources.condition.code }],
+              diagnosis: [
+                { sequence: 1, diagnosisCodeableConcept: clinicalResources.conditions[0].code },
+                { sequence: 2, diagnosisCodeableConcept: clinicalResources.conditions[1].code },
+              ],
               priority: { coding: [{ system: CODE_SYSTEM_PROCESS_PRIORITY, code: 'normal' }] },
               total: undefined,
               item: [
@@ -1691,7 +1750,7 @@ describe('create-billing-claim-from-encounter', () => {
           },
           billingProvider: clinicalResources.billingProvider,
           coverages: [clinicalResources.coverage],
-          diagnoses: [clinicalResources.condition],
+          diagnoses: [...clinicalResources.conditions],
           encounter: clinicalResources.encounter,
           location: clinicalResources.location,
           patient: clinicalResources.patient,
@@ -1741,7 +1800,10 @@ describe('create-billing-claim-from-encounter', () => {
               facility: undefined,
               insurance: [buildNoCoverageStub()],
               careTeam: undefined,
-              diagnosis: [{ sequence: 1, diagnosisCodeableConcept: clinicalResources.condition.code }],
+              diagnosis: [
+                { sequence: 1, diagnosisCodeableConcept: clinicalResources.conditions[0].code },
+                { sequence: 2, diagnosisCodeableConcept: clinicalResources.conditions[1].code },
+              ],
               priority: { coding: [{ system: CODE_SYSTEM_PROCESS_PRIORITY, code: 'normal' }] },
               total: undefined,
               item: [
