@@ -1,8 +1,9 @@
 import { BatchInputDeleteRequest } from '@oystehr/sdk';
-import { HealthcareService, Location, Organization, Practitioner, PractitionerRole, Schedule } from 'fhir/r4b';
+import { HealthcareService, Location, Organization, Practitioner, PractitionerRole, Schedule, Slot } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM,
+  getAllFhirSearchPages,
   ORG_TYPE_CODE_SYSTEM,
   ORG_TYPE_OCCUPATIONAL_MEDICINE_EMPLOYER_CODE,
   SCHEDULE_STRATEGY_SYSTEM,
@@ -127,6 +128,57 @@ export class TestLocationManager {
     return this.buildAndPersist247Schedule({ ...params, actorType: 'Practitioner', hours });
   }
 
+  /**
+   * Sweep busy/busy-tentative Slots that reference one of the given test
+   * Schedules. Production-side create-slot doesn't tag Slots with any test
+   * marker (it has no test-aware concept), so cleanup() can't find Slots
+   * via the usual tag-based search. When a prior test run crashed before
+   * cleanup or cleanup itself failed, the Schedule survives — and the next
+   * run's `ensure*` helpers reuse it. Without a sweep here, every booking
+   * the previous run completed remains as a busy Slot referencing the
+   * reused Schedule, and get-schedule's "first available" walks forward
+   * over time. By the time enough accumulates, helpers like
+   * findAndClickSuitableTimeSlot can no longer find a slot at least 30
+   * minutes in the future and tests fail with the wrong-looking symptom.
+   *
+   * Discovers Slots by the Slot.schedule reference (the only durable link
+   * to the test Schedule); pagination is via getAllFhirSearchPages so a
+   * deeply-accumulated schedule doesn't escape past the FHIR default page
+   * size. Cheap query — the test schedule's slot count is bounded by the
+   * worker's lifetime booking volume, well under any realistic page count.
+   */
+  private async purgeSlotsForSchedules(scheduleIds: string[]): Promise<void> {
+    const oystehr = this.resourceHandler.apiClient;
+    const ids = scheduleIds.filter((id) => !!id);
+    if (ids.length === 0) return;
+    const scheduleRefs = ids.map((id) => `Schedule/${id}`).join(',');
+    let slots: Slot[];
+    try {
+      slots = await getAllFhirSearchPages<Slot>(
+        { resourceType: 'Slot', params: [{ name: 'schedule', value: scheduleRefs }] },
+        oystehr
+      );
+    } catch (e) {
+      console.warn(
+        `Failed to search leftover Slots for schedules ${ids.join(
+          ', '
+        )}; reused schedule may carry accumulated busy slots:`,
+        e
+      );
+      return;
+    }
+    const requests: BatchInputDeleteRequest[] = slots
+      .filter((s): s is Slot & { id: string } => !!s.id)
+      .map((s) => ({ method: 'DELETE' as const, url: `/Slot/${s.id}` }));
+    if (requests.length === 0) return;
+    try {
+      await oystehr.fhir.batch({ requests });
+      console.log(`Purged ${requests.length} leftover Slot(s) from reused test schedule(s): ${ids.join(', ')}`);
+    } catch (e) {
+      console.warn('Failed to purge leftover Slots; subsequent test runs may see capacity pollution:', e);
+    }
+  }
+
   private async buildAndPersist247Schedule(params: {
     actorType: 'Location' | 'Practitioner' | 'HealthcareService';
     actorId: string;
@@ -243,6 +295,10 @@ export class TestLocationManager {
       const existingSchedule = existingSchedules.unbundle()[0] as Schedule | undefined;
 
       if (existingSchedule?.id) {
+        // Sweep any busy Slots a prior crashed test run left on this
+        // schedule before handing it back; otherwise the first-available
+        // walks forward over time. See purgeSlotsForSchedules docblock.
+        await this.purgeSlotsForSchedules([existingSchedule.id]);
         this.walkinLocation = existingLocation;
         this.walkinSchedule = existingSchedule;
         return { location: existingLocation, schedule: existingSchedule };
@@ -405,6 +461,8 @@ export class TestLocationManager {
       const existingSchedule = existingSchedules.unbundle()[0] as Schedule | undefined;
 
       if (existingSchedule?.id) {
+        // See purgeSlotsForSchedules docblock for why this sweep is needed.
+        await this.purgeSlotsForSchedules([existingSchedule.id]);
         this.prebookInPersonLocation = existingLocation;
         this.prebookInPersonSchedule = existingSchedule;
         return { location: existingLocation, schedule: existingSchedule };
@@ -507,6 +565,11 @@ export class TestLocationManager {
       console.log(`Found existing HealthcareService: ${existingHealthcareService.id}, looking for related resources`);
       const group = await this.findExistingGroupResources(existingHealthcareService, processId, tagCode);
       if (group) {
+        // See purgeSlotsForSchedules docblock. Group has two member
+        // Schedules (Location-actored + Practitioner-actored); sweep both.
+        await this.purgeSlotsForSchedules(
+          [group.locationSchedule.id, group.practitionerSchedule.id].filter((id): id is string => !!id)
+        );
         this.prebookInPersonGroup = group;
         return group;
       }
@@ -841,6 +904,8 @@ export class TestLocationManager {
       const existingSchedule = existingSchedules.unbundle()[0] as Schedule | undefined;
 
       if (existingSchedule?.id) {
+        // See purgeSlotsForSchedules docblock.
+        await this.purgeSlotsForSchedules([existingSchedule.id]);
         this.prebookVirtualLocation = existingLocation;
         this.prebookVirtualSchedule = existingSchedule;
         return { location: existingLocation, schedule: existingSchedule };
@@ -1028,6 +1093,8 @@ export class TestLocationManager {
       const existingSchedule = existingSchedules.unbundle()[0] as Schedule | undefined;
 
       if (existingSchedule?.id) {
+        // See purgeSlotsForSchedules docblock.
+        await this.purgeSlotsForSchedules([existingSchedule.id]);
         this.deeplinkOpenLocation = existingLocation;
         this.deeplinkOpenSchedule = existingSchedule;
         return { location: existingLocation, schedule: existingSchedule };
@@ -1124,6 +1191,8 @@ export class TestLocationManager {
       const existingSchedule = existingSchedules.unbundle()[0] as Schedule | undefined;
 
       if (existingSchedule?.id) {
+        // See purgeSlotsForSchedules docblock.
+        await this.purgeSlotsForSchedules([existingSchedule.id]);
         this.deeplinkClosedLocation = existingLocation;
         this.deeplinkClosedSchedule = existingSchedule;
         return { location: existingLocation, schedule: existingSchedule };

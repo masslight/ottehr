@@ -16,7 +16,12 @@ import {
 import { afterAll, assert, beforeAll, describe, expect, inject, test } from 'vitest';
 import { getAuth0Token } from '../../src/shared';
 import { SECRETS } from '../data/secrets';
-import { buildSimpleScheduleExt, cleanupTestScheduleResources, makeTestPatient } from '../helpers/testScheduleUtils';
+import {
+  buildSimpleScheduleExt,
+  cleanupTestScheduleResources,
+  makeTestPatient,
+  startOfDayWithTimezone,
+} from '../helpers/testScheduleUtils';
 
 // Pins the invariant "every persisted Slot — and therefore every created
 // Appointment — must carry a SERVICE_CATEGORY_SYSTEM coding." Both zambdas in
@@ -149,11 +154,15 @@ describe('Appointment service category invariant', () => {
     return { slug, location, schedule };
   };
 
-  // Slot start time inside the schedule's open window (9–17), positioned a
-  // couple days ahead so create-slot's past-time guard doesn't trip and
-  // capacity isn't contested.
+  // Slot start time aligned to the schedule's cadence boundary. Using
+  // startOfDayWithTimezone() drops sub-day fields (seconds, ms) — `.set({
+  // hour, minute })` alone would preserve `DateTime.now()`'s current second/
+  // ms, producing something like `14:00:15.523`, which doesn't match any of
+  // the schedule's generated slot starts (`14:00:00.000`, `14:15:00.000`,
+  // …) and the capacity guard then rejects with SLOT_UNAVAILABLE. Anchored
+  // to tomorrow so the slot is always in the future at test run time.
   const futureSlotStart = (): string => {
-    const start = DateTime.now().setZone('America/New_York').plus({ days: 2 }).set({ hour: 14, minute: 0 });
+    const start = startOfDayWithTimezone({ date: DateTime.now().plus({ days: 1 }) }).plus({ hours: 14 });
     const iso = start.toISO();
     assert(iso);
     return iso;
