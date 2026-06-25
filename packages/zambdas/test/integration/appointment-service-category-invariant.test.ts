@@ -3,7 +3,6 @@ import { randomUUID } from 'crypto';
 import { Appointment, FhirResource, Location, Schedule, Slot } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
-  APIErrorCode,
   BOOKING_CONFIG,
   CreateAppointmentResponse,
   PatientInfo,
@@ -20,19 +19,21 @@ import { SECRETS } from '../data/secrets';
 import { buildSimpleScheduleExt, cleanupTestScheduleResources, makeTestPatient } from '../helpers/testScheduleUtils';
 
 // Pins the invariant "every persisted Slot — and therefore every created
-// Appointment — must carry a SERVICE_CATEGORY_SYSTEM coding." Two zambda-level
-// guards enforce it together:
+// Appointment — must carry a SERVICE_CATEGORY_SYSTEM coding." Both zambdas in
+// the booking write path enforce it with matching back-compat defaulting:
 //
-//   - create-slot: rejects when no serviceCategoryCode was provided AND the
-//     single-BOOKING_CONFIG-default branch didn't fire (i.e. multi-category
-//     systems where the caller hasn't picked a category). Prevents new
-//     category-less Slots from landing in FHIR.
-//   - create-appointment: back-compat default for Slots already in FHIR that
-//     pre-date the create-slot guard, or that were written via raw FHIR. When
-//     the incoming Slot lacks a SERVICE_CATEGORY_SYSTEM coding, the validator
-//     stamps urgent-care (if BOOKING_CONFIG supports it) on the in-memory
-//     slot so the derived Appointment isn't ambiguous. Throws when the system
-//     has no urgent-care to default to.
+//   - create-slot: when no serviceCategoryCode is provided, falls back in
+//     order to (a) the single-BOOKING_CONFIG-project default, then (b) the
+//     urgent-care fallback if BOOKING_CONFIG includes it. Only refuses when
+//     all three sources turn up nothing — a malformed config that has to
+//     fail loudly rather than fabricate. The urgent-care fallback keeps the
+//     patient flow uninterrupted; surfacing "pick a service category"
+//     mid-booking is meaningless to the patient and a poor UX.
+//   - create-appointment: same urgent-care back-compat for legacy Slots
+//     already in FHIR that pre-date the create-slot fallbacks, or that were
+//     written via raw FHIR. When the incoming Slot lacks a
+//     SERVICE_CATEGORY_SYSTEM coding, the validator stamps urgent-care on
+//     the in-memory slot so the derived Appointment isn't ambiguous.
 //
 // Catches the production bug observed at
 // `/prebook/in-person?bookingOn=Commack-NY&scheduleType=location` — slots
@@ -160,63 +161,71 @@ describe('Appointment service category invariant', () => {
 
   // -------- create-slot invariant --------
 
-  // Only meaningful on multi-category systems: in single-category projects,
-  // create-slot's single-BOOKING_CONFIG-default branch fires and the slot
-  // gets the project's only category stamped automatically. There's no way
-  // to provoke the "no category resolvable" state on length===1.
-  describe.skipIf(!multiCategorySystem)('create-slot — multi-category system', () => {
-    test('rejects when no serviceCategoryCode is provided', async () => {
-      const fixture = await createLocationFixture();
-      assert(fixture.schedule.id);
+  // Only meaningful on multi-category systems that include urgent-care: in
+  // single-category projects the single-BOOKING_CONFIG-default branch fires
+  // before the urgent-care fallback can be exercised, so the "no code +
+  // urgent-care defaulted" path can't be observed. Skipping keeps the test
+  // honest under any configuration without hiding bugs.
+  describe.skipIf(!multiCategorySystem || !hasUrgentCare)(
+    'create-slot — multi-category system with urgent-care available',
+    () => {
+      test('defaults to urgent-care when no serviceCategoryCode is provided', async () => {
+        // Reproduces the production scenario behind the Commack-NY URL:
+        // /prebook/in-person?bookingOn=loc&scheduleType=location with no
+        // serviceCategory param. Pre-fix, the patient saw an "Error reserving
+        // time / pick a service category" dialog mid-flow. Post-fix, the
+        // server quietly defaults to urgent-care so the booking proceeds and
+        // the persisted Slot is well-formed.
+        const fixture = await createLocationFixture();
+        assert(fixture.schedule.id);
 
-      let caught: unknown;
-      try {
-        await oystehr.zambda.executePublic({
-          id: 'create-slot',
-          scheduleId: fixture.schedule.id,
-          startISO: futureSlotStart(),
-          serviceModality: ServiceMode['in-person'],
-          lengthInMinutes: 15,
-          status: 'busy-tentative',
-        });
-      } catch (e) {
-        caught = e;
-      }
-      expect(caught).toBeDefined();
-      const err = caught as { code?: number; message?: string };
-      expect(err.code).toBe(APIErrorCode.INVALID_INPUT);
-      // Message names what's missing so the failure mode is recognizable in
-      // server logs — pin loosely (substring) so wording tweaks don't break.
-      expect(err.message ?? '').toContain('service category is required');
-    });
+        const persistedSlot = (
+          await oystehr.zambda.executePublic({
+            id: 'create-slot',
+            scheduleId: fixture.schedule.id,
+            startISO: futureSlotStart(),
+            serviceModality: ServiceMode['in-person'],
+            lengthInMinutes: 15,
+            status: 'busy-tentative',
+          })
+        ).output as Slot;
+        assert(persistedSlot?.id);
+        extraSlotIds.push(persistedSlot.id);
 
-    test('accepts and stamps the coding when serviceCategoryCode is provided (positive control)', async () => {
-      const fixture = await createLocationFixture();
-      assert(fixture.schedule.id);
+        const urgentCareCoding = (persistedSlot.serviceCategory ?? [])
+          .flatMap((cc) => cc.coding ?? [])
+          .find((c) => c.system === SERVICE_CATEGORY_SYSTEM && c.code === 'urgent-care');
+        expect(urgentCareCoding).toBeDefined();
+      });
 
-      const persistedSlot = (
-        await oystehr.zambda.executePublic({
-          id: 'create-slot',
-          scheduleId: fixture.schedule.id,
-          startISO: futureSlotStart(),
-          serviceModality: ServiceMode['in-person'],
-          lengthInMinutes: 15,
-          status: 'busy-tentative',
-          serviceCategoryCode: 'urgent-care',
-        })
-      ).output as Slot;
-      assert(persistedSlot?.id);
-      extraSlotIds.push(persistedSlot.id);
+      test('forwards an explicit serviceCategoryCode when provided (positive control)', async () => {
+        const fixture = await createLocationFixture();
+        assert(fixture.schedule.id);
 
-      // Persisted Slot must carry a SERVICE_CATEGORY_SYSTEM coding — the
-      // invariant the guard exists to keep true. The service-mode coding
-      // (in-person/virtual) alone doesn't satisfy it.
-      const hasCategoryCoding = (persistedSlot.serviceCategory ?? []).some((cc) =>
-        (cc.coding ?? []).some((c) => c.system === SERVICE_CATEGORY_SYSTEM && c.code === 'urgent-care')
-      );
-      expect(hasCategoryCoding).toBe(true);
-    });
-  });
+        const persistedSlot = (
+          await oystehr.zambda.executePublic({
+            id: 'create-slot',
+            scheduleId: fixture.schedule.id,
+            startISO: futureSlotStart(),
+            serviceModality: ServiceMode['in-person'],
+            lengthInMinutes: 15,
+            status: 'busy-tentative',
+            serviceCategoryCode: 'urgent-care',
+          })
+        ).output as Slot;
+        assert(persistedSlot?.id);
+        extraSlotIds.push(persistedSlot.id);
+
+        // Persisted Slot must carry a SERVICE_CATEGORY_SYSTEM coding for
+        // the requested code — guards against any future change that drops
+        // the stamping when an explicit code is provided.
+        const hasCategoryCoding = (persistedSlot.serviceCategory ?? []).some((cc) =>
+          (cc.coding ?? []).some((c) => c.system === SERVICE_CATEGORY_SYSTEM && c.code === 'urgent-care')
+        );
+        expect(hasCategoryCoding).toBe(true);
+      });
+    }
+  );
 
   // -------- create-appointment back-compat default --------
 

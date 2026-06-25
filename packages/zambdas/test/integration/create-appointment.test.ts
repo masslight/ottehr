@@ -511,15 +511,20 @@ describe('prebook integration - from getting list of slots to booking with selec
 
       // createSlotParamsFromSlotAndOptions should forward the extension as
       // atLocationId on the resulting CreateSlotParams. The faux vended slot
-      // carries no SERVICE_CATEGORY_SYSTEM coding, so we inject 'urgent-care'
-      // explicitly — create-slot's invariant guard now refuses categoryless
-      // slot creation on multi-category test configs.
+      // carries no SERVICE_CATEGORY_SYSTEM coding, so we inject a category
+      // code explicitly — create-slot's invariant guard now refuses
+      // categoryless slot creation on multi-category test configs. Uses a
+      // synthetic non-BOOKING_CONFIG code (not 'urgent-care') because the
+      // schedule actor is a PractitionerRole, and the separate PR +
+      // BOOKING_CONFIG guard would reject any compile-time category. Anything
+      // not in BOOKING_CONFIG is treated as a FHIR-backed code at the
+      // create-slot stamping layer, which bypasses the PR guard.
       const createSlotParams: CreateSlotParams = {
         ...createSlotParamsFromSlotAndOptions(fauxVendedSlot, {
           status: 'busy-tentative',
           originalBookingUrl: `pr-integration?bookingOn=${prSlug}`,
         }),
-        serviceCategoryCode: 'urgent-care',
+        serviceCategoryCode: 'fhir-cat-for-pr-test',
       };
       expect(createSlotParams.atLocationId).toBe(persistedLocation.id);
 
@@ -725,16 +730,18 @@ describe('prebook integration - from getting list of slots to booking with selec
       };
 
       // The faux vended slot carries no SERVICE_CATEGORY_SYSTEM coding, so
-      // we inject 'urgent-care' explicitly — create-slot's invariant guard
-      // now refuses categoryless slot creation on multi-category test
-      // configs.
+      // we inject a category code explicitly — create-slot's invariant
+      // guard now refuses categoryless slot creation on multi-category test
+      // configs. Uses a synthetic non-BOOKING_CONFIG code because the
+      // member schedule is PR-actored; the PR + BOOKING_CONFIG guard would
+      // reject any compile-time category.
       const createSlotParams: CreateSlotParams = {
         ...createSlotParamsFromSlotAndOptions(fauxVendedSlot, {
           status: 'busy-tentative',
           originalBookingUrl: `prebook/virtual?bookingOn=${locationSlug}&scheduleType=group`,
           serviceModality: ServiceMode.virtual,
         }),
-        serviceCategoryCode: 'urgent-care',
+        serviceCategoryCode: 'fhir-cat-for-pr-test',
       };
       // The explicit modality must survive into the create-slot params.
       expect(createSlotParams.serviceModality).toBe(ServiceMode.virtual);
@@ -997,8 +1004,11 @@ describe('prebook integration - from getting list of slots to booking with selec
         originalBookingUrl: 'group-membership-test',
         bookedViaGroupId: groupHs.id,
         // Required by the create-slot invariant guard; test isolates the
-        // bookedViaGroup membership check, not category resolution.
-        serviceCategoryCode: 'urgent-care',
+        // bookedViaGroup membership check, not category resolution. Synthetic
+        // non-BOOKING_CONFIG code because the schedule is PR-actored — the
+        // PR + BOOKING_CONFIG guard would otherwise reject before the
+        // membership check runs and the test would fail with the wrong error.
+        serviceCategoryCode: 'fhir-cat-for-pr-test',
       };
 
       let caught: unknown;
@@ -1138,7 +1148,8 @@ describe('prebook integration - from getting list of slots to booking with selec
         bookedViaGroupId: memberHs.id,
         // Required by the create-slot invariant guard; test focuses on
         // bookedViaGroup extension persistence, not category resolution.
-        serviceCategoryCode: 'urgent-care',
+        // Synthetic non-BOOKING_CONFIG code because the schedule is PR-actored.
+        serviceCategoryCode: 'fhir-cat-for-pr-test',
       };
 
       const persistedSlot = (
@@ -1246,7 +1257,8 @@ describe('prebook integration - from getting list of slots to booking with selec
         bookedViaGroupId: memberHs.id,
         // Required by the create-slot invariant guard; test focuses on
         // bookedViaGroup extension persistence, not category resolution.
-        serviceCategoryCode: 'urgent-care',
+        // Synthetic non-BOOKING_CONFIG code because the schedule is PR-actored.
+        serviceCategoryCode: 'fhir-cat-for-pr-test',
       };
 
       const persistedSlot = (
