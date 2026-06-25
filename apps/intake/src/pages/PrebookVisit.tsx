@@ -244,11 +244,19 @@ const PrebookVisit: FC = () => {
   // by (mode, visit-type) and respects a group's allow-list. `replace`
   // keeps the back button pointed at the referring page (not a no-op
   // booking page the patient never saw).
+  //
+  // Scope the useServiceCategories call only for group deeplinks. The hook's
+  // loading-state fallback gates on `isScoped = scheduleType && bookingOn`
+  // (returns [] for scoped, BOOKING_CONFIG for unscoped) — passing both
+  // unconditionally for non-group cases produces an empty-list window
+  // before the network resolves, delaying the redirect decision past the
+  // initial render. The zambda only narrows by allow-list for the group
+  // case anyway; location/provider deeplinks get the same full catalog
+  // either way, so the unscoped call here is semantically identical and
+  // gives us the BOOKING_CONFIG fallback synchronously on first render.
+  const isGroupDeeplink = scheduleType === ScheduleType.group && Boolean(bookingOn);
   const { serviceCategories: scopedServiceCategories, isLoading: scopedServiceCategoriesLoading } =
-    useServiceCategories({
-      scheduleType: scheduleType ?? undefined,
-      bookingOn: bookingOn ?? undefined,
-    });
+    useServiceCategories(isGroupDeeplink ? { scheduleType, bookingOn: bookingOn ?? undefined } : {});
   useEffect(() => {
     if (serviceCategoryCode) return;
     if (scopedServiceCategoriesLoading) return;
