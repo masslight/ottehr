@@ -30,7 +30,7 @@ import {
 } from 'utils';
 import { v4 as uuidV4 } from 'uuid';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
-import { createOystehrClient } from '../../shared/helpers';
+import { createClinicalOystehrClient } from '../../shared/helpers';
 import {
   getTemplateEncounterBundle,
   hasTemplateRelevantTag,
@@ -68,7 +68,7 @@ export const index = wrapHandler('apply-template', async (input: ZambdaInput): P
 
   const { secrets } = validatedInput;
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-  const oystehr = createOystehrClient(m2mToken, secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
   const { templateList, encounter, encounterBundle } = await complexValidation(validatedInput, oystehr);
   const result = await performEffect(validatedInput, templateList, encounter, encounterBundle, oystehr);

@@ -18,7 +18,7 @@ import {
 } from 'utils';
 import {
   checkOrCreateM2MClientToken,
-  createOystehrClient,
+  createClinicalOystehrClient,
   getUser,
   topLevelCatch,
   wrapHandler,
@@ -59,7 +59,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const validated = validateRequestParameters(input);
     const { secrets } = validated;
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
+    const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
     if (validated.mode === 'status') {
       if (!validated.patientId) {
@@ -191,7 +191,7 @@ const otherPatientIdOf = (task: Task): string =>
 
 async function getActiveMergeTaskForPatient(
   patientId: string,
-  oystehr: ReturnType<typeof createOystehrClient>
+  oystehr: ReturnType<typeof createClinicalOystehrClient>
 ): Promise<GetMergePatientsTaskResponse> {
   // Can't search by the merged-away patient directly — it lives in a Task.input
   // valueString, not a search param. So pull recent active/attention merge tasks

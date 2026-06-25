@@ -16,7 +16,7 @@ import {
 } from 'utils';
 import {
   checkOrCreateM2MClientToken,
-  createOystehrClient,
+  createClinicalOystehrClient,
   parseCreatedResourcesBundle,
   wrapHandler,
   ZambdaInput,
@@ -53,7 +53,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     console.log('validateRequestParameters success');
 
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
+    const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
     const { encounterId, testItems, diagnosesAll, diagnosesNew, notes } = validatedParameters;
     console.log('This is testItems in create-in-house-lab-order', JSON.stringify(testItems, undefined, 2));
@@ -257,7 +257,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     }
 
     // save chart data requires user token
-    const oystehrCurrentUser = createOystehrClient(validatedParameters.userToken, validatedParameters.secrets);
+    const oystehrCurrentUser = createClinicalOystehrClient(validatedParameters.userToken, validatedParameters.secrets);
     const saveChartDataResponse = diagnosesNew.length
       ? await oystehrCurrentUser.zambda.execute({
           id: 'save-chart-data',

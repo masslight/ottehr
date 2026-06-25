@@ -1,5 +1,6 @@
 import Oystehr, { User } from '@oystehr/sdk';
 import { Medication, PractitionerRole, Schedule, Slot } from 'fhir/r4b';
+import { createClinicalOystehrClient } from 'ui-components';
 import {
   AdminAddInHouseLabInput,
   AdminAddInHouseLabOutput,
@@ -341,10 +342,7 @@ const RENAME_CUSTOM_FOLDER_ZAMBDA_ID = 'rename-custom-folder';
 const DELETE_CUSTOM_FOLDER_ZAMBDA_ID = 'delete-custom-folder';
 
 export const getUser = async (token: string): Promise<User> => {
-  const oystehr = new Oystehr({
-    accessToken: token,
-    projectApiUrl: import.meta.env.VITE_APP_PROJECT_API_URL,
-  });
+  const oystehr = createClinicalOystehrClient(token);
   return oystehr.user.me();
 };
 

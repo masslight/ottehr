@@ -52,7 +52,7 @@ import {
 } from 'utils';
 import {
   checkOrCreateM2MClientToken,
-  createOystehrClient,
+  createClinicalOystehrClient,
   getTrackingBoardVisitStatus,
   sortAppointments,
   wrapHandler,
@@ -141,7 +141,7 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput):
   console.debug('validateRequestParameters success');
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-  const oystehr = createOystehrClient(m2mToken, secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
   console.time('get_active_encounters + get_appointment_data');
 
