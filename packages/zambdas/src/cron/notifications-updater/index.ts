@@ -29,7 +29,7 @@ import {
 } from 'utils';
 import {
   checkOrCreateM2MClientToken,
-  createOystehrClient,
+  createClinicalOystehrClient,
   getEmployees,
   getRoleMembers,
   getRoles,
@@ -99,7 +99,7 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
   console.debug('validateRequestParameters success');
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-  const oystehr = createOystehrClient(m2mToken, secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
   console.log('Created zapToken and fhir client');
 
   const [readyOrUnsignedVisitPackages, activeProvidersMap, recentlyAssignedTasksMap] = await Promise.all([

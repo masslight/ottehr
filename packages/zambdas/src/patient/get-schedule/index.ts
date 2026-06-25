@@ -29,7 +29,7 @@ import {
   SLUG_SYSTEM,
   Timezone,
 } from 'utils';
-import { createOystehrClient, getAuth0Token, getSchedules, wrapHandler, ZambdaInput } from '../../shared';
+import { createClinicalOystehrClient, getAuth0Token, getSchedules, wrapHandler, ZambdaInput } from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
@@ -51,7 +51,7 @@ export const index = wrapHandler('get-schedule', async (input: ZambdaInput): Pro
     console.log('already have token', oystehrToken);
   }
 
-  const oystehr = createOystehrClient(oystehrToken, secrets);
+  const oystehr = createClinicalOystehrClient(oystehrToken, secrets);
   if (!oystehr) {
     throw new Error('error initializing fhir client');
   }

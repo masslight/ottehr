@@ -15,7 +15,7 @@ import {
   STRIPE_CUSTOMER_ID_NOT_FOUND_ERROR,
 } from 'utils';
 import {
-  createOystehrClient,
+  createClinicalOystehrClient,
   getAuth0Token,
   getStripeClient,
   lambdaResponse,
@@ -37,7 +37,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     oystehrM2MClientToken = await getAuth0Token(input.secrets);
   }
 
-  const oystehrClient = createOystehrClient(oystehrM2MClientToken, input.secrets);
+  const oystehrClient = createClinicalOystehrClient(oystehrM2MClientToken, input.secrets);
   const { stripeCustomerId, stripeAccount } = await getStripePaymentContext(validatedParameters, oystehrClient);
 
   const stripeClient = getStripeClient(input.secrets);

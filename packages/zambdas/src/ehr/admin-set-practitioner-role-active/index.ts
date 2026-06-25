@@ -9,7 +9,7 @@ import {
   PRACTITIONER_SCHEDULE_CONFLICT_ERROR,
   Secrets,
 } from 'utils';
-import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
+import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
 import { checkPractitionerRoleConflict } from '../admin-practitioner-role-shared/check-conflict';
 
 interface AdminSetPractitionerRoleActiveInput {
@@ -55,7 +55,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const parsed = validateRequestParameters(input);
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, parsed.secrets);
-  const oystehr = createOystehrClient(m2mToken, parsed.secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, parsed.secrets);
 
   // Our scheduling model attaches exactly one Schedule to each PractitionerRole.
   // Bail rather than guess if the data is in any other shape: zero means the

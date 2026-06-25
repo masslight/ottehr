@@ -1,5 +1,5 @@
 import { BUCKET_NAMES, Secrets } from 'utils';
-import { createOystehrClient } from '../helpers';
+import { createClinicalOystehrClient } from '../helpers';
 import { DataComposer, generatePdf, PdfRenderConfig, StyleFactory } from './pdf-common';
 import { rgbNormalized } from './pdf-utils';
 import {
@@ -368,7 +368,7 @@ export const createProgressNotePdf = async (
   secrets: Secrets | null,
   token: string
 ): Promise<PdfResult> => {
-  const serviceCategories = await fetchServiceCategoryCatalog(createOystehrClient(token, secrets));
+  const serviceCategories = await fetchServiceCategoryCatalog(createClinicalOystehrClient(token, secrets));
   return generatePdf(
     { ...input, serviceCategories },
     composeProgressNoteData,
