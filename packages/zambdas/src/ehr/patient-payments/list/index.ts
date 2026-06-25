@@ -14,7 +14,7 @@ import {
   Secrets,
 } from 'utils';
 import {
-  createOystehrClient,
+  createClinicalOystehrClient,
   getAuth0Token,
   getStripeClient,
   lambdaResponse,
@@ -52,7 +52,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     console.log('already have a token, no need to update');
   }
 
-  const oystehrClient = createOystehrClient(oystehrM2MClientToken, secrets);
+  const oystehrClient = createClinicalOystehrClient(oystehrM2MClientToken, secrets);
 
   const accountResources = await getAccountAndCoverageResourcesForPatient(patientId, oystehrClient);
   const account: Account | undefined = accountResources.account;

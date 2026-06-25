@@ -28,6 +28,7 @@ import { Appointment, ChargeItemDefinition, DocumentReference, Encounter, List, 
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { FC, Fragment, ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
+import { STATUS_TO_STYLE_MAP } from 'src/features/visits/shared/components/patient/InsuranceContainer';
 import { getEligibilityCheckDetailsForCoverage } from 'src/features/visits/shared/components/patient/InsuranceSection';
 import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
 import { useChartData } from 'src/features/visits/shared/stores/appointment/appointment.store';
@@ -52,6 +53,7 @@ import {
   getPaymentVariantFromEncounter,
   isApiError,
   ListPatientPaymentResponse,
+  mapEligibilityCheckResultToSimpleStatus,
   OrderedCoveragesWithSubscribers,
   PatientPaymentBenefit,
   PatientPaymentDTO,
@@ -655,6 +657,10 @@ export default function PatientPaymentList({
     );
   }
 
+  const eligibilitySimpleStatus = coverageCheck
+    ? mapEligibilityCheckResultToSimpleStatus(coverageCheck).status
+    : undefined;
+
   const copayAmount = getPaymentAmountFromPatientBenefit({
     coverage: coverageCheck?.copay?.filter((item) => item.inNetwork === true) || [],
     code: 'UC',
@@ -1007,9 +1013,28 @@ export default function PatientPaymentList({
                         <Typography variant="caption" color="text.secondary">
                           Carrier
                         </Typography>
-                        <Typography variant="body2" fontWeight={600}>
-                          {insuranceName}
-                        </Typography>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <Typography variant="body2" fontWeight={600}>
+                            {insuranceName}
+                          </Typography>
+                          {eligibilitySimpleStatus === 'NOT ELIGIBLE' && (
+                            <Chip
+                              label={eligibilitySimpleStatus}
+                              sx={{
+                                backgroundColor: STATUS_TO_STYLE_MAP[eligibilitySimpleStatus].bgColor,
+                                color: STATUS_TO_STYLE_MAP[eligibilitySimpleStatus].textColor,
+                                borderRadius: '8px',
+                                padding: '0 9px',
+                                height: '24px',
+                                '& .MuiChip-label': {
+                                  padding: 0,
+                                  fontWeight: 'bold',
+                                  fontSize: '0.7rem',
+                                },
+                              }}
+                            />
+                          )}
+                        </Box>
                       </Box>
                     )}
                     {formattedCopayAmount && copayAmount?.periodDescription && (

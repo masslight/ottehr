@@ -57,6 +57,7 @@ const COMPILED_SERVICE_CODES: ReadonlySet<string> = new Set(
 const DEFAULT_NEW_SERVICE_CATEGORY: ServiceCategory = {
   name: '',
   code: '',
+  abbreviation: '',
   active: true,
   config: {
     durationMinutes: 15,
@@ -92,6 +93,7 @@ const ServiceCategoryDialog: FC<{
   const handleSave = useCallback(async () => {
     const missing: string[] = [];
     if (!value.name.trim()) missing.push('name');
+    if (!value.abbreviation?.trim()) missing.push('abbreviation');
     if (!value.code.trim()) missing.push('code');
     if (value.config.durationMinutes < 1) missing.push('duration');
     if (missing.length > 0) {
@@ -137,6 +139,16 @@ const ServiceCategoryDialog: FC<{
             size="small"
             fullWidth
             helperText="Shown to patients — e.g., 'Urgent Care', 'Workers Comp'"
+          />
+          <TextField
+            label="Abbreviation/Short Name (2-3 symbols)"
+            value={value.abbreviation ?? ''}
+            onChange={(e) => setValue((v) => ({ ...v, abbreviation: e.target.value }))}
+            required
+            size="small"
+            fullWidth
+            error={!value.abbreviation?.trim()}
+            helperText="Shown on the Tracking Board and patients' visits list - e.g., 'UC', 'WC'"
           />
           <TextField
             label="Code"
@@ -425,6 +437,7 @@ export const ServiceCategoriesAdminPage: FC = () => {
             <TableHead>
               <TableRow>
                 <TableCell sx={{ fontWeight: 600 }}>Name</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>Abbreviation</TableCell>
                 <TableCell sx={{ fontWeight: 600 }}>Code</TableCell>
                 <TableCell sx={{ fontWeight: 600 }} align="center">
                   Duration
@@ -455,6 +468,7 @@ export const ServiceCategoriesAdminPage: FC = () => {
                   }}
                 >
                   <TableCell>{sc.name}</TableCell>
+                  <TableCell>{sc.abbreviation?.trim() || ''}</TableCell>
                   <TableCell sx={{ fontFamily: 'monospace' }}>{sc.code}</TableCell>
                   <TableCell align="center">{sc.systemManaged ? '—' : `${sc.config.durationMinutes} min`}</TableCell>
                   <TableCell align="center">

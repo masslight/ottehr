@@ -87,7 +87,7 @@ export const FormFieldsValueTypeBaseSchema = z.object({
   triggers: z.array(FormFieldTriggerSchema).optional(),
   dynamicPopulation: DynamicPopulationSchema.optional(),
   enableBehavior: z.enum(['all', 'any']).optional(),
-  disabledDisplay: z.enum(['hidden', 'disabled']).optional(),
+  disabledDisplay: z.enum(['hidden', 'disabled', 'protected']).optional(),
   initialValue: z.union([z.string(), z.boolean()]).optional(),
   inputWidth: z.enum(['s', 'm', 'l']).optional(),
   autocomplete: z.string().optional(),

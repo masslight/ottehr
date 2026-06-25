@@ -5,8 +5,12 @@ import {
   Box,
   CircularProgress,
   Divider,
+  FormControl,
   FormControlLabel,
+  InputLabel,
+  MenuItem,
   Paper,
+  Select,
   Stack,
   Switch,
   TextField,
@@ -20,9 +24,11 @@ import {
   mapDispositionTypeToLabel,
   ProgressNoteConfig,
   UpdateProgressNoteConfigInputSchema,
+  VITALS_UNIT_INPUT_ORDER_LABELS,
+  VITALS_UNIT_INPUT_ORDERS,
 } from 'utils';
 
-type ProgressNoteTextFieldName = Exclude<keyof ProgressNoteConfig, 'mdmRequired'>;
+type ProgressNoteTextFieldName = Exclude<keyof ProgressNoteConfig, 'mdmRequired' | 'vitalsUnitInputOrder'>;
 
 interface ConfigTextAreaFieldProps {
   control: Control<ProgressNoteConfig>;
@@ -151,6 +157,38 @@ export default function ProgressNoteAdminPage(): ReactElement {
                     control={<Switch checked={value} onChange={(_event, checked) => onChange(checked)} />}
                     label="MDM required for sign and close"
                   />
+                )}
+              />
+            </Box>
+
+            <Divider />
+
+            <Box>
+              <Typography variant="subtitle1" sx={{ mb: 0.5 }}>
+                Vitals
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                Order of the unit input fields when a vital is entered (e.g. weight, height, temperature)
+              </Typography>
+              <Controller
+                name="vitalsUnitInputOrder"
+                control={control}
+                render={({ field: { value, onChange } }) => (
+                  <FormControl fullWidth>
+                    <InputLabel id="vitals-unit-input-order-label">Vital measurement unit input order</InputLabel>
+                    <Select
+                      labelId="vitals-unit-input-order-label"
+                      label="Vital measurement unit input order"
+                      value={value}
+                      onChange={(event) => onChange(event.target.value)}
+                    >
+                      {VITALS_UNIT_INPUT_ORDERS.map((order) => (
+                        <MenuItem key={order} value={order}>
+                          {VITALS_UNIT_INPUT_ORDER_LABELS[order]}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
                 )}
               />
             </Box>

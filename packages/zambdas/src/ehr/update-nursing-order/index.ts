@@ -7,7 +7,12 @@ import {
   NURSING_ORDER_PROVENANCE_ACTIVITY_CODING_ENTITY,
   UpdateNursingOrderInputValidated,
 } from 'utils';
-import { checkOrCreateM2MClientToken, createOystehrClient, getMyPractitionerId, ZambdaInput } from '../../shared';
+import {
+  checkOrCreateM2MClientToken,
+  createClinicalOystehrClient,
+  getMyPractitionerId,
+  ZambdaInput,
+} from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
@@ -32,7 +37,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
   const { userToken, serviceRequestId, action, secrets } = validatedParameters;
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-  const oystehr = createOystehrClient(m2mToken, secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
   const nursingOrderResourcesRequest = async (): Promise<(ServiceRequest | Task)[]> =>
     (

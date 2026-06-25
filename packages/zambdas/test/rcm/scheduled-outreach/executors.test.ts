@@ -26,7 +26,7 @@ vi.mock('../../../src/shared', async (importOriginal) => {
   return {
     ...actual,
     checkOrCreateM2MClientToken: vi.fn().mockResolvedValue('mock-token'),
-    createOystehrClient: vi.fn(() => mockOystehrClient),
+    createClinicalOystehrClient: vi.fn(() => mockOystehrClient),
     wrapHandler: (_name: string, fn: (...args: unknown[]) => unknown) => fn,
     fillOutreachTemplate: vi.fn((_t: string, _p: any) => 'resolved message'),
     resolveTemplatePlaceholders: vi.fn().mockResolvedValue({}),

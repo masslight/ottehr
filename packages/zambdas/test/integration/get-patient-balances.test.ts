@@ -8,7 +8,12 @@ import { GetPatientBalancesZambdaOutput } from 'utils';
 import { afterAll, beforeAll, describe, expect, inject, it } from 'vitest';
 import { performEffect } from '../../src/ehr/get-patient-balances';
 import { validateInput, validateSecrets } from '../../src/ehr/get-patient-balances/validateRequestParameters';
-import { CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM, getAuth0Token, ZambdaInput } from '../../src/shared';
+import {
+  CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM,
+  createClinicalOystehrClient,
+  getAuth0Token,
+  ZambdaInput,
+} from '../../src/shared';
 import { SECRETS } from '../data/secrets';
 import { ensureM2MPractitionerProfile } from '../helpers/configureTestM2MClient';
 import { addProcessIdMetaTagToResource } from '../helpers/integration-test-seed-data-setup';
@@ -246,14 +251,9 @@ describe('get-patient-balances integration tests', () => {
       AUTH0_AUDIENCE: AUTH0_AUDIENCE,
     });
 
-    oystehr = new Oystehr({
-      accessToken: token,
-      fhirApiUrl: FHIR_API,
-      projectApiUrl: EXECUTE_ZAMBDA_URL,
-      services: {
-        zambdaApiUrl: EXECUTE_ZAMBDA_URL,
-      },
+    oystehr = createClinicalOystehrClient(token, SECRETS, {
       projectId: PROJECT_ID,
+      services: { fhirApiUrl: FHIR_API, projectApiUrl: EXECUTE_ZAMBDA_URL, zambdaApiUrl: EXECUTE_ZAMBDA_URL },
     });
 
     await ensureM2MPractitionerProfile(token);

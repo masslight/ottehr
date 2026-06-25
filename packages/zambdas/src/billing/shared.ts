@@ -1,8 +1,9 @@
-import Oystehr, { BatchInputPostRequest, BatchInputPutRequest } from '@oystehr/sdk';
+import Oystehr, { BatchInputPostRequest, BatchInputPutRequest, OystehrConfig } from '@oystehr/sdk';
 import {
   Account,
   Address,
   Basic,
+  ChargeItemDefinition,
   Claim,
   Coding,
   Coverage,
@@ -19,10 +20,13 @@ import {
 import {
   ACCOUNT_TYPE_CODE_SYSTEM,
   BILLING_INSURANCE_TYPE_LABELS,
+  BILLING_RESOURCE_TAG,
   BillingInsuranceType,
   BillingPolicyHolderInput,
   BillingSubscriberRelationship,
   buildCoverageSubscriberRelatedPerson,
+  ChargeItemDefinitionDefault,
+  ChargeItemDefinitionType,
   CODE_SYSTEM_APPOINTMENT_TYPE_CODES,
   CODE_SYSTEM_APPOINTMENT_TYPE_TAG_SYSTEM,
   CODE_SYSTEM_CLAIM_TYPE,
@@ -38,14 +42,16 @@ import {
   FHIR_RESOURCE_NOT_FOUND,
   getPayerId,
   getPayerUrl,
+  getSecret,
   getSubscriberRelationshipCodeableConcept,
+  INVALID_INPUT_ERROR,
   isPayerUrl,
   isValidUUID,
   PATIENT_BILLING_ACCOUNT_TYPE,
   Secrets,
+  SecretsKeys,
   WORKERS_COMP_ACCOUNT_TYPE,
 } from 'utils';
-import { createOystehrClient } from '../shared/helpers';
 
 // Type alias for resources relevant to billing
 export type BillingFhirResource =
@@ -59,11 +65,6 @@ export type BillingFhirResource =
   | Account
   | RelatedPerson
   | Basic;
-
-export const BILLING_RESOURCE_TAG = {
-  system: 'https://fhir.ottehr.com/billing/resource-type',
-  code: 'billing-resource',
-};
 
 export const BILLING_WORKING_COPY_TAG = {
   system: 'https://fhir.ottehr.com/billing/resource-type',
@@ -186,8 +187,20 @@ export const EXCLUDE_WORKING_COPIES_PARAMS = [
   { name: '_tag:not', value: `${BILLING_WORKING_COPY_TAG.system}|${BILLING_WORKING_COPY_TAG.code}` },
 ];
 
-export function createBillingClient(token: string, secrets: Secrets | null): Oystehr {
-  return createOystehrClient(token, secrets, { workspaceTag: BILLING_RESOURCE_TAG });
+export function createBillingClient(
+  token: string,
+  secrets: Secrets | null,
+  overrides?: Partial<OystehrConfig>
+): Oystehr {
+  return new Oystehr({
+    accessToken: token,
+    services: {
+      fhirApiUrl: getSecret(SecretsKeys.FHIR_API, secrets).replace(/\/r4/g, ''),
+      projectApiUrl: getSecret(SecretsKeys.PROJECT_API, secrets),
+    },
+    ...overrides,
+    workspaceTag: BILLING_RESOURCE_TAG,
+  });
 }
 
 export async function fetchById<T extends FhirResource>(
@@ -672,4 +685,27 @@ export function chargeItemDefinitionNameToUrl(type: 'charge-master' | 'fee-sched
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-|-$/g, '');
   return `urn:uuid:${type}:${slug}`;
+}
+
+export function getTypeForChargeItemDefinition(cid: ChargeItemDefinition): ChargeItemDefinitionType {
+  const typeCode = cid.meta?.tag?.find((t) => t.system === CHARGE_ITEM_DEFINITION_TYPE_SYSTEM)?.code;
+  const typeValue: ChargeItemDefinitionType | undefined =
+    typeCode && ['charge-master', 'fee-schedule'].includes(typeCode)
+      ? (typeCode as ChargeItemDefinitionType)
+      : undefined;
+  if (!typeValue) {
+    throw INVALID_INPUT_ERROR(`ChargeItemDefinition ${cid.id} does not have a valid type`);
+  }
+  return typeValue;
+}
+
+export function getDefaultSettingForChargeItemDefinition(
+  cid: ChargeItemDefinition
+): ChargeItemDefinitionDefault | undefined {
+  const defaultCode = cid.meta?.tag?.find((t) => t.system === CHARGE_ITEM_DEFINITION_DEFAULT_SYSTEM)?.code;
+  const defaultValue: ChargeItemDefinitionDefault | undefined =
+    defaultCode && ['insurance', 'self-pay'].includes(defaultCode)
+      ? (defaultCode as 'insurance' | 'self-pay')
+      : undefined;
+  return defaultValue;
 }
