@@ -4,7 +4,11 @@ import {
   APIErrorCode,
   CLAIM_NOT_READY_FOR_X12_EXPORT,
   ExportClaimX12Response,
+  FHIR_RESOURCE_NOT_FOUND_CUSTOM,
   getSecret,
+  MISCONFIGURED_ENVIRONMENT_ERROR,
+  NOT_AUTHORIZED,
+  RESOURCE_INCOMPLETE_FOR_OPERATION_ERROR,
   SecretsKeys,
 } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
@@ -43,16 +47,37 @@ async function performEffect(params: ExportClaimX12Params, token: string): Promi
       statusText: response.statusText,
       message,
     });
-    const code = response.status >= 500 ? APIErrorCode.MISCONFIGURED_ENVIRONMENT : CLAIM_NOT_READY_FOR_X12_EXPORT.code;
-    throw {
-      code,
-      statusCode: response.status,
-      message: message || CLAIM_NOT_READY_FOR_X12_EXPORT.message,
-    } satisfies APIError;
+    throw rcmErrorToApiError(response.status, message);
   }
 
   const { x12 } = (await response.json()) as ExportClaimX12Response;
   return { x12 };
+}
+
+function rcmErrorToApiError(status: number, message: string): APIError {
+  if (status === 400 || status === 422) {
+    return {
+      ...RESOURCE_INCOMPLETE_FOR_OPERATION_ERROR(message || CLAIM_NOT_READY_FOR_X12_EXPORT.message),
+      statusCode: status,
+    };
+  }
+  if (status === 401 || status === 403) {
+    return {
+      code: APIErrorCode.NOT_AUTHORIZED,
+      statusCode: status,
+      message: message || NOT_AUTHORIZED.message,
+    };
+  }
+  if (status === 404) {
+    return {
+      ...FHIR_RESOURCE_NOT_FOUND_CUSTOM(message || 'The claim to export could not be found'),
+      statusCode: status,
+    };
+  }
+  return {
+    ...MISCONFIGURED_ENVIRONMENT_ERROR(message || 'Failed to generate X12 for this claim'),
+    statusCode: status,
+  };
 }
 
 async function parseRcmErrorMessage(response: Response): Promise<string> {
