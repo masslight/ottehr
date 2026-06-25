@@ -12,6 +12,7 @@ import {
   AiSuggestionItem,
   DOCUMENT_REFERENCE_SUMMARY_FROM_AUDIO,
   DOCUMENT_REFERENCE_SUMMARY_FROM_CHAT,
+  EasyChartTokenUsage,
   fixAndParseJsonObjectFromString,
   getFormatDuration,
   getOptionalSecret,
@@ -129,7 +130,12 @@ export async function invokeChatbotVertexAI(
   input: MessageContentComplex[],
   secrets: Secrets | null,
   responseSchema?: object,
-  model: string = DEFAULT_VERTEX_MODEL
+  model: string = DEFAULT_VERTEX_MODEL,
+  onUsage?: (usage: EasyChartTokenUsage) => void,
+  // Output ceiling. Large (32k) for the planner/review whose JSON can be several thousand tokens;
+  // callers that emit a small fixed payload (e.g. the single-shot agent's one intent) should pass a
+  // SMALL value so a flash-lite runaway loop fails fast and cheap instead of burning the full ceiling.
+  maxOutputTokens = 32768
 ): Promise<string> {
   // call the vertex ai with fetch
   const GOOGLE_CLOUD_PROJECT_ID = getSecret(SecretsKeys.GOOGLE_CLOUD_PROJECT_ID, secrets);
@@ -170,6 +176,14 @@ export async function invokeChatbotVertexAI(
             contents: [{ role: 'user', parts: [input] }],
             generationConfig: {
               temperature: 0,
+              // Bound thinking (these are reasoning models; uncapped, the heavier ones burn 50k+
+              // tokens "thinking" and never emit the plan — the unbounded hang we hit early on). Output
+              // itself needs real headroom: the planner now emits per-step `sourceText` provenance and
+              // a full note's plan on a large incremental can run several thousand tokens, so the old
+              // 8k cap truncated the JSON (finishReason MAX_TOKENS) and failed the whole chart. The cap
+              // only bills tokens actually generated, so a high ceiling is free unless used.
+              maxOutputTokens,
+              thinkingConfig: { thinkingBudget: 2048 },
               ...(responseSchema && {
                 responseMimeType: 'application/json',
                 responseSchema,
@@ -197,7 +211,27 @@ export async function invokeChatbotVertexAI(
   const response = await (await Promise.any(requests))?.json();
 
   console.log(JSON.stringify(response));
-  return response.candidates[0].content.parts[0].text;
+  // Vertex can return a 200 with NO candidate text — finishReason MAX_TOKENS/SAFETY, a blocked
+  // prompt, or a transient hiccup. Guard the access so we surface a clear error instead of a cryptic
+  // "Cannot read properties of undefined (reading '0')" TypeError, and so callers that catch (e.g.
+  // the easy-chart post-template re-plan) can fall back cleanly.
+  const text = response?.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (typeof text !== 'string') {
+    const reason = response?.candidates?.[0]?.finishReason ?? response?.promptFeedback?.blockReason ?? 'no candidates';
+    throw new Error(`Vertex AI returned no usable text (${reason})`);
+  }
+  if (onUsage) {
+    const u = response?.usageMetadata ?? {};
+    onUsage({
+      provider: 'gemini',
+      model,
+      inputTokens: u.promptTokenCount ?? 0,
+      outputTokens: u.candidatesTokenCount ?? 0,
+      cacheReadTokens: u.cachedContentTokenCount ?? 0,
+      thinkingTokens: u.thoughtsTokenCount ?? 0,
+    });
+  }
+  return text;
 }
 
 // Structured-output via Anthropic. Mirrors invokeChatbotVertexAI's contract: same text input +
@@ -208,13 +242,36 @@ export async function invokeClaudeStructured(
   input: MessageContentComplex[],
   secrets: Secrets | null,
   responseSchema: object,
-  model = 'claude-haiku-4-5-20251001'
+  model = 'claude-haiku-4-5-20251001',
+  onUsage?: (usage: EasyChartTokenUsage) => void
 ): Promise<string> {
   const ANTHROPIC_API_KEY = getSecret(SecretsKeys.ANTHROPIC_API_KEY, secrets);
-  // The planner passes [{ text }] (and optionally image parts). Map to Anthropic content blocks.
-  const content = input.map((part) =>
-    typeof part === 'object' && part && 'text' in part ? { type: 'text', text: (part as { text: string }).text } : part
-  );
+  // Prompt caching: the easy-chart prompts lead with a fixed instruction block and place a
+  // "═══ END OF FIXED INSTRUCTIONS ═══" marker just before the per-call variable text. We split each
+  // text block at that marker and tag the static prefix with cache_control, so repeat calls within
+  // the (rolling 5-min) cache window re-bill that ~4k-token block at ~10% instead of full price. The
+  // tools/schema sit ahead of the messages, so they're covered by the same cached prefix for free.
+  // A block with no marker is sent uncached, unchanged.
+  const CACHE_MARK = '═══ END OF FIXED INSTRUCTIONS';
+  const content = input.flatMap((part) => {
+    if (typeof part === 'object' && part && 'text' in part) {
+      const text = (part as { text: string }).text;
+      const mi = text.indexOf(CACHE_MARK);
+      if (mi > 0) {
+        const nl = text.indexOf('\n', mi);
+        const cut = nl >= 0 ? nl + 1 : text.length;
+        const staticPart = text.slice(0, cut);
+        const variablePart = text.slice(cut);
+        const blocks: Array<Record<string, unknown>> = [
+          { type: 'text', text: staticPart, cache_control: { type: 'ephemeral' } },
+        ];
+        if (variablePart.trim()) blocks.push({ type: 'text', text: variablePart });
+        return blocks;
+      }
+      return [{ type: 'text', text }];
+    }
+    return [part as unknown as Record<string, unknown>];
+  });
   const TOOL_NAME = 'emit_result';
   const response = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
@@ -226,7 +283,9 @@ export async function invokeClaudeStructured(
     body: JSON.stringify({
       model,
       max_tokens: 8192,
-      temperature: 0,
+      // claude-opus-4-8 rejects an explicit temperature ("temperature is deprecated"); other tiers
+      // accept temperature: 0. Omit it for opus so the call doesn't 400.
+      ...(model.includes('opus') ? {} : { temperature: 0 }),
       tools: [{ name: TOOL_NAME, description: 'Return the structured result.', input_schema: responseSchema }],
       tool_choice: { type: 'tool', name: TOOL_NAME },
       messages: [{ role: 'user', content }],
@@ -239,6 +298,17 @@ export async function invokeClaudeStructured(
     throw err;
   }
   const json = await response.json();
+  if (onUsage) {
+    const u = json.usage ?? {};
+    onUsage({
+      provider: 'claude',
+      model,
+      inputTokens: u.input_tokens ?? 0,
+      outputTokens: u.output_tokens ?? 0,
+      cacheReadTokens: u.cache_read_input_tokens ?? 0,
+      cacheWriteTokens: u.cache_creation_input_tokens ?? 0,
+    });
+  }
   const toolUse = (json.content ?? []).find((b: { type?: string }) => b.type === 'tool_use');
   if (!toolUse) throw new Error('Anthropic returned no tool_use block');
   return JSON.stringify(toolUse.input);
@@ -246,27 +316,55 @@ export async function invokeClaudeStructured(
 
 // Backend-agnostic structured-output entry point used by the easy-chart planner. The backend is
 // chosen by the EASY_CHART_PLANNER_MODEL env/secret, formatted "<provider>:<model>" where provider
-// is `vertex` or `anthropic`. Defaults to the historical Vertex flash-lite so behavior is unchanged
-// unless configured. Examples:
-//   vertex:gemini-2.5-flash
+// is `vertex` or `anthropic`. Defaults to anthropic:claude-sonnet-4-6 — a model eval across 10 urgent-
+// care transcripts found it the most reliable at region/laterality-correct ICD-10 (8-9/10 vs flash-
+// lite's text-search failures), which let us delete the spinal-strain region hardcode in
+// easy-chart/codes.ts. Set the secret to override per-environment. Examples:
+//   vertex:gemini-3.1-flash-lite
 //   anthropic:claude-haiku-4-5-20251001
 export async function invokeChatbotStructured(
   input: MessageContentComplex[],
   secrets: Secrets | null,
   responseSchema: object,
-  backendOverride?: string
+  backendOverride?: string,
+  onUsage?: (usage: EasyChartTokenUsage) => void,
+  // Output ceiling for the PRIMARY model. Kept deliberately limited so a flash-lite runaway loop
+  // fails fast and cheap instead of bursting to tens of thousands of tokens (which would erase the
+  // cost advantage). On that failure we escalate to the reliable backup with generous room.
+  maxOutputTokens = 16384
 ): Promise<string> {
-  const backend =
+  const dispatch = (backend: string, maxTokens: number): Promise<string> => {
+    const sep = backend.indexOf(':');
+    const provider = sep >= 0 ? backend.slice(0, sep) : backend;
+    const model = sep >= 0 ? backend.slice(sep + 1) : '';
+    if (provider === 'anthropic') {
+      return invokeClaudeStructured(input, secrets, responseSchema, model || undefined, onUsage);
+    }
+    return invokeChatbotVertexAI(input, secrets, responseSchema, model || undefined, onUsage, maxTokens);
+  };
+
+  const primary =
     backendOverride ||
     getOptionalSecret(SecretsKeys.EASY_CHART_PLANNER_MODEL, secrets) ||
-    `vertex:${DEFAULT_VERTEX_MODEL}`;
-  const sep = backend.indexOf(':');
-  const provider = sep >= 0 ? backend.slice(0, sep) : backend;
-  const model = sep >= 0 ? backend.slice(sep + 1) : '';
-  if (provider === 'anthropic') {
-    return invokeClaudeStructured(input, secrets, responseSchema, model || undefined);
+    'anthropic:claude-sonnet-4-6';
+  const backup = getOptionalSecret(SecretsKeys.EASY_CHART_BACKUP_MODEL, secrets) || 'anthropic:claude-sonnet-4-6';
+
+  try {
+    return await dispatch(primary, maxOutputTokens);
+  } catch (err) {
+    // Primary failed (a flash-lite runaway hitting the cap, a truncated/blocked response, or a
+    // terminal API error). Escalate ONCE to the reliable backup model — it runs only on these rare
+    // failures, so its higher per-token cost stays bounded. The backup gets generous output room.
+    if (backup && backup !== primary) {
+      console.error(
+        `invokeChatbotStructured: primary "${primary}" failed (${
+          (err as Error)?.message ?? err
+        }); falling back to "${backup}".`
+      );
+      return await dispatch(backup, 32768);
+    }
+    throw err;
   }
-  return invokeChatbotVertexAI(input, secrets, responseSchema, model || undefined);
 }
 
 export async function invokeChatbot(input: BaseMessageLike[], secrets: Secrets | null): Promise<AIMessageChunk> {

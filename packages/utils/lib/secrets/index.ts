@@ -54,4 +54,8 @@ export enum SecretsKeys {
   // Optional. Selects the easy-chart planner LLM backend as "<provider>:<model>"
   // (provider = vertex | anthropic). Unset → defaults to vertex:gemini-3.1-flash-lite.
   EASY_CHART_PLANNER_MODEL = 'EASY_CHART_PLANNER_MODEL',
+  // Optional. The reliable BACKUP model (same "<provider>:<model>" form) the easy-chart calls escalate
+  // to when the primary model fails (e.g. a flash-lite runaway hitting the output cap). Only runs on
+  // those failures, so its higher per-token cost is bounded. Unset → defaults to anthropic:claude-sonnet-4-6.
+  EASY_CHART_BACKUP_MODEL = 'EASY_CHART_BACKUP_MODEL',
 }

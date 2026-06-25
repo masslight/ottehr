@@ -1,7 +1,8 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { EasyChartAgentIntent, EasyChartAgentOutput, INVALID_INPUT_ERROR } from 'utils';
+import { EasyChartAgentIntent, EasyChartAgentOutput, EasyChartTokenUsage, INVALID_INPUT_ERROR } from 'utils';
 import { wrapHandler, ZambdaInput } from '../../shared';
-import { invokeChatbotVertexAI } from '../../shared/ai';
+import { invokeChatbotStructured } from '../../shared/ai';
+import { normalizeVitalIntent, VITAL_FIELDS } from '../../shared/easy-chart/vitals';
 import { validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'easy-chart-agent';
@@ -100,6 +101,11 @@ const KIND_VALUES = [
   'remove-ros-finding',
   'add-in-house-lab',
   'add-external-lab',
+  'add-patient-instruction',
+  'set-disposition',
+  'add-nursing-order',
+  'add-radiology',
+  'set-vital',
 ] as const;
 
 const NOTE_TEXT_FIELDS = [
@@ -126,6 +132,9 @@ const RESPONSE_SCHEMA = {
         code: { type: 'string' },
         message: { type: 'string' },
         procedureMatch: { type: 'string' },
+        text: { type: 'string' }, // add-patient-instruction / set-disposition note text
+        dispositionType: { type: 'string' }, // set-disposition: pcp | ed | specialty | another | ip
+        followUpInDays: { type: 'number' }, // set-disposition: "follow up in N days"
         finding: { type: 'string', enum: ['reports', 'denies'] },
         updates: {
           type: 'array',
@@ -140,6 +149,12 @@ const RESPONSE_SCHEMA = {
         },
         field: { type: 'string' },
         newText: { type: 'string' },
+        // set-vital: numeric vitals use `value` (+ `unit` for temp); BP uses systolic/diastolic. The
+        // client/normalizer recovers these from `display` too, so the model only has to get `display` right.
+        value: { type: 'number' },
+        unit: { type: 'string' },
+        systolic: { type: 'number' },
+        diastolic: { type: 'number' },
       },
       required: ['kind'],
     },
@@ -174,15 +189,12 @@ const buildPrompt = (message: string, noteContext?: Partial<Record<NoteTextField
   const contextBlock =
     contextLines.length > 0 ? `\nCurrent free-text fields on this encounter:\n${contextLines.join('\n')}\n` : '';
 
-  return `
-You are an assistant for a provider charting a clinical encounter. The provider just typed this
-free-text request:
-
-"""
-${message}
-"""
-${contextBlock}
-Decide which single charting action the provider wants. The action choices are:
+  // PROMPT ORDER MATTERS: the static instructions below are a STABLE PREFIX (identical every call),
+  // and the variable request/noteContext are appended at the very END. This lets the model provider
+  // cache the fixed prefix so follow-up commands aren't re-billed the full instruction block.
+  return `You are an assistant for a provider charting a clinical encounter. The provider's free-text
+request — and the current note's free-text fields — appear at the END of this message, after the
+action list. Decide which single charting action the provider wants. The action choices are:
 
 ADD actions (search a canonical source and add the chosen record):
 - "add-allergy": add an allergy to the patient's known allergies.
@@ -233,6 +245,33 @@ LAB ORDERS (order a diagnostic test — emit the test's common name as display +
   "send out a ...". Required fields: kind, display (the test's common name e.g. "CBC", "CMP"),
   searchTerms (1-3 alternate phrasings — the client fuzzy-matches against the connected lab catalog).
   Do NOT also emit add-cpt for a test ordered this way — the lab order carries its own billing.
+- "add-patient-instruction": add a patient-FACING care-plan instruction (home care, activity
+  restrictions, how to take a medication, wound/splint care, return precautions, or follow-up
+  logistics). Triggered by phrases like "tell the patient to keep the splint dry", "add return
+  precautions for fever", "instruct her to follow up with ortho in 2 days", "give instructions to
+  elevate the leg". Required fields: kind, text (the instruction written as a clear directive TO THE
+  PATIENT, second person — e.g. "Keep the splint clean and dry and elevate the leg above heart
+  level."). This is the Plan tab's Patient Instructions — do NOT route patient instructions to
+  edit-note-text/MDM.
+- "set-disposition": set the visit Disposition (where the patient goes next). Triggered by phrases
+  like "follow up with PCP in a week", "refer to ortho", "send her to the ER", "have them return
+  here in 2 days". Required fields: kind, dispositionType (one of "pcp" | "specialty" | "ed" |
+  "another" | "ip"), text (the disposition note). Optional: followUpInDays (number, e.g. "in 3
+  days" -> 3, "in 2 weeks" -> 14).
+- "add-radiology": order an imaging study (X-ray, ultrasound). Triggered by "get a chest x-ray",
+  "3-view ankle film", "order a right wrist x-ray". Required fields: kind, display (study name with
+  view count + body site, e.g. "3-view right ankle X-ray"), searchTerms (1-3 alternates the client
+  matches against the radiology catalog). Do NOT also emit add-cpt for the imaging.
+- "add-nursing-order": a task for nursing staff. Triggered by "nursing order for wound care",
+  "have nursing apply a splint". Required fields: kind, text (the nursing task as a directive).
+- "set-vital": record a vital sign. Triggered by "temp 102.2 F", "add a temperature of 100.4",
+  "heart rate 88", "BP 122 over 78", "O2 sat 97%", "respiratory rate 18", "weight 30 kg". Required
+  fields: kind, field, display. The "field" value is EXACTLY one of: vital-temperature,
+  vital-heartbeat, vital-respiration-rate, vital-oxygen-sat, vital-blood-pressure, vital-weight,
+  vital-height. ALWAYS include "display" with the reading exactly as stated, INCLUDING the unit for
+  temperature ("102.2 F", "38 C") and BOTH numbers for blood pressure as "systolic/diastolic"
+  ("122/78"). You may also fill value/unit (or systolic/diastolic for BP) but "display" alone is
+  enough — the server parses the numbers from it. Do NOT refuse a vital — recording vitals IS supported.
 - "update-procedure": update one or more fields on an EXISTING procedure already in the chart.
   Triggered by phrases like "adjust procedure site to arm right", "change procedure technique
   to sterile", "set procedure time spent to 30 minutes", "update the lac repair complications
@@ -258,6 +297,10 @@ LAB ORDERS (order a diagnostic test — emit the test's common name as display +
   provider's request, NOT values. Don't emit a bodySide="side" update from a phrase like
   "set body side to chest" — instead reason about what value the provider actually meant
   (here, "chest" applies to bodySite, and no bodySide value is supplied so omit bodySide).
+  Clearing a field: to blank out / clear / remove / erase a field's value (e.g. "change
+  procedure time spent to blank", "clear the complications", "remove the supplies"), emit that
+  field with an empty-string value: { field: "timeSpent", value: "" }. Use an empty string ONLY
+  for an explicit clear request — never as a stand-in for a value you're unsure about.
 
 EXAM FINDING (check a specific structured exam item):
 - "add-exam-finding": add (i.e. check the box for) a structured physical-exam observation.
@@ -363,13 +406,34 @@ For "unknown":
   rephrase (e.g. "I didn't understand 'foo'. Try 'add allergy ibuprofen' or 'remove diagnosis flu'.").
 
 DO NOT emit codes (ICD-10, RxNorm, CPT) — codes come from the canonical search the client runs.
-`;
+
+═══ END OF FIXED INSTRUCTIONS — the request to act on NOW follows ═══
+
+The provider just typed this free-text request:
+
+"""
+${message}
+"""
+${contextBlock}`;
 };
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   const { message, noteContext, secrets } = validateRequestParameters(input);
 
-  const raw = await invokeChatbotVertexAI([{ text: buildPrompt(message, noteContext) }], secrets, RESPONSE_SCHEMA);
+  let usage: EasyChartTokenUsage | undefined;
+  const raw = await invokeChatbotStructured(
+    [{ text: buildPrompt(message, noteContext) }],
+    secrets,
+    RESPONSE_SCHEMA,
+    // The agent always runs on flash-lite as PRIMARY (cheap, fast for short commands). A tight 4k cap
+    // means a flash-lite runaway loop (deterministic on some inputs, e.g. "set weight to 30 kg") fails
+    // in ~1s, after which invokeChatbotStructured escalates to the reliable backup model automatically.
+    'gemini:gemini-3.1-flash-lite',
+    (u) => {
+      usage = u;
+    },
+    4096
+  );
 
   let parsed: { intent?: unknown };
   try {
@@ -412,13 +476,14 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       const updates = Array.isArray(i.updates)
         ? i.updates
             .filter((u): u is { field: string; value: string } => {
+              // An empty value is allowed — it signals a "clear this field" request (the client
+              // unsets the field). We only require a field name; value just has to be a string.
               return (
                 !!u &&
                 typeof u === 'object' &&
                 typeof (u as { field?: unknown }).field === 'string' &&
                 typeof (u as { value?: unknown }).value === 'string' &&
-                !!(u as { field: string }).field.trim() &&
-                !!(u as { value: string }).value.trim()
+                !!(u as { field: string }).field.trim()
               );
             })
             .map((u) => ({ field: u.field.trim(), value: u.value.trim() }))
@@ -444,6 +509,65 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         };
       } else {
         intent = { kind: 'edit-note-text', field: field as NoteTextField, newText };
+      }
+    } else if (i.kind === 'add-patient-instruction') {
+      const text = typeof i.text === 'string' ? i.text.trim() : '';
+      if (!text) {
+        intent = {
+          kind: 'unknown',
+          message: 'I need the instruction text. Try "tell the patient to keep the splint clean and dry".',
+        };
+      } else {
+        intent = { kind: 'add-patient-instruction', text };
+      }
+    } else if (i.kind === 'set-disposition') {
+      const dispositionType = typeof i.dispositionType === 'string' ? i.dispositionType.trim() : '';
+      const text = typeof i.text === 'string' ? i.text.trim() : '';
+      if (!dispositionType) {
+        intent = {
+          kind: 'unknown',
+          message: 'I need a disposition type. Try "follow up with PCP in a week" or "refer to ortho".',
+        };
+      } else {
+        const followUpInDays = typeof i.followUpInDays === 'number' ? i.followUpInDays : undefined;
+        intent = { kind: 'set-disposition', dispositionType, text, followUpInDays };
+      }
+    } else if (i.kind === 'add-nursing-order') {
+      const text = typeof i.text === 'string' ? i.text.trim() : '';
+      intent = text
+        ? { kind: 'add-nursing-order', text }
+        : { kind: 'unknown', message: 'I need the nursing task. Try "nursing order for wound care".' };
+    } else if (i.kind === 'set-vital') {
+      // Recover value/unit/systolic/diastolic/display from what the model emitted via the shared
+      // normalizer (same path the planner uses), then build the typed intent the client consumes.
+      if (typeof i.field !== 'string' || !(VITAL_FIELDS as readonly string[]).includes(i.field)) {
+        intent = { kind: 'unknown', message: 'Which vital? Try "set temp to 100.4 F" or "BP 120/80".' };
+      } else {
+        normalizeVitalIntent(i, message);
+        const field = i.field as Extract<EasyChartAgentIntent, { kind: 'set-vital' }>['field'];
+        const vitalDisplay = typeof i.display === 'string' && i.display.trim() ? i.display.trim() : '';
+        if (i.field === 'vital-blood-pressure') {
+          intent =
+            i.systolic != null && i.diastolic != null
+              ? {
+                  kind: 'set-vital',
+                  field,
+                  display: vitalDisplay || `${i.systolic}/${i.diastolic}`,
+                  systolic: Number(i.systolic),
+                  diastolic: Number(i.diastolic),
+                }
+              : { kind: 'unknown', message: 'I need both blood pressure numbers, e.g. "BP 122/78".' };
+        } else if (typeof i.value === 'number' && !Number.isNaN(i.value)) {
+          intent = {
+            kind: 'set-vital',
+            field,
+            display: vitalDisplay || String(i.value),
+            value: i.value,
+            ...(typeof i.unit === 'string' && i.unit.trim() ? { unit: i.unit.trim() } : {}),
+          };
+        } else {
+          intent = { kind: 'unknown', message: 'I need a value for that vital, e.g. "set temp to 100.4 F".' };
+        }
       }
     } else if (!display) {
       intent = { kind: 'unknown', message: "I couldn't extract what to add. Try rephrasing." };
@@ -477,6 +601,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     intent = { kind: 'unknown', message: `Unknown action kind "${i.kind}".` };
   }
 
-  const output: EasyChartAgentOutput = { intent };
+  const output: EasyChartAgentOutput = { intent, usage };
   return { statusCode: 200, body: JSON.stringify(output) };
 });

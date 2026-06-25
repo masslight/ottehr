@@ -1,12 +1,17 @@
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
+import CheckIcon from '@mui/icons-material/Check';
+import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import CloseIcon from '@mui/icons-material/Close';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
+import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import {
+  Autocomplete,
   Box,
   Button,
   Checkbox,
-  Chip,
   CircularProgress,
+  ClickAwayListener,
   Collapse,
   Container,
   Divider,
@@ -20,6 +25,7 @@ import {
   Paper,
   Stack,
   TextField,
+  Tooltip,
   Typography,
 } from '@mui/material';
 import Oystehr from '@oystehr/sdk';
@@ -27,7 +33,7 @@ import type { ExamItemConfig } from 'config-types';
 import type { Appointment, Encounter, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { useCommandPaletteSource } from 'src/hooks/useCommandPaletteSource';
@@ -38,19 +44,26 @@ import {
   AllergyDTO,
   BODY_SIDES_VALUE_SET_URL,
   BODY_SITES_VALUE_SET_URL,
+  celsiusToFahrenheit,
   COMPLICATIONS_VALUE_SET_URL,
   CPTCodeDTO,
   CreateLabPaymentMethod,
   DataEntryTestItem,
   DiagnosisDTO,
+  DispositionDTO,
+  DispositionType,
   EasyChartAgentIntent,
-  EasyChartSuggestion,
+  EasyChartPlannerStep,
+  EasyChartTokenUsage,
   examConfig,
   type ExamObservationDTO,
   fahrenheitToCelsius,
+  formatHeightObservationValue,
   formatWeightKg,
+  formatWeightLbs,
   GetChartDataResponse,
   getRosFindingStateFromKey,
+  HeightMeasurement,
   HospitalizationDTO,
   InHouseOrderListPageItemDTO,
   InPersonRosConfig,
@@ -68,20 +81,25 @@ import {
   ProcedureDTO,
   ProcedureQuickPickData,
   progressNoteChartDataRequestedFields,
+  radiologyStudiesConfig,
   rosField,
   RosFindingState,
   roundTemperatureForSave,
+  roundTemperatureValue,
   SaveChartDataRequest,
   SUPPLIES_VALUE_SET_URL,
   TECHNIQUES_VALUE_SET_URL,
   TIME_SPENT_VALUE_SET_URL,
   VitalFieldNames,
+  vitalsConfig,
   VitalsObservationDTO,
 } from 'utils';
 import {
   applyTemplate,
   createExternalLabOrder,
   createInHouseLabOrder,
+  createNursingOrder,
+  createRadiologyOrder,
   deleteInHouseLabOrder,
   deleteLabOrder,
   easyChartAgent,
@@ -305,10 +323,112 @@ const VITAL_UNIT: Record<string, string> = {
   'vital-heartbeat': 'bpm',
 };
 
+// The practice's configured weight display unit (kg or lbs). Temperature is always shown in both
+// C ≈ F and height via the cm ≈ in ≈ ft′in″ label — those have no per-practice toggle.
+const WEIGHT_UNIT: 'kg' | 'lbs' = vitalsConfig['vital-weight'].unit;
+
+// Round to at most 1 decimal and drop a trailing ".0" so "80.0" → "80".
+function trimNum(n: number): string {
+  return (Math.round(n * 10) / 10).toString();
+}
+
+// Format a weight (stored in kg) per the practice's configured unit, with the other unit as ≈.
+function formatWeightDisplay(kg: number): string {
+  return WEIGHT_UNIT === 'kg'
+    ? `${formatWeightKg(kg)} kg ≈ ${formatWeightLbs(kg)} lbs`
+    : `${formatWeightLbs(kg)} lbs ≈ ${formatWeightKg(kg)} kg`;
+}
+
+// One editable unit field for a vital: parse the user's text into the canonical stored number, and
+// render the canonical number back into this unit's text. This mirrors how the regular Vitals cards
+// let a value be entered in metric OR imperial with live cross-conversion.
+interface VitalUnitField {
+  label: string;
+  parse: (text: string) => number | undefined; // text in this unit → canonical (°C / kg / cm)
+  render: (canonical: number) => string; // canonical → text in this unit
+}
+
+const numOrUndef = (t: string): number | undefined => {
+  const s = t.trim();
+  if (s === '' || Number.isNaN(Number(s))) return undefined;
+  return Number(s);
+};
+
+// The editable unit field(s) for a value-bearing vital, plus the canonical→stored mapping. Vitals
+// store canonical units (°C, kg, cm); these let the provider type in either system and we convert,
+// reusing the same helpers (fahrenheitToCelsius, LBS_IN_KG, HeightMeasurement) the Vitals screen uses.
+function vitalUnitFields(field: string): { fields: VitalUnitField[]; toStored: (canonical: number) => number } {
+  if (field === 'vital-temperature') {
+    return {
+      fields: [
+        { label: '°C', parse: numOrUndef, render: (c) => trimNum(c) },
+        {
+          label: '°F',
+          parse: (t) => {
+            const f = numOrUndef(t);
+            return f == null ? undefined : fahrenheitToCelsius(f);
+          },
+          render: (c) => trimNum(celsiusToFahrenheit(c)),
+        },
+      ],
+      toStored: (c) => roundTemperatureForSave(c),
+    };
+  }
+  if (field === 'vital-weight') {
+    return {
+      fields: [
+        { label: 'kg', parse: numOrUndef, render: (kg) => formatWeightKg(kg) },
+        {
+          label: 'lbs',
+          parse: (t) => {
+            const l = numOrUndef(t);
+            return l == null ? undefined : l / LBS_IN_KG;
+          },
+          render: (kg) => formatWeightLbs(kg),
+        },
+      ],
+      toStored: (kg) => kg,
+    };
+  }
+  if (field === 'vital-height') {
+    return {
+      fields: [
+        { label: 'cm', parse: numOrUndef, render: (cm) => trimNum(cm) },
+        {
+          label: 'in',
+          parse: (t) => HeightMeasurement.fromInchesText(t)?.getCm(),
+          render: (cm) => `${HeightMeasurement.fromCm(cm).getInches()}`,
+        },
+      ],
+      toStored: (cm) => cm,
+    };
+  }
+  // Single-unit vitals (HR, RR, O₂ sat): one field, stored as entered.
+  return {
+    fields: [{ label: VITAL_UNIT[field] ?? '', parse: numOrUndef, render: (n) => trimNum(n) }],
+    toStored: (n) => n,
+  };
+}
+
 function formatVital(v: VitalsObservationDTO): string {
   const label = VITAL_LABEL[v.field] ?? v.field;
   if (v.field === 'vital-blood-pressure') {
     return `${label}: ${v.systolicPressure}/${v.diastolicPressure} mmHg`;
+  }
+  // Vitals store canonical units (°C, kg, cm); display via the same helpers the regular vitals
+  // screen uses so easy-chart reads identically (temp as "C ≈ F", weight in the practice's unit,
+  // height as the cm ≈ in ≈ ft′in″ label).
+  if (v.field === 'vital-temperature' && 'value' in v && v.value != null) {
+    return `${label}: ${roundTemperatureValue(v.value)} C ≈ ${celsiusToFahrenheit(v.value).toFixed(1)} F`;
+  }
+  if (v.field === 'vital-weight' && 'extraWeightOptions' in v && v.extraWeightOptions?.includes('patient_refused')) {
+    return `${label}: patient refused`;
+  }
+  if (v.field === 'vital-weight' && 'value' in v && v.value != null) {
+    return `${label}: ${formatWeightDisplay(v.value)}`;
+  }
+  if (v.field === 'vital-height' && 'value' in v && v.value != null) {
+    return `${label}: ${formatHeightObservationValue(v.value)}`;
   }
   if (v.field === 'vital-vision') {
     const eyes = [
@@ -318,12 +438,9 @@ function formatVital(v: VitalsObservationDTO): string {
     ].filter(Boolean);
     return `${label}: ${eyes.join(', ')}`;
   }
-  if (v.field === 'vital-weight' && 'extraWeightOptions' in v && v.extraWeightOptions?.includes('patient_refused')) {
-    return `${label}: patient refused`;
-  }
   if ('value' in v && v.value !== undefined && v.value !== null) {
     const unit = VITAL_UNIT[v.field] ?? '';
-    return `${label}: ${v.value}${unit ? ` ${unit}` : ''}`;
+    return `${label}: ${trimNum(Number(v.value))}${unit ? ` ${unit}` : ''}`;
   }
   return label;
 }
@@ -400,6 +517,343 @@ function CollapsibleSection({
   );
 }
 
+// Click-to-edit free text shown inline in the note (used for the per-field editing of structured
+// items like procedures). Renders the value as a clickable span; click → in-place TextField that
+// commits on blur or Enter, cancels on Escape. Empty values show a faint "add…" affordance.
+function InlineEditableText({
+  value,
+  placeholder = 'add…',
+  multiline,
+  onSave,
+}: {
+  value?: string;
+  placeholder?: string;
+  multiline?: boolean;
+  onSave: (v: string) => void;
+}): JSX.Element {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(value ?? '');
+  const commit = (): void => {
+    setEditing(false);
+    if (draft !== (value ?? '')) onSave(draft);
+  };
+  if (editing) {
+    return (
+      <ClickAwayListener onClickAway={commit}>
+        <TextField
+          size="small"
+          fullWidth
+          autoFocus
+          multiline={multiline}
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && !multiline) {
+              e.preventDefault();
+              commit();
+            } else if (e.key === 'Escape') {
+              setDraft(value ?? '');
+              setEditing(false);
+            }
+          }}
+          sx={{ my: 0.25 }}
+        />
+      </ClickAwayListener>
+    );
+  }
+  return (
+    <Box
+      component="span"
+      onClick={() => {
+        setDraft(value ?? '');
+        setEditing(true);
+      }}
+      sx={{ cursor: 'pointer', borderRadius: 0.5, px: 0.25, mx: -0.25, '&:hover': { bgcolor: 'rgba(0,0,0,0.05)' } }}
+    >
+      {value || (
+        <Box component="em" sx={{ opacity: 0.5 }}>
+          {placeholder}
+        </Box>
+      )}
+    </Box>
+  );
+}
+
+// A vitals row: click-to-edit numeric value(s) like other note items, plus the same provenance/review
+// treatment (needs-review tint, sourced/inferred/review hover, Confirm ✓, Remove ✕). Vitals aren't
+// searchable, so they don't use AiChartedItem — edit is a plain number field per vital type
+// (two fields for BP). Temperature is edited in °F (US-dictated) and stored as °C.
+function VitalRow({
+  vital,
+  meta,
+  editable,
+  onConfirm,
+  onRemove,
+  onSaveVital,
+}: {
+  vital: VitalsObservationDTO;
+  meta?: AiChartedMeta;
+  editable?: boolean;
+  onConfirm?: () => void;
+  onRemove?: () => void;
+  onSaveVital?: (dto: VitalsObservationDTO) => void;
+}): JSX.Element {
+  const isBp = vital.field === 'vital-blood-pressure';
+  // Editable unit field(s) for this vital + the canonical→stored mapping. Lets the provider type in
+  // EITHER metric or imperial (temp °C/°F, weight kg/lbs, height cm/in) with live cross-conversion,
+  // reusing the same conversion helpers the regular Vitals screen uses.
+  const { fields, toStored } = vitalUnitFields(vital.field);
+  const seedCanonical = 'value' in vital && vital.value != null ? Number(vital.value) : undefined;
+  const [editing, setEditing] = useState(false);
+  // `canonical` is the stored-unit value (°C / kg / cm / raw); `active` holds the in-progress text of
+  // the field currently being typed, so its raw entry isn't reformatted away while the OTHER unit
+  // field(s) re-derive live from `canonical`.
+  const [canonical, setCanonical] = useState<number | undefined>(seedCanonical);
+  const [active, setActive] = useState<{ idx: number; text: string } | null>(null);
+  const [sys, setSys] = useState(isBp ? String(vital.systolicPressure ?? '') : '');
+  const [dia, setDia] = useState(isBp ? String(vital.diastolicPressure ?? '') : '');
+  const canEdit = !!(editable && onSaveVital);
+
+  const startEdit = (): void => {
+    setCanonical(seedCanonical);
+    setActive(null);
+    setSys(isBp ? String(vital.systolicPressure ?? '') : '');
+    setDia(isBp ? String(vital.diastolicPressure ?? '') : '');
+    setEditing(true);
+  };
+  const commit = (): void => {
+    setEditing(false);
+    if (!onSaveVital) return;
+    if (isBp) {
+      const s = Number(sys);
+      const d = Number(dia);
+      if (!s || !d) return;
+      onSaveVital({
+        field: vital.field,
+        systolicPressure: s,
+        diastolicPressure: d,
+        resourceId: vital.resourceId,
+      } as VitalsObservationDTO);
+      return;
+    }
+    if (canonical == null || Number.isNaN(canonical)) return;
+    onSaveVital({
+      field: vital.field,
+      value: toStored(canonical),
+      resourceId: vital.resourceId,
+    } as VitalsObservationDTO);
+  };
+  const onKey = (e: React.KeyboardEvent): void => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      commit();
+    } else if (e.key === 'Escape') {
+      setEditing(false);
+    }
+  };
+
+  if (editing && canEdit) {
+    return (
+      <ClickAwayListener onClickAway={commit}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, py: 0.25, flexWrap: 'wrap' }}>
+          <Typography variant="body2">• {VITAL_LABEL[vital.field] ?? vital.field}:</Typography>
+          {isBp ? (
+            <>
+              <TextField
+                size="small"
+                type="number"
+                autoFocus
+                value={sys}
+                onChange={(e) => setSys(e.target.value)}
+                onKeyDown={onKey}
+                sx={{ width: 72 }}
+              />
+              <Typography variant="body2">/</Typography>
+              <TextField
+                size="small"
+                type="number"
+                value={dia}
+                onChange={(e) => setDia(e.target.value)}
+                onKeyDown={onKey}
+                sx={{ width: 72 }}
+              />
+              <Typography variant="caption" color="text.secondary">
+                mmHg
+              </Typography>
+            </>
+          ) : (
+            // One field per unit — type in either; the others convert live. Stored value is canonical.
+            fields.map((f, i) => (
+              <Box key={f.label} sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                <TextField
+                  size="small"
+                  type="number"
+                  autoFocus={i === 0}
+                  value={active?.idx === i ? active.text : canonical != null ? f.render(canonical) : ''}
+                  onChange={(e) => {
+                    const text = e.target.value;
+                    setActive({ idx: i, text });
+                    setCanonical(f.parse(text));
+                  }}
+                  onKeyDown={onKey}
+                  sx={{ width: 90 }}
+                />
+                <Typography variant="caption" color="text.secondary">
+                  {f.label}
+                </Typography>
+              </Box>
+            ))
+          )}
+          {/* Remove lives in edit mode (like other note items) — it appears once the row is selected. */}
+          {onRemove && (
+            <IconButton
+              size="small"
+              color="error"
+              aria-label="Remove vital"
+              sx={{ p: 0.25, ml: 0.5 }}
+              onClick={() => {
+                setEditing(false);
+                onRemove();
+              }}
+            >
+              <CloseIcon sx={{ fontSize: 16 }} />
+            </IconButton>
+          )}
+        </Box>
+      </ClickAwayListener>
+    );
+  }
+
+  const needsReview = !!meta;
+  const hint = meta?.reviewNote
+    ? `Suggested by note review: ${meta.reviewNote}`
+    : meta?.sourceText
+    ? `Charted from the dictation: “${meta.sourceText}”`
+    : meta?.templateName
+    ? `Charted from the “${meta.templateName}” template — verify it fits this visit.`
+    : meta?.inferred
+    ? 'Inferred — not stated in the dictation. Verify before signing.'
+    : needsReview
+    ? 'Added by the assistant — review it, then confirm (✓) or correct it.'
+    : undefined;
+
+  return (
+    <Box
+      onClick={canEdit ? startEdit : undefined}
+      sx={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 0.5,
+        borderRadius: 1,
+        px: 0.5,
+        mx: -0.5,
+        cursor: canEdit ? 'pointer' : 'default',
+        bgcolor: needsReview ? (meta?.inferred ? 'rgba(237,108,2,0.14)' : 'rgba(25,118,210,0.12)') : 'transparent',
+        '&:hover': canEdit ? { bgcolor: needsReview ? undefined : 'rgba(0,0,0,0.05)' } : undefined,
+      }}
+    >
+      <Tooltip title={hint ?? ''} placement="top-start" arrow disableHoverListener={!hint}>
+        <Typography variant="body2" sx={{ flex: 1 }}>
+          • {formatVital(vital)}
+          {meta?.inferred && (
+            <Typography
+              component="span"
+              variant="caption"
+              sx={{ ml: 0.75, color: 'warning.dark', fontStyle: 'italic', fontWeight: 600 }}
+            >
+              · inferred
+            </Typography>
+          )}
+          {meta?.reviewNote && (
+            <Typography
+              component="span"
+              variant="caption"
+              sx={{ ml: 0.75, color: 'info.main', fontStyle: 'italic', fontWeight: 600 }}
+            >
+              · review
+            </Typography>
+          )}
+        </Typography>
+      </Tooltip>
+      {needsReview && onConfirm && (
+        <Tooltip title="Looks right — mark reviewed" placement="top" arrow>
+          <IconButton
+            size="small"
+            color="success"
+            aria-label="Confirm vital"
+            sx={{ p: 0.25 }}
+            onClick={(e) => {
+              e.stopPropagation();
+              onConfirm();
+            }}
+          >
+            <CheckIcon sx={{ fontSize: 16 }} />
+          </IconButton>
+        </Tooltip>
+      )}
+    </Box>
+  );
+}
+
+// Click-to-edit for a field constrained to a value set (e.g. a procedure's Side, Technique). Shows
+// the friendly display(s) in read mode; click → an in-place autocomplete limited to the allowed
+// options (multi-select when the field holds several). Stores the option CODE(s), like the regular UI.
+function InlineEnumField({
+  selectedCodes,
+  allowed,
+  multiple,
+  onSave,
+}: {
+  selectedCodes: string[];
+  allowed: Map<string, string>; // code → display
+  multiple?: boolean;
+  onSave: (codes: string[]) => void;
+}): JSX.Element {
+  const [editing, setEditing] = useState(false);
+  const options = useMemo(() => [...allowed.entries()].map(([code, display]) => ({ code, display })), [allowed]);
+  const displayText = selectedCodes.map((c) => allowed.get(c) ?? c).join(', ');
+  if (!editing) {
+    return (
+      <Box
+        component="span"
+        onClick={() => setEditing(true)}
+        sx={{ cursor: 'pointer', borderRadius: 0.5, px: 0.25, mx: -0.25, '&:hover': { bgcolor: 'rgba(0,0,0,0.05)' } }}
+      >
+        {displayText || (
+          <Box component="em" sx={{ opacity: 0.5 }}>
+            select…
+          </Box>
+        )}
+      </Box>
+    );
+  }
+  const selectedOptions = options.filter((o) => selectedCodes.includes(o.code));
+  return (
+    <ClickAwayListener onClickAway={() => setEditing(false)}>
+      <Autocomplete
+        open
+        size="small"
+        multiple={multiple}
+        options={options}
+        getOptionLabel={(o) => o.display}
+        isOptionEqualToValue={(o, v) => o.code === v.code}
+        value={multiple ? selectedOptions : selectedOptions[0] ?? null}
+        onChange={(_e, v) => {
+          const codes = multiple
+            ? (v as { code: string }[]).map((o) => o.code)
+            : v
+            ? [(v as { code: string }).code]
+            : [];
+          onSave(codes);
+          if (!multiple) setEditing(false);
+        }}
+        sx={{ my: 0.25 }}
+        renderInput={(params) => <TextField {...params} autoFocus variant="standard" placeholder="Select…" />}
+      />
+    </ClickAwayListener>
+  );
+}
+
 // The five free-text note fields, keyed by their actual chart-data key (NOT the display label —
 // the CC↔HPI label swap is applied at the render site, so these are already the storage keys).
 type ChartNoteKey = 'chiefComplaint' | 'historyOfPresentIllness' | 'mechanismOfInjury' | 'ros' | 'medicalDecision';
@@ -415,7 +869,13 @@ export type ChartedField =
 // All fields that support AI click-to-correct — adds the CODE-based billing fields (E&M is a scalar,
 // CPT is an array) and the structured OBSERVATION fields (exam + ROS), which resolve against the
 // exam/ROS leaf catalogs instead of a terminology/text search.
-export type AiField = ChartedField | 'cptCodes' | 'emCode' | 'examObservations' | 'rosObservations';
+export type AiField =
+  | ChartedField
+  | 'cptCodes'
+  | 'emCode'
+  | 'examObservations'
+  | 'rosObservations'
+  | 'vitalsObservations';
 
 // Provenance for an item the assistant auto-charted and that still needs the provider's review.
 // `field` ties it to the chart-data; `lowConfidence` is set when the auto-pick was ambiguous.
@@ -424,7 +884,47 @@ export interface AiChartedMeta {
   display: string;
   searchTerms: string[];
   lowConfidence: boolean;
+  // PROVENANCE (planner items only): the verbatim narrative phrase that justifies this item, when
+  // the planner could tie it to something the provider actually said. `inferred` is true when the
+  // planner produced the item WITHOUT a source phrase (default-normal exam, template defaults, a
+  // deduced code) — exactly the items most worth a second look. Agent/template items leave both
+  // unset (no inferred mark — those came from the provider or a chosen template, not a guess).
+  sourceText?: string;
+  inferred?: boolean;
+  // When set, this item was added by the post-chart REVIEW pass (not the original dictation) and the
+  // text is the suggestion's reasoning — shown in the item's hover so the provider reviews the
+  // suggestion in place rather than via a separate card.
+  reviewNote?: string;
+  // When set, this item came from applying a saved chart TEMPLATE (a default for that presentation),
+  // not the dictation — shown in the hover so the provider verifies it fits this visit.
+  templateName?: string;
 }
+
+// Procedures are composite: the procedure itself is usually SOURCED (the provider dictated it was
+// done), but its individual field VALUES are pre-filled from the practice's quick-pick template —
+// inferred, not dictated. So provenance for a procedure is field-level: `inferredFields` is the set
+// of template-default field names still awaiting the provider's eye. The entry exists while any
+// field needs review; confirming or editing a field removes it, and the entry clears when empty.
+export interface ProcedureProvenance {
+  sourceText?: string;
+  inferredFields: Set<string>;
+}
+
+// The procedure fields whose values come from the quick-pick template (vs. the procedure's identity
+// — type/CPT/linked dx — which is what the provider actually named). These are the ones marked
+// "default, verify" until the provider confirms or edits them.
+const PROCEDURE_VERIFY_FIELDS: (keyof ProcedureDTO)[] = [
+  'bodySite',
+  'bodySide',
+  'medicationUsed',
+  'technique',
+  'suppliesUsed',
+  'procedureDetails',
+  'complications',
+  'patientResponse',
+  'postInstructions',
+  'timeSpent',
+];
 
 // A lab order surfaced in the left pane. Lab orders are ServiceRequests fetched separately from
 // getChartData (in-house via get-in-house-orders, send-out via get-lab-orders), so they carry their
@@ -454,6 +954,13 @@ interface NoteSectionsProps {
   // Promote a diagnosis to primary (and demote the previous primary). Shown inline next to each
   // non-primary diagnosis when editable.
   onMakePrimary?: (dto: DiagnosisDTO) => void;
+  // Persist an edited procedure (inline per-field editing in the Procedures section).
+  onSaveProcedure?: (procedure: ProcedureDTO) => void | Promise<void>;
+  // Persist an edited vital (inline numeric editing in the Vitals section).
+  onSaveVital?: (vital: VitalsObservationDTO) => void | Promise<void>;
+  // Allowed values per constrained procedure field (code → display), from the loaded ValueSets.
+  // Fields present here render a dropdown of their options; others stay free text.
+  procedureFieldAllowed?: Map<keyof ProcedureDTO, Map<string, string>>;
   // AI-charted items needing review (keyed by resourceId), plus the correction callbacks. When a
   // row's resourceId is in this map it renders as a clickable <AiChartedItem> instead of a row.
   aiCharted?: Map<string, AiChartedMeta>;
@@ -463,6 +970,13 @@ interface NoteSectionsProps {
   onAiDiscuss?: (field: AiField, dto: { resourceId?: string }, meta: AiChartedMeta) => void;
   onAiSetMedDosage?: (dto: { resourceId?: string }, value: boolean) => void;
   onAiSetRosState?: (dto: { resourceId?: string }, denies: boolean) => void;
+  // Accept an AI-charted item as-is (clears its needs-review highlight) without changing it.
+  onAiConfirm?: (dto: { resourceId?: string }) => void;
+  // Field-level provenance for AI-added procedures (keyed by procedure resourceId): which template-
+  // default fields still need the provider's review, plus the confirm callbacks.
+  procedureProvenance?: Map<string, ProcedureProvenance>;
+  onConfirmProcedureField?: (resourceId: string, field: keyof ProcedureDTO) => void;
+  onConfirmProcedure?: (resourceId: string) => void;
 }
 
 // Keyframes defined at module level so the animation runs reliably whether `flashSx` is
@@ -577,6 +1091,9 @@ function NoteSections({
   onSaveField,
   onRemoveItem,
   onMakePrimary,
+  onSaveProcedure,
+  onSaveVital,
+  procedureFieldAllowed,
   aiCharted,
   onAiSearch,
   onAiReplace,
@@ -584,6 +1101,10 @@ function NoteSections({
   onAiDiscuss,
   onAiSetMedDosage,
   onAiSetRosState,
+  onAiConfirm,
+  procedureProvenance,
+  onConfirmProcedureField,
+  onConfirmProcedure,
 }: NoteSectionsProps): JSX.Element {
   const removeHandler = (field: string, dto: { resourceId?: string }): (() => void) | undefined =>
     editable && onRemoveItem && dto.resourceId ? () => onRemoveItem(field, dto) : undefined;
@@ -592,14 +1113,33 @@ function NoteSections({
   // provider-entered item or the AI-review wiring isn't supplied.
   const aiMeta = (dto: { resourceId?: string }): AiChartedMeta | undefined =>
     dto.resourceId ? aiCharted?.get(dto.resourceId) : undefined;
+  // Best-effort display string for an item that wasn't AI-charted this session (so no stored
+  // provenance) — used to seed its inline editor's search.
+  const deriveItemDisplay = (field: AiField, dto: { resourceId?: string }): string => {
+    const d = dto as { display?: string; name?: string; code?: string; label?: string; field?: string };
+    if (field === 'medications' || field === 'allergies') return d.name ?? d.display ?? '';
+    if (field === 'examObservations' || field === 'rosObservations') return d.label ?? d.field ?? '';
+    return d.display ?? d.name ?? d.code ?? '';
+  };
   const renderAiChartable = (
     field: AiField,
     dto: { resourceId?: string },
     label: React.ReactNode,
     fallback: JSX.Element
   ): JSX.Element => {
-    const meta = aiMeta(dto);
-    if (!editable || !meta || !onAiSearch || !onAiReplace || !onAiRemove || !onAiDiscuss) return fallback;
+    // EVERY discrete item with a resourceId is editable — not just ones the AI charted this session.
+    // Reuse the stored review provenance when present (→ needs-review tint); otherwise synthesize a
+    // default so a provider-entered / template / prior-session item gets the same edit affordance.
+    const realMeta = aiMeta(dto);
+    if (!editable || !dto.resourceId || !onAiSearch || !onAiReplace || !onAiRemove || !onAiDiscuss) return fallback;
+    const needsReview = !!realMeta;
+    const seedDisplay = realMeta?.display ?? deriveItemDisplay(field, dto);
+    const meta: AiChartedMeta = realMeta ?? {
+      field,
+      display: seedDisplay,
+      searchTerms: seedDisplay ? [seedDisplay] : [],
+      lowConfidence: false,
+    };
     const isMed = field === 'medications';
     // Observations (exam/ROS) and the billing codes have no right-panel picker → hide Discuss.
     const hideDiscuss =
@@ -623,7 +1163,13 @@ function NoteSections({
     return (
       <AiChartedItem
         key={dto.resourceId}
+        needsReview={needsReview}
         lowConfidence={meta.lowConfidence}
+        inferred={meta.inferred}
+        sourceText={meta.sourceText}
+        reviewNote={meta.reviewNote}
+        templateName={meta.templateName}
+        onConfirm={needsReview && onAiConfirm && dto.resourceId ? () => onAiConfirm(dto) : undefined}
         // Medications: seed the picker from the clean drug name (searchTerms[0], e.g. "Prednisone")
         // rather than the verbose display ("Prednisone 40 mg tablet") — eRx's searchMedications
         // returns no matches for a strength/form-laden string, so the verbose display made every
@@ -984,9 +1530,17 @@ function NoteSections({
           <Section title="Vitals">
             <Stack spacing={0.25}>
               {vitals.map((v, i) => (
-                <Typography key={v.resourceId ?? i} variant="body2">
-                  • {formatVital(v)}
-                </Typography>
+                // Vitals aren't searchable like diagnoses/meds, so they use VitalRow (numeric inline
+                // edit) instead of AiChartedItem — but carry the same provenance/review treatment.
+                <VitalRow
+                  key={v.resourceId ?? i}
+                  vital={v}
+                  meta={aiMeta(v)}
+                  editable={editable}
+                  onConfirm={onAiConfirm && v.resourceId ? () => onAiConfirm(v) : undefined}
+                  onRemove={removeHandler('vitalsObservations', v)}
+                  onSaveVital={onSaveVital}
+                />
               ))}
             </Stack>
           </Section>
@@ -1062,80 +1616,191 @@ function NoteSections({
         {procedures.length > 0 && (
           <Section title="Procedures">
             <Stack spacing={1}>
-              {procedures.map((p, i) => (
-                <DeletableRow
-                  key={p.resourceId ?? `${p.procedureType}-${i}`}
-                  editable={editable}
-                  resourceId={p.resourceId}
-                  flashSx={itemSx(p.resourceId)}
-                  onDelete={removeHandler('procedures', p)}
-                >
-                  <Typography variant="body2" fontWeight={600}>
-                    {formatProcedureType(p.procedureType) ?? '(unnamed procedure)'}
-                  </Typography>
-                  {(p.cptCodes ?? []).length > 0 && (
-                    <Typography variant="body2">
-                      <strong>CPT:</strong> {p.cptCodes!.map((c) => `${c.code} ${c.display ?? ''}`.trim()).join('; ')}
+              {procedures.map((p, i) => {
+                // Which of THIS procedure's fields are still template-default (inferred) and awaiting
+                // review. Editing or confirming a field drops it from this set.
+                const procInferred = p.resourceId ? procedureProvenance?.get(p.resourceId)?.inferredFields : undefined;
+                // The "default, verify" marker + per-field confirm ✓, shown after a field that was
+                // pre-filled from the template. Editing the field also clears the flag (handled in save).
+                const fieldMark = (field: keyof ProcedureDTO): JSX.Element | null => {
+                  if (!p.resourceId || !procInferred?.has(field)) return null;
+                  return (
+                    <>
+                      <Tooltip
+                        title="Pre-filled from the procedure template — not from your dictation. Verify it reflects this visit."
+                        placement="top"
+                        arrow
+                      >
+                        <Box
+                          component="span"
+                          sx={{ ml: 0.75, color: 'warning.dark', fontStyle: 'italic', fontSize: 12, fontWeight: 600 }}
+                        >
+                          · default, verify
+                        </Box>
+                      </Tooltip>
+                      <Tooltip title="Looks right — mark reviewed" placement="top" arrow>
+                        <IconButton
+                          size="small"
+                          color="success"
+                          aria-label="Confirm field"
+                          sx={{ p: 0.25, ml: 0.25 }}
+                          onClick={() => p.resourceId && onConfirmProcedureField?.(p.resourceId, field)}
+                        >
+                          <CheckIcon sx={{ fontSize: 15 }} />
+                        </IconButton>
+                      </Tooltip>
+                    </>
+                  );
+                };
+                // Inline-editable free-text field of THIS procedure. Hidden when empty + read-only;
+                // shown as an "add…" affordance when editable. Saves the whole updated ProcedureDTO.
+                const pf = (label: string, field: keyof ProcedureDTO, multiline?: boolean): JSX.Element | null => {
+                  const allowed = procedureFieldAllowed?.get(field);
+                  // Editing a field counts as reviewing it → drop its template-default flag.
+                  const clearFlag = (): void => {
+                    if (p.resourceId) onConfirmProcedureField?.(p.resourceId, field);
+                  };
+                  // technique is an array; suppliesUsed / postInstructions hold several comma-joined
+                  // codes; the rest are single-valued.
+                  const isMulti = field === 'technique' || field === 'suppliesUsed' || field === 'postInstructions';
+                  const raw = p[field];
+                  const selectedCodes: string[] =
+                    field === 'technique'
+                      ? Array.isArray(raw)
+                        ? (raw as string[])
+                        : []
+                      : typeof raw === 'string' && raw
+                      ? isMulti
+                        ? raw
+                            .split(',')
+                            .map((s) => s.trim())
+                            .filter(Boolean)
+                        : [raw]
+                      : [];
+                  // Constrained field → dropdown of its value-set options (shows the friendly labels,
+                  // stores the codes). Respects the allowed values instead of accepting free text.
+                  if (allowed && allowed.size > 0) {
+                    const displayText = selectedCodes.map((c) => allowed.get(c) ?? c).join(', ');
+                    if (!editable && !displayText) return null;
+                    const saveCodes = (codes: string[]): void => {
+                      const nextVal: unknown =
+                        field === 'technique' ? codes : isMulti ? codes.join(', ') : codes[0] ?? undefined;
+                      void onSaveProcedure?.({ ...p, [field]: nextVal } as ProcedureDTO);
+                      clearFlag();
+                    };
+                    return (
+                      <Typography variant="body2" component="div">
+                        <strong>{label}:</strong>{' '}
+                        {editable && onSaveProcedure ? (
+                          <InlineEnumField
+                            selectedCodes={selectedCodes}
+                            allowed={allowed}
+                            multiple={isMulti}
+                            onSave={saveCodes}
+                          />
+                        ) : (
+                          displayText
+                        )}
+                        {fieldMark(field)}
+                      </Typography>
+                    );
+                  }
+                  // Free-text field.
+                  const value = field === 'technique' ? selectedCodes.join(', ') : typeof raw === 'string' ? raw : '';
+                  if (!editable && !value) return null;
+                  const save = (v: string): void => {
+                    const nextVal =
+                      field === 'technique'
+                        ? v
+                            .split(',')
+                            .map((s) => s.trim())
+                            .filter(Boolean)
+                        : v;
+                    void onSaveProcedure?.({ ...p, [field]: nextVal } as ProcedureDTO);
+                    clearFlag();
+                  };
+                  return (
+                    <Typography variant="body2" component="div">
+                      <strong>{label}:</strong>{' '}
+                      {editable && onSaveProcedure ? (
+                        <InlineEditableText value={value} multiline={multiline} onSave={save} />
+                      ) : (
+                        value
+                      )}
+                      {fieldMark(field)}
                     </Typography>
-                  )}
-                  {(p.diagnoses ?? []).length > 0 && (
-                    <Typography variant="body2">
-                      <strong>Dx:</strong> {p.diagnoses!.map((d) => `${d.code} ${d.display ?? ''}`.trim()).join('; ')}
+                  );
+                };
+                return (
+                  <DeletableRow
+                    key={p.resourceId ?? `${p.procedureType}-${i}`}
+                    editable={editable}
+                    resourceId={p.resourceId}
+                    flashSx={itemSx(p.resourceId)}
+                    onDelete={removeHandler('procedures', p)}
+                  >
+                    <Typography variant="body2" fontWeight={600}>
+                      {formatProcedureType(p.procedureType) ?? '(unnamed procedure)'}
                     </Typography>
-                  )}
-                  {p.bodySite && (
-                    <Typography variant="body2">
-                      <strong>Site:</strong> {p.bodySite}
-                      {p.bodySide ? ` (${p.bodySide})` : ''}
-                    </Typography>
-                  )}
-                  {p.medicationUsed && (
-                    <Typography variant="body2">
-                      <strong>Anesthesia / medication:</strong> {p.medicationUsed}
-                    </Typography>
-                  )}
-                  {p.technique && p.technique.length > 0 && (
-                    <Typography variant="body2">
-                      <strong>Technique:</strong> {p.technique.join(', ')}
-                    </Typography>
-                  )}
-                  {p.suppliesUsed && (
-                    <Typography variant="body2">
-                      <strong>Supplies:</strong> {p.suppliesUsed}
-                    </Typography>
-                  )}
-                  {p.procedureDetails && (
-                    <Typography variant="body2">
-                      <strong>Details:</strong> {p.procedureDetails}
-                    </Typography>
-                  )}
-                  {p.complications && (
-                    <Typography variant="body2">
-                      <strong>Complications:</strong> {p.complications}
-                    </Typography>
-                  )}
-                  {p.patientResponse && (
-                    <Typography variant="body2">
-                      <strong>Patient response:</strong> {p.patientResponse}
-                    </Typography>
-                  )}
-                  {p.postInstructions && (
-                    <Typography variant="body2">
-                      <strong>Post-procedure instructions:</strong> {p.postInstructions}
-                    </Typography>
-                  )}
-                  {p.timeSpent && (
-                    <Typography variant="body2">
-                      <strong>Time spent:</strong> {p.timeSpent}
-                    </Typography>
-                  )}
-                  {p.specimenSent !== undefined && (
-                    <Typography variant="body2">
-                      <strong>Specimen sent:</strong> {p.specimenSent ? 'Yes' : 'No'}
-                    </Typography>
-                  )}
-                </DeletableRow>
-              ))}
+                    {p.resourceId && procInferred && procInferred.size > 0 && (
+                      <Box
+                        sx={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 1,
+                          my: 0.5,
+                          px: 1,
+                          py: 0.5,
+                          borderRadius: 1,
+                          bgcolor: 'rgba(237,108,2,0.10)',
+                          border: '1px solid',
+                          borderColor: 'rgba(237,108,2,0.3)',
+                        }}
+                      >
+                        <HelpOutlineIcon sx={{ fontSize: 16, color: 'warning.main' }} />
+                        <Typography variant="caption" color="warning.dark" sx={{ flex: 1 }}>
+                          Fields below were pre-filled from the “{formatProcedureType(p.procedureType) ?? 'procedure'}”
+                          template, not your dictation — verify each, then confirm.
+                        </Typography>
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          color="warning"
+                          sx={{ flexShrink: 0 }}
+                          onClick={() => p.resourceId && onConfirmProcedure?.(p.resourceId)}
+                        >
+                          Confirm all
+                        </Button>
+                      </Box>
+                    )}
+                    {(p.cptCodes ?? []).length > 0 && (
+                      <Typography variant="body2">
+                        <strong>CPT:</strong> {p.cptCodes!.map((c) => `${c.code} ${c.display ?? ''}`.trim()).join('; ')}
+                      </Typography>
+                    )}
+                    {(p.diagnoses ?? []).length > 0 && (
+                      <Typography variant="body2">
+                        <strong>Dx:</strong> {p.diagnoses!.map((d) => `${d.code} ${d.display ?? ''}`.trim()).join('; ')}
+                      </Typography>
+                    )}
+                    {pf('Site', 'bodySite')}
+                    {pf('Side', 'bodySide')}
+                    {pf('Anesthesia / medication', 'medicationUsed')}
+                    {pf('Technique', 'technique')}
+                    {pf('Supplies', 'suppliesUsed')}
+                    {pf('Details', 'procedureDetails', true)}
+                    {pf('Complications', 'complications', true)}
+                    {pf('Patient response', 'patientResponse', true)}
+                    {pf('Post-procedure instructions', 'postInstructions', true)}
+                    {pf('Time spent', 'timeSpent')}
+                    {p.specimenSent !== undefined && (
+                      <Typography variant="body2">
+                        <strong>Specimen sent:</strong> {p.specimenSent ? 'Yes' : 'No'}
+                      </Typography>
+                    )}
+                  </DeletableRow>
+                );
+              })}
             </Stack>
           </Section>
         )}
@@ -1423,7 +2088,7 @@ type ConvStep =
   // Approve to kick off execution. Holds the narrative + steps so we can pass them on to
   // setPlan when approved. Not a terminal state in the plan-progression sense — there's no
   // plan active yet.
-  | { kind: 'plan-preview'; user: string; narrative: string; steps: EasyChartAgentIntent[] };
+  | { kind: 'plan-preview'; user: string; narrative: string; steps: EasyChartPlannerStep[] };
 
 // A removable exam item — either a whole observation or one of its checked components.
 interface ExamRemoveItem {
@@ -1732,8 +2397,33 @@ const EXAM_BODY_REGION_CLASSES: string[][] = [
   ['skin', 'dermatologic', 'dermatology', 'rash'],
   ['neck', 'lymph', 'cervical'],
   ['head', 'scalp'],
-  ['extremities', 'extremity', 'limbs', 'arm', 'leg', 'ankle', 'knee', 'shoulder', 'hip', 'foot', 'hand', 'wrist'],
-  ['back', 'spine', 'spinal'],
+  [
+    'extremities',
+    'extremity',
+    'limbs',
+    'arm',
+    'leg',
+    'ankle',
+    'knee',
+    'shoulder',
+    'hip',
+    'foot',
+    'feet',
+    'hand',
+    'wrist',
+    'toe',
+    'toes',
+    'metatarsal',
+    'metatarsals',
+    'midfoot',
+    'heel',
+    'calcaneus',
+    'plantar',
+    'finger',
+    'fingers',
+    'elbow',
+  ],
+  ['back', 'spine', 'spinal', 'lumbar', 'lumbosacral', 'sacral', 'paraspinal', 'vertebral'],
   ['neurologic', 'neuro', 'neurological'],
   ['musculoskeletal', 'msk'],
   ['general', 'appearance'],
@@ -1817,6 +2507,20 @@ function findExamLeafMatchesScored(
   // pick "Right TM pearly with GOOD light reflex").
   const queryIsNegative = queryTokens.some((t) => EXAM_QUERY_NEGATORS.has(t));
 
+  // Ordinal/anatomical-position guard: a query naming a specific digit/metatarsal ("4th metatarsal",
+  // "2nd toe") must NOT match a leaf naming a DIFFERENT one ("5th metatarsal base", "3rd toe") — same
+  // body part, different bone. Without this, "4th metatarsal tenderness" matched the charted "5th
+  // metatarsal base" purely on shared words and was wrongly skipped as "already charted".
+  const ordinalsIn = (s: string): Set<string> => {
+    const out = new Set<string>();
+    const words: Record<string, string> = { first: '1', second: '2', third: '3', fourth: '4', fifth: '5' };
+    const lower = s.toLowerCase();
+    for (const m of lower.matchAll(/\b([1-5])(?:st|nd|rd|th)\b/g)) out.add(m[1]);
+    for (const [w, n] of Object.entries(words)) if (new RegExp(`\\b${w}\\b`).test(lower)) out.add(n);
+    return out;
+  };
+  const queryOrdinals = ordinalsIn(intent.display);
+
   // For each label, build the indices of negation tokens so we can check whether a matched
   // token sits immediately after one (e.g. "no" + "rash" or "non" + "injected").
   const tokenizeWithNegationIndex = (s: string): { tokens: string[]; isNegated: boolean[] } => {
@@ -1843,6 +2547,13 @@ function findExamLeafMatchesScored(
         return cls !== undefined && queryRegionClasses.has(cls);
       });
       if (!leafInQueryRegion) return 0;
+    }
+
+    // Ordinal gate: the query names a specific digit/metatarsal but this leaf names a different
+    // one → clinically distinct, not a match (e.g. "4th metatarsal" must not hit "5th metatarsal").
+    if (queryOrdinals.size > 0) {
+      const leafOrdinals = ordinalsIn(leaf.label);
+      if (leafOrdinals.size > 0 && ![...queryOrdinals].some((o) => leafOrdinals.has(o))) return 0;
     }
 
     // Synonym match: a query token "matches" a leaf token if they're literally equal OR if
@@ -2313,6 +3024,26 @@ function coerceToAllowedCode(value: string, allowed: Map<string, string>): strin
 // Free-text fields that don't have a constrained value-set; pass through whatever the LLM says.
 const FREE_TEXT_PROCEDURE_FIELDS = new Set<keyof ProcedureDTO>(['procedureDetails', 'documentedBy', 'performerType']);
 
+// Values that mean "clear this field" rather than a real value. Deliberately excludes "none" and
+// "not applicable" — those are legitimate codes in some procedure value sets (e.g. Complications:
+// "None", Side: "Not Applicable"), so clearing is limited to unambiguous words + the empty string.
+const PROCEDURE_CLEAR_VALUES = new Set([
+  '',
+  'blank',
+  'clear',
+  'empty',
+  'unset',
+  'remove',
+  'delete',
+  'erase',
+  'none/blank',
+  'no value',
+  'nothing',
+]);
+function isProcedureClearValue(value: string): boolean {
+  return PROCEDURE_CLEAR_VALUES.has(value.toLowerCase().trim());
+}
+
 function applyProcedureUpdates(
   procedure: ProcedureDTO,
   updates: { field: string; value: string }[],
@@ -2330,6 +3061,13 @@ function applyProcedureUpdates(
     const field = resolveProcedureField(u.field);
     if (!field) {
       skipped.push(u.field);
+      continue;
+    }
+    // Clear request — unset the field. createProcedureServiceRequest builds a PUT (full replace)
+    // and drops any extension whose value is null/undefined, so undefined here clears it server-side.
+    if (isProcedureClearValue(u.value)) {
+      (next as Record<string, unknown>)[field] = undefined;
+      applied.push({ field, value: undefined });
       continue;
     }
     if (field === 'specimenSent' || field === 'consentObtained') {
@@ -2389,10 +3127,137 @@ function applyProcedureUpdates(
   return { updated: next, applied, skipped };
 }
 
+// A single deterministic consistency warning about the charted note. Rule-based (no LLM), so it
+// never hallucinates — every warning corresponds to a concrete contradiction/duplicate/omission the
+// provider can verify directly. Surfaced in an amber panel above the note.
+export interface ChartWarning {
+  id: string;
+  text: string;
+}
+
+// Deterministic lint over the charted note. Intentionally conservative: only flags things that are
+// almost always genuine mistakes (exact-duplicate codes, contradictory ROS polarity, primary-dx
+// sanity, a diagnosed encounter with no E&M). No fuzzy/laterality guessing — those would produce
+// false positives that train the provider to ignore the panel.
+function computeChartWarnings(data: GetChartDataResponse): ChartWarning[] {
+  const warnings: ChartWarning[] = [];
+  const norm = (s?: string): string => (s ?? '').toLowerCase().replace(/\s+/g, ' ').trim();
+  const dx = data.diagnosis ?? [];
+
+  // Duplicate diagnoses — same ICD code, or same display when no code.
+  const dxCounts = new Map<string, number>();
+  for (const d of dx) {
+    const key = (d.code && d.code.trim()) || norm(d.display);
+    if (key) dxCounts.set(key, (dxCounts.get(key) ?? 0) + 1);
+  }
+  for (const [key, n] of dxCounts) {
+    if (n > 1) {
+      const label = dx.find((d) => ((d.code && d.code.trim()) || norm(d.display)) === key)?.display ?? key;
+      warnings.push({ id: `dup-dx-${key}`, text: `Diagnosis “${label}” is charted ${n} times.` });
+    }
+  }
+
+  // Primary-diagnosis sanity.
+  const primaries = dx.filter((d) => d.isPrimary);
+  if (dx.length > 0 && primaries.length === 0) {
+    warnings.push({ id: 'no-primary-dx', text: 'No primary diagnosis is set.' });
+  }
+  if (primaries.length > 1) {
+    warnings.push({
+      id: 'multi-primary-dx',
+      text: `${primaries.length} diagnoses are marked primary — only one should be.`,
+    });
+  }
+
+  // Duplicate CPT codes.
+  const cpt = data.cptCodes ?? [];
+  const cptCounts = new Map<string, number>();
+  for (const c of cpt) {
+    const k = (c.code ?? '').trim();
+    if (k) cptCounts.set(k, (cptCounts.get(k) ?? 0) + 1);
+  }
+  for (const [k, n] of cptCounts) {
+    if (n > 1) {
+      const disp = cpt.find((c) => (c.code ?? '').trim() === k)?.display;
+      warnings.push({ id: `dup-cpt-${k}`, text: `CPT ${k}${disp ? ` (${disp})` : ''} is charted ${n} times.` });
+    }
+  }
+
+  // Contradictory ROS — the same symptom recorded as BOTH reported and denied.
+  const rosStates = new Map<string, { states: Set<string>; label: string }>();
+  for (const o of data.rosObservations ?? []) {
+    if (!o.field || o.value === false) continue;
+    const m = o.field.match(/-(reports|denies)$/);
+    if (!m) continue;
+    const base = o.field.replace(/-(reports|denies)$/, '');
+    const entry = rosStates.get(base) ?? { states: new Set<string>(), label: o.label ?? base };
+    entry.states.add(m[1]);
+    rosStates.set(base, entry);
+  }
+  for (const [base, e] of rosStates) {
+    if (e.states.size > 1) {
+      warnings.push({ id: `ros-contra-${base}`, text: `ROS lists “${e.label}” as both reported and denied.` });
+    }
+  }
+
+  // Completeness nudge: a diagnosed encounter with no E&M level.
+  if (dx.length > 0 && !data.emCode) {
+    warnings.push({ id: 'no-em', text: 'Diagnoses are charted but no E&M level is set.' });
+  }
+
+  return warnings;
+}
+
 // Normalize a string for loose comparison: lowercase, strip whitespace and unit punctuation that
 // commonly varies between sources (e.g. "400 mg/5 mL" vs "400mg/5ml").
 function normForMatch(s: string): string {
   return s.toLowerCase().replace(/\s+/g, '').replace(/\./g, '');
+}
+
+// Canonical, order- and separator-independent key for a medication strength. A COMBINATION product
+// is written differently by the planner and the eRx catalog: the planner dictates the strength in
+// the spoken order with a unit per ingredient ("325 mg / 5 mg" for acetaminophen/hydrocodone), while
+// the catalog writes "<a>-<b> MG" in its own ingredient order with ONE shared trailing unit
+// ("5-325 MG"). Pure string equality (normForMatch) therefore never matches the correct product, so
+// the dose-safety gate falsely sees zero strength matches and forces a picker. Extract each numeric
+// magnitude + unit, back-fill a shared trailing unit onto a leading unitless number, and sort — so
+// "325 mg / 5 mg" and "5-325 MG" both collapse to "325mg|5mg". Single-ingredient strengths are
+// unaffected ("5 mg" → "5mg"), so the gate still refuses to match 5 mg against 7.5 mg.
+function strengthKey(s: string): string {
+  const tokens: Array<{ num: number; unit: string }> = [];
+  for (const m of s.toLowerCase().matchAll(/(\d+(?:\.\d+)?)\s*(mcg|mg|g|ml|%|units?)?/g)) {
+    tokens.push({ num: parseFloat(m[1]), unit: m[2] ?? '' });
+  }
+  if (tokens.length === 0) return normForMatch(s);
+  let carried = '';
+  for (let i = tokens.length - 1; i >= 0; i--) {
+    if (tokens[i].unit) carried = tokens[i].unit;
+    else tokens[i].unit = carried;
+  }
+  return tokens
+    .map((t) => `${t.num}${t.unit}`)
+    .sort()
+    .join('|');
+}
+
+// Resolve a dictated imaging study ("3-view right ankle X-ray") to a catalog RadiologyStudy by
+// anatomy-keyword overlap — view count and laterality vary, so match on the body-part words.
+type RadiologyStudy = (typeof radiologyStudiesConfig)[number];
+function matchRadiologyStudy(display: string, searchTerms: string[]): RadiologyStudy | undefined {
+  const hay = `${display} ${searchTerms.join(' ')}`.toLowerCase();
+  const STOP = new Set(['xray', 'ray', 'view', 'views', 'minimum', 'the', 'and', 'for']);
+  let best: { study: RadiologyStudy; score: number } | undefined;
+  for (const study of radiologyStudiesConfig) {
+    if (!study.display) continue;
+    const words = study.display
+      .toLowerCase()
+      .replace(/[^a-z ]/g, ' ')
+      .split(/\s+/)
+      .filter((w) => w.length > 2 && !STOP.has(w));
+    const score = words.filter((w) => hay.includes(w)).length;
+    if (score > 0 && (!best || score > best.score)) best = { study, score };
+  }
+  return best?.study;
 }
 
 // Rank eRx medication results when the planner extracted a strength and/or doseForm from the
@@ -2404,6 +3269,7 @@ function rankMedicationResults(
   intent: Extract<EasyChartAgentIntent, { kind: 'add-medication' }>
 ): SearchResult[] {
   const wantStrength = intent.strength ? normForMatch(intent.strength) : '';
+  const wantStrengthKey = intent.strength ? strengthKey(intent.strength) : '';
   // The model sometimes emits the dosage form under `unit` ("tablet") instead of `doseForm`;
   // treat them interchangeably so combination kits / wrong forms still get out-ranked.
   const formRaw = intent.doseForm ?? intent.unit;
@@ -2420,7 +3286,9 @@ function rankMedicationResults(
     const haystack = `${nameNorm} ${strengthNorm}`;
     let score = 0;
     if (wantStrength) {
-      if (strengthNorm && strengthNorm === wantStrength) score += 10;
+      // Combination-aware exact match first (order/separator-independent), then substring fallback.
+      if (r.strength && wantStrengthKey && strengthKey(r.strength) === wantStrengthKey) score += 10;
+      else if (strengthNorm && strengthNorm === wantStrength) score += 10;
       else if (haystack.includes(wantStrength)) score += 6;
     }
     if (wantForm) {
@@ -2656,7 +3524,7 @@ export default function EasyChartPage(): JSX.Element {
   // (or paused awaiting a picker click). `results` records per-step outcomes for the summary.
   const [plan, setPlan] = useState<{
     narrative: string;
-    steps: EasyChartAgentIntent[];
+    steps: EasyChartPlannerStep[];
     currentIdx: number;
     results: { status: 'done' | 'skipped' | 'error'; label: string; message?: string }[];
   } | null>(null);
@@ -2676,6 +3544,12 @@ export default function EasyChartPage(): JSX.Element {
   useEffect(() => {
     planRef.current = plan;
   }, [plan]);
+  // Provenance carrier: set to the current planner step's source phrase right before that step is
+  // dispatched, so the (async) charting handlers can stamp every item they create with sourceText /
+  // inferred. Single-flight: only one step dispatches at a time (the advance effect waits for the
+  // prior step to settle), so a ref is safe. Non-planner dispatches (agent / refine / suggestion)
+  // reset it to null first, so those items get NO inferred mark (they came from the provider).
+  const pendingProvenanceRef = useRef<{ sourceText?: string; inferred?: boolean; reviewNote?: string } | null>(null);
   const [freshlyAdded, setFreshlyAdded] = useState<Set<string>>(new Set());
   const [removingItems, setRemovingItems] = useState<Set<string>>(new Set());
   // Items the assistant auto-charted this session that still need the provider's review (keyed by
@@ -2683,6 +3557,15 @@ export default function EasyChartPage(): JSX.Element {
   // persisted. `aiSearchResultsRef` holds the last popover search so a chosen alternative key can be
   // resolved back to a SearchResult; `replaceTargetRef` lets a "Discuss" picker REPLACE the item.
   const [aiCharted, setAiCharted] = useState<Map<string, AiChartedMeta>>(new Map());
+  // Latches true once anything has been AI-charted this session, so the readiness banner can show a
+  // positive "all reviewed" state after the queue is cleared (rather than just disappearing).
+  const [hadAiItems, setHadAiItems] = useState(false);
+  // Field-level provenance for AI-added procedures (keyed by procedure resourceId). Session-only,
+  // same lifecycle as `aiCharted`.
+  const [procedureProv, setProcedureProv] = useState<Map<string, ProcedureProvenance>>(new Map());
+  useEffect(() => {
+    if (aiCharted.size > 0 || procedureProv.size > 0) setHadAiItems(true);
+  }, [aiCharted, procedureProv]);
   const aiSearchResultsRef = useRef<Map<string, SearchResult>>(new Map());
   // Parallel cache for the OBSERVATION fields: a chosen popover key resolves back to an exam/ROS leaf.
   const aiLeafResultsRef = useRef<Map<string, ExamLeaf | RosLeaf>>(new Map());
@@ -2708,13 +3591,58 @@ export default function EasyChartPage(): JSX.Element {
   const AUTO_CHART_KINDS = new Set(Object.keys(KIND_TO_FIELD));
   const [conv, setConv] = useState<ConvStep | null>(null);
 
-  // Post-completion review suggestions (the "did you mean…/swap dx/add negatives/bump E&M" cards).
-  const [reviewSuggestions, setReviewSuggestions] = useState<EasyChartSuggestion[]>([]);
+  // Unified chat thread (session-only history, clears on reload). Each committed entry is a user
+  // message or a settled assistant summary; the IN-PROGRESS turn renders live from `conv`/`plan` at
+  // the bottom of the thread and is committed here once it settles (see the commit effect below).
+  type ThreadEntry = { id: number; role: 'user' | 'assistant'; text: string };
+  const [thread, setThread] = useState<ThreadEntry[]>([]);
+  // The conv object already folded into history, so the live region stops re-rendering it.
+  const [committedConv, setCommittedConv] = useState<ConvStep | null>(null);
+  const threadSeqRef = useRef(0);
+  const pushUserMessage = (text: string): void =>
+    setThread((t) => [...t, { id: (threadSeqRef.current += 1), role: 'user', text }]);
+  const pushAssistantMessage = (text: string): void =>
+    setThread((t) => [...t, { id: (threadSeqRef.current += 1), role: 'assistant', text }]);
+
+  // TEMPORARY (debug): running per-session LLM token tally, fed by each zambda response's `usage`.
+  const [tokenTally, setTokenTally] = useState({
+    calls: 0,
+    claudeIn: 0,
+    claudeOut: 0,
+    claudeCacheRead: 0,
+    claudeCacheWrite: 0,
+    geminiIn: 0,
+    geminiOut: 0,
+    geminiThinking: 0,
+  });
+  const recordUsage = (u?: EasyChartTokenUsage): void => {
+    if (!u) return;
+    setTokenTally((t) => {
+      const n = { ...t, calls: t.calls + 1 };
+      if (u.provider === 'claude') {
+        n.claudeIn += u.inputTokens;
+        n.claudeOut += u.outputTokens;
+        n.claudeCacheRead += u.cacheReadTokens ?? 0;
+        n.claudeCacheWrite += u.cacheWriteTokens ?? 0;
+      } else {
+        n.geminiIn += u.inputTokens;
+        n.geminiOut += u.outputTokens;
+        n.geminiThinking += u.thinkingTokens ?? 0;
+      }
+      return n;
+    });
+  };
+
+  // Post-completion review: the suggestions ("did you mean…/swap dx/add negatives/bump E&M") are now
+  // applied straight into the note as needs-review items (with the reasoning in their hover) instead
+  // of being surfaced as accept/dismiss cards, so only the loading/error indicator lives here.
   const [reviewLoading, setReviewLoading] = useState(false);
   const [reviewError, setReviewError] = useState(false);
-  const [reviewBusyId, setReviewBusyId] = useState<string | null>(null);
-  const [acceptedIds, setAcceptedIds] = useState<Set<string>>(new Set());
-  const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
+  // Thread id the suggestion block is anchored AFTER, so it sits inline in the chat at the point it
+  // was produced (right below the plan summary) instead of pinned to the very bottom. Anything the
+  // provider types next gets a higher id and therefore renders BELOW the suggestions, the way a chat
+  // app behaves. null → no anchor yet (loading / pre-suggestion); falls back to trailing render.
+  const [reviewAnchorId, setReviewAnchorId] = useState<number | null>(null);
   // Narrative of the last applied plan, so the manual "Review note" button has something to review;
   // pendingReviewRef carries it from the plan-completion updater to the auto-trigger effect.
   const lastNarrativeRef = useRef<string>('');
@@ -2734,7 +3662,7 @@ export default function EasyChartPage(): JSX.Element {
       el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
     });
     return () => cancelAnimationFrame(id);
-  }, [conv, plan, reviewSuggestions]);
+  }, [conv, plan, reviewLoading, thread]);
 
   // For removes: scroll to the item, flash it red for 1.5s so the user sees what's being
   // deleted, then actually remove it from local state. Callers pass a `commitRemove` callback
@@ -3069,8 +3997,28 @@ export default function EasyChartPage(): JSX.Element {
   // fires once per state, never looping.
   const autoPrimaryAttemptedRef = useRef(false);
   const demoteExtrasAttemptedRef = useRef(false);
+  const removePlaceholderDxAttemptedRef = useRef(false);
+  // The injury templates (e.g. "Sprain/ strain no xray") seed a GENERIC placeholder diagnosis —
+  // T14.8XXA "Other injury of unspecified body region" — meant to be replaced with the real code.
+  // The easy-chart adds the specific diagnosis but never deletes the placeholder, so it lingers and
+  // (being charted first) mis-ranks as primary over the dictated specific dx. Treat T14.8x / T14.90
+  // "unspecified injury/body region" as a placeholder.
+  const isPlaceholderInjuryDx = (d: { code?: string; display?: string }): boolean =>
+    /^T14\.(8|90)/i.test(d.code ?? '') || /unspecified body region|injury of unspecified/i.test(d.display ?? '');
   useEffect(() => {
     const diagnoses = chartData?.diagnosis ?? [];
+    // Drop the template's generic injury placeholder once a SPECIFIC diagnosis is on the chart (keep
+    // it only when it's the sole dx — i.e. nothing more specific was dictated). After removal the
+    // single-primary logic below re-runs and promotes the remaining specific dx.
+    const placeholders = diagnoses.filter((d) => d.resourceId && isPlaceholderInjuryDx(d));
+    const specific = diagnoses.filter((d) => d.resourceId && !isPlaceholderInjuryDx(d));
+    if (placeholders.length > 0 && specific.length > 0) {
+      if (removePlaceholderDxAttemptedRef.current) return;
+      removePlaceholderDxAttemptedRef.current = true;
+      void Promise.all(placeholders.map((p) => deleteChartedResource('diagnosis', p)));
+      return;
+    }
+    removePlaceholderDxAttemptedRef.current = false;
     const primaries = diagnoses.filter((d) => d.isPrimary);
     // More than one primary → keep the first, demote the rest.
     if (primaries.length > 1) {
@@ -3197,6 +4145,7 @@ export default function EasyChartPage(): JSX.Element {
       aiLeafResultsRef.current = leafMap;
       return alts;
     }
+    if (field === 'vitalsObservations') return [];
     const intent = synthAddIntent(field, query, [query]);
     const results = await runIntentSearch(intent, oystehr, oystehrZambda);
     const map = new Map<string, SearchResult>();
@@ -3226,13 +4175,48 @@ export default function EasyChartPage(): JSX.Element {
       return n;
     });
   };
+  // "Confirm" an AI item = the provider has eyeballed it and accepts it as-is → drop the needs-review
+  // highlight (same effect as correcting it, minus the change). Confirm-all clears the whole queue.
+  const confirmAllAi = (): void => {
+    setAiCharted(new Map());
+    setProcedureProv(new Map());
+  };
+  // Procedure field-level review: confirming (or editing) a field drops it from the inferred set; the
+  // whole entry clears when no fields remain. "Confirm all" on the card drops the entry outright.
+  const confirmProcedureField = (resourceId: string, field: keyof ProcedureDTO): void => {
+    setProcedureProv((prev) => {
+      const entry = prev.get(resourceId);
+      if (!entry) return prev;
+      const fields = new Set(entry.inferredFields);
+      fields.delete(field as string);
+      const next = new Map(prev);
+      if (fields.size === 0) next.delete(resourceId);
+      else next.set(resourceId, { ...entry, inferredFields: fields });
+      return next;
+    });
+  };
+  const confirmProcedure = (resourceId: string): void => {
+    setProcedureProv((prev) => {
+      if (!prev.has(resourceId)) return prev;
+      const next = new Map(prev);
+      next.delete(resourceId);
+      return next;
+    });
+  };
+  // Merge the current planner step's provenance (sourceText / inferred) into a freshly-built meta,
+  // so each item created during a plan step carries where it came from. No-op for non-planner
+  // dispatches (ref is null) — those items stay un-inferred.
+  const withPendingProv = (meta: AiChartedMeta): AiChartedMeta => {
+    const p = pendingProvenanceRef.current;
+    return p ? { ...meta, sourceText: p.sourceText, inferred: p.inferred, reviewNote: p.reviewNote } : meta;
+  };
   // Flag newly-charted observation ids (returned by saveAndMerge) as AI-charted/needs-review so they
   // render clickable-to-correct. (Can't diff chartDataRef here — it's only synced post-render.)
   const flagAiObsIds = (ids: string[], field: 'examObservations' | 'rosObservations', display: string): void => {
     if (ids.length === 0) return;
     setAiCharted((prev) => {
       const n = new Map(prev);
-      for (const id of ids) n.set(id, { field, display, searchTerms: [], lowConfidence: false });
+      for (const id of ids) n.set(id, withPendingProv({ field, display, searchTerms: [], lowConfidence: false }));
       return n;
     });
   };
@@ -3291,6 +4275,7 @@ export default function EasyChartPage(): JSX.Element {
       })();
       return;
     }
+    if (field === 'vitalsObservations') return;
     const isPrimary = field === 'diagnosis' ? !!(dto as { isPrimary?: boolean }).isPrimary : undefined;
     const intent = synthAddIntent(field, result.name, [], isPrimary);
     const payload = buildIntentPayload(encounterId, intent, result, checkboxChecked ?? true);
@@ -3353,7 +4338,13 @@ export default function EasyChartPage(): JSX.Element {
   // leaves the needs-review set because it's now under active review in the panel.
   const aiDiscuss = (field: AiField, dto: { resourceId?: string }, meta: AiChartedMeta): void => {
     // CODE-based and OBSERVATION fields have no right-panel picker; Discuss is hidden for them.
-    if (field === 'cptCodes' || field === 'emCode' || field === 'examObservations' || field === 'rosObservations')
+    if (
+      field === 'cptCodes' ||
+      field === 'emCode' ||
+      field === 'examObservations' ||
+      field === 'rosObservations' ||
+      field === 'vitalsObservations'
+    )
       return;
     void (async () => {
       try {
@@ -3387,7 +4378,9 @@ export default function EasyChartPage(): JSX.Element {
   // then the ServiceRequest); we route through saveProcedureFromQuickPick instead, held in a
   // ref so the registered items stay referentially stable across renders while the save logic
   // always sees the latest apiClient / chart state.
-  const saveProcedureFromQuickPickRef = useRef<(qp: ProcedureQuickPickData) => Promise<void>>(async () => {});
+  const saveProcedureFromQuickPickRef = useRef<
+    (qp: ProcedureQuickPickData) => Promise<{ resourceId?: string; inferredFields: Set<string> } | undefined>
+  >(async () => undefined);
   const procedurePaletteItems = useMemo<CommandPaletteItem[]>(() => {
     if (!encounterId) return [];
     return procedureQuickPicks.map((qp) => ({
@@ -3562,6 +4555,16 @@ export default function EasyChartPage(): JSX.Element {
         return `order in-house lab: ${intent.display}`;
       case 'add-external-lab':
         return `order send-out lab: ${intent.display}`;
+      case 'add-patient-instruction':
+        return `patient instruction: ${intent.text.length > 50 ? `${intent.text.slice(0, 47)}…` : intent.text}`;
+      case 'set-disposition':
+        return `set disposition: ${intent.dispositionType}${
+          intent.followUpInDays ? ` (follow up in ${intent.followUpInDays}d)` : ''
+        }`;
+      case 'add-nursing-order':
+        return `nursing order: ${intent.text.length > 50 ? `${intent.text.slice(0, 47)}…` : intent.text}`;
+      case 'add-radiology':
+        return `order imaging: ${intent.display}`;
       case 'unknown':
         return 'unknown action';
     }
@@ -3579,6 +4582,9 @@ export default function EasyChartPage(): JSX.Element {
     planDispatchedIdxRef.current = plan.currentIdx;
     const step = plan.steps[plan.currentIdx];
     const label = `Step ${plan.currentIdx + 1}/${plan.steps.length} — ${describePlanStep(step)}`;
+    // Stamp this step's provenance so the charting handlers can mark each item sourced-vs-inferred.
+    const src = step.sourceText?.trim();
+    pendingProvenanceRef.current = { sourceText: src || undefined, inferred: !src };
     void dispatchIntent(step, label);
     // Intentionally no other deps — we only want to fire when the cursor moves.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -3643,8 +4649,12 @@ export default function EasyChartPage(): JSX.Element {
       }
       return { ...prev, currentIdx: nextIdx, results: nextResults };
     });
+    // Depend on the conv OBJECT (each setConv makes a new one), NOT conv.kind: two consecutive steps
+    // can settle with the same kind (e.g. remove "Soft" then remove "Nontender", both
+    // no-match-exam-remove) and with currentIdx already advanced, so keying on conv.kind leaves the
+    // deps unchanged and the plan stalls. The planLastAdvanceConvRef guard prevents double-advancing.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [conv?.kind, plan?.currentIdx]);
+  }, [conv, plan?.currentIdx]);
 
   // Auto-review: when a plan finishes (plan → null) and the completion updater stashed its
   // narrative, run the review pass to surface suggestion cards. Clearing the ref before the call
@@ -3657,6 +4667,59 @@ export default function EasyChartPage(): JSX.Element {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [plan]);
+
+  // A settled (terminal) assistant summary for a conv, or null if the conv is still in progress
+  // (thinking / saving / a picker awaiting a choice). Used both to decide WHEN a turn is done and
+  // WHAT one-line summary to fold into the thread history.
+  const summarizeConv = (c: ConvStep): string | null => {
+    const target = (i: unknown): string => (i as { display?: string })?.display ?? 'that';
+    switch (c.kind) {
+      case 'done':
+        return `Added ${c.chosenName} to the chart.`;
+      case 'removed':
+        return `Removed ${c.chosenName} from the chart.`;
+      case 'applied-template':
+        return `Applied the ${c.chosenName} template.`;
+      case 'updated-procedure':
+        return c.summary || `Updated ${c.chosenName}.`;
+      case 'edited-note-text':
+        return `Updated the ${c.fieldLabel}.`;
+      case 'unknown':
+        return (
+          c.reply?.trim() || "I couldn't act on that. Try a specific charting request, e.g. “add diagnosis sinusitis”."
+        );
+      case 'error':
+        return c.reply?.trim() || 'Something went wrong. Please try again.';
+      case 'skipped':
+        return c.reason || 'Skipped.';
+      case 'no-match':
+      case 'no-match-exam':
+      case 'no-match-procedure':
+        return `I couldn't find a match for “${target(c.intent)}”.`;
+      case 'no-match-remove':
+      case 'no-match-exam-remove':
+        return `I couldn't find “${target(c.intent)}” on the chart to remove.`;
+      case 'no-match-template':
+        return `No template matched “${target(c.intent)}”.`;
+      case 'no-procedure-to-update':
+        return `There's no procedure on the chart to update.`;
+      default:
+        return null; // in-progress / picker — stays live, not yet committed
+    }
+  };
+
+  // Commit a settled turn into the thread history. A turn settles when conv reaches a terminal kind
+  // AND no plan is running (a single-shot action that finished, or a plan that just completed →
+  // plan null + summary conv). Mid-plan step transitions keep plan non-null, and pickers/in-progress
+  // kinds summarize to null, so neither commits here. Dedup on the conv object (each setConv is new).
+  useEffect(() => {
+    if (plan || !conv || committedConv === conv) return;
+    const summary = summarizeConv(conv);
+    if (summary == null) return;
+    pushAssistantMessage(summary);
+    setCommittedConv(conv);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [conv, plan]);
 
   // Build the noteContext we send to the LLM. The in-person CC↔HPI swap is applied here so
   // the LLM sees text under the labels the provider reads (chiefComplaint = CC label's text).
@@ -3684,39 +4747,45 @@ export default function EasyChartPage(): JSX.Element {
     if (narrativeArg) lastNarrativeRef.current = narrativeArg;
     setReviewLoading(true);
     setReviewError(false);
+    // Anchor the inline "Reviewing…" indicator after the current last thread message.
+    setReviewAnchorId(threadSeqRef.current);
     try {
       const chartState = buildChartStateSummary(chartDataRef.current);
-      const { suggestions } = await easyChartReview(oystehrZambda, { narrative, chartState, noteContext, encounterId });
-      setReviewSuggestions(suggestions);
-      setAcceptedIds(new Set());
-      setDismissedIds(new Set());
+      const reviewRes = await easyChartReview(oystehrZambda, { narrative, chartState, noteContext, encounterId });
+      recordUsage(reviewRes.usage);
+      const { suggestions } = reviewRes;
+      // Apply each suggestion's action(s) straight into the note instead of surfacing cards. Items the
+      // suggestion adds get the normal needs-review highlight, and the suggestion's reasoning rides
+      // along as `reviewNote` so it shows in the item's hover — the provider reviews it in place.
+      let applied = 0;
+      for (const s of suggestions) {
+        const note = [s.question, s.rationale, s.partialNote].filter(Boolean).join(' — ');
+        let any = false;
+        for (const action of s.actions) {
+          pendingProvenanceRef.current = { reviewNote: note };
+          try {
+            await dispatchIntent(action, `Note review: ${s.question}`);
+            any = true;
+          } catch (e) {
+            console.error('Applying review suggestion failed:', e);
+          }
+        }
+        if (any) applied += 1;
+      }
+      pendingProvenanceRef.current = null;
+      pushAssistantMessage(
+        applied > 0
+          ? `Note review added ${applied} suggestion${
+              applied === 1 ? '' : 's'
+            } to the note (highlighted for your review — hover for the reasoning).`
+          : 'Note review found nothing to add.'
+      );
     } catch (e) {
       console.error('Easy-chart review failed:', e);
       setReviewError(true);
     } finally {
       setReviewLoading(false);
     }
-  };
-
-  // Accept a suggestion: replay its action(s) through the same dispatchIntent the planner uses, in
-  // order (a swap = remove then add). On success mark the card applied; on failure leave it
-  // actionable so the provider can retry.
-  const acceptSuggestion = async (suggestion: EasyChartSuggestion): Promise<void> => {
-    setReviewBusyId(suggestion.id);
-    try {
-      for (const action of suggestion.actions) {
-        await dispatchIntent(action, `Suggestion: ${suggestion.question}`);
-      }
-      setAcceptedIds((prev) => new Set(prev).add(suggestion.id));
-    } catch (e) {
-      console.error('Applying suggestion failed:', e);
-    } finally {
-      setReviewBusyId(null);
-    }
-  };
-
-  const dismissSuggestion = (id: string): void => {
-    setDismissedIds((prev) => new Set(prev).add(id));
   };
 
   // Take a classified intent and run the appropriate per-intent path. Used by both the
@@ -3729,7 +4798,14 @@ export default function EasyChartPage(): JSX.Element {
   const dispatchIntent = async (intent: EasyChartAgentIntent, message: string, interactive = false): Promise<void> => {
     if (!oystehrZambda || !encounterId) return;
     if (intent.kind === 'unknown') {
-      setConv({ kind: 'unknown', user: message, reply: intent.message });
+      // Always reply clearly when we can't act, and say what WILL work — never leave the turn silent.
+      setConv({
+        kind: 'unknown',
+        user: message,
+        reply:
+          intent.message?.trim() ||
+          'I can only chart specific items — I can\'t answer open-ended requests. Try something like "add diagnosis sinusitis", "add medication amoxicillin 500 mg", or paste a dictation and I\'ll chart the whole visit.',
+      });
       return;
     }
     try {
@@ -3759,12 +4835,15 @@ export default function EasyChartPage(): JSX.Element {
             setAiCharted((prev) => {
               const next = new Map(prev);
               for (const id of newIds)
-                next.set(id, {
-                  field,
-                  display: intent.display ?? intent.code,
-                  searchTerms: [],
-                  lowConfidence: false,
-                });
+                next.set(
+                  id,
+                  withPendingProv({
+                    field,
+                    display: intent.display ?? intent.code,
+                    searchTerms: [],
+                    lowConfidence: false,
+                  })
+                );
               return next;
             });
           }
@@ -3813,7 +4892,23 @@ export default function EasyChartPage(): JSX.Element {
             setConv({ kind: 'error', user: message, reply: `Could not chart "${intent.display}" — missing a value.` });
             return;
           }
-          await saveAndMerge({ encounterId, vitalsObservations: [dto] });
+          const vitalIds = await saveAndMerge({ encounterId, vitalsObservations: [dto] });
+          // Flag the charted vital for review with provenance, like every other AI-charted item — so
+          // it carries the needs-review highlight + sourced/inferred hover instead of sitting unmarked.
+          if (vitalIds[0]) {
+            const id = vitalIds[0];
+            setAiCharted((prev) =>
+              new Map(prev).set(
+                id,
+                withPendingProv({
+                  field: 'vitalsObservations',
+                  display: intent.display,
+                  searchTerms: [],
+                  lowConfidence: false,
+                })
+              )
+            );
+          }
           setConv({ kind: 'done', user: message, chosenName: intent.display });
         } catch (e) {
           console.error('Save vital failed:', e);
@@ -4045,6 +5140,106 @@ export default function EasyChartPage(): JSX.Element {
         await handleEditNoteText(intent, message);
         return;
       }
+      if (intent.kind === 'add-patient-instruction') {
+        // Patient-facing care-plan instruction → Communication (the Plan tab's Patient Instructions),
+        // NOT folded into MDM. Direct save, no search needed.
+        const label = intent.text.length > 60 ? `${intent.text.slice(0, 57)}…` : intent.text;
+        setConv({ kind: 'saving', user: message, chosenName: label });
+        try {
+          await saveAndMerge({ encounterId, instructions: [{ text: intent.text }] });
+          setConv({ kind: 'done', user: message, chosenName: label });
+        } catch (e) {
+          console.error('Save failed:', e);
+          setConv({ kind: 'error', user: message, reply: 'Could not save the patient instruction. Please try again.' });
+        }
+        return;
+      }
+      if (intent.kind === 'set-disposition') {
+        // Structured Disposition (Plan tab) — where the patient goes next. Direct save.
+        const VALID_DISPOSITION: DispositionType[] = [
+          'ip',
+          'ip-lab',
+          'pcp',
+          'ed',
+          'ip-oth',
+          'pcp-no-type',
+          'another',
+          'specialty',
+        ];
+        const type: DispositionType = (VALID_DISPOSITION as string[]).includes(intent.dispositionType)
+          ? (intent.dispositionType as DispositionType)
+          : 'another';
+        const label = `disposition: ${type}`;
+        setConv({ kind: 'saving', user: message, chosenName: label });
+        try {
+          const disposition: DispositionDTO = {
+            type,
+            note: intent.text ?? '',
+            ...(intent.followUpInDays != null ? { followUpIn: intent.followUpInDays } : {}),
+          };
+          await saveAndMerge({ encounterId, disposition });
+          setConv({ kind: 'done', user: message, chosenName: label });
+        } catch (e) {
+          console.error('Save failed:', e);
+          setConv({ kind: 'error', user: message, reply: 'Could not save the disposition. Please try again.' });
+        }
+        return;
+      }
+      if (intent.kind === 'add-nursing-order') {
+        // Free-text nursing task → ServiceRequest via the nursing-order zambda (an order, not chart data).
+        const label = intent.text.length > 50 ? `${intent.text.slice(0, 47)}…` : intent.text;
+        setConv({ kind: 'saving', user: message, chosenName: label });
+        try {
+          if (!oystehrZambda) throw new Error('No zambda client');
+          await createNursingOrder(oystehrZambda, { encounterId, notes: intent.text });
+          setConv({ kind: 'done', user: message, chosenName: label });
+        } catch (e) {
+          console.error('Nursing order failed:', e);
+          setConv({ kind: 'error', user: message, reply: 'Could not place the nursing order. Please try again.' });
+        }
+        return;
+      }
+      if (intent.kind === 'add-radiology') {
+        // Imaging order: resolve the study to a catalog CPT, link the primary diagnosis, place the order.
+        const label = intent.display;
+        setConv({ kind: 'saving', user: message, chosenName: label });
+        try {
+          const study = matchRadiologyStudy(intent.display, intent.searchTerms);
+          if (!study || !study.code) {
+            setConv({
+              kind: 'unknown',
+              user: message,
+              reply: `I couldn't match “${intent.display}” to an orderable imaging study.`,
+            });
+            return;
+          }
+          const dx = chartDataRef.current?.diagnosis?.find((d) => d.isPrimary) ?? chartDataRef.current?.diagnosis?.[0];
+          if (!dx?.code) {
+            setConv({
+              kind: 'error',
+              user: message,
+              reply: 'Add a diagnosis first — an imaging order needs a linked diagnosis.',
+            });
+            return;
+          }
+          if (!oystehrZambda) throw new Error('No zambda client');
+          await createRadiologyOrder(oystehrZambda, {
+            encounterId,
+            diagnosisCode: dx.code,
+            cptCode: study.code,
+            lateralityModifier: undefined,
+            stat: false,
+            clinicalHistory: `${intent.display} — ${dx.display ?? dx.code}`.slice(0, 255),
+            studyName: intent.display,
+            consentObtained: true,
+          });
+          setConv({ kind: 'done', user: message, chosenName: `${label} (CPT ${study.code})` });
+        } catch (e) {
+          console.error('Radiology order failed:', e);
+          setConv({ kind: 'error', user: message, reply: `Could not place the imaging order for “${label}”.` });
+        }
+        return;
+      }
       if (intent.kind === 'add-exam-finding') {
         const scoredMatches = findExamLeafMatchesScored(intent, EXAM_LEAVES);
         const allMatches = scoredMatches.map((s) => s.leaf);
@@ -4089,7 +5284,7 @@ export default function EasyChartPage(): JSX.Element {
             setConv({
               kind: 'skipped',
               user: message,
-              reason: `The closest exam match for “${intent.display}” is already charted.`,
+              reason: `“${intent.display}” matched the exam option “${top.leaf.label}”, which is already charted.`,
             });
           }
         } else {
@@ -4210,9 +5405,11 @@ export default function EasyChartPage(): JSX.Element {
         // charted "7.5 MG". So when a strength was dictated, only auto-pick a product whose
         // strength actually matches it; if none of the results match, do NOT substitute a
         // different dose — open the picker so the provider explicitly chooses (or corrects).
-        const wantStrength = intent.strength ? normForMatch(intent.strength) : '';
+        // Match on the combination-aware key so a dictated "325 mg / 5 mg" recognizes the catalog's
+        // "5-325 MG" as the same strength (order/separator differ) instead of falsely opening a picker.
+        const wantStrength = intent.strength ? strengthKey(intent.strength) : '';
         const strengthMatches = wantStrength
-          ? results.filter((r) => r.strength && normForMatch(r.strength) === wantStrength)
+          ? results.filter((r) => r.strength && strengthKey(r.strength) === wantStrength)
           : results;
         if (wantStrength && strengthMatches.length === 0) {
           setConv({ kind: 'choose', user: message, intent, results });
@@ -4310,6 +5507,7 @@ export default function EasyChartPage(): JSX.Element {
       searchTerms: [text],
     } as EasyChartAgentIntent;
     setPickerRefineText('');
+    pendingProvenanceRef.current = null; // provider-driven refine → no inferred mark
     // Refining happens inside an already-interactive picker, so keep interactive mode: a still-
     // ambiguous refined query re-prompts rather than silently auto-picking.
     void dispatchIntent(augmented, userMsg, true);
@@ -4318,12 +5516,19 @@ export default function EasyChartPage(): JSX.Element {
   const handleSend = async (): Promise<void> => {
     const message = refineText.trim();
     if (!message || !oystehrZambda || !encounterId) return;
+    pushUserMessage(message);
     setConv({ kind: 'thinking', user: message });
     setRefineText('');
     try {
       const noteContext = buildNoteContext();
       if (looksLikeNarrative(message)) {
-        const { steps } = await easyChartPlanner(oystehrZambda, { narrative: message, noteContext });
+        // Pass what's already charted so a follow-up message ("also send a script for X") is treated
+        // as an INCREMENTAL addition — the planner then skips re-documenting the existing note
+        // (chief complaint, diagnoses, E&M) instead of re-expanding the snippet into a whole note.
+        const chartState = buildChartStateSummary(chartDataRef.current);
+        const planRes = await easyChartPlanner(oystehrZambda, { narrative: message, noteContext, chartState });
+        recordUsage(planRes.usage);
+        const { steps } = planRes;
         if (steps.length === 0) {
           setConv({
             kind: 'unknown',
@@ -4332,13 +5537,16 @@ export default function EasyChartPage(): JSX.Element {
           });
           return;
         }
-        // Surface a preview so the provider sees the full decomposed plan and explicitly
-        // approves before any chart writes. Avoids the "wait, what did the first 10 steps
-        // do?" confusion when a later step pauses on a picker.
-        setConv({ kind: 'plan-preview', user: message, narrative: message, steps });
+        // Auto-chart: start executing immediately as a single evolving plan card — no separate
+        // approve step. Each AI-charted item still gets the needs-review highlight + click-to-correct,
+        // and Remove still works, so nothing here is unrecoverable.
+        setPlan({ narrative: message, steps, currentIdx: 0, results: [] });
         return;
       }
-      const { intent } = await easyChartAgent(oystehrZambda, { message, noteContext });
+      const agentRes = await easyChartAgent(oystehrZambda, { message, noteContext });
+      recordUsage(agentRes.usage);
+      const { intent } = agentRes;
+      pendingProvenanceRef.current = null; // provider-typed command → no inferred mark
       await dispatchIntent(intent, message, true);
     } catch (e) {
       console.error('Send failed:', e);
@@ -4431,6 +5639,11 @@ export default function EasyChartPage(): JSX.Element {
     if (data.medicalDecision?.text?.trim()) {
       lines.push(`MDM already present (length ${data.medicalDecision.text.trim().length} chars).`);
     }
+    if (data.emCode?.code) {
+      lines.push(
+        `E&M code already charted: ${data.emCode.code}${data.emCode.display ? ` — ${data.emCode.display}` : ''}.`
+      );
+    }
     // Lab orders live outside chartData; include them so a re-plan doesn't re-order the same test.
     if (labOrders.length) {
       lines.push(
@@ -4469,6 +5682,7 @@ export default function EasyChartPage(): JSX.Element {
             display,
             searchTerms: [display].filter(Boolean),
             lowConfidence: false,
+            templateName: template.title,
           });
         }
       };
@@ -4486,6 +5700,7 @@ export default function EasyChartPage(): JSX.Element {
           display: chartedItemDisplay('emCode', fresh.emCode),
           searchTerms: [],
           lowConfidence: false,
+          templateName: template.title,
         });
       }
       if (templateAiCharted.size > 0) {
@@ -4532,12 +5747,14 @@ export default function EasyChartPage(): JSX.Element {
             fresh
           )}`;
           const noteContext = buildNoteContext();
-          const { steps: refreshed } = await easyChartPlanner(oystehrZambda, {
+          const replanRes = await easyChartPlanner(oystehrZambda, {
             narrative: planSnapshot.narrative,
             noteContext,
             chartState: chartStateSummary,
             encounterId,
           });
+          recordUsage(replanRes.usage);
+          const { steps: refreshed } = replanRes;
           // Defense-in-depth: drop any apply-template from the refresh output. The template
           // is already on the chart; a second apply-template would either duplicate (if it
           // matches) or replace the wrong fields (if a different template name comes back).
@@ -4558,7 +5775,40 @@ export default function EasyChartPage(): JSX.Element {
           const refreshExamKeys = new Set(refreshedFiltered.filter(isExamStep).map(examKey));
           const pendingOriginal = planSnapshot.steps.slice(planSnapshot.currentIdx + 1);
           const missingExam = pendingOriginal.filter((s) => isExamStep(s) && !refreshExamKeys.has(examKey(s)));
-          const mergedSteps = [...refreshedFiltered, ...missingExam];
+          // Note-text edits (CC / HPI / mechanism / MDM) are faithful transcriptions of the dictation
+          // captured in the FIRST pass. The post-template re-plan mishandles them two ways: it DROPS
+          // them (the chief complaint never gets written → blank field) or RE-SUMMARIZES them into a
+          // generic stub (a detailed HPI becomes "Patient presents with <dx>"). The template doesn't
+          // meaningfully author these free-text fields, so ALWAYS use the first-pass note edits and
+          // discard the re-plan's — edit-note-text overwrites, so this is idempotent and keeps the
+          // note faithful to what was dictated.
+          const isNoteEdit = (s: EasyChartAgentIntent): boolean => s.kind === 'edit-note-text';
+          const firstPassNoteEdits = pendingOriginal.filter(isNoteEdit);
+          // The re-plan re-emits diagnoses and billing codes that the first pass (or the template
+          // itself) already charted. Unlike exam findings — whose dispatch dedups against what's on
+          // the chart — add-diagnosis / set-em-code / add-cpt are NOT idempotent: each re-emission
+          // writes a fresh resource, producing duplicates (two J02.0 Conditions, two 99214 E&M
+          // Procedures). Drop any re-plan step whose code is already in the post-template chart
+          // state. E&M is singular, so re-emit it only when none is charted yet.
+          const chartedDxCodes = new Set(
+            (fresh.diagnosis ?? []).map((d) => d.code?.toUpperCase()).filter((c): c is string => !!c)
+          );
+          const chartedCptCodes = new Set(
+            (fresh.cptCodes ?? []).map((c) => c.code?.toUpperCase()).filter((c): c is string => !!c)
+          );
+          const hasEmCode = !!fresh.emCode?.code;
+          const isAlreadyCharted = (s: EasyChartAgentIntent): boolean => {
+            if ((s.kind === 'add-diagnosis' || s.kind === 'add-condition') && 'code' in s && s.code)
+              return chartedDxCodes.has(s.code.toUpperCase());
+            if (s.kind === 'set-em-code') return hasEmCode;
+            if (s.kind === 'add-cpt' && 'code' in s && s.code) return chartedCptCodes.has(s.code.toUpperCase());
+            return false;
+          };
+          const mergedSteps = [
+            ...refreshedFiltered.filter((s) => !isNoteEdit(s) && !isAlreadyCharted(s)),
+            ...missingExam,
+            ...firstPassNoteEdits,
+          ];
           // Splice: keep completed steps + their results; replace pending steps with the merge.
           // The apply-template step itself hasn't terminally settled yet (we're still inside
           // handleApplyTemplate), so it's still at currentIdx. Move forward into the merged steps.
@@ -4586,24 +5836,84 @@ export default function EasyChartPage(): JSX.Element {
   // diagnoses must exist as FHIR Procedure / Condition resources before the procedure
   // ServiceRequest can reference them — so save those first, capture their resourceIds from the
   // response, then save the procedure pointing at them. Throws on failure (callers report).
-  const saveProcedureFromQuickPick = async (qp: ProcedureQuickPickData): Promise<void> => {
+  const saveProcedureFromQuickPick = async (
+    qp: ProcedureQuickPickData
+  ): Promise<{ resourceId?: string; inferredFields: Set<string> } | undefined> => {
     if (!apiClient || !encounterId) return;
+    // DEDUP: a procedure quick-pick carries its own linked diagnoses + CPT codes. Re-saving ones the
+    // note already has (e.g. the planner already charted "UTI" / "Fever" from the dictation) is what
+    // produced duplicate diagnoses. So save ONLY codes not already on the chart, and link the
+    // procedure to the EXISTING resource for codes that are.
+    const existingDx = chartDataRef.current?.diagnosis ?? [];
+    const existingCpt = chartDataRef.current?.cptCodes ?? [];
+    const existingDxByCode = new Map(existingDx.filter((d) => d.code).map((d) => [d.code, d] as const));
+    const existingCptByCode = new Map(existingCpt.filter((c) => c.code).map((c) => [c.code, c] as const));
+    const newDx = (qp.diagnoses ?? []).filter((d) => d.code && !existingDxByCode.has(d.code));
+    const newCpt = (qp.cptCodes ?? []).filter((c) => c.code && !existingCptByCode.has(c.code));
     const step1 = await apiClient.saveChartData({
       encounterId,
-      ...(qp.cptCodes?.length ? { cptCodes: qp.cptCodes } : {}),
+      ...(newCpt.length ? { cptCodes: newCpt } : {}),
       // DiagnosisDTO.isPrimary became required upstream; a procedure's linked diagnoses are
       // supporting dx, not the encounter's primary, so default them to false.
-      ...(qp.diagnoses?.length ? { diagnosis: qp.diagnoses.map((d) => ({ ...d, isPrimary: false })) } : {}),
+      ...(newDx.length ? { diagnosis: newDx.map((d) => ({ ...d, isPrimary: false })) } : {}),
     });
     mergeSaveResponse(step1);
-    const savedCptCodes = step1.chartData?.cptCodes ?? [];
-    const savedDiagnoses = step1.chartData?.diagnosis ?? [];
+    const savedNewDx = step1.chartData?.diagnosis ?? [];
+    const savedNewCpt = step1.chartData?.cptCodes ?? [];
+    // Resolve every linked code to a charted resource: reuse the existing one, else the just-saved new
+    // one — so the procedure links the right Conditions/Procedures without creating duplicates.
+    const linkedDx = (qp.diagnoses ?? [])
+      .map((d) => existingDxByCode.get(d.code) ?? savedNewDx.find((s) => s.code === d.code))
+      .filter((d): d is DiagnosisDTO => !!d?.resourceId);
+    const linkedCpt = (qp.cptCodes ?? [])
+      .map((c) => existingCptByCode.get(c.code) ?? savedNewCpt.find((s) => s.code === c.code))
+      .filter((c): c is CPTCodeDTO => !!c?.resourceId);
+    // The genuinely-new procedure-linked dx/CPT are template-derived (not dictated) → flag them for
+    // review as inferred, so a spurious linked code (e.g. "Retention of urine" on a catheterization
+    // template) is surfaced rather than silently authoritative.
+    const flagged = new Map<string, AiChartedMeta>();
+    for (const d of savedNewDx)
+      if (d.resourceId && newDx.some((n) => n.code === d.code))
+        flagged.set(d.resourceId, {
+          field: 'diagnosis',
+          display: d.display ?? d.code,
+          searchTerms: [],
+          lowConfidence: false,
+          inferred: true,
+        });
+    for (const c of savedNewCpt)
+      if (c.resourceId && newCpt.some((n) => n.code === c.code))
+        flagged.set(c.resourceId, {
+          field: 'cptCodes',
+          display: c.display ?? c.code,
+          searchTerms: [],
+          lowConfidence: false,
+          inferred: true,
+        });
+    if (flagged.size > 0) setAiCharted((prev) => new Map([...prev, ...flagged]));
     const procDto: ProcedureDTO = {
       ...procedureDtoFromQuickPick(qp, procedureTypeNameByCode),
-      cptCodes: savedCptCodes.length > 0 ? savedCptCodes : undefined,
-      diagnoses: savedDiagnoses.length > 0 ? savedDiagnoses : undefined,
+      cptCodes: linkedCpt.length > 0 ? linkedCpt : undefined,
+      diagnoses: linkedDx.length > 0 ? linkedDx : undefined,
     };
-    await saveAndMerge({ encounterId, procedures: [procDto] });
+    // Which verify-able fields the template actually filled in — those become the per-field review set.
+    const inferredFields = new Set<string>();
+    for (const f of PROCEDURE_VERIFY_FIELDS) {
+      const v = procDto[f];
+      const has = Array.isArray(v) ? v.length > 0 : v != null && String(v).trim() !== '';
+      if (has) inferredFields.add(f as string);
+    }
+    // Capture the PROCEDURE's resourceId specifically by diffing the procedures array. Don't use
+    // saveAndMerge's flat newIds[0]: on a fresh chart the step-2 response also reports the step-1
+    // cpt/dx as "new" (chartDataRef is still pre-step-1 until the next render), so newIds[0] would be
+    // a diagnosis id and the provenance entry would be keyed to the wrong resource.
+    const beforeProcIds = new Set(
+      (chartDataRef.current?.procedures ?? []).map((p) => p.resourceId).filter((id): id is string => !!id)
+    );
+    const step2 = await apiClient.saveChartData({ encounterId, procedures: [procDto] });
+    mergeSaveResponse(step2);
+    const newProc = (step2.chartData?.procedures ?? []).find((p) => p.resourceId && !beforeProcIds.has(p.resourceId));
+    return { resourceId: newProc?.resourceId, inferredFields };
   };
   // Keep the palette's stable onSelect pointed at the latest closure.
   saveProcedureFromQuickPickRef.current = saveProcedureFromQuickPick;
@@ -4611,8 +5921,16 @@ export default function EasyChartPage(): JSX.Element {
   const handleProcedurePick = async (qp: ProcedureQuickPickData, user: string): Promise<void> => {
     if (!apiClient || !encounterId) return;
     setConv({ kind: 'saving', user, chosenName: qp.name });
+    // Capture this step's source phrase before the await — pendingProvenanceRef gets overwritten by
+    // the next plan step.
+    const sourceText = pendingProvenanceRef.current?.sourceText;
     try {
-      await saveProcedureFromQuickPick(qp);
+      const prov = await saveProcedureFromQuickPick(qp);
+      // Register field-level provenance: the template-default fields become the per-field review set.
+      if (prov?.resourceId && prov.inferredFields.size > 0) {
+        const resourceId = prov.resourceId;
+        setProcedureProv((prev) => new Map(prev).set(resourceId, { sourceText, inferredFields: prov.inferredFields }));
+      }
       setConv({ kind: 'done', user, chosenName: qp.name });
     } catch (e) {
       console.error('Add procedure failed:', e);
@@ -4916,39 +6234,41 @@ export default function EasyChartPage(): JSX.Element {
   // Inline structured-item removal from the left pane. Mirrors handleRemovePick (generic array
   // delete + removal flash) but without the right-pane conversation chatter; E&M is a scalar so
   // it gets its own branch. Errors surface via snackbar rather than the planner conversation.
+  // Optimistic remove: drop the item from the UI immediately, delete in the background, and if the
+  // delete fails restore the prior state + toast. Avoids the lag of waiting on the round-trip.
   const removeInline = async (field: string, dto: { resourceId?: string }): Promise<void> => {
     if (!apiClient || !encounterId || !dto.resourceId) return;
     const resourceId = dto.resourceId;
+    clearAiChartedId(resourceId); // removing an item also clears any needs-review flag on it
+    const snapshot = chartDataRef.current;
+    setChartData((prev) => {
+      if (!prev) return prev;
+      const next: GetChartDataResponse = { ...prev };
+      const list = (next[field as keyof GetChartDataResponse] as Array<{ resourceId?: string }> | undefined) ?? [];
+      (next[field as keyof GetChartDataResponse] as unknown) = list.filter((x) => x.resourceId !== resourceId);
+      return next;
+    });
     try {
       await apiClient.deleteChartData({ encounterId, [field]: [dto] } as Parameters<
         typeof apiClient.deleteChartData
       >[0]);
-      flashAndRemoveItem(resourceId, () => {
-        setChartData((prev) => {
-          if (!prev) return prev;
-          const next: GetChartDataResponse = { ...prev };
-          const list = (next[field as keyof GetChartDataResponse] as Array<{ resourceId?: string }> | undefined) ?? [];
-          (next[field as keyof GetChartDataResponse] as unknown) = list.filter((x) => x.resourceId !== resourceId);
-          return next;
-        });
-      });
     } catch (e) {
       console.error('Inline remove failed:', e);
-      enqueueSnackbar('Could not remove that item. Please try again.', { variant: 'error' });
+      if (snapshot) setChartData(snapshot);
+      enqueueSnackbar("Couldn't remove that item — it's been restored.", { variant: 'error' });
     }
   };
 
   const removeEmInline = async (dto: { resourceId?: string }): Promise<void> => {
     if (!apiClient || !encounterId || !dto.resourceId) return;
-    const resourceId = dto.resourceId;
+    const snapshot = chartDataRef.current;
+    setChartData((prev) => (prev ? { ...prev, emCode: undefined } : prev));
     try {
       await apiClient.deleteChartData({ encounterId, emCode: dto } as Parameters<typeof apiClient.deleteChartData>[0]);
-      flashAndRemoveItem(resourceId, () => {
-        setChartData((prev) => (prev ? { ...prev, emCode: undefined } : prev));
-      });
     } catch (e) {
       console.error('Inline E&M remove failed:', e);
-      enqueueSnackbar('Could not remove the E&M code. Please try again.', { variant: 'error' });
+      if (snapshot) setChartData(snapshot);
+      enqueueSnackbar("Couldn't remove the E&M code — it's been restored.", { variant: 'error' });
     }
   };
 
@@ -4983,7 +6303,9 @@ export default function EasyChartPage(): JSX.Element {
       // Preserve cptCodes / diagnoses references (they already have resourceIds from the
       // initial save) so the update doesn't drop them.
       await saveAndMerge({ encounterId, procedures: [updated] });
-      const summary = applied.map((a) => `${a.field}=${JSON.stringify(a.value)}`).join(', ');
+      const summary = applied
+        .map((a) => (a.value === undefined ? `${a.field}=(cleared)` : `${a.field}=${JSON.stringify(a.value)}`))
+        .join(', ');
       const skipNote = skipped.length > 0 ? ` (skipped: ${skipped.join(', ')})` : '';
       setConv({ kind: 'updated-procedure', user, chosenName: procName, summary: summary + skipNote });
     } catch (e) {
@@ -5015,9 +6337,10 @@ export default function EasyChartPage(): JSX.Element {
         newIds = await saveAndMerge(payload);
       }
       if (provenance && newIds.length > 0) {
+        const stamped = withPendingProv(provenance);
         setAiCharted((prev) => {
           const next = new Map(prev);
-          for (const id of newIds) next.set(id, provenance);
+          for (const id of newIds) next.set(id, stamped);
           return next;
         });
       }
@@ -5067,15 +6390,16 @@ export default function EasyChartPage(): JSX.Element {
   // Top chrome height (banner + navbar) to subtract from 100vh so each column scrolls within view.
   const topChrome = { xs: showEnvironmentBanner ? 116 : 56, sm: showEnvironmentBanner ? 124 : 64 };
 
+  // Composer pinned to the bottom of the chat column (chat-app style). The thread scrolls above it.
   const refineBar = (
-    <Paper elevation={2} sx={{ p: 2, position: 'sticky', top: 0, zIndex: 1, bgcolor: 'background.paper' }}>
+    <Paper elevation={0} sx={{ p: 1.5, borderTop: 1, borderColor: 'divider', bgcolor: 'background.paper' }}>
       <Stack spacing={1}>
         <TextField
           fullWidth
           multiline
           minRows={2}
           maxRows={6}
-          placeholder='Try: "add allergy tree nut", "add diagnosis sinusitis"'
+          placeholder='Paste a narrative to chart, or ask — e.g. "add diagnosis sinusitis"'
           value={refineText}
           onChange={(e) => setRefineText(e.target.value)}
           inputRef={refineInputRef}
@@ -5087,7 +6411,17 @@ export default function EasyChartPage(): JSX.Element {
           }}
           disabled={isThinking}
         />
-        <Stack direction="row" justifyContent="flex-end">
+        <Stack direction="row" justifyContent="space-between" alignItems="center">
+          <Button
+            size="small"
+            variant="text"
+            sx={{ textTransform: 'none' }}
+            onClick={() => void runReview()}
+            disabled={reviewLoading || !encounterId || isThinking}
+            startIcon={reviewLoading ? <CircularProgress size={14} /> : undefined}
+          >
+            {reviewLoading ? 'Reviewing…' : 'Review note'}
+          </Button>
           <Button
             variant="contained"
             sx={{ borderRadius: 100, textTransform: 'none' }}
@@ -5097,6 +6431,40 @@ export default function EasyChartPage(): JSX.Element {
             {isThinking ? <CircularProgress size={18} color="inherit" /> : 'Send'}
           </Button>
         </Stack>
+        {/* TEMPORARY: per-session LLM token tally (debug) */}
+        {tokenTally.calls > 0 && (
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              sx={{ fontFamily: 'monospace', fontSize: 11, lineHeight: 1.4 }}
+            >
+              🔢 Claude {tokenTally.claudeIn.toLocaleString()} in ({tokenTally.claudeCacheRead.toLocaleString()} cached,{' '}
+              {tokenTally.claudeCacheWrite.toLocaleString()} wrote) / {tokenTally.claudeOut.toLocaleString()} out ·
+              Gemini {tokenTally.geminiIn.toLocaleString()} in / {tokenTally.geminiOut.toLocaleString()} out ·{' '}
+              {tokenTally.calls} calls
+            </Typography>
+            <Button
+              size="small"
+              variant="text"
+              sx={{ minWidth: 0, fontSize: 10, textTransform: 'none' }}
+              onClick={() =>
+                setTokenTally({
+                  calls: 0,
+                  claudeIn: 0,
+                  claudeOut: 0,
+                  claudeCacheRead: 0,
+                  claudeCacheWrite: 0,
+                  geminiIn: 0,
+                  geminiOut: 0,
+                  geminiThinking: 0,
+                })
+              }
+            >
+              reset
+            </Button>
+          </Box>
+        )}
       </Stack>
     </Paper>
   );
@@ -5118,9 +6486,14 @@ export default function EasyChartPage(): JSX.Element {
   const planProgress = plan && (
     <Paper variant="outlined" sx={{ p: 1.5, bgcolor: 'action.hover' }}>
       <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1} sx={{ mb: 0.5 }}>
-        <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
-          Plan — step {plan.currentIdx + 1} of {plan.steps.length}
-        </Typography>
+        <Stack direction="row" alignItems="center" spacing={0.75}>
+          {/* Spinner while a step is actively running; hidden when paused awaiting a picker choice. */}
+          {(!conv || !conv.kind.startsWith('choose')) && <CircularProgress size={12} />}
+          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
+            {!conv || !conv.kind.startsWith('choose') ? 'Charting…' : 'Plan'} — step {plan.currentIdx + 1} of{' '}
+            {plan.steps.length}
+          </Typography>
+        </Stack>
         <Button
           size="small"
           variant="text"
@@ -5220,553 +6593,456 @@ export default function EasyChartPage(): JSX.Element {
 
   // Short, concrete description of what accepting a suggestion will do — so a card like "Add the
   // pertinent negatives you noted?" lists exactly which items it will add.
-  const describeReviewAction = (intent: EasyChartAgentIntent): string => {
-    switch (intent.kind) {
-      case 'add-ros-finding':
-      case 'add-exam-finding':
-      case 'add-diagnosis':
-      case 'add-condition':
-      case 'add-medication':
-        return intent.display;
-      case 'remove-diagnosis':
-        return `Remove "${intent.display}"`;
-      case 'set-em-code':
-        return `Set E&M ${intent.code}${intent.display ? ` (${intent.display})` : ''}`;
-      case 'add-cpt':
-        return `Add CPT ${intent.code}`;
-      case 'edit-note-text':
-        return `Update ${intent.field === 'medicalDecision' ? 'MDM' : intent.field} text`;
-      default:
-        return (intent as { display?: string }).display ?? intent.kind;
-    }
-  };
-
-  const visibleSuggestions = reviewSuggestions.filter((s) => !dismissedIds.has(s.id));
-  const reviewPane = (
-    <Paper variant="outlined" sx={{ p: 2 }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
-        <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#0F347C' }}>
-          Review suggestions
-        </Typography>
-        <Button
-          size="small"
-          variant="outlined"
-          onClick={() => void runReview()}
-          disabled={reviewLoading || !encounterId}
-          startIcon={reviewLoading ? <CircularProgress size={14} /> : undefined}
-        >
-          {reviewLoading ? 'Reviewing…' : 'Review note'}
-        </Button>
-      </Box>
-
-      {reviewError && (
-        <Typography variant="body2" color="error">
-          Couldn't generate suggestions. Try Review note again.
-        </Typography>
-      )}
-
-      {!reviewError && !reviewLoading && visibleSuggestions.length === 0 && (
-        <Typography variant="body2" color="text.secondary">
-          {reviewSuggestions.length > 0 ? 'All suggestions handled.' : 'No suggestions — the note looks complete.'}
-        </Typography>
-      )}
-
-      <Stack spacing={1.5}>
-        {visibleSuggestions.map((s) => {
-          const accepted = acceptedIds.has(s.id);
-          const busy = reviewBusyId === s.id;
-          return (
-            <Box
-              key={s.id}
-              sx={{
-                border: '1px solid',
-                borderColor: accepted ? 'success.light' : '#E0E0E0',
-                bgcolor: accepted ? 'success.50' : '#fff',
-                borderRadius: '8px',
-                p: 1.5,
-              }}
-            >
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
-                <Chip label={s.category} size="small" sx={{ height: 20, fontSize: 11 }} />
-                {s.highlight && (
-                  <Chip
-                    label={s.highlight}
-                    size="small"
-                    color="primary"
-                    variant="outlined"
-                    sx={{ height: 20, fontSize: 11 }}
-                  />
-                )}
-              </Box>
-              <Typography variant="body2" sx={{ fontWeight: 500, color: '#212130' }}>
-                {s.question}
-              </Typography>
-              {s.rationale && (
-                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
-                  {s.rationale}
-                </Typography>
-              )}
-              {s.actions.length > 0 && (
-                <Box component="ul" sx={{ m: 0, mt: 0.5, pl: 2.5 }}>
-                  {s.actions.map((a, i) => (
-                    <Typography key={i} component="li" variant="caption" sx={{ color: '#212130' }}>
-                      {describeReviewAction(a)}
-                    </Typography>
-                  ))}
-                </Box>
-              )}
-              {s.partialNote && (
-                <Typography variant="caption" color="warning.main" sx={{ display: 'block', mt: 0.5 }}>
-                  {s.partialNote}
-                </Typography>
-              )}
-              {accepted ? (
-                <Typography variant="caption" color="success.main" sx={{ display: 'block', mt: 1, fontWeight: 600 }}>
-                  Applied
-                </Typography>
-              ) : (
-                <Box sx={{ display: 'flex', gap: 1, mt: 1 }}>
-                  <Button
-                    size="small"
-                    variant="contained"
-                    onClick={() => void acceptSuggestion(s)}
-                    disabled={busy}
-                    startIcon={busy ? <CircularProgress size={14} /> : undefined}
-                  >
-                    Yes
-                  </Button>
-                  <Button size="small" variant="text" onClick={() => dismissSuggestion(s.id)} disabled={busy}>
-                    No
-                  </Button>
-                </Box>
-              )}
-            </Box>
-          );
-        })}
-      </Stack>
-    </Paper>
+  // Inline "Reviewing…" indicator while the post-chart review runs (its suggestions land directly in
+  // the note, so there are no cards here). Index of the first thread message NEWER than the anchor so
+  // the indicator sits inline at the point review started.
+  const firstNewerIdx = reviewAnchorId === null ? -1 : thread.findIndex((m) => m.id > reviewAnchorId);
+  const reviewPane = (reviewLoading || reviewError) && (
+    <Box sx={{ display: 'flex' }}>
+      <Paper variant="outlined" sx={{ p: 1.75, width: '100%', borderRadius: '14px 14px 14px 4px' }}>
+        {reviewLoading ? (
+          <Stack direction="row" spacing={1} alignItems="center">
+            <CircularProgress size={14} />
+            <Typography variant="body2" color="text.secondary">
+              Reviewing the note and adding suggestions…
+            </Typography>
+          </Stack>
+        ) : (
+          <Typography variant="body2" color="error">
+            Couldn't review the note. Try Review note again.
+          </Typography>
+        )}
+      </Paper>
+    </Box>
   );
 
+  // A picker conv is one awaiting the provider's choice (disambiguation). During a running plan we
+  // only surface the live conv for pickers — the evolving plan card already shows step progress —
+  // while a single-shot turn (no plan) shows its live conv until it settles into history.
+  const isPickerConv = (k: ConvStep['kind']): boolean => k.startsWith('choose');
+  const showLiveConv = !!conv && committedConv !== conv && (!plan || isPickerConv(conv.kind));
+
+  // The live (in-progress) assistant turn — "thinking", a picker, or a per-action result. The user's
+  // message is now its own thread bubble and the settled summary is folded into history, so this is
+  // rendered only while the turn is active and uncommitted (gated by showLiveConv in the layout).
   const conversationCard = conv && (
-    <Paper variant="outlined" sx={{ p: 2 }}>
-      <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, display: 'block' }}>
-        You
-      </Typography>
-      <Typography variant="body2" sx={{ mb: 1 }}>
-        {conv.user}
-      </Typography>
-      <Divider sx={{ my: 1 }} />
-      <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, display: 'block' }}>
-        Assistant
-      </Typography>
-      {conv.kind === 'thinking' && (
-        <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 0.5 }}>
-          <CircularProgress size={14} />
-          <Typography variant="body2" color="text.secondary">
-            Thinking…
-          </Typography>
-        </Stack>
-      )}
-      {conv.kind === 'unknown' && (
-        <Typography variant="body2" sx={{ mt: 0.5 }}>
-          {conv.reply}
-        </Typography>
-      )}
-      {conv.kind === 'no-match' && (
-        <Typography variant="body2" sx={{ mt: 0.5 }}>
-          No matches found for &ldquo;{conv.intent.display}&rdquo;. Try a different phrasing.
-        </Typography>
-      )}
-      {conv.kind === 'choose' && (
-        <>
+    <Box sx={{ display: 'flex' }}>
+      <Paper variant="outlined" sx={{ p: 1.75, width: '100%', borderRadius: '14px 14px 14px 4px' }}>
+        {conv.kind === 'thinking' && (
+          <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 0.5 }}>
+            <CircularProgress size={14} />
+            <Typography variant="body2" color="text.secondary">
+              Thinking…
+            </Typography>
+          </Stack>
+        )}
+        {conv.kind === 'unknown' && (
           <Typography variant="body2" sx={{ mt: 0.5 }}>
-            I found {conv.results.length} matches for &ldquo;{conv.intent.display}&rdquo;. Which one?
+            {conv.reply}
           </Typography>
-          {(() => {
-            // Strength-mismatch warning: when the provider asked for a specific medication
-            // strength (e.g. "400 mg/5 mL") that doesn't appear in ANY catalog result, surface
-            // the gap so they don't silently pick a different concentration. Checks the requested
-            // strength against each result's name+strength fields after normalization.
-            if (conv.intent.kind !== 'add-medication' || !conv.intent.strength) return null;
-            const want = conv.intent.strength.toLowerCase().replace(/\s+/g, '').replace(/\./g, '');
-            const present = conv.results.some((r) => {
-              const haystack = `${r.name} ${r.strength ?? ''}`.toLowerCase().replace(/\s+/g, '').replace(/\./g, '');
-              return haystack.includes(want);
-            });
-            if (present) return null;
-            return (
-              <Typography variant="caption" sx={{ display: 'block', mt: 0.5, color: 'warning.dark', fontWeight: 600 }}>
-                ⚠ Requested strength <strong>{conv.intent.strength}</strong> is not in the formulary — these are the
-                closest available options.
-              </Typography>
-            );
-          })()}
-          {renderPickerActions(conv.intent)}
-          <List dense sx={{ mt: 0.5 }}>
-            {conv.results.map((r, i) => (
-              <ListItemButton key={`${r.code ?? r.id ?? i}`} onClick={() => void handlePick(conv.intent, r, conv.user)}>
-                <ListItemText
-                  primary={r.name + (r.strength ? ` — ${r.strength}` : '')}
-                  secondary={r.code}
-                  primaryTypographyProps={{ variant: 'body2' }}
-                  secondaryTypographyProps={{ variant: 'caption' }}
-                />
-              </ListItemButton>
-            ))}
-          </List>
-        </>
-      )}
-      {conv.kind === 'saving' && (
-        <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 0.5 }}>
-          <CircularProgress size={14} />
-          <Typography variant="body2" color="text.secondary">
-            Adding {conv.chosenName}…
-          </Typography>
-        </Stack>
-      )}
-      {conv.kind === 'done' && (
-        <Typography variant="body2" sx={{ mt: 0.5 }}>
-          Added <strong>{conv.chosenName}</strong> to the chart.
-        </Typography>
-      )}
-      {conv.kind === 'no-match-remove' && (
-        <Typography variant="body2" sx={{ mt: 0.5 }}>
-          I couldn&rsquo;t find &ldquo;{conv.intent.display}&rdquo; in the chart.
-        </Typography>
-      )}
-      {conv.kind === 'choose-remove' && (
-        <>
+        )}
+        {conv.kind === 'no-match' && (
           <Typography variant="body2" sx={{ mt: 0.5 }}>
-            I found {conv.matches.length} matches for &ldquo;{conv.intent.display}&rdquo;. Which one to remove?
+            No matches found for &ldquo;{conv.intent.display}&rdquo;. Try a different phrasing.
           </Typography>
-          {renderPickerActions(conv.intent)}
-          <List dense sx={{ mt: 0.5 }}>
-            {conv.matches.map((m) => (
-              <ListItemButton key={m.resourceId} onClick={() => void handleRemovePick(m, conv.user)}>
-                <ListItemText primary={m.displayName} primaryTypographyProps={{ variant: 'body2' }} />
-              </ListItemButton>
-            ))}
-          </List>
-        </>
-      )}
-      {conv.kind === 'removing' && (
-        <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 0.5 }}>
-          <CircularProgress size={14} />
-          <Typography variant="body2" color="text.secondary">
-            Removing {conv.chosenName}…
-          </Typography>
-        </Stack>
-      )}
-      {conv.kind === 'removed' && (
-        <Typography variant="body2" sx={{ mt: 0.5 }}>
-          Removed <strong>{conv.chosenName}</strong> from the chart.
-        </Typography>
-      )}
-      {conv.kind === 'no-match-template' && (
-        <Typography variant="body2" sx={{ mt: 0.5 }}>
-          I couldn&rsquo;t find a template matching &ldquo;{conv.intent.display}&rdquo;.
-        </Typography>
-      )}
-      {conv.kind === 'choose-template' && (
-        <>
-          <Typography variant="body2" sx={{ mt: 0.5 }}>
-            I found {conv.matches.length} templates matching &ldquo;{conv.intent.display}&rdquo;. Which one to apply?
-          </Typography>
-          {renderPickerActions(conv.intent)}
-          <List dense sx={{ mt: 0.5 }}>
-            {conv.matches.map((m) => (
-              <ListItemButton key={m.id} onClick={() => void handleApplyTemplate(m, conv.user)}>
-                <ListItemText primary={m.title} primaryTypographyProps={{ variant: 'body2' }} />
-              </ListItemButton>
-            ))}
-          </List>
-        </>
-      )}
-      {conv.kind === 'applying-template' && (
-        <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 0.5 }}>
-          <CircularProgress size={14} />
-          <Typography variant="body2" color="text.secondary">
-            Applying {conv.chosenName}…
-          </Typography>
-        </Stack>
-      )}
-      {conv.kind === 'applied-template' && (
-        <Typography variant="body2" sx={{ mt: 0.5 }}>
-          Applied template <strong>{conv.chosenName}</strong>.
-        </Typography>
-      )}
-      {conv.kind === 'no-match-procedure' && (
-        <Typography variant="body2" sx={{ mt: 0.5 }}>
-          I couldn&rsquo;t find a procedure matching &ldquo;{conv.intent.display}&rdquo; in this practice&rsquo;s quick
-          picks.
-        </Typography>
-      )}
-      {conv.kind === 'choose-procedure' && (
-        <>
-          <Typography variant="body2" sx={{ mt: 0.5 }}>
-            I found {conv.matches.length} procedures matching &ldquo;{conv.intent.display}&rdquo;. Which one to add?
-          </Typography>
-          {renderPickerActions(conv.intent)}
-          <List dense sx={{ mt: 0.5 }}>
-            {conv.matches.map((m) => (
-              <ListItemButton key={m.id ?? m.name} onClick={() => void handleProcedurePick(m, conv.user)}>
-                <ListItemText primary={m.name} primaryTypographyProps={{ variant: 'body2' }} />
-              </ListItemButton>
-            ))}
-          </List>
-        </>
-      )}
-      {conv.kind === 'choose-lab' && (
-        <>
-          <Typography variant="body2" sx={{ mt: 0.5 }}>
-            There are {conv.candidates.length} {conv.labKind === 'in-house' ? 'in-house' : 'send-out'} tests matching
-            &ldquo;{conv.display}&rdquo;. Which one to order?
-          </Typography>
-          <List dense sx={{ mt: 0.5 }}>
-            {conv.candidates.map((c, i) => (
-              <ListItemButton key={`${c.label}-${i}`} onClick={() => handleLabPick(conv, c)}>
-                <ListItemText primary={c.label} primaryTypographyProps={{ variant: 'body2' }} />
-              </ListItemButton>
-            ))}
-          </List>
-        </>
-      )}
-      {conv.kind === 'no-procedure-to-update' && (
-        <Typography variant="body2" sx={{ mt: 0.5 }}>
-          There&rsquo;s no procedure on this chart yet to update. Try &ldquo;add lac repair procedure&rdquo; first.
-        </Typography>
-      )}
-      {conv.kind === 'choose-procedure-to-update' && (
-        <>
-          <Typography variant="body2" sx={{ mt: 0.5 }}>
-            There are {conv.candidates.length} procedures on this chart. Which one to update?
-          </Typography>
-          {renderPickerActions(conv.intent)}
-          <List dense sx={{ mt: 0.5 }}>
-            {conv.candidates.map((p, i) => {
-              const label = p.procedureType ?? p.cptCodes?.[0]?.display ?? `Procedure ${i + 1}`;
+        )}
+        {conv.kind === 'choose' && (
+          <>
+            <Typography variant="body2" sx={{ mt: 0.5 }}>
+              I found {conv.results.length} matches for &ldquo;{conv.intent.display}&rdquo;. Which one?
+            </Typography>
+            {(() => {
+              // Strength-mismatch warning: when the provider asked for a specific medication
+              // strength (e.g. "400 mg/5 mL") that doesn't appear in ANY catalog result, surface
+              // the gap so they don't silently pick a different concentration. Checks the requested
+              // strength against each result's name+strength fields after normalization.
+              if (conv.intent.kind !== 'add-medication' || !conv.intent.strength) return null;
+              const want = conv.intent.strength.toLowerCase().replace(/\s+/g, '').replace(/\./g, '');
+              const present = conv.results.some((r) => {
+                const haystack = `${r.name} ${r.strength ?? ''}`.toLowerCase().replace(/\s+/g, '').replace(/\./g, '');
+                return haystack.includes(want);
+              });
+              if (present) return null;
               return (
-                <ListItemButton
-                  key={p.resourceId ?? i}
-                  onClick={() => void handleProcedureUpdate(p, conv.intent, conv.user)}
+                <Typography
+                  variant="caption"
+                  sx={{ display: 'block', mt: 0.5, color: 'warning.dark', fontWeight: 600 }}
                 >
-                  <ListItemText primary={label} primaryTypographyProps={{ variant: 'body2' }} />
-                </ListItemButton>
+                  ⚠ Requested strength <strong>{conv.intent.strength}</strong> is not in the formulary — these are the
+                  closest available options.
+                </Typography>
               );
-            })}
-          </List>
-        </>
-      )}
-      {conv.kind === 'updating-procedure' && (
-        <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 0.5 }}>
-          <CircularProgress size={14} />
-          <Typography variant="body2" color="text.secondary">
-            Updating {conv.chosenName}…
-          </Typography>
-        </Stack>
-      )}
-      {conv.kind === 'updated-procedure' && (
-        <Typography variant="body2" sx={{ mt: 0.5 }}>
-          Updated <strong>{conv.chosenName}</strong>: {conv.summary}
-        </Typography>
-      )}
-      {conv.kind === 'editing-note-text' && (
-        <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 0.5 }}>
-          <CircularProgress size={14} />
-          <Typography variant="body2" color="text.secondary">
-            Updating {conv.fieldLabel}…
-          </Typography>
-        </Stack>
-      )}
-      {conv.kind === 'edited-note-text' && (
-        <Typography variant="body2" sx={{ mt: 0.5 }}>
-          Updated <strong>{conv.fieldLabel}</strong>.
-        </Typography>
-      )}
-      {conv.kind === 'no-match-exam' && (
-        <Typography variant="body2" sx={{ mt: 0.5 }}>
-          I couldn&rsquo;t find an exam finding matching &ldquo;{conv.intent.display}&rdquo;.
-        </Typography>
-      )}
-      {conv.kind === 'choose-exam' && (
-        <>
-          <Typography variant="body2" sx={{ mt: 0.5 }}>
-            I found {conv.matches.length} exam findings matching &ldquo;{conv.intent.display}&rdquo;. Select the ones
-            that apply (you can choose more than one):
-          </Typography>
-          {renderPickerActions(conv.intent)}
-          <List dense sx={{ mt: 0.5 }}>
-            {conv.matches.map((m) => {
-              const key = leafKey(m);
-              const checked = examPickSelected.has(key);
-              return (
+            })()}
+            {renderPickerActions(conv.intent)}
+            <List dense sx={{ mt: 0.5 }}>
+              {conv.results.map((r, i) => (
                 <ListItemButton
-                  key={key}
-                  dense
-                  onClick={() =>
-                    setExamPickSelected((prev) => {
-                      const next = new Set(prev);
-                      if (next.has(key)) next.delete(key);
-                      else next.add(key);
-                      return next;
-                    })
-                  }
+                  key={`${r.code ?? r.id ?? i}`}
+                  onClick={() => void handlePick(conv.intent, r, conv.user)}
                 >
-                  <ListItemIcon sx={{ minWidth: 0, mr: 1 }}>
-                    <Checkbox edge="start" size="small" checked={checked} tabIndex={-1} disableRipple sx={{ p: 0 }} />
-                  </ListItemIcon>
                   <ListItemText
-                    primary={m.label}
-                    secondary={`${m.section} · ${m.normalAbnormal}`}
+                    primary={r.name + (r.strength ? ` — ${r.strength}` : '')}
+                    secondary={r.code}
                     primaryTypographyProps={{ variant: 'body2' }}
                     secondaryTypographyProps={{ variant: 'caption' }}
                   />
                 </ListItemButton>
-              );
-            })}
-          </List>
-          <Button
-            size="small"
-            variant="contained"
-            sx={{ textTransform: 'none', mt: 0.5 }}
-            disabled={examPickSelected.size === 0}
-            onClick={() => {
-              const chosen = conv.matches.filter((m) => examPickSelected.has(leafKey(m)));
-              void handleExamPickMulti(chosen, conv.user);
-            }}
-          >
-            {examPickSelected.size > 1 ? `Add ${examPickSelected.size} findings` : 'Add finding'}
-          </Button>
-        </>
-      )}
-      {conv.kind === 'no-match-exam-remove' && (
-        <Typography variant="body2" sx={{ mt: 0.5 }}>
-          I couldn&rsquo;t find anything in the exam matching &ldquo;{conv.intent.display}&rdquo;.
-        </Typography>
-      )}
-      {conv.kind === 'choose-exam-remove' && (
-        <>
+              ))}
+            </List>
+          </>
+        )}
+        {conv.kind === 'saving' && (
+          <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 0.5 }}>
+            <CircularProgress size={14} />
+            <Typography variant="body2" color="text.secondary">
+              Adding {conv.chosenName}…
+            </Typography>
+          </Stack>
+        )}
+        {conv.kind === 'done' && (
           <Typography variant="body2" sx={{ mt: 0.5 }}>
-            I found {conv.matches.length} exam findings matching &ldquo;{conv.intent.display}&rdquo;. Which one to
-            remove?
+            Added <strong>{conv.chosenName}</strong> to the chart.
           </Typography>
-          {renderPickerActions(conv.intent)}
-          <List dense sx={{ mt: 0.5 }}>
-            {conv.matches.map((m, i) => (
-              <ListItemButton
-                key={`${m.resourceId}-${m.componentCode ?? 'obs'}-${i}`}
-                onClick={() => void handleExamRemove(m, conv.user)}
-              >
-                <ListItemText
-                  primary={m.displayName}
-                  secondary={m.section}
-                  primaryTypographyProps={{ variant: 'body2' }}
-                  secondaryTypographyProps={{ variant: 'caption' }}
-                />
-              </ListItemButton>
-            ))}
-          </List>
-        </>
-      )}
-      {conv.kind === 'choose-ros-remove' && (
-        <>
+        )}
+        {conv.kind === 'no-match-remove' && (
           <Typography variant="body2" sx={{ mt: 0.5 }}>
-            I found {conv.matches.length} Review of Systems findings matching &ldquo;{conv.display}&rdquo;. Which one to
-            remove?
+            I couldn&rsquo;t find &ldquo;{conv.intent.display}&rdquo; in the chart.
           </Typography>
-          <List dense sx={{ mt: 0.5 }}>
-            {conv.matches.map((m, i) => (
-              <ListItemButton key={`${m.obs.resourceId}-${i}`} onClick={() => void handleRosRemove(m.obs, conv.user)}>
-                <ListItemText primary={m.label} primaryTypographyProps={{ variant: 'body2' }} />
-              </ListItemButton>
-            ))}
-          </List>
-        </>
-      )}
-      {conv.kind === 'skipped' && (
-        <Typography variant="body2" sx={{ mt: 0.5, color: 'text.secondary' }}>
-          {conv.reason ? `Skipped — ${conv.reason}` : 'Skipped.'}
-        </Typography>
-      )}
-      {conv.kind === 'choose-ros' && (
-        <>
+        )}
+        {conv.kind === 'choose-remove' && (
+          <>
+            <Typography variant="body2" sx={{ mt: 0.5 }}>
+              I found {conv.matches.length} matches for &ldquo;{conv.intent.display}&rdquo;. Which one to remove?
+            </Typography>
+            {renderPickerActions(conv.intent)}
+            <List dense sx={{ mt: 0.5 }}>
+              {conv.matches.map((m) => (
+                <ListItemButton key={m.resourceId} onClick={() => void handleRemovePick(m, conv.user)}>
+                  <ListItemText primary={m.displayName} primaryTypographyProps={{ variant: 'body2' }} />
+                </ListItemButton>
+              ))}
+            </List>
+          </>
+        )}
+        {conv.kind === 'removing' && (
+          <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 0.5 }}>
+            <CircularProgress size={14} />
+            <Typography variant="body2" color="text.secondary">
+              Removing {conv.chosenName}…
+            </Typography>
+          </Stack>
+        )}
+        {conv.kind === 'removed' && (
           <Typography variant="body2" sx={{ mt: 0.5 }}>
-            A few Review of Systems options match &ldquo;{conv.intent.display}&rdquo;. Which did you mean?
+            Removed <strong>{conv.chosenName}</strong> from the chart.
           </Typography>
-          {renderPickerActions(conv.intent)}
-          <List dense sx={{ mt: 0.5 }}>
-            {conv.matches.map((m, i) => (
-              <ListItemButton
-                key={`${m.baseKey}-${i}`}
-                onClick={() => {
-                  void handleRosPick(m, conv.finding, conv.user);
-                }}
-              >
-                <ListItemText
-                  primary={`${conv.finding === 'denies' ? 'Denies' : 'Reports'} ${m.label}`}
-                  secondary={m.system}
-                  primaryTypographyProps={{ variant: 'body2' }}
-                  secondaryTypographyProps={{ variant: 'caption' }}
-                />
-              </ListItemButton>
-            ))}
-          </List>
-        </>
-      )}
-      {conv.kind === 'error' && (
-        <Typography variant="body2" color="error" sx={{ mt: 0.5 }}>
-          {conv.reply}
-        </Typography>
-      )}
-      {conv.kind === 'plan-preview' && (
-        <>
-          <Typography variant="body2" sx={{ mt: 0.5, mb: 1 }}>
-            Here&rsquo;s what I&rsquo;ll do ({conv.steps.length} step{conv.steps.length === 1 ? '' : 's'}):
+        )}
+        {conv.kind === 'no-match-template' && (
+          <Typography variant="body2" sx={{ mt: 0.5 }}>
+            I couldn&rsquo;t find a template matching &ldquo;{conv.intent.display}&rdquo;.
           </Typography>
-          <Box sx={{ maxHeight: 280, overflowY: 'auto', mb: 1 }}>
-            {conv.steps.map((step, i) => (
-              <Typography
-                key={i}
-                variant="caption"
-                sx={{
-                  display: 'block',
-                  color: 'text.secondary',
-                  fontFamily: 'monospace',
-                  lineHeight: 1.5,
-                }}
-              >
-                {i + 1}. {describePlanStep(step)}
-              </Typography>
-            ))}
-          </Box>
-          <Stack direction="row" spacing={1}>
+        )}
+        {conv.kind === 'choose-template' && (
+          <>
+            <Typography variant="body2" sx={{ mt: 0.5 }}>
+              I found {conv.matches.length} templates matching &ldquo;{conv.intent.display}&rdquo;. Which one to apply?
+            </Typography>
+            {renderPickerActions(conv.intent)}
+            <List dense sx={{ mt: 0.5 }}>
+              {conv.matches.map((m) => (
+                <ListItemButton key={m.id} onClick={() => void handleApplyTemplate(m, conv.user)}>
+                  <ListItemText primary={m.title} primaryTypographyProps={{ variant: 'body2' }} />
+                </ListItemButton>
+              ))}
+            </List>
+          </>
+        )}
+        {conv.kind === 'applying-template' && (
+          <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 0.5 }}>
+            <CircularProgress size={14} />
+            <Typography variant="body2" color="text.secondary">
+              Applying {conv.chosenName}…
+            </Typography>
+          </Stack>
+        )}
+        {conv.kind === 'applied-template' && (
+          <Typography variant="body2" sx={{ mt: 0.5 }}>
+            Applied template <strong>{conv.chosenName}</strong>.
+          </Typography>
+        )}
+        {conv.kind === 'no-match-procedure' && (
+          <Typography variant="body2" sx={{ mt: 0.5 }}>
+            I couldn&rsquo;t find a procedure matching &ldquo;{conv.intent.display}&rdquo; in this practice&rsquo;s
+            quick picks.
+          </Typography>
+        )}
+        {conv.kind === 'choose-procedure' && (
+          <>
+            <Typography variant="body2" sx={{ mt: 0.5 }}>
+              I found {conv.matches.length} procedures matching &ldquo;{conv.intent.display}&rdquo;. Which one to add?
+            </Typography>
+            {renderPickerActions(conv.intent)}
+            <List dense sx={{ mt: 0.5 }}>
+              {conv.matches.map((m) => (
+                <ListItemButton key={m.id ?? m.name} onClick={() => void handleProcedurePick(m, conv.user)}>
+                  <ListItemText primary={m.name} primaryTypographyProps={{ variant: 'body2' }} />
+                </ListItemButton>
+              ))}
+            </List>
+          </>
+        )}
+        {conv.kind === 'choose-lab' && (
+          <>
+            <Typography variant="body2" sx={{ mt: 0.5 }}>
+              There are {conv.candidates.length} {conv.labKind === 'in-house' ? 'in-house' : 'send-out'} tests matching
+              &ldquo;{conv.display}&rdquo;. Which one to order?
+            </Typography>
+            <List dense sx={{ mt: 0.5 }}>
+              {conv.candidates.map((c, i) => (
+                <ListItemButton key={`${c.label}-${i}`} onClick={() => handleLabPick(conv, c)}>
+                  <ListItemText primary={c.label} primaryTypographyProps={{ variant: 'body2' }} />
+                </ListItemButton>
+              ))}
+            </List>
+          </>
+        )}
+        {conv.kind === 'no-procedure-to-update' && (
+          <Typography variant="body2" sx={{ mt: 0.5 }}>
+            There&rsquo;s no procedure on this chart yet to update. Try &ldquo;add lac repair procedure&rdquo; first.
+          </Typography>
+        )}
+        {conv.kind === 'choose-procedure-to-update' && (
+          <>
+            <Typography variant="body2" sx={{ mt: 0.5 }}>
+              There are {conv.candidates.length} procedures on this chart. Which one to update?
+            </Typography>
+            {renderPickerActions(conv.intent)}
+            <List dense sx={{ mt: 0.5 }}>
+              {conv.candidates.map((p, i) => {
+                const label = p.procedureType ?? p.cptCodes?.[0]?.display ?? `Procedure ${i + 1}`;
+                return (
+                  <ListItemButton
+                    key={p.resourceId ?? i}
+                    onClick={() => void handleProcedureUpdate(p, conv.intent, conv.user)}
+                  >
+                    <ListItemText primary={label} primaryTypographyProps={{ variant: 'body2' }} />
+                  </ListItemButton>
+                );
+              })}
+            </List>
+          </>
+        )}
+        {conv.kind === 'updating-procedure' && (
+          <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 0.5 }}>
+            <CircularProgress size={14} />
+            <Typography variant="body2" color="text.secondary">
+              Updating {conv.chosenName}…
+            </Typography>
+          </Stack>
+        )}
+        {conv.kind === 'updated-procedure' && (
+          <Typography variant="body2" sx={{ mt: 0.5 }}>
+            Updated <strong>{conv.chosenName}</strong>: {conv.summary}
+          </Typography>
+        )}
+        {conv.kind === 'editing-note-text' && (
+          <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 0.5 }}>
+            <CircularProgress size={14} />
+            <Typography variant="body2" color="text.secondary">
+              Updating {conv.fieldLabel}…
+            </Typography>
+          </Stack>
+        )}
+        {conv.kind === 'edited-note-text' && (
+          <Typography variant="body2" sx={{ mt: 0.5 }}>
+            Updated <strong>{conv.fieldLabel}</strong>.
+          </Typography>
+        )}
+        {conv.kind === 'no-match-exam' && (
+          <Typography variant="body2" sx={{ mt: 0.5 }}>
+            I couldn&rsquo;t find an exam finding matching &ldquo;{conv.intent.display}&rdquo;.
+          </Typography>
+        )}
+        {conv.kind === 'choose-exam' && (
+          <>
+            <Typography variant="body2" sx={{ mt: 0.5 }}>
+              I found {conv.matches.length} exam findings matching &ldquo;{conv.intent.display}&rdquo;. Select the ones
+              that apply (you can choose more than one):
+            </Typography>
+            {renderPickerActions(conv.intent)}
+            <List dense sx={{ mt: 0.5 }}>
+              {conv.matches.map((m) => {
+                const key = leafKey(m);
+                const checked = examPickSelected.has(key);
+                return (
+                  <ListItemButton
+                    key={key}
+                    dense
+                    onClick={() =>
+                      setExamPickSelected((prev) => {
+                        const next = new Set(prev);
+                        if (next.has(key)) next.delete(key);
+                        else next.add(key);
+                        return next;
+                      })
+                    }
+                  >
+                    <ListItemIcon sx={{ minWidth: 0, mr: 1 }}>
+                      <Checkbox edge="start" size="small" checked={checked} tabIndex={-1} disableRipple sx={{ p: 0 }} />
+                    </ListItemIcon>
+                    <ListItemText
+                      primary={m.label}
+                      secondary={`${m.section} · ${m.normalAbnormal}`}
+                      primaryTypographyProps={{ variant: 'body2' }}
+                      secondaryTypographyProps={{ variant: 'caption' }}
+                    />
+                  </ListItemButton>
+                );
+              })}
+            </List>
             <Button
               size="small"
               variant="contained"
-              sx={{ textTransform: 'none' }}
+              sx={{ textTransform: 'none', mt: 0.5 }}
+              disabled={examPickSelected.size === 0}
               onClick={() => {
-                if (conv.kind !== 'plan-preview') return;
-                const { narrative, steps } = conv;
-                setPlan({ narrative, steps, currentIdx: 0, results: [] });
+                const chosen = conv.matches.filter((m) => examPickSelected.has(leafKey(m)));
+                void handleExamPickMulti(chosen, conv.user);
               }}
             >
-              Approve &amp; run
+              {examPickSelected.size > 1 ? `Add ${examPickSelected.size} findings` : 'Add finding'}
             </Button>
-            <Button
-              size="small"
-              variant="text"
-              sx={{ textTransform: 'none' }}
-              onClick={() => {
-                if (conv.kind !== 'plan-preview') return;
-                setConv({ kind: 'unknown', user: conv.user, reply: 'Plan cancelled before execution.' });
-              }}
-            >
-              Cancel
-            </Button>
-          </Stack>
-        </>
-      )}
-    </Paper>
+          </>
+        )}
+        {conv.kind === 'no-match-exam-remove' && (
+          <Typography variant="body2" sx={{ mt: 0.5 }}>
+            I couldn&rsquo;t find anything in the exam matching &ldquo;{conv.intent.display}&rdquo;.
+          </Typography>
+        )}
+        {conv.kind === 'choose-exam-remove' && (
+          <>
+            <Typography variant="body2" sx={{ mt: 0.5 }}>
+              I found {conv.matches.length} exam findings matching &ldquo;{conv.intent.display}&rdquo;. Which one to
+              remove?
+            </Typography>
+            {renderPickerActions(conv.intent)}
+            <List dense sx={{ mt: 0.5 }}>
+              {conv.matches.map((m, i) => (
+                <ListItemButton
+                  key={`${m.resourceId}-${m.componentCode ?? 'obs'}-${i}`}
+                  onClick={() => void handleExamRemove(m, conv.user)}
+                >
+                  <ListItemText
+                    primary={m.displayName}
+                    secondary={m.section}
+                    primaryTypographyProps={{ variant: 'body2' }}
+                    secondaryTypographyProps={{ variant: 'caption' }}
+                  />
+                </ListItemButton>
+              ))}
+            </List>
+          </>
+        )}
+        {conv.kind === 'choose-ros-remove' && (
+          <>
+            <Typography variant="body2" sx={{ mt: 0.5 }}>
+              I found {conv.matches.length} Review of Systems findings matching &ldquo;{conv.display}&rdquo;. Which one
+              to remove?
+            </Typography>
+            <List dense sx={{ mt: 0.5 }}>
+              {conv.matches.map((m, i) => (
+                <ListItemButton key={`${m.obs.resourceId}-${i}`} onClick={() => void handleRosRemove(m.obs, conv.user)}>
+                  <ListItemText primary={m.label} primaryTypographyProps={{ variant: 'body2' }} />
+                </ListItemButton>
+              ))}
+            </List>
+          </>
+        )}
+        {conv.kind === 'skipped' && (
+          <Typography variant="body2" sx={{ mt: 0.5, color: 'text.secondary' }}>
+            {conv.reason ? `Skipped — ${conv.reason}` : 'Skipped.'}
+          </Typography>
+        )}
+        {conv.kind === 'choose-ros' && (
+          <>
+            <Typography variant="body2" sx={{ mt: 0.5 }}>
+              A few Review of Systems options match &ldquo;{conv.intent.display}&rdquo;. Which did you mean?
+            </Typography>
+            {renderPickerActions(conv.intent)}
+            <List dense sx={{ mt: 0.5 }}>
+              {conv.matches.map((m, i) => (
+                <ListItemButton
+                  key={`${m.baseKey}-${i}`}
+                  onClick={() => {
+                    void handleRosPick(m, conv.finding, conv.user);
+                  }}
+                >
+                  <ListItemText
+                    primary={`${conv.finding === 'denies' ? 'Denies' : 'Reports'} ${m.label}`}
+                    secondary={m.system}
+                    primaryTypographyProps={{ variant: 'body2' }}
+                    secondaryTypographyProps={{ variant: 'caption' }}
+                  />
+                </ListItemButton>
+              ))}
+            </List>
+          </>
+        )}
+        {conv.kind === 'error' && (
+          <Typography variant="body2" color="error" sx={{ mt: 0.5 }}>
+            {conv.reply}
+          </Typography>
+        )}
+        {conv.kind === 'plan-preview' && (
+          <>
+            <Typography variant="body2" sx={{ mt: 0.5, mb: 1 }}>
+              Here&rsquo;s what I&rsquo;ll do ({conv.steps.length} step{conv.steps.length === 1 ? '' : 's'}):
+            </Typography>
+            <Box sx={{ maxHeight: 280, overflowY: 'auto', mb: 1 }}>
+              {conv.steps.map((step, i) => (
+                <Typography
+                  key={i}
+                  variant="caption"
+                  sx={{
+                    display: 'block',
+                    color: 'text.secondary',
+                    fontFamily: 'monospace',
+                    lineHeight: 1.5,
+                  }}
+                >
+                  {i + 1}. {describePlanStep(step)}
+                </Typography>
+              ))}
+            </Box>
+            <Stack direction="row" spacing={1}>
+              <Button
+                size="small"
+                variant="contained"
+                sx={{ textTransform: 'none' }}
+                onClick={() => {
+                  if (conv.kind !== 'plan-preview') return;
+                  const { narrative, steps } = conv;
+                  setPlan({ narrative, steps, currentIdx: 0, results: [] });
+                }}
+              >
+                Approve &amp; run
+              </Button>
+              <Button
+                size="small"
+                variant="text"
+                sx={{ textTransform: 'none' }}
+                onClick={() => {
+                  if (conv.kind !== 'plan-preview') return;
+                  setConv({ kind: 'unknown', user: conv.user, reply: 'Plan cancelled before execution.' });
+                }}
+              >
+                Cancel
+              </Button>
+            </Stack>
+          </>
+        )}
+      </Paper>
+    </Box>
   );
 
   const notePane = loading ? (
@@ -5805,28 +7081,71 @@ export default function EasyChartPage(): JSX.Element {
           label={<Typography variant="body2">I verified patient&apos;s name and date of birth.</Typography>}
         />
       </Box>
-      {aiCharted.size > 0 && (
-        <Box
-          sx={{
-            mb: 1.5,
-            px: 1.5,
-            py: 1,
-            borderRadius: 1,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 1,
-            bgcolor: 'rgba(25,118,210,0.08)',
-            border: '1px solid',
-            borderColor: 'rgba(25,118,210,0.3)',
-          }}
-        >
-          <AutoAwesomeIcon sx={{ fontSize: 18, color: 'primary.main' }} />
-          <Typography variant="body2" color="text.secondary">
-            <strong>{aiCharted.size}</strong> AI-charted {aiCharted.size === 1 ? 'item needs' : 'items need'} review —
-            click a highlighted item to confirm, change, or remove it.
-          </Typography>
-        </Box>
-      )}
+      {(() => {
+        // Sign-off readiness: consolidates the unreviewed-AI count and the deterministic consistency
+        // warnings into one banner. Amber when warnings exist, blue when only review remains, green
+        // once everything's clear (and something was AI-charted this session). Nothing on a clean
+        // fully-manual note.
+        const warnings = computeChartWarnings(chartData);
+        const unreviewed = aiCharted.size + procedureProv.size;
+        const blocked = unreviewed > 0 || warnings.length > 0;
+        if (!blocked && !hadAiItems) return null;
+        const tone = warnings.length > 0 ? 'warn' : blocked ? 'info' : 'ok';
+        const palette =
+          tone === 'warn'
+            ? { bg: 'rgba(237,108,2,0.08)', border: 'rgba(237,108,2,0.4)', icon: 'warning.main' }
+            : tone === 'info'
+            ? { bg: 'rgba(25,118,210,0.08)', border: 'rgba(25,118,210,0.3)', icon: 'primary.main' }
+            : { bg: 'rgba(46,125,50,0.08)', border: 'rgba(46,125,50,0.3)', icon: 'success.main' };
+        const reviewBit =
+          unreviewed > 0 ? `${unreviewed} AI ${unreviewed === 1 ? 'item needs' : 'items need'} review` : '';
+        const warnBit =
+          warnings.length > 0 ? `${warnings.length} consistency ${warnings.length === 1 ? 'warning' : 'warnings'}` : '';
+        const summary = blocked
+          ? [reviewBit, warnBit].filter(Boolean).join(' · ')
+          : 'All AI-charted items reviewed and no consistency warnings — ready to finalize.';
+        return (
+          <Box
+            sx={{
+              mb: 1.5,
+              px: 1.5,
+              py: 1,
+              borderRadius: 1,
+              bgcolor: palette.bg,
+              border: '1px solid',
+              borderColor: palette.border,
+            }}
+          >
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              {tone === 'ok' ? (
+                <CheckCircleOutlineIcon sx={{ fontSize: 18, color: palette.icon }} />
+              ) : tone === 'warn' ? (
+                <WarningAmberIcon sx={{ fontSize: 18, color: palette.icon }} />
+              ) : (
+                <AutoAwesomeIcon sx={{ fontSize: 18, color: palette.icon }} />
+              )}
+              <Typography variant="body2" color="text.secondary" sx={{ flex: 1 }}>
+                {blocked ? <strong>{summary}</strong> : summary}
+                {unreviewed > 0 && ' — click a highlighted item to confirm, change, or remove it.'}
+              </Typography>
+              {unreviewed > 0 && (
+                <Button size="small" variant="outlined" sx={{ flexShrink: 0 }} onClick={confirmAllAi}>
+                  Confirm all
+                </Button>
+              )}
+            </Box>
+            {warnings.length > 0 && (
+              <Box component="ul" sx={{ m: 0, mt: 0.75, pl: 3.5 }}>
+                {warnings.map((w) => (
+                  <Typography key={w.id} component="li" variant="caption" color="warning.dark">
+                    {w.text}
+                  </Typography>
+                ))}
+              </Box>
+            )}
+          </Box>
+        );
+      })()}
       <NoteSections
         data={chartData}
         freshlyAdded={freshlyAdded}
@@ -5837,6 +7156,17 @@ export default function EasyChartPage(): JSX.Element {
         onSaveField={saveNoteField}
         onRemoveItem={handleInlineRemove}
         onMakePrimary={handleMakePrimary}
+        onSaveProcedure={(p) => {
+          if (!encounterId) return;
+          void saveAndMerge({ encounterId, procedures: [p] });
+        }}
+        onSaveVital={(v) => {
+          if (!encounterId) return;
+          // Editing a vital saves the updated value and counts as reviewing it (clears the flag).
+          void saveAndMerge({ encounterId, vitalsObservations: [v] });
+          clearAiChartedId(v.resourceId);
+        }}
+        procedureFieldAllowed={procedureFieldAllowedValues}
         aiCharted={aiCharted}
         onAiSearch={aiSearch}
         onAiReplace={aiReplace}
@@ -5844,6 +7174,10 @@ export default function EasyChartPage(): JSX.Element {
         onAiDiscuss={aiDiscuss}
         onAiSetMedDosage={aiSetMedDosage}
         onAiSetRosState={aiSetRosState}
+        onAiConfirm={(dto) => clearAiChartedId(dto.resourceId)}
+        procedureProvenance={procedureProv}
+        onConfirmProcedureField={confirmProcedureField}
+        onConfirmProcedure={confirmProcedure}
       />
     </>
   ) : null;
@@ -5934,7 +7268,7 @@ export default function EasyChartPage(): JSX.Element {
       <Box
         sx={{
           display: 'grid',
-          gridTemplateColumns: { xs: '1fr', md: '2fr minmax(320px, 1fr)' },
+          gridTemplateColumns: { xs: '1fr', md: '3fr minmax(320px, 2fr)' },
           gap: 2,
           // Constrain to viewport on md+ so each column scrolls independently
           height: { md: `calc(100vh - ${topChrome.sm}px - 80px)` },
@@ -5943,16 +7277,49 @@ export default function EasyChartPage(): JSX.Element {
         {/* Left column: the note */}
         <Box sx={{ overflowY: { md: 'auto' }, pr: { md: 1 } }}>{notePane}</Box>
 
-        {/* Right column: AI conversation */}
+        {/* Right column: a single unified chat thread — history scrolls above, composer pinned below */}
         <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-          <Box ref={rightColScrollRef} sx={{ overflowY: { md: 'auto' }, pr: { md: 1 } }}>
-            <Stack spacing={2}>
-              {refineBar}
+          <Box ref={rightColScrollRef} sx={{ flex: 1, overflowY: { md: 'auto' }, pr: { md: 1 }, minHeight: 0 }}>
+            <Stack spacing={1.5} sx={{ py: 1 }}>
+              {thread.length === 0 && !conv && !plan && (
+                <Box sx={{ display: 'flex' }}>
+                  <Paper variant="outlined" sx={{ p: 1.75, width: '100%', borderRadius: '14px 14px 14px 4px' }}>
+                    <Typography variant="body2" color="text.secondary">
+                      Paste a dictation to chart the visit, or ask me to add or change anything — e.g.{' '}
+                      <em>“add diagnosis sinusitis”</em>. I’ll chart as we go.
+                    </Typography>
+                  </Paper>
+                </Box>
+              )}
+              {thread.map((m, i) => (
+                <Fragment key={m.id}>
+                  {/* Suggestions sit inline at the point they were produced; later turns render below. */}
+                  {i === firstNewerIdx && reviewPane}
+                  <Box sx={{ display: 'flex', justifyContent: m.role === 'user' ? 'flex-end' : 'flex-start' }}>
+                    <Paper
+                      elevation={0}
+                      sx={{
+                        p: 1.5,
+                        maxWidth: '90%',
+                        bgcolor: m.role === 'user' ? 'primary.main' : 'action.hover',
+                        color: m.role === 'user' ? 'primary.contrastText' : 'text.primary',
+                        borderRadius: m.role === 'user' ? '14px 14px 4px 14px' : '14px 14px 14px 4px',
+                      }}
+                    >
+                      <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
+                        {m.text}
+                      </Typography>
+                    </Paper>
+                  </Box>
+                </Fragment>
+              ))}
               {planProgress}
-              {conversationCard}
-              {reviewPane}
+              {showLiveConv && conversationCard}
+              {/* Trailing render when nothing in the thread is newer than the anchor (incl. loading). */}
+              {firstNewerIdx === -1 && reviewPane}
             </Stack>
           </Box>
+          {refineBar}
         </Box>
       </Box>
     </Container>

@@ -5,10 +5,11 @@ import {
   EasyChartNoteContext,
   EasyChartReviewOutput,
   EasyChartSuggestion,
+  EasyChartTokenUsage,
   INVALID_INPUT_ERROR,
 } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
-import { invokeChatbotVertexAI } from '../../shared/ai';
+import { invokeChatbotStructured } from '../../shared/ai';
 import { resolveCptHcpcs, resolveIcd } from '../../shared/easy-chart/codes';
 import { createOystehrClient } from '../../shared/helpers';
 import { validateRequestParameters } from './validateRequestParameters';
@@ -18,7 +19,15 @@ const ZAMBDA_NAME = 'easy-chart-review';
 let m2mToken: string;
 
 // Categories the review surfaces. Drives card grouping/iconography on the client; not logic.
-const CATEGORY_VALUES = ['med-name', 'diagnosis', 'pertinent-negative', 'em-level', 'secondary-dx', 'other'] as const;
+const CATEGORY_VALUES = [
+  'med-name',
+  'med-reconcile',
+  'diagnosis',
+  'pertinent-negative',
+  'em-level',
+  'secondary-dx',
+  'other',
+] as const;
 
 // Intent kinds a suggestion's `actions` may use. A subset of the planner's full intent set —
 // just the ones the five review categories need (plus a little headroom). Each is replayed
@@ -107,7 +116,7 @@ const buildPrompt = (narrative: string, chartState?: string, noteContext?: EasyC
 NARRATIVE below; the structured items now on the chart are in ALREADY ON THE CHART. Your job is to
 surface clarifications the provider can accept with ONE CLICK to improve the note.
 
-Work through ALL FIVE checks below and emit one suggestion for EACH check that finds a real gap
+Work through ALL SIX checks below and emit one suggestion for EACH check that finds a real gap
 (commonly 2–5 total). Don't invent low-value suggestions, but don't skip a check that genuinely
 applies either. If truly nothing warrants a prompt, return {"suggestions": []}.
 
@@ -161,6 +170,19 @@ Each suggestion is in exactly one of these categories, with the given action sha
    Suggest a secondary dx ONLY when the narrative clearly frames it as its own problem the provider
    worked up or addressed. When in doubt, omit.
 
+6) "med-reconcile" — the MDM/plan text states a medication's DOSE/STRENGTH (or form) that does NOT
+   match the actual ORDER on the chart. The order is the source of truth: the provider often has to
+   pick the nearest available strength in the formulary, which can differ from what was dictated
+   (e.g. the MDM says "Cyclobenzaprine 5 mg" but ALREADY ON THE CHART shows the order as "…7.5 MG"
+   because 5 mg wasn't available). For EACH medication named in the MDM, compare its stated
+   dose/strength/form against the matching charted medication's strength/form; flag ONLY a genuine
+   numeric/unit/form difference — ignore pure formatting ("5 mg" vs "5 MG") and never flag a med that
+   isn't actually on the chart as an order.
+   ACTION: one edit-note-text on "medicalDecision" whose newText is the FULL current MDM text with
+   ONLY that medication's dose/strength/form updated to match the order — change nothing else in the
+   text. Set "highlight" to the corrected value (e.g. "7.5 mg"). The order is already correct, so do
+   NOT set partial.
+
 RULES:
 - NEVER suggest adding something that already appears in ALREADY ON THE CHART.
 - Phrase "question" as a short question the provider reads on a card (e.g. "You wrote 'Ciner' — did you
@@ -169,6 +191,8 @@ RULES:
   confident but it's fine if you're unsure of the exact code.
 - One suggestion per check that applies — don't merge unrelated gaps into one card, and don't pad with
   marginal ones.
+
+═══ END OF FIXED INSTRUCTIONS — review the note + narrative below ═══
 ${chartBlock}${noteBlock}
 NARRATIVE:
 """${narrative}"""
@@ -232,10 +256,18 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     console.warn('Review: Oystehr client init failed, proceeding without CPT validation:', e);
   }
 
-  const raw = await invokeChatbotVertexAI(
+  // Use the same backend as the planner (sonnet by default). flash-lite over-suggested pertinent
+  // negatives the provider never voiced (e.g. "Denies nausea" inferred from "no emesis"), despite
+  // the prompt requiring a near-verbatim quote.
+  let usage: EasyChartTokenUsage | undefined;
+  const raw = await invokeChatbotStructured(
     [{ text: buildPrompt(narrative, chartState, noteContext) }],
     secrets,
-    RESPONSE_SCHEMA
+    RESPONSE_SCHEMA,
+    undefined,
+    (u) => {
+      usage = u;
+    }
   );
 
   let parsed: { suggestions?: unknown };
@@ -270,6 +302,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     });
   }
 
-  const output: EasyChartReviewOutput = { suggestions };
+  const output: EasyChartReviewOutput = { suggestions, usage };
   return { statusCode: 200, body: JSON.stringify(output) };
 });

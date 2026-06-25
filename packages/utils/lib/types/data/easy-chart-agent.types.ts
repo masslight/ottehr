@@ -40,6 +40,18 @@ export type EasyChartAgentIntent =
   | { kind: 'add-cpt'; code: string; display: string }
   | { kind: 'remove-em-code'; code?: string }
   | { kind: 'remove-cpt'; code: string }
+  // Patient-facing instructions for the care plan (return precautions, home care, activity
+  // restrictions, follow-up logistics). Charted as a Communication, NOT folded into the MDM.
+  | { kind: 'add-patient-instruction'; text: string }
+  // Structured disposition (the Plan tab's Disposition card): where the patient goes next. type is a
+  // DispositionType ('pcp' | 'ed' | 'specialty' | 'another' | 'ip' | …); text is the disposition note;
+  // followUpInDays optionally captures "follow up in N days".
+  | { kind: 'set-disposition'; dispositionType: string; text: string; followUpInDays?: number }
+  // Nursing order (free-text task placed as a ServiceRequest), e.g. "nursing order for wound care".
+  | { kind: 'add-nursing-order'; text: string }
+  // Radiology / imaging order. display = study name (e.g. "3-view right ankle X-ray"); searchTerms
+  // help resolve it to a CPT in the radiology catalog; the client links the primary diagnosis.
+  | { kind: 'add-radiology'; display: string; searchTerms: string[] }
   // Apply a saved chart template by name; client matches against the live list of templates.
   | { kind: 'apply-template'; display: string; searchTerms: string[] }
   // Add a procedure to the encounter; client matches against the practice's procedure quick picks.
@@ -130,8 +142,22 @@ export interface EasyChartAgentInput {
   noteContext?: EasyChartNoteContext;
 }
 
+// TEMPORARY (debug): per-call LLM token usage, surfaced from the zambda so the easy-chart UI can
+// show how many tokens a charting session consumes. provider tells Gemini (agent) vs Claude
+// (planner/review) apart; cache* are populated when prompt caching is active.
+export interface EasyChartTokenUsage {
+  provider: 'gemini' | 'claude';
+  model?: string;
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadTokens?: number;
+  cacheWriteTokens?: number;
+  thinkingTokens?: number;
+}
+
 export interface EasyChartAgentOutput {
   intent: EasyChartAgentIntent;
+  usage?: EasyChartTokenUsage;
 }
 
 // Narrative-to-plan: the planner takes a longer prose request from the provider plus the
@@ -152,8 +178,16 @@ export interface EasyChartPlannerInput {
   encounterId?: string;
 }
 
+// A planner step is an ordinary intent plus PROVENANCE: the verbatim phrase from the narrative
+// that justifies this action. `sourceText` is present when the step is traceable to something the
+// provider actually said; it is omitted/empty for steps the planner INFERRED (default-normal exam
+// findings, template-derived defaults, codes deduced from context). The client uses this to mark
+// each charted item as sourced vs inferred so the provider can spot fabrications at a glance.
+export type EasyChartPlannerStep = EasyChartAgentIntent & { sourceText?: string };
+
 export interface EasyChartPlannerOutput {
-  steps: EasyChartAgentIntent[];
+  steps: EasyChartPlannerStep[];
+  usage?: EasyChartTokenUsage;
 }
 
 // Post-completion review: after a note has been charted, a second pass looks at the original
@@ -166,7 +200,7 @@ export interface EasyChartSuggestion {
   // Stable id for this card within a review response, used to track accept/dismiss in the UI.
   id: string;
   // What kind of gap this addresses. Drives grouping/iconography; not load-bearing logic.
-  category: 'med-name' | 'diagnosis' | 'pertinent-negative' | 'em-level' | 'secondary-dx' | 'other';
+  category: 'med-name' | 'med-reconcile' | 'diagnosis' | 'pertinent-negative' | 'em-level' | 'secondary-dx' | 'other';
   // The question shown on the card, e.g. "You wrote 'Ciner' — did you mean Cefdinir?".
   question: string;
   // Short "why", surfaced under the question. Most useful for E&M level changes.
@@ -195,4 +229,5 @@ export interface EasyChartReviewInput {
 
 export interface EasyChartReviewOutput {
   suggestions: EasyChartSuggestion[];
+  usage?: EasyChartTokenUsage;
 }

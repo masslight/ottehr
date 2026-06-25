@@ -24,7 +24,9 @@ export async function resolveIcd(
   if (code && STRICT_ICD10.test(code)) {
     const byCode = await searchIcd10Codes(code);
     const exact = byCode.find((c) => c.code.toUpperCase() === code);
-    if (exact) return { code: exact.code, display: exact.display };
+    if (exact) {
+      return { code: exact.code, display: exact.display };
+    }
   }
   // 2. Miss → text search by display, then each search term; take the top real result.
   for (const q of [display, ...searchTerms]) {

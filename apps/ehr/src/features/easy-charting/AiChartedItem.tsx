@@ -1,24 +1,23 @@
 import ChatBubbleOutlineIcon from '@mui/icons-material/ChatBubbleOutline';
+import CheckIcon from '@mui/icons-material/Check';
 import CloseIcon from '@mui/icons-material/Close';
+import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import {
+  Autocomplete,
   Box,
-  Button,
   Checkbox,
-  CircularProgress,
-  Divider,
+  ClickAwayListener,
   FormControlLabel,
-  List,
-  ListItemButton,
-  ListItemText,
-  Popover,
+  IconButton,
   Stack,
   TextField,
+  Tooltip,
   Typography,
 } from '@mui/material';
-import React, { useCallback, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 
-/** One alternative offered in the correction popover. `key` round-trips back to the caller. */
+/** One alternative offered when correcting an item. `key` round-trips back to the caller. */
 export interface AiAlternative {
   key: string;
   label: string;
@@ -29,8 +28,26 @@ export interface AiAlternative {
 interface AiChartedItemProps {
   /** The rendered item label (the same content a normal note row would show). */
   children: React.ReactNode;
+  /** True when the assistant charted this item and it still needs the provider's review → blue tint.
+   * False for provider-entered / already-reviewed items: still editable, but no review highlight. */
+  needsReview?: boolean;
   /** Auto-picked but ambiguous → flagged for extra attention. */
   lowConfidence?: boolean;
+  /** Planner produced this WITHOUT a phrase from the dictation to back it (default-normal exam,
+   * template default, deduced code) — the items most worth verifying. Renders an "inferred" badge. */
+  inferred?: boolean;
+  /** The verbatim dictation phrase this item was charted from, shown on hover. Empty/undefined when
+   * inferred or provider-entered. */
+  sourceText?: string;
+  /** Reasoning when this item was added by the post-chart REVIEW pass (not the original dictation).
+   * Shown on hover + a "· review" tag, so the provider reviews the suggestion in place. */
+  reviewNote?: string;
+  /** Name of the chart template this item came from (a default for that presentation, not the
+   * dictation), shown on hover so the provider verifies it fits this visit. */
+  templateName?: string;
+  /** Accept the item as-is (provider reviewed it) → clears the needs-review highlight. Shown as a ✓
+   * only while the item needs review. */
+  onConfirm?: () => void;
   /** Seed query for the alternatives search (usually the item's display text). */
   initialQuery: string;
   onSearch: (query: string) => Promise<AiAlternative[]>;
@@ -40,21 +57,28 @@ interface AiChartedItemProps {
   onDiscuss: () => void;
   /** Hide the "Discuss" action (code-based items have no right-panel picker). */
   hideDiscuss?: boolean;
-  // An optional checkbox shown at the top of the popover (e.g. medications' "Patient doesn't know
-  // dosage", or ROS "Patient denies"). Toggling it updates the CURRENT item in place via onChange;
-  // its state is also passed to onReplace so a chosen replacement inherits it.
+  // An optional checkbox shown while editing (e.g. medications' "Patient doesn't know dosage", or ROS
+  // "Patient denies"). Toggling it updates the CURRENT item in place via onChange; its state is also
+  // passed to onReplace so a chosen replacement inherits it.
   checkboxOption?: { label: string; checked: boolean; onChange: (checked: boolean) => void };
 }
 
 /**
- * An AI-charted note item: highlighted to show it was placed by the assistant and still needs the
- * provider's review. Clicking it opens a popover to swap it for an alternative (searched), remove
- * it, or kick it back to the right-hand AI panel ("Discuss") for more detailed options. Reuses the
- * search/replace/remove plumbing the Easy Chart page already has, via callbacks.
+ * An editable note item. Clicking it turns the row into an in-place autocomplete: type to search for
+ * a replacement (diagnosis code, drug, exam finding, …) and pick one, toggle the per-item option, or
+ * remove it — all without leaving the note. Items the assistant charted and that still need review
+ * carry a blue (or amber, if low-confidence) tint; provider-entered / reviewed items are untinted but
+ * just as editable. Reuses the page's search/replace/remove plumbing via callbacks.
  */
 export function AiChartedItem({
   children,
+  needsReview,
   lowConfidence,
+  inferred,
+  sourceText,
+  reviewNote,
+  templateName,
+  onConfirm,
   initialQuery,
   onSearch,
   onReplace,
@@ -63,83 +87,129 @@ export function AiChartedItem({
   hideDiscuss,
   checkboxOption,
 }: AiChartedItemProps): JSX.Element {
-  const [anchor, setAnchor] = useState<HTMLElement | null>(null);
+  const [editing, setEditing] = useState(false);
   const [query, setQuery] = useState(initialQuery);
-  const [results, setResults] = useState<AiAlternative[]>([]);
+  const [options, setOptions] = useState<AiAlternative[]>([]);
   const [loading, setLoading] = useState(false);
   const [optChecked, setOptChecked] = useState(!!checkboxOption?.checked);
-  const open = Boolean(anchor);
+  const onSearchRef = useRef(onSearch);
+  onSearchRef.current = onSearch;
 
-  const doSearch = useCallback(
-    async (q: string): Promise<void> => {
-      setLoading(true);
-      try {
-        setResults(await onSearch(q));
-      } catch {
-        setResults([]);
-      } finally {
-        setLoading(false);
-      }
-    },
-    [onSearch]
-  );
+  // Debounced server search as the provider types (no client-side filtering — onSearch already ranks).
+  useEffect(() => {
+    if (!editing) return;
+    const q = query.trim();
+    if (!q) {
+      setOptions([]);
+      return;
+    }
+    let cancelled = false;
+    setLoading(true);
+    const t = setTimeout(() => {
+      onSearchRef
+        .current(q)
+        .then((r) => !cancelled && setOptions(r))
+        .catch(() => !cancelled && setOptions([]))
+        .finally(() => !cancelled && setLoading(false));
+    }, 250);
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
+  }, [query, editing]);
 
-  const handleOpen = (e: React.MouseEvent<HTMLElement>): void => {
-    setAnchor(e.currentTarget);
+  const startEditing = (): void => {
     setQuery(initialQuery);
     setOptChecked(!!checkboxOption?.checked);
-    void doSearch(initialQuery);
+    setOptions([]);
+    setEditing(true);
   };
-  const close = (): void => setAnchor(null);
+  const stopEditing = (): void => setEditing(false);
 
-  // Blue = AI-charted/needs review; amber = low-confidence (ambiguous auto-pick).
-  const tint = lowConfidence ? 'rgba(237,108,2,0.14)' : 'rgba(25,118,210,0.12)';
-  const tintHover = lowConfidence ? 'rgba(237,108,2,0.26)' : 'rgba(25,118,210,0.24)';
-
-  return (
-    <>
-      <Box
-        onClick={handleOpen}
-        role="button"
-        aria-label="Review AI-charted item"
-        sx={{
-          cursor: 'pointer',
-          borderRadius: 1,
-          px: 0.5,
-          mx: -0.5,
-          display: 'flex',
-          alignItems: 'flex-start',
-          gap: 0.5,
-          bgcolor: tint,
-          transition: 'background-color .15s',
-          '&:hover': { bgcolor: tintHover },
-        }}
-      >
-        {lowConfidence && (
-          <WarningAmberIcon
-            sx={{ fontSize: 15, color: 'warning.main', mt: '2px' }}
-            titleAccess="Low confidence — review"
-          />
-        )}
-        <Box sx={{ flex: 1, minWidth: 0 }}>{children}</Box>
-      </Box>
-      <Popover
-        open={open}
-        anchorEl={anchor}
-        onClose={close}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
-        slotProps={{ paper: { sx: { width: 340, maxWidth: '90vw' } } }}
-      >
-        <Box sx={{ p: 1.5 }}>
-          <Typography variant="subtitle2" sx={{ mb: 1 }}>
-            Replace or correct
-          </Typography>
+  if (editing) {
+    return (
+      <ClickAwayListener onClickAway={stopEditing}>
+        <Stack spacing={0.5} sx={{ width: '100%', py: 0.25 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            <Autocomplete
+              open
+              freeSolo
+              fullWidth
+              size="small"
+              options={options}
+              loading={loading}
+              clearOnBlur={false}
+              disableClearable
+              blurOnSelect
+              filterOptions={(x) => x}
+              getOptionLabel={(o) => (typeof o === 'string' ? o : o.label)}
+              inputValue={query}
+              onInputChange={(_e, v, reason) => {
+                // Only react to the user typing — ignore MUI's internal reset/resync events, which
+                // (combined with a controlled inputValue) can otherwise loop "max update depth".
+                if (reason === 'input') setQuery(v);
+              }}
+              onChange={(_e, v) => {
+                if (v && typeof v !== 'string') {
+                  stopEditing();
+                  void onReplace(v.key, optChecked);
+                }
+              }}
+              renderOption={(props, o) => (
+                <li {...props} key={o.key}>
+                  <Box>
+                    <Typography variant="body2">{o.label}</Typography>
+                    {o.secondary && (
+                      <Typography variant="caption" color="text.secondary">
+                        {o.secondary}
+                      </Typography>
+                    )}
+                  </Box>
+                </li>
+              )}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  autoFocus
+                  variant="standard"
+                  placeholder="Type to replace…"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Escape') stopEditing();
+                  }}
+                />
+              )}
+            />
+            <IconButton
+              size="small"
+              color="error"
+              aria-label="Remove item"
+              onClick={() => {
+                stopEditing();
+                void onRemove();
+              }}
+            >
+              <CloseIcon sx={{ fontSize: 16 }} />
+            </IconButton>
+            {!hideDiscuss && (
+              <IconButton
+                size="small"
+                aria-label="Discuss item"
+                onClick={() => {
+                  stopEditing();
+                  onDiscuss();
+                }}
+              >
+                <ChatBubbleOutlineIcon sx={{ fontSize: 16 }} />
+              </IconButton>
+            )}
+          </Box>
           {checkboxOption && (
             <FormControlLabel
-              sx={{ mb: 0.5 }}
+              sx={{ ml: 0 }}
               control={
                 <Checkbox
                   size="small"
+                  sx={{ p: 0.5 }}
                   checked={optChecked}
                   onChange={(e) => {
                     setOptChecked(e.target.checked);
@@ -151,78 +221,102 @@ export function AiChartedItem({
               label={<Typography variant="caption">{checkboxOption.label}</Typography>}
             />
           )}
-          <TextField
-            size="small"
-            fullWidth
-            autoFocus
-            placeholder="Search alternatives…"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                e.preventDefault();
-                void doSearch(query);
-              }
-            }}
-          />
-          <Box sx={{ mt: 1, maxHeight: 240, overflow: 'auto' }}>
-            {loading ? (
-              <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
-                <CircularProgress size={20} />
-              </Box>
-            ) : results.length === 0 ? (
-              <Typography variant="body2" color="text.secondary" sx={{ py: 1 }}>
-                No matches
-              </Typography>
-            ) : (
-              <List dense disablePadding>
-                {results.map((r) => (
-                  <ListItemButton
-                    key={r.key}
-                    onClick={() => {
-                      close();
-                      void onReplace(r.key, optChecked);
-                    }}
-                  >
-                    <ListItemText
-                      primaryTypographyProps={{ variant: 'body2' }}
-                      primary={r.label}
-                      secondary={r.secondary || undefined}
-                      secondaryTypographyProps={{ variant: 'caption' }}
-                    />
-                  </ListItemButton>
-                ))}
-              </List>
-            )}
-          </Box>
-          <Divider sx={{ my: 1 }} />
-          <Stack direction="row" spacing={1}>
-            {!hideDiscuss && (
-              <Button
-                size="small"
-                startIcon={<ChatBubbleOutlineIcon sx={{ fontSize: 16 }} />}
-                onClick={() => {
-                  close();
-                  onDiscuss();
-                }}
-              >
-                Discuss
-              </Button>
-            )}
-            <Button
-              size="small"
-              color="error"
-              startIcon={<CloseIcon sx={{ fontSize: 16 }} />}
-              onClick={() => {
-                close();
-                void onRemove();
-              }}
+        </Stack>
+      </ClickAwayListener>
+    );
+  }
+
+  // Tint priority while it needs review: amber for the "look closer" cases (low-confidence OR
+  // inferred — no dictation phrase backs it), blue for an ordinary sourced AI item. No tint once
+  // reviewed / provider-entered (still editable — a subtle hover signals that).
+  const attention = lowConfidence || inferred;
+  const tint = !needsReview ? 'transparent' : attention ? 'rgba(237,108,2,0.14)' : 'rgba(25,118,210,0.12)';
+  const tintHover = !needsReview ? 'rgba(0,0,0,0.05)' : attention ? 'rgba(237,108,2,0.26)' : 'rgba(25,118,210,0.24)';
+
+  // Hover hint: the review-pass reasoning, the source phrase for a traceable item, or an explicit
+  // "inferred" note for one the planner couldn't tie to the dictation. Provider-entered items: none.
+  const provenanceHint = reviewNote
+    ? `Suggested by note review: ${reviewNote}`
+    : sourceText
+    ? `Charted from the dictation: “${sourceText}”`
+    : templateName
+    ? `Charted from the “${templateName}” template — verify it fits this visit.`
+    : inferred
+    ? 'Inferred — not stated in the dictation. Verify before signing.'
+    : needsReview
+    ? // Blue but no specific provenance (a provider command, etc.) — still explain why it's
+      // highlighted so a flagged item is never hover-less.
+      'Added by the assistant — review it, then confirm (✓) or correct it.'
+    : undefined;
+
+  return (
+    <Box
+      onClick={startEditing}
+      role="button"
+      aria-label="Edit item"
+      sx={{
+        cursor: 'pointer',
+        borderRadius: 1,
+        px: 0.5,
+        mx: -0.5,
+        display: 'flex',
+        alignItems: 'flex-start',
+        gap: 0.5,
+        bgcolor: tint,
+        transition: 'background-color .15s',
+        '&:hover': { bgcolor: tintHover },
+      }}
+    >
+      {lowConfidence && (
+        <WarningAmberIcon
+          sx={{ fontSize: 15, color: 'warning.main', mt: '2px' }}
+          titleAccess="Low confidence — review"
+        />
+      )}
+      {!lowConfidence && inferred && needsReview && (
+        <Tooltip title={provenanceHint ?? ''} placement="top" arrow>
+          <HelpOutlineIcon sx={{ fontSize: 15, color: 'warning.main', mt: '2px' }} />
+        </Tooltip>
+      )}
+      <Tooltip title={provenanceHint ?? ''} placement="top-start" arrow disableHoverListener={!provenanceHint}>
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          {children}
+          {inferred && needsReview && (
+            <Typography
+              component="span"
+              variant="caption"
+              sx={{ ml: 0.75, color: 'warning.dark', fontStyle: 'italic', fontWeight: 600 }}
             >
-              Remove
-            </Button>
-          </Stack>
+              · inferred
+            </Typography>
+          )}
+          {reviewNote && needsReview && (
+            <Typography
+              component="span"
+              variant="caption"
+              sx={{ ml: 0.75, color: 'info.main', fontStyle: 'italic', fontWeight: 600 }}
+            >
+              · review
+            </Typography>
+          )}
         </Box>
-      </Popover>
-    </>
+      </Tooltip>
+      {needsReview && onConfirm && (
+        <Tooltip title="Looks right — mark reviewed" placement="top" arrow>
+          <IconButton
+            size="small"
+            color="success"
+            aria-label="Confirm item"
+            sx={{ p: 0.25 }}
+            onClick={(e) => {
+              e.stopPropagation();
+              onConfirm();
+            }}
+          >
+            <CheckIcon sx={{ fontSize: 16 }} />
+          </IconButton>
+        </Tooltip>
+      )}
+    </Box>
   );
 }

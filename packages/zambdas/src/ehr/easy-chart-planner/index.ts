@@ -3,14 +3,16 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { List } from 'fhir/r4b';
 import {
   chunkThings,
-  EasyChartAgentIntent,
   EasyChartPlannerOutput,
+  EasyChartPlannerStep,
+  EasyChartTokenUsage,
   GLOBAL_TEMPLATE_IN_PERSON_CODE_SYSTEM,
   INVALID_INPUT_ERROR,
 } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import { invokeChatbotStructured } from '../../shared/ai';
 import { resolveCptHcpcs, resolveIcd, STRICT_ICD10 } from '../../shared/easy-chart/codes';
+import { normalizeVitalIntent } from '../../shared/easy-chart/vitals';
 import { createOystehrClient } from '../../shared/helpers';
 import { findHolderList } from '../shared/template-helpers';
 import { validateRequestParameters } from './validateRequestParameters';
@@ -210,6 +212,10 @@ const KIND_VALUES = [
   'set-vital',
   'add-external-lab',
   'add-in-house-lab',
+  'add-patient-instruction',
+  'set-disposition',
+  'add-nursing-order',
+  'add-radiology',
 ] as const;
 
 const NOTE_TEXT_FIELDS = [
@@ -251,12 +257,19 @@ export const RESPONSE_SCHEMA = {
           },
           field: { type: 'string' },
           newText: { type: 'string' },
+          text: { type: 'string' }, // add-patient-instruction / set-disposition note text
+          dispositionType: { type: 'string' }, // set-disposition: pcp | ed | specialty | another | ip
+          followUpInDays: { type: 'number' }, // set-disposition: "follow up in N days"
           finding: { type: 'string', enum: ['reports', 'denies'] },
           // set-vital: numeric vitals use `value` (+ `unit` for temp/weight/height); BP uses systolic/diastolic.
           value: { type: 'number' },
           unit: { type: 'string' },
           systolic: { type: 'number' },
           diastolic: { type: 'number' },
+          // PROVENANCE: the verbatim snippet from the narrative that justifies this step. Empty
+          // string for steps INFERRED rather than spoken (default-normal exam, template defaults,
+          // codes deduced from context). The client marks items sourced-vs-inferred from this.
+          sourceText: { type: 'string' },
         },
         required: ['kind'],
       },
@@ -309,21 +322,23 @@ export const buildPrompt = (
           .join('\n')}\n`
       : '';
 
-  // When the caller is refreshing the plan after a template applied, they pass a summary of
-  // chart state so the LLM omits add-* steps for items already documented.
+  // When chart state is supplied (a post-template re-plan, or a follow-up message charted onto an
+  // already-written note) the NARRATIVE is an INCREMENTAL addition, NOT a fresh full note — so the
+  // LLM must chart only what's NEW and never re-document what's already there. Without this guard a
+  // short "also send a script for X" snippet gets re-expanded into a whole note (re-editing the
+  // chief complaint, re-setting the E&M, re-deriving symptom diagnoses).
   const chartStateBlock = chartState
-    ? `\nALREADY ON THE CHART (do NOT emit add-* steps for these — they're already documented; also do NOT emit apply-template again):\n${chartState}\n`
+    ? `\nALREADY ON THE CHART — the note has already been charted and the NARRATIVE above is an INCREMENTAL addition. Emit steps ONLY for information the narrative NEWLY introduces; do NOT re-document anything already present. Specifically: no add-* step for an item listed below; no set-em-code when an E&M is already listed below; and no edit-note-text for a free-text field (Chief Complaint / HPI / Mechanism of Injury / MDM) that the "Current free-text fields" block shows is already non-empty, UNLESS this narrative supplies new wording for that exact field. Do NOT emit apply-template again.\n${chartState}\n`
     : '';
 
-  return `
-You are an assistant helping a provider chart a clinical encounter. The provider just typed a
-free-text NARRATIVE describing everything they want done on the chart:
-
-"""
-${narrative}
-"""
-${patientBlock}${contextBlock}${templatesBlock}${chartStateBlock}
-Decompose the narrative into an ordered sequence of charting ACTIONS. Each action is one of
+  // PROMPT ORDER MATTERS: keep the static instructions (and the per-practice template list) as a
+  // STABLE PREFIX, and append the per-call NARRATIVE + patient/context/chart-state at the very END —
+  // so the provider can cache the fixed prefix instead of re-billing it on every plan.
+  return `You are an assistant helping a provider chart a clinical encounter. The provider's free-text
+NARRATIVE (everything they want done on the chart) appears at the END of this message, after the
+instructions.
+${templatesBlock}
+Decompose that narrative into an ordered sequence of charting ACTIONS. Each action is one of
 the kinds below; the client will execute them one at a time and ask the provider to disambiguate
 when needed. Emit a JSON array of "steps".
 
@@ -407,13 +422,15 @@ doesn't mention):
   3. Free-text fields, in note order: edit-note-text for chiefComplaint, historyOfPresentIllness,
      mechanismOfInjury, medicalDecision. (Review of Systems is NOT free text — it is structured
      checkboxes; use add-ros-finding, NOT edit-note-text, for ROS.)
-     ALWAYS emit edit-note-text for historyOfPresentIllness AND medicalDecision (MDM) on EVERY
-     visit, even when a template was applied. These are patient-specific and REQUIRED for a signable
-     note, and a template cannot supply the patient's actual history or the visit's reasoning — its
-     defaults are generic boilerplate that the patient-specific text must supersede. Write HPI as the
-     narrative's history of the presenting problem, and MDM as the assessment + plan + medications +
-     counseling + return precautions. chiefComplaint and mechanismOfInjury are conditional: emit
-     chiefComplaint when the visit reason is clear, and mechanismOfInjury only for injury visits.
+     ALWAYS emit edit-note-text for chiefComplaint, historyOfPresentIllness, AND medicalDecision
+     (MDM) on EVERY visit, even when a template was applied — all three are required for a complete,
+     signable note. They are patient-specific and a template cannot supply them; its defaults are
+     generic boilerplate that the patient-specific text must supersede. chiefComplaint is a brief
+     2–6 word reason for the visit (NOT a sentence — e.g. "Low back pain", "Right ear pain", "Cough
+     x3 days") and must NEVER be left blank or merged into the HPI; emit it as its OWN edit-note-text
+     step. Write HPI as the narrative's history of the presenting problem, and MDM as the assessment
+     + plan + medications + counseling + return precautions. mechanismOfInjury is conditional: emit
+     it only for injury visits.
   3b. Vitals (set-vital) — emit ONE set-vital for EACH vital sign the narrative states (temperature,
      heart rate, respiration rate, blood pressure, oxygen saturation, weight, height). Pass the value
      and its unit exactly as stated (e.g. Temp "98.9" unit "F"); the client converts to the stored
@@ -426,7 +443,16 @@ doesn't mention):
      narrative states an ABNORMAL finding, the template's matching NORMAL finding is now wrong and
      must be removed so the note is not self-contradictory. For each normal finding in the
      "Exam findings already checked" list that the narrative DIRECTLY contradicts, emit a
-     remove-exam-finding whose display is that charted finding's exact wording. Common cases:
+     remove-exam-finding whose display is that charted finding's exact wording.
+     NEGATION GUARD (read FIRST): only the POSITIVE PRESENCE of a finding triggers the cases below.
+     A finding the narrative explicitly NEGATES is NOT abnormal — it CONFIRMS the template's normal.
+     When the narrative says a finding is ABSENT ("no wheezing", "without crackles", "lungs clear",
+     "no respiratory distress", "no exudate", "non-tender", "no rash"), do BOTH: do NOT emit
+     add-exam-finding for it (exam findings are positive observations only — there is no "negative"
+     exam observation), and do NOT remove the matching normal (keep it — the narrative agrees with it).
+     Match on POLARITY, not on the keyword: "no wheezing" must never produce a "Wheezing" finding nor
+     remove the respiratory normals; reconcile below ONLY when the finding is actually present
+     ("wheezing heard", "crackles at the right base", "tonsillar exudate present"). Common cases:
        • narrative describes ANY distress (e.g. "moderate respiratory distress", accessory muscle
          use, intercostal retractions, speaking in short sentences) → remove "In no acute distress".
        • narrative describes wheezing, rales/crackles, rhonchi, decreased/diminished air entry, a
@@ -671,6 +697,14 @@ RULES:
   injection-administration set (96372/96374/96365) and curated drug HCPCS J-codes under add-cpt;
   these are likewise validated against the CPT service and dropped if not real. Do NOT invent
   RxNorm codes — medications resolve by name.
+- PROVENANCE — for EVERY step, set "sourceText" to the SHORT verbatim snippet from the NARRATIVE
+  that justifies it (a few words to one sentence, copied exactly — not paraphrased). This lets the
+  provider trace each charted item back to what they said. If the step is something you INFERRED
+  rather than something the provider actually stated — a default-normal exam finding a template
+  implies, a default diagnosis/MDM, an E&M level you deduced from overall complexity, a code you
+  filled in — set "sourceText" to an EMPTY STRING "". Never fabricate a sourceText: if you cannot
+  point to specific words in the narrative, it is inferred, so leave it empty. Be honest here — an
+  empty sourceText is the signal that tells the provider to look closely, so guessing defeats it.
 - For ambiguous picks (e.g. multiple matching procedures or exam findings), still emit the step
   with the provider's wording — the client will present a picker.
 - Don't emit duplicate or redundant steps. If the narrative implies several edits to the same
@@ -693,14 +727,38 @@ RULES:
   congestion, or sore throat") IS a chartable ROS finding — emit a "Denies …" add-ros-finding for
   each. This is the opposite of the exam/allergy rule above: ROS records both reported AND denied
   symptoms.
-- DISPOSITION IS NEVER OPTIONAL — this is a patient-safety rule. If the provider directs the
-  patient to a higher level of care or emergency services — "go to the ER / emergency department",
-  "call 911", "I'm sending you to the hospital", "we're admitting you", "go straight to urgent
-  care", "activate EMS", or an urgent specialist referral for a red-flag finding — you MUST
-  capture that disposition. There is no structured disposition step yet, so fold it into the
-  medicalDecision (MDM) via edit-note-text as an explicit clinical sentence (e.g. "Patient
-  directed to the ED for evaluation of <concern>; EMS activated."). NEVER silently drop a
-  disposition just because there is no dedicated field for it.
+- DISPOSITION (set-disposition) — where the patient goes after this visit. Emit ONE set-disposition
+  with dispositionType = one of:
+    "pcp"       → follow up with their primary care provider / "see your doctor"
+    "specialty" → referral to a specialist (ortho, cardiology, ENT, etc.)
+    "ed"        → directed to the Emergency Department / "go to the ER", "call 911", "activate EMS"
+    "another"   → follow up with this clinic / return here / another provider not above
+    "ip"        → admitted to the hospital / inpatient
+  text = the disposition note as a clinical sentence (e.g. "Follow up with orthopedic surgery for
+  definitive fracture management."). followUpInDays = the follow-up interval in DAYS when stated
+  ("in 48–72 hours" → 3; "in 1 week" → 7; "in 2 weeks" → 14). Example:
+    {"kind":"set-disposition","dispositionType":"specialty","text":"Refer to orthopedic surgery for definitive management of the ankle fracture.","followUpInDays":3}
+  DISPOSITION IS NEVER OPTIONAL when the provider states one — this is a patient-safety rule; never
+  silently drop it. A red-flag ED disposition ("go to the ER now") should ALSO be reinforced as an
+  add-patient-instruction so the take-home note carries it.
+- RADIOLOGY / IMAGING (add-radiology) — order an imaging study (X-ray, ultrasound). Triggered by
+  "get a chest X-ray", "3-view ankle film", "order a right wrist X-ray". Fields: kind, display (the
+  study name including view count and body site, e.g. "3-view right ankle X-ray"), searchTerms (1-3
+  alternates the client matches against the radiology catalog, e.g. ["ankle x-ray","ankle 3 views"]).
+  The client links the primary diagnosis automatically. Do NOT also emit add-cpt for the imaging.
+- NURSING ORDER (add-nursing-order) — a task for nursing staff. Triggered by "nursing order for
+  wound care", "have nursing do a straight cath", "nursing to apply a splint". Field: kind, text
+  (the nursing task as a directive, e.g. "Apply a posterior short-leg splint to the right ankle.").
+- PATIENT INSTRUCTIONS (add-patient-instruction) — patient-FACING guidance for the care plan: home
+  care, activity restrictions, how to take a medication, wound/splint care, RETURN PRECAUTIONS
+  ("come back / go to the ED if …"), and follow-up logistics ("follow up with orthopedics in 48–72
+  hours"). Emit ONE add-patient-instruction per distinct instruction, with the text written as a clear
+  directive TO THE PATIENT, e.g.
+    {"kind":"add-patient-instruction","text":"Keep the splint clean and dry and elevate the leg above heart level."}
+    {"kind":"add-patient-instruction","text":"Return to the ED for worsening pain, numbness, or cold/blue toes."}
+  Do NOT pile these into the MDM — MDM is the clinician's reasoning; patient instructions are what the
+  patient takes home. (A red-flag DISPOSITION to a higher level of care still ALSO goes in MDM per the
+  rule above; the take-home version of it can be a patient instruction too.)
 - DEMOGRAPHIC + INSURANCE + CONTACT details (address, phone, email, race, ethnicity, language,
   insurance carrier/member ID, PCP info, responsible party, emergency contact) are NOT chart
   actions — OMIT them entirely. They live on the Patient/Coverage resources via the intake
@@ -708,10 +766,17 @@ RULES:
 - SAME-PATIENT ONLY. The transcript is a raw ambient recording and frequently contains content
   that is NOT about this patient: chatter about OTHER patients ("Amon just brought her son in,
   he's 2 and got bit by a spider"), staff/student conversation, scheduling, personal asides.
-  Document ONLY the patient identified in the PATIENT block above. IGNORE any symptoms, ages,
+  Document ONLY the patient identified in the PATIENT block below. IGNORE any symptoms, ages,
   sexes, diagnoses, fevers, or medications that the transcript attributes to a different person.
   If a detail can't be confidently tied to THIS patient's visit, leave it out.
-`;
+
+═══ END OF FIXED INSTRUCTIONS — act on the narrative + context below ═══
+
+The provider's free-text NARRATIVE:
+"""
+${narrative}
+"""
+${patientBlock}${contextBlock}${chartStateBlock}`;
 };
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
@@ -730,10 +795,15 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     console.warn('Planner: template-list fetch failed, proceeding without:', e);
   }
 
+  let usage: EasyChartTokenUsage | undefined;
   const raw = await invokeChatbotStructured(
     [{ text: buildPrompt(narrative, noteContext, templateTitles, chartState) }],
     secrets,
-    RESPONSE_SCHEMA
+    RESPONSE_SCHEMA,
+    undefined,
+    (u) => {
+      usage = u;
+    }
   );
 
   let parsed: { steps?: unknown };
@@ -777,45 +847,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         else seenVitalFields.add(i.field);
       }
       // flash-lite is inconsistent on vitals (drops a BP number, omits the temp unit, omits display).
-      // The narrative is ground truth, so recover from display + narrative and synthesize a display.
-      const d0 = typeof i.display === 'string' ? i.display : '';
-      if (i.field === 'vital-blood-pressure') {
-        if (i.systolic == null || i.diastolic == null) {
-          const m = `${d0} ${narrative}`.match(/(\d{2,3})\s*(?:\/|over)\s*(\d{2,3})/i);
-          if (m) {
-            i.systolic = Number(m[1]);
-            i.diastolic = Number(m[2]);
-          }
-        }
-        delete i.value;
-        delete i.unit;
-        if (i.systolic != null && i.diastolic != null) i.display = `BP ${i.systolic}/${i.diastolic}`;
-      } else {
-        if (typeof i.value !== 'number' || Number.isNaN(i.value)) {
-          const m = d0.match(/-?\d+(?:\.\d+)?/);
-          if (m) i.value = Number(m[0]);
-        }
-        if (i.field === 'vital-temperature') {
-          // Resolve the unit: explicit Celsius wins; otherwise infer by magnitude (human temps are
-          // ~95–105 °F vs ~35–41 °C), defaulting to Fahrenheit.
-          if (/celsius|(?:°|\bdeg(?:rees)?\b)?\s*c\b/i.test(d0)) i.unit = 'C';
-          else if (typeof i.unit !== 'string' || !/^[cf]/i.test(i.unit.trim())) {
-            i.unit = typeof i.value === 'number' && i.value < 45 ? 'C' : 'F';
-          }
-        }
-        if ((typeof i.display !== 'string' || !i.display.trim()) && typeof i.value === 'number') {
-          const VLABEL: Record<string, string> = {
-            'vital-temperature': 'Temp',
-            'vital-heartbeat': 'HR',
-            'vital-respiration-rate': 'RR',
-            'vital-oxygen-sat': 'SpO2',
-            'vital-weight': 'Weight',
-            'vital-height': 'Height',
-          };
-          const suffix = i.field === 'vital-temperature' ? ` °${i.unit}` : i.field === 'vital-oxygen-sat' ? '%' : '';
-          i.display = `${VLABEL[i.field as string] ?? i.field} ${i.value}${suffix}`;
-        }
-      }
+      // The narrative is ground truth, so recover the numbers/unit/display via the shared normalizer.
+      normalizeVitalIntent(i, narrative);
     }
     if (i.kind === 'add-diagnosis' || i.kind === 'add-condition') {
       // `strength` is a medication-only field; the model sometimes leaks it onto a diagnosis
@@ -898,8 +931,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     })
   );
 
-  const steps = deduped.filter((r) => !(r as Record<string, unknown>).__drop) as unknown as EasyChartAgentIntent[];
+  const steps = deduped.filter((r) => !(r as Record<string, unknown>).__drop) as unknown as EasyChartPlannerStep[];
 
-  const output: EasyChartPlannerOutput = { steps };
+  const output: EasyChartPlannerOutput = { steps, usage };
   return { statusCode: 200, body: JSON.stringify(output) };
 });
