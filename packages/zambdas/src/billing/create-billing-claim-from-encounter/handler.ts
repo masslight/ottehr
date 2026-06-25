@@ -1069,7 +1069,7 @@ function buildClaim(resources: ClaimResources): Claim {
           careTeamSequence: resources.renderingProvider ? [1] : undefined,
           diagnosisSequence: resources.diagnoses ? [1] : undefined,
           productOrService: assertDefined(p.code, 'Procedure code'),
-          modifier: p.extension
+          modifier: p.code?.coding?.[0].extension
             ?.flatMap<CodeableConcept | undefined>((ext) =>
               ext.url === EXTENSION_URL_CPT_MODIFIER
                 ? ext.valueCodeableConcept?.coding
