@@ -9,10 +9,11 @@ import { keepPreviousData, useMutation, UseMutationResult, useQuery, UseQueryRes
 import { Bundle, Coding, Encounter, FhirResource, InsurancePlan, Medication, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { getPatientInstructionQuickPicks, icd10Search } from 'src/api/api';
 import { QUERY_STALE_TIME } from 'src/constants';
 import { FEATURE_FLAGS } from 'src/constants/feature-flags';
+import { useGetErxConfigQuery } from 'src/features/visits/telemed/hooks/useGetErxConfig';
 import { useApiClients } from 'src/hooks/useAppClients';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import {
@@ -55,7 +56,6 @@ import {
   UpdateMedicationOrderInput,
 } from 'utils';
 import { useErrorQuery, useSuccessQuery } from 'utils/lib/frontend';
-import { useGetErxConfigQuery } from '../../../telemed/hooks/useGetErxConfig';
 import { OystehrTelemedAPIClient } from '../../api/oystehrApi';
 import { useOystehrAPIClient } from '../../hooks/useOystehrAPIClient';
 import { useAppointmentData } from './appointment.store';
@@ -756,10 +756,9 @@ export const useErxPatientSyncQueue = ({
 }: {
   patient?: Patient;
   encounter?: Encounter;
-}): { triggerSync: () => void; isSyncing: boolean } => {
+}): { triggerSync: () => void } => {
   const { oystehr } = useApiClients();
   const { data: erxConfig } = useGetErxConfigQuery();
-  const [isSyncing, setIsSyncing] = useState(false);
   const runningRef = useRef(false);
   const pendingRef = useRef(false);
 
@@ -767,7 +766,7 @@ export const useErxPatientSyncQueue = ({
   const idsRef = useRef<{ patientId?: string; encounterId?: string }>({});
   idsRef.current = { patientId: patient?.id, encounterId: encounter?.id };
   const isErxConfiguredRef = useRef(false);
-  isErxConfiguredRef.current = Boolean(erxConfig);
+  isErxConfiguredRef.current = Boolean(erxConfig?.configured);
 
   const triggerSync = useCallback(() => {
     // Skip entirely when eRx isn't configured for the project — syncPatient would just fail.
@@ -780,7 +779,6 @@ export const useErxPatientSyncQueue = ({
     }
 
     runningRef.current = true;
-    setIsSyncing(true);
 
     void (async () => {
       try {
@@ -797,12 +795,11 @@ export const useErxPatientSyncQueue = ({
         } while (pendingRef.current);
       } finally {
         runningRef.current = false;
-        setIsSyncing(false);
       }
     })();
   }, [oystehr]);
 
-  return { triggerSync, isSyncing };
+  return { triggerSync };
 };
 
 export const useConnectPractitionerToERX = ({
