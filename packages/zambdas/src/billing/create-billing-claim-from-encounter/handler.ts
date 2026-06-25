@@ -199,8 +199,8 @@ export async function performEffect(
   order.push('patient');
 
   // Sync accounts, coverages, and subscriber between clinical and billing
-  let mainPatientCoverages: Coverage[] = [];
-  let mainPatientSubscribers: RelatedPerson[] = [];
+  const mainPatientCoverages: Coverage[] = [];
+  const mainPatientSubscribers: RelatedPerson[] = [];
   const seenBillingAccountIds = new Set<string>();
   const mainPatientAccounts = clinicalResources.accounts.map((a) => {
     const existingBillingAccount = billingResources.accounts.find(
@@ -220,12 +220,18 @@ export async function performEffect(
         mainPatient.id!,
         clinicalResources.payors
       );
-      mainPatientCoverages = covRequests
-        .filter((cov): cov is BatchInputPostRequest<Coverage> => cov.method === 'POST' && cov.url === '/Coverage')
-        .map((cov) => cov.resource);
-      mainPatientSubscribers = covRequests
-        .filter((rp): rp is BatchInputPostRequest<RelatedPerson> => rp.method === 'POST' && rp.url === '/RelatedPerson')
-        .map((rp) => rp.resource);
+      mainPatientCoverages.push(
+        ...covRequests
+          .filter((cov): cov is BatchInputPostRequest<Coverage> => cov.method === 'POST' && cov.url === '/Coverage')
+          .map((cov) => cov.resource)
+      );
+      mainPatientSubscribers.push(
+        ...covRequests
+          .filter(
+            (rp): rp is BatchInputPostRequest<RelatedPerson> => rp.method === 'POST' && rp.url === '/RelatedPerson'
+          )
+          .map((rp) => rp.resource)
+      );
       requests.push(...covRequests);
       order.push(...covOrder);
       const accountCopy = copyAccount(a, mainPatient.id!, mainPatientCoverages);
@@ -238,8 +244,8 @@ export async function performEffect(
       accountCopy.id = existingBillingAccount.id;
       try {
         deepStrictEqual(existingBillingAccount, accountCopy);
-        mainPatientCoverages = billingResources.coverages;
-        mainPatientSubscribers = billingResources.subscribers;
+        mainPatientCoverages.push(...billingResources.coverages);
+        mainPatientSubscribers.push(...billingResources.subscribers);
         return existingBillingAccount;
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
       } catch (_) {
@@ -251,14 +257,18 @@ export async function performEffect(
           mainPatient.id!,
           clinicalResources.payors
         );
-        mainPatientCoverages = covRequests
-          .filter((cov): cov is BatchInputPostRequest<Coverage> => cov.method === 'POST' && cov.url === '/Coverage')
-          .map((cov) => cov.resource);
-        mainPatientSubscribers = covRequests
-          .filter(
-            (rp): rp is BatchInputPostRequest<RelatedPerson> => rp.method === 'POST' && rp.url === '/RelatedPerson'
-          )
-          .map((rp) => rp.resource);
+        mainPatientCoverages.push(
+          ...covRequests
+            .filter((cov): cov is BatchInputPostRequest<Coverage> => cov.method === 'POST' && cov.url === '/Coverage')
+            .map((cov) => cov.resource)
+        );
+        mainPatientSubscribers.push(
+          ...covRequests
+            .filter(
+              (rp): rp is BatchInputPostRequest<RelatedPerson> => rp.method === 'POST' && rp.url === '/RelatedPerson'
+            )
+            .map((rp) => rp.resource)
+        );
         requests.push(...covRequests);
         order.push(...covOrder);
         accountCopy = copyAccount(a, mainPatient.id!, mainPatientCoverages);
