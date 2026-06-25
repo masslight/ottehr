@@ -11,7 +11,7 @@ import {
   TASK_INPUT_TYPE_SYSTEM,
   TaskIndicator,
 } from 'utils';
-import { createOystehrClient, getAuth0Token, wrapHandler, ZambdaInput } from '../../../shared';
+import { createClinicalOystehrClient, getAuth0Token, wrapHandler, ZambdaInput } from '../../../shared';
 import { PatchPaperworkEffectInput, validatePatchInputs } from '../validateRequestParameters';
 
 // Lifting the token out of the handler function allows it to persist across warm lambda invocations.
@@ -26,7 +26,7 @@ export const index = wrapHandler('patch-paperwork', async (input: ZambdaInput): 
     console.log('already have token');
   }
 
-  const oystehr = createOystehrClient(token, secrets);
+  const oystehr = createClinicalOystehrClient(token, secrets);
 
   const effectInput = await validatePatchInputs(input, oystehr);
 
