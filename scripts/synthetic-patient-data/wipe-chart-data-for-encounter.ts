@@ -56,7 +56,9 @@ const PATIENT_BOUND_TYPES = [
   'ClinicalImpression', // MDM lives here
   'ServiceRequest', // easy-chart "procedures" (e.g. Laceration Repair) live here, not in Procedure
   'AllergyIntolerance',
-  'MedicationStatement',
+  'MedicationStatement', // in-house / dictated meds
+  'MedicationRequest', // eRx prescriptions charted by easy-chart (e.g. amoxicillin-clavulanate)
+  'MedicationAdministration', // administered meds
   'EpisodeOfCare',
 ] as const;
 
