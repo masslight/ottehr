@@ -50,7 +50,10 @@ export default (env: any): Record<string, any> => {
     config({ mode }),
     defineConfig({
       build: {
-        sourcemap: true,
+        // Only emit sourcemaps when they'll actually be uploaded to Sentry.
+        // Generating them for every env (e2e*, local) bloats rollup's
+        // "rendering chunks" phase and OOMs the build.
+        sourcemap: shouldUploadSentrySourceMaps,
       },
       plugins,
       server: {

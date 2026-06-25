@@ -37,7 +37,7 @@ vi.mock('../../src/shared', async (importOriginal) => {
     performCandidPreEncounterSync: mockPerformCandidPreEncounterSync,
     createPatientPaymentReceiptPdf: mockCreatePatientPaymentReceiptPdf,
     getAuth0Token: mockGetAuth0Token,
-    createOystehrClient: mockCreateOystehrClient,
+    createClinicalOystehrClient: mockCreateOystehrClient,
     getStripeClient: mockGetStripeClient,
     wrapHandler: (_name: string, handler: any) => handler,
     STRIPE_PAYMENT_ID_SYSTEM: 'https://fhir.oystehr.com/PaymentIdSystem/stripe',
@@ -48,8 +48,12 @@ vi.mock('utils', async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>();
   return {
     ...actual,
-    createCandidApiClient: vi.fn().mockReturnValue({}),
     getStripeAccountForAppointmentOrEncounter: vi.fn().mockResolvedValue('acct_test'),
+    getOptionalSecret: vi.fn().mockReturnValue('candid-client-id-value'),
+    // tests don't drive real candid traffic, so any non-empty string is fine
+    getSecret: vi.fn().mockReturnValue('test-value'),
+    // stub to avoid reading the unmocked secret, skipping performCandidPreEncounterSync
+    getOrCreateCandidApiClient: vi.fn().mockResolvedValue({}),
   };
 });
 

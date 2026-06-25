@@ -7,16 +7,14 @@ import {
   collectKnownExamFields,
   collectKnownRosFields,
   examConfig,
-  ExamType,
   GLOBAL_TEMPLATE_IN_PERSON_CODE_SYSTEM,
-  GLOBAL_TEMPLATE_TELEMED_CODE_SYSTEM,
   ListTemplatesZambdaInput,
   ListTemplatesZambdaOutput,
   TemplateInfo,
   TemplateVersionData,
 } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
-import { createOystehrClient } from '../../shared/helpers';
+import { createClinicalOystehrClient } from '../../shared/helpers';
 import { analyzeTemplateVersionData, findHolderList } from '../shared/template-helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -28,7 +26,7 @@ export const index = wrapHandler('list-templates', async (input: ZambdaInput): P
 
   const { secrets } = validatedInput;
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-  const oystehr = createOystehrClient(m2mToken, secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
   const templates = await performEffect(validatedInput, oystehr);
 
@@ -42,7 +40,7 @@ const performEffect = async (
   validatedInput: ListTemplatesZambdaInput,
   oystehr: Oystehr
 ): Promise<ListTemplatesZambdaOutput> => {
-  const { examType, includeVersionData } = validatedInput;
+  const { includeVersionData } = validatedInput;
 
   // Find the holder list
   const holderList = await findHolderList(oystehr);
@@ -83,9 +81,8 @@ const performEffect = async (
   );
   const filteredTemplates = chunkResults.flat();
 
-  const codeSystem =
-    examType === ExamType.IN_PERSON ? GLOBAL_TEMPLATE_IN_PERSON_CODE_SYSTEM : GLOBAL_TEMPLATE_TELEMED_CODE_SYSTEM;
-  const examTypeConfig = examType === ExamType.IN_PERSON ? examConfig.inPerson.default : examConfig.telemed.default;
+  const codeSystem = GLOBAL_TEMPLATE_IN_PERSON_CODE_SYSTEM;
+  const examTypeConfig = examConfig.default;
   const knownExamFields = collectKnownExamFields(examTypeConfig.components);
   const knownRosFields = collectKnownRosFields();
 

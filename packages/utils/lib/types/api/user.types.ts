@@ -1,5 +1,6 @@
 import { User as OystehrUser } from '@oystehr/sdk';
 import { Coding, Practitioner } from 'fhir/r4b';
+import { PARTICIPATION_CODE_SYSTEM } from '../../fhir';
 
 export type User = OystehrUser & {
   profileResource?: Practitioner;
@@ -15,6 +16,7 @@ export type User = OystehrUser & {
 export enum RoleType {
   Administrator = 'Administrator',
   AssistantAdmin = 'AssistantAdmin',
+  BillingAdmin = 'BillingAdmin',
   Billing = 'Billing',
   CallCentre = 'CallCentre',
   CustomerSupport = 'Customer Support',
@@ -23,7 +25,6 @@ export enum RoleType {
   Manager = 'Manager',
   // Medical Assistant
   NewUser = 'NewUser',
-  Prescriber = 'Prescriber',
   Provider = 'Provider',
   RegionalTelemedLead = 'RegionalTelemedLead',
   Staff = 'Staff',
@@ -39,7 +40,7 @@ export interface AccessPolicy {
 
 export const UserRole = (code: string, display: string): Coding[] => [
   {
-    system: 'http://terminology.hl7.org/CodeSystem/v3-ParticipationType',
+    system: PARTICIPATION_CODE_SYSTEM,
     code,
     display,
   },
@@ -61,6 +62,11 @@ export const AVAILABLE_EMPLOYEE_ROLES: {
     hint: `Adjust operating hours or schedule overrides; adjust pre-booked visits per hour`,
   },
   {
+    value: RoleType.BillingAdmin,
+    label: 'Billing Admin',
+    hint: `Administrator access in the Billing App. No access to the EHR.`,
+  },
+  {
     value: RoleType.Staff,
     label: 'Staff',
     hint: `No settings changes; essentially read-only`,
@@ -75,9 +81,4 @@ export const AVAILABLE_EMPLOYEE_ROLES: {
     label: 'Customer Support',
     hint: `A customer support representative`,
   },
-  // {
-  //   value: RoleType.Prescriber,
-  //   label: 'Prescriber',
-  //   hint: `A clinician that is allowed to prescribe`,
-  // },
 ];

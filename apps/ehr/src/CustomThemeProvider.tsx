@@ -98,6 +98,17 @@ const theme = createTheme({
     ...customTheme.palette,
   },
   typography: typography,
+  components: {
+    MuiButton: {
+      styleOverrides: {
+        root: {
+          borderRadius: '100px',
+          textTransform: 'none',
+          minWidth: '100px',
+        },
+      },
+    },
+  },
 });
 
 export const CustomThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {

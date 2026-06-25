@@ -1,7 +1,11 @@
 import { Patient, Questionnaire, QuestionnaireResponse, QuestionnaireResponseItem } from 'fhir/r4b';
-import { PREFERRED_PHARMACY_EXTENSION_URL } from 'utils';
+import { PHARMACY_COLLECTION_LINK_IDS, PREFERRED_PHARMACY_EXTENSION_URL } from 'utils';
 import { describe, expect, test } from 'vitest';
-import { createMasterRecordPatchOperations, PATIENT_CONTAINED_PHARMACY_ID } from '../src/ehr/shared/harvest';
+import {
+  createMasterRecordPatchOperations,
+  createUpdatePharmacyPatchOps,
+  PATIENT_CONTAINED_PHARMACY_ID,
+} from '../src/ehr/shared/harvest';
 import intakeQuestionnaire from './data/intake-paperwork-questionnaire.json';
 import patient1 from './data/patient-1.json';
 import patient2 from './data/patient-2.json';
@@ -31,20 +35,6 @@ describe('Patient Master Record Tests', () => {
             state: 'CA',
             postalCode: '06001',
             country: 'US',
-          },
-        ],
-      },
-      {
-        op: 'add',
-        path: '/telecom',
-        value: [
-          {
-            system: 'email',
-            value: 'okovalenko+testnew@masslight.com',
-          },
-          {
-            system: 'phone',
-            value: '+12027139680',
           },
         ],
       },
@@ -116,6 +106,20 @@ describe('Patient Master Record Tests', () => {
           },
         ],
       },
+      {
+        op: 'add',
+        path: '/telecom',
+        value: [
+          {
+            system: 'email',
+            value: 'okovalenko+testnew@masslight.com',
+          },
+          {
+            system: 'phone',
+            value: '+12027139680',
+          },
+        ],
+      },
     ];
 
     const result = createMasterRecordPatchOperations(
@@ -175,8 +179,11 @@ describe('Patient Master Record Tests', () => {
       },
       {
         op: 'replace',
-        path: '/telecom/1/value',
-        value: '+12027139681',
+        path: '/telecom',
+        value: [
+          { value: 'okovalenko+testnew@masslight.com', system: 'email' },
+          { value: '+12027139681', system: 'phone' },
+        ],
       },
     ];
 
@@ -455,6 +462,73 @@ describe('Patient Master Record Tests', () => {
         ],
       },
       relatedPerson: {},
+    });
+  });
+
+  describe('createUpdatePharmacyPatchOps', () => {
+    const patientWithPharmacy: Patient = {
+      id: 'patient-with-pharmacy',
+      resourceType: 'Patient',
+      contained: [
+        {
+          id: PATIENT_CONTAINED_PHARMACY_ID,
+          name: 'Existing Pharmacy',
+          resourceType: 'Organization',
+        },
+      ],
+      extension: [
+        {
+          url: PREFERRED_PHARMACY_EXTENSION_URL,
+          valueReference: { reference: `#${PATIENT_CONTAINED_PHARMACY_ID}` },
+        },
+      ],
+    };
+
+    test('leaves existing pharmacy untouched when saving an unrelated section (no pharmacy items submitted)', () => {
+      // Regression: saving e.g. Responsible Party submits only its own fields, so the
+      // pharmacy items are absent. The pharmacy must not be wiped.
+      const responsiblePartyItems: QuestionnaireResponseItem[] = [
+        { linkId: 'responsible-party-first-name', answer: [{ valueString: 'Jane' }] },
+        { linkId: 'responsible-party-last-name', answer: [{ valueString: 'Doe' }] },
+      ];
+
+      const ops = createUpdatePharmacyPatchOps(patientWithPharmacy, responsiblePartyItems);
+
+      expect(ops).toEqual([]);
+    });
+
+    test('still updates pharmacy when the pharmacy section is submitted with a value', () => {
+      const pharmacyItems: QuestionnaireResponseItem[] = [
+        { linkId: PHARMACY_COLLECTION_LINK_IDS.placesName, answer: [{ valueString: 'New Pharmacy' }] },
+        { linkId: PHARMACY_COLLECTION_LINK_IDS.placesAddress, answer: [{ valueString: '1 Main St' }] },
+      ];
+
+      const ops = createUpdatePharmacyPatchOps(patientWithPharmacy, pharmacyItems);
+
+      expect(ops.length).toBeGreaterThan(0);
+      const containedOp = ops.find((op) => op.path === '/contained') as { value?: { name?: string }[] } | undefined;
+      expect(containedOp?.value?.some((resource) => resource.name === 'New Pharmacy')).toBe(true);
+    });
+
+    test('clears pharmacy when the pharmacy section is submitted with empty answers', () => {
+      // A cleared pharmacy still submits its items (with empty answers), which must be
+      // distinguishable from "section not submitted" and result in removal.
+      const clearedPharmacyItems: QuestionnaireResponseItem[] = [
+        { linkId: PHARMACY_COLLECTION_LINK_IDS.placesName, answer: [] },
+        { linkId: PHARMACY_COLLECTION_LINK_IDS.placesAddress, answer: [] },
+        { linkId: PHARMACY_COLLECTION_LINK_IDS.placesId, answer: [] },
+      ];
+
+      const ops = createUpdatePharmacyPatchOps(patientWithPharmacy, clearedPharmacyItems);
+
+      const containedOp = ops.find((op) => op.path === '/contained') as
+        | { op: string; value?: { id?: string }[] }
+        | undefined;
+      // Pharmacy contained resource is gone (either removed outright or absent from the replacement).
+      const pharmacyStillPresent = containedOp?.value?.some(
+        (resource) => resource.id === PATIENT_CONTAINED_PHARMACY_ID
+      );
+      expect(pharmacyStillPresent ?? false).toBe(false);
     });
   });
 

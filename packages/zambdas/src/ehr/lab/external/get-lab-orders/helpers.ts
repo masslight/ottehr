@@ -1252,6 +1252,10 @@ export const fetchQuestionnaireForServiceRequests = async (
         },
       });
 
+      if (!questionnaireRequest.ok) {
+        throw new Error(`Failed to fetch Questionnaire at ${result.questionnaireUrl}: ${questionnaireRequest.status}`);
+      }
+
       const { questionnaireResponse, serviceRequestId } = result;
 
       const questionnaire = (await questionnaireRequest.json()) as Questionnaire;

@@ -38,7 +38,7 @@ import {
   updateEncounterDischargeDisposition,
 } from '../../shared/chart-data';
 import { runChartDataPostChangeTasks } from '../../shared/chart-data/post-change-tasks';
-import { createOystehrClient } from '../../shared/helpers';
+import { createClinicalOystehrClient } from '../../shared/helpers';
 import { deleteZ3Object } from '../../shared/z3Utils';
 import { createFindResourceRequestByPatientField } from '../get-chart-data/helpers';
 import { deleteResourceRequest, getEncounterAndRelatedResources } from './helpers';
@@ -95,7 +95,7 @@ export const index = wrapHandler('delete-chart-data', async (input: ZambdaInput)
 
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
 
-    const oystehr = createOystehrClient(m2mToken, secrets);
+    const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
     // 0. get encounter
     console.log(`Getting encounter ${encounterId}`);
@@ -115,6 +115,7 @@ export const index = wrapHandler('delete-chart-data', async (input: ZambdaInput)
       | BatchInputRequest<ChartData>
     )[] = [];
     const updateEncounterOperations: Operation[] = [];
+    const patientEducationDocumentReferenceIdsToDelete = new Set<string>();
 
     // 2. delete  Medical Condition associated with chief complaint
     if (chiefComplaint) {
@@ -181,6 +182,10 @@ export const index = wrapHandler('delete-chart-data', async (input: ZambdaInput)
     // 11. delete Communications
     instructions?.forEach((element: CommunicationDTO) => {
       deleteOrUpdateRequests.push(deleteResourceRequest('Communication', element.resourceId!));
+      if (element.educationDocRefId) {
+        patientEducationDocumentReferenceIdsToDelete.add(element.educationDocRefId);
+        deleteOrUpdateRequests.push(deleteResourceRequest('DocumentReference', element.educationDocRefId));
+      }
     });
 
     // 12. delete disposition ServiceRequests and encounter properties
@@ -328,7 +333,7 @@ export const index = wrapHandler('delete-chart-data', async (input: ZambdaInput)
     console.log('Updated chart data as a transaction');
 
     const appointment = allResources.find((res) => res.resourceType === 'Appointment');
-    await runChartDataPostChangeTasks(oystehr, addendumNote, encounter, appointment?.id);
+    await runChartDataPostChangeTasks(oystehr, addendumNote, notes, encounter, appointment?.id);
 
     // perform deleting z3 pdf objects after deleting all fhir resources
     if (schoolWorkNotes) {
@@ -339,6 +344,14 @@ export const index = wrapHandler('delete-chart-data', async (input: ZambdaInput)
         const fileUrl = documentReference?.content?.[0]?.attachment.url;
         if (fileUrl) await deleteZ3Object(fileUrl, m2mToken);
       }
+    }
+
+    for (const documentReferenceId of patientEducationDocumentReferenceIdsToDelete) {
+      const documentReference = allResources.find((resource) => resource.id === documentReferenceId) as
+        | DocumentReference
+        | undefined;
+      const fileUrl = documentReference?.content?.[0]?.attachment.url;
+      if (fileUrl) await deleteZ3Object(fileUrl, m2mToken);
     }
 
     return {

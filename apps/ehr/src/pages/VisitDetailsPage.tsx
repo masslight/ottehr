@@ -9,8 +9,6 @@ import {
   Box,
   Button,
   Checkbox,
-  CircularProgress,
-  FormControl,
   Grid,
   IconButton,
   Link as MUILink,
@@ -40,6 +38,7 @@ import {
   getPatientVisitDetails,
   getPatientVisitFiles,
   getVisitFaxHistory,
+  listServiceCategories,
   updatePatientVisitDetails,
   updateVisitFiles,
 } from 'src/api/api';
@@ -48,6 +47,7 @@ import ImageUploader from 'src/components/ImageUploader';
 import PatientBalances from 'src/components/PatientBalances';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { ScannerModal } from 'src/components/ScannerModal';
+import { IdentifiersRow } from 'src/features/visits/shared/components/patient/info/IdentifiersRow';
 import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
 import { useGetPatientAccount, useGetPatientCoverages } from 'src/hooks/useGetPatient';
 import { useGetPatientBalances } from 'src/hooks/useGetPatientBalances';
@@ -63,20 +63,24 @@ import {
   formatDateForDisplay,
   getCancellationReasonDisplay,
   getCoding,
-  getFullName,
+  getFormattedPatientFullName,
   getInPersonVisitStatus,
   getPatchOperationForNewMetaTag,
   getReasonForVisitAndAdditionalDetailsFromAppointment,
   getReasonForVisitOptionsForServiceCategory,
   GetVisitFaxHistoryOutput,
+  getVisitOccupationalMedicineEmployerFromEncounter,
   isApiError,
   isInPersonAppointment,
+  isScheduledFollowupEncounter,
   isTelemedAppointment,
-  makeAbbreviation,
   OrderedCoveragesWithSubscribers,
   PATIENT_INFO_META_DATA_RETURNING_PATIENT_CODE,
   PATIENT_INFO_META_DATA_SYSTEM,
   PatientAccountResponse,
+  resolveServiceCategoryAbbreviation,
+  SCHEDULED_FOLLOWUP_OTHER_REASON,
+  SCHEDULED_FOLLOWUP_REASONS,
   SERVICE_CATEGORY_SYSTEM,
   ServiceCategoryCode,
   ServiceMode,
@@ -104,7 +108,6 @@ import { PriorityIconWithBorder } from '../components/PriorityIconWithBorder';
 import { HOP_QUEUE_URI } from '../constants';
 import { dataTestIds } from '../constants/data-test-ids';
 import { FEATURE_FLAGS } from '../constants/feature-flags';
-import { ChangeStatusDropdown } from '../features/visits/in-person/components/ChangeStatusDropdown';
 import { PencilIconButton } from '../features/visits/telemed/components/patient-visit-details/PencilIconButton';
 import { formatLastModifiedTag } from '../helpers';
 import {
@@ -129,6 +132,7 @@ interface EditDOBParams {
 
 interface EditReasonForVisitParams {
   reasonForVisit?: string;
+  otherReason?: string;
   additionalDetails?: string;
 }
 
@@ -466,6 +470,8 @@ export default function VisitDetailsPage(): ReactElement {
       return getPatientVisitDetails(oystehrZambda!, { appointmentId: appointmentID! });
     },
     enabled: Boolean(oystehrZambda) && appointmentID !== undefined,
+    staleTime: 0,
+    refetchOnMount: 'always',
   });
 
   const appointment = visitDetailsData?.appointment;
@@ -485,6 +491,28 @@ export default function VisitDetailsPage(): ReactElement {
 
     enabled: Boolean(oystehrZambda) && appointmentID !== undefined,
   });
+
+  // FHIR-backed service categories (admin-registered via the Services admin UI).
+  // Needed so the page can resolve display names, edit options, and RFV lists
+  // for appointments whose serviceCategory lives outside BOOKING_CONFIG. The
+  // page merges these with BOOKING_CONFIG below.
+  const { data: fhirBackedCatsData } = useQuery({
+    queryKey: ['visit-details-list-service-categories'],
+    queryFn: async () => {
+      if (!oystehrZambda) return { serviceCategories: [] };
+      try {
+        return await listServiceCategories(oystehrZambda);
+      } catch {
+        return { serviceCategories: [] };
+      }
+    },
+    enabled: Boolean(oystehrZambda),
+  });
+  // Memoize the resolved array so downstream useMemos that depend on it
+  // (e.g. reasonsForVisitForCurrentCategory) don't churn while the query is
+  // still loading — `?? []` would otherwise produce a fresh array reference
+  // on every render and invalidate those memos.
+  const fhirBackedCats = useMemo(() => fhirBackedCatsData?.serviceCategories ?? [], [fhirBackedCatsData]);
 
   const {
     data: patientBalancesData,
@@ -535,16 +563,7 @@ export default function VisitDetailsPage(): ReactElement {
 
   const { isLoadingDocuments, downloadDocument } = useGetPatientDocs(patientId ?? '');
 
-  const { fullName } = useMemo(() => {
-    let fullName = '';
-
-    if (patient) {
-      fullName = getFullName(patient);
-    }
-    return {
-      fullName,
-    };
-  }, [patient]);
+  const fullName = (patient && getFormattedPatientFullName(patient)) ?? '';
 
   const isInPerson = isInPersonAppointment(appointment);
 
@@ -590,9 +609,13 @@ export default function VisitDetailsPage(): ReactElement {
         serviceCategory: editDialogConfig.values.serviceCategory,
       };
     } else {
-      // type === reason-for-visit
+      // type === reason-for-visit; "Other" persists the free text as the reason. The Update button is
+      // disabled while that text is blank/whitespace (see submitDisabled), so it's non-empty here.
+      const { reasonForVisit: selectedReason, otherReason, additionalDetails: details } = editDialogConfig.values;
+      const isOther = selectedReason === SCHEDULED_FOLLOWUP_OTHER_REASON;
       bookingDetails = {
-        ...editDialogConfig.values,
+        reasonForVisit: isOther ? (otherReason ?? '').trim() : selectedReason,
+        additionalDetails: details,
       };
     }
     await bookingDetailsMutation.mutateAsync({
@@ -685,10 +708,32 @@ export default function VisitDetailsPage(): ReactElement {
   const appointmentTime = appointmentStartTime.toLocaleString(DateTime.TIME_SIMPLE);
   const appointmentDate = formatDateForDisplay(appointmentStartTime.toISO() || '', locationTimeZone);
   const serviceCategory = getCoding(appointment?.serviceCategory, SERVICE_CATEGORY_SYSTEM)?.code;
+  // Display label resolution: BOOKING_CONFIG (compiled-in) takes precedence,
+  // then the FHIR-backed catalog; fall back to the raw code only if neither
+  // knows about it. Without the FHIR-backed lookup the row showed e.g.
+  // "swedish30" instead of "Swedish Massage (30 minute)".
   const serviceCategoryLabel =
     BOOKING_CONFIG.serviceCategories.find((sc) => sc.category.code === serviceCategory)?.category.display ??
+    fhirBackedCats.find((sc) => sc.code === serviceCategory)?.name ??
     serviceCategory ??
     '';
+  // RFV options for the current category, merged across BOOKING_CONFIG and
+  // the FHIR-backed catalog. Used for both display-time filtering (was
+  // hiding valid values configured on FHIR-backed categories) and for the
+  // edit dropdown (was empty). Memoized so its reference is stable across
+  // renders — otherwise the downstream `reasonForVisit` useMemo would re-run
+  // every render (the dependency reference would change each time), and the
+  // identity-stable contract on the edit dropdown's options would break.
+  const reasonsForVisitForCurrentCategory = useMemo<{ value: string; label: string }[]>(() => {
+    // Scheduled follow-ups use the fixed reason list, not the service-category reasons.
+    if (encounter && isScheduledFollowupEncounter(encounter)) {
+      return SCHEDULED_FOLLOWUP_REASONS.map((reason) => ({ value: reason, label: reason }));
+    }
+    if (!serviceCategory) return [];
+    const bookingOpts = getReasonForVisitOptionsForServiceCategory(serviceCategory);
+    if (bookingOpts.length > 0) return bookingOpts;
+    return fhirBackedCats.find((sc) => sc.code === serviceCategory)?.config?.reasonsForVisit ?? [];
+  }, [encounter, serviceCategory, fhirBackedCats]);
   const nameLastModifiedOld = formatLastModifiedTag('name', patient, locationTimeZone);
   const dobLastModifiedOld = formatLastModifiedTag('dob', patient, locationTimeZone);
 
@@ -828,14 +873,20 @@ export default function VisitDetailsPage(): ReactElement {
 
   const { reasonForVisit: maybeReasonForVisit, additionalDetails } =
     getReasonForVisitAndAdditionalDetailsFromAppointment(appointment);
+  // For scheduled follow-ups, a saved reason outside the fixed list is a free-text "Other".
+  const isScheduledFollowUp = !!encounter && isScheduledFollowupEncounter(encounter);
+  const isOtherFollowUpReason =
+    isScheduledFollowUp && !!maybeReasonForVisit && !SCHEDULED_FOLLOWUP_REASONS.includes(maybeReasonForVisit as never);
   const reasonForVisit = useMemo(() => {
     if (!maybeReasonForVisit) {
       return maybeReasonForVisit;
     }
-    const options = getReasonForVisitOptionsForServiceCategory(serviceCategory ?? '');
-    const match = options.some((option) => option.value === maybeReasonForVisit);
+    if (isOtherFollowUpReason) {
+      return maybeReasonForVisit;
+    }
+    const match = reasonsForVisitForCurrentCategory.some((option) => option.value === maybeReasonForVisit);
     return match ? maybeReasonForVisit : undefined;
-  }, [maybeReasonForVisit, serviceCategory]);
+  }, [maybeReasonForVisit, isOtherFollowUpReason, reasonsForVisitForCurrentCategory]);
 
   const authorizedGuardians =
     patient?.extension?.find((e) => e.url === FHIR_EXTENSION.Patient.authorizedNonLegalGuardians.url)?.valueString ??
@@ -893,8 +944,11 @@ export default function VisitDetailsPage(): ReactElement {
       appointmentServiceMode: isTelemedAppointment(appointment) ? ServiceMode.virtual : ServiceMode['in-person'],
       reasonForVisit,
       encounterId: encounter?.id,
+      visitOccupationalMedicineEmployerReference: encounter
+        ? getVisitOccupationalMedicineEmployerFromEncounter(encounter)
+        : undefined,
     }),
-    [serviceCategory, appointment, reasonForVisit, encounter?.id]
+    [serviceCategory, appointment, reasonForVisit, encounter]
   );
 
   return (
@@ -989,7 +1043,7 @@ export default function VisitDetailsPage(): ReactElement {
                   <Typography variant="body1" sx={{ alignSelf: 'center', marginLeft: 4 }}>
                     {isInPerson ? 'In-Person' : 'Virtual'}
                     {' | '}
-                    {makeAbbreviation(serviceCategoryLabel)}
+                    {resolveServiceCategoryAbbreviation(serviceCategory, fhirBackedCats)}
                   </Typography>
                   <Typography variant="body1" sx={{ alignSelf: 'center', marginLeft: 1 }}>
                     {getAppointmentType(appointmentType)}
@@ -1086,11 +1140,14 @@ export default function VisitDetailsPage(): ReactElement {
               ) : null}
             </Grid>
 
-            {(nameLastModifiedOld || nameLastModified) && (
-              <Grid container direction="row">
-                <Typography sx={{ alignSelf: 'center', marginLeft: 4, fontSize: '14px' }}>
-                  Name Last Modified {nameLastModifiedOld || nameLastModified}
-                </Typography>
+            {(patient || nameLastModifiedOld || nameLastModified) && (
+              <Grid container direction="row" alignItems="center" gap={2} sx={{ marginLeft: 4 }}>
+                {patient && <IdentifiersRow patient={patient} />}
+                {(nameLastModifiedOld || nameLastModified) && (
+                  <Typography sx={{ alignSelf: 'center', fontSize: '14px' }}>
+                    Name Last Modified {nameLastModifiedOld || nameLastModified}
+                  </Typography>
+                )}
               </Grid>
             )}
 
@@ -1243,7 +1300,13 @@ export default function VisitDetailsPage(): ReactElement {
                               onClick={() =>
                                 setEditDialogConfig({
                                   type: 'reason-for-visit',
-                                  values: { reasonForVisit, additionalDetails },
+                                  values: {
+                                    reasonForVisit: isOtherFollowUpReason
+                                      ? SCHEDULED_FOLLOWUP_OTHER_REASON
+                                      : reasonForVisit,
+                                    otherReason: isOtherFollowUpReason ? maybeReasonForVisit : '',
+                                    additionalDetails,
+                                  },
                                   keyTitleMap: {
                                     reasonForVisit: 'Reason for Visit',
                                     additionalDetails: 'Additional Details',
@@ -1381,31 +1444,11 @@ export default function VisitDetailsPage(): ReactElement {
                 loadingComponent={<Skeleton width={200} height={40} />}
                 renderBackButton={false}
                 appointmentContext={appointmentContext}
+                appointmentId={appointmentID}
               />
             </Grid>
           </Grid>
         </Grid>
-        {!loading && encounter && (
-          <Grid container direction="row" justifyContent="space-between">
-            <Grid item>
-              {loading || !status ? (
-                <Skeleton sx={{ marginLeft: { xs: 0, sm: 2 } }} aria-busy="true" width={200} />
-              ) : (
-                <div id="user-set-appointment-status">
-                  <FormControl size="small" sx={{ marginTop: 2, marginLeft: { xs: 0, sm: 8 } }}>
-                    <ChangeStatusDropdown
-                      appointmentID={appointmentID}
-                      onStatusChange={setStatus}
-                      getAndSetResources={getAndSetHistoricResources}
-                      dataTestId={dataTestIds.appointmentPage.changeStatusDropdown}
-                    />
-                  </FormControl>
-                  {loading && <CircularProgress size="20px" sx={{ marginTop: 2.8, marginLeft: 1 }} />}
-                </div>
-              )}
-            </Grid>
-          </Grid>
-        )}
         <Grid container direction="row">
           <Grid item sx={{ marginLeft: { xs: 0, sm: 8 }, marginTop: 2, marginBottom: 50 }}>
             <Stack direction="row" spacing={1} useFlexGap>
@@ -1500,13 +1543,40 @@ export default function VisitDetailsPage(): ReactElement {
                           )
                         }
                       >
-                        {getReasonForVisitOptionsForServiceCategory(serviceCategory ?? '').map((reason) => (
+                        {reasonsForVisitForCurrentCategory.map((reason) => (
                           <MenuItem key={reason.value} value={reason.value}>
                             {reason.label}
                           </MenuItem>
                         ))}
                       </Select>
                     </>
+                  );
+                } else if (editDialogConfig.type === 'reason-for-visit' && key === 'otherReason') {
+                  // Free-text reason, shown only when "Other" is the selected follow-up reason.
+                  if (editDialogConfig.values.reasonForVisit !== SCHEDULED_FOLLOWUP_OTHER_REASON) {
+                    return null;
+                  }
+                  return (
+                    <TextField
+                      key={key}
+                      label="Other reason"
+                      fullWidth
+                      required
+                      value={value}
+                      sx={{ mt: 2 }}
+                      onChange={(e) =>
+                        setEditDialogConfig(
+                          (prev) =>
+                            ({
+                              ...prev,
+                              values: {
+                                ...prev.values,
+                                [key]: e.target.value,
+                              },
+                            }) as EditDialogConfig
+                        )
+                      }
+                    />
                   );
                 } else if (editDialogConfig.type === 'service-category' && key === 'serviceCategory') {
                   return (
@@ -1529,11 +1599,29 @@ export default function VisitDetailsPage(): ReactElement {
                           )
                         }
                       >
-                        {BOOKING_CONFIG.serviceCategories.map((sc) => (
-                          <MenuItem key={sc.category.code} value={sc.category.code}>
-                            {sc.category.display}
-                          </MenuItem>
-                        ))}
+                        {(() => {
+                          // Merge BOOKING_CONFIG (compiled-in, source of truth on collision)
+                          // with the FHIR-backed catalog so admins can switch a visit to a
+                          // runtime-registered category. Dedup by code. Filter inactive
+                          // FHIR-backed entries — the update-visit-details validator only
+                          // resolves against `active=true` HSes, so offering an inactive
+                          // category here would let the admin pick something that fails
+                          // on save with "not a valid option".
+                          const bookingEntries = BOOKING_CONFIG.serviceCategories
+                            .map((sc) => ({ code: sc.category.code, label: sc.category.display }))
+                            .filter((e): e is { code: string; label: string } => !!e.code);
+                          const bookingCodes = new Set(bookingEntries.map((e) => e.code));
+                          const fhirEntries = fhirBackedCats
+                            .filter((sc) => sc.active && sc.code && !bookingCodes.has(sc.code))
+                            .map((sc) => ({ code: sc.code, label: sc.name }));
+                          return [...bookingEntries, ...fhirEntries]
+                            .sort((a, b) => a.label.localeCompare(b.label))
+                            .map((entry) => (
+                              <MenuItem key={entry.code} value={entry.code}>
+                                {entry.label}
+                              </MenuItem>
+                            ));
+                        })()}
                       </Select>
                     </>
                   );
@@ -1571,6 +1659,11 @@ export default function VisitDetailsPage(): ReactElement {
             await handleUpdateBookingDetails();
           }}
           submitButtonName="Update"
+          submitDisabled={
+            editDialogConfig.type === 'reason-for-visit' &&
+            editDialogConfig.values.reasonForVisit === SCHEDULED_FOLLOWUP_OTHER_REASON &&
+            !(editDialogConfig.values.otherReason ?? '').trim()
+          }
           error={bookingDetailsMutation.isError}
           errorMessage={bookingDetailsMutation.error?.message}
           loading={bookingDetailsMutation.isPending || visitDetailsAreRefreshing}

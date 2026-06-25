@@ -22,11 +22,13 @@ on:
 
 env:
   SECRETS_REPOSITORY: ${{ vars.SECRETS_REPOSITORY }} # Secrets repository for configuration files
+  TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+  TURBO_TEAM: ${{ vars.TURBO_TEAM }}
 
 jobs:
   automated-tests:
-    runs-on: ubuntu-latest-4-cores
-    timeout-minutes: 15
+    runs-on: ubuntu-latest-8-cores
+    timeout-minutes: 40
     permissions:
       id-token: write # Required for OIDC
       contents: read
@@ -104,21 +106,8 @@ jobs:
             echo "environment=local" >> $GITHUB_OUTPUT
           fi
 
-      - name: Restore seed data cache
-        if: |
-          steps.env.outputs.environment == 'local' || 
-          steps.env.outputs.environment == 'e2e' || 
-          steps.env.outputs.environment == 'e2e2' || 
-          steps.env.outputs.environment == 'e2e3'
-        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
-        with:
-          path: apps/ehr/tests/e2e-utils/seed-data/resources/
-          key: seed-data-${{ steps.env.outputs.environment }}-${{ github.sha }}-${{ github.run_id }}
-          fail-on-cache-miss: true
-
       - name: Spec tests with coverage
-        if: ${{ !cancelled() }}
-        run: cd packages/spec && npx vitest run --coverage --coverage.reporter=lcov --coverage.reporter=text-summary --passWithNoTests
+        run: npx turbo run test:ci test:unit:ci test:component:ci --concurrency=5 --output-logs=errors-only --continue=always
         env:
           ENV: ${{ steps.env.outputs.environment }}
           CI: true
@@ -132,14 +121,6 @@ jobs:
           parallel: true
           file: ./packages/spec/coverage/lcov.info
 
-      - name: Test-utils tests with coverage
-        if: ${{ !cancelled() }}
-        run: cd packages/test-utils && npx vitest run --coverage --coverage.reporter=lcov --coverage.reporter=text-summary --passWithNoTests
-        env:
-          ENV: ${{ steps.env.outputs.environment }}
-          CI: true
-          NODE_OPTIONS: "--max-old-space-size=8192"
-
       - name: Upload test-utils coverage to Coveralls
         if: ${{ !cancelled() && hashFiles('packages/test-utils/coverage/lcov.info') != '' }}
         uses: coverallsapp/github-action@648a8eb78e6d50909eff900e4ec85cab4524a45b # v2.3.6
@@ -147,14 +128,6 @@ jobs:
           flag-name: test-utils
           parallel: true
           file: ./packages/test-utils/coverage/lcov.info
-
-      - name: Deploy tests with coverage
-        if: ${{ !cancelled() }}
-        run: cd deploy && npx vitest run --coverage --coverage.reporter=lcov --coverage.reporter=text-summary --passWithNoTests
-        env:
-          ENV: ${{ steps.env.outputs.environment }}
-          CI: true
-          NODE_OPTIONS: "--max-old-space-size=8192"
 
       - name: Upload deploy coverage to Coveralls
         if: ${{ !cancelled() && hashFiles('deploy/coverage/lcov.info') != '' }}
@@ -164,14 +137,6 @@ jobs:
           parallel: true
           file: ./deploy/coverage/lcov.info
 
-      - name: Utils tests with coverage
-        if: ${{ !cancelled() }}
-        run: cd packages/utils && npx vitest run --coverage --passWithNoTests
-        env:
-          ENV: ${{ steps.env.outputs.environment }}
-          CI: true
-          NODE_OPTIONS: "--max-old-space-size=8192"
-
       - name: Upload utils coverage to Coveralls
         if: ${{ !cancelled() && hashFiles('packages/utils/coverage/lcov.info') != '' }}
         uses: coverallsapp/github-action@648a8eb78e6d50909eff900e4ec85cab4524a45b # v2.3.6
@@ -179,14 +144,6 @@ jobs:
           flag-name: utils
           parallel: true
           file: ./packages/utils/coverage/lcov.info
-
-      - name: Zambda tests with coverage
-        if: ${{ !cancelled() }}
-        run: cd packages/zambdas && npx vitest run --coverage --passWithNoTests
-        env:
-          ENV: ${{ steps.env.outputs.environment }}
-          CI: true
-          NODE_OPTIONS: "--max-old-space-size=8192"
 
       - name: Upload zambdas coverage to Coveralls
         if: ${{ !cancelled() && hashFiles('packages/zambdas/coverage/integration/lcov.info') != '' }}
@@ -196,14 +153,6 @@ jobs:
           parallel: true
           file: ./packages/zambdas/coverage/integration/lcov.info
 
-      - name: EHR unit tests with coverage
-        if: ${{ !cancelled() }}
-        run: cd apps/ehr && npx vitest run --config ./vitest.config.ts --coverage --passWithNoTests
-        env:
-          ENV: ${{ steps.env.outputs.environment }}
-          CI: true
-          NODE_OPTIONS: "--max-old-space-size=8192"
-
       - name: Upload EHR unit coverage to Coveralls
         if: ${{ !cancelled() && hashFiles('apps/ehr/coverage/unit/lcov.info') != '' }}
         uses: coverallsapp/github-action@648a8eb78e6d50909eff900e4ec85cab4524a45b # v2.3.6
@@ -211,14 +160,6 @@ jobs:
           flag-name: ehr-unit
           parallel: true
           file: ./apps/ehr/coverage/unit/lcov.info
-
-      - name: EHR component tests with coverage
-        if: ${{ !cancelled() }}
-        run: cd apps/ehr && npx vitest run --config ./vitest.config.component-tests.ts --coverage --passWithNoTests
-        env:
-          ENV: ${{ steps.env.outputs.environment }}
-          CI: true
-          NODE_OPTIONS: "--max-old-space-size=8192"
 
       - name: Upload EHR component coverage to Coveralls
         if: ${{ !cancelled() && hashFiles('apps/ehr/coverage/component/lcov.info') != '' }}
@@ -228,14 +169,6 @@ jobs:
           parallel: true
           file: ./apps/ehr/coverage/component/lcov.info
 
-      - name: Intake unit tests with coverage
-        if: ${{ !cancelled() }}
-        run: cd apps/intake && npx vitest run --config ./vitest.config.ts --coverage --passWithNoTests
-        env:
-          ENV: ${{ steps.env.outputs.environment }}
-          CI: true
-          NODE_OPTIONS: "--max-old-space-size=8192"
-
       - name: Upload intake unit coverage to Coveralls
         if: ${{ !cancelled() && hashFiles('apps/intake/coverage/unit/lcov.info') != '' }}
         uses: coverallsapp/github-action@648a8eb78e6d50909eff900e4ec85cab4524a45b # v2.3.6
@@ -243,14 +176,6 @@ jobs:
           flag-name: intake-unit
           parallel: true
           file: ./apps/intake/coverage/unit/lcov.info
-
-      - name: Intake component tests with coverage
-        if: ${{ !cancelled() }}
-        run: cd apps/intake && npx vitest run --config ./vitest.config.component-tests.ts --coverage --passWithNoTests
-        env:
-          ENV: ${{ steps.env.outputs.environment }}
-          CI: true
-          NODE_OPTIONS: "--max-old-space-size=8192"
 
       - name: Upload intake component coverage to Coveralls
         if: ${{ !cancelled() && hashFiles('apps/intake/coverage/component/lcov.info') != '' }}

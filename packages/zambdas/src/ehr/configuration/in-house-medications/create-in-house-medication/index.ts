@@ -2,8 +2,6 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Coding, Medication } from 'fhir/r4b';
 import {
-  CODE_SYSTEM_CPT,
-  CODE_SYSTEM_HCPCS,
   CODE_SYSTEM_NDC,
   INVENTORY_MEDICATION_TYPE_CODE,
   MEDICATION_DISPENSABLE_DRUG_ID,
@@ -11,7 +9,7 @@ import {
   MEDICATION_IDENTIFIER_NAME_SYSTEM,
   MEDICATION_TYPE_SYSTEM,
 } from 'utils';
-import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../../../shared';
+import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -19,22 +17,13 @@ let m2mToken: string;
 export const index = wrapHandler(
   'admin-create-in-house-medication',
   async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-    const { name, ndc, medispanID, medispanIDForInteractions, cptCodes, hcpcsCodes, secrets } =
-      validateRequestParameters(input);
+    const { name, ndc, medispanID, medispanIDForInteractions, secrets } = validateRequestParameters(input);
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
 
-    const oystehr = createOystehrClient(m2mToken, secrets);
+    const oystehr = createClinicalOystehrClient(m2mToken, secrets);
     console.log('Created Oystehr client');
 
-    const response = await performEffect(
-      oystehr,
-      name,
-      ndc,
-      medispanID,
-      medispanIDForInteractions,
-      cptCodes,
-      hcpcsCodes
-    );
+    const response = await performEffect(oystehr, name, ndc, medispanID, medispanIDForInteractions);
     return {
       statusCode: 200,
       body: JSON.stringify(response),
@@ -47,9 +36,7 @@ export const performEffect = async (
   name: string,
   ndc: string | undefined,
   medispanID: string,
-  medispanIDForInteractions?: string,
-  cptCodes?: { code: string; display: string }[],
-  hcpcsCodes?: { code: string; display: string }[]
+  medispanIDForInteractions?: string
 ): Promise<Medication> => {
   const coding: Coding[] = [];
   if (ndc) {
@@ -64,12 +51,6 @@ export const performEffect = async (
       system: MEDICATION_DISPENSABLE_DRUG_ID_FOR_INTERACTIONS,
       code: medispanIDForInteractions,
     });
-  }
-  for (const { code, display } of cptCodes ?? []) {
-    coding.push({ system: CODE_SYSTEM_CPT, code, display });
-  }
-  for (const { code, display } of hcpcsCodes ?? []) {
-    coding.push({ system: CODE_SYSTEM_HCPCS, code, display });
   }
   const medication = await oystehr.fhir.create<Medication>({
     resourceType: 'Medication',

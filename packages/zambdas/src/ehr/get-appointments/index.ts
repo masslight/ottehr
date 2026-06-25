@@ -28,7 +28,6 @@ import {
   getAttestedConsentFromEncounter,
   getChatContainsUnreadMessages,
   getCoding,
-  getInPersonVisitStatus,
   getMiddleName,
   getPatientFirstName,
   getPatientLastName,
@@ -48,11 +47,13 @@ import {
   SERVICE_CATEGORY_SYSTEM,
   SMSModel,
   SMSRecipient,
+  TIMEZONE_EXTENSION_URL,
   ZAP_SMS_MEDIUM_CODE,
 } from 'utils';
 import {
   checkOrCreateM2MClientToken,
-  createOystehrClient,
+  createClinicalOystehrClient,
+  getTrackingBoardVisitStatus,
   sortAppointments,
   wrapHandler,
   ZambdaInput,
@@ -75,6 +76,40 @@ export interface GetAppointmentsZambdaInputValidated extends GetAppointmentsZamb
   secrets: Secrets | null;
 }
 
+const getNextPartitionKey = (appointment: InPersonAppointmentInformation, bucket: string): string => {
+  const locationTimezone = appointment.location?.extension?.find(
+    (extension) => extension.url === TIMEZONE_EXTENSION_URL
+  )?.valueString;
+  // makeAppointmentInformation already zones appointment.start to the appointment's own timezone, so
+  // preserving its embedded offset (setZone: true) keeps locationless provider/group rows on their
+  // real local day. An explicit location timezone, when present, takes precedence.
+  const startDateTime = DateTime.fromISO(appointment.start, { setZone: true });
+  const zonedStart = locationTimezone ? startDateTime.setZone(locationTimezone) : startDateTime;
+  const localDate = zonedStart.toISODate() ?? 'unknown-day';
+  // `group` is a display name rather than an id, but it is only a fallback key when no location id
+  // is present; a name collision here is harmless (it would only over-share the "next" flag).
+  const locationKey = appointment.location?.id ?? appointment.group ?? 'unknown-location';
+
+  return [bucket, locationKey, localDate].join(':');
+};
+
+// Mutates `next` in place: these appointment objects are freshly built by makeAppointmentInformation
+// and not shared anywhere, so cloning each one would only add allocations.
+export const assignNextFlagsByPartition = (
+  appointments: InPersonAppointmentInformation[],
+  bucket: string
+): InPersonAppointmentInformation[] => {
+  const seenPartitions = new Set<string>();
+
+  return appointments.map((appointment) => {
+    const partitionKey = getNextPartitionKey(appointment, bucket);
+    appointment.next = !seenPartitions.has(partitionKey);
+    seenPartitions.add(partitionKey);
+
+    return appointment;
+  });
+};
+
 const isUserRelatedPerson = (rp: RelatedPerson): boolean =>
   getCoding(rp.relationship, `${PRIVATE_EXTENSION_BASE_URL}/relationship`)?.code === 'user-relatedperson';
 
@@ -88,17 +123,25 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput):
   // "start": "2025-03-21T00:15:00.000Z",
   // "end": "2025-03-21T00:30:00.000Z",
   // But in local time (e.g., America/New_York) this may actually be 2025-03-20.
-  // We should use the appointment's timezone to request the correct appointments.
-  // The approach: use date without timezone from client and convert it to Zulu (UTC)
-  // with the appointment's timezone.
-  const { visitType, searchDate, locationID, providerIDs, serviceCategories, supervisorApprovalEnabled, secrets } =
-    validatedParameters;
+  // We should use the supplied timezone to request the correct appointments.
+  // The approach: use date with timezone from client and convert it to a range of date-time in Zulu (UTC)
+  const {
+    visitType,
+    searchDateFrom,
+    searchDateTo,
+    timezone,
+    locationIds,
+    providerIds,
+    serviceCategories,
+    supervisorApprovalEnabled,
+    secrets,
+  } = validatedParameters;
 
   console.groupEnd();
   console.debug('validateRequestParameters success');
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-  const oystehr = createOystehrClient(m2mToken, secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
   console.time('get_active_encounters + get_appointment_data');
 
@@ -108,13 +151,15 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput):
   }[] = (() => {
     const resources: { resourceId: string; resourceType: 'Location' | 'Practitioner' }[] = [];
 
-    if (locationID) {
-      resources.push({ resourceId: locationID, resourceType: 'Location' });
+    if (locationIds) {
+      resources.push(
+        ...locationIds.map((locationId) => ({ resourceId: locationId, resourceType: 'Location' }) as const)
+      );
     }
 
-    if (providerIDs) {
+    if (providerIds) {
       resources.push(
-        ...providerIDs.map((providerID) => ({ resourceId: providerID, resourceType: 'Practitioner' }) as const)
+        ...providerIds.map((providerId) => ({ resourceId: providerId, resourceType: 'Practitioner' }) as const)
       );
     }
 
@@ -153,7 +198,9 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput):
           oystehr,
           resourceId: options.resourceId,
           resourceType: options.resourceType,
-          searchDate,
+          searchDateFrom,
+          searchDateTo,
+          timezone,
         });
 
         const appointmentRequest = {
@@ -163,11 +210,12 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput):
 
         const { group } = appointmentRequestInput;
 
-        const appointmentResponse = await oystehr.fhir.search<AppointmentRelatedResources>(appointmentRequest);
+        const appointmentBundle =
+          await oystehr.fhir.searchAndGetAllPages<AppointmentRelatedResources>(appointmentRequest);
 
-        const appointments = appointmentResponse
-          .unbundle()
-          .filter((resource) => !isNonPaperworkQuestionnaireResponse(resource));
+        const appointments = (appointmentBundle.entry?.map((entry) => entry.resource).filter(isTruthy) ?? []).filter(
+          (resource) => !isNonPaperworkQuestionnaireResponse(resource)
+        );
 
         return { appointments, group };
       })
@@ -532,73 +580,32 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput):
       parentEncounterToApptIdMap,
     };
 
-    preBooked = appointmentQueues.prebooked
-      .map((appointment) => {
-        return makeAppointmentInformation(oystehr, {
-          appointment,
-          ...baseMapInput,
-          group: appointmentsToGroupMap.get(appointment.id ?? ''),
-        });
-      })
-      .filter(isTruthy);
+    const buildAppointments = (queue: Appointment[]): InPersonAppointmentInformation[] =>
+      queue
+        .map((appointment) =>
+          makeAppointmentInformation(oystehr, {
+            appointment,
+            ...baseMapInput,
+            group: appointmentsToGroupMap.get(appointment.id ?? ''),
+          })
+        )
+        .filter(isTruthy);
+
+    preBooked = buildAppointments(appointmentQueues.prebooked);
+
     inOffice = [
-      ...appointmentQueues.inOffice.waitingRoom.arrived.map((appointment, idx) => {
-        return makeAppointmentInformation(oystehr, {
-          appointment,
-          ...baseMapInput,
-          next: idx === 0,
-          group: appointmentsToGroupMap.get(appointment.id ?? ''),
-        });
-      }),
-      ...appointmentQueues.inOffice.waitingRoom.ready.map((appointment, idx) => {
-        return makeAppointmentInformation(oystehr, {
-          appointment,
-          ...baseMapInput,
-          next: idx === 0,
-          group: appointmentsToGroupMap.get(appointment.id ?? ''),
-        });
-      }),
-      ...appointmentQueues.inOffice.inExam.intake.map((appointment) => {
-        return makeAppointmentInformation(oystehr, {
-          appointment,
-          ...baseMapInput,
-          group: appointmentsToGroupMap.get(appointment.id ?? ''),
-        });
-      }),
-      ...appointmentQueues.inOffice.inExam['ready for provider'].map((appointment, idx) => {
-        return makeAppointmentInformation(oystehr, {
-          appointment,
-          ...baseMapInput,
-          next: idx === 0,
-          group: appointmentsToGroupMap.get(appointment.id ?? ''),
-        });
-      }),
-      ...appointmentQueues.inOffice.inExam.provider.map((appointment) => {
-        return makeAppointmentInformation(oystehr, {
-          appointment,
-          ...baseMapInput,
-          group: appointmentsToGroupMap.get(appointment.id ?? ''),
-        });
-      }),
-    ].filter(isTruthy);
-    completed = appointmentQueues.checkedOut
-      .map((appointment) => {
-        return makeAppointmentInformation(oystehr, {
-          appointment,
-          ...baseMapInput,
-          group: appointmentsToGroupMap.get(appointment.id ?? ''),
-        });
-      })
-      .filter(isTruthy);
-    cancelled = appointmentQueues.canceled
-      .map((appointment) => {
-        return makeAppointmentInformation(oystehr, {
-          appointment,
-          ...baseMapInput,
-          group: appointmentsToGroupMap.get(appointment.id ?? ''),
-        });
-      })
-      .filter(isTruthy);
+      ...assignNextFlagsByPartition(buildAppointments(appointmentQueues.inOffice.waitingRoom.arrived), 'arrived'),
+      ...assignNextFlagsByPartition(buildAppointments(appointmentQueues.inOffice.waitingRoom.ready), 'ready'),
+      ...buildAppointments(appointmentQueues.inOffice.inExam.intake),
+      ...assignNextFlagsByPartition(
+        buildAppointments(appointmentQueues.inOffice.inExam['ready for provider']),
+        'ready-for-provider'
+      ),
+      ...buildAppointments(appointmentQueues.inOffice.inExam.provider),
+    ];
+
+    completed = buildAppointments(appointmentQueues.checkedOut);
+    cancelled = buildAppointments(appointmentQueues.canceled);
   }
 
   const response = {
@@ -734,7 +741,7 @@ const makeAppointmentInformation = (
   const idCard = docRefComplete('Photo ID cards', 'photo-id-front');
   const insuranceCard = docRefComplete('Insurance cards', 'insurance-card-front');
   const cancellationReason = appointment.cancelationReason?.coding?.[0].code;
-  const status = getInPersonVisitStatus(appointment, encounter, supervisorApprovalEnabled);
+  const status = getTrackingBoardVisitStatus(appointment, encounter, supervisorApprovalEnabled);
 
   const waitingMinutesString = appointment.meta?.tag?.find((tag) => tag.system === 'waiting-minutes-estimate')?.code;
   const waitingMinutes = waitingMinutesString ? parseInt(waitingMinutesString) : undefined;
@@ -805,9 +812,15 @@ const makeAppointmentInformation = (
     next,
     visitStatusHistory: getVisitStatusHistory(encounter),
     waitingMinutes,
-    serviceCategory: appointment.serviceCategory
-      ?.flatMap((codeableConcept) => codeableConcept.coding ?? [])
-      ?.find((coding) => coding.system === SERVICE_CATEGORY_SYSTEM)?.display,
+    // Prefer the human-readable display, but fall back to the code: FHIR-backed
+    // (non-system) categories are stamped on the slot with only system+code and
+    // no display, so without this the abbreviation resolver gets nothing.
+    serviceCategory: (() => {
+      const coding = appointment.serviceCategory
+        ?.flatMap((codeableConcept) => codeableConcept.coding ?? [])
+        ?.find((c) => c.system === SERVICE_CATEGORY_SYSTEM);
+      return coding?.display ?? coding?.code;
+    })(),
     location: locationIdToResourceMap[encounter.location?.[0]?.location?.reference ?? ''],
     isFollowUp: !!encounter.partOf,
     parentEncounterId: encounter.partOf?.reference?.replace('Encounter/', ''),

@@ -5,6 +5,7 @@ import * as esbuild from 'esbuild';
 import { type Options } from 'execa';
 import fs from 'fs';
 import path from 'path';
+import billingZambdasSpec from '../../config/billing-app-core/zambdas.json';
 import zambdasSpec from '../../config/oystehr-core/zambdas.json';
 
 dotenv.config({ path: path.join(process.cwd(), '.env.sentry-build-plugin') });
@@ -37,7 +38,9 @@ const loadEnvZambdas = (env: string): ZambdaSpec[] => {
 };
 
 const zambdasList = (): ZambdaSpec[] => {
-  const baseZambdas = Object.entries(zambdasSpec.zambdas).map(([_key, spec]) => spec);
+  const baseZambdas = Object.entries({ ...zambdasSpec.zambdas, ...billingZambdasSpec.zambdas }).map(
+    ([_key, spec]) => spec
+  );
   const env = process.env.ENV || '';
   if (env) {
     const envZambdas = loadEnvZambdas(env);
@@ -248,7 +251,7 @@ const main = async (): Promise<void> => {
   const assetsDir = '.dist/assets';
 
   const isSentryEnabled =
-    !['local', 'e2e', 'e2e2', 'e2e3'].includes(process.env.ENV || '') &&
+    !['local', 'e2e', 'e2e2', 'e2e3', 'e2e4', 'e2e5'].includes(process.env.ENV || '') &&
     Boolean(process.env.SENTRY_AUTH_TOKEN && process.env.SENTRY_ORG && process.env.SENTRY_PROJECT);
 
   const icd10Zambdas = zambdas.filter((zambda) => zambdasWithIcd10Search.includes(zambda.name));

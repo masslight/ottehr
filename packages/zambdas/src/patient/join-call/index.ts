@@ -6,11 +6,11 @@ import { decodeJwt, jwtVerify } from 'jose';
 import { JSONPath } from 'jsonpath-plus';
 import { DateTime } from 'luxon';
 import {
-  APIError,
   CANNOT_JOIN_CALL_NOT_STARTED_ERROR,
   createOystehrClient,
   FHIR_EXTENSION,
   getAppointmentResourceById,
+  getParticipantIdFromAppointment,
   getRelatedPersonsForPatient,
   getSecret,
   getVirtualServiceResourceExtension,
@@ -40,6 +40,7 @@ const ZAMBDA_NAME = 'join-call';
 let oystehrToken: string;
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   const authorization = input.headers.Authorization;
+
   if (!authorization) {
     console.log('User is not authenticated yet');
     return lambdaResponse(401, { message: 'Unauthorized' });
@@ -47,6 +48,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   console.group('validateRequestParameters');
   let validatedParameters: JoinCallInput;
+
   try {
     validatedParameters = validateRequestParameters(input);
     console.log(JSON.stringify(validatedParameters, null, 4));
@@ -56,6 +58,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   }
 
   const { appointmentId, secrets } = validatedParameters;
+
   console.groupEnd();
   console.debug('validateRequestParameters success');
 
@@ -63,12 +66,14 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const websiteUrl = getSecret(SecretsKeys.WEBSITE_URL, secrets);
   const telemedClientId = getSecret(SecretsKeys.AUTH0_CLIENT, secrets);
   const telemedClientSecret = getSecret(SecretsKeys.AUTH0_SECRET, secrets);
-
   const jwt = authorization.replace('Bearer ', '');
   const claims = decodeJwt(jwt);
+
   console.log('JWT claims:', claims);
+
   let isInvitedParticipant = false;
   let user: User | undefined;
+
   try {
     if (claims.iss === PROJECT_WEBSITE) {
       isInvitedParticipant = true;
@@ -76,8 +81,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       await jwtVerify(jwt, secret, {
         audience: `${websiteUrl}/waiting-room/appointment/${appointmentId}`,
       });
+
       if (!claims.sub) {
-        throw new Error('clams.sub is expected!');
+        throw new Error('claims.sub is expected!');
       }
     } else {
       console.log('getting user');
@@ -86,6 +92,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     }
   } catch (error) {
     console.log('User verification error:', error);
+
     return lambdaResponse(401, { message: 'Unauthorized' });
   }
 
@@ -106,47 +113,59 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   console.log(`getting appointment resource for id ${appointmentId}`);
   appointment = await getAppointmentResourceById(appointmentId, oystehr);
+
   if (!appointment) {
     console.log('Appointment is not found');
     return lambdaResponse(404, { message: 'Appointment is not found' });
   }
 
-  const patientRef = appointment.participant.find((p) => p.actor?.reference?.match(/^Patient/) !== null)?.actor
-    ?.reference;
-  const patientId = patientRef?.replace(/^Patient\//, '');
+  const patientId = getParticipantIdFromAppointment(appointment, 'Patient');
+
   console.log('Patient ID from appointment:', patientId);
+
   if (!patientId) {
     throw new Error('Could not find the patient reference in appointment resource.'); // 500
   }
 
   let videoEncounter: Encounter | undefined = undefined;
   videoEncounter = await getVideoEncounterForAppointment(appointment.id || 'Unknown', oystehr);
+
   console.log('Encounter status:', videoEncounter?.status);
 
-  if (
-    !videoEncounter?.id ||
-    videoEncounter.status !== 'in-progress' ||
-    !getVirtualServiceResourceExtension(videoEncounter, TELEMED_VIDEO_ROOM_CODE)
-  ) {
+  // Status can reach 'in-progress' before the video room is provisioned (e.g., via ChangeStatusDropdown); require addressString to avoid a 4006 from join.
+  const virtualServiceExt = videoEncounter
+    ? getVirtualServiceResourceExtension(videoEncounter, TELEMED_VIDEO_ROOM_CODE)
+    : null;
+
+  const hasMeetingAddress = (virtualServiceExt?.extension ?? []).some(
+    (ext) => ext.url === 'addressString' && typeof ext.valueString === 'string' && ext.valueString.length > 0
+  );
+
+  if (!videoEncounter?.id || videoEncounter.status !== 'in-progress' || !virtualServiceExt || !hasMeetingAddress) {
     return lambdaResponse(400, CANNOT_JOIN_CALL_NOT_STARTED_ERROR);
   }
 
   let userProfile: string;
   let relatedPersonRefs: string[] = [];
+
   if (isInvitedParticipant) {
     const subject = claims.sub || '';
+
     if (!(await isParticipantInvited(subject, videoEncounter.id, oystehr))) {
       return lambdaResponse(401, { message: 'Unauthorized' });
     }
+
     userProfile = await getM2MUserProfile(oystehrToken, projectApiURL, telemedClientId);
   } else {
-    // user is defined here cause it's not invited participant
     user = user as User;
     userProfile = user.profile;
+
     if (!(await userHasAccessToPatient(user, patientId, oystehr))) {
       return lambdaResponse(403, NO_READ_ACCESS_TO_PATIENT_ERROR);
     }
+
     const relatedPersons = await getRelatedPersonsForPatient(patientId, oystehr);
+
     if (!relatedPersons.length) {
       console.log(`No user-relatedperson for patient ${patientId}; proceeding without an RP participant`);
       reportMissingUserRelatedPerson('join-call', patientId);
@@ -161,22 +180,34 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   console.log('RelatedPersons:', relatedPersonRefs);
 
   videoEncounter = await addUserToVideoEncounterIfNeeded(videoEncounter, userProfile, relatedPersonRefs, oystehr);
+
   if (!videoEncounter.id) {
     throw new Error(`Video encounter was not found for the appointment ${appointment.id}`);
   }
 
   const userToken = isInvitedParticipant ? oystehrToken : jwt;
-  let joinCallResponse;
+  let joinCallResponse: JoinCallResponse;
+
   try {
-    joinCallResponse = await joinTelemedMeeting(projectApiURL, userToken, videoEncounter.id, isInvitedParticipant);
+    joinCallResponse = (await oystehr.telemed.joinMeeting(
+      { encounterId: videoEncounter.id, anonymous: isInvitedParticipant },
+      { accessToken: userToken }
+    )) as JoinCallResponse;
   } catch (error: any) {
     console.error('Error joining telemed meeting:', error);
-    // Handle expired/unavailable meeting errors (404 NotFoundException from AWS Chime SDK)
-    // This status code indicates the meeting has expired or does not exist
-    // This is expected behavior and we should return a user-friendly error
-    if (error?.statusCode === 404) {
+
+    const errorCode = error?.code ? `${error.code}` : '';
+    const errorMessage: string = typeof error?.message === 'string' ? error.message : '';
+
+    const isMissingAddressString = errorCode === '4006' || errorMessage.includes('addressString');
+
+    // TODO: after ticket "Oystehr Map chime errors to 4-digit codes in handleChimeSDKError" is implemented, it's better to check the code instead of the message
+    const isNotFoundOrExpired = errorMessage.includes('not found or expired');
+
+    if (isMissingAddressString || isNotFoundOrExpired) {
       return lambdaResponse(400, CANNOT_JOIN_CALL_NOT_STARTED_ERROR);
     }
+
     throw error;
   }
 
@@ -190,47 +221,63 @@ async function addUserToVideoEncounterIfNeeded(
   oystehr: Oystehr
 ): Promise<Encounter> {
   try {
-    const extension = [...(encounter.extension ?? [])];
-    const otherParticipantExt = extension.find((ext) => ext.url === FHIR_EXTENSION.Encounter.otherParticipants.url);
+    const otherParticipantsIdx = (encounter.extension ?? []).findIndex(
+      (ext) => ext.url === FHIR_EXTENSION.Encounter.otherParticipants.url
+    );
 
+    const otherParticipantExt = otherParticipantsIdx >= 0 ? encounter.extension?.[otherParticipantsIdx] : undefined;
     const filter = FHIR_EXTENSION.Encounter.otherParticipants.extension.otherParticipant.url;
     const path = `$.extension[?(@.url == '${filter}')].extension[?(@.url == 'reference')].valueReference.reference`;
     const otherParticipantsDenormalized = JSONPath({ path: path, json: otherParticipantExt ?? {} });
+
     console.log('otherParticipantsDenormalized:', otherParticipantsDenormalized);
 
     const updateOperations: Operation[] = [];
 
+    const newOtherParticipantEntry = {
+      url: FHIR_EXTENSION.Encounter.otherParticipants.extension.otherParticipant.url,
+      extension: [
+        {
+          url: 'period',
+          valuePeriod: {
+            start: DateTime.now().toUTC().toISO(),
+          },
+        },
+        {
+          url: 'reference',
+          valueReference: {
+            reference: fhirParticipantRef,
+          },
+        },
+      ],
+    };
+
     if (otherParticipantsDenormalized.includes(fhirParticipantRef)) {
       console.log(`User '${fhirParticipantRef}' is already added to the participant list.`);
-    } else {
-      otherParticipantExt?.extension?.push({
-        url: FHIR_EXTENSION.Encounter.otherParticipants.extension.otherParticipant.url,
-        extension: [
-          {
-            url: 'period',
-            valuePeriod: {
-              start: DateTime.now().toUTC().toISO(),
-            },
-          },
-          {
-            url: 'reference',
-            valueReference: {
-              reference: fhirParticipantRef,
-            },
-          },
-        ],
+    } else if (otherParticipantsIdx >= 0) {
+      // Targeted patch into the existing container avoids the lost-update race of replacing /extension.
+      updateOperations.push({
+        op: 'add',
+        path: `/extension/${otherParticipantsIdx}/extension/-`,
+        value: newOtherParticipantEntry,
       });
+    } else {
+      const newOtherParticipants = {
+        url: FHIR_EXTENSION.Encounter.otherParticipants.url,
+        extension: [newOtherParticipantEntry],
+      };
 
       updateOperations.push({
-        op: 'replace',
-        path: '/extension',
-        value: extension,
+        op: 'add',
+        path: encounter.extension ? '/extension/-' : '/extension',
+        value: encounter.extension ? newOtherParticipants : [newOtherParticipants],
       });
     }
 
     const existingParticipantRefs = new Set(
       (encounter.participant ?? []).map((p) => p.individual?.reference).filter((r): r is string => !!r)
     );
+
     const refsToAdd = fhirRelatedPersonRefs.filter((ref) => !existingParticipantRefs.has(ref));
 
     if (!refsToAdd.length) {
@@ -251,11 +298,13 @@ async function addUserToVideoEncounterIfNeeded(
 
     if (updateOperations.length > 0) {
       console.log(JSON.stringify(updateOperations, null, 4));
+
       const updatedEncounter = await oystehr.fhir.patch<Encounter>({
         resourceType: 'Encounter',
         id: encounter.id ?? '',
         operations: updateOperations,
       });
+
       return updatedEncounter;
     } else {
       console.log('Nothing to update for the encounter.');
@@ -270,41 +319,16 @@ async function addUserToVideoEncounterIfNeeded(
 async function isParticipantInvited(subject: string, encounterId: string, oystehr: Oystehr): Promise<boolean> {
   const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   const isEmail = emailPattern.test(subject);
-
   const relatedPersons = await searchInvitedParticipantResourcesByEncounterId(encounterId, oystehr);
+
   const telecom: string[] = JSONPath({
     path: `$..telecom[?(@.system == "${isEmail ? 'email' : 'phone'}")].value`,
     json: relatedPersons,
   });
+
   console.log(`${isEmail ? 'Email addresses' : 'Phone numbers'} that were invited:`, telecom);
 
   return telecom.includes(subject);
-}
-
-async function joinTelemedMeeting(
-  projectApiURL: string,
-  userToken: string,
-  encounterId: string,
-  anonymous = false
-): Promise<JoinCallResponse> {
-  const joinUrl = `${projectApiURL}/telemed/v2/meeting/${encounterId}/join${anonymous ? '?anonymous=true' : ''}`;
-  const response = await fetch(joinUrl, {
-    headers: {
-      Authorization: `Bearer ${userToken}`,
-      'content-type': 'application/json',
-    },
-    method: 'GET',
-  });
-  if (!response.ok) {
-    const errorBody = await response.json();
-    const error: APIError = {
-      message: `API call failed: ${JSON.stringify(errorBody)}`,
-      statusCode: response.status,
-    };
-    throw error;
-  }
-
-  return (await response.json()) as JoinCallResponse;
 }
 
 async function getM2MUserProfile(token: string, projectApiURL: string, telemedClientId: string): Promise<any> {
@@ -323,9 +347,11 @@ async function getM2MUserProfile(token: string, projectApiURL: string, telemedCl
 
     const data = await response.json();
     const telemedDevice = data.find((device: any) => device.clientId === telemedClientId);
+
     if (!telemedDevice) {
       throw new Error('No device matches the provided AUTH0_CLIENT');
     }
+
     return telemedDevice.profile;
   } catch (error: any) {
     console.error('Error fetching M2M user details:', error);

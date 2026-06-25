@@ -3,11 +3,11 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { CandidApi, CandidApiClient } from 'candidhealth';
 import { APIResponse } from 'candidhealth/core';
 import { Appointment, Encounter } from 'fhir/r4b';
-import { chunkThings, createCandidApiClient, GetPatientBalancesZambdaOutput } from 'utils';
+import { chunkThings, getOrCreateCandidApiClient, GetPatientBalancesZambdaOutput } from 'utils';
 import {
   CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM,
   checkOrCreateM2MClientToken,
-  createOystehrClient,
+  createClinicalOystehrClient,
   lambdaResponse,
   wrapHandler,
   ZambdaInput,
@@ -26,7 +26,6 @@ type EncounterIdMap = Map<
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let m2mToken: string;
-let candidApiClient: CandidApiClient | undefined;
 
 const CANDID_BATCH_SIZE = 3;
 
@@ -38,14 +37,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (unsafeInput: ZambdaInput): 
   const validatedInput = await validateInput(unsafeInput);
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-  const oystehr = createOystehrClient(m2mToken, secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
-  if (!candidApiClient) {
-    console.group('creating candid api client');
-    candidApiClient = createCandidApiClient(secrets);
-    console.groupEnd();
-    console.debug('creating candid api client success');
-  }
+  const candidApiClient = await getOrCreateCandidApiClient(oystehr, secrets);
 
   const response = await performEffect(validatedInput, oystehr, candidApiClient);
 

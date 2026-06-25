@@ -1,37 +1,35 @@
 import { LoadingButton } from '@mui/lab';
-import { Button, Checkbox, Chip, CircularProgress, TextField, Typography } from '@mui/material';
+import { Button, Checkbox, Chip, TextField, Typography } from '@mui/material';
 import { Box, Stack, useTheme } from '@mui/system';
-import React, { useCallback, useState } from 'react';
+import React, { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { radiologyLaunchViewer } from 'src/api/api';
 import { DetailTaskCard } from 'src/features/tasks/components/DetailTaskCard';
-import { useApiClients } from 'src/hooks/useAppClients';
-import radiologyIcon from 'src/themes/ottehr/icons/mui-radiology.svg';
 import { PageTitleStyled } from '../../visits/shared/components/PageTitle';
 import { WithRadiologyBreadcrumbs } from '../components/RadiologyBreadcrumbs';
 import { RadiologyOrderHistoryCard } from '../components/RadiologyOrderHistoryCard';
 import { RadiologyOrderLoading } from '../components/RadiologyOrderLoading';
 import { RadiologyTableStatusChip } from '../components/RadiologyTableStatusChip';
+import { RadiologyViewImageBtn } from '../components/RadiologyViewImageBtn';
 import { usePatientRadiologyOrders } from '../components/usePatientRadiologyOrders';
 import { useRadiologyConsentExists } from '../components/useRadiologyConsentExists';
 
 export const RadiologyOrderDetailsPage: React.FC = () => {
-  const { oystehrZambda } = useApiClients();
   const urlParams = useParams();
   const serviceRequestId = urlParams.serviceRequestID as string;
   const navigate = useNavigate();
   const theme = useTheme();
 
-  const [isLaunchingViewer, setIsLaunchingViewer] = useState(false);
-  const [launchViewerError, setLaunchViewerError] = useState<string | null>(null);
   const [preliminaryReport, setPreliminaryReport] = useState<string | undefined>();
+  const [finalReportByUser, setFinalReportByUser] = useState(false);
+  const [finalReport, setFinalReport] = useState<string | undefined>();
+  const [missingFinalReport, setMissingFinalReport] = useState(false);
 
   const {
     orders,
     loading,
-    handleSavePreliminaryReport,
+    handleSaveReport,
     handleSendForFinalRead,
-    isSavingPreliminaryReport,
+    isSavingReport,
     isSendingForFinalRead,
     fetchOrders,
   } = usePatientRadiologyOrders({
@@ -41,33 +39,6 @@ export const RadiologyOrderDetailsPage: React.FC = () => {
   const handleBack = (): void => {
     navigate(-1);
   };
-
-  const handleViewImageClick = useCallback(async (): Promise<void> => {
-    setIsLaunchingViewer(true);
-    setLaunchViewerError(null);
-
-    if (!oystehrZambda) {
-      console.error('oystehrZambda is not defined');
-      return;
-    }
-
-    try {
-      const response = await radiologyLaunchViewer(oystehrZambda, {
-        serviceRequestId: serviceRequestId,
-      });
-
-      if (response) {
-        window.open(response.url, '_blank');
-      } else {
-        setLaunchViewerError('Could not launch viewer');
-      }
-    } catch (err) {
-      console.error('Error launching viewer:', err);
-      setLaunchViewerError('An error occurred launching the viewer');
-    } finally {
-      setIsLaunchingViewer(false);
-    }
-  }, [serviceRequestId, oystehrZambda]);
 
   const consentExists = useRadiologyConsentExists();
 
@@ -136,33 +107,11 @@ export const RadiologyOrderDetailsPage: React.FC = () => {
 
           <Box sx={{ border: '1px solid #e0e0e0', borderRadius: 1, backgroundColor: '#fff' }}>
             <Box sx={{ padding: 2 }}>
-              <Button
-                variant="outlined"
-                startIcon={
-                  <Box
-                    component="img"
-                    src={radiologyIcon}
-                    style={{
-                      width: '30px',
-                      marginRight: '8px',
-                      filter:
-                        order.status === 'pending' || isLaunchingViewer ? 'grayscale(1) opacity(0.38)' : undefined,
-                    }}
-                  />
-                }
-                endIcon={isLaunchingViewer ? <CircularProgress size={16} color="inherit" /> : null}
-                onClick={() => handleViewImageClick()}
-                sx={{ borderRadius: '50px', textTransform: 'none' }}
-                disabled={order.status === 'pending' || isLaunchingViewer}
-              >
-                {isLaunchingViewer ? 'Launching Image...' : 'View Image'}
-              </Button>
-
-              {launchViewerError && (
-                <Box sx={{ mt: 2, color: 'error.main' }}>
-                  <Typography color="error">{launchViewerError}</Typography>
-                </Box>
-              )}
+              <RadiologyViewImageBtn
+                serviceRequestId={serviceRequestId}
+                disabled={order.status === 'pending'}
+                displaySmall={false}
+              />
 
               {order.studyName && (
                 <Box sx={{ mt: 2 }}>
@@ -253,6 +202,45 @@ export const RadiologyOrderDetailsPage: React.FC = () => {
                   </Typography>
                 </Box>
               </Box>
+
+              {order.status === 'preliminary' && (
+                <>
+                  <Box sx={{ mt: 1 }}>
+                    <Box style={{ display: 'flex', alignItems: 'center' }}>
+                      <Checkbox
+                        sx={{ paddingLeft: 0 }}
+                        checked={finalReportByUser}
+                        onChange={() => {
+                          if (finalReportByUser) setFinalReport(undefined);
+                          setFinalReportByUser(!finalReportByUser);
+                        }}
+                      />
+                      <Typography>Don't send to teleradiology, I will write the final report myself.</Typography>
+                    </Box>
+                  </Box>
+                  {finalReportByUser && (
+                    <Box sx={{ mt: 1 }}>
+                      <TextField
+                        id="final-report-field"
+                        label="Final Report"
+                        placeholder="Enter final report for the radiology order"
+                        fullWidth
+                        multiline
+                        minRows={2}
+                        maxRows={10}
+                        size="small"
+                        value={finalReport}
+                        onChange={(e) => {
+                          setMissingFinalReport(false);
+                          setFinalReport(e.target.value);
+                        }}
+                        error={missingFinalReport}
+                        helperText={missingFinalReport ? 'Final report is required' : ''}
+                      />
+                    </Box>
+                  )}
+                </>
+              )}
             </Box>
           </Box>
 
@@ -274,7 +262,7 @@ export const RadiologyOrderDetailsPage: React.FC = () => {
 
             {order.status === 'performed' && !order.preliminaryReport && (
               <LoadingButton
-                loading={isSavingPreliminaryReport}
+                loading={isSavingReport}
                 variant="contained"
                 color="primary"
                 sx={{
@@ -282,27 +270,48 @@ export const RadiologyOrderDetailsPage: React.FC = () => {
                   padding: '8px 22px',
                   textTransform: 'none',
                 }}
-                onClick={() => handleSavePreliminaryReport(serviceRequestId, preliminaryReport || '')}
+                onClick={() => handleSaveReport(serviceRequestId, preliminaryReport || '', 'preliminary')}
               >
                 Save Preliminary Report
               </LoadingButton>
             )}
 
-            {order.status === 'preliminary' && (
-              <LoadingButton
-                loading={isSendingForFinalRead}
-                variant="contained"
-                color="primary"
-                sx={{
-                  borderRadius: 28,
-                  padding: '8px 22px',
-                  textTransform: 'none',
-                }}
-                onClick={() => handleSendForFinalRead(serviceRequestId)}
-              >
-                Send for Final Read
-              </LoadingButton>
-            )}
+            {order.status === 'preliminary' &&
+              (finalReportByUser ? (
+                <LoadingButton
+                  loading={isSavingReport}
+                  variant="contained"
+                  color="primary"
+                  sx={{
+                    borderRadius: 28,
+                    padding: '8px 22px',
+                    textTransform: 'none',
+                  }}
+                  onClick={() => {
+                    if (!finalReport || !(finalReport.length > 0)) {
+                      setMissingFinalReport(true);
+                      return;
+                    }
+                    void handleSaveReport(serviceRequestId, finalReport || '', 'final');
+                  }}
+                >
+                  Save as Final
+                </LoadingButton>
+              ) : (
+                <LoadingButton
+                  loading={isSendingForFinalRead}
+                  variant="contained"
+                  color="primary"
+                  sx={{
+                    borderRadius: 28,
+                    padding: '8px 22px',
+                    textTransform: 'none',
+                  }}
+                  onClick={() => handleSendForFinalRead(serviceRequestId)}
+                >
+                  Send for Final Read
+                </LoadingButton>
+              ))}
           </Box>
         </Stack>
       </div>

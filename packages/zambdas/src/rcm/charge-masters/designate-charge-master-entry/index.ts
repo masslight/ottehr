@@ -2,7 +2,7 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { ChargeItemDefinition, Coding } from 'fhir/r4b';
 import {
   checkOrCreateM2MClientToken,
-  createOystehrClient,
+  createClinicalOystehrClient,
   RCM_TAG_SYSTEM,
   wrapHandler,
   ZambdaInput,
@@ -16,7 +16,7 @@ export const index = wrapHandler(
     const { chargeMasterId, designation, secrets } = validateRequestParameters(input);
 
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
+    const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
     // Set the designation tag on the target charge master and clear useContext
     const target = await oystehr.fhir.get<ChargeItemDefinition>({

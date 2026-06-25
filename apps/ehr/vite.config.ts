@@ -63,7 +63,10 @@ export default ({ mode }: { mode: string }): UserConfig => {
     build: {
       outDir: './build',
       target: browserslistToEsbuild(),
-      sourcemap: true,
+      // Only emit sourcemaps when they'll actually be uploaded to Sentry.
+      // Generating them for every env (e2e*, local) bloats rollup's
+      // "rendering chunks" phase and OOMs the build on a 23k-module app.
+      sourcemap: shouldUploadSentrySourceMaps,
     },
     resolve: {
       preserveSymlinks: true,

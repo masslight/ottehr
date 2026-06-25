@@ -19,7 +19,7 @@ import {
 } from 'utils';
 import {
   checkOrCreateM2MClientToken,
-  createOystehrClient,
+  createClinicalOystehrClient,
   sendErrors,
   wrapHandler,
   ZambdaInput,
@@ -40,7 +40,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   console.log('validateRequestParameters success');
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-  const oystehr = createOystehrClient(m2mToken, secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
   try {
     const { printingConfig, device } = await getPrintingConfigAndDevice(oystehr, deviceId);
@@ -107,7 +107,7 @@ export const getPrintingConfigAndDevice = async (
   return { printingConfig: parsedConfig, device };
 };
 
-const parsePrintingConfig = (device: Device): LabelPrintingConfig => {
+export const parsePrintingConfig = (device: Device): LabelPrintingConfig => {
   console.log(`Parsing printing config from Device/${device.id}`);
 
   // determine the printing mode

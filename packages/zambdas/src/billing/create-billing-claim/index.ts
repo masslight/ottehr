@@ -1,8 +1,20 @@
 import Oystehr, { BatchInputPostRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { randomUUID } from 'crypto';
-import { Claim, Coverage, Location, Organization, Patient, Person, Practitioner, Resource } from 'fhir/r4b';
 import {
+  Claim,
+  Coverage,
+  Location,
+  Organization,
+  Patient,
+  Person,
+  Practitioner,
+  RelatedPerson,
+  Resource,
+} from 'fhir/r4b';
+import {
+  ClaimStatusValues,
+  claimStatusValuesToTags,
   CODE_SYSTEM_CLAIM_TYPE,
   CODE_SYSTEM_CMS_PLACE_OF_SERVICE,
   CODE_SYSTEM_HCPCS,
@@ -13,18 +25,23 @@ import {
   FHIR_RESOURCE_NOT_FOUND,
   getResourcesFromBatchInlineRequests,
   InternalError,
+  withArStageInitialization,
 } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import {
-  applyNameOverrides,
+  buildDiagnosisSequence,
   createBillingClient,
   CURRENT_STATUS_TAG_SYSTEM,
+  ensureClaimInsurance,
   findRef,
   prepareWorkingCopy,
 } from '../shared';
 import { CreateClaimParams, validateRequestParameters } from './validateRequestParameters';
 
-type BillingFhirResource = Patient | Coverage | Practitioner | Organization | Location;
+type BillingFhirResource = Patient | Coverage | Practitioner | Organization | Location | RelatedPerson;
+
+// A claim's billing and rendering providers can each be a Practitioner or an Organization.
+type ClaimProvider = Practitioner | Organization;
 
 let m2mToken: string;
 const ZAMBDA_NAME = 'create-billing-claim';
@@ -42,15 +59,15 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 interface OriginalResources {
   patient: Patient;
   coverage?: Coverage;
-  practitioner?: Practitioner;
+  coverageSubscriber?: RelatedPerson;
+  renderingProvider?: ClaimProvider;
   facility?: Location;
-  billingProvider?: Organization;
-  payor?: Organization;
+  billingProvider?: ClaimProvider;
 }
 
 async function performEffect(oystehr: Oystehr, params: CreateClaimParams): Promise<{ claimId: string }> {
   const originals = await readOriginals(oystehr, params);
-  const copies = await createWorkingCopies(oystehr, originals, params);
+  const copies = await createWorkingCopies(oystehr, originals);
 
   if (copies.patient?.id) {
     await linkPatientCopyViaPerson(oystehr, params.patientId, copies.patient.id);
@@ -63,11 +80,14 @@ async function performEffect(oystehr: Oystehr, params: CreateClaimParams): Promi
 }
 
 async function readOriginals(oystehr: Oystehr, params: CreateClaimParams): Promise<OriginalResources> {
+  const rp = params.renderingProvider;
+  const bp = params.billingProvider;
+
   const searches: string[] = [`/Patient?_id=${params.patientId}`];
-  if (params.coverageId) searches.push(`/Coverage?_id=${params.coverageId}&_include=Coverage:payor`);
-  if (params.practitionerId) searches.push(`/Practitioner?_id=${params.practitionerId}`);
+  if (params.coverageId) searches.push(`/Coverage?_id=${params.coverageId}&_include=Coverage:subscriber`);
+  if (rp) searches.push(`/${rp.type}?_id=${rp.id}`);
   if (params.facilityId) searches.push(`/Location?_id=${params.facilityId}`);
-  if (params.billingProviderId) searches.push(`/Organization?_id=${params.billingProviderId}`);
+  if (bp) searches.push(`/${bp.type}?_id=${bp.id}`);
 
   const resources = await getResourcesFromBatchInlineRequests(oystehr, searches);
 
@@ -75,70 +95,67 @@ async function readOriginals(oystehr: Oystehr, params: CreateClaimParams): Promi
   if (!patient) throw FHIR_RESOURCE_NOT_FOUND('Patient');
 
   const coverage = findRef<Coverage>(resources, params.coverageId ? `Coverage/${params.coverageId}` : undefined);
-  const practitioner = findRef<Practitioner>(
-    resources,
-    params.practitionerId ? `Practitioner/${params.practitionerId}` : undefined
-  );
+  const subscriberRef = coverage?.subscriber?.reference;
+  const coverageSubscriber = subscriberRef?.startsWith('RelatedPerson/')
+    ? findRef<RelatedPerson>(resources, subscriberRef)
+    : undefined;
+  const renderingProvider = findRef<ClaimProvider>(resources, rp ? `${rp.type}/${rp.id}` : undefined);
   const facility = findRef<Location>(resources, params.facilityId ? `Location/${params.facilityId}` : undefined);
-  const billingProvider = findRef<Organization>(
-    resources,
-    params.billingProviderId ? `Organization/${params.billingProviderId}` : undefined
-  );
-  // TODO: payor ref will move to external Oystehr payer URLs (#6603)
-  const payor = findRef<Organization>(resources, coverage?.payor?.[0]?.reference);
-
-  return { patient, coverage, practitioner, facility, billingProvider, payor };
+  const billingProvider = findRef<ClaimProvider>(resources, bp ? `${bp.type}/${bp.id}` : undefined);
+  return { patient, coverage, coverageSubscriber, renderingProvider, facility, billingProvider };
 }
 
-async function createWorkingCopies(
-  oystehr: Oystehr,
-  originals: OriginalResources,
-  params: CreateClaimParams
-): Promise<OriginalResources> {
+async function createWorkingCopies(oystehr: Oystehr, originals: OriginalResources): Promise<OriginalResources> {
   const requests: BatchInputPostRequest<BillingFhirResource>[] = [];
   const order: string[] = [];
 
   const patientUrn = `urn:uuid:${randomUUID()}`;
-  let patientCopy = prepareWorkingCopy(originals.patient, originals.patient.id!);
-  patientCopy = applyPatientOverrides(patientCopy, params.patientOverrides);
+  const patientCopy = prepareWorkingCopy<Patient>(originals.patient, originals.patient.id!);
   requests.push({ method: 'POST', url: '/Patient', resource: patientCopy, fullUrl: patientUrn });
   order.push('patient');
 
-  if (originals.payor) {
-    const copy = prepareWorkingCopy(originals.payor, originals.payor.id!);
-    requests.push({ method: 'POST', url: '/Organization', resource: copy, fullUrl: `urn:uuid:${randomUUID()}` });
-    order.push('payor');
-  }
-
   if (originals.coverage) {
-    const copy = prepareWorkingCopy(originals.coverage, originals.coverage.id!);
-    if (params.coverageOverrides?.subscriberId) copy.subscriberId = params.coverageOverrides.subscriberId;
+    const copy = prepareWorkingCopy<Coverage>(originals.coverage, originals.coverage.id!);
     copy.beneficiary = { reference: patientUrn };
-    copy.subscriber = { reference: patientUrn };
-    // TODO: payor ref will move to external Oystehr payer URLs (#6603)
-    if (originals.payor) {
-      const payorUrn = requests.find((_, i) => order[i] === 'payor')!.fullUrl!;
-      copy.payor = [{ reference: payorUrn }];
+    // Mirror the encounter path: copy the subscriber RelatedPerson so the policy holder is preserved on
+    // the working copy. Self coverages have no separate subscriber and stay pointed at the patient.
+    if (originals.coverageSubscriber) {
+      const subscriberCopy = prepareWorkingCopy<RelatedPerson>(
+        originals.coverageSubscriber,
+        originals.coverageSubscriber.id!
+      );
+      const subscriberUrn = `urn:uuid:${randomUUID()}`;
+      subscriberCopy.patient = { reference: patientUrn };
+      requests.push({ method: 'POST', url: '/RelatedPerson', resource: subscriberCopy, fullUrl: subscriberUrn });
+      order.push('coverageSubscriber');
+      copy.subscriber = { reference: subscriberUrn };
+    } else {
+      copy.subscriber = { reference: patientUrn };
     }
+    // payor is an Oystehr payer list URL kept from the original coverage
     requests.push({ method: 'POST', url: '/Coverage', resource: copy });
     order.push('coverage');
   }
 
-  if (originals.practitioner) {
-    let copy = prepareWorkingCopy(originals.practitioner, originals.practitioner.id!);
-    copy = applyPractitionerOverrides(copy, params.practitionerOverrides);
-    requests.push({ method: 'POST', url: '/Practitioner', resource: copy });
-    order.push('practitioner');
+  if (originals.renderingProvider) {
+    const copy = prepareWorkingCopy<Practitioner | Organization>(
+      originals.renderingProvider,
+      originals.renderingProvider.id
+    );
+    requests.push({ method: 'POST', url: `/${copy.resourceType}`, resource: copy });
+    order.push('renderingProvider');
   }
   if (originals.facility) {
-    const copy = prepareWorkingCopy(originals.facility, originals.facility.id!);
-    if (params.facilityOverrides?.name) copy.name = params.facilityOverrides.name;
+    const copy = prepareWorkingCopy<Location>(originals.facility, originals.facility.id!);
     requests.push({ method: 'POST', url: '/Location', resource: copy });
     order.push('facility');
   }
   if (originals.billingProvider) {
-    const copy = prepareWorkingCopy(originals.billingProvider, originals.billingProvider.id!);
-    requests.push({ method: 'POST', url: '/Organization', resource: copy });
+    const copy = prepareWorkingCopy<Practitioner | Organization>(
+      originals.billingProvider,
+      originals.billingProvider.id
+    );
+    requests.push({ method: 'POST', url: `/${copy.resourceType}`, resource: copy });
     order.push('billingProvider');
   }
 
@@ -157,40 +174,24 @@ async function createWorkingCopies(
   return { patient: originals.patient, ...copies } as OriginalResources;
 }
 
-function applyPatientOverrides(patient: Patient, overrides?: CreateClaimParams['patientOverrides']): Patient {
-  if (!overrides) return patient;
-  let p = applyNameOverrides(patient, overrides);
-  if (overrides.dob !== undefined) p = { ...p, birthDate: overrides.dob };
-  if (overrides.gender !== undefined) p = { ...p, gender: overrides.gender as Patient['gender'] };
-  return p;
-}
-
-function applyPractitionerOverrides(
-  pract: Practitioner,
-  overrides?: CreateClaimParams['practitionerOverrides']
-): Practitioner {
-  if (!overrides) return pract;
-  const p = applyNameOverrides(pract, overrides);
-  if (overrides.npi !== undefined) {
-    const npiIdent = p.identifier?.find((id) => id.type?.coding?.some((c) => c.code === 'NPI'));
-    if (npiIdent) npiIdent.value = overrides.npi;
-  }
-  return p;
-}
-
 function buildClaim(copies: OriginalResources, params: CreateClaimParams): Claim {
-  const now = new Date().toISOString().slice(0, 10);
+  const serviceDate = params.serviceLines?.[0]?.serviceDate ?? new Date().toISOString().slice(0, 10);
+
+  // Status indicators chosen at creation, with the AR stage's progress status auto-initialized.
+  const statusTags = claimStatusValuesToTags(
+    withArStageInitialization((params.statuses ?? {}) as Partial<ClaimStatusValues>)
+  );
 
   const claim: Claim = {
     resourceType: 'Claim',
     status: 'draft',
-    meta: { tag: [{ system: CURRENT_STATUS_TAG_SYSTEM, code: 'open' }] },
+    meta: { tag: [{ system: CURRENT_STATUS_TAG_SYSTEM, code: 'open' }, ...statusTags] },
     type: { coding: [{ system: CODE_SYSTEM_CLAIM_TYPE, code: 'professional' }] },
     use: 'claim',
-    created: now,
+    created: serviceDate,
     patient: { reference: `Patient/${copies.patient.id}` },
     provider: copies.billingProvider?.id
-      ? { reference: `Organization/${copies.billingProvider.id}` }
+      ? { reference: `${copies.billingProvider.resourceType}/${copies.billingProvider.id}` }
       : { display: 'Unknown' },
     priority: { coding: [{ system: CODE_SYSTEM_PROCESS_PRIORITY, code: 'normal' }] },
     insurance: [],
@@ -198,17 +199,21 @@ function buildClaim(copies: OriginalResources, params: CreateClaimParams): Claim
     item: [],
   };
 
-  if (copies.payor?.id) claim.insurer = { reference: `Organization/${copies.payor.id}` };
+  // A purely self-pay claim has no coverage; ensureClaimInsurance inserts the no-coverage stub so the
+  // Claim stays valid (insurance is 1..*). Only set insurer when there's a real coverage to bill.
+  const realInsurance = copies.coverage?.id
+    ? [{ sequence: 1, focal: true, coverage: { reference: `Coverage/${copies.coverage.id}` } }]
+    : [];
+  claim.insurance = ensureClaimInsurance(realInsurance);
+  const payerRef = copies.coverage?.payor?.[0]?.reference;
+  if (payerRef && copies.coverage?.id) claim.insurer = { reference: payerRef };
   if (copies.facility?.id) claim.facility = { reference: `Location/${copies.facility.id}` };
-  if (copies.coverage?.id) {
-    claim.insurance = [{ sequence: 1, focal: true, coverage: { reference: `Coverage/${copies.coverage.id}` } }];
-  }
 
-  if (copies.practitioner?.id) {
+  if (copies.renderingProvider?.id) {
     claim.careTeam = [
       {
         sequence: 1,
-        provider: { reference: `Practitioner/${copies.practitioner.id}` },
+        provider: { reference: `${copies.renderingProvider.resourceType}/${copies.renderingProvider.id}` },
         role: {
           coding: [{ system: CODE_SYSTEM_OYSTEHR_RCM_CMS1500_REFERRING_PROVIDER_TYPE, code: '82' }],
         },
@@ -217,19 +222,27 @@ function buildClaim(copies: OriginalResources, params: CreateClaimParams): Claim
   }
 
   if (params.diagnoses?.length) {
-    claim.diagnosis = params.diagnoses.map((dx, i) => ({
-      sequence: i + 1,
-      diagnosisCodeableConcept: {
-        coding: [{ system: CODE_SYSTEM_ICD_10, code: dx.code, display: dx.display }],
-      },
-    }));
+    const uniqueDiagnoses = new Set<string>();
+    claim.diagnosis = params.diagnoses
+      .filter((dx) => {
+        if (uniqueDiagnoses.has(dx.code)) return false;
+        uniqueDiagnoses.add(dx.code);
+        return true;
+      })
+      .map((dx, i) => ({
+        sequence: i + 1,
+        diagnosisCodeableConcept: {
+          coding: [{ system: CODE_SYSTEM_ICD_10, code: dx.code, display: dx.display }],
+        },
+      }));
   }
 
   if (params.serviceLines?.length) {
+    const diagnosisCount = claim.diagnosis?.length ?? 0;
     claim.item = params.serviceLines.map((line, i) => ({
       sequence: i + 1,
-      careTeamSequence: copies.practitioner ? [1] : undefined,
-      diagnosisSequence: params.diagnoses?.length ? [1] : undefined,
+      careTeamSequence: copies.renderingProvider ? [1] : undefined,
+      diagnosisSequence: buildDiagnosisSequence(line.diagnosisPointers, diagnosisCount),
       productOrService: {
         coding: [{ system: CODE_SYSTEM_HCPCS, code: line.cptCode }],
       },

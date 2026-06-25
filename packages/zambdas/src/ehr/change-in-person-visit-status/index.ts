@@ -1,4 +1,5 @@
 import Oystehr from '@oystehr/sdk';
+import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Encounter } from 'fhir/r4b';
 import {
@@ -9,9 +10,10 @@ import {
   userMe,
   VisitStatusWithoutUnknown,
 } from 'utils';
+import { produceDischargeOutreach } from '../../rcm/scheduled-outreach/producers/shared';
 import { checkOrCreateM2MClientToken, wrapHandler } from '../../shared';
 import { completeInProgressAiQuestionnaireResponseIfPossible } from '../../shared/ai-complete-questionnaire-response';
-import { createOystehrClient } from '../../shared/helpers';
+import { createClinicalOystehrClient } from '../../shared/helpers';
 import { getVisitResources } from '../../shared/practitioner/helpers';
 import { ZambdaInput } from '../../shared/types';
 import { changeInPersonVisitStatusIfPossible } from './helpers/helpers';
@@ -31,7 +33,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedParameters.secrets);
 
-  const oystehr = createOystehrClient(m2mToken, validatedParameters.secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, validatedParameters.secrets);
   console.log('Created Oystehr client');
 
   const validatedData = await complexValidation(oystehr, validatedParameters);
@@ -90,6 +92,18 @@ export const performEffect = async (
   const { encounter, appointment, user, updatedStatus } = validatedData;
 
   await changeInPersonVisitStatusIfPossible(oystehr, { encounter, appointment }, user, updatedStatus);
+
+  // Produce outreach tasks triggered by discharge
+  if (updatedStatus === 'discharged') {
+    try {
+      await produceDischargeOutreach({ encounterId: encounter.id!, oystehr });
+    } catch (err) {
+      console.error('Failed to produce discharge outreach tasks:', err);
+      captureException(err, {
+        extra: { encounterId: encounter.id, updatedStatus },
+      });
+    }
+  }
 
   // handle not completed AI interview to give provider required data, completed AI Interview triggers resource creation via subscription
   if (updatedStatus === 'ready for provider' && encounter.id) {

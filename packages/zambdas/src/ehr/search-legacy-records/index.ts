@@ -1,58 +1,34 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { getSecret, MISSING_REQUIRED_PARAMETERS, Secrets, SecretsKeys } from 'utils';
-import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
+import {
+  FileType,
+  FileTypeMap,
+  getSecret,
+  LegacyFile,
+  LegacyPatientRecord,
+  MISSING_REQUIRED_PARAMETERS,
+  SearchLegacyRecordsInput,
+  SearchLegacyRecordsOutput,
+  Secrets,
+  SecretsKeys,
+} from 'utils';
+import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
 
 const ZAMBDA_NAME = 'ehr-search-legacy-records';
 const LEGACY_DATA_BUCKET_SUFFIX = 'legacy-data';
 
 const PAGE_SIZE_DEFAULT = 20;
 const PAGE_SIZE_MAX = 50;
-const MAX_FILES_PER_RECORD_DEFAULT = 50;
-const MAX_FILES_PER_RECORD_MAX = 200;
+const MAX_FILES_PER_RECORD = 200;
 const PRESIGNED_URL_CONCURRENCY = 10;
 
 let m2mToken: string;
-
-export interface SearchLegacyRecordsInput {
-  lastName: string;
-  firstName?: string;
-  dateOfBirth?: string;
-  /** 1-based page index (default: 1) */
-  page?: number;
-  /** Patient folders per page (default: 20, max: 50) */
-  pageSize?: number;
-  /** Max files returned per patient record (default: 50, max: 200) */
-  maxFilesPerRecord?: number;
-}
-
-export interface LegacyFile {
-  key: string;
-  fileName: string;
-  fileType: 'medical-summary' | 'progress-note' | 'other';
-  presignedUrl: string;
-}
-
-export interface LegacyPatientRecord {
-  patientFolder: string;
-  patientId: string;
-  displayName: string;
-  files: LegacyFile[];
-}
-
-export interface SearchLegacyRecordsOutput {
-  results: LegacyPatientRecord[];
-  /** Total number of matching patient folders (for pagination) */
-  total: number;
-  page: number;
-  pageSize: number;
-}
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   const { secrets, lastName, firstName, dateOfBirth, page, pageSize, maxFilesPerRecord } =
     validateRequestParameters(input);
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-  const oystehr = createOystehrClient(m2mToken, secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
   const projectId = getSecret(SecretsKeys.PROJECT_ID, secrets);
   const bucketName = `${projectId}-${LEGACY_DATA_BUCKET_SUFFIX}`;
@@ -134,11 +110,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         batch.map(async (key) => {
           const fileName = key.split('/').pop() ?? key;
           const lowerKey = key.toLowerCase();
-          const fileType: LegacyFile['fileType'] = lowerKey.includes('medical_summary')
-            ? 'medical-summary'
-            : lowerKey.includes('progressnotes') || lowerKey.includes('/enc/') || lowerKey.endsWith('/enc')
-            ? 'progress-note'
-            : 'other';
+
+          const fileType = getFileTypeFromKey(lowerKey);
+
           const presignedResponse = await oystehr.z3.getPresignedUrl({
             action: 'download',
             bucketName,
@@ -221,9 +195,9 @@ function validateRequestParameters(input: ZambdaInput): ValidatedParameters {
     PAGE_SIZE_MAX,
     Math.max(1, typeof rawPageSize === 'number' ? Math.floor(rawPageSize) : PAGE_SIZE_DEFAULT)
   );
-  const maxFilesPerRecord = Math.min(
-    MAX_FILES_PER_RECORD_MAX,
-    Math.max(1, typeof rawMaxFiles === 'number' ? Math.floor(rawMaxFiles) : MAX_FILES_PER_RECORD_DEFAULT)
+  const maxFilesPerRecord = Math.max(
+    1,
+    typeof rawMaxFiles === 'number' ? Math.floor(rawMaxFiles) : MAX_FILES_PER_RECORD
   );
 
   return {
@@ -235,4 +209,23 @@ function validateRequestParameters(input: ZambdaInput): ValidatedParameters {
     pageSize,
     maxFilesPerRecord,
   };
+}
+
+function getFileTypeFromKey(key: string): FileType {
+  const lowerKey = key.toLowerCase();
+
+  for (const [fileType, { folder: folderName }] of Object.entries(FileTypeMap)) {
+    const folderNameLower = folderName.toLocaleLowerCase();
+
+    if (lowerKey.includes(folderNameLower)) return fileType as FileType;
+
+    // first iteration data migration pushed in progress notes under /enc
+    if (fileType === FileType.PROGRESS_NOTE) {
+      if (lowerKey.includes('/enc/') || lowerKey.endsWith('/enc')) {
+        return fileType as FileType;
+      }
+    }
+  }
+
+  return FileType.OTHER;
 }

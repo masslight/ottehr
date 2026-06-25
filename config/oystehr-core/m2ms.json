@@ -61,9 +61,12 @@
             "Z3:#{var/PROJECT_ID}-discharge-summaries/*",
             "Z3:#{var/PROJECT_ID}-labs/*",
             "Z3:#{var/PROJECT_ID}-statements/*",
+            "Z3:#{var/PROJECT_ID}-patient-education/*",
+            "Z3:#{var/PROJECT_ID}-patient-education-admin/*",
             "Z3:#{var/PROJECT_ID}-legacy-data/*",
             "Z3:#{var/PROJECT_ID}-invoiceable-patients-reports/*",
-            "Z3:#{var/PROJECT_ID}-patient-docs-custom-folders/*"
+            "Z3:#{var/PROJECT_ID}-patient-docs-custom-folders/*",
+            "Z3:#{var/PROJECT_ID}-medical-record-exports/*"
           ],
           "action": ["Z3:PutObject", "Z3:GetObject", "Z3:DeleteObject", "Z3:ListObjects"],
           "effect": "Allow"

@@ -8,6 +8,7 @@ import {
   fieldsConfigForOrder,
   getFieldLabel,
 } from '../../src/features/visits/in-person/components/medication-administration/medication-editable-card/fieldsConfig';
+import { formatMedicationAdministrationReason } from '../../src/features/visits/in-person/components/medication-administration/util';
 
 // ─── Completed Edit Form Config ──────────────────────────────────────────────
 
@@ -145,5 +146,21 @@ describe('Medications configuration - sorting logic', () => {
     // Inactive group (alphabetical): Tylenol, Zoloft
     expect(sorted[3].id).toBe('4');
     expect(sorted[4].id).toBe('1');
+  });
+});
+
+// ─── MAR Reason Formatting ──────────────────────────────────────────────────
+
+describe('formatMedicationAdministrationReason', () => {
+  test('should include specified reason when main reason is Other', () => {
+    expect(formatMedicationAdministrationReason('other', 'My other reason')).toBe('Other: My other reason');
+  });
+
+  test('should trim specified reason for Other', () => {
+    expect(formatMedicationAdministrationReason('other', '  My other reason  ')).toBe('Other: My other reason');
+  });
+
+  test('should keep non-Other reasons as labels', () => {
+    expect(formatMedicationAdministrationReason('patient-refused', 'Ignored custom reason')).toBe('Patient refused');
   });
 });

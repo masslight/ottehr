@@ -15,7 +15,7 @@ import {
 } from 'utils';
 import {
   checkOrCreateM2MClientToken,
-  createOystehrClient,
+  createClinicalOystehrClient,
   createPresignedUrl,
   getAuth0Token,
   uploadObjectToZ3,
@@ -133,5 +133,5 @@ async function createOystehr(secrets: Secrets | null): Promise<Oystehr> {
   if (oystehrToken == null) {
     oystehrToken = await getAuth0Token(secrets);
   }
-  return createOystehrClient(oystehrToken, secrets);
+  return createClinicalOystehrClient(oystehrToken, secrets);
 }

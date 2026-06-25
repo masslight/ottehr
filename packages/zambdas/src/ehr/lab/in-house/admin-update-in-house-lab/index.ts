@@ -8,15 +8,17 @@ import {
   AdminInHouseLabConfigOutput,
   AdminUpdateInHouseLabInput,
   AdminUpdateInHouseLabStatus,
+  getApiError,
   getSecret,
   IN_HOUSE_LAB_LATEST_TAG_DEFINITION,
+  INVALID_INPUT_ERROR,
   makeOptimisticLockIfMatchHeader,
   Secrets,
   SecretsKeys,
 } from 'utils';
 import {
   checkOrCreateM2MClientToken,
-  createOystehrClient,
+  createClinicalOystehrClient,
   parseCreatedResourcesBundle,
   topLevelCatch,
   wrapHandler,
@@ -47,7 +49,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     console.log('validateRequestParameters success');
 
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
+    const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
     let mutatedActivityDefinition: ActivityDefinition;
     if (dataAndUpdateType.updateType === 'edit') {
@@ -170,16 +172,23 @@ const handleEditAdminInHouseLab = async (
     )
   );
 
-  const transactionResult = await oystehr.fhir.transaction<ActivityDefinition | Provenance>({ requests });
-  console.log('this was the transactionResult', JSON.stringify(transactionResult));
+  try {
+    const transactionResult = await oystehr.fhir.transaction<ActivityDefinition | Provenance>({ requests });
+    console.log('this was the transactionResult', JSON.stringify(transactionResult));
 
-  const newWrittenAd = parseCreatedResourcesBundle(transactionResult).find(
-    (res): res is ActivityDefinition =>
-      res.resourceType === 'ActivityDefinition' && res.id !== undefined && res.id !== activityDefinitionIdToRetire
-  );
-  if (!newWrittenAd) throw new Error('New ActivityDefinition not in the transaction result');
+    const newWrittenAd = parseCreatedResourcesBundle(transactionResult).find(
+      (res): res is ActivityDefinition =>
+        res.resourceType === 'ActivityDefinition' && res.id !== undefined && res.id !== activityDefinitionIdToRetire
+    );
+    if (!newWrittenAd) throw new Error('New ActivityDefinition not in the transaction result');
 
-  return newWrittenAd;
+    return newWrittenAd;
+  } catch (e: any) {
+    console.error('Encountered error when making transaction request updating in house lab. Error:', e);
+    const error = getApiError({ error: e, defaultError: 'Something went wrong updating the in house lab' });
+    if (error.toLowerCase().includes('invalid')) throw INVALID_INPUT_ERROR(error);
+    else throw new Error(error);
+  }
 };
 
 const handleStatusUpdateAdminInHouseLab = async (

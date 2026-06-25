@@ -1,5 +1,7 @@
+import Oystehr, { OystehrConfig } from '@oystehr/sdk';
 import { expect, Locator, Page } from '@playwright/test';
 import { DocumentReference } from 'fhir/r4b';
+import { BILLING_RESOURCE_TAG } from 'utils';
 import { dataTestIds } from '../../../src/constants/data-test-ids';
 import { ResourceHandler } from '../resource-handler';
 
@@ -7,6 +9,17 @@ export async function waitForSnackbar(page: Page): Promise<void> {
   // for this moment it's the easiest way to check for snackbar, data-key didn't work out
   const snackbar = page.locator('div[id=notistack-snackbar]');
   await expect(snackbar).toBeVisible();
+}
+
+/**
+ * Removes any visible notistack snackbars from the DOM. Error/success toasts render in an overlay
+ * container that can intercept pointer events and block clicks on underlying controls (e.g. the side
+ * menu). Use this before interacting with elements that a lingering snackbar might cover.
+ */
+export async function dismissSnackbars(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    document.querySelectorAll('.notistack-SnackbarContainer').forEach((el) => el.remove());
+  });
 }
 
 export async function telemedDialogConfirm(page: Page): Promise<void> {
@@ -51,4 +64,16 @@ export function verifyVisitNotePdfDocumentReference(
   expect(visitNoteDocRef.context?.encounter?.[0]?.reference).toBe(`Encounter/${resourceHandler.encounter.id}`);
   expect(visitNoteDocRef.context?.related?.[0]?.reference).toBe(`Appointment/${resourceHandler.appointment.id}`);
   expect(visitNoteDocRef.content?.[0]?.attachment?.url).toBeDefined();
+}
+
+export function createE2eTestOystehrClient(token: string, overrides?: Partial<OystehrConfig>): Oystehr {
+  return new Oystehr({
+    accessToken: token,
+    services: {
+      fhirApiUrl: process.env.FHIR_API,
+      projectApiUrl: process.env.PROJECT_API_ZAMBDA_URL,
+    },
+    ...overrides,
+    ignoreTags: [...(overrides?.ignoreTags ?? []), BILLING_RESOURCE_TAG],
+  });
 }

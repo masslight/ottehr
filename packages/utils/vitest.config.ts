@@ -3,6 +3,7 @@ import { defineConfig } from 'vitest/config';
 export default defineConfig({
   test: {
     silent: true,
+    setupFiles: ['../test-utils/lib/no-network.setup.ts'],
     coverage: {
       provider: 'v8',
       reporter: ['lcov', 'text-summary', 'json'],

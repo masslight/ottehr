@@ -1,19 +1,19 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Coverage, Organization } from 'fhir/r4b';
-import { getPayerId } from 'utils';
+import { Coverage, RelatedPerson } from 'fhir/r4b';
+import { BillingCoverageOption, genderMap, getMemberIdFromCoverage, getPayerId } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
-import { createBillingClient, EXCLUDE_WORKING_COPIES_PARAM } from '../shared';
+import {
+  createBillingClient,
+  EXCLUDE_WORKING_COPIES_PARAMS,
+  findPatientBillingAccount,
+  findPatientWorkersCompAccount,
+  getCoverageInsuranceType,
+  getPatientAccounts,
+  resolvePayersByRef,
+  toAddressParts,
+} from '../shared';
 import { GetPatientCoveragesParams, validateRequestParameters } from './validateRequestParameters';
-
-interface CoverageItem {
-  id: string | undefined;
-  status: string;
-  subscriberId: string;
-  payorName: string;
-  payorId: string;
-  payorFhirId: string;
-}
 
 let m2mToken: string;
 const ZAMBDA_NAME = 'get-patient-coverages';
@@ -27,28 +27,58 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   return { statusCode: 200, body: JSON.stringify(response) };
 });
 
-// TODO: Coverage.payor will move to external Oystehr payer refs (#6603)
+function extractPolicyHolder(subscriber: RelatedPerson | undefined): BillingCoverageOption['policyHolder'] {
+  if (!subscriber) return null;
+  const name = subscriber.name?.[0];
+  return {
+    firstName: name?.given?.[0] ?? '',
+    middleName: name?.given?.[1] ?? '',
+    lastName: name?.family ?? '',
+    dob: subscriber.birthDate ?? '',
+    birthSex: subscriber.gender ? genderMap[subscriber.gender as keyof typeof genderMap] ?? '' : '',
+    addressParts: toAddressParts(subscriber.address?.[0]),
+  };
+}
+
 async function performEffect(
   oystehr: Oystehr,
   params: GetPatientCoveragesParams
-): Promise<{ coverages: CoverageItem[] }> {
-  const response = await oystehr.fhir.search<Coverage | Organization>({
-    resourceType: 'Coverage',
-    params: [
-      { name: 'beneficiary', value: `Patient/${params.patientId}` },
-      { name: '_include', value: 'Coverage:payor' },
-      EXCLUDE_WORKING_COPIES_PARAM,
-    ],
+): Promise<{ coverages: BillingCoverageOption[] }> {
+  const [response, relatedPersonResponse, accounts] = await Promise.all([
+    oystehr.fhir.search<Coverage>({
+      resourceType: 'Coverage',
+      params: [{ name: 'beneficiary', value: `Patient/${params.patientId}` }, ...EXCLUDE_WORKING_COPIES_PARAMS],
+    }),
+    oystehr.fhir.search<RelatedPerson>({
+      resourceType: 'RelatedPerson',
+      params: [{ name: 'patient', value: `Patient/${params.patientId}` }, ...EXCLUDE_WORKING_COPIES_PARAMS],
+    }),
+    getPatientAccounts(oystehr, params.patientId),
+  ]);
+  const pbillAccount = findPatientBillingAccount(accounts);
+  const wcompAccount = findPatientWorkersCompAccount(accounts);
+
+  const coverages = response.unbundle();
+  const relatedPersonsById = new Map(relatedPersonResponse.unbundle().map((rp) => [rp.id ?? '', rp]));
+  const payersByRef = await resolvePayersByRef(
+    oystehr,
+    coverages.map((cov) => cov.payor?.[0]?.reference)
+  );
+
+  // Filter coverages to only those that are related to the patient's accounts (PBILLACCT or WCOMPACCT). This ensures that we only return coverages that are relevant to the patient and their insurance coverage.
+  const filteredCoverages = coverages.filter((cov) => {
+    if (pbillAccount && pbillAccount.coverage?.some((c) => c.coverage.reference === `Coverage/${cov.id}`)) return true;
+    if (wcompAccount && wcompAccount.coverage?.some((c) => c.coverage.reference === `Coverage/${cov.id}`)) return true;
+    return false;
   });
 
-  const resources = response.unbundle();
-  const coverages = resources.filter((r): r is Coverage => r.resourceType === 'Coverage');
-  const orgs = resources.filter((r): r is Organization => r.resourceType === 'Organization');
-
-  const result = coverages.map((cov) => {
+  const result = filteredCoverages.map((cov): BillingCoverageOption => {
     const payorRef = cov.payor?.[0]?.reference;
-    const payorId = payorRef?.replace('Organization/', '');
-    const payorOrg = orgs.find((o) => o.id === payorId);
+    const payorOrg = payorRef ? payersByRef.get(payorRef) : undefined;
+    const subscriberRef = cov.subscriber?.reference;
+    const subscriber = subscriberRef?.startsWith('RelatedPerson/')
+      ? relatedPersonsById.get(subscriberRef.split('/')[1])
+      : undefined;
 
     return {
       id: cov.id,
@@ -57,6 +87,10 @@ async function performEffect(
       payorName: payorOrg?.name ?? '',
       payorId: getPayerId(payorOrg) ?? '',
       payorFhirId: payorOrg?.id ?? '',
+      insuranceType: getCoverageInsuranceType(cov, pbillAccount, wcompAccount),
+      relationship: cov.relationship?.coding?.[0]?.display as BillingCoverageOption['relationship'],
+      memberId: cov.subscriberId ?? getMemberIdFromCoverage(cov) ?? '',
+      policyHolder: extractPolicyHolder(subscriber),
     };
   });
 
