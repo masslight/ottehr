@@ -813,7 +813,7 @@ async function getClinicalResources(
       })
     ).unbundle();
   }
-  if (!coverages.length) throw FHIR_RESOURCE_NOT_FOUND('Coverage');
+  if (coverageIds.length && !coverages.length) throw FHIR_RESOURCE_NOT_FOUND('Coverage');
 
   // Manually look up payors because they may be internal Organization resources or Oystehr RCM payer URLs
   const payors = await Promise.all(
