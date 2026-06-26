@@ -16,7 +16,7 @@ const CONTAINER_PREFIXES = new Set(['/admin', '/admin/billing', '/admin/outreach
 
 // Exported URL constant name -> value, for resolving `${CONST}` in route templates.
 const URL_CONSTANTS: Record<string, string> = Object.fromEntries(
-  Object.entries(adminRoutes).filter((entry): entry is [string, string] => typeof entry[1] === 'string')
+  Object.entries(adminRoutes).filter(([, value]) => typeof value === 'string') as [string, string][]
 );
 
 // Nav item paths read from adminNav.tsx source, to avoid importing the heavy nav module.

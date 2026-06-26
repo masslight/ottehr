@@ -125,7 +125,7 @@ const ServiceCategoryDialog: FC<{
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
       <DialogTitle>
-        <Typography variant="h4" color="primary.dark">
+        <Typography variant="h4" component="span" color="primary.dark">
           {initial?.id ? 'Edit Service' : 'New Service'}
         </Typography>
       </DialogTitle>

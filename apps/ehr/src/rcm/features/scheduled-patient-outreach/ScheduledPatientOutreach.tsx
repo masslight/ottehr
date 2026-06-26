@@ -2007,7 +2007,7 @@ export default function ScheduledPatientOutreach({ outreachTab }: { outreachTab?
           {/* ── Notification Settings Dialog ───────────────────────────────── */}
           <Dialog open={settingsDialogOpen} onClose={() => setSettingsDialogOpen(false)} maxWidth="sm" fullWidth>
             <DialogTitle>
-              <Typography variant="h3" color="primary.dark" sx={{ fontWeight: '600 !important' }}>
+              <Typography variant="h3" component="span" color="primary.dark" sx={{ fontWeight: '600 !important' }}>
                 Patient Notification Settings
               </Typography>
             </DialogTitle>
