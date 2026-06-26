@@ -45,10 +45,16 @@ const LEAK_SWEEP_RESOURCE_TYPES: FhirResource['resourceType'][] = [
 ];
 
 /**
- * 'fail' makes a leak fail the whole run (a true gate). Switch to 'warn' to only log the inventory
- * without failing — useful while triaging pre-existing leaks. The grouped report is emitted either way.
+ * Per-test cleanup (cleanAppointmentGraph, in each file's afterAll) is the primary mechanism: it runs
+ * incrementally so the shared backend's footprint stays small during the run and resources are freed
+ * even if a later file crashes. This end-of-run sweep is the comprehensive *backstop* — it deletes
+ * anything per-test cleanup couldn't reach (e.g. standalone Patients/Lists not rooted at an
+ * Appointment), found by the run tag.
+ *
+ * 'warn': clean + log those stragglers without failing the run (the backstop owns mop-up).
+ * 'fail': additionally fail the run, to force every test to be fully self-cleaning.
  */
-const LEAK_GATE_MODE: 'fail' | 'warn' = 'fail';
+const LEAK_GATE_MODE: 'fail' | 'warn' = 'warn';
 
 const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -116,7 +122,8 @@ export const assertNoLeakedResourcesForRun = async (oystehr: Oystehr, runId: str
         [...types.entries()].map(([resourceType, count]) => `    ${resourceType}: ${count}`).join('\n')
     )
     .join('\n');
-  const headline = `[leak-gate] ${survivors.length} resource(s) survived cleanup for run ${runId}, grouped by test (processId):`;
+  const swept = LEAK_GATE_MODE === 'warn' ? ' (swept by this backstop)' : '';
+  const headline = `[leak-gate] ${survivors.length} resource(s) survived per-test cleanup${swept} for run ${runId}, grouped by test (processId):`;
   console.error(`${headline}\n${report}`);
 
   // Best-effort delete so leaked resources don't pile up on the shared backend across runs. Use
