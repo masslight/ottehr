@@ -28,8 +28,8 @@ import { useChartDataArrayValue } from '../../hooks/useChartDataArrayValue';
 import { useGetAppointmentAccessibility } from '../../hooks/useGetAppointmentAccessibility';
 import {
   ExtractObjectType,
-  useErxPatientSyncQueue,
   useGetAllergiesSearch,
+  useTriggerErxPatientSync,
 } from '../../stores/appointment/appointment.queries';
 import {
   ChartDataState,
@@ -49,8 +49,8 @@ export const KnownAllergiesProviderColumn: FC = () => {
   const length = allergies.length;
 
   // Keep the eRx provider's allergy list in sync after each add/toggle (delete doesn't produce bug).
-  // Runs in the background and serializes calls (see useErxPatientSyncQueue).
-  const { triggerSync } = useErxPatientSyncQueue({ patient, encounter });
+  // Runs in the background (see useTriggerErxPatientSync).
+  const { triggerSync } = useTriggerErxPatientSync({ patient, encounter });
 
   return (
     <Box

@@ -46,7 +46,7 @@ vi.mock('../../src/features/visits/shared/stores/appointment/appointment.queries
     isFetching: false,
     data: search && search.length > 0 ? mockAllergySearchData : [],
   }),
-  useErxPatientSyncQueue: () => ({
+  useTriggerErxPatientSync: () => ({
     triggerSync: vi.fn(),
   }),
 }));

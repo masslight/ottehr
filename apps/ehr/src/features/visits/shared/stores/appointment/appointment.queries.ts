@@ -744,13 +744,12 @@ export const useSyncERXPatient = ({
 };
 
 /**
- * Background, serialized eRx patient sync.
+ * Imperative, background eRx patient sync.
  *
- * `triggerSync` returns immediately (a single sync takes several seconds, so we never block the UI).
- * Syncs never overlap: if one is requested while another is in flight, exactly one more run is queued
- * to start once the current one finishes (multiple requests collapse into a single trailing sync).
+ * `triggerSync` fires a sync and returns immediately (a single sync takes several seconds, so we
+ * never block the UI). Call it on each allergy change to keep the eRx provider's list up to date.
  */
-export const useErxPatientSyncQueue = ({
+export const useTriggerErxPatientSync = ({
   patient,
   encounter,
 }: {
@@ -759,10 +758,8 @@ export const useErxPatientSyncQueue = ({
 }): { triggerSync: () => void } => {
   const { oystehr } = useApiClients();
   const { data: erxConfig } = useGetErxConfigQuery();
-  const runningRef = useRef(false);
-  const pendingRef = useRef(false);
 
-  // Keep the latest ids/config available to the in-flight loop without re-creating triggerSync.
+  // Keep the latest ids/config available without re-creating triggerSync.
   const idsRef = useRef<{ patientId?: string; encounterId?: string }>({});
   idsRef.current = { patientId: patient?.id, encounterId: encounter?.id };
   const isErxConfiguredRef = useRef(false);
@@ -771,32 +768,12 @@ export const useErxPatientSyncQueue = ({
   const triggerSync = useCallback(() => {
     // Skip entirely when eRx isn't configured for the project — syncPatient would just fail.
     if (!oystehr || !isErxConfiguredRef.current) return;
+    const { patientId, encounterId } = idsRef.current;
+    if (!patientId || !encounterId) return;
 
-    // A sync is already running — remember to run once more when it finishes.
-    if (runningRef.current) {
-      pendingRef.current = true;
-      return;
-    }
-
-    runningRef.current = true;
-
-    void (async () => {
-      try {
-        do {
-          pendingRef.current = false;
-          const { patientId, encounterId } = idsRef.current;
-          if (!patientId || !encounterId) break;
-          try {
-            await oystehr.erx.syncPatient({ patientId, encounterId });
-          } catch (err) {
-            console.warn('Error syncing erx patient after allergy change: ', err);
-          }
-          // If another change came in while syncing, run one more time.
-        } while (pendingRef.current);
-      } finally {
-        runningRef.current = false;
-      }
-    })();
+    void oystehr.erx.syncPatient({ patientId, encounterId }).catch((err) => {
+      console.warn('Error syncing erx patient after allergy change: ', err);
+    });
   }, [oystehr]);
 
   return { triggerSync };
