@@ -1,12 +1,11 @@
 import { randomUUID } from 'node:crypto';
+import Oystehr from '@oystehr/sdk';
 import type { APIGatewayProxyResult } from 'aws-lambda';
-import type { APIError } from 'utils';
-import { APIErrorCode, CLAIM_NOT_READY_FOR_X12_EXPORT, MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS } from 'utils';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { APIErrorCode, MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS } from 'utils';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { validateRequestParameters } from '../../src/billing/export-billing-claim-x12/validateRequestParameters';
 import type { ZambdaInput } from '../../src/shared/types/common';
 
-// todo rewrite tests after migrating to sdk call
 const PROJECT_API = 'https://project-api.zapehr.com/v1';
 const CLAIM_ID = randomUUID();
 
@@ -75,6 +74,8 @@ describe('export-billing-claim-x12 validateRequestParameters', () => {
   });
 });
 
+const { claimToX12Mock } = vi.hoisted(() => ({ claimToX12Mock: vi.fn() }));
+
 vi.mock('../../src/shared', async () => {
   const { safeValidate } = await import('../../src/shared/validation');
   const { validateJsonBody } = await import('../../src/shared/helpers');
@@ -86,23 +87,25 @@ vi.mock('../../src/shared', async () => {
   };
 });
 
+vi.mock('../../src/billing/shared', () => ({
+  createBillingClient: () => ({
+    rcm: {
+      claimToX12: claimToX12Mock,
+    },
+  }),
+}));
+
 const { index: handler } = (await import('../../src/billing/export-billing-claim-x12/index')) as unknown as {
   index: (input: ZambdaInput) => Promise<APIGatewayProxyResult>;
 };
 
 describe('export-billing-claim-x12 handler', () => {
-  afterEach(() => {
-    vi.unstubAllGlobals();
+  beforeEach(() => {
+    claimToX12Mock.mockReset();
   });
 
-  it('POSTs to the x12 endpoint with the bearer token and returns the x12 payload', async () => {
-    const mockFetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        x12: 'ISA*00*~ST*837*',
-      }),
-    });
-    vi.stubGlobal('fetch', mockFetch);
+  it('calls rcm.claimToX12 with the claim id and returns the x12 payload', async () => {
+    claimToX12Mock.mockResolvedValue({ x12: 'ISA*00*~ST*837*' });
 
     const result = await handler({
       headers: null,
@@ -114,27 +117,20 @@ describe('export-billing-claim-x12 handler', () => {
       },
     });
 
-    expect(mockFetch).toHaveBeenCalledWith(
-      `${PROJECT_API}/rcm/claim/${CLAIM_ID}/x12`,
-      expect.objectContaining({
-        method: 'POST',
-        headers: expect.objectContaining({
-          Authorization: 'Bearer mock-token',
-        }),
-      })
-    );
+    expect(claimToX12Mock).toHaveBeenCalledWith({ claimId: CLAIM_ID });
     expect(result.statusCode).toBe(200);
     expect(JSON.parse(result.body)).toEqual({ x12: 'ISA*00*~ST*837*' });
   });
 
-  it('surfaces the RCM message to the caller when generation fails (RCM 400)', async () => {
-    const mockFetch = vi.fn().mockResolvedValue({
-      ok: false,
-      status: 400,
-      statusText: 'Bad Request',
-      text: async () => JSON.stringify({ message: 'Claim.provider is missing a required identifier', code: '4006' }),
-    });
-    vi.stubGlobal('fetch', mockFetch);
+  it('surfaces the RCM reason for an incomplete-claim (400) error', async () => {
+    const reason =
+      '"Claim.insurance[0].coverage.extension[https://extensions.fhir.oystehr.com/rcm-claim-insurance-type]" is undefined';
+    claimToX12Mock.mockRejectedValue(
+      new Oystehr.OystehrSdkError({
+        message: reason,
+        code: 4006,
+      })
+    );
 
     await expect(
       handler({
@@ -148,19 +144,16 @@ describe('export-billing-claim-x12 handler', () => {
       })
     ).rejects.toMatchObject({
       code: APIErrorCode.RESOURCE_INCOMPLETE_FOR_OPERATION,
-      statusCode: 400,
-      message: 'Claim.provider is missing a required identifier',
+      message: reason,
     });
   });
 
-  it('falls back to a generic message when RCM returns no message', async () => {
-    const mockFetch = vi.fn().mockResolvedValue({
-      ok: false,
-      status: 400,
-      statusText: 'Bad Request',
-      text: async () => '',
+  it('rethrows an unsupported-project (4022) SDK error unchanged', async () => {
+    const original = new Oystehr.OystehrSdkError({
+      message: 'This endpoint is only for FHIR R4 projects',
+      code: 4022,
     });
-    vi.stubGlobal('fetch', mockFetch);
+    claimToX12Mock.mockRejectedValue(original);
 
     await expect(
       handler({
@@ -172,42 +165,12 @@ describe('export-billing-claim-x12 handler', () => {
           PROJECT_API,
         },
       })
-    ).rejects.toMatchObject({ message: CLAIM_NOT_READY_FOR_X12_EXPORT.message });
+    ).rejects.toBe(original);
   });
 
-  it('surfaces only the RCM message (not the full body) for unexpected server failures', async () => {
-    const mockFetch = vi.fn().mockResolvedValue({
-      ok: false,
-      status: 500,
-      statusText: 'Internal Server Error',
-      text: async () => JSON.stringify({ message: 'missing critical information', code: '5000' }),
-    });
-    vi.stubGlobal('fetch', mockFetch);
-
-    const error = (await handler({
-      headers: null,
-      body: JSON.stringify({
-        claimId: CLAIM_ID,
-      }),
-      secrets: {
-        PROJECT_API,
-      },
-    }).catch((e) => e)) as APIError;
-
-    expect(error.statusCode).toBe(500);
-    expect(error.code).toBe(APIErrorCode.MISCONFIGURED_ENVIRONMENT);
-    expect(error.message).toContain('missing critical information');
-    expect(error.message).not.toContain('5000');
-  });
-
-  it('forwards an upstream 401 as a not-authorized error', async () => {
-    const mockFetch = vi.fn().mockResolvedValue({
-      ok: false,
-      status: 401,
-      statusText: 'Unauthorized',
-      text: async () => JSON.stringify({ message: 'token rejected' }),
-    });
-    vi.stubGlobal('fetch', mockFetch);
+  it('rethrows an unexpected (non-SDK) error unchanged', async () => {
+    const original = new Error('Unexpected error');
+    claimToX12Mock.mockRejectedValue(original);
 
     await expect(
       handler({
@@ -219,35 +182,6 @@ describe('export-billing-claim-x12 handler', () => {
           PROJECT_API,
         },
       })
-    ).rejects.toMatchObject({
-      code: APIErrorCode.NOT_AUTHORIZED,
-      statusCode: 401,
-      message: 'token rejected',
-    });
-  });
-
-  it('forwards an upstream 404 as a resource-not-found error', async () => {
-    const mockFetch = vi.fn().mockResolvedValue({
-      ok: false,
-      status: 404,
-      statusText: 'Not Found',
-      text: async () => '',
-    });
-    vi.stubGlobal('fetch', mockFetch);
-
-    await expect(
-      handler({
-        headers: null,
-        body: JSON.stringify({
-          claimId: CLAIM_ID,
-        }),
-        secrets: {
-          PROJECT_API,
-        },
-      })
-    ).rejects.toMatchObject({
-      code: APIErrorCode.FHIR_RESOURCE_NOT_FOUND,
-      statusCode: 404,
-    });
+    ).rejects.toBe(original);
   });
 });
