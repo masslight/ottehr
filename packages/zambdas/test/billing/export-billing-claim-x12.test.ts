@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import type { APIGatewayProxyResult } from 'aws-lambda';
 import type { APIError } from 'utils';
 import { APIErrorCode, CLAIM_NOT_READY_FOR_X12_EXPORT, MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS } from 'utils';
@@ -7,19 +8,20 @@ import type { ZambdaInput } from '../../src/shared/types/common';
 
 // todo rewrite tests after migrating to sdk call
 const PROJECT_API = 'https://project-api.zapehr.com/v1';
+const CLAIM_ID = randomUUID();
 
 describe('export-billing-claim-x12 validateRequestParameters', () => {
   it('returns validated params for valid input', () => {
     const result = validateRequestParameters({
       headers: null,
       body: JSON.stringify({
-        claimId: 'claim-1',
+        claimId: CLAIM_ID,
       }),
       secrets: {
         PROJECT_API,
       },
     });
-    expect(result).toMatchObject({ claimId: 'claim-1' });
+    expect(result).toMatchObject({ claimId: CLAIM_ID });
   });
 
   it('throws when body is missing', () => {
@@ -39,7 +41,7 @@ describe('export-billing-claim-x12 validateRequestParameters', () => {
       validateRequestParameters({
         headers: null,
         body: JSON.stringify({
-          claimId: 'claim-1',
+          claimId: CLAIM_ID,
         }),
         secrets: null,
       })
@@ -56,6 +58,20 @@ describe('export-billing-claim-x12 validateRequestParameters', () => {
         },
       })
     ).toThrow('claimId');
+  });
+
+  it('throws when claimId is not a uuid', () => {
+    expect(() =>
+      validateRequestParameters({
+        headers: null,
+        body: JSON.stringify({
+          claimId: 'not-a-uuid',
+        }),
+        secrets: {
+          PROJECT_API,
+        },
+      })
+    ).toThrow(/uuid/i);
   });
 });
 
@@ -91,7 +107,7 @@ describe('export-billing-claim-x12 handler', () => {
     const result = await handler({
       headers: null,
       body: JSON.stringify({
-        claimId: 'claim-1',
+        claimId: CLAIM_ID,
       }),
       secrets: {
         PROJECT_API,
@@ -99,7 +115,7 @@ describe('export-billing-claim-x12 handler', () => {
     });
 
     expect(mockFetch).toHaveBeenCalledWith(
-      `${PROJECT_API}/rcm/claim/claim-1/x12`,
+      `${PROJECT_API}/rcm/claim/${CLAIM_ID}/x12`,
       expect.objectContaining({
         method: 'POST',
         headers: expect.objectContaining({
@@ -124,7 +140,7 @@ describe('export-billing-claim-x12 handler', () => {
       handler({
         headers: null,
         body: JSON.stringify({
-          claimId: 'claim-1',
+          claimId: CLAIM_ID,
         }),
         secrets: {
           PROJECT_API,
@@ -150,7 +166,7 @@ describe('export-billing-claim-x12 handler', () => {
       handler({
         headers: null,
         body: JSON.stringify({
-          claimId: 'claim-1',
+          claimId: CLAIM_ID,
         }),
         secrets: {
           PROJECT_API,
@@ -171,7 +187,7 @@ describe('export-billing-claim-x12 handler', () => {
     const error = (await handler({
       headers: null,
       body: JSON.stringify({
-        claimId: 'claim-1',
+        claimId: CLAIM_ID,
       }),
       secrets: {
         PROJECT_API,
@@ -197,7 +213,7 @@ describe('export-billing-claim-x12 handler', () => {
       handler({
         headers: null,
         body: JSON.stringify({
-          claimId: 'claim-1',
+          claimId: CLAIM_ID,
         }),
         secrets: {
           PROJECT_API,
@@ -223,7 +239,7 @@ describe('export-billing-claim-x12 handler', () => {
       handler({
         headers: null,
         body: JSON.stringify({
-          claimId: 'claim-1',
+          claimId: CLAIM_ID,
         }),
         secrets: {
           PROJECT_API,

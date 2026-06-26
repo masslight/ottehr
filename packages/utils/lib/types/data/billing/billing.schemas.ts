@@ -33,7 +33,7 @@ export const GetClaimDetailInputSchema = z.object({
 });
 
 export const ExportClaimX12InputSchema = z.object({
-  claimId: nonEmptyString,
+  claimId: z.string().uuid(),
 });
 
 export const GetEraDetailInputSchema = z.object({
