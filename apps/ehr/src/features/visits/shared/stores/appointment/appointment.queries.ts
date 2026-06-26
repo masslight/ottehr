@@ -9,10 +9,11 @@ import { keepPreviousData, useMutation, UseMutationResult, useQuery, UseQueryRes
 import { Bundle, Coding, Encounter, FhirResource, InsurancePlan, Medication, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
-import { useEffect } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { getPatientInstructionQuickPicks } from 'src/api/api';
 import { QUERY_STALE_TIME } from 'src/constants';
 import { FEATURE_FLAGS } from 'src/constants/feature-flags';
+import { useGetErxConfigQuery } from 'src/features/visits/telemed/hooks/useGetErxConfig';
 import { useApiClients } from 'src/hooks/useAppClients';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import {
@@ -747,6 +748,42 @@ export const useSyncERXPatient = ({
   useErrorQuery(queryResult.error, onError);
 
   return queryResult;
+};
+
+/**
+ * Imperative, background eRx patient sync.
+ *
+ * `triggerSync` fires a sync and returns immediately (a single sync takes several seconds, so we
+ * never block the UI). Call it on each allergy change to keep the eRx provider's list up to date.
+ */
+export const useTriggerErxPatientSync = ({
+  patient,
+  encounter,
+}: {
+  patient?: Patient;
+  encounter?: Encounter;
+}): { triggerSync: () => void } => {
+  const { oystehr } = useApiClients();
+  const { data: erxConfig } = useGetErxConfigQuery();
+
+  // Keep the latest ids/config available without re-creating triggerSync.
+  const idsRef = useRef<{ patientId?: string; encounterId?: string }>({});
+  idsRef.current = { patientId: patient?.id, encounterId: encounter?.id };
+  const isErxConfiguredRef = useRef(false);
+  isErxConfiguredRef.current = Boolean(erxConfig?.configured);
+
+  const triggerSync = useCallback(() => {
+    // Skip entirely when eRx isn't configured for the project — syncPatient would just fail.
+    if (!oystehr || !isErxConfiguredRef.current) return;
+    const { patientId, encounterId } = idsRef.current;
+    if (!patientId || !encounterId) return;
+
+    void oystehr.erx.syncPatient({ patientId, encounterId }).catch((err) => {
+      console.warn('Error syncing erx patient after allergy change: ', err);
+    });
+  }, [oystehr]);
+
+  return { triggerSync };
 };
 
 export const useConnectPractitionerToERX = ({
