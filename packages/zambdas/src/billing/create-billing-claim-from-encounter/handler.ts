@@ -35,16 +35,17 @@ import {
   AR_STAGE,
   BILLING_RESOURCE_TAG,
   claimStatusValuesToTags,
-  CODE_SYSTEM_APPOINTMENT_TYPE_CODES,
-  CODE_SYSTEM_APPOINTMENT_TYPE_TAG_SYSTEM,
   CODE_SYSTEM_CMS_PLACE_OF_SERVICE,
   CODE_SYSTEM_CPT_MODIFIER,
   CODE_SYSTEM_OYSTEHR_CLAIM_PROCEDURE_MODIFIER,
   CODE_SYSTEM_OYSTEHR_RCM_CMS1500_REFERRING_PROVIDER_TYPE,
   CODE_SYSTEM_PROCESS_PRIORITY,
+  CODE_SYSTEM_SERVICE_CATEGORY_CODES,
+  CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM,
   EXTENSION_URL_CPT_MODIFIER,
   FHIR_IDENTIFIER_NPI,
   FHIR_RESOURCE_NOT_FOUND,
+  getCoding,
   getNPIIdentifier,
   getPayerId,
   getPaymentVariantFromEncounter,
@@ -53,14 +54,12 @@ import {
   InternalError,
   INVALID_INPUT_ERROR,
   isAppointmentOccupationalMedicine,
-  isAppointmentPreOp,
-  isAppointmentUrgentCare,
-  isAppointmentWorkersComp,
   isValidUUID,
   PARTICIPATION_CODE_SYSTEM,
   PaymentVariant,
   Secrets,
   SecretsKeys,
+  SERVICE_CATEGORY_SYSTEM,
   TIMEZONES,
   withArStageInitialization,
 } from 'utils';
@@ -97,7 +96,6 @@ import { CreateClaimFromEncounterParams, validateRequestParameters } from './val
 export type ComplexValidationOutput = { clinicalResources: ClinicalResources; billingResources: BillingResources };
 
 type CoverageRefs = { coverageRef: Reference; payorRef: Reference }[];
-type AppointmentType = 'uc' | 'wc' | 'occmed' | 'preop';
 
 interface ClinicalResources {
   encounter: Encounter;
@@ -124,6 +122,7 @@ interface BillingResources {
   serviceFacility?: Location;
   billingProvider?: Organization;
   autoAccidentTag?: Basic;
+  billingService?: Basic;
 }
 
 interface ClaimResources {
@@ -396,6 +395,22 @@ export async function performEffect(
     order.push('service-facility');
   }
 
+  const appointmentService = getService(clinicalResources.appointment);
+  if (appointmentService && !billingResources.billingService) {
+    requests.push({
+      method: 'POST',
+      url: '/Basic',
+      resource: {
+        resourceType: 'Basic',
+        code: {
+          text: appointmentService,
+          coding: [{ system: CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM, code: appointmentService }],
+        },
+      },
+    });
+    order.push('billing-service');
+  }
+
   const billingTags = [];
   if (clinicalResources.appointment.description?.toLowerCase() === 'auto accident') {
     billingTags.push('auto-accident');
@@ -422,11 +437,7 @@ export async function performEffect(
     appointment: clinicalResources.appointment,
     diagnoses: clinicalResources.diagnoses,
     procedures: clinicalResources.procedures,
-    coverageRefs: getClaimCoveragesForEncounter(
-      getAppointmentType(clinicalResources.appointment),
-      mainPatientAccounts,
-      claimCoverages
-    ),
+    coverageRefs: getClaimCoveragesForEncounter(appointmentService, mainPatientAccounts, claimCoverages),
     renderingProvider: billingResources.renderingProvider,
     serviceFacility: billingResources.serviceFacility,
     billingProvider: billingResources.billingProvider,
@@ -499,29 +510,17 @@ function uuidOrUrnReferenceString(resourceType: BillingFhirResource['resourceTyp
   return `${resourceType}/${uuidOrUrn}`;
 }
 
-function getAppointmentType(appointment: Appointment): AppointmentType | undefined {
-  if (isAppointmentUrgentCare(appointment)) {
-    return 'uc';
-  }
-  if (isAppointmentWorkersComp(appointment)) {
-    return 'wc';
-  }
-  if (isAppointmentOccupationalMedicine(appointment)) {
-    return 'occmed';
-  }
-  if (isAppointmentPreOp(appointment)) {
-    return 'preop';
-  }
-  return undefined;
+function getService(appointment: Appointment): string | undefined {
+  return getCoding(appointment?.serviceCategory, SERVICE_CATEGORY_SYSTEM)?.code;
 }
 
 export function getClaimCoveragesForEncounter(
-  appointmentType: AppointmentType | undefined,
+  service: string | undefined,
   mainPatientAccounts: Account[],
   claimCoverages: Coverage[]
 ): CoverageRefs {
-  switch (appointmentType) {
-    case 'uc': {
+  switch (service) {
+    case CODE_SYSTEM_SERVICE_CATEGORY_CODES['urgent-care']: {
       const ucAccount = mainPatientAccounts.find(
         (mpacc) => mpacc.type?.coding?.some((c) => c.system === ACCOUNT_TYPE_CODE_SYSTEM && c.code === 'PBILLACCT')
       );
@@ -554,7 +553,7 @@ export function getClaimCoveragesForEncounter(
           : []),
       ];
     }
-    case 'wc': {
+    case CODE_SYSTEM_SERVICE_CATEGORY_CODES['workers-comp']: {
       const wcAccount = mainPatientAccounts.find(
         (mpacc) => mpacc.type?.coding?.some((c) => c.system === ACCOUNT_TYPE_CODE_SYSTEM && c.code === 'WCOMPACCT')
       );
@@ -575,18 +574,18 @@ export function getClaimCoveragesForEncounter(
           : []),
       ];
     }
-    case 'occmed': {
+    case CODE_SYSTEM_SERVICE_CATEGORY_CODES['occupational-medicine']: {
       // No insurance
       // TODO: Support non-insurance payers
       return [];
     }
-    case 'preop': {
+    case CODE_SYSTEM_SERVICE_CATEGORY_CODES['pre-op']: {
       // No insurance
       // TODO: Support non-insurance payers
       return [];
     }
     default: {
-      // Unknown appointment type
+      // "Non-system" service, take no action here
       return [];
     }
   }
@@ -1007,6 +1006,21 @@ async function findExistingBillingResources(
   ).unbundle();
   const autoAccidentTag = tagSearch.find((tag) => tag.code.text === AUTO_ACCIDENT_TAG_NAME);
 
+  // CW TODO: search billing service category Basic resources and create if not exist
+  let billingService: Basic | undefined;
+  const appointmentService = getService(originals.appointment);
+  if (appointmentService) {
+    const serviceSearch = (
+      await billingOystehr.fhir.search<Basic>({
+        resourceType: 'Basic',
+        params: [{ name: 'code', value: `${CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM}|${appointmentService}` }],
+      })
+    ).unbundle();
+    if (serviceSearch.length) {
+      billingService = serviceSearch[0];
+    }
+  }
+
   return {
     person: existingPerson,
     mainPatient: existingMainPatient,
@@ -1018,6 +1032,7 @@ async function findExistingBillingResources(
     serviceFacility: matchingServiceFacility,
     billingProvider: matchingBillingProvider,
     autoAccidentTag,
+    billingService,
   };
 }
 
@@ -1035,7 +1050,7 @@ export function determineArStage(resources: ClaimResources): string {
 
 function buildClaim(resources: ClaimResources): Claim {
   const now = new Date().toISOString().slice(0, 10);
-  const appointmentTypeCoding = getAppointmentTypeCoding(resources.appointment);
+  const serviceCoding = getServiceCoding(resources.appointment);
 
   // AR Stage tag + the stage's auto-initialized progress status (e.g. Insurance AR Status -> "Created").
   const claimStatusTags = claimStatusValuesToTags(withArStageInitialization({ arStage: determineArStage(resources) }));
@@ -1047,7 +1062,7 @@ function buildClaim(resources: ClaimResources): Claim {
       tag: [
         { system: CURRENT_STATUS_TAG_SYSTEM, code: 'open' },
         getClaimTypeCoding(),
-        ...(appointmentTypeCoding ? [appointmentTypeCoding] : []),
+        ...(serviceCoding ? [serviceCoding] : []),
         ...(resources.billingTags ?? []).map((t) => ({ system: CLAIM_TAG_SYSTEM, code: t })),
         ...claimStatusTags,
       ],
@@ -1145,29 +1160,15 @@ function getLocalDateOfService(appointmentStart: string, location: Location | un
   return DateTime.fromISO(appointmentStart).setZone(timezone).toISODate()!;
 }
 
-function getAppointmentTypeCoding(appointment: Appointment): Coding | undefined {
-  const type = getAppointmentType(appointment);
-  switch (type) {
-    case 'uc':
-      return {
-        system: CODE_SYSTEM_APPOINTMENT_TYPE_TAG_SYSTEM,
-        code: CODE_SYSTEM_APPOINTMENT_TYPE_CODES['urgent-care'],
-      };
-    case 'occmed':
-      return {
-        system: CODE_SYSTEM_APPOINTMENT_TYPE_TAG_SYSTEM,
-        code: CODE_SYSTEM_APPOINTMENT_TYPE_CODES['occupational-medicine'],
-      };
-    case 'wc':
-      return {
-        system: CODE_SYSTEM_APPOINTMENT_TYPE_TAG_SYSTEM,
-        code: CODE_SYSTEM_APPOINTMENT_TYPE_CODES['workers-comp'],
-      };
-    case 'preop':
-      return { system: CODE_SYSTEM_APPOINTMENT_TYPE_TAG_SYSTEM, code: CODE_SYSTEM_APPOINTMENT_TYPE_CODES['pre-op'] };
-    default:
-      return undefined;
+function getServiceCoding(appointment: Appointment): Coding | undefined {
+  const service = getService(appointment);
+  if (!service) {
+    return undefined;
   }
+  return {
+    system: CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM,
+    code: service,
+  };
 }
 
 export async function complexValidation(
