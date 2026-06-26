@@ -4,7 +4,6 @@ import { DateTime } from 'luxon';
 import { BillingSuggestionOutput, fixAndParseJsonObjectFromString, getEmCodes, PrescribedMedicationDTO } from 'utils';
 import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
 import { invokeChatbotVertexAI } from '../../shared/ai';
-import { loadAndParseIcd10Data } from '../../shared/icd-10-search';
 import { validateRequestParameters } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
@@ -329,19 +328,25 @@ export const index = wrapHandler(
 
     // Validate ICD codes and get the descriptions for the codes
     if (suggestions?.icdCodes) {
-      const allCodes = await loadAndParseIcd10Data();
-      suggestions.icdCodes.forEach((code) => {
-        const icdCode = allCodes.filter((codeTemp) => codeTemp.code === code.code);
-        if (icdCode.length === 1) {
-          icdSuggestions.push({
-            code: code.code,
-            description: icdCode[0].display,
-            reason: code.reason,
+      await Promise.all(
+        suggestions.icdCodes.map(async (code) => {
+          const terminologyResponse = await oystehr.terminology.searchIcd10({
+            query: code.code,
+            searchType: 'code',
+            limit: 100,
+            strictMatch: true,
           });
-        } else {
-          console.log("Didn't get an ICD code", code.code);
-        }
-      });
+          if (terminologyResponse.codes.length === 1) {
+            icdSuggestions.push({
+              code: code.code,
+              description: terminologyResponse.codes[0].display,
+              reason: code.reason,
+            });
+          } else {
+            console.log("Didn't get an ICD code", code.code);
+          }
+        })
+      );
     }
 
     // Validate CPT codes and get the descriptions for the codes

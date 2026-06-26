@@ -313,13 +313,6 @@
       "src": "src/ehr/sync-user/index",
       "zip": ".dist/zips/sync-user.zip"
     },
-    "ICD-10-SEARCH": {
-      "name": "icd-10-search",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/ehr/icd-10-search/index",
-      "zip": ".dist/zips/icd-10-search.zip"
-    },
     "GET-PATIENT-PROFILE-PHOTO-URL": {
       "name": "get-patient-profile-photo-url",
       "type": "http_auth",
