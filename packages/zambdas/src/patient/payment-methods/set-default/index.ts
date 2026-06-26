@@ -1,6 +1,6 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { checkForStripeCustomerDeletedError, getStripeAccountForAppointmentOrEncounter } from 'utils';
-import { createOystehrClient, getAuth0Token, lambdaResponse, wrapHandler, ZambdaInput } from '../../../shared';
+import { createClinicalOystehrClient, getAuth0Token, lambdaResponse, wrapHandler, ZambdaInput } from '../../../shared';
 import { getStripeClient, validateUserHasAccessToPatientAccount } from '../helpers';
 import { complexValidation, validateRequestParameters } from './validateRequestParameters';
 
@@ -20,7 +20,7 @@ export const index = wrapHandler('payment-set-default', async (input: ZambdaInpu
   } else {
     console.log('already have a token, no need to update');
   }
-  const oystehrClient = createOystehrClient(oystehrM2MClientToken, secrets);
+  const oystehrClient = createClinicalOystehrClient(oystehrM2MClientToken, secrets);
 
   void (await validateUserHasAccessToPatientAccount(
     { beneficiaryPatientId, secrets, zambdaInput: input },

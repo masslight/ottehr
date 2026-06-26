@@ -11,6 +11,7 @@ export interface GetPatientVisitListInput {
   from?: string; // ISO date string
   to?: string; // ISO date string
   sortDirection?: 'asc' | 'desc';
+  supervisorApprovalEnabled?: boolean;
 }
 
 interface BaseAppointmentHistoryRow {

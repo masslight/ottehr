@@ -5,6 +5,7 @@ export type PharmacyCollectionAnswerSetInput = {
   placesId: string;
   placesName: string;
   placesAddress: string;
+  placesPhone: string | undefined;
   erxPharmacyId: string | undefined;
 };
 
@@ -17,6 +18,7 @@ export const makePharmacyCollectionAnswerSetForQR = ({
   placesId,
   placesName,
   placesAddress,
+  placesPhone,
   erxPharmacyId,
 }: PharmacyCollectionAnswerSetInput): QuestionnaireResponseItem[] => {
   const answerSet = [
@@ -37,6 +39,13 @@ export const makePharmacyCollectionAnswerSetForQR = ({
       answer: [{ valueBoolean: true }],
     },
   ];
+
+  if (placesPhone) {
+    answerSet.push({
+      linkId: PHARMACY_COLLECTION_LINK_IDS.placesPhone,
+      answer: [{ valueString: placesPhone }],
+    });
+  }
 
   if (erxPharmacyId) {
     answerSet.push({
@@ -62,6 +71,9 @@ export const clearPharmacyCollectionAnswerSet = (): QuestionnaireResponseItem[] 
     },
     {
       linkId: PHARMACY_COLLECTION_LINK_IDS.placesAddress,
+    },
+    {
+      linkId: PHARMACY_COLLECTION_LINK_IDS.placesPhone,
     },
     {
       linkId: PHARMACY_COLLECTION_LINK_IDS.placesDataSaved,

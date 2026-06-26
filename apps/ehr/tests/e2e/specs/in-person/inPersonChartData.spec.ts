@@ -27,7 +27,14 @@ import {
   testTextComponent,
   waitForFieldSave,
 } from 'tests/e2e-utils/helpers/exam-tab.test-helpers';
-import { getFirstName, getLastName, MDM_FIELD_DEFAULT_TEXT, PROVIDER_CONFIG } from 'utils';
+import {
+  chooseJson,
+  DEFAULT_PROGRESS_NOTE_CONFIG,
+  getFirstName,
+  getLastName,
+  ProgressNoteConfig,
+  PROVIDER_CONFIG,
+} from 'utils';
 import { ResourceHandler } from '../../../e2e-utils/resource-handler';
 import { AllergiesPage, expectAllergiesPage } from '../../page/in-person/AllergiesPage';
 
@@ -38,6 +45,8 @@ const ALLERGY = 'Aspirin';
 const MEDICAL_CONDITION = 'Paratyphoid fever A';
 
 let SURGERY: string;
+let mdmDefaultText = DEFAULT_PROGRESS_NOTE_CONFIG.medicalDecisionDefaultText;
+let mdmRequired = DEFAULT_PROGRESS_NOTE_CONFIG.mdmRequired;
 
 const DIAGNOSIS_CODE = 'J45.901';
 const DIAGNOSIS_NAME = 'injury';
@@ -56,6 +65,9 @@ const HEARTBEAT_BPM = '75';
 const RESPIRATION_RATE = '16';
 const BLOOD_PRESSURE_SYSTOLIC = '120';
 const BLOOD_PRESSURE_DIASTOLIC = '80';
+const BLOOD_PRESSURE_SYSTOLIC_INVALID = '110';
+const BLOOD_PRESSURE_DIASTOLIC_INVALID = '115';
+const INVALID_BLOOD_PRESSURE_MESSAGE = /Diastolic value cannot be greater than or equal to Systolic value/;
 const OXYGEN_SAT = '98';
 const WEIGHT_KG = '70';
 const HEIGHT_CM = '175';
@@ -105,6 +117,14 @@ test.describe('In-Person Visit Chart Data', async () => {
   test.beforeAll(async ({ browser }) => {
     await resourceHandler.setResources();
     await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!);
+
+    const oystehr = await ResourceHandler.getOystehr();
+    const progressNoteConfig = chooseJson<ProgressNoteConfig>(
+      await oystehr.zambda.execute({ id: 'get-progress-note-config' })
+    );
+    mdmDefaultText =
+      progressNoteConfig?.medicalDecisionDefaultText ?? DEFAULT_PROGRESS_NOTE_CONFIG.medicalDecisionDefaultText;
+    mdmRequired = progressNoteConfig?.mdmRequired ?? DEFAULT_PROGRESS_NOTE_CONFIG.mdmRequired;
 
     context = await browser.newContext();
     page = await context.newPage();
@@ -198,6 +218,11 @@ test.describe('In-Person Visit Chart Data', async () => {
           await vitalsPage.addRespirationRateObservation(RESPIRATION_RATE);
         });
         await test.step('VIT-1.4 Add blood pressure observation', async () => {
+          await vitalsPage.expectInvalidBloodPressureError(
+            BLOOD_PRESSURE_SYSTOLIC_INVALID,
+            BLOOD_PRESSURE_DIASTOLIC_INVALID,
+            INVALID_BLOOD_PRESSURE_MESSAGE
+          );
           await vitalsPage.addBloodPressureObservation(BLOOD_PRESSURE_SYSTOLIC, BLOOD_PRESSURE_DIASTOLIC);
         });
         await test.step('VIT-1.5 Add oxygen saturation observation', async () => {
@@ -519,7 +544,7 @@ test.describe('In-Person Visit Chart Data', async () => {
       await assessmentPage.expectDiagnosisDropdown();
       await expect(page.getByTestId(dataTestIds.diagnosisContainer.primaryDiagnosis)).not.toBeVisible();
       await expect(page.getByTestId(dataTestIds.diagnosisContainer.secondaryDiagnosis)).not.toBeVisible();
-      await assessmentPage.expectMdmField({ text: MDM_FIELD_DEFAULT_TEXT });
+      await assessmentPage.expectMdmField({ text: mdmDefaultText });
     });
 
     test('Remove MDM and check missing required fields on review and sign page', async () => {
@@ -527,13 +552,33 @@ test.describe('In-Person Visit Chart Data', async () => {
       await assessmentPage.fillMdmField('');
       await mdmDeleted;
 
+      // MDM is stored as a ClinicalImpression and read back through an eventually-consistent FHIR
+      // search. The delete request has returned, but get-chart-data can still surface the old value
+      // for a short window. The Review & Sign page does a single chart-fields fetch with no retry,
+      // so navigating too early reads the stale MDM and the "Medical decision making" missing-field
+      // link never renders. Wait until the deletion is actually reflected by reloading the
+      // assessment page until the MDM field reads back empty (i.e. get-chart-data is consistent).
+      await expect(async () => {
+        await page.reload();
+        const mdmTextarea = page
+          .getByTestId(dataTestIds.assessmentCard.medicalDecisionField)
+          .locator('textarea:visible')
+          .first();
+        await expect(mdmTextarea).toBeVisible({ timeout: 10000 });
+        await expect(mdmTextarea).toHaveValue('', { timeout: 10000 });
+      }).toPass({ timeout: 60000, intervals: [2000, 3000, 5000, 10000] });
+
       await sideMenu.clickReviewAndSign();
       await progressNotePage.expectLoaded();
       await progressNotePage.verifyReviewAndSignButtonDisabled();
       await test.step('Verify missing card is visible and has all required missing fields', async () => {
         await expect(page.getByTestId(dataTestIds.progressNotePage.missingCard)).toBeVisible();
         await expect(page.getByTestId(dataTestIds.progressNotePage.emCodeLink)).toBeVisible();
-        await expect(page.getByTestId(dataTestIds.progressNotePage.medicalDecisionLink)).toBeVisible();
+        if (mdmRequired) {
+          await expect(page.getByTestId(dataTestIds.progressNotePage.medicalDecisionLink)).toBeVisible();
+        } else {
+          await expect(page.getByTestId(dataTestIds.progressNotePage.medicalDecisionLink)).not.toBeVisible();
+        }
         await expect(page.getByTestId(dataTestIds.progressNotePage.primaryDiagnosisLink)).toBeVisible();
         await expect(page.getByTestId(dataTestIds.progressNotePage.hpiLink)).toBeVisible();
       });

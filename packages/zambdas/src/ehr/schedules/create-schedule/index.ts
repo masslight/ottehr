@@ -12,7 +12,7 @@ import {
   Secrets,
   TIMEZONE_EXTENSION_URL,
 } from 'utils';
-import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
+import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
 import { validateUpdateScheduleParameters } from '../shared';
 
 let m2mToken: string;
@@ -26,7 +26,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   console.debug('validateRequestParameters success', JSON.stringify(validatedParameters));
   const { secrets } = validatedParameters;
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-  const oystehr = createOystehrClient(m2mToken, secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
   const effectInput = await complexValidation(validatedParameters, oystehr);
 
   const updatedSchedule = await performEffect(effectInput, oystehr);
@@ -63,10 +63,8 @@ const validateRequestParameters = (input: ZambdaInput): BasicInput => {
   if (typeof ownerId !== 'string') {
     throw INVALID_INPUT_ERROR('"ownerId" must be a string');
   }
-  if (typeof ownerType !== 'string' || !['Location', 'Practitioner', 'HealthcareService'].includes(ownerType)) {
-    throw INVALID_INPUT_ERROR(
-      '"ownerType" must be a string and one of: "Location", "Practitioner", "HealthcareService"'
-    );
+  if (typeof ownerType !== 'string' || !['Location', 'HealthcareService'].includes(ownerType)) {
+    throw INVALID_INPUT_ERROR('"ownerType" must be a string and one of: "Location", "HealthcareService"');
   }
   const { secrets, scheduleId, timezone, schedule, scheduleOverrides, closures } =
     validateUpdateScheduleParameters(input);
@@ -83,7 +81,7 @@ const validateRequestParameters = (input: ZambdaInput): BasicInput => {
     scheduleOverrides,
     closures,
     ownerId,
-    ownerType: ownerType as 'Location' | 'Practitioner' | 'HealthcareService',
+    ownerType: ownerType as 'Location' | 'HealthcareService',
   };
 };
 

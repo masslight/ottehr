@@ -26,6 +26,7 @@ import { readdirSync, readFileSync, statSync } from 'fs';
 import { join, relative } from 'path';
 import { dirname } from 'path';
 import { fileURLToPath } from 'url';
+import { createClinicalOystehrClient } from '../../packages/zambdas/src/shared/helpers.js';
 import { parseFolderName } from './legacy-data-utils.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -80,13 +81,16 @@ async function createOystehrClient(): Promise<Oystehr> {
 
   const tokenData = (await tokenResponse.json()) as { access_token: string };
 
-  return new Oystehr({
-    accessToken: tokenData.access_token,
-    projectId,
-    services: {
-      projectApiUrl: projectApi,
-    },
-  });
+  return createClinicalOystehrClient(
+    tokenData.access_token,
+    {},
+    {
+      projectId,
+      services: {
+        projectApiUrl: projectApi,
+      },
+    }
+  );
 }
 
 // ── File walking ──────────────────────────────────────────────────────────────

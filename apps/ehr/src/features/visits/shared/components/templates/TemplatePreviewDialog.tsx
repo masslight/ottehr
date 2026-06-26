@@ -12,6 +12,8 @@ import {
   DialogContent,
   DialogTitle,
   IconButton,
+  MenuItem,
+  Select,
   Stack,
   ToggleButtonGroup,
   Typography,
@@ -21,36 +23,37 @@ import { useQuery } from '@tanstack/react-query';
 import React, { useEffect, useMemo, useState } from 'react';
 import { getTemplateDetail } from 'src/api/api';
 import { ContainedPrimaryToggleButton } from 'src/components/ContainedPrimaryToggleButton';
-import { formatCptCodeAndModifiersForDisplay } from 'src/helpers/templates';
+import { formatCptCodeAndModifiersForDisplay, getProcedureDisplayFields } from 'src/helpers/templates';
 import { useApiClients } from 'src/hooks/useAppClients';
 import {
   AdminGetTemplateDetailOutput,
-  buildExamFieldToSectionMap,
+  CreateLabCoverageInfo,
+  CreateLabPaymentMethod,
+  groupExamFindingsBySection,
   isTemplateCptCodeInfo,
+  LAB_PAYMENT_METHOD_DISPLAY,
+  LabPaymentMethod,
+  nameLabTest,
   RosFindingState,
   RosFindingStateLabel,
   TEMPLATE_SECTION_DEFAULT_ACTIONS,
   TEMPLATE_SECTIONS_IN_ORDER,
   TEMPLATE_SECTIONS_NO_APPEND,
   TEMPLATE_SECTIONS_NO_OVERWRITE,
+  TemplateCodeInfo,
   TemplateCptCodeInfo,
+  TemplateExternalLabPlanDetail,
   TemplateInHouseLabPlanDetail,
+  TemplateInHouseMedicationDetail,
+  TemplatePreviewApplyOptions,
+  TemplateProcedurePlan,
   TemplateSectionAction,
   TemplateSectionActions,
   TemplateSectionDescriptor,
   TemplateSectionKey,
 } from 'utils';
-import { DefaultExamComponentsConfig } from 'utils/lib/ottehr-config/examination/default-components.config';
-
-// Maps an exam field name (e.g. "soft", "tender") to the body-system section it
-// belongs to ("Abdomen"). Built once at module load from
-// `DefaultExamComponentsConfig` so the preview can group finding chips under their
-// owning section header.
-const DEFAULT_EXAM_FIELD_TO_SECTION = buildExamFieldToSectionMap(DefaultExamComponentsConfig);
-
-const EXAM_SECTION_KEYS_IN_ORDER = Object.keys(DefaultExamComponentsConfig);
-
-const EXAM_OTHER_SECTION_KEY = '__other__';
+import { useGetCreateExternalLabResources } from '../../stores/appointment/appointment.queries';
+import { useAppointmentData } from '../../stores/appointment/appointment.store';
 
 interface TemplatePreviewDialogProps {
   open: boolean;
@@ -58,7 +61,7 @@ interface TemplatePreviewDialogProps {
   templateName: string;
   isApplying: boolean;
   onCancel: () => void;
-  onApply: (actions: TemplateSectionActions) => void;
+  onApply: (actions: TemplateSectionActions, options?: TemplatePreviewApplyOptions) => void;
 }
 
 const ACTION_LABELS: Record<TemplateSectionAction, string> = {
@@ -97,6 +100,15 @@ const pluralize = (n: number, singular: string, plural = `${singular}s`): string
 
 // the slices are because we show the names of the first two items "+ n more"
 const NUM_ITEMS_IN_SECTION_TO_SHOW = 2;
+const getItemsToShowAndExtraCount = (items: any[], accessItem: (item: any) => any): string => {
+  const itemsToShow = items
+    .slice(0, NUM_ITEMS_IN_SECTION_TO_SHOW)
+    .map((elm: any) => accessItem(elm))
+    .join(', ');
+  const extraCount = items.length - NUM_ITEMS_IN_SECTION_TO_SHOW;
+  return extraCount > 0 ? `${itemsToShow} +${extraCount} more` : itemsToShow;
+};
+
 const getSectionSummary = (sections: AdminGetTemplateDetailOutput['sections'], key: TemplateSectionKey): string => {
   switch (key) {
     case 'hpi':
@@ -120,34 +132,45 @@ const getSectionSummary = (sections: AdminGetTemplateDetailOutput['sections'], k
     case 'mdm':
       return sections.mdm ? truncate(sections.mdm) : '';
     case 'diagnoses': {
-      const codes = sections.diagnoses
-        .slice(0, NUM_ITEMS_IN_SECTION_TO_SHOW)
-        .map((d) => d.code)
-        .join(', ');
-      const extra = sections.diagnoses.length - NUM_ITEMS_IN_SECTION_TO_SHOW;
-      return extra > 0 ? `${codes} +${extra} more` : codes;
+      return getItemsToShowAndExtraCount(sections.diagnoses, (item: TemplateCodeInfo) => item.code);
     }
     case 'patientInstructions':
       return pluralize(sections.patientInstructions.length, 'instruction');
     case 'cptCodes': {
-      const codes = sections.cptCodes
-        .slice(0, NUM_ITEMS_IN_SECTION_TO_SHOW)
-        .map((c) => c.code)
-        .join(', ');
-      const extra = sections.cptCodes.length - NUM_ITEMS_IN_SECTION_TO_SHOW;
-      return extra > 0 ? `${codes} +${extra} more` : codes;
+      return getItemsToShowAndExtraCount(sections.cptCodes, (item: TemplateCptCodeInfo) => item.code);
     }
     case 'emCode':
       return sections.emCode ? sections.emCode.code : '';
     case 'inHouseLabs': {
-      const names = sections.inHouseLabs
-        .slice(0, NUM_ITEMS_IN_SECTION_TO_SHOW)
-        .map((p) => p.testName)
-        .join(', ');
-      const extra = sections.inHouseLabs.length - NUM_ITEMS_IN_SECTION_TO_SHOW;
-      const summary = extra > 0 ? `${names} +${extra} more` : names;
+      const summary = getItemsToShowAndExtraCount(
+        sections.inHouseLabs,
+        (item: TemplateInHouseLabPlanDetail) => item.testName
+      );
       const missing = sections.inHouseLabs.filter((p) => p.missing).length;
       return missing > 0 ? `${summary} (${missing} unavailable)` : summary;
+    }
+    case 'externalLabs': {
+      const summary = getItemsToShowAndExtraCount(sections.externalLabs, (item: TemplateExternalLabPlanDetail) =>
+        nameLabTest(item.testName, item.testCode, item.labName, false)
+      );
+      const missing = sections.externalLabs.filter((p) => p.missing).length;
+      return missing > 0 ? `${summary} (${missing} unavailable)` : summary;
+    }
+    case 'procedures': {
+      // Use whatever short label we have for each plan: procedureType code if
+      // it's there, otherwise fall back to the first CPT code so the summary
+      // still says something concrete. "Unnamed procedure" is a last resort for
+      // very sparse template entries.
+      return getItemsToShowAndExtraCount(
+        sections.procedures,
+        (p: TemplateProcedurePlan) => p.procedureType ?? p.cptCodes[0]?.code ?? 'Unnamed procedure'
+      );
+    }
+    case 'inHouseMedications': {
+      return getItemsToShowAndExtraCount(
+        sections.inHouseMedications,
+        (item: TemplateInHouseMedicationDetail) => item.medicationName
+      );
     }
     default:
       return '';
@@ -176,6 +199,12 @@ const sectionHasContent = (sections: AdminGetTemplateDetailOutput['sections'], k
       return Boolean(sections.emCode);
     case 'inHouseLabs':
       return sections.inHouseLabs.length > 0;
+    case 'externalLabs':
+      return sections.externalLabs.length > 0;
+    case 'procedures':
+      return sections.procedures.length > 0;
+    case 'inHouseMedications':
+      return sections.inHouseMedications.length > 0;
     default:
       return false;
   }
@@ -261,48 +290,28 @@ const SectionPreview: React.FC<{
     case 'examFindings': {
       // Group findings by body-system section so each chip is anchored under a
       // header like "Abdomen". Anything whose fieldName isn't in the exam config
-      // (e.g. comment fields with custom keys) falls into an "Other" bucket.
-      const groupedByKey = new Map<string, typeof sections.examFindings>();
-      for (const finding of sections.examFindings) {
-        const info = DEFAULT_EXAM_FIELD_TO_SECTION.get(finding.fieldName);
-        const key = info?.sectionKey ?? EXAM_OTHER_SECTION_KEY;
-        const existing = groupedByKey.get(key);
-        if (existing) existing.push(finding);
-        else groupedByKey.set(key, [finding]);
-      }
-
-      const orderedKeys = [
-        ...EXAM_SECTION_KEYS_IN_ORDER.filter((k) => groupedByKey.has(k)),
-        ...(groupedByKey.has(EXAM_OTHER_SECTION_KEY) ? [EXAM_OTHER_SECTION_KEY] : []),
-      ];
-
+      // (e.g. comment fields with custom keys) falls into a trailing "Other" bucket.
+      const groups = groupExamFindingsBySection(sections.examFindings);
       return (
         <Stack spacing={1.5}>
-          {orderedKeys.map((key) => {
-            const findings = groupedByKey.get(key)!;
-            const label =
-              key === EXAM_OTHER_SECTION_KEY
-                ? 'Other'
-                : DEFAULT_EXAM_FIELD_TO_SECTION.get(findings[0].fieldName)?.sectionLabel ?? key;
-            return (
-              <Box key={key}>
-                <Typography variant="caption" sx={{ color: 'text.secondary', textTransform: 'uppercase' }}>
-                  {label}
-                </Typography>
-                <Stack direction="row" flexWrap="wrap" gap={0.5} sx={{ mt: 0.5 }}>
-                  {findings.map((f) => (
-                    <Chip
-                      key={f.fieldName}
-                      label={f.note ? `${f.label}: ${f.note}` : f.label}
-                      size="small"
-                      color={f.isAbnormal ? 'warning' : undefined}
-                      variant={f.isAbnormal ? 'filled' : 'outlined'}
-                    />
-                  ))}
-                </Stack>
-              </Box>
-            );
-          })}
+          {groups.map((group) => (
+            <Box key={group.sectionKey}>
+              <Typography variant="caption" sx={{ color: 'text.secondary', textTransform: 'uppercase' }}>
+                {group.sectionLabel}
+              </Typography>
+              <Stack direction="row" flexWrap="wrap" gap={0.5} sx={{ mt: 0.5 }}>
+                {group.findings.map((f) => (
+                  <Chip
+                    key={f.fieldName}
+                    label={f.note ? `${f.label}: ${f.note}` : f.label}
+                    size="small"
+                    color={f.isAbnormal ? 'warning' : undefined}
+                    variant={f.isAbnormal ? 'filled' : 'outlined'}
+                  />
+                ))}
+              </Stack>
+            </Box>
+          ))}
         </Stack>
       );
     }
@@ -333,10 +342,68 @@ const SectionPreview: React.FC<{
       return sections.emCode ? <CodeList items={[sections.emCode]} /> : null;
     case 'inHouseLabs':
       return <InHouseLabPlansList plans={sections.inHouseLabs} />;
+    case 'externalLabs':
+      return <ExternalLabPlansList plans={sections.externalLabs} />;
+    case 'procedures':
+      return <ProcedurePlansList plans={sections.procedures} />;
+    case 'inHouseMedications':
+      return <InHouseMedicationList meds={sections.inHouseMedications} />;
     default:
       return null;
   }
 };
+
+const InHouseMedicationList: React.FC<{ meds: TemplateInHouseMedicationDetail[] }> = ({ meds }) => (
+  <Stack spacing={1.5}>
+    {meds.map((med) => (
+      <Box key={med.planId}>
+        <Typography variant="body2" sx={{ color: 'text.primary', fontWeight: 500 }}>
+          {[
+            med.medicationName,
+            med.dose !== undefined ? String(med.dose) : null,
+            med.units,
+            med.route ? `via ${med.route}` : null,
+          ]
+            .filter(Boolean)
+            .join(' ')}
+        </Typography>
+        {med.diagnoses.length > 0 ? (
+          <Stack direction="row" flexWrap="wrap" gap={0.5} sx={{ mt: 0.5 }}>
+            {med.diagnoses.map((d, idx) => (
+              <Chip
+                key={`${med.planId}-dx-${idx}`}
+                size="small"
+                variant="outlined"
+                label={d.display ? `${d.code} — ${d.display}` : d.code}
+              />
+            ))}
+          </Stack>
+        ) : null}
+        {med.cptCodes.length > 0 ? (
+          <Stack direction="row" flexWrap="wrap" gap={0.5} sx={{ mt: 0.5 }}>
+            {med.cptCodes.map((c, idx) => (
+              <Chip
+                key={`${med.planId}-cpt-${idx}`}
+                size="small"
+                variant="outlined"
+                color="primary"
+                label={`CPT ${formatCptCodeAndModifiersForDisplay(c)}${c.display ? ` — ${c.display}` : ''}`}
+              />
+            ))}
+          </Stack>
+        ) : null}
+        {med.instructions ? (
+          <Typography
+            variant="caption"
+            sx={{ display: 'block', mt: 0.5, color: 'text.secondary', whiteSpace: 'pre-wrap' }}
+          >
+            Instructions: {med.instructions}
+          </Typography>
+        ) : null}
+      </Box>
+    ))}
+  </Stack>
+);
 
 // Each plan renders as a row with the test name and any reasonCode ICDs as
 // little chips below. Plans whose ActivityDefinition couldn't be resolved on
@@ -396,18 +463,127 @@ const InHouseLabPlansList: React.FC<{ plans: TemplateInHouseLabPlanDetail[] }> =
   </Stack>
 );
 
+// Each external lab plan renders the test + lab combo with the saved ordering
+// details (Dx chips, PSC chip, clinical info note) underneath. Plans whose
+// test no longer resolves in the lab's compendium render muted so the
+// provider knows they'll be skipped at apply-time. The ordering office and
+// the (required) payment method selector live in the card's expanded
+// controls, not here - they're apply inputs, not template content.
+const ExternalLabPlansList: React.FC<{ plans: TemplateExternalLabPlanDetail[] }> = ({ plans }) => (
+  <Stack spacing={1.5}>
+    {plans.map((plan) => (
+      <Box key={plan.planId} sx={{ opacity: plan.missing ? 0.55 : 1 }}>
+        <Typography variant="body2" sx={{ color: 'text.primary', fontWeight: 500 }}>
+          {nameLabTest(plan.testName, plan.testCode, plan.labName, false)}
+          {plan.missing ? (
+            <Typography component="span" variant="caption" sx={{ ml: 1, color: 'warning.main', fontStyle: 'italic' }}>
+              unavailable in this environment — will be skipped
+            </Typography>
+          ) : null}
+        </Typography>
+        <Stack direction="row" flexWrap="wrap" gap={0.5} sx={{ mt: 0.5 }}>
+          {plan.psc ? <Chip size="small" color="primary" variant="outlined" label="PSC Hold" /> : null}
+          {plan.diagnoses.map((d, idx) => (
+            <Chip
+              key={`${plan.planId}-dx-${idx}`}
+              size="small"
+              variant="outlined"
+              label={d.display ? `${d.code} — ${d.display}` : d.code}
+            />
+          ))}
+        </Stack>
+        {plan.note ? (
+          <Typography
+            variant="caption"
+            sx={{ display: 'block', mt: 0.5, color: 'text.secondary', whiteSpace: 'pre-wrap' }}
+          >
+            Note: {plan.note}
+          </Typography>
+        ) : null}
+      </Box>
+    ))}
+  </Stack>
+);
+
+// Procedure cards show the procedure type as a clear subheading, then a
+// left-indented block of details: labeled CPT and diagnosis lists (with the
+// uppercase-caption section labels the ROS preview uses, so the codes
+// underneath visibly belong to them) and the form-field rows. We only render
+// fields the template actually carried - the procedure form has a lot of
+// optional inputs and a template that didn't fill them in would look noisy
+// with a wall of empty rows.
+const ProcedurePlansList: React.FC<{ plans: TemplateProcedurePlan[] }> = ({ plans }) => (
+  <Stack spacing={2}>
+    {plans.map((plan) => (
+      <Box key={plan.planId}>
+        <Typography variant="subtitle2" sx={{ color: 'text.primary', fontWeight: 600 }}>
+          {plan.procedureType ?? plan.cptCodes[0]?.display ?? plan.cptCodes[0]?.code ?? 'Procedure'}
+        </Typography>
+        <Stack spacing={1} sx={{ mt: 0.5, pl: 2 }}>
+          {plan.cptCodes.length > 0 ? (
+            <Box>
+              <Typography variant="caption" sx={{ color: 'text.secondary', textTransform: 'uppercase' }}>
+                CPT codes
+              </Typography>
+              <CodeList items={plan.cptCodes} />
+            </Box>
+          ) : null}
+          {plan.diagnoses.length > 0 ? (
+            <Box>
+              <Typography variant="caption" sx={{ color: 'text.secondary', textTransform: 'uppercase' }}>
+                Diagnoses
+              </Typography>
+              <CodeList items={plan.diagnoses} />
+            </Box>
+          ) : null}
+          <ProcedurePlanFields plan={plan} />
+        </Stack>
+      </Box>
+    ))}
+  </Stack>
+);
+
+// Renders the procedure form fields as a compact label/value list, with the
+// `multiline` flag selecting whiteSpace: pre-wrap so free-text fields wrap
+// cleanly without being forced onto their own line for short values.
+const ProcedurePlanFields: React.FC<{ plan: TemplateProcedurePlan }> = ({ plan }) => {
+  const fields = getProcedureDisplayFields(plan);
+  if (fields.length === 0) return null;
+  return (
+    <Stack spacing={0.75}>
+      {fields.map((f) => (
+        <Typography
+          key={f.label}
+          variant="body2"
+          sx={{ color: 'text.primary', ...(f.multiline ? { whiteSpace: 'pre-wrap' } : {}) }}
+        >
+          <strong>{f.label}:</strong> {f.value}
+        </Typography>
+      ))}
+    </Stack>
+  );
+};
+
 const SectionCard: React.FC<{
   descriptor: TemplateSectionDescriptor;
   sections: AdminGetTemplateDetailOutput['sections'];
   action: TemplateSectionAction;
   onActionChange: (action: TemplateSectionAction) => void;
   disabled: boolean;
-}> = ({ descriptor, sections, action, onActionChange, disabled }) => {
+  // Extra text prepended to the header summary (separator included by the
+  // caller) - e.g. the external labs card shows the payment method that will
+  // be used so the user gets a reminder without expanding the card.
+  summaryPrefix?: string;
+  // Apply inputs rendered at the top of the expanded body, above the preview -
+  // e.g. the external labs ordering office + payment method selector. Most
+  // users never need to change these, so they live behind the expand toggle.
+  expandedContent?: React.ReactNode;
+}> = ({ descriptor, sections, action, onActionChange, disabled, summaryPrefix, expandedContent }) => {
   const theme = useTheme();
   const [expanded, setExpanded] = useState(false);
   const noAppend = TEMPLATE_SECTIONS_NO_APPEND.has(descriptor.key);
   const noOverwrite = TEMPLATE_SECTIONS_NO_OVERWRITE.has(descriptor.key);
-  const summary = getSectionSummary(sections, descriptor.key);
+  const summary = `${summaryPrefix ?? ''}${getSectionSummary(sections, descriptor.key)}`;
 
   const previewSx = {
     opacity: action === 'skip' ? 0.5 : 1,
@@ -512,10 +688,132 @@ const SectionCard: React.FC<{
           id={`template-section-${descriptor.key}-body`}
           sx={{ px: 2, pb: 2, pt: 2, borderTop: `1px solid ${theme.palette.divider}`, ...previewSx }}
         >
+          {expandedContent ? (
+            <Box data-testid={`template-section-${descriptor.key}-controls`} sx={{ mb: 2 }}>
+              {expandedContent}
+            </Box>
+          ) : null}
           <SectionPreview sectionKey={descriptor.key} sections={sections} />
         </Box>
       </Collapse>
     </Box>
+  );
+};
+
+// The apply-time inputs for the External Lab Orders section: the ordering
+// office (auto-selected from the visit's location, display-only) and the
+// payment method the created orders will use (required before the section can
+// be appended). The selection defaults from the visit's payment details and
+// is echoed in the card's header summary, so most users never need to open
+// this - it lives in the card's expanded body for the rare change. Payment
+// options mirror the chart's create-order page: Insurance only when the
+// patient has coverage, Workers' Comp only when the appointment is flagged
+// workers comp, Self Pay and Client Bill always.
+const ExternalLabsApplyControls: React.FC<{
+  resourcesLoading: boolean;
+  resourcesError: boolean;
+  hasInsurance: boolean;
+  isWorkersComp: boolean;
+  coverageInfo: CreateLabCoverageInfo[] | undefined;
+  orderingOfficeName: string | undefined;
+  paymentMethod: CreateLabPaymentMethod | '';
+  onPaymentMethodChange: (method: CreateLabPaymentMethod) => void;
+  disabled: boolean;
+}> = ({
+  resourcesLoading,
+  resourcesError,
+  hasInsurance,
+  isWorkersComp,
+  coverageInfo,
+  orderingOfficeName,
+  paymentMethod,
+  onPaymentMethodChange,
+  disabled,
+}) => {
+  if (resourcesLoading) {
+    return (
+      <Stack direction="row" alignItems="center" spacing={1}>
+        <CircularProgress size={16} />
+        <Typography variant="body2" color="text.secondary">
+          Loading ordering options…
+        </Typography>
+      </Stack>
+    );
+  }
+
+  if (resourcesError) {
+    return (
+      <Alert severity="warning" sx={{ py: 0 }} data-testid="template-external-labs-resources-error">
+        Couldn't load payment options for external lab orders — this usually means the patient's responsible party or
+        payment information is incomplete. Set this section to Skip to apply the rest of the template.
+      </Alert>
+    );
+  }
+
+  return (
+    <Stack spacing={1}>
+      {orderingOfficeName ? (
+        <Typography variant="body2" data-testid="template-external-labs-ordering-office">
+          <strong>Ordering Office:</strong> {orderingOfficeName}{' '}
+          <Typography component="span" variant="caption" color="text.secondary">
+            (from this visit)
+          </Typography>
+        </Typography>
+      ) : (
+        <Alert severity="warning" sx={{ py: 0 }} data-testid="template-external-labs-office-warning">
+          This visit's office is not configured for external lab ordering — external lab orders will be skipped.
+        </Alert>
+      )}
+      {orderingOfficeName ? (
+        <Stack direction="row" alignItems="center" spacing={1.5} flexWrap="wrap" useFlexGap>
+          <Typography variant="body2">
+            <strong>Payment Method</strong> (required):
+          </Typography>
+          <Select
+            size="small"
+            displayEmpty
+            value={paymentMethod}
+            onChange={(e) => onPaymentMethodChange(e.target.value as CreateLabPaymentMethod)}
+            disabled={disabled}
+            sx={{ minWidth: 180 }}
+            data-testid="template-external-labs-payment-method"
+            renderValue={(value) =>
+              value ? (
+                LAB_PAYMENT_METHOD_DISPLAY[value as CreateLabPaymentMethod]
+              ) : (
+                <Typography component="span" variant="body2" color="text.secondary">
+                  Select payment method
+                </Typography>
+              )
+            }
+          >
+            {hasInsurance && (
+              <MenuItem value={LabPaymentMethod.Insurance}>
+                {LAB_PAYMENT_METHOD_DISPLAY[LabPaymentMethod.Insurance]}
+              </MenuItem>
+            )}
+            {isWorkersComp && (
+              <MenuItem value={LabPaymentMethod.WorkersComp}>
+                {LAB_PAYMENT_METHOD_DISPLAY[LabPaymentMethod.WorkersComp]}
+              </MenuItem>
+            )}
+            <MenuItem value={LabPaymentMethod.SelfPay}>{LAB_PAYMENT_METHOD_DISPLAY[LabPaymentMethod.SelfPay]}</MenuItem>
+            <MenuItem value={LabPaymentMethod.ClientBill}>
+              {LAB_PAYMENT_METHOD_DISPLAY[LabPaymentMethod.ClientBill]}
+            </MenuItem>
+          </Select>
+        </Stack>
+      ) : null}
+      {orderingOfficeName && paymentMethod === LabPaymentMethod.Insurance && coverageInfo?.length ? (
+        <Box>
+          {coverageInfo.map((coverage, idx) => (
+            <Typography key={`coverage-name-${idx}`} variant="caption" sx={{ display: 'block' }}>
+              {`${coverage.coverageName}${coverage.isPrimary ? ' (primary)' : ''}`}
+            </Typography>
+          ))}
+        </Box>
+      ) : null}
+    </Stack>
   );
 };
 
@@ -528,9 +826,11 @@ export const TemplatePreviewDialog: React.FC<TemplatePreviewDialogProps> = ({
   onApply,
 }) => {
   const { oystehrZambda } = useApiClients();
+  const { patient, location: apptLocation, encounter } = useAppointmentData();
   const [actions, setActions] = useState<Record<TemplateSectionKey, TemplateSectionAction>>({
     ...TEMPLATE_SECTION_DEFAULT_ACTIONS,
   });
+  const [externalLabPaymentMethod, setExternalLabPaymentMethod] = useState<CreateLabPaymentMethod | ''>('');
 
   const detailQuery = useQuery({
     queryKey: ['admin-get-template-detail', templateId],
@@ -544,6 +844,7 @@ export const TemplatePreviewDialog: React.FC<TemplatePreviewDialogProps> = ({
   useEffect(() => {
     if (open) {
       setActions({ ...TEMPLATE_SECTION_DEFAULT_ACTIONS });
+      setExternalLabPaymentMethod('');
     }
   }, [open, templateId]);
 
@@ -551,6 +852,45 @@ export const TemplatePreviewDialog: React.FC<TemplatePreviewDialogProps> = ({
     if (!detailQuery.data) return [];
     return TEMPLATE_SECTIONS_IN_ORDER.filter((s) => sectionHasContent(detailQuery.data.sections, s.key));
   }, [detailQuery.data]);
+
+  // External labs apply inputs: the payment method options depend on the
+  // patient's coverage and the appointment's workers comp flag, fetched via
+  // the same resource endpoint the chart's create-order page uses. Only
+  // fetched when the open template actually carries external lab plans.
+  const externalLabPlans = detailQuery.data?.sections.externalLabs;
+  const hasExternalLabs = (externalLabPlans?.length ?? 0) > 0;
+  const externalLabResourcesQuery = useGetCreateExternalLabResources({
+    patientId: open && hasExternalLabs ? patient?.id : undefined,
+    encounterId: encounter.id,
+  });
+  const externalLabResources = externalLabResourcesQuery.data;
+  const coverageInfo = externalLabResources?.coverages;
+  const hasInsurance = !!coverageInfo?.length;
+  const isWorkersComp = !!externalLabResources?.appointmentIsWorkersComp;
+
+  // The ordering office is auto-selected from the visit's location; undefined
+  // means the location isn't configured for external lab ordering (orders will
+  // be skipped server-side with a warning).
+  const orderingOfficeName = useMemo(() => {
+    if (!apptLocation?.id || !externalLabResources) return undefined;
+    return externalLabResources.orderingLocations.find((loc) => loc.id === apptLocation.id)?.name;
+  }, [apptLocation?.id, externalLabResources]);
+
+  // Pre-select the payment method from the visit's payment details, using the
+  // same auto-default the chart's create-order page uses: workers comp when
+  // the appointment is flagged, otherwise insurance when the patient has
+  // coverage, otherwise self pay. Templates intentionally don't carry a
+  // payment method - it's visit-specific.
+  useEffect(() => {
+    if (!open || !hasExternalLabs || !externalLabResources) return;
+    setExternalLabPaymentMethod((current) => {
+      if (current) return current;
+      if (isWorkersComp) return LabPaymentMethod.WorkersComp;
+      if (hasInsurance) return LabPaymentMethod.Insurance;
+      if (coverageInfo) return LabPaymentMethod.SelfPay;
+      return current;
+    });
+  }, [open, hasExternalLabs, externalLabResources, hasInsurance, isWorkersComp, coverageInfo]);
 
   const handleActionChange = (key: TemplateSectionKey, action: TemplateSectionAction): void => {
     setActions((prev) => ({ ...prev, [key]: action }));
@@ -568,7 +908,11 @@ export const TemplatePreviewDialog: React.FC<TemplatePreviewDialogProps> = ({
     for (const key of Object.keys(TEMPLATE_SECTION_DEFAULT_ACTIONS) as TemplateSectionKey[]) {
       payload[key] = visibleKeys.has(key) ? actions[key] : 'skip';
     }
-    onApply(payload);
+    const options: TemplatePreviewApplyOptions | undefined =
+      payload.externalLabs === 'append' && externalLabPaymentMethod
+        ? { externalLabs: { paymentMethod: externalLabPaymentMethod } }
+        : undefined;
+    onApply(payload, options);
   };
 
   const buttonSx = {
@@ -578,6 +922,33 @@ export const TemplatePreviewDialog: React.FC<TemplatePreviewDialogProps> = ({
   };
 
   const allSkipped = sectionsWithContent.length > 0 && sectionsWithContent.every((s) => actions[s.key] === 'skip');
+
+  // Appending external lab orders requires a confirmed payment method before
+  // the template can be applied. Templates don't carry one, so when the
+  // payment options can't be loaded the section must be skipped to proceed.
+  // When the office isn't lab-configured there's nothing to require - the
+  // orders are skipped server-side with a warning.
+  const externalLabsAppendSelected = hasExternalLabs && actions.externalLabs === 'append';
+  const externalLabsRequirementUnmet =
+    externalLabsAppendSelected &&
+    (externalLabResourcesQuery.isLoading ||
+      externalLabResourcesQuery.isError ||
+      (Boolean(orderingOfficeName) && !externalLabPaymentMethod));
+
+  // Echo the payment selection in the card's header summary so the user gets
+  // a reminder of what the orders will use without expanding the card (the
+  // selector itself lives in the expanded body - it rarely needs changing).
+  const externalLabsSummaryPrefix = ((): string | undefined => {
+    const separator = ' · ';
+    let prefixString: string | undefined = undefined;
+    if (!hasExternalLabs) return prefixString;
+    else if (externalLabResourcesQuery.isError) prefixString = 'Payment options unavailable';
+    else if (externalLabPaymentMethod)
+      prefixString = `Payment: ${LAB_PAYMENT_METHOD_DISPLAY[externalLabPaymentMethod]}`;
+    else if (!externalLabResourcesQuery.isLoading && orderingOfficeName) prefixString = 'payment method needed';
+    else return undefined;
+    return prefixString + separator;
+  })();
 
   return (
     <Dialog
@@ -619,6 +990,22 @@ export const TemplatePreviewDialog: React.FC<TemplatePreviewDialogProps> = ({
                 action={actions[section.key]}
                 onActionChange={(action) => handleActionChange(section.key, action)}
                 disabled={isApplying}
+                summaryPrefix={section.key === 'externalLabs' ? externalLabsSummaryPrefix : undefined}
+                expandedContent={
+                  section.key === 'externalLabs' ? (
+                    <ExternalLabsApplyControls
+                      resourcesLoading={externalLabResourcesQuery.isLoading}
+                      resourcesError={externalLabResourcesQuery.isError}
+                      hasInsurance={hasInsurance}
+                      isWorkersComp={isWorkersComp}
+                      coverageInfo={coverageInfo}
+                      orderingOfficeName={orderingOfficeName}
+                      paymentMethod={externalLabPaymentMethod}
+                      onPaymentMethodChange={setExternalLabPaymentMethod}
+                      disabled={isApplying || actions.externalLabs === 'skip'}
+                    />
+                  ) : undefined
+                }
               />
             ))}
           </Stack>
@@ -634,7 +1021,13 @@ export const TemplatePreviewDialog: React.FC<TemplatePreviewDialogProps> = ({
           size="medium"
           sx={buttonSx}
           loading={isApplying}
-          disabled={detailQuery.isLoading || !!detailQuery.error || sectionsWithContent.length === 0 || allSkipped}
+          disabled={
+            detailQuery.isLoading ||
+            !!detailQuery.error ||
+            sectionsWithContent.length === 0 ||
+            allSkipped ||
+            externalLabsRequirementUnmet
+          }
         >
           Apply Template
         </LoadingButton>

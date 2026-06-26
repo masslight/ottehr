@@ -1,10 +1,13 @@
+import { DateTime } from 'luxon';
+import { MAX_APPOINTMENT_SEARCH_RANGE_DAYS } from 'utils';
 import { describe, expect, test } from 'vitest';
 import { validateRequestParameters } from '../../../src/ehr/get-appointments/validateRequestParameters';
 import { createMockZambdaInput } from './helpers';
 
 describe('get-appointments - validateRequestParameters', () => {
   const validBody = {
-    searchDate: '2024-01-15',
+    searchDateFrom: '2024-01-15',
+    searchDateTo: '2024-01-15',
     timezone: 'America/New_York',
     locationIds: ['550e8400-e29b-41d4-a716-446655440000'],
     visitType: ['in-person-walk-in'],
@@ -14,7 +17,8 @@ describe('get-appointments - validateRequestParameters', () => {
     const input = createMockZambdaInput(validBody);
     const result = validateRequestParameters(input);
 
-    expect(result.searchDate).toBe('2024-01-15');
+    expect(result.searchDateFrom).toBe('2024-01-15');
+    expect(result.searchDateTo).toBe('2024-01-15');
     expect(result.timezone).toBe('America/New_York');
     expect(result.locationIds).toEqual(['550e8400-e29b-41d4-a716-446655440000']);
     expect(result.visitType).toEqual(['in-person-walk-in']);
@@ -24,7 +28,8 @@ describe('get-appointments - validateRequestParameters', () => {
 
   test('should accept providerIds instead of locationIds', () => {
     const input = createMockZambdaInput({
-      searchDate: '2024-01-15',
+      searchDateFrom: '2024-01-15',
+      searchDateTo: '2024-01-15',
       timezone: 'America/New_York',
       providerIds: ['a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d', 'b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e'],
       visitType: ['virtual-walk-in'],
@@ -40,7 +45,8 @@ describe('get-appointments - validateRequestParameters', () => {
 
   test('should accept serviceCategories instead of locationIds', () => {
     const input = createMockZambdaInput({
-      searchDate: '2024-01-15',
+      searchDateFrom: '2024-01-15',
+      searchDateTo: '2024-01-15',
       timezone: 'America/New_York',
       serviceCategories: ['urgent-care'],
       visitType: ['in-person-walk-in'],
@@ -80,20 +86,55 @@ describe('get-appointments - validateRequestParameters', () => {
     expect(() => validateRequestParameters(input)).toThrow();
   });
 
-  test('should throw when searchDate is missing', () => {
-    const { searchDate: _searchDate, ...rest } = validBody;
+  test('should throw when no date fields are provided', () => {
+    const { searchDateFrom: _searchDateFrom, searchDateTo: _searchDateTo, ...rest } = validBody;
     const input = createMockZambdaInput(rest);
-    expect(() => validateRequestParameters(input)).toThrow('searchDate');
+    expect(() => validateRequestParameters(input)).toThrow('searchDateFrom');
   });
 
-  test('should throw when searchDate is not a valid date string', () => {
-    const input = createMockZambdaInput({ ...validBody, searchDate: 'not-a-date' });
-    expect(() => validateRequestParameters(input)).toThrow('searchDate');
+  test('should throw when searchDateFrom is not a valid date string', () => {
+    const input = createMockZambdaInput({ ...validBody, searchDateFrom: 'not-a-date' });
+    expect(() => validateRequestParameters(input)).toThrow('searchDateFrom');
   });
 
-  test('should throw when searchDate is a number', () => {
-    const input = createMockZambdaInput({ ...validBody, searchDate: 12345 });
-    expect(() => validateRequestParameters(input)).toThrow('searchDate');
+  test('should throw when searchDateTo is not a valid date string', () => {
+    const input = createMockZambdaInput({ ...validBody, searchDateTo: 'not-a-date' });
+    expect(() => validateRequestParameters(input)).toThrow('searchDateTo');
+  });
+
+  test('should throw when searchDateFrom is a number', () => {
+    const input = createMockZambdaInput({ ...validBody, searchDateFrom: 12345 });
+    expect(() => validateRequestParameters(input)).toThrow('searchDateFrom');
+  });
+
+  test('should throw when searchDateTo is a number', () => {
+    const input = createMockZambdaInput({ ...validBody, searchDateTo: 12345 });
+    expect(() => validateRequestParameters(input)).toThrow('searchDateTo');
+  });
+
+  test('should throw when searchDateFrom is after searchDateTo', () => {
+    const input = createMockZambdaInput({ ...validBody, searchDateFrom: '2024-01-16', searchDateTo: '2024-01-15' });
+    expect(() => validateRequestParameters(input)).toThrow('searchDateTo');
+  });
+
+  test('should throw when the date range exceeds the maximum allowed span', () => {
+    const searchDateFrom = '2024-01-01';
+    const overMax = DateTime.fromISO(searchDateFrom, { zone: 'utc' })
+      .plus({ days: MAX_APPOINTMENT_SEARCH_RANGE_DAYS + 1 })
+      .toISODate()!;
+    const input = createMockZambdaInput({ ...validBody, searchDateFrom, searchDateTo: overMax });
+    expect(() => validateRequestParameters(input)).toThrow(`${MAX_APPOINTMENT_SEARCH_RANGE_DAYS} days`);
+  });
+
+  test('should accept a date range at the maximum allowed span', () => {
+    const searchDateFrom = '2024-01-01';
+    const atMax = DateTime.fromISO(searchDateFrom, { zone: 'utc' })
+      .plus({ days: MAX_APPOINTMENT_SEARCH_RANGE_DAYS })
+      .toISODate()!;
+    const input = createMockZambdaInput({ ...validBody, searchDateFrom, searchDateTo: atMax });
+    const result = validateRequestParameters(input);
+    expect(result.searchDateFrom).toBe(searchDateFrom);
+    expect(result.searchDateTo).toBe(atMax);
   });
 
   test('should throw when timezone is missing', () => {
@@ -125,7 +166,8 @@ describe('get-appointments - validateRequestParameters', () => {
 
   test('should throw when none of locationIds, providerIds, or serviceCategories is provided', () => {
     const input = createMockZambdaInput({
-      searchDate: '2024-01-15',
+      searchDateFrom: '2024-01-15',
+      searchDateTo: '2024-01-15',
       timezone: 'America/New_York',
       visitType: ['in-person-walk-in'],
     });
@@ -147,7 +189,8 @@ describe('get-appointments - validateRequestParameters', () => {
 
   test('should throw when providerIds is not an array', () => {
     const input = createMockZambdaInput({
-      searchDate: '2024-01-15',
+      searchDateFrom: '2024-01-15',
+      searchDateTo: '2024-01-15',
       timezone: 'America/New_York',
       providerIds: 'a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d',
       visitType: ['in-person-walk-in'],
@@ -157,7 +200,8 @@ describe('get-appointments - validateRequestParameters', () => {
 
   test('should throw when providerIds contains non-UUID strings', () => {
     const input = createMockZambdaInput({
-      searchDate: '2024-01-15',
+      searchDateFrom: '2024-01-15',
+      searchDateTo: '2024-01-15',
       timezone: 'America/New_York',
       providerIds: ['not-a-uuid'],
       visitType: ['in-person-walk-in'],
@@ -167,7 +211,8 @@ describe('get-appointments - validateRequestParameters', () => {
 
   test('should throw when serviceCategories is not an array', () => {
     const input = createMockZambdaInput({
-      searchDate: '2024-01-15',
+      searchDateFrom: '2024-01-15',
+      searchDateTo: '2024-01-15',
       timezone: 'America/New_York',
       serviceCategories: 'urgent',
       visitType: ['in-person-walk-in'],

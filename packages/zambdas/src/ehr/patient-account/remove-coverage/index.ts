@@ -12,11 +12,12 @@ import {
   MISSING_REQUEST_BODY,
   MISSING_REQUIRED_PARAMETERS,
   NOT_AUTHORIZED,
+  PARTICIPATION_CODE_SYSTEM,
   RemoveCoverageResponse,
   Secrets,
   userMe,
 } from 'utils';
-import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
+import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
 import { getAccountAndCoverageResourcesForPatient } from '../../shared/harvest';
 
 const ZAMBDA_NAME = 'remove-coverage';
@@ -30,7 +31,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   console.debug('validateRequestParameters success');
   const { secrets } = validatedParameters;
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-  const oystehr = createOystehrClient(m2mToken, secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
   const effectInput = await complexValidation(validatedParameters, oystehr);
 
@@ -241,7 +242,7 @@ const writeAuditEvent = async (input: AuditEventInput, oystehr: Oystehr): Promis
         type: {
           coding: [
             {
-              system: 'http://terminology.hl7.org/CodeSystem/v3-ParticipationType',
+              system: PARTICIPATION_CODE_SYSTEM,
               code: 'AUT',
               display: 'author (originator)',
             },

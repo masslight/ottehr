@@ -35,7 +35,7 @@ import {
   VisitType,
 } from 'utils';
 import {
-  createOystehrClient,
+  createClinicalOystehrClient,
   getAuth0Token,
   getOtherOfficesForLocation,
   wrapHandler,
@@ -79,7 +79,7 @@ export const index = wrapHandler('get-paperwork', async (input: ZambdaInput): Pr
     console.log('already have token');
   }
 
-  const oystehr = createOystehrClient(oystehrToken, secrets);
+  const oystehr = createClinicalOystehrClient(oystehrToken, secrets);
   // const z3Client = createZ3Client(oystehrToken, secrets);
   // const projectAPI = getSecret(SecretsKeys.PROJECT_API, secrets);
 

@@ -12,7 +12,7 @@ import {
   ZERO_BALANCE_BUSINESS_STATUS,
 } from 'utils';
 import { afterAll, beforeAll, describe, expect, inject, it } from 'vitest';
-import { getAuth0Token } from '../../src/shared';
+import { createClinicalOystehrClient, getAuth0Token } from '../../src/shared';
 import { SECRETS } from '../data/secrets';
 
 const { AUTH0_CLIENT_TESTS, AUTH0_SECRET_TESTS } = SECRETS;
@@ -132,14 +132,9 @@ describe.skip('get-invoices-tasks integration tests', () => {
       AUTH0_AUDIENCE,
     });
 
-    oystehr = new Oystehr({
-      accessToken: token,
-      fhirApiUrl: FHIR_API,
-      projectApiUrl: EXECUTE_ZAMBDA_URL,
-      services: {
-        zambdaApiUrl: EXECUTE_ZAMBDA_URL,
-      },
+    oystehr = createClinicalOystehrClient(token, SECRETS, {
       projectId: PROJECT_ID,
+      services: { fhirApiUrl: FHIR_API, projectApiUrl: EXECUTE_ZAMBDA_URL, zambdaApiUrl: EXECUTE_ZAMBDA_URL },
     });
 
     await ensureM2MPractitionerProfile(token);

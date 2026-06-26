@@ -7,7 +7,8 @@ import {
   NotificationsTimeRestriction,
   parseNotificationsTimeRestriction,
 } from '../../../rcm/scheduled-outreach-config/helpers';
-import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
+import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
+import { dedupeOutreachTasks } from './dedupe-outreach-tasks';
 
 const OUTREACH_TASK_TAG_SYSTEM = `${PRIVATE_EXTENSION_BASE_URL}/outreach-task`;
 
@@ -24,7 +25,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   }
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, input.secrets);
-  const oystehr = createOystehrClient(m2mToken, input.secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, input.secrets);
 
   // Load SMS time restriction from PlanDefinition
   const planDefinition = await getOrCreateOutreachConfig(oystehr);
@@ -45,10 +46,34 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const tasks = draftTasks.unbundle();
   console.log(`${ZAMBDA_NAME}: Found ${tasks.length} draft/requested outreach tasks due for promotion`);
 
+  // Deduplicate tasks that share the same logical identity (focus + action + birthday-year).
+  // Concurrent producers can race the existence check and create more than one draft Task for
+  // the same event. Collapsing them here — the single serial path that promotes draft → requested —
+  // guarantees only one notification ever fires, regardless of how many drafts exist.
+  const { tasksToProcess, tasksToCancel } = dedupeOutreachTasks(tasks);
+
+  let cancelled = 0;
+  for (const { task, reason } of tasksToCancel) {
+    try {
+      await oystehr.fhir.patch<Task>({
+        resourceType: 'Task',
+        id: task.id!,
+        operations: [
+          { op: 'replace', path: '/status', value: 'cancelled' },
+          { op: 'add', path: '/statusReason', value: { text: reason } },
+        ],
+      });
+      cancelled++;
+      console.log(`${ZAMBDA_NAME}: Cancelled duplicate Task/${task.id} — ${reason}`);
+    } catch (err) {
+      console.error(`${ZAMBDA_NAME}: Failed to cancel duplicate Task/${task.id}:`, err);
+    }
+  }
+
   let promoted = 0;
   let blocked = 0;
 
-  for (const task of tasks) {
+  for (const task of tasksToProcess) {
     // Check if the task involves SMS and the window is currently closed
     if (taskUsesSms(task) && !isWithinNotificationsWindow(notificationsRestriction)) {
       console.log(`Task ${task.id} blocked by SMS time window`);
@@ -80,7 +105,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   return {
     statusCode: 200,
-    body: JSON.stringify({ promoted, blocked, total: tasks.length }),
+    body: JSON.stringify({ promoted, blocked, cancelled, total: tasks.length }),
   };
 });
 

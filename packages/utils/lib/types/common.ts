@@ -292,6 +292,8 @@ export const AllStates: ValuePair[] = [
 
 export type StateCode = (typeof AllStates)[number]['value'];
 
+export const STATE_CODES = new Set<string>(AllStates.map((state) => state.value));
+
 export const stateCodeToFullName: Readonly<Record<StateCode, string>> = {
   AL: 'Alabama',
   AK: 'Alaska',
@@ -640,6 +642,16 @@ export enum TASK_INPUT_TYPE_CODES {
 export enum ServiceMode {
   'in-person' = 'in-person',
   'virtual' = 'virtual',
+}
+
+/**
+ * Booking-flow capability a service supports. Narrower than the appointment-
+ * lifecycle `VisitType` enum elsewhere in the codebase — this enum is the
+ * single source of truth for "can this service be prebooked / walked into".
+ */
+export enum ServiceVisitType {
+  'prebook' = 'prebook',
+  'walk-in' = 'walk-in',
 }
 
 export enum ScheduleType {

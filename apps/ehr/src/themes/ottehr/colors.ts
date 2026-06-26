@@ -89,4 +89,36 @@ export const otherColors = {
   lightErrorText: '#541313',
   lightGreen: '#EAF2EA',
   darkGreenText: '#123214',
+
+  // Scheduled patient outreach feature.
+  // Status tints, medium/action accents, and history-dialog colors used by the
+  // outreach UI. Semantic "main" colors come from `palette` (success/error/warning);
+  // these are the supporting tints/extras that the palette doesn't define.
+  outreachSurfaceMuted: '#F5F5F5',
+  outreachNeutralMain: '#757575',
+  outreachNeutralText: '#616161',
+  outreachNeutralBg: '#EEEEEE',
+  outreachNeutralAvatar: '#E0E0E0',
+  outreachSuccessBg: '#C8E6C9',
+  outreachSuccessBgSubtle: '#E8F5E9',
+  outreachErrorText: '#B71C1C',
+  outreachErrorBg: '#FFCDD2',
+  outreachErrorBgSubtle: '#FFEBEE',
+  outreachWarningBg: '#FFE0B2',
+  outreachWarningBgSubtle: '#FFF3E0',
+  outreachInfoMain: '#1976D2',
+  outreachInfoDark: '#1565C0',
+  outreachInfoText: '#0D47A1',
+  outreachInfoBg: '#BBDEFB',
+  outreachInfoBgSubtle: '#E3F2FD',
+  outreachPendingText: '#7A5E00',
+  outreachPendingBg: '#FFF3CD',
+  outreachPurpleText: '#4A148C',
+  outreachPurpleBg: '#F3E5F5',
+  outreachMediumSms: '#43A047',
+  outreachMediumEmail: '#0277BD',
+  outreachMediumPaperMail: '#4E342E',
+  outreachActionLog: '#546E7A',
+  outreachPaperMailButton: '#6D4C41',
+  outreachPaperMailButtonHover: '#5D4037',
 };

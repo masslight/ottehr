@@ -5,7 +5,7 @@ import { ContactPoint, Identifier, Practitioner } from 'fhir/r4b';
 import {
   allLicensesForPractitioner,
   FHIR_IDENTIFIER_NPI,
-  getPractitionerNPIIdentifier,
+  getNPIIdentifier,
   makeQualificationForPractitioner,
   PractitionerLicense,
   Secrets,
@@ -13,7 +13,7 @@ import {
   userMe,
 } from 'utils';
 import { checkOrCreateM2MClientToken, getMyPractitionerId, wrapHandler, ZambdaInput } from '../../shared';
-import { createOystehrClient } from '../../shared/helpers';
+import { createClinicalOystehrClient } from '../../shared/helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'sync-user';
@@ -26,7 +26,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   console.log('Parameters: ' + JSON.stringify(input));
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-  const oystehr = createOystehrClient(m2mToken, secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
   const userToken = input.headers.Authorization.replace('Bearer ', '');
 
@@ -268,7 +268,7 @@ function updatePractitionerNPI(localClinician: Practitioner, remoteClinician: Re
   };
 
   if (localClinician.identifier) {
-    const foundIdentifier = getPractitionerNPIIdentifier(localClinician);
+    const foundIdentifier = getNPIIdentifier(localClinician);
     if (foundIdentifier && foundIdentifier.value !== identifier.value) {
       foundIdentifier.value = identifier.value;
     } else if (!foundIdentifier) localClinician.identifier.push(identifier);

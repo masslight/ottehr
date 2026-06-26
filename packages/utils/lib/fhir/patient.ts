@@ -8,6 +8,7 @@ import {
   Encounter,
   HumanName,
   Identifier,
+  Location,
   Organization,
   Patient,
   Period,
@@ -17,7 +18,7 @@ import {
   RelatedPerson,
   Resource,
 } from 'fhir/r4b';
-import { formatZipcodeForDisplay, removePrefix } from '../helpers';
+import { formatZipcodeForDisplay, isValidErxPhoneNumber, removePrefix } from '../helpers';
 import {
   ORG_TYPE_CODE_SYSTEM,
   PATIENT_INDIVIDUAL_PRONOUNS_URL,
@@ -109,6 +110,7 @@ export async function createUserResourcesForPatient(
         params: [
           { name: 'patient', value: `Patient/${patientID}` },
           { name: 'telecom', value: phoneNumber },
+          { name: 'relationship', value: 'user-relatedperson' },
         ],
       })
     ).unbundle();
@@ -500,6 +502,21 @@ export const isPatientDemographicsComplete = (patient: Patient | undefined): boo
   );
 };
 
+export const getErxPatientDemographicErrors = (patient: Patient | undefined): string[] => {
+  if (!patient) return ['patient'];
+
+  const errors: string[] = [];
+  const phone = patient.telecom?.find((telecom) => telecom.system === 'phone')?.value;
+
+  if (!hasNonEmptyName(patient)) errors.push('name');
+  if (!hasNonEmptyBirthDate(patient)) errors.push('birthDate');
+  if (!hasNonEmptyGender(patient)) errors.push('gender');
+  if (!isValidErxPhoneNumber(phone)) errors.push('phone');
+  if (!hasNonEmptyAddress(patient)) errors.push('address');
+
+  return errors;
+};
+
 type MightHaveTelecom = RelatedPerson | Patient | Person | Practitioner;
 export const getSMSNumberForIndividual = (individual: MightHaveTelecom): string | undefined => {
   const { telecom } = individual;
@@ -782,8 +799,8 @@ export const checkEncounterHasPractitioner = (encounter: Encounter, practitioner
   );
 };
 
-export const getPractitionerNPIIdentifier = (practitioner: Practitioner): Identifier | undefined => {
-  return practitioner.identifier?.find((existIdentifier) => existIdentifier.system === FHIR_IDENTIFIER_NPI);
+export const getNPIIdentifier = (resource: Practitioner | Location | Organization): Identifier | undefined => {
+  return resource.identifier?.find((existIdentifier) => existIdentifier.system === FHIR_IDENTIFIER_NPI);
 };
 
 export const getPatientFormUser = (patient: Patient | undefined): 'Parent' | 'Self' | undefined => {

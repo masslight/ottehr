@@ -2,6 +2,7 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { DocumentReference } from 'fhir/r4b';
 import {
+  ALREADY_EXISTS_WITH_MESSAGE,
   CODE_SYSTEM_ICD_10,
   getAllFhirSearchPages,
   getSecret,
@@ -13,7 +14,7 @@ import {
 } from 'utils';
 import {
   checkOrCreateM2MClientToken,
-  createOystehrClient,
+  createClinicalOystehrClient,
   topLevelCatch,
   wrapHandler,
   ZambdaInput,
@@ -35,7 +36,7 @@ export const index = wrapHandler(
     try {
       const validatedInput = validateRequestParameters(input);
       m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedInput.secrets);
-      const oystehr = createOystehrClient(m2mToken, validatedInput.secrets);
+      const oystehr = createClinicalOystehrClient(m2mToken, validatedInput.secrets);
 
       const effectInput = await complexValidation(validatedInput, oystehr);
       const result = await performEffect(effectInput, oystehr);
@@ -81,7 +82,7 @@ const complexValidation = async (validatedInput: ValidatedInput, oystehr: Oysteh
     }
   }
   if (conflictingCodes.size > 0) {
-    throw new Error(
+    throw ALREADY_EXISTS_WITH_MESSAGE(
       `The following ICD codes are already used by other approved PDFs: ${Array.from(conflictingCodes).join(', ')}`
     );
   }

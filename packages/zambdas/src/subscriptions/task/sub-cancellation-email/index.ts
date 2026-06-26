@@ -14,7 +14,8 @@ import {
   TaskStatus,
   TelemedCancelationTemplateData,
 } from 'utils';
-import { createOystehrClient, getAuth0Token, getEmailClient, wrapHandler, ZambdaInput } from '../../../shared';
+import { createClinicalOystehrClient, getAuth0Token, getEmailClient, wrapHandler, ZambdaInput } from '../../../shared';
+import { patchTaskStatus } from '../../helpers';
 import { validateRequestParameters } from '../validateRequestParameters';
 
 export interface TaskSubscriptionInput {
@@ -39,7 +40,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     console.log('already have token');
   }
 
-  const oystehr = createOystehrClient(oystehrToken, secrets);
+  const oystehr = createClinicalOystehrClient(oystehrToken, secrets);
 
   let taskStatusToUpdate: TaskStatus;
   let statusReasonToUpdate: string | undefined;
@@ -162,29 +163,16 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   // update task status and status reason
   console.log('making patch request to update task status');
-  const patchedTask = await oystehr.fhir.patch({
-    resourceType: 'Task',
-    id: task.id || '',
-    operations: [
-      {
-        op: 'replace',
-        path: '/status',
-        value: taskStatusToUpdate,
+  const patchedTask = await patchTaskStatus(
+    {
+      task: {
+        id: task.id,
       },
-      {
-        op: 'add',
-        path: '/statusReason',
-        value: {
-          coding: [
-            {
-              system: 'status-reason',
-              code: statusReasonToUpdate || 'no reason given',
-            },
-          ],
-        },
-      },
-    ],
-  });
+      taskStatusToUpdate,
+      statusReasonToUpdate,
+    },
+    oystehr
+  );
 
   console.log('successfully patched task');
   console.log(JSON.stringify(patchedTask));

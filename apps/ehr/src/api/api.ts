@@ -1,5 +1,6 @@
 import Oystehr, { User } from '@oystehr/sdk';
-import { Medication, Schedule, Slot } from 'fhir/r4b';
+import { Medication, PractitionerRole, Schedule, Slot } from 'fhir/r4b';
+import { createClinicalOystehrClient } from 'ui-components';
 import {
   AdminAddInHouseLabInput,
   AdminAddInHouseLabOutput,
@@ -128,8 +129,12 @@ import {
   GetPatientInstructionQuickPicksResponse,
   GetPatientLoginPhoneNumbersInput,
   GetPatientLoginPhoneNumbersOutput,
+  GetPatientMedicalRecordInput,
+  GetPatientMedicalRecordOutput,
   GetPresignedFileURLInput,
   GetProcedureQuickPicksResponse,
+  GetProgressNoteConfigInput,
+  GetProgressNoteConfigOutput,
   GetQuickTextQuickPicksResponse,
   GetRadiologyOrderListZambdaInput,
   GetRadiologyOrderListZambdaOutput,
@@ -187,8 +192,8 @@ import {
   RenameCustomFolderOutput,
   SaveFollowupEncounterZambdaInput,
   SaveFollowupEncounterZambdaOutput,
-  SavePreliminaryReportZambdaInput,
-  SavePreliminaryReportZambdaOutput,
+  SaveRadiologyReportZambdaInput,
+  SaveRadiologyReportZambdaOutput,
   ScheduleDTO,
   SearchLegacyRecordsInput,
   SearchLegacyRecordsOutput,
@@ -215,6 +220,7 @@ import {
   UpdatePatientInstructionQuickPickResponse,
   UpdatePatientLoginPhoneNumbersInput,
   UpdateProcedureQuickPickResponse,
+  UpdateProgressNoteConfigInput,
   UpdateQuickTextQuickPickResponse,
   UpdateRadiologyQuickPickResponse,
   UpdateScheduleParams,
@@ -314,6 +320,13 @@ const ADMIN_LIST_IN_HOUSE_LABS_ZAMBDA_ID = 'admin-list-in-house-labs';
 const ADMIN_ADD_IN_HOUSE_LAB_ZAMBDA_ID = 'admin-add-in-house-lab';
 const ADMIN_GET_IN_HOUSE_LAB_CONFIG_ZAMBDA_ID = 'admin-get-in-house-lab-config';
 const ADMIN_UPDATE_IN_HOUSE_LAB_ZAMBDA_ID = 'admin-update-in-house-lab';
+const ADMIN_LIST_SERVICE_CATEGORIES_ZAMBDA_ID = 'admin-list-service-categories';
+const ADMIN_CREATE_SERVICE_CATEGORY_ZAMBDA_ID = 'admin-create-service-category';
+const ADMIN_UPDATE_SERVICE_CATEGORY_ZAMBDA_ID = 'admin-update-service-category';
+const ADMIN_DELETE_SERVICE_CATEGORY_ZAMBDA_ID = 'admin-delete-service-category';
+const ADMIN_CREATE_PRACTITIONER_ROLE_ZAMBDA_ID = 'admin-create-practitioner-role';
+const ADMIN_UPDATE_PRACTITIONER_ROLE_ZAMBDA_ID = 'admin-update-practitioner-role';
+const ADMIN_SET_PRACTITIONER_ROLE_ACTIVE_ZAMBDA_ID = 'admin-set-practitioner-role-active';
 const GET_LABEL_PRINTING_CONFIG_ZAMBDA_ID = 'get-label-printing-config';
 const ADMIN_UPDATE_LABEL_PRINTING_CONFIG_ZAMBDA_ID = 'admin-update-label-printing-config';
 const GENERATE_LABEL_XML_ZAMBDA_ID = 'generate-label-xml';
@@ -329,10 +342,7 @@ const RENAME_CUSTOM_FOLDER_ZAMBDA_ID = 'rename-custom-folder';
 const DELETE_CUSTOM_FOLDER_ZAMBDA_ID = 'delete-custom-folder';
 
 export const getUser = async (token: string): Promise<User> => {
-  const oystehr = new Oystehr({
-    accessToken: token,
-    projectApiUrl: import.meta.env.VITE_APP_PROJECT_API_URL,
-  });
+  const oystehr = createClinicalOystehrClient(token);
   return oystehr.user.me();
 };
 
@@ -1162,11 +1172,27 @@ export const radiologyLaunchViewer = async (
 
 export const savePreliminaryReport = async (
   oystehr: Oystehr,
-  parameters: SavePreliminaryReportZambdaInput
-): Promise<SavePreliminaryReportZambdaOutput> => {
+  parameters: SaveRadiologyReportZambdaInput
+): Promise<SaveRadiologyReportZambdaOutput> => {
   try {
     const response = await oystehr.zambda.execute({
       id: 'radiology-save-preliminary-report',
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const saveFinalReport = async (
+  oystehr: Oystehr,
+  parameters: SaveRadiologyReportZambdaInput
+): Promise<SaveRadiologyReportZambdaOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: 'radiology-save-final-report',
       ...parameters,
     });
     return chooseJson(response);
@@ -1583,6 +1609,22 @@ export const deletePatientDocument = async (
   }
 };
 
+export const getPatientMedicalRecordZip = async (
+  oystehr: Oystehr,
+  parameters: GetPatientMedicalRecordInput
+): Promise<GetPatientMedicalRecordOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: 'get-patient-medical-record',
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
 export const uploadPatientConditionPhoto = async (
   oystehr: Oystehr,
   parameters: UploadPatientConditionPhotoInput
@@ -1617,7 +1659,7 @@ export const pendingSupervisorApproval = async (
 
 export const unlockAppointment = async (
   oystehr: Oystehr,
-  parameters: { appointmentId: string }
+  parameters: { appointmentId?: string; encounterId?: string }
 ): Promise<{ message: string }> => {
   try {
     if (UNLOCK_APPOINTMENT_ZAMBDA_ID == null) {
@@ -2058,6 +2100,37 @@ export const getSupportDialog = async (oystehr: Oystehr): Promise<GetSupportDial
   try {
     const response = await oystehr.zambda.execute({ id: GET_SUPPORT_DIALOG_ZAMBDA_ID });
     return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
+export const getProgressNoteConfig = async (
+  oystehr: Oystehr,
+  parameters?: GetProgressNoteConfigInput
+): Promise<GetProgressNoteConfigOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: 'get-progress-note-config',
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
+export const adminUpdateProgressNoteConfig = async (
+  oystehr: Oystehr,
+  parameters: UpdateProgressNoteConfigInput
+): Promise<void> => {
+  try {
+    await oystehr.zambda.execute({
+      id: 'admin-update-progress-note-config',
+      ...parameters,
+    });
   } catch (error: unknown) {
     console.log(error);
     throw apiErrorToThrow(error);
@@ -2785,6 +2858,121 @@ export const migrateExamData = async (
     console.log(error);
     throw apiErrorToThrow(error);
   }
+};
+
+// ── Service Categories (FHIR-backed bookable appointment categories) ──
+
+export interface ServiceCategoryRuntimeConfig {
+  durationMinutes: number;
+  /**
+   * Interval between offered slot start times, in minutes. Independent of
+   * durationMinutes — a 60-minute service may be offered every 30 min if
+   * cadenceMinutes is 30. When omitted, the slot generator falls back to a
+   * sensible default (typically 15).
+   */
+  cadenceMinutes?: number;
+  serviceModes: Array<'in-person' | 'virtual'>;
+  /** Booking flows for this category — 'prebook' vs 'walk-in'. */
+  visitTypes: Array<'prebook' | 'walk-in'>;
+  reasonsForVisit?: Array<{ label: string; value: string }>;
+}
+
+export interface ServiceCategory {
+  id?: string;
+  name: string;
+  code: string;
+  /** Short abbreviation (2-3 chars) shown on the Tracking Board and patient visit lists — e.g. 'UC', 'WC'. */
+  abbreviation?: string;
+  active: boolean;
+  config: ServiceCategoryRuntimeConfig;
+}
+
+export const listServiceCategories = async (oystehr: Oystehr): Promise<{ serviceCategories: ServiceCategory[] }> => {
+  const response = await oystehr.zambda.execute({ id: ADMIN_LIST_SERVICE_CATEGORIES_ZAMBDA_ID });
+  return chooseJson(response);
+};
+
+export const createServiceCategory = async (
+  oystehr: Oystehr,
+  serviceCategory: ServiceCategory
+): Promise<{ serviceCategory: ServiceCategory }> => {
+  const response = await oystehr.zambda.execute({
+    id: ADMIN_CREATE_SERVICE_CATEGORY_ZAMBDA_ID,
+    serviceCategory,
+  } as any);
+  return chooseJson(response);
+};
+
+export const updateServiceCategory = async (
+  oystehr: Oystehr,
+  serviceCategory: ServiceCategory
+): Promise<{ serviceCategory: ServiceCategory }> => {
+  const response = await oystehr.zambda.execute({
+    id: ADMIN_UPDATE_SERVICE_CATEGORY_ZAMBDA_ID,
+    serviceCategory,
+  } as any);
+  return chooseJson(response);
+};
+
+export const deleteServiceCategory = async (
+  oystehr: Oystehr,
+  serviceCategoryId: string
+): Promise<{ message: string }> => {
+  const response = await oystehr.zambda.execute({
+    id: ADMIN_DELETE_SERVICE_CATEGORY_ZAMBDA_ID,
+    serviceCategoryId,
+  } as any);
+  return chooseJson(response);
+};
+
+export const createPractitionerRole = async (
+  oystehr: Oystehr,
+  input: {
+    practitionerId: string;
+    locationId: string;
+    categoryHealthcareServiceIds: string[];
+    timezone: string;
+    /** Optional admin-set display name for the new schedule. */
+    displayName?: string;
+    /** Whether the role offers every service category in the system. Defaults to false. */
+    allCategories?: boolean;
+  }
+): Promise<{ role: PractitionerRole; schedule: Schedule }> => {
+  const response = await oystehr.zambda.execute({
+    id: ADMIN_CREATE_PRACTITIONER_ROLE_ZAMBDA_ID,
+    ...input,
+  } as any);
+  return chooseJson(response);
+};
+
+export const updatePractitionerRole = async (
+  oystehr: Oystehr,
+  input: {
+    roleId: string;
+    categoryHealthcareServiceIds?: string[];
+    locationId?: string;
+    /** Optional admin-set display name. Empty string clears the override. */
+    displayName?: string;
+    /** Whether the role offers every service category. Omit to leave untouched. */
+    allCategories?: boolean;
+  }
+): Promise<{ role: PractitionerRole }> => {
+  const response = await oystehr.zambda.execute({
+    id: ADMIN_UPDATE_PRACTITIONER_ROLE_ZAMBDA_ID,
+    ...input,
+  } as any);
+  return chooseJson(response);
+};
+
+export const setPractitionerRoleActive = async (
+  oystehr: Oystehr,
+  input: { roleId: string; active: boolean }
+): Promise<{ active: boolean }> => {
+  const response = await oystehr.zambda.execute({
+    id: ADMIN_SET_PRACTITIONER_ROLE_ACTIVE_ZAMBDA_ID,
+    ...input,
+  } as any);
+  return chooseJson(response);
 };
 
 export const removeQuickPick = async (oystehr: Oystehr, quickPickId: string): Promise<QuickPickRemoveResponse> => {

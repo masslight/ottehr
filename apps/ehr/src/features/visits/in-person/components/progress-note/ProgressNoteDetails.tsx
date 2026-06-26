@@ -12,7 +12,7 @@ import { FEATURE_FLAGS } from 'src/constants/feature-flags';
 import { ImmunizationContainer } from 'src/features/visits/in-person/components/ImmunizationContainer';
 import { LabResultsReviewContainer } from 'src/features/visits/in-person/components/LabResultsReviewContainer';
 import { ExamMigrationWarning } from 'src/features/visits/shared/components/exam-tab/ExamMigrationWarning';
-import { useUnmatchedExamFields } from 'src/features/visits/shared/components/exam-tab/useUnmatchedExamFields';
+import { useExamConfigState } from 'src/features/visits/shared/components/exam-tab/useExamConfigState';
 import { AdditionalQuestionsContainer } from 'src/features/visits/shared/components/review-tab/components/AdditionalQuestionsContainer';
 import { AllergiesContainer } from 'src/features/visits/shared/components/review-tab/components/AllergiesContainer';
 import { AssessmentContainer } from 'src/features/visits/shared/components/review-tab/components/AssessmentContainer';
@@ -29,6 +29,7 @@ import { PatientInstructionsContainer } from 'src/features/visits/shared/compone
 import { PrescribedMedicationsContainer } from 'src/features/visits/shared/components/review-tab/components/PrescribedMedicationsContainer';
 import { PrivacyPolicyAcknowledgement } from 'src/features/visits/shared/components/review-tab/components/PrivacyPolicyAcknowledgement';
 import { ProceduresContainer } from 'src/features/visits/shared/components/review-tab/components/ProceduresContainer';
+import { RadiologyOrdersContainer } from 'src/features/visits/shared/components/review-tab/components/RadiologyOrdersContainer';
 import { ReviewOfSystemsContainer } from 'src/features/visits/shared/components/review-tab/components/ReviewOfSystemsContainer';
 import { SurgicalHistoryContainer } from 'src/features/visits/shared/components/review-tab/components/SurgicalHistoryContainer';
 import { RosReviewContainer } from 'src/features/visits/shared/components/ros-tab/RosReviewContainer';
@@ -44,6 +45,7 @@ import useEvolveUser from 'src/hooks/useEvolveUser';
 import {
   examConfig,
   getSupervisorApprovalStatus,
+  INCOMPATIBLE_EXAM_VERSION_MESSAGE,
   LabType,
   NOTE_TYPE,
   progressNoteChartDataRequestedFields,
@@ -60,7 +62,8 @@ export const ProgressNoteDetails: FC = () => {
   // Appointment-scoped: must match how save-chart-data picks the config, otherwise
   // telemed appointments opened under /in-person/:id/* mismatch the backend.
   const examConfigComponents = examConfig.default.components;
-  const unmatchedExamFields = useUnmatchedExamFields(examConfigComponents);
+  const { unmatchedExamFields, displayExamMigrationWarning, hasIncompatibleExamConfig } =
+    useExamConfigState(examConfigComponents);
   const { mutateAsync: signAppointment, isPending: isSignLoading } = useSignAppointmentMutation();
   const rosState = useRosObservationsStore();
 
@@ -93,6 +96,7 @@ export const ProgressNoteDetails: FC = () => {
   const vitalsObservations = chartFields?.vitalsObservations;
   const externalLabResults = chartFields?.externalLabResults;
   const inHouseLabResults = chartFields?.inHouseLabResults;
+  const radiologyOrders = chartFields?.radiologyOrders;
   const chiefComplaint = chartFields?.historyOfPresentIllness?.text;
   const mechanismOfInjury = chartFields?.mechanismOfInjury?.text;
   const hpi = chartFields?.chiefComplaint?.text;
@@ -131,6 +135,8 @@ export const ProgressNoteDetails: FC = () => {
   );
   const showInHouseLabsResultsContainer = !!(inHouseLabResultsPending || inHouseLabResultsEntered);
 
+  const showRadiologyContainer = !!(radiologyOrders && radiologyOrders?.length > 0);
+
   const showProceduresContainer = (chartData?.procedures?.length ?? 0) > 0;
   const showPrescribedMedications = !!(prescriptions && prescriptions.length > 0);
   const { showPatientInstructions } = usePatientInstructionsVisibility();
@@ -159,7 +165,9 @@ export const ProgressNoteDetails: FC = () => {
   ].filter(Boolean);
 
   const sections = [
-    unmatchedExamFields.length > 0 && <ExamMigrationWarning unmatchedFields={unmatchedExamFields} />,
+    displayExamMigrationWarning && !hasIncompatibleExamConfig && (
+      <ExamMigrationWarning unmatchedFields={unmatchedExamFields} />
+    ),
     showChiefComplaint && <ChiefComplaintContainer />,
     showHpi && <HistoryOfPresentIllnessContainer />,
     showMechanismOfInjury && <MechanismOfInjuryContainer />,
@@ -167,11 +175,18 @@ export const ProgressNoteDetails: FC = () => {
     showRosReviewContainer && <RosReviewContainer />,
     showAdditionalQuestions && <AdditionalQuestionsContainer notes={screeningNotes} />,
     showVitalsObservations && <PatientVitalsContainer notes={vitalsNotes} encounterId={encounter?.id} />,
+
     <Stack spacing={1}>
       <Typography variant="h5" color="primary.dark">
         Examination
       </Typography>
-      <ExaminationContainer examConfig={examConfigComponents} />
+      {/* If the exam version is flagged as incompatible, we cannot run the migration safely.
+       If it both needs migration and is incompatible, hide the exam and direct the user to the visit PDF. */}
+      {displayExamMigrationWarning && hasIncompatibleExamConfig ? (
+        <Typography color="text.secondary">{INCOMPATIBLE_EXAM_VERSION_MESSAGE}</Typography>
+      ) : (
+        <ExaminationContainer examConfig={examConfigComponents} />
+      )}
     </Stack>,
     ...(!(approvalStatus === 'waiting-for-approval') ? medicalHistorySections : []),
     showAssessment && <AssessmentContainer />,
@@ -190,6 +205,7 @@ export const ProgressNoteDetails: FC = () => {
         resultsPending={externalLabResultsPending}
       />
     ),
+    showRadiologyContainer && <RadiologyOrdersContainer radiologyOrders={radiologyOrders} />,
     showProceduresContainer && <ProceduresContainer />,
     showPrescribedMedications && <PrescribedMedicationsContainer />,
     showPatientInstructions && <PatientInstructionsContainer />,

@@ -6,23 +6,27 @@ import {
   chunkThings,
   DispositionDTO,
   FHIR_APPOINTMENT_PREPROCESSED_TAG,
-  getDefaultNote,
   getPatchBinary,
   getPatchOperationForNewMetaTag,
   isInPersonAppointment,
-  MDM_FIELD_DEFAULT_TEXT,
   Secrets,
 } from 'utils';
 import { organizeAccounts } from '../../../ehr/shared/harvest';
 import { makeEncounterAccountPatchOp } from '../../../ehr/shared/harvest';
-import { checkOrCreateM2MClientToken, saveResourceRequest, wrapHandler, ZambdaInput } from '../../../shared';
+import {
+  checkOrCreateM2MClientToken,
+  getProgressNoteConfigPayload,
+  saveResourceRequest,
+  wrapHandler,
+  ZambdaInput,
+} from '../../../shared';
 import {
   createDispositionServiceRequest,
   makeClinicalImpressionResource,
   updateEncounterDischargeDisposition,
   updateEncounterPatientInfoConfirmed,
 } from '../../../shared/chart-data';
-import { createOystehrClient, getVideoRoomResourceExtension } from '../../../shared/helpers';
+import { createClinicalOystehrClient, getVideoRoomResourceExtension } from '../../../shared/helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
 const CHUNK_SIZE = 50;
@@ -56,7 +60,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   if (!appointment.id) throw new Error("Appointment FHIR resource doesn't exist.");
 
   oystehrToken = await checkOrCreateM2MClientToken(oystehrToken, secrets);
-  const oystehr = createOystehrClient(oystehrToken, secrets);
+  const oystehr = createClinicalOystehrClient(oystehrToken, secrets);
   console.log('Created zapToken and fhir client');
 
   const resourceBundle = (
@@ -105,10 +109,11 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   if (!encounter?.id) throw new Error('Encounter is missing from resource bundle.');
   // When in forEach, TS forgets this is no longer undefined.
   const encounterId = encounter.id;
+  const progressNoteConfig = await getProgressNoteConfigPayload(oystehr);
 
   const disposition: DispositionDTO = {
     type: 'pcp-no-type',
-    note: getDefaultNote('pcp-no-type'),
+    note: progressNoteConfig.pcpNoTypeDispositionDefaultText,
   };
 
   saveOrUpdateRequests.push(
@@ -121,7 +126,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   saveOrUpdateRequests.push(
     saveResourceRequest(
-      makeClinicalImpressionResource(encounterId, patient.id, { text: MDM_FIELD_DEFAULT_TEXT }, 'medical-decision')
+      makeClinicalImpressionResource(
+        encounterId,
+        patient.id,
+        { text: progressNoteConfig.medicalDecisionDefaultText },
+        'medical-decision'
+      )
     )
   );
 

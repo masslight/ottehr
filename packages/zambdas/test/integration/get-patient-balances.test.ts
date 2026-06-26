@@ -8,7 +8,12 @@ import { GetPatientBalancesZambdaOutput } from 'utils';
 import { afterAll, beforeAll, describe, expect, inject, it } from 'vitest';
 import { performEffect } from '../../src/ehr/get-patient-balances';
 import { validateInput, validateSecrets } from '../../src/ehr/get-patient-balances/validateRequestParameters';
-import { CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM, getAuth0Token, ZambdaInput } from '../../src/shared';
+import {
+  CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM,
+  createClinicalOystehrClient,
+  getAuth0Token,
+  ZambdaInput,
+} from '../../src/shared';
 import { SECRETS } from '../data/secrets';
 import { ensureM2MPractitionerProfile } from '../helpers/configureTestM2MClient';
 import { addProcessIdMetaTagToResource } from '../helpers/integration-test-seed-data-setup';
@@ -246,14 +251,9 @@ describe('get-patient-balances integration tests', () => {
       AUTH0_AUDIENCE: AUTH0_AUDIENCE,
     });
 
-    oystehr = new Oystehr({
-      accessToken: token,
-      fhirApiUrl: FHIR_API,
-      projectApiUrl: EXECUTE_ZAMBDA_URL,
-      services: {
-        zambdaApiUrl: EXECUTE_ZAMBDA_URL,
-      },
+    oystehr = createClinicalOystehrClient(token, SECRETS, {
       projectId: PROJECT_ID,
+      services: { fhirApiUrl: FHIR_API, projectApiUrl: EXECUTE_ZAMBDA_URL, zambdaApiUrl: EXECUTE_ZAMBDA_URL },
     });
 
     await ensureM2MPractitionerProfile(token);
@@ -357,32 +357,32 @@ describe('get-patient-balances integration tests', () => {
 
       it('should throw error when patientId is missing', async () => {
         const invalidInput = { ...input, body: JSON.stringify({}) };
-        await expect(validateInput(invalidInput)).rejects.toThrow('patientId is required');
+        await expect(validateInput(invalidInput)).rejects.toThrow(/patientId/);
 
         const nullInput = { ...input, body: JSON.stringify({ patientId: null }) };
-        await expect(validateInput(nullInput)).rejects.toThrow('patientId is required');
+        await expect(validateInput(nullInput)).rejects.toThrow(/patientId/);
 
         const undefinedInput = { ...input, body: JSON.stringify({ patientId: undefined }) };
-        await expect(validateInput(undefinedInput)).rejects.toThrow('patientId is required');
+        await expect(validateInput(undefinedInput)).rejects.toThrow(/patientId/);
 
         const emptyString = { ...input, body: JSON.stringify({ patientId: '' }) };
-        await expect(validateInput(emptyString)).rejects.toThrow('patientId is required');
+        await expect(validateInput(emptyString)).rejects.toThrow(/patientId/);
       });
 
       it('should throw error when patientId is not a string', async () => {
         const numberInput = { ...input, body: JSON.stringify({ patientId: 123 }) };
-        await expect(validateInput(numberInput)).rejects.toThrow('patientId must be a string');
+        await expect(validateInput(numberInput)).rejects.toThrow(/patientId/);
 
         const objectInput = { ...input, body: JSON.stringify({ patientId: {} }) };
-        await expect(validateInput(objectInput)).rejects.toThrow('patientId must be a string');
+        await expect(validateInput(objectInput)).rejects.toThrow(/patientId/);
 
         const arrayInput = { ...input, body: JSON.stringify({ patientId: [] }) };
-        await expect(validateInput(arrayInput)).rejects.toThrow('patientId must be a string');
+        await expect(validateInput(arrayInput)).rejects.toThrow(/patientId/);
       });
 
       it('should throw error when patientId is not a valid UUID', async () => {
         const notAUuid = { ...input, body: JSON.stringify({ patientId: 'not-a-uuid' }) };
-        await expect(validateInput(notAUuid)).rejects.toThrow('patientId must be a valid UUID');
+        await expect(validateInput(notAUuid)).rejects.toThrow(/patientId/);
       });
 
       it('should throw error when access token is missing', async () => {

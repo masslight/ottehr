@@ -39,9 +39,12 @@ import {
   ExportInvoicesTasksCsvInput,
   formatDateConfigurable,
   GET_INVOICES_TASKS_ZAMBDA_KEY,
+  getCoding,
   GetInvoicesTasksInput,
   GetInvoicesTasksResponse,
   getLatestTaskOutput,
+  getSMSNumberForIndividual,
+  getSupportPhoneFor,
   INVOICEABLE_PATIENTS_PAGE_SIZE,
   InvoiceablePatientReport,
   InvoiceSortDirection,
@@ -53,12 +56,18 @@ import {
   InvoiceTaskInput,
   mapDisplayToInvoiceTaskStatus,
   mapInvoiceTaskStatusToDisplay,
+  PRIVATE_EXTENSION_BASE_URL,
 } from 'utils';
 import { updateInvoiceTask } from '../../api/api';
 import { GenericToolTip } from '../../components/GenericToolTip';
 import { SelectInput } from '../../components/input/SelectInput';
 import { MappedStatusChip } from '../../components/MappedStatusChip';
 import { useApiClients } from '../../hooks/useAppClients';
+import { useSupportPhonesMap } from '../../hooks/useLocationSupportPhones';
+
+const VITE_APP_PATIENT_APP_URL = import.meta.env.VITE_APP_PATIENT_APP_URL;
+
+type QuickTextsContextValue = React.ComponentProps<typeof ChatModal>['quickTextsContext'];
 
 const LOCAL_STORAGE_FILTERS_KEY = 'invoices-tasks.filters';
 
@@ -135,6 +144,8 @@ export default function InvoiceablePatients(): React.ReactElement {
   const [sendingTaskIds, setSendingTaskIds] = useState<Set<string>>(new Set());
   const [isExporting, setIsExporting] = useState(false);
   const [chatAppointmentMessaging, setChatAppointmentMessaging] = useState<AppointmentMessaging | undefined>();
+  const [chatQuickTextsContext, setChatQuickTextsContext] = useState<QuickTextsContextValue>({});
+  const { phonesByLocationName } = useSupportPhonesMap();
 
   const pageParam = searchParams.get(SP.page);
   const parsedPage = pageParam ? parseInt(pageParam, 10) : 0;
@@ -349,25 +360,38 @@ export default function InvoiceablePatients(): React.ReactElement {
       return;
     }
     try {
-      // Look up the RelatedPerson for this patient to get the SMS resource URI
+      // Look up the patient's RelatedPersons. Match the tracking board's phone-number
+      // discovery: only consider "user-relatedperson" accounts and only their SMS
+      // telecom value that passes getSMSNumberForIndividual (system === 'sms' and a
+      // '+'-prefixed value).
       const bundle = await oystehr.fhir.search({
         resourceType: 'RelatedPerson',
         params: [{ name: 'patient', value: `Patient/${report.patient.patientId}` }],
       });
       const relatedPersons = bundle.unbundle().filter((r): r is RelatedPerson => r.resourceType === 'RelatedPerson');
-      const relatedPerson =
-        relatedPersons.find((rp) => rp.telecom?.some((t) => t.system === 'sms' || t.system === 'phone')) ??
-        relatedPersons[0];
 
-      if (!relatedPerson?.id) {
-        enqueueSnackbar('No related person found for this patient — cannot send SMS', { variant: 'warning' });
+      const isUserRelatedPerson = (rp: RelatedPerson): boolean =>
+        getCoding(rp.relationship, `${PRIVATE_EXTENSION_BASE_URL}/relationship`)?.code === 'user-relatedperson';
+
+      const recipientsMap = new Map<string, { recipientResourceUri: string; smsNumber: string }>();
+      relatedPersons.forEach((rp) => {
+        if (!rp.id || !isUserRelatedPerson(rp)) return;
+        const smsNumber = getSMSNumberForIndividual(rp);
+        if (!smsNumber) return;
+        const recipientResourceUri = `RelatedPerson/${rp.id}`;
+        const key = `${recipientResourceUri}|${smsNumber}`;
+        if (!recipientsMap.has(key)) {
+          recipientsMap.set(key, { recipientResourceUri, smsNumber });
+        }
+      });
+      const recipients = Array.from(recipientsMap.values());
+
+      if (recipients.length === 0) {
+        enqueueSnackbar('No related person with a valid SMS number found for this patient — cannot send SMS', {
+          variant: 'warning',
+        });
         return;
       }
-
-      const phoneNumber =
-        relatedPerson.telecom?.find((t) => t.system === 'sms')?.value ??
-        relatedPerson.telecom?.find((t) => t.system === 'phone')?.value ??
-        report.patient.phoneNumber;
 
       const nameParts = report.patient.fullName.split(' ');
 
@@ -375,7 +399,7 @@ export default function InvoiceablePatients(): React.ReactElement {
         id: report.task.id ?? report.claimId,
         encounterId: report.claimId,
         smsModel: {
-          recipients: [{ recipientResourceUri: `RelatedPerson/${relatedPerson.id}`, smsNumber: phoneNumber }],
+          recipients,
           hasUnreadMessages: false,
         },
         patient: {
@@ -386,6 +410,17 @@ export default function InvoiceablePatients(): React.ReactElement {
         },
       };
 
+      setChatQuickTextsContext({
+        patientAppUrl: VITE_APP_PATIENT_APP_URL,
+        patientFirstName: nameParts[0],
+        patientLastName: nameParts.slice(1).join(' '),
+        visitId: report.appointmentId,
+        locationName: report.location,
+        locationReviewLink: report.locationReviewLink,
+        bookingTime: report.visitDate,
+        officePhone: report.officePhone,
+        supportPhone: getSupportPhoneFor(report.location, phonesByLocationName) || '',
+      });
       setChatAppointmentMessaging(messaging);
     } catch (err) {
       console.error('Failed to open chat', err);
@@ -811,7 +846,7 @@ export default function InvoiceablePatients(): React.ReactElement {
             setChatAppointmentMessaging(undefined);
           }}
           onMarkAllRead={() => {}}
-          quickTextsContext={{}}
+          quickTextsContext={chatQuickTextsContext}
         />
       )}
     </Box>

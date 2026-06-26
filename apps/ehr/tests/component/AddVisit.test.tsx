@@ -47,27 +47,34 @@ const mockSchedule = {
   ],
 };
 
-// Mock the API client hooks to avoid authentication errors
+// Mock the API client hooks to avoid authentication errors.
+// IMPORTANT: the mocked clients are hoisted to module scope so the factory
+// returns the same reference on every render. Returning a fresh object
+// literal per call makes `useApiClients()` produce a new `oystehr` ref each
+// render, which causes effects that depend on it (e.g. BookableSelect's
+// load-bookable-targets effect) to refire on every render → infinite loop.
+const mockOystehr = {
+  fhir: {
+    search: vi.fn().mockResolvedValue({
+      entry: [
+        {
+          resource: mockLocation,
+          search: {
+            mode: 'match',
+          },
+        },
+      ],
+      total: 1,
+      unbundle: () => [mockLocation, mockSchedule],
+    }),
+  },
+};
+const mockApiClients = {
+  oystehr: mockOystehr,
+  oystehrZambda: null,
+};
 vi.mock('../../src/hooks/useAppClients', () => ({
-  useApiClients: () => ({
-    oystehr: {
-      fhir: {
-        search: vi.fn().mockResolvedValue({
-          entry: [
-            {
-              resource: mockLocation,
-              search: {
-                mode: 'match',
-              },
-            },
-          ],
-          total: 1,
-          unbundle: () => [mockLocation, mockSchedule],
-        }),
-      },
-    },
-    oystehrZambda: null,
-  }),
+  useApiClients: () => mockApiClients,
 }));
 
 describe('AddVisit', () => {
@@ -139,6 +146,25 @@ describe('AddVisit', () => {
 
     const errorMessage = screen.getByText('Please enter at least one search term');
     expect(errorMessage).toBeVisible();
+  });
+
+  it('Searches for patients when pressing Enter in the patient search fields', async () => {
+    const user = userEvent.setup();
+
+    render(
+      <TestProviders>
+        <AddPatient />
+      </TestProviders>
+    );
+
+    const phoneNumberInput = screen.getByTestId(dataTestIds.addPatientPage.mobilePhoneInput).querySelector('input');
+
+    await user.click(phoneNumberInput!);
+    await user.paste('1234567890');
+    await user.keyboard('{Enter}');
+
+    expect(await screen.findByTestId(dataTestIds.addPatientPage.patientNotFoundButton)).toBeVisible();
+    expect(screen.queryByText('Please search for patients before adding')).not.toBeInTheDocument();
   });
 
   it('Shows validation error on mobile phone field when searching with an invalid phone number', async () => {
@@ -213,7 +239,7 @@ describe('AddVisit', () => {
       expect(screen.getByTestId(dataTestIds.addPatientPage.pageTitle)).toBeInTheDocument();
 
       // Verify location input has required attribute
-      const locationInput = screen.getByTestId(dataTestIds.dashboard.locationSelect).querySelector('input');
+      const locationInput = screen.getByTestId(dataTestIds.addPatientPage.bookableSelect).querySelector('input');
       expect(locationInput).toHaveAttribute('required');
     });
 
@@ -342,7 +368,7 @@ describe('AddVisit', () => {
         await user.click(prebookMenuOption);
 
         // Select location
-        const locationSelect = screen.getByTestId(dataTestIds.dashboard.locationSelect);
+        const locationSelect = screen.getByTestId(dataTestIds.addPatientPage.bookableSelect);
         const locationInput = locationSelect.querySelector('input')!;
         await user.click(locationInput);
         const locationOption = await screen.findByText('Test Location');
@@ -418,7 +444,7 @@ describe('AddVisit', () => {
         await user.click(postTelemedMenuOption);
 
         // Select location
-        const locationSelect = screen.getByTestId(dataTestIds.dashboard.locationSelect);
+        const locationSelect = screen.getByTestId(dataTestIds.addPatientPage.bookableSelect);
         const locationInput = locationSelect.querySelector('input')!;
         await user.click(locationInput);
         const locationOption = await screen.findByText('Test Location');

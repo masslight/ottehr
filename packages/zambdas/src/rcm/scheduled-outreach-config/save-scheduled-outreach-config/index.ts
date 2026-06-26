@@ -1,12 +1,13 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { PlanDefinition, Task } from 'fhir/r4b';
-import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
+import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
 import { reconcileDraftTasksWithConfig } from '../../scheduled-outreach/producers/shared/produce-outreach-tasks';
 import {
   buildPlanDefinitionFromActions,
   getOrCreateOutreachConfig,
   parseNotificationsTimeRestriction,
   parsePlanDefinitionToActions,
+  preserveConfiguredAtExtension,
 } from '../helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -17,7 +18,7 @@ export const index = wrapHandler(
     const validated = validateRequestParameters(input);
 
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, validated.secrets);
-    const oystehr = createOystehrClient(m2mToken, validated.secrets);
+    const oystehr = createClinicalOystehrClient(m2mToken, validated.secrets);
 
     // Get or create the singleton PlanDefinition
     const existing = await getOrCreateOutreachConfig(oystehr);
@@ -30,6 +31,8 @@ export const index = wrapHandler(
       ...buildPlanDefinitionFromActions(validated.actions, validated.notificationsTimeRestriction),
       id: existing.id,
     };
+    // Preserve the immutable activation timestamp across edits (stamps one now for legacy configs).
+    updatedPlanDef.extension = preserveConfiguredAtExtension(updatedPlanDef.extension, existing);
 
     // Parse new actions from the built PlanDefinition to get stable IDs
     const newActions = parsePlanDefinitionToActions(updatedPlanDef);

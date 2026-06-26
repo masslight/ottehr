@@ -1,6 +1,7 @@
 import Oystehr, { FhirDeleteParams } from '@oystehr/sdk';
 import { FhirResource } from 'fhir/r4b';
 import { getAuth0Token } from '../auth/getAuth0Token';
+import { createE2eTestOystehrClient } from '../helpers/tests-utils';
 
 export abstract class ResourceHandlerAbstract {
   protected apiClient!: Oystehr;
@@ -10,11 +11,7 @@ export abstract class ResourceHandlerAbstract {
   protected async initApi(): Promise<void> {
     const accessToken = await getAuth0Token();
     this.accessToken = accessToken;
-    this.apiClient = new Oystehr({
-      accessToken: accessToken,
-      fhirApiUrl: process.env.FHIR_API,
-      projectApiUrl: process.env.AUTH0_AUDIENCE,
-    });
+    this.apiClient = createE2eTestOystehrClient(accessToken);
   }
 
   protected async createResource(resource: FhirResource): Promise<FhirResource | undefined> {

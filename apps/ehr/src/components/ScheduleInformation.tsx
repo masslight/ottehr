@@ -202,11 +202,15 @@ export const ScheduleInformation = ({ scheduleType }: ScheduleInformationProps):
             margin="dense"
             size="small"
           />
-          <Link to={`/admin/schedule/${scheduleType}/add`}>
-            <Button variant="contained" sx={{ marginLeft: 1 }} startIcon={<Add />}>
-              Add {scheduleType}
-            </Button>
-          </Link>
+          {/* PR rows are created via Edit Employee → "Add another schedule" — there's no
+              meaningful "add a PR" action without picking a practitioner first. */}
+          {scheduleType !== 'provider' && (
+            <Link to={`/admin/schedule/${scheduleType}/add`}>
+              <Button variant="contained" sx={{ marginLeft: 1 }} startIcon={<Add />}>
+                Add {scheduleType}
+              </Button>
+            </Link>
+          )}
           {selectedCount > 0 && (
             <Button variant="outlined" sx={{ marginLeft: 1 }} startIcon={<EditIcon />} onClick={openBulkEdit}>
               Edit support phone for {selectedCount} selected
@@ -219,91 +223,124 @@ export const ScheduleInformation = ({ scheduleType }: ScheduleInformationProps):
           )}
         </Box>
 
-        <Table sx={{ minWidth: 650 }} aria-label={`${scheduleType}sTable`}>
-          <TableHead>
-            <TableRow>
-              {isLocationTab && (
-                <TableCell padding="checkbox">
-                  <Checkbox
-                    indeterminate={pageSomeSelected && !pageAllSelected}
-                    checked={pageAllSelected}
-                    onChange={togglePageSelection}
-                    inputProps={{ 'aria-label': 'select all locations on page' }}
-                  />
-                </TableCell>
-              )}
-              <TableCell sx={{ fontWeight: 'bold', width: '20%' }}>{capitalize(scheduleType)} name</TableCell>
-              <TableCell sx={{ fontWeight: 'bold', width: '20%' }}>Address</TableCell>
-              <TableCell sx={{ fontWeight: 'bold', width: '20%' }}>Today's hours</TableCell>
-              <TableCell sx={{ fontWeight: 'bold', width: '20%' }}>Upcoming schedule changes</TableCell>
-              {isLocationTab && <TableCell sx={{ fontWeight: 'bold', width: '20%' }}>Support phone</TableCell>}
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {pageItems.map((item) => {
-              const isLocationRow = item.owner.resourceType === 'Location';
-              const isSelected = isLocationRow && selectedLocationIds.has(item.owner.id);
-              return (
-                <TableRow key={item.owner.id} selected={isSelected}>
-                  {isLocationTab && (
-                    <TableCell padding="checkbox">
-                      {isLocationRow && (
-                        <Checkbox
-                          checked={isSelected}
-                          onChange={() => toggleRowSelection(item.owner.id)}
-                          inputProps={{ 'aria-label': `select ${item.owner.name}` }}
-                        />
-                      )}
-                    </TableCell>
-                  )}
+        {scheduleType === 'provider' ? (
+          <Table sx={{ minWidth: 650 }} aria-label="providerSchedulesTable">
+            <TableHead>
+              <TableRow>
+                <TableCell sx={{ fontWeight: 'bold', width: '30%' }}>Provider</TableCell>
+                <TableCell sx={{ fontWeight: 'bold', width: '15%' }}>Schedules</TableCell>
+                <TableCell sx={{ fontWeight: 'bold', width: '27%' }}>Locations</TableCell>
+                <TableCell sx={{ fontWeight: 'bold', width: '28%' }}>Services</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {pageItems.map((item) => (
+                <TableRow key={item.owner.id}>
                   <TableCell>
                     <Link to={getLinkForItem(item)} style={{ textDecoration: 'none' }}>
                       <Typography color="primary">{item.owner.name}</Typography>
                     </Link>
                   </TableCell>
                   <TableCell align="left">
-                    <Typography>{item.owner.address ?? ''}</Typography>
+                    <Typography>{item.owner.providerSchedulesSummary?.scheduleCount ?? 0}</Typography>
                   </TableCell>
                   <TableCell align="left">
-                    <Typography>{getHoursOfOperationText(item)}</Typography>
+                    <Typography>{item.owner.providerSchedulesSummary?.locationNames?.join(', ') ?? ''}</Typography>
                   </TableCell>
                   <TableCell align="left">
-                    <Typography
-                      style={{
-                        color: item.schedules[0]?.upcomingScheduleChanges ? 'inherit' : otherColors.none,
-                      }}
-                    >
-                      {item.schedules[0]?.upcomingScheduleChanges ?? 'No upcoming schedule changes'}
-                    </Typography>
+                    <Typography>{item.owner.providerSchedulesSummary?.categoryLabels?.join(', ') ?? ''}</Typography>
                   </TableCell>
-                  {isLocationTab && (
-                    <TableCell align="left">
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <Typography
-                          sx={{
-                            color: item.owner.supportPhoneNumber ? 'inherit' : otherColors.none,
-                            flexGrow: 1,
-                          }}
-                        >
-                          {item.owner.supportPhoneNumber ?? 'Not set'}
-                        </Typography>
-                        {isLocationRow && (
-                          <IconButton
-                            size="small"
-                            aria-label={`edit support phone for ${item.owner.name}`}
-                            onClick={() => openSingleEdit(item)}
-                          >
-                            <EditIcon fontSize="small" />
-                          </IconButton>
-                        )}
-                      </Box>
-                    </TableCell>
-                  )}
                 </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
+              ))}
+            </TableBody>
+          </Table>
+        ) : (
+          <Table sx={{ minWidth: 650 }} aria-label={`${scheduleType}sTable`}>
+            <TableHead>
+              <TableRow>
+                {isLocationTab && (
+                  <TableCell padding="checkbox">
+                    <Checkbox
+                      indeterminate={pageSomeSelected && !pageAllSelected}
+                      checked={pageAllSelected}
+                      onChange={togglePageSelection}
+                      inputProps={{ 'aria-label': 'select all locations on page' }}
+                    />
+                  </TableCell>
+                )}
+                <TableCell sx={{ fontWeight: 'bold', width: '20%' }}>{capitalize(scheduleType)} name</TableCell>
+                <TableCell sx={{ fontWeight: 'bold', width: '20%' }}>Address</TableCell>
+                <TableCell sx={{ fontWeight: 'bold', width: '20%' }}>Today&apos;s hours</TableCell>
+                <TableCell sx={{ fontWeight: 'bold', width: '20%' }}>Upcoming schedule changes</TableCell>
+                {isLocationTab && <TableCell sx={{ fontWeight: 'bold', width: '20%' }}>Support phone</TableCell>}
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {pageItems.map((item) => {
+                const isLocationRow = item.owner.resourceType === 'Location';
+                const isSelected = isLocationRow && selectedLocationIds.has(item.owner.id);
+                return (
+                  <TableRow key={item.owner.id} selected={isSelected}>
+                    {isLocationTab && (
+                      <TableCell padding="checkbox">
+                        {isLocationRow && (
+                          <Checkbox
+                            checked={isSelected}
+                            onChange={() => toggleRowSelection(item.owner.id)}
+                            inputProps={{ 'aria-label': `select ${item.owner.name}` }}
+                          />
+                        )}
+                      </TableCell>
+                    )}
+                    <TableCell>
+                      <Link to={getLinkForItem(item)} style={{ textDecoration: 'none' }}>
+                        <Typography color="primary">{item.owner.name}</Typography>
+                      </Link>
+                    </TableCell>
+                    <TableCell align="left">
+                      <Typography>{item.owner.address ?? ''}</Typography>
+                    </TableCell>
+                    <TableCell align="left">
+                      <Typography>{getHoursOfOperationText(item)}</Typography>
+                    </TableCell>
+                    <TableCell align="left">
+                      <Typography
+                        style={{
+                          color: item.schedules[0]?.upcomingScheduleChanges ? 'inherit' : otherColors.none,
+                        }}
+                      >
+                        {item.schedules[0]?.upcomingScheduleChanges ?? 'No upcoming schedule changes'}
+                      </Typography>
+                    </TableCell>
+                    {isLocationTab && (
+                      <TableCell align="left">
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <Typography
+                            sx={{
+                              color: item.owner.supportPhoneNumber ? 'inherit' : otherColors.none,
+                              flexGrow: 1,
+                            }}
+                          >
+                            {item.owner.supportPhoneNumber ?? 'Not set'}
+                          </Typography>
+                          {isLocationRow && (
+                            <IconButton
+                              size="small"
+                              aria-label={`edit support phone for ${item.owner.name}`}
+                              onClick={() => openSingleEdit(item)}
+                            >
+                              <EditIcon fontSize="small" />
+                            </IconButton>
+                          )}
+                        </Box>
+                      </TableCell>
+                    )}
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        )}
 
         {/* Table Pagination */}
         <TablePagination
@@ -352,20 +389,19 @@ const getHoursOfOperationText = (item: SchedulesAndOwnerListItem): string => {
 };
 
 const getLinkForItem = (item: SchedulesAndOwnerListItem): string => {
-  let itemPathSegment = '';
-  if (item.owner.resourceType === 'Practitioner') {
-    itemPathSegment = 'provider';
-  } else if (item.owner.resourceType === 'Location') {
-    itemPathSegment = 'location';
-  } else {
-    itemPathSegment = 'group';
-  }
-
   if (item.owner.resourceType === 'HealthcareService') {
     return `/admin/group/id/${item.owner.id}`;
+  }
+  // Provider rows route to the employee detail page where all of the
+  // practitioner's per-location schedules are managed in one place.
+  if (item.owner.resourceType === 'Practitioner') {
+    return `/admin/employee/${item.owner.id}#schedule`;
   }
   if (item.schedules.length) {
     return `/admin/schedule/id/${item.schedules[0].id}`;
   }
-  return `/admin/schedule/new/${itemPathSegment}/${item.owner.id}`;
+  if (item.owner.resourceType === 'Location') {
+    return `/admin/schedule/new/location/${item.owner.id}`;
+  }
+  return '#';
 };
