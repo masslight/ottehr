@@ -24,6 +24,19 @@ import { SECRETS } from '../data/secrets';
 export const INTEGRATION_TEST_PROCESS_ID_SYSTEM = 'INTEGRATION_TEST_PROCESS_ID_SYSTEM';
 
 /**
+ * Per-run tag system. A single runId — generated once in integration-global-setup and published to
+ * every worker via vitest `inject` — is stamped onto each resource the suite creates, alongside the
+ * per-file processId tag. The suite-wide leak gate in global teardown searches for this tag to prove
+ * every resource created during THIS run was cleaned up; the runId keeps that assertion isolated from
+ * any other test run sharing the same backend.
+ */
+export const INTEGRATION_TEST_RUN_SYSTEM = 'INTEGRATION_TEST_RUN_ID_SYSTEM';
+
+// Set once per worker by setupIntegrationTest (from inject('INTEGRATION_TEST_RUN_ID')) so the
+// synchronous addProcessIdMetaTagToResource helper can stamp it without each call site passing it.
+let currentRunId: string | undefined;
+
+/**
  * Interface for the base appointment data result
  */
 export interface InsertFullAppointmentDataBaseResult {
@@ -74,7 +87,25 @@ export const addProcessIdMetaTagToResource = (resource: FhirResource, processId:
         system: INTEGRATION_TEST_PROCESS_ID_SYSTEM,
         code: processId,
       },
+      // Stamp the per-run tag too (when known) so the suite-wide leak gate can find anything
+      // this run leaves behind and attribute it back to this processId.
+      ...(currentRunId ? [{ system: INTEGRATION_TEST_RUN_SYSTEM, code: currentRunId }] : []),
     ],
+  };
+  return resource;
+};
+
+/**
+ * Stamps only the per-run tag. For resources created outside the per-file processId flow
+ * (e.g. the shared M2M profiles provisioned in global setup) so the leak gate covers them too.
+ * @param resource - The FHIR resource to tag
+ * @param runId - The per-run id
+ */
+export const addRunTagToResource = (resource: FhirResource, runId: string): FhirResource => {
+  const existingMeta = resource.meta || { tag: [] };
+  resource.meta = {
+    ...existingMeta,
+    tag: [...(existingMeta.tag ?? []), { system: INTEGRATION_TEST_RUN_SYSTEM, code: runId }],
   };
   return resource;
 };
@@ -109,7 +140,9 @@ export const getProcessMetaTag = (processId: string): Appointment['meta'] => {
  * `patientInfoConfirmed`), and nothing here references an intake questionnaire URL, so the graph
  * is identical on every instance regardless of its ottehr-config overlay.
  *
- * Only the Appointment is tagged; cleanAppointmentGraph() walks the graph outward from it.
+ * Every resource is tagged with the processId (and per-run tag); cleanAppointmentGraph() still walks
+ * the graph outward from the Appointment to delete them, and the suite-wide leak gate uses the tags
+ * to verify none survived.
  * @param oystehr - The Oystehr client instance
  * @param processId - The process ID for tagging resources (drives cleanup)
  */
@@ -234,6 +267,13 @@ export const insertInPersonAppointmentBase = async (
     subject: [{ reference: patientRef }],
   };
 
+  // Tag every resource (not just Appointment/Location) so the suite-wide leak gate can detect and
+  // attribute any that survive cleanup. addProcessIdMetaTagToResource mutates in place and also
+  // stamps the per-run tag.
+  [patient, relatedPerson, encounter, questionnaireResponse, consent, documentReference, account].forEach((resource) =>
+    addProcessIdMetaTagToResource(resource, processId)
+  );
+
   const requests: BatchInputPostRequest<FhirResource>[] = [
     { method: 'POST', url: '/Patient', fullUrl: patientRef, resource: patient },
     { method: 'POST', url: '/RelatedPerson', fullUrl: 'urn:uuid:related-person', resource: relatedPerson },
@@ -313,6 +353,10 @@ export const setupIntegrationTest = async (
   if (!EXECUTE_ZAMBDA_URL) {
     throw new Error('EXECUTE_ZAMBDA_URL is not defined in vitest inject');
   }
+
+  // Publish the per-run id so addProcessIdMetaTagToResource stamps every resource this file creates
+  // with the per-run tag the suite-wide leak gate (global teardown) searches for.
+  currentRunId = inject('INTEGRATION_TEST_RUN_ID');
 
   const testUserM2MToken =
     m2mClientMockType === M2MClientMockType.patient ? inject('M2M_PATIENT_TOKEN') : inject('M2M_PROVIDER_TOKEN');

@@ -8,6 +8,8 @@ import type { TestProject } from 'vitest/node';
 import app from '../../src/local-server/index';
 import { getAuth0Token } from '../../src/shared';
 import { SECRETS } from '../data/secrets';
+import { assertNoLeakedResourcesForRun } from './integration-leak-gate';
+import { addRunTagToResource } from './integration-test-seed-data-setup';
 
 let server: Server | undefined;
 
@@ -34,7 +36,11 @@ interface ProvisionedClient {
  * token + profile so tests can act as that machine user without each test file
  * minting its own client.
  */
-async function provisionSharedClient(oystehrAdmin: Oystehr, mockType: M2MClientMockType): Promise<ProvisionedClient> {
+async function provisionSharedClient(
+  oystehrAdmin: Oystehr,
+  mockType: M2MClientMockType,
+  runId: string
+): Promise<ProvisionedClient> {
   const { AUTH0_ENDPOINT, AUTH0_AUDIENCE } = SECRETS;
   const name = SHARED_M2M_NAME[mockType];
 
@@ -51,12 +57,17 @@ async function provisionSharedClient(oystehrAdmin: Oystehr, mockType: M2MClientM
     if (mockType === M2MClientMockType.patient) {
       const patientRoleId = roles.find((r) => r.name === 'Patient')?.id;
       if (!patientRoleId) throw new Error('Patient role not found for shared M2M client');
-      const patient = await oystehrAdmin.fhir.create<Patient>({
-        resourceType: 'Patient',
-        name: [{ given: ['Integration'], family: 'TestsPatient' }],
-        birthDate: '1990-01-01',
-        telecom: [{ system: 'phone', value: '+11231231234', use: 'mobile' }],
-      });
+      const patient = await oystehrAdmin.fhir.create<Patient>(
+        addRunTagToResource(
+          {
+            resourceType: 'Patient',
+            name: [{ given: ['Integration'], family: 'TestsPatient' }],
+            birthDate: '1990-01-01',
+            telecom: [{ system: 'phone', value: '+11231231234', use: 'mobile' }],
+          },
+          runId
+        ) as Patient
+      );
       const created = await oystehrAdmin.m2m.create({
         name,
         description: M2MClientMockType.patient,
@@ -83,12 +94,17 @@ async function provisionSharedClient(oystehrAdmin: Oystehr, mockType: M2MClientM
       ] as string[];
       const providerRoleIds = roles.filter((r) => providerRoleNames.includes(r.name)).map((r) => r.id);
       if (providerRoleIds.length === 0) throw new Error('No provider/staff roles found for shared M2M client');
-      const practitioner = await oystehrAdmin.fhir.create<Practitioner>({
-        resourceType: 'Practitioner',
-        name: [{ given: ['Integration'], family: 'TestsProvider' }],
-        birthDate: '1990-01-01',
-        telecom: [{ system: 'phone', value: '+11231231234', use: 'mobile' }],
-      });
+      const practitioner = await oystehrAdmin.fhir.create<Practitioner>(
+        addRunTagToResource(
+          {
+            resourceType: 'Practitioner',
+            name: [{ given: ['Integration'], family: 'TestsProvider' }],
+            birthDate: '1990-01-01',
+            telecom: [{ system: 'phone', value: '+11231231234', use: 'mobile' }],
+          },
+          runId
+        ) as Practitioner
+      );
       const created = await oystehrAdmin.m2m.create({
         name,
         description: M2MClientMockType.provider,
@@ -212,10 +228,15 @@ export default async function setup(project: TestProject): Promise<() => Promise
   });
   const oystehrAdmin = new Oystehr({ accessToken: adminToken, fhirApiUrl: FHIR_API, projectId: PROJECT_ID });
 
-  const provider = await provisionSharedClient(oystehrAdmin, M2MClientMockType.provider);
-  const patient = await provisionSharedClient(oystehrAdmin, M2MClientMockType.patient);
+  // One id for the whole run, stamped on every resource the suite creates so the leak gate in
+  // teardown can verify they were all cleaned up — isolated from any concurrent run on this backend.
+  const runId = randomUUID();
+
+  const provider = await provisionSharedClient(oystehrAdmin, M2MClientMockType.provider, runId);
+  const patient = await provisionSharedClient(oystehrAdmin, M2MClientMockType.patient, runId);
 
   project.provide('ADMIN_TOKEN', adminToken);
+  project.provide('INTEGRATION_TEST_RUN_ID', runId);
   project.provide('M2M_PROVIDER_TOKEN', provider.token);
   project.provide('M2M_PROVIDER_PROFILE', provider.profile);
   project.provide('M2M_PATIENT_TOKEN', patient.token);
@@ -250,5 +271,10 @@ export default async function setup(project: TestProject): Promise<() => Promise
         });
       });
     }
+
+    // Suite-wide leak gate: by now every test file's cleanup has run and the shared M2M profiles
+    // are deleted, so anything still tagged with this runId escaped cleanup. This throws (failing
+    // the run) if so. Runs last so it doesn't skip the teardown above.
+    await assertNoLeakedResourcesForRun(oystehrAdmin, runId);
   };
 }

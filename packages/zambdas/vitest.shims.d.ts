@@ -6,6 +6,7 @@ declare module 'vitest' {
     M2M_PROVIDER_PROFILE: string;
     M2M_PATIENT_TOKEN: string;
     M2M_PATIENT_PROFILE: string;
+    INTEGRATION_TEST_RUN_ID: string;
   }
 }
 
