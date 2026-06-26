@@ -85,6 +85,8 @@ import {
   getClaimTypeCoding,
   prepareCopy,
   prepareWorkingCopy,
+  PROVIDER_ROLE_RENDERING,
+  PROVIDER_ROLE_TAG,
   SOURCE_IDENTIFIER_SYSTEM,
   TAG_CODE_SYSTEM,
   TAG_DESCRIPTION_URL,
@@ -958,6 +960,10 @@ async function findExistingBillingResources(
               {
                 name: 'identifier',
                 value: `${FHIR_IDENTIFIER_NPI}|${getNPIIdentifier(p)?.value}`,
+              },
+              {
+                name: '_tag',
+                value: `${PROVIDER_ROLE_TAG}|${PROVIDER_ROLE_RENDERING}`,
               },
             ],
           })
