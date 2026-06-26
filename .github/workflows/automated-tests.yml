@@ -107,11 +107,15 @@ jobs:
           fi
 
       - name: Spec tests with coverage
-        run: npx turbo run test:ci test:unit:ci test:component:ci --concurrency=5 --output-logs=errors-only --continue=always
+        run: npx turbo run test:ci test:unit:ci test:component:ci --concurrency=5 --output-logs=errors-only --continue=always --summarize
         env:
           ENV: ${{ steps.env.outputs.environment }}
           CI: true
           NODE_OPTIONS: "--max-old-space-size=8192"
+
+      - name: Test run summary
+        if: ${{ !cancelled() }}
+        run: node ./scripts/print-test-run-summary.mjs
 
       - name: Upload spec coverage to Coveralls
         if: ${{ !cancelled() && hashFiles('packages/spec/coverage/lcov.info') != '' }}
