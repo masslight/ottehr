@@ -14,12 +14,22 @@ describe('unlock-appointment - validateRequestParameters', () => {
     expect(result.secrets).toEqual(secrets);
   });
 
+  test('should return validated params with valid encounterId (annotation follow-up)', () => {
+    const input = createMockZambdaInput({ encounterId: '550e8400-e29b-41d4-a716-446655440000' }, { secrets });
+    const result = validateRequestParameters(input);
+
+    expect(result.encounterId).toBe('550e8400-e29b-41d4-a716-446655440000');
+    expect(result.appointmentId).toBeUndefined();
+    expect(result.userToken).toBe('test-token');
+    expect(result.secrets).toEqual(secrets);
+  });
+
   test('should throw when body is missing', () => {
     const input = createMockZambdaInput(null, { body: '', secrets });
     expect(() => validateRequestParameters(input)).toThrow();
   });
 
-  test('should throw when appointmentId is undefined', () => {
+  test('should throw when neither appointmentId nor encounterId is provided', () => {
     const input = createMockZambdaInput({ someField: 'value' }, { secrets });
     expect(() => validateRequestParameters(input)).toThrow('appointmentId');
   });

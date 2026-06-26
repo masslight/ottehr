@@ -1,10 +1,10 @@
 import {
   CreateBillingClaimInput,
   CreateBillingClaimInputSchema,
-  INVALID_INPUT_ERROR,
   MISSING_REQUEST_BODY,
+  MISSING_REQUEST_SECRETS,
 } from 'utils';
-import { formatZodError, safeJsonParse, ZambdaInput } from '../../shared';
+import { safeValidate, validateJsonBody, ZambdaInput } from '../../shared';
 
 export interface CreateClaimParams extends CreateBillingClaimInput {
   secrets: ZambdaInput['secrets'];
@@ -12,16 +12,13 @@ export interface CreateClaimParams extends CreateBillingClaimInput {
 
 export function validateRequestParameters(input: ZambdaInput): CreateClaimParams {
   if (!input.body) throw MISSING_REQUEST_BODY;
+  if (!input.secrets) throw MISSING_REQUEST_SECRETS;
 
-  let raw: unknown;
-  try {
-    raw = safeJsonParse(input.body);
-  } catch {
-    throw INVALID_INPUT_ERROR('Request body is not valid JSON');
-  }
+  const data = safeValidate(CreateBillingClaimInputSchema, validateJsonBody(input));
+  // coverageId is optional — self-pay claims are represented with a no-coverage stub in Claim.insurance.
 
-  const result = CreateBillingClaimInputSchema.safeParse(raw);
-  if (!result.success) throw INVALID_INPUT_ERROR(formatZodError(result.error));
-
-  return { ...result.data, secrets: input.secrets };
+  return {
+    ...data,
+    secrets: input.secrets,
+  };
 }

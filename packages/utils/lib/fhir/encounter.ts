@@ -1,12 +1,13 @@
 import Oystehr from '@oystehr/sdk';
 import { Operation } from 'fast-json-patch';
-import { Appointment, Encounter, EncounterStatusHistory, Extension, Location, Resource } from 'fhir/r4b';
+import { Appointment, Encounter, EncounterStatusHistory, Extension, Location, Reference, Resource } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { CODE_SYSTEM_ACT_CODE_V3 } from '../helpers';
 import { FhirEncounterStatus, PatientFollowupDetails, ProviderDetails, VisitStatusWithoutUnknown } from '../types';
 import {
   CURRENT_EXAM_MIGRATION_VERSION,
   ENCOUNTER_PAYMENT_VARIANT_EXTENSION_URL,
+  ENCOUNTER_VISIT_OCCUPATIONAL_MEDICINE_EMPLOYER_EXTENSION_URL,
   EXAM_MIGRATION_VERSION_URL,
   FHIR_BASE_URL,
   FHIR_ENCOUNTER_ERX_PATIENT_SYNC_TAG,
@@ -158,25 +159,6 @@ export const formatFhirEncounterToPatientFollowupDetails = (
   return formatted;
 };
 
-export const getEncounterForAppointment = async (appointmentID: string, oystehr: Oystehr): Promise<Encounter> => {
-  const encounterTemp = (
-    await oystehr.fhir.search<Encounter>({
-      resourceType: 'Encounter',
-      params: [
-        {
-          name: 'appointment',
-          value: `Appointment/${appointmentID}`,
-        },
-      ],
-    })
-  ).unbundle();
-  const encounter = encounterTemp[0];
-  if (encounterTemp.length === 0 || !encounter.id) {
-    throw new Error('Error getting appointment encounter');
-  }
-  return encounter;
-};
-
 export const getSpentTime = (history?: EncounterStatusHistory[]): string | undefined => {
   const value = history?.find((item) => item.status === 'in-progress');
   if (!value || !value.period.start) {
@@ -294,6 +276,32 @@ export const isEncounterSelfPay = (encounter?: Encounter): boolean => {
   if (!encounter) return false;
   const paymentVariant = getPaymentVariantFromEncounter(encounter);
   return paymentVariant === PaymentVariant.selfPay;
+};
+
+export const getVisitOccupationalMedicineEmployerFromEncounter = (encounter: Encounter): Reference | undefined => {
+  return encounter.extension?.find((ext) => ext.url === ENCOUNTER_VISIT_OCCUPATIONAL_MEDICINE_EMPLOYER_EXTENSION_URL)
+    ?.valueReference;
+};
+
+export const getEncounterVisitOccupationalMedicineEmployerExtension = (employer: Reference): Extension => ({
+  url: ENCOUNTER_VISIT_OCCUPATIONAL_MEDICINE_EMPLOYER_EXTENSION_URL,
+  valueReference: employer,
+});
+
+/** `null` removes the extension; a Reference sets it. */
+export const applyVisitOccupationalMedicineEmployerToEncounterExtensions = (
+  existingExtensions: Extension[] | undefined,
+  employer: Reference | null
+): Extension[] => {
+  const without = (existingExtensions ?? []).filter(
+    (ext) => ext.url !== ENCOUNTER_VISIT_OCCUPATIONAL_MEDICINE_EMPLOYER_EXTENSION_URL
+  );
+
+  if (employer === null) {
+    return without;
+  }
+
+  return [...without, getEncounterVisitOccupationalMedicineEmployerExtension(employer)];
 };
 
 export const buildAppointmentStartMap = (resources: Resource[]): Record<string, string> => {

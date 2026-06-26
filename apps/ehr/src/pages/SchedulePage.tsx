@@ -26,15 +26,18 @@ import {
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Location, Practitioner, Schedule } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
-import { ReactElement, useEffect, useRef, useState } from 'react';
+import { ReactElement, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
   APIError,
   CreateScheduleParams,
+  getAllFhirSearchPages,
   isApiError,
+  isValidSlug,
   isValidUUID,
   ScheduleDTO,
   scheduleTypeFromFHIRType,
+  SLUG_VALIDATION_MESSAGE,
   TIMEZONES,
   UpdateScheduleParams,
 } from 'utils';
@@ -42,6 +45,7 @@ import { useSuccessQuery } from 'utils/lib/frontend';
 import { createSchedule, getSchedule, listServiceCategories, updatePractitionerRole, updateSchedule } from '../api/api';
 import CustomBreadcrumbs from '../components/CustomBreadcrumbs';
 import Loading from '../components/Loading';
+import { formatLocationLabel } from '../components/schedule/locationLabel';
 import ScheduleComponent from '../components/schedule/ScheduleComponent';
 import ScheduleGeneralTab from '../components/schedule/ScheduleGeneralTab';
 import { useApiClients } from '../hooks/useAppClients';
@@ -144,19 +148,63 @@ export default function SchedulePage(): ReactElement {
 
   const isPractitionerRoleOwner = item?.owner.type === 'PractitionerRole';
 
-  // For the PR Location picker — list of active Locations.
-  const { data: locationOptions } = useQuery({
+  // For the PR Location picker. Two-query approach:
+  //
+  // 1. Active Locations — the dropdown's regular options, paged via
+  //    getAllFhirSearchPages so a clinic with more Locations than the FHIR
+  //    server's default page size still gets the full list. We can't narrow
+  //    further than `status=active` here: there's no FHIR-level discriminator
+  //    for "Locations a provider could plausibly own a schedule at" vs other
+  //    active Locations (rooms, departments, etc.), and excluding any active
+  //    Location risks regressing the picker's ability to assign a freshly-
+  //    created one.
+  // 2. The currently-saved Location, fetched by id — covers the case where a
+  //    Location previously assigned to this PR has since been deactivated and
+  //    so dropped off (1). Single-resource fetch, only fires when locationId
+  //    is set. Without it the chip falls back to the Location id (UUID) —
+  //    the original bug.
+  //
+  // Merging the two into one list lets `formatLocationLabel` and the options-
+  // filter logic stay on a single source.
+  const { data: activeLocations } = useQuery({
     queryKey: ['ehr-active-locations'],
     queryFn: async (): Promise<Location[]> => {
       if (!oystehr) return [];
-      const bundle = await oystehr.fhir.search<Location>({
-        resourceType: 'Location',
-        params: [{ name: 'status', value: 'active' }],
-      });
-      return bundle.unbundle();
+      return getAllFhirSearchPages<Location>(
+        { resourceType: 'Location', params: [{ name: 'status', value: 'active' }] },
+        oystehr
+      );
     },
     enabled: !!oystehr && isPractitionerRoleOwner,
   });
+
+  const { data: savedLocation } = useQuery({
+    queryKey: ['ehr-location', locationId],
+    queryFn: async (): Promise<Location | undefined> => {
+      if (!oystehr || !locationId) return undefined;
+      try {
+        return await oystehr.fhir.get<Location>({ resourceType: 'Location', id: locationId });
+      } catch {
+        // Tolerate a missing Location (hard-deleted, never existed): the
+        // picker still renders with the UUID fallback, which is the right
+        // signal that the reference is broken.
+        return undefined;
+      }
+    },
+    enabled: !!oystehr && isPractitionerRoleOwner && !!locationId,
+  });
+
+  // Merge active + saved. If the saved Location is already in the active set
+  // (the common case — Location still active), no need to duplicate; if it's
+  // gone inactive it's only in `savedLocation` and we append it so
+  // formatLocationLabel can resolve its name + suffix it "(inactive)".
+  const allLocations = useMemo<Location[]>(() => {
+    const list = activeLocations ?? [];
+    if (savedLocation?.id && !list.some((l) => l.id === savedLocation.id)) {
+      return [...list, savedLocation];
+    }
+    return list;
+  }, [activeLocations, savedLocation]);
 
   // Fetch the service-category options (only used by the General tab when this
   // schedule's owner is a PractitionerRole).
@@ -228,8 +276,14 @@ export default function SchedulePage(): ReactElement {
   // headerless schedule editor (tabs hidden because createMode === true)
   // even though the schedule exists. Redirecting to /id/<existing> drops
   // us into edit mode where the General/Location tabs render correctly.
+  // Guard on isValidUUID: when no Schedule exists yet for the owner, the
+  // get-schedule zambda returns the sentinel id 'new-schedule' (not a real
+  // resource id). Redirecting on that sentinel would push us into edit mode
+  // (/id/new-schedule) where the tabs render and Save fails with
+  // '"scheduleId" value must be a valid UUID'. Only redirect when the owner
+  // genuinely has a persisted Schedule.
   useEffect(() => {
-    if (createMode && scheduleData?.id) {
+    if (createMode && scheduleData?.id && isValidUUID(scheduleData.id)) {
       navigate(`/admin/schedule/id/${scheduleData.id}`, { replace: true });
     }
   }, [createMode, scheduleData?.id, navigate]);
@@ -332,6 +386,11 @@ export default function SchedulePage(): ReactElement {
 
   const isLocationOwner = item?.owner?.type === 'Location';
 
+  // The permalink is only editable for non-Location owners. A non-empty slug
+  // must match the URL-safe shape the patient side enforces, otherwise the
+  // save succeeds here but booking by slug fails later with a validation error.
+  const slugError = !isLocationOwner && !!slug && !isValidSlug(slug);
+
   async function onSaveSchedule(params: UpdateScheduleParams): Promise<void> {
     if (!oystehrZambda) {
       console.log('oystehr client is not defined');
@@ -397,6 +456,10 @@ export default function SchedulePage(): ReactElement {
   const saveGeneralFields = async (_event?: any): Promise<void> => {
     if (!oystehr || !item?.id) {
       enqueueSnackbar('Oops. Something went wrong. Please reload the page and try again.', { variant: 'error' });
+      return;
+    }
+    if (slugError) {
+      enqueueSnackbar(`Permalink ${SLUG_VALIDATION_MESSAGE}.`, { variant: 'error' });
       return;
     }
     // Schedule-level fields (slug, timezone) go through the schedule zambda.
@@ -528,12 +591,51 @@ export default function SchedulePage(): ReactElement {
               </Typography>
             )}
             <TabContext value={tabName}>
-              <Box sx={{ borderBottom: 1, borderColor: 'divider', display: createMode ? 'none' : 'block' }}>
+              <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
                 <TabList onChange={handleTabChange} aria-label="Tabs">
                   <Tab label="Schedule" value="schedule" sx={{ textTransform: 'none', fontWeight: 700 }} />
-                  <Tab label="General" value="general" sx={{ textTransform: 'none', fontWeight: 700 }} />
+                  <Tab
+                    label={
+                      createMode ? (
+                        <Tooltip title="Set up the schedule first to configure general settings." arrow>
+                          <span>General</span>
+                        </Tooltip>
+                      ) : (
+                        'General'
+                      )
+                    }
+                    value="general"
+                    disabled={createMode}
+                    // Re-enable pointer events on the disabled tab so the
+                    // tooltip still fires on hover; `disabled` already blocks
+                    // selection. Target the .Mui-disabled class directly —
+                    // MUI's disabled rule sets pointer-events: none with
+                    // higher specificity than a plain root override.
+                    sx={{
+                      textTransform: 'none',
+                      fontWeight: 700,
+                      ...(createMode ? { '&.Mui-disabled': { pointerEvents: 'auto' } } : {}),
+                    }}
+                  />
                   {item?.owner.type === 'Location' && (
-                    <Tab label="Location" value="location" sx={{ textTransform: 'none', fontWeight: 700 }} />
+                    <Tab
+                      label={
+                        createMode ? (
+                          <Tooltip title="Set up the schedule first to configure location settings." arrow>
+                            <span>Location</span>
+                          </Tooltip>
+                        ) : (
+                          'Location'
+                        )
+                      }
+                      value="location"
+                      disabled={createMode}
+                      sx={{
+                        textTransform: 'none',
+                        fontWeight: 700,
+                        ...(createMode ? { '&.Mui-disabled': { pointerEvents: 'auto' } } : {}),
+                      }}
+                    />
                   )}
                 </TabList>
               </Box>
@@ -594,7 +696,16 @@ export default function SchedulePage(): ReactElement {
                       <TextField
                         label="Permalink"
                         value={slug}
-                        onChange={(event) => setSlug(event.target.value)}
+                        // Location slugs are managed elsewhere and shown read-only here;
+                        // Provider (PractitionerRole) and Group (HealthcareService)
+                        // schedules can edit the permalink from this tab.
+                        {...(isLocationOwner
+                          ? { InputProps: { readOnly: true }, disabled: true }
+                          : {
+                              onChange: (event) => setSlug(event.target.value),
+                              error: slugError,
+                              helperText: slugError ? SLUG_VALIDATION_MESSAGE : undefined,
+                            })}
                         sx={{ width: '250px' }}
                       />
                       <br />
@@ -659,22 +770,24 @@ export default function SchedulePage(): ReactElement {
                       />
                       {isPractitionerRoleOwner && (
                         <Autocomplete
-                          options={(locationOptions ?? []).map((l) => l.id!).filter(Boolean)}
+                          // Active Locations are the picker's regular options;
+                          // also include the currently-saved Location even if
+                          // it's gone inactive, so MUI matches the value to an
+                          // option (avoids the "value not in options" warning)
+                          // and the admin can see the stale assignment to
+                          // clear it.
+                          options={(allLocations ?? [])
+                            .filter((l) => l.id && (l.status === 'active' || l.id === locationId))
+                            .map((l) => l.id!)}
                           value={locationId ?? null}
                           onChange={(_e, v) => setLocationId(v ?? undefined)}
-                          getOptionLabel={(id) => {
-                            const hit = (locationOptions ?? []).find((l) => l.id === id);
-                            return hit?.name || id;
-                          }}
+                          getOptionLabel={(id) => formatLocationLabel(allLocations ?? [], id)}
                           isOptionEqualToValue={(a, b) => a === b}
-                          renderOption={(props, id) => {
-                            const hit = (locationOptions ?? []).find((l) => l.id === id);
-                            return (
-                              <li {...props} key={id}>
-                                {hit?.name || id}
-                              </li>
-                            );
-                          }}
+                          renderOption={(props, id) => (
+                            <li {...props} key={id}>
+                              {formatLocationLabel(allLocations ?? [], id)}
+                            </li>
+                          )}
                           renderInput={(params) => <TextField {...params} label="Location" />}
                           sx={{ marginTop: 2, width: '500px' }}
                         />
@@ -735,7 +848,7 @@ export default function SchedulePage(): ReactElement {
                         loading={somethingIsLoadingInSomeWay}
                         variant="contained"
                         sx={{ marginTop: 2 }}
-                        disabled={isPractitionerRoleOwner && !scheduleName.trim()}
+                        disabled={(isPractitionerRoleOwner && !scheduleName.trim()) || slugError}
                       >
                         Save
                       </LoadingButton>

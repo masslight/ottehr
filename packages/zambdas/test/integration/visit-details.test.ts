@@ -21,7 +21,7 @@ import {
 } from 'utils';
 import { SERVICE_CATEGORIES_AVAILABLE } from 'utils/lib/ottehr-config/booking';
 import { assert, inject } from 'vitest';
-import { getAuth0Token } from '../../src/shared';
+import { createClinicalOystehrClient, getAuth0Token } from '../../src/shared';
 import QRInput from '../data/questionnaire-response-1.json';
 import { SECRETS } from '../data/secrets';
 import { ensureM2MPractitionerProfile } from '../helpers/configureTestM2MClient';
@@ -181,14 +181,9 @@ describe('saving and getting visit details', () => {
       AUTH0_AUDIENCE: AUTH0_AUDIENCE,
     });
 
-    oystehr = new Oystehr({
-      accessToken: token,
-      fhirApiUrl: FHIR_API,
-      projectApiUrl: EXECUTE_ZAMBDA_URL,
-      services: {
-        zambdaApiUrl: EXECUTE_ZAMBDA_URL,
-      },
+    oystehr = createClinicalOystehrClient(token, SECRETS, {
       projectId: PROJECT_ID,
+      services: { fhirApiUrl: FHIR_API, projectApiUrl: EXECUTE_ZAMBDA_URL, zambdaApiUrl: EXECUTE_ZAMBDA_URL },
     });
 
     await ensureM2MPractitionerProfile(token);
@@ -800,7 +795,7 @@ describe('saving and getting visit details', () => {
         },
       });
     } catch (error) {
-      expect((error as Error).message).toBe('"appointmentId" value must be a valid UUID');
+      expect((error as Error).message).toBe('Validation error: Invalid uuid at "appointmentId"');
     }
     try {
       await updateVisitDetails({
@@ -831,7 +826,9 @@ describe('saving and getting visit details', () => {
         bookingDetails: {},
       });
     } catch (error) {
-      expect((error as Error).message).toBe('at least one field in bookingDetails must be provided');
+      expect((error as Error).message).toBe(
+        'Validation error: at least one field in bookingDetails must be provided at "bookingDetails"'
+      );
     }
     try {
       await updateVisitDetails({
@@ -839,7 +836,7 @@ describe('saving and getting visit details', () => {
         bookingDetails: undefined as any,
       });
     } catch (error) {
-      expect((error as Error).message).toBe('The following required parameters were missing: bookingDetails');
+      expect((error as Error).message).toBe('Validation error: Required at "bookingDetails"');
     }
   });
 
@@ -924,7 +921,9 @@ describe('saving and getting visit details', () => {
       });
     } catch (error) {
       errorFound = true;
-      expect((error as Error).message).toBe(`additionalDetails must be a string`);
+      expect((error as Error).message).toBe(
+        `Validation error: Expected string, received number at "bookingDetails.additionalDetails"`
+      );
     }
     expect(errorFound).toBe(true);
     errorFound = false;
@@ -939,7 +938,7 @@ describe('saving and getting visit details', () => {
     } catch (error) {
       errorFound = true;
       expect((error as Error).message).toBe(
-        `additionalDetails must be at most ${REASON_ADDITIONAL_MAX_CHAR} characters`
+        `Validation error: String must contain at most ${REASON_ADDITIONAL_MAX_CHAR} character(s) at "bookingDetails.additionalDetails"`
       );
     }
     expect(errorFound).toBe(true);
@@ -964,7 +963,9 @@ describe('saving and getting visit details', () => {
         },
       });
     } catch (error) {
-      expect((error as Error).message).toBe(`confirmedDob, "not-a-date", is not a valid iso date string`);
+      expect((error as Error).message).toBe(
+        `Validation error: confirmedDob, "not-a-date", is not a valid iso date string at "bookingDetails.confirmedDob"`
+      );
     }
   });
 
@@ -991,7 +992,9 @@ describe('saving and getting visit details', () => {
         },
       });
     } catch (error) {
-      expect((error as Error).message).toBe(`"patientName.middle" must be a string`);
+      expect((error as Error).message).toBe(
+        `Validation error: Expected string, received number at "bookingDetails.patientName.middle"`
+      );
     }
     try {
       await updateVisitDetails({
@@ -1005,7 +1008,9 @@ describe('saving and getting visit details', () => {
         },
       });
     } catch (error) {
-      expect((error as Error).message).toBe(`"patientName.first" must be a string`);
+      expect((error as Error).message).toBe(
+        `Validation error: Expected string, received number at "bookingDetails.patientName.first"`
+      );
     }
     try {
       await updateVisitDetails({
@@ -1019,7 +1024,9 @@ describe('saving and getting visit details', () => {
         },
       });
     } catch (error) {
-      expect((error as Error).message).toBe(`"patientName.last" must be a string`);
+      expect((error as Error).message).toBe(
+        `Validation error: Expected string, received number at "bookingDetails.patientName.last"`
+      );
     }
     try {
       await updateVisitDetails({
@@ -1029,7 +1036,9 @@ describe('saving and getting visit details', () => {
         },
       });
     } catch (error) {
-      expect((error as Error).message).toBe(`"patientName" must have at least one field defined`);
+      expect((error as Error).message).toBe(
+        `Validation error: "patientName" must have at least one field defined at "bookingDetails.patientName"`
+      );
     }
     try {
       await updateVisitDetails({
@@ -1039,7 +1048,9 @@ describe('saving and getting visit details', () => {
         },
       });
     } catch (error) {
-      expect((error as Error).message).toBe(`"patientName" must be an object`);
+      expect((error as Error).message).toBe(
+        `Validation error: Expected object, received string at "bookingDetails.patientName"`
+      );
     }
 
     try {
@@ -1054,7 +1065,9 @@ describe('saving and getting visit details', () => {
         },
       });
     } catch (error) {
-      expect((error as Error).message).toBe(`patientName must have a non-empty first name`);
+      expect((error as Error).message).toBe(
+        `Validation error: patientName must have a non-empty first name at "bookingDetails.patientName"`
+      );
     }
 
     try {
@@ -1070,7 +1083,9 @@ describe('saving and getting visit details', () => {
         },
       });
     } catch (error) {
-      expect((error as Error).message).toBe(`patientName must have a non-empty last name`);
+      expect((error as Error).message).toBe(
+        `Validation error: patientName must have a non-empty last name at "bookingDetails.patientName"`
+      );
     }
   });
   test.concurrent('fails gracefully when given invalid consentForms object', async () => {
@@ -1094,7 +1109,9 @@ describe('saving and getting visit details', () => {
         },
       });
     } catch (error) {
-      expect((error as Error).message).toBe(`consentForms.consentAttested must be a boolean`);
+      expect((error as Error).message).toBe(
+        `Validation error: Expected boolean, received string at "bookingDetails.consentForms.consentAttested"`
+      );
     }
   });
   test.concurrent('fails gracefully when given invalid authorizedNonLegalGuardians', async () => {
@@ -1116,7 +1133,9 @@ describe('saving and getting visit details', () => {
         },
       });
     } catch (error) {
-      expect((error as Error).message).toBe(`authorizedNonLegalGuardians must be a string`);
+      expect((error as Error).message).toBe(
+        `Validation error: Expected string, received object at "bookingDetails.authorizedNonLegalGuardians"`
+      );
     }
   });
 

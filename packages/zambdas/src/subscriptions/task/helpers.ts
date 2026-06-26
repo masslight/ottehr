@@ -11,7 +11,7 @@ import {
 } from 'utils';
 import {
   checkOrCreateM2MClientToken,
-  createOystehrClient,
+  createClinicalOystehrClient,
   sendSmsToRelatedPersons,
   topLevelCatch,
   wrapHandler,
@@ -114,7 +114,7 @@ export function wrapTaskHandler(
       taskId = taskIdParam;
       ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
       oystehrToken = await checkOrCreateM2MClientToken(oystehrToken, input.secrets);
-      oystehr = createOystehrClient(oystehrToken, input.secrets);
+      oystehr = createClinicalOystehrClient(oystehrToken, input.secrets);
     } catch (error) {
       console.log('Error validating request parameters:', error);
       return topLevelCatch(zambdaName, error, getSecret(SecretsKeys.ENVIRONMENT, input.secrets));

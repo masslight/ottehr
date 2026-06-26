@@ -9,7 +9,7 @@ import {
   UpdateUserZambdaOutput,
 } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
-import { createOystehrClient } from '../../shared/helpers';
+import { createClinicalOystehrClient } from '../../shared/helpers';
 import { getRoleId } from '../../shared/rolesUtils';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -48,7 +48,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     'content-type': 'application/json',
     Authorization: `Bearer ${m2mToken}`,
   };
-  const oystehr = createOystehrClient(m2mToken, secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
   const user = await oystehr.user.get({ id: userId });
   const userProfile = user.profile;
   const hasPractitionerProfile = userProfile?.startsWith('Practitioner/') ?? false;

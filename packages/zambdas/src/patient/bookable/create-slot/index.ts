@@ -11,6 +11,7 @@ import {
   getServiceCategoryCodeSchema,
   getTimezone,
   INVALID_INPUT_ERROR,
+  isBookingConfigServiceCategoryCode,
   isPractitionerRoleMemberOfGroup,
   isValidUUID,
   makeBookingOriginExtensionEntry,
@@ -27,13 +28,7 @@ import {
   SLOT_WALKIN_APPOINTMENT_TYPE_CODING,
   SlotServiceCategory,
 } from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createOystehrClient,
-  safeJsonParse,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../shared';
+import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
 
 const ZAMBDA_NAME = 'create-slot';
 
@@ -46,7 +41,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   console.debug('validateRequestParameters success', JSON.stringify(validatedParameters));
   const { secrets } = validatedParameters;
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-  const oystehr = createOystehrClient(m2mToken, secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
   const effectInput = await complexValidation(validatedParameters, oystehr);
 
   const slot = await performEffect(effectInput, oystehr);
@@ -93,7 +88,7 @@ const validateRequestParameters = (input: ZambdaInput): BasicInput => {
     questionnaireCanonical,
     atLocationId,
     bookedViaGroupId,
-  } = safeJsonParse(input.body);
+  } = JSON.parse(input.body);
 
   // required param checks
   if (!scheduleId) {
@@ -238,6 +233,58 @@ const complexValidation = async (input: BasicInput, oystehr: Oystehr): Promise<E
   if (!schedule) {
     throw FHIR_RESOURCE_NOT_FOUND('Schedule');
   }
+
+  // Compute the effective service category code — what actually lands on
+  // Slot.serviceCategory below. Sources, in priority order:
+  //   1. Caller-provided serviceCategoryCode.
+  //   2. Single-BOOKING_CONFIG project default (length === 1).
+  //   3. urgent-care fallback. The historical implicit category — patients
+  //      who navigate to /prebook/in-person?bookingOn=loc&scheduleType=location
+  //      with no serviceCategory in the URL would otherwise see a
+  //      meaningless "pick a category" error dialog mid-flow. Matching
+  //      create-appointment's same back-compat default; a server-side
+  //      resolution keeps the user-facing flow uninterrupted.
+  // Returns undefined only when the system has no BOOKING_CONFIG entries at
+  // all AND no caller-provided code — a truly malformed config that has to
+  // refuse rather than fabricate.
+  const urgentCare = BOOKING_CONFIG.serviceCategories.find((sc) => sc.category.code === 'urgent-care');
+  const effectiveServiceCategoryCode: string | undefined =
+    serviceCategoryCode ??
+    (BOOKING_CONFIG.serviceCategories.length === 1 ? BOOKING_CONFIG.serviceCategories[0].category.code : undefined) ??
+    urgentCare?.category.code;
+
+  // PractitionerRole-owned Schedules never support BOOKING_CONFIG (compile-
+  // time) service categories. BOOKING_CONFIG categories aren't backed by a
+  // FHIR HealthcareService — a PR has no way to legitimately opt into one,
+  // and a Slot stamped with one must live on a Location or group-
+  // HealthcareService actor. Belt-and-suspenders with the same check in
+  // get-schedule, so a caller that goes straight to create-slot with a known
+  // PR scheduleId (e.g. /walkin/schedule/:id) still hits the invariant.
+  // Fires regardless of how the BOOKING_CONFIG code was resolved (explicit,
+  // single-default, urgent-care fallback) — all three are equivalent at the
+  // FHIR-shape layer.
+  if (effectiveServiceCategoryCode && isBookingConfigServiceCategoryCode(effectiveServiceCategoryCode)) {
+    const actorRef = schedule.actor?.[0]?.reference;
+    if (actorRef?.startsWith('PractitionerRole/')) {
+      throw INVALID_INPUT_ERROR(
+        `Service category "${effectiveServiceCategoryCode}" is not bookable against a provider-owned schedule. Book through a location or group instead.`
+      );
+    }
+  }
+
+  // Invariant: every persisted Slot must carry a SERVICE_CATEGORY_SYSTEM
+  // coding so downstream Appointment derivation (and any other category-aware
+  // code) has a category to read. Falls back exhaustively above; undefined
+  // here means the system supports no compile-time categories AND the caller
+  // didn't pass one — refuse rather than silently produce ambiguous data.
+  // This error is engineer-facing only (the patient flow would have resolved
+  // via urgent-care on any normally-configured deploy).
+  if (!effectiveServiceCategoryCode) {
+    throw INVALID_INPUT_ERROR(
+      'A service category is required to create a slot, but none was provided and the system does not support a default category.'
+    );
+  }
+
   const timezone = getTimezone(schedule);
 
   // Decide whether to stamp the slot-at-location extension based on the
@@ -392,39 +439,24 @@ const complexValidation = async (input: BasicInput, oystehr: Oystehr): Promise<E
     throw INVALID_INPUT_ERROR('Unable to create start and end times');
   }
 
+  // Stamp the resolved category onto Slot.serviceCategory. BOOKING_CONFIG hit
+  // → spread the full compiled-in coding (carries display). Otherwise treat
+  // as FHIR-backed; readers who need a human-readable name can resolve from
+  // the HealthcareService catalog. effectiveServiceCategoryCode is guaranteed
+  // truthy past the throw above.
   const serviceCategory =
     serviceModality === ServiceMode['in-person']
       ? [SlotServiceCategory.inPersonServiceMode]
       : [SlotServiceCategory.virtualServiceMode];
-  if (serviceCategoryCode) {
-    const serviceCategoryCodeConfig = BOOKING_CONFIG.serviceCategories.find(
-      (sc) => sc.category.code === serviceCategoryCode
-    );
-    if (serviceCategoryCodeConfig) {
-      serviceCategory.push({
-        coding: [
-          {
-            ...serviceCategoryCodeConfig.category,
-          },
-        ],
-      });
-    } else {
-      // FHIR-backed category (registered as a HealthcareService catalog
-      // entry rather than compiled into BOOKING_CONFIG). Stamp the code
-      // explicitly so the Slot carries it forward — create-appointment
-      // reads category off slot.serviceCategory, and dropping the coding
-      // silently loses the patient's selection. Display is omitted; readers
-      // who need a human-readable name can resolve it from the HS catalog.
-      serviceCategory.push({
-        coding: [{ system: SERVICE_CATEGORY_SYSTEM, code: serviceCategoryCode }],
-      });
-    }
-  } else if (BOOKING_CONFIG.serviceCategories.length === 1) {
-    // Single-category project: default to the only configured service category
-    serviceCategory.push({
-      coding: [{ ...BOOKING_CONFIG.serviceCategories[0].category }],
-    });
+  const effectiveCodeConfig = BOOKING_CONFIG.serviceCategories.find(
+    (sc) => sc.category.code === effectiveServiceCategoryCode
+  );
+  if (effectiveCodeConfig) {
+    serviceCategory.push({ coding: [{ ...effectiveCodeConfig.category }] });
+  } else {
+    serviceCategory.push({ coding: [{ system: SERVICE_CATEGORY_SYSTEM, code: effectiveServiceCategoryCode }] });
   }
+
   const extension: Slot['extension'] = [];
   if (originalBookingUrl) {
     extension.push(makeBookingOriginExtensionEntry(originalBookingUrl));

@@ -6,11 +6,16 @@ import {
   UnlockAppointmentZambdaInputValidated,
 } from 'utils';
 import { z } from 'zod';
-import { safeJsonParse, safeValidate, ZambdaInput } from '../../shared';
+import { safeValidate, ZambdaInput } from '../../shared';
 
-const UnlockAppointmentBodySchema = z.object({
-  appointmentId: z.string().uuid(),
-});
+const UnlockAppointmentBodySchema = z
+  .object({
+    appointmentId: z.string().uuid().optional(),
+    encounterId: z.string().uuid().optional(),
+  })
+  .refine((data) => Boolean(data.appointmentId) !== Boolean(data.encounterId), {
+    message: 'Provide exactly one of appointmentId or encounterId',
+  });
 
 export function validateRequestParameters(input: ZambdaInput): UnlockAppointmentZambdaInputValidated {
   if (!input.body) {
@@ -21,7 +26,7 @@ export function validateRequestParameters(input: ZambdaInput): UnlockAppointment
     throw MISSING_REQUEST_SECRETS;
   }
 
-  const { appointmentId } = safeValidate(UnlockAppointmentBodySchema, safeJsonParse(input.body));
+  const { appointmentId, encounterId } = safeValidate(UnlockAppointmentBodySchema, JSON.parse(input.body));
 
   getSecret(SecretsKeys.PROJECT_API, input.secrets);
   getSecret(SecretsKeys.ORGANIZATION_ID, input.secrets);
@@ -30,6 +35,7 @@ export function validateRequestParameters(input: ZambdaInput): UnlockAppointment
 
   return {
     appointmentId,
+    encounterId,
     secrets: input.secrets,
     userToken,
   };

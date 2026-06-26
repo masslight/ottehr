@@ -1,7 +1,7 @@
-import { Role, User } from '@oystehr/sdk';
+import Oystehr, { Role, User } from '@oystehr/sdk';
 import { NOT_AUTHORIZED, RoleType, Secrets, SecretsKeys, userMe } from 'utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { requireAdminUser, requireUserWithRole } from '../../src/shared';
+import { getUser, requireAdminUser, requireUserWithRole } from '../../src/shared';
 
 vi.mock('utils', async (importOriginal) => {
   const actual = await importOriginal<typeof import('utils')>();
@@ -99,5 +99,32 @@ describe('requireUserWithRole', () => {
     vi.mocked(userMe).mockResolvedValue(buildUser([]));
 
     await expect(requireUserWithRole('user-token', secrets, allowedRoles)).rejects.toEqual(NOT_AUTHORIZED);
+  });
+});
+
+describe('getUser', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('returns the user when userMe resolves', async () => {
+    const user = buildUser([staffRole]);
+    vi.mocked(userMe).mockResolvedValue(user);
+
+    await expect(getUser('user-token', secrets)).resolves.toEqual(user);
+    expect(userMe).toHaveBeenCalledWith('user-token', secrets);
+  });
+
+  it.each([401, 403])('throws NOT_AUTHORIZED when userMe throws an OystehrSdkError %i', async (code) => {
+    vi.mocked(userMe).mockRejectedValue(new Oystehr.OystehrSdkError({ message: 'explicit deny', code }));
+
+    await expect(getUser('user-token', secrets)).rejects.toEqual(NOT_AUTHORIZED);
+  });
+
+  it('rethrows non-auth errors untouched', async () => {
+    const error = new Oystehr.OystehrSdkError({ message: 'boom', code: 500 });
+    vi.mocked(userMe).mockRejectedValue(error);
+
+    await expect(getUser('user-token', secrets)).rejects.toBe(error);
   });
 });

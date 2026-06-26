@@ -1,8 +1,20 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { HealthcareService } from 'fhir/r4b';
-import { BOOKING_CONFIG, INVALID_INPUT_ERROR, MISSING_REQUEST_BODY, MISSING_REQUIRED_PARAMETERS } from 'utils';
-import { safeJsonParse, wrapHandler, ZambdaInput } from '../../shared';
-import { getClient, ServiceCategory, toFhirResource, toRecord } from '../admin-service-categories/helpers';
+import {
+  ALREADY_EXISTS_WITH_MESSAGE,
+  BOOKING_CONFIG,
+  INVALID_INPUT_ERROR,
+  MISSING_REQUEST_BODY,
+  MISSING_REQUIRED_PARAMETERS,
+} from 'utils';
+import { wrapHandler, ZambdaInput } from '../../shared';
+import {
+  findServiceCategoryByCode,
+  getClient,
+  ServiceCategory,
+  toFhirResource,
+  toRecord,
+} from '../admin-service-categories/helpers';
 
 interface AdminUpdateServiceCategoryInput {
   serviceCategory: ServiceCategory;
@@ -12,7 +24,7 @@ const validateRequestParameters = (input: ZambdaInput): AdminUpdateServiceCatego
   if (!input.body) throw MISSING_REQUEST_BODY;
   let parsed: any;
   try {
-    parsed = safeJsonParse(input.body);
+    parsed = JSON.parse(input.body);
   } catch {
     throw INVALID_INPUT_ERROR('Request body must be valid JSON');
   }
@@ -65,17 +77,19 @@ export const index = wrapHandler(
     const { serviceCategory } = validateRequestParameters(input);
     const oystehr = await getClient(input);
 
-    // Reject if the post-update code collides with the compiled catalog. See
-    // admin-create-service-category for the rationale (BOOKING_CONFIG wins).
+    // Reject if the post-update code collides with the compiled catalog or
+    // with another FHIR-managed service category. See admin-create-service-
+    // category for the rationale (duplicate codes make the downstream lookup
+    // arbitrary). The FHIR check excludes the current resource so saving an
+    // unchanged code on the same record doesn't false-positive.
+    const codeTakenMessage = `A service with the code "${serviceCategory.code}" already exists. Choose a different code.`;
     const isCompiled = BOOKING_CONFIG.serviceCategories.some((sc) => sc.category.code === serviceCategory.code);
     if (isCompiled) {
-      return {
-        statusCode: 400,
-        body: JSON.stringify({
-          code: 'SERVICE_CATEGORY_CODE_TAKEN',
-          message: `A service with the code "${serviceCategory.code}" already exists. Choose a different code.`,
-        }),
-      };
+      throw ALREADY_EXISTS_WITH_MESSAGE(codeTakenMessage);
+    }
+    const fhirHit = await findServiceCategoryByCode(oystehr, serviceCategory.code);
+    if (fhirHit && fhirHit.id !== serviceCategory.id) {
+      throw ALREADY_EXISTS_WITH_MESSAGE(codeTakenMessage);
     }
 
     const resource = toFhirResource(serviceCategory);

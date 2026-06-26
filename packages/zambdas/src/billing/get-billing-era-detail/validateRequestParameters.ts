@@ -1,5 +1,5 @@
-import { GetEraDetailInput, GetEraDetailInputSchema, INVALID_INPUT_ERROR, MISSING_REQUEST_BODY } from 'utils';
-import { formatZodError, safeJsonParse, ZambdaInput } from '../../shared';
+import { GetEraDetailInput, GetEraDetailInputSchema, MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS } from 'utils';
+import { safeValidate, validateJsonBody, ZambdaInput } from '../../shared';
 
 export interface GetEraDetailParams extends GetEraDetailInput {
   secrets: ZambdaInput['secrets'];
@@ -7,16 +7,12 @@ export interface GetEraDetailParams extends GetEraDetailInput {
 
 export function validateRequestParameters(input: ZambdaInput): GetEraDetailParams {
   if (!input.body) throw MISSING_REQUEST_BODY;
+  if (!input.secrets) throw MISSING_REQUEST_SECRETS;
 
-  let raw: unknown;
-  try {
-    raw = safeJsonParse(input.body);
-  } catch {
-    throw INVALID_INPUT_ERROR('Request body is not valid JSON');
-  }
+  const data = safeValidate(GetEraDetailInputSchema, validateJsonBody(input));
 
-  const result = GetEraDetailInputSchema.safeParse(raw);
-  if (!result.success) throw INVALID_INPUT_ERROR(formatZodError(result.error));
-
-  return { ...result.data, secrets: input.secrets };
+  return {
+    ...data,
+    secrets: input.secrets,
+  };
 }

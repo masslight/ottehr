@@ -37,14 +37,7 @@ import {
   TIMEZONES,
 } from 'utils';
 import { z } from 'zod';
-import {
-  createOystehrClient,
-  getAuth0Token,
-  lambdaResponse,
-  safeJsonParse,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../shared';
+import { createClinicalOystehrClient, getAuth0Token, lambdaResponse, wrapHandler, ZambdaInput } from '../../../shared';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let oystehrM2MClientToken: string;
@@ -73,7 +66,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     console.log('already have a token, no need to update');
   }
 
-  const oystehrClient = createOystehrClient(oystehrM2MClientToken, secrets);
+  const oystehrClient = createClinicalOystehrClient(oystehrM2MClientToken, secrets);
 
   const effectInput = await complexValidation(
     {
@@ -341,7 +334,7 @@ const validateRequestParameters = (input: ZambdaInput): EffectInput & { secrets:
     serviceMode,
     sortDirection: maybeSortDirection,
     supervisorApprovalEnabled: maybeSupervisorApprovalEnabled,
-  } = safeJsonParse(input.body);
+  } = JSON.parse(input.body);
   if (!patientId) {
     throw MISSING_REQUIRED_PARAMETERS(['patientId']);
   }

@@ -8,16 +8,19 @@ import {
   addOperation,
   BUCKET_NAMES,
   createCustomPatientDocumentList,
+  createPatientDocumentList,
   fetchCustomFoldersCatalog,
+  FOLDERS_CONFIG,
   isCustomFolderList,
   isSyntheticFolderId,
   OTTEHR_MODULE,
   parseSyntheticFolderId,
   replaceOperation,
+  sanitizeFileNameForZ3,
   Secrets,
 } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
-import { createOystehrClient } from '../../shared/helpers';
+import { createClinicalOystehrClient } from '../../shared/helpers';
 import { makeZ3Url } from '../../shared/presigned-file-urls';
 import { createPresignedUrl } from '../../shared/z3Utils';
 import { validateRequestParameters } from './validateRequestParameters';
@@ -58,7 +61,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   logIt(`Got m2mToken`);
-  const oystehr = createOystehrClient(m2mToken, secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
   logIt('fetching list .......');
   let documentsFolder: List | undefined;
@@ -80,11 +83,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   }
   if (!documentsFolder && resolvedInternalName) {
     logIt(`per-patient List missing for "${resolvedInternalName}" — looking up / creating lazily`);
-    documentsFolder = await findOrCreatePatientCustomFolderList({
-      patientId,
-      internalName: resolvedInternalName,
-      oystehr,
-    });
+    // A synthetic id can refer to either a system folder (FOLDERS_CONFIG) or a custom
+    // folder (catalog). Try the system path first; it returns undefined for non-system
+    // names so we fall through to the custom path.
+    documentsFolder =
+      (await findOrCreatePatientSystemFolderList({ patientId, internalName: resolvedInternalName, oystehr })) ??
+      (await findOrCreatePatientCustomFolderList({ patientId, internalName: resolvedInternalName, oystehr }));
   }
   logIt('Got list resource');
 
@@ -229,6 +233,47 @@ type ListAndPatientResource = {
   patient?: Patient;
 };
 
+// Creates the real per-patient List on first upload for a system folder (FOLDERS_CONFIG)
+// that was only ever shown synthetically (see the read path in useGetPatientDocs). Returns
+// undefined when internalName isn't a known system folder, so the caller falls through to
+// the custom-folder path.
+async function findOrCreatePatientSystemFolderList(args: {
+  patientId: string;
+  internalName: string;
+  oystehr: Oystehr;
+}): Promise<List | undefined> {
+  const { patientId, internalName, oystehr } = args;
+
+  const config = FOLDERS_CONFIG.find((c) => c.title === internalName);
+  if (!config) {
+    return undefined;
+  }
+
+  // FHIR string search on `title` is prefix-match, so confirm an exact, non-custom title
+  // match before reusing an existing List.
+  const existing = (
+    await oystehr.fhir.search<List>({
+      resourceType: 'List',
+      params: [
+        { name: 'subject', value: `Patient/${patientId}` },
+        { name: 'title', value: internalName },
+      ],
+    })
+  )
+    .unbundle()
+    .find((l) => l.title === internalName && !isCustomFolderList(l));
+  if (existing) {
+    logIt(`findOrCreatePatientSystemFolderList: found existing List ${existing.id} for "${internalName}"`);
+    return existing;
+  }
+
+  // Plain create; same small race window as the custom-folder path (the SDK lacks conditional
+  // create). Worst case is a duplicate List that the read path de-dupes by internalName.
+  const created = await oystehr.fhir.create<List>(createPatientDocumentList(`Patient/${patientId}`, config));
+  logIt(`findOrCreatePatientSystemFolderList: created List ${created.id} for "${internalName}"`);
+  return created;
+}
+
 async function findOrCreatePatientCustomFolderList(args: {
   patientId: string;
   internalName: string;
@@ -350,8 +395,4 @@ function createDocumentReferenceRequest(input: CreateDocRefInput): BatchInputPos
 const resolveDocumentReferenceType = ({ folder }: { folder: List }): CodeableConcept | undefined => {
   console.log(folder);
   return;
-};
-
-const sanitizeFileNameForZ3 = (fileName: string): string => {
-  return fileName.replace(/[^a-zA-Z0-9+!\-_'()\\.@$]/g, '_');
 };

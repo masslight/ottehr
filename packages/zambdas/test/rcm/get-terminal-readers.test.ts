@@ -86,7 +86,7 @@ vi.mock('../../src/shared', async (importOriginal) => {
   return {
     ...actual,
     checkOrCreateM2MClientToken: vi.fn().mockResolvedValue('mock-token'),
-    createOystehrClient: vi.fn(),
+    createClinicalOystehrClient: vi.fn(),
     wrapHandler: (_name: string, fn: (...args: unknown[]) => unknown) => fn,
   };
 });

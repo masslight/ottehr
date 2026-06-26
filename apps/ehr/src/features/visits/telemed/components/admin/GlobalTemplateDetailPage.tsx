@@ -29,6 +29,7 @@ import PageContainer from 'src/layout/PageContainer';
 import {
   AdminGetTemplateDetailOutput,
   groupExamFindingsBySection,
+  nameLabTest,
   RosFindingState,
   RosFindingStateLabel,
   TemplateExamFinding,
@@ -460,6 +461,44 @@ export default function GlobalTemplateDetailPage(): ReactElement {
             )}
           </SectionCard>
 
+          {/* External Lab Orders */}
+          <SectionCard title="External Lab Orders">
+            {sections.externalLabs.length > 0 ? (
+              <Stack spacing={2}>
+                {sections.externalLabs.map((plan) => (
+                  <Box key={plan.planId} sx={{ opacity: plan.missing ? 0.6 : 1 }}>
+                    <Stack direction="row" alignItems="baseline" spacing={1}>
+                      <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
+                        {nameLabTest(plan.testName, plan.testCode, plan.labName, false)}
+                      </Typography>
+                      {plan.missing ? (
+                        <Typography variant="caption" color="warning.main" fontStyle="italic">
+                          Test not found in the lab's compendium — applies will skip this order
+                        </Typography>
+                      ) : null}
+                    </Stack>
+                    {plan.diagnoses.length > 0 ? (
+                      <Typography variant="body2" sx={{ mt: 0.5 }}>
+                        <strong>Diagnoses:</strong>{' '}
+                        {plan.diagnoses.map((d) => (d.display ? `${d.code} — ${d.display}` : d.code)).join('; ')}
+                      </Typography>
+                    ) : null}
+                    <Typography variant="body2" sx={{ mt: 0.5 }}>
+                      <strong>PSC Hold:</strong> {plan.psc ? 'Yes' : 'No'}
+                    </Typography>
+                    {plan.note ? (
+                      <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
+                        <strong>Note:</strong> {plan.note}
+                      </Typography>
+                    ) : null}
+                  </Box>
+                ))}
+              </Stack>
+            ) : (
+              <NotIncluded />
+            )}
+          </SectionCard>
+
           {/* Procedures */}
           <SectionCard title="Procedures">
             {sections.procedures.length > 0 ? (
@@ -495,6 +534,56 @@ export default function GlobalTemplateDetailPage(): ReactElement {
                         <strong>{f.label}:</strong> {f.value}
                       </Typography>
                     ))}
+                  </Box>
+                ))}
+              </Stack>
+            ) : (
+              <NotIncluded />
+            )}
+          </SectionCard>
+
+          {/* In-House Medication Orders */}
+          <SectionCard title="In-House Medication Orders">
+            {sections.inHouseMedications.length > 0 ? (
+              <Stack spacing={2}>
+                {sections.inHouseMedications.map((med) => (
+                  <Box key={med.planId}>
+                    <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
+                      {med.medicationName}
+                    </Typography>
+                    {med.dose !== undefined || med.units || med.route ? (
+                      <Typography variant="body2" sx={{ mt: 0.5 }}>
+                        {[
+                          med.dose !== undefined ? String(med.dose) : null,
+                          med.units,
+                          med.route ? `via ${med.route}` : null,
+                        ]
+                          .filter(Boolean)
+                          .join(' ')}
+                      </Typography>
+                    ) : null}
+                    {med.instructions ? (
+                      <Typography variant="body2" sx={{ mt: 0.5 }}>
+                        <strong>Instructions:</strong> {med.instructions}
+                      </Typography>
+                    ) : null}
+                    {med.diagnoses.length > 0 ? (
+                      <Typography variant="body2" sx={{ mt: 0.5 }}>
+                        <strong>Diagnoses:</strong>{' '}
+                        {med.diagnoses.map((d) => (d.display ? `${d.code} — ${d.display}` : d.code)).join('; ')}
+                      </Typography>
+                    ) : null}
+                    {med.cptCodes.length > 0 ? (
+                      <Typography variant="body2" sx={{ mt: 0.5 }}>
+                        <strong>CPT codes:</strong>{' '}
+                        {med.cptCodes
+                          .map((c) => {
+                            const label = formatCptCodeAndModifiersForDisplay(c);
+                            return c.display ? `${label} — ${c.display}` : label;
+                          })
+                          .join('; ')}
+                      </Typography>
+                    ) : null}
                   </Box>
                 ))}
               </Stack>

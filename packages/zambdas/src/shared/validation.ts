@@ -1,5 +1,5 @@
 import { INVALID_INPUT_ERROR } from 'utils';
-import { ZodError, ZodSchema } from 'zod';
+import { z, ZodError, ZodSchema } from 'zod';
 import { fromZodError } from 'zod-validation-error';
 
 // Phone number regex
@@ -18,7 +18,7 @@ export function safeJsonParse(body: string): any {
   }
 }
 
-export function safeValidate<T>(schema: ZodSchema<T>, input: unknown): T {
+export function safeValidate<T extends ZodSchema<any>>(schema: T, input: unknown): z.output<T> {
   try {
     return schema.parse(input);
   } catch (error) {

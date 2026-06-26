@@ -12,13 +12,7 @@ import {
   Secrets,
   TIMEZONE_EXTENSION_URL,
 } from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createOystehrClient,
-  safeJsonParse,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../shared';
+import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
 import { validateUpdateScheduleParameters } from '../shared';
 
 let m2mToken: string;
@@ -32,7 +26,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   console.debug('validateRequestParameters success', JSON.stringify(validatedParameters));
   const { secrets } = validatedParameters;
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-  const oystehr = createOystehrClient(m2mToken, secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
   const effectInput = await complexValidation(validatedParameters, oystehr);
 
   const updatedSchedule = await performEffect(effectInput, oystehr);
@@ -58,7 +52,7 @@ const validateRequestParameters = (input: ZambdaInput): BasicInput => {
     throw MISSING_REQUEST_BODY;
   }
 
-  const { ownerId, ownerType } = safeJsonParse(input.body);
+  const { ownerId, ownerType } = JSON.parse(input.body);
 
   if (!ownerId) {
     throw MISSING_REQUIRED_PARAMETERS(['ownerId']);

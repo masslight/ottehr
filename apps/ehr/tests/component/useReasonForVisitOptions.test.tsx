@@ -13,7 +13,21 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useReasonForVisitOptions } from '../../src/features/visits/shared/hooks/useReasonForVisitOptions';
 
 // Single mocked fhir.search callable; each test arranges its return value.
-const mockFhirSearch = vi.fn<(...args: any[]) => Promise<{ unbundle: () => HealthcareService[] }>>();
+// `getAllFhirSearchPages` (the helper the hook uses) reads `entry`, `total`,
+// and `unbundle()` from the bundle, so the mock has to look like a real
+// Oystehr bundle, not just `{ unbundle: () => [...] }`.
+type MockBundle = {
+  entry: Array<{ search: { mode: 'match' } }>;
+  total: number;
+  unbundle: () => HealthcareService[];
+};
+const makeBundle = (hses: HealthcareService[], totalOverride?: number): MockBundle => ({
+  entry: hses.map(() => ({ search: { mode: 'match' as const } })),
+  total: totalOverride ?? hses.length,
+  unbundle: () => hses,
+});
+
+const mockFhirSearch = vi.fn<(...args: any[]) => Promise<MockBundle>>();
 
 const oystehrMock = {
   fhir: {
@@ -80,7 +94,7 @@ describe('useReasonForVisitOptions', () => {
         },
       ],
     };
-    mockFhirSearch.mockResolvedValueOnce({ unbundle: () => [adminHs] });
+    mockFhirSearch.mockResolvedValueOnce(makeBundle([adminHs]));
 
     const { result } = renderHook(() => useReasonForVisitOptions(adminCode), { wrapper });
     // First render the FHIR query is in flight → empty list. After resolution
@@ -97,8 +111,49 @@ describe('useReasonForVisitOptions', () => {
     });
   });
 
+  it('paginates the catalog: finds a match on page 2 when page 1 is full of unrelated categories', async () => {
+    // Locks in the fix for "what if there are more than 1000 categories?" —
+    // without pagination, a target category on a later page silently
+    // disappears and the dropdown renders empty.
+    const PAGE_SIZE = 1000;
+    const adminCode = 'admin-on-page-2';
+    const adminRfv = [{ value: 'rfv-1', label: 'RFV 1' }];
+    const filler: HealthcareService[] = Array.from({ length: PAGE_SIZE }, (_, i) => ({
+      resourceType: 'HealthcareService',
+      id: `filler-${i}`,
+      name: `Filler ${i}`,
+      meta: { tag: [SERVICE_CATEGORY_TAG] },
+      type: [{ coding: [{ system: SERVICE_CATEGORY_SYSTEM, code: `filler-code-${i}` }] }],
+    }));
+    const target: HealthcareService = {
+      resourceType: 'HealthcareService',
+      id: 'hs-page-2',
+      name: 'Late Bloomer',
+      meta: { tag: [SERVICE_CATEGORY_TAG] },
+      type: [{ coding: [{ system: SERVICE_CATEGORY_SYSTEM, code: adminCode }] }],
+      extension: [
+        {
+          url: SERVICE_CATEGORY_CONFIG_EXTENSION_URL,
+          valueString: JSON.stringify({ reasonsForVisit: adminRfv }),
+        },
+      ],
+    };
+    const total = PAGE_SIZE + 1;
+    // Page 1: filler (full page, target not present); Page 2: target only.
+    mockFhirSearch.mockResolvedValueOnce(makeBundle(filler, total));
+    mockFhirSearch.mockResolvedValueOnce(makeBundle([target], total));
+
+    const { result } = renderHook(() => useReasonForVisitOptions(adminCode), { wrapper });
+    await waitFor(() => expect(result.current).toEqual(adminRfv));
+    expect(mockFhirSearch).toHaveBeenCalledTimes(2);
+    // Second call paged forward by PAGE_SIZE matches.
+    expect(mockFhirSearch.mock.calls[1][0].params).toEqual(
+      expect.arrayContaining([expect.objectContaining({ name: '_offset', value: String(PAGE_SIZE) })])
+    );
+  });
+
   it('returns [] when no FHIR HealthcareService matches the requested code', async () => {
-    mockFhirSearch.mockResolvedValueOnce({ unbundle: () => [] });
+    mockFhirSearch.mockResolvedValueOnce(makeBundle([]));
     const { result } = renderHook(() => useReasonForVisitOptions('nonexistent-code'), { wrapper });
     // Wait for the query to settle then assert []. (renderHook's initial value
     // is also [], so waitFor needs something else to converge on — assert the

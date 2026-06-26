@@ -31,7 +31,7 @@ import {
   ServiceCategoryCode,
   ServiceMode,
 } from 'utils';
-import { createOystehrClient, getAuth0Token, safeJsonParse, wrapHandler, ZambdaInput } from '../../../shared';
+import { createClinicalOystehrClient, getAuth0Token, wrapHandler, ZambdaInput } from '../../../shared';
 import { getUser, userHasAccessToPatient } from '../../../shared/auth';
 
 const ZAMBDA_NAME = 'get-booking-questionnaire';
@@ -51,7 +51,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     console.log('already have token');
   }
 
-  const oystehr = createOystehrClient(oystehrToken, secrets);
+  const oystehr = createClinicalOystehrClient(oystehrToken, secrets);
 
   const effectInput = await complexValidation(validatedParams, oystehr);
 
@@ -241,7 +241,7 @@ const validateRequestParameters = (input: ZambdaInput): ValidatedInput => {
 
   let parsed: GetBookingQuestionnaireParams;
   try {
-    parsed = GetBookingQuestionnaireParamsSchema.parse(safeJsonParse(input.body));
+    parsed = GetBookingQuestionnaireParamsSchema.parse(JSON.parse(input.body));
   } catch (e: any) {
     throw INVALID_INPUT_ERROR(e.message);
   }

@@ -26,8 +26,8 @@ import {
 } from '../../../rcm/scheduled-outreach-config/helpers';
 import {
   checkOrCreateM2MClientToken,
+  createClinicalOystehrClient,
   createOutreachEmailCommunication,
-  createOystehrClient,
   fillOutreachTemplate,
   getEmailClient,
   getStripeClient,
@@ -60,7 +60,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   }
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, input.secrets);
-  const oystehr = createOystehrClient(m2mToken, input.secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, input.secrets);
 
   // Mark as in-progress with optimistic locking to guard against duplicate
   // subscription deliveries racing to charge the same card. If another

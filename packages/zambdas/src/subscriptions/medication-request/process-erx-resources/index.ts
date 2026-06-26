@@ -1,9 +1,15 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Identifier, MedicationRequest, MedicationStatement } from 'fhir/r4b';
-import { ERX_MEDICATION_META_TAG_CODE, MEDISPAN_DISPENSABLE_DRUG_ID_CODE_SYSTEM, Secrets } from 'utils';
+import {
+  ERX_MEDICATION_META_TAG_CODE,
+  FHIR_EXTENSION,
+  getBooleanExtensionValue,
+  MEDISPAN_DISPENSABLE_DRUG_ID_CODE_SYSTEM,
+  Secrets,
+} from 'utils';
 import {
   checkOrCreateM2MClientToken,
-  createOystehrClient,
+  createClinicalOystehrClient,
   fillMeta,
   makeMedicationResource,
   safeJsonParse,
@@ -39,6 +45,35 @@ export function validateRequestParameters(input: ZambdaInput): {
   };
 }
 
+export function makeMedicationStatementFromErxMedicationRequest(
+  medicationRequest: MedicationRequest,
+  encounterId: string,
+  patientId: string,
+  practitionerId: string
+): MedicationStatement {
+  const medData = medicationRequest.medicationCodeableConcept?.coding?.find(
+    (coding) => coding.system === MEDISPAN_DISPENSABLE_DRUG_ID_CODE_SYSTEM
+  );
+  const quantity = medicationRequest.dispenseRequest?.quantity;
+
+  return makeMedicationResource(
+    encounterId,
+    patientId,
+    practitionerId,
+    {
+      status: 'active',
+      name: medData?.display || '',
+      id: medData?.code,
+      intakeInfo: {
+        dose: quantity?.value != null ? `${quantity.value}${quantity.unit ? ` ${quantity.unit}` : ''}` : undefined,
+      },
+      type: 'scheduled',
+      isRenewal: getBooleanExtensionValue(medicationRequest, FHIR_EXTENSION.MedicationRequest.isRenewal.url),
+    },
+    'prescribed-medication'
+  );
+}
+
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let m2mToken: string;
 
@@ -50,7 +85,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   console.debug('validateRequestParameters success');
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-  const oystehr = createOystehrClient(m2mToken, secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
   console.log('Created zapToken and fhir client');
 
   console.log(`Medication request id: ${medicationRequest.id}`);
@@ -65,9 +100,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   console.log(`Encounter ref: ${encounterReference}`);
   console.log(`Patient ref: ${patientReference}`);
 
-  const medData = medicationRequest.medicationCodeableConcept?.coding?.find(
-    (coding) => coding.system === MEDISPAN_DISPENSABLE_DRUG_ID_CODE_SYSTEM
-  );
   console.log('Patching MedicationRequest and create MedicationStatement');
   await Promise.all([
     oystehr.fhir.patch({
@@ -85,25 +117,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       patientId &&
       practitionerId &&
       oystehr.fhir.create<MedicationStatement>(
-        makeMedicationResource(
-          encounterId,
-          patientId,
-          practitionerId,
-          {
-            status: 'active',
-            name: medData?.display || '',
-            id: medData?.code,
-            intakeInfo: {
-              dose: medicationRequest.dispenseRequest?.quantity?.value
-                ? `${medicationRequest.dispenseRequest?.quantity?.value}${
-                    ' ' + medicationRequest.dispenseRequest?.quantity?.unit || ''
-                  }`
-                : undefined,
-            },
-            type: 'scheduled',
-          },
-          'prescribed-medication'
-        )
+        makeMedicationStatementFromErxMedicationRequest(medicationRequest, encounterId, patientId, practitionerId)
       ),
   ]);
 

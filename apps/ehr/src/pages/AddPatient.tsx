@@ -193,12 +193,10 @@ export default function AddPatient(): JSX.Element {
     setReasonForVisitAdditional('');
   }, [serviceCategory]);
 
-  // Scheduled follow-ups use a fixed follow-up-reason list instead of the
-  // service-category reasons. The per-service path goes through the shared
-  // hook so admin-managed FHIR categories surface their configured RFV
-  // options (the previous synchronous helper only read BOOKING_CONFIG).
-  // The hook is called unconditionally to satisfy the rules of hooks; it
-  // short-circuits internally when the code is in BOOKING_CONFIG or absent.
+  // Scheduled follow-ups use a fixed follow-up-reason list instead of the service-category reasons.
+  // The per-service path goes through the shared hook so admin-managed FHIR categories surface their
+  // configured RFV options. The hook is called unconditionally (rules of hooks); it short-circuits
+  // internally when the code is in BOOKING_CONFIG or absent.
   const serviceCategoryRfvOptions = useReasonForVisitOptions(serviceCategory ?? '');
   const reasonForVisitOptions = isScheduledFollowUp
     ? SCHEDULED_FOLLOWUP_REASONS.map((reason) => ({ value: reason, label: reason }))
@@ -636,11 +634,7 @@ export default function AddPatient(): JSX.Element {
                               if (errors.otherReason) setErrors((prev) => ({ ...prev, otherReason: false }));
                             }}
                             error={!!errors.otherReason}
-                            helperText={
-                              errors.otherReason
-                                ? 'Please specify the follow-up reason'
-                                : "If the follow-up reason matches the initial visit's reason for visit, enter it here."
-                            }
+                            helperText={errors.otherReason ? 'Please specify the follow-up reason' : undefined}
                           />
                         </FormControl>
                       </Box>

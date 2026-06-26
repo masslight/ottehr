@@ -32,6 +32,7 @@ import useEvolveUser from 'src/hooks/useEvolveUser';
 import { sortQuickPicks, useMergedInHouseMedicationQuickPicks } from 'src/hooks/useMergedQuickPicks';
 import { usePendingQuickPick } from 'src/hooks/usePendingQuickPick';
 import {
+  computeBillableUnits,
   ExtendedMedicationDataForResponse,
   getApiError,
   getMedicationName,
@@ -308,7 +309,12 @@ export const EditableMedicationCard: React.FC<{
     lotNumber: localValues.lotNumber,
     ndc: localValues.ndc,
     expDate: localValues.expDate,
-    cptCodes: localValues.cptCodes,
+    // Recompute billable units against the current dose so saved billing data stays consistent
+    cptCodes: localValues.cptCodes?.map((cptCode) =>
+      cptCode.billableUnitSize != null
+        ? { ...cptCode, billableUnits: computeBillableUnits(localValues.dose, cptCode.billableUnitSize) }
+        : cptCode
+    ),
   });
 
   const onSaveAsQuickPick = async (overwriteId?: string): Promise<void> => {

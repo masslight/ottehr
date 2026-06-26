@@ -209,7 +209,7 @@ export async function produceOutreachTasks(params: ProduceOutreachTasksParams): 
 /**
  * Calculate the absolute due datetime from event timestamp + action offset.
  */
-function calculateDueDateTime(eventTimestamp: string, action: OutreachAction): string {
+export function calculateDueDateTime(eventTimestamp: string, action: OutreachAction): string {
   const eventDt = DateTime.fromISO(eventTimestamp);
   const timeUnit = action.trigger.timeUnit || 'days';
   const direction = action.trigger.direction || 'after';

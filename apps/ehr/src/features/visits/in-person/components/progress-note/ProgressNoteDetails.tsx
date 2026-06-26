@@ -29,6 +29,7 @@ import { PatientInstructionsContainer } from 'src/features/visits/shared/compone
 import { PrescribedMedicationsContainer } from 'src/features/visits/shared/components/review-tab/components/PrescribedMedicationsContainer';
 import { PrivacyPolicyAcknowledgement } from 'src/features/visits/shared/components/review-tab/components/PrivacyPolicyAcknowledgement';
 import { ProceduresContainer } from 'src/features/visits/shared/components/review-tab/components/ProceduresContainer';
+import { RadiologyOrdersContainer } from 'src/features/visits/shared/components/review-tab/components/RadiologyOrdersContainer';
 import { ReviewOfSystemsContainer } from 'src/features/visits/shared/components/review-tab/components/ReviewOfSystemsContainer';
 import { SurgicalHistoryContainer } from 'src/features/visits/shared/components/review-tab/components/SurgicalHistoryContainer';
 import { RosReviewContainer } from 'src/features/visits/shared/components/ros-tab/RosReviewContainer';
@@ -95,6 +96,7 @@ export const ProgressNoteDetails: FC = () => {
   const vitalsObservations = chartFields?.vitalsObservations;
   const externalLabResults = chartFields?.externalLabResults;
   const inHouseLabResults = chartFields?.inHouseLabResults;
+  const radiologyOrders = chartFields?.radiologyOrders;
   const chiefComplaint = chartFields?.historyOfPresentIllness?.text;
   const mechanismOfInjury = chartFields?.mechanismOfInjury?.text;
   const hpi = chartFields?.chiefComplaint?.text;
@@ -132,6 +134,8 @@ export const ProgressNoteDetails: FC = () => {
     inHouseLabResults?.labOrderResults && inHouseLabResults?.labOrderResults.length > 0
   );
   const showInHouseLabsResultsContainer = !!(inHouseLabResultsPending || inHouseLabResultsEntered);
+
+  const showRadiologyContainer = !!(radiologyOrders && radiologyOrders?.length > 0);
 
   const showProceduresContainer = (chartData?.procedures?.length ?? 0) > 0;
   const showPrescribedMedications = !!(prescriptions && prescriptions.length > 0);
@@ -201,6 +205,7 @@ export const ProgressNoteDetails: FC = () => {
         resultsPending={externalLabResultsPending}
       />
     ),
+    showRadiologyContainer && <RadiologyOrdersContainer radiologyOrders={radiologyOrders} />,
     showProceduresContainer && <ProceduresContainer />,
     showPrescribedMedications && <PrescribedMedicationsContainer />,
     showPatientInstructions && <PatientInstructionsContainer />,

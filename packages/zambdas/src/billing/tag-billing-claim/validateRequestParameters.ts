@@ -1,5 +1,5 @@
-import { INVALID_INPUT_ERROR, MISSING_REQUEST_BODY, TagBillingClaimInput, TagBillingClaimInputSchema } from 'utils';
-import { formatZodError, safeJsonParse, ZambdaInput } from '../../shared';
+import { MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS, TagBillingClaimInput, TagBillingClaimInputSchema } from 'utils';
+import { safeValidate, validateJsonBody, ZambdaInput } from '../../shared';
 
 export interface TagBillingClaimParams extends TagBillingClaimInput {
   secrets: ZambdaInput['secrets'];
@@ -7,16 +7,12 @@ export interface TagBillingClaimParams extends TagBillingClaimInput {
 
 export function validateRequestParameters(input: ZambdaInput): TagBillingClaimParams {
   if (!input.body) throw MISSING_REQUEST_BODY;
+  if (!input.secrets) throw MISSING_REQUEST_SECRETS;
 
-  let raw: unknown;
-  try {
-    raw = safeJsonParse(input.body);
-  } catch {
-    throw INVALID_INPUT_ERROR('Request body is not valid JSON');
-  }
+  const data = safeValidate(TagBillingClaimInputSchema, validateJsonBody(input));
 
-  const result = TagBillingClaimInputSchema.safeParse(raw);
-  if (!result.success) throw INVALID_INPUT_ERROR(formatZodError(result.error));
-
-  return { ...result.data, secrets: input.secrets };
+  return {
+    ...data,
+    secrets: input.secrets,
+  };
 }

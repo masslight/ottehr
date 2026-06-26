@@ -8,18 +8,13 @@ import {
   MISSING_REQUEST_BODY,
   MISSING_REQUIRED_PARAMETERS,
   PRACTITIONER_ROLE_ALL_CATEGORIES_EXTENSION_URL,
+  PRACTITIONER_SCHEDULE_CONFLICT_ERROR,
   SCHEDULE_DISPLAY_NAME_EXTENSION_URL,
   SCHEDULE_EXTENSION_URL,
   Secrets,
   TIMEZONE_EXTENSION_URL,
 } from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createOystehrClient,
-  safeJsonParse,
-  wrapHandler,
-  ZambdaInput,
-} from '../../shared';
+import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
 import { checkPractitionerRoleConflict } from '../admin-practitioner-role-shared/check-conflict';
 
 interface AdminCreatePractitionerRoleInput {
@@ -64,7 +59,7 @@ const validateRequestParameters = (input: ZambdaInput): AdminCreatePractitionerR
     allCategories?: unknown;
   };
   try {
-    parsed = safeJsonParse(input.body);
+    parsed = JSON.parse(input.body);
   } catch {
     throw INVALID_INPUT_ERROR('Request body must be valid JSON');
   }
@@ -103,7 +98,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const parsed = validateRequestParameters(input);
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, parsed.secrets);
-  const oystehr = createOystehrClient(m2mToken, parsed.secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, parsed.secrets);
 
   // Reject configurations where this provider already has an active schedule
   // at this location offering one of the requested categories. We resolve
@@ -129,19 +124,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     { categoryNameById }
   );
   if (conflict) {
-    return {
-      statusCode: 400,
-      body: JSON.stringify({
-        code: 'PRACTITIONER_SCHEDULE_CONFLICT',
-        message: `This provider already has an active schedule at this location offering ${conflict.conflictingCategoryNames.join(
-          ', '
-        )}. Remove ${
-          conflict.conflictingCategoryNames.length === 1 ? 'it' : 'them'
-        } from that schedule first, or pick a different location.`,
-        conflictingPractitionerRoleId: conflict.conflictingPractitionerRoleId,
-        conflictingCategoryNames: conflict.conflictingCategoryNames,
-      }),
-    };
+    throw PRACTITIONER_SCHEDULE_CONFLICT_ERROR(conflict.conflictingCategoryNames);
   }
 
   // Create the PractitionerRole and its Schedule in a single FHIR transaction

@@ -13,8 +13,7 @@ import {
 } from 'utils';
 import {
   checkOrCreateM2MClientToken,
-  createOystehrClient,
-  safeJsonParse,
+  createClinicalOystehrClient,
   StatementType,
   wrapHandler,
   ZambdaInput,
@@ -37,7 +36,7 @@ function validateRequestParameters(input: ZambdaInput): CreateMailStatementTaskI
   if (!input.body) throw MISSING_REQUEST_BODY;
   if (!input.secrets) throw MISSING_REQUEST_SECRETS;
 
-  const body = safeJsonParse(input.body) as Record<string, unknown>;
+  const body = JSON.parse(input.body) as Record<string, unknown>;
 
   const encounterId = body.encounterId;
   if (typeof encounterId !== 'string' || encounterId.trim().length === 0) {
@@ -102,7 +101,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const validatedInput = validateRequestParameters(input);
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedInput.secrets);
-  const oystehr = createOystehrClient(m2mToken, validatedInput.secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, validatedInput.secrets);
 
   const encounter = await oystehr.fhir.get<Encounter>({
     resourceType: 'Encounter',

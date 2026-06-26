@@ -1,11 +1,23 @@
-import { ArrowBack as ArrowBackIcon, Search as SearchIcon } from '@mui/icons-material';
-import { Alert, Box, Button, CircularProgress, IconButton, InputAdornment, TextField, Typography } from '@mui/material';
+import { Add as AddIcon, ArrowBack as ArrowBackIcon, Search as SearchIcon } from '@mui/icons-material';
+import {
+  Alert,
+  Box,
+  Button,
+  Chip,
+  CircularProgress,
+  IconButton,
+  InputAdornment,
+  TextField,
+  Typography,
+} from '@mui/material';
 import { DataGridPro, GridColDef, GridPaginationModel } from '@mui/x-data-grid-pro';
 import { ReactElement, useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { chooseJson } from 'utils';
+import { BillingProviderOption, getApiError } from 'utils';
+import { deleteBillingProvider, searchBillingProviders } from '../api/api';
+import { AddProviderDialog } from '../components/AddProviderDialog';
 import { dataGridSlots, dataGridSx } from '../components/BillingDataGrid';
-import { DetailRow } from '../components/DetailRow';
+import { ProviderDetailSection } from '../components/ProviderDetailSection';
 import { useApiClients } from '../hooks/useAppClients';
 import { useDebounce } from '../hooks/useDebounce';
 
@@ -14,15 +26,27 @@ interface ProviderRow {
   name: string;
   npi: string;
   taxId?: string;
-  clia?: string;
   address?: string;
+  isWorkingCopy: boolean;
 }
 
 const columns: GridColDef[] = [
-  { field: 'name', headerName: 'Name', flex: 1, minWidth: 200 },
+  {
+    field: 'name',
+    headerName: 'Name',
+    flex: 1,
+    minWidth: 200,
+    renderCell: (params) => (
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, height: '100%' }}>
+        {params.row.name}
+        {params.row.isWorkingCopy && (
+          <Chip label="Working copy" variant="outlined" size="small" sx={{ borderRadius: '4px', fontSize: 12 }} />
+        )}
+      </Box>
+    ),
+  },
   { field: 'npi', headerName: 'NPI', width: 130 },
   { field: 'taxId', headerName: 'Tax ID / EIN', width: 140 },
-  { field: 'clia', headerName: 'CLIA Number', width: 140 },
   { field: 'address', headerName: 'Address', flex: 1, minWidth: 200 },
 ];
 
@@ -36,6 +60,7 @@ export function BillingProvidersList(): ReactElement {
   const [error, setError] = useState<string | null>(null);
   const [paginationModel, setPaginationModel] = useState<GridPaginationModel>({ page: 0, pageSize: 25 });
   const [searchName, setSearchName] = useState('');
+  const [addOpen, setAddOpen] = useState(false);
   const { debounce } = useDebounce();
 
   const fetchProviders = useCallback(
@@ -44,18 +69,16 @@ export function BillingProvidersList(): ReactElement {
       setLoading(true);
       setError(null);
       try {
-        const response = await oystehrZambda.zambda.execute({
-          id: 'search-billing-providers',
+        const data = await searchBillingProviders(oystehrZambda, {
           providerType: 'billing',
           pageSize: pagination.pageSize,
           offset: pagination.page * pagination.pageSize,
           ...(name ? { name, includeWorkingCopies: true } : {}),
         });
-        const data = chooseJson(response);
         setProviders(data.providers ?? []);
         setTotalRows(data.total ?? 0);
       } catch (err) {
-        setError(err instanceof Error ? err.message : String(err));
+        setError(getApiError({ error: err, defaultError: 'Failed to load providers' }));
       } finally {
         setLoading(false);
       }
@@ -85,9 +108,14 @@ export function BillingProvidersList(): ReactElement {
 
   return (
     <Box sx={{ p: 0 }}>
-      <Typography variant="h4" color="primary.dark" fontWeight={600} sx={{ mb: 3 }}>
-        Billing Providers
-      </Typography>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+        <Typography variant="h4" color="primary.dark" fontWeight={600}>
+          Billing Providers
+        </Typography>
+        <Button variant="contained" startIcon={<AddIcon />} onClick={() => setAddOpen(true)}>
+          Add Provider
+        </Button>
+      </Box>
 
       <TextField
         fullWidth
@@ -126,6 +154,13 @@ export function BillingProvidersList(): ReactElement {
         slots={dataGridSlots}
         sx={{ ...dataGridSx, height: 'calc(100vh - 310px)' }}
       />
+
+      <AddProviderDialog
+        open={addOpen}
+        defaultRole="billing"
+        onClose={() => setAddOpen(false)}
+        onCreated={() => void fetchProviders(paginationModel, searchName || undefined)}
+      />
     </Box>
   );
 }
@@ -135,7 +170,7 @@ export function BillingProviderDetail(): ReactElement {
   const navigate = useNavigate();
   const { oystehrZambda } = useApiClients();
 
-  const [provider, setProvider] = useState<ProviderRow | null>(null);
+  const [provider, setProvider] = useState<BillingProviderOption | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -144,25 +179,35 @@ export function BillingProviderDetail(): ReactElement {
     setLoading(true);
     setError(null);
     try {
-      const response = await oystehrZambda.zambda.execute({
-        id: 'search-billing-providers',
+      const data = await searchBillingProviders(oystehrZambda, {
         providerType: 'billing',
         providerId: id,
+        includeWorkingCopies: true,
       });
-      const data = chooseJson(response);
       setProvider((data.providers ?? [])[0] ?? null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(getApiError({ error: err, defaultError: 'Failed to load provider' }));
     } finally {
       setLoading(false);
     }
   }, [oystehrZambda, id]);
 
+  const handleDelete = async (): Promise<void> => {
+    if (!oystehrZambda || !provider) return;
+    if (!window.confirm(`Delete provider "${provider.name}"? This cannot be undone.`)) return;
+    try {
+      await deleteBillingProvider(oystehrZambda, { providerId: provider.id, kind: provider.kind });
+      navigate('/billing-providers');
+    } catch (err) {
+      setError(getApiError({ error: err, defaultError: 'Failed to delete provider' }));
+    }
+  };
+
   useEffect(() => {
     void fetchDetail();
   }, [fetchDetail]);
 
-  if (loading) {
+  if (loading && !provider) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50vh' }}>
         <CircularProgress />
@@ -190,14 +235,17 @@ export function BillingProviderDetail(): ReactElement {
         <Typography variant="h5" color="primary.dark" fontWeight={600}>
           {provider.name}
         </Typography>
+        {provider.isWorkingCopy && (
+          <Chip label="Working copy" variant="outlined" size="small" sx={{ borderRadius: '4px', fontSize: 12 }} />
+        )}
+        <Box sx={{ flexGrow: 1 }} />
+        {!provider.isWorkingCopy && (
+          <Button color="error" onClick={() => void handleDelete()}>
+            Delete
+          </Button>
+        )}
       </Box>
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-        <DetailRow label="Name" value={provider.name} />
-        <DetailRow label="NPI" value={provider.npi} />
-        <DetailRow label="Tax ID / EIN" value={provider.taxId ?? ''} />
-        <DetailRow label="CLIA Number" value={provider.clia ?? ''} />
-        <DetailRow label="Address" value={provider.address ?? ''} />
-      </Box>
+      <ProviderDetailSection provider={provider} onSaved={fetchDetail} />
     </Box>
   );
 }
