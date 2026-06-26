@@ -127,6 +127,13 @@
       "src": "src/billing/get-billing-claim-detail/index",
       "zip": ".dist/zips/get-billing-claim-detail.zip"
     },
+    "EXPORT-BILLING-CLAIM-X12": {
+      "name": "export-billing-claim-x12",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/export-billing-claim-x12/index",
+      "zip": ".dist/zips/export-billing-claim-x12.zip"
+    },
     "GET-BILLING-PATIENT-DETAIL": {
       "name": "get-billing-patient-detail",
       "type": "http_auth",

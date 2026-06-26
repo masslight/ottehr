@@ -19,6 +19,8 @@ import {
   DeletedResponse,
   DeleteServiceFacilityInputSchema,
   EraDetailResponse,
+  ExportClaimX12InputSchema,
+  ExportClaimX12Response,
   GetChargeItemDefinitionInputSchema,
   GetClaimDetailInputSchema,
   GetEraDetailInputSchema,
@@ -109,6 +111,11 @@ export const getBillingClaimDetail = (
   oystehr: Oystehr,
   parameters: z.input<typeof GetClaimDetailInputSchema>
 ): Promise<ClaimDetailResponse> => executeBillingZambda(oystehr, 'get-billing-claim-detail', parameters);
+
+export const exportClaimX12 = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof ExportClaimX12InputSchema>
+): Promise<ExportClaimX12Response> => executeBillingZambda(oystehr, 'export-billing-claim-x12', parameters);
 
 export const updateBillingResource = (
   oystehr: Oystehr,

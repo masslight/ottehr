@@ -28,6 +28,10 @@ export const GetClaimDetailInputSchema = z.object({
   claimId: nonEmptyString,
 });
 
+export const ExportClaimX12InputSchema = z.object({
+  claimId: z.string().uuid(),
+});
+
 export const GetEraDetailInputSchema = z.object({
   eraId: nonEmptyString,
 });
@@ -558,6 +562,7 @@ export const DeleteChargeItemDefinitionInputSchema = z.object({
 });
 
 export type GetClaimDetailInput = z.output<typeof GetClaimDetailInputSchema>;
+export type ExportClaimX12Input = z.output<typeof ExportClaimX12InputSchema>;
 export type GetEraDetailInput = z.output<typeof GetEraDetailInputSchema>;
 export type SearchErasInput = z.output<typeof SearchErasInputSchema>;
 export type SaveBillingTagInput = z.output<typeof SaveBillingTagInputSchema>;
