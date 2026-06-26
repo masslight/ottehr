@@ -15,6 +15,7 @@ import { DateTime } from 'luxon';
 import { M2MClientMockType, PATIENT_BILLING_ACCOUNT_TYPE } from 'utils';
 import { cleanAppointmentGraph } from 'utils/lib/utils/e2eCleanup';
 import { inject } from 'vitest';
+import { createBillingClient } from '../../src/billing/shared';
 import { SECRETS } from '../data/secrets';
 
 /**
@@ -38,6 +39,7 @@ export interface InsertFullAppointmentDataBaseResult {
  */
 export interface IntegrationTestSetupResult {
   oystehr: Oystehr;
+  oystehrBilling: Oystehr;
   oystehrTestUserM2M: Oystehr;
   testUserM2MToken: string;
   testUserM2MProfile: string;
@@ -331,6 +333,12 @@ export const setupIntegrationTest = async (
     projectId: PROJECT_ID,
   });
 
+  // Create Oystehr client for billing operations
+  const oystehrBilling = createBillingClient(token, SECRETS, {
+    projectId: PROJECT_ID,
+    services: { fhirApiUrl: FHIR_API, projectApiUrl: EXECUTE_ZAMBDA_URL, zambdaApiUrl: EXECUTE_ZAMBDA_URL },
+  });
+
   const oystehrTestUserM2M = new Oystehr({
     accessToken: testUserM2MToken,
     fhirApiUrl: FHIR_API,
@@ -354,6 +362,7 @@ export const setupIntegrationTest = async (
 
   return {
     oystehr: oystehrAdmin,
+    oystehrBilling,
     oystehrTestUserM2M: oystehrTestUserM2M,
     testUserM2MToken,
     testUserM2MProfile,

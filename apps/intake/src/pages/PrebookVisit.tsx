@@ -16,6 +16,7 @@ import {
   ServiceCategoryCode,
   ServiceCategoryCodeSchema,
   ServiceMode,
+  shouldShowServiceCategorySelectionPage,
   SlotListItem,
 } from 'utils';
 import ottehrApi from '../api/ottehrApi';
@@ -32,6 +33,7 @@ import { PageContainer, Schedule } from '../components';
 import { ErrorDialog, ErrorDialogConfig } from '../components/ErrorDialog';
 import { BoldPurpleInputLabel } from '../components/form';
 import { dataTestIds } from '../helpers/data-test-ids';
+import { useServiceCategories } from '../hooks/useServiceCategories';
 import { useUCZambdaClient } from '../hooks/useUCZambdaClient';
 import { otherColors } from '../IntakeThemeProvider';
 import { useGetBookableItems, useGetSchedule } from '../telemed/features/appointments/appointment.queries';
@@ -160,25 +162,62 @@ const useBookingData = (
   };
 };
 
+// Spelling-based article selection. Picks "an" when the next word starts
+// with a vowel letter, otherwise "a". Covers the realistic span of service-
+// category display names ("Urgent Care", "Occupational Medicine", "Workers
+// Comp", "Eye Care", …); the few orthographic-but-not-phonetic exceptions
+// ("a university", "an hour") aren't worth a phonetic dictionary here —
+// service-category labels in this product don't hit them.
+const articleFor = (word: string): 'a' | 'an' => {
+  const first = word.trim().charAt(0).toLowerCase();
+  return ['a', 'e', 'i', 'o', 'u'].includes(first) ? 'an' : 'a';
+};
+
 const getLocationTitleText = ({
   selectedLocation,
   bookingOn,
   slotData,
   isSlotsLoading,
+  serviceCategoryDisplay,
 }: {
   selectedLocation: BookableItem | null;
   bookingOn: string | null;
   slotData?: GetScheduleResponse;
   isSlotsLoading: boolean;
+  serviceCategoryDisplay?: string;
 }): string => {
   if ((!selectedLocation && !bookingOn) || isSlotsLoading) {
     return 'Book a visit';
   }
 
+  // For group bookings, the server overrides slotData.location.name to the
+  // resolved Location's name *when* the group flow has narrowed to a single
+  // concrete Location (explicit atLocationSlug, or the auto-pick for groups
+  // with exactly one qualifying Location). Multi-Location group flows that
+  // haven't resolved a Location yet return early server-side with
+  // pickableLocations and no slots — that case is handled by the location-
+  // picker effect below, not this title. For location/provider owners
+  // slotData.location.name is already the correct name. selectedLocation /
+  // bookingOn are the Autocomplete / URL fallbacks when slotData hasn't
+  // resolved yet.
   const locationName = slotData?.location?.name || selectedLocation?.label || bookingOn;
   const isProviderSchedule = slotData?.location?.scheduleOwnerType === ScheduleType.provider;
   const preposition = isProviderSchedule ? 'with' : 'at';
-  return `Book a visit ${preposition} ${locationName}`;
+  // Compose "Book a/an {category} visit {at|with} {location}". Article is
+  // chosen by the category's first letter ("an Urgent Care", "a Workers
+  // Comp"); falls back to the plain "a" when no category is resolved.
+  // Segments drop out when their data isn't ready so the title degrades
+  // gracefully ("Book a visit", "Book an Urgent Care visit", etc.) rather
+  // than rendering stranded whitespace.
+  const parts: string[] = ['Book'];
+  if (serviceCategoryDisplay) {
+    parts.push(articleFor(serviceCategoryDisplay), serviceCategoryDisplay);
+  } else {
+    parts.push('a');
+  }
+  parts.push('visit');
+  if (locationName) parts.push(preposition, locationName);
+  return parts.join(' ');
 };
 
 const PrebookVisit: FC = () => {
@@ -226,6 +265,57 @@ const PrebookVisit: FC = () => {
     slotData,
     isSlotsLoading,
   } = useBookingData(serviceMode, slugToFetch, scheduleType, serviceCategoryCode, atLocationSlug);
+
+  // Picker-redirect: when a deep link carries scheduleType + bookingOn but
+  // no serviceCategory, and the destination supports more than one category
+  // in the current (serviceMode, visitType) context, send the patient to
+  // the category picker first. Without this guard the booking flow proceeds
+  // without a category — create-slot then either back-compat-defaults to
+  // urgent-care (fine on Location-actored Schedules) or rejects with "not
+  // bookable against a provider-owned schedule" (PR-actored member
+  // Schedules in a group, since urgent-care is BOOKING_CONFIG and the PR
+  // guard blocks compile-time categories on PR Schedules). The picker
+  // round-trips back here with `?serviceCategory=<code>` appended, at which
+  // point this effect's first guard bails. Mirrors the same picker-decision
+  // logic Homepage uses for homepage-button entry — `shouldShow…` filters
+  // by (mode, visit-type) and respects a group's allow-list. `replace`
+  // keeps the back button pointed at the referring page (not a no-op
+  // booking page the patient never saw).
+  //
+  // Scope the useServiceCategories call only for group deeplinks. The hook's
+  // loading-state fallback gates on `isScoped = scheduleType && bookingOn`
+  // (returns [] for scoped, BOOKING_CONFIG for unscoped) — passing both
+  // unconditionally for non-group cases produces an empty-list window
+  // before the network resolves, delaying the redirect decision past the
+  // initial render. The zambda only narrows by allow-list for the group
+  // case anyway; location/provider deeplinks get the same full catalog
+  // either way, so the unscoped call here is semantically identical and
+  // gives us the BOOKING_CONFIG fallback synchronously on first render.
+  const isGroupDeeplink = scheduleType === ScheduleType.group && Boolean(bookingOn);
+  const { serviceCategories: scopedServiceCategories, isLoading: scopedServiceCategoriesLoading } =
+    useServiceCategories(isGroupDeeplink ? { scheduleType, bookingOn: bookingOn ?? undefined } : {});
+  useEffect(() => {
+    if (serviceCategoryCode) return;
+    if (scopedServiceCategoriesLoading) return;
+    if (!scheduleType || !bookingOn) return;
+    if (!serviceMode) return;
+    const shouldPick = shouldShowServiceCategorySelectionPage({
+      serviceMode,
+      visitType: 'prebook',
+      serviceCategories: scopedServiceCategories,
+    });
+    if (!shouldPick) return;
+    navigate(`/prebook/${serviceMode}/select-service-category?${searchParams.toString()}`, { replace: true });
+  }, [
+    serviceCategoryCode,
+    scopedServiceCategoriesLoading,
+    scopedServiceCategories,
+    scheduleType,
+    bookingOn,
+    serviceMode,
+    navigate,
+    searchParams,
+  ]);
 
   // If the owner spans exactly one Location, skip the picker — there's no
   // choice to make. Replacing (not pushing) keeps the back button pointed
@@ -298,7 +388,21 @@ const PrebookVisit: FC = () => {
     }
   };
 
-  const title = getLocationTitleText({ selectedLocation, bookingOn, slotData, isSlotsLoading });
+  // Service category display name — resolved from the category code carried
+  // in the URL once the picker (or single-match auto-select) has set it. Uses
+  // the same scoped-or-system catalog the picker-redirect effect above
+  // consults, so the display name lines up with whatever the patient picked.
+  const serviceCategoryDisplay = serviceCategoryCode
+    ? scopedServiceCategories.find((sc) => sc.category.code === serviceCategoryCode)?.category.display
+    : undefined;
+
+  const title = getLocationTitleText({
+    selectedLocation,
+    bookingOn,
+    slotData,
+    isSlotsLoading,
+    serviceCategoryDisplay,
+  });
 
   if (serviceModeFromParam && !(serviceModeFromParam in ServiceMode)) {
     return <Navigate to={intakeFlowPageRoute.PrebookVisit.path} replace />;

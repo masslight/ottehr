@@ -393,6 +393,49 @@ export interface TaggedClaimResponse {
   ok: true;
 }
 
+export interface ExportClaimX12Response {
+  x12: string;
+}
+
 export interface CreatedClaimResponse {
   claimId: string;
+}
+
+export type ChargeItemDefinitionType = 'charge-master' | 'fee-schedule';
+
+export type ChargeItemDefinitionDefault = 'insurance' | 'self-pay';
+
+export interface SearchChargeItemDefinitionItem {
+  id: string;
+  type: ChargeItemDefinitionType;
+  name: string;
+  status: 'active' | 'retired';
+  description?: string;
+  default?: ChargeItemDefinitionDefault;
+  effectiveDate?: string;
+}
+
+export interface SearchChargeItemDefinitionsResponse {
+  items: SearchChargeItemDefinitionItem[];
+  total: number;
+  offset: number;
+  pageSize: number;
+}
+
+export interface BillingChargeItemDefinitionProcedureCode {
+  code: string;
+  description?: string;
+  modifier?: string;
+  amount: number;
+}
+
+export interface BillingChargeItemDefinition {
+  id: string;
+  type: ChargeItemDefinitionType;
+  name: string;
+  status: 'active' | 'retired';
+  description?: string;
+  default?: ChargeItemDefinitionDefault;
+  effectiveDate?: string;
+  procedureCodes: BillingChargeItemDefinitionProcedureCode[];
 }

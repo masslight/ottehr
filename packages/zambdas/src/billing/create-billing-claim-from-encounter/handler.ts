@@ -33,6 +33,7 @@ import { DateTime } from 'luxon';
 import {
   ACCOUNT_TYPE_CODE_SYSTEM,
   AR_STAGE,
+  BILLING_RESOURCE_TAG,
   claimStatusValuesToTags,
   CODE_SYSTEM_APPOINTMENT_TYPE_CODES,
   CODE_SYSTEM_APPOINTMENT_TYPE_TAG_SYSTEM,
@@ -64,11 +65,16 @@ import {
   withArStageInitialization,
 } from 'utils';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
-import { assertDefined, checkOrCreateM2MClientToken, createOystehrClient, sendErrors, ZambdaInput } from '../../shared';
+import {
+  assertDefined,
+  checkOrCreateM2MClientToken,
+  createClinicalOystehrClient,
+  sendErrors,
+  ZambdaInput,
+} from '../../shared';
 import {
   AUTO_ACCIDENT_TAG_DESCRIPTION,
   AUTO_ACCIDENT_TAG_NAME,
-  BILLING_RESOURCE_TAG,
   BILLING_WORKING_COPY_TAG,
   BillingFhirResource,
   CLAIM_TAG_SYSTEM,
@@ -149,7 +155,7 @@ export async function handler(input: ZambdaInput): Promise<APIGatewayProxyResult
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
   const billingOystehr = createBillingClient(m2mToken, params.secrets);
   // CW TODO: expand to helper and use in all zambdas
-  const clinicalOystehr = createOystehrClient(m2mToken, params.secrets, { ignoreTags: [BILLING_RESOURCE_TAG] });
+  const clinicalOystehr = createClinicalOystehrClient(m2mToken, params.secrets);
 
   const cvo = await complexValidation(clinicalOystehr, billingOystehr, params);
 
@@ -193,8 +199,8 @@ export async function performEffect(
   order.push('patient');
 
   // Sync accounts, coverages, and subscriber between clinical and billing
-  let mainPatientCoverages: Coverage[] = [];
-  let mainPatientSubscribers: RelatedPerson[] = [];
+  const mainPatientCoverages: Coverage[] = [];
+  const mainPatientSubscribers: RelatedPerson[] = [];
   const seenBillingAccountIds = new Set<string>();
   const mainPatientAccounts = clinicalResources.accounts.map((a) => {
     const existingBillingAccount = billingResources.accounts.find(
@@ -214,12 +220,18 @@ export async function performEffect(
         mainPatient.id!,
         clinicalResources.payors
       );
-      mainPatientCoverages = covRequests
-        .filter((cov): cov is BatchInputPostRequest<Coverage> => cov.method === 'POST' && cov.url === '/Coverage')
-        .map((cov) => cov.resource);
-      mainPatientSubscribers = covRequests
-        .filter((rp): rp is BatchInputPostRequest<RelatedPerson> => rp.method === 'POST' && rp.url === '/RelatedPerson')
-        .map((rp) => rp.resource);
+      mainPatientCoverages.push(
+        ...covRequests
+          .filter((cov): cov is BatchInputPostRequest<Coverage> => cov.method === 'POST' && cov.url === '/Coverage')
+          .map((cov) => cov.resource)
+      );
+      mainPatientSubscribers.push(
+        ...covRequests
+          .filter(
+            (rp): rp is BatchInputPostRequest<RelatedPerson> => rp.method === 'POST' && rp.url === '/RelatedPerson'
+          )
+          .map((rp) => rp.resource)
+      );
       requests.push(...covRequests);
       order.push(...covOrder);
       const accountCopy = copyAccount(a, mainPatient.id!, mainPatientCoverages);
@@ -232,8 +244,8 @@ export async function performEffect(
       accountCopy.id = existingBillingAccount.id;
       try {
         deepStrictEqual(existingBillingAccount, accountCopy);
-        mainPatientCoverages = billingResources.coverages;
-        mainPatientSubscribers = billingResources.subscribers;
+        mainPatientCoverages.push(...billingResources.coverages);
+        mainPatientSubscribers.push(...billingResources.subscribers);
         return existingBillingAccount;
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
       } catch (_) {
@@ -245,14 +257,18 @@ export async function performEffect(
           mainPatient.id!,
           clinicalResources.payors
         );
-        mainPatientCoverages = covRequests
-          .filter((cov): cov is BatchInputPostRequest<Coverage> => cov.method === 'POST' && cov.url === '/Coverage')
-          .map((cov) => cov.resource);
-        mainPatientSubscribers = covRequests
-          .filter(
-            (rp): rp is BatchInputPostRequest<RelatedPerson> => rp.method === 'POST' && rp.url === '/RelatedPerson'
-          )
-          .map((rp) => rp.resource);
+        mainPatientCoverages.push(
+          ...covRequests
+            .filter((cov): cov is BatchInputPostRequest<Coverage> => cov.method === 'POST' && cov.url === '/Coverage')
+            .map((cov) => cov.resource)
+        );
+        mainPatientSubscribers.push(
+          ...covRequests
+            .filter(
+              (rp): rp is BatchInputPostRequest<RelatedPerson> => rp.method === 'POST' && rp.url === '/RelatedPerson'
+            )
+            .map((rp) => rp.resource)
+        );
         requests.push(...covRequests);
         order.push(...covOrder);
         accountCopy = copyAccount(a, mainPatient.id!, mainPatientCoverages);
@@ -766,8 +782,18 @@ async function getClinicalResources(
   const accounts = resources.filter((r): r is Account => r.resourceType === 'Account');
   if (!accounts.length) throw FHIR_RESOURCE_NOT_FOUND('Account');
 
-  const diagnoses = resources.filter((r): r is Condition => r.resourceType === 'Condition');
+  let diagnoses = resources.filter((r): r is Condition => r.resourceType === 'Condition');
   if (!diagnoses.length) throw FHIR_RESOURCE_NOT_FOUND('Condition');
+  const primaryDiagnosisId = encounter.diagnosis
+    ?.find((d) => d.rank === 1)
+    ?.condition.reference?.replace('Condition/', '');
+  if (primaryDiagnosisId) {
+    const primaryDiagnosis = diagnoses.find((d) => d.id === primaryDiagnosisId);
+    diagnoses = [
+      ...(primaryDiagnosis ? [primaryDiagnosis] : []),
+      ...diagnoses.filter((d) => d.id !== primaryDiagnosisId),
+    ];
+  }
 
   const procedures = resources.filter((r): r is Procedure => r.resourceType === 'Procedure');
   if (!procedures.length) throw FHIR_RESOURCE_NOT_FOUND('Procedure');
@@ -787,7 +813,7 @@ async function getClinicalResources(
       })
     ).unbundle();
   }
-  if (!coverages.length) throw FHIR_RESOURCE_NOT_FOUND('Coverage');
+  if (coverageIds.length && !coverages.length) throw FHIR_RESOURCE_NOT_FOUND('Coverage');
 
   // Manually look up payors because they may be internal Organization resources or Oystehr RCM payer URLs
   const payors = await Promise.all(
@@ -1063,7 +1089,7 @@ function buildClaim(resources: ClaimResources): Claim {
           careTeamSequence: resources.renderingProvider ? [1] : undefined,
           diagnosisSequence: resources.diagnoses ? [1] : undefined,
           productOrService: assertDefined(p.code, 'Procedure code'),
-          modifier: p.extension
+          modifier: p.code?.coding?.[0].extension
             ?.flatMap<CodeableConcept | undefined>((ext) =>
               ext.url === EXTENSION_URL_CPT_MODIFIER
                 ? ext.valueCodeableConcept?.coding

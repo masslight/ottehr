@@ -13,6 +13,7 @@ import {
   MEDICATION_ADMINISTRATION_ROUTES_CODES_SYSTEM,
   MEDICATION_APPLIANCE_LOCATION_SYSTEM,
   MEDICATION_DISPENSABLE_DRUG_ID,
+  MEDICATION_DISPENSABLE_DRUG_ID_FOR_INTERACTIONS,
   MEDICATION_IDENTIFIER_NAME_SYSTEM,
   MEDICATION_TYPE_SYSTEM,
   MedicationApplianceLocation,
@@ -445,3 +446,26 @@ export function getDosageFromMA(
     dose,
   };
 }
+
+/**
+ * Grabs the interaction specific medispan id when available, otherwise falls back to the
+ * dispensable drug id when available
+ * @param medication
+ * @returns
+ */
+export const getMediSpanIdForInteraction = (medication: Medication): string | undefined => {
+  const medicationCoding = medication.code?.coding;
+  if (!medicationCoding) return undefined;
+
+  // context on both of these: MEDICATION_DISPENSABLE_DRUG_ID_FOR_INTERACTIONS is there because
+  // sometimes the MEDICATION_DISPENSABLE_DRUG_ID selected by end users isn't a valid medication
+  // in the interactions database anymore. but it's the one they want to use because it's what
+  // is on their shelf. So we should use the interaction id when available
+  const maybeMedicationDispensableDrugId = medicationCoding.find((c) => c.system === MEDICATION_DISPENSABLE_DRUG_ID)
+    ?.code;
+  const maybeMedicationInteractionDrugId = medicationCoding.find(
+    (c) => c.system === MEDICATION_DISPENSABLE_DRUG_ID_FOR_INTERACTIONS
+  )?.code;
+
+  return maybeMedicationInteractionDrugId ?? maybeMedicationDispensableDrugId;
+};

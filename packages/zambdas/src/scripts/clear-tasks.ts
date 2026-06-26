@@ -2,8 +2,7 @@ import Oystehr, { BatchInputDeleteRequest } from '@oystehr/sdk';
 import { Task } from 'fhir/r4b';
 import fs from 'fs';
 import { Secrets } from 'utils';
-import { getAuth0Token } from '../shared';
-import { fhirApiUrlFromAuth0Audience } from './helpers';
+import { createClinicalOystehrClient, getAuth0Token } from '../shared';
 
 const clearTasks = async (config: any): Promise<void> => {
   console.log('getting access token');
@@ -19,10 +18,7 @@ const clearTasks = async (config: any): Promise<void> => {
     throw new Error('Failed to fetch auth token.');
   }
 
-  const oystehr = new Oystehr({
-    accessToken: token,
-    fhirApiUrl: fhirApiUrlFromAuth0Audience(config.AUTH0_AUDIENCE),
-  });
+  const oystehr = createClinicalOystehrClient(token, config as Secrets);
 
   let searchResults: Task[] = [];
   try {

@@ -20,7 +20,7 @@ import {
   ZERO_BALANCE_BUSINESS_STATUS,
   ZERO_BALANCE_BUSINESS_STATUS_CODE,
 } from 'utils';
-import { getCandidEncounterIdFromEncounter } from 'zambdas/src/shared';
+import { createClinicalOystehrClient, getCandidEncounterIdFromEncounter } from 'zambdas/src/shared';
 
 const PAGE_SIZE = 100;
 
@@ -38,14 +38,11 @@ async function createOyst(): Promise<Oystehr> {
     PROJECT_ID: '<>',
     token: '<your-token>',
   };
-  const oystehr = new Oystehr({
-    accessToken: secrets.token,
-    projectId: secrets.PROJECT_ID,
-    services: {
-      fhirApiUrl: secrets.FHIR_API,
-      projectApiUrl: secrets.PROJECT_API,
-    },
-  });
+  const oystehr = createClinicalOystehrClient(
+    secrets.token,
+    {},
+    { projectId: secrets.PROJECT_ID, services: { fhirApiUrl: secrets.FHIR_API, projectApiUrl: secrets.PROJECT_API } }
+  );
   console.log(`Created Oystehr client`);
   return oystehr;
 }

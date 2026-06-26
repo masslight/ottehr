@@ -3,8 +3,7 @@ import { Appointment, Patient } from 'fhir/r4b';
 import * as fs from 'fs';
 import Stripe from 'stripe';
 import { getRelatedPersonsForPatient } from 'utils';
-import { getAuth0Token, sendSmsToRelatedPersons } from '../shared';
-import { fhirApiUrlFromAuth0Audience } from './helpers';
+import { createClinicalOystehrClient, getAuth0Token, sendSmsToRelatedPersons } from '../shared';
 
 async function sendSMSMessage(oystehr: Oystehr, patientId: string, message: string, env: string): Promise<void> {
   const relatedPersons = await getRelatedPersonsForPatient(patientId || '', oystehr);
@@ -423,10 +422,7 @@ async function main(): Promise<void> {
     throw new Error('❌ Failed to fetch auth token.');
   }
 
-  const oystehr = new Oystehr({
-    accessToken: token,
-    fhirApiUrl: fhirApiUrlFromAuth0Audience(secrets.AUTH0_AUDIENCE),
-  });
+  const oystehr = createClinicalOystehrClient(token, secrets);
 
   // Find all past due invoices before the newest date
   const allPastDueInvoices = await findOpenStripeInvoicesDueBeforeDate(stripe, newestBeforeDate);

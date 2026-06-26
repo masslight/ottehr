@@ -1,6 +1,6 @@
 {
   "name": "zambdas",
-  "version": "1.37.9",
+  "version": "1.37.13",
   "private": true,
   "sideEffects": false,
   "scripts": {
@@ -19,6 +19,8 @@
     "report-past-due-invoices": "tsx src/scripts/report-past-due-invoices.ts",
     "report-provider-visists": "tsx src/scripts/report-provider-visists.ts",
     "get-coverage-eligibility-responses": "tsx src/scripts/get-coverage-eligibility-responses.ts",
+    "export-coverage-eligibility-responses": "tsx src/scripts/export-coverage-eligibility-responses.ts",
+    "merge-coverage-eligibility-benefits": "tsx src/scripts/merge-coverage-eligibility-benefits.ts",
     "get-patient-related-person": "tsx src/scripts/get-patient-related-person.ts",
     "export-rendering-providers": "tsx src/scripts/export-rendering-providers.ts",
     "download-eras": "tsx src/scripts/download-eras.ts",

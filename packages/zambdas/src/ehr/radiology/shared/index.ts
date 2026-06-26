@@ -145,17 +145,6 @@ export const configReviewResultTask = (resources: ResourcesForTask): Task => {
   });
 };
 
-export const getMostRecentReport = (reports: DiagnosticReport[]): DiagnosticReport | undefined => {
-  if (!reports.length) return undefined;
-
-  return reports.reduce((mostRecent, current) => {
-    if (!current.issued) return mostRecent;
-    if (!mostRecent.issued) return current;
-
-    return new Date(current.issued) > new Date(mostRecent.issued) ? current : mostRecent;
-  });
-};
-
 export const extractDiagnosticsFromAdvaPACSErrorBody = (errBody: unknown): string | undefined => {
   if (typeof errBody !== 'object' || !errBody) return;
 

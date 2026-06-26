@@ -1,10 +1,10 @@
-import { FhirResource, List, ServiceRequest } from 'fhir/r4b';
+import { FhirResource, List, MedicationAdministration, ServiceRequest } from 'fhir/r4b';
 import { DiagnosisDTO, FHIR_IDC10_VALUESET_SYSTEM, ICD_10_CODE_SYSTEM, TemplateSectionAction } from 'utils';
 
 // Reverse the conversion the create flow does when it writes reasonCode from
 // DiagnosisDTOs. We lose `isPrimary` here, which is fine - the saved order
 // doesn't carry that flag.
-export const diagnosesFromReasonCode = (plan: ServiceRequest): DiagnosisDTO[] => {
+export const diagnosesFromReasonCode = (plan: ServiceRequest | MedicationAdministration): DiagnosisDTO[] => {
   return (plan.reasonCode ?? [])
     .map((rc) => {
       const icd =
