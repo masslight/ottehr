@@ -25,11 +25,14 @@ import {
   TableHead,
   TableRow,
   TextField,
+  Tooltip,
   Typography,
 } from '@mui/material';
+import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
+  AR_STAGE,
   BillingCoverageOption,
   BillingLocationOption,
   BillingPayerOption,
@@ -50,6 +53,7 @@ import {
   searchBillingPayers,
   searchBillingProviders,
   searchBillingTags,
+  submitBillingClaims,
   tagBillingClaim,
   updateBillingResource,
 } from '../api/api';
@@ -57,6 +61,7 @@ import { ClaimStatusFields } from '../components/claim/ClaimStatusFields';
 import { DiagnosesEditor } from '../components/claim/DiagnosesEditor';
 import { EditableSection } from '../components/claim/EditableSection';
 import { ServiceLineRow, ServiceLinesEditor } from '../components/claim/ServiceLinesEditor';
+import { ConfirmDialog } from '../components/ConfirmDialog';
 import { ExportX12Dialog } from '../components/ExportX12Dialog';
 import { Field } from '../components/Field';
 import {
@@ -155,6 +160,35 @@ export default function ClaimDetail(): ReactElement {
     [oystehrZambda, id, fetchDetail]
   );
 
+  const [confirmingSubmit, setConfirmingSubmit] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleSubmit = useCallback(async (): Promise<void> => {
+    if (!oystehrZambda || !id) return;
+    setSubmitting(true);
+    try {
+      const { results } = await submitBillingClaims(oystehrZambda, { claimIds: [id] });
+      const result = results[0];
+      if (result?.status === 'submitted') {
+        enqueueSnackbar('Claim submitted to payer', { variant: 'success' });
+      } else {
+        enqueueSnackbar(result?.error ?? 'Failed to submit claim', { variant: 'error' });
+      }
+    } catch (err) {
+      enqueueSnackbar(
+        getApiError({
+          error: err,
+          defaultError: 'Failed to submit claim',
+        }),
+        { variant: 'error' }
+      );
+    } finally {
+      setSubmitting(false);
+      setConfirmingSubmit(false);
+      await fetchDetail();
+    }
+  }, [oystehrZambda, id, fetchDetail]);
+
   if (loading && !claim) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50vh' }}>
@@ -177,6 +211,7 @@ export default function ClaimDetail(): ReactElement {
   const arStageCode = claim.statuses.arStage;
   const arStageLabel = formatClaimStatusValue(CLAIM_STATUS_FIELDS_BY_KEY.arStage, arStageCode);
   const dos = claim.serviceLines[0]?.serviceDate ?? claim.created;
+  const canSubmit = arStageCode === AR_STAGE.insurancePayer;
 
   return (
     <Box sx={{ p: 0 }}>
@@ -196,6 +231,19 @@ export default function ClaimDetail(): ReactElement {
             <Meta label="Patient DOB" value={claim.patientDob} />
           </Box>
         </Box>
+        <Tooltip title={canSubmit ? '' : 'Only claims in Insurance Payer Accounts Receivable can be submitted'}>
+          <span>
+            <Button
+              variant="contained"
+              size="small"
+              disabled={!canSubmit}
+              onClick={() => setConfirmingSubmit(true)}
+              sx={{ mt: 0.5 }}
+            >
+              Submit claim
+            </Button>
+          </span>
+        </Tooltip>
         <Button
           size="small"
           variant="outlined"
@@ -319,6 +367,18 @@ export default function ClaimDetail(): ReactElement {
           </TabPanel>
         </TabContext>
       </Box>
+
+      <ConfirmDialog
+        open={confirmingSubmit}
+        title="Submit claim"
+        confirmLabel="Submit"
+        loading={submitting}
+        onConfirm={() => void handleSubmit()}
+        onCancel={() => setConfirmingSubmit(false)}
+      >
+        Submit this claim to the payer? This sends it for processing and sets its Insurance Accounts Receivable Status
+        to Submitted.
+      </ConfirmDialog>
     </Box>
   );
 }
