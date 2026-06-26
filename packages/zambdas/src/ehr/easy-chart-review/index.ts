@@ -143,8 +143,11 @@ Each suggestion is in exactly one of these categories, with the given action sha
    It must be a near-verbatim quote from the narrative — e.g. the dictation literally says "denies
    fever" or "no photophobia" but no matching finding is on the chart.
    ACTION: one or more { "kind":"add-ros-finding", "display":"Denies <symptom>" } (display MUST start
-   with "Denies" or "Reports"); use { "kind":"add-exam-finding", "display": <finding> } for an exam
-   negative. One card may carry several add actions.
+   with "Denies" or "Reports"). One card may carry several add actions.
+   ONLY ROS negatives are chartable here — NEVER emit add-exam-finding for a negative. Exam findings
+   are positive/abnormal checkboxes (e.g. the only tragus leaf is "Tragus tender"), so charting an exam
+   negative like "no tragus tenderness" would CHECK the abnormal box and assert the OPPOSITE of what the
+   provider said. Exam normals the provider voiced are the planner's job on the main pass, not this check.
    HARD LIMITS — this check fabricates findings if used loosely, so be strict:
    - Quote, don't infer. Only propose a negative whose words appear in the narrative. Do NOT pull
      "classic" negatives for the complaint from memory (e.g. do NOT suggest "no tragus tenderness",
@@ -152,7 +155,6 @@ Each suggestion is in exactly one of these categories, with the given action sha
      provider didn't say it, don't add it).
    - Never deny the chief complaint or a symptom the patient is PRESENTING WITH (a visit for ear
      pain must never get "Denies ear pain" — the patient HAS it).
-   - For an EXAM negative, only when the provider clearly described examining that finding as normal.
 
 4) "em-level" — assess the charted E&M against the documented complexity. In particular, if a NEW
    prescription was given (prescription drug management = moderate risk) and the charted code is 99213,

@@ -2146,7 +2146,12 @@ function isRemoveIntent(intent: EasyChartAgentIntent): intent is RemoveIntent {
 
 function findRemoveMatches(intent: RemoveIntent, data: GetChartDataResponse | null): RemoveMatch[] {
   if (!data) return [];
-  const terms = [intent.display, ...intent.searchTerms].map((t) => t.toLowerCase()).filter(Boolean);
+  // remove-* intents (e.g. the review's remove-diagnosis) often carry only `display` and no
+  // searchTerms — guard the spread so an absent/non-array searchTerms can't throw, and filter to
+  // non-empty strings BEFORE lowercasing so an undefined display/term can't throw either.
+  const terms = [intent.display, ...(Array.isArray(intent.searchTerms) ? intent.searchTerms : [])]
+    .filter((t): t is string => typeof t === 'string' && t.length > 0)
+    .map((t) => t.toLowerCase());
   const nameMatches = (haystack: string | undefined | null): boolean => {
     if (!haystack) return false;
     const h = haystack.toLowerCase();
@@ -3394,7 +3399,17 @@ async function runIntentSearch(
     }
     // Code not found exactly — fall through to display-based search.
   }
-  const terms = intent.searchTerms.length > 0 ? intent.searchTerms : [intent.display];
+  // The eRx (searchMedications / searchAllergens) and ICD searches reject a query shorter than 3
+  // characters ("'name' must be at least 3 characters long"), which would throw and fail the whole
+  // step. Drop sub-3-char terms; fall back to the display, and if even that's too short, return no
+  // matches gracefully (the dispatcher then shows a clean no-match instead of "Something went wrong").
+  const rawTerms = intent.searchTerms.length > 0 ? intent.searchTerms : [intent.display];
+  const terms = rawTerms.map((t) => t?.trim()).filter((t): t is string => !!t && t.length >= 3);
+  if (terms.length === 0) {
+    const disp = intent.display?.trim() ?? '';
+    if (disp.length >= 3) terms.push(disp);
+    else return [];
+  }
   const all: SearchResult[] = [];
   const seen = new Set<string>();
   const perTerm = Math.max(5, Math.floor(15 / terms.length));
@@ -5242,6 +5257,25 @@ export default function EasyChartPage(): JSX.Element {
       }
       if (intent.kind === 'add-exam-finding') {
         const scoredMatches = findExamLeafMatchesScored(intent, EXAM_LEAVES);
+        // Clinical-safety guard: exam findings are POSITIVE/abnormal checkboxes (or explicit "Normal X"
+        // leaves). A negated dictation finding ("no tragus tenderness") has no normal leaf to land on,
+        // so charting it would CHECK the abnormal "Tragus tender" box and assert the OPPOSITE of what was
+        // said. When the query is negated and EVERY match is abnormal, drop it rather than invert it.
+        // (Negations that match a normal leaf — "no acute distress", "nontender" — still chart normally,
+        // because not every match is abnormal.)
+        const isNegatedFinding = /\b(no|not|non|without|denies?|denied|negative|absent|neg)\b/i.test(intent.display);
+        if (
+          isNegatedFinding &&
+          scoredMatches.length > 0 &&
+          scoredMatches.every((s) => s.leaf.normalAbnormal === 'abnormal')
+        ) {
+          setConv({
+            kind: 'skipped',
+            user: message,
+            reason: `Skipped “${intent.display}” — there's no normal exam option for it, and a negative finding won't be charted as an abnormal one.`,
+          });
+          return;
+        }
         const allMatches = scoredMatches.map((s) => s.leaf);
         // Filter out leaves already on the chart — e.g. the AOM Right template already checked
         // "TM bulging, erythematous" on the right side, so re-adding it creates a duplicate.
