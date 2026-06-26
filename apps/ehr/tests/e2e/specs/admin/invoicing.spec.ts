@@ -7,12 +7,11 @@ test.describe('Invoicing Admin', () => {
     await page.goto('/admin/billing/invoicing');
 
     await test.step('Invoicing sidebar item is selected', async () => {
-      // The admin nav is now a sidebar; the active item carries MUI's selected class.
+      // Active sidebar item carries MUI's selected class.
       await expect(page.locator('a[href="/admin/billing/invoicing"] .Mui-selected')).toBeVisible(DEFAULT_TIMEOUT);
     });
 
     await test.step('Invoicing page heading is visible', async () => {
-      // The page title now comes from the shared admin header (the nav item's label).
       await expect(page.getByRole('heading', { name: 'Invoicing', exact: true })).toBeVisible(DEFAULT_TIMEOUT);
     });
 
