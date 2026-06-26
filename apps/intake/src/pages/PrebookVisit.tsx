@@ -88,7 +88,16 @@ const useBookingParams = (
   const [searchParams] = useSearchParams();
   const pathParams = useParams();
   const bookingOn = searchParams.get(BOOKING_SCHEDULE_ON_QUERY_PARAM);
-  const scheduleTypeFromParam = searchParams.get(BOOKING_SCHEDULE_TYPE_QUERY_PARAM) as ScheduleType | null;
+  // Validate scheduleType against the enum's actual values before casting —
+  // the param is raw URL text and `as ScheduleType` would let any string
+  // (e.g. `?scheduleType=foo`) flow into downstream API calls and into the
+  // picker filter below. An unrecognized value collapses to `null` so the
+  // back-compat default (Locations-only picker) takes over.
+  const rawScheduleType = searchParams.get(BOOKING_SCHEDULE_TYPE_QUERY_PARAM);
+  const scheduleTypeFromParam: ScheduleType | null =
+    rawScheduleType && (Object.values(ScheduleType) as string[]).includes(rawScheduleType)
+      ? (rawScheduleType as ScheduleType)
+      : null;
   const serviceModeFromParam = pathParams[BOOKING_SERVICE_MODE_PARAM];
   const serviceCategoryCodeFromParam = searchParams.get(BOOKING_SERVICE_CATEGORY_PARAM);
   const atLocationSlug = searchParams.get('atLocation');
@@ -471,7 +480,9 @@ const PrebookVisit: FC = () => {
               onChange={handleBookableSelection}
               groupBy={isCategorized ? (option) => option.category ?? '' : undefined}
               value={selectedLocation}
-              isOptionEqualToValue={(option, value) => option.state === value.state}
+              isOptionEqualToValue={(option, value) =>
+                option.resourceType === value.resourceType && option.resourceId === value.resourceId
+              }
               renderOption={(props, option) => (
                 <li {...props} key={`option-${option.resourceId}`}>
                   <Box>
