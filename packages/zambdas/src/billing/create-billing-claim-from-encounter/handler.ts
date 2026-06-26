@@ -155,7 +155,6 @@ export async function handler(input: ZambdaInput): Promise<APIGatewayProxyResult
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
   const billingOystehr = createBillingClient(m2mToken, params.secrets);
-  // CW TODO: expand to helper and use in all zambdas
   const clinicalOystehr = createClinicalOystehrClient(m2mToken, params.secrets);
 
   const cvo = await complexValidation(clinicalOystehr, billingOystehr, params);
@@ -1006,7 +1005,6 @@ async function findExistingBillingResources(
   ).unbundle();
   const autoAccidentTag = tagSearch.find((tag) => tag.code.text === AUTO_ACCIDENT_TAG_NAME);
 
-  // CW TODO: search billing service category Basic resources and create if not exist
   let billingService: Basic | undefined;
   const appointmentService = getService(originals.appointment);
   if (appointmentService) {

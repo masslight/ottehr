@@ -30,7 +30,6 @@ import {
   CODE_SYSTEM_CLAIM_TYPE,
   CODE_SYSTEM_CLAIM_TYPE_CODES,
   CODE_SYSTEM_COVERAGE_CLASS,
-  CODE_SYSTEM_SERVICE_CATEGORY_CODES,
   CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM,
   convertFhirNameToDisplayName,
   createCoverageMemberIdentifier,
@@ -465,15 +464,11 @@ export function getClaimTypeCoding(type?: keyof typeof CODE_SYSTEM_CLAIM_TYPE_CO
 }
 
 export function getClaimService(claim: Claim): string | undefined {
-  // CW TODO: pass through code values
   const code = claim.meta?.tag?.find((c) => c.system === CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM)?.code;
   if (!code) {
     return undefined;
   }
-  if (!Object.hasOwn(CODE_SYSTEM_SERVICE_CATEGORY_CODES, code)) {
-    return undefined;
-  }
-  return code as keyof typeof CODE_SYSTEM_SERVICE_CATEGORY_CODES;
+  return code;
 }
 
 // --- Coverage / insurance helpers ---

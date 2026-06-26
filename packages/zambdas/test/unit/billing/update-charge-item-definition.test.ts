@@ -79,7 +79,6 @@ describe('update-charge-item-definition', () => {
       });
     });
     it('succeeds with maximal input', async () => {
-      // CW TODO
       const body: UpdateChargeItemDefinitionInput = {
         type: 'charge-master',
         chargeItemDefinitionId: '0f8a9b3c-fd93-42a1-8560-6ca4bc9446c9',
@@ -128,7 +127,6 @@ describe('update-charge-item-definition', () => {
       });
     });
     it('succeeds with only removing optional fields input', async () => {
-      // CW TODO
       const body: UpdateChargeItemDefinitionInput = {
         type: 'charge-master',
         chargeItemDefinitionId: '0f8a9b3c-fd93-42a1-8560-6ca4bc9446c9',
