@@ -9,7 +9,7 @@ import app from '../../src/local-server/index';
 import { getAuth0Token } from '../../src/shared';
 import { SECRETS } from '../data/secrets';
 import { assertNoLeakedResourcesForRun } from './integration-leak-gate';
-import { addRunTagToResource } from './integration-test-seed-data-setup';
+import { addRunTagToResource } from './integration-tags';
 
 let server: Server | undefined;
 

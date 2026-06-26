@@ -1,6 +1,6 @@
 import Oystehr, { BatchInputDeleteRequest, FhirResource, FhirSearchParams } from '@oystehr/sdk';
 import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
-import { INTEGRATION_TEST_PROCESS_ID_SYSTEM, INTEGRATION_TEST_RUN_SYSTEM } from './integration-test-seed-data-setup';
+import { INTEGRATION_TEST_PROCESS_ID_SYSTEM, INTEGRATION_TEST_RUN_SYSTEM } from './integration-tags';
 
 /**
  * Resource types the integration suite is known to create. The leak gate searches each by the

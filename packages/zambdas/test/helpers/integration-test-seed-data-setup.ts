@@ -17,20 +17,17 @@ import { cleanAppointmentGraph } from 'utils/lib/utils/e2eCleanup';
 import { inject } from 'vitest';
 import { createBillingClient } from '../../src/billing/shared';
 import { SECRETS } from '../data/secrets';
+import {
+  addRunTagToResource,
+  INTEGRATION_TEST_PROCESS_ID_SYSTEM,
+  INTEGRATION_TEST_RUN_SYSTEM,
+} from './integration-tags';
 
-/**
- * Constants for integration test setup
- */
-export const INTEGRATION_TEST_PROCESS_ID_SYSTEM = 'INTEGRATION_TEST_PROCESS_ID_SYSTEM';
-
-/**
- * Per-run tag system. A single runId — generated once in integration-global-setup and published to
- * every worker via vitest `inject` — is stamped onto each resource the suite creates, alongside the
- * per-file processId tag. The suite-wide leak gate in global teardown searches for this tag to prove
- * every resource created during THIS run was cleaned up; the runId keeps that assertion isolated from
- * any other test run sharing the same backend.
- */
-export const INTEGRATION_TEST_RUN_SYSTEM = 'INTEGRATION_TEST_RUN_ID_SYSTEM';
+// The tag-system constants and the run-tag helper live in integration-tags.ts (which is free of any
+// `vitest` import) so global setup and the leak gate can use them without loading this module — this
+// one imports `inject` from `vitest`, which must not be loaded in the globalSetup context. Re-exported
+// here so existing test-file imports keep resolving.
+export { addRunTagToResource, INTEGRATION_TEST_PROCESS_ID_SYSTEM, INTEGRATION_TEST_RUN_SYSTEM };
 
 // Set once per worker by setupIntegrationTest (from inject('INTEGRATION_TEST_RUN_ID')) so the
 // synchronous addProcessIdMetaTagToResource helper can stamp it without each call site passing it.
@@ -91,21 +88,6 @@ export const addProcessIdMetaTagToResource = (resource: FhirResource, processId:
       // this run leaves behind and attribute it back to this processId.
       ...(currentRunId ? [{ system: INTEGRATION_TEST_RUN_SYSTEM, code: currentRunId }] : []),
     ],
-  };
-  return resource;
-};
-
-/**
- * Stamps only the per-run tag. For resources created outside the per-file processId flow
- * (e.g. the shared M2M profiles provisioned in global setup) so the leak gate covers them too.
- * @param resource - The FHIR resource to tag
- * @param runId - The per-run id
- */
-export const addRunTagToResource = (resource: FhirResource, runId: string): FhirResource => {
-  const existingMeta = resource.meta || { tag: [] };
-  resource.meta = {
-    ...existingMeta,
-    tag: [...(existingMeta.tag ?? []), { system: INTEGRATION_TEST_RUN_SYSTEM, code: runId }],
   };
   return resource;
 };
