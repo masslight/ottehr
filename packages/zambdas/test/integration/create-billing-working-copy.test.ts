@@ -1,8 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { Patient } from 'fhir/r4b';
-import { M2MClientMockType } from 'utils';
+import { BILLING_RESOURCE_TAG, M2MClientMockType } from 'utils';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { BILLING_RESOURCE_TAG } from '../../src/billing/shared';
 import {
   InsertFullAppointmentDataBaseResult,
   insertInPersonAppointmentBase,

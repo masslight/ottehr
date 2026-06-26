@@ -26,7 +26,8 @@ describe('get-appointments integration — happy path', () => {
   it('returns appointments for a provider on a given day', async () => {
     const response = await oystehrZambdas.zambda.execute({
       id: 'get-appointments',
-      searchDate: DateTime.now().toISODate(),
+      searchDateFrom: DateTime.now().toISODate(),
+      searchDateTo: DateTime.now().toISODate(),
       timezone: 'America/New_York',
       visitType: ['in-person-walk-in'],
       providerIds: [practitionerId],
