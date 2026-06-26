@@ -1111,8 +1111,12 @@ function buildClaim(resources: ClaimResources): Claim {
   let total = 0;
   const claim: Claim = {
     resourceType: 'Claim',
-    // Backlink to the source clinical encounter; also the key complexValidation() dedups on.
-    identifier: [{ system: ottehrIdentifierSystem('claim-encounter-id'), value: resources.encounter.id! }],
+    identifier: [
+      // Backlink to the source clinical encounter; also the key complexValidation() dedups on.
+      { system: ottehrIdentifierSystem('claim-encounter-id'), value: resources.encounter.id! },
+      // Backlink to the source clinical appointment — the EHR /visit/<id> route key for jumping to clinical.
+      { system: ottehrIdentifierSystem('claim-appointment-id'), value: resources.appointment.id! },
+    ],
     status: 'draft',
     meta: {
       tag: [
