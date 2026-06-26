@@ -109,12 +109,24 @@ const useBookingParams = (
     PractitionerRole: ScheduleType.provider,
   };
 
+  // When bookingOn is present, default scheduleType to 'location' so a
+  // bookmark with a missing/invalid scheduleType still issues get-schedule
+  // — without this fallback an unrecognized value (collapsed to null by
+  // the validator above) would gate get-schedule off entirely and the page
+  // would render slot-less with no error. Server-side slug resolution will
+  // surface a 400 if the bookingOn slug isn't actually a Location, which
+  // is the right visible failure mode.
+  const scheduleType =
+    scheduleTypeFromParam ||
+    (selectedLocation && typeMap[selectedLocation.resourceType]) ||
+    (bookingOn ? ScheduleType.location : null);
+
   return {
     serviceMode: serviceModeFromParam as ServiceMode,
     serviceModeFromParam,
     bookingOn,
     selectedSlot: searchParams.get(BOOKING_SCHEDULE_SELECTED_SLOT) ?? undefined,
-    scheduleType: scheduleTypeFromParam || (selectedLocation && typeMap[selectedLocation.resourceType]),
+    scheduleType,
     scheduleTypeFromParam,
     slugToFetch: bookingOn ?? selectedLocation?.slug,
     serviceCategoryCode: ServiceCategoryCodeSchema.safeParse(serviceCategoryCodeFromParam)?.data ?? undefined,
