@@ -98,7 +98,9 @@ describe('Prebook Cancel Appointment - validateRequestParameters', () => {
       cancellationReason: 123,
     });
 
-    expect(() => validatePrebookCancelParams(input)).toThrow(/cancellationReason/);
+    expect(() => validatePrebookCancelParams(input)).toThrow(
+      'Validation error: Expected string, received number at "cancellationReason"'
+    );
   });
 
   test('should throw error when cancellationReasonAdditional is not a string', () => {
@@ -108,7 +110,9 @@ describe('Prebook Cancel Appointment - validateRequestParameters', () => {
       cancellationReasonAdditional: 123,
     });
 
-    expect(() => validatePrebookCancelParams(input)).toThrow(/cancellationReasonAdditional/);
+    expect(() => validatePrebookCancelParams(input)).toThrow(
+      'Validation error: Expected string, received number at "cancellationReasonAdditional"'
+    );
   });
 
   test('should throw error when cancellationReasonAdditional is an object', () => {
@@ -118,7 +122,9 @@ describe('Prebook Cancel Appointment - validateRequestParameters', () => {
       cancellationReasonAdditional: { reason: 'test' },
     });
 
-    expect(() => validatePrebookCancelParams(input)).toThrow(/cancellationReasonAdditional/);
+    expect(() => validatePrebookCancelParams(input)).toThrow(
+      'Validation error: Expected string, received object at "cancellationReasonAdditional"'
+    );
   });
 
   test('should throw error when cancellationReasonAdditional is an array', () => {
@@ -128,7 +134,9 @@ describe('Prebook Cancel Appointment - validateRequestParameters', () => {
       cancellationReasonAdditional: ['reason1', 'reason2'],
     });
 
-    expect(() => validatePrebookCancelParams(input)).toThrow(/cancellationReasonAdditional/);
+    expect(() => validatePrebookCancelParams(input)).toThrow(
+      'Validation error: Expected string, received array at "cancellationReasonAdditional"'
+    );
   });
 
   test('should accept empty string for cancellationReasonAdditional', () => {
@@ -183,7 +191,7 @@ describe('Telemed Cancel Appointment - validateRequestParameters', () => {
       secrets: null,
     };
 
-    expect(() => validateTelemedCancelParams(input)).toThrow();
+    expect(() => validateTelemedCancelParams(input)).toThrow('No request body provided');
   });
 
   test('should throw error when appointmentID is missing', () => {

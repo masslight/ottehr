@@ -19,15 +19,19 @@ describe('get-stripe-account-info validateRequestParameters', () => {
   });
 
   it('throws when stripeAccountId is missing', () => {
-    expect(() => validateRequestParameters(makeInput({}))).toThrow(/stripeAccountId/);
+    expect(() => validateRequestParameters(makeInput({}))).toThrow('Validation error: Required at "stripeAccountId"');
   });
 
   it('throws when stripeAccountId is empty string', () => {
-    expect(() => validateRequestParameters(makeInput({ stripeAccountId: '' }))).toThrow();
+    expect(() => validateRequestParameters(makeInput({ stripeAccountId: '' }))).toThrow(
+      'Validation error: String must contain at least 1 character(s) at "stripeAccountId"'
+    );
   });
 
   it('throws when stripeAccountId is not a string', () => {
-    expect(() => validateRequestParameters(makeInput({ stripeAccountId: 99 }))).toThrow();
+    expect(() => validateRequestParameters(makeInput({ stripeAccountId: 99 }))).toThrow(
+      'Validation error: Expected string, received number at "stripeAccountId"'
+    );
   });
 
   it('parses a stringified body', () => {

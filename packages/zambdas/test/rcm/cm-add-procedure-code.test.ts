@@ -22,21 +22,27 @@ describe('cm-add-procedure-code validateRequestParameters', () => {
   });
 
   it('throws when body is missing', () => {
-    expect(() => validateRequestParameters({ headers: null, body: null, secrets: null })).toThrow();
+    expect(() => validateRequestParameters({ headers: null, body: null, secrets: null })).toThrow(
+      'The request was missing a required request body'
+    );
   });
 
   it('throws when chargeMasterId is missing', () => {
-    expect(() => validateRequestParameters(makeInput({ code: '99213', amount: 150 }))).toThrow(/chargeMasterId/);
+    expect(() => validateRequestParameters(makeInput({ code: '99213', amount: 150 }))).toThrow(
+      'Validation error: Required at "chargeMasterId"'
+    );
   });
 
   it('throws when code is missing', () => {
-    expect(() => validateRequestParameters(makeInput({ chargeMasterId: VALID_UUID, amount: 150 }))).toThrow(/code/);
+    expect(() => validateRequestParameters(makeInput({ chargeMasterId: VALID_UUID, amount: 150 }))).toThrow(
+      'Validation error: Required at "code"'
+    );
   });
 
   it('throws when amount is not a number', () => {
     expect(() =>
       validateRequestParameters(makeInput({ chargeMasterId: VALID_UUID, code: '99213', amount: 'abc' }))
-    ).toThrow(/amount/);
+    ).toThrow('Validation error: Expected number, received string at "amount"');
   });
 
   it('returns undefined modifier/description when omitted', () => {

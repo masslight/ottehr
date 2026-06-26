@@ -43,7 +43,9 @@ describe('cm-bulk-add-procedure-codes validateRequestParameters', () => {
   });
 
   it('throws when codes is empty', () => {
-    expect(() => validateRequestParameters(makeInput({ chargeMasterId: VALID_UUID, codes: [] }))).toThrow();
+    expect(() => validateRequestParameters(makeInput({ chargeMasterId: VALID_UUID, codes: [] }))).toThrow(
+      'Validation error: Array must contain at least 1 element(s) at "codes"'
+    );
   });
 
   it('defaults replaceAll to false', () => {

@@ -36,23 +36,31 @@ describe('save-terminal-location validateRequestParameters', () => {
   });
 
   it('throws when locationId is missing', () => {
-    expect(() => validateRequestParameters(makeInput({}))).toThrow(/locationId/);
+    expect(() => validateRequestParameters(makeInput({}))).toThrow('Validation error: Required at "locationId"');
   });
 
   it('throws when locationId is empty string', () => {
-    expect(() => validateRequestParameters(makeInput({ locationId: '' }))).toThrow();
+    expect(() => validateRequestParameters(makeInput({ locationId: '' }))).toThrow(
+      'Validation error: Invalid uuid at "locationId"'
+    );
   });
 
   it('throws when locationId is not a string', () => {
-    expect(() => validateRequestParameters(makeInput({ locationId: 42 }))).toThrow();
+    expect(() => validateRequestParameters(makeInput({ locationId: 42 }))).toThrow(
+      'Validation error: Expected string, received number at "locationId"'
+    );
   });
 
   it('throws when terminalLocationId is not a string or null', () => {
-    expect(() => validateRequestParameters(makeInput({ locationId: VALID_UUID, terminalLocationId: 123 }))).toThrow();
+    expect(() => validateRequestParameters(makeInput({ locationId: VALID_UUID, terminalLocationId: 123 }))).toThrow(
+      'Validation error: Expected string, received number at "terminalLocationId"'
+    );
   });
 
   it('throws when terminalLocationId is an empty string', () => {
-    expect(() => validateRequestParameters(makeInput({ locationId: VALID_UUID, terminalLocationId: '' }))).toThrow();
+    expect(() => validateRequestParameters(makeInput({ locationId: VALID_UUID, terminalLocationId: '' }))).toThrow(
+      'Validation error: String must contain at least 1 character(s) at "terminalLocationId"'
+    );
   });
 
   it('accepts whitespace-only terminalLocationId as a valid string', () => {

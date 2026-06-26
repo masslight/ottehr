@@ -22,21 +22,27 @@ describe('add-procedure-code validateRequestParameters', () => {
   });
 
   it('throws when body is missing', () => {
-    expect(() => validateRequestParameters({ headers: null, body: null, secrets: null })).toThrow();
+    expect(() => validateRequestParameters({ headers: null, body: null, secrets: null })).toThrow(
+      'The request was missing a required request body'
+    );
   });
 
   it('throws when feeScheduleId is missing', () => {
-    expect(() => validateRequestParameters(makeInput({ code: '99213', amount: 150 }))).toThrow(/feeScheduleId/);
+    expect(() => validateRequestParameters(makeInput({ code: '99213', amount: 150 }))).toThrow(
+      'Validation error: Required at "feeScheduleId"'
+    );
   });
 
   it('throws when code is missing', () => {
-    expect(() => validateRequestParameters(makeInput({ feeScheduleId: VALID_UUID, amount: 150 }))).toThrow(/code/);
+    expect(() => validateRequestParameters(makeInput({ feeScheduleId: VALID_UUID, amount: 150 }))).toThrow(
+      'Validation error: Required at "code"'
+    );
   });
 
   it('throws when amount is not a number', () => {
     expect(() =>
       validateRequestParameters(makeInput({ feeScheduleId: VALID_UUID, code: '99213', amount: 'abc' }))
-    ).toThrow(/amount/);
+    ).toThrow('Validation error: Expected number, received string at "amount"');
   });
 
   it('passes through optional modifier and description', () => {

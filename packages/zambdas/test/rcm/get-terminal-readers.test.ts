@@ -24,19 +24,21 @@ describe('get-terminal-readers validateRequestParameters', () => {
   });
 
   it('throws when stripeAccountId is missing', () => {
-    expect(() => validateRequestParameters(makeInput({ terminalLocationId: 'tml_456def' }))).toThrow(/stripeAccountId/);
+    expect(() => validateRequestParameters(makeInput({ terminalLocationId: 'tml_456def' }))).toThrow(
+      'Validation error: Required at "stripeAccountId"'
+    );
   });
 
   it('throws when stripeAccountId is empty string', () => {
     expect(() =>
       validateRequestParameters(makeInput({ stripeAccountId: '', terminalLocationId: 'tml_456def' }))
-    ).toThrow();
+    ).toThrow('Validation error: String must contain at least 1 character(s) at "stripeAccountId"');
   });
 
   it('throws when stripeAccountId is not a string', () => {
     expect(() =>
       validateRequestParameters(makeInput({ stripeAccountId: 123, terminalLocationId: 'tml_456def' }))
-    ).toThrow();
+    ).toThrow('Validation error: Expected string, received number at "stripeAccountId"');
   });
 
   it('throws when terminalLocationId is missing', () => {
@@ -48,13 +50,13 @@ describe('get-terminal-readers validateRequestParameters', () => {
   it('throws when terminalLocationId is empty string', () => {
     expect(() =>
       validateRequestParameters(makeInput({ stripeAccountId: 'acct_123abc', terminalLocationId: '' }))
-    ).toThrow();
+    ).toThrow('Validation error: String must contain at least 1 character(s) at "terminalLocationId"');
   });
 
   it('throws when terminalLocationId is not a string', () => {
     expect(() =>
       validateRequestParameters(makeInput({ stripeAccountId: 'acct_123abc', terminalLocationId: 42 }))
-    ).toThrow();
+    ).toThrow('Validation error: Expected string, received number at "terminalLocationId"');
   });
 
   it('parses a stringified body', () => {

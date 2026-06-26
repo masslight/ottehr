@@ -37,7 +37,9 @@ describe('bulk-add-procedure-codes validateRequestParameters', () => {
   });
 
   it('throws when body is missing', () => {
-    expect(() => validateRequestParameters({ headers: null, body: null, secrets: null })).toThrow();
+    expect(() => validateRequestParameters({ headers: null, body: null, secrets: null })).toThrow(
+      'The request was missing a required request body'
+    );
   });
 
   it('throws when feeScheduleId is missing', () => {
@@ -47,17 +49,21 @@ describe('bulk-add-procedure-codes validateRequestParameters', () => {
   });
 
   it('throws when codes is empty', () => {
-    expect(() => validateRequestParameters(makeInput({ feeScheduleId: VALID_UUID, codes: [] }))).toThrow();
+    expect(() => validateRequestParameters(makeInput({ feeScheduleId: VALID_UUID, codes: [] }))).toThrow(
+      'Validation error: Array must contain at least 1 element(s) at "codes"'
+    );
   });
 
   it('throws when codes is not an array', () => {
-    expect(() => validateRequestParameters(makeInput({ feeScheduleId: VALID_UUID, codes: 'not-array' }))).toThrow();
+    expect(() => validateRequestParameters(makeInput({ feeScheduleId: VALID_UUID, codes: 'not-array' }))).toThrow(
+      'Validation error: Expected array, received string at "codes"'
+    );
   });
 
   it('throws when a row has invalid amount', () => {
     expect(() =>
       validateRequestParameters(makeInput({ feeScheduleId: VALID_UUID, codes: [{ code: '99213', amount: 'abc' }] }))
-    ).toThrow();
+    ).toThrow('Validation error: Expected number, received string at "codes[0].amount"');
   });
 
   it('defaults replaceAll to false when omitted', () => {

@@ -22,7 +22,7 @@ describe('get-version-history validateRequestParameters', () => {
   });
 
   it('throws when resourceId is missing', () => {
-    expect(() => validateRequestParameters(makeInput({}))).toThrow(/resourceId/);
+    expect(() => validateRequestParameters(makeInput({}))).toThrow('Validation error: Required at "resourceId"');
   });
 });
 
