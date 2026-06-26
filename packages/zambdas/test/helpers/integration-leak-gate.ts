@@ -54,7 +54,9 @@ const LEAK_SWEEP_RESOURCE_TYPES: FhirResource['resourceType'][] = [
  * 'warn': clean + log those stragglers without failing the run (the backstop owns mop-up).
  * 'fail': additionally fail the run, to force every test to be fully self-cleaning.
  */
-const LEAK_GATE_MODE: 'fail' | 'warn' = 'warn';
+// `as` (not a plain annotation) keeps the type the full union so both `=== 'fail'` and `=== 'warn'`
+// stay valid comparisons — otherwise TS narrows this const to its literal and flags one as TS2367.
+const LEAK_GATE_MODE = 'warn' as 'fail' | 'warn';
 
 const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
 
