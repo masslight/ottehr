@@ -19,6 +19,7 @@ import { Link, Outlet, useLocation } from 'react-router-dom';
 import { adjustTopForBannerHeight } from 'src/helpers/misc.helper';
 import { ArrowIcon } from '../visits/shared/components/Sidebar';
 import { adminNavGroups } from './adminNav';
+import { isItemActive } from './adminRoutes';
 
 const CLOSED_DRAWER_WIDTH = 56;
 const OPEN_DRAWER_WIDTH = 250;
@@ -30,9 +31,6 @@ const NAVBAR_OFFSET = adjustTopForBannerHeight(81);
 interface AdminSidebarProps {
   children: ReactNode;
 }
-
-const isItemActive = (pathname: string, itemPath: string): boolean =>
-  pathname === itemPath || pathname.startsWith(`${itemPath}/`);
 
 export const AdminSidebar: FC<AdminSidebarProps> = ({ children }) => {
   const theme = useTheme();

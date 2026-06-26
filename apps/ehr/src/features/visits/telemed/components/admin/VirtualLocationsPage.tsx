@@ -17,11 +17,11 @@ import {
 import { Location } from 'fhir/r4b';
 import React, { ReactElement } from 'react';
 import { Link } from 'react-router-dom';
-import { VIRTUAL_LOCATIONS_URL } from 'src/App';
 import { BooleanStateChip } from 'src/components/BooleanStateChip';
 import Loading from 'src/components/Loading';
 import { STATES_ROWS_PER_PAGE } from 'src/constants';
 import { dataTestIds } from 'src/constants/data-test-ids';
+import { VIRTUAL_LOCATIONS_URL } from 'src/features/admin/adminRoutes';
 import { useVirtualLocationsQuery } from './admin.queries';
 
 export default function VirtualLocationsPage(): ReactElement {

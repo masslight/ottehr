@@ -28,8 +28,8 @@ import { ChargeItemDefinition } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
 import React, { ReactElement } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { CHARGE_MASTERS_URL, FEE_SCHEDULES_URL } from 'src/App';
 import { AdminHeaderActionSlot } from 'src/features/admin/AdminPageHeader';
+import { CHARGE_MASTERS_URL, FEE_SCHEDULES_URL } from 'src/features/admin/adminRoutes';
 import {
   useCreateChargeMasterMutation,
   useListChargeMastersQuery,

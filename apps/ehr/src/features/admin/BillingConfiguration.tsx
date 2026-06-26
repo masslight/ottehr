@@ -15,7 +15,7 @@ import {
 } from '@mui/material';
 import React, { ReactElement } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { PAYMENT_LOCATIONS_URL } from 'src/App';
+import { PAYMENT_LOCATIONS_URL } from 'src/features/admin/adminRoutes';
 import { PaymentLocation } from 'src/rcm/state/payments/payments.api';
 import { usePaymentLocationsQuery } from 'src/rcm/state/payments/payments.queries';
 

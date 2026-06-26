@@ -18,6 +18,16 @@ import { TestErrorPage } from './components/TestErrorPage';
 import { FEATURE_FLAGS } from './constants/feature-flags';
 import { CustomThemeProvider } from './CustomThemeProvider';
 import { DEFAULT_BILLING_PATH } from './features/admin/adminNav';
+import {
+  BILLING_URL,
+  CHARGE_MASTERS_URL,
+  FEE_SCHEDULES_URL,
+  GLOBAL_TEMPLATES_URL,
+  INSURANCES_URL,
+  OUTREACH_URL,
+  PAYMENT_LOCATIONS_URL,
+  VIRTUAL_LOCATIONS_URL,
+} from './features/admin/adminRoutes';
 import { AdminLayout } from './features/admin/AdminSidebar';
 import { UnsolicitedResultsInbox } from './features/external-labs/pages/UnsolicitedResultsInbox';
 import { UnsolicitedResultsMatch } from './features/external-labs/pages/UnsolicitedResultsMatch';
@@ -83,16 +93,6 @@ setupSentry({
 });
 
 const InPersonRoutingLazy = lazy(() => import('./features/visits/in-person/routing/InPersonRouting'));
-
-export const INSURANCES_URL = '/admin/insurances';
-export const FEE_SCHEDULES_URL = '/admin/fee-schedule';
-export const CHARGE_MASTERS_URL = '/admin/charge-masters';
-export const VIRTUAL_LOCATIONS_URL = '/admin/virtual-locations';
-export const BILLING_URL = '/admin/billing';
-export const BILLING_INSURANCE_URL = '/admin/billing/insurance';
-export const PAYMENT_LOCATIONS_URL = '/admin/billing/payments/locations';
-export const OUTREACH_URL = '/admin/outreach';
-export const GLOBAL_TEMPLATES_URL = '/admin/global-templates';
 
 const MUI_X_LICENSE_KEY = import.meta.env.VITE_APP_MUI_X_LICENSE_KEY;
 if (MUI_X_LICENSE_KEY != null) {
