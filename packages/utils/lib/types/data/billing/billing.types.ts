@@ -410,6 +410,16 @@ export interface CreatedClaimResponse {
   claimId: string;
 }
 
+export interface SubmitBillingClaimResult {
+  claimId: string;
+  status: 'submitted' | 'error';
+  error?: string;
+}
+
+export interface SubmitBillingClaimsResponse {
+  results: SubmitBillingClaimResult[];
+}
+
 export type ChargeItemDefinitionType = 'charge-master' | 'fee-schedule';
 
 export type ChargeItemDefinitionDefault = 'insurance' | 'self-pay';

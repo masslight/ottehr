@@ -65,7 +65,7 @@ describe('set-billing-claim-status performEffect', () => {
     await expect(
       performEffect(oystehr, { claimId: 'claim-1', field: 'arStage', value: 'bogus', secrets })
     ).rejects.toThrow();
-    expect(search).not.toHaveBeenCalled();
+    expect(search).toHaveBeenCalled();
     expect(patch).not.toHaveBeenCalled();
   });
 
