@@ -6,13 +6,9 @@ test.describe('Invoicing Admin', () => {
   test('navigates to Invoicing tab and loads settings', async ({ page }) => {
     await page.goto('/admin/billing/invoicing');
 
-    await test.step('Invoicing tab is selected', async () => {
-      const tabList = page.getByRole('tablist', { name: 'Billing configuration tabs' });
-      await expect(tabList.getByRole('tab', { name: 'Invoicing' })).toHaveAttribute(
-        'aria-selected',
-        'true',
-        DEFAULT_TIMEOUT
-      );
+    await test.step('Invoicing sidebar item is selected', async () => {
+      // The admin nav is now a sidebar; the active item carries MUI's selected class.
+      await expect(page.locator('a[href="/admin/billing/invoicing"] .Mui-selected')).toBeVisible(DEFAULT_TIMEOUT);
     });
 
     await test.step('Default Invoicing Settings heading is visible', async () => {
@@ -100,26 +96,18 @@ test.describe('Invoicing Admin', () => {
     });
   });
 
-  test('billing sub-tab navigation works from Invoicing', async ({ page }) => {
+  test('billing sub-page navigation works from Invoicing', async ({ page }) => {
     await page.goto('/admin/billing/invoicing');
-    const tabList = page.getByRole('tablist', { name: 'Billing configuration tabs' });
-    await expect(tabList.getByRole('tab', { name: 'Invoicing' })).toHaveAttribute(
-      'aria-selected',
-      'true',
-      DEFAULT_TIMEOUT
-    );
+    await expect(page.locator('a[href="/admin/billing/invoicing"] .Mui-selected')).toBeVisible(DEFAULT_TIMEOUT);
 
-    await test.step('Switch to Fee Schedules tab', async () => {
-      await tabList.getByRole('tab', { name: 'Fee Schedules' }).click();
-      await expect(tabList.getByRole('tab', { name: 'Fee Schedules' })).toHaveAttribute(
-        'aria-selected',
-        'true',
-        DEFAULT_TIMEOUT
-      );
+    await test.step('Switch to Fee Schedules', async () => {
+      await page.locator('a[href="/admin/billing/fee-schedules"]').click();
+      await page.waitForURL('**/billing/fee-schedules');
+      await expect(page.locator('a[href="/admin/billing/fee-schedules"] .Mui-selected')).toBeVisible(DEFAULT_TIMEOUT);
     });
 
-    await test.step('Switch back to Invoicing tab', async () => {
-      await tabList.getByRole('tab', { name: 'Invoicing' }).click();
+    await test.step('Switch back to Invoicing', async () => {
+      await page.locator('a[href="/admin/billing/invoicing"]').click();
       await expect(page.getByText('Default Invoicing Settings')).toBeVisible(DEFAULT_TIMEOUT);
     });
   });
