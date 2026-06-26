@@ -162,25 +162,62 @@ const useBookingData = (
   };
 };
 
+// Spelling-based article selection. Picks "an" when the next word starts
+// with a vowel letter, otherwise "a". Covers the realistic span of service-
+// category display names ("Urgent Care", "Occupational Medicine", "Workers
+// Comp", "Eye Care", …); the few orthographic-but-not-phonetic exceptions
+// ("a university", "an hour") aren't worth a phonetic dictionary here —
+// service-category labels in this product don't hit them.
+const articleFor = (word: string): 'a' | 'an' => {
+  const first = word.trim().charAt(0).toLowerCase();
+  return ['a', 'e', 'i', 'o', 'u'].includes(first) ? 'an' : 'a';
+};
+
 const getLocationTitleText = ({
   selectedLocation,
   bookingOn,
   slotData,
   isSlotsLoading,
+  serviceCategoryDisplay,
 }: {
   selectedLocation: BookableItem | null;
   bookingOn: string | null;
   slotData?: GetScheduleResponse;
   isSlotsLoading: boolean;
+  serviceCategoryDisplay?: string;
 }): string => {
   if ((!selectedLocation && !bookingOn) || isSlotsLoading) {
     return 'Book a visit';
   }
 
+  // For group bookings, the server overrides slotData.location.name to the
+  // resolved Location's name *when* the group flow has narrowed to a single
+  // concrete Location (explicit atLocationSlug, or the auto-pick for groups
+  // with exactly one qualifying Location). Multi-Location group flows that
+  // haven't resolved a Location yet return early server-side with
+  // pickableLocations and no slots — that case is handled by the location-
+  // picker effect below, not this title. For location/provider owners
+  // slotData.location.name is already the correct name. selectedLocation /
+  // bookingOn are the Autocomplete / URL fallbacks when slotData hasn't
+  // resolved yet.
   const locationName = slotData?.location?.name || selectedLocation?.label || bookingOn;
   const isProviderSchedule = slotData?.location?.scheduleOwnerType === ScheduleType.provider;
   const preposition = isProviderSchedule ? 'with' : 'at';
-  return `Book a visit ${preposition} ${locationName}`;
+  // Compose "Book a/an {category} visit {at|with} {location}". Article is
+  // chosen by the category's first letter ("an Urgent Care", "a Workers
+  // Comp"); falls back to the plain "a" when no category is resolved.
+  // Segments drop out when their data isn't ready so the title degrades
+  // gracefully ("Book a visit", "Book an Urgent Care visit", etc.) rather
+  // than rendering stranded whitespace.
+  const parts: string[] = ['Book'];
+  if (serviceCategoryDisplay) {
+    parts.push(articleFor(serviceCategoryDisplay), serviceCategoryDisplay);
+  } else {
+    parts.push('a');
+  }
+  parts.push('visit');
+  if (locationName) parts.push(preposition, locationName);
+  return parts.join(' ');
 };
 
 const PrebookVisit: FC = () => {
@@ -351,7 +388,21 @@ const PrebookVisit: FC = () => {
     }
   };
 
-  const title = getLocationTitleText({ selectedLocation, bookingOn, slotData, isSlotsLoading });
+  // Service category display name — resolved from the category code carried
+  // in the URL once the picker (or single-match auto-select) has set it. Uses
+  // the same scoped-or-system catalog the picker-redirect effect above
+  // consults, so the display name lines up with whatever the patient picked.
+  const serviceCategoryDisplay = serviceCategoryCode
+    ? scopedServiceCategories.find((sc) => sc.category.code === serviceCategoryCode)?.category.display
+    : undefined;
+
+  const title = getLocationTitleText({
+    selectedLocation,
+    bookingOn,
+    slotData,
+    isSlotsLoading,
+    serviceCategoryDisplay,
+  });
 
   if (serviceModeFromParam && !(serviceModeFromParam in ServiceMode)) {
     return <Navigate to={intakeFlowPageRoute.PrebookVisit.path} replace />;
