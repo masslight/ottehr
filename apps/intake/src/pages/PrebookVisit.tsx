@@ -2,7 +2,7 @@ import { Autocomplete, Skeleton, Tab, Tabs, TextField, Typography } from '@mui/m
 import { Box, styled } from '@mui/system';
 import { Slot } from 'fhir/r4b';
 import noop from 'lodash/noop';
-import { FC, useEffect, useState } from 'react';
+import { FC, useEffect, useMemo, useState } from 'react';
 import { generatePath, Navigate, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
   APIError,
@@ -70,6 +70,15 @@ const useBookingParams = (
   serviceMode: ServiceMode;
   bookingOn: string | null;
   scheduleType: ScheduleType | null;
+  /**
+   * Raw URL value of scheduleType, before the merge with the selected-
+   * location's resource type. Distinct from `scheduleType` because the
+   * picker needs to know what the URL explicitly asked for (vs. what we
+   * inferred from a downstream selection): if the URL didn't specify, the
+   * back-compat default for the picker is Locations-only, regardless of
+   * what the patient subsequently picks from it.
+   */
+  scheduleTypeFromParam: ScheduleType | null;
   selectedSlot: string | undefined;
   slugToFetch: string | undefined;
   serviceModeFromParam: string | undefined;
@@ -97,6 +106,7 @@ const useBookingParams = (
     bookingOn,
     selectedSlot: searchParams.get(BOOKING_SCHEDULE_SELECTED_SLOT) ?? undefined,
     scheduleType: scheduleTypeFromParam || (selectedLocation && typeMap[selectedLocation.resourceType]),
+    scheduleTypeFromParam,
     slugToFetch: bookingOn ?? selectedLocation?.slug,
     serviceCategoryCode: ServiceCategoryCodeSchema.safeParse(serviceCategoryCodeFromParam)?.data ?? undefined,
     atLocationSlug,
@@ -240,8 +250,15 @@ const PrebookVisit: FC = () => {
   const selectedLocation =
     (serviceModeFromParam ?? serviceMode) === 'in-person' ? selectedInPersonLocation : selectedVirtualLocation;
 
-  const { bookingOn, scheduleType, selectedSlot, slugToFetch, serviceCategoryCode, atLocationSlug } =
-    useBookingParams(selectedLocation);
+  const {
+    bookingOn,
+    scheduleType,
+    scheduleTypeFromParam,
+    selectedSlot,
+    slugToFetch,
+    serviceCategoryCode,
+    atLocationSlug,
+  } = useBookingParams(selectedLocation);
 
   // When the booking URL targets a multi-Location owner without specifying
   // an atLocation slug, get-schedule returns the list of qualifying
@@ -265,6 +282,26 @@ const PrebookVisit: FC = () => {
     slotData,
     isSlotsLoading,
   } = useBookingData(serviceMode, slugToFetch, scheduleType, serviceCategoryCode, atLocationSlug);
+
+  // Filter the picker's options by what the URL's scheduleType param says
+  // we're after:
+  //   - 'group' → Groups only
+  //   - 'location' or absent → Locations only
+  // The absent case is the back-compat anchor: deployed customers have
+  // bookmarked URLs like /prebook/in-person?serviceCategory=… that landed
+  // on a Location picker before Groups existed as a bookable entity. If we
+  // returned the full mixed list now, those bookmarks would silently start
+  // surfacing Groups alongside Locations the moment a customer adds one. New
+  // flows that want to surface a Group picker can opt in by setting
+  // scheduleType=group explicitly. list-bookables stays untouched so any
+  // other caller's behavior is unaffected. The bet here is that we won't actually
+  // want to show a mixed list of Locations + Groups in the same picker,
+  // so we don't need to add a "mixed" scheduleType value.
+  const filteredBookableItems = useMemo(() => {
+    const wantedResourceType: BookableItem['resourceType'] =
+      scheduleTypeFromParam === ScheduleType.group ? 'HealthcareService' : 'Location';
+    return bookableItems.filter((item) => item.resourceType === wantedResourceType);
+  }, [bookableItems, scheduleTypeFromParam]);
 
   // Picker-redirect: when a deep link carries scheduleType + bookingOn but
   // no serviceCategory, and the destination supports more than one category
@@ -428,7 +465,7 @@ const PrebookVisit: FC = () => {
           ) : (
             <Autocomplete
               id="bookable-autocomplete"
-              options={bookableItems}
+              options={filteredBookableItems}
               data-testid={dataTestIds.scheduleVirtualVisitStatesSelector}
               getOptionLabel={(option) => option.label || option.state || ''}
               onChange={handleBookableSelection}
