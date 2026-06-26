@@ -43,6 +43,8 @@ import {
   SearchBillingProcedureCodesResponse,
   SearchBillingProvidersInputSchema,
   SearchBillingProvidersResponse,
+  SearchBillingServicesInputSchema,
+  SearchBillingServicesResponse,
   SearchBillingTagsResponse,
   SearchChargeItemDefinitionsInputSchema,
   SearchChargeItemDefinitionsResponse,
@@ -148,6 +150,11 @@ export const deleteBillingProvider = (
 ): Promise<DeletedResponse> => executeBillingZambda(oystehr, 'delete-billing-provider', parameters);
 
 // --- Lookups (payers, locations, coverages) ---
+
+export const searchBillingServices = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof SearchBillingServicesInputSchema>
+): Promise<SearchBillingServicesResponse> => executeBillingZambda(oystehr, 'search-billing-services', parameters);
 
 export const searchBillingPayers = (
   oystehr: Oystehr,

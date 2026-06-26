@@ -1,11 +1,7 @@
 import { z } from 'zod';
 import { BIRTH_SEXES, SUBSCRIBER_RELATIONSHIPS } from '../../../fhir/constants';
 import { isCLIAValid, isNPIValidWithChecksum } from '../../../helpers/helpers';
-import {
-  CMS_PLACE_OF_SERVICE_CODE_SET,
-  CODE_SYSTEM_APPOINTMENT_TYPE_CODE_NAMES,
-  CODE_SYSTEM_CLAIM_TYPE_CODE_NAMES,
-} from '../../../helpers/rcm/constants';
+import { CMS_PLACE_OF_SERVICE_CODE_SET, CODE_SYSTEM_CLAIM_TYPE_CODE_NAMES } from '../../../helpers/rcm/constants';
 import { taxIdRegex, zipRegex } from '../../../validation';
 import { STATE_CODES } from '../../common';
 import {
@@ -127,7 +123,7 @@ export const SearchBillingClaimsInputSchema = z.object({
   createdTo: nonEmptyString.optional(),
   payerName: nonEmptyString.optional(),
   payerId: nonEmptyString.optional(),
-  appointmentType: z.enum(CODE_SYSTEM_APPOINTMENT_TYPE_CODE_NAMES).optional(),
+  service: nonEmptyString.optional(),
   patientId: nonEmptyString.optional(),
   offset: nonNegativeInt.optional(),
   pageSize: nonNegativeInt.optional(),
@@ -155,6 +151,10 @@ export const SearchBillingPatientsInputSchema = z.object({
 export const SearchBillingLocationsInputSchema = z.object({
   name: nonEmptyString.optional(),
   includeWorkingCopies: z.boolean().optional(),
+});
+
+export const SearchBillingServicesInputSchema = z.object({
+  name: nonEmptyString.optional(),
 });
 
 export const SearchBillingPayersInputSchema = z.object({
@@ -575,6 +575,7 @@ export type SearchBillingClaimsInput = z.output<typeof SearchBillingClaimsInputS
 export type SearchBillingProvidersInput = z.output<typeof SearchBillingProvidersInputSchema>;
 export type SearchBillingPatientsInput = z.output<typeof SearchBillingPatientsInputSchema>;
 export type SearchBillingLocationsInput = z.output<typeof SearchBillingLocationsInputSchema>;
+export type SearchBillingServicesInput = z.output<typeof SearchBillingServicesInputSchema>;
 export type SearchBillingPayersInput = z.output<typeof SearchBillingPayersInputSchema>;
 export type CreateBillingClaimInput = z.output<typeof CreateBillingClaimInputSchema>;
 export type CreateBillingProviderInput = z.output<typeof CreateBillingProviderInputSchema>;
