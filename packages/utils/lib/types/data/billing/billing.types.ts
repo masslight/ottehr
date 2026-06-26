@@ -1,5 +1,5 @@
 import { SubscriberRelationship } from '../../../fhir/constants';
-import { CODE_SYSTEM_APPOINTMENT_TYPE_CODES, CODE_SYSTEM_CLAIM_TYPE_CODES } from '../../../helpers';
+import { CODE_SYSTEM_CLAIM_TYPE_CODES } from '../../../helpers';
 import type { BillingInsuranceType } from './billing.schemas';
 import { ClaimStatusValues } from './claim-status';
 
@@ -191,7 +191,7 @@ export interface BillingClaimItem {
   payerName: string;
   payerId: string;
   memberId: string;
-  appointmentType: keyof typeof CODE_SYSTEM_APPOINTMENT_TYPE_CODES | undefined;
+  service: string | undefined;
   serviceDate: string;
   facility: string;
   renderingProvider: string;
@@ -252,7 +252,7 @@ export interface ClaimDetailResponse {
   created: string;
   billingType: string;
   billableStatus: string;
-  appointmentType?: string;
+  service?: string;
   patientName: string;
   patientDob: string;
   patientGender: string;
@@ -361,6 +361,10 @@ export interface SearchBillingLocationsResponse {
   locations: BillingLocationOption[];
 }
 
+export interface SearchBillingServicesResponse {
+  services: BillingService[];
+}
+
 export interface SearchBillingPayersResponse {
   payers: BillingPayerOption[];
 }
@@ -434,4 +438,8 @@ export interface BillingChargeItemDefinition {
   default?: ChargeItemDefinitionDefault;
   effectiveDate?: string;
   procedureCodes: BillingChargeItemDefinitionProcedureCode[];
+}
+
+export interface BillingService {
+  name: string;
 }
