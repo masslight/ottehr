@@ -120,6 +120,7 @@ jobs:
           flag-name: spec
           parallel: true
           file: ./packages/spec/coverage/lcov.info
+          fail-on-error: false
 
       - name: Upload test-utils coverage to Coveralls
         if: ${{ !cancelled() && hashFiles('packages/test-utils/coverage/lcov.info') != '' }}
@@ -128,6 +129,7 @@ jobs:
           flag-name: test-utils
           parallel: true
           file: ./packages/test-utils/coverage/lcov.info
+          fail-on-error: false
 
       - name: Upload deploy coverage to Coveralls
         if: ${{ !cancelled() && hashFiles('deploy/coverage/lcov.info') != '' }}
@@ -136,6 +138,7 @@ jobs:
           flag-name: deploy
           parallel: true
           file: ./deploy/coverage/lcov.info
+          fail-on-error: false
 
       - name: Upload utils coverage to Coveralls
         if: ${{ !cancelled() && hashFiles('packages/utils/coverage/lcov.info') != '' }}
@@ -144,6 +147,7 @@ jobs:
           flag-name: utils
           parallel: true
           file: ./packages/utils/coverage/lcov.info
+          fail-on-error: false
 
       - name: Upload zambdas coverage to Coveralls
         if: ${{ !cancelled() && hashFiles('packages/zambdas/coverage/integration/lcov.info') != '' }}
@@ -152,6 +156,7 @@ jobs:
           flag-name: zambdas
           parallel: true
           file: ./packages/zambdas/coverage/integration/lcov.info
+          fail-on-error: false
 
       - name: Upload EHR unit coverage to Coveralls
         if: ${{ !cancelled() && hashFiles('apps/ehr/coverage/unit/lcov.info') != '' }}
@@ -160,6 +165,7 @@ jobs:
           flag-name: ehr-unit
           parallel: true
           file: ./apps/ehr/coverage/unit/lcov.info
+          fail-on-error: false
 
       - name: Upload EHR component coverage to Coveralls
         if: ${{ !cancelled() && hashFiles('apps/ehr/coverage/component/lcov.info') != '' }}
@@ -168,6 +174,7 @@ jobs:
           flag-name: ehr-component
           parallel: true
           file: ./apps/ehr/coverage/component/lcov.info
+          fail-on-error: false
 
       - name: Upload intake unit coverage to Coveralls
         if: ${{ !cancelled() && hashFiles('apps/intake/coverage/unit/lcov.info') != '' }}
@@ -176,6 +183,7 @@ jobs:
           flag-name: intake-unit
           parallel: true
           file: ./apps/intake/coverage/unit/lcov.info
+          fail-on-error: false
 
       - name: Upload intake component coverage to Coveralls
         if: ${{ !cancelled() && hashFiles('apps/intake/coverage/component/lcov.info') != '' }}
@@ -184,6 +192,7 @@ jobs:
           flag-name: intake-component
           parallel: true
           file: ./apps/intake/coverage/component/lcov.info
+          fail-on-error: false
 
       - name: Coveralls parallel finished
         if: ${{ !cancelled() }}
@@ -191,6 +200,7 @@ jobs:
         with:
           parallel-finished: true
           carryforward: "spec,test-utils,deploy,utils,zambdas,ehr-unit,ehr-component,intake-unit,intake-component"
+          fail-on-error: false
 
       - name: Set GitHub Commit Status
         if: github.event_name == 'workflow_dispatch'
