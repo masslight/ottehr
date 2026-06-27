@@ -182,6 +182,46 @@ function normProblem(s: string): string {
     .trim();
 }
 
+// Recover the follow-up interval (in days) the provider stated, for set-disposition steps where the
+// model omitted followUpInDays — common with flash-lite on CONDITIONAL follow-ups ("follow up in a
+// week if not improving"). Parse the disposition's OWN text/sourceText (the follow-up sentence), not
+// the whole narrative — that contains unrelated time phrases ("started two days ago"). For a range
+// ("48–72 hours", "1–2 weeks") take the lower bound (the earlier date). Returns null if none found.
+function parseFollowUpDays(text: string): number | null {
+  const t = text.toLowerCase();
+  const word: Record<string, number> = {
+    a: 1,
+    an: 1,
+    one: 1,
+    two: 2,
+    three: 3,
+    four: 4,
+    five: 5,
+    six: 6,
+    seven: 7,
+    ten: 10,
+    fourteen: 14,
+  };
+  const num = (s: string): number => (/^\d+$/.test(s) ? parseInt(s, 10) : word[s] ?? NaN);
+  const tok = '(\\d+|a|an|one|two|three|four|five|six|seven|ten|fourteen)';
+  const hours = t.match(new RegExp(`${tok}\\s*(?:[–-]|to)?\\s*\\d*\\s*hours?`));
+  if (hours) {
+    const n = num(hours[1]);
+    if (!isNaN(n)) return Math.max(1, Math.round(n / 24));
+  }
+  const weeks = t.match(new RegExp(`${tok}\\s*(?:[–-]|to)?\\s*\\d*\\s*weeks?`));
+  if (weeks) {
+    const n = num(weeks[1]);
+    if (!isNaN(n)) return n * 7;
+  }
+  const days = t.match(new RegExp(`${tok}\\s*(?:[–-]|to)?\\s*\\d*\\s*days?`));
+  if (days) {
+    const n = num(days[1]);
+    if (!isNaN(n)) return n;
+  }
+  return null;
+}
+
 // Mirror the agent's intent kinds — the planner emits the same shape, just as a list.
 const KIND_VALUES = [
   'unknown',
@@ -651,7 +691,10 @@ ACTION SHAPES (use these intent kinds and the same fields the single-shot agent 
         good" → "CTAB", "tummy soft" → "abdomen soft", etc.
       * CC: 2-6 words ("Right ear pain", "Cough x3 days", "Auto accident"). Not a sentence.
       * MDM: clinical reasoning + plan rationale, not patient instructions. Use "consistent
-        with…", "differential includes…", "no red flags for…", "treated with…".
+        with…", "differential includes…", "no red flags for…", "treated with…". The MDM may state
+        the plan in shorthand, but every patient-FACING part of that plan (how to take meds incl. any
+        taper, OTC/supportive care, return precautions, follow-up) STILL needs its own
+        add-patient-instruction — mentioning it in the MDM does NOT relieve you of that step.
       * Skip pleasantries, marketing language, and obvious safety-net statements that the
         chart template already provides — focus on what's specific to THIS encounter.
 - add-exam-finding: { kind, display, searchTerms } — match against the practice's exam-template
@@ -739,8 +782,17 @@ RULES:
   ("in 48–72 hours" → 3; "in 1 week" → 7; "in 2 weeks" → 14). Example:
     {"kind":"set-disposition","dispositionType":"specialty","text":"Refer to orthopedic surgery for definitive management of the ankle fracture.","followUpInDays":3}
   DISPOSITION IS NEVER OPTIONAL when the provider states one — this is a patient-safety rule; never
-  silently drop it. A red-flag ED disposition ("go to the ER now") should ALSO be reinforced as an
-  add-patient-instruction so the take-home note carries it.
+  silently drop it. This holds even when the follow-up is CONDITIONAL ("follow up with PCP if not
+  improving in a week", "return if it worsens") and even when it offers a CHOICE ("dermatology or his
+  PCP") — STILL emit set-disposition, and STILL set followUpInDays from the stated interval ("in one
+  week" → 7, even when framed as "if not improving in a week"). Pick the type from who is named: a specialist named (even as
+  "<specialist> or PCP") → "specialty"; plain PCP / "your doctor" → "pcp"; "come back here / return to
+  the clinic" → "another". A stated follow-up is ALWAYS structured disposition data — writing it as an
+  add-patient-instruction does NOT replace the set-disposition; emit BOTH (the structured disposition
+  AND the take-home text), exactly as a red-flag ED disposition ("go to the ER now") goes in the
+  disposition AND as an add-patient-instruction. Example for "follow up with dermatology or his PCP if
+  the rash isn't improving in one week":
+    {"kind":"set-disposition","dispositionType":"specialty","text":"Follow up with dermatology or your PCP if the rash spreads or is not improving in 1 week.","followUpInDays":7}
 - RADIOLOGY / IMAGING (add-radiology) — order an imaging study (X-ray, ultrasound). Triggered by
   "get a chest X-ray", "3-view ankle film", "order a right wrist X-ray". Fields: kind, display (the
   study name including view count and body site, e.g. "3-view right ankle X-ray"), searchTerms (1-3
@@ -749,16 +801,30 @@ RULES:
 - NURSING ORDER (add-nursing-order) — a task for nursing staff. Triggered by "nursing order for
   wound care", "have nursing do a straight cath", "nursing to apply a splint". Field: kind, text
   (the nursing task as a directive, e.g. "Apply a posterior short-leg splint to the right ankle.").
-- PATIENT INSTRUCTIONS (add-patient-instruction) — patient-FACING guidance for the care plan: home
-  care, activity restrictions, how to take a medication, wound/splint care, RETURN PRECAUTIONS
-  ("come back / go to the ED if …"), and follow-up logistics ("follow up with orthopedics in 48–72
-  hours"). Emit ONE add-patient-instruction per distinct instruction, with the text written as a clear
-  directive TO THE PATIENT, e.g.
-    {"kind":"add-patient-instruction","text":"Keep the splint clean and dry and elevate the leg above heart level."}
-    {"kind":"add-patient-instruction","text":"Return to the ED for worsening pain, numbness, or cold/blue toes."}
-  Do NOT pile these into the MDM — MDM is the clinician's reasoning; patient instructions are what the
-  patient takes home. (A red-flag DISPOSITION to a higher level of care still ALSO goes in MDM per the
-  rule above; the take-home version of it can be a patient instruction too.)
+- PATIENT INSTRUCTIONS (add-patient-instruction) — patient-FACING guidance for the care plan. This is
+  REQUIRED, not optional: anything the patient must DO or WATCH FOR after the visit gets its own
+  add-patient-instruction, written as a clear directive TO THE PATIENT. The plan almost always ALSO
+  gets summarized in the MDM as clinician shorthand — that does NOT cover the patient. So emit the
+  patient-facing version SEPARATELY for EACH of these whenever the narrative states one:
+    • HOW TO TAKE EACH MEDICATION — the regimen the patient actually follows: dose, route, frequency,
+      duration, AND any taper / step-down schedule or "take with food" caveat. The add-medication step
+      records WHAT was prescribed; it does NOT tell the patient how to take it — so a dosing or taper
+      plan ALWAYS also needs an add-patient-instruction spelling it out in plain language.
+    • SUPPORTIVE / OTC CARE — over-the-counter or home measures the provider advised (creams, lotions,
+      OTC analgesics, rest, ice/heat, fluids, etc.).
+    • WOUND / SPLINT / ACTIVITY care and restrictions.
+    • RETURN PRECAUTIONS — "come back / go to the ED if …".
+    • FOLLOW-UP logistics — "follow up with dermatology or your PCP in 1 week".
+  Emit ONE add-patient-instruction per distinct instruction. Example — for a plan of "Prednisone 40 mg
+  daily x3 days then 20 mg daily x3 days then stop; OTC hydrocortisone 1% and calamine for itch; return
+  for throat tightness or trouble breathing; follow up in 1 week", emit ALL of:
+    {"kind":"add-patient-instruction","text":"Take prednisone 40 mg by mouth once daily for 3 days, then 20 mg once daily for 3 days, then stop."}
+    {"kind":"add-patient-instruction","text":"You may use over-the-counter hydrocortisone 1% cream and calamine lotion as needed for the itching."}
+    {"kind":"add-patient-instruction","text":"Return to the ED or call 911 for throat tightness, facial swelling, or trouble breathing."}
+    {"kind":"add-patient-instruction","text":"Follow up with dermatology or your primary care provider if the rash spreads or is not improving in 1 week."}
+  Do NOT settle for putting these only in the MDM — MDM is the clinician's reasoning in shorthand;
+  patient instructions are what the patient takes home, and BOTH are needed. (A red-flag DISPOSITION to
+  a higher level of care goes in the MDM AND as a patient instruction.)
 - DEMOGRAPHIC + INSURANCE + CONTACT details (address, phone, email, race, ethnicity, language,
   insurance carrier/member ID, PCP info, responsible party, emergency contact) are NOT chart
   actions — OMIT them entirely. They live on the Patient/Coverage resources via the intake
@@ -849,6 +915,13 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       // flash-lite is inconsistent on vitals (drops a BP number, omits the temp unit, omits display).
       // The narrative is ground truth, so recover the numbers/unit/display via the shared normalizer.
       normalizeVitalIntent(i, narrative);
+    }
+    if (i.kind === 'set-disposition' && (typeof i.followUpInDays !== 'number' || !(i.followUpInDays as number))) {
+      // flash-lite frequently omits the interval, especially on a conditional follow-up. Recover it
+      // from the disposition's own text/sourceText (the follow-up sentence) so it isn't left undated.
+      const hay = `${typeof i.text === 'string' ? i.text : ''} ${typeof i.sourceText === 'string' ? i.sourceText : ''}`;
+      const days = parseFollowUpDays(hay);
+      if (days != null) i.followUpInDays = days;
     }
     if (i.kind === 'add-diagnosis' || i.kind === 'add-condition') {
       // `strength` is a medication-only field; the model sometimes leaks it onto a diagnosis

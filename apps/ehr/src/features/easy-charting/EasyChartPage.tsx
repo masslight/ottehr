@@ -117,6 +117,7 @@ import { useEMCodes } from '../visits/shared/hooks/useEMCodes';
 import { useOystehrAPIClient } from '../visits/shared/hooks/useOystehrAPIClient';
 import { AiAlternative, AiChartedItem } from './AiChartedItem';
 import InlineNoteField from './InlineNoteField';
+import { MedicationSearchPicker } from './MedicationSearchPicker';
 import { useEasyChartQuickPicks } from './useEasyChartQuickPicks';
 
 // Walk examConfig once to map every leaf exam field name to its most-specific section label
@@ -6445,17 +6446,10 @@ export default function EasyChartPage(): JSX.Element {
           }}
           disabled={isThinking}
         />
-        <Stack direction="row" justifyContent="space-between" alignItems="center">
-          <Button
-            size="small"
-            variant="text"
-            sx={{ textTransform: 'none' }}
-            onClick={() => void runReview()}
-            disabled={reviewLoading || !encounterId || isThinking}
-            startIcon={reviewLoading ? <CircularProgress size={14} /> : undefined}
-          >
-            {reviewLoading ? 'Reviewing…' : 'Review note'}
-          </Button>
+        {/* The review runs automatically when the AI charts a note (it exists to catch the AI's own
+            mistakes); there is no manual "Review note" button — a provider hand-editing the note is
+            applying their own judgment and doesn't need the AI to re-review it. */}
+        <Stack direction="row" justifyContent="flex-end" alignItems="center">
           <Button
             variant="contained"
             sx={{ borderRadius: 100, textTransform: 'none' }}
@@ -6683,7 +6677,9 @@ export default function EasyChartPage(): JSX.Element {
         {conv.kind === 'choose' && (
           <>
             <Typography variant="body2" sx={{ mt: 0.5 }}>
-              I found {conv.results.length} matches for &ldquo;{conv.intent.display}&rdquo;. Which one?
+              {conv.intent.kind === 'add-medication'
+                ? 'Pick the medication — type to search the full catalog:'
+                : `I found ${conv.results.length} matches for “${conv.intent.display}”. Which one?`}
             </Typography>
             {(() => {
               // Strength-mismatch warning: when the provider asked for a specific medication
@@ -6708,21 +6704,29 @@ export default function EasyChartPage(): JSX.Element {
               );
             })()}
             {renderPickerActions(conv.intent)}
-            <List dense sx={{ mt: 0.5 }}>
-              {conv.results.map((r, i) => (
-                <ListItemButton
-                  key={`${r.code ?? r.id ?? i}`}
-                  onClick={() => void handlePick(conv.intent, r, conv.user)}
-                >
-                  <ListItemText
-                    primary={r.name + (r.strength ? ` — ${r.strength}` : '')}
-                    secondary={r.code}
-                    primaryTypographyProps={{ variant: 'body2' }}
-                    secondaryTypographyProps={{ variant: 'caption' }}
-                  />
-                </ListItemButton>
-              ))}
-            </List>
+            {conv.intent.kind === 'add-medication' ? (
+              <MedicationSearchPicker
+                seedTerm={conv.intent.display}
+                initialResults={conv.results}
+                onPick={(r) => void handlePick(conv.intent, r, conv.user)}
+              />
+            ) : (
+              <List dense sx={{ mt: 0.5 }}>
+                {conv.results.map((r, i) => (
+                  <ListItemButton
+                    key={`${r.code ?? r.id ?? i}`}
+                    onClick={() => void handlePick(conv.intent, r, conv.user)}
+                  >
+                    <ListItemText
+                      primary={r.name + (r.strength ? ` — ${r.strength}` : '')}
+                      secondary={r.code}
+                      primaryTypographyProps={{ variant: 'body2' }}
+                      secondaryTypographyProps={{ variant: 'caption' }}
+                    />
+                  </ListItemButton>
+                ))}
+              </List>
+            )}
           </>
         )}
         {conv.kind === 'saving' && (
