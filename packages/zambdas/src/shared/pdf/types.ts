@@ -967,6 +967,7 @@ export interface DischargeSummaryData extends PdfData {
   inHouseMedications: InHouseMedicationsDataForDischargeSummary;
   erxMedications?: ErxMedicationsData;
   diagnoses?: DiagnosesData;
+  procedures?: Procedures;
   patientInstructions?: PatientInstructionsData;
   educationDocuments?: EducationDocumentsData;
   disposition: DispositionData;
@@ -1069,6 +1070,7 @@ export interface DischargeSummaryData extends PdfData {
   inHouseMedications: InHouseMedicationsDataForDischargeSummary;
   erxMedications?: ErxMedicationsData;
   diagnoses?: DiagnosesData;
+  procedures?: Procedures;
   patientInstructions?: PatientInstructionsData;
   educationDocuments?: EducationDocumentsData;
   disposition: DispositionData;
