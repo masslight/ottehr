@@ -26,8 +26,8 @@ import {
 } from '../../../rcm/scheduled-outreach-config/helpers';
 import {
   checkOrCreateM2MClientToken,
+  createClinicalOystehrClient,
   createOutreachEmailCommunication,
-  createOystehrClient,
   fillOutreachTemplate,
   getEmailClient,
   getStripeClient,
@@ -59,7 +59,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   }
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, input.secrets);
-  const oystehr = createOystehrClient(m2mToken, input.secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, input.secrets);
 
   // Mark as in-progress with optimistic locking to guard against duplicate
   // subscription deliveries racing to charge the same card. If another
@@ -295,7 +295,7 @@ async function sendOutcomeNotifications(
   oystehr: Oystehr,
   secrets: Secrets | null
 ): Promise<{ medium: NotificationMedium; success: boolean; error?: string }[]> {
-  const results: { medium: NotificationMedium; success: boolean; error?: string; skipped?: boolean }[] = [];
+  const results: { medium: NotificationMedium; success: boolean; error?: string }[] = [];
 
   if (!notificationConfig.enabled || notificationConfig.mediums.length === 0) {
     return results;
@@ -303,7 +303,7 @@ async function sendOutcomeNotifications(
 
   for (const medium of notificationConfig.mediums) {
     try {
-      const { skipped } = await sendNotificationForMedium(
+      await sendNotificationForMedium(
         medium,
         task,
         notificationConfig.smsTemplate,
@@ -313,12 +313,7 @@ async function sendOutcomeNotifications(
         oystehr,
         secrets
       );
-      if (skipped) {
-        console.log(`[Email] Skipped email notification for task ${task.id}, no email address on file`);
-        results.push({ medium, success: true, skipped: true });
-      } else {
-        results.push({ medium, success: true });
-      }
+      results.push({ medium, success: true });
     } catch (err: any) {
       console.log(`Post-charge ${medium} notification not sent:`, err.message);
       results.push({ medium, success: false, error: err.message });
@@ -450,7 +445,7 @@ async function sendNotificationForMedium(
   chargeResult: ChargeResult,
   oystehr: Oystehr,
   secrets: Secrets | null
-): Promise<{ skipped: boolean }> {
+): Promise<void> {
   const patientId = task.for?.reference?.replace('Patient/', '');
   if (!patientId) throw new Error('Task has no patient reference');
 
@@ -495,8 +490,7 @@ async function sendNotificationForMedium(
   } else if (medium === 'email') {
     const email = getPatientContactEmail(patient);
     if (!email) {
-      console.log(`Patient ${patientId} has no email address; skipping charge-card outreach email`);
-      return { skipped: true };
+      throw new Error('No email address on file');
     }
     if (!isEmailValid(email)) {
       console.log(`Invalid email address for patient ${patientId}: ${maskEmail(email)}`);
@@ -534,7 +528,6 @@ async function sendNotificationForMedium(
   } else {
     console.warn(`[NOT IMPLEMENTED] ${medium} notification for charge-card, patient ${patientId}`);
   }
-  return { skipped: false };
 }
 
 const MAIL_STATEMENT_TASK_INPUT_SYSTEM = 'https://fhir.ottehr.com/CodeSystem/patient-statement-mail-task-input';

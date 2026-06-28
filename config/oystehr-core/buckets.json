@@ -80,6 +80,10 @@
     "PATIENT_DOCS_CUSTOM_FOLDERS": {
       "name": "#{var/PROJECT_ID}-patient-docs-custom-folders",
       "removalPolicy": "retain"
+    },
+    "MEDICAL_RECORD_EXPORTS": {
+      "name": "#{var/PROJECT_ID}-medical-record-exports",
+      "removalPolicy": "retain"
     }
   }
 }

@@ -3,7 +3,8 @@ import { Appointment, Communication, Encounter, Patient } from 'fhir/r4b';
 import { getPatientFirstName, getPatientLastName, MailedStatementItem, Secrets } from 'utils';
 import {
   checkOrCreateM2MClientToken,
-  createOystehrClient,
+  createClinicalOystehrClient,
+  getMailedStatementSyncState,
   MAIL_VENDOR_EXTENSION_URL,
   wrapHandler,
   ZambdaInput,
@@ -19,7 +20,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const { dateRange, secrets }: { dateRange: { start: string; end: string }; secrets: Secrets } = validatedParameters;
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-  const oystehr = createOystehrClient(m2mToken, secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
   console.log('Searching for mailed statement Communications in date range:', dateRange);
 
@@ -200,11 +201,14 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     };
   });
 
+  const syncState = await getMailedStatementSyncState(oystehr);
+
   return {
     statusCode: 200,
     body: JSON.stringify({
       message: `Found ${statements.length} mailed statements`,
       statements,
+      lastSyncRunAt: syncState.lastRunAt,
     }),
   };
 });

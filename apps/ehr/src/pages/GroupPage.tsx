@@ -27,6 +27,7 @@ import { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { listServiceCategories } from 'src/api/api';
 import CustomBreadcrumbs from 'src/components/CustomBreadcrumbs';
+import { formatLocationLabel } from 'src/components/schedule/locationLabel';
 import {
   BOOKING_CONFIG,
   getAllFhirSearchPages,
@@ -37,10 +38,12 @@ import {
   getSlugForBookableResource,
   GROUP_OWNED_CHARACTERISTIC_SYSTEMS,
   groupCharacteristics,
+  isValidSlug,
   mergeOwnedCharacteristics,
   SCHEDULE_STRATEGY_SYSTEM,
   SERVICE_CATEGORY_SYSTEM,
   SLUG_SYSTEM,
+  SLUG_VALIDATION_MESSAGE,
 } from 'utils';
 import { useApiClients } from '../hooks/useAppClients';
 import PageContainer from '../layout/PageContainer';
@@ -264,7 +267,6 @@ function GroupPageContent(): ReactElement {
   const locationProviderRollup = useMemo(() => {
     if (!allLocations && selectedLocationIds.length === 0) return [];
     const relevantHsIdSet = new Set(supportedCategoryHsIds);
-    const locationById = new Map((locations || []).filter((l) => l.id).map((l) => [l.id!, l] as const));
     const targetLocationIds = allLocations
       ? (locations || []).map((l) => l.id).filter((id): id is string => !!id)
       : selectedLocationIds;
@@ -308,7 +310,6 @@ function GroupPageContent(): ReactElement {
       }
     }
     const rows = targetLocationIds.map((locId) => {
-      const loc = locationById.get(locId);
       const byPrac = byLocation.get(locId) ?? new Map();
       const providers = Array.from(byPrac.entries())
         .filter(([, entry]) => entry.services.size > 0)
@@ -324,7 +325,7 @@ function GroupPageContent(): ReactElement {
         // Suffix inactive Locations so the rollup matches the chip in the
         // picker — slot generation skips them, and the admin should see why
         // a previously-listed Location now contributes nothing.
-        locationName: loc?.status === 'inactive' ? `${loc?.name || locId} (inactive)` : loc?.name || locId,
+        locationName: formatLocationLabel(locations || [], locId),
         providers,
       };
     });
@@ -467,6 +468,10 @@ function GroupPageContent(): ReactElement {
     try {
       event.preventDefault();
       if (!oystehr) return;
+      if (slug && !isValidSlug(slug)) {
+        enqueueSnackbar(`Permalink ${SLUG_VALIDATION_MESSAGE}.`, { variant: 'error' });
+        return;
+      }
       setLoading(true);
 
       // Locations are admin-curated directly via selectedLocationIds (the
@@ -552,6 +557,11 @@ function GroupPageContent(): ReactElement {
     }
   }
 
+  // A non-empty permalink must match the URL-safe shape the patient side
+  // enforces, otherwise the save succeeds here but booking by slug later fails
+  // with a validation error.
+  const slugError = !!slug && !isValidSlug(slug);
+
   if (!group) {
     return (
       <div style={{ width: '100%', height: '250px' }}>
@@ -597,6 +607,8 @@ function GroupPageContent(): ReactElement {
                 onChange={(event) => {
                   setSlug(event.target.value);
                 }}
+                error={slugError}
+                helperText={slugError ? SLUG_VALIDATION_MESSAGE : undefined}
                 sx={{ width: '250px' }}
               />
               <Typography
@@ -679,6 +691,7 @@ function GroupPageContent(): ReactElement {
               </Typography>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, maxWidth: 640 }}>
                 {Array.from(categoryByHsId.entries())
+                  .filter(([, info]) => info.source !== 'booking-config') // Only show FHIR-backed categories for now
                   .sort(([, a], [, b]) => a.name.localeCompare(b.name))
                   .map(([hsId, info]) => {
                     const isInAllowList = supportedCategoryHsIds.includes(hsId);
@@ -786,15 +799,11 @@ function GroupPageContent(): ReactElement {
                 value={selectedLocationIds}
                 onChange={(_e, v) => setSelectedLocationIds(v)}
                 isOptionEqualToValue={(option, v) => option === v}
-                getOptionLabel={(id) => {
-                  const loc = (locations || []).find((l) => l.id === id);
-                  const base = loc?.name || id;
-                  // Saved selection may include Locations whose status has
-                  // since flipped to inactive — slot generation now skips
-                  // them automatically, but mark them in the chip so the
-                  // admin can spot and remove the stale ref if desired.
-                  return loc?.status === 'inactive' ? `${base} (inactive)` : base;
-                }}
+                // Saved selection may include Locations whose status has since
+                // flipped to inactive — slot generation now skips them
+                // automatically, but the helper marks them in the chip so the
+                // admin can spot and remove the stale ref if desired.
+                getOptionLabel={(id) => formatLocationLabel(locations || [], id)}
                 renderOption={(props, id) => {
                   const loc = (locations || []).find((l) => l.id === id);
                   const selected = selectedLocationIds.includes(id);
@@ -875,7 +884,14 @@ function GroupPageContent(): ReactElement {
               )}
             </Box>
             <Box>
-              <LoadingButton loading={loading} type="submit" variant="contained" color="primary" size="medium">
+              <LoadingButton
+                loading={loading}
+                type="submit"
+                variant="contained"
+                color="primary"
+                size="medium"
+                disabled={slugError}
+              >
                 Save
               </LoadingButton>
             </Box>

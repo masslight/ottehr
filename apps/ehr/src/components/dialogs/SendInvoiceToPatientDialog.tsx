@@ -188,9 +188,13 @@ export default function SendInvoiceToPatientDialog({
                 </Typography>
                 <Typography sx={{ fontWeight: 600, mb: 0.5 }}>{responsibleParty?.fullName}</Typography>
                 <Box sx={{ flexDirection: 'row', display: 'flex' }}>
-                  <Typography variant="body2" color={responsibleParty?.email ? 'text.primary' : 'text.secondary'}>
-                    {responsibleParty?.email || "Doesn't have email"}
-                  </Typography>
+                  {responsibleParty?.email ? (
+                    <Typography variant="body2">{responsibleParty.email}</Typography>
+                  ) : (
+                    <Typography variant="body2" color="text.disabled">
+                      Doesn&apos;t have email
+                    </Typography>
+                  )}
                   <Typography variant="body2" sx={{ pl: 2 }}>
                     {responsibleParty?.phoneNumber}
                   </Typography>
@@ -237,10 +241,19 @@ export default function SendInvoiceToPatientDialog({
                 label="Due date"
                 variant="outlined"
                 control={control}
-                rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
+                rules={{
+                  required: REQUIRED_FIELD_ERROR_MESSAGE,
+                  validate: (value: string) => {
+                    if (!value) return true;
+                    return (
+                      DateTime.fromISO(value).startOf('day') > DateTime.now().startOf('day') ||
+                      'Invoice Due Date must be in the future'
+                    );
+                  },
+                }}
                 component="Picker"
                 disabled={disableAllFields}
-                disablePast={true}
+                minDate={DateTime.now().plus({ days: 1 }).toISODate() ?? undefined}
               />
             </Grid>
 
@@ -288,13 +301,13 @@ export default function SendInvoiceToPatientDialog({
               />
             </Grid>
           </Grid>
-
-          {!responsibleParty?.email && (
-            <Alert severity="warning" sx={{ mt: 1 }}>
-              Responsible party doesn&apos;t have an email address. Invoice email will not be sent.
-            </Alert>
-          )}
         </DialogContent>
+
+        {!responsibleParty?.email && (
+          <Alert severity="error" sx={{ mx: 3, mb: 1 }}>
+            Invoice cannot be sent — the responsible party does not have an email address on file.
+          </Alert>
+        )}
 
         <DialogActions>
           <Box
@@ -311,7 +324,7 @@ export default function SendInvoiceToPatientDialog({
               Cancel
             </RoundedButton>
             <RoundedButton
-              disabled={disableAllFields}
+              disabled={disableAllFields || !responsibleParty?.email}
               loading={isSubmitting}
               form="send-invoice-form"
               type="submit"

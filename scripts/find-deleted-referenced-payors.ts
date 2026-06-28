@@ -1,6 +1,5 @@
-import Oystehr from '@oystehr/sdk';
 import { Coverage } from 'fhir/r4b';
-import { fetchAllPages } from '../packages/zambdas/src/shared';
+import { createClinicalOystehrClient, fetchAllPages } from '../packages/zambdas/src/shared';
 
 /**
  * How to use: npm run find-deleted-referenced-payors -- --project-id=some_project_id  --token=some_token
@@ -15,13 +14,16 @@ function getArg(name: string): string {
 }
 
 async function main(): Promise<void> {
-  const oystehr = new Oystehr({
-    accessToken: getArg('token'),
-    projectId: getArg('project-id'),
-    services: {
-      fhirApiUrl: 'https://fhir-api.zapehr.com',
-    },
-  });
+  const oystehr = createClinicalOystehrClient(
+    getArg('token'),
+    {},
+    {
+      projectId: getArg('project-id'),
+      services: {
+        fhirApiUrl: 'https://fhir-api.zapehr.com',
+      },
+    }
+  );
 
   let coverages: Coverage[] = [];
   await fetchAllPages(async (offset, count) => {

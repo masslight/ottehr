@@ -21,8 +21,8 @@ import {
 import { NotificationMedium } from '../../../rcm/scheduled-outreach-config/helpers';
 import {
   checkOrCreateM2MClientToken,
+  createClinicalOystehrClient,
   createOutreachEmailCommunication,
-  createOystehrClient,
   fillOutreachTemplate,
   getEmailClient,
   resolveTemplatePlaceholders,
@@ -52,7 +52,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   }
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, input.secrets);
-  const oystehr = createOystehrClient(m2mToken, input.secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, input.secrets);
 
   // Mark as in-progress with optimistic locking to guard against duplicate
   // subscription deliveries racing to execute the same task. If another
@@ -105,12 +105,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     }
     console.log('--- END NOTIFICATION CONTENT ---');
 
-    const results: {
-      medium: NotificationMedium;
-      success: boolean;
-      error?: string;
-      skippedReason?: string;
-    }[] = [];
+    const results: { medium: NotificationMedium; success: boolean; error?: string; skippedReason?: string }[] = [];
 
     for (const medium of mediums) {
       try {
@@ -146,16 +141,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
               });
               break;
             }
-            const emailSent = await sendOutreachEmail(task, emailTemplate || '', oystehr, input.secrets, patient);
-            if (emailSent) {
-              console.log(`[Email] Successfully sent email notification for task ${task.id}, patient ${patientRef}`);
-              results.push({ medium, success: true });
-            } else {
-              console.log(
-                `[Email] Skipped email notification for task ${task.id}, patient ${patientRef}: no email address on file`
-              );
-              results.push({ medium, success: true, skippedReason: 'Patient does not have an email on file' });
-            }
+            await sendOutreachEmail(task, emailTemplate || '', oystehr, input.secrets, patient);
+            console.log(`[Email] Successfully sent email notification for task ${task.id}, patient ${patientRef}`);
+            results.push({ medium, success: true });
             break;
           }
           case 'paper-mail': {
@@ -332,13 +320,12 @@ async function sendOutreachEmail(
   oystehr: Oystehr,
   secrets: Secrets | null,
   patient: Patient
-): Promise<boolean> {
+): Promise<void> {
   const patientId = patient.id!;
 
   const email = getPatientContactEmail(patient);
   if (!email) {
-    console.log(`Patient ${patientId} has no email address; skipping outreach email`);
-    return false;
+    throw new Error(`Patient ${patientId} has no contact email address`);
   }
 
   const placeholderInput = await resolveTemplatePlaceholders({
@@ -373,7 +360,6 @@ async function sendOutreachEmail(
     htmlContent,
     resolvedMessage,
   });
-  return true;
 }
 
 const MAIL_STATEMENT_TASK_INPUT_SYSTEM = 'https://fhir.ottehr.com/CodeSystem/patient-statement-mail-task-input';

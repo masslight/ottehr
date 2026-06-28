@@ -1,5 +1,6 @@
 import { Box } from '@mui/material';
-import { FC } from 'react';
+import { FC, useEffect, useMemo } from 'react';
+import { useFormContext, useWatch } from 'react-hook-form';
 import { Row } from 'src/components/layout';
 import { PATIENT_RECORD_CONFIG } from 'utils';
 import PatientRecordFormField from './PatientRecordFormField';
@@ -9,7 +10,6 @@ import { SectionSaveButton } from './SectionSaveButton';
 const contactSection = PATIENT_RECORD_CONFIG.FormFields.patientContactInformation;
 
 const FIELD_KEYS = Object.values(contactSection.items).map((item) => item.key);
-const REQUIRED_FIELD_KEYS = contactSection.requiredFields ?? [];
 
 interface ContactContainerProps {
   isLoading: boolean;
@@ -26,17 +26,24 @@ export const ContactContainer: FC<ContactContainerProps> = ({ isLoading, patient
     formSection: contactSection,
   });
 
+  const { setValue } = useFormContext();
+  const noEmailChecked = useWatch({ name: 'patient-no-email' });
+
+  useEffect(() => {
+    if (noEmailChecked) {
+      setValue('patient-email', '', { shouldDirty: true });
+    }
+  }, [noEmailChecked, setValue]);
+
+  const effectiveRequiredFormFields = useMemo(
+    () => (noEmailChecked ? (requiredFormFields ?? []).filter((k) => k !== 'patient-email') : requiredFormFields),
+    [noEmailChecked, requiredFormFields]
+  );
+
   return (
     <PatientRecordFormSection
       formSection={contactSection}
-      titleWidget={
-        <SectionSaveButton
-          fieldKeys={FIELD_KEYS}
-          requiredFieldKeys={REQUIRED_FIELD_KEYS}
-          patientId={patientId}
-          encounterId={encounterId}
-        />
-      }
+      titleWidget={<SectionSaveButton fieldKeys={FIELD_KEYS} patientId={patientId} encounterId={encounterId} />}
     >
       <PatientRecordFormField
         item={contact.streetAddress}
@@ -78,7 +85,7 @@ export const ContactContainer: FC<ContactContainerProps> = ({ isLoading, patient
       <PatientRecordFormField
         item={contact.email}
         hiddenFormFields={hiddenFormFields}
-        requiredFormFields={requiredFormFields}
+        requiredFormFields={effectiveRequiredFormFields}
         isLoading={isLoading}
       />
       <PatientRecordFormField
@@ -86,7 +93,6 @@ export const ContactContainer: FC<ContactContainerProps> = ({ isLoading, patient
         hiddenFormFields={hiddenFormFields}
         requiredFormFields={requiredFormFields}
         isLoading={isLoading}
-        omitRowWrapper
       />
       <PatientRecordFormField
         item={contact.phone}

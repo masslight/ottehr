@@ -41,6 +41,7 @@ import { DateTime } from 'luxon';
 import Stripe from 'stripe';
 import {
   ATTORNEY_FIRM_EXTENSION_URL,
+  buildCoverageSubscriberRelatedPerson,
   buildExtensionObject,
   CANDID_PLAN_TYPE_SYSTEM,
   codeableConcept,
@@ -83,6 +84,7 @@ import {
   getPayerUrl,
   getPhoneNumberForIndividual,
   getSecret,
+  getSubscriberRelationshipCodeableConcept,
   getTaxID,
   INSURANCE_CANDID_PLAN_TYPE_CODES,
   INSURANCE_CARD_BACK_2_ID,
@@ -98,6 +100,7 @@ import {
   makeOptimisticLockIfMatchHeader,
   makeSSNIdentifier,
   mapBirthSexToGender,
+  normalizePhoneNumber,
   OCCUPATIONAL_MEDICINE_ACCOUNT_TYPE,
   OrderedCoverages,
   OrderedCoveragesWithSubscribers,
@@ -757,9 +760,9 @@ const paperworkToPatientFieldMap: Record<string, string> = {
   'patient-point-of-discovery': patientFieldPaths.pointOfDiscovery,
   'mobile-opt-in': patientFieldPaths.sendMarketing,
   'common-well-consent': patientFieldPaths.commonWellConsent,
-  'patient-no-email': patientFieldPaths.noEmail,
   'patient-ssn': patientFieldPaths.ssn,
   'patient-preferred-communication-method': patientFieldPaths.preferredCommunicationMethod,
+  'patient-no-email': patientFieldPaths.noEmail,
   'insurance-carrier': coverageFieldPaths.carrier,
   'insurance-member-id': coverageFieldPaths.memberId,
   'insurance-additional-information': coverageFieldPaths.additionalInformation,
@@ -809,23 +812,21 @@ export function createMasterRecordPatchOperations(
 
   const tempOperations: Operation[] = [];
 
-  // Define telecom configurations
+  // Define telecom configurations for fields that go through createPatchOperationForTelecom
+  // (PCP and emergency contact — nested paths with no conflicting clear ops).
   const contactTelecomConfigs: Record<string, ContactTelecomConfig> = {
-    'patient-number': { system: 'phone' },
-    'patient-email': { system: 'email' },
-    'guardian-number': { system: 'phone' },
-    'guardian-email': { system: 'email' },
-    'responsible-party-number': { system: 'phone', use: 'mobile' },
-    'responsible-party-email': { system: 'email' },
     'pcp-number': { system: 'phone' },
     'emergency-contact-number': { system: 'phone' },
   };
 
   const pcpItems: QuestionnaireResponseItem[] = [];
   const extensionIntents: Array<{ url: string; action: 'set' | 'remove'; value?: string }> = [];
+  // Patient top-level telecom (/telecom) and guardian contact telecom (/contact/0/telecom)
+  // are collected as intents and resolved into a single replace/add/remove op each, avoiding
+  // sequential-patch conflicts (e.g. remove-array then append-to-array in the same request).
+  const patientTelecomIntents: TelecomIntent[] = [];
+  const guardianTelecomIntents: TelecomIntent[] = [];
   let isUseMissedInPatientName = false;
-
-  const noEmail = flattenedPaperwork.find((item) => item.linkId === 'patient-no-email')?.answer?.[0]?.valueBoolean;
 
   flattenedPaperwork.forEach((item) => {
     const value = extractValueFromItem(item);
@@ -859,12 +860,41 @@ export function createMasterRecordPatchOperations(
 
     if (resourceType !== 'Patient') return;
 
-    // Handle telecom fields
+    // When patient has no email, queue a remove-email intent (handled via patientTelecomIntents
+    // below to avoid conflicts with any phone-add in the same patch).
+    if (item.linkId === 'patient-no-email' && item.answer?.[0]?.valueBoolean === true) {
+      patientTelecomIntents.push({ system: 'email', value: undefined });
+    }
+
+    // Patient-level telecom — collected as intents, resolved after the loop into a single op
+    if (item.linkId === 'patient-number') {
+      patientTelecomIntents.push({ system: 'phone', value: isAnswerEmpty ? undefined : (value as string) });
+      return;
+    }
+    if (item.linkId === 'patient-email') {
+      patientTelecomIntents.push({ system: 'email', value: isAnswerEmpty ? undefined : (value as string) });
+      return;
+    }
+
+    // Guardian contact telecom — same intent approach for /contact/0/telecom
+    if (item.linkId === 'guardian-number') {
+      guardianTelecomIntents.push({ system: 'phone', value: isAnswerEmpty ? undefined : (value as string) });
+      return;
+    }
+    if (item.linkId === 'guardian-email') {
+      guardianTelecomIntents.push({ system: 'email', value: isAnswerEmpty ? undefined : (value as string) });
+      return;
+    }
+
+    // Handle remaining telecom fields (pcp-number, emergency-contact-number) via patch ops
     const contactTelecomConfig = contactTelecomConfigs[item.linkId];
     if (contactTelecomConfig) {
-      const effectiveValue =
-        item.linkId === 'patient-email' && noEmail ? undefined : isAnswerEmpty ? undefined : (value as string);
-      const operation = createPatchOperationForTelecom(contactTelecomConfig, patient, path, effectiveValue);
+      const operation = createPatchOperationForTelecom(
+        contactTelecomConfig,
+        patient,
+        path,
+        isAnswerEmpty ? undefined : (value as string)
+      );
       if (operation) tempOperations.push(operation);
       return;
     }
@@ -1045,20 +1075,6 @@ export function createMasterRecordPatchOperations(
     }
   });
 
-  // When filterByEnableWhen is active, patient-email is excluded from flattenedPaperwork when
-  // patient-no-email is true (the field's enableWhen condition fails). The loop above never sees
-  // patient-email in that case, so no telecom patch op is generated. Explicitly handle it here.
-  const emailHandledInLoop = flattenedPaperwork.some((item) => item.linkId === 'patient-email');
-  if (noEmail && !emailHandledInLoop) {
-    const op = createPatchOperationForTelecom(
-      contactTelecomConfigs['patient-email'],
-      patient,
-      patientFieldPaths.email,
-      undefined
-    );
-    if (op) tempOperations.push(op);
-  }
-
   if (isUseMissedInPatientName) {
     tempOperations.push({
       op: 'add',
@@ -1085,9 +1101,15 @@ export function createMasterRecordPatchOperations(
   });
   result.patient.patchOpsForDirectUpdate = consolidateOperations(result.patient.patchOpsForDirectUpdate, patient);
 
-  // Extension and PCP ops are added after consolidateOperations because they are already
-  // fully resolved and would be mangled by the consolidation pipeline's grouping/normalization.
+  // Extension, telecom, and PCP ops are added after consolidateOperations because they are
+  // already fully resolved and would be mangled by the consolidation pipeline's grouping/normalization.
   result.patient.patchOpsForDirectUpdate.push(...resolveExtensionIntents(extensionIntents, patient));
+  result.patient.patchOpsForDirectUpdate.push(
+    ...resolveTelecomIntents(patientTelecomIntents, patient.telecom, '/telecom')
+  );
+  result.patient.patchOpsForDirectUpdate.push(
+    ...resolveTelecomIntents(guardianTelecomIntents, patient.contact?.[0]?.telecom, '/contact/0/telecom')
+  );
   result.patient.patchOpsForDirectUpdate.push(...getPCPPatchOps(pcpItems, patient));
   // sanitize the patient patch ops so no SSN is leaked in logs
   const sanitizedPatchOps = result.patient.patchOpsForDirectUpdate.map((op) => {
@@ -1143,6 +1165,57 @@ const resolveExtensionIntents = (
   }
 
   return [{ op: 'replace', path: '/extension', value: targetExtensions }];
+};
+
+interface TelecomIntent {
+  system: ContactPoint['system'];
+  value?: string; // undefined = remove this system's entry
+  use?: ContactPoint['use'];
+  rank?: number;
+}
+
+const resolveTelecomIntents = (
+  intents: TelecomIntent[],
+  currentTelecom: ContactPoint[] | undefined,
+  telecomPath: string
+): Operation[] => {
+  if (intents.length === 0) return [];
+
+  const target: ContactPoint[] = _.cloneDeep(currentTelecom ?? []);
+
+  for (const intent of intents) {
+    const existingIdx = target.findIndex((t) => t.system === intent.system);
+    const normalizedValue = intent.system === 'phone' ? normalizePhoneNumber(intent.value) || undefined : intent.value;
+
+    if (!normalizedValue) {
+      if (existingIdx !== -1) target.splice(existingIdx, 1);
+    } else if (existingIdx !== -1) {
+      target[existingIdx] = {
+        ...target[existingIdx],
+        value: normalizedValue,
+        ...(intent.use !== undefined ? { use: intent.use } : {}),
+        ...(intent.rank !== undefined ? { rank: intent.rank } : {}),
+      };
+    } else {
+      target.push({
+        system: intent.system,
+        value: normalizedValue,
+        ...(intent.use !== undefined ? { use: intent.use } : {}),
+        ...(intent.rank !== undefined ? { rank: intent.rank } : {}),
+      });
+    }
+  }
+
+  if (_.isEqual(currentTelecom ?? [], target)) return [];
+
+  if (!currentTelecom || currentTelecom.length === 0) {
+    if (target.length === 0) return [];
+    return [{ op: 'add', path: telecomPath, value: target }];
+  }
+
+  if (target.length === 0) return [{ op: 'remove', path: telecomPath }];
+
+  return [{ op: 'replace', path: telecomPath, value: target }];
 };
 
 const getPCPPatchOps = (flattenedItems: QuestionnaireResponseItem[], patient: Patient): Operation[] => {
@@ -1283,23 +1356,15 @@ export const createUpdatePharmacyPatchOps = (
   const placesPharmacyPhoneAnswer = getAnswer(PHARMACY_COLLECTION_LINK_IDS.placesPhone, flattenedItems);
   const exrPharmacyIdAnswer = getAnswer(PHARMACY_COLLECTION_LINK_IDS.erxPharmacyId, flattenedItems);
 
-  // Check if pharmacy fields are present in the questionnaire response
-  const hasManualPharmacyFields =
-    pharmacyNameAnswer !== undefined || pharmacyAddressAnswer !== undefined || pharmacyPhoneAnswer !== undefined;
-  const hasPlacesPharmacyFields =
-    placesPharmacyIdAnswer !== undefined ||
-    placesPharmacyNameAnswer !== undefined ||
-    placesPharmacyAddressAnswer !== undefined ||
-    placesPharmacyPhoneAnswer !== undefined;
-  const hasPharmacyFields = hasManualPharmacyFields || hasPlacesPharmacyFields || exrPharmacyIdAnswer !== undefined;
+  // Skip if the pharmacy section wasn't part of this submission, otherwise a
+  // section-scoped save of another section (e.g. Responsible Party) would fall
+  // through and wipe existing pharmacy data. Presence is by linkId, not value, so
+  // an intentional clear (empty answers, items still present) is preserved.
+  // Derived from the link-id constant so new pharmacy fields are covered automatically.
+  const PHARMACY_LINK_IDS = new Set<string>(Object.values(PHARMACY_COLLECTION_LINK_IDS));
+  const pharmacySectionSubmitted = flattenedItems.some((item) => PHARMACY_LINK_IDS.has(item.linkId));
 
-  // Check if patient currently has pharmacy data
-  const hasExistingPharmacy =
-    patient.contained?.some((resource) => resource.id === PATIENT_CONTAINED_PHARMACY_ID) ||
-    patient.extension?.some((extension) => extension.url === PREFERRED_PHARMACY_EXTENSION_URL);
-
-  // If no pharmacy fields in questionnaire and no existing pharmacy, no action needed
-  if (!hasPharmacyFields && !hasExistingPharmacy) {
+  if (!pharmacySectionSubmitted) {
     return [];
   }
 
@@ -1910,9 +1975,9 @@ export function extractAccountGuarantor(
       | 'Legal Guardian'
       | 'Other',
     address: guarantorAddress,
-    noEmail: findBooleanAnswer('responsible-party-no-email'),
-    email: findBooleanAnswer('responsible-party-no-email') ? '' : findAnswer('responsible-party-email') ?? '',
+    email: findAnswer('responsible-party-email') ?? '',
     number: findAnswer('responsible-party-number'),
+    noEmail: findBooleanAnswer('responsible-party-no-email'),
   };
 
   if (contact.firstName && contact.lastName && contact.dob && contact.birthSex && contact.relationship) {
@@ -2414,28 +2479,15 @@ const createCoverageResource = (input: CreateCoverageResourceInput): Coverage =>
   }
 
   const policyHolderId = 'coverageSubscriber';
-  const policyHolderName = createFhirHumanName(policyHolder.firstName, policyHolder.middleName, policyHolder.lastName);
   const relationshipCode = SUBSCRIBER_RELATIONSHIP_CODE_MAP[policyHolder.relationship] || 'other';
-  const containedPolicyHolder: RelatedPerson = {
-    resourceType: 'RelatedPerson',
-    id: policyHolderId,
-    name: policyHolderName ? policyHolderName : undefined,
-    birthDate: policyHolder.dob,
-    gender: mapBirthSexToGender(policyHolder.birthSex),
-    patient: { reference: `Patient/${patientId}` },
-    address: [policyHolder.address],
-    relationship: [
-      {
-        coding: [
-          {
-            system: 'http://hl7.org/fhir/ValueSet/relatedperson-relationshiptype',
-            code: relationshipCode,
-            display: policyHolder.relationship,
-          },
-        ],
-      },
-    ],
-  };
+  // Shared builder keeps the subscriber RelatedPerson aligned with the billing app; the clinical EHR
+  // contains it on the Coverage rather than persisting it standalone.
+  const containedPolicyHolder = buildCoverageSubscriberRelatedPerson(
+    patientId,
+    { ...policyHolder, address: policyHolder.address },
+    policyHolder.relationship
+  );
+  containedPolicyHolder.id = policyHolderId;
 
   let contained: Coverage['contained'];
   let subscriberReference = `#${policyHolderId}`;
@@ -2465,7 +2517,7 @@ const createCoverageResource = (input: CreateCoverageResourceInput): Coverage =>
       },
     ],
     subscriberId: policyHolder.memberId,
-    relationship: getPolicyHolderRelationshipCodeableConcept(policyHolder.relationship),
+    relationship: getSubscriberRelationshipCodeableConcept(policyHolder.relationship),
     class: [
       {
         type: {
@@ -3711,25 +3763,12 @@ const patchOpsForCoverage = (input: GetCoveragePatchOpsInput): Operation[] => {
   return ops;
 };
 
-const getPolicyHolderRelationshipCodeableConcept = (relationship: PolicyHolder['relationship']): CodeableConcept => {
-  const relationshipCode = SUBSCRIBER_RELATIONSHIP_CODE_MAP[relationship] || 'other';
-  return {
-    coding: [
-      {
-        system: 'http://terminology.hl7.org/CodeSystem/subscriber-relationship',
-        code: relationshipCode,
-        display: relationship,
-      },
-    ],
-  };
-};
-
 export const createContainedGuarantor = (guarantor: ResponsiblePartyContact, patientId: string): RelatedPerson => {
   const guarantorId = 'accountGuarantorId';
   const policyHolderName = createFhirHumanName(guarantor.firstName, undefined, guarantor.lastName);
   const relationshipCode = SUBSCRIBER_RELATIONSHIP_CODE_MAP[guarantor.relationship] || 'other';
   const number = guarantor.number;
-  const email = guarantor.noEmail ? undefined : guarantor.email;
+  const email = guarantor.email;
   let telecom: RelatedPerson['telecom'];
   if (number || email) {
     telecom = [];
@@ -3740,13 +3779,13 @@ export const createContainedGuarantor = (guarantor: ResponsiblePartyContact, pat
       system: 'phone',
     });
   }
-  if (email) {
+  if (email && !guarantor.noEmail) {
     telecom?.push({
       value: email,
       system: 'email',
     });
   }
-  const extension: RelatedPerson['extension'] = guarantor.noEmail
+  const extension: Extension[] | undefined = guarantor.noEmail
     ? [{ url: RESPONSIBLE_PARTY_NO_EMAIL_URL, valueBoolean: true }]
     : undefined;
   return {
@@ -3756,9 +3795,9 @@ export const createContainedGuarantor = (guarantor: ResponsiblePartyContact, pat
     birthDate: guarantor.dob,
     gender: mapBirthSexToGender(guarantor.birthSex),
     telecom,
-    extension,
     patient: { reference: `Patient/${patientId}` },
     address: [guarantor.address],
+    extension,
     relationship: [
       {
         coding: [
@@ -4341,7 +4380,7 @@ export const updateStripeCustomer = async (input: UpdateStripeCustomerInput): Pr
     await stripeClient.customers.update(
       pair.customerId,
       {
-        email: email ?? '',
+        email,
         name,
         phone,
       },

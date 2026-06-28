@@ -18,7 +18,7 @@ import {
   VisitType,
 } from 'utils';
 import {
-  createOystehrClient,
+  createClinicalOystehrClient,
   getAuth0Token,
   getEmailClient,
   makeCancelVisitUrl,
@@ -51,7 +51,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     console.log('already have token');
   }
 
-  const oystehr = createOystehrClient(oystehrToken, secrets);
+  const oystehr = createClinicalOystehrClient(oystehrToken, secrets);
 
   let taskStatusToUpdate: TaskStatus;
   let statusReasonToUpdate: string | undefined;

@@ -1,6 +1,6 @@
 import { getQuestionnaireItemsAndProgress, IntakeQuestionnaireItem, recursiveGroupTransform } from 'utils';
 import { expect, vi } from 'vitest';
-import { createOystehrClient, getAuth0Token } from '../src/shared';
+import { createClinicalOystehrClient, getAuth0Token } from '../src/shared';
 import QRData from './data/questionnaire-responses.json';
 import { SECRETS as S } from './data/secrets';
 
@@ -24,7 +24,7 @@ describe.skip('qr recursive filter validation tests', () => {
     };
 
     const token = await getAuth0Token(SECRETS);
-    const oystehr = createOystehrClient(token, SECRETS);
+    const oystehr = createClinicalOystehrClient(token, SECRETS);
 
     // get paperwork questions and validation schema
     const maybeData = await getQuestionnaireItemsAndProgress('some_questionnaire_response_id', oystehr);

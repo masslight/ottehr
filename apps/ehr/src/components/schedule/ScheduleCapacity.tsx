@@ -70,8 +70,16 @@ const CapacityCell: React.FC<CapacityCellProps> = ({
   const canonicalValue = canonicalCapacityForHour(day, hour, isLocation);
   const [rawValue, setRawValue] = React.useState<string>(String(canonicalValue));
   const inputRef = React.useRef<HTMLInputElement>(null);
+  // Tracks the value this cell last submitted upstream. The effect uses it
+  // to distinguish "canonical came back to confirm my own edit" (skip) from
+  // "canonical changed because of an external update — server refetch,
+  // sibling edit" (sync). Without this, a stepper click that briefly
+  // shifts focus around can race the effect into resetting rawValue to a
+  // stale canonical before the upstream update commits.
+  const lastSubmittedRef = React.useRef<number>(canonicalValue);
 
   React.useEffect(() => {
+    if (canonicalValue === lastSubmittedRef.current) return;
     if (document.activeElement !== inputRef.current) {
       setRawValue(String(canonicalValue));
     }
@@ -89,6 +97,10 @@ const CapacityCell: React.FC<CapacityCellProps> = ({
         setRawValue(next);
         const parsed = Number(next);
         if (!Number.isFinite(parsed)) return;
+        // Locations round to int (back-populates legacy capacity below);
+        // record the value upstream will actually persist so the resync
+        // effect's equality check matches what canonical comes back as.
+        lastSubmittedRef.current = isLocation ? Math.round(parsed) : parsed;
         // Build a fresh hours array (immutable) — re-using `day`'s reference
         // here makes upstream `setDays(sameRef)` calls no-op via React's
         // Object.is bail, which manifests as edits silently failing to render.
@@ -126,6 +138,19 @@ const CapacityCell: React.FC<CapacityCellProps> = ({
           });
         }
         setDay({ ...day, hours: tempHours });
+      }}
+      onBlur={() => {
+        // Locations persist an integer (prebookSlots). If the user typed a
+        // decimal like "1.2" the upstream value was already rounded to 1 in
+        // onChange — match the display on blur so the input doesn't keep
+        // showing a value that was never saved. Don't run during typing
+        // (would prevent entering multi-digit ints since "1" → "1" → "12"
+        // is fine but mid-decimal "1." would be eaten).
+        if (!isLocation) return;
+        const parsed = Number(rawValue);
+        if (!Number.isFinite(parsed)) return;
+        const rounded = Math.round(parsed);
+        if (String(rounded) !== rawValue) setRawValue(String(rounded));
       }}
       sx={{ width: '120px' }}
       InputProps={{

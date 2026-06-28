@@ -219,12 +219,46 @@
           "type": "string",
           "text": "Email",
           "required": true,
+          "enableWhen": [
+            {
+              "question": "patient-no-email",
+              "operator": "!=",
+              "answerBoolean": true
+            }
+          ],
           "extension": [
             {
               "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
               "valueString": "Email"
+            },
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
+              "valueString": "hidden"
+            },
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when",
+              "extension": [
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-question",
+                  "valueString": "patient-no-email"
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-operator",
+                  "valueString": "="
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-answer",
+                  "valueBoolean": true
+                }
+              ]
             }
           ]
+        },
+        {
+          "linkId": "patient-no-email",
+          "type": "boolean",
+          "text": "Don't have email",
+          "required": false
         },
         {
           "linkId": "return-patient-check",

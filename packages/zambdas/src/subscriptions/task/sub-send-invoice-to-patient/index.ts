@@ -24,7 +24,7 @@ import { accountMatchesType } from '../../../ehr/shared/harvest';
 import { produceOutreachTasks } from '../../../rcm/scheduled-outreach/producers/shared';
 import {
   checkOrCreateM2MClientToken,
-  createOystehrClient,
+  createClinicalOystehrClient,
   getCandidEncounterIdFromEncounter,
   getStripeClient,
   resolveTemplatePlaceholders,
@@ -46,7 +46,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   console.log('Input task id: ', task.id);
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-  const oystehr = createOystehrClient(m2mToken, secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
   const stripe = getStripeClient(secrets);
 
   try {
@@ -87,6 +87,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       oystehrEncounterId: encounterId,
       oystehrPatientId: patientId,
       dueDate,
+      timezone,
       filledMemo,
     });
     await createInvoiceItem(stripe, stripeCustomerId, stripeAccountId, invoiceResponse, amountCents, filledMemo);
@@ -98,20 +99,14 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       throw new Error(`Failed to finalize invoice, response status: ${finalized.status}`);
     console.log('Invoice finalized: ', finalized.status);
 
-    let invoiceUrl: string;
-    if (finalized.customer_email) {
-      console.log(`Sending invoice to recipient email recorded in stripe: ${finalized.customer_email}`);
-      const sendInvoiceResponse = await stripe.invoices.sendInvoice(invoiceResponse.id, {
-        stripeAccount: stripeAccountId,
-      });
-      console.log('Invoice sent: ', sendInvoiceResponse.status);
-      invoiceUrl = sendInvoiceResponse.hosted_invoice_url ?? '??';
-    } else {
-      console.log('Skipping invoice email: no email address on Stripe customer');
-      invoiceUrl = finalized.hosted_invoice_url ?? '??';
-    }
+    console.log(`Sending invoice to recipient email recorded in stripe: ${finalized.customer_email}`);
+    const sendInvoiceResponse = await stripe.invoices.sendInvoice(invoiceResponse.id, {
+      stripeAccount: stripeAccountId,
+    });
+    console.log('Invoice sent: ', sendInvoiceResponse.status);
 
     console.log('Filling in invoice sms messages placeholders');
+    const invoiceUrl = sendInvoiceResponse.hosted_invoice_url ?? '??';
     const smsMessage = fillInvoiceTemplate(smsTextMessage, {
       ...basePlaceholderInput,
       invoiceLink: invoiceUrl,
@@ -140,7 +135,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       console.error('Failed to produce invoice-issued outreach tasks:', err);
     }
   } catch (error) {
-    const oystehr = createOystehrClient(m2mToken, secrets);
+    const oystehr = createClinicalOystehrClient(m2mToken, secrets);
     console.log('updating task status to failed and output');
     const taskCopy = addErrorToTaskOutput(task, error instanceof Error ? error.message : 'Unknown error');
     await updateTaskStatusAndOutput(oystehr, task, mapDisplayToInvoiceTaskStatus('error'), taskCopy.output);
@@ -188,10 +183,11 @@ async function createInvoice(
     oystehrPatientId: string;
     filledMemo?: string;
     dueDate: string;
+    timezone: string;
   }
 ): Promise<Stripe.Invoice> {
   try {
-    const { oystehrEncounterId, oystehrPatientId, filledMemo, dueDate } = params;
+    const { oystehrEncounterId, oystehrPatientId, filledMemo, dueDate, timezone } = params;
 
     const invoiceParams: Stripe.InvoiceCreateParams = {
       customer: stripeCustomerId,
@@ -202,7 +198,7 @@ async function createInvoice(
         oystehr_encounter_id: oystehrEncounterId,
       },
       currency: 'USD',
-      due_date: DateTime.fromISO(dueDate).toUnixInteger(),
+      due_date: DateTime.fromISO(dueDate, { zone: timezone }).toUnixInteger(),
       pending_invoice_items_behavior: 'exclude', // Start with a blank invoice
       auto_advance: false, // Ensure it stays a draft
     };

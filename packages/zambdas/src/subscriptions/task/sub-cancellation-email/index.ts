@@ -14,7 +14,7 @@ import {
   TaskStatus,
   TelemedCancelationTemplateData,
 } from 'utils';
-import { createOystehrClient, getAuth0Token, getEmailClient, wrapHandler, ZambdaInput } from '../../../shared';
+import { createClinicalOystehrClient, getAuth0Token, getEmailClient, wrapHandler, ZambdaInput } from '../../../shared';
 import { patchTaskStatus } from '../../helpers';
 import { validateRequestParameters } from '../validateRequestParameters';
 
@@ -40,7 +40,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     console.log('already have token');
   }
 
-  const oystehr = createOystehrClient(oystehrToken, secrets);
+  const oystehr = createClinicalOystehrClient(oystehrToken, secrets);
 
   let taskStatusToUpdate: TaskStatus;
   let statusReasonToUpdate: string | undefined;
@@ -150,8 +150,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       captureException(error);
     }
   } else {
-    taskStatusToUpdate = 'completed';
-    statusReasonToUpdate = 'patient has no email address; cancellation email skipped';
+    taskStatusToUpdate = 'failed';
+    statusReasonToUpdate = 'could not find email for patient';
     console.log('No email found. Skipping sending email.');
   }
 

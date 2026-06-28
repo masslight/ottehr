@@ -1,0 +1,11 @@
+{
+  "schema-version": "2025-09-25",
+  "outputs": {
+    "MUI_X_LICENSE_KEY": {
+      "value": "#{var/MUI_X_LICENSE_KEY}"
+    },
+    "BILLING_APP_NAME": {
+      "value": "#{var/BILLING_APP_NAME}"
+    }
+  }
+}

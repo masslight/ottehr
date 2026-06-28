@@ -768,14 +768,10 @@ test.describe('Patient Record Page tests', { tag: '@smoke' }, () => {
         // Change relationship to "Self"
         await patientInformationPage.selectFieldOption(responsibleParty.relationship.key, 'Self');
 
-        // Verify all triggered fields are disabled/hidden (by checking they're not enabled)
+        // Verify all triggered fields are disabled (by checking they're not enabled)
         for (const field of relationshipOnlyFields) {
           const fieldElement = patientInformationPage.inputByName(field.key);
-          if (field.disabledDisplay === 'hidden') {
-            await test.expect(fieldElement).toBeHidden();
-          } else {
-            await test.expect(fieldElement).toBeDisabled();
-          }
+          await test.expect(fieldElement).toBeDisabled();
         }
 
         // Change back to a different relationship and verify fields are enabled again
@@ -786,11 +782,7 @@ test.describe('Patient Record Page tests', { tag: '@smoke' }, () => {
 
         for (const field of relationshipOnlyFields) {
           const fieldElement = patientInformationPage.inputByName(field.key);
-          if (field.disabledDisplay === 'hidden') {
-            await test.expect(fieldElement).toBeVisible();
-          } else {
-            await test.expect(fieldElement).toBeEnabled();
-          }
+          await test.expect(fieldElement).toBeEnabled();
         }
       });
 
@@ -856,15 +848,12 @@ test.describe('Patient Record Page tests', { tag: '@smoke' }, () => {
           fieldType: 'text' | 'date' | 'select' | 'phone';
         }> = [];
 
-        // Find all responsible party fields that have dynamicPopulation.
-        // Exclude fields with disabledDisplay: 'hidden' — they are not in the DOM when
-        // relationship is "Self", so auto-populated values cannot be verified on them.
+        // Find all responsible party fields that have dynamicPopulation
         for (const [fieldName, fieldConfig] of Object.entries(responsibleParty)) {
           if (
             fieldConfig.type === 'display' ||
             fieldConfig.type === 'attachment' ||
-            !('dynamicPopulation' in fieldConfig) ||
-            ('disabledDisplay' in fieldConfig && fieldConfig.disabledDisplay === 'hidden')
+            !('dynamicPopulation' in fieldConfig)
           )
             continue;
 

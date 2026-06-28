@@ -1,7 +1,7 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { HealthcareService } from 'fhir/r4b';
-import { INVALID_INPUT_ERROR, Secrets, SERVICE_CATEGORY_TAG, SLUG_SYSTEM } from 'utils';
-import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
+import { FEATURE_FLAGS_CONFIG, INVALID_INPUT_ERROR, Secrets, SERVICE_CATEGORY_TAG, SLUG_SYSTEM } from 'utils';
+import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
 import { buildCatalog, filterByOfferedCodes, getGroupOfferedCodes } from './helpers';
 
 interface GetServiceCategoriesInput {
@@ -48,17 +48,25 @@ export const index = wrapHandler(
   async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
     const { secrets, scheduleType, bookingOn } = validateRequestParameters(input);
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
+    const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
-    const fhirResources = (
-      await oystehr.fhir.search<HealthcareService>({
-        resourceType: 'HealthcareService',
-        params: [
-          { name: '_tag', value: SERVICE_CATEGORY_TAG.code },
-          { name: 'active', value: 'true' },
-        ],
-      })
-    ).unbundle();
+    // Feature flag: when off (default), patient-facing booking sees only
+    // BOOKING_CONFIG categories. Admin-registered FHIR HealthcareService
+    // categories are suppressed so a customer experimenting with adding one
+    // doesn't accidentally expose it to patients. Admin UI uses a separate
+    // zambda (admin-list-service-categories) and is unaffected. Skipping
+    // the FHIR search when off also saves a roundtrip per call.
+    const fhirResources = FEATURE_FLAGS_CONFIG.dynamicServiceCategoriesEnabled
+      ? (
+          await oystehr.fhir.search<HealthcareService>({
+            resourceType: 'HealthcareService',
+            params: [
+              { name: '_tag', value: SERVICE_CATEGORY_TAG.code },
+              { name: 'active', value: 'true' },
+            ],
+          })
+        ).unbundle()
+      : [];
     const fullCatalog = buildCatalog(fhirResources);
 
     if (scheduleType === 'group' && bookingOn) {
