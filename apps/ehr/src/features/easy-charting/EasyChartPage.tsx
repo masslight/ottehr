@@ -118,6 +118,7 @@ import { useOystehrAPIClient } from '../visits/shared/hooks/useOystehrAPIClient'
 import { AiAlternative, AiChartedItem } from './AiChartedItem';
 import InlineNoteField from './InlineNoteField';
 import { MedicationSearchPicker } from './MedicationSearchPicker';
+import { ReviewableInstructionLine } from './ReviewableInstructionLine';
 import { useEasyChartQuickPicks } from './useEasyChartQuickPicks';
 
 // Walk examConfig once to map every leaf exam field name to its most-specific section label
@@ -951,6 +952,13 @@ interface NoteSectionsProps {
   // structured items get an inline remove control. Omitted/false → read-only (legacy behavior).
   editable?: boolean;
   onSaveField?: (key: ChartNoteKey, text: string) => void;
+  // Provenance + needs-review flags for the AI-written free-text fields, keyed by chart-data scalar
+  // key. Drives the source-comparison popover and the amber "review" highlight on HPI / MDM.
+  noteFieldMeta?: Map<ChartNoteKey, { sourceText?: string; needsReview?: boolean; reason?: string }>;
+  onConfirmNoteField?: (key: ChartNoteKey) => void;
+  // Needs-review flags for patient-instruction lines, keyed by resourceId.
+  instructionMeta?: Map<string, { needsReview?: boolean; reason?: string }>;
+  onConfirmInstruction?: (resourceId: string) => void;
   onRemoveItem?: (field: string, dto: { resourceId?: string }) => void;
   // Promote a diagnosis to primary (and demote the previous primary). Shown inline next to each
   // non-primary diagnosis when editable.
@@ -1090,6 +1098,10 @@ function NoteSections({
   onRemoveLabOrder,
   editable = false,
   onSaveField,
+  noteFieldMeta,
+  onConfirmNoteField,
+  instructionMeta,
+  onConfirmInstruction,
   onRemoveItem,
   onMakePrimary,
   onSaveProcedure,
@@ -1448,6 +1460,10 @@ function NoteSections({
                 value={hpi ?? ''}
                 minRows={3}
                 onSave={(text) => onSaveField('chiefComplaint', text)}
+                sourceText={noteFieldMeta?.get('chiefComplaint')?.sourceText}
+                needsReview={noteFieldMeta?.get('chiefComplaint')?.needsReview}
+                reviewNote={noteFieldMeta?.get('chiefComplaint')?.reason}
+                onConfirm={() => onConfirmNoteField?.('chiefComplaint')}
               />
             ) : (
               <Typography
@@ -1855,6 +1871,10 @@ function NoteSections({
                 value={mdm ?? ''}
                 minRows={3}
                 onSave={(text) => onSaveField('medicalDecision', text)}
+                sourceText={noteFieldMeta?.get('medicalDecision')?.sourceText}
+                needsReview={noteFieldMeta?.get('medicalDecision')?.needsReview}
+                reviewNote={noteFieldMeta?.get('medicalDecision')?.reason}
+                onConfirm={() => onConfirmNoteField?.('medicalDecision')}
               />
             ) : (
               <Typography
@@ -1953,16 +1973,14 @@ function NoteSections({
           <CollapsibleSection title={`Patient Instructions (${instructions.length})`}>
             <Stack spacing={0.5}>
               {instructions.map((c, i) => (
-                <Box key={c.resourceId ?? i}>
-                  {c.title && (
-                    <Typography variant="body2" fontWeight={600}>
-                      {c.title}
-                    </Typography>
-                  )}
-                  <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
-                    {c.text}
-                  </Typography>
-                </Box>
+                <ReviewableInstructionLine
+                  key={c.resourceId ?? i}
+                  title={c.title}
+                  text={c.text ?? ''}
+                  needsReview={c.resourceId ? instructionMeta?.get(c.resourceId)?.needsReview : false}
+                  reason={c.resourceId ? instructionMeta?.get(c.resourceId)?.reason : undefined}
+                  onConfirm={c.resourceId ? () => onConfirmInstruction?.(c.resourceId as string) : undefined}
+                />
               ))}
             </Stack>
           </CollapsibleSection>
@@ -3507,6 +3525,49 @@ function buildIntentPayload(
   return null;
 }
 
+// Clinically meaningful dose/duration tokens in a string, normalized for comparison and mapped back
+// to the original substring for display (e.g. "40 mg" → key "40mg"). Used to spot dose/duration the
+// provider dictated that didn't make it into an AI-written free-text field.
+function doseTokens(s: string): Map<string, string> {
+  const out = new Map<string, string>();
+  const re = /(\d+(?:\.\d+)?)\s*(mg\/kg|mcg|mg|g|ml|%|days?|weeks?|hours?)\b/gi;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(s)) !== null) {
+    const norm = `${m[1]}${m[2].toLowerCase().replace(/s$/, '')}`;
+    if (!out.has(norm)) out.set(norm, m[0].trim().replace(/\s+/g, ' '));
+  }
+  return out;
+}
+
+// Decide whether an AI-written free-text field (HPI / MDM / patient instruction) likely drifted from
+// the dictation, and why. Phase 1 uses high-precision deterministic signals only:
+//   1. A medication whose ORDERED strength differs from what was dictated — the field text was
+//      generated from the dictation, so it still carries the old dose (the user's reported case).
+//   2. A dose/duration the provider dictated that is simply absent from the field text.
+// Returns the reason to show, or null when nothing looks off.
+function noteFieldDriftReason(
+  text: string,
+  sourceText: string | undefined,
+  doseMismatches: { drug: string; dictated: string; order: string }[]
+): string | null {
+  const t = text.toLowerCase();
+  for (const dm of doseMismatches) {
+    const drug = dm.drug.toLowerCase();
+    if (drug.length >= 3 && t.includes(drug)) {
+      return `Ordered ${dm.drug} ${dm.order}, but you dictated ${dm.dictated} — confirm the dose here.`;
+    }
+  }
+  if (sourceText) {
+    const inText = doseTokens(text);
+    for (const [norm, orig] of doseTokens(sourceText)) {
+      if (!inText.has(norm)) {
+        return `A dose/duration you dictated (“${orig}”) isn't reflected here — check it against your dictation.`;
+      }
+    }
+  }
+  return null;
+}
+
 export default function EasyChartPage(): JSX.Element {
   const { encounterId } = useParams<{ encounterId: string }>();
   const { oystehr, oystehrZambda } = useApiClients();
@@ -3566,6 +3627,21 @@ export default function EasyChartPage(): JSX.Element {
   // prior step to settle), so a ref is safe. Non-planner dispatches (agent / refine / suggestion)
   // reset it to null first, so those items get NO inferred mark (they came from the provider).
   const pendingProvenanceRef = useRef<{ sourceText?: string; inferred?: boolean; reviewNote?: string } | null>(null);
+  // Provenance + needs-review state for the AI-written free-text fields (keyed by chart-data scalar
+  // key). `sourceText` is the dictation snippet the field was generated from (shown for comparison);
+  // `needsReview`/`reason` flag a likely drift from the dictation (e.g. a dose that no longer matches
+  // the order). Cleared when the provider confirms.
+  const [noteFieldMeta, setNoteFieldMeta] = useState<
+    Map<ChartNoteKey, { sourceText?: string; needsReview?: boolean; reason?: string }>
+  >(new Map());
+  // Same needs-review flagging for patient-instruction lines, keyed by the instruction's resourceId.
+  const [instructionMeta, setInstructionMeta] = useState<Map<string, { needsReview?: boolean; reason?: string }>>(
+    new Map()
+  );
+  // Medications whose ORDERED strength ended up different from what was dictated (dose-safety
+  // substitution). Recorded at pick time; used after the plan completes to flag any free-text field
+  // that still references the dictated dose.
+  const medDoseMismatchRef = useRef<{ drug: string; dictated: string; order: string }[]>([]);
   const [freshlyAdded, setFreshlyAdded] = useState<Set<string>>(new Set());
   const [removingItems, setRemovingItems] = useState<Set<string>>(new Set());
   // Items the assistant auto-charted this session that still need the provider's review (keyed by
@@ -4675,10 +4751,64 @@ export default function EasyChartPage(): JSX.Element {
   // Auto-review: when a plan finishes (plan → null) and the completion updater stashed its
   // narrative, run the review pass to surface suggestion cards. Clearing the ref before the call
   // keeps this from re-firing on later plan-null transitions.
+  // Deterministically flag AI-written free-text fields that likely drifted from the dictation
+  // (Phase 1: a dose-safety substitution, or a dose/duration the provider dictated that's missing
+  // from the text). Runs at plan completion, against the fully-charted note.
+  const detectNoteFieldDrift = (): void => {
+    const data = chartDataRef.current;
+    if (!data) return;
+    const mismatches = medDoseMismatchRef.current;
+    setNoteFieldMeta((prev) => {
+      const n = new Map(prev);
+      const check = (key: ChartNoteKey, text?: string): void => {
+        if (!text || !text.trim()) return;
+        const meta = n.get(key);
+        if (meta?.needsReview) return;
+        const reason = noteFieldDriftReason(text, meta?.sourceText, mismatches);
+        if (reason) n.set(key, { ...meta, needsReview: true, reason });
+      };
+      check('chiefComplaint', data.chiefComplaint?.text); // backs the "History of Present Illness" field
+      check('medicalDecision', data.medicalDecision?.text);
+      return n;
+    });
+    // Patient-instruction lines: flag any that still name a substituted-dose medication.
+    setInstructionMeta((prev) => {
+      const n = new Map(prev);
+      for (const c of data.instructions ?? []) {
+        if (!c.resourceId || !c.text || n.get(c.resourceId)?.needsReview) continue;
+        const reason = noteFieldDriftReason(c.text, undefined, mismatches);
+        if (reason) n.set(c.resourceId, { needsReview: true, reason });
+      }
+      return n;
+    });
+  };
+
+  // Clear a free-text field's needs-review flag once the provider has checked it against the source.
+  const confirmNoteField = (key: ChartNoteKey): void => {
+    setNoteFieldMeta((prev) => {
+      const meta = prev.get(key);
+      if (!meta?.needsReview) return prev;
+      const n = new Map(prev);
+      n.set(key, { ...meta, needsReview: false, reason: undefined });
+      return n;
+    });
+  };
+
+  // Clear a patient-instruction's needs-review flag.
+  const confirmInstruction = (resourceId: string): void => {
+    setInstructionMeta((prev) => {
+      if (!prev.get(resourceId)?.needsReview) return prev;
+      const n = new Map(prev);
+      n.set(resourceId, { needsReview: false, reason: undefined });
+      return n;
+    });
+  };
+
   useEffect(() => {
     if (plan === null && pendingReviewRef.current) {
       const narrative = pendingReviewRef.current;
       pendingReviewRef.current = null;
+      detectNoteFieldDrift();
       void runReview(narrative);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -5575,6 +5705,7 @@ export default function EasyChartPage(): JSX.Element {
         // Auto-chart: start executing immediately as a single evolving plan card — no separate
         // approve step. Each AI-charted item still gets the needs-review highlight + click-to-correct,
         // and Remove still works, so nothing here is unrecoverable.
+        medDoseMismatchRef.current = []; // fresh dose-substitution tally for this plan
         setPlan({ narrative: message, steps, currentIdx: 0, results: [] });
         return;
       }
@@ -6236,6 +6367,9 @@ export default function EasyChartPage(): JSX.Element {
     user: string
   ): Promise<void> => {
     if (!apiClient || !encounterId) return;
+    // Capture the dictation snippet this field was generated from (set per planner step) so the
+    // provider can compare the AI-written prose against what they actually said.
+    const provSrc = pendingProvenanceRef.current?.sourceText;
     // Map LLM-canonical field names to the corresponding chart-data scalar. The in-person
     // CC ↔ HPI swap (HpiField.tsx) means the textarea labeled "Chief Complaint" is backed
     // by historyOfPresentIllness and vice versa — we keep the agent honest by using the
@@ -6256,6 +6390,13 @@ export default function EasyChartPage(): JSX.Element {
         : intent.field === 'historyOfPresentIllness'
         ? 'chiefComplaint'
         : intent.field;
+    if (provSrc) {
+      setNoteFieldMeta((prev) => {
+        const n = new Map(prev);
+        n.set(saveField, { ...n.get(saveField), sourceText: provSrc });
+        return n;
+      });
+    }
     setConv({ kind: 'editing-note-text', user, fieldLabel });
     try {
       await saveNoteField(saveField, intent.newText);
@@ -6358,6 +6499,18 @@ export default function EasyChartPage(): JSX.Element {
     provenance?: AiChartedMeta
   ): Promise<void> => {
     if (!apiClient || !encounterId) return;
+    // Dose-safety: if the ORDERED medication strength differs from what was dictated, record it so the
+    // free-text fields (which still carry the dictated dose) get flagged for review after the plan runs.
+    if (
+      intent.kind === 'add-medication' &&
+      'strength' in intent &&
+      intent.strength &&
+      result.strength &&
+      strengthKey(intent.strength) !== strengthKey(result.strength)
+    ) {
+      const drug = (result.name || intent.display || '').split(/[\s(]/)[0];
+      if (drug) medDoseMismatchRef.current.push({ drug, dictated: intent.strength, order: result.strength });
+    }
     // A "Discuss" picker replaces the item it came from: delete the original first.
     const replaceTarget = replaceTargetRef.current;
     replaceTargetRef.current = null;
@@ -7125,7 +7278,10 @@ export default function EasyChartPage(): JSX.Element {
         // once everything's clear (and something was AI-charted this session). Nothing on a clean
         // fully-manual note.
         const warnings = computeChartWarnings(chartData);
-        const unreviewed = aiCharted.size + procedureProv.size;
+        const flaggedNoteFields =
+          [...noteFieldMeta.values()].filter((m) => m.needsReview).length +
+          [...instructionMeta.values()].filter((m) => m.needsReview).length;
+        const unreviewed = aiCharted.size + procedureProv.size + flaggedNoteFields;
         const blocked = unreviewed > 0 || warnings.length > 0;
         if (!blocked && !hadAiItems) return null;
         const tone = warnings.length > 0 ? 'warn' : blocked ? 'info' : 'ok';
@@ -7192,6 +7348,10 @@ export default function EasyChartPage(): JSX.Element {
         onRemoveLabOrder={handleRemoveLabOrder}
         editable
         onSaveField={saveNoteField}
+        noteFieldMeta={noteFieldMeta}
+        onConfirmNoteField={confirmNoteField}
+        instructionMeta={instructionMeta}
+        onConfirmInstruction={confirmInstruction}
         onRemoveItem={handleInlineRemove}
         onMakePrimary={handleMakePrimary}
         onSaveProcedure={(p) => {
