@@ -1,3 +1,5 @@
+import CheckBoxIcon from '@mui/icons-material/CheckBox';
+import CheckBoxOutlineBlankIcon from '@mui/icons-material/CheckBoxOutlineBlank';
 import {
   Autocomplete,
   Box,
@@ -39,7 +41,6 @@ import { DataEntryTestItem, getAttendingPractitionerId, isApiError, LabSetDTO, L
 import { DiagnosisDTO } from 'utils/lib/types/api/chart-data';
 import { createInHouseLabOrder, getOrCreateVisitLabel } from '../../../api/api';
 import { useApiClients } from '../../../hooks/useAppClients';
-import { InHouseLabSelect } from '../components/create/InHouseLabSelect';
 import { InHouseSelectedTestTable } from '../components/create/InHouseSelectedTestTable';
 import { InHouseLabsNotesCard } from '../components/details/InHouseLabsNotesCard';
 import { InHouseLabsBreadcrumbs } from '../components/InHouseLabsBreadcrumbs';
@@ -238,22 +239,18 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
       return;
     }
 
-    const pendingSet = new Set(pendingTestNames);
-
     setSelectedTests((currentTests) => {
-      const existingNames = new Set(currentTests.map((t) => t.name));
-
       // Add newly checked tests
       const testsToAdd = pendingTestNames
-        .filter((name) => !existingNames.has(name))
+        .filter((name) => !currentTests.some((test) => test.name === name))
         .map((name) => availableTests.find((test) => test.name === name))
         .filter((test): test is DataEntryTestItem => test !== undefined);
 
       // Remove tests that were unchecked in the dropdown
       // Only remove tests that are present in availableTests (i.e. came from the dropdown)
-      const testsAfterRemovals = currentTests.filter((t) => {
-        const isAvailableTest = availableTests.some((at) => at.name === t.name);
-        return !isAvailableTest || pendingSet.has(t.name);
+      const testsAfterRemovals = currentTests.filter((test) => {
+        const isAvailableTest = availableTests.some((availableTest) => availableTest.name === test.name);
+        return !isAvailableTest || pendingTestNames.includes(test.name);
       });
 
       return [...testsAfterRemovals, ...testsToAdd];
@@ -326,25 +323,14 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
                       }}
                     >
                       {availableTests.map((test) => {
-                        const isChecked = pendingTestNames.includes(test.name);
+                        const selected = pendingTestNames.includes(test.name);
+                        const SelectionIcon = selected ? CheckBoxIcon : CheckBoxOutlineBlankIcon;
                         return (
-                          <MenuItem
-                            key={`${test.name}-${test.adId}`}
-                            value={test.name}
-                            sx={{
-                              backgroundColor: isChecked ? 'primary.light' : undefined,
-                              '&:hover': {
-                                backgroundColor: isChecked ? 'primary.light' : undefined,
-                              },
-                              '&.Mui-selected': {
-                                backgroundColor: 'primary.light',
-                              },
-                              '&.Mui-selected:hover': {
-                                backgroundColor: 'primary.light',
-                              },
-                            }}
-                          >
-                            <Checkbox checked={isChecked} size="small" sx={{ mr: 1, p: 0.5 }} />
+                          <MenuItem key={`${test.name}-${test.adId}`} value={test.name}>
+                            <SelectionIcon
+                              fontSize="small"
+                              style={{ marginRight: 8, padding: 9, boxSizing: 'content-box' }}
+                            />
                             <ListItemText primary={test.name} />
                           </MenuItem>
                         );
