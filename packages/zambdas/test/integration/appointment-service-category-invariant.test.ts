@@ -91,6 +91,38 @@ describe('Appointment service category invariant', () => {
         // best-effort
       }
     }
+    // Also search for any Appointments linked to tracked Slots that were not
+    // captured in extraAppointmentIds. This covers the case where
+    // create-appointment succeeded server-side (creating the Appointment in
+    // FHIR) but threw before returning — the Appointment ID is never tracked,
+    // so the loop above misses it. Without this sweep, the orphaned Appointment
+    // causes the next CI run to fail with APPOINTMENT_ALREADY_EXISTS when a new
+    // Slot at the same time is booked, and also prevents the Slot itself from
+    // being deleted (FHIR referential integrity). Each Appointment is deleted
+    // before its Slot so the Slot deletion succeeds.
+    for (const slotId of extraSlotIds) {
+      try {
+        const linked = (
+          await oystehr.fhir.search<Appointment>({
+            resourceType: 'Appointment',
+            params: [{ name: 'slot', value: `Slot/${slotId}` }],
+          })
+        )
+          .unbundle()
+          .filter(
+            (r): r is Appointment => r.resourceType === 'Appointment' && !!r.id && !extraAppointmentIds.includes(r.id!)
+          );
+        for (const appt of linked) {
+          try {
+            await oystehr.fhir.delete({ resourceType: 'Appointment', id: appt.id! });
+          } catch {
+            // best-effort
+          }
+        }
+      } catch {
+        // best-effort
+      }
+    }
     for (const id of extraSlotIds) {
       try {
         await oystehr.fhir.delete({ resourceType: 'Slot', id });
