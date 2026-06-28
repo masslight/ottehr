@@ -4,6 +4,7 @@ import { DateTime } from 'luxon';
 import {
   AllStates,
   APPOINTMENT_ALREADY_EXISTS_ERROR,
+  BOOKING_CONFIG,
   CanonicalUrl,
   CHARACTER_LIMIT_EXCEEDED_ERROR,
   checkSlotAvailable,
@@ -88,7 +89,7 @@ export function validateCreateAppointmentParams(input: ZambdaInput, user: User):
   if (Boolean(patient.sex) === false) {
     missingRequiredPatientFields.push('sex');
   }
-  if (!isEHRUser && Boolean(patient.email === undefined)) {
+  if (!isEHRUser && !patient.email && !patient.noEmail) {
     missingRequiredPatientFields.push('email');
   }
   if (missingRequiredPatientFields.length > 0) {
@@ -314,6 +315,37 @@ export const createAppointmentComplexValidation = async (
     throw APPOINTMENT_ALREADY_EXISTS_ERROR;
   }
 
+  // Back-compat invariant enforcement on slot.serviceCategory. New Slots
+  // created via create-slot are guaranteed to carry a SERVICE_CATEGORY_SYSTEM
+  // coding (the create-slot invariant catches them at write time). But Slots
+  // persisted before that guard landed, or written directly via FHIR by
+  // admin/migration scripts, may still exist without one. The downstream
+  // Appointment.serviceCategory is derived from slot.serviceCategory, so a
+  // categoryless Slot would produce a categoryless Appointment — exactly the
+  // ambiguity downstream category-aware code (questionnaire resolution,
+  // billing, single-category-project assumptions) reads as broken.
+  //
+  // When the system supports urgent-care as a BOOKING_CONFIG category, treat
+  // it as a safe default — that matches the historical implicit behavior the
+  // codebase leaned on before the invariant was articulated. When it doesn't
+  // (genuinely category-less project — would be unusual but possible) we
+  // refuse rather than silently produce a malformed Appointment. The Slot
+  // itself isn't PATCHed — we mutate the in-memory representation so
+  // downstream code (Appointment build, capacity guard's category read) sees
+  // the resolved category without touching the persisted FHIR record.
+  const slotHasServiceCategoryCoding = (slot.serviceCategory ?? []).some((cc) =>
+    (cc.coding ?? []).some((c) => c.system === SERVICE_CATEGORY_SYSTEM)
+  );
+  if (!slotHasServiceCategoryCoding) {
+    const urgentCare = BOOKING_CONFIG.serviceCategories.find((sc) => sc.category.code === 'urgent-care');
+    if (!urgentCare) {
+      throw INVALID_INPUT_ERROR(
+        'Slot has no service category and the system does not support a default category. Cannot create an Appointment without a service category.'
+      );
+    }
+    slot.serviceCategory = [...(slot.serviceCategory ?? []), { coding: [{ ...urgentCare.category }] }];
+  }
+
   // Capacity guard. Reject the booking before any FHIR writes if the
   // Schedule's bucket for this start time is already exhausted (e.g., a
   // concurrent booking from another patient won the race after the
@@ -418,28 +450,17 @@ export const createAppointmentComplexValidation = async (
     visitType = VisitType.WalkIn;
   }
 
-  if (serviceMode === ServiceMode.virtual && !locationState) {
-    if (scheduleOwner.resourceType === 'Location' && isLocationVirtual(scheduleOwner as Location)) {
-      const state = scheduleOwner.address?.state;
-      const isValidLocationState = AllStates.some(
-        (stateTemp) => state && stateTemp.value.toLowerCase() === state.toLowerCase()
-      );
-      if (isValidLocationState) {
-        locationState = state;
-      }
-    }
-  }
-
-  if (serviceMode === ServiceMode.virtual && !locationState) {
-    throw INVALID_INPUT_ERROR('"locationState" is required for virtual appointments');
-  }
-
   // Resolve the unified bookingLocation (and, when relevant, the attending
   // Practitioner). The resolution-rule logic lives in
   // resolveBookingLocationId as a pure helper so it's exhaustively unit-
   // testable; this function just materialises the resolved id into a
   // Location resource and handles the PR-actor → Practitioner side, which
   // is independent of where the Location came from.
+  //
+  // Resolved before the virtual-appointment locationState check below, because
+  // group bookings derive their state from the (virtual) member Location
+  // resolved here — the schedule owner is a HealthcareService or
+  // PractitionerRole and carries no state of its own.
   let bookingLocation: ResolvedBookingLocation | undefined;
   let attendingPractitioner: ResolvedAttendingPractitioner | undefined;
 
@@ -463,6 +484,24 @@ export const createAppointmentComplexValidation = async (
       throw INVALID_INPUT_ERROR(`Resolved booking Location is missing an id (expected ${bookingLocationId})`);
     }
     bookingLocation = resolved as ResolvedBookingLocation | undefined;
+  }
+
+  // When the caller didn't pass locationState explicitly, derive it from a virtual
+  // Location, otherwise the resolved booking Location (group bookings,
+  // where the virtual member Location is identified by the slot's
+  // at-location stamp).
+  if (serviceMode === ServiceMode.virtual && !locationState) {
+    const virtualLocationForState = [scheduleOwner, bookingLocation].find(
+      (loc): loc is Location => !!loc && loc.resourceType === 'Location' && isLocationVirtual(loc as Location)
+    );
+    const state = virtualLocationForState?.address?.state;
+    if (state && AllStates.some((stateTemp) => stateTemp.value.toLowerCase() === state.toLowerCase())) {
+      locationState = state;
+    }
+  }
+
+  if (serviceMode === ServiceMode.virtual && !locationState) {
+    throw INVALID_INPUT_ERROR('"locationState" is required for virtual appointments');
   }
 
   if (scheduleOwner.resourceType === 'PractitionerRole') {

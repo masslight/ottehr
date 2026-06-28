@@ -30,7 +30,7 @@ import {
 // bare-specifier subpaths, so the only reliably-importable surface is utils's
 // main barrel — which already loads this module.
 export const IN_PERSON_INTAKE_PAPERWORK_URL = 'https://ottehr.com/FHIR/Questionnaire/intake-paperwork-inperson';
-export const IN_PERSON_INTAKE_PAPERWORK_VERSION = '1.2.0';
+export const IN_PERSON_INTAKE_PAPERWORK_VERSION = '1.2.4';
 export const IN_PERSON_INTAKE_PAPERWORK_CANONICAL = {
   url: IN_PERSON_INTAKE_PAPERWORK_URL,
   version: IN_PERSON_INTAKE_PAPERWORK_VERSION,
@@ -151,6 +151,26 @@ function buildFormFields(valueSets: ValueSetsConfig): PaperworkFormFields {
           type: 'string',
           dataType: 'Email',
           autocomplete: 'section-patient shipping email',
+          triggers: [
+            {
+              targetQuestionLinkId: 'patient-no-email',
+              effect: ['enable'],
+              operator: '!=',
+              answerBoolean: true,
+            },
+            {
+              targetQuestionLinkId: 'patient-no-email',
+              effect: ['filter'],
+              operator: '=',
+              answerBoolean: true,
+            },
+          ],
+          disabledDisplay: 'hidden',
+        },
+        noEmail: {
+          key: 'patient-no-email',
+          label: "Don't have email",
+          type: 'boolean',
         },
         phoneNumber: {
           key: 'patient-number',
@@ -339,6 +359,11 @@ function buildFormFields(valueSets: ValueSetsConfig): PaperworkFormFields {
               label: 'places address',
               type: 'string',
             },
+            pharmacyPlacesPhone: {
+              key: 'pharmacy-places-phone',
+              label: 'places phone',
+              type: 'string',
+            },
             pharmacyPlacesSaved: {
               key: 'pharmacy-places-saved',
               label: 'places saved',
@@ -412,6 +437,27 @@ function buildFormFields(valueSets: ValueSetsConfig): PaperworkFormFields {
           key: 'pharmacy-address',
           label: 'Pharmacy address',
           type: 'string',
+          triggers: [
+            {
+              targetQuestionLinkId: 'pharmacy-page-manual-entry',
+              effect: ['enable'],
+              operator: '=',
+              answerBoolean: true,
+            },
+            {
+              targetQuestionLinkId: 'pharmacy-page-manual-entry',
+              effect: ['filter'],
+              operator: '!=',
+              answerBoolean: true,
+            },
+          ],
+          disabledDisplay: 'hidden',
+        },
+        phone: {
+          key: 'pharmacy-phone',
+          label: 'Pharmacy phone',
+          type: 'string',
+          dataType: 'Phone Number',
           triggers: [
             {
               targetQuestionLinkId: 'pharmacy-page-manual-entry',
@@ -1481,9 +1527,43 @@ function buildFormFields(valueSets: ValueSetsConfig): PaperworkFormFields {
               operator: '!=',
               answerString: 'Self',
             },
+            {
+              targetQuestionLinkId: 'responsible-party-relationship',
+              effect: ['filter'],
+              operator: '=',
+              answerString: 'Self',
+            },
+            {
+              targetQuestionLinkId: 'responsible-party-no-email',
+              effect: ['enable'],
+              operator: '!=',
+              answerBoolean: true,
+            },
+            {
+              targetQuestionLinkId: 'responsible-party-no-email',
+              effect: ['filter'],
+              operator: '=',
+              answerBoolean: true,
+            },
           ],
+          enableBehavior: 'all',
           disabledDisplay: 'disabled',
           dynamicPopulation: { sourceLinkId: 'patient-email' },
+        },
+        noEmail: {
+          key: 'responsible-party-no-email',
+          label: "Don't have email",
+          type: 'boolean',
+          triggers: [
+            {
+              targetQuestionLinkId: 'responsible-party-relationship',
+              effect: ['enable'],
+              operator: '!=',
+              answerString: 'Self',
+            },
+          ],
+          disabledDisplay: 'protected',
+          dynamicPopulation: { sourceLinkId: 'patient-no-email' },
         },
       },
       hiddenFields: [],

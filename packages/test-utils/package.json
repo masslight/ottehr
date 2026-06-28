@@ -2,7 +2,7 @@
   "name": "test-utils",
   "type": "module",
   "private": true,
-  "version": "1.36.13",
+  "version": "1.37.16",
   "main": "lib/main.ts",
   "types": "lib/main.ts",
   "exports": {
@@ -20,6 +20,7 @@
     "lint:fix": "NODE_OPTIONS='--max-old-space-size=8192' eslint --ext .ts,.tsx,.js,.jsx --report-unused-disable-directives --max-warnings 0 --fix .",
     "preview": "vite preview",
     "test": "vitest --silent",
+    "test:ci": "vitest run --coverage --coverage.reporter=lcov --coverage.reporter=text-summary --passWithNoTests --reporter=dot --reporter=github-actions",
     "coverage": "vitest run --coverage",
     "clean-e2e": "tsc scripts/clean-up-e2e.ts"
   },

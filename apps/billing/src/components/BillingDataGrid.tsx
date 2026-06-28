@@ -11,11 +11,11 @@ export const dataGridSx = {
     backgroundColor: '#FAFAFA',
     borderBottom: `1px solid ${otherColors.lightDivider}`,
   },
-  '& .MuiDataGrid-columnHeaderTitle': { fontWeight: 600, fontSize: 13, color: 'primary.dark' },
+  '& .MuiDataGrid-columnHeaderTitle': { fontWeight: 500, fontSize: 13, color: 'text.secondary' },
   '& .MuiDataGrid-cell': {
     borderBottom: `1px solid ${otherColors.lightDivider}`,
     fontSize: 14,
-    color: otherColors.tableRow,
+    color: 'text.primary',
   },
   '& .MuiDataGrid-row': { cursor: 'pointer' },
   '& .MuiDataGrid-row:hover': { bgcolor: otherColors.apptHover },

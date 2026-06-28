@@ -12,12 +12,7 @@ import {
   Practitioner,
   QuestionnaireResponse,
 } from 'fhir/r4b';
-import {
-  GetChartDataResponse,
-  GetMedicationOrdersResponse,
-  GetRadiologyOrderListZambdaOutput,
-  ImmunizationOrder,
-} from 'utils';
+import { GetChartDataResponse, GetMedicationOrdersResponse, ImmunizationOrder } from 'utils';
 export interface FullAppointmentResourcePackage {
   appointment: Appointment;
   encounter: Encounter;
@@ -40,5 +35,4 @@ export type AllChartData = {
   additionalChartData?: GetChartDataResponse;
   medicationOrders?: GetMedicationOrdersResponse['orders'];
   immunizationOrders?: ImmunizationOrder[];
-  radiologyData?: GetRadiologyOrderListZambdaOutput;
 };

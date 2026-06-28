@@ -6,10 +6,11 @@ import {
   MISSING_REQUEST_BODY,
   MISSING_REQUIRED_PARAMETERS,
   PRACTITIONER_ROLE_ALL_CATEGORIES_EXTENSION_URL,
+  PRACTITIONER_SCHEDULE_CONFLICT_ERROR,
   SCHEDULE_DISPLAY_NAME_EXTENSION_URL,
   Secrets,
 } from 'utils';
-import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
+import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
 import { checkPractitionerRoleConflict } from '../admin-practitioner-role-shared/check-conflict';
 
 interface AdminUpdatePractitionerRoleInput {
@@ -90,7 +91,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const hasAllCategories = typeof parsed.allCategories === 'boolean';
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, parsed.secrets);
-  const oystehr = createOystehrClient(m2mToken, parsed.secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, parsed.secrets);
 
   // Validate the resulting (provider, location, category) tuple won't collide
   // with another active PR. Need the current PR to fill in fields the caller
@@ -142,19 +143,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       { categoryNameById }
     );
     if (conflict) {
-      return {
-        statusCode: 400,
-        body: JSON.stringify({
-          code: 'PRACTITIONER_SCHEDULE_CONFLICT',
-          message: `This provider already has another active schedule at this location offering ${conflict.conflictingCategoryNames.join(
-            ', '
-          )}. Remove ${
-            conflict.conflictingCategoryNames.length === 1 ? 'it' : 'them'
-          } from that schedule first, or pick a different location.`,
-          conflictingPractitionerRoleId: conflict.conflictingPractitionerRoleId,
-          conflictingCategoryNames: conflict.conflictingCategoryNames,
-        }),
-      };
+      throw PRACTITIONER_SCHEDULE_CONFLICT_ERROR(conflict.conflictingCategoryNames);
     }
   }
 

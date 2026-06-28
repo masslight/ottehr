@@ -14,7 +14,7 @@ describe('apply-template - validateRequestParameters', () => {
 
     expect(result.templateName).toBe('My Template');
     expect(result.encounterId).toBe('550e8400-e29b-41d4-a716-446655440000');
-    expect(result.sectionActions).toEqual({});
+    expect(result.sectionActions).toBeUndefined();
     expect(result.secrets).toEqual(createMockSecrets());
     expect(result.userToken).toBe('test-token');
   });
