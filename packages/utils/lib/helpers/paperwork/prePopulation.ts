@@ -715,6 +715,7 @@ const mapPCPToQuestionnaireResponseItems = (input: MapPCPItemsInput): Questionna
   const practiceName =
     physician?.extension?.find((e: { url: string }) => e.url === PRACTICE_NAME_URL)?.valueString ?? '';
   const phone = physician?.telecom?.find((c) => c.system === 'phone' && c.period?.end === undefined)?.value ?? '';
+  const fax = physician?.telecom?.find((c) => c.system === 'fax' && c.period?.end === undefined)?.value ?? '';
   const address = physician?.address?.[0]?.text ?? '';
   let firstName: string | undefined;
   let lastName: string | undefined;
@@ -747,6 +748,12 @@ const mapPCPToQuestionnaireResponseItems = (input: MapPCPItemsInput): Questionna
 
     if (linkId === 'pcp-number' && phone) {
       const formatted = formatPhoneNumberDisplay(phone);
+      if (formatted) {
+        answer = makeAnswer(formatted);
+      }
+    }
+    if (linkId === 'pcp-fax' && fax) {
+      const formatted = formatPhoneNumberDisplay(fax);
       if (formatted) {
         answer = makeAnswer(formatted);
       }
