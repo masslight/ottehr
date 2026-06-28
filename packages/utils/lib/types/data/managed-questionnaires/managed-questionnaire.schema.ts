@@ -1,3 +1,4 @@
+import { QuestionnaireResponseItem } from 'fhir/r4b';
 import z from 'zod';
 import { OTTEHR_DATA_TYPES, OTTEHR_INPUT_WIDTHS, QUESTIONNAIRE_ITEM_TYPES } from './managed-questionnaire.types';
 
@@ -30,4 +31,21 @@ export const ManagedQuestionnaireSchema = z
 export const ManagedQuestionnaireUpdateStatusSchema = z.object({
   questionnaireId: z.string().uuid(),
   newStatus: z.enum(['draft', 'active', 'retired', 'unknown']),
+});
+
+export const GetAllManagedPaperworkInputSchema = z.object({
+  appointmentId: z.string().uuid(),
+});
+
+export const GetManagedPaperworkForQuestionnaire = GetAllManagedPaperworkInputSchema.extend({
+  questionnaireId: z.string().uuid(),
+});
+
+export const SaveManagedPaperworkResponseInputSchema = z.object({
+  pageAnswers: z.custom<QuestionnaireResponseItem>(),
+  questionnaireId: z.string().uuid(),
+  // we could probably deduce "complete" from the questionnaire and answers but for simplicity sake passing from the front end for now
+  complete: z.boolean(),
+  appointmentId: z.string().uuid(),
+  // computedQrItems -- idea is that i will send this and if the zambda gets them it knows to add them as another field
 });

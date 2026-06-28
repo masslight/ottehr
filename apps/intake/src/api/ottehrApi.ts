@@ -9,11 +9,17 @@ import {
   CreateAppointmentInputParams,
   CreateAppointmentResponse,
   CreateSlotParams,
+  GetAllManagedPaperworkInput,
+  GetAllManagedPaperworkOutput,
   GetAppointmentDetailsResponse,
   GetBookingQuestionnaireParams,
   GetBookingQuestionnaireResponse,
   GetEligibilityParameters,
   GetEligibilityResponse,
+  GetManagedPaperworkForQuestionnaireInput,
+  GetManagedPaperworkForQuestionnaireOutput,
+  GetManagedPaperworkInput,
+  GetManagedPaperworkOutput,
   GetPresignedFileURLInput,
   GetScheduleRequestParams,
   GetScheduleResponse,
@@ -26,6 +32,7 @@ import {
   PatientInfo,
   PersistConsentInput,
   PresignUploadUrlResponse,
+  SaveManagedPaperworkResponseInput,
   SearchPlacesInput,
   SearchPlacesOutput,
   ServiceMode,
@@ -495,6 +502,42 @@ class API {
       const response = await zambdaClient.executePublic('video-chat-waiting-room-notification', input);
       const jsonToUse = chooseJson(response);
       return jsonToUse as VideoChatNotificationResponse;
+    } catch (error: unknown) {
+      throw apiErrorToThrow(error);
+    }
+  }
+
+  getManagedPaperwork(
+    zambdaClient: ZambdaClient,
+    input: GetAllManagedPaperworkInput
+  ): Promise<GetAllManagedPaperworkOutput>;
+
+  getManagedPaperwork(
+    zambdaClient: ZambdaClient,
+    input: GetManagedPaperworkForQuestionnaireInput
+  ): Promise<GetManagedPaperworkForQuestionnaireOutput>;
+
+  async getManagedPaperwork(
+    zambdaClient: ZambdaClient,
+    input: GetManagedPaperworkInput
+  ): Promise<GetManagedPaperworkOutput> {
+    try {
+      const response = await zambdaClient.execute('get-managed-paperwork', input);
+      const jsonToUse = chooseJson(response);
+      return jsonToUse as GetManagedPaperworkOutput;
+    } catch (error: unknown) {
+      throw apiErrorToThrow(error);
+    }
+  }
+
+  async saveManagedPaperworkResponse(
+    zambdaClient: ZambdaClient,
+    input: SaveManagedPaperworkResponseInput
+  ): Promise<QuestionnaireResponse> {
+    try {
+      const response = await zambdaClient.execute('save-managed-paperwork-response', input);
+      const jsonToUse = chooseJson(response);
+      return jsonToUse as QuestionnaireResponse;
     } catch (error: unknown) {
       throw apiErrorToThrow(error);
     }

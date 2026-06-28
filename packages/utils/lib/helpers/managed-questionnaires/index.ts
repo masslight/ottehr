@@ -95,7 +95,7 @@ export function generateManagedQuestionnaireItemKey(): string {
   return crypto.randomUUID().slice(0, 8);
 }
 
-const fhirQuestionnaireItemToManaged = (item: QuestionnaireItem): ManagedQuestionnaireItem => {
+export const fhirQuestionnaireItemToManaged = (item: QuestionnaireItem): ManagedQuestionnaireItem => {
   const managedNestedItems = item.item?.map(fhirQuestionnaireItemToManaged);
 
   // check for custom defined managed questionnaire item fields in extension

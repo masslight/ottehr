@@ -1,10 +1,13 @@
-import { Questionnaire, QuestionnaireItem } from 'fhir/r4b';
+import { Questionnaire, QuestionnaireItem, QuestionnaireResponse } from 'fhir/r4b';
 import z from 'zod';
 import { PRIVATE_EXTENSION_BASE_URL } from '../../../fhir';
 import {
+  GetAllManagedPaperworkInputSchema,
+  GetManagedPaperworkForQuestionnaire,
   ManagedQuestionnaireItemSchema,
   ManagedQuestionnaireSchema,
   ManagedQuestionnaireUpdateStatusSchema,
+  SaveManagedPaperworkResponseInputSchema,
 } from './managed-questionnaire.schema';
 
 export const DATA_TYPE_EXTENSION_URL = `${PRIVATE_EXTENSION_BASE_URL}/data-type`;
@@ -66,18 +69,27 @@ export type ManagedQuestionnaire = Questionnaire & z.infer<typeof ManagedQuestio
 
 export type ManagedQuestionnaireUpdateStatusData = z.infer<typeof ManagedQuestionnaireUpdateStatusSchema>;
 
+export type ManagedPaperworkDTO = {
+  questionnaireTitle: string;
+  questionnaireId: string;
+  questionnaireItems: QuestionnaireItem[];
+  questionnaireResponse: QuestionnaireResponse | undefined;
+};
+
 // ============= api input / output types ===============
+
+// get managed questionnaire
 export type ManagedQuestionnaireDetailInput = {
   questionnaireId: string;
 };
 export type ManagedQuestionnaireDetailOutput = {
   managedQuestionnaires: ManagedQuestionnaire;
 };
-
 export type ManagedQuestionnaireListOutput = {
   managedQuestionnaires: ManagedQuestionnaire[];
 };
 
+// update managed questionnaire
 export type ManagedQuestionnaireUpdateStatus = {
   updateType: 'update-status';
   data: ManagedQuestionnaireUpdateStatusData;
@@ -90,9 +102,29 @@ export type ManagedQuestionnaireUpdateInput =
   | ManagedQuestionnaireUpdateStatus
   | ManagedQuestionnaireUpdateQuestionnaire;
 
+// create managed questionnaire
 export type ManagedQuestionnaireCreateInput = {
   managedQuestionnaire: ManagedQuestionnaire;
 };
 export type ManagedQuestionnaireCreateOutput = {
   questionnaireId: string;
+};
+
+// get managed paperwork
+export type GetAllManagedPaperworkInput = z.infer<typeof GetAllManagedPaperworkInputSchema>;
+export type GetManagedPaperworkForQuestionnaireInput = z.infer<typeof GetManagedPaperworkForQuestionnaire>;
+export type GetManagedPaperworkInput = GetAllManagedPaperworkInput | GetManagedPaperworkForQuestionnaireInput;
+
+export type GetAllManagedPaperworkOutput = {
+  managedPaperwork: (ManagedPaperworkDTO & { questionnaireResponse: QuestionnaireResponse })[];
+};
+export type GetManagedPaperworkForQuestionnaireOutput = {
+  managedPaperwork: ManagedPaperworkDTO;
+};
+export type GetManagedPaperworkOutput = GetAllManagedPaperworkOutput | GetManagedPaperworkForQuestionnaireOutput;
+
+// save manged paperwork
+export type SaveManagedPaperworkResponseInput = z.infer<typeof SaveManagedPaperworkResponseInputSchema>;
+export type SaveManagedPaperworkResponseOutput = {
+  questionnaireResponse: QuestionnaireResponse;
 };

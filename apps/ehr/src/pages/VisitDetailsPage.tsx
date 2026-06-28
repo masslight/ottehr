@@ -34,6 +34,7 @@ import {
   createZ3Object,
   deleteVisitFiles,
   generatePaperworkPdf,
+  getManagedPaperwork,
   getOrCreateVisitDetailsPdf,
   getPatientVisitDetails,
   getPatientVisitFiles,
@@ -283,21 +284,12 @@ export default function VisitDetailsPage(): ReactElement {
   const { data: practiceManagedData } = useQuery({
     queryKey: ['practice-managed-questionnaires', appointmentID],
     queryFn: async () => {
-      if (!oystehrZambda || !appointmentID) return { questionnaires: [] };
-      const response = await oystehrZambda.zambda.execute({
-        id: 'get-practice-managed-questionnaires',
-        appointmentId: appointmentID,
-      } as any);
-      const output = typeof response.output === 'string' ? JSON.parse(response.output) : response.output;
-      return output as {
-        questionnaires: {
-          id: string;
-          title: string;
-          questionnaireResponseId?: string;
-          questionnaireResponseStatus?: string;
-          item?: any[];
-        }[];
-      };
+      if (!oystehrZambda || !appointmentID) return { managedPaperwork: [] };
+      const response = await getManagedPaperwork(oystehrZambda, { appointmentId: appointmentID });
+
+      console.log('huh', response); // todo sarah clean up
+
+      return response;
     },
     enabled: Boolean(oystehrZambda) && appointmentID !== undefined,
   });
@@ -1397,23 +1389,20 @@ export default function VisitDetailsPage(): ReactElement {
                         }
                       />
                     </Grid>
-                    {(practiceManagedData?.questionnaires || []).length > 0 ? (
-                      (practiceManagedData?.questionnaires || []).map((pmQ: any) => (
-                        <Grid item key={pmQ.id}>
-                          <Paper sx={{ p: 2 }}>
+                    {(practiceManagedData?.managedPaperwork || []).length > 0 ? (
+                      (practiceManagedData?.managedPaperwork || []).map((paperwork, idx) => (
+                        <Grid item key={`${paperwork.questionnaireId}-${idx}`}>
+                          <Paper sx={{ mt: 2, p: 3 }}>
                             <Typography variant="subtitle1" sx={{ fontWeight: 700, color: '#0F347C', mb: 1 }}>
-                              {pmQ.title}
+                              {paperwork.questionnaireTitle}
                             </Typography>
-                            {!pmQ.questionnaireResponseItems ? (
-                              <Typography variant="body2" color="text.secondary">
-                                Not Started
-                              </Typography>
-                            ) : (
-                              <QuestionnaireResponseViewer
-                                questionnaire={{ item: pmQ.item, title: pmQ.title }}
-                                responseItems={pmQ.questionnaireResponseItems}
-                              />
-                            )}
+                            <QuestionnaireResponseViewer
+                              questionnaire={{
+                                item: paperwork.questionnaireItems,
+                                title: paperwork.questionnaireTitle,
+                              }}
+                              responseItems={paperwork.questionnaireResponse.item ?? []}
+                            />
                           </Paper>
                         </Grid>
                       ))
@@ -1610,7 +1599,7 @@ export default function VisitDetailsPage(): ReactElement {
                         {(() => {
                           // Merge BOOKING_CONFIG (compiled-in, source of truth on collision)
                           // with the FHIR-backed catalog so admins can switch a visit to a
-                          // runtime-registered category. Dedup by code. Filter inactive
+                          // runtime-registered category. Dedupe by code. Filter inactive
                           // FHIR-backed entries — the update-visit-details validator only
                           // resolves against `active=true` HSes, so offering an inactive
                           // category here would let the admin pick something that fails

@@ -1468,20 +1468,6 @@
       "src": "src/ehr/admin-get-template-detail/index",
       "zip": ".dist/zips/admin-get-template-detail.zip"
     },
-    "SAVE-PRACTICE-MANAGED-RESPONSE": {
-      "name": "save-practice-managed-response",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/patient/paperwork/save-practice-managed-response/index",
-      "zip": ".dist/zips/save-practice-managed-response.zip"
-    },
-    "GET-PRACTICE-MANAGED-QUESTIONNAIRES": {
-      "name": "get-practice-managed-questionnaires",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/patient/paperwork/get-practice-managed-questionnaires/index",
-      "zip": ".dist/zips/get-practice-managed-questionnaires.zip"
-    },
     "FINALIZE-PRACTICE-MANAGED-RESPONSE": {
       "name": "finalize-practice-managed-response",
       "type": "http_auth",
@@ -2330,6 +2316,20 @@
       "runtime": "nodejs22.x",
       "src": "src/ehr/managed-questionnaire/create/index",
       "zip": ".dist/zips/managed-questionnaire-create.zip"
+    },
+    "GET-MANAGED-PAPERWORK": {
+      "name": "get-managed-paperwork",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/patient/managed-paperwork/get-managed-paperwork/index",
+      "zip": ".dist/zips/get-managed-paperwork.zip"
+    },
+    "SAVE-MANAGED-PAPERWORK-RESPONSE": {
+      "name": "save-managed-paperwork-response",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/patient/managed-paperwork/save-managed-paperwork-response/index",
+      "zip": ".dist/zips/save-managed-paperwork-response.zip"
     }
   },
   "fhirResources": {

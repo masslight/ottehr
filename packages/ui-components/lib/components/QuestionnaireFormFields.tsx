@@ -506,6 +506,7 @@ function hasVisibleContent(item: QuestionnaireItem): boolean {
   return true;
 }
 
+// todo sarah review this
 export function buildQuestionnairePages(items: QuestionnaireItem[], title?: string): QuestionnaireItem[] {
   const groups = items.filter((item) => item.type === 'group' && hasVisibleContent(item));
   if (groups.length > 0) return groups;
@@ -522,6 +523,7 @@ export function buildQuestionnairePages(items: QuestionnaireItem[], title?: stri
  * Flatten a saved QuestionnaireResponse item tree back into form values keyed by linkId,
  * so reopening an in-progress form resumes instead of silently overwriting prior pages.
  */
+// todo sarah im leaving this here for now but i dunno if its right
 export function responseItemsToFormValues(items: QuestionnaireResponseItem[] | undefined): Record<string, any> {
   const values: Record<string, any> = {};
   const walk = (list: QuestionnaireResponseItem[]): void => {
@@ -553,6 +555,7 @@ function collectPageItems(
   return map;
 }
 
+// todo sarah review
 export function formDataToResponseItem(data: Record<string, any>, page: QuestionnaireItem): QuestionnaireResponseItem {
   // The RHF store holds values for EVERY page the patient has visited (values are
   // deliberately retained across pages so Back/Continue doesn't lose answers). Only

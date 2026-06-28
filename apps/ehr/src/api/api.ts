@@ -106,6 +106,8 @@ import {
   EHRVisitDetails,
   EmCodeOutput,
   GetAllergyQuickPicksResponse,
+  GetAllManagedPaperworkInput,
+  GetAllManagedPaperworkOutput,
   GetAppointmentsZambdaInput,
   GetAppointmentsZambdaOutput,
   GetConversationInput,
@@ -119,6 +121,10 @@ import {
   GetLabelPrintingConfigOutput,
   GetLabOrdersParameters,
   GetLocationSupportPhonesOutput,
+  GetManagedPaperworkForQuestionnaireInput,
+  GetManagedPaperworkForQuestionnaireOutput,
+  GetManagedPaperworkInput,
+  GetManagedPaperworkOutput,
   GetMedicalConditionQuickPicksResponse,
   GetMedicationHistoryQuickPicksResponse,
   GetNursingOrdersInput,
@@ -203,6 +209,7 @@ import {
   SearchLegacyRecordsOutput,
   SendForFinalReadZambdaInput,
   SendForFinalReadZambdaOutput,
+  SendPatientFormInput,
   SendReceiptByEmailZambdaInput,
   SendReceiptByEmailZambdaOutput,
   SubmitLabOrderInput,
@@ -351,6 +358,8 @@ const DELETE_CUSTOM_FOLDER_ZAMBDA_ID = 'delete-custom-folder';
 const MANAGED_QUESTIONNAIRE_LIST_ZAMBDA_ID = 'managed-questionnaire-list';
 const MANAGED_QUESTIONNAIRE_UPDATE_ZAMBDA_ID = 'managed-questionnaire-update';
 const MANAGED_QUESTIONNAIRE_CREATE_ZAMBDA_ID = 'managed-questionnaire-create';
+const SEND_PATIENT_FORM = 'send-patient-form';
+const GET_MANAGED_PAPERWORK = 'get-managed-paperwork';
 
 export const getUser = async (token: string): Promise<User> => {
   const oystehr = new Oystehr({
@@ -2911,6 +2920,45 @@ export const managedQuestionnaireCreate = async (
     throw apiErrorToThrow(error);
   }
 };
+
+export const sendPatientForm = async (oystehr: Oystehr, parameters: SendPatientFormInput): Promise<void> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: SEND_PATIENT_FORM,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
+export function getManagedPaperwork(
+  oystehr: Oystehr,
+  parameters: GetAllManagedPaperworkInput
+): Promise<GetAllManagedPaperworkOutput>;
+
+export function getManagedPaperwork(
+  oystehr: Oystehr,
+  parameters: GetManagedPaperworkForQuestionnaireInput
+): Promise<GetManagedPaperworkForQuestionnaireOutput>;
+
+export async function getManagedPaperwork(
+  oystehr: Oystehr,
+  parameters: GetManagedPaperworkInput
+): Promise<GetManagedPaperworkOutput> {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: GET_MANAGED_PAPERWORK,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+}
 
 // ── Service Categories (FHIR-backed bookable appointment categories) ──
 

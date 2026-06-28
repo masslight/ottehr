@@ -12,7 +12,7 @@ import {
 import { PageContainer } from '../components';
 import { useUCZambdaClient, ZambdaClient } from '../hooks/useUCZambdaClient';
 
-const GET_PM_ZAMBDA = 'get-practice-managed-questionnaires';
+const GET_PM_ZAMBDA = 'get-managed-paperwork';
 const SAVE_PM_ZAMBDA = 'save-practice-managed-response';
 
 interface PracticeManagedQ {

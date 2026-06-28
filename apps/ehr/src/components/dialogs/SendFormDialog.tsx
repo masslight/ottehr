@@ -16,22 +16,18 @@ import {
 } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import { FC, useCallback, useEffect, useMemo, useState } from 'react';
-import { managedQuestionnaireList } from 'src/api/api';
+import { managedQuestionnaireList, sendPatientForm } from 'src/api/api';
 import { useApiClients } from 'src/hooks/useAppClients';
 
 interface SendFormDialogProps {
   open: boolean;
   onClose: () => void;
-  /** Appointment-scoped send: link is tied to an encounter. */
-  appointmentId?: string;
-  /** Patient-scoped send (no encounter): link is tied to the patient record only. */
-  patientId?: string;
+  appointmentId: string;
 }
 
-const SEND_FORM_ZAMBDA = 'send-patient-form';
 const PATIENT_APP_URL = import.meta.env.VITE_APP_PATIENT_APP_URL || '';
 
-export const SendFormDialog: FC<SendFormDialogProps> = ({ open, onClose, appointmentId, patientId }) => {
+export const SendFormDialog: FC<SendFormDialogProps> = ({ open, onClose, appointmentId }) => {
   const { oystehrZambda } = useApiClients();
   const [selectedId, setSelectedId] = useState('');
   const [sending, setSending] = useState(false);
@@ -72,9 +68,8 @@ export const SendFormDialog: FC<SendFormDialogProps> = ({ open, onClose, appoint
   const formUrl = useMemo(() => {
     if (!selectedId || !PATIENT_APP_URL) return '';
     if (appointmentId) return `${PATIENT_APP_URL}/forms/${appointmentId}/${selectedId}`;
-    if (patientId) return `${PATIENT_APP_URL}/forms/patient/${patientId}/${selectedId}`;
     return '';
-  }, [selectedId, appointmentId, patientId]);
+  }, [selectedId, appointmentId]);
 
   const handleCopyUrl = useCallback(() => {
     if (!formUrl) return;
@@ -86,17 +81,9 @@ export const SendFormDialog: FC<SendFormDialogProps> = ({ open, onClose, appoint
   const handleSend = useCallback(async () => {
     if (!oystehrZambda || !selectedId) return;
 
-    const selected = questionnaires.find((q) => q.id === selectedId);
-    if (!selected) return;
-
     setSending(true);
     try {
-      await oystehrZambda.zambda.execute({
-        id: SEND_FORM_ZAMBDA,
-        ...(appointmentId ? { appointmentId } : { patientId }),
-        questionnaireId: selectedId,
-        questionnaireName: selected.title,
-      });
+      await sendPatientForm(oystehrZambda, { appointmentId, questionnaireId: selectedId });
       enqueueSnackbar('Form link sent to patient', { variant: 'success' });
       onClose();
       setSelectedId('');
@@ -106,7 +93,7 @@ export const SendFormDialog: FC<SendFormDialogProps> = ({ open, onClose, appoint
     } finally {
       setSending(false);
     }
-  }, [oystehrZambda, selectedId, appointmentId, patientId, questionnaires, onClose]);
+  }, [oystehrZambda, selectedId, appointmentId, onClose]);
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>

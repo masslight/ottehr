@@ -126,10 +126,6 @@ export const intakeFlowPageRoute = {
     path: '/forms/:appointmentId/:questionnaireId',
     getPage: () => <StandaloneFormPage />,
   },
-  StandaloneFormPatient: {
-    path: '/forms/patient/:patientId/:questionnaireId',
-    getPage: () => <StandaloneFormPage />,
-  },
   ReviewPaperwork: {
     path: `${paperworkBasePath}/review`,
     getPage: () => <ReviewPaperwork />,

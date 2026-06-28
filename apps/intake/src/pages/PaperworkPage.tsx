@@ -463,7 +463,7 @@ export const PaperworkPage: FC = () => {
               // forms are filled, so those are re-fetched when actually at the boundary.
               try {
                 const fetchPmData = async (): Promise<any> => {
-                  const pmResponse = await zambdaClient.execute('get-practice-managed-questionnaires', {
+                  const pmResponse = await zambdaClient.execute('get-managed-paperwork', {
                     appointmentId: appointmentID,
                   });
                   return typeof pmResponse.output === 'string' ? JSON.parse(pmResponse.output) : pmResponse.output;

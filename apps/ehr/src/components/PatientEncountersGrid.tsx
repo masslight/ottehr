@@ -1,7 +1,6 @@
 import AddIcon from '@mui/icons-material/Add';
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
-import SendIcon from '@mui/icons-material/Send';
 import SubdirectoryArrowRightIcon from '@mui/icons-material/SubdirectoryArrowRight';
 import {
   Box,
@@ -52,7 +51,6 @@ import {
 import { FEATURE_FLAGS } from '../constants/feature-flags';
 import { formatISOStringToDateAndTime } from '../helpers/formatDateTime';
 import { useApiClients } from '../hooks/useAppClients';
-import { SendFormDialog } from './dialogs/SendFormDialog';
 import { RoundedButton } from './RoundedButton';
 
 type PatientEncountersGridProps = {
@@ -148,7 +146,6 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
   const [serviceCategory, setServiceCategory] = useState('all');
   const [hideCancelled, setHideCancelled] = useState(false);
   const [hideNoShow, setHideNoShow] = useState(false);
-  const [sendFormOpen, setSendFormOpen] = useState(false);
   const [sortField, setSortField] = useState<SortField>('dateTime');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [page, setPage] = useState(0);
@@ -357,19 +354,7 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
         >
           Follow-up
         </RoundedButton>
-        <RoundedButton
-          variant="contained"
-          startIcon={<SendIcon fontSize="small" />}
-          onClick={() => setSendFormOpen(true)}
-          disabled={!patient?.id}
-        >
-          Send Form
-        </RoundedButton>
       </Box>
-
-      {patient?.id && (
-        <SendFormDialog open={sendFormOpen} onClose={() => setSendFormOpen(false)} patientId={patient.id} />
-      )}
 
       <Box sx={{ display: 'flex', gap: 2 }}>
         <TextField size="small" fullWidth label="Type" select value={type} onChange={(e) => setType(e.target.value)}>
