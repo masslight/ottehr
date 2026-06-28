@@ -11,6 +11,7 @@ import {
   Reference,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { z } from 'zod';
 import { CPTCodeOption, DiagnosisDTO, LAB_DR_TYPE_TAG, LabelConfig, Pagination } from '../..';
 import { LabelPdf } from '../printing';
 import { ExternalLabSetDTO, LabSetDTO } from './lab-set.schema';
@@ -314,7 +315,7 @@ type SelfPayResource = {
 };
 type WorkersCompResource = {
   type: LabPaymentMethod.WorkersComp;
-  coverage: Coverage;
+  coverageAndOrgs: CoverageOrgRank[];
 };
 export type PaymentResources = InsurancePaymentResource | ClientBillResource | SelfPayResource | WorkersCompResource;
 
@@ -325,11 +326,14 @@ export enum LabPaymentMethod {
   WorkersComp = 'workersComp',
 }
 
-export type CreateLabPaymentMethod =
-  | LabPaymentMethod.Insurance
-  | LabPaymentMethod.SelfPay
-  | LabPaymentMethod.ClientBill
-  | LabPaymentMethod.WorkersComp;
+export const CreateLabPaymentMethodSchema = z.enum([
+  LabPaymentMethod.Insurance,
+  LabPaymentMethod.SelfPay,
+  LabPaymentMethod.ClientBill,
+  LabPaymentMethod.WorkersComp,
+]);
+
+export type CreateLabPaymentMethod = z.infer<typeof CreateLabPaymentMethodSchema>;
 
 export type CreateLabOrderParameters = {
   dx: DiagnosisDTO[];

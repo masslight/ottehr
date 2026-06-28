@@ -39,6 +39,7 @@ export const InsuranceSection: FC<{
   isAddingInsurance: boolean;
   onStartAddInsurance: () => void;
   onCancelAddInsurance: () => void;
+  onCloseAddInsurance: () => void;
   newInsuranceOrdinal: number;
   encounterId?: string;
 }> = ({
@@ -50,26 +51,25 @@ export const InsuranceSection: FC<{
   isAddingInsurance,
   onStartAddInsurance,
   onCancelAddInsurance,
+  onCloseAddInsurance,
   newInsuranceOrdinal,
   encounterId,
 }) => {
   const primary = getInsuranceSectionDefinition(0);
   const secondary = getInsuranceSectionDefinition(1);
 
-  const { fieldKeys, requiredFieldKeys } = useMemo(() => {
+  const fieldKeys = useMemo(() => {
     const renderedOrdinals = new Set<number>();
     coverages.forEach((c) => renderedOrdinals.add(c.startingPriority - 1));
     if (isAddingInsurance) renderedOrdinals.add(newInsuranceOrdinal - 1);
 
     const collected: string[] = [];
-    const collectedRequired: string[] = [];
     [primary, secondary].forEach((section, index) => {
       if (!renderedOrdinals.has(index)) return;
       const keys = Object.values(section.items).map((item) => item.key);
       collected.push(...keys);
-      collectedRequired.push(...section.requiredFields.filter((key) => keys.includes(key)));
     });
-    return { fieldKeys: collected, requiredFieldKeys: collectedRequired };
+    return collected;
   }, [coverages, isAddingInsurance, newInsuranceOrdinal, primary, secondary]);
 
   return (
@@ -78,9 +78,9 @@ export const InsuranceSection: FC<{
       titleWidget={
         <SectionSaveButton
           fieldKeys={fieldKeys}
-          requiredFieldKeys={requiredFieldKeys}
           patientId={patient.id}
           encounterId={encounterId}
+          onSaveSuccess={isAddingInsurance ? onCloseAddInsurance : undefined}
         />
       }
     >

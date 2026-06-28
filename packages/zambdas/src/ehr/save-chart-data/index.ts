@@ -2,8 +2,8 @@ import Oystehr, { BatchInputPostRequest, BatchInputPutRequest, BatchInputRequest
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
 import {
-  Appointment,
   CodeableConcept,
+  Communication,
   DocumentReference,
   Encounter,
   FhirResource,
@@ -19,7 +19,7 @@ import {
   DispositionFollowUpType,
   ExamObservationDTO,
   getPatchBinary,
-  isInPersonAppointment,
+  getProviderNameWithProfession,
   PATIENT_VITALS_META_SYSTEM,
   SCHOOL_WORK_NOTE,
   Secrets,
@@ -27,8 +27,8 @@ import {
 import {
   checkOrCreateM2MClientToken,
   createAccidentCondition,
+  createClinicalOystehrClient,
   createDispositionServiceRequest,
-  createOystehrClient,
   createProcedureServiceRequest,
   followUpToPerformerMap,
   getMyPractitionerId,
@@ -47,6 +47,7 @@ import {
   makeRosObservationResource,
   makeSchoolWorkDR,
   makeServiceRequestResource,
+  prepareAddendumNotes,
   saveOrUpdateResourceRequest,
   updateEncounterAddendumNote,
   updateEncounterAddToVisitNote,
@@ -120,7 +121,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   console.timeLog('time', 'before creating fhir client and token resources');
   console.log('Getting token');
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-  const oystehr = createOystehrClient(m2mToken, secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
   console.timeLog('time', 'before fetching resources');
   // get encounter and resources
@@ -265,12 +266,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     );
   });
 
-  const isInPerson = isInPersonAppointment(appointment as Appointment);
-
   // convert ExamObservation[] to Observation(FHIR)[] and preserve FHIR resource IDs
   examObservations?.forEach((element) => {
-    const allExamFields = getAllExamFieldsMetadata(isInPerson);
-    const examObservationComments = createExamObservationComments(isInPerson);
+    const allExamFields = getAllExamFieldsMetadata();
+    const examObservationComments = createExamObservationComments();
 
     const observation = allExamFields.find((observation) => observation.field === element.field);
     const comment = examObservationComments.find((comment) => comment.field === element.field);
@@ -479,9 +478,16 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     );
   }
 
+  let existingByAddendumId = new Map<string, Communication>();
+  if (notes && notes.length > 0) {
+    const practitionerDisplay = getProviderNameWithProfession(currentPractitioner);
+    existingByAddendumId = await prepareAddendumNotes(oystehr, notes, currentPractitioner.id!, practitionerDisplay);
+  }
+
   // convert notes to Communication (FHIR) resources
   notes?.forEach((element) => {
-    const note = makeNoteResource(encounterId, patient.id!, element);
+    const existing = element.resourceId ? existingByAddendumId.get(element.resourceId) : undefined;
+    const note = makeNoteResource(encounterId, patient.id!, element, existing);
     const request = saveOrUpdateResourceRequest(note);
     saveOrUpdateRequests.push(request);
   });
@@ -514,7 +520,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   console.log('Updated chart data as a transaction');
 
-  await runChartDataPostChangeTasks(oystehr, addendumNote, encounter, appointment?.id);
+  await runChartDataPostChangeTasks(oystehr, addendumNote, notes, encounter, appointment?.id);
 
   console.timeLog('time', 'before sorting resources');
   const output = validateBundleAndExtractSavedChartData(

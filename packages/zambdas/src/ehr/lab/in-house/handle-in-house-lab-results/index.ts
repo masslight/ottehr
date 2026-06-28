@@ -60,7 +60,7 @@ import {
 } from 'utils';
 import {
   checkOrCreateM2MClientToken,
-  createOystehrClient,
+  createClinicalOystehrClient,
   getMyPractitionerId,
   wrapHandler,
   ZambdaInput,
@@ -87,7 +87,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   console.log('token', m2mToken);
 
-  const oystehr = createOystehrClient(m2mToken, secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
   const curUserPractitionerId = await getMyPractitionerId(userToken, secrets);
 
   const {
@@ -365,6 +365,10 @@ const getInHouseLabResultResources = async (
   const location = locations.length ? locations[0] : undefined;
 
   const { url: adUrl, version } = getInHouseLabTestUrlAndVersionForADFromServiceRequest(serviceRequest);
+  console.log(
+    'these are the AD url, version and serviceRequest id',
+    JSON.stringify({ adUrl, version, serviceRequestId: serviceRequest.id })
+  );
 
   const [currentUserPractitioner, attendingPractitioner, activityDefinitionSearch] = await Promise.all([
     oystehr.fhir.get<Practitioner>({

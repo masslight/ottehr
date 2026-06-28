@@ -8,11 +8,13 @@ import {
   createOurDiagnosticReport,
   fetchServiceRequestFromAdvaPACS,
   getSecret,
-  SavePreliminaryReportZambdaOutput,
+  RADIOLOGY_ERROR,
+  SaveRadiologyReportZambdaOutput,
   Secrets,
   SecretsKeys,
 } from 'utils';
-import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
+import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
+import { extractDiagnosticsFromAdvaPACSErrorBody } from '../shared';
 import { ValidatedInput, validateInput, validateSecrets } from './validation';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
@@ -21,35 +23,27 @@ let m2mToken: string;
 const ZAMBDA_NAME = 'save-preliminary-report';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (unsafeInput: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  try {
-    const secrets = validateSecrets(unsafeInput.secrets);
+  const secrets = validateSecrets(unsafeInput.secrets);
 
-    const validatedInput = await validateInput(unsafeInput);
+  const validatedInput = await validateInput(unsafeInput);
 
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
-    const output = await performEffect(validatedInput, secrets, oystehr);
+  const output = await performEffect(validatedInput, secrets, oystehr);
 
-    return {
-      statusCode: 200,
-      body: JSON.stringify({ output }),
-    };
-  } catch (error: any) {
-    console.log('Error: ', JSON.stringify(error.message));
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ error: error.message }),
-    };
-  }
+  return {
+    statusCode: 200,
+    body: JSON.stringify({ output }),
+  };
 });
 
 async function performEffect(
   validatedInput: ValidatedInput,
   secrets: Secrets,
   oystehr: Oystehr
-): Promise<SavePreliminaryReportZambdaOutput> {
-  const { serviceRequestId, preliminaryReport } = validatedInput.body;
+): Promise<SaveRadiologyReportZambdaOutput> {
+  const { serviceRequestId, report: preliminaryReport } = validatedInput.body;
 
   // Get the existing service request from Oystehr
   console.group('Fetching service request from Oystehr');
@@ -159,14 +153,23 @@ const createDiagnosticReportInAdvaPACS = async (
     },
     body: JSON.stringify(diagnosticReport),
   });
+  const body = await response.json();
 
   if (!response.ok) {
+    if (response.status === 422) {
+      const alreadySentDiagnosticsMsg = 'The ServiceRequest is already linked to a different DiagnosticReport';
+      const diagnostics = extractDiagnosticsFromAdvaPACSErrorBody(body);
+      if (diagnostics === alreadySentDiagnosticsMsg) {
+        throw RADIOLOGY_ERROR('This report has already been saved, please refresh the page.');
+      }
+    }
+
     throw new Error(
       `AdvaPACS DiagnosticReport creation errored out with statusCode ${response.status}, status text ${
         response.statusText
-      }, and body ${JSON.stringify(await response.json(), null, 2)}`
+      }, and body ${JSON.stringify(body, null, 2)}`
     );
   }
 
-  return await response.json();
+  return body;
 };

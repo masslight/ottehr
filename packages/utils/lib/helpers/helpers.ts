@@ -15,15 +15,14 @@ import { DateTime } from 'luxon';
 import { INSURANCE_PAY_OPTION, SELF_PAY_OPTION } from '../config-helpers/shared-questionnaire';
 import {
   allLicensesForPractitioner,
+  BILLING_RESOURCE_TAG,
   CANDID_PLAN_TYPE_SYSTEM,
   FHIR_IDENTIFIER_SYSTEM,
-  getCoding,
   getFullName,
   INSURANCE_CANDID_PLAN_TYPE_CODES,
   OTTEHR_MODULE,
   PAYMENT_METHOD_EXTENSION_URL,
   PROVIDER_TYPE_EXTENSION_URL,
-  SERVICE_CATEGORY_SYSTEM,
   SLUG_SYSTEM,
 } from '../fhir';
 import { CONSENT_FORMS_CONFIG } from '../ottehr-config';
@@ -40,7 +39,7 @@ import {
   ProviderTypeCode,
   ScheduleOwnerFhirResource,
 } from '../types';
-import { phoneRegex, zipRegex } from '../validation';
+import { emailRegex, npiRegex, phoneRegex, zipRegex } from '../validation';
 
 export function createOystehrClient(token: string, fhirAPI: string, projectAPI: string): Oystehr {
   const FHIR_API = fhirAPI.replace(/\/r4/g, '');
@@ -48,6 +47,7 @@ export function createOystehrClient(token: string, fhirAPI: string, projectAPI: 
     accessToken: token,
     fhirApiUrl: FHIR_API,
     projectApiUrl: projectAPI,
+    ignoreTags: [BILLING_RESOURCE_TAG],
   };
   console.log('creating fhir client');
   return new Oystehr(CLIENT_CONFIG);
@@ -173,9 +173,41 @@ export function formatPhoneNumber(phoneNumber: string | undefined): string | und
   return tenDigitRegex.test(phoneNumber) ? `+1${phoneNumber}` : phoneNumber;
 }
 
+export const isEmailValid = (email: string | undefined): boolean => {
+  if (!email) {
+    return false;
+  }
+  return emailRegex.test(email);
+};
+
 export const isNPIValid = (npi: string): boolean => {
-  const npiRegex = /^\d{10}$/;
   return npiRegex.test(npi);
+};
+
+// https://www.cms.gov/Regulations-and-Guidance/Administrative-Simplification/NationalProvIdentStand/Downloads/NPIcheckdigit.pdf
+export const isNPIValidWithChecksum = (npi: string): boolean => {
+  if (!isNPIValid(npi)) {
+    return false;
+  }
+  const digits = `80840${npi}`.split('').map(Number);
+  let sum = 0;
+  let double = false;
+  for (let i = digits.length - 1; i >= 0; i--) {
+    let digit = digits[i];
+    if (double) {
+      digit *= 2;
+      if (digit > 9) digit -= 9;
+    }
+    sum += digit;
+    double = !double;
+  }
+  return sum % 10 === 0;
+};
+
+// CLIA numbers are 2-digit state code + "D" + 7-digit lab identifier, e.g. 05D1234567.
+export const isCLIAValid = (clia: string): boolean => {
+  const cliaRegex = /^\d{2}D\d{7}$/;
+  return cliaRegex.test(clia);
 };
 
 export function formatPhoneNumberDisplay(phoneNumber?: string): string {
@@ -183,7 +215,9 @@ export function formatPhoneNumberDisplay(phoneNumber?: string): string {
     return '';
   }
 
-  const cleaned = ('' + phoneNumber.slice(-10)).replace(/\D/g, '');
+  // Strip non-digits first, then take the last 10 digits so formatted inputs
+  // like "+1 (212) 555-1234" don't lose digits to the slice.
+  const cleaned = ('' + phoneNumber).replace(/\D/g, '').slice(-10);
   const match = cleaned.match(/^(\d{3})(\d{3})(\d{4})$/);
 
   if (match) {
@@ -191,6 +225,43 @@ export function formatPhoneNumberDisplay(phoneNumber?: string): string {
   }
 
   return phoneNumber;
+}
+
+/**
+ * Masks a phone number for safe logging, keeping the area code and the last 4 digits.
+ * e.g. "+12125551234" -> "(212) ***-1234". Falls back to a fully masked value when the
+ * input can't be parsed to 10 digits. Intended for logs only — do not persist on resources.
+ */
+export function maskPhoneNumber(phoneNumber?: string): string {
+  if (!phoneNumber) {
+    return '';
+  }
+  const formatted = formatPhoneNumberDisplay(phoneNumber);
+  // Mask the middle (exchange) group of a "(212) 555-1234" formatted number.
+  const masked = formatted.replace(/^(\(\d{3}\) )\d{3}(-\d{4})$/, '$1***$2');
+  // When the input can't be parsed to a 10-digit number, formatPhoneNumberDisplay
+  // returns the raw input unchanged (no replacement happens), so fully mask it.
+  return masked === formatted ? '***' : masked;
+}
+
+/**
+ * Masks an email address for safe logging, keeping the first few characters of the local
+ * part and the full domain. e.g. "jonathan@example.com" -> "jon***@example.com". Falls back
+ * to a fully masked value when there is no parseable local/domain. Intended for logs only —
+ * do not persist on resources.
+ */
+export function maskEmail(email?: string): string {
+  if (!email) {
+    return '';
+  }
+  const atIndex = email.lastIndexOf('@');
+  if (atIndex <= 0) {
+    return '***';
+  }
+  const local = email.slice(0, atIndex);
+  const domain = email.slice(atIndex); // includes leading '@'
+  const visible = local.slice(0, Math.min(3, local.length));
+  return `${visible}***${domain}`;
 }
 
 const getExtensionStartTimeValue = (extension: Extension): string | undefined =>
@@ -280,8 +351,58 @@ export function standardizePhoneNumber(phoneNumber: string | undefined): string 
   return `(${phoneNumberDigits.slice(0, 3)}) ${phoneNumberDigits.slice(3, 6)}-${phoneNumberDigits.slice(6)}`;
 }
 
+/**
+ * Validates a phone number against NANP rules: a 10-digit number whose area code and exchange both
+ * begin with a digit 2-9.
+ */
+export function isValidNANPNumber(phoneNumber: string | undefined): boolean {
+  const standardized = standardizePhoneNumber(phoneNumber);
+  if (!standardized) {
+    return false;
+  }
+
+  const digits = standardized.replace(/\D/g, '');
+  const areaCodeFirstDigit = digits[0];
+  const exchangeFirstDigit = digits[3];
+
+  return (
+    areaCodeFirstDigit >= '2' && areaCodeFirstDigit <= '9' && exchangeFirstDigit >= '2' && exchangeFirstDigit <= '9'
+  );
+}
+
+/**
+ * The phone rule the current eRx provider (DoseSpot) enforces; rejects what it would refuse with
+ * "Primary Phone is not valid." Single seam — swap this body if the provider or its rules change.
+ */
+export function isValidErxPhoneNumber(phoneNumber: string | undefined): boolean {
+  return isValidNANPNumber(phoneNumber);
+}
+
 export function resourceHasMetaTag(resource: Resource, metaTag: OTTEHR_MODULE): boolean {
   return Boolean(resource.meta?.tag?.find((coding) => coding.code === metaTag));
+}
+
+/**
+ * Standardizes a phone number that may carry an extension (`x`/`ext.`/`extension`) to
+ * `(XXX) XXX-XXXX` or `(XXX) XXX-XXXX x{ext}`. Returns undefined when the base number can't be
+ * parsed to 10 digits.
+ */
+export function standardizePhoneWithExtension(phoneNumber?: string): string | undefined {
+  const trimmed = phoneNumber?.trim();
+  if (!trimmed) {
+    return undefined;
+  }
+
+  const extensionMatch = trimmed.match(/\s*(?:x|ext\.?|extension)\s*(\d+)$/i);
+  const extension = extensionMatch?.[1];
+  const base = extensionMatch ? trimmed.slice(0, extensionMatch.index).trim() : trimmed;
+
+  const standardizedBase = standardizePhoneNumber(base);
+  if (!standardizedBase) {
+    return undefined;
+  }
+
+  return extension ? `${standardizedBase} x${extension}` : standardizedBase;
 }
 
 export const formatPhoneNumberForQuestionnaire = (phone: string): string => {
@@ -1588,6 +1709,10 @@ export const getNameFromScheduleResource = (scheduleResource: ScheduleOwnerFhirR
     location = scheduleResource.name;
   } else if (scheduleResource.resourceType === 'Practitioner') {
     location = getFullName(scheduleResource);
+  } else if (scheduleResource.resourceType === 'PractitionerRole') {
+    // Role doesn't carry a display name; callers that need a human-readable
+    // label should resolve the role's Practitioner separately.
+    location = `Role ${scheduleResource.id ?? ''}`.trim() || undefined;
   } else {
     location = scheduleResource.name;
   }
@@ -1658,33 +1783,42 @@ export function getAppointmentType(appointment: Appointment): { type: string } {
 }
 
 export function makeAbbreviation(str: string): string {
-  return str.split(/[\s-]+/).reduce((previousValue: string, currentValue: string) => {
-    return previousValue + currentValue.charAt(0).toUpperCase();
-  }, '');
+  // Split on any non-letter run (whitespace, hyphens, parentheses, digits …) so
+  // tokens like "(renamed)" or "(30" don't leak punctuation into the result.
+  return str
+    .split(/[^a-zA-Z]+/)
+    .filter(Boolean)
+    .reduce((previousValue: string, currentValue: string) => {
+      return previousValue + currentValue.charAt(0).toUpperCase();
+    }, '');
 }
 
-export function getServiceCategoryAbbreviation(serviceCategory?: string): 'UC' | 'OM' | 'WC' | 'PO' | undefined {
-  if (!serviceCategory) return undefined;
-
-  const normalizedServiceCategory = serviceCategory
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z]/g, '');
-  const serviceCategoryMap: Record<string, 'UC' | 'OM' | 'WC' | 'PO'> = {
-    urgentcare: 'UC',
-    occupationalmedicine: 'OM',
-    workerscomp: 'WC',
-    preop: 'PO',
-  };
-
-  return serviceCategoryMap[normalizedServiceCategory];
-}
-
-export function getAppointmentServiceCategoryAbbreviation(
-  appointment?: Appointment
-): 'UC' | 'OM' | 'WC' | 'PO' | undefined {
-  const serviceCategoryCoding = getCoding(appointment?.serviceCategory, SERVICE_CATEGORY_SYSTEM);
-  return getServiceCategoryAbbreviation(serviceCategoryCoding?.code ?? serviceCategoryCoding?.display);
+/**
+ * Resolve the short abbreviation shown for a service category on the Tracking
+ * Board, the patient's visit list, and the visit-details header.
+ *
+ * Prefers the admin-defined abbreviation stored on the FHIR-backed catalog
+ * entry (the "Abbreviation/Short Name" field on the Services admin page);
+ * otherwise derives one from the category's display name or code via
+ * makeAbbreviation. This replaces the legacy hard-coded UC/OM/WC/PO map so
+ * non-system categories (Massage, Wellness, …) get an abbreviation too.
+ *
+ * @param serviceCategoryCodeOrName the category's code or display name as
+ *   stored on the appointment/encounter — callers differ on which they hold,
+ *   so both are matched against the catalog.
+ * @param fhirCategories the FHIR-backed catalog (from listServiceCategories),
+ *   matched by code or name.
+ */
+export function resolveServiceCategoryAbbreviation(
+  serviceCategoryCodeOrName: string | undefined,
+  fhirCategories?: Array<{ code: string; name: string; abbreviation?: string }>
+): string | undefined {
+  const trimmed = serviceCategoryCodeOrName?.trim();
+  if (!trimmed) return undefined;
+  const match = fhirCategories?.find((c) => c.code === trimmed || c.name === trimmed);
+  const explicit = match?.abbreviation?.trim();
+  if (explicit) return explicit;
+  return makeAbbreviation(match?.name ?? trimmed) || undefined;
 }
 
 /**
@@ -1731,6 +1865,67 @@ export function replaceTemplateVariablesHandlebars(template: string, variables: 
   } catch {
     return template;
   }
+}
+
+/**
+ * Escape HTML special characters to prevent XSS.
+ */
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+/** Only allow safe URL protocols for links. */
+function isSafeUrl(url: string): boolean {
+  const trimmed = url.trim().toLowerCase();
+  return trimmed.startsWith('http://') || trimmed.startsWith('https://') || trimmed.startsWith('mailto:');
+}
+
+/**
+ * Converts markdown-style links `[text](url)` in a string to HTML `<a>` tags.
+ * Escapes all text content and validates link protocols to prevent XSS.
+ */
+export function convertMarkdownLinksToHtml(text: string): string {
+  // Extract links from the original text, escape their parts, then rebuild.
+  let result = '';
+  let lastIndex = 0;
+  const linkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
+  let match;
+  while ((match = linkRegex.exec(text)) !== null) {
+    // Escape the text before this match
+    result += escapeHtml(text.slice(lastIndex, match.index));
+    const linkText = escapeHtml(match[1]);
+    const linkUrl = match[2].trim();
+    if (isSafeUrl(linkUrl)) {
+      result += `<a href="${escapeHtml(linkUrl)}">${linkText}</a>`;
+    } else {
+      // Unsafe protocol — render as plain text
+      result += linkText;
+    }
+    lastIndex = match.index + match[0].length;
+  }
+  result += escapeHtml(text.slice(lastIndex));
+  return result;
+}
+
+/**
+ * Converts plain-text outreach content (with optional markdown-style links)
+ * into HTML suitable for the generic outreach email template.
+ *
+ * - `[text](url)` → `<a href="url">text</a>` (safe protocols only)
+ * - Newlines → `<br>`
+ * - Wraps in a `<p>` tag
+ * - All text content is HTML-escaped to prevent XSS
+ */
+export function convertOutreachTextToHtml(text: string): string {
+  if (!text) return '';
+  const withLinks = convertMarkdownLinksToHtml(text);
+  const withBreaks = withLinks.replace(/\n/g, '<br>');
+  return `<p>${withBreaks}</p>`;
 }
 
 /**

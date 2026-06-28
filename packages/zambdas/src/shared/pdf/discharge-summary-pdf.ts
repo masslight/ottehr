@@ -1,4 +1,5 @@
 import { BUCKET_NAMES, Secrets } from 'utils';
+import { createClinicalOystehrClient } from '../helpers';
 import { DataComposer, generatePdf, PdfRenderConfig, StyleFactory } from './pdf-common';
 import { rgbNormalized } from './pdf-utils';
 import {
@@ -14,7 +15,9 @@ import {
   composePatientInformationForDischargeSummary,
   composePatientInstructions,
   composePhysician,
+  composeProcedures,
   composeRadiology,
+  composeUpcomingVisits,
   composeVisitData,
   composeVitalsForDischargeSummary,
   composeWorkSchoolExcuseSection,
@@ -30,18 +33,21 @@ import {
   createPatientHeaderForDischargeSummary,
   createPatientInstructionsSection,
   createPhysicianSection,
+  createProceduresSection,
   createRadiologySection,
   createReasonForVisitSection,
+  createUpcomingVisitsSection,
   createVisitInfoSection,
   createVitalsSectionForDischargeSummary,
   createWorkSchoolExcuseSection,
 } from './sections';
+import { fetchServiceCategoryCatalog } from './service-category-catalog';
 import { AssetPaths, DischargeSummaryData, DischargeSummaryInput, PdfResult } from './types';
 
 const composeDischargeSummaryData: DataComposer<DischargeSummaryInput, DischargeSummaryData> = (input) => {
-  const { allChartData, appointmentPackage } = input;
+  const { allChartData, appointmentPackage, upcomingFollowUps } = input;
   const { appointment, location, timezone } = appointmentPackage;
-  const visit = composeVisitData({ appointment, location, timezone });
+  const visit = composeVisitData({ appointment, location, timezone, serviceCategories: input.serviceCategories });
   const workSchoolExcuse = composeWorkSchoolExcuseSection({ allChartData });
   return {
     patient: composePatientInformationForDischargeSummary({ appointmentPackage }),
@@ -55,11 +61,13 @@ const composeDischargeSummaryData: DataComposer<DischargeSummaryInput, Discharge
     inHouseMedications: composeInHouseMedicationsForDischargeSummary({ allChartData, appointmentPackage }),
     erxMedications: composeErxMedications({ allChartData, appointmentPackage }),
     diagnoses: composeDiagnoses({ allChartData }),
+    procedures: composeProcedures({ allChartData, appointmentPackage }),
     patientInstructions: composePatientInstructions({ allChartData }),
-    educationDocuments: composeEducationalDocuments(null),
+    educationDocuments: composeEducationalDocuments({ allChartData }),
     disposition: composeDisposition({ allChartData }),
     physician: composePhysician({ appointmentPackage }),
     workSchoolExcuse,
+    upcomingVisits: composeUpcomingVisits({ upcomingFollowUps }),
     attachmentDocRefs: workSchoolExcuse.attachmentDocRefs,
   };
 };
@@ -117,6 +125,13 @@ const createDischargeSummaryStyles: StyleFactory = (assets) => ({
       spacing: 2,
       newLineAfter: true,
     },
+    muted: {
+      fontSize: 12,
+      font: assets.fonts.regular,
+      color: rgbNormalized(102, 102, 102),
+      spacing: 2,
+      newLineAfter: true,
+    },
     bold: {
       fontSize: 12,
       font: assets.fonts.bold,
@@ -153,10 +168,12 @@ const dischargeSummaryRenderConfig: PdfRenderConfig<DischargeSummaryData> = {
     createInHouseMedicationsSectionForDischargeSummary(),
     createErxMedicationsSection(),
     createDiagnosesSection(),
+    createProceduresSection(),
     createPatientInstructionsSection(),
     createEducationalDocumentsSection(),
     createDispositionSection(),
     createWorkSchoolExcuseSection(),
+    createUpcomingVisitsSection(),
     createPhysicianSection(),
   ],
 };
@@ -166,8 +183,9 @@ export const createDischargeSummaryPdf = async (
   secrets: Secrets | null,
   token: string
 ): Promise<PdfResult> => {
+  const serviceCategories = await fetchServiceCategoryCatalog(createClinicalOystehrClient(token, secrets));
   return generatePdf(
-    input,
+    { ...input, serviceCategories },
     composeDischargeSummaryData,
     dischargeSummaryRenderConfig,
     {

@@ -31,6 +31,10 @@ export const useEditNote: UseEditNote = ({ appointmentId, apiConfig }) => {
         [apiConfig.fieldName]: [updatedNote],
       });
 
+      // Flip `edited` in the optimistic cache and bump lastUpdated so the "(edited)" marker
+      // and timestamp appear immediately instead of waiting for a refetch.
+      const editedAt = new Date().toISOString();
+
       setQueryCache((oldData: any) => {
         if (oldData?.[apiConfig.fieldName]) {
           return {
@@ -39,7 +43,7 @@ export const useEditNote: UseEditNote = ({ appointmentId, apiConfig }) => {
               oldData[apiConfig.fieldName] as GetChartDataResponse[typeof apiConfig.fieldName]
             )?.map((note) => {
               if (note.resourceId === updatedNote.resourceId) {
-                return { ...note, ...updatedNote };
+                return { ...note, ...updatedNote, lastUpdated: editedAt, edited: true };
               }
               return note;
             }),

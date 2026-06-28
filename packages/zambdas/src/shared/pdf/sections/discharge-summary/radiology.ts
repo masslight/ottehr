@@ -1,14 +1,31 @@
+import { convert } from 'html-to-text';
 import { createConfiguredSection, DataComposer } from '../../pdf-common';
 import { PdfSection, RadiologyData } from '../../types';
 import { AllChartData } from '../../visit-details-pdf/types';
 
 export const composeRadiology: DataComposer<{ allChartData: AllChartData }, RadiologyData> = ({ allChartData }) => {
-  const { radiologyData } = allChartData;
+  const { additionalChartData } = allChartData;
+  const radiologyOrders = additionalChartData?.radiologyOrders;
 
-  const radiology = radiologyData?.orders.map((order) => ({
+  const handleFinalReport = (finalReport: string | undefined): string => {
+    let result = '';
+
+    if (!finalReport) return result;
+
+    try {
+      result = convert(atob(finalReport));
+    } catch {
+      result = finalReport;
+    }
+
+    return result;
+  };
+
+  const radiology = radiologyOrders?.map((order) => ({
     name: order.studyType,
-    result: order.finalReport,
+    result: handleFinalReport(order.finalReport),
   }));
+
   return { radiology };
 };
 
@@ -22,8 +39,8 @@ export const createRadiologySection = <TData extends { radiology?: RadiologyData
     shouldRender: (sectionData) => !!sectionData.radiology?.length,
     render: (client, data, styles) => {
       data.radiology?.forEach((radiology) => {
-        client.drawText(radiology.name, styles.textStyles.bold);
-        if (radiology.result) client.drawText(`Final Read: ${radiology.result}`, styles.textStyles.regular);
+        client.drawText(radiology.name, styles.textStyles.regularText);
+        if (radiology.result) client.drawText(`Final Read: ${radiology.result}`, styles.textStyles.regularText);
       });
       client.drawSeparatedLine(styles.lineStyles.separator);
     },

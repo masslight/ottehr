@@ -1,8 +1,8 @@
 import { OYSTEHR_AUTH_TOKEN, PROJECT_ID, REGULAR_USERS as _regularUsers } from './setup.config';
 import { RegularUser } from './types';
-import { buildConfig, fetchRoleMap, getApplicationId, sendUserInvite } from './utils';
+import { buildConfig, fetchRoleMap, getApplicationId, resolveProjectId, sendUserInvite } from './utils';
 
-const config = buildConfig(OYSTEHR_AUTH_TOKEN, PROJECT_ID);
+const config = buildConfig(OYSTEHR_AUTH_TOKEN, resolveProjectId(PROJECT_ID));
 const REGULAR_USERS: RegularUser[] = _regularUsers;
 
 const ROLE_KEYWORD_MAP: Record<string, string> = {

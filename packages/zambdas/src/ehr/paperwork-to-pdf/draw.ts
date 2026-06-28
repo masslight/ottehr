@@ -83,7 +83,7 @@ function drawPatientInfo(
     font: patientNameFont,
     size: PATIENT_NAME_FONT_SIZE,
   });
-  y = drawTextLeftAligned(`PID: ${patientInfo.id}`, page, {
+  y = drawTextLeftAligned(`PID: ${patientInfo.friendlyId}`, page, {
     x: DEFAULT_MARGIN,
     y,
     font: pidFont,

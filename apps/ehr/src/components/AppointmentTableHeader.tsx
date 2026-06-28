@@ -3,6 +3,7 @@ import { ReactElement } from 'react';
 import {
   ACTION_WIDTH_MIN,
   CHAT_WIDTH_MIN,
+  INTAKE_AND_PROVIDER_WIDTH_MIN,
   NOTES_WIDTH_MIN,
   PATIENT_AND_REASON_WIDTH_MIN,
   PROVIDER_WIDTH_MIN,
@@ -46,9 +47,9 @@ export default function AppointmentTableHeader({ tab, table }: AppointmentTableH
             </Typography>
           </TableCell>
         )}
-        <TableCell sx={{ width: PROVIDER_WIDTH_MIN }}>
-          <Typography variant="subtitle2" sx={{ fontSize: '14px', fontWeight: 600 }}>
-            Provider
+        <TableCell sx={{ width: tab === ApptTab.prebooked ? PROVIDER_WIDTH_MIN : INTAKE_AND_PROVIDER_WIDTH_MIN }}>
+          <Typography variant="subtitle2" sx={{ fontSize: '14px', fontWeight: 600, whiteSpace: 'nowrap' }}>
+            {tab === ApptTab.prebooked ? 'Provider' : 'Intake & Provider'}
           </Typography>
         </TableCell>
         {((tab === ApptTab['in-office'] && table === 'in-exam') || tab === ApptTab.completed) && (

@@ -1,9 +1,28 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim, Coverage, Location, Organization, Patient, Practitioner, Resource } from 'fhir/r4b';
-import { BillingClaimItem, getPayerId } from 'utils';
+import {
+  BillingClaimItem,
+  CLAIM_STATUS_TAG_SYSTEMS,
+  CODE_SYSTEM_CLAIM_TYPE,
+  CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM,
+  getClaimStatusValues,
+  getPayerId,
+  getPayerUrl,
+} from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
-import { createBillingClient, fhirName, findRef, getClaimStatus, sortClaimInsurance } from '../shared';
+import {
+  CLAIM_TAG_SYSTEM,
+  createBillingClient,
+  CURRENT_STATUS_TAG_SYSTEM,
+  fhirName,
+  findRef,
+  getClaimService,
+  getClaimStatus,
+  getClaimType,
+  resolvePayersByRef,
+  sortClaimInsurance,
+} from '../shared';
 import { SearchBillingClaimsParams, validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -25,23 +44,38 @@ async function performEffect(
   const pageSize = params.pageSize ?? 25;
   const offset = params.offset ?? 0;
 
+  // Resolve the payer filter to Oystehr payer list URLs
+  let insurerFilter: string | undefined;
+  if (params.payerId) {
+    insurerFilter = getPayerUrl(params.payerId);
+  } else if (params.payerName) {
+    const result = await oystehr.rcm.listPayers({ name: params.payerName, limit: 50 });
+    const payerIds = result.data.map((p) => getPayerId(p)).filter(Boolean) as string[];
+    if (payerIds.length === 0) return { claims: [], total: 0, offset, pageSize };
+    insurerFilter = payerIds.map((id) => getPayerUrl(id)).join(',');
+  }
+
   const searchParams: { name: string; value: string }[] = [
     { name: '_include', value: 'Claim:patient' },
-    { name: '_include', value: 'Claim:insurer' },
-    { name: '_include', value: 'Claim:provider' },
     { name: '_include', value: 'Claim:facility' },
     { name: '_sort', value: '-_lastUpdated' },
     { name: '_count', value: String(pageSize) },
     { name: '_offset', value: String(offset) },
+    { name: '_total', value: 'exact' },
   ];
 
-  if (params.status) searchParams.push({ name: '_tag', value: `current-status|${params.status}` });
+  if (params.type) searchParams.push({ name: '_tag', value: `${CODE_SYSTEM_CLAIM_TYPE}|${params.type}` });
+  if (params.status) searchParams.push({ name: '_tag', value: `${CURRENT_STATUS_TAG_SYSTEM}|${params.status}` });
+  if (params.arStage)
+    searchParams.push({ name: '_tag', value: `${CLAIM_STATUS_TAG_SYSTEMS.arStage}|${params.arStage}` });
   if (params.createdFrom) searchParams.push({ name: 'created', value: `ge${params.createdFrom}` });
   if (params.createdTo) searchParams.push({ name: 'created', value: `le${params.createdTo}` });
   if (params.patientId) searchParams.push({ name: 'patient', value: `Patient/${params.patientId}` });
+  if (params.service)
+    searchParams.push({ name: '_tag', value: `${CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM}|${params.service}` });
   if (params.searchText) searchParams.push({ name: 'patient.name', value: params.searchText });
-  if (params.payerName) searchParams.push({ name: 'insurer.name', value: params.payerName });
-  if (params.payerId) searchParams.push({ name: 'insurer.identifier', value: params.payerId });
+  if (insurerFilter) searchParams.push({ name: 'insurer', value: insurerFilter });
+  if (params.tag) searchParams.push({ name: '_tag', value: `${CLAIM_TAG_SYSTEM}|${params.tag}` });
 
   // Use fhir.search directly to access Bundle.total for real pagination
   const bundle = await oystehr.fhir.search<Claim>({ resourceType: 'Claim', params: searchParams });
@@ -50,7 +84,6 @@ async function performEffect(
   const resources = (bundle.entry ?? []).map((e) => e.resource).filter(Boolean) as Resource[];
   const claims = resources.filter((r) => r.resourceType === 'Claim') as Claim[];
   const patients = resources.filter((r) => r.resourceType === 'Patient') as Patient[];
-  const orgs = resources.filter((r) => r.resourceType === 'Organization') as Organization[];
   const locations = resources.filter((r) => r.resourceType === 'Location') as Location[];
   const practitioners = resources.filter((r) => r.resourceType === 'Practitioner') as Practitioner[];
 
@@ -69,7 +102,12 @@ async function performEffect(
     coverages = covResult.unbundle();
   }
 
-  const lookups = { patients, orgs, locations, practitioners, coverages };
+  const payersByRef = await resolvePayersByRef(
+    oystehr,
+    claims.map((c) => c.insurer?.reference)
+  );
+
+  const lookups = { patients, payersByRef, locations, practitioners, coverages };
   const items = claims.map((claim) => mapClaimToItem(claim, lookups));
 
   return { claims: items, total, offset, pageSize };
@@ -77,7 +115,7 @@ async function performEffect(
 
 interface ClaimLookups {
   patients: Patient[];
-  orgs: Organization[];
+  payersByRef: Map<string, Organization>;
   locations: Location[];
   practitioners: Practitioner[];
   coverages: Coverage[];
@@ -85,7 +123,7 @@ interface ClaimLookups {
 
 function mapClaimToItem(claim: Claim, lookups: ClaimLookups): BillingClaimItem {
   const patient = findRef<Patient>(lookups.patients, claim.patient?.reference);
-  const insurer = findRef<Organization>(lookups.orgs, claim.insurer?.reference);
+  const insurer = claim.insurer?.reference ? lookups.payersByRef.get(claim.insurer.reference) : undefined;
   const facility = findRef<Location>(lookups.locations, claim.facility?.reference);
   const sortedInsurance = sortClaimInsurance(claim);
   const coverage = findRef<Coverage>(lookups.coverages, sortedInsurance[0]?.coverage?.reference);
@@ -100,12 +138,15 @@ function mapClaimToItem(claim: Claim, lookups: ClaimLookups): BillingClaimItem {
 
   return {
     id: claim.id ?? '',
+    type: getClaimType(claim),
     status: getClaimStatus(claim),
+    statuses: getClaimStatusValues(claim),
     patientName,
     patientDob: patient?.birthDate ?? '',
     payerName: insurer?.name ?? '',
     payerId: getPayerId(insurer) ?? '',
     memberId: coverage?.subscriberId ?? '',
+    service: getClaimService(claim),
     serviceDate,
     facility: facility?.name ?? '',
     renderingProvider: practName,
@@ -117,5 +158,9 @@ function mapClaimToItem(claim: Claim, lookups: ClaimLookups): BillingClaimItem {
     patientPaid: 0,
     claimBalance: billed,
     responsibleParty: 'Primary',
+    tags: (claim.meta?.tag ?? [])
+      .filter((t) => t.system === CLAIM_TAG_SYSTEM)
+      .map((t) => t.code ?? '')
+      .filter(Boolean),
   };
 }

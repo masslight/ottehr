@@ -4,14 +4,16 @@ import { DateTime } from 'luxon';
 import {
   getFullestAvailableName,
   getTaskResource,
+  INVALID_INPUT_ERROR,
   MISSING_REQUEST_BODY,
   MISSING_REQUEST_SECRETS,
+  MISSING_REQUIRED_PARAMETERS,
   Secrets,
   TaskIndicator,
 } from 'utils';
 import {
   checkOrCreateM2MClientToken,
-  createOystehrClient,
+  createClinicalOystehrClient,
   StatementType,
   wrapHandler,
   ZambdaInput,
@@ -38,12 +40,12 @@ function validateRequestParameters(input: ZambdaInput): CreateMailStatementTaskI
 
   const encounterId = body.encounterId;
   if (typeof encounterId !== 'string' || encounterId.trim().length === 0) {
-    throw new Error('encounterId is required');
+    throw MISSING_REQUIRED_PARAMETERS(['encounterId']);
   }
 
   const color = body.color;
   if (typeof color !== 'boolean') {
-    throw new Error('color must be a boolean (true or false)');
+    throw INVALID_INPUT_ERROR('color must be a boolean (true or false)');
   }
 
   const statementType = body.statementType;
@@ -57,7 +59,7 @@ function validateRequestParameters(input: ZambdaInput): CreateMailStatementTaskI
   }
 
   if (typeof statementType !== 'string' || !validStatementTypes.has(statementType as StatementType)) {
-    throw new Error('statementType must be one of: standard, past-due, final-notice');
+    throw INVALID_INPUT_ERROR('statementType must be one of: standard, past-due, final-notice');
   }
 
   return {
@@ -99,7 +101,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const validatedInput = validateRequestParameters(input);
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedInput.secrets);
-  const oystehr = createOystehrClient(m2mToken, validatedInput.secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, validatedInput.secrets);
 
   const encounter = await oystehr.fhir.get<Encounter>({
     resourceType: 'Encounter',

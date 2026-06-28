@@ -25,7 +25,7 @@ import {
 } from 'utils';
 import { getNameForOwner } from '../../ehr/schedules/shared';
 import {
-  createOystehrClient,
+  createClinicalOystehrClient,
   getAuth0Token,
   reportMissingUserRelatedPerson,
   sendErrors,
@@ -49,7 +49,8 @@ export const index = wrapHandler('send-message-cron', async (input: ZambdaInput)
   if (!oystehrToken) {
     oystehrToken = await getAuth0Token(secrets);
   }
-  const oystehr = createOystehrClient(oystehrToken, secrets);
+  const oystehr = createClinicalOystehrClient(oystehrToken, secrets);
+  const emailClient = getEmailClient(secrets, oystehr);
   const nowUTC = DateTime.now().toUTC();
   const startTime = roundToNearestQuarterHour(nowUTC.plus({ hour: 1 })); // round times to an even quarter minute
   console.log(
@@ -192,8 +193,11 @@ export const index = wrapHandler('send-message-cron', async (input: ZambdaInput)
           'paperwork-url': makePaperworkUrl(fhirAppointment.id, secrets),
           address,
         };
-        const emailClient = getEmailClient(secrets);
-        await emailClient.sendInPersonReminderEmail(patientEmail, templateData);
+        try {
+          await emailClient.sendInPersonReminderEmail(patientEmail, templateData);
+        } catch (e) {
+          console.error(`Failed to send reminder email for appointment ${fhirAppointment.id}:`, e);
+        }
       } else {
         console.log(`not sending email, missing data: ${missingData.join(', ')}`);
       }

@@ -32,6 +32,7 @@ describe('RadiologyTable - Cancel Radiology Order Tests', () => {
   const mockOrders: GetRadiologyOrderListZambdaOrder[] = [
     {
       serviceRequestId: 'order1',
+      cptCodeDisplay: 'X-Ray Chest PA and Lateral',
       studyType: 'X-Ray Chest PA and Lateral',
       diagnosis: 'Chest pain',
       orderAddedDateTime: '2024-12-20T10:00:00Z',
@@ -44,6 +45,7 @@ describe('RadiologyTable - Cancel Radiology Order Tests', () => {
     },
     {
       serviceRequestId: 'order2',
+      cptCodeDisplay: 'CT Head',
       studyType: 'CT Head',
       diagnosis: 'Headache',
       orderAddedDateTime: '2024-12-19T14:30:00Z',
@@ -73,9 +75,9 @@ describe('RadiologyTable - Cancel Radiology Order Tests', () => {
       deleteOrder: vi.fn(),
       showDeleteRadiologyOrderDialog: mockShowDeleteRadiologyOrderDialog,
       DeleteOrderDialog: null,
-      handleSavePreliminaryReport: vi.fn(),
+      handleSaveReport: vi.fn(),
       handleSendForFinalRead: vi.fn(),
-      isSavingPreliminaryReport: false,
+      isSavingReport: false,
       isSendingForFinalRead: false,
     });
 
@@ -162,9 +164,9 @@ describe('RadiologyTable - Cancel Radiology Order Tests', () => {
       deleteOrder: vi.fn(),
       showDeleteRadiologyOrderDialog: mockShowDeleteRadiologyOrderDialog,
       DeleteOrderDialog: null,
-      handleSavePreliminaryReport: vi.fn(),
+      handleSaveReport: vi.fn(),
       handleSendForFinalRead: vi.fn(),
-      isSavingPreliminaryReport: false,
+      isSavingReport: false,
       isSendingForFinalRead: false,
     });
 
@@ -189,9 +191,9 @@ describe('RadiologyTable - Cancel Radiology Order Tests', () => {
       deleteOrder: vi.fn(),
       showDeleteRadiologyOrderDialog: mockShowDeleteRadiologyOrderDialog,
       DeleteOrderDialog: null,
-      handleSavePreliminaryReport: vi.fn(),
+      handleSaveReport: vi.fn(),
       handleSendForFinalRead: vi.fn(),
-      isSavingPreliminaryReport: false,
+      isSavingReport: false,
       isSendingForFinalRead: false,
     });
 
@@ -214,9 +216,9 @@ describe('RadiologyTable - Cancel Radiology Order Tests', () => {
       deleteOrder: vi.fn(),
       showDeleteRadiologyOrderDialog: mockShowDeleteRadiologyOrderDialog,
       DeleteOrderDialog: null,
-      handleSavePreliminaryReport: vi.fn(),
+      handleSaveReport: vi.fn(),
       handleSendForFinalRead: vi.fn(),
-      isSavingPreliminaryReport: false,
+      isSavingReport: false,
       isSendingForFinalRead: false,
     });
 
@@ -258,9 +260,9 @@ describe('RadiologyTable - Cancel Radiology Order Tests', () => {
       deleteOrder: vi.fn(),
       showDeleteRadiologyOrderDialog: mockShowDeleteRadiologyOrderDialog,
       DeleteOrderDialog: null,
-      handleSavePreliminaryReport: vi.fn(),
+      handleSaveReport: vi.fn(),
       handleSendForFinalRead: vi.fn(),
-      isSavingPreliminaryReport: false,
+      isSavingReport: false,
       isSendingForFinalRead: false,
     });
 
@@ -287,9 +289,9 @@ describe('RadiologyTable - Cancel Radiology Order Tests', () => {
       deleteOrder: vi.fn(),
       showDeleteRadiologyOrderDialog: mockShowDeleteRadiologyOrderDialog,
       DeleteOrderDialog: mockDialog,
-      handleSavePreliminaryReport: vi.fn(),
+      handleSaveReport: vi.fn(),
       handleSendForFinalRead: vi.fn(),
-      isSavingPreliminaryReport: false,
+      isSavingReport: false,
       isSendingForFinalRead: false,
     });
 

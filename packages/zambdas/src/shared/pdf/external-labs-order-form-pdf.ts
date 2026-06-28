@@ -3,13 +3,16 @@ import { Address, Coverage, FhirResource, HumanName, Patient, RelatedPerson } fr
 import { min } from 'lodash';
 import { DateTime } from 'luxon';
 import {
+  APIError,
   BRANDING_CONFIG,
   BUCKET_NAMES,
   CoverageOrgRank,
+  EXTERNAL_LAB_ERROR,
   FHIR_IDENTIFIER_NPI,
   formatPhoneNumberDisplay,
   formatZipcodeForDisplay,
   getFullestAvailableName,
+  getPatientIdForLabOrder,
   LAB_CLIENT_BILL_COVERAGE_TYPE_CODING,
   LabPaymentMethod,
   ORDER_ITEM_UNKNOWN,
@@ -246,6 +249,12 @@ async function createExternalLabsOrderFormPdfBytes(data: ExternalLabOrderFormDat
   pdfClient = drawFieldLineBoldHeader(pdfClient, textStyles, 'Bill Class:', data.billClass);
   pdfClient.newLine(STANDARD_NEW_LINE);
 
+  console.log('Determining is workers comp line. Is workers comp', data.isWorkersCompOrder);
+  if (data.isWorkersCompOrder) {
+    pdfClient = drawFieldLineBoldHeader(pdfClient, textStyles, "Worker's Comp Order:", 'Yes');
+    pdfClient.newLine(STANDARD_NEW_LINE);
+  }
+
   if (data.insuranceDetails) {
     // sort these by rank asc just to be sure
     const sortedDetails = data.insuranceDetails.sort((a, b) => a.insuranceRank - b.insuranceRank);
@@ -349,7 +358,10 @@ export function getOrderFormDataConfig(
   // this is the same logic we use in oystehr to determine PV1-20
   const getBillClass = (paymentResources: PaymentResources): string => {
     let coverage: Coverage | undefined;
-    if (paymentResources.type === LabPaymentMethod.Insurance) {
+    if (
+      paymentResources.type === LabPaymentMethod.Insurance ||
+      paymentResources.type === LabPaymentMethod.WorkersComp
+    ) {
       coverage = paymentResources.coverageAndOrgs[0].coverage;
     } else {
       // client bill or self pay
@@ -368,11 +380,22 @@ export function getOrderFormDataConfig(
   const billClass = getBillClass(paymentResources);
 
   const insuranceDetails =
-    paymentResources.type === LabPaymentMethod.Insurance
+    paymentResources.type === LabPaymentMethod.Insurance || paymentResources.type === LabPaymentMethod.WorkersComp
       ? getInsuranceDetails(paymentResources.coverageAndOrgs, patient, oystehr)
       : undefined;
 
   const brandingProjectName = BRANDING_CONFIG.projectName;
+
+  let patientIdForOrder = patient.id!;
+  try {
+    patientIdForOrder = getPatientIdForLabOrder(resources.serviceRequest, patient);
+  } catch (e) {
+    console.error(
+      `Unable to make order form for ServiceRequest/${resources.serviceRequest.id}. Order submitted with friendly patient id, but no friendly id found on patient`,
+      e
+    );
+    throw EXTERNAL_LAB_ERROR((e as APIError).message);
+  }
 
   const dataConfig: ExternalLabOrderFormData = {
     locationName: location?.name,
@@ -395,7 +418,7 @@ export function getOrderFormDataConfig(
     patientDOB: patient.birthDate
       ? DateTime.fromFormat(patient.birthDate, 'yyyy-MM-dd').toFormat('MM/dd/yyyy')
       : ORDER_ITEM_UNKNOWN,
-    patientId: patient.id || ORDER_ITEM_UNKNOWN,
+    patientId: patientIdForOrder,
     patientAddress: patient.address?.[0]
       ? formatZipcodeForDisplay(oystehr.fhir.formatAddress(patient.address[0]))
       : ORDER_ITEM_UNKNOWN,
@@ -409,6 +432,7 @@ export function getOrderFormDataConfig(
     testDetails,
     isManualOrder,
     isPscOrder,
+    isWorkersCompOrder: paymentResources.type === LabPaymentMethod.WorkersComp,
   };
 
   return dataConfig;

@@ -1,5 +1,4 @@
 import { otherColors } from '@ehrTheme/colors';
-import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { LoadingButton, TabContext, TabList, TabPanel } from '@mui/lab';
 import {
   Box,
@@ -19,16 +18,17 @@ import Snackbar from '@mui/material/Snackbar';
 import { DateTime } from 'luxon';
 import React, { ReactElement, useMemo } from 'react';
 import { DailySchedule, DOW, HourOfDay, ScheduleDTO, UpdateScheduleParams } from 'utils';
-import { Day, Weekday } from '../../types/types';
+import { Weekday } from '../../types/types';
 import { ScheduleCapacity } from './ScheduleCapacity';
 import { ScheduleOverridesComponent, UpdateOverridesInput } from './ScheduleOverridesComponent';
 
 interface InfoForDayProps {
   day: Weekday;
-  setDay: (day: Day) => void;
+  setDay: (day: Weekday) => void;
   dayOfWeek: string;
   updateItem: (event: React.FormEvent<HTMLFormElement>) => Promise<void>;
   loading: boolean;
+  ownerType?: string;
 }
 
 const WEEKDAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
@@ -53,7 +53,7 @@ export function getTimeFromString(time: string): number {
   return Number(timeHour);
 }
 
-function InfoForDay({ day, setDay, updateItem, loading }: InfoForDayProps): ReactElement {
+function InfoForDay({ day, setDay, updateItem, loading, ownerType }: InfoForDayProps): ReactElement {
   const [open, setOpen] = React.useState<number>(day.open);
   const [openingBuffer, setOpeningBuffer] = React.useState<number>(day.openingBuffer);
   const [close, setClose] = React.useState<number>(day.close ?? 24);
@@ -70,7 +70,7 @@ function InfoForDay({ day, setDay, updateItem, loading }: InfoForDayProps): Reac
     []
   );
 
-  function createOpenCloseSelectField(type: 'Open' | 'Close', day: Day): ReactElement {
+  function createOpenCloseSelectField(type: 'Open' | 'Close', day: Weekday): ReactElement {
     const typeLowercase = type.toLocaleLowerCase();
     return (
       <FormControl sx={{ marginRight: 2 }}>
@@ -83,15 +83,16 @@ function InfoForDay({ day, setDay, updateItem, loading }: InfoForDayProps): Reac
           disabled={!workingDay}
           onChange={(newTime) => {
             const updatedTime = Number(newTime.target.value);
-            const dayTemp = day;
             if (type === 'Open') {
               setOpen(updatedTime);
-              dayTemp.open = updatedTime;
-              setDay(dayTemp);
+              setDay({ ...day, open: updatedTime as HourOfDay });
             } else if (type === 'Close') {
               setClose(updatedTime);
-              dayTemp.close = updatedTime;
-              setDay(dayTemp);
+              // `close` can be 24 (midnight-next-day) for 24/7 schedules; the
+              // Close menu offers it explicitly. Canonical ScheduleDay.close
+              // is typed `HourOfDay | 24`, so the cast must allow 24 or we
+              // type-launder away a legitimate value downstream.
+              setDay({ ...day, close: updatedTime as HourOfDay | 24 });
             }
           }}
           sx={{
@@ -117,7 +118,7 @@ function InfoForDay({ day, setDay, updateItem, loading }: InfoForDayProps): Reac
     );
   }
 
-  function createOpenCloseBufferSelectField(type: 'Open' | 'Close', day: Day): ReactElement {
+  function createOpenCloseBufferSelectField(type: 'Open' | 'Close', day: Weekday): ReactElement {
     const typeVerb = type === 'Close' ? 'Closing' : 'Opening';
     const typeLowercase = typeVerb.toLocaleLowerCase();
     const bufferValue = type === 'Open' ? openingBuffer ?? '' : closingBuffer ?? '';
@@ -134,15 +135,12 @@ function InfoForDay({ day, setDay, updateItem, loading }: InfoForDayProps): Reac
           disabled={!workingDay}
           onChange={(newNumber) => {
             const updatedNumber = Number(newNumber.target.value);
-            const dayTemp = day;
             if (type === 'Open') {
               setOpeningBuffer(updatedNumber);
-              dayTemp.openingBuffer = updatedNumber;
-              setDay(dayTemp);
+              setDay({ ...day, openingBuffer: updatedNumber });
             } else if (type === 'Close') {
               setClosingBuffer(updatedNumber);
-              dayTemp.closingBuffer = updatedNumber;
-              setDay(dayTemp);
+              setDay({ ...day, closingBuffer: updatedNumber });
             }
           }}
           sx={{
@@ -187,9 +185,7 @@ function InfoForDay({ day, setDay, updateItem, loading }: InfoForDayProps): Reac
               <Checkbox
                 checked={workingDay}
                 onChange={(event) => {
-                  const dayTemp = day;
-                  dayTemp.workingDay = event.target.checked;
-                  setDay(dayTemp);
+                  setDay({ ...day, workingDay: event.target.checked });
                   setWorkingDay(event.target.checked);
                 }}
               />
@@ -212,40 +208,21 @@ function InfoForDay({ day, setDay, updateItem, loading }: InfoForDayProps): Reac
                 <Typography variant="h4" color="primary.dark">
                   Capacity
                 </Typography>
-
-                {/* Visit duration */}
-                <Box
-                  sx={{
-                    display: 'flex',
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                  }}
-                >
-                  <InfoOutlinedIcon
-                    sx={{
-                      marginRight: 1,
-                      marginLeft: 3,
-                      width: 18,
-                      height: 18,
-                    }}
-                    color="secondary"
-                  />
-                  <Typography variant="body1">
-                    <Box component="span" fontWeight="bold" display="inline">
-                      Visit Duration:
-                    </Box>{' '}
-                    15 minutes
-                  </Typography>
-                </Box>
               </Box>
 
               <ScheduleCapacity
                 day={day}
-                setDay={setDay}
+                // ScheduleCapacity's setDay surfaces a Day-shaped update
+                // (capacity edits only touch hours; it doesn't know about
+                // workingDay). Merge with the current `day` (Weekday) to
+                // preserve workingDay before forwarding to the parent's
+                // Weekday-typed setDay.
+                setDay={(d) => setDay({ ...day, ...d })}
                 openingHour={open}
                 closingHour={close}
                 openingBuffer={openingBuffer}
                 closingBuffer={closingBuffer}
+                ownerType={ownerType}
               />
             </Box>
           )}
@@ -288,6 +265,13 @@ export default function ScheduleComponent({
   const today = DateTime.now().toLocaleString({ weekday: 'long' }).toLowerCase();
   const [dayOfWeek, setDayOfWeek] = React.useState(today);
   const [days, setDays] = React.useState<DailySchedule | undefined>(item.schema.schedule);
+  // Reconcile local `days` when the upstream `item` changes (e.g., after a
+  // refetch). Without this, the tab UI keeps showing the value captured at
+  // mount and divergence between server truth and rendered state is invisible
+  // until the page is reloaded.
+  React.useEffect(() => {
+    setDays(item.schema.schedule);
+  }, [item.schema.schedule]);
   const [toastMessage, setToastMessage] = React.useState<string | undefined>(undefined);
   const [toastType, setToastType] = React.useState<AlertColor | undefined>(undefined);
   const [snackbarOpen, setSnackbarOpen] = React.useState<boolean>(false);
@@ -313,10 +297,6 @@ export default function ScheduleComponent({
   const handleSnackBarClose = (): void => {
     setSnackbarOpen(false);
   };
-
-  React.useEffect(() => {
-    setDays(item.schema.schedule);
-  }, [item]);
 
   return (
     <>
@@ -373,19 +353,25 @@ export default function ScheduleComponent({
                 <TabPanel value={day} key={day}>
                   <InfoForDay
                     day={days[day as DOW]}
-                    setDay={(dayTemp: Day) => {
-                      const daysTemp = days;
-                      daysTemp[day as DOW] = {
-                        ...dayTemp,
-                        open: dayTemp.open as HourOfDay,
-                        close: dayTemp.close as HourOfDay,
-                        workingDay: days[day as DOW].workingDay,
-                      };
-                      setDays(daysTemp);
+                    setDay={(dayTemp: Weekday) => {
+                      setDays((prev) => {
+                        if (!prev) return prev;
+                        return {
+                          ...prev,
+                          [day as DOW]: {
+                            ...dayTemp,
+                            open: dayTemp.open as HourOfDay,
+                            // ScheduleDay.close is `HourOfDay | 24`; cast
+                            // must allow 24 so midnight-close persists.
+                            close: dayTemp.close as HourOfDay | 24,
+                          },
+                        };
+                      });
                     }}
                     dayOfWeek={dayOfWeek}
                     updateItem={handleScheduleUpdate}
                     loading={loading}
+                    ownerType={item.owner.type}
                   ></InfoForDay>
                 </TabPanel>
               ))}
@@ -412,6 +398,7 @@ export default function ScheduleComponent({
           setToastMessage={setToastMessage}
           setToastType={setToastType}
           setSnackbarOpen={setSnackbarOpen}
+          ownerType={item.owner.type}
         />
       )}
     </>

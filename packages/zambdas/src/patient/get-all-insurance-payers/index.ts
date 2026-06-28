@@ -94,6 +94,13 @@ export async function getAllInsurancePayers(
   if (mappedResults.length === 0 && error) {
     throw error;
   }
+  mappedResults.push({
+    valueReference: {
+      reference: oystehr.rcm.constructPayerUrl({ id: '00000' }),
+      display: 'Other',
+      type: 'other',
+    },
+  });
   return mappedResults.sort((r1, r2) => {
     const r1Val = r1.valueReference?.display?.split(' - ')[1] ?? r1.valueReference?.display ?? '';
     const r2Val = r2.valueReference?.display?.split(' - ')[1] ?? r2.valueReference?.display ?? '';

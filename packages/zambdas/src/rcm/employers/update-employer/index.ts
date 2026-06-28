@@ -1,10 +1,9 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { CandidApiClient } from 'candidhealth';
 import { Organization } from 'fhir/r4b';
 import { getSecret, SecretsKeys } from 'utils';
 import {
   checkOrCreateM2MClientToken,
-  createOystehrClient,
+  createClinicalOystehrClient,
   topLevelCatch,
   wrapHandler,
   ZambdaInput,
@@ -22,14 +21,13 @@ import {
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
-let candid: CandidApiClient | null | undefined;
 export const index = wrapHandler('update-employer', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     const { employerId, name, active, category, identifier, address, contact, secrets } =
       validateRequestParameters(input);
 
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
+    const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
     const existing = await oystehr.fhir.get<Organization>({
       resourceType: 'Organization',
@@ -69,9 +67,7 @@ export const index = wrapHandler('update-employer', async (input: ZambdaInput): 
     );
 
     // Sync to Candid if the organization has a Candid payer ID (best-effort)
-    if (candid === undefined) {
-      candid = createCandidClientIfConfigured(secrets);
-    }
+    const candid = await createCandidClientIfConfigured(oystehr, secrets);
     if (candid) {
       const candidPayerId = getCandidPayerIdFromOrganization(updated);
       if (candidPayerId) {

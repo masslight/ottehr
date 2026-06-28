@@ -4,6 +4,7 @@ import { DesktopDatePicker, LocalizationProvider } from '@mui/x-date-pickers-pro
 import { DateTime } from 'luxon';
 import React from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
+import { dataTestIds } from 'src/constants/data-test-ids';
 import { REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
 
 type Props = {
@@ -13,9 +14,20 @@ type Props = {
   validate?: (value: string | undefined) => boolean | string;
   dataTestId?: string;
   disabled?: boolean;
+  size?: 'small' | 'medium';
+  showTodayButton?: boolean;
 };
 
-export const DateInput: React.FC<Props> = ({ name, label, required, validate, dataTestId, disabled }) => {
+export const DateInput: React.FC<Props> = ({
+  name,
+  label,
+  required,
+  validate,
+  dataTestId,
+  disabled,
+  size,
+  showTodayButton,
+}) => {
   const { control } = useFormContext();
   return (
     <Controller
@@ -31,12 +43,19 @@ export const DateInput: React.FC<Props> = ({ name, label, required, validate, da
               slotProps={{
                 textField: {
                   style: { width: '100%' },
-                  size: 'small',
+                  size: size ?? 'small',
                   error: error != null,
                   inputProps: {
                     'data-testid': dataTestId,
                   },
                 },
+                actionBar: showTodayButton
+                  ? {
+                      actions: ['today'],
+                      // @ts-expect-error - that's valid field
+                      'data-testid': dataTestIds.dashboard.datePickerTodayButton,
+                    }
+                  : undefined,
               }}
               value={field.value ? DateTime.fromISO(field.value) : null}
               onChange={(val) => field.onChange(val ? val.toISODate() : null)}

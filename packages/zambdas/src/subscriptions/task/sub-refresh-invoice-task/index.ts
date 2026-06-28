@@ -6,17 +6,17 @@ import { Operation } from 'fast-json-patch';
 import { Encounter } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
-  createCandidApiClient,
   createInvoiceTaskInput,
   findClaimsBy,
   getLatestTaskOutput,
+  getOrCreateCandidApiClient,
   getStartTimeFromEncounterStatusHistory,
   mapDisplayToInvoiceTaskStatus,
   ZERO_BALANCE_BUSINESS_STATUS,
 } from 'utils';
 import {
   checkOrCreateM2MClientToken,
-  createOystehrClient,
+  createClinicalOystehrClient,
   getCandidEncounterIdFromEncounter,
   wrapHandler,
   ZambdaInput,
@@ -24,7 +24,6 @@ import {
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
-let candid: CandidApiClient | undefined;
 const ZAMBDA_NAME = 'sub-refresh-invoice-task';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
@@ -32,10 +31,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const { task, secrets, invoiceTaskInput, taskId } = validatedParams;
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-  const oystehr = createOystehrClient(m2mToken, secrets);
-  if (!candid) {
-    candid = createCandidApiClient(secrets);
-  }
+  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
+  const candid = await getOrCreateCandidApiClient(oystehr, secrets);
 
   const inventoryRecord = await getCandidInventoryRecordForTask(oystehr, candid, taskId);
   if (inventoryRecord) {

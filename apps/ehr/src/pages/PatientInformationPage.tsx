@@ -1,10 +1,18 @@
 import { Box, SxProps, Typography, useTheme } from '@mui/material';
 import { useQueryClient } from '@tanstack/react-query';
-import { Organization, Patient, Questionnaire, QuestionnaireItem, QuestionnaireResponseItem } from 'fhir/r4b';
+import {
+  Organization,
+  Patient,
+  Questionnaire,
+  QuestionnaireItem,
+  QuestionnaireResponseItem,
+  Reference,
+} from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
 import { FC, ReactElement, useEffect, useMemo, useRef, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { useNavigate, useParams } from 'react-router-dom';
+import { updatePatientVisitDetails } from 'src/api/api';
 import { PatientMergedBanner } from 'src/components/PatientMergedBanner';
 import { AboutPatientContainer } from 'src/features/visits/shared/components/patient/AboutPatientContainer';
 import { ActionBar } from 'src/features/visits/shared/components/patient/ActionBar';
@@ -14,6 +22,10 @@ import { ContactContainer } from 'src/features/visits/shared/components/patient/
 import { EmergencyContactContainer } from 'src/features/visits/shared/components/patient/EmergencyContactContainer';
 import { EmployerInformationContainer } from 'src/features/visits/shared/components/patient/EmployerInformationContainer';
 import { Header } from 'src/features/visits/shared/components/patient/Header';
+import {
+  buildInsuranceSectionCounts,
+  useCoverageFormRehydration,
+} from 'src/features/visits/shared/components/patient/insuranceFormHelpers';
 import { InsuranceSection } from 'src/features/visits/shared/components/patient/InsuranceSection';
 import { OccupationalMedicineEmployerInformationContainer } from 'src/features/visits/shared/components/patient/OccupationalMedicineEmployerContainer';
 import { PatientDetailsContainer } from 'src/features/visits/shared/components/patient/PatientDetailsContainer';
@@ -21,8 +33,14 @@ import { createDynamicValidationResolver } from 'src/features/visits/shared/comp
 import { PharmacyContainer } from 'src/features/visits/shared/components/patient/PharmacyContainer';
 import { PrimaryCareContainer } from 'src/features/visits/shared/components/patient/PrimaryCareContainer';
 import { ResponsibleInformationContainer } from 'src/features/visits/shared/components/patient/ResponsibleInformationContainer';
+import { scrollToFirstInvalidField } from 'src/features/visits/shared/components/patient/scrollToFirstInvalidField';
 import { WarningBanner } from 'src/features/visits/shared/components/patient/WarningBanner';
 import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
+import {
+  buildVisitEmployerUpdate,
+  OCCUPATIONAL_MEDICINE_EMPLOYER_FIELD_KEY,
+} from 'src/features/visits/shared/visitEmployer';
+import { useApiClients } from 'src/hooks/useAppClients';
 import {
   AppointmentContext,
   CoverageWithPriority,
@@ -236,37 +254,14 @@ const useFormData = (
   methods: ReturnType<typeof useForm>;
   coveragesFormValues: any;
 } => {
-  // Build a map of section IDs to their rendered counts for sections with conditional rendering
-  const renderedSectionCounts: Record<string, number> = {};
-
-  // Insurance sections are only rendered based on actual coverage data
-  // The count represents the maximum index + 1 that should be validated
-  // e.g., if only secondary exists (index 1), count should be 2 to validate indices 0 and 1
-  if (insuranceData?.coverages) {
-    // Determine the highest insurance index that will be rendered
-    let maxInsuranceIndex = Math.max(
-      insuranceData.coverages.primary ? 0 : -1,
-      insuranceData.coverages.secondary ? 1 : -1
-    );
-    // Account for the inline add form
-    if (isAddingInsurance && newInsuranceOrdinal !== undefined) {
-      maxInsuranceIndex = Math.max(maxInsuranceIndex, newInsuranceOrdinal - 1);
-    }
-    // Count is max index + 1 (to validate all indices from 0 to maxIndex)
-    const insuranceCount = maxInsuranceIndex + 1;
-    renderedSectionCounts['insurance-section'] = insuranceCount;
-    renderedSectionCounts['insurance-section-2'] = insuranceCount;
-  } else {
-    // Even with no existing coverages, account for inline add
-    if (isAddingInsurance && newInsuranceOrdinal !== undefined) {
-      const insuranceCount = newInsuranceOrdinal;
-      renderedSectionCounts['insurance-section'] = insuranceCount;
-      renderedSectionCounts['insurance-section-2'] = insuranceCount;
-    } else {
-      renderedSectionCounts['insurance-section'] = 0;
-      renderedSectionCounts['insurance-section-2'] = 0;
-    }
-  }
+  // The dynamic resolver needs to know how many insurance ordinals are
+  // actually rendered so it doesn't validate hidden ones.
+  const renderedSectionCounts = buildInsuranceSectionCounts({
+    hasPrimary: Boolean(insuranceData?.coverages?.primary),
+    hasSecondary: Boolean(insuranceData?.coverages?.secondary),
+    isAddingInsurance,
+    newInsuranceOrdinal,
+  });
 
   const methods = useForm({
     defaultValues: defaultFormVals,
@@ -279,21 +274,39 @@ const useFormData = (
   // patient on the same mounted component (defaultValues only applies at mount time).
   const initializedForPatientRef = useRef<string | null>(null);
   useEffect(() => {
-    if (defaultFormVals && initializedForPatientRef.current !== (patientId ?? null)) {
+    if (!defaultFormVals) return;
+    if (initializedForPatientRef.current !== (patientId ?? null)) {
+      // New patient: fully populate the form from the freshly loaded defaults.
       methods.reset(defaultFormVals);
       initializedForPatientRef.current = patientId ?? null;
+    } else {
+      // Same patient, defaults changed — e.g. the coverages query resolves after the account, so the
+      // insurance fields only become available on a later render. Re-populate from the new defaults
+      // but keep any values the user has already edited (keepDirtyValues), so insurance fills in
+      // without clobbering in-progress edits. (Gating the whole reset on coverages instead delayed
+      // population of every field and overwrote user edits, breaking the discard-changes flow.)
+      methods.reset(defaultFormVals, { keepDirtyValues: true });
     }
   }, [defaultFormVals, methods, patientId]);
 
   const appointmentContextSyncRef = useRef<string | null>(null);
   useEffect(() => {
     if (!defaultFormVals) return;
+
+    const employerVal = defaultFormVals['occupational-medicine-employer'];
+
+    const employerKey =
+      employerVal && typeof employerVal === 'object' && 'reference' in employerVal ? String(employerVal.reference) : '';
+
     const nextKey = [
       defaultFormVals['appointment-service-category'] ?? '',
       defaultFormVals['appointment-service-mode'] ?? '',
       defaultFormVals['reason-for-visit'] ?? '',
+      employerKey,
     ].join('|');
+
     if (appointmentContextSyncRef.current === nextKey) return;
+
     appointmentContextSyncRef.current = nextKey;
 
     methods.setValue('appointment-service-category', defaultFormVals['appointment-service-category'], {
@@ -301,16 +314,26 @@ const useFormData = (
       shouldTouch: false,
       shouldValidate: false,
     });
+
     methods.setValue('appointment-service-mode', defaultFormVals['appointment-service-mode'], {
       shouldDirty: false,
       shouldTouch: false,
       shouldValidate: false,
     });
+
     methods.setValue('reason-for-visit', defaultFormVals['reason-for-visit'], {
       shouldDirty: false,
       shouldTouch: false,
       shouldValidate: false,
     });
+
+    if ('occupational-medicine-employer' in defaultFormVals) {
+      methods.setValue('occupational-medicine-employer', defaultFormVals['occupational-medicine-employer'], {
+        shouldDirty: false,
+        shouldTouch: false,
+        shouldValidate: false,
+      });
+    }
   }, [defaultFormVals, methods]);
 
   const { coveragesFormValues } = useMemo(() => {
@@ -328,27 +351,13 @@ const useFormData = (
     return { coveragesFormValues };
   }, [accountData, coveragesFetching, insuranceData?.coverages, insuranceData?.insuranceOrgs]);
 
-  // Use resetField (not setValue) so the loaded coverage values become the form's
-  // defaultValues. Without this, RHF's dirty comparison (value vs defaultValue)
-  // marks fields dirty whenever masked inputs re-emit their value on mount.
-  // Re-run when the set of coverages changes (e.g. primary removed) so removed
-  // coverages' fields get cleared; keying on coverage IDs avoids clobbering
-  // in-progress edits on unrelated refetches.
-  const coveragesInitKeyRef = useRef<string>('');
-  useEffect(() => {
-    if (!coveragesFormValues || Object.keys(coveragesFormValues).length === 0) return;
-    const coverageKey = [
-      patientId ?? 'none',
-      insuranceData?.coverages?.primary?.id ?? 'none',
-      insuranceData?.coverages?.secondary?.id ?? 'none',
-    ].join(':');
-    if (coveragesInitKeyRef.current === coverageKey) return;
-    coveragesInitKeyRef.current = coverageKey;
-
-    Object.entries(coveragesFormValues).forEach(([key, value]) => {
-      methods.resetField(key, { defaultValue: value });
-    });
-  }, [coveragesFormValues, methods, insuranceData?.coverages, patientId]);
+  useCoverageFormRehydration({
+    coveragesFormValues,
+    patientId,
+    primaryCoverageId: insuranceData?.coverages?.primary?.id,
+    secondaryCoverageId: insuranceData?.coverages?.secondary?.id,
+    methods,
+  });
 
   return { methods, coveragesFormValues };
 };
@@ -379,6 +388,7 @@ interface PatientAccountComponentProps {
   loadingComponent?: ReactElement;
   renderBackButton?: boolean;
   appointmentContext?: AppointmentContext;
+  appointmentId?: string;
 }
 
 export const PatientAccountComponent: FC<PatientAccountComponentProps> = ({
@@ -390,6 +400,7 @@ export const PatientAccountComponent: FC<PatientAccountComponentProps> = ({
   loadingComponent = <LoadingScreen />,
   renderBackButton = true,
   appointmentContext,
+  appointmentId,
 }) => {
   const navigate = useNavigate();
 
@@ -412,6 +423,12 @@ export const PatientAccountComponent: FC<PatientAccountComponentProps> = ({
   );
 
   const { submitQR, removeCoverage, queryClient } = useMutations();
+  const { oystehrZambda } = useApiClients();
+
+  // Pre-op: the occupational-medicine employer is visit-level (stored on the Encounter via
+  // update-visit-details), not on the patient Account.
+  const saveEmployerViaVisitDetails =
+    Boolean(appointmentId) && appointmentContext?.appointmentServiceCategory === 'pre-op';
 
   const { otherPatientsWithSameName, setOtherPatientsWithSameName } = useGetPatient(id);
 
@@ -449,6 +466,17 @@ export const PatientAccountComponent: FC<PatientAccountComponentProps> = ({
     }
   };
 
+  // Close the inline add form WITHOUT clearing field values. Used after a
+  // successful section save: the values the user just saved must stay in the
+  // form (the new coverage container will display them); only the inline form
+  // slot itself needs to disappear so its Controllers cleanly unmount before
+  // a coverage container mounts and claims the same field names — without
+  // this, the inline form's name change (e.g. "insurance-priority" →
+  // "insurance-priority-2") wipes the just-saved values out of form state.
+  const handleCloseAddInsurance = (): void => {
+    setIsAddingInsurance(false);
+  };
+
   const handleDiscardChanges = (): void => {
     methods.reset();
     setOpenConfirmationDialog(false);
@@ -473,8 +501,36 @@ export const PatientAccountComponent: FC<PatientAccountComponentProps> = ({
       return;
     }
 
+    let qrValues = values;
+
+    // Pre-op: persist the employer on the Encounter via update-visit-details and exclude it
+    // from the patient-record QR so it is never written to the Account.
+    if (saveEmployerViaVisitDetails) {
+      const { [OCCUPATIONAL_MEDICINE_EMPLOYER_FIELD_KEY]: employerValue, ...rest } = values;
+      qrValues = rest;
+
+      if (appointmentId && dirtyFields[OCCUPATIONAL_MEDICINE_EMPLOYER_FIELD_KEY]) {
+        if (!oystehrZambda) {
+          enqueueSnackbar('Something went wrong. Please reload the page.', { variant: 'error' });
+          return;
+        }
+        try {
+          await updatePatientVisitDetails(
+            oystehrZambda,
+            buildVisitEmployerUpdate(appointmentId, employerValue as Reference | null | undefined)
+          );
+          await queryClient.invalidateQueries({ queryKey: ['get-visit-details'] });
+        } catch {
+          enqueueSnackbar('Save operation failed. The server encountered an error while processing your request.', {
+            variant: 'error',
+          });
+          return;
+        }
+      }
+    }
+
     // Pass dirtyFields to track explicitly cleared fields
-    const qr = pruneEmptySections(structureQuestionnaireResponse(questionnaire, values, patient.id, dirtyFields));
+    const qr = pruneEmptySections(structureQuestionnaireResponse(questionnaire, qrValues, patient.id, dirtyFields));
     if (appointmentContext?.encounterId) {
       qr.encounter = {
         reference: 'Encounter/' + appointmentContext.encounterId,
@@ -566,6 +622,7 @@ export const PatientAccountComponent: FC<PatientAccountComponentProps> = ({
                     isAddingInsurance={isAddingInsurance}
                     onStartAddInsurance={handleStartAddInsurance}
                     onCancelAddInsurance={handleCancelAddInsurance}
+                    onCloseAddInsurance={handleCloseAddInsurance}
                     newInsuranceOrdinal={newInsuranceOrdinal}
                     encounterId={appointmentContext?.encounterId}
                   />
@@ -583,6 +640,10 @@ export const PatientAccountComponent: FC<PatientAccountComponentProps> = ({
                     isLoading={isFetching || submitQR.isPending}
                     patientId={patient?.id}
                     encounterId={appointmentContext?.encounterId}
+                    appointmentId={appointmentId}
+                    useUpdateVisitDetailsForEmployer={
+                      Boolean(appointmentId) && appointmentContext?.appointmentServiceCategory === 'pre-op'
+                    }
                   />
                   <AttorneyInformationContainer
                     isLoading={isFetching || submitQR.isPending}
@@ -605,8 +666,9 @@ export const PatientAccountComponent: FC<PatientAccountComponentProps> = ({
           </Box>
           <ActionBar
             handleDiscard={handleBackClickWithConfirmation}
-            handleSave={handleSubmit(handleSaveForm, () => {
+            handleSave={handleSubmit(handleSaveForm, (validationErrors) => {
               enqueueSnackbar('Please fix all field validation errors and try again', { variant: 'error' });
+              scrollToFirstInvalidField(Object.keys(validationErrors), (key) => Boolean(validationErrors[key]));
             })}
             loading={submitQR.isPending}
             hidden={false}

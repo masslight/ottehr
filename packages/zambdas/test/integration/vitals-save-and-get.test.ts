@@ -13,7 +13,7 @@ import {
   VitalsObservationDTO,
 } from 'utils';
 import { assert, inject, suite } from 'vitest';
-import { getAuth0Token } from '../../src/shared';
+import { createClinicalOystehrClient, getAuth0Token } from '../../src/shared';
 import { SECRETS } from '../data/secrets';
 import { ensureM2MPractitionerProfile } from '../helpers/configureTestM2MClient';
 import { cleanupTestScheduleResources, makeTestPatient, persistTestPatient } from '../helpers/testScheduleUtils';
@@ -145,7 +145,7 @@ describe('saving and getting vitals', () => {
       await oystehr.zambda.execute({
         id: 'get-vitals',
         encounterId,
-        mode: 'current',
+        currentOrHistorical: 'current',
       })
     ).output as Promise<GetVitalsResponseData>;
     return response;
@@ -156,7 +156,7 @@ describe('saving and getting vitals', () => {
       await oystehr.zambda.execute({
         id: 'get-vitals',
         encounterId,
-        mode: 'historical',
+        currentOrHistorical: 'historical',
       })
     ).output as Promise<GetVitalsResponseData>;
     return response;
@@ -174,14 +174,9 @@ describe('saving and getting vitals', () => {
       AUTH0_AUDIENCE: AUTH0_AUDIENCE,
     });
 
-    oystehr = new Oystehr({
-      accessToken: token,
-      fhirApiUrl: FHIR_API,
-      projectApiUrl: EXECUTE_ZAMBDA_URL,
-      services: {
-        zambdaApiUrl: EXECUTE_ZAMBDA_URL,
-      },
+    oystehr = createClinicalOystehrClient(token, SECRETS, {
       projectId: PROJECT_ID,
+      services: { fhirApiUrl: FHIR_API, projectApiUrl: EXECUTE_ZAMBDA_URL, zambdaApiUrl: EXECUTE_ZAMBDA_URL },
     });
 
     await ensureM2MPractitionerProfile(token);

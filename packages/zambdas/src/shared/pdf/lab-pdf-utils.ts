@@ -12,6 +12,8 @@ import {
   getSecret,
   LAB_DOC_REF_DETAIL_TAGS,
   LabType,
+  PATIENT_FOLDERS_CODE,
+  sanitizeStringForFhirCode,
   Secrets,
   SecretsKeys,
 } from 'utils';
@@ -305,7 +307,7 @@ export const getLabListResource = async (
           },
           {
             name: 'code',
-            value: 'patient-docs-folder',
+            value: PATIENT_FOLDERS_CODE,
           },
           {
             name: 'identifier',
@@ -417,9 +419,10 @@ export const addDocsToLabList = async (
 export const makeLabResultDocRefMeta = (labDetails: {
   type: LabType;
   testName: string;
+  testItemCode: string | undefined;
   fillerLab: string | undefined;
 }): Meta => {
-  const { type, testName, fillerLab } = labDetails;
+  const { type, testName, fillerLab, testItemCode } = labDetails;
   const metaToReturn: Meta = {
     tag: [
       {
@@ -428,7 +431,8 @@ export const makeLabResultDocRefMeta = (labDetails: {
       },
       {
         system: LAB_DOC_REF_DETAIL_TAGS.testName.system,
-        code: testName,
+        code: sanitizeStringForFhirCode(testName),
+        display: testName,
       },
     ],
   };
@@ -440,14 +444,24 @@ export const makeLabResultDocRefMeta = (labDetails: {
     });
   }
 
+  if (testItemCode) {
+    metaToReturn.tag?.push({
+      system: LAB_DOC_REF_DETAIL_TAGS.testItemCode.system,
+      code: testItemCode,
+    });
+  }
+
   return metaToReturn;
 };
 
 export const getLabDocRefDescriptionFromMetaTags = (docRef: DocumentReference): string => {
-  const testName = docRef.meta?.tag?.find((t) => t.system === LAB_DOC_REF_DETAIL_TAGS.testName.system)?.code;
+  const testNameTag = docRef.meta?.tag?.find((t) => t.system === LAB_DOC_REF_DETAIL_TAGS.testName.system);
+  const testName = testNameTag?.display ?? testNameTag?.code;
+
+  const testItemCode = docRef.meta?.tag?.find((t) => t.system === LAB_DOC_REF_DETAIL_TAGS.testItemCode.system)?.code;
   const labName = docRef.meta?.tag?.find((t) => t.system === LAB_DOC_REF_DETAIL_TAGS.fillerLab.system)?.code;
 
-  if (!testName && !labName) return 'Lab Result';
+  if (!testName && !testItemCode && !labName) return 'Lab Result';
 
-  return `${testName}${labName ? ` / ${labName}` : ''}`;
+  return `${testItemCode ? `(${testItemCode}) ` : ''}${testName}${labName ? ` / ${labName}` : ''}`;
 };

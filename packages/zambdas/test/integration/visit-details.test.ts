@@ -1,6 +1,6 @@
 import Oystehr, { BatchInputPostRequest } from '@oystehr/sdk';
 import { randomUUID } from 'crypto';
-import { Appointment, Encounter, Patient, QuestionnaireResponse } from 'fhir/r4b';
+import { Appointment, Encounter, HealthcareService, Patient, QuestionnaireResponse } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   CONSENT_ATTESTATION_SIG_TYPE,
@@ -11,13 +11,17 @@ import {
   getReasonForVisitAndAdditionalDetailsFromAppointment,
   getReasonForVisitFromAppointment,
   getReasonForVisitOptionsForServiceCategory,
+  INTEGRATION_TEST_TAG_SYSTEM,
   isValidUUID,
   REASON_ADDITIONAL_MAX_CHAR,
+  SERVICE_CATEGORY_CONFIG_EXTENSION_URL,
+  SERVICE_CATEGORY_SYSTEM,
+  SERVICE_CATEGORY_TAG,
   UpdateVisitDetailsInput,
 } from 'utils';
 import { SERVICE_CATEGORIES_AVAILABLE } from 'utils/lib/ottehr-config/booking';
 import { assert, inject } from 'vitest';
-import { getAuth0Token } from '../../src/shared';
+import { createClinicalOystehrClient, getAuth0Token } from '../../src/shared';
 import QRInput from '../data/questionnaire-response-1.json';
 import { SECRETS } from '../data/secrets';
 import { ensureM2MPractitionerProfile } from '../helpers/configureTestM2MClient';
@@ -177,14 +181,9 @@ describe('saving and getting visit details', () => {
       AUTH0_AUDIENCE: AUTH0_AUDIENCE,
     });
 
-    oystehr = new Oystehr({
-      accessToken: token,
-      fhirApiUrl: FHIR_API,
-      projectApiUrl: EXECUTE_ZAMBDA_URL,
-      services: {
-        zambdaApiUrl: EXECUTE_ZAMBDA_URL,
-      },
+    oystehr = createClinicalOystehrClient(token, SECRETS, {
       projectId: PROJECT_ID,
+      services: { fhirApiUrl: FHIR_API, projectApiUrl: EXECUTE_ZAMBDA_URL, zambdaApiUrl: EXECUTE_ZAMBDA_URL },
     });
 
     await ensureM2MPractitionerProfile(token);
@@ -193,9 +192,43 @@ describe('saving and getting visit details', () => {
     expect(oystehr.fhir).toBeDefined();
     expect(oystehr.zambda).toBeDefined();
   });
+  // Track FHIR-backed service-category HealthcareServices created by tests so
+  // we can delete them after the run. cleanupTestScheduleResources doesn't
+  // sweep ad-hoc tagged HSes — they're outside its Schedule-rooted graph.
+  const createdHealthcareServiceIds: string[] = [];
+
+  const createFhirBackedServiceCategory = async (
+    code: string,
+    name: string,
+    reasons: Array<{ label: string; value: string }> = []
+  ): Promise<HealthcareService> => {
+    const created = await oystehr.fhir.create<HealthcareService>({
+      resourceType: 'HealthcareService',
+      active: true,
+      name,
+      meta: {
+        tag: [SERVICE_CATEGORY_TAG, { system: INTEGRATION_TEST_TAG_SYSTEM, code: `DELETE_ME-${processId}` }],
+      },
+      type: [{ coding: [{ system: SERVICE_CATEGORY_SYSTEM, code, display: name }] }],
+      extension:
+        reasons.length > 0
+          ? [{ url: SERVICE_CATEGORY_CONFIG_EXTENSION_URL, valueString: JSON.stringify({ reasonsForVisit: reasons }) }]
+          : undefined,
+    });
+    if (created.id) createdHealthcareServiceIds.push(created.id);
+    return created;
+  };
+
   afterAll(async () => {
     if (!oystehr || !processId) {
       throw new Error('oystehr or processId is null! could not clean up!');
+    }
+    for (const id of createdHealthcareServiceIds) {
+      try {
+        await oystehr.fhir.delete({ resourceType: 'HealthcareService', id });
+      } catch {
+        // best-effort cleanup
+      }
     }
     // this will clean up everything connect to the test patient too
     await cleanupTestScheduleResources(processId, oystehr);
@@ -762,7 +795,7 @@ describe('saving and getting visit details', () => {
         },
       });
     } catch (error) {
-      expect((error as Error).message).toBe('"appointmentId" value must be a valid UUID');
+      expect((error as Error).message).toBe('Validation error: Invalid uuid at "appointmentId"');
     }
     try {
       await updateVisitDetails({
@@ -793,7 +826,9 @@ describe('saving and getting visit details', () => {
         bookingDetails: {},
       });
     } catch (error) {
-      expect((error as Error).message).toBe('at least one field in bookingDetails must be provided');
+      expect((error as Error).message).toBe(
+        'Validation error: at least one field in bookingDetails must be provided at "bookingDetails"'
+      );
     }
     try {
       await updateVisitDetails({
@@ -801,7 +836,7 @@ describe('saving and getting visit details', () => {
         bookingDetails: undefined as any,
       });
     } catch (error) {
-      expect((error as Error).message).toBe('The following required parameters were missing: bookingDetails');
+      expect((error as Error).message).toBe('Validation error: Required at "bookingDetails"');
     }
   });
 
@@ -886,7 +921,9 @@ describe('saving and getting visit details', () => {
       });
     } catch (error) {
       errorFound = true;
-      expect((error as Error).message).toBe(`additionalDetails must be a string`);
+      expect((error as Error).message).toBe(
+        `Validation error: Expected string, received number at "bookingDetails.additionalDetails"`
+      );
     }
     expect(errorFound).toBe(true);
     errorFound = false;
@@ -901,7 +938,7 @@ describe('saving and getting visit details', () => {
     } catch (error) {
       errorFound = true;
       expect((error as Error).message).toBe(
-        `additionalDetails must be at most ${REASON_ADDITIONAL_MAX_CHAR} characters`
+        `Validation error: String must contain at most ${REASON_ADDITIONAL_MAX_CHAR} character(s) at "bookingDetails.additionalDetails"`
       );
     }
     expect(errorFound).toBe(true);
@@ -926,7 +963,9 @@ describe('saving and getting visit details', () => {
         },
       });
     } catch (error) {
-      expect((error as Error).message).toBe(`confirmedDob, "not-a-date", is not a valid iso date string`);
+      expect((error as Error).message).toBe(
+        `Validation error: confirmedDob, "not-a-date", is not a valid iso date string at "bookingDetails.confirmedDob"`
+      );
     }
   });
 
@@ -953,7 +992,9 @@ describe('saving and getting visit details', () => {
         },
       });
     } catch (error) {
-      expect((error as Error).message).toBe(`"patientName.middle" must be a string`);
+      expect((error as Error).message).toBe(
+        `Validation error: Expected string, received number at "bookingDetails.patientName.middle"`
+      );
     }
     try {
       await updateVisitDetails({
@@ -967,7 +1008,9 @@ describe('saving and getting visit details', () => {
         },
       });
     } catch (error) {
-      expect((error as Error).message).toBe(`"patientName.first" must be a string`);
+      expect((error as Error).message).toBe(
+        `Validation error: Expected string, received number at "bookingDetails.patientName.first"`
+      );
     }
     try {
       await updateVisitDetails({
@@ -981,7 +1024,9 @@ describe('saving and getting visit details', () => {
         },
       });
     } catch (error) {
-      expect((error as Error).message).toBe(`"patientName.last" must be a string`);
+      expect((error as Error).message).toBe(
+        `Validation error: Expected string, received number at "bookingDetails.patientName.last"`
+      );
     }
     try {
       await updateVisitDetails({
@@ -991,7 +1036,9 @@ describe('saving and getting visit details', () => {
         },
       });
     } catch (error) {
-      expect((error as Error).message).toBe(`"patientName" must have at least one field defined`);
+      expect((error as Error).message).toBe(
+        `Validation error: "patientName" must have at least one field defined at "bookingDetails.patientName"`
+      );
     }
     try {
       await updateVisitDetails({
@@ -1001,7 +1048,9 @@ describe('saving and getting visit details', () => {
         },
       });
     } catch (error) {
-      expect((error as Error).message).toBe(`"patientName" must be an object`);
+      expect((error as Error).message).toBe(
+        `Validation error: Expected object, received string at "bookingDetails.patientName"`
+      );
     }
 
     try {
@@ -1016,7 +1065,9 @@ describe('saving and getting visit details', () => {
         },
       });
     } catch (error) {
-      expect((error as Error).message).toBe(`patientName must have a non-empty first name`);
+      expect((error as Error).message).toBe(
+        `Validation error: patientName must have a non-empty first name at "bookingDetails.patientName"`
+      );
     }
 
     try {
@@ -1032,7 +1083,9 @@ describe('saving and getting visit details', () => {
         },
       });
     } catch (error) {
-      expect((error as Error).message).toBe(`patientName must have a non-empty last name`);
+      expect((error as Error).message).toBe(
+        `Validation error: patientName must have a non-empty last name at "bookingDetails.patientName"`
+      );
     }
   });
   test.concurrent('fails gracefully when given invalid consentForms object', async () => {
@@ -1056,7 +1109,9 @@ describe('saving and getting visit details', () => {
         },
       });
     } catch (error) {
-      expect((error as Error).message).toBe(`consentForms.consentAttested must be a boolean`);
+      expect((error as Error).message).toBe(
+        `Validation error: Expected boolean, received string at "bookingDetails.consentForms.consentAttested"`
+      );
     }
   });
   test.concurrent('fails gracefully when given invalid authorizedNonLegalGuardians', async () => {
@@ -1078,7 +1133,111 @@ describe('saving and getting visit details', () => {
         },
       });
     } catch (error) {
-      expect((error as Error).message).toBe(`authorizedNonLegalGuardians must be a string`);
+      expect((error as Error).message).toBe(
+        `Validation error: Expected string, received object at "bookingDetails.authorizedNonLegalGuardians"`
+      );
     }
+  });
+
+  // FHIR-backed service categories (those registered at runtime via the
+  // Services admin UI) live outside BOOKING_CONFIG. Pre-fix, update-visit-
+  // details rejected them as "not a valid option" because the validator only
+  // consulted the compiled-in catalog. These tests lock in the merged
+  // catalog behaviour so admins can switch a visit between compiled-in and
+  // FHIR-backed categories freely.
+  describe('FHIR-backed service categories', () => {
+    test.concurrent('accepts a FHIR-backed service category code and stamps it on the appointment', async () => {
+      if (!oystehr || !processId) throw new Error('oystehr or processId is null! could not run test!');
+      const code = `vd-fhir-cat-${randomUUID().slice(0, 8)}`;
+      await createFhirBackedServiceCategory(code, 'Visit Details Test Service');
+
+      const { appointment } = await makeTestResources({ processId, oystehr });
+      expect(appointment).toBeDefined();
+
+      await updateVisitDetails({
+        appointmentId: appointment.id!,
+        bookingDetails: { serviceCategory: code },
+      });
+
+      const refreshed = await oystehr.fhir.get<Appointment>({ resourceType: 'Appointment', id: appointment.id! });
+      const persistedCode = (refreshed.serviceCategory ?? [])
+        .flatMap((cc) => cc.coding ?? [])
+        .find((c) => c.system === SERVICE_CATEGORY_SYSTEM && c.code === code)?.code;
+      expect(persistedCode).toBe(code);
+    });
+
+    test.concurrent(
+      'accepts a reasonForVisit configured on a FHIR-backed category when set together with the category',
+      async () => {
+        if (!oystehr || !processId) throw new Error('oystehr or processId is null! could not run test!');
+        const code = `vd-fhir-rfv-${randomUUID().slice(0, 8)}`;
+        const reasons = [{ label: 'Muscle soreness', value: 'Muscle soreness' }];
+        await createFhirBackedServiceCategory(code, 'Massage Test Service', reasons);
+
+        const { appointment } = await makeTestResources({ processId, oystehr });
+        expect(appointment).toBeDefined();
+
+        await updateVisitDetails({
+          appointmentId: appointment.id!,
+          bookingDetails: { serviceCategory: code, reasonForVisit: 'Muscle soreness' },
+        });
+
+        const refreshed = await oystehr.fhir.get<Appointment>({ resourceType: 'Appointment', id: appointment.id! });
+        expect(getReasonForVisitFromAppointment(refreshed)).toBe('Muscle soreness');
+      }
+    );
+
+    test.concurrent(
+      'accepts a reasonForVisit-only edit on a visit whose existing category is FHIR-backed',
+      async () => {
+        if (!oystehr || !processId) throw new Error('oystehr or processId is null! could not run test!');
+        const code = `vd-fhir-rfv-only-${randomUUID().slice(0, 8)}`;
+        const reasons = [
+          { label: 'Tension', value: 'Tension' },
+          { label: 'Boredom', value: 'Boredom' },
+        ];
+        await createFhirBackedServiceCategory(code, 'RFV-only edit test', reasons);
+
+        const { appointment } = await makeTestResources({ processId, oystehr });
+        expect(appointment).toBeDefined();
+
+        // Initial save: set the FHIR-backed category + first RFV.
+        await updateVisitDetails({
+          appointmentId: appointment.id!,
+          bookingDetails: { serviceCategory: code, reasonForVisit: 'Tension' },
+        });
+
+        // Subsequent save: change ONLY the RFV (no serviceCategory in the
+        // payload). The zambda must resolve the appointment's existing
+        // category against the FHIR-backed catalog to validate the new RFV.
+        await updateVisitDetails({
+          appointmentId: appointment.id!,
+          bookingDetails: { reasonForVisit: 'Boredom' },
+        });
+
+        const refreshed = await oystehr.fhir.get<Appointment>({ resourceType: 'Appointment', id: appointment.id! });
+        expect(getReasonForVisitFromAppointment(refreshed)).toBe('Boredom');
+      }
+    );
+
+    test.concurrent('rejects a serviceCategory code that exists in neither catalog', async () => {
+      if (!oystehr || !processId) throw new Error('oystehr or processId is null! could not run test!');
+      const bogusCode = `nonexistent-${randomUUID().slice(0, 8)}`;
+      const { appointment } = await makeTestResources({ processId, oystehr });
+      expect(appointment).toBeDefined();
+
+      let caught: unknown;
+      try {
+        await updateVisitDetails({
+          appointmentId: appointment.id!,
+          bookingDetails: { serviceCategory: bogusCode },
+        });
+      } catch (e) {
+        caught = e;
+      }
+      expect(caught).toBeDefined();
+      const msg = (caught as { message?: string })?.message ?? JSON.stringify(caught);
+      expect(msg).toContain('is not a valid option');
+    });
   });
 });

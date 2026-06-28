@@ -19,12 +19,14 @@ import {
   CONFIG_INJECTION_KEYS,
   CreateAppointmentResponse,
   INTAKE_PAPERWORK_CONFIG,
+  serviceCategorySupportsContext,
   VIRTUAL_INTAKE_PAPERWORK_CONFIG,
 } from 'utils';
 import { injectTestConfig } from '../config/injectTestConfig';
 import { PagedQuestionnaireFlowHelper } from '../paperwork/PagedQuestionnaireFlowHelper';
 import { getTestDataForPage } from '../paperwork/paperworkDataTemplates';
 import { BookingFlowHelpers } from './BookingFlowHelpers';
+import { TEST_FIXTURE_TIMEZONES } from './TestLocationManager';
 
 /**
  * A test scenario representing one path through the booking system
@@ -133,9 +135,13 @@ export async function generateBookingTestScenarios(): Promise<BookingTestScenari
       continue;
     }
 
-    // Filter categories available for this flow's mode and visit type
-    const availableCategories = serviceCategories.filter(
-      (sc) => sc.serviceModes.includes(serviceMode) && sc.visitTypes.includes(visitType)
+    // Filter categories available for this flow's mode and visit type.
+    // Entries here come from BOOKING_CONFIG (no FHIR catalog in test fixtures);
+    // tag them so the shared helper applies the "untagged BOOKING_CONFIG = supports all"
+    // rule that the production code uses — otherwise fixtures with empty
+    // serviceModes/visitTypes silently produce zero scenarios.
+    const availableCategories = serviceCategories.filter((sc) =>
+      serviceCategorySupportsContext({ ...sc, source: 'booking-config' }, serviceMode, visitType)
     );
 
     // Determine which categories to generate scenarios for
@@ -406,16 +412,24 @@ export async function executeBookingScenario(
   // - Walk-in in-person: patient info → location
   if (scenario.visitType === 'prebook') {
     if (scenario.bookableEntityType === 'Group' && scenario.groupBookingSlug) {
-      // Group booking: navigate directly to prebook URL with bookingOn and scheduleType params
-      // This bypasses the location dropdown since the HealthcareService is specified in the URL
-      const groupBookingUrl = `/prebook/${scenario.serviceMode}?bookingOn=${scenario.groupBookingSlug}&scheduleType=group`;
+      // Group booking: navigate directly to prebook URL with bookingOn and scheduleType params.
+      // This bypasses the location dropdown since the HealthcareService is specified in the URL.
+      // Includes serviceCategory so we bypass PrebookVisit's category-picker redirect — that
+      // redirect now fires when a scoped deep link lands without a category and the destination
+      // supports multiple. The scenario already declares which category it's exercising; passing
+      // it on the URL mirrors what the picker would have produced and keeps this test focused
+      // on the post-pick booking flow rather than the picker UI itself.
+      const groupBookingUrl = `/prebook/${scenario.serviceMode}?bookingOn=${scenario.groupBookingSlug}&scheduleType=group&serviceCategory=${scenario.serviceCategory}`;
       console.log(`Navigating to Group booking URL: ${groupBookingUrl}`);
       await page.goto(groupBookingUrl, { waitUntil: 'networkidle' });
     } else {
       // Standard Location booking: select from dropdown
       await BookingFlowHelpers.selectFirstAvailableLocation(page, testLocationName, scenario.serviceMode);
     }
-    await BookingFlowHelpers.selectFirstAvailableTimeSlot(page);
+    await BookingFlowHelpers.selectFirstAvailableTimeSlot(
+      page,
+      scenario.serviceMode === 'virtual' ? TEST_FIXTURE_TIMEZONES.virtual : TEST_FIXTURE_TIMEZONES.inPerson
+    );
     await BookingFlowHelpers.clickContinueButtonIfPresent(page, 'after time slot selection');
   } else if (scenario.visitType === 'walk-in' && scenario.serviceMode === 'virtual') {
     // Virtual walk-in (start virtual visit): select location before patient info

@@ -1,8 +1,11 @@
 import { BatchInputDeleteRequest } from '@oystehr/sdk';
-import { HealthcareService, Location, Practitioner, PractitionerRole, Schedule } from 'fhir/r4b';
+import { HealthcareService, Location, Organization, Practitioner, PractitionerRole, Schedule, Slot } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM,
+  getAllFhirSearchPages,
+  ORG_TYPE_CODE_SYSTEM,
+  ORG_TYPE_OCCUPATIONAL_MEDICINE_EMPLOYER_CODE,
   SCHEDULE_STRATEGY_SYSTEM,
   ScheduleStrategy,
   SERVICE_CATEGORY_SYSTEM,
@@ -11,6 +14,17 @@ import {
   SLUG_SYSTEM,
 } from 'utils';
 import { ResourceHandler } from '../resource-handler';
+
+/**
+ * Timezones the test fixtures persist on their Locations. Slot button text is
+ * rendered in the Location's timezone; helpers that parse those buttons must
+ * be told which TZ to interpret them in. Keep these in sync with the explicit
+ * `timezone` values passed to `createLocationSchedule` in this file.
+ */
+export const TEST_FIXTURE_TIMEZONES = {
+  inPerson: 'America/New_York',
+  virtual: 'America/Los_Angeles',
+} as const;
 
 /**
  * Created group booking resources (HealthcareService with Location and Practitioner members)
@@ -58,6 +72,7 @@ export class TestLocationManager {
   private deeplinkOpenSchedule?: Schedule;
   private deeplinkClosedLocation?: Location;
   private deeplinkClosedSchedule?: Schedule;
+  private occMedEmployer?: Organization;
 
   /**
    * @param workerUniqueId - Unique identifier for this worker to isolate test resources
@@ -75,27 +90,133 @@ export class TestLocationManager {
   }
 
   /**
-   * Create a 24/7 schedule for a resource (Location, Practitioner, or HealthcareService)
+   * Create a 24/7 Location-actored schedule. Capacity is set via `prebookSlots`
+   * (the Location-semantic field: slots-per-hour at the default cadence).
+   * Default of 32 gives ~8 effective providers at 15-min cadence — plenty of
+   * test headroom while staying within a Location's natural shape.
    */
-  private async create247Schedule(params: {
+  private async createLocationSchedule(params: {
+    actorId: string;
+    actorName: string;
+    processId: string;
+    tagCode: string;
+    prebookSlots?: number;
+    timezone?: string;
+  }): Promise<Schedule> {
+    const { prebookSlots = 32 } = params;
+    const hours = Array.from({ length: 24 }, (_, hour) => ({ hour, prebookSlots }));
+    return this.buildAndPersist247Schedule({ ...params, actorType: 'Location', hours });
+  }
+
+  /**
+   * Create a 24/7 Practitioner-actored schedule. Capacity is set via
+   * `providers` (used as-is). Default of 1 matches the PR-as-Schedule
+   * invariant — one human, one calendar. Tests that need to book more than
+   * one concurrent appointment against the same PR are testing the wrong
+   * thing semantically; raise the cap deliberately if a test really needs it.
+   */
+  private async createPractitionerSchedule(params: {
+    actorId: string;
+    actorName: string;
+    processId: string;
+    tagCode: string;
+    providers?: number;
+    timezone?: string;
+  }): Promise<Schedule> {
+    const { providers = 1 } = params;
+    const hours = Array.from({ length: 24 }, (_, hour) => ({ hour, providers }));
+    return this.buildAndPersist247Schedule({ ...params, actorType: 'Practitioner', hours });
+  }
+
+  /**
+   * Sweep every Slot referencing one of the given reused test Schedules.
+   * Status-agnostic: a Slot's mere existence on a test Schedule is enough
+   * evidence it's leftover from a previous run that didn't clean up. We
+   * don't filter to busy/busy-tentative — fresh test runs build their own
+   * Slots from scratch, so leaving any Slot behind (including `free` ones
+   * vended by an earlier get-schedule call but never booked) would still
+   * pollute the schedule's perceived availability state.
+   *
+   * Production-side create-slot doesn't tag Slots with any test marker
+   * (it has no test-aware concept), so cleanup() can't find Slots via the
+   * usual tag-based search. When a prior test run crashed before cleanup
+   * or cleanup itself failed, the Schedule survives — and the next run's
+   * `ensure*` helpers reuse it. Without this sweep, every booking the
+   * previous run completed remains as a busy Slot referencing the reused
+   * Schedule, and get-schedule's "first available" walks forward over
+   * time. By the time enough accumulates, helpers like
+   * findAndClickSuitableTimeSlot can no longer find a slot at least 30
+   * minutes in the future and tests fail with the wrong-looking symptom.
+   *
+   * Discovers Slots by the Slot.schedule reference (the only durable link
+   * to the test Schedule); pagination is via getAllFhirSearchPages so a
+   * deeply-accumulated schedule doesn't escape past the FHIR default page
+   * size. Deletes are chunked into bounded batches — a single
+   * oystehr.fhir.batch() with thousands of entries can fail on size; the
+   * chunk size matches what a healthy reused-schedule sweep would
+   * realistically need without ever sending an oversized request.
+   */
+  private async purgeSlotsForSchedules(scheduleIds: string[]): Promise<void> {
+    const oystehr = this.resourceHandler.apiClient;
+    const ids = scheduleIds.filter((id) => !!id);
+    if (ids.length === 0) return;
+    const scheduleRefs = ids.map((id) => `Schedule/${id}`).join(',');
+    let slots: Slot[];
+    try {
+      slots = await getAllFhirSearchPages<Slot>(
+        { resourceType: 'Slot', params: [{ name: 'schedule', value: scheduleRefs }] },
+        oystehr
+      );
+    } catch (e) {
+      console.warn(
+        `Failed to search leftover Slots for schedules ${ids.join(
+          ', '
+        )}; reused schedule may carry accumulated busy slots:`,
+        e
+      );
+      return;
+    }
+    const allRequests: BatchInputDeleteRequest[] = slots
+      .filter((s): s is Slot & { id: string } => !!s.id)
+      .map((s) => ({ method: 'DELETE' as const, url: `/Slot/${s.id}` }));
+    if (allRequests.length === 0) return;
+    // Chunk to avoid oversized-batch failures when a long-running worker has
+    // accumulated thousands of stale Slots. 100 per batch is well under any
+    // realistic FHIR server limit and matches the conservative end of cleanup
+    // patterns elsewhere in the repo.
+    const CHUNK_SIZE = 100;
+    let purgedCount = 0;
+    for (let i = 0; i < allRequests.length; i += CHUNK_SIZE) {
+      const requests = allRequests.slice(i, i + CHUNK_SIZE);
+      try {
+        await oystehr.fhir.batch({ requests });
+        purgedCount += requests.length;
+      } catch (e) {
+        console.warn(
+          `Failed to purge a chunk of leftover Slots (offset ${i}, size ${requests.length}); continuing with remaining chunks:`,
+          e
+        );
+      }
+    }
+    console.log(
+      `Purged ${purgedCount}/${allRequests.length} leftover Slot(s) from reused test schedule(s): ${ids.join(', ')}`
+    );
+  }
+
+  private async buildAndPersist247Schedule(params: {
     actorType: 'Location' | 'Practitioner' | 'HealthcareService';
     actorId: string;
     actorName: string;
     processId: string;
     tagCode: string;
-    capacity?: number;
+    hours: Array<Record<string, number>>;
     timezone?: string;
   }): Promise<Schedule> {
     const oystehr = this.resourceHandler.apiClient;
-    const { actorType, actorId, actorName, processId, tagCode, capacity = 10, timezone = 'America/New_York' } = params;
+    const { actorType, actorId, actorName, processId, tagCode, hours, timezone = 'America/New_York' } = params;
 
     const now = DateTime.now().toUTC();
     const oneYearFromNow = now.plus({ years: 1 });
-
-    const hours = Array.from({ length: 24 }, (_, hour) => ({
-      hour,
-      capacity,
-    }));
 
     const daySchedule = {
       open: 0,
@@ -198,6 +319,10 @@ export class TestLocationManager {
       const existingSchedule = existingSchedules.unbundle()[0] as Schedule | undefined;
 
       if (existingSchedule?.id) {
+        // Sweep any busy Slots a prior crashed test run left on this
+        // schedule before handing it back; otherwise the first-available
+        // walks forward over time. See purgeSlotsForSchedules docblock.
+        await this.purgeSlotsForSchedules([existingSchedule.id]);
         this.walkinLocation = existingLocation;
         this.walkinSchedule = existingSchedule;
         return { location: existingLocation, schedule: existingSchedule };
@@ -246,16 +371,68 @@ export class TestLocationManager {
     }
 
     // Create 24/7 schedule for the location
-    this.walkinSchedule = await this.create247Schedule({
-      actorType: 'Location',
+    this.walkinSchedule = await this.createLocationSchedule({
       actorId: this.walkinLocation.id,
       actorName: this.walkinLocation.name || 'Walk-in Location',
       processId,
       tagCode: 'test-schedule-24-7',
-      capacity: 10,
     });
 
     return { location: this.walkinLocation, schedule: this.walkinSchedule };
+  }
+
+  async ensureOccMedEmployer(): Promise<Organization> {
+    const oystehr = this.resourceHandler.apiClient;
+    const processId = this.workerUniqueId;
+
+    const existingEmployers = await oystehr.fhir.search<Organization>({
+      resourceType: 'Organization',
+      params: [
+        {
+          name: '_tag',
+          value: `${E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM}|${processId}-test-occ-med-employer`,
+        },
+      ],
+    });
+
+    const existingEmployer = existingEmployers.unbundle()[0] as Organization | undefined;
+    if (existingEmployer?.id) {
+      this.occMedEmployer = existingEmployer;
+      return existingEmployer;
+    }
+
+    const organization: Organization = {
+      resourceType: 'Organization',
+      active: true,
+      name: `E2E-OccMedEmployer-${processId}`,
+      type: [
+        {
+          coding: [
+            {
+              system: ORG_TYPE_CODE_SYSTEM,
+              code: ORG_TYPE_OCCUPATIONAL_MEDICINE_EMPLOYER_CODE,
+              display: 'Occupational Medicine Employer',
+            },
+          ],
+        },
+      ],
+      meta: {
+        tag: [
+          {
+            system: E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM,
+            code: `${processId}-test-occ-med-employer`,
+            display: 'E2E Test Occupational Medicine Employer',
+          },
+        ],
+      },
+    };
+
+    this.occMedEmployer = await oystehr.fhir.create(organization);
+    if (!this.occMedEmployer.id) {
+      throw new Error('Failed to create occupational-medicine employer test organization');
+    }
+
+    return this.occMedEmployer;
   }
 
   /**
@@ -308,6 +485,8 @@ export class TestLocationManager {
       const existingSchedule = existingSchedules.unbundle()[0] as Schedule | undefined;
 
       if (existingSchedule?.id) {
+        // See purgeSlotsForSchedules docblock for why this sweep is needed.
+        await this.purgeSlotsForSchedules([existingSchedule.id]);
         this.prebookInPersonLocation = existingLocation;
         this.prebookInPersonSchedule = existingSchedule;
         return { location: existingLocation, schedule: existingSchedule };
@@ -349,7 +528,7 @@ export class TestLocationManager {
         tag: [
           {
             system: E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM,
-            code: `${processId}-test-location-prebook`,
+            code: `${processId}-test-location-prebook-in-person`,
             display: 'E2E Test Location Prebook',
           },
         ],
@@ -362,14 +541,12 @@ export class TestLocationManager {
       throw new Error('Failed to create prebook in-person test location');
     }
 
-    // Create 24/7 schedule with 8 slots per hour
-    this.prebookInPersonSchedule = await this.create247Schedule({
-      actorType: 'Location',
+    // Create 24/7 schedule
+    this.prebookInPersonSchedule = await this.createLocationSchedule({
       actorId: this.prebookInPersonLocation.id,
       actorName: this.prebookInPersonLocation.name || 'Prebook In-Person Location',
       processId,
       tagCode: 'test-schedule-prebook-in-person',
-      capacity: 8,
     });
 
     return { location: this.prebookInPersonLocation, schedule: this.prebookInPersonSchedule };
@@ -412,6 +589,11 @@ export class TestLocationManager {
       console.log(`Found existing HealthcareService: ${existingHealthcareService.id}, looking for related resources`);
       const group = await this.findExistingGroupResources(existingHealthcareService, processId, tagCode);
       if (group) {
+        // See purgeSlotsForSchedules docblock. Group has two member
+        // Schedules (Location-actored + Practitioner-actored); sweep both.
+        await this.purgeSlotsForSchedules(
+          [group.locationSchedule.id, group.practitionerSchedule.id].filter((id): id is string => !!id)
+        );
         this.prebookInPersonGroup = group;
         return group;
       }
@@ -596,24 +778,20 @@ export class TestLocationManager {
     console.log(`Created group PractitionerRole: ${createdPractitionerRole.id}`);
 
     // Create Schedule for the Location
-    const locationSchedule = await this.create247Schedule({
-      actorType: 'Location',
+    const locationSchedule = await this.createLocationSchedule({
       actorId: createdLocation.id,
       actorName: createdLocation.name || 'Group Location',
       processId,
       tagCode: `${tagCode}-location-schedule`,
-      capacity: 8,
     });
     console.log(`Created group location schedule: ${locationSchedule.id}`);
 
     // Create Schedule for the Practitioner
-    const practitionerSchedule = await this.create247Schedule({
-      actorType: 'Practitioner',
+    const practitionerSchedule = await this.createPractitionerSchedule({
       actorId: createdPractitioner.id,
       actorName: 'Dr. E2E TestProvider',
       processId,
       tagCode: `${tagCode}-practitioner-schedule`,
-      capacity: 8,
     });
     console.log(`Created group practitioner schedule: ${practitionerSchedule.id}`);
 
@@ -750,6 +928,8 @@ export class TestLocationManager {
       const existingSchedule = existingSchedules.unbundle()[0] as Schedule | undefined;
 
       if (existingSchedule?.id) {
+        // See purgeSlotsForSchedules docblock.
+        await this.purgeSlotsForSchedules([existingSchedule.id]);
         this.prebookVirtualLocation = existingLocation;
         this.prebookVirtualSchedule = existingSchedule;
         return { location: existingLocation, schedule: existingSchedule };
@@ -804,14 +984,12 @@ export class TestLocationManager {
       throw new Error('Failed to create prebook virtual test location');
     }
 
-    // Create 24/7 schedule with 8 slots per hour
-    this.prebookVirtualSchedule = await this.create247Schedule({
-      actorType: 'Location',
+    // Create 24/7 schedule
+    this.prebookVirtualSchedule = await this.createLocationSchedule({
       actorId: this.prebookVirtualLocation.id,
       actorName: this.prebookVirtualLocation.name || 'Prebook Virtual Location',
       processId,
       tagCode: 'test-schedule-prebook-virtual',
-      capacity: 8,
       timezone: 'America/Los_Angeles',
     });
 
@@ -939,6 +1117,8 @@ export class TestLocationManager {
       const existingSchedule = existingSchedules.unbundle()[0] as Schedule | undefined;
 
       if (existingSchedule?.id) {
+        // See purgeSlotsForSchedules docblock.
+        await this.purgeSlotsForSchedules([existingSchedule.id]);
         this.deeplinkOpenLocation = existingLocation;
         this.deeplinkOpenSchedule = existingSchedule;
         return { location: existingLocation, schedule: existingSchedule };
@@ -988,13 +1168,11 @@ export class TestLocationManager {
     }
 
     // Create 24/7 schedule for the location
-    this.deeplinkOpenSchedule = await this.create247Schedule({
-      actorType: 'Location',
+    this.deeplinkOpenSchedule = await this.createLocationSchedule({
       actorId: this.deeplinkOpenLocation.id,
       actorName: this.deeplinkOpenLocation.name || 'Deeplink Open Location',
       processId,
       tagCode: 'test-schedule-deeplink-open',
-      capacity: 10,
     });
 
     return { location: this.deeplinkOpenLocation, schedule: this.deeplinkOpenSchedule };
@@ -1037,6 +1215,8 @@ export class TestLocationManager {
       const existingSchedule = existingSchedules.unbundle()[0] as Schedule | undefined;
 
       if (existingSchedule?.id) {
+        // See purgeSlotsForSchedules docblock.
+        await this.purgeSlotsForSchedules([existingSchedule.id]);
         this.deeplinkClosedLocation = existingLocation;
         this.deeplinkClosedSchedule = existingSchedule;
         return { location: existingLocation, schedule: existingSchedule };
@@ -1232,6 +1412,14 @@ export class TestLocationManager {
         await oystehr.fhir.delete({ resourceType: 'Location', id: this.deeplinkClosedLocation.id });
       } catch (error) {
         console.warn('Failed to delete deeplink closed test location:', error);
+      }
+    }
+
+    if (this.occMedEmployer?.id) {
+      try {
+        await oystehr.fhir.delete({ resourceType: 'Organization', id: this.occMedEmployer.id });
+      } catch (error) {
+        console.warn('Failed to delete occupational-medicine employer test organization:', error);
       }
     }
   }

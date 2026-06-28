@@ -1,38 +1,41 @@
-import { getSecret, SecretsKeys, UnlockAppointmentZambdaInputValidated } from 'utils';
-import { ZambdaInput } from '../../shared';
+import {
+  getSecret,
+  MISSING_REQUEST_BODY,
+  MISSING_REQUEST_SECRETS,
+  SecretsKeys,
+  UnlockAppointmentZambdaInputValidated,
+} from 'utils';
+import { z } from 'zod';
+import { safeValidate, ZambdaInput } from '../../shared';
+
+const UnlockAppointmentBodySchema = z
+  .object({
+    appointmentId: z.string().uuid().optional(),
+    encounterId: z.string().uuid().optional(),
+  })
+  .refine((data) => Boolean(data.appointmentId) !== Boolean(data.encounterId), {
+    message: 'Provide exactly one of appointmentId or encounterId',
+  });
 
 export function validateRequestParameters(input: ZambdaInput): UnlockAppointmentZambdaInputValidated {
-  console.group('validateRequestParameters');
-
   if (!input.body) {
-    throw new Error('No request body provided');
+    throw MISSING_REQUEST_BODY;
   }
 
-  const { appointmentId } = JSON.parse(input.body);
-
-  if (appointmentId === undefined) {
-    throw new Error('These fields are required: "appointmentId".');
+  if (!input.secrets) {
+    throw MISSING_REQUEST_SECRETS;
   }
 
-  if (getSecret(SecretsKeys.PROJECT_API, input.secrets) === undefined) {
-    throw new Error('"PROJECT_API" configuration not provided');
-  }
+  const { appointmentId, encounterId } = safeValidate(UnlockAppointmentBodySchema, JSON.parse(input.body));
 
-  if (getSecret(SecretsKeys.ORGANIZATION_ID, input.secrets) === undefined) {
-    throw new Error('"ORGANIZATION_ID" configuration not provided');
-  }
+  getSecret(SecretsKeys.PROJECT_API, input.secrets);
+  getSecret(SecretsKeys.ORGANIZATION_ID, input.secrets);
 
   const userToken = input.headers.Authorization.replace('Bearer ', '');
 
-  if (!input.secrets) {
-    throw new Error('No secrets provided');
-  }
-
-  console.groupEnd();
-  console.debug('validateRequestParameters success');
-
   return {
     appointmentId,
+    encounterId,
     secrets: input.secrets,
     userToken,
   };

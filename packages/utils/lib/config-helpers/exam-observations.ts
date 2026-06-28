@@ -1,4 +1,5 @@
 import type { ExamCardComponent, ExamItemConfig } from 'config-types';
+import { DefaultExamComponentsConfig } from '../ottehr-config/examination/default-components.config';
 import { isDropdownComponent, isMultiSelectComponent } from '../ottehr-config/examination/examination.schema';
 import type { ExamObservationComponentDTO, ExamObservationDTO } from '../types/api/chart-data/chart-data.types';
 
@@ -194,6 +195,83 @@ export function collectKnownExamFields(examConfig: ExamItemConfig): Set<string> 
   });
 
   return knownFields;
+}
+
+export interface ExamFieldSectionInfo {
+  sectionKey: string;
+  sectionLabel: string;
+}
+
+// Walks the exam config and produces a map from every component field name (the keys
+// stored in chart data) to the section it belongs to. The preview UI uses this to
+// group exam findings under their body-system header so a chip like "Soft" is
+// rendered under "Abdomen" instead of floating without context.
+export function buildExamFieldToSectionMap(examConfig: ExamItemConfig): Map<string, ExamFieldSectionInfo> {
+  const map = new Map<string, ExamFieldSectionInfo>();
+
+  const walk = (components: Record<string, ExamCardComponent>, sectionKey: string, sectionLabel: string): void => {
+    Object.entries(components).forEach(([key, component]) => {
+      if (component.type === 'checkbox' || component.type === 'checkbox-with-modal' || component.type === 'text') {
+        map.set(key, { sectionKey, sectionLabel });
+      } else if (component.type === 'dropdown') {
+        map.set(key, { sectionKey, sectionLabel });
+        if (isDropdownComponent(component)) {
+          Object.keys(component.components).forEach((k) => map.set(k, { sectionKey, sectionLabel }));
+        }
+      } else if (component.type === 'column') {
+        walk(component.components, sectionKey, sectionLabel);
+      } else if (component.type === 'multi-select') {
+        map.set(key, { sectionKey, sectionLabel });
+        if (isMultiSelectComponent(component)) {
+          Object.keys(component.options).forEach((k) => map.set(k, { sectionKey, sectionLabel }));
+        }
+      } else if (component.type === 'form') {
+        Object.keys(component.components).forEach((k) => map.set(k, { sectionKey, sectionLabel }));
+      }
+    });
+  };
+
+  Object.entries(examConfig).forEach(([sectionKey, section]) => {
+    walk(section.components.normal, sectionKey, section.label);
+    walk(section.components.abnormal, sectionKey, section.label);
+    Object.keys(section.components.comment).forEach((k) => map.set(k, { sectionKey, sectionLabel: section.label }));
+  });
+
+  return map;
+}
+
+export interface ExamFindingSectionGroup<T> {
+  sectionKey: string;
+  sectionLabel: string;
+  findings: T[];
+}
+
+const EXAM_OTHER_SECTION_KEY = '__other__';
+const EXAM_OTHER_SECTION_LABEL = 'Other';
+
+const DEFAULT_FIELD_TO_SECTION = buildExamFieldToSectionMap(DefaultExamComponentsConfig);
+const DEFAULT_SECTION_KEYS_IN_ORDER = Object.keys(DefaultExamComponentsConfig);
+
+export function groupExamFindingsBySection<T extends { fieldName: string }>(
+  findings: readonly T[]
+): ExamFindingSectionGroup<T>[] {
+  const groups = new Map<string, ExamFindingSectionGroup<T>>();
+
+  for (const finding of findings) {
+    const info = DEFAULT_FIELD_TO_SECTION.get(finding.fieldName);
+    const sectionKey = info?.sectionKey ?? EXAM_OTHER_SECTION_KEY;
+    const sectionLabel = info?.sectionLabel ?? EXAM_OTHER_SECTION_LABEL;
+    const existing = groups.get(sectionKey);
+    if (existing) existing.findings.push(finding);
+    else groups.set(sectionKey, { sectionKey, sectionLabel, findings: [finding] });
+  }
+
+  const orderedKeys = [
+    ...DEFAULT_SECTION_KEYS_IN_ORDER.filter((key) => groups.has(key)),
+    ...(groups.has(EXAM_OTHER_SECTION_KEY) ? [EXAM_OTHER_SECTION_KEY] : []),
+  ];
+
+  return orderedKeys.map((key) => groups.get(key)!);
 }
 
 // helpers for formatting labels for checkbox-with-modal

@@ -5,11 +5,9 @@ import { Account, Appointment, Encounter, Location, Patient, Schedule, Task, Tas
 import { DateTime } from 'luxon';
 import Stripe from 'stripe';
 import {
-  BRANDING_CONFIG,
   FHIR_RESOURCE_NOT_FOUND,
   fillInvoiceTemplate,
   formatDateToMDYWithTime,
-  getFullName,
   getPatientReferenceFromAccount,
   getSecret,
   getStripeAccountForAppointmentOrEncounter,
@@ -23,11 +21,13 @@ import {
   SecretsKeys,
 } from 'utils';
 import { accountMatchesType } from '../../../ehr/shared/harvest';
+import { produceOutreachTasks } from '../../../rcm/scheduled-outreach/producers/shared';
 import {
   checkOrCreateM2MClientToken,
-  createOystehrClient,
+  createClinicalOystehrClient,
   getCandidEncounterIdFromEncounter,
   getStripeClient,
+  resolveTemplatePlaceholders,
   resolveTimezone,
   sendSmsForPatient,
   wrapHandler,
@@ -46,7 +46,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   console.log('Input task id: ', task.id);
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-  const oystehr = createOystehrClient(m2mToken, secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
   const stripe = getStripeClient(secrets);
 
   try {
@@ -64,18 +64,20 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     const timezone = resolveTimezone(schedule, location);
     const visitDate = formatDateToMDYWithTime(appointment.start, timezone)?.date;
-    const patientPortalUrl = getSecret(SecretsKeys.PATIENT_LOGIN_REDIRECT_URL, secrets);
     if (!visitDate) throw new Error('visit date is missing required field');
 
-    const basePlaceholderInput = {
-      patientFullName: getFullName(fhirResources.patient),
-      clinic: BRANDING_CONFIG.projectName,
-      location: location?.name,
-      visitDate: visitDate,
-      dueDate,
-      amountCents,
-      patientPortalLink: patientPortalUrl,
-    };
+    const basePlaceholderInput = await resolveTemplatePlaceholders({
+      patient,
+      encounterRef: `Encounter/${encounterId}`,
+      oystehr,
+      secrets,
+      overrides: {
+        location: location?.name,
+        visitDate,
+        dueDate,
+        amountCents,
+      },
+    });
 
     console.log('Creating invoice and invoice item');
     const patientId = removePrefix('Patient/', encounter.subject?.reference ?? '');
@@ -85,6 +87,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       oystehrEncounterId: encounterId,
       oystehrPatientId: patientId,
       dueDate,
+      timezone,
       filledMemo,
     });
     await createInvoiceItem(stripe, stripeCustomerId, stripeAccountId, invoiceResponse, amountCents, filledMemo);
@@ -117,8 +120,22 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const taskCopy = addInvoiceIdToTaskOutput(task, invoiceResponse.id);
     await updateTaskStatusAndOutput(oystehr, task, mapDisplayToInvoiceTaskStatus('sent'), taskCopy.output);
     console.log('Task status and output updated');
+
+    // Produce outreach tasks triggered by invoice issuance
+    try {
+      await produceOutreachTasks({
+        triggerEvent: 'invoice-issued',
+        patient: { reference: `Patient/${patient.id}` },
+        focus: { reference: `Encounter/${encounterId}` },
+        appointment: appointment?.id ? { reference: `Appointment/${appointment.id}` } : undefined,
+        eventTimestamp: new Date().toISOString(),
+        oystehr,
+      });
+    } catch (err) {
+      console.error('Failed to produce invoice-issued outreach tasks:', err);
+    }
   } catch (error) {
-    const oystehr = createOystehrClient(m2mToken, secrets);
+    const oystehr = createClinicalOystehrClient(m2mToken, secrets);
     console.log('updating task status to failed and output');
     const taskCopy = addErrorToTaskOutput(task, error instanceof Error ? error.message : 'Unknown error');
     await updateTaskStatusAndOutput(oystehr, task, mapDisplayToInvoiceTaskStatus('error'), taskCopy.output);
@@ -166,10 +183,11 @@ async function createInvoice(
     oystehrPatientId: string;
     filledMemo?: string;
     dueDate: string;
+    timezone: string;
   }
 ): Promise<Stripe.Invoice> {
   try {
-    const { oystehrEncounterId, oystehrPatientId, filledMemo, dueDate } = params;
+    const { oystehrEncounterId, oystehrPatientId, filledMemo, dueDate, timezone } = params;
 
     const invoiceParams: Stripe.InvoiceCreateParams = {
       customer: stripeCustomerId,
@@ -180,7 +198,7 @@ async function createInvoice(
         oystehr_encounter_id: oystehrEncounterId,
       },
       currency: 'USD',
-      due_date: DateTime.fromISO(dueDate).toUnixInteger(),
+      due_date: DateTime.fromISO(dueDate, { zone: timezone }).toUnixInteger(),
       pending_invoice_items_behavior: 'exclude', // Start with a blank invoice
       auto_advance: false, // Ensure it stays a draft
     };

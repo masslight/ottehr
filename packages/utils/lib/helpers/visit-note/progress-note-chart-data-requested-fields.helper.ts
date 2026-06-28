@@ -20,7 +20,7 @@ export const progressNoteChartDataRequestedFields: ChartDataRequestedFields = {
   ros: { _tag: 'ros' },
   episodeOfCare: {},
   prescribedMedications: {},
-  disposition: {},
+  disposition: { _tag: 'disposition-follow-up,sub-follow-up' },
   notes: {
     _sort: '-_lastUpdated',
     _count: 1000,
@@ -34,6 +34,7 @@ export const progressNoteChartDataRequestedFields: ChartDataRequestedFields = {
       NOTE_TYPE.MEDICAL_CONDITION,
       NOTE_TYPE.SURGICAL_HISTORY,
       NOTE_TYPE.MEDICATION,
+      NOTE_TYPE.ADDENDUM,
     ]
       .map((note) => `${PRIVATE_EXTENSION_BASE_URL}/${note}|${IN_PERSON_NOTE_ID}`)
       .join(','),
@@ -41,6 +42,7 @@ export const progressNoteChartDataRequestedFields: ChartDataRequestedFields = {
   vitalsObservations: vitalsObservationsRequest,
   externalLabResults: {},
   inHouseLabResults: {},
+  radiologyOrders: { _tag: 'radiology', _revinclude: 'DiagnosticReport:based-on' },
   practitioners: {},
   medicalDecision: {
     _tag: 'medical-decision',
@@ -61,7 +63,9 @@ export const telemedProgressNoteChartDataRequestedFields: ChartDataRequestedFiel
   notes: {
     _sort: '-_lastUpdated',
     _count: 1000,
-    _tag: `${PRIVATE_EXTENSION_BASE_URL}/${NOTE_TYPE.VITALS}|${IN_PERSON_NOTE_ID}`,
+    _tag: [NOTE_TYPE.VITALS, NOTE_TYPE.ADDENDUM]
+      .map((note) => `${PRIVATE_EXTENSION_BASE_URL}/${note}|${IN_PERSON_NOTE_ID}`)
+      .join(','),
   },
   vitalsObservations: vitalsObservationsRequest,
 };

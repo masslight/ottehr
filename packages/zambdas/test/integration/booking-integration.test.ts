@@ -39,14 +39,11 @@ import { assert } from 'vitest';
 import { getCanonicalUrlForPrevisitQuestionnaire } from '../../src/patient/appointment/helpers';
 import { setupIntegrationTest } from '../helpers/integration-test-seed-data-setup';
 import {
-  adjustHoursOfOperation,
-  changeAllCapacities,
+  buildSimpleScheduleExt,
   cleanupTestScheduleResources,
-  DEFAULT_SCHEDULE_JSON,
   makeTestPatient,
   persistSchedule,
   persistTestPatient,
-  startOfDayWithTimezone,
   tagForProcessId,
 } from '../helpers/testScheduleUtils';
 
@@ -131,7 +128,8 @@ const validateCreateAppointmentResponse = (
   const isWalkin = getSlotIsWalkin(slot);
   const isPostTelemed = getSlotIsPostTelemed(slot);
   const isVirtual = checkEncounterIsVirtual(encounter);
-  expect(appointment.status).toEqual(isWalkin ? 'arrived' : 'booked');
+  const startsAsBooked = !isWalkin || isVirtual;
+  expect(appointment.status).toEqual(startsAsBooked ? 'booked' : 'arrived');
   assert(appointment.start);
   if (isWalkin) {
     const appointmentTimeStamp = DateTime.fromISO(appointment.start!, { zone: timezone }).toUnixInteger();
@@ -149,13 +147,7 @@ const validateCreateAppointmentResponse = (
   expect(encounter).toBeDefined();
   assert(encounter);
   expect(encounter.id);
-  // todo: should encounter status be 'arrived' for walkin virtual appointments to match the appointment status?
-  // i think this is intended and helps with some intake logic particular to the virtual walkin flow
-  if (isWalkin) {
-    expect(encounter.status).toEqual('arrived');
-  } else {
-    expect(encounter.status).toEqual('planned');
-  }
+  expect(encounter.status).toEqual(startsAsBooked ? 'planned' : 'arrived');
   expect(checkEncounterIsVirtual(encounter)).toEqual(isVirtual);
   expect(questionnaire).toBeDefined();
   assert(questionnaire);
@@ -225,18 +217,10 @@ describe('prebook integration - from getting list of slots to booking with selec
     expect(oystehrAdmin).toBeDefined();
     expect(existingTestPatient).toBeDefined();
     assert(existingTestPatient);
-    const timeNow = startOfDayWithTimezone().plus({ hours: 8 });
-
-    let adjustedScheduleJSON = adjustHoursOfOperation(DEFAULT_SCHEDULE_JSON, [
-      {
-        dayOfWeek: timeNow.toLocaleString({ weekday: 'long' }).toLowerCase(),
-        open: 8,
-        close: 18,
-        workingDay: true,
-      },
-    ]);
-
-    adjustedScheduleJSON = changeAllCapacities(adjustedScheduleJSON, 1);
+    // 24/7 open with 4 bookings/hour (slot-length-invariant). Provides
+    // capacity at every cadence position so the test's randomly-picked
+    // slot is always bookable regardless of where it lands in the hour.
+    const adjustedScheduleJSON = buildSimpleScheduleExt({ prebookSlots: 4 });
 
     const ownerLocation: Location = {
       resourceType: 'Location',
@@ -301,18 +285,9 @@ describe('prebook integration - from getting list of slots to booking with selec
     expect(oystehrAdmin).toBeDefined();
     expect(existingTestPatient).toBeDefined();
     assert(existingTestPatient);
-    const timeNow = startOfDayWithTimezone().plus({ hours: 8 });
-
-    let adjustedScheduleJSON = adjustHoursOfOperation(DEFAULT_SCHEDULE_JSON, [
-      {
-        dayOfWeek: timeNow.toLocaleString({ weekday: 'long' }).toLowerCase(),
-        open: 8,
-        close: 18,
-        workingDay: true,
-      },
-    ]);
-
-    adjustedScheduleJSON = changeAllCapacities(adjustedScheduleJSON, 1);
+    // 24/7 open with 4 bookings/hour (slot-length-invariant). See the
+    // setUpInPersonResources comment above — same rationale.
+    const adjustedScheduleJSON = buildSimpleScheduleExt({ prebookSlots: 4 });
 
     const ownerLocation: Location = {
       resourceType: 'Location',
@@ -433,6 +408,13 @@ describe('prebook integration - from getting list of slots to booking with selec
       });
     }
     assert(createSlotParams);
+    // The get-schedule fixture above doesn't pass serviceCategoryCode, so the
+    // vended slot has no SERVICE_CATEGORY_SYSTEM coding for the helper to
+    // forward. Default to 'urgent-care' here — tests in this file don't
+    // exercise category resolution; without it create-slot's invariant
+    // guard would reject categoryless creation on the multi-category test
+    // config.
+    createSlotParams.serviceCategoryCode = createSlotParams.serviceCategoryCode ?? 'urgent-care';
     const validatedSlotResponse = await createSlotAndValidate(
       { params: createSlotParams, selectedSlot, schedule },
       oystehrTestUserM2M
@@ -480,10 +462,14 @@ describe('prebook integration - from getting list of slots to booking with selec
     expect(rescheduleSlot).toBeDefined();
     assert(rescheduleSlot);
 
-    const rescheduleSlotParams = createSlotParamsFromSlotAndOptions(rescheduleSlot.slot, {
-      originalBookingUrl: `prebook/${serviceMode}?bookingOn=${slug}`,
-      status: 'busy-tentative',
-    });
+    const rescheduleSlotParams: CreateSlotParams = {
+      ...createSlotParamsFromSlotAndOptions(rescheduleSlot.slot, {
+        originalBookingUrl: `prebook/${serviceMode}?bookingOn=${slug}`,
+        status: 'busy-tentative',
+      }),
+      // See note on createSlotParams above — same rationale.
+      serviceCategoryCode: 'urgent-care',
+    };
 
     const validatedRescheduledSlot = await createSlotAndValidate(
       { params: rescheduleSlotParams, selectedSlot: rescheduleSlot, schedule },
@@ -646,6 +632,7 @@ describe('prebook integration - from getting list of slots to booking with selec
       ).output as CreateAppointmentResponse;
     } catch (e) {
       console.error('Error executing create-appointment zambda', e);
+      throw e;
     }
     const validated = validateCreateAppointmentResponse({
       createAppointmentResponse,
@@ -841,10 +828,14 @@ describe('prebook integration - from getting list of slots to booking with selec
       expect(rescheduleSlot).toBeDefined();
       assert(rescheduleSlot);
 
-      const rescheduleSlotParams = createSlotParamsFromSlotAndOptions(rescheduleSlot.slot, {
-        postTelemedLabOnly: true,
-        status: 'busy-tentative',
-      });
+      const rescheduleSlotParams: CreateSlotParams = {
+        ...createSlotParamsFromSlotAndOptions(rescheduleSlot.slot, {
+          postTelemedLabOnly: true,
+          status: 'busy-tentative',
+        }),
+        // See note on createSlotParams above — same rationale.
+        serviceCategoryCode: 'urgent-care',
+      };
 
       const validatedRescheduledSlot = await createSlotAndValidate(
         { params: rescheduleSlotParams, selectedSlot: rescheduleSlot, schedule },
@@ -1272,6 +1263,9 @@ describe('prebook integration - from getting list of slots to booking with selec
           status: 'busy-tentative',
         }),
         questionnaireCanonical: testCanonical,
+        // get-schedule above doesn't pass serviceCategoryCode; default to
+        // urgent-care so create-slot's invariant guard doesn't reject.
+        serviceCategoryCode: 'urgent-care',
       };
 
       const { slot: createdSlot } = await createSlotAndValidate(
@@ -1320,6 +1314,9 @@ describe('prebook integration - from getting list of slots to booking with selec
           status: 'busy-tentative',
         }),
         questionnaireCanonical: testCanonical,
+        // get-schedule above doesn't pass serviceCategoryCode; default to
+        // urgent-care so create-slot's invariant guard doesn't reject.
+        serviceCategoryCode: 'urgent-care',
       };
 
       const { slot: createdSlot } = await createSlotAndValidate(

@@ -6,9 +6,9 @@ import { InventoryRecord, InvoiceItemizationResponse } from 'candidhealth/api/re
 import { Encounter, Resource, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
-  createCandidApiClient,
   createReference,
   getCandidInventoryPages,
+  getOrCreateCandidApiClient,
   getResourcesFromBatchInlineRequests,
   InvoiceTaskInput,
   mapDisplayToInvoiceTaskStatus,
@@ -24,14 +24,13 @@ import {
 import {
   CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM,
   checkOrCreateM2MClientToken,
-  createOystehrClient,
+  createClinicalOystehrClient,
   getCandidEncounterIdFromEncounter,
   wrapHandler,
   ZambdaInput,
 } from '../../shared';
 
 let m2mToken: string;
-let candid: CandidApiClient | undefined;
 
 const ZAMBDA_NAME = 'create-invoices-tasks';
 const readyTaskStatus = mapDisplayToInvoiceTaskStatus('ready');
@@ -56,10 +55,8 @@ interface EncounterPackage {
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   const { secrets } = input;
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-  const oystehr = createOystehrClient(m2mToken, secrets);
-  if (!candid) {
-    candid = createCandidApiClient(secrets);
-  }
+  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
+  const candid = await getOrCreateCandidApiClient(oystehr, secrets);
 
   console.log('Fetching invoicing config from FHIR');
   const { questionnaireResponse } = await getOrCreateInvoicingConfig(oystehr);

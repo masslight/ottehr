@@ -6,6 +6,7 @@ import {
   FHIR_EXTENSION,
   formatDate,
   getExtension,
+  getFullestAvailableName,
   GetRadiologyOrderListZambdaInput,
   GetRadiologyOrderListZambdaOrder,
   GetRadiologyOrderListZambdaOutput,
@@ -16,16 +17,17 @@ import {
   RadiologyOrderHistoryRow,
   RadiologyOrderStatus,
   SERVICE_REQUEST_NEEDS_TO_BE_SENT_TO_TELERADIOLOGY_EXTENSION_URL,
-  SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_CODE_URL,
-  SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_URL,
-  SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_VALUE_STRING_URL,
-  SERVICE_REQUEST_ORDER_DETAIL_PRE_RELEASE_URL,
   SERVICE_REQUEST_PERFORMED_ON_EXTENSION_URL,
   SERVICE_REQUEST_REQUESTED_TIME_EXTENSION_URL,
   Task as OttehrTask,
   TASK_ASSIGNED_DATE_TIME_EXTENSION_URL,
 } from 'utils';
-import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
+import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
+import {
+  makeRadiologyDTO,
+  takeMostRecentPreliminaryReport,
+  takeTheBestFinalDiagnosticReport,
+} from '../../../shared/radiology';
 import { validateInput, validateSecrets } from './validation';
 
 // Types
@@ -34,7 +36,7 @@ export interface ValidatedInput {
   callerAccessToken: string;
 }
 
-export const DEFAULT_RADIOLOGY_ITEMS_PER_PAGE = 10;
+export const DEFAULT_RADIOLOGY_ITEMS_PER_PAGE = 20;
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let m2mToken: string;
@@ -47,7 +49,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (unsafeInput: ZambdaInput): 
   const secrets = validateSecrets(unsafeInput.secrets);
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-  const oystehr = createOystehrClient(m2mToken, secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
   const validatedInput = await validateInput(unsafeInput);
 
@@ -165,26 +167,6 @@ const parseResultsToOrder = (
     throw new Error('ServiceRequest ID is unexpectedly null');
   }
 
-  const cptCode = serviceRequest.code?.coding?.[0]?.code;
-  if (!cptCode) {
-    throw new Error('cptCode is unexpectedly null');
-  }
-
-  const diagnosisCode = serviceRequest.reasonCode?.[0]?.coding?.[0]?.code;
-  if (!diagnosisCode) {
-    throw new Error('diagnosisCode is unexpectedly null');
-  }
-
-  const diagnosisDisplay = serviceRequest.reasonCode?.[0]?.coding?.[0]?.display;
-  if (!diagnosisDisplay) {
-    throw new Error('diagnosisDisplay is unexpectedly null');
-  }
-
-  const cptCodeDisplay = serviceRequest.code?.coding?.[0]?.display;
-  if (!cptCodeDisplay) {
-    throw new Error('cptCodeDisplay is unexpectedly null');
-  }
-
   const orderAddedDateTime = serviceRequest.authoredOn;
   if (!orderAddedDateTime) {
     throw new Error('Order added date time is unexpectedly null');
@@ -196,14 +178,10 @@ const parseResultsToOrder = (
   if (!myRequestingProvider) {
     throw new Error('Service Request has no requesting provider');
   }
-  const providerFirstName = myRequestingProvider?.name?.[0]?.given?.[0];
-  const providerLastName = myRequestingProvider?.name?.[0]?.family;
-  if (!providerFirstName || !providerLastName) {
+  const providerName = getFullestAvailableName(myRequestingProvider);
+  if (!providerName) {
     throw new Error('Provider name is unexpectedly null');
   }
-  const providerName = `${providerLastName}, ${providerFirstName}`;
-
-  // TODO can we do provider requesting provider qualifications to render "MD"?
 
   let status: RadiologyOrderStatus | undefined;
 
@@ -224,13 +202,8 @@ const parseResultsToOrder = (
   );
 
   const preliminaryDiagnosticReport = takeMostRecentPreliminaryReport(relatedDiagnosticReports);
-  const preliminaryReportData = preliminaryDiagnosticReport?.presentedForm?.find(
-    (attachment) => attachment.contentType === 'text/html'
-  )?.data;
 
   const bestFinalReport = takeTheBestFinalDiagnosticReport(relatedDiagnosticReports);
-  const finalReportData = bestFinalReport?.presentedForm?.find((attachment) => attachment.contentType === 'text/html')
-    ?.data;
 
   // Check if order is being or was sent for final read and we are awaiting the final read.
   const existingExtensions = serviceRequest.extension;
@@ -255,10 +228,7 @@ const parseResultsToOrder = (
         const orderDate = serviceRequest.extension?.find(
           (ext) => ext.url === SERVICE_REQUEST_REQUESTED_TIME_EXTENSION_URL
         )?.valueDateTime;
-        let taskSubtitle = `Ordered by ${providerFirstName} ${providerLastName} on ${formatDate(
-          orderDate ?? '',
-          'MM/dd/yyyy h:mm a'
-        )}`;
+        let taskSubtitle = `Ordered by ${providerName} on ${formatDate(orderDate ?? '', 'MM/dd/yyyy h:mm a')}`;
         if (finalReviewTask?.location?.display) {
           taskSubtitle += ` | ${finalReviewTask?.location?.display}`;
         }
@@ -286,82 +256,40 @@ const parseResultsToOrder = (
 
   const appointmentId = parseAppointmentId(serviceRequest, encounters);
 
-  const history = buildHistory(serviceRequest, bestFinalReport, preliminaryDiagnosticReport, providerName);
-
-  const clinicalHistory = extractOrderDetailValue(serviceRequest, 'clinical-history');
-  const studyName = extractOrderDetailValue(serviceRequest, 'requested-procedure-description');
+  const history = buildHistory(
+    serviceRequest,
+    bestFinalReport,
+    preliminaryDiagnosticReport,
+    providerName,
+    finalReviewTask
+  );
 
   const consentObtained = !!getExtension(serviceRequest, FHIR_EXTENSION.ServiceRequest.consentObtained.url)
     ?.valueBoolean;
 
+  const radiologyDTO = makeRadiologyDTO(serviceRequest, preliminaryDiagnosticReport, bestFinalReport);
+
   return {
+    ...radiologyDTO,
     serviceRequestId: serviceRequest.id,
     appointmentId,
-    studyType: `${cptCode} — ${cptCodeDisplay}`,
     visitDateTime: '', // TODO
     orderAddedDateTime,
     providerName,
-    diagnosis: `${diagnosisCode} — ${diagnosisDisplay}`,
     status,
     isStat: serviceRequest.priority === 'stat',
-    preliminaryReport: preliminaryReportData,
-    finalReport: finalReportData,
-    clinicalHistory,
-    studyName,
     history,
     task: formattedFinalReviewTask,
     consentObtained,
   };
 };
 
-const getMostRecentReport = (reports: DiagnosticReport[]): DiagnosticReport | undefined => {
-  if (!reports.length) return undefined;
-
-  return reports.reduce((mostRecent, current) => {
-    if (!current.issued) return mostRecent;
-    if (!mostRecent.issued) return current;
-
-    return new Date(current.issued) > new Date(mostRecent.issued) ? current : mostRecent;
-  });
-};
-
-const takeMostRecentPreliminaryReport = (diagnosticReports: DiagnosticReport[]): DiagnosticReport | undefined => {
-  if (!diagnosticReports.length) {
-    return undefined;
-  }
-
-  const preliminaryReports = diagnosticReports.filter((report) => report.status === 'preliminary');
-
-  return getMostRecentReport(preliminaryReports);
-};
-
-const takeTheBestFinalDiagnosticReport = (diagnosticReports: DiagnosticReport[]): DiagnosticReport | undefined => {
-  if (!diagnosticReports.length) {
-    return undefined;
-  }
-
-  // Filter reports by status priority
-  const amendedCorrectedAppended = diagnosticReports.filter(
-    (report) => report.status === 'amended' || report.status === 'corrected' || report.status === 'appended'
-  );
-
-  const finalReports = diagnosticReports.filter((report) => report.status === 'final');
-
-  // Apply priority logic
-  if (amendedCorrectedAppended.length > 0) {
-    return getMostRecentReport(amendedCorrectedAppended);
-  } else if (finalReports.length > 0) {
-    return getMostRecentReport(finalReports);
-  }
-
-  return undefined;
-};
-
 const buildHistory = (
   serviceRequest: ServiceRequest,
   bestDiagnosticReport: DiagnosticReport | undefined,
   preliminaryDiagnosticReport: DiagnosticReport | undefined,
-  orderingProviderName: string
+  orderingProviderName: string,
+  finalReviewTask?: Task
 ): RadiologyOrderHistoryRow[] => {
   const history: RadiologyOrderHistoryRow[] = [];
 
@@ -433,30 +361,18 @@ const buildHistory = (
     });
   }
 
-  return history;
-};
-
-const extractOrderDetailValue = (serviceRequest: ServiceRequest, code: string): string | undefined => {
-  const matchingExtension = serviceRequest.extension
-    ?.filter((ext) => ext.url === SERVICE_REQUEST_ORDER_DETAIL_PRE_RELEASE_URL)
-    ?.find((orderDetailExt) => {
-      const parameterExt = orderDetailExt.extension?.find(
-        (ext) => ext.url === SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_URL
-      );
-      const codeExt = parameterExt?.extension?.find(
-        (ext) => ext.url === SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_CODE_URL
-      );
-      return codeExt?.valueCodeableConcept?.coding?.[0]?.code === code;
+  if (finalReviewTask && finalReviewTask.status === 'completed') {
+    const date =
+      finalReviewTask.owner?.extension?.find((ext) => ext.url === TASK_ASSIGNED_DATE_TIME_EXTENSION_URL)
+        ?.valueDateTime ?? '';
+    history.push({
+      status: RadiologyOrderStatus.reviewed,
+      performer: finalReviewTask.owner?.display ?? '',
+      date,
     });
+  }
 
-  const parameterExt = matchingExtension?.extension?.find(
-    (ext) => ext.url === SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_URL
-  );
-  const valueStringExt = parameterExt?.extension?.find(
-    (ext) => ext.url === SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_VALUE_STRING_URL
-  );
-
-  return valueStringExt?.valueString;
+  return history;
 };
 
 const extractResources = (
