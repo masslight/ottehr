@@ -22,6 +22,7 @@
  */
 import Oystehr from '@oystehr/sdk';
 import type { Patient, Resource } from 'fhir/r4b';
+import { createOystehrFromEnv } from './shared/oystehr-client';
 
 const args = process.argv.slice(2);
 function getFlag(name: string): string | undefined {
@@ -42,26 +43,6 @@ function requireEnv(name: string): string {
   const v = process.env[name];
   if (!v) throw new Error(`Missing env var: ${name}`);
   return v;
-}
-
-async function createOystehr(): Promise<Oystehr> {
-  const tokenRes = await fetch(requireEnv('AUTH0_ENDPOINT'), {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      client_id: requireEnv('AUTH0_CLIENT'),
-      client_secret: requireEnv('AUTH0_SECRET'),
-      audience: requireEnv('AUTH0_AUDIENCE'),
-      grant_type: 'client_credentials',
-    }),
-  });
-  if (!tokenRes.ok) throw new Error(`Oystehr IAM auth failed: ${tokenRes.status} ${await tokenRes.text()}`);
-  const { access_token } = (await tokenRes.json()) as { access_token: string };
-  return new Oystehr({
-    accessToken: access_token,
-    projectId: requireEnv('PROJECT_ID'),
-    services: { projectApiUrl: requireEnv('PROJECT_API') },
-  });
 }
 
 // Resource types that point to a Patient, with the search param to use.
@@ -108,7 +89,7 @@ async function main(): Promise<void> {
   console.log(`Match: ${email ? `email="${email}"` : `identifier="${identifier}"`}`);
   console.log('');
 
-  const oystehr = await createOystehr();
+  const oystehr = await createOystehrFromEnv();
 
   // Find target Patients
   const params: Array<{ name: string; value: string }> = [{ name: '_count', value: '100' }];

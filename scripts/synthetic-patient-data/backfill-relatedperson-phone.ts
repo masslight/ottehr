@@ -14,16 +14,11 @@
  *   npx env-cmd -f packages/zambdas/.env/synth.json \
  *     npx tsx scripts/synthetic-patient-data/backfill-relatedperson-phone.ts
  */
-import Oystehr from '@oystehr/sdk';
 import { Patient, RelatedPerson } from 'fhir/r4b';
+import { createOystehrFromEnv, need } from './shared/oystehr-client';
 
 const MOCK_DIGITS = '1231231234'; // the +11231231234 mock, matched on digits only (format-agnostic)
 const DRY = process.argv.includes('--dry');
-const need = (n: string): string => {
-  const v = process.env[n];
-  if (!v) throw new Error(`missing env ${n}`);
-  return v;
-};
 const digits = (s: string | undefined): string => (s ?? '').replace(/\D/g, '');
 const isMock = (v: string | undefined): boolean => digits(v).includes(MOCK_DIGITS);
 
@@ -40,23 +35,7 @@ async function pump<T>(items: T[], limit: number, fn: (t: T) => Promise<void>): 
 }
 
 (async () => {
-  const tok = await (
-    await fetch(need('AUTH0_ENDPOINT'), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        client_id: need('AUTH0_CLIENT'),
-        client_secret: need('AUTH0_SECRET'),
-        audience: need('AUTH0_AUDIENCE'),
-        grant_type: 'client_credentials',
-      }),
-    })
-  ).json();
-  const oystehr = new Oystehr({
-    accessToken: (tok as { access_token: string }).access_token,
-    projectId: need('PROJECT_ID'),
-    services: { projectApiUrl: need('PROJECT_API') },
-  });
+  const oystehr = await createOystehrFromEnv();
   console.log(`backfill-relatedperson-phone — project ${need('PROJECT_ID')}${DRY ? '  [DRY]' : ''}`);
 
   // 1. Page all RelatedPersons, keep those whose phone telecom is the mock.

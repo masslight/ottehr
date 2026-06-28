@@ -25,6 +25,8 @@
  */
 import Oystehr from '@oystehr/sdk';
 import type { AllergyIntolerance, Condition, EpisodeOfCare, MedicationStatement, Patient, Procedure } from 'fhir/r4b';
+import { SYNTHETIC_PATIENT_ID_SYSTEM as SYNTH_PATIENT_ID_SYSTEM } from './shared/constants';
+import { createOystehrFromEnv } from './shared/oystehr-client';
 
 const args = process.argv.slice(2);
 const isExecute = args.includes('--execute');
@@ -35,15 +37,6 @@ if (!all && positional.length !== 1) {
   console.error('       tsx cleanup-duplicate-history.ts --all [--execute]');
   process.exit(1);
 }
-
-function need(n: string): string {
-  const v = process.env[n];
-  if (!v) throw new Error(`Missing env: ${n}`);
-  return v;
-}
-
-// Must match SYNTHETIC_PATIENT_ID_SYSTEM in synthesize-visit.ts.
-const SYNTH_PATIENT_ID_SYSTEM = 'https://fhir.ottehr.com/sid/synthetic-patient-id';
 
 const norm = (s: string | undefined): string => (s ?? '').trim().toLowerCase();
 
@@ -164,23 +157,7 @@ async function cleanupForPatient(oystehr: Oystehr, patientId: string): Promise<v
 async function main(): Promise<void> {
   console.log(`Mode: ${isExecute ? 'EXECUTE' : 'DRY RUN'}`);
 
-  const tokenRes = await fetch(need('AUTH0_ENDPOINT'), {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      client_id: need('AUTH0_CLIENT'),
-      client_secret: need('AUTH0_SECRET'),
-      audience: need('AUTH0_AUDIENCE'),
-      grant_type: 'client_credentials',
-    }),
-  });
-  if (!tokenRes.ok) throw new Error(`Oystehr IAM auth failed: ${tokenRes.status}`);
-  const { access_token } = (await tokenRes.json()) as { access_token: string };
-  const oystehr = new Oystehr({
-    accessToken: access_token,
-    projectId: need('PROJECT_ID'),
-    services: { projectApiUrl: need('PROJECT_API') },
-  });
+  const oystehr = await createOystehrFromEnv();
 
   const patientIds: string[] = [];
   if (all) {

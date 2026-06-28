@@ -52,6 +52,8 @@
  */
 import Oystehr from '@oystehr/sdk';
 import type { Appointment, Encounter, FhirResource, Patient, QuestionnaireResponse, Task } from 'fhir/r4b';
+import { SYNTHETIC_PATIENT_ID_SYSTEM as SYNTH_PATIENT_ID_SYSTEM } from './shared/constants';
+import { createOystehrFromEnv, need } from './shared/oystehr-client';
 
 const args = process.argv.slice(2);
 const isExecute = args.includes('--execute');
@@ -63,15 +65,6 @@ if (!all && positional.length !== 1) {
   console.error('       tsx cleanup-synth-patient.ts --all [--execute] [--orphan-cleanup]');
   process.exit(1);
 }
-
-function need(n: string): string {
-  const v = process.env[n];
-  if (!v) throw new Error(`Missing env: ${n}`);
-  return v;
-}
-
-// Must match SYNTHETIC_PATIENT_ID_SYSTEM in synthesize-visit.ts.
-const SYNTH_PATIENT_ID_SYSTEM = 'https://fhir.ottehr.com/sid/synthetic-patient-id';
 
 // Search-by-patient surface for each resource type we wipe. Most R4 patient-
 // bound resources accept `patient` as a search param; a few use `subject`.
@@ -342,23 +335,7 @@ async function main(): Promise<void> {
   console.log(`Mode: ${isExecute ? 'EXECUTE' : 'DRY RUN'}${orphanCleanup ? ' (orphan-cleanup only)' : ''}`);
   console.log(`Project: ${need('PROJECT_ID')}`);
 
-  const tokenRes = await fetch(need('AUTH0_ENDPOINT'), {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      client_id: need('AUTH0_CLIENT'),
-      client_secret: need('AUTH0_SECRET'),
-      audience: need('AUTH0_AUDIENCE'),
-      grant_type: 'client_credentials',
-    }),
-  });
-  if (!tokenRes.ok) throw new Error(`Oystehr IAM auth failed: ${tokenRes.status}`);
-  const { access_token } = (await tokenRes.json()) as { access_token: string };
-  const oystehr = new Oystehr({
-    accessToken: access_token,
-    projectId: need('PROJECT_ID'),
-    services: { projectApiUrl: need('PROJECT_API') },
-  });
+  const oystehr = await createOystehrFromEnv();
 
   const patientIds: string[] = [];
   if (all) {

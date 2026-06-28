@@ -14,16 +14,11 @@
 // regenerable). The canonical Patient.name (EHR patient list, tracking board,
 // ad-hoc reports) is fixed.
 
-import Oystehr from '@oystehr/sdk';
+import { SYNTHETIC_PATIENT_ID_SYSTEM as SYNTH_ID } from '../shared/constants';
+import { createOystehrFromEnv } from '../shared/oystehr-client';
 import { FIRST_NAMES_F, FIRST_NAMES_M, LAST_NAMES } from './archetypes';
 
-const need = (n: string): string => {
-  const v = process.env[n];
-  if (!v) throw new Error('Missing ' + n);
-  return v;
-};
 const DRY = process.argv.includes('--dry');
-const SYNTH_ID = 'https://fhir.ottehr.com/sid/synthetic-patient-id';
 const POP_EMAIL = /\.\d+@example\.com$/i;
 
 const slug = (s: string): string =>
@@ -55,23 +50,7 @@ const emailOf = (p: any): string => (p.telecom || []).find((t: any) => t.system 
 const isFemale = (p: any): boolean => (p.gender ? p.gender === 'female' : rng() < 0.5);
 
 (async () => {
-  const t = await (
-    await fetch(need('AUTH0_ENDPOINT'), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        client_id: process.env.AUTH0_CLIENT,
-        client_secret: process.env.AUTH0_SECRET,
-        audience: process.env.AUTH0_AUDIENCE,
-        grant_type: 'client_credentials',
-      }),
-    })
-  ).json();
-  const o = new Oystehr({
-    accessToken: (t as any).access_token,
-    projectId: need('PROJECT_ID'),
-    services: { projectApiUrl: need('PROJECT_API') },
-  });
+  const o = await createOystehrFromEnv();
 
   // Page through every synth-tagged patient.
   const all: any[] = [];

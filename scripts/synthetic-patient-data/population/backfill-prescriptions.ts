@@ -7,13 +7,8 @@
 //   npx env-cmd -f packages/zambdas/.env/synth.json npx tsx backfill-prescriptions.ts --dry
 //   npx env-cmd -f packages/zambdas/.env/synth.json npx tsx backfill-prescriptions.ts [--concurrency 8]
 
-import Oystehr from '@oystehr/sdk';
+import { createOystehrFromEnv } from '../shared/oystehr-client';
 
-const need = (n: string): string => {
-  const v = process.env[n];
-  if (!v) throw new Error('Missing ' + n);
-  return v;
-};
 const arg = (name: string, dflt: string): string => {
   const i = process.argv.indexOf(name);
   return i !== -1 && i < process.argv.length - 1 ? process.argv[i + 1] : dflt;
@@ -210,23 +205,7 @@ function rxFor(code: string): Rx[] {
 }
 
 (async () => {
-  const tok = await (
-    await fetch(need('AUTH0_ENDPOINT'), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        client_id: process.env.AUTH0_CLIENT,
-        client_secret: process.env.AUTH0_SECRET,
-        audience: process.env.AUTH0_AUDIENCE,
-        grant_type: 'client_credentials',
-      }),
-    })
-  ).json();
-  const o = new Oystehr({
-    accessToken: (tok as any).access_token,
-    projectId: need('PROJECT_ID'),
-    services: { projectApiUrl: need('PROJECT_API') },
-  });
+  const o = await createOystehrFromEnv();
 
   // Collect primary diagnosis per encounter.
   const encDx = new Map<string, { code: string; patientRef?: string }>();

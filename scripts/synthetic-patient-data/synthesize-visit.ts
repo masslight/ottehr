@@ -128,6 +128,7 @@ import * as path from 'path';
 import { resolve } from 'path';
 import { finalizeInHouseLabs, finalizeRadiology } from './finalize-visit-orders';
 import { type History as ScenarioHistory, type VisitScenario, VisitScenarioSchema } from './schema';
+import { STATUS_GAP_DISTRIBUTIONS, SYNTHETIC_PATIENT_ID_SYSTEM, VISIT_STATUS_ORDER } from './shared/constants';
 
 // ── Argument parsing ──────────────────────────────────────────────────────────
 
@@ -733,8 +734,6 @@ async function phase0_5_createSlot(ctx: SynthesisContext): Promise<void> {
 }
 
 // ── Phase 1 — create-appointment ──────────────────────────────────────────────
-
-const SYNTHETIC_PATIENT_ID_SYSTEM = 'https://fhir.ottehr.com/sid/synthetic-patient-id';
 
 /**
  * Build a deterministic identifier value from scenario.patient — used to
@@ -3162,16 +3161,6 @@ async function assignIntakePractitioner(ctx: SynthesisContext): Promise<void> {
  * 'provider' or 'completed'. The target field controls dashboard placement,
  * not chart contents.
  */
-const VISIT_STATUS_ORDER = [
-  'pending',
-  'arrived',
-  'ready',
-  'intake',
-  'ready for provider',
-  'provider',
-  'discharged',
-  'completed',
-] as const;
 
 async function phase13_statusWalk(ctx: SynthesisContext): Promise<void> {
   const s = ctx.scenario;
@@ -3261,31 +3250,6 @@ async function phase13_statusWalk(ctx: SynthesisContext): Promise<void> {
 // Anchor: appointment.start. Each gap is sampled from a deterministic
 // per-appointment seed so reruns produce identical timelines (good for
 // regression testing and demos).
-
-interface StatusGapMinutes {
-  min: number;
-  max: number;
-}
-
-// Realistic urgent-care timing distributions. Ranges chosen to span the
-// "fast visit" (~30 min total) to "slow visit" (~2 hr total) experience.
-const STATUS_GAP_DISTRIBUTIONS: Record<string, StatusGapMinutes> = {
-  // Pending → arrived: relative to appointment.start. -5 = patient arrived
-  // 5 min early; +20 = ran 20 min late.
-  arrived: { min: -5, max: 20 },
-  // arrived → ready: front desk identifies the patient + chart-update
-  ready: { min: 1, max: 8 },
-  // ready → intake: waiting for an intake nurse to call them back
-  intake: { min: 5, max: 25 },
-  // intake → ready for provider: vitals + chief complaint + paperwork
-  'ready for provider': { min: 8, max: 15 },
-  // ready for provider → provider: waiting for provider (longest variance)
-  provider: { min: 3, max: 30 },
-  // provider → discharged: actual visit
-  discharged: { min: 12, max: 35 },
-  // discharged → completed: paperwork wrap-up + room cleanup
-  completed: { min: 2, max: 15 },
-};
 
 // Cheap deterministic PRNG: mulberry32 seeded from a string hash. Reruns of
 // the same scenario produce identical timelines.

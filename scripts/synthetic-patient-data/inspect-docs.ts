@@ -1,4 +1,4 @@
-import Oystehr from '@oystehr/sdk';
+import { createOystehrFromEnv } from './shared/oystehr-client';
 
 const patientId = process.argv[2];
 const encounterId = process.argv[3];
@@ -7,30 +7,8 @@ if (!patientId) {
   process.exit(1);
 }
 
-function need(n: string): string {
-  const v = process.env[n];
-  if (!v) throw new Error(`Missing env: ${n}`);
-  return v;
-}
-
 async function main(): Promise<void> {
-  const tokenRes = await fetch(need('AUTH0_ENDPOINT'), {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      client_id: need('AUTH0_CLIENT'),
-      client_secret: need('AUTH0_SECRET'),
-      audience: need('AUTH0_AUDIENCE'),
-      grant_type: 'client_credentials',
-    }),
-  });
-  if (!tokenRes.ok) throw new Error(`Oystehr IAM auth failed: ${tokenRes.status}`);
-  const { access_token } = (await tokenRes.json()) as { access_token: string };
-  const oystehr = new Oystehr({
-    accessToken: access_token,
-    projectId: need('PROJECT_ID'),
-    services: { projectApiUrl: need('PROJECT_API') },
-  });
+  const oystehr = await createOystehrFromEnv();
 
   console.log(`=== DocumentReference for Patient/${patientId} ===`);
   const docs = (

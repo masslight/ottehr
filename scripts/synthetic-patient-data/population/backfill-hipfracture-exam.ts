@@ -11,13 +11,8 @@
 //
 //   npx env-cmd -f packages/zambdas/.env/synth.json npx tsx backfill-hipfracture-exam.ts [--dry]
 
-import Oystehr from '@oystehr/sdk';
+import { createOystehrFromToken, mintAccessToken, need } from '../shared/oystehr-client';
 
-const need = (n: string): string => {
-  const v = process.env[n];
-  if (!v) throw new Error('Missing ' + n);
-  return v;
-};
 const DRY = process.argv.includes('--dry');
 const ZAMBDA = process.env.ZAMBDA_API || 'http://localhost:3000/local';
 const DRUG_SYS = 'https://terminology.fhir.oystehr.com/CodeSystem/medispan-dispensable-drug-id';
@@ -69,24 +64,8 @@ const MDM =
   'Elderly patient on warfarin presenting after a mechanical fall with a clinically deformed, shortened, externally rotated left lower extremity and inability to bear weight. Radiograph confirms a displaced left intertrochanteric femur fracture. Neurovascularly intact distally. Orthopedic surgery consulted; warfarin held and reversal addressed; admitted/transferred for operative repair. Analgesia provided. Aspiration and DVT precautions reviewed. Risks discussed with patient and family.';
 
 (async () => {
-  const tok = await (
-    await fetch(need('AUTH0_ENDPOINT'), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        client_id: process.env.AUTH0_CLIENT,
-        client_secret: process.env.AUTH0_SECRET,
-        audience: process.env.AUTH0_AUDIENCE,
-        grant_type: 'client_credentials',
-      }),
-    })
-  ).json();
-  const at = (tok as any).access_token;
-  const o = new Oystehr({
-    accessToken: at,
-    projectId: need('PROJECT_ID'),
-    services: { projectApiUrl: need('PROJECT_API') },
-  });
+  const at = await mintAccessToken();
+  const o = createOystehrFromToken(at);
 
   // Find hip-fracture appointments by the archetype's distinctive reason text → encounters.
   const encs: Array<{ encId: string; patientRef?: string; provRef?: string; date?: string }> = [];

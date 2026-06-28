@@ -7,7 +7,7 @@
  *   npx env-cmd -f packages/zambdas/.env/synth.json \
  *     npx tsx scripts/synthetic-patient-data/inspect-orders.ts <encounterId>
  */
-import Oystehr from '@oystehr/sdk';
+import { createOystehrFromEnv } from './shared/oystehr-client';
 
 const encounterId = process.argv[2];
 if (!encounterId) {
@@ -15,31 +15,8 @@ if (!encounterId) {
   process.exit(1);
 }
 
-function requireEnv(name: string): string {
-  const v = process.env[name];
-  if (!v) throw new Error(`Missing env var: ${name}`);
-  return v;
-}
-
 async function main(): Promise<void> {
-  const tokenRes = await fetch(requireEnv('AUTH0_ENDPOINT'), {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      client_id: requireEnv('AUTH0_CLIENT'),
-      client_secret: requireEnv('AUTH0_SECRET'),
-      audience: requireEnv('AUTH0_AUDIENCE'),
-      grant_type: 'client_credentials',
-    }),
-  });
-  if (!tokenRes.ok) throw new Error(`Oystehr IAM auth failed: ${tokenRes.status} ${await tokenRes.text()}`);
-  const { access_token } = (await tokenRes.json()) as { access_token: string };
-
-  const oystehr = new Oystehr({
-    accessToken: access_token,
-    projectId: requireEnv('PROJECT_ID'),
-    services: { projectApiUrl: requireEnv('PROJECT_API') },
-  });
+  const oystehr = await createOystehrFromEnv();
 
   console.log(`Inspecting encounter ${encounterId}\n`);
 

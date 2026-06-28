@@ -13,8 +13,8 @@
  *
  * Defaults to dry-run.
  */
-import Oystehr from '@oystehr/sdk';
 import type { Medication } from 'fhir/r4b';
+import { createOystehrFromEnv } from './shared/oystehr-client';
 
 const isExecute = process.argv.includes('--execute');
 
@@ -22,12 +22,6 @@ const ERX_SYSTEM = 'https://terminology.fhir.oystehr.com/CodeSystem/medispan-dis
 const NAME_SYSTEM = 'virtual-medication-identifier-name-system';
 const TYPE_SYSTEM = 'virtual-medication-type';
 const INVENTORY_TYPE = 'virtual-medication-inventory';
-
-function requireEnv(n: string): string {
-  const v = process.env[n];
-  if (!v) throw new Error(`Missing env var: ${n}`);
-  return v;
-}
 
 function nameOf(m: Medication): string | undefined {
   return m.identifier?.find((i) => i.system === NAME_SYSTEM)?.value;
@@ -49,24 +43,7 @@ function dummyErxCode(name: string): string {
 }
 
 async function main(): Promise<void> {
-  const tokenRes = await fetch(requireEnv('AUTH0_ENDPOINT'), {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      client_id: requireEnv('AUTH0_CLIENT'),
-      client_secret: requireEnv('AUTH0_SECRET'),
-      audience: requireEnv('AUTH0_AUDIENCE'),
-      grant_type: 'client_credentials',
-    }),
-  });
-  if (!tokenRes.ok) throw new Error(`Oystehr IAM auth failed: ${tokenRes.status} ${await tokenRes.text()}`);
-  const { access_token } = (await tokenRes.json()) as { access_token: string };
-
-  const oystehr = new Oystehr({
-    accessToken: access_token,
-    projectId: requireEnv('PROJECT_ID'),
-    services: { projectApiUrl: requireEnv('PROJECT_API') },
-  });
+  const oystehr = await createOystehrFromEnv();
 
   const meds = (
     await oystehr.fhir.search<Medication>({

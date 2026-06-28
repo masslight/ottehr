@@ -6,33 +6,12 @@
 //
 //   npx env-cmd -f packages/zambdas/.env/synth.json npx tsx clear-orphan-slots.ts
 
-import Oystehr from '@oystehr/sdk';
+import { createOystehrFromEnv } from '../shared/oystehr-client';
 
-const need = (n: string): string => {
-  const v = process.env[n];
-  if (!v) throw new Error('Missing ' + n);
-  return v;
-};
 const SCHEDULES = ['acee5327-944f-4787-a922-280e613d2737', '944ec4c0-9098-480b-9d96-9927645fd670'];
 
 (async () => {
-  const t = await (
-    await fetch(need('AUTH0_ENDPOINT'), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        client_id: process.env.AUTH0_CLIENT,
-        client_secret: process.env.AUTH0_SECRET,
-        audience: process.env.AUTH0_AUDIENCE,
-        grant_type: 'client_credentials',
-      }),
-    })
-  ).json();
-  const o = new Oystehr({
-    accessToken: (t as any).access_token,
-    projectId: need('PROJECT_ID'),
-    services: { projectApiUrl: need('PROJECT_API') },
-  });
+  const o = await createOystehrFromEnv();
 
   const nowISO = new Date().toISOString();
   let deleted = 0;

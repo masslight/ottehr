@@ -38,6 +38,13 @@ import {
   IN_PERSON_LOCATIONS,
   LAST_NAMES,
 } from './population/archetypes';
+import {
+  OTTEHR_VISIT_STATUS_EXTENSION_URL as OTT_EXT_URL,
+  STATUS_GAP_DISTRIBUTIONS as STATUS_GAP,
+  SYNTH_CRON_RUN_DATE_SYSTEM as RUN_DATE_SYSTEM,
+  SYNTH_CRON_SYSTEM as CRON_SYSTEM,
+  VISIT_STATUS_ORDER,
+} from './shared/constants';
 
 const need = (n: string): string => {
   const v = process.env[n];
@@ -59,8 +66,6 @@ const SYNTH = resolve(HERE, 'synthesize-visit.ts');
 const EXAMPLES = resolve(HERE, 'examples');
 const SCEN_DIR = resolve(HERE, '.census-scenarios');
 
-const CRON_SYSTEM = 'https://fhir.ottehr.com/sid/synth-cron';
-const RUN_DATE_SYSTEM = 'https://fhir.ottehr.com/sid/synth-cron-run-date';
 const TZ = 'America/New_York';
 
 // In-progress status mix for the day's N visits (proportions, normalized to COUNT).
@@ -76,27 +81,6 @@ const STATUS_MIX: Array<{ status: string; weight: number }> = [
   { status: 'discharged', weight: 4 }, // ready-for-review (unsigned)
   { status: 'completed', weight: 2 }, // finished + signed (off the board)
 ];
-
-const VISIT_STATUS_ORDER = [
-  'pending',
-  'arrived',
-  'ready',
-  'intake',
-  'ready for provider',
-  'provider',
-  'discharged',
-  'completed',
-] as const;
-const STATUS_GAP: Record<string, { min: number; max: number }> = {
-  arrived: { min: -5, max: 20 },
-  ready: { min: 1, max: 8 },
-  intake: { min: 5, max: 25 },
-  'ready for provider': { min: 8, max: 15 },
-  provider: { min: 3, max: 30 },
-  discharged: { min: 12, max: 35 },
-  completed: { min: 2, max: 15 },
-};
-const OTT_EXT_URL = 'https://extensions.fhir.zapehr.com/visit-status';
 
 function mulberry32(seed: number): () => number {
   let a = seed >>> 0;

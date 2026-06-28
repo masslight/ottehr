@@ -18,12 +18,8 @@
 import Oystehr from '@oystehr/sdk';
 import { existsSync, readFileSync, writeFileSync } from 'fs';
 import { resolve } from 'path';
+import { createOystehrFromEnv } from '../shared/oystehr-client';
 
-const need = (n: string): string => {
-  const v = process.env[n];
-  if (!v) throw new Error('Missing ' + n);
-  return v;
-};
 const SCHEDULE_EXT_URL = 'https://fhir.zapehr.com/r4/StructureDefinitions/schedule';
 const LOCS: Array<{ name: string; id: string }> = [
   { name: 'Los Angeles', id: '14d2b216-8117-4879-883e-167dc3a3f484' },
@@ -46,23 +42,7 @@ async function getSchedule(o: Oystehr, locId: string): Promise<any> {
 }
 
 (async () => {
-  const t = await (
-    await fetch(need('AUTH0_ENDPOINT'), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        client_id: process.env.AUTH0_CLIENT,
-        client_secret: process.env.AUTH0_SECRET,
-        audience: process.env.AUTH0_AUDIENCE,
-        grant_type: 'client_credentials',
-      }),
-    })
-  ).json();
-  const o = new Oystehr({
-    accessToken: (t as any).access_token,
-    projectId: need('PROJECT_ID'),
-    services: { projectApiUrl: need('PROJECT_API') },
-  });
+  const o = await createOystehrFromEnv();
 
   for (const loc of LOCS) {
     const sched = await getSchedule(o, loc.id);

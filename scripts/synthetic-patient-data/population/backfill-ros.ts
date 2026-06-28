@@ -11,13 +11,8 @@
 //   npx env-cmd -f packages/zambdas/.env/synth.json npx tsx backfill-ros.ts --dry
 //   npx env-cmd -f packages/zambdas/.env/synth.json npx tsx backfill-ros.ts [--concurrency 8]
 
-import Oystehr from '@oystehr/sdk';
+import { createOystehrFromToken, mintAccessToken, need } from '../shared/oystehr-client';
 
-const need = (n: string): string => {
-  const v = process.env[n];
-  if (!v) throw new Error('Missing ' + n);
-  return v;
-};
 const arg = (name: string, dflt: string): string => {
   const i = process.argv.indexOf(name);
   return i !== -1 && i < process.argv.length - 1 ? process.argv[i + 1] : dflt;
@@ -323,24 +318,8 @@ function rosObservations(code: string): Array<{ field: string; value: boolean }>
 }
 
 (async () => {
-  const tok = await (
-    await fetch(need('AUTH0_ENDPOINT'), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        client_id: process.env.AUTH0_CLIENT,
-        client_secret: process.env.AUTH0_SECRET,
-        audience: process.env.AUTH0_AUDIENCE,
-        grant_type: 'client_credentials',
-      }),
-    })
-  ).json();
-  const at = (tok as any).access_token;
-  const o = new Oystehr({
-    accessToken: at,
-    projectId: need('PROJECT_ID'),
-    services: { projectApiUrl: need('PROJECT_API') },
-  });
+  const at = await mintAccessToken();
+  const o = createOystehrFromToken(at);
 
   const encDx = new Map<string, string>();
   let offset = 0;
