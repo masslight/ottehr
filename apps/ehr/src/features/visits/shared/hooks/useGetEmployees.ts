@@ -10,7 +10,11 @@ export interface EmployeesForAssignment {
   nonProviders: ProviderDetails[];
 }
 
-const toProviderDetails = (employee: { profile: string; firstName: string; lastName: string }): ProviderDetails => ({
+export const toProviderDetails = (employee: {
+  profile: string;
+  firstName: string;
+  lastName: string;
+}): ProviderDetails => ({
   practitionerId: employee.profile.split('/')[1],
   name: `${employee.firstName} ${employee.lastName}`.trim(),
 });

@@ -1,4 +1,4 @@
-import { useGetEmployeesWithDetails } from 'src/features/visits/shared/hooks/useGetEmployees';
+import { toProviderDetails, useGetEmployeesWithDetails } from 'src/features/visits/shared/hooks/useGetEmployees';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { EmployeeDetails } from 'utils';
 import { AutocompleteInput } from './AutocompleteInput';
@@ -18,9 +18,8 @@ export const EmployeeSelectInput: React.FC<Props> = ({ name, label, multiple, re
   const { data: employees, isLoading } = useGetEmployeesWithDetails({ enabled: !!oystehrZambda });
   const options = (employees?.providers ?? [])
     .filter(filter ?? (() => true))
-    .map((prov) => ({ id: prov.id, name: prov.name }))
+    .map(toProviderDetails)
     .sort((a, b) => a.name.localeCompare(b.name));
-  console.log('EmployeeSelectInput options:', options, 'employees:', employees);
   return (
     <AutocompleteInput
       name={name}
@@ -29,9 +28,13 @@ export const EmployeeSelectInput: React.FC<Props> = ({ name, label, multiple, re
       loading={isLoading}
       required={required}
       dataTestId={dataTestId}
-      getOptionLabel={(option) => option.name ?? options?.find((opt) => opt.id === option.id)?.name ?? option.id}
-      getOptionKey={(option) => option.id}
-      isOptionEqualToValue={(option, value) => option.id === value.id}
+      getOptionLabel={(option) =>
+        option.name ??
+        options?.find((opt) => opt.practitionerId === option.practitionerId)?.name ??
+        option.practitionerId
+      }
+      getOptionKey={(option) => option.practitionerId}
+      isOptionEqualToValue={(option, value) => option.practitionerId === value.practitionerId}
       multiple={multiple}
       size={size}
     />
