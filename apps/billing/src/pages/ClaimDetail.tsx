@@ -2,6 +2,7 @@ import {
   ArrowBack as ArrowBackIcon,
   DeleteOutline as DeleteOutlineIcon,
   FileDownloadOutlined as FileDownloadIcon,
+  OpenInNew as OpenInNewIcon,
 } from '@mui/icons-material';
 import { TabContext, TabList, TabPanel } from '@mui/lab';
 import {
@@ -72,6 +73,9 @@ import { buildAddressInput, formatCurrency, splitDisplayName } from '../utils/fo
 type UpdateFn = (resourceType: string, resourceId: string, fields: Record<string, unknown>) => Promise<string | null>;
 
 const thSx = { color: 'primary.dark', fontWeight: 600, fontSize: 13 };
+
+// EHR app base URL for the "View in EHR" backlink
+const EHR_URL = import.meta.env.VITE_APP_EHR_URL;
 
 export default function ClaimDetail(): ReactElement {
   const { id } = useParams();
@@ -201,6 +205,19 @@ export default function ClaimDetail(): ReactElement {
           Export X12
         </Button>
       </Box>
+      {EHR_URL && claim.appointmentId && (
+        <Button
+          variant="outlined"
+          size="small"
+          startIcon={<OpenInNewIcon />}
+          href={`${EHR_URL}/visit/${claim.appointmentId}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          sx={{ mt: 0.5, flexShrink: 0 }}
+        >
+          View in EHR
+        </Button>
+      )}
 
       <ExportX12Dialog
         open={exportOpen}
