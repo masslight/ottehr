@@ -65,6 +65,8 @@ export default function BookableSelect({
   required,
   disabled,
   onLocationsLoaded,
+  error,
+  helperText,
   dataTestId,
 }: BookableSelectProps): ReactElement {
   const { oystehr } = useApiClients();
@@ -288,6 +290,8 @@ export default function BookableSelect({
           label="Where to book"
           placeholder="Search location, group, or provider"
           required={required}
+          error={error}
+          helperText={error ? helperText : undefined}
         />
       )}
     />
