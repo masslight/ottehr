@@ -13,10 +13,12 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import { DataGridPro, GridColDef, GridPaginationModel } from '@mui/x-data-grid-pro';
+import { DataGridPro, GridColDef, GridPaginationModel, GridRowSelectionModel } from '@mui/x-data-grid-pro';
+import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
+  AR_STAGE,
   BillingClaimItem,
   BillingPatientOption,
   BillingPayerOption,
@@ -34,8 +36,10 @@ import {
   searchBillingPayers,
   searchBillingServices,
   searchBillingTags,
+  submitBillingClaims,
 } from '../api/api';
 import { dataGridSlots, dataGridSx } from '../components/BillingDataGrid';
+import { ConfirmDialog } from '../components/ConfirmDialog';
 import { claimStatusValueColor, formatAntCaseString } from '../constants/claimStatus';
 import { useApiClients } from '../hooks/useAppClients';
 import { formatCurrency } from '../utils/format';
@@ -120,8 +124,12 @@ export default function ClaimsList(): ReactElement {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [paginationModel, setPaginationModel] = useState<GridPaginationModel>({ page: 0, pageSize: 25 });
-
   const [serviceOptions, setServiceOptions] = useState<BillingService[]>([]);
+
+  const [selected, setSelected] = useState<GridRowSelectionModel>([]);
+  const [confirmingSubmit, setConfirmingSubmit] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
   const [payerOptions, setPayerOptions] = useState<BillingPayerOption[]>([]);
   const [patientOptions, setPatientOptions] = useState<BillingPatientOption[]>([]);
 
@@ -307,15 +315,61 @@ export default function ClaimsList(): ReactElement {
     typeFilter ||
     selectedService;
 
+  const claimLabel = useCallback(
+    (claimId: string): string => {
+      const row = claims.find((c) => c.id === claimId);
+      if (!row) return claimId.slice(0, 8);
+      return row.serviceDate ? `${row.patientName} (${row.serviceDate})` : row.patientName;
+    },
+    [claims]
+  );
+
+  const handleSubmit = useCallback(async (): Promise<void> => {
+    if (!oystehrZambda || selected.length === 0) return;
+    setSubmitting(true);
+    try {
+      const { results } = await submitBillingClaims(oystehrZambda, { claimIds: selected.map(String) });
+      const submitted = results.filter((r) => r.status === 'submitted');
+      const failed = results.filter((r) => r.status === 'error');
+      if (submitted.length > 0) {
+        enqueueSnackbar(`${submitted.length} claim(s) submitted`, { variant: 'success' });
+      }
+      if (failed.length > 0) {
+        const detail = failed.map((r) => `${claimLabel(r.claimId)} — ${r.error ?? 'failed'}`).join('; ');
+        enqueueSnackbar(`Failed to submit: ${detail}`, { variant: 'error' });
+      }
+      setSelected([]);
+    } catch (err) {
+      enqueueSnackbar(
+        getApiError({
+          error: err,
+          defaultError: 'Failed to submit claims',
+        }),
+        { variant: 'error' }
+      );
+    } finally {
+      setSubmitting(false);
+      setConfirmingSubmit(false);
+      void fetchClaims(currentFilters(), paginationModel);
+    }
+  }, [oystehrZambda, selected, claimLabel, fetchClaims, currentFilters, paginationModel]);
+
   return (
     <Box sx={{ p: 0 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Typography variant="h4" color="primary.dark" fontWeight={600}>
           Claims
         </Typography>
-        <Button variant="contained" size="small" startIcon={<AddIcon />} onClick={() => navigate('/claims/new')}>
-          Create
-        </Button>
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          {selected.length > 0 && (
+            <Button variant="outlined" size="small" onClick={() => setConfirmingSubmit(true)}>
+              Submit ({selected.length})
+            </Button>
+          )}
+          <Button variant="contained" size="small" startIcon={<AddIcon />} onClick={() => navigate('/claims/new')}>
+            Create
+          </Button>
+        </Box>
       </Box>
 
       <TextField
@@ -503,9 +557,24 @@ export default function ClaimsList(): ReactElement {
         disableRowSelectionOnClick
         disableColumnMenu
         checkboxSelection
+        isRowSelectable={(params) => (params.row as BillingClaimItem).statuses?.arStage === AR_STAGE.insurancePayer}
+        rowSelectionModel={selected}
+        onRowSelectionModelChange={setSelected}
         slots={dataGridSlots}
         sx={{ ...dataGridSx, height: 'calc(100vh - 310px)' }}
       />
+
+      <ConfirmDialog
+        open={confirmingSubmit}
+        title="Submit claims"
+        confirmLabel="Submit"
+        loading={submitting}
+        onConfirm={() => void handleSubmit()}
+        onCancel={() => setConfirmingSubmit(false)}
+      >
+        Submit {selected.length} claim(s) to the payer? This sends them for processing and sets each Insurance AR Status
+        to Submitted.
+      </ConfirmDialog>
     </Box>
   );
 }
