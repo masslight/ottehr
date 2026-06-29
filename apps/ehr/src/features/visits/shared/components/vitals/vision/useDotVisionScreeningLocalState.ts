@@ -109,7 +109,10 @@ export function useDotVisionScreeningLocalState(): DotVisionScreeningLocalState 
     receivedDocumentation,
     document,
     hasData,
-    isValid: hasData,
+    // Reflect whether a saveable DTO actually exists, not merely that a field was touched: a
+    // non-numeric degrees entry leaves hasData true but produces no DTO, so the button must stay
+    // disabled rather than become a silent no-op on click.
+    isValid: getDTO() !== null,
     handleHorizontalFieldLeftChange: setHorizontalFieldLeft,
     handleHorizontalFieldRightChange: setHorizontalFieldRight,
     handleCanRecognizeColorsChange: setCanRecognizeColors,

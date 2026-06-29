@@ -87,10 +87,16 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   });
 
   const docRef = docRefs[0];
+  if (!docRef?.id) {
+    return {
+      statusCode: 500,
+      body: JSON.stringify({ message: 'Failed to create DocumentReference for DOT vision document' }),
+    };
+  }
   return {
     statusCode: 200,
     body: JSON.stringify({
-      documentRefId: docRef?.id,
+      documentRefId: docRef.id,
       url: z3URL,
       title: fileTitle,
     }),

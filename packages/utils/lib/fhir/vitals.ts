@@ -59,11 +59,12 @@ export const VITAL_VISION_WITH_GLASSES_OPTION_SNOMED_CODE = '1234567';
 export const VITAL_VISION_WITHOUT_GLASSES_OPTION_SNOMED_CODE = '7654321';
 
 // DOT (FMCSA form MCSA-5875) vision screening component codes.
-// Each yes/no item is modelled the FHIR-idiomatic way: the component code names the observable
-// being assessed, and the answer is a coded value (valueCodeableConcept) using standard SNOMED CT
-// findings/observables rather than a bare boolean. Only "received referral documentation" (the fact
-// of receipt) stays a project-local boolean; the document itself is a real FHIR DocumentReference,
-// pointed to by valueReference.
+// Color vision and monocular vision are modelled the FHIR-idiomatic way: the component code names
+// the observable being assessed, and the answer is a coded value (valueCodeableConcept) using
+// standard SNOMED CT findings/observables rather than a bare boolean. The specialist-referral item
+// and the "received referral documentation" item are encoded as plain booleans (valueBoolean). The
+// referral document itself is a real FHIR DocumentReference linked from the Observation via
+// derivedFrom (see getDotVisionDocumentDerivedFrom / extractDotVisionScreening).
 
 // Horizontal field of vision (degrees), modelled as Visual field + Horizontal qualifier + per-eye
 // anatomical structure, with the measurement as a valueQuantity.
