@@ -40,6 +40,7 @@ import {
   formatClaimStatusValue,
   getApiError,
   UpdateBillingResourceInput,
+  VALUE_SETS,
 } from 'utils';
 import {
   getBillingClaimDetail,
@@ -425,7 +426,11 @@ function PatientSection({
   );
 }
 
-function InsuranceSection({
+const INSURANCE_TYPE_OPTIONS = VALUE_SETS.insuranceTypeOptions;
+const insuranceTypeLabel = (candidCode: string): string =>
+  INSURANCE_TYPE_OPTIONS.find((option) => option.candidCode === candidCode)?.label ?? '';
+
+export function InsuranceSection({
   claim,
   updateResource,
 }: {
@@ -438,6 +443,7 @@ function InsuranceSection({
   const [payer, setPayer] = useState<BillingPayerOption | null>(null);
   const [memberId, setMemberId] = useState(claim.memberId);
   const [status, setStatus] = useState(claim.coverageStatus);
+  const [insuranceType, setInsuranceType] = useState(claim.insuranceType);
   const [policyHolder, setPolicyHolder] = useState<PolicyHolderState>(() =>
     policyHolderStateFromSummary(claim.relationship, claim.policyHolder)
   );
@@ -454,6 +460,7 @@ function InsuranceSection({
     setPayer(claim.payorFhirId ? { id: claim.payorFhirId, name: claim.payerName, payerId: claim.payerId } : null);
     setMemberId(claim.memberId);
     setStatus(claim.coverageStatus);
+    setInsuranceType(claim.insuranceType);
     setPolicyHolder(policyHolderStateFromSummary(claim.relationship, claim.policyHolder));
     setSelectedCoverage(null);
   }, [claim]);
@@ -489,8 +496,11 @@ function InsuranceSection({
     if (!hasCoverage) return 'Choose a coverage';
     const policyHolderError = validatePolicyHolder(policyHolder);
     if (policyHolderError) return policyHolderError;
-    if (payer?.id && payer.id !== claim.payorFhirId) {
-      const err = await updateResource('Claim', claim.id, { payerId: payer.id });
+    const claimFields: { payerId?: string; insuranceType?: string } = {};
+    if (payer?.id && payer.id !== claim.payorFhirId) claimFields.payerId = payer.id;
+    if (insuranceType && insuranceType !== claim.insuranceType) claimFields.insuranceType = insuranceType;
+    if (Object.keys(claimFields).length > 0) {
+      const err = await updateResource('Claim', claim.id, claimFields);
       if (err) return err;
     }
     const policyHolderInput = policyHolderPayload(policyHolder);
@@ -586,6 +596,31 @@ function InsuranceSection({
                   <MenuItem value="entered-in-error">Entered in error</MenuItem>
                 </Select>
               </Field>
+              <Field label="Insurance type">
+                <Select
+                  size="small"
+                  fullWidth
+                  displayEmpty
+                  SelectDisplayProps={{ 'aria-label': 'Insurance type' }}
+                  value={insuranceType}
+                  onChange={(e) => setInsuranceType(e.target.value)}
+                  renderValue={
+                    insuranceType
+                      ? undefined
+                      : () => (
+                          <Box component="span" sx={{ color: 'text.disabled' }}>
+                            Select...
+                          </Box>
+                        )
+                  }
+                >
+                  {INSURANCE_TYPE_OPTIONS.map((option) => (
+                    <MenuItem key={option.candidCode} value={option.candidCode}>
+                      {option.label}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </Field>
             </Box>
           )}
           {hasCoverage && !selectedCoverage && <PolicyHolderFields value={policyHolder} onChange={setPolicyHolder} />}
@@ -605,6 +640,7 @@ function InsuranceSection({
             />
           )}
           <Row label="Coverage Status" value={claim.coverageStatus} />
+          <Row label="Insurance type" value={insuranceTypeLabel(claim.insuranceType)} />
         </>
       ) : (
         <Typography variant="body2" color="text.secondary" sx={{ py: 0.5 }}>
