@@ -9,7 +9,7 @@ import {
   SubmitBillingClaimsResponse,
 } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
-import { applyClaimStatusField, createBillingClient, fetchById } from '../shared';
+import { applyClaimStatusField, assertValidClaimStatusField, createBillingClient, fetchById } from '../shared';
 import { SubmitBillingClaimsParams, validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -58,8 +58,9 @@ export async function performEffect(
       await oystehr.rcm.submitClaim({ claimId });
 
       try {
+        const value = assertValidClaimStatusField('insuranceArStatus', 'submitted');
         const submitted = await fetchById<Claim>(oystehr, 'Claim', claimId);
-        await applyClaimStatusField(oystehr, submitted, 'insuranceArStatus', 'submitted');
+        await applyClaimStatusField(oystehr, submitted, 'insuranceArStatus', value);
       } catch (statusErr) {
         console.error(`Claim ${claimId} submitted but failed to set insurance AR status:`, statusErr);
       }

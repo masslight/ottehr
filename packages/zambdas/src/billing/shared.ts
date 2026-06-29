@@ -98,11 +98,9 @@ export async function applyClaimStatusField(
   oystehr: Oystehr,
   claim: Claim,
   field: ClaimStatusFieldKey,
-  value: string | null
+  value: string
 ): Promise<void> {
-  const resolved = assertValidClaimStatusField(field, value);
-
-  const values: ClaimStatusValues = { ...getClaimStatusValues(claim), [field]: resolved };
+  const values: ClaimStatusValues = { ...getClaimStatusValues(claim), [field]: value };
   const updatedValues = field === 'arStage' ? withArStageInitialization(values) : values;
 
   const statusSystems = new Set(CLAIM_STATUS_FIELDS.map((f) => f.system));
