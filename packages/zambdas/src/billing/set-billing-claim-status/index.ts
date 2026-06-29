@@ -2,7 +2,7 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim } from 'fhir/r4b';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
-import { applyClaimStatusField, createBillingClient, fetchById } from '../shared';
+import { applyClaimStatusField, assertValidClaimStatusField, createBillingClient, fetchById } from '../shared';
 import { SetClaimStatusParams, validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -18,8 +18,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 });
 
 export async function performEffect(oystehr: Oystehr, params: SetClaimStatusParams): Promise<{ ok: true }> {
+  const value = assertValidClaimStatusField(params.field, params.value ?? null);
   const claim = await fetchById<Claim>(oystehr, 'Claim', params.claimId);
-  // Empty/null clears the tag back to the field default.
-  await applyClaimStatusField(oystehr, claim, params.field, params.value ?? null);
+  await applyClaimStatusField(oystehr, claim, params.field, value);
   return { ok: true };
 }

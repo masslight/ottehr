@@ -86,16 +86,21 @@ export function getClaimStatus(claim: Claim): string {
   return claim.meta?.tag?.find((t) => t.system === CURRENT_STATUS_TAG_SYSTEM)?.code ?? claim.status ?? 'unknown';
 }
 
+export function assertValidClaimStatusField(field: ClaimStatusFieldKey, value: string | null): string {
+  const resolved = value ?? '';
+  if (!isValidClaimStatusValue(CLAIM_STATUS_FIELDS_BY_KEY[field], resolved)) {
+    throw INVALID_INPUT_ERROR(`Invalid value "${resolved}" for claim status field "${field}"`);
+  }
+  return resolved;
+}
+
 export async function applyClaimStatusField(
   oystehr: Oystehr,
   claim: Claim,
   field: ClaimStatusFieldKey,
   value: string | null
 ): Promise<void> {
-  const resolved = value ?? '';
-  if (!isValidClaimStatusValue(CLAIM_STATUS_FIELDS_BY_KEY[field], resolved)) {
-    throw INVALID_INPUT_ERROR(`Invalid value "${resolved}" for claim status field "${field}"`);
-  }
+  const resolved = assertValidClaimStatusField(field, value);
 
   const values: ClaimStatusValues = { ...getClaimStatusValues(claim), [field]: resolved };
   const updatedValues = field === 'arStage' ? withArStageInitialization(values) : values;
