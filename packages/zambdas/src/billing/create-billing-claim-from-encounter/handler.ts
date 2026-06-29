@@ -570,7 +570,7 @@ export function getClaimCoveragesForEncounter(
             ccov.extension?.find((ccovid) => ccovid.url === SOURCE_IDENTIFIER_SYSTEM)?.valueReference?.reference ===
             wccov.coverage.reference
         );
-        if (wccov.priority === 1) {
+        if (foundClaimCoverage) {
           wcCoverage = foundClaimCoverage;
         }
       });
