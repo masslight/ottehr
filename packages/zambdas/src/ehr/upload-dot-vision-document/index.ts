@@ -1,8 +1,15 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { randomUUID } from 'crypto';
 import { Appointment, Encounter, List } from 'fhir/r4b';
-import { createFilesDocumentReferences, getAppointmentResourceById, OTTEHR_MODULE } from 'utils';
-import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
+import {
+  createFilesDocumentReferences,
+  createOystehrClient,
+  getAppointmentResourceById,
+  getSecret,
+  OTTEHR_MODULE,
+  SecretsKeys,
+} from 'utils';
+import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'upload-dot-vision-document';
@@ -14,9 +21,11 @@ let m2mToken: string;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   const { secrets, appointmentID, z3URL, title } = validateRequestParameters(input);
+  const fhirAPI = getSecret(SecretsKeys.FHIR_API, input.secrets);
+  const projectAPI = getSecret(SecretsKeys.PROJECT_API, input.secrets);
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-  const oystehr = createOystehrClient(m2mToken, secrets);
+  const oystehr = createOystehrClient(m2mToken, fhirAPI, projectAPI);
 
   const appointment: Appointment | undefined = await getAppointmentResourceById(appointmentID, oystehr);
   if (!appointment) {
