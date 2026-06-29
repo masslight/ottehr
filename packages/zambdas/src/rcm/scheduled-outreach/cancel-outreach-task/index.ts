@@ -7,7 +7,7 @@ import {
   MISSING_REQUIRED_PARAMETERS,
   PRIVATE_EXTENSION_BASE_URL,
 } from 'utils';
-import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
+import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
 
 let m2mToken: string;
 
@@ -24,7 +24,7 @@ export const index = wrapHandler('cancel-outreach-task', async (input: ZambdaInp
   if (!taskId) throw MISSING_REQUIRED_PARAMETERS(['taskId']);
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-  const oystehr = createOystehrClient(m2mToken, secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
   const task = await oystehr.fhir.get<Task>({ resourceType: 'Task', id: taskId });
 

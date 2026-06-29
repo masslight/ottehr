@@ -9,7 +9,7 @@ import {
   STATEMENT_CODE,
 } from 'utils';
 import {
-  createOystehrClient,
+  createClinicalOystehrClient,
   getAuth0Token,
   getPostGridLetter,
   MAIL_VENDOR_EXTENSION_URL,
@@ -76,7 +76,7 @@ async function createOystehr(secrets: Secrets): Promise<Oystehr> {
   if (oystehrToken == null) {
     oystehrToken = await getAuth0Token(secrets);
   }
-  return createOystehrClient(oystehrToken, secrets);
+  return createClinicalOystehrClient(oystehrToken, secrets);
 }
 
 function isStatementCommunication(resource: Communication): boolean {

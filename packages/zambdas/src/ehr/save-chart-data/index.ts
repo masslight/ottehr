@@ -27,8 +27,8 @@ import {
 import {
   checkOrCreateM2MClientToken,
   createAccidentCondition,
+  createClinicalOystehrClient,
   createDispositionServiceRequest,
-  createOystehrClient,
   createProcedureServiceRequest,
   followUpToPerformerMap,
   getMyPractitionerId,
@@ -121,7 +121,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   console.timeLog('time', 'before creating fhir client and token resources');
   console.log('Getting token');
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-  const oystehr = createOystehrClient(m2mToken, secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
   console.timeLog('time', 'before fetching resources');
   // get encounter and resources

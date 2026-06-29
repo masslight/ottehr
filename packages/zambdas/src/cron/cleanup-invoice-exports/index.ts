@@ -9,7 +9,7 @@ import {
   getSecret,
   SecretsKeys,
 } from 'utils';
-import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
+import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
 
 const CLEANUP_AGE_MINUTES = 10;
 
@@ -19,7 +19,7 @@ export const index = wrapHandler(
   'cleanup-invoice-exports',
   async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, input.secrets);
-    const oystehr = createOystehrClient(m2mToken, input.secrets);
+    const oystehr = createClinicalOystehrClient(m2mToken, input.secrets);
     const projectId = getSecret(SecretsKeys.PROJECT_ID, input.secrets);
     const bucketName = `${projectId}-${BUCKET_NAMES.REPORTS}`;
 

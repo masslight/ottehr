@@ -2,7 +2,7 @@ import Oystehr, { ErxGetMedicationHistoryResponse } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { DateTime } from 'luxon';
 import { BillingSuggestionOutput, fixAndParseJsonObjectFromString, getEmCodes, PrescribedMedicationDTO } from 'utils';
-import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
+import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
 import { invokeChatbotVertexAI } from '../../shared/ai';
 import { loadAndParseIcd10Data } from '../../shared/icd-10-search';
 import { validateRequestParameters } from './validateRequestParameters';
@@ -121,7 +121,7 @@ export const index = wrapHandler(
 
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
 
-    const oystehr = createOystehrClient(m2mToken, secrets);
+    const oystehr = createClinicalOystehrClient(m2mToken, secrets);
     const [emCodeOptions, erxMedicationHistoryContext] = await Promise.all([
       getEmCodes(oystehr),
       getErxMedicationHistoryContext(oystehr, patientId),
