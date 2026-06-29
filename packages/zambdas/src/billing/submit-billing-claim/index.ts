@@ -57,8 +57,12 @@ export async function performEffect(
 
       await oystehr.rcm.submitClaim({ claimId });
 
-      const submitted = await fetchById<Claim>(oystehr, 'Claim', claimId);
-      await applyClaimStatusField(oystehr, submitted, 'insuranceArStatus', 'submitted');
+      try {
+        const submitted = await fetchById<Claim>(oystehr, 'Claim', claimId);
+        await applyClaimStatusField(oystehr, submitted, 'insuranceArStatus', 'submitted');
+      } catch (statusErr) {
+        console.error(`Claim ${claimId} submitted but failed to set insurance AR status:`, statusErr);
+      }
 
       results.push({
         claimId,

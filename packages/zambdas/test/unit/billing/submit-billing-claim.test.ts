@@ -147,6 +147,26 @@ describe('submit-billing-claim performEffect', () => {
     expect(patch).not.toHaveBeenCalled();
   });
 
+  it('still reports submitted when recording the status fails after a successful submission', async () => {
+    const { oystehr, submitClaim, patch } = makeOystehr([makeClaim('c5', AR_STAGE.insurancePayer)]);
+    patch.mockRejectedValue(new Error('version conflict'));
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+    const response = await performEffect(oystehr, {
+      claimIds: ['c5'],
+      secrets,
+    });
+
+    expect(submitClaim).toHaveBeenCalledWith({ claimId: 'c5' });
+    expect(response.results).toEqual([
+      {
+        claimId: 'c5',
+        status: 'submitted',
+      },
+    ]);
+    errorSpy.mockRestore();
+  });
+
   it('processes each claim independently and returns a per-claim result', async () => {
     const { oystehr, submitClaim } = makeOystehr([
       makeClaim('ok', AR_STAGE.insurancePayer),
