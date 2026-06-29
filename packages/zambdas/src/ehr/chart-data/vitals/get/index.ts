@@ -294,7 +294,12 @@ const parseVisionObservation = (
     visionOptions,
   } = extractVisionValues(components);
 
-  if (leftEyeVisionText === undefined && rightEyeVisionText === undefined && bothEyesVisionText === undefined) {
+  if (
+    leftEyeVisionText === undefined &&
+    rightEyeVisionText === undefined &&
+    bothEyesVisionText === undefined &&
+    (!visionOptions || visionOptions.length === 0)
+  ) {
     return undefined;
   }
 
