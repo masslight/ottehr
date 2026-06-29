@@ -13,9 +13,9 @@ type Props = {
   filter?: (employee: EmployeeDetails) => boolean;
 };
 
-export const EmployeeSelectInput: React.FC<Props> = ({ name, label, multiple, required, size, dataTestId }) => {
+export const EmployeeSelectInput: React.FC<Props> = ({ name, label, multiple, required, size, dataTestId, filter }) => {
   const { oystehrZambda } = useApiClients();
-  const { data: employees, isLoading } = useGetEmployees({ enabled: !!oystehrZambda });
+  const { data: employees, isLoading } = useGetEmployees({ enabled: !!oystehrZambda, filter });
   const options = (employees?.providers ?? []).map((prov) => ({ id: prov.practitionerId, name: prov.name }));
   return (
     <AutocompleteInput

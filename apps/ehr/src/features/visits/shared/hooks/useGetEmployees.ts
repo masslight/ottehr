@@ -1,5 +1,5 @@
 import { useQuery, UseQueryResult } from '@tanstack/react-query';
-import { ProviderDetails } from 'utils';
+import { EmployeeDetails, ProviderDetails } from 'utils';
 import { getEmployees } from '../../../../api/api';
 import { useApiClients } from '../../../../hooks/useAppClients';
 
@@ -24,6 +24,7 @@ const toProviderDetails = (employee: { profile: string; firstName: string; lastN
  */
 export const useGetEmployees = (options?: {
   enabled?: boolean;
+  filter?: (employee: EmployeeDetails) => boolean;
 }): UseQueryResult<EmployeesForAssignment | null, Error> => {
   const { oystehrZambda } = useApiClients();
 
@@ -36,6 +37,7 @@ export const useGetEmployees = (options?: {
 
       const formattedProviders: ProviderDetails[] = activeEmployees
         .filter((employee) => employee.isProvider && !employee.isCustomerSupport)
+        .filter(options?.filter ?? (() => true))
         .map(toProviderDetails)
         .filter((prov) => prov.name);
 
@@ -43,6 +45,7 @@ export const useGetEmployees = (options?: {
       // const nonProviders = getEmployeesRes.employees.filter((employee) => !employee.isProvider);
       const formattedNonProviders: ProviderDetails[] = activeEmployees
         .filter((employee) => !employee.isCustomerSupport)
+        .filter(options?.filter ?? (() => true))
         .map(toProviderDetails)
         .filter((prov) => prov.name);
 
