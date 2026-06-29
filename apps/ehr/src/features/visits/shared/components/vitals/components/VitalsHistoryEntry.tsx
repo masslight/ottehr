@@ -60,11 +60,7 @@ export const VitalHistoryElement: React.FC<VitalHistoryElementProps> = ({
           {observationValueElements.map((value, index) => {
             if (typeof value === 'string') {
               return (
-                <Typography
-                  key={index}
-                  component="span"
-                  sx={{ fontWeight: index === 0 ? 'bold' : 'normal', color: lineColor }}
-                >
+                <Typography key={index} component="span" sx={{ fontWeight: 'bold', color: lineColor }}>
                   {value}
                 </Typography>
               );
