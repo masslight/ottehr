@@ -24,7 +24,7 @@ import PrebookVisit from './pages/PrebookVisit';
 import Review from './pages/Review';
 import ReviewPaperwork from './pages/ReviewPaperwork';
 import SelectServiceCategoryPage from './pages/SelectServiceCategory';
-import StandaloneFormPage from './pages/StandaloneFormPage';
+import { StandaloneFormHome, StandaloneFormPage } from './pages/StandaloneFormPage';
 import StartVirtualVisit from './pages/StartVirtualVisit';
 import ThankYou from './pages/ThankYou';
 import VisitDetails from './pages/VisitDetails';
@@ -124,7 +124,7 @@ export const intakeFlowPageRoute = {
   },
   StandaloneForm: {
     path: '/forms/:appointmentId/:questionnaireId',
-    getPage: () => <StandaloneFormPage />,
+    getPage: () => <StandaloneFormHome />,
   },
   ReviewPaperwork: {
     path: `${paperworkBasePath}/review`,
@@ -399,10 +399,15 @@ function App(): JSX.Element {
                     path={intakeFlowPageRoute.PracticeManagedPaperwork.path}
                     element={intakeFlowPageRoute.PracticeManagedPaperwork.getPage()}
                   />
+                  {/* Standalone managed form: StandaloneFormHome provides a scoped paperwork
+                      context via the outlet (kept outside PaperworkHome for the same reason as
+                      PracticeManagedPaperwork above); the index child renders the form. */}
                   <Route
                     path={intakeFlowPageRoute.StandaloneForm.path}
                     element={intakeFlowPageRoute.StandaloneForm.getPage()}
-                  />
+                  >
+                    <Route index element={<StandaloneFormPage />} />
+                  </Route>
                   <Route
                     path={intakeFlowPageRoute.PaperworkHomeRoute.path}
                     element={intakeFlowPageRoute.PaperworkHomeRoute.getPage()}
