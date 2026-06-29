@@ -1,25 +1,27 @@
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import { Alert, Box, CircularProgress, Typography } from '@mui/material';
-import { QuestionnaireItem } from 'fhir/r4b';
-// import { QuestionnaireItem, QuestionnaireResponseItem } from 'fhir/r4b';
-import { FC, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { QuestionnaireItem, QuestionnaireResponse, QuestionnaireResponseItem } from 'fhir/r4b';
+import { FC, useCallback, useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useParams } from 'react-router-dom';
+import { PaperworkContext, PaperworkProvider } from 'src/features/paperwork';
+import PagedQuestionnaire from 'src/features/paperwork/PagedQuestionnaire';
 import {
-  buildQuestionnairePages,
-  // evaluateCalculatedExpressions,
-  formDataToResponseItem,
-  QuestionnaireFormPage,
-  responseItemsToFormValues,
-} from 'ui-components';
-import { APIError, isApiError, NO_READ_ACCESS_TO_PATIENT_ERROR } from 'utils';
+  APIError,
+  AppointmentSummary,
+  convertQRItemToLinkIdMap,
+  convertQuestionnaireItemToQRLinkIdMap,
+  findQuestionnaireResponseItemLinkId,
+  flattenIntakeQuestionnaireItems,
+  IntakeQuestionnaireItem,
+  isApiError,
+  mapQuestionnaireAndValueSetsToItemsList,
+  NO_READ_ACCESS_TO_PATIENT_ERROR,
+  QuestionnaireFormFields,
+} from 'utils';
 import api from '../api/ottehrApi';
 import { PageContainer } from '../components';
 import { useUCZambdaClient } from '../hooks/useUCZambdaClient';
-
-// const GET_PM_ZAMBDA = 'get-managed-paperwork';
-// const SAVE_PM_ZAMBDA = 'save-practice-managed-response';
-// const FINALIZE_PM_ZAMBDA = 'finalize-practice-managed-response';
 
 enum AuthedLoadingState {
   initial,
@@ -28,14 +30,11 @@ enum AuthedLoadingState {
   noReadAccess,
 }
 
-// interface PracticeManagedQ {
-//   id: string;
-//   url: string;
-//   title: string;
-//   item: QuestionnaireItem[];
-//   questionnaireResponseId?: string;
-//   questionnaireResponseItems?: QuestionnaireResponseItem[];
-// }
+// Recursively collect every linkId on a page (groups can nest) so a page submit only writes the
+// answers that belong to the current page — mirrors `extractPageLinkIds` in PaperworkPage.
+export function extractPageLinkIds(items: IntakeQuestionnaireItem[] = []): string[] {
+  return items.flatMap((item) => [item.linkId, ...(item.item ? extractPageLinkIds(item.item) : [])]);
+}
 
 export const StandaloneFormPage: FC = () => {
   const { appointmentId, questionnaireId } = useParams();
@@ -43,14 +42,12 @@ export const StandaloneFormPage: FC = () => {
 
   const [questionnaireTitle, setQuestionnaireTitle] = useState<string | undefined>(undefined);
   const [questionnaireItems, setQuestionnaireItems] = useState<QuestionnaireItem[] | null>(null);
-  // const [loading, setLoading] = useState(true);
+  const [questionnaireResponse, setQuestionnaireResponse] = useState<QuestionnaireResponse | undefined>(undefined);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState(false);
-  // const [complete, setComplete] = useState(false);
-  // const [accessDeniedMessage, setAccessDeniedMessage] = useState<string | null>(null);
   const [currentPageIndex, setCurrentPageIndex] = useState(0);
-  const [allAnswers, setAllAnswers] = useState<Record<string, any>>({}); // todo sarah we need typing here
   const [authedFetchState, setAuthedFetchState] = useState(AuthedLoadingState.initial);
+  const [saveButtonDisabled, setSaveButtonDisabled] = useState(false);
 
   const methods = useForm();
 
@@ -61,29 +58,13 @@ export const StandaloneFormPage: FC = () => {
       try {
         setAuthedFetchState(AuthedLoadingState.loading);
         const response = await api.getManagedPaperwork(zambdaClient, { appointmentId, questionnaireId });
-        setQuestionnaireTitle(response.managedPaperwork.questionnaireTitle);
-        setQuestionnaireItems(response.managedPaperwork.questionnaireItems);
+        const { managedPaperwork } = response;
+        setQuestionnaireTitle(managedPaperwork.questionnaireTitle);
+        setQuestionnaireItems(managedPaperwork.questionnaireItems);
 
-        if (response.managedPaperwork.questionnaireResponse?.item) {
-          const resumed = responseItemsToFormValues(response.managedPaperwork.questionnaireResponse?.item);
-          console.log('resumed', resumed); // todo sarah remove
-          if (Object.keys(resumed).length > 0) {
-            setAllAnswers(resumed);
-            methods.reset(resumed);
-          }
+        if (managedPaperwork.questionnaireResponse) {
+          setQuestionnaireResponse(managedPaperwork.questionnaireResponse);
         }
-
-        // const current = questionnaires.find((q) => q.id === questionnaireId);
-        // if (current) {
-        //   setQuestionnaire(current);
-        //   // Resume an in-progress response — without seeding, page saves would
-        //   // silently overwrite the previously-entered answers.
-        //   const resumed = responseItemsToFormValues(current.questionnaireResponseItems);
-        //   if (Object.keys(resumed).length > 0) {
-        //     setAllAnswers(resumed);
-        //     methods.reset(resumed);
-        //   }
-        // }
       } catch (e) {
         if (isApiError(e)) {
           const apiError = e as APIError;
@@ -99,89 +80,113 @@ export const StandaloneFormPage: FC = () => {
     void fetchManagedPaperwork();
   }, [zambdaClient, appointmentId, questionnaireId, authedFetchState, methods]);
 
-  const pages = useMemo(
-    () => buildQuestionnairePages(questionnaireItems || [], questionnaireTitle),
-    [questionnaireItems, questionnaireTitle]
-  );
+  const pages = useMemo<IntakeQuestionnaireItem[]>(() => {
+    const converted = mapQuestionnaireAndValueSetsToItemsList(questionnaireItems ?? [], []);
+    const groups = converted.filter((item) => item.type === 'group');
+    if (groups.length > 0) {
+      return groups;
+    }
+    // Flat questionnaire (no top-level group): wrap everything in one synthetic page so the answers
+    // round-trip under a stable page linkId.
+    if (converted.length > 0) {
+      return [
+        {
+          linkId: `${questionnaireId}-page`,
+          type: 'group',
+          text: questionnaireTitle,
+          item: converted,
+          acceptsMultipleAnswers: false,
+          alwaysFilter: false,
+        } as IntakeQuestionnaireItem,
+      ];
+    }
+    return [];
+  }, [questionnaireItems, questionnaireId, questionnaireTitle]);
+
   const currentPage = pages[currentPageIndex];
   const isLastPage = currentPageIndex === pages.length - 1;
   const submitted = currentPageIndex > pages.length - 1;
 
-  // Restore previously-entered answers on page change so Back doesn't blank the form.
-  const allAnswersRef = useRef(allAnswers);
-  allAnswersRef.current = allAnswers;
-  useEffect(() => {
-    methods.reset(allAnswersRef.current);
-  }, [currentPageIndex, methods]);
+  // Per-page form seed: empty shells for every field, overlaid with any saved answers for this page.
+  const pageDefaults = useMemo<QuestionnaireFormFields>(() => {
+    if (!currentPage) return {};
+    const fieldShells = convertQuestionnaireItemToQRLinkIdMap(currentPage.item);
+    const savedPageItems = (questionnaireResponse?.item ?? []).find((i) => i.linkId === currentPage.linkId)?.item;
+    const saved = convertQRItemToLinkIdMap(savedPageItems);
+    return { ...fieldShells, ...saved };
+  }, [currentPage, questionnaireResponse]);
 
-  console.log('isLastPage', isLastPage, currentPageIndex, pages.length - 1);
+  // Standalone managed forms render outside the paperwork `<Outlet>`, so we supply the context that
+  // PagedQuestionnaire and its child hooks read. Only `paperwork`, `allItems`, `questionnaireResponse`,
+  // `appointment.id`, and `saveButtonDisabled`/`setSaveButtonDisabled` are consumed on the vanilla +
+  // attachment render path; payment/pharmacy/AI fields are inert here because those inputs never render
+  // for managed questionnaires.
+  const paperworkContextValue = useMemo<PaperworkContext>(
+    () => ({
+      paperwork: questionnaireResponse?.item ?? [],
+      allItems: flattenIntakeQuestionnaireItems(pages),
+      questionnaireResponse,
+      appointment: appointmentId ? ({ id: appointmentId } as AppointmentSummary) : undefined,
+      saveButtonDisabled,
+      setSaveButtonDisabled,
+      // Inert on the managed render path:
+      pageItems: pages,
+      pages,
+      paperworkInProgress: {},
+      patient: undefined,
+      updateTimestamp: undefined,
+      cardsAreLoading: false,
+      paymentMethodStateInitializing: false,
+      paymentMethods: [],
+      stripeSetupData: undefined,
+      setContinueLabel: () => {},
+      refetchPaymentMethods: (async () => ({ data: { cards: [] } })) as any,
+      refetchSetupData: (async () => ({})) as any,
+      findAnswerWithLinkId: (linkId: string) =>
+        findQuestionnaireResponseItemLinkId(linkId, questionnaireResponse?.item ?? []),
+    }),
+    [pages, questionnaireResponse, appointmentId, saveButtonDisabled]
+  );
 
-  const handleSubmit = useCallback(
-    async (data: Record<string, any>) => {
-      if (!zambdaClient || !questionnaireId || !currentPage || !appointmentId) return;
+  const finishPage = useCallback(
+    async (data: QuestionnaireFormFields): Promise<void> => {
+      if (!zambdaClient || !questionnaireId || !appointmentId || !currentPage) return;
 
       setSaving(true);
       setSaveError(false);
       try {
-        const updatedAnswers = { ...allAnswers, ...data };
-        setAllAnswers(updatedAnswers);
+        // The form state holds values for every visited field; only this page's answers may be
+        // written into this page's response item (mirrors PaperworkPage.finishPaperworkPage).
+        const pageLinkIds = extractPageLinkIds(currentPage.item ?? []);
+        const item = (Object.values(data) as QuestionnaireResponseItem[])
+          .filter((qrItem) => {
+            if (!pageLinkIds.includes(qrItem.linkId)) return false;
+            if (qrItem.linkId === undefined || (qrItem.answer === undefined && qrItem.item === undefined)) return false;
+            return true;
+          })
+          // Group/empty items can leave a stale `answer: [null]`; normalize it away.
+          .map((qrItem) => (qrItem?.answer?.[0] == undefined ? { ...qrItem, answer: undefined } : qrItem));
 
-        const pageItem = formDataToResponseItem(data, currentPage);
+        const pageAnswers: QuestionnaireResponseItem = { linkId: currentPage.linkId, item };
 
-        await api.saveManagedPaperworkResponse(zambdaClient, {
-          pageAnswers: pageItem,
+        const { questionnaireResponse: updatedQR } = await api.saveManagedPaperworkResponse(zambdaClient, {
+          pageAnswers,
           questionnaireId,
           complete: isLastPage,
           appointmentId,
         });
-
+        // Keep resume/defaults in sync so Back doesn't blank previously-entered answers.
+        setQuestionnaireResponse(updatedQR);
         setCurrentPageIndex((prev) => prev + 1);
-
-        // if (!isLastPage) {
-        //   setCurrentPageIndex((prev) => prev + 1);
-        // } else {
-        // todo sarah gotta come back to this
-        // Evaluate calculated expressions and save computed values
-        // const qItems = questionnaire.item || [];
-        // const computedValues = evaluateCalculatedExpressions(qItems, updatedAnswers);
-        // const computedEntries = Object.entries(computedValues).filter(([, v]) => v !== undefined);
-        // if (computedEntries.length > 0) {
-        //   const computedQrItems = computedEntries.map(([linkId, value]) => ({
-        //     linkId,
-        //     answer: [
-        //       typeof value === 'boolean'
-        //         ? { valueBoolean: value }
-        //         : typeof value === 'number'
-        //         ? { valueDecimal: value }
-        //         : { valueString: String(value) },
-        //     ],
-        //   }));
-        //   await (zambdaClient as ZambdaClient).execute(SAVE_PM_ZAMBDA, {
-        //     questionnaireResponseId: currentQrId,
-        //     questionnaireUrl: questionnaire.url,
-        //     pageIndex: currentPageIndex + 1,
-        //     answers: { linkId: 'results', item: computedQrItems },
-        //   });
-        // }
-        // // Finalize: mark complete, render PDF, and file into the patient's Paperwork folder.
-        // // A finalize failure propagates to the outer catch — the patient must NOT see
-        // // "Form Submitted" when the form never completed; Submit can be pressed again.
-        // if (currentQrId) {
-        //   await (zambdaClient as ZambdaClient).execute(FINALIZE_PM_ZAMBDA, {
-        //     questionnaireResponseId: currentQrId,
-        //   });
-        // }
-        // }
       } catch (err) {
-        // Stay on the page and tell the patient — a silent failure looks like a dead
-        // Submit button and risks the patient closing the tab thinking they're done.
+        // Stay on the page and tell the patient — a silent failure looks like a dead Submit button.
         console.error('Failed to save response:', err);
         setSaveError(true);
       } finally {
         setSaving(false);
       }
     },
-    [zambdaClient, currentPage, isLastPage, allAnswers, questionnaireId, appointmentId]
+    [zambdaClient, questionnaireId, appointmentId, currentPage, isLastPage]
   );
 
   if (authedFetchState === AuthedLoadingState.initial || authedFetchState === AuthedLoadingState.loading) {
@@ -241,17 +246,29 @@ export const StandaloneFormPage: FC = () => {
           We couldn't save your answers. Please check your connection and try again.
         </Alert>
       )}
-      <QuestionnaireFormPage
-        page={currentPage}
-        title={currentPage.text || questionnaireTitle}
-        subtitle={questionnaireTitle}
-        methods={methods}
-        onSubmit={handleSubmit}
-        onBack={currentPageIndex > 0 ? () => setCurrentPageIndex((prev) => prev - 1) : undefined}
-        isLastPage={isLastPage}
-        saving={saving}
-        submitLabel={isLastPage ? 'Submit' : 'Continue'}
-      />
+      <PaperworkProvider value={paperworkContextValue}>
+        <PagedQuestionnaire
+          onSubmit={finishPage}
+          pageId={currentPage?.linkId ?? ''}
+          pageItem={currentPage}
+          pageSubtitle={questionnaireTitle}
+          options={{
+            controlButtons: {
+              // Back must be explicit — ControlButtons defaults `backButton` to true and would
+              // otherwise render a history-Back on page 1 that leaves the form.
+              backButton: currentPageIndex !== 0,
+              onBack: () => setCurrentPageIndex((prev) => prev - 1),
+              loading: saving,
+              submitLabel: isLastPage ? 'Submit' : 'Continue',
+            },
+          }}
+          items={currentPage.item ?? []}
+          defaultValues={pageDefaults}
+          isSaving={saving}
+          // Standalone forms persist per page; there is no in-progress store to flush on unload atm.
+          saveProgress={() => {}}
+        />
+      </PaperworkProvider>
     </PageContainer>
   );
 };

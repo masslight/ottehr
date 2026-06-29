@@ -33,6 +33,7 @@ import {
   PersistConsentInput,
   PresignUploadUrlResponse,
   SaveManagedPaperworkResponseInput,
+  SaveManagedPaperworkResponseOutput,
   SearchPlacesInput,
   SearchPlacesOutput,
   ServiceMode,
@@ -533,11 +534,11 @@ class API {
   async saveManagedPaperworkResponse(
     zambdaClient: ZambdaClient,
     input: SaveManagedPaperworkResponseInput
-  ): Promise<QuestionnaireResponse> {
+  ): Promise<SaveManagedPaperworkResponseOutput> {
     try {
       const response = await zambdaClient.execute('save-managed-paperwork-response', input);
       const jsonToUse = chooseJson(response);
-      return jsonToUse as QuestionnaireResponse;
+      return jsonToUse as SaveManagedPaperworkResponseOutput;
     } catch (error: unknown) {
       throw apiErrorToThrow(error);
     }
