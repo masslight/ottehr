@@ -3,6 +3,7 @@ import { vitalsConfig } from '../../ottehr-config';
 import {
   VitalFieldNames,
   VitalsBloodPressureObservationDTO,
+  VitalsBMIObservationDTO,
   VitalsHeartbeatObservationDTO,
   VitalsHeightObservationDTO,
   VitalsLastMenstrualPeriodObservationDTO,
@@ -16,6 +17,7 @@ import {
 import { formatDateTimeToZone } from '../../utils';
 import {
   celsiusToFahrenheit,
+  formatBMIWithUnit,
   formatHeightObservationValue,
   formatWeightKg,
   formatWeightLbs,
@@ -79,6 +81,10 @@ export const mapVitalsToDisplay = (
       case VitalFieldNames.VitalHeight:
         parsed = observation as VitalsHeightObservationDTO;
         text = formatHeightObservationValue(parsed.value);
+        break;
+      case VitalFieldNames.VitalBMI:
+        parsed = observation as VitalsBMIObservationDTO;
+        text = formatBMIWithUnit(parsed.value);
         break;
       case VitalFieldNames.VitalVision: {
         parsed = observation as VitalsVisionObservationDTO;

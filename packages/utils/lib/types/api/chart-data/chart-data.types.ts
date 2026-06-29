@@ -250,6 +250,10 @@ export interface VitalsHeightObservationDTO extends VitalsNumericValueObservatio
   field: Extract<VitalFieldNames, 'vital-height'>;
 }
 
+export interface VitalsBMIObservationDTO extends VitalsNumericValueObservationDTO {
+  field: Extract<VitalFieldNames, 'vital-bmi'>;
+}
+
 export interface VitalsTemperatureObservationDTO extends VitalsNumericValueObservationDTO {
   field: Extract<VitalFieldNames, 'vital-temperature'>;
   observationMethod?: VitalTemperatureObservationMethod;
@@ -302,6 +306,7 @@ export type VitalsObservationDTO =
   | VitalsRespirationRateObservationDTO
   | VitalsWeightObservationDTO
   | VitalsHeightObservationDTO
+  | VitalsBMIObservationDTO
   | VitalsVisionObservationDTO
   | VitalsLastMenstrualPeriodObservationDTO;
 

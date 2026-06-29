@@ -219,7 +219,8 @@ type AllOtherFields =
   | VitalFieldNames.VitalTemperature
   | VitalFieldNames.VitalRespirationRate
   | VitalFieldNames.VitalHeight
-  | VitalFieldNames.VitalWeight;
+  | VitalFieldNames.VitalWeight
+  | VitalFieldNames.VitalBMI;
 
 const parseNumericValueObservation = (
   observation: Observation,
