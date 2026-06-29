@@ -3,7 +3,9 @@ import { Location } from 'fhir/r4b';
 import {
   CODE_SYSTEM_CMS_PLACE_OF_SERVICE,
   FHIR_IDENTIFIER_CLIA,
+  FHIR_IDENTIFIER_CODE_NPI,
   FHIR_IDENTIFIER_NPI,
+  FHIR_IDENTIFIER_SYSTEM,
   SaveServiceFacilityInput,
 } from 'utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -162,6 +164,17 @@ describe('applyServiceFacilityInput', () => {
       value: '1234567893',
     });
     expect(location.identifier).toContainEqual({
+      type: {
+        coding: [
+          {
+            system: FHIR_IDENTIFIER_SYSTEM,
+            code: FHIR_IDENTIFIER_CODE_NPI,
+          },
+        ],
+      },
+      value: '1234567893',
+    });
+    expect(location.identifier).toContainEqual({
       system: FHIR_IDENTIFIER_CLIA,
       value: '05D1234567',
     });
@@ -187,6 +200,17 @@ describe('applyServiceFacilityInput', () => {
       identifier: [
         {
           system: FHIR_IDENTIFIER_NPI,
+          value: '1234567893',
+        },
+        {
+          type: {
+            coding: [
+              {
+                system: FHIR_IDENTIFIER_SYSTEM,
+                code: FHIR_IDENTIFIER_CODE_NPI,
+              },
+            ],
+          },
           value: '1234567893',
         },
         {
@@ -218,6 +242,17 @@ describe('applyServiceFacilityInput', () => {
       value: '1234567893',
     });
     expect(location.identifier).toContainEqual({
+      type: {
+        coding: [
+          {
+            system: FHIR_IDENTIFIER_SYSTEM,
+            code: FHIR_IDENTIFIER_CODE_NPI,
+          },
+        ],
+      },
+      value: '1234567893',
+    });
+    expect(location.identifier).toContainEqual({
       system: FHIR_IDENTIFIER_CLIA,
       value: '05D1234567',
     });
@@ -235,6 +270,17 @@ describe('applyServiceFacilityInput', () => {
       identifier: [
         {
           system: FHIR_IDENTIFIER_NPI,
+          value: '1234567893',
+        },
+        {
+          type: {
+            coding: [
+              {
+                system: FHIR_IDENTIFIER_SYSTEM,
+                code: FHIR_IDENTIFIER_CODE_NPI,
+              },
+            ],
+          },
           value: '1234567893',
         },
         {
@@ -295,6 +341,17 @@ describe('applyServiceFacilityInput', () => {
           system: FHIR_IDENTIFIER_NPI,
           value: '1234567893',
         },
+        {
+          type: {
+            coding: [
+              {
+                system: FHIR_IDENTIFIER_SYSTEM,
+                code: FHIR_IDENTIFIER_CODE_NPI,
+              },
+            ],
+          },
+          value: '1234567893',
+        },
       ],
     };
     const location = applyServiceFacilityInput(
@@ -309,6 +366,24 @@ describe('applyServiceFacilityInput', () => {
     expect(updatedNpi).toEqual([
       {
         system: FHIR_IDENTIFIER_NPI,
+        value: '1245319599',
+      },
+    ]);
+    const updatedCodedNpi = (location.identifier ?? []).filter(
+      (identifier) =>
+        identifier.type?.coding?.[0].system === FHIR_IDENTIFIER_SYSTEM &&
+        identifier.type?.coding?.[0].code === FHIR_IDENTIFIER_CODE_NPI
+    );
+    expect(updatedCodedNpi).toEqual([
+      {
+        type: {
+          coding: [
+            {
+              system: FHIR_IDENTIFIER_SYSTEM,
+              code: FHIR_IDENTIFIER_CODE_NPI,
+            },
+          ],
+        },
         value: '1245319599',
       },
     ]);
@@ -347,6 +422,17 @@ describe('applyServiceFacilityInput', () => {
       system: FHIR_IDENTIFIER_NPI,
       value: '1234567893',
     });
+    expect(location.identifier).toContainEqual({
+      type: {
+        coding: [
+          {
+            system: FHIR_IDENTIFIER_SYSTEM,
+            code: FHIR_IDENTIFIER_CODE_NPI,
+          },
+        ],
+      },
+      value: '1234567893',
+    });
   });
 });
 
@@ -366,6 +452,17 @@ describe('mapServiceFacility', () => {
       identifier: [
         {
           system: FHIR_IDENTIFIER_NPI,
+          value: '1234567893',
+        },
+        {
+          type: {
+            coding: [
+              {
+                system: FHIR_IDENTIFIER_SYSTEM,
+                code: FHIR_IDENTIFIER_CODE_NPI,
+              },
+            ],
+          },
           value: '1234567893',
         },
         {
