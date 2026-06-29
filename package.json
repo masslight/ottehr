@@ -1,6 +1,6 @@
 {
   "name": "ottehr",
-  "version": "1.37.18",
+  "version": "1.37.19",
   "private": true,
   "packageManager": "npm@10.9.3",
   "engines": {
