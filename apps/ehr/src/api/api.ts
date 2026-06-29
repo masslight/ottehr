@@ -151,8 +151,6 @@ import {
   GetVisitLabelInput,
   HandleInHouseLabResultsParameters,
   HandleInHouseLabResultsZambdaOutput,
-  Icd10SearchRequestParams,
-  Icd10SearchResponse,
   ImmunizationQuickPickData,
   IncompleteEncountersReportZambdaInput,
   IncompleteEncountersReportZambdaOutput,
@@ -1536,22 +1534,6 @@ export const getOrCreateVisitDetailsPdf = async (
   try {
     const response = await oystehr.zambda.execute({
       id: VISIT_DETAILS_TO_PDF_ZAMBDA_ID,
-      ...parameters,
-    });
-    return chooseJson(response);
-  } catch (error: unknown) {
-    console.log(error);
-    throw error;
-  }
-};
-
-export const icd10Search = async (
-  oystehr: Oystehr,
-  parameters: Icd10SearchRequestParams
-): Promise<Icd10SearchResponse> => {
-  try {
-    const response = await oystehr.zambda.execute({
-      id: 'icd-10-search',
       ...parameters,
     });
     return chooseJson(response);
