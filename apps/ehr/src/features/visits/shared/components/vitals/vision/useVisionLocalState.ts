@@ -101,19 +101,13 @@ export function useVisionLocalState(): VisionLocalState {
     !leftEyeSelection &&
     !hasBothEyesValue &&
     !isChildTooYoungOptionSelected &&
-    (rightEyeSelection.length > 0 ||
-      isChildTooYoungOptionSelected ||
-      isWithGlassesOptionSelected ||
-      isWithoutGlassesOptionSelected);
+    (rightEyeSelection.length > 0 || isWithGlassesOptionSelected || isWithoutGlassesOptionSelected);
 
   const isRightEyeInvalid =
     !rightEyeSelection &&
     !hasBothEyesValue &&
     !isChildTooYoungOptionSelected &&
-    (leftEyeSelection.length > 0 ||
-      isChildTooYoungOptionSelected ||
-      isWithGlassesOptionSelected ||
-      isWithoutGlassesOptionSelected);
+    (leftEyeSelection.length > 0 || isWithGlassesOptionSelected || isWithoutGlassesOptionSelected);
 
   return {
     leftEyeSelection,
