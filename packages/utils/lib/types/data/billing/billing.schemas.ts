@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { BIRTH_SEXES, SUBSCRIBER_RELATIONSHIPS } from '../../../fhir/constants';
+import { INSURANCE_CANDID_PLAN_TYPE_CODES } from '../../../fhir/insurance';
 import { isCLIAValid, isNPIValidWithChecksum } from '../../../helpers/helpers';
 import { CMS_PLACE_OF_SERVICE_CODE_SET, CODE_SYSTEM_CLAIM_TYPE_CODE_NAMES } from '../../../helpers/rcm/constants';
 import { taxIdRegex, zipRegex } from '../../../validation';
@@ -494,6 +495,10 @@ const updateBillingResourceUnion = z.discriminatedUnion('resourceType', [
       coverageId: nonEmptyString.optional(),
       removeCoverage: z.boolean().optional(),
       payerId: nonEmptyString.optional(),
+      insuranceType: z
+        .string()
+        .refine((code) => INSURANCE_CANDID_PLAN_TYPE_CODES.includes(code), 'Invalid insurance type')
+        .optional(),
       diagnoses: z.array(claimDiagnosisSchema).optional(),
       serviceLines: z.array(claimServiceLineSchema).optional(),
     }),

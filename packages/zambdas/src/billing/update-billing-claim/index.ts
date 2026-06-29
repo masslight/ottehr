@@ -13,6 +13,7 @@ import {
   CODE_SYSTEM_OYSTEHR_RCM_CMS1500_REFERRING_PROVIDER_TYPE,
   FHIR_RESOURCE_NOT_FOUND,
   getPayerUrl,
+  setCoverageInsuranceTypeExtension,
 } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import {
@@ -47,7 +48,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 });
 
 // Only fields present in the request are touched.
-async function performEffect(oystehr: Oystehr, params: UpdateBillingClaimParams): Promise<{ id: string | undefined }> {
+export async function performEffect(
+  oystehr: Oystehr,
+  params: UpdateBillingClaimParams
+): Promise<{ id: string | undefined }> {
   switch (params.resourceType) {
     case 'Claim':
       return attachClaimResources(oystehr, params);
@@ -279,6 +283,14 @@ async function attachClaimResources(
   // Guarantee the Claim.insurance invariant regardless of which fields changed: keep the no-coverage
   // stub when there's no real coverage, and re-add it if a coverage was ever removed.
   claim.insurance = ensureClaimInsurance(claim.insurance);
+
+  if (fields.insuranceType) {
+    const focalCoverageRef = claim.insurance[0]?.coverage?.reference;
+    if (focalCoverageRef?.startsWith('Coverage/')) {
+      const coverage = await fetchById<Coverage>(oystehr, 'Coverage', focalCoverageRef.replace('Coverage/', ''));
+      await oystehr.fhir.update(setCoverageInsuranceTypeExtension(coverage, fields.insuranceType));
+    }
+  }
 
   return save(oystehr, claim);
 }

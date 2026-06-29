@@ -49,6 +49,7 @@ import {
   EXTENSION_URL_CPT_MODIFIER,
   FHIR_IDENTIFIER_NPI,
   FHIR_RESOURCE_NOT_FOUND,
+  getCandidPlanTypeCodeFromCoverage,
   getCoding,
   getNPIIdentifier,
   getPayerId,
@@ -64,6 +65,7 @@ import {
   Secrets,
   SecretsKeys,
   SERVICE_CATEGORY_SYSTEM,
+  setCoverageInsuranceTypeExtension,
   TIMEZONES,
   withArStageInitialization,
 } from 'utils';
@@ -708,10 +710,11 @@ export function copyCoverageAndSubscriber(
     }
   }
   copy.id = `urn:uuid:${workingCopy ? 'claim' : 'billing'}-coverage-${cleanedCoverageId}`;
+  const insuranceTypeCode = getCandidPlanTypeCodeFromCoverage(coverage);
   requests.push({
     method: 'POST',
     url: '/Coverage',
-    resource: copy,
+    resource: insuranceTypeCode ? setCoverageInsuranceTypeExtension(copy, insuranceTypeCode) : copy,
     fullUrl: copy.id,
   });
   order.push('coverage');

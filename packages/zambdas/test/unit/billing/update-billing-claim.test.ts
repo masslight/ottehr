@@ -1,0 +1,153 @@
+import Oystehr from '@oystehr/sdk';
+import { Claim, Coverage } from 'fhir/r4b';
+import { EXTENSION_CLAIM_INSURANCE_TYPE } from 'utils';
+import { describe, expect, it, vi } from 'vitest';
+import { performEffect } from '../../../src/billing/update-billing-claim/index';
+import { validateRequestParameters } from '../../../src/billing/update-billing-claim/validateRequestParameters';
+
+const claim: Claim = {
+  resourceType: 'Claim',
+  id: 'claim-1',
+  status: 'draft',
+  type: {
+    coding: [
+      {
+        code: 'professional',
+      },
+    ],
+  },
+  use: 'claim',
+  created: '2026-01-01',
+  patient: {
+    reference: 'Patient/p',
+  },
+  provider: {
+    display: 'Unknown',
+  },
+  priority: {
+    coding: [
+      {
+        code: 'normal',
+      },
+    ],
+  },
+  insurance: [
+    {
+      sequence: 1,
+      focal: true,
+      coverage: {
+        reference: 'Coverage/cov-1',
+      },
+    },
+  ],
+};
+
+const coverage: Coverage = {
+  resourceType: 'Coverage',
+  id: 'cov-1',
+  status: 'active',
+  beneficiary: {
+    reference: 'Patient/p',
+  },
+  payor: [
+    {
+      reference: 'Organization/o',
+    },
+  ],
+};
+
+const body = (fields: Record<string, unknown>): string =>
+  JSON.stringify({
+    resourceType: 'Claim',
+    resourceId: 'claim-1',
+    fields,
+  });
+
+describe('update-billing-claim validateRequestParameters', () => {
+  it('accepts a valid candid insurance type', () => {
+    const result = validateRequestParameters({
+      headers: null,
+      body: body({
+        insuranceType: '12',
+      }),
+      secrets: {},
+    });
+    expect(result).toMatchObject({
+      fields: {
+        insuranceType: '12',
+      },
+    });
+  });
+
+  it('rejects an unknown insurance type', () => {
+    expect(() =>
+      validateRequestParameters({
+        headers: null,
+        body: body({
+          insuranceType: 'ZZZ',
+        }),
+        secrets: {},
+      })
+    ).toThrow(/insurance type/i);
+  });
+});
+
+describe('update-billing-claim performEffect', () => {
+  it('sets the insurance-type extension on the focal coverage', async () => {
+    const search = vi
+      .fn()
+      .mockResolvedValueOnce({ unbundle: () => [structuredClone(claim)] })
+      .mockResolvedValueOnce({ unbundle: () => [structuredClone(coverage)] });
+    const update = vi.fn().mockImplementation((resource) => Promise.resolve(resource));
+    const oystehr = {
+      fhir: {
+        search,
+        update,
+      },
+    } as unknown as Oystehr;
+
+    await performEffect(oystehr, {
+      resourceType: 'Claim',
+      resourceId: 'claim-1',
+      fields: {
+        insuranceType: '12',
+      },
+      secrets: {},
+    });
+
+    expect(update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        resourceType: 'Coverage',
+        id: 'cov-1',
+        extension: expect.arrayContaining([
+          {
+            url: EXTENSION_CLAIM_INSURANCE_TYPE,
+            valueString: '12',
+          },
+        ]),
+      })
+    );
+  });
+
+  it('does not touch any coverage when no insurance type is provided', async () => {
+    const search = vi.fn().mockResolvedValueOnce({ unbundle: () => [structuredClone(claim)] });
+    const update = vi.fn().mockImplementation((resource) => Promise.resolve(resource));
+    const oystehr = {
+      fhir: {
+        search,
+        update,
+      },
+    } as unknown as Oystehr;
+
+    await performEffect(oystehr, {
+      resourceType: 'Claim',
+      resourceId: 'claim-1',
+      fields: {},
+      secrets: {},
+    });
+
+    expect(search).toHaveBeenCalledTimes(1);
+    expect(update).toHaveBeenCalledWith(expect.objectContaining({ resourceType: 'Claim' }));
+    expect(update).not.toHaveBeenCalledWith(expect.objectContaining({ resourceType: 'Coverage' }));
+  });
+});
