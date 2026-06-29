@@ -1456,6 +1456,7 @@ describe('create-billing-claim-from-encounter', () => {
       } as unknown as Oystehr;
       const wcAcct = structuredClone({ ...clinicalResources.account });
       wcAcct.type!.coding![0].code = 'WCOMPACCT';
+      delete wcAcct.coverage![0].priority;
       const cvo: ComplexValidationOutput = {
         clinicalResources: {
           accounts: [clinicalResources.account, wcAcct],
@@ -1954,6 +1955,7 @@ describe('create-billing-claim-from-encounter', () => {
       updatedAppointment.serviceCategory![0].coding![0].code = 'workers-comp';
       let updatedAccount = structuredClone(clinicalResources.account);
       updatedAccount.type!.coding![0].code = 'WCOMPACCT';
+      delete updatedAccount.coverage![0].priority;
       let updatedEncounter = structuredClone(clinicalResources.encounter);
       updatedEncounter.extension = [
         {
