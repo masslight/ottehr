@@ -24,6 +24,7 @@ const VitalsBMICard: React.FC<VitalsBMICardProps> = ({ current, historical, onDe
 
   const latestBMI = current[0]?.value;
   const label = `BMI (${BMI_UNIT})${latestBMI !== undefined ? ` ${formatBMI(latestBMI)}` : ''}`;
+  const currentIds = new Set(current.map((obs) => obs.resourceId));
 
   return (
     <Box sx={{ mt: 3 }} data-testid={dataTestIds.vitalsPage.bmiCard}>
@@ -58,16 +59,13 @@ const VitalsBMICard: React.FC<VitalsBMICardProps> = ({ current, historical, onDe
               currentEncounterObs={current}
               historicalObs={historical}
               isLoading={false}
-              historyElementCreator={(historyEntry) => {
-                const isCurrent = current.some((obs) => obs.resourceId === historyEntry.resourceId);
-                return (
-                  <VitalHistoryElement
-                    historyEntry={historyEntry}
-                    onDelete={isCurrent && !isReadOnly ? onDelete : undefined}
-                    dataTestId={dataTestIds.vitalsPage.bmiItem}
-                  />
-                );
-              }}
+              historyElementCreator={(historyEntry) => (
+                <VitalHistoryElement
+                  historyEntry={historyEntry}
+                  onDelete={currentIds.has(historyEntry.resourceId) && !isReadOnly ? onDelete : undefined}
+                  dataTestId={dataTestIds.vitalsPage.bmiItem}
+                />
+              )}
             />
           }
         />

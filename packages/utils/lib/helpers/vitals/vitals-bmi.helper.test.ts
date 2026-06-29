@@ -103,7 +103,7 @@ describe('vitals-bmi.helper', () => {
 
   describe('refused weight handling (documented behaviour)', () => {
     // When a patient refuses weight, VitalsWeightObservationDTO.value is undefined.
-    // saveBMIIfPossible guards with: if (!latestHeight?.value || !latestWeight?.value) return;
+    // saveBMI in useVitalsManagement guards with: if (!weightKg || !heightCm) return false;
     // calculateBMI is therefore never called with an undefined weight.
     // This test documents what would happen if the guard were missing.
     it('returns 0.0 for zero weight — illustrating why the caller must guard against undefined/0 weight', () => {

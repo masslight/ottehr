@@ -222,7 +222,7 @@ export const useVitalsManagement = ({ encounterId }: UseVitalsManagementProps): 
 
     const validVitals = validVitalsEntries
       .map(([_, { state }]) => state.getDTO())
-      .filter((dto) => dto !== null) as VitalsObservationDTO[];
+      .filter((dto): dto is NonNullable<typeof dto> => dto !== null);
 
     // Save valid vitals
     if (validVitals.length > 0) {
