@@ -13,7 +13,7 @@ import {
   CODE_SYSTEM_OYSTEHR_RCM_CMS1500_REFERRING_PROVIDER_TYPE,
   FHIR_RESOURCE_NOT_FOUND,
   getPayerUrl,
-  setCoverageInsuranceTypeExtension,
+  setCoverageInsuranceType,
 } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import {
@@ -288,7 +288,7 @@ async function attachClaimResources(
     const focalCoverageRef = claim.insurance[0]?.coverage?.reference;
     if (focalCoverageRef?.startsWith('Coverage/')) {
       const coverage = await fetchById<Coverage>(oystehr, 'Coverage', focalCoverageRef.replace('Coverage/', ''));
-      await oystehr.fhir.update(setCoverageInsuranceTypeExtension(coverage, fields.insuranceType));
+      await oystehr.fhir.update(setCoverageInsuranceType(coverage, fields.insuranceType));
     }
   }
 

@@ -1246,7 +1246,7 @@ describe('create-billing-claim-from-encounter', () => {
     });
   });
 
-  describe('insurance type extension', () => {
+  describe('insurance type', () => {
     const billingOystehr = {
       rcm: {
         constructPayerUrl: vi.fn().mockReturnValue('https://rcm-api.zapehr.com/v1/payer/payer-123'),
@@ -1259,7 +1259,7 @@ describe('create-billing-claim-from-encounter', () => {
         .resource;
     };
 
-    it('scoops the candid plan type from the source coverage onto the copy', () => {
+    it('mirrors the candid plan type from the source coverage onto the copy extension and type', () => {
       const result = copiedCoverage({
         ...clinicalResources.coverage,
         type: {
@@ -1276,11 +1276,16 @@ describe('create-billing-claim-from-encounter', () => {
         url: EXTENSION_CLAIM_INSURANCE_TYPE,
         valueString: '12',
       });
+      expect(result.type?.coding).toContainEqual({
+        system: CANDID_PLAN_TYPE_SYSTEM,
+        code: '12',
+      });
     });
 
-    it('adds no insurance-type extension when the source coverage has no candid plan type', () => {
+    it('adds no insurance type when the source coverage has no candid plan type', () => {
       const result = copiedCoverage(clinicalResources.coverage);
       expect(result.extension?.some((e) => e.url === EXTENSION_CLAIM_INSURANCE_TYPE)).toBe(false);
+      expect(result.type?.coding?.some((c) => c.system === CANDID_PLAN_TYPE_SYSTEM)).toBeFalsy();
     });
   });
 

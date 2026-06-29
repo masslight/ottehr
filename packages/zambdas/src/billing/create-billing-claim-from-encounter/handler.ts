@@ -65,7 +65,7 @@ import {
   Secrets,
   SecretsKeys,
   SERVICE_CATEGORY_SYSTEM,
-  setCoverageInsuranceTypeExtension,
+  setCoverageInsuranceType,
   TIMEZONES,
   withArStageInitialization,
 } from 'utils';
@@ -714,7 +714,7 @@ export function copyCoverageAndSubscriber(
   requests.push({
     method: 'POST',
     url: '/Coverage',
-    resource: insuranceTypeCode ? setCoverageInsuranceTypeExtension(copy, insuranceTypeCode) : copy,
+    resource: insuranceTypeCode ? setCoverageInsuranceType(copy, insuranceTypeCode) : copy,
     fullUrl: copy.id,
   });
   order.push('coverage');

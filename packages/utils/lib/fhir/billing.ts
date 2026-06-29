@@ -19,6 +19,7 @@ import {
   PatientPaymentBenefit,
 } from '../types';
 import { getNPI, getTaxID } from './helpers';
+import { CANDID_PLAN_TYPE_SYSTEM } from './insurance';
 
 export interface GetBillingProviderInput {
   appointmentId: string;
@@ -470,15 +471,26 @@ export const mapInsuranceTypeCodeToCandidCode = (insuranceTypeCode: string | und
   return INSURANCE_TYPE_CODE_TO_CANDID_CODE[insuranceTypeCode];
 };
 
-export const getCoverageInsuranceTypeExtension = (coverage?: Coverage): string | undefined =>
+export const getCoverageInsuranceType = (coverage?: Coverage): string | undefined =>
   coverage?.extension?.find((ext) => ext.url === EXTENSION_CLAIM_INSURANCE_TYPE)?.valueString;
 
-export const setCoverageInsuranceTypeExtension = (coverage: Coverage, candidCode: string): Coverage => {
-  const others = (coverage.extension ?? []).filter((ext) => ext.url !== EXTENSION_CLAIM_INSURANCE_TYPE);
+export const setCoverageInsuranceType = (coverage: Coverage, candidCode: string): Coverage => {
+  const otherExtensions = (coverage.extension ?? []).filter((ext) => ext.url !== EXTENSION_CLAIM_INSURANCE_TYPE);
+  const otherTypeCodings = (coverage.type?.coding ?? []).filter((coding) => coding.system !== CANDID_PLAN_TYPE_SYSTEM);
   return {
     ...coverage,
+    type: {
+      ...coverage.type,
+      coding: [
+        ...otherTypeCodings,
+        {
+          system: CANDID_PLAN_TYPE_SYSTEM,
+          code: candidCode,
+        },
+      ],
+    },
     extension: [
-      ...others,
+      ...otherExtensions,
       {
         url: EXTENSION_CLAIM_INSURANCE_TYPE,
         valueString: candidCode,

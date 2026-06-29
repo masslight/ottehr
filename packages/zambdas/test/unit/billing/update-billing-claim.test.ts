@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { Claim, Coverage } from 'fhir/r4b';
-import { EXTENSION_CLAIM_INSURANCE_TYPE } from 'utils';
+import { CANDID_PLAN_TYPE_SYSTEM, EXTENSION_CLAIM_INSURANCE_TYPE } from 'utils';
 import { describe, expect, it, vi } from 'vitest';
 import { performEffect } from '../../../src/billing/update-billing-claim/index';
 import { validateRequestParameters } from '../../../src/billing/update-billing-claim/validateRequestParameters';
@@ -93,7 +93,7 @@ describe('update-billing-claim validateRequestParameters', () => {
 });
 
 describe('update-billing-claim performEffect', () => {
-  it('sets the insurance-type extension on the focal coverage', async () => {
+  it('mirrors the insurance type onto the focal coverage extension and type', async () => {
     const search = vi
       .fn()
       .mockResolvedValueOnce({ unbundle: () => [structuredClone(claim)] })
@@ -125,6 +125,14 @@ describe('update-billing-claim performEffect', () => {
             valueString: '12',
           },
         ]),
+        type: expect.objectContaining({
+          coding: expect.arrayContaining([
+            {
+              system: CANDID_PLAN_TYPE_SYSTEM,
+              code: '12',
+            },
+          ]),
+        }),
       })
     );
   });
