@@ -33,6 +33,7 @@ import {
   PersistConsentInput,
   PresignUploadUrlResponse,
   SaveManagedPaperworkResponseInput,
+  SaveManagedPaperworkResponseOutput,
   SearchPlacesInput,
   SearchPlacesOutput,
   ServiceMode,
@@ -536,8 +537,10 @@ class API {
   ): Promise<QuestionnaireResponse> {
     try {
       const response = await zambdaClient.execute('save-managed-paperwork-response', input);
-      const jsonToUse = chooseJson(response);
-      return jsonToUse as QuestionnaireResponse;
+      // The zambda returns { questionnaireResponse }, so unwrap it rather than casting the
+      // wrapper straight to QuestionnaireResponse (which left `.item` undefined downstream).
+      const { questionnaireResponse } = chooseJson(response) as SaveManagedPaperworkResponseOutput;
+      return questionnaireResponse;
     } catch (error: unknown) {
       throw apiErrorToThrow(error);
     }
