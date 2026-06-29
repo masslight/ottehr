@@ -326,9 +326,11 @@ export const index = wrapHandler(
     const cptSuggestions: { code: string; description: string; reason: string }[] = [];
     const emCodeSuggestions: { code: string; description: string; upcodingSuggestion: string }[] = [];
 
-    // Validate ICD codes and get the descriptions for the codes
+    // Validate ICD codes and get the descriptions for the codes.
+    // Look the codes up concurrently but preserve the AI's original ordering: Promise.all
+    // keeps results in input order regardless of which lookup settles first.
     if (suggestions?.icdCodes) {
-      await Promise.all(
+      const validatedIcdCodes = await Promise.all(
         suggestions.icdCodes.map(async (code) => {
           const terminologyResponse = await oystehr.terminology.searchIcd10({
             query: code.code,
@@ -337,21 +339,25 @@ export const index = wrapHandler(
             strictMatch: true,
           });
           if (terminologyResponse.codes.length === 1) {
-            icdSuggestions.push({
+            return {
               code: code.code,
               description: terminologyResponse.codes[0].display,
               reason: code.reason,
-            });
-          } else {
-            console.log("Didn't get an ICD code", code.code);
+            };
           }
+          console.log("Didn't get an ICD code", code.code);
+          return null;
         })
       );
+      for (const entry of validatedIcdCodes) {
+        if (entry) icdSuggestions.push(entry);
+      }
     }
 
-    // Validate CPT codes and get the descriptions for the codes
+    // Validate CPT codes and get the descriptions for the codes.
+    // Same as above: concurrent lookups, but keep the AI's original ordering.
     if (suggestions?.cptCodes) {
-      await Promise.all(
+      const validatedCptCodes = await Promise.all(
         suggestions.cptCodes.map(async (code) => {
           const cptCode = code.code.split('-')[0]; // Remove modifiers before lookup
           const terminologyResponse = await oystehr?.terminology.searchCpt({
@@ -368,23 +374,27 @@ export const index = wrapHandler(
               strictMatch: true,
             });
             if (hcpcsSearchResponse.codes.length === 1) {
-              cptSuggestions.push({
+              return {
                 code: cptCode,
                 description: hcpcsSearchResponse.codes[0].display,
                 reason: code.reason,
-              });
-            } else {
-              console.log("Didn't get an CPT or HCPCS code", cptCode);
+              };
             }
+            console.log("Didn't get an CPT or HCPCS code", cptCode);
+            return null;
           } else if (terminologyResponse.codes.length === 1) {
-            cptSuggestions.push({
+            return {
               code: cptCode,
               description: terminologyResponse.codes[0].display,
               reason: code.reason,
-            });
+            };
           }
+          return null;
         })
       );
+      for (const entry of validatedCptCodes) {
+        if (entry) cptSuggestions.push(entry);
+      }
     }
 
     // Validate E&M codes and get the descriptions for the codes
