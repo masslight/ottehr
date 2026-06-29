@@ -163,6 +163,7 @@ export default function ClaimsList(): ReactElement {
       if (!oystehrZambda) return;
       setLoading(true);
       setError(null);
+      setSelected([]);
       try {
         const params: SearchBillingClaimsInput = {
           pageSize: pagination.pageSize,

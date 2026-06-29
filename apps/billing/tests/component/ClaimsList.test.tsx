@@ -45,11 +45,15 @@ vi.mock('@mui/x-data-grid-pro', () => ({
     isRowSelectable,
     rowSelectionModel = [],
     onRowSelectionModelChange,
+    paginationModel,
+    onPaginationModelChange,
   }: {
     rows: BillingClaimItem[];
     isRowSelectable?: (params: { row: BillingClaimItem }) => boolean;
     rowSelectionModel?: (string | number)[];
     onRowSelectionModelChange?: (model: (string | number)[]) => void;
+    paginationModel?: { page: number; pageSize: number };
+    onPaginationModelChange?: (model: { page: number; pageSize: number }) => void;
   }) => (
     <div>
       {rows.map((row) => (
@@ -66,6 +70,18 @@ vi.mock('@mui/x-data-grid-pro', () => ({
           }
         />
       ))}
+      <button
+        type="button"
+        aria-label="next page"
+        onClick={() =>
+          onPaginationModelChange?.({
+            page: (paginationModel?.page ?? 0) + 1,
+            pageSize: paginationModel?.pageSize ?? 25,
+          })
+        }
+      >
+        next page
+      </button>
     </div>
   ),
 }));
@@ -173,5 +189,20 @@ describe('ClaimsList — submit claims', () => {
         }
       )
     );
+  });
+
+  it('clears the selection when the claims reload (e.g. on page change)', async () => {
+    searchBillingClaimsMock.mockResolvedValue({
+      claims: [makeRow('c-ins', 'Insurable Patient', AR_STAGE.insurancePayer)],
+      total: 50,
+    });
+    renderList();
+
+    fireEvent.click(await screen.findByLabelText('select Insurable Patient'));
+    expect(await screen.findByRole('button', { name: 'Submit (1)' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'next page' }));
+
+    await waitFor(() => expect(screen.queryByRole('button', { name: /^Submit \(/ })).not.toBeInTheDocument());
   });
 });
