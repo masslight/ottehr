@@ -169,6 +169,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         oystehrToken
       );
       if (!patient?.id) throw new Error(`No patient has been found for encounter: ${encounter.id}`);
+      if (isPDFOnlyTask) {
+        pdfInfo.title = 'Patient Follow-up Note';
+      }
       console.log(`Creating visit note pdf docRef`);
       await makeVisitNotePdfDocumentReference(
         oystehr,
