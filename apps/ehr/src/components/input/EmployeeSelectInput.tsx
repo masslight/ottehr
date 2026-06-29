@@ -18,7 +18,9 @@ export const EmployeeSelectInput: React.FC<Props> = ({ name, label, multiple, re
   const { data: employees, isLoading } = useGetEmployeesWithDetails({ enabled: !!oystehrZambda });
   const options = (employees?.providers ?? [])
     .filter(filter ?? (() => true))
-    .map((prov) => ({ id: prov.id, name: prov.name }));
+    .map((prov) => ({ id: prov.id, name: prov.name }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+  console.log('EmployeeSelectInput options:', options, 'employees:', employees);
   return (
     <AutocompleteInput
       name={name}
