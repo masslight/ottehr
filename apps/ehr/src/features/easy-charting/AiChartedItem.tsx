@@ -130,6 +130,28 @@ export function AiChartedItem({
     return (
       <ClickAwayListener onClickAway={stopEditing}>
         <Stack spacing={0.5} sx={{ width: '100%', py: 0.25 }}>
+          {/* Polarity/option toggle (ROS denies↔reports, med "doesn't know dosage") sits ABOVE the
+              search box. The autocomplete dropdown opens downward (flip disabled below), so it can
+              never render on top of this checkbox and hide it — the bug where a down-opening list
+              covered "Patient denies (uncheck for reports)", leaving findings stuck as denies. */}
+          {checkboxOption && (
+            <FormControlLabel
+              sx={{ ml: 0 }}
+              control={
+                <Checkbox
+                  size="small"
+                  sx={{ p: 0.5 }}
+                  checked={optChecked}
+                  onChange={(e) => {
+                    setOptChecked(e.target.checked);
+                    // Toggle applies to the CURRENT item in place; it also carries to a replacement.
+                    checkboxOption.onChange(e.target.checked);
+                  }}
+                />
+              }
+              label={<Typography variant="caption">{checkboxOption.label}</Typography>}
+            />
+          )}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
             <Autocomplete
               open
@@ -141,6 +163,9 @@ export function AiChartedItem({
               clearOnBlur={false}
               disableClearable
               blurOnSelect
+              // Always open the option list downward (no flip): the toggle now lives above the box,
+              // so a downward list never covers it regardless of the item's position on screen.
+              slotProps={{ popper: { placement: 'bottom-start', modifiers: [{ name: 'flip', enabled: false }] } }}
               filterOptions={(x) => x}
               getOptionLabel={(o) => (typeof o === 'string' ? o : o.label)}
               inputValue={query}
@@ -203,24 +228,6 @@ export function AiChartedItem({
               </IconButton>
             )}
           </Box>
-          {checkboxOption && (
-            <FormControlLabel
-              sx={{ ml: 0 }}
-              control={
-                <Checkbox
-                  size="small"
-                  sx={{ p: 0.5 }}
-                  checked={optChecked}
-                  onChange={(e) => {
-                    setOptChecked(e.target.checked);
-                    // Toggle applies to the CURRENT item in place; it also carries to a replacement.
-                    checkboxOption.onChange(e.target.checked);
-                  }}
-                />
-              }
-              label={<Typography variant="caption">{checkboxOption.label}</Typography>}
-            />
-          )}
         </Stack>
       </ClickAwayListener>
     );
