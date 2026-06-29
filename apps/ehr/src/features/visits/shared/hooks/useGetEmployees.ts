@@ -24,8 +24,19 @@ const toProviderDetails = (employee: { profile: string; firstName: string; lastN
  */
 export const useGetEmployees = (options?: {
   enabled?: boolean;
-  filter?: (employee: EmployeeDetails) => boolean;
-}): UseQueryResult<EmployeesForAssignment | null, Error> => {
+}): Pick<UseQueryResult<EmployeesForAssignment | null, Error>, 'data' | 'isLoading' | 'isError' | 'error'> => {
+  const res = useGetEmployeesWithDetails({ enabled: options?.enabled ?? true });
+  const { data } = res;
+  const newData = {
+    providers: data?.providers.map(toProviderDetails) ?? [],
+    nonProviders: data?.nonProviders.map(toProviderDetails) ?? [],
+  };
+  return { ...res, data: newData };
+};
+
+export const useGetEmployeesWithDetails = (options?: {
+  enabled?: boolean;
+}): UseQueryResult<{ providers: EmployeeDetails[]; nonProviders: EmployeeDetails[] } | null, Error> => {
   const { oystehrZambda } = useApiClients();
 
   return useQuery({
@@ -35,18 +46,14 @@ export const useGetEmployees = (options?: {
       const getEmployeesRes = await getEmployees(oystehrZambda, { lite: true });
       const activeEmployees = getEmployeesRes.employees.filter((employee) => employee.status === 'Active');
 
-      const formattedProviders: ProviderDetails[] = activeEmployees
+      const formattedProviders: EmployeeDetails[] = activeEmployees
         .filter((employee) => employee.isProvider && !employee.isCustomerSupport)
-        .filter(options?.filter ?? (() => true))
-        .map(toProviderDetails)
         .filter((prov) => prov.name);
 
       // TODO: remove this once we have nurses role
       // const nonProviders = getEmployeesRes.employees.filter((employee) => !employee.isProvider);
-      const formattedNonProviders: ProviderDetails[] = activeEmployees
+      const formattedNonProviders: EmployeeDetails[] = activeEmployees
         .filter((employee) => !employee.isCustomerSupport)
-        .filter(options?.filter ?? (() => true))
-        .map(toProviderDetails)
         .filter((prov) => prov.name);
 
       return {

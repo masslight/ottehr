@@ -1,4 +1,4 @@
-import { useGetEmployees } from 'src/features/visits/shared/hooks/useGetEmployees';
+import { useGetEmployeesWithDetails } from 'src/features/visits/shared/hooks/useGetEmployees';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { EmployeeDetails } from 'utils';
 import { AutocompleteInput } from './AutocompleteInput';
@@ -15,8 +15,10 @@ type Props = {
 
 export const EmployeeSelectInput: React.FC<Props> = ({ name, label, multiple, required, size, dataTestId, filter }) => {
   const { oystehrZambda } = useApiClients();
-  const { data: employees, isLoading } = useGetEmployees({ enabled: !!oystehrZambda, filter });
-  const options = (employees?.providers ?? []).map((prov) => ({ id: prov.practitionerId, name: prov.name }));
+  const { data: employees, isLoading } = useGetEmployeesWithDetails({ enabled: !!oystehrZambda });
+  const options = (employees?.providers ?? [])
+    .filter(filter ?? (() => true))
+    .map((prov) => ({ id: prov.id, name: prov.name }));
   return (
     <AutocompleteInput
       name={name}
