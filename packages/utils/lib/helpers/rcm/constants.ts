@@ -8,6 +8,9 @@ export const EXTENSION_CLAIM_CONDITION_CODE = 'http://fhir-api.zapehr.com/extens
 export const EXTENSION_OUTSIDE_CHARGES = 'http://fhir-api.zapehr.com/extension/outside-charges';
 export const RAW_RESPONSE = 'http://fhir-api.zapehr.com/extension/raw-response';
 
+const BASE_OYSTEHR_RCM_CLAIM_EXTENSION_URL = 'https://extensions.fhir.oystehr.com';
+export const EXTENSION_CLAIM_INSURANCE_TYPE = `${BASE_OYSTEHR_RCM_CLAIM_EXTENSION_URL}/rcm-claim-insurance-type`;
+
 export const CODE_SYSTEM_CLAIM_TYPE = 'http://terminology.hl7.org/CodeSystem/claim-type';
 export const CODE_SYSTEM_PROCESS_PRIORITY = 'http://terminology.hl7.org/CodeSystem/processpriority';
 export const CODE_SYSTEM_CLAIM_INFORMATION_CATEGORY = 'http://terminology.hl7.org/CodeSystem/claiminformationcategory';

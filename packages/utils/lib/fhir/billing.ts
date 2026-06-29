@@ -2,6 +2,7 @@ import { Address, Coding, Coverage, CoverageEligibilityResponse, Location, Organ
 import {
   CODE_SYSTEM_CPT_MODIFIER,
   ELIGIBILITY_BENEFIT_CODES,
+  EXTENSION_CLAIM_INSURANCE_TYPE,
   EXTENSION_URL_CPT_MODIFIER,
   INSURANCE_PLAN_ID_CODING,
 } from '../main';
@@ -467,4 +468,21 @@ export const INSURANCE_TYPE_CODE_TO_CANDID_CODE: Record<string, string> = {
 export const mapInsuranceTypeCodeToCandidCode = (insuranceTypeCode: string | undefined): string | undefined => {
   if (!insuranceTypeCode) return undefined;
   return INSURANCE_TYPE_CODE_TO_CANDID_CODE[insuranceTypeCode];
+};
+
+export const getCoverageInsuranceTypeExtension = (coverage?: Coverage): string | undefined =>
+  coverage?.extension?.find((ext) => ext.url === EXTENSION_CLAIM_INSURANCE_TYPE)?.valueString;
+
+export const setCoverageInsuranceTypeExtension = (coverage: Coverage, candidCode: string): Coverage => {
+  const others = (coverage.extension ?? []).filter((ext) => ext.url !== EXTENSION_CLAIM_INSURANCE_TYPE);
+  return {
+    ...coverage,
+    extension: [
+      ...others,
+      {
+        url: EXTENSION_CLAIM_INSURANCE_TYPE,
+        valueString: candidCode,
+      },
+    ],
+  };
 };
