@@ -17,7 +17,7 @@ export interface ExternalMedication {
   directions: string | null;
   writtenDate: string | null;
   lastFillDate: string | null;
-  refills: string;
+  refills: string | null;
   quantity: number;
   /** If recognized via search, the matched eRx medication object for form pre-population */
   matchedMedication: ExtractObjectType<ErxSearchMedicationsResponse> | null;
