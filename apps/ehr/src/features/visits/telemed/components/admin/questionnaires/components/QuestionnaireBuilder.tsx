@@ -206,7 +206,7 @@ export const QuestionnaireBuilder: FC<QuestionnaireBuilderProps> = ({ initial, o
                 Test Form
               </RoundedButton>
             </Box>
-            <QuestionnairePreview questionnaire={questionnaire} />
+            <QuestionnairePreview questionnaire={fhirQuestionnaire} />
           </Paper>
           <QuestionnaireTestDialog
             open={testDialogOpen}

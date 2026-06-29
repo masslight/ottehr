@@ -601,6 +601,11 @@ export interface QuestionnaireFormPageProps {
   isLastPage?: boolean;
   saving?: boolean;
   submitLabel?: string;
+  /**
+   * Read-only preview mode: inputs are non-interactive and the Continue button advances pages
+   * without running validation. Used by the admin builder's inline form preview.
+   */
+  readOnly?: boolean;
 }
 
 export const QuestionnaireFormPage: FC<QuestionnaireFormPageProps> = ({
@@ -613,6 +618,7 @@ export const QuestionnaireFormPage: FC<QuestionnaireFormPageProps> = ({
   isLastPage,
   saving,
   submitLabel,
+  readOnly = false,
 }) => {
   // Watch all answers on this page so enableWhen conditions re-evaluate live as the user fills it
   // in. (Subscribing to the whole form is fine here — pages are small.)
@@ -627,7 +633,17 @@ export const QuestionnaireFormPage: FC<QuestionnaireFormPageProps> = ({
 
   return (
     <FormProvider {...methods}>
-      <form onSubmit={methods.handleSubmit(onSubmit)}>
+      <form
+        onSubmit={
+          readOnly
+            ? (e) => {
+                // Preview navigation: advance without validating the disabled fields.
+                e.preventDefault();
+                onSubmit(methods.getValues());
+              }
+            : methods.handleSubmit(onSubmit)
+        }
+      >
         {title && (
           <Typography variant="h5" sx={{ color: COLORS.primaryMain, fontWeight: 700, mb: 0.5 }}>
             {title}
@@ -639,13 +655,20 @@ export const QuestionnaireFormPage: FC<QuestionnaireFormPageProps> = ({
           </Typography>
         )}
 
-        <Grid container spacing={2}>
-          {items.map((item) => (
-            <Grid item xs={12} key={item.linkId}>
-              <QuestionnaireFormField item={item} control={methods.control} />
-            </Grid>
-          ))}
-        </Grid>
+        {/* In read-only preview mode the native fieldset disables every form control, and
+            pointer-events:none blocks the choice-card click handlers (which aren't native inputs). */}
+        <fieldset
+          disabled={readOnly}
+          style={{ border: 0, padding: 0, margin: 0, minWidth: 0, pointerEvents: readOnly ? 'none' : undefined }}
+        >
+          <Grid container spacing={2}>
+            {items.map((item) => (
+              <Grid item xs={12} key={item.linkId}>
+                <QuestionnaireFormField item={item} control={methods.control} />
+              </Grid>
+            ))}
+          </Grid>
+        </fieldset>
 
         <Box
           sx={{
@@ -674,7 +697,8 @@ export const QuestionnaireFormPage: FC<QuestionnaireFormPageProps> = ({
             type="submit"
             variant="contained"
             size="large"
-            disabled={saving}
+            // In preview mode the last page has nowhere to advance, so disable Continue there.
+            disabled={saving || (readOnly && isLastPage)}
             sx={{
               borderRadius: '50px',
               textTransform: 'none',
