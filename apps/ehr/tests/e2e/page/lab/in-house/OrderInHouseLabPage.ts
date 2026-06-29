@@ -74,6 +74,7 @@ export class OrderInHouseLabPage {
       .locator('li', { hasText: testName });
 
     await testOption.click();
+    await this.#page.keyboard.press('Escape');
   }
 
   async verifyCPTCode(CPTCode: string, testName: string): Promise<void> {
