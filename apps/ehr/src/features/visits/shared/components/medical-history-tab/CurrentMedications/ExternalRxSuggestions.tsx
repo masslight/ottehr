@@ -255,7 +255,7 @@ const ExternalMedicationItem: FC<ExternalMedicationItemProps> = ({ medication, o
   const dateParts = [
     medication.writtenDate ? `Prescribed: ${formatDateForDisplay(medication.writtenDate)}` : 'Prescribed: Date unknown',
     medication.lastFillDate ? `Last filled: ${formatDateForDisplay(medication.lastFillDate)}` : null,
-    medication.refills != null ? `${medication.refills} refills` : 'Refills unknown',
+    `${medication.refills} refills`,
   ].filter(Boolean);
   const dateLine = dateParts.join(' | ');
 
