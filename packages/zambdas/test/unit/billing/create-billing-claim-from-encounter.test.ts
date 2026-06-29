@@ -20,13 +20,14 @@ import {
   AR_STAGE,
   BILLING_RESOURCE_TAG,
   CLAIM_STATUS_TAG_SYSTEMS,
-  CODE_SYSTEM_APPOINTMENT_TYPE_TAG_SYSTEM,
   CODE_SYSTEM_CLAIM_TYPE,
   CODE_SYSTEM_CLAIM_TYPE_CODES,
   CODE_SYSTEM_CMS_PLACE_OF_SERVICE,
   CODE_SYSTEM_CPT,
   CODE_SYSTEM_CPT_MODIFIER,
   CODE_SYSTEM_PROCESS_PRIORITY,
+  CODE_SYSTEM_SERVICE_CATEGORY_CODES,
+  CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM,
   EXTENSION_URL_CPT_MODIFIER,
   FHIR_IDENTIFIER_NPI,
   FHIR_RESOURCE_NOT_FOUND,
@@ -256,6 +257,7 @@ const billingResources: {
   practitioner: Practitioner;
   billingProvider: Organization;
   autoAccidentTag: Basic;
+  billingService: Basic;
 } = {
   person: {
     resourceType: 'Person',
@@ -335,6 +337,10 @@ const billingResources: {
       { url: TAG_DESCRIPTION_URL, valueString: AUTO_ACCIDENT_TAG_DESCRIPTION },
       { url: TAG_IS_SYSTEM_TAG_URL, valueBoolean: true },
     ],
+  },
+  billingService: {
+    resourceType: 'Basic',
+    code: { text: 'urgent-care', coding: [{ system: CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM, code: 'urgent-care' }] },
   },
 };
 
@@ -706,6 +712,9 @@ describe('create-billing-claim-from-encounter', () => {
           })
           .mockResolvedValueOnce({
             unbundle: () => [],
+          })
+          .mockResolvedValueOnce({
+            unbundle: () => [],
           }),
         secrets: { DEFAULT_BILLING_RESOURCE: 'Organization/organization-123' },
         expectedError: null,
@@ -734,6 +743,7 @@ describe('create-billing-claim-from-encounter', () => {
             serviceFacility: undefined,
             subscribers: [],
             autoAccidentTag: undefined,
+            billingService: undefined,
           },
         },
       },
@@ -758,6 +768,9 @@ describe('create-billing-claim-from-encounter', () => {
           }),
         billingOystehrSearch: vi
           .fn()
+          .mockResolvedValueOnce({
+            unbundle: () => [],
+          })
           .mockResolvedValueOnce({
             unbundle: () => [],
           })
@@ -803,6 +816,7 @@ describe('create-billing-claim-from-encounter', () => {
             serviceFacility: undefined,
             subscribers: [],
             autoAccidentTag: undefined,
+            billingService: undefined,
           },
         },
       },
@@ -853,6 +867,10 @@ describe('create-billing-claim-from-encounter', () => {
           .mockResolvedValueOnce({
             // Auto accident tag
             unbundle: () => [billingResources.autoAccidentTag],
+          })
+          .mockResolvedValueOnce({
+            // Billing service
+            unbundle: () => [billingResources.billingService],
           }),
         secrets: { DEFAULT_BILLING_RESOURCE: 'Organization/organization-123' },
         expectedError: null,
@@ -881,6 +899,7 @@ describe('create-billing-claim-from-encounter', () => {
             serviceFacility: billingResources.location,
             subscribers: [billingResources.relatedPerson],
             autoAccidentTag: billingResources.autoAccidentTag,
+            billingService: billingResources.billingService,
           },
         },
       },
@@ -1142,7 +1161,11 @@ describe('create-billing-claim-from-encounter', () => {
       const coverages = claimOps
         .filter((o): o is BatchInputPostRequest<Coverage> => o.method === 'POST' && o.url === '/Coverage')
         .map((o) => o.resource);
-      const coverageRefs = getClaimCoveragesForEncounter('uc', [billingResources.account], coverages);
+      const coverageRefs = getClaimCoveragesForEncounter(
+        CODE_SYSTEM_SERVICE_CATEGORY_CODES['urgent-care'],
+        [billingResources.account],
+        coverages
+      );
       expect(coverageRefs).toHaveLength(1);
       expect(coverageRefs[0].coverageRef.reference).toEqual(coverages[0].id);
       expect(coverageRefs[0].payorRef).toEqual(coverages[0].payor[0]);
@@ -1173,7 +1196,11 @@ describe('create-billing-claim-from-encounter', () => {
       const claimCoverages = claimOps
         .filter((o): o is BatchInputPostRequest<Coverage> => o.method === 'POST' && o.url === '/Coverage')
         .map((o) => o.resource);
-      const coverageRefs = getClaimCoveragesForEncounter('uc', [accountCopy], claimCoverages);
+      const coverageRefs = getClaimCoveragesForEncounter(
+        CODE_SYSTEM_SERVICE_CATEGORY_CODES['urgent-care'],
+        [accountCopy],
+        claimCoverages
+      );
       expect(coverageRefs).toHaveLength(1);
       expect(coverageRefs[0].coverageRef.reference).toEqual(claimCoverages[0].id);
       expect(coverageRefs[0].payorRef).toEqual(claimCoverages[0].payor[0]);
@@ -1192,6 +1219,7 @@ describe('create-billing-claim-from-encounter', () => {
           { resource: { resourceType: 'RelatedPerson', id: 'claim-subscriber' } },
           { resource: { resourceType: 'Coverage', id: 'claim-coverage' } },
           { resource: { resourceType: 'Person', id: 'billing-person' } },
+          { resource: { resourceType: 'Basic', id: 'billing-service-basic' } },
           { resource: { resourceType: 'Claim', id: 'claim' } },
         ],
       });
@@ -1239,7 +1267,7 @@ describe('create-billing-claim-from-encounter', () => {
                 tag: [
                   { system: CURRENT_STATUS_TAG_SYSTEM, code: 'open' },
                   { system: CODE_SYSTEM_CLAIM_TYPE, code: CODE_SYSTEM_CLAIM_TYPE_CODES.professional },
-                  { system: CODE_SYSTEM_APPOINTMENT_TYPE_TAG_SYSTEM, code: 'urgent-care' },
+                  { system: CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM, code: 'urgent-care' },
                   { system: CLAIM_STATUS_TAG_SYSTEMS.arStage, code: AR_STAGE.insurancePayer },
                   { system: CLAIM_STATUS_TAG_SYSTEMS.insuranceArStatus, code: 'created' },
                 ],
@@ -1313,6 +1341,7 @@ describe('create-billing-claim-from-encounter', () => {
           { resource: { resourceType: 'RelatedPerson', id: 'other-claim-subscriber' } },
           { resource: { resourceType: 'Coverage', id: 'other-claim-coverage' } },
           { resource: { resourceType: 'Person', id: 'billing-person' } },
+          { resource: { resourceType: 'Basic', id: 'billing-service-basic' } },
           { resource: { resourceType: 'Claim', id: 'claim' } },
         ],
       });
@@ -1429,6 +1458,7 @@ describe('create-billing-claim-from-encounter', () => {
           { resource: { resourceType: 'Patient', id: 'claim-patient' } },
           { resource: { resourceType: 'Account', id: 'billing-account' } },
           { resource: { resourceType: 'Person', id: 'billing-person' } },
+          { resource: { resourceType: 'Basic', id: 'billing-service-basic' } },
           { resource: { resourceType: 'Claim', id: 'claim' } },
         ],
       });
@@ -1476,7 +1506,7 @@ describe('create-billing-claim-from-encounter', () => {
                 tag: [
                   { system: CURRENT_STATUS_TAG_SYSTEM, code: 'open' },
                   { system: CODE_SYSTEM_CLAIM_TYPE, code: CODE_SYSTEM_CLAIM_TYPE_CODES.professional },
-                  { system: CODE_SYSTEM_APPOINTMENT_TYPE_TAG_SYSTEM, code: 'urgent-care' },
+                  { system: CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM, code: 'urgent-care' },
                   { system: CLAIM_STATUS_TAG_SYSTEMS.arStage, code: AR_STAGE.patient },
                   { system: CLAIM_STATUS_TAG_SYSTEMS.patientArStatus, code: 'not-invoiced' },
                 ],
@@ -1582,6 +1612,7 @@ describe('create-billing-claim-from-encounter', () => {
           renderingProvider: billingResources.practitioner,
           serviceFacility: billingResources.location,
           subscribers: [billingResources.relatedPerson],
+          billingService: billingResources.billingService,
         },
       };
       const result = await performEffect(billingOystehr, cvo);
@@ -1598,7 +1629,7 @@ describe('create-billing-claim-from-encounter', () => {
                 tag: [
                   { system: CURRENT_STATUS_TAG_SYSTEM, code: 'open' },
                   { system: CODE_SYSTEM_CLAIM_TYPE, code: CODE_SYSTEM_CLAIM_TYPE_CODES.professional },
-                  { system: CODE_SYSTEM_APPOINTMENT_TYPE_TAG_SYSTEM, code: 'urgent-care' },
+                  { system: CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM, code: 'urgent-care' },
                   { system: CLAIM_STATUS_TAG_SYSTEMS.arStage, code: AR_STAGE.insurancePayer },
                   { system: CLAIM_STATUS_TAG_SYSTEMS.insuranceArStatus, code: 'created' },
                 ],
@@ -1676,7 +1707,7 @@ describe('create-billing-claim-from-encounter', () => {
         ]),
       });
     });
-    it('creates claim with correct appointment type', async () => {
+    it('creates claim with correct billing service', async () => {
       const txFn = vi.fn().mockResolvedValue({
         entry: [
           { resource: { resourceType: 'Patient', id: 'billing-patient' } },
@@ -1687,6 +1718,7 @@ describe('create-billing-claim-from-encounter', () => {
           { resource: { resourceType: 'RelatedPerson', id: 'claim-subscriber' } },
           { resource: { resourceType: 'Coverage', id: 'claim-coverage' } },
           { resource: { resourceType: 'Person', id: 'billing-person' } },
+          { resource: { resourceType: 'Basic', id: 'billing-service-basic' } },
           { resource: { resourceType: 'Claim', id: 'claim' } },
         ],
       });
@@ -1737,7 +1769,7 @@ describe('create-billing-claim-from-encounter', () => {
                 tag: [
                   { system: CURRENT_STATUS_TAG_SYSTEM, code: 'open' },
                   { system: CODE_SYSTEM_CLAIM_TYPE, code: CODE_SYSTEM_CLAIM_TYPE_CODES.professional },
-                  { system: CODE_SYSTEM_APPOINTMENT_TYPE_TAG_SYSTEM, code: 'urgent-care' },
+                  { system: CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM, code: 'urgent-care' },
                   { system: CLAIM_STATUS_TAG_SYSTEMS.arStage, code: AR_STAGE.insurancePayer },
                   { system: CLAIM_STATUS_TAG_SYSTEMS.insuranceArStatus, code: 'created' },
                 ],
@@ -1810,7 +1842,7 @@ describe('create-billing-claim-from-encounter', () => {
                 tag: [
                   { system: CURRENT_STATUS_TAG_SYSTEM, code: 'open' },
                   { system: CODE_SYSTEM_CLAIM_TYPE, code: CODE_SYSTEM_CLAIM_TYPE_CODES.professional },
-                  { system: CODE_SYSTEM_APPOINTMENT_TYPE_TAG_SYSTEM, code: 'workers-comp' },
+                  { system: CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM, code: 'workers-comp' },
                   { system: CLAIM_STATUS_TAG_SYSTEMS.arStage, code: AR_STAGE.insurancePayer },
                   { system: CLAIM_STATUS_TAG_SYSTEMS.insuranceArStatus, code: 'created' },
                 ],
@@ -1883,7 +1915,7 @@ describe('create-billing-claim-from-encounter', () => {
                 tag: [
                   { system: CURRENT_STATUS_TAG_SYSTEM, code: 'open' },
                   { system: CODE_SYSTEM_CLAIM_TYPE, code: CODE_SYSTEM_CLAIM_TYPE_CODES.professional },
-                  { system: CODE_SYSTEM_APPOINTMENT_TYPE_TAG_SYSTEM, code: 'occupational-medicine' },
+                  { system: CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM, code: 'occupational-medicine' },
                   { system: CLAIM_STATUS_TAG_SYSTEMS.arStage, code: AR_STAGE.nonInsurancePayer },
                   { system: CLAIM_STATUS_TAG_SYSTEMS.nonInsuranceArStatus, code: 'created' },
                 ],
@@ -1935,7 +1967,7 @@ describe('create-billing-claim-from-encounter', () => {
         ]),
       });
     });
-    it('creates claim without appointment type when it does not match enum', async () => {
+    it('creates claim with "non-system" billing service', async () => {
       const txFn = vi.fn().mockResolvedValue({
         entry: [
           { resource: { resourceType: 'Patient', id: 'billing-patient' } },
@@ -1946,6 +1978,7 @@ describe('create-billing-claim-from-encounter', () => {
           { resource: { resourceType: 'RelatedPerson', id: 'claim-subscriber' } },
           { resource: { resourceType: 'Coverage', id: 'claim-coverage' } },
           { resource: { resourceType: 'Person', id: 'billing-person' } },
+          { resource: { resourceType: 'Basic', id: 'billing-service-basic' } },
           { resource: { resourceType: 'Claim', id: 'claim' } },
         ],
       });
@@ -1995,8 +2028,8 @@ describe('create-billing-claim-from-encounter', () => {
               meta: {
                 tag: [
                   { system: CURRENT_STATUS_TAG_SYSTEM, code: 'open' },
-                  // { system: 'https://fhir.ottehr.com/CodeSystem/appointment-type', code: 'urgent-care' },
                   { system: CODE_SYSTEM_CLAIM_TYPE, code: CODE_SYSTEM_CLAIM_TYPE_CODES.professional },
+                  { system: CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM, code: 'shiatsu' },
                   { system: CLAIM_STATUS_TAG_SYSTEMS.arStage, code: AR_STAGE.patient },
                   { system: CLAIM_STATUS_TAG_SYSTEMS.patientArStatus, code: 'not-invoiced' },
                 ],
@@ -2060,6 +2093,7 @@ describe('create-billing-claim-from-encounter', () => {
           { resource: { resourceType: 'Coverage', id: 'claim-coverage' } },
           { resource: { resourceType: 'Person', id: 'billing-person' } },
           { resource: { resourceType: 'Basic', id: 'auto-accident-tag' } },
+          { resource: { resourceType: 'Basic', id: 'billing-service-basic' } },
           { resource: { resourceType: 'Claim', id: 'claim' } },
         ],
       });
@@ -2110,7 +2144,7 @@ describe('create-billing-claim-from-encounter', () => {
                 tag: [
                   { system: CURRENT_STATUS_TAG_SYSTEM, code: 'open' },
                   { system: CODE_SYSTEM_CLAIM_TYPE, code: CODE_SYSTEM_CLAIM_TYPE_CODES.professional },
-                  { system: CODE_SYSTEM_APPOINTMENT_TYPE_TAG_SYSTEM, code: 'urgent-care' },
+                  { system: CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM, code: 'urgent-care' },
                   { system: CLAIM_TAG_SYSTEM, code: AUTO_ACCIDENT_TAG_NAME },
                   { system: CLAIM_STATUS_TAG_SYSTEMS.arStage, code: AR_STAGE.patient },
                   { system: CLAIM_STATUS_TAG_SYSTEMS.patientArStatus, code: 'not-invoiced' },

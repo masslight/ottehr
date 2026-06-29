@@ -27,11 +27,10 @@ import {
   buildCoverageSubscriberRelatedPerson,
   ChargeItemDefinitionDefault,
   ChargeItemDefinitionType,
-  CODE_SYSTEM_APPOINTMENT_TYPE_CODES,
-  CODE_SYSTEM_APPOINTMENT_TYPE_TAG_SYSTEM,
   CODE_SYSTEM_CLAIM_TYPE,
   CODE_SYSTEM_CLAIM_TYPE_CODES,
   CODE_SYSTEM_COVERAGE_CLASS,
+  CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM,
   convertFhirNameToDisplayName,
   createCoverageMemberIdentifier,
   FHIR_IDENTIFIER_CODE_TAX_EMPLOYER,
@@ -464,15 +463,12 @@ export function getClaimTypeCoding(type?: keyof typeof CODE_SYSTEM_CLAIM_TYPE_CO
   return { system: CODE_SYSTEM_CLAIM_TYPE, code: type ?? CODE_SYSTEM_CLAIM_TYPE_CODES.professional };
 }
 
-export function getClaimAppointmentType(claim: Claim): keyof typeof CODE_SYSTEM_APPOINTMENT_TYPE_CODES | undefined {
-  const code = claim.meta?.tag?.find((c) => c.system === CODE_SYSTEM_APPOINTMENT_TYPE_TAG_SYSTEM)?.code;
+export function getClaimService(claim: Claim): string | undefined {
+  const code = claim.meta?.tag?.find((c) => c.system === CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM)?.code;
   if (!code) {
     return undefined;
   }
-  if (!Object.hasOwn(CODE_SYSTEM_APPOINTMENT_TYPE_CODES, code)) {
-    return undefined;
-  }
-  return code as keyof typeof CODE_SYSTEM_APPOINTMENT_TYPE_CODES;
+  return code;
 }
 
 // --- Coverage / insurance helpers ---
