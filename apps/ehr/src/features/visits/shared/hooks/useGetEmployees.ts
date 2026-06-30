@@ -70,7 +70,9 @@ export const useGetEmployeesWithDetails = (options?: {
       // const nonProviders = getEmployeesRes.employees.filter((employee) => !employee.isProvider);
       const formattedNonProviders: EmployeeDetails[] = activeEmployees
         .filter((employee) => !employee.isCustomerSupport)
-        .filter((prov) => prov.name);
+        .filter(
+          (employee) => Boolean(`${employee.firstName} ${employee.lastName}`.trim() || employee.name)
+        );
 
       return {
         providers: formattedProviders,
