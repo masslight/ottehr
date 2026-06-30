@@ -561,6 +561,10 @@ export const DeleteChargeItemDefinitionInputSchema = z.object({
   chargeItemDefinitionId: nonEmptyString.uuid(),
 });
 
+export const ImportEraInputSchema = z.object({
+  era: nonEmptyString,
+});
+
 export type GetClaimDetailInput = z.output<typeof GetClaimDetailInputSchema>;
 export type ExportClaimX12Input = z.output<typeof ExportClaimX12InputSchema>;
 export type GetEraDetailInput = z.output<typeof GetEraDetailInputSchema>;
@@ -601,3 +605,4 @@ export type DeleteChargeItemDefinitionInput = z.output<typeof DeleteChargeItemDe
 export type SearchServiceFacilitiesInput = z.output<typeof SearchServiceFacilitiesInputSchema>;
 export type SaveServiceFacilityInput = z.output<typeof SaveServiceFacilityInputSchema>;
 export type DeleteServiceFacilityInput = z.output<typeof DeleteServiceFacilityInputSchema>;
+export type ImportEraInput = z.output<typeof ImportEraInputSchema>;
