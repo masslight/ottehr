@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { Claim, Coverage } from 'fhir/r4b';
-import { CANDID_PLAN_TYPE_SYSTEM, EXTENSION_CLAIM_INSURANCE_TYPE } from 'utils';
+import { CANDID_PLAN_TYPE_SYSTEM, EXTENSION_CLAIM_INSURANCE_TYPE, getPayerUrl } from 'utils';
 import { describe, expect, it, vi } from 'vitest';
 import { performEffect } from '../../../src/billing/update-billing-claim/index';
 import { validateRequestParameters } from '../../../src/billing/update-billing-claim/validateRequestParameters';
@@ -119,6 +119,59 @@ describe('update-billing-claim performEffect', () => {
       expect.objectContaining({
         resourceType: 'Coverage',
         id: 'cov-1',
+        extension: expect.arrayContaining([
+          {
+            url: EXTENSION_CLAIM_INSURANCE_TYPE,
+            valueString: '12',
+          },
+        ]),
+        type: expect.objectContaining({
+          coding: expect.arrayContaining([
+            {
+              system: CANDID_PLAN_TYPE_SYSTEM,
+              code: '12',
+            },
+          ]),
+        }),
+      })
+    );
+  });
+
+  it('applies payer and insurance type to the focal coverage in a single fetch and update', async () => {
+    const search = vi
+      .fn()
+      .mockResolvedValueOnce({ unbundle: () => [structuredClone(claim)] })
+      .mockResolvedValueOnce({ unbundle: () => [structuredClone(coverage)] });
+    const update = vi.fn().mockImplementation((resource) => Promise.resolve(resource));
+    const oystehr = {
+      fhir: {
+        search,
+        update,
+      },
+    } as unknown as Oystehr;
+
+    await performEffect(oystehr, {
+      resourceType: 'Claim',
+      resourceId: 'claim-1',
+      fields: {
+        payerId: 'PAYER1',
+        insuranceType: '12',
+      },
+      secrets: {},
+    });
+
+    // Focal coverage is read once and written once, carrying both the payer and the insurance type.
+    expect(search).toHaveBeenCalledTimes(2);
+    const coverageUpdates = update.mock.calls.filter(([resource]) => resource.resourceType === 'Coverage');
+    expect(coverageUpdates).toHaveLength(1);
+    expect(coverageUpdates[0][0]).toEqual(
+      expect.objectContaining({
+        id: 'cov-1',
+        payor: [
+          {
+            reference: getPayerUrl('PAYER1'),
+          },
+        ],
         extension: expect.arrayContaining([
           {
             url: EXTENSION_CLAIM_INSURANCE_TYPE,

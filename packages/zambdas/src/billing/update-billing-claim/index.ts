@@ -31,7 +31,6 @@ import {
   setNpi,
   setTaxId,
   setTaxonomy,
-  sortClaimInsurance,
 } from '../shared';
 import { UpdateBillingClaimParams, validateRequestParameters } from './validateRequestParameters';
 
@@ -224,18 +223,6 @@ async function attachClaimResources(
     delete claim.insurer;
   }
 
-  if (fields.payerId) {
-    const payerUrl = getPayerUrl(fields.payerId);
-    // A payer is only meaningful with a real coverage; a stub-only claim stays uninsured.
-    if (claimHasRealCoverage(claim.insurance)) claim.insurer = { reference: payerUrl };
-    const coverageRef = sortClaimInsurance(claim)[0]?.coverage?.reference;
-    if (coverageRef?.startsWith('Coverage/')) {
-      const coverage = await fetchById<Coverage>(oystehr, 'Coverage', coverageRef.replace('Coverage/', ''));
-      coverage.payor = [{ reference: payerUrl }];
-      await oystehr.fhir.update(coverage);
-    }
-  }
-
   if (fields.diagnoses) {
     const seen = new Set<string>();
     claim.diagnosis = fields.diagnoses
@@ -284,11 +271,16 @@ async function attachClaimResources(
   // stub when there's no real coverage, and re-add it if a coverage was ever removed.
   claim.insurance = ensureClaimInsurance(claim.insurance);
 
-  if (fields.insuranceType) {
+  if (fields.payerId || fields.insuranceType) {
+    const payerUrl = fields.payerId ? getPayerUrl(fields.payerId) : undefined;
+    // A payer is only meaningful with a real coverage; a stub-only claim stays uninsured.
+    if (payerUrl && claimHasRealCoverage(claim.insurance)) claim.insurer = { reference: payerUrl };
     const focalCoverageRef = claim.insurance[0]?.coverage?.reference;
     if (focalCoverageRef?.startsWith('Coverage/')) {
-      const coverage = await fetchById<Coverage>(oystehr, 'Coverage', focalCoverageRef.replace('Coverage/', ''));
-      await oystehr.fhir.update(setCoverageInsuranceType(coverage, fields.insuranceType));
+      let coverage = await fetchById<Coverage>(oystehr, 'Coverage', focalCoverageRef.replace('Coverage/', ''));
+      if (payerUrl) coverage.payor = [{ reference: payerUrl }];
+      if (fields.insuranceType) coverage = setCoverageInsuranceType(coverage, fields.insuranceType);
+      await oystehr.fhir.update(coverage);
     }
   }
 
