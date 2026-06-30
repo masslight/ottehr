@@ -107,6 +107,14 @@ export const performEffect = async (
   const medicationOrders = medicationOrdersData?.orders.filter((order) => order.status !== 'cancelled');
 
   console.log('Chart data received');
+  const pharmacyId = additionalChartData?.prescribedMedications?.find((m) => m.pharmacyId)?.pharmacyId;
+  const erxPharmacy = pharmacyId
+    ? await oystehr.erx.getPharmacy({ pharmacyId }).catch((e) => {
+        console.error('Failed to fetch eRx pharmacy:', e);
+        return undefined;
+      })
+    : undefined;
+
   const { pdfInfo, attached } = await createDischargeSummaryPdf(
     {
       allChartData: {
@@ -116,6 +124,7 @@ export const performEffect = async (
       },
       appointmentPackage: visitResources,
       upcomingFollowUps,
+      erxPharmacy,
     },
     secrets,
     m2mToken

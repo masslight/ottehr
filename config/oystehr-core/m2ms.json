@@ -87,7 +87,7 @@
           "resource": ["RCM:InsuranceEligibility"]
         },
         {
-          "action": ["eRx:SearchPharmacy"],
+          "action": ["eRx:SearchPharmacy", "eRx:GetPharmacy"],
           "effect": "Allow",
           "resource": ["eRx:Pharmacy"]
         },

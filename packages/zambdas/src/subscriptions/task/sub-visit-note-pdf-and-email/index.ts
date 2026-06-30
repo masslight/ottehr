@@ -150,6 +150,14 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       // Check if we should skip making visit note visible in patient portal
       const skipVisitNoteInPatientPortal = FEATURE_FLAGS_CONFIG.skipSendingVisitNoteToPatientPortalEnabled;
 
+      const pharmacyId = additionalChartData?.prescribedMedications?.find((m) => m.pharmacyId)?.pharmacyId;
+      const erxPharmacy = pharmacyId
+        ? await oystehr.erx.getPharmacy({ pharmacyId }).catch((e) => {
+            console.error('Failed to fetch eRx pharmacy:', e);
+            return undefined;
+          })
+        : undefined;
+
       // Always create the PDF
       const { pdfInfo } = await createProgressNotePdf(
         {
@@ -164,6 +172,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
           appointmentPackage: visitResources,
           questionnaireResponse: visitResources.questionnaireResponse,
           upcomingFollowUps,
+          erxPharmacy,
         },
         secrets,
         oystehrToken

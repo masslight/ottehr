@@ -160,6 +160,7 @@ const composeProgressNoteData: DataComposer<ProgressNoteInput, ProgressNoteData>
     }),
     prescriptions: composePrescriptions({
       allChartData,
+      erxPharmacy: input.erxPharmacy,
     }),
     plan: composePlanData({
       allChartData,
