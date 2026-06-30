@@ -8,9 +8,8 @@ import {
 } from 'amazon-chime-sdk-component-library-react';
 import { RosterAttendeeType } from 'amazon-chime-sdk-component-library-react/lib/types';
 import { FC, useEffect, useMemo, useState } from 'react';
-import { getSelectors } from 'utils';
+import { getSelectors, selectActiveParticipant } from 'utils';
 import { useVideoCallStore } from '../../state/video-call/video-call.store';
-import { selectActiveParticipant } from './video-room.helpers';
 import { VideoControls } from './VideoControls';
 import { VideoTimer } from './VideoTimer';
 
@@ -26,17 +25,16 @@ export const VideoRoom: FC = () => {
   const videoCallState = getSelectors(useVideoCallStore, ['meetingData']);
 
   const [activeParticipant, setActiveParticipant] = useState<null | Participant>(null);
+  const localAttendeeId = (videoCallState.meetingData?.Attendee as { AttendeeId?: string } | undefined)?.AttendeeId;
 
   const participants = useMemo<Participant[]>(() => {
     return Object.keys(roster)
-      .filter(
-        (participantId) => (videoCallState.meetingData?.Attendee as { AttendeeId: string }).AttendeeId !== participantId
-      )
+      .filter((participantId) => participantId !== localAttendeeId)
       .map((participantId) => ({
         ...roster[participantId],
         tileId: attendeeIdToTileId[participantId],
       }));
-  }, [roster, videoCallState.meetingData?.Attendee, attendeeIdToTileId]);
+  }, [roster, localAttendeeId, attendeeIdToTileId]);
 
   useEffect(() => {
     setActiveParticipant((currentActiveParticipant) => selectActiveParticipant(participants, currentActiveParticipant));

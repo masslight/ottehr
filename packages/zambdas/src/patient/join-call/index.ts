@@ -1,14 +1,10 @@
 import Oystehr, { User } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Operation } from 'fast-json-patch';
 import { Appointment, Encounter, RelatedPerson } from 'fhir/r4b';
 import { decodeJwt, jwtVerify } from 'jose';
-import { JSONPath } from 'jsonpath-plus';
-import { DateTime } from 'luxon';
 import {
   CANNOT_JOIN_CALL_NOT_STARTED_ERROR,
   createOystehrClient,
-  FHIR_EXTENSION,
   getAppointmentResourceById,
   getParticipantIdFromAppointment,
   getRelatedPersonsForPatient,
@@ -32,6 +28,7 @@ import {
   wrapHandler,
   ZambdaInput,
 } from '../../shared';
+import { addUserToVideoEncounterIfNeeded } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'join-call';
@@ -107,10 +104,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     getSecret(SecretsKeys.PROJECT_API, secrets)
   );
 
-  let appointment: Appointment | undefined = undefined;
-
   console.log(`getting appointment resource for id ${appointmentId}`);
-  appointment = await getAppointmentResourceById(appointmentId, oystehr);
+  const appointment: Appointment | undefined = await getAppointmentResourceById(appointmentId, oystehr);
 
   if (!appointment) {
     console.log('Appointment is not found');
@@ -125,8 +120,11 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     throw new Error('Could not find the patient reference in appointment resource.'); // 500
   }
 
-  let videoEncounter: Encounter | undefined = undefined;
-  videoEncounter = await getVideoEncounterForAppointment(appointment.id || 'Unknown', oystehr);
+  if (!appointment.id) {
+    throw new Error(`Appointment resource returned without id for appointment ${appointmentId}`);
+  }
+
+  let videoEncounter: Encounter | undefined = await getVideoEncounterForAppointment(appointment.id, oystehr);
 
   console.log('Encounter status:', videoEncounter?.status);
 
@@ -139,7 +137,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     (ext) => ext.url === 'addressString' && typeof ext.valueString === 'string' && ext.valueString.length > 0
   );
 
-  if (!videoEncounter?.id || videoEncounter.status !== 'in-progress' || !virtualServiceExt || !hasMeetingAddress) {
+  if (!videoEncounter?.id || videoEncounter.status !== 'in-progress' || !hasMeetingAddress) {
     return lambdaResponse(400, CANNOT_JOIN_CALL_NOT_STARTED_ERROR);
   }
 
@@ -190,13 +188,13 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   }
 
   const userToken = isInvitedParticipant ? oystehrToken : jwt;
-  let joinCallResponse: JoinCallResponse;
-
   try {
-    joinCallResponse = (await oystehr.telemed.joinMeeting(
+    const joinCallResponse = (await oystehr.telemed.joinMeeting(
       { encounterId: videoEncounter.id, anonymous: isInvitedParticipant },
       { accessToken: userToken }
     )) as JoinCallResponse;
+
+    return lambdaResponse(200, joinCallResponse);
   } catch (error: any) {
     console.error('Error joining telemed meeting:', error);
 
@@ -213,115 +211,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     throw error;
   }
-
-  return lambdaResponse(200, joinCallResponse);
 });
-
-async function addUserToVideoEncounterIfNeeded(
-  encounter: Encounter,
-  fhirOtherParticipantRef: string | undefined,
-  fhirRelatedPersonRefs: string[],
-  oystehr: Oystehr
-): Promise<Encounter> {
-  try {
-    const otherParticipantsIdx = (encounter.extension ?? []).findIndex(
-      (ext) => ext.url === FHIR_EXTENSION.Encounter.otherParticipants.url
-    );
-
-    const otherParticipantExt = otherParticipantsIdx >= 0 ? encounter.extension?.[otherParticipantsIdx] : undefined;
-    const filter = FHIR_EXTENSION.Encounter.otherParticipants.extension.otherParticipant.url;
-    const path = `$.extension[?(@.url == '${filter}')].extension[?(@.url == 'reference')].valueReference.reference`;
-    const otherParticipantsDenormalized = JSONPath({ path: path, json: otherParticipantExt ?? {} });
-
-    console.log('otherParticipantsDenormalized:', otherParticipantsDenormalized);
-
-    const updateOperations: Operation[] = [];
-
-    if (fhirOtherParticipantRef) {
-      const newOtherParticipantEntry = {
-        url: FHIR_EXTENSION.Encounter.otherParticipants.extension.otherParticipant.url,
-        extension: [
-          {
-            url: 'period',
-            valuePeriod: {
-              start: DateTime.now().toUTC().toISO(),
-            },
-          },
-          {
-            url: 'reference',
-            valueReference: {
-              reference: fhirOtherParticipantRef,
-            },
-          },
-        ],
-      };
-
-      if (otherParticipantsDenormalized.includes(fhirOtherParticipantRef)) {
-        console.log(`User '${fhirOtherParticipantRef}' is already added to the participant list.`);
-      } else if (otherParticipantsIdx >= 0) {
-        // Targeted patch into the existing container avoids the lost-update race of replacing /extension.
-        updateOperations.push({
-          op: 'add',
-          path: `/extension/${otherParticipantsIdx}/extension/-`,
-          value: newOtherParticipantEntry,
-        });
-      } else {
-        const newOtherParticipants = {
-          url: FHIR_EXTENSION.Encounter.otherParticipants.url,
-          extension: [newOtherParticipantEntry],
-        };
-
-        updateOperations.push({
-          op: 'add',
-          path: encounter.extension ? '/extension/-' : '/extension',
-          value: encounter.extension ? newOtherParticipants : [newOtherParticipants],
-        });
-      }
-    } else {
-      console.log('Encounter other-participants extension will not be updated.');
-    }
-
-    const existingParticipantRefs = new Set(
-      (encounter.participant ?? []).map((p) => p.individual?.reference).filter((r): r is string => !!r)
-    );
-
-    const refsToAdd = fhirRelatedPersonRefs.filter((ref) => !existingParticipantRefs.has(ref));
-
-    if (!refsToAdd.length) {
-      console.log('Encounter.participant list will not be updated.');
-    } else {
-      console.log(`Adding ${refsToAdd.join(', ')} to Encounter.participant.`);
-      const participants = [
-        ...(encounter.participant ?? []),
-        ...refsToAdd.map((ref) => ({ individual: { reference: ref } })),
-      ];
-
-      updateOperations.push({
-        op: encounter.participant ? 'replace' : 'add',
-        path: '/participant',
-        value: participants,
-      });
-    }
-
-    if (updateOperations.length > 0) {
-      console.log(JSON.stringify(updateOperations, null, 4));
-
-      const updatedEncounter = await oystehr.fhir.patch<Encounter>({
-        resourceType: 'Encounter',
-        id: encounter.id ?? '',
-        operations: updateOperations,
-      });
-
-      return updatedEncounter;
-    } else {
-      console.log('Nothing to update for the encounter.');
-      return encounter;
-    }
-  } catch (err) {
-    console.error('Error while trying to update video encounter with user participant', err);
-    throw err;
-  }
-}
 
 async function getInvitedParticipantRef(
   subject: string,
@@ -338,17 +228,13 @@ export function findInvitedParticipantRefBySubject(
 ): string | undefined {
   const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   const isEmail = emailPattern.test(subject);
-  const telecomSystem = isEmail ? 'email' : 'phone';
-
-  const telecom: string[] = JSONPath({
-    path: `$..telecom[?(@.system == "${telecomSystem}")].value`,
-    json: relatedPersons,
-  });
-
-  console.log(`${isEmail ? 'Email addresses' : 'Phone numbers'} that were invited:`, telecom);
+  const telecomSystems = isEmail ? ['email'] : ['phone', 'sms'];
 
   const relatedPerson = relatedPersons.find((rp) => {
-    return rp.telecom?.some((telecomTemp) => telecomTemp.system === telecomSystem && telecomTemp.value === subject);
+    return rp.telecom?.some(
+      (telecomTemp) =>
+        telecomTemp.system && telecomSystems.includes(telecomTemp.system) && telecomTemp.value === subject
+    );
   });
 
   return relatedPerson?.id ? `RelatedPerson/${relatedPerson.id}` : undefined;

@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { SelectableVideoParticipant, selectActiveParticipant } from './video-room.helpers';
+import { SelectableVideoParticipant, selectActiveParticipant } from './video-room';
 
 describe('selectActiveParticipant', () => {
   const participant = (chimeAttendeeId: string, tileId?: number): SelectableVideoParticipant => ({
