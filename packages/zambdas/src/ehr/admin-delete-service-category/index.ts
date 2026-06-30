@@ -1,7 +1,7 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { HealthcareService } from 'fhir/r4b';
 import { INVALID_INPUT_ERROR, MISSING_REQUEST_BODY, MISSING_REQUIRED_PARAMETERS } from 'utils';
-import { wrapHandler, ZambdaInput } from '../../shared';
+import { safeJsonParse, wrapHandler, ZambdaInput } from '../../shared';
 import { getClient } from '../admin-service-categories/helpers';
 
 interface AdminDeleteServiceCategoryInput {
@@ -12,7 +12,7 @@ const validateRequestParameters = (input: ZambdaInput): AdminDeleteServiceCatego
   if (!input.body) throw MISSING_REQUEST_BODY;
   let parsed: { serviceCategoryId?: unknown };
   try {
-    parsed = JSON.parse(input.body);
+    parsed = safeJsonParse(input.body);
   } catch {
     throw INVALID_INPUT_ERROR('Request body must be valid JSON');
   }

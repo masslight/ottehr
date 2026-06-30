@@ -4,8 +4,8 @@ import { Claim, Coverage, Location, Organization, Patient, Practitioner, Resourc
 import {
   BillingClaimItem,
   CLAIM_STATUS_TAG_SYSTEMS,
-  CODE_SYSTEM_APPOINTMENT_TYPE_TAG_SYSTEM,
   CODE_SYSTEM_CLAIM_TYPE,
+  CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM,
   getClaimStatusValues,
   getPayerId,
   getPayerUrl,
@@ -17,7 +17,7 @@ import {
   CURRENT_STATUS_TAG_SYSTEM,
   fhirName,
   findRef,
-  getClaimAppointmentType,
+  getClaimService,
   getClaimStatus,
   getClaimType,
   resolvePayersByRef,
@@ -71,8 +71,8 @@ async function performEffect(
   if (params.createdFrom) searchParams.push({ name: 'created', value: `ge${params.createdFrom}` });
   if (params.createdTo) searchParams.push({ name: 'created', value: `le${params.createdTo}` });
   if (params.patientId) searchParams.push({ name: 'patient', value: `Patient/${params.patientId}` });
-  if (params.appointmentType)
-    searchParams.push({ name: '_tag', value: `${CODE_SYSTEM_APPOINTMENT_TYPE_TAG_SYSTEM}|${params.appointmentType}` });
+  if (params.service)
+    searchParams.push({ name: '_tag', value: `${CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM}|${params.service}` });
   if (params.searchText) searchParams.push({ name: 'patient.name', value: params.searchText });
   if (insurerFilter) searchParams.push({ name: 'insurer', value: insurerFilter });
   if (params.tag) searchParams.push({ name: '_tag', value: `${CLAIM_TAG_SYSTEM}|${params.tag}` });
@@ -146,7 +146,7 @@ function mapClaimToItem(claim: Claim, lookups: ClaimLookups): BillingClaimItem {
     payerName: insurer?.name ?? '',
     payerId: getPayerId(insurer) ?? '',
     memberId: coverage?.subscriberId ?? '',
-    appointmentType: getClaimAppointmentType(claim),
+    service: getClaimService(claim),
     serviceDate,
     facility: facility?.name ?? '',
     renderingProvider: practName,

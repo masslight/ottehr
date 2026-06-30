@@ -1,5 +1,6 @@
-import { INVALID_INPUT_ERROR, MISSING_REQUEST_BODY, MISSING_REQUIRED_PARAMETERS } from 'utils';
-import { ZambdaInput } from '../../../shared';
+import { MISSING_REQUEST_BODY } from 'utils';
+import { z } from 'zod';
+import { safeJsonParse, safeValidate, ZambdaInput } from '../../../shared';
 
 export interface CmDeleteProcedureCodeParams {
   chargeMasterId: string;
@@ -7,20 +8,17 @@ export interface CmDeleteProcedureCodeParams {
   secrets: ZambdaInput['secrets'];
 }
 
+const CmDeleteProcedureCodeBodySchema = z.object({
+  chargeMasterId: z.string().uuid(),
+  index: z.number().int().min(0),
+});
+
 export function validateRequestParameters(input: ZambdaInput): CmDeleteProcedureCodeParams {
   if (!input.body) {
     throw MISSING_REQUEST_BODY;
   }
 
-  const { chargeMasterId, index } = JSON.parse(input.body);
-
-  if (!chargeMasterId) {
-    throw MISSING_REQUIRED_PARAMETERS(['chargeMasterId']);
-  }
-
-  if (index == null || typeof index !== 'number' || index < 0) {
-    throw INVALID_INPUT_ERROR('"index" must be a non-negative number');
-  }
+  const { chargeMasterId, index } = safeValidate(CmDeleteProcedureCodeBodySchema, safeJsonParse(input.body));
 
   return {
     chargeMasterId,

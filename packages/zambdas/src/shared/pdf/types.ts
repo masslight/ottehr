@@ -947,6 +947,7 @@ export interface VitalsDataInDischargeSummary extends PdfData {
     weight?: string;
     height?: string;
     vision?: string;
+    dotVisionScreening?: string[];
     lastMenstrualPeriod?: string;
   };
 }
@@ -967,6 +968,7 @@ export interface DischargeSummaryData extends PdfData {
   inHouseMedications: InHouseMedicationsDataForDischargeSummary;
   erxMedications?: ErxMedicationsData;
   diagnoses?: DiagnosesData;
+  procedures?: Procedures;
   patientInstructions?: PatientInstructionsData;
   educationDocuments?: EducationDocumentsData;
   disposition: DispositionData;
@@ -1094,6 +1096,7 @@ export interface DischargeSummaryData extends PdfData {
   inHouseMedications: InHouseMedicationsDataForDischargeSummary;
   erxMedications?: ErxMedicationsData;
   diagnoses?: DiagnosesData;
+  procedures?: Procedures;
   patientInstructions?: PatientInstructionsData;
   educationDocuments?: EducationDocumentsData;
   disposition: DispositionData;

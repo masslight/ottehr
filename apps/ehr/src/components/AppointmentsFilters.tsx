@@ -8,6 +8,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { PROVIDERS_FILTER } from 'src/shared/utils';
 import { AppointmentType, BOOKING_CONFIG, MAX_APPOINTMENT_SEARCH_RANGE_DAYS } from 'utils';
+import { useMergedServiceCategories } from '../hooks/useMergedServiceCategories';
 import { DateInput } from './input/DateInput';
 import { EmployeeSelectInput } from './input/EmployeeSelectInput';
 import { LocationSelectInput } from './input/LocationSelectInput';
@@ -127,6 +128,7 @@ const getPersistedDateRange = (): Pick<AppointmentsFilterValues, 'dateFrom' | 'd
 
 export default function AppointmentsFilters(): ReactElement {
   const visitTypeToLabel = useMemo(() => getVisitTypeToLabel(), []);
+  const serviceCategories = useMergedServiceCategories();
 
   const methods = useForm<AppointmentsFilterValues>({ defaultValues: defaultFilterValues, mode: 'onChange' });
   const [searchParams, setSearchParams] = useSearchParams();
@@ -295,11 +297,8 @@ export default function AppointmentsFilters(): ReactElement {
               <SelectInput
                 name="serviceCategory"
                 label="Service Category"
-                options={BOOKING_CONFIG.serviceCategories.map((sc) => sc.category.code)}
-                getOptionLabel={(option) =>
-                  BOOKING_CONFIG.serviceCategories.find((sc) => sc.category.code === option)?.category.display ??
-                  'Unknown'
-                }
+                options={serviceCategories.map((sc) => sc.code)}
+                getOptionLabel={(option) => serviceCategories.find((sc) => sc.code === option)?.display ?? 'Unknown'}
                 size="medium"
                 multiple
               />
@@ -352,14 +351,7 @@ export default function AppointmentsFilters(): ReactElement {
               />
             </Box>
             <Box sx={{ flex: 1, width: '100%' }}>
-              <EmployeeSelectInput
-                name="provider"
-                label="Provider"
-                filter={PROVIDERS_FILTER}
-                includeScheduleOwners
-                size="medium"
-                multiple
-              />
+              <EmployeeSelectInput name="provider" label="Provider" filter={PROVIDERS_FILTER} size="medium" multiple />
             </Box>
           </Stack>
         </Stack>

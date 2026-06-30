@@ -31,6 +31,7 @@ import { useErrorQuery } from 'utils/lib/frontend';
 import { listScheduleOwners } from '../api/api';
 import { dataTestIds } from '../constants/data-test-ids';
 import { useApiClients } from '../hooks/useAppClients';
+import { BooleanStateChip } from './BooleanStateChip';
 import { EditSupportPhoneDialog } from './EditSupportPhoneDialog';
 import Loading from './Loading';
 
@@ -273,6 +274,7 @@ export const ScheduleInformation = ({ scheduleType }: ScheduleInformationProps):
                 <TableCell sx={{ fontWeight: 'bold', width: '20%' }}>Today&apos;s hours</TableCell>
                 <TableCell sx={{ fontWeight: 'bold', width: '20%' }}>Upcoming schedule changes</TableCell>
                 {isLocationTab && <TableCell sx={{ fontWeight: 'bold', width: '20%' }}>Support phone</TableCell>}
+                {isLocationTab && <TableCell sx={{ fontWeight: 'bold', width: '10%' }}>Active</TableCell>}
               </TableRow>
             </TableHead>
             <TableBody>
@@ -333,6 +335,16 @@ export const ScheduleInformation = ({ scheduleType }: ScheduleInformationProps):
                             </IconButton>
                           )}
                         </Box>
+                      </TableCell>
+                    )}
+                    {isLocationTab && (
+                      <TableCell align="left">
+                        {isLocationRow && (
+                          <BooleanStateChip
+                            state={item.owner.active === true}
+                            label={item.owner.active ? 'Yes' : 'No'}
+                          />
+                        )}
                       </TableCell>
                     )}
                   </TableRow>

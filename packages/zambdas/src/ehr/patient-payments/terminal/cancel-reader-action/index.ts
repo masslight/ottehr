@@ -13,6 +13,7 @@ import {
   getAuth0Token,
   getStripeClient,
   lambdaResponse,
+  safeJsonParse,
   wrapHandler,
   ZambdaInput,
 } from '../../../../shared';
@@ -52,7 +53,7 @@ const validateRequestParameters = (input: ZambdaInput): CancelTerminalReaderActi
     throw MISSING_REQUEST_BODY;
   }
 
-  const { encounterId, readerId } = JSON.parse(input.body);
+  const { encounterId, readerId } = safeJsonParse(input.body);
 
   const missingParams: string[] = [];
   if (!encounterId) {

@@ -34,12 +34,19 @@ const INPERSON_PREBOOK_CAPABLE_COUNT = BOOKING_CONFIG.serviceCategories.filter((
 test.describe('Prebook deeplink flows', () => {
   let testLocationManager: TestLocationManager;
   let locationSlug: string;
+  let locationName: string;
+  let groupName: string;
 
-  // Setup: Create a Location-actored prebook test schedule. The Location's
-  // slug is what `bookingOn=` in the URL resolves through, so we pull it
-  // off the persisted Location's identifier rather than reconstructing it
-  // from the worker id (avoids drift if the fixture's slug derivation ever
-  // changes).
+  // Setup: Create a Location-actored prebook test schedule AND a Group
+  // (HealthcareService) booking fixture. Both are needed because the
+  // picker-filter tests below assert what the dropdown surfaces when the URL
+  // has scheduleType absent vs. =group — we have to have both types of
+  // bookable entity in play for either assertion to be meaningful (a
+  // "Locations only" assertion is trivially true if no Group exists). The
+  // Location's slug is what `bookingOn=` in the URL resolves through, so we
+  // pull it off the persisted Location's identifier rather than
+  // reconstructing it from the worker id (avoids drift if the fixture's
+  // slug derivation ever changes).
   test.beforeAll(async () => {
     const shortTimestamp = Date.now().toString(36).slice(-6);
     const randomSuffix = Math.random().toString(36).slice(2, 8);
@@ -55,7 +62,18 @@ test.describe('Prebook deeplink flows', () => {
       throw new Error(`Test location ${location.id} is missing a SLUG_SYSTEM identifier — fixture broken`);
     }
     locationSlug = slugIdentifier;
+    if (!location.name) {
+      throw new Error(`Test location ${location.id} is missing a name — fixture broken`);
+    }
+    locationName = location.name;
     console.log(`✓ Created prebook in-person location with slug: ${locationSlug}`);
+
+    const groupFixture = await testLocationManager.ensurePrebookInPersonGroupWithSlots();
+    if (!groupFixture.healthcareService.name) {
+      throw new Error(`Test group ${groupFixture.healthcareService.id} is missing a name — fixture broken`);
+    }
+    groupName = groupFixture.healthcareService.name;
+    console.log(`✓ Created prebook in-person group: ${groupName}`);
   });
 
   test.afterAll(async () => {
@@ -134,5 +152,48 @@ test.describe('Prebook deeplink flows', () => {
     const firstAvailable = page.getByText('First available time');
     await expect(firstAvailable).toBeVisible({ timeout: 20000 });
     console.log('✓ First available time text visible — booking page rendered');
+  });
+
+  // Picker-filter tests. Production users have bookmarked /prebook URLs that
+  // predate Groups as a bookable entity; those URLs landed on a Location-only
+  // picker. After Groups were added to list-bookables' in-person response,
+  // those bookmarks would have silently started surfacing Groups alongside
+  // Locations unless the front end filtered. These tests pin the filter so a
+  // future refactor can't reintroduce the regression.
+  test('Picker without scheduleType param shows only Locations (back-compat default)', async ({ page }) => {
+    await page.goto('/prebook/in-person', { waitUntil: 'networkidle' });
+
+    // Open the Autocomplete dropdown — MUI renders the input as combobox
+    // and the dropdown items as option role. Generic role selectors keep
+    // the test from depending on internal test-id imports.
+    const combobox = page.getByRole('combobox').first();
+    await combobox.click();
+    await page.locator('[role="listbox"]').waitFor({ state: 'visible', timeout: 20000 });
+
+    const optionTexts = await page.getByRole('option').allTextContents();
+    console.log(`Picker options (no scheduleType): ${JSON.stringify(optionTexts)}`);
+
+    const hasLocation = optionTexts.some((t) => t.includes(locationName));
+    const hasGroup = optionTexts.some((t) => t.includes(groupName));
+    expect(hasLocation).toBe(true);
+    expect(hasGroup).toBe(false);
+    console.log('✓ Picker showed Location but not Group');
+  });
+
+  test('Picker with scheduleType=group shows only Groups (symmetric)', async ({ page }) => {
+    await page.goto('/prebook/in-person?scheduleType=group', { waitUntil: 'networkidle' });
+
+    const combobox = page.getByRole('combobox').first();
+    await combobox.click();
+    await page.locator('[role="listbox"]').waitFor({ state: 'visible', timeout: 20000 });
+
+    const optionTexts = await page.getByRole('option').allTextContents();
+    console.log(`Picker options (scheduleType=group): ${JSON.stringify(optionTexts)}`);
+
+    const hasLocation = optionTexts.some((t) => t.includes(locationName));
+    const hasGroup = optionTexts.some((t) => t.includes(groupName));
+    expect(hasGroup).toBe(true);
+    expect(hasLocation).toBe(false);
+    console.log('✓ Picker showed Group but not Location');
   });
 });

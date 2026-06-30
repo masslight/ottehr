@@ -2,6 +2,7 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Identifier, Organization, Practitioner } from 'fhir/r4b';
 import {
+  FHIR_IDENTIFIER_CODE_NPI,
   FHIR_IDENTIFIER_CODE_TAX_EMPLOYER,
   FHIR_IDENTIFIER_CODE_TAXONOMY,
   FHIR_IDENTIFIER_NPI,
@@ -42,7 +43,13 @@ function buildProvider(params: CreateBillingProviderParams): Practitioner | Orga
   }));
 
   const identifier: Identifier[] = [];
-  if (params.npi) identifier.push({ system: FHIR_IDENTIFIER_NPI, value: params.npi });
+  if (params.npi) {
+    identifier.push({ system: FHIR_IDENTIFIER_NPI, value: params.npi });
+    identifier.push({
+      type: { coding: [{ system: FHIR_IDENTIFIER_SYSTEM, code: FHIR_IDENTIFIER_CODE_NPI }] },
+      value: params.npi,
+    });
+  }
   if (params.taxId) {
     identifier.push({
       type: { coding: [{ system: FHIR_IDENTIFIER_SYSTEM, code: FHIR_IDENTIFIER_CODE_TAX_EMPLOYER }] },
