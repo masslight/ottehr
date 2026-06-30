@@ -1,9 +1,21 @@
 import CloseIcon from '@mui/icons-material/Close';
 import { Box, Dialog, DialogContent, DialogTitle, IconButton, Typography } from '@mui/material';
-import { Questionnaire } from 'fhir/r4b';
-import { FC, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useForm } from 'react-hook-form';
-import { buildQuestionnairePages, evaluateCalculatedExpressions, QuestionnaireFormPage } from 'ui-components';
+import { Questionnaire, QuestionnaireResponseItem } from 'fhir/r4b';
+import { FC, useCallback, useMemo, useState } from 'react';
+import {
+  evaluateCalculatedExpressions,
+  PagedQuestionnaire,
+  PaperworkInjectionsProvider,
+  PaperworkProvider,
+  PaperworkThemeProvider,
+} from 'ui-components';
+import {
+  flattenIntakeQuestionnaireItems,
+  IntakeQuestionnaireItem,
+  mapQuestionnaireAndValueSetsToItemsList,
+  QuestionnaireFormFields,
+} from 'utils';
+import { buildPreviewPages, makeStubPaperworkContext, PREVIEW_INJECTIONS } from './questionnairePreviewShared';
 
 interface QuestionnaireTestDialogProps {
   open: boolean;
@@ -11,33 +23,65 @@ interface QuestionnaireTestDialogProps {
   questionnaire: Questionnaire;
 }
 
-// todo re-review after you're done with intake side of things
+// Flatten the accumulated QR-item answers (keyed page→items) into a flat linkId→value map for the
+// completion summary + calculatedExpression scoring. Coded answers carry their code through.
+function flattenAnswers(pageData: Record<string, QuestionnaireFormFields>): Record<string, any> {
+  const flat: Record<string, any> = {};
+  const walk = (items: QuestionnaireResponseItem[]): void => {
+    for (const item of items) {
+      const a = item.answer?.[0];
+      if (a !== undefined) {
+        if (a.valueCoding?.code !== undefined) flat[item.linkId] = a.valueCoding.code;
+        else if (a.valueBoolean !== undefined) flat[item.linkId] = a.valueBoolean;
+        else if (a.valueDecimal !== undefined) flat[item.linkId] = a.valueDecimal;
+        else if (a.valueInteger !== undefined) flat[item.linkId] = a.valueInteger;
+        else if (a.valueString !== undefined) flat[item.linkId] = a.valueString;
+      }
+      if (item.item) walk(item.item);
+    }
+  };
+  for (const fields of Object.values(pageData)) {
+    walk(Object.values(fields) as QuestionnaireResponseItem[]);
+  }
+  return flat;
+}
 
+/**
+ * Interactive "test this form" dialog for the questionnaire builder. Renders through the shared
+ * `PagedQuestionnaire` (the patient renderer) so the test matches real behavior, then shows the
+ * collected answers + any computed scoring values on completion.
+ */
 export const QuestionnaireTestDialog: FC<QuestionnaireTestDialogProps> = ({ open, onClose, questionnaire }) => {
   const fhirItems = useMemo(() => questionnaire.item || [], [questionnaire.item]);
-  const pages = useMemo(
-    () => buildQuestionnairePages(fhirItems, questionnaire.title),
-    [fhirItems, questionnaire.title]
-  );
+
+  const pages = useMemo<IntakeQuestionnaireItem[]>(() => {
+    const converted = mapQuestionnaireAndValueSetsToItemsList(fhirItems, []);
+    return buildPreviewPages(converted, questionnaire.title);
+  }, [fhirItems, questionnaire.title]);
 
   const [currentPageIndex, setCurrentPageIndex] = useState(0);
   const [completed, setCompleted] = useState(false);
-  const [answers, setAnswers] = useState<Record<string, any>>({});
-  const methods = useForm();
+  // Per-page collected answers, so Back resumes prior answers and the summary can flatten them.
+  const [pageData, setPageData] = useState<Record<string, QuestionnaireFormFields>>({});
 
   const currentPage = pages[currentPageIndex];
   const isLastPage = currentPageIndex >= pages.length - 1;
 
+  const stubContext = useMemo(() => makeStubPaperworkContext(pages, flattenIntakeQuestionnaireItems(pages)), [pages]);
+
   const handleSubmit = useCallback(
-    (data: Record<string, any>) => {
-      setAnswers((prev) => ({ ...prev, ...data }));
+    (data: QuestionnaireFormFields) => {
+      const pageId = currentPage?.linkId;
+      if (pageId) {
+        setPageData((prev) => ({ ...prev, [pageId]: data }));
+      }
       if (!isLastPage) {
         setCurrentPageIndex((prev) => prev + 1);
       } else {
         setCompleted(true);
       }
     },
-    [isLastPage]
+    [currentPage?.linkId, isLastPage]
   );
 
   const handleBack = useCallback(() => {
@@ -46,22 +90,14 @@ export const QuestionnaireTestDialog: FC<QuestionnaireTestDialogProps> = ({ open
     }
   }, [currentPageIndex]);
 
-  // Restore previously-entered answers when the page changes (forward or back).
-  // Watched only on currentPageIndex — `answers` updates on every submit, but
-  // the form state we want to restore is whatever's been accumulated so far.
-  const answersRef = useRef(answers);
-  answersRef.current = answers;
-  useEffect(() => {
-    methods.reset(answersRef.current);
-  }, [currentPageIndex, methods]);
-
   const handleClose = useCallback(() => {
     setCurrentPageIndex(0);
     setCompleted(false);
-    setAnswers({});
-    methods.reset();
+    setPageData({});
     onClose();
-  }, [methods, onClose]);
+  }, [onClose]);
+
+  const answers = useMemo(() => flattenAnswers(pageData), [pageData]);
 
   return (
     <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth PaperProps={{ sx: { minHeight: '70vh' } }}>
@@ -145,16 +181,29 @@ export const QuestionnaireTestDialog: FC<QuestionnaireTestDialogProps> = ({ open
             })()}
           </Box>
         ) : currentPage ? (
-          <QuestionnaireFormPage
-            page={currentPage}
-            title={currentPage.text || questionnaire.title}
-            subtitle={questionnaire.description}
-            methods={methods}
-            onSubmit={handleSubmit}
-            onBack={currentPageIndex > 0 ? handleBack : undefined}
-            isLastPage={isLastPage}
-            submitLabel={isLastPage ? 'Submit' : 'Continue'}
-          />
+          <PaperworkThemeProvider>
+            <PaperworkInjectionsProvider value={PREVIEW_INJECTIONS}>
+              <PaperworkProvider value={stubContext}>
+                <PagedQuestionnaire
+                  key={currentPage.linkId}
+                  items={currentPage.item ?? []}
+                  pageId={currentPage.linkId}
+                  pageItem={currentPage}
+                  pageSubtitle={questionnaire.description}
+                  defaultValues={pageData[currentPage.linkId]}
+                  onSubmit={handleSubmit}
+                  saveProgress={() => {}}
+                  options={{
+                    controlButtons: {
+                      backButton: currentPageIndex > 0,
+                      onBack: currentPageIndex > 0 ? handleBack : undefined,
+                      submitLabel: isLastPage ? 'Submit' : 'Continue',
+                    },
+                  }}
+                />
+              </PaperworkProvider>
+            </PaperworkInjectionsProvider>
+          </PaperworkThemeProvider>
         ) : (
           <Typography color="text.secondary">No items to display.</Typography>
         )}

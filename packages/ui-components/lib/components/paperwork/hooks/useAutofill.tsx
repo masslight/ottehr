@@ -2,7 +2,7 @@ import { QuestionnaireResponseItem } from 'fhir/r4b';
 import { useEffect, useMemo, useState } from 'react';
 import { useFormContext } from 'react-hook-form';
 import { IntakeQuestionnaireItem } from 'utils';
-import { usePaperworkContext } from './context';
+import { usePaperworkContext } from '../context';
 import { getPaperworkFieldId, useQRState } from './useFormHelpers';
 import { getItemDisplayStrategy } from './useSelectItems';
 

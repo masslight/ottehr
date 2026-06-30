@@ -23,7 +23,22 @@
     "utils": "*"
   },
   "peerDependencies": {
+    "@hookform/resolvers": ">=2.9.0",
+    "@mui/icons-material": ">=5.11.0",
+    "@mui/lab": ">=5.0.0-alpha.115",
+    "@mui/material": ">=5.14.0",
+    "@mui/system": ">=5.10.0",
+    "@mui/x-date-pickers": ">=6.18.0",
+    "@tanstack/react-query": ">=5.0.0",
     "@types/fhir": ">=0.0.30",
-    "react-hook-form": ">=7.0.0"
+    "lodash": ">=4.17.0",
+    "luxon": ">=3.1.0",
+    "react-hook-form": ">=7.0.0",
+    "react-i18next": ">=12.2.0",
+    "react-imask": ">=7.6.0",
+    "react-markdown": ">=9.0.0",
+    "react-router-dom": ">=6.3.0",
+    "react-window": ">=1.8.0",
+    "yup": ">=1.0.0"
   }
 }

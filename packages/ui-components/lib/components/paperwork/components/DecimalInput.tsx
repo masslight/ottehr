@@ -1,6 +1,6 @@
 import { TextField } from '@mui/material';
 import { FC, useEffect, useState } from 'react';
-import { StyledQuestionnaireItem } from '../useStyleItems';
+import { StyledQuestionnaireItem } from '../hooks/useStyleItems';
 
 interface DecimalInputProps {
   item: StyledQuestionnaireItem;

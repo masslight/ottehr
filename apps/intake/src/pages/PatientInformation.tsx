@@ -5,7 +5,7 @@ import { FC, useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Outlet, useNavigate, useParams } from 'react-router-dom';
 import api from 'src/api/ottehrApi';
-import { PaperworkContext, usePaperworkContext } from 'src/features/paperwork/context';
+import { PaperworkContext, PaperworkProvider, usePaperworkContext } from 'src/features/paperwork/context';
 import PagedQuestionnaire from 'src/features/paperwork/PagedQuestionnaire';
 import { useUCZambdaClient } from 'src/hooks/useUCZambdaClient';
 import {
@@ -143,7 +143,13 @@ export const PatientInfoCollection: FC = () => {
 
   return (
     <PageContainer title={t('aboutPatient.title')} description={t('aboutPatient.subtitle')}>
-      {isLoading || isRefetching ? <CircularProgress /> : <Outlet context={{ ...outletContext, ...bookingContext }} />}
+      {isLoading || isRefetching ? (
+        <CircularProgress />
+      ) : (
+        <PaperworkProvider value={outletContext}>
+          <Outlet context={{ ...bookingContext }} />
+        </PaperworkProvider>
+      )}
     </PageContainer>
   );
 };

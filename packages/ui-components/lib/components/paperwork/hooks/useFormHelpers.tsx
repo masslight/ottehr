@@ -9,7 +9,7 @@ import {
   pickFirstValueFromAnswerItem,
   pickValueAsStringListFromAnswerItem,
 } from 'utils';
-import { usePaperworkContext } from './context';
+import { usePaperworkContext } from '../context';
 
 interface PaperworkFormHelpers {
   value: any;

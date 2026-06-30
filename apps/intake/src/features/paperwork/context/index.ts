@@ -1,46 +1,7 @@
-import { QueryObserverResult, RefetchOptions } from '@tanstack/react-query';
-import { QuestionnaireResponse, QuestionnaireResponseItem } from 'fhir/r4b';
-import { useOutletContext } from 'react-router-dom';
-import {
-  AppointmentSummary,
-  CreditCardInfo,
-  IntakeQuestionnaireItem,
-  PaperworkPatient,
-  PaymentMethodSetupZambdaOutput,
-  QuestionnaireFormFields,
-  UCGetPaperworkResponse,
-} from 'utils';
-
-export interface PaperworkContext
-  extends Omit<UCGetPaperworkResponse, 'patient' | 'appointment' | 'questionnaireResponse'> {
-  paperwork: QuestionnaireResponseItem[];
-  paperworkInProgress: { [pageId: string]: QuestionnaireFormFields };
-  pageItems: IntakeQuestionnaireItem[];
-  pages: IntakeQuestionnaireItem[];
-  appointment: AppointmentSummary | undefined;
-  patient: PaperworkPatient | undefined;
-  questionnaireResponse: QuestionnaireResponse | undefined;
-  cardsAreLoading: boolean;
-  paymentMethodStateInitializing: boolean;
-  paymentMethods: CreditCardInfo[];
-  stripeSetupData: PaymentMethodSetupZambdaOutput | undefined;
-  setContinueLabel?: (label: string | undefined) => void;
-  saveButtonDisabled?: boolean;
-  refetchPaymentMethods: (options?: RefetchOptions | undefined) => Promise<
-    QueryObserverResult<
-      {
-        cards: CreditCardInfo[];
-      },
-      Error
-    >
-  >;
-  refetchSetupData: (
-    options?: RefetchOptions | undefined
-  ) => Promise<QueryObserverResult<PaymentMethodSetupZambdaOutput, Error>>;
-  setSaveButtonDisabled: (newVal: boolean) => void;
-  findAnswerWithLinkId: (linkId: string) => QuestionnaireResponseItem | undefined;
-}
-
-export const usePaperworkContext = (): PaperworkContext => {
-  return useOutletContext<PaperworkContext>();
-};
+// PagedQuestionnaire and its render tree now live in `ui-components`. The PaperworkContext type and
+// the `usePaperworkContext` hook are re-exported from there so intake's many consumers (and the
+// providers in PaperworkPage/StandaloneFormPage/PatientInformation) keep importing from this path
+// unchanged. The context is now backed by a React context (`PaperworkProvider`) instead of the
+// router outlet — providers wrap their `<Outlet/>` in `<PaperworkProvider value={ctx}>`.
+export type { PaperworkContext } from 'ui-components';
+export { PaperworkProvider, usePaperworkContext } from 'ui-components';

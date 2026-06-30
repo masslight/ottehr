@@ -1,4 +1,4 @@
-import { FormItemType, IntakeQuestionnaireItem } from 'utils';
+import { FormItemType, IntakeQuestionnaireItem, QuestionnaireDataType } from 'utils';
 
 export const getInputTypeForItem = (item: IntakeQuestionnaireItem): FormItemType => {
   let inputType: FormItemType = undefined;
@@ -83,3 +83,17 @@ const inputTypeForChoiceItem = (item: IntakeQuestionnaireItem): FormItemType => 
   }
   return 'Select';
 };
+
+export type PaperworkInputType = 'text' | 'email' | 'tel' | 'number';
+
+// HTML input `type` attribute for a paperwork text field, derived from its FHIR dataType.
+export function getUCInputType(dataType: QuestionnaireDataType | undefined): PaperworkInputType {
+  switch (dataType) {
+    case 'Email':
+      return 'email';
+    case 'Phone Number':
+      return 'tel';
+    default:
+      return 'text';
+  }
+}

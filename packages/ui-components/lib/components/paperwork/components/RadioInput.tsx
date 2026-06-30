@@ -1,12 +1,26 @@
 import RadioButtonCheckedIcon from '@mui/icons-material/RadioButtonChecked';
 import RadioButtonUncheckedIcon from '@mui/icons-material/RadioButtonUnchecked';
-import { FormControlLabel, Grid, Radio, RadioGroup, RadioGroupProps, Typography, useTheme } from '@mui/material';
+import {
+  FormControlLabel,
+  Grid,
+  Radio,
+  RadioGroup,
+  RadioGroupProps,
+  SxProps,
+  Typography,
+  useTheme,
+} from '@mui/material';
 import { QuestionnaireItemAnswerOption } from 'fhir/r4b';
 import { FC, SyntheticEvent } from 'react';
 import { useTranslation } from 'react-i18next';
-import { otherColors } from '../../../IntakeThemeProvider';
-import { RadioStyling } from '../../../types';
-import { useAnswerOptionLabelWhen } from '../useAnswerOptionLabelWhen';
+import { useAnswerOptionLabelWhen } from '../hooks/useAnswerOptionLabelWhen';
+import { usePaperworkOtherColors } from '../theme';
+
+export type RadioStyling = {
+  radio?: SxProps;
+  label?: SxProps;
+  height?: string;
+};
 
 interface RadioInputProps extends RadioGroupProps {
   name: string;
@@ -25,13 +39,16 @@ const RadioInput: FC<RadioInputProps> = ({
   value,
   options,
   borderColor = 'divider',
-  backgroundSelected = otherColors.lightBlue,
+  backgroundSelected,
   centerImages,
   onChange,
   radioStyling: maybeRadioStyling,
 }) => {
   const theme = useTheme();
+  const otherColors = usePaperworkOtherColors();
   const { t } = useTranslation();
+
+  const resolvedBackgroundSelected = backgroundSelected ?? otherColors.lightBlue;
 
   const radioStyling = maybeRadioStyling ?? {
     radio: {
@@ -185,12 +202,13 @@ const RadioInput: FC<RadioInputProps> = ({
               border: '1px solid',
               borderRadius: 2,
               backgroundColor:
-                isSelected && backgroundSelected
-                  ? backgroundSelected
+                isSelected && resolvedBackgroundSelected
+                  ? resolvedBackgroundSelected
                   : (option as any).color || theme.palette.background.paper,
               borderColor: borderColor,
               '&:hover': {
-                backgroundColor: isSelected && backgroundSelected ? backgroundSelected : theme.palette.action.hover,
+                backgroundColor:
+                  isSelected && resolvedBackgroundSelected ? resolvedBackgroundSelected : theme.palette.action.hover,
               },
               paddingTop: 0,
               paddingBottom: 0,

@@ -1,11 +1,27 @@
 import { Typography, useTheme } from '@mui/material';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import * as React from 'react';
-import { FC, useCallback, useEffect, useRef } from 'react';
+import { FC, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { ListChildComponentProps, VariableSizeList } from 'react-window';
-import { useWindowResize } from '../../../hooks/useWindowResize';
 
 const LISTBOX_PADDING = 8;
+
+const useWindowResize = (): [number, number] => {
+  const [size, setSize] = useState<[number, number]>([0, 0]);
+
+  useLayoutEffect(() => {
+    function updateSize(): void {
+      setSize([window.innerWidth, window.innerHeight]);
+    }
+
+    window.addEventListener('resize', updateSize);
+    updateSize();
+
+    return () => window.removeEventListener('resize', updateSize);
+  }, []);
+
+  return size;
+};
 
 type RowProps = {
   setSize: (index: number, size: number) => void;

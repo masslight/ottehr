@@ -43,7 +43,7 @@ import { persist } from 'zustand/middleware';
 import { ottehrApi } from '../api';
 import api from '../api/ottehrApi';
 import { PageContainer } from '../components';
-import { PaperworkContext, usePaperworkContext } from '../features/paperwork';
+import { PaperworkContext, PaperworkProvider, usePaperworkContext } from '../features/paperwork';
 import PagedQuestionnaire from '../features/paperwork/PagedQuestionnaire';
 import useAppointmentNotFoundInformation from '../helpers/information';
 import { useGetFullName } from '../hooks/useGetFullName';
@@ -136,10 +136,15 @@ export const PaperworkHome: FC = () => {
   const [authedFetchState, setAuthedFetchState] = useState(AuthedLoadingState.initial);
   const [saveButtonDisabled, setSaveButtonDisabled] = useState(false);
 
-  const { paperworkInProgress, paperworkResponse, updateTimestamp, setResponse, setContinueLabel } = getSelectors(
-    usePaperworkStore,
-    ['paperworkInProgress', 'setResponse', 'paperworkResponse', 'updateTimestamp', 'setContinueLabel']
-  );
+  const { paperworkInProgress, paperworkResponse, updateTimestamp, setResponse, setContinueLabel, continueLabel } =
+    getSelectors(usePaperworkStore, [
+      'paperworkInProgress',
+      'setResponse',
+      'paperworkResponse',
+      'updateTimestamp',
+      'setContinueLabel',
+      'continueLabel',
+    ]);
 
   const { allItems, questionnaireResponse, appointment, patient } = useMemo(() => {
     if (paperworkResponse === undefined) {
@@ -251,6 +256,7 @@ export const PaperworkHome: FC = () => {
         (stripeSetupData === undefined && isSetupDataLoading) || (cardData?.cards.length === 0 && cardsAreLoading),
       stripeSetupData,
       setContinueLabel,
+      continueLabel,
       refetchPaymentMethods,
       refetchSetupData,
       setSaveButtonDisabled,
@@ -273,6 +279,7 @@ export const PaperworkHome: FC = () => {
     stripeSetupData,
     isSetupDataLoading,
     setContinueLabel,
+    continueLabel,
     refetchPaymentMethods,
     refetchSetupData,
   ]);
@@ -309,7 +316,11 @@ export const PaperworkHome: FC = () => {
   if (redirectTarget) {
     return <Navigate to={redirectTarget} replace={true} />;
   }
-  return <Outlet context={{ ...outletContext }} />;
+  return (
+    <PaperworkProvider value={outletContext}>
+      <Outlet />
+    </PaperworkProvider>
+  );
 };
 
 function extractPageLinkIds(items: IntakeQuestionnaireItem[] = []): string[] {

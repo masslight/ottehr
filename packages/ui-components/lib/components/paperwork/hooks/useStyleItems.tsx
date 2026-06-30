@@ -11,7 +11,7 @@ import {
   PHONE_NUMBER_FIELDS,
   SIGNATURE_FIELDS,
 } from 'utils';
-import { usePaperworkContext } from './context';
+import { usePaperworkContext } from '../context';
 import { useQRState } from './useFormHelpers';
 import { getItemDisplayStrategy } from './useSelectItems';
 

@@ -1,10 +1,10 @@
 import { Autocomplete, MenuItem, SelectProps, TextField, useTheme } from '@mui/material';
 import { QuestionnaireItemAnswerOption } from 'fhir/r4b';
-import { FC, ReactNode, useCallback, useContext, useMemo, useState } from 'react';
+import { FC, ReactNode, useCallback, useMemo, useState } from 'react';
 import { useFormContext } from 'react-hook-form';
 import { AnswerLoadingOptions, GetAnswerOptionsRequest } from 'utils';
-import { IntakeThemeContext } from '../../../contexts';
-import { useAnswerOptionsQuery } from '../../../telemed/features/paperwork';
+import { usePaperworkInjections } from '../injections';
+import { usePaperworkOtherColors } from '../theme';
 import { VirtualizedListbox } from './VirtualizedListbox';
 
 type PrunedSelectProps = Omit<
@@ -38,7 +38,8 @@ const FreeMultiSelectInput: FC<FreeMultiSelectInputProps> = ({
   ...otherProps
 }) => {
   const theme = useTheme();
-  const { otherColors } = useContext(IntakeThemeContext);
+  const otherColors = usePaperworkOtherColors();
+  const { useAnswerOptions } = usePaperworkInjections();
   const [inputValue, setInputValue] = useState<string>('');
 
   const fetchOptionsInput: GetAnswerOptionsRequest | undefined = (() => {
@@ -63,7 +64,14 @@ const FreeMultiSelectInput: FC<FreeMultiSelectInputProps> = ({
   const usesDynamicOptions = fetchOptionsInput !== undefined;
   const valueType = dynamicAnswerOptions?.answerSource !== undefined ? 'Reference' : 'String';
 
-  const { data } = useAnswerOptionsQuery(name, usesDynamicOptions, fetchOptionsInput);
+  // Dynamic option loading is an injected host-app capability. When no loader is injected (e.g. EHR
+  // previews) dynamic items simply render no options instead of fetching. Called unconditionally so
+  // hook order is stable, matching intake's previous unconditional useAnswerOptionsQuery call.
+  const noopUseAnswerOptions = useCallback(
+    () => ({ data: undefined as QuestionnaireItemAnswerOption[] | undefined }),
+    []
+  );
+  const { data } = (useAnswerOptions ?? noopUseAnswerOptions)(name, usesDynamicOptions, fetchOptionsInput);
 
   const { getValues } = useFormContext();
 

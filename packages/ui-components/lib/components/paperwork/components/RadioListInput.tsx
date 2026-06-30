@@ -1,7 +1,7 @@
 import { FormControlLabel, Radio, RadioGroup, RadioGroupProps, SxProps } from '@mui/material';
 import { QuestionnaireItemAnswerOption } from 'fhir/r4b';
 import { FC, SyntheticEvent } from 'react';
-import { useStyledAnswerOptions } from '../useStyleItems';
+import { useStyledAnswerOptions } from '../hooks/useStyleItems';
 
 interface RadioInputProps extends RadioGroupProps {
   name: string;

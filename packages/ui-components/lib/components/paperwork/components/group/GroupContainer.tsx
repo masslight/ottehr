@@ -1,8 +1,8 @@
 import { Grid } from '@mui/material';
 import { FC, ReactNode } from 'react';
 import { IntakeQuestionnaireItem, QuestionnaireItemGroupType } from 'utils';
-import { otherColors } from '../../../../IntakeThemeProvider';
 import { RenderItemsProps } from '../../PagedQuestionnaire';
+import { usePaperworkOtherColors } from '../../theme';
 import MultiAnswerHeader from './MultiAnswerHeader';
 
 interface GroupContainerProps extends Omit<RenderItemsProps, 'items'> {
@@ -25,6 +25,7 @@ interface ContentWrapperProps {
 }
 
 const ContentWrapper: FC<ContentWrapperProps> = ({ type, children }) => {
+  const otherColors = usePaperworkOtherColors();
   const sx = (() => {
     let { backgroundColor, padding } = baseSX;
     if (type === 'gray-container-widget') {

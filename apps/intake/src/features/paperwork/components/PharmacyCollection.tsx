@@ -3,7 +3,7 @@ import { FC, useMemo } from 'react';
 import api from 'src/api/ottehrApi';
 import { dataTestIds } from 'src/helpers/data-test-ids';
 import { useUCZambdaClient } from 'src/hooks/useUCZambdaClient';
-import { PharmacyDisplay, PharmacySearch } from 'ui-components';
+import { PharmacyDisplay, PharmacySearch, useQRState } from 'ui-components';
 import {
   clearPharmacyCollectionAnswerSet,
   makePharmacyCollectionAnswerSetForQR,
@@ -12,7 +12,6 @@ import {
   SearchPlacesInput,
   SearchPlacesOutput,
 } from 'utils';
-import { useQRState } from '../useFormHelpers';
 
 export interface PharmacyCollectionProps {
   onChange: (e: any) => void;

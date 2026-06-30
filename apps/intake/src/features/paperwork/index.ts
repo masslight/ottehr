@@ -1,4 +1,4 @@
 export * from './components';
-export * from './PagedQuestionnaire';
+export { default as PagedQuestionnaire } from './PagedQuestionnaire';
 export * from './helpers';
 export * from './context';

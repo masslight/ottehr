@@ -11,6 +11,7 @@
     "target": "esnext",
     "lib": ["esnext.array", "dom"],
     "module": "ESNext",
+    "moduleResolution": "node",
   },
   "include": [".", ".eslintrc.cjs"]
 }

@@ -19,7 +19,7 @@ import {
 import { create } from 'zustand';
 import api from '../api/ottehrApi';
 import { PageContainer } from '../components';
-import { PaperworkContext, usePaperworkContext } from '../features/paperwork';
+import { PaperworkContext, PaperworkProvider, usePaperworkContext } from '../features/paperwork';
 import PagedQuestionnaire from '../features/paperwork/PagedQuestionnaire';
 import { useUCZambdaClient } from '../hooks/useUCZambdaClient';
 
@@ -224,7 +224,11 @@ export const StandaloneFormHome: FC = () => {
     );
   }
 
-  return <Outlet context={{ ...outletContext }} />;
+  return (
+    <PaperworkProvider value={outletContext}>
+      <Outlet />
+    </PaperworkProvider>
+  );
 };
 
 /**
