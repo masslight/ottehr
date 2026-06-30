@@ -21,6 +21,7 @@ import {
   DiagnosisDTO,
   GLOBAL_TEMPLATE_META_TAG_CODE_SYSTEM,
   ICD_10_CODE_SYSTEM,
+  ResolvedSectionActions,
   resourceHasTagSystem,
   TEMPLATE_SECTION_DEFAULT_ACTIONS,
   TemplateSectionAction,
@@ -58,8 +59,6 @@ interface ComplexValidationOutput {
   encounter: Encounter;
   encounterBundle: TemplateEncounterResource[];
 }
-
-type ResolvedSectionActions = Record<TemplateSectionKey, TemplateSectionAction>;
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let m2mToken: string;
@@ -290,12 +289,13 @@ const performEffect = async (
     templateList,
     encounter,
     oystehr,
-    action: actions.inHouseMedications,
+    actions,
     userToken: validatedInput.userToken,
     secrets: validatedInput.secrets,
     conditionRequests: createRequests.filter(
       (r): r is BatchInputPostRequest<Condition> => r.method === 'POST' && r.url === 'Condition'
     ),
+    encounterResources: encounterBundle,
   });
 
   // The live procedure ServiceRequests we build from the template's procedure
