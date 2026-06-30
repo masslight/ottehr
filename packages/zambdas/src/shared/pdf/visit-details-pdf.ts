@@ -11,7 +11,7 @@ import {
   SERVICE_CATEGORY_SYSTEM,
   ServiceMode,
 } from 'utils';
-import { createOystehrClient } from '../helpers';
+import { createClinicalOystehrClient } from '../helpers';
 import { DataComposer, generatePdf, PdfRenderConfig, StyleFactory } from './pdf-common';
 import { rgbNormalized } from './pdf-utils';
 import {
@@ -202,7 +202,7 @@ export const createVisitDetailsPdf = async (
   secrets: Secrets | null,
   token: string
 ): Promise<PdfResult> => {
-  const serviceCategories = await fetchServiceCategoryCatalog(createOystehrClient(token, secrets));
+  const serviceCategories = await fetchServiceCategoryCatalog(createClinicalOystehrClient(token, secrets));
   return generatePdf(
     { ...input, serviceCategories },
     composeVisitDetailsData,

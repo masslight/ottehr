@@ -5,7 +5,7 @@ import {
   BillingChargeItemDefinition,
   BillingChargeItemDefinitionProcedureCode,
   CPT_CODE_SYSTEM,
-  CPT_MODIFIER_EXTENSION_URL,
+  EXTENSION_URL_CPT_MODIFIER,
   FHIR_RESOURCE_NOT_FOUND_CUSTOM,
 } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
@@ -88,7 +88,7 @@ export function transformChargeItemDefinition(cid: ChargeItemDefinition): Billin
         if (!coding || !coding.code) {
           return undefined;
         }
-        const modifier = pc.extension?.find((e) => e.url === CPT_MODIFIER_EXTENSION_URL);
+        const modifier = pc.extension?.find((e) => e.url === EXTENSION_URL_CPT_MODIFIER);
         return {
           code: coding.code,
           description: coding.display,

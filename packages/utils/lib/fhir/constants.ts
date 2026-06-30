@@ -50,6 +50,7 @@ export const FHIR_IDENTIFIER_NPI = 'http://hl7.org/fhir/sid/us-npi';
 // https://terminology.hl7.org/en/NamingSystem-CLIA.html
 export const FHIR_IDENTIFIER_CLIA = 'urn:oid:2.16.840.1.113883.4.7';
 export const FHIR_IDENTIFIER_SYSTEM = 'http://terminology.hl7.org/CodeSystem/v2-0203';
+export const FHIR_IDENTIFIER_CODE_NPI = 'NPI';
 export const FHIR_IDENTIFIER_CODE_TAX_EMPLOYER = 'NE';
 export const FHIR_IDENTIFIER_CODE_TAX_SS = 'SS';
 export const FHIR_IDENTIFIER_CODE_TAXONOMY = 'ZZ';
@@ -1077,5 +1078,10 @@ export const EXAM_MIGRATION_VERSION_URL = `${PRIVATE_EXTENSION_BASE_URL}/exam-mi
 export const CURRENT_EXAM_MIGRATION_VERSION = 2;
 export const INCOMPATIBLE_EXAM_VERSION_MESSAGE =
   "This chart's exam version is incompatible with the current exam configuration, please consult the visit PDF.";
+
+export const BILLING_RESOURCE_TAG = {
+  system: 'https://fhir.ottehr.com/billing/resource-type',
+  code: 'billing-resource',
+};
 
 export const CHARGE_ITEM_DEFINITION_DEFAULT_SYSTEM = 'https://fhir.ottehr.com/billing/charge-item-definition-default';

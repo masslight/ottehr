@@ -16,6 +16,7 @@ import {
   ServiceCategoryCode,
   ServiceCategoryCodeSchema,
   ServiceMode,
+  shouldShowServiceCategorySelectionPage,
   SlotListItem,
 } from 'utils';
 import ottehrApi from '../api/ottehrApi';
@@ -32,6 +33,7 @@ import { PageContainer, Schedule } from '../components';
 import { ErrorDialog, ErrorDialogConfig } from '../components/ErrorDialog';
 import { BoldPurpleInputLabel } from '../components/form';
 import { dataTestIds } from '../helpers/data-test-ids';
+import { useServiceCategories } from '../hooks/useServiceCategories';
 import { useUCZambdaClient } from '../hooks/useUCZambdaClient';
 import { otherColors } from '../IntakeThemeProvider';
 import { useGetBookableItems, useGetSchedule } from '../telemed/features/appointments/appointment.queries';
@@ -226,6 +228,57 @@ const PrebookVisit: FC = () => {
     slotData,
     isSlotsLoading,
   } = useBookingData(serviceMode, slugToFetch, scheduleType, serviceCategoryCode, atLocationSlug);
+
+  // Picker-redirect: when a deep link carries scheduleType + bookingOn but
+  // no serviceCategory, and the destination supports more than one category
+  // in the current (serviceMode, visitType) context, send the patient to
+  // the category picker first. Without this guard the booking flow proceeds
+  // without a category — create-slot then either back-compat-defaults to
+  // urgent-care (fine on Location-actored Schedules) or rejects with "not
+  // bookable against a provider-owned schedule" (PR-actored member
+  // Schedules in a group, since urgent-care is BOOKING_CONFIG and the PR
+  // guard blocks compile-time categories on PR Schedules). The picker
+  // round-trips back here with `?serviceCategory=<code>` appended, at which
+  // point this effect's first guard bails. Mirrors the same picker-decision
+  // logic Homepage uses for homepage-button entry — `shouldShow…` filters
+  // by (mode, visit-type) and respects a group's allow-list. `replace`
+  // keeps the back button pointed at the referring page (not a no-op
+  // booking page the patient never saw).
+  //
+  // Scope the useServiceCategories call only for group deeplinks. The hook's
+  // loading-state fallback gates on `isScoped = scheduleType && bookingOn`
+  // (returns [] for scoped, BOOKING_CONFIG for unscoped) — passing both
+  // unconditionally for non-group cases produces an empty-list window
+  // before the network resolves, delaying the redirect decision past the
+  // initial render. The zambda only narrows by allow-list for the group
+  // case anyway; location/provider deeplinks get the same full catalog
+  // either way, so the unscoped call here is semantically identical and
+  // gives us the BOOKING_CONFIG fallback synchronously on first render.
+  const isGroupDeeplink = scheduleType === ScheduleType.group && Boolean(bookingOn);
+  const { serviceCategories: scopedServiceCategories, isLoading: scopedServiceCategoriesLoading } =
+    useServiceCategories(isGroupDeeplink ? { scheduleType, bookingOn: bookingOn ?? undefined } : {});
+  useEffect(() => {
+    if (serviceCategoryCode) return;
+    if (scopedServiceCategoriesLoading) return;
+    if (!scheduleType || !bookingOn) return;
+    if (!serviceMode) return;
+    const shouldPick = shouldShowServiceCategorySelectionPage({
+      serviceMode,
+      visitType: 'prebook',
+      serviceCategories: scopedServiceCategories,
+    });
+    if (!shouldPick) return;
+    navigate(`/prebook/${serviceMode}/select-service-category?${searchParams.toString()}`, { replace: true });
+  }, [
+    serviceCategoryCode,
+    scopedServiceCategoriesLoading,
+    scopedServiceCategories,
+    scheduleType,
+    bookingOn,
+    serviceMode,
+    navigate,
+    searchParams,
+  ]);
 
   // If the owner spans exactly one Location, skip the picker — there's no
   // choice to make. Replacing (not pushing) keeps the back button pointed

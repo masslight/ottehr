@@ -19,6 +19,8 @@ import {
   DeletedResponse,
   DeleteServiceFacilityInputSchema,
   EraDetailResponse,
+  ExportClaimX12InputSchema,
+  ExportClaimX12Response,
   GetChargeItemDefinitionInputSchema,
   GetClaimDetailInputSchema,
   GetEraDetailInputSchema,
@@ -42,6 +44,8 @@ import {
   SearchBillingProcedureCodesResponse,
   SearchBillingProvidersInputSchema,
   SearchBillingProvidersResponse,
+  SearchBillingServicesInputSchema,
+  SearchBillingServicesResponse,
   SearchBillingTagsResponse,
   SearchChargeItemDefinitionsInputSchema,
   SearchChargeItemDefinitionsResponse,
@@ -109,6 +113,11 @@ export const getBillingClaimDetail = (
   parameters: z.input<typeof GetClaimDetailInputSchema>
 ): Promise<ClaimDetailResponse> => executeBillingZambda(oystehr, 'get-billing-claim-detail', parameters);
 
+export const exportClaimX12 = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof ExportClaimX12InputSchema>
+): Promise<ExportClaimX12Response> => executeBillingZambda(oystehr, 'export-billing-claim-x12', parameters);
+
 export const updateBillingResource = (
   oystehr: Oystehr,
   parameters: z.input<typeof UpdateBillingResourceInputSchema>
@@ -142,6 +151,11 @@ export const deleteBillingProvider = (
 ): Promise<DeletedResponse> => executeBillingZambda(oystehr, 'delete-billing-provider', parameters);
 
 // --- Lookups (payers, locations, coverages) ---
+
+export const searchBillingServices = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof SearchBillingServicesInputSchema>
+): Promise<SearchBillingServicesResponse> => executeBillingZambda(oystehr, 'search-billing-services', parameters);
 
 export const searchBillingPayers = (
   oystehr: Oystehr,

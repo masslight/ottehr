@@ -219,17 +219,23 @@ export const ApplyTemplate: React.FC = () => {
         await deleteTemplate(oystehrZambda, { templateId: existingTemplate.id });
       }
 
-      await createTemplate(oystehrZambda, {
+      const result = await createTemplate(oystehrZambda, {
         encounterId: encounter.id,
         templateName: trimmedName,
       });
       await queryClient.invalidateQueries({ queryKey: ['list-templates'] });
+      if (result.warnings.length) {
+        for (const warning of result.warnings) {
+          enqueueSnackbar(warning.message, { variant: 'warning' });
+        }
+      }
       enqueueSnackbar(
         existingTemplate
           ? `Template "${trimmedName}" updated successfully!`
           : `Template "${trimmedName}" created successfully!`,
         { variant: 'success' }
       );
+
       handleCreateDialogClose();
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to save template';

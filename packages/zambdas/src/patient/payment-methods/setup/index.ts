@@ -9,7 +9,7 @@ import {
 } from 'utils';
 import { getAccountAndCoverageResourcesForPatient } from '../../../ehr/shared/harvest';
 import {
-  createOystehrClient,
+  createClinicalOystehrClient,
   ensureStripeCustomerId,
   getAuth0Token,
   lambdaResponse,
@@ -36,7 +36,7 @@ export const index = wrapHandler('payment-setup', async (input: ZambdaInput): Pr
   } else {
     console.log('already have a token, no need to update');
   }
-  const oystehrClient = createOystehrClient(m2mClientToken, secrets);
+  const oystehrClient = createClinicalOystehrClient(m2mClientToken, secrets);
   void (await validateUserHasAccessToPatientAccount(
     { beneficiaryPatientId, secrets, zambdaInput: input },
     oystehrClient

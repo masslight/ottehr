@@ -1,7 +1,8 @@
+import { SearchParam } from '@oystehr/sdk';
 import { SearchOptionsSort } from '../types';
 
-export const addSearchSort = (url: string, options: SearchOptionsSort): string => {
-  const params: string[] = [];
+export const addSearchSort = (options: SearchOptionsSort): SearchParam[] => {
+  const params: SearchParam[] = [];
 
   let sortField = '';
   switch (options.field) {
@@ -17,7 +18,7 @@ export const addSearchSort = (url: string, options: SearchOptionsSort): string =
 
   if (options.order === 'desc') sortField = '-' + sortField;
 
-  params.push(`_sort=${sortField},_id`);
+  params.push({ name: '_sort', value: `${sortField},_id` });
 
-  return `${url}${url.includes('?') ? '&' : '?'}${params.join('&')}`;
+  return params;
 };

@@ -91,7 +91,6 @@ export function AddChargeItemDefinitionDialog({
         )}
         <Box sx={{ display: 'flex', gap: 5, mt: 1 }}>
           <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 2.5 }}>
-            {/* CW TODO: fields */}
             <Field label="Name">
               <TextField size="small" fullWidth value={name} onChange={(e) => setName(e.target.value)} />
             </Field>

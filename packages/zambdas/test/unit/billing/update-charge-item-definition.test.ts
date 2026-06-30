@@ -2,7 +2,7 @@ import Oystehr from '@oystehr/sdk';
 import { ChargeItemDefinition } from 'fhir/r4b';
 import {
   CPT_CODE_SYSTEM,
-  CPT_MODIFIER_EXTENSION_URL,
+  EXTENSION_URL_CPT_MODIFIER,
   INVALID_INPUT_ERROR,
   MISSING_REQUEST_BODY,
   MISSING_REQUEST_SECRETS,
@@ -79,7 +79,6 @@ describe('update-charge-item-definition', () => {
       });
     });
     it('succeeds with maximal input', async () => {
-      // CW TODO
       const body: UpdateChargeItemDefinitionInput = {
         type: 'charge-master',
         chargeItemDefinitionId: '0f8a9b3c-fd93-42a1-8560-6ca4bc9446c9',
@@ -128,7 +127,6 @@ describe('update-charge-item-definition', () => {
       });
     });
     it('succeeds with only removing optional fields input', async () => {
-      // CW TODO
       const body: UpdateChargeItemDefinitionInput = {
         type: 'charge-master',
         chargeItemDefinitionId: '0f8a9b3c-fd93-42a1-8560-6ca4bc9446c9',
@@ -397,7 +395,7 @@ describe('update-charge-item-definition', () => {
                 },
                 extension: [
                   {
-                    url: CPT_MODIFIER_EXTENSION_URL,
+                    url: EXTENSION_URL_CPT_MODIFIER,
                     valueCode: '22',
                   },
                 ],
