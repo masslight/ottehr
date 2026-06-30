@@ -16,7 +16,14 @@ type Props = {
 export const EmployeeSelectInput: React.FC<Props> = ({ name, label, multiple, required, size, dataTestId, filter }) => {
   const { oystehrZambda } = useApiClients();
   const { data: employees, isLoading } = useGetEmployeesWithDetails({ enabled: !!oystehrZambda });
-  const options = (employees?.providers ?? [])
+  // Source from the broader assignable-staff pool (currently named
+  // `nonProviders` — a misnomer; it's "all non-customer-support employees"
+  // and includes providers). Callers that want only providers narrow via
+  // the `filter` prop (PROVIDERS_FILTER). Sourcing from `employees.providers`
+  // here would make the filter unable to broaden, so no-filter callers like
+  // task assignment dialogs lose the ability to assign to non-provider
+  // staff (intake, nurses).
+  const options = (employees?.nonProviders ?? [])
     .filter(filter ?? (() => true))
     .map((item) => {
       const pdeets = toProviderDetails(item);

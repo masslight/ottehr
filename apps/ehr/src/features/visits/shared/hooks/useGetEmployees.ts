@@ -14,10 +14,20 @@ export const toProviderDetails = (employee: {
   profile: string;
   firstName: string;
   lastName: string;
-}): ProviderDetails => ({
-  practitionerId: employee.profile.split('/')[1],
-  name: `${employee.firstName} ${employee.lastName}`.trim(),
-});
+  /** Canonical employee display name. Used as a fallback when firstName +
+   *  lastName don't produce a usable label (e.g. Practitioner records where
+   *  only the legacy single-string name is populated). The upstream filter
+   *  in useGetEmployeesWithDetails already drops entries whose `name` is
+   *  blank, so this fallback always has something to land on for surviving
+   *  entries — no risk of producing a blank ProviderDetails.name. */
+  name?: string;
+}): ProviderDetails => {
+  const composedName = `${employee.firstName} ${employee.lastName}`.trim();
+  return {
+    practitionerId: employee.profile.split('/')[1],
+    name: composedName || employee.name || '',
+  };
+};
 
 /**
  * Fetches the intake-staff and provider lists used for assigning practitioners to an encounter.

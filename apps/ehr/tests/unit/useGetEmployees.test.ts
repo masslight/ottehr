@@ -51,4 +51,34 @@ describe('toProviderDetails', () => {
     expect(toProviderDetails({ profile: 'Practitioner/abc', firstName: '', lastName: 'Doe' }).name).toBe('Doe');
     expect(toProviderDetails({ profile: 'Practitioner/abc', firstName: 'Jane', lastName: '' }).name).toBe('Jane');
   });
+
+  test('name falls back to the canonical `name` field when firstName + lastName are both blank', () => {
+    // The upstream filter in useGetEmployeesWithDetails admits employees on
+    // EmployeeDetails.name (the canonical display string). If
+    // toProviderDetails only consulted firstName/lastName, employees whose
+    // canonical name was set but whose split-name fields were blank would
+    // slip through the filter and render as blank dropdown options. The
+    // fallback ensures the composed-or-canonical name is always non-blank
+    // for surviving entries.
+    const result = toProviderDetails({
+      profile: 'Practitioner/abc',
+      firstName: '',
+      lastName: '',
+      name: 'Dr. Smith',
+    });
+    expect(result.name).toBe('Dr. Smith');
+  });
+
+  test('composed firstName + lastName wins over the canonical name when both are present', () => {
+    // The composed form is preferred when available — it's the explicit
+    // structured representation. The canonical `name` is only consulted
+    // when the composition would otherwise produce a blank.
+    const result = toProviderDetails({
+      profile: 'Practitioner/abc',
+      firstName: 'Jane',
+      lastName: 'Doe',
+      name: 'Legacy Full Name',
+    });
+    expect(result.name).toBe('Jane Doe');
+  });
 });
