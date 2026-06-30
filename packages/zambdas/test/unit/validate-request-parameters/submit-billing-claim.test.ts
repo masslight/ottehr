@@ -1,4 +1,5 @@
 import { randomUUID } from 'crypto';
+import { MAX_SUBMIT_BILLING_CLAIMS } from 'utils';
 import { describe, expect, test } from 'vitest';
 import { validateRequestParameters } from '../../../src/billing/submit-billing-claim/validateRequestParameters';
 import { createMockSecrets, createMockZambdaInput } from './helpers';
@@ -37,6 +38,16 @@ describe('submit-billing-claim - validateRequestParameters', () => {
 
   test('throws when claimIds is missing', () => {
     const input = createMockZambdaInput({}, { secrets });
+    expect(() => validateRequestParameters(input)).toThrow();
+  });
+
+  test('throws when more than the maximum number of claim ids is provided', () => {
+    const input = createMockZambdaInput(
+      {
+        claimIds: Array.from({ length: MAX_SUBMIT_BILLING_CLAIMS + 1 }, () => randomUUID()),
+      },
+      { secrets }
+    );
     expect(() => validateRequestParameters(input)).toThrow();
   });
 

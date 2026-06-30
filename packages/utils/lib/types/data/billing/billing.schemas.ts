@@ -90,8 +90,10 @@ export const SetClaimStatusInputSchema = z
     }
   });
 
+export const MAX_SUBMIT_BILLING_CLAIMS = 20;
+
 export const SubmitBillingClaimsInputSchema = z.object({
-  claimIds: z.array(z.string().uuid()).min(1),
+  claimIds: z.array(z.string().uuid()).min(1).max(MAX_SUBMIT_BILLING_CLAIMS),
 });
 
 // Status indicators keyed by ClaimStatusFieldKey; unknown keys are rejected and each provided value

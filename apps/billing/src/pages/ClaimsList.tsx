@@ -11,6 +11,7 @@ import {
   MenuItem,
   Select,
   TextField,
+  Tooltip,
   Typography,
 } from '@mui/material';
 import { DataGridPro, GridColDef, GridPaginationModel, GridRowSelectionModel } from '@mui/x-data-grid-pro';
@@ -28,6 +29,7 @@ import {
   CODE_SYSTEM_CLAIM_TYPE_CODES,
   formatClaimStatusValue,
   getApiError,
+  MAX_SUBMIT_BILLING_CLAIMS,
   SearchBillingClaimsInput,
 } from 'utils';
 import {
@@ -363,9 +365,24 @@ export default function ClaimsList(): ReactElement {
         </Typography>
         <Box sx={{ display: 'flex', gap: 1 }}>
           {selected.length > 0 && (
-            <Button variant="outlined" size="small" onClick={() => setConfirmingSubmit(true)}>
-              Submit ({selected.length})
-            </Button>
+            <Tooltip
+              title={
+                selected.length > MAX_SUBMIT_BILLING_CLAIMS
+                  ? `Select up to ${MAX_SUBMIT_BILLING_CLAIMS} claims to submit at once`
+                  : ''
+              }
+            >
+              <span>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  disabled={selected.length > MAX_SUBMIT_BILLING_CLAIMS}
+                  onClick={() => setConfirmingSubmit(true)}
+                >
+                  Submit ({selected.length})
+                </Button>
+              </span>
+            </Tooltip>
           )}
           <Button variant="contained" size="small" startIcon={<AddIcon />} onClick={() => navigate('/claims/new')}>
             Create
