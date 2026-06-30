@@ -26,7 +26,7 @@ export const ALLOWED_BILLING_RESOURCE_TYPES = [
 // --- Input schemas ---
 
 export const GetClaimDetailInputSchema = z.object({
-  claimId: nonEmptyString,
+  claimId: z.string().uuid(),
 });
 
 export const ExportClaimX12InputSchema = z.object({
@@ -67,7 +67,7 @@ export const DeleteBillingTagInputSchema = z.object({
 });
 
 export const TagBillingClaimInputSchema = z.object({
-  claimId: nonEmptyString,
+  claimId: z.string().uuid(),
   action: z.enum(['add', 'remove']),
   tagName: nonEmptyString,
 });
@@ -75,7 +75,7 @@ export const TagBillingClaimInputSchema = z.object({
 // Set (or clear, when value is null/empty) one claim-status meta.tag.
 export const SetClaimStatusInputSchema = z
   .object({
-    claimId: nonEmptyString,
+    claimId: z.string().uuid(),
     field: z.enum(CLAIM_STATUS_FIELD_KEYS),
     value: z.string().nullable().optional(),
   })
