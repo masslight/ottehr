@@ -656,7 +656,7 @@ export function copyCoverageAndSubscriber(
   const requests: CreateClaimFromEncounterRequests = [];
   const order: string[] = [];
   const cleanedCoverageId = coverage.id?.replace('urn:uuid:', '');
-  const copy = workingCopy
+  let copy = workingCopy
     ? prepareWorkingCopy<Coverage>(coverage, coverage.id!)
     : prepareCopy<Coverage>(coverage, coverage.id!);
   copy.beneficiary = uuidOrUrnReference('Patient', patientUuidOrUrn);
@@ -709,12 +709,13 @@ export function copyCoverageAndSubscriber(
       copy.payor = [{ reference: billingOystehr.rcm.constructPayerUrl({ id: payerId }) }];
     }
   }
-  copy.id = `urn:uuid:${workingCopy ? 'claim' : 'billing'}-coverage-${cleanedCoverageId}`;
   const planTypeCode = getCandidPlanTypeCodeFromCoverage(coverage);
+  if (planTypeCode) copy = setCoveragePlanType(copy, planTypeCode);
+  copy.id = `urn:uuid:${workingCopy ? 'claim' : 'billing'}-coverage-${cleanedCoverageId}`;
   requests.push({
     method: 'POST',
     url: '/Coverage',
-    resource: planTypeCode ? setCoveragePlanType(copy, planTypeCode) : copy,
+    resource: copy,
     fullUrl: copy.id,
   });
   order.push('coverage');
