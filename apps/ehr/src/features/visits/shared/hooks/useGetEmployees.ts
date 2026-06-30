@@ -62,7 +62,9 @@ export const useGetEmployeesWithDetails = (options?: {
 
       const formattedProviders: EmployeeDetails[] = activeEmployees
         .filter((employee) => employee.isProvider && !employee.isCustomerSupport)
-        .filter((prov) => prov.name);
+        .filter(
+          (employee) => Boolean(`${employee.firstName} ${employee.lastName}`.trim() || employee.name)
+        );
 
       // TODO: remove this once we have nurses role
       // const nonProviders = getEmployeesRes.employees.filter((employee) => !employee.isProvider);
