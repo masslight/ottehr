@@ -1,10 +1,14 @@
 import { Box, Checkbox, FormControlLabel, Grid, lighten, Typography, useTheme } from '@mui/material';
+import { enqueueSnackbar } from 'notistack';
 import React, { JSX, useCallback, useState } from 'react';
+import { useParams } from 'react-router-dom';
+import { uploadDotVisionDocument } from 'src/api/api';
 import { AccordionCard } from 'src/components/AccordionCard';
 import { DoubleColumnContainer } from 'src/components/DoubleColumnContainer';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { getVisionExtraOptionsFormattedString, VitalsVisionObservationDTO } from 'utils';
+import { useApiClients } from 'src/hooks/useAppClients';
+import { getDotVisionScreeningLines, getVisionExtraOptionsFormattedString, VitalsVisionObservationDTO } from 'utils';
 import { useGetAppointmentAccessibility } from '../../../hooks/useGetAppointmentAccessibility';
 import VitalsHistoryContainer from '../components/VitalsHistoryContainer';
 import VitalHistoryElement from '../components/VitalsHistoryEntry';
@@ -13,6 +17,8 @@ import { VITALS_FORM_BORDER_TRANSITION, VITALS_FORM_ERROR_BORDER } from '../cons
 import { useScreenDimensions } from '../hooks/useScreenDimensions';
 import { useVitalsSaveOnEnter } from '../hooks/useVitalsSaveOnEnter';
 import { VitalsCardProps } from '../types';
+import DotVisionScreeningSection from './DotVisionScreeningSection';
+import { useDotVisionScreeningLocalState } from './useDotVisionScreeningLocalState';
 
 type VitalsVisionCardProps = VitalsCardProps<VitalsVisionObservationDTO>;
 const VitalsVisionCard: React.FC<VitalsVisionCardProps> = ({ field, historyElementSkeletonText }): JSX.Element => {
@@ -20,10 +26,50 @@ const VitalsVisionCard: React.FC<VitalsVisionCardProps> = ({ field, historyEleme
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
   const { isLargeScreen } = useScreenDimensions();
 
+  const { id: appointmentId } = useParams();
+  const { oystehrZambda } = useApiClients();
+
   const [isCollapsed, setIsCollapsed] = useState<boolean>(false);
   const handleSectionCollapse = useCallback(() => {
     setIsCollapsed((prevCollapseState) => !prevCollapseState);
   }, [setIsCollapsed]);
+
+  // DOT Vision Screening sub-section is collapsed by default so non-DOT clinics are unaffected.
+  const [isDotCollapsed, setIsDotCollapsed] = useState<boolean>(true);
+  const handleDotSectionCollapse = useCallback(() => {
+    setIsDotCollapsed((prev) => !prev);
+  }, []);
+
+  const dotState = useDotVisionScreeningLocalState();
+  const [isSavingDot, setIsSavingDot] = useState<boolean>(false);
+
+  const handleSaveDot = useCallback(async () => {
+    const dto = dotState.getDTO();
+    if (!dto || !field.saveWithDto) return;
+    try {
+      setIsSavingDot(true);
+      // Create the DocumentReference lazily, only now that the entry is being saved, so a file that
+      // was attached and then discarded never leaves an orphaned DocumentReference on the encounter.
+      const pendingDoc = dto.dotVisionScreening?.document;
+      if (pendingDoc?.url && !pendingDoc.documentReferenceId && appointmentId && oystehrZambda) {
+        const result = await uploadDotVisionDocument(oystehrZambda, {
+          appointmentID: appointmentId,
+          z3URL: pendingDoc.url,
+          title: pendingDoc.title,
+        });
+        dto.dotVisionScreening = {
+          ...dto.dotVisionScreening,
+          document: { documentReferenceId: result.documentRefId, url: result.url, title: result.title },
+        };
+      }
+      await field.saveWithDto(dto);
+      dotState.clearForm();
+    } catch {
+      enqueueSnackbar('Error saving DOT Vision Screening data', { variant: 'error' });
+    } finally {
+      setIsSavingDot(false);
+    }
+  }, [dotState, field, appointmentId, oystehrZambda]);
 
   const { localState } = field;
   const isCheckboxesDisabled = field.isSaving;
@@ -31,11 +77,14 @@ const VitalsVisionCard: React.FC<VitalsVisionCardProps> = ({ field, historyEleme
   const latestVisionValueLabel = (() => {
     const latestHistoryEntry = field.current[0];
     if (!latestHistoryEntry) return;
-    const visionOptionsLine = getVisionExtraOptionsFormattedString(latestHistoryEntry.extraVisionOptions);
     const parts: string[] = [];
     if (latestHistoryEntry.leftEyeVisionText) parts.push(`Left eye: ${latestHistoryEntry.leftEyeVisionText}`);
     if (latestHistoryEntry.rightEyeVisionText) parts.push(`Right eye: ${latestHistoryEntry.rightEyeVisionText}`);
     if (latestHistoryEntry.bothEyesVisionText) parts.push(`Both eyes: ${latestHistoryEntry.bothEyesVisionText}`);
+    if (parts.length === 0 && getDotVisionScreeningLines(latestHistoryEntry.dotVisionScreening).length > 0) {
+      return 'DOT Vision Screening';
+    }
+    const visionOptionsLine = getVisionExtraOptionsFormattedString(latestHistoryEntry.extraVisionOptions);
     return `${parts.join('; ')}; ${visionOptionsLine ?? ''}`;
   })();
 
@@ -78,233 +127,244 @@ const VitalsVisionCard: React.FC<VitalsVisionCardProps> = ({ field, historyEleme
           <DoubleColumnContainer
             divider
             leftColumn={
-              <Grid
-                container
-                onKeyDown={handleKeyDown}
-                sx={{
-                  height: 'auto',
-                  width: 'auto',
-                  backgroundColor: '#F7F8F9',
-                  borderRadius: 2,
-                  my: 2,
-                  mx: 2,
-                  py: 2,
-                  px: 2,
-                  border: field.localState.validationError ? VITALS_FORM_ERROR_BORDER : 'none',
-                  transition: VITALS_FORM_BORDER_TRANSITION,
-                }}
-              >
-                {/* Left eye vision selector */}
-                <Grid item xs={12} sm={3} md={3} lg={3} order={{ xs: 1, sm: 1, md: 1 }}>
-                  <Box
-                    sx={{
-                      display: 'flex',
-                      flexDirection: 'row',
-                      ml: 0,
-                    }}
-                  >
-                    <VitalsTextFreeInputField
-                      label="Left eye"
-                      value={localState.leftEyeSelection}
-                      disabled={field.isSaving}
-                      isInputError={localState.isLeftEyeInvalid && localState.validationError}
-                      onChange={localState.handleLeftEyeChange}
-                      data-testid={dataTestIds.vitalsPage.visionLeftInput}
-                    />
-                  </Box>
-                </Grid>
-
-                {/* Right eye vision selector */}
-                <Grid item xs={12} sm={3} md={3} lg={3} order={{ xs: 2, sm: 2, md: 2, lg: 2 }}>
-                  <Box
-                    sx={{
-                      display: 'flex',
-                      flexDirection: 'row',
-                      ml: 1,
-                    }}
-                  >
-                    <VitalsTextFreeInputField
-                      label="Right eye"
-                      value={localState.rightEyeSelection}
-                      disabled={field.isSaving}
-                      isInputError={localState.isRightEyeInvalid && localState.validationError}
-                      onChange={localState.handleRightEyeChange}
-                      data-testid={dataTestIds.vitalsPage.visionRightInput}
-                    />
-                  </Box>
-                </Grid>
-
-                {/* Both eye vision selector */}
+              <>
                 <Grid
-                  item
-                  xs={12}
-                  sm={3}
-                  md={3}
-                  lg={3}
-                  order={{ xs: 3, sm: 3, md: 3, lg: 3 }}
-                  sx={{ mt: isLargeScreen ? 0 : 0 }}
+                  container
+                  onKeyDown={handleKeyDown}
+                  sx={{
+                    height: 'auto',
+                    width: 'auto',
+                    backgroundColor: '#F7F8F9',
+                    borderRadius: 2,
+                    my: 2,
+                    mx: 2,
+                    py: 2,
+                    px: 2,
+                    border: field.localState.validationError ? VITALS_FORM_ERROR_BORDER : 'none',
+                    transition: VITALS_FORM_BORDER_TRANSITION,
+                  }}
                 >
-                  <Box
-                    sx={{
-                      display: 'flex',
-                      flexDirection: 'row',
-                      ml: 1,
-                    }}
+                  {/* Left eye vision selector */}
+                  <Grid item xs={12} sm={3} md={3} lg={3} order={{ xs: 1, sm: 1, md: 1 }}>
+                    <Box
+                      sx={{
+                        display: 'flex',
+                        flexDirection: 'row',
+                        ml: 0,
+                      }}
+                    >
+                      <VitalsTextFreeInputField
+                        label="Left eye"
+                        value={localState.leftEyeSelection}
+                        disabled={field.isSaving}
+                        isInputError={localState.isLeftEyeInvalid && localState.validationError}
+                        onChange={localState.handleLeftEyeChange}
+                        data-testid={dataTestIds.vitalsPage.visionLeftInput}
+                      />
+                    </Box>
+                  </Grid>
+
+                  {/* Right eye vision selector */}
+                  <Grid item xs={12} sm={3} md={3} lg={3} order={{ xs: 2, sm: 2, md: 2, lg: 2 }}>
+                    <Box
+                      sx={{
+                        display: 'flex',
+                        flexDirection: 'row',
+                        ml: 1,
+                      }}
+                    >
+                      <VitalsTextFreeInputField
+                        label="Right eye"
+                        value={localState.rightEyeSelection}
+                        disabled={field.isSaving}
+                        isInputError={localState.isRightEyeInvalid && localState.validationError}
+                        onChange={localState.handleRightEyeChange}
+                        data-testid={dataTestIds.vitalsPage.visionRightInput}
+                      />
+                    </Box>
+                  </Grid>
+
+                  {/* Both eye vision selector */}
+                  <Grid
+                    item
+                    xs={12}
+                    sm={3}
+                    md={3}
+                    lg={3}
+                    order={{ xs: 3, sm: 3, md: 3, lg: 3 }}
+                    sx={{ mt: isLargeScreen ? 0 : 0 }}
                   >
-                    <VitalsTextFreeInputField
-                      label="Both eyes"
-                      value={localState.bothEyesSelection}
-                      disabled={field.isSaving}
-                      isInputError={false}
-                      onChange={localState.handleBothEyesChange}
-                    />
-                  </Box>
-                </Grid>
+                    <Box
+                      sx={{
+                        display: 'flex',
+                        flexDirection: 'row',
+                        ml: 1,
+                      }}
+                    >
+                      <VitalsTextFreeInputField
+                        label="Both eyes"
+                        value={localState.bothEyesSelection}
+                        disabled={field.isSaving}
+                        isInputError={false}
+                        onChange={localState.handleBothEyesChange}
+                      />
+                    </Box>
+                  </Grid>
 
-                {/* Add Button column */}
-                <Grid item xs={12} sm={3} md={3} lg={3} order={{ xs: 4, sm: 4, md: 4, lg: 4 }} sx={{ mt: 0 }}>
-                  <RoundedButton
-                    disabled={localState.isDisabled}
-                    loading={field.isSaving}
-                    onClick={field.save}
-                    color="primary"
-                    sx={{
-                      height: '40px',
-                      px: 2,
-                      ml: 1,
-                    }}
-                    data-testid={dataTestIds.vitalsPage.visionAddButton}
+                  {/* Add Button column */}
+                  <Grid item xs={12} sm={3} md={3} lg={3} order={{ xs: 4, sm: 4, md: 4, lg: 4 }} sx={{ mt: 0 }}>
+                    <RoundedButton
+                      disabled={localState.isDisabled}
+                      loading={field.isSaving}
+                      onClick={field.save}
+                      color="primary"
+                      sx={{
+                        height: '40px',
+                        px: 2,
+                        ml: 1,
+                      }}
+                      data-testid={dataTestIds.vitalsPage.visionAddButton}
+                    >
+                      Add
+                    </RoundedButton>
+                  </Grid>
+
+                  <Grid
+                    item
+                    xs={12}
+                    sm={12}
+                    md={12}
+                    lg={12}
+                    order={{ xs: 5, sm: 5, md: 5, lg: 5 }}
+                    sx={{ mt: isLargeScreen ? 1 : 1, ml: 1 }}
                   >
-                    Add
-                  </RoundedButton>
+                    <Box sx={{ display: 'flex', flexDirection: 'row' }}>
+                      {/* Child too young checkbox option */}
+                      <FormControlLabel
+                        sx={{
+                          backgroundColor: 'transparent',
+                          pr: 0,
+                        }}
+                        control={
+                          <Checkbox
+                            size="small"
+                            sx={{
+                              color: theme.palette.primary.main,
+                              '&.Mui-checked': {
+                                color: theme.palette.primary.main,
+                              },
+                              '&.Mui-disabled': {
+                                color: lighten(theme.palette.primary.main, 0.4),
+                              },
+                            }}
+                            disabled={isCheckboxesDisabled}
+                            checked={localState.isChildTooYoungSelected}
+                            onChange={(e) => localState.handleVisionOptionChange(e.target.checked, 'child_too_young')}
+                          />
+                        }
+                        label={
+                          <Typography
+                            sx={{
+                              fontSize: '16px',
+                              fontWeight: 500,
+                              color: isCheckboxesDisabled
+                                ? lighten(theme.palette.text.primary, 0.4)
+                                : theme.palette.text.primary,
+                            }}
+                          >
+                            Child too young
+                          </Typography>
+                        }
+                      />
+
+                      {/* With glasses checkbox option */}
+                      <FormControlLabel
+                        sx={{
+                          backgroundColor: 'transparent',
+                          pr: 0,
+                        }}
+                        control={
+                          <Checkbox
+                            size="small"
+                            sx={{
+                              color: theme.palette.primary.main,
+                              '&.Mui-checked': {
+                                color: theme.palette.primary.main,
+                              },
+                              '&.Mui-disabled': {
+                                color: lighten(theme.palette.primary.main, 0.4),
+                              },
+                            }}
+                            disabled={isCheckboxesDisabled}
+                            checked={localState.isWithGlassesSelected}
+                            onChange={(e) => localState.handleVisionOptionChange(e.target.checked, 'with_glasses')}
+                          />
+                        }
+                        label={
+                          <Typography
+                            sx={{
+                              fontSize: '16px',
+                              fontWeight: 500,
+                              color: isCheckboxesDisabled
+                                ? lighten(theme.palette.text.primary, 0.4)
+                                : theme.palette.text.primary,
+                            }}
+                          >
+                            With glasses
+                          </Typography>
+                        }
+                      />
+
+                      {/* Without glasses checkbox option */}
+                      <FormControlLabel
+                        sx={{
+                          backgroundColor: 'transparent',
+                          pr: 0,
+                        }}
+                        control={
+                          <Checkbox
+                            size="small"
+                            sx={{
+                              color: theme.palette.primary.main,
+                              '&.Mui-checked': {
+                                color: theme.palette.primary.main,
+                              },
+                              '&.Mui-disabled': {
+                                color: lighten(theme.palette.primary.main, 0.4),
+                              },
+                            }}
+                            disabled={isCheckboxesDisabled}
+                            checked={localState.isWithoutGlassesSelected}
+                            onChange={(e) => localState.handleVisionOptionChange(e.target.checked, 'without_glasses')}
+                          />
+                        }
+                        label={
+                          <Typography
+                            sx={{
+                              fontSize: '16px',
+                              fontWeight: 500,
+                              color: isCheckboxesDisabled
+                                ? lighten(theme.palette.text.primary, 0.4)
+                                : theme.palette.text.primary,
+                            }}
+                          >
+                            Without glasses
+                          </Typography>
+                        }
+                      />
+                    </Box>
+                  </Grid>
                 </Grid>
-
-                <Grid
-                  item
-                  xs={12}
-                  sm={12}
-                  md={12}
-                  lg={12}
-                  order={{ xs: 5, sm: 5, md: 5, lg: 5 }}
-                  sx={{ mt: isLargeScreen ? 1 : 1, ml: 1 }}
-                >
-                  <Box sx={{ display: 'flex', flexDirection: 'row' }}>
-                    {/* Child too young checkbox option */}
-                    <FormControlLabel
-                      sx={{
-                        backgroundColor: 'transparent',
-                        pr: 0,
-                      }}
-                      control={
-                        <Checkbox
-                          size="small"
-                          sx={{
-                            color: theme.palette.primary.main,
-                            '&.Mui-checked': {
-                              color: theme.palette.primary.main,
-                            },
-                            '&.Mui-disabled': {
-                              color: lighten(theme.palette.primary.main, 0.4),
-                            },
-                          }}
-                          disabled={isCheckboxesDisabled}
-                          checked={localState.isChildTooYoungSelected}
-                          onChange={(e) => localState.handleVisionOptionChange(e.target.checked, 'child_too_young')}
-                        />
-                      }
-                      label={
-                        <Typography
-                          sx={{
-                            fontSize: '16px',
-                            fontWeight: 500,
-                            color: isCheckboxesDisabled
-                              ? lighten(theme.palette.text.primary, 0.4)
-                              : theme.palette.text.primary,
-                          }}
-                        >
-                          Child too young
-                        </Typography>
-                      }
-                    />
-
-                    {/* With glasses checkbox option */}
-                    <FormControlLabel
-                      sx={{
-                        backgroundColor: 'transparent',
-                        pr: 0,
-                      }}
-                      control={
-                        <Checkbox
-                          size="small"
-                          sx={{
-                            color: theme.palette.primary.main,
-                            '&.Mui-checked': {
-                              color: theme.palette.primary.main,
-                            },
-                            '&.Mui-disabled': {
-                              color: lighten(theme.palette.primary.main, 0.4),
-                            },
-                          }}
-                          disabled={isCheckboxesDisabled}
-                          checked={localState.isWithGlassesSelected}
-                          onChange={(e) => localState.handleVisionOptionChange(e.target.checked, 'with_glasses')}
-                        />
-                      }
-                      label={
-                        <Typography
-                          sx={{
-                            fontSize: '16px',
-                            fontWeight: 500,
-                            color: isCheckboxesDisabled
-                              ? lighten(theme.palette.text.primary, 0.4)
-                              : theme.palette.text.primary,
-                          }}
-                        >
-                          With glasses
-                        </Typography>
-                      }
-                    />
-
-                    {/* Without glasses checkbox option */}
-                    <FormControlLabel
-                      sx={{
-                        backgroundColor: 'transparent',
-                        pr: 0,
-                      }}
-                      control={
-                        <Checkbox
-                          size="small"
-                          sx={{
-                            color: theme.palette.primary.main,
-                            '&.Mui-checked': {
-                              color: theme.palette.primary.main,
-                            },
-                            '&.Mui-disabled': {
-                              color: lighten(theme.palette.primary.main, 0.4),
-                            },
-                          }}
-                          disabled={isCheckboxesDisabled}
-                          checked={localState.isWithoutGlassesSelected}
-                          onChange={(e) => localState.handleVisionOptionChange(e.target.checked, 'without_glasses')}
-                        />
-                      }
-                      label={
-                        <Typography
-                          sx={{
-                            fontSize: '16px',
-                            fontWeight: 500,
-                            color: isCheckboxesDisabled
-                              ? lighten(theme.palette.text.primary, 0.4)
-                              : theme.palette.text.primary,
-                          }}
-                        >
-                          Without glasses
-                        </Typography>
-                      }
-                    />
-                  </Box>
-                </Grid>
-              </Grid>
+                <DotVisionScreeningSection
+                  state={dotState}
+                  collapsed={isDotCollapsed}
+                  onToggleCollapse={handleDotSectionCollapse}
+                  appointmentId={appointmentId}
+                  isReadOnly={isReadOnly}
+                  isSaving={isSavingDot}
+                  onSave={handleSaveDot}
+                />
+              </>
             }
             rightColumn={renderRightColumn()}
           />

@@ -947,6 +947,7 @@ export interface VitalsDataInDischargeSummary extends PdfData {
     weight?: string;
     height?: string;
     vision?: string;
+    dotVisionScreening?: string[];
     lastMenstrualPeriod?: string;
   };
 }

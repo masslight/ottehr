@@ -173,6 +173,13 @@
       "src": "src/ehr/upload-patient-condition-photo/index",
       "zip": ".dist/zips/upload-patient-condition-photo.zip"
     },
+    "UPLOAD-DOT-VISION-DOCUMENT": {
+      "name": "upload-dot-vision-document",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/upload-dot-vision-document/index",
+      "zip": ".dist/zips/upload-dot-vision-document.zip"
+    },
     "MIGRATE-EXAM-DATA": {
       "name": "migrate-exam-data",
       "type": "http_auth",
