@@ -2,7 +2,13 @@ import { Autocomplete, Chip, TextField } from '@mui/material';
 import { HealthcareService, Location, Practitioner, PractitionerRole, Schedule } from 'fhir/r4b';
 import { ReactElement, useEffect, useMemo, useRef, useState } from 'react';
 import { LocationWithWalkinSchedule } from 'src/pages/AddPatient';
-import { getSlugForBookableResource, isLocationVirtual, SCHEDULE_DISPLAY_NAME_EXTENSION_URL, SLUG_SYSTEM } from 'utils';
+import {
+  getSlugForBookableResource,
+  isLocationVirtual,
+  SCHEDULE_DISPLAY_NAME_EXTENSION_URL,
+  SERVICE_CATEGORY_SYSTEM,
+  SLUG_SYSTEM,
+} from 'utils';
 import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
 import { useApiClients } from '../hooks/useAppClients';
 
@@ -27,6 +33,15 @@ export interface BookableTarget {
   name: string;
   /** Only set for Location targets — used by walk-in flow. */
   walkinSchedule?: Schedule;
+  /**
+   * All Schedules attached to this Location (Location targets only). A
+   * Location with N service-specific Schedules surfaces all of them here so
+   * the serviceCategoryCode filter can ask "does ANY of this Location's
+   * Schedules support the picked category" rather than only consulting the
+   * representative `walkinSchedule` (the first match), which would silently
+   * exclude a Location whose first Schedule is for a different service.
+   */
+  schedules?: Schedule[];
   /** Original Location reference, only for Location targets, for downstream code that needs the raw resource. */
   rawLocation?: LocationWithWalkinSchedule;
 }
@@ -157,9 +172,17 @@ export default function BookableSelect({
         const locations = locationsWithSchedules.filter((r): r is Location => r.resourceType === 'Location');
         const schedules = locationsWithSchedules.filter((r): r is Schedule => r.resourceType === 'Schedule');
 
-        const locationTargets: LocationWithWalkinSchedule[] = locations.map((loc) => {
-          const schedule = schedules.find((s) => s.actor?.some((a) => a.reference === `Location/${loc.id}`));
-          return { ...loc, walkinSchedule: schedule } as LocationWithWalkinSchedule;
+        // Locations can have multiple Schedules — one per service category
+        // is a common shape in customer configs. Capture all of them so the
+        // service-category filter can inspect each instead of guessing at
+        // the "right" one via .find. The walk-in flow still keeps a single
+        // representative Schedule (the first match) for its scheduleId
+        // derivation in AddPatient — same back-compat as before.
+        const locationTargets: Array<LocationWithWalkinSchedule & { schedules: Schedule[] }> = locations.map((loc) => {
+          const locSchedules = schedules.filter((s) => s.actor?.some((a) => a.reference === `Location/${loc.id}`));
+          return { ...loc, walkinSchedule: locSchedules[0], schedules: locSchedules } as LocationWithWalkinSchedule & {
+            schedules: Schedule[];
+          };
         });
         onLocationsLoadedRef.current?.(locationTargets);
 
@@ -176,6 +199,7 @@ export default function BookableSelect({
               ? `${loc.address.state.toUpperCase()} — ${loc.name ?? 'Unnamed'}`
               : loc.name ?? 'Unnamed location',
             walkinSchedule: loc.walkinSchedule,
+            schedules: loc.schedules,
             rawLocation: loc,
           });
         }
@@ -260,15 +284,38 @@ export default function BookableSelect({
         const passesMode = (isVirtual && wantVirtual) || (!isVirtual && wantInPerson);
         if (!passesMode) return false;
         if (serviceCategoryCode) {
-          // Schedule-side service-category check. Codings present →
-          // membership required; codings absent/empty → "supports all" so
-          // pre-tagging Schedules (and any Schedule the admin never
-          // annotated) keep working.
-          const codes = (t.walkinSchedule?.serviceCategory ?? [])
-            .flatMap((cc) => cc.coding ?? [])
-            .map((c) => c.code)
-            .filter((c): c is string => !!c);
-          if (codes.length > 0 && !codes.includes(serviceCategoryCode)) return false;
+          // Schedule-side service-category check. Two things make this
+          // subtle:
+          //   1. Schedule.serviceCategory is a multi-purpose CodeableConcept
+          //      slot in this codebase — it also carries service-mode
+          //      markers (SlotServiceCategory.{inPerson,virtual}ServiceMode)
+          //      and could carry other system codings. Only
+          //      SERVICE_CATEGORY_SYSTEM codings are real "category
+          //      restrictions"; everything else is metadata that mustn't
+          //      pollute the back-compat rule.
+          //   2. A Location may have multiple Schedules (e.g., one per
+          //      service category). The Location offers a service if ANY of
+          //      its Schedules does — checking only the first Schedule would
+          //      silently exclude Locations whose first Schedule happens to
+          //      be for a different service.
+          // Per-Schedule rule: empty SERVICE_CATEGORY_SYSTEM codings →
+          // "supports all" (back-compat for pre-tagging Schedules and
+          // mode-only Schedules); otherwise membership required. Location
+          // passes if any Schedule satisfies the per-Schedule rule.
+          const schedulesToCheck = t.schedules ?? (t.walkinSchedule ? [t.walkinSchedule] : []);
+          const someScheduleSupports = schedulesToCheck.some((sched) => {
+            const codes = (sched.serviceCategory ?? [])
+              .flatMap((cc) => cc.coding ?? [])
+              .filter((c) => c.system === SERVICE_CATEGORY_SYSTEM)
+              .map((c) => c.code)
+              .filter((c): c is string => !!c);
+            return codes.length === 0 || codes.includes(serviceCategoryCode);
+          });
+          // Locations with NO Schedules attached can't actually be booked
+          // against, but pre-fix behavior treated them as "no restrictions"
+          // and let them through. Preserve that — the slot picker will
+          // surface "no slots" later, which is the existing recovery path.
+          if (schedulesToCheck.length > 0 && !someScheduleSupports) return false;
         }
         return true;
       }

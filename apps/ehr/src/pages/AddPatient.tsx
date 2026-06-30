@@ -40,6 +40,7 @@ import {
   SCHEDULED_FOLLOWUP_OTHER_REASON,
   SCHEDULED_FOLLOWUP_REASONS,
   ScheduleType,
+  SERVICE_CATEGORY_SYSTEM,
   serviceCategorySupportsContext,
   ServiceMode,
   ServiceVisitType,
@@ -263,7 +264,13 @@ export default function AddPatient(): JSX.Element {
     const fhirOnly = fhirRecords
       .filter((r) => r.active !== false && r.code && !bookingCodes.has(r.code))
       .map((r) => ({
-        category: { code: r.code as string, display: r.name, system: '' },
+        // StrongCoding requires a non-empty system. SERVICE_CATEGORY_SYSTEM
+        // is what BOOKING_CONFIG entries use and what the Slot/Schedule
+        // category readers look for downstream — keep FHIR-sourced entries
+        // on the same system so any future consumer that filters codings by
+        // system (the BookableSelect schedule filter does exactly this) sees
+        // both sources uniformly.
+        category: { code: r.code as string, display: r.name, system: SERVICE_CATEGORY_SYSTEM },
         serviceModes: r.config.serviceModes,
         visitTypes: r.config.visitTypes,
         reasonsForVisit: { default: r.config.reasonsForVisit ?? [] },
@@ -291,11 +298,17 @@ export default function AddPatient(): JSX.Element {
 
   // When visit type changes, drop a stale category that's no longer offered.
   // Keep the selection if it's still valid (avoid yanking the user's choice
-  // when they switch between two visit types that share a category).
+  // when they switch between two visit types that share a category). When
+  // the selection becomes invalid, fall back to the first remaining filtered
+  // option — NOT to `defaultServiceCategory`, which is itself just "the only
+  // BOOKING_CONFIG entry" when there's exactly one and may also be filtered
+  // out by the visit-type context. Resetting to a filtered-out value would
+  // leave the dropdown displaying nothing usable while the form sat in an
+  // invalid state.
   useEffect(() => {
     if (!serviceCategory) return;
     if (!filteredServiceCategories.some((sc) => sc.code === serviceCategory)) {
-      setServiceCategory(defaultServiceCategory);
+      setServiceCategory(filteredServiceCategories[0]?.code ?? '');
     }
   }, [filteredServiceCategories, serviceCategory]);
 

@@ -58,8 +58,34 @@ const locInPersonMassage = makeLocation('loc-massage', 'Massage Studio', 'massag
 const schedInPersonMassage = makeSchedule('sched-massage', 'loc-massage', ['massage']);
 const locInPersonNoCat = makeLocation('loc-nocat', 'Legacy Clinic', 'legacy-clinic');
 const schedInPersonNoCat = makeSchedule('sched-nocat', 'loc-nocat'); // no serviceCategory at all
+// Schedule.serviceCategory carries only a service-mode marker (the
+// SlotServiceCategory.inPersonServiceMode shape used by patient flow code).
+// The filter must ignore non-SERVICE_CATEGORY_SYSTEM codings — otherwise a
+// schedule like this looks "restricted to non-matching codes" and gets
+// silently excluded for every real service-category lookup.
+const locInPersonModeOnly = makeLocation('loc-mode-only', 'Mode-Only Clinic', 'mode-only-clinic');
+const schedInPersonModeOnly: Schedule = {
+  resourceType: 'Schedule',
+  id: 'sched-mode-only',
+  actor: [{ reference: 'Location/loc-mode-only' }],
+  serviceCategory: [
+    {
+      coding: [{ system: 'http://terminology.hl7.org/CodeSystem/service-category', code: 'in-person' }],
+    },
+  ],
+};
 const locVirtual = makeLocation('loc-virtual', 'Telemed NYC', 'telemed-nyc', { virtual: true });
 const schedVirtual = makeSchedule('sched-virtual', 'loc-virtual', ['urgent-care']);
+// Location with multiple Schedules — exercise the "any Schedule supports
+// the picked category" rule. The first Schedule covers occupational
+// medicine only; the second covers urgent-care. The pre-fix code took
+// `schedules.find(...)` which returns the FIRST attached Schedule and would
+// have excluded this Location for an urgent-care query even though it does
+// offer the service via its second Schedule. This is the shape that
+// surfaced as "New York missing from the picker" in the e2e env.
+const locMultiSched = makeLocation('loc-multi', 'Multi Service Clinic', 'multi-service');
+const schedMultiOcc = makeSchedule('sched-multi-occ', 'loc-multi', ['occupational-medicine']);
+const schedMultiUC = makeSchedule('sched-multi-uc', 'loc-multi', ['urgent-care']);
 
 const group: HealthcareService = {
   resourceType: 'HealthcareService',
@@ -94,6 +120,11 @@ const mockSearch = vi.fn((params: { resourceType: string }) => {
       schedInPersonMassage,
       locInPersonNoCat,
       schedInPersonNoCat,
+      locInPersonModeOnly,
+      schedInPersonModeOnly,
+      locMultiSched,
+      schedMultiOcc,
+      schedMultiUC,
       locVirtual,
       schedVirtual,
     ];
@@ -221,6 +252,38 @@ describe('BookableSelect — filter props', () => {
     // of the requested code. Without this rule any never-tagged Schedule
     // would silently vanish from the picker the moment a category is set.
     expect(texts.some((t) => t.includes('Legacy Clinic'))).toBe(true);
+  });
+
+  it('serviceCategoryCode filter admits a Location whose later Schedule (not the first) supports the picked code', async () => {
+    const user = userEvent.setup();
+    render(<Harness resourceTypes={['Location']} serviceCategoryCode="urgent-care" />);
+
+    await waitFor(() => expect(mockSearch).toHaveBeenCalled());
+    await openDropdown(user);
+
+    const texts = await getOptionTexts();
+    // The pre-fix bug shape: only the first Schedule attached to a Location
+    // was consulted. A Location with [occupational-medicine, urgent-care]
+    // Schedules would surface only the occ-med one and get excluded for an
+    // urgent-care query. The post-fix code unions across all attached
+    // Schedules — if any supports the code, the Location qualifies.
+    expect(texts.some((t) => t.includes('Multi Service Clinic'))).toBe(true);
+  });
+
+  it('serviceCategoryCode filter admits Schedules whose only codings are non-service-category (mode markers)', async () => {
+    const user = userEvent.setup();
+    render(<Harness resourceTypes={['Location']} serviceCategoryCode="urgent-care" />);
+
+    await waitFor(() => expect(mockSearch).toHaveBeenCalled());
+    await openDropdown(user);
+
+    const texts = await getOptionTexts();
+    // The pre-fix bug: collecting all codings regardless of system meant a
+    // Schedule with only mode markers reported `codes.length > 0` and got
+    // rejected for not including 'urgent-care'. The system-scoped filter
+    // restores the back-compat rule by ignoring foreign-system codings —
+    // a Schedule with no SERVICE_CATEGORY_SYSTEM codings is "unrestricted".
+    expect(texts.some((t) => t.includes('Mode-Only Clinic'))).toBe(true);
   });
 
   it('mode filter still excludes virtual Locations under IN_PERSON, even when their Schedule lists the code', async () => {
