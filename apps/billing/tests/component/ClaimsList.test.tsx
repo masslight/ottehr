@@ -83,7 +83,7 @@ const makeRow = (id: string, patientName: string, arStage: string): BillingClaim
   payerName: 'Acme',
   payerId: 'P1',
   memberId: '',
-  appointmentType: undefined,
+  service: undefined,
   serviceDate: '2026-01-02',
   facility: '',
   renderingProvider: '',
