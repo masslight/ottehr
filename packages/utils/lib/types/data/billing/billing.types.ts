@@ -245,6 +245,10 @@ export interface PatientDetailResponse {
 
 export interface ClaimDetailResponse {
   id: string;
+  // Clinical Encounter this claim was generated from (from the claim's claim-encounter-id identifier).
+  encounterId: string;
+  // Clinical Appointment this claim was generated from (the EHR /visit/<id> route key).
+  appointmentId: string;
   type: keyof typeof CODE_SYSTEM_CLAIM_TYPE_CODES;
   // Legacy `current-status` value (kept for compatibility); `statuses` carries the indicators shown in the UI.
   status: string;

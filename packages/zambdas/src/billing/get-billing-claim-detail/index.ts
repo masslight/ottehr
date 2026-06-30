@@ -24,6 +24,7 @@ import {
   getResourcesFromBatchInlineRequests,
   getTaxID,
 } from 'utils';
+import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import {
   CLAIM_TAG_SYSTEM,
@@ -143,6 +144,9 @@ async function performEffect(oystehr: Oystehr, params: GetClaimDetailParams): Pr
 
   return {
     id: claim.id ?? '',
+    encounterId: claim.identifier?.find((i) => i.system === ottehrIdentifierSystem('claim-encounter-id'))?.value ?? '',
+    appointmentId:
+      claim.identifier?.find((i) => i.system === ottehrIdentifierSystem('claim-appointment-id'))?.value ?? '',
     type: getClaimType(claim),
     status,
     statuses: getClaimStatusValues(claim),

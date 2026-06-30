@@ -8,6 +8,7 @@ locals {
     OYSTEHR_CONNECTION_NAME          = oystehr_application.OTTEHR_BILLING.connection_name == null ? "" : oystehr_application.OTTEHR_BILLING.connection_name
     MUI_X_LICENSE_KEY                = local.MUI_X_LICENSE_KEY.value
     PROJECT_API_ZAMBDA_URL           = var.is_local ? "http://localhost:3000/local" : "https://project-api.zapehr.com/v1"
+    EHR_APP_URL                      = var.ehr_app_url
   }
 }
 
