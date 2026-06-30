@@ -2475,6 +2475,10 @@ describe('create-billing-claim-from-encounter', () => {
             url: '/Claim',
             resource: {
               resourceType: 'Claim',
+              identifier: [
+                { system: ottehrIdentifierSystem('claim-encounter-id'), value: 'encounter-123' },
+                { system: ottehrIdentifierSystem('claim-appointment-id'), value: 'appointment-123' },
+              ],
               status: 'draft',
               meta: {
                 tag: [
@@ -2575,6 +2579,10 @@ describe('create-billing-claim-from-encounter', () => {
             url: '/Claim',
             resource: {
               resourceType: 'Claim',
+              identifier: [
+                { system: ottehrIdentifierSystem('claim-encounter-id'), value: 'encounter-123' },
+                { system: ottehrIdentifierSystem('claim-appointment-id'), value: 'appointment-123' },
+              ],
               status: 'draft',
               meta: {
                 tag: [
