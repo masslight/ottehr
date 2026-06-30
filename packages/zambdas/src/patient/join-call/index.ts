@@ -1,7 +1,7 @@
 import Oystehr, { User } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
-import { Appointment, Encounter } from 'fhir/r4b';
+import { Appointment, Encounter, RelatedPerson } from 'fhir/r4b';
 import { decodeJwt, jwtVerify } from 'jose';
 import { JSONPath } from 'jsonpath-plus';
 import { DateTime } from 'luxon';
@@ -62,9 +62,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   console.groupEnd();
   console.debug('validateRequestParameters success');
 
-  const projectApiURL = getSecret(SecretsKeys.PROJECT_API, secrets);
   const websiteUrl = getSecret(SecretsKeys.WEBSITE_URL, secrets);
-  const telemedClientId = getSecret(SecretsKeys.AUTH0_CLIENT, secrets);
   const telemedClientSecret = getSecret(SecretsKeys.AUTH0_SECRET, secrets);
   const jwt = authorization.replace('Bearer ', '');
   const claims = decodeJwt(jwt);
@@ -145,20 +143,21 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     return lambdaResponse(400, CANNOT_JOIN_CALL_NOT_STARTED_ERROR);
   }
 
-  let userProfile: string;
+  let otherParticipantRef: string | undefined;
   let relatedPersonRefs: string[] = [];
 
   if (isInvitedParticipant) {
     const subject = claims.sub || '';
+    const invitedParticipantRef = await getInvitedParticipantRef(subject, videoEncounter.id, oystehr);
 
-    if (!(await isParticipantInvited(subject, videoEncounter.id, oystehr))) {
+    if (!invitedParticipantRef) {
       return lambdaResponse(401, { message: 'Unauthorized' });
     }
 
-    userProfile = await getM2MUserProfile(oystehrToken, projectApiURL, telemedClientId);
+    relatedPersonRefs = [invitedParticipantRef];
   } else {
     user = user as User;
-    userProfile = user.profile;
+    otherParticipantRef = user.profile;
 
     if (!(await userHasAccessToPatient(user, patientId, oystehr))) {
       return lambdaResponse(403, NO_READ_ACCESS_TO_PATIENT_ERROR);
@@ -176,10 +175,15 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     }
   }
 
-  console.log('User profile:', userProfile);
+  console.log('Other participant reference:', otherParticipantRef);
   console.log('RelatedPersons:', relatedPersonRefs);
 
-  videoEncounter = await addUserToVideoEncounterIfNeeded(videoEncounter, userProfile, relatedPersonRefs, oystehr);
+  videoEncounter = await addUserToVideoEncounterIfNeeded(
+    videoEncounter,
+    otherParticipantRef,
+    relatedPersonRefs,
+    oystehr
+  );
 
   if (!videoEncounter.id) {
     throw new Error(`Video encounter was not found for the appointment ${appointment.id}`);
@@ -215,7 +219,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
 async function addUserToVideoEncounterIfNeeded(
   encounter: Encounter,
-  fhirParticipantRef: string,
+  fhirOtherParticipantRef: string | undefined,
   fhirRelatedPersonRefs: string[],
   oystehr: Oystehr
 ): Promise<Encounter> {
@@ -233,44 +237,48 @@ async function addUserToVideoEncounterIfNeeded(
 
     const updateOperations: Operation[] = [];
 
-    const newOtherParticipantEntry = {
-      url: FHIR_EXTENSION.Encounter.otherParticipants.extension.otherParticipant.url,
-      extension: [
-        {
-          url: 'period',
-          valuePeriod: {
-            start: DateTime.now().toUTC().toISO(),
+    if (fhirOtherParticipantRef) {
+      const newOtherParticipantEntry = {
+        url: FHIR_EXTENSION.Encounter.otherParticipants.extension.otherParticipant.url,
+        extension: [
+          {
+            url: 'period',
+            valuePeriod: {
+              start: DateTime.now().toUTC().toISO(),
+            },
           },
-        },
-        {
-          url: 'reference',
-          valueReference: {
-            reference: fhirParticipantRef,
+          {
+            url: 'reference',
+            valueReference: {
+              reference: fhirOtherParticipantRef,
+            },
           },
-        },
-      ],
-    };
-
-    if (otherParticipantsDenormalized.includes(fhirParticipantRef)) {
-      console.log(`User '${fhirParticipantRef}' is already added to the participant list.`);
-    } else if (otherParticipantsIdx >= 0) {
-      // Targeted patch into the existing container avoids the lost-update race of replacing /extension.
-      updateOperations.push({
-        op: 'add',
-        path: `/extension/${otherParticipantsIdx}/extension/-`,
-        value: newOtherParticipantEntry,
-      });
-    } else {
-      const newOtherParticipants = {
-        url: FHIR_EXTENSION.Encounter.otherParticipants.url,
-        extension: [newOtherParticipantEntry],
+        ],
       };
 
-      updateOperations.push({
-        op: 'add',
-        path: encounter.extension ? '/extension/-' : '/extension',
-        value: encounter.extension ? newOtherParticipants : [newOtherParticipants],
-      });
+      if (otherParticipantsDenormalized.includes(fhirOtherParticipantRef)) {
+        console.log(`User '${fhirOtherParticipantRef}' is already added to the participant list.`);
+      } else if (otherParticipantsIdx >= 0) {
+        // Targeted patch into the existing container avoids the lost-update race of replacing /extension.
+        updateOperations.push({
+          op: 'add',
+          path: `/extension/${otherParticipantsIdx}/extension/-`,
+          value: newOtherParticipantEntry,
+        });
+      } else {
+        const newOtherParticipants = {
+          url: FHIR_EXTENSION.Encounter.otherParticipants.url,
+          extension: [newOtherParticipantEntry],
+        };
+
+        updateOperations.push({
+          op: 'add',
+          path: encounter.extension ? '/extension/-' : '/extension',
+          value: encounter.extension ? newOtherParticipants : [newOtherParticipants],
+        });
+      }
+    } else {
+      console.log('Encounter other-participants extension will not be updated.');
     }
 
     const existingParticipantRefs = new Set(
@@ -315,45 +323,33 @@ async function addUserToVideoEncounterIfNeeded(
   }
 }
 
-async function isParticipantInvited(subject: string, encounterId: string, oystehr: Oystehr): Promise<boolean> {
+async function getInvitedParticipantRef(
+  subject: string,
+  encounterId: string,
+  oystehr: Oystehr
+): Promise<string | undefined> {
+  const relatedPersons = await searchInvitedParticipantResourcesByEncounterId(encounterId, oystehr);
+  return findInvitedParticipantRefBySubject(subject, relatedPersons);
+}
+
+export function findInvitedParticipantRefBySubject(
+  subject: string,
+  relatedPersons: RelatedPerson[]
+): string | undefined {
   const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   const isEmail = emailPattern.test(subject);
-  const relatedPersons = await searchInvitedParticipantResourcesByEncounterId(encounterId, oystehr);
+  const telecomSystem = isEmail ? 'email' : 'phone';
 
   const telecom: string[] = JSONPath({
-    path: `$..telecom[?(@.system == "${isEmail ? 'email' : 'phone'}")].value`,
+    path: `$..telecom[?(@.system == "${telecomSystem}")].value`,
     json: relatedPersons,
   });
 
   console.log(`${isEmail ? 'Email addresses' : 'Phone numbers'} that were invited:`, telecom);
 
-  return telecom.includes(subject);
-}
+  const relatedPerson = relatedPersons.find((rp) => {
+    return rp.telecom?.some((telecomTemp) => telecomTemp.system === telecomSystem && telecomTemp.value === subject);
+  });
 
-async function getM2MUserProfile(token: string, projectApiURL: string, telemedClientId: string): Promise<any> {
-  try {
-    const url = `${projectApiURL}/m2m`;
-    const response = await fetch(url, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-      method: 'GET',
-    });
-
-    if (!response.ok) {
-      throw new Error(`Failed to fetch M2M user details: ${response.statusText}`);
-    }
-
-    const data = await response.json();
-    const telemedDevice = data.find((device: any) => device.clientId === telemedClientId);
-
-    if (!telemedDevice) {
-      throw new Error('No device matches the provided AUTH0_CLIENT');
-    }
-
-    return telemedDevice.profile;
-  } catch (error: any) {
-    console.error('Error fetching M2M user details:', error);
-    throw error;
-  }
+  return relatedPerson?.id ? `RelatedPerson/${relatedPerson.id}` : undefined;
 }

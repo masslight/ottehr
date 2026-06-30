@@ -11,6 +11,7 @@ import { FC, useEffect, useMemo, useState } from 'react';
 import { getSelectors } from 'utils';
 import { useIsMobile } from '../../hooks/useIsMobile';
 import { useVideoCallStore, VideoControls } from '.';
+import { selectActiveParticipant } from './video-room.helpers';
 
 type Participant = RosterAttendeeType & {
   tileId?: number;
@@ -38,11 +39,7 @@ export const VideoRoom: FC = () => {
   }, [roster, videoCallState.meetingData?.Attendee, attendeeIdToTileId]);
 
   useEffect(() => {
-    if (participants.length) {
-      setActiveParticipant(participants[0]);
-    } else {
-      setActiveParticipant(null);
-    }
+    setActiveParticipant((currentActiveParticipant) => selectActiveParticipant(participants, currentActiveParticipant));
   }, [participants]);
 
   return (

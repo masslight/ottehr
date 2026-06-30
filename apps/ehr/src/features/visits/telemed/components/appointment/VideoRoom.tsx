@@ -10,6 +10,7 @@ import { RosterAttendeeType } from 'amazon-chime-sdk-component-library-react/lib
 import { FC, useEffect, useMemo, useState } from 'react';
 import { getSelectors } from 'utils';
 import { useVideoCallStore } from '../../state/video-call/video-call.store';
+import { selectActiveParticipant } from './video-room.helpers';
 import { VideoControls } from './VideoControls';
 import { VideoTimer } from './VideoTimer';
 
@@ -38,11 +39,7 @@ export const VideoRoom: FC = () => {
   }, [roster, videoCallState.meetingData?.Attendee, attendeeIdToTileId]);
 
   useEffect(() => {
-    if (participants.length) {
-      setActiveParticipant(participants[0]);
-    } else {
-      setActiveParticipant(null);
-    }
+    setActiveParticipant((currentActiveParticipant) => selectActiveParticipant(participants, currentActiveParticipant));
   }, [participants]);
 
   return (
