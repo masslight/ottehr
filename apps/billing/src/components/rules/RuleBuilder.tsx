@@ -1,105 +1,34 @@
 import { Add as AddIcon, DeleteOutline as DeleteIcon } from '@mui/icons-material';
-import {
-  Box,
-  Button,
-  FormControl,
-  IconButton,
-  InputLabel,
-  MenuItem,
-  Select,
-  TextField,
-  Typography,
-} from '@mui/material';
+import { Box, Button, IconButton, Typography } from '@mui/material';
 import { ReactElement } from 'react';
-import {
-  getRuleFieldDef,
-  HOLD_TAG_NAME,
-  RULE_FIELD_CATALOG,
-  RULE_OPERATORS,
-  RuleAction,
-  RuleCondition,
-  RuleConditional,
-  RuleOperator,
-  RuleOutcome,
-} from 'utils';
+import { RuleCondition, RuleConditional, RuleOutcome } from 'utils';
 import { otherColors } from '../../themes/ottehr/colors';
-import { PayerSelect } from './PayerSelect';
+import {
+  ActionFields,
+  ConditionTypeSelect,
+  FieldConditionFields,
+  indentSx,
+  LogicSelect,
+  newAction,
+  newBranch,
+  newFieldCondition,
+  newOutcome,
+  newRuleConditional,
+  OutcomeTypeSelect,
+} from './shared';
 
 // ---------------------------------------------------------------------------
-// Recursive editor for a rule's if / else-if / else conditional tree. Each editor is fully
-// controlled (value + onChange) and produces an immutably-updated copy on change. Components are
+// Variant A — "Form builder"
+//
+// The original rule editor: a recursive set of always-on form controls for the if / else-if / else
+// conditional tree. Every condition and action exposes its dropdowns at all times. Components are
 // declared (hoisted) so the mutual recursion (Conditional -> Outcome -> Conditional, Condition ->
-// group -> Condition) resolves cleanly.
+// group -> Condition) resolves cleanly. All the field/action mechanics live in ./shared; this file
+// is only the layout.
 // ---------------------------------------------------------------------------
 
-const SETTABLE_FIELDS = RULE_FIELD_CATALOG.filter((f) => f.settable);
-const FIRST_FIELD_ID = RULE_FIELD_CATALOG[0]?.id ?? 'payerId';
-const FIRST_SETTABLE_ID = SETTABLE_FIELDS[0]?.id ?? 'payerId';
-
-const OPERATOR_LABELS: Record<RuleOperator, string> = {
-  eq: 'equals',
-  neq: 'does not equal',
-  in: 'is one of',
-  notIn: 'is not one of',
-  contains: 'contains',
-  notContains: 'does not contain',
-  exists: 'is present',
-  notExists: 'is empty',
-};
-
-const operatorNeedsValue = (op: RuleOperator): boolean => op !== 'exists' && op !== 'notExists';
-const operatorIsMultiValue = (op: RuleOperator): boolean => op === 'in' || op === 'notIn';
-
-const valueToText = (value: string | string[] | undefined): string =>
-  Array.isArray(value) ? value.join(', ') : value ?? '';
-
-const textToList = (text: string): string[] =>
-  text
-    .split(',')
-    .map((s) => s.trim())
-    .filter(Boolean);
-
-const newFieldCondition = (): RuleCondition => ({ type: 'field', field: FIRST_FIELD_ID, operator: 'eq', value: '' });
-const newAction = (): RuleAction => ({ type: 'setField', field: FIRST_SETTABLE_ID, value: '' });
-const newOutcome = (): RuleOutcome => ({ type: 'actions', actions: [newAction()] });
-const newBranch = (): RuleConditional['branches'][number] => ({
-  condition: newFieldCondition(),
-  outcome: newOutcome(),
-});
-export const newRuleConditional = (): RuleConditional => ({ branches: [newBranch()] });
-
-const indentSx = { borderLeft: `2px solid ${otherColors.lightDivider}`, pl: 2, ml: 0.5 };
-
-// Field-aware value input: different fields get different UI for a good editing experience. Payer
-// fields use the searchable payer picker (valid payers only, from the Oystehr payer list); everything
-// else is free text (multi-value operators take a comma-separated list). Gender dropdowns, date
-// pickers, etc. slot in here the same way.
-function FieldValueInput({
-  fieldId,
-  multiple,
-  value,
-  onChange,
-  label,
-}: {
-  fieldId: string;
-  multiple: boolean;
-  value: string | string[] | null | undefined;
-  onChange: (value: string | string[]) => void;
-  label?: string;
-}): ReactElement {
-  if (fieldId === 'payerId') {
-    return <PayerSelect multiple={multiple} value={value} onChange={onChange} label={label} />;
-  }
-  return (
-    <TextField
-      size="small"
-      label={label ?? (multiple ? 'Values (comma-separated)' : 'Value')}
-      value={valueToText(value ?? '')}
-      onChange={(e) => onChange(multiple ? textToList(e.target.value) : e.target.value)}
-      sx={{ minWidth: 200 }}
-    />
-  );
-}
+// Re-exported for callers that historically imported the conditional factory from here.
+export { newRuleConditional };
 
 // --- Condition ---
 
@@ -112,83 +41,13 @@ function ConditionEditor({
 }): ReactElement {
   return (
     <Box>
-      <FormControl size="small" sx={{ minWidth: 160 }}>
-        <InputLabel>Condition</InputLabel>
-        <Select
-          label="Condition"
-          value={value.type}
-          onChange={(e) => {
-            const next = e.target.value as RuleCondition['type'];
-            if (next === 'all') onChange({ type: 'all' });
-            else if (next === 'field') onChange(newFieldCondition());
-            else onChange({ type: 'group', logic: 'and', conditions: [newFieldCondition()] });
-          }}
-        >
-          <MenuItem value="all">All claims</MenuItem>
-          <MenuItem value="field">Claim property</MenuItem>
-          <MenuItem value="group">Group (AND / OR)</MenuItem>
-        </Select>
-      </FormControl>
-      {value.type === 'field' && <FieldConditionEditor value={value} onChange={onChange} />}
-      {value.type === 'group' && <GroupConditionEditor value={value} onChange={onChange} />}
-    </Box>
-  );
-}
-
-function FieldConditionEditor({
-  value,
-  onChange,
-}: {
-  value: Extract<RuleCondition, { type: 'field' }>;
-  onChange: (next: RuleCondition) => void;
-}): ReactElement {
-  const def = getRuleFieldDef(value.field);
-  const operators = def?.operators ?? [...RULE_OPERATORS];
-  return (
-    <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center', mt: 1 }}>
-      <FormControl size="small" sx={{ minWidth: 200 }}>
-        <InputLabel>Property</InputLabel>
-        <Select
-          label="Property"
-          value={value.field}
-          onChange={(e) => {
-            const field = e.target.value;
-            const nextDef = getRuleFieldDef(field);
-            const operator =
-              nextDef && !nextDef.operators.includes(value.operator) ? nextDef.operators[0] : value.operator;
-            // Reset the value: it's meaningless across a property change (e.g. payer id -> gender).
-            onChange({ ...value, field, operator, value: '' });
-          }}
-        >
-          {RULE_FIELD_CATALOG.map((f) => (
-            <MenuItem key={f.id} value={f.id}>
-              {f.label}
-            </MenuItem>
-          ))}
-        </Select>
-      </FormControl>
-      <FormControl size="small" sx={{ minWidth: 150 }}>
-        <InputLabel>Operator</InputLabel>
-        <Select
-          label="Operator"
-          value={value.operator}
-          onChange={(e) => onChange({ ...value, operator: e.target.value as RuleOperator })}
-        >
-          {operators.map((op) => (
-            <MenuItem key={op} value={op}>
-              {OPERATOR_LABELS[op]}
-            </MenuItem>
-          ))}
-        </Select>
-      </FormControl>
-      {operatorNeedsValue(value.operator) && (
-        <FieldValueInput
-          fieldId={value.field}
-          multiple={operatorIsMultiValue(value.operator)}
-          value={value.value}
-          onChange={(v) => onChange({ ...value, value: v })}
-        />
+      <ConditionTypeSelect value={value} onChange={onChange} />
+      {value.type === 'field' && (
+        <Box sx={{ mt: 1 }}>
+          <FieldConditionFields value={value} onChange={onChange} />
+        </Box>
       )}
+      {value.type === 'group' && <GroupConditionEditor value={value} onChange={onChange} />}
     </Box>
   );
 }
@@ -206,17 +65,9 @@ function GroupConditionEditor({
     onChange({ ...value, conditions: value.conditions.filter((_, i) => i !== index) });
   return (
     <Box sx={{ mt: 1, ...indentSx }}>
-      <FormControl size="small" sx={{ minWidth: 120, mb: 1 }}>
-        <InputLabel>Match</InputLabel>
-        <Select
-          label="Match"
-          value={value.logic}
-          onChange={(e) => onChange({ ...value, logic: e.target.value as 'and' | 'or' })}
-        >
-          <MenuItem value="and">All (AND)</MenuItem>
-          <MenuItem value="or">Any (OR)</MenuItem>
-        </Select>
-      </FormControl>
+      <Box sx={{ mb: 1 }}>
+        <LogicSelect value={value.logic} onChange={(logic) => onChange({ ...value, logic })} />
+      </Box>
       {value.conditions.map((condition, index) => (
         <Box key={index} sx={{ display: 'flex', gap: 1, alignItems: 'flex-start', mb: 1 }}>
           <Box sx={{ flex: 1 }}>
@@ -238,67 +89,6 @@ function GroupConditionEditor({
   );
 }
 
-// --- Action ---
-
-function ActionEditor({ value, onChange }: { value: RuleAction; onChange: (next: RuleAction) => void }): ReactElement {
-  return (
-    <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
-      <FormControl size="small" sx={{ minWidth: 150 }}>
-        <InputLabel>Action</InputLabel>
-        <Select
-          label="Action"
-          value={value.type}
-          onChange={(e) => {
-            const next = e.target.value as RuleAction['type'];
-            if (next === 'setField') onChange(newAction());
-            else if (next === 'applyTag') onChange({ type: 'applyTag', tag: '' });
-            else onChange({ type: 'noop' });
-          }}
-        >
-          <MenuItem value="setField">Set a property</MenuItem>
-          <MenuItem value="applyTag">Apply a tag</MenuItem>
-          <MenuItem value="noop">Do nothing</MenuItem>
-        </Select>
-      </FormControl>
-      {value.type === 'setField' && (
-        <>
-          <FormControl size="small" sx={{ minWidth: 200 }}>
-            <InputLabel>Property</InputLabel>
-            <Select
-              label="Property"
-              value={value.field}
-              onChange={(e) => onChange({ ...value, field: e.target.value, value: '' })}
-            >
-              {SETTABLE_FIELDS.map((f) => (
-                <MenuItem key={f.id} value={f.id}>
-                  {f.label}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-          <FieldValueInput
-            fieldId={value.field}
-            multiple={false}
-            value={value.value}
-            onChange={(v) => onChange({ ...value, value: typeof v === 'string' ? v : v[0] ?? '' })}
-            label="New value"
-          />
-        </>
-      )}
-      {value.type === 'applyTag' && (
-        <TextField
-          size="small"
-          label="Tag name"
-          value={value.tag}
-          onChange={(e) => onChange({ ...value, tag: e.target.value })}
-          helperText={`Applying the "${HOLD_TAG_NAME}" tag holds the claim and stops the engine.`}
-          sx={{ minWidth: 240 }}
-        />
-      )}
-    </Box>
-  );
-}
-
 // --- Outcome ---
 
 function OutcomeEditor({
@@ -311,29 +101,13 @@ function OutcomeEditor({
   const actions = value.type === 'actions' ? value.actions : [];
   return (
     <Box>
-      <FormControl size="small" sx={{ minWidth: 160 }}>
-        <InputLabel>Then</InputLabel>
-        <Select
-          label="Then"
-          value={value.type}
-          onChange={(e) => {
-            const next = e.target.value as RuleOutcome['type'];
-            if (next === 'actions') onChange(newOutcome());
-            else if (next === 'conditional') onChange({ type: 'conditional', conditional: newRuleConditional() });
-            else onChange({ type: 'noop' });
-          }}
-        >
-          <MenuItem value="actions">Take action(s)</MenuItem>
-          <MenuItem value="conditional">Branch further (if / else)</MenuItem>
-          <MenuItem value="noop">Do nothing</MenuItem>
-        </Select>
-      </FormControl>
+      <OutcomeTypeSelect value={value} onChange={onChange} />
       {value.type === 'actions' && (
         <Box sx={{ mt: 1, ...indentSx }}>
           {actions.map((action, index) => (
             <Box key={index} sx={{ display: 'flex', gap: 1, alignItems: 'flex-start', mb: 1 }}>
               <Box sx={{ flex: 1 }}>
-                <ActionEditor
+                <ActionFields
                   value={action}
                   onChange={(next) =>
                     onChange({ type: 'actions', actions: actions.map((a, i) => (i === index ? next : a)) })

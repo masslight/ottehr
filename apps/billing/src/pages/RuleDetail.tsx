@@ -4,7 +4,12 @@ import { ReactElement, useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { getApiError, PreSubmissionRule } from 'utils';
 import { getBillingRules, saveBillingRules } from '../api/api';
-import { ConditionalEditor, newRuleConditional } from '../components/rules/RuleBuilder';
+import {
+  getRuleEditorVariant,
+  RuleEditorVariantPicker,
+  useRuleEditorVariant,
+} from '../components/rules/editorVariants';
+import { newRuleConditional } from '../components/rules/RuleBuilder';
 import { useApiClients } from '../hooks/useAppClients';
 
 const blankRule = (): PreSubmissionRule => ({
@@ -20,6 +25,8 @@ export default function RuleDetail(): ReactElement {
   const isNew = id === 'new';
   const navigate = useNavigate();
   const { oystehrZambda } = useApiClients();
+  const [editorVariant, setEditorVariant] = useRuleEditorVariant();
+  const { Editor } = getRuleEditorVariant(editorVariant);
 
   const [allRules, setAllRules] = useState<PreSubmissionRule[]>([]);
   const [versionId, setVersionId] = useState<string | undefined>();
@@ -133,13 +140,22 @@ export default function RuleDetail(): ReactElement {
                 label="Enabled"
               />
 
-              <Typography variant="h6" color="primary.dark" fontWeight={600} sx={{ mt: 1 }}>
-                Logic
-              </Typography>
-              <ConditionalEditor
-                value={rule.conditional}
-                onChange={(conditional) => setRule({ ...rule, conditional })}
-              />
+              <Box
+                sx={{
+                  mt: 1,
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  gap: 2,
+                  flexWrap: 'wrap',
+                }}
+              >
+                <Typography variant="h6" color="primary.dark" fontWeight={600}>
+                  Logic
+                </Typography>
+                <RuleEditorVariantPicker value={editorVariant} onChange={setEditorVariant} />
+              </Box>
+              <Editor value={rule.conditional} onChange={(conditional) => setRule({ ...rule, conditional })} />
 
               <Box sx={{ display: 'flex', gap: 1, mt: 2 }}>
                 <Button variant="contained" onClick={() => void handleSave()} disabled={saving || !rule.name.trim()}>
