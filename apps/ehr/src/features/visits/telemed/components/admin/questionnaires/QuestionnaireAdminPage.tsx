@@ -47,7 +47,7 @@ export const QuestionnaireAdminPage: FC = () => {
 
   const { mutateAsync: updateQuestionnaire, isPending: isUpdating } = useManagedQuestionnaireUpdate();
 
-  const { data, isLoading } = useManagedQuestionnaireList();
+  const { data, isLoading, error: loadError } = useManagedQuestionnaireList();
 
   const managedQuestionnaires = (data?.managedQuestionnaires || [])
     .slice()
@@ -79,8 +79,8 @@ export const QuestionnaireAdminPage: FC = () => {
     [updateQuestionnaire]
   );
 
-  return (
-    <Paper sx={{ padding: 2, marginTop: 2 }}>
+  const PageHeader = (): JSX.Element => {
+    return (
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
         <Typography variant="h4" sx={{ color: '#0F347C' }}>
           Questionnaires
@@ -111,12 +111,36 @@ export const QuestionnaireAdminPage: FC = () => {
           </ButtonRounded>
         </Box>
       </Box>
+    );
+  };
 
-      {isLoading ? (
+  if (loadError) {
+    return (
+      <Paper sx={{ padding: 2, marginTop: 2 }}>
+        {PageHeader()}
+        <Typography variant="body1" color="error" sx={{ p: 4, textAlign: 'center' }}>
+          There was an error loading questionnaires: {loadError.message}
+        </Typography>
+      </Paper>
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <Paper sx={{ padding: 2, marginTop: 2 }}>
+        {PageHeader()}
         <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
           <CircularProgress />
         </Box>
-      ) : visibleQuestionnaires.length === 0 ? (
+      </Paper>
+    );
+  }
+
+  return (
+    <Paper sx={{ padding: 2, marginTop: 2 }}>
+      {PageHeader()}
+
+      {visibleQuestionnaires.length === 0 ? (
         <Typography variant="body1" color="text.secondary" sx={{ p: 4, textAlign: 'center' }}>
           {managedQuestionnaires.length === 0
             ? 'No questionnaires yet. Click "Create Questionnaire" to build one.'

@@ -71,7 +71,17 @@ async function getQuestionnaire(
 
   console.log(`found questionnaires: ${managedFhirQuestionnaires.length} total`);
 
-  const managedQuestionnaires = managedFhirQuestionnaires.map(fhirQuestionnaireToManaged);
+  const managedQuestionnaires = managedFhirQuestionnaires.flatMap((questionnaire) => {
+    try {
+      return [fhirQuestionnaireToManaged(questionnaire)];
+    } catch (error) {
+      console.error(
+        `Failed to validate fhir questionnaire to managed: ${questionnaire.title} Questionnaire/${questionnaire.id}`,
+        error
+      );
+      return [];
+    }
+  });
 
   if (questionnaireId) {
     if (managedQuestionnaires?.length !== 1) {

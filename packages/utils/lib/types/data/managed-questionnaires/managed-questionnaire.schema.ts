@@ -1,3 +1,4 @@
+import { QuestionnaireBaseSchema } from 'config-types';
 import { QuestionnaireResponseItem } from 'fhir/r4b';
 import z from 'zod';
 import { OTTEHR_DATA_TYPES, OTTEHR_INPUT_WIDTHS, QUESTIONNAIRE_ITEM_TYPES } from './managed-questionnaire.types';
@@ -17,13 +18,8 @@ export const ManagedQuestionnaireItemSchema = z
   })
   .passthrough();
 
-export const ManagedQuestionnaireSchema = z
-  .object({
-    resourceType: z.literal('Questionnaire'),
-    status: z.enum(['draft', 'active', 'retired', 'unknown']),
-    name: z.string(),
-    title: z.string(),
-    url: z.string(),
+export const ManagedQuestionnaireSchema = QuestionnaireBaseSchema.omit({ version: true })
+  .extend({
     item: ManagedQuestionnaireItemSchema.array(),
   })
   .passthrough();

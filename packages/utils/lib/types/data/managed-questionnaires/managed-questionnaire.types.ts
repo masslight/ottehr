@@ -1,3 +1,4 @@
+import { QuestionnaireDataTypes } from 'config-types';
 import { Questionnaire, QuestionnaireItem, QuestionnaireResponse } from 'fhir/r4b';
 import z from 'zod';
 import { PRIVATE_EXTENSION_BASE_URL } from '../../../fhir';
@@ -10,41 +11,32 @@ import {
   SaveManagedPaperworkResponseInputSchema,
 } from './managed-questionnaire.schema';
 
+// todo sarah these are defined in OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS
 export const DATA_TYPE_EXTENSION_URL = `${PRIVATE_EXTENSION_BASE_URL}/data-type`;
 export const INPUT_WIDTH_EXTENSION_URL = `${PRIVATE_EXTENSION_BASE_URL}/input-width`;
 
-export type QuestionnaireItemType = Exclude<QuestionnaireItem['type'], 'question'>;
+export type QuestionnaireItemType = Exclude<
+  QuestionnaireItem['type'],
+  'question' | 'time' | 'dateTime' | 'quantity' | 'reference' | 'url'
+>;
 
 export const QUESTIONNAIRE_ITEM_TYPES = [
-  'attachment',
-  'boolean',
-  'choice',
-  'date',
-  'dateTime',
-  'decimal',
-  'display',
-  'group',
-  'integer',
-  'open-choice',
-  'quantity',
-  'reference',
   'string',
   'text',
-  'time',
-  'url',
+  'decimal',
+  'boolean',
+  'display',
+  'choice',
+  'open-choice',
+  'date',
+  'group',
+  'attachment',
+  'integer',
 ] as const satisfies readonly QuestionnaireItemType[];
 
-export const OTTEHR_DATA_TYPES = [
-  'Phone Number',
-  'Email',
-  'ZIP',
-  'DOB',
-  'SSN',
-  'Signature',
-  'Image',
-  'PDF',
-  'Call Out',
-] as const;
+export const OTTEHR_DATA_TYPES = QuestionnaireDataTypes.filter(
+  (t) => t !== 'Payment Validation' && t !== 'Medical History'
+) as unknown as readonly ['ZIP', 'Email', 'Phone Number', 'DOB', 'Signature', 'Image', 'PDF', 'Call Out', 'SSN'];
 
 export type OttehrDataType = (typeof OTTEHR_DATA_TYPES)[number];
 
@@ -72,7 +64,7 @@ export type ManagedQuestionnaireUpdateStatusData = z.infer<typeof ManagedQuestio
 export type ManagedPaperworkDTO = {
   questionnaireTitle: string;
   questionnaireId: string;
-  questionnaireItems: QuestionnaireItem[];
+  questionnaireItems: QuestionnaireItem[]; // todo sarah update
   questionnaireResponse: QuestionnaireResponse | undefined;
 };
 
