@@ -216,4 +216,36 @@ describe('update-billing-claim performEffect', () => {
     expect(update).toHaveBeenCalledWith(expect.objectContaining({ resourceType: 'Claim' }));
     expect(update).not.toHaveBeenCalledWith(expect.objectContaining({ resourceType: 'Coverage' }));
   });
+
+  it('clears the plan type extension when coverage is removed (self-pay)', async () => {
+    const insuredClaim: Claim = {
+      ...structuredClone(claim),
+      extension: [
+        {
+          url: EXTENSION_CLAIM_INSURANCE_TYPE,
+          valueString: '12',
+        },
+      ],
+    };
+    const search = vi.fn().mockResolvedValueOnce({ unbundle: () => [insuredClaim] });
+    const update = vi.fn().mockImplementation((resource) => Promise.resolve(resource));
+    const oystehr = {
+      fhir: {
+        search,
+        update,
+      },
+    } as unknown as Oystehr;
+
+    await performEffect(oystehr, {
+      resourceType: 'Claim',
+      resourceId: 'claim-1',
+      fields: {
+        removeCoverage: true,
+      },
+      secrets: {},
+    });
+
+    const claimUpdate = update.mock.calls.find(([r]) => r.resourceType === 'Claim')?.[0] as Claim;
+    expect(claimUpdate.extension?.some((e: { url?: string }) => e.url === EXTENSION_CLAIM_INSURANCE_TYPE)).toBeFalsy();
+  });
 });

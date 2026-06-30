@@ -496,6 +496,11 @@ export const setClaimPlanType = (claim: Claim, candidCode: string): void => {
   ];
 };
 
+export const clearClaimPlanType = (claim: Claim): void => {
+  const remaining = (claim.extension ?? []).filter((ext) => ext.url !== EXTENSION_CLAIM_INSURANCE_TYPE);
+  claim.extension = remaining.length ? remaining : undefined;
+};
+
 export const setCoveragePlanType = (coverage: Coverage, candidCode: string): Coverage => {
   const otherTypeCodings = (coverage.type?.coding ?? []).filter((coding) => coding.system !== CANDID_PLAN_TYPE_SYSTEM);
   return {

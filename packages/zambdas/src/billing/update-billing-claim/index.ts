@@ -5,6 +5,7 @@ import { Claim, Coverage, FhirResource, Location, Organization, Patient, Practit
 import {
   BillingPolicyHolderInput,
   BillingSubscriberRelationship,
+  clearClaimPlanType,
   CODE_SYSTEM_CLAIM_TYPE,
   CODE_SYSTEM_CMS_PLACE_OF_SERVICE,
   CODE_SYSTEM_HCPCS,
@@ -222,6 +223,7 @@ async function attachClaimResources(
     // Make the claim self-pay; ensureClaimInsurance restores the no-coverage stub below.
     claim.insurance = [];
     delete claim.insurer;
+    clearClaimPlanType(claim);
   }
 
   if (fields.diagnoses) {

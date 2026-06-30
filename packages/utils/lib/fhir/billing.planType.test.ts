@@ -1,7 +1,7 @@
 import { Claim, Coverage } from 'fhir/r4b';
 import { describe, expect, it } from 'vitest';
 import { EXTENSION_CLAIM_INSURANCE_TYPE } from '../helpers/rcm/constants';
-import { getClaimPlanType, setClaimPlanType, setCoveragePlanType } from './billing';
+import { clearClaimPlanType, getClaimPlanType, setClaimPlanType, setCoveragePlanType } from './billing';
 import { CANDID_PLAN_TYPE_SYSTEM } from './insurance';
 
 const baseCoverage: Coverage = {
@@ -137,5 +137,39 @@ describe('claim plan type', () => {
   it('returns undefined for a missing claim or a claim without the code', () => {
     expect(getClaimPlanType(undefined)).toBeUndefined();
     expect(getClaimPlanType(structuredClone(baseClaim))).toBeUndefined();
+  });
+
+  it('clears the plan type while leaving unrelated extensions intact', () => {
+    const claim: Claim = {
+      ...structuredClone(baseClaim),
+      extension: [
+        {
+          url: 'https://example.com/other',
+          valueString: 'keep',
+        },
+        {
+          url: EXTENSION_CLAIM_INSURANCE_TYPE,
+          valueString: '12',
+        },
+      ],
+    };
+
+    clearClaimPlanType(claim);
+
+    expect(claim.extension).toEqual([
+      {
+        url: 'https://example.com/other',
+        valueString: 'keep',
+      },
+    ]);
+  });
+
+  it('drops the extension array entirely when only the plan type was present', () => {
+    const claim = structuredClone(baseClaim);
+    setClaimPlanType(claim, '12');
+
+    clearClaimPlanType(claim);
+
+    expect(claim.extension).toBeUndefined();
   });
 });
