@@ -1,5 +1,5 @@
 import { GetMedicationOrdersInput, GetMedicationOrdersInputSchema, MISSING_REQUEST_BODY } from 'utils';
-import { safeValidate, ZambdaInput } from '../../shared';
+import { safeJsonParse, safeValidate, ZambdaInput } from '../../shared';
 
 export function validateRequestParameters(input: ZambdaInput): GetMedicationOrdersInput & Pick<ZambdaInput, 'secrets'> {
   console.group('validateRequestParameters');
@@ -8,7 +8,7 @@ export function validateRequestParameters(input: ZambdaInput): GetMedicationOrde
     throw MISSING_REQUEST_BODY;
   }
 
-  const parsedJSON = JSON.parse(input.body) as unknown;
+  const parsedJSON = safeJsonParse(input.body) as unknown;
   const { searchBy } = safeValidate(GetMedicationOrdersInputSchema, parsedJSON);
   console.log('parsed searchBy', JSON.stringify(searchBy));
 

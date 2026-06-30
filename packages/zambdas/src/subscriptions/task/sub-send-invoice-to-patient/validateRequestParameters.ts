@@ -5,7 +5,7 @@ import {
   SubSendInvoiceToPatientTaskInput,
   SubSendInvoiceToPatientTaskInputSchema,
 } from 'utils';
-import { ZambdaInput } from '../../../shared';
+import { safeJsonParse, ZambdaInput } from '../../../shared';
 
 export function validateRequestParameters(
   input: ZambdaInput
@@ -15,7 +15,7 @@ export function validateRequestParameters(
 > {
   if (!input.body) throw MISSING_REQUEST_BODY;
 
-  const inputRes = JSON.parse(input.body);
+  const inputRes = safeJsonParse(input.body);
 
   if (inputRes.resourceType !== 'Task') {
     throw new Error(`resource parsed should be a Task but was a ${inputRes.resourceType}`);

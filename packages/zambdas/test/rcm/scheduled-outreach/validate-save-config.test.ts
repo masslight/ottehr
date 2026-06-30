@@ -134,28 +134,32 @@ describe('save-scheduled-outreach-config validateRequestParameters', () => {
 
   it('throws when body is missing', () => {
     const input: ZambdaInput = { headers: null, body: null, secrets: { test: 'secret' } };
-    expect(() => validateRequestParameters(input)).toThrow();
+    expect(() => validateRequestParameters(input)).toThrow('The request was missing a required request body');
   });
 
   it('throws when secrets are missing', () => {
     const input: ZambdaInput = { headers: null, body: JSON.stringify({ actions: [] }), secrets: null };
-    expect(() => validateRequestParameters(input)).toThrow();
+    expect(() => validateRequestParameters(input)).toThrow('The request was missing secrets required to process it');
   });
 
   it('throws when actions is not an array', () => {
-    expect(() => validateRequestParameters(makeInput({ actions: 'not-an-array' }))).toThrow('actions must be an array');
+    expect(() => validateRequestParameters(makeInput({ actions: 'not-an-array' }))).toThrow(
+      'Validation error: Expected array, received string at "actions"'
+    );
   });
 
   it('throws when action has no id', () => {
     expect(() =>
       validateRequestParameters(makeInput({ actions: [{ ...validSendNotificationAction(), id: '' }] }))
-    ).toThrow('id must be a non-empty string');
+    ).toThrow('actions[0].id must be a non-empty string');
   });
 
   it('throws when trigger is missing', () => {
     const action = { ...validSendNotificationAction() };
     delete (action as any).trigger;
-    expect(() => validateRequestParameters(makeInput({ actions: [action] }))).toThrow();
+    expect(() => validateRequestParameters(makeInput({ actions: [action] }))).toThrow(
+      'The following required parameters were missing: actions[0].trigger'
+    );
   });
 
   it('throws on invalid trigger event', () => {
@@ -163,7 +167,9 @@ describe('save-scheduled-outreach-config validateRequestParameters', () => {
       validateRequestParameters(
         makeInput({ actions: [validSendNotificationAction({ trigger: { event: 'invalid-event', daysAfter: 0 } })] })
       )
-    ).toThrow('trigger.event must be one of');
+    ).toThrow(
+      'actions[0].trigger.event must be one of: date-of-visit, invoice-issued, invoice-due, discharge-time, patient-birthday'
+    );
   });
 
   it('throws when daysAfter is negative', () => {
@@ -171,13 +177,13 @@ describe('save-scheduled-outreach-config validateRequestParameters', () => {
       validateRequestParameters(
         makeInput({ actions: [validSendNotificationAction({ trigger: { event: 'invoice-due', daysAfter: -1 } })] })
       )
-    ).toThrow('daysAfter must be a non-negative number');
+    ).toThrow('actions[0].trigger.daysAfter must be a non-negative number');
   });
 
   it('throws on invalid actionType', () => {
     expect(() =>
       validateRequestParameters(makeInput({ actions: [validSendNotificationAction({ actionType: 'invalid' })] }))
-    ).toThrow('actionType must be one of');
+    ).toThrow('actions[0].actionType must be one of: charge-card, send-notification, refer-to-collections, log');
   });
 
   it('throws when discharge-time trigger has charge-card actionType', () => {
@@ -192,7 +198,7 @@ describe('save-scheduled-outreach-config validateRequestParameters', () => {
           ],
         })
       )
-    ).toThrow("must be 'send-notification' or 'log'");
+    ).toThrow("actionType must be 'send-notification' or 'log'");
   });
 
   it('throws when patient-birthday trigger has refer-to-collections actionType', () => {
@@ -207,13 +213,15 @@ describe('save-scheduled-outreach-config validateRequestParameters', () => {
           ],
         })
       )
-    ).toThrow("must be 'send-notification' or 'log'");
+    ).toThrow("actionType must be 'send-notification' or 'log'");
   });
 
   it('throws when charge-card is missing chargeCardConfig', () => {
     const action = validChargeCardAction();
     delete (action as any).chargeCardConfig;
-    expect(() => validateRequestParameters(makeInput({ actions: [action] }))).toThrow('chargeCardConfig');
+    expect(() => validateRequestParameters(makeInput({ actions: [action] }))).toThrow(
+      'The following required parameters were missing: actions[0].chargeCardConfig'
+    );
   });
 
   it('throws when charge-card retryAttempts is negative', () => {
@@ -226,7 +234,7 @@ describe('save-scheduled-outreach-config validateRequestParameters', () => {
       },
     });
     expect(() => validateRequestParameters(makeInput({ actions: [action] }))).toThrow(
-      'retryAttempts must be a non-negative number'
+      /retryAttempts must be a non-negative number/
     );
   });
 
@@ -240,14 +248,16 @@ describe('save-scheduled-outreach-config validateRequestParameters', () => {
       },
     });
     expect(() => validateRequestParameters(makeInput({ actions: [action] }))).toThrow(
-      'retryIntervalDays must be a positive number'
+      /retryIntervalDays must be a positive number/
     );
   });
 
   it('throws when send-notification is missing sendNotificationConfig', () => {
     const action = validSendNotificationAction();
     delete (action as any).sendNotificationConfig;
-    expect(() => validateRequestParameters(makeInput({ actions: [action] }))).toThrow('sendNotificationConfig');
+    expect(() => validateRequestParameters(makeInput({ actions: [action] }))).toThrow(
+      'The following required parameters were missing: actions[0].sendNotificationConfig'
+    );
   });
 
   it('throws when send-notification mediums is empty', () => {
@@ -255,7 +265,7 @@ describe('save-scheduled-outreach-config validateRequestParameters', () => {
       sendNotificationConfig: { mediums: [], smsTemplate: '', emailTemplate: '' },
     });
     expect(() => validateRequestParameters(makeInput({ actions: [action] }))).toThrow(
-      'mediums must be a non-empty array'
+      /mediums must be a non-empty array/
     );
   });
 
@@ -263,13 +273,17 @@ describe('save-scheduled-outreach-config validateRequestParameters', () => {
     const action = validSendNotificationAction({
       sendNotificationConfig: { mediums: ['carrier-pigeon'], smsTemplate: '', emailTemplate: '' },
     });
-    expect(() => validateRequestParameters(makeInput({ actions: [action] }))).toThrow('invalid value');
+    expect(() => validateRequestParameters(makeInput({ actions: [action] }))).toThrow(
+      'actions[0].sendNotificationConfig.mediums contains invalid value: carrier-pigeon'
+    );
   });
 
   it('throws when refer-to-collections is missing referToCollectionsConfig', () => {
     const action = validReferToCollectionsAction();
     delete (action as any).referToCollectionsConfig;
-    expect(() => validateRequestParameters(makeInput({ actions: [action] }))).toThrow('referToCollectionsConfig');
+    expect(() => validateRequestParameters(makeInput({ actions: [action] }))).toThrow(
+      'The following required parameters were missing: actions[0].referToCollectionsConfig'
+    );
   });
 
   it('throws on invalid timeUnit', () => {
@@ -281,7 +295,7 @@ describe('save-scheduled-outreach-config validateRequestParameters', () => {
           ],
         })
       )
-    ).toThrow('timeUnit must be one of');
+    ).toThrow('actions[0].trigger.timeUnit must be one of: days, hours, minutes');
   });
 
   it('throws on invalid direction', () => {
@@ -293,7 +307,7 @@ describe('save-scheduled-outreach-config validateRequestParameters', () => {
           ],
         })
       )
-    ).toThrow('direction must be one of');
+    ).toThrow('actions[0].trigger.direction must be one of: after, before');
   });
 
   it('throws when notificationsTimeRestriction.windowStart has invalid format', () => {
@@ -309,7 +323,7 @@ describe('save-scheduled-outreach-config validateRequestParameters', () => {
           },
         })
       )
-    ).toThrow('windowStart must be a time string');
+    ).toThrow('notificationsTimeRestriction.windowStart must be a time string (HH:mm)');
   });
 
   it('throws when notificationsTimeRestriction.timezone is empty', () => {
@@ -325,7 +339,7 @@ describe('save-scheduled-outreach-config validateRequestParameters', () => {
           },
         })
       )
-    ).toThrow('timezone must be a non-empty string');
+    ).toThrow('notificationsTimeRestriction.timezone must be a non-empty string');
   });
 
   it('throws on invalid birthdayConfig.ageMode', () => {
@@ -355,7 +369,7 @@ describe('save-scheduled-outreach-config validateRequestParameters', () => {
           ],
         })
       )
-    ).toThrow('age must be a number between 1 and 150');
+    ).toThrow('actions[0].birthdayConfig.age must be a number between 1 and 150');
   });
 
   it('throws on invalid statement type', () => {
@@ -374,6 +388,6 @@ describe('save-scheduled-outreach-config validateRequestParameters', () => {
           ],
         })
       )
-    ).toThrow('statementType must be one of');
+    ).toThrow('actions[0].sendNotificationConfig.statementType must be one of: standard, past-due, final-notice');
   });
 });

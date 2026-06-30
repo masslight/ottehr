@@ -6,7 +6,7 @@ import {
   MISSING_REQUEST_BODY,
   Secrets,
 } from 'utils';
-import { ZambdaInput } from '../../../shared';
+import { safeJsonParse, ZambdaInput } from '../../../shared';
 
 export function validateRequestParameters(
   input: ZambdaInput
@@ -22,7 +22,7 @@ export function validateRequestParameters(
 
   let params: unknown;
   try {
-    params = JSON.parse(input.body);
+    params = safeJsonParse(input.body);
   } catch {
     throw INVALID_INPUT_ERROR('Unable to parse request body. Invalid JSON.');
   }

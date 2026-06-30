@@ -1,32 +1,25 @@
-import { INVALID_INPUT_ERROR, MISSING_REQUEST_BODY, MISSING_REQUIRED_PARAMETERS, ServiceMode, VALUE_SETS } from 'utils';
-import { ZambdaInput } from '../../../shared';
+import { INVALID_INPUT_ERROR, MISSING_REQUEST_BODY, ServiceMode, VALUE_SETS } from 'utils';
+import { z } from 'zod';
+import { safeJsonParse, safeValidate, ZambdaInput } from '../../../shared';
 import { CancelAppointmentZambdaInputValidated } from '.';
+
+const CancelAppointmentBodySchema = z.object({
+  appointmentID: z.string().uuid(),
+  cancellationReason: z.string().min(1),
+  silent: z.boolean().optional(),
+  language: z.string().optional(),
+  cancellationReasonAdditional: z.string().optional(),
+});
 
 export function validateRequestParameters(input: ZambdaInput): CancelAppointmentZambdaInputValidated {
   if (!input.body) {
     throw MISSING_REQUEST_BODY;
   }
 
-  const { language, appointmentID, cancellationReason, silent, cancellationReasonAdditional } = JSON.parse(input.body);
-
-  const missingFields = [];
-  if (appointmentID === undefined) {
-    missingFields.push('appointmentID');
-  }
-  if (cancellationReason === undefined) {
-    missingFields.push('cancellationReason');
-  }
-  if (missingFields.length > 0) {
-    throw MISSING_REQUIRED_PARAMETERS(missingFields);
-  }
-
-  if (typeof cancellationReason !== 'string') {
-    throw INVALID_INPUT_ERROR(`"cancellationReason" must be a string`);
-  }
-
-  if (cancellationReasonAdditional && typeof cancellationReasonAdditional !== 'string') {
-    throw INVALID_INPUT_ERROR(`"cancellationReasonAdditional" must be a string if included`);
-  }
+  const { appointmentID, cancellationReason, silent, language, cancellationReasonAdditional } = safeValidate(
+    CancelAppointmentBodySchema,
+    safeJsonParse(input.body)
+  );
 
   console.groupEnd();
   console.debug('validateRequestParameters success');
