@@ -65,6 +65,9 @@ vi.mock('../../src/features/visits/shared/stores/appointment/appointment.queries
   useGetAllergiesSearch: () => ({ isFetching: false, data: [] }),
   useGetMedicationsSearch: () => ({ isFetching: false, data: [] }),
   useICD10SearchNew: () => ({ isFetching: false, data: { codes: [] } }),
+  useTriggerErxPatientSync: () => ({
+    triggerSync: vi.fn(),
+  }),
 }));
 
 vi.mock('../../src/hooks/useCommandPaletteSource', () => ({
