@@ -45,6 +45,8 @@ const emptyAddressParts = {
 
 const makeClaim = (arStage: string): ClaimDetailResponse => ({
   id: 'claim-1',
+  encounterId: '',
+  appointmentId: '',
   type: 'professional',
   status: '',
   statuses: {
@@ -54,7 +56,6 @@ const makeClaim = (arStage: string): ClaimDetailResponse => ({
   created: '2026-01-01',
   billingType: '',
   billableStatus: '',
-  appointmentType: '',
   patientName: 'Jane Doe',
   patientDob: '1990-01-01',
   patientGender: 'female',
@@ -69,6 +70,7 @@ const makeClaim = (arStage: string): ClaimDetailResponse => ({
   memberId: '',
   subscriberId: '',
   coverageStatus: '',
+  planType: '',
   relationship: '',
   policyHolder: null,
   responsibleParty: '',
