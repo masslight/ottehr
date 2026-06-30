@@ -18,7 +18,13 @@ export const EmployeeSelectInput: React.FC<Props> = ({ name, label, multiple, re
   const { data: employees, isLoading } = useGetEmployeesWithDetails({ enabled: !!oystehrZambda });
   const options = (employees?.providers ?? [])
     .filter(filter ?? (() => true))
-    .map(toProviderDetails)
+    .map((item) => {
+      const pdeets = toProviderDetails(item);
+      return {
+        id: pdeets.practitionerId,
+        name: pdeets.name,
+      };
+    })
     .sort((a, b) => a.name.localeCompare(b.name));
   return (
     <AutocompleteInput
@@ -28,13 +34,9 @@ export const EmployeeSelectInput: React.FC<Props> = ({ name, label, multiple, re
       loading={isLoading}
       required={required}
       dataTestId={dataTestId}
-      getOptionLabel={(option) =>
-        option.name ??
-        options?.find((opt) => opt.practitionerId === option.practitionerId)?.name ??
-        option.practitionerId
-      }
-      getOptionKey={(option) => option.practitionerId}
-      isOptionEqualToValue={(option, value) => option.practitionerId === value.practitionerId}
+      getOptionLabel={(option) => option.name ?? options?.find((opt) => opt.id === option.id)?.name ?? option.id}
+      getOptionKey={(option) => option.id}
+      isOptionEqualToValue={(option, value) => option.id === value.id}
       multiple={multiple}
       size={size}
     />

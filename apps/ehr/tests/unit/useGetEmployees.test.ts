@@ -1,0 +1,54 @@
+import { describe, expect, test } from 'vitest';
+import { toProviderDetails } from '../../src/features/visits/shared/hooks/useGetEmployees';
+
+// Pin a load-bearing identifier-namespace invariant: the `practitionerId`
+// field returned by toProviderDetails must come from the FHIR Practitioner
+// reference embedded in `profile`, NOT from any other id on the source
+// object. Downstream consumers of the EmployeeSelectInput value (the
+// chosen assignee in AssignTaskDialog, the provider URL filter on the
+// appointments page, the Tasks "Assigned to" pre-select) use this id as
+// a Practitioner identifier — useAssignTask in particular builds
+// `'Practitioner/' + assignee.id` to construct a FHIR reference on
+// Task.owner.
+//
+// The Oystehr User id (e.g. EmployeeDetails.id) lives in a DIFFERENT
+// id-space from the Practitioner id. Mapping from the wrong source
+// silently produces broken FHIR references (`Practitioner/<user-id>`
+// resolving to nothing) — a latent bug that shipped historically and was
+// only surfaced when the input layer was rewritten to use
+// toProviderDetails. This test ensures the boundary can't drift back.
+describe('toProviderDetails', () => {
+  test('practitionerId is the FHIR Practitioner id parsed from profile', () => {
+    const result = toProviderDetails({
+      profile: 'Practitioner/practitioner-abc-123',
+      firstName: 'Jane',
+      lastName: 'Doe',
+    });
+    expect(result.practitionerId).toBe('practitioner-abc-123');
+  });
+
+  test('practitionerId is NOT taken from any other id field on the source', () => {
+    // EmployeeDetails carries an `id` (the User id) alongside `profile`.
+    // toProviderDetails must ignore the User id and only use the parsed
+    // Practitioner reference; mixing them up is the regression this test
+    // exists to catch.
+    const result = toProviderDetails({
+      // @ts-expect-error -- intentionally including an extraneous id to
+      // simulate the EmployeeDetails shape and prove it's not picked up.
+      id: 'user-id-xyz',
+      profile: 'Practitioner/practitioner-abc-123',
+      firstName: 'Jane',
+      lastName: 'Doe',
+    });
+    expect(result.practitionerId).toBe('practitioner-abc-123');
+    expect(result.practitionerId).not.toBe('user-id-xyz');
+  });
+
+  test('name composes from firstName + lastName, trimmed', () => {
+    expect(toProviderDetails({ profile: 'Practitioner/abc', firstName: 'Jane', lastName: 'Doe' }).name).toBe(
+      'Jane Doe'
+    );
+    expect(toProviderDetails({ profile: 'Practitioner/abc', firstName: '', lastName: 'Doe' }).name).toBe('Doe');
+    expect(toProviderDetails({ profile: 'Practitioner/abc', firstName: 'Jane', lastName: '' }).name).toBe('Jane');
+  });
+});
