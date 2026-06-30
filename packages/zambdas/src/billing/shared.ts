@@ -33,6 +33,7 @@ import {
   CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM,
   convertFhirNameToDisplayName,
   createCoverageMemberIdentifier,
+  FHIR_IDENTIFIER_CODE_NPI,
   FHIR_IDENTIFIER_CODE_TAX_EMPLOYER,
   FHIR_IDENTIFIER_CODE_TAX_SS,
   FHIR_IDENTIFIER_CODE_TAXONOMY,
@@ -276,6 +277,8 @@ export function buildAddress(parts: {
 
 export function setNpi(resource: Practitioner | Organization | Location, npi: string): void {
   const identifier = resource.identifier ?? [];
+
+  // The `system|value` identifier is used for search
   const existing = identifier.find((id) => id.system === FHIR_IDENTIFIER_NPI);
   if (npi) {
     if (existing) existing.value = npi;
@@ -283,6 +286,30 @@ export function setNpi(resource: Practitioner | Organization | Location, npi: st
     resource.identifier = identifier;
   } else if (existing) {
     resource.identifier = identifier.filter((id) => id.system !== FHIR_IDENTIFIER_NPI);
+  }
+
+  // The `system|code|value` identifier is used by Oystehr RCM and not supported for search by Oystehr FHIR
+  const existingCoded = identifier.find(
+    (id) =>
+      id.type?.coding?.[0].system === FHIR_IDENTIFIER_SYSTEM && id.type?.coding?.[0].code === FHIR_IDENTIFIER_CODE_NPI
+  );
+  if (npi) {
+    if (existingCoded) existingCoded.value = npi;
+    else
+      identifier.push({
+        type: { coding: [{ system: FHIR_IDENTIFIER_SYSTEM, code: FHIR_IDENTIFIER_CODE_NPI }] },
+        value: npi,
+      });
+    resource.identifier = identifier;
+  } else if (existingCoded) {
+    resource.identifier = identifier.filter(
+      (id) =>
+        !id.type ||
+        !id.type.coding ||
+        !id.type.coding.some(
+          (coding) => coding.system === FHIR_IDENTIFIER_SYSTEM && coding.code === FHIR_IDENTIFIER_CODE_NPI
+        )
+    );
   }
 }
 
