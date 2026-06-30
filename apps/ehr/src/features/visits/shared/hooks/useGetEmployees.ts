@@ -41,10 +41,15 @@ export const useGetEmployees = (options?: {
 }): Pick<UseQueryResult<EmployeesForAssignment | null, Error>, 'data' | 'isLoading' | 'isError' | 'error'> => {
   const res = useGetEmployeesWithDetails({ enabled: options?.enabled ?? true });
   const { data } = res;
-  const newData = {
-    providers: data?.providers.map(toProviderDetails) ?? [],
-    nonProviders: data?.nonProviders.map(toProviderDetails) ?? [],
-  };
+
+  const newData =
+    data == null
+      ? data
+      : {
+          providers: data.providers.map(toProviderDetails),
+          nonProviders: data.nonProviders.map(toProviderDetails),
+        };
+
   return { ...res, data: newData };
 };
 
