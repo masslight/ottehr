@@ -925,6 +925,8 @@ export const useCreateUpdateMedicationOrder = () => {
   });
 };
 
+export const GET_MEDICATION_ORDERS_QUERY_KEY = 'telemed-get-medication-orders';
+
 export const useGetMedicationOrders = (
   searchBy: GetMedicationOrdersInput['searchBy']
 ): UseQueryResult<GetMedicationOrdersResponse | null, Error> => {
@@ -934,7 +936,7 @@ export const useGetMedicationOrders = (
   const encounterIdsHasLen = searchBy.field === 'encounterIds' && searchBy.value.length > 0;
 
   return useQuery({
-    queryKey: ['telemed-get-medication-orders', JSON.stringify(searchBy)],
+    queryKey: [GET_MEDICATION_ORDERS_QUERY_KEY, JSON.stringify(searchBy)],
 
     queryFn: async () => {
       if (apiClient) {

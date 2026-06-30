@@ -20,19 +20,20 @@ import {
   MEDICATION_ADMINISTRATION_REASON_CODE,
   MedicationApplianceLocation,
   MedicationData,
+  ResolvedSectionActions,
   resourceHasTagSystem,
   searchRouteByCode,
   Secrets,
   TemplateSectionAction,
   TemplateWarning,
 } from 'utils';
-import { getMyPractitionerId } from '../../shared';
+import { getMyPractitionerId, makeDiagnosisDTO } from '../../shared';
 import {
   createMedicationAdministrationResource,
   createMedicationRequest,
   MedicationAdministrationData,
 } from '../create-update-medication-order/fhir-resources-creation';
-import { isDiagnosisCondition } from '../shared/template-helpers';
+import { isDiagnosisCondition, TemplateEncounterResource } from '../shared/template-helpers';
 import { diagnosesFromReasonCode } from './helpers';
 
 const IN_HOUSE_MEDICATION_PLAN_TAG_SYSTEM = chartDataTagSystem('in-house-medication-administration-template');
@@ -48,8 +49,9 @@ interface ApplyInHouseMedicationPlansInput {
   oystehr: Oystehr;
   userToken: string;
   secrets: Secrets | null;
-  action: TemplateSectionAction;
+  actions: ResolvedSectionActions;
   conditionRequests: BatchInputPostRequest<Condition>[];
+  encounterResources: TemplateEncounterResource[];
 }
 
 interface ApplyInHouseMedicationPlansResult {
@@ -65,8 +67,10 @@ export async function applyInHouseMedicationPlans(
   const requests: BatchInputPostRequest<MedicationAdministration | MedicationRequest>[] = [];
 
   try {
-    const { templateList, encounter, oystehr, secrets, userToken, action, conditionRequests } = input;
-    if (action === 'skip') return { warnings: [], requests: [] };
+    const { templateList, encounter, oystehr, secrets, userToken, actions, conditionRequests, encounterResources } =
+      input;
+
+    if (actions.inHouseMedications === 'skip') return { warnings: [], requests: [] };
 
     const templateContained = templateList.contained ?? [];
 
@@ -149,7 +153,12 @@ export async function applyInHouseMedicationPlans(
       )?.text;
 
       const cptCodes = getCptCodesFromMA(templateMA);
-      const associatedDx = getAssociatedDxFromMaAndRequests(templateMA, dxUrlByCodeMap);
+      const associatedDx = getAssociatedDxFromMaAndRequests(
+        templateMA,
+        dxUrlByCodeMap,
+        actions.diagnoses,
+        encounterResources
+      );
 
       const orderData: MedicationData = {
         patient: patientId,
@@ -296,11 +305,38 @@ const makeDxConditionFullUrlByCodeMap = (requests: BatchInputPostRequest<Conditi
   return dxConditionFullUrlByCodeMap;
 };
 
-const getAssociatedDxFromMaAndRequests = (
+export const getAssociatedDxFromMaAndRequests = (
   templateMa: MedicationAdministration,
-  dxFullUrlByCodeMap: Map<string, string>
+  dxFullUrlByCodeMap: Map<string, string>,
+  diagnosisSectionAction: TemplateSectionAction,
+  encounterResources: TemplateEncounterResource[]
 ): string | undefined => {
   const dxDto = diagnosesFromReasonCode(templateMa)[0];
   if (!dxDto) return undefined;
+
+  // if the dxDto is already on the encounter, and the Dx section action is anything other than overwrite,
+  // we should try to match the Dx to the existing encounter Condition
+  if (diagnosisSectionAction !== 'overwrite') {
+    const encounterConditionsByCode = new Map<string, Condition>();
+    encounterResources.forEach((res) => {
+      const isDxConditionTypeCheck = (resource: TemplateEncounterResource): resource is Condition =>
+        isDiagnosisCondition(resource);
+      if (!isDxConditionTypeCheck(res)) return;
+
+      // we don't actually care about isPrimary for this function call
+      const encounterDxDto = makeDiagnosisDTO(res, false);
+      encounterConditionsByCode.set(encounterDxDto.code, res);
+    });
+
+    if (encounterConditionsByCode.has(dxDto.code)) {
+      const encounterCondition = encounterConditionsByCode.get(dxDto.code)!;
+      return `Condition/${encounterCondition.id}`;
+    }
+  }
+
+  // if the Dx section action were 'overwrite', we'd capture any newly made Conditions in the map here.
+  // and this is also the fallback if the IHM's Condition is not currently on the Encounter.
+  // we already expect that if no Condition is being created, and no Condition exists on the Encounter,
+  // the created IHM will have no associated Dx.
   return dxFullUrlByCodeMap.get(dxDto.code);
 };
