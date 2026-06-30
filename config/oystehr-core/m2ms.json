@@ -112,7 +112,7 @@
           "resource": ["RCM:Payer"]
         },
         {
-          "action": ["RCM:ReadClaim"],
+          "action": ["RCM:ReadClaim", "RCM:SubmitClaim"],
           "effect": "Allow",
           "resource": ["RCM:Claim"]
         },
@@ -120,9 +120,6 @@
           "action": ["RCM:ProcessEra"],
           "effect": "Allow",
           "resource": ["RCM:Era"]
-          "action": ["RCM:SubmitClaim"],
-          "effect": "Allow",
-          "resource": ["RCM:Claim"]
         }
       ]
     },
