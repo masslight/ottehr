@@ -21,6 +21,7 @@ import {
   formatHeightObservationValue,
   formatWeightKg,
   formatWeightLbs,
+  getDotVisionScreeningLines,
   getVisionExtraOptionsFormattedString,
   VitalsVisitNoteData,
 } from '../vitals';
@@ -88,6 +89,12 @@ export const mapVitalsToDisplay = (
         break;
       case VitalFieldNames.VitalVision: {
         parsed = observation as VitalsVisionObservationDTO;
+        const dotLines = getDotVisionScreeningLines(parsed.dotVisionScreening);
+        if (dotLines.length > 0) {
+          // DOT screening entries are stored as their own observation; render the MCSA-5875 layout.
+          text = dotLines.join('\n');
+          break;
+        }
         const visionParts: string[] = [];
         if (parsed.leftEyeVisionText) visionParts.push(`Left eye: ${parsed.leftEyeVisionText}`);
         if (parsed.rightEyeVisionText) visionParts.push(`Right eye: ${parsed.rightEyeVisionText}`);
