@@ -1249,10 +1249,14 @@ export async function createEncounterFromAppointment(
   }
 
   // here we're setting claim type (self-pay or insurance-pay), if nothing provided it'll be insurance-pay
+  // WC visits always bill through WC insurance, so they are always InsurancePay even when the
+  // encounter's paymentVariant is selfPay (a WC patient without general insurance selects
+  // "I will pay without insurance" on the payment page, which sets selfPay, but the WC insurer
+  // is still the responsible party for the claim).
   const packageEncounter = visitResources.encounter;
   const paymentVariantFromEncounter = getPaymentVariantFromEncounter(packageEncounter);
   const candidResponsibleParty: ResponsiblePartyType =
-    paymentVariantFromEncounter && paymentVariantFromEncounter === PaymentVariant.selfPay
+    !isAppointmentWorkersComp(visitResources.appointment) && paymentVariantFromEncounter === PaymentVariant.selfPay
       ? ResponsiblePartyType.SelfPay
       : ResponsiblePartyType.InsurancePay;
   if (candidResponsibleParty && candidEncounterId) {
