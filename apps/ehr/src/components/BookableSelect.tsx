@@ -42,6 +42,24 @@ interface BookableSelectProps {
   setSelected: (target: BookableTarget | undefined) => void;
   /** Filter to in-person, virtual, or both. */
   mode?: BookableMode[];
+  /**
+   * Restrict the picker to a subset of the bookable-target union. Omit to show
+   * all three (back-compat default). Pass `['Location']` when the consumer is
+   * picking a physical place a patient will be served (Groups and PR-direct
+   * Schedules can span multiple Locations, so they're not meaningful answers
+   * to "where").
+   */
+  resourceTypes?: BookableTargetType[];
+  /**
+   * When set, only include Location targets whose Schedule offers the given
+   * service category. A Schedule with no `serviceCategory[]` is treated as
+   * "supports all" (back-compat for pre-tagging Schedules); a Schedule with
+   * codings present must include this code to qualify. Has no effect on
+   * Group/PR targets — those carry service info on the resource itself, not
+   * on a paired Schedule, and the patient flow already filters them via the
+   * group/PR endpoints when a category is in scope.
+   */
+  serviceCategoryCode?: string;
   required?: boolean;
   disabled?: boolean;
   /** Optional — invoked once the picker has loaded its full list (used by AddPatient to keep a side list of Locations). */
@@ -62,6 +80,8 @@ export default function BookableSelect({
   selected,
   setSelected,
   mode = [BookableMode.IN_PERSON],
+  resourceTypes,
+  serviceCategoryCode,
   required,
   disabled,
   onLocationsLoaded,
@@ -232,10 +252,25 @@ export default function BookableSelect({
   const filteredTargets = useMemo(() => {
     const wantInPerson = mode.includes(BookableMode.IN_PERSON) || mode.includes(BookableMode.ALL);
     const wantVirtual = mode.includes(BookableMode.VIRTUAL) || mode.includes(BookableMode.ALL);
+    const allowedTypes = resourceTypes ? new Set(resourceTypes) : undefined;
     return targets.filter((t) => {
+      if (allowedTypes && !allowedTypes.has(t.resourceType)) return false;
       if (t.resourceType === 'Location') {
         const isVirtual = t.rawLocation ? isLocationVirtual(t.rawLocation) : false;
-        return (isVirtual && wantVirtual) || (!isVirtual && wantInPerson);
+        const passesMode = (isVirtual && wantVirtual) || (!isVirtual && wantInPerson);
+        if (!passesMode) return false;
+        if (serviceCategoryCode) {
+          // Schedule-side service-category check. Codings present →
+          // membership required; codings absent/empty → "supports all" so
+          // pre-tagging Schedules (and any Schedule the admin never
+          // annotated) keep working.
+          const codes = (t.walkinSchedule?.serviceCategory ?? [])
+            .flatMap((cc) => cc.coding ?? [])
+            .map((c) => c.code)
+            .filter((c): c is string => !!c);
+          if (codes.length > 0 && !codes.includes(serviceCategoryCode)) return false;
+        }
+        return true;
       }
       if (t.resourceType === 'HealthcareService') {
         // Filter groups by declared service-mode characteristic. If we can't
@@ -251,7 +286,22 @@ export default function BookableSelect({
       // PractitionerRole (direct schedule): same loose policy — include all.
       return true;
     });
-  }, [targets, mode]);
+  }, [targets, mode, resourceTypes, serviceCategoryCode]);
+
+  // Drop a stale selection when the active filters (mode / resourceTypes /
+  // serviceCategoryCode) push it out of the filtered list. Without this, the
+  // user would be left with a `selected` that doesn't appear in the dropdown
+  // and could still be submitted — making it possible to book a Location that
+  // no longer offers the picked service. Targets are referentially stable so
+  // identity comparison is sufficient; if the load hasn't finished yet
+  // (filteredTargets empty + isLoading true) we leave the selection alone so
+  // an in-flight load doesn't clobber a parent-seeded value.
+  useEffect(() => {
+    if (!selected) return;
+    if (isLoading && filteredTargets.length === 0) return;
+    const stillValid = filteredTargets.some((t) => t.resourceType === selected.resourceType && t.id === selected.id);
+    if (!stillValid) setSelected(undefined);
+  }, [filteredTargets, isLoading, selected, setSelected]);
 
   const typeChip = (t: BookableTargetType): string =>
     t === 'Location' ? 'Location' : t === 'HealthcareService' ? 'Group' : 'Direct';
@@ -288,7 +338,11 @@ export default function BookableSelect({
         <TextField
           {...params}
           label="Where to book"
-          placeholder="Search location, group, or provider"
+          placeholder={
+            resourceTypes && resourceTypes.length === 1 && resourceTypes[0] === 'Location'
+              ? 'Search location'
+              : 'Search location, group, or provider'
+          }
           required={required}
           error={error}
           helperText={error ? helperText : undefined}

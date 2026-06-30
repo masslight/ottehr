@@ -15,6 +15,7 @@ import {
 } from '@mui/material';
 import Oystehr from '@oystehr/sdk';
 import { useQuery } from '@tanstack/react-query';
+import type { ServiceCategoryConfig } from 'config-types';
 import { Location, Schedule, Slot } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
@@ -39,7 +40,9 @@ import {
   SCHEDULED_FOLLOWUP_OTHER_REASON,
   SCHEDULED_FOLLOWUP_REASONS,
   ScheduleType,
+  serviceCategorySupportsContext,
   ServiceMode,
+  ServiceVisitType,
   SLUG_SYSTEM,
 } from 'utils';
 import { createAppointment, createSlot, getLocations, listServiceCategories } from '../api/api';
@@ -98,6 +101,25 @@ enum VisitType {
   VirtualOnDemand = 'virtual-on-demand',
   VirtualScheduled = 'virtual-scheduled',
 }
+
+// Maps each visit type to the (mode, visit-context) pair we use to filter the
+// service-category dropdown via serviceCategorySupportsContext. The patient-
+// side picker uses the same helper, so a category that shows on patient flows
+// for (in-person, prebook) will show in the EHR Add Visit form for the same
+// visit type, keeping staff and patient views in sync.
+//
+// PostTelemed deliberately leaves `visitCtx` undefined. It's an in-person
+// follow-up to a virtual visit — neither 'prebook' nor 'walk-in' cleanly
+// applies, and a strict prebook filter would silently exclude walk-in-only
+// categories that staff still need to reach in this back-conversion flow.
+// Mode is still enforced (always in-person).
+const visitTypeContext: Record<VisitType, { mode: ServiceMode; visitCtx: ServiceVisitType | undefined }> = {
+  [VisitType.InPersonWalkIn]: { mode: ServiceMode['in-person'], visitCtx: ServiceVisitType['walk-in'] },
+  [VisitType.InPersonPreBook]: { mode: ServiceMode['in-person'], visitCtx: ServiceVisitType.prebook },
+  [VisitType.InPersonPostTelemed]: { mode: ServiceMode['in-person'], visitCtx: undefined },
+  [VisitType.VirtualOnDemand]: { mode: ServiceMode.virtual, visitCtx: ServiceVisitType['walk-in'] },
+  [VisitType.VirtualScheduled]: { mode: ServiceMode.virtual, visitCtx: ServiceVisitType.prebook },
+};
 
 export const getPostAppointmentSnackbar = ({
   hasClientCopyFailures,
@@ -228,25 +250,54 @@ export default function AddPatient(): JSX.Element {
     },
     enabled: !!oystehrZambda,
   });
-  const mergedServiceCategories = useMemo(() => {
+  // Merge the compiled-in BOOKING_CONFIG entries with admin-managed FHIR
+  // records, keeping the full ServiceCategoryConfig shape (plus `source`) so
+  // the dropdown can filter via serviceCategorySupportsContext below. Same
+  // BOOKING_CONFIG-wins-on-code-collision rule as the patient-side merge.
+  const mergedSourcedCategories = useMemo<Array<ServiceCategoryConfig & { source: 'booking-config' | 'fhir' }>>(() => {
     const fhirRecords = fhirServiceCategories?.serviceCategories ?? [];
     const bookingCodes = new Set(
       BOOKING_CONFIG.serviceCategories.map((sc) => sc.category.code).filter((c): c is string => !!c)
     );
+    const bookingEntries = BOOKING_CONFIG.serviceCategories.map((sc) => ({ ...sc, source: 'booking-config' as const }));
     const fhirOnly = fhirRecords
       .filter((r) => r.active !== false && r.code && !bookingCodes.has(r.code))
-      .map((r) => ({ code: r.code as string, display: r.name }));
-    const bookingEntries = BOOKING_CONFIG.serviceCategories.map((sc) => ({
-      code: sc.category.code as string,
-      display: sc.category.display ?? sc.category.code ?? '',
-    }));
-    return [...bookingEntries, ...fhirOnly].sort((a, b) => a.display.localeCompare(b.display));
+      .map((r) => ({
+        category: { code: r.code as string, display: r.name, system: '' },
+        serviceModes: r.config.serviceModes,
+        visitTypes: r.config.visitTypes,
+        reasonsForVisit: { default: r.config.reasonsForVisit ?? [] },
+        source: 'fhir' as const,
+      }));
+    return [...bookingEntries, ...fhirOnly];
   }, [fhirServiceCategories]);
-  // When a bookable target is later selected, a v2 enhancement could narrow
-  // this list further to the target's offered services. For now (v1) we show
-  // the merged catalog — the slot picker will return no slots if the wrong
-  // category is picked for the chosen target, which is a recoverable state.
-  const filteredServiceCategories = mergedServiceCategories;
+  // Filter the category dropdown by the selected visit type's (mode,
+  // visit-context) pair so staff can't pick a category that the chosen visit
+  // type doesn't support. Shares the helper with the patient-side picker, so
+  // both sides admit the same set for the same (mode, visit-context). With
+  // no visit type selected we show the full merged catalog.
+  const filteredServiceCategories = useMemo(() => {
+    const source = visitType ? visitTypeContext[visitType] : undefined;
+    const matches = source
+      ? mergedSourcedCategories.filter((sc) => serviceCategorySupportsContext(sc, source.mode, source.visitCtx))
+      : mergedSourcedCategories;
+    return matches
+      .map((sc) => ({
+        code: sc.category.code as string,
+        display: sc.category.display ?? sc.category.code ?? '',
+      }))
+      .sort((a, b) => a.display.localeCompare(b.display));
+  }, [mergedSourcedCategories, visitType]);
+
+  // When visit type changes, drop a stale category that's no longer offered.
+  // Keep the selection if it's still valid (avoid yanking the user's choice
+  // when they switch between two visit types that share a category).
+  useEffect(() => {
+    if (!serviceCategory) return;
+    if (!filteredServiceCategories.some((sc) => sc.code === serviceCategory)) {
+      setServiceCategory(defaultServiceCategory);
+    }
+  }, [filteredServiceCategories, serviceCategory]);
 
   const handleAdditionalReasonForVisitChange = (newValue: string): void => {
     setValidReasonForVisit(newValue.length <= MAXIMUM_CHARACTER_LIMIT);
@@ -561,6 +612,12 @@ export default function AddPatient(): JSX.Element {
                       ? [BookableMode.IN_PERSON]
                       : [BookableMode.VIRTUAL]
                   }
+                  // Add Visit creates an appointment at a physical place a
+                  // patient is treated; Groups and PR-direct Schedules can
+                  // span multiple Locations and aren't meaningful answers to
+                  // "where will the patient be seen". Locations-only here.
+                  resourceTypes={['Location']}
+                  serviceCategoryCode={serviceCategory || undefined}
                   onLocationsLoaded={() => {
                     // Side-load not strictly required by the new flow but kept
                     // so existing callers that consumed setLocations stay
