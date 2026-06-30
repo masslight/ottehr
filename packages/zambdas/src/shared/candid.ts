@@ -132,8 +132,15 @@ const CANDID_CASH_PAY_PAYER = 'Cash Pay';
  * payment variant comes from the encounter (the authoritative billing signal chosen during paperwork).
  * Note an occupational-medicine *service category* visit can still be insurance-pay, so the service
  * category must not be used on its own to make this decision; it only gates the employer variant.
+ *
+ * WC visits always use their WC insurance coverage regardless of the payment variant. A WC patient
+ * without general insurance may select "I will pay without insurance" on the payment page (which sets
+ * paymentVariant = selfPay), but the WC insurer — not Cash Pay — is the correct billing vehicle.
  */
 const shouldUseCashPayCoverage = (encounter: Encounter, appointment: Appointment): boolean => {
+  if (isAppointmentWorkersComp(appointment)) {
+    return false;
+  }
   const paymentVariant = getPaymentVariantFromEncounter(encounter);
   if (paymentVariant === PaymentVariant.selfPay) {
     return true;
