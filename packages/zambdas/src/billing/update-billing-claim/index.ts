@@ -275,7 +275,7 @@ async function attachClaimResources(
     const payerUrl = fields.payerId ? getPayerUrl(fields.payerId) : undefined;
     // A payer is only meaningful with a real coverage; a stub-only claim stays uninsured.
     if (payerUrl && claimHasRealCoverage(claim.insurance)) claim.insurer = { reference: payerUrl };
-    const focalCoverageRef = claim.insurance[0]?.coverage?.reference;
+    const focalCoverageRef = claim.insurance.find((i) => i.focal)?.coverage?.reference;
     if (focalCoverageRef?.startsWith('Coverage/')) {
       let coverage = await fetchById<Coverage>(oystehr, 'Coverage', focalCoverageRef.replace('Coverage/', ''));
       if (payerUrl) coverage.payor = [{ reference: payerUrl }];
