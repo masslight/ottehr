@@ -472,7 +472,8 @@ export const mapInsuranceTypeCodeToCandidCode = (insuranceTypeCode: string | und
 };
 
 export const getCoverageInsuranceType = (coverage?: Coverage): string | undefined =>
-  coverage?.extension?.find((ext) => ext.url === EXTENSION_CLAIM_INSURANCE_TYPE)?.valueString;
+  coverage?.extension?.find((ext) => ext.url === EXTENSION_CLAIM_INSURANCE_TYPE)?.valueString ??
+  coverage?.type?.coding?.find((coding) => coding.system === CANDID_PLAN_TYPE_SYSTEM)?.code;
 
 export const setCoverageInsuranceType = (coverage: Coverage, candidCode: string): Coverage => {
   const otherExtensions = (coverage.extension ?? []).filter((ext) => ext.url !== EXTENSION_CLAIM_INSURANCE_TYPE);
