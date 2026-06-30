@@ -126,7 +126,7 @@ export const MedicationCardField: React.FC<MedicationCardFieldProps> = ({
               helperText: showError && required && !value ? REQUIRED_FIELD_ERROR_MESSAGE : '',
             },
           }}
-          format="yyyy-MM-dd HH:mm a"
+          format="MM/dd/yyyy HH:mm a"
         />
       </LocalizationProvider>
     );
@@ -160,7 +160,7 @@ export const MedicationCardField: React.FC<MedicationCardFieldProps> = ({
               },
             },
           }}
-          format="yyyy-MM-dd"
+          format="MM/dd/yyyy"
         />
       </LocalizationProvider>
     );
