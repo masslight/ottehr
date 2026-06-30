@@ -93,7 +93,7 @@ describe('update-billing-claim validateRequestParameters', () => {
 });
 
 describe('update-billing-claim performEffect', () => {
-  it('mirrors the plan type onto the focal coverage extension and type', async () => {
+  it('writes the plan type to the claim extension and the focal coverage type', async () => {
     const search = vi
       .fn()
       .mockResolvedValueOnce({ unbundle: () => [structuredClone(claim)] })
@@ -117,27 +117,24 @@ describe('update-billing-claim performEffect', () => {
 
     expect(update).toHaveBeenCalledWith(
       expect.objectContaining({
-        resourceType: 'Coverage',
-        id: 'cov-1',
+        resourceType: 'Claim',
         extension: expect.arrayContaining([
           {
             url: EXTENSION_CLAIM_INSURANCE_TYPE,
             valueString: '12',
           },
         ]),
-        type: expect.objectContaining({
-          coding: expect.arrayContaining([
-            {
-              system: CANDID_PLAN_TYPE_SYSTEM,
-              code: '12',
-            },
-          ]),
-        }),
       })
     );
+    const coverageUpdate = update.mock.calls.find(([r]) => r.resourceType === 'Coverage')?.[0] as Coverage;
+    expect(coverageUpdate.type?.coding).toContainEqual({
+      system: CANDID_PLAN_TYPE_SYSTEM,
+      code: '12',
+    });
+    expect(coverageUpdate.extension?.some((e) => e.url === EXTENSION_CLAIM_INSURANCE_TYPE)).toBeFalsy();
   });
 
-  it('applies payer and plan type to the focal coverage in a single fetch and update', async () => {
+  it('applies payer and plan type in a single coverage fetch/update, with the plan type on the claim', async () => {
     const search = vi
       .fn()
       .mockResolvedValueOnce({ unbundle: () => [structuredClone(claim)] })
@@ -160,7 +157,7 @@ describe('update-billing-claim performEffect', () => {
       secrets: {},
     });
 
-    // Focal coverage is read once and written once, carrying both the payer and the plan type.
+    // Focal coverage is read once and written once, carrying the payer and the candid type coding.
     expect(search).toHaveBeenCalledTimes(2);
     const coverageUpdates = update.mock.calls.filter(([resource]) => resource.resourceType === 'Coverage');
     expect(coverageUpdates).toHaveLength(1);
@@ -172,12 +169,6 @@ describe('update-billing-claim performEffect', () => {
             reference: getPayerUrl('PAYER1'),
           },
         ],
-        extension: expect.arrayContaining([
-          {
-            url: EXTENSION_CLAIM_INSURANCE_TYPE,
-            valueString: '12',
-          },
-        ]),
         type: expect.objectContaining({
           coding: expect.arrayContaining([
             {
@@ -186,6 +177,20 @@ describe('update-billing-claim performEffect', () => {
             },
           ]),
         }),
+      })
+    );
+    expect(
+      coverageUpdates[0][0].extension?.some((e: { url?: string }) => e.url === EXTENSION_CLAIM_INSURANCE_TYPE)
+    ).toBeFalsy();
+    expect(update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        resourceType: 'Claim',
+        extension: expect.arrayContaining([
+          {
+            url: EXTENSION_CLAIM_INSURANCE_TYPE,
+            valueString: '12',
+          },
+        ]),
       })
     );
   });

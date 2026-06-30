@@ -13,6 +13,7 @@ import {
   CODE_SYSTEM_OYSTEHR_RCM_CMS1500_REFERRING_PROVIDER_TYPE,
   FHIR_RESOURCE_NOT_FOUND,
   getPayerUrl,
+  setClaimPlanType,
   setCoveragePlanType,
 } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
@@ -270,6 +271,8 @@ async function attachClaimResources(
   // Guarantee the Claim.insurance invariant regardless of which fields changed: keep the no-coverage
   // stub when there's no real coverage, and re-add it if a coverage was ever removed.
   claim.insurance = ensureClaimInsurance(claim.insurance);
+
+  if (fields.planType) setClaimPlanType(claim, fields.planType);
 
   if (fields.payerId || fields.planType) {
     const payerUrl = fields.payerId ? getPayerUrl(fields.payerId) : undefined;

@@ -1,7 +1,7 @@
-import { Coverage } from 'fhir/r4b';
+import { Claim, Coverage } from 'fhir/r4b';
 import { describe, expect, it } from 'vitest';
 import { EXTENSION_CLAIM_INSURANCE_TYPE } from '../helpers/rcm/constants';
-import { getCoveragePlanType, setCoveragePlanType } from './billing';
+import { getClaimPlanType, setClaimPlanType, setCoveragePlanType } from './billing';
 import { CANDID_PLAN_TYPE_SYSTEM } from './insurance';
 
 const baseCoverage: Coverage = {
@@ -17,39 +17,51 @@ const baseCoverage: Coverage = {
   ],
 };
 
+const baseClaim: Claim = {
+  resourceType: 'Claim',
+  status: 'draft',
+  type: {
+    coding: [
+      {
+        code: 'professional',
+      },
+    ],
+  },
+  use: 'claim',
+  created: '2026-01-01',
+  patient: {
+    reference: 'Patient/p',
+  },
+  provider: {
+    display: 'Unknown',
+  },
+  priority: {
+    coding: [
+      {
+        code: 'normal',
+      },
+    ],
+  },
+  insurance: [],
+};
+
 describe('coverage plan type', () => {
-  it('mirrors the code onto the extension and Coverage.type, without mutating the original', () => {
+  it('writes the candid code to Coverage.type with no extension, leaving the original untouched', () => {
     const result = setCoveragePlanType(baseCoverage, '12');
 
-    expect(result.extension).toEqual([
-      {
-        url: EXTENSION_CLAIM_INSURANCE_TYPE,
-        valueString: '12',
-      },
-    ]);
     expect(result.type?.coding).toEqual([
       {
         system: CANDID_PLAN_TYPE_SYSTEM,
         code: '12',
       },
     ]);
-    expect(baseCoverage.extension).toBeUndefined();
+    expect(result.extension).toBeUndefined();
     expect(baseCoverage.type).toBeUndefined();
   });
 
-  it('replaces the existing code and preserves unrelated extensions and type codings', () => {
+  it('replaces the existing candid code and preserves unrelated type codings', () => {
     const coverage: Coverage = {
       ...baseCoverage,
-      extension: [
-        {
-          url: 'https://example.com/other',
-          valueString: 'keep',
-        },
-        {
-          url: EXTENSION_CLAIM_INSURANCE_TYPE,
-          valueString: 'HM',
-        },
-      ],
       type: {
         coding: [
           {
@@ -66,16 +78,6 @@ describe('coverage plan type', () => {
 
     const result = setCoveragePlanType(coverage, 'MC');
 
-    expect(result.extension).toEqual([
-      {
-        url: 'https://example.com/other',
-        valueString: 'keep',
-      },
-      {
-        url: EXTENSION_CLAIM_INSURANCE_TYPE,
-        valueString: 'MC',
-      },
-    ]);
     expect(result.type?.coding).toEqual([
       {
         system: 'https://example.com/other-type',
@@ -87,15 +89,53 @@ describe('coverage plan type', () => {
       },
     ]);
   });
+});
 
-  it('reads the plan type code back from the extension', () => {
-    const result = setCoveragePlanType(baseCoverage, 'WC');
+describe('claim plan type', () => {
+  it('writes the candid code to the Claim extension and reads it back', () => {
+    const claim = structuredClone(baseClaim);
+    setClaimPlanType(claim, '12');
 
-    expect(getCoveragePlanType(result)).toBe('WC');
+    expect(claim.extension).toEqual([
+      {
+        url: EXTENSION_CLAIM_INSURANCE_TYPE,
+        valueString: '12',
+      },
+    ]);
+    expect(getClaimPlanType(claim)).toBe('12');
   });
 
-  it('returns undefined for a missing coverage or a coverage without the code', () => {
-    expect(getCoveragePlanType(undefined)).toBeUndefined();
-    expect(getCoveragePlanType(baseCoverage)).toBeUndefined();
+  it('replaces the existing code and preserves unrelated extensions', () => {
+    const claim: Claim = {
+      ...structuredClone(baseClaim),
+      extension: [
+        {
+          url: 'https://example.com/other',
+          valueString: 'keep',
+        },
+        {
+          url: EXTENSION_CLAIM_INSURANCE_TYPE,
+          valueString: 'HM',
+        },
+      ],
+    };
+
+    setClaimPlanType(claim, 'MC');
+
+    expect(claim.extension).toEqual([
+      {
+        url: 'https://example.com/other',
+        valueString: 'keep',
+      },
+      {
+        url: EXTENSION_CLAIM_INSURANCE_TYPE,
+        valueString: 'MC',
+      },
+    ]);
+  });
+
+  it('returns undefined for a missing claim or a claim without the code', () => {
+    expect(getClaimPlanType(undefined)).toBeUndefined();
+    expect(getClaimPlanType(structuredClone(baseClaim))).toBeUndefined();
   });
 });

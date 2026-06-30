@@ -65,7 +65,7 @@ import {
   Secrets,
   SecretsKeys,
   SERVICE_CATEGORY_SYSTEM,
-  setCoveragePlanType,
+  setClaimPlanType,
   TIMEZONES,
   withArStageInitialization,
 } from 'utils';
@@ -101,7 +101,7 @@ import { CreateClaimFromEncounterParams, validateRequestParameters } from './val
 
 export type ComplexValidationOutput = { clinicalResources: ClinicalResources; billingResources: BillingResources };
 
-type CoverageRefs = { coverageRef: Reference; payorRef: Reference }[];
+type CoverageRefs = { coverageRef: Reference; payorRef: Reference; planType?: string }[];
 
 interface ClinicalResources {
   encounter: Encounter;
@@ -549,13 +549,20 @@ export function getClaimCoveragesForEncounter(
       });
       return [
         ...(primaryCoverage
-          ? [{ coverageRef: uuidOrUrnReference('Coverage', primaryCoverage.id!), payorRef: primaryCoverage.payor[0] }]
+          ? [
+              {
+                coverageRef: uuidOrUrnReference('Coverage', primaryCoverage.id!),
+                payorRef: primaryCoverage.payor[0],
+                planType: getCandidPlanTypeCodeFromCoverage(primaryCoverage),
+              },
+            ]
           : []),
         ...(secondaryCoverage
           ? [
               {
                 coverageRef: uuidOrUrnReference('Coverage', secondaryCoverage.id!),
                 payorRef: secondaryCoverage.payor[0],
+                planType: getCandidPlanTypeCodeFromCoverage(secondaryCoverage),
               },
             ]
           : []),
@@ -578,7 +585,13 @@ export function getClaimCoveragesForEncounter(
       });
       return [
         ...(wcCoverage
-          ? [{ coverageRef: uuidOrUrnReference('Coverage', wcCoverage.id!), payorRef: wcCoverage.payor[0] }]
+          ? [
+              {
+                coverageRef: uuidOrUrnReference('Coverage', wcCoverage.id!),
+                payorRef: wcCoverage.payor[0],
+                planType: getCandidPlanTypeCodeFromCoverage(wcCoverage),
+              },
+            ]
           : []),
       ];
     }
@@ -656,7 +669,7 @@ export function copyCoverageAndSubscriber(
   const requests: CreateClaimFromEncounterRequests = [];
   const order: string[] = [];
   const cleanedCoverageId = coverage.id?.replace('urn:uuid:', '');
-  let copy = workingCopy
+  const copy = workingCopy
     ? prepareWorkingCopy<Coverage>(coverage, coverage.id!)
     : prepareCopy<Coverage>(coverage, coverage.id!);
   copy.beneficiary = uuidOrUrnReference('Patient', patientUuidOrUrn);
@@ -709,8 +722,6 @@ export function copyCoverageAndSubscriber(
       copy.payor = [{ reference: billingOystehr.rcm.constructPayerUrl({ id: payerId }) }];
     }
   }
-  const planTypeCode = getCandidPlanTypeCodeFromCoverage(coverage);
-  if (planTypeCode) copy = setCoveragePlanType(copy, planTypeCode);
   copy.id = `urn:uuid:${workingCopy ? 'claim' : 'billing'}-coverage-${cleanedCoverageId}`;
   requests.push({
     method: 'POST',
@@ -1219,6 +1230,9 @@ function buildClaim(resources: ClaimResources): Claim {
       currency: 'USD',
     },
   };
+
+  const focalPlanType = resources.coverageRefs[0]?.planType;
+  if (focalPlanType) setClaimPlanType(claim, focalPlanType);
 
   return claim;
 }
