@@ -20,6 +20,7 @@ import {
   APIError,
   AR_STAGE,
   BILLING_RESOURCE_TAG,
+  CANDID_PLAN_TYPE_SYSTEM,
   CHARGE_ITEM_DEFINITION_DEFAULT_SYSTEM,
   CLAIM_STATUS_TAG_SYSTEMS,
   CODE_SYSTEM_CLAIM_TYPE,
@@ -32,6 +33,7 @@ import {
   CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM,
   CPT_CODE_SYSTEM,
   ENCOUNTER_PAYMENT_VARIANT_EXTENSION_URL,
+  EXTENSION_CLAIM_INSURANCE_TYPE,
   EXTENSION_URL_CPT_MODIFIER,
   FHIR_IDENTIFIER_NPI,
   FHIR_RESOURCE_NOT_FOUND,
@@ -1244,6 +1246,46 @@ describe('create-billing-claim-from-encounter', () => {
     });
   });
 
+  describe('insurance type', () => {
+    const billingOystehr = {
+      rcm: {
+        constructPayerUrl: vi.fn().mockReturnValue('https://rcm-api.zapehr.com/v1/payer/payer-123'),
+      },
+    } as unknown as Oystehr;
+
+    const copiedCoverage = (coverage: Coverage): Coverage => {
+      const [ops] = copyCoverageAndSubscriber(billingOystehr, coverage, 'urn:uuid:patient', [oystehrResources.payor]);
+      return ops.find((o): o is BatchInputPostRequest<Coverage> => o.method === 'POST' && o.url === '/Coverage')!
+        .resource;
+    };
+
+    it('preserves the source coverage candid plan type on the copy, without an insurance-type extension', () => {
+      const result = copiedCoverage({
+        ...clinicalResources.coverage,
+        type: {
+          coding: [
+            {
+              system: CANDID_PLAN_TYPE_SYSTEM,
+              code: '12',
+            },
+          ],
+        },
+      });
+
+      expect(result.type?.coding).toContainEqual({
+        system: CANDID_PLAN_TYPE_SYSTEM,
+        code: '12',
+      });
+      expect(result.extension?.some((e) => e.url === EXTENSION_CLAIM_INSURANCE_TYPE)).toBeFalsy();
+    });
+
+    it('adds no insurance type when the source coverage has no candid plan type', () => {
+      const result = copiedCoverage(clinicalResources.coverage);
+      expect(result.extension?.some((e) => e.url === EXTENSION_CLAIM_INSURANCE_TYPE)).toBe(false);
+      expect(result.type?.coding?.some((c) => c.system === CANDID_PLAN_TYPE_SYSTEM)).toBeFalsy();
+    });
+  });
+
   describe('getClaimCoveragesForEncounter', () => {
     it('properly finds coverages for existing billing resources for urgent care', () => {
       const billingOystehr = {
@@ -1268,6 +1310,40 @@ describe('create-billing-claim-from-encounter', () => {
       expect(coverageRefs).toHaveLength(1);
       expect(coverageRefs[0].coverageRef.reference).toEqual(coverages[0].id);
       expect(coverageRefs[0].payorRef).toEqual(coverages[0].payor[0]);
+    });
+    it('carries the focal coverage candid plan type onto the coverage ref', () => {
+      const billingOystehr = {
+        rcm: {
+          constructPayerUrl: vi.fn().mockReturnValue('https://rcm-api.zapehr.com/v1/payer/payer-123'),
+        },
+      } as unknown as Oystehr;
+      const [claimOps] = copyCoverageAndSubscriber(
+        billingOystehr,
+        {
+          ...billingResources.coverage,
+          type: {
+            coding: [
+              {
+                system: CANDID_PLAN_TYPE_SYSTEM,
+                code: '12',
+              },
+            ],
+          },
+        },
+        billingResources.patient.id!,
+        [oystehrResources.payor],
+        billingResources.relatedPerson,
+        true
+      );
+      const coverages = claimOps
+        .filter((o): o is BatchInputPostRequest<Coverage> => o.method === 'POST' && o.url === '/Coverage')
+        .map((o) => o.resource);
+      const coverageRefs = getClaimCoveragesForEncounter(
+        CODE_SYSTEM_SERVICE_CATEGORY_CODES['urgent-care'],
+        [billingResources.account],
+        coverages
+      );
+      expect(coverageRefs[0].planType).toBe('12');
     });
     it('properly finds coverages for new billing resources for urgent care', () => {
       const billingOystehr = {

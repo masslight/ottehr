@@ -123,8 +123,7 @@ describe('export-billing-claim-x12 handler', () => {
   });
 
   it('surfaces the RCM reason for an incomplete-claim (400) error', async () => {
-    const reason =
-      '"Claim.insurance[0].coverage.extension[https://extensions.fhir.oystehr.com/rcm-claim-insurance-type]" is undefined';
+    const reason = '"Claim.extension[https://extensions.fhir.oystehr.com/rcm-claim-insurance-type]" is undefined';
     claimToX12Mock.mockRejectedValue(
       new Oystehr.OystehrSdkError({
         message: reason,

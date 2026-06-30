@@ -274,6 +274,7 @@ export interface ClaimDetailResponse {
   memberId: string;
   subscriberId: string;
   coverageStatus: string;
+  planType: string;
   relationship: string;
   policyHolder: BillingPolicyHolderSummary | null;
   responsibleParty: string;

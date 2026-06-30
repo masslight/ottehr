@@ -1,3 +1,5 @@
+import { OYSTEHR_EXTENSION_BASE_URL } from '../../fhir/constants';
+
 export const EMERGENCY_REVENUE_CODE = '1001';
 
 export const EXTENSION_PATIENT_PAID = 'http://fhir-api.zapehr.com/extension/patient-paid';
@@ -7,6 +9,8 @@ export const EXTENSION_PRACTITIONER_SIGNED_DATE = 'http://fhir-api.zapehr.com/ex
 export const EXTENSION_CLAIM_CONDITION_CODE = 'http://fhir-api.zapehr.com/extension/claim-condition-code';
 export const EXTENSION_OUTSIDE_CHARGES = 'http://fhir-api.zapehr.com/extension/outside-charges';
 export const RAW_RESPONSE = 'http://fhir-api.zapehr.com/extension/raw-response';
+
+export const EXTENSION_CLAIM_INSURANCE_TYPE = `${OYSTEHR_EXTENSION_BASE_URL}/rcm-claim-insurance-type`;
 
 export const CODE_SYSTEM_CLAIM_TYPE = 'http://terminology.hl7.org/CodeSystem/claim-type';
 export const CODE_SYSTEM_PROCESS_PRIORITY = 'http://terminology.hl7.org/CodeSystem/processpriority';

@@ -5,6 +5,7 @@ import { Claim, Coverage, FhirResource, Location, Organization, Patient, Practit
 import {
   BillingPolicyHolderInput,
   BillingSubscriberRelationship,
+  clearClaimPlanType,
   CODE_SYSTEM_CLAIM_TYPE,
   CODE_SYSTEM_CMS_PLACE_OF_SERVICE,
   CODE_SYSTEM_HCPCS,
@@ -13,6 +14,8 @@ import {
   CODE_SYSTEM_OYSTEHR_RCM_CMS1500_REFERRING_PROVIDER_TYPE,
   FHIR_RESOURCE_NOT_FOUND,
   getPayerUrl,
+  setClaimPlanType,
+  setCoveragePlanType,
 } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import {
@@ -30,7 +33,6 @@ import {
   setNpi,
   setTaxId,
   setTaxonomy,
-  sortClaimInsurance,
 } from '../shared';
 import { UpdateBillingClaimParams, validateRequestParameters } from './validateRequestParameters';
 
@@ -47,7 +49,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 });
 
 // Only fields present in the request are touched.
-async function performEffect(oystehr: Oystehr, params: UpdateBillingClaimParams): Promise<{ id: string | undefined }> {
+export async function performEffect(
+  oystehr: Oystehr,
+  params: UpdateBillingClaimParams
+): Promise<{ id: string | undefined }> {
   switch (params.resourceType) {
     case 'Claim':
       return attachClaimResources(oystehr, params);
@@ -218,18 +223,7 @@ async function attachClaimResources(
     // Make the claim self-pay; ensureClaimInsurance restores the no-coverage stub below.
     claim.insurance = [];
     delete claim.insurer;
-  }
-
-  if (fields.payerId) {
-    const payerUrl = getPayerUrl(fields.payerId);
-    // A payer is only meaningful with a real coverage; a stub-only claim stays uninsured.
-    if (claimHasRealCoverage(claim.insurance)) claim.insurer = { reference: payerUrl };
-    const coverageRef = sortClaimInsurance(claim)[0]?.coverage?.reference;
-    if (coverageRef?.startsWith('Coverage/')) {
-      const coverage = await fetchById<Coverage>(oystehr, 'Coverage', coverageRef.replace('Coverage/', ''));
-      coverage.payor = [{ reference: payerUrl }];
-      await oystehr.fhir.update(coverage);
-    }
+    clearClaimPlanType(claim);
   }
 
   if (fields.diagnoses) {
@@ -279,6 +273,21 @@ async function attachClaimResources(
   // Guarantee the Claim.insurance invariant regardless of which fields changed: keep the no-coverage
   // stub when there's no real coverage, and re-add it if a coverage was ever removed.
   claim.insurance = ensureClaimInsurance(claim.insurance);
+
+  if (fields.planType) setClaimPlanType(claim, fields.planType);
+
+  if (fields.payerId || fields.planType) {
+    const payerUrl = fields.payerId ? getPayerUrl(fields.payerId) : undefined;
+    // A payer is only meaningful with a real coverage; a stub-only claim stays uninsured.
+    if (payerUrl && claimHasRealCoverage(claim.insurance)) claim.insurer = { reference: payerUrl };
+    const focalCoverageRef = claim.insurance.find((i) => i.focal)?.coverage?.reference;
+    if (focalCoverageRef?.startsWith('Coverage/')) {
+      let coverage = await fetchById<Coverage>(oystehr, 'Coverage', focalCoverageRef.replace('Coverage/', ''));
+      if (payerUrl) coverage.payor = [{ reference: payerUrl }];
+      if (fields.planType) coverage = setCoveragePlanType(coverage, fields.planType);
+      await oystehr.fhir.update(coverage);
+    }
+  }
 
   return save(oystehr, claim);
 }

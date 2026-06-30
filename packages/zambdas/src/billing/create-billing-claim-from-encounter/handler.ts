@@ -49,6 +49,7 @@ import {
   EXTENSION_URL_CPT_MODIFIER,
   FHIR_IDENTIFIER_NPI,
   FHIR_RESOURCE_NOT_FOUND,
+  getCandidPlanTypeCodeFromCoverage,
   getCoding,
   getNPIIdentifier,
   getPayerId,
@@ -64,6 +65,7 @@ import {
   Secrets,
   SecretsKeys,
   SERVICE_CATEGORY_SYSTEM,
+  setClaimPlanType,
   TIMEZONES,
   withArStageInitialization,
 } from 'utils';
@@ -99,7 +101,7 @@ import { CreateClaimFromEncounterParams, validateRequestParameters } from './val
 
 export type ComplexValidationOutput = { clinicalResources: ClinicalResources; billingResources: BillingResources };
 
-type CoverageRefs = { coverageRef: Reference; payorRef: Reference }[];
+type CoverageRefs = { coverageRef: Reference; payorRef: Reference; planType?: string }[];
 
 interface ClinicalResources {
   encounter: Encounter;
@@ -547,13 +549,20 @@ export function getClaimCoveragesForEncounter(
       });
       return [
         ...(primaryCoverage
-          ? [{ coverageRef: uuidOrUrnReference('Coverage', primaryCoverage.id!), payorRef: primaryCoverage.payor[0] }]
+          ? [
+              {
+                coverageRef: uuidOrUrnReference('Coverage', primaryCoverage.id!),
+                payorRef: primaryCoverage.payor[0],
+                planType: getCandidPlanTypeCodeFromCoverage(primaryCoverage),
+              },
+            ]
           : []),
         ...(secondaryCoverage
           ? [
               {
                 coverageRef: uuidOrUrnReference('Coverage', secondaryCoverage.id!),
                 payorRef: secondaryCoverage.payor[0],
+                planType: getCandidPlanTypeCodeFromCoverage(secondaryCoverage),
               },
             ]
           : []),
@@ -576,7 +585,13 @@ export function getClaimCoveragesForEncounter(
       });
       return [
         ...(wcCoverage
-          ? [{ coverageRef: uuidOrUrnReference('Coverage', wcCoverage.id!), payorRef: wcCoverage.payor[0] }]
+          ? [
+              {
+                coverageRef: uuidOrUrnReference('Coverage', wcCoverage.id!),
+                payorRef: wcCoverage.payor[0],
+                planType: getCandidPlanTypeCodeFromCoverage(wcCoverage),
+              },
+            ]
           : []),
       ];
     }
@@ -1215,6 +1230,9 @@ function buildClaim(resources: ClaimResources): Claim {
       currency: 'USD',
     },
   };
+
+  const focalPlanType = resources.coverageRefs[0]?.planType;
+  if (focalPlanType) setClaimPlanType(claim, focalPlanType);
 
   return claim;
 }
