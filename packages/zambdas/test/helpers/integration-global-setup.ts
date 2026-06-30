@@ -13,10 +13,11 @@ import { addRunTagToResource } from './integration-tags';
 
 let server: Server | undefined;
 
-// Fixed names for the two shared integration-test M2M clients. The suite uses
-// exactly one provider-profile client and one patient-profile client across all
-// test files (a single M2M client can only carry one profile), instead of one
-// client per test file. They are provisioned once here and deleted in teardown.
+// Base names for the two shared integration-test M2M clients. The suite uses exactly one
+// provider-profile client and one patient-profile client per run (a single M2M client can only
+// carry one profile), instead of one per test file. provisionSharedClient appends the per-run id
+// to these (see below) so concurrent runs — two CI jobs, or local + CI — never resolve, rotate, or
+// delete each other's client/profile. Provisioned in setup() and deleted in teardown.
 const SHARED_M2M_NAME: Record<M2MClientMockType, string> = {
   [M2MClientMockType.provider]: 'integration-tests-shared-provider',
   [M2MClientMockType.patient]: 'integration-tests-shared-patient',
@@ -31,7 +32,7 @@ interface ProvisionedClient {
 }
 
 /**
- * Finds (by fixed name) or creates the shared M2M client for a given mock type,
+ * Finds (by per-run name) or creates the shared M2M client for a given mock type,
  * rotates its secret once, and exchanges it for an Auth0 token. Returns the
  * token + profile so tests can act as that machine user without each test file
  * minting its own client.
@@ -42,7 +43,9 @@ async function provisionSharedClient(
   runId: string
 ): Promise<ProvisionedClient> {
   const { AUTH0_ENDPOINT, AUTH0_AUDIENCE } = SECRETS;
-  const name = SHARED_M2M_NAME[mockType];
+  // Per-run name so two runs against the same project never resolve the same client — otherwise the
+  // first to finish would rotate/delete the shared client + profile out from under the other run.
+  const name = `${SHARED_M2M_NAME[mockType]}-${runId}`;
 
   const existing = (await oystehrAdmin.m2m.listV2({ name })).data;
   let m2mId: string;
