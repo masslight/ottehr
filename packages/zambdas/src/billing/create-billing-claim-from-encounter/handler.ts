@@ -65,7 +65,7 @@ import {
   Secrets,
   SecretsKeys,
   SERVICE_CATEGORY_SYSTEM,
-  setCoverageInsuranceType,
+  setCoveragePlanType,
   TIMEZONES,
   withArStageInitialization,
 } from 'utils';
@@ -710,11 +710,11 @@ export function copyCoverageAndSubscriber(
     }
   }
   copy.id = `urn:uuid:${workingCopy ? 'claim' : 'billing'}-coverage-${cleanedCoverageId}`;
-  const insuranceTypeCode = getCandidPlanTypeCodeFromCoverage(coverage);
+  const planTypeCode = getCandidPlanTypeCodeFromCoverage(coverage);
   requests.push({
     method: 'POST',
     url: '/Coverage',
-    resource: insuranceTypeCode ? setCoverageInsuranceType(copy, insuranceTypeCode) : copy,
+    resource: planTypeCode ? setCoveragePlanType(copy, planTypeCode) : copy,
     fullUrl: copy.id,
   });
   order.push('coverage');

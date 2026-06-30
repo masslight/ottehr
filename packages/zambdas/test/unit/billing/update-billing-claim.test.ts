@@ -64,36 +64,36 @@ const body = (fields: Record<string, unknown>): string =>
   });
 
 describe('update-billing-claim validateRequestParameters', () => {
-  it('accepts a valid candid insurance type', () => {
+  it('accepts a valid candid plan type', () => {
     const result = validateRequestParameters({
       headers: null,
       body: body({
-        insuranceType: '12',
+        planType: '12',
       }),
       secrets: {},
     });
     expect(result).toMatchObject({
       fields: {
-        insuranceType: '12',
+        planType: '12',
       },
     });
   });
 
-  it('rejects an unknown insurance type', () => {
+  it('rejects an unknown plan type', () => {
     expect(() =>
       validateRequestParameters({
         headers: null,
         body: body({
-          insuranceType: 'ZZZ',
+          planType: 'ZZZ',
         }),
         secrets: {},
       })
-    ).toThrow(/insurance type/i);
+    ).toThrow(/plan type/i);
   });
 });
 
 describe('update-billing-claim performEffect', () => {
-  it('mirrors the insurance type onto the focal coverage extension and type', async () => {
+  it('mirrors the plan type onto the focal coverage extension and type', async () => {
     const search = vi
       .fn()
       .mockResolvedValueOnce({ unbundle: () => [structuredClone(claim)] })
@@ -110,7 +110,7 @@ describe('update-billing-claim performEffect', () => {
       resourceType: 'Claim',
       resourceId: 'claim-1',
       fields: {
-        insuranceType: '12',
+        planType: '12',
       },
       secrets: {},
     });
@@ -137,7 +137,7 @@ describe('update-billing-claim performEffect', () => {
     );
   });
 
-  it('applies payer and insurance type to the focal coverage in a single fetch and update', async () => {
+  it('applies payer and plan type to the focal coverage in a single fetch and update', async () => {
     const search = vi
       .fn()
       .mockResolvedValueOnce({ unbundle: () => [structuredClone(claim)] })
@@ -155,12 +155,12 @@ describe('update-billing-claim performEffect', () => {
       resourceId: 'claim-1',
       fields: {
         payerId: 'PAYER1',
-        insuranceType: '12',
+        planType: '12',
       },
       secrets: {},
     });
 
-    // Focal coverage is read once and written once, carrying both the payer and the insurance type.
+    // Focal coverage is read once and written once, carrying both the payer and the plan type.
     expect(search).toHaveBeenCalledTimes(2);
     const coverageUpdates = update.mock.calls.filter(([resource]) => resource.resourceType === 'Coverage');
     expect(coverageUpdates).toHaveLength(1);

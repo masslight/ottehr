@@ -1,7 +1,7 @@
 import { Coverage } from 'fhir/r4b';
 import { describe, expect, it } from 'vitest';
 import { EXTENSION_CLAIM_INSURANCE_TYPE } from '../helpers/rcm/constants';
-import { getCoverageInsuranceType, setCoverageInsuranceType } from './billing';
+import { getCoveragePlanType, setCoveragePlanType } from './billing';
 import { CANDID_PLAN_TYPE_SYSTEM } from './insurance';
 
 const baseCoverage: Coverage = {
@@ -17,9 +17,9 @@ const baseCoverage: Coverage = {
   ],
 };
 
-describe('coverage insurance type', () => {
+describe('coverage plan type', () => {
   it('mirrors the code onto the extension and Coverage.type, without mutating the original', () => {
-    const result = setCoverageInsuranceType(baseCoverage, '12');
+    const result = setCoveragePlanType(baseCoverage, '12');
 
     expect(result.extension).toEqual([
       {
@@ -64,7 +64,7 @@ describe('coverage insurance type', () => {
       },
     };
 
-    const result = setCoverageInsuranceType(coverage, 'MC');
+    const result = setCoveragePlanType(coverage, 'MC');
 
     expect(result.extension).toEqual([
       {
@@ -88,14 +88,14 @@ describe('coverage insurance type', () => {
     ]);
   });
 
-  it('reads the insurance type code back from the extension', () => {
-    const result = setCoverageInsuranceType(baseCoverage, 'WC');
+  it('reads the plan type code back from the extension', () => {
+    const result = setCoveragePlanType(baseCoverage, 'WC');
 
-    expect(getCoverageInsuranceType(result)).toBe('WC');
+    expect(getCoveragePlanType(result)).toBe('WC');
   });
 
   it('returns undefined for a missing coverage or a coverage without the code', () => {
-    expect(getCoverageInsuranceType(undefined)).toBeUndefined();
-    expect(getCoverageInsuranceType(baseCoverage)).toBeUndefined();
+    expect(getCoveragePlanType(undefined)).toBeUndefined();
+    expect(getCoveragePlanType(baseCoverage)).toBeUndefined();
   });
 });

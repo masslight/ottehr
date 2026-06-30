@@ -471,11 +471,11 @@ export const mapInsuranceTypeCodeToCandidCode = (insuranceTypeCode: string | und
   return INSURANCE_TYPE_CODE_TO_CANDID_CODE[insuranceTypeCode];
 };
 
-export const getCoverageInsuranceType = (coverage?: Coverage): string | undefined =>
+export const getCoveragePlanType = (coverage?: Coverage): string | undefined =>
   coverage?.extension?.find((ext) => ext.url === EXTENSION_CLAIM_INSURANCE_TYPE)?.valueString ??
   coverage?.type?.coding?.find((coding) => coding.system === CANDID_PLAN_TYPE_SYSTEM)?.code;
 
-export const setCoverageInsuranceType = (coverage: Coverage, candidCode: string): Coverage => {
+export const setCoveragePlanType = (coverage: Coverage, candidCode: string): Coverage => {
   const otherExtensions = (coverage.extension ?? []).filter((ext) => ext.url !== EXTENSION_CLAIM_INSURANCE_TYPE);
   const otherTypeCodings = (coverage.type?.coding ?? []).filter((coding) => coding.system !== CANDID_PLAN_TYPE_SYSTEM);
   return {

@@ -13,7 +13,7 @@ import {
   CODE_SYSTEM_OYSTEHR_RCM_CMS1500_REFERRING_PROVIDER_TYPE,
   FHIR_RESOURCE_NOT_FOUND,
   getPayerUrl,
-  setCoverageInsuranceType,
+  setCoveragePlanType,
 } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import {
@@ -271,7 +271,7 @@ async function attachClaimResources(
   // stub when there's no real coverage, and re-add it if a coverage was ever removed.
   claim.insurance = ensureClaimInsurance(claim.insurance);
 
-  if (fields.payerId || fields.insuranceType) {
+  if (fields.payerId || fields.planType) {
     const payerUrl = fields.payerId ? getPayerUrl(fields.payerId) : undefined;
     // A payer is only meaningful with a real coverage; a stub-only claim stays uninsured.
     if (payerUrl && claimHasRealCoverage(claim.insurance)) claim.insurer = { reference: payerUrl };
@@ -279,7 +279,7 @@ async function attachClaimResources(
     if (focalCoverageRef?.startsWith('Coverage/')) {
       let coverage = await fetchById<Coverage>(oystehr, 'Coverage', focalCoverageRef.replace('Coverage/', ''));
       if (payerUrl) coverage.payor = [{ reference: payerUrl }];
-      if (fields.insuranceType) coverage = setCoverageInsuranceType(coverage, fields.insuranceType);
+      if (fields.planType) coverage = setCoveragePlanType(coverage, fields.planType);
       await oystehr.fhir.update(coverage);
     }
   }

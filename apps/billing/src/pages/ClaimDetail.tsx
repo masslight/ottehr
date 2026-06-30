@@ -427,7 +427,7 @@ function PatientSection({
 }
 
 const INSURANCE_TYPE_OPTIONS = VALUE_SETS.insuranceTypeOptions;
-const insuranceTypeLabel = (candidCode: string): string =>
+const planTypeLabel = (candidCode: string): string =>
   INSURANCE_TYPE_OPTIONS.find((option) => option.candidCode === candidCode)?.label ?? '';
 
 export function InsuranceSection({
@@ -443,7 +443,7 @@ export function InsuranceSection({
   const [payer, setPayer] = useState<BillingPayerOption | null>(null);
   const [memberId, setMemberId] = useState(claim.memberId);
   const [status, setStatus] = useState(claim.coverageStatus);
-  const [insuranceType, setInsuranceType] = useState(claim.insuranceType);
+  const [planType, setPlanType] = useState(claim.planType);
   const [policyHolder, setPolicyHolder] = useState<PolicyHolderState>(() =>
     policyHolderStateFromSummary(claim.relationship, claim.policyHolder)
   );
@@ -460,7 +460,7 @@ export function InsuranceSection({
     setPayer(claim.payorFhirId ? { id: claim.payorFhirId, name: claim.payerName, payerId: claim.payerId } : null);
     setMemberId(claim.memberId);
     setStatus(claim.coverageStatus);
-    setInsuranceType(claim.insuranceType);
+    setPlanType(claim.planType);
     setPolicyHolder(policyHolderStateFromSummary(claim.relationship, claim.policyHolder));
     setSelectedCoverage(null);
   }, [claim]);
@@ -496,9 +496,9 @@ export function InsuranceSection({
     if (!hasCoverage) return 'Choose a coverage';
     const policyHolderError = validatePolicyHolder(policyHolder);
     if (policyHolderError) return policyHolderError;
-    const claimFields: { payerId?: string; insuranceType?: string } = {};
+    const claimFields: { payerId?: string; planType?: string } = {};
     if (payer?.id && payer.id !== claim.payorFhirId) claimFields.payerId = payer.id;
-    if (insuranceType && insuranceType !== claim.insuranceType) claimFields.insuranceType = insuranceType;
+    if (planType && planType !== claim.planType) claimFields.planType = planType;
     if (Object.keys(claimFields).length > 0) {
       const err = await updateResource('Claim', claim.id, claimFields);
       if (err) return err;
@@ -602,10 +602,10 @@ export function InsuranceSection({
                   fullWidth
                   displayEmpty
                   SelectDisplayProps={{ 'aria-label': 'Insurance type' }}
-                  value={insuranceType}
-                  onChange={(e) => setInsuranceType(e.target.value)}
+                  value={planType}
+                  onChange={(e) => setPlanType(e.target.value)}
                   renderValue={
-                    insuranceType
+                    planType
                       ? undefined
                       : () => (
                           <Box component="span" sx={{ color: 'text.disabled' }}>
@@ -640,7 +640,7 @@ export function InsuranceSection({
             />
           )}
           <Row label="Coverage Status" value={claim.coverageStatus} />
-          <Row label="Insurance type" value={insuranceTypeLabel(claim.insuranceType)} />
+          <Row label="Insurance type" value={planTypeLabel(claim.planType)} />
         </>
       ) : (
         <Typography variant="body2" color="text.secondary" sx={{ py: 0.5 }}>

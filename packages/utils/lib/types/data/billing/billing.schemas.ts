@@ -495,9 +495,9 @@ const updateBillingResourceUnion = z.discriminatedUnion('resourceType', [
       coverageId: nonEmptyString.optional(),
       removeCoverage: z.boolean().optional(),
       payerId: nonEmptyString.optional(),
-      insuranceType: z
+      planType: z
         .string()
-        .refine((code) => INSURANCE_CANDID_PLAN_TYPE_CODES.includes(code), 'Invalid insurance type')
+        .refine((code) => INSURANCE_CANDID_PLAN_TYPE_CODES.includes(code), 'Invalid plan type')
         .optional(),
       diagnoses: z.array(claimDiagnosisSchema).optional(),
       serviceLines: z.array(claimServiceLineSchema).optional(),

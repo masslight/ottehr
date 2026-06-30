@@ -28,7 +28,7 @@ const claim = {
   payerId: 'ACME',
   memberId: 'M1',
   coverageStatus: 'active',
-  insuranceType: '',
+  planType: '',
   relationship: 'Self',
   policyHolder: null,
   patientOriginalId: 'patient-1',
@@ -46,6 +46,6 @@ describe('InsuranceSection — insurance type', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
-    await waitFor(() => expect(updateResource).toHaveBeenCalledWith('Claim', 'claim-1', { insuranceType: '12' }));
+    await waitFor(() => expect(updateResource).toHaveBeenCalledWith('Claim', 'claim-1', { planType: '12' }));
   });
 });
