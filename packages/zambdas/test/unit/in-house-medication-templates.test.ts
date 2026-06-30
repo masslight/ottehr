@@ -10,6 +10,7 @@ import {
 } from 'utils';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 import {
+  collectMedicationsForTemplate,
   isValidMedicationAdministrationForTemplate,
   medicationRequestHasInteraction,
 } from '../../src/ehr/admin-create-template/index';
@@ -99,6 +100,24 @@ const makeMR = (detectedIssueRefs: (string | undefined)[]): MedicationRequest =>
   subject: { reference: 'Patient/p1' },
   medicationCodeableConcept: { coding: [] },
   detectedIssue: detectedIssueRefs.map((ref) => ({ reference: ref })),
+});
+
+// A chart-data MA: has the in-person tag, a contained Medication, and a
+// request reference pointing to a MedicationRequest.
+const makeChartMA = (id: string, medicationId: string, mrId: string): MedicationAdministration => ({
+  resourceType: 'MedicationAdministration',
+  id,
+  status: 'completed',
+  meta: { tag: [{ system: MEDICATION_ADMINISTRATION_IN_PERSON_RESOURCE_SYSTEM, code: 'medication-administration' }] },
+  medicationReference: { reference: `#${medicationId}` },
+  subject: { reference: 'Patient/p1' },
+  effectiveDateTime: '2024-01-01T00:00:00.000Z',
+  request: { reference: `MedicationRequest/${mrId}` },
+  contained: [makeMedication(medicationId)],
+  dosage: {
+    route: { coding: [{ system: MEDICATION_ADMINISTRATION_ROUTES_CODES_SYSTEM, code: '6064005' }] },
+    dose: { value: 5, unit: 'mg' },
+  },
 });
 
 // ─── isValidMedicationAdministrationForTemplate ───────────────────────────────
@@ -381,5 +400,55 @@ describe('applyInHouseMedicationPlans', () => {
     const urls = result.requests.map((r) => r.url);
     expect(urls.filter((u) => u === '/MedicationAdministration')).toHaveLength(2);
     expect(urls.filter((u) => u === '/MedicationRequest')).toHaveLength(2);
+  });
+});
+
+// ─── collectMedicationsForTemplate ───────────────────────────────────────────
+
+describe('collectMedicationsForTemplate', () => {
+  const baseParams = {
+    diagnosisConditionById: new Map(),
+    stubPatientId: 'stub-patient-1',
+  };
+
+  test('first medication has no interaction, second does — no medications are added to the template', () => {
+    const ma1 = makeChartMA('ma-1', 'med-1', 'mr-1');
+    const ma2 = makeChartMA('ma-2', 'med-2', 'mr-2');
+
+    const mrNoInteraction = makeMR([]);
+    const mrWithInteraction = makeMR(['DetectedIssue/drug-interaction-0']);
+
+    const medicationRequestByIdMap = new Map<string, MedicationRequest>([
+      ['mr-1', mrNoInteraction],
+      ['mr-2', mrWithInteraction],
+    ]);
+
+    const result = collectMedicationsForTemplate({
+      ...baseParams,
+      medicationAdministrations: [ma1, ma2],
+      medicationRequestByIdMap,
+    });
+
+    expect(result.medicationInteractionDetected).toBe(true);
+    expect(result.templateResources).toHaveLength(0);
+  });
+
+  test('all medications have no interaction — both are buffered for the template', () => {
+    const ma1 = makeChartMA('ma-1', 'med-1', 'mr-1');
+    const ma2 = makeChartMA('ma-2', 'med-2', 'mr-2');
+
+    const medicationRequestByIdMap = new Map<string, MedicationRequest>([
+      ['mr-1', makeMR([])],
+      ['mr-2', makeMR([])],
+    ]);
+
+    const result = collectMedicationsForTemplate({
+      ...baseParams,
+      medicationAdministrations: [ma1, ma2],
+      medicationRequestByIdMap,
+    });
+
+    expect(result.medicationInteractionDetected).toBe(false);
+    expect(result.templateResources).toHaveLength(4);
   });
 });
