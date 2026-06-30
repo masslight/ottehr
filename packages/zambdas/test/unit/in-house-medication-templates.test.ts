@@ -409,7 +409,6 @@ describe('collectMedicationsForTemplate', () => {
   const baseParams = {
     diagnosisConditionById: new Map(),
     stubPatientId: 'stub-patient-1',
-    oldIdToNewIdMap: new Map<string, string>(),
   };
 
   test('first medication has no interaction, second does — no medications are added to the template', () => {
@@ -431,9 +430,7 @@ describe('collectMedicationsForTemplate', () => {
     });
 
     expect(result.medicationInteractionDetected).toBe(true);
-    expect(result.medsForContained).toHaveLength(0);
-    expect(result.medAdminsForContained).toHaveLength(0);
-    expect(result.medicationEntries).toHaveLength(0);
+    expect(result.templateResources).toHaveLength(0);
   });
 
   test('all medications have no interaction — both are buffered for the template', () => {
@@ -452,8 +449,6 @@ describe('collectMedicationsForTemplate', () => {
     });
 
     expect(result.medicationInteractionDetected).toBe(false);
-    expect(result.medsForContained).toHaveLength(2);
-    expect(result.medAdminsForContained).toHaveLength(2);
-    expect(result.medicationEntries).toHaveLength(2);
+    expect(result.templateResources).toHaveLength(4);
   });
 });

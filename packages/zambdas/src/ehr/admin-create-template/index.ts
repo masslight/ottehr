@@ -6,7 +6,6 @@ import {
   Encounter,
   FhirResource,
   List,
-  ListEntry,
   Medication,
   MedicationAdministration,
   MedicationRequest,
@@ -447,20 +446,26 @@ const performEffect = async (
   // At apply time, apply-template re-runs the medication create flow using the
   // plan data, binding the fresh patient and encounter.
   // Note: we effectively skip all medications if any medication has detected interactions
-  const { medsForContained, medAdminsForContained, medicationEntries, medicationInteractionDetected } =
-    collectMedicationsForTemplate({
-      medicationAdministrations,
-      medicationRequestByIdMap,
-      diagnosisConditionById,
-      stubPatientId: stubPatient.id!,
-      oldIdToNewIdMap,
-    });
+  const { templateResources, medAdminIdMap, medicationInteractionDetected } = collectMedicationsForTemplate({
+    medicationAdministrations,
+    medicationRequestByIdMap,
+    diagnosisConditionById,
+    stubPatientId: stubPatient.id!,
+  });
 
   if (!medicationInteractionDetected) {
     console.log('No medication interaction detected, adding medications to template');
-    listToCreate.contained!.push(...medAdminsForContained);
-    listToCreate.entry!.push(...medicationEntries);
-    listToCreate.contained!.push(...medsForContained);
+    for (const [oldId, newId] of medAdminIdMap) {
+      oldIdToNewIdMap.set(oldId, newId);
+    }
+    for (const res of templateResources) {
+      if (res.resourceType === 'MedicationAdministration') {
+        listToCreate.entry!.push({
+          item: { reference: `#${res.id}` },
+        });
+      }
+      listToCreate.contained!.push(res);
+    }
   } else {
     console.warn('Medication interactions detected, no medications added to template');
     warnings.push({
@@ -685,14 +690,13 @@ export const medicationRequestHasInteraction = (mr: MedicationRequest): boolean 
 };
 
 export type CollectMedicationsResult = {
-  medsForContained: Medication[];
-  medAdminsForContained: MedicationAdministration[];
-  medicationEntries: ListEntry[];
+  templateResources: (Medication | MedicationAdministration)[];
+  medAdminIdMap: Map<string, string>;
   medicationInteractionDetected: boolean;
 };
 
-// Loops over chart MedicationAdministrations and builds the three buffers that
-// get flushed into the template List. All three buffers are empty when any MA's
+// Loops over chart MedicationAdministrations and builds the resources that
+// get flushed into the template List. Resources array is empty if any
 // MedicationRequest carries a real drug interaction — this is intentional: if
 // any medication in the set has an interaction we omit all of them so the
 // template never captures a partially-safe set.
@@ -701,13 +705,12 @@ export const collectMedicationsForTemplate = (params: {
   medicationRequestByIdMap: Map<string, MedicationRequest>;
   diagnosisConditionById: Map<string, Condition>;
   stubPatientId: string;
-  oldIdToNewIdMap: Map<string, string>;
 }): CollectMedicationsResult => {
-  const medicationPlanTagSystem = chartDataTagSystem('in-house-medication-administration-template');
+  const medicationPlanSystemKey = 'in-house-medication-administration-template';
+  const medicationPlanTagSystem = chartDataTagSystem(medicationPlanSystemKey);
   let medicationInteractionDetected = false;
-  const medAdminsForContained: MedicationAdministration[] = [];
-  const medicationEntries: ListEntry[] = [];
-  const medsForContained: Medication[] = [];
+  const templateResources: (Medication | MedicationAdministration)[] = [];
+  const medAdminIdMap = new Map<string, string>();
 
   for (const medAdmin of params.medicationAdministrations) {
     const mrForMedAdmin = params.medicationRequestByIdMap.get(
@@ -746,21 +749,17 @@ export const collectMedicationsForTemplate = (params: {
     // FHIR doesn't allow multiple nested contained resources so we need to store
     // Medication not in MA.contained but in List.contained instead. Both are
     // buffered together so a later interaction check discards both atomically.
-    const medicationAdminMedication = medAdmin.contained?.find((cont) => cont.resourceType === 'Medication');
     const medicationId = uuidV4();
-    if (medicationAdminMedication) {
-      const templateMedication: Medication = {
-        ...medicationAdminMedication,
-        id: medicationId,
-      };
-      medsForContained.push(templateMedication);
-    }
+    const templateMedication: Medication = {
+      ...originalMedication,
+      id: medicationId,
+    };
 
-    const medAdminId = uuidV4();
-    params.oldIdToNewIdMap.set(medAdmin.id!, medAdminId);
+    const newMedAdminId = uuidV4();
+    medAdminIdMap.set(medAdmin.id!, newMedAdminId);
     const templateMedAdministration: MedicationAdministration = {
       resourceType: 'MedicationAdministration',
-      id: medAdminId,
+      id: newMedAdminId,
       status: 'in-progress',
       subject: { reference: `#${params.stubPatientId}` },
       // this is a required field but we will overwrite it when the template is actually applied
@@ -774,28 +773,21 @@ export const collectMedicationsForTemplate = (params: {
       ...(medAdmin.extension && medAdmin.extension.length > 0 ? { extension: medAdmin.extension } : {}),
       ...(reasonCode.length > 0 ? { reasonCode } : {}),
       // details of the medication itself are contained on the medicationAdministration
-      ...(medicationAdminMedication
-        ? {
-            medicationReference: { reference: `#${medicationId}` },
-          }
-        : {}),
-
+      medicationReference: { reference: `#${medicationId}` },
       meta: {
-        tag: [{ system: medicationPlanTagSystem, code: 'in-house-medication-administration-template' }],
+        tag: [{ system: medicationPlanTagSystem, code: medicationPlanSystemKey }],
       },
     };
 
-    medAdminsForContained.push(templateMedAdministration);
-    medicationEntries.push({ item: { reference: `#${medAdminId}` } });
+    templateResources.push(...[templateMedAdministration, templateMedication]);
   }
 
   if (medicationInteractionDetected) {
     return {
-      medsForContained: [],
-      medAdminsForContained: [],
-      medicationEntries: [],
       medicationInteractionDetected: true,
+      templateResources: [],
+      medAdminIdMap: new Map(),
     };
   }
-  return { medsForContained, medAdminsForContained, medicationEntries, medicationInteractionDetected: false };
+  return { templateResources, medAdminIdMap, medicationInteractionDetected: false };
 };
