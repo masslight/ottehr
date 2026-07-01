@@ -1,3 +1,4 @@
+import { AddCircleOutline, CheckCircle, InfoOutlined } from '@mui/icons-material';
 import {
   Autocomplete,
   Backdrop,
@@ -14,12 +15,14 @@ import {
   FormControlLabel,
   FormHelperText,
   FormLabel,
+  IconButton,
   InputLabel,
   MenuItem,
   Radio,
   RadioGroup,
   Select,
   TextField,
+  Tooltip,
   Typography,
 } from '@mui/material';
 import { Box, Stack, useTheme } from '@mui/system';
@@ -70,6 +73,7 @@ import {
   TECHNIQUES_VALUE_SET_URL,
   TIME_SPENT_VALUE_SET_URL,
 } from 'utils';
+import { AiSectionContainer } from '../../shared/components/AiSection';
 import { DiagnosesField } from '../../shared/components/assessment-tab/DiagnosesField';
 import { PageTitle } from '../../shared/components/PageTitle';
 import { QuickPicksButton } from '../../shared/components/QuickPicksButton';
@@ -80,7 +84,6 @@ import {
   useRecommendBillingCodes,
 } from '../../shared/stores/appointment/appointment.queries';
 import { useChartData, useDeleteChartData, useSaveChartData } from '../../shared/stores/appointment/appointment.store';
-import AiSuggestion from '../components/AiSuggestion';
 import { InfoAlert } from '../components/InfoAlert';
 import { ROUTER_PATH } from '../routing/routesInPerson';
 import {
@@ -552,6 +555,15 @@ export default function ProceduresNew(): ReactElement {
       setDebouncedSearchTerm(data);
     });
   };
+
+  const existingCptCodeSet = useMemo(() => new Set(state.cptCodes?.map((cptCode) => cptCode.code)), [state.cptCodes]);
+
+  const addRecommendedCptCode = (suggestion: ProcedureSuggestion): void =>
+    updateState((state) => {
+      if (!state.cptCodes?.some((cptCode) => cptCode.code === suggestion.code)) {
+        state.cptCodes = [...(state.cptCodes ?? []), { code: suggestion.code, display: suggestion.description }];
+      }
+    });
 
   const cptWidget = (): ReactElement => {
     return (
@@ -1127,13 +1139,51 @@ export default function ProceduresNew(): ReactElement {
             <TooltipWrapper tooltipProps={CPT_TOOLTIP_PROPS}>
               <Typography style={{ color: '#0F347C', fontSize: '16px', fontWeight: '500' }}>CPT Code</Typography>
             </TooltipWrapper>
-            {recommendedBillingCodes && (
-              <AiSuggestion
-                title="Recommended CPT Codes"
-                procedureSuggestions={recommendedBillingCodes}
-                loading={loadingSuggestions}
-              />
-            )}
+            <AiSectionContainer isLoading={loadingSuggestions}>
+              {!loadingSuggestions &&
+                (recommendedBillingCodes && recommendedBillingCodes.length > 0 ? (
+                  <ActionsList
+                    data={recommendedBillingCodes}
+                    getKey={(value) => value.code}
+                    renderItem={(value) => (
+                      <Typography data-testid={dataTestIds.documentProcedurePage.recommendedCptCode(value.code)}>
+                        <strong>{value.code}</strong> &ndash; {value.description}
+                      </Typography>
+                    )}
+                    renderActions={
+                      isReadOnly
+                        ? undefined
+                        : (value) => (
+                            <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                              <Tooltip title={value.useWhen}>
+                                <IconButton size="small">
+                                  <InfoOutlined sx={{ fontSize: '17px' }} />
+                                </IconButton>
+                              </Tooltip>
+                              {existingCptCodeSet.has(value.code) ? (
+                                <IconButton size="small" disabled>
+                                  <CheckCircle sx={{ fontSize: '17px', color: 'success.main' }} />
+                                </IconButton>
+                              ) : (
+                                <Tooltip title="Add CPT code">
+                                  <IconButton
+                                    size="small"
+                                    onClick={() => addRecommendedCptCode(value)}
+                                    data-testid={dataTestIds.documentProcedurePage.cptCodeQuickAddButton(value.code)}
+                                  >
+                                    <AddCircleOutline sx={{ fontSize: '17px' }} />
+                                  </IconButton>
+                                </Tooltip>
+                              )}
+                            </Box>
+                          )
+                    }
+                    divider
+                  />
+                ) : (
+                  <Typography color="secondary.light">No suggestions</Typography>
+                ))}
+            </AiSectionContainer>
             {suggestionNote && suggestionNote.suggestions?.[0] !== 'Procedure details are included' && (
               <Container
                 style={{

@@ -468,6 +468,8 @@ export const dataTestIds = {
     procedureType: 'procedure-type',
     cptCodeInput: 'cpt-code-input',
     cptCode: 'cpt-code',
+    recommendedCptCode: (code: string) => `recommended-cpt-code-${code}`,
+    cptCodeQuickAddButton: (code: string) => `cpt-code-quick-add-${code}`,
     diagnosis: 'diagnosis',
     diagnosisItem: 'diagnosis-item',
     diagnosisDeleteButton: 'diagnosis-delete-button',
