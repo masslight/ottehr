@@ -1141,7 +1141,9 @@ export default function ProceduresNew(): ReactElement {
             </TooltipWrapper>
             <AiSectionContainer isLoading={loadingSuggestions}>
               {!loadingSuggestions &&
-                (recommendedBillingCodes && recommendedBillingCodes.length > 0 ? (
+                (!formValues.procedureType ? (
+                  <Typography color="secondary.light">Select a procedure type to see recommended CPT codes</Typography>
+                ) : recommendedBillingCodes && recommendedBillingCodes.length > 0 ? (
                   <ActionsList
                     data={recommendedBillingCodes}
                     getKey={(value) => value.code}
@@ -1156,18 +1158,19 @@ export default function ProceduresNew(): ReactElement {
                         : (value) => (
                             <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
                               <Tooltip title={value.useWhen}>
-                                <IconButton size="small">
+                                <IconButton size="small" aria-label={`When to use CPT code ${value.code}`}>
                                   <InfoOutlined sx={{ fontSize: '17px' }} />
                                 </IconButton>
                               </Tooltip>
                               {existingCptCodeSet.has(value.code) ? (
-                                <IconButton size="small" disabled>
+                                <IconButton size="small" disabled aria-label={`CPT code ${value.code} already added`}>
                                   <CheckCircle sx={{ fontSize: '17px', color: 'success.main' }} />
                                 </IconButton>
                               ) : (
                                 <Tooltip title="Add CPT code">
                                   <IconButton
                                     size="small"
+                                    aria-label={`Add CPT code ${value.code}`}
                                     onClick={() => addRecommendedCptCode(value)}
                                     data-testid={dataTestIds.documentProcedurePage.cptCodeQuickAddButton(value.code)}
                                   >
@@ -1180,9 +1183,9 @@ export default function ProceduresNew(): ReactElement {
                     }
                     divider
                   />
-                ) : (
+                ) : recommendedBillingCodes ? (
                   <Typography color="secondary.light">No suggestions</Typography>
-                ))}
+                ) : null)}
             </AiSectionContainer>
             {suggestionNote && suggestionNote.suggestions?.[0] !== 'Procedure details are included' && (
               <Container
