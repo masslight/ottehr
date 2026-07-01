@@ -24,7 +24,6 @@ export const useOystehrAPIClient = (): ReturnType<typeof getOystehrTelemedAPI> |
           deletePatientInstructionZambdaID: 'delete-patient-instruction',
           createUpdateMedicationOrderZambdaID: 'create-update-medication-order',
           getMedicationOrdersZambdaID: 'get-medication-orders',
-          icdSearchZambdaId: 'icd-search',
           aiSuggestionNotesZambdaID: 'ai-suggestion-notes',
           recommendBillingSuggestionsZambdaID: 'recommend-billing-suggestions',
           recommendBillingCodesZambdaID: 'recommend-billing-codes',

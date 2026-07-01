@@ -18,7 +18,7 @@ import {
 import { ottehrCodeSystemUrl } from 'utils/lib/fhir/systemUrls';
 import {
   checkOrCreateM2MClientToken,
-  createOystehrClient,
+  createClinicalOystehrClient,
   lambdaResponse,
   wrapHandler,
   ZambdaInput,
@@ -37,7 +37,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (unsafeInput: ZambdaInput): 
     const validatedInput = await validateInput(unsafeInput);
 
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
+    const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
     const response = await performEffect(validatedInput, oystehr);
 

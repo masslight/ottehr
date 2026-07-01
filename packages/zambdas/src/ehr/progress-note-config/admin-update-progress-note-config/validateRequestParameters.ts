@@ -5,7 +5,7 @@ import {
   UpdateProgressNoteConfigInputSchema,
   UpdateProgressNoteConfigInputValidated,
 } from 'utils';
-import { safeValidate, ZambdaInput } from '../../../shared';
+import { safeJsonParse, safeValidate, ZambdaInput } from '../../../shared';
 
 export function validateRequestParameters(input: ZambdaInput): UpdateProgressNoteConfigInputValidated {
   if (!input.body) {
@@ -19,7 +19,7 @@ export function validateRequestParameters(input: ZambdaInput): UpdateProgressNot
 
   const userToken = authHeader.replace('Bearer ', '');
 
-  const data = safeValidate(UpdateProgressNoteConfigInputSchema, JSON.parse(input.body));
+  const data = safeValidate(UpdateProgressNoteConfigInputSchema, safeJsonParse(input.body));
 
   return {
     ...data,

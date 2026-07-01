@@ -1,6 +1,6 @@
 import { CreateUserParams, MISSING_REQUEST_BODY } from 'utils';
 import { z } from 'zod';
-import { safeValidate, ZambdaInput } from '../../shared';
+import { safeJsonParse, safeValidate, ZambdaInput } from '../../shared';
 
 const CreateUserBodySchema = z.object({
   email: z.string().email(),
@@ -14,7 +14,7 @@ export function validateRequestParameters(input: ZambdaInput): CreateUserParams 
     throw MISSING_REQUEST_BODY;
   }
 
-  const { email, applicationID, firstName, lastName } = safeValidate(CreateUserBodySchema, JSON.parse(input.body));
+  const { email, applicationID, firstName, lastName } = safeValidate(CreateUserBodySchema, safeJsonParse(input.body));
 
   return {
     email,

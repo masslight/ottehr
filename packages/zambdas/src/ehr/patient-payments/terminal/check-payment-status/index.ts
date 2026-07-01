@@ -11,10 +11,11 @@ import {
   TerminalPaymentActionStatus,
 } from 'utils';
 import {
-  createOystehrClient,
+  createClinicalOystehrClient,
   getAuth0Token,
   getStripeClient,
   lambdaResponse,
+  safeJsonParse,
   wrapHandler,
   ZambdaInput,
 } from '../../../../shared';
@@ -30,7 +31,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     oystehrM2MClientToken = await getAuth0Token(input.secrets);
   }
 
-  const oystehrClient = createOystehrClient(oystehrM2MClientToken, input.secrets);
+  const oystehrClient = createClinicalOystehrClient(oystehrM2MClientToken, input.secrets);
   const stripeAccount = await getStripeAccountForAppointmentOrEncounter(
     { encounterId: validatedParameters.encounterId },
     oystehrClient
@@ -66,7 +67,7 @@ const validateRequestParameters = (input: ZambdaInput): CheckPatientPaymentTermi
     throw MISSING_REQUEST_BODY;
   }
 
-  const { encounterId, readerId } = JSON.parse(input.body);
+  const { encounterId, readerId } = safeJsonParse(input.body);
 
   const missingParams: string[] = [];
   if (!encounterId) {
