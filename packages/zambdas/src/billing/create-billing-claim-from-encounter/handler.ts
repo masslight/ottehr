@@ -51,6 +51,7 @@ import {
   FHIR_RESOURCE_NOT_FOUND,
   getCandidPlanTypeCodeFromCoverage,
   getCoding,
+  getDefaultClaimSubmissionExtensions,
   getNPIIdentifier,
   getPayerId,
   getPaymentVariantFromEncounter,
@@ -1145,6 +1146,7 @@ function buildClaim(resources: ClaimResources): Claim {
     type: { coding: [getClaimTypeCoding()] },
     use: 'claim',
     created: now,
+    extension: getDefaultClaimSubmissionExtensions(),
     patient: uuidOrUrnReference('Patient', resources.patientId),
     provider: resources.billingProvider?.id
       ? { reference: `Organization/${resources.billingProvider.id}` }

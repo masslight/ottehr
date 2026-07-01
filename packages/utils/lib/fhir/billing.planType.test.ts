@@ -1,7 +1,19 @@
 import { Claim, Coverage } from 'fhir/r4b';
 import { describe, expect, it } from 'vitest';
-import { EXTENSION_CLAIM_INSURANCE_TYPE } from '../helpers/rcm/constants';
-import { clearClaimPlanType, getClaimPlanType, setClaimPlanType, setCoveragePlanType } from './billing';
+import {
+  EXTENSION_CLAIM_ASSIGNMENT_OR_PLAN_PARTICIPATION_CODE,
+  EXTENSION_CLAIM_BENEFITS_ASSIGNMENT_CERTIFICATION_INDICATOR,
+  EXTENSION_CLAIM_INSURANCE_TYPE,
+  EXTENSION_CLAIM_PROVIDER_SIGNATURE_INDICATOR,
+  EXTENSION_CLAIM_RELEASE_OF_INFORMATION_CODE,
+} from '../helpers/rcm/constants';
+import {
+  clearClaimPlanType,
+  getClaimPlanType,
+  getDefaultClaimSubmissionExtensions,
+  setClaimPlanType,
+  setCoveragePlanType,
+} from './billing';
 import { CANDID_PLAN_TYPE_SYSTEM } from './insurance';
 
 const baseCoverage: Coverage = {
@@ -171,5 +183,35 @@ describe('claim plan type', () => {
     clearClaimPlanType(claim);
 
     expect(claim.extension).toBeUndefined();
+  });
+});
+
+describe('default claim submission extensions', () => {
+  it('produces the constant RCM attributes the Submit Claim endpoint requires', () => {
+    expect(getDefaultClaimSubmissionExtensions()).toEqual([
+      { url: EXTENSION_CLAIM_PROVIDER_SIGNATURE_INDICATOR, valueBoolean: true },
+      { url: EXTENSION_CLAIM_ASSIGNMENT_OR_PLAN_PARTICIPATION_CODE, valueString: 'A' },
+      { url: EXTENSION_CLAIM_BENEFITS_ASSIGNMENT_CERTIFICATION_INDICATOR, valueString: 'Y' },
+      { url: EXTENSION_CLAIM_RELEASE_OF_INFORMATION_CODE, valueString: 'Y' },
+    ]);
+  });
+
+  it('returns a fresh array each call so mutating one claim cannot leak into another', () => {
+    const first = getDefaultClaimSubmissionExtensions();
+    const second = getDefaultClaimSubmissionExtensions();
+    expect(first).not.toBe(second);
+    expect(first[0]).not.toBe(second[0]);
+  });
+
+  it('layers plan type on top of the defaults without dropping them', () => {
+    const claim: Claim = { ...structuredClone(baseClaim), extension: getDefaultClaimSubmissionExtensions() };
+
+    setClaimPlanType(claim, '12');
+
+    expect(claim.extension).toEqual([
+      ...getDefaultClaimSubmissionExtensions(),
+      { url: EXTENSION_CLAIM_INSURANCE_TYPE, valueString: '12' },
+    ]);
+    expect(getClaimPlanType(claim)).toBe('12');
   });
 });

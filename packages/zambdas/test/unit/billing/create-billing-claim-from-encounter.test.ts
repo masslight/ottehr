@@ -37,6 +37,7 @@ import {
   EXTENSION_URL_CPT_MODIFIER,
   FHIR_IDENTIFIER_NPI,
   FHIR_RESOURCE_NOT_FOUND,
+  getDefaultClaimSubmissionExtensions,
   ICD_10_CODE_SYSTEM,
   INVALID_INPUT_ERROR,
   MISSING_REQUEST_BODY,
@@ -1454,6 +1455,7 @@ describe('create-billing-claim-from-encounter', () => {
               type: { coding: [{ system: CODE_SYSTEM_CLAIM_TYPE, code: CODE_SYSTEM_CLAIM_TYPE_CODES.professional }] },
               use: 'claim',
               created: expect.any(String),
+              extension: getDefaultClaimSubmissionExtensions(),
               patient: {
                 reference: 'urn:uuid:claim-patient',
               },
@@ -1704,6 +1706,7 @@ describe('create-billing-claim-from-encounter', () => {
               type: { coding: [{ system: CODE_SYSTEM_CLAIM_TYPE, code: CODE_SYSTEM_CLAIM_TYPE_CODES.professional }] },
               use: 'claim',
               created: expect.any(String),
+              extension: getDefaultClaimSubmissionExtensions(),
               patient: {
                 reference: 'urn:uuid:claim-patient',
               },
@@ -1837,6 +1840,7 @@ describe('create-billing-claim-from-encounter', () => {
               type: { coding: [{ system: CODE_SYSTEM_CLAIM_TYPE, code: CODE_SYSTEM_CLAIM_TYPE_CODES.professional }] },
               use: 'claim',
               created: expect.any(String),
+              extension: getDefaultClaimSubmissionExtensions(),
               patient: {
                 reference: 'urn:uuid:claim-patient',
               },
@@ -1987,6 +1991,7 @@ describe('create-billing-claim-from-encounter', () => {
               type: { coding: [{ system: CODE_SYSTEM_CLAIM_TYPE, code: CODE_SYSTEM_CLAIM_TYPE_CODES.professional }] },
               use: 'claim',
               created: expect.any(String),
+              extension: getDefaultClaimSubmissionExtensions(),
               patient: {
                 reference: 'urn:uuid:claim-patient',
               },
@@ -2088,6 +2093,7 @@ describe('create-billing-claim-from-encounter', () => {
               type: { coding: [{ system: CODE_SYSTEM_CLAIM_TYPE, code: CODE_SYSTEM_CLAIM_TYPE_CODES.professional }] },
               use: 'claim',
               created: expect.any(String),
+              extension: getDefaultClaimSubmissionExtensions(),
               patient: {
                 reference: 'urn:uuid:claim-patient',
               },
@@ -2188,6 +2194,7 @@ describe('create-billing-claim-from-encounter', () => {
               type: { coding: [{ system: CODE_SYSTEM_CLAIM_TYPE, code: CODE_SYSTEM_CLAIM_TYPE_CODES.professional }] },
               use: 'claim',
               created: expect.any(String),
+              extension: getDefaultClaimSubmissionExtensions(),
               patient: {
                 reference: 'urn:uuid:claim-patient',
               },
@@ -2312,6 +2319,7 @@ describe('create-billing-claim-from-encounter', () => {
               type: { coding: [{ system: CODE_SYSTEM_CLAIM_TYPE, code: CODE_SYSTEM_CLAIM_TYPE_CODES.professional }] },
               use: 'claim',
               created: expect.any(String),
+              extension: getDefaultClaimSubmissionExtensions(),
               patient: {
                 reference: 'urn:uuid:claim-patient',
               },
@@ -2438,6 +2446,7 @@ describe('create-billing-claim-from-encounter', () => {
               type: { coding: [{ system: CODE_SYSTEM_CLAIM_TYPE, code: CODE_SYSTEM_CLAIM_TYPE_CODES.professional }] },
               use: 'claim',
               created: expect.any(String),
+              extension: getDefaultClaimSubmissionExtensions(),
               patient: {
                 reference: 'urn:uuid:claim-patient',
               },
@@ -2568,6 +2577,7 @@ describe('create-billing-claim-from-encounter', () => {
               type: { coding: [{ system: CODE_SYSTEM_CLAIM_TYPE, code: CODE_SYSTEM_CLAIM_TYPE_CODES.professional }] },
               use: 'claim',
               created: expect.any(String),
+              extension: getDefaultClaimSubmissionExtensions(),
               patient: {
                 reference: 'urn:uuid:claim-patient',
               },
@@ -2672,6 +2682,7 @@ describe('create-billing-claim-from-encounter', () => {
               type: { coding: [{ system: CODE_SYSTEM_CLAIM_TYPE, code: CODE_SYSTEM_CLAIM_TYPE_CODES.professional }] },
               use: 'claim',
               created: expect.any(String),
+              extension: getDefaultClaimSubmissionExtensions(),
               patient: {
                 reference: 'urn:uuid:claim-patient',
               },
