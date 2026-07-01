@@ -128,6 +128,20 @@ export function getNPI(resource: Practitioner | Organization | Location | Health
     return ident.system === FHIR_IDENTIFIER_NPI;
   })?.value;
 }
+
+// Set, replace, or (when npi is empty/null) remove the NPI identifier.
+export function setNpi(resource: Practitioner | Organization | Location, npi: string | null): void {
+  const identifier = resource.identifier ?? [];
+  const existing = identifier.find((id) => id.system === FHIR_IDENTIFIER_NPI);
+  if (npi) {
+    if (existing) existing.value = npi;
+    else identifier.push({ system: FHIR_IDENTIFIER_NPI, value: npi });
+    resource.identifier = identifier;
+  } else if (existing) {
+    resource.identifier = identifier.filter((id) => id.system !== FHIR_IDENTIFIER_NPI);
+  }
+}
+
 export function getTaxID(
   resource: Practitioner | Organization | Location | HealthcareService | Patient
 ): string | undefined {

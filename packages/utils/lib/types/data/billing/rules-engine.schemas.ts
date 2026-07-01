@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { HOLD_TAG_NAME } from './rules-engine.constants';
 
 // ---------------------------------------------------------------------------
 // Rule structure
@@ -52,9 +53,17 @@ export type RuleAction =
   | { type: 'applyTag'; tag: string }
   | { type: 'noop' };
 
+// Tags are free text in the UI, but the engine halts on an exact HOLD_TAG_NAME match — so
+// canonicalize case/whitespace variants of the Hold tag here, at the validation boundary.
+const tagNameSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .transform((tag) => (tag.toLowerCase() === HOLD_TAG_NAME.toLowerCase() ? HOLD_TAG_NAME : tag));
+
 export const RuleActionSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('setField'), field: z.string().min(1), value: z.string().nullable() }),
-  z.object({ type: z.literal('applyTag'), tag: z.string().min(1) }),
+  z.object({ type: z.literal('applyTag'), tag: tagNameSchema }),
   z.object({ type: z.literal('noop') }),
 ]);
 

@@ -1,19 +1,11 @@
-import { Claim, Coverage, Identifier, Location, Organization, Patient, Practitioner } from 'fhir/r4b';
-import { FHIR_IDENTIFIER_NPI } from '../../../fhir/constants';
+import { Claim, Coverage, Location, Organization, Patient, Practitioner } from 'fhir/r4b';
+import { getNPI, setNpi } from '../../../fhir/helpers';
 import { extractPayerIdFromUrl, getPayerUrl } from '../../../helpers/helpers';
 import { CLAIM_TAG_SYSTEM } from './billing.constants';
 import { RuleOperator } from './rules-engine.schemas';
 
-// ---------------------------------------------------------------------------
-// Field catalog
-//
-// The logical "claim properties" a rule can test (conditions) or change (actions) physically live
-// across several FHIR resources — the Claim itself plus its working-copy Patient, Coverage(s),
-// rendering Practitioner/Organization and service-facility Location. The engine assembles those into
-// a RulesEngineClaimModel; this catalog maps each logical field id to a reader (for conditions) and,
-// where settable, a writer (for setField actions). The catalog metadata (id/label/group/operators)
-// is also the source of truth the billing app uses to render the rule builder's field pickers.
-// ---------------------------------------------------------------------------
+// Maps each logical rule field id to a reader and, where settable, a writer over the assembled
+// RulesEngineClaimModel. The catalog metadata also drives the rule builder's field pickers.
 
 export interface RulesEngineClaimModel {
   claim: Claim;
@@ -25,7 +17,7 @@ export interface RulesEngineClaimModel {
 }
 
 export type RuleFieldGroup = 'claim' | 'patient' | 'serviceFacility' | 'renderingProvider' | 'tags';
-export type RuleFieldValueType = 'string' | 'date' | 'gender' | 'tags';
+export type RuleFieldValueType = 'string' | 'date' | 'gender' | 'tags' | 'payer';
 
 export interface RuleFieldDef {
   id: string;
@@ -42,7 +34,7 @@ const ENUM_OPS: RuleOperator[] = ['eq', 'neq', 'in', 'notIn', 'exists', 'notExis
 const TAG_OPS: RuleOperator[] = ['contains', 'notContains', 'exists', 'notExists'];
 
 export const RULE_FIELD_CATALOG: RuleFieldDef[] = [
-  { id: 'payerId', label: 'Payer ID', group: 'claim', valueType: 'string', operators: SCALAR_OPS, settable: true },
+  { id: 'payerId', label: 'Payer ID', group: 'claim', valueType: 'payer', operators: SCALAR_OPS, settable: true },
   {
     id: 'patient.firstName',
     label: 'Patient first name',
@@ -128,9 +120,6 @@ const primaryCoverage = (m: RulesEngineClaimModel): Coverage | undefined => m.co
 const getPlanClassValue = (coverage?: Coverage): string | undefined =>
   coverage?.class?.find((c) => c.type?.coding?.some((tc) => tc.code === 'plan'))?.value;
 
-const getNpi = (resource?: { identifier?: Identifier[] }): string | undefined =>
-  resource?.identifier?.find((i) => i.system === FHIR_IDENTIFIER_NPI)?.value;
-
 const getProviderFamily = (p?: Practitioner | Organization): string | undefined => {
   if (!p) return undefined;
   if (p.resourceType === 'Organization') return p.name;
@@ -157,9 +146,9 @@ const READERS: Record<string, FieldReader> = {
   'patient.birthDate': (m) => m.patient?.birthDate,
   'patient.gender': (m) => m.patient?.gender,
   'serviceFacility.name': (m) => m.serviceFacility?.name,
-  'serviceFacility.npi': (m) => getNpi(m.serviceFacility),
+  'serviceFacility.npi': (m) => (m.serviceFacility ? getNPI(m.serviceFacility) : undefined),
   'serviceFacility.state': (m) => m.serviceFacility?.address?.state,
-  'renderingProvider.npi': (m) => getNpi(m.renderingProvider),
+  'renderingProvider.npi': (m) => (m.renderingProvider ? getNPI(m.renderingProvider) : undefined),
   'renderingProvider.lastName': (m) => getProviderFamily(m.renderingProvider),
   tags: (m) => getClaimTagCodes(m.claim),
 };
@@ -177,24 +166,8 @@ const ensurePatientName = (patient?: Patient): NonNullable<Patient['name']>[numb
   return patient.name[0];
 };
 
-const setNpiOn = (resource: { identifier?: Identifier[] } | undefined, value: string | null): void => {
-  if (!resource) return;
-  const ids = resource.identifier ?? [];
-  const existing = ids.find((i) => i.system === FHIR_IDENTIFIER_NPI);
-  if (value) {
-    if (existing) existing.value = value;
-    else ids.push({ system: FHIR_IDENTIFIER_NPI, value });
-    resource.identifier = ids;
-  } else if (existing) {
-    resource.identifier = ids.filter((i) => i.system !== FHIR_IDENTIFIER_NPI);
-  }
-};
-
-// Re-point the claim to a payer by its clearinghouse payer id. This edits the claim's own working-copy
-// Coverage (its payor) and the working-copy Claim's insurer — exactly the fields update-billing-claim
-// sets. No external/shared resource is mutated and no RCM lookup is needed: getPayerUrl builds the
-// payer reference directly from the id. A self-pay claim (no coverage) has no payer to set, and an
-// empty value is treated as a no-op.
+// Re-point the primary coverage's payor and the claim's insurer. No RCM lookup is needed —
+// getPayerUrl builds the payer reference directly from the id.
 const setPayerId = (model: RulesEngineClaimModel, value: string | null): void => {
   if (!value) return;
   const coverage = primaryCoverage(model);
@@ -248,9 +221,13 @@ const WRITERS: Record<string, FieldWriter> = {
   'serviceFacility.name': (m, v) => {
     if (m.serviceFacility) m.serviceFacility.name = v ?? undefined;
   },
-  'serviceFacility.npi': (m, v) => setNpiOn(m.serviceFacility, v),
+  'serviceFacility.npi': (m, v) => {
+    if (m.serviceFacility) setNpi(m.serviceFacility, v);
+  },
   'serviceFacility.state': (m, v) => setLocationState(m.serviceFacility, v),
-  'renderingProvider.npi': (m, v) => setNpiOn(m.renderingProvider, v),
+  'renderingProvider.npi': (m, v) => {
+    if (m.renderingProvider) setNpi(m.renderingProvider, v);
+  },
   'renderingProvider.lastName': (m, v) => setProviderFamily(m.renderingProvider, v),
 };
 

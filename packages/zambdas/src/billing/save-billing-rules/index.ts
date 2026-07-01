@@ -1,17 +1,15 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Basic, List } from 'fhir/r4b';
-import {
-  BillingRulesResponse,
-  HOLD_TAG_DESCRIPTION,
-  HOLD_TAG_NAME,
-  listToRules,
-  PRESUBMISSION_RULES_LIST_CODE,
-  RULES_ENGINE_TAG_SYSTEM,
-  rulesToList,
-} from 'utils';
+import { BillingRulesResponse, HOLD_TAG_DESCRIPTION, HOLD_TAG_NAME, listToRules, rulesToList } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
-import { createBillingClient, TAG_CODE_SYSTEM, TAG_DESCRIPTION_URL, TAG_IS_SYSTEM_TAG_URL } from '../shared';
+import {
+  createBillingClient,
+  findPresubmissionRulesList,
+  TAG_CODE_SYSTEM,
+  TAG_DESCRIPTION_URL,
+  TAG_IS_SYSTEM_TAG_URL,
+} from '../shared';
 import { SaveBillingRulesParams, validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -30,7 +28,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 });
 
 async function performEffect(oystehr: Oystehr, params: SaveBillingRulesParams): Promise<BillingRulesResponse> {
-  const existing = await findRulesList(oystehr);
+  const existing = await findPresubmissionRulesList(oystehr);
   const newList = rulesToList(params.rules);
 
   let saved: List;
@@ -42,20 +40,11 @@ async function performEffect(oystehr: Oystehr, params: SaveBillingRulesParams): 
     );
   } else {
     saved = await oystehr.fhir.create<List>(newList);
+    // Seed the Hold system tag definition the first time rules are configured.
+    await ensureHoldTag(oystehr);
   }
 
-  // Make sure the Hold tag exists as a system tag so it shows up (and is described) in the Tags screen.
-  await ensureHoldTag(oystehr);
-
   return { rules: listToRules(saved), versionId: saved.meta?.versionId };
-}
-
-async function findRulesList(oystehr: Oystehr): Promise<List | undefined> {
-  const result = await oystehr.fhir.search<List>({
-    resourceType: 'List',
-    params: [{ name: '_tag', value: `${RULES_ENGINE_TAG_SYSTEM}|${PRESUBMISSION_RULES_LIST_CODE}` }],
-  });
-  return result.unbundle()[0];
 }
 
 // Best-effort: create the Hold system tag definition if it doesn't already exist. Never fails the save.
@@ -63,7 +52,10 @@ async function ensureHoldTag(oystehr: Oystehr): Promise<void> {
   try {
     const result = await oystehr.fhir.search<Basic>({
       resourceType: 'Basic',
-      params: [{ name: 'code', value: `${TAG_CODE_SYSTEM}|tag` }],
+      params: [
+        { name: 'code', value: `${TAG_CODE_SYSTEM}|tag` },
+        { name: '_count', value: '200' },
+      ],
     });
     if (result.unbundle().some((b) => b.code?.text === HOLD_TAG_NAME)) return;
 

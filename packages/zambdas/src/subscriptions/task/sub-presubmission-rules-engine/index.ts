@@ -1,27 +1,21 @@
 import Oystehr, { BatchInputPutRequest } from '@oystehr/sdk';
-import {
-  Claim,
-  Coverage,
-  FhirResource,
-  List,
-  Location,
-  Organization,
-  Patient,
-  Practitioner,
-  Resource,
-  Task,
-} from 'fhir/r4b';
+import { Claim, Coverage, FhirResource, Location, Organization, Patient, Practitioner, Resource, Task } from 'fhir/r4b';
 import {
   executeRule,
   FHIR_RESOURCE_NOT_FOUND,
   getResourcesFromBatchInlineRequests,
   listToRules,
-  PRESUBMISSION_RULES_LIST_CODE,
   PreSubmissionRule,
-  RULES_ENGINE_TAG_SYSTEM,
   RulesEngineClaimModel,
 } from 'utils';
-import { createBillingClient, findRef, sortClaimInsurance } from '../../../billing/shared';
+import {
+  BILLING_WORKING_COPY_TAG,
+  createBillingClient,
+  findPresubmissionRulesList,
+  findRef,
+  hasTag,
+  sortClaimInsurance,
+} from '../../../billing/shared';
 import { checkOrCreateM2MClientToken } from '../../../shared';
 import { wrapTaskHandler } from '../helpers';
 import { submitClaim } from './submit-claim';
@@ -32,8 +26,7 @@ import { submitClaim } from './submit-claim';
 // Triggered by a Subscription when a `run-presubmission-rules` Task is created (status `requested`).
 // The Task.focus references the working-copy Claim. The engine loads the ordered rules List, runs
 // each rule against the claim's resources in order, persists the mutations, and — unless a rule
-// applied the Hold tag — submits the claim. wrapTaskHandler marks the Task in-progress on entry, then
-// `completed`/`failed` from the returned taskStatus (and `failed` automatically on any thrown error).
+// applied the Hold tag — submits the claim.
 // ---------------------------------------------------------------------------
 
 let m2mToken: string;
@@ -55,6 +48,7 @@ export const index = wrapTaskHandler('sub-presubmission-rules-engine', async (in
         `coverages=${model.coverages.length}, renderingProvider=${model.renderingProvider?.id ?? 'none'}, ` +
         `serviceFacility=${model.serviceFacility?.id ?? 'none'}`
     );
+    const unchanged = snapshotModel(model);
 
     let heldBy: PreSubmissionRule | undefined;
     for (const rule of rules) {
@@ -70,8 +64,8 @@ export const index = wrapTaskHandler('sub-presubmission-rules-engine', async (in
     }
 
     // Persist whatever the rules changed — including the Hold tag — so the claim reflects the run.
-    console.log(`[rules-engine] persisting changes for Claim/${claimId}`);
-    await persistModel(oystehr, model);
+    const written = await persistModel(oystehr, model, unchanged);
+    console.log(`[rules-engine] persisted ${written} changed resource(s) for Claim/${claimId}`);
 
     if (heldBy) {
       console.log(`[rules-engine] Claim/${claimId} held by rule "${heldBy.name}"`);
@@ -91,8 +85,8 @@ export const index = wrapTaskHandler('sub-presubmission-rules-engine', async (in
           : submission.statusReason,
     };
   } catch (error) {
-    // wrapTaskHandler routes handler errors to Sentry + the Task statusReason but does NOT log them to
-    // CloudWatch — log here so failures are visible, then rethrow so the Task is still marked failed.
+    // wrapTaskHandler logs the error generically and marks the Task failed; log here too so the
+    // failure carries the claim context.
     console.error(`[rules-engine] failed for Claim/${claimId}:`, error);
     throw error;
   }
@@ -106,14 +100,8 @@ function extractClaimId(task: Task): string {
   return ref.replace('Claim/', '');
 }
 
-// Load the singleton ordered rules List and deserialize it into rules (in run order). Missing list
-// (none configured yet) yields no rules.
 async function loadRules(oystehr: Oystehr): Promise<PreSubmissionRule[]> {
-  const result = await oystehr.fhir.search<List>({
-    resourceType: 'List',
-    params: [{ name: '_tag', value: `${RULES_ENGINE_TAG_SYSTEM}|${PRESUBMISSION_RULES_LIST_CODE}` }],
-  });
-  const list = result.unbundle()[0];
+  const list = await findPresubmissionRulesList(oystehr);
   return list ? listToRules(list) : [];
 }
 
@@ -134,8 +122,11 @@ async function loadClaimModel(oystehr: Oystehr, claimId: string): Promise<RulesE
   const patient = findRef<Patient>(resources, claim.patient?.reference);
   const serviceFacility = findRef<Location>(resources, claim.facility?.reference);
 
-  // Coverages (sorted primary-first) and the rendering provider are fetched in a follow-up batch.
-  const coverageRefs = sortClaimInsurance(claim)
+  // Coverages and the rendering provider are fetched in a follow-up batch. The focal insurance entry
+  // is ordered first (claims created here keep focal at sequence 1, but focal is the authoritative
+  // primary marker).
+  const coverageRefs = [...sortClaimInsurance(claim)]
+    .sort((a, b) => (b.focal ? 1 : 0) - (a.focal ? 1 : 0))
     .map((entry) => entry.coverage?.reference)
     .filter((ref): ref is string => !!ref && ref.startsWith('Coverage/'));
   const renderingRef = claim.careTeam?.[0]?.provider?.reference;
@@ -160,17 +151,48 @@ async function loadClaimModel(oystehr: Oystehr, claimId: string): Promise<RulesE
   return { claim, patient, coverages, renderingProvider, serviceFacility };
 }
 
-// Write back every loaded resource that has an id in one transaction (atomic). The full resources are
-// PUT with their existing meta.tag, so workspace/billing tags are preserved.
-async function persistModel(oystehr: Oystehr, model: RulesEngineClaimModel): Promise<void> {
+type ModelResource = Claim | Patient | Coverage | Practitioner | Organization | Location;
+
+function modelResources(model: RulesEngineClaimModel): ModelResource[] {
+  return [model.claim, model.patient, ...model.coverages, model.renderingProvider, model.serviceFacility].filter(
+    (r): r is ModelResource => !!r?.id
+  );
+}
+
+// Serialized state of each model resource as loaded, used to write back only what a rule changed.
+function snapshotModel(model: RulesEngineClaimModel): Map<string, string> {
+  return new Map(modelResources(model).map((r) => [`${r.resourceType}/${r.id}`, JSON.stringify(r)]));
+}
+
+// Write back the resources a rule actually changed, in one transaction, each guarded by ifMatch so a
+// concurrent edit fails the run (Task marked failed) instead of being clobbered. Returns the number
+// of resources written.
+async function persistModel(
+  oystehr: Oystehr,
+  model: RulesEngineClaimModel,
+  unchanged: Map<string, string>
+): Promise<number> {
   const requests: BatchInputPutRequest<FhirResource>[] = [];
-  const put = (resource: FhirResource | undefined): void => {
-    if (resource?.id) requests.push({ method: 'PUT', url: `${resource.resourceType}/${resource.id}`, resource });
-  };
-  put(model.claim);
-  put(model.patient);
-  model.coverages.forEach(put);
-  put(model.renderingProvider);
-  put(model.serviceFacility);
+  for (const resource of modelResources(model)) {
+    const url = `${resource.resourceType}/${resource.id}`;
+    if (unchanged.get(url) === JSON.stringify(resource)) continue;
+    // The engine may only edit the claim itself and its per-claim working copies. Legacy
+    // encounter-created claims can still reference a shared provider/facility — refuse to write
+    // those rather than corrupt them for every other claim.
+    if (
+      resource.resourceType !== 'Claim' &&
+      !hasTag(resource, BILLING_WORKING_COPY_TAG.system, BILLING_WORKING_COPY_TAG.code)
+    ) {
+      console.warn(`[rules-engine] skipping write to shared (non-working-copy) resource ${url}`);
+      continue;
+    }
+    requests.push({
+      method: 'PUT',
+      url,
+      resource,
+      ifMatch: resource.meta?.versionId ? `W/"${resource.meta.versionId}"` : undefined,
+    });
+  }
   if (requests.length) await oystehr.fhir.transaction({ requests });
+  return requests.length;
 }

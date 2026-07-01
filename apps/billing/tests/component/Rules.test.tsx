@@ -6,9 +6,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ConditionalEditor } from '../../src/components/rules/RuleBuilder';
 import Rules from '../../src/pages/Rules';
 
-const { getBillingRulesMock, saveBillingRulesMock } = vi.hoisted(() => ({
+const { getBillingRulesMock, saveBillingRulesMock, stableClients } = vi.hoisted(() => ({
   getBillingRulesMock: vi.fn(),
   saveBillingRulesMock: vi.fn(),
+  stableClients: { oystehrZambda: {} },
 }));
 
 vi.mock('../../src/api/api', () => ({
@@ -18,8 +19,10 @@ vi.mock('../../src/api/api', () => ({
   searchBillingPayers: () => Promise.resolve({ payers: [] }),
 }));
 
+// The real hook returns a stable client (zustand store, set once); the mock must too, or effects
+// keyed on the client identity refetch every render.
 vi.mock('../../src/hooks/useAppClients', () => ({
-  useApiClients: () => ({ oystehrZambda: {} }),
+  useApiClients: () => stableClients,
 }));
 
 const ruleA: PreSubmissionRule = {

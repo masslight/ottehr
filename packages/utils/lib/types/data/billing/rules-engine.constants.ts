@@ -1,9 +1,7 @@
 import { ottehrCodeSystemUrl, ottehrExtensionUrl } from '../../../fhir/systemUrls';
 
-// The pre-submission rules engine stores its rules as an ordered FHIR List (a singleton per
-// environment) whose entries reference Basic resources contained within the List — one Basic per
-// rule. The List.entry order is the order the rules run in. The rules never stand alone outside the
-// List.
+// FHIR identifiers for the pre-submission rules engine. The storage model (an ordered List of
+// contained Basic rules) is documented in rules-engine.serialization.ts.
 
 // meta.tag on the singleton List, and the code on each contained Basic rule.
 export const RULES_ENGINE_TAG_SYSTEM = 'https://fhir.ottehr.com/billing/rules-engine';
@@ -11,9 +9,7 @@ export const PRESUBMISSION_RULES_LIST_CODE = 'presubmission-rules-list';
 export const PRESUBMISSION_RULE_CODE = 'presubmission-rule';
 export const PRESUBMISSION_RULES_LIST_TITLE = 'Pre-submission rules engine';
 
-// Extensions on each rule's contained Basic. name/description/enabled are stored as discrete
-// extensions for FHIR readability; the conditional/action tree is stored as a JSON string in the
-// definition extension (validated by RuleConditionalSchema on read).
+// Extensions on each rule's contained Basic.
 export const RULE_NAME_EXTENSION_URL = ottehrExtensionUrl('presubmission-rule-name');
 export const RULE_DESCRIPTION_EXTENSION_URL = ottehrExtensionUrl('presubmission-rule-description');
 export const RULE_ENABLED_EXTENSION_URL = ottehrExtensionUrl('presubmission-rule-enabled');

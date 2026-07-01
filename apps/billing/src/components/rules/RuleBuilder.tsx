@@ -33,8 +33,8 @@ import { PayerSelect } from './PayerSelect';
 // ---------------------------------------------------------------------------
 
 const SETTABLE_FIELDS = RULE_FIELD_CATALOG.filter((f) => f.settable);
-const FIRST_FIELD_ID = RULE_FIELD_CATALOG[0]?.id ?? 'payerId';
-const FIRST_SETTABLE_ID = SETTABLE_FIELDS[0]?.id ?? 'payerId';
+const FIRST_FIELD_ID = RULE_FIELD_CATALOG[0].id;
+const FIRST_SETTABLE_ID = SETTABLE_FIELDS[0].id;
 
 const OPERATOR_LABELS: Record<RuleOperator, string> = {
   eq: 'equals',
@@ -50,7 +50,7 @@ const OPERATOR_LABELS: Record<RuleOperator, string> = {
 const operatorNeedsValue = (op: RuleOperator): boolean => op !== 'exists' && op !== 'notExists';
 const operatorIsMultiValue = (op: RuleOperator): boolean => op === 'in' || op === 'notIn';
 
-const valueToText = (value: string | string[] | undefined): string =>
+const valueToText = (value: string | string[] | null | undefined): string =>
   Array.isArray(value) ? value.join(', ') : value ?? '';
 
 const textToList = (text: string): string[] =>
@@ -70,10 +70,8 @@ export const newRuleConditional = (): RuleConditional => ({ branches: [newBranch
 
 const indentSx = { borderLeft: `2px solid ${otherColors.lightDivider}`, pl: 2, ml: 0.5 };
 
-// Field-aware value input: different fields get different UI for a good editing experience. Payer
-// fields use the searchable payer picker (valid payers only, from the Oystehr payer list); everything
-// else is free text (multi-value operators take a comma-separated list). Gender dropdowns, date
-// pickers, etc. slot in here the same way.
+// Field-aware value input, dispatched on the catalog's valueType so new typed fields (gender
+// dropdowns, date pickers, more payer-like fields) only need a catalog entry plus a branch here.
 function FieldValueInput({
   fieldId,
   multiple,
@@ -87,14 +85,14 @@ function FieldValueInput({
   onChange: (value: string | string[]) => void;
   label?: string;
 }): ReactElement {
-  if (fieldId === 'payerId') {
+  if (getRuleFieldDef(fieldId)?.valueType === 'payer') {
     return <PayerSelect multiple={multiple} value={value} onChange={onChange} label={label} />;
   }
   return (
     <TextField
       size="small"
       label={label ?? (multiple ? 'Values (comma-separated)' : 'Value')}
-      value={valueToText(value ?? '')}
+      value={valueToText(value)}
       onChange={(e) => onChange(multiple ? textToList(e.target.value) : e.target.value)}
       sx={{ minWidth: 200 }}
     />

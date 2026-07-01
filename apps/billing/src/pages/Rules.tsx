@@ -39,12 +39,9 @@ export default function Rules(): ReactElement {
     }
   }, [oystehrZambda]);
 
-  const initialLoadDone = useRef(false);
   useEffect(() => {
-    if (!oystehrZambda || initialLoadDone.current) return;
-    initialLoadDone.current = true;
     void fetchRules();
-  }, [oystehrZambda, fetchRules]);
+  }, [fetchRules]);
 
   // Every change (reorder, enable/disable, duplicate, delete) persists the full ordered list.
   const persist = async (next: PreSubmissionRule[]): Promise<void> => {

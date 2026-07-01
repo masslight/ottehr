@@ -84,12 +84,16 @@ async function performEffect(oystehr: Oystehr, params: CreateClaimParams): Promi
   return { claimId: created.id! };
 }
 
-// Enqueue the pre-submission rules engine for a newly created working-copy claim. A Subscription
-// picks up this Task and runs sub-presubmission-rules-engine. Gated by the feature flag so the
-// default (flag off) behavior — create the draft claim and stop — is unchanged.
+// Enqueue the pre-submission rules engine (flag-gated); a Subscription runs it asynchronously. The
+// claim already exists at this point, so a kickoff failure must not fail the request — a retry would
+// create a duplicate claim. The engine can be run on demand via run-billing-rules-engine.
 async function kickoffRulesEngine(oystehr: Oystehr, claimId: string | undefined): Promise<void> {
   if (!FEATURE_FLAGS_CONFIG.presubmissionRulesEngineEnabled || !claimId) return;
-  await oystehr.fhir.create<Task>(buildRulesEngineKickoffTask(claimId));
+  try {
+    await oystehr.fhir.create<Task>(buildRulesEngineKickoffTask(claimId));
+  } catch (error) {
+    console.error(`Failed to enqueue rules-engine Task for Claim/${claimId}:`, error);
+  }
 }
 
 async function readOriginals(oystehr: Oystehr, params: CreateClaimParams): Promise<OriginalResources> {

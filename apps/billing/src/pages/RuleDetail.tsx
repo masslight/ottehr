@@ -1,6 +1,6 @@
 import { ArrowBack as ArrowBackIcon } from '@mui/icons-material';
 import { Alert, Box, Button, CircularProgress, FormControlLabel, Switch, TextField, Typography } from '@mui/material';
-import { ReactElement, useCallback, useEffect, useRef, useState } from 'react';
+import { ReactElement, useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { getApiError, PreSubmissionRule } from 'utils';
 import { getBillingRules, saveBillingRules } from '../api/api';
@@ -54,12 +54,9 @@ export default function RuleDetail(): ReactElement {
     }
   }, [oystehrZambda, id, isNew]);
 
-  const loadedRef = useRef(false);
   useEffect(() => {
-    if (!oystehrZambda || loadedRef.current) return;
-    loadedRef.current = true;
     void load();
-  }, [oystehrZambda, load]);
+  }, [load]);
 
   const handleSave = async (): Promise<void> => {
     if (!oystehrZambda || !rule) return;

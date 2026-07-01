@@ -49,8 +49,22 @@ export function containedBasicToRule(basic: Basic): PreSubmissionRule {
   const description = ext(RULE_DESCRIPTION_EXTENSION_URL)?.valueString ?? '';
   const enabled = ext(RULE_ENABLED_EXTENSION_URL)?.valueBoolean ?? true;
   const raw = ext(RULE_DEFINITION_EXTENSION_URL)?.valueString;
-  const conditional: RuleConditional = raw ? RuleConditionalSchema.parse(JSON.parse(raw)) : { branches: [] };
-  return PreSubmissionRuleSchema.parse({ id: basic.id ?? '', name, description, enabled, conditional });
+  try {
+    const conditional: RuleConditional = raw ? RuleConditionalSchema.parse(JSON.parse(raw)) : { branches: [] };
+    return PreSubmissionRuleSchema.parse({ id: basic.id ?? '', name, description, enabled, conditional });
+  } catch (error) {
+    // One unparseable rule must not take down the whole list (the admin screen and every engine run
+    // read it). Surface it as a disabled no-op — not a skip, which the next full-list save would
+    // silently delete.
+    console.error(`[rules-engine] unparseable rule "${name}" (Basic/${basic.id}):`, error);
+    return {
+      id: basic.id ?? '',
+      name: name || 'Unparseable rule',
+      description,
+      enabled: false,
+      conditional: { branches: [] },
+    };
+  }
 }
 
 export function rulesToList(rules: PreSubmissionRule[]): List {

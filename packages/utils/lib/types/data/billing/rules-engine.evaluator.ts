@@ -1,3 +1,4 @@
+import { resourceHasTag } from '../../../fhir/helpers';
 import { CLAIM_TAG_SYSTEM } from './billing.constants';
 import { HOLD_TAG_NAME } from './rules-engine.constants';
 import { readField, RulesEngineClaimModel, writeField } from './rules-engine.field-catalog';
@@ -126,12 +127,9 @@ export const applyAction = (action: RuleAction, model: RulesEngineClaimModel): v
       return;
     case 'applyTag': {
       const { claim } = model;
+      if (resourceHasTag(claim, { system: CLAIM_TAG_SYSTEM, code: action.tag })) return;
       claim.meta = claim.meta ?? {};
-      const tags = claim.meta.tag ?? [];
-      if (!tags.some((t) => t.system === CLAIM_TAG_SYSTEM && t.code === action.tag)) {
-        tags.push({ system: CLAIM_TAG_SYSTEM, code: action.tag });
-      }
-      claim.meta.tag = tags;
+      claim.meta.tag = [...(claim.meta.tag ?? []), { system: CLAIM_TAG_SYSTEM, code: action.tag }];
       return;
     }
   }

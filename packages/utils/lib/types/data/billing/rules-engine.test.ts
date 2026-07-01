@@ -1,4 +1,4 @@
-import { Claim } from 'fhir/r4b';
+import { Basic, Claim } from 'fhir/r4b';
 import { describe, expect, it } from 'vitest';
 import { FHIR_IDENTIFIER_NPI } from '../../../fhir/constants';
 import { CODE_SYSTEM_COVERAGE_CLASS } from '../../../helpers/rcm/constants';
@@ -7,10 +7,11 @@ import {
   HOLD_TAG_NAME,
   PRESUBMISSION_RULES_TASK_CODE,
   PRESUBMISSION_RULES_TASK_SYSTEM,
+  RULE_DEFINITION_EXTENSION_URL,
 } from './rules-engine.constants';
 import { evaluateCondition, evaluateOperator, executeRule } from './rules-engine.evaluator';
 import { readField, RulesEngineClaimModel } from './rules-engine.field-catalog';
-import { PreSubmissionRule, SaveBillingRulesInputSchema } from './rules-engine.schemas';
+import { PreSubmissionRule, RuleActionSchema, SaveBillingRulesInputSchema } from './rules-engine.schemas';
 import { buildRulesEngineKickoffTask, listToRules, rulesToList } from './rules-engine.serialization';
 
 const makeModel = (): RulesEngineClaimModel => ({
@@ -252,6 +253,30 @@ describe('rules-engine serialization', () => {
     const reordered = [rules[1], rules[0]];
     const list = rulesToList(reordered);
     expect(listToRules(list).map((r) => r.id)).toEqual(['rule-b', 'rule-a']);
+  });
+
+  it('surfaces an unparseable rule as a disabled placeholder instead of failing the whole list', () => {
+    const list = rulesToList(rules);
+    const badRule = list.contained?.[0] as Basic;
+    const definition = badRule.extension?.find((e) => e.url === RULE_DEFINITION_EXTENSION_URL);
+    definition!.valueString = '{not valid json';
+
+    const parsed = listToRules(list);
+    expect(parsed).toHaveLength(2);
+    // The broken rule survives (so a full-list save doesn't delete it) but is disabled and inert.
+    expect(parsed[0]).toMatchObject({ id: 'rule-a', name: 'Rule A', enabled: false, conditional: { branches: [] } });
+    expect(parsed[1]).toEqual(rules[1]);
+  });
+});
+
+describe('applyTag canonicalization', () => {
+  it('normalizes case/whitespace variants of the Hold tag to the exact name', () => {
+    expect(RuleActionSchema.parse({ type: 'applyTag', tag: '  hold ' })).toEqual({
+      type: 'applyTag',
+      tag: HOLD_TAG_NAME,
+    });
+    expect(RuleActionSchema.parse({ type: 'applyTag', tag: 'HOLD' })).toEqual({ type: 'applyTag', tag: HOLD_TAG_NAME });
+    expect(RuleActionSchema.parse({ type: 'applyTag', tag: ' VIP ' })).toEqual({ type: 'applyTag', tag: 'VIP' });
   });
 });
 

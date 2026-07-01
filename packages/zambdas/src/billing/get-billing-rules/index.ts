@@ -1,9 +1,8 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { List } from 'fhir/r4b';
-import { BillingRulesResponse, listToRules, PRESUBMISSION_RULES_LIST_CODE, RULES_ENGINE_TAG_SYSTEM } from 'utils';
+import { BillingRulesResponse, listToRules } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
-import { createBillingClient } from '../shared';
+import { createBillingClient, findPresubmissionRulesList } from '../shared';
 
 let m2mToken: string;
 const ZAMBDA_NAME = 'get-billing-rules';
@@ -18,11 +17,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 });
 
 async function performEffect(oystehr: Oystehr): Promise<BillingRulesResponse> {
-  const result = await oystehr.fhir.search<List>({
-    resourceType: 'List',
-    params: [{ name: '_tag', value: `${RULES_ENGINE_TAG_SYSTEM}|${PRESUBMISSION_RULES_LIST_CODE}` }],
-  });
-  const list = result.unbundle()[0];
+  const list = await findPresubmissionRulesList(oystehr);
   if (!list) return { rules: [] };
   return { rules: listToRules(list), versionId: list.meta?.versionId };
 }

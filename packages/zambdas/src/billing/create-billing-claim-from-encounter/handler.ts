@@ -132,6 +132,12 @@ interface ClaimResources {
   // Only rendering and billing providers handled now
   renderingProvider?: Practitioner;
   billingProvider?: Organization;
+  // References the claim should carry for the above — the per-claim working copies. The resource
+  // objects are still used for data derivation (timezone, place of service); the references must
+  // point at the copies so later edits (UI, rules engine) never mutate the shared originals.
+  renderingProviderRef?: Reference;
+  serviceFacilityRef?: Reference;
+  billingProviderRef?: Reference;
   diagnoses?: Array<Condition>;
   procedures?: Array<Procedure>;
   billingTags?: Array<string>;
@@ -334,8 +340,9 @@ export async function performEffect(
   order.push('person');
 
   // Create working copy from rendering provider
+  let claimRenderingProvider: Practitioner | undefined;
   if (billingResources.renderingProvider) {
-    const claimRenderingProvider = prepareWorkingCopy(
+    claimRenderingProvider = prepareWorkingCopy<Practitioner>(
       billingResources.renderingProvider,
       billingResources.renderingProvider.id!
     );
@@ -350,8 +357,9 @@ export async function performEffect(
   }
 
   // Create working copy from billing provider
+  let claimBillingProvider: Organization | undefined;
   if (billingResources.billingProvider) {
-    const claimBillingProvider = prepareWorkingCopy(
+    claimBillingProvider = prepareWorkingCopy<Organization>(
       billingResources.billingProvider,
       billingResources.billingProvider.id!
     );
@@ -366,8 +374,9 @@ export async function performEffect(
   }
 
   // Create working copy from service facility
+  let claimServiceFacility: Location | undefined;
   if (billingResources.serviceFacility) {
-    const claimServiceFacility = prepareWorkingCopy(
+    claimServiceFacility = prepareWorkingCopy<Location>(
       billingResources.serviceFacility,
       billingResources.serviceFacility.id!
     );
@@ -415,6 +424,11 @@ export async function performEffect(
     renderingProvider: billingResources.renderingProvider,
     serviceFacility: billingResources.serviceFacility,
     billingProvider: billingResources.billingProvider,
+    renderingProviderRef: claimRenderingProvider
+      ? uuidOrUrnReference('Practitioner', claimRenderingProvider.id!)
+      : undefined,
+    serviceFacilityRef: claimServiceFacility ? uuidOrUrnReference('Location', claimServiceFacility.id!) : undefined,
+    billingProviderRef: claimBillingProvider ? uuidOrUrnReference('Organization', claimBillingProvider.id!) : undefined,
     billingTags,
   });
   requests.push({ method: 'POST', url: '/Claim', resource: claim });
@@ -472,7 +486,13 @@ export async function performEffect(
 
   if (FEATURE_FLAGS_CONFIG.presubmissionRulesEngineEnabled) {
     // Kick off the pre-submission rules engine (a Subscription invokes sub-presubmission-rules-engine).
-    await billingOystehr.fhir.create<Task>(buildRulesEngineKickoffTask(createdClaim.id));
+    // The claim is already committed, so a kickoff failure must not fail the request; the engine can
+    // be run on demand via run-billing-rules-engine.
+    try {
+      await billingOystehr.fhir.create<Task>(buildRulesEngineKickoffTask(createdClaim.id));
+    } catch (error) {
+      console.error(`Failed to enqueue rules-engine Task for Claim/${createdClaim.id}:`, error);
+    }
   }
 
   return { claimId: createdClaim.id };
@@ -1033,9 +1053,11 @@ function buildClaim(resources: ClaimResources): Claim {
     created: now,
     patient: uuidOrUrnReference('Patient', resources.patientId),
     provider: resources.billingProvider?.id
-      ? { reference: `Organization/${resources.billingProvider.id}` }
+      ? resources.billingProviderRef ?? { reference: `Organization/${resources.billingProvider.id}` }
       : { display: 'Unknown' },
-    facility: resources.serviceFacility ? { reference: `Location/${resources.serviceFacility.id}` } : undefined,
+    facility: resources.serviceFacility
+      ? resources.serviceFacilityRef ?? { reference: `Location/${resources.serviceFacility.id}` }
+      : undefined,
     insurer: resources.coverageRefs.length
       ? resources.coverageRefs[0].payorRef
         ? resources.coverageRefs[0].payorRef
@@ -1052,7 +1074,9 @@ function buildClaim(resources: ClaimResources): Claim {
       ? [
           {
             sequence: 1,
-            provider: { reference: `Practitioner/${resources.renderingProvider.id}` },
+            provider: resources.renderingProviderRef ?? {
+              reference: `Practitioner/${resources.renderingProvider.id}`,
+            },
             role: { coding: [{ system: CODE_SYSTEM_OYSTEHR_RCM_CMS1500_REFERRING_PROVIDER_TYPE, code: '82' }] },
           },
         ]

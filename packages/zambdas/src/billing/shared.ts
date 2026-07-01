@@ -8,6 +8,7 @@ import {
   Coverage,
   FhirResource,
   Identifier,
+  List,
   Location,
   Organization,
   Patient,
@@ -34,7 +35,6 @@ import {
   FHIR_IDENTIFIER_CODE_TAX_EMPLOYER,
   FHIR_IDENTIFIER_CODE_TAX_SS,
   FHIR_IDENTIFIER_CODE_TAXONOMY,
-  FHIR_IDENTIFIER_NPI,
   FHIR_IDENTIFIER_SYSTEM,
   FHIR_RESOURCE_NOT_FOUND,
   getPayerId,
@@ -43,7 +43,10 @@ import {
   isPayerUrl,
   isValidUUID,
   PATIENT_BILLING_ACCOUNT_TYPE,
+  PRESUBMISSION_RULES_LIST_CODE,
+  RULES_ENGINE_TAG_SYSTEM,
   Secrets,
+  setNpi,
   WORKERS_COMP_ACCOUNT_TYPE,
 } from 'utils';
 import { createOystehrClient } from '../shared/helpers';
@@ -157,9 +160,8 @@ export const ERA_ID_SYSTEM = 'https://identifiers.fhir.oystehr.com/era-id';
 export const ERA_CHECK_SYSTEM = 'https://identifiers.fhir.oystehr.com/era-check-number';
 
 export const TAG_CODE_SYSTEM = 'https://fhir.ottehr.com/billing/tag';
-// CLAIM_TAG_SYSTEM now lives in utils (single source of truth, shared with the pre-submission rules
-// engine); re-exported here for the existing billing-zambda imports.
-export { CLAIM_TAG_SYSTEM };
+// Re-exported from utils for the existing billing-zambda imports.
+export { CLAIM_TAG_SYSTEM, setNpi };
 export const TAG_DESCRIPTION_URL = 'https://fhir.ottehr.com/billing/tag-description';
 export const TAG_IS_SYSTEM_TAG_URL = 'https://fhir.ottehr.com/billing/is-system-tag';
 
@@ -202,6 +204,15 @@ export async function fetchById<T extends FhirResource>(
   const resource = result.unbundle()[0];
   if (!resource) throw FHIR_RESOURCE_NOT_FOUND(resourceType);
   return resource;
+}
+
+// The singleton pre-submission rules List (undefined when no rules have been configured yet).
+export async function findPresubmissionRulesList(oystehr: Oystehr): Promise<List | undefined> {
+  const result = await oystehr.fhir.search<List>({
+    resourceType: 'List',
+    params: [{ name: '_tag', value: `${RULES_ENGINE_TAG_SYSTEM}|${PRESUBMISSION_RULES_LIST_CODE}` }],
+  });
+  return result.unbundle()[0];
 }
 
 export function getTag(resource: Resource, system: string): string | undefined {
@@ -263,18 +274,6 @@ export function buildAddress(parts: {
     state: parts.state,
     postalCode: parts.postalCode,
   };
-}
-
-export function setNpi(resource: Practitioner | Organization | Location, npi: string): void {
-  const identifier = resource.identifier ?? [];
-  const existing = identifier.find((id) => id.system === FHIR_IDENTIFIER_NPI);
-  if (npi) {
-    if (existing) existing.value = npi;
-    else identifier.push({ system: FHIR_IDENTIFIER_NPI, value: npi });
-    resource.identifier = identifier;
-  } else if (existing) {
-    resource.identifier = identifier.filter((id) => id.system !== FHIR_IDENTIFIER_NPI);
-  }
 }
 
 export function setTaxId(resource: Practitioner | Organization, taxId: string): void {

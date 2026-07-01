@@ -1239,9 +1239,11 @@ describe('create-billing-claim-from-encounter', () => {
               patient: {
                 reference: 'urn:uuid:claim-patient',
               },
-              provider: { reference: 'Organization/billing-organization-123' },
+              // The claim references its own per-claim working copies, never the shared billing
+              // provider/facility/practitioner originals.
+              provider: { reference: 'urn:uuid:claim-billing-provider' },
               facility: {
-                reference: 'Location/billing-location-123',
+                reference: 'urn:uuid:claim-service-facility',
               },
               insurer: { reference: 'https://rcm-api.zapehr.com/v1/payer/payer-123' },
               insurance: [
@@ -1253,7 +1255,7 @@ describe('create-billing-claim-from-encounter', () => {
               ],
               careTeam: [
                 {
-                  provider: { reference: 'Practitioner/billing-practitioner-123' },
+                  provider: { reference: 'urn:uuid:claim-rendering-provider' },
                   role: {
                     coding: [
                       { code: '82', system: 'https://terminology.zapehr.com/rcm/cms1500/referring-provider-type' },
