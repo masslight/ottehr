@@ -659,10 +659,19 @@ export default function AddPatient(): JSX.Element {
                       ? [BookableMode.IN_PERSON]
                       : [BookableMode.VIRTUAL]
                   }
-                  // Add Visit creates an appointment at a physical place a
-                  // patient is treated; Groups and PR-direct Schedules can
-                  // span multiple Locations and aren't meaningful answers to
-                  // "where will the patient be seen". Locations-only here.
+                  // Location-rooted resolver mode: every option is anchored
+                  // to a Location (staff pick "the physical place"), but the
+                  // resolved target may be the Location itself OR a
+                  // Group/PR-direct surface at that Location that fulfills
+                  // the picked FHIR service. When a Location's own Schedule
+                  // covers the category, it's returned as-is; otherwise the
+                  // picker surfaces sub-options for the Group(s) / PR(s) at
+                  // the Location that offer the service. `selected.resourceType`
+                  // therefore isn't always 'Location' — the create-slot /
+                  // slot-loader downstream key off `resourceType` +
+                  // `atLocationSlug` to route to the right bookable surface.
+                  // See BookableSelect's `resourceTypes` prop docblock for
+                  // the full contract.
                   resourceTypes={['Location']}
                   serviceCategoryCode={serviceCategory || undefined}
                   serviceCategoryFhirId={pickedCategoryFhirId}

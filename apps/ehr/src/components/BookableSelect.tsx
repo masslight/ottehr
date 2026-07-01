@@ -7,7 +7,6 @@ import {
   isBookingConfigServiceCategoryCode,
   isLocationVirtual,
   SCHEDULE_DISPLAY_NAME_EXTENSION_URL,
-  SERVICE_CATEGORY_SYSTEM,
   SLUG_SYSTEM,
 } from 'utils';
 import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
@@ -16,6 +15,7 @@ import {
   buildLocationInventories,
   LocationBookableInventory,
   resolveTargetsAtLocation,
+  scheduleSupportsCategory,
 } from './bookableTargetResolution';
 
 /**
@@ -74,11 +74,24 @@ interface BookableSelectProps {
   /** Filter to in-person, virtual, or both. */
   mode?: BookableMode[];
   /**
-   * Restrict the picker to a subset of the bookable-target union. Omit to show
-   * all three (back-compat default). Pass `['Location']` when the consumer is
-   * picking a physical place a patient will be served (Groups and PR-direct
-   * Schedules can span multiple Locations, so they're not meaningful answers
-   * to "where").
+   * Restrict the picker to a subset of the bookable-target union.
+   *
+   * - Omit: default flat mode. Locations, Groups, and PRs each appear as
+   *   top-level options; the caller receives whichever type the user picked
+   *   directly.
+   * - Pass `['Location']`: switches the picker into the Location-rooted
+   *   resolver mode. Every option is anchored to a Location, but the
+   *   *selected target's `resourceType`* is not necessarily `'Location'` —
+   *   when a Location doesn't offer the picked service via its own
+   *   Schedule, the picker surfaces the underlying Group / PR-direct
+   *   surface(s) at that Location as sub-options (e.g., "New York
+   *   (Acupuncture Group)", "New York (Dr. Smith)"). The picked value's
+   *   `resourceType` in that case is `'HealthcareService'` or
+   *   `'PractitionerRole'`, with `atLocationSlug` stamped for the slot
+   *   loader to narrow get-schedule to the picked Location. Callers must
+   *   NOT assume `selected.resourceType === 'Location'` in this mode.
+   * - Other combinations behave as strict type filters against the flat
+   *   list (only the passed types appear as top-level options).
    */
   resourceTypes?: BookableTargetType[];
   /**
@@ -397,10 +410,17 @@ export default function BookableSelect({
           });
         }
       }
-      // Stable display order: Locations first (alphabetical), then
-      // sub-options under each Location stay in resolver order (Group
-      // entries before PR entries naturally — but in practice resolver
-      // returns one tier at a time so they're all the same type).
+      // Display order is a full alphabetical sort on the composed option
+      // name (base Location name, with a "(<suffix>)" fragment appended
+      // for sub-options). Because every sub-option under a given Location
+      // shares the same base-name prefix, all sub-options for one
+      // Location cluster together in the list; within that cluster, order
+      // is alphabetical by suffix (typeSuffix = Group name or provider
+      // name). That's a stable, predictable order in practice; not the
+      // resolver's insertion order — the resolver only returns one tier
+      // at a time anyway, so the visual distinction is minor. If ordering
+      // needs to become tier-driven (e.g., always list Groups above PRs
+      // when both appear), sort on `tier` first here.
       expanded.sort((a, b) => a.name.localeCompare(b.name));
       return expanded;
     }
@@ -412,40 +432,26 @@ export default function BookableSelect({
         const passesMode = (isVirtual && wantVirtual) || (!isVirtual && wantInPerson);
         if (!passesMode) return false;
         if (serviceCategoryCode) {
-          // Schedule-side service-category check. Three subtleties:
-          //   1. Schedule.serviceCategory is a multi-purpose CodeableConcept
-          //      slot — service-mode markers and foreign-system codings can
-          //      sit alongside category codings. Only SERVICE_CATEGORY_SYSTEM
-          //      codings are real category restrictions; foreign codings
-          //      must not affect the rule.
-          //   2. A Location may have multiple Schedules (one per service
-          //      category is a common shape). Passes if ANY Schedule admits.
-          //   3. Admit rule differs by category source: BOOKING_CONFIG
-          //      categories preserve the legacy empty-codings = supports-all
-          //      back-compat; FHIR-backed categories require explicit
-          //      opt-in (matches the resolver's rule for the Locations-only
-          //      path and get-schedule's behavior downstream). Without this
-          //      split the default mode would silently admit untagged
-          //      Locations for FHIR-managed services they don't offer.
+          // Shared per-Schedule admit rule with the Locations-only
+          // resolver: BOOKING_CONFIG uses empty-supports-all back-compat,
+          // FHIR requires strict opt-in, only SERVICE_CATEGORY_SYSTEM
+          // codings count (mode markers and foreign-system codings are
+          // ignored). The helper lives in `bookableTargetResolution.ts`
+          // so both call sites can't drift.
+          //
+          // Location-level rule: passes if ANY attached Schedule admits.
+          // Location with no attached Schedules → admit for BOOKING_CONFIG
+          // (preserves the pre-fix "no restrictions" behavior; the slot
+          // picker surfaces "no slots" as the recovery path). For FHIR
+          // categories the flat filter drops here because it can't
+          // consider Group/PR-at-Location paths — those are the
+          // Locations-only resolver's job.
           const isBookingConfig = isBookingConfigServiceCategoryCode(serviceCategoryCode);
           const schedulesToCheck = t.schedules ?? (t.walkinSchedule ? [t.walkinSchedule] : []);
-          const someScheduleSupports = schedulesToCheck.some((sched) => {
-            const codes = (sched.serviceCategory ?? [])
-              .flatMap((cc) => cc.coding ?? [])
-              .filter((c) => c.system === SERVICE_CATEGORY_SYSTEM)
-              .map((c) => c.code)
-              .filter((c): c is string => !!c);
-            if (isBookingConfig) return codes.length === 0 || codes.includes(serviceCategoryCode);
-            return codes.includes(serviceCategoryCode);
-          });
-          // For BOOKING_CONFIG, a Location with NO Schedules attached
-          // preserves the pre-fix "no restrictions, admit" behavior (slot
-          // picker surfaces "no slots" as the recovery path). For FHIR
-          // categories, no Schedules attached means the Location has no
-          // way to vend the FHIR-managed service via its own Schedule —
-          // drop unless a Group/PR path admits it, which this flat filter
-          // doesn't consider (the Locations-only resolver handles that).
           if (isBookingConfig && schedulesToCheck.length === 0) return true;
+          const someScheduleSupports = schedulesToCheck.some((sched) =>
+            scheduleSupportsCategory(sched, serviceCategoryCode, isBookingConfig)
+          );
           if (!someScheduleSupports) return false;
         }
         return true;

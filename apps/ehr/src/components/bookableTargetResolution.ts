@@ -92,7 +92,7 @@ interface ResolverFilter {
  * Only SERVICE_CATEGORY_SYSTEM codings count toward the category-presence
  * check; everything else is metadata that mustn't pollute the rule.
  */
-const scheduleSupportsCategory = (sched: Schedule, code: string, isBookingConfig: boolean): boolean => {
+export const scheduleSupportsCategory = (sched: Schedule, code: string, isBookingConfig: boolean): boolean => {
   const codes = (sched.serviceCategory ?? [])
     .flatMap((cc) => cc.coding ?? [])
     .filter((c) => c.system === SERVICE_CATEGORY_SYSTEM)
