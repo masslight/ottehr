@@ -38,7 +38,7 @@ import {
 import {
   assertDefined,
   checkOrCreateM2MClientToken,
-  createOystehrClient,
+  createClinicalOystehrClient,
   getMyPractitionerId,
   wrapHandler,
   ZambdaInput,
@@ -68,7 +68,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedParameters.secrets);
   const userToken = input.headers.Authorization.replace('Bearer ', '') as string;
-  const oystehr = createOystehrClient(m2mToken, validatedParameters.secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, validatedParameters.secrets);
   const practitionerId = await getMyPractitionerId(userToken, validatedParameters.secrets);
   console.log('Created zapToken, fhir and clients.');
 

@@ -1,4 +1,5 @@
-import { ZodError, ZodSchema } from 'zod';
+import { INVALID_INPUT_ERROR } from 'utils';
+import { z, ZodError, ZodSchema } from 'zod';
 import { fromZodError } from 'zod-validation-error';
 
 // Phone number regex
@@ -6,19 +7,25 @@ import { fromZodError } from 'zod-validation-error';
 // \d{10}$ match exactly 10 digits at the end of the string
 export const phoneRegex = /^(\+1)?\d{10}$/;
 
-export function safeValidate<T>(schema: ZodSchema<T>, input: unknown): T {
+export function safeJsonParse(body: string): any {
+  try {
+    return JSON.parse(body);
+  } catch (error) {
+    if (error instanceof SyntaxError) {
+      throw INVALID_INPUT_ERROR('Request body is not valid JSON');
+    }
+    throw error;
+  }
+}
+
+export function safeValidate<T extends ZodSchema<any>>(schema: T, input: unknown): z.output<T> {
   try {
     return schema.parse(input);
   } catch (error) {
     if (error instanceof ZodError) {
       const formatted = fromZodError(error);
       console.error('[Validation Error]', formatted.message);
-      throw new Error(formatted.message);
-    }
-
-    if (error instanceof Error) {
-      console.error('[Unknown Validation Error]', error.message);
-      throw error;
+      throw INVALID_INPUT_ERROR(formatted.message);
     }
 
     console.error('[Unknown Validation Error]', error);

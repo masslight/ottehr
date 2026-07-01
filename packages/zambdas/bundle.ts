@@ -5,6 +5,7 @@ import * as esbuild from 'esbuild';
 import { type Options } from 'execa';
 import fs from 'fs';
 import path from 'path';
+import billingZambdasSpec from '../../config/billing-app-core/zambdas.json';
 import zambdasSpec from '../../config/oystehr-core/zambdas.json';
 
 dotenv.config({ path: path.join(process.cwd(), '.env.sentry-build-plugin') });
@@ -37,7 +38,9 @@ const loadEnvZambdas = (env: string): ZambdaSpec[] => {
 };
 
 const zambdasList = (): ZambdaSpec[] => {
-  const baseZambdas = Object.entries(zambdasSpec.zambdas).map(([_key, spec]) => spec);
+  const baseZambdas = Object.entries({ ...zambdasSpec.zambdas, ...billingZambdasSpec.zambdas }).map(
+    ([_key, spec]) => spec
+  );
   const env = process.env.ENV || '';
   if (env) {
     const envZambdas = loadEnvZambdas(env);
@@ -242,21 +245,16 @@ const main = async (): Promise<void> => {
   console.log('Bundling...');
   console.time('Bundle time');
 
-  const zambdasWithIcd10Search = ['icd-10-search', 'radiology-create-order', 'recommend-billing-suggestions'];
-  const icd10AssetDir = '.dist/icd-10-cm-tabular';
   const assetsDir = '.dist/assets';
 
   const isSentryEnabled =
-    !['local', 'e2e', 'e2e2', 'e2e3'].includes(process.env.ENV || '') &&
+    !['local', 'e2e', 'e2e2', 'e2e3', 'e2e4', 'e2e5'].includes(process.env.ENV || '') &&
     Boolean(process.env.SENTRY_AUTH_TOKEN && process.env.SENTRY_ORG && process.env.SENTRY_PROJECT);
-
-  const icd10Zambdas = zambdas.filter((zambda) => zambdasWithIcd10Search.includes(zambda.name));
-  const regularZambdas = zambdas.filter((zambda) => !zambdasWithIcd10Search.includes(zambda.name));
 
   await buildAllZambdas(zambdas, '.dist', isSentryEnabled);
 
   console.log('Copying assets...');
-  await Promise.all([copyAssets('icd-10-cm-tabular', icd10AssetDir), copyAssets('assets', assetsDir)]);
+  await copyAssets('assets', assetsDir);
 
   console.timeEnd('Bundle time');
   if (isSentryEnabled) {
@@ -268,10 +266,7 @@ const main = async (): Promise<void> => {
   console.log('Zipping...');
   console.time('Zip time');
 
-  await Promise.all([
-    zipInChunks(icd10Zambdas, icd10AssetDir, 'icd-10-cm-tabular'),
-    zipInChunks(regularZambdas, assetsDir, 'assets'),
-  ]);
+  await zipInChunks(zambdas, assetsDir, 'assets');
 
   console.timeEnd('Zip time');
   console.log('Zambdas successfully bundled and zipped into .dist/zips');

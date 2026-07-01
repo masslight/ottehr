@@ -17,12 +17,24 @@ import {
   defaultGroup,
   virtualDefaultLocations,
 } from '../packages/zambdas/src/scripts/setup-default-locations';
+import { createClinicalOystehrClient } from '../packages/zambdas/src/shared';
 
 const getEnvironment = (): string => {
   const envFlagIndex = process.argv.findIndex((arg) => arg === '--environment');
   if (envFlagIndex !== -1 && envFlagIndex < process.argv.length - 1) {
     const env = process.argv[envFlagIndex + 1];
-    const validEnvironments = ['local', 'demo', 'development', 'staging', 'testing', 'e2e', 'e2e2', 'e2e3'];
+    const validEnvironments = [
+      'local',
+      'demo',
+      'development',
+      'staging',
+      'testing',
+      'e2e',
+      'e2e2',
+      'e2e3',
+      'e2e4',
+      'e2e5',
+    ];
     if (validEnvironments.includes(env)) {
       return env;
     }
@@ -98,8 +110,7 @@ async function getToken(
 
   const tokenData = await tokenResponse.json();
 
-  const oystehr = new Oystehr({
-    accessToken: tokenData.access_token,
+  const oystehr = createClinicalOystehrClient(tokenData.access_token, ehrZambdaEnv, {
     projectId: ehrZambdaEnv.PROJECT_ID,
     services: {
       fhirApiUrl: ehrZambdaEnv.FHIR_API,

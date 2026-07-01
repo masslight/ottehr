@@ -6,7 +6,6 @@ import { SectionSaveButton } from './SectionSaveButton';
 
 const primaryCareSection = PATIENT_RECORD_CONFIG.FormFields.primaryCarePhysician;
 const FIELD_KEYS = Object.values(primaryCareSection.items).map((item) => item.key);
-const REQUIRED_FIELD_KEYS = primaryCareSection.requiredFields ?? [];
 
 interface PrimaryCareContainerProps {
   isLoading: boolean;
@@ -20,14 +19,7 @@ export const PrimaryCareContainer: FC<PrimaryCareContainerProps> = ({ isLoading,
   return (
     <PatientRecordFormSection
       formSection={primaryCareSection}
-      titleWidget={
-        <SectionSaveButton
-          fieldKeys={FIELD_KEYS}
-          requiredFieldKeys={REQUIRED_FIELD_KEYS}
-          patientId={patientId}
-          encounterId={encounterId}
-        />
-      }
+      titleWidget={<SectionSaveButton fieldKeys={FIELD_KEYS} patientId={patientId} encounterId={encounterId} />}
     >
       {Object.values(items).map((item) => (
         <PatientRecordFormField

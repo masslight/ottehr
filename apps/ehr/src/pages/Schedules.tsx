@@ -5,7 +5,10 @@ import { ScheduleInformation, ScheduleType } from '../components/ScheduleInforma
 
 export default function SchedulesPage(): ReactElement {
   const location = useLocation();
-  const [tab, setTab] = useState<ScheduleType>(location.state?.defaultTab || 'location');
+  const initial = location.state?.defaultTab;
+  const [tab, setTab] = useState<ScheduleType>(
+    initial === 'location' || initial === 'provider' || initial === 'group' ? initial : 'location'
+  );
 
   return (
     <Box sx={{ marginTop: 2 }}>
@@ -20,7 +23,6 @@ export default function SchedulesPage(): ReactElement {
           Groups
         </Button>
       </ButtonGroup>
-      {/* <ScheduleInformation scheduleType={tab}></ScheduleInformation> */}
       {tab === 'location' && <ScheduleInformation scheduleType="location" />}
       {tab === 'provider' && <ScheduleInformation scheduleType="provider" />}
       {tab === 'group' && <ScheduleInformation scheduleType="group" />}

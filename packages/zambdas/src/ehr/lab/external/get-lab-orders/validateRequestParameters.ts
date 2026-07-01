@@ -1,5 +1,5 @@
 import { DEFAULT_LABS_ITEMS_PER_PAGE, GetLabOrdersParameters } from 'utils';
-import { ZambdaInput } from '../../../../shared';
+import { safeJsonParse, ZambdaInput } from '../../../../shared';
 
 export type GetZambdaLabOrdersParams = GetLabOrdersParameters & { secrets: any };
 
@@ -14,7 +14,7 @@ export function validateRequestParameters(input: ZambdaInput): GetZambdaLabOrder
     visitDate,
     itemsPerPage = DEFAULT_LABS_ITEMS_PER_PAGE,
     pageIndex = 0,
-  } = JSON.parse(input.body) as GetLabOrdersParameters;
+  } = safeJsonParse(input.body) as GetLabOrdersParameters;
 
   if (!searchBy.field || !searchBy.value) {
     throw new Error(`Missing searchBy field or value: ${JSON.stringify(searchBy)}`);

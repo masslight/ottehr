@@ -10,7 +10,7 @@ import {
   progressNoteChartDataRequestedFields,
   Secrets,
 } from 'utils';
-import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
+import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
 import { createDischargeSummaryPdf } from '../../shared/pdf/discharge-summary-pdf';
 import { getUpcomingFollowUps } from '../../shared/pdf/get-upcoming-follow-ups';
 import { makeDischargeSummaryPdfDocumentReference } from '../../shared/pdf/make-discharge-summary-document-reference';
@@ -18,7 +18,6 @@ import { getAppointmentAndRelatedResources } from '../../shared/pdf/visit-detail
 import { createPresignedUrl, uploadObjectToZ3 } from '../../shared/z3Utils';
 import { getChartData } from '../get-chart-data';
 import { getMedicationOrders } from '../get-medication-orders';
-import { getRadiologyOrders } from '../radiology/order-list';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -44,7 +43,7 @@ export const index = wrapHandler(
     const { appointmentId, timezone, secrets } = validatedParameters;
 
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
+    const oystehr = createClinicalOystehrClient(m2mToken, secrets);
     console.log('Created Oystehr client');
 
     const response = await performEffect(oystehr, appointmentId, secrets, timezone);
@@ -82,10 +81,6 @@ export const performEffect = async (
     progressNoteChartDataRequestedFields
   );
 
-  const radiologyOrdersPromise = getRadiologyOrders(oystehr, {
-    encounterIds: [encounter.id!],
-  });
-
   const medicationOrdersPromise = getMedicationOrders(oystehr, {
     searchBy: {
       field: 'encounterId',
@@ -94,16 +89,19 @@ export const performEffect = async (
   });
 
   const followUpParentEncounterId = encounter.partOf?.reference?.split('/')[1] ?? encounter.id!;
-  const upcomingFollowUpsPromise = getUpcomingFollowUps(oystehr, followUpParentEncounterId, visitResources.timezone);
+  const upcomingFollowUpsPromise = getUpcomingFollowUps(
+    oystehr,
+    followUpParentEncounterId,
+    visitResources.timezone,
+    encounter.id
+  );
 
-  const [chartDataResult, additionalChartDataResult, radiologyData, medicationOrdersData, upcomingFollowUps] =
-    await Promise.all([
-      chartDataPromise,
-      additionalChartDataPromise,
-      radiologyOrdersPromise,
-      medicationOrdersPromise,
-      upcomingFollowUpsPromise,
-    ]);
+  const [chartDataResult, additionalChartDataResult, medicationOrdersData, upcomingFollowUps] = await Promise.all([
+    chartDataPromise,
+    additionalChartDataPromise,
+    medicationOrdersPromise,
+    upcomingFollowUpsPromise,
+  ]);
   const chartData = chartDataResult.response;
   const additionalChartData = additionalChartDataResult.response;
   const medicationOrders = medicationOrdersData?.orders.filter((order) => order.status !== 'cancelled');
@@ -114,7 +112,6 @@ export const performEffect = async (
       allChartData: {
         chartData,
         additionalChartData,
-        radiologyData,
         medicationOrders,
       },
       appointmentPackage: visitResources,
@@ -123,6 +120,7 @@ export const performEffect = async (
     secrets,
     m2mToken
   );
+
   if (!patient?.id) throw new Error(`No patient has been found for encounter: ${encounter.id}`);
 
   // Append patient education PDFs if any exist

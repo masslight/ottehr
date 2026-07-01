@@ -1,8 +1,10 @@
 import {
+  Apartment as ApartmentIcon,
   Business as BusinessIcon,
   Description as DescriptionIcon,
   Home as HomeIcon,
   Label as LabelIcon,
+  List as ListIcon,
   MedicalServices as MedicalServicesIcon,
   People as PeopleIcon,
   Receipt as ReceiptIcon,
@@ -10,6 +12,7 @@ import {
 import { Box, Drawer, List, ListItemButton, ListItemIcon, ListItemText, Typography } from '@mui/material';
 import { FC } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { ChargeItemDefinitionLabels } from '../constants/chargeItemDefinition';
 import { otherColors } from '../themes/ottehr/colors';
 
 const DRAWER_WIDTH = 220;
@@ -20,6 +23,12 @@ const navItems = [
   { label: 'Patients', path: '/patients', icon: <PeopleIcon sx={{ fontSize: 18 }} /> },
   { label: 'Billing Providers', path: '/billing-providers', icon: <BusinessIcon sx={{ fontSize: 18 }} /> },
   { label: 'Rendering Providers', path: '/rendering-providers', icon: <MedicalServicesIcon sx={{ fontSize: 18 }} /> },
+  { label: 'Service Facilities', path: '/service-facilities', icon: <ApartmentIcon sx={{ fontSize: 18 }} /> },
+  {
+    label: ChargeItemDefinitionLabels['charge-master'].listTitle,
+    path: `/${ChargeItemDefinitionLabels['charge-master'].pathComponent}`,
+    icon: <ListIcon sx={{ fontSize: 18 }} />,
+  },
   { label: 'ERAs', path: '/eras', icon: <ReceiptIcon sx={{ fontSize: 18 }} /> },
   { label: 'Tags', path: '/tags', icon: <LabelIcon sx={{ fontSize: 18 }} /> },
 ];

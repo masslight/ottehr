@@ -1,5 +1,11 @@
 import { FormFieldsDisplayItem, FormFieldsGroupItem, FormFieldsInputItem, FormFieldTrigger } from 'config-types';
-import { Questionnaire, QuestionnaireItem, QuestionnaireResponseItem, QuestionnaireResponseItemAnswer } from 'fhir/r4b';
+import {
+  Questionnaire,
+  QuestionnaireItem,
+  QuestionnaireResponseItem,
+  QuestionnaireResponseItemAnswer,
+  Reference,
+} from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { getTaxID } from '../fhir/helpers';
 import type { PrePopulationFromPatientRecordInput } from '../helpers';
@@ -12,6 +18,8 @@ export interface AppointmentContext {
   appointmentServiceMode?: ServiceMode;
   reasonForVisit?: string;
   encounterId?: string;
+  /** When set (e.g. from Encounter extension), overrides Account occ-med employer for prepopulation. */
+  visitOccupationalMedicineEmployerReference?: Reference;
 }
 
 interface Trigger extends Omit<FormFieldTrigger, 'effect'> {
@@ -22,6 +30,7 @@ export interface TriggeredEffects {
   required: boolean;
   enabled: boolean | null;
   substituteText: string | undefined;
+  filtered: boolean;
 }
 
 /**
@@ -37,7 +46,7 @@ export const evaluateFieldTriggers = (
   const { triggers } = item;
 
   if (!triggers || triggers.length === 0) {
-    return { required: false, enabled: true, substituteText: undefined };
+    return { required: false, enabled: true, substituteText: undefined, filtered: false };
   }
 
   const flattenedTriggers: Trigger[] = triggers.flatMap((trigger) =>
@@ -176,9 +185,18 @@ export const evaluateFieldTriggers = (
         acc.substituteText = trigger.substituteText;
       }
 
+      if (trigger.effect === 'filter' && trigger.conditionMet) {
+        acc.filtered = true;
+      }
+
       return acc;
     },
-    { required: false as boolean, enabled: null as boolean | null, substituteText: undefined as undefined | string }
+    {
+      required: false as boolean,
+      enabled: null as boolean | null,
+      substituteText: undefined as undefined | string,
+      filtered: false as boolean,
+    }
   );
 };
 
@@ -264,6 +282,8 @@ export const prepopulatePatientRecordItems = (
   }
   const patientRecordItems = makePrepopulatedItemsFromPatientRecord({
     ...input,
+    visitOccupationalMedicineEmployerReference: appointmentContext?.visitOccupationalMedicineEmployerReference,
+    appointmentServiceCategory: appointmentContext?.appointmentServiceCategory,
     overriddenItems: prepopOverrides,
   });
 

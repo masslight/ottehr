@@ -1,16 +1,18 @@
-import { Secrets, WaitingRoomInput } from 'utils';
-import { ZambdaInput } from '../../shared';
+import { MISSING_REQUEST_BODY, Secrets, WaitingRoomInput } from 'utils';
+import { z } from 'zod';
+import { safeJsonParse, safeValidate, ZambdaInput } from '../../shared';
+
+const bodySchema = z.object({
+  appointmentID: z.string().uuid(),
+});
 
 export function validateRequestParameters(input: ZambdaInput): WaitingRoomInput & { secrets: Secrets | null } {
   if (!input.body) {
-    throw new Error('No request body provided');
+    throw MISSING_REQUEST_BODY;
   }
 
-  const { appointmentID } = JSON.parse(input.body);
-
-  if (!appointmentID) {
-    throw new Error('appointmentID is not defined');
-  }
+  const parsed = safeJsonParse(input.body);
+  const { appointmentID } = safeValidate(bodySchema, parsed);
 
   const authorization = input.headers.Authorization;
 

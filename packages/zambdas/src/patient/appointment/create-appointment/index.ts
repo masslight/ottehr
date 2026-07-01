@@ -9,6 +9,7 @@ import {
   Condition,
   Encounter,
   Extension,
+  HealthcareService,
   List,
   Patient,
   Questionnaire,
@@ -43,6 +44,8 @@ import {
   getCanonicalQuestionnaire,
   getCoding,
   getFullestAvailableName,
+  getGroupAssignmentMode,
+  getSlotBookedViaGroupId,
   getTaskResource,
   isValidUUID,
   makePrepopulatedItemsForPatient,
@@ -62,7 +65,7 @@ import {
 import {
   AuditableZambdaEndpoints,
   createAuditEvent,
-  createOystehrClient,
+  createClinicalOystehrClient,
   generatePatientRelatedRequests,
   getAuth0Token,
   getUser,
@@ -71,7 +74,12 @@ import {
   ZambdaInput,
 } from '../../../shared';
 import { getEncounterClass, getRelatedResources, getTelemedRequiredAppointmentEncounterExtensions } from '../helpers';
-import { createAppointmentComplexValidation, validateCreateAppointmentParams } from './validateRequestParameters';
+import {
+  createAppointmentComplexValidation,
+  ResolvedAttendingPractitioner,
+  ResolvedBookingLocation,
+  validateCreateAppointmentParams,
+} from './validateRequestParameters';
 
 interface CreateAppointmentInput {
   slot: Slot;
@@ -86,10 +94,15 @@ interface CreateAppointmentInput {
   locationState?: string;
   appointmentMetadata?: Appointment['meta'];
   followUpOptions?: FollowUpOptions;
+  /** Resolved Location for this booking (direct or via group member / role). */
+  bookingLocation?: ResolvedBookingLocation;
+  /** Resolved attending Practitioner (populated for PractitionerRole bookings). */
+  attendingPractitioner?: ResolvedAttendingPractitioner;
 }
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let oystehrToken: string;
+
 export const index = wrapHandler('create-appointment', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.group('validateRequestParameters');
   // Step 1: Validate input
@@ -100,6 +113,7 @@ export const index = wrapHandler('create-appointment', async (input: ZambdaInput
   const user = await getUser(token, input.secrets);
   const validatedParameters = validateCreateAppointmentParams(input, user);
   const { secrets, language } = validatedParameters;
+
   console.groupEnd();
   console.debug('validateRequestParameters success', JSON.stringify(validatedParameters));
 
@@ -109,9 +123,10 @@ export const index = wrapHandler('create-appointment', async (input: ZambdaInput
   } else {
     console.log('already have token');
   }
-  const oystehr = createOystehrClient(oystehrToken, input.secrets);
+  const oystehr = createClinicalOystehrClient(oystehrToken, input.secrets);
 
   console.time('performing-complex-validation');
+
   const effectInput = await createAppointmentComplexValidation(validatedParameters, oystehr);
   const {
     slot,
@@ -122,7 +137,10 @@ export const index = wrapHandler('create-appointment', async (input: ZambdaInput
     visitType,
     appointmentMetadata: maybeMetadata,
     followUpOptions,
+    bookingLocation,
+    attendingPractitioner,
   } = effectInput;
+
   console.log('effectInput', effectInput);
   console.timeEnd('performing-complex-validation');
 
@@ -155,6 +173,8 @@ export const index = wrapHandler('create-appointment', async (input: ZambdaInput
       questionnaireCanonical,
       appointmentMetadata,
       followUpOptions,
+      bookingLocation,
+      attendingPractitioner,
     },
     oystehr
   );
@@ -164,13 +184,25 @@ export const index = wrapHandler('create-appointment', async (input: ZambdaInput
   const { message, appointmentId, fhirPatientId, questionnaireResponseId, encounterId, resources, relatedPersonId } =
     data_appointment;
 
-  await createAuditEvent(
-    AuditableZambdaEndpoints.appointmentCreate,
-    oystehr,
-    input,
-    fhirPatientId,
-    validatedParameters.secrets
-  );
+  // Booking already committed; swallow audit failures so they don't surface as a 5xx
+  try {
+    await createAuditEvent(
+      AuditableZambdaEndpoints.appointmentCreate,
+      oystehr,
+      input,
+      fhirPatientId,
+      validatedParameters.secrets
+    );
+  } catch (auditError) {
+    console.error(
+      'Failed to write appointment-create audit event (booking already committed):',
+      JSON.stringify(auditError, null, 2)
+    );
+    captureException(auditError, {
+      tags: { zambda: 'create-appointment', stage: 'post-commit-audit' },
+      extra: { appointmentId, fhirPatientId },
+    });
+  }
 
   const response: CreateAppointmentResponse = {
     message,
@@ -183,6 +215,7 @@ export const index = wrapHandler('create-appointment', async (input: ZambdaInput
   };
 
   console.log(`fhirAppointment = ${JSON.stringify(response)}`, visitType);
+
   return {
     statusCode: 200,
     body: JSON.stringify(response),
@@ -203,12 +236,15 @@ export async function createAppointment(
     serviceMode,
     questionnaireCanonical: questionnaireUrl,
     appointmentMetadata,
+    bookingLocation,
+    attendingPractitioner,
   } = input;
 
   const { verifiedPhoneNumber, listRequests, createPatientRequest, updatePatientRequest, isEHRUser, maybeFhirPatient } =
     await generatePatientRelatedRequests(user, patient, oystehr);
 
   let startTime: string | null; // iso string in UTC
+
   if (visitType === VisitType.WalkIn) {
     startTime = DateTime.now().setZone('UTC').toISO();
   } else {
@@ -233,11 +269,13 @@ export async function createAppointment(
   }
 
   const formattedUserNumber = formatPhoneNumberDisplay(user?.name?.replace('+1', ''));
+
   const createdBy = isEHRUser
     ? `Staff ${user?.email}`
     : `${visitType === VisitType.WalkIn ? 'QR - ' : ''}Patient${formattedUserNumber ? ` ${formattedUserNumber}` : ''}`;
 
   console.log('getting questionnaire ID to create blank questionnaire response');
+
   const currentQuestionnaire = await getCanonicalQuestionnaire(questionnaireUrl, oystehr);
   let verifiedFormattedPhoneNumber = verifiedPhoneNumber;
 
@@ -269,10 +307,16 @@ export async function createAppointment(
     endTime,
     serviceMode,
     scheduleOwner,
+    bookingLocation,
+    attendingPractitioner,
     visitType,
     secrets,
     verifiedPhoneNumber: verifiedFormattedPhoneNumber,
-    contactInfo: { phone: verifiedFormattedPhoneNumber ?? 'not provided', email: patient.email ?? 'not provided' },
+    contactInfo: {
+      phone: verifiedFormattedPhoneNumber ?? 'not provided',
+      email: patient.noEmail ? '' : patient.email ?? '',
+      noEmail: patient.noEmail ?? false,
+    },
     questionnaire: currentQuestionnaire,
     oystehr: oystehr,
     updatePatientRequest,
@@ -309,6 +353,7 @@ export async function createAppointment(
         return undefined;
       }),
     ]);
+
     relatedPersonId = userResource?.relatedPerson?.id || '';
     const person = userResource.person;
 
@@ -357,13 +402,15 @@ interface TransactionInput {
   endTime: string;
   visitType: VisitType;
   scheduleOwner: ScheduleOwnerFhirResource;
+  bookingLocation?: ResolvedBookingLocation;
+  attendingPractitioner?: ResolvedAttendingPractitioner;
   serviceMode: ServiceMode;
   questionnaire: Questionnaire;
   oystehr: Oystehr;
   secrets: Secrets | null;
   createdBy: string;
   verifiedPhoneNumber: string | undefined;
-  contactInfo: { phone: string; email: string };
+  contactInfo: { phone: string; email: string; noEmail?: boolean };
   additionalInfo?: string;
   patient?: Patient;
   newPatientDob?: string;
@@ -376,6 +423,7 @@ interface TransactionInput {
   appointmentMetadata?: Appointment['meta'];
   followUpOptions?: FollowUpOptions;
 }
+
 interface TransactionOutput {
   appointment: Appointment;
   encounter: Encounter;
@@ -390,6 +438,8 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
     oystehr,
     patient,
     scheduleOwner,
+    bookingLocation,
+    attendingPractitioner,
     questionnaire,
     reasonForVisit,
     startTime,
@@ -413,12 +463,14 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
   const parentEncounterId = followUpOptions?.parentEncounterId;
 
   let carriedOverDiagnoses: { condition: Condition; rank?: number }[] = [];
+
   if (parentEncounterId) {
     // Validation (not part of copy flow): parent must exist and not itself be a follow-up.
     const parentEncounter = await oystehr.fhir.get<Encounter>({
       resourceType: 'Encounter',
       id: parentEncounterId,
     });
+
     if (parentEncounter.partOf) {
       throw new Error('Cannot create a follow-up of a follow-up. Please select a top-level encounter as the parent.');
     }
@@ -455,14 +507,17 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
   if (!patient && !createPatientRequest?.fullUrl) {
     throw new Error('Unexpectedly have no patient and no request to make one');
   }
+
   const patientRef = patient ? `Patient/${patient.id}` : createPatientRequest?.fullUrl || '';
 
   const now = DateTime.now().setZone('UTC');
   const nowIso = now.toISO() ?? '';
+
   const startsAsBooked =
     visitType === VisitType.PreBook ||
     visitType === VisitType.PostTelemed ||
     (visitType === VisitType.WalkIn && serviceMode === ServiceMode.virtual);
+
   const initialAppointmentStatus: FhirAppointmentStatus = startsAsBooked ? 'booked' : 'arrived';
   const initialEncounterStatus: FhirEncounterStatus = startsAsBooked ? 'planned' : 'arrived';
 
@@ -477,6 +532,7 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
   if (serviceMode === ServiceMode.virtual) {
     const { encExtensions: telemedEncExtensions, apptExtensions: telemedApptExtensions } =
       getTelemedRequiredAppointmentEncounterExtensions(patientRef, nowIso);
+
     apptExtensions.push(...telemedApptExtensions);
     encExtensions.push(...telemedEncExtensions);
   }
@@ -489,13 +545,16 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
   }
 
   const apptUrl = `urn:uuid:${uuid()}`;
+  const bookedViaGroupId = slot ? getSlotBookedViaGroupId(slot) : undefined;
   const participants: AppointmentParticipant[] = [];
+
   participants.push({
     actor: {
       reference: patientRef,
     },
     status: 'accepted',
   });
+
   participants.push({
     actor: {
       reference: `${scheduleOwner.resourceType}/${scheduleOwner.id}`,
@@ -503,9 +562,50 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
     status: 'accepted',
   });
 
+  // When the booking is scoped to a Location (either directly or via a group
+  // member), add it as a participant so consumers that filter by Location
+  // (tracking board, reports) see the booking. Skip if the scheduleOwner
+  // already IS the location — we would just be duplicating the same reference.
+  if (bookingLocation && scheduleOwner.resourceType !== 'Location') {
+    participants.push({
+      actor: {
+        reference: `Location/${bookingLocation.id}`,
+      },
+      status: 'accepted',
+    });
+  }
+
+  // When the scheduleOwner is a PractitionerRole, add the underlying
+  // Practitioner as a participant too. This keeps Appointment.participant-based
+  // provider readers consistent with direct-Practitioner bookings.
+  if (attendingPractitioner && scheduleOwner.resourceType !== 'Practitioner') {
+    participants.push({
+      actor: {
+        reference: `Practitioner/${attendingPractitioner.id}`,
+      },
+      status: 'accepted',
+    });
+  }
+
+  // When the booking came through a group HS (stamped on the Slot via the
+  // slot-booked-via-group extension at vending time), add the HS to
+  // participants. Skip if scheduleOwner already IS the HS — that would just
+  // duplicate the same reference. Makes "appointments booked via group X"
+  // queryable directly from Appointment.participant rather than requiring
+  // a slot-extension walk for every consumer.
+  if (bookedViaGroupId && scheduleOwner.resourceType !== 'HealthcareService') {
+    participants.push({
+      actor: {
+        reference: `HealthcareService/${bookedViaGroupId}`,
+      },
+      status: 'accepted',
+    });
+  }
+
   let slotReference: Reference | undefined;
   const postSlotRequests: BatchInputPostRequest<Slot>[] = [];
   const patchSlotRequests: BatchInputRequest<Slot>[] = [];
+
   if (isValidUUID(slot?.id ?? '') && slot?.meta !== undefined) {
     // assume slot already persisted
     slotReference = {
@@ -540,6 +640,7 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
   }
 
   const otherMetaTags = performPreProcessing ? [FHIR_APPOINTMENT_READY_FOR_PREPROCESSING_TAG] : [];
+
   const apptResource: Appointment = {
     resourceType: 'Appointment',
     meta: {
@@ -562,7 +663,9 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
       text: visitType,
     },
     serviceCategory: slot?.serviceCategory,
-    description: reasonForVisit,
+    // FHIR rejects an empty string for Appointment.description (e.g. EHR "Add
+    // Visit", which has no reason-for-visit field), so omit it when blank.
+    description: reasonForVisit?.trim() || undefined,
     status: initialAppointmentStatus,
     created: now.toISO() ?? '',
     extension: apptExtensions,
@@ -570,10 +673,61 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
 
   const encUrl = `urn:uuid:${uuid()}`;
 
+  // Determine whether to pre-stamp the attending Practitioner on
+  // Encounter.participant[ATND] (CodeSystem v3-ParticipationType / ATND).
+  //
+  // Rule:
+  //   - Direct PR booking (no originating group): stamp. The patient
+  //     explicitly picked this Practitioner; their attendance is committed
+  //     at book time.
+  //   - Group booking with the group in provider-mode: stamp. Group policy
+  //     is "commit the chosen member at book time."
+  //   - Group booking with the group in anonymous-mode (or no resolvable
+  //     mode): don't stamp. Encounter remains unassigned until front desk
+  //     runs assign-practitioner.
+  //
+  // The originating group, when present, is read off the Slot's
+  // slot-booked-via-group extension (stamped at slot-vending time by
+  // get-schedule when scheduleType === 'group'). For pools-providers
+  // groups, the Slot's Schedule.actor is the member PR itself, so
+  // scheduleOwner alone can't distinguish "direct PR" from "group via
+  // pools-providers" — the extension is the disambiguator.
+  let bookedViaGroup: HealthcareService | undefined;
+
+  if (bookedViaGroupId) {
+    try {
+      bookedViaGroup = await oystehr.fhir.get<HealthcareService>({
+        resourceType: 'HealthcareService',
+        id: bookedViaGroupId,
+      });
+    } catch {
+      // Group resource missing — treat as "unknown group, don't pre-stamp"
+      // (conservative; mirrors anonymous-mode behavior).
+    }
+  }
+
+  let encounterParticipants: Encounter['participant'] | undefined;
+
+  if (attendingPractitioner) {
+    const isGroupBooking = bookedViaGroupId !== undefined;
+    const groupAllowsStamping = bookedViaGroup ? getGroupAssignmentMode(bookedViaGroup) === 'provider' : false;
+    const shouldStampAttending = !isGroupBooking || groupAllowsStamping;
+    if (shouldStampAttending) {
+      encounterParticipants = [
+        {
+          type: [{ coding: [{ system: 'http://terminology.hl7.org/CodeSystem/v3-ParticipationType', code: 'ATND' }] }],
+          individual: { reference: `Practitioner/${attendingPractitioner.id}` },
+          period: { start: nowIso },
+        },
+      ];
+    }
+  }
+
   // Carry over diagnoses from the parent encounter to the follow-up by cloning each Dx Condition
   // and attaching it to the new encounter's diagnosis array (preserving rank/primary).
   const followUpDiagnosisRequests: BatchInputPostRequest<Condition>[] = [];
   const followUpDiagnosisEntries: NonNullable<Encounter['diagnosis']> = [];
+
   for (const { condition: parentCondition, rank } of carriedOverDiagnoses) {
     const newConditionUrl = `urn:uuid:${uuid()}`;
     const newCondition: Condition = {
@@ -623,16 +777,16 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
         reference: apptUrl,
       },
     ],
-    location:
-      scheduleOwner.resourceType === 'Location'
-        ? [
-            {
-              location: {
-                reference: `Location/${scheduleOwner.id}`,
-              },
+    location: bookingLocation
+      ? [
+          {
+            location: {
+              reference: `Location/${bookingLocation.id}`,
             },
-          ]
-        : [],
+          },
+        ]
+      : [],
+    ...(encounterParticipants && { participant: encounterParticipants }),
     extension: encExtensions,
     ...(followUpDiagnosisEntries.length > 0 && { diagnosis: followUpDiagnosisEntries }),
     ...(parentEncounterId && {
@@ -727,6 +881,7 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
     `Send confirmation text to ${getFullestAvailableName(patientToUse)}`,
     apptUrl
   );
+
   const taskRequest: BatchInputPostRequest<Task> = {
     method: 'POST',
     url: '/Task',
@@ -741,6 +896,7 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
       type: { ...PATIENT_BILLING_ACCOUNT_TYPE },
       subject: [{ reference: createPatientRequest.fullUrl }],
     };
+
     postAccountRequests.push({
       method: 'POST',
       url: '/Account',
@@ -753,6 +909,7 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
       type: { ...PATIENT_BILLING_ACCOUNT_TYPE },
       subject: [{ reference: `Patient/${patient.id}` }],
     };
+
     postAccountRequests.push({
       method: 'POST',
       url: '/Account',
@@ -762,6 +919,7 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
 
   const postAccidentConditionRequests: BatchInputPostRequest<Condition>[] = [];
   const serviceCategoryCode = getCoding(slot?.serviceCategory, SERVICE_CATEGORY_SYSTEM)?.code;
+
   if (serviceCategoryCode === 'workers-comp') {
     postAccidentConditionRequests.push({
       method: 'POST',
@@ -861,8 +1019,11 @@ const extractResourcesFromBundle = (bundle: Bundle<Resource>): TransactionOutput
 
 const injectMetadataIfNeeded = (maybeMetadata: Appointment['meta']): Appointment['meta'] => {
   let appointmentMetadata: Appointment['meta'] = maybeMetadata;
+
   console.log('PLAYWRIGHT_SUITE_ID: ', process.env.PLAYWRIGHT_SUITE_ID);
+
   let shouldInjectTestMetadata = process.env.PLAYWRIGHT_SUITE_ID ?? false;
+
   if (maybeMetadata && shouldInjectTestMetadata) {
     const hasTestTagAlready =
       maybeMetadata.tag?.some((coding) => {
@@ -881,5 +1042,6 @@ const injectMetadataIfNeeded = (maybeMetadata: Appointment['meta']): Appointment
     };
     console.log('using test metadata: ', JSON.stringify(appointmentMetadata, null, 2));
   }
+
   return appointmentMetadata;
 };

@@ -15,6 +15,7 @@ import {
 } from 'fhir/r4b';
 import { SpecFile } from '../../packages/spec/src/schema';
 import { Schema20250925, Spec20250925 } from '../../packages/spec/src/schema-20250925';
+import { createClinicalOystehrClient } from '../../packages/zambdas/src/shared';
 
 interface GenerateResourcesArgs {
   configDir: string;
@@ -96,10 +97,13 @@ async function generateOystehrResourceImports(input: {
     throw new Error(`Variable file ${varFile} is not a valid JSON map.`);
   }
 
-  const oystehr = new Oystehr({
+  const oystehr = createClinicalOystehrClient(
     accessToken,
-    projectId,
-  });
+    {},
+    {
+      projectId,
+    }
+  );
 
   const { $ } = await import('execa');
   const execaOpts: Options = {

@@ -1,5 +1,5 @@
 import { AdminGetLabSetDetailInput, INVALID_INPUT_ERROR, isValidUUID, MISSING_REQUEST_BODY, Secrets } from 'utils';
-import { ZambdaInput } from '../../../../shared';
+import { safeJsonParse, ZambdaInput } from '../../../../shared';
 
 type BaseContext = {
   secrets: Secrets | null;
@@ -20,7 +20,7 @@ export function validateRequestParameters(input: ZambdaInput): ValidatedRequest 
 
   let params: Partial<AdminGetLabSetDetailInput>;
   try {
-    params = JSON.parse(input.body);
+    params = safeJsonParse(input.body);
   } catch {
     throw INVALID_INPUT_ERROR('Unable to parse request body. Invalid JSON.');
   }

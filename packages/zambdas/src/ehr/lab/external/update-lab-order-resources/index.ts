@@ -36,7 +36,7 @@ import {
 } from 'utils';
 import {
   checkOrCreateM2MClientToken,
-  createOystehrClient,
+  createClinicalOystehrClient,
   getMyPractitionerId,
   sendErrors,
   sendOrderResultEmailToPatient,
@@ -89,7 +89,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   console.log('validateRequestParameters success');
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-  const oystehr = createOystehrClient(m2mToken, secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
   const practitionerIdFromCurrentUser = await getMyPractitionerId(
     validatedParameters.userToken,
     validatedParameters.secrets
@@ -578,11 +578,20 @@ const handleSaveCollectionData = async (
       labOrganization,
       specimenCollectionDateTime: mostRecentSampleCollectionDate,
       userTimezone,
+      serviceRequest,
     });
 
     console.log('creating labs order label and getting url');
     presignedLabelPdfUrl = (
-      await createExternalLabsLabelPDF(labelConfig, encounter.id!, serviceRequest.id!, secrets, m2mToken, oystehr)
+      await createExternalLabsLabelPDF(
+        labelConfig,
+        patient.id!,
+        encounter.id!,
+        serviceRequest.id!,
+        secrets,
+        m2mToken,
+        oystehr
+      )
     ).presignedURL;
   }
 

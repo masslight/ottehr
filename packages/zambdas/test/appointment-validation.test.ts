@@ -1,5 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { expect, vi } from 'vitest';
+import { createClinicalOystehrClient } from '../src/shared';
 import { SECRETS } from './data/secrets';
 
 export const patient: any = {
@@ -57,7 +58,7 @@ describe.skip('appointments validation tests', () => {
     // });
 
     const { PROJECT_API } = SECRETS;
-    oystehr = new Oystehr({ projectApiUrl: PROJECT_API });
+    oystehr = createClinicalOystehrClient(undefined, SECRETS, { services: { projectApiUrl: PROJECT_API } });
   });
 
   function createAppointment(body?: any): Promise<any> {

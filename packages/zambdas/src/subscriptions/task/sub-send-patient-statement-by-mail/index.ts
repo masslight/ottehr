@@ -9,13 +9,14 @@ import {
   getOrCreateCandidApiClient,
   getSecret,
   RCM_TASK_SYSTEM,
+  sanitizeStringForFhirCode,
   Secrets,
   SecretsKeys,
   TaskIndicator,
 } from 'utils';
 import {
   checkOrCreateM2MClientToken,
-  createOystehrClient,
+  createClinicalOystehrClient,
   getHTMLStatementTemplate,
   getStatementDetails,
   MAIL_VENDOR_EXTENSION_URL,
@@ -50,7 +51,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     task = validatedInput.task;
 
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    oystehr = createOystehrClient(m2mToken, secrets);
+    oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
     if (!FEATURE_FLAGS_CONFIG.mailingPaperStatementsEnabled) {
       console.error(
@@ -311,7 +312,7 @@ async function patchTaskStatus(
         coding: [
           {
             system: RCM_TASK_SYSTEM,
-            code: reason,
+            code: sanitizeStringForFhirCode(reason),
           },
         ],
       },

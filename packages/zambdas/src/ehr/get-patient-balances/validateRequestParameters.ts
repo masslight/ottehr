@@ -1,5 +1,10 @@
-import { GetPatientBalancesZambdaInput, isValidUUID, Secrets } from 'utils';
-import { validateJsonBody, ZambdaInput } from '../../shared';
+import { GetPatientBalancesZambdaInput, MISSING_REQUEST_BODY, NOT_AUTHORIZED, Secrets } from 'utils';
+import { z } from 'zod';
+import { safeJsonParse, safeValidate, ZambdaInput } from '../../shared';
+
+const GetPatientBalancesBodySchema = z.object({
+  patientId: z.string().uuid(),
+});
 
 export interface ValidatedInput {
   body: GetPatientBalancesZambdaInput;
@@ -7,12 +12,17 @@ export interface ValidatedInput {
 }
 
 export const validateInput = async (input: ZambdaInput): Promise<ValidatedInput> => {
-  const body = validateBody(input);
-
   const callerAccessToken = input.headers.Authorization?.replace('Bearer ', '');
   if (!callerAccessToken) {
-    throw new Error('Caller access token is required');
+    throw NOT_AUTHORIZED;
   }
+
+  if (!input.body) {
+    throw MISSING_REQUEST_BODY;
+  }
+
+  const parsed = safeJsonParse(input.body);
+  const body = safeValidate(GetPatientBalancesBodySchema, parsed);
 
   return {
     body,
@@ -20,64 +30,27 @@ export const validateInput = async (input: ZambdaInput): Promise<ValidatedInput>
   };
 };
 
-const validateBody = (input: ZambdaInput): GetPatientBalancesZambdaInput => {
-  const { patientId } = validateJsonBody(input);
-
-  if (!patientId) {
-    throw new Error('patientId is required');
-  }
-
-  if (typeof patientId !== 'string') {
-    throw new Error('patientId must be a string');
-  }
-
-  if (isValidUUID(patientId) === false) {
-    throw new Error('patientId must be a valid UUID');
-  }
-
-  return {
-    patientId,
-  };
-};
+const SecretsSchema = z.object({
+  AUTH0_ENDPOINT: z.string().min(1),
+  AUTH0_CLIENT: z.string().min(1),
+  AUTH0_SECRET: z.string().min(1),
+  AUTH0_AUDIENCE: z.string().min(1),
+  FHIR_API: z.string().min(1),
+  PROJECT_API: z.string().min(1),
+  CANDID_CLIENT_ID: z.string().min(1),
+  CANDID_CLIENT_SECRET: z.string().min(1),
+  CANDID_ENV: z.string().min(1),
+});
 
 export const validateSecrets = (secrets: Secrets | null): Secrets => {
   if (!secrets) {
     throw new Error('Secrets are required');
   }
 
-  const {
-    AUTH0_ENDPOINT,
-    AUTH0_CLIENT,
-    AUTH0_SECRET,
-    AUTH0_AUDIENCE,
-    FHIR_API,
-    PROJECT_API,
-    CANDID_CLIENT_ID,
-    CANDID_CLIENT_SECRET,
-    CANDID_ENV,
-  } = secrets;
-  if (
-    !AUTH0_ENDPOINT ||
-    !AUTH0_CLIENT ||
-    !AUTH0_SECRET ||
-    !AUTH0_AUDIENCE ||
-    !FHIR_API ||
-    !PROJECT_API ||
-    !CANDID_CLIENT_ID ||
-    !CANDID_CLIENT_SECRET ||
-    !CANDID_ENV
-  ) {
+  try {
+    const validated = SecretsSchema.parse(secrets);
+    return validated;
+  } catch {
     throw new Error('Missing required secrets');
   }
-  return {
-    AUTH0_ENDPOINT,
-    AUTH0_CLIENT,
-    AUTH0_SECRET,
-    AUTH0_AUDIENCE,
-    FHIR_API,
-    PROJECT_API,
-    CANDID_CLIENT_ID,
-    CANDID_CLIENT_SECRET,
-    CANDID_ENV,
-  };
 };

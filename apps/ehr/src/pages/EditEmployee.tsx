@@ -1,12 +1,13 @@
 import { LoadingButton } from '@mui/lab';
-import { Box, Button, Chip, Grid, Paper, Skeleton, Typography } from '@mui/material';
+import { Box, Chip, Grid, Paper, Skeleton, Typography } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
-import { useEffect, useMemo, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useLocation, useParams } from 'react-router-dom';
 import { allLicensesForPractitioner, PractitionerLicense, User, UserActivationMode } from 'utils';
 import { getUserDetails, userActivation } from '../api/api';
 import CustomBreadcrumbs from '../components/CustomBreadcrumbs';
 import EmployeeInformationForm from '../components/EmployeeInformation';
+import PractitionerRoleList from '../components/schedule/PractitionerRoleList';
 import { dataTestIds } from '../constants/data-test-ids';
 import { checkUserIsActive } from '../helpers/checkUserIsActive';
 import { useApiClients } from '../hooks/useAppClients';
@@ -14,11 +15,25 @@ import PageContainer from '../layout/PageContainer';
 
 export default function EditEmployeePage(): JSX.Element {
   const { oystehr, oystehrZambda } = useApiClients();
+  const location = useLocation();
   const [isActive, setIsActive] = useState<boolean>();
   const [user, setUser] = useState<User>();
-  const [scheduleId, setScheduleId] = useState<string | undefined>(undefined);
   const [loading, setLoading] = useState<boolean>(false);
   const [errors, setErrors] = useState({ submit: '' });
+
+  // When linked here from the Schedules list with `#schedule`, jump past the
+  // employee form to the scheduling card. The card only mounts after the user
+  // loads, so we use a callback ref to scroll exactly once when the element
+  // first appears (with a one-frame defer so layout has settled).
+  const scheduleAnchorRef = useCallback(
+    (node: HTMLElement | null) => {
+      if (!node || location.hash !== '#schedule') return;
+      window.requestAnimationFrame(() => {
+        node.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+    },
+    [location.hash]
+  );
 
   const userLicenses: PractitionerLicense[] = useMemo(() => {
     if (user?.profileResource?.qualification) {
@@ -47,8 +62,7 @@ export default function EditEmployeePage(): JSX.Element {
           userId: id,
         });
         if (loading) {
-          const { user: appUser, userScheduleId } = res;
-          setScheduleId(userScheduleId);
+          const { user: appUser } = res;
           setUser(appUser);
           setIsActive(checkUserIsActive(appUser));
           loading = false;
@@ -77,7 +91,7 @@ export default function EditEmployeePage(): JSX.Element {
     setIsActive(checkUserIsActive(userTemp));
   }
 
-  const handleUserActivation = async (mode: UserActivationMode): Promise<void> => {
+  const handleUserActivation = async (userActivationMode: UserActivationMode): Promise<void> => {
     setLoading(true);
     if (!oystehrZambda) {
       throw new Error('Zambda Client not found');
@@ -89,13 +103,13 @@ export default function EditEmployeePage(): JSX.Element {
     }
 
     try {
-      await userActivation(oystehrZambda, { userId: user.id, mode });
+      await userActivation(oystehrZambda, { userId: user.id, userActivationMode });
       await getUserAndUpdatePage();
-      enqueueSnackbar(`User was ${mode}d successfully`, {
+      enqueueSnackbar(`User was ${userActivationMode}d successfully`, {
         variant: 'success',
       });
     } catch {
-      const errorString = `Failed to ${mode} user. Please try again`;
+      const errorString = `Failed to ${userActivationMode} user. Please try again`;
       setErrors((prev) => ({ ...prev, submit: `${errorString}` }));
       enqueueSnackbar(`${errorString}`, {
         variant: 'error',
@@ -147,25 +161,13 @@ export default function EditEmployeePage(): JSX.Element {
                 />
               )}
 
-              {isActive && (
-                <Paper sx={{ padding: 3, marginTop: 3 }}>
-                  <Typography variant="h4" color="primary.dark" sx={{ fontWeight: '600 !important' }}>
-                    Provider schedule
-                  </Typography>
-                  {scheduleId ? (
-                    <Link to={`/admin/schedule/id/${scheduleId}`}>
-                      <Button variant="contained" sx={{ marginTop: 1 }}>
-                        Edit schedule
-                      </Button>
-                    </Link>
-                  ) : (
-                    <Link to={`/admin/schedule/new/provider/${user?.profileResource?.id}`}>
-                      <Button variant="contained" sx={{ marginTop: 1 }}>
-                        Create schedule
-                      </Button>
-                    </Link>
-                  )}
-                </Paper>
+              {isActive && user?.profileResource?.id && (
+                <Box id="schedule" ref={scheduleAnchorRef}>
+                  <PractitionerRoleList
+                    practitionerId={user.profileResource.id}
+                    practitionerName={user.name || 'Provider'}
+                  />
+                </Box>
               )}
 
               {/* Activate or Deactivate Profile */}

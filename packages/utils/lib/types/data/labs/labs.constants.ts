@@ -194,7 +194,7 @@ export const OYSTEHR_LAB_API_BASE = 'https://labs-api.zapehr.com/v1';
 export const OYSTEHR_LAB_ORDERABLE_ITEM_SEARCH_API = `${OYSTEHR_LAB_API_BASE}/orderableItem`;
 export const OYSTEHR_SUBMIT_LAB_API = `${OYSTEHR_LAB_API_BASE}/submit`;
 
-export const DEFAULT_LABS_ITEMS_PER_PAGE = 10;
+export const DEFAULT_LABS_ITEMS_PER_PAGE = 20;
 
 export const EMPTY_PAGINATION: Pagination = {
   currentPageIndex: 0,
@@ -418,4 +418,10 @@ export const LAB_PAYMENT_METHOD_DISPLAY: Record<LabPaymentMethod, string> = {
   [LabPaymentMethod.SelfPay]: 'Self Pay',
   [LabPaymentMethod.ClientBill]: 'Client Bill',
   [LabPaymentMethod.WorkersComp]: 'Workers Comp',
+};
+
+export const LAB_ORDER_WITH_FRIENDLY_PATIENT_ID_DETAIL = {
+  system: 'submission-detail',
+  code: 'friendly-patient-id-submission',
+  display: 'Submitted using friendly patient ID',
 };

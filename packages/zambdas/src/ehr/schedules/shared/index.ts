@@ -1,8 +1,8 @@
-import { Address, FhirResource, HealthcareService, Location, Practitioner } from 'fhir/r4b';
+import Oystehr from '@oystehr/sdk';
+import { Address, FhirResource, HealthcareService, Location, PractitionerRole } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   ClosureType,
-  getFullName,
   INVALID_INPUT_ERROR,
   INVALID_RESOURCE_ID_ERROR,
   isValidUUID,
@@ -13,7 +13,7 @@ import {
   TIMEZONES,
   UpdateScheduleParams,
 } from 'utils';
-import { ZambdaInput } from '../../../shared';
+import { safeJsonParse, ZambdaInput } from '../../../shared';
 
 export const addressStringFromAddress = (address: Address): string => {
   let addressString = '';
@@ -41,8 +41,6 @@ export const getNameForOwner = (owner: FhirResource): string => {
   let name: string | undefined = '';
   if (owner.resourceType === 'Location') {
     name = (owner as Location).name;
-  } else if (owner.resourceType === 'Practitioner') {
-    name = getFullName(owner as Practitioner);
   } else if (owner.resourceType === 'HealthcareService') {
     name = (owner as HealthcareService).name;
   }
@@ -50,6 +48,24 @@ export const getNameForOwner = (owner: FhirResource): string => {
     return name;
   }
   return `${owner.resourceType}/${owner.id}`;
+};
+
+/**
+ * Compose the default *schedule* name for a PractitionerRole owner. Returns
+ * just the Location's name (e.g., "Main Clinic") — the schedule's
+ * disambiguating piece relative to its provider. Surfaces in the SchedulePage
+ * editable name field as a sensible pre-filled default; consumers that need
+ * to identify the provider (group member picker, staff add-visit picker)
+ * compose "Provider Name: Schedule Name" themselves.
+ *
+ * Returns the role's id-fallback if the location reference can't be resolved.
+ */
+export const getNameForPractitionerRole = async (role: PractitionerRole, oystehr: Oystehr): Promise<string> => {
+  const locationId = role.location?.[0]?.reference?.split('/')[1];
+  const location = locationId
+    ? await oystehr.fhir.get<Location>({ resourceType: 'Location', id: locationId }).catch(() => undefined)
+    : undefined;
+  return location?.name ?? `PractitionerRole/${role.id ?? 'unknown'}`;
 };
 
 export interface UpdateScheduleBasicInput extends UpdateScheduleParams {
@@ -83,7 +99,7 @@ export const validateUpdateScheduleParameters = (input: ZambdaInput): UpdateSche
     address,
     telecom,
     reviewLink,
-  } = JSON.parse(input.body);
+  } = safeJsonParse(input.body);
   const createMode = Boolean(ownerId) && Boolean(ownerType);
 
   if (!scheduleId) {

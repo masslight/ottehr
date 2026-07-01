@@ -8,30 +8,26 @@ interface EditableSectionProps {
   editForm?: ReactNode;
   onSave?: () => Promise<string | null>;
   onCancel?: () => void;
-  saving?: boolean;
-  disableEdit?: boolean;
 }
 
-export const EditableSection: FC<EditableSectionProps> = ({
-  title,
-  children,
-  editForm,
-  onSave,
-  onCancel,
-  saving,
-  disableEdit,
-}) => {
+export const EditableSection: FC<EditableSectionProps> = ({ title, children, editForm, onSave, onCancel }) => {
   const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const handleSave = async (): Promise<void> => {
     if (!onSave) return;
     setError(null);
-    const result = await onSave();
-    if (result) {
-      setError(result);
-    } else {
-      setEditing(false);
+    setSaving(true);
+    try {
+      const result = await onSave();
+      if (result) {
+        setError(result);
+      } else {
+        setEditing(false);
+      }
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -49,12 +45,7 @@ export const EditableSection: FC<EditableSectionProps> = ({
             {title}
           </Typography>
           {editForm && !editing && (
-            <Button
-              size="small"
-              startIcon={<EditIcon fontSize="small" />}
-              onClick={() => setEditing(true)}
-              disabled={disableEdit}
-            >
+            <Button size="small" startIcon={<EditIcon fontSize="small" />} onClick={() => setEditing(true)}>
               Edit
             </Button>
           )}

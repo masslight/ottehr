@@ -99,6 +99,23 @@ export class VisitsPage {
     await this.#page.keyboard.press('Escape');
   }
 
+  /**
+   * Set the tracking-board date filter. Accepts MM/DD/YYYY format. The picker defaults
+   * to "today in the location's timezone" — call this when the appointment under test
+   * is scheduled for a different date (e.g. the first available pre-book slot rolled to
+   * tomorrow because the day's schedule is past closing).
+   */
+  async selectDate(date: string): Promise<void> {
+    const dateFromInput = this.#page.getByTestId(dataTestIds.dashboard.dateFromFilter);
+    const dateToInput = this.#page.getByTestId(dataTestIds.dashboard.dateToFilter);
+    await dateFromInput.click();
+    await dateFromInput.fill(date);
+    await dateFromInput.blur();
+    await dateToInput.click();
+    await dateToInput.fill(date);
+    await dateToInput.blur();
+  }
+
   async selectGroup(groupName: string): Promise<void> {
     await this.#page.getByTestId(dataTestIds.dashboard.groupSelect).click();
     await this.#page.getByText(new RegExp(groupName, 'i')).click();
@@ -115,7 +132,8 @@ async function waitForTrackingBoardReady(page: Page): Promise<void> {
       url.pathname === '/visits' &&
       url.searchParams.has('tab') &&
       url.searchParams.has('visitType') &&
-      url.searchParams.has('date'),
+      url.searchParams.has('dateFrom') &&
+      url.searchParams.has('dateTo'),
     { timeout: 30000 }
   );
 }

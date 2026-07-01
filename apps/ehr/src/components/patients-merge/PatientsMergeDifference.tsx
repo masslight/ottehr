@@ -23,7 +23,6 @@ import {
   useTheme,
 } from '@mui/material';
 import { useMutation } from '@tanstack/react-query';
-import { useQueryClient } from '@tanstack/react-query';
 import { Organization, Patient, Questionnaire, QuestionnaireItem, QuestionnaireResponseItem } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
 import { FC, useMemo, useState } from 'react';
@@ -34,6 +33,7 @@ import { structureQuestionnaireResponse } from 'src/helpers/qr-structure';
 import {
   extractFirstValueFromAnswer,
   flattenItems,
+  MergePatientsResponse,
   OrderedCoveragesWithSubscribers,
   PATIENT_RECORD_QUESTIONNAIRE,
   prepopulatePatientRecordItems,
@@ -177,8 +177,8 @@ type PatientMergeDifferenceProps = {
   open: boolean;
   close: () => void;
   patientIds: [string, string];
-  /** Called after a successful merge so the parent can refresh data. */
-  onSuccess?: () => void;
+  /** Called after a merge has been kicked off so the parent can track its progress. */
+  onSuccess?: (result: MergePatientsResponse & { mainPatientId: string; otherPatientId: string }) => void;
 };
 
 export const PatientsMergeDifference: FC<PatientMergeDifferenceProps> = (props) => {
@@ -195,7 +195,6 @@ export const PatientsMergeDifference: FC<PatientMergeDifferenceProps> = (props) 
   const [confirmOpen, setConfirmOpen] = useState(false);
 
   const apiClient = useOystehrAPIClient();
-  const queryClient = useQueryClient();
 
   // ── Fetch patient account data using the same hooks as PatientInformationPage ──
 
@@ -335,14 +334,15 @@ export const PatientsMergeDifference: FC<PatientMergeDifferenceProps> = (props) 
         questionnaireResponse: params.questionnaireResponse,
       });
     },
-    onSuccess: async () => {
+    onSuccess: async (data, variables) => {
       // Merge is now async — the merge actually runs in a subscription zambda.
-      // Refresh the active-merge-task query so the parent page shows the
-      // in-progress banner immediately. Patient/account/coverage queries will
-      // be invalidated when the task transitions to a terminal state.
-      await queryClient.invalidateQueries({ queryKey: ['active-merge-task'] });
+      // Hand the authoritative kickoff result to the parent so it can seed the
+      // active-merge-task cache and show the in-progress banner immediately.
+      // Polling can't be relied on for this: the background merge often finishes
+      // before the first 3s poll, so a poll-driven banner/snackbar would be
+      // missed entirely.
       enqueueSnackbar('Patients merge started', { variant: 'success' });
-      onSuccess?.();
+      onSuccess?.({ ...data, mainPatientId: variables.mainPatientId, otherPatientId: variables.otherPatientId });
       close();
     },
     onError: (error) => {

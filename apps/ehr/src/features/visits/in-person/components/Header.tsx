@@ -6,6 +6,7 @@ import MoreVertIcon from '@mui/icons-material/MoreVert';
 import {
   Box,
   Chip,
+  FormControlLabel,
   Grid,
   IconButton,
   Link,
@@ -14,6 +15,7 @@ import {
   MenuItem,
   Skeleton,
   Stack,
+  Switch,
   TextField,
   Tooltip,
   Typography,
@@ -28,6 +30,7 @@ import { Link as RouterLink, useNavigate, useParams } from 'react-router-dom';
 import { CommandPaletteSearchButton } from 'src/components/CommandPaletteSearchButton';
 import { CreateTaskDialog } from 'src/features/tasks/components/CreateTaskDialog';
 import { useGetPatientCoverages } from 'src/hooks/useGetPatient';
+import { useServiceCategoryAbbreviationResolver } from 'src/hooks/useServiceCategoryAbbreviation';
 import { formatLabelValue } from 'src/shared/utils';
 import {
   FhirAppointmentType,
@@ -35,8 +38,8 @@ import {
   formatWeightKg,
   getAdmitterPractitionerId,
   getAnnotationFollowupStatusLabel,
-  getAppointmentServiceCategoryAbbreviation,
   getAttendingPractitionerId,
+  getCoding,
   getEncounterLocationId,
   getFullestAvailableName,
   getInitialEncounterIdForFollowUp,
@@ -44,6 +47,7 @@ import {
   isInPersonAppointment,
   PaymentVariant,
   PRACTITIONER_CODINGS,
+  SERVICE_CATEGORY_SYSTEM,
   VisitStatusLabel,
   VitalFieldNames,
   type VitalsWeightObservationDTO,
@@ -55,6 +59,7 @@ import { useGetHistoricalVitals, useGetVitals } from '../../shared/components/vi
 import { useChartFields } from '../../shared/hooks/useChartFields';
 import { useGetAppointmentAccessibility } from '../../shared/hooks/useGetAppointmentAccessibility';
 import { useGetEmployees } from '../../shared/hooks/useGetEmployees';
+import { useGroupMemberPractitionerIds } from '../../shared/hooks/useGroupMemberPractitionerIds';
 import { useOystehrAPIClient } from '../../shared/hooks/useOystehrAPIClient';
 import { usePractitionerActions } from '../../shared/hooks/usePractitioner';
 import { useAppointmentData, useChartData } from '../../shared/stores/appointment/appointment.store';
@@ -252,7 +257,9 @@ export const Header = (): JSX.Element => {
   const userTimezone = DateTime.local().zoneName;
   const { date = '', time = '' } = formatDateToMDYWithTime(start, userTimezone) ?? {};
   const visitText = `Visit: ${date} ${time}${optionalVisitLabel ? ` | ${optionalVisitLabel}` : ''}`.trim();
-  const serviceCategory = getAppointmentServiceCategoryAbbreviation(appointment);
+  const resolveServiceCategoryAbbr = useServiceCategoryAbbreviationResolver();
+  const serviceCategoryCoding = getCoding(appointment?.serviceCategory, SERVICE_CATEGORY_SYSTEM);
+  const serviceCategory = resolveServiceCategoryAbbr(serviceCategoryCoding?.code ?? serviceCategoryCoding?.display);
   const visitBookingType = appointment
     ? appointment.appointmentType?.text === FhirAppointmentType.prebook
       ? 'Scheduled'
@@ -333,6 +340,18 @@ export const Header = (): JSX.Element => {
   const { oystehrZambda } = useApiClients();
 
   const { data: employees, isLoading: employeesIsLoading } = useGetEmployees();
+
+  // Group-membership filter for the Provider/ATND dropdown. Only renders when
+  // the appointment came through a group HS — confines the picker to the
+  // group's roster so the front desk doesn't unknowingly assign outside it.
+  // Toggle defaults on; user can flip it off when a deliberate cross-group
+  // assignment is needed.
+  const groupMemberPractitionerIds = useGroupMemberPractitionerIds(group);
+  const [restrictProvidersToGroup, setRestrictProvidersToGroup] = useState(true);
+  const filteredProviders =
+    group && restrictProvidersToGroup && groupMemberPractitionerIds
+      ? employees?.providers?.filter((p) => groupMemberPractitionerIds.includes(p.practitionerId))
+      : employees?.providers;
 
   if (!employeesIsLoading && oystehrZambda && !employees) {
     return <Box sx={{ padding: '16px' }}>There must be some employees registered to use charting.</Box>;
@@ -501,7 +520,67 @@ export const Header = (): JSX.Element => {
                                 void handleUpdateProviderAssignment(e.target.value);
                               }}
                             >
-                              {employees.providers
+                              {group && (
+                                <MenuItem
+                                  // Embedding a non-option control inside a MUI Select
+                                  // menu requires defending against several behaviors that
+                                  // would otherwise close the dropdown on every toggle:
+                                  //   - `disabled` makes Select's selection logic skip
+                                  //     this child instead of treating clicks as option
+                                  //     picks. The sx overrides undo `disabled`'s visual
+                                  //     dimming and pointer-events blocking so the Switch
+                                  //     stays interactive.
+                                  //   - Stops on mousedown/click/keydown at the MenuItem
+                                  //     level catch Select's event delegation before it
+                                  //     can read the toggle interaction as an option pick.
+                                  //   - Stops on the Switch's own change/click prevent the
+                                  //     events from bubbling to any parent input listener.
+                                  //   - `inputProps.tabIndex: -1` keeps focus on the
+                                  //     MenuList — without it the hidden checkbox grabs
+                                  //     focus on click and the Menu closes thinking focus
+                                  //     left the option list.
+                                  // We don't know which single piece is sufficient (each
+                                  // trim attempt regressed). Treat this as a load-bearing
+                                  // bundle and edit only when MUI behavior changes.
+                                  disabled
+                                  disableRipple
+                                  sx={{
+                                    px: 2,
+                                    py: 1,
+                                    borderBottom: '1px solid',
+                                    borderColor: 'divider',
+                                    cursor: 'default',
+                                    '&.Mui-disabled': {
+                                      opacity: 1,
+                                      pointerEvents: 'auto',
+                                    },
+                                    '&:hover': { backgroundColor: 'transparent' },
+                                  }}
+                                  onMouseDown={(e) => e.stopPropagation()}
+                                  onClick={(e) => e.stopPropagation()}
+                                  onKeyDown={(e) => e.stopPropagation()}
+                                >
+                                  <FormControlLabel
+                                    onClick={(e) => e.stopPropagation()}
+                                    control={
+                                      <Switch
+                                        size="small"
+                                        checked={restrictProvidersToGroup}
+                                        onChange={(e) => {
+                                          e.stopPropagation();
+                                          setRestrictProvidersToGroup(e.target.checked);
+                                        }}
+                                        onClick={(e) => e.stopPropagation()}
+                                        inputProps={{ tabIndex: -1 }}
+                                      />
+                                    }
+                                    label={
+                                      <Typography variant="caption">Members of {group.name ?? 'group'} only</Typography>
+                                    }
+                                  />
+                                </MenuItem>
+                              )}
+                              {filteredProviders
                                 ?.sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()))
                                 ?.map((provider) => (
                                   <MenuItem key={provider.practitionerId} value={provider.practitionerId}>

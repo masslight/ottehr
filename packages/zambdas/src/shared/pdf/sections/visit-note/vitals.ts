@@ -75,7 +75,10 @@ export const createVitalsSection = <TData extends { encounter?: EncounterInfo; v
             styles.textStyles.blockSubHeader
           );
           data.vitals?.[vitalName as VitalFieldNames]?.forEach((record) => {
-            drawRegularText(client, styles, record);
+            // DOT vision screening records are multi-line (MCSA-5875 layout); render each line separately.
+            record.split('\n').forEach((line) => {
+              drawRegularText(client, styles, line);
+            });
           });
         });
 

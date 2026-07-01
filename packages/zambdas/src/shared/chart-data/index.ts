@@ -7,6 +7,7 @@ import {
   CodeableConcept,
   Communication,
   Condition,
+  DiagnosticReport,
   DocumentReference,
   DomainResource,
   Encounter,
@@ -42,6 +43,7 @@ import {
   BooleanValueDTO,
   ClinicalImpressionDTO,
   CommunicationDTO,
+  CPT_CODE_SYSTEM,
   CPTCodeDTO,
   createCodeableConcept,
   createFilesDocumentReferences,
@@ -56,6 +58,7 @@ import {
   FHIR_EXTENSION,
   fillVitalObservationAttributes,
   FreeTextNoteDTO,
+  getBooleanExtensionValue,
   GetChartDataResponse,
   getVitalObservationFhirInterpretations,
   HospitalizationDTO,
@@ -102,6 +105,7 @@ import { removePrefix } from '../appointment/helpers';
 import { getCptModifierCodeFromProcedure } from '../candid';
 import { fillMeta } from '../helpers';
 import { isDocumentPublished, PdfDocumentReferencePublishedStatuses, PdfInfo } from '../pdf/pdf-utils';
+import { makeRadiologyDTO, takeMostRecentPreliminaryReport, takeTheBestFinalDiagnosticReport } from '../radiology';
 import { saveOrUpdateResourceRequest } from '../resources.helpers';
 
 const hasValue = (data: unknown): boolean => {
@@ -290,6 +294,14 @@ export function makeMedicationResource(
         },
       ],
     },
+    ...(data.isRenewal !== undefined && {
+      extension: [
+        {
+          url: FHIR_EXTENSION.MedicationRequest.isRenewal.url,
+          valueBoolean: data.isRenewal,
+        },
+      ],
+    }),
   };
 }
 
@@ -313,6 +325,7 @@ export function makeMedicationDTO(medication: MedicationStatement): MedicationDT
       ? (medication.status as 'active' | 'completed')
       : 'completed',
     practitioner: medication.informationSource,
+    isRenewal: getBooleanExtensionValue(medication, FHIR_EXTENSION.MedicationRequest.isRenewal.url),
   };
 }
 
@@ -330,6 +343,7 @@ export function makePrescribedMedicationDTO(medRequest: MedicationRequest): Pres
       (identifier) => identifier.system === 'https://identifiers.fhir.oystehr.com/erx-prescription-id'
     )?.value,
     encounterId: medRequest.encounter?.reference?.split('/')?.[1],
+    isRenewal: getBooleanExtensionValue(medRequest, FHIR_EXTENSION.MedicationRequest.isRenewal.url),
   };
 }
 
@@ -355,7 +369,7 @@ export function makeProcedureResource(
     result.note = [{ text: text }];
   } else if ('code' in data && 'display' in data) {
     result.code = {
-      coding: [{ code: data.code, display: data.display }],
+      coding: [{ system: CPT_CODE_SYSTEM, code: data.code, display: data.display }],
     };
   }
   if (partOf) {
@@ -1656,6 +1670,39 @@ export function handleCustomDTOExtractions(data: AllChartValues, resources: Fhir
   // 7. Accident
   data.accident = makeAccidentDTOFromFhirResources(resources);
 
+  // 8. Radiology orders
+  if (data.radiologyOrders) {
+    const diagnosticReportBySrId = resources.reduce((acc: Record<string, DiagnosticReport[]>, r) => {
+      if (r.resourceType === 'DiagnosticReport') {
+        const srId = r.basedOn
+          ?.find((basedOn) => basedOn.reference?.startsWith('ServiceRequest/'))
+          ?.reference?.replace('ServiceRequest/', '');
+        if (!srId) return acc;
+
+        if (acc[srId]) {
+          acc[srId].push(r);
+        } else {
+          acc[srId] = [r];
+        }
+      }
+      return acc;
+    }, {});
+
+    serviceRequests.forEach((sr) => {
+      if (!chartDataResourceHasMetaTagByCode(sr, 'radiology')) return;
+      if (sr.status === 'revoked') return; // don't pull in soft deletes
+
+      const { id } = sr;
+      if (!id) return;
+
+      const relatedDiagnosticReports = diagnosticReportBySrId[id] ?? [];
+      const preliminaryDiagnosticReport = takeMostRecentPreliminaryReport(relatedDiagnosticReports);
+      const bestFinalReport = takeTheBestFinalDiagnosticReport(relatedDiagnosticReports);
+      const radiologyDTO = makeRadiologyDTO(sr, preliminaryDiagnosticReport, bestFinalReport);
+      data.radiologyOrders?.push(radiologyDTO);
+    });
+  }
+
   return data;
 }
 
@@ -1828,7 +1875,6 @@ export function makeProceduresDTOFromFhirResources(
     return {
       resourceId: serviceRequests.id,
       encounterId: serviceRequests.encounter?.reference?.split('/')[1],
-      procedureType: getCode(serviceRequests.category, PROCEDURE_TYPE_SYSTEM),
       cptCodes: cptCodeProcedures
         .filter(
           (procedure) => serviceRequests.supportingInfo?.find((ref) => ref.reference === `Procedure/${procedure.id}`)
@@ -1847,27 +1893,67 @@ export function makeProceduresDTOFromFhirResources(
         .map((condition) => {
           return makeDiagnosisDTO(condition, false);
         }),
-      procedureDateTime: serviceRequests.occurrenceDateTime,
-      documentedDateTime: serviceRequests.authoredOn,
-      performerType: getCode(serviceRequests.performerType, PERFORMER_TYPE_SYSTEM),
-      medicationUsed: getExtension(serviceRequests, FHIR_EXTENSION.ServiceRequest.medicationUsed.url)?.valueString,
-      bodySite: getCode(serviceRequests.bodySite, BODY_SITE_SYSTEM),
-      bodySide: getExtension(serviceRequests, FHIR_EXTENSION.ServiceRequest.bodySide.url)?.valueString,
-      technique: getExtensions(serviceRequests, FHIR_EXTENSION.ServiceRequest.technique.url)
-        .map((extension) => extension.valueString)
-        .filter((value) => value != null),
-      suppliesUsed: getExtension(serviceRequests, FHIR_EXTENSION.ServiceRequest.suppliesUsed.url)?.valueString,
-      procedureDetails: getExtension(serviceRequests, FHIR_EXTENSION.ServiceRequest.procedureDetails.url)?.valueString,
-      specimenSent: getExtension(serviceRequests, FHIR_EXTENSION.ServiceRequest.specimenSent.url)?.valueBoolean,
-      complications: getExtension(serviceRequests, FHIR_EXTENSION.ServiceRequest.complications.url)?.valueString,
-      patientResponse: getExtension(serviceRequests, FHIR_EXTENSION.ServiceRequest.patientResponse.url)?.valueString,
-      postInstructions: getExtension(serviceRequests, FHIR_EXTENSION.ServiceRequest.postInstructions.url)?.valueString,
-      timeSpent: getExtension(serviceRequests, FHIR_EXTENSION.ServiceRequest.timeSpent.url)?.valueString,
-      documentedBy: getExtension(serviceRequests, FHIR_EXTENSION.ServiceRequest.documentedBy.url)?.valueString,
-      consentObtained: getExtension(serviceRequests, FHIR_EXTENSION.ServiceRequest.consentObtained.url)?.valueBoolean,
+      ...readProcedureFormFieldsFromServiceRequest(serviceRequests),
     };
   });
 }
+
+/**
+ * The subset of ProcedureDTO that's encoded directly on a procedure
+ * ServiceRequest (its category/performerType/bodySite/extensions), as opposed
+ * to the cross-resource fields (diagnoses, cptCodes) which require traversing
+ * other resources to resolve. Pulled out so the read path can be shared
+ * between the live-chart reader (`makeProceduresDTOFromFhirResources`) and
+ * apply-template's procedure plan flow.
+ */
+export type ProcedureFormFields = Pick<
+  ProcedureDTO,
+  | 'procedureType'
+  | 'procedureDateTime'
+  | 'documentedDateTime'
+  | 'performerType'
+  | 'medicationUsed'
+  | 'bodySite'
+  | 'bodySide'
+  | 'technique'
+  | 'suppliesUsed'
+  | 'procedureDetails'
+  | 'specimenSent'
+  | 'complications'
+  | 'patientResponse'
+  | 'postInstructions'
+  | 'timeSpent'
+  | 'documentedBy'
+  | 'consentObtained'
+>;
+
+/**
+ * Read the procedure-form payload off a procedure ServiceRequest into the DTO
+ * shape. The chart-data reader (above) and apply-template's procedure-plan
+ * apply flow both use this so changes to which fields a procedure carries land
+ * in one place.
+ */
+export const readProcedureFormFieldsFromServiceRequest = (sr: ServiceRequest): ProcedureFormFields => ({
+  procedureType: getCode(sr.category, PROCEDURE_TYPE_SYSTEM),
+  procedureDateTime: sr.occurrenceDateTime,
+  documentedDateTime: sr.authoredOn,
+  performerType: getCode(sr.performerType, PERFORMER_TYPE_SYSTEM),
+  medicationUsed: getExtension(sr, FHIR_EXTENSION.ServiceRequest.medicationUsed.url)?.valueString,
+  bodySite: getCode(sr.bodySite, BODY_SITE_SYSTEM),
+  bodySide: getExtension(sr, FHIR_EXTENSION.ServiceRequest.bodySide.url)?.valueString,
+  technique: getExtensions(sr, FHIR_EXTENSION.ServiceRequest.technique.url)
+    .map((extension) => extension.valueString)
+    .filter((value): value is string => value != null),
+  suppliesUsed: getExtension(sr, FHIR_EXTENSION.ServiceRequest.suppliesUsed.url)?.valueString,
+  procedureDetails: getExtension(sr, FHIR_EXTENSION.ServiceRequest.procedureDetails.url)?.valueString,
+  specimenSent: getExtension(sr, FHIR_EXTENSION.ServiceRequest.specimenSent.url)?.valueBoolean,
+  complications: getExtension(sr, FHIR_EXTENSION.ServiceRequest.complications.url)?.valueString,
+  patientResponse: getExtension(sr, FHIR_EXTENSION.ServiceRequest.patientResponse.url)?.valueString,
+  postInstructions: getExtension(sr, FHIR_EXTENSION.ServiceRequest.postInstructions.url)?.valueString,
+  timeSpent: getExtension(sr, FHIR_EXTENSION.ServiceRequest.timeSpent.url)?.valueString,
+  documentedBy: getExtension(sr, FHIR_EXTENSION.ServiceRequest.documentedBy.url)?.valueString,
+  consentObtained: getExtension(sr, FHIR_EXTENSION.ServiceRequest.consentObtained.url)?.valueBoolean,
+});
 
 export const createProcedureServiceRequest = (
   procedure: ProcedureDTO,
@@ -1926,16 +2012,19 @@ export const createProcedureServiceRequest = (
       valueBoolean: procedure.consentObtained,
     },
   ].filter((extension) => extension.valueString != null || extension.valueBoolean != null);
-  const diagnosesReferences = procedure.diagnoses?.map((diagnosis) => {
-    return {
-      reference: 'Condition/' + diagnosis.resourceId,
-    };
-  });
-  const cptCodesReferences = procedure.cptCodes?.map((cptCode) => {
-    return {
-      reference: 'Procedure/' + cptCode.resourceId,
-    };
-  });
+  // Linked Condition/Procedure references are usually plain ids that get the
+  // FHIR resource-type prefix. Callers building requests for a FHIR transaction
+  // can also pass a urn:uuid pre-formatted reference (e.g. the apply-template
+  // procedure-plan flow, which links the new procedure to other resources being
+  // created in the same transaction); those pass through verbatim.
+  const formatLinkedRef = (resourceId: string | undefined, resourceType: 'Condition' | 'Procedure'): string =>
+    resourceId?.startsWith('urn:uuid:') ? resourceId : `${resourceType}/${resourceId}`;
+  const diagnosesReferences = procedure.diagnoses?.map((diagnosis) => ({
+    reference: formatLinkedRef(diagnosis.resourceId, 'Condition'),
+  }));
+  const cptCodesReferences = procedure.cptCodes?.map((cptCode) => ({
+    reference: formatLinkedRef(cptCode.resourceId, 'Procedure'),
+  }));
 
   return saveOrUpdateResourceRequest<ServiceRequest>({
     resourceType: 'ServiceRequest',

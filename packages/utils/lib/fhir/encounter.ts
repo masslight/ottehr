@@ -1,16 +1,19 @@
 import Oystehr from '@oystehr/sdk';
 import { Operation } from 'fast-json-patch';
-import { Appointment, Encounter, EncounterStatusHistory, Extension, Location, Resource } from 'fhir/r4b';
+import { Appointment, Encounter, EncounterStatusHistory, Extension, Location, Reference, Resource } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { CODE_SYSTEM_ACT_CODE_V3 } from '../helpers';
 import { FhirEncounterStatus, PatientFollowupDetails, ProviderDetails, VisitStatusWithoutUnknown } from '../types';
 import {
   CURRENT_EXAM_MIGRATION_VERSION,
   ENCOUNTER_PAYMENT_VARIANT_EXTENSION_URL,
+  ENCOUNTER_VISIT_OCCUPATIONAL_MEDICINE_EMPLOYER_EXTENSION_URL,
   EXAM_MIGRATION_VERSION_URL,
   FHIR_BASE_URL,
+  FHIR_ENCOUNTER_ERX_PATIENT_SYNC_TAG,
   FHIR_EXTENSION,
 } from './constants';
+import { getPatchOperationForNewMetaTag } from './resourcePatch';
 
 // follow up encounter consts
 export const FOLLOWUP_TYPES = ['Follow-up Encounter'] as const;
@@ -32,6 +35,24 @@ export const FOLLOWUP_REASONS = [
 ] as const;
 type FollowupReasons = (typeof FOLLOWUP_REASONS)[number];
 export type FollowupReason = FollowupReasons;
+
+// Reason-for-visit options shown when booking a scheduled follow-up visit (replaces the
+// service-category reason-for-visit list for that flow). "Other" reveals a free-text field; if the
+// follow-up reason matches the initial visit's reason for visit, the provider enters it there.
+export const SCHEDULED_FOLLOWUP_REASONS = [
+  'Suture / Staple Removal',
+  'Dressing Change',
+  'DOT / CDL Medical Hold Completion',
+  'Immigration Exam (I-693) Finalization',
+  'Work Status / Fit-for-Duty Clearance',
+  'Post-Accident Follow-up (Auto/Work)',
+  'Drug / Alcohol Screen Collection',
+  'Test Results Review (Lab/Imaging)',
+  'Tuberculosis (PPD) Skin Test Read',
+  'Other',
+] as const;
+export type ScheduledFollowupReason = (typeof SCHEDULED_FOLLOWUP_REASONS)[number];
+export const SCHEDULED_FOLLOWUP_OTHER_REASON: ScheduledFollowupReason = 'Other';
 
 export const FOLLOWUP_SYSTEMS = {
   callerUrl: `${FHIR_BASE_URL}/followup-caller`,
@@ -136,25 +157,6 @@ export const formatFhirEncounterToPatientFollowupDetails = (
   };
 
   return formatted;
-};
-
-export const getEncounterForAppointment = async (appointmentID: string, oystehr: Oystehr): Promise<Encounter> => {
-  const encounterTemp = (
-    await oystehr.fhir.search<Encounter>({
-      resourceType: 'Encounter',
-      params: [
-        {
-          name: 'appointment',
-          value: `Appointment/${appointmentID}`,
-        },
-      ],
-    })
-  ).unbundle();
-  const encounter = encounterTemp[0];
-  if (encounterTemp.length === 0 || !encounter.id) {
-    throw new Error('Error getting appointment encounter');
-  }
-  return encounter;
 };
 
 export const getSpentTime = (history?: EncounterStatusHistory[]): string | undefined => {
@@ -276,6 +278,32 @@ export const isEncounterSelfPay = (encounter?: Encounter): boolean => {
   return paymentVariant === PaymentVariant.selfPay;
 };
 
+export const getVisitOccupationalMedicineEmployerFromEncounter = (encounter: Encounter): Reference | undefined => {
+  return encounter.extension?.find((ext) => ext.url === ENCOUNTER_VISIT_OCCUPATIONAL_MEDICINE_EMPLOYER_EXTENSION_URL)
+    ?.valueReference;
+};
+
+export const getEncounterVisitOccupationalMedicineEmployerExtension = (employer: Reference): Extension => ({
+  url: ENCOUNTER_VISIT_OCCUPATIONAL_MEDICINE_EMPLOYER_EXTENSION_URL,
+  valueReference: employer,
+});
+
+/** `null` removes the extension; a Reference sets it. */
+export const applyVisitOccupationalMedicineEmployerToEncounterExtensions = (
+  existingExtensions: Extension[] | undefined,
+  employer: Reference | null
+): Extension[] => {
+  const without = (existingExtensions ?? []).filter(
+    (ext) => ext.url !== ENCOUNTER_VISIT_OCCUPATIONAL_MEDICINE_EMPLOYER_EXTENSION_URL
+  );
+
+  if (employer === null) {
+    return without;
+  }
+
+  return [...without, getEncounterVisitOccupationalMedicineEmployerExtension(employer)];
+};
+
 export const buildAppointmentStartMap = (resources: Resource[]): Record<string, string> => {
   const map: Record<string, string> = {};
   resources.forEach((r) => {
@@ -371,3 +399,51 @@ export function encounterHasLegacyExamVersion(encounter: Encounter): boolean {
   const examVersion = getExamMigrationVersion(encounter);
   return examVersion < CURRENT_EXAM_MIGRATION_VERSION;
 }
+
+const MAX_ERX_SYNC_TAG_RETRIES = 5;
+
+export const isEncounterErxSynced = (encounter: Encounter): boolean =>
+  encounter.meta?.tag?.some(
+    (tag) =>
+      tag.system === FHIR_ENCOUNTER_ERX_PATIENT_SYNC_TAG.system && tag.code === FHIR_ENCOUNTER_ERX_PATIENT_SYNC_TAG.code
+  ) ?? false;
+
+export const tagEncounterAsErxSynced = async (oystehr: Oystehr, encounter: Encounter): Promise<void> => {
+  const encounterId = encounter.id;
+  if (!encounterId) {
+    throw new Error('Cannot tag encounter as eRx-synced: encounter has no id');
+  }
+
+  let current = encounter;
+  let retries = 0;
+
+  while (retries < MAX_ERX_SYNC_TAG_RETRIES) {
+    if (isEncounterErxSynced(current)) {
+      return;
+    }
+
+    try {
+      await oystehr.fhir.patch(
+        {
+          resourceType: 'Encounter',
+          id: encounterId,
+          operations: [getPatchOperationForNewMetaTag(current, FHIR_ENCOUNTER_ERX_PATIENT_SYNC_TAG)],
+        },
+        { optimisticLockingVersionId: current.meta?.versionId }
+      );
+      return;
+    } catch (patchError) {
+      retries++;
+      try {
+        current = await oystehr.fhir.get<Encounter>({
+          resourceType: 'Encounter',
+          id: encounterId,
+        });
+      } catch (refreshError) {
+        console.warn(`Failed to tag encounter ${encounterId} after ${retries} attempts`, refreshError || patchError);
+        return;
+      }
+    }
+  }
+  console.error(`Failed to tag encounter ${encounterId} after ${retries} attempts, giving up`);
+};

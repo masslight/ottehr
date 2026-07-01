@@ -1,66 +1,37 @@
-import { getSecret, INVALID_INPUT_ERROR, MISSING_REQUIRED_PARAMETERS, SecretsKeys, SignAppointmentInput } from 'utils';
-import { ZambdaInput } from '../../shared';
+import { MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS, NOT_AUTHORIZED, SignAppointmentInput } from 'utils';
+import { z } from 'zod';
+import { safeJsonParse, safeValidate, ZambdaInput } from '../../shared';
+
+const SignAppointmentSchema = z.object({
+  appointmentId: z.string().uuid(),
+  encounterId: z.string().uuid(),
+  timezone: z.string().min(1).nullable().optional(),
+  supervisorApprovalEnabled: z.boolean().optional().default(false),
+});
 
 export function validateRequestParameters(input: ZambdaInput): SignAppointmentInput & { userToken: string } {
   console.group('validateRequestParameters');
 
+  if (!input.secrets) {
+    throw MISSING_REQUEST_SECRETS;
+  }
+
+  if (!input.headers.Authorization) {
+    throw NOT_AUTHORIZED;
+  }
+
   if (!input.body) {
-    throw new Error('No request body provided');
+    throw MISSING_REQUEST_BODY;
   }
 
-  let parsedBody: unknown;
-  try {
-    parsedBody = JSON.parse(input.body);
-  } catch {
-    throw new Error('Invalid JSON in request body');
-  }
+  const parsedJSON = safeJsonParse(input.body);
 
-  if (!parsedBody || typeof parsedBody !== 'object') {
-    throw new Error('Request body must be a valid JSON object');
-  }
-
-  const body = parsedBody as Record<string, unknown>;
-
-  const { appointmentId, encounterId, timezone } = body;
-
-  if (appointmentId === undefined) {
-    throw MISSING_REQUIRED_PARAMETERS(['appointmentId']);
-  } else if (typeof appointmentId !== 'string') {
-    throw INVALID_INPUT_ERROR(
-      `Invalid "appointmentId" parameter provided: ${JSON.stringify(appointmentId)}. It must be a string.`
-    );
-  }
-
-  if (encounterId === undefined) {
-    throw MISSING_REQUIRED_PARAMETERS(['encounterId']);
-  } else if (typeof encounterId !== 'string') {
-    throw INVALID_INPUT_ERROR(
-      `Invalid "encounterId" parameter provided: ${JSON.stringify(encounterId)}. It must be a string.`
-    );
-  }
-
-  if (getSecret(SecretsKeys.PROJECT_API, input.secrets) === undefined) {
-    throw new Error('"PROJECT_API" configuration not provided');
-  }
-
-  if (getSecret(SecretsKeys.ORGANIZATION_ID, input.secrets) === undefined) {
-    throw new Error('"ORGANIZATION_ID" configuration not provided');
-  }
-
-  if (timezone != undefined && typeof timezone !== 'string') {
-    throw INVALID_INPUT_ERROR(
-      `Invalid "timezone" parameter provided: ${JSON.stringify(timezone)}. It must be a string or null.`
-    );
-  }
+  const { appointmentId, encounterId, timezone, supervisorApprovalEnabled } = safeValidate(
+    SignAppointmentSchema,
+    parsedJSON
+  );
 
   const userToken = input.headers.Authorization.replace('Bearer ', '');
-
-  if (!input.secrets) {
-    throw new Error('Secrets are required for this operation');
-  }
-
-  const supervisorApprovalEnabled =
-    typeof body.supervisorApprovalEnabled === 'boolean' ? body.supervisorApprovalEnabled : false;
 
   console.groupEnd();
   console.debug('validateRequestParameters success');

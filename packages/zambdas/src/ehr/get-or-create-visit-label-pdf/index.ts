@@ -5,12 +5,13 @@ import {
   DYMO_30334_LABEL_CONFIG,
   getMiddleName,
   getPatientFirstName,
+  getPatientFriendlyId,
   getPatientLastName,
   getPresignedURL,
   getTimezone,
   MIME_TYPES,
 } from 'utils';
-import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
+import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
 import {
   createVisitLabelPDF,
   VISIT_LABEL_PDF_DOC_REF_DOCTYPE,
@@ -32,7 +33,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   console.log('token', m2mToken);
 
-  const oystehr = createOystehrClient(m2mToken, secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
   const labelDocRefs = (
     await oystehr.fhir.search<DocumentReference>({
@@ -99,7 +100,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const labelConfig: VisitLabelConfig = {
       labelConfig: DYMO_30334_LABEL_CONFIG,
       content: {
-        patientId: patient.id!,
+        patientId: getPatientFriendlyId(patient) || patient.id!,
         patientFirstName: getPatientFirstName(patient) ?? '',
         patientMiddleName: getMiddleName(patient),
         patientLastName: getPatientLastName(patient) ?? '',
@@ -114,6 +115,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const { presignedURL, documentReference } = await createVisitLabelPDF(
       labelConfig,
       encounterId,
+      patient.id!,
       secrets,
       m2mToken,
       oystehr

@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Appointment, Schedule, Slot } from 'fhir/r4b';
+import { Appointment, Location, Schedule, Slot } from 'fhir/r4b';
 import {
   FHIR_RESOURCE_NOT_FOUND,
   getOriginalBookingUrlFromSlot,
@@ -20,7 +20,14 @@ import {
   ServiceMode,
 } from 'utils';
 import { getNameForOwner } from '../../../ehr/schedules/shared';
-import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
+import {
+  checkOrCreateM2MClientToken,
+  createClinicalOystehrClient,
+  resolveBookingLocationId,
+  safeJsonParse,
+  wrapHandler,
+  ZambdaInput,
+} from '../../../shared';
 
 const ZAMBDA_NAME = 'get-slot-details';
 
@@ -33,7 +40,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   console.debug('validateRequestParameters success', JSON.stringify(validatedParameters));
   const { secrets } = validatedParameters;
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-  const oystehr = createOystehrClient(m2mToken, secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
   const effectInput = await complexValidation(validatedParameters, oystehr);
 
   const slotDetails = performEffect(effectInput);
@@ -45,7 +52,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 });
 
 const performEffect = (input: EffectInput): GetSlotDetailsResponse => {
-  const { slot, schedule, scheduleOwner, appointmentId, originalBookingUrl } = input;
+  const { slot, schedule, scheduleOwner, bookingLocation, appointmentId, originalBookingUrl } = input;
 
   const startISO = slot.start;
   const endISO = slot.end;
@@ -77,6 +84,8 @@ const performEffect = (input: EffectInput): GetSlotDetailsResponse => {
     timezoneForDisplay,
     ownerName,
     originalBookingUrl,
+    bookingLocationId: bookingLocation?.id,
+    bookingLocationName: bookingLocation?.name,
   };
 };
 
@@ -89,7 +98,7 @@ const validateRequestParameters = (input: ZambdaInput): BasicInput => {
     throw MISSING_REQUEST_BODY;
   }
 
-  const { slotId } = JSON.parse(input.body);
+  const { slotId } = safeJsonParse(input.body);
 
   if (!slotId) {
     throw MISSING_REQUIRED_PARAMETERS(['slotId']);
@@ -107,6 +116,13 @@ interface EffectInput {
   slot: Slot;
   schedule: Schedule;
   scheduleOwner: ScheduleOwnerFhirResource;
+  /**
+   * The Location resolved for this slot via the same precedence used by
+   * create-appointment. Surfaced separately from scheduleOwner so display
+   * code can show the booking Location's name even when the owner is a
+   * non-Location actor (e.g., a PR-actored slot booked through a group).
+   */
+  bookingLocation?: Location;
   appointmentId?: string;
   originalBookingUrl?: string;
 }
@@ -155,10 +171,28 @@ const complexValidation = async (input: BasicInput, oystehr: Oystehr): Promise<E
 
   const originalBookingUrl = getOriginalBookingUrlFromSlot(slot);
 
+  // Resolve the booking Location using the same precedence as create-
+  // appointment so display code can show a real Location name (not a
+  // bare actor reference like "PractitionerRole/<id>"). If the resolved
+  // id matches scheduleOwner (Location-actor case), reuse it instead of
+  // a separate fetch.
+  let bookingLocation: Location | undefined;
+  const bookingLocationId = resolveBookingLocationId({ scheduleOwner, slot });
+  if (bookingLocationId) {
+    if (scheduleOwner.resourceType === 'Location' && scheduleOwner.id === bookingLocationId) {
+      bookingLocation = scheduleOwner as Location;
+    } else {
+      bookingLocation = await oystehr.fhir
+        .get<Location>({ resourceType: 'Location', id: bookingLocationId })
+        .catch(() => undefined);
+    }
+  }
+
   return {
     slot,
     schedule,
     scheduleOwner,
+    bookingLocation,
     appointmentId: appointment?.id,
     originalBookingUrl,
   };

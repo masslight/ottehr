@@ -1,9 +1,22 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Claim, Coverage, Location, Organization, Patient, Person, Practitioner, Resource } from 'fhir/r4b';
 import {
+  Claim,
+  Coverage,
+  Location,
+  Organization,
+  Patient,
+  Person,
+  Practitioner,
+  RelatedPerson,
+  Resource,
+} from 'fhir/r4b';
+import {
+  BillingPolicyHolderSummary,
   ClaimDetailResponse,
   FHIR_RESOURCE_NOT_FOUND,
+  genderMap,
+  getClaimStatusValues,
   getNPI,
   getPayerId,
   getResourcesFromBatchInlineRequests,
@@ -12,13 +25,19 @@ import {
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import {
   CLAIM_TAG_SYSTEM,
+  claimHasRealCoverage,
   createBillingClient,
   fhirName,
   findRef,
   formatAddress,
+  getClaimService,
   getClaimStatus,
+  getClaimType,
+  getTaxonomy,
   resolvePayersByRef,
   sortClaimInsurance,
+  SOURCE_IDENTIFIER_SYSTEM,
+  toAddressParts,
 } from '../shared';
 import { GetClaimDetailParams, validateRequestParameters } from './validateRequestParameters';
 
@@ -52,7 +71,7 @@ async function performEffect(oystehr: Oystehr, params: GetClaimDetailParams): Pr
   if (!claim) throw FHIR_RESOURCE_NOT_FOUND('Claim');
 
   const patient = findRef<Patient>(resources, claim.patient?.reference);
-  const provider = findRef<Organization>(resources, claim.provider?.reference);
+  const provider = findRef<Practitioner | Organization>(resources, claim.provider?.reference);
   const facility = findRef<Location>(resources, claim.facility?.reference);
 
   // Batch-fetch coverage, rendering practitioner, and secondary insurance
@@ -60,10 +79,13 @@ async function performEffect(oystehr: Oystehr, params: GetClaimDetailParams): Pr
 
   const followUpQueries: string[] = [];
   const coverageRef = sortedInsurance[0]?.coverage?.reference;
-  if (coverageRef) followUpQueries.push(`/Coverage?_id=${coverageRef.replace('Coverage/', '')}`);
+  if (coverageRef) {
+    followUpQueries.push(`/Coverage?_id=${coverageRef.replace('Coverage/', '')}&_include=Coverage:subscriber`);
+  }
   const renderingRef = claim.careTeam?.[0]?.provider?.reference;
-  if (renderingRef?.startsWith('Practitioner/')) {
-    followUpQueries.push(`/Practitioner?_id=${renderingRef.replace('Practitioner/', '')}`);
+  if (renderingRef?.startsWith('Practitioner/') || renderingRef?.startsWith('Organization/')) {
+    const [renderingType, renderingId] = renderingRef.split('/');
+    followUpQueries.push(`/${renderingType}?_id=${renderingId}`);
   }
   const secCovRef = sortedInsurance[1]?.coverage?.reference;
   if (secCovRef) {
@@ -78,8 +100,18 @@ async function performEffect(oystehr: Oystehr, params: GetClaimDetailParams): Pr
         | Coverage
         | undefined)
     : undefined;
-  const renderingPractitioner = renderingRef
-    ? (followUp.find((r) => r.resourceType === 'Practitioner') as Practitioner | undefined)
+
+  const subscriberRef = coverage?.subscriber?.reference;
+  const subscriber = subscriberRef?.startsWith('RelatedPerson/')
+    ? findRef<RelatedPerson>(followUp, subscriberRef)
+    : undefined;
+  const policyHolder = extractPolicyHolder(subscriber);
+
+  const renderingId = renderingRef?.split('/')[1];
+  const renderingProvider = renderingId
+    ? (followUp.find(
+        (r) => r.id === renderingId && (r.resourceType === 'Practitioner' || r.resourceType === 'Organization')
+      ) as Practitioner | Organization | undefined)
     : undefined;
 
   let secondaryCoverage: Coverage | undefined;
@@ -105,18 +137,27 @@ async function performEffect(oystehr: Oystehr, params: GetClaimDetailParams): Pr
 
   const billed = claim.total?.value ?? 0;
   const status = getClaimStatus(claim);
+  const patientAddr = patient?.address?.[0];
 
   return {
     id: claim.id ?? '',
+    type: getClaimType(claim),
     status,
+    statuses: getClaimStatusValues(claim),
     created: claim.created ?? '',
-    billingType: sortedInsurance.length ? 'Insurance Pay' : 'Self Pay',
+    billingType: claimHasRealCoverage(claim.insurance) ? 'Insurance Pay' : 'Self Pay',
     billableStatus: claim.status === 'entered-in-error' ? 'Not Billable' : 'Billable',
+    service: getClaimService(claim),
     patientName: fhirName(patient),
     patientDob: patient?.birthDate ?? '',
     patientGender: patient?.gender ?? '',
     patientId: patient?.id ?? '',
-    patientAddress: formatAddress(patient?.address?.[0]),
+    patientOriginalId:
+      patient?.extension
+        ?.find((ext) => ext.url === SOURCE_IDENTIFIER_SYSTEM)
+        ?.valueReference?.reference?.replace('Patient/', '') ?? '',
+    patientAddress: formatAddress(patientAddr),
+    patientAddressParts: toAddressParts(patientAddr),
     coverageFhirId: coverage?.id ?? '',
     payorFhirId: insurer?.id ?? '',
     payerName: insurer?.name ?? '',
@@ -124,6 +165,8 @@ async function performEffect(oystehr: Oystehr, params: GetClaimDetailParams): Pr
     memberId: coverage?.subscriberId ?? '',
     subscriberId: coverage?.subscriberId ?? '',
     coverageStatus: coverage?.status ?? '',
+    relationship: coverage?.relationship?.coding?.[0]?.display ?? '',
+    policyHolder,
     responsibleParty: 'Primary',
     secondaryCoverageFhirId: secondaryCoverage?.id ?? '',
     secondaryPayerName: secondaryInsurer?.name ?? '',
@@ -131,16 +174,29 @@ async function performEffect(oystehr: Oystehr, params: GetClaimDetailParams): Pr
     secondaryMemberId: secondaryCoverage?.subscriberId ?? '',
     nonInsurancePayerFhirId: '',
     nonInsurancePayerName: '',
-    renderingProviderId: renderingPractitioner?.id ?? '',
-    renderingProvider: fhirName(renderingPractitioner),
-    renderingNpi: renderingPractitioner ? getNPI(renderingPractitioner) ?? '' : '',
+    renderingProviderId: renderingProvider?.id ?? '',
+    renderingProviderType: renderingProvider?.resourceType ?? '',
+    renderingProvider: renderingProvider
+      ? renderingProvider.resourceType === 'Practitioner'
+        ? fhirName(renderingProvider)
+        : renderingProvider.name ?? ''
+      : '',
+    renderingNpi: renderingProvider ? getNPI(renderingProvider) ?? '' : '',
+    renderingTaxonomy: renderingProvider ? getTaxonomy(renderingProvider) : '',
     billingProviderFhirId: provider?.id ?? '',
-    billingProvider: provider?.name ?? '',
+    billingProviderType: provider?.resourceType ?? '',
+    billingProvider: provider
+      ? provider.resourceType === 'Practitioner'
+        ? fhirName(provider)
+        : provider.name ?? ''
+      : '',
     billingNpi: provider ? getNPI(provider) ?? '' : '',
     billingTin: provider ? getTaxID(provider) ?? '' : '',
+    billingTaxonomy: provider ? getTaxonomy(provider) : '',
     facilityFhirId: facility?.id ?? '',
     serviceFacility: facility?.name ?? '',
     serviceFacilityAddress: formatAddress(facility?.address),
+    serviceFacilityAddressParts: toAddressParts(facility?.address),
     serviceFacilityNpi: facility ? getNPI(facility) ?? '' : '',
     diagnoses: (claim.diagnosis ?? []).map((dx) => ({
       sequence: dx.sequence,
@@ -171,6 +227,20 @@ async function performEffect(oystehr: Oystehr, params: GetClaimDetailParams): Pr
       .filter((t) => t.system === CLAIM_TAG_SYSTEM)
       .map((t) => t.code ?? '')
       .filter(Boolean),
+  };
+}
+
+// Flatten the working-copy subscriber RelatedPerson into the policy-holder summary the UI prefills from.
+function extractPolicyHolder(subscriber: RelatedPerson | undefined): BillingPolicyHolderSummary | null {
+  if (!subscriber) return null;
+  const name = subscriber.name?.[0];
+  return {
+    firstName: name?.given?.[0] ?? '',
+    middleName: name?.given?.[1] ?? '',
+    lastName: name?.family ?? '',
+    dob: subscriber.birthDate ?? '',
+    birthSex: subscriber.gender ? genderMap[subscriber.gender as keyof typeof genderMap] ?? '' : '',
+    addressParts: toAddressParts(subscriber.address?.[0]),
   };
 }
 
@@ -207,7 +277,9 @@ async function fetchOtherClaims(
 
   return otherClaims.map((c) => ({
     id: c.id ?? '',
+    type: getClaimType(c),
     status: getClaimStatus(c),
+    arStage: getClaimStatusValues(c).arStage,
     serviceDate: c.item?.[0]?.servicedPeriod?.start ?? c.created ?? '',
     payerName: (c.insurer?.reference ? payersByRef.get(c.insurer.reference) : undefined)?.name ?? '',
     billed: c.total?.value ?? 0,

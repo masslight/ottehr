@@ -23,7 +23,7 @@ import {
   TIMEZONE_EXTENSION_URL,
   userMe,
 } from 'utils';
-import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
+import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
 import { UpdateScheduleBasicInput, validateUpdateScheduleParameters } from '../shared';
 
 let m2mToken: string;
@@ -69,7 +69,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   }
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-  const oystehr = createOystehrClient(m2mToken, secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
   const effectInput = await complexValidation(validatedParameters, oystehr);
 
   const updatedSchedule = await performEffect(effectInput, oystehr);
@@ -400,7 +400,12 @@ const complexValidation = async (input: UpdateScheduleBasicInput, oystehr: Oyste
   const [actorType, actorId] = (schedule.actor ?? [])[0]?.reference?.split('/') ?? [];
   console.log('actorType, actorId', actorType, actorId);
   let owner: ScheduleOwnerFhirResource | undefined;
-  if (actorType === 'Location' || actorType === 'HealthcareService' || actorType === 'Practitioner') {
+  if (
+    actorType === 'Location' ||
+    actorType === 'HealthcareService' ||
+    actorType === 'Practitioner' ||
+    actorType === 'PractitionerRole'
+  ) {
     owner = await oystehr.fhir.get<ScheduleOwnerFhirResource>({ resourceType: actorType, id: actorId });
   }
 

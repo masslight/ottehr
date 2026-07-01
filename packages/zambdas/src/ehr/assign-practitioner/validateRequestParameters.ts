@@ -1,77 +1,39 @@
-import { Coding } from 'fhir/r4b';
-import { AssignPractitionerInputValidated, getSecret, SecretsKeys } from 'utils';
-import { ZambdaInput } from '../../shared/types';
+import { AssignPractitionerInputValidated, MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS, NOT_AUTHORIZED } from 'utils';
+import { z } from 'zod';
+import { safeJsonParse, safeValidate, ZambdaInput } from '../../shared';
+
+const CodingSchema = z
+  .object({
+    code: z.string().optional(),
+    display: z.string().optional(),
+    system: z.string().optional(),
+  })
+  .passthrough();
+
+const AssignPractitionerSchema = z.object({
+  encounterId: z.string().uuid(),
+  practitionerId: z.string().uuid(),
+  userRole: z.array(CodingSchema),
+});
 
 export function validateRequestParameters(input: ZambdaInput): AssignPractitionerInputValidated {
   console.group('validateRequestParameters');
 
+  if (!input.secrets) {
+    throw MISSING_REQUEST_SECRETS;
+  }
+
+  if (!input.headers.Authorization) {
+    throw NOT_AUTHORIZED;
+  }
+
   if (!input.body) {
-    throw new Error('No request body provided');
+    throw MISSING_REQUEST_BODY;
   }
 
-  const parsedJSON = JSON.parse(input.body) as unknown;
+  const parsedJSON = safeJsonParse(input.body);
 
-  // Safely extract and validate encounterId
-  if (!parsedJSON || typeof parsedJSON !== 'object') {
-    throw new Error('Request body must be a valid JSON object');
-  }
-
-  const body = parsedJSON as Record<string, unknown>;
-
-  if (typeof body.encounterId !== 'string') {
-    throw new Error('encounterId must be a string');
-  }
-
-  const encounterId = body.encounterId;
-
-  // Validate practitioner - check for required Practitioner properties
-  if (!body.practitionerId || typeof body.practitionerId !== 'string') {
-    throw new Error('practitionerId must be a string');
-  }
-
-  const practitionerId = body.practitionerId;
-
-  // Validate userRole - should be an array of Coding objects
-  if (!Array.isArray(body.userRole)) {
-    throw new Error('userRole must be an array of Coding objects');
-  }
-
-  const userRole = body.userRole as unknown[];
-
-  // Validate each item in userRole array is a valid Coding object
-  for (let i = 0; i < userRole.length; i++) {
-    const coding = userRole[i];
-    if (!coding || typeof coding !== 'object') {
-      throw new Error(`userRole[${i}] must be a valid Coding object`);
-    }
-
-    const codingObj = coding as Record<string, unknown>;
-    if (codingObj.code != undefined && typeof codingObj.code !== 'string') {
-      throw new Error(`userRole[${i}].code must be a string if provided`);
-    }
-
-    if (codingObj.display !== undefined && typeof codingObj.display !== 'string') {
-      throw new Error(`userRole[${i}].display must be a string if provided`);
-    }
-
-    if (codingObj.system !== undefined && typeof codingObj.system !== 'string') {
-      throw new Error(`userRole[${i}].system must be a string if provided`);
-    }
-  }
-
-  const validatedUserRole = userRole as Coding[];
-
-  if (encounterId === undefined || practitionerId === undefined || validatedUserRole === undefined) {
-    throw new Error('These fields are required: "encounterId" "practitionerId" "userRole".');
-  }
-
-  if (getSecret(SecretsKeys.PROJECT_API, input.secrets) === undefined) {
-    throw new Error('"PROJECT_API" configuration not provided');
-  }
-
-  if (getSecret(SecretsKeys.ORGANIZATION_ID, input.secrets) === undefined) {
-    throw new Error('"ORGANIZATION_ID" configuration not provided');
-  }
+  const { encounterId, practitionerId, userRole } = safeValidate(AssignPractitionerSchema, parsedJSON);
 
   const userToken = input.headers.Authorization.replace('Bearer ', '');
 
@@ -81,7 +43,7 @@ export function validateRequestParameters(input: ZambdaInput): AssignPractitione
   return {
     encounterId,
     practitionerId,
-    userRole: validatedUserRole,
+    userRole,
     secrets: input.secrets,
     userToken,
   };

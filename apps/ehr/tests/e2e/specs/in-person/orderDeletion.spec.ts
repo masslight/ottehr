@@ -16,6 +16,7 @@ import {
   RadiologyPage,
 } from 'tests/e2e/page/RadiologyPage';
 import { SideMenu } from 'tests/e2e/page/SideMenu';
+import { dismissSnackbars } from 'tests/e2e-utils/helpers/tests-utils';
 import { ResourceHandler } from 'tests/e2e-utils/resource-handler';
 import {
   FEATURE_FLAGS_CONFIG,
@@ -145,7 +146,7 @@ async function addVitals(page: Page, weightKg: string, heightCm: string): Promis
   await expect(page.getByText(weightRegex).first()).toBeVisible({ timeout: 10000 });
 
   // Fill height
-  const heightInput = page.getByLabel('Height (cm)');
+  const heightInput = page.getByTestId(dataTestIds.vitalsPage.heightInput).locator('input');
   await heightInput.scrollIntoViewIfNeeded();
   await heightInput.fill(heightCm);
 
@@ -435,6 +436,8 @@ test.describe('Order Deletion - Happy Path', () => {
       });
 
       await test.step('Verify medication not shown in Progress Note', async () => {
+        // A lingering toast can overlay the side menu and intercept the click; clear it first.
+        await dismissSnackbars(page);
         // Navigate to Review & Sign (Progress Note) page
         await sideMenu.clickReviewAndSign();
 
