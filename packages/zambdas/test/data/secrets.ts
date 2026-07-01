@@ -13,4 +13,7 @@ export const SECRETS = {
   AUTH0_SECRET_TESTS: envConfig.AUTH0_SECRET_TESTS,
   PROJECT_API: envConfig.PROJECT_API,
   PROJECT_ID: envConfig.PROJECT_ID,
+  // Webhook secret AdvaPACS would sign its callbacks with; used by the
+  // radiology-pacs-webhook integration test to satisfy the endpoint's access check.
+  ADVAPACS_WEBHOOK_SECRET: envConfig.ADVAPACS_WEBHOOK_SECRET,
 };
