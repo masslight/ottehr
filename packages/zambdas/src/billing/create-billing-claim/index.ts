@@ -23,6 +23,7 @@ import {
   CODE_SYSTEM_OYSTEHR_RCM_CMS1500_REFERRING_PROVIDER_TYPE,
   CODE_SYSTEM_PROCESS_PRIORITY,
   FHIR_RESOURCE_NOT_FOUND,
+  getDefaultClaimSubmissionExtensions,
   getResourcesFromBatchInlineRequests,
   InternalError,
   withArStageInitialization,
@@ -194,6 +195,8 @@ function buildClaim(copies: OriginalResources, params: CreateClaimParams): Claim
       ? { reference: `${copies.billingProvider.resourceType}/${copies.billingProvider.id}` }
       : { display: 'Unknown' },
     priority: { coding: [{ system: CODE_SYSTEM_PROCESS_PRIORITY, code: 'normal' }] },
+    // Constant RCM attributes the Oystehr "Submit Claim" endpoint requires; other extensions layer on top.
+    extension: getDefaultClaimSubmissionExtensions(),
     insurance: [],
     diagnosis: [],
     item: [],

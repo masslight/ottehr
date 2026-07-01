@@ -12,6 +12,11 @@ export const RAW_RESPONSE = 'http://fhir-api.zapehr.com/extension/raw-response';
 
 export const EXTENSION_CLAIM_INSURANCE_TYPE = `${OYSTEHR_EXTENSION_BASE_URL}/rcm-claim-insurance-type`;
 
+export const EXTENSION_CLAIM_PROVIDER_SIGNATURE_INDICATOR = `${OYSTEHR_EXTENSION_BASE_URL}/rcm-claim-provider-signature-indicator`;
+export const EXTENSION_CLAIM_ASSIGNMENT_OR_PLAN_PARTICIPATION_CODE = `${OYSTEHR_EXTENSION_BASE_URL}/rcm-claim-assignment-or-plan-participation-code`;
+export const EXTENSION_CLAIM_BENEFITS_ASSIGNMENT_CERTIFICATION_INDICATOR = `${OYSTEHR_EXTENSION_BASE_URL}/rcm-claim-benefits-assignment-certification-indicator`;
+export const EXTENSION_CLAIM_RELEASE_OF_INFORMATION_CODE = `${OYSTEHR_EXTENSION_BASE_URL}/rcm-claim-release-of-information-code`;
+
 export const CODE_SYSTEM_CLAIM_TYPE = 'http://terminology.hl7.org/CodeSystem/claim-type';
 export const CODE_SYSTEM_PROCESS_PRIORITY = 'http://terminology.hl7.org/CodeSystem/processpriority';
 export const CODE_SYSTEM_CLAIM_INFORMATION_CATEGORY = 'http://terminology.hl7.org/CodeSystem/claiminformationcategory';

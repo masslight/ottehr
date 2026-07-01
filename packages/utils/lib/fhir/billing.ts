@@ -4,6 +4,7 @@ import {
   Coding,
   Coverage,
   CoverageEligibilityResponse,
+  Extension,
   Location,
   Organization,
   Practitioner,
@@ -11,7 +12,11 @@ import {
 import {
   CODE_SYSTEM_CPT_MODIFIER,
   ELIGIBILITY_BENEFIT_CODES,
+  EXTENSION_CLAIM_ASSIGNMENT_OR_PLAN_PARTICIPATION_CODE,
+  EXTENSION_CLAIM_BENEFITS_ASSIGNMENT_CERTIFICATION_INDICATOR,
   EXTENSION_CLAIM_INSURANCE_TYPE,
+  EXTENSION_CLAIM_PROVIDER_SIGNATURE_INDICATOR,
+  EXTENSION_CLAIM_RELEASE_OF_INFORMATION_CODE,
   EXTENSION_URL_CPT_MODIFIER,
   INSURANCE_PLAN_ID_CODING,
 } from '../main';
@@ -479,6 +484,13 @@ export const mapInsuranceTypeCodeToCandidCode = (insuranceTypeCode: string | und
   if (!insuranceTypeCode) return undefined;
   return INSURANCE_TYPE_CODE_TO_CANDID_CODE[insuranceTypeCode];
 };
+
+export const getDefaultClaimSubmissionExtensions = (): Extension[] => [
+  { url: EXTENSION_CLAIM_PROVIDER_SIGNATURE_INDICATOR, valueBoolean: true },
+  { url: EXTENSION_CLAIM_ASSIGNMENT_OR_PLAN_PARTICIPATION_CODE, valueString: 'A' },
+  { url: EXTENSION_CLAIM_BENEFITS_ASSIGNMENT_CERTIFICATION_INDICATOR, valueString: 'Y' },
+  { url: EXTENSION_CLAIM_RELEASE_OF_INFORMATION_CODE, valueString: 'Y' },
+];
 
 // The candid plan type is stored in two places, one per submission backend:
 // - Claim.extension valueString (rcm-claim-insurance-type): read by the Oystehr RCM X12 export.
