@@ -8,6 +8,7 @@ import {
 } from 'utils';
 import { describe, expect, it, vi } from 'vitest';
 import { performEffect } from '../../../src/billing/get-billing-claim-history';
+import { SOURCE_IDENTIFIER_SYSTEM } from '../../../src/billing/shared';
 
 const claim: Claim = {
   resourceType: 'Claim',
@@ -108,5 +109,48 @@ describe('get-billing-claim-history performEffect', () => {
     expect(entries[0].activity).toBe('Status change');
     expect(entries[0].actor).toMatchObject({ type: 'system', display: CLAIM_RULES_ENGINE_DEVICE_NAME });
     expect(entries[1].activity).toBe('Create Claim');
+  });
+
+  it('resolves a provider reference to a friendly name and a screen link', async () => {
+    const providerWorkingCopy: Practitioner = {
+      resourceType: 'Practitioner',
+      id: 'wc1',
+      name: [{ given: ['John'], family: 'Smith' }],
+      extension: [{ url: SOURCE_IDENTIFIER_SYSTEM, valueReference: { reference: 'Practitioner/master1' } }],
+    } as Practitioner;
+    const provenance: Provenance = {
+      resourceType: 'Provenance',
+      id: 'prov1',
+      recorded: '2026-06-01T10:00:00Z',
+      activity: { coding: [CLAIM_PROVENANCE_ACTIVITY.update] },
+      target: [{ reference: 'Claim/c1' }],
+      agent: [{ type: { coding: [CLAIM_PROVENANCE_AGENT_TYPE.human] }, who: { reference: 'Practitioner/u1' } }],
+      extension: [
+        {
+          url: CLAIM_PROVENANCE_DIFF_EXTENSION_URL,
+          valueString: diff('Claim', [
+            { field: 'billingProvider', label: 'Billing Provider', previousValue: null, newValue: 'Practitioner/wc1' },
+          ]),
+        },
+      ],
+    } as Provenance;
+
+    const search = vi.fn().mockImplementation(({ resourceType }: { resourceType: string }) => {
+      if (resourceType === 'Claim') return Promise.resolve({ unbundle: () => [claim] });
+      if (resourceType === 'Coverage') return Promise.resolve({ unbundle: () => [coverage] });
+      if (resourceType === 'Provenance') return Promise.resolve({ unbundle: () => [provenance] });
+      if (resourceType === 'Practitioner') return Promise.resolve({ unbundle: () => [providerWorkingCopy] });
+      return Promise.resolve({ unbundle: () => [] });
+    });
+    const oystehr = { fhir: { search } } as unknown as Oystehr;
+
+    const { entries } = await performEffect(oystehr, { claimId: 'c1', secrets: null });
+
+    const change = entries[0].changes[0];
+    expect(change.previousValue).toBeNull();
+    expect(change.newValue).toContain('Smith');
+    expect(change.newValue).not.toContain('Practitioner/');
+    // Links to the master resource behind the working copy, on the billing-providers screen.
+    expect(change.newLink).toEqual({ screen: 'billing-providers', id: 'master1' });
   });
 });

@@ -1,21 +1,31 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Claim, Coverage, Device, Practitioner, Provenance } from 'fhir/r4b';
+import { Claim, Coverage, Device, Extension, Location, Organization, Practitioner, Provenance } from 'fhir/r4b';
 import {
   CLAIM_HISTORY_RESOURCE_LABELS,
   CLAIM_PROVENANCE_ACTIVITY_CODES,
   CLAIM_PROVENANCE_DIFF_EXTENSION_URL,
   CLAIM_RULES_ENGINE_DEVICE_NAME,
   ClaimHistoryEntry,
+  ClaimHistoryLink,
   ClaimProvenanceDiff,
   GetClaimHistoryResponse,
 } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
-import { createBillingClient, fetchById, fhirName } from '../shared';
+import { createBillingClient, fetchById, fhirName, resolvePayersByRef, SOURCE_IDENTIFIER_SYSTEM } from '../shared';
 import { GetClaimHistoryParams, validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
 const ZAMBDA_NAME = 'get-billing-claim-history';
+
+// Reference-typed Claim fields that link to a billing-app screen, and which screen.
+const PROVIDER_FACILITY_FIELD_SCREEN: Record<string, ClaimHistoryLink['screen']> = {
+  billingProvider: 'billing-providers',
+  renderingProvider: 'rendering-providers',
+  facility: 'service-facilities',
+};
+// All reference-typed fields whose stored values are resource references / payer URLs, not plain text.
+const REFERENCE_FIELDS = new Set([...Object.keys(PROVIDER_FACILITY_FIELD_SCREEN), 'coverage', 'payer']);
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   const params = validateRequestParameters(input);
@@ -85,6 +95,10 @@ export async function performEffect(oystehr: Oystehr, params: GetClaimHistoryPar
     // Newest first. Sort here rather than relying on a server-side _sort on `recorded`.
     .sort((a, b) => (a.recorded < b.recorded ? 1 : a.recorded > b.recorded ? -1 : 0));
 
+  // Reference values are stored as raw FHIR references; resolve them to friendly names + screen links
+  // for the non-technical audience of the history view.
+  await enrichReferences(oystehr, entries);
+
   return { entries };
 }
 
@@ -116,6 +130,116 @@ function toHistoryEntry(provenance: Provenance, agentsByRef: Map<string, Practit
     },
     changes: diff.changes ?? [],
   };
+}
+
+// Resolve every reference-typed value across all entries to a friendly name, and attach a screen link
+// for provider / facility references (pointing at the master resource behind the working copy).
+async function enrichReferences(oystehr: Oystehr, entries: ClaimHistoryEntry[]): Promise<void> {
+  const idsByType: Record<string, Set<string>> = {
+    Practitioner: new Set(),
+    Organization: new Set(),
+    Location: new Set(),
+    Coverage: new Set(),
+  };
+  const payerUrls = new Set<string>();
+
+  const collect = (field: string, value: string | null): void => {
+    if (!value) return;
+    // Coverage values may be a comma-joined list; provider/facility/payer are single.
+    for (const ref of field === 'coverage' ? value.split(', ') : [value]) {
+      if (field === 'payer' && !ref.includes('/')) {
+        payerUrls.add(ref); // an Oystehr RCM payer URL
+        continue;
+      }
+      const [type, id] = ref.split('/');
+      if (id && idsByType[type]) idsByType[type].add(id);
+    }
+  };
+
+  for (const entry of entries) {
+    for (const change of entry.changes) {
+      if (!REFERENCE_FIELDS.has(change.field)) continue;
+      collect(change.field, change.previousValue);
+      collect(change.field, change.newValue);
+    }
+  }
+
+  const resourcesByRef = new Map<string, Practitioner | Organization | Location | Coverage>();
+  await Promise.all(
+    Object.keys(idsByType).map(async (type) => {
+      const ids = [...idsByType[type]];
+      if (ids.length === 0) return;
+      const found = (
+        await oystehr.fhir.search<Practitioner | Organization | Location | Coverage>({
+          resourceType: type as 'Practitioner' | 'Organization' | 'Location' | 'Coverage',
+          params: [{ name: '_id', value: ids.join(',') }],
+        })
+      ).unbundle();
+      found.forEach((r) => {
+        if (r.id) resourcesByRef.set(`${r.resourceType}/${r.id}`, r);
+      });
+    })
+  );
+
+  // Coverages contribute their payer URL for name resolution.
+  resourcesByRef.forEach((r) => {
+    if (r.resourceType === 'Coverage' && r.payor?.[0]?.reference) payerUrls.add(r.payor[0].reference);
+  });
+  const payersByRef = await resolvePayersByRef(oystehr, [...payerUrls]);
+
+  const resolve = (field: string, value: string): { display: string; link: ClaimHistoryLink | null } => {
+    if (field === 'payer') {
+      const resource = resourcesByRef.get(value) as Organization | undefined;
+      return { display: payersByRef.get(value)?.name ?? resource?.name ?? value, link: null };
+    }
+    if (field === 'coverage') {
+      const display = value
+        .split(', ')
+        .map((ref) => {
+          const coverage = resourcesByRef.get(ref) as Coverage | undefined;
+          const payerName = coverage?.payor?.[0]?.reference
+            ? payersByRef.get(coverage.payor[0].reference)?.name
+            : undefined;
+          return payerName ?? coverage?.subscriberId ?? ref;
+        })
+        .join(', ');
+      return { display, link: null };
+    }
+    // provider / facility reference
+    const resource = resourcesByRef.get(value);
+    if (!resource) return { display: value, link: null };
+    const name =
+      resource.resourceType === 'Practitioner' ? fhirName(resource) : (resource as Organization | Location).name ?? '';
+    const linkId = sourceId(resource) ?? resource.id;
+    return {
+      display: name || value,
+      link: linkId ? { screen: PROVIDER_FACILITY_FIELD_SCREEN[field], id: linkId } : null,
+    };
+  };
+
+  for (const entry of entries) {
+    for (const change of entry.changes) {
+      if (!REFERENCE_FIELDS.has(change.field)) continue;
+      if (change.previousValue) {
+        const { display, link } = resolve(change.field, change.previousValue);
+        change.previousValue = display;
+        change.previousLink = link;
+      }
+      if (change.newValue) {
+        const { display, link } = resolve(change.field, change.newValue);
+        change.newValue = display;
+        change.newLink = link;
+      }
+    }
+  }
+}
+
+// The master resource id behind a working copy (from its source-identifier extension), so links open
+// the canonical record the provider / facility screens manage rather than the per-claim copy.
+function sourceId(resource: { extension?: Extension[] }): string | undefined {
+  const ref = resource.extension?.find((e) => e.url === SOURCE_IDENTIFIER_SYSTEM)?.valueReference?.reference;
+  if (!ref) return undefined;
+  return ref.includes('/') ? ref.split('/')[1] : ref;
 }
 
 function activityDisplay(code: string, resourceType: string): string {

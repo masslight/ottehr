@@ -65,7 +65,8 @@ export const CLAIM_RULES_ENGINE_DEVICE_IDENTIFIER = {
 export const CLAIM_RULES_ENGINE_DEVICE_NAME = 'Ottehr Rules Engine';
 
 // A single changed field, with the value before and after the change. Values are pre-formatted
-// display strings (null = absent before/after, i.e. a set or a clear).
+// display strings (null = absent before/after, i.e. a set or a clear). Reference-typed fields
+// (providers, facility) additionally carry a link to the resource's screen.
 export interface ClaimFieldChange {
   // Machine-readable field key/path (e.g. 'memberId', 'diagnoses').
   field: string;
@@ -73,6 +74,16 @@ export interface ClaimFieldChange {
   label: string;
   previousValue: string | null;
   newValue: string | null;
+  // Deep-links for reference-typed values, set by the read API. Absent for plain-value fields.
+  previousLink?: ClaimHistoryLink | null;
+  newLink?: ClaimHistoryLink | null;
+}
+
+// A link from a history value to the billing-app screen that manages that resource. The UI builds
+// the route as `/${screen}/${id}`.
+export interface ClaimHistoryLink {
+  screen: 'billing-providers' | 'rendering-providers' | 'service-facilities';
+  id: string;
 }
 
 // Payload serialized into the Provenance diff extension. The changed resource's id is read from the
