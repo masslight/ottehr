@@ -50,7 +50,6 @@ export const createSignatureSection = <TData extends { signature: SignatureData 
     dataSelector: (data) => data.signature,
     shouldRender: (data) => !!(data.signedBy || data.approvedBy),
     render: (client, data, styles) => {
-      client.drawSeparatedLine(styles.lineStyles.separator);
       if (data.signedBy) {
         drawRegularText(client, styles, data.signedBy);
       }

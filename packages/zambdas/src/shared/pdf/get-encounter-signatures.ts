@@ -37,8 +37,8 @@ export const getEncounterSignatures = async (
   const provenances = resources.filter((resource): resource is Provenance => resource.resourceType === 'Provenance');
   const practitionerById = new Map(
     resources
-      .filter((resource): resource is Practitioner => resource.resourceType === 'Practitioner')
-      .map((practitioner) => [practitioner.id, practitioner])
+      .filter((resource): resource is Practitioner => resource.resourceType === 'Practitioner' && !!resource.id)
+      .map((practitioner) => [practitioner.id!, practitioner])
   );
 
   const resolve = (role: SignatureRole): SignatureProvenanceInfo | undefined => {

@@ -134,7 +134,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     // must not block PDF generation or the completion email.
     const signaturesPromise = getEncounterSignatures(oystehr, visitResources.encounter.id!).catch((error) => {
       console.error(`Failed to resolve encounter signatures for encounter ${visitResources.encounter.id}:`, error);
-      return {};
+      return { signedBy: undefined, approvedBy: undefined };
     });
 
     const [chartDataResult, additionalChartDataResult, medicationOrdersData, upcomingFollowUps, signatures] =
