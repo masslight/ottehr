@@ -24,13 +24,12 @@ describe('radiology-cancel-order integration — happy path', () => {
     oystehrZambdas = setup.oystehrTestUserM2M;
     cleanup = setup.cleanup;
     base = await insertInPersonAppointmentBase(setup.oystehr, setup.processId);
-    const icd = (await oystehrZambdas.zambda.execute({ id: 'icd-10-search', search: 'diabetes' })).output as {
-      codes: Array<{ code: string }>;
-    };
     const created = await oystehrZambdas.zambda.execute({
       id: 'radiology-create-order',
       encounterId: base.encounter.id,
-      diagnosisCode: icd.codes[0].code,
+      // icd-10-search zambda was removed; pass a valid ICD-10 code directly. radiology-create-order
+      // still validates it via searchIcd10Codes, which returns exactly one match for E11.9.
+      diagnosisCode: 'E11.9',
       cptCode: '71045',
       stat: false,
       clinicalHistory: 'Integration test clinical history',
