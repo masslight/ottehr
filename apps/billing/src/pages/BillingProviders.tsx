@@ -73,7 +73,7 @@ export function BillingProvidersList(): ReactElement {
           providerType: 'billing',
           pageSize: pagination.pageSize,
           offset: pagination.page * pagination.pageSize,
-          ...(name ? { name, includeWorkingCopies: true } : {}),
+          ...(name ? { name } : {}),
         });
         setProviders(data.providers ?? []);
         setTotalRows(data.total ?? 0);
@@ -182,7 +182,6 @@ export function BillingProviderDetail(): ReactElement {
       const data = await searchBillingProviders(oystehrZambda, {
         providerType: 'billing',
         providerId: id,
-        includeWorkingCopies: true,
       });
       setProvider((data.providers ?? [])[0] ?? null);
     } catch (err) {
