@@ -2121,6 +2121,29 @@
             "valueString": "hidden"
           }
         ]
+      },
+      {
+        "linkId": "pcp-fax",
+        "type": "string",
+        "text": "Fax",
+        "required": false,
+        "enableWhen": [
+          {
+            "question": "pcp-active",
+            "operator": "=",
+            "answerBoolean": true
+          }
+        ],
+        "extension": [
+          {
+            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
+            "valueString": "Phone Number"
+          },
+          {
+            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
+            "valueString": "hidden"
+          }
+        ]
       }
     ]
   },

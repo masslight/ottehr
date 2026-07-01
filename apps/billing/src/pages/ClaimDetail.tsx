@@ -783,7 +783,7 @@ export function InsuranceSection({
         </>
       ) : (
         <Typography variant="body2" color="text.secondary" sx={{ py: 0.5 }}>
-          No insurance — this claim is self-pay. Use Edit to add coverage.
+          No insurance
         </Typography>
       )}
       {hasCoverage && (
@@ -796,7 +796,7 @@ export function InsuranceSection({
           {confirmingRemove ? (
             <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
               <Typography variant="body2" color="text.secondary">
-                Remove insurance and make this claim self-pay?
+                Remove coverage?
               </Typography>
               <Button size="small" onClick={() => setConfirmingRemove(false)} disabled={removing}>
                 Cancel
@@ -818,7 +818,7 @@ export function InsuranceSection({
               startIcon={<DeleteOutlineIcon fontSize="small" />}
               onClick={() => setConfirmingRemove(true)}
             >
-              Remove coverage (self-pay)
+              Remove coverage
             </Button>
           )}
         </Box>

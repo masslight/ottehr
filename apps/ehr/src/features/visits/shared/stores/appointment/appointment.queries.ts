@@ -10,7 +10,7 @@ import { Bundle, Coding, Encounter, FhirResource, InsurancePlan, Medication, Pat
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { useCallback, useEffect, useRef } from 'react';
-import { getPatientInstructionQuickPicks, icd10Search } from 'src/api/api';
+import { getPatientInstructionQuickPicks } from 'src/api/api';
 import { QUERY_STALE_TIME } from 'src/constants';
 import { FEATURE_FLAGS } from 'src/constants/feature-flags';
 import { useGetErxConfigQuery } from 'src/features/visits/telemed/hooks/useGetErxConfig';
@@ -581,17 +581,24 @@ export const useRecommendBillingCodes = () => {
 export const useICD10SearchNew = ({
   search,
 }: Icd10SearchRequestParams): UseQueryResult<Icd10SearchResponse | undefined, Error> => {
-  const { oystehrZambda } = useApiClients();
+  const { oystehr } = useApiClients();
 
   const queryResult = useQuery({
     queryKey: ['icd-10-search', search],
 
     queryFn: async () => {
-      if (!oystehrZambda) return undefined;
-      return icd10Search(oystehrZambda, { search });
+      if (!oystehr) return undefined;
+      const { codes } = await oystehr.terminology.searchIcd10({
+        query: search,
+        searchType: 'all',
+        includeSynonyms: true,
+        specialty: ['urgent-care'],
+        limit: 100,
+      });
+      return { codes };
     },
 
-    enabled: Boolean(oystehrZambda && search),
+    enabled: Boolean(oystehr && search),
     placeholderData: keepPreviousData,
     staleTime: QUERY_STALE_TIME,
   });

@@ -27,7 +27,7 @@ import {
   WalkinAvailabilityCheckResult,
 } from 'utils';
 import { getNameForOwner } from '../../../ehr/schedules/shared';
-import { getAuth0Token, wrapHandler, ZambdaInput } from '../../../shared';
+import { getAuth0Token, safeJsonParse, wrapHandler, ZambdaInput } from '../../../shared';
 
 let oystehrToken: string;
 export const index = wrapHandler('check-availability', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
@@ -112,7 +112,7 @@ const validateRequestParameters = (input: ZambdaInput): BasicInput => {
     throw MISSING_REQUEST_BODY;
   }
 
-  const { scheduleId, locationName } = JSON.parse(input.body);
+  const { scheduleId, locationName } = safeJsonParse(input.body);
 
   if (!scheduleId && !locationName) {
     throw INVALID_INPUT_ERROR('Either "scheduleId" or "scheduleName" must be provided');
