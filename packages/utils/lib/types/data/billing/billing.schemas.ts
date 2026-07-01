@@ -135,7 +135,6 @@ export const SearchBillingProvidersInputSchema = z.object({
   name: nonEmptyString.optional(),
   offset: nonNegativeInt.optional(),
   pageSize: nonNegativeInt.optional(),
-  includeWorkingCopies: z.boolean().optional(),
 });
 
 export const SearchBillingPatientsInputSchema = z.object({
@@ -143,14 +142,12 @@ export const SearchBillingPatientsInputSchema = z.object({
   dob: nonEmptyString.optional(),
   identifier: nonEmptyString.optional(),
   uuid: z.string().uuid().optional(),
-  includeWorkingCopies: z.boolean().optional(),
   offset: nonNegativeInt.optional(),
   pageSize: nonNegativeInt.optional(),
 });
 
 export const SearchBillingLocationsInputSchema = z.object({
   name: nonEmptyString.optional(),
-  includeWorkingCopies: z.boolean().optional(),
 });
 
 export const SearchBillingServicesInputSchema = z.object({

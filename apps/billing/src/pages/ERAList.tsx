@@ -161,10 +161,7 @@ export default function ERAList(): ReactElement {
       if (!oystehrZambda) return;
       debounce(async () => {
         try {
-          const res = await searchBillingPatients(
-            oystehrZambda,
-            query ? { name: query, includeWorkingCopies: true } : {}
-          );
+          const res = await searchBillingPatients(oystehrZambda, query ? { name: query } : {});
           setPatientOptions(res.patients ?? []);
         } catch {
           setPatientOptions([]);
