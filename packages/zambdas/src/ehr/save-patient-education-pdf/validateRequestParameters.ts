@@ -1,6 +1,6 @@
 import { MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS, SavePatientEducationPdfInput } from 'utils';
 import { z } from 'zod';
-import { safeValidate, ZambdaInput } from '../../shared';
+import { safeJsonParse, safeValidate, ZambdaInput } from '../../shared';
 
 const PATIENT_TITLE_MAX_LENGTH = 150;
 
@@ -54,7 +54,7 @@ export function validateRequestParameters(
   if (!input.body) throw MISSING_REQUEST_BODY;
   if (!input.secrets) throw MISSING_REQUEST_SECRETS;
 
-  const parsed = safeValidate(savePatientEducationPdfInputSchema, JSON.parse(input.body));
+  const parsed = safeValidate(savePatientEducationPdfInputSchema, safeJsonParse(input.body));
 
   return {
     ...parsed,

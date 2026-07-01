@@ -1,3 +1,4 @@
+import { ENCOUNTER_PAYMENT_VARIANT_EXTENSION_URL, PaymentVariant } from 'utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // ── Mocks (hoisted before imports) ─────────────────────────────────────────────
@@ -23,7 +24,11 @@ const ENCOUNTER_ID = 'encounter-123';
 const CANDID_PATIENT_ID = 'candid-patient-xyz';
 const CANDID_APPOINTMENT_ID = 'candid-appt-456';
 
-function makeMockOystehr(): any {
+function makeMockOystehr(options?: { paymentVariant?: PaymentVariant }): any {
+  const encounterExtensions = options?.paymentVariant
+    ? [{ url: ENCOUNTER_PAYMENT_VARIANT_EXTENSION_URL, valueString: options.paymentVariant }]
+    : undefined;
+
   return {
     fhir: {
       search: vi.fn().mockReturnValue({
@@ -51,6 +56,12 @@ function makeMockOystehr(): any {
             status: 'fulfilled',
             start: '2026-04-22T10:00:00Z',
             participant: [],
+          },
+          {
+            resourceType: 'Encounter',
+            id: ENCOUNTER_ID,
+            status: 'finished',
+            extension: encounterExtensions,
           },
         ],
       }),
@@ -100,7 +111,10 @@ function makeMockCandidApiClient(): any {
       },
       coverages: {
         v1: {
-          create: vi.fn(),
+          create: vi.fn().mockResolvedValue({
+            ok: true,
+            body: { id: 'coverage-1' },
+          }),
         },
       },
     },
@@ -204,5 +218,50 @@ describe('performCandidPreEncounterSync – amountCents guard (real implementati
     expect(createCall.allocations).toHaveLength(1);
     expect(createCall.allocations[0].amountCents).toBe(5000);
     expect(createCall.allocations[0].target.type).toBe('appointment_by_id_and_patient_external_id');
+  });
+
+  it('creates only one Cash Pay coverage for self-pay encounters even when insurance coverages are present', async () => {
+    mockOystehr = makeMockOystehr({ paymentVariant: PaymentVariant.selfPay });
+    mockGetAccountAndCoverageResourcesForPatient.mockResolvedValue({
+      coverages: {
+        primary: {
+          payor: [{ reference: 'Organization/org-1' }],
+        },
+        primarySubscriber: {
+          resourceType: 'RelatedPerson',
+          id: 'subscriber-1',
+        },
+      },
+      insuranceOrgs: [
+        {
+          resourceType: 'Organization',
+          id: 'org-1',
+          name: 'Acme Insurance',
+          identifier: [
+            {
+              system: 'https://identifiers.fhir.oystehr.com/rcm-payer-id',
+              value: 'payer-1',
+            },
+          ],
+        },
+      ],
+      occupationalMedicineAccount: undefined,
+    });
+
+    await performCandidPreEncounterSync({
+      encounterId: ENCOUNTER_ID,
+      oystehr: mockOystehr,
+      candidApiClient: mockCandidApiClient,
+    });
+
+    expect(mockCandidApiClient.preEncounter.coverages.v1.create).toHaveBeenCalledTimes(1);
+    expect(mockCandidApiClient.preEncounter.coverages.v1.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        insurancePlan: expect.objectContaining({
+          payerName: 'Cash Pay',
+          payerId: 'Cash Pay',
+        }),
+      })
+    );
   });
 });

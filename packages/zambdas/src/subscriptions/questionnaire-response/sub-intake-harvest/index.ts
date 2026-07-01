@@ -17,7 +17,7 @@ import {
 } from '../../../ehr/shared/harvest';
 import { getStripeClient } from '../../../patient/payment-methods/helpers';
 import {
-  createOystehrClient,
+  createClinicalOystehrClient,
   getAuth0Token,
   makeObservationResource,
   saveResourceRequest,
@@ -47,7 +47,7 @@ export const index = wrapHandler('sub-intake-harvest', async (input: ZambdaInput
     console.log('already have token');
   }
 
-  const oystehr = createOystehrClient(oystehrToken, secrets);
+  const oystehr = createClinicalOystehrClient(oystehrToken, secrets);
   const response = await performEffect(validatedParameters, oystehr);
   return {
     statusCode: 200,

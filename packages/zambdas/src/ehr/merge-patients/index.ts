@@ -18,8 +18,9 @@ import {
 } from 'utils';
 import {
   checkOrCreateM2MClientToken,
-  createOystehrClient,
+  createClinicalOystehrClient,
   getUser,
+  safeJsonParse,
   topLevelCatch,
   wrapHandler,
   ZambdaInput,
@@ -59,7 +60,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const validated = validateRequestParameters(input);
     const { secrets } = validated;
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
+    const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
     if (validated.mode === 'status') {
       if (!validated.patientId) {
@@ -129,7 +130,7 @@ const validateRequestParameters = (input: ZambdaInput): ValidatedInput => {
     throw NOT_AUTHORIZED;
   }
   const { secrets } = input;
-  const body = JSON.parse(input.body);
+  const body = safeJsonParse(input.body);
 
   // Status mode: caller passes only patientId (no questionnaireResponse).
   // NB: the wire discriminator is `requestMode`, not `mode` — the Oystehr SDK
@@ -191,7 +192,7 @@ const otherPatientIdOf = (task: Task): string =>
 
 async function getActiveMergeTaskForPatient(
   patientId: string,
-  oystehr: ReturnType<typeof createOystehrClient>
+  oystehr: ReturnType<typeof createClinicalOystehrClient>
 ): Promise<GetMergePatientsTaskResponse> {
   // Can't search by the merged-away patient directly — it lives in a Task.input
   // valueString, not a search param. So pull recent active/attention merge tasks

@@ -4,6 +4,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { RoleType } from 'utils';
+import { createClinicalOystehrClient } from '../shared';
 
 const FHIR_IDENTIFIER_NPI = 'http://hl7.org/fhir/sid/us-npi';
 const PRACTITIONER_QUALIFICATION_EXTENSION_URL =
@@ -320,11 +321,14 @@ async function main(): Promise<void> {
 
   const config = loadEnvConfig(env);
 
-  const oystehr = new Oystehr({
-    accessToken: config.DEVELOPER_TOKEN,
-    projectId: config.PROJECT_ID,
-    fhirApiUrl: config.FHIR_API.replace(/\/r4/g, ''),
-  });
+  const oystehr = createClinicalOystehrClient(
+    config.DEVELOPER_TOKEN,
+    {},
+    {
+      projectId: config.PROJECT_ID,
+      fhirApiUrl: config.FHIR_API.replace(/\/r4/g, ''),
+    }
+  );
 
   console.log('Finding users with Provider role...');
   const practitionerIds = await getProviderPractitionerIds(oystehr);

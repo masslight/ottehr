@@ -20,15 +20,21 @@ import {
   BillingClaimItem,
   BillingPatientOption,
   BillingPayerOption,
+  BillingService,
   CLAIM_STATUS_FIELDS,
   CLAIM_STATUS_FIELDS_BY_KEY,
-  CODE_SYSTEM_APPOINTMENT_TYPE_CODES,
   CODE_SYSTEM_CLAIM_TYPE_CODES,
   formatClaimStatusValue,
   getApiError,
   SearchBillingClaimsInput,
 } from 'utils';
-import { searchBillingClaims, searchBillingPatients, searchBillingPayers, searchBillingTags } from '../api/api';
+import {
+  searchBillingClaims,
+  searchBillingPatients,
+  searchBillingPayers,
+  searchBillingServices,
+  searchBillingTags,
+} from '../api/api';
 import { dataGridSlots, dataGridSx } from '../components/BillingDataGrid';
 import { claimStatusValueColor, formatAntCaseString } from '../constants/claimStatus';
 import { useApiClients } from '../hooks/useAppClients';
@@ -43,7 +49,7 @@ interface Filters {
   payerId?: string;
   patientId?: string;
   type?: keyof typeof CODE_SYSTEM_CLAIM_TYPE_CODES | '';
-  appointmentType?: keyof typeof CODE_SYSTEM_APPOINTMENT_TYPE_CODES | '';
+  service?: string;
 }
 
 const currencyCol = (field: string, headerName: string, width: number): GridColDef => ({
@@ -89,8 +95,8 @@ const columns: GridColDef[] = [
     valueFormatter: (params: { value: string }) => formatAntCaseString(params.value),
   },
   {
-    field: 'appointmentType',
-    headerName: 'Appointment Type',
+    field: 'service',
+    headerName: 'Service',
     minWidth: 130,
     valueFormatter: (params: { value: string }) => formatAntCaseString(params.value),
   },
@@ -115,6 +121,7 @@ export default function ClaimsList(): ReactElement {
   const [error, setError] = useState<string | null>(null);
   const [paginationModel, setPaginationModel] = useState<GridPaginationModel>({ page: 0, pageSize: 25 });
 
+  const [serviceOptions, setServiceOptions] = useState<BillingService[]>([]);
   const [payerOptions, setPayerOptions] = useState<BillingPayerOption[]>([]);
   const [patientOptions, setPatientOptions] = useState<BillingPatientOption[]>([]);
 
@@ -127,17 +134,17 @@ export default function ClaimsList(): ReactElement {
   const [selectedPayer, setSelectedPayer] = useState<BillingPayerOption | null>(null);
   const [selectedPatient, setSelectedPatient] = useState<BillingPatientOption | null>(null);
   const [typeFilter, setTypeFilter] = useState<keyof typeof CODE_SYSTEM_CLAIM_TYPE_CODES | ''>('');
-  const [appointmentTypeFilter, setAppointmentTypeFilter] = useState<
-    keyof typeof CODE_SYSTEM_APPOINTMENT_TYPE_CODES | ''
-  >('');
+  const [selectedService, setSelectedService] = useState<BillingService | null>(null);
 
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const serviceDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
   const payerDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
   const patientDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     return (): void => {
       if (debounceTimer.current) clearTimeout(debounceTimer.current);
+      if (serviceDebounce.current) clearTimeout(serviceDebounce.current);
       if (payerDebounce.current) clearTimeout(payerDebounce.current);
       if (patientDebounce.current) clearTimeout(patientDebounce.current);
     };
@@ -161,7 +168,7 @@ export default function ClaimsList(): ReactElement {
         if (filters.payerId) params.payerId = filters.payerId;
         if (filters.patientId) params.patientId = filters.patientId;
         if (filters.type) params.type = filters.type;
-        if (filters.appointmentType) params.appointmentType = filters.appointmentType;
+        if (filters.service) params.service = filters.service;
 
         const data = await searchBillingClaims(oystehrZambda, params);
         setClaims(data.claims ?? []);
@@ -173,6 +180,18 @@ export default function ClaimsList(): ReactElement {
       } finally {
         setLoading(false);
       }
+    },
+    [oystehrZambda]
+  );
+
+  const searchServices = useCallback(
+    (query: string): void => {
+      if (!oystehrZambda) return;
+      if (serviceDebounce.current) clearTimeout(serviceDebounce.current);
+      serviceDebounce.current = setTimeout(async () => {
+        const res = await searchBillingServices(oystehrZambda, query ? { name: query } : {});
+        setServiceOptions(res.services ?? []);
+      }, 300);
     },
     [oystehrZambda]
   );
@@ -228,7 +247,7 @@ export default function ClaimsList(): ReactElement {
       payerId: overrides?.payerId ?? selectedPayer?.payerId,
       patientId: overrides?.patientId ?? selectedPatient?.id,
       type: overrides?.type ?? typeFilter,
-      appointmentType: overrides?.appointmentType ?? appointmentTypeFilter,
+      service: overrides?.service ?? selectedService?.name,
     }),
     [
       searchText,
@@ -239,7 +258,7 @@ export default function ClaimsList(): ReactElement {
       selectedPayer,
       selectedPatient,
       typeFilter,
-      appointmentTypeFilter,
+      selectedService,
     ]
   );
 
@@ -271,7 +290,7 @@ export default function ClaimsList(): ReactElement {
     setSelectedPayer(null);
     setSelectedPatient(null);
     setTypeFilter('');
-    setAppointmentTypeFilter('');
+    setSelectedService(null);
     const resetPage = { ...paginationModel, page: 0 };
     setPaginationModel(resetPage);
     void fetchClaims({}, resetPage);
@@ -286,7 +305,7 @@ export default function ClaimsList(): ReactElement {
     selectedPayer ||
     selectedPatient ||
     typeFilter ||
-    appointmentTypeFilter;
+    selectedService;
 
   return (
     <Box sx={{ p: 0 }}>
@@ -356,32 +375,24 @@ export default function ClaimsList(): ReactElement {
           </Select>
         </FormControl>
 
-        <FormControl size="small" sx={{ minWidth: 160 }}>
-          <InputLabel>Appointment Type</InputLabel>
-          <Select
-            value={appointmentTypeFilter}
-            label="Appointment Type"
-            onChange={(e) => {
-              const value = e.target.value as '' | keyof typeof CODE_SYSTEM_APPOINTMENT_TYPE_CODES;
-              setAppointmentTypeFilter(value);
-              applyFilters({ appointmentType: value });
-            }}
-          >
-            <MenuItem value="">All</MenuItem>
-            <MenuItem key={'urgent-care'} value={'urgent-care'}>
-              Urgent Care
-            </MenuItem>
-            <MenuItem key={'occupational-medicine'} value={'occupational-medicine'}>
-              Occupational Medicine
-            </MenuItem>
-            <MenuItem key={'pre-op'} value={'pre-op'}>
-              Pre Op
-            </MenuItem>
-            <MenuItem key={'workers-comp'} value={'workers-comp'}>
-              Workers Comp
-            </MenuItem>
-          </Select>
-        </FormControl>
+        <Autocomplete
+          size="small"
+          options={serviceOptions}
+          getOptionLabel={(o) => `${formatAntCaseString(o.name)}`}
+          onInputChange={(_, value, reason) => {
+            if (reason === 'input') searchServices(value);
+          }}
+          onOpen={() => searchServices('')}
+          filterOptions={(x) => x}
+          value={selectedService}
+          onChange={(_, v) => {
+            setSelectedService(v);
+            applyFilters({ service: v?.name ?? '' });
+          }}
+          renderInput={(params) => <TextField {...params} label="Service" />}
+          isOptionEqualToValue={(o, v) => o.name === v.name}
+          sx={{ minWidth: 150 }}
+        />
 
         <FormControl size="small" sx={{ minWidth: 140 }} disabled={tagOptions.length === 0}>
           <InputLabel>Tag</InputLabel>
@@ -443,7 +454,7 @@ export default function ClaimsList(): ReactElement {
         <TextField
           size="small"
           type="date"
-          label="Created From"
+          label="Service Date From"
           value={createdFrom}
           onChange={(e) => {
             setDosFrom(e.target.value);
@@ -456,7 +467,7 @@ export default function ClaimsList(): ReactElement {
         <TextField
           size="small"
           type="date"
-          label="Created To"
+          label="Service Date To"
           value={createdTo}
           onChange={(e) => {
             setDosTo(e.target.value);

@@ -185,6 +185,12 @@ export const createDynamicValidationResolver = (options?: {
         continue;
       }
 
+      // Skip validation for fields excluded from submission by an active filter trigger
+      // (e.g., responsible-party-email when no-email is checked)
+      if (triggeredEffects.filtered) {
+        continue;
+      }
+
       // Find which section this field belongs to
       let currentSection: any = null;
       let sectionLinkId: string | string[] | undefined;

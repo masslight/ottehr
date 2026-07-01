@@ -1,6 +1,6 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { compareDates, EMPTY_PAGINATION, getSecret, SecretsKeys } from 'utils';
-import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../../../shared';
+import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../../../shared';
 import { getInHouseResources, mapResourcesToInHouseOrderDTOs } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -32,7 +32,7 @@ export const index = wrapHandler('get-in-house-orders', async (input: ZambdaInpu
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const userToken = input.headers.Authorization.replace('Bearer ', '');
 
-  const oystehr = createOystehrClient(m2mToken, secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
   const {
     serviceRequests,

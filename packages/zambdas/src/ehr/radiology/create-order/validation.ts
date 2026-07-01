@@ -2,7 +2,6 @@ import Oystehr from '@oystehr/sdk';
 import { Encounter } from 'fhir/r4b';
 import { CODE_SYSTEM_CPT, CODE_SYSTEM_ICD_10, INVALID_INPUT_ERROR, MISSING_REQUIRED_PARAMETERS, Secrets } from 'utils';
 import { validateJsonBody, ZambdaInput } from '../../../shared';
-import { searchIcd10Codes } from '../../../shared/icd-10-search';
 import { EnhancedBody, ValidatedCPTCode, ValidatedICD10Code, ValidatedInput } from '.';
 
 export const validateInput = async (input: ZambdaInput, oystehr: Oystehr): Promise<ValidatedInput> => {
@@ -23,7 +22,7 @@ const validateBody = async (input: ZambdaInput, oystehr: Oystehr): Promise<Enhan
   const { diagnosisCode, cptCode, lateralityModifier, encounterId, stat, clinicalHistory, studyName, consentObtained } =
     validateJsonBody(input);
 
-  const diagnosis = await validateICD10Code(diagnosisCode);
+  const diagnosis = await validateICD10Code(diagnosisCode, oystehr);
   const cpt = await validateCPTCode(cptCode, oystehr);
   const encounter = await fetchEncounter(encounterId, oystehr);
 
@@ -103,7 +102,7 @@ export const validateSecrets = (secrets: Secrets | null): Secrets => {
   };
 };
 
-const validateICD10Code = async (diagnosisCode: unknown): Promise<ValidatedICD10Code> => {
+const validateICD10Code = async (diagnosisCode: unknown, oystehr: Oystehr): Promise<ValidatedICD10Code> => {
   // validate diagnosisCode is a string
   if (diagnosisCode == null) {
     throw MISSING_REQUIRED_PARAMETERS(['diagnosisCode']);
@@ -113,17 +112,26 @@ const validateICD10Code = async (diagnosisCode: unknown): Promise<ValidatedICD10
     throw INVALID_INPUT_ERROR('diagnosisCode must be a string');
   }
 
-  const searchResult = await searchIcd10Codes(diagnosisCode as string);
+  let terminologyResponse;
+  try {
+    terminologyResponse = await oystehr.terminology.searchIcd10({
+      searchType: 'code',
+      strictMatch: true,
+      query: diagnosisCode,
+    });
+  } catch {
+    throw new Error('Error while trying to validate ICD-10 code');
+  }
 
-  if (searchResult.length < 1) {
+  if (terminologyResponse.codes.length < 1) {
     throw INVALID_INPUT_ERROR('ICD-10 code is invalid');
-  } else if (searchResult.length > 1) {
+  } else if (terminologyResponse.codes.length > 1) {
     throw INVALID_INPUT_ERROR('ICD-10 code is ambiguous');
   }
 
   const dx = {
     code: diagnosisCode,
-    display: searchResult[0].display,
+    display: terminologyResponse.codes[0].display,
     system: CODE_SYSTEM_ICD_10,
   };
 

@@ -1,12 +1,96 @@
+import Oystehr, { ErxGetMedicationHistoryResponse } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { BillingSuggestionOutput, fixAndParseJsonObjectFromString, getEmCodes } from 'utils';
-import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
+import { DateTime } from 'luxon';
+import { BillingSuggestionOutput, fixAndParseJsonObjectFromString, getEmCodes, PrescribedMedicationDTO } from 'utils';
+import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
 import { invokeChatbotVertexAI } from '../../shared/ai';
-import { loadAndParseIcd10Data } from '../../shared/icd-10-search';
 import { validateRequestParameters } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let m2mToken: string;
+
+type ErxMedicationHistoryItem = ErxGetMedicationHistoryResponse[number];
+
+const EXCLUDED_PRESCRIPTION_STATUSES = new Set(['cancelled', 'entered-in-error', 'stopped']);
+const ERX_HISTORY_PROMPT_LIMIT = 10;
+
+function formatRenewalStatus(isRenewal: boolean | undefined): string {
+  if (isRenewal === true) return 'refill/renewal';
+  if (isRenewal === false) return 'new prescription';
+  return 'renewal status unknown';
+}
+
+export function formatPrescribedMedicationsForBillingPrompt(
+  prescribedMedications: PrescribedMedicationDTO[] | undefined
+): string {
+  const currentVisitPrescriptions = (prescribedMedications ?? []).filter((medication) => {
+    if (!medication.name && !medication.instructions) return false;
+    return !medication.status || !EXCLUDED_PRESCRIPTION_STATUSES.has(medication.status);
+  });
+
+  if (currentVisitPrescriptions.length === 0) return '';
+
+  return currentVisitPrescriptions
+    .map((medication) => {
+      const parts = [
+        `Medication: ${medication.name || 'Unknown medication'}`,
+        `Status: ${medication.status || 'unknown'}`,
+        `Order type: ${formatRenewalStatus(medication.isRenewal)}`,
+      ];
+      if (medication.instructions) parts.push(`SIG: ${medication.instructions}`);
+      return parts.join(' | ');
+    })
+    .join('\n');
+}
+
+function isUnexpiredErxHistoryMedication(medication: ErxMedicationHistoryItem): boolean {
+  if (!medication.expirationDate) return true;
+
+  const expirationDate = DateTime.fromISO(medication.expirationDate);
+  if (!expirationDate.isValid) return true;
+
+  return expirationDate.toMillis() >= DateTime.now().startOf('day').toMillis();
+}
+
+export function formatErxMedicationHistoryForBillingPrompt(history: ErxGetMedicationHistoryResponse): string {
+  const unexpiredHistory = history.filter(isUnexpiredErxHistoryMedication);
+
+  if (unexpiredHistory.length === 0) return '';
+
+  const medications = unexpiredHistory.slice(0, ERX_HISTORY_PROMPT_LIMIT).map((medication) => {
+    const displayName = [medication.name, medication.strength, medication.doseForm].filter(Boolean).join(' ');
+    const parts = [
+      `Medication: ${displayName}`,
+      medication.directions ? `Directions: ${medication.directions}` : undefined,
+      medication.classification ? `Class: ${medication.classification}` : undefined,
+      `Refills allowed: ${medication.refills}`,
+      medication.lastFillDate ? `Last fill: ${medication.lastFillDate}` : undefined,
+      medication.expirationDate ? `Expires: ${medication.expirationDate}` : undefined,
+    ].filter(Boolean);
+    return parts.join(' | ');
+  });
+
+  const omittedCount = unexpiredHistory.length - medications.length;
+  return [
+    `Available eRx medication history count: ${unexpiredHistory.length}`,
+    ...medications,
+    omittedCount > 0 ? `Additional eRx history items omitted: ${omittedCount}` : undefined,
+  ]
+    .filter(Boolean)
+    .join('\n');
+}
+
+async function getErxMedicationHistoryContext(oystehr: Oystehr, patientId?: string): Promise<string> {
+  if (!patientId) return '';
+
+  try {
+    const history = await oystehr.erx.getMedicationHistory({ patientId });
+    return formatErxMedicationHistoryForBillingPrompt(history);
+  } catch (error) {
+    console.warn(`Unable to fetch eRx medication history for billing suggestions for patient ${patientId}:`, error);
+    return '';
+  }
+}
 
 export const index = wrapHandler(
   'recommend-billing-suggestions',
@@ -14,6 +98,7 @@ export const index = wrapHandler(
     console.group('validateRequestParameters');
     const validatedParameters = validateRequestParameters(input);
     const {
+      patientId,
       newPatient,
       patientAge,
       patientSex,
@@ -27,6 +112,7 @@ export const index = wrapHandler(
       rosFindings,
       diagnoses,
       billing,
+      prescribedMedications,
       secrets,
     } = validatedParameters;
     console.groupEnd();
@@ -34,8 +120,12 @@ export const index = wrapHandler(
 
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
 
-    const oystehr = createOystehrClient(m2mToken, secrets);
-    const emCodeOptions = await getEmCodes(oystehr);
+    const oystehr = createClinicalOystehrClient(m2mToken, secrets);
+    const [emCodeOptions, erxMedicationHistoryContext] = await Promise.all([
+      getEmCodes(oystehr),
+      getErxMedicationHistoryContext(oystehr, patientId),
+    ]);
+    const prescribedMedicationContext = formatPrescribedMedicationsForBillingPrompt(prescribedMedications);
 
     let prompt = `You are an expert medical coder for an urgent care clinic. Suggest appropriate ICD-10 and CPT codes for this visit.
 
@@ -52,7 +142,7 @@ export const index = wrapHandler(
       Select the E&M code using the 2021 AMA/CMS MDM framework. The E&M level is determined by the HIGHEST of these three MDM elements (only two of three need to meet the level):
       1. Number and Complexity of Problems: A single acute uncomplicated illness is Low (99213). An acute illness with systemic symptoms, a new problem requiring additional workup, or a chronic illness with mild exacerbation is Moderate (99214). An acute or chronic illness posing threat to life/function is High (99215).
       2. Amount and Complexity of Data: Ordering or reviewing tests, obtaining history from external sources, or independent interpretation of tests increases data complexity.
-      3. Risk of Complications/Management: The SINGLE highest-risk element determines this category. Prescription drug management (any new or continued prescription) qualifies as Moderate risk, which alone supports 99214. OTC medications only support 99213.
+      3. Risk of Complications/Management: The SINGLE highest-risk element determines this category. Non-refill prescription drug management ordered during this visit qualifies as Moderate risk, which alone supports 99214/99204. Renewal/refill-only eRx orders do not by themselves qualify as Moderate risk; do not suggest 99214/99204 solely because the current visit prescription context contains only refills. OTC medications only support 99213/99203.
 
       URGENT CARE CALIBRATION: The E&M codes differ by whether the patient is new or established, but the MDM complexity levels are the same:
       - Straightforward: 99202 (new) / 99212 (established) — ~3–8% of visits
@@ -65,7 +155,8 @@ export const index = wrapHandler(
       Moderate complexity is the most common level because most urgent care patients present with an acute illness or injury requiring at least a prescription, which meets Moderate risk. However, Low complexity is still appropriate for roughly a third of visits — those involving a single self-limited problem managed with OTC recommendations or simple reassurance.
 
       Common patterns:
-      - Any visit resulting in a prescription → at minimum Moderate (99204/99214)
+      - Any visit resulting in a non-refill prescription → at minimum Moderate (99204/99214)
+      - Renewal/refill-only eRx orders → do not upcode to Moderate by themselves; use the other MDM elements and documented problems/data/risk
       - New undiagnosed problem with uncertain prognosis → Moderate (99204/99214)
       - Acute illness with systemic symptoms (fever, vomiting, etc.) → Moderate (99204/99214)
       - Multiple chronic conditions with exacerbation → Moderate or High (99204-05/99214-15)
@@ -73,7 +164,10 @@ export const index = wrapHandler(
       - Brief visit, known self-limited problem, simple reassurance → Low (99203/99213)
       - Minimal encounter, e.g., single follow-up question, suture removal → Straightforward (99202/99212)
 
-      Do not default to Low complexity when the visit involves prescription drug management or a new problem requiring workup — those are Moderate. But do not upcode to Moderate when the visit is genuinely straightforward with no prescription and a self-limited problem.
+      Do not default to Low complexity when the visit involves non-refill prescription drug management or a new problem requiring workup — those are Moderate. But do not upcode to Moderate when the visit is genuinely straightforward, renewal-only, or has no prescription and a self-limited problem.
+
+      PRESCRIPTION CONTEXT RULE:
+      Review the "Current Visit Prescription Orders" section when present. If it includes a current-visit eRx order marked "new prescription" and the appropriate E&M code is not already charted, suggest the Moderate E&M code (99204 for new patients or 99214 for established patients) unless a higher level is otherwise supported. If all current-visit eRx orders are marked "refill/renewal", do not suggest Moderate E&M solely from prescription drug management. Use the "Available eRx Medication History" section only to understand chronic medication burden and complexity; medication history alone is not proof of prescription drug management during this visit.
 
       Include whether the patient is new or established when suggesting an E&M code. If there are not relevant results, return an empty list.
 
@@ -153,6 +247,12 @@ export const index = wrapHandler(
     if (procedures) {
       prompt += `\n Procedures: ${procedures}`;
     }
+    if (prescribedMedicationContext) {
+      prompt += `\n Current Visit Prescription Orders:\n${prescribedMedicationContext}`;
+    }
+    if (erxMedicationHistoryContext) {
+      prompt += `\n Available eRx Medication History:\n${erxMedicationHistoryContext}`;
+    }
     if (rosFindings) {
       prompt += `\n Review of Systems (positive findings): ${rosFindings}`;
     }
@@ -226,26 +326,38 @@ export const index = wrapHandler(
     const cptSuggestions: { code: string; description: string; reason: string }[] = [];
     const emCodeSuggestions: { code: string; description: string; upcodingSuggestion: string }[] = [];
 
-    // Validate ICD codes and get the descriptions for the codes
+    // Validate ICD codes and get the descriptions for the codes.
+    // Look the codes up concurrently but preserve the AI's original ordering: Promise.all
+    // keeps results in input order regardless of which lookup settles first.
     if (suggestions?.icdCodes) {
-      const allCodes = await loadAndParseIcd10Data();
-      suggestions.icdCodes.forEach((code) => {
-        const icdCode = allCodes.filter((codeTemp) => codeTemp.code === code.code);
-        if (icdCode.length === 1) {
-          icdSuggestions.push({
-            code: code.code,
-            description: icdCode[0].display,
-            reason: code.reason,
+      const validatedIcdCodes = await Promise.all(
+        suggestions.icdCodes.map(async (code) => {
+          const terminologyResponse = await oystehr.terminology.searchIcd10({
+            query: code.code,
+            searchType: 'code',
+            limit: 100,
+            strictMatch: true,
           });
-        } else {
+          if (terminologyResponse.codes.length === 1) {
+            return {
+              code: code.code,
+              description: terminologyResponse.codes[0].display,
+              reason: code.reason,
+            };
+          }
           console.log("Didn't get an ICD code", code.code);
-        }
-      });
+          return null;
+        })
+      );
+      for (const entry of validatedIcdCodes) {
+        if (entry) icdSuggestions.push(entry);
+      }
     }
 
-    // Validate CPT codes and get the descriptions for the codes
+    // Validate CPT codes and get the descriptions for the codes.
+    // Same as above: concurrent lookups, but keep the AI's original ordering.
     if (suggestions?.cptCodes) {
-      await Promise.all(
+      const validatedCptCodes = await Promise.all(
         suggestions.cptCodes.map(async (code) => {
           const cptCode = code.code.split('-')[0]; // Remove modifiers before lookup
           const terminologyResponse = await oystehr?.terminology.searchCpt({
@@ -262,23 +374,27 @@ export const index = wrapHandler(
               strictMatch: true,
             });
             if (hcpcsSearchResponse.codes.length === 1) {
-              cptSuggestions.push({
+              return {
                 code: cptCode,
                 description: hcpcsSearchResponse.codes[0].display,
                 reason: code.reason,
-              });
-            } else {
-              console.log("Didn't get an CPT or HCPCS code", cptCode);
+              };
             }
+            console.log("Didn't get an CPT or HCPCS code", cptCode);
+            return null;
           } else if (terminologyResponse.codes.length === 1) {
-            cptSuggestions.push({
+            return {
               code: cptCode,
               description: terminologyResponse.codes[0].display,
               reason: code.reason,
-            });
+            };
           }
+          return null;
         })
       );
+      for (const entry of validatedCptCodes) {
+        if (entry) cptSuggestions.push(entry);
+      }
     }
 
     // Validate E&M codes and get the descriptions for the codes

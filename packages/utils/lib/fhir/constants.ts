@@ -16,10 +16,12 @@ import {
   DISCHARGE_SUMMARY_CODE,
   EXPORTED_QUESTIONNAIRE_CODE,
   INSURANCE_CARD_CODE,
+  MEDICAL_RECORD_EXPORT_CODE,
   PATIENT_EDUCATION_DOC_TYPE_CODE,
   PATIENT_PHOTO_CODE,
   PHOTO_ID_CARD_CODE,
   PRIVACY_POLICY_CODE,
+  RADIOLOGY_REPORT_CODE,
   RECEIPT_CODE,
   SCHOOL_WORK_NOTE_CODE,
   SCHOOL_WORK_NOTE_TEMPLATE_CODE,
@@ -46,7 +48,10 @@ export const FHIR_BASE_URL = 'https://fhir.ottehr.com';
 export const OTTEHR_CODE_SYSTEM_BASE_URL = 'https://fhir.ottehr.com/CodeSystem';
 
 export const FHIR_IDENTIFIER_NPI = 'http://hl7.org/fhir/sid/us-npi';
+// https://terminology.hl7.org/en/NamingSystem-CLIA.html
+export const FHIR_IDENTIFIER_CLIA = 'urn:oid:2.16.840.1.113883.4.7';
 export const FHIR_IDENTIFIER_SYSTEM = 'http://terminology.hl7.org/CodeSystem/v2-0203';
+export const FHIR_IDENTIFIER_CODE_NPI = 'NPI';
 export const FHIR_IDENTIFIER_CODE_TAX_EMPLOYER = 'NE';
 export const FHIR_IDENTIFIER_CODE_TAX_SS = 'SS';
 export const FHIR_IDENTIFIER_CODE_TAXONOMY = 'ZZ';
@@ -116,6 +121,11 @@ export const FHIR_EXTENSION = {
   ContactPoint: {
     erxTelecom: {
       url: 'https://extensions.fhir.oystehr.com/contact-point/telecom-phone-erx',
+    },
+  },
+  MedicationRequest: {
+    isRenewal: {
+      url: 'https://extensions.fhir.oystehr.com/medication-request/is-renewal',
     },
   },
   InsurancePlan: {
@@ -318,6 +328,12 @@ export const APPOINTMENT_LOCKED_META_TAG_SYSTEM = 'appointment-locked-status';
 export const APPOINTMENT_LOCKED_META_TAG = {
   system: APPOINTMENT_LOCKED_META_TAG_SYSTEM,
   code: 'APPOINTMENT_LOCKED',
+};
+
+export const ENCOUNTER_LOCKED_META_TAG_SYSTEM = 'encounter-locked-status';
+export const ENCOUNTER_LOCKED_META_TAG = {
+  system: ENCOUNTER_LOCKED_META_TAG_SYSTEM,
+  code: 'ENCOUNTER_LOCKED',
 };
 
 export const FHIR_ENCOUNTER_ERX_PATIENT_SYNC_SYSTEM = 'encounter-erx-sync-status';
@@ -555,8 +571,10 @@ export const BUCKET_NAMES = {
   STATEMENTS: 'statements',
   PATIENT_EDUCATION: 'patient-education',
   PATIENT_EDUCATION_ADMIN: 'patient-education-admin',
+  RADIOLOGY_REPORTS: 'radiology-reports',
   REPORTS: 'invoiceable-patients-reports',
   CUSTOM_FOLDERS: 'patient-docs-custom-folders',
+  MEDICAL_RECORD_EXPORTS: 'medical-record-exports',
 } as const;
 
 export type BucketName = (typeof BUCKET_NAMES)[keyof typeof BUCKET_NAMES];
@@ -642,6 +660,16 @@ export const FOLDERS_CONFIG: ListConfig[] = [
     display: 'Patient Education',
     documentTypeCode: PATIENT_EDUCATION_DOC_TYPE_CODE,
   },
+  {
+    title: BUCKET_NAMES.RADIOLOGY_REPORTS,
+    display: 'Radiology Reports',
+    documentTypeCode: RADIOLOGY_REPORT_CODE,
+  },
+  {
+    title: BUCKET_NAMES.MEDICAL_RECORD_EXPORTS,
+    display: 'Medical Records',
+    documentTypeCode: MEDICAL_RECORD_EXPORT_CODE,
+  },
 ];
 
 export const SUBSCRIBER_RELATIONSHIP_CODE_MAP: Record<string, string> = {
@@ -653,6 +681,27 @@ export const SUBSCRIBER_RELATIONSHIP_CODE_MAP: Record<string, string> = {
   Self: 'self',
   'Injured Party': 'injured',
 };
+
+// Canonical set of subscriber/policy-holder relationships to the patient, shared across the
+// clinical EHR and billing app so the values stay aligned.
+export const SUBSCRIBER_RELATIONSHIPS = [
+  'Self',
+  'Child',
+  'Parent',
+  'Spouse',
+  'Common Law Spouse',
+  'Injured Party',
+  'Other',
+] as const;
+export type SubscriberRelationship = (typeof SUBSCRIBER_RELATIONSHIPS)[number];
+
+// CodeSystem for Coverage.relationship (the subscriber's relationship to the beneficiary).
+export const SUBSCRIBER_RELATIONSHIP_SYSTEM = 'http://terminology.hl7.org/CodeSystem/subscriber-relationship';
+// System used on RelatedPerson.relationship coding for coverage subscribers / policy holders.
+export const RELATED_PERSON_RELATIONSHIP_SYSTEM = 'http://hl7.org/fhir/ValueSet/relatedperson-relationshiptype';
+
+export const BIRTH_SEXES = ['Male', 'Female', 'Intersex'] as const;
+export type BirthSex = (typeof BIRTH_SEXES)[number];
 
 // this is required by US Core
 // https://build.fhir.org/ig/HL7/US-Core/StructureDefinition-us-core-coverage-definitions.html#key_Coverage.identifier:memberid.type
@@ -926,6 +975,7 @@ export const PAYMENT_METHOD_EXTENSION_URL = PUBLIC_EXTENSION_BASE_URL + '/paymen
 export const PREFERRED_PHARMACY_EXTENSION_URL = ottehrExtensionUrl('preferred-pharmacy');
 export const PREFERRED_PHARMACY_MANUAL_ENTRY_URL = ottehrExtensionUrl('pharmacy-manual-entry'); // added when the pharmacy was added manually via text fields
 export const PREFERRED_PHARMACY_PLACES_ID_URL = ottehrExtensionUrl('pharmacy-places-id'); // added when the pharmacy was selected with places search
+
 // docs.oystehr.com/oystehr/services/erx/patient-sync/#preferred-pharmacy
 export const PREFERRED_PHARMACY_ERX_ID_FOR_SYNC_URL =
   'https://extensions.fhir.oystehr.com/patient/erx-preferred-pharmacy-id';
@@ -1035,3 +1085,10 @@ export const EXAM_MIGRATION_VERSION_URL = `${PRIVATE_EXTENSION_BASE_URL}/exam-mi
 export const CURRENT_EXAM_MIGRATION_VERSION = 2;
 export const INCOMPATIBLE_EXAM_VERSION_MESSAGE =
   "This chart's exam version is incompatible with the current exam configuration, please consult the visit PDF.";
+
+export const BILLING_RESOURCE_TAG = {
+  system: 'https://fhir.ottehr.com/billing/resource-type',
+  code: 'billing-resource',
+};
+
+export const CHARGE_ITEM_DEFINITION_DEFAULT_SYSTEM = 'https://fhir.ottehr.com/billing/charge-item-definition-default';
