@@ -43,6 +43,7 @@ import { createReadStream, readdirSync, readFileSync, statSync } from 'fs';
 import pLimit from 'p-limit';
 import { basename, dirname, join } from 'path';
 import { fileURLToPath } from 'url';
+import { createClinicalOystehrClient } from '../../packages/zambdas/src/shared/helpers.js';
 import {
   buildObjectPath,
   type CsvRow,
@@ -134,13 +135,16 @@ async function createOystehrClient(): Promise<Oystehr> {
 
   const tokenData = (await tokenResponse.json()) as { access_token: string };
 
-  return new Oystehr({
-    accessToken: tokenData.access_token,
-    projectId,
-    services: {
-      projectApiUrl: projectApi,
-    },
-  });
+  return createClinicalOystehrClient(
+    tokenData.access_token,
+    {},
+    {
+      projectId,
+      services: {
+        projectApiUrl: projectApi,
+      },
+    }
+  );
 }
 
 // ── AWS client ────────────────────────────────────────────────────────────

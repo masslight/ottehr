@@ -19,6 +19,7 @@ import {
   getSlugForBookableResource,
   getTimezone,
   getWaitingMinutesAtSchedule,
+  isBookingConfigServiceCategoryCode,
   isLocationOpen,
   isLocationVirtual,
   PickableLocation,
@@ -28,7 +29,7 @@ import {
   SLUG_SYSTEM,
   Timezone,
 } from 'utils';
-import { createOystehrClient, getAuth0Token, getSchedules, wrapHandler, ZambdaInput } from '../../shared';
+import { createClinicalOystehrClient, getAuth0Token, getSchedules, wrapHandler, ZambdaInput } from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
@@ -50,7 +51,7 @@ export const index = wrapHandler('get-schedule', async (input: ZambdaInput): Pro
     console.log('already have token', oystehrToken);
   }
 
-  const oystehr = createOystehrClient(oystehrToken, secrets);
+  const oystehr = createClinicalOystehrClient(oystehrToken, secrets);
   if (!oystehr) {
     throw new Error('error initializing fhir client');
   }
@@ -172,39 +173,45 @@ export const index = wrapHandler('get-schedule', async (input: ZambdaInput): Pro
   // the role's healthcareService references resolved through fhirMatches).
   // Schedules owned by Location / Practitioner / HealthcareService pass through
   // unchanged — we only use the role's service list to narrow the pool.
+  //
+  // BOOKING_CONFIG (compile-time) categories are a hard exclusion for any
+  // PR-owned schedule, regardless of the `allCategories` toggle: BOOKING_CONFIG
+  // categories aren't backed by a FHIR HealthcareService, so a PR has no way to
+  // legitimately opt into them, and a Slot stamped with one of these codes
+  // must live on a Location or group (HealthcareService) actor. Skipping the
+  // FHIR lookup below in that case avoids one round-trip too.
   if (serviceCategoryCode) {
-    const categoryHealthcareServiceIds = new Set<string>();
-    // Resolve the category-tagged HealthcareService(s) to their ids so we can
-    // match against role.healthcareService[].reference.
-    const categoryHits = (
-      await oystehr.fhir.search<HealthcareService>({
-        resourceType: 'HealthcareService',
-        params: [
-          { name: '_tag', value: 'booking-service-category' },
-          { name: 'active', value: 'true' },
-        ],
-      })
-    ).unbundle();
-    for (const hs of categoryHits) {
-      if (hs.type?.[0]?.coding?.some((c) => c.code === serviceCategoryCode) && hs.id) {
-        categoryHealthcareServiceIds.add(hs.id);
+    if (isBookingConfigServiceCategoryCode(serviceCategoryCode)) {
+      const filtered = scheduleList.filter((entry) => entry.owner.resourceType !== 'PractitionerRole');
+      scheduleList.length = 0;
+      scheduleList.push(...filtered);
+    } else {
+      // Reuse the FHIR category bundle fetched at the top of the handler
+      // (`fhirCategoryHits`) — same query, same snapshot. Re-running the
+      // search here would burn an extra round-trip and risk a snapshot-
+      // inconsistency window if a category were added/removed mid-handler.
+      const categoryHealthcareServiceIds = new Set<string>();
+      for (const hs of fhirCategoryHits) {
+        if (hs.type?.[0]?.coding?.some((c) => c.code === serviceCategoryCode) && hs.id) {
+          categoryHealthcareServiceIds.add(hs.id);
+        }
       }
-    }
 
-    const filtered = scheduleList.filter((entry) => {
-      if (entry.owner.resourceType !== 'PractitionerRole') return true;
-      // PR with the all-categories toggle on is qualified for any service the
-      // resolver asks about — no per-category opt-in needed.
-      if (getPractitionerRoleAllCategories(entry.owner as PractitionerRole)) return true;
-      const roleServices = (entry.owner as any).healthcareService || [];
-      return roleServices.some((ref: { reference?: string }) => {
-        const id = ref.reference?.split('/')[1];
-        return id && categoryHealthcareServiceIds.has(id);
+      const filtered = scheduleList.filter((entry) => {
+        if (entry.owner.resourceType !== 'PractitionerRole') return true;
+        // PR with the all-categories toggle on is qualified for any FHIR-backed
+        // service the resolver asks about — no per-category opt-in needed.
+        if (getPractitionerRoleAllCategories(entry.owner as PractitionerRole)) return true;
+        const roleServices = (entry.owner as any).healthcareService || [];
+        return roleServices.some((ref: { reference?: string }) => {
+          const id = ref.reference?.split('/')[1];
+          return id && categoryHealthcareServiceIds.has(id);
+        });
       });
-    });
-    // Mutate in place so the rest of the handler uses the filtered list.
-    scheduleList.length = 0;
-    scheduleList.push(...filtered);
+      // Mutate in place so the rest of the handler uses the filtered list.
+      scheduleList.length = 0;
+      scheduleList.push(...filtered);
+    }
   }
 
   // Resolve atLocationSlug → Location id, then narrow scheduleList to

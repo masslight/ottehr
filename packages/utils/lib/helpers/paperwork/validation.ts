@@ -837,10 +837,10 @@ const makeItemDict = (items: HasLinkId[]): { [linkId: string]: any } => {
 };
 
 export const evalFilterWhen = (item: IntakeQuestionnaireItem, context: any, questionVal?: any): boolean => {
-  if (item.filterWhen === undefined) {
+  if (!item.filterWhen || item.filterWhen.length === 0) {
     return false;
   }
-  return evalCondition(item.filterWhen, context, item.type, questionVal);
+  return item.filterWhen.some((condition) => evalCondition(condition, context, item.type, questionVal));
 };
 
 export const evalComplexValidationTrigger = (

@@ -1,14 +1,25 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim, Coverage, Location, Organization, Patient, Practitioner, Resource } from 'fhir/r4b';
-import { BillingClaimItem, getPayerId, getPayerUrl } from 'utils';
+import {
+  BillingClaimItem,
+  CLAIM_STATUS_TAG_SYSTEMS,
+  CODE_SYSTEM_CLAIM_TYPE,
+  CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM,
+  getClaimStatusValues,
+  getPayerId,
+  getPayerUrl,
+} from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import {
   CLAIM_TAG_SYSTEM,
   createBillingClient,
+  CURRENT_STATUS_TAG_SYSTEM,
   fhirName,
   findRef,
+  getClaimService,
   getClaimStatus,
+  getClaimType,
   resolvePayersByRef,
   sortClaimInsurance,
 } from '../shared';
@@ -50,12 +61,18 @@ async function performEffect(
     { name: '_sort', value: '-_lastUpdated' },
     { name: '_count', value: String(pageSize) },
     { name: '_offset', value: String(offset) },
+    { name: '_total', value: 'exact' },
   ];
 
-  if (params.status) searchParams.push({ name: '_tag', value: `current-status|${params.status}` });
+  if (params.type) searchParams.push({ name: '_tag', value: `${CODE_SYSTEM_CLAIM_TYPE}|${params.type}` });
+  if (params.status) searchParams.push({ name: '_tag', value: `${CURRENT_STATUS_TAG_SYSTEM}|${params.status}` });
+  if (params.arStage)
+    searchParams.push({ name: '_tag', value: `${CLAIM_STATUS_TAG_SYSTEMS.arStage}|${params.arStage}` });
   if (params.createdFrom) searchParams.push({ name: 'created', value: `ge${params.createdFrom}` });
   if (params.createdTo) searchParams.push({ name: 'created', value: `le${params.createdTo}` });
   if (params.patientId) searchParams.push({ name: 'patient', value: `Patient/${params.patientId}` });
+  if (params.service)
+    searchParams.push({ name: '_tag', value: `${CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM}|${params.service}` });
   if (params.searchText) searchParams.push({ name: 'patient.name', value: params.searchText });
   if (insurerFilter) searchParams.push({ name: 'insurer', value: insurerFilter });
   if (params.tag) searchParams.push({ name: '_tag', value: `${CLAIM_TAG_SYSTEM}|${params.tag}` });
@@ -121,12 +138,15 @@ function mapClaimToItem(claim: Claim, lookups: ClaimLookups): BillingClaimItem {
 
   return {
     id: claim.id ?? '',
+    type: getClaimType(claim),
     status: getClaimStatus(claim),
+    statuses: getClaimStatusValues(claim),
     patientName,
     patientDob: patient?.birthDate ?? '',
     payerName: insurer?.name ?? '',
     payerId: getPayerId(insurer) ?? '',
     memberId: coverage?.subscriberId ?? '',
+    service: getClaimService(claim),
     serviceDate,
     facility: facility?.name ?? '',
     renderingProvider: practName,

@@ -1,8 +1,12 @@
+import { useAuth0 } from '@auth0/auth0-react';
 import {
+  Apartment as ApartmentIcon,
   Business as BusinessIcon,
   Description as DescriptionIcon,
   Home as HomeIcon,
   Label as LabelIcon,
+  List as ListIcon,
+  Logout as LogoutIcon,
   MedicalServices as MedicalServicesIcon,
   People as PeopleIcon,
   Receipt as ReceiptIcon,
@@ -10,6 +14,7 @@ import {
 import { Box, Drawer, List, ListItemButton, ListItemIcon, ListItemText, Typography } from '@mui/material';
 import { FC } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { ChargeItemDefinitionLabels } from '../constants/chargeItemDefinition';
 import { otherColors } from '../themes/ottehr/colors';
 
 const DRAWER_WIDTH = 220;
@@ -20,6 +25,12 @@ const navItems = [
   { label: 'Patients', path: '/patients', icon: <PeopleIcon sx={{ fontSize: 18 }} /> },
   { label: 'Billing Providers', path: '/billing-providers', icon: <BusinessIcon sx={{ fontSize: 18 }} /> },
   { label: 'Rendering Providers', path: '/rendering-providers', icon: <MedicalServicesIcon sx={{ fontSize: 18 }} /> },
+  { label: 'Service Facilities', path: '/service-facilities', icon: <ApartmentIcon sx={{ fontSize: 18 }} /> },
+  {
+    label: ChargeItemDefinitionLabels['charge-master'].listTitle,
+    path: `/${ChargeItemDefinitionLabels['charge-master'].pathComponent}`,
+    icon: <ListIcon sx={{ fontSize: 18 }} />,
+  },
   { label: 'ERAs', path: '/eras', icon: <ReceiptIcon sx={{ fontSize: 18 }} /> },
   { label: 'Tags', path: '/tags', icon: <LabelIcon sx={{ fontSize: 18 }} /> },
 ];
@@ -27,6 +38,7 @@ const navItems = [
 export const Sidebar: FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { logout } = useAuth0();
 
   return (
     <Drawer
@@ -40,6 +52,9 @@ export const Sidebar: FC = () => {
           borderRight: `1px solid ${otherColors.lightDivider}`,
           bgcolor: 'background.paper',
           position: 'relative',
+          height: '100vh',
+          display: 'flex',
+          flexDirection: 'column',
         },
       }}
     >
@@ -64,7 +79,7 @@ export const Sidebar: FC = () => {
         </Typography>
       </Box>
 
-      <List sx={{ px: 1.25, flex: 1 }}>
+      <List sx={{ px: 1.25, flex: 1, overflow: 'auto', minHeight: 0 }}>
         {navItems.map(({ label, path, icon }) => {
           const isActive = location.pathname === path || (path !== '/' && location.pathname.startsWith(path));
           return (
@@ -100,6 +115,26 @@ export const Sidebar: FC = () => {
             </ListItemButton>
           );
         })}
+      </List>
+
+      <List sx={{ px: 1.25, pb: 1 }}>
+        <ListItemButton
+          onClick={() => void logout({ logoutParams: { returnTo: window.location.origin, federated: true } })}
+          sx={{
+            borderRadius: 1,
+            py: 0.75,
+            px: 1.25,
+            '&:hover': { bgcolor: otherColors.apptHover },
+          }}
+        >
+          <ListItemIcon sx={{ minWidth: 28, color: 'action.disabled' }}>
+            <LogoutIcon sx={{ fontSize: 18 }} />
+          </ListItemIcon>
+          <ListItemText
+            primary="Log out"
+            primaryTypographyProps={{ fontSize: 13.5, fontWeight: 450, color: 'text.primary' }}
+          />
+        </ListItemButton>
       </List>
     </Drawer>
   );

@@ -18,9 +18,10 @@ export const FormGroupPharmacyCollection: FC = () => {
     PHARMACY_COLLECTION_LINK_IDS.placesName,
     PHARMACY_COLLECTION_LINK_IDS.placesAddress,
     PHARMACY_COLLECTION_LINK_IDS.placesId,
+    PHARMACY_COLLECTION_LINK_IDS.placesPhone,
   ]);
 
-  const [placesName, placesAddress, placesId] = values;
+  const [placesName, placesAddress, placesId, placesPhone] = values;
 
   const hasSelectedPlace = !!placesName && !!placesAddress && !!placesId;
 
@@ -34,6 +35,7 @@ export const FormGroupPharmacyCollection: FC = () => {
     setValue(PHARMACY_COLLECTION_LINK_IDS.placesAddress, '', { shouldDirty: true });
     setValue(PHARMACY_COLLECTION_LINK_IDS.placesId, '', { shouldDirty: true });
     setValue(PHARMACY_COLLECTION_LINK_IDS.placesName, '', { shouldDirty: true });
+    setValue(PHARMACY_COLLECTION_LINK_IDS.placesPhone, '', { shouldDirty: true });
     setValue(PHARMACY_COLLECTION_LINK_IDS.placesDataSaved, false, { shouldDirty: true });
   };
 
@@ -44,6 +46,7 @@ export const FormGroupPharmacyCollection: FC = () => {
     setValue(PHARMACY_COLLECTION_LINK_IDS.placesAddress, input.placesAddress, { shouldDirty: true });
     setValue(PHARMACY_COLLECTION_LINK_IDS.placesId, input.placesId, { shouldDirty: true });
     setValue(PHARMACY_COLLECTION_LINK_IDS.placesName, input.placesName, { shouldDirty: true });
+    setValue(PHARMACY_COLLECTION_LINK_IDS.placesPhone, input.placesPhone ?? '', { shouldDirty: true });
     setValue(PHARMACY_COLLECTION_LINK_IDS.placesDataSaved, true, { shouldDirty: true });
   };
 
@@ -57,11 +60,17 @@ export const FormGroupPharmacyCollection: FC = () => {
       <input type="hidden" {...register(PHARMACY_COLLECTION_LINK_IDS.placesId)} />
       <input type="hidden" {...register(PHARMACY_COLLECTION_LINK_IDS.placesName)} />
       <input type="hidden" {...register(PHARMACY_COLLECTION_LINK_IDS.placesAddress)} />
+      <input type="hidden" {...register(PHARMACY_COLLECTION_LINK_IDS.placesPhone)} />
       <input type="hidden" {...register(PHARMACY_COLLECTION_LINK_IDS.placesDataSaved)} />
       <input type="hidden" {...register(PHARMACY_COLLECTION_LINK_IDS.erxPharmacyId)} />
       {hasSelectedPlace ? (
         <PharmacyDisplay
-          selectedPlace={{ name: placesName!, address: placesAddress!, placesId: placesId! }}
+          selectedPlace={{
+            name: placesName!,
+            address: placesAddress!,
+            placesId: placesId!,
+            phone: placesPhone || undefined,
+          }}
           clearPharmacyData={clearPharmacyData}
           dataTestIds={dataTestIds.patientInformationPage.pharmacySearchDisplay}
         ></PharmacyDisplay>

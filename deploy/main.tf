@@ -33,7 +33,7 @@ locals {
   # `1` is the magic number to run a module that checks this local variable.
   # switch which line is commented out to run non-local modules like aws_infra
   # while still in the `local` environment
-  is_local                     = contains(["local", "e2e", "e2e2", "e2e3"], var.environment)
+  is_local                     = contains(["local", "e2e", "e2e2", "e2e3", "e2e4", "e2e5"], var.environment)
   not_local_env_resource_count = local.is_local ? 0 : 1
   # not_local_env_resource_count = 1
 
@@ -146,4 +146,19 @@ module "apps_upload" {
   patient_portal_cdn_distribution_id = one(module.infra[*].patient_portal_cdn_distribution_id)
   ehr_hash                           = one(module.ottehr_apps[*].ehr_hash)
   patient_portal_hash                = one(module.ottehr_apps[*].patient_portal_hash)
+}
+
+module "billing_app" {
+  source = "./billing_app"
+
+  project_id                   = var.project_id
+  environment                  = var.environment
+  is_local                     = local.is_local
+  aws_profile                  = var.aws_profile
+  not_local_env_resource_count = local.not_local_env_resource_count
+
+  billing_bucket_name = var.billing_bucket_name
+  billing_domain      = var.billing_domain
+  billing_cert_domain = var.billing_cert_domain
+  ehr_app_url         = var.ehr_domain == null ? "http://localhost:4002" : "https://${var.ehr_domain}"
 }

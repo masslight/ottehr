@@ -1,12 +1,13 @@
-import Oystehr from '@oystehr/sdk';
+import Oystehr, { ErxSearchPharmaciesResponse } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { getSecret, PlacesResult, SearchPlacesInput, SearchPlacesOutput, SecretsKeys } from 'utils';
-import { createOystehrClient, getAuth0Token, wrapHandler, ZambdaInput } from '../../shared';
+import { createClinicalOystehrClient, getAuth0Token, wrapHandler, ZambdaInput } from '../../shared';
 import {
   addressComponentsFromPlacesDetailRes,
-  extractPharmacyIdFromSearchRes,
+  findMatchingErxPharmacy,
   getAddressParamsForErxPharmacySearch,
   PLACES_API_BASE_URL,
+  reconcilePharmacyPhone,
   searchErxPharmacy,
   validateIsString,
 } from './helpers';
@@ -32,7 +33,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     console.log('already have a token, no need to update');
   }
 
-  const oystehr = createOystehrClient(oystehrToken, secrets);
+  const oystehr = createClinicalOystehrClient(oystehrToken, secrets);
 
   const output = await performEffect({ searchTerm, locationBias, placesId, googleApiKey, oystehr });
 
@@ -141,13 +142,15 @@ const getPharmacyDetail = async (placesId: string, googleApiKey: string, oystehr
     headers: {
       'Content-Type': 'application/json',
       'X-Goog-Api-Key': googleApiKey,
-      'X-Goog-FieldMask': 'id,displayName,formattedAddress,addressComponents',
+      'X-Goog-FieldMask':
+        'id,displayName,formattedAddress,addressComponents,nationalPhoneNumber,internationalPhoneNumber',
     },
   });
 
   const data = await response.json();
   const placesName = validateIsString(data?.displayName?.text);
   const placesAddress = validateIsString(data?.formattedAddress);
+  const placesPhone = data?.nationalPhoneNumber ?? data?.internationalPhoneNumber;
 
   const addressParsed = addressComponentsFromPlacesDetailRes(data?.addressComponents);
   const pharmacySearchParams = getAddressParamsForErxPharmacySearch(addressParsed);
@@ -156,12 +159,12 @@ const getPharmacyDetail = async (placesId: string, googleApiKey: string, oystehr
   // we won't include name in search params since searching with "walgreens" will not return "WALGREENS DRUG STORE #09552",
   // we won't include zip in search params since searching with a 5 digit zip will fail to return if erx has the 9 digit zip
 
-  let erxPharmacyId: string | undefined;
+  let erxPharmacyMatch: ErxSearchPharmaciesResponse['data'][number] | undefined;
   let i = 0;
-  while (!erxPharmacyId && i < pharmacySearchParams.length) {
+  while (!erxPharmacyMatch && i < pharmacySearchParams.length) {
     const addressParams = pharmacySearchParams[i];
     const res = await searchErxPharmacy(addressParams, oystehr);
-    erxPharmacyId = extractPharmacyIdFromSearchRes(placesName, addressParsed, res);
+    erxPharmacyMatch = findMatchingErxPharmacy(placesName, addressParsed, res);
     i++;
   }
 
@@ -169,7 +172,8 @@ const getPharmacyDetail = async (placesId: string, googleApiKey: string, oystehr
     placesId,
     name: placesName ?? '',
     address: placesAddress ?? '',
-    erxPharmacyId,
+    phone: reconcilePharmacyPhone(placesPhone, erxPharmacyMatch?.phone),
+    erxPharmacyId: erxPharmacyMatch?.id.toString(),
   };
 
   console.log('returning this formatted pharmacy info', JSON.stringify(formattedPlace));

@@ -72,6 +72,7 @@ import {
   findOrgMatchingReference,
   getAttendingPractitionerId,
   getCandidPlanTypeCodeFromCoverage,
+  getCptCodesFromMA,
   getDosageFromMA,
   getEmCodes,
   getMedicationFromMA,
@@ -83,6 +84,7 @@ import {
   INVALID_INPUT_ERROR,
   isAppointmentAutoAccident,
   isAppointmentOccupationalMedicine,
+  isAppointmentPreOp,
   isAppointmentWorkersComp,
   isTelemedAppointment,
   MedicationUnitOptions,
@@ -118,6 +120,36 @@ export const CANDID_NON_INSURANCE_PAYER_ID_IDENTIFIER_SYSTEM =
 const CANDID_TAG_WORKERS_COMP = 'workers-comp';
 const CANDID_TAG_OCCUPATIONAL_MEDICINE = 'occupational-medicine';
 const CANDID_TAG_AUTO_ACCIDENT = 'auto-accident';
+const CANDID_TAG_PRE_OP = 'pre-op';
+
+// Sent as both the payer name and payer id (with a space, as required by Candid) whenever billing
+// should bypass insurance and use a single Cash Pay coverage (employer-paid and self-pay visits).
+const CANDID_CASH_PAY_PAYER = 'Cash Pay';
+
+/**
+ * Whether the claim should bill a single "Cash Pay" payer instead of insurance. This is true for
+ * self-pay visits, and for employer-paid visits only when the visit is occupational medicine. The
+ * payment variant comes from the encounter (the authoritative billing signal chosen during paperwork).
+ * Note an occupational-medicine *service category* visit can still be insurance-pay, so the service
+ * category must not be used on its own to make this decision; it only gates the employer variant.
+ *
+ * WC visits always use their WC insurance coverage regardless of the payment variant. A WC patient
+ * without general insurance may select "I will pay without insurance" on the payment page (which sets
+ * paymentVariant = selfPay), but the WC insurer — not Cash Pay — is the correct billing vehicle.
+ */
+const shouldUseCashPayCoverage = (encounter: Encounter, appointment: Appointment): boolean => {
+  if (isAppointmentWorkersComp(appointment)) {
+    return false;
+  }
+  const paymentVariant = getPaymentVariantFromEncounter(encounter);
+  if (paymentVariant === PaymentVariant.selfPay) {
+    return true;
+  }
+  if (paymentVariant === PaymentVariant.employer) {
+    return isAppointmentOccupationalMedicine(appointment);
+  }
+  return false;
+};
 
 interface BillingProviderData {
   organizationName?: string;
@@ -623,15 +655,15 @@ export interface PerformCandidPreEncounterSyncInput {
 export const performCandidPreEncounterSync = async (input: PerformCandidPreEncounterSyncInput): Promise<void> => {
   const { encounterId, oystehr, candidApiClient, amountCents } = input;
 
-  const { patient: ourPatient, appointment: ourAppointment } = await fetchFHIRPatientAndAppointmentFromEncounter(
-    encounterId,
-    oystehr
-  );
+  const {
+    patient: ourPatient,
+    appointment: ourAppointment,
+    encounter: ourEncounter,
+  } = await fetchFHIRPatientAndAppointmentFromEncounter(encounterId, oystehr);
 
   if (!ourPatient.id) {
     throw new Error(`Patient ID is not defined for encounter ${encounterId}`);
   }
-
   const { coverages, insuranceOrgs, occupationalMedicineAccount } = await getAccountAndCoverageResourcesForPatient(
     ourPatient.id,
     oystehr
@@ -676,7 +708,8 @@ export const performCandidPreEncounterSync = async (input: PerformCandidPreEncou
     candidPreEncounterPatient,
     coverages,
     insuranceOrgs,
-    candidApiClient
+    candidApiClient,
+    shouldUseCashPayCoverage(ourEncounter, ourAppointment)
   );
 
   // Update patient with the coverages
@@ -830,13 +863,28 @@ const createCandidCoverages = async (
   candidPatient: CandidPreEncounterPatient,
   coverages: OrderedCoveragesWithSubscribers,
   insuranceOrgs: Organization[],
-  candidApiClient: CandidApiClient
+  candidApiClient: CandidApiClient,
+  useCashPayCoverage: boolean
 ): Promise<CandidPreEncounterCoverage[]> => {
   if (!patient.id) {
     throw new Error(`Patient ID is not defined for patient ${JSON.stringify(patient)}`);
   }
 
   const candidCoverages: CandidPreEncounterCoverage[] = [];
+
+  // For employer-paid and self-pay visits, do not send any insurance coverage. Instead send a single
+  // "Cash Pay" coverage so an insurance payer that may have been selected by accident is never billed.
+  // (For employer-paid occupational medicine visits, the employer is additionally sent as a
+  // non-insurance payer elsewhere in the sync.)
+  if (useCashPayCoverage) {
+    const candidCoverage = buildCashPayCoverageCreateInput(patient, candidPatient);
+    const response = await candidApiClient.preEncounter.coverages.v1.create(candidCoverage);
+    if (!response.ok) {
+      throw new Error(`Error creating Candid Cash Pay coverage. Response body: ${JSON.stringify(response.error)}`);
+    }
+    candidCoverages.push(response.body);
+    return candidCoverages;
+  }
 
   if (coverages === undefined) {
     return candidCoverages;
@@ -912,6 +960,86 @@ const createCandidCoverages = async (
   }
 
   return candidCoverages;
+};
+
+const buildCashPayCoverageCreateInput = (
+  patient: Patient,
+  candidPatient: CandidPreEncounterPatient
+): MutableCoverage => {
+  if (!patient.name?.[0].family || !patient.name?.[0].given) {
+    throw INVALID_INPUT_ERROR(
+      'In order to collect payment, patient name is required. Please update the patient record and try again.'
+    );
+  }
+  if (!patient.birthDate) {
+    throw INVALID_INPUT_ERROR(
+      'In order to collect payment, patient date of birth is required. Please update the patient record and try again.'
+    );
+  }
+  if (
+    !patient.address?.[0].line ||
+    !patient.address?.[0].city ||
+    !patient.address?.[0].state ||
+    !patient.address?.[0].postalCode
+  ) {
+    throw INVALID_INPUT_ERROR(
+      'In order to collect payment, patient address is required. Please update the patient record and try again.'
+    );
+  }
+
+  return {
+    subscriber: {
+      name: {
+        family: patient.name?.[0].family,
+        given: patient.name?.[0].given,
+        use: (patient.name?.[0].use?.toUpperCase() as NameUse) ?? 'USUAL',
+      },
+      dateOfBirth: patient.birthDate,
+      biologicalSex: mapGenderToSex(patient.gender),
+      address: {
+        line: patient.address?.[0].line,
+        city: patient.address?.[0].city,
+        state: patient.address?.[0].state,
+        postalCode: patient.address?.[0].postalCode,
+        use: mapAddressUse(patient.address?.[0].use),
+        country: patient.address?.[0].country ?? 'US',
+      },
+    },
+    relationship: Relationship.Self,
+    status: 'ACTIVE',
+    patient: candidPatient.id,
+    verified: true,
+    insurancePlan: {
+      memberId: assertDefined(patient.id, 'Patient ID'),
+      payerName: CANDID_CASH_PAY_PAYER,
+      payerId: PayerId(CANDID_CASH_PAY_PAYER),
+    },
+  };
+};
+
+/**
+ * Forces the Candid patient's coverage filing order to a single "Cash Pay" coverage. Used for
+ * employer-paid (occupational medicine) and self-pay claims to guarantee an insurance payer is never
+ * billed, even when the pre-encounter sync (which normally applies this override) was skipped because
+ * a Candid pre-encounter appointment already existed (e.g. payment was collected at check-in).
+ */
+const enforceCashPayCoverageForCandidPatient = async (
+  patient: Patient,
+  candidApiClient: CandidApiClient
+): Promise<void> => {
+  if (!patient.id) {
+    throw new Error(`Patient ID is not defined for patient ${JSON.stringify(patient)}`);
+  }
+  const candidPatient = await fetchPreEncounterPatient(patient.id, candidApiClient);
+  if (!candidPatient) {
+    throw new Error(`Candid patient not found for patient ${patient.id} while enforcing Cash Pay coverage`);
+  }
+  const candidCoverage = buildCashPayCoverageCreateInput(patient, candidPatient);
+  const response = await candidApiClient.preEncounter.coverages.v1.create(candidCoverage);
+  if (!response.ok) {
+    throw new Error(`Error creating Candid Cash Pay coverage. Response body: ${JSON.stringify(response.error)}`);
+  }
+  await updateCandidPatientWithCoverages(candidPatient, [response.body], candidApiClient);
 };
 
 const buildCandidCoverageCreateInput = (
@@ -1006,7 +1134,7 @@ function getLocalDateOfService(appointmentStart: string, location: Location | un
 const fetchFHIRPatientAndAppointmentFromEncounter = async (
   encounterId: string,
   oystehr: Oystehr
-): Promise<{ patient: Patient; appointment: Appointment; location: Location | undefined }> => {
+): Promise<{ patient: Patient; appointment: Appointment; location: Location | undefined; encounter: Encounter }> => {
   const searchBundleResponse = (
     await oystehr.fhir.search<Encounter | Patient | Appointment | Location>({
       resourceType: 'Encounter',
@@ -1043,6 +1171,13 @@ const fetchFHIRPatientAndAppointmentFromEncounter = async (
     throw new Error(`Appointment not found for encounter ID: ${encounterId}`);
   }
 
+  const encounter = searchBundleResponse.find(
+    (resource) => resource.resourceType === 'Encounter' && resource.id === encounterId
+  ) as Encounter | undefined;
+  if (!encounter) {
+    throw new Error(`Encounter not found for encounter ID: ${encounterId}`);
+  }
+
   const location = searchBundleResponse.find((resource) => resource.resourceType === 'Location') as
     | Location
     | undefined;
@@ -1051,6 +1186,7 @@ const fetchFHIRPatientAndAppointmentFromEncounter = async (
     patient,
     appointment,
     location,
+    encounter,
   };
 };
 
@@ -1062,6 +1198,7 @@ export async function createEncounterFromAppointment(
   console.log('[CLAIM SUBMISSION] Starting encounter submission to candid');
   let createEncounterInput = await createCandidCreateEncounterInput(visitResources, oystehr);
 
+  let didPreEncounterSync = false;
   if (
     !createEncounterInput.appointment.identifier?.find(
       (identifier) => identifier.system === CANDID_PRE_ENCOUNTER_APPOINTMENT_ID_IDENTIFIER_SYSTEM
@@ -1081,6 +1218,16 @@ export async function createEncounterFromAppointment(
     });
     console.log(`[CLAIM SUBMISSION] Sync completed for encounter  ${visitResources.encounter.id}`);
     createEncounterInput = await createCandidCreateEncounterInput(visitResources, oystehr);
+    didPreEncounterSync = true;
+  }
+
+  // The Cash Pay override is applied during pre-encounter sync. If that sync was skipped (because a
+  // Candid pre-encounter appointment already existed, e.g. payment was collected at check-in), force
+  // the Cash Pay filing order here so employer-paid and self-pay claims never bill an insurance payer
+  // that may have been selected.
+  if (!didPreEncounterSync && shouldUseCashPayCoverage(visitResources.encounter, visitResources.appointment)) {
+    console.log('[CLAIM SUBMISSION] Enforcing Cash Pay coverage for employer-paid/self-pay claim');
+    await enforceCashPayCoverageForCandidPatient(createEncounterInput.patient, candidApiClient);
   }
 
   const request = await candidCreateEncounterFromAppointmentRequest(createEncounterInput, candidApiClient);
@@ -1102,10 +1249,14 @@ export async function createEncounterFromAppointment(
   }
 
   // here we're setting claim type (self-pay or insurance-pay), if nothing provided it'll be insurance-pay
+  // WC visits always bill through WC insurance, so they are always InsurancePay even when the
+  // encounter's paymentVariant is selfPay (a WC patient without general insurance selects
+  // "I will pay without insurance" on the payment page, which sets selfPay, but the WC insurer
+  // is still the responsible party for the claim).
   const packageEncounter = visitResources.encounter;
   const paymentVariantFromEncounter = getPaymentVariantFromEncounter(packageEncounter);
   const candidResponsibleParty: ResponsiblePartyType =
-    paymentVariantFromEncounter && paymentVariantFromEncounter === PaymentVariant.selfPay
+    !isAppointmentWorkersComp(visitResources.appointment) && paymentVariantFromEncounter === PaymentVariant.selfPay
       ? ResponsiblePartyType.SelfPay
       : ResponsiblePartyType.InsurancePay;
   if (candidResponsibleParty && candidEncounterId) {
@@ -1270,11 +1421,12 @@ async function candidCreateEncounterFromAppointmentRequest(
     }
 
     const drugIdentification = buildDrugIdentification(procedure, medicationAdministrations);
+    const billableUnits = getBillableUnitsForProcedure(procedure, medicationAdministrations);
 
     serviceLines.push({
       procedureCode: procedureCode,
       modifiers,
-      quantity: Decimal('1'),
+      quantity: Decimal(String(billableUnits ?? 1)),
       units: ServiceLineUnits.Un,
       diagnosisPointers: [primaryDiagnosisIndex],
       dateOfService:
@@ -1290,6 +1442,8 @@ async function candidCreateEncounterFromAppointmentRequest(
     tags.push(TagId(CANDID_TAG_OCCUPATIONAL_MEDICINE));
   } else if (isAppointmentAutoAccident(appointment)) {
     tags.push(TagId(CANDID_TAG_AUTO_ACCIDENT));
+  } else if (isAppointmentPreOp(appointment)) {
+    tags.push(TagId(CANDID_TAG_PRE_OP));
   }
 
   const accidentTypes =
@@ -1398,6 +1552,25 @@ export function buildDrugIdentification(
   };
 }
 
+/** Returns the billable units stored for the procedure's CPT code on the linked MedicationAdministration, if any. */
+export function getBillableUnitsForProcedure(
+  procedure: Procedure,
+  medicationAdministrations: MedicationAdministration[]
+): number | undefined {
+  const maRef = procedure.partOf?.find((ref) => ref.reference?.startsWith('MedicationAdministration/'));
+  if (!maRef?.reference) return undefined;
+
+  const maId = maRef.reference.replace('MedicationAdministration/', '');
+  const ma = medicationAdministrations.find((m) => m.id === maId);
+  if (!ma) return undefined;
+
+  const procedureCode = procedure.code?.coding?.[0]?.code;
+  if (!procedureCode) return undefined;
+
+  const billableUnits = getCptCodesFromMA(ma)?.find((entry) => entry.code === procedureCode)?.billableUnits;
+  return billableUnits != null && Number.isFinite(billableUnits) && billableUnits > 0 ? billableUnits : undefined;
+}
+
 export function mapMedicationUnitToCandid(unit: MedicationUnitOptions): MeasurementUnitCode {
   switch (unit) {
     case 'mg':
@@ -1449,14 +1622,14 @@ export const getCptModifierCodeFromProcedure = (
 
 export function shouldUseCandid(secrets: Secrets): boolean {
   return (
-    ['candid', 'all'].includes(secrets.BILLING_INTEGRATION_FEATURE_FLAG) ||
+    ['candid', 'all'].includes(secrets.BILLING_INTEGRATION) ||
     // TODO: remove this once secrets migrated
-    !secrets.BILLING_INTEGRATION_FEATURE_FLAG
+    !secrets.BILLING_INTEGRATION
   );
 }
 
 export function shouldUseOttehrBilling(secrets: Secrets): boolean {
-  return ['ottehr', 'all'].includes(secrets.BILLING_INTEGRATION_FEATURE_FLAG);
+  return ['ottehr', 'all'].includes(secrets.BILLING_INTEGRATION);
 }
 
 export function shouldSendClaim(secrets: Secrets, encounter: Encounter): boolean {

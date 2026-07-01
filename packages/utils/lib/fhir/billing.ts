@@ -1,7 +1,22 @@
-import { Address, Coding, Coverage, CoverageEligibilityResponse, Location, Organization, Practitioner } from 'fhir/r4b';
+import {
+  Address,
+  Claim,
+  Coding,
+  Coverage,
+  CoverageEligibilityResponse,
+  Extension,
+  Location,
+  Organization,
+  Practitioner,
+} from 'fhir/r4b';
 import {
   CODE_SYSTEM_CPT_MODIFIER,
   ELIGIBILITY_BENEFIT_CODES,
+  EXTENSION_CLAIM_ASSIGNMENT_OR_PLAN_PARTICIPATION_CODE,
+  EXTENSION_CLAIM_BENEFITS_ASSIGNMENT_CERTIFICATION_INDICATOR,
+  EXTENSION_CLAIM_INSURANCE_TYPE,
+  EXTENSION_CLAIM_PROVIDER_SIGNATURE_INDICATOR,
+  EXTENSION_CLAIM_RELEASE_OF_INFORMATION_CODE,
   EXTENSION_URL_CPT_MODIFIER,
   INSURANCE_PLAN_ID_CODING,
 } from '../main';
@@ -18,6 +33,7 @@ import {
   PatientPaymentBenefit,
 } from '../types';
 import { getNPI, getTaxID } from './helpers';
+import { CANDID_PLAN_TYPE_SYSTEM } from './insurance';
 
 export interface GetBillingProviderInput {
   appointmentId: string;
@@ -164,35 +180,121 @@ export const parseCoverageEligibilityResponse = (
           const insuranceDetails = benefitsTemp.find(
             (benefit) => benefit.coverageCode === '1' && benefit.code === '30'
           );
+          // Payers do not reliably attach insurance_type_code / insurance_type_description to the
+          // Active Coverage / Health Benefit Plan Coverage (coverageCode '1' / code '30') benefit line.
+          // Scan the full raw benefit list for the first entry that carries insurance-type info and use
+          // it as a fallback so the insurance type surfaces even when it lives on another benefit line.
+          const benefitWithInsType = (Array.isArray(benefitList) ? benefitList : []).find(
+            (benefit: any) => benefit?.['insurance_type_code'] || benefit?.['insurance_type_description']
+          );
           details['insurance'] = {
             planNumber: benefitsResponse['elig']?.['plan_number'],
             policyNumber: insuranceDetails?.policyNumber,
-            insuranceCode: insuranceDetails?.insuranceCode,
-            insuranceDescription: insuranceDetails?.insuranceDescription,
+            insuranceCode: insuranceDetails?.insuranceCode || benefitWithInsType?.['insurance_type_code'],
+            insuranceDescription:
+              insuranceDetails?.insuranceDescription || benefitWithInsType?.['insurance_type_description'],
           };
 
+          // Payer/entity details (name, ID, address, phone, etc.) are not always attached to the same
+          // benefit line we read insurance type from. For Medicaid responses they typically live on the
+          // managed care organization (MCO) line rather than the fee-for-service line, so source the payer
+          // section from the first benefit that actually carries entity info, falling back to the code-30 line.
+          const payerSourceBenefit =
+            benefitsTemp.find((benefit) => benefit.payerName || benefit.payerID || benefit.payerAddress) ??
+            insuranceDetails;
           details['payer'] = {
-            name: insuranceDetails?.payerName,
-            payerID: insuranceDetails?.payerID,
-            address: insuranceDetails?.payerAddress,
-            website: insuranceDetails?.payerWebsite,
-            phone: insuranceDetails?.payerPhone,
-            fax: insuranceDetails?.payerFax,
+            name: payerSourceBenefit?.payerName,
+            payerID: payerSourceBenefit?.payerID,
+            address: payerSourceBenefit?.payerAddress,
+            website: payerSourceBenefit?.payerWebsite,
+            phone: payerSourceBenefit?.payerPhone,
+            fax: payerSourceBenefit?.payerFax,
           };
+
+          // Collect every active-coverage (code '30') line so the UI can list each plan the member is
+          // enrolled in (e.g. Medicaid FFS + the MCO), including the MCO entity reported on that line.
+          const plans = benefitsTemp
+            .filter((benefit) => benefit.coverageCode === '1' && benefit.code === '30')
+            .map((benefit) => ({
+              planName: benefit.insurancePlan,
+              entityName: benefit.payerName,
+              entityType: benefit.entityType,
+              phone: benefit.payerPhone,
+              payerID: benefit.payerID,
+              insuranceCode: benefit.insuranceCode,
+              insuranceDescription: benefit.insuranceDescription,
+            }))
+            .filter((plan) => plan.planName || plan.entityName);
+          if (plans.length > 0) {
+            details['plans'] = plans;
+          }
+
+          const additionalPayers = (Array.isArray(benefitList) ? benefitList : [])
+            .filter((benefit: any) => benefit?.['benefit_coverage_code'] === 'R')
+            .map((benefit: any) => {
+              const firstEntity = Array.isArray(benefit?.['entity']) ? benefit['entity'][0] : undefined;
+              return {
+                benefitRange: benefit?.['benefit'],
+                planSponsor: benefit?.['mco_name'],
+                planNetworkId: benefit?.['mco_number'],
+                payerName: firstEntity?.['entity_name'] || benefit?.['entity_name']?.[0],
+                payerID: firstEntity?.['entity_id'] || benefit?.['entity_id']?.[0],
+                payerRole: firstEntity?.['entity_description'] || benefit?.['entity_description']?.[0],
+                insuranceCode: benefit?.['insurance_type_code'],
+                insuranceDescription: benefit?.['insurance_type_description'],
+                notes: benefit?.['benefit_notes'],
+              };
+            })
+            .filter(
+              (payer) =>
+                payer.planSponsor ||
+                payer.planNetworkId ||
+                payer.payerName ||
+                payer.payerID ||
+                payer.benefitRange ||
+                payer.insuranceCode ||
+                payer.insuranceDescription ||
+                payer.notes
+            );
+
+          if (additionalPayers.length > 0) {
+            details['additionalPayers'] = additionalPayers;
+          }
 
           copay = benefitsTemp.filter((benefit) => benefit.coverageCode === 'A' || benefit.coverageCode === 'B');
           deductible = benefitsTemp.filter((benefit) => benefit.coverageCode === 'C');
 
-          const individualDeductible = deductible.filter((benefit) => benefit.levelCode === 'IND');
-          const familyDeductible = deductible.filter((benefit) => benefit.levelCode === 'FAM');
-          const outOfPocketMax = benefitsTemp.filter(
-            (benefit) => benefit.coverageCode === 'G' && benefit.levelCode === 'IND'
+          // Exclude only explicit out-of-network ('N') lines so in-network panel values aren't mixed across networks.
+          const isInNetwork = (benefit: PatientPaymentBenefit): boolean => benefit.inPlanNetworkCode !== 'N';
+
+          const individualDeductible = deductible.filter(
+            (benefit) => benefit.levelCode === 'IND' && isInNetwork(benefit)
           );
+          const familyDeductible = deductible.filter((benefit) => benefit.levelCode === 'FAM' && isInNetwork(benefit));
+          const outOfPocketMax = benefitsTemp.filter(
+            (benefit) => benefit.coverageCode === 'G' && benefit.levelCode === 'IND' && isInNetwork(benefit)
+          );
+
+          // Some payers (e.g. Medicaid FFS) report deductibles per service with no coverage-level
+          // (IND/FAM) or time-period (23/24/29) qualifiers. When no qualified individual-deductible
+          // line is present but every reported deductible line is $0, surface $0 ("no deductible
+          // applies") instead of leaving the amounts undefined (which renders as "Unknown").
+          const allDeductiblesAreZero =
+            deductible.length > 0 && deductible.every((benefit) => benefit.amountInUSD === 0);
+          const individualDeductibleFallback =
+            individualDeductible.length === 0 && allDeductiblesAreZero ? 0 : undefined;
+
           financialDetails.push({
             name: 'Individual Deductible',
-            paid: individualDeductible.find((benefit) => benefit.periodCode === '24')?.amountInUSD,
-            total: individualDeductible.find((benefit) => benefit.periodCode === '23')?.amountInUSD,
-            remaining: individualDeductible.find((benefit) => benefit.periodCode === '29')?.amountInUSD,
+            paid:
+              individualDeductible.find((benefit) => benefit.periodCode === '24')?.amountInUSD ??
+              individualDeductibleFallback,
+            total:
+              individualDeductible.find((benefit) => benefit.periodCode === '23')?.amountInUSD ??
+              individualDeductibleFallback,
+            remaining:
+              individualDeductible.find((benefit) => benefit.periodCode === '29')?.amountInUSD ??
+              individualDeductibleFallback,
           });
           financialDetails.push({
             name: 'Family Deductible',
@@ -239,14 +341,28 @@ export const parseCoverageEligibilityResponse = (
 export const parseObjectsToCopayBenefits = (input: any[]): PatientPaymentBenefit[] => {
   return input
     .map((item) => {
-      const benefitCoverageCode = item['benefit_coverage_code'] as '1' | 'A' | 'B' | 'C';
+      const benefitCoverageCode = item['benefit_coverage_code'] as '1' | 'A' | 'B' | 'C' | 'G';
+      const payerAddressParts = [
+        item['entity_addr_1']?.[0],
+        item['entity_city'],
+        item['entity_state'],
+        item['entity_zip'],
+      ].filter(Boolean);
+      const payerAddress = payerAddressParts.length
+        ? `${item['entity_addr_1']?.[0] ?? ''} ${item['entity_city'] ?? ''}, ${item['entity_state'] ?? ''} ${
+            item['entity_zip'] ?? ''
+          }`.trim()
+        : undefined;
+      const parsedAmount = Number(item['benefit_amount']);
       const CP: PatientPaymentBenefit = {
-        amountInUSD: Number(item['benefit_amount']) ?? 0,
+        amountInUSD: Number.isFinite(parsedAmount) ? parsedAmount : 0,
         percentage: item['benefit_percent'] ?? 0,
         code: item['benefit_code'] ?? '',
         description: item['benefit_description'] ?? CoverageCodeToDescriptionMap[benefitCoverageCode] ?? '',
         // cSpell:disable-next in plan network
         inNetwork: item['inplan_network'] === 'Y',
+        // cSpell:disable-next in plan network
+        inPlanNetworkCode: item['inplan_network'],
         coverageDescription: item['benefit_coverage_description'] ?? '',
         coverageCode: benefitCoverageCode,
         periodDescription: item['benefit_period_description'] ?? '',
@@ -256,12 +372,15 @@ export const parseObjectsToCopayBenefits = (input: any[]): PatientPaymentBenefit
         policyNumber: item['policy_number'] ?? '',
         insuranceCode: item['insurance_type_code'] ?? '',
         insuranceDescription: item['insurance_type_description'] ?? '',
+        benefitNotes: item['benefit_notes'] ?? '',
+        insurancePlan: item['insurance_plan'],
         payerName: item['entity_name']?.[0],
         payerID: item['entity_id']?.[0],
-        payerAddress: `${item['entity_addr_1']?.[0]} ${item['entity_city']}, ${item['entity_state']} ${item['entity_zip']}`,
+        payerAddress,
         payerWebsite: item['entity_website']?.[0],
         payerPhone: item['entity_phone']?.[0],
         payerFax: item['entity_fax']?.[0],
+        entityType: item['entity_description']?.[0],
       };
       return CP;
     })
@@ -315,4 +434,98 @@ export const extractCptCodeModifiersFromCoding = (coding: Coding): { code: strin
     .map((extCoding) => ({ code: extCoding.code ?? '', display: extCoding.display ?? '' }));
   console.log(`Modifiers for the coding ${JSON.stringify(coding)}: `, JSON.stringify(modifiers));
   return modifiers;
+};
+
+// Maps the claim.md insurance type code returned by the eligibility check (key)
+// to the candid/availity insurance plan type code used by the insurance form dropdown (value).
+export const INSURANCE_TYPE_CODE_TO_CANDID_CODE: Record<string, string> = {
+  '12': '16',
+  '13': '16',
+  '14': 'LM',
+  '15': 'WC',
+  '16': 'OF',
+  '41': '16',
+  '42': 'VA',
+  '43': '16',
+  '47': 'LM',
+  AP: 'AM',
+  C1: 'CI',
+  CO: '11',
+  CP: 'MA',
+  D: 'DS',
+  DB: 'DS',
+  EP: '12',
+  FF: '11',
+  GP: '12',
+  HM: 'HM',
+  HN: '16',
+  HS: '11',
+  IN: '15',
+  IP: 'CI',
+  LC: '11',
+  LD: '11',
+  LI: '11',
+  LT: 'LM',
+  MA: 'MA',
+  MB: 'MB',
+  MC: 'MC',
+  MH: '11',
+  MI: '11',
+  MP: 'MA',
+  OT: 'ZZ',
+};
+
+/**
+ * Maps a claim.md insurance type code (from an eligibility check) to the candid/availity
+ * insurance plan type code used by the insurance form dropdown. Returns undefined when the
+ * code is missing or has no mapping.
+ */
+export const mapInsuranceTypeCodeToCandidCode = (insuranceTypeCode: string | undefined): string | undefined => {
+  if (!insuranceTypeCode) return undefined;
+  return INSURANCE_TYPE_CODE_TO_CANDID_CODE[insuranceTypeCode];
+};
+
+export const getDefaultClaimSubmissionExtensions = (): Extension[] => [
+  { url: EXTENSION_CLAIM_PROVIDER_SIGNATURE_INDICATOR, valueBoolean: true },
+  { url: EXTENSION_CLAIM_ASSIGNMENT_OR_PLAN_PARTICIPATION_CODE, valueString: 'A' },
+  { url: EXTENSION_CLAIM_BENEFITS_ASSIGNMENT_CERTIFICATION_INDICATOR, valueString: 'Y' },
+  { url: EXTENSION_CLAIM_RELEASE_OF_INFORMATION_CODE, valueString: 'Y' },
+];
+
+// The candid plan type is stored in two places, one per submission backend:
+// - Claim.extension valueString (rcm-claim-insurance-type): read by the Oystehr RCM X12 export.
+// - Coverage.type coding (Candid system): read by the Candid submission path and detail display.
+export const getClaimPlanType = (claim?: Claim): string | undefined =>
+  claim?.extension?.find((ext) => ext.url === EXTENSION_CLAIM_INSURANCE_TYPE)?.valueString;
+
+export const setClaimPlanType = (claim: Claim, candidCode: string): void => {
+  claim.extension = [
+    ...(claim.extension ?? []).filter((ext) => ext.url !== EXTENSION_CLAIM_INSURANCE_TYPE),
+    {
+      url: EXTENSION_CLAIM_INSURANCE_TYPE,
+      valueString: candidCode,
+    },
+  ];
+};
+
+export const clearClaimPlanType = (claim: Claim): void => {
+  const remaining = (claim.extension ?? []).filter((ext) => ext.url !== EXTENSION_CLAIM_INSURANCE_TYPE);
+  claim.extension = remaining.length ? remaining : undefined;
+};
+
+export const setCoveragePlanType = (coverage: Coverage, candidCode: string): Coverage => {
+  const otherTypeCodings = (coverage.type?.coding ?? []).filter((coding) => coding.system !== CANDID_PLAN_TYPE_SYSTEM);
+  return {
+    ...coverage,
+    type: {
+      ...coverage.type,
+      coding: [
+        ...otherTypeCodings,
+        {
+          system: CANDID_PLAN_TYPE_SYSTEM,
+          code: candidCode,
+        },
+      ],
+    },
+  };
 };
