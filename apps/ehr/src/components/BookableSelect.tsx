@@ -11,6 +11,11 @@ import {
 } from 'utils';
 import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
 import { useApiClients } from '../hooks/useAppClients';
+import {
+  buildLocationInventories,
+  LocationBookableInventory,
+  resolveTargetsAtLocation,
+} from './bookableTargetResolution';
 
 /**
  * Union picker used by staff to pick a bookable target on the Add Patient
@@ -44,6 +49,16 @@ export interface BookableTarget {
   schedules?: Schedule[];
   /** Original Location reference, only for Location targets, for downstream code that needs the raw resource. */
   rawLocation?: LocationWithWalkinSchedule;
+  /**
+   * Origin-Location slug for Group / PR-direct resolutions surfaced as
+   * sub-options under a Location. Undefined for Location-tier targets
+   * (the target IS the Location; its own slug is `slug`). The AddPatient
+   * slot loader threads this into `get-schedule` as `atLocationSlug` so
+   * multi-Location Groups narrow to the picked Location — without it,
+   * get-schedule returns an empty slot list plus a `pickableLocations`
+   * envelope, which the frontend surfaces as "no slots available".
+   */
+  atLocationSlug?: string;
 }
 
 export enum BookableMode {
@@ -67,14 +82,24 @@ interface BookableSelectProps {
   resourceTypes?: BookableTargetType[];
   /**
    * When set, only include Location targets whose Schedule offers the given
-   * service category. A Schedule with no `serviceCategory[]` is treated as
-   * "supports all" (back-compat for pre-tagging Schedules); a Schedule with
-   * codings present must include this code to qualify. Has no effect on
-   * Group/PR targets — those carry service info on the resource itself, not
-   * on a paired Schedule, and the patient flow already filters them via the
-   * group/PR endpoints when a category is in scope.
+   * service category. For BOOKING_CONFIG (compile-in) categories the
+   * "no codings = supports all" back-compat applies and only the
+   * Location-Schedule tier qualifies (BOOKING_CONFIG codes can't live on
+   * PR/Group-actored Schedules). For FHIR-backed categories every tier
+   * requires strict opt-in: a Location-Schedule must explicitly tag the
+   * code, and Group/PR tiers admit via `practitionerRoleOffersCategory`.
+   * Pass `serviceCategoryFhirId` for FHIR categories so the PR-offering
+   * check has the right HealthcareService id to look up.
    */
   serviceCategoryCode?: string;
+  /**
+   * FHIR HealthcareService id for the picked category when it's
+   * FHIR-backed. Undefined for BOOKING_CONFIG categories (no FHIR id
+   * exists). The resolver uses this for `practitionerRoleOffersCategory`
+   * — without it, FHIR-category queries can only admit Locations via the
+   * Location-Schedule tier (the Group/PR opt-in check is unreachable).
+   */
+  serviceCategoryFhirId?: string;
   required?: boolean;
   disabled?: boolean;
   /** Optional — invoked once the picker has loaded its full list (used by AddPatient to keep a side list of Locations). */
@@ -97,6 +122,7 @@ export default function BookableSelect({
   mode = [BookableMode.IN_PERSON],
   resourceTypes,
   serviceCategoryCode,
+  serviceCategoryFhirId,
   required,
   disabled,
   onLocationsLoaded,
@@ -106,6 +132,12 @@ export default function BookableSelect({
 }: BookableSelectProps): ReactElement {
   const { oystehr } = useApiClients();
   const [targets, setTargets] = useState<BookableTarget[]>([]);
+  // Per-Location inventory used by the Locations-only path. Kept in state
+  // alongside the flat `targets` list so the default (no-resourceTypes)
+  // path stays on its existing logic — only the Locations-only path
+  // expands a Location into Group/PR sub-options when its own Schedules
+  // don't cover the picked category.
+  const [inventories, setInventories] = useState<LocationBookableInventory[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
   // Capture the latest onLocationsLoaded callback in a ref so the load
@@ -153,14 +185,19 @@ export default function BookableSelect({
           // get-schedule. We include the referenced Practitioner (for the
           // provider name) and Location (used as the fallback schedule name
           // when no display-name extension is set, so the picker is always
-          // disambiguating even before an admin sets an explicit name).
-          getAllFhirSearchPages<PractitionerRole | Practitioner | Location>(
+          // disambiguating even before an admin sets an explicit name). The
+          // Schedule revinclude attaches each PR's actored Schedule(s) — the
+          // per-Location resolver checks Schedule.serviceCategory on these
+          // to admit Locations whose only matching availability flows
+          // through a PR at that Location.
+          getAllFhirSearchPages<PractitionerRole | Practitioner | Location | Schedule>(
             {
               resourceType: 'PractitionerRole',
               params: [
                 { name: 'identifier', value: `${SLUG_SYSTEM}|` },
                 { name: '_include', value: 'PractitionerRole:practitioner' },
                 { name: '_include', value: 'PractitionerRole:location' },
+                { name: '_revinclude', value: 'Schedule:actor:PractitionerRole' },
               ],
             },
             oystehr
@@ -171,6 +208,12 @@ export default function BookableSelect({
 
         const locations = locationsWithSchedules.filter((r): r is Location => r.resourceType === 'Location');
         const schedules = locationsWithSchedules.filter((r): r is Schedule => r.resourceType === 'Schedule');
+        // PR-Schedules come from the PR query's revinclude — partition them
+        // out of the PR result set so the inventory builder can index them
+        // alongside the Location-actored Schedules.
+        const prSchedules = practitionerRolesWithPractitioners.filter(
+          (r): r is Schedule => r.resourceType === 'Schedule'
+        );
 
         // Locations can have multiple Schedules — one per service category
         // is a common shape in customer configs. Capture all of them so the
@@ -259,7 +302,27 @@ export default function BookableSelect({
         };
         out.sort((a, b) => typeOrder[a.resourceType] - typeOrder[b.resourceType] || a.name.localeCompare(b.name));
 
+        // Build per-Location inventory in parallel with the flat targets
+        // list. Same source data, different shape — the flat list serves
+        // the default mode (callers asking for all three types as
+        // standalone entries), the inventory serves the Locations-only
+        // mode (callers asking for Locations, optionally surfacing
+        // Group/PR sub-options when the Location's own Schedule doesn't
+        // cover the picked category).
+        const allPrs = practitionerRolesWithPractitioners.filter(
+          (r): r is PractitionerRole => r.resourceType === 'PractitionerRole'
+        );
+        const allSchedulesForInventory = [...schedules, ...prSchedules];
+        const newInventories = buildLocationInventories({
+          locations,
+          schedules: allSchedulesForInventory,
+          groups: healthcareServices,
+          prs: allPrs,
+          practitionersById,
+        });
+
         setTargets(out);
+        setInventories(newInventories);
       } catch (err) {
         console.error('error loading bookable targets', err);
       } finally {
@@ -277,6 +340,70 @@ export default function BookableSelect({
     const wantInPerson = mode.includes(BookableMode.IN_PERSON) || mode.includes(BookableMode.ALL);
     const wantVirtual = mode.includes(BookableMode.VIRTUAL) || mode.includes(BookableMode.ALL);
     const allowedTypes = resourceTypes ? new Set(resourceTypes) : undefined;
+
+    // Locations-only path: walk the per-Location inventories and resolve
+    // each Location to its winning bookable tier. A Location appears iff
+    // SOME target at it survives the resolver. Single passing target →
+    // silent pick (label is the bare Location name); multiple passing
+    // targets at the winning tier → sub-options labeled with a typeSuffix
+    // ("New York (Acupuncture Group)", "New York (Dr. Smith)"). The
+    // Group/PR sub-options inherit their resourceType and id from the
+    // underlying resource, so the downstream slot loader + submit path key
+    // off them exactly as a directly-picked Group/PR target would.
+    if (allowedTypes && allowedTypes.size === 1 && allowedTypes.has('Location')) {
+      const expanded: BookableTarget[] = [];
+      for (const inv of inventories) {
+        const isVirtual = isLocationVirtual(inv.location);
+        if (!((isVirtual && wantVirtual) || (!isVirtual && wantInPerson))) continue;
+        const passing = resolveTargetsAtLocation(inv, { serviceCategoryCode, serviceCategoryFhirId });
+        if (passing.length === 0) continue;
+        // Fill slug per target. The resolver leaves slug='' because it's a
+        // pure helper without access to the slug-extraction util. For
+        // Group / PR sub-options also stamp the origin-Location slug —
+        // downstream (AddPatient's slot loader) threads it as
+        // `atLocationSlug` on the get-schedule call so multi-Location
+        // Groups narrow to the picked Location rather than returning the
+        // empty `pickableLocations` envelope.
+        const originLocationSlug = getSlugForBookableResource(inv.location);
+        for (const r of passing) {
+          let slug: string | undefined;
+          if (r.resourceType === 'Location') {
+            slug = originLocationSlug;
+          } else if (r.resourceType === 'HealthcareService') {
+            const g = inv.groupsHere.find((g) => g.id === r.id);
+            slug = g ? getSlugForBookableResource(g) : undefined;
+          } else if (r.resourceType === 'PractitionerRole') {
+            const pair = inv.prsHere.find(({ pr }) => pr.id === r.id);
+            slug = pair ? getSlugForBookableResource(pair.pr) : undefined;
+          }
+          if (!slug) continue;
+          const showSuffix = passing.length > 1 && r.typeSuffix;
+          expanded.push({
+            resourceType: r.resourceType,
+            id: r.id,
+            slug,
+            name: showSuffix ? `${r.baseName} (${r.typeSuffix})` : r.baseName,
+            walkinSchedule: r.walkinSchedule,
+            schedules: r.schedules,
+            rawLocation: r.rawLocation
+              ? ({ ...r.rawLocation, walkinSchedule: r.walkinSchedule } as LocationWithWalkinSchedule)
+              : undefined,
+            // Only stamp atLocationSlug for the sub-option tiers (Group /
+            // PR) — for Location targets it would be the same as `slug`
+            // and the slot loader already knows how to narrow by the
+            // Location slug directly for scheduleType=location.
+            atLocationSlug: r.resourceType === 'Location' ? undefined : originLocationSlug,
+          });
+        }
+      }
+      // Stable display order: Locations first (alphabetical), then
+      // sub-options under each Location stay in resolver order (Group
+      // entries before PR entries naturally — but in practice resolver
+      // returns one tier at a time so they're all the same type).
+      expanded.sort((a, b) => a.name.localeCompare(b.name));
+      return expanded;
+    }
+
     return targets.filter((t) => {
       if (allowedTypes && !allowedTypes.has(t.resourceType)) return false;
       if (t.resourceType === 'Location') {
@@ -333,7 +460,7 @@ export default function BookableSelect({
       // PractitionerRole (direct schedule): same loose policy — include all.
       return true;
     });
-  }, [targets, mode, resourceTypes, serviceCategoryCode]);
+  }, [targets, inventories, mode, resourceTypes, serviceCategoryCode, serviceCategoryFhirId]);
 
   // Drop a stale selection when the active filters (mode / resourceTypes /
   // serviceCategoryCode) push it out of the filtered list. Without this, the

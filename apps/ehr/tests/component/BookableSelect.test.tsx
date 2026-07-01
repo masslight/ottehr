@@ -76,6 +76,112 @@ const schedInPersonModeOnly: Schedule = {
 };
 const locVirtual = makeLocation('loc-virtual', 'Telemed NYC', 'telemed-nyc', { virtual: true });
 const schedVirtual = makeSchedule('sched-virtual', 'loc-virtual', ['urgent-care']);
+
+// Group-only-at-Location case: Location's own Schedule is for a different
+// category, but a Group attached via HS.location[] has a member PR whose
+// PR-Schedule supports the target category. Pre-resolver behavior would
+// have dropped this Location entirely from a urgent-care query; the
+// per-Location resolver admits it via the Group tier.
+const locGroupOnly = makeLocation('loc-group-only', 'Group-Only Clinic', 'group-only-clinic');
+const schedGroupOnlyOwn = makeSchedule('sched-group-only-own', 'loc-group-only', ['occupational-medicine']);
+const groupAtLocGroupOnly: HealthcareService = {
+  resourceType: 'HealthcareService',
+  id: 'hs-group-only',
+  name: 'Urgent Care Group',
+  identifier: [{ system: SLUG_SYSTEM, value: 'urgent-care-group' }],
+  // Anchors the Group to locGroupOnly so the inventory builder buckets it
+  // under that Location.
+  location: [{ reference: 'Location/loc-group-only' }],
+};
+
+// PR-only-at-Location case: own Schedule restricted to a different
+// category, no Group at this Location, and a PR with location[] pointing
+// here whose PR-Schedule supports the target category. Resolver admits at
+// the PR tier with the provider's name as the typeSuffix.
+const locPrOnly = makeLocation('loc-pr-only', 'PR-Only Clinic', 'pr-only-clinic');
+const schedPrOnlyOwn = makeSchedule('sched-pr-only-own', 'loc-pr-only', ['urgent-care']);
+const practitionerAtPrOnly: Practitioner = {
+  resourceType: 'Practitioner',
+  id: 'prac-acu',
+  name: [{ given: ['Acu'], family: 'Provider' }],
+};
+const prAtPrOnly: PractitionerRole = {
+  resourceType: 'PractitionerRole',
+  id: 'pr-acu',
+  identifier: [{ system: SLUG_SYSTEM, value: 'acu-provider' }],
+  practitioner: { reference: 'Practitioner/prac-acu' },
+  location: [{ reference: 'Location/loc-pr-only' }],
+  // For FHIR-backed categories, PR opt-in lives on healthcareService[]
+  // (the authoritative `practitionerRoleOffersCategory` check), NOT on the
+  // PR-Schedule's serviceCategory. The picker resolver consults this list.
+  healthcareService: [{ reference: 'HealthcareService/cat-acupuncture' }],
+};
+const prScheduleAtPrOnly: Schedule = {
+  resourceType: 'Schedule',
+  id: 'sched-pr-acu',
+  actor: [{ reference: 'PractitionerRole/pr-acu' }],
+};
+
+// Ambiguous case: two Groups at the same Location both supporting the
+// category. Resolver should surface both as sub-options under the Location
+// rather than silently pick one.
+const locAmbiguous = makeLocation('loc-ambig', 'Ambiguous Clinic', 'ambiguous-clinic');
+const schedAmbigOwn = makeSchedule('sched-ambig-own', 'loc-ambig', ['urgent-care']);
+const groupAmbigStd: HealthcareService = {
+  resourceType: 'HealthcareService',
+  id: 'hs-ambig-std',
+  name: 'Acupuncture Standard',
+  identifier: [{ system: SLUG_SYSTEM, value: 'acu-std' }],
+  location: [{ reference: 'Location/loc-ambig' }],
+};
+const groupAmbigPrem: HealthcareService = {
+  resourceType: 'HealthcareService',
+  id: 'hs-ambig-prem',
+  name: 'Acupuncture Premium',
+  identifier: [{ system: SLUG_SYSTEM, value: 'acu-prem' }],
+  location: [{ reference: 'Location/loc-ambig' }],
+};
+const prAmbigShared: PractitionerRole = {
+  resourceType: 'PractitionerRole',
+  id: 'pr-ambig',
+  identifier: [{ system: SLUG_SYSTEM, value: 'ambig-pr' }],
+  // PR at locAmbig is a member of both Groups via the location-overlap
+  // rule (PR.location intersects Group.location). The PR opts into the
+  // acupuncture category via healthcareService[], so both Groups admit
+  // through `practitionerRoleOffersCategory`.
+  location: [{ reference: 'Location/loc-ambig' }],
+  healthcareService: [{ reference: 'HealthcareService/cat-acupuncture' }],
+};
+const prScheduleAmbigShared: Schedule = {
+  resourceType: 'Schedule',
+  id: 'sched-pr-ambig',
+  actor: [{ reference: 'PractitionerRole/pr-ambig' }],
+};
+
+// PR member of the Group-only Location's Group, with a PR-Schedule for
+// urgent-care so the Group qualifies (the resolver checks members'
+// schedules to validate Group category support).
+const practitionerForGroup: Practitioner = {
+  resourceType: 'Practitioner',
+  id: 'prac-group-mem',
+  name: [{ given: ['Group'], family: 'Member' }],
+};
+const prGroupMember: PractitionerRole = {
+  resourceType: 'PractitionerRole',
+  id: 'pr-group-mem',
+  identifier: [{ system: SLUG_SYSTEM, value: 'group-mem' }],
+  practitioner: { reference: 'Practitioner/prac-group-mem' },
+  location: [{ reference: 'Location/loc-group-only' }],
+  // For the Group-only case: the test queries for a FHIR-backed category
+  // ('reflexology' below — non-BOOKING_CONFIG). The Group admits because
+  // this PR member opts into the category via healthcareService[].
+  healthcareService: [{ reference: 'HealthcareService/cat-reflexology' }],
+};
+const prScheduleGroupMember: Schedule = {
+  resourceType: 'Schedule',
+  id: 'sched-pr-group-mem',
+  actor: [{ reference: 'PractitionerRole/pr-group-mem' }],
+};
 // Location with multiple Schedules — exercise the "any Schedule supports
 // the picked category" rule. The first Schedule covers occupational
 // medicine only; the second covers urgent-care. The pre-fix code took
@@ -127,11 +233,32 @@ const mockSearch = vi.fn((params: { resourceType: string }) => {
       schedMultiUC,
       locVirtual,
       schedVirtual,
+      // New fixtures for the Group/PR-at-Location aggregation tests.
+      locGroupOnly,
+      schedGroupOnlyOwn,
+      locPrOnly,
+      schedPrOnlyOwn,
+      locAmbiguous,
+      schedAmbigOwn,
     ];
   } else if (params.resourceType === 'HealthcareService') {
-    resources = [group];
+    resources = [group, groupAtLocGroupOnly, groupAmbigStd, groupAmbigPrem];
   } else if (params.resourceType === 'PractitionerRole') {
-    resources = [role, practitioner];
+    // The PR query now revincludes Schedules — mock returns both the PR
+    // bundle entries (PR + Practitioner + Location includes) AND their
+    // actored Schedules. The resolver partitions them out by actor type.
+    resources = [
+      role,
+      practitioner,
+      prAtPrOnly,
+      practitionerAtPrOnly,
+      prScheduleAtPrOnly,
+      prAmbigShared,
+      prScheduleAmbigShared,
+      prGroupMember,
+      practitionerForGroup,
+      prScheduleGroupMember,
+    ];
   }
   return Promise.resolve({
     entry: resources.map((r) => ({ resource: r, search: { mode: 'match' } })),
@@ -151,6 +278,7 @@ interface HarnessProps {
   mode?: BookableMode[];
   resourceTypes?: ('Location' | 'HealthcareService' | 'PractitionerRole')[];
   serviceCategoryCode?: string;
+  serviceCategoryFhirId?: string;
   initialSelected?: BookableTarget;
   onSelectedChange?: (t: BookableTarget | undefined) => void;
 }
@@ -163,6 +291,7 @@ const Harness = ({
   mode,
   resourceTypes,
   serviceCategoryCode,
+  serviceCategoryFhirId,
   initialSelected,
   onSelectedChange,
 }: HarnessProps): JSX.Element => {
@@ -178,6 +307,7 @@ const Harness = ({
         mode={mode}
         resourceTypes={resourceTypes}
         serviceCategoryCode={serviceCategoryCode}
+        serviceCategoryFhirId={serviceCategoryFhirId}
       />
     </TestProviders>
   );
@@ -298,6 +428,151 @@ describe('BookableSelect — filter props', () => {
     // Location — the mode filter rejects it before the category check, so
     // category support alone can't override a mode mismatch.
     expect(texts.some((t) => t.includes('Telemed NYC'))).toBe(false);
+  });
+
+  it('surfaces a Location whose only (FHIR) reflexology availability comes via a Group at that Location', async () => {
+    const user = userEvent.setup();
+    render(
+      <Harness resourceTypes={['Location']} serviceCategoryCode="reflexology" serviceCategoryFhirId="cat-reflexology" />
+    );
+
+    await waitFor(() => expect(mockSearch).toHaveBeenCalled());
+    await openDropdown(user);
+
+    const texts = await getOptionTexts();
+    // Group-Only Clinic's own Schedule covers occupational-medicine (not
+    // reflexology). The Group at the Location has a member PR whose
+    // healthcareService[] back-refs `cat-reflexology` — that's the
+    // authoritative `practitionerRoleOffersCategory` opt-in. Under strict
+    // FHIR rules the Group tier admits this Location. One target at the
+    // winning tier ⇒ silent pick, bare Location name.
+    const hits = texts.filter((t) => t.includes('Group-Only Clinic'));
+    expect(hits).toHaveLength(1);
+    expect(hits[0]).not.toContain('(');
+  });
+
+  it('surfaces a Location whose only (FHIR) acupuncture availability comes via a PR-direct surface at that Location', async () => {
+    const user = userEvent.setup();
+    render(
+      <Harness resourceTypes={['Location']} serviceCategoryCode="acupuncture" serviceCategoryFhirId="cat-acupuncture" />
+    );
+
+    await waitFor(() => expect(mockSearch).toHaveBeenCalled());
+    await openDropdown(user);
+
+    const texts = await getOptionTexts();
+    // PR-Only Clinic's own Schedule is urgent-care (BOOKING_CONFIG) — not
+    // acupuncture. No Group attached. The PR at the Location opts into
+    // acupuncture via healthcareService[]. Strict FHIR rule admits the
+    // Location via the PR-direct tier with the provider's name as the
+    // sub-option suffix; one target at the winning tier ⇒ silent pick,
+    // bare Location name.
+    const hits = texts.filter((t) => t.includes('PR-Only Clinic'));
+    expect(hits).toHaveLength(1);
+    expect(hits[0]).not.toContain('(');
+  });
+
+  it('surfaces ambiguous Locations as sub-options when multiple Groups at the same Location support a FHIR category', async () => {
+    const user = userEvent.setup();
+    render(
+      <Harness resourceTypes={['Location']} serviceCategoryCode="acupuncture" serviceCategoryFhirId="cat-acupuncture" />
+    );
+
+    await waitFor(() => expect(mockSearch).toHaveBeenCalled());
+    await openDropdown(user);
+
+    const texts = await getOptionTexts();
+    // Ambiguous Clinic has two Groups whose shared member PR opts into
+    // acupuncture (via healthcareService back-ref). Location's own
+    // Schedule covers urgent-care only — Tier 1 falls through. Both Groups
+    // qualify at Tier 2 and surface as sub-options.
+    const std = texts.find((t) => t.includes('Ambiguous Clinic') && t.includes('Acupuncture Standard'));
+    const prem = texts.find((t) => t.includes('Ambiguous Clinic') && t.includes('Acupuncture Premium'));
+    expect(std).toBeDefined();
+    expect(prem).toBeDefined();
+    const bare = texts.find((t) => /\bAmbiguous Clinic\b/.test(t) && !t.includes('('));
+    expect(bare).toBeUndefined();
+  });
+
+  it('stamps atLocationSlug on Group sub-options so the slot loader can pass it to get-schedule (avoids "no slots" for multi-Location Groups)', async () => {
+    const user = userEvent.setup();
+    const onSelectedChange = vi.fn();
+    render(
+      <Harness
+        resourceTypes={['Location']}
+        serviceCategoryCode="acupuncture"
+        serviceCategoryFhirId="cat-acupuncture"
+        onSelectedChange={onSelectedChange}
+      />
+    );
+
+    await waitFor(() => expect(mockSearch).toHaveBeenCalled());
+    await openDropdown(user);
+
+    // Ambiguous Clinic has two acupuncture Groups; picking one exercises
+    // the Group sub-option path. The selected BookableTarget must carry
+    // atLocationSlug set to the origin Location's slug — that value gets
+    // threaded into get-schedule (`atLocationSlug` param) so a Group whose
+    // member Schedules span multiple Locations narrows to the picked
+    // Location. Without atLocationSlug set, get-schedule returns
+    // pickableLocations + empty slot list and the slot picker shows "no
+    // slots" — the exact symptom this behavior exists to prevent.
+    const option = await screen.findByText(/Ambiguous Clinic.*Acupuncture Standard/);
+    await user.click(option);
+
+    expect(onSelectedChange).toHaveBeenCalled();
+    const selected = onSelectedChange.mock.calls.at(-1)?.[0] as BookableTarget | undefined;
+    expect(selected?.resourceType).toBe('HealthcareService');
+    expect(selected?.atLocationSlug).toBe('ambiguous-clinic');
+  });
+
+  it('does NOT stamp atLocationSlug on Location-tier picks (redundant with slug)', async () => {
+    const user = userEvent.setup();
+    const onSelectedChange = vi.fn();
+    // BOOKING_CONFIG category → resolver stays at Tier 1; picked target is
+    // a Location. atLocationSlug is redundant with slug for
+    // scheduleType=location and would just be noise — the picker leaves
+    // it undefined so the slot loader's cache key stays stable.
+    render(
+      <Harness resourceTypes={['Location']} serviceCategoryCode="urgent-care" onSelectedChange={onSelectedChange} />
+    );
+
+    await waitFor(() => expect(mockSearch).toHaveBeenCalled());
+    await openDropdown(user);
+
+    const option = await screen.findByText(/NY Urgent Care/);
+    await user.click(option);
+
+    const selected = onSelectedChange.mock.calls.at(-1)?.[0] as BookableTarget | undefined;
+    expect(selected?.resourceType).toBe('Location');
+    expect(selected?.atLocationSlug).toBeUndefined();
+  });
+
+  it('FHIR category without fhirId: Location is dropped even when a PR at it would opt in via healthcareService — the resolver has no id to check', async () => {
+    const user = userEvent.setup();
+    // No serviceCategoryFhirId — the picker can't fall through to Group/PR
+    // tiers for FHIR categories without the id. AddPatient is responsible
+    // for threading it through; this test pins what happens when callers
+    // forget (resolver returns nothing for those tiers, Location drops).
+    // Tier 1 (Location-Schedule) still operates under strict FHIR rules,
+    // so any Location whose own Schedule is untagged for acupuncture also
+    // drops — and the dropdown can end up empty / with a "No options"
+    // placeholder MUI renders instead of a listbox. Query options safely.
+    render(<Harness resourceTypes={['Location']} serviceCategoryCode="acupuncture" />);
+
+    await waitFor(() => expect(mockSearch).toHaveBeenCalled());
+    await openDropdown(user);
+
+    // Whether MUI renders an empty listbox or a "No options" placeholder
+    // varies by version — both states mean "no Location passes." Look for
+    // PR-Only Clinic in the document body rather than insisting on a
+    // listbox existing.
+    await waitFor(() => {
+      const matches = Array.from(document.querySelectorAll('li[role="option"]')).filter(
+        (li) => li.textContent?.includes('PR-Only Clinic')
+      );
+      expect(matches).toHaveLength(0);
+    });
   });
 
   it('clears a stale selection when serviceCategoryCode changes and the picked target no longer qualifies', async () => {

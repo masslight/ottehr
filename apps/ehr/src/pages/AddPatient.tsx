@@ -255,7 +255,9 @@ export default function AddPatient(): JSX.Element {
   // records, keeping the full ServiceCategoryConfig shape (plus `source`) so
   // the dropdown can filter via serviceCategorySupportsContext below. Same
   // BOOKING_CONFIG-wins-on-code-collision rule as the patient-side merge.
-  const mergedSourcedCategories = useMemo<Array<ServiceCategoryConfig & { source: 'booking-config' | 'fhir' }>>(() => {
+  const mergedSourcedCategories = useMemo<
+    Array<ServiceCategoryConfig & { source: 'booking-config' | 'fhir'; fhirId?: string }>
+  >(() => {
     const fhirRecords = fhirServiceCategories?.serviceCategories ?? [];
     const bookingCodes = new Set(
       BOOKING_CONFIG.serviceCategories.map((sc) => sc.category.code).filter((c): c is string => !!c)
@@ -275,9 +277,28 @@ export default function AddPatient(): JSX.Element {
         visitTypes: r.config.visitTypes,
         reasonsForVisit: { default: r.config.reasonsForVisit ?? [] },
         source: 'fhir' as const,
+        // Preserve the FHIR HealthcareService id. The BookableSelect
+        // resolver hands it to `practitionerRoleOffersCategory` so Group
+        // and PR-direct tiers can answer "does this PR offer the picked
+        // FHIR category" via the authoritative per-PR opt-in
+        // (`role.healthcareService[]`). Without it, FHIR categories can
+        // only admit Locations via the Location-Schedule tier — Locations
+        // whose only relevant availability is provider-direct or Group-
+        // routed would silently disappear from the picker.
+        fhirId: r.id,
       }));
     return [...bookingEntries, ...fhirOnly];
   }, [fhirServiceCategories]);
+
+  // Resolved descriptor for the picked category — code + FHIR id (if
+  // FHIR-sourced) — passed to BookableSelect so the resolver can branch
+  // BOOKING_CONFIG (Location-Schedule with empty-supports-all back-compat)
+  // vs FHIR (strict per-tier opt-in via Schedule tagging or
+  // practitionerRoleOffersCategory).
+  const pickedCategoryFhirId = useMemo<string | undefined>(() => {
+    if (!serviceCategory) return undefined;
+    return mergedSourcedCategories.find((sc) => sc.source === 'fhir' && sc.category.code === serviceCategory)?.fhirId;
+  }, [mergedSourcedCategories, serviceCategory]);
   // Filter the category dropdown by the selected visit type's (mode,
   // visit-context) pair so staff can't pick a category that the chosen visit
   // type doesn't support. Shares the helper with the patient-side picker, so
@@ -328,7 +349,9 @@ export default function AddPatient(): JSX.Element {
       } finally {
         setLoadingSlotState({
           status: 'loaded',
-          input: `${params.slug}|${params.scheduleType}|${params.serviceCategoryCode ?? ''}`,
+          input: `${params.slug}|${params.scheduleType}|${params.serviceCategoryCode ?? ''}|${
+            params.atLocationSlug ?? ''
+          }`,
         });
       }
     };
@@ -344,12 +367,23 @@ export default function AddPatient(): JSX.Element {
     // For groups, the picked service category is required so the slot grid
     // reflects the right service's duration/cadence. For locations and
     // PR-direct (typically single-service), it's optional.
+    //
+    // atLocationSlug is set on Group / PR sub-options surfaced under a
+    // Location by BookableSelect's per-Location resolver. Passing it here
+    // narrows get-schedule to slots at that Location — without it, a
+    // Group whose members span multiple Locations returns the empty-
+    // slots + pickableLocations envelope (interpreted downstream as "no
+    // slots available"). For Location-tier targets it's undefined; the
+    // scheduleType=location flow already narrows by the Location slug.
     const params: GetScheduleRequestParams = {
       slug: selectedBookable.slug,
       scheduleType,
       ...(serviceCategory ? { serviceCategoryCode: serviceCategory as any } : {}),
+      ...(selectedBookable.atLocationSlug ? { atLocationSlug: selectedBookable.atLocationSlug } : {}),
     };
-    const key = `${params.slug}|${params.scheduleType}|${params.serviceCategoryCode ?? ''}`;
+    const key = `${params.slug}|${params.scheduleType}|${params.serviceCategoryCode ?? ''}|${
+      params.atLocationSlug ?? ''
+    }`;
 
     if (
       loadingSlotState.status === 'loading' ||
@@ -631,6 +665,7 @@ export default function AddPatient(): JSX.Element {
                   // "where will the patient be seen". Locations-only here.
                   resourceTypes={['Location']}
                   serviceCategoryCode={serviceCategory || undefined}
+                  serviceCategoryFhirId={pickedCategoryFhirId}
                   onLocationsLoaded={() => {
                     // Side-load not strictly required by the new flow but kept
                     // so existing callers that consumed setLocations stay
