@@ -4,6 +4,7 @@ import { ReactElement, useEffect, useMemo, useRef, useState } from 'react';
 import { LocationWithWalkinSchedule } from 'src/pages/AddPatient';
 import {
   getSlugForBookableResource,
+  isBookingConfigServiceCategoryCode,
   isLocationVirtual,
   SCHEDULE_DISPLAY_NAME_EXTENSION_URL,
   SERVICE_CATEGORY_SYSTEM,
@@ -411,24 +412,22 @@ export default function BookableSelect({
         const passesMode = (isVirtual && wantVirtual) || (!isVirtual && wantInPerson);
         if (!passesMode) return false;
         if (serviceCategoryCode) {
-          // Schedule-side service-category check. Two things make this
-          // subtle:
+          // Schedule-side service-category check. Three subtleties:
           //   1. Schedule.serviceCategory is a multi-purpose CodeableConcept
-          //      slot in this codebase — it also carries service-mode
-          //      markers (SlotServiceCategory.{inPerson,virtual}ServiceMode)
-          //      and could carry other system codings. Only
-          //      SERVICE_CATEGORY_SYSTEM codings are real "category
-          //      restrictions"; everything else is metadata that mustn't
-          //      pollute the back-compat rule.
-          //   2. A Location may have multiple Schedules (e.g., one per
-          //      service category). The Location offers a service if ANY of
-          //      its Schedules does — checking only the first Schedule would
-          //      silently exclude Locations whose first Schedule happens to
-          //      be for a different service.
-          // Per-Schedule rule: empty SERVICE_CATEGORY_SYSTEM codings →
-          // "supports all" (back-compat for pre-tagging Schedules and
-          // mode-only Schedules); otherwise membership required. Location
-          // passes if any Schedule satisfies the per-Schedule rule.
+          //      slot — service-mode markers and foreign-system codings can
+          //      sit alongside category codings. Only SERVICE_CATEGORY_SYSTEM
+          //      codings are real category restrictions; foreign codings
+          //      must not affect the rule.
+          //   2. A Location may have multiple Schedules (one per service
+          //      category is a common shape). Passes if ANY Schedule admits.
+          //   3. Admit rule differs by category source: BOOKING_CONFIG
+          //      categories preserve the legacy empty-codings = supports-all
+          //      back-compat; FHIR-backed categories require explicit
+          //      opt-in (matches the resolver's rule for the Locations-only
+          //      path and get-schedule's behavior downstream). Without this
+          //      split the default mode would silently admit untagged
+          //      Locations for FHIR-managed services they don't offer.
+          const isBookingConfig = isBookingConfigServiceCategoryCode(serviceCategoryCode);
           const schedulesToCheck = t.schedules ?? (t.walkinSchedule ? [t.walkinSchedule] : []);
           const someScheduleSupports = schedulesToCheck.some((sched) => {
             const codes = (sched.serviceCategory ?? [])
@@ -436,13 +435,18 @@ export default function BookableSelect({
               .filter((c) => c.system === SERVICE_CATEGORY_SYSTEM)
               .map((c) => c.code)
               .filter((c): c is string => !!c);
-            return codes.length === 0 || codes.includes(serviceCategoryCode);
+            if (isBookingConfig) return codes.length === 0 || codes.includes(serviceCategoryCode);
+            return codes.includes(serviceCategoryCode);
           });
-          // Locations with NO Schedules attached can't actually be booked
-          // against, but pre-fix behavior treated them as "no restrictions"
-          // and let them through. Preserve that — the slot picker will
-          // surface "no slots" later, which is the existing recovery path.
-          if (schedulesToCheck.length > 0 && !someScheduleSupports) return false;
+          // For BOOKING_CONFIG, a Location with NO Schedules attached
+          // preserves the pre-fix "no restrictions, admit" behavior (slot
+          // picker surfaces "no slots" as the recovery path). For FHIR
+          // categories, no Schedules attached means the Location has no
+          // way to vend the FHIR-managed service via its own Schedule —
+          // drop unless a Group/PR path admits it, which this flat filter
+          // doesn't consider (the Locations-only resolver handles that).
+          if (isBookingConfig && schedulesToCheck.length === 0) return true;
+          if (!someScheduleSupports) return false;
         }
         return true;
       }
@@ -462,6 +466,19 @@ export default function BookableSelect({
     });
   }, [targets, inventories, mode, resourceTypes, serviceCategoryCode, serviceCategoryFhirId]);
 
+  // Identity comparison for BookableTarget. Group/PR sub-options can
+  // legitimately repeat the same (resourceType, id) across different
+  // origin Locations — the same Group is offered at Location A and B, or
+  // a PR has location[] entries for both. `atLocationSlug` disambiguates
+  // origin, so identity must include it: otherwise the same picked Group
+  // under Location A would be considered "still valid" when only its
+  // Location B surface remains in the filtered list, and the selection
+  // would silently retain a stale atLocationSlug the slot loader keys off
+  // of. Compare with nullish-coalesce so Location-tier picks (undefined
+  // atLocationSlug on both sides) still match cleanly.
+  const targetsAreSame = (a: BookableTarget, b: BookableTarget): boolean =>
+    a.resourceType === b.resourceType && a.id === b.id && (a.atLocationSlug ?? '') === (b.atLocationSlug ?? '');
+
   // Drop a stale selection when the active filters (mode / resourceTypes /
   // serviceCategoryCode) push it out of the filtered list. Without this, the
   // user would be left with a `selected` that doesn't appear in the dropdown
@@ -473,7 +490,7 @@ export default function BookableSelect({
   useEffect(() => {
     if (!selected) return;
     if (isLoading && filteredTargets.length === 0) return;
-    const stillValid = filteredTargets.some((t) => t.resourceType === selected.resourceType && t.id === selected.id);
+    const stillValid = filteredTargets.some((t) => targetsAreSame(t, selected));
     if (!stillValid) setSelected(undefined);
   }, [filteredTargets, isLoading, selected, setSelected]);
 
@@ -489,9 +506,22 @@ export default function BookableSelect({
       options={filteredTargets}
       loading={isLoading}
       getOptionLabel={(opt) => opt.name}
-      isOptionEqualToValue={(opt, val) => opt.resourceType === val.resourceType && opt.id === val.id}
+      // Identity must include atLocationSlug — the same Group/PR can be
+      // offered under multiple origin Locations and each surfaces as a
+      // distinct option; without this, MUI would treat them as duplicates,
+      // collapsing them into one option and (worse) matching a picked
+      // Location A sub-option to a Location B sub-option on re-render.
+      // Keep the nullish-coalesce in sync with the stale-selection guard
+      // above so identity is uniform across all comparison sites.
+      isOptionEqualToValue={(opt, val) => targetsAreSame(opt, val)}
       renderOption={(props, opt) => (
-        <li {...props} key={`${opt.resourceType}/${opt.id}`}>
+        // Same reason as isOptionEqualToValue: React's list key must be
+        // unique across all rendered options. Two options that share
+        // (resourceType, id) but differ only by atLocationSlug would
+        // otherwise generate duplicate-key warnings AND lose identity for
+        // Autocomplete's selection tracking. Empty-string fallback keeps
+        // Location-tier picks (no atLocationSlug) stable.
+        <li {...props} key={`${opt.resourceType}/${opt.id}/${opt.atLocationSlug ?? ''}`}>
           <span>{opt.name}</span>
           <Chip
             label={typeChip(opt.resourceType)}

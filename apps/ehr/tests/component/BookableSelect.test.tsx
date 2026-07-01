@@ -526,6 +526,44 @@ describe('BookableSelect — filter props', () => {
     expect(selected?.atLocationSlug).toBe('ambiguous-clinic');
   });
 
+  it('clears a stale sub-option selection when its origin Location falls out of the filtered list (identity is atLocationSlug-aware)', async () => {
+    const onSelectedChange = vi.fn();
+    // Seed with a Group sub-option tied to origin-Location `ambiguous-clinic`.
+    // If the stale-selection guard compared only (resourceType, id), and
+    // the same Group id happened to appear as an option under a different
+    // origin Location (or the picker's filter changed and only kept the
+    // Group under a different Location), the check would find a false
+    // match and retain the stale atLocationSlug — the slot loader would
+    // then try to load slots at a Location that isn't even in the picker
+    // anymore. With atLocationSlug in identity, the seed drops when its
+    // origin Location no longer appears.
+    const staleGroupTarget: BookableTarget = {
+      resourceType: 'HealthcareService',
+      id: 'hs-ambig-std',
+      slug: 'acu-std',
+      name: 'Ambiguous Clinic (Acupuncture Standard)',
+      atLocationSlug: 'ambiguous-clinic',
+    };
+
+    // Category "reflexology" doesn't match the Ambiguous Clinic Group
+    // fixtures (those are tagged for acupuncture only) — the seed's
+    // origin-Location surface should drop out and the auto-clear should
+    // fire.
+    render(
+      <Harness
+        resourceTypes={['Location']}
+        serviceCategoryCode="reflexology"
+        serviceCategoryFhirId="cat-reflexology"
+        initialSelected={staleGroupTarget}
+        onSelectedChange={onSelectedChange}
+      />
+    );
+
+    await waitFor(() => {
+      expect(onSelectedChange).toHaveBeenCalledWith(undefined);
+    });
+  });
+
   it('does NOT stamp atLocationSlug on Location-tier picks (redundant with slug)', async () => {
     const user = userEvent.setup();
     const onSelectedChange = vi.fn();

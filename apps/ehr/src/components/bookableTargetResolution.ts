@@ -1,5 +1,6 @@
 import { HealthcareService, Location, Practitioner, PractitionerRole, Schedule } from 'fhir/r4b';
 import {
+  getGroupAllLocations,
   isBookingConfigServiceCategoryCode,
   isPractitionerRoleMemberOfGroup,
   practitionerRoleOffersCategory,
@@ -168,12 +169,19 @@ const groupSupportsFhirCategory = (
   code: string
 ): boolean => {
   if (!groupTypeAllowsCategory(group, code)) return false;
+  // Read the Group's all-locations toggle off its characteristics — same
+  // as walkGroupMemberPractitionerRoleSchedules and every other caller of
+  // isPractitionerRoleMemberOfGroup. Hardcoding false would silently drop
+  // Groups whose membership is intentionally "all active PRs system-wide"
+  // (typical anonymous-mode pooling config), producing empty pickers in
+  // production even though the Group can vend the category.
+  const allLocationsFlag = getGroupAllLocations(group) === true;
   return inv.prsHere.some(({ pr, schedules }) => {
     if (schedules.length === 0) return false;
     const isMember = isPractitionerRoleMemberOfGroup({
       role: pr,
       group,
-      allLocationsFlag: false,
+      allLocationsFlag,
     });
     if (!isMember) return false;
     return practitionerRoleOffersCategory(pr, fhirId);

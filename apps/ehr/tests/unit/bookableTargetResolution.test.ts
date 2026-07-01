@@ -40,7 +40,7 @@ const makeGroup = (
   id: string,
   name: string,
   locationIds: string[],
-  opts: { typeCodes?: string[] } = {}
+  opts: { typeCodes?: string[]; allLocations?: boolean } = {}
 ): HealthcareService => ({
   resourceType: 'HealthcareService',
   id,
@@ -55,6 +55,18 @@ const makeGroup = (
         type: opts.typeCodes.map((code) => ({
           coding: [{ system: SERVICE_CATEGORY_SYSTEM, code }],
         })),
+      }
+    : {}),
+  // Group's all-locations toggle (`getGroupAllLocations`) — when true,
+  // isPractitionerRoleMemberOfGroup admits any active PR system-wide as a
+  // member, regardless of location overlap or explicit back-refs.
+  ...(opts.allLocations
+    ? {
+        characteristic: [
+          {
+            coding: [{ system: 'https://fhir.ottehr.com/CodeSystem/group-all-locations', code: 'true' }],
+          },
+        ],
       }
     : {}),
 });
@@ -542,6 +554,35 @@ describe('resolveTargetsAtLocation — Group membership rules (FHIR)', () => {
     });
     expect(result).toHaveLength(1);
     expect(result[0].resourceType).toBe('HealthcareService');
+  });
+
+  test('Group with allLocations=true admits when its member PR is at the Location and opts into the FHIR category (regression: allLocationsFlag was hardcoded to false)', () => {
+    const inv = {
+      location: loc,
+      // Own Schedule for a different category; Tier 1 falls through.
+      ownSchedules: [makeSchedule('s-loc', { type: 'Location', id: 'loc-1' }, ['urgent-care'])],
+      // Group carries the all-locations toggle. isPractitionerRoleMemberOfGroup
+      // should admit any active PR via that flag. Before the fix, the
+      // resolver hardcoded `allLocationsFlag: false`, so a Group whose
+      // members were reached only via the toggle would silently be dropped
+      // even when a qualifying PR was present at the Location.
+      groupsHere: [makeGroup('grp-1', 'Acupuncture Pool', ['loc-1'], { allLocations: true })],
+      prsHere: [
+        {
+          pr: makePr('pr-1', ['loc-1'], { offersCategoryIds: ['cat-acu'] }),
+          practitioner: undefined,
+          schedules: [makeSchedule('s-pr', { type: 'PractitionerRole', id: 'pr-1' })],
+        },
+      ],
+    };
+
+    const result = resolveTargetsAtLocation(inv, {
+      serviceCategoryCode: 'acupuncture',
+      serviceCategoryFhirId: 'cat-acu',
+    });
+    expect(result).toHaveLength(1);
+    expect(result[0].resourceType).toBe('HealthcareService');
+    expect(result[0].id).toBe('grp-1');
   });
 
   test('Group is dropped when no PR at the Location opts into the picked FHIR category', () => {
