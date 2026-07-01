@@ -1,6 +1,7 @@
 import {
   ArrowBack as ArrowBackIcon,
   DeleteOutline as DeleteOutlineIcon,
+  Edit as EditIcon,
   FileDownloadOutlined as FileDownloadIcon,
   OpenInNew as OpenInNewIcon,
 } from '@mui/icons-material';
@@ -38,6 +39,8 @@ import {
   CLAIM_STATUS_FIELDS_BY_KEY,
   ClaimDetailResponse,
   ClaimStatusFieldKey,
+  CODE_SYSTEM_CLAIM_TYPE_CODE_NAMES,
+  CODE_SYSTEM_SERVICE_CATEGORY_CODE_NAMES,
   formatClaimStatusValue,
   getApiError,
   UpdateBillingResourceInput,
@@ -88,6 +91,12 @@ export default function ClaimDetail(): ReactElement {
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState('1');
   const [exportOpen, setExportOpen] = useState(false);
+  const [editingHeader, setEditingHeader] = useState(false);
+  const [savingHeader, setSavingHeader] = useState(false);
+  const [headerError, setHeaderError] = useState<string | null>(null);
+  const [serviceDate, setServiceDate] = useState('');
+  const [claimType, setClaimType] = useState('');
+  const [service, setService] = useState('');
 
   const fetchDetail = useCallback(async () => {
     if (!oystehrZambda || !id) return;
@@ -178,6 +187,34 @@ export default function ClaimDetail(): ReactElement {
   const arStageLabel = formatClaimStatusValue(CLAIM_STATUS_FIELDS_BY_KEY.arStage, arStageCode);
   const dos = claim.serviceLines[0]?.serviceDate ?? claim.created;
 
+  const startHeaderEdit = (): void => {
+    setServiceDate(claim.serviceLines[0]?.serviceDate ?? claim.created);
+    setClaimType(claim.type);
+    setService(claim.service ?? '');
+    setHeaderError(null);
+    setEditingHeader(true);
+  };
+
+  const saveHeader = async (): Promise<void> => {
+    const fields: { type?: string; service?: string; serviceDate?: string } = {};
+    if (claimType && claimType !== claim.type) fields.type = claimType;
+    if (service && service !== claim.service) fields.service = service;
+    if (serviceDate && serviceDate !== dos) fields.serviceDate = serviceDate;
+    if (Object.keys(fields).length === 0) {
+      setEditingHeader(false);
+      return;
+    }
+    setSavingHeader(true);
+    setHeaderError(null);
+    const err = await updateResource('Claim', claim.id, fields);
+    setSavingHeader(false);
+    if (err) {
+      setHeaderError(err);
+      return;
+    }
+    setEditingHeader(false);
+  };
+
   return (
     <Box sx={{ p: 0 }}>
       <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, mb: 1 }}>
@@ -185,16 +222,101 @@ export default function ClaimDetail(): ReactElement {
           <ArrowBackIcon />
         </IconButton>
         <Box sx={{ flexGrow: 1 }}>
-          <Typography variant="h5" color="primary.dark" fontWeight={600}>
-            {claim.patientName}
-          </Typography>
-          <Box sx={{ display: 'flex', gap: 3, mt: 0.5, flexWrap: 'wrap' }}>
-            <Meta label="Date of Service" value={dos} />
-            <Meta label="Claim ID" value={claim.id.slice(0, 8)} />
-            <Meta label="Claim Type" value={formatAntCaseString(claim.type)} />
-            <Meta label="Service" value={formatAntCaseString(claim.service)} />
-            <Meta label="Patient DOB" value={claim.patientDob} />
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Typography variant="h5" color="primary.dark" fontWeight={600}>
+              {claim.patientName}
+            </Typography>
+            {!editingHeader && (
+              <Button size="small" startIcon={<EditIcon fontSize="small" />} onClick={startHeaderEdit}>
+                Edit
+              </Button>
+            )}
           </Box>
+          {!editingHeader ? (
+            <Box sx={{ display: 'flex', gap: 3, mt: 0.5, flexWrap: 'wrap' }}>
+              <Meta label="Date of Service" value={dos} />
+              <Meta label="Claim ID" value={claim.id.slice(0, 8)} />
+              <Meta label="Claim Type" value={formatAntCaseString(claim.type)} />
+              <Meta label="Service" value={formatAntCaseString(claim.service)} />
+              <Meta label="Patient DOB" value={claim.patientDob} />
+            </Box>
+          ) : (
+            <>
+              <Box sx={{ display: 'flex', gap: 2.5, mt: 1, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+                <Box>
+                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+                    Date of Service
+                  </Typography>
+                  <TextField
+                    type="date"
+                    size="small"
+                    value={serviceDate}
+                    onChange={(e) => setServiceDate(e.target.value)}
+                    sx={{ width: 165 }}
+                  />
+                </Box>
+                <Meta label="Claim ID" value={claim.id.slice(0, 8)} />
+                <Box>
+                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+                    Claim Type
+                  </Typography>
+                  <Select
+                    size="small"
+                    value={claimType}
+                    onChange={(e) => setClaimType(e.target.value)}
+                    sx={{ width: 165 }}
+                  >
+                    {CODE_SYSTEM_CLAIM_TYPE_CODE_NAMES.map((code) => (
+                      <MenuItem key={code} value={code}>
+                        {formatAntCaseString(code)}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </Box>
+                <Box>
+                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+                    Service
+                  </Typography>
+                  <Select
+                    size="small"
+                    displayEmpty
+                    value={service}
+                    onChange={(e) => setService(e.target.value)}
+                    sx={{ width: 185 }}
+                    renderValue={
+                      service
+                        ? undefined
+                        : () => (
+                            <Box component="span" sx={{ color: 'text.disabled' }}>
+                              Select...
+                            </Box>
+                          )
+                    }
+                  >
+                    {CODE_SYSTEM_SERVICE_CATEGORY_CODE_NAMES.map((code) => (
+                      <MenuItem key={code} value={code}>
+                        {formatAntCaseString(code)}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </Box>
+                <Meta label="Patient DOB" value={claim.patientDob} />
+              </Box>
+              {headerError && (
+                <Alert severity="error" sx={{ mt: 1.5, maxWidth: 680 }}>
+                  {headerError}
+                </Alert>
+              )}
+              <Box sx={{ display: 'flex', gap: 1, mt: 1.5 }}>
+                <Button size="small" onClick={() => setEditingHeader(false)} disabled={savingHeader}>
+                  Cancel
+                </Button>
+                <Button size="small" variant="contained" onClick={saveHeader} disabled={savingHeader}>
+                  {savingHeader ? 'Saving...' : 'Save'}
+                </Button>
+              </Box>
+            </>
+          )}
         </Box>
         <Button
           size="small"

@@ -12,6 +12,7 @@ import {
   CODE_SYSTEM_ICD_10,
   CODE_SYSTEM_OYSTEHR_RCM_CMS1500_PROCEDURE_MODIFIER,
   CODE_SYSTEM_OYSTEHR_RCM_CMS1500_REFERRING_PROVIDER_TYPE,
+  CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM,
   FHIR_RESOURCE_NOT_FOUND,
   getPayerUrl,
   setClaimPlanType,
@@ -154,13 +155,21 @@ async function attachClaimResources(
   const { fields } = params;
 
   if (fields.type) {
-    claim.type = getClaimTypeCoding(fields.type);
+    claim.type = { coding: [getClaimTypeCoding(fields.type)] };
     const tags = [
       ...(claim.meta?.tag ?? []).filter((t) => t.system !== CODE_SYSTEM_CLAIM_TYPE),
       getClaimTypeCoding(fields.type),
     ];
     claim.meta ??= {};
     claim.meta.tag = tags;
+  }
+
+  if (fields.service) {
+    claim.meta ??= {};
+    claim.meta.tag = [
+      ...(claim.meta.tag ?? []).filter((t) => t.system !== CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM),
+      { system: CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM, code: fields.service },
+    ];
   }
 
   if (fields.billingProvider) {
@@ -267,6 +276,14 @@ async function attachClaimResources(
     claim.item = claim.item?.map((item) => ({
       ...item,
       diagnosisSequence: buildDiagnosisSequence(item.diagnosisSequence, diagnosisCount),
+    }));
+  }
+
+  if (fields.serviceDate) {
+    // Claim-level DOS edit: apply the one date to every line (matches Create Claim's one-DOS-per-claim model).
+    claim.item = claim.item?.map((item) => ({
+      ...item,
+      servicedPeriod: { ...item.servicedPeriod, start: fields.serviceDate },
     }));
   }
 

@@ -2,7 +2,11 @@ import { z } from 'zod';
 import { BIRTH_SEXES, SUBSCRIBER_RELATIONSHIPS } from '../../../fhir/constants';
 import { INSURANCE_CANDID_PLAN_TYPE_CODES } from '../../../fhir/insurance';
 import { isCLIAValid, isNPIValidWithChecksum } from '../../../helpers/helpers';
-import { CMS_PLACE_OF_SERVICE_CODE_SET, CODE_SYSTEM_CLAIM_TYPE_CODE_NAMES } from '../../../helpers/rcm/constants';
+import {
+  CMS_PLACE_OF_SERVICE_CODE_SET,
+  CODE_SYSTEM_CLAIM_TYPE_CODE_NAMES,
+  CODE_SYSTEM_SERVICE_CATEGORY_CODE_NAMES,
+} from '../../../helpers/rcm/constants';
 import { taxIdRegex, zipRegex } from '../../../validation';
 import { STATE_CODES } from '../../common';
 import {
@@ -489,6 +493,9 @@ const updateBillingResourceUnion = z.discriminatedUnion('resourceType', [
     resourceId: nonEmptyString,
     fields: z.object({
       type: z.enum(CODE_SYSTEM_CLAIM_TYPE_CODE_NAMES).optional(),
+      service: z.enum(CODE_SYSTEM_SERVICE_CATEGORY_CODE_NAMES).optional(),
+      // Claim-level date of service; written to every service line by update-billing-claim.
+      serviceDate: nonEmptyString.optional(),
       billingProvider: claimProviderRefSchema.optional(),
       renderingProvider: claimProviderRefSchema.optional(),
       facilityId: nonEmptyString.optional(),
