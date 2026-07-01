@@ -399,13 +399,23 @@ export const buildLocationInventories = (input: {
       const ownSchedules = locationSchedulesByLocationId.get(loc.id) ?? [];
       const groupsHere = groupsByLocationId.get(loc.id) ?? [];
       const prList = prsByLocationId.get(loc.id) ?? [];
-      const prsHere = prList.map((pr) => {
+      // Drop PRs with no attached Schedule right here — a PR without a
+      // Schedule has no bookable surface and can't satisfy either the
+      // PR-direct tier or (via `schedules.length > 0`) contribute to a
+      // Group's member set. Filtering upfront matches the interface
+      // docblock ("PRs without a Schedule are dropped") and lets resolver
+      // call sites stop defensively re-checking `schedules.length`.
+      const prsHere = prList.flatMap((pr) => {
+        const schedules = pr.id ? prSchedulesByPrId.get(pr.id) ?? [] : [];
+        if (schedules.length === 0) return [];
         const pracId = pr.practitioner?.reference?.split('/')[1];
-        return {
-          pr,
-          practitioner: pracId ? practitionersById.get(pracId) : undefined,
-          schedules: pr.id ? prSchedulesByPrId.get(pr.id) ?? [] : [],
-        };
+        return [
+          {
+            pr,
+            practitioner: pracId ? practitionersById.get(pracId) : undefined,
+            schedules,
+          },
+        ];
       });
       return { location: loc, ownSchedules, groupsHere, prsHere };
     });

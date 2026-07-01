@@ -192,23 +192,29 @@ export default function BookableSelect({
             },
             oystehr
           ),
-          // PR-direct schedules: PractitionerRoles with a slug identifier.
-          // The admin-set schedule display name lives on
-          // PractitionerRole.extension (schedule-display-name) — written by
-          // admin-update-practitioner-role and read by the EHR's
-          // get-schedule. We include the referenced Practitioner (for the
-          // provider name) and Location (used as the fallback schedule name
-          // when no display-name extension is set, so the picker is always
-          // disambiguating even before an admin sets an explicit name). The
-          // Schedule revinclude attaches each PR's actored Schedule(s) — the
-          // per-Location resolver checks Schedule.serviceCategory on these
-          // to admit Locations whose only matching availability flows
-          // through a PR at that Location.
+          // All PractitionerRoles (not just slug-having ones). Two audiences,
+          // one query:
+          //   - Flat mode's PR-direct targets — only slug-having PRs are
+          //     bookable via URL; the flat-target loop below filters by
+          //     `getSlugForBookableResource(pr)` and skips the rest.
+          //   - The Location-rooted resolver's Group + PR-direct tiers —
+          //     Group membership doesn't require a slug (backend group-
+          //     member queries in walkGroupMemberPractitionerRoleSchedules
+          //     admit any PR passing `isPractitionerRoleMemberOfGroup`), so
+          //     filtering by slug here would silently miss Groups whose
+          //     qualifying members happen to be slug-less. Load everyone;
+          //     the inventory builder then buckets by PR.location[]. The
+          //     Schedule revinclude attaches each PR's Schedules; PRs with
+          //     no Schedule get dropped in the inventory anyway (no
+          //     bookable surface).
+          //
+          // Includes are the same shape as before: Practitioner (provider
+          // name) and Location (fallback schedule name when the admin-set
+          // schedule-display-name extension is absent).
           getAllFhirSearchPages<PractitionerRole | Practitioner | Location | Schedule>(
             {
               resourceType: 'PractitionerRole',
               params: [
-                { name: 'identifier', value: `${SLUG_SYSTEM}|` },
                 { name: '_include', value: 'PractitionerRole:practitioner' },
                 { name: '_include', value: 'PractitionerRole:location' },
                 { name: '_revinclude', value: 'Schedule:actor:PractitionerRole' },

@@ -124,6 +124,30 @@ describe('buildLocationInventories', () => {
     expect(inv.prsHere[0].schedules.map((s) => s.id)).toEqual(['sched-pr']);
   });
 
+  test('PRs with zero attached Schedules are dropped from prsHere (interface doc says PRs without a Schedule are not bookable)', () => {
+    const loc = makeLocation('loc-1');
+    const prWithSchedule = makePr('pr-with', ['loc-1'], { practitionerId: 'prac-1' });
+    const prWithoutSchedule = makePr('pr-without', ['loc-1'], { practitionerId: 'prac-2' });
+    const sched = makeSchedule('s-with', { type: 'PractitionerRole', id: 'pr-with' });
+
+    const [inv] = buildLocationInventories({
+      locations: [loc],
+      schedules: [sched],
+      groups: [],
+      prs: [prWithSchedule, prWithoutSchedule],
+      practitionersById: new Map(),
+    });
+
+    // Filtering at the builder keeps prsHere aligned with the interface
+    // doc AND lets downstream call sites (both tiers of the resolver)
+    // stop re-checking `schedules.length > 0`. Passing schedule-less PRs
+    // through would silently miscount availability at the Group tier
+    // (a Group with only schedule-less members would still look
+    // "populated" without the filter).
+    expect(inv.prsHere).toHaveLength(1);
+    expect(inv.prsHere[0].pr.id).toBe('pr-with');
+  });
+
   test('a Group referencing N Locations appears in N inventories — same intentional shape as the location-overlap membership rule', () => {
     const locA = makeLocation('loc-a');
     const locB = makeLocation('loc-b');
