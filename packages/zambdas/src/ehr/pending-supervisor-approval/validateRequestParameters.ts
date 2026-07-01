@@ -1,5 +1,5 @@
 import { PendingSupervisorApprovalInputSchema, PendingSupervisorApprovalInputValidated } from 'utils';
-import { safeValidate, ZambdaInput } from '../../shared';
+import { safeJsonParse, safeValidate, ZambdaInput } from '../../shared';
 
 export function validateRequestParameters(input: ZambdaInput): PendingSupervisorApprovalInputValidated {
   console.group('validateRequestParameters');
@@ -8,7 +8,7 @@ export function validateRequestParameters(input: ZambdaInput): PendingSupervisor
     throw new Error('No request body provided');
   }
 
-  const parsedJSON = JSON.parse(input.body) as unknown;
+  const parsedJSON = safeJsonParse(input.body) as unknown;
 
   const { encounterId, practitionerId } = safeValidate(PendingSupervisorApprovalInputSchema, parsedJSON);
 

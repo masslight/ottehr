@@ -50,6 +50,7 @@ export const patientFieldPaths = {
   pcpFirstName: 'Patient/contained/0/name/0/given/0',
   pcpLastName: 'Patient/contained/0/name/0/family',
   pcpPhone: 'Patient/contained/0/telecom/0/value',
+  pcpFax: 'Patient/contained/0/telecom/1/value',
   pcpStreetAddress: 'Patient/contained/0/address/0/line/0',
   practiceName: `Patient/contained/0/extension/${PRACTICE_NAME_URL}`,
   pcpActive: 'Patient/contained/0/active',

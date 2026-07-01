@@ -1,7 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { ChargeItemDefinition, ChargeItemDefinitionPropertyGroup, Coding } from 'fhir/r4b';
-import { BillingChargeItemDefinition, CPT_CODE_SYSTEM, CPT_MODIFIER_EXTENSION_URL } from 'utils';
+import { BillingChargeItemDefinition, CPT_CODE_SYSTEM, EXTENSION_URL_CPT_MODIFIER } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import { transformChargeItemDefinition } from '../get-charge-item-definition';
 import { CHARGE_ITEM_DEFINITION_DEFAULT_SYSTEM, chargeItemDefinitionNameToUrl, createBillingClient } from '../shared';
@@ -67,7 +67,7 @@ export async function performEffect(
                   ],
                 },
                 amount: { value: pc.amount, currency: 'USD' },
-                ...(pc.modifier ? { extension: [{ url: CPT_MODIFIER_EXTENSION_URL, valueCode: pc.modifier }] } : {}),
+                ...(pc.modifier ? { extension: [{ url: EXTENSION_URL_CPT_MODIFIER, valueCode: pc.modifier }] } : {}),
               },
             ],
           }))

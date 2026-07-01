@@ -258,14 +258,14 @@ export const CODE_SYSTEM_CLAIM_TYPE_CODES = {
   institutional: 'institutional',
 } as const;
 
-export const CODE_SYSTEM_APPOINTMENT_TYPE_TAG_SYSTEM = 'https://fhir.ottehr.com/CodeSystem/appointment-type';
-export const CODE_SYSTEM_APPOINTMENT_TYPE_CODE_NAMES = [
+export const CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM = 'https://fhir.ottehr.com/CodeSystem/billing-service';
+export const CODE_SYSTEM_SERVICE_CATEGORY_CODE_NAMES = [
   'urgent-care',
   'occupational-medicine',
   'workers-comp',
   'pre-op',
 ] as const;
-export const CODE_SYSTEM_APPOINTMENT_TYPE_CODES = {
+export const CODE_SYSTEM_SERVICE_CATEGORY_CODES = {
   'urgent-care': 'urgent-care',
   'occupational-medicine': 'occupational-medicine',
   'workers-comp': 'workers-comp',

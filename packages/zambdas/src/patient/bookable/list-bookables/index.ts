@@ -16,7 +16,7 @@ import {
   serviceModeForHealthcareService,
   stateCodeToFullName,
 } from 'utils';
-import { getAuth0Token, wrapHandler, ZambdaInput } from '../../../shared';
+import { getAuth0Token, safeJsonParse, wrapHandler, ZambdaInput } from '../../../shared';
 
 const ZAMBDA_NAME = 'list-bookables';
 
@@ -200,7 +200,7 @@ function validateRequestParameters(input: ZambdaInput): GetBookableItemListParam
     throw new Error('No request body provided');
   }
 
-  const { serviceMode } = JSON.parse(input.body);
+  const { serviceMode } = safeJsonParse(input.body);
   if (!serviceMode) {
     throw new Error('serviceType parameter ("in-person"|"virtual") is required');
   }

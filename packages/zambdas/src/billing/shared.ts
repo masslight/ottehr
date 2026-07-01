@@ -27,13 +27,13 @@ import {
   buildCoverageSubscriberRelatedPerson,
   ChargeItemDefinitionDefault,
   ChargeItemDefinitionType,
-  CODE_SYSTEM_APPOINTMENT_TYPE_CODES,
-  CODE_SYSTEM_APPOINTMENT_TYPE_TAG_SYSTEM,
   CODE_SYSTEM_CLAIM_TYPE,
   CODE_SYSTEM_CLAIM_TYPE_CODES,
   CODE_SYSTEM_COVERAGE_CLASS,
+  CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM,
   convertFhirNameToDisplayName,
   createCoverageMemberIdentifier,
+  FHIR_IDENTIFIER_CODE_NPI,
   FHIR_IDENTIFIER_CODE_TAX_EMPLOYER,
   FHIR_IDENTIFIER_CODE_TAX_SS,
   FHIR_IDENTIFIER_CODE_TAXONOMY,
@@ -181,7 +181,7 @@ export function sanitizeOverrides(overrides?: Record<string, unknown>): Record<s
 
 // Working copy visibility convention:
 // List pages (default view): exclude working copies (only show billing originals)
-// List pages (active search): include working copies via includeWorkingCopies param
+// List pages (active search): also exclude working copies
 // Autocomplete dropdowns (Create Claim, etc.): never include working copies
 export const EXCLUDE_WORKING_COPIES_PARAMS = [
   { name: '_tag:not', value: `${BILLING_WORKING_COPY_TAG.system}|${BILLING_WORKING_COPY_TAG.code}` },
@@ -277,6 +277,8 @@ export function buildAddress(parts: {
 
 export function setNpi(resource: Practitioner | Organization | Location, npi: string): void {
   const identifier = resource.identifier ?? [];
+
+  // The `system|value` identifier is used for search
   const existing = identifier.find((id) => id.system === FHIR_IDENTIFIER_NPI);
   if (npi) {
     if (existing) existing.value = npi;
@@ -284,6 +286,30 @@ export function setNpi(resource: Practitioner | Organization | Location, npi: st
     resource.identifier = identifier;
   } else if (existing) {
     resource.identifier = identifier.filter((id) => id.system !== FHIR_IDENTIFIER_NPI);
+  }
+
+  // The `system|code|value` identifier is used by Oystehr RCM and not supported for search by Oystehr FHIR
+  const existingCoded = identifier.find(
+    (id) =>
+      id.type?.coding?.[0].system === FHIR_IDENTIFIER_SYSTEM && id.type?.coding?.[0].code === FHIR_IDENTIFIER_CODE_NPI
+  );
+  if (npi) {
+    if (existingCoded) existingCoded.value = npi;
+    else
+      identifier.push({
+        type: { coding: [{ system: FHIR_IDENTIFIER_SYSTEM, code: FHIR_IDENTIFIER_CODE_NPI }] },
+        value: npi,
+      });
+    resource.identifier = identifier;
+  } else if (existingCoded) {
+    resource.identifier = identifier.filter(
+      (id) =>
+        !id.type ||
+        !id.type.coding ||
+        !id.type.coding.some(
+          (coding) => coding.system === FHIR_IDENTIFIER_SYSTEM && coding.code === FHIR_IDENTIFIER_CODE_NPI
+        )
+    );
   }
 }
 
@@ -464,15 +490,12 @@ export function getClaimTypeCoding(type?: keyof typeof CODE_SYSTEM_CLAIM_TYPE_CO
   return { system: CODE_SYSTEM_CLAIM_TYPE, code: type ?? CODE_SYSTEM_CLAIM_TYPE_CODES.professional };
 }
 
-export function getClaimAppointmentType(claim: Claim): keyof typeof CODE_SYSTEM_APPOINTMENT_TYPE_CODES | undefined {
-  const code = claim.meta?.tag?.find((c) => c.system === CODE_SYSTEM_APPOINTMENT_TYPE_TAG_SYSTEM)?.code;
+export function getClaimService(claim: Claim): string | undefined {
+  const code = claim.meta?.tag?.find((c) => c.system === CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM)?.code;
   if (!code) {
     return undefined;
   }
-  if (!Object.hasOwn(CODE_SYSTEM_APPOINTMENT_TYPE_CODES, code)) {
-    return undefined;
-  }
-  return code as keyof typeof CODE_SYSTEM_APPOINTMENT_TYPE_CODES;
+  return code;
 }
 
 // --- Coverage / insurance helpers ---

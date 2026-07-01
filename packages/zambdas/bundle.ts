@@ -246,21 +246,16 @@ const main = async (): Promise<void> => {
   console.log('Bundling...');
   console.time('Bundle time');
 
-  const zambdasWithIcd10Search = ['icd-10-search', 'radiology-create-order', 'recommend-billing-suggestions'];
-  const icd10AssetDir = '.dist/icd-10-cm-tabular';
   const assetsDir = '.dist/assets';
 
   const isSentryEnabled =
     !['local', 'e2e', 'e2e2', 'e2e3', 'e2e4', 'e2e5'].includes(process.env.ENV || '') &&
     Boolean(process.env.SENTRY_AUTH_TOKEN && process.env.SENTRY_ORG && process.env.SENTRY_PROJECT);
 
-  const icd10Zambdas = zambdas.filter((zambda) => zambdasWithIcd10Search.includes(zambda.name));
-  const regularZambdas = zambdas.filter((zambda) => !zambdasWithIcd10Search.includes(zambda.name));
-
   await buildAllZambdas(zambdas, '.dist', isSentryEnabled);
 
   console.log('Copying assets...');
-  await Promise.all([copyAssets('icd-10-cm-tabular', icd10AssetDir), copyAssets('assets', assetsDir)]);
+  await copyAssets('assets', assetsDir);
 
   console.timeEnd('Bundle time');
   if (isSentryEnabled) {
@@ -272,10 +267,7 @@ const main = async (): Promise<void> => {
   console.log('Zipping...');
   console.time('Zip time');
 
-  await Promise.all([
-    zipInChunks(icd10Zambdas, icd10AssetDir, 'icd-10-cm-tabular'),
-    zipInChunks(regularZambdas, assetsDir, 'assets'),
-  ]);
+  await zipInChunks(zambdas, assetsDir, 'assets');
 
   console.timeEnd('Zip time');
   console.log('Zambdas successfully bundled and zipped into .dist/zips');
