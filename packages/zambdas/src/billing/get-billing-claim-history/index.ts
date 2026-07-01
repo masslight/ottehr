@@ -10,6 +10,7 @@ import {
   ClaimHistoryLink,
   ClaimProvenanceDiff,
   GetClaimHistoryResponse,
+  getPayerId,
 } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import { createBillingClient, fetchById, fhirName, resolvePayersByRef, SOURCE_IDENTIFIER_SYSTEM } from '../shared';
@@ -187,20 +188,27 @@ async function enrichReferences(oystehr: Oystehr, entries: ClaimHistoryEntry[]):
   });
   const payersByRef = await resolvePayersByRef(oystehr, [...payerUrls]);
 
+  // Payers show as "Name (Payer ID)" so similarly-named payers are distinguishable.
+  const formatPayer = (org: Organization | undefined): string | undefined => {
+    if (!org) return undefined;
+    const name = org.name ?? '';
+    const payerId = getPayerId(org);
+    if (name && payerId) return `${name} (${payerId})`;
+    return name || payerId || undefined;
+  };
+
   const resolve = (field: string, value: string): { display: string; link: ClaimHistoryLink | null } => {
     if (field === 'payer') {
-      const resource = resourcesByRef.get(value) as Organization | undefined;
-      return { display: payersByRef.get(value)?.name ?? resource?.name ?? value, link: null };
+      const org = (payersByRef.get(value) ?? resourcesByRef.get(value)) as Organization | undefined;
+      return { display: formatPayer(org) ?? value, link: null };
     }
     if (field === 'coverage') {
       const display = value
         .split(', ')
         .map((ref) => {
           const coverage = resourcesByRef.get(ref) as Coverage | undefined;
-          const payerName = coverage?.payor?.[0]?.reference
-            ? payersByRef.get(coverage.payor[0].reference)?.name
-            : undefined;
-          return payerName ?? coverage?.subscriberId ?? ref;
+          const payer = coverage?.payor?.[0]?.reference ? payersByRef.get(coverage.payor[0].reference) : undefined;
+          return formatPayer(payer) ?? coverage?.subscriberId ?? ref;
         })
         .join(', ');
       return { display, link: null };

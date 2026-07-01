@@ -1,5 +1,5 @@
 import Oystehr from '@oystehr/sdk';
-import { Claim, Coverage, Practitioner, Provenance } from 'fhir/r4b';
+import { Claim, Coverage, Organization, Practitioner, Provenance } from 'fhir/r4b';
 import {
   CLAIM_PROVENANCE_ACTIVITY,
   CLAIM_PROVENANCE_AGENT_TYPE,
@@ -152,5 +152,43 @@ describe('get-billing-claim-history performEffect', () => {
     expect(change.newValue).not.toContain('Practitioner/');
     // Links to the master resource behind the working copy, on the billing-providers screen.
     expect(change.newLink).toEqual({ screen: 'billing-providers', id: 'master1' });
+  });
+
+  it('formats a payer as "Name (Payer ID)"', async () => {
+    const payerOrg: Organization = {
+      resourceType: 'Organization',
+      id: 'pay1',
+      name: 'Acme Health',
+      identifier: [{ system: 'https://identifiers.fhir.oystehr.com/rcm-payer-id', value: '12345' }],
+    } as Organization;
+    const provenance: Provenance = {
+      resourceType: 'Provenance',
+      id: 'prov1',
+      recorded: '2026-06-01T10:00:00Z',
+      activity: { coding: [CLAIM_PROVENANCE_ACTIVITY.update] },
+      target: [{ reference: 'Claim/c1' }],
+      agent: [{ type: { coding: [CLAIM_PROVENANCE_AGENT_TYPE.human] }, who: { reference: 'Practitioner/u1' } }],
+      extension: [
+        {
+          url: CLAIM_PROVENANCE_DIFF_EXTENSION_URL,
+          valueString: diff('Claim', [
+            { field: 'payer', label: 'Payer', previousValue: null, newValue: 'Organization/pay1' },
+          ]),
+        },
+      ],
+    } as Provenance;
+
+    const search = vi.fn().mockImplementation(({ resourceType }: { resourceType: string }) => {
+      if (resourceType === 'Claim') return Promise.resolve({ unbundle: () => [claim] });
+      if (resourceType === 'Coverage') return Promise.resolve({ unbundle: () => [coverage] });
+      if (resourceType === 'Provenance') return Promise.resolve({ unbundle: () => [provenance] });
+      if (resourceType === 'Organization') return Promise.resolve({ unbundle: () => [payerOrg] });
+      return Promise.resolve({ unbundle: () => [] });
+    });
+    const oystehr = { fhir: { search } } as unknown as Oystehr;
+
+    const { entries } = await performEffect(oystehr, { claimId: 'c1', secrets: null });
+
+    expect(entries[0].changes[0].newValue).toBe('Acme Health (12345)');
   });
 });
