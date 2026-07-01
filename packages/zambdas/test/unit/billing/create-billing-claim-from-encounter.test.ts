@@ -1260,7 +1260,7 @@ describe('create-billing-claim-from-encounter', () => {
         .resource;
     };
 
-    it('preserves the source coverage candid plan type on the copy, without an insurance-type extension', () => {
+    it('mirrors the candid plan type from the source coverage onto the copy extension and type', () => {
       const result = copiedCoverage({
         ...clinicalResources.coverage,
         type: {
@@ -1273,11 +1273,14 @@ describe('create-billing-claim-from-encounter', () => {
         },
       });
 
+      expect(result.extension).toContainEqual({
+        url: EXTENSION_CLAIM_INSURANCE_TYPE,
+        valueString: '12',
+      });
       expect(result.type?.coding).toContainEqual({
         system: CANDID_PLAN_TYPE_SYSTEM,
         code: '12',
       });
-      expect(result.extension?.some((e) => e.url === EXTENSION_CLAIM_INSURANCE_TYPE)).toBeFalsy();
     });
 
     it('adds no insurance type when the source coverage has no candid plan type', () => {
@@ -1311,40 +1314,6 @@ describe('create-billing-claim-from-encounter', () => {
       expect(coverageRefs).toHaveLength(1);
       expect(coverageRefs[0].coverageRef.reference).toEqual(coverages[0].id);
       expect(coverageRefs[0].payorRef).toEqual(coverages[0].payor[0]);
-    });
-    it('carries the focal coverage candid plan type onto the coverage ref', () => {
-      const billingOystehr = {
-        rcm: {
-          constructPayerUrl: vi.fn().mockReturnValue('https://rcm-api.zapehr.com/v1/payer/payer-123'),
-        },
-      } as unknown as Oystehr;
-      const [claimOps] = copyCoverageAndSubscriber(
-        billingOystehr,
-        {
-          ...billingResources.coverage,
-          type: {
-            coding: [
-              {
-                system: CANDID_PLAN_TYPE_SYSTEM,
-                code: '12',
-              },
-            ],
-          },
-        },
-        billingResources.patient.id!,
-        [oystehrResources.payor],
-        billingResources.relatedPerson,
-        true
-      );
-      const coverages = claimOps
-        .filter((o): o is BatchInputPostRequest<Coverage> => o.method === 'POST' && o.url === '/Coverage')
-        .map((o) => o.resource);
-      const coverageRefs = getClaimCoveragesForEncounter(
-        CODE_SYSTEM_SERVICE_CATEGORY_CODES['urgent-care'],
-        [billingResources.account],
-        coverages
-      );
-      expect(coverageRefs[0].planType).toBe('12');
     });
     it('properly finds coverages for new billing resources for urgent care', () => {
       const billingOystehr = {

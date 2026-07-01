@@ -5,7 +5,6 @@ import { Claim, Coverage, FhirResource, Location, Organization, Patient, Practit
 import {
   BillingPolicyHolderInput,
   BillingSubscriberRelationship,
-  clearClaimPlanType,
   CODE_SYSTEM_CLAIM_TYPE,
   CODE_SYSTEM_CMS_PLACE_OF_SERVICE,
   CODE_SYSTEM_HCPCS,
@@ -15,7 +14,6 @@ import {
   CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM,
   FHIR_RESOURCE_NOT_FOUND,
   getPayerUrl,
-  setClaimPlanType,
   setCoveragePlanType,
 } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
@@ -232,7 +230,6 @@ async function attachClaimResources(
     // Make the claim self-pay; ensureClaimInsurance restores the no-coverage stub below.
     claim.insurance = [];
     delete claim.insurer;
-    clearClaimPlanType(claim);
   }
 
   if (fields.diagnoses) {
@@ -290,8 +287,6 @@ async function attachClaimResources(
   // Guarantee the Claim.insurance invariant regardless of which fields changed: keep the no-coverage
   // stub when there's no real coverage, and re-add it if a coverage was ever removed.
   claim.insurance = ensureClaimInsurance(claim.insurance);
-
-  if (fields.planType) setClaimPlanType(claim, fields.planType);
 
   if (fields.payerId || fields.planType) {
     const payerUrl = fields.payerId ? getPayerUrl(fields.payerId) : undefined;

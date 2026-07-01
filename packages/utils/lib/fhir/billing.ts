@@ -1,6 +1,5 @@
 import {
   Address,
-  Claim,
   Coding,
   Coverage,
   CoverageEligibilityResponse,
@@ -492,28 +491,12 @@ export const getDefaultClaimSubmissionExtensions = (): Extension[] => [
   { url: EXTENSION_CLAIM_RELEASE_OF_INFORMATION_CODE, valueString: 'Y' },
 ];
 
-// The candid plan type is stored in two places, one per submission backend:
-// - Claim.extension valueString (rcm-claim-insurance-type): read by the Oystehr RCM X12 export.
-// - Coverage.type coding (Candid system): read by the Candid submission path and detail display.
-export const getClaimPlanType = (claim?: Claim): string | undefined =>
-  claim?.extension?.find((ext) => ext.url === EXTENSION_CLAIM_INSURANCE_TYPE)?.valueString;
-
-export const setClaimPlanType = (claim: Claim, candidCode: string): void => {
-  claim.extension = [
-    ...(claim.extension ?? []).filter((ext) => ext.url !== EXTENSION_CLAIM_INSURANCE_TYPE),
-    {
-      url: EXTENSION_CLAIM_INSURANCE_TYPE,
-      valueString: candidCode,
-    },
-  ];
-};
-
-export const clearClaimPlanType = (claim: Claim): void => {
-  const remaining = (claim.extension ?? []).filter((ext) => ext.url !== EXTENSION_CLAIM_INSURANCE_TYPE);
-  claim.extension = remaining.length ? remaining : undefined;
-};
+export const getCoveragePlanType = (coverage?: Coverage): string | undefined =>
+  coverage?.extension?.find((ext) => ext.url === EXTENSION_CLAIM_INSURANCE_TYPE)?.valueString ??
+  coverage?.type?.coding?.find((coding) => coding.system === CANDID_PLAN_TYPE_SYSTEM)?.code;
 
 export const setCoveragePlanType = (coverage: Coverage, candidCode: string): Coverage => {
+  const otherExtensions = (coverage.extension ?? []).filter((ext) => ext.url !== EXTENSION_CLAIM_INSURANCE_TYPE);
   const otherTypeCodings = (coverage.type?.coding ?? []).filter((coding) => coding.system !== CANDID_PLAN_TYPE_SYSTEM);
   return {
     ...coverage,
@@ -527,5 +510,12 @@ export const setCoveragePlanType = (coverage: Coverage, candidCode: string): Cov
         },
       ],
     },
+    extension: [
+      ...otherExtensions,
+      {
+        url: EXTENSION_CLAIM_INSURANCE_TYPE,
+        valueString: candidCode,
+      },
+    ],
   };
 };
